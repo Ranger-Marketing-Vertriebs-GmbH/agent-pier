@@ -11,6 +11,7 @@ import { captureProfiles, profileOmissions } from "./profile-capture.js";
 import { CapturePlan } from "./capture-plan.js";
 import { inspected } from "./inspection.js";
 import { claim } from "./work-claims.js";
+import { sealHistory } from "./history-seal.js";
 import { backupOptions, capture, omissions } from "./snapshot.js";
 import { mcpServersPresent } from "./mcp-server-backup.js";
 import { applicationVersion } from "./version.js";
@@ -55,9 +56,8 @@ export class Backup {
         "memory",
         "pipeline-history",
         "audit",
-        ...(options.includeHistory
-          ? ["chat", "terminal", "agentbus-history", "cli-histories"]
-          : []),
+        ...(options.includeHistory ? ["chat", "terminal", "agentbus-history"] : []),
+        ...(options.includeHistory && options.withCredentials ? ["cli-histories"] : []),
         ...(assistants ? ["assistants"] : []),
         ...(mcpServers ? ["mcp-servers"] : []),
         ...(options.withCredentials
@@ -73,7 +73,11 @@ export class Backup {
       omissions: [
         ...omissions,
         profileOmissions.unlisted,
-        ...(options.includeHistory ? [] : [profileOmissions.history]),
+        ...(!options.includeHistory
+          ? [profileOmissions.history]
+          : !options.withCredentials
+            ? [profileOmissions.unsealed]
+            : []),
         ...(assistants ? assistantOmissions : []),
         ...(mcpServers ? [mcpLoginOmission] : []),
         ...(mcpServers && !options.withCredentials ? [mcpValueOmission] : []),
@@ -137,14 +141,27 @@ export class Backup {
         plan: members,
         scratch,
       });
+      // CLI history is sealed under a key that travels in the capsule.
+      const history = sealHistory(
+        id,
+        profiles.files.filter((member) => member.history),
+      );
       try {
         return await this.write(
           id,
           options,
           plan,
           {
-            files: [...snapshot.files, ...profiles.files],
-            credentials: [...snapshot.credentials, ...profiles.credentials],
+            files: [
+              ...snapshot.files,
+              ...profiles.files.filter((member) => !member.history),
+              ...history.members,
+            ],
+            credentials: [
+              ...snapshot.credentials,
+              ...profiles.credentials,
+              ...(history.members.length ? [history.record] : []),
+            ],
             captures: [...snapshot.captures, ...profiles.captures],
             omissions: [...snapshot.omissions, ...profiles.omissions],
           },

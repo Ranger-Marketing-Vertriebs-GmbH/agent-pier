@@ -51,6 +51,8 @@ export const backups = Object.freeze({
   uploadOffsetMismatch:
     "The slice does not continue the upload where it ends. The upload resumes at the right position.",
   uploadIncomplete: "The upload is not complete yet.",
+  historyAuthenticationFailed:
+    "An encrypted CLI history in the backup is damaged or was altered. Nothing was restored.",
   memberMismatch: "The archive entries do not match its manifest.",
   insufficientSpace: (required, available) =>
     `Not enough free disk space: ${required} required, ${available} available.`,

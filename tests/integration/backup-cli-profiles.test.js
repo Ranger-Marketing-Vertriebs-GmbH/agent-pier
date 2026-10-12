@@ -11,10 +11,14 @@ import { decryptCredentials } from "../../server/features/operations/archive.js"
 import { profileMemberKind } from "../../server/features/operations/profile-allowlist.js";
 import { remapClaudeProjects } from "../../server/features/operations/profile-history.js";
 import { archiveText, loadArchive } from "../helpers/backup-archive.js";
+import { readArchiveHeader } from "../../server/features/operations/archive-v2.js";
+import { SEAL_MEMBER } from "../../server/features/operations/history-seal.js";
+import { profileOmissions } from "../../server/features/operations/profile-capture.js";
 import {
   credentialFiles,
   excludedFiles,
   historyFiles,
+  historyMarker,
   threadHistory,
   writeCliProfiles,
 } from "../helpers/cli-profile-fixture.js";
@@ -38,7 +42,7 @@ const secretValues = [
   "opencode-api-secret",
 ];
 
-test("CLI profiles are captured by allowlist: credentials sealed, history only when chosen", async (t) => {
+test("CLI profiles are captured by allowlist; their history only with a passphrase, sealed", async (t) => {
   const { root, dataDir, home } = fixture(t);
   const backup = new Backup({ dataDir, home });
   for (const withCredentials of [false, true])
@@ -49,35 +53,49 @@ test("CLI profiles are captured by allowlist: credentials sealed, history only w
         ...(withCredentials ? { passphrase } : {}),
       });
       const archive = loadArchive(created.file);
-      const profiles = archive.files
-        .map((member) => member.path)
-        .filter((name) => name.startsWith("profiles/"))
-        .sort();
       const label = `credentials=${withCredentials} history=${includeHistory}`;
+      const sealedHistory = includeHistory && withCredentials;
+      // No CLI file appears by name; history entries are opaque and sealed.
       assert.deepEqual(
-        profiles,
-        includeHistory ? [...Object.keys(historyFiles), threadHistory].sort() : [],
+        archive.files.filter((member) => member.path.startsWith("profiles/")),
+        [],
         label,
       );
-      // No credential value and nothing outside the allowlists in any public byte.
+      const header = await readArchiveHeader(created.file);
+      const sealed = header.members.filter((member) => member.kind === "sealed");
+      assert.equal(
+        sealed.length,
+        sealedHistory ? Object.keys(historyFiles).length + 1 : 0,
+        label,
+      );
+      assert.ok(sealed.every((member, index) => member.path === `sealed/${index}`));
+      // No credential value, no history byte and nothing outside the allowlists in
+      // any byte of the archive.
       const text = archiveText(created.file);
-      for (const value of [...secretValues, "sentinel"])
+      for (const value of [...secretValues, "sentinel", historyMarker])
         assert.equal(text.includes(value), false, `${label}: ${value}`);
       assert.equal(
         created.manifest.omissions.includes("CLI conversation histories"),
         !includeHistory,
       );
+      assert.equal(
+        created.manifest.omissions.includes(profileOmissions.unsealed),
+        includeHistory && !withCredentials,
+      );
       if (!withCredentials) {
         assert.equal(archive.credentials, undefined);
         continue;
       }
-      const sealed = await decryptCredentials(archive.credentials, passphrase);
+      const capsule = await decryptCredentials(archive.credentials, passphrase);
       assert.deepEqual(
-        sealed.map((member) => member.path).sort(),
-        Object.keys(credentialFiles).sort(),
+        capsule.map((member) => member.path).sort(),
+        [
+          ...Object.keys(credentialFiles),
+          ...(includeHistory ? [SEAL_MEMBER] : []),
+        ].sort(),
         label,
       );
-      for (const member of sealed)
+      for (const member of capsule.filter((entry) => entry.path !== SEAL_MEMBER))
         assert.equal(
           Buffer.from(member.content, "base64").toString(),
           credentialFiles[member.path],
@@ -104,7 +122,7 @@ test("CLI profiles are captured by allowlist: credentials sealed, history only w
       });
       assert.equal(
         restored.prepare("SELECT title FROM threads").get().title,
-        "First thread",
+        "First thread history-plaintext-marker",
       );
       restored.close();
     }

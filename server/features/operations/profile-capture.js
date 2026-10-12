@@ -19,6 +19,9 @@ const CREDENTIAL_LIMIT = 160 * 1024 * 1024;
 export const profileOmissions = Object.freeze({
   unlisted: "CLI caches, logs, telemetry and files outside the profile allowlists",
   history: "CLI conversation histories",
+  // History chosen, but no passphrase: CLI histories are only archived sealed.
+  unsealed:
+    "CLI histories are only backed up in backups with a passphrase, and then encrypted",
   linked: "Linked, shared or foreign files in CLI profiles",
 });
 const segment = /^[A-Za-z0-9_-]+$/;
@@ -36,7 +39,8 @@ function profileBases(base) {
 /**
  * Captures the allowlisted part of every managed CLI profile (profile-allowlist.js):
  * credentials and configuration into the capsule when `withCredentials`, the CLI's
- * conversation history as public members when `includeHistory`. Links and foreign
+ * conversation history (members with `history: true`, sealed by the backup) when
+ * `includeHistory` and `withCredentials`. Links and foreign
  * files are skipped, never followed; database histories become snapshots.
  */
 export async function captureProfiles({
@@ -61,7 +65,10 @@ export async function captureProfiles({
   if (!present.length) return result;
   result.omissions.push(profileOmissions.unlisted);
   if (!includeHistory) result.omissions.push(profileOmissions.history);
-  if (!includeHistory && !withCredentials) return result;
+  else if (!withCredentials) result.omissions.push(profileOmissions.unsealed);
+  // CLI history is sealed with a key from the capsule, so it needs credentials.
+  const history = includeHistory && withCredentials;
+  if (!withCredentials) return result;
   const shared = sharedAssetLinks(dataDir, home);
   let skipped = false,
     sealedBytes = 0;
@@ -107,8 +114,7 @@ export async function captureProfiles({
           continue;
         }
         const kind = classify(root, next);
-        if (!kind || (kind === "credentials" ? !withCredentials : !includeHistory))
-          continue;
+        if (!kind || (kind !== "credentials" && !history)) continue;
         if (
           !stat.isFile() ||
           stat.nlink !== 1 ||
@@ -134,8 +140,9 @@ export async function captureProfiles({
             component,
             history: true,
           });
+          // The public manifest does not name sealed history files.
           result.captures.push({
-            component: member,
+            component: "cli-history-database",
             startedAt,
             finishedAt: new Date().toISOString(),
             consistency: "sqlite-snapshot",

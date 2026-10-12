@@ -76,7 +76,7 @@ export const operationsCopy = {
   includeHistory: "Verläufe einschließen",
   withCredentials: "Zugangsdaten verschlüsselt einschließen",
   backupPrivacy:
-    "Verläufe können private Aufgabeninhalte enthalten und werden nicht verschlüsselt. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
+    "AgentPier-Verläufe können private Aufgabeninhalte enthalten und werden nicht verschlüsselt. CLI-Verläufe werden nur in Backups mit Passphrase und verschlüsselt gesichert. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
   passphrase: "Passphrase",
   plan: "Sicherungsumfang prüfen",
   create: "Sicherung erstellen",
@@ -297,7 +297,7 @@ export const backupCopy = {
     "encrypted-managed-profiles":
       "Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile (verschlüsselt)",
     "cli-histories":
-      "CLI-Verläufe: Codex-Sitzungen und erzeugte Bilder, Claude-Code-Projekte, -Aufgaben und -Dateiversionen, OpenCode-Sitzungen",
+      "CLI-Verläufe (verschlüsselt): Codex-Sitzungen und erzeugte Bilder, Claude-Code-Projekte, -Aufgaben und -Dateiversionen, OpenCode-Sitzungen",
     "CLI caches, logs, telemetry and files outside the profile allowlists":
       "CLI-Caches, -Protokolle, -Telemetrie und alle Dateien außerhalb der Profil-Positivlisten",
     "CLI conversation histories": "CLI-Verläufe",
@@ -330,6 +330,8 @@ export const backupCopy = {
       "Dateien, die während der Sicherung gelöscht wurden",
     "Files that changed while the backup was written":
       "Dateien, die sich während der Sicherung geändert haben (nur zeilenbasierte Verläufe werden wiederhergestellt)",
+    "CLI histories are only backed up in backups with a passphrase, and then encrypted":
+      "CLI-Verläufe werden nur in Backups mit Passphrase und verschlüsselt gesichert",
     "Managed native configuration and credentials":
       "Verwaltete native Konfiguration und Zugangsdaten",
     "coordinated-application-snapshot; independent-native-captures":

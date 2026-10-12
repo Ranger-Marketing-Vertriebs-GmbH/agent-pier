@@ -9,6 +9,7 @@ import { problem } from "../../lib/storage.js";
 import { folder, relativeName } from "./files.js";
 import { assertNoConflicts } from "./archive.js";
 import { componentProblem } from "./backup-components.js";
+import { sealChunks, sealedSize } from "./history-seal.js";
 import {
   ByteSource,
   endOfArchive,
@@ -36,9 +37,9 @@ const CHUNK = 1024 * 1024;
 const STORED_BLOCK = 65535;
 const PLACEHOLDER = "0".repeat(64);
 const memberKeys = ["kind", "mode", "path", "sha256", "size"];
+const sealedName = /^sealed\/(?:0|[1-9]\d{0,8})$/;
 const invalid = () => problem(serverMessages.backups.invalidArchive);
 const mismatch = () => problem(serverMessages.backups.memberMismatch);
-const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 /**
  * A gzip member with stored (uncompressed) deflate blocks. Its length depends only
@@ -138,41 +139,51 @@ async function* fileChunks(source, size, outcome) {
 }
 async function* body(entries, listing, mtime, report, opened) {
   for (const [index, entry] of entries.entries()) {
+    let source = null,
+      plain,
+      size;
+    const outcome = {};
     if (entry.bytes) {
-      yield fileHeader(entry.path, entry.size, mtime);
-      listing[index].sha256 = sha256(entry.bytes);
-      yield entry.bytes;
-      yield padding(entry.size);
-      continue;
-    }
-    const source = await openSource(entry);
-    if (!source) {
-      listing[index] = null;
-      report.removed.push(entry.path);
-      continue;
+      plain = [entry.bytes];
+      size = entry.bytes.length;
+    } else {
+      source = await openSource(entry);
+      if (!source) {
+        listing[index] = null;
+        report.removed.push(entry.path);
+        continue;
+      }
+      await opened?.(entry);
+      size = source.size;
+      plain = fileChunks(source, size, outcome);
     }
     try {
-      await opened?.(entry);
-      listing[index].size = source.size;
-      yield fileHeader(entry.path, source.size, mtime);
-      const hash = createHash("sha256"),
-        outcome = {};
-      for await (const chunk of fileChunks(source, source.size, outcome)) {
+      // Sealed history is archived as ciphertext of the plaintext read now.
+      const archived = entry.seal ? sealedSize(size) : size;
+      listing[index].size = archived;
+      yield fileHeader(entry.path, archived, mtime);
+      const hash = createHash("sha256");
+      for await (const chunk of entry.seal
+        ? sealChunks(plain, size, entry.seal)
+        : plain) {
         hash.update(chunk);
         yield chunk;
       }
-      if (changedWhileRead(source.stat, await source.handle.stat(), outcome))
+      if (source && changedWhileRead(source.stat, await source.handle.stat(), outcome))
         report.changed.push(entry.path);
       listing[index].sha256 = hash.digest("hex");
-      yield padding(source.size);
+      yield padding(archived);
     } finally {
-      await source.handle.close();
+      await source?.handle.close();
     }
   }
   yield endOfArchive();
 }
 function entryOf(member) {
-  const name = relativeName(member.path);
+  // Sealed history appears in the archive under its opaque name only.
+  const name = relativeName(member.seal ? member.name : member.path);
+  if (member.seal ? !sealedName.test(name) : name.startsWith("sealed/"))
+    throw problem(serverMessages.backups.invalidMember);
   if (name === HEADER_NAME || name === CAPSULE_NAME)
     throw problem(serverMessages.backups.invalidMember);
   const bytes =
@@ -213,7 +224,7 @@ export async function writeArchive(
     size: entry.size,
     sha256: PLACEHOLDER,
     mode: 0o600,
-    kind: entry.kind === "credentials" ? "credentials" : "public",
+    kind: entry.kind === "credentials" ? "credentials" : entry.seal ? "sealed" : "public",
   }));
   const report = { removed: [], changed: [] };
   const finalManifest = () => {
@@ -301,7 +312,8 @@ export function validateHeader(header) {
   )
     throw problem(serverMessages.backups.invalidMembers);
   const names = new Set();
-  let total = 0;
+  let total = 0,
+    sealed = 0;
   for (const [index, member] of members.entries()) {
     if (
       !member ||
@@ -312,12 +324,14 @@ export function validateHeader(header) {
       typeof member.sha256 !== "string" ||
       !/^[a-f0-9]{64}$/.test(member.sha256) ||
       member.mode !== 0o600 ||
-      !["public", "credentials"].includes(member.kind)
+      !["public", "credentials", "sealed"].includes(member.kind)
     )
       throw problem(serverMessages.backups.invalidMember);
     const name = relativeName(member.path);
     const capsule = member.kind === "credentials";
+    if (member.kind === "sealed") sealed++;
     if (
+      (member.kind === "sealed") !== sealedName.test(name) ||
       names.has(name) ||
       name === HEADER_NAME ||
       capsule !== (name === CAPSULE_NAME) ||
@@ -332,7 +346,9 @@ export function validateHeader(header) {
   assertNoConflicts(names);
   if (
     typeof header.manifest.withCredentials !== "boolean" ||
-    header.manifest.withCredentials !== names.has(CAPSULE_NAME)
+    header.manifest.withCredentials !== names.has(CAPSULE_NAME) ||
+    // Sealed history is opened with a key from the capsule only.
+    (sealed && !names.has(CAPSULE_NAME))
   )
     throw problem(serverMessages.backups.credentialManifestMismatch);
   return header;
@@ -392,7 +408,8 @@ export async function readArchiveHeader(file) {
  * archive order, where its bytes go: `{ file }` (a new file, never replaced),
  * `{ collect(bytes) }` (small members, after their hash matched) or nothing (the
  * member is only verified). Every member's size and SHA-256 is checked; a missing,
- * extra, renamed, truncated or altered entry fails the read. With `count`, only the
+ * extra, renamed, truncated or altered entry fails the read. A sink with `unseal`
+ * (history-seal.js Unsealer) receives the entry's opened plaintext. With `count`, only the
  * first `count` members are read and nothing after them is verified.
  */
 export async function readArchive(file, { visit = () => null, count } = {}) {
@@ -423,17 +440,24 @@ export async function readArchive(file, { visit = () => null, count } = {}) {
         }
       }
       try {
+        // A sealed entry is opened chunk by chunk; only authenticated bytes land.
+        const unseal = sink?.unseal;
+        const put = async (bytes) => {
+          if (output) await output.write(bytes);
+          else parts?.push(bytes);
+        };
         for await (const chunk of source.chunks(member.size)) {
           hash.update(chunk);
-          if (output) await output.write(chunk);
-          else parts?.push(chunk);
+          if (!unseal) await put(chunk);
+          else for (const opened of unseal.update(chunk)) await put(opened);
         }
+        await zeroPadding(source, member.size);
+        if (hash.digest("hex") !== member.sha256)
+          throw problem(serverMessages.backups.checksumMismatch);
+        if (unseal) for (const opened of unseal.final()) await put(opened);
       } finally {
         await output?.close();
       }
-      await zeroPadding(source, member.size);
-      if (hash.digest("hex") !== member.sha256)
-        throw problem(serverMessages.backups.checksumMismatch);
       if (parts) await sink.collect(Buffer.concat(parts));
     }
     if (partial) return header;

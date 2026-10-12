@@ -6,6 +6,7 @@ import path from "node:path";
 import { randomFillSync } from "node:crypto";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
+import { readArchiveHeader } from "../../server/features/operations/archive-v2.js";
 import { writeCliProfiles } from "../helpers/cli-profile-fixture.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
@@ -83,6 +84,11 @@ test(`a ${totalMiB} MiB profile history streams through backup and restore in bo
     created.growth < limit,
     `backup grew RSS by ${(created.growth / MiB).toFixed(0)} MiB`,
   );
+  // The history went in sealed, streamed through the cipher like the rest.
+  const sealed = (await readArchiveHeader(created.result.file)).members.filter(
+    (member) => member.kind === "sealed",
+  );
+  assert.ok(sealed.reduce((sum, member) => sum + member.size, 0) > totalMiB * MiB);
   // Uploads stream to disk as well, far past the former 256 MiB request limit.
   const restore = new Restore({ dataDir });
   const uploaded = await peakGrowth(() =>

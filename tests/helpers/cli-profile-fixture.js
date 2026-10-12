@@ -37,19 +37,24 @@ export const credentialFiles = {
   "profiles/opencode-zai/providers/zai/data/opencode/auth.json":
     '{"zai":{"key":"opencode-api-secret"}}',
 };
-/** History files by member path: public, and only with history. */
+/** History files by member path: sealed, and only with history and credentials. */
+export const historyMarker = "history-plaintext-marker";
 export const historyFiles = {
   "profiles/codex-work/codex/sessions/2026/10/12/rollout-a.jsonl":
-    '{"type":"session_meta","payload":{"cwd":"/w"}}\n',
-  "profiles/codex-work/codex/archived_sessions/rollout-old.jsonl": "{}\n",
-  "profiles/codex-work/codex/history.jsonl": '{"text":"hi"}\n',
-  "profiles/codex-work/codex/session_index.jsonl": '{"id":"a"}\n',
-  "profiles/codex-work/codex/generated_images/a/img.png": "PNG",
-  "profiles/claude-home/claude/projects/-w/session.jsonl": '{"type":"user"}\n',
-  "profiles/claude-home/claude/todos/a.json": "[]",
-  "profiles/claude-home/claude/file-history/a/v1": "old",
-  "profiles/claude-home/claude/history.jsonl": "{}\n",
-  "profiles/opencode-zai/providers/zai/data/opencode/storage/session/a.json": "{}",
+    '{"type":"session_meta","payload":{"cwd":"/w"}}\n history-plaintext-marker',
+  "profiles/codex-work/codex/archived_sessions/rollout-old.jsonl":
+    "{}\n history-plaintext-marker",
+  "profiles/codex-work/codex/history.jsonl": '{"text":"hi"}\n history-plaintext-marker',
+  "profiles/codex-work/codex/session_index.jsonl":
+    '{"id":"a"}\n history-plaintext-marker',
+  "profiles/codex-work/codex/generated_images/a/img.png": "PNG history-plaintext-marker",
+  "profiles/claude-home/claude/projects/-w/session.jsonl":
+    '{"type":"user"}\n history-plaintext-marker',
+  "profiles/claude-home/claude/todos/a.json": "[] history-plaintext-marker",
+  "profiles/claude-home/claude/file-history/a/v1": "old history-plaintext-marker",
+  "profiles/claude-home/claude/history.jsonl": "{}\n history-plaintext-marker",
+  "profiles/opencode-zai/providers/zai/data/opencode/storage/session/a.json":
+    "{} history-plaintext-marker",
 };
 /** Files no backup may ever hold. */
 export const excludedFiles = {
@@ -90,7 +95,10 @@ export function writeCliProfiles(dataDir) {
   }
   const db = new DatabaseSync(path.join(dataDir, threadHistory));
   db.exec("PRAGMA journal_mode=WAL; CREATE TABLE threads(id TEXT, title TEXT)");
-  db.prepare("INSERT INTO threads VALUES (?, ?)").run("a", "First thread");
+  db.prepare("INSERT INTO threads VALUES (?, ?)").run(
+    "a",
+    "First thread history-plaintext-marker",
+  );
   // The open connection keeps a WAL with the row, like a running CLI.
   return db;
 }
