@@ -59,6 +59,9 @@ export function captureProfiles({
     fs.existsSync(path.join(dataDir, "profiles", account.id)),
   );
   if (!present.length) return result;
+  result.omissions.push(profileOmissions.unlisted);
+  if (!includeHistory) result.omissions.push(profileOmissions.history);
+  if (!includeHistory && !withCredentials) return result;
   const shared = sharedAssetLinks(dataDir, home);
   let skipped = false,
     sealedBytes = 0;
@@ -146,8 +149,6 @@ export function captureProfiles({
         else if (stat?.isSymbolicLink()) skipped = true;
       }
   }
-  result.omissions.push(profileOmissions.unlisted);
-  if (!includeHistory) result.omissions.push(profileOmissions.history);
   if (skipped) result.omissions.push(profileOmissions.linked);
   return result;
 }

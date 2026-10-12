@@ -80,7 +80,10 @@ export function operationsRoutes({ operations, releaseMigration }) {
       .attachment(`agentpier-${req.params.id}.apbackup`)
       .type("application/octet-stream")
       .set("Content-Length", String(stat.size));
-    await pipeline(stream, res);
+    await pipeline(stream, res).catch((error) => {
+      // A client that stops downloading is not a server error.
+      if (error.code !== "ERR_STREAM_PREMATURE_CLOSE") throw error;
+    });
   });
   router.delete(`${root}/backups/:id`, (req, res) => {
     operations.backup.remove(req.params.id);

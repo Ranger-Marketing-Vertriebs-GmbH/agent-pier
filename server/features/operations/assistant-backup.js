@@ -64,7 +64,7 @@ const excludedFiles = new Set([
 const volatileTree = /(^|\/)(cache|node_modules)(\/|$)/;
 const volatile = /-(wal|shm|journal)$|\.lock$|\.tmp$/;
 const sqliteHeader = Buffer.from("SQLite format 3\0");
-// Base64 grows members by a third; this keeps the archive below its 256 MiB limit.
+// Agent members are held in memory until the archive is written; this bounds them.
 const memberLimit = 128 * 1024 * 1024;
 export const assistantOmissions = [
   "Assistant runtimes, package caches, update snapshots, TLS and backup keys",
