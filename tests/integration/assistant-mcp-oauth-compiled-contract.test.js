@@ -182,7 +182,13 @@ async function harness(t, { tool }) {
     mcp.ready();
     if (mcp.pending) await assistants.admit(() => mcp.apply()).catch(() => {});
   };
-  const services = { assistantMcpChanges: mcp, assistantMcpOAuth: oauth };
+  // As in the application, the routes audit each change (server/application/services.js).
+  const audit = [];
+  const services = {
+    assistantMcpChanges: mcp,
+    assistantMcpOAuth: oauth,
+    audit: { append: (entry) => audit.push(entry) },
+  };
   app.use("/api", mcpOAuthCallbackRoutes(services));
   app.use(express.json({ limit: "64kb", strict: true }));
   app.use("/api", mcpServerRoutes(services));
@@ -263,6 +269,7 @@ async function harness(t, { tool }) {
     servers,
     runtime,
     config,
+    audit,
     assistants,
     mcp,
     oauth,
@@ -319,6 +326,13 @@ test(
         auth: "oauth",
       })
     ).body;
+    assert.deepEqual(
+      h.audit.map((e) => [e.action, e.resourceId]),
+      [
+        ["mcp.created", docs.id],
+        ["mcp.created", spare.id],
+      ],
+    );
     await h.assistants.update(
       agent.id,
       { mcpServers: [docs.id, spare.id] },
