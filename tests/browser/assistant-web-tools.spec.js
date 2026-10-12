@@ -170,7 +170,6 @@ for (const [label, use] of [
         webFetch: true,
         browser: false,
         documents: true,
-        recall: false,
       });
       expect(state.patches[0].confirmRestart).toBeUndefined();
     });

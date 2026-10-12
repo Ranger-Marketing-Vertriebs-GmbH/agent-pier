@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { prepareRuntimeConfig } from "../../server/features/assistants/runtime-config.js";
 import { readJSON } from "../../server/lib/storage.js";
@@ -14,50 +13,11 @@ import {
   heartbeatSettings,
 } from "../../server/features/assistants/heartbeat-schedule.js";
 
-const ready = { teamsReady: true, nativeReady: true, guardProven: false };
 const profile = (capabilities, extra = {}) => ({
   id: "a1",
   runtimeAgentId: "ap-a1",
   capabilities,
   ...extra,
-});
-
-test("recall across conversations is compiled only for an agent with memory", () => {
-  const recall = agentEntry(
-    { id: "ap-a1" },
-    profile({ memory: true, reminders: false, recall: true }),
-    ready,
-  );
-  assert.deepEqual(recall.memory, {
-    search: {
-      enabled: true,
-      rememberAcrossConversations: true,
-      sources: ["memory", "sessions"],
-      experimental: { sessionMemory: true },
-    },
-  });
-  for (const capabilities of [
-    { memory: false, reminders: false, recall: true },
-    { memory: true, reminders: false },
-    { memory: true, reminders: false, recall: false },
-  ])
-    assert.deepEqual(agentEntry({ id: "ap-a1" }, profile(capabilities), ready).memory, {
-      search: {
-        enabled: capabilities.memory,
-        rememberAcrossConversations: false,
-        sources: ["memory"],
-        experimental: { sessionMemory: false },
-      },
-    });
-  // A temporary team member never recalls, whatever its stored flags say.
-  const member = profile(
-    { memory: true, reminders: false, recall: true },
-    { teamMemberId: "a1", lifetime: "temporary" },
-  );
-  assert.equal(
-    agentEntry({ id: "ap-a1" }, member, ready).memory.search.rememberAcrossConversations,
-    false,
-  );
 });
 
 function compile(t, teams) {
@@ -80,17 +40,10 @@ test("session tools stay same-agent on every Gateway, native or not", (t) => {
   assert.deepEqual(compile(t, teams([])).tools.sessions, { visibility: "agent" });
 });
 
-test("native Gateways load Active Memory for recall agents only and keep proactive defaults off", (t) => {
-  const config = compile(
-    t,
-    teams([profile({ memory: true, reminders: false, recall: true })]),
-  );
-  assert.ok(config.plugins.allow.includes("active-memory"));
-  // The advanced path targets no agent: only rememberAcrossConversations does.
-  assert.deepEqual(config.plugins.entries["active-memory"], {
-    enabled: true,
-    config: { enabled: true, mode: "escalate", agents: [], persistTranscripts: false },
-  });
+test("native Gateways keep proactive defaults off and recall unconfigured", (t) => {
+  const config = compile(t, teams([profile({ memory: true, reminders: false })]));
+  assert.ok(!config.plugins.allow.includes("active-memory"));
+  assert.equal(config.plugins.entries["active-memory"], undefined);
   assert.equal(config.memory.search.rememberAcrossConversations, false);
   assert.deepEqual(config.agents.defaults.heartbeat, { every: "0m" });
   assert.equal(config.plugins.entries["memory-core"].config.dreaming.enabled, false);
@@ -106,12 +59,14 @@ test("heartbeat settings validate interval, active hours and time zone", () => {
     timeZone: "Europe/Berlin",
   };
   assert.deepEqual(validateDefinition({ heartbeat }, true), { heartbeat });
-  assert.deepEqual(
-    validateDefinition(
-      { capabilities: { memory: true, reminders: false, recall: true } },
-      true,
-    ),
-    { capabilities: { memory: true, reminders: false, recall: true } },
+  // Recall across conversations is not offered in this release.
+  assert.throws(
+    () =>
+      validateDefinition(
+        { capabilities: { memory: true, reminders: false, recall: true } },
+        true,
+      ),
+    { status: 400 },
   );
   for (const invalid of [
     null,

@@ -18,10 +18,10 @@ import {
 const installed = process.env.AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME;
 const dreamingKey = "memory-core:memory-dreaming-promotion";
 
-/** A compiled native team Gateway (memory-core, Active Memory) with fixture agents. */
+/** A compiled native team Gateway (memory-core) with fixture agents. */
 async function nativeFixture(t) {
   assert.ok(path.isAbsolute(installed));
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-recall-contract-"));
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-dreaming-contract-"));
   const descriptor = {
     version: runtimeManifest.version,
     nodePath: path.join(installed, "node/bin/node"),
@@ -45,9 +45,9 @@ async function nativeFixture(t) {
   });
   runtime.teamConfiguration = async () => ({
     directory: plugin.directory,
-    connection: { url: "http://127.0.0.1:1", token: "recall-fixture" },
+    connection: { url: "http://127.0.0.1:1", token: "dreaming-fixture" },
     hostMaxConcurrent: 4,
-    native: { token: "recall-fixture" },
+    native: { token: "dreaming-fixture" },
     profiles: store.listAssistants(),
   });
   await runtime.start();
@@ -96,77 +96,6 @@ async function nativeFixture(t) {
   const effective = async () => (await runtime.client.call("config.get", {})).config;
   return { runtime, store, config, model, create, turn, effective };
 }
-const entryOf = (config, agent) =>
-  Array.isArray(config.agents.entries)
-    ? config.agents.entries.find((e) => e.id === agent.runtimeAgentId)
-    : config.agents.entries?.[agent.runtimeAgentId] ||
-      config.agents.list?.find((e) => e.id === agent.runtimeAgentId);
-// The Active Memory pass offers only recall tools; a normal turn offers the agent's.
-const recallPass = (r) =>
-  r.tools?.length > 0 &&
-  r.tools.every((tool) => ["memory_search", "memory_get"].includes(tool.function?.name));
-
-test(
-  "pinned native recall finds the agent's other conversation and nothing beyond it",
-  { skip: !installed, timeout: 300000 },
-  async (t) => {
-    const f = await nativeFixture(t);
-    const recall = await f.create("Recall", {
-      memory: true,
-      reminders: false,
-      recall: true,
-    });
-    const plain = await f.create("Plain", { memory: true, reminders: false });
-    let config = await f.effective();
-    assert.deepEqual(config.tools.sessions, { visibility: "agent" });
-    assert.equal(config.plugins.entries["active-memory"].enabled, true);
-    assert.deepEqual(config.plugins.entries["active-memory"].config.agents, []);
-    assert.equal(entryOf(config, recall).memory.search.rememberAcrossConversations, true);
-    assert.equal(entryOf(config, plain).memory.search.rememberAcrossConversations, false);
-
-    await f.turn(recall, "My locker code is ZEBRARECALLTOKEN, keep it in mind.");
-    await f.turn(plain, "My locker code is OTTERPLAINTOKEN, keep it in mind.");
-    // Session indexing runs asynchronously after a turn.
-    await delay(8000);
-    f.model.searchQuery = "locker code";
-    const question = "Do you remember the locker code from our earlier conversation?";
-    const recalled = JSON.stringify(await f.turn(recall, question));
-    const recallRequests = f.model.requests.filter(recallPass).length;
-    assert.ok(recalled.includes("ZEBRARECALLTOKEN"), "recall reaches the other chat");
-    assert.ok(!recalled.includes("OTTERPLAINTOKEN"), "never another agent's chat");
-    assert.ok(recallRequests > 0, "an Active Memory pass ran before the reply");
-    const unrecalled = JSON.stringify(await f.turn(plain, question));
-    assert.ok(!unrecalled.includes("OTTERPLAINTOKEN"), "memory alone does not recall");
-    assert.ok(!unrecalled.includes("ZEBRARECALLTOKEN"));
-    assert.equal(
-      f.model.requests.filter(recallPass).length,
-      recallRequests,
-      "no Active Memory pass for an agent without recall",
-    );
-    t.diagnostic(`Active Memory requests for one recalled reply: ${recallRequests}.`);
-
-    // Switching recall off applies live and the next start compiles the same.
-    f.store.updateAssistant(
-      recall.id,
-      { capabilities: { memory: true, reminders: false, recall: false } },
-      f.store.getAssistant(recall.id).revision,
-    );
-    await f.config.apply(recall.id);
-    config = await f.effective();
-    assert.deepEqual(entryOf(config, recall).memory.search.sources, ["memory"]);
-    assert.equal(
-      entryOf(config, recall).memory.search.rememberAcrossConversations,
-      false,
-    );
-    await f.runtime.stop();
-    await f.runtime.start();
-    assert.equal(
-      entryOf(await f.effective(), recall).memory.search.rememberAcrossConversations,
-      false,
-    );
-  },
-);
-
 test(
   "pinned native dreaming stays off, and once on would ingest AgentPier chats of agents without memory",
   { skip: !installed, timeout: 300000 },

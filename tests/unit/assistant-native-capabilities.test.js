@@ -19,7 +19,6 @@ const OFF = {
   webFetch: false,
   browser: false,
   documents: false,
-  recall: false,
 };
 test("personal capabilities are opt-in and never inherited by task members", () => {
   assert.deepEqual(personalCapabilities({}), OFF);

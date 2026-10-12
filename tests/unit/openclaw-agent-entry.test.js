@@ -18,12 +18,7 @@ test("an unproven write guard keeps write and edit out of the tool list", () => 
   assert.ok(entry.tools.allow.includes("read"));
   assert.equal(entry.model, "m");
   assert.deepEqual(entry.memory, {
-    search: {
-      enabled: true,
-      rememberAcrossConversations: false,
-      sources: ["memory"],
-      experimental: { sessionMemory: false },
-    },
+    search: { enabled: true, rememberAcrossConversations: false },
   });
 });
 
@@ -57,12 +52,7 @@ test("a wired but not yet ready Gateway still resets tools and memory", () => {
   });
   assert.deepEqual(entry.tools.allow, ["session_status"]);
   assert.deepEqual(entry.memory, {
-    search: {
-      enabled: false,
-      rememberAcrossConversations: false,
-      sources: ["memory"],
-      experimental: { sessionMemory: false },
-    },
+    search: { enabled: false, rememberAcrossConversations: false },
   });
 });
 
