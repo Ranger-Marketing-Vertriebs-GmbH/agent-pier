@@ -1,0 +1,222 @@
+import { serverMessages } from "../../lib/i18n/de.js";
+import { problem } from "../../lib/storage.js";
+import { CLI_CONFIG_CHANGED, updateConfig } from "../extensions/mcp-config.js";
+import { cliEntry, cliSupport, entryHash } from "./cli-native.js";
+
+const messages = serverMessages.mcpServers;
+// Passes per reconciliation: a lost compare-and-swap is read again and retried.
+const attempts = 3;
+const changed = () =>
+  Object.assign(problem(serverMessages.extensions.cliConfigChanged, 409), {
+    code: CLI_CONFIG_CHANGED,
+  });
+
+/**
+ * Keeps each CLI's native MCP entries in step with the central CLI bindings. An entry
+ * is AgentPier's while `cli_entries` records it and the file's entry hashes to the
+ * recorded or the pending hash; everything else in the file is the owner's and is
+ * never modified. Every change is recorded before the file is written, so the next
+ * run finishes a change a crash interrupted.
+ */
+export class CliMcpReconciler {
+  constructor({ servers, locate, configs, warn = console.warn }) {
+    Object.assign(this, { servers, locate, configs, warn });
+    this.entries = servers.cliEntries;
+  }
+
+  /** The CLI's native MCP entries by name, across all of its files. */
+  read(cli) {
+    const locations = this.locate(cli);
+    const configs = this.configs(locations);
+    const entries = new Map();
+    const duplicates = new Set();
+    for (const config of configs)
+      for (const [name, entry] of Object.entries(config.data[locations.key] || {})) {
+        if (entries.has(name)) duplicates.add(name);
+        entries.set(name, { entry, config, hash: entryHash(entry) });
+      }
+    return { locations, configs, entries, duplicates };
+  }
+
+  /** What the bindings want in `cli`: serverId → `{ definition, entry, hash }` or `{ definition, reason }`. */
+  desired(cli) {
+    const bound = new Set(this.servers.bindings("cli", cli));
+    const out = new Map();
+    for (const definition of this.servers.definitions()) {
+      if (!bound.has(definition.id)) continue;
+      const support = cliSupport(cli, definition);
+      if (!support.supported)
+        out.set(definition.id, { definition, reason: support.reason });
+      else if (definition.args === null)
+        out.set(definition.id, { definition, reason: "invalid" });
+      else {
+        const entry = cliEntry(cli, definition, this.servers.secrets(definition.id));
+        out.set(definition.id, { definition, entry, hash: entryHash(entry) });
+      }
+    }
+    return out;
+  }
+
+  /** Every status, change and find for one snapshot of the file; writes nothing. */
+  plan(cli, snapshot) {
+    const desired = this.desired(cli);
+    const rows = this.entries.list(cli);
+    const rowOf = new Map(rows.map((row) => [row.serverId, row]));
+    const owned = (row, found) =>
+      !!found && (found.hash === row.hash || found.hash === row.pendingHash);
+    const statuses = {};
+    const actions = [];
+    const claimed = new Set();
+    // Names AgentPier no longer wants: unbound, deleted, renamed or now unsupported.
+    for (const row of rows) {
+      const want = desired.get(row.serverId);
+      if (want?.entry && want.definition.name === row.name) continue;
+      const found = snapshot.entries.get(row.name);
+      if (owned(row, found) && !snapshot.duplicates.has(row.name)) {
+        claimed.add(row.name);
+        actions.push({
+          type: "remove",
+          serverId: row.serverId,
+          name: row.name,
+          expected: found.hash,
+          keep: !!want?.entry,
+        });
+        // No longer AgentPier's: the entry becomes a find. A renamed server's write
+        // records its new name afresh.
+      } else actions.push({ type: "forget", serverId: row.serverId });
+    }
+    for (const [serverId, want] of desired) {
+      const name = want.definition.name;
+      const row = rowOf.get(serverId);
+      const mine = row?.name === name ? row : null;
+      const found = snapshot.entries.get(name);
+      if (found && want.entry) claimed.add(name);
+      if (!want.entry) statuses[serverId] = { status: "error", reason: want.reason };
+      else if (snapshot.duplicates.has(name))
+        statuses[serverId] = { status: "error", reason: "duplicate" };
+      else if (!found) {
+        statuses[serverId] = { status: "pending" };
+        actions.push({
+          type: "write",
+          serverId,
+          name,
+          entry: want.entry,
+          hash: want.hash,
+        });
+      } else if (!mine) statuses[serverId] = { status: "name-taken" };
+      else if (found.hash === want.hash) {
+        statuses[serverId] = { status: "written" };
+        if (mine.hash !== want.hash || mine.pendingHash)
+          actions.push({ type: "settle", serverId, hash: want.hash });
+      } else if (owned(mine, found)) {
+        statuses[serverId] = { status: "pending" };
+        actions.push({
+          type: "write",
+          serverId,
+          name,
+          entry: want.entry,
+          hash: want.hash,
+          expected: found.hash,
+        });
+      } else statuses[serverId] = { status: "conflict" };
+    }
+    const finds = [...snapshot.entries]
+      .filter(([name]) => !claimed.has(name))
+      .map(([name, found]) => ({
+        name,
+        entry: found.entry,
+        hash: found.hash,
+        duplicate: snapshot.duplicates.has(name),
+      }));
+    return { statuses, actions, finds };
+  }
+
+  /** The current state of `cli` without changing anything. */
+  inspect(cli) {
+    return this.guard(cli, () => ({ cli, ...this.plan(cli, this.read(cli)) }), false);
+  }
+
+  /** Brings `cli` in step with the bindings and reports the result. */
+  reconcile(cli) {
+    return this.guard(cli, () => {
+      for (let attempt = 1; ; attempt++) {
+        const result = this.plan(cli, this.read(cli));
+        if (!result.actions.length || attempt > attempts) return { cli, ...result };
+        try {
+          this.apply(cli, result.actions);
+        } catch (error) {
+          if (error?.code !== CLI_CONFIG_CHANGED || attempt === attempts) throw error;
+        }
+      }
+    });
+  }
+
+  /** Store first, then file: a crash in between is finished by the next run. */
+  apply(cli, actions) {
+    for (const action of actions) {
+      if (action.type === "forget") this.entries.forget(action.serverId, cli);
+      else if (action.type === "settle")
+        this.entries.settle(action.serverId, cli, action.hash);
+      else if (action.type === "remove") {
+        this.write(cli, action.name, undefined, action.expected);
+        if (!action.keep) this.entries.forget(action.serverId, cli);
+      } else {
+        this.entries.intend(action.serverId, cli, action.name, action.hash);
+        this.write(cli, action.name, action.entry, action.expected);
+        this.entries.settle(action.serverId, cli, action.hash);
+      }
+    }
+  }
+
+  /** Writes (or with `entry` undefined removes) `name`, if the file still holds `expected`. */
+  write(cli, name, entry, expected) {
+    const snapshot = this.read(cli);
+    if (snapshot.duplicates.has(name) || snapshot.entries.get(name)?.hash !== expected)
+      throw changed();
+    const target = snapshot.entries.get(name)?.config ?? snapshot.configs.at(-1);
+    updateConfig(
+      target,
+      snapshot.locations.boundary,
+      cli,
+      snapshot.locations.key,
+      name,
+      entry,
+    );
+  }
+
+  /** Writes AgentPier's version over the owner's edit of server `serverId`'s entry. */
+  overwrite(serverId, cli) {
+    const snapshot = this.read(cli);
+    if (this.plan(cli, snapshot).statuses[serverId]?.status !== "conflict")
+      throw problem(messages.cliNotConflict, 409);
+    const want = this.desired(cli).get(serverId);
+    const found = snapshot.entries.get(want.definition.name);
+    this.apply(cli, [
+      {
+        type: "write",
+        serverId,
+        name: want.definition.name,
+        entry: want.entry,
+        hash: want.hash,
+        expected: found.hash,
+      },
+    ]);
+  }
+
+  /**
+   * A file that cannot be read or kept changing: every bound server of `cli` reports
+   * why, with a stable reason only (never a path or a value).
+   */
+  guard(cli, work, loud = true) {
+    try {
+      return work();
+    } catch (error) {
+      const reason = error?.code === CLI_CONFIG_CHANGED ? "changed" : "unreadable";
+      if (loud) this.warn(`MCP servers for ${cli} could not be written (${reason}).`);
+      const statuses = {};
+      for (const serverId of this.servers.bindings("cli", cli))
+        statuses[serverId] = { status: "error", reason };
+      return { cli, error: reason, statuses, actions: [], finds: [] };
+    }
+  }
+}
