@@ -7,6 +7,7 @@ import { folder, readJson } from "./files.js";
 import { decodeArchive, decryptCredentials } from "./archive.js";
 import { backupProjects, mapProjects, historicalOnly, database } from "./restore-data.js";
 import { problem } from "../../lib/storage.js";
+import { mcpStoreMember, restoreMcpServers } from "./mcp-server-backup.js";
 import { AuditStore } from "../audit/audit-store.js";
 import {
   isAssistantMember,
@@ -15,12 +16,12 @@ import {
 } from "./assistant-backup.js";
 
 const publicPath =
-  /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
+  /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|mcp-servers\/servers\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
 function extract(files, target, credentials = false) {
   for (const member of files) {
     if (
       !(credentials
-        ? /^(profiles\/[A-Za-z0-9_-]+\/.+|(?:repository-secrets|provider-connection-secrets)\/[A-Za-z0-9_-]+\.json)$/.test(
+        ? /^(profiles\/[A-Za-z0-9_-]+\/.+|(?:repository-secrets|provider-connection-secrets)\/[A-Za-z0-9_-]+\.json|mcp-server-secrets\/servers\.json)$/.test(
             member.path,
           )
         : publicPath.test(member.path) || isAssistantMember(member.path))
@@ -63,7 +64,11 @@ export class Restore {
     try {
       extract(value.files, scratch);
       restoreArtifacts(scratch);
-      for (const file of ["memory/memory.sqlite", "pipeline-runs/runs.sqlite"])
+      for (const file of [
+        "memory/memory.sqlite",
+        "pipeline-runs/runs.sqlite",
+        mcpStoreMember,
+      ])
         if (fs.existsSync(path.join(scratch, file)))
           database(
             path.join(scratch, file),
@@ -120,6 +125,7 @@ export class Restore {
     try {
       extract(value.files, stage);
       extract(secrets, stage, true);
+      const mcpServersNeedingValues = restoreMcpServers(stage);
       const assistants = await restoreAssistants({
         stage,
         target,
@@ -168,6 +174,7 @@ export class Restore {
           )
         )
           credentialsNeedingLogin.push(`repository:${credential.id}`);
+      credentialsNeedingLogin.push(...mcpServersNeedingValues);
       // Sealed agent credentials restore only while this host still holds their key.
       if (assistants.withheld) credentialsNeedingLogin.push("assistants");
       const importRecord = {

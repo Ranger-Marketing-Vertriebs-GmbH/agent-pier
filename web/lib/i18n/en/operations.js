@@ -287,8 +287,16 @@ export const backupCopy = {
       "File trash, file journals and transfer bytes",
     "Global atomicity across independent native writers":
       "Global atomicity across independent native writers",
+    // Older backups declared the MCP server store as left out.
     "MCP servers for agents (definitions, values and bindings)":
       "MCP servers for agents (definitions, values and bindings)",
+    "mcp-servers":
+      "MCP servers for agents and CLIs (definitions and bindings, no values)",
+    "encrypted-mcp-server-values":
+      "MCP server header and environment values and address tokens (encrypted)",
+    "MCP server OAuth logins": "MCP server OAuth logins",
+    "MCP server header and environment values and address tokens":
+      "MCP server header and environment values and address tokens",
     "Managed native configuration and credentials":
       "Managed native configuration and credentials",
     "coordinated-application-snapshot; independent-native-captures":
