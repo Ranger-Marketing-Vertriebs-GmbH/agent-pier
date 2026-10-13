@@ -37,8 +37,14 @@ export function parseModelsList(result) {
   );
   const pending =
     Array.isArray(result.pendingProviders) && result.pendingProviders.includes("openai");
-  // The Gateway serves its previous catalog when a rediscovery failed.
-  return { models, outcomes, pending, stale: result.refreshFailed === true };
+  // `refreshFailed` covers every provider of the catalog; the list is stale only
+  // when the openai discovery itself was unavailable.
+  const stale =
+    result.refreshFailed === true &&
+    (Array.isArray(result.providerOutcomes) ? result.providerOutcomes : []).some(
+      (o) => o?.provider === "openai" && o.status === "unavailable",
+    );
+  return { models, outcomes, pending, stale };
 }
 
 /** A Gateway error code for the log; never the Gateway's message text. */
@@ -91,7 +97,8 @@ export class ModelAccountCatalog {
       (this.#result && !models.length)
         ? "failed"
         : !this.#result
-          ? "loading"
+          ? // Nothing read yet and no read running: the page's next load starts one.
+            "failed"
           : outcome === undefined && accounts > 1
             ? "unknown"
             : "ready";
@@ -106,10 +113,13 @@ export class ModelAccountCatalog {
     const failed = this.#failed || !this.#result || this.#result.stale;
     return age >= (failed ? this.retryMs : this.ttlMs);
   }
-  /** Starts a background read when the cached catalog is stale. */
+  /**
+   * Starts a background read when the cached catalog is stale. After a stale
+   * openai discovery only a forced read can replace the Gateway's catalog.
+   */
   ensure() {
     if (this.loading || !this.runtime.client?.ready || !this.stale()) return;
-    this.refresh().catch(() => {});
+    this.refresh({ force: !!this.#result?.stale }).catch(() => {});
   }
   /**
    * Reads the catalog now. `force` asks the Gateway to rediscover provider models,

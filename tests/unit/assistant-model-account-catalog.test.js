@@ -75,7 +75,27 @@ test("models.list rows map to selectable bare IDs of the openai provider", () =>
   assert.equal(parsed.outcomes.get(profileId), "ready");
   assert.equal(parsed.pending, false);
   assert.equal(parsed.stale, false);
-  assert.equal(parseModelsList({ models: [], refreshFailed: true }).stale, true);
+  // refreshFailed covers every provider; only an unavailable openai outcome counts.
+  const outcome = (provider, status) => ({ provider, profileId, status });
+  assert.equal(parseModelsList({ models: [], refreshFailed: true }).stale, false);
+  assert.equal(
+    parseModelsList({
+      models: [],
+      refreshFailed: true,
+      providerOutcomes: [outcome("openai", "ready"), outcome("ollama", "unavailable")],
+    }).stale,
+    false,
+    "another provider failed, openai is fine",
+  );
+  assert.equal(
+    parseModelsList({
+      models: [],
+      refreshFailed: true,
+      providerOutcomes: [outcome("openai", "unavailable")],
+    }).stale,
+    true,
+    "the openai discovery failed",
+  );
   for (const malformed of [null, "models", {}, { models: "gpt-6" }])
     assert.equal(parseModelsList(malformed), null);
 });
@@ -97,7 +117,8 @@ test("the catalog shares reads, chains a forced read after an unforced one and k
     onChange: () => changes++,
     ...quiet,
   });
-  assert.deepEqual(catalog.account(profileId), { models: [], modelCatalog: "loading" });
+  // Nothing read and nothing running is not "loading".
+  assert.deepEqual(catalog.account(profileId), { models: [], modelCatalog: "failed" });
   catalog.ensure();
   catalog.ensure();
   const unforced = catalog.refresh();
@@ -179,7 +200,7 @@ test("a pending provider is read again with refresh; failures keep the last list
 });
 
 test("availability is the agent's: rejected, unknown, empty and stale lists are marked", async () => {
-  const { runtime } = gateway([
+  const { runtime, calls } = gateway([
     {
       models: [row("gpt-6-astra")],
       providerOutcomes: [
@@ -188,9 +209,21 @@ test("availability is the agent's: rejected, unknown, empty and stale lists are 
       ],
     },
     listed([row("gpt-6-astra", { available: false, unavailableReason: "auth-failed" })]),
-    listed([row("gpt-6-astra")], { refreshFailed: true }),
+    {
+      models: [row("gpt-6-astra")],
+      refreshFailed: true,
+      providerOutcomes: [{ provider: "openai", profileId, status: "unavailable" }],
+    },
+    listed([row("gpt-6-sol")], { refreshFailed: true }),
   ]);
-  const catalog = new ModelAccountCatalog({ runtime, ...quiet });
+  let now = 0;
+  const catalog = new ModelAccountCatalog({
+    runtime,
+    now: () => now,
+    retryMs: 60,
+    ttlMs: 600,
+    ...quiet,
+  });
   await catalog.refresh();
   assert.deepEqual(catalog.account("openai:rejected", { accounts: 3 }), {
     models: [],
@@ -206,11 +239,23 @@ test("availability is the agent's: rejected, unknown, empty and stale lists are 
   await catalog.refresh();
   assert.deepEqual(catalog.account(profileId), { models: [], modelCatalog: "failed" });
   await catalog.refresh();
-  assert.deepEqual(catalog.account(profileId), {
+  // The openai discovery was unavailable: the kept list is stale.
+  assert.deepEqual(catalog.account("openai:other"), {
     models: [{ modelId: "gpt-6-astra", label: "GPT-6-ASTRA" }],
     modelCatalog: "failed",
   });
+  now += 59;
   assert.equal(catalog.stale(), false, "retried after retryMs");
+  now += 1;
+  catalog.ensure();
+  await catalog.loading;
+  assert.equal(calls.at(-1).params.refresh, true, "the stale retry is forced");
+  // Another provider still failing does not keep the list stale.
+  assert.deepEqual(catalog.account(profileId), {
+    models: [{ modelId: "gpt-6-sol", label: "GPT-6-SOL" }],
+    modelCatalog: "ready",
+  });
+  assert.equal(catalog.stale(), false);
 });
 
 function accountsFixture(t, { hold = false } = {}) {
@@ -257,7 +302,7 @@ test("accounts expose cached models synchronously; only the pages start reads", 
   const { accounts, runtime, lists, state } = accountsFixture(t);
   const [first] = await accounts.list();
   assert.deepEqual(first.models, []);
-  assert.equal(first.modelCatalog, "loading");
+  assert.equal(first.modelCatalog, "failed", "no read running yet");
   assert.equal(lists().length, 0, "listing accounts internally reads no models");
   accounts.ensureModels();
   await accounts.catalog.loading;
