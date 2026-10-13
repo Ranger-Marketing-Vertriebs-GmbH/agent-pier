@@ -11,6 +11,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   timeout: 30000,
+  // One visible retry in CI: scripts/playwright-flaky-reporter.mjs lists every
+  // test that passed only on its retry in the job summary.
+  retries: process.env.CI ? 1 : 0,
   use: {
     baseURL,
     locale: "de-DE",
@@ -63,5 +66,7 @@ export default defineConfig({
         ]
       : []),
   ],
-  reporter: "list",
+  reporter: process.env.CI
+    ? [["list"], ["./scripts/playwright-flaky-reporter.mjs"]]
+    : "list",
 });
