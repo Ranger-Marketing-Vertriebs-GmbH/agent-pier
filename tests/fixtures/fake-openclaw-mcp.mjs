@@ -149,6 +149,25 @@ if (mode === "locked-once") {
   }
 }
 
+// OpenClaw's console redaction masks a challenge that looks like a key (recorded in
+// CI): "redacted" as `<6>…<4>`, "redacted-stars" ending in `***`; "redacted-once"
+// masks only the first login (FAKE_OPENCLAW_RECORD marks it), later ones print as "ok".
+const challenge = "Zx9w8v7u6t5s4r3q2p1o0nMLKJIHGFEDCBA_abcdefg";
+const masked = {
+  redacted: `${challenge.slice(0, 6)}\u2026${challenge.slice(-4)}`,
+  "redacted-stars": `${challenge.slice(0, 27)}***`,
+};
+if (mode === "redacted-once") {
+  if (!process.env.FAKE_OPENCLAW_RECORD) fail("redacted-once needs FAKE_OPENCLAW_RECORD");
+  const marker = `${process.env.FAKE_OPENCLAW_RECORD}.redacted`;
+  if (fs.existsSync(marker)) effective = "ok";
+  else {
+    fs.writeFileSync(marker, "1");
+    effective = "redacted";
+  }
+}
+const printedUrl = masked[effective] ? url.replace(challenge, masked[effective]) : url;
+
 if (group !== "mcp") fail(`unexpected ${group}`);
 if (lockOutputs[effective]) fail(lockOutputs[effective]);
 else if (mode === "hang") setInterval(() => {}, 1000);
@@ -210,6 +229,7 @@ else if (command === "login") {
       : "Could not start the local OAuth callback (listen EADDRINUSE: address already in use 127.0.0.1:4380).",
   );
   out(`Open this URL to authorize "${name}":`);
-  if (mode !== "no-url") out(mode === "no-state" ? url.replace(/&state=[^&]+/, "") : url);
+  if (mode !== "no-url")
+    out(mode === "no-state" ? url.replace(/&state=[^&]+/, "") : printedUrl);
   out(`After approval, run openclaw mcp login ${name} --code <code>.`);
 } else fail(`unexpected ${command}`);
