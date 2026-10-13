@@ -53,6 +53,8 @@ export const releaseCopy = Object.freeze({
   downloadStalled: "The download received no data for too long.",
   proxyRequiresNewerNode: (minimum) =>
     `Downloads through a proxy require Node.js ${minimum} or newer.`,
+  channelSaveFailed:
+    "The update channel could not be saved. Check that operations/release-preferences.json in the data directory is a writable file.",
   channelManaged: "The update source is managed on the server.",
   previewLimit:
     "The preview release list is too large. Please check for updates again later.",
