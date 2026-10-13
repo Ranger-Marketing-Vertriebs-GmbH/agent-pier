@@ -139,9 +139,14 @@ export function telegramServer(assistant, channel) {
     appUrl: channel?.appUrl ?? "",
   };
 }
+// Check-ins are only sent switched on when the server would accept it: with memory and,
+// where it is known, a paired chat (`heartbeatChannel`).
 export const heartbeatPatch = (values, assistant) => ({
   heartbeat: {
-    enabled: values.heartbeatEnabled && assistant.capabilities?.memory === true,
+    enabled:
+      values.heartbeatEnabled &&
+      assistant.capabilities?.memory === true &&
+      assistant.heartbeatChannel !== false,
     interval: values.interval,
     start: values.start,
     end: values.end,

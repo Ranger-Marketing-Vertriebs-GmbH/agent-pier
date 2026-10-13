@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import SaveBar from "../../../components/SaveBar.jsx";
 import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
 import useTabDraft from "../../../lib/settings/useTabDraft.js";
@@ -37,6 +37,15 @@ export default function TelegramTab({ assistant, page, go, navigate }) {
   const telegram = useTelegramChannel(assistant.id);
   const { channel } = telegram;
   const connected = Boolean(channel?.hasSecret);
+  // The server's paired-chat test lives on the agent; a pairing change made here
+  // (seen in the polled channel) fetches it again so check-ins follow at once.
+  const paired = Boolean(channel?.enabled && channel?.chatId);
+  const seenPairing = useRef(null);
+  useEffect(() => {
+    if (!telegram.loaded) return;
+    if (seenPairing.current !== null && seenPairing.current !== paired) refresh();
+    seenPairing.current = paired;
+  }, [telegram.loaded, paired, refresh]);
   const draft = useTabDraft({
     server: telegramServer(assistant, channel),
     revisions: { assistant: assistant.revision, channel: channel?.revision },
@@ -95,6 +104,7 @@ export default function TelegramTab({ assistant, page, go, navigate }) {
             values={draft.values}
             set={draft.set}
             connected={connected}
+            paired={assistant.heartbeatChannel}
           />
           {assistant.capabilities?.reminders && (
             <>
