@@ -1,12 +1,16 @@
 import React, { useEffect, useRef } from "react";
 import Icon from "../../components/Icon.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
+import { assistantAttachmentsCopy as attachCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 
-// The one-message team permission and, on phones, the keyboard hint, behind the
-// composer's "+" button (handoff 1d). Always mounted so aria-controls resolves.
+// Attaching files, the one-message team permission and, on phones, the keyboard
+// hint, behind the composer's "+" button (handoff 1d). Member chats offer only the
+// attachment. Always mounted so aria-controls resolves.
 export default function ComposerOptions({
   id,
   open,
+  member = false,
+  onAttach,
   teamAllowed,
   onTeamAllowed,
   hint,
@@ -15,7 +19,7 @@ export default function ComposerOptions({
 }) {
   const root = useRef(null);
   useEffect(() => {
-    if (open) root.current?.querySelector("input")?.focus();
+    if (open) root.current?.querySelector("button, input")?.focus();
   }, [open]);
   useEffect(() => {
     if (!open) return undefined;
@@ -40,18 +44,24 @@ export default function ComposerOptions({
         onClose(true);
       }}
     >
-      <label className="assistant-options-row">
-        <Icon name="users" />
-        <span className="assistant-options-label">{copy.team.allowOnce}</span>
-        <input
-          type="checkbox"
-          role="switch"
-          checked={teamAllowed}
-          aria-checked={teamAllowed}
-          onChange={(event) => onTeamAllowed(event.target.checked)}
-        />
-        <span className="assistant-switch" aria-hidden="true" />
-      </label>
+      <button type="button" className="assistant-options-row" onClick={onAttach}>
+        <Icon name="paperclip" />
+        <span className="assistant-options-label">{attachCopy.attach}</span>
+      </button>
+      {!member && (
+        <label className="assistant-options-row">
+          <Icon name="users" />
+          <span className="assistant-options-label">{copy.team.allowOnce}</span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={teamAllowed}
+            aria-checked={teamAllowed}
+            onChange={(event) => onTeamAllowed(event.target.checked)}
+          />
+          <span className="assistant-switch" aria-hidden="true" />
+        </label>
+      )}
       {hint && <p className="assistant-options-hint">{hint}</p>}
     </div>
   );

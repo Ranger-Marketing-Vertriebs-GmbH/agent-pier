@@ -40,3 +40,13 @@ test("one-message team permission follows its draft identity and is cleared afte
   drafts.acknowledge("chat", next.clientRequestId);
   assert.equal(drafts.teamAllowed("chat"), false);
 });
+test("other attachments give the same text a new delivery key", () => {
+  const drafts = new AssistantDrafts();
+  drafts.attach("chat");
+  drafts.set("chat", "Look at this");
+  const first = drafts.delivery("chat");
+  assert.equal(drafts.delivery("chat").clientRequestId, first.clientRequestId);
+  drafts.attach("chat");
+  assert.equal(drafts.get("chat"), "Look at this");
+  assert.notEqual(drafts.delivery("chat").clientRequestId, first.clientRequestId);
+});

@@ -250,6 +250,7 @@ test("pending coding approvals of the agent are decided in the chat", async ({
     else if (p === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
     else if (p.endsWith("/messages")) body = { messages: [], requests: [], stale: false };
+    else if (p.endsWith("/attachment-policy")) body = { imageInput: true };
     else if (p.endsWith("/actions")) body = { actions };
     else if (p.endsWith("/decision")) {
       const id = p.split("/")[3];

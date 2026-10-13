@@ -1,5 +1,6 @@
 import React, { memo, useId } from "react";
 import ChatMarkdown from "../../components/ChatMarkdown.jsx";
+import AgentMessageAttachments from "./AgentMessageAttachments.jsx";
 import "./assistant-message-source.css";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { formatMessageTime } from "../../lib/i18n/index.js";
@@ -15,6 +16,7 @@ export default memo(function AssistantMessage({
   streaming = false,
   source = null,
   timestamp = 0,
+  attachments = null,
 }) {
   const metaId = useId();
   const telegram = role === "user" && source === "telegram";
@@ -24,9 +26,12 @@ export default memo(function AssistantMessage({
       aria-describedby={telegram ? metaId : undefined}
     >
       <strong className={role === "user" ? "sr-only" : undefined}>{name}</strong>
-      <div className="message-content">
-        <ChatMarkdown>{text}</ChatMarkdown>
-      </div>
+      <AgentMessageAttachments files={attachments} />
+      {(text || !attachments?.length) && (
+        <div className="message-content">
+          <ChatMarkdown>{text}</ChatMarkdown>
+        </div>
+      )}
     </article>
   );
   if (!telegram) return message;

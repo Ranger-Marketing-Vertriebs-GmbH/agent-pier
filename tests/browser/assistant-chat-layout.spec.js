@@ -363,7 +363,7 @@ test.describe("agent chat transcript layout details", () => {
 });
 
 test.describe("agent chat composer", () => {
-  test("options hold the team switch and the hint; the chip shows the choice", async ({
+  test("options hold files, the team switch and the hint; the chip shows the choice", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -372,8 +372,10 @@ test.describe("agent chat composer", () => {
     const options = page.getByRole("button", { name: "Options", exact: true });
     await expect(options).toHaveAttribute("aria-expanded", "false");
     await options.click();
+    await expect(
+      page.getByRole("button", { name: "Attach file or image" }),
+    ).toBeFocused();
     const toggle = page.getByRole("switch", { name: "Allow a team for this message" });
-    await expect(toggle).toBeFocused();
     await expect(page.locator(".assistant-options-hint")).toBeVisible();
     await toggle.check();
     await expect(
@@ -532,7 +534,7 @@ test.describe("team member composer", () => {
   };
   const memberChat = baseURL + "/agents/worker/chats/dinner";
 
-  test("one row without options or hint, with the member placeholder", async ({
+  test("one row with only the files option, no hint and the member placeholder", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -543,18 +545,23 @@ test.describe("team member composer", () => {
     await page.goto(memberChat);
     const input = page.getByLabel("Message", { exact: true });
     await expect(input).toHaveAttribute("placeholder", "Message Worker …");
-    await expect(page.getByRole("button", { name: "Options", exact: true })).toHaveCount(
-      0,
-    );
-    await expect(
-      page.locator(".assistant-composer-hint, .assistant-options"),
-    ).toHaveCount(0);
-    const [f, b] = [
+    const options = page.getByRole("button", { name: "Options", exact: true });
+    await expect(page.locator(".assistant-composer-hint")).toHaveCount(0);
+    const [o, f, b] = [
+      await options.boundingBox(),
       await input.boundingBox(),
       await page.getByRole("button", { name: "Send", exact: true }).boundingBox(),
     ];
     expect(Math.abs(f.y + f.height / 2 - (b.y + b.height / 2))).toBeLessThan(6);
+    expect(Math.abs(f.y + f.height / 2 - (o.y + o.height / 2))).toBeLessThan(6);
+    expect(f.x).toBeGreaterThan(o.x + o.width - 2);
     expect(b.x).toBeGreaterThan(f.x + f.width - 2);
+    await options.click();
+    await expect(page.locator(".assistant-options-row")).toHaveCount(1);
+    await expect(
+      page.getByRole("button", { name: "Attach file or image" }),
+    ).toBeVisible();
+    await expect(page.locator(".assistant-options-hint")).toHaveCount(0);
   });
 
   test("send stays disabled while the member is busy", async ({ page }) => {

@@ -1,0 +1,160 @@
+/* Files picked for the next agent message, inside the composer box. */
+.agent-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.assistant-composer.member .agent-attachments {
+  flex-basis: 100%;
+}
+.agent-attachment-list,
+.agent-message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agent-attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  height: 44px;
+  padding: 0 4px 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+}
+.agent-attachment-chip.failed {
+  border-color: var(--warning);
+}
+.agent-attachment-chip img,
+.agent-attachment-icon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.agent-attachment-icon {
+  display: grid;
+  place-items: center;
+  background: var(--surface-accent);
+  color: var(--accent-text);
+}
+.agent-attachment-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+.agent-attachment-name {
+  max-width: 180px;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-attachment-meta {
+  max-width: 180px;
+  overflow: hidden;
+  color: var(--text-meta);
+  font-size: 11px;
+  line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-attachment-chip.failed {
+  height: auto;
+  min-height: 44px;
+  padding-block: 4px;
+}
+.agent-attachment-chip.failed .agent-attachment-meta {
+  max-width: 260px;
+  color: var(--warning);
+  white-space: normal;
+}
+.agent-attachment-chip.uploading img {
+  opacity: 0.55;
+}
+.agent-attachment-remove {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--text-menu);
+}
+.agent-attachments-note,
+.agent-attachments-error {
+  margin: 0;
+  color: var(--hint);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.agent-attachments-error {
+  color: var(--warning);
+}
+/* Sent files sit above the owner's words in the user bubble. */
+.agent-message-attachments {
+  margin-bottom: 8px;
+}
+.agent-message-attachments:last-child {
+  margin-bottom: 0;
+}
+.agent-message-image a {
+  display: block;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.agent-message-image img {
+  display: block;
+  width: auto;
+  max-width: min(240px, 100%);
+  height: auto;
+  max-height: 180px;
+  object-fit: cover;
+}
+.assistant-composer.dragging .assistant-composer-box {
+  border-color: var(--accent);
+  background: var(--surface-accent);
+}
+@media (max-width: 700px) {
+  .agent-attachment-name,
+  .agent-attachment-meta {
+    max-width: 140px;
+  }
+  .agent-message-image img {
+    max-width: min(200px, 100%);
+    max-height: 160px;
+  }
+}
+/* The attach row is a button among the option rows. */
+button.assistant-options-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+}
+button.assistant-options-row:hover,
+button.assistant-options-row:focus-visible {
+  background: var(--surface-raised);
+}
+/* A member's single-row composer wraps picked files onto their own line. */
+.assistant-composer.member .assistant-composer-box {
+  flex-wrap: wrap;
+}
+.assistant-composer.member textarea {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}

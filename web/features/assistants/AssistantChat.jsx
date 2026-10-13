@@ -62,6 +62,7 @@ export default function AssistantChat({
   const [delta, setDelta] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [files, setFiles] = useState(0);
   const touchInput = useTouchInput();
   // The newest reply that was already there on load is history, not news.
   const baseline = useRef(undefined);
@@ -108,7 +109,7 @@ export default function AssistantChat({
   const ownActions = useAssistantActions(assistant.id, !assistant.teamMemberId);
   const entry = activityFor(activity, assistant.id);
   const canSend = Boolean(
-    text.trim() &&
+    (text.trim() || files) &&
     !busy &&
     !active &&
     !memberBusy &&
@@ -170,22 +171,27 @@ export default function AssistantChat({
     stick.current = false;
     scrollToChild(element, target);
   });
-  async function send(event) {
+  async function send(event, attachments = []) {
     event.preventDefault();
-    if (!canSend) return;
+    if (!canSend) return false;
     stick.current = true;
     setBusy(true);
     setError("");
     try {
       const submitted = drafts.delivery(conversationId);
-      await assistantApi.send(conversationId, submitted);
+      await assistantApi.send(
+        conversationId,
+        attachments.length ? { ...submitted, attachments } : submitted,
+      );
       if (drafts.acknowledge(conversationId, submitted.clientRequestId)) {
         setText("");
         setTeamAllowed(false);
       }
       await refresh();
+      return true;
     } catch (e) {
       setError(e.message);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -290,6 +296,7 @@ export default function AssistantChat({
                   text={m.text}
                   source={m.source}
                   timestamp={m.timestamp}
+                  attachments={m.attachments}
                 />
               ),
             )}
@@ -309,6 +316,7 @@ export default function AssistantChat({
                   role="user"
                   name={copy.you}
                   text={latest.text}
+                  attachments={latest.attachments}
                   source={latest.source}
                   timestamp={Date.parse(latest.createdAt) || 0}
                 />
@@ -385,6 +393,7 @@ export default function AssistantChat({
           active={Boolean(active)}
           touchInput={touchInput}
           onSubmit={send}
+          onFiles={setFiles}
           onStop={stop}
           output={output}
           stick={stick}
