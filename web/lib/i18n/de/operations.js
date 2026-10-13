@@ -124,6 +124,8 @@ export const operationsCopy = {
     "Preview enthält Release Candidates zum Testen sowie stabile Releases. Die Auswahl gilt für diese AgentPier-Installation. Release Candidates können unfertige Änderungen enthalten. Nachdem ein Release Candidate die Daten migriert hat, ist eine Rückkehr zur vorherigen stabilen Version unter Umständen nicht mehr möglich. Lege deshalb vorher unter Einstellungen → Sicherungen eine Sicherung an. Beim Wechsel zurück zu Stable bleibt der installierte Release Candidate erhalten, bis eine neuere stabile Version erscheint.",
   channelManagedHelp:
     "Eine eigene Update-Quelle ist eingerichtet. Sie wird auf dem Server verwaltet.",
+  channelUnsupportedHelp:
+    "Updatekanäle gelten nur für eine versionierte Installation. Diese Instanz läuft aus einem Quellcode-Checkout oder auf einer nicht unterstützten Plattform, deshalb ist die Auswahl gesperrt.",
   channelManagedSource: (source) => `Update-Quelle: ${source}`,
   stagedPrereleaseHelp:
     "Bereits vorbereitete Vorabversionen lassen sich auch nach dem Wechsel zu Stable aktivieren.",
