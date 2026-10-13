@@ -1,5 +1,10 @@
 /* Settings pattern (docs/settings-pattern.md, handoff "Einstellungen"): group labels,
    list cards, rows, ⓘ hints, segmented control and Accounts reference rows. */
+/* The iPhone home indicator below content (viewport-fit=cover); a variable, so browser
+   tests can emulate it. */
+:root {
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+}
 .group-label {
   display: grid;
   gap: 6px;
@@ -320,7 +325,7 @@ button.reference-row {
   position: sticky;
   bottom: 0;
   z-index: 5;
-  padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+  padding: 10px 12px calc(14px + var(--safe-area-inset-bottom));
   border-top: 1px solid #28292d;
   background: #15161a;
 }
@@ -492,7 +497,11 @@ dialog.sheet::backdrop {
   .settings-shell-tabs {
     padding: 0;
   }
+  /* The last card ends above the home indicator; a save bar carries the inset itself. */
   .settings-shell-body {
-    padding: 12px 12px 20px;
+    padding: 12px 12px calc(20px + var(--safe-area-inset-bottom));
+  }
+  .settings-shell:has(> .save-bar) > .settings-shell-body {
+    padding-bottom: 20px;
   }
 }
