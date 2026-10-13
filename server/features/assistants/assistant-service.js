@@ -104,6 +104,8 @@ export class AssistantService {
   }
   bindEvents() {
     this.unsubscribe?.();
+    // A new connection starts every run with a snapshot; old baselines are stale.
+    this.chatStreams.clear();
     this.unsubscribe = this.runtime.client?.subscribe((event) => {
       const payload = event.payload;
       if (!payload?.sessionKey) return;
@@ -122,13 +124,13 @@ export class AssistantService {
           type: "delta",
           conversationId: conversation.id,
           runId: payload.runId,
-          text: text.slice(0, 65536),
+          text,
         });
       if (
         event.event === "chat" &&
         ["final", "aborted", "error"].includes(payload.state)
       ) {
-        this.chatStreams.end(payload.sessionKey, payload.runId);
+        this.chatStreams.end(payload.runId);
         this.reconcile().catch(() => {});
       }
     });
@@ -568,6 +570,7 @@ export class AssistantService {
     this.closed = true;
     clearInterval(this.poll);
     this.unsubscribe?.();
+    this.chatStreams.clear();
     this.gatewayEvents.unsubscribe?.();
     this.runtime.off("status", this.onStatus);
     await this.workflows?.close();
