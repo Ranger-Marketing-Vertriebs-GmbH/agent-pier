@@ -71,6 +71,10 @@ async function fixture(context, { terminal = "", respond } = {}) {
   });
 }
 
+// The session's compact artifact row opens the viewer in a new tab.
+const sessionArtifact = (page) =>
+  page.locator(".session-artifacts").getByRole("link", { name: /^Report/ });
+
 async function openViewer(page, click) {
   const opened = page.waitForEvent("popup");
   await click();
@@ -123,9 +127,7 @@ for (const mode of ["chat", "terminal"])
     if (mode === "terminal") await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${baseURL}/sessions/origin/${mode}`);
     await page.locator(".session-artifacts summary").click();
-    const viewer = await openViewer(page, () =>
-      page.getByRole("link", { name: "Open Report" }).click(),
-    );
+    const viewer = await openViewer(page, () => sessionArtifact(page).click());
     await returnToSession(viewer, "origin", mode);
     if (process.env.CAPTURE_ARTIFACT_SCREENSHOTS && mode === "chat")
       await viewer.screenshot({ path: "docs/screenshots/artifact-return-chat.png" });
@@ -188,17 +190,40 @@ test("external OSC 8 destinations remain visible for confirmation before opening
   expect(await popup.evaluate(() => window.opener === null)).toBe(true);
 });
 
-test("project artifact list preserves its project filter", async ({ page, context }) => {
+test("project artifact list returns to its project filter and selected detail", async ({
+  page,
+  context,
+}) => {
   await fixture(context);
   await page.goto(`${baseURL}/artifacts/project-one`);
   const viewer = await openViewer(page, () =>
     page.getByRole("link", { name: "Open Report" }).click(),
   );
   await viewer.getByRole("link", { name: "Back to AgentPier" }).click();
-  await expect(viewer).toHaveURL(`${baseURL}/artifacts/project-one`);
+  await expect(viewer).toHaveURL(`${baseURL}/artifacts/project-one?artifact=example`);
   await expect(
     viewer.getByRole("heading", { name: "Artifacts", exact: true }),
   ).toBeVisible();
+  await expect(
+    viewer.locator(".artifact-detail").getByRole("heading", { name: "Report" }),
+  ).toBeVisible();
+});
+
+test("the viewer returns a phone to the artifact subpage it was opened from", async ({
+  page,
+  context,
+}) => {
+  await fixture(context);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${baseURL}/artifacts?artifact=example`);
+  const viewer = await openViewer(page, () =>
+    page.getByRole("link", { name: "Open Report" }).click(),
+  );
+  await viewer.setViewportSize({ width: 390, height: 844 });
+  await viewer.getByRole("link", { name: "Back to AgentPier" }).click();
+  await expect(viewer).toHaveURL(`${baseURL}/artifacts?artifact=example`);
+  await expect(viewer.getByRole("heading", { level: 1, name: "Report" })).toBeVisible();
+  await expect(viewer.getByRole("button", { name: "Back", exact: true })).toBeVisible();
 });
 
 test("independent viewer tabs retain independent session origins", async ({
@@ -212,9 +237,7 @@ test("independent viewer tabs retain independent session origins", async ({
   );
   await page.goto(`${baseURL}/sessions/second/terminal`);
   await page.locator(".session-artifacts summary").click();
-  const second = await openViewer(page, () =>
-    page.getByRole("link", { name: "Open Report" }).click(),
-  );
+  const second = await openViewer(page, () => sessionArtifact(page).click());
   await first.reload();
   await returnToSession(first, "origin", "chat");
   await returnToSession(second, "second", "terminal");

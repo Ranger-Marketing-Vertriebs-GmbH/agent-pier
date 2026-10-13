@@ -27,7 +27,7 @@ const PipelineSessionRecovery = lazy(
 );
 const SessionMcpDialog = lazy(() => import("../mcp/SessionMcpDialog.jsx"));
 const SessionSshDialog = lazy(() => import("../ssh/SessionSshDialog.jsx"));
-const ArtifactList = lazy(() => import("../artifacts/ArtifactList.jsx"));
+const SessionArtifacts = lazy(() => import("../artifacts/SessionArtifacts.jsx"));
 const FileExplorer = lazy(() => import("../files/FileExplorer.jsx"));
 const TerminalView = lazy(() => import("../terminal/TerminalView.jsx"));
 export default function SessionWorkspace({
@@ -139,10 +139,11 @@ export default function SessionWorkspace({
               <summary>{artifactCopy.title}</summary>
               {artifactsOpen && (
                 <Suspense>
-                  <ArtifactList
+                  <SessionArtifacts
                     key={session.id}
                     sessionId={session.id}
                     returnTo={routePath({ ...route, sessionId: session.id, mode })}
+                    navigate={navigate}
                   />
                 </Suspense>
               )}

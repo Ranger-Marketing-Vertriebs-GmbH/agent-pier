@@ -2,9 +2,36 @@
 
 AgentPier-hosted Codex, Claude Code and OpenCode sessions with **AgentPier tools**
 enabled can publish static results using `artifact_publish`. Open **Artifacts** in
-the sidebar for the project overview, or expand **Artifacts** in a session.
+the sidebar for the overview, or expand **Artifacts** in a session.
 **Open** displays the result in a separate browser tab, behind the existing owner
 login. URLs do not grant access by themselves.
+
+## The Artifacts page
+
+The page follows the [settings pattern](settings-pattern.md). The **All** and
+**Pinned** tabs show their counts; the search field matches titles, session names
+and project names, and the project filter keeps the `/artifacts/<projectId>`
+address. Rows are grouped by date (Today, Yesterday, This week, Earlier) and show
+the type, the source session and project, and a relative time (the exact time is in
+the tooltip).
+
+A row opens the detail: in the right pane on desktop (the newest artifact is shown
+until one is chosen), as a subpage with a back arrow on phones. The selection is part
+of the address (`/artifacts?artifact=<id>`, `tab=pinned` for the Pinned tab), so the
+viewer's **Back to AgentPier** returns to the same detail. The detail shows a
+preview, **Open**, **Copy link** (the link only works when signed in), the source
+session and project, the pin switch, technical details and **Delete artifact**,
+which asks for confirmation. The preview loads the selected artifact only, once it
+is on screen, in an iframe with `sandbox=""`: scripts never run there, so pages that
+draw their content with JavaScript look empty until opened.
+
+The session's **Artifacts** panel lists that session's artifacts in compact rows that
+open the viewer; pinning and deleting happen on the Artifacts page.
+
+`GET /api/artifacts` takes `projectId`, `sessionId`, `page`, `q` (up to 200
+characters, no control characters) and `pinned=true|false`, and returns
+`{ items, page, total, counts: { all, pinned } }`; `counts` follows every filter
+except `pinned`.
 
 ## Publishing and updating
 

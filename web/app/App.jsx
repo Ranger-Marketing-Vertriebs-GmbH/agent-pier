@@ -225,7 +225,14 @@ function Application() {
               </Suspense>
             ) : view === "artifacts" ? (
               <Suspense>
-                <ArtifactsPage route={route} onNavigate={navigate} />
+                <ArtifactsPage
+                  route={route}
+                  onNavigate={navigate}
+                  sessions={state.sessions}
+                  tools={state.tools}
+                  openNavigation={openNavigation}
+                  navigationOpen={mobileNav}
+                />
               </Suspense>
             ) : view === "files" ? (
               <Suspense
