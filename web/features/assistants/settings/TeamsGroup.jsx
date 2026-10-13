@@ -8,6 +8,7 @@ import useAssistants from "../useAssistants.js";
 import useTeamActions from "../useTeamActions.js";
 import useTeamCodingRequests from "../useTeamCodingRequests.js";
 import { scrollParent, scrollToChild } from "../transcript-scroll.js";
+import MemberRequests from "./MemberRequests.jsx";
 import TeamCard from "./TeamCard.jsx";
 
 const copy = assistantCopy.team;
@@ -17,7 +18,7 @@ const copy = assistantCopy.team;
  * link (`team=<id>`) opens the list on that team's side with the team expanded.
  */
 export default function TeamsGroup({ assistant, focusTeamId, navigate }) {
-  const { teams = [], members = [] } = useAssistants();
+  const { teams = [], members = [], requests = [] } = useAssistants();
   const own = teams.filter((t) => t.parentAssistantId === assistant.id);
   const coding = useTeamCodingRequests(assistant.id, own.length > 0, teams);
   const { busy, error, act } = useTeamActions();
@@ -92,6 +93,9 @@ export default function TeamsGroup({ assistant, focusTeamId, navigate }) {
         </div>
       ) : (
         <p className="agent-teams-empty">{copy.noTeams}</p>
+      )}
+      {own.length > 0 && (
+        <MemberRequests assistant={assistant} requests={requests} busy={busy} act={act} />
       )}
     </section>
   );
