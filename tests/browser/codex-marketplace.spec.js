@@ -4,7 +4,9 @@ import { baseURL } from "../helpers/browser.js";
 import {
   emptyExtensions,
   expectProfilesDisabled,
+  extensionRow,
   openTab,
+  rowMenuItem,
 } from "../helpers/extensions.js";
 
 const builtin = {
@@ -111,9 +113,7 @@ test("Codex native marketplace uses an explicit catalog account and has no sourc
   ).toBeVisible();
   expect(reads).toEqual(["local-codex"]);
   await openTab(page, "Marketplaces");
-  const market = page.getByRole("article").filter({
-    has: page.getByRole("heading", { name: "Codex-Standard-Marketplace", exact: true }),
-  });
+  const market = extensionRow(page, "Codex-Standard-Marketplace");
   await expect(market).toBeVisible();
   await expect(market.getByRole("button")).toHaveCount(0);
   await openTab(page, "Plugins");
@@ -160,7 +160,7 @@ test("Codex native marketplace uses an explicit catalog account and has no sourc
   await expect(
     page.getByRole("button", { name: "Plugin Remote Demo installieren" }),
   ).toBeEnabled();
-  const remove = page.getByRole("button", { name: "Plugin Remote Demo entfernen" });
+  const remove = extensionRow(page, "Remote Demo");
   await page.getByRole("radio", { name: /^Installiert/ }).check();
   // The whole inventory belongs to the selected catalog account, so the
   // selector stays available in the installed view and on the Marketplaces tab.
@@ -170,14 +170,16 @@ test("Codex native marketplace uses an explicit catalog account and has no sourc
   await expect(remove).toHaveCount(0);
   await selector.selectOption("work-codex");
   await expect(remove).toBeVisible();
+  await expect(
+    await rowMenuItem(page, "Remote Demo", "Plugin Remote Demo entfernen"),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("radio", { name: /^Installiert/ })).toBeChecked();
   await openTab(page, "Marketplaces");
   await expect(selector).toBeVisible();
   await expect(selector).toHaveValue("work-codex");
   await selector.selectOption("personal-codex");
-  await expect(
-    page.getByRole("heading", { name: "Codex-Standard-Marketplace", exact: true }),
-  ).toBeVisible();
+  await expect(extensionRow(page, "Codex-Standard-Marketplace")).toBeVisible();
   await openTab(page, "Plugins");
   await page.getByRole("radio", { name: /^Installiert/ }).check();
   await expect(selector).toHaveValue("personal-codex");

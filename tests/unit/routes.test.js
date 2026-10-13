@@ -70,6 +70,17 @@ test("projects routes carry tab state and old links map onto them", () => {
     "/extensions/local-codex?tab=agents",
   );
   assert.equal(path(read("/extensions/local-codex")), "/extensions/local-codex");
+  // The MCP tab became a reference row on Skills (settings redesign step 4).
+  assert.equal(read("/extensions/local-codex?tab=mcp").extensionTab, "skills");
+  assert.equal(path(read("/extensions/local-codex?tab=mcp")), "/extensions/local-codex");
+  assert.equal(
+    path(read("/extensions/local-codex?tab=skills")),
+    "/extensions/local-codex",
+  );
+  assert.equal(
+    path(read("/extensions/local-codex?tab=marketplaces")),
+    "/extensions/local-codex?tab=marketplaces",
+  );
   assert.equal(read("/projects/a%2Fb").view, "missing");
   assert.equal(read("/projects/p1?tab=nope").projectTab, "overview");
   assert.equal(

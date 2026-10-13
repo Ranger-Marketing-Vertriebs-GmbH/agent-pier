@@ -2,12 +2,18 @@ import React from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { profilePluginsCopy as copy } from "../../lib/i18n/messages/plugins.js";
-import { ExtensionHint } from "../extensions/ExtensionTable.jsx";
+import ExtensionHint from "../extensions/ExtensionHint.jsx";
 import { pluginNote } from "./plugin-messages.js";
 
 // Shared feedback, loading, CLI notes and removal confirmation for the
 // Plugins and Marketplaces tabs, which both read the profile's plugin inventory.
-export default function PluginFrame({ plugins, hideError, before, children }) {
+export default function PluginFrame({
+  plugins,
+  hideError,
+  hideNote = false,
+  before,
+  children,
+}) {
   const { error, notice, loading, data, load, busy, confirm, confirmRef, disabled } =
     plugins;
   return (
@@ -29,12 +35,14 @@ export default function PluginFrame({ plugins, hideError, before, children }) {
         </button>
       ) : (
         <>
-          <ExtensionHint className="plugin-topbar">
-            <p>{pluginNote(data)}</p>
-            <button className="button secondary compact" disabled={busy} onClick={load}>
-              {commonCopy.reloadLatest}
-            </button>
-          </ExtensionHint>
+          {!hideNote && (
+            <ExtensionHint className="plugin-topbar">
+              <p>{pluginNote(data)}</p>
+              <button className="button secondary compact" disabled={busy} onClick={load}>
+                {commonCopy.reloadLatest}
+              </button>
+            </ExtensionHint>
+          )}
           {data.reason && (
             <ExtensionHint>
               <p>{data.reason}</p>

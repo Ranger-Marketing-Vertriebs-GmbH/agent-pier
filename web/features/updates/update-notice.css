@@ -32,7 +32,8 @@
   flex-shrink: 0;
 }
 @media (max-width: 700px) {
-  body:has(.mobile-header) .update-notice {
+  /* Extensions hides the global mobile header behind its own settings header. */
+  body:has(.mobile-header):not(:has(.extensions-page)) .update-notice {
     top: calc(env(safe-area-inset-top) + 62px + 8px);
   }
 }

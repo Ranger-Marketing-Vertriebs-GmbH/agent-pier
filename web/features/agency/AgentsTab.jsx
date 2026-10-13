@@ -1,14 +1,17 @@
 import React, { useEffect } from "react";
+import ListCard from "../../components/ListCard.jsx";
+import ListRow, { unknownValue } from "../../components/ListRow.jsx";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { Pagination, usePagination } from "../../components/Pagination.jsx";
 import SearchSelect from "../../components/SearchSelect.jsx";
-import Segment from "../../components/Segment.jsx";
+import Segmented from "../../components/Segmented.jsx";
 import SidePanel from "../../components/SidePanel.jsx";
 import { agencyCopy as copy } from "../../lib/i18n/messages/agency.js";
 import { extensionsHubCopy as hub } from "../../lib/i18n/messages/extensions.js";
 import { names } from "../../lib/providers.js";
-import ExtensionTable, { ExtensionHint } from "../extensions/ExtensionTable.jsx";
+import ExtensionHint from "../extensions/ExtensionHint.jsx";
+import RowLines from "../extensions/RowLines.jsx";
 import useAgency from "./useAgency.js";
 import "./agency.css";
 
@@ -38,14 +41,17 @@ export default function AgentsTab({ mode, setMode, onCount, ...props }) {
             }}
           />
         )}
-        <Segment
+        <Segmented
           label={hub.viewLabel}
           className="extension-mode"
           value={mode}
           onChange={setMode}
           options={[
-            { value: "installed", label: hub.installedView(installedCount ?? 0) },
-            { value: "catalog", label: copy.catalogView(data?.total ?? 0) },
+            {
+              value: "installed",
+              label: hub.installedView(installedCount ?? unknownValue),
+            },
+            { value: "catalog", label: copy.catalogView(data?.total ?? unknownValue) },
           ]}
         />
       </div>
@@ -92,29 +98,32 @@ export default function AgentsTab({ mode, setMode, onCount, ...props }) {
             {copy.count(data.total, data.page)} · {copy.revision}:{" "}
             <code>{data.revision.slice(0, 8)}</code>
           </p>
-          <ExtensionTable
-            heads={[hub.headAgent, copy.category, hub.headStatus]}
-            empty={copy.empty}
-            rows={data.items.map((item) => ({
-              key: item.id,
-              name: item.name,
-              tag: item.category,
-              status: {
-                on: Boolean(item.installed),
-                text: item.installed ? copy.installed : hub.available,
-              },
-              actions: (
-                <button
-                  type="button"
-                  className="button secondary compact"
-                  disabled={busy}
-                  onClick={() => state.show(item)}
+          {data.items.length ? (
+            <ListCard label={hub.browseCatalog} className="extension-list">
+              {data.items.map((item) => (
+                <ListRow
+                  key={item.id}
+                  label={item.name}
+                  sub={item.category}
+                  status={
+                    item.installed ? { tone: "ok", text: copy.installed } : undefined
+                  }
+                  value={item.installed ? undefined : hub.available}
                 >
-                  {copy.preview}
-                </button>
-              ),
-            }))}
-          />
+                  <button
+                    type="button"
+                    className="button secondary compact"
+                    disabled={busy}
+                    onClick={() => state.show(item)}
+                  >
+                    {copy.preview}
+                  </button>
+                </ListRow>
+              ))}
+            </ListCard>
+          ) : (
+            <p className="extension-empty">{copy.empty}</p>
+          )}
           {(page > 1 || data.hasMore) && (
             <div className="dialog-actions">
               <button
@@ -139,32 +148,42 @@ export default function AgentsTab({ mode, setMode, onCount, ...props }) {
       )}
       {data && !catalog && (
         <>
-          <ExtensionTable
-            heads={[hub.headAgent, copy.revision, ""]}
-            empty={copy.noInstalled}
-            rows={installed.items.map((item) => ({
-              key: item.id,
-              name: item.name,
-              details: (
-                <p>
-                  <a href={item.source} target="_blank" rel="noreferrer">
-                    {copy.source}
-                  </a>
-                </p>
-              ),
-              tag: item.revision?.slice(0, 8),
-              actions: (
-                <button
-                  type="button"
-                  className="button secondary compact"
-                  disabled={busy}
-                  onClick={() => state.setConfirm(item)}
+          {installed.items.length ? (
+            <ListCard label={copy.installedTitle} className="extension-list">
+              {installed.items.map((item) => (
+                <ListRow
+                  key={item.id}
+                  label={item.name}
+                  sub={
+                    <RowLines
+                      lines={[
+                        <a
+                          key="source"
+                          href={item.source}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {copy.source}
+                        </a>,
+                        item.revision && `${copy.revision}: ${item.revision.slice(0, 8)}`,
+                      ]}
+                    />
+                  }
                 >
-                  {copy.remove}
-                </button>
-              ),
-            }))}
-          />
+                  <button
+                    type="button"
+                    className="button secondary compact"
+                    disabled={busy}
+                    onClick={() => state.setConfirm(item)}
+                  >
+                    {copy.remove}
+                  </button>
+                </ListRow>
+              ))}
+            </ListCard>
+          ) : (
+            <p className="extension-empty">{copy.noInstalled}</p>
+          )}
           <Pagination paging={installed} label={copy.installedTitle} />
         </>
       )}

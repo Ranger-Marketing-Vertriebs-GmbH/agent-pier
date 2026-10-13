@@ -113,9 +113,6 @@ export const mcpCliCopy = {
     duplicate: "Appears in more than one configuration file; it stays in the CLI.",
   },
   adoptFailed: (name, error) => `${name}: ${error}`,
-  extensionsMoved:
-    "MCP servers are managed centrally under Accounts → MCP servers. Choose there which coding CLIs get a server; AgentPier writes it into this CLI's configuration.",
-  openCentralList: "Open MCP servers",
   stdioCliTitle: "Give coding CLIs a local command?",
   stdioCliWarning:
     "A stdio server runs this command with your user rights. Every session of the selected CLIs starts it, also when you start the CLI in a terminal. Only add commands you trust.",

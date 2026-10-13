@@ -3,10 +3,10 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { profileExtensionsCopy as copy } from "../../lib/i18n/messages/extensions.js";
 import { sharingCopy } from "../../lib/i18n/messages/sharing.js";
-import { ExtensionHint } from "./ExtensionTable.jsx";
+import ExtensionHint from "./ExtensionHint.jsx";
 
-// Loading, sharing, feedback and removal confirmation for the MCP and Skills tabs,
-// which read the profile's extensions inventory; only skills are removed here.
+// Loading, sharing, feedback and removal confirmation for the Skills tab,
+// which reads the profile's extensions inventory; only skills are removed here.
 export default function ExtensionsFrame({ ext, account, request, hideError, children }) {
   const { data, busy, error, notice, confirm, setConfirm, mutate, endpoint } = ext;
   if (ext.loading)

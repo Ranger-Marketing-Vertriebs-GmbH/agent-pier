@@ -1,12 +1,15 @@
 import React from "react";
+import ListCard from "../../components/ListCard.jsx";
+import ListRow from "../../components/ListRow.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import {
   extensionsHubCopy as hub,
   profileExtensionsCopy as copy,
 } from "../../lib/i18n/messages/extensions.js";
-import ExtensionTable, { ExtensionHint } from "./ExtensionTable.jsx";
+import ExtensionHint from "./ExtensionHint.jsx";
 import ExtensionsFrame from "./ExtensionsFrame.jsx";
+import RowLines from "./RowLines.jsx";
 
 export default function SkillsTab({ ext, account, request, hideError }) {
   const { data, busy, setConfirm, skillQuery, setSkillQuery, skillPaging, skillSearch } =
@@ -22,39 +25,43 @@ export default function SkillsTab({ ext, account, request, hideError }) {
           placeholder={copy.extensionSectionPlaceholder}
         />
       </div>
-      {(data?.skills.note || account.tool === "codex") && (
+      {data?.skills.note && (
         <ExtensionHint>
-          {data?.skills.note && <p>{data.skills.note}</p>}
-          {account.tool === "codex" && <p>{copy.extensionScopeNote}</p>}
+          <p>{data.skills.note}</p>
         </ExtensionHint>
       )}
-      <ExtensionTable
-        heads={[hub.headSkill, hub.headScope, hub.headStatus]}
-        empty={skillSearch ? copy.noMatchingSkills : copy.noSkills}
-        rows={skillPaging.items.map((skill) => ({
-          key: skill.id,
-          name: skill.name,
-          sub: skill.description,
-          details: <code className="extension-path">{skill.path}</code>,
-          tag: skill.scope,
-          status: {
-            on: skill.removable,
-            text: skill.removable ? hub.installedHere : hub.readOnly,
-          },
-          actions: skill.removable && (
-            <button
-              className="button secondary compact"
-              disabled={Boolean(busy)}
-              aria-label={commonCopy.removeSkillLabel(skill.name)}
-              onClick={() =>
-                setConfirm({ kind: "skill", id: skill.id, name: skill.name })
+      {skillPaging.items.length ? (
+        <ListCard label={copy.skillsHeading} className="extension-list">
+          {skillPaging.items.map((skill) => (
+            <ListRow
+              key={skill.id}
+              label={skill.name}
+              sub={
+                <RowLines
+                  lines={[
+                    skill.description,
+                    `${skill.scope} · ${skill.removable ? hub.installedHere : hub.readOnly}`,
+                    <code key="path" className="extension-path">
+                      {skill.path}
+                    </code>,
+                  ]}
+                />
               }
-            >
-              {commonCopy.remove}
-            </button>
-          ),
-        }))}
-      />
+              onDelete={
+                skill.removable
+                  ? () => setConfirm({ kind: "skill", id: skill.id, name: skill.name })
+                  : undefined
+              }
+              deleteLabel={commonCopy.removeSkillLabel(skill.name)}
+              disabled={Boolean(busy)}
+            />
+          ))}
+        </ListCard>
+      ) : (
+        <p className="extension-empty">
+          {skillSearch ? copy.noMatchingSkills : copy.noSkills}
+        </p>
+      )}
       <Pagination paging={skillPaging} label={copy.skillsHeading} />
     </ExtensionsFrame>
   );

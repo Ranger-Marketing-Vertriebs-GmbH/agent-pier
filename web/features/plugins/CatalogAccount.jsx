@@ -1,6 +1,6 @@
 import React from "react";
 import { profilePluginsCopy as copy } from "../../lib/i18n/messages/plugins.js";
-import { ExtensionHint } from "../extensions/ExtensionTable.jsx";
+import ExtensionHint from "../extensions/ExtensionHint.jsx";
 import { catalogReason } from "./plugin-messages.js";
 
 // Codex reads the whole plugin inventory for one signed-in account, so the

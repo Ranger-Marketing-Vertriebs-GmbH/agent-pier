@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { fixture as providerFixture } from "./providers-fixture.js";
-import { emptyAgency, emptyExtensions } from "../helpers/extensions.js";
+import { emptyAgency, emptyExtensions, extensionRow } from "../helpers/extensions.js";
 import { openAccountItem } from "../helpers/accounts-browser.js";
 
 test.use({ locale: "en-GB" });
@@ -62,7 +62,7 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
   await expect(page).toHaveURL(/\/extensions\/local-codex\?tab=plugins$/);
   await expect(page.getByRole("heading", { name: "Extensions", level: 1 })).toBeVisible();
   await expect(
-    page.getByText("MCP servers, skills and plugins for each CLI profile.", {
+    page.getByText("Skills and plugins for each CLI profile.", {
       exact: true,
     }),
   ).toBeVisible();
@@ -72,7 +72,6 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
     "true",
   );
   await expect(page.getByRole("tab")).toHaveText([
-    /^MCP servers/,
     /^Skills/,
     /^Plugins/,
     /^Marketplaces/,
@@ -85,16 +84,11 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
     "local-codex",
   );
   await page.getByRole("tab", { name: /^Marketplaces/ }).click();
+  await expect(extensionRow(page, "Codex default marketplace")).toBeVisible();
+  await page.getByRole("tab", { name: /^Skills/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Codex default marketplace", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("tab", { name: /^MCP servers/ }).click();
-  await expect(
-    page.getByText(/^MCP servers are managed centrally under Accounts → MCP servers\./),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Open MCP servers", exact: true }),
-  ).toBeVisible();
+    page.getByRole("link", { name: /^MCP servers · — for Codex/ }),
+  ).toContainText("Managed centrally in Accounts");
   await page.getByRole("tab", { name: /^Agents/ }).click();
   await expect(
     page.getByText("Installed agents apply to all accounts using this CLI."),
