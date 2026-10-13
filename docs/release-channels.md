@@ -8,8 +8,12 @@ semantic version, not publication date. The selected manifest and package are
 loaded from the version-specific tag; the usual checksum and runtime checks apply.
 
 Preview scans up to ten pages of 100 releases and fails explicitly if this limit
-is exceeded. API failures leave the check unsuccessful rather than claiming that
-no update exists. Stable checks do not require the release-list API.
+is exceeded. Each page response may be at most 4 MiB. The listing includes full
+release notes; 100 releases currently take about 1.5 MB, so very long release notes
+could later reach this cap and make the Preview check fail. API failures leave the
+check unsuccessful rather than claiming that no update exists. An exhausted GitHub
+API quota (60 unauthenticated requests per hour and IP address) is reported as a
+rate limit. Stable checks do not require the release-list API.
 
 ## Publishing
 
@@ -61,6 +65,13 @@ Rollback is checked against the data directory. After an RC has migrated the dat
 to a newer schema, rollback to an older stable version that cannot open this schema
 is refused. The installation stays on the RC until a release that accepts the schema
 arrives, or the data is restored from a backup.
+
+The command line follows the same saved, installation-wide choice.
+`scripts/operations.mjs release-check` and `release-stage`, and `release-install`
+without an archive, read the preference from the data directory. A reinstall that
+reuses a data directory with Preview selected therefore installs the newest RC.
+`--channel` sets a custom manifest source; it does not choose between Stable and
+Preview. Select Stable in Settings → Updates first to stay on stable releases.
 
 `AGENTPIER_RELEASE_CHANNEL` remains a custom manifest source override. A custom
 source disables the official Stable/Preview selector and retains its existing
