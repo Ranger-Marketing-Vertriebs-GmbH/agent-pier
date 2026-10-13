@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
+import { ChatStreams } from "../../server/features/assistants/chat-stream.js";
 
 const filler = Array.from({ length: 24 }, (_, n) => ({
   id: `filler-${n}`,
@@ -241,6 +242,35 @@ test.describe("iPad keyboard", () => {
     await expect.poll(() => gap(page)).toBeLessThan(5);
     await page.screenshot({ path: ".cache/assistant-chat-ipad-keyboard-en.png" });
   });
+});
+
+test("a streamed reply grows across Gateway delta frames", async ({ page }) => {
+  const state = await setup(page, { messages: [] });
+  // Shaped like the pinned Gateway's frames: one snapshot, then appended text only.
+  const streams = new ChatStreams();
+  const frames = [
+    { deltaText: "Noch", message: { content: [{ type: "text", text: "Noch" }] } },
+    { deltaText: " keine" },
+    { deltaText: " neuen Meldungen." },
+  ];
+  const bubble = page.locator(".assistant-message.assistant");
+  for (const [frame, expected] of frames.map((f, i) => [
+    f,
+    ["Noch", "Noch keine", "Noch keine neuen Meldungen."][i],
+  ])) {
+    const text = streams.delta({ sessionKey: "s", runId: "r", state: "delta", ...frame });
+    await emit(page, { type: "delta", conversationId: "dinner", runId: "r", text });
+    await expect(bubble).toHaveCount(1);
+    await expect(bubble).toContainText(expected);
+  }
+  state.messages.push({
+    id: "done",
+    role: "assistant",
+    text: "Noch keine neuen Meldungen.",
+  });
+  await emit(page, { type: "change" });
+  await expect(bubble).toHaveCount(1);
+  await expect(bubble).toContainText("Noch keine neuen Meldungen.");
 });
 
 test("coding run notes show the outcome with a link to the run", async ({ page }) => {
