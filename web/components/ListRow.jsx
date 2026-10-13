@@ -45,6 +45,7 @@ export default function ListRow({
   status,
   onClick,
   href,
+  target,
   chevron,
   menu,
   onDelete,
@@ -58,6 +59,7 @@ export default function ListRow({
 }) {
   const info = useInfoHint();
   const navigates = Boolean(onClick || href);
+  // A row opening a new tab never hands that tab a reference back to AgentPier.
   const body = (
     <>
       {icon && (
@@ -76,6 +78,8 @@ export default function ListRow({
     <a
       className="list-row-main"
       href={href}
+      target={target}
+      rel={target ? "noopener noreferrer" : undefined}
       aria-disabled={disabled || undefined}
       aria-current={current ? "page" : undefined}
       onClick={(event) => {

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "../../lib/api.js";
 import { startVisiblePolling } from "../../lib/visible-polling.js";
-export default function useArtifacts({ sessionId, projectId, page }) {
+import { artifactListQuery } from "./artifact-presentation.js";
+
+/** One page of artifacts (newest first) plus storage usage, polled every 5 s. */
+export default function useArtifacts({ sessionId, projectId, page, q, pinned }) {
   const [state, setState] = useState(null),
     [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
-  const query = new URLSearchParams({ page: String(page) });
-  if (sessionId) query.set("sessionId", sessionId);
-  if (projectId) query.set("projectId", projectId);
-  const key = query.toString();
+  const key = artifactListQuery({ sessionId, projectId, page, q, pinned });
   useEffect(
     () =>
       startVisiblePolling(async (signal) => {
@@ -29,6 +29,8 @@ export default function useArtifacts({ sessionId, projectId, page }) {
   );
   return {
     data: state?.key === key ? state.data : null,
+    // The previous filter's result, so counts and rows do not flash while typing.
+    stale: state?.data ?? null,
     usage: state?.usage,
     error,
     refresh: useCallback(() => setRevision((value) => value + 1), []),
