@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
+import { normalizeOpenRouter } from "../../server/features/providers/catalog-normalization.js";
 test("central provider lease isolates secrets, blocks rotation while held and sees later revocation", (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-models-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -85,4 +86,53 @@ test("transport identities stay stable within a process without exposing reprodu
   rotated.release();
   assert.notEqual(rotated.providerId, first.providerId);
   assert.equal(rotated.provider.apiKey, "rotated-synthetic-key");
+});
+
+test("OpenRouter models the catalog lists with image input get it in their transport", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-images-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const connections = new ProviderConnections({ dataDir });
+  const c = connections.create({ providerId: "openrouter", name: "Router", apiKey: "k" });
+  const catalog = normalizeOpenRouter({
+    data: [
+      ["google/gemini-3.8-flash", ["text", "image", "file"]],
+      ["z-ai/glm-5.3", ["text"]],
+    ].map(([id, input]) => ({
+      id,
+      name: id,
+      architecture: { input_modalities: input, output_modalities: ["text"] },
+      supported_parameters: ["tools"],
+    })),
+  });
+  assert.deepEqual(
+    catalog.map((m) => [m.modelId, m.capabilities.imageInput]),
+    [
+      ["google/gemini-3.8-flash", true],
+      ["z-ai/glm-5.3", false],
+    ],
+  );
+  const models = new AssistantModels({
+    connections,
+    catalog: {
+      get: (providerId, modelId) => {
+        const found = catalog.find((m) => m.modelId === modelId);
+        if (providerId !== "openrouter" || !found) throw Error("not in catalog");
+        return found;
+      },
+    },
+  });
+  const lease = (modelId) => {
+    const resolved = models.resolve({ connectionId: c.id, modelId });
+    resolved.release();
+    return resolved.provider.models[0];
+  };
+  assert.deepEqual(lease("google/gemini-3.8-flash").input, ["text", "image"]);
+  assert.equal(lease("z-ai/glm-5.3").input, undefined);
+  assert.equal(lease("custom/unknown").input, undefined);
+  const imageInput = (modelId) => models.imageInput({ connectionId: c.id, modelId });
+  assert.equal(imageInput("google/gemini-3.8-flash"), true);
+  assert.equal(imageInput("z-ai/glm-5.3"), false);
+  assert.equal(imageInput("custom/unknown"), false);
+  assert.equal(models.imageInput({ connectionId: "openclaw:a", modelId: "gpt" }), true);
+  assert.equal(models.imageInput({ connectionId: "missing", modelId: "x" }), null);
 });

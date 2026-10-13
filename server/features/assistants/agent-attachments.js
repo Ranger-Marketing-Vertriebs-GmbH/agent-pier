@@ -295,25 +295,15 @@ export class AgentAttachments {
     const body = await this.read(file.row.assistant_id, file);
     return { name: file.name, type: file.type, kind: file.kind, body };
   }
-  /**
-   * Whether the agent's model takes images. Endpoint models declare it; OpenRouter
-   * transports are compiled without an input list, which the runtime treats as
-   * text-only; ChatGPT accounts run OpenAI's multimodal models. Null when unknown.
-   */
+  // Whether the agent's model takes images: the fact its compiled provider declares.
   imageInput(assistantId) {
     try {
-      const { connectionId, modelId } = this.store.getAssistant(assistantId).model || {};
-      if (String(connectionId).startsWith("openclaw:")) return true;
-      const connection = this.models?.connections?.get(connectionId);
-      if (connection?.providerId === "openrouter") return false;
-      if (connection?.providerId === "endpoint")
-        return (
-          connection.endpoint?.models?.find((m) => m.modelId === modelId)?.images === true
-        );
+      return (
+        this.models?.imageInput?.(this.store.getAssistant(assistantId).model) ?? null
+      );
     } catch {
-      /* Unknown below. */
+      return null;
     }
-    return null;
   }
   policy(conversationId) {
     const { assistantId } = this.store.getConversation(conversationId);

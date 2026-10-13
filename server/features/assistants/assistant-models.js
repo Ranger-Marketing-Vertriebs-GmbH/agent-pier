@@ -8,8 +8,39 @@ import {
 } from "./assistant-provider-endpoint.js";
 export class AssistantModels {
   #transports = new Map();
-  constructor({ connections, accounts }) {
-    Object.assign(this, { connections, accounts });
+  // `catalog` is the central provider catalog (providers/provider-catalog.js).
+  constructor({ connections, accounts, catalog }) {
+    Object.assign(this, { connections, accounts, catalog });
+  }
+  // OpenRouter lists input modalities per model; a model outside the catalog
+  // stays text-only, as the runtime treats a provider model without `input`.
+  #openRouterImages(modelId) {
+    try {
+      return this.catalog?.get("openrouter", modelId).capabilities?.imageInput === true;
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Whether the Gateway shows images to this model, from the same facts the
+   * compiled provider declares; null when the connection is unknown. ChatGPT
+   * accounts run OpenAI's multimodal models.
+   */
+  imageInput({ connectionId, modelId } = {}) {
+    if (typeof connectionId === "string" && connectionId.startsWith("openclaw:"))
+      return true;
+    let connection;
+    try {
+      connection = this.connections.get(connectionId);
+    } catch {
+      return null;
+    }
+    if (connection?.providerId === "openrouter") return this.#openRouterImages(modelId);
+    if (connection?.providerId === "endpoint")
+      return (
+        connection.endpoint?.models?.find((m) => m.modelId === modelId)?.images === true
+      );
+    return null;
   }
   listCapabilities() {
     return [
@@ -58,7 +89,13 @@ export class AssistantModels {
               baseUrl: "https://openrouter.ai/api/v1",
               api: "openai-completions",
               apiKey,
-              models: [{ id: modelId, name: modelId }],
+              models: [
+                {
+                  id: modelId,
+                  name: modelId,
+                  ...(this.#openRouterImages(modelId) && { input: ["text", "image"] }),
+                },
+              ],
             };
       // Native models.json and config.patch merge old provider fields. A new
       // transport identity prevents stale endpoints/keys/headers surviving edits.

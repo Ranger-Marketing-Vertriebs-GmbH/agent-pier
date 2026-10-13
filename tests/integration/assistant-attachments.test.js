@@ -69,12 +69,7 @@ function setup(t) {
     models: {
       listCapabilities: () => [],
       resolve: () => ({ release() {} }),
-      connections: {
-        get: () => ({
-          providerId: "endpoint",
-          endpoint: { models: [{ modelId: "vision", images: true }] },
-        }),
-      },
+      imageInput: () => true,
     },
     config: { apply: async () => {}, reset() {}, workspaces },
   });

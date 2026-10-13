@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
+import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
 import { MAX_ATTACHMENT_BYTES } from "../../server/features/assistants/agent-attachment-types.js";
 
 const png = Buffer.from(
@@ -47,7 +48,7 @@ function setup(t, { images = true, now = () => Date.now() } = {}) {
   };
   const attachments = new AgentAttachments({
     store,
-    models: { connections },
+    models: new AssistantModels({ connections }),
     config: { workspaces },
     now,
   });
