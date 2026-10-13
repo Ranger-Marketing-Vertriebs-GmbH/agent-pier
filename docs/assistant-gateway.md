@@ -1332,6 +1332,40 @@ and REM phase notes and a Dream Diary there. 2026.9.8 offers no per-agent scope
 (`memoryPolicy.excludeSessions` filters by channel, chat type or hook source only),
 so a switch limited to agents with memory cannot be built yet.
 
+## Chat attachments (2026-10-13)
+
+The owner can attach up to five files of at most 10 MB each to a message in the
+agent chat, to the lead agent and in the direct chat with a team member: "+" >
+"Attach file or image", paste or drag and drop. Accepted are JPEG, PNG, WebP, GIF and
+HEIC images, PDF and UTF-8 text files with a known text or code extension. The
+server decides by the bytes, never by the name or the browser's type.
+
+- **Storage.** Each file is uploaded when it is picked and copied into
+  `attachments/` of the receiving agent's own workspace under a generated name
+  (`<date>-<time>-<random>-<safe name>`), mode 0600. The folder must be a real
+  directory inside the agent's real workspace; a link there refuses the upload. The
+  index (name, type, size, request) lives in the assistants database, never in the
+  workspace. Unsent uploads expire after a day; each agent holds at most 512 MB or
+  1000 files there.
+- **Delivery.** `sessions.send` carries the owner's text followed by a note that
+  names each saved copy by its workspace-relative path, so the agent can read it with
+  its tools. Images the agent's model accepts also travel inline as `attachments`
+  (OpenClaw's `ChatAttachmentSchema`: `type`, `mimeType`, `fileName`, base64
+  `content`); the pinned Gateway refuses inline images above 6 MiB, and AgentPier
+  keeps all inline images of one turn below 15 MiB so the RPC frame fits. HEIC is
+  converted to JPEG in browsers that can decode it (Safari); otherwise it stays a
+  workspace file. Image input comes from the connection: endpoint models declare it,
+  ChatGPT accounts have it, and OpenRouter transports are compiled text-only, so the
+  composer says so before sending.
+- **History.** OpenClaw keeps the sent text; the history strips the note again and
+  returns the files by id. Thumbnails and downloads are served by
+  `GET /api/assistant-attachments/:id` behind the login, with `nosniff`, a sandboxed
+  content policy and no file system path. Uploads and reads are rate limited.
+- **Limits.** Agents cannot be deleted today (only archived), so the copies follow
+  the workspace; `AgentAttachments.purge` removes an agent's folder and index for a
+  future deletion path. OpenClaw also stages inline images it receives under
+  `media/inbound/` of the workspace, so such an image exists twice.
+
 ## Continuous integration
 
 The `Assistant runtime` workflow runs the opt-in native contracts in a
