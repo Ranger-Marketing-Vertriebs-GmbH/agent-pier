@@ -27,12 +27,16 @@ export const assistantRuntimePaths = [
 ];
 
 // GitHub filter semantics for the patterns above: `*` stays within one path
-// segment, `**` spans segments, and `dir/**` matches everything below dir.
+// segment, `**` spans segments, `**/` also matches no directory at all, and
+// `dir/**` matches everything below dir.
 export function globPattern(glob) {
   let source = "";
   for (let index = 0; index < glob.length; index++) {
     const character = glob[index];
-    if (character === "*" && glob[index + 1] === "*") {
+    if (glob.startsWith("**/", index)) {
+      source += "(?:.*/)?";
+      index += 2;
+    } else if (character === "*" && glob[index + 1] === "*") {
       source += ".*";
       index++;
     } else if (character === "*") source += "[^/]*";
@@ -46,12 +50,38 @@ export const assistantRuntimeRelevant = (files) =>
   files.some((file) => patterns.some((pattern) => pattern.test(file)));
 
 // Changed files between the queue or PR base and the checked-out commit. Any
-// error yields null, and the caller then runs the contracts.
+// error yields null, and the caller then runs the contracts. The base is fetched
+// only when missing, and shallowly only in a clone that is already shallow (the
+// CI checkout), so a full local clone never becomes shallow. Renames are listed
+// as a deletion plus an addition, so moving a file out of an assistant path
+// still counts as an assistant change.
 export function changedFiles(base, run = execFileSync) {
   if (!/^[0-9a-f]{40}$/.test(base || "")) return null;
   try {
-    run("git", ["fetch", "--no-tags", "--depth=1", "origin", base], { stdio: "ignore" });
-    return run("git", ["diff", "--name-only", base, "HEAD"], { encoding: "utf8" })
+    const present = (() => {
+      try {
+        run("git", ["cat-file", "-e", `${base}^{commit}`], { stdio: "ignore" });
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+    if (!present) {
+      const shallow =
+        run("git", ["rev-parse", "--is-shallow-repository"], {
+          encoding: "utf8",
+        }).trim() === "true";
+      run(
+        "git",
+        ["fetch", "--no-tags", ...(shallow ? ["--depth=1"] : []), "origin", base],
+        {
+          stdio: "ignore",
+        },
+      );
+    }
+    return run("git", ["diff", "--no-renames", "--name-only", base, "HEAD"], {
+      encoding: "utf8",
+    })
       .split("\n")
       .filter(Boolean);
   } catch {
