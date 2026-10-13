@@ -196,8 +196,18 @@ export class AssistantService {
   }
   /** The profile with its bound MCP server ids, for agents the owner binds. */
   withMcp(profile) {
-    const decorated = this.shellChanges.decorate(profile);
+    const decorated = this.withCheckInChat(this.shellChanges.decorate(profile));
     return this.mcp ? this.mcp.decorate(decorated) : decorated;
+  }
+  /**
+   * `heartbeatChannel`: whether check-ins have the paired chat a save switching them on
+   * needs (requireChannel). Editors offer them only then, so that refusal never takes
+   * the other choices of the same save with it.
+   */
+  withCheckInChat(profile) {
+    const heartbeats = this.reminders?.heartbeats;
+    if (!profile || typeof heartbeats?.channel !== "function") return profile;
+    return { ...profile, heartbeatChannel: !!heartbeats.channel(profile.id) };
   }
   /** The decorated profile, flagged `pending` while the Gateway lags behind. */
   withPending(profile, pending) {
