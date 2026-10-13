@@ -56,6 +56,8 @@ export const releaseCopy = Object.freeze({
   channelManaged: "The update source is managed on the server.",
   previewLimit:
     "The preview release list is too large. Please check for updates again later.",
+  previewRateLimited:
+    "GitHub is currently limiting requests for the release list. Please check for updates again in an hour.",
   channelRequired: "Configure an HTTPS release channel on the server first.",
   channelHttpsRequired: "Release channel must use HTTPS without embedded credentials.",
   channelManifestInvalid: "Release channel manifest is invalid.",

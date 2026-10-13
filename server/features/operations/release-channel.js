@@ -46,10 +46,12 @@ export async function previewManifest(fetchImpl) {
           `https://api.github.com/repos/${repository}/releases?per_page=100&page=${page}`,
           fetchImpl,
           4 * 1024 * 1024,
-          { retries: 1 },
+          { retries: 1, headers: { Accept: "application/vnd.github+json" } },
         ),
       );
     } catch (error) {
+      if (error.rateLimited)
+        throw problem(serverMessages.releases.previewRateLimited, 503);
       if (error.status) throw error;
       throw problem(serverMessages.releases.channelManifestInvalid);
     }

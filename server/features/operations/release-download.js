@@ -56,6 +56,7 @@ export async function download(
     retryDelay = downloadRetryDelay,
     environment = process.env,
     nodeVersion = process.versions.node,
+    headers = null,
   } = {},
 ) {
   // Older Node releases ignore NODE_USE_ENV_PROXY and would bypass the proxy.
@@ -68,7 +69,7 @@ export async function download(
   const state = reset({});
   for (let attempt = 0; ; attempt++) {
     try {
-      await transfer(url, fetchImpl, limit, idleTimeout, state);
+      await transfer(url, fetchImpl, limit, idleTimeout, state, headers);
       return Buffer.concat(state.chunks, state.length);
     } catch (error) {
       if (attempt >= retries || error?.[transient] !== true) throw error;
@@ -77,7 +78,7 @@ export async function download(
   }
 }
 
-async function transfer(url, fetchImpl, limit, idleTimeout, state) {
+async function transfer(url, fetchImpl, limit, idleTimeout, state, extraHeaders) {
   if (!state.validator) reset(state);
   const controller = new AbortController();
   let timer;
@@ -96,9 +97,10 @@ async function transfer(url, fetchImpl, limit, idleTimeout, state) {
   let response, reader;
   arm();
   try {
-    const headers = state.length
+    const range = state.length
       ? { range: `bytes=${state.length}-`, "if-range": state.validator }
       : null;
+    const headers = extraHeaders || range ? { ...extraHeaders, ...range } : null;
     for (let redirect = 0; redirect <= 5; redirect++) {
       const target = new URL(url);
       if (target.protocol !== "https:" || target.username || target.password)
@@ -131,6 +133,13 @@ async function transfer(url, fetchImpl, limit, idleTimeout, state) {
         response.status === 404 ? 404 : 502,
       );
       if (response.status >= 500) retryLater(error);
+      // GitHub reports an exhausted API quota as 403 or 429.
+      if (
+        [403, 429].includes(response.status) &&
+        (response.headers.get("x-ratelimit-remaining") === "0" ||
+          response.headers.has("retry-after"))
+      )
+        error.rateLimited = true;
       throw error;
     }
     if (response.status === 206) {
