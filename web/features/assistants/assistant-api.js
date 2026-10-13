@@ -49,8 +49,6 @@ export const assistantApi = {
   decideTeam: (id, input) =>
     api(`/assistant-team-proposals/${encodeURIComponent(id)}/decision`, "POST", input),
   leadRequest: (id) => api(`/assistant-lead-requests/${encodeURIComponent(id)}`),
-  decideLeadRequest: (id, input) =>
-    api(`/assistant-lead-requests/${encodeURIComponent(id)}/decision`, "POST", input),
   cancelLeadRequest: (id) =>
     api(`/assistant-lead-requests/${encodeURIComponent(id)}/cancel`, "POST", {}),
   teamAction: (kind, id, action, revision) =>

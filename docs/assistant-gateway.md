@@ -643,26 +643,24 @@ A lead reaches its own members without the owner relaying anything
   and the bridge refuses them to member turns, so there are no chains.
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
-  temporary for archive (checked again inside the archiving transaction). A request
-  runs without the owner's decision only when the owner explicitly asked for it in
-  this very turn (AgentPier chat or Telegram, not forwarded): the tool's quote must
-  be verbatim from that message, name the member (its whole display name or a word
-  of it no other member carries), and say to ask or delegate (`ask`, `delegate`,
-  `assign`, `frag…`, `delegier…`, `beauftrag…`, `übergib`, "gib … an",
-  "lass … machen", "let … do", "hand … over"; `lead-request-proof.js`). Each quote
-  authorises one request and a turn at most three. Standing team permission does
-  not apply. Everything else waits for the owner in the lead's chat, under
-  Settings → Work → Teams or with buttons in the paired Telegram chat; the card and
-  the Telegram notice show the member's shell level, its MCP servers and whether a
-  task may change files.
+  temporary for archive (checked again inside the archiving transaction). Questions
+  and tasks never wait for an approval; they run as soon as the member is free.
+- **Files.** Questions never write. A task may use `write`/`edit` in the member's
+  own workspace only when the owner explicitly asked for it in this very turn
+  (AgentPier chat or Telegram, not forwarded): the tool's quote must be verbatim
+  from that message, name the member (its whole display name or a word of it no
+  other member carries) and say to delegate (`ask`, `delegate`, `assign`, `frag…`,
+  `delegier…`, `beauftrag…`, `übergib`, "gib … an", "lass … machen",
+  "let … do", "hand … over"; `lead-request-proof.js`). Each quote proves one task
+  and a turn at most three; standing team permission does not count. The grant is
+  stored with the request (`writeAllowed`, `ownerProof`) and holds only during the
+  task's own run (`TeamBridge.toolPolicy`, `LeadRequests.mayWrite`), never for
+  `MEMORY.md` or `memory/`, so a task cannot plant instructions for the owner's own
+  chats. Every other task runs read-only. Settings → Work → Teams marks each task
+  "may write" or "read-only".
 - **Limits.** At most 16 open requests per lead, 6 per lead and minute and 8 per
-  owner turn (`RATE_LIMITED` beyond); a member answer that makes the lead ask again
-  in a follow-up turn always needs approval.
-- **Files.** Questions never write. A task the owner asked for in plain words or
-  approved may use `write`/`edit` in the member's own workspace during exactly its
-  own run (`TeamBridge.toolPolicy`, `LeadRequests.mayWrite`), never in `MEMORY.md`
-  or `memory/`, so a task cannot plant instructions for the owner's own chats;
-  every other member turn from a lead stays read-only.
+  owner turn (`RATE_LIMITED` beyond), so a member answer that keeps the lead asking
+  ends quickly.
 - **Delivery.** A request waits until the member is free (no running turn, no
   active team assignment) and then runs as an ordinary turn in the member's chat,
   shown there as the lead's bare text with "from <lead>". The member sees only the

@@ -1,6 +1,6 @@
 import { telegramMessages } from "./telegram-messages.js";
 import { sendTelegramParts } from "./telegram-send-parts.js";
-import { staleRequestApproval, transferLeadRequests } from "./telegram-lead-requests.js";
+import { transferLeadRequests } from "./telegram-lead-requests.js";
 const teamPath = (team) =>
   `/agents/${encodeURIComponent(team.parentAssistantId)}/teams/${encodeURIComponent(team.id)}`;
 export class TelegramOutbox {
@@ -250,10 +250,6 @@ export class TelegramOutbox {
         c.outbox.transition(entry.id, entry.state, { state: "reviewed" });
         return;
       }
-    }
-    if (staleRequestApproval(c, entry)) {
-      c.outbox.transition(entry.id, entry.state, { state: "reviewed" });
-      return;
     }
     if (entry.kind === "team-approval") {
       const team = c.assistants.teams.store.find(entry.teamId);

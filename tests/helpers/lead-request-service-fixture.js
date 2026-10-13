@@ -55,7 +55,5 @@ export const ask = (f, member, inv, extra = {}) =>
   f.service.ask(inv, {
     memberId: member.id,
     question: "What is the budget?",
-    ownerRequested: true,
-    ownerRequestQuote: quoteFor(member),
     ...extra,
   });

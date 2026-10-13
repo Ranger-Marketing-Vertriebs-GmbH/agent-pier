@@ -335,9 +335,6 @@ export class TeamService {
   requestDetail(id) {
     return this.requests.detail(id);
   }
-  decideRequest(id, input, origin) {
-    return this.requests.decide(id, input, origin);
-  }
   async cancelRequest(id) {
     return publicRequest(await this.requests.stop(id, "owner"));
   }

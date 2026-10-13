@@ -168,7 +168,6 @@ export class AssistantService {
         awaiting: this.workflows?.store?.awaitingCounts(Date.now()) ?? {},
         teams: teamData?.teams ?? [],
         members: teamData?.members ?? [],
-        requests: teamData?.requests ?? [],
       }),
     };
   }

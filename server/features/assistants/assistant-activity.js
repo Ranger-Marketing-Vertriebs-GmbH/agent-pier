@@ -65,7 +65,6 @@ export function assistantActivity({
   awaiting = {},
   teams = [],
   members = [],
-  requests = [],
 }) {
   const attempts = attemptStates(conversations, latest);
   const memberOf = new Map(
@@ -90,11 +89,7 @@ export function assistantActivity({
       (m) =>
         !m.archivedAt && reviewPhases.has(m.phase) && own.some((t) => t.id === m.teamId),
     ).length;
-    // Questions and tasks for its members the lead may not send on its own.
-    const asks = requests.filter(
-      (r) => r.parentAssistantId === assistant.id && r.phase === "awaiting_approval",
-    ).length;
-    const pendingApprovals = counts.own + counts.team + proposals + reviews + asks;
+    const pendingApprovals = counts.own + counts.team + proposals + reviews;
     result[assistant.id] = {
       ...classify({
         attempts: attempts.get(assistant.id) ?? [],

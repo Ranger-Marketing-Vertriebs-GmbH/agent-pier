@@ -5,11 +5,11 @@ export { ownerQuote } from "./lead-request-proof.js";
 // Questions and tasks a lead agent sends to its own members. They live in the team
 // store as `lead-request` records beside the teams and members they refer to.
 export const requestKind = "lead-request";
-export const requestTerminal = new Set(["completed", "failed", "cancelled", "declined"]);
+export const requestTerminal = new Set(["completed", "failed", "cancelled"]);
 export const requestLimits = { question: 4000, task: 8192, answer: 6000 };
 // Bounds an injected lead or a member answer that keeps asking cannot exceed: open
 // requests per lead, requests per lead and minute, requests per owner turn, and the
-// owner-requested ones of a turn that skip the approval.
+// owner-proven tasks of a turn that may write.
 export const requestCaps = { open: 16, perMinute: 6, perTurn: 8, ownerPerTurn: 3 };
 // Finished requests kept per lead, and for how long.
 export const retention = { perLead: 200, days: 30 };
@@ -111,7 +111,10 @@ export class LeadRequestStore {
     const field = type === "task" ? "task" : "question";
     exact(
       input,
-      ["memberId", field, "ownerRequested", "ownerRequestQuote"],
+      // Only a task can be owner-proven; a question never changes files.
+      type === "task"
+        ? ["memberId", field, "ownerRequested", "ownerRequestQuote"]
+        : ["memberId", field],
       ["memberId", field],
     );
     textValue(operationId, 256);
@@ -158,31 +161,25 @@ export class LeadRequestStore {
         policy = t.policy(lead.id);
       const ownerTurn =
         ["owner", "telegram"].includes(context.kind) && !context.forwarded;
-      const owned = turn.filter((r) => r.authorization?.source === "ownerRequest");
-      // Only AgentPier's record of the turn and the owner's own words for this
-      // member authorise: a verbatim quote that names the member and says to ask or
-      // delegate, used once, for at most a few requests of the turn. A lead's claim,
-      // standing team permission or any other turn leads to an approval request.
+      const proofs = turn.filter((r) => r.ownerProof);
+      // Requests always run. Only a task the owner explicitly asked for in this
+      // very turn may change files in the member's workspace: AgentPier's record of
+      // the turn plus a verbatim quote of the owner's words that names the member
+      // and says to delegate, used once, for at most a few tasks of the turn. A
+      // lead's claim, standing team permission or any other turn runs read-only.
       const others = t
         .members()
         .filter((m) => m.parentAssistantId === lead.id && m.id !== member.id)
         .map((m) => this.teams.store.getAssistant(m.assistantId).name);
       const proven =
+        type === "task" &&
         ownerTurn &&
         !!quote &&
         ownerQuote(quote, request.text) &&
         namesMember(quote, assistant.name, others) &&
         intent(quote) &&
-        owned.length < requestCaps.ownerPerTurn &&
-        !owned.some((r) => plain(r.authorization.ownerRequestQuote) === plain(quote));
-      const authorization = proven
-        ? {
-            kind: "task",
-            requestId: request.id,
-            source: "ownerRequest",
-            ownerRequestQuote: quote,
-          }
-        : null;
+        proofs.length < requestCaps.ownerPerTurn &&
+        !proofs.some((r) => plain(r.ownerProof.quote) === plain(quote));
       return t.insert(
         {
           id: randomUUID(),
@@ -199,56 +196,16 @@ export class LeadRequestStore {
           memberName: assistant.name,
           text,
           origin: context,
-          authorization,
-          // A task the owner asked for in plain words may change files in the
-          // member's own workspace; an approval grants the same, nothing else does.
-          writeAllowed: type === "task" && !!authorization,
+          ownerProof: proven ? { requestId: request.id, quote } : null,
+          writeAllowed: proven,
           runTimeoutMinutes: policy.runTimeoutMinutes,
-          phase: authorization ? "queued" : "awaiting_approval",
+          phase: "queued",
           fingerprint: hash,
           delivery: null,
           createdAt: new Date().toISOString(),
         },
         key,
       );
-    });
-  }
-  decide(id, { revision, decision }, owner) {
-    return this.teams.transaction(() => {
-      if (!["owner", "telegram"].includes(owner?.kind))
-        throw assistantProblem("invalid", 403);
-      const r = this.get(id);
-      if (r.phase !== "awaiting_approval" || r.revision !== revision)
-        throw assistantProblem("conflict", 409);
-      if (!["approve", "decline"].includes(decision)) throw assistantProblem("invalid");
-      if (
-        owner.kind === "telegram" &&
-        (r.origin?.kind !== "telegram" ||
-          ["channelId", "chatId", "userId"].some((k) => r.origin[k] !== owner[k]))
-      )
-        throw assistantProblem("invalid", 403);
-      if (decision === "approve") {
-        // The member may have been archived or a task opened meanwhile.
-        this.ownMember(r.parentAssistantId, r.memberId);
-        if (
-          r.type === "task" &&
-          this.open(
-            (x) => x.id !== r.id && x.memberId === r.memberId && x.type === "task",
-          ).some((x) => x.phase !== "awaiting_approval")
-        )
-          throw assistantProblem("memberRequestOpenTask", 409);
-      }
-      return this.teams.write(r, {
-        phase: decision === "approve" ? "queued" : "declined",
-        authorization:
-          decision === "approve"
-            ? { kind: "approval", requestId: id, owner: owner.kind }
-            : null,
-        writeAllowed: decision === "approve" && r.type === "task",
-        ...(decision === "decline"
-          ? { finishedAt: new Date().toISOString(), delivery: "skipped", settled: true }
-          : {}),
-      });
     });
   }
   /** The archive checks a lead's tidy-up must pass for every member it names. */
@@ -283,10 +240,9 @@ const excerpt = (text, max) =>
     .join("");
 /**
  * What the browser sees of a request. The list carries a summary; `full` adds the
- * whole text and answer, loaded on demand. `member` describes what the member may
- * do (shell level, MCP servers), so an approval is informed.
+ * whole text and answer, loaded on demand.
  */
-export function publicRequest(r, { full = false, member } = {}) {
+export function publicRequest(r, { full = false } = {}) {
   const short = excerpt(r.text, 300);
   return {
     id: r.id,
@@ -309,9 +265,6 @@ export function publicRequest(r, { full = false, member } = {}) {
     ...(r.diagnostic ? { diagnostic: r.diagnostic } : {}),
     ...(r.delivery ? { delivery: r.delivery } : {}),
     ...(r.resultDiagnostic ? { resultDiagnostic: r.resultDiagnostic } : {}),
-    ...(member ? { member } : {}),
-    ...(r.authorization?.source === "ownerRequest"
-      ? { ownerRequestQuote: r.authorization.ownerRequestQuote }
-      : {}),
+    ...(r.ownerProof ? { ownerRequestQuote: r.ownerProof.quote } : {}),
   };
 }
