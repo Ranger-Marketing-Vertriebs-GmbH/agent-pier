@@ -42,6 +42,8 @@ export function normalizeOpenRouter(payload, fetchedAt) {
         capabilities: {
           toolCalling: true,
           reasoning: model.supported_parameters.includes("reasoning"),
+          // Agents send images inline only to models that take them.
+          imageInput: model.architecture.input_modalities.includes("image"),
         },
       })),
   );

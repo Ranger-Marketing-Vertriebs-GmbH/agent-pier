@@ -77,6 +77,7 @@ export function constructAssistantGraph(host, created = {}) {
   const models = new AssistantModels({
     connections: providerConnections,
     accounts: assistantModelAccounts,
+    catalog: host.providerCatalog,
   });
   // The current Gateway client; a restart replaces it, so nothing binds to one.
   const client = {
