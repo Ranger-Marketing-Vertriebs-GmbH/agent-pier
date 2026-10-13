@@ -53,6 +53,34 @@ Every package declares the range of data schemas it can open (`schemaMin` to
 - Testers take a backup in Settings → Backups before they activate an RC that changes
   the data schema.
 
+### When the guard fails
+
+The check runs in the publish job of the release workflow, after the tag push and
+all four platform builds. A failure publishes nothing and leaves the pushed tag
+without a release. To catch a conflict before tagging, compare the planned schema
+range with the published RCs, for example
+`gh release download v1.29.0-rc.1 --pattern latest.json --output -`.
+
+After a failure, delete the tag that has no release (`git push --delete origin
+v1.30.0`), change `schemaMin` or `schemaMax` so that the new release accepts every
+published RC schema, and tag again through the reviewed version-bump process.
+
+### Withdrawing a release candidate
+
+Prefer a new RC that fixes the problem and still accepts the schema of the bad one.
+If an RC must be withdrawn anyway, delete its GitHub release
+(`gh release delete v1.29.0-rc.1 --cleanup-tag`) or convert it back to a draft
+(`gh release edit v1.29.0-rc.1 --draft`). Both have the same effect:
+
+- Preview no longer offers it, because drafts and missing releases are excluded.
+- The publish guard no longer sees it, so later releases may stop accepting its
+  schema. Withdrawing an RC therefore removes the protection for its testers.
+- Installations that already have it keep it. A staged package stays activatable,
+  and an activated RC keeps running. If that RC migrated the data and no later
+  release accepts the schema, updates fail with an unreadable data schema and
+  rollback is refused. These testers must restore the backup they took before
+  activating the RC. Announce the withdrawal to them before you remove the release.
+
 ## Installation preference
 
 The choice is stored in `operations/release-preferences.json` inside the private
