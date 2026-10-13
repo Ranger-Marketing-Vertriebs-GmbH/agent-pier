@@ -355,7 +355,12 @@ export class TeamStore {
         });
         return memberId;
       });
-      return this.write(p, { phase: "queued", memberIds });
+      // When the team actually started; the lead's chat places its start note there.
+      return this.write(p, {
+        phase: "queued",
+        memberIds,
+        startedAt: new Date().toISOString(),
+      });
     });
   }
   setPhase(id, expected, patch) {

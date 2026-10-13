@@ -130,6 +130,10 @@ test("a team records when it ended and serves that time for the lead's chat note
     { team, attempt } = await f.proposal({ count: 1 });
   await f.service.reconcile();
   assert.equal(f.service.list().teams[0].finishedAt, undefined);
+  // The start is recorded when the members are reserved, not at the proposal.
+  const started = f.service.store.get(team.id).startedAt;
+  assert.ok(Date.parse(started) >= Date.parse(f.service.store.get(team.id).createdAt));
+  assert.equal(f.service.list().teams[0].startedAt, started);
   f.complete(f.service.store.members(team.id)[0].attemptId);
   await f.service.reconcile();
   const ended = f.service.store.get(team.id);

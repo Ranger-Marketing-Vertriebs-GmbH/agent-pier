@@ -58,6 +58,7 @@ export function publicTeam(record, describe = () => []) {
           "lifetime",
           "archivedAt",
           "createdAt",
+          "startedAt",
           "finishedAt",
           "resultState",
           "resultDiagnostic",
