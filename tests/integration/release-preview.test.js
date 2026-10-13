@@ -250,3 +250,59 @@ test("preview includes a stable release published after the list was loaded", as
   assert.equal(plan.version, "1.28.0");
   assert.equal(plan.upToDate, false);
 });
+
+test("stable upgrades an installed release candidate to its final release", async (t) => {
+  const { releases } = await fixture(t, [], "1.29.0-rc.1");
+  const fetchImpl = releases.fetchImpl;
+  releases.fetchImpl = (url) =>
+    fetchImpl(
+      url === `${root}latest/download/latest.json`
+        ? `${root}download/v1.29.0/latest.json`
+        : url,
+    );
+  const plan = await releases.check();
+  assert.equal(plan.updateChannel, "stable");
+  assert.equal(plan.version, "1.29.0");
+  assert.equal(plan.upToDate, false);
+});
+
+test("preview ignores entries whose prerelease flag contradicts the tag", async (t) => {
+  const { releases } = await fixture(t, [
+    entry("1.29.0-rc.3", { prerelease: false }),
+    entry("1.30.0", { prerelease: true }),
+    entry("1.28.0"),
+  ]);
+  releases.setUpdateChannel("preview");
+  assert.equal((await releases.check()).version, "1.28.0");
+});
+
+test("a damaged channel preference falls back to stable until it is saved again", async (t) => {
+  const { releases, options } = await fixture(t);
+  const file = path.join(options.dataDir, "operations/release-preferences.json");
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, "{ not json");
+  assert.equal(releases.status().updateChannel, "stable");
+  assert.equal(releases.setUpdateChannel("stable").updateChannel, "stable");
+  assert.deepEqual(JSON.parse(await fs.readFile(file, "utf8")), {
+    updateChannel: "stable",
+  });
+  assert.equal(releases.setUpdateChannel("preview").updateChannel, "preview");
+});
+
+test("repeating the selected channel keeps the offer and a running download", async (t) => {
+  const { releases } = await fixture(t, [entry("1.29.0-rc.1")]);
+  const fetchImpl = releases.fetchImpl;
+  releases.setUpdateChannel("preview");
+  await releases.check();
+  const revision = releases.channelRevision;
+  releases.setUpdateChannel("preview");
+  assert.equal(releases.channelRevision, revision);
+  await fs.stat(path.join(releases.directory, "candidate.json"));
+  releases.fetchImpl = (url) => {
+    if (url.endsWith(".aprelease")) releases.setUpdateChannel("preview");
+    return fetchImpl(url);
+  };
+  // The tampered fixture archive proves that staging reached the checksum step.
+  await assert.rejects(releases.stage({ version: "1.29.0-rc.1" }), /Prüfsumme/);
+  assert.equal(releases.channelRevision, revision);
+});
