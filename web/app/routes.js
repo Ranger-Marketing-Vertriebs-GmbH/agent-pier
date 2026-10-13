@@ -13,6 +13,7 @@ import {
 import { accountsQuery, readAccountsQuery } from "../features/accounts/routes.js";
 import { defaultExtensionTab, readExtensionTab } from "../features/extensions/routes.js";
 import { readMcpOAuthResult } from "../features/mcp-servers/oauth-result.js";
+import { appPathParts, returnParam, withoutReturnParam } from "./return-to.js";
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export function readRoute(location) {
   let pathname;
@@ -70,6 +71,7 @@ export function readRoute(location) {
       // A subpage (`section`, optional `item`); `section=mcp-servers` alone opens the
       // central MCP list, as linked from the CLI extensions page.
       ...readAccountsQuery(location.search),
+      ...readReturnTo(location.search),
       // An MCP OAuth login's result; the address drops it (see routePath).
       ...readMcpOAuthResult(location.search),
     };
@@ -82,7 +84,10 @@ export function readRoute(location) {
   const projectsRouteResult = readProjectsRoute(pathname, location.search);
   if (projectsRouteResult) return projectsRouteResult;
   const settingsRoute = readSettingsRoute(pathname, location.search);
-  if (settingsRoute) return settingsRoute;
+  if (settingsRoute)
+    return settingsRoute.view === "settings"
+      ? { ...settingsRoute, ...readReturnTo(location.search) }
+      : settingsRoute;
   const pipelineRoute = readPipelineRoute(pathname, location.search);
   if (pipelineRoute) return pipelineRoute;
   const artifacts = /^\/artifacts(?:\/([^/]+))?$/.exec(pathname);
@@ -141,7 +146,51 @@ export function readRoute(location) {
     view: "missing",
   };
 }
+// Pages a cross-link may return to, and pages that honour a `returnTo`.
+const returnOrigins = new Set(["agents", "settings", "extensions", "accounts"]);
+const returnTargets = new Set(["settings", "accounts"]);
+
+/** `{ returnTo }` with the canonical origin path of a valid `returnTo`, else `{}`. */
+export function readReturnTo(search) {
+  const parts = appPathParts(new URLSearchParams(search).get(returnParam));
+  if (!parts) return {};
+  const origin = readRoute({ ...parts, search: withoutReturnParam(parts.search) });
+  return returnOrigins.has(origin.view) ? { returnTo: routePath(origin) } : {};
+}
+
+/** The route a page opened through a cross-link leads back to, or null. */
+export function returnRoute(route) {
+  if (!route?.returnTo) return null;
+  const parts = appPathParts(route.returnTo);
+  if (!parts) return null;
+  const origin = readRoute({ ...parts, search: withoutReturnParam(parts.search) });
+  return returnOrigins.has(origin.view) ? origin : null;
+}
+
+/**
+ * A cross-link from `origin` (the current route) to `target` in another area: the
+ * target carries `returnTo`, so its back arrow leads to exactly this page.
+ */
+export function crossLinkRoute(target, origin) {
+  if (!origin || !returnTargets.has(target.view) || target.view === origin.view)
+    return target;
+  const { returnTo } = readReturnTo(
+    `?${new URLSearchParams({ returnTo: routePath(origin) })}`,
+  );
+  return returnTo ? { ...target, returnTo } : target;
+}
+
+function withReturnTo(path, route) {
+  if (!route.returnTo || !returnTargets.has(route.view)) return path;
+  const query = new URLSearchParams({ [returnParam]: route.returnTo });
+  return `${path}${path.includes("?") ? "&" : "?"}${query}`;
+}
+
 export function routePath(route) {
+  return withReturnTo(basePath(route), route);
+}
+
+function basePath(route) {
   if (route.view === "artifacts")
     return `/artifacts${route.projectId ? `/${encodeURIComponent(route.projectId)}` : ""}`;
   if (route.view === "files") return `/files${explorerQuery(route)}`;

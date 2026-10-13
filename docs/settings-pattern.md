@@ -141,6 +141,30 @@ they reach the guard automatically. A switch that is not a route change calls
 Defaults are left out of addresses; `useWorkspaceNavigation` replaces any address whose
 canonical form differs, which is how legacy links redirect.
 
+### Cross-links and the back arrow
+
+A link that leaves the current area (a `ReferenceRow` into Accounts, "Agent service
+settings", the Deepgram row on the Telegram tab, the Access tab's Accounts row, the
+CLI extensions' MCP row) wraps its target with `useCrossLink()` from
+`web/app/cross-link.js`. The target gets `returnTo=<origin path>`: the exact page,
+tab and subpage the owner came from.
+
+- Accounts and settings subpages read it with `useReturnTarget(route, navigate)`
+  (`web/app/useReturnTarget.js`). A valid `returnTo` turns the back arrow into "Back to
+  <origin>" (`settingsHubCopy.backTo`, e.g. "Back to Chief of Staff") that returns
+  there; without one the back arrow keeps the hierarchy (subpage → its tab, Accounts
+  entry → its group).
+- `returnTo` is part of the route (`readRoute`/`routePath`), so it survives a reload.
+  Moves inside Accounts keep it, and only the entry the link landed on returns to the
+  origin directly; any other navigation builds a fresh route and drops it.
+- Validation (`readReturnTo()` in `web/app/routes.js`, `appPathParts()` in
+  `web/app/return-to.js`): same-origin app paths only, no scheme, no `//host`, no
+  backslash or control characters, bounded length; the value is parsed as an app route
+  of an allowed origin (agents, settings, extensions, accounts) and rebuilt with
+  `routePath`, never echoed. A nested `returnTo` in the origin is cut off.
+- Agent settings remember their scroll position (`useReturnScroll`); returning through
+  the back arrow restores it.
+
 ## Server summaries
 
 - `PUT /api/assistants/:id/work` — `{ access?: { revision, projectIds, pipelineIds, memoryWrite, autonomous, publish }, team?: { revision, autonomous, maxMembers, runTimeoutMinutes } }`

@@ -4,6 +4,7 @@ import ListRow, { unknownValue } from "../../components/ListRow.jsx";
 import ReferenceRow from "../../components/ReferenceRow.jsx";
 import useResource from "../../lib/useResource.js";
 import { routePath } from "../../app/routes.js";
+import { useCrossLink } from "../../app/cross-link.js";
 import { operationsCopy } from "../../lib/i18n/messages/operations.js";
 import { settingsHubCopy } from "../../lib/i18n/messages/settings.js";
 import { TabFrame } from "./SettingsFrame.jsx";
@@ -31,6 +32,7 @@ function SummaryRows({ frame, label, rows }) {
 // Zugriff: AgentPier's own access paths; provider access and MCP servers live in Accounts.
 export function AccessTab({ frame }) {
   const summary = useResource("/settings/summary");
+  const accounts = useCrossLink()({ view: "accounts" });
   return (
     <TabFrame frame={frame}>
       <SummaryRows
@@ -40,8 +42,8 @@ export function AccessTab({ frame }) {
       />
       <ReferenceRow
         title={settingsHubCopy.centralTitle}
-        href={routePath({ view: "accounts" })}
-        onOpen={() => frame.go({ view: "accounts" })}
+        href={routePath(accounts)}
+        onOpen={() => frame.go(accounts)}
       />
     </TabFrame>
   );

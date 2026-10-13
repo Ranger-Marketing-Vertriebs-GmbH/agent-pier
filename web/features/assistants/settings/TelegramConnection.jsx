@@ -5,13 +5,14 @@ import ListCard from "../../../components/ListCard.jsx";
 import ListRow, { SelectRow, unknownValue } from "../../../components/ListRow.jsx";
 import ReferenceRow from "../../../components/ReferenceRow.jsx";
 import { routePath } from "../../../app/routes.js";
+import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { assistantApi } from "../assistant-api.js";
 import { agentRoute, channelActivity } from "./agent-settings-fields.js";
 
 // Voice messages use the central Deepgram key, managed on its Accounts subpage.
-const speechAccount = { view: "accounts", section: "services", item: "speech" };
+const speech = { view: "accounts", section: "services", item: "speech" };
 
 /** The start message and link that pair the owner's private chat. */
 export function PairingBlock({ pairing }) {
@@ -40,6 +41,7 @@ function activityStatus({ attention, entries }) {
 /** "Verbindung": the bot's state and actions, language and address drafts, subpage rows. */
 export function ConnectionGroup({ assistant, telegram, draft, go, navigate }) {
   const id = useId();
+  const speechAccount = useCrossLink()(speech);
   const copy = assistantCopy.channel;
   const { channel } = telegram;
   const connected = Boolean(channel?.hasSecret);

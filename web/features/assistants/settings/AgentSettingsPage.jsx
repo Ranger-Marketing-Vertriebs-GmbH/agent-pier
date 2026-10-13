@@ -1,7 +1,9 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import UnderlineTabs from "../../../components/UnderlineTabs.jsx";
 import { assistantSettingsCopy as copy } from "../../../lib/i18n/messages/assistant-settings.js";
+import { routePath } from "../../../app/routes.js";
+import { useReturnScroll } from "../../../app/return-scroll.js";
 import AssistantHeader from "../AssistantHeader.jsx";
 import useAssistants from "../useAssistants.js";
 import { agentRoute, resolveAgentLocation } from "./agent-settings-fields.js";
@@ -40,6 +42,9 @@ export default function AgentSettingsPage({
   }, [normalized, assistant.id, tab, page, navigate]);
   const go = (nextTab, nextPage = "") =>
     navigate(agentRoute(assistant.id, nextTab, nextPage));
+  const scroller = useRef(null);
+  // Back from a cross-link target (Accounts, agent service) lands where the owner was.
+  useReturnScroll(scroller, routePath(agentRoute(assistant.id, tab, page)));
   const Panel = panels[tab];
   const props = { assistant, page, go, navigate };
   return (
@@ -63,7 +68,7 @@ export default function AgentSettingsPage({
           }}
         />
       </div>
-      <div className="assistant-settings-scroll">
+      <div className="assistant-settings-scroll" ref={scroller}>
         <ErrorMessage error={error} />
         <div className="agent-settings-layout">
           <div

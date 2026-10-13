@@ -1,6 +1,7 @@
 import React from "react";
 import ReferenceRow from "../../../components/ReferenceRow.jsx";
 import { routePath } from "../../../app/routes.js";
+import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
 import AssistantModelFields from "../AssistantModelFields.jsx";
 
@@ -16,7 +17,7 @@ export function profileValid(draft) {
 /** Name, instructions and model of an agent draft (Profile tab and create mode). */
 export default function ProfileFields({ draft, models, modelKey, navigate }) {
   const { name, instructions, connectionId, modelId } = draft.values;
-  const accounts = { view: "accounts", section: "models" };
+  const accounts = useCrossLink()({ view: "accounts", section: "models" });
   return (
     <>
       <div className="list-card agent-fields agent-profile-card">

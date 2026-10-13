@@ -3,6 +3,7 @@ import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow, { unknownValue } from "../../../components/ListRow.jsx";
 import { routePath } from "../../../app/routes.js";
+import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
 
 // The agent service at a glance: a right column on wide screens, a Profile group otherwise.
@@ -13,7 +14,7 @@ export default function RuntimeSummary({
   className,
 }) {
   const id = useId();
-  const settings = { view: "settings", settingsSection: "assistants" };
+  const settings = useCrossLink()({ view: "settings", settingsSection: "assistants" });
   const diagnostic = copy.runtimeDiagnostics[runtime.diagnostic];
   return (
     <Tag className={`agent-runtime ${className}`} aria-labelledby={id}>

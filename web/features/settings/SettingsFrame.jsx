@@ -41,9 +41,11 @@ export function TabFrame({ frame, bar, children }) {
   );
 }
 
-// One section of a tab; the back button returns to that tab on every width.
+// One section of a tab; the back button returns to that tab on every width, or to the
+// page a cross-link came from (`frame.returnTarget`).
 export function SubpageFrame({ frame, title, wide = false, bar, children }) {
   const tab = operationsCopy.groups[frame.tab];
+  const origin = frame.returnTarget;
   return (
     <SettingsShell
       className={["settings-page-shell", "settings-subpage", wide ? "wide" : ""]
@@ -52,8 +54,8 @@ export function SubpageFrame({ frame, title, wide = false, bar, children }) {
       title={title ?? operationsCopy.sections[frame.section]}
       subtitle={settingsHubCopy.subpageOf(tab)}
       leading="back"
-      leadingLabel={settingsHubCopy.backTo(tab)}
-      onLeading={() => frame.go(tabRoot(frame.tab))}
+      leadingLabel={origin ? origin.label : settingsHubCopy.backTo(tab)}
+      onLeading={origin ? origin.back : () => frame.go(tabRoot(frame.tab))}
       bar={bar}
     >
       {children}

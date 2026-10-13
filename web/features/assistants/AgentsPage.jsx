@@ -9,6 +9,7 @@ import AgentSettingsPage from "./settings/AgentSettingsPage.jsx";
 import AssistantChat from "./AssistantChat.jsx";
 import useSessionViewport from "../sessions/useSessionViewport.js";
 import { connectionMissing } from "./connection-state.js";
+import { useCrossLink } from "../../app/cross-link.js";
 export default function AgentsPage({ route, navigate, openNavigation, navigationOpen }) {
   const {
     assistants,
@@ -21,6 +22,7 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
     [error, setError] = useState("");
   const assistant = assistants.find((a) => a.id === route.assistantId);
   const request = useRef(null);
+  const crossLink = useCrossLink();
   useEffect(
     () => () => {
       request.current = null;
@@ -93,7 +95,9 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
         </div>
         <button
           className="button secondary"
-          onClick={() => navigate({ view: "settings", settingsSection: "assistants" })}
+          onClick={() =>
+            navigate(crossLink({ view: "settings", settingsSection: "assistants" }))
+          }
         >
           {copy.runtimeLink}
         </button>

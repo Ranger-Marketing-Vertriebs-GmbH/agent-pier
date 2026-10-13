@@ -5,6 +5,7 @@ import ListCard from "../../../components/ListCard.jsx";
 import { CheckboxRow } from "../../../components/ListRow.jsx";
 import ReferenceRow from "../../../components/ReferenceRow.jsx";
 import { routePath } from "../../../app/routes.js";
+import { useCrossLink } from "../../../app/cross-link.js";
 import { mcpOAuthCopy } from "../../../lib/i18n/messages/mcp-oauth.js";
 import { mcpServerCopy as copy } from "../../../lib/i18n/messages/mcp-servers.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
@@ -20,6 +21,7 @@ import "../../mcp-servers/mcp-servers.css";
 /** Which central MCP servers the agent may use; saved with the Capabilities tab. */
 export default function McpGroup({ assistant, draft, notice, reloadKey, navigate }) {
   const id = useId();
+  const crossLink = useCrossLink();
   const [servers, setServers] = useState(null),
     [error, setError] = useState("");
   const bound = assistant.mcpServers || [];
@@ -44,7 +46,7 @@ export default function McpGroup({ assistant, draft, notice, reloadKey, navigate
   const loginMissing = (servers || []).some(
     (server) => loginShown(server) && oauthStatusOf(server) !== "connected",
   );
-  const accounts = { view: "accounts", section: "mcp-servers" };
+  const accounts = crossLink({ view: "accounts", section: "mcp-servers" });
   return (
     <section id="agent-mcp" aria-labelledby={id}>
       <GroupLabel id={id} hint={copy.agentDescription}>

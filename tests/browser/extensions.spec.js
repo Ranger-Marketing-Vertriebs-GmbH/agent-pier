@@ -135,7 +135,9 @@ test("the MCP reference row points to the central MCP server list", async ({ pag
     page.getByRole("button", { name: "MCP-Server hinzufügen", exact: true }),
   ).toHaveCount(0);
   await reference.click();
-  await expect(page).toHaveURL(/\/accounts\?section=mcp-servers$/);
+  await expect(page).toHaveURL(
+    /\/accounts\?section=mcp-servers&returnTo=%2Fextensions%2F/,
+  );
   await expect(accountRow(page, "In den CLIs gefunden")).toBeVisible();
   expect(writes).toHaveLength(0);
 });
