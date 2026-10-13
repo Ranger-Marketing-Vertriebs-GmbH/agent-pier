@@ -56,17 +56,28 @@ export class Releases {
     this.processes = processes;
     this.directory = folder(path.join(this.dataDir, "operations/releases"));
   }
+  // Returns null when the preference file cannot be read as JSON.
+  storedUpdateChannel() {
+    try {
+      return readJson(path.join(this.dataDir, "operations/release-preferences.json"), {})
+        ?.updateChannel === "preview"
+        ? "preview"
+        : "stable";
+    } catch {
+      return null;
+    }
+  }
   get updateChannel() {
-    return readJson(path.join(this.dataDir, "operations/release-preferences.json"), {})
-      ?.updateChannel === "preview"
-      ? "preview"
-      : "stable";
+    // A damaged preference file falls back to Stable; saving a channel repairs it.
+    return this.storedUpdateChannel() ?? "stable";
   }
   setUpdateChannel(value) {
     if (!["stable", "preview"].includes(value))
       throw problem(serverMessages.operations.invalidOptions);
     if (!isOfficialChannel(this.channel))
       throw problem(serverMessages.releases.channelManaged, 409);
+    // A repeated selection must not abort a check or download that is still running.
+    if (this.storedUpdateChannel() === value) return this.status();
     atomic(path.join(this.dataDir, "operations/release-preferences.json"), {
       updateChannel: value,
     });
