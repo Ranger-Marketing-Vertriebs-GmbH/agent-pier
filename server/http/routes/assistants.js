@@ -7,7 +7,7 @@ import { assistantCapabilityRoutes } from "./assistant-capabilities.js";
 import { assistantChannelRoutes } from "./assistant-channels.js";
 import { assistantWebSearchRoutes } from "./assistant-web-search.js";
 import { assistantTelegramSenderRoutes } from "./assistant-telegram-senders.js";
-import { assistantAccountRoutes } from "./assistant-accounts.js";
+import { assistantAccountRoutes, modelRefreshRateLimit } from "./assistant-accounts.js";
 import { mcpServerErrors, replyStdioConfirmation } from "./mcp-servers.js";
 import { mcpOAuthRateLimit, mcpOAuthRoutes } from "./mcp-oauth.js";
 import { assistantShellRoutes, replyShellConfirmation } from "./assistant-shell.js";
@@ -34,7 +34,10 @@ const reply = (res, status, code, message) =>
 export function assistantRoutes(services) {
   const router = Router();
   // The routes below are built lazily; their rate limiters are built now.
-  const limits = { mcpOAuthLimit: mcpOAuthRateLimit() };
+  const limits = {
+    mcpOAuthLimit: mcpOAuthRateLimit(),
+    modelRefreshLimit: modelRefreshRateLimit(),
+  };
   let built = null;
   let routes = null;
   router.use(assistantFeatureRoutes(services));
