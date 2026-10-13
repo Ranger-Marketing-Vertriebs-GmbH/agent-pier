@@ -138,7 +138,10 @@ try {
       return;
     }
     const upstream = http.request(
-      new URL(req.url, backendUrl),
+      Object.assign(new URL(backendUrl), {
+        pathname,
+        search: new URL(req.url, "http://fixture").search,
+      }),
       { method: req.method, headers: req.headers },
       (incoming) => {
         res.writeHead(incoming.statusCode, incoming.headers);
