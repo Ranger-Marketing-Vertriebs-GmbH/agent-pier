@@ -57,19 +57,21 @@ export class Releases {
     this.processes = processes;
     this.directory = folder(path.join(this.dataDir, "operations/releases"));
   }
-  // Returns null when the preference file cannot be read as JSON.
+  // A missing file means Stable; a file that is not valid JSON returns null.
+  // Other read errors surface like every other operations file error.
   storedUpdateChannel() {
     try {
       return readJson(path.join(this.dataDir, "operations/release-preferences.json"), {})
         ?.updateChannel === "preview"
         ? "preview"
         : "stable";
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof SyntaxError) return null;
+      throw error;
     }
   }
   get updateChannel() {
-    // A damaged preference file falls back to Stable; saving a channel repairs it.
+    // Damaged JSON falls back to Stable; saving a channel repairs the file.
     return this.storedUpdateChannel() ?? "stable";
   }
   setUpdateChannel(value) {
@@ -77,11 +79,29 @@ export class Releases {
       throw problem(serverMessages.operations.invalidOptions);
     if (!isOfficialChannel(this.channel))
       throw problem(serverMessages.releases.channelManaged, 409);
+    const unusable = (cause) =>
+      Object.assign(
+        problem(
+          serverMessages.releases.channelSaveFailed,
+          ["EACCES", "EPERM", "EROFS"].includes(cause.code) ? 403 : 409,
+        ),
+        { cause },
+      );
+    let stored;
+    try {
+      stored = this.storedUpdateChannel();
+    } catch (error) {
+      throw unusable(error);
+    }
     // A repeated selection must not abort a check or download that is still running.
-    if (this.storedUpdateChannel() === value) return this.status();
-    atomic(path.join(this.dataDir, "operations/release-preferences.json"), {
-      updateChannel: value,
-    });
+    if (stored === value) return this.status();
+    try {
+      atomic(path.join(this.dataDir, "operations/release-preferences.json"), {
+        updateChannel: value,
+      });
+    } catch (error) {
+      throw unusable(error);
+    }
     this.channelRevision += 1;
     fs.rmSync(path.join(this.directory, "candidate.json"), { force: true });
     return this.status();

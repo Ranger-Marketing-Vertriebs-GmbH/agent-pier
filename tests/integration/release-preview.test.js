@@ -290,6 +290,19 @@ test("a damaged channel preference falls back to stable until it is saved again"
   assert.equal(releases.setUpdateChannel("preview").updateChannel, "preview");
 });
 
+test("an unusable channel preference path fails with a clear error", async (t) => {
+  const { releases, options } = await fixture(t);
+  const file = path.join(options.dataDir, "operations/release-preferences.json");
+  await fs.mkdir(file, { recursive: true });
+  assert.throws(() => releases.status(), { status: 413 });
+  assert.throws(() => releases.setUpdateChannel("preview"), {
+    status: 409,
+    message: /Updatekanal konnte nicht gespeichert werden/,
+  });
+  await fs.rm(file, { recursive: true });
+  assert.equal(releases.setUpdateChannel("preview").updateChannel, "preview");
+});
+
 test("repeating the selected channel keeps the offer and a running download", async (t) => {
   const { releases } = await fixture(t, [entry("1.29.0-rc.1")]);
   const fetchImpl = releases.fetchImpl;
