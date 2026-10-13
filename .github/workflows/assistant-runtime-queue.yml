@@ -16,7 +16,7 @@ jobs:
   contracts:
     name: Assistant runtime (queue)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,10 +58,12 @@ jobs:
       # web tools and scheduling contracts stay in the full workflow.
       - name: Run the core native contracts
         if: steps.paths.outputs.relevant == 'true'
-        timeout-minutes: 20
+        timeout-minutes: 30
+        # Under node --test the per-test timeout also bounds each file as a whole; the
+        # shell contract alone takes 220-290 s on hosted runners.
         run: >-
           node scripts/test-files.mjs --label "assistant core contracts"
-          --concurrency 1 --retry --no-skips --test-timeout 300000
+          --concurrency 1 --retry --no-skips --test-timeout 600000
           tests/integration/assistant-runtime-contract.test.js
           tests/integration/assistant-provider-contract.test.js
           tests/integration/assistant-chat-stream-contract.test.js
