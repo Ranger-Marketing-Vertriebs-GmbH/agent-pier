@@ -14,6 +14,7 @@ import { accountsQuery, readAccountsQuery } from "../features/accounts/routes.js
 import { defaultExtensionTab, readExtensionTab } from "../features/extensions/routes.js";
 import { readMcpOAuthResult } from "../features/mcp-servers/oauth-result.js";
 import { appPathParts, returnParam, withoutReturnParam } from "./return-to.js";
+import { artifactsRoutePath, readArtifactsQuery } from "../features/artifacts/routes.js";
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export function readRoute(location) {
   let pathname;
@@ -92,7 +93,11 @@ export function readRoute(location) {
   if (pipelineRoute) return pipelineRoute;
   const artifacts = /^\/artifacts(?:\/([^/]+))?$/.exec(pathname);
   if (artifacts && (!artifacts[1] || idPattern.test(artifacts[1])))
-    return { view: "artifacts", projectId: artifacts[1] || "" };
+    return {
+      view: "artifacts",
+      projectId: artifacts[1] || "",
+      ...readArtifactsQuery(location.search),
+    };
   const memory = /^\/memory(?:\/([^/]+))?$/.exec(pathname);
   if (memory && (!memory[1] || idPattern.test(memory[1]))) {
     const query = new URLSearchParams(location.search);
@@ -207,8 +212,7 @@ export function routePath(route) {
 }
 
 function basePath(route) {
-  if (route.view === "artifacts")
-    return `/artifacts${route.projectId ? `/${encodeURIComponent(route.projectId)}` : ""}`;
+  if (route.view === "artifacts") return artifactsRoutePath(route);
   if (route.view === "files") return `/files${explorerQuery(route)}`;
   if (route.view === "agents")
     return route.conversationId
