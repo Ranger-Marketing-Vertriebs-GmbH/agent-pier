@@ -8,6 +8,7 @@ import { ChatStore } from "../../server/features/chat/chat-store.js";
 import { ChatStreams } from "../../server/features/chat/chat-streams.js";
 import { ChatEvents } from "../../server/features/chat/chat-events.js";
 import { watchNativeInput } from "../../server/features/chat/native-input-watch.js";
+import { until } from "../helpers/adapter-process.js";
 
 const NATIVE = "11111111-1111-1111-1111-111111111111";
 
@@ -107,12 +108,15 @@ test("a new subscriber gets the cached value and then the current source", async
   t.after(() => s.streams.close());
   const first = [];
   s.streams.subscribe("s1", (value) => first.push(value));
-  await delay(100);
+  // Wait for the settled first read; a slow runner may need far longer than 100 ms.
+  await until(() => first.length && !s.streams.entries.get("s1").pending, 10_000);
   assert.deepEqual(ids(first.at(-1).snapshot), ["m1"]);
   f.source.version = 2; // written without a delivered watcher event
   const second = [];
   s.streams.subscribe("s1", (value) => second.push(value));
-  await delay(100);
+  // Only the new subscriber's refresh can read version 2, so this never passes
+  // without it; the deadline only absorbs a slow runner.
+  await until(() => second.at(-1)?.snapshot.messages[0]?.id === "m2", 10_000);
   assert.deepEqual(ids(second[0].snapshot), ["m1"]);
   assert.deepEqual(ids(second.at(-1).snapshot), ["m2"]);
   assert.deepEqual(ids(first.at(-1).snapshot), ["m2"]);
@@ -124,15 +128,21 @@ test("recovery keeps the native queue while its observer is rebuilt", async (t) 
   const s = streams(f, {
     recoveryMs: 40,
     watchInput: (_options, changed) => {
-      observers++;
-      const timer = setTimeout(() => changed({ generation: 1, queue: ["q"] }), 30);
-      return () => clearTimeout(timer);
+      // Only the first observer reports, at once, so a recovery cannot tear it
+      // down first. A rebuilt one stays silent: every refresh after a recovery
+      // runs before its observer could report again, whatever the timing, and
+      // must still publish the last queue.
+      if (++observers === 1) changed({ generation: 1, queue: ["q"] });
+      return () => {};
     },
   });
   t.after(() => s.streams.close());
   const inputs = [];
   s.streams.subscribe("s1", (value) => inputs.push(value.snapshot?.nativeInput));
-  await delay(250);
+  // Wait for the queue, then for two rebuilds: the refresh that created the
+  // second-to-last observer has published by the time the last one exists.
+  await until(() => inputs.some(Boolean), 10_000);
+  await until(() => observers >= 3, 10_000);
   assert.ok(observers >= 3, "observer was rebuilt by recovery");
   const first = inputs.findIndex(Boolean);
   assert.ok(first >= 0);
@@ -155,10 +165,10 @@ test("an exited native observer is reattached without waiting for recovery", asy
   });
   t.after(() => s.streams.close());
   s.streams.subscribe("s1", () => {});
-  await delay(50);
-  assert.equal(exits.length, 1);
+  await until(() => exits.length === 1, 10_000);
   exits[0]();
-  await delay(1200);
+  // The reattach backs off for 1 s; recovery (60 s) is far beyond this deadline.
+  await until(() => exits.length === 2, 10_000);
   assert.equal(exits.length, 2);
 });
 
