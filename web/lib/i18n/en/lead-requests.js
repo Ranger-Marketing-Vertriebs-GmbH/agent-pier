@@ -33,4 +33,11 @@ export const leadRequestCopy = {
   answer: "Answer",
   result: "Result",
   because: (quote) => `Because you wrote: “${quote}”`,
+  // The @mention autocomplete in a lead's composer and the chips in its chat.
+  mentions: {
+    list: "Team members",
+    permanent: "Permanent",
+    temporary: "Temporary",
+    open: (name) => `Open the chat with ${name}`,
+  },
 };

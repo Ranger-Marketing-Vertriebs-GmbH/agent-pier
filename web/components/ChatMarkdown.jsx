@@ -5,11 +5,12 @@ import { chatMessageCopy as copy } from "../lib/i18n/messages/chat.js";
 
 // Model output is untrusted: raw HTML is dropped, remote images never load (a text
 // placeholder stands in) and every link opens in a new, isolated tab. Callers may
-// override single elements, for example to route project file links.
-export default function ChatMarkdown({ children, components, urlTransform }) {
+// override single elements, for example to route project file links, and add remark
+// plugins of their own.
+export default function ChatMarkdown({ children, components, urlTransform, plugins }) {
   return (
     <Markdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={plugins ? [remarkGfm, ...plugins] : [remarkGfm]}
       skipHtml
       urlTransform={urlTransform}
       components={{

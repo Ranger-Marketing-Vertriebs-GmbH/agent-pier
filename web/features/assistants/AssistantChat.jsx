@@ -27,6 +27,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { assistantApi } from "./assistant-api.js";
 import useAssistants, { useAssistantEvent } from "./useAssistants.js";
+import { leadMembers } from "./useMemberMention.js";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
 const sameTurnText = (a, b) => turnText(a) === turnText(b);
@@ -44,6 +45,7 @@ export default function AssistantChat({
     drafts,
     connected,
     runtime,
+    assistants = [],
     members = [],
     teams = [],
     conversations = [],
@@ -115,6 +117,15 @@ export default function AssistantChat({
     !memberBusy &&
     !assistant.archivedAt &&
     runtime.availability === "ready",
+  );
+  // A lead's members, for @mentions in its composer and as chips in its messages.
+  const mentionMembers = useMemo(
+    () => leadMembers(assistant, { assistants, members, conversations }),
+    [assistant, assistants, members, conversations],
+  );
+  const mentions = useMemo(
+    () => (mentionMembers.length ? { members: mentionMembers, navigate } : null),
+    [mentionMembers, navigate],
   );
   const notes = useMemo(
     () => (member ? [] : teamNotes(teams, { assistantId: assistant.id, conversationId })),
@@ -298,6 +309,7 @@ export default function AssistantChat({
                   sender={m.sender}
                   timestamp={m.timestamp}
                   attachments={m.attachments}
+                  mentions={mentions}
                 />
               ),
             )}
@@ -321,6 +333,7 @@ export default function AssistantChat({
                   source={latest.source}
                   sender={latest.sender}
                   timestamp={Date.parse(latest.createdAt) || 0}
+                  mentions={mentions}
                 />
               )}
             {delta && (
@@ -400,6 +413,7 @@ export default function AssistantChat({
           output={output}
           stick={stick}
           scroll={scroll}
+          mentionMembers={mentionMembers}
         />
       </div>
     </section>

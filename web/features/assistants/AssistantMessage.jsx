@@ -1,16 +1,20 @@
-import React, { memo, useId } from "react";
+import React, { memo, useId, useMemo } from "react";
 import ChatMarkdown from "../../components/ChatMarkdown.jsx";
 import AgentMessageAttachments from "./AgentMessageAttachments.jsx";
 import "./assistant-message-source.css";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
 import { formatMessageTime } from "../../lib/i18n/index.js";
+import { remarkMemberMentions } from "./mention-markdown.js";
+import RouteLink from "./RouteLink.jsx";
+import "./member-mentions.css";
 
 // Memoized so a streamed delta re-parses only the streaming message, not the history.
 // The owner's own name stays for screen readers only; the bubble already says who.
 // An owner message that reached the agent through Telegram, and a question or task
 // the member's lead agent sent, get a quiet meta line under the bubble, which also
-// describes the message for screen readers.
+// describes the message for screen readers. In a lead's chat the owner's @mentions
+// of its members (`mentions`: `{ members, navigate }`) become chips to their chats.
 export default memo(function AssistantMessage({
   role,
   name,
@@ -20,9 +24,21 @@ export default memo(function AssistantMessage({
   sender = null,
   timestamp = 0,
   attachments = null,
+  mentions = null,
 }) {
   const metaId = useId();
   const lead = role === "user" && source === "lead" && typeof sender?.name === "string";
+  const chips = role === "user" && !lead && mentions?.members.length ? mentions : null;
+  const markdown = useMemo(
+    () =>
+      chips
+        ? {
+            plugins: [remarkMemberMentions(chips.members)],
+            components: { "member-mention": mentionChip(chips) },
+          }
+        : {},
+    [chips],
+  );
   const marked = role === "user" && (source === "telegram" || lead);
   const message = (
     <article
@@ -36,7 +52,7 @@ export default memo(function AssistantMessage({
       <AgentMessageAttachments files={attachments} />
       {(text || !attachments?.length) && (
         <div className="message-content">
-          <ChatMarkdown>{text}</ChatMarkdown>
+          <ChatMarkdown {...markdown}>{text}</ChatMarkdown>
         </div>
       )}
     </article>
@@ -54,6 +70,22 @@ export default memo(function AssistantMessage({
     </div>
   );
 });
+
+const mentionChip = ({ members, navigate }) =>
+  function MemberMention({ node, children }) {
+    const member = members.find((m) => m.id === node?.properties?.member);
+    if (!member) return children;
+    return (
+      <RouteLink
+        className="member-mention-chip"
+        route={member.route}
+        navigate={navigate}
+        title={leadRequestCopy.mentions.open(member.name)}
+      >
+        {children}
+      </RouteLink>
+    );
+  };
 
 const leadWords = (name) => ({
   via: leadRequestCopy.from(name),

@@ -1,0 +1,94 @@
+/* The @mention autocomplete floats above a lead's composer, like the options. */
+.member-mentions {
+  position: absolute;
+  right: max(28px, calc((100% - 760px) / 2));
+  bottom: calc(100% + 8px);
+  left: max(28px, calc((100% - 760px) / 2));
+  z-index: 3;
+  max-height: min(320px, 45vh);
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--popover-raised);
+  box-shadow: var(--popover-shadow);
+}
+.member-mentions[hidden] {
+  display: none;
+}
+.member-mention-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.member-mention-option[aria-selected="true"] {
+  background: var(--surface-accent);
+  outline: 1px solid var(--accent-line);
+}
+.member-mention-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.member-mention-name,
+.member-mention-role {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-mention-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.member-mention-role {
+  color: var(--muted);
+  font-size: 12px;
+}
+.member-mention-badge {
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.member-mention-badge.permanent {
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+/* A sent mention: a chip that opens the member's chat. */
+.member-mention-chip,
+.message-content a.member-mention-chip {
+  display: inline-block;
+  padding: 0 7px;
+  border: 1px solid var(--accent-line);
+  border-radius: 10px;
+  background: var(--accent-faint);
+  color: var(--accent-text);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.member-mention-chip:hover {
+  border-color: var(--accent);
+}
+.member-mention-chip:focus-visible {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: 1px;
+}
+@media (max-width: 700px) {
+  .member-mentions {
+    right: 10px;
+    left: 10px;
+  }
+}
