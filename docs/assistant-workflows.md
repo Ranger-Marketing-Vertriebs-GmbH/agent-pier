@@ -50,8 +50,9 @@ members also have no reminder, routine or personal memory tools.
 
 A member's request always waits for your exact approval, even when the parent
 has standing permission to start pipelines. It appears in the parent's actions,
-in the team card of the parent's chat and, when a Telegram chat is bound (the
-chat that started the team, otherwise the parent's paired chat), as a Telegram
+in the parent's chat until decided, in the team's card under the parent's
+Settings → Work → Teams and, when a Telegram chat is bound (the chat that started
+the team, otherwise the parent's paired chat), as a Telegram
 approval linking to the team task. Telegram decisions must come from exactly
 that chat and user. Before the start AgentPier checks the parent's access and
 pipeline definition again; a change since the request fails the action with

@@ -543,8 +543,8 @@ changes it.
 Known limits: AgentPier cannot tell third-party text pasted into the web composer
 from the owner's own words (only Telegram forwards are detected), and an owner
 message that mentions a team in another sense ("my team meets at three") can still
-be quoted by the model. The mitigation is visibility: the team card and the Telegram
-start notice show "Started because you wrote: “…”" with the quote, and the owner
+be quoted by the model. The mitigation is visibility: the team card (in the proposal
+and under Settings → Work → Teams) and the Telegram start notice show "Started because you wrote: “…”" with the quote, and the owner
 can stop the team at any time.
 
 Default limits are four members, eight concurrent members per host and ten minutes
@@ -605,7 +605,7 @@ grants; [agent workflows](assistant-workflows.md#coding-requests-from-team-membe
 describes the full behaviour. For operation:
 
 - **Owner approval:** every member request waits for the owner's exact approval,
-  in the parent's actions, the team card or the bound Telegram chat. The parent's
+  in the parent's chat, the team card or the bound Telegram chat. The parent's
   standing permission to start pipelines never applies.
 - **`GRANT_REVOKED`:** access or the pipeline definition changed between request
   and start, so the action failed and nothing ran. Grant the project again and let
