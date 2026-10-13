@@ -1,25 +1,39 @@
 import React, { useCallback, useEffect, useState } from "react";
+import GroupLabel from "../../components/GroupLabel.jsx";
 import Icon from "../../components/Icon.jsx";
 import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-import { extensionsHubCopy as hub } from "../../lib/i18n/messages/extensions.js";
-import { mcpCliCopy } from "../../lib/i18n/messages/mcp-cli.js";
+import {
+  extensionsHubCopy as hub,
+  profileExtensionsCopy,
+} from "../../lib/i18n/messages/extensions.js";
 import {
   marketplacesCopy,
   pluginCatalogCopy,
   profilePluginsCopy,
 } from "../../lib/i18n/messages/plugins.js";
 import { names } from "../../lib/providers.js";
-import { defaultExtensionTab } from "./routes.js";
 import AgentsTab from "../agency/AgentsTab.jsx";
 import MarketplacesTab from "../plugins/MarketplacesTab.jsx";
 import PluginsTab from "../plugins/PluginsTab.jsx";
-import PluginSourceForm from "../plugins/PluginSourceForm.jsx";
 import useProfilePlugins from "../plugins/useProfilePlugins.js";
-import McpTab from "./McpTab.jsx";
-import SkillInstallForm from "./SkillInstallForm.jsx";
+import ExtensionPanels from "./ExtensionPanels.jsx";
+import McpReferenceRow from "./McpReferenceRow.jsx";
 import SkillsTab from "./SkillsTab.jsx";
 import useProfileExtensions from "./useProfileExtensions.js";
+import { primaryAction, resolveWorkspaceTab, workspaceTabs } from "./workspace-model.js";
+
+// "+ Skill installieren" on the group label (phones); the "+" stays out of the name.
+const groupAction = (primary) => ({
+  label: (
+    <>
+      <span aria-hidden="true">+</span>
+      {primary.label}
+    </>
+  ),
+  onClick: primary.run,
+  disabled: primary.disabled,
+});
 
 // One instance per profile (keyed by the page): the data hooks live here so
 // switching tabs neither refetches nor drops notices, drafts or confirmations.
@@ -31,6 +45,8 @@ export default function ExtensionWorkspace({
   busySetters,
   locked,
   onNavigate,
+  serverCount,
+  onConfigPath,
 }) {
   const ext = useProfileExtensions({
     account,
@@ -44,6 +60,7 @@ export default function ExtensionWorkspace({
   });
   const [panel, setPanel] = useState(null);
   const [pluginMode, setPluginMode] = useState("installed");
+  const [pluginDetail, setPluginDetail] = useState(null);
   const [agentMode, setAgentMode] = useState("installed");
   const [agentCount, setAgentCount] = useState(undefined);
   const [agentsSeen, setAgentsSeen] = useState(false);
@@ -54,34 +71,34 @@ export default function ExtensionWorkspace({
   if (known !== catalogKnown) setCatalogKnown(known);
   const supported = known === true;
   const [submitted, setSubmitted] = useState(false);
-  const tabs = [
-    // MCP servers live in the central list; this tab only points there.
-    { id: "mcp", label: hub.tabMcp },
-    { id: "skills", label: hub.tabSkills, count: ext.data?.skills.items.length },
-    { id: "plugins", label: hub.tabPlugins, count: plugins.data?.installed.length },
-    ...(supported
-      ? [
-          {
-            id: "marketplaces",
-            label: hub.tabMarketplaces,
-            count: plugins.data?.marketplaces.length,
-          },
-        ]
-      : []),
-    ...(account.shared
-      ? [{ id: "agents", label: hub.tabAgents, count: agentCount }]
-      : []),
-  ];
+  const tabLabels = {
+    skills: hub.tabSkills,
+    plugins: hub.tabPlugins,
+    marketplaces: hub.tabMarketplaces,
+    agents: hub.tabAgents,
+  };
+  const tabs = workspaceTabs({
+    shared: account.shared,
+    marketplaces: supported,
+    counts: {
+      skills: ext.data?.skills.items.length,
+      plugins: plugins.data?.installed.length,
+      marketplaces: plugins.data?.marketplaces.length,
+      agents: agentCount,
+    },
+  }).map((item) => ({ ...item, label: tabLabels[item.id] }));
   // A marketplaces deep link waits for the CLI's capabilities instead of
   // flashing a tab the CLI may not support.
-  const pending = requestedTab === "marketplaces" && known === null;
-  const tab =
-    pending || tabs.some((item) => item.id === requestedTab)
-      ? requestedTab
-      : defaultExtensionTab;
+  const { tab } = resolveWorkspaceTab(
+    requestedTab,
+    tabs.map((item) => item.id),
+    known,
+  );
   useEffect(() => {
     if (tab !== requestedTab) onTab(tab, true);
   }, [tab, requestedTab, onTab]);
+  const configPath = ext.data?.mcp.path || "";
+  useEffect(() => onConfigPath?.(configPath), [configPath, onConfigPath]);
   if (tab === "agents" && !agentsSeen) setAgentsSeen(true);
   const openPanel = (kind) => {
     if (kind === "skill") ext.setError("");
@@ -89,41 +106,59 @@ export default function ExtensionWorkspace({
     setPanel(kind);
   };
   const closePanel = useCallback(() => setPanel(null), []);
-  const subtitle = hub.panelSubtitle(account.name);
+  const action = primaryAction({
+    tab,
+    tool: account.tool,
+    catalogSupported: supported,
+    extensionsReady: Boolean(ext.data),
+    pluginsReady: Boolean(plugins.data),
+    pluginInstall: Boolean(plugins.capabilities.install),
+  });
   const primary = {
-    mcp: {
-      label: mcpCliCopy.openCentralList,
-      icon: "arrow",
-      run: () => onNavigate({ view: "accounts", section: "mcp-servers" }),
-    },
-    skills: {
-      label: commonCopy.installSkill,
-      run: () => openPanel("skill"),
-      disabled: !ext.data,
-    },
+    label: {
+      skill: commonCopy.installSkill,
+      npm: profilePluginsCopy.extensionInstallHeading,
+      discover: pluginCatalogCopy.catalogHeading,
+      market: marketplacesCopy.addMarketplace,
+      catalog: hub.browseCatalog,
+    }[action.kind],
+    run: {
+      skill: () => openPanel("skill"),
+      npm: () => openPanel("npm"),
+      discover: () => {
+        setPluginDetail(null);
+        setPluginMode("discover");
+      },
+      market: () => openPanel("market"),
+      catalog: () => setAgentMode("catalog"),
+    }[action.kind],
+    disabled: action.disabled || locked,
+  };
+  const groupText = {
+    skills: hub.tabSkills,
     plugins:
-      account.tool === "opencode" && !supported
-        ? {
-            label: profilePluginsCopy.extensionInstallHeading,
-            run: () => openPanel("npm"),
-            disabled: !plugins.data || !plugins.capabilities.install,
-          }
-        : {
-            label: pluginCatalogCopy.catalogHeading,
-            run: () => setPluginMode("discover"),
-            disabled: !supported,
-          },
-    marketplaces: {
-      label: marketplacesCopy.addMarketplace,
-      run: () => openPanel("market"),
-      disabled: !plugins.data,
-    },
-    agents: { label: hub.browseCatalog, run: () => setAgentMode("catalog") },
+      supported && pluginMode === "discover"
+        ? pluginCatalogCopy.extensionSectionLabel
+        : commonCopy.installed,
+    marketplaces: hub.tabMarketplaces,
+    agents: hub.tabAgents,
   }[tab];
+  const groupLabel = !(tab === "plugins" && pluginDetail) && (
+    <GroupLabel
+      as="h3"
+      hint={
+        tab === "skills" && account.tool === "codex"
+          ? profileExtensionsCopy.extensionScopeNote
+          : undefined
+      }
+      action={groupAction(primary)}
+    >
+      {groupText}
+    </GroupLabel>
+  );
   const extPanel = panel === "skill";
   // A plugin panel shows only errors of its own submission, never an older one.
   const pluginPanel = (panel === "market" || panel === "npm") && submitted;
-  const panelError = pluginPanel ? plugins.error : "";
   const extProps = { ext, account, request, hideError: extPanel };
   return (
     <section className="extension-hub-card" aria-labelledby="extension-hub-profile">
@@ -132,10 +167,10 @@ export default function ExtensionWorkspace({
           <h2 id="extension-hub-profile">{account.name}</h2>
           <span>
             {names[account.tool] || account.tool}
-            {ext.data?.mcp.path && (
+            {configPath && (
               <>
                 {" · "}
-                <code>{ext.data.mcp.path}</code>
+                <code>{configPath}</code>
               </>
             )}
           </span>
@@ -144,10 +179,10 @@ export default function ExtensionWorkspace({
           <button
             type="button"
             className="button primary"
-            disabled={primary.disabled || locked}
+            disabled={primary.disabled}
             onClick={primary.run}
           >
-            <Icon name={primary.icon || "plus"} size={16} />
+            <Icon name="plus" size={16} />
             {primary.label}
           </button>
         </div>
@@ -166,7 +201,7 @@ export default function ExtensionWorkspace({
           aria-labelledby={`underline-tab-${tab}`}
           className="extension-tabpanel"
         >
-          {tab === "mcp" && <McpTab {...extProps} />}
+          {groupLabel}
           {tab === "skills" && <SkillsTab {...extProps} />}
           {tab === "plugins" && (
             <PluginsTab
@@ -176,6 +211,8 @@ export default function ExtensionWorkspace({
               setMode={setPluginMode}
               catalogSupported={supported}
               hideError={pluginPanel}
+              detail={pluginDetail}
+              setDetail={setPluginDetail}
             />
           )}
           {tab === "marketplaces" && (
@@ -183,6 +220,13 @@ export default function ExtensionWorkspace({
               plugins={plugins}
               account={account}
               hideError={pluginPanel}
+            />
+          )}
+          {(tab === "skills" || (tab === "plugins" && !pluginDetail)) && (
+            <McpReferenceRow
+              tool={account.tool}
+              count={serverCount}
+              onNavigate={onNavigate}
             />
           )}
         </section>
@@ -195,6 +239,7 @@ export default function ExtensionWorkspace({
           className="extension-tabpanel"
           hidden={tab !== "agents"}
         >
+          {tab === "agents" && groupLabel}
           <AgentsTab
             account={account}
             request={request}
@@ -205,68 +250,16 @@ export default function ExtensionWorkspace({
           />
         </section>
       )}
-      {panel === "skill" && (
-        <SkillInstallForm
-          {...ext}
-          request={request}
-          subtitle={subtitle}
-          close={closePanel}
-        />
-      )}
-      {panel === "market" && (
-        <PluginSourceForm
-          title={marketplacesCopy.addMarketplace}
-          subtitle={subtitle}
-          label={marketplacesCopy.extensionWide}
-          placeholder={marketplacesCopy.extensionWidePlaceholder}
-          description={marketplacesCopy.marketplaceSourceDescription}
-          submitLabel={marketplacesCopy.addMarketplace}
-          value={plugins.source}
-          setValue={plugins.setSource}
-          disabled={plugins.disabled}
-          busy={plugins.busy}
-          error={panelError}
-          close={closePanel}
-          submit={() => {
-            setSubmitted(true);
-            plugins.mutate(
-              { action: "marketplace-add", source: plugins.source.trim() },
-              marketplacesCopy.extensionInstallOnSubmit,
-              () => {
-                plugins.setSource("");
-                closePanel();
-              },
-            );
-          }}
-        />
-      )}
-      {panel === "npm" && (
-        <PluginSourceForm
-          title={profilePluginsCopy.extensionInstallHeading}
-          subtitle={subtitle}
-          label={profilePluginsCopy.extensionWide}
-          placeholder={profilePluginsCopy.extensionWidePlaceholder}
-          description={profilePluginsCopy.packageSourceDescription}
-          submitLabel={profilePluginsCopy.installPackage}
-          value={plugins.pkg}
-          setValue={plugins.setPkg}
-          disabled={plugins.disabled || !plugins.capabilities.install}
-          busy={plugins.busy}
-          error={panelError}
-          close={closePanel}
-          submit={() => {
-            setSubmitted(true);
-            plugins.mutate(
-              { action: "install", source: plugins.pkg.trim() },
-              profilePluginsCopy.extensionInstallOnSubmit,
-              () => {
-                plugins.setPkg("");
-                closePanel();
-              },
-            );
-          }}
-        />
-      )}
+      <ExtensionPanels
+        panel={panel}
+        ext={ext}
+        plugins={plugins}
+        request={request}
+        subtitle={hub.panelSubtitle(account.name)}
+        submitted={submitted}
+        setSubmitted={setSubmitted}
+        close={closePanel}
+      />
     </section>
   );
 }

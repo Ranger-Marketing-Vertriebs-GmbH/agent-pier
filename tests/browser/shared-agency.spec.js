@@ -2,9 +2,11 @@ import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fix
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import {
+  closeProfiles,
   expectNoHorizontalOverflow,
+  extensionRow,
+  openProfiles,
   openTab,
-  profileList,
   revealRow,
 } from "../helpers/extensions.js";
 const revision = "a".repeat(40);
@@ -36,6 +38,7 @@ async function fixture(page) {
         method: request.method(),
       });
     if (endpoint === "/api/state") result = state;
+    else if (endpoint === "/api/accounts/usage") result = { mcpServers: {} };
     else if (endpoint.endsWith("/extensions"))
       result = {
         sharing: { shared: true, conflicts: [] },
@@ -103,14 +106,14 @@ for (const mobile of [false, true])
     const { writes, agencyReads } = await fixture(page);
     await page.goto(baseURL + "/extensions/work");
     await expect(page).toHaveURL(/extensions\/local-claude$/);
-    const profiles = profileList(page).getByRole("button");
+    const profiles = (await openProfiles(page)).getByRole("button");
     await expect(profiles).toHaveCount(2);
     await expect(profiles.filter({ hasText: "Claude Code" })).toHaveAttribute(
       "aria-current",
       "true",
     );
+    await closeProfiles(page);
     await expect(page.getByRole("tab")).toHaveText([
-      /^MCP-Server/,
       /^Skills/,
       /^Plugins/,
       /^Marketplaces/,
@@ -132,9 +135,7 @@ for (const mobile of [false, true])
     await page.getByRole("button", { name: "Katalog durchsuchen", exact: true }).click();
     await expect(page.getByRole("radio", { name: /^Katalog/ })).toBeChecked();
     await page.getByLabel("Agency-Agenten suchen").fill("frontend");
-    await expect(
-      page.getByRole("heading", { name: "frontend", exact: true }),
-    ).toBeVisible();
+    await expect(extensionRow(page, "frontend")).toBeVisible();
     await revealRow(page, "frontend");
     await page.getByRole("button", { name: "Agent ansehen" }).click();
     const dialog = page.getByRole("dialog", { name: "Frontend Expert" });

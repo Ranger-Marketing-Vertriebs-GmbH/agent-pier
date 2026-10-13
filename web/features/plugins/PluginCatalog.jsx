@@ -1,10 +1,13 @@
+import React from "react";
+import ListCard from "../../components/ListCard.jsx";
+import ListRow from "../../components/ListRow.jsx";
+import { Pagination } from "../../components/Pagination.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { extensionsHubCopy as hub } from "../../lib/i18n/messages/extensions.js";
 import { pluginCatalogCopy as copy } from "../../lib/i18n/messages/plugins.js";
-import React from "react";
+import RowLines from "../extensions/RowLines.jsx";
 import { marketplaceLabel } from "./marketplace-label.js";
-import { Pagination } from "../../components/Pagination.jsx";
-import ExtensionTable from "../extensions/ExtensionTable.jsx";
+
 export default function PluginCatalog({
   catalog,
   data,
@@ -13,38 +16,54 @@ export default function PluginCatalog({
   capabilities,
   mutate,
 }) {
+  const items = catalog.length ? catalogPages.items : [];
   return (
     <>
-      <ExtensionTable
-        heads={[hub.headPlugin, hub.headMarketplace, hub.headStatus]}
-        empty={copy.extensionEmpty}
-        rows={(catalog.length ? catalogPages.items : []).map((p) => ({
-          key: p.id,
-          name: p.name,
-          sub: p.description,
-          tag: marketplaceLabel(
-            data.marketplaces.find((item) => item.name === p.marketplace) || {
-              name: p.marketplace,
-            },
-          ),
-          status: {
-            on: Boolean(p.installed),
-            text: p.installed ? commonCopy.installed : hub.available,
-          },
-          actions: (
-            <button
-              className="button primary compact"
-              disabled={disabled || p.installed || !capabilities.install}
-              aria-label={commonCopy.installPluginLabel(p.name)}
-              onClick={() =>
-                mutate({ action: "install", pluginId: p.id }, copy.buttonOnClick(p.name))
+      {items.length ? (
+        <ListCard label={copy.extensionSectionLabel} className="extension-list">
+          {items.map((plugin) => (
+            <ListRow
+              key={plugin.id}
+              label={plugin.name}
+              sub={
+                <RowLines
+                  lines={[
+                    plugin.description,
+                    marketplaceLabel(
+                      data.marketplaces.find(
+                        (item) => item.name === plugin.marketplace,
+                      ) || {
+                        name: plugin.marketplace,
+                      },
+                    ),
+                  ]}
+                />
               }
+              status={
+                plugin.installed ? { tone: "ok", text: commonCopy.installed } : undefined
+              }
+              value={plugin.installed ? undefined : hub.available}
             >
-              {p.installed ? commonCopy.installed : commonCopy.install}
-            </button>
-          ),
-        }))}
-      />
+              <button
+                type="button"
+                className="button primary compact"
+                disabled={disabled || plugin.installed || !capabilities.install}
+                aria-label={commonCopy.installPluginLabel(plugin.name)}
+                onClick={() =>
+                  mutate(
+                    { action: "install", pluginId: plugin.id },
+                    copy.buttonOnClick(plugin.name),
+                  )
+                }
+              >
+                {plugin.installed ? commonCopy.installed : commonCopy.install}
+              </button>
+            </ListRow>
+          ))}
+        </ListCard>
+      ) : (
+        <p className="extension-empty">{copy.extensionEmpty}</p>
+      )}
       <Pagination paging={catalogPages} label={copy.extensionSectionLabel} />
     </>
   );

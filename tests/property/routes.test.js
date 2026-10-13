@@ -4,6 +4,7 @@ import fc from "fast-check";
 import { readRoute, routePath } from "../../web/app/routes.js";
 import { readExplorerRoute, explorerQuery } from "../../web/features/files/routes.js";
 import { agentPages, agentTabs } from "../../web/features/assistants/settings-routes.js";
+import { extensionTabs } from "../../web/features/extensions/routes.js";
 import { accountSections } from "../../web/features/accounts/routes.js";
 import { settingsTabs } from "../../web/features/operations/routes.js";
 import { check, publicId } from "../helpers/property.js";
@@ -15,7 +16,7 @@ test("generated public session and profile routes round-trip without changing id
     fc.property(publicId, fc.constantFrom(null, "reader", "terminal"), (id, mode) => {
       const route = { view: "workspace", sessionId: id, mode };
       assert.deepEqual(parse(routePath(route)), route);
-      for (const extensionTab of ["mcp", "skills", "plugins", "marketplaces", "agents"]) {
+      for (const extensionTab of extensionTabs) {
         assert.deepEqual(
           parse(routePath({ view: "extensions", profileId: id, extensionTab })),
           { view: "extensions", profileId: id, extensionTab },

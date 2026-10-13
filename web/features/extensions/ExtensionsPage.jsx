@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import ListDetail from "../../components/ListDetail.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
+import SettingsShell from "../../components/SettingsShell.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import {
   extensionsHubCopy as hub,
@@ -8,8 +9,11 @@ import {
 } from "../../lib/i18n/messages/extensions.js";
 import { names } from "../../lib/providers.js";
 import ExtensionWorkspace from "./ExtensionWorkspace.jsx";
+import ProfileSwitcher from "./ProfileSwitcher.jsx";
 import { defaultExtensionTab } from "./routes.js";
 import { extensionProfiles } from "./sharedProfiles.js";
+import useMcpUsage from "./useMcpUsage.js";
+import { cliServerCount } from "./workspace-model.js";
 import "./extensions-hub.css";
 
 const busySources = ["extensions", "plugins", "agency"];
@@ -21,11 +25,14 @@ export default function ExtensionsPage({
   profileId,
   extensionTab = defaultExtensionTab,
   onNavigate,
+  openNavigation,
+  navigationOpen = false,
 }) {
   const profiles = extensionProfiles(accounts, shared);
   const [busy, setBusy] = useState({});
-  // Each data source reports its own pending mutation; the profile list and tabs
-  // stay locked until every source has finished.
+  const [configPath, setConfigPath] = useState("");
+  // Each data source reports its own pending mutation; the profile list, the profile
+  // switcher and the tabs stay locked until every source has finished.
   const busySetters = useMemo(
     () =>
       Object.fromEntries(
@@ -37,8 +44,10 @@ export default function ExtensionsPage({
     [],
   );
   const locked = Object.values(busy).some(Boolean);
+  const usage = useMcpUsage(request);
   const account =
     profiles.find((item) => item.id === profileId) || (!profileId ? profiles[0] : null);
+  const sub = (item) => (shared ? hub.sharedProfile : names[item.tool] || item.tool);
   const go = (next, replace = false) =>
     onNavigate(
       {
@@ -50,17 +59,26 @@ export default function ExtensionsPage({
       replace,
     );
   return (
-    <div className="page extensions-page extensions-hub">
-      <div className="page-topline">
-        <span>{copy.eyebrow}</span>
-        <span className="subtle">{copy.subtitle}</span>
-      </div>
-      <header className="page-heading">
-        <div>
-          <h1>{copy.title}</h1>
-          <p>{copy.description}</p>
-        </div>
-      </header>
+    <SettingsShell
+      className="extensions-page extensions-hub"
+      title={copy.title}
+      description={copy.description}
+      leading="menu"
+      onLeading={openNavigation}
+      navigationOpen={navigationOpen}
+      subtitle={
+        account && (
+          <ProfileSwitcher
+            profiles={profiles}
+            selected={account}
+            sub={sub}
+            configPath={configPath}
+            locked={locked}
+            onSelect={(id) => go({ profileId: id })}
+          />
+        )
+      }
+    >
       <ListDetail
         className="extension-profiles"
         listLabel={hub.profiles}
@@ -73,7 +91,7 @@ export default function ExtensionsPage({
             <ProviderMark tool={item.tool} small />
             <span className="extension-profile-name">
               <strong>{item.name}</strong>
-              <small>{shared ? hub.sharedProfile : names[item.tool] || item.tool}</small>
+              <small>{sub(item)}</small>
             </span>
           </>
         )}
@@ -88,6 +106,8 @@ export default function ExtensionsPage({
               busySetters={busySetters}
               locked={locked}
               onNavigate={onNavigate}
+              serverCount={cliServerCount(usage, account.tool)}
+              onConfigPath={setConfigPath}
             />
           ) : (
             <p className="loading" role="status">
@@ -96,6 +116,6 @@ export default function ExtensionsPage({
           )
         }
       />
-    </div>
+    </SettingsShell>
   );
 }

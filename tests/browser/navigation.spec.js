@@ -127,7 +127,7 @@ test("unsupported extension tabs normalise the URL without flashing the tab", as
   await page.goto(`${base}/extensions/local-codex?tab=agents`);
   await expect(page).toHaveURL(/\/extensions\/local-codex$/);
   await expect(page.getByRole("tab", { name: /^Agenten/ })).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: /^MCP-Server/ })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: /^Skills/ })).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -143,10 +143,10 @@ test("profile deep links and navigation survive reload and history", async ({ pa
   await expect(codex).toHaveAttribute("aria-current", "true");
   await page.goBack();
   await expect(claude).toHaveAttribute("aria-current", "true");
-  await page.getByRole("tab", { name: /^Skills/ }).click();
-  await expect(page).toHaveURL(/\/extensions\/work-claude\?tab=skills$/);
+  await page.getByRole("tab", { name: /^Plugins/ }).click();
+  await expect(page).toHaveURL(/\/extensions\/work-claude\?tab=plugins$/);
   await page.goBack();
-  await expect(page.getByRole("tab", { name: /^MCP-Server/ })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: /^Skills/ })).toHaveAttribute(
     "aria-selected",
     "true",
   );

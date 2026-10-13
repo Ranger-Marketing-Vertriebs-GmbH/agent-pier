@@ -279,5 +279,6 @@ needs the owner's confirmation, because every session of that CLI starts it.
   that get none (`MCP_CWD_TOO_BROAD`).
 - **Audit.** Binding and unbinding CLIs, conflict choices and adoptions are recorded as
   `mcp.updated`/`mcp.created` with the CLIs, never with an entry or a value.
-- The MCP tab of **Extensions** no longer edits MCP servers; it links to Accounts →
+- **Extensions** does not edit MCP servers: Skills and Plugins show a reference row
+  with the number of central servers bound to that CLI, linking to Accounts →
   **MCP servers**.

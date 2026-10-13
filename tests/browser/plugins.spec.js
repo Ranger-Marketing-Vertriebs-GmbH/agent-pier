@@ -5,7 +5,9 @@ import {
   expectNoHorizontalOverflow,
   expectProfilesDisabled,
   emptyExtensions,
+  extensionRow,
   openTab,
+  rowMenuItem,
 } from "../helpers/extensions.js";
 async function setup(page, tool = "claude") {
   const writes = [];
@@ -98,7 +100,6 @@ test("marketplace source, browse, install, disable and deliberate removal use se
   const { writes } = await setup(page);
   expect(writes).toEqual([]);
   await expect(page.getByRole("tab")).toHaveText([
-    /^MCP-Server/,
     /^Skills/,
     /^Plugins/,
     /^Marketplaces/,
@@ -113,13 +114,11 @@ test("marketplace source, browse, install, disable and deliberate removal use se
     .getByRole("button", { name: "Marketplace hinzufügen", exact: true })
     .click();
   await expect(panel).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "demo-market", exact: true }),
-  ).toBeVisible();
+  await expect(extensionRow(page, "demo-market")).toBeVisible();
   await openTab(page, "Plugins");
   await page.getByRole("button", { name: "Plugins entdecken", exact: true }).click();
   await expect(page.getByRole("radio", { name: /^Entdecken/ })).toBeChecked();
-  await expect(page.getByRole("heading", { name: "Demo", exact: true })).toBeVisible();
+  await expect(extensionRow(page, "Demo")).toBeVisible();
   await page.screenshot({
     path: "/tmp/agentpier-plugins-desktop.png",
     fullPage: true,
@@ -127,14 +126,10 @@ test("marketplace source, browse, install, disable and deliberate removal use se
   });
   await page.getByRole("button", { name: "Plugin Demo installieren" }).click();
   await page.getByRole("radio", { name: /^Installiert/ }).check();
-  await expect(
-    page.getByRole("button", { name: "Plugin Demo deaktivieren" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Plugin Demo deaktivieren" }).click();
-  await expect(
-    page.getByRole("button", { name: "Plugin Demo aktivieren" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Plugin Demo entfernen" }).click();
+  await expect(await rowMenuItem(page, "Demo", "Plugin Demo deaktivieren")).toBeVisible();
+  await (await rowMenuItem(page, "Demo", "Plugin Demo deaktivieren")).click();
+  await expect(await rowMenuItem(page, "Demo", "Plugin Demo aktivieren")).toBeVisible();
+  await (await rowMenuItem(page, "Demo", "Plugin Demo entfernen")).click();
   expect(writes.at(-1).action).toBe("disable");
   await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
   await expect(
@@ -152,7 +147,7 @@ test("OpenCode installs explicit npm package and stays usable on mobile", async 
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const { writes } = await setup(page, "opencode");
-  await expect(page.getByRole("tab")).toHaveText([/^MCP-Server/, /^Skills/, /^Plugins/]);
+  await expect(page.getByRole("tab")).toHaveText([/^Skills/, /^Plugins/]);
   await expect(page.getByRole("radio", { name: /^Entdecken/ })).toHaveCount(0);
   await expect(page.getByLabel("Marketplace-Quelle")).toHaveCount(0);
   await page.getByRole("button", { name: "npm-Plugin hinzufügen", exact: true }).click();
@@ -161,7 +156,7 @@ test("OpenCode installs explicit npm package and stays usable on mobile", async 
   await panel.getByLabel("npm-Paket").fill("@example/plugin@1.2.3");
   await panel.getByRole("button", { name: "Paket installieren", exact: true }).click();
   await expect(panel).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Demo", exact: true })).toBeVisible();
+  await expect(extensionRow(page, "Demo")).toBeVisible();
   expect(writes[0]).toEqual({ action: "install", source: "@example/plugin@1.2.3" });
   await expectNoHorizontalOverflow(page);
   await page.screenshot({
@@ -226,17 +221,15 @@ test("marketplace removal reveals its confirmation and resets a removed catalog 
   await page.getByRole("radio", { name: /^Entdecken/ }).check();
   await page.getByLabel("Marketplace filtern").selectOption("A");
   await openTab(page, "Marketplaces");
-  await page.getByRole("button", { name: "Marketplace A entfernen" }).click();
+  await (await rowMenuItem(page, "A", "Marketplace A entfernen")).click();
   const confirm = page.getByRole("group", { name: "Entfernen bestätigen" });
   await expect(confirm).toBeFocused();
   await expect(confirm).toBeInViewport();
   await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "A", exact: true })).toHaveCount(0);
+  await expect(extensionRow(page, "A")).toHaveCount(0);
   await openTab(page, "Plugins");
   await expect(page.getByLabel("Marketplace filtern")).toHaveValue("");
-  await expect(
-    page.getByRole("heading", { name: "Remaining plugin", exact: true }),
-  ).toBeVisible();
+  await expect(extensionRow(page, "Remaining plugin")).toBeVisible();
 });
 
 test("large marketplace catalogs stay bounded while search includes all entries", async ({
@@ -276,25 +269,17 @@ test("installed plugin pagination searches every page and clamps after a smaller
     removable: true,
   }));
   await page.getByRole("button", { name: "Neu laden", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: /Plugin Installed .* entfernen/ }),
-  ).toHaveCount(20);
+  await expect(page.locator(".extension-list .plugin-row")).toHaveCount(20);
   await page.getByRole("button", { name: "Installierte Plugins: Nächste Seite" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Installed 20", exact: true }),
-  ).toBeVisible();
+  await expect(extensionRow(page, "Installed 20")).toBeVisible();
   await page.getByLabel("Installierte Plugins suchen").fill("Installed 40");
-  await expect(
-    page.getByRole("heading", { name: "Installed 40", exact: true }),
-  ).toBeVisible();
+  await expect(extensionRow(page, "Installed 40")).toBeVisible();
   await page.getByLabel("Installierte Plugins suchen").fill("");
   await page.getByRole("button", { name: "Installierte Plugins: Nächste Seite" }).click();
   await page.getByRole("button", { name: "Installierte Plugins: Nächste Seite" }).click();
   data.installed = data.installed.slice(0, 1);
   await page.getByRole("button", { name: "Neu laden", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Installed 0", exact: true }),
-  ).toBeVisible();
+  await expect(extensionRow(page, "Installed 0")).toBeVisible();
 });
 
 test("an earlier plugin error never appears in a newly opened add panel", async ({
@@ -319,7 +304,7 @@ test("an earlier plugin error never appears in a newly opened add panel", async 
   });
   await page.getByRole("button", { name: "Neu laden", exact: true }).click();
   await openTab(page, "Marketplaces");
-  await page.getByRole("button", { name: "Marketplace A aktualisieren" }).click();
+  await (await rowMenuItem(page, "A", "Marketplace A aktualisieren")).click();
   await expect(page.getByRole("alert")).toContainText("Aktualisierung fehlgeschlagen");
   await page.getByRole("button", { name: "Marketplace hinzufügen", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "Marketplace hinzufügen" });
@@ -335,7 +320,7 @@ test("an earlier plugin error never appears in a newly opened add panel", async 
   expect(calls).toBe(2);
 });
 
-test("a marketplaces link for OpenCode normalises to MCP without showing the tab", async ({
+test("a marketplaces link for OpenCode normalises to Skills without showing the tab", async ({
   page,
 }) => {
   await setup(page, "opencode");
@@ -346,13 +331,13 @@ test("a marketplaces link for OpenCode normalises to MCP without showing the tab
     return route.fallback();
   });
   await page.goto(`${base}/extensions/fixture-opencode?tab=marketplaces`);
-  await expect(page.getByRole("tab", { name: /^MCP-Server/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Skills/ })).toBeVisible();
   await expect(page.getByRole("tab", { name: /^Marketplaces/ })).toHaveCount(0);
   await expect(page).toHaveURL(/\?tab=marketplaces$/);
   release();
   await expect(page).toHaveURL(/\/extensions\/fixture-opencode$/);
   await expect(page.getByRole("tab", { name: /^Marketplaces/ })).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: /^MCP-Server/ })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: /^Skills/ })).toHaveAttribute(
     "aria-selected",
     "true",
   );

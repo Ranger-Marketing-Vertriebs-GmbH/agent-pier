@@ -4,9 +4,10 @@ import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 import {
   expectNoHorizontalOverflow,
+  openProfiles,
   openTab,
+  extensionRow,
   profileList,
-  revealRow,
 } from "../helpers/extensions.js";
 async function fixture(page) {
   const accounts = [
@@ -52,6 +53,25 @@ async function fixture(page) {
           home: "/fixture",
         },
       });
+    if (url.pathname === "/api/accounts/usage")
+      return route.fulfill({
+        json: {
+          agentsEnabled: false,
+          connections: {},
+          chatgpt: {},
+          webSearch: null,
+          speech: null,
+          cliAccounts: {},
+          mcpServers: {
+            github: {
+              agents: [],
+              sessions: 0,
+              pipelineProfiles: [],
+              clis: [{ tool: "claude", route: null }],
+            },
+          },
+        },
+      });
     if (url.pathname.endsWith("/extensions")) return route.fulfill({ json: data });
     if (url.pathname.endsWith("/plugins"))
       return route.fulfill({
@@ -92,7 +112,7 @@ async function open(page) {
     await page.getByRole("button", { name: "Navigation öffnen" }).click();
   await navigateTo(page, "Erweiterungen");
 }
-test("the MCP tab points to the central MCP server list", async ({ page }) => {
+test("the MCP reference row points to the central MCP server list", async ({ page }) => {
   const { writes } = await fixture(page);
   await open(page);
   await expect(
@@ -102,20 +122,19 @@ test("the MCP tab points to the central MCP server list", async ({ page }) => {
   await claude.click();
   await expect(claude).toHaveAttribute("aria-current", "true");
   await expect(page).toHaveURL(/\/extensions\/managed-claude$/);
-  await expect(page.getByRole("tab")).toHaveText(["MCP-Server", /^Skills/, /^Plugins/]);
+  await expect(page.getByRole("tab")).toHaveText([/^Skills/, /^Plugins/]);
   // Page margins sit on the frame, so the hover arrows line up with the tab row.
   const tabList = page.getByRole("tablist");
   const tabRow = await tabList.boundingBox();
   const tabFrame = await tabList.locator("..").boundingBox();
   expect(Math.round(tabRow.x)).toBe(Math.round(tabFrame.x));
   expect(Math.round(tabRow.y)).toBe(Math.round(tabFrame.y));
-  await expect(
-    page.getByText(/MCP-Server werden zentral unter Accounts → MCP-Server verwaltet/),
-  ).toBeVisible();
+  const reference = page.getByRole("link", { name: /^MCP-Server · 1 für Claude Code/ });
+  await expect(reference).toContainText("Zentral unter Accounts");
   await expect(
     page.getByRole("button", { name: "MCP-Server hinzufügen", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "MCP-Server öffnen", exact: true }).click();
+  await reference.click();
   await expect(page).toHaveURL(/\/accounts\?section=mcp-servers$/);
   await expect(accountRow(page, "In den CLIs gefunden")).toBeVisible();
   expect(writes).toHaveLength(0);
@@ -127,7 +146,8 @@ test("skill file upload and GitHub download show native shared scope and protect
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
   await openTab(page, "Skills");
-  await expect(page).toHaveURL(/\/extensions\/local-codex\?tab=skills$/);
+  await expect(page).toHaveURL(/\/extensions\/local-codex$/);
+  await page.getByRole("button", { name: "Hinweis anzeigen", exact: true }).click();
   await expect(
     page.getByText(
       "Codex-Skills werden im Benutzerordner geteilt und gelten für alle Codex-Profile.",
@@ -154,18 +174,14 @@ test("skill file upload and GitHub download show native shared scope and protect
   });
   await panel.getByRole("button", { name: "Skill installieren", exact: true }).click();
   await expect(panel).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "demo-skill", exact: true }),
-  ).toBeVisible();
+  await expect(extensionRow(page, "demo-skill")).toBeVisible();
   expect(Buffer.from(writes[0].body.contentBase64, "base64").toString()).toContain(
     "name: demo-skill",
   );
-  await revealRow(page, "demo-skill");
+  await expect(extensionRow(page, "demo-skill")).toBeVisible();
   await page.getByRole("button", { name: "Skill demo-skill entfernen" }).click();
   await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "demo-skill", exact: true }),
-  ).toHaveCount(0);
+  await expect(extensionRow(page, "demo-skill")).toHaveCount(0);
   await page.getByRole("button", { name: "Skill installieren", exact: true }).click();
   await panel
     .getByRole("radiogroup", { name: "Skill-Quelle" })
@@ -176,9 +192,7 @@ test("skill file upload and GitHub download show native shared scope and protect
     .fill("https://github.com/example/skills/tree/main/demo");
   await panel.getByRole("button", { name: "Skill installieren", exact: true }).click();
   await expect(panel).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "demo-skill", exact: true }),
-  ).toBeVisible();
+  await expect(extensionRow(page, "demo-skill")).toBeVisible();
   expect(writes.at(-1).body).toEqual({
     url: "https://github.com/example/skills/tree/main/demo",
   });
@@ -205,63 +219,43 @@ for (const mobile of [false, true])
     await expect(page.getByRole("tab", { name: /^Skills/ })).toContainText("50");
     await openTab(page, "Skills");
     const section = page.getByRole("tabpanel");
-    await expect(section.locator("article.extension-row")).toHaveCount(20);
-    await expect(
-      section.getByRole("heading", { name: "skill-01", exact: true }),
-    ).toBeVisible();
-    await expect(
-      section.getByRole("heading", { name: "skill-50", exact: true }),
-    ).toHaveCount(0);
+    await expect(section.locator(".extension-list .list-row")).toHaveCount(20);
+    await expect(extensionRow(section, "skill-01")).toBeVisible();
+    await expect(extensionRow(section, "skill-50")).toHaveCount(0);
     await section
       .getByRole("button", { name: "Skills: Nächste Seite", exact: true })
       .click();
-    await expect(
-      section.getByRole("heading", { name: "skill-21", exact: true }),
-    ).toBeVisible();
+    await expect(extensionRow(section, "skill-21")).toBeVisible();
     await section
       .getByRole("button", { name: "Skills: Nächste Seite", exact: true })
       .click();
-    await expect(section.locator("article.extension-row")).toHaveCount(10);
-    await expect(
-      section.getByRole("heading", { name: "skill-50", exact: true }),
-    ).toBeVisible();
+    await expect(section.locator(".extension-list .list-row")).toHaveCount(10);
+    await expect(extensionRow(section, "skill-50")).toBeVisible();
     await expect(
       section.getByRole("button", { name: "Skills: Nächste Seite", exact: true }),
     ).toBeDisabled();
     await page.getByRole("searchbox", { name: "Skills suchen" }).fill("einzigartige");
-    await expect(section.locator("article.extension-row")).toHaveCount(1);
-    await expect(
-      section.getByRole("heading", { name: "skill-50", exact: true }),
-    ).toBeVisible();
+    await expect(section.locator(".extension-list .list-row")).toHaveCount(1);
+    await expect(extensionRow(section, "skill-50")).toBeVisible();
     await expect(
       section.getByRole("button", { name: "Skills: Nächste Seite", exact: true }),
     ).toHaveCount(0);
     await page.getByRole("searchbox", { name: "Skills suchen" }).fill("Projekt");
-    await expect(
-      section.getByRole("heading", { name: "skill-49", exact: true }),
-    ).toBeVisible();
+    await expect(extensionRow(section, "skill-49")).toBeVisible();
     await page.getByRole("searchbox", { name: "Skills suchen" }).fill("skill-47");
-    await expect(
-      section.getByRole("heading", { name: "skill-47", exact: true }),
-    ).toBeVisible();
+    await expect(extensionRow(section, "skill-47")).toBeVisible();
     await page.getByRole("searchbox", { name: "Skills suchen" }).fill("nicht vorhanden");
     await expect(
       section.getByText("Keine Skills passen zur Suche.", { exact: true }),
     ).toBeVisible();
     await page.getByRole("searchbox", { name: "Skills suchen" }).fill("");
-    await expect(section.locator("article.extension-row")).toHaveCount(20);
-    await expect(
-      section.getByRole("heading", { name: "skill-01", exact: true }),
-    ).toBeVisible();
+    await expect(section.locator(".extension-list .list-row")).toHaveCount(20);
+    await expect(extensionRow(section, "skill-01")).toBeVisible();
     await page.getByRole("searchbox", { name: "Skills suchen" }).fill("skill-47");
-    await profileList(page)
-      .getByRole("button", { name: /Claude Code/ })
-      .click();
-    await expect(page).toHaveURL(/\/extensions\/managed-claude\?tab=skills$/);
+    await (await openProfiles(page)).getByRole("button", { name: /Claude Code/ }).click();
+    await expect(page).toHaveURL(/\/extensions\/managed-claude$/);
     await expect(page.getByRole("searchbox", { name: "Skills suchen" })).toHaveValue("");
-    await expect(
-      section.getByRole("heading", { name: "skill-01", exact: true }),
-    ).toBeVisible();
+    await expect(extensionRow(section, "skill-01")).toBeVisible();
     expect(writes).toEqual([]);
     await expectNoHorizontalOverflow(page);
   });

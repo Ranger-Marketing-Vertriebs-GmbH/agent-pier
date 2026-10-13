@@ -253,6 +253,8 @@ function Application() {
               profileId={route.profileId}
               extensionTab={route.extensionTab}
               onNavigate={navigate}
+              openNavigation={openNavigation}
+              navigationOpen={mobileNav}
             />
           ) : view === "projects" ? (
             <ProjectsPage
