@@ -42,7 +42,9 @@ test("legacy MCP links open Skills and the reference row counts central servers"
   await expect(mcpLink(page)).toHaveCount(0);
   await openTab(page, "Skills");
   await mcpLink(page).click();
-  await expect(page).toHaveURL(/\/accounts\?section=mcp-servers$/);
+  await expect(page).toHaveURL(
+    /\/accounts\?section=mcp-servers&returnTo=%2Fextensions%2Fmanaged-claude$/,
+  );
   expect(fixture.writes).toEqual([]);
 });
 

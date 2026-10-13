@@ -68,7 +68,7 @@ for (const locale of ["de-DE", "en-GB"]) {
             t("Provider-Zugänge, MCP-Server", "Provider access, MCP servers"),
           ),
         }),
-      ).toHaveAttribute("href", "/accounts");
+      ).toHaveAttribute("href", "/accounts?returnTo=%2Fsettings%3Ftab%3Daccess");
       await github.click();
       await expect(page).toHaveURL(/\/settings\/github$/);
     });

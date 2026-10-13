@@ -10,6 +10,7 @@ import {
   useInfoHint,
 } from "../../../components/InfoHint.jsx";
 import { routePath } from "../../../app/routes.js";
+import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantShellCopy as shellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
@@ -66,6 +67,7 @@ export function MemoryGroup({ assistant, draft, go }) {
 /** Web switches with today's availability rules and the search provider reference. */
 export function WebGroup({ draft, browser, creating = false, navigate }) {
   const id = useId();
+  const crossLink = useCrossLink();
   const copy = assistantCopy.personal;
   const [search, setSearch] = useState(null);
   useEffect(() => {
@@ -84,7 +86,11 @@ export function WebGroup({ draft, browser, creating = false, navigate }) {
   const provider = search?.provider
     ? (settingsCopy.searchProviders[search.provider] ?? search.provider)
     : unknownValue;
-  const accounts = { view: "accounts", section: "services", item: "web-search" };
+  const accounts = crossLink({
+    view: "accounts",
+    section: "services",
+    item: "web-search",
+  });
   return (
     <section aria-labelledby={id}>
       <GroupLabel id={id} hint={copy.webHint}>

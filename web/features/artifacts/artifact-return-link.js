@@ -1,18 +1,13 @@
 import { readRoute, routePath } from "../../app/routes.js";
+import { appPathParts, returnParam, withoutReturnParam } from "../../app/return-to.js";
 
 function returnPath(value) {
-  if (
-    typeof value !== "string" ||
-    !value.startsWith("/") ||
-    value.startsWith("//") ||
-    /[\\\x00-\x1f\x7f]/.test(value)
-  )
-    return "/artifacts";
-  const separator = value.search(/[?#]/);
-  const pathname = separator < 0 ? value : value.slice(0, separator);
+  const parts = appPathParts(value);
+  if (!parts) return "/artifacts";
   const route = readRoute({
-    pathname,
-    search: value.slice(pathname.length).split("#")[0],
+    ...parts,
+    hash: "",
+    search: withoutReturnParam(parts.search),
   });
   if (route.view === "artifacts" || (route.view === "workspace" && route.mode))
     return routePath(route);
@@ -20,7 +15,7 @@ function returnPath(value) {
 }
 
 export function artifactReturnPath(search) {
-  return returnPath(new URLSearchParams(search).get("returnTo"));
+  return returnPath(new URLSearchParams(search).get(returnParam));
 }
 
 // Context belongs to the browser opening the artifact, not its publisher or iframe.
@@ -36,7 +31,7 @@ export function artifactLink(href, returnTo, location = window.location) {
       !/^\/artifacts\/view\/[A-Za-z0-9-]+\/?$/.test(url.pathname)
     )
       return null;
-    url.searchParams.set("returnTo", returnPath(returnTo));
+    url.searchParams.set(returnParam, returnPath(returnTo));
     return url.pathname + url.search + url.hash;
   } catch {
     return null;

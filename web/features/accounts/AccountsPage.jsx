@@ -1,6 +1,7 @@
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import SettingsShell from "../../components/SettingsShell.jsx";
+import useReturnTarget from "../../app/useReturnTarget.js";
 import Icon from "../../components/Icon.jsx";
 import { InfoHintButton, InfoHintText, useInfoHint } from "../../components/InfoHint.jsx";
 import {
@@ -45,6 +46,21 @@ export default function AccountsPage({
   openNavigation,
   navigationOpen = false,
 }) {
+  // Opened through a cross-link (`returnTo`): moves inside Accounts keep it, and the
+  // page the link landed on leads back to its origin; other pages go up as usual.
+  const returnTo = route.returnTo;
+  const returnTarget = useReturnTarget(route, onNavigate);
+  const landing = useRef(returnTo ? `${route.section}:${route.item}` : null);
+  const navigate = useCallback(
+    (next, replace) =>
+      onNavigate(
+        returnTo && next?.view === "accounts" && !next.returnTo
+          ? { ...next, returnTo }
+          : next,
+        replace,
+      ),
+    [onNavigate, returnTo],
+  );
   const feature = useAssistantFeature();
   const agentsEnabled = feature.loading ? null : Boolean(feature.enabled);
   const { runtime } = useAssistants();
@@ -78,12 +94,15 @@ export default function AccountsPage({
   const info = useInfoHint();
   const missing = entry?.kind === "missing";
   useEffect(() => {
-    if (missing) onNavigate(itemRoute(route.section), true);
-  }, [missing, route.section, onNavigate]);
+    if (missing) navigate(itemRoute(route.section), true);
+  }, [missing, route.section, navigate]);
   const Detail = entry ? detailComponents[entry.kind] : null;
   const pending = entry?.kind === "loading" || entry?.kind === "error";
   const open = Boolean(Detail) || pending;
   const subpage = open && narrow;
+  const toOrigin =
+    Boolean(returnTarget) &&
+    (!subpage || landing.current === `${route.section}:${route.item}`);
   // A loading or failed entry has no name yet; its group names the subpage.
   const title = subpage
     ? accountItemTitle(entry) || sectionLabel(entry.section)
@@ -109,8 +128,15 @@ export default function AccountsPage({
       title={title}
       subtitle={subpage ? hubCopy.breadcrumb(sectionLabel(entry.section)) : local}
       description={hubCopy.intro}
-      leading={subpage ? "back" : "menu"}
-      onLeading={subpage ? () => onNavigate(itemRoute(entry.section)) : openNavigation}
+      leading={subpage || returnTarget ? "back" : "menu"}
+      leadingLabel={toOrigin ? returnTarget.label : undefined}
+      onLeading={
+        toOrigin
+          ? returnTarget.back
+          : subpage
+            ? () => navigate(itemRoute(entry.section))
+            : openNavigation
+      }
       navigationOpen={navigationOpen}
       actions={
         subpage ? null : (
@@ -133,7 +159,7 @@ export default function AccountsPage({
           usage={usage}
           agentsEnabled={agentsEnabled === true}
           selected={entry}
-          navigate={onNavigate}
+          navigate={navigate}
           oauth={oauth}
           oauthResult={route.mcpOAuth}
           mcpNotice={mcpNotice}
@@ -151,7 +177,7 @@ export default function AccountsPage({
                 state={state}
                 data={data}
                 refresh={refresh}
-                navigate={onNavigate}
+                navigate={navigate}
                 act={act}
                 oauth={oauth}
                 mcpNotice={mcpNotice}
