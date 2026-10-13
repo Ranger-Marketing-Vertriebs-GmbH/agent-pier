@@ -6,6 +6,7 @@ import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { notificationCopy as copy } from "../../lib/i18n/messages/notifications.js";
 import { getWorkerRegistration } from "./register-worker.js";
+import { currentDevice, isLegacyLabel } from "./device-labels.js";
 function deviceIdentity() {
   const key = "agentpier.notification-device";
   try {
@@ -29,8 +30,12 @@ export default function useNotifications() {
   const subscriptionGeneration = useRef(0);
   const [deviceId] = useState(deviceIdentity),
     [subscription, setSubscription] = useState(null);
-  const [label, setLabel] = useState(copy.defaultDevice),
-    [message, setMessage] = useState("");
+  const [device] = useState(currentDevice),
+    derivedName = copy.deviceName(device.browser, device.platform, device.app);
+  const [label, setLabel] = useState(derivedName),
+    [message, setMessage] = useState(""),
+    // Where the last action's error belongs: "device", "test" or a subscription id.
+    [scope, setScope] = useState(null);
   const supported =
     globalThis.isSecureContext &&
     "Notification" in window &&
@@ -40,6 +45,18 @@ export default function useNotifications() {
     supported ? Notification.permission : "denied",
   );
   const own = resource.data?.subscriptions?.find((item) => item.deviceId === deviceId);
+  // The name field starts with this device's stored name once it is known; a legacy
+  // fixed name is replaced by the derived one (stored only when the owner saves it).
+  const named = useRef(null);
+  useEffect(() => {
+    if (!own || named.current === own.id) return;
+    named.current = own.id;
+    setLabel(isLegacyLabel(own.label) || !own.label?.trim() ? derivedName : own.label);
+  }, [own, derivedName]);
+  const run = (where, work) => {
+    setScope(where);
+    return action.run(work);
+  };
   useEffect(() => {
     let disposed = false;
     const generation = subscriptionGeneration.current;
@@ -57,7 +74,7 @@ export default function useNotifications() {
   const updateSubscriptions = (subscriptions) =>
     resource.update({ ...resource.data, subscriptions });
   const enable = () =>
-    action.run(async () => {
+    run("device", async () => {
       setMessage("");
       if (!deviceId) throw new Error(copy.storageFailed);
       const allowed =
@@ -77,7 +94,7 @@ export default function useNotifications() {
       setSubscription(current);
       const result = await api("/notifications/subscriptions", "POST", {
         deviceId,
-        label: label.trim() || copy.defaultDevice,
+        label: label.trim() || derivedName,
         subscription: current.toJSON(),
       });
       updateSubscriptions([
@@ -88,7 +105,7 @@ export default function useNotifications() {
       ]);
     });
   const remove = (entry = own) =>
-    action.run(async () => {
+    run(!entry || entry.deviceId === deviceId ? "device" : entry.id, async () => {
       setMessage("");
       if (entry) {
         await api(
@@ -115,7 +132,7 @@ export default function useNotifications() {
       }
     });
   const test = () =>
-    action.run(async () => {
+    run("test", async () => {
       setMessage("");
       const result = await api("/notifications/test", "POST", { subscriptionId: own.id });
       if (!result.sent) {
@@ -135,6 +152,9 @@ export default function useNotifications() {
     own,
     subscription,
     deviceId,
+    derivedName,
+    errorFor: (where) => (scope === where ? action.error : ""),
+    renamed: Boolean(own && label.trim() && label.trim() !== own.label),
     active: Boolean(own && subscription && permission === "granted"),
     enable,
     remove,

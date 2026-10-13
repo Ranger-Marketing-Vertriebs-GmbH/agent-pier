@@ -16,12 +16,19 @@ export const notificationCopy = {
     "Dieser Browser unterstützt hier keine Push-Mitteilungen. Eine sichere HTTPS-Verbindung oder localhost und ein unterstützter Browser sind erforderlich.",
   denied:
     "Benachrichtigungen sind im Browser gesperrt. Ändere die Website-Berechtigung in den Browsereinstellungen und lade diese Ansicht erneut.",
+  appGroup: "App",
+  installedStatus: "Installiert",
+  notInstalled: "Läuft im Browser.",
+  pushToggle: "Benachrichtigungen",
   deviceLabel: "Gerätename",
-  defaultDevice: "Dieses Gerät",
+  saveName: "Namen speichern",
+  thisDevice: "Dieses Gerät",
+  unnamedDevice: "Unbenanntes Gerät",
+  deviceName: (browser, platform, app) =>
+    `${browser || "Browser"}${platform ? ` auf ${platform}` : ""}${app ? " (App)" : ""}`,
   active: "Auf diesem Gerät aktiviert.",
   inactive: "Auf diesem Gerät nicht aktiviert.",
-  enable: "Benachrichtigungen aktivieren",
-  disable: "Benachrichtigungen deaktivieren",
+  incomplete: "Nicht vollständig aktiviert. Aus- und wieder einschalten.",
   test: "Testbenachrichtigung senden",
   sent: "Testbenachrichtigung versendet.",
   testFailed: "Die Testbenachrichtigung konnte nicht versendet werden.",
@@ -29,11 +36,17 @@ export const notificationCopy = {
   storageFailed:
     "Die Gerätekennung konnte nicht gespeichert werden. Erlaube lokalen Website-Speicher und versuche es erneut.",
   unsubscribeFailed:
-    "Die Server-Anmeldung wurde entfernt. Die Browser-Anmeldung konnte noch nicht entfernt werden. Bitte erneut deaktivieren.",
+    "Die Server-Anmeldung wurde entfernt. Die Browser-Anmeldung konnte noch nicht entfernt werden. Bitte erneut versuchen.",
   loading: "Einstellungen werden geladen …",
   unavailable: "Benachrichtigungen sind auf diesem Server nicht verfügbar.",
   devices: "Angemeldete Geräte",
-  remove: "Gerät abmelden",
+  remove: "Abmelden",
+  removeNamed: (name) => `${name} abmelden`,
+  removeTitle: "Gerät abmelden?",
+  removeConfirm: (name) =>
+    `„${name}“ erhält danach keine Benachrichtigungen mehr. Auf dem Gerät selbst lassen sie sich wieder aktivieren.`,
+  registeredAt: (time) => `Angemeldet ${time}`,
+  deliveredAt: (time) => `zuletzt zugestellt ${time}`,
   noDevices: "Keine Geräte angemeldet.",
   lastFailure: "Letzter Zustellfehler",
 };

@@ -1,0 +1,95 @@
+/* App & notifications in the settings pattern (docs/settings-pattern.md). */
+.notifications-intro {
+  margin: 4px 4px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #a2a3a7;
+}
+.notifications-page .button.compact {
+  flex: none;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+.notifications-page > .error {
+  margin-top: 8px;
+}
+.notification-install-row {
+  flex-wrap: wrap;
+}
+.notification-field-row,
+.notification-test-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  padding: 12px 12px 12px 14px;
+  background: #16171b;
+}
+.notification-field-row label {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  color: #c4c5c9;
+}
+.notification-field-row input {
+  font-size: 14px;
+}
+.notification-test-row {
+  align-items: center;
+}
+.notification-test-result {
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.notification-test-result.ok {
+  color: #9fd3a8;
+}
+.notification-test-result.error {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e7a3a3;
+}
+.notification-device {
+  align-items: center;
+}
+.notification-device .list-row-text {
+  gap: 3px;
+}
+.notification-device-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.notification-device-name .list-row-pill {
+  line-height: 1.3;
+}
+.notification-device-failure {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #d9b48f;
+  overflow-wrap: anywhere;
+}
+.notification-device-failure .dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d8a05f;
+  transform: translateY(-1px);
+}
+.notification-device-error {
+  margin-top: 4px;
+  padding: 8px 10px;
+}
+.notification-retry {
+  margin-top: 8px;
+}
