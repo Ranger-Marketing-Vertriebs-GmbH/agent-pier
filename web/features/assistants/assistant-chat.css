@@ -144,7 +144,10 @@
   min-height: 0;
   overflow: hidden;
 }
+/* Positioned, so absolutely placed descendants (the hidden speaker labels) stay
+   inside this scroller instead of stretching the page below the composer. */
 .assistant-transcript {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
