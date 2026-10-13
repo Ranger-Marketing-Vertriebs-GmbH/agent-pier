@@ -7,6 +7,12 @@ const actions = new Set([
   "propose",
   "status",
   "stop",
+  // A lead's questions and tasks for its own members; members never reach these.
+  "members",
+  "ask",
+  "delegate",
+  "cancel",
+  "archive",
   "reminder",
   "routine",
   "workspace",

@@ -22,6 +22,14 @@ const reasons = {
     "It is unclear whether this was already created. Ask the owner to check the agent settings before retrying.",
   MODEL_UNAVAILABLE:
     "The model connection of this agent is not available. Ask the owner to choose a model connection.",
+  MEMBER_NOT_PERMANENT:
+    "Tasks can only be delegated to permanent members. Ask a temporary member a question instead, or ask the owner to keep it as a permanent agent.",
+  TASK_OPEN:
+    "This member already has an open task. Wait for its result or cancel it with agentpier_team_cancel.",
+  MEMBER_NOT_FINISHED:
+    "Only your finished temporary members without open questions or tasks can be archived. Check agentpier_team_members.",
+  MEMBER_UNAVAILABLE:
+    "This member never started and has no chat to answer in. Choose another member.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -30,6 +38,10 @@ const byKey = {
   reminderReviewRequired: "REVIEW_REQUIRED",
   routineReviewRequired: "REVIEW_REQUIRED",
   teamMcpServerNotBound: "MCP_SERVER_NOT_BOUND",
+  memberRequestNotPermanent: "MEMBER_NOT_PERMANENT",
+  memberRequestOpenTask: "TASK_OPEN",
+  memberRequestNotFinished: "MEMBER_NOT_FINISHED",
+  memberRequestUnavailable: "MEMBER_UNAVAILABLE",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",

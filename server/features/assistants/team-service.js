@@ -5,6 +5,8 @@ import { assistantProblem } from "./assistant-validation.js";
 import { decideAudited } from "./approval-audit.js";
 import { assertWired } from "./service-wiring.js";
 import { TeamMcpBindings } from "./team-mcp.js";
+import { LeadRequests } from "./lead-requests.js";
+import { publicRequest } from "./lead-request-store.js";
 function exact(input, keys) {
   if (
     !input ||
@@ -92,6 +94,7 @@ export class TeamService {
     Object.assign(this, { assistants, store, audit });
     this.mcp = new TeamMcpBindings({ teams: store, assistants });
     this.scheduler = new TeamScheduler({ teams: store, assistants, now, mcp: this.mcp });
+    this.requests = new LeadRequests({ teams: store, service: this });
     if (autoStart) {
       this.poll = setInterval(() => this.reconcile().catch(() => {}), 1000);
       this.poll.unref();
@@ -147,6 +150,7 @@ export class TeamService {
     return {
       teams: this.store.list().map((r) => this.project(r)),
       members: this.store.members().map((r) => this.project(r)),
+      requests: this.requests.list(),
       settings: this.store.settings(),
       policies: Object.fromEntries(
         this.assistants.store
@@ -305,6 +309,31 @@ export class TeamService {
     this.assistants.changed();
     return this.project(this.store.get(id));
   }
+  // A lead's questions and tasks for its own members (lead-requests.js).
+  members(inv, input) {
+    assertWired(this);
+    return this.requests.members(inv, input);
+  }
+  ask(inv, input) {
+    assertWired(this);
+    return this.requests.ask(inv, input);
+  }
+  delegate(inv, input) {
+    assertWired(this);
+    return this.requests.delegate(inv, input);
+  }
+  cancel(inv, input) {
+    return this.requests.cancel(inv, input);
+  }
+  archive(inv, input) {
+    return this.requests.archive(inv, input);
+  }
+  decideRequest(id, input, origin) {
+    return this.requests.decide(id, input, origin);
+  }
+  async cancelRequest(id) {
+    return publicRequest(await this.requests.stop(id, "owner"));
+  }
   async recoverMember(id, input) {
     exact(input, ["revision", "acknowledgeUnknownOutcome"]);
     const a = this.assistants,
@@ -333,7 +362,7 @@ export class TeamService {
   reconcile() {
     return this.assistants.recovering || this.assistants.maintenance
       ? Promise.resolve()
-      : this.scheduler.tick();
+      : this.scheduler.tick().finally(() => this.requests.advance());
   }
   async close() {
     if (this.closed) return;
@@ -341,5 +370,6 @@ export class TeamService {
     clearInterval(this.poll);
     await this.bridge?.close();
     await this.scheduler.close();
+    await this.requests.close();
   }
 }

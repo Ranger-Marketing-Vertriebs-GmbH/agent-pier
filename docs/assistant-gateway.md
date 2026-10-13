@@ -14,7 +14,9 @@ and [native memory and automation spike](research/openclaw-native-memory-automat
 ## User-facing shape
 
 Agent chats remain directly reachable in the sidebar, with team members nested
-under their assigning assistant. The Agents directory manages profiles. Per-agent
+under their assigning assistant in two sections: permanent members (also promoted
+ones) and temporary members grouped by team. A permanent member becomes a root agent
+only when its lead is archived. The Agents directory manages profiles. Per-agent
 settings configure instructions, models, service access and team permission.
 
 Place shared service operation under **Settings > Agents > Agent service**. Call the
@@ -601,7 +603,8 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.9.9 and its qualified rollback predecessors 2026.9.8 and 2026.9.7. Eligible parents receive the three managed team tools and
+to OpenClaw 2026.9.9 and its qualified rollback predecessors 2026.9.8 and 2026.9.7. Eligible parents receive the eight managed team tools (propose, status,
+stop, and the [member tools](#lead-questions-and-tasks-for-members)) and
 `session_status`; members receive only `session_status`. Direct native spawning
 and alternative session mutation tools are not offered; `exec` and `process` only
 under [agent shell access](#agent-shell-access-2026-10-12), which temporary members
@@ -625,6 +628,39 @@ notifications block re-pairing/disconnect and remain visible in Telegram activit
 Changed destinations are rejected. Unknown delivery requires acknowledgement without
 resending; ordinary replies and notifications share the same intent-before-send
 and confirmed-message-ID logic.
+
+### Lead questions and tasks for members
+
+A lead reaches its own members without the owner relaying anything
+(`lead-requests.js`, `lead-request-store.js`):
+
+- **Tools.** `agentpier_team_members` lists the lead's members that are not
+  archived with their latest questions and tasks; `agentpier_team_ask` asks one of
+  them (temporary or permanent, running or finished); `agentpier_team_delegate`
+  hands a task to a permanent member (one open task per member);
+  `agentpier_team_cancel` cancels an open one; `agentpier_team_archive` archives the
+  lead's finished temporary members without asking. Members never get these tools,
+  and the bridge refuses them to member turns, so there are no chains.
+- **Authorisation.** The server resolves the lead from the attempt and checks every
+  target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
+  temporary for archive. The approval rule is the team rule without the word
+  "team": an owner turn (AgentPier chat or Telegram, not forwarded) with a verbatim
+  quote of at least three words, or the lead's standing team permission, runs at
+  once; everything else waits for the owner's decision in the lead's chat, under
+  Settings → Work → Teams or with buttons in the paired Telegram chat.
+- **Delivery.** A request waits until the member is free (no running turn, no
+  active team assignment) and then runs as an ordinary turn in the member's chat,
+  shown there as the lead's bare text with "from <lead>". The member sees only the
+  question or task, never the lead's conversation; member turns cannot write files.
+  The ask tool holds the lead's call for up to 110 seconds: OpenClaw's embedded
+  harness gives plugin tools no own timeout, and its stuck-session diagnostics flag
+  a call only after two minutes. A later answer, a task result or a failure reaches
+  the lead as a hidden follow-up turn once its chat is idle, and from there the
+  paired Telegram chat when the request came from Telegram.
+- **Recovery.** Requests are durable records in the team store. A send whose
+  outcome is unknown at a restart is adopted by its stable request id instead of
+  sent again; an unknown member outcome ends `failed` once reviewed and is reported
+  to the lead. Archiving a member fails its queued requests.
 
 ### Coding requests from team members
 
