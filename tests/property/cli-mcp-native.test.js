@@ -8,11 +8,16 @@ import {
   proposeName,
 } from "../../server/features/mcp-servers/cli-native.js";
 import { namePattern } from "../../server/features/mcp-servers/command-resolution.js";
+import { hasReference } from "../../server/features/mcp-servers/value-references.js";
 
 const headerName = fc
   .stringMatching(/^[A-Za-z][A-Za-z0-9-]{0,15}$/)
   .filter((name) => !["constructor", "prototype"].includes(name));
-const headerValue = fc.stringMatching(/^[ -~]{0,40}$/);
+// Central servers hold literal values only (requireLiteralValues refuses `${…}`,
+// `{env:…}` and `{file:…}`), so the round trip never starts from a reference.
+const headerValue = fc
+  .stringMatching(/^[ -~]{0,40}$/)
+  .filter((value) => !hasReference(value));
 
 test("any proposed name is valid and not taken", () => {
   fc.assert(
