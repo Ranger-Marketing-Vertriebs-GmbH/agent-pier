@@ -1,4 +1,5 @@
 import { assistantProblem, validateDefinition } from "./assistant-validation.js";
+import { sessionCreateTimeoutMs } from "./gateway-client.js";
 import { RequestLedger } from "./request-ledger.js";
 import { AssistantEvents } from "./assistant-events.js";
 import { conversationHistory } from "./conversations.js";
@@ -418,10 +419,11 @@ export class AssistantService {
       this.requireReady();
       await this.config.apply(assistantId);
       const assistant = this.store.getAssistant(assistantId);
-      const created = await this.runtime.client.call("sessions.create", {
-        agentId: assistant.runtimeAgentId,
-        label: `AgentPier ${assistant.id}`,
-      });
+      const created = await this.runtime.client.call(
+        "sessions.create",
+        { agentId: assistant.runtimeAgentId, label: `AgentPier ${assistant.id}` },
+        { timeoutMs: sessionCreateTimeoutMs },
+      );
       if (!created.key) throw assistantProblem("unavailable", 503);
       const conversation = this.store.saveConversation({
         assistantId,

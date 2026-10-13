@@ -7,7 +7,10 @@ import { isMainModule } from "../server/lib/is-main-module.js";
 import { runtimeManifest } from "../server/features/assistants/runtime-manifest.js";
 import { stageAssistantRuntime } from "../server/features/assistants/runtime-install.js";
 import { RuntimeSupervisor } from "../server/features/assistants/runtime-supervisor.js";
-import { GatewayClient } from "../server/features/assistants/gateway-client.js";
+import {
+  GatewayClient,
+  sessionCreateTimeoutMs,
+} from "../server/features/assistants/gateway-client.js";
 import { runtimePaths } from "../server/features/assistants/runtime-paths.js";
 import { waitForAgentInRoster } from "../server/features/assistants/openclaw-config/agent-roster.js";
 import { runtimeEnvironment } from "../server/features/assistants/runtime-config.js";
@@ -242,10 +245,11 @@ export async function qualifyInstalledGateway(
   assert.equal(created.agentId, agentId);
   await phase("initial-roster", () => assertRoster(runtime, agentId));
   const session = await phase("create-session", () =>
-    runtime.client.call("sessions.create", {
-      agentId,
-      label: "Installation qualification",
-    }),
+    runtime.client.call(
+      "sessions.create",
+      { agentId, label: "Installation qualification" },
+      { timeoutMs: sessionCreateTimeoutMs },
+    ),
   );
   assert.ok(session.key);
   assert.notEqual(session.runStarted, true);

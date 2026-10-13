@@ -1,3 +1,5 @@
+import { sessionCreateTimeoutMs } from "./gateway-client.js";
+
 export class TeamProvisioning {
   constructor({ teams, assistants }) {
     Object.assign(this, { teams, assistants });
@@ -41,7 +43,11 @@ export class TeamProvisioning {
   async createSession(id, agentId, label) {
     const { teams, assistants: a } = this;
     teams.write(teams.member(id), { phase: "provisioning", provisionStep: "session" });
-    const created = await a.runtime.client.call("sessions.create", { agentId, label });
+    const created = await a.runtime.client.call(
+      "sessions.create",
+      { agentId, label },
+      { timeoutMs: sessionCreateTimeoutMs },
+    );
     if (!created.key) throw Error("Unconfirmed session");
     return this.adopt(id, created.key);
   }
