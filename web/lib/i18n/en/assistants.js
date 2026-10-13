@@ -269,6 +269,10 @@ export const assistantCopy = {
   chooseModel: "Choose a model",
   noMatchingModels: "No matching models found.",
   customModel: "Custom model ID…",
+  refreshAccountModels: "Refresh models",
+  accountModelsLoading: "Loading ChatGPT models …",
+  accountModelsFailed:
+    "The ChatGPT model list could not be loaded. Enter a model ID or try again later.",
   chooseConnection: "Choose a connection",
   connections: "Manage connections",
   noConnections: "Connect ChatGPT or OpenRouter in Accounts to get started.",

@@ -109,6 +109,8 @@ export const assistantApi = {
   cancelLogin: (id) => api(`/assistant-model-login/${encodeURIComponent(id)}`, "DELETE"),
   checkAccount: (id) =>
     api(`/assistant-model-accounts/${encodeURIComponent(id)}/check`, "POST", {}),
+  refreshAccountModels: (id) =>
+    api(`/assistant-model-accounts/${encodeURIComponent(id)}/models/refresh`, "POST", {}),
   logoutAccount: (id) =>
     api(`/assistant-model-accounts/${encodeURIComponent(id)}`, "DELETE"),
   list: () => api("/assistants"),
