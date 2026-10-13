@@ -13,8 +13,9 @@ import "./artifacts.css";
 const pageSize = 20;
 
 /**
- * The session's own artifacts in compact rows; a row opens the viewer in a new tab
- * that returns to this session. Pinning and deleting live on the Artifacts page.
+ * The session's own artifacts in compact rows: a row opens the viewer in a new tab that
+ * returns to this session, its ⓘ action opens the artifact's detail on the Artifacts
+ * page (pin, delete). "Manage in Artifacts" opens the page filtered to this session.
  */
 export default function SessionArtifacts({ sessionId, returnTo, navigate }) {
   const [page, setPage] = useState(1);
@@ -23,8 +24,13 @@ export default function SessionArtifacts({ sessionId, returnTo, navigate }) {
   useEffect(() => {
     if (data && page > pageCount) setPage(pageCount);
   }, [data, page, pageCount]);
-  // The Artifacts page, filtered to this session's project once one is known.
-  const manage = artifactsRoute({ projectId: data?.items?.[0]?.projectId || "" });
+  const manage = artifactsRoute({ session: sessionId });
+  const open = (event, route) => {
+    if (!isPlainClick(event) || !navigate) return;
+    event.preventDefault();
+    navigate(route);
+  };
+  const detail = (item) => artifactsRoute({ session: sessionId, artifact: item.id });
   return (
     <section className="session-artifacts-panel" aria-label={copy.title}>
       <ErrorMessage error={error} />
@@ -36,12 +42,17 @@ export default function SessionArtifacts({ sessionId, returnTo, navigate }) {
         <p className="artifacts-empty">{copy.sessionPanelEmpty}</p>
       ) : (
         <>
+          <p className="session-artifacts-hint">{copy.retention}</p>
           <CompactArtifactRows
             items={data.items}
             label={copy.title}
             linkFor={(item) =>
               artifactLink(`/artifacts/view/${encodeURIComponent(item.id)}`, returnTo)
             }
+            detailFor={(item) => ({
+              href: routePath(detail(item)),
+              onClick: (event) => open(event, detail(item)),
+            })}
           />
           <Pagination
             label={copy.title}
@@ -61,11 +72,7 @@ export default function SessionArtifacts({ sessionId, returnTo, navigate }) {
         <a
           className="session-artifacts-manage"
           href={routePath(manage)}
-          onClick={(event) => {
-            if (!isPlainClick(event)) return;
-            event.preventDefault();
-            navigate(manage);
-          }}
+          onClick={(event) => open(event, manage)}
         >
           {copy.manage}
         </a>

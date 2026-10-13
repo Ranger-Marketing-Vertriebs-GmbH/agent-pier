@@ -59,7 +59,6 @@ export const artifactCopy = {
   emptyFilter: "Kein Artifact passt zu diesen Filtern.",
   clearFilters: "Filter zurücksetzen",
   gone: "Dieses Artifact ist nicht mehr verfügbar.",
-  selectHint: "Wähle ein Artifact aus, um es hier zu sehen.",
   previewLabel: (title) => `Vorschau von ${title}`,
   previewLoading: "Vorschau wird geladen…",
   previewUnavailable: "Keine Vorschau verfügbar. Öffne das Artifact, um es anzusehen.",
@@ -94,6 +93,9 @@ export const artifactCopy = {
   deleteRow: "Artifact löschen",
   deleteRowSub: "Entfernt die veröffentlichte Kopie. Die Dateien der Sitzung bleiben.",
   sessionPanelEmpty: "Diese Sitzung hat noch keine Artifacts veröffentlicht.",
+  sessionChip: (name) => `Sitzung: ${name}`,
+  removeSessionFilter: (name) => `Filter für Sitzung ${name} entfernen`,
+  showDetails: (title) => `Details zu ${title}`,
   manage: "In Artifacts verwalten",
   errors: {
     ARTIFACT_RESOURCE_UNSUPPORTED:

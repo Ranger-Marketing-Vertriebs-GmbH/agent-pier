@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
-import { artifactsFixture, now } from "./artifacts-fixture.js";
+import { artifactsFixture, now, remoteProbe } from "./artifacts-fixture.js";
 
 test.use({ timezoneId: "Europe/Berlin" });
 
@@ -101,8 +101,23 @@ for (const language of ["en", "de"]) {
     page,
     context,
   }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    // Clipboard permissions differ per engine; record what the page copies instead.
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: async (text) => void (window.copiedText = text) },
+      });
+    });
     await start(page, context, language);
+    const remote = [];
+    page.on("requestfailed", (request) => {
+      if (request.url().includes(remoteProbe))
+        remote.push(`failed ${request.failure()?.errorText}`);
+    });
+    await context.route(`**${remoteProbe}`, (route) => {
+      remote.push(`reached ${route.request().frame()?.url()}`);
+      return route.fulfill({ status: 404, body: "" });
+    });
     await page.goto(`${base}/artifacts`);
     await expect(page.getByRole("heading", { level: 1, name: t.title })).toBeVisible();
     await expect(tab(page, t.all)).toContainText("4");
@@ -122,6 +137,7 @@ for (const language of ["en", "de"]) {
     await expect(detail).toContainText(t.meta);
     const frame = detail.locator(".artifact-preview iframe");
     await expect(frame).toHaveAttribute("sandbox", "");
+    await expect(frame).toHaveAttribute("inert", "");
     await expect(frame).toHaveAttribute("title", t.preview("Settings QA report"));
     const preview = page.frameLocator(".artifact-preview iframe");
     await expect(preview.getByRole("heading", { name: "Private report" })).toHaveCSS(
@@ -129,6 +145,24 @@ for (const language of ["en", "de"]) {
       "rgb(1, 2, 3)",
     );
     await expect(preview.locator("body")).not.toContainText("SCRIPT RAN");
+    // The artifact's own policy stays first; inlined CSS cannot close its element and
+    // remote image-set loads never leave the page.
+    await expect(
+      preview.locator('head > meta[http-equiv="Content-Security-Policy"]').first(),
+    ).toHaveAttribute("content", /default-src 'none'/);
+    await expect(preview.locator("#breakout")).toHaveCount(0);
+    await expect(preview.locator("p")).toHaveText("Body");
+    // Chromium reports the attempt as failed by CSP; it must never reach the network.
+    await preview
+      .locator("body")
+      .evaluate(
+        (body) =>
+          body.ownerDocument.readyState === "complete" ||
+          new Promise((resolve) =>
+            body.ownerDocument.defaultView.addEventListener("load", resolve),
+          ),
+      );
+    expect(remote.filter((entry) => entry.startsWith("reached"))).toEqual([]);
     await expect(detail.getByText(t.session)).toBeVisible();
     await expect(detail.getByText(t.ended)).toBeVisible();
     if (shots && language === "en")
@@ -139,6 +173,10 @@ for (const language of ["en", "de"]) {
     // Selecting another row puts it into the address and the viewer's return link.
     await row(page, "Release notes preview").click();
     await expect(page).toHaveURL(`${base}/artifacts?artifact=a3`);
+    await expect(row(page, "Release notes preview").getByRole("link")).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
     await expect(
       detail.getByRole("heading", { name: "Release notes preview" }),
     ).toBeVisible();
@@ -152,7 +190,7 @@ for (const language of ["en", "de"]) {
     await expect(detail.getByRole("status").filter({ hasText: t.copied })).toContainText(
       t.linkHint,
     );
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    expect(await page.evaluate(() => window.copiedText)).toBe(
       `${base}/artifacts/view/a3`,
     );
     if (shots && language === "en") {
@@ -217,6 +255,11 @@ for (const language of ["en", "de"]) {
     await page.goto(`${base}/artifacts`);
     const search = page.getByRole("searchbox", { name: t.search });
     await search.fill("release");
+    await expect(page).toHaveURL(`${base}/artifacts?q=release`);
+    await expect(row(page, "Release notes preview")).toBeVisible();
+    await page.reload();
+    await expect(search).toHaveValue("release");
+    await expect(page.locator(".artifacts-list .list-row")).toHaveCount(1);
     await expect(page.locator(".artifacts-list .list-row")).toHaveCount(1);
     await expect(row(page, "Release notes preview")).toBeVisible();
     await expect(tab(page, t.all)).toContainText("1");
@@ -281,6 +324,9 @@ for (const language of ["en", "de"]) {
       await page.screenshot({ path: `${shots}/artifacts-phone-detail.png` });
     await page.getByRole("button", { name: t.back, exact: true }).click();
     await expect(page).toHaveURL(`${base}/artifacts`);
+    // The arrow replaced the detail entry: system back does not reopen it.
+    await page.goBack();
+    await expect(page).not.toHaveURL(/artifact=/);
     await expect(row(page, "Settings QA report")).toBeVisible();
   });
 }

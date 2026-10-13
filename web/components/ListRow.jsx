@@ -81,7 +81,7 @@ export default function ListRow({
       target={target}
       rel={target ? "noopener noreferrer" : undefined}
       aria-disabled={disabled || undefined}
-      aria-current={current ? "page" : undefined}
+      aria-current={current === true ? "page" : current || undefined}
       onClick={(event) => {
         // A disabled link row never navigates, not even natively.
         if (disabled) return event.preventDefault();

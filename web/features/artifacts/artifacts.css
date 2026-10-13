@@ -306,6 +306,39 @@
 .session-artifacts-panel .artifacts-empty {
   padding: 4px;
 }
+.session-artifacts-hint {
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #92949d;
+}
+.artifacts-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.artifacts-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 4px 2px 12px;
+  border: 1px solid #f49a5833;
+  border-radius: 999px;
+  background: #30261c;
+  font-size: 13px;
+  color: #ffc99d;
+}
+.artifacts-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: inherit;
+}
 .session-artifacts-manage {
   justify-self: start;
   padding: 0 4px;

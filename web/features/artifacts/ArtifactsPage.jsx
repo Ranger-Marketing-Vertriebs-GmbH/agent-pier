@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
@@ -45,6 +45,25 @@ function useDebounced(value, delay = 250) {
     return () => clearTimeout(timer);
   }, [value, delay]);
   return settled;
+}
+
+function SessionChip({ sessionId, sessions, onRemove }) {
+  const session = (sessions || []).find((entry) => entry.id === sessionId);
+  const name = session?.name || copy.sessionLabel;
+  return (
+    <div className="artifacts-chips">
+      <span className="artifacts-chip">
+        {copy.sessionChip(name)}
+        <button
+          type="button"
+          aria-label={copy.removeSessionFilter(name)}
+          onClick={onRemove}
+        >
+          <Icon name="close" size={14} />
+        </button>
+      </span>
+    </div>
+  );
 }
 
 function Toolbar({ term, setTerm, projectId, projects, onProject }) {
@@ -97,15 +116,29 @@ export default function ArtifactsPage({
   const narrow = useNarrowViewport();
   const info = useInfoHint();
   const tab = route.artifactTab === "pinned" ? "pinned" : "all";
-  const [term, setTerm] = useState("");
-  const q = useDebounced(term.trim());
-  const [page, setPage] = useState(1);
+  // The search term lives in the address (`q`), so a reload or the viewer's return
+  // keeps it; typing updates the address once the term settles.
+  const q = route.q || "";
+  const page = route.page || 1;
+  const [term, setTerm] = useState(q);
+  const typed = useDebounced(term.trim().slice(0, 200));
+  const latest = useRef({});
+  useEffect(() => {
+    latest.current = { route, onNavigate, typed };
+  });
+  useEffect(() => {
+    const current = latest.current;
+    if (typed !== (current.route.q || ""))
+      current.onNavigate({ ...current.route, q: typed, page: 1 }, true);
+  }, [typed]);
+  useEffect(() => {
+    if (q !== latest.current.typed) setTerm(q);
+  }, [q]);
   const [revision, setRevision] = useState(0);
   const [gone, setGone] = useState(false);
-  const filters = JSON.stringify([route.projectId || "", tab, q]);
-  useEffect(() => setPage(1), [filters]);
   const list = useArtifacts({
     projectId: route.projectId || undefined,
+    sessionId: route.session || undefined,
     page,
     q,
     pinned: tab === "pinned",
@@ -115,8 +148,8 @@ export default function ArtifactsPage({
   const items = data?.items || [];
   const pageCount = Math.max(1, Math.ceil((data?.total || 0) / pageSize));
   useEffect(() => {
-    if (data && page > pageCount) setPage(pageCount);
-  }, [data, page, pageCount]);
+    if (data && page > pageCount) onNavigate({ ...route, page: pageCount }, true);
+  }, [data, page, pageCount, route, onNavigate]);
   // Desktop shows the newest artifact until one is chosen; phones start on the list.
   const selectedId = route.artifact || (!narrow && items[0]?.id) || "";
   const listed = items.find((item) => item.id === selectedId);
@@ -147,7 +180,7 @@ export default function ArtifactsPage({
   };
   const clearFilters = () => {
     setTerm("");
-    onNavigate(artifactsRoute({ artifactTab: tab }));
+    onNavigate(artifactsRoute({ artifactTab: tab }), true);
   };
   return (
     <SettingsShell
@@ -156,7 +189,7 @@ export default function ArtifactsPage({
       subtitle={subpage ? copy.title : subtitle || undefined}
       description={subpage ? undefined : copy.description}
       leading={subpage ? "back" : "menu"}
-      onLeading={subpage ? () => go({ artifact: "" }) : openNavigation}
+      onLeading={subpage ? () => go({ artifact: "" }, true) : openNavigation}
       navigationOpen={navigationOpen}
       actions={
         subpage ? null : (
@@ -183,7 +216,7 @@ export default function ArtifactsPage({
               count: counts?.[id],
             }))}
             selected={tab}
-            onSelect={(id) => go({ artifactTab: id, artifact: "" })}
+            onSelect={(id) => go({ artifactTab: id, artifact: "", page: 1 })}
           />
         )
       }
@@ -225,10 +258,15 @@ export default function ArtifactsPage({
               setTerm={setTerm}
               projectId={route.projectId}
               projects={projects}
-              onProject={(projectId) =>
-                onNavigate(artifactsRoute({ projectId, artifactTab: tab }))
-              }
+              onProject={(projectId) => go({ projectId, page: 1, artifact: "" })}
             />
+            {route.session && (
+              <SessionChip
+                sessionId={route.session}
+                sessions={sessions}
+                onRemove={() => go({ session: "", page: 1, artifact: "" })}
+              />
+            )}
             <ErrorMessage error={list.error} />
             {!data ? (
               <p className="loading" role="status">
@@ -237,7 +275,7 @@ export default function ArtifactsPage({
             ) : !items.length ? (
               <ArtifactEmpty
                 term={q}
-                filtered={Boolean(q || route.projectId)}
+                filtered={Boolean(q || route.projectId || route.session)}
                 pinned={tab === "pinned"}
                 onClear={clearFilters}
               />
@@ -259,7 +297,7 @@ export default function ArtifactsPage({
                     total: data.total,
                     start: (page - 1) * pageSize + 1,
                     end: Math.min(page * pageSize, data.total),
-                    setPage: (value) => setPage(value + 1),
+                    setPage: (value) => go({ page: value + 1 }),
                   }}
                 />
               </>
