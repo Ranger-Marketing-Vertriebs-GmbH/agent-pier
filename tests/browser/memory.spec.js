@@ -114,9 +114,7 @@ test("project memory deep links support conflict recovery, revisions, archive an
   await page.goto(baseURL + "/memory/project-one?q=Build");
   await expect(page).toHaveURL(`${baseURL}/projects/project-one?tab=knowledge&q=Build`);
   await expect(page.getByRole("heading", { name: "AgentPier", level: 2 })).toBeVisible();
-  await expect(
-    page.getByRole("tab", { name: /^Projektwissen/, selected: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Wissen/, selected: true })).toBeVisible();
   await page.getByText("Build command").click();
   await page.getByRole("button", { name: "Bearbeiten: Build command" }).click();
   const content = page.getByRole("textbox", { name: "Inhalt", exact: true });
@@ -135,12 +133,12 @@ test("project memory deep links support conflict recovery, revisions, archive an
   await page.getByRole("button", { name: "Dialog schließen" }).click();
   await page.getByRole("button", { name: "Archivieren: Build command" }).click();
   await expect(page.getByText("Noch keine Einträge.")).toBeVisible();
-  await page.getByRole("button", { name: /^Archiv ·/ }).click();
+  await page.getByRole("radio", { name: /^Archiv ·/ }).check();
   await expect(page).toHaveURL(/archived=1/);
   await page.reload();
   await page.getByText("Build command").click();
   await page.getByRole("button", { name: "Wiederherstellen: Build command" }).click();
-  await page.getByRole("button", { name: /^Aktiv ·/ }).click();
+  await page.getByRole("radio", { name: /^Aktiv ·/ }).check();
   // The row stayed expanded across the archive/restore/segment switch above.
   await expect(
     page.getByRole("button", { name: "Bearbeiten: Build command" }),
@@ -221,13 +219,13 @@ async function newEntryFixture(page) {
 test("creating a knowledge entry updates the hub's tab counter", async ({ page }) => {
   await newEntryFixture(page);
   await page.goto(baseURL + "/projects/project-one?tab=knowledge");
-  await expect(page.getByRole("tab", { name: /^Projektwissen/ })).toContainText("0");
+  await expect(page.getByRole("tab", { name: /^Wissen/ })).toContainText("0");
   await page.getByRole("button", { name: "Neuer Eintrag" }).click();
   await page.getByLabel("Titel", { exact: true }).fill("Second note");
   await page.getByRole("textbox", { name: "Inhalt", exact: true }).fill("More context.");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: /^Projektwissen/ })).toContainText("1");
+  await expect(page.getByRole("tab", { name: /^Wissen/ })).toContainText("1");
 });
 
 async function unregisteredFixture(page) {
@@ -293,9 +291,10 @@ test.describe("English knowledge tab", () => {
     await fixture(page);
     await page.goto(baseURL + "/projects/project-one?tab=knowledge");
     await expect(page.getByRole("textbox", { name: "Search knowledge" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Active ·/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Archive ·/ })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^Active ·/ })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^Archive ·/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "New entry" })).toBeVisible();
+    await page.getByRole("button", { name: "Show hint" }).click();
     await expect(
       page.getByText(/Git worktrees share repository knowledge/),
     ).toBeVisible();
@@ -404,7 +403,7 @@ test("archiving the last entry on a page reloads the preceding page and replaces
   await page.goto(baseURL + "/projects");
   const list = page.getByRole("navigation", { name: "Projekte" });
   await list.getByRole("button", { name: /^Paged project/ }).click();
-  await page.getByRole("tab", { name: /^Projektwissen/ }).click();
+  await page.getByRole("tab", { name: /^Wissen/ }).click();
   await expect(page).toHaveURL(/\/projects\/paged-project\?tab=knowledge$/);
   await page.evaluate(() => {
     history.pushState(null, "", "/projects/paged-project?tab=knowledge&page=2");

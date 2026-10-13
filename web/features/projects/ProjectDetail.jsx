@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Icon from "../../components/Icon.jsx";
+import SettingsShell from "../../components/SettingsShell.jsx";
 import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import api from "../../lib/api.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -8,8 +9,8 @@ import {
   projectOverviewCopy as overviewCopy,
   projectsHubCopy as copy,
 } from "../../lib/i18n/messages/projects.js";
-import MergeDuplicateDialog from "./MergeDuplicateDialog.jsx";
 import { repositoriesPageCopy } from "../../lib/i18n/messages/repositories.js";
+import MergeDuplicateDialog from "./MergeDuplicateDialog.jsx";
 import ProjectAgentBus from "./ProjectAgentBus.jsx";
 import ProjectKnowledge from "./ProjectKnowledge.jsx";
 import ProjectOverview from "./ProjectOverview.jsx";
@@ -53,6 +54,9 @@ export default function ProjectDetail({
   busNote,
   busError,
   home,
+  attention,
+  notices,
+  onBack,
 }) {
   const runTotal = useRunTotal(project.memoryId);
   const [merging, setMerging] = useState(false);
@@ -62,12 +66,13 @@ export default function ProjectDetail({
   const credential = credentials.find((item) => item.id === project.credentialId);
   const branch = sessions.find((session) => session.branch)?.branch || "";
   const tab = route.projectTab || "overview";
-  const Heading = mobile ? "h1" : "h2";
   const meta = [
     project.remote ? remoteShort(project.remote) : copy.localOnly,
     branch,
     credential ? copy.tokenMeta(credential.name) : "",
-  ].filter(Boolean);
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const facts = [
     {
       label: overviewCopy.remote,
@@ -83,99 +88,133 @@ export default function ProjectDetail({
     { id: "agentbus", label: copy.tabAgentBus, count: project.sessionCount },
     { id: "runs", label: copy.tabRuns, count: runTotal },
   ];
+  const tabRow = (
+    <UnderlineTabs
+      label={copy.tabsLabel}
+      tabs={tabs}
+      selected={tab}
+      onSelect={(projectTab) =>
+        projectTab !== tab &&
+        onNavigate(projectsRoute({ projectId: project.id, projectTab }))
+      }
+    />
+  );
+  const actions = (
+    <>
+      {older && (
+        <button
+          type="button"
+          className="button secondary"
+          onClick={() => setMerging(true)}
+        >
+          {dialogsCopy.mergeOlder}
+        </button>
+      )}
+      <button
+        type="button"
+        className="button primary"
+        aria-label={repositoriesPageCopy.buttonAriaLabel(project.name)}
+        onClick={() => onLaunch(project.path)}
+      >
+        <Icon name="terminal" size={16} />
+        {commonCopy.startSession}
+      </button>
+    </>
+  );
+  const panel = (
+    <div
+      className="project-tabpanel"
+      role="tabpanel"
+      id={`underline-tabpanel-${tab}`}
+      aria-labelledby={`underline-tab-${tab}`}
+    >
+      {tab === "overview" && (
+        <ProjectOverview
+          projectId={project.id}
+          facts={facts}
+          sessions={sessions}
+          select={select}
+          attention={attention}
+          onNavigate={onNavigate}
+          mobile={mobile}
+        />
+      )}
+      {tab === "knowledge" && (
+        <ProjectKnowledge
+          project={project}
+          route={route}
+          onNavigate={onNavigate}
+          reloadHub={reloadHub}
+          mobile={mobile}
+        />
+      )}
+      {tab === "agentbus" && (
+        <ProjectAgentBus
+          request={api}
+          project={project}
+          busProjects={busProjects}
+          busVersion={busVersion}
+          busNote={busNote}
+          busError={busError}
+          reloadBus={reloadHub}
+          route={route}
+          mobile={mobile}
+          onNavigate={(busTab, messagePage = 1, replace = false) =>
+            onNavigate({ ...route, projectTab: "agentbus", busTab, messagePage }, replace)
+          }
+        />
+      )}
+      {tab === "runs" && (
+        <ProjectRuns
+          project={project}
+          route={route}
+          onNavigate={onNavigate}
+          home={home}
+          reloadHub={reloadHub}
+        />
+      )}
+    </div>
+  );
+  const mergeDialog = merging && older && (
+    <MergeDuplicateDialog
+      project={project}
+      older={older}
+      close={() => setMerging(false)}
+      merged={() => {
+        setMerging(false);
+        reloadHub();
+      }}
+    />
+  );
+  if (mobile)
+    return (
+      <SettingsShell
+        className="projects-hub project-detail-shell"
+        leading="back"
+        onLeading={onBack}
+        leadingLabel={copy.back}
+        title={project.name}
+        subtitle={meta}
+        tabs={tabRow}
+        bar={<div className="project-launch-bar">{actions}</div>}
+      >
+        {notices}
+        {panel}
+        {mergeDialog}
+      </SettingsShell>
+    );
   return (
     <section className="project-card" aria-labelledby="project-card-title">
       <header className="project-card-header">
         <div>
-          <Heading id="project-card-title">{project.name}</Heading>
-          <span>{meta.join(" · ")}</span>
+          <h2 id="project-card-title">{project.name}</h2>
+          <span>{meta}</span>
         </div>
-        <div className="project-card-primary">
-          {older && (
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => setMerging(true)}
-            >
-              {dialogsCopy.mergeOlder}
-            </button>
-          )}
-          <button
-            type="button"
-            className="button primary"
-            aria-label={repositoriesPageCopy.buttonAriaLabel(project.name)}
-            onClick={() => onLaunch(project.path)}
-          >
-            <Icon name="terminal" size={16} />
-            {commonCopy.startSession}
-          </button>
-        </div>
+        <div className="project-card-primary">{actions}</div>
       </header>
-      <UnderlineTabs
-        label={copy.tabsLabel}
-        tabs={tabs}
-        selected={tab}
-        onSelect={(projectTab) =>
-          projectTab !== tab &&
-          onNavigate(projectsRoute({ projectId: project.id, projectTab }))
-        }
-      />
-      <div
-        className="project-tabpanel"
-        role="tabpanel"
-        id={`underline-tabpanel-${tab}`}
-        aria-labelledby={`underline-tab-${tab}`}
-      >
-        {tab === "overview" && (
-          <ProjectOverview facts={facts} sessions={sessions} select={select} />
-        )}
-        {tab === "knowledge" && (
-          <ProjectKnowledge
-            project={project}
-            route={route}
-            onNavigate={onNavigate}
-            reloadHub={reloadHub}
-          />
-        )}
-        {tab === "agentbus" && (
-          <ProjectAgentBus
-            request={api}
-            project={project}
-            busProjects={busProjects}
-            busVersion={busVersion}
-            busNote={busNote}
-            busError={busError}
-            reloadBus={reloadHub}
-            route={route}
-            onNavigate={(busTab, messagePage = 1, replace = false) =>
-              onNavigate(
-                { ...route, projectTab: "agentbus", busTab, messagePage },
-                replace,
-              )
-            }
-          />
-        )}
-        {tab === "runs" && (
-          <ProjectRuns
-            project={project}
-            route={route}
-            onNavigate={onNavigate}
-            home={home}
-            reloadHub={reloadHub}
-          />
-        )}
-      </div>
-      {merging && older && (
-        <MergeDuplicateDialog
-          project={project}
-          older={older}
-          close={() => setMerging(false)}
-          merged={() => {
-            setMerging(false);
-            reloadHub();
-          }}
-        />
-      )}
+      {tabRow}
+      {panel}
+      {mergeDialog}
     </section>
   );
 }

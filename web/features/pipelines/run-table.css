@@ -30,25 +30,28 @@
   align-items: center;
   gap: 7px;
   height: 32px;
-  padding: 0 11px;
-  border-radius: 6px;
+  padding: 0 12px;
   border: 1px solid #303137;
+  border-radius: 999px;
   background: transparent;
-  color: #bfc0c4;
-  font-size: 12px;
+  font-size: 13px;
+  color: #c4c5c9;
   white-space: nowrap;
 }
 .run-status-filters button:hover {
   background: #202125;
 }
 .run-status-filters button[aria-pressed="true"] {
-  background: #30241d;
-  border-color: #6b4a33;
+  border-color: #f49a5833;
+  background: #30261c;
   color: #ffc99d;
 }
 .run-status-count {
-  font-size: 11px;
-  color: #8b8c90;
+  font-size: 12px;
+  color: #92949d;
+}
+.run-status-filters button[aria-pressed="true"] .run-status-count {
+  color: #d9b597;
 }
 .run-status-dot {
   width: 6px;

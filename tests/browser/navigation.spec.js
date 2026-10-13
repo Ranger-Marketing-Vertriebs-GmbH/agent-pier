@@ -244,10 +244,7 @@ test("AgentBus history restores project and page through reload and Back/Forward
     });
   });
   await page.goto(base + "/agentbus/messages/project-two?page=2");
-  await expect(page.getByRole("tab", { name: /^Nachrichten/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(page.getByRole("radio", { name: /^Nachrichten/ })).toBeChecked();
   await expect(
     page.getByText("Verlauf project-two Seite 2", { exact: true }),
   ).toBeVisible();
@@ -274,12 +271,12 @@ test("AgentBus history restores project and page through reload and Back/Forward
     .getByRole("button", { name: /^Eins/ })
     .click();
   await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus$/);
-  await page.getByRole("tab", { name: /^Nachrichten/ }).click();
+  await page.getByRole("radio", { name: /^Nachrichten/ }).check();
   await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus&bus=messages$/);
   await expect(
     page.getByText("Verlauf project-one Seite 1", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: /^Sitzungen/ }).click();
+  await page.getByRole("radio", { name: /^Sitzungen/ }).check();
   await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus$/);
   await page.goBack();
   await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus&bus=messages$/);

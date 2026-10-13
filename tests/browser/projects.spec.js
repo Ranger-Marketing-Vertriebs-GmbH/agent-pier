@@ -32,7 +32,7 @@ test("the hub joins projects, selects the first one and resolves every id space"
     repositoryPath,
   ]);
   for (const [tab, count] of [
-    ["Projektwissen", "4"],
+    ["Wissen", "4"],
     ["AgentBus", "1"],
     ["Läufe", "3"],
   ])
@@ -130,7 +130,7 @@ test("mobile shows the list first, then the detail, and dialogs fit as sheets", 
   await expect(list).toBeHidden();
   const launch = page.getByRole("button", { name: "Sitzung in agent-pier starten" });
   const box = await launch.boundingBox();
-  expect(Math.round(box.height)).toBe(43);
+  expect(Math.round(box.height)).toBe(44);
   expect(Math.round(box.y + box.height)).toBeGreaterThan(780);
   await page.getByRole("tab", { name: /^Läufe/ }).scrollIntoViewIfNeeded();
   expect(await noOverflow(page)).toBe(true);
@@ -138,7 +138,8 @@ test("mobile shows the list first, then the detail, and dialogs fit as sheets", 
   await expect(page).toHaveURL(/\/projects$/);
   await expect(list).toBeVisible();
 
-  await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
+  await page.getByRole("button", { name: "Projekt hinzufügen", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Repository klonen", exact: true }).click();
   const sheet = page.getByRole("dialog", { name: "Repository klonen" });
   await expect(sheet.getByRole("radiogroup", { name: "Token-Profil" })).toBeVisible();
   await sheet.getByRole("radio", { name: /Arbeit/ }).check();
@@ -241,7 +242,9 @@ test.describe("English projects hub", () => {
     await hubFixture(page);
     await page.goto(base + "/projects");
     await expect(page.getByRole("heading", { name: "Projects", level: 1 })).toBeVisible();
-    await expect(page.getByText("WORKSPACE / PROJECTS")).toBeVisible();
+    await expect(
+      page.getByText("From repository to your next session.", { exact: false }),
+    ).toBeVisible();
     const list = projectList(page, "Projects");
     await expect(list.getByRole("button", { name: /^agent-pier/ })).toContainText(
       "1 decision required",
@@ -250,7 +253,7 @@ test.describe("English projects hub", () => {
       "2 runs failed",
     );
     await expect(page.getByRole("tab", { name: "Overview" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /^Project knowledge/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^Knowledge/ })).toBeVisible();
     await expect(page.getByRole("tab", { name: /^Runs/ })).toBeVisible();
     await expect(page.getByText("Sessions · 1")).toBeVisible();
     await expect(page.getByText("Token profile")).toBeVisible();

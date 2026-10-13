@@ -157,9 +157,18 @@ export async function openRepositories(page) {
   await navigateTo(page, "Projekte");
 }
 
-// The clone form lives in the Projects hub's "Repository klonen" dialog.
+// The clone form lives in the Projects hub's "Repository klonen" dialog; phones reach
+// it through the header's "+" menu.
 export async function openCloneDialog(page) {
-  await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
+  await page.locator(".settings-shell-actions").waitFor();
+  const add = page
+    .locator(".settings-shell-actions")
+    .getByRole("button", { name: "Projekt hinzufügen", exact: true });
+  if (await add.isVisible()) {
+    await add.click();
+    await page.getByRole("menuitem", { name: "Repository klonen", exact: true }).click();
+  } else
+    await page.getByRole("button", { name: "Repository klonen", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Repository klonen" });
   await expect(dialog).toBeVisible();
   return dialog;

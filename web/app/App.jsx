@@ -260,6 +260,8 @@ function Application() {
             <ProjectsPage
               route={route}
               onNavigate={navigate}
+              openNavigation={openNavigation}
+              navigationOpen={mobileNav}
               home={state.home}
               defaultCwd={state.defaultCwd}
               state={state}

@@ -64,14 +64,13 @@ test("bundled AgentBus status groups this project's sessions without consuming i
   await expect(page).toHaveURL(/\/projects\/demo\?tab=agentbus$/);
   await expect(page.getByRole("heading", { name: "Website", exact: true })).toBeVisible();
   await expect(
-    page.getByRole("tab", { name: "Sitzungen · 2", exact: true }),
+    page.getByRole("radio", { name: "Sitzungen · 2", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("tab", { name: "Nachrichten · 3", exact: true }),
+    page.getByRole("radio", { name: "Nachrichten · 3", exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByText("1 verbunden · 2 Nachrichten warten · Version 0.1.0"),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "1 verbunden" })).toBeVisible();
+  await expect(page.getByText("2 Nachrichten warten · Version 0.1.0")).toBeVisible();
   await expect(page.getByText("Inbox-Inhalte werden hier nicht gelesen.")).toBeVisible();
   const claudeSession = page
     .getByRole("article")
@@ -159,7 +158,7 @@ test("a hub project without an AgentBus id shows the existing empty texts", asyn
       "Noch keine Sitzungen mit AgentBus. Starte eine neue Coding-CLI-Sitzung.",
     ),
   ).toBeVisible();
-  await page.getByRole("tab", { name: /^Nachrichten/ }).click();
+  await page.getByRole("radio", { name: /^Nachrichten/ }).check();
   await expect(
     page.getByText("Dieses AgentBus-Projekt wurde nicht gefunden."),
   ).toBeVisible();
