@@ -306,3 +306,23 @@ test("repeating the selected channel keeps the offer and a running download", as
   await assert.rejects(releases.stage({ version: "1.29.0-rc.1" }), /Prüfsumme/);
   assert.equal(releases.channelRevision, revision);
 });
+
+test("an exhausted GitHub API quota reports a rate limit instead of a download failure", async (t) => {
+  const { releases } = await fixture(t, [entry("1.29.0-rc.1")]);
+  releases.setUpdateChannel("preview");
+  const seen = [];
+  for (const headers of [{ "x-ratelimit-remaining": "0" }, { "retry-after": "60" }])
+    for (const status of [403, 429]) {
+      releases.fetchImpl = async (url, init) => {
+        seen.push(init?.headers?.Accept);
+        return new Response("limited", { status, headers });
+      };
+      await assert.rejects(releases.check(), {
+        status: 503,
+        message: /GitHub begrenzt/,
+      });
+    }
+  assert.ok(seen.every((accept) => accept === "application/vnd.github+json"));
+  releases.fetchImpl = async () => new Response("forbidden", { status: 403 });
+  await assert.rejects(releases.check(), { status: 502 });
+});
