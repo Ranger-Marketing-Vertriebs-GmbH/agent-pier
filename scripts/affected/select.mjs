@@ -13,13 +13,14 @@ export const browserSpec = /^tests\/browser\/.+\.spec\.js$/;
 export const defaultThreshold = 0.6;
 
 // Changes that can affect any test: dependencies, the test runners and their
-// configuration, the build, CI, and this selector itself.
+// configuration, the build, the workflow that runs the tests, and this selector
+// itself. Other workflows do not change what a test does.
 export const runEverything = [
   /^package(?:-lock)?\.json$/,
   /^\.npmrc$/,
   /^\.nvmrc$/,
   /^\.node-version$/,
-  /^\.github\//,
+  /^\.github\/workflows\/verify\.yml$/,
   /^scripts\/test[^/]*\.mjs$/,
   /^scripts\/affected-tests\.mjs$/,
   /^scripts\/affected\//,
@@ -31,6 +32,7 @@ export const runEverything = [
 // Files no test runs. They select only the tests that name them (for example
 // the specs that write docs/screenshots/*.png).
 export const inert = [
+  /^\.github\//,
   /^docs\//,
   /\.md$/,
   /^LICENSE$/,
@@ -43,9 +45,58 @@ export const inert = [
 
 const matches = (patterns, file) => patterns.some((pattern) => pattern.test(file));
 
+// A release bump changes only the "version" fields of the package manifests;
+// no test depends on them.
+const versionFields = {
+  "package.json": (json) => ({ ...json, version: undefined }),
+  "package-lock.json": (json) => ({
+    ...json,
+    version: undefined,
+    packages: { ...json.packages, "": { ...json.packages?.[""], version: undefined } },
+  }),
+};
+export function versionOnly(file, before, after) {
+  const strip = versionFields[file];
+  if (!strip || typeof before !== "string" || typeof after !== "string") return false;
+  try {
+    return (
+      JSON.stringify(strip(JSON.parse(before))) ===
+      JSON.stringify(strip(JSON.parse(after)))
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Code that branches on the host platform or drives macOS tools is worth a
+// macOS run before the merge queue; everything else runs on Linux only.
+const platformCode =
+  /process\.platform|\bdarwin\b|\bhdiutil\b|\blaunchctl\b|\bdiskutil\b/;
+const platformFile = /\.(?:m?js|cjs|jsx|sh|rb|in)$/;
+export function needsMacos(changed, read) {
+  return changed.filter(
+    (file) => platformFile.test(file) && platformCode.test(read(file) || ""),
+  );
+}
+
 // `changed` is the list of changed paths, or null when the diff could not be
-// computed. `source` is the head snapshot: { files, read(file) }.
-export function selectAffected({ changed, source, threshold = defaultThreshold }) {
+// computed. `source` is the head snapshot: { files, read(file) }. `previous(file)`
+// returns a file's text at the merge base, when known. The result also says
+// whether a macOS run is warranted (`macos`).
+export function selectAffected({
+  changed: listed,
+  source,
+  previous = () => null,
+  threshold = defaultThreshold,
+}) {
+  const result = select({ listed, source, previous, threshold });
+  const platform = listed ? needsMacos(listed, source.read) : [];
+  if (platform.length)
+    result.reasons.push(...platform.map((file) => `${file} is platform code: macOS run`));
+  return { ...result, macos: platform.length > 0 };
+}
+
+function select({ listed, source, previous, threshold }) {
   const nodeTests = source.files.filter((file) => nodeTest.test(file)).sort();
   const browserSpecs = source.files.filter((file) => browserSpec.test(file)).sort();
   const everything = (reasons) => ({
@@ -54,12 +105,17 @@ export function selectAffected({ changed, source, threshold = defaultThreshold }
     browser: browserSpecs,
     reasons,
   });
-  if (!changed) return everything(["the changed files could not be computed"]);
-  if (!changed.length) return { mode: "none", node: [], browser: [], reasons: [] };
+  if (!listed) return everything(["the changed files could not be computed"]);
+  const bumped = listed.filter((file) =>
+    versionOnly(file, previous(file), source.read(file)),
+  );
+  const changed = listed.filter((file) => !bumped.includes(file));
+  const notes = bumped.map((file) => `${file} changed only its version`);
+  if (!changed.length) return { mode: "none", node: [], browser: [], reasons: notes };
 
   const global = changed.filter((file) => matches(runEverything, file));
   if (global.length)
-    return everything(global.map((file) => `${file} affects every test`));
+    return everything([...notes, ...global.map((file) => `${file} affects every test`)]);
 
   const present = new Set(source.files);
   const unparsable = changed.filter((file) => {
@@ -73,7 +129,7 @@ export function selectAffected({ changed, source, threshold = defaultThreshold }
   const graph = buildGraph(source.files, source.read);
   const node = new Set();
   const browser = new Set();
-  const reasons = [];
+  const reasons = [...notes];
   let allBrowser = false;
   const testsOf = new Map();
   for (const file of changed) {
