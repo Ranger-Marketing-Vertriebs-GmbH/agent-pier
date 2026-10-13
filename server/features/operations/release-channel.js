@@ -8,6 +8,16 @@ import { compareReleaseVersions } from "./version.js";
 export const isOfficialChannel = (channel) =>
   `${channel.replace(/\/+$/, "")}/` === officialChannel;
 
+// Shows where updates come from without user information, query or fragment.
+export function publicChannel(channel) {
+  try {
+    const url = new URL(channel);
+    return `${url.protocol}//${url.host}${url.pathname}`;
+  } catch {
+    return null;
+  }
+}
+
 export function offeredVersion(version, channel) {
   return (
     typeof version === "string" &&

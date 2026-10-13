@@ -51,6 +51,14 @@ test("release checks preserve explicit custom channels", async (t) => {
   });
   assert.equal(releases.status().channel, "https://custom.example/releases/");
 });
+test("release status never exposes credentials of a custom channel", async (t) => {
+  const releases = await fixture(t, undefined, undefined, {
+    channel: "https://user:secret@custom.example/releases/?token=secret#part",
+  });
+  const status = releases.status();
+  assert.equal(status.channel, "https://custom.example/releases/");
+  assert.doesNotMatch(JSON.stringify(status), /secret/);
+});
 test("missing release manifests produce an actionable no-release message", async (t) => {
   const releases = await fixture(t, undefined, undefined, {
     channel: official,

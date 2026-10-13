@@ -202,3 +202,7 @@
   display: block;
   overflow-x: auto;
 }
+.release-badge {
+  font-weight: 500;
+  vertical-align: middle;
+}

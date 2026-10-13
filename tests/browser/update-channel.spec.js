@@ -66,6 +66,7 @@ for (const locale of ["de-DE", "en-GB"]) {
     }) => {
       const state = await operationsFixture(page);
       state.releases.updateChannelManaged = true;
+      state.releases.channel = "https://custom.example/releases/";
       await page.goto("/settings/updates");
       await expect(page.getByRole("combobox")).toBeDisabled();
       await expect(
@@ -75,6 +76,78 @@ for (const locale of ["de-DE", "en-GB"]) {
             : /Eine eigene Update-Quelle ist eingerichtet/,
         ),
       ).toBeVisible();
+      await expect(
+        page.getByText(
+          `${locale === "en-GB" ? "Update source" : "Update-Quelle"}: https://custom.example/releases/`,
+        ),
+      ).toBeVisible();
+    });
+    test("source checkouts cannot change the update channel", async ({ page }) => {
+      const state = await operationsFixture(page);
+      state.releases.supported = false;
+      await page.goto("/settings/updates");
+      await expect(page.getByRole("combobox")).toBeDisabled();
+    });
+    test("pre-releases are marked and preview explains the risk", async ({
+      page,
+    }, testInfo) => {
+      const state = await operationsFixture(page);
+      const en = locale === "en-GB";
+      const badge = en ? "Pre-release" : "Vorabversion";
+      state.releases.updateChannel = "preview";
+      state.releases.staged = [{ id: "staged-rc", version: "1.2.0-rc.1" }];
+      state.checkVersion = "1.3.0-rc.2";
+      await page.goto("/settings/updates");
+      await expect(
+        page.getByText(
+          en
+            ? /Release candidates can contain unfinished changes\. .*rolling back to the previous stable version can be impossible.*Settings → Backups/
+            : /Release Candidates können unfertige Änderungen enthalten\. .*Einstellungen → Sicherungen/,
+        ),
+      ).toBeVisible();
+      await page
+        .getByRole("button", {
+          name: en ? "Check for updates" : "Nach Updates suchen",
+          exact: true,
+        })
+        .click();
+      await expect(
+        page.getByRole("heading", { name: `1.3.0-rc.2 ${badge}`, exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: `${en ? "Staged" : "Vorbereitet"}: 1.2.0-rc.1 ${badge}`,
+        }),
+      ).toBeVisible();
+      for (const viewport of [
+        { width: 390, height: 844, name: "mobile" },
+        { width: 1280, height: 900, name: "desktop" },
+      ]) {
+        await page.setViewportSize(viewport);
+        // Let the layout settle at the new size before measuring and capturing it.
+        await page.evaluate(
+          () =>
+            new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve))),
+        );
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        ).toBe(true);
+        await page.screenshot({
+          path: testInfo.outputPath(`update-channel-prerelease-${viewport.name}.png`),
+          fullPage: viewport.name === "mobile",
+        });
+      }
+      await page
+        .getByRole("combobox", { name: en ? "Update channel" : "Updatekanal" })
+        .selectOption("stable");
+      await expect(
+        page.getByText(
+          en
+            ? /Pre-releases that are already staged can still be activated/
+            : /Bereits vorbereitete Vorabversionen lassen sich/,
+        ),
+      ).toBeVisible();
+      await expect(page.locator(".release-badge")).toHaveText([badge]);
     });
   });
 }

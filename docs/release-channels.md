@@ -49,7 +49,7 @@ Every package declares the range of data schemas it can open (`schemaMin` to
 - The publish step enforces this rule. Before it creates or publishes a release
   `x.y.z` or `x.y.z-rc.N`, it reads `latest.json` of every earlier published
   `x.y.z-rc.*` and fails if the new release does not accept that RC's `schemaMax`.
-- Testers take a backup in Settings → Backup before they activate an RC that changes
+- Testers take a backup in Settings → Backups before they activate an RC that changes
   the data schema.
 
 ## Installation preference
