@@ -692,7 +692,7 @@ A lead reaches its own members without the owner relaying anything
   the paired Telegram chat when the request came from Telegram. Follow-ups that
   keep failing end as `FOLLOW_UP_FAILED`, shown on the request.
 - **Tool calls and scheduled runs.** Plugin tools receive the session key but no
-  run id (OpenClaw 2026.9.8 tool context), so the bridge binds a call to the
+  run id (OpenClaw 2026.9.8 and 2026.9.9 tool context), so the bridge binds a call to the
   session's single active AgentPier attempt. Native runs in the same session never
   reach these tools or `write`/`edit`: check-ins run with `toolsAllow:
 ["memory_search", "memory_get"]` and reminders and routines in isolated sessions
