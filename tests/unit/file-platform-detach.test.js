@@ -234,3 +234,32 @@ test("a whole disk still busy seconds after its volume unmounted can finish deta
   assert.deepEqual(f.waits, [250, 500, 1000, 2000, 4000]);
   assert.equal(await f.options.attached(), undefined);
 });
+
+test("an image left on hdiutil's temporary create mount can be detached as owned", async () => {
+  const f = harness();
+  const current = await f.options.attached();
+  current["system-entities"][2]["mount-point"] = "/Volumes/AgentPier fixture 1";
+  f.options.identity = undefined;
+  await assert.rejects(fixtures.detachOwnedDiskImage(f.options), {
+    code: "ERR_ASSERTION",
+  });
+  assert.deepEqual(f.commands, []);
+  await fixtures.detachOwnedDiskImage({
+    ...f.options,
+    ownsMount: (mount) =>
+      mount === f.options.directory || fixtures.temporaryCreateMount.test(mount),
+  });
+  assert.deepEqual(f.commands, [["hdiutil", ["detach", "/dev/disk40"]]]);
+});
+
+test("only the fixture's own temporary volume names count as create mounts", () => {
+  for (const mount of ["/Volumes/AgentPier fixture", "/Volumes/AgentPier fixture 12"])
+    assert.ok(fixtures.temporaryCreateMount.test(mount), mount);
+  for (const mount of [
+    "/Volumes/Macintosh HD",
+    "/Volumes/AgentPier fixture/x",
+    "/Volumes/AgentPier fixtures",
+    "/tmp/AgentPier fixture",
+  ])
+    assert.equal(fixtures.temporaryCreateMount.test(mount), false, mount);
+});
