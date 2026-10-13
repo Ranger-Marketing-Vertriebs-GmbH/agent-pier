@@ -16,6 +16,7 @@
 @import "../components/list-detail.css";
 @import "../components/status-chip.css";
 @import "../components/segment.css";
+@import "settings-pattern.css";
 @import "../features/agentbus/agentbus.css";
 @import "base.css";
 @import "../app/layout.css";

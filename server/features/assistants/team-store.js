@@ -116,27 +116,29 @@ export class TeamStore {
         }
       : { ...defaultTeamPolicy };
   }
+  /** savePolicy without its own transaction, for a caller that already holds one. */
+  writePolicy(id, input, revision) {
+    const a = this.store.getAssistant(id);
+    if (a.teamMemberId) throw assistantProblem("active", 409);
+    const current = this.policy(id);
+    if (current.revision !== revision) throw assistantProblem("conflict", 409);
+    const values = normalizeTeamPolicy(input, current);
+    if (values.maxMembers > this.settings().hostMaxConcurrent)
+      throw assistantProblem("capacity", 409);
+    const old = this.find(`policy:${id}`);
+    if (old) this.write(old, values);
+    else
+      this.insert({
+        ...values,
+        id: `policy:${id}`,
+        kind: "policy",
+        parentAssistantId: id,
+        revision: 2,
+      });
+    return this.policy(id);
+  }
   savePolicy(id, input, revision) {
-    return this.transaction(() => {
-      const a = this.store.getAssistant(id);
-      if (a.teamMemberId) throw assistantProblem("active", 409);
-      const current = this.policy(id);
-      if (current.revision !== revision) throw assistantProblem("conflict", 409);
-      const values = normalizeTeamPolicy(input, current);
-      if (values.maxMembers > this.settings().hostMaxConcurrent)
-        throw assistantProblem("conflict", 409);
-      const old = this.find(`policy:${id}`);
-      if (old) this.write(old, values);
-      else
-        this.insert({
-          ...values,
-          id: `policy:${id}`,
-          kind: "policy",
-          parentAssistantId: id,
-          revision: 2,
-        });
-      return this.policy(id);
-    });
+    return this.transaction(() => this.writePolicy(id, input, revision));
   }
   settings() {
     const s = this.find("team-settings");

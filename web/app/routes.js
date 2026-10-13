@@ -6,13 +6,14 @@ import {
   projectsRoute,
   projectsRoutePath,
 } from "../features/projects/routes.js";
+import {
+  agentSettingsQuery,
+  readAgentSettingsQuery,
+} from "../features/assistants/settings-routes.js";
+import { accountsQuery, readAccountsQuery } from "../features/accounts/routes.js";
+import { defaultExtensionTab, readExtensionTab } from "../features/extensions/routes.js";
 import { readMcpOAuthResult } from "../features/mcp-servers/oauth-result.js";
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
-const extensionTabs = ["mcp", "skills", "plugins", "marketplaces", "agents"];
-function readExtensionTab(search) {
-  const tab = new URLSearchParams(search).get("tab");
-  return extensionTabs.includes(tab) ? tab : "mcp";
-}
 export function readRoute(location) {
   let pathname;
   try {
@@ -61,15 +62,14 @@ export function readRoute(location) {
         ? { conversationId: agent[3] }
         : agent[4]
           ? { teamId: agent[4] }
-          : { agentSettings: true }),
+          : { agentSettings: true, ...readAgentSettingsQuery(location.search) }),
     };
   if (pathname === "/accounts")
     return {
       view: "accounts",
-      // Opened from the CLI extensions page: scrolls to the central MCP list.
-      ...(new URLSearchParams(location.search).get("section") === "mcp-servers"
-        ? { section: "mcp-servers" }
-        : {}),
+      // A subpage (`section`, optional `item`); `section=mcp-servers` alone opens the
+      // central MCP list, as linked from the CLI extensions page.
+      ...readAccountsQuery(location.search),
       // An MCP OAuth login's result; the address drops it (see routePath).
       ...readMcpOAuthResult(location.search),
     };
@@ -151,7 +151,7 @@ export function routePath(route) {
       : route.teamId
         ? `/agents/${encodeURIComponent(route.assistantId)}/teams/${encodeURIComponent(route.teamId)}`
         : route.assistantId
-          ? `/agents/${encodeURIComponent(route.assistantId)}/settings`
+          ? `/agents/${encodeURIComponent(route.assistantId)}/settings${agentSettingsQuery(route)}`
           : "/agents";
   if (route.view === "settings") return settingsRoutePath(route);
   if (route.view === "pipelines") return pipelineRoutePath(route);
@@ -160,13 +160,10 @@ export function routePath(route) {
     return route.sessionId
       ? `/sessions/${encodeURIComponent(route.sessionId)}${route.mode ? `/${route.mode === "reader" ? "chat" : route.mode}` : ""}${route.mode === "files" ? explorerQuery(route) : ""}`
       : "/";
-  if (route.view === "accounts")
-    return route.section === "mcp-servers"
-      ? "/accounts?section=mcp-servers"
-      : "/accounts";
+  if (route.view === "accounts") return `/accounts${accountsQuery(route)}`;
   if (route.view === "extensions") {
     const query = new URLSearchParams();
-    if (route.extensionTab && route.extensionTab !== "mcp")
+    if (route.extensionTab && route.extensionTab !== defaultExtensionTab)
       query.set("tab", route.extensionTab);
     return `/extensions${route.profileId ? `/${encodeURIComponent(route.profileId)}` : ""}${query.size ? `?${query}` : ""}`;
   }

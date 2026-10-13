@@ -102,6 +102,12 @@ test("the MCP tab points to the central MCP server list", async ({ page }) => {
   await expect(claude).toHaveAttribute("aria-current", "true");
   await expect(page).toHaveURL(/\/extensions\/managed-claude$/);
   await expect(page.getByRole("tab")).toHaveText(["MCP-Server", /^Skills/, /^Plugins/]);
+  // Page margins sit on the frame, so the hover arrows line up with the tab row.
+  const tabList = page.getByRole("tablist");
+  const tabRow = await tabList.boundingBox();
+  const tabFrame = await tabList.locator("..").boundingBox();
+  expect(Math.round(tabRow.x)).toBe(Math.round(tabFrame.x));
+  expect(Math.round(tabRow.y)).toBe(Math.round(tabFrame.y));
   await expect(
     page.getByText(/MCP-Server werden zentral unter Accounts → MCP-Server verwaltet/),
   ).toBeVisible();

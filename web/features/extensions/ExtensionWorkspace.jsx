@@ -10,6 +10,7 @@ import {
   profilePluginsCopy,
 } from "../../lib/i18n/messages/plugins.js";
 import { names } from "../../lib/providers.js";
+import { defaultExtensionTab } from "./routes.js";
 import AgentsTab from "../agency/AgentsTab.jsx";
 import MarketplacesTab from "../plugins/MarketplacesTab.jsx";
 import PluginsTab from "../plugins/PluginsTab.jsx";
@@ -75,7 +76,9 @@ export default function ExtensionWorkspace({
   // flashing a tab the CLI may not support.
   const pending = requestedTab === "marketplaces" && known === null;
   const tab =
-    pending || tabs.some((item) => item.id === requestedTab) ? requestedTab : "mcp";
+    pending || tabs.some((item) => item.id === requestedTab)
+      ? requestedTab
+      : defaultExtensionTab;
   useEffect(() => {
     if (tab !== requestedTab) onTab(tab, true);
   }, [tab, requestedTab, onTab]);

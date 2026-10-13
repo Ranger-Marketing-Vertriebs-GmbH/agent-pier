@@ -21,7 +21,6 @@ import { officialChannel, ReleaseNotes } from "./release-notes.js";
 import { download } from "./release-download.js";
 import {
   isOfficialChannel,
-  publicChannel,
   offeredVersion,
   channelManifest,
   previewManifest,
@@ -57,51 +56,20 @@ export class Releases {
     this.processes = processes;
     this.directory = folder(path.join(this.dataDir, "operations/releases"));
   }
-  // A missing file means Stable; a file that is not valid JSON returns null.
-  // Other read errors surface like every other operations file error.
-  storedUpdateChannel() {
-    try {
-      return readJson(path.join(this.dataDir, "operations/release-preferences.json"), {})
-        ?.updateChannel === "preview"
-        ? "preview"
-        : "stable";
-    } catch (error) {
-      if (error instanceof SyntaxError) return null;
-      throw error;
-    }
-  }
   get updateChannel() {
-    // Damaged JSON falls back to Stable; saving a channel repairs the file.
-    return this.storedUpdateChannel() ?? "stable";
+    return readJson(path.join(this.dataDir, "operations/release-preferences.json"), {})
+      ?.updateChannel === "preview"
+      ? "preview"
+      : "stable";
   }
   setUpdateChannel(value) {
     if (!["stable", "preview"].includes(value))
       throw problem(serverMessages.operations.invalidOptions);
     if (!isOfficialChannel(this.channel))
       throw problem(serverMessages.releases.channelManaged, 409);
-    const unusable = (cause) =>
-      Object.assign(
-        problem(
-          serverMessages.releases.channelSaveFailed,
-          ["EACCES", "EPERM", "EROFS"].includes(cause.code) ? 403 : 409,
-        ),
-        { cause },
-      );
-    let stored;
-    try {
-      stored = this.storedUpdateChannel();
-    } catch (error) {
-      throw unusable(error);
-    }
-    // A repeated selection must not abort a check or download that is still running.
-    if (stored === value) return this.status();
-    try {
-      atomic(path.join(this.dataDir, "operations/release-preferences.json"), {
-        updateChannel: value,
-      });
-    } catch (error) {
-      throw unusable(error);
-    }
+    atomic(path.join(this.dataDir, "operations/release-preferences.json"), {
+      updateChannel: value,
+    });
     this.channelRevision += 1;
     fs.rmSync(path.join(this.directory, "candidate.json"), { force: true });
     return this.status();
@@ -155,10 +123,14 @@ export class Releases {
         : {}),
       releases,
       staged,
-      channel: publicChannel(this.channel),
+      channel: this.channel,
       updateChannel: this.updateChannel,
       updateChannelManaged: !isOfficialChannel(this.channel),
     };
+  }
+  /** The last update check's result, cached by check(); null before the first one. */
+  lastCheck() {
+    return readJson(path.join(this.directory, "candidate.json"), null);
   }
   cleanupStatus() {
     return cleanupState(this);

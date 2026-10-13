@@ -2,9 +2,10 @@ import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { FileEditorContext } from "./file-editor-context.jsx";
 import { requiresEditorRetention } from "./file-editor-state.js";
 import {
-  registerFileNavigationGuard,
-  requestFileNavigation,
-} from "./file-navigation-guard.js";
+  holdUnloadWarning,
+  registerNavigationGuard as registerFileNavigationGuard,
+  requestNavigation as requestFileNavigation,
+} from "../../lib/navigation-guard.js";
 import {
   captureFileNavigationTab,
   resolveFileNavigationTab,
@@ -42,15 +43,8 @@ export default function useFileNavigationGuard() {
       ),
     [store],
   );
-  useEffect(() => {
-    if (!hasRetainedTabs) return;
-    const warn = (event) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [hasRetainedTabs]);
+  // One shared listener warns before unload while any protector holds it.
+  useEffect(() => (hasRetainedTabs ? holdUnloadWarning() : undefined), [hasRetainedTabs]);
   const finish = useCallback((token, accepted) => {
     setDecision((current) => {
       if (!current || current.token !== token || current.saving) return current;

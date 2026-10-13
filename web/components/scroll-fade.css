@@ -1,0 +1,26 @@
+/* Edge fade for horizontally scrolling rows; the row carries .scroll-fade plus the
+   can-scroll-left/right classes from edgeClassNames(). */
+.scroll-fade.can-scroll-right {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent);
+}
+.scroll-fade.can-scroll-left {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 48px);
+  mask-image: linear-gradient(90deg, transparent, #000 48px);
+}
+.scroll-fade.can-scroll-left.can-scroll-right {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 48px,
+    #000 calc(100% - 48px),
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 48px,
+    #000 calc(100% - 48px),
+    transparent
+  );
+}

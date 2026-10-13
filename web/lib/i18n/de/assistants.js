@@ -1,3 +1,5 @@
+import { assistantChannelCopy } from "./assistant-channel.js";
+import { assistantTeamCopy } from "./assistant-team.js";
 export const assistantCopy = {
   updates: {
     title: "OpenClaw-Updates",
@@ -142,66 +144,7 @@ export const assistantCopy = {
       skipped: "Übersprungen",
     },
   },
-  team: {
-    modelChanged: "Modell: seit Erstellung geändert",
-    modelOriginal: "Modell: wie bei Erstellung",
-    instructionsChanged: "Anweisungen: seit Erstellung geändert",
-    instructionsOriginal: "Anweisungen: wie bei Erstellung",
-    setupUnknown:
-      "Die Einrichtung könnte bereits erfolgt sein. Prüfe den Zustand, bevor du die Unklarheit bestätigst. Der Dienst wird neu gestartet; das Mitglied wird als fehlgeschlagen abgeschlossen und nicht ersetzt.",
-    title: "Teams",
-    settings: "Team-Einstellungen",
-    memberSettings: "Team-Mitglied",
-    allowOnce: "Ein Team für diese Nachricht erlauben",
-    startedBecause: (quote) => `Gestartet, weil du geschrieben hast: „${quote}“`,
-    approvalHint:
-      "Dieses Team wartet auf deine Freigabe. Die Mitglieder erhalten eigene Chats.",
-    approve: "Team freigeben",
-    decline: "Team ablehnen",
-    stopTeam: "Team stoppen",
-    stopMember: "Mitglied stoppen",
-    allowedChip: "Team erlaubt",
-    archive: "Archivieren",
-    restore: "Wiederherstellen",
-    showArchived: "Archivierte Teams anzeigen",
-    autonomous: "Teams ohne erneute Rückfrage erlauben",
-    permissionHint:
-      "Standardmäßig fragt der Agent nach. /team oder die Nachrichtenoption erlaubt ein Team für einen Auftrag.",
-    maxMembers: "Maximale Teamgröße",
-    timeout: "Laufzeit pro Mitglied (Minuten)",
-    capacity: "Gleichzeitig aktive Mitglieder auf diesem Host",
-    concurrentHint:
-      "Alle Mitglieder dürfen gleichzeitig arbeiten, solange die gemeinsame Kapazität reicht.",
-    save: "Team-Einstellungen speichern",
-    permanent: "Dauerhafter Agent",
-    taskBound: "Auftragsgebundenes Mitglied",
-    independent:
-      "Modell und Anweisungen sind eine unabhängige Kopie. Änderungen am Elternagenten überschreiben sie nicht. Änderungen sind nach Abschluss möglich.",
-    promote: "Als dauerhaften Agenten behalten",
-    states: {
-      partial: "Teilweise erfolgreich",
-      awaiting_approval: "Wartet auf Freigabe",
-      approved: "Freigegeben",
-      queued: "Wartet auf Kapazität",
-      provisioning: "Wird eingerichtet",
-      provisioning_uncertain: "Einrichtung unklar",
-      ready: "Bereit",
-      admitting: "Wird gestartet",
-      running: "Arbeitet",
-      stopping: "Wird gestoppt",
-      uncertain: "Ergebnis unklar",
-      completed: "Abgeschlossen",
-      failed: "Fehlgeschlagen",
-      cancelled: "Abgebrochen",
-      declined: "Abgelehnt",
-    },
-    internalTurns: {
-      "team-result": "Team-Ergebnisse eingegangen. Der Agent fasst sie zusammen.",
-      "coding-result": "Ergebnis eines Coding-Laufs eingegangen.",
-    },
-    inherited: (name, revision) =>
-      `Erstellt von ${name} · übernommene Revision ${revision}`,
-  },
+  team: assistantTeamCopy,
   settingsSections: "Einstellungsbereiche",
   sections: {
     profile: "Profil",
@@ -214,7 +157,6 @@ export const assistantCopy = {
     mcp: "MCP-Server",
     team: "Team",
     telegram: "Telegram",
-    telegramSenders: "Telegram für andere",
   },
   remoteChanged: (fields) =>
     `Dieser Agent wurde auf dem Server geändert, während du ihn bearbeitet hast (${fields}). Deine Änderungen bleiben erhalten; lade neu, um stattdessen die aktuellen Werte zu verwenden.`,
@@ -269,119 +211,7 @@ export const assistantCopy = {
     save: "Spracheinstellungen speichern",
     remove: "Sprachschlüssel entfernen",
   },
-  channel: {
-    language: "Sprache der Telegram-Hinweise",
-    languageDe: "Deutsch",
-    languageEn: "Englisch",
-    languageHint:
-      "Hinweise von AgentPier (Freigaben, Team-Updates, Links) verwenden diese Sprache. Sie wird beim ersten Verbinden aus diesem Browser übernommen; erneutes Koppeln behält Ihre Wahl. Bereits eingereihte Hinweise behalten ihren Text; die Antworten des Agenten werden nicht übersetzt.",
-    appUrl: "AgentPier-Adresse für Links",
-    appUrlHint:
-      "Telegram-Hinweise verlinken auf diese Adresse. Sie wird beim Verbinden oder Koppeln aus diesem Browser übernommen; leer lassen, um Hinweise ohne Links zu senden.",
-    saveAppUrl: "Adresse speichern",
-    ignored: (privateCount, groupCount) =>
-      `Ignorierte Nachrichten: ${privateCount} aus anderen privaten Chats, ${groupCount} aus Gruppen.`,
-    teamNotification: "Team-Benachrichtigung",
-    connected: (chatId) => `Mit privatem Chat ${chatId} verbunden`,
-    description:
-      "Nutze den gemeinsamen Chat dieses Agenten aus deinem privaten Telegram-Chat. Antworten auf Telegram-Nachrichten kommen in Telegram an.",
-    paused: "Pausiert oder wartet auf Kopplung",
-    disconnected: "Getrennt",
-    failed: "Die Kanal-Aktion konnte nicht abgeschlossen werden.",
-    token: "Telegram-Bot-Token",
-    botHint:
-      "Erstelle mit BotFather einen eigenen Bot. Wird er bereits von einem anderen Dienst genutzt, trenne ihn dort zuerst.",
-    connect: "Telegram verbinden",
-    pairHint:
-      "Öffne den Link und sende die Startnachricht, um deinen privaten Chat zu koppeln. Der Code gilt zehn Minuten.",
-    pair: "Meinen privaten Chat koppeln",
-    newPair: "Neuen Kopplungscode erstellen",
-    pause: "Telegram pausieren",
-    resume: "Telegram fortsetzen",
-    disconnect: "Bot trennen",
-    speechLink: "Deepgram unter Konten verwalten",
-    activity: "Telegram-Aktivität",
-    voice: "Sprachnachricht",
-    retry: "Erneut versuchen",
-    review: "Ohne erneuten Versand bestätigen",
-    openChat: "Agenten-Chat prüfen",
-    title: "Telegram",
-    inProgress:
-      "Noch in Bearbeitung. Hier erscheint eine Prüfaktion, sobald deine Entscheidung nötig ist.",
-    states: {
-      partial: "Teilweise erfolgreich",
-      queued: "In der Warteschlange",
-      voice_pending: "Wartet auf Transkription",
-      transcribing: "Wird transkribiert",
-      transcription_failed: "Transkription fehlgeschlagen",
-      dispatching: "Agent wird gestartet",
-      running: "Agent arbeitet",
-      model_uncertain: "Ausgang der Anfrage unklar",
-      model_reviewed: "Ausgang im Chat geprüft",
-      outbound: "Wartet auf Versand",
-      delivering: "Antwort wird gesendet",
-      delivered: "Zugestellt",
-      delivery_failed: "Zustellung fehlgeschlagen",
-      delivery_uncertain: "Ausgang der Zustellung unklar",
-      reply_unavailable: "Antwort ohne Text",
-      failed: "Fehlgeschlagen",
-      cancelled: "Abgebrochen",
-      reviewed: "Zur Kenntnis genommen",
-    },
-    diagnostics: {
-      CHANNEL_DESTINATION_CHANGED:
-        "Die Chat-Verknüpfung hat sich geändert. Prüfe diesen Eingang, bevor es weitergeht.",
-      TELEGRAM_CONFLICT:
-        "Ein anderer Dienst ruft diesen Bot ab. Stoppe ihn vor dem Fortsetzen.",
-      TELEGRAM_WEBHOOK:
-        "Für diesen Bot ist bereits ein Webhook eingerichtet. Trenne zuerst die andere Integration.",
-      TELEGRAM_UNAVAILABLE: "Telegram ist gerade nicht erreichbar.",
-      TELEGRAM_REJECTED:
-        "Telegram hat die Anfrage abgewiesen. Prüfe die Bot-Verbindung und ob der Chat Nachrichten zulässt.",
-      TELEGRAM_RATE_LIMIT:
-        "Telegram verlangt eine Pause. Der Versand wird nach der Wartezeit fortgesetzt.",
-      MEDIA_TOO_LARGE: "Sprachnachrichten sind auf 10 MB und zehn Minuten begrenzt.",
-      MEDIA_UNSUPPORTED: "Unterstützt werden Text und Ogg-Sprachnachrichten.",
-      VOICE_TOO_LONG:
-        "Die Sprachnachricht war zu lang und wurde vor dem Herunterladen abgelehnt.",
-      TRANSCRIPTION_REJECTED:
-        "Deepgram hat die Audiodatei abgelehnt. Die Antwort von Deepgram steht darunter.",
-      TRANSCRIPTION_QUOTA:
-        "Das Deepgram-Guthaben oder Kontingent ist erschöpft. Prüfe dein Deepgram-Konto.",
-      TRANSCRIPTION_RATE_LIMITED:
-        "Deepgram hat nach mehreren Versuchen weiterhin eine Pause verlangt. Du kannst die Transkription später erneut versuchen.",
-      MEDIA_DOWNLOAD: "Die Sprachnachricht konnte nicht heruntergeladen werden.",
-      SPEECH_NOT_CONFIGURED: "Richte vor der Transkription Deepgram unter Konten ein.",
-      SPEECH_AUTH:
-        "Deepgram hat den Schlüssel abgewiesen. Aktualisiere ihn unter Konten.",
-      TRANSCRIPTION_EMPTY: "Es wurde keine Sprache erkannt.",
-      TRANSCRIPTION_FAILED:
-        "Transkription fehlgeschlagen. Du kannst sie gezielt erneut versuchen.",
-      TRANSCRIPTION_INTERRUPTED:
-        "Die Transkription wurde unterbrochen und nicht automatisch wiederholt.",
-      MODEL_REQUEST_FAILED:
-        "Die Agenten-Anfrage ist fehlgeschlagen oder wurde abgebrochen.",
-      MODEL_OUTCOME_UNKNOWN:
-        "Prüfe und kläre zuerst die ungewisse Anfrage im Agenten-Chat.",
-      REPLY_UNAVAILABLE: "Warte auf die bestätigte Antwort zu dieser Anfrage.",
-      REPLY_TOO_LARGE:
-        "Die Antwort überschreitet das Versandlimit dieser Telegram-Anbindung.",
-      REPLY_WITHOUT_TEXT:
-        "Der Agent hat ohne Textantwort geendet. Prüfe sie im Agenten-Chat; an Telegram wurde nichts gesendet.",
-      CHANNEL_QUEUE_FULL:
-        "Die Telegram-Warteschlange ist voll. Neue Nachrichten werden abgelehnt, bis wartende Eingänge verarbeitet oder geprüft sind.",
-      DECISION_FAILED:
-        "Eine Entscheidung aus Telegram konnte nicht gespeichert werden. Entscheide stattdessen in AgentPier.",
-      MODEL_OUTCOME_REVIEWED:
-        "Die ungewisse Anfrage wurde im Agenten-Chat geprüft. An Telegram wurde nichts gesendet.",
-      CALLBACK_FAILED:
-        "Ein Telegram-Button konnte nicht verarbeitet werden. Entscheide stattdessen in AgentPier.",
-      TEAM_NOTIFICATION_FAILED:
-        "Telegram-Benachrichtigungen für ein Team konnten nicht vorbereitet werden. Prüfe das Team in AgentPier.",
-      DELIVERY_UNCERTAIN:
-        "Telegram könnte die Antwort erhalten haben. Prüfe vor der Bestätigung deinen Chat; es wird nichts automatisch erneut gesendet.",
-    },
-  },
+  channel: assistantChannelCopy,
   accountsTitle: "ChatGPT für Agenten",
   accountsDescription:
     "Verbinde dein ChatGPT-Konto und wähle es in den Einstellungen eines Agenten aus.",
@@ -394,7 +224,6 @@ export const assistantCopy = {
     "Verbindung konnte nicht bestätigt werden. Versuche es erneut oder melde dich neu an.",
   loginInstructions: "Gib diesen Code auf der OpenAI-Anmeldeseite ein.",
   loginOpen: "Anmeldeseite öffnen",
-  loginPage: "Anmeldeseite:",
   loginCancel: "Anmeldung abbrechen",
   loginStatus: {
     starting: "Anmeldung wird gestartet …",
@@ -402,16 +231,6 @@ export const assistantCopy = {
     completed: "ChatGPT verbunden",
     cancelled: "Anmeldung abgebrochen",
     failed: "Anmeldung fehlgeschlagen. Bitte versuche es erneut.",
-  },
-  loginFailure: {
-    LOGIN_UNAVAILABLE:
-      "Der Agentendienst bietet die ChatGPT-Anmeldung derzeit nicht an. Starte den Agentendienst neu und versuche es erneut.",
-    UNSUPPORTED_LOGIN_STEP:
-      "Die Anmeldung verlangte einen Schritt, den AgentPier nicht unterstützt.",
-    LOGIN_EXPIRED: "Der Code ist abgelaufen, bevor die Anmeldung abgeschlossen wurde.",
-    CONNECTION_LOST: "Die Verbindung zum Agentendienst wurde unterbrochen.",
-    LOGIN_FAILED:
-      "Der Agentendienst hat die Anmeldung mit einem Fehler beendet. Details stehen im AgentPier-Protokoll.",
   },
   accountStatus: {
     ok: "Verbunden",

@@ -4,6 +4,10 @@ import AssistantFeatureSettings from "../assistants/AssistantFeatureSettings.jsx
 import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import GithubAccessPage from "./GithubAccessPage.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
+import {
+  settingsSectionGroups as sectionGroups,
+  settingsTabOf,
+} from "../operations/routes.js";
 import "../operations/operations.css";
 import "./settings-tabs.css";
 const AssistantRuntimeSettings = lazy(
@@ -13,18 +17,19 @@ const SshSettings = lazy(() => import("../ssh/SshSettings.jsx"));
 const McpSettings = lazy(() => import("../mcp/McpSettings.jsx"));
 const RemoteSettings = lazy(() => import("../remote/RemoteSettings.jsx"));
 const OperationsPage = lazy(() => import("../operations/OperationsPage.jsx"));
-// Section ids grouped for the tab row. This is a structural map (not translated
-// copy), so it stays a plain constant here rather than living in i18n.
-const sectionGroups = {
-  workspace: ["general", "notifications", "assistants"],
-  access: ["mcp", "remote", "ssh", "github"],
-  operations: ["diagnostics", "backups", "updates", "audit"],
-};
 export default function SettingsPage({ state, refresh, ready, route, onNavigate }) {
   const { enabled: agentsEnabled } = useAssistantFeature();
   const section = route.settingsSection || "general";
   const navigate = (changes, replace = false) =>
-    onNavigate({ ...route, ...changes, view: "settings" }, replace);
+    onNavigate(
+      {
+        ...route,
+        ...changes,
+        settingsTab: settingsTabOf(changes.settingsSection ?? section),
+        view: "settings",
+      },
+      replace,
+    );
   return (
     <>
       <nav className="settings-tabs" aria-label={copy.title}>
@@ -39,7 +44,13 @@ export default function SettingsPage({ state, refresh, ready, route, onNavigate 
                     key={id}
                     className={section === id ? "selected" : ""}
                     aria-current={section === id ? "page" : undefined}
-                    onClick={() => onNavigate({ view: "settings", settingsSection: id })}
+                    onClick={() =>
+                      onNavigate({
+                        view: "settings",
+                        settingsSection: id,
+                        settingsTab: settingsTabOf(id),
+                      })
+                    }
                   >
                     {copy.sections[id]}
                   </button>

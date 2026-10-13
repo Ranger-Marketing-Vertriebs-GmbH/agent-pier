@@ -1,9 +1,15 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
+import { accountUsage } from "../../features/accounts/account-usage.js";
 export function accountsRoutes(services) {
   const { accounts, plugins, activeFor, launch, mutateAccount } = services;
   const router = Router();
+  // Registered first so an `/accounts/:id` read can never shadow it.
+  router.get("/accounts/usage", async (_req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.json(await accountUsage(services));
+  });
   router.get("/accounts/:id/auth-status", async (req, res) =>
     res.json(await services.accountAuthStatus.get(req.params.id)),
   );

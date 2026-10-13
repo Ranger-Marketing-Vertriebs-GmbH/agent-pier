@@ -33,6 +33,7 @@ import { ReleaseSessionMigration } from "./features/operations/release-session-m
 import { requestsRoutes } from "./http/routes/requests.js";
 import { notificationsRoutes } from "./http/routes/notifications.js";
 import { remoteRoutes } from "./http/routes/remote.js";
+import { settingsSummaryRoutes } from "./http/routes/settings-summary.js";
 import { memoryRoutes } from "./http/routes/memory.js";
 import { providerRoutes } from "./http/routes/providers.js";
 import express from "express";
@@ -242,6 +243,7 @@ export async function createApplication(config) {
   mount(requestsRoutes(services));
   mount(notificationsRoutes(services));
   mount(remoteRoutes(services));
+  mount(settingsSummaryRoutes(services));
   app.use("/api", operationsRoutes(services));
   app.get("/api/health", (_req, res) =>
     res.json({

@@ -40,6 +40,12 @@ test("the hub joins projects, selects the first one and resolves every id space"
       count,
     );
   await expect(page.getByText("Sitzungen · 1")).toBeVisible();
+  // Page margins sit on the frame, so the hover arrows line up with the tab row.
+  const tabList = page.getByRole("tablist");
+  const tabRow = await tabList.boundingBox();
+  const tabFrame = await tabList.locator("..").boundingBox();
+  expect(Math.round(tabRow.x)).toBe(Math.round(tabFrame.x));
+  expect(Math.round(tabRow.y)).toBe(Math.round(tabFrame.y));
   await expect(page.getByText("Codex · vor 5 Minuten")).toBeVisible();
   const statusCalls = calls.filter(
     (call) => call.path === "/api/pipeline-runs" && call.search.includes("status="),
