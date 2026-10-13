@@ -6,7 +6,10 @@ import {
   settingsTabOf,
   settingsTabs,
 } from "../../web/features/operations/routes.js";
-import { agentSettingsLocation } from "../../web/features/assistants/settings-routes.js";
+import {
+  agentSettingsLocation,
+  agentTeamRoute,
+} from "../../web/features/assistants/settings-routes.js";
 import {
   defaultExtensionTab,
   extensionTabs,
@@ -54,6 +57,27 @@ test("agent settings tabs and subpages have their own addresses", () => {
       tab: "telegram",
       page: "telegram-connection",
     },
+  );
+});
+
+test("a team link from the chat focuses that team in the Work tab only", () => {
+  const focused = agentTeamRoute("home", "team-1");
+  assert.equal(routePath(focused), "/agents/home/settings?tab=work&team=team-1");
+  assert.deepEqual(read(routePath(focused)), focused);
+  // Elsewhere, on a subpage or with an invalid id, the focus is dropped.
+  assert.deepEqual(read("/agents/home/settings?team=team-1"), agent);
+  assert.deepEqual(read("/agents/home/settings?tab=work&page=actions&team=team-1"), {
+    ...agent,
+    agentTab: "work",
+    agentPage: "actions",
+  });
+  assert.deepEqual(read("/agents/home/settings?tab=work&team=..%2Fx"), {
+    ...agent,
+    agentTab: "work",
+  });
+  assert.equal(
+    routePath({ ...agent, agentTab: "profile", agentTeam: "team-1" }),
+    "/agents/home/settings",
   );
 });
 

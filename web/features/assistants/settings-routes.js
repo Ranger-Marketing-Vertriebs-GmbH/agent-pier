@@ -23,6 +23,11 @@ export function agentSettingsLocation(route) {
   return { tab, page };
 }
 
+// A team focused in the Work tab's team list (`team=<id>`), linked from the chat notes.
+const teamPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
+const focusTeam = (tab, page, value) =>
+  tab === "work" && !page && teamPattern.test(value ?? "") ? value : "";
+
 /** Route fields from the query; defaults are left out so plain links stay equal. */
 export function readAgentSettingsQuery(search) {
   const query = new URLSearchParams(search);
@@ -30,9 +35,11 @@ export function readAgentSettingsQuery(search) {
     agentTab: query.get("tab"),
     agentPage: query.get("page"),
   });
+  const team = focusTeam(tab, page, query.get("team"));
   return {
     ...(tab !== "profile" ? { agentTab: tab } : {}),
     ...(page ? { agentPage: page } : {}),
+    ...(team ? { agentTeam: team } : {}),
   };
 }
 
@@ -41,5 +48,16 @@ export function agentSettingsQuery(route) {
   const query = new URLSearchParams();
   if (tab !== "profile") query.set("tab", tab);
   if (page) query.set("page", page);
+  const team = focusTeam(tab, page, route.agentTeam);
+  if (team) query.set("team", team);
   return query.size ? `?${query}` : "";
 }
+
+/** Settings → Work with one of the lead's teams opened in its team list. */
+export const agentTeamRoute = (assistantId, teamId) => ({
+  view: "agents",
+  assistantId,
+  agentSettings: true,
+  agentTab: "work",
+  agentTeam: teamId,
+});
