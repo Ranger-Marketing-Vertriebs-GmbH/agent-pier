@@ -3,13 +3,20 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
+import { AssistantService } from "../../server/features/assistants/assistant-service.js";
+import {
+  GatewayClient,
+  sessionCreateTimeoutMs,
+} from "../../server/features/assistants/gateway-client.js";
 import {
   agentRosterTimeoutMs,
   waitForAgentInRoster,
 } from "../../server/features/assistants/openclaw-config/agent-roster.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
+import { gatewayFixture } from "../helpers/assistant-gateway-fixture.js";
 
 // Simulated time: sleeping advances the clock at once, so seconds cost nothing.
 function clock() {
@@ -137,4 +144,65 @@ test("a lost connection or a call timeout during the roster wait fails at once",
     );
     assert.equal(c.at, 0);
   }
+});
+
+test("a call's own timeout outlasts the client default", async (t) => {
+  const fixture = await gatewayFixture();
+  t.after(() => fixture.close());
+  const client = new GatewayClient({
+    url: fixture.url,
+    certPath: fixture.certPath,
+    token: "fixture",
+    timeoutMs: 100,
+  });
+  t.after(() => client.close());
+  await client.connect();
+  let settled = false;
+  const pending = client
+    .call("pending", {}, { timeoutMs: 600 })
+    .finally(() => (settled = true));
+  pending.catch(() => {});
+  // Timers never fire early: past the default, the longer call is still waiting.
+  await delay(300);
+  assert.equal(settled, false);
+  await assert.rejects(pending, { code: "TIMEOUT" });
+});
+
+// AGENTPIER-50: the first sessions.create of a Gateway process loads its session
+// handlers cold and took over 10 s on Intel macOS runners.
+test("opening a conversation gives a cold first sessions.create its own timeout", async (t) => {
+  assert.ok(sessionCreateTimeoutMs >= 60000);
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-session-create-"));
+  const store = new AssistantStore({ dataDir });
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const a = store.createAssistant({
+    name: "Home",
+    model: { connectionId: "c", modelId: "m" },
+  });
+  const creates = [];
+  const client = {
+    ready: true,
+    subscribe: () => () => {},
+    // As GatewayClient: the default 10 s, unless the call names its own.
+    call: async (method, params, { timeoutMs = 10000 } = {}) => {
+      if (method === "sessions.create") {
+        creates.push(timeoutMs);
+        if (timeoutMs < 12000) throw Object.assign(Error("timeout"), { code: "TIMEOUT" });
+        return { key: `agent:${params.agentId}:main` };
+      }
+      if (method === "sessions.messages.subscribe") return {};
+      assert.fail(method);
+    },
+  };
+  const runtime = { client, on() {}, off() {}, close: async () => {}, setState() {} };
+  const service = new AssistantService({
+    store,
+    runtime,
+    models: { listCapabilities: () => [], resolve: () => ({ release() {} }) },
+    config: { apply: async () => {}, reset() {} },
+  });
+  t.after(() => service.close());
+  const conversation = await service.openConversation(a.id);
+  assert.equal(conversation.runtimeSessionKey, `agent:${a.runtimeAgentId}:main`);
+  assert.deepEqual(creates, [sessionCreateTimeoutMs]);
 });

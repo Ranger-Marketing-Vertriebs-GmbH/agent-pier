@@ -41,6 +41,13 @@ function pinnedSocket(url, certPath, handshake) {
   });
 }
 
+// The first sessions.create of a Gateway process loads OpenClaw's session handlers
+// and their module graph lazily, after a fresh install without a warm compile
+// cache: about 1 s on a fast host, more than 10 s on a slow or busy one (AGENTPIER-50
+// on Intel macOS runners); later calls take milliseconds. Waiting is the only safe
+// option: a timed-out create leaves it unknown whether the session exists.
+export const sessionCreateTimeoutMs = 60000;
+
 export class GatewayClient extends EventEmitter {
   constructor({ url, token, certPath, timeoutMs = 10000, caps = [] }) {
     super();
