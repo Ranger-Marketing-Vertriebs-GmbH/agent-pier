@@ -10,6 +10,8 @@ import AgentAttachmentTray from "./AgentAttachmentTray.jsx";
 import useAgentAttachments from "./useAgentAttachments.js";
 import { ACCEPT } from "./agent-attachment-upload.js";
 import { assistantAttachmentsCopy as attachCopy } from "../../lib/i18n/messages/assistant-attachments.js";
+import MemberMentionMenu from "./MemberMentionMenu.jsx";
+import useMemberMention from "./useMemberMention.js";
 
 const maxHeight = 6 * 22;
 const optionsId = "assistant-composer-options";
@@ -18,6 +20,7 @@ const optionsId = "assistant-composer-options";
 // permission and the keyboard hint sit behind "+"; Stop replaces Send while working.
 // Files can also be pasted or dropped; `onFiles` reports how many are ready, and
 // `onSubmit(event, ids)` resolves true once the message with them was accepted.
+// A lead's composer offers its members after "@" (`mentionMembers`).
 export default function AssistantComposer({
   assistant,
   conversationId,
@@ -36,6 +39,7 @@ export default function AssistantComposer({
   output,
   stick,
   scroll,
+  mentionMembers = [],
 }) {
   const mobile = useMobileLayout();
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -48,6 +52,16 @@ export default function AssistantComposer({
   const member = Boolean(assistant.teamMemberId);
   const hint = sendHint(touchInput);
   const reported = useRef(ready);
+  const change = (value) => {
+    setText(value);
+    drafts.set(conversationId, value);
+  };
+  const mention = useMemberMention({
+    members: member ? [] : mentionMembers,
+    text,
+    field,
+    onText: change,
+  });
   useEffect(() => {
     onFiles?.(ready ? ready.split(",").length : 0);
     // Different files make a different message: it needs its own delivery key.
@@ -147,6 +161,7 @@ export default function AssistantComposer({
         trigger={optionsButton}
         onClose={closeOptions}
       />
+      {mention.enabled && <MemberMentionMenu mention={mention} />}
       <input
         ref={picker}
         type="file"
@@ -172,6 +187,16 @@ export default function AssistantComposer({
           maxLength={65536}
           rows={1}
           enterKeyHint={enterKeyHint(touchInput)}
+          {...(mention.enabled && {
+            role: "combobox",
+            "aria-autocomplete": "list",
+            "aria-expanded": mention.open,
+            "aria-controls": mention.listId,
+            "aria-activedescendant": mention.open
+              ? mention.optionId(mention.active)
+              : undefined,
+            onSelect: mention.sync,
+          })}
           placeholder={
             member
               ? commonCopy.messagePlaceholder(assistant.name)
@@ -184,13 +209,14 @@ export default function AssistantComposer({
             attachments.add(files);
           }}
           onKeyDown={(event) => {
+            if (mention.onKeyDown(event)) return;
             if (!shouldSubmitOnEnter(event, touchInput)) return;
             event.preventDefault();
             if (!event.repeat) event.currentTarget.form.requestSubmit();
           }}
           onChange={(event) => {
-            setText(event.target.value);
-            drafts.set(conversationId, event.target.value);
+            change(event.target.value);
+            if (mention.enabled) mention.sync();
           }}
         />
         {member ? (

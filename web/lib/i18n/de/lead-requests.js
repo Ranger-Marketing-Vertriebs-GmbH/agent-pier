@@ -34,4 +34,11 @@ export const leadRequestCopy = {
   answer: "Antwort",
   result: "Ergebnis",
   because: (quote) => `Weil du geschrieben hast: „${quote}“`,
+  // Die @Erwähnung im Eingabefeld eines leitenden Agenten und die Chips im Chat.
+  mentions: {
+    list: "Teammitglieder",
+    permanent: "Dauerhaft",
+    temporary: "Temporär",
+    open: (name) => `Chat mit ${name} öffnen`,
+  },
 };
