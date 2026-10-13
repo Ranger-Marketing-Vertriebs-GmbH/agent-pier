@@ -97,6 +97,7 @@ export function readRoute(location) {
       view: "artifacts",
       projectId: artifacts[1] || "",
       ...readArtifactsQuery(location.search),
+      ...readReturnTo(location.search, "artifacts"),
     };
   const memory = /^\/memory(?:\/([^/]+))?$/.exec(pathname);
   if (memory && (!memory[1] || idPattern.test(memory[1]))) {
@@ -151,9 +152,13 @@ export function readRoute(location) {
     view: "missing",
   };
 }
-// Pages a cross-link may return to, and pages that honour a `returnTo`.
+// Pages a cross-link may return to, and pages that honour a `returnTo`. The Artifacts
+// page is opened from a session's artifact panel and returns only to sessions.
 const returnOrigins = new Set(["agents", "settings", "extensions", "accounts"]);
-const returnTargets = new Set(["settings", "accounts"]);
+const returnTargets = new Set(["settings", "accounts", "artifacts"]);
+const artifactReturnOrigins = new Set(["workspace"]);
+const originsFor = (view) =>
+  view === "artifacts" ? artifactReturnOrigins : returnOrigins;
 
 // How many origins a chain of cross-links remembers beyond the first: Agent settings →
 // Deepgram (Accounts) → Agent service settings leads back to Deepgram, and from
@@ -162,11 +167,11 @@ const returnDepth = 1;
 
 // The origin route a `returnTo` value names, rebuilt from its parsed route; an origin
 // that honours `returnTo` itself keeps its own origin up to `depth` more levels.
-function parseOrigin(value, depth) {
+function parseOrigin(value, depth, origins = returnOrigins) {
   const parts = appPathParts(value);
   if (!parts) return null;
   const origin = readRoute({ ...parts, search: withoutReturnParam(parts.search) });
-  if (!returnOrigins.has(origin.view)) return null;
+  if (!origins.has(origin.view)) return null;
   if (depth > 0 && returnTargets.has(origin.view)) {
     const inner = parseOrigin(
       new URLSearchParams(parts.search).get(returnParam),
@@ -177,15 +182,24 @@ function parseOrigin(value, depth) {
   return origin;
 }
 
-/** `{ returnTo }` with the canonical origin path of a valid `returnTo`, else `{}`. */
-export function readReturnTo(search) {
-  const origin = parseOrigin(new URLSearchParams(search).get(returnParam), returnDepth);
+/**
+ * `{ returnTo }` with the canonical origin path of a valid `returnTo`, else `{}`.
+ * `view` is the page that honours it (its allowed origins).
+ */
+export function readReturnTo(search, view) {
+  const origin = parseOrigin(
+    new URLSearchParams(search).get(returnParam),
+    returnDepth,
+    originsFor(view),
+  );
   return origin ? { returnTo: routePath(origin) } : {};
 }
 
 /** The route a page opened through a cross-link leads back to, or null. */
 export function returnRoute(route) {
-  return route?.returnTo ? parseOrigin(route.returnTo, returnDepth) : null;
+  return route?.returnTo
+    ? parseOrigin(route.returnTo, returnDepth, originsFor(route.view))
+    : null;
 }
 
 /**
@@ -197,6 +211,7 @@ export function crossLinkRoute(target, origin) {
     return target;
   const { returnTo } = readReturnTo(
     `?${new URLSearchParams({ returnTo: routePath(origin) })}`,
+    target.view,
   );
   return returnTo ? { ...target, returnTo } : target;
 }

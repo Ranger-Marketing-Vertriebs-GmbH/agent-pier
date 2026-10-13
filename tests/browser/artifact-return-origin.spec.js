@@ -287,19 +287,28 @@ test("the session panel links each artifact's detail and filters the page to the
   await expect(panel).toContainText(
     "Pin results to keep them after deleting the session.",
   );
+  const origin = `returnTo=${encodeURIComponent("/sessions/origin/chat")}`;
   await panel.getByRole("link", { name: "Details of Report" }).click();
-  await expect(page).toHaveURL(`${baseURL}/artifacts?session=origin&artifact=example`);
+  await expect(page).toHaveURL(
+    `${baseURL}/artifacts?session=origin&artifact=example&${origin}`,
+  );
   await expect(
     page.locator(".artifact-detail").getByRole("heading", { name: "Report" }),
   ).toBeVisible();
   await expect(page.getByText("Session: Session origin")).toBeVisible();
+  // Moves inside the page keep the way back to the session.
   await page
     .getByRole("button", { name: "Remove the filter for session Session origin" })
     .click();
-  await expect(page).toHaveURL(`${baseURL}/artifacts`);
+  await expect(page).toHaveURL(`${baseURL}/artifacts?${origin}`);
+  await page.getByRole("button", { name: "Back to Session origin" }).click();
+  await expect(page).toHaveURL(`${baseURL}/sessions/origin/chat`);
 
-  await page.goto(`${baseURL}/sessions/origin/chat`);
   await page.locator(".session-artifacts summary").click();
   await page.getByRole("link", { name: "Manage in Artifacts" }).click();
-  await expect(page).toHaveURL(`${baseURL}/artifacts?session=origin`);
+  await expect(page).toHaveURL(`${baseURL}/artifacts?session=origin&${origin}`);
+  // On a phone the list's back arrow also leads to the session.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Back to Session origin" }).click();
+  await expect(page).toHaveURL(`${baseURL}/sessions/origin/chat`);
 });

@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readRoute, routePath } from "../../web/app/routes.js";
+import {
+  crossLinkRoute,
+  readRoute,
+  returnRoute,
+  routePath,
+} from "../../web/app/routes.js";
+import { artifactsRoute } from "../../web/features/artifacts/routes.js";
 import {
   artifactLink,
   artifactReturnPath,
@@ -89,5 +95,56 @@ test("the viewer returns to the selected artifact detail", () => {
   assert.equal(
     artifactReturnPath("?returnTo=%2F%2Fevil.example%2Fartifacts%3Fartifact%3Da"),
     "/artifacts",
+  );
+});
+
+test("the Artifacts page returns only to the session that opened it", () => {
+  const session = { view: "workspace", sessionId: "s1", mode: "reader" };
+  const target = crossLinkRoute(
+    artifactsRoute({ session: "s1", artifact: "a-1" }),
+    session,
+  );
+  assert.equal(target.returnTo, "/sessions/s1/chat");
+  const address = routePath(target);
+  assert.equal(
+    address,
+    "/artifacts?session=s1&artifact=a-1&returnTo=%2Fsessions%2Fs1%2Fchat",
+  );
+  const reloaded = read(address);
+  assert.equal(reloaded.returnTo, "/sessions/s1/chat");
+  assert.deepEqual(returnRoute(reloaded), {
+    view: "workspace",
+    sessionId: "s1",
+    mode: "reader",
+  });
+  // Moves inside the page keep the origin.
+  assert.match(
+    routePath({ ...reloaded, artifact: "" }),
+    /returnTo=%2Fsessions%2Fs1%2Fchat$/,
+  );
+  // Other origins are not honoured here, and sessions stay no origin for Accounts.
+  for (const origin of [
+    "/settings/assistants",
+    "/accounts",
+    "//evil.example/sessions/s1",
+  ])
+    assert.equal(
+      read(`/artifacts?returnTo=${encodeURIComponent(origin)}`).returnTo,
+      undefined,
+      origin,
+    );
+  assert.equal(
+    crossLinkRoute(artifactsRoute(), { view: "artifacts" }).returnTo,
+    undefined,
+  );
+  assert.equal(
+    crossLinkRoute({ view: "accounts", section: "models" }, session).returnTo,
+    undefined,
+  );
+  // The viewer's return path drops the nested origin (shared returnTo check).
+  const link = artifactLink("/artifacts/view/a-1", address, location);
+  assert.equal(
+    artifactReturnPath(new URL(link, location).search),
+    "/artifacts?session=s1&artifact=a-1",
   );
 });
