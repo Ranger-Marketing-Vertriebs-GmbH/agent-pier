@@ -96,8 +96,8 @@ jobs:
           path: coverage/mutation/
           if-no-files-found: warn
           retention-days: 14
-  # Moved from the WebKit shard 1 of Verify: repeat known WebKit timing
-  # regressions without Playwright's CI retry, so a repeat that fails once fails.
+  # Also on Verify's WebKit shard 1: repeat known WebKit timing regressions
+  # without Playwright's CI retry, so a repeat that fails once fails.
   webkit-repeat:
     runs-on: ubuntu-latest
     timeout-minutes: 30
