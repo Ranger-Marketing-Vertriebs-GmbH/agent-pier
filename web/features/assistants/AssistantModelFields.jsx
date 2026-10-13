@@ -161,24 +161,6 @@ export default function AssistantModelFields({
           <ProviderCatalogStatus catalog={resource} />
         </div>
       )}
-      {account && (
-        <div>
-          <div className="provider-catalog-status">
-            <button
-              type="button"
-              className="button secondary compact"
-              disabled={accountLoading}
-              onClick={refreshModels}
-            >
-              {copy.refreshAccountModels}
-            </button>
-          </div>
-          {/* Always mounted, so screen readers announce each new state. */}
-          <p id={hintId} role="status" className="field-description">
-            {accountHint}
-          </p>
-        </div>
-      )}
       {custom && (
         <label>
           {copy.model}
@@ -190,6 +172,22 @@ export default function AssistantModelFields({
             onChange={(e) => setModel(e.target.value)}
           />
         </label>
+      )}
+      {account && (
+        <div className="assistant-account-models">
+          <button
+            type="button"
+            className="button secondary compact"
+            disabled={accountLoading}
+            onClick={refreshModels}
+          >
+            {copy.refreshAccountModels}
+          </button>
+          {/* Always mounted, so screen readers announce each new state. */}
+          <p id={hintId} role="status" className="field-description">
+            {accountHint}
+          </p>
+        </div>
       )}
     </div>
   );
