@@ -3,7 +3,7 @@ import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
 import "./member-mentions.css";
 
 // The listbox of the @mention autocomplete above a lead's composer. The textarea
-// keeps the focus (it is the combobox); a press on an option picks it without
+// keeps the focus and points into the list (aria-activedescendant); a press on an option picks it without
 // blurring, by mouse, pen or touch. Always mounted so aria-controls resolves.
 export default function MemberMentionMenu({ mention }) {
   const copy = leadRequestCopy.mentions;
