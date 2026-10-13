@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   intent,
+  mentionOf,
   namesMember,
   ownerQuote,
   ownerSentence,
@@ -80,6 +81,7 @@ test("an owner quote is a whole-word excerpt and knows its sentence", () => {
   assert.deepEqual(ownerSentence("ask Max now", "Hi. Please ask Max now."), {
     index: 1,
     negated: false,
+    negatedSentence: false,
     quoted: false,
   });
   // Pasted or quoted text is not the owner's instruction.
@@ -103,4 +105,86 @@ test("an owner quote is a whole-word excerpt and knows its sentence", () => {
     ownerSentence("ask Max now", "Don't ask Anna. Please ask Max now.").negated,
     false,
   );
+});
+
+const team = [
+  { id: "net", name: "Network Architect" },
+  { id: "max", name: "Max" },
+  { id: "ops", name: "Max Ops" },
+];
+// The proof's view of a mention: the quote must be the owner's, not quoted, and its
+// whole sentence must not be negated.
+const mentionProof = (quote, text, id, members = team) => {
+  const sentence = ownerQuote(quote, text) && ownerSentence(quote, text);
+  return (
+    !!sentence &&
+    !sentence.negated &&
+    !sentence.negatedSentence &&
+    !sentence.quoted &&
+    mentionOf(quote, id, members) === "mentioned"
+  );
+};
+
+test("an @mention alone is the owner's request to that member", () => {
+  const text = "@Network Architect trag den neuen NAS in die Doku ein";
+  assert.equal(intent(text), false, "no ask or delegate verb");
+  assert.equal(mentionProof(text, text, "net"), true);
+  assert.equal(mentionProof("@network architect trag den", text, "net"), true);
+  assert.equal(mentionProof(text, text, "max"), false, "another member");
+  // Longest match and prefix collisions.
+  assert.equal(
+    mentionProof("@Max Ops update the docs", "@Max Ops update the docs", "ops"),
+    true,
+  );
+  assert.equal(
+    mentionProof("@Max Ops update the docs", "@Max Ops update the docs", "max"),
+    false,
+  );
+  assert.equal(mentionProof("@Max update the docs", "@Max update the docs", "max"), true);
+  // Telegram: the same text, a line break between sentences.
+  const telegram = "Moin!\n@max ops bitte die Firewall-Regeln dokumentieren";
+  assert.equal(
+    mentionProof("@max ops bitte die Firewall-Regeln dokumentieren", telegram, "ops"),
+    true,
+  );
+});
+
+test("negated, quoted, unknown or ambiguous mentions prove nothing", () => {
+  for (const text of [
+    "@Network Architect bitte nichts ändern",
+    "@Network Architect don't touch the docs",
+    "@Network Architect do not touch the docs",
+    "@Network Architect trag das bitte nicht ein",
+    "Bitte nicht, @Network Architect trag den NAS ein",
+  ])
+    assert.equal(mentionProof(text.replace(/^.*?(@)/, "$1"), text, "net"), false, text);
+  // Cutting the negation off the quote does not help.
+  assert.equal(
+    mentionProof(
+      "@Network Architect trag den NAS",
+      "@Network Architect trag den NAS nicht ein",
+      "net",
+    ),
+    false,
+  );
+  for (const text of [
+    'Fasse zusammen: "@Network Architect trag den NAS ein"',
+    "Summarize: '@Network Architect add the NAS to the docs'",
+    "Fasse zusammen: „@Network Architect trag den NAS ein“",
+  ])
+    assert.equal(
+      mentionProof(text.match(/@[^"'“]+/)[0].trim(), text, "net"),
+      false,
+      text,
+    );
+  assert.equal(mentionOf("@Netzwerk Architekt trag den NAS ein", "net", team), null);
+  assert.equal(mentionOf("mail admin@Max about it", "max", team), null);
+  const twins = [
+    { id: "a", name: "Scout" },
+    { id: "b", name: "SCOUT" },
+  ];
+  assert.equal(mentionOf("@Scout update the plan", "a", twins), "ambiguous");
+  assert.equal(mentionOf("@Scout update the plan", "b", twins), "ambiguous");
+  // The excerpt must be the owner's own words.
+  assert.equal(mentionProof("@Max update the docs", "@Max read the docs", "max"), false);
 });
