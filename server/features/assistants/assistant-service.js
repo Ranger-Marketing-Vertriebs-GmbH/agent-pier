@@ -1,4 +1,9 @@
-import { assistantProblem, validateDefinition } from "./assistant-validation.js";
+import {
+  assistantProblem,
+  validateDefinition,
+  validateSendInput,
+} from "./assistant-validation.js";
+import { AgentAttachments } from "./agent-attachments.js";
 import { sessionCreateTimeoutMs } from "./gateway-client.js";
 import { RequestLedger } from "./request-ledger.js";
 import { AssistantEvents } from "./assistant-events.js";
@@ -36,6 +41,7 @@ export class AssistantService {
     this.allowlist = new ExecAllowlist(this);
     this.sessionFailures = new Map();
     this.ledger = new RequestLedger(store.db);
+    this.attachments = new AgentAttachments({ store, models, config });
     this.markOutstandingUnknown();
     this.events = new AssistantEvents();
     this.chatStreams = new ChatStreams();
@@ -439,14 +445,7 @@ export class AssistantService {
   send(conversationId, input, trustedContext = { kind: "owner" }) {
     assertWired(this);
     return this.admit(async () => {
-      if (
-        !input ||
-        Object.keys(input).some(
-          (k) => !["clientRequestId", "text", "teamAllowed"].includes(k),
-        ) ||
-        ("teamAllowed" in input && typeof input.teamAllowed !== "boolean")
-      )
-        throw assistantProblem("invalid");
+      validateSendInput(input);
       const context = {
         ...trustedContext,
         teamAllowed:
@@ -460,6 +459,7 @@ export class AssistantService {
         .find((r) => r.clientRequestId === input.clientRequestId);
       if (existing) {
         const request = this.ledger.accept(conversationId, input);
+        this.attachments.claim(conversationId, input.attachments, request.id);
         this.teams?.store.recordContext(request.id, context);
         return { request, attempt: this.ledger.attemptFor(request.id) };
       }
@@ -477,16 +477,18 @@ export class AssistantService {
       this.teams?.assertMemberTurn(conversation.assistantId, context);
       const accept = () => {
         const request = this.ledger.accept(conversationId, input);
+        this.attachments.claim(conversationId, input.attachments, request.id);
         this.teams?.store.recordContext(request.id, context);
         return { request, attempt: this.ledger.recordAttempt(request.id) };
       };
-      const { request, attempt } = this.teams
-        ? this.teams.store.transaction(accept)
-        : accept();
+      const { request, attempt } = (this.teams?.store || this.attachments).transaction(
+        accept,
+      );
       try {
+        const turn = await this.attachments.delivery(request, conversation.assistantId);
         const sent = await this.runtime.client.call("sessions.send", {
           key: conversation.runtimeSessionKey,
-          message: request.text,
+          ...turn,
           idempotencyKey: attempt.id,
         });
         this.ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });

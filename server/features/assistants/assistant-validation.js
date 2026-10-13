@@ -15,6 +15,18 @@ export function textValue(value, max = 65536, empty = false) {
     throw assistantProblem("invalid");
   return value;
 }
+// The owner's chat turn: text, an optional team permission and staged upload ids.
+export function validateSendInput(input) {
+  const keys = ["clientRequestId", "text", "teamAllowed", "attachments"];
+  if (
+    !input ||
+    typeof input !== "object" ||
+    Object.keys(input).some((k) => !keys.includes(k)) ||
+    ("teamAllowed" in input && typeof input.teamAllowed !== "boolean") ||
+    ("attachments" in input && !Array.isArray(input.attachments))
+  )
+    throw assistantProblem("invalid");
+}
 export function validateDefinition(input, partial = false) {
   if (
     !input ||

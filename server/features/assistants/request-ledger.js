@@ -33,9 +33,10 @@ export class RequestLedger {
   constructor(db) {
     this.db = db;
   }
-  accept(conversationId, { clientRequestId, text }) {
+  accept(conversationId, { clientRequestId, text, attachments }) {
     textValue(clientRequestId, 100);
-    textValue(text);
+    // A message may be only files; the agent then receives just their saved paths.
+    textValue(text, 65536, Array.isArray(attachments) && attachments.length > 0);
     const existing = this.db
       .prepare("SELECT * FROM requests WHERE conversation_id=? AND client_key=?")
       .get(conversationId, clientRequestId);
