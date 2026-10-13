@@ -382,6 +382,7 @@ export const assistantCopy = {
   accountCheckFailed: "Connection could not be verified. Try again or sign in again.",
   loginInstructions: "Enter this code on the OpenAI sign-in page.",
   loginOpen: "Open sign-in page",
+  loginPage: "Sign-in page:",
   loginCancel: "Cancel sign-in",
   loginStatus: {
     starting: "Starting sign-in…",

@@ -394,6 +394,7 @@ export const assistantCopy = {
     "Verbindung konnte nicht bestätigt werden. Versuche es erneut oder melde dich neu an.",
   loginInstructions: "Gib diesen Code auf der OpenAI-Anmeldeseite ein.",
   loginOpen: "Anmeldeseite öffnen",
+  loginPage: "Anmeldeseite:",
   loginCancel: "Anmeldung abbrechen",
   loginStatus: {
     starting: "Anmeldung wird gestartet …",

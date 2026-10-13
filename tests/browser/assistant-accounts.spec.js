@@ -59,6 +59,10 @@ test("ChatGPT login shows code, completes, checks and disconnects the selected a
     "href",
     "https://auth.openai.com/codex/device",
   );
+  await expect(panel.getByText("Sign-in page:")).toBeVisible();
+  await expect(
+    panel.getByRole("link", { name: "https://auth.openai.com/codex/device" }),
+  ).toHaveAttribute("href", "https://auth.openai.com/codex/device");
   state.status = "completed";
   await expect(panel.getByText("Personal ChatGPT")).toBeVisible();
   await expect(panel.getByText("ABCD-EFGHI")).toHaveCount(0);
