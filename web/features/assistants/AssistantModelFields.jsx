@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useId, useRef, useState } from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import useProviderCatalog from "../providers/useProviderCatalog.js";
 import ProviderCatalogStatus from "../providers/ProviderCatalogStatus.jsx";
@@ -34,6 +34,13 @@ export default function AssistantModelFields({
   const { refresh: reload } = useAssistants();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
+  // A newer list state from the server replaces a failed refresh's hint.
+  const [seenCatalog, setSeenCatalog] = useState(connection?.modelCatalog);
+  if (seenCatalog !== connection?.modelCatalog) {
+    setSeenCatalog(connection?.modelCatalog);
+    setRefreshFailed(false);
+  }
+  const hintId = useId();
   // A refresh answer for a connection the owner has left changes nothing here.
   const current = useRef(connectionId);
   current.current = connectionId;
@@ -79,9 +86,19 @@ export default function AssistantModelFields({
       setRefreshing(false);
     }
   }
-  const accountLoading = refreshing || connection?.modelCatalog === "loading";
-  const accountFailed =
-    !accountLoading && (refreshFailed || connection?.modelCatalog === "failed");
+  const state = connection?.modelCatalog;
+  const accountLoading = refreshing || state === "loading";
+  // A list that failed to load keeps the model ID field; a kept older list says so.
+  const accountHint = accountLoading
+    ? copy.accountModelsLoading
+    : refreshFailed || state === "failed" || (state === "ready" && !catalog.length)
+      ? catalog.length
+        ? copy.accountModelsStale
+        : copy.accountModelsFailed
+      : state === "unknown"
+        ? copy.accountModelsUnverified
+        : "";
+  const describedBy = account ? hintId : undefined;
   function chooseModel(value) {
     if (value === CUSTOM) {
       setCustomChosen(true);
@@ -120,6 +137,7 @@ export default function AssistantModelFields({
             noMatches={copy.noMatchingModels}
             query={query}
             onQuery={setQuery}
+            describedBy={describedBy}
             required
             value={custom ? CUSTOM : modelId}
             onChange={chooseModel}
@@ -146,7 +164,6 @@ export default function AssistantModelFields({
       {account && (
         <div>
           <div className="provider-catalog-status">
-            {accountLoading && <span role="status">{copy.accountModelsLoading}</span>}
             <button
               type="button"
               className="button secondary compact"
@@ -156,9 +173,10 @@ export default function AssistantModelFields({
               {copy.refreshAccountModels}
             </button>
           </div>
-          {accountFailed && (
-            <p className="field-description">{copy.accountModelsFailed}</p>
-          )}
+          {/* Always mounted, so screen readers announce each new state. */}
+          <p id={hintId} role="status" className="field-description">
+            {accountHint}
+          </p>
         </div>
       )}
       {custom && (
@@ -167,6 +185,7 @@ export default function AssistantModelFields({
           <input
             required
             maxLength={256}
+            aria-describedby={describedBy}
             value={modelId}
             onChange={(e) => setModel(e.target.value)}
           />
