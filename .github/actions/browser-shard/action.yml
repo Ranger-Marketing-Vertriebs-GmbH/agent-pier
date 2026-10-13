@@ -53,9 +53,12 @@ runs:
         BROWSER: ${{ inputs.browser }}
     - shell: bash
       run: npm run build
-    # Word splitting of $SPECS is intended: one spec path per word.
+    # One spec path per word; read into an array, never glob-expanded. An empty
+    # list runs every spec.
     - shell: bash
-      run: npm run test:e2e -- --shard="$SHARD/$TOTAL" $SPECS
+      run: |
+        read -ra specs <<< "$SPECS"
+        npm run test:e2e -- --shard="$SHARD/$TOTAL" "${specs[@]}"
       env:
         AGENTPIER_TEST_BROWSER: ${{ inputs.browser }}
         SHARD: ${{ inputs.shard }}

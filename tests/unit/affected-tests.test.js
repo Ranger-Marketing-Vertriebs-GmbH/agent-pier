@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { selectAffected } from "../../scripts/affected/select.mjs";
+import fs from "node:fs";
+import { needsMacos, selectAffected } from "../../scripts/affected/select.mjs";
 
 // A tiny repository snapshot: path -> source text.
 const repo = {
@@ -126,6 +127,7 @@ for (const trigger of [
   "playwright.config.js",
   "vite.config.js",
   "tests/helpers/tmux-reaper.js",
+  ".github/actions/browser-shard/action.yml",
 ])
   test(`a change to ${trigger} runs everything`, () => {
     const result = select([trigger, "docs/testing.md"]);
@@ -190,6 +192,27 @@ test("platform code asks for a macOS run; other code does not", () => {
   assert.equal(select(["server/lib/util.js"]).macos, false);
   const unit = { ...repo, "tests/unit/beta.test.js": 'const os = "darwin";\n' };
   assert.equal(select(["tests/unit/beta.test.js"], unit).macos, false);
+});
+
+test("the darwin-only native module and the macOS installers ask for a macOS run", () => {
+  const root = path.resolve(import.meta.dirname, "../..");
+  const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+  // Regression: `\bdarwin\b` missed darwinAbi, and `Darwin` (uname -s) differs in case.
+  for (const file of [
+    "server/features/files/file-native-darwin.js",
+    "scripts/setup.sh",
+    "scripts/install-online.sh.in",
+  ])
+    assert.deepEqual(needsMacos([file], read), [file], file);
+  // A file named for macOS counts whatever it contains.
+  assert.deepEqual(
+    needsMacos(["scripts/macos-signing.json"], () => "{}"),
+    ["scripts/macos-signing.json"],
+  );
+  assert.deepEqual(
+    needsMacos(["docs/macos.md", "server/lib/util.js"], () => ""),
+    [],
+  );
 });
 
 test("a changed file that does not parse runs everything", () => {

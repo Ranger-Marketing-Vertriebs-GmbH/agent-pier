@@ -104,10 +104,11 @@ jobs:
         if: needs.select.outputs.node-all != 'true' && needs.select.outputs.node-tests != ''
         env:
           TESTS: ${{ needs.select.outputs.node-tests }}
-        # Word splitting of $TESTS is intended: one path per word.
-        run: >-
-          node scripts/test-files.mjs --label affected --concurrency 4 --retry
-          --never-retry tests/property/ --test-timeout "$AGENTPIER_TEST_TIMEOUT_MS" $TESTS
+        # One path per word; read into an array, never glob-expanded.
+        run: |
+          read -ra tests <<< "$TESTS"
+          node scripts/test-files.mjs --label affected --concurrency 4 --retry \
+            --never-retry tests/property/ --test-timeout "$AGENTPIER_TEST_TIMEOUT_MS" "${tests[@]}"
       # The nono sandbox is a security boundary: the queue always runs it.
       - name: Install the nono sandbox
         if: needs.select.outputs.nono == 'true'
