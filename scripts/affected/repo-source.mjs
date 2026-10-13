@@ -79,3 +79,21 @@ export function changedFiles(root, base, head = "HEAD") {
     return null;
   }
 }
+
+// Reads files as they were at the merge base of `base` and `head`; null when the
+// file or the commit is missing.
+export function mergeBaseReader(root, base, head = "HEAD") {
+  let mergeBase;
+  try {
+    mergeBase = git(root, ["merge-base", base, head]).trim();
+  } catch {
+    return () => null;
+  }
+  return (file) => {
+    try {
+      return git(root, ["show", `${mergeBase}:${file}`]);
+    } catch {
+      return null;
+    }
+  };
+}

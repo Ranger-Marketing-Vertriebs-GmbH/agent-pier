@@ -101,7 +101,13 @@ test("JSX modules are scanned for imports too", () => {
 
 test("documentation alone selects nothing", () => {
   const result = select(["docs/testing.md", "README.md"]);
-  assert.deepEqual(result, { mode: "none", node: [], browser: [], reasons: [] });
+  assert.deepEqual(result, {
+    mode: "none",
+    node: [],
+    browser: [],
+    reasons: [],
+    macos: false,
+  });
 });
 
 test("a screenshot a spec writes is not inert: it selects that spec", () => {
@@ -128,6 +134,61 @@ for (const trigger of [
     assert.equal(result.browser.length, 2);
     assert.match(result.reasons[0], new RegExp(trigger.replaceAll(".", "\\.")));
   });
+
+test("other workflows and repository metadata are inert", () => {
+  for (const file of [
+    ".github/workflows/nightly.yml",
+    ".github/workflows/assistant-runtime.yml",
+    ".github/dependabot.yml",
+  ])
+    assert.equal(select([file]).mode, "none", file);
+});
+
+test("a release bump of the package versions selects nothing", () => {
+  const manifest = (version, extra = {}) =>
+    JSON.stringify({ name: "agentpier", version, scripts: { test: "x" }, ...extra });
+  const lock = (version) =>
+    JSON.stringify({ version, packages: { "": { version, dependencies: { a: "1" } } } });
+  const files = {
+    ...repo,
+    "package.json": manifest("1.2.4"),
+    "package-lock.json": lock("1.2.4"),
+  };
+  const before = {
+    "package.json": manifest("1.2.3"),
+    "package-lock.json": lock("1.2.3"),
+  };
+  const bump = selectAffected({
+    changed: ["package.json", "package-lock.json"],
+    source: sourceOf(files),
+    previous: (file) => before[file] ?? null,
+  });
+  assert.equal(bump.mode, "none");
+  assert.deepEqual(bump.reasons, [
+    "package.json changed only its version",
+    "package-lock.json changed only its version",
+  ]);
+  const scripts = selectAffected({
+    changed: ["package.json"],
+    source: sourceOf({ ...files, "package.json": manifest("1.2.4", { private: true }) }),
+    previous: (file) => before[file] ?? null,
+  });
+  assert.equal(scripts.mode, "all");
+  // Without the base version the change counts in full.
+  assert.equal(select(["package.json"], files).mode, "all");
+});
+
+test("platform code asks for a macOS run; other code does not", () => {
+  const files = {
+    ...repo,
+    "server/features/beta/beta.js":
+      'export const beta = process.platform === "darwin" ? 1 : 2;\n',
+  };
+  const platform = select(["server/features/beta/beta.js"], files);
+  assert.equal(platform.macos, true);
+  assert.match(platform.reasons.at(-1), /platform code: macOS run/);
+  assert.equal(select(["server/lib/util.js"]).macos, false);
+});
 
 test("a changed file that does not parse runs everything", () => {
   const files = { ...repo, "server/features/beta/beta.js": "export const = ;\n" };
@@ -171,6 +232,7 @@ test("the command line prints the selection as JSON and runs nothing for docs", 
     node: [],
     browser: [],
     reasons: [],
+    macos: false,
   });
   const unknownBase = run("--base", "0".repeat(40), "--json");
   assert.equal(unknownBase.status, 0, unknownBase.stderr);
