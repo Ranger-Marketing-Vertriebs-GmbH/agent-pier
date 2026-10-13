@@ -1,0 +1,73 @@
+name: Assistant runtime (queue)
+# A slim gate for the merge queue. It always reports one check with a stable
+# name, so it can be marked required: it finishes green at once when no assistant
+# runtime path changed (scripts/assistant-runtime-paths.mjs) and otherwise runs
+# the core native contracts with one visible retry per failed file. The full
+# matrix stays in assistant-runtime.yml.
+on:
+  pull_request:
+  merge_group:
+permissions:
+  contents: read
+concurrency:
+  group: assistant-runtime-queue-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  contracts:
+    name: Assistant runtime (queue)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Detect assistant runtime changes
+        id: paths
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+        run: node scripts/assistant-runtime-paths.mjs
+      - if: steps.paths.outputs.relevant == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.paths.outputs.relevant == 'true'
+        run: npm ci
+      - name: Read the pinned runtime identity
+        if: steps.paths.outputs.relevant == 'true'
+        id: runtime
+        run: >-
+          node --input-type=module -e 'import { runtimeManifest as m } from
+          "./server/features/assistants/runtime-manifest.js";
+          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}`)'
+          >> "$GITHUB_OUTPUT"
+      # Same cache key as assistant-runtime.yml: only the immutable installation.
+      - if: steps.paths.outputs.relevant == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/agentpier-assistant-contracts/assistants/runtimes
+          key: assistant-runtime-${{ runner.os }}-${{ runner.arch }}-${{ steps.runtime.outputs.identity }}
+      - name: Provision through the installer's --with-assistants step
+        if: steps.paths.outputs.relevant == 'true'
+        run: >-
+          node scripts/provision-assistant-contracts.mjs
+          --data-dir "$RUNNER_TEMP/agentpier-assistant-contracts"
+          --env-file "$GITHUB_ENV"
+      # Core contracts only: runtime, provider, chat stream, native interfaces and
+      # writes, shell and MCP (plain and compiled). The MCP OAuth, logout, memory,
+      # web tools and scheduling contracts stay in the full workflow.
+      - name: Run the core native contracts
+        if: steps.paths.outputs.relevant == 'true'
+        timeout-minutes: 20
+        run: >-
+          node scripts/test-files.mjs --label "assistant core contracts"
+          --concurrency 1 --retry --no-skips
+          tests/integration/assistant-runtime-contract.test.js
+          tests/integration/assistant-provider-contract.test.js
+          tests/integration/assistant-chat-stream-contract.test.js
+          tests/integration/assistant-native-interfaces-contract.test.js
+          tests/integration/assistant-native-write-contract.test.js
+          tests/integration/assistant-shell-contract.test.js
+          tests/integration/assistant-shell-compiled-contract.test.js
+          tests/integration/assistant-mcp-contract.test.js
+          tests/integration/assistant-mcp-compiled-contract.test.js
