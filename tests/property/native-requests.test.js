@@ -79,6 +79,11 @@ test("arbitrary native payloads cannot leak unknown metadata keys into public re
           ["kind", "subject", "options", "presentation", "hookCount"].includes(key),
           `unexpected request key ${JSON.stringify(key)}`,
         );
+      if ("presentation" in parsed) {
+        assert.equal(parsed.presentation, "codexHookTrust");
+        assert.ok(Number.isInteger(parsed.hookCount));
+        assert.ok(parsed.hookCount >= 1 && parsed.hookCount <= 100);
+      } else assert.equal("hookCount" in parsed, false);
       for (const [key, value] of Object.entries(parsed.subject)) {
         assert.ok(
           ["tool", "command", "path", "name", "cwd", "description"].includes(key),
