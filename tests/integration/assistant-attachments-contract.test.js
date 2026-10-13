@@ -7,6 +7,7 @@ import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supe
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
+import { normalizeOpenRouter } from "../../server/features/providers/catalog-normalization.js";
 import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
 import { withAttachments } from "../../server/features/assistants/attachment-history.js";
@@ -23,7 +24,7 @@ const png = Buffer.from(
 );
 
 test(
-  "pinned Gateway accepts chat attachments and shows images to vision models",
+  "pinned Gateway accepts chat attachments and shows images to models with image input",
   { skip: !installed && "set AGENTPIER_ASSISTANT_PROVIDER_RUNTIME", timeout: 240000 },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
@@ -48,37 +49,83 @@ test(
       }
     });
     const connections = new ProviderConnections({ dataDir });
-    const models = new AssistantModels({ connections });
+    // OpenRouter's catalog lists input modalities per model.
+    const catalog = normalizeOpenRouter({
+      data: [
+        ["google/gemini-3.8-flash", ["text", "image"]],
+        ["z-ai/glm-5.3", ["text"]],
+      ].map(([id, input]) => ({
+        id,
+        name: id,
+        architecture: { input_modalities: input, output_modalities: ["text"] },
+        supported_parameters: ["tools"],
+      })),
+    });
+    const models = new AssistantModels({
+      connections,
+      catalog: {
+        get: (_provider, modelId) => {
+          const found = catalog.find((m) => m.modelId === modelId);
+          if (!found) throw Error("not in catalog");
+          return found;
+        },
+      },
+    });
+    // The compiled OpenRouter transport unchanged, except that it reaches the stub.
+    const routed = {
+      resolve: (input) => {
+        const lease = models.resolve(input);
+        return lease.provider?.baseUrl === "https://openrouter.ai/api/v1"
+          ? { ...lease, provider: { ...lease.provider, baseUrl: server.url } }
+          : lease;
+      },
+    };
     await runtime.start();
     const config = new AssistantConfig({
       client: runtime.client,
-      models,
+      models: routed,
       store,
       workspaces: runtime.paths.workspaces,
     });
     const attachments = new AgentAttachments({ store, models, config });
-    for (const images of [true, false]) {
-      await t.test(images ? "vision model" : "text-only model", async () => {
-        const modelId = `fixture-${images ? "vision" : "text"}`;
-        const connection = connections.create({
-          providerId: "endpoint",
-          name: modelId,
-          endpoint: {
-            preset: "custom",
-            openaiBaseUrl: server.url,
-            authHeader: null,
-            protocols: { messages: false, responses: false, chatCompletions: true },
-            models: [
-              {
-                modelId,
-                source: "manual",
-                contextTokens: 32768,
-                outputTokens: 4096,
-                images,
-              },
-            ],
-          },
-        });
+    const endpoint = (modelId, images) =>
+      connections.create({
+        providerId: "endpoint",
+        name: modelId,
+        endpoint: {
+          preset: "custom",
+          openaiBaseUrl: server.url,
+          authHeader: null,
+          protocols: { messages: false, responses: false, chatCompletions: true },
+          models: [
+            {
+              modelId,
+              source: "manual",
+              contextTokens: 32768,
+              outputTokens: 4096,
+              images,
+            },
+          ],
+        },
+      });
+    const router = connections.create({
+      providerId: "openrouter",
+      name: "Router",
+      apiKey: "fixture-openrouter-key",
+    });
+    for (const [name, modelId, images, connection] of [
+      ["vision endpoint model", "fixture-vision", true, endpoint("fixture-vision", true)],
+      [
+        "text-only endpoint model",
+        "fixture-text",
+        false,
+        endpoint("fixture-text", false),
+      ],
+      ["OpenRouter model with image input", "google/gemini-3.8-flash", true, router],
+      ["OpenRouter text model", "z-ai/glm-5.3", false, router],
+    ]) {
+      await t.test(name, async () => {
+        assert.equal(models.imageInput({ connectionId: connection.id, modelId }), images);
         const agent = store.createAssistant({
           name: modelId,
           instructions: "Reply.",
@@ -92,7 +139,7 @@ test(
           assistantId: agent.id,
           runtimeSessionKey: chat.key,
         });
-        const requestId = `request-${modelId}`;
+        const requestId = `request-${name}`;
         const photo = await attachments.stage(conversation.id, "dot.png", png);
         const notes = await attachments.stage(
           conversation.id,
