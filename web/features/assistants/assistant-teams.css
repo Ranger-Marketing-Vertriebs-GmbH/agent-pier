@@ -171,6 +171,30 @@
 .assistant-transcript .assistant-team-note a > svg {
   flex: none;
 }
+/* Objectives are model text of any length: notes and chat headings show two lines,
+   the title attribute and the Settings card keep the full text. */
+.assistant-transcript .assistant-team-note a span,
+.assistant-team-approvals .assistant-team-coding h4,
+.assistant-team-clamp {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.assistant-team-review {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.assistant-team-review p {
+  flex: 1;
+  min-width: 0;
+}
+.assistant-team-review .button {
+  flex: none;
+  height: 36px;
+}
 .assistant-transcript .assistant-team-note a:hover,
 .assistant-transcript .assistant-team-note.focused a {
   color: var(--accent-text);

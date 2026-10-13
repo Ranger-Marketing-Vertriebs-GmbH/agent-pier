@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  foldResultEvents,
   teamNotes,
   teamOutcome,
   withTeamNotes,
@@ -113,4 +114,36 @@ test("notes interleave with messages by time and skip unloaded history", () => {
     "n30",
     "n60",
   ]);
+});
+
+test("a team starts when it was started, older teams at their proposal", () => {
+  const notes = teamNotes(
+    [
+      team("approved-later", { startedAt: iso(90) }),
+      team("legacy", { createdAt: iso(20) }),
+    ],
+    where,
+  );
+  assert.deepEqual(kinds(notes), ["legacy:started@20", "approved-later:started@90"]);
+});
+
+test("the synthesis event folds into the end note it directly follows", () => {
+  const end = (kind) => ({ note: { id: kind, kind } });
+  const event = (id) => ({ message: { id, role: "event", event: "team-result" } });
+  const order = (items) => items.map((i) => i.message?.id ?? i.note.id);
+  assert.deepEqual(
+    order(
+      foldResultEvents([
+        end("completed"),
+        event("e1"),
+        end("started"),
+        event("e2"),
+        { message: { id: "reply", role: "assistant" } },
+        event("e3"),
+        end("partial"),
+        { message: { id: "coding", role: "event", event: "coding-result" } },
+      ]),
+    ),
+    ["completed", "started", "e2", "reply", "e3", "partial", "coding"],
+  );
 });

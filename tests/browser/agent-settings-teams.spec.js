@@ -169,3 +169,29 @@ test("a member's pending coding request opens its team card", async ({ page }) =
   await expect(requests).toContainText("Requested by team member Designer");
   await expect(requests.getByRole("button", { name: "Approve action" })).toBeVisible();
 });
+
+test("a link to a proposal focuses its card", async ({ page }) => {
+  await teamListFixture(page);
+  await page.goto(baseURL + "/agents/home/settings?tab=work&team=proposal");
+  const card = group(page).getByRole("article", { name: "Write launch copy" });
+  await expect(card).toBeFocused();
+  await expect(card).toBeInViewport();
+});
+
+test("switching sides after a team link does not pull the reader back", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await teamListFixture(page);
+  await page.goto(baseURL + "/agents/home/settings?tab=work&team=research");
+  const teams = group(page);
+  const summary = teams.locator("#assistant-team-research > summary");
+  await expect(summary).toBeFocused();
+  await teams.getByRole("radio", { name: "Archived (1)" }).check();
+  const active = teams.getByRole("radio", { name: "Active (3)" });
+  await active.check();
+  await expect(summary).toBeVisible();
+  await expect(summary).not.toBeFocused();
+  await expect(active).toBeFocused();
+  await expect(active).toBeInViewport();
+});

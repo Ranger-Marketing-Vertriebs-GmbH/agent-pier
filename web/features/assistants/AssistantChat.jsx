@@ -1,6 +1,6 @@
 import TeamApprovals from "./TeamApprovals.jsx";
 import TeamNote from "./TeamNote.jsx";
-import { teamNotes, withTeamNotes } from "./team-notes.js";
+import { foldResultEvents, teamNotes, withTeamNotes } from "./team-notes.js";
 import { scrollToChild } from "./transcript-scroll.js";
 import AssistantHeader from "./AssistantHeader.jsx";
 import AssistantActionApprovals from "./AssistantActionApprovals.jsx";
@@ -119,21 +119,25 @@ export default function AssistantChat({
     () => (member ? [] : teamNotes(teams, { assistantId: assistant.id, conversationId })),
     [member, teams, assistant.id, conversationId],
   );
-  const transcript = withTeamNotes(history.messages, notes, {
-    complete: !history.nextBefore,
-  });
+  const transcript = foldResultEvents(
+    withTeamNotes(history.messages, notes, { complete: !history.nextBefore }),
+  );
+  // A team link marks the team's latest shown note.
+  const focusedNote =
+    focusTeamId && transcript.findLast((i) => i.note?.team.id === focusTeamId)?.note.id;
   const lastReply = history.messages.findLast((m) => m.role === "assistant");
   const announcement =
     lastReply && baseline.current !== undefined && lastReply.id !== baseline.current
       ? plainText(lastReply.text)
       : "";
-  // Follow the newest content only while the reader is at the bottom.
+  // Follow the newest content only while the reader is at the bottom. Team notes count:
+  // they arrive with the team list, apart from the history.
   useLayoutEffect(() => {
     const element = output.current;
     if (!element || !stick.current) return;
     element.scrollTop = element.scrollHeight;
     scroll.current = element.scrollTop;
-  }, [history.messages, history.requests, delta, busy]);
+  }, [history.messages, history.requests, delta, busy, notes]);
   useLayoutEffect(() => {
     stick.current = true;
   }, [conversationId]);
@@ -157,6 +161,7 @@ export default function AssistantChat({
     const target =
       element?.querySelector(`#assistant-team-${CSS.escape(focusTeamId)}`) ||
       element?.querySelector(`#assistant-team-requests-${CSS.escape(focusTeamId)}`) ||
+      element?.querySelector(`#assistant-team-review-${CSS.escape(focusTeamId)}`) ||
       [...(element?.querySelectorAll(".assistant-team-note") || [])].findLast(
         (note) => note.dataset.team === focusTeamId,
       );
@@ -269,7 +274,7 @@ export default function AssistantChat({
                   key={note.id}
                   note={note}
                   navigate={navigate}
-                  focused={note.team.id === focusTeamId}
+                  focused={note.id === focusedNote}
                 />
               ) : m.event === "coding-run" ? (
                 <CodingRunNote key={m.id} note={m} navigate={navigate} />
@@ -356,7 +361,7 @@ export default function AssistantChat({
               </div>
             )}
           </div>
-          {!member && <PendingTeams assistant={assistant} />}
+          {!member && <PendingTeams assistant={assistant} navigate={navigate} />}
           {!assistant.teamMemberId && <AssistantActionApprovals {...ownActions} />}
         </div>
         <div
