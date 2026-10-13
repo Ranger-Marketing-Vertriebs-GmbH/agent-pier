@@ -1,5 +1,4 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-import { operationsCopy } from "../../lib/i18n/messages/operations.js";
 import {
   repositoriesPageCopy,
   credentialDialogCopy,
@@ -42,17 +41,8 @@ export default function GithubAccessPage() {
   }, [reload]);
   return (
     <div className="page github-access-page">
-      <div className="page-topline">
-        <span>
-          {operationsCopy.topline(
-            operationsCopy.groups.access,
-            operationsCopy.sections.github,
-          )}
-        </span>
-      </div>
       <header className="page-heading">
         <div>
-          <h1 id="github-access-title">{copy.pageHeadingTitle}</h1>
           <p>{repositoriesPageCopy.agentCredentialDescription}</p>
         </div>
         <button
@@ -86,6 +76,7 @@ export default function GithubAccessPage() {
             credentials={credentials}
             cloning={cloning}
             setModal={setModal}
+            label={copy.pageHeadingTitle}
           />
           <p className="field-description github-access-footnote">
             {credentialDialogCopy.multipleProfilesDescription}

@@ -21,8 +21,6 @@ export const operationsCopy = {
   sections,
   groups,
   title,
-  topline: (group, section) =>
-    `${title.toUpperCase()} / ${group.toUpperCase()} / ${section.toUpperCase()}`,
   description: "Arbeitsbereich, App und Betrieb verwalten.",
   loading: "Daten werden geladen …",
   refresh: "Aktualisieren",
@@ -76,7 +74,7 @@ export const operationsCopy = {
   includeHistory: "Verläufe einschließen",
   withCredentials: "Zugangsdaten verschlüsselt einschließen",
   backupPrivacy:
-    "AgentPier-Verläufe können private Aufgabeninhalte enthalten und werden nicht verschlüsselt. CLI-Verläufe werden nur in Backups mit Passphrase und verschlüsselt gesichert. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
+    "Verläufe können private Aufgabeninhalte enthalten. Lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse werden nicht gesichert.",
   passphrase: "Passphrase",
   plan: "Sicherungsumfang prüfen",
   create: "Sicherung erstellen",
@@ -90,8 +88,6 @@ export const operationsCopy = {
   deleteBackup: "Diese Sicherung löschen?",
   inspectArchive: "Sicherung prüfen und wiederherstellen",
   archive: "Sicherungsdatei",
-  uploadProgress: (percent, done, total) =>
-    `Sicherungsdatei wird hochgeladen: ${percent} % (${done} von ${total})`,
   inspect: "Archiv prüfen",
   targetDataDir: "Neues Datenverzeichnis",
   restore: "In neuem Verzeichnis wiederherstellen",
@@ -111,7 +107,6 @@ export const operationsCopy = {
   needsMcpServerAddress: (name) =>
     `MCP-Server ${name} (Token in der Adresse neu eingeben)`,
   importedSessions: "Importierte Sitzungen",
-  changedFilesLeftOut: "Während der Sicherung geänderte Dateien, nicht wiederhergestellt",
   importedRuns: "Importierte Läufe",
   updates: "Updates",
   currentVersion: "Installierte Version",
@@ -121,16 +116,13 @@ export const operationsCopy = {
   channelStableHelp:
     "Nur freigegebene stabile Releases. Der Wechsel zu Stable installiert keine ältere Version.",
   channelPreviewHelp:
-    "Preview enthält Release Candidates zum Testen sowie stabile Releases. Die Auswahl gilt für diese AgentPier-Installation. Release Candidates können unfertige Änderungen enthalten. Nachdem ein Release Candidate die Daten migriert hat, ist eine Rückkehr zur vorherigen stabilen Version unter Umständen nicht mehr möglich. Lege deshalb vorher unter Einstellungen → Sicherungen eine Sicherung an. Beim Wechsel zurück zu Stable bleibt der installierte Release Candidate erhalten, bis eine neuere stabile Version erscheint.",
+    "Preview enthält Release Candidates zum Testen sowie stabile Releases. Die Auswahl gilt für diese AgentPier-Installation.",
   channelManagedHelp:
     "Eine eigene Update-Quelle ist eingerichtet. Sie wird auf dem Server verwaltet.",
-  channelUnsupportedHelp:
-    "Updatekanäle gelten nur für eine versionierte Installation. Diese Instanz läuft aus einem Quellcode-Checkout oder auf einer nicht unterstützten Plattform, deshalb ist die Auswahl gesperrt.",
-  channelManagedSource: (source) => `Update-Quelle: ${source}`,
-  stagedPrereleaseHelp:
-    "Bereits vorbereitete Vorabversionen lassen sich auch nach dem Wechsel zu Stable aktivieren.",
-  prerelease: "Vorabversion",
   channel: "Updatekanal",
+  saveChannelFirst: "Speichere zuerst den Updatekanal.",
+  channelBusy:
+    "Den Updatekanal kannst du ändern, sobald der laufende Update-Auftrag beendet ist.",
   releaseNotes: "Neu in dieser Version",
   releaseNotesLoading: "Versionshinweise werden geladen …",
   releaseNotesUnavailable:
@@ -300,15 +292,7 @@ export const backupCopy = {
       "MCP-Client-Freigaben, OAuth-Zugangsdaten und Berechtigungen für Startanfragen",
     "Shared native extensions, Agency agent files and their local installation records":
       "Gemeinsame native Erweiterungen, Agency-Agentendateien und ihre lokalen Installationsdaten",
-    "encrypted-managed-profiles":
-      "Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile (verschlüsselt)",
-    "cli-histories":
-      "CLI-Verläufe (verschlüsselt): Codex-Sitzungen und erzeugte Bilder, Claude-Code-Projekte, -Aufgaben und -Dateiversionen, OpenCode-Sitzungen",
-    "CLI caches, logs, telemetry and files outside the profile allowlists":
-      "CLI-Caches, -Protokolle, -Telemetrie und alle Dateien außerhalb der Profil-Positivlisten",
-    "CLI conversation histories": "CLI-Verläufe",
-    "Linked, shared or foreign files in CLI profiles":
-      "Verknüpfte, geteilte oder fremde Dateien in CLI-Profilen",
+    "encrypted-managed-profiles": "Verwaltete Profile und Zugangsdaten (verschlüsselt)",
     "encrypted-repository-credentials": "Repository-Zugangsdaten (verschlüsselt)",
     "External local CLI profiles and OS keychains":
       "Externe lokale CLI-Profile und Betriebssystem-Schlüsselbunde",
@@ -332,12 +316,6 @@ export const backupCopy = {
     "MCP server OAuth logins": "OAuth-Anmeldungen der MCP-Server",
     "MCP server header and environment values and address tokens":
       "Header- und Umgebungswerte der MCP-Server und Tokens in ihren Adressen",
-    "Files removed while the backup was written":
-      "Dateien, die während der Sicherung gelöscht wurden",
-    "Files that changed while the backup was written":
-      "Dateien, die sich während der Sicherung geändert haben (nur zeilenbasierte Verläufe werden wiederhergestellt)",
-    "CLI histories are only backed up in backups with a passphrase, and then encrypted":
-      "CLI-Verläufe werden nur in Backups mit Passphrase und verschlüsselt gesichert",
     "Managed native configuration and credentials":
       "Verwaltete native Konfiguration und Zugangsdaten",
     "coordinated-application-snapshot; independent-native-captures":

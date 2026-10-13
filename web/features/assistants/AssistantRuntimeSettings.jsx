@@ -1,4 +1,3 @@
-import AssistantTeamSettings from "./AssistantTeamSettings.jsx";
 import AssistantRuntimeUpdates from "./AssistantRuntimeUpdates.jsx";
 import React, { useState } from "react";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
@@ -26,13 +25,7 @@ export default function AssistantRuntimeSettings() {
   );
   return (
     <div className="page assistants-page">
-      <header className="assistant-heading">
-        <div>
-          <p className="eyebrow">{copy.settings}</p>
-          <h1>{copy.runtime}</h1>
-          <p className="assistant-note">{copy.runtimeDescription}</p>
-        </div>
-      </header>
+      <p className="assistant-note">{copy.runtimeDescription}</p>
       <ErrorMessage error={error || loadError} />
       <section className="assistant-runtime-card">
         {copy.runtimeDiagnostics[runtime.diagnostic] && (
@@ -93,7 +86,6 @@ export default function AssistantRuntimeSettings() {
         </details>
       </section>
       <AssistantRuntimeUpdates onChange={refresh} />
-      <AssistantTeamSettings />
     </div>
   );
 }

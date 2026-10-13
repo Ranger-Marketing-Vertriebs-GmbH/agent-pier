@@ -97,6 +97,9 @@ const hasAssistantCss = (page) =>
       }
     }),
   );
+const saveSettings = (page) =>
+  page.getByRole("button", { name: "Save settings", exact: true }).click();
+
 test("disabled agents make one request and render no assistant UI", async ({ page }) => {
   const { requests } = await featureFixture(page);
   await page.goto(baseURL + "/");
@@ -126,8 +129,9 @@ test("settings switch enables agents and shows navigation after artifacts", asyn
   const toggle = page.getByRole("switch", { name: "Enable agents" });
   await expect(toggle).not.toBeChecked();
   await toggle.click();
+  await saveSettings(page);
   await expect(toggle).toBeChecked();
-  expect(feature.enabled).toBe(true);
+  await expect.poll(() => feature.enabled).toBe(true);
   const menu = await openMenu(page);
   const labels = await menu
     .locator(".nav-item")
@@ -214,6 +218,7 @@ test("toggling agents keeps local application state", async ({ page }) => {
   await page.getByRole("button", { name: "Collapse navigation" }).click();
   await expect(page.locator(".app.sidebar-collapsed")).toHaveCount(1);
   await page.getByRole("switch", { name: "Enable agents" }).click();
+  await saveSettings(page);
   await expect(page.getByRole("switch", { name: "Enable agents" })).toBeChecked();
   await expect(page.locator(".app.sidebar-collapsed")).toHaveCount(1);
   await page.getByRole("button", { name: "Expand navigation" }).first().click();
@@ -225,10 +230,11 @@ test("switching agents off removes navigation and closes the event stream", asyn
   page,
 }) => {
   await featureFixture(page, { enabled: true, assistants: [assistant("home")] });
-  await page.goto(baseURL + "/settings/assistants");
+  await page.goto(baseURL + "/settings");
   await expect(page.getByRole("button", { name: "Agent chats" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__streams.length)).toBe(1);
   await page.getByRole("switch", { name: "Enable agents" }).click();
+  await saveSettings(page);
   await openMenu(page);
   await expect(agentsNav(page)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Agent chats" })).toHaveCount(0);
@@ -242,7 +248,9 @@ test("a rejected switch change reports the problem and stays off", async ({ page
   await page.goto(baseURL + "/settings/assistants");
   const toggle = page.getByRole("switch", { name: "Enable agents" });
   await toggle.click();
+  await saveSettings(page);
   await expect(page.getByRole("alert")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(toggle).not.toBeChecked();
   await expect(agentsNav(page)).toHaveCount(0);
 });

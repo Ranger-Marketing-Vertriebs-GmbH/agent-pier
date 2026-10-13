@@ -168,7 +168,6 @@ export default function SshSettings() {
     <div className="page ssh-page">
       <header className="ssh-heading">
         <div>
-          <h1>{copy.title}</h1>
           <p>{copy.description}</p>
         </div>
         <button

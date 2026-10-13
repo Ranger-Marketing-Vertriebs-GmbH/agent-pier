@@ -9,7 +9,6 @@ export default function McpSettings({ route, navigate }) {
   const result = useMcpResource("/mcp-access");
   return (
     <div className="page mcp-page">
-      <h1>{copy.title}</h1>
       <p className="mcp-introduction">{copy.introduction}</p>
       {result.error ? (
         <section className="mcp-card">

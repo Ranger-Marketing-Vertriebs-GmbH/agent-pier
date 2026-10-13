@@ -3,6 +3,7 @@ import { actionsFixture } from "../helpers/file-actions-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser.js";
 import { uploadsFixture } from "../helpers/file-uploads-browser.js";
+import { chooseLanguage } from "../helpers/settings.js";
 
 const source = (name) => ({
   name,
@@ -83,7 +84,7 @@ for (const language of ["en", "de"])
   }) => {
     const fixture = await actionsFixture(page);
     await page.goto(baseURL + "/settings");
-    await page.getByLabel(/Sprache|Language/).selectOption(language);
+    await chooseLanguage(page, language);
     await page.goto(baseURL + "/files");
     const labels =
       language === "en"
@@ -274,7 +275,7 @@ test("compact touch retry sends a fresh upload attempt", async ({
     const { state } = await uploadsFixture(page);
     state.failures.add("retry-touch.txt");
     await page.goto(baseURL + "/settings");
-    await page.getByLabel(/Sprache|Language/).selectOption("en");
+    await chooseLanguage(page, "en");
     await page.goto(baseURL + "/files");
     await page
       .getByLabel("Upload files", { exact: true })

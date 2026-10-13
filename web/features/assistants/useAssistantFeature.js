@@ -50,7 +50,10 @@ async function setEnabled(enabled) {
   publish({ saving: true });
   try {
     const feature = await assistantApi.setFeature(enabled);
-    publish({ enabled: !!feature.enabled, error: feature.error || null });
+    const next = { enabled: !!feature.enabled, error: feature.error || null };
+    publish(next);
+    // The server answers 200 with `enabled: false` when agents cannot start.
+    return next;
   } finally {
     publish({ saving: false });
   }

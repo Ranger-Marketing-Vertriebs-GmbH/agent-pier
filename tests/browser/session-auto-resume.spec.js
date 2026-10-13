@@ -18,6 +18,12 @@ for (const locale of ["de-DE", "en-GB"]) {
       });
       await expect(toggle).toBeChecked();
       await toggle.click();
+      await page
+        .getByRole("button", {
+          name: en ? "Save settings" : "Einstellungen speichern",
+          exact: true,
+        })
+        .click();
       await expect
         .poll(
           () =>

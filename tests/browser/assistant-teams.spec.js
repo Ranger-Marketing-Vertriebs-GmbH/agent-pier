@@ -333,13 +333,14 @@ test("host settings initialize from server and retain the draft revision across 
   teamSettings.revision = 8;
   teamSettings.hostMaxConcurrent = 20;
   await refreshFromEvent(page);
-  await page.getByRole("button", { name: "Save team settings", exact: true }).click();
-  await expect.poll(() => posted.at(-1)?.revision).toBe(7);
+  const bar = page.getByRole("region", { name: "Unsaved changes" });
   await expect(
-    page.getByText("The data has changed. Please reload.", { exact: true }),
+    bar.getByText("Changed elsewhere in the meantime.", { exact: true }),
   ).toBeVisible();
+  await expect(capacity).toHaveValue("16");
+  expect(posted.filter((body) => "hostMaxConcurrent" in body)).toEqual([]);
   expect(teamSettings.hostMaxConcurrent).toBe(20);
-  await page.reload();
+  await bar.getByRole("button", { name: "Reload", exact: true }).click();
   await expect(capacity).toHaveValue("20");
   await capacity.fill("24");
   await page.getByRole("button", { name: "Save team settings", exact: true }).click();
@@ -348,6 +349,84 @@ test("host settings initialize from server and retain the draft revision across 
   await page.getByRole("button", { name: "Save team settings", exact: true }).click();
   await expect.poll(() => teamSettings.revision).toBe(10);
   expect(teamSettings.hostMaxConcurrent).toBe(28);
+});
+
+test("host capacity overwrite uses the newer revision and leaving asks first", async ({
+  page,
+}) => {
+  const { teamSettings, posted } = await setup(page);
+  teamSettings.revision = 3;
+  teamSettings.hostMaxConcurrent = 12;
+  await page.goto(baseURL + "/settings/assistants");
+  const capacity = page.getByLabel("Concurrent members on this host");
+  await expect(capacity).toHaveValue("12");
+  await capacity.fill("16");
+  teamSettings.revision = 4;
+  teamSettings.hostMaxConcurrent = 20;
+  await refreshFromEvent(page);
+  await page.getByRole("button", { name: "Overwrite anyway", exact: true }).click();
+  await expect.poll(() => teamSettings.revision).toBe(5);
+  expect(teamSettings.hostMaxConcurrent).toBe(16);
+  expect(
+    posted.filter((body) => "hostMaxConcurrent" in body).map((body) => body.revision),
+  ).toEqual([4]);
+  await expect(page.getByRole("region", { name: "Unsaved changes" })).toHaveCount(0);
+  await capacity.fill("8");
+  const back = page.getByRole("button", { name: "Back to Workspace", exact: true });
+  await back.click();
+  const sheet = page.getByRole("dialog", { name: "Save changes?" });
+  await expect(sheet).toContainText("1 change in Agent service is not saved yet.");
+  await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page).toHaveURL(/\/settings\/assistants$/);
+  await expect(capacity).toHaveValue("8");
+  await back.click();
+  await sheet.getByRole("button", { name: "Discard", exact: true }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  expect(teamSettings.hostMaxConcurrent).toBe(16);
+});
+
+test("host capacity keeps its range and a missed change still overwrites", async ({
+  page,
+}) => {
+  const { teamSettings, posted } = await setup(page);
+  teamSettings.revision = 3;
+  teamSettings.hostMaxConcurrent = 12;
+  const sent = () => posted.filter((body) => "hostMaxConcurrent" in body);
+  await page.goto(baseURL + "/settings/assistants");
+  const capacity = page.getByLabel("Concurrent members on this host");
+  await expect(capacity).toHaveValue("12");
+  const save = page.getByRole("button", { name: "Save team settings", exact: true });
+  // The field error below the card; the bar keeps the last save's message.
+  const range = page.locator("div.error", { hasText: "Choose a value from 4 to 32." });
+  for (const value of ["", "2", "33"]) {
+    await capacity.fill(value);
+    await expect(range).toBeVisible();
+    await save.click();
+    await expect(page.getByRole("region", { name: "Unsaved changes" })).toContainText(
+      "Choose a value from 4 to 32.",
+    );
+  }
+  expect(sent()).toEqual([]);
+  // The server changes without an event: Save meets a real stale-revision 409.
+  await page.route("**/api/assistant-team-settings", (route) => {
+    const input = route.request().postDataJSON();
+    posted.push(input);
+    if (input.revision !== teamSettings.revision)
+      return route.fulfill({
+        status: 409,
+        json: { error: "Changed", messageKey: "assistants.conflict" },
+      });
+    Object.assign(teamSettings, input, { revision: teamSettings.revision + 1 });
+    return route.fulfill({ json: teamSettings });
+  });
+  teamSettings.revision = 4;
+  await capacity.fill("16");
+  await expect(range).toHaveCount(0);
+  await save.click();
+  await page.getByRole("button", { name: "Overwrite anyway", exact: true }).click();
+  await expect.poll(() => teamSettings.revision).toBe(5);
+  expect(sent().map((body) => body.revision)).toEqual([3, 4]);
+  expect(teamSettings.hostMaxConcurrent).toBe(16);
 });
 
 test("historical assignments group same-named members with direct chat access", async ({

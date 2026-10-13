@@ -7,6 +7,7 @@ import {
   openExplorerPanel,
 } from "../helpers/file-explorer-layout.js";
 import { uploadsFixture } from "../helpers/file-uploads-browser.js";
+import { chooseLanguage } from "../helpers/settings.js";
 
 test("file shortcuts select the visible page and use the existing destructive dialog", async ({
   page,
@@ -311,7 +312,7 @@ test("mobile editor keeps multiple tabs, a dirty draft, and conflict controls", 
         });
       });
       await mobile.goto(baseURL + "/settings");
-      await mobile.getByLabel(/Sprache|Language/).selectOption(language);
+      await chooseLanguage(mobile, language);
       await mobile.goto(baseURL + "/files");
       await mobile.getByRole("button", { name: longName, exact: true }).click();
       await mobile
@@ -437,7 +438,7 @@ test("active upload controls remain reachable in compact touch viewports", async
       ]);
       state.child(group, "active-file", { status: "running" });
       await mobile.goto(baseURL + "/settings");
-      await mobile.getByLabel(/Sprache|Language/).selectOption(language);
+      await chooseLanguage(mobile, language);
       await mobile.goto(baseURL + "/files");
       await openExplorerPanel(mobile, "uploads");
       await mobile.locator(".file-upload-history summary").click();

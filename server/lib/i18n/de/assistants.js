@@ -135,6 +135,8 @@ export const assistants = {
   conflict: "Die Daten wurden inzwischen geändert. Bitte neu laden.",
   capacity:
     "Die Teamgröße liegt über der Kapazität dieses Hosts. Wähle einen kleineren Wert.",
+  hostCapacity:
+    "Mindestens ein Agententeam ist größer als dieser Wert. Wähle eine größere Kapazität oder verkleinere das Team.",
   unavailable: "Der Agentendienst ist nicht bereit. Prüfe die Laufzeit-Einstellungen.",
   provider: "Dieser Provider-Zugang ist für Agenten nicht verfügbar.",
   uncertain:

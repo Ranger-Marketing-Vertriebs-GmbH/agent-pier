@@ -161,11 +161,11 @@
   background: none;
   padding: 24px;
 }
-.ssh-details h3 {
+.ssh-details h2 {
   padding-right: 32px;
   margin-bottom: 14px;
 }
-.ssh-details h4 {
+.ssh-details h3 {
   font-size: 14px;
   margin: 16px 0;
 }

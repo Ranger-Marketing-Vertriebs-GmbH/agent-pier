@@ -2,15 +2,16 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { credentialListCopy as copy } from "../../lib/i18n/messages/repositories.js";
 import React from "react";
 import { hostHasPort } from "./hosts.js";
-export default function CredentialList({ credentials, cloning = false, setModal }) {
+export default function CredentialList({
+  credentials,
+  cloning = false,
+  setModal,
+  label,
+}) {
   if (!credentials.length)
     return <p className="repository-empty">{copy.repositoryEmpty}</p>;
   return (
-    <div
-      className="github-access-table"
-      role="table"
-      aria-labelledby="github-access-title"
-    >
+    <div className="github-access-table" role="table" aria-label={label}>
       <div className="github-access-row github-access-head" role="row">
         <span role="columnheader">{copy.columnAccess}</span>
         <span role="columnheader">{copy.columnToken}</span>
@@ -20,7 +21,7 @@ export default function CredentialList({ credentials, cloning = false, setModal 
       {credentials.map((credential) => (
         <div className="github-access-row" role="row" key={credential.id}>
           <div role="cell" className="github-access-name">
-            <h3>{credential.name}</h3>
+            <h2>{credential.name}</h2>
             {credential.agentDefault && (
               <span className="repository-agent-badge">{copy.repositoryAgentBadge}</span>
             )}

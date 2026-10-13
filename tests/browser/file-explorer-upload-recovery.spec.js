@@ -7,6 +7,7 @@ import { baseURL } from "../helpers/browser.js";
 import { selectEnglish } from "../helpers/file-explorer-browser.js";
 import { selectNativeFolder, uploadsFixture } from "../helpers/file-uploads-browser.js";
 import { navigateTo } from "../helpers/navigation.js";
+import { chooseLanguage } from "../helpers/settings.js";
 
 const source = (name, text = name) => ({
   name,
@@ -273,7 +274,7 @@ test("upload recovery renders inspected English desktop and German 390px evidenc
     fullPage: true,
   });
   await page.goto(baseURL + "/settings");
-  await page.getByLabel("Language", { exact: true }).selectOption("de");
+  await chooseLanguage(page, "de");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(baseURL + "/files");
   await openExplorerPanel(page, "uploads");

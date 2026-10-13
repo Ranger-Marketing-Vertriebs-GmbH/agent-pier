@@ -8,8 +8,22 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
     calls: [],
     fail: "",
     hold: "",
+    preferences: {},
     release: null,
     requests: [],
+    summary: {
+      access: {
+        mcp: { available: true, activeGrants: 2 },
+        remote: { tailscale: true, network: false },
+        ssh: { count: 3 },
+        github: { count: 1 },
+      },
+      operations: {
+        diagnostics: { generatedAt: "2026-10-12T09:14:00.000Z", failed: 0, warnings: 0 },
+        backups: { count: 4, lastAt: "2026-10-12T03:00:00.000Z" },
+        updates: { current: "1.0.0", checked: true, available: "1.1.0" },
+      },
+    },
     remote: {
       local: { url: "http://127.0.0.1:4380" },
       tailscale: { url: "https://host.example.ts.net:8443" },
@@ -55,11 +69,6 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
     if (state.hold === path) await new Promise((resolve) => (state.release = resolve));
     if (state.fail === path)
       return route.fulfill({ status: 409, json: { error: "Fixture conflict" } });
-    // A request that fails once, such as a dropped upload slice.
-    if (state.failOnce?.path === path && state.failOnce.method === method) {
-      state.failOnce = null;
-      return route.fulfill({ status: 503, json: { error: "Fixture outage" } });
-    }
     let result;
     if (path === "/state")
       result = {
@@ -78,11 +87,18 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
         ],
         home: "/fixture",
         defaultCwd: "/fixture",
+        ...state.preferences,
       };
     else if (path === "/notifications")
       result = { enabled: true, publicKey: "AQIDBA", subscriptions: [] };
-    else if (path === "/preferences") result = body;
-    else if (path === "/repositories")
+    else if (path === "/preferences") {
+      if (method === "PATCH") state.preferences = { ...state.preferences, ...body };
+      result = {
+        defaultCwd: "/fixture",
+        autoResumeInterrupted: true,
+        ...state.preferences,
+      };
+    } else if (path === "/repositories")
       result = {
         credentials: [],
         projects: [
@@ -152,7 +168,8 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
       state.remote.network.running = state.remote.network.saved;
       state.remote.network.restartRequired = false;
       result = { restarting: true, instanceId: "one" };
-    } else if (path === "/health") result = state.health;
+    } else if (path === "/settings/summary") result = state.summary;
+    else if (path === "/health") result = state.health;
     else throw Error(`Unexpected operations fixture request ${method} ${path}`);
     await route.fulfill({ json: result });
   });

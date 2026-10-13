@@ -66,20 +66,19 @@ export default function RemoteSettings() {
     });
   return (
     <section className="page operations-page remote-settings" aria-label={copy.title}>
-      <h2>{copy.title}</h2>
       <p>{copy.description}</p>
       <article className="settings-card">
-        <h3>{copy.local}</h3>
+        <h2>{copy.local}</h2>
         <p>{copy.localDescription}</p>
         <code>{local.url}</code>
       </article>
       <article className="settings-card">
-        <h3>{copy.tailscale}</h3>
+        <h2>{copy.tailscale}</h2>
         <p>{copy.tailscaleDescription}</p>
         {tailscale.url ? <code>{tailscale.url}</code> : <p>{copy.tailscaleOff}</p>}
       </article>
       <article className="settings-card">
-        <h3>{copy.network}</h3>
+        <h2>{copy.network}</h2>
         <p>{copy.networkDescription}</p>
         <label className="switch-row">
           <input
@@ -109,7 +108,7 @@ export default function RemoteSettings() {
                 <option value="::">{copy.bindAllV6}</option>
               </select>
             </label>
-            <h4>{copy.hosts}</h4>
+            <h3>{copy.hosts}</h3>
             <p>{copy.hostsDescription}</p>
             <ul className="chip-list">
               {draft.hosts.map((host) => (
@@ -150,7 +149,7 @@ export default function RemoteSettings() {
         )}
         {network.urls.length > 0 && (
           <>
-            <h4>{copy.urls}</h4>
+            <h3>{copy.urls}</h3>
             <ul>
               {network.urls.map((url) => (
                 <li key={url}>

@@ -7,6 +7,7 @@ import {
   openExplorerDisclosure,
   openExplorerPanel,
 } from "../helpers/file-explorer-layout.js";
+import { chooseLanguage } from "../helpers/settings.js";
 
 async function cleanupAll(cleanups) {
   const errors = [];
@@ -90,7 +91,7 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
     });
 
     await page.goto(`${f.url}/settings`);
-    await page.getByLabel("Sprache", { exact: true }).selectOption("en");
+    await chooseLanguage(page, "en");
     await expect(
       page.getByRole("heading", { name: "Settings", exact: true }),
     ).toBeVisible();
@@ -249,7 +250,7 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
     await expect(page.getByText("Loading every Trash page …")).toHaveCount(0);
 
     await page.goto(`${f.url}/settings`);
-    await page.getByLabel("Language", { exact: true }).selectOption("de");
+    await chooseLanguage(page, "de");
     await page.goto(
       `${f.url}/files?path=${encodeURIComponent(folder)}&file=${encodeURIComponent(path.join(folder, binaryName))}`,
     );

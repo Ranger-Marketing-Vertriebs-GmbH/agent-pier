@@ -17,7 +17,6 @@ export default function DiagnosticsPage() {
   const report = resource.data?.report;
   return (
     <section>
-      <h1>{copy.diagnostics}</h1>
       <form
         className="operations-filters"
         onSubmit={(event) => {
@@ -99,7 +98,7 @@ export default function DiagnosticsPage() {
               <p>{check.summary}</p>
               {check.remedy && (
                 <>
-                  <h3>{copy.remedy}</h3>
+                  <h2>{copy.remedy}</h2>
                   <pre>
                     {typeof check.remedy === "string"
                       ? check.remedy

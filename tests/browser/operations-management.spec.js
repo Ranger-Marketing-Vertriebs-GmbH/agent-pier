@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { settingsRow } from "../helpers/settings.js";
 import { operationsFixture } from "./operations-fixture.js";
 test("diagnostics uses explicit probes and retains failures with remedies", async ({
   page,
@@ -209,7 +210,8 @@ test("source checkout exposes server capability boundaries and option changes re
       exact: true,
     }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Sicherungen", exact: true }).click();
+  await page.getByRole("button", { name: "Zurück zu Betrieb", exact: true }).click();
+  await settingsRow(page, "Sicherungen").click();
   await page.getByRole("button", { name: "Sicherung vorbereiten", exact: true }).click();
   await page
     .getByRole("button", { name: "Sicherungsumfang prüfen", exact: true })
