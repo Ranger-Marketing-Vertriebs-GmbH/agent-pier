@@ -4,9 +4,7 @@ import { channelFixture, telegramMessage } from "../helpers/assistant-channel-fi
 import { leadStoreFixture } from "../helpers/lead-request-fixture.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { AssistantEvents } from "../../server/features/assistants/assistant-events.js";
-import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 
-const en = serverCatalogs.en.assistants;
 // The owner's Telegram chat with the lead ("Home"), whose finished team has a member.
 async function telegramLead(t, text) {
   const f = channelFixture(t, { language: () => "en" });
@@ -64,8 +62,6 @@ test("a slow answer to a Telegram request goes back to the owner's Telegram chat
     {
       memberId: f.member.id,
       question: "What is the budget?",
-      ownerRequested: true,
-      ownerRequestQuote: "ask Member 0 what the budget is",
     },
   );
   assert.equal(result.status, "asked");
@@ -102,41 +98,4 @@ test("a slow answer to a Telegram request goes back to the owner's Telegram chat
       .length,
     1,
   );
-});
-
-test("an unproven Telegram request asks the owner with buttons there", async (t) => {
-  const f = await telegramLead(t, "What do you think?");
-  const teams = f.assistants.teams;
-  const result = await teams.ask(
-    { attemptId: f.entry.attemptId, toolCallId: "ask", assertCurrent() {} },
-    { memberId: f.member.id, question: "What is the budget?" },
-  );
-  assert.equal(result.status, "awaiting_approval");
-  await f.service.teamOutbox.transfer();
-  await f.service.teamOutbox.process(f.channel.id, f.signal);
-  const sent = f.sends.find((s) => s.method === "sendMessage");
-  assert.ok(sent.input.text.includes("What is the budget?"));
-  const buttons = sent.input.reply_markup.inline_keyboard.flat();
-  assert.deepEqual(
-    buttons.map((b) => b.text),
-    [en.memberRequestApprove, en.memberRequestDecline],
-  );
-  const press = (user) => ({
-    update_id: 2,
-    callback_query: {
-      id: "callback",
-      data: buttons[0].callback_data,
-      from: { id: user, is_bot: false },
-      message: { message_id: 1, chat: { id: 42, type: "private" } },
-    },
-  });
-  await f.service.teamActions.receive(f.channel.id, press(43));
-  assert.equal(teams.requests.store.get(result.requestId).phase, "awaiting_approval");
-  await f.service.teamActions.receive(f.channel.id, press(42));
-  // Approved: queued, and sent on at once since the member is free.
-  assert.ok(
-    ["queued", "running"].includes(teams.requests.store.get(result.requestId).phase),
-  );
-  const answer = f.sends.filter((s) => s.method === "answerCallbackQuery").at(-1);
-  assert.equal(answer.input.text, en.memberRequestApproved);
 });

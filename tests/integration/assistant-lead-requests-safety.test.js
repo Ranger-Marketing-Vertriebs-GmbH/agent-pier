@@ -61,28 +61,28 @@ test("questions, agent-initiated tasks and revoked grants never write", async (t
   f.complete(f.service.requests.store.list()[0].attemptId);
   f.idle();
   await f.service.reconcile();
-  // Agent-initiated: waits for the owner and stays read-only until approved.
-  const agent = await f.delegate(
-    f.turn("Summarize the results", { kind: "team-result" }),
-    {
-      ownerRequested: false,
-      ownerRequestQuote: undefined,
-    },
-  );
-  assert.equal(agent.status, "awaiting_approval");
-  const pending = f.service.requests.store.get(agent.requestId);
-  assert.equal(pending.writeAllowed, false);
-  f.service.decideRequest(
-    pending.id,
-    { revision: pending.revision, decision: "approve" },
-    { kind: "owner", channel: "ui" },
-  );
+  // Agent-initiated, even with a quote: runs at once, read-only.
+  const agentTurn = f.turn("Summarize the results", { kind: "team-result" });
+  const agent = await f.delegate(agentTurn);
+  assert.equal(agent.status, "delegated");
+  assert.equal(agent.mayWrite, false);
+  assert.equal(f.service.requests.store.get(agent.requestId).phase, "running");
+  assert.equal(f.write(), false, "an agent-initiated task never writes");
+  f.complete(f.service.requests.store.get(agent.requestId).attemptId);
+  f.idle();
   await f.service.reconcile();
-  const approved = f.service.requests.store.get(pending.id);
-  assert.equal(approved.phase, "running");
-  assert.equal(f.write(), true, "the owner approved this task");
-  // Without the stored grant the same run is read-only.
-  f.service.store.write(approved, { writeAllowed: false });
+  // The owner's own words: the same member's next task writes...
+  const proven = await f.delegate(f.turn());
+  assert.equal(proven.mayWrite, true);
+  assert.equal(f.write(), true);
+  // ...but not without its stored grant or its proof.
+  const running = f.service.requests.store.get(proven.requestId);
+  f.service.store.write(running, { writeAllowed: false });
+  assert.equal(f.write(), false);
+  f.service.store.write(f.service.requests.store.get(running.id), {
+    writeAllowed: true,
+    ownerProof: null,
+  });
   assert.equal(f.write(), false);
   // Positive control: the lead's own owner turn writes as before.
   f.idle();
@@ -220,8 +220,6 @@ test("the browser list carries summaries; details load on demand", async (t) => 
   await f.service.ask(f.turn(), {
     memberId: f.temporary.id,
     question: `${"Long question. ".repeat(40)}End?`,
-    ownerRequested: true,
-    ownerRequestQuote: quoteFor(f.temporary),
   });
   const r = f.service.requests.store.list()[0];
   f.complete(r.attemptId);
@@ -234,7 +232,6 @@ test("the browser list carries summaries; details load on demand", async (t) => 
   const detail = f.service.requestDetail(r.id);
   assert.ok(detail.text.endsWith("End?"));
   assert.equal(detail.answer, "Result from member");
-  assert.deepEqual(detail.member, { shell: "off", mcpServers: [], files: false });
 });
 
 test("a lead cannot cancel another lead's request", async (t) => {

@@ -4,7 +4,8 @@ import { chatAssistant, chatFixture } from "../helpers/assistant-chat-fixture.js
 
 // A lead ("home") with a permanent member it created (Scout), a finished temporary
 // member (Researcher), and an archived lead whose permanent member (Keeper) is now a
-// root agent. The lead asked and delegated: one question waits for the owner.
+// root agent. The lead asked and delegated; requests never wait for the owner, and
+// only a task the owner asked for in plain words may write.
 const shots = process.env.LEAD_REQUEST_SHOTS;
 const viewports = {
   phone: { width: 390, height: 844 },
@@ -18,16 +19,13 @@ const words = {
     from: "from Home assistant",
     list: "Questions and tasks",
     open: "Open (2)",
-    finished: "Finished (1)",
+    finished: "Finished (2)",
     question: "Question for Scout",
-    shell: "Member's shell access: full",
-    mcp: "Member's MCP servers: GitHub",
-    writes: "Scout may change files in its own workspace (not its memory).",
     task: "Task for Scout",
-    approve: "Approve",
+    mayWrite: "may write",
+    readOnly: "read-only",
     answered: "Answered",
     answer: "Answer",
-    waiting: "Waiting for your approval · 1",
   },
   de: {
     show: "Teammitglieder anzeigen (2)",
@@ -36,17 +34,13 @@ const words = {
     from: "von Home assistant",
     list: "Fragen und Aufgaben",
     open: "Offen (2)",
-    finished: "Abgeschlossen (1)",
+    finished: "Abgeschlossen (2)",
     question: "Frage an Scout",
-    shell: "Shell-Zugriff des Mitglieds: voll",
-    mcp: "MCP-Server des Mitglieds: GitHub",
-    writes:
-      "Scout darf Dateien in seinem eigenen Arbeitsbereich ändern (nicht sein Gedächtnis).",
     task: "Aufgabe für Scout",
-    approve: "Freigeben",
+    mayWrite: "darf schreiben",
+    readOnly: "nur lesen",
     answered: "Beantwortet",
     answer: "Antwort",
-    waiting: "Wartet auf deine Freigabe · 1",
   },
 };
 const memberAgent = (id, name, overrides) =>
@@ -156,25 +150,17 @@ async function setup(page, language, history) {
         phase: "running",
         text: "Draft a migration plan for vendor B.",
         writeAllowed: true,
-        member: { shell: "off", mcpServers: [], files: true },
+        ownerRequestQuote: "delegate the migration plan to Scout",
       }),
-      request("ask-2", {
-        phase: "awaiting_approval",
-        member: {
-          shell: "full",
-          mcpServers: [{ name: "GitHub", stdio: false }],
-          files: true,
-        },
+      request("ask-2", { phase: "queued" }),
+      request("task-0", {
+        type: "task",
+        phase: "completed",
+        text: "Collect last year's invoices.",
+        writeAllowed: false,
+        finishedAt: "2026-10-12T10:00:00.000Z",
       }),
     ],
-    activity: {
-      home: {
-        state: "waiting",
-        reason: "approval",
-        label: "team.states.awaiting_approval",
-        pendingApprovals: 1,
-      },
-    },
     ...(history ? { history } : {}),
   });
   // The list carries summaries; a card loads the whole answer when it is opened.
@@ -278,27 +264,12 @@ for (const language of ["en", "de"])
           await page.screenshot({ path: `${shots}/member-chat-${label}.png` });
       });
 
-      test("the lead's chat asks the owner about an agent-initiated question", async ({
-        page,
-      }) => {
-        const state = await setup(page, language);
+      test("the lead's chat holds no approval for member requests", async ({ page }) => {
+        await setup(page, language);
         await page.goto(baseURL + "/agents/home/chats/dinner");
-        await expect(page.locator(".assistant-approval-strip")).toContainText(w.waiting);
-        const card = page.locator(".lead-request-card[data-pending]");
-        await expect(card).toHaveCount(1);
-        await expect(card).toContainText(w.question);
-        await expect(card).toContainText("Which vendor did you prefer last week?");
-        // What approving hands over is on the card.
-        await expect(card).toContainText(w.shell);
-        await expect(card).toContainText(w.mcp);
-        await card.scrollIntoViewIfNeeded();
-        await fits(page);
-        if (shots && language === "en")
-          await page.screenshot({ path: `${shots}/approval-${label}.png` });
-        await card.getByRole("button", { name: w.approve, exact: true }).click();
-        await expect
-          .poll(() => state.calls)
-          .toContain("/api/assistant-lead-requests/ask-2/decision");
+        await expect(page.locator(".assistant-message").first()).toBeVisible();
+        await expect(page.locator(".lead-request-card")).toHaveCount(0);
+        await expect(page.locator(".assistant-approval-strip")).toHaveCount(0);
       });
 
       test("Settings → Work → Teams lists questions and tasks per member", async ({
@@ -311,8 +282,13 @@ for (const language of ["en", "de"])
         await expect(list.locator(".lead-request-card")).toHaveCount(2);
         const scout = list.getByRole("group", { name: "Scout" });
         await expect(scout).toContainText(w.task);
-        await expect(scout).toContainText(w.writes);
-        await expect(scout).toContainText(w.question);
+        // A task the owner asked for may write; a question has no such label.
+        const task = scout.locator(".lead-request-card").filter({ hasText: w.task });
+        await expect(task.locator(".lead-request-access")).toHaveText(w.mayWrite);
+        const question = scout
+          .locator(".lead-request-card")
+          .filter({ hasText: w.question });
+        await expect(question.locator(".lead-request-access")).toHaveCount(0);
         await list.evaluate((e) => e.scrollIntoView({ block: "start" }));
         await fits(page);
         if (shots && language === "en")
@@ -322,6 +298,9 @@ for (const language of ["en", "de"])
         await expect(researcher).toContainText(w.answered);
         await researcher.getByText(w.answer, { exact: true }).click();
         await expect(researcher).toContainText("Vendor B costs 40 euros a month.");
+        // A task without the owner's own words ran read-only.
+        const finished = list.getByRole("group", { name: "Scout" });
+        await expect(finished.locator(".lead-request-access")).toHaveText(w.readOnly);
         if (shots && language === "en")
           await page.screenshot({ path: `${shots}/work-finished-${label}.png` });
       });

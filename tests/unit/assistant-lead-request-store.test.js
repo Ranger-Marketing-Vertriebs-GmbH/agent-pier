@@ -7,9 +7,9 @@ import {
 } from "../../server/features/assistants/lead-request-store.js";
 import { profileTools } from "../../server/features/assistants/native-capabilities.js";
 
-// The owner's own words for one member: "Please ask Scout what the budget is".
-const said = (name) => `Please ask ${name} what the budget is`;
-const quoted = (name) => `ask ${name} what the budget is`;
+// The owner's own words for one member: "Please delegate the budget review to Scout".
+const said = (name) => `Please delegate the budget review to ${name}`;
+const quoted = (name) => `delegate the budget review to ${name}`;
 
 function setup(t, { caps = { perMinute: 1000 } } = {}) {
   const saved = { ...requestCaps };
@@ -44,10 +44,20 @@ function setup(t, { caps = { perMinute: 1000 } } = {}) {
       input: {
         memberId: member.id,
         [type === "task" ? "task" : "question"]: "What is the budget?",
-        ...(claim ? { ownerRequested: true, ownerRequestQuote: quote } : {}),
+        ...(claim && type === "task"
+          ? { ownerRequested: true, ownerRequestQuote: quote }
+          : {}),
       },
     });
-  return { ...f, own, other, temporary, permanent, third, foreign, ask };
+  // A task for the permanent member, ended at once so the next one may follow;
+  // returns whether it may write.
+  const writes = (options = {}) => {
+    const r = ask(permanent, { type: "task", ...options });
+    f.teams.write(f.teams.get(r.id), { phase: "completed" });
+    assert.equal(r.phase, "queued", "every request runs");
+    return r.writeAllowed;
+  };
+  return { ...f, own, other, temporary, permanent, third, foreign, ask, writes };
 }
 
 test("a lead reaches only its own members that are not archived", (t) => {
@@ -102,23 +112,19 @@ test("running and finished members can be asked; their turn waits until they are
   assert.equal(f.ask(f.permanent).phase, "queued");
 });
 
-test("only an owner turn's own words for the member skip the approval", (t) => {
+test("only an owner turn's own words for the member let a task write", (t) => {
   const f = setup(t);
   const telegram = { kind: "telegram", channelId: "c", chatId: "1", userId: "1" };
   const cases = [
-    ["owner", {}, "queued"],
-    ["Telegram owner", { context: telegram }, "queued"],
-    ["no claim", { claim: false }, "awaiting_approval"],
-    ["forwarded", { context: { kind: "owner", forwarded: true } }, "awaiting_approval"],
-    [
-      "forwarded Telegram",
-      { context: { ...telegram, forwarded: true } },
-      "awaiting_approval",
-    ],
-    ["team result", { context: { kind: "team-result" } }, "awaiting_approval"],
-    ["member result", { context: { kind: "member-result" } }, "awaiting_approval"],
-    ["reminder", { context: { kind: "reminder" } }, "awaiting_approval"],
-    ["unknown", { context: { kind: "unknown" } }, "awaiting_approval"],
+    ["owner", {}, true],
+    ["Telegram owner", { context: telegram }, true],
+    ["no claim", { claim: false }, false],
+    ["forwarded", { context: { kind: "owner", forwarded: true } }, false],
+    ["forwarded Telegram", { context: { ...telegram, forwarded: true } }, false],
+    ["team result", { context: { kind: "team-result" } }, false],
+    ["member result", { context: { kind: "member-result" } }, false],
+    ["reminder", { context: { kind: "reminder" } }, false],
+    ["unknown", { context: { kind: "unknown" } }, false],
     // Three unrelated words of the owner's own message (C1).
     [
       "unrelated words",
@@ -126,61 +132,70 @@ test("only an owner turn's own words for the member skip the approval", (t) => {
         text: "Summarize https://example.org/post for me",
         quote: "Summarize https://example.org/post for",
       },
-      "awaiting_approval",
+      false,
     ],
-    [
-      "quote the owner never wrote",
-      { text: "Hello there, how are you" },
-      "awaiting_approval",
-    ],
+    ["quote the owner never wrote", { text: "Hello there, how are you" }, false],
     // Named, but no ask or delegate cue.
     [
       "no intent",
-      {
-        text: "Researcher found the budget yesterday",
-        quote: "Researcher found the budget",
-      },
-      "awaiting_approval",
+      { text: "Scout found the budget yesterday", quote: "Scout found the budget" },
+      false,
     ],
     // An intent for a different member.
-    [
-      "other member",
-      { text: said("Writer"), quote: quoted("Writer") },
-      "awaiting_approval",
-    ],
+    ["other member", { text: said("Writer"), quote: quoted("Writer") }, false],
   ];
-  for (const [label, options, phase] of cases)
-    assert.equal(f.ask(f.temporary, options).phase, phase, label);
+  for (const [label, options, allowed] of cases)
+    assert.equal(f.writes(options), allowed, label);
+});
+
+test("questions always run read-only and take no owner claim", (t) => {
+  const f = setup(t);
+  const question = f.ask(f.permanent);
+  assert.equal(question.phase, "queued");
+  assert.equal(question.writeAllowed, false);
+  assert.equal(question.ownerProof, null);
+  const attempt = f.turn(f.own.chat, said("Scout"));
+  assert.throws(
+    () =>
+      f.requests.create({
+        type: "question",
+        attemptId: attempt.id,
+        operationId: "claim",
+        input: {
+          memberId: f.permanent.id,
+          question: "Budget?",
+          ownerRequested: true,
+          ownerRequestQuote: quoted("Scout"),
+        },
+      }),
+    { status: 400 },
+  );
 });
 
 test("a quote from an earlier owner turn proves nothing in a later one", (t) => {
   const f = setup(t);
-  f.turn(f.own.chat, said("Researcher"));
-  const later = f.ask(f.temporary, {
-    text: "Thanks, that is all",
-    quote: quoted("Researcher"),
-  });
-  assert.equal(later.phase, "awaiting_approval");
+  f.turn(f.own.chat, said("Scout"));
+  assert.equal(f.writes({ text: "Thanks, that is all", quote: quoted("Scout") }), false);
 });
 
-test("one quote authorises one request, and a turn at most three", (t) => {
+test("one quote proves one task, and a turn at most three", (t) => {
   const f = setup(t);
   const text =
-    "Please ask Researcher about the budget, ask Researcher about the dates, ask Researcher about the team and ask Researcher about the risks";
+    "Please delegate the budget to Scout, delegate the dates to Scout, delegate the team to Scout and delegate the risks to Scout";
   const attempt = f.turn(f.own.chat, text);
-  const at = (quote) => f.ask(f.temporary, { attempt, quote }).phase;
-  assert.equal(at("ask Researcher about the budget"), "queued");
-  assert.equal(at("ask Researcher about the budget"), "awaiting_approval", "consumed");
-  assert.equal(at("ask Researcher about the dates"), "queued");
-  assert.equal(at("ask Researcher about the team"), "queued");
-  assert.equal(at("ask Researcher about the risks"), "awaiting_approval", "cap");
+  const at = (quote) => f.writes({ attempt, quote });
+  assert.equal(at("delegate the budget to Scout"), true);
+  assert.equal(at("delegate the budget to Scout"), false, "consumed");
+  assert.equal(at("delegate the dates to Scout"), true);
+  assert.equal(at("delegate the team to Scout"), true);
+  assert.equal(at("delegate the risks to Scout"), false, "cap");
 });
 
 test("requests per turn and per minute are capped", (t) => {
   const f = setup(t, { caps: { perMinute: 6, perTurn: 8 } });
   const attempt = f.turn(f.own.chat, said("Researcher"));
-  for (let n = 0; n < 6; n++) f.ask(f.temporary, { attempt, claim: false });
-  assert.throws(() => f.ask(f.temporary, { attempt, claim: false }), {
+  for (let n = 0; n < 6; n++) f.ask(f.temporary, { attempt });
+  assert.throws(() => f.ask(f.temporary, { attempt }), {
     status: 429,
     key: "memberRequestRate",
   });
@@ -189,12 +204,17 @@ test("requests per turn and per minute are capped", (t) => {
   assert.equal(f.ask(f.foreign, { attempt: other }).phase, "queued");
 });
 
-test("standing team permission does not skip a member request's approval", (t) => {
+test("a turn takes at most eight requests", (t) => {
+  const f = setup(t, { caps: { perMinute: 1000, perTurn: 8 } });
+  const attempt = f.turn(f.own.chat, said("Researcher"));
+  for (let n = 0; n < 8; n++) f.ask(f.temporary, { attempt });
+  assert.throws(() => f.ask(f.temporary, { attempt }), { status: 429 });
+});
+
+test("standing team permission does not let a task write", (t) => {
   const f = setup(t);
   f.teams.savePolicy(f.own.assistant.id, { autonomous: true }, 1);
-  const task = f.ask(f.permanent, { claim: false, type: "task" });
-  assert.equal(task.phase, "awaiting_approval");
-  assert.equal(task.writeAllowed, false);
+  assert.equal(f.writes({ claim: false }), false);
 });
 
 test("members cannot ask or delegate further and never get the tools", (t) => {
@@ -259,36 +279,6 @@ test("replays return the same request and inputs are length-limited", (t) => {
   );
 });
 
-test("owner decisions follow the team rules, including the Telegram origin", (t) => {
-  const f = setup(t);
-  const origin = { kind: "telegram", channelId: "c", chatId: "1", userId: "1" };
-  const r = f.ask(f.permanent, { context: origin, claim: false, type: "task" });
-  assert.equal(r.phase, "awaiting_approval");
-  const decide = (owner, request = r) =>
-    f.requests.decide(
-      request.id,
-      { revision: request.revision, decision: "approve" },
-      owner,
-    );
-  assert.throws(() => decide({ kind: "model" }), { status: 403 });
-  assert.throws(() => decide({ ...origin, chatId: "2" }), { status: 403 });
-  assert.throws(() => decide({ ...origin, channelId: "other" }), { status: 403 });
-  const approved = decide(origin);
-  assert.equal(approved.phase, "queued");
-  assert.equal(approved.writeAllowed, true, "an approved task may write");
-  assert.throws(() => decide(origin), { status: 409 });
-  const later = f.ask(f.temporary, { claim: false });
-  f.archive(f.teams.member(f.temporary.id));
-  assert.throws(() => decide({ kind: "owner" }, later), { status: 404 });
-  const declined = f.requests.decide(
-    later.id,
-    { revision: later.revision, decision: "decline" },
-    { kind: "owner" },
-  );
-  assert.equal(declined.phase, "declined");
-  assert.equal(declined.writeAllowed, false);
-});
-
 test("a lead archives only its own finished temporary members", (t) => {
   const f = setup(t);
   assert.equal(f.requests.archivable(f.own.assistant.id, [f.temporary.id]).length, 1);
@@ -331,12 +321,10 @@ test("the archive re-checks its conditions inside the archiving transaction", (t
 test("finished requests are pruned per lead; open and undelivered ones stay", (t) => {
   const f = setup(t);
   const attempt = f.turn(f.own.chat, said("Researcher"));
-  const made = Array.from({ length: 3 }, () =>
-    f.ask(f.temporary, { attempt, claim: false }),
-  );
+  const made = Array.from({ length: 3 }, () => f.ask(f.temporary, { attempt }));
   const old = new Date(Date.now() - 40 * 86400000).toISOString();
   f.teams.write(f.teams.get(made[0].id), {
-    phase: "declined",
+    phase: "cancelled",
     settled: true,
     finishedAt: old,
   });

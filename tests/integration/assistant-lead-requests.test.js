@@ -205,27 +205,28 @@ test("pending requests survive a restart without a second execution", async (t) 
   assert.equal(failed.diagnostic, "OUTCOME_REVIEWED");
 });
 
-test("agent-initiated requests wait for the owner's approval in the lead's chat", async (t) => {
+test("agent-initiated requests run at once, without an approval", async (t) => {
   const f = await lead(t);
   f.service.requests.waitMs = 0;
-  const result = await ask(
-    f,
-    f.temporary,
-    f.turn("Summarize the team results", { kind: "team-result" }),
+  const turn = f.turn("Summarize the team results", { kind: "team-result" });
+  const result = await ask(f, f.temporary, turn);
+  assert.equal(result.status, "asked");
+  const task = await f.service.delegate(
+    { ...turn, toolCallId: "delegate" },
+    {
+      memberId: f.permanent.id,
+      task: "Draft the plan",
+      ownerRequested: true,
+      ownerRequestQuote: quoteFor(f.permanent),
+    },
   );
-  assert.equal(result.status, "awaiting_approval");
-  const [r] = f.requests();
-  assert.equal(f.assistants.list().activity[f.parent.id].pendingApprovals, 1);
-  await f.service.reconcile();
-  assert.equal(f.service.requests.store.get(r.id).phase, "awaiting_approval");
-  const approved = f.service.decideRequest(
-    r.id,
-    { revision: r.revision, decision: "approve" },
-    { kind: "owner", channel: "ui" },
+  assert.equal(task.status, "delegated");
+  assert.equal(task.mayWrite, false, "not the owner's own words: read-only");
+  assert.deepEqual(
+    f.requests().map((r) => r.phase),
+    ["running", "running"],
   );
-  assert.equal(approved.phase, "queued");
-  await f.service.reconcile();
-  assert.equal(f.service.requests.store.get(r.id).phase, "running");
+  // Nothing waits for the owner.
   assert.equal(f.assistants.list().activity[f.parent.id].pendingApprovals, 0);
 });
 

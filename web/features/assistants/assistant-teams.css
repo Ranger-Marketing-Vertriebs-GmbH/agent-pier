@@ -448,9 +448,8 @@
 .assistant-team-card .mcp-team-warning.notice {
   color: var(--muted);
 }
-/* A lead's question or task for a member, in the chat and in Settings. */
-/* A finished request is history, not a call to act. */
-.lead-request-card:not([data-pending]) {
+/* A lead's question or task for a member, in Settings → Work → Teams. */
+.lead-request-card {
   border-color: var(--line);
 }
 .lead-request-card .link-button {
@@ -461,10 +460,16 @@
   font: inherit;
   cursor: pointer;
 }
-.lead-request-power {
-  margin: 0;
-  padding-left: 16px;
+/* Whether a task may change files in the member's workspace. */
+.lead-request-access {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
   color: var(--muted);
-  font-size: 12px;
-  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.lead-request-access.writes {
+  border-color: var(--accent-line);
+  color: var(--accent-text);
 }

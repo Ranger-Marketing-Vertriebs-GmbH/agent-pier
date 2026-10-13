@@ -63,13 +63,7 @@ export class TelegramTeamActions {
           { revision: action.revision, decision: action.decision },
           { kind: "telegram", channelId, chatId: channel.chatId, userId: channel.userId },
         );
-      } else if (entry.kind === "lead-request-approval")
-        c.assistants.teams.decideRequest(
-          action.proposalId,
-          { revision: action.revision, decision: action.decision },
-          { kind: "telegram", channelId, chatId: channel.chatId, userId: channel.userId },
-        );
-      else
+      } else
         c.assistants.teams.decide(
           action.proposalId,
           { revision: action.revision, decision: action.decision, lifetime: "task" },
@@ -105,9 +99,5 @@ function decisionText(messages, entry, action, decided) {
   }
   if (entry.kind === "action-approval")
     return messages.actionStates[action.decision === "approve" ? "approved" : "declined"];
-  if (entry.kind === "lead-request-approval")
-    return action.decision === "approve"
-      ? messages.memberRequestApproved
-      : messages.memberRequestDeclined;
   return action.decision === "approve" ? messages.teamApproved : messages.teamDeclined;
 }

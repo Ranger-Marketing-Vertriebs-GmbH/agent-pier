@@ -1,6 +1,4 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { decideAudited } from "./approval-audit.js";
-import { personalCapabilities, personalShell } from "./native-capabilities.js";
 import {
   LeadRequestStore,
   publicRequest,
@@ -40,35 +38,13 @@ export class LeadRequests {
   get assistants() {
     return this.service.assistants;
   }
-  /** Summaries for the browser; open ones say what their member may do. */
+  /** Summaries for the browser. */
   list(parentId) {
-    return this.store
-      .list(parentId)
-      .map((r) =>
-        publicRequest(r, requestTerminal.has(r.phase) ? {} : { member: this.power(r) }),
-      );
+    return this.store.list(parentId).map((r) => publicRequest(r));
   }
   /** One request with its whole text and answer. */
   detail(id) {
-    const r = this.store.get(id);
-    return publicRequest(r, { full: true, member: this.power(r) });
-  }
-  /**
-   * The member's shell level, MCP servers (null when unreadable) and whether it has
-   * file tools at all: what an approval hands to the lead's request.
-   */
-  power(r) {
-    try {
-      const a = this.assistants.store.getAssistant(r.memberAssistantId);
-      const ids = this.assistants.mcp?.servers?.bindings("agent", a.id) || [];
-      return {
-        shell: personalShell(a),
-        mcpServers: ids.length ? this.service.mcp.describe(ids) : [],
-        files: personalCapabilities(a).memory,
-      };
-    } catch {
-      return { shell: "off", mcpServers: null, files: false };
-    }
+    return publicRequest(this.store.get(id), { full: true });
   }
   // --- lead tools -------------------------------------------------------------
   members(inv, input) {
@@ -109,7 +85,6 @@ export class LeadRequests {
   }
   async ask(inv, input) {
     const r = await this.create("question", inv, input);
-    if (r.phase === "awaiting_approval") return this.toolResult(r);
     const answered = await this.waitFor(r.id, inv, this.waitMs);
     return this.toolResult(answered);
   }
@@ -166,13 +141,13 @@ export class LeadRequests {
     return { archived };
   }
   toolResult(r) {
-    const base = { requestId: r.id, type: r.type, member: r.memberName };
-    if (r.phase === "awaiting_approval")
-      return {
-        ...base,
-        status: "awaiting_approval",
-        note: "The owner must approve this request in AgentPier. Do not claim it was sent; the outcome follows as a separate message.",
-      };
+    const base = {
+      requestId: r.id,
+      type: r.type,
+      member: r.memberName,
+      // Only a task the owner explicitly asked for may change the member's files.
+      ...(r.type === "task" ? { mayWrite: !!r.writeAllowed } : {}),
+    };
     if (r.phase === "completed" && r.delivery === "inline")
       return {
         ...base,
@@ -261,10 +236,10 @@ export class LeadRequests {
     }
   }
   /**
-   * Whether a native write in a member turn is this task's own, owner-requested or
-   * owner-approved work. Questions, agent-initiated tasks, standing permission,
-   * cancelled or uncertain runs never write; the member's memory stays read-only
-   * so a task cannot plant instructions for the owner's own chats.
+   * Whether a native write in a member turn is this task's own, owner-proven work
+   * (lead-request-store.js). Questions, every other task, cancelled or uncertain
+   * runs never write; the member's memory stays read-only so a task cannot plant
+   * instructions for the owner's own chats.
    */
   mayWrite(requestId, attemptId, assistantId, path) {
     const r = typeof requestId === "string" ? this.store.teams.find(requestId) : null;
@@ -273,9 +248,7 @@ export class LeadRequests {
       r.kind !== "lead-request" ||
       r.type !== "task" ||
       r.writeAllowed !== true ||
-      !(
-        r.authorization?.kind === "approval" || r.authorization?.source === "ownerRequest"
-      ) ||
+      !r.ownerProof ||
       r.phase !== "running" ||
       r.cancelRequested ||
       r.attemptId !== attemptId ||
@@ -293,43 +266,16 @@ export class LeadRequests {
     return first !== "memory" && first !== "memory.md";
   }
   // --- owner actions ------------------------------------------------------------
-  decide(id, input, origin) {
-    return decideAudited(
-      this.service.audit,
-      {
-        origin,
-        actionId: id,
-        decision: input?.decision,
-        revision: input?.revision,
-        kind: "lead-request",
-        assistantId: () => this.store.get(id).parentAssistantId,
-      },
-      () => {
-        if (
-          !input ||
-          typeof input !== "object" ||
-          Object.keys(input).some((k) => !["revision", "decision"].includes(k))
-        )
-          throw assistantProblem("invalid");
-        const r = this.store.decide(id, input, origin);
-        this.assistants.changed();
-        if (r.phase === "queued") this.advance().catch(() => {});
-        return publicRequest(r);
-      },
-    );
-  }
   /** Ends an open request; a running member turn is aborted, not abandoned. */
   async stop(id, by = "owner") {
     let r = this.store.get(id);
     if (requestTerminal.has(r.phase)) return r;
-    if (r.phase === "awaiting_approval" || r.phase === "queued")
+    if (r.phase === "queued")
       r = this.teams.write(r, {
-        phase: r.phase === "awaiting_approval" ? "declined" : "cancelled",
+        phase: "cancelled",
         cancelledBy: by,
         finishedAt: new Date().toISOString(),
-        ...(by === "lead" || r.phase === "awaiting_approval"
-          ? { delivery: "skipped", settled: true }
-          : { delivery: null }),
+        ...(by === "lead" ? { delivery: "skipped", settled: true } : { delivery: null }),
       });
     else {
       r = this.teams.write(r, { cancelRequested: true, cancelledBy: by });
