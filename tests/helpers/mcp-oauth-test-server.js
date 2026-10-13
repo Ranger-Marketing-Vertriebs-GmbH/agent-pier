@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import http from "node:http";
 import { createHash, randomBytes } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -230,4 +231,43 @@ export async function approve(authorizationUrl) {
   const res = await fetch(authorizationUrl, { redirect: "manual" });
   if (res.status !== 302) throw new Error(`authorize answered ${res.status}`);
   return new URL(res.headers.get("location"));
+}
+
+/**
+ * Checks the printed authorization URL by its parameters, then plays the browser and
+ * checks that the authorization server received exactly those parameters. The code
+ * exchange later proves that the challenge matches OpenClaw's verifier
+ * (`exchanged`).
+ */
+export async function authorize(oauth, url, redirectUrl) {
+  assert.equal(`${url.origin}${url.pathname}`, `${oauth.origin}/authorize`);
+  const query = Object.fromEntries(url.searchParams);
+  assert.deepEqual(Object.keys(query).sort(), [
+    "client_id",
+    "code_challenge",
+    "code_challenge_method",
+    "redirect_uri",
+    "resource",
+    "response_type",
+    "state",
+  ]);
+  assert.equal(query.response_type, "code");
+  assert.ok(oauth.clients.has(query.client_id), query.client_id);
+  assert.match(query.code_challenge, /^[A-Za-z0-9_-]{43}$/);
+  assert.equal(query.code_challenge_method, "S256");
+  assert.equal(query.redirect_uri, redirectUrl);
+  assert.equal(query.resource, oauth.url);
+  assert.match(query.state, /^[0-9a-f-]{36}$/);
+  const callback = await approve(url.href);
+  const received = oauth.log.filter((e) => e.path === "/authorize").at(-1);
+  assert.deepEqual(received.query, query);
+  return callback;
+}
+
+/** The last authorization code exchange succeeded: the PKCE verifier matched. */
+export function exchanged(oauth) {
+  const last = oauth.log
+    .filter((e) => e.path === "/token" && e.grant === "authorization_code")
+    .at(-1);
+  assert.equal(last?.refused, undefined, JSON.stringify(last));
 }
