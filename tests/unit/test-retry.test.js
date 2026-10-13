@@ -9,6 +9,7 @@ import {
   failedFiles,
   retryOutcome,
   retryPlan,
+  skippedTests,
   summaryMarkdown,
 } from "../../scripts/test-retry.mjs";
 
@@ -26,6 +27,9 @@ test("failure lines name each failing file once, relative to the root", () => {
   ].join("\n");
   assert.deepEqual([...failedFiles(lines, "/repo")], files);
   assert.deepEqual([...failedFiles(JSON.stringify({ name: "x" }), "/repo")], [null]);
+  const skipped = JSON.stringify({ file: "/repo/a.test.js", name: "s", skip: true });
+  assert.deepEqual([...failedFiles(skipped, "/repo")], []);
+  assert.deepEqual(skippedTests(`${lines}\n${skipped}`), ["s"]);
 });
 
 test("a passing run needs no retry", () => {
@@ -106,7 +110,8 @@ test("the reporter names the files of real node:test failures", (t) => {
   const failing = write(
     "fail.test.js",
     'test("nested", async (t) => { await t.test("inner", () => { throw new Error("x"); }); });\n' +
-      'test("todo", { todo: true }, () => { throw new Error("todo"); });\n',
+      'test("todo", { todo: true }, () => { throw new Error("todo"); });\n' +
+      'test("skipped", { skip: "no runtime" }, () => {});\n',
   );
   const crashing = write("crash.test.js", 'throw new Error("top-level");\n');
   const destination = path.join(directory, "failures.jsonl");
@@ -130,4 +135,81 @@ test("the reporter names the files of real node:test failures", (t) => {
     [...failedFiles(fs.readFileSync(destination, "utf8"), directory)].sort(),
     [crashing, failing],
   );
+  assert.deepEqual(skippedTests(fs.readFileSync(destination, "utf8")), ["skipped"]);
+});
+
+function runnerRoot(t, tests) {
+  const root = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-test-runner-")),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, "scripts"));
+  fs.mkdirSync(path.join(root, "tests/helpers"), { recursive: true });
+  for (const name of [
+    "test-files.mjs",
+    "test-runner.mjs",
+    "test-retry.mjs",
+    "test-failures-reporter.mjs",
+  ])
+    fs.copyFileSync(
+      fileURLToPath(new URL(`../../scripts/${name}`, import.meta.url)),
+      path.join(root, "scripts", name),
+    );
+  fs.writeFileSync(path.join(root, "tests/helpers/tmux-reaper.js"), "");
+  for (const [name, body] of Object.entries(tests))
+    fs.writeFileSync(path.join(root, name), `import test from "node:test";\n${body}`);
+  return root;
+}
+
+function runFiles(root, args) {
+  const { NODE_TEST_CONTEXT, GITHUB_STEP_SUMMARY, ...env } = process.env;
+  (void NODE_TEST_CONTEXT, GITHUB_STEP_SUMMARY);
+  return spawnSync(process.execPath, ["scripts/test-files.mjs", ...args], {
+    cwd: root,
+    encoding: "utf8",
+    env: { ...env, GITHUB_STEP_SUMMARY: path.join(root, "summary.md") },
+  });
+}
+
+test("the files runner retries a flaky file once and reports it", (t) => {
+  const root = runnerRoot(t, {
+    "flaky.test.js":
+      'import fs from "node:fs";\n' +
+      'test("flaky", () => { if (!fs.existsSync("marker")) { fs.writeFileSync("marker", ""); throw new Error("first"); } });\n',
+    "ok.test.js": 'test("ok", () => {});\n',
+  });
+  const result = runFiles(root, [
+    "--retry",
+    "--label",
+    "core",
+    "flaky.test.js",
+    "ok.test.js",
+  ]);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /Retrying 1 failed test file\(s\) once\./);
+  assert.match(result.stdout, /FLAKY \(passed on retry\): flaky\.test\.js/);
+  assert.match(fs.readFileSync(path.join(root, "summary.md"), "utf8"), /: core/);
+});
+
+test("the files runner fails a file that fails twice", (t) => {
+  const root = runnerRoot(t, {
+    "broken.test.js": 'test("b", () => { throw new Error("x"); });\n',
+  });
+  const result = runFiles(root, ["--retry", "broken.test.js"]);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /FAILED twice: broken\.test\.js/);
+});
+
+test("the files runner never retries without --retry and rejects skips with --no-skips", (t) => {
+  const root = runnerRoot(t, {
+    "broken.test.js": 'test("b", () => { throw new Error("x"); });\n',
+    "skip.test.js": 'test("needs runtime", { skip: "missing" }, () => {});\n',
+  });
+  const plain = runFiles(root, ["broken.test.js"]);
+  assert.equal(plain.status, 1);
+  assert.doesNotMatch(plain.stdout, /Retrying/);
+  assert.equal(runFiles(root, ["skip.test.js"]).status, 0);
+  const strict = runFiles(root, ["--no-skips", "--retry", "skip.test.js"]);
+  assert.equal(strict.status, 1);
+  assert.match(strict.stdout, /SKIPPED \(not allowed here\): needs runtime/);
 });

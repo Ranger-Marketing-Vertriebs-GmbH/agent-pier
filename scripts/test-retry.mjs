@@ -6,15 +6,24 @@ import path from "node:path";
 // never be retried (deterministic property seeds) fails the run.
 
 /** Failing test files named by the failures reporter's JSON lines. */
+const records = (lines) =>
+  lines
+    .split("\n")
+    .filter((line) => line.trim())
+    .map((line) => JSON.parse(line));
+
 export function failedFiles(lines, root) {
   const files = new Set();
-  for (const line of lines.split("\n")) {
-    if (!line.trim()) continue;
-    const { file } = JSON.parse(line);
-    files.add(file ? path.relative(root, path.resolve(root, file)) : null);
-  }
+  for (const { file, skip } of records(lines))
+    if (!skip) files.add(file ? path.relative(root, path.resolve(root, file)) : null);
   return files;
 }
+
+/** Names of skipped tests named by the reporter's JSON lines. */
+export const skippedTests = (lines) =>
+  records(lines)
+    .filter(({ skip }) => skip)
+    .map(({ name }) => name);
 
 /**
  * Decide whether the failed files of a first run may be retried.
