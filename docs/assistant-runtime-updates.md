@@ -158,7 +158,7 @@ AGENTPIER_ASSISTANT_UPDATE_RUNTIME=/absolute/path/to/installed-runtime \
 
 This passed with OpenClaw 2026.9.8 and Node 26.7.0 on macOS arm64. The subsequent
 [cross-version qualification](assistant-release-qualification.md) also passed
-2026.9.7 → 2026.9.8 activation and rollback after failed validation. Other version
+2026.9.7 → 2026.9.8 and 2026.9.8 → 2026.9.9 activation and rollback after failed validation. Other version
 pairs and native hosts remain unqualified. The installer now also consumes the reviewed dependency lock described below;
 all separately downloaded package archives carry integrity checks.
 
@@ -189,7 +189,7 @@ cryptographically attested installed filesystem contents.
 
 The runtime also contains the official OpenClaw web search plugins
 `@openclaw/duckduckgo-plugin`, `@openclaw/perplexity-plugin` and
-`@openclaw/brave-plugin`, each at version 2026.9.8. They are exact root
+`@openclaw/brave-plugin`, each at the OpenClaw version (2026.9.9). They are exact root
 dependencies in `runtime-lock/package.json`. The manifest pins each one's
 package name, version, plugin id and npm SHA-512 integrity (`searchPlugins`), and
 the lock check refuses a graph whose plugin entry differs from the pin or does not
@@ -215,7 +215,7 @@ agent uses web search.
 
 Existing installations receive the plugins through the normal update path. The
 plugins change the lock digest, so an AgentPier update stages a new candidate
-installation next to the selected runtime even though OpenClaw stays at 2026.9.8.
+installation next to the selected runtime even when the OpenClaw version stays the same.
 Activation then switches to it through the backup, validation and rollback flow
 described above.
 

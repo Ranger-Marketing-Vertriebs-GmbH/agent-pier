@@ -430,7 +430,7 @@ the qualified runtime upgrade pair and project identity isolation after merging 
 
 ## OpenClaw coupling and version requalification
 
-AgentPier depends on OpenClaw 2026.9.8 (qualified predecessor 2026.9.7) at these
+AgentPier depends on OpenClaw 2026.9.9 (qualified predecessors 2026.9.8 and 2026.9.7) at these
 points. A version bump must re-check each of them.
 
 | Coupling point                                                                                                                                       | Where                                                                               | What to re-check                                                                                                                                                                                                               |
@@ -469,8 +469,10 @@ Requalification checklist for a version bump:
 
 1. Update the manifest and refresh the runtime lock with
    `scripts/refresh-assistant-runtime-lock.mjs` (one reviewed change).
-2. Update the plugin compatibility list and keep the previous version as rollback
-   target only if the cross-version test passes.
+2. Update the plugin compatibility list (`rollbackTargets`) and keep the previous
+   version as rollback target only if the cross-version test passes. Add the new
+   version to `writeGuardRuntimes` once the native write and team plugin contracts
+   pass on it; unit guards fail while either gate lags the pin.
 3. Run `npm run check` and the full native contracts (the `native-contracts` CI job
    or locally with the `AGENTPIER_ASSISTANT_*` variables), including the native
    interfaces contract (`AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME`) and both web
@@ -479,7 +481,9 @@ Requalification checklist for a version bump:
    contracts (`AGENTPIER_MCP_CONTRACT_RUNTIME`) and the four shell contracts
    (`AGENTPIER_SHELL_CONTRACT_RUNTIME`). Bump the search plugin pins in the
    manifest together with OpenClaw.
-4. Run the manual live-provider and cross-version tests with disposable state.
+4. Run the manual live-provider and cross-version tests with disposable state
+   (`assistant-runtime-cross-version` and `assistant-mcp-oauth-cross-version`, with
+   `AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME` and `AGENTPIER_ASSISTANT_UPDATE_RUNTIME`).
 5. Run `scripts/verify-assistant-runtime.mjs` and `scripts/verify-assistant-teams.mjs`
    against new data directories.
 6. Review the upstream changelog for protocol, config-schema and table changes, and

@@ -239,7 +239,7 @@ When activating a staged version, the confirmation offers **Move running session
 The assistant service is optional and off initially: until the owner turns on
 **Settings > Agents**, nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
-private OpenClaw 2026.9.8 installation and Node 26.7.0 under the data directory's
+private OpenClaw 2026.9.9 installation and Node 26.7.0 under the data directory's
 `assistants/runtimes/` directory. AgentPier itself retains its Node 22.13+ support.
 Downloads are checked against pinned official Node checksums and npm package
 integrity before activation. Failed staging preserves the previously selected runtime.
