@@ -39,7 +39,7 @@ Use `node:test` with strict assertions, fast-check for properties, and Playwrigh
 
 Always write commit messages, pull request titles and descriptions, release titles and notes, and changelog entries in English. Conversation with the user may remain in German.
 
-Write repository documentation in English, including guides under `docs/`. Explicitly localized documents such as `README.de.md` and German UI catalogs remain in their designated language.
+Write new repository documentation in English, including guides under `docs/`, and translate an existing document to English when you substantially rewrite it. Small edits to a document that is still German stay in German. Explicitly localized documents such as `README.de.md` and German UI catalogs remain in their designated language. Keep public heading anchors stable when translating, or keep the old anchor reachable.
 
 `main` is protected. Make changes on a feature or fix branch and submit a pull request; never push directly to `main` or bypass branch protection. Merge only after required CI checks pass and review conversations are resolved.
 
