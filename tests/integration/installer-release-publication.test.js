@@ -88,7 +88,7 @@ async function remoteFixture(ctx, latestTag = null, published = []) {
     if (args[1] === "download") {
       const name = args[args.indexOf("--pattern") + 1];
       const dir = args[args.indexOf("--dir") + 1];
-      const other = published.find(({ tag }) => tag === args[2]);
+      const other = published.find(({ tag }) => tag === args[2] && tag !== ctx.tag);
       if (other) {
         await fs.writeFile(path.join(dir, name), JSON.stringify(other.latest));
         return "";
@@ -317,6 +317,14 @@ for (const [version, schema, published, expected] of [
     [{ tag: "v1.29.0-rc.1", latest: { version: "1.29.0-rc.1" } }],
     /does not declare/,
   ],
+  // An abandoned RC line still binds the next version that supersedes it.
+  ["1.30.0", { schemaMin: 1, schemaMax: 1 }, [candidate("v1.29.0-rc.1", 2)], /frozen/],
+  [
+    "1.30.0-rc.1",
+    { schemaMin: 1, schemaMax: 1 },
+    [candidate("v1.29.0-rc.1", 2)],
+    /frozen/,
+  ],
 ])
   test(`publishing ${version} refuses to strand ${published[0].tag} installations`, async (t) => {
     const { publishInstallerRelease } =
@@ -335,16 +343,85 @@ test("a final release that accepts every published RC schema is published", asyn
     await import("../../scripts/installer-release-publish.mjs");
   const ctx = await fixture(t, "1.29.0", { schemaMin: 1, schemaMax: 2 }),
     remote = await remoteFixture(ctx, "v1.28.0", [
+      candidate("v1.28.0-rc.1", 1),
       candidate("v1.29.0-rc.1", 1),
       candidate("v1.29.0-rc.2", 2),
       candidate("v1.29.0-rc.3", 9, { draft: true }),
       candidate("v1.30.0-rc.1", 9),
       candidate("v1.28.0", 1),
+      candidate("v1.27.0-beta.1", 9),
     ]);
   await publishInstallerRelease({ ...ctx, run: remote.run });
   assert.equal(remote.latestTag, "v1.29.0");
   const checked = remote.calls
     .filter((a) => a[1] === "download" && a.includes("latest.json"))
     .map((a) => a[2]);
-  assert.deepEqual(checked.slice(0, 2), ["v1.29.0-rc.1", "v1.29.0-rc.2"]);
+  assert.deepEqual(checked.slice(0, 3), ["v1.28.0-rc.1", "v1.29.0-rc.1", "v1.29.0-rc.2"]);
+  assert.notEqual(checked[3], "v1.30.0-rc.1");
+});
+
+test("a final release after an abandoned RC line publishes when it keeps the schema", async (t) => {
+  const { publishInstallerRelease } =
+    await import("../../scripts/installer-release-publish.mjs");
+  const ctx = await fixture(t, "1.30.0", { schemaMin: 1, schemaMax: 2 }),
+    remote = await remoteFixture(ctx, "v1.28.0", [candidate("v1.29.0-rc.1", 2)]);
+  await publishInstallerRelease({ ...ctx, run: remote.run });
+  assert.equal(remote.latestTag, "v1.30.0");
+});
+
+test("re-running the publication of a published RC does not check the RC against itself", async (t) => {
+  const { publishInstallerRelease } =
+    await import("../../scripts/installer-release-publish.mjs");
+  const ctx = await fixture(t, "1.29.0-rc.2", { schemaMin: 1, schemaMax: 2 }),
+    published = [candidate("v1.29.0-rc.1", 2)],
+    remote = await remoteFixture(ctx, "v1.28.0", published);
+  assert.equal(
+    (await publishInstallerRelease({ ...ctx, run: remote.run })).published,
+    true,
+  );
+  published.push(candidate("v1.29.0-rc.2", 2));
+  remote.calls.length = 0;
+  const second = await publishInstallerRelease({ ...ctx, run: remote.run });
+  assert.equal(second.published, false);
+  const inspected = remote.calls.findIndex((a) => a[1] === "view");
+  assert.deepEqual(
+    remote.calls
+      .slice(0, inspected)
+      .filter((a) => a[1] === "download")
+      .map((a) => a[2]),
+    ["v1.29.0-rc.1"],
+  );
+  assert.equal(
+    remote.calls.some((a) => ["upload", "edit", "create"].includes(a[1])),
+    false,
+  );
+});
+
+test("channel metadata refuses platforms with different data schema ranges", async (t) => {
+  const { channelManifest } = await import("../../scripts/release-manifest.mjs");
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-manifest-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const record = async (platform, schemaMax) =>
+    fs.writeFile(
+      path.join(directory, `agentpier-${platform}.aprelease.json`),
+      JSON.stringify({
+        file: `agentpier-${platform}.aprelease`,
+        sha256: "a".repeat(64),
+        bytes: 1,
+        manifest: {
+          version: "1.29.0-rc.1",
+          platform,
+          schemaVersion: 1,
+          schemaMin: 1,
+          schemaMax,
+        },
+      }),
+    );
+  await record("darwin-arm64", 1);
+  await record("linux-x64", 1);
+  const manifest = channelManifest(directory, { releasedAt: "2026-10-13T00:00:00Z" });
+  assert.equal(manifest.schemaMin, 1);
+  assert.equal(manifest.schemaMax, 1);
+  await record("linux-x64", 2);
+  assert.throws(() => channelManifest(directory), /different data schemas/);
 });
