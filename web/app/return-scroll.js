@@ -28,18 +28,21 @@ export function markReturn(path) {
   if (saved?.path === path) write({ ...saved, returning: Date.now() });
 }
 
-function restore(element, saved) {
+// Applies the saved position, retrying while late content (lists loading after mount)
+// still grows the page; `finish` runs once it is applied or the retries run out.
+function restore(element, saved, finish) {
   let frames = 0;
+  let frame;
   const step = () => {
     element.scrollTop = saved.element;
     window.scrollTo(0, saved.window);
     const done =
       Math.abs(element.scrollTop - saved.element) < 2 &&
       Math.abs(window.scrollY - saved.window) < 2;
-    // Late content (lists loading after mount) can still grow the page.
-    if (!done && ++frames < 60) frame = window.requestAnimationFrame(step);
+    if (done || ++frames >= 60) finish();
+    else frame = window.requestAnimationFrame(step);
   };
-  let frame = window.requestAnimationFrame(step);
+  frame = window.requestAnimationFrame(step);
   return () => window.cancelAnimationFrame(frame);
 }
 
@@ -49,14 +52,21 @@ export function useReturnScroll(ref, path) {
     const element = ref.current;
     if (!element) return undefined;
     const saved = read();
-    let cancel = () => {};
-    if (saved?.path === path && Date.now() - (saved.returning || 0) < returnWindow) {
-      write(null);
-      cancel = restore(element, saved);
-    }
+    // The slot keeps its "returning" mark until the position is applied, so an effect
+    // that is torn down and run again (StrictMode, a quick re-render) still restores.
+    let pending =
+      saved?.path === path && Date.now() - (saved.returning || 0) < returnWindow
+        ? saved
+        : null;
+    const cancel = pending
+      ? restore(element, pending, () => {
+          pending = null;
+          position = { element: element.scrollTop, window: window.scrollY };
+        })
+      : () => {};
     let position = { element: element.scrollTop, window: window.scrollY };
     const track = () => {
-      position = { element: element.scrollTop, window: window.scrollY };
+      if (!pending) position = { element: element.scrollTop, window: window.scrollY };
     };
     element.addEventListener("scroll", track, { passive: true });
     window.addEventListener("scroll", track, { passive: true });
@@ -64,7 +74,7 @@ export function useReturnScroll(ref, path) {
       cancel();
       element.removeEventListener("scroll", track);
       window.removeEventListener("scroll", track);
-      write({ path, ...position });
+      write(pending || { path, ...position });
     };
   }, [ref, path]);
 }

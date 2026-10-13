@@ -6,6 +6,7 @@ import { operationsCopy } from "../../lib/i18n/messages/operations.js";
 import { settingsHubCopy } from "../../lib/i18n/messages/settings.js";
 import { settingsTabs } from "../operations/routes.js";
 import { tabRoot } from "./settings-navigation.js";
+import useReturnTarget from "../../app/useReturnTarget.js";
 
 // A tab root of the settings page: header, the three tabs and the tab's own bar.
 export function TabFrame({ frame, bar, children }) {
@@ -42,10 +43,11 @@ export function TabFrame({ frame, bar, children }) {
 }
 
 // One section of a tab; the back button returns to that tab on every width, or to the
-// page a cross-link came from (`frame.returnTarget`).
+// page a cross-link came from (`returnTo` in `frame.route`). The frame, not the whole
+// settings page, follows the agent list for the origin's name.
 export function SubpageFrame({ frame, title, wide = false, bar, children }) {
   const tab = operationsCopy.groups[frame.tab];
-  const origin = frame.returnTarget;
+  const origin = useReturnTarget(frame.route, frame.go);
   return (
     <SettingsShell
       className={["settings-page-shell", "settings-subpage", wide ? "wide" : ""]

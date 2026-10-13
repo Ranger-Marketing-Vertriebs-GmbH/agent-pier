@@ -154,14 +154,21 @@ tab and subpage the owner came from.
   <origin>" (`settingsHubCopy.backTo`, e.g. "Back to Chief of Staff") that returns
   there; without one the back arrow keeps the hierarchy (subpage → its tab, Accounts
   entry → its group).
-- `returnTo` is part of the route (`readRoute`/`routePath`), so it survives a reload.
-  Moves inside Accounts keep it, and only the entry the link landed on returns to the
-  origin directly; any other navigation builds a fresh route and drops it.
+- `returnTo` is part of the route (`readRoute`/`routePath`), so it survives a reload
+  and history moves. Moves inside Accounts keep it; any other navigation builds a
+  fresh route and drops it.
+- Accounts on phones: only the page the link landed on (hub or entry) shows the
+  origin's back arrow. Another entry goes back to its group, and a hub the link did not
+  land on keeps the menu button. On wider screens Accounts is one page (hub and detail
+  side by side) and shows the origin's back arrow for the whole visit.
+- Chains keep one earlier origin: a cross-link that starts on a page with its own
+  `returnTo` carries it forward (Agent settings → Deepgram → Agent service settings →
+  back to Deepgram → back to the agent). A third link drops the oldest origin.
 - Validation (`readReturnTo()` in `web/app/routes.js`, `appPathParts()` in
   `web/app/return-to.js`): same-origin app paths only, no scheme, no `//host`, no
   backslash or control characters, bounded length; the value is parsed as an app route
   of an allowed origin (agents, settings, extensions, accounts) and rebuilt with
-  `routePath`, never echoed. A nested `returnTo` in the origin is cut off.
+  `routePath`, never echoed. Nesting stops after one level.
 - Agent settings remember their scroll position (`useReturnScroll`); returning through
   the back arrow restores it.
 

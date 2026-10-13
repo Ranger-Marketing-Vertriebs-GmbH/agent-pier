@@ -150,21 +150,37 @@ export function readRoute(location) {
 const returnOrigins = new Set(["agents", "settings", "extensions", "accounts"]);
 const returnTargets = new Set(["settings", "accounts"]);
 
+// How many origins a chain of cross-links remembers beyond the first: Agent settings →
+// Deepgram (Accounts) → Agent service settings leads back to Deepgram, and from
+// there back to the agent. Deeper chains drop the oldest origin.
+const returnDepth = 1;
+
+// The origin route a `returnTo` value names, rebuilt from its parsed route; an origin
+// that honours `returnTo` itself keeps its own origin up to `depth` more levels.
+function parseOrigin(value, depth) {
+  const parts = appPathParts(value);
+  if (!parts) return null;
+  const origin = readRoute({ ...parts, search: withoutReturnParam(parts.search) });
+  if (!returnOrigins.has(origin.view)) return null;
+  if (depth > 0 && returnTargets.has(origin.view)) {
+    const inner = parseOrigin(
+      new URLSearchParams(parts.search).get(returnParam),
+      depth - 1,
+    );
+    if (inner) origin.returnTo = routePath(inner);
+  }
+  return origin;
+}
+
 /** `{ returnTo }` with the canonical origin path of a valid `returnTo`, else `{}`. */
 export function readReturnTo(search) {
-  const parts = appPathParts(new URLSearchParams(search).get(returnParam));
-  if (!parts) return {};
-  const origin = readRoute({ ...parts, search: withoutReturnParam(parts.search) });
-  return returnOrigins.has(origin.view) ? { returnTo: routePath(origin) } : {};
+  const origin = parseOrigin(new URLSearchParams(search).get(returnParam), returnDepth);
+  return origin ? { returnTo: routePath(origin) } : {};
 }
 
 /** The route a page opened through a cross-link leads back to, or null. */
 export function returnRoute(route) {
-  if (!route?.returnTo) return null;
-  const parts = appPathParts(route.returnTo);
-  if (!parts) return null;
-  const origin = readRoute({ ...parts, search: withoutReturnParam(parts.search) });
-  return returnOrigins.has(origin.view) ? origin : null;
+  return route?.returnTo ? parseOrigin(route.returnTo, returnDepth) : null;
 }
 
 /**
