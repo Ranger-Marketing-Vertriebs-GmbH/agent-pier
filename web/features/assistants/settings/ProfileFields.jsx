@@ -19,7 +19,7 @@ export default function ProfileFields({ draft, models, modelKey, navigate }) {
   const accounts = { view: "accounts", section: "models" };
   return (
     <>
-      <div className="list-card agent-fields">
+      <div className="list-card agent-fields agent-profile-card">
         <label className="agent-field">
           {copy.name}
           <input

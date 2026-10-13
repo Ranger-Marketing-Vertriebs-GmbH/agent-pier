@@ -35,6 +35,16 @@
 .agent-fields {
   display: grid;
 }
+/* The model list opens below its field and must not be cut off by the card. */
+.list-card.agent-profile-card {
+  overflow: visible;
+}
+.agent-profile-card > .agent-field:first-child {
+  border-radius: 11px 11px 0 0;
+}
+.agent-profile-card > .agent-field:last-child {
+  border-radius: 0 0 11px 11px;
+}
 .agent-field {
   display: grid;
   gap: 6px;

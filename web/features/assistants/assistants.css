@@ -81,6 +81,23 @@
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+/* The refresh and its hint span both columns: hint left, button right. */
+.assistant-account-models {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.assistant-account-models .field-description {
+  flex: 1;
+  margin: 0;
+  line-height: 1.5;
+}
+.assistant-account-models .button {
+  flex: none;
+}
 .assistant-empty {
   text-align: center;
   padding: 70px 20px;
@@ -131,6 +148,10 @@
   }
   .assistant-model-fields {
     grid-template-columns: 1fr;
+  }
+  .assistant-account-models {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 .assistant-accounts {
