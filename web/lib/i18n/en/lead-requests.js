@@ -23,6 +23,18 @@ export const leadRequestCopy = {
   },
   approvalHint:
     "Your agent wants to send this to its member. It is sent once you approve and the member is free.",
+  shell: (level) =>
+    `Member's shell access: ${{ off: "off", approval: "with approval", full: "full" }[level] || level}`,
+  mcp: (names) => `Member's MCP servers: ${names}`,
+  noMcp: "Member's MCP servers: none",
+  mcpUnavailable: "The member's MCP servers cannot be listed right now.",
+  stdio: (name) => `${name} (stdio, local command)`,
+  writesIfApproved: (member) =>
+    `If you approve, ${member} may change files in its own workspace (not its memory).`,
+  writes: (member) => `${member} may change files in its own workspace (not its memory).`,
+  readOnly: (member) => `${member} does not change files for this task.`,
+  showAll: "Show all",
+  followUpFailed: "The result could not be passed back to the agent. Read it here.",
   approve: "Approve",
   decline: "Decline",
   cancel: "Cancel",
