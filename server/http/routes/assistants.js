@@ -11,6 +11,10 @@ import { assistantAccountRoutes, modelRefreshRateLimit } from "./assistant-accou
 import { mcpServerErrors, replyStdioConfirmation } from "./mcp-servers.js";
 import { mcpOAuthRateLimit, mcpOAuthRoutes } from "./mcp-oauth.js";
 import { assistantShellRoutes, replyShellConfirmation } from "./assistant-shell.js";
+import {
+  assistantAttachmentRateLimits,
+  assistantAttachmentRoutes,
+} from "./assistant-attachments.js";
 import { Router } from "express";
 import path from "node:path";
 import { writePrivate } from "../../lib/storage.js";
@@ -37,6 +41,7 @@ export function assistantRoutes(services) {
   const limits = {
     mcpOAuthLimit: mcpOAuthRateLimit(),
     modelRefreshLimit: modelRefreshRateLimit(),
+    ...assistantAttachmentRateLimits(),
   };
   let built = null;
   let routes = null;
@@ -98,6 +103,7 @@ function activeAssistantRoutes(services) {
   router.use(mcpOAuthRoutes(services));
   router.use("/mcp-servers", mcpServerErrors);
   router.use(assistantShellRoutes(services));
+  router.use(assistantAttachmentRoutes(services));
   router.get("/assistants", (_req, res) => res.json(assistants.list()));
   router.post("/assistants", async (req, res) => {
     let result;
