@@ -148,6 +148,16 @@ test("a link to an older row keeps that row listed while it is open", async ({
   await expect(items.first()).not.toHaveAttribute("aria-current", "true");
 });
 
+test("an older row whose steps the current row lacks stays listed", async ({ page }) => {
+  const state = await pipelinesFixture(page);
+  duplicateFolders(state);
+  state.projects.find((row) => row.id === "lab-dir").pipelineWork = true;
+  await openPipelines(page, "verification");
+  const list = page.getByRole("navigation", { name: "Projekte", exact: true });
+  await expect(list.getByRole("button", { name: /^electronic-lab/ })).toHaveCount(2);
+  await expect(list.getByRole("button", { name: /^spoolops/ })).toHaveCount(1);
+});
+
 test.describe("English verification", () => {
   test.use({ locale: "en-GB" });
   test("project list and step rows use English copy", async ({ page }) => {

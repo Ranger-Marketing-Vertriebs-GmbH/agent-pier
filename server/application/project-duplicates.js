@@ -18,6 +18,24 @@ export class ProjectDuplicates {
   constructor(services) {
     this.services = services;
   }
+  /**
+   * The project list with duplicate folders described (see describeDuplicates). Rows
+   * of a shared folder also say whether they hold pipeline work (verification steps
+   * or runs), so a list can keep an older row whose work its current row lacks.
+   */
+  async describe(projects) {
+    const { pipelineDefinitions, pipelines } = this.services;
+    return (await withDuplicates(projects)).map((row) =>
+      row.duplicateOf || row.olderDuplicates
+        ? {
+            ...row,
+            pipelineWork:
+              Boolean(pipelineDefinitions.getVerification(row.id).steps.length) ||
+              pipelines.store.hasProject(row.id),
+          }
+        : row,
+    );
+  }
   /** The current row and the older row it lists, or a 409 when that changed. */
   async pair(currentId, olderId) {
     const described = await withDuplicates(this.services.memory.projects().projects);

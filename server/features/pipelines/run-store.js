@@ -52,6 +52,14 @@ export class RunStore {
     if (!row) throw problem(serverMessages.pipelines.runNotFound, 404);
     return normalizeRun(JSON.parse(row.doc));
   }
+  /** Whether any run belongs to the project. */
+  hasProject(projectId) {
+    return Boolean(
+      this.db
+        .prepare("SELECT 1 FROM runs WHERE json_extract(doc,'$.projectId')=? LIMIT 1")
+        .get(projectId),
+    );
+  }
   all() {
     return this.db
       .prepare("SELECT doc FROM runs ORDER BY rowid DESC")
