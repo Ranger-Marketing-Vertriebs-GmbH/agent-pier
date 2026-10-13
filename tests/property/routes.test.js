@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import fc from "fast-check";
 import { readRoute, routePath } from "../../web/app/routes.js";
 import { readExplorerRoute, explorerQuery } from "../../web/features/files/routes.js";
+import { agentPages, agentTabs } from "../../web/features/assistants/settings-routes.js";
+import { accountSections } from "../../web/features/accounts/routes.js";
+import { settingsTabs } from "../../web/features/operations/routes.js";
 import { check, publicId } from "../helpers/property.js";
 
 const parse = (pathname) => readRoute(new URL(pathname, "https://agentpier.test"));
@@ -127,6 +130,29 @@ test("generated Explorer queries retain paths, filters and listing state", () =>
             ...view,
             ...route,
           });
+      },
+    ),
+  );
+});
+
+test("generated settings, agent and accounts addresses round-trip and normalise once", () => {
+  check(
+    fc.property(
+      publicId,
+      fc.constantFrom(...agentTabs, "junk", ""),
+      fc.constantFrom(...Object.keys(agentPages), "junk", ""),
+      fc.constantFrom(...accountSections, "junk", ""),
+      fc.constantFrom(...settingsTabs, "junk"),
+      (id, tab, page, section, settingsTab) => {
+        const agentRoute = parse(`/agents/${id}/settings?tab=${tab}&page=${page}`);
+        assert.deepEqual(parse(routePath(agentRoute)), agentRoute);
+        if (agentRoute.agentPage)
+          assert.equal(agentRoute.agentTab, agentPages[agentRoute.agentPage]);
+        const accounts = parse(`/accounts?section=${section}&item=${id}`);
+        assert.deepEqual(parse(routePath(accounts)), accounts);
+        assert.equal(accounts.item === undefined, !accountSections.includes(section));
+        const settings = parse(`/settings?tab=${settingsTab}`);
+        assert.deepEqual(parse(routePath(settings)), settings);
       },
     ),
   );

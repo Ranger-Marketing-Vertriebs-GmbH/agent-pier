@@ -77,7 +77,7 @@
   padding: 0 15px;
   font-size: 11px;
 }
-.extension-hub-card .underline-tabs {
+.extension-hub-card .underline-tabs-frame {
   margin: 14px 22px 0;
 }
 .extension-tabpanel {
@@ -344,17 +344,8 @@
     font-size: 12px;
   }
   .extension-hub-card .underline-tabs {
-    gap: 6px;
     margin: 18px -23px 0;
     padding: 0 23px;
-  }
-  .extension-hub-card .underline-tabs button {
-    padding: 11px 8px;
-    font-size: 13px;
-  }
-  .extension-hub-card .underline-tabs span {
-    padding: 1px 5px;
-    font-size: 11px;
   }
   .extension-tabpanel {
     padding: 14px 0 0;

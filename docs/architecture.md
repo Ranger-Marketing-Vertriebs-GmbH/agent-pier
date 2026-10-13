@@ -21,6 +21,12 @@ Keep business rules in their feature service. HTTP handlers validate transport s
 
 First-party identifiers and comments are English. German product text lives in explicit locale dictionaries. Native protocol names, recorded CLI text and parser examples retain their original spelling.
 
+## Settings pages
+
+Agent settings, Accounts, Settings, Extensions and Projects share one page pattern
+(shell, tabs, list cards, per-tab drafts with a save chain, unsaved-changes guard). See
+[settings-pattern.md](settings-pattern.md).
+
 ## Session launch and lifetime
 
 The launch orchestrator validates the account, directory and launch mode, then composes host-bound GitHub credentials, AgentBus, repository memory, project SSH and native history binding. Each adapter returns additions to a launch description. Failed launches unwind generated resources. Account/provider changes are rejected while affected sessions run. Account usage is also reserved during launch preparation and reloads, including both accounts during an account switch; failed or deferred attempts release their reservations.

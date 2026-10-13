@@ -8,6 +8,7 @@ import {
 } from "../../lib/i18n/messages/extensions.js";
 import { names } from "../../lib/providers.js";
 import ExtensionWorkspace from "./ExtensionWorkspace.jsx";
+import { defaultExtensionTab } from "./routes.js";
 import { extensionProfiles } from "./sharedProfiles.js";
 import "./extensions-hub.css";
 
@@ -18,7 +19,7 @@ export default function ExtensionsPage({
   accounts = [],
   request,
   profileId,
-  extensionTab = "mcp",
+  extensionTab = defaultExtensionTab,
   onNavigate,
 }) {
   const profiles = extensionProfiles(accounts, shared);

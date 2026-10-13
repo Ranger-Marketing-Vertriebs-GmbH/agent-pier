@@ -17,6 +17,7 @@
   min-width: 180px;
 }
 .run-status-filters {
+  position: relative;
   display: flex;
   gap: 6px;
   max-width: 100%;

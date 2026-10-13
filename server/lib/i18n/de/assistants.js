@@ -125,16 +125,6 @@ export const assistants = {
   channelPolling:
     "Ein anderer Dienst verwendet diesen Telegram-Bot. Stoppe ihn vor dem Fortsetzen.",
   channelToken: "Der Telegram-Bot-Token ist ungültig.",
-  telegramBotInUse:
-    "Dieser Telegram-Bot wird bereits genutzt: als dein AgentPier-Bot oder von einem anderen Agenten. Lege für jeden Zweck einen eigenen Bot an.",
-  telegramSendersShell:
-    "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen Shell-Zugriff haben. Schalte die Shell aus oder trenne zuerst den Bot.",
-  telegramSendersStdio:
-    "Diesem Agenten ist ein stdio-MCP-Server zugeordnet, der Befehle auf diesem Rechner ausführt. Entferne ihn, bevor du einen Bot für andere Personen verbindest.",
-  telegramSendersArchive:
-    "Trenne zuerst den eigenen Telegram-Bot des Agenten, bevor du ihn archivierst.",
-  telegramSendersRestartRequired:
-    "Diese Telegram-Änderung startet das Gateway der Agenten neu; bestätige den Neustart.",
 
   teamMcpServersUnavailable:
     "Die MCP-Serverliste dieses Teams lässt sich gerade nicht lesen. Versuche es später erneut.",
@@ -143,6 +133,8 @@ export const assistants = {
   invalid: "Ungültige Agenten-Eingabe.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   conflict: "Die Daten wurden inzwischen geändert. Bitte neu laden.",
+  capacity:
+    "Die Teamgröße liegt über der Kapazität dieses Hosts. Wähle einen kleineren Wert.",
   unavailable: "Der Agentendienst ist nicht bereit. Prüfe die Laufzeit-Einstellungen.",
   provider: "Dieser Provider-Zugang ist für Agenten nicht verfügbar.",
   uncertain:

@@ -4,7 +4,7 @@
 
 ## Boundaries
 
-- `components`: shared presentation and form controls. `Modal` supports per-dialog dismissal policy and unique accessible titles. `ErrorMessage` preserves each caller's element and class.
+- `components`: shared presentation and form controls. `Modal` supports per-dialog dismissal policy and unique accessible titles. `ErrorMessage` preserves each caller's element and class. The settings pattern (`SettingsShell`, `ListCard`/`ListRow`, `SaveBar`, `UnsavedChangesSheet`, …) is described in `docs/settings-pattern.md`; its draft logic lives in `lib/settings/` and the navigation guard in `lib/navigation-guard.js`.
 - `lib`: the JSON HTTP client, synchronous async-action lock, provider presentation, and localization. HTTP request injection remains available to feature controllers; terminal WebSocket transport is separate.
 - `features`: account management, sessions, chat, terminal transport, models, repositories, extensions, plugins, tools, settings, directories, dashboard, AgentBus, provider catalogs, and memory. Pages render feature controls; named hooks own asynchronous lifecycles and stale-response protection.
 - `styles/index.css`: the ordered stylesheet manifest. Feature, shell, desktop, mobile, and accessibility rules retain the original cascade. Native xterm CSS remains part of the lazy terminal feature.

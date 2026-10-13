@@ -3,7 +3,7 @@ import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { fileClientIssue } from "./file-api.js";
 import useFileEditor from "./useFileEditor.js";
 import FileEditorTabs from "./FileEditorTabs.jsx";
-import { requestFileNavigation } from "./file-navigation-guard.js";
+import { requestNavigation as requestFileNavigation } from "../../lib/navigation-guard.js";
 import { fileEditorCopy as copy } from "../../lib/i18n/messages/file-editor.js";
 const FileEditor = lazy(() => import("./FileEditor.jsx"));
 const FileEditorConflict = lazy(() => import("./FileEditorConflict.jsx"));

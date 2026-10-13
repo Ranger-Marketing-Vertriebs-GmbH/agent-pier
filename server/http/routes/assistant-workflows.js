@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
+import { messageIdentity } from "../../lib/i18n/message-identity.js";
 export function assistantWorkflowRoutes({ assistants }) {
   const router = Router(),
     service = () => {
@@ -41,12 +42,20 @@ export function assistantWorkflowRoutes({ assistants }) {
       }),
     ),
   );
-  router.use((error, _req, _res, next) => {
-    if (error.messageKey?.startsWith("assistants.")) return next(error);
-    const key = { 400: "invalid", 403: "invalid", 404: "notFound", 409: "conflict" }[
-      error.status
-    ];
-    next(assistantProblem(key || "unavailable", key ? error.status : 503));
-  });
+  router.use(assistantErrors);
   return router;
+}
+
+/**
+ * Maps errors of the workflow services an agent route calls (projects, pipelines) to
+ * agent message keys, so a client never sees a foreign key or status.
+ */
+export function assistantErrors(error, _req, _res, next) {
+  // Problems carry the German text; its key says whether it is already an agent one.
+  const messageKey = error.messageKey ?? messageIdentity(error.message).messageKey;
+  if (messageKey?.startsWith("assistants.")) return next(error);
+  const key = { 400: "invalid", 403: "invalid", 404: "notFound", 409: "conflict" }[
+    error.status
+  ];
+  next(assistantProblem(key || "unavailable", key ? error.status : 503));
 }

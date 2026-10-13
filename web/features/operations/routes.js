@@ -10,6 +10,15 @@ export const sections = new Set([
   "ssh",
   "github",
 ]);
+export const settingsTabs = ["workspace", "access", "operations"];
+// The settings sections each tab lists; "general" is also the root of every tab.
+export const settingsSectionGroups = {
+  workspace: ["general", "notifications", "assistants"],
+  access: ["mcp", "remote", "ssh", "github"],
+  operations: ["diagnostics", "backups", "updates", "audit"],
+};
+export const settingsTabOf = (section) =>
+  settingsTabs.find((tab) => settingsSectionGroups[tab].includes(section)) || "workspace";
 const identity = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 export function readSettingsRoute(pathname, search) {
   const match = /^\/settings(?:\/([^/]+))?$/.exec(pathname);
@@ -34,6 +43,11 @@ export function readSettingsRoute(pathname, search) {
       : {}),
     view: "settings",
     settingsSection: match[1] || "general",
+    settingsTab: match[1]
+      ? settingsTabOf(match[1])
+      : settingsTabs.includes(query.get("tab"))
+        ? query.get("tab")
+        : "workspace",
     auditPage:
       /^[1-9]\d*$/.test(rawPage) &&
       Number.isSafeInteger(Number(rawPage)) &&
@@ -53,6 +67,12 @@ export function readSettingsRoute(pathname, search) {
 export function settingsRoutePath(route) {
   const section = route.settingsSection || "general",
     query = new URLSearchParams();
+  if (
+    section === "general" &&
+    settingsTabs.includes(route.settingsTab) &&
+    route.settingsTab !== "workspace"
+  )
+    query.set("tab", route.settingsTab);
   if (section === "mcp") {
     if (route.mcpAuthorization) query.set("authorization", route.mcpAuthorization);
     if (route.mcpCli && route.mcpCli !== "codex") query.set("cli", route.mcpCli);

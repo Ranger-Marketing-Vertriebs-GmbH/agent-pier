@@ -3,8 +3,12 @@ import { useWorkspaceNavigationCopy as copy } from "../lib/i18n/messages/app.js"
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { SessionViewMemory } from "./session-view-memory.js";
 import { readRoute, routePath } from "./routes.js";
+import { defaultExtensionTab } from "../features/extensions/routes.js";
 import { projectsRoute } from "../features/projects/routes.js";
-import { requestFileNavigation } from "../features/files/file-navigation-guard.js";
+import {
+  navigationReason,
+  requestNavigation as requestFileNavigation,
+} from "../lib/navigation-guard.js";
 const navigationIndex = "agentPierNavigationIndex";
 export default function useWorkspaceNavigation({ state, ready, setMobileNav, setModal }) {
   const [route, setRouteState] = useState(() => readRoute(window.location));
@@ -61,16 +65,16 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     [setMobileNav, setModal, setRoute],
   );
   const runNavigation = useCallback(
-    (next, replace = false) =>
+    (next, replace = false, normalization = false) =>
       requestFileNavigation({
         next,
-        reason: replace ? "normalization" : "application",
+        reason: navigationReason({ normalization }),
         commit: () => commitWorkspaceNavigation(next, replace),
       }),
     [commitWorkspaceNavigation],
   );
   const navigate = useCallback(
-    (next, replace = false) => {
+    (next, replace = false, normalization = false) => {
       let operation = historyOperation.current;
       if (replace && (activeIntent.current || operation)) return Promise.resolve(false);
       const physicalIndex = window.history.state?.[navigationIndex];
@@ -87,11 +91,11 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
         };
         historyOperation.current = operation;
       }
-      if (!operation) return runNavigation(next, replace);
+      if (!operation) return runNavigation(next, replace, normalization);
       operation.cancelled = true;
       pendingNavigation.current?.resolve(false);
       return new Promise((resolve) => {
-        pendingNavigation.current = { next, replace, resolve };
+        pendingNavigation.current = { next, replace, normalization, resolve };
         if (operation.physicalIndex !== operation.from)
           window.history.go(operation.from - operation.physicalIndex);
       });
@@ -105,10 +109,12 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
       pendingNavigation.current = null;
       if (pending) {
         activeIntent.current = pending;
-        runNavigation(pending.next, pending.replace).then((accepted) => {
-          if (activeIntent.current === pending) activeIntent.current = null;
-          pending.resolve(accepted);
-        });
+        runNavigation(pending.next, pending.replace, pending.normalization).then(
+          (accepted) => {
+            if (activeIntent.current === pending) activeIntent.current = null;
+            pending.resolve(accepted);
+          },
+        );
       } else if (!operation.cancelled) {
         activeIntent.current = operation;
         requestFileNavigation({
@@ -268,7 +274,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
       routePath(normalized) !== window.location.pathname + window.location.search ||
       window.location.hash
     )
-      navigate(normalized, true);
+      navigate(normalized, true, true);
   }, [
     ready,
     route,
@@ -295,7 +301,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     return navigate({
       view,
       ...(view === "extensions"
-        ? { extensionTab: "mcp", profileId: resolveProfileId() }
+        ? { extensionTab: defaultExtensionTab, profileId: resolveProfileId() }
         : {}),
     });
   };

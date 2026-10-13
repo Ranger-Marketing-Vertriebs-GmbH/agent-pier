@@ -1,3 +1,5 @@
+import { assistantChannelCopy } from "./assistant-channel.js";
+import { assistantTeamCopy } from "./assistant-team.js";
 export const assistantCopy = {
   updates: {
     title: "OpenClaw updates",
@@ -138,65 +140,7 @@ export const assistantCopy = {
       skipped: "Skipped",
     },
   },
-  team: {
-    modelChanged: "Model: changed since creation",
-    modelOriginal: "Model: as created",
-    instructionsChanged: "Instructions: changed since creation",
-    instructionsOriginal: "Instructions: as created",
-    setupUnknown:
-      "Setup may already have taken effect. Review the state before acknowledging uncertainty. The service restarts; this member finishes as failed and is not replaced.",
-    title: "Teams",
-    settings: "Team settings",
-    memberSettings: "Team member",
-    allowOnce: "Allow a team for this message",
-    startedBecause: (quote) => `Started because you wrote: “${quote}”`,
-    approvalHint:
-      "This team is waiting for your approval. Members will have their own chats.",
-    approve: "Approve team",
-    decline: "Decline team",
-    stopTeam: "Stop team",
-    stopMember: "Stop member",
-    allowedChip: "Team allowed",
-    archive: "Archive",
-    restore: "Restore",
-    showArchived: "Show archived teams",
-    autonomous: "Allow teams without asking each time",
-    permissionHint:
-      "The agent asks by default. Use /team or the message option to allow one team for an assignment.",
-    maxMembers: "Maximum team size",
-    timeout: "Member time limit (minutes)",
-    capacity: "Concurrent members on this host",
-    concurrentHint:
-      "All members may work at the same time while host capacity is available.",
-    save: "Save team settings",
-    permanent: "Permanent agent",
-    taskBound: "Task-bound member",
-    independent:
-      "Model and instructions are an independent copy. Parent edits do not overwrite them. You can override them after completion.",
-    promote: "Keep as permanent agent",
-    states: {
-      partial: "Partially successful",
-      awaiting_approval: "Awaiting approval",
-      approved: "Approved",
-      queued: "Waiting for capacity",
-      provisioning: "Setting up",
-      provisioning_uncertain: "Setup outcome unknown",
-      ready: "Ready",
-      admitting: "Starting",
-      running: "Working",
-      stopping: "Stopping",
-      uncertain: "Outcome unknown",
-      completed: "Completed",
-      failed: "Failed",
-      cancelled: "Cancelled",
-      declined: "Declined",
-    },
-    internalTurns: {
-      "team-result": "Team results received. The agent is summarizing them.",
-      "coding-result": "Coding run result received.",
-    },
-    inherited: (name, revision) => `Created by ${name} · inherited revision ${revision}`,
-  },
+  team: assistantTeamCopy,
   settingsSections: "Settings sections",
   sections: {
     profile: "Profile",
@@ -209,7 +153,6 @@ export const assistantCopy = {
     mcp: "MCP servers",
     team: "Team",
     telegram: "Telegram",
-    telegramSenders: "Telegram for others",
   },
   remoteChanged: (fields) =>
     `This agent changed on the server while you were editing (${fields}). Your edits are kept; reload to use the latest values instead.`,
@@ -263,114 +206,7 @@ export const assistantCopy = {
     save: "Save speech settings",
     remove: "Remove speech key",
   },
-  channel: {
-    language: "Language of Telegram notices",
-    languageDe: "German",
-    languageEn: "English",
-    languageHint:
-      "Notices written by AgentPier (approvals, team updates, links) use this language. It is taken from this browser when you first connect; pairing again keeps your choice. Notices already queued keep their text; the agent’s own replies are not translated.",
-    appUrl: "AgentPier address for links",
-    appUrlHint:
-      "Telegram notices link back to this address. It is taken from this browser when you connect or pair; leave it empty to send notices without links.",
-    saveAppUrl: "Save address",
-    ignored: (privateCount, groupCount) =>
-      `Ignored messages: ${privateCount} from other private chats, ${groupCount} from groups.`,
-    teamNotification: "Team notification",
-    connected: (chatId) => `Connected to private chat ${chatId}`,
-    description:
-      "Use this agent’s shared chat from your private Telegram conversation. Replies to Telegram messages return to Telegram.",
-    paused: "Paused or awaiting pairing",
-    disconnected: "Disconnected",
-    failed: "The channel operation could not be completed.",
-    token: "Telegram bot token",
-    botHint:
-      "Create a dedicated bot with BotFather. A bot already used by another service must be disconnected there first.",
-    connect: "Connect Telegram",
-    pairHint:
-      "Open the link and send the start message to pair your private chat. This code expires after ten minutes.",
-    pair: "Pair my private chat",
-    newPair: "Create a new pairing code",
-    pause: "Pause Telegram",
-    resume: "Resume Telegram",
-    disconnect: "Disconnect bot",
-    speechLink: "Manage Deepgram in Accounts",
-    activity: "Telegram activity",
-    voice: "Voice message",
-    retry: "Retry",
-    review: "Acknowledge without resending",
-    openChat: "Review agent chat",
-    title: "Telegram",
-    inProgress:
-      "Still in progress. A review action appears here if it needs your decision.",
-    states: {
-      partial: "Partially successful",
-      queued: "Queued",
-      voice_pending: "Waiting for transcription",
-      transcribing: "Transcribing",
-      transcription_failed: "Transcription failed",
-      dispatching: "Starting agent",
-      running: "Agent working",
-      model_uncertain: "Agent outcome unknown",
-      model_reviewed: "Outcome reviewed in chat",
-      outbound: "Waiting to send",
-      delivering: "Sending reply",
-      delivered: "Delivered",
-      delivery_failed: "Delivery failed",
-      delivery_uncertain: "Delivery outcome unknown",
-      reply_unavailable: "Answer without text",
-      failed: "Failed",
-      cancelled: "Cancelled",
-      reviewed: "Reviewed",
-    },
-    diagnostics: {
-      CHANNEL_DESTINATION_CHANGED:
-        "The chat binding changed. Review this input before continuing.",
-      TELEGRAM_CONFLICT: "Another service is polling this bot. Stop it before resuming.",
-      TELEGRAM_WEBHOOK:
-        "This bot has an existing webhook. Disconnect its other integration first.",
-      TELEGRAM_UNAVAILABLE: "Telegram is currently unavailable.",
-      TELEGRAM_REJECTED:
-        "Telegram rejected the request. Check the bot connection and whether the chat allows messages.",
-      TELEGRAM_RATE_LIMIT:
-        "Telegram requested a pause. Delivery will resume after the waiting period.",
-      MEDIA_TOO_LARGE: "Voice messages are limited to 10 MB and ten minutes.",
-      MEDIA_UNSUPPORTED: "Only text and Ogg voice messages are supported.",
-      VOICE_TOO_LONG: "The voice message was too long and was declined before download.",
-      TRANSCRIPTION_REJECTED:
-        "Deepgram rejected the audio. Deepgram's response is shown below.",
-      TRANSCRIPTION_QUOTA:
-        "The Deepgram balance or quota is exhausted. Check your Deepgram account.",
-      TRANSCRIPTION_RATE_LIMITED:
-        "Deepgram still asked to slow down after several attempts. You can retry the transcription later.",
-      MEDIA_DOWNLOAD: "The voice message could not be downloaded.",
-      SPEECH_NOT_CONFIGURED: "Configure Deepgram in Accounts before transcribing.",
-      SPEECH_AUTH: "Deepgram rejected the credential. Update it in Accounts.",
-      TRANSCRIPTION_EMPTY: "No speech was recognized.",
-      TRANSCRIPTION_FAILED: "Transcription failed. You can retry it explicitly.",
-      TRANSCRIPTION_INTERRUPTED:
-        "Transcription was interrupted. It was not repeated automatically.",
-      MODEL_REQUEST_FAILED: "The agent request failed or was cancelled.",
-      MODEL_OUTCOME_UNKNOWN:
-        "Review and resolve the unknown request in the agent chat first.",
-      REPLY_UNAVAILABLE: "Waiting for the confirmed reply for this request.",
-      REPLY_TOO_LARGE:
-        "The reply exceeds the Telegram delivery limit for this integration.",
-      REPLY_WITHOUT_TEXT:
-        "The agent finished without a text answer. Review it in the agent chat; nothing was sent to Telegram.",
-      CHANNEL_QUEUE_FULL:
-        "The Telegram queue is full. New messages are declined until queued inputs are processed or reviewed.",
-      DECISION_FAILED:
-        "A decision from Telegram could not be saved. Decide in AgentPier instead.",
-      MODEL_OUTCOME_REVIEWED:
-        "The unknown request was reviewed in the agent chat. Nothing was sent to Telegram.",
-      CALLBACK_FAILED:
-        "A Telegram button press could not be processed. Decide in AgentPier instead.",
-      TEAM_NOTIFICATION_FAILED:
-        "Telegram notifications for a team could not be prepared. Check the team in AgentPier.",
-      DELIVERY_UNCERTAIN:
-        "Telegram may have received the reply. Check your chat before acknowledging; nothing will be sent again automatically.",
-    },
-  },
+  channel: assistantChannelCopy,
   accountsTitle: "ChatGPT for agents",
   accountsDescription:
     "Connect your ChatGPT account and select it in an agent’s settings.",
@@ -382,7 +218,6 @@ export const assistantCopy = {
   accountCheckFailed: "Connection could not be verified. Try again or sign in again.",
   loginInstructions: "Enter this code on the OpenAI sign-in page.",
   loginOpen: "Open sign-in page",
-  loginPage: "Sign-in page:",
   loginCancel: "Cancel sign-in",
   loginStatus: {
     starting: "Starting sign-in…",
@@ -390,15 +225,6 @@ export const assistantCopy = {
     completed: "ChatGPT connected",
     cancelled: "Sign-in cancelled",
     failed: "Sign-in failed. Please try again.",
-  },
-  loginFailure: {
-    LOGIN_UNAVAILABLE:
-      "The agent service does not offer the ChatGPT sign-in right now. Restart the agent service and try again.",
-    UNSUPPORTED_LOGIN_STEP: "The sign-in asked for a step AgentPier does not support.",
-    LOGIN_EXPIRED: "The code expired before the sign-in was completed.",
-    CONNECTION_LOST: "The connection to the agent service was lost.",
-    LOGIN_FAILED:
-      "The agent service ended the sign-in with an error. Details are in the AgentPier log.",
   },
   accountStatus: {
     ok: "Connected",

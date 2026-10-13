@@ -56,6 +56,8 @@ export const assistantApi = {
     ),
   teamPolicy: (id, input) =>
     api(`/assistants/${encodeURIComponent(id)}/team-policy`, "PUT", input),
+  saveWork: (id, input) =>
+    api(`/assistants/${encodeURIComponent(id)}/work`, "PUT", input),
   teamSettings: (input) => api("/assistant-team-settings", "PUT", input),
   channels: () => api("/assistant-channels"),
   createChannel: (input) => api("/assistant-channels", "POST", input),
@@ -77,19 +79,6 @@ export const assistantApi = {
     ),
   speech: (signal) => api("/assistant-speech", "GET", undefined, signal),
   saveSpeech: (input) => api("/assistant-speech", "PUT", input),
-  telegramSenders: (id, signal) =>
-    api(
-      `/assistant-telegram-senders/${encodeURIComponent(id)}`,
-      "GET",
-      undefined,
-      signal,
-    ),
-  saveTelegramSenders: (id, input) =>
-    api(`/assistant-telegram-senders/${encodeURIComponent(id)}`, "PUT", input),
-  removeTelegramSenders: (id, input) =>
-    api(`/assistant-telegram-senders/${encodeURIComponent(id)}`, "DELETE", input),
-  applyTelegramSenders: (input) =>
-    api("/assistant-telegram-senders/apply", "POST", input),
   webSearch: (signal) => api("/assistant-web-search", "GET", undefined, signal),
   saveWebSearch: (input) => api("/assistant-web-search", "PUT", input),
   mcpServers: () => api("/mcp-servers"),

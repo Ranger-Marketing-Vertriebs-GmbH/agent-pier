@@ -61,7 +61,8 @@ export class AssistantAccess {
         .map(({ id, name }) => ({ id, name })),
     };
   }
-  save(id, input, revision) {
+  /** Validates a policy change against `revision`; returns the record, writes nothing. */
+  prepare(id, input, revision) {
     this.eligible(id);
     if (this.s.assistants.maintenance) throw assistantProblem("active", 409);
     exact(input, ["projectIds", "pipelineIds", "memoryWrite", "autonomous", "publish"]);
@@ -92,18 +93,24 @@ export class AssistantAccess {
           connectionIds.add(p.config.providerConnectionId);
       }
     }
-    const next = {
+    return {
       ...input,
       revision: revision + 1,
       accountIds: [...accountIds],
       connectionIds: [...connectionIds],
       definitions,
     };
+  }
+  write(id, next) {
     this.db
       .prepare(
         "INSERT INTO assistant_access VALUES(?,?) ON CONFLICT(assistant_id) DO UPDATE SET body=excluded.body",
       )
       .run(id, JSON.stringify(next));
+    return next;
+  }
+  save(id, input, revision) {
+    const next = this.write(id, this.prepare(id, input, revision));
     this.s.assistants.changed();
     return next;
   }
