@@ -1,16 +1,19 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import useProviderCatalog from "../providers/useProviderCatalog.js";
 import ProviderCatalogStatus from "../providers/ProviderCatalogStatus.jsx";
 import { providerCopy } from "../../lib/i18n/messages/providers.js";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { assistantWorkflowCopy } from "../../lib/i18n/messages/assistant-workflows.js";
+import { assistantApi } from "./assistant-api.js";
+import useAssistants from "./useAssistants.js";
 
 const CUSTOM = "\u0000custom";
 
 /**
- * Search remote provider catalogs and configured local endpoint models. Custom
- * IDs remain available, including when a remote catalog cannot be reached.
+ * Search remote provider catalogs, configured local endpoint models and the
+ * models a ChatGPT account lists. Custom IDs remain available, including when
+ * a catalog cannot be reached.
  */
 export default function AssistantModelFields({
   models,
@@ -27,6 +30,13 @@ export default function AssistantModelFields({
     autoRefresh: true,
   });
   const catalog = remote ? resource.models : connection?.models || [];
+  const account = connection?.providerId === "openai-chatgpt";
+  const { refresh: reload } = useAssistants();
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  // A refresh answer for a connection the owner has left changes nothing here.
+  const current = useRef(connectionId);
+  current.current = connectionId;
   const [query, setQuery] = useState("");
   const listed = catalog.some((m) => m.modelId === modelId);
   const [customChosen, setCustomChosen] = useState(false);
@@ -39,6 +49,7 @@ export default function AssistantModelFields({
     setSeen(connectionId);
     setCustomChosen(false);
     setQuery("");
+    setRefreshFailed(false);
   }
   const custom = !catalog.length || customChosen || (!!modelId && !listed);
   function chooseConnection(value) {
@@ -51,6 +62,26 @@ export default function AssistantModelFields({
       setModel("");
     }
   }
+  async function refreshModels() {
+    const id = connectionId;
+    let failed = false;
+    setRefreshing(true);
+    setRefreshFailed(false);
+    try {
+      failed = (await assistantApi.refreshAccountModels(id))?.modelCatalog === "failed";
+      // The page's list carries the new models; its own errors show where it loads.
+      await Promise.resolve(reload()).catch(() => {});
+    } catch {
+      // The hint below stands for every failure; raw errors stay out of the form.
+      failed = true;
+    } finally {
+      if (current.current === id) setRefreshFailed(failed);
+      setRefreshing(false);
+    }
+  }
+  const accountLoading = refreshing || connection?.modelCatalog === "loading";
+  const accountFailed =
+    !accountLoading && (refreshFailed || connection?.modelCatalog === "failed");
   function chooseModel(value) {
     if (value === CUSTOM) {
       setCustomChosen(true);
@@ -110,6 +141,24 @@ export default function AssistantModelFields({
         <div>
           {resource.loading && <p role="status">{providerCopy.loading}</p>}
           <ProviderCatalogStatus catalog={resource} />
+        </div>
+      )}
+      {account && (
+        <div>
+          <div className="provider-catalog-status">
+            {accountLoading && <span role="status">{copy.accountModelsLoading}</span>}
+            <button
+              type="button"
+              className="button secondary compact"
+              disabled={accountLoading}
+              onClick={refreshModels}
+            >
+              {copy.refreshAccountModels}
+            </button>
+          </div>
+          {accountFailed && (
+            <p className="field-description">{copy.accountModelsFailed}</p>
+          )}
         </div>
       )}
       {custom && (
