@@ -33,6 +33,7 @@ import useActionHistory from "./useActionHistory.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import ActionHistory from "./ActionHistory.jsx";
 import GrantSelectionPage from "./GrantSelectionPage.jsx";
+import TeamsGroup from "./TeamsGroup.jsx";
 
 const teamCopy = assistantCopy.team;
 const conflictLabels = {
@@ -46,8 +47,11 @@ const conflictLabels = {
   runTimeoutMinutes: () => teamCopy.timeout,
 };
 
-/** Work: grants, permissions and team policy in one draft, saved in one transaction. */
-export default function WorkTab({ assistant, page, go }) {
+/**
+ * Work: grants, permissions and team policy in one draft, saved in one transaction,
+ * and the lead's teams with their immediate actions.
+ */
+export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) {
   const { policies = {}, refresh } = useAssistants();
   const withTeam = !assistant.teamMemberId;
   const teamPolicy = withTeam ? policies[assistant.id] : null;
@@ -255,6 +259,9 @@ export default function WorkTab({ assistant, page, go }) {
             ))}
           </ListCard>
         </section>
+      )}
+      {withTeam && (
+        <TeamsGroup assistant={assistant} focusTeamId={focusTeamId} navigate={navigate} />
       )}
       {bar}
     </>

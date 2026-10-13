@@ -175,3 +175,20 @@
 .agent-settings-form {
   margin-top: 12px;
 }
+
+/* Settings → Work → Teams: the lead's team cards with an Active/Archived filter. */
+.agent-teams {
+  display: grid;
+  gap: 10px;
+}
+.agent-teams-filter {
+  justify-self: start;
+}
+.agent-teams-empty {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}

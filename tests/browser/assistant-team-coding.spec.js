@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
-test("the team task shows a member's coding request with its exact approval and run link", async ({
+test("a member's coding request waits in the chat and its team card keeps the approval and run link", async ({
   page,
 }) => {
   await fixture(page);
@@ -119,15 +119,18 @@ test("the team task shows a member's coding request with its exact approval and 
     }
     await route.fulfill({ json: body });
   });
-  // A pending member request opens its team card in the parent chat.
+  // A pending member request waits in the parent chat, named after its team.
   await page.goto(baseURL + "/agents/home/chats/parent-chat");
   await expect(
     page
-      .getByRole("region", { name: "Coding requests from the team" })
+      .getByRole("region", { name: "Coding requests from the team · Fix the build" })
       .getByRole("button", { name: "Approve action" }),
   ).toBeVisible();
-  await page.goto(baseURL + "/agents/home/teams/team");
-  const requests = page.getByRole("region", { name: "Coding requests from the team" });
+  // The team's card in Settings → Work keeps the request with its decision and run.
+  await page.goto(baseURL + "/agents/home/settings?tab=work&team=team");
+  const requests = page
+    .locator("#assistant-team-team")
+    .getByRole("region", { name: "Coding requests from the team" });
   await expect(requests).toContainText("Requested by team member Coder");
   await expect(requests).toContainText("Demo project · Build");
   await expect(requests).toContainText("Repair the CI configuration");
@@ -141,4 +144,8 @@ test("the team task shows a member's coding request with its exact approval and 
     requests.getByRole("link", { name: "Open run and artifacts" }),
   ).toHaveAttribute("href", "/pipelines/runs/run");
   await expect(requests.getByRole("button", { name: "Approve action" })).toHaveCount(0);
+  // Once decided, the request leaves the chat.
+  await page.goto(baseURL + "/agents/home/chats/parent-chat");
+  await expect(page.getByRole("log")).toBeVisible();
+  await expect(page.locator(".assistant-team-approvals")).toHaveCount(0);
 });

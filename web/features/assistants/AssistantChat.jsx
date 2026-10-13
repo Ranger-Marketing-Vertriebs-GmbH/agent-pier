@@ -1,4 +1,7 @@
-import AssistantTeams from "./AssistantTeams.jsx";
+import TeamApprovals from "./TeamApprovals.jsx";
+import TeamNote from "./TeamNote.jsx";
+import { teamNotes, withTeamNotes } from "./team-notes.js";
+import { scrollToChild } from "./transcript-scroll.js";
 import AssistantHeader from "./AssistantHeader.jsx";
 import AssistantActionApprovals from "./AssistantActionApprovals.jsx";
 import AssistantApprovalStrip from "./AssistantApprovalStrip.jsx";
@@ -10,6 +13,7 @@ import React, {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -26,8 +30,8 @@ import useAssistants, { useAssistantEvent } from "./useAssistants.js";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
 const sameTurnText = (a, b) => turnText(a) === turnText(b);
-// Streamed deltas re-render the chat on every token; the team panel does not need to.
-const Teams = memo(AssistantTeams);
+// Streamed deltas re-render the chat on every token; the team approvals do not need to.
+const PendingTeams = memo(TeamApprovals);
 export default function AssistantChat({
   assistant,
   conversationId,
@@ -41,6 +45,7 @@ export default function AssistantChat({
     connected,
     runtime,
     members = [],
+    teams = [],
     conversations = [],
     activity = {},
   } = useAssistants();
@@ -110,6 +115,13 @@ export default function AssistantChat({
     !assistant.archivedAt &&
     runtime.availability === "ready",
   );
+  const notes = useMemo(
+    () => (member ? [] : teamNotes(teams, { assistantId: assistant.id, conversationId })),
+    [member, teams, assistant.id, conversationId],
+  );
+  const transcript = withTeamNotes(history.messages, notes, {
+    complete: !history.nextBefore,
+  });
   const lastReply = history.messages.findLast((m) => m.role === "assistant");
   const announcement =
     lastReply && baseline.current !== undefined && lastReply.id !== baseline.current
@@ -135,6 +147,24 @@ export default function AssistantChat({
     resize.observe(element);
     return () => resize.disconnect();
   }, []);
+  // A team link (/agents/:id/teams/:teamId) shows what the team needs from the owner,
+  // or else its latest note, once the history is there and either is rendered.
+  const focused = useRef("");
+  useEffect(() => {
+    if (!focusTeamId || focused.current === focusTeamId || baseline.current === undefined)
+      return;
+    const element = output.current;
+    const target =
+      element?.querySelector(`#assistant-team-${CSS.escape(focusTeamId)}`) ||
+      element?.querySelector(`#assistant-team-requests-${CSS.escape(focusTeamId)}`) ||
+      [...(element?.querySelectorAll(".assistant-team-note") || [])].findLast(
+        (note) => note.dataset.team === focusTeamId,
+      );
+    if (!target) return;
+    focused.current = focusTeamId;
+    stick.current = false;
+    scrollToChild(element, target);
+  });
   async function send(event) {
     event.preventDefault();
     if (!canSend) return;
@@ -233,8 +263,15 @@ export default function AssistantChat({
                 <h2>{copy.emptyChat}</h2>
               </div>
             )}
-            {history.messages.map((m) =>
-              m.event === "coding-run" ? (
+            {transcript.map(({ message: m, note }) =>
+              note ? (
+                <TeamNote
+                  key={note.id}
+                  note={note}
+                  navigate={navigate}
+                  focused={note.team.id === focusTeamId}
+                />
+              ) : m.event === "coding-run" ? (
                 <CodingRunNote key={m.id} note={m} navigate={navigate} />
               ) : m.role === "event" ? (
                 <p key={m.id} className="assistant-note assistant-event">
@@ -319,7 +356,7 @@ export default function AssistantChat({
               </div>
             )}
           </div>
-          <Teams assistant={assistant} focusTeamId={focusTeamId} navigate={navigate} />
+          {!member && <PendingTeams assistant={assistant} />}
           {!assistant.teamMemberId && <AssistantActionApprovals {...ownActions} />}
         </div>
         <div

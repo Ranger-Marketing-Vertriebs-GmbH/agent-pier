@@ -197,9 +197,9 @@ for (const [name, size, touch] of [
       });
       await emit(page, { type: "change" });
       await expect(live).toHaveText("Dinner is ready");
-      expect(await live.locator(".assistant-teams, .assistant-team-panel").count()).toBe(
-        0,
-      );
+      expect(
+        await live.locator(".assistant-team-approvals, .assistant-team-note").count(),
+      ).toBe(0);
     });
 
     test("header shows the member state while it works", async ({ page }) => {

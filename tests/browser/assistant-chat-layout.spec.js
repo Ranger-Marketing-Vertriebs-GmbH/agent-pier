@@ -281,7 +281,8 @@ test.describe("agent chat transcript layout details", () => {
           kind: "team",
           parentAssistantId: "home",
           objective: "Review",
-          phase: "running",
+          phase: "awaiting_approval",
+          members: [{ name: "Reviewer", role: "Review", assignment: "Check it" }],
           memberIds: [],
           revision: 1,
         },
@@ -297,7 +298,7 @@ test.describe("agent chat transcript layout details", () => {
           .map((c) =>
             c.matches('[role="log"]')
               ? "log"
-              : c.matches(".assistant-teams")
+              : c.matches(".assistant-team-approvals")
                 ? "teams"
                 : c.matches(".assistant-action-approvals")
                   ? "approvals"
