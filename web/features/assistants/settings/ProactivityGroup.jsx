@@ -12,26 +12,30 @@ const hourOptions = (list) =>
   list.map((hour) => ({ value: String(hour), label: copy.hour(hour) }));
 
 /**
- * Scheduled check-ins: they need saved memory and a connected Telegram chat; the extra
- * model runs are shown. A new agent switches them on after saving.
+ * Scheduled check-ins: they need saved memory and a paired Telegram chat; the extra
+ * model runs are shown. A new agent switches them on after saving. `paired` is the
+ * server's own test (`heartbeatChannel`): without it a save switching check-ins on is
+ * refused, so they are not offered then (a saved schedule can still be switched off).
  */
 export default function ProactivityGroup({
   assistant,
   values,
   set,
   connected = false,
+  paired,
   creating = false,
 }) {
   const id = useId();
   const memory = assistant?.capabilities?.memory === true;
-  const available = !creating && memory && connected;
+  const chat = connected && paired !== false;
+  const available = !creating && memory && chat;
   const saved = values.heartbeatEnabled === true;
   const on = available && saved;
   const sub = creating
     ? assistantCopy.personal.availableAfterSaving
     : !memory
       ? settingsCopy.heartbeatNeedsMemory
-      : !connected
+      : !chat
         ? copy.heartbeatChannel
         : undefined;
   // A saved zone stays until the owner adopts the browser's (after travelling).

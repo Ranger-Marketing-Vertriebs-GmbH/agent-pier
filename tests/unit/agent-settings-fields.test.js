@@ -220,6 +220,11 @@ test("telegram drafts keep the heartbeat flat and send only changed channel fiel
   });
   const noMemory = { ...assistant, capabilities: { memory: false } };
   assert.equal(heartbeatPatch(base, noMemory).heartbeat.enabled, false);
+  // Without a paired chat the server refuses switching check-ins on: never sent.
+  const unpaired = { ...assistant, heartbeatChannel: false };
+  assert.equal(heartbeatPatch(base, unpaired).heartbeat.enabled, false);
+  const paired = { ...assistant, heartbeatChannel: true };
+  assert.equal(heartbeatPatch(base, paired).heartbeat.enabled, true);
   assert.deepEqual(channelPatch({ values: { ...base, language: "de" }, base }), {
     language: "de",
   });
