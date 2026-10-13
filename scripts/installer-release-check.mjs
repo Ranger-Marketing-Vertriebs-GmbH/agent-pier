@@ -31,6 +31,13 @@ export async function validateInstallerRelease({ directory, tag }) {
   )
     throw Error("Release tag and asset versions differ.");
   if (
+    !Number.isSafeInteger(latest.schemaMin) ||
+    !Number.isSafeInteger(latest.schemaMax) ||
+    latest.schemaMin < 1 ||
+    latest.schemaMin > latest.schemaMax
+  )
+    throw Error("latest.json must declare the accepted data schema range.");
+  if (
     !latest.artifacts ||
     Object.keys(latest.artifacts).sort().join() !== platforms.slice().sort().join()
   )
