@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
@@ -149,23 +148,39 @@ test("a lost connection or a call timeout during the roster wait fails at once",
 test("a call's own timeout outlasts the client default", async (t) => {
   const fixture = await gatewayFixture();
   t.after(() => fixture.close());
+  // Connected with the normal timeout on real timers; the calls below run on mocked
+  // ones, so a slow host cannot fire or skip a timeout early.
   const client = new GatewayClient({
     url: fixture.url,
     certPath: fixture.certPath,
     token: "fixture",
-    timeoutMs: 100,
   });
   t.after(() => client.close());
   await client.connect();
-  let settled = false;
-  const pending = client
-    .call("pending", {}, { timeoutMs: 600 })
-    .finally(() => (settled = true));
-  pending.catch(() => {});
-  // Timers never fire early: past the default, the longer call is still waiting.
-  await delay(300);
-  assert.equal(settled, false);
-  await assert.rejects(pending, { code: "TIMEOUT" });
+  client.timeoutMs = 100;
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const watch = (promise) => {
+    const state = { settled: false, error: null };
+    promise.catch((error) => {
+      state.settled = true;
+      state.error = error;
+    });
+    return state;
+  };
+  // The fixture never answers "pending"; only the timers end these calls.
+  const short = watch(client.call("pending", {}));
+  const long = watch(client.call("pending", {}, { timeoutMs: 600 }));
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  t.mock.timers.tick(100);
+  await settle();
+  assert.equal(short.error?.code, "TIMEOUT", "the default ends at 100 ms");
+  assert.equal(long.settled, false, "the call's own 600 ms still runs");
+  t.mock.timers.tick(499);
+  await settle();
+  assert.equal(long.settled, false);
+  t.mock.timers.tick(1);
+  await settle();
+  assert.equal(long.error?.code, "TIMEOUT");
 });
 
 // AGENTPIER-50: the first sessions.create of a Gateway process loads its session
