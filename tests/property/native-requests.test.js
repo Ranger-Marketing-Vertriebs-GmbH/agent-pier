@@ -72,14 +72,20 @@ test("arbitrary native payloads cannot leak unknown metadata keys into public re
         options: [{ id: "deny", label: "Deny" }],
         subject: { ...extra, tool: "fixture" },
       });
-      assert.ok(
-        Object.keys(parsed).every((key) => ["kind", "subject", "options"].includes(key)),
-      );
-      assert.ok(
-        Object.keys(parsed.subject).every((key) =>
-          ["tool", "command", "path", "cwd", "description"].includes(key),
-        ),
-      );
+      // The public request contract: presentation/hookCount mark Codex hook trust
+      // prompts, and subject.name is the workflow name shown beside the tool.
+      for (const key of Object.keys(parsed))
+        assert.ok(
+          ["kind", "subject", "options", "presentation", "hookCount"].includes(key),
+          `unexpected request key ${JSON.stringify(key)}`,
+        );
+      for (const [key, value] of Object.entries(parsed.subject)) {
+        assert.ok(
+          ["tool", "command", "path", "name", "cwd", "description"].includes(key),
+          `unexpected subject key ${JSON.stringify(key)}`,
+        );
+        assert.equal(typeof value, "string");
+      }
     }),
   );
 });
