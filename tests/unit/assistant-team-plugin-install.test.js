@@ -6,6 +6,7 @@ import path from "node:path";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { writeGuardRuntimes } from "../../server/features/assistants/native-capabilities.js";
 test("managed plugin assets are private, reproducible and repaired without adopting a symlink", (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "team-plugin-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -79,4 +80,37 @@ test("the team proposal tool lets the model cite an explicit owner request", asy
   assert.equal(properties.ownerRequestedTeam.type, "boolean");
   assert.equal(properties.ownerRequestQuote.maxLength, 300);
   assert.match(propose.description, /verbatim/);
+});
+
+// Version gates that must move with the runtime pin (docs/assistant-runtime-updates.md).
+const calendar = (version) => {
+  const match = /^(\d{4})\.(\d{1,2})\.(\d{1,2})$/.exec(version);
+  assert.ok(match, `${version} is not a calendar version`);
+  return match.slice(1).map(Number);
+};
+const older = (a, b) => {
+  const [x, y] = [calendar(a), calendar(b)];
+  const n = x.findIndex((part, i) => part !== y[i]);
+  return n >= 0 && x[n] < y[n];
+};
+
+test("rollback targets are distinct, older qualified runtimes, newest first", () => {
+  const { version, rollbackTargets } = runtimeManifest;
+  assert.ok(rollbackTargets.length > 0);
+  assert.equal(new Set(rollbackTargets).size, rollbackTargets.length);
+  for (const target of rollbackTargets)
+    assert.ok(older(target, version), `${target} is not older than ${version}`);
+  for (let n = 1; n < rollbackTargets.length; n++)
+    assert.ok(older(rollbackTargets[n], rollbackTargets[n - 1]), rollbackTargets[n]);
+});
+
+test("the memory write guard covers the pinned runtime and only startable ones", () => {
+  const { version, rollbackTargets } = runtimeManifest;
+  // Without the pin, memory write and edit silently stay read-only after an update.
+  assert.ok(writeGuardRuntimes.includes(version), `${version} lacks the write guard`);
+  for (const runtime of writeGuardRuntimes)
+    assert.ok(
+      [version, ...rollbackTargets].includes(runtime),
+      `${runtime} is neither pinned nor a rollback target`,
+    );
 });
