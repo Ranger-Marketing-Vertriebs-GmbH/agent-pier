@@ -32,7 +32,8 @@ backoff.
 The session's **Artifacts** panel lists that session's artifacts in compact rows that
 open the viewer, with the retention hint above them. Each row's ⓘ opens the artifact's
 detail on the Artifacts page (pin, delete), and **Manage in Artifacts** opens the page
-filtered to the session; the filter shows as a removable chip.
+filtered to the session; the filter shows as a removable chip. Both links are
+cross-links (`returnTo`), so the page's back arrow returns to the session.
 
 `GET /api/artifacts` takes `projectId`, `sessionId`, `page`, `q` (up to 200
 characters, no control characters) and `pinned=true|false`, and returns

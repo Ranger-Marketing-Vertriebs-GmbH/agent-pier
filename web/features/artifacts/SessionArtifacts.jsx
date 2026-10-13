@@ -3,6 +3,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
 import { isPlainClick } from "../../components/link-click.js";
 import { artifactCopy as copy } from "../../lib/i18n/messages/artifacts.js";
+import { useCrossLink } from "../../app/cross-link.js";
 import { routePath } from "../../app/routes.js";
 import { CompactArtifactRows } from "./ArtifactRows.jsx";
 import { artifactLink } from "./artifact-return-link.js";
@@ -24,13 +25,16 @@ export default function SessionArtifacts({ sessionId, returnTo, navigate }) {
   useEffect(() => {
     if (data && page > pageCount) setPage(pageCount);
   }, [data, page, pageCount]);
-  const manage = artifactsRoute({ session: sessionId });
+  // Cross-links: the Artifacts page's back arrow returns to this session.
+  const crossLink = useCrossLink();
+  const manage = crossLink(artifactsRoute({ session: sessionId }));
   const open = (event, route) => {
     if (!isPlainClick(event) || !navigate) return;
     event.preventDefault();
     navigate(route);
   };
-  const detail = (item) => artifactsRoute({ session: sessionId, artifact: item.id });
+  const detail = (item) =>
+    crossLink(artifactsRoute({ session: sessionId, artifact: item.id }));
   return (
     <section className="session-artifacts-panel" aria-label={copy.title}>
       <ErrorMessage error={error} />

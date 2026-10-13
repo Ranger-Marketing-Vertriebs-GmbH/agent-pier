@@ -9,6 +9,7 @@ import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import { locale } from "../../lib/i18n/index.js";
 import { artifactCopy as copy } from "../../lib/i18n/messages/artifacts.js";
 import { routePath } from "../../app/routes.js";
+import useReturnTarget from "../../app/useReturnTarget.js";
 import useNarrowViewport from "../accounts/useNarrowViewport.js";
 import ArtifactDetail from "./ArtifactDetail.jsx";
 import ArtifactEmpty from "./ArtifactEmpty.jsx";
@@ -115,6 +116,8 @@ export default function ArtifactsPage({
   const projects = useProjects();
   const narrow = useNarrowViewport();
   const info = useInfoHint();
+  // Opened from a session's artifact panel: the list's back arrow returns there.
+  const returnTarget = useReturnTarget(route, onNavigate, sessions);
   const tab = route.artifactTab === "pinned" ? "pinned" : "all";
   // The search term lives in the address (`q`), so a reload or the viewer's return
   // keeps it; typing updates the address once the term settles.
@@ -180,7 +183,7 @@ export default function ArtifactsPage({
   };
   const clearFilters = () => {
     setTerm("");
-    onNavigate(artifactsRoute({ artifactTab: tab }), true);
+    onNavigate(artifactsRoute({ artifactTab: tab, returnTo: route.returnTo }), true);
   };
   return (
     <SettingsShell
@@ -188,8 +191,15 @@ export default function ArtifactsPage({
       title={subpage ? item?.title || copy.title : copy.title}
       subtitle={subpage ? copy.title : subtitle || undefined}
       description={subpage ? undefined : copy.description}
-      leading={subpage ? "back" : "menu"}
-      onLeading={subpage ? () => go({ artifact: "" }, true) : openNavigation}
+      leading={subpage || returnTarget ? "back" : "menu"}
+      leadingLabel={subpage ? undefined : returnTarget?.label}
+      onLeading={
+        subpage
+          ? () => go({ artifact: "" }, true)
+          : returnTarget
+            ? returnTarget.back
+            : openNavigation
+      }
       navigationOpen={navigationOpen}
       actions={
         subpage ? null : (

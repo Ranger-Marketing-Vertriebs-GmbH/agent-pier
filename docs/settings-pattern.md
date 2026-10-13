@@ -178,6 +178,10 @@ tab and subpage the owner came from.
   `routePath`, never echoed. Nesting stops after one level.
 - Agent settings remember their scroll position (`useReturnScroll`); returning through
   the back arrow restores it.
+- The Artifacts page also honours `returnTo`, but only from a session: the session's
+  artifact panel links (an artifact's detail, "Manage in Artifacts") carry the session,
+  and the list's back arrow reads "Back to <session>". A phone detail subpage still
+  goes back to the list first.
 
 ## Server summaries
 

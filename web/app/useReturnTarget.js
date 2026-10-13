@@ -1,4 +1,5 @@
 import useAssistants from "../features/assistants/useAssistants.js";
+import { artifactCopy } from "../lib/i18n/messages/artifacts.js";
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { extensionsPageCopy } from "../lib/i18n/messages/extensions.js";
@@ -7,7 +8,12 @@ import { settingsHubCopy } from "../lib/i18n/messages/settings.js";
 import { returnRoute, routePath } from "./routes.js";
 import { markReturn } from "./return-scroll.js";
 
-function originName(origin, assistants) {
+function originName(origin, assistants, sessions) {
+  if (origin.view === "workspace")
+    return (
+      (sessions || []).find((session) => session.id === origin.sessionId)?.name ||
+      artifactCopy.sessionLabel
+    );
   if (origin.view === "agents")
     return (
       (origin.assistantId &&
@@ -26,14 +32,15 @@ function originName(origin, assistants) {
  * Where a page opened through a cross-link leads back to: `{ route, label, back }`
  * from a valid `returnTo`, or null when the page was opened normally and keeps its
  * own hierarchical back. `back()` returns to the origin and its scroll position.
+ * `sessions` names a session origin (the Artifacts page opened from a session).
  */
-export default function useReturnTarget(route, navigate) {
+export default function useReturnTarget(route, navigate, sessions) {
   const { assistants } = useAssistants();
   const origin = returnRoute(route);
   if (!origin) return null;
   return {
     route: origin,
-    label: settingsHubCopy.backTo(originName(origin, assistants)),
+    label: settingsHubCopy.backTo(originName(origin, assistants, sessions)),
     back: () => {
       markReturn(routePath(origin));
       return navigate(origin);
