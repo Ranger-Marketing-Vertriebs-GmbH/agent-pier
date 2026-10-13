@@ -47,3 +47,19 @@ test("an older row stays listed while it is the open one", () => {
   );
   assert.deepEqual(listedProjects(undefined), []);
 });
+
+test("an older row with pipeline work its current row lacks stays listed", () => {
+  const described = describeDuplicates(rows, onDisk).map((project) =>
+    project.id === "lab-dir" || project.id === "ops-dir"
+      ? { ...project, pipelineWork: true }
+      : project.id === "ops-git"
+        ? { ...project, pipelineWork: true }
+        : project,
+  );
+  // electronic-lab: only the older row has steps or runs, so both rows are listed;
+  // spoolops: the current row has work of its own, so the older row stays hidden.
+  assert.deepEqual(
+    listedProjects(described).map((project) => project.id),
+    ["lab-dir", "lab-git", "pier", "ops-git"],
+  );
+});

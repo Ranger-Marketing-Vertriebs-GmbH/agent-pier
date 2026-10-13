@@ -2,7 +2,6 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 import { wantsRemotes } from "../../features/repositories/git-remote.js";
-import { withDuplicates } from "../../features/memory/project-duplicates.js";
 
 function pageValue(raw) {
   if (raw === undefined) return 1;
@@ -30,7 +29,9 @@ export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates 
     // current; that reads the folder's Git identity, which other readers skip.
     const listed = memory.projects().projects;
     const projects =
-      request.query?.duplicates === "1" ? await withDuplicates(listed) : listed;
+      request.query?.duplicates === "1"
+        ? await projectDuplicates.describe(listed)
+        : listed;
     response.json({
       projects:
         gitRemotes && wantsRemotes(request)
