@@ -2,9 +2,11 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { chatAssistant, chatFixture } from "../helpers/assistant-chat-fixture.js";
 
-// A finished team with a long objective and a long member assignment must stay
-// inside the transcript; the transcript itself never scrolls sideways.
+// Teams with a long objective and a long member assignment must stay inside their
+// column wherever their cards are rendered: the team list in Settings → Work and the
+// proposal and review cards in the lead's chat. Nothing scrolls sideways.
 const chat = baseURL + "/agents/home/chats/dinner";
+const work = baseURL + "/agents/home/settings?tab=work&team=team";
 const objective =
   "Verwaltung, Dokumentation und Planung der Netzwerk-Topologie, IP-Adressen, " +
   "VLANs, WLAN-Infrastruktur und aller Dienste im Heimnetz";
@@ -28,6 +30,14 @@ function setup(language) {
         parentAssistantId: "home",
         lifetime: "task",
       }),
+      chatAssistant({
+        id: "member-1",
+        name: "Network Auditor",
+        teamMemberId: "member-1",
+        teamId: "review",
+        parentAssistantId: "home",
+        lifetime: "task",
+      }),
     ],
     conversations: [
       { id: "dinner", assistantId: "home" },
@@ -47,6 +57,19 @@ function setup(language) {
         phase: "completed",
         conversationId: "member-chat",
       },
+      {
+        id: "member-1",
+        kind: "member",
+        teamId: "review",
+        parentAssistantId: "home",
+        assistantId: "member-1",
+        name: "Network Auditor",
+        role: "Network",
+        assignment,
+        lifetime: "task",
+        phase: "provisioning_uncertain",
+        conversationId: null,
+      },
     ],
     teams: [
       {
@@ -56,8 +79,33 @@ function setup(language) {
         parentConversationId: "dinner",
         objective,
         phase: "completed",
+        createdAt: "2026-10-13T09:00:00.000Z",
+        finishedAt: "2026-10-13T09:30:00.000Z",
         members: [],
         memberIds: ["member-0"],
+      },
+      {
+        id: "proposal",
+        revision: 1,
+        parentAssistantId: "home",
+        parentConversationId: "dinner",
+        objective: `${objective} (2)`,
+        phase: "awaiting_approval",
+        createdAt: "2026-10-13T10:00:00.000Z",
+        members: [{ name: "Network Architect", role: "Network", assignment }],
+        memberIds: [],
+      },
+      {
+        id: "review",
+        revision: 1,
+        parentAssistantId: "home",
+        parentConversationId: "dinner",
+        objective: `${objective} (3)`,
+        phase: "running",
+        status: "uncertain",
+        createdAt: "2026-10-13T10:10:00.000Z",
+        members: [],
+        memberIds: ["member-1"],
       },
     ],
     history: {
@@ -81,55 +129,87 @@ const sizes = [
 ];
 const archive = { de: "Archivieren", en: "Archive" };
 
+const noSideways = async (page, selector) => {
+  const widths = await page.evaluate((selector) => {
+    const d = document.scrollingElement;
+    return [d, ...document.querySelectorAll(selector)].map((e) => [
+      e.scrollWidth,
+      e.clientWidth,
+    ]);
+  }, selector);
+  for (const [scroll, client] of widths) expect(scroll).toBe(client);
+};
+const inside = async (outer, inner) => {
+  const [o, i] = await Promise.all([outer.boundingBox(), inner.boundingBox()]);
+  expect(i.x).toBeGreaterThanOrEqual(o.x);
+  expect(i.x + i.width).toBeLessThanOrEqual(o.x + o.width + 0.5);
+};
+const wraps = async (title) => {
+  const fontSize = await title.evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+  expect((await title.boundingBox()).height).toBeGreaterThan(fontSize * 2);
+};
+
 for (const language of ["de", "en"])
-  for (const [size, viewport] of sizes)
-    test(`team card fits the transcript (${language}, ${size})`, async ({ page }) => {
+  for (const [size, viewport] of sizes) {
+    test(`team card fits the Work tab (${language}, ${size})`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await chatFixture(page, setup(language));
-      await page.goto(chat);
-      const card = page.locator(".assistant-team-card");
-      await card.locator("summary").click();
+      await page.goto(work);
+      const card = page.locator("#assistant-team-team");
       await expect(card).toHaveAttribute("open", "");
-      const transcript = page.locator(".assistant-transcript");
-      await expect(transcript.locator("pre")).toBeVisible();
-
-      const widths = await page.evaluate(() => {
-        const t = document.querySelector(".assistant-transcript");
-        const d = document.scrollingElement;
-        return {
-          document: [d.scrollWidth, d.clientWidth],
-          transcript: [t.scrollWidth, t.clientWidth],
-        };
-      });
-      expect(widths.document[0]).toBe(widths.document[1]);
-      expect(widths.transcript[0]).toBe(widths.transcript[1]);
-
-      const [outer, inner] = await Promise.all([
-        transcript.boundingBox(),
-        card.boundingBox(),
-      ]);
-      expect(inner.x).toBeGreaterThanOrEqual(outer.x);
-      expect(inner.x + inner.width).toBeLessThanOrEqual(outer.x + outer.width + 0.5);
+      await noSideways(page, ".assistant-settings-scroll, #agent-teams");
+      await inside(page.locator("#agent-teams"), card);
 
       // The objective wraps onto several lines; the assignment ends in an ellipsis.
       const title = card.locator(".assistant-team-title strong");
-      const fontSize = await title.evaluate((e) =>
-        parseFloat(getComputedStyle(e).fontSize),
-      );
-      if (size === "phone")
-        expect((await title.boundingBox()).height).toBeGreaterThan(fontSize * 2);
+      if (size === "phone") await wraps(title);
       const detail = card.locator(".assistant-team-member small");
       await expect(detail).toHaveCSS("text-overflow", "ellipsis");
       expect(
         await detail.evaluate((e) => e.scrollWidth > e.clientWidth),
         "the long assignment is truncated",
       ).toBe(true);
-      const box = await detail.boundingBox();
-      expect(box.x + box.width).toBeLessThanOrEqual(inner.x + inner.width);
+      await inside(card, detail);
 
-      // The bordered row under the member is the archive button; its label is visible.
+      // The archive button's label is visible in full.
       const button = card.getByRole("button", { name: archive[language], exact: true });
       await button.scrollIntoViewIfNeeded();
       await expect(button).toBeInViewport({ ratio: 1 });
       expect(await button.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
     });
+
+    test(`proposal, review and notes fit the transcript (${language}, ${size})`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await chatFixture(page, setup(language));
+      await page.goto(chat);
+      const transcript = page.locator(".assistant-transcript");
+      await expect(transcript.locator("pre")).toBeVisible();
+      const proposal = page.locator(".assistant-team-card.awaiting");
+      const review = page.locator("#assistant-team-review-review");
+      await expect(proposal).toBeVisible();
+      await expect(review).toBeVisible();
+      await noSideways(page, ".assistant-transcript");
+      await inside(transcript, proposal);
+      await inside(transcript, review);
+      if (size === "phone") await wraps(proposal.locator(".assistant-team-title strong"));
+      await inside(proposal, proposal.locator(".assistant-team-proposal small").first());
+      for (const button of await proposal
+        .locator(".assistant-card-actions .button")
+        .all())
+        expect(await button.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+
+      // Notes and the review heading clamp the objective; their title keeps it.
+      const note = transcript.locator(".assistant-team-note a").first();
+      await inside(transcript, note);
+      const clamped = [note.locator("span"), review.locator(".assistant-team-clamp")];
+      if (size === "phone")
+        for (const text of clamped)
+          expect(
+            await text.evaluate((e) => e.scrollHeight > e.clientHeight),
+            "the long objective is clamped",
+          ).toBe(true);
+      await expect(note).toHaveAttribute("title", new RegExp(objective.slice(0, 40)));
+    });
+  }

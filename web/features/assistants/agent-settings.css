@@ -169,6 +169,9 @@
 /* Settings → Work → Teams: the lead's team cards with an Active/Archived filter. */
 .agent-teams {
   display: grid;
+  /* An auto track would grow to a card's min-content width (a member assignment is
+     kept on one line); the cards must take the column width. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 .agent-teams-filter {
