@@ -34,6 +34,19 @@ function validator(headers) {
   if (etag && !etag.startsWith("W/")) return etag;
   return headers.get("last-modified") || null;
 }
+/** Seconds until GitHub accepts requests again, or null without a usable hint. */
+export function retryAfterSeconds(headers, now = Date.now()) {
+  const retry = headers.get("retry-after");
+  let seconds = null;
+  if (retry !== null && /^\d+$/.test(retry.trim())) seconds = Number(retry.trim());
+  else if (retry !== null && Number.isFinite(Date.parse(retry)))
+    seconds = (Date.parse(retry) - now) / 1000;
+  else if (/^\d+$/.test(headers.get("x-ratelimit-reset") || ""))
+    seconds = Number(headers.get("x-ratelimit-reset")) - now / 1000;
+  return seconds === null || !Number.isFinite(seconds)
+    ? null
+    : Math.max(1, Math.ceil(seconds));
+}
 const reset = (state) => Object.assign(state, { chunks: [], length: 0, validator: null });
 const contentRange = (response) =>
   /^bytes (?:(\d+)-(\d+)|\*)\/(\d+|\*)$/.exec(
@@ -138,8 +151,10 @@ async function transfer(url, fetchImpl, limit, idleTimeout, state, extraHeaders)
         [403, 429].includes(response.status) &&
         (response.headers.get("x-ratelimit-remaining") === "0" ||
           response.headers.has("retry-after"))
-      )
+      ) {
         error.rateLimited = true;
+        error.retryAfter = retryAfterSeconds(response.headers);
+      }
       throw error;
     }
     if (response.status === 206) {
