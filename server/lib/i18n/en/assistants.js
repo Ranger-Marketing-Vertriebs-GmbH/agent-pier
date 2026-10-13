@@ -151,6 +151,7 @@ export const assistants = {
     "With shell access the agent runs commands as your user account on this computer, including outside its workspace. Confirm the warning to turn access on.",
   shellFullConfirmationRequired:
     "With full shell access the agent runs every command without asking. Confirm this explicitly.",
+  modelsRateLimited: "Too many model list refreshes. Please try again in a minute.",
   allowlistEntryNotFound:
     "This entry is no longer on the list of allowed commands. Please reload.",
 };

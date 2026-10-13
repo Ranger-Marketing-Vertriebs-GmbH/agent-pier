@@ -32,3 +32,33 @@ test("assistant account API requires authentication, origin and a running owned 
   assert.equal((await fixtureFetch(login + "/foreign")).status, 404);
   assert.ok(application.assistantModelAccounts);
 });
+
+test("a model list refresh needs login and origin, and one owner budget bounds it", async (t) => {
+  const { url } = await applicationFixture(t, enabledAssistants);
+  const endpoint =
+    url + "/api/assistant-model-accounts/openclaw%3Afixture/models/refresh";
+  const options = {
+    method: "POST",
+    headers: { origin: url, "content-type": "application/json" },
+    body: "{}",
+  };
+  assert.equal((await fetch(endpoint, options)).status, 401);
+  assert.equal(
+    (
+      await fixtureFetch(endpoint, {
+        ...options,
+        headers: { ...options.headers, origin: "https://foreign.invalid" },
+      })
+    ).status,
+    403,
+  );
+  const statuses = [];
+  for (let i = 0; i < 13; i++)
+    statuses.push((await fixtureFetch(endpoint, options)).status);
+  assert.deepEqual(statuses.slice(0, 11), Array(11).fill(503), "no running Gateway");
+  const limited = await fixtureFetch(endpoint, options);
+  assert.equal(limited.status, 429);
+  const body = await limited.json();
+  assert.equal(body.code, "models-rate-limited");
+  assert.equal(body.messageKey, "assistants.modelsRateLimited");
+});

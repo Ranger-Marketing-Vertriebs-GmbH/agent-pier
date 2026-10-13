@@ -4,11 +4,14 @@ import { readJSON, writePrivate } from "../../lib/storage.js";
 import { runtimePaths } from "./runtime-paths.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { destroyBackupKeys } from "./backup-credentials.js";
+import { ModelAccountCatalog, accountModelId } from "./model-account-catalog.js";
 const identity = (profileId) =>
   `openclaw:${createHash("sha256").update(profileId).digest("hex")}`;
 export class AssistantModelAccounts {
-  constructor({ dataDir, runtime }) {
+  constructor({ dataDir, runtime, catalog = new ModelAccountCatalog({ runtime }) }) {
     this.runtime = runtime;
+    // Model lists live in memory only; the Gateway is the source of truth.
+    this.catalog = catalog;
     this.file = path.join(runtimePaths(dataDir).root, "model-accounts.json");
     const saved = readJSON(this.file, []);
     this.records = Array.isArray(saved)
@@ -33,14 +36,26 @@ export class AssistantModelAccounts {
   requireReady() {
     if (!this.runtime.client?.ready) throw assistantProblem("unavailable", 503);
   }
+  /** Synchronous: cached model lists, with a background read once they are stale. */
   capabilities() {
+    if (this.records.length) this.catalog.ensure();
     return this.records.map((r) => ({
       id: r.id,
       name: String(r.name || "ChatGPT").slice(0, 200),
       providerId: "openai-chatgpt",
       status: this.runtime.client?.ready ? r.status : "offline",
       available: !!this.runtime.client?.ready && ["ok", "expiring"].includes(r.status),
+      ...this.catalog.account(r.profileId),
     }));
+  }
+  /** Rereads the Gateway's model list now; the account must exist. */
+  async refreshModels(id) {
+    this.requireReady();
+    const record = this.record(id);
+    // A failed read is reported as the account's list state, never as an upstream error.
+    await this.catalog.refresh({ force: true }).catch(() => {});
+    const { models, modelCatalog } = this.catalog.account(record.profileId);
+    return { models, modelCatalog };
   }
   async list() {
     if (!this.runtime.client?.ready) return this.capabilities();
@@ -76,10 +91,7 @@ export class AssistantModelAccounts {
   }
   async resolve(id, modelId) {
     this.requireReady();
-    if (
-      typeof modelId !== "string" ||
-      !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(modelId)
-    )
+    if (typeof modelId !== "string" || !accountModelId.test(modelId))
       throw assistantProblem("invalid");
     await this.list();
     let record = this.record(id);
@@ -107,10 +119,7 @@ export class AssistantModelAccounts {
     };
   }
   offlineSelection(id, modelId) {
-    if (
-      typeof modelId !== "string" ||
-      !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(modelId)
-    )
+    if (typeof modelId !== "string" || !accountModelId.test(modelId))
       throw assistantProblem("invalid");
     const profileId = this.identities.get(id);
     if (!profileId) throw assistantProblem("provider");

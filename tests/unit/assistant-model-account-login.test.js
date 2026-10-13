@@ -159,3 +159,30 @@ test("loginReason drops device codes, bearer values, token-like runs and control
   assert.equal(loginReason("x".repeat(30)), "[redacted]");
   assert.equal(loginReason("a".repeat(20) + " ".repeat(400)).length, 300);
 });
+
+test("a completed sign-in rereads the accounts and starts a forced model list read", async () => {
+  const client = fakeClient({
+    "models.authLogin": { done: false },
+    "wizard.next": { done: true, status: "done" },
+  });
+  const refreshed = [];
+  let listed = 0;
+  const login = new AssistantAccountLogin({
+    runtime: { client },
+    accounts: {
+      list: async () => listed++,
+      catalog: {
+        refresh: async (options) => {
+          refreshed.push(options);
+          throw Error("a failed read never fails the sign-in");
+        },
+      },
+    },
+    warn: () => {},
+  });
+  login.start();
+  const status = await settle(login);
+  assert.equal(status.status, "completed");
+  assert.equal(listed, 1);
+  assert.deepEqual(refreshed, [{ force: true }]);
+});

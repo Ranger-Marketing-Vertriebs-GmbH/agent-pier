@@ -130,6 +130,8 @@ export function constructAssistantGraph(host, created = {}) {
       "telegramSenders",
     ],
   ));
+  // A background model list read publishes its result like any other change.
+  assistantModelAccounts.catalog.onChange = () => assistants.changed();
   // Initial state, not a reference: an interrupted update or maintenance persists.
   assistants.maintenance = needsAssistantMaintenance(assistantRuntime.paths);
   const assistantTeams = (created.teams = expectWiring(

@@ -111,6 +111,8 @@ export class AssistantAccountLogin {
               reason: result.error,
             });
           await this.accounts.list();
+          // The new account's model list loads in the background.
+          this.accounts.catalog?.refresh({ force: true }).catch(() => {});
           if (current()) attempt.status = "completed";
           return;
         }
