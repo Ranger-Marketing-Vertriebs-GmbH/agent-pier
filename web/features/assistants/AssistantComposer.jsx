@@ -188,7 +188,6 @@ export default function AssistantComposer({
           rows={1}
           enterKeyHint={enterKeyHint(touchInput)}
           {...(mention.enabled && {
-            role: "combobox",
             "aria-autocomplete": "list",
             "aria-expanded": mention.open,
             "aria-controls": mention.listId,

@@ -89,9 +89,15 @@ for (const language of ["en", "de"])
       }) => {
         await setup(page, language);
         await page.goto(baseURL + "/agents/home/chats/dinner");
-        const field = page.getByRole("combobox");
+        const field = page.locator("#assistant-message");
         const list = page.getByRole("listbox", { name: w.list });
+        // A textbox that owns a listbox; no combobox role on a textarea.
+        await expect(field).toHaveRole("textbox");
+        await expect(field).toHaveAttribute("aria-autocomplete", "list");
         await expect(field).toHaveAttribute("aria-expanded", "false");
+        await expect(field).not.toHaveAttribute("aria-activedescendant");
+        const listId = await field.getAttribute("aria-controls");
+        await expect(page.locator(`[id="${listId}"]`)).toHaveAttribute("role", "listbox");
         await expect(list).toBeHidden();
         await expect(page.locator(".assistant-message").first()).toBeVisible();
         await field.fill(`${w.hi} `);
@@ -143,7 +149,7 @@ for (const language of ["en", "de"])
       test("a tap or click on a member inserts its exact name", async ({ page }) => {
         await setup(page, language);
         await page.goto(baseURL + "/agents/home/chats/dinner");
-        const field = page.getByRole("combobox");
+        const field = page.locator("#assistant-message");
         await field.pressSequentially("@ARCH");
         const option = page.getByRole("option", { name: /Network Architect/ });
         if (label === "phone") await option.tap();
@@ -196,7 +202,10 @@ for (const language of ["en", "de"])
         else await chip.click();
         await expect(page).toHaveURL(/\/agents\/net\/chats\/net-chat$/);
         // A member's chat has no autocomplete.
-        await expect(page.getByRole("combobox")).toHaveCount(0);
+        const field = page.locator("#assistant-message");
+        await expect(field).toBeVisible();
+        await expect(field).not.toHaveAttribute("aria-autocomplete");
+        await expect(field).not.toHaveAttribute("aria-controls");
         await expect(page.getByRole("listbox", { name: w.list })).toHaveCount(0);
       });
     });
