@@ -43,7 +43,7 @@ concurrency:
 jobs:
   fresh-install:
     name: Fresh install (${{ matrix.target }})
-    timeout-minutes: 25
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       # Native labels verified against the GitHub-hosted runners reference.
@@ -75,7 +75,7 @@ jobs:
         run: node scripts/verify-assistant-installation.mjs
   native-contracts:
     name: Native contracts (${{ matrix.runner }})
-    timeout-minutes: 45
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
