@@ -295,6 +295,7 @@ export default function AssistantChat({
                   name={m.role === "user" ? copy.you : assistant.name}
                   text={m.text}
                   source={m.source}
+                  sender={m.sender}
                   timestamp={m.timestamp}
                   attachments={m.attachments}
                 />
@@ -318,6 +319,7 @@ export default function AssistantChat({
                   text={latest.text}
                   attachments={latest.attachments}
                   source={latest.source}
+                  sender={latest.sender}
                   timestamp={Date.parse(latest.createdAt) || 0}
                 />
               )}

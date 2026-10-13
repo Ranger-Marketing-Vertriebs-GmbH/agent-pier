@@ -23,6 +23,7 @@ export async function chatFixture(page, options = {}) {
     models: [{ id: "router", name: "OpenRouter", available: true }],
     members: [],
     teams: [],
+    requests: [],
     activity: {},
     actions: [],
     runtime: { availability: "ready", sync: "current" },
@@ -72,6 +73,7 @@ export async function chatFixture(page, options = {}) {
         models: state.models,
         members: state.members,
         teams: state.teams,
+        requests: state.requests,
         activity: state.activity,
       };
     else if (p === "/api/assistant-runtime") body = state.runtime;

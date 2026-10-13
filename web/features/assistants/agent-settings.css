@@ -195,3 +195,22 @@
   color: var(--muted);
   font-size: 13px;
 }
+/* Settings → Work → Teams: a lead's questions and tasks, grouped by member. */
+.agent-member-requests {
+  margin-top: 20px;
+}
+.agent-member-request-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.agent-member-request-group h4 {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+/* A finished request is history, not a call to act. */
+.lead-request-card:not([data-pending]) {
+  border-color: var(--line);
+}

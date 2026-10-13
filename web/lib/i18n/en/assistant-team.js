@@ -53,6 +53,7 @@ export const assistantTeamCopy = {
   },
   internalTurns: {
     "team-result": "Team results received. The agent is summarizing them.",
+    "member-result": "A member's answer arrived. The agent is passing it on.",
     "coding-result": "Coding run result received.",
   },
   notes: {

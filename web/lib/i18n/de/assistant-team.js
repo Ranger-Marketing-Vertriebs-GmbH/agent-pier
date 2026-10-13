@@ -53,6 +53,7 @@ export const assistantTeamCopy = {
   },
   internalTurns: {
     "team-result": "Team-Ergebnisse eingegangen. Der Agent fasst sie zusammen.",
+    "member-result": "Antwort eines Mitglieds eingegangen. Der Agent gibt sie weiter.",
     "coding-result": "Ergebnis eines Coding-Laufs eingegangen.",
   },
   notes: {

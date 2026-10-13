@@ -33,6 +33,7 @@ export default function AssistantsHost({ publishState, publishEvents }) {
           models: next.models || [],
           teams: next.teams || [],
           members: next.members || [],
+          requests: next.requests || [],
           policies: next.policies || {},
           teamSettings: next.teamSettings,
           activity: next.activity || {},
