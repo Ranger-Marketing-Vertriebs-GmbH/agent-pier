@@ -8,7 +8,7 @@ import { renderOnlineInstaller } from "../../scripts/installer-package.mjs";
 import { renderInstallerFormula } from "../../scripts/homebrew-formula.mjs";
 const hash = (b) => createHash("sha256").update(b).digest("hex");
 
-async function fixture(t, version = "1.2.3") {
+async function fixture(t, version = "1.2.3", schema = { schemaMin: 1, schemaMax: 1 }) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-publish-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const write = async (file, bytes) => {
@@ -21,7 +21,10 @@ async function fixture(t, version = "1.2.3") {
       `agentpier-${platform}.aprelease`,
       `fixture ${platform}`,
     );
-  await write("latest.json", JSON.stringify({ version, schemaVersion: 1, artifacts }));
+  await write(
+    "latest.json",
+    JSON.stringify({ version, schemaVersion: 1, ...schema, artifacts }),
+  );
   const bundle = await write(`agentpier-installer-${version}.tar.gz`, "fixture bundle");
   const script = await write(
     "install-agentpier.sh",
@@ -47,7 +50,7 @@ test("release validation rejects missing, changed, or cross-version installer as
   await assert.rejects(validateInstallerRelease(ctx), /ENOENT|missing/i);
 });
 
-async function remoteFixture(ctx, latestTag = null) {
+async function remoteFixture(ctx, latestTag = null, published = []) {
   let release = null;
   const remote = new Map();
   const calls = [];
@@ -65,6 +68,14 @@ async function remoteFixture(ctx, latestTag = null) {
         assets: [...remote.keys()].map((name) => ({ name })),
       });
     }
+    if (args[1] === "list")
+      return JSON.stringify(
+        published.map(({ tag, draft = false }) => ({
+          tagName: tag,
+          isDraft: draft,
+          isPrerelease: tag.includes("-"),
+        })),
+      );
     if (args[1] === "create") {
       release = { draft: true, tag_name: ctx.tag };
       return "";
@@ -77,6 +88,11 @@ async function remoteFixture(ctx, latestTag = null) {
     if (args[1] === "download") {
       const name = args[args.indexOf("--pattern") + 1];
       const dir = args[args.indexOf("--dir") + 1];
+      const other = published.find(({ tag }) => tag === args[2]);
+      if (other) {
+        await fs.writeFile(path.join(dir, name), JSON.stringify(other.latest));
+        return "";
+      }
       await fs.writeFile(path.join(dir, name), remote.get(name));
       return "";
     }
@@ -269,4 +285,66 @@ test("release candidates publish complete assets without replacing the stable la
     remote.calls.find((args) => args[1] === "edit").includes("--prerelease"),
     true,
   );
+});
+
+test("release validation requires the accepted data schema range", async (t) => {
+  const { validateInstallerRelease } =
+    await import("../../scripts/installer-release-check.mjs");
+  for (const schema of [{}, { schemaMin: 2, schemaMax: 1 }]) {
+    const ctx = await fixture(t, "1.2.3", schema);
+    await assert.rejects(validateInstallerRelease(ctx), /schema range/);
+  }
+});
+
+const candidate = (tag, schemaMax, extra = {}) => ({
+  tag,
+  latest: { version: tag.slice(1), schemaVersion: 1, schemaMin: 1, schemaMax },
+  ...extra,
+});
+
+for (const [version, schema, published, expected] of [
+  ["1.29.0", { schemaMin: 1, schemaMax: 1 }, [candidate("v1.29.0-rc.1", 2)], /frozen/],
+  ["1.29.0", { schemaMin: 3, schemaMax: 3 }, [candidate("v1.29.0-rc.1", 2)], /frozen/],
+  [
+    "1.29.0-rc.2",
+    { schemaMin: 1, schemaMax: 1 },
+    [candidate("v1.29.0-rc.1", 2)],
+    /frozen/,
+  ],
+  [
+    "1.29.0",
+    { schemaMin: 1, schemaMax: 2 },
+    [{ tag: "v1.29.0-rc.1", latest: { version: "1.29.0-rc.1" } }],
+    /does not declare/,
+  ],
+])
+  test(`publishing ${version} refuses to strand ${published[0].tag} installations`, async (t) => {
+    const { publishInstallerRelease } =
+      await import("../../scripts/installer-release-publish.mjs");
+    const ctx = await fixture(t, version, schema),
+      remote = await remoteFixture(ctx, "v1.28.0", published);
+    await assert.rejects(publishInstallerRelease({ ...ctx, run: remote.run }), expected);
+    assert.equal(
+      remote.calls.some((a) => ["upload", "edit", "create"].includes(a[1])),
+      false,
+    );
+  });
+
+test("a final release that accepts every published RC schema is published", async (t) => {
+  const { publishInstallerRelease } =
+    await import("../../scripts/installer-release-publish.mjs");
+  const ctx = await fixture(t, "1.29.0", { schemaMin: 1, schemaMax: 2 }),
+    remote = await remoteFixture(ctx, "v1.28.0", [
+      candidate("v1.29.0-rc.1", 1),
+      candidate("v1.29.0-rc.2", 2),
+      candidate("v1.29.0-rc.3", 9, { draft: true }),
+      candidate("v1.30.0-rc.1", 9),
+      candidate("v1.28.0", 1),
+    ]);
+  await publishInstallerRelease({ ...ctx, run: remote.run });
+  assert.equal(remote.latestTag, "v1.29.0");
+  const checked = remote.calls
+    .filter((a) => a[1] === "download" && a.includes("latest.json"))
+    .map((a) => a[2]);
+  assert.deepEqual(checked.slice(0, 2), ["v1.29.0-rc.1", "v1.29.0-rc.2"]);
 });

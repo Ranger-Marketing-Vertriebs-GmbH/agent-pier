@@ -30,13 +30,37 @@ no update exists. Stable checks do not require the release-list API.
 A manual workflow dispatch only builds artifacts; publishing requires the tag push.
 Existing installations first need a stable release containing the channel selector.
 
+## Data schema rule for release candidates
+
+Activating a release can migrate the private data directory to a newer data schema.
+Every package declares the range of data schemas it can open (`schemaMin` to
+`schemaMax`), and `latest.json` repeats that range.
+
+- Once a schema version `N` ships in any published RC, it is frozen. The final
+  release and every later RC of the same version must accept it:
+  `schemaMin <= N <= schemaMax`. Do not rework or renumber a migration after an RC
+  that contains it has been published.
+- Avoid schema bumps in late RCs. Put migrations into the first RC of a version so
+  that testers exercise them for the longest time.
+- The publish step enforces this rule. Before it creates or publishes a release
+  `x.y.z` or `x.y.z-rc.N`, it reads `latest.json` of every earlier published
+  `x.y.z-rc.*` and fails if the new release does not accept that RC's `schemaMax`.
+- Testers take a backup in Settings → Backup before they activate an RC that changes
+  the data schema.
+
 ## Installation preference
 
 The choice is stored in `operations/release-preferences.json` inside the private
 data directory. New installations default to Stable. Changing the channel clears
 the checked offer and invalidates in-flight checks and staging downloads. It does
 not activate a release, downgrade an installation, or delete already staged
-packages. Existing rollback compatibility checks continue to apply.
+packages. A package staged from Preview therefore stays activatable after switching
+to Stable, and the Updates page marks it as a pre-release.
+
+Rollback is checked against the data directory. After an RC has migrated the data
+to a newer schema, rollback to an older stable version that cannot open this schema
+is refused. The installation stays on the RC until a release that accepts the schema
+arrives, or the data is restored from a backup.
 
 `AGENTPIER_RELEASE_CHANNEL` remains a custom manifest source override. A custom
 source disables the official Stable/Preview selector and retains its existing

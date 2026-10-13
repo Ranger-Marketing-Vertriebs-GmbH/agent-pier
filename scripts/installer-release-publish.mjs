@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { createHash } from "node:crypto";
 import { compareReleaseVersions } from "../server/features/operations/version.js";
 import { validateInstallerRelease } from "./installer-release-check.mjs";
+import { requireSchemaContinuity } from "./release-schema-continuity.mjs";
 import { isMainModule } from "../server/lib/is-main-module.js";
 const execute = promisify(execFile);
 const gh = async (args) =>
@@ -20,6 +21,12 @@ export async function publishInstallerRelease({
   const files = await validateInstallerRelease({ directory, tag });
   if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repo))
     throw Error("Invalid release repository.");
+  await requireSchemaContinuity({
+    tag,
+    manifest: JSON.parse(await fs.readFile(path.join(directory, "latest.json"), "utf8")),
+    repo,
+    run,
+  });
   const inspect = async () => {
     const value = JSON.parse(
       await run([
