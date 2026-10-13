@@ -17,6 +17,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         node: [22, 24]
     runs-on: ${{ matrix.os }}
+    # Observed p90 11 min (macOS); one job once hung for 2 h without a limit.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -80,6 +82,8 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     runs-on: ubuntu-latest
+    # Observed p90 12.3 min; a retry of a few slow specs fits well inside.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -121,6 +125,8 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     runs-on: ubuntu-latest
+    # Observed p90 19.1 min.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -169,6 +175,7 @@ jobs:
     needs: chromium-shards
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - run: test "${{ needs.chromium-shards.result }}" = success
   # Branch protection requires "browser (webkit)"; it passes only when every shard did.
@@ -177,5 +184,6 @@ jobs:
     needs: webkit-shards
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - run: test "${{ needs.webkit-shards.result }}" = success
