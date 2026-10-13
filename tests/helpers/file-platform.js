@@ -19,6 +19,9 @@ const privileged = (command, args) =>
 export const privilegedPlatformCommand = privileged;
 
 const settleDelays = [100, 250, 500, 1000, 2000];
+const fixtureVolume = "AgentPier fixture";
+// hdiutil create -fs mounts the new volume at /Volumes/<volname>[ N] to format it.
+export const temporaryCreateMount = /^\/Volumes\/AgentPier fixture(?: [0-9]+)?$/;
 
 // hdiutil may temporarily retain an APFS image after unmounting its volume; on
 // macOS runners the whole disk has stayed busy for more than four seconds after a
@@ -29,6 +32,7 @@ export async function detachOwnedDiskImage({
   directory,
   identity,
   attached,
+  ownsMount = (mountPoint) => mountPoint === directory,
   command = platformCommand,
   stat = fs.stat,
   wait = delay,
@@ -41,7 +45,7 @@ export async function detachOwnedDiskImage({
     assert.equal(current["image-path"], image);
     const entities = current["system-entities"] || [];
     const mounted = entities.filter((item) => item["mount-point"]);
-    assert.ok(mounted.every((item) => item["mount-point"] === directory));
+    assert.ok(mounted.every((item) => ownsMount(item["mount-point"])));
     if (identity && mounted.length)
       assert.equal(String((await stat(directory)).dev), identity);
     const disks = entities.filter(
@@ -257,7 +261,7 @@ export async function filenameFileSystem(
         "-fs",
         caseSensitive ? "Case-sensitive APFS" : "APFS",
         "-volname",
-        "AgentPier fixture",
+        fixtureVolume,
       ],
       attached,
       detach: () =>
@@ -265,6 +269,10 @@ export async function filenameFileSystem(
           image,
           directory,
           attached,
+          // A failed create can leave the image on hdiutil's own temporary
+          // mount of the new volume; the image path above proves ownership.
+          ownsMount: (mountPoint) =>
+            mountPoint === directory || temporaryCreateMount.test(mountPoint),
           diagnostic: (value) => t.diagnostic?.(value),
         }),
       diagnostic: (value) => t.diagnostic?.(value),
