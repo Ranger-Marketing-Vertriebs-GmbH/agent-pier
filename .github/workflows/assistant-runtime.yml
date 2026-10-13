@@ -1,9 +1,10 @@
 name: Assistant runtime
+# Nightly and before a release through full.yml: upstream registries and hosted
+# runner images change without a commit. Pull requests run the Linux half only;
+# macOS runs after the merge, nightly and before a release.
 on:
   workflow_dispatch:
-  schedule:
-    # Nightly: upstream registries and hosted runner images change without a commit.
-    - cron: "23 2 * * *"
+  workflow_call:
   push:
     branches: [main]
     paths:
@@ -38,7 +39,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: assistant-runtime-${{ github.event.pull_request.number || github.ref }}
+  group: assistant-runtime-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   fresh-install:
@@ -50,15 +51,10 @@ jobs:
       # Existing backend CI covers host Node 22 and 24; this job always executes
       # the independently pinned managed Node/npm from the shipped installer.
       matrix:
-        include:
-          - runner: ubuntu-24.04
-            target: linux-x64
-          - runner: ubuntu-24.04-arm
-            target: linux-arm64
-          - runner: macos-15
-            target: darwin-arm64
-          - runner: macos-15-intel
-            target: darwin-x64
+        include: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '[{"runner":"ubuntu-24.04","target":"linux-x64"},{"runner":"ubuntu-24.04-arm","target":"linux-arm64"}]'
+          || '[{"runner":"ubuntu-24.04","target":"linux-x64"},{"runner":"ubuntu-24.04-arm","target":"linux-arm64"},{"runner":"macos-15","target":"darwin-arm64"},{"runner":"macos-15-intel","target":"darwin-x64"}]') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -79,7 +75,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, macos-latest]
+        runner: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["ubuntu-latest"]' || '["ubuntu-latest","macos-latest"]') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

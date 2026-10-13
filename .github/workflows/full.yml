@@ -1,0 +1,196 @@
+name: Full suite
+# Everything, on one commit: every OS and Node combination, Chromium and WebKit,
+# the native matrices, the repeats, extra property seeds and the assistant
+# runtime (fresh installs and native contracts). It runs nightly, on demand, and
+# from release.yml before any package is built. Pull requests and the merge
+# queue run the tiered gate in verify.yml instead.
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 1 * * *"
+permissions:
+  contents: read
+jobs:
+  backend:
+    name: full backend (${{ matrix.os }}, ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [22, 24]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      AGENTPIER_TEST_RETRY_FAILED_FILES: "1"
+      AGENTPIER_TEST_TIMEOUT_MS: "300000"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install terminal test prerequisite
+        shell: bash
+        run: |
+          if ! command -v tmux >/dev/null; then
+            if [ "$RUNNER_OS" = Linux ]; then
+              sudo apt-get update
+              sudo apt-get install -y tmux
+            else
+              brew install tmux
+            fi
+          fi
+      - run: npm ci
+      - run: npm run check
+      - name: Install the nono sandbox
+        if: matrix.node == 24
+        shell: bash
+        run: |
+          NONO_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://nono.sh/install.sh)"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/nono" --version
+      - name: Real nono confinement matrix
+        if: matrix.node == 24
+        run: node --test tests/matrix/nono-confinement.test.js
+      - name: AgentBus Node and Bun compatibility
+        run: >-
+          npm exec --yes --package=bun@1.3.10 --
+          sh -c 'bun test tests/unit/agentbus-queue.test.js && node --test tests/integration/agentbus-runtimes.test.js'
+      - name: Repeated native lifecycle and copy limits
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        shell: bash
+        run: |
+          set -e
+          for attempt in {1..10}; do
+            node --test --test-name-pattern='memory access is revoked when|isolated native and POSIX|job-wide byte caps' tests/blackbox/memory-routes.test.js tests/integration/shell.test.js tests/integration/file-copy.test.js
+          done
+      - name: Alternate property seed
+        run: npm run test:property
+        env:
+          FC_SEED: 173205
+          FC_RUNS: 300
+  properties:
+    name: full property seeds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Additional property seeds
+        shell: bash
+        run: |
+          set -euo pipefail
+          for seed in 314159 271828 161803; do
+            echo "Property seed: $seed; runs: 1000"
+            FC_SEED="$seed" FC_RUNS=1000 npm run test:property
+          done
+  recovery:
+    name: full delivery and upload recovery repeats
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install terminal test prerequisite
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tmux
+      - run: npm ci
+      - name: Repeat delivery and upload recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..10}; do
+            echo "Recovery repetition: $attempt/10"
+            node --import ./tests/helpers/tmux-reaper.js --test --test-concurrency=2 \
+              tests/integration/chat-delivery.test.js \
+              tests/integration/chat-delivery-recovery.test.js \
+              tests/integration/file-upload-recovery.test.js
+          done
+  native-filesystem-matrix:
+    name: full native filesystem matrix (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/native-filesystem-matrix
+  chromium:
+    name: full browser (chromium) shard ${{ matrix.shard }}/4
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/browser-shard
+        with:
+          browser: chromium
+          shard: ${{ matrix.shard }}
+          total: 4
+  webkit:
+    name: full browser (webkit) shard ${{ matrix.shard }}/5
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/browser-shard
+        with:
+          browser: webkit
+          shard: ${{ matrix.shard }}
+          total: 5
+          repeat-timing-regressions: ${{ matrix.shard == 1 }}
+  assistant-runtime:
+    name: full assistant runtime
+    uses: ./.github/workflows/assistant-runtime.yml
+  # One result for callers such as release.yml: every job above passed.
+  result:
+    name: full suite
+    needs:
+      [
+        backend,
+        properties,
+        recovery,
+        native-filesystem-matrix,
+        chromium,
+        webkit,
+        assistant-runtime,
+      ]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          test "$(echo "$RESULTS" | jq -r 'map(select(. != "success")) | length')" = 0

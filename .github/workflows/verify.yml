@@ -1,6 +1,9 @@
 name: Verify
-# The merge queue tests the exact commit that lands on main, so a push run would
-# only repeat it.
+# Tiered CI (AGENTPIER-60). A pull request runs the static checks plus the tests
+# its change can affect (scripts/affected-tests.mjs), on Linux and Chromium; the
+# merge queue runs the full node and Chromium suites under the same required job
+# names, plus advisory macOS and WebKit jobs. Every Node/OS combination, the
+# repeats and the extra seeds run in full.yml (nightly and before a release).
 on:
   pull_request:
   merge_group:
@@ -10,16 +13,69 @@ concurrency:
   group: verify-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  select:
+    name: select tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      full: ${{ steps.plan.outputs.full }}
+      mode: ${{ steps.plan.outputs.mode }}
+      node-all: ${{ steps.plan.outputs.node-all }}
+      node-tests: ${{ steps.plan.outputs.node-tests }}
+      browser-tests: ${{ steps.plan.outputs.browser-tests }}
+      browser-shards: ${{ steps.plan.outputs.browser-shards }}
+      backend: ${{ steps.plan.outputs.backend }}
+      filesystem-os: ${{ steps.plan.outputs.filesystem-os }}
+      nono: ${{ steps.plan.outputs.nono }}
+      agentbus-runtimes: ${{ steps.plan.outputs.agentbus-runtimes }}
+    steps:
+      # The full history, so the pull request's base commit is present; never a
+      # shallow fetch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Plan the jobs
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            node scripts/affected-tests.mjs --base "$BASE_SHA" --github-output "$GITHUB_OUTPUT"
+          else
+            node scripts/affected-tests.mjs --full --github-output "$GITHUB_OUTPUT"
+          fi
   backend:
+    name: backend (${{ matrix.os }}, ${{ matrix.node }})
+    needs: select
+    # Runs, and reports, even when the plan failed: a skipped required job would
+    # count as passed.
+    if: ${{ !cancelled() }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        node: [22, 24]
+        include: ${{ fromJSON(needs.select.outputs.backend || '[{"os":"ubuntu-latest","node":24}]') }}
     runs-on: ${{ matrix.os }}
     # Observed p90 11 min (macOS); one job once hung for 2 h without a limit.
     timeout-minutes: 25
+    env:
+      # A failed test file runs once more if the runner finished; files that pass
+      # only on that retry are listed as flaky in the job summary. A file that
+      # fails twice, or more than two flaky files, fail the job. Each test may
+      # take at most 300 s (slowest observed without its own limit: 41 s).
+      AGENTPIER_TEST_RETRY_FAILED_FILES: "1"
+      AGENTPIER_TEST_TIMEOUT_MS: "300000"
     steps:
+      - name: Require a test plan
+        env:
+          SELECT: ${{ needs.select.result }}
+        run: test "$SELECT" = success
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
@@ -37,133 +93,77 @@ jobs:
             fi
           fi
       - run: npm ci
-      # A failed test file runs once more if the runner finished; files that pass
-      # only on that retry are listed as flaky in the job summary. A file that fails
-      # twice, or more than two flaky files, fail the job. Each test may take at
-      # most 300 s (slowest observed without its own limit: 41 s).
-      - run: npm run check
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run check:structure
+      - run: npm run build
+      - name: All node tests
+        if: needs.select.outputs.node-all == 'true'
+        run: npm test
+      - name: Affected node tests
+        if: needs.select.outputs.node-all != 'true' && needs.select.outputs.node-tests != ''
         env:
-          AGENTPIER_TEST_RETRY_FAILED_FILES: "1"
-          AGENTPIER_TEST_TIMEOUT_MS: "300000"
-      # The nono sandbox is a security boundary and stays in the required gate.
+          TESTS: ${{ needs.select.outputs.node-tests }}
+        # Word splitting of $TESTS is intended: one path per word.
+        run: >-
+          node scripts/test-files.mjs --label affected --concurrency 4 --retry
+          --never-retry tests/property/ --test-timeout "$AGENTPIER_TEST_TIMEOUT_MS" $TESTS
+      # The nono sandbox is a security boundary: the queue always runs it.
       - name: Install the nono sandbox
-        if: matrix.node == 24
+        if: needs.select.outputs.nono == 'true'
         shell: bash
         run: |
           NONO_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://nono.sh/install.sh)"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/nono" --version
       - name: Real nono confinement matrix
-        if: matrix.node == 24
+        if: needs.select.outputs.nono == 'true'
         run: node --test tests/matrix/nono-confinement.test.js
       - name: AgentBus Node and Bun compatibility
+        if: needs.select.outputs.agentbus-runtimes == 'true'
         run: >-
           npm exec --yes --package=bun@1.3.10 --
           sh -c 'bun test tests/unit/agentbus-queue.test.js && node --test tests/integration/agentbus-runtimes.test.js'
-      - name: Repeated native lifecycle and copy limits
-        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
-        shell: bash
-        run: |
-          set -e
-          for attempt in {1..10}; do
-            node --test --test-name-pattern='memory access is revoked when|isolated native and POSIX|job-wide byte caps' tests/blackbox/memory-routes.test.js tests/integration/shell.test.js tests/integration/file-copy.test.js
-          done
-      - name: Alternate property seed
-        run: npm run test:property
-        env:
-          FC_SEED: 173205
-          FC_RUNS: 300
-  # Real disk images and loop devices. Not a required check until the hdiutil
-  # fixes have a clean week: this matrix exercises host tooling that is slower and
-  # noisier than the application gate. The files run one at a time because
-  # concurrent hdiutil create/detach calls fail with "Resource busy".
+  # Real disk images and loop devices; not required. Runs on a pull request only
+  # when its selection includes these files, on macOS only for platform code.
   native-filesystem-matrix:
     name: native filesystem matrix (${{ matrix.os }})
+    needs: select
+    if: needs.select.outputs.filesystem-os != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ fromJSON(needs.select.outputs.filesystem-os) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: 24
-          cache: npm
-      - name: Install terminal test prerequisite
-        shell: bash
-        run: |
-          if ! command -v tmux >/dev/null; then
-            if [ "$RUNNER_OS" = Linux ]; then
-              sudo apt-get update
-              sudo apt-get install -y tmux
-            else
-              brew install tmux
-            fi
-          fi
-      - run: npm ci
-      - name: Install native filesystem matrix tools
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y acl attr e2fsprogs util-linux
-      - name: Native file explorer filesystem matrix
-        run: >-
-          node --test --test-concurrency=1
-          tests/matrix/file-extract-platform.test.js
-          tests/matrix/file-platform.test.js
-          tests/matrix/file-recovery-boundary.test.js
-        env:
-          AGENTPIER_FILE_FS_MATRIX: "1"
+      - uses: ./.github/actions/native-filesystem-matrix
   chromium-shards:
-    name: browser (chromium) shard ${{ matrix.shard }}/4
+    name: browser (chromium) shard ${{ matrix.shard }}/${{ strategy.job-total }}
+    needs: select
+    if: needs.select.outputs.browser-shards != '[]'
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: ${{ fromJSON(needs.select.outputs.browser-shards) }}
     runs-on: ubuntu-latest
     # Observed p90 12.3 min; a retry of a few slow specs fits well inside.
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      - uses: ./.github/actions/browser-shard
         with:
-          node-version: 24
-          cache: npm
-      - name: Install browser test prerequisites
-        run: |
-          # Playwright downloads its own browsers; the runner's Chrome APT
-          # repository is unnecessary and can fail while its index is updating.
-          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
-          sudo apt-get update
-          sudo apt-get install -y tmux
-      - run: npm ci
-      - name: Restore the Playwright browser
-        id: playwright-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-      - if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-      - run: npm run build
-      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
-        env:
-          AGENTPIER_TEST_BROWSER: chromium
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: failure()
-        with:
-          name: browser-failure-chromium-${{ matrix.shard }}
-          path: test-results/
-          retention-days: 7
+          browser: chromium
+          shard: ${{ matrix.shard }}
+          total: ${{ strategy.job-total }}
+          specs: ${{ needs.select.outputs.browser-tests }}
+  # Advisory in the merge queue: WebKit runs on every merge but is not required.
+  # full.yml also runs it, with the repeated timing regressions.
   webkit-shards:
-    # Playwright shards by test count, not duration: with four shards the slow
-    # chat and file-explorer specs gave shard 2 a 16.5 min median. Five shards
-    # cut the longest one by roughly a quarter.
     name: browser (webkit) shard ${{ matrix.shard }}/5
+    needs: select
+    if: needs.select.outputs.full == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -173,63 +173,40 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      - uses: ./.github/actions/browser-shard
         with:
-          node-version: 24
-          cache: npm
-      - name: Install browser test prerequisites
-        run: |
-          # Playwright downloads its own browsers; the runner's Chrome APT
-          # repository is unnecessary and can fail while its index is updating.
-          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
-          sudo apt-get update
-          sudo apt-get install -y tmux
-      - run: npm ci
-      - name: Restore the Playwright browser
-        id: playwright-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-webkit-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps webkit
-      - if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps webkit
-      - run: npm run build
-      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/5
-        env:
-          AGENTPIER_TEST_BROWSER: webkit
-      # Known WebKit timing regressions, repeated without the CI retry so one
-      # failed repetition fails (also repeated in Nightly quality).
-      - name: Repeat WebKit timing regressions
-        if: matrix.shard == 1
-        run: >-
-          npx playwright test tests/browser/model-control.spec.js tests/browser/chat-upload-recovery.spec.js
-          --grep 'two tabs retry|model field.*390x500|model errors remain'
-          --repeat-each=5 --retries=0
-        env:
-          AGENTPIER_TEST_BROWSER: webkit
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: failure()
-        with:
-          name: browser-failure-webkit-${{ matrix.shard }}
-          path: test-results/
-          retention-days: 7
-  # Branch protection requires "browser (chromium)"; it passes only when every shard did.
+          browser: webkit
+          shard: ${{ matrix.shard }}
+          total: 5
+  # Branch protection requires "browser (chromium)". It passes when every planned
+  # shard passed, or when the plan selected no spec.
   chromium:
     name: browser (chromium)
-    needs: chromium-shards
-    if: always()
+    needs: [select, chromium-shards]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: test "${{ needs.chromium-shards.result }}" = success
-  # Branch protection requires "browser (webkit)"; it passes only when every shard did.
+      - env:
+          SELECT: ${{ needs.select.result }}
+          SHARDS: ${{ needs.chromium-shards.result }}
+          PLANNED: ${{ needs.select.outputs.browser-shards }}
+        run: |
+          test "$SELECT" = success
+          if [ "$PLANNED" = "[]" ]; then
+            echo "No browser spec is affected."
+            test "$SHARDS" = skipped
+          else
+            test "$SHARDS" = success
+          fi
+  # Produced in the merge queue only; advisory, not a required check.
   webkit:
     name: browser (webkit)
-    needs: webkit-shards
-    if: always()
+    needs: [select, webkit-shards]
+    if: ${{ !cancelled() && needs.select.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: test "${{ needs.webkit-shards.result }}" = success
+      - env:
+          SHARDS: ${{ needs.webkit-shards.result }}
+        run: test "$SHARDS" = success

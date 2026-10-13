@@ -114,18 +114,15 @@ The HTTP API, image and preference integration suites share `applicationFixture`
 
 ## Automated CI matrix
 
-The Verify workflow runs once per pull-request revision and on pushes to `main`.
-Feature-branch pushes and release tags do not start a duplicate test matrix;
-release tags retain their dedicated packaging and installation checks. A new
-pull-request revision cancels the obsolete Verify run for that same PR. Main
-verification is not interrupted. The Secrets workflow still scans branch pushes.
+CI runs in three tiers.
 
-| Job                       | Workers                                                 | Required checks                                               | Evidence and artifacts                                                                                 |
-| ------------------------- | ------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Static checks             | Linux, minimum supported Node                           | Formatting, ESLint, module-size/import checks, frontend build | Fail on warnings or formatting drift; retain build output on failure.                                  |
-| Node contracts            | Linux and macOS, minimum supported and current LTS Node | Unit, integration, property, matrix and blackbox strategies   | Install Git, tmux and OpenSSL as runner prerequisites; preserve test logs and fast-check seed/path.    |
-| Browser contracts         | Linux Chromium and WebKit; optional local macOS Chrome  | Full browser suite against a fixture-owned frontend           | Preserve failure screenshot, trace and reporter output; include desktop and existing mobile scenarios. |
-| Extended generated checks | All backend CI workers                                  | 300 runs with recorded seed `173205`                          | Reproduce failures with their exact seed/path before adding a regression.                              |
+| Tier                         | Workflow     | Runs                                                                                                                                                                                                                                                                                                   | Required checks                                     |
+| ---------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| Pull request                 | `verify.yml` | Lint, formatting, structure checks and the frontend build. It also runs the node tests and Chromium specs the change affects (Linux, Node 24). Documentation alone runs no test, and the required jobs still report. A macOS backend job (Node 24) runs only when changed platform code is under test. | `backend (ubuntu-latest, 24)`, `browser (chromium)` |
+| Merge queue                  | `verify.yml` | The same required jobs run the full node suite and all four Chromium shards, with one visible retry per failed file. Advisory: `backend (macos-latest, 24)`, `browser (webkit)` (five shards) and the Linux native filesystem matrix.                                                                  | `backend (ubuntu-latest, 24)`, `browser (chromium)` |
+| Nightly and before a release | `full.yml`   | Everything: Linux and macOS × Node 22 and 24, Chromium and WebKit, the native filesystem matrices, the repeats, the extra property seeds, and the assistant runtime's fresh installs and native contracts. `release.yml` builds no package unless this suite passed on the release commit.             | –                                                   |
+
+A new pull-request revision cancels the obsolete Verify run for that same PR. The assistant runtime workflow runs its Linux jobs on pull requests that touch its paths; its macOS jobs run after the merge, nightly and before a release. `Assistant runtime (queue)` gates the merge queue for assistant paths. The Secrets workflow still scans branch pushes.
 
 ### Affected-test selection
 
@@ -140,7 +137,8 @@ It prints `{ mode, node, browser, reasons }`. `mode` is `all`, `selected` or `no
 
 - **Node tests** are selected through a static graph. The graph follows imports, re-exports and dynamic imports of string literals across the repository. It also follows paths that tests name, such as a fixture they spawn or a screenshot they write. A server message catalog (`server/lib/i18n/de/<name>.js`) selects only the modules that read its namespace, plus the catalog tests.
 - **Browser specs** are selected when they import the change, or when their file name contains the changed feature's name. The feature name comes from `web/features/<name>`, `server/features/<name>`, `server/http/routes/<name>.js` or a catalog of that name; `scripts/affected/browser-map.mjs` lists the extra names. Shared code selects every spec: `web/{app,components,lib,styles,startup}`, `public/`, `server/{app,application,http,lib}` and similar.
-- **Everything runs** when any of these change: dependencies, CI, the test runners or their configuration, the build configuration or the selector. Everything also runs when the diff cannot be computed, a changed module does not parse, or no test imports or names a changed file. Above 60 % of a suite, that whole suite runs.
+- **Everything runs** when any of these change: dependencies (not a bare version bump), `.github/workflows/verify.yml`, the test runners or their configuration, the build configuration or the selector. Everything also runs when the diff cannot be computed, a changed module does not parse, or no test imports or names a changed file. Above 60 % of a suite, that whole suite runs. Other workflows and `.github` files are inert.
+- **macOS** is requested (`macos: true`) when a changed file branches on the platform or drives macOS tools (`process.platform`, `darwin`, `hdiutil`, `launchctl`, `diskutil`).
 - **Nothing runs** when only documentation that no test names has changed.
 
 CI must use disposable homes and independent data directories. Cache dependency downloads, never generated credential files or test profiles. Mocked platform selection is useful contract coverage but does not replace actual Linux/macOS subprocess runs. External provider checks, CLI installations and tests with real credentials remain separate opt-in jobs; a skipped prerequisite must be reported as skipped rather than passed.
@@ -149,15 +147,12 @@ CI must use disposable homes and independent data directories. Cache dependency 
 
 The separate **Nightly quality** workflow runs on the default branch at 01:23 UTC
 (02:23 CET / 03:23 CEST) and can also be started with **Run workflow** on a selected
-branch. It uses one Linux worker with Node 24. The existing pull-request Verify
-matrix is unchanged; mutation testing is not part of `npm test` or `npm run check`.
-
-Each nightly run first executes `npm run check`. Only a successful baseline permits
-the additional checks: three property seeds with 1000 runs each, ten repetitions of
-chat delivery/recovery and upload recovery integration tests, and finally the
-Stryker mutation pilot. Recovery and mutation checks still run if an earlier extra
-check fails, while the workflow retains that failure. All fixtures remain isolated;
-these checks do not use real CLI sessions, credentials or paid provider calls.
+branch. It uses one Linux worker with Node 24 and runs the Stryker mutation pilot;
+mutation testing is not part of `npm test` or `npm run check`. The nightly baseline,
+three property seeds with 1000 runs each and ten repetitions of chat
+delivery/recovery and upload recovery tests run in the **Full suite** at the same
+time. All fixtures remain isolated; these checks do not use real CLI sessions,
+credentials or paid provider calls.
 
 Stryker mutates three modules: archive path/ZIP entry validation, MCP tool policy
 and pipeline graph navigation. `stryker.config.json` explicitly lists the selected

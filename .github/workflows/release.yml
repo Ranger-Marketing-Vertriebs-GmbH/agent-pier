@@ -9,7 +9,11 @@ concurrency:
   group: agentpier-release-publication
   cancel-in-progress: false
 jobs:
+  # No package without a green full suite on this exact commit.
+  full:
+    uses: ./.github/workflows/full.yml
   installer:
+    needs: full
     runs-on: macos-14
     timeout-minutes: 10
     steps:
@@ -26,6 +30,7 @@ jobs:
           retention-days: 7
           path: release-artifacts/*
   package:
+    needs: full
     strategy:
       fail-fast: false
       matrix:
