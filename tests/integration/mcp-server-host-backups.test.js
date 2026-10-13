@@ -17,6 +17,7 @@ import { cliMcpFixture, http } from "../helpers/cli-mcp.js";
 
 const passphrase = "mcp server backup fixture phrase";
 const secrets = ["header-SECRET-1", "env-SECRET-2", "query-SECRET-3"];
+const loginRedirect = "http://127.0.0.1:4999/api/mcp-servers/oauth/callback";
 
 function temporary(t) {
   const folder = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mcp-store-bk-")));
@@ -65,10 +66,7 @@ function seed(dataDir) {
     url: "https://login.example.test/mcp",
     auth: "oauth",
   });
-  servers.rememberOAuth(login.id, {
-    connected: true,
-    loginRedirect: "http://127.0.0.1:4999/api/mcp-servers/oauth/callback",
-  });
+  servers.rememberOAuth(login.id, { connected: true, loginRedirect });
   servers.deferLogout({
     name: "old",
     url: "https://old.example.test/mcp",
@@ -109,7 +107,8 @@ test("a host backup captures the MCP server store without values, tokens or logi
   const { file, manifest } = await new Backup({ dataDir }).create({});
   const text = archiveText(file);
   for (const secret of secrets) assert.equal(text.includes(secret), false, secret);
-  assert.equal(text.includes("4999"), false, "instance-specific login redirect");
+  // The whole redirect, not its port: four digits also turn up in compressed bytes.
+  assert.equal(text.includes(loginRedirect), false, "instance-specific login redirect");
   const archive = loadArchive(file);
   const member = archive.files.find((m) => m.path === "mcp-servers/servers.sqlite");
   assert.ok(member);
