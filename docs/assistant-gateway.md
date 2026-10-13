@@ -309,7 +309,7 @@ Sandbox design stays deferred as agreed. Remaining release checks are tracked in
 
 ## Implemented foundation
 
-The foundation now provisions OpenClaw 2026.9.8 with Node 26.7.0 in private
+The foundation now provisions OpenClaw 2026.9.9 with Node 26.7.0 in private
 application data, starts one owned foreground Gateway, and waits for authenticated
 protocol readiness. It is optional: enabling it in Settings > Agents provisions
 the runtime; enabled installations provision the selected version at startup after
@@ -601,7 +601,7 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.9.8 and its qualified 2026.9.7 rollback predecessor. Eligible parents receive the three managed team tools and
+to OpenClaw 2026.9.9 and its qualified rollback predecessors 2026.9.8 and 2026.9.7. Eligible parents receive the three managed team tools and
 `session_status`; members receive only `session_status`. Direct native spawning
 and alternative session mutation tools are not offered; `exec` and `process` only
 under [agent shell access](#agent-shell-access-2026-10-12), which temporary members

@@ -123,10 +123,11 @@ accepted, `plugins.list` reports the pinned package and version with
 
 ### (a) DuckDuckGo
 
-DuckDuckGo, Perplexity and Brave are **not bundled** in OpenClaw 2026.9.8. They are
+DuckDuckGo, Perplexity and Brave are **not bundled** in OpenClaw 2026.9.8 or 2026.9.9. They are
 official external plugins: `@openclaw/duckduckgo-plugin`,
-`@openclaw/perplexity-plugin` and `@openclaw/brave-plugin`. Version `2026.9.8`
-exists for each on npm, with peer dependency `openclaw >=2026.9.8`. Each package
+`@openclaw/perplexity-plugin` and `@openclaw/brave-plugin`. Each is published at the
+OpenClaw version, with peer dependency `openclaw >=<that version>` (pinned: `2026.9.9`;
+its packages differ from `2026.9.8` only in version metadata). Each package
 has no runtime dependencies and imports only `openclaw/plugin-sdk/*`. The bundled
 web search providers are `gemini` (google), `grok` (xai), `minimax` and `ollama`.
 

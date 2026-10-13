@@ -332,6 +332,31 @@ After approval, run openclaw mcp login <name> --code <code>.
 The URL carries that `redirect_uri`; the authorization server redirects there, and
 `--code` with that code completes (`authorized`).
 
+## OpenClaw 2026.9.9
+
+2026.9.9 changes the OAuth client without changing the CLI output, the
+`mcp status --json` shape, the configuration schema or the redaction module:
+
+- `@modelcontextprotocol/sdk` 1.31.0 (GHSA-6qxp-vccf-f47h) binds stored client
+  information and tokens to the authorization server (`issuer`). A login saved by
+  2026.9.8 has no `issuer`; the first refresh on 2026.9.9 prints
+  `[mcp-sdk] stored OAuth tokens have no 'issuer' property…` once to the Gateway
+  console and saves stamped tokens.
+- Every OAuth request (discovery, registration, token) now refuses to replay a
+  request body across a cross-origin redirect (`rejectCrossOriginUnsafeRedirectReplay`).
+  An authorization server that answers a token request with a 307/308 to another
+  origin now fails the login or refresh (read from the package; no contract covers
+  it). Resource requests keep the previous redirect behaviour.
+- Without tokens, stored client information whose `redirect_uris` lack the current
+  redirect URL is ignored, so a changed redirect URL registers a new client.
+
+`tests/integration/assistant-mcp-oauth-cross-version.test.js` logs in on the previous
+runtime, activates the candidate through `RuntimeUpdates` and refreshes the login on
+it twice. It passed 2026.9.8 → 2026.9.9 on 2026-10-14 (one SDK warning, no new
+registration or authorization) and runs manually with the cross-version variables
+(see [release qualification](assistant-release-qualification.md)). Both MCP OAuth
+contracts passed against 2026.9.9 with the other native contracts.
+
 ## Compiled path
 
 The compiled contract runs one server `docs` (logged in) and one server `spare`

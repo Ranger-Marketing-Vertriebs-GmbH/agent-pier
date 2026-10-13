@@ -46,7 +46,7 @@ prevails.
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Native memory         | Two pinned Gateway contracts verify deletion/re-index/restart, model-reference switching and agent isolation.                                                                                                                                                                                                                                                                                                                           | Deterministic HTTP model; no semantic embeddings or erasure of historical transcripts/backups.                                                                                          |
 | Native scheduling     | Nine native scheduler cases cover Berlin/New York DST, explicit timezones, 30-day downtime, restart, missed-run policy, backlog spacing and duplicate completion delivery.                                                                                                                                                                                                                                                              | Injected clock with real scheduler/SQLite; not an operating-system suspend or crash experiment.                                                                                         |
-| Runtime update        | Two native cases verify OpenClaw 2026.9.7 → 2026.9.8 activation and rollback after injected candidate validation failure.                                                                                                                                                                                                                                                                                                               | Node 26.7.0, macOS arm64, exact adjacent pair only.                                                                                                                                     |
+| Runtime update        | Two native cases verify OpenClaw 2026.9.7 → 2026.9.8 and 2026.9.8 → 2026.9.9 activation and rollback after injected candidate validation failure.                                                                                                                                                                                                                                                                                       | Node 26.7.0, macOS arm64, exact adjacent pair only.                                                                                                                                     |
 | Project identity      | Three real Git/ProjectMemory/ProjectRebind cases cover git initialization, automatic rebind and duplicate-project merging.                                                                                                                                                                                                                                                                                                              | Synthetic projects; no real user coding task executed.                                                                                                                                  |
 | Native interfaces     | Two pinned Gateway contracts verify the locked core, hello features, config schema and lookup, `replacePaths`, stale hashes, pairing list and a denied exec approval.                                                                                                                                                                                                                                                                   | Deterministic HTTP model; no WhatsApp login, pairing approval or allowed exec.                                                                                                          |
 | Web tools and browser | The compiled team-mode startup configuration (team plugin, memory, DuckDuckGo plugin from the runtime descriptor, isolated browser) is accepted; `web_fetch` refuses loopback, the browser uses only `openclaw` profiles in the data dir, temporary members get no capability tool; each bundled search plugin loads.                                                                                                                   | Deterministic model, no real search; `pdf` granted but not offered on custom providers; Linux Chrome sandbox CI-only, unverified locally.                                               |
@@ -91,12 +91,38 @@ pin; unqualified versions remain rejected. Selection repairs missing plugin file
 Unit regressions passed after reproducing both failures, and the native team bridge
 contract passed against the predecessor (two cases).
 
-Repeat the cross-version test with immutable executable installations only:
+### OpenClaw 2026.9.8 → 2026.9.9 (2026-10-14)
+
+The security update to 2026.9.9 (MCP SDK 1.31.0, Dependabot alert #23) was qualified
+on macOS arm64 against the lock `c197993dfd41…`. Both runtimes were provisioned with
+`scripts/provision-assistant-contracts.mjs`: 2026.9.8 from `origin/main`, 2026.9.9 from
+the update branch.
+
+- Both cross-version cases above passed 2026.9.8 → 2026.9.9. The MCP OAuth upgrade
+  case (`assistant-mcp-oauth-cross-version.test.js`) logs in on 2026.9.8, activates
+  2026.9.9 through `RuntimeUpdates`, and refreshes the login twice there: no new client
+  registration or authorization, `mcp status --json` stays plain JSON, and the SDK's
+  missing-`issuer` warning appears once in the Gateway log (the first refresh stamps
+  the tokens). It also passed 2026.9.8 → 2026.9.8 before the bump.
+- The team plugin, native write and runtime contracts passed on 2026.9.8, which stays
+  a rollback target and keeps the write guard. 2026.9.7 remains a rollback target from
+  its earlier qualification; the team plugin is unchanged.
+- The application's own services staged 2026.9.9 next to a 2026.9.8 installation that
+  `origin/main` provisioned (installer rerun: `staged`), activated it with a snapshot,
+  kept the session across a restart and then removed the 2026.9.8 installation.
+- `scripts/verify-assistant-installation.mjs` passed. All 28 native contract files of
+  the `native-contracts` job passed: 57 tests, 0 skipped.
+- Both versions use state database schema 19 and agent database schema 24, so
+  2026.9.9 runs no schema migration that 2026.9.8 would refuse. This is read from the
+  packages, not exercised: a committed update is not rolled back by AgentPier.
+
+Repeat the cross-version tests with immutable executable installations only:
 
 ```sh
 AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME=/absolute/path/to/2026.9.7-runtime \
 AGENTPIER_ASSISTANT_UPDATE_RUNTIME=/absolute/path/to/2026.9.8-runtime \
-  node --test tests/integration/assistant-runtime-cross-version.test.js
+  node --test tests/integration/assistant-runtime-cross-version.test.js \
+  tests/integration/assistant-mcp-oauth-cross-version.test.js
 ```
 
 See [runtime update operations](assistant-runtime-updates.md) for the maintenance,
