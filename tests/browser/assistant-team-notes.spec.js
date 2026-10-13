@@ -43,13 +43,16 @@ for (const [label, viewport] of Object.entries(viewports)) {
         "research:started",
         "message",
         "research:completed",
-        "message",
         "design:started",
         "message",
       ]);
       await expect(
         log.getByRole("link", { name: "Team completed: Research hosting vendors" }),
       ).toHaveAttribute("href", "/agents/home/settings?tab=work&team=research");
+      // The synthesis event right after the end note would only repeat it.
+      await expect(log.getByText("Team results received", { exact: false })).toHaveCount(
+        0,
+      );
       // Started and running teams have no card; the proposal waits below the log.
       await expect(page.locator("details.assistant-team-card")).toHaveCount(0);
       await expect(page.locator(".assistant-team-card")).toHaveCount(1);
@@ -188,6 +191,10 @@ test("a team link opens the lead's chat at the team's latest note", async ({ pag
   const note = page.locator('[data-team="research"][data-team-note="completed"]');
   await expect(note).toBeInViewport();
   await expect(note).toHaveClass(/focused/);
+  await expect(note.getByRole("link")).toHaveAttribute("aria-current", "true");
+  await expect(page.locator('.assistant-team-note a[aria-current="true"]')).toHaveCount(
+    1,
+  );
   const log = page.getByRole("log");
   await expect(log.getByText("Earlier message 0 ")).not.toBeInViewport();
   await expect(log.getByText("Later message 29 ")).not.toBeInViewport();

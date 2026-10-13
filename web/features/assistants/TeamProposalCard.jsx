@@ -23,6 +23,7 @@ export default function TeamProposalCard({ team, busy, act }) {
     <article
       id={`assistant-team-${team.id}`}
       data-pending=""
+      tabIndex={-1}
       className="assistant-team-card awaiting"
       aria-label={team.objective}
     >

@@ -34,12 +34,16 @@ export default function TeamsGroup({ assistant, focusTeamId, navigate }) {
     setView(focusSide);
   }, [focusSide, focusTeamId]);
   const focusShown = focusSide !== "" && focusSide === view;
+  // Once per link: switching between Active and Archived must not pull the reader back.
+  const scrolled = useRef("");
   useEffect(() => {
-    if (!focusShown) return;
+    if (!focusShown || scrolled.current === focusTeamId) return;
     const card = document.getElementById(`assistant-team-${focusTeamId}`);
     if (!card) return;
+    scrolled.current = focusTeamId;
     scrollToChild(scrollParent(card), card);
-    card.querySelector(":scope > summary")?.focus({ preventScroll: true });
+    // A started team's summary toggles it; a proposal card takes the focus itself.
+    (card.querySelector(":scope > summary") || card).focus({ preventScroll: true });
   }, [focusShown, focusTeamId]);
   const archived = own.filter((t) => t.archivedAt);
   const active = own.filter((t) => !t.archivedAt);

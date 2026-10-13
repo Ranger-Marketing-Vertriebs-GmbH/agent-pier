@@ -1,5 +1,8 @@
 // Short transcript notes where a lead's team started and where it ended. They are
-// derived from the team records (createdAt, finishedAt), never stored in the chat.
+// derived from the team records (startedAt, finishedAt), never stored in the chat.
+// Coding-run notes are merged on the server instead (withRunNotes in
+// server/features/assistants/conversations.js); both hold a note older than the
+// first loaded message back until that older page is loaded. Keep the rules aligned.
 const ended = new Set(["completed", "failed", "cancelled", "declined"]);
 const time = (value) => {
   const ms = Date.parse(value ?? "");
@@ -22,7 +25,8 @@ export function teamNotes(teams, { assistantId, conversationId }) {
     if (team.parentAssistantId !== assistantId) continue;
     if (team.parentConversationId && team.parentConversationId !== conversationId)
       continue;
-    const start = time(team.createdAt);
+    // Teams started before startedAt was recorded start at their proposal.
+    const start = time(team.startedAt) ?? time(team.createdAt);
     const outcome = teamOutcome(team);
     // A proposal that waits or was declined never started; its card or end note says so.
     if (start !== null && !["awaiting_approval", "declined"].includes(team.phase))
@@ -60,4 +64,16 @@ export function withTeamNotes(messages, notes, { complete = true } = {}) {
   }
   while (next < pending.length) items.push({ note: pending[next++] });
   return items;
+}
+
+// Ends of a completed team, after which the hidden synthesis turn's event note would
+// only repeat it ("Team results received …").
+const resultEnds = new Set(["completed", "partial", "failed", "cancelled"]);
+
+/** Drops a team-result event note that directly follows a team's end note. */
+export function foldResultEvents(items) {
+  return items.filter(
+    (item, n) =>
+      item.message?.event !== "team-result" || !resultEnds.has(items[n - 1]?.note?.kind),
+  );
 }

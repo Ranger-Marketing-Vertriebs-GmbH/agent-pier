@@ -7,7 +7,7 @@ export default function TeamCodingRequests({ id, title, actions, busy, onDecide 
   const heading = title ? `${copy.teamRequests} · ${title}` : copy.teamRequests;
   return (
     <section id={id} className="assistant-team-coding" aria-label={heading}>
-      <h4>{heading}</h4>
+      <h4 title={heading}>{heading}</h4>
       {actions.map((a) => (
         <article
           className="assistant-approval-card"
