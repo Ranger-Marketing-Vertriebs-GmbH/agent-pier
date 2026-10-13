@@ -96,6 +96,21 @@ export class RequestLedger {
         .get(runId, runId),
     );
   }
+  // Every delivery key of a conversation's attempts (the attempt id, which is the
+  // idempotency key sent to the Gateway, and the Gateway's own run id) to its request.
+  // One statement per history read (message-source.js).
+  attemptRequests(conversationId) {
+    const keys = new Map();
+    for (const row of this.db
+      .prepare(
+        "SELECT a.id, a.runtime_run_id, a.request_id FROM attempts a JOIN requests r ON r.id=a.request_id WHERE r.conversation_id=?",
+      )
+      .all(conversationId)) {
+      keys.set(row.id, row.request_id);
+      if (row.runtime_run_id) keys.set(row.runtime_run_id, row.request_id);
+    }
+    return keys;
+  }
   getAttempt(id) {
     const a = attemptRecord(this.db.prepare(`${attemptQuery} WHERE id=?`).get(id));
     if (!a) throw assistantProblem("notFound", 404);

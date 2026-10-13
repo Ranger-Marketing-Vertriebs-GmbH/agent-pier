@@ -23,6 +23,9 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { assistantApi } from "./assistant-api.js";
 import useAssistants, { useAssistantEvent } from "./useAssistants.js";
+// OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
+const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
+const sameTurnText = (a, b) => turnText(a) === turnText(b);
 // Streamed deltas re-render the chat on every token; the team panel does not need to.
 const Teams = memo(AssistantTeams);
 export default function AssistantChat({
@@ -243,6 +246,8 @@ export default function AssistantChat({
                   role={m.role}
                   name={m.role === "user" ? copy.you : assistant.name}
                   text={m.text}
+                  source={m.source}
+                  timestamp={m.timestamp}
                 />
               ),
             )}
@@ -256,8 +261,16 @@ export default function AssistantChat({
             {active &&
               !latest.internal &&
               !history.messages.some(
-                (m) => m.role === "user" && m.text === latest.text,
-              ) && <AssistantMessage role="user" name={copy.you} text={latest.text} />}
+                (m) => m.role === "user" && sameTurnText(m.text, latest.text),
+              ) && (
+                <AssistantMessage
+                  role="user"
+                  name={copy.you}
+                  text={latest.text}
+                  source={latest.source}
+                  timestamp={Date.parse(latest.createdAt) || 0}
+                />
+              )}
             {delta && (
               <AssistantMessage
                 role="assistant"

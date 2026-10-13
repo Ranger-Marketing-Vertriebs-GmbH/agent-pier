@@ -1,0 +1,18 @@
+/* Owner messages that reached the agent through Telegram: a quiet meta line under
+   the bubble. */
+.assistant-turn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.assistant-turn > .assistant-message.user {
+  margin-left: 0;
+}
+.assistant-message-meta {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}

@@ -45,7 +45,7 @@ test("maintenance history serves cached messages and fences late responses acros
         },
       },
     },
-    ledger: { requests: () => [] },
+    ledger: { requests: () => [], attemptRequests: () => new Map() },
   };
   const pending = conversationHistory(service, conversation.id);
   service.maintenance = true;

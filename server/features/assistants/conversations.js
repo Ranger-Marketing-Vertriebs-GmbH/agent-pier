@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { codingRunNotes } from "./assistant-action-notifications.js";
+import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
 export function publicMessages(messages = []) {
   const seen = new Set();
   return messages.flatMap((m) => {
@@ -20,6 +21,7 @@ export function publicMessages(messages = []) {
         .digest("hex");
     if (seen.has(id)) return [];
     seen.add(id);
+    const key = m.role === "user" && turnKey(m);
     return [
       {
         id,
@@ -27,6 +29,8 @@ export function publicMessages(messages = []) {
         text,
         timestamp: m.timestamp || 0,
         runId: m.__openclaw?.runId || null,
+        // Internal: links the turn to its attempt (message-source.js), never served.
+        ...(key && { turnKey: key }),
       },
     ];
   });
@@ -35,9 +39,9 @@ export function publicMessages(messages = []) {
 // words. The ledger keeps their exact text for audit; the visible history shows a
 // compact event in their place.
 const internalKinds = new Set(["team-result", "coding-result"]);
-function hideInternal(service, messages, requests) {
+function hideInternal(messages, requests, contexts) {
   const internal = requests
-    .map((r) => [r, service.teams?.store.context(r.id).kind])
+    .map((r) => [r, contexts.get(r.id)?.kind])
     .filter(([, kind]) => internalKinds.has(kind));
   if (!internal.length) return { messages, requests };
   const kindOf = (text) =>
@@ -114,10 +118,23 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
   const requests = service.ledger
     .requests(id)
     .map((r) => ({ ...r, attempt: service.ledger.attemptFor(r.id) }));
-  const visible = hideInternal(service, messages, requests);
+  // One trusted-context lookup per request and one attempt query per history read.
+  const contexts = new Map(
+    service.teams ? requests.map((r) => [r.id, service.teams.store.context(r.id)]) : [],
+  );
+  const visible = hideInternal(messages, requests, contexts);
   return {
     ...visible,
-    messages: withRunNotes(service, conversation, visible.messages, nextBefore),
+    requests: requestsWithSources(visible.requests, contexts),
+    messages: withRunNotes(
+      service,
+      conversation,
+      withMessageSources(visible.messages, requests, {
+        attempts: service.ledger.attemptRequests(id),
+        contexts,
+      }),
+      nextBefore,
+    ),
     nextBefore,
     stale,
   };
