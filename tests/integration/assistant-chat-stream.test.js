@@ -130,16 +130,38 @@ test("an append without the run's snapshot is never shown as the whole reply", a
   );
 });
 
-test("a reconnected Gateway resumes a run mid-stream from its snapshot", async (t) => {
+test("a reconnect forgets the old connection and resumes from the new snapshot", async (t) => {
   const { emit, published, runtime } = streamingService(t);
   emit(snapshot("agent:news:main", "run-1", "Before"));
+  const old = runtime.client;
   runtime.client = gatewayClient();
   runtime.emit("status", { availability: "ready" });
-  // The new connection has no receipt, so the Gateway sends a full snapshot first.
+  // The old connection is no longer heard.
+  old.emit("event", append("agent:news:main", "run-1", " stale"));
+  // Its baseline is gone too: the new connection's first frame is a snapshot
+  // (assistant-chat-stream-contract proves this natively), so an append alone is
+  // never built on the old text.
+  emit(append("agent:news:main", "run-1", " orphan"));
   emit(snapshot("agent:news:main", "run-1", "Before and during"));
   emit(append("agent:news:main", "run-1", " and after"));
+  assert.equal(old.listenerCount("event"), 0);
   assert.deepEqual(
     published.map(([, , text]) => text),
     ["Before", "Before and during", "Before and during and after"],
   );
 });
+
+for (const state of ["aborted", "error"])
+  test(`an ${state} run ends its stream like a final one`, async (t) => {
+    const { emit, published } = streamingService(t);
+    emit(snapshot("agent:news:main", "run-1", "Partial"));
+    emit({
+      event: "chat",
+      payload: { runId: "run-1", sessionKey: "agent:news:main", state },
+    });
+    emit(append("agent:news:main", "run-1", " late"));
+    assert.deepEqual(
+      published.map(([, , text]) => text),
+      ["Partial"],
+    );
+  });

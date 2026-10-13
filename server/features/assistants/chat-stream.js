@@ -1,11 +1,18 @@
+// The browser receives at most this much of a streamed reply; the history has it all.
+export const maxStreamText = 65536;
+// Runs whose terminal frame never arrives are forgotten oldest first.
+const maxRuns = 64;
+
+const isRecord = (value) => typeof value === "object" && value !== null;
+
+// The text of a snapshot `message`, or undefined when it carries no text at all.
 function messageText(message) {
-  if (typeof message?.content === "string") return message.content;
-  return Array.isArray(message?.content)
-    ? message.content
-        .filter((c) => c?.type === "text" && typeof c.text === "string")
-        .map((c) => c.text)
-        .join("")
-    : "";
+  if (!isRecord(message)) return undefined;
+  if (typeof message.content === "string") return message.content;
+  const blocks = Array.isArray(message.content)
+    ? message.content.filter((c) => c?.type === "text" && typeof c.text === "string")
+    : [];
+  return blocks.length ? blocks.map((c) => c.text).join("") : undefined;
 }
 
 /**
@@ -17,29 +24,40 @@ function messageText(message) {
  * mergeChatStreamMessage.
  */
 export function nextChatText(previous, payload) {
-  if (payload.message !== undefined) return messageText(payload.message);
+  const snapshot = messageText(payload.message);
+  if (snapshot !== undefined) return snapshot;
   const delta = payload.deltaText;
   if (typeof delta !== "string") return previous;
   if (payload.replace === true) return delta;
   return previous === undefined ? undefined : previous + delta;
 }
 
-/** Accumulates the streamed reply of the current run per Gateway session. */
+/** Accumulates each streaming run's reply, keyed by run as the Gateway does. */
 export class ChatStreams {
   constructor() {
-    this.sessions = new Map();
+    this.runs = new Map();
   }
   /** Returns the reply so far, or undefined while the run's snapshot is missing. */
   delta(payload) {
-    const current = this.sessions.get(payload.sessionKey);
-    const previous = current?.runId === payload.runId ? current.text : undefined;
+    const current = this.runs.get(payload.runId);
+    const previous =
+      current?.sessionKey === payload.sessionKey ? current.text : undefined;
     const text = nextChatText(previous, payload);
     if (text === undefined) return undefined;
-    this.sessions.set(payload.sessionKey, { runId: payload.runId, text });
-    return text;
+    this.runs.delete(payload.runId);
+    this.runs.set(payload.runId, {
+      sessionKey: payload.sessionKey,
+      text: text.slice(0, maxStreamText),
+    });
+    if (this.runs.size > maxRuns) this.runs.delete(this.runs.keys().next().value);
+    return text.slice(0, maxStreamText);
   }
-  /** A finished run's text is history now; a newer run's stream is kept. */
-  end(sessionKey, runId) {
-    if (this.sessions.get(sessionKey)?.runId === runId) this.sessions.delete(sessionKey);
+  /** A finished run's text is history now. */
+  end(runId) {
+    this.runs.delete(runId);
+  }
+  /** A new Gateway connection starts every run with a snapshot again. */
+  clear() {
+    this.runs.clear();
   }
 }
