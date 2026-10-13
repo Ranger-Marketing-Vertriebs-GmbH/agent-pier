@@ -8,6 +8,26 @@ import { avatarGlyph } from "./avatar-glyph.js";
 import { connectionMissing } from "./connection-state.js";
 import Icon from "../../components/Icon.jsx";
 import { activityFor, activityDot, sidebarSubline } from "./assistant-status.js";
+
+// Agents whose team members the owner unfolded stay unfolded across reloads (per
+// browser, like the sidebar groups). Storage may be unavailable; folding still works.
+const expandedKey = "agentpier.sidebar.agents.expanded";
+function readExpanded() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(expandedKey) || "[]");
+    return new Set(
+      Array.isArray(saved) ? saved.filter((id) => typeof id === "string") : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+function saveExpanded(ids) {
+  try {
+    localStorage.setItem(expandedKey, JSON.stringify([...ids]));
+  } catch {}
+}
+
 export default function AssistantSidebar({ navigate, route }) {
   const {
     assistants,
@@ -21,7 +41,7 @@ export default function AssistantSidebar({ navigate, route }) {
   } = useAssistants();
   const [opening, setOpening] = useState(null),
     [error, setError] = useState(""),
-    [expanded, setExpanded] = useState(() => new Set());
+    [expanded, setExpanded] = useState(readExpanded);
   const request = useRef(null);
   useEffect(
     () => () => {
@@ -70,6 +90,7 @@ export default function AssistantSidebar({ navigate, route }) {
     setExpanded((current) => {
       const next = new Set(current);
       if (!next.delete(id)) next.add(id);
+      saveExpanded(next);
       return next;
     });
   const visible = roots.flatMap((a) => [

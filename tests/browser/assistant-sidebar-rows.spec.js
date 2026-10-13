@@ -147,3 +147,40 @@ test("nested row subline colour follows the subline tone", async ({ page }) => {
   await expect(small).toContainText("google/gemini-3.8-flash");
   await expect(small.locator(".accent")).toHaveCount(0);
 });
+
+test("unfolded team members stay unfolded after a reload and folded ones stay folded", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await fixture(page);
+  await page.goto(baseURL);
+  const row = page.locator(".assistant-sidebar-row").first();
+  const members = page.getByRole("group", { name: "Prepare the relaunch" });
+  await row.getByRole("button", { name: /Show team members \(1\)/ }).click();
+  await expect(members.locator(".assistant-sidebar-member")).toHaveCount(1);
+  await page.reload();
+  await expect(
+    row.getByRole("button", { name: /Hide team members \(1\)/ }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await expect(members.locator(".assistant-sidebar-member")).toHaveCount(1);
+  await row.getByRole("button", { name: /Hide team members \(1\)/ }).click();
+  await page.reload();
+  await expect(
+    row.getByRole("button", { name: /Show team members \(1\)/ }),
+  ).toHaveAttribute("aria-expanded", "false");
+});
+
+test("unreadable saved sidebar state falls back to folded members", async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("agentpier.sidebar.agents.expanded", "{not json"),
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await fixture(page);
+  await page.goto(baseURL);
+  await expect(
+    page
+      .locator(".assistant-sidebar-row")
+      .first()
+      .getByRole("button", { name: /Show team members \(1\)/ }),
+  ).toHaveAttribute("aria-expanded", "false");
+});
