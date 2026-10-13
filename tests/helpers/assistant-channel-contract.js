@@ -56,6 +56,7 @@ export async function qualifyAssistantChannels({ dataDir, assistants, assistantI
     transcriber: new DeepgramTranscriber({ fetchImpl: externalFetch }),
   });
   const signal = new AbortController().signal;
+  const attemptIds = [];
   try {
     const channel = await channels.create({ assistantId, token });
     const pair = await channels.pair(channel.id, channel.revision);
@@ -97,6 +98,7 @@ export async function qualifyAssistantChannels({ dataDir, assistants, assistantI
       await channels.process(channel.id, signal);
       const entry = channels.ledger.list(channel.id).at(-1);
       assert.ok(entry.attemptId);
+      attemptIds.push(entry.attemptId);
       const completion = await assistants.runtime.client.call(
         "agent.wait",
         { runId: entry.attemptId, timeoutMs: 30000 },
@@ -134,8 +136,31 @@ export async function qualifyAssistantChannels({ dataDir, assistants, assistantI
         },
       ]),
     );
+    // The native turn key contract message-source.js relies on: each attempt's user
+    // turn carries `<attempt id>:user` at the top level and in `__openclaw`, with a
+    // message id, and the reply it started names the attempt as its run.
+    for (const attemptId of attemptIds) {
+      const key = `${attemptId}:user`;
+      const at = raw.messages.findIndex((m) => m.idempotencyKey === key);
+      assert.ok(at >= 0, `no user turn keyed ${key}`);
+      const turn = raw.messages[at];
+      assert.equal(turn.role, "user");
+      assert.equal(turn.__openclaw?.idempotencyKey, key);
+      assert.equal(typeof turn.__openclaw?.id, "string");
+      assert.ok(turn.__openclaw.id.length > 0);
+      assert.ok(
+        raw.messages
+          .slice(at + 1)
+          .some((m) => m.role === "assistant" && m.__openclaw?.runId === attemptId),
+        `no reply with runId ${attemptId}`,
+      );
+    }
     const turns = publicMessages(raw.messages).filter((m) => m.role === "user");
     assert.ok(turns.every((m) => m.turnKey));
+    assert.equal(
+      turns.filter((m) => attemptIds.includes(m.turnKey)).length,
+      attemptIds.length,
+    );
     const marked = withMessageSources(turns, requests, {
       attempts: assistants.ledger.attemptRequests(conversationId),
       contexts,
