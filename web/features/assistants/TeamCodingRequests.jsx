@@ -1,12 +1,13 @@
 import React from "react";
 import { assistantWorkflowCopy as copy } from "../../lib/i18n/messages/assistant-workflows.js";
 // Coding runs this team's members asked for, with the owner's exact decision and
-// the resulting pipeline run.
-export default function TeamCodingRequests({ actions, busy, onDecide }) {
+// the resulting pipeline run. `title` names the team where several teams are listed.
+export default function TeamCodingRequests({ id, title, actions, busy, onDecide }) {
   if (!actions.length) return null;
+  const heading = title ? `${copy.teamRequests} · ${title}` : copy.teamRequests;
   return (
-    <section className="assistant-team-coding" aria-label={copy.teamRequests}>
-      <h4>{copy.teamRequests}</h4>
+    <section id={id} className="assistant-team-coding" aria-label={heading}>
+      <h4>{heading}</h4>
       {actions.map((a) => (
         <article
           className="assistant-approval-card"

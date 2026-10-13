@@ -41,7 +41,7 @@ export default function AgentSettingsPage({
   const go = (nextTab, nextPage = "") =>
     navigate(agentRoute(assistant.id, nextTab, nextPage));
   const Panel = panels[tab];
-  const props = { assistant, page, go, navigate };
+  const props = { assistant, page, go, navigate, focusTeamId: route.agentTeam };
   return (
     <section className="assistant-detail assistant-settings-page agent-settings">
       <AssistantHeader

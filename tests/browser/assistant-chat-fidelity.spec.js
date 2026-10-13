@@ -56,8 +56,8 @@ test.describe("agent chat handoff measurements", () => {
           parentAssistantId: "home",
           parentConversationId: "dinner",
           objective: "Prepare the relaunch",
-          phase: "running",
-          members: [],
+          phase: "awaiting_approval",
+          members: [{ name: "Planner", role: "Plan", assignment: "Plan the launch" }],
           memberIds: [],
         },
       ],
@@ -104,7 +104,7 @@ test.describe("agent chat handoff measurements", () => {
     expect(composer.y - (popover.y + popover.height)).toBe(28);
   });
 
-  test("a running team card uses the › glyph and insets Stop like its rows", async ({
+  test("a running team card in Settings uses the › glyph and insets its actions like its rows", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -145,19 +145,21 @@ test.describe("agent chat handoff measurements", () => {
         },
       ],
     });
-    await page.goto(chat);
+    await page.goto(baseURL + "/agents/home/settings?tab=work");
     const card = page.locator(".assistant-team-card");
-    const chevron = card.locator("summary .assistant-team-chevron");
+    const chevron = card.locator(":scope > summary .assistant-team-chevron");
     await expect(chevron).toHaveText("›");
     await expect(chevron).toHaveCSS("font-size", "22px");
-    await card.locator("summary").click();
+    await card.locator(":scope > summary").click();
     await expect(chevron).toHaveCSS("transform", /matrix\(0, 1, -1, 0/);
-    const [row, stop] = [
+    const [row, show, stop] = [
       await card.locator(".assistant-team-member").boundingBox(),
+      await card.getByRole("link", { name: "Show in chat", exact: true }).boundingBox(),
       await card.getByRole("button", { name: "Stop team", exact: true }).boundingBox(),
     ];
-    expect(stop.x - row.x).toBe(8);
+    expect(show.x - row.x).toBe(8);
     expect(row.x + row.width - (stop.x + stop.width)).toBe(8);
+    expect(Math.abs(show.height - stop.height)).toBeLessThanOrEqual(1);
   });
 
   test("the team chip draws its icon with the handoff's 1.8 stroke", async ({ page }) => {

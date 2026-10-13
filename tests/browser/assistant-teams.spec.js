@@ -289,18 +289,14 @@ test("policy drafts cannot borrow a newer revision to restore revoked authority"
   ).toBeVisible();
   expect(policy.autonomous).toBe(false);
 });
-test("members without a conversation expose recovery through sidebar and parent team", async ({
+test("members without a conversation expose recovery through sidebar and the lead's team list", async ({
   page,
 }) => {
   const { members } = await setup(page);
   members[0].phase = "provisioning_uncertain";
   members[0].conversationId = null;
-  await page.goto(baseURL + "/agents/home/chats/parent-chat");
-  await page
-    .locator(".assistant-team-card")
-    .filter({ hasText: "Review the project" })
-    .locator("summary")
-    .click();
+  await page.goto(baseURL + settingsPath("work"));
+  await page.locator("#assistant-team-team > summary").click();
   await page
     .locator(".assistant-team-members")
     .getByRole("button", { name: /^Reviewer 1\b/ })
@@ -500,10 +496,8 @@ test("member settings identify model and instruction overrides independently", a
 test("team cards show aggregate uncertainty and partial completion", async ({ page }) => {
   const { teams } = await setup(page);
   teams[0].status = "uncertain";
-  await page.goto(baseURL + "/agents/home/chats/parent-chat");
-  const summary = page
-    .locator(".assistant-team-card summary")
-    .filter({ hasText: "Review the project" });
+  await page.goto(baseURL + settingsPath("work"));
+  const summary = page.locator("#assistant-team-team > summary");
   await expect(summary).toContainText("Outcome unknown");
   teams[0].status = "stopping";
   await refreshFromEvent(page);
@@ -518,16 +512,19 @@ test("team cards show aggregate uncertainty and partial completion", async ({ pa
   );
   await expect(page.getByRole("button", { name: "Archive", exact: true })).toBeVisible();
 });
-test("a team task link from Telegram opens the parent chat with that team expanded", async ({
+test("a team task link from Telegram opens the parent chat at that team's note", async ({
   page,
 }) => {
   const { teams } = await setup(page);
   teams[0].parentConversationId = "parent-chat";
+  teams[0].createdAt = "2026-10-13T09:00:00.000Z";
   await page.goto(baseURL + "/agents/home/teams/team");
-  const card = page
-    .locator(".assistant-team-card")
-    .filter({ hasText: "Review the project" });
-  await expect(card).toHaveAttribute("open", "");
+  const note = page
+    .getByRole("log")
+    .getByRole("link", { name: "Team started: Review the project" });
+  await expect(note).toBeInViewport();
+  await expect(page.locator(".assistant-team-note.focused")).toHaveCount(1);
+  await expect(page.locator("details.assistant-team-card")).toHaveCount(0);
   await expect(page.getByRole("log").getByText("Research in progress")).toBeVisible();
   await expect(page).toHaveURL(/\/agents\/home\/teams\/team$/);
 });
@@ -537,10 +534,9 @@ test("a team started by a plain-language owner request shows the quoted words", 
   const { teams } = await setup(page);
   teams[0].parentConversationId = "parent-chat";
   teams[0].ownerRequestQuote = "build a team that reviews the project";
-  await page.goto(baseURL + "/agents/home/teams/team");
-  const card = page
-    .locator(".assistant-team-card")
-    .filter({ hasText: "Review the project" });
+  await page.goto(baseURL + "/agents/home/settings?tab=work&team=team");
+  const card = page.locator("#assistant-team-team");
+  await expect(card).toHaveAttribute("open", "");
   await expect(card).toContainText(
     "Started because you wrote: “build a team that reviews the project”",
   );
@@ -554,6 +550,9 @@ test("a finished team shows its synthesis turn as a note and an owner stop as ca
   const { teams, history } = await setup(page);
   teams[0].status = "cancelled";
   teams[0].phase = "cancelled";
+  teams[0].parentConversationId = "parent-chat";
+  teams[0].createdAt = "2026-10-13T09:00:00.000Z";
+  teams[0].finishedAt = "2026-10-13T09:05:00.000Z";
   history.messages = [
     { id: "event", role: "event", event: "team-result" },
     { id: "reply", role: "assistant", text: "Here is the summary" },
@@ -566,9 +565,7 @@ test("a finished team shows its synthesis turn as a note and an owner stop as ca
     }),
   ).toBeVisible();
   await expect(log.locator(".assistant-message.user")).toHaveCount(0);
-  await expect(
-    page
-      .locator(".assistant-team-card summary")
-      .filter({ hasText: "Review the project" }),
-  ).toContainText("Cancelled");
+  await expect(log.getByText("Team cancelled: Review the project")).toBeVisible();
+  await page.goto(baseURL + settingsPath("work"));
+  await expect(page.locator("#assistant-team-team > summary")).toContainText("Cancelled");
 });

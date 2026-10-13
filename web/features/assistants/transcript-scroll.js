@@ -10,3 +10,13 @@ export function scrollToChild(container, element, offset = 12) {
   container.scrollTop = Math.max(0, top);
   return true;
 }
+
+/** The nearest ancestor that scrolls vertically (the page itself as the last resort). */
+export function scrollParent(element) {
+  for (let node = element?.parentElement; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if (/(auto|scroll)/.test(overflowY) && node.scrollHeight > node.clientHeight)
+      return node;
+  }
+  return document.scrollingElement;
+}

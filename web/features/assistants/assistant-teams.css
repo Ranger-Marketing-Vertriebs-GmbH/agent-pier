@@ -1,4 +1,6 @@
-/* Approval strip, approval cards, team cards and the member context (handoff 2c, 2d). */
+/* Approval strip, approval cards, team cards, team notes and the member context
+   (handoff 2c, 2d). Team cards live in Settings → Work → Teams; a proposal card also
+   in the lead's chat until it is decided. */
 .assistant-approval-strip {
   display: flex;
   flex-shrink: 0;
@@ -150,12 +152,31 @@
   }
 }
 
-.assistant-teams {
+.assistant-team-approvals {
   display: grid;
   /* An auto track grows to the card's min-content width, which includes the
      member assignment kept on one line; the card must take the transcript width. */
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+}
+.assistant-transcript .assistant-team-note a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: var(--muted);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.assistant-transcript .assistant-team-note a > svg {
+  flex: none;
+}
+.assistant-transcript .assistant-team-note a:hover,
+.assistant-transcript .assistant-team-note.focused a {
+  color: var(--accent-text);
+}
+.assistant-transcript .assistant-team-note a:hover span {
+  text-decoration: underline;
 }
 .assistant-team-card {
   min-width: 0;
@@ -171,7 +192,8 @@
 .assistant-team-card.awaiting > * + * {
   margin-top: 12px;
 }
-.assistant-team-card summary {
+.assistant-team-card summary,
+.assistant-team-head {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -182,9 +204,12 @@
 .assistant-team-card summary::-webkit-details-marker {
   display: none;
 }
-.assistant-team-card.awaiting summary {
+.assistant-team-card.awaiting .assistant-team-head {
   align-items: flex-start;
   padding: 0;
+}
+.assistant-team-card[data-focused] {
+  border-color: var(--accent-line);
 }
 .assistant-team-icon {
   display: grid;
@@ -332,15 +357,32 @@
 .assistant-team-card:not(.awaiting) .assistant-card-actions:empty {
   display: none;
 }
-.assistant-team-archived {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.assistant-team-result {
+  margin: 0 8px 8px;
+  color: var(--text-row);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.assistant-team-report,
+.assistant-team-report-missing {
+  margin: 0 8px 6px 44px;
   color: var(--muted);
   font-size: 12px;
 }
-.assistant-team-archived input {
-  width: auto;
+.assistant-team-report summary {
+  display: inline;
+  padding: 0;
+  color: var(--accent-text);
+}
+.assistant-team-report p {
+  margin: 6px 0 0;
+  color: var(--text-row);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.assistant-team-card:not(.awaiting) .assistant-card-actions a.button {
+  height: 36px;
 }
 @media (min-width: 701px) {
   .assistant-team-card:not([open]) {
