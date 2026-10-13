@@ -45,9 +45,14 @@ test(
       }),
     });
     // AgentPier hands HTTP(S)_PROXY to the Gateway (proxyEnvironment); OpenClaw's
-    // discovery fetch honours them, so chatgpt.com is never contacted.
+    // discovery fetch honours them, so chatgpt.com is never contacted. This changes
+    // process.env, which relies on node:test's default process-per-file isolation;
+    // the values are restored when the test ends.
     const tunnels = [];
+    const sockets = new Set();
     const proxy = net.createServer((socket) => {
+      sockets.add(socket);
+      socket.on("close", () => sockets.delete(socket));
       socket.once("data", (chunk) => {
         tunnels.push(chunk.toString("latin1").split("\r\n")[0]);
         socket.end("HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n");
@@ -56,10 +61,16 @@ test(
     });
     await new Promise((resolve) => proxy.listen(0, "127.0.0.1", resolve));
     const saved = Object.fromEntries(
-      ["HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy"].map((n) => [
-        n,
-        process.env[n],
-      ]),
+      // An inherited NO_PROXY could exempt chatgpt.com from the stub; loopback
+      // stays exempt because proxyEnvironment always adds it.
+      [
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "https_proxy",
+        "http_proxy",
+        "NO_PROXY",
+        "no_proxy",
+      ].map((n) => [n, process.env[n]]),
     );
     for (const name of Object.keys(saved)) delete process.env[name];
     process.env.HTTPS_PROXY =
@@ -71,7 +82,8 @@ test(
         for (const [name, value] of Object.entries(saved))
           if (value === undefined) delete process.env[name];
           else process.env[name] = value;
-        proxy.close();
+        for (const socket of sockets) socket.destroy();
+        await new Promise((resolve) => proxy.close(resolve));
         fs.rmSync(dataDir, { recursive: true, force: true });
       }
     });
