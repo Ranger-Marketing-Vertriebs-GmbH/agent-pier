@@ -145,3 +145,38 @@ for (const [language, copy] of Object.entries(translations)) {
     });
   });
 }
+
+test("a phone-to-desktop change before the layout listener attaches leaves the sidebar usable", async ({
+  page,
+}) => {
+  // The window grows between the first render (phone, drawer inert) and the moment
+  // the layout hook subscribes, so no change event ever reaches it (WebKit, login.spec).
+  await page.addInitScript(() => {
+    let subscribed = false;
+    const matchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => {
+      const media = matchMedia(query);
+      if (query !== "(max-width: 700px)") return media;
+      const matches = Object.getOwnPropertyDescriptor(
+        MediaQueryList.prototype,
+        "matches",
+      ).get;
+      const subscribe = media.addEventListener.bind(media);
+      Object.defineProperty(media, "matches", {
+        get: () => !subscribed || matches.call(media),
+      });
+      media.addEventListener = (type, listener, options) => {
+        if (type === "change") subscribed = true;
+        return subscribe(type, listener, options);
+      };
+      return media;
+    };
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(baseURL);
+  const sidebar = page.locator(".sidebar");
+  await expect(sidebar).toBeVisible();
+  await expect(sidebar).not.toHaveAttribute("inert");
+  await page.locator(".sidebar .sidebar-menu-button").click({ timeout: 5000 });
+  await expect(page.locator("#sidebar-menu")).toBeVisible();
+});
