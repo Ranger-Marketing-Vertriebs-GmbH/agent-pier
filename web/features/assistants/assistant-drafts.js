@@ -18,6 +18,11 @@ export class AssistantDrafts {
     else delete value.teamAllowed;
     this.values.set(id, value);
   }
+  // Other files make another message: the next delivery gets a new key.
+  attach(id) {
+    const value = this.values.get(id);
+    if (value?.clientRequestId) this.values.set(id, { ...value, clientRequestId: null });
+  }
   delivery(id) {
     const value = this.values.get(id) || { text: "" };
     value.clientRequestId ||= crypto.randomUUID();

@@ -76,7 +76,7 @@ test.describe("agent chat handoff measurements", () => {
     expect(Math.round(card.y - (last.y + last.height))).toBe(14);
   });
 
-  test("the options popover is one 52px switch row above the composer", async ({
+  test("the options popover holds 52px rows for files and the switch above the composer", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -84,12 +84,15 @@ test.describe("agent chat handoff measurements", () => {
     await page.goto(chat);
     await page.getByRole("button", { name: "Options", exact: true }).click();
     const box = async (selector) => page.locator(selector).boundingBox();
-    const row = await box(".assistant-options-row");
-    const icon = await box(".assistant-options-row > svg");
-    const label = await box(".assistant-options-label");
+    const attach = await box("button.assistant-options-row");
+    expect(attach.height).toBe(52);
+    const switchRow = "label.assistant-options-row";
+    const row = await box(switchRow);
+    const icon = await box(`${switchRow} > svg`);
+    const label = await box(`${switchRow} .assistant-options-label`);
     const track = await box(".assistant-switch");
     expect(row.height).toBe(52);
-    await expect(page.locator(".assistant-options-label")).toHaveCSS(
+    await expect(page.locator(`${switchRow} .assistant-options-label`)).toHaveCSS(
       "font-weight",
       "400",
     );

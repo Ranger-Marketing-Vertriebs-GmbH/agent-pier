@@ -185,8 +185,9 @@ test.describe("member chat", () => {
     const status = page.locator(".assistant-header-status");
     await expect(status).toContainText("Working");
     await expect(status).toContainText("· Research");
+    // Member chats offer only files behind "+" (no team permission).
     await expect(page.getByRole("button", { name: "Options", exact: true })).toHaveCount(
-      0,
+      1,
     );
     await expect(page.getByLabel("Message", { exact: true })).toHaveAttribute(
       "placeholder",
