@@ -9,6 +9,9 @@ export default function useMobileLayout() {
     const media = window.matchMedia(mobileQuery);
     const change = () => setMobile(media.matches);
     media.addEventListener("change", change);
+    // The window may have crossed the breakpoint between the first render and this
+    // subscription; that change event went to nobody, so read the current state once.
+    change();
     return () => media.removeEventListener("change", change);
   }, []);
   return mobile;
