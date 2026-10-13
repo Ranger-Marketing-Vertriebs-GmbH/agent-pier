@@ -40,6 +40,7 @@
 .assistant-action-approvals,
 .assistant-team-coding {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 .assistant-approval-card {
@@ -151,9 +152,13 @@
 
 .assistant-teams {
   display: grid;
+  /* An auto track grows to the card's min-content width, which includes the
+     member assignment kept on one line; the card must take the transcript width. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 .assistant-team-card {
+  min-width: 0;
   padding: 6px 6px 10px;
   border: 1px solid var(--line);
   border-radius: 14px;
