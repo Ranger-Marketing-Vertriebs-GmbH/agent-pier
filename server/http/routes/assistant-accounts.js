@@ -4,10 +4,34 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 
+/**
+ * Each refresh asks the Gateway to rediscover provider models. Concurrent reads
+ * share one Gateway call; one owner budget bounds the rest. Build it when the app
+ * starts, not while answering a request.
+ */
+export function modelRefreshRateLimit() {
+  return rateLimit({
+    windowMs: 60_000,
+    limit: 12,
+    keyGenerator: () => "owner",
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    handler: (_req, res) => {
+      const message = serverMessages.assistants.modelsRateLimited;
+      res.status(429).json({
+        code: "models-rate-limited",
+        error: message,
+        ...messageIdentity(message),
+      });
+    },
+  });
+}
+
 export function assistantAccountRoutes({
   assistantModelAccounts: accounts,
   assistantModelLogin: login,
   assistants,
+  modelRefreshLimit = modelRefreshRateLimit(),
 }) {
   const router = Router();
   router.use(
@@ -26,28 +50,9 @@ export function assistantAccountRoutes({
     assistants.changed();
     res.json(result);
   });
-  // Each refresh asks the Gateway to rediscover provider models. Concurrent reads
-  // share one Gateway call; one owner budget bounds the rest.
-  const refreshLimit = rateLimit({
-    windowMs: 60_000,
-    limit: 12,
-    keyGenerator: () => "owner",
-    standardHeaders: "draft-8",
-    legacyHeaders: false,
-    // Built once per assistant service set, which the feature creates on demand.
-    validate: { creationStack: false },
-    handler: (_req, res) => {
-      const message = serverMessages.assistants.modelsRateLimited;
-      res.status(429).json({
-        code: "models-rate-limited",
-        error: message,
-        ...messageIdentity(message),
-      });
-    },
-  });
   router.post(
     "/assistant-model-accounts/:id/models/refresh",
-    refreshLimit,
+    modelRefreshLimit,
     async (req, res) => {
       // The catalog publishes its own change event when the read ends. Maintenance
       // already refuses this POST (activeAssistantRoutes); admission is not used,
