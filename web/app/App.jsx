@@ -242,6 +242,8 @@ function Application() {
               ready={ready}
               route={route}
               onNavigate={navigate}
+              openNavigation={openNavigation}
+              navigationOpen={mobileNav}
             />
           ) : view === "extensions" ? (
             <Extensions

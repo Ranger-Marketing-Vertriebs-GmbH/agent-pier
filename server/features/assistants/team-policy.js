@@ -43,7 +43,8 @@ export function normalizeTeamSettings(input, policies = []) {
     hostMaxConcurrent > 32
   )
     throw assistantProblem("invalid");
+  // Not a stale revision: "Overwrite anyway" could never succeed, so it gets its own key.
   if (hostMaxConcurrent < Math.max(4, ...policies.map((p) => p.maxMembers)))
-    throw assistantProblem("conflict", 409);
+    throw assistantProblem("hostCapacity", 409);
   return { revision: 1, hostMaxConcurrent };
 }

@@ -1,7 +1,7 @@
 .operations-page h1 {
   margin-bottom: 18px;
 }
-.operations-page h2 {
+.operations-page h2:not(.group-label h2) {
   font-size: 18px;
 }
 .operations-card {
@@ -51,16 +51,6 @@
   padding: 0;
   margin: 0;
   min-width: 0;
-}
-.operations-upload {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.operations-upload progress {
-  width: 100%;
-  accent-color: var(--accent);
 }
 .operations-filters {
   display: flex;
@@ -201,8 +191,4 @@
 .release-notes-content table {
   display: block;
   overflow-x: auto;
-}
-.release-badge {
-  font-weight: 500;
-  vertical-align: middle;
 }

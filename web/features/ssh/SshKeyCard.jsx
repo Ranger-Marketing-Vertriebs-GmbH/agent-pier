@@ -11,7 +11,7 @@ export default function SshKeyCard({ sshKey, project, edited, removed }) {
   const inUse = sshKey.hosts.length > 0;
   return (
     <article className="ssh-card">
-      <h3>{sshKey.name}</h3>
+      <h2>{sshKey.name}</h2>
       <p className="ssh-owner-badge">
         {projectCopy.owner}: {project?.name || projectCopy.global}
       </p>

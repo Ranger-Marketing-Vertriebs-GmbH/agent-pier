@@ -10,7 +10,6 @@ export default function NotificationsPage() {
   return (
     <section>
       <div className="page-header">
-        <h1>{copy.title}</h1>
         <p>{copy.description}</p>
       </div>
       <InstallCard />

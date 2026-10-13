@@ -29,11 +29,11 @@ export default function SshAccessDetails({
   };
   return (
     <article className="ssh-card">
-      <h3>{access.name}</h3>
+      <h2>{access.name}</h2>
       <p className="ssh-owner-badge">
         {projectCopy.owner}: {project?.name || projectCopy.global}
       </p>
-      <h4>{copy.connection}</h4>
+      <h3>{copy.connection}</h3>
       <dl className="ssh-connection-fields">
         <dt>{copy.host}</dt>
         <dd>{access.host}</dd>
@@ -68,7 +68,7 @@ export default function SshAccessDetails({
       {busy && <p role="status">{copy.busy}</p>}
       {tested && <p role="status">{copy.testOk}</p>}
       <div className="ssh-detail-section">
-        <h4>{copy.keyMode}</h4>
+        <h3>{copy.keyMode}</h3>
         <div className="ssh-key-link">
           <span>{access.keyName}</span>
           <button

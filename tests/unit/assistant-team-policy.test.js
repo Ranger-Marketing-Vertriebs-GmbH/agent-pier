@@ -28,6 +28,6 @@ test("team limits accept all members but reject invalid capacity and hidden gran
   );
   assert.throws(
     () => normalizeTeamSettings({ hostMaxConcurrent: 4 }, [{ maxMembers: 8 }]),
-    { status: 409 },
+    { status: 409, key: "hostCapacity" },
   );
 });

@@ -123,6 +123,8 @@ export const assistants = {
   notFound: "Agent or conversation not found.",
   conflict: "The data has changed. Please reload.",
   capacity: "The team size exceeds this host's capacity. Choose a smaller value.",
+  hostCapacity:
+    "At least one agent team is larger than this value. Choose a larger capacity or reduce the team size.",
   unavailable: "The agent service is not ready. Check runtime settings.",
   provider: "This model connection is not available for agents.",
   uncertain:

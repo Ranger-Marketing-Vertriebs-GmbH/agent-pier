@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { actionsFixture } from "../helpers/file-actions-browser.js";
 import { baseURL } from "../helpers/browser.js";
+import { chooseLanguage } from "../helpers/settings.js";
 
 for (const language of ["en", "de"])
   for (const mode of ["absent", "throws", "rejects", "success"])
@@ -28,7 +29,7 @@ for (const language of ["en", "de"])
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await page.goto(baseURL + "/settings");
-      await page.getByLabel(/Sprache|Language/).selectOption(language);
+      await chooseLanguage(page, language);
       await page.goto(baseURL + "/files");
       const trigger = page.getByRole("button", {
         name: language === "en" ? "Actions for a.txt" : "Aktionen für a.txt",

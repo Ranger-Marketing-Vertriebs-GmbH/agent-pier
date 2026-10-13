@@ -106,6 +106,11 @@ export async function fixture(page) {
       repositories.projects.push(result);
     } else if (path === "/api/accounts/usage") {
       result = {};
+    } else if (path === "/api/settings/summary") {
+      result = {
+        access: { mcp: null, remote: null, ssh: null, github: null },
+        operations: null,
+      };
     } else if (path === "/api/sessions") {
       result = {
         id: "session-repo",

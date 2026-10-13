@@ -1,0 +1,47 @@
+/* Einstellungen: page-only additions to the shared settings pattern. */
+.settings-page-shell .page {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.settings-subpage.wide .settings-shell-content {
+  max-width: 1080px;
+}
+.settings-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-tab-panel > .list-card,
+.settings-tab-panel > .reference-row {
+  margin-bottom: 16px;
+}
+.directory-row {
+  flex-wrap: wrap;
+}
+.directory-row-field {
+  display: flex;
+  flex: 1 1 100%;
+  gap: 8px;
+  padding: 0 12px 12px 14px;
+}
+.directory-row-field input {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 700px) {
+  /* The page header carries the sidebar button, as on agent settings. */
+  .app:has(.settings-page-shell) .mobile-header {
+    display: none;
+  }
+  /* The hidden header stays in the DOM; keep the update notice off the tab row. */
+  body:has(.app .settings-page-shell) .update-notice {
+    top: calc(env(safe-area-inset-top) + 8px);
+  }
+}
+
+/* A list card inside a former operations section keeps air before the next control. */
+.operations-page > .list-card {
+  margin-bottom: 16px;
+}

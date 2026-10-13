@@ -1,0 +1,278 @@
+import { test, expect } from "@playwright/test";
+import { baseURL } from "../helpers/browser.js";
+import { settingsBar, settingsRow } from "../helpers/settings.js";
+import { operationsFixture } from "./operations-fixture.js";
+
+const calls = (state, method, path) =>
+  state.calls.filter((call) => call.method === method && call.path === path);
+async function featureRoute(page) {
+  const feature = { puts: [], fail: false, answer: { enabled: false, error: null } };
+  await page.route("**/api/assistant-feature", async (route) => {
+    if (route.request().method() !== "PUT")
+      return route.fulfill({ json: { enabled: false, error: null } });
+    feature.puts.push(route.request().postDataJSON());
+    if (feature.fail)
+      return route.fulfill({ status: 500, json: { error: "Feature fixture failure" } });
+    return route.fulfill({ json: feature.answer });
+  });
+  return feature;
+}
+
+for (const locale of ["de-DE", "en-GB"]) {
+  const en = locale === "en-GB";
+  const t = (german, english) => (en ? english : german);
+  const resume = t(
+    "Unterbrochene Sitzungen automatisch fortsetzen",
+    "Resume interrupted sessions automatically",
+  );
+  test.describe(`settings workspace ${locale}`, () => {
+    test.use({ locale });
+
+    test("the bar appears only with changes and cancel restores them", async ({
+      page,
+    }) => {
+      const state = await operationsFixture(page);
+      await page.goto(baseURL + "/settings");
+      const toggle = page.getByRole("switch", { name: resume });
+      await expect(toggle).toBeChecked();
+      await expect(settingsBar(page)).toHaveCount(0);
+      await toggle.click();
+      await expect(
+        settingsBar(page).getByRole("button", {
+          name: t("Einstellungen speichern", "Save settings"),
+          exact: true,
+        }),
+      ).toBeVisible();
+      await settingsBar(page)
+        .getByRole("button", { name: t("Abbrechen", "Cancel"), exact: true })
+        .click();
+      await expect(settingsBar(page)).toHaveCount(0);
+      await expect(toggle).toBeChecked();
+      expect(calls(state, "PATCH", "/preferences")).toEqual([]);
+    });
+
+    test("switching tabs with changes asks first", async ({ page }) => {
+      const state = await operationsFixture(page);
+      await page.goto(baseURL + "/settings");
+      const toggle = page.getByRole("switch", { name: resume });
+      await toggle.click();
+      const access = page.getByRole("tab", { name: t("Zugriff", "Access") });
+      await access.click();
+      const sheet = page.getByRole("dialog", {
+        name: t("Änderungen speichern?", "Save changes?"),
+      });
+      await expect(sheet).toContainText(
+        t(
+          "Im Tab Arbeitsbereich ist 1 Änderung noch nicht gespeichert.",
+          "1 change in Workspace is not saved yet.",
+        ),
+      );
+      await sheet
+        .getByRole("button", { name: t("Abbrechen", "Cancel"), exact: true })
+        .click();
+      await expect(page).toHaveURL(/\/settings$/);
+      await expect(toggle).not.toBeChecked();
+      await access.click();
+      await sheet
+        .getByRole("button", { name: t("Verwerfen", "Discard"), exact: true })
+        .click();
+      await expect(page).toHaveURL(/\/settings\?tab=access$/);
+      await page.getByRole("tab", { name: t("Arbeitsbereich", "Workspace") }).click();
+      await expect(toggle).toBeChecked();
+      await toggle.click();
+      await page.getByRole("tab", { name: t("Betrieb", "Operations") }).click();
+      await sheet
+        .getByRole("button", {
+          name: t("Speichern und wechseln", "Save and switch"),
+          exact: true,
+        })
+        .click();
+      await expect(page).toHaveURL(/\/settings\?tab=operations$/);
+      expect(calls(state, "PATCH", "/preferences").map((call) => call.body)).toEqual([
+        { autoResumeInterrupted: false },
+      ]);
+    });
+  });
+}
+
+test("a save sends only changed fields and canonical directories stay clean", async ({
+  page,
+}) => {
+  const state = await operationsFixture(page);
+  await page.route("**/api/preferences", async (route) => {
+    const body = route.request().postDataJSON();
+    state.calls.push({ path: "/preferences", method: "PATCH", body });
+    state.preferences = {
+      ...state.preferences,
+      ...body,
+      ...(body.defaultCwd ? { defaultCwd: "/fixture/canonical" } : {}),
+    };
+    // Let the 3s state poll publish the canonical directory while the save still
+    // runs: the draft sees it as a foreign change and must still end clean.
+    const statePolls = () => state.calls.filter((call) => call.path === "/state").length;
+    const before = statePolls();
+    while (statePolls() === before)
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await route.fulfill({
+      json: { defaultCwd: "/fixture", autoResumeInterrupted: true, ...state.preferences },
+    });
+  });
+  await page.goto(baseURL + "/settings");
+  const directory = page.getByLabel("Standard-Arbeitsverzeichnis", { exact: true });
+  await expect(directory).toHaveValue("/fixture");
+  await directory.fill("~/work");
+  await settingsBar(page)
+    .getByRole("button", { name: "Einstellungen speichern", exact: true })
+    .click();
+  await expect(directory).toHaveValue("/fixture/canonical");
+  await expect(settingsBar(page)).toHaveCount(0);
+  await expect(page.getByRole("status")).toHaveText("Einstellungen gespeichert.");
+  expect(calls(state, "PATCH", "/preferences").map((call) => call.body)).toEqual([
+    { defaultCwd: "~/work" },
+  ]);
+});
+
+test("a failed second step keeps the tab dirty and a retry skips the first", async ({
+  page,
+}) => {
+  const state = await operationsFixture(page);
+  const feature = await featureRoute(page);
+  feature.fail = true;
+  await page.goto(baseURL + "/settings");
+  const resume = page.getByRole("switch", {
+    name: "Unterbrochene Sitzungen automatisch fortsetzen",
+  });
+  const agents = page.getByRole("switch", { name: "Agenten aktivieren" });
+  await resume.click();
+  await agents.click();
+  const bar = settingsBar(page);
+  await bar.getByRole("button", { name: "Einstellungen speichern", exact: true }).click();
+  await expect(bar.getByRole("alert")).toContainText("Teilweise gespeichert: Allgemein.");
+  await expect(bar.getByRole("alert")).toContainText("Feature fixture failure");
+  await expect(agents).toBeChecked();
+  await bar.getByRole("button", { name: "Einstellungen speichern", exact: true }).click();
+  await expect.poll(() => feature.puts.length).toBe(2);
+  expect(calls(state, "PATCH", "/preferences")).toHaveLength(1);
+  await bar.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(bar).toHaveCount(0);
+  await expect(agents).not.toBeChecked();
+  await expect(resume).not.toBeChecked();
+});
+
+test("rows, browser back and closing the page ask while the tab has changes", async ({
+  page,
+}) => {
+  await operationsFixture(page);
+  await page.goto(baseURL + "/settings?tab=access");
+  await page.getByRole("tab", { name: "Arbeitsbereich" }).click();
+  await page
+    .getByRole("switch", { name: "Unterbrochene Sitzungen automatisch fortsetzen" })
+    .click();
+  const unload = () =>
+    page.evaluate(() => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+  expect(await unload()).toBe(true);
+  const sheet = page.getByRole("dialog", { name: "Änderungen speichern?" });
+  await settingsRow(page, "App & Benachrichtigungen").click();
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toHaveCount(0);
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.evaluate(() => history.back());
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole("button", { name: "Verwerfen", exact: true }).click();
+  await expect(page).toHaveURL(/\/settings\?tab=access$/);
+  expect(await unload()).toBe(false);
+});
+
+test("hints open as disclosures with their text verbatim", async ({ page }) => {
+  await operationsFixture(page);
+  await page.goto(baseURL + "/settings");
+  const info = page
+    .locator(".toggle-row")
+    .filter({ hasText: "Unterbrochene Sitzungen automatisch fortsetzen" })
+    .getByRole("button", { name: "Hinweis anzeigen" });
+  await expect(info).toHaveAttribute("aria-expanded", "false");
+  await info.click();
+  await expect(info).toHaveAttribute("aria-expanded", "true");
+  const panel = page.locator(`#${await info.getAttribute("aria-controls")}`);
+  await expect(panel).toHaveText(
+    "Nach einem Neustart oder dem Verlust des Terminal-Servers setzt AgentPier jede unterbrochene Sitzung nacheinander mit ihrer eigenen Unterhaltung fort. Von dir beendete Sitzungen bleiben beendet.",
+  );
+  await info.click();
+  await expect(panel).toBeHidden();
+});
+
+test("saving the language before the workspace loaded sends no preferences", async ({
+  page,
+}) => {
+  const state = await operationsFixture(page);
+  state.hold = "/state";
+  await page.goto(baseURL + "/settings");
+  await expect(
+    page.getByText("Einstellungen werden geladen …", { exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Sprache", { exact: true }).selectOption("en");
+  await settingsBar(page)
+    .getByRole("button", { name: "Einstellungen speichern", exact: true })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  state.hold = "";
+  state.release?.();
+  await expect(page.getByLabel("Default working directory", { exact: true })).toHaveValue(
+    "/fixture",
+  );
+  await expect(settingsBar(page)).toHaveCount(0);
+  expect(calls(state, "PATCH", "/preferences")).toEqual([]);
+});
+
+test.describe("settings workspace field checks", () => {
+  test.use({ locale: "en-GB" });
+
+  test("an empty directory saves nothing, not even the language", async ({ page }) => {
+    const state = await operationsFixture(page);
+    await page.goto(baseURL + "/settings");
+    const directory = page.getByLabel("Default working directory", { exact: true });
+    await expect(directory).toHaveValue("/fixture");
+    await directory.fill("");
+    // The field error below the card; the bar keeps the last save's message.
+    const required = page.locator("div.error", {
+      hasText: "Enter a default working directory.",
+    });
+    await expect(required).toBeVisible();
+    await page.getByLabel("Language", { exact: true }).selectOption("de");
+    await settingsBar(page)
+      .getByRole("button", { name: "Save settings", exact: true })
+      .click();
+    await expect(settingsBar(page).getByRole("alert")).toHaveText(
+      "Enter a default working directory.",
+    );
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    expect(calls(state, "PATCH", "/preferences")).toEqual([]);
+    await directory.fill("/fixture/next");
+    await expect(required).toHaveCount(0);
+  });
+
+  test("an agent switch the server did not apply stays unsaved", async ({ page }) => {
+    await operationsFixture(page);
+    const feature = await featureRoute(page);
+    feature.answer = { enabled: false, error: "ASSISTANT_STORAGE_UNSAFE" };
+    await page.goto(baseURL + "/settings");
+    const agents = page.getByRole("switch", { name: "Enable agents" });
+    await agents.click();
+    await settingsBar(page)
+      .getByRole("button", { name: "Save settings", exact: true })
+      .click();
+    await expect(settingsBar(page).getByRole("alert")).toHaveText(
+      "Agents were not switched. See the agent diagnostic.",
+    );
+    await expect(page.getByText(/^Agent diagnostic: /)).toBeVisible();
+    await expect(agents).toBeChecked();
+    await expect(page.getByText("Settings saved.", { exact: true })).toHaveCount(0);
+    expect(feature.puts).toEqual([{ enabled: true }]);
+  });
+});

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 
 import { baseURL as base } from "../helpers/browser.js";
 import { navigateTo } from "../helpers/navigation.js";
+import { settingsRow } from "../helpers/settings.js";
 import {
   fixture,
   openCloneDialog,
@@ -20,6 +21,10 @@ test("GitHub access tokens support multiple profiles, private blank-preserving e
   await page.getByLabel("Access Token", { exact: true }).fill("private-token-value");
   await page.getByRole("button", { name: "Token speichern", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Arbeit", exact: true })).toBeVisible();
+  const table = page.getByRole("table", { name: "GitHub-Zugänge", exact: true });
+  await expect(
+    table.getByRole("heading", { name: "Arbeit", level: 2, exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("private-token-value")).toHaveCount(0);
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Arbeit bearbeiten" }).click();
@@ -171,7 +176,8 @@ test("token changes wait while a clone started elsewhere is running", async ({
   await expect(dialog.getByRole("button", { name: "Wird geklont …" })).toBeDisabled();
   await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
   await navigateTo(page, "Einstellungen");
-  await page.getByRole("button", { name: "GitHub-Zugänge", exact: true }).click();
+  await page.getByRole("tab", { name: "Zugriff", exact: true }).click();
+  await settingsRow(page, "GitHub-Zugänge").click();
   const edit = page.getByRole("button", { name: "Persönlich bearbeiten" });
   const remove = page.getByRole("button", { name: "Persönlich löschen" });
   const add = page.getByRole("button", { name: "Zugang hinzufügen" });

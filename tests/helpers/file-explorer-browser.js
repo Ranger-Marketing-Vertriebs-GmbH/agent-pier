@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { fixture } from "./repository-browser.js";
 import { baseURL } from "./browser.js";
+import { chooseLanguage } from "./settings.js";
 
 export const explorerContext = {
   scopeId: "f1:global-fixture",
@@ -118,7 +119,7 @@ export async function explorerFixture(
 
 export async function selectEnglish(page) {
   await page.goto(baseURL + "/settings");
-  await page.getByLabel("Sprache", { exact: true }).selectOption("en");
+  await chooseLanguage(page, "en");
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();

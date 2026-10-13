@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { settingsRow } from "../helpers/settings.js";
 import { operationsFixture } from "./operations-fixture.js";
 
 const serviceWorkerTest = test.extend({ serviceWorkers: "allow" });
@@ -12,9 +13,7 @@ serviceWorkerTest(
     );
     await operationsFixture(page);
     await page.goto(baseURL + "/settings");
-    await expect(
-      page.getByRole("button", { name: "App & Benachrichtigungen", exact: true }),
-    ).toBeVisible();
+    await expect(settingsRow(page, "App & Benachrichtigungen")).toBeVisible();
     await page.evaluate(async () => {
       const registration = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
@@ -75,9 +74,7 @@ test("install prompt captured before visiting settings still requires an explici
 }) => {
   await operationsFixture(page);
   await page.goto(baseURL + "/settings");
-  await expect(
-    page.getByRole("button", { name: "App & Benachrichtigungen", exact: true }),
-  ).toBeVisible();
+  await expect(settingsRow(page, "App & Benachrichtigungen")).toBeVisible();
   await page.evaluate(() => {
     window.__installCalls = 0;
     const event = new Event("beforeinstallprompt", { cancelable: true });
@@ -86,9 +83,7 @@ test("install prompt captured before visiting settings still requires an explici
     };
     window.dispatchEvent(event);
   });
-  await page
-    .getByRole("button", { name: "App & Benachrichtigungen", exact: true })
-    .click();
+  await settingsRow(page, "App & Benachrichtigungen").click();
   await expect(
     page.getByRole("button", { name: "App installieren", exact: true }),
   ).toBeVisible();

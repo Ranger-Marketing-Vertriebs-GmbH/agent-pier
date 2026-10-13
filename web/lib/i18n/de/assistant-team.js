@@ -26,6 +26,7 @@ export const assistantTeamCopy = {
   maxMembers: "Maximale Teamgröße",
   timeout: "Laufzeit pro Mitglied (Minuten)",
   capacity: "Gleichzeitig aktive Mitglieder auf diesem Host",
+  capacityRange: (min, max) => `Wähle einen Wert von ${min} bis ${max}.`,
   concurrentHint:
     "Alle Mitglieder dürfen gleichzeitig arbeiten, solange die gemeinsame Kapazität reicht.",
   save: "Team-Einstellungen speichern",

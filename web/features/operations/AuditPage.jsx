@@ -32,7 +32,6 @@ export default function AuditPage({ route, navigate }) {
   }, [data, page, pageCount, navigate]);
   return (
     <section>
-      <h1>{copy.audit}</h1>
       <p className="field-description">{copy.auditHelp}</p>
       <form
         className="operations-filters"

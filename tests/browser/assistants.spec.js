@@ -299,7 +299,7 @@ for (const source of ["sidebar", "settings"]) {
         .getByRole("button", { name: /^Home assistant, / })
         .click();
       await requested;
-      await page.getByRole("button", { name: "General", exact: true }).click();
+      await page.getByRole("button", { name: "Back to Workspace", exact: true }).click();
     } else {
       await page
         .getByRole("button", { name: "Back to conversation", exact: true })
