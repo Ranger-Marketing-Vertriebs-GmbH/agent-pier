@@ -55,6 +55,8 @@
   text-decoration: none;
 }
 .agent-attachment-name {
+  /* A name never reorders the text around it. */
+  unicode-bidi: isolate;
   max-width: 180px;
   overflow: hidden;
   font-size: 13px;
