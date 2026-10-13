@@ -102,6 +102,52 @@ test("mobile verification shows the project list first without overflow", async 
   await expect(item).toBeVisible();
 });
 
+// The owner's state: a folder registered as a plain directory and again after
+// `git init` keeps two rows with one name and one path.
+function duplicateFolders(state) {
+  state.projects.push(
+    { id: "lab-git", name: "electronic-lab", cwd: "/fixture/electronic-lab" },
+    {
+      id: "lab-dir",
+      name: "electronic-lab",
+      cwd: "/fixture/electronic-lab",
+      duplicateOf: "lab-git",
+    },
+    { id: "ops-dir", name: "spoolops", cwd: "/fixture/spoolops", duplicateOf: "ops-git" },
+    { id: "ops-git", name: "spoolops", cwd: "/fixture/spoolops" },
+  );
+}
+
+test("mobile verification lists a folder with an older row once", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await pipelinesFixture(page);
+  duplicateFolders(state);
+  await openPipelines(page, "verification");
+  const list = page.getByRole("navigation", { name: "Projekte", exact: true });
+  await expect(projectItem(page, "Projekt")).toBeVisible();
+  for (const name of ["electronic-lab", "spoolops"])
+    await expect(list.getByRole("button", { name: new RegExp(`^${name}`) })).toHaveCount(
+      1,
+    );
+  await expect(list.getByRole("button")).toHaveCount(3);
+  await projectItem(page, "spoolops").click();
+  await expect(page).toHaveURL(/\/verification\/ops-git$/);
+});
+
+test("a link to an older row keeps that row listed while it is open", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  duplicateFolders(state);
+  await openPipelines(page, "verification/lab-dir");
+  const items = page
+    .getByRole("navigation", { name: "Projekte", exact: true })
+    .getByRole("button", { name: /^electronic-lab/ });
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(1)).toHaveAttribute("aria-current", "true");
+  await expect(items.first()).not.toHaveAttribute("aria-current", "true");
+});
+
 test.describe("English verification", () => {
   test.use({ locale: "en-GB" });
   test("project list and step rows use English copy", async ({ page }) => {

@@ -9,20 +9,22 @@ import VerificationEditor from "./VerificationEditor.jsx";
 import VerificationList from "./VerificationList.jsx";
 import useDraftGuard from "./useDraftGuard.jsx";
 import { pipelineRoutePath } from "./routes.js";
+import { listedProjects, listedProjectsPath } from "./project-list.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import "./profiles.css";
 import "./verification.css";
 
 export default function VerificationPage({ route, navigate, home }) {
-  const projects = useResource("/memory/projects"),
+  const projects = useResource(listedProjectsPath),
     projectId = route.pipelineItem || "",
     config = useResource(
       projectId ? `/pipeline-verification/${encodeURIComponent(projectId)}` : null,
     );
   const mobile = useMobileLayout();
   const draft = useDraftGuard(copy.discardVerificationDraft);
-  const items = projects.data?.projects || [],
-    project = items.find((p) => p.id === projectId);
+  const all = projects.data?.projects || [],
+    items = listedProjects(all, projectId),
+    project = all.find((p) => p.id === projectId);
   // Desktop opens the first project; mobile shows the list first.
   const target =
     projects.data && !projectId && !mobile && items.length

@@ -3,6 +3,7 @@ import Segment from "../../components/Segment.jsx";
 import React from "react";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ProjectRegistration from "./ProjectRegistration.jsx";
+import { listedProjects } from "./project-list.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 // Up to this many options fit a segment; longer lists keep the searchable select.
 export const segmentLimit = 6;
@@ -16,7 +17,7 @@ export default function ProjectFields({
   segment = false,
 }) {
   const action = useAsyncAction();
-  const projects = resource.data?.projects || [];
+  const projects = listedProjects(resource.data?.projects, value);
   return (
     <div>
       {segment && projects.length <= segmentLimit ? (

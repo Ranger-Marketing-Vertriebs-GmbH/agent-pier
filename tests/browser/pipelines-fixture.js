@@ -109,7 +109,16 @@ export async function pipelinesFixture(page) {
         const project = { id: "project-registered", name: "Registered", cwd: body.cwd };
         state.projects.push(project);
         result = project;
-      } else result = { projects: state.projects };
+      } else
+        // Like the server: only `?duplicates=1` marks the older rows of a folder.
+        result = {
+          projects:
+            url.searchParams.get("duplicates") === "1"
+              ? state.projects
+              : state.projects.map(
+                  ({ duplicateOf: _d, olderDuplicates: _o, ...row }) => row,
+                ),
+        };
     } else if (path.startsWith("/pipeline-verification/")) {
       if (method === "PUT") state.steps = body.steps;
       result = { projectId: "project-one", steps: state.steps };
