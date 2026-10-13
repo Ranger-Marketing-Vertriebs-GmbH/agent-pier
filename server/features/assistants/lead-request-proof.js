@@ -90,11 +90,12 @@ export function ownerSentence(quote, text) {
     index: boundaries.length,
     negated: negated(words(sentence)),
     negatedSentence: negated(words(sentence + " " + rest)),
-    // Text the owner pasted or quoted ("Summarize this mail: 'please ask Max …'")
-    // is not the owner's instruction; any quotation mark before it fails closed.
-    quoted: /["„“”«»‚‘’‹›]|(^|[\s:(])'/.test(before),
+    quoted: quotedBefore(before),
   };
 }
+// Text the owner pasted or quoted ("Summarize this mail: 'please ask Max …'") is
+// not the owner's instruction; any quotation mark before it fails closed.
+const quotedBefore = (before) => /["„“”«»‚‘’‹›]|(^|[\s:(])'/.test(before);
 
 // Everyday words that never identify a member on their own.
 const stop = new Set(
@@ -139,4 +140,35 @@ export function mentionOf(quote, id, members) {
   const found = findMentions(quote, members);
   if (found.some((m) => m.ambiguous && m.memberIds.includes(id))) return "ambiguous";
   return found.some((m) => m.memberId === id) ? "mentioned" : null;
+}
+
+/**
+ * The @mentions in the owner's own text, each with what the proof needs: the
+ * member it means alone (`memberId`, null when ambiguous), its offset (`start`, so
+ * one mention proves one task), the sentence it is in (`index`, counted as
+ * `ownerSentence` counts), whether anything in that sentence negates it, whether
+ * it follows a quotation mark, and the sentence itself (`excerpt`, at most 300
+ * characters) to show the owner why a task may write.
+ */
+export function ownerMentions(text, members) {
+  if (typeof text !== "string") return [];
+  const own = text.normalize("NFKC"),
+    boundary = /[.!?;:]/g;
+  return findMentions(own, members).map((m) => {
+    const before = own.slice(0, m.start);
+    const start = Math.max(
+      ...[".", "!", "?", ";", ":"].map((c) => before.lastIndexOf(c)),
+    );
+    boundary.lastIndex = m.end;
+    const end = boundary.exec(own)?.index ?? own.length;
+    const sentence = own.slice(start + 1, end).trim();
+    return {
+      memberId: m.memberId,
+      start: m.start,
+      index: (before.match(boundary) || []).length,
+      negated: negated(words(sentence)),
+      quoted: quotedBefore(before),
+      excerpt: Array.from(sentence).slice(0, 300).join(""),
+    };
+  });
 }
