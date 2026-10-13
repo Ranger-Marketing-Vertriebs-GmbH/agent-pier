@@ -95,6 +95,21 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(page.getByText(reason)).toBeVisible();
       await expect(select).toHaveAccessibleDescription(reason);
     });
+    test("an installed pre-release is marked next to the installed version", async ({
+      page,
+    }) => {
+      const state = await operationsFixture(page);
+      const en = locale === "en-GB";
+      state.releases.current = "1.2.0-rc.1";
+      await page.goto("/settings/updates");
+      await expect(
+        page.getByText(
+          `${en ? "Installed version" : "Installierte Version"}: 1.2.0-rc.1 ${en ? "Pre-release" : "Vorabversion"}`,
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(page.locator(".release-badge")).toHaveCount(1);
+    });
     test("pre-releases are marked and preview explains the risk", async ({
       page,
     }, testInfo) => {
