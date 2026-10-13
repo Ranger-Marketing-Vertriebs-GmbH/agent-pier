@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { applicationFixture } from "../helpers/application.js";
-import { runFileOperation } from "../helpers/file-explorer.js";
+import { runFileOperation as runJob } from "../helpers/file-explorer.js";
 import {
   filenameFileSystem,
   platformCommand,
@@ -13,6 +13,9 @@ import {
 } from "../helpers/file-platform.js";
 
 const required = process.env.AGENTPIER_FILE_FS_MATRIX === "1";
+// Real loop devices, disk images and privileged xattr tools are slower than the
+// unit fixtures' 5 s job budget on a busy runner; the job still has to settle.
+const runFileOperation = (f, operation) => runJob(f, operation, { timeout: 60000 });
 const matrix = { skip: required ? false : "set AGENTPIER_FILE_FS_MATRIX=1" };
 
 async function missing(file) {

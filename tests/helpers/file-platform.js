@@ -18,6 +18,8 @@ const privileged = (command, args) =>
     : platformCommand("sudo", ["-n", command, ...args]);
 export const privilegedPlatformCommand = privileged;
 
+const settleDelays = [100, 250, 500, 1000, 2000];
+
 // hdiutil may temporarily retain an APFS image after unmounting its volume; on
 // macOS runners the whole disk has stayed busy for more than four seconds after a
 // clean unmount. Re-observe only this fixture's image on every attempt; never
@@ -50,6 +52,12 @@ export async function detachOwnedDiskImage({
     assert.match(device, /^\/dev\/disk[0-9]+$/);
     try {
       await command("hdiutil", ["detach", device]);
+      // hdiutil's registry can still list the image for a moment after a
+      // successful detach; observe it again on a bounded schedule.
+      for (const pause of settleDelays) {
+        if (!(await attached())) return;
+        await wait(pause);
+      }
       assert.equal(await attached(), undefined, "retain fixture still attached");
       return;
     } catch (error) {
@@ -68,6 +76,44 @@ export async function detachOwnedDiskImage({
       );
       // EBUSY is numeric and stable even when hdiutil localizes its stderr.
       if (error.code !== 16 || attempt === delays.length) throw error;
+      await wait(delays[attempt]);
+    }
+  }
+}
+
+// "hdiutil create" formats the new image through a short-lived attach and fails
+// with "Resource busy" while DiskArbitration still settles an earlier image. Such
+// a failure can leave this fixture's half-created image attached: detach it with
+// the usual ownership proof, remove the partial file and try again, bounded.
+export async function createOwnedDiskImage({
+  image,
+  args,
+  detach,
+  attached,
+  command = platformCommand,
+  remove = (file) => fs.rm(file, { force: true }),
+  wait = delay,
+  diagnostic,
+}) {
+  const delays = [500, 1000, 2000, 4000];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await command("hdiutil", ["create", ...args, image]);
+      return;
+    } catch (error) {
+      diagnostic?.(
+        JSON.stringify({
+          fixture: "create-failed",
+          image,
+          attempt: attempt + 1,
+          code: error.code,
+          stderr: error.stderr,
+        }),
+      );
+      if (!/Resource busy/.test(error.stderr || "") || attempt === delays.length)
+        throw error;
+      if (await attached()) await detach();
+      await remove(image);
       await wait(delays[attempt]);
     }
   }
@@ -201,18 +247,28 @@ export async function filenameFileSystem(
   };
   t.after(dispose);
   if (process.platform === "darwin") {
-    await platformCommand("hdiutil", [
-      "create",
-      "-size",
-      `${sizeMiB}m`,
-      "-type",
-      "SPARSE",
-      "-fs",
-      caseSensitive ? "Case-sensitive APFS" : "APFS",
-      "-volname",
-      "AgentPier fixture",
+    await createOwnedDiskImage({
       image,
-    ]);
+      args: [
+        "-size",
+        `${sizeMiB}m`,
+        "-type",
+        "SPARSE",
+        "-fs",
+        caseSensitive ? "Case-sensitive APFS" : "APFS",
+        "-volname",
+        "AgentPier fixture",
+      ],
+      attached,
+      detach: () =>
+        detachOwnedDiskImage({
+          image,
+          directory,
+          attached,
+          diagnostic: (value) => t.diagnostic?.(value),
+        }),
+      diagnostic: (value) => t.diagnostic?.(value),
+    });
     const result = await platformCommand("hdiutil", [
       "attach",
       image,

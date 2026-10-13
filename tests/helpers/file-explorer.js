@@ -38,9 +38,15 @@ export async function waitForFileJob(
 ) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    const response = await f.request(`${base}/jobs/${encodeURIComponent(id)}`, {
-      signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
-    });
+    const response = await f
+      .request(`${base}/jobs/${encodeURIComponent(id)}`, {
+        signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
+      })
+      .catch((error) => {
+        // A poll cut off by the deadline reports the job below, not a bare abort.
+        if (error.name !== "TimeoutError") throw error;
+      });
+    if (!response) break;
     assert.equal(response.status, 200);
     const job = await response.json();
     if (states.includes(job.status)) return job;
@@ -54,6 +60,7 @@ export async function waitForFileJob(
 export async function runFileOperation(
   f,
   { kind, sources = [], target = null, name = null, options = {} },
+  { timeout } = {},
 ) {
   const contextResponse = await f.request("/api/files/context");
   assert.equal(contextResponse.status, 200, await contextResponse.clone().text());
@@ -73,7 +80,7 @@ export async function runFileOperation(
   assert.equal(response.status, 202, await response.clone().text());
   const job = await response.json();
   assert.equal(typeof job.id, "string");
-  return waitForFileJob(f, job.id);
+  return waitForFileJob(f, job.id, timeout ? { timeout } : {});
 }
 
 export function seedFileJob(store, scope) {
