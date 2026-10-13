@@ -314,6 +314,7 @@ export class TeamStore {
       return this.write(p, {
         phase: decision === "approve" ? "approved" : "declined",
         lifetime,
+        ...(decision === "decline" ? { finishedAt: new Date().toISOString() } : {}),
         authorization:
           decision === "approve"
             ? { kind: "approval", proposalId: id, owner: owner.kind }

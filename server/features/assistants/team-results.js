@@ -71,6 +71,8 @@ export class TeamResults {
     teams.write(teams.get(id), {
       resultBatch: batch,
       resultState: "queued",
+      // When the team ended; the lead's chat places its closing note there.
+      finishedAt: new Date().toISOString(),
       // An owner stop after some members completed is cancelled, not failed;
       // the completed reports are still synthesized below.
       phase: members.every((m) => m.phase === "completed")

@@ -58,6 +58,7 @@ export function publicTeam(record, describe = () => []) {
           "lifetime",
           "archivedAt",
           "createdAt",
+          "finishedAt",
           "resultState",
           "resultDiagnostic",
           "resultBatch",
@@ -126,7 +127,18 @@ export class TeamService {
         record,
         this.assistants.store.getAssistant(record.assistantId),
       );
-    else result.status = teamStatus(record, this.store.members(record.id));
+    else {
+      result.status = teamStatus(record, this.store.members(record.id));
+      // Teams that ended before finishedAt was recorded end at their synthesis turn.
+      if (!result.finishedAt && record.resultAttemptId)
+        try {
+          result.finishedAt = this.assistants.ledger.getAttempt(
+            record.resultAttemptId,
+          ).createdAt;
+        } catch {
+          /* Unknown: the note sits beside the team's start. */
+        }
+    }
     return result;
   }
   list() {
