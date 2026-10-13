@@ -141,3 +141,10 @@ test("a hung test fails its file at the per-test timeout", (t) => {
   assert.match(result.stdout, /FAILED twice: hang\.test\.js/);
   assert.ok(Date.now() - started < 30000);
 });
+
+test("the files runner does not retry files under a --never-retry prefix", (t) => {
+  const root = runnerRoot(t, { "seeded.test.js": flakyBody("marker-seeded") });
+  const result = runFiles(root, ["--retry", "--never-retry", "seeded", "seeded.test.js"]);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.doesNotMatch(result.stdout, /FLAKY/);
+});

@@ -5,7 +5,8 @@ import { defaultMaxFlaky } from "./test-retry.mjs";
 
 // Run named node:test files, for CI steps that select their own suites:
 //   node scripts/test-files.mjs [--label NAME] [--concurrency N] [--retry]
-//     [--max-flaky N] [--test-timeout MS] [--no-skips] <files...>
+//     [--max-flaky N] [--test-timeout MS] [--no-skips]
+//     [--never-retry PATH-PREFIX]... <files...>
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
@@ -15,6 +16,7 @@ const { values, positionals } = parseArgs({
     "max-flaky": { type: "string", default: String(defaultMaxFlaky) },
     "test-timeout": { type: "string" },
     "no-skips": { type: "boolean", default: false },
+    "never-retry": { type: "string", multiple: true, default: [] },
   },
 });
 if (!positionals.length) throw new Error("No test files were named");
@@ -32,4 +34,5 @@ process.exitCode = runTestFiles({
   maxFlaky: Number(values["max-flaky"]),
   testTimeout: values["test-timeout"] && Number(values["test-timeout"]),
   noSkips: values["no-skips"],
+  neverRetry: values["never-retry"],
 });
