@@ -13,7 +13,12 @@ import {
   randomBytes,
   verify,
 } from "node:crypto";
-import { createPushSender } from "../../server/features/notifications/push-sender.js";
+import {
+  createPushSender,
+  vapidSubject,
+} from "../../server/features/notifications/push-sender.js";
+import { NotificationService } from "../../server/features/notifications/notification-service.js";
+import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 import { pushLookup } from "../../server/features/notifications/push-network.js";
 
 let directory;
@@ -161,7 +166,7 @@ function checkVapid(header, publicKey) {
   assert.equal(JSON.parse(Buffer.from(head, "base64url")).alg, "ES256");
   const claims = JSON.parse(Buffer.from(body, "base64url"));
   assert.equal(claims.aud, "https://push.example.org");
-  assert.equal(claims.sub, "mailto:agentpier@localhost");
+  assert.equal(claims.sub, vapidSubject);
   const now = Date.now() / 1000;
   assert.ok(claims.exp > now && claims.exp <= now + 86401);
   const raw = Buffer.from(publicKey, "base64url");
@@ -229,6 +234,49 @@ test("real HTTPS encrypted push independently decrypts and verifies VAPID withou
     deliveries[1].body,
     "fresh salt and ephemeral encryption key per delivery",
   );
+});
+
+test("an Apple-style 403 BadJwtToken refusal is stored as a translated last failure", async (t) => {
+  const material = keys();
+  let requests = 0;
+  const { send } = await fixture(t, async (req, res) => {
+    for await (const _chunk of req);
+    requests++;
+    const body = JSON.stringify({ reason: "BadJwtToken" });
+    res
+      .writeHead(403, { "content-type": "application/json", "apns-id": "fixture-id" })
+      .end(body);
+  });
+  const dataDir = await mkdtemp(path.join(tmpdir(), "agentpier-push-refusal-"));
+  const service = new NotificationService({ dataDir, send });
+  t.after(async () => {
+    await service.close();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+  const { subscription } = await service.subscribe({
+    deviceId: "iphone-home-screen",
+    label: "iPhone",
+    subscription: material.subscription,
+  });
+  // The service owns its keypair; the stub only checks the transport and refusal path.
+  assert.deepEqual(await service.test(subscription.id), {
+    sent: false,
+    error: serverCatalogs.de.notifications.notDelivered,
+  });
+  assert.equal(requests, 1);
+  const [stored] = service.status().subscriptions;
+  assert.equal(stored.id, subscription.id, "a 403 keeps the subscription");
+  assert.equal(
+    stored.lastFailure,
+    serverCatalogs.de.notifications.refusedSignature("403 BadJwtToken"),
+  );
+  assert.equal(stored.lastSuccessAt, undefined);
+  for (const secret of [
+    material.subscription.endpoint,
+    material.subscription.keys.auth,
+    material.subscription.keys.p256dh,
+  ])
+    assert.equal(JSON.stringify(service.status()).includes(secret), false);
 });
 
 test("push refuses redirects without a second HTTPS request", async (t) => {

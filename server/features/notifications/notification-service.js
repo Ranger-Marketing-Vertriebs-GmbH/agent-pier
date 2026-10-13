@@ -6,6 +6,7 @@ import { privateDatabase } from "../../lib/private-database.js";
 import { problem, nameValue } from "../../lib/storage.js";
 import { pushId, pushSubscription, pushPayload } from "./push-validation.js";
 import { createPushSender } from "./push-sender.js";
+import { pushFailureText } from "./push-failure.js";
 
 export class NotificationService {
   constructor({ dataDir, send = createPushSender(), clock = Date }) {
@@ -116,7 +117,7 @@ export class NotificationService {
         if (current) {
           const summary = {
             ...JSON.parse(current.public),
-            lastFailure: serverMessages.notifications.deliveryFailed,
+            lastFailure: pushFailureText(error),
           };
           this.db
             .prepare("UPDATE subscriptions SET public=? WHERE id=?")
