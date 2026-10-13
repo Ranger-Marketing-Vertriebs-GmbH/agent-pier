@@ -10,7 +10,7 @@
   padding: 0;
 }
 .assistant-settings-scroll {
-  padding: 16px 24px 0;
+  padding: 16px 24px calc(24px + var(--safe-area-inset-bottom));
 }
 @media (max-width: 700px) {
   .assistant-settings-page.assistant-detail {
@@ -25,10 +25,18 @@
   .assistant-settings-scroll {
     flex: 1;
     min-height: 0;
-    padding: 0;
+    padding: 0 0 calc(20px + var(--safe-area-inset-bottom));
     overflow-y: auto;
     overscroll-behavior: contain;
   }
+}
+/* The sticky save bar ends the scroller and carries the home indicator inset itself;
+   at the end of the scroll it keeps the page's gap below the last card. */
+.assistant-settings-scroll:has(.save-bar) {
+  padding-bottom: 0;
+}
+.agent-settings-main .save-bar {
+  margin-top: 16px;
 }
 .assistant-state-badge.connectionMissing {
   color: var(--accent);

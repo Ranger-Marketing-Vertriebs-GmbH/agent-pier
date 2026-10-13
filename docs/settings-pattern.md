@@ -27,6 +27,12 @@ savable, e.g. a required key re-entry) and `saveFocusKey` (sets `data-focus-key`
 primary so an inline confirmation can return focus to it). `ListRow` takes `current` to
 mark the entry open in a detail pane (`aria-current="page"`).
 
+On phones the end of a scrolled page clears the iPhone home indicator: the scroller's
+bottom padding and the save bar add `var(--safe-area-inset-bottom)` (from
+`env(safe-area-inset-bottom)`, overridable in browser tests). While a save bar is shown
+it carries that inset, the scroller drops its own, and the last card keeps a gap above
+the bar (`tests/browser/settings-bottom-spacing.spec.js`).
+
 Warnings, the selected shell level's hint, the stdio warning and all error and conflict
 notices stay visible; other explanations move behind ⓘ verbatim.
 
