@@ -6,6 +6,7 @@ import { assistantWorkRoutes } from "./assistant-work.js";
 import { assistantCapabilityRoutes } from "./assistant-capabilities.js";
 import { assistantChannelRoutes } from "./assistant-channels.js";
 import { assistantWebSearchRoutes } from "./assistant-web-search.js";
+import { assistantTelegramSenderRoutes } from "./assistant-telegram-senders.js";
 import { assistantAccountRoutes } from "./assistant-accounts.js";
 import { mcpServerErrors, replyStdioConfirmation } from "./mcp-servers.js";
 import { mcpOAuthRoutes } from "./mcp-oauth.js";
@@ -85,6 +86,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantRuntimeUpdateRoutes(services));
   router.use(assistantChannelRoutes(services));
   router.use(assistantWebSearchRoutes(services));
+  router.use(assistantTelegramSenderRoutes(services));
   router.use(assistantTeamRoutes(services));
   router.use(assistantWorkRoutes(services));
   router.use(assistantAccountRoutes(services));

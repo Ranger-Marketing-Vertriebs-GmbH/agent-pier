@@ -131,7 +131,16 @@ export default function ListRow({
   );
 }
 
-function ControlRow({ kind, label, sub, hint, hintLabel, control, selected = false }) {
+function ControlRow({
+  kind,
+  label,
+  sub,
+  hint,
+  hintLabel,
+  control,
+  selected = false,
+  describedBy,
+}) {
   const info = useInfoHint();
   const id = useId();
   return (
@@ -144,7 +153,8 @@ function ControlRow({ kind, label, sub, hint, hintLabel, control, selected = fal
         {control({
           id,
           "aria-labelledby": `${id}-label`,
-          "aria-describedby": sub ? `${id}-sub` : undefined,
+          "aria-describedby":
+            [sub ? `${id}-sub` : "", describedBy].filter(Boolean).join(" ") || undefined,
         })}
       </div>
       {hint && <InfoHintText hint={info}>{hint}</InfoHintText>}

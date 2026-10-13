@@ -205,6 +205,7 @@ export const assistantCopy = {
   accountCheckFailed: "Connection could not be verified. Try again or sign in again.",
   loginInstructions: "Enter this code on the OpenAI sign-in page.",
   loginOpen: "Open sign-in page",
+  loginPage: "Sign-in page:",
   loginCancel: "Cancel sign-in",
   loginStatus: {
     starting: "Starting sign-in…",
@@ -212,6 +213,15 @@ export const assistantCopy = {
     completed: "ChatGPT connected",
     cancelled: "Sign-in cancelled",
     failed: "Sign-in failed. Please try again.",
+  },
+  loginFailure: {
+    LOGIN_UNAVAILABLE:
+      "The agent service does not offer the ChatGPT sign-in right now. Restart the agent service and try again.",
+    UNSUPPORTED_LOGIN_STEP: "The sign-in asked for a step AgentPier does not support.",
+    LOGIN_EXPIRED: "The code expired before the sign-in was completed.",
+    CONNECTION_LOST: "The connection to the agent service was lost.",
+    LOGIN_FAILED:
+      "The agent service ended the sign-in with an error. Details are in the AgentPier log.",
   },
   accountStatus: {
     ok: "Connected",

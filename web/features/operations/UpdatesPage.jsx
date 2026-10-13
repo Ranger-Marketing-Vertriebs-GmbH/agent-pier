@@ -8,6 +8,7 @@ import UnsavedChangesSheet from "../../components/UnsavedChangesSheet.jsx";
 import useTabDraft from "../../lib/settings/useTabDraft.js";
 import useUnsavedChangesGuard from "../../lib/settings/useUnsavedChangesGuard.js";
 import UpdateChannelGroup from "./UpdateChannelGroup.jsx";
+import PrereleaseBadge from "./PrereleaseBadge.jsx";
 import { SubpageFrame } from "../settings/SettingsFrame.jsx";
 import { staysOn } from "../settings/settings-navigation.js";
 import { updateChannelStep } from "../settings/settings-steps.js";
@@ -78,9 +79,11 @@ export default function UpdatesPage({ route, navigate, frame }) {
           <>
             <p>
               {copy.currentVersion}: {releases.current || copy.unknown}
+              <PrereleaseBadge version={releases.current} />
             </p>
             <UpdateChannelGroup
               releases={releases}
+              staged={presentation.staged}
               value={draft.values.updateChannel}
               onChange={(value) => draft.set("updateChannel", value)}
               disabled={jobPending || action.busy || draft.saving}
@@ -109,7 +112,10 @@ export default function UpdatesPage({ route, navigate, frame }) {
             )}
             {presentation.candidate && (
               <article className="operations-card">
-                <h2>{presentation.candidate.version}</h2>
+                <h2>
+                  {presentation.candidate.version}
+                  <PrereleaseBadge version={presentation.candidate.version} />
+                </h2>
                 <ReleaseNotes
                   version={presentation.candidate.version}
                   from={releases.current}
@@ -138,6 +144,7 @@ export default function UpdatesPage({ route, navigate, frame }) {
               <article className="operations-card" key={staged.id}>
                 <h3>
                   {copy.staged}: {staged.version}
+                  <PrereleaseBadge version={staged.version} />
                 </h3>
                 <ReleaseNotes version={staged.version} from={releases.current} />
                 <button

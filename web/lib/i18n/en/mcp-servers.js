@@ -55,6 +55,8 @@ export const mcpServerCopy = {
     "Put tokens and passwords in header or environment values, never in the address path or the arguments: those are shown.",
   stdioMarker: "stdio, local command",
   stdioBadge: "stdio",
+  stdioTelegramSenders:
+    "This agent has its own Telegram bot for other people, so it cannot use stdio servers: they run commands on this computer. Remote servers stay available.",
   stdioWarningTitle: "Run a local command?",
   stdioWarning:
     "A stdio server runs this command with your user rights, without a sandbox. Once it is bound to an agent, it starts for every session of every agent, even for agents that never use it. Only add commands you trust.",

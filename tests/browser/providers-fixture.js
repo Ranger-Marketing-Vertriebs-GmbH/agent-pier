@@ -173,6 +173,17 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({
         json: { revision: 0, model: "nova-3", language: "auto", hasSecret: false },
       });
+    // An agent without its own Telegram bot for other people.
+    if (method === "GET" && path.startsWith("/api/assistant-telegram-senders/"))
+      return route.fulfill({
+        json: {
+          assistantId: decodeURIComponent(path.split("/").pop()),
+          bot: null,
+          status: null,
+          voice: false,
+          shell: "off",
+        },
+      });
     if (method === "GET" && path === "/api/assistant-web-search")
       return route.fulfill({
         json: { revision: 0, provider: "duckduckgo", hasBraveKey: false, ready: true },

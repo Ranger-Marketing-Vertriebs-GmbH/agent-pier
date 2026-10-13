@@ -8,7 +8,9 @@ import FieldRow from "../accounts/FieldRow.jsx";
 import UsedByGroup from "../accounts/UsedByGroup.jsx";
 import useAccountDraft from "../accounts/useAccountDraft.js";
 import { accountItemTitle } from "../accounts/accounts-items.js";
+import { runSaveChain } from "../../lib/settings/save-chain.js";
 import { assistantApi } from "./assistant-api.js";
+import RestartConfirmation from "./RestartConfirmation.jsx";
 
 const serverOf = (settings) => ({
   apiKey: "",
@@ -21,8 +23,9 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
   const copy = assistantCopy.speech;
   const settings = data.speech;
   const formRef = useRef(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // The restart question of a key removal (outside the draft's own chain).
+  const [removal, setRemoval] = useState(null);
   const { reloadSpeech } = data;
   const server = useMemo(
     () => serverOf(settings),
@@ -42,12 +45,14 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
         id: "speech",
         label: copy.save,
         resource: "speech",
-        async run({ values, revision }) {
+        // Agents' own Telegram bots run with the key: the server asks to restart.
+        async run({ values, revision, confirmations }) {
           const next = await assistantApi.saveSpeech({
             revision,
             model: values.model,
             language: values.language,
             ...(values.apiKey ? { apiKey: values.apiKey } : {}),
+            ...confirmations,
           });
           data.setSpeech(next);
           return next;
@@ -56,24 +61,49 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
     ],
   });
   const { draft } = form;
+  // Any change withdraws an open restart question; it was about the previous state.
+  const edit = (key, value) => {
+    draft.confirmation?.cancel();
+    draft.set(key, value);
+  };
   async function removeKey() {
-    setBusy(true);
     setError("");
-    try {
-      data.setSpeech(
-        await assistantApi.saveSpeech({
-          revision: settings.revision,
-          model: settings.model,
-          language: settings.language,
-          removeApiKey: true,
-        }),
-      );
-    } catch (failure) {
-      setError(failure.message);
-    } finally {
-      setBusy(false);
-    }
+    const result = await runSaveChain({
+      steps: [
+        {
+          id: "remove-key",
+          label: copy.remove,
+          run: ({ confirmations }) =>
+            assistantApi.saveSpeech({
+              revision: settings.revision,
+              model: settings.model,
+              language: settings.language,
+              removeApiKey: true,
+              ...confirmations,
+            }),
+        },
+      ],
+      values: {},
+      base: {},
+      ask: (request) =>
+        new Promise((resolve) =>
+          setRemoval({
+            ...request,
+            confirm: () => {
+              setRemoval(null);
+              resolve(true);
+            },
+            cancel: () => {
+              setRemoval(null);
+              resolve(false);
+            },
+          }),
+        ),
+    });
+    if (result.status === "saved") data.setSpeech(result.results["remove-key"]);
+    else if (result.error) setError(result.error.message);
   }
+  const restart = draft.confirmation?.kind === "restart" ? draft.confirmation : removal;
   return (
     <AccountDetail
       title={accountItemTitle(entry)}
@@ -83,7 +113,7 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
             type="button"
             className="button secondary danger-text"
             // Removing saves at once: unsaved changes would turn into a conflict.
-            disabled={busy || draft.dirty || draft.saving}
+            disabled={draft.saving || draft.dirty || Boolean(removal)}
             onClick={removeKey}
           >
             {copy.remove}
@@ -113,20 +143,20 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
                 autoComplete="new-password"
                 maxLength={1024}
                 value={draft.values.apiKey}
-                onChange={(event) => draft.set("apiKey", event.target.value)}
+                onChange={(event) => edit("apiKey", event.target.value)}
               />
             </FieldRow>
             <FieldRow label={copy.model}>
               <input
                 required
                 value={draft.values.model}
-                onChange={(event) => draft.set("model", event.target.value)}
+                onChange={(event) => edit("model", event.target.value)}
               />
             </FieldRow>
             <SelectRow
               label={copy.language}
               value={draft.values.language}
-              onChange={(value) => draft.set("language", value)}
+              onChange={(value) => edit("language", value)}
               options={[
                 { value: "auto", label: copy.auto },
                 { value: "de", label: copy.german },
@@ -135,6 +165,14 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
             />
           </ListCard>
         </form>
+      )}
+      {restart && (
+        <RestartConfirmation
+          affected={restart.data?.affected}
+          busy={false}
+          onConfirm={restart.confirm}
+          onCancel={restart.cancel}
+        />
       )}
       <UsedByGroup usage={usage} agentsEnabled={agentsEnabled} navigate={navigate} />
     </AccountDetail>

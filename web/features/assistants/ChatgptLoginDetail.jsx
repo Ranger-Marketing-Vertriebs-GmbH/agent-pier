@@ -26,10 +26,21 @@ export default function ChatgptLoginDetail({ entry, data, navigate }) {
       {attempt && (
         <div className="accounts-confirmation" role="status">
           <p>{copy.loginStatus[attempt.status] || copy.loginStatus.failed}</p>
+          {attempt.status === "failed" && attempt.diagnostic && (
+            <p>
+              {copy.loginFailure[attempt.diagnostic] || copy.loginFailure.LOGIN_FAILED}
+            </p>
+          )}
           {login.active && attempt.code && (
             <>
               <code className="accounts-device-code">{attempt.code}</code>
               <p>{copy.loginInstructions}</p>
+              <p className="accounts-login-url">
+                {copy.loginPage}{" "}
+                <a href={attempt.url} target="_blank" rel="noopener noreferrer">
+                  {attempt.url}
+                </a>
+              </p>
               <a
                 className="button secondary"
                 href={attempt.url}
