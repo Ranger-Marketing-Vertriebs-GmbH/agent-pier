@@ -199,6 +199,32 @@ test("a pending provider is read again with refresh; failures keep the last list
   assert.equal(catalog.account(profileId).modelCatalog, "failed");
 });
 
+test("a forced read the Gateway answers while discovery still runs is read again", async () => {
+  const pending = { models: [], pendingProviders: ["openai"] };
+  const { runtime, calls } = gateway([
+    pending,
+    listed([row("gpt-6-astra")]),
+    ...Array(26).fill(pending),
+  ]);
+  const logs = [];
+  const catalog = new ModelAccountCatalog({ runtime, warn: (line) => logs.push(line) });
+  await catalog.refresh({ force: true });
+  assert.deepEqual(
+    calls.map((c) => c.params.refresh),
+    [true, true],
+  );
+  assert.equal(catalog.account(profileId).modelCatalog, "ready");
+  assert.deepEqual(logs, [], "a pending answer is not an unexpected one");
+  // Discovery that never ends is bounded and logged as such.
+  await assert.rejects(catalog.refresh({ force: true }), { code: "PENDING" });
+  assert.equal(calls.length, 27, "one read and 24 refreshes while pending");
+  assert.deepEqual(catalog.account(profileId), {
+    models: [{ modelId: "gpt-6-astra", label: "GPT-6-ASTRA" }],
+    modelCatalog: "failed",
+  });
+  assert.deepEqual(logs, ["ChatGPT model list could not be read (PENDING)."]);
+});
+
 test("availability is the agent's: rejected, unknown, empty and stale lists are marked", async () => {
   const { runtime, calls } = gateway([
     {

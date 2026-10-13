@@ -5,6 +5,14 @@ export const accountModelId = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
 export const catalogTtlMs = 10 * 60_000;
 export const catalogRetryMs = 60_000;
 const maxModels = 500;
+// A refresh answers after at most five seconds (OpenClaw's foreground wait), with
+// openai still pending when discovery takes longer; the next refresh joins that
+// discovery instead of starting another. One read of the catalog, including these
+// refreshes, ends within two minutes, a single Gateway call within one; the count
+// bounds a Gateway that would answer "pending" without waiting.
+const readBudgetMs = 120_000;
+const callTimeoutMs = 60_000;
+const pendingReads = 24;
 
 /**
  * The Gateway's `models.list` answer for the `openai` provider, reduced to what
@@ -137,6 +145,7 @@ export class ModelAccountCatalog {
         }));
     const client = this.runtime.client;
     if (!client?.ready) return Promise.reject(Object.assign(Error(), { status: 503 }));
+    const deadline = Date.now() + readBudgetMs;
     const read = (refresh) =>
       client.call(
         "models.list",
@@ -146,15 +155,25 @@ export class ModelAccountCatalog {
           view: "all",
           ...(refresh ? { refresh } : {}),
         },
-        { timeoutMs: 60000 },
+        { timeoutMs: Math.max(1, Math.min(callTimeoutMs, deadline - Date.now())) },
       );
     this.#forced = force;
     this.#inflight = (async () => {
       try {
         let parsed = parseModelsList(await read(force));
-        // A first read can come before discovery; a refresh waits for it.
-        if (parsed?.pending && !force) parsed = parseModelsList(await read(true));
-        if (!parsed || parsed.pending) throw Error("Unexpected models.list result");
+        // A first read can come before discovery; a refresh waits for it, and slow
+        // discovery outlasts a refresh's wait (see readBudgetMs).
+        for (
+          let reads = 0;
+          parsed?.pending && reads < pendingReads && Date.now() < deadline;
+          reads++
+        )
+          parsed = parseModelsList(await read(true));
+        if (!parsed) throw Error("Unexpected models.list result");
+        if (parsed.pending)
+          throw Object.assign(Error("ChatGPT model discovery still running"), {
+            code: "PENDING",
+          });
         this.#result = parsed;
         this.#failed = false;
       } catch (error) {
