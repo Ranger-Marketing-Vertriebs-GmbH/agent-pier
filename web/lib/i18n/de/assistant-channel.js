@@ -27,7 +27,6 @@ export const assistantChannelCopy = {
   pause: "Telegram pausieren",
   resume: "Telegram fortsetzen",
   disconnect: "Bot trennen",
-  speechLink: "Deepgram unter Konten verwalten",
   activity: "Telegram-Aktivität",
   voice: "Sprachnachricht",
   retry: "Erneut versuchen",
