@@ -16,6 +16,11 @@
 //
 // The browser gets `{ source: "telegram", sender: { kind: "owner" } }` and nothing
 // else: never a Telegram user, chat or channel id.
+//
+// A question or task a lead agent sent to its member (lead-requests.js) is recorded
+// with the lead's name and the bare text the lead wrote; the member's chat shows that
+// text with `{ source: "lead", sender: { kind: "agent", name } }` instead of the
+// framing AgentPier added for the model.
 
 /** The delivery key of a raw OpenClaw user message (`<run id>:user`), or null. */
 export function turnKey(message) {
@@ -26,8 +31,20 @@ export function turnKey(message) {
 
 /** The public source of a request's trusted context, or null for any other turn. */
 export function requestSource(context) {
-  if (!context || typeof context !== "object" || context.kind !== "telegram") return null;
-  return { source: "telegram", sender: { kind: "owner" } };
+  if (!context || typeof context !== "object") return null;
+  if (context.kind === "telegram")
+    return { source: "telegram", sender: { kind: "owner" } };
+  if (
+    context.kind === "lead-request" &&
+    typeof context.leadName === "string" &&
+    typeof context.display === "string"
+  )
+    return {
+      source: "lead",
+      sender: { kind: "agent", name: context.leadName },
+      text: context.display,
+    };
+  return null;
 }
 
 // Line endings and trailing whitespace may differ between the stored request and the

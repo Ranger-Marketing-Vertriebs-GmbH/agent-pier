@@ -42,7 +42,7 @@ test("plugin guard rejects a prepare response after native invocation retirement
 const packageRoot = process.env.AGENTPIER_TEAM_CONTRACT_RUNTIME;
 test(
   "pinned runtime executes the installed product plugin through the attempt-bound bridge",
-  { skip: !packageRoot, timeout: 120000 },
+  { skip: !packageRoot, timeout: 180000 },
   async (t) => {
     assert.ok(path.isAbsolute(packageRoot));
     const runtimeVersion = JSON.parse(
@@ -61,6 +61,8 @@ test(
       model: { connectionId: "fixture", modelId: "fixture-model" },
     });
     const requests = [];
+    const asks = [],
+      askDelayMs = 12000;
     const model = http.createServer(async (req, res) => {
       let raw = "";
       for await (const part of req) raw += part;
@@ -68,26 +70,39 @@ test(
       requests.push(body);
       const tool = !body.messages.some((m) => m.role === "tool");
       const bypass = JSON.stringify(body.messages).includes("TRY_NATIVE_SPAWN");
+      const asking = JSON.stringify(body.messages).includes("ASK_MEMBER");
       const delta = tool
         ? {
             tool_calls: [
               {
                 index: 0,
-                id: "proposal-call",
+                id: asking ? "ask-call" : "proposal-call",
                 type: "function",
-                function: {
-                  name: bypass ? "sessions_spawn" : "agentpier_team_propose",
-                  arguments: JSON.stringify({
-                    objective: "Review",
-                    members: [
-                      { name: "Reviewer", role: "Review", assignment: "Review tests" },
-                    ],
-                  }),
-                },
+                function: asking
+                  ? {
+                      name: "agentpier_team_ask",
+                      arguments: JSON.stringify({
+                        memberId: "member-fixture",
+                        question: "What is the budget?",
+                      }),
+                    }
+                  : {
+                      name: bypass ? "sessions_spawn" : "agentpier_team_propose",
+                      arguments: JSON.stringify({
+                        objective: "Review",
+                        members: [
+                          {
+                            name: "Reviewer",
+                            role: "Review",
+                            assignment: "Review tests",
+                          },
+                        ],
+                      }),
+                    },
               },
             ],
           }
-        : { content: "Proposal received." };
+        : { content: asking ? "Answer relayed." : "Proposal received." };
       res.writeHead(200, { "content-type": "text/event-stream" });
       for (const item of [
         { choices: [{ index: 0, delta, finish_reason: null }] },
@@ -118,6 +133,15 @@ test(
       assistants: { store, ledger, runtime },
       generation: () => runtime.generation,
       teams: {
+        // Holds the call longer than any other bridge call may take: an ask waits
+        // for the member's answer (lead-requests.js askWaitMs).
+        async ask(inv, input) {
+          inv.assertCurrent();
+          asks.push({ attemptId: inv.attemptId, input });
+          await new Promise((r) => setTimeout(r, askDelayMs));
+          inv.assertCurrent();
+          return { status: "answered", answer: "The budget is five thousand." };
+        },
         propose(inv, input) {
           inv.assertCurrent();
           return teams.propose({
@@ -237,6 +261,49 @@ test(
       beforeBypass.sessions.length,
       "a model-emitted native spawn cannot create a child",
     );
+    // A lead's ask blocks its tool call beyond the ordinary 10-second bridge budget
+    // and its answer reaches the model as the tool result.
+    const askChat = await runtime.client.call("sessions.create", {
+      agentId: parent.runtimeAgentId,
+      label: "Contract ask",
+    });
+    const askConversation = store.saveConversation({
+      assistantId: parent.id,
+      runtimeSessionKey: askChat.key,
+    });
+    const askRequest = ledger.accept(askConversation.id, {
+        clientRequestId: "contract-ask",
+        text: "ASK_MEMBER about the budget",
+      }),
+      askAttempt = ledger.recordAttempt(askRequest.id);
+    const before = requests.length;
+    const askSend = await runtime.client.call("sessions.send", {
+      key: askChat.key,
+      message: askRequest.text,
+      idempotencyKey: askAttempt.id,
+    });
+    ledger.transition(askAttempt.id, "accepted", { runtimeRunId: askSend.runId });
+    const asked = await runtime.client.call(
+      "agent.wait",
+      { runId: askSend.runId, timeoutMs: 60000 },
+      { timeoutMs: 65000 },
+    );
+    assert.equal(asked.status, "ok");
+    assert.ok(asked.terminalReceipt.successfulToolNames.includes("agentpier_team_ask"));
+    assert.deepEqual(asks, [
+      {
+        attemptId: askAttempt.id,
+        input: { memberId: "member-fixture", question: "What is the budget?" },
+      },
+    ]);
+    const toolTurn = requests
+      .slice(before)
+      .find((r) => r.messages.some((m) => m.role === "tool"));
+    assert.match(
+      JSON.stringify(toolTurn.messages.filter((m) => m.role === "tool")),
+      /The budget is five thousand/,
+    );
+    ledger.transition(askAttempt.id, "completed");
     await bridge.close();
     const another = await runtime.client.call("sessions.create", {
       agentId: parent.runtimeAgentId,

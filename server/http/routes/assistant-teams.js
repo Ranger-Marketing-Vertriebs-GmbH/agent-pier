@@ -32,6 +32,16 @@ export function assistantTeamRoutes({ assistants }) {
   router.post("/assistant-team-proposals/:id/decision", (req, res) =>
     res.json(service().decide(req.params.id, req.body, { kind: "owner", channel: "ui" })),
   );
+  // A lead's question or task for a member: the owner decides it or cancels it.
+  router.post("/assistant-lead-requests/:id/decision", (req, res) =>
+    res.json(
+      service().decideRequest(req.params.id, req.body, { kind: "owner", channel: "ui" }),
+    ),
+  );
+  router.post("/assistant-lead-requests/:id/cancel", async (req, res) => {
+    if (Object.keys(req.body || {}).length) throw assistantProblem("invalid");
+    res.json(await service().cancelRequest(req.params.id));
+  });
   router.post("/assistant-team-members/:id/recover", async (req, res) =>
     res.json(await service().recoverMember(req.params.id, req.body)),
   );

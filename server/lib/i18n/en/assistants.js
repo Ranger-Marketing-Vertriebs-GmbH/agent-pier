@@ -120,6 +120,19 @@ export const assistants = {
     "An agent with its own Telegram bot for other people must not have shell access. Turn shell off or disconnect the bot first.",
   telegramSendersStdio:
     "This agent has a stdio MCP server, which runs commands on this computer. Remove it before you connect a bot for other people.",
+  memberRequestNotPermanent: "Tasks can only be delegated to permanent members.",
+  memberRequestOpenTask:
+    "This member already has an open task. Wait for its result or cancel it first.",
+  memberRequestNotFinished: "Only finished temporary members can be archived.",
+  memberRequestUnavailable: "This member has no chat yet and cannot answer.",
+  memberRequestApproval: (lead, member, kind, text) =>
+    `${lead} wants to ${kind === "task" ? "delegate a task to" : "ask"} ${member}:\n\n${text}`,
+  memberRequestApprove: "Approve request",
+  memberRequestDecline: "Decline request",
+  memberRequestApproved: "Approved. The member gets the request as soon as it is free.",
+  memberRequestDeclined: "Declined. The member does not get the request.",
+  memberRequestNoReply: (member) =>
+    `${member} answered, but the agent's summary has no text. Check the chat.`,
   telegramSendersArchive:
     "Disconnect the agent's own Telegram bot before you archive it.",
   telegramSendersRestartRequired:

@@ -21,6 +21,11 @@ test("team configuration advertises only managed delegation and removes retired 
     "agentpier_team_propose",
     "agentpier_team_status",
     "agentpier_team_stop",
+    "agentpier_team_members",
+    "agentpier_team_ask",
+    "agentpier_team_delegate",
+    "agentpier_team_cancel",
+    "agentpier_team_archive",
   ]);
   assert.equal(config.agents.defaults.maxConcurrent, 16);
   assert.equal(config.plugins.entries["agentpier-teams"].config.token, "private-bridge");

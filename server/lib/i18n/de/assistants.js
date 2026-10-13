@@ -131,6 +131,23 @@ export const assistants = {
     "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen Shell-Zugriff haben. Schalte die Shell aus oder trenne zuerst den Bot.",
   telegramSendersStdio:
     "Diesem Agenten ist ein stdio-MCP-Server zugeordnet, der Befehle auf diesem Rechner ausführt. Entferne ihn, bevor du einen Bot für andere Personen verbindest.",
+  memberRequestNotPermanent:
+    "Aufgaben lassen sich nur an dauerhafte Mitglieder übergeben.",
+  memberRequestOpenTask:
+    "Dieses Mitglied hat schon eine offene Aufgabe. Warte auf ihr Ergebnis oder brich sie ab.",
+  memberRequestNotFinished:
+    "Nur abgeschlossene temporäre Mitglieder lassen sich archivieren.",
+  memberRequestUnavailable:
+    "Dieses Mitglied hat noch keinen Chat und kann nichts beantworten.",
+  memberRequestApproval: (lead, member, kind, text) =>
+    `${lead} möchte ${kind === "task" ? "eine Aufgabe an" : "eine Frage an"} ${member} ${kind === "task" ? "übergeben" : "stellen"}:\n\n${text}`,
+  memberRequestApprove: "Anfrage freigeben",
+  memberRequestDecline: "Anfrage ablehnen",
+  memberRequestApproved:
+    "Freigegeben. Das Mitglied bekommt die Anfrage, sobald es frei ist.",
+  memberRequestDeclined: "Abgelehnt. Das Mitglied bekommt die Anfrage nicht.",
+  memberRequestNoReply: (member) =>
+    `${member} hat geantwortet, aber die Zusammenfassung des Agenten enthält keinen Text. Sieh im Chat nach.`,
   telegramSendersArchive:
     "Trenne zuerst den eigenen Telegram-Bot des Agenten, bevor du ihn archivierst.",
   telegramSendersRestartRequired:

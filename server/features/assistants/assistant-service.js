@@ -21,6 +21,7 @@ import {
 } from "./proactivity-changes.js";
 
 const sessionRetryMs = 60000;
+const pick = (value, keys) => Object.fromEntries(keys.map((k) => [k, value[k]]));
 export class AssistantService {
   constructor({
     store,
@@ -153,14 +154,10 @@ export class AssistantService {
           : c,
       );
     return {
-      ...(teamData
-        ? {
-            teams: teamData.teams,
-            members: teamData.members,
-            policies: teamData.policies,
-            teamSettings: teamData.settings,
-          }
-        : {}),
+      ...(teamData && {
+        ...pick(teamData, ["teams", "members", "requests", "policies"]),
+        teamSettings: teamData.settings,
+      }),
       assistants,
       conversations,
       models: this.models.listCapabilities(),
@@ -171,6 +168,7 @@ export class AssistantService {
         awaiting: this.workflows?.store?.awaitingCounts(Date.now()) ?? {},
         teams: teamData?.teams ?? [],
         members: teamData?.members ?? [],
+        requests: teamData?.requests ?? [],
       }),
     };
   }
