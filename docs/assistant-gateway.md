@@ -411,21 +411,23 @@ account the Gateway rejected. With more than one account, an account without an
 outcome is marked as checked against another account, and the editor says so.
 Rows of other providers, IDs that are not bare model IDs and rows not marked
 available (other than by a cooldown) are dropped; an empty list, a rejected account
-and a Gateway answer with `refreshFailed` count as a failed read. `authProfileId`
+and a `refreshFailed` answer whose `openai` outcome is `unavailable` count as a failed
+read (`refreshFailed` alone covers every provider and is ignored). `authProfileId`
 is not used: OpenClaw scopes it to personal accounts of an authenticated Gateway
 user and refuses the agent's own OAuth profiles with `FORBIDDEN`.
 
 The list is cached in memory for ten minutes; a failed or stale read is retried
-after one minute. Loading the agents page or the account list starts a background
-read when the cache is stale; agent runs, checks and logouts never read models. A
-completed sign-in and **Refresh models** force a rediscovery: when an unforced read
-is already running, the forced one runs right after it. The refresh route shares
-one owner budget of twelve requests a minute. When the list cannot be loaded the
-editor keeps the model ID field and says so; a custom model ID is always possible.
+after one minute, and the retry after a stale `openai` discovery is forced. Loading
+the agents page or the account list starts a background read when the cache is
+stale; agent runs, checks and logouts never read models. A completed sign-in and
+**Refresh models** force a rediscovery: when an unforced read is already running,
+the forced one runs right after it. The refresh route shares one owner budget of
+twelve requests a minute. When the list cannot be loaded the editor keeps the model
+ID field and says so; a custom model ID is always possible.
 `assistant-chatgpt-models-contract.test.js` pins the request and row shape against
 the pinned Gateway with synthetic credentials. Its discovery goes through a local
-proxy that answers 401, so it never contacts chatgpt.com; a signed-in list cannot
-be observed offline.
+proxy that answers 401, so it never contacts chatgpt.com; a signed-in list cannot be
+observed offline.
 
 **Check connection** runs the native credential probe. **Disconnect** removes the
 selected profile through OpenClaw; pending or unresolved work using that account
