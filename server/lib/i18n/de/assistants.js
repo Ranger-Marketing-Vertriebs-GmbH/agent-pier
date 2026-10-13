@@ -137,10 +137,19 @@ export const assistants = {
     "Dieses Mitglied hat schon eine offene Aufgabe. Warte auf ihr Ergebnis oder brich sie ab.",
   memberRequestNotFinished:
     "Nur abgeschlossene temporäre Mitglieder lassen sich archivieren.",
+  memberRequestRate:
+    "Der Agent hat in kurzer Zeit zu viele Fragen oder Aufgaben geschickt. Warte einen Moment.",
   memberRequestUnavailable:
     "Dieses Mitglied hat noch keinen Chat und kann nichts beantworten.",
   memberRequestApproval: (lead, member, kind, text) =>
     `${lead} möchte ${kind === "task" ? "eine Aufgabe an" : "eine Frage an"} ${member} ${kind === "task" ? "übergeben" : "stellen"}:\n\n${text}`,
+  memberRequestShell: (level) =>
+    `Shell-Zugriff des Mitglieds: ${{ off: "aus", approval: "mit Freigabe", full: "voll" }[level] || level}`,
+  memberRequestNoMcp: "MCP-Server des Mitglieds: keine",
+  memberRequestWrites: (member) =>
+    `Wenn du freigibst, darf ${member} Dateien in seinem eigenen Arbeitsbereich ändern (nicht sein Gedächtnis).`,
+  memberRequestReadOnly: (member) =>
+    `${member} hat keine Dateiwerkzeuge und ändert keine Dateien.`,
   memberRequestApprove: "Anfrage freigeben",
   memberRequestDecline: "Anfrage ablehnen",
   memberRequestApproved:
