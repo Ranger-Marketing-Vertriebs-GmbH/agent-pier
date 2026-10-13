@@ -1354,9 +1354,13 @@ server decides by the bytes, never by the name or the browser's type.
   `content`); the pinned Gateway refuses inline images above 6 MiB, and AgentPier
   keeps all inline images of one turn below 15 MiB so the RPC frame fits. HEIC is
   converted to JPEG in browsers that can decode it (Safari); otherwise it stays a
-  workspace file. Image input comes from the connection: endpoint models declare it,
-  ChatGPT accounts have it, and OpenRouter transports are compiled text-only, so the
-  composer says so before sending.
+  workspace file. Image input comes from the model: endpoint models declare it, ChatGPT
+  accounts have it, and an OpenRouter model has it when OpenRouter's catalog lists
+  `image` among its `architecture.input_modalities`. AgentPier then compiles that
+  model with `input: ["text", "image"]`, which the Gateway's `modelSupportsInput`
+  reads; without it the Gateway treats the model as text-only and describes images
+  instead. A model outside the catalog stays text-only. The composer says so before
+  sending when the agent's model cannot see images.
 - **History.** OpenClaw keeps the sent text; the history strips the note again and
   returns the files by id. Thumbnails and downloads are served by
   `GET /api/assistant-attachments/:id` behind the login, with `nosniff`, a sandboxed
