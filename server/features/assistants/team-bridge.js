@@ -201,13 +201,22 @@ export class TeamBridge {
         this.assistants.store.getConversation(request.conversationId).assistantId,
       ),
       origin = this.teams.store?.context(request.id);
+    const current =
+      !attempt.reviewedAt &&
+      parent.runtimeAgentId === input.agentId &&
+      !parent.archivedAt;
     return {
       allow:
-        !attempt.reviewedAt &&
-        parent.runtimeAgentId === input.agentId &&
-        !parent.archivedAt &&
-        ["owner", "telegram"].includes(origin?.kind) &&
-        !origin.forwarded,
+        current &&
+        ((["owner", "telegram"].includes(origin?.kind) && !origin.forwarded) ||
+          // A task the owner asked for or approved, in exactly its own member turn.
+          (origin?.kind === "lead-request" &&
+            !!this.teams.requests?.mayWrite(
+              origin.requestId,
+              attempt.id,
+              parent.id,
+              input.path,
+            ))),
     };
   }
   invoke({ ticket, action, input, ...extra }) {
@@ -225,8 +234,11 @@ export class TeamBridge {
     const invocation = {
       attemptId: record.attemptId,
       toolCallId: record.toolCallId,
+      // Waits (an ask) count from here, the moment the call reached AgentPier.
+      startedAt: Date.now(),
       assertCurrent: () => this.valid(record),
     };
+    record.invocation = invocation;
     record.promise = Promise.resolve().then(() => {
       invocation.assertCurrent();
       if (action === "workspace")
@@ -244,6 +256,8 @@ export class TeamBridge {
     return record.promise;
   }
   async handle(req, res) {
+    let lost = false,
+      invocation = null;
     try {
       if (req.headers.origin || req.headers["sec-fetch-site"])
         throw assistantProblem("invalid", 403);
@@ -269,6 +283,13 @@ export class TeamBridge {
       } catch {
         throw assistantProblem("invalid");
       }
+      // A result the caller can no longer receive is handed back (lead-requests.js).
+      res.on("close", () => {
+        if (!res.writableFinished) {
+          lost = true;
+          invocation?.undelivered?.();
+        }
+      });
       const result = await (req.url === "/prepare"
         ? this.prepare(input)
         : req.url === "/tool-policy"
@@ -276,6 +297,8 @@ export class TeamBridge {
           : req.url === "/guard"
             ? this.registerGuard(input)
             : this.invoke(input));
+      if (req.url === "/invoke") invocation = this.tickets.get(input.ticket)?.invocation;
+      if (lost) invocation?.undelivered?.();
       res.writeHead(200, {
         "content-type": "application/json",
         "cache-control": "no-store",

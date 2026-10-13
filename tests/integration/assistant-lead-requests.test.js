@@ -1,59 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { setImmediate as tick } from "node:timers/promises";
-import { teamFixture } from "../helpers/assistant-team-fixture.js";
+import { ask, lead, quoteFor, until } from "../helpers/lead-request-service-fixture.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
-
-const quote = "ask the researcher what the budget is";
-async function until(read, label = "condition") {
-  for (let n = 0; n < 2000; n++) {
-    const value = read();
-    if (value) return value;
-    await tick();
-  }
-  throw Error(`Timed out waiting for ${label}`);
-}
-// A lead whose team finished: its members can be asked; the second one is permanent.
-async function lead(t) {
-  const f = teamFixture(t);
-  const { team, parent, chat, attempt } = await f.proposal({ count: 2 });
-  f.assistants.ledger.transition(attempt.id, "completed");
-  await f.service.reconcile();
-  for (const m of f.service.store.members(team.id)) f.complete(m.attemptId);
-  await f.service.reconcile();
-  const synthesis = f.service.store.get(team.id).resultAttemptId;
-  if (synthesis) f.complete(synthesis);
-  await f.service.reconcile();
-  const [temporary, second] = f.service.store.members(team.id);
-  const permanent = await f.service.lifecycle("promote", second.id, second.revision);
-  const turn = (text = `Please ${quote}`, context = { kind: "owner" }) => {
-    const request = f.assistants.ledger.accept(chat.id, {
-      clientRequestId: crypto.randomUUID(),
-      text,
-    });
-    f.service.store.recordContext(request.id, context);
-    const attempt = f.assistants.ledger.recordAttempt(request.id);
-    return { attemptId: attempt.id, toolCallId: crypto.randomUUID(), assertCurrent() {} };
-  };
-  // Ends every turn of the lead's chat, so a follow-up may be delivered.
-  const idle = () => {
-    for (const a of f.assistants.ledger.pending())
-      if (f.assistants.ledger.getRequest(a.requestId).conversationId === chat.id)
-        f.assistants.ledger.transition(a.id, "completed");
-  };
-  const requests = () => f.service.requests.store.list();
-  const sends = () => f.calls.filter((c) => c.method === "sessions.send");
-  return { ...f, team, parent, chat, temporary, permanent, turn, idle, requests, sends };
-}
-const ask = (f, member, inv, extra = {}) =>
-  f.service.ask(inv, {
-    memberId: member.id,
-    question: "What is the budget?",
-    ownerRequested: true,
-    ownerRequestQuote: quote,
-    ...extra,
-  });
 
 test("an answer within the wait returns as the ask tool's result", async (t) => {
   const f = await lead(t);
@@ -69,7 +18,7 @@ test("an answer within the wait returns as the ask tool's result", async (t) => 
   assert.equal(send.key, f.store.getConversation(memberChat).runtimeSessionKey);
   assert.match(send.message, /^Question from "Parent", the lead agent/);
   assert.ok(send.message.endsWith("\n\nWhat is the budget?"));
-  assert.ok(!send.message.includes(quote), "the lead's conversation stays private");
+  assert.ok(!send.message.includes("Please"), "the lead's conversation stays private");
   f.complete(r.attemptId);
   await f.service.reconcile();
   const result = await pending;
@@ -175,7 +124,7 @@ test("a delegated task runs in the member's chat, can be cancelled and reports b
       memberId: f.permanent.id,
       task: "Draft the budget",
       ownerRequested: true,
-      ownerRequestQuote: quote,
+      ownerRequestQuote: quoteFor(f.permanent),
     });
   const lead1 = f.turn();
   const first = await delegate(lead1);
@@ -224,7 +173,7 @@ test("pending requests survive a restart without a second execution", async (t) 
     memberId: f.permanent.id,
     task: "Draft",
     ownerRequested: true,
-    ownerRequestQuote: quote,
+    ownerRequestQuote: quoteFor(f.permanent),
   });
   const task = f.requests()[1];
   f.service.store.write(f.service.store.get(task.id), { phase: "dispatching" });
@@ -319,4 +268,32 @@ test("the bridge refuses the new lead tools to members", async (t) => {
       { status: 403 },
       action,
     );
+  // Positive controls in the same fixture: the member's own workspace tool and the
+  // lead's own pending turn pass the same checks.
+  assert.ok(
+    bridge.prepare({
+      agentId: member.runtimeAgentId,
+      sessionKey: memberChat.runtimeSessionKey,
+      toolCallId: "workspace",
+      action: "workspace",
+    }).ticket,
+  );
+  f.turn();
+  const { ticket } = bridge.prepare({
+    agentId: f.store.getAssistant(f.parent.id).runtimeAgentId,
+    sessionKey: f.chat.runtimeSessionKey,
+    toolCallId: "lead-ask",
+    action: "ask",
+  });
+  assert.ok(ticket);
+  // A lead's ticket cannot be replayed for another action or by the member.
+  assert.throws(() => bridge.invoke({ ticket, action: "delegate", input: {} }), {
+    status: 403,
+  });
+  let reached = false;
+  f.service.ask = async () => (reached = true);
+  assert.throws(() => bridge.invoke({ ticket: "forged", action: "ask", input: {} }), {
+    status: 403,
+  });
+  assert.equal(reached, false);
 });

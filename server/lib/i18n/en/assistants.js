@@ -124,9 +124,17 @@ export const assistants = {
   memberRequestOpenTask:
     "This member already has an open task. Wait for its result or cancel it first.",
   memberRequestNotFinished: "Only finished temporary members can be archived.",
+  memberRequestRate:
+    "The agent sent too many questions or tasks in a short time. Wait a moment.",
   memberRequestUnavailable: "This member has no chat yet and cannot answer.",
   memberRequestApproval: (lead, member, kind, text) =>
     `${lead} wants to ${kind === "task" ? "delegate a task to" : "ask"} ${member}:\n\n${text}`,
+  memberRequestShell: (level) =>
+    `Member's shell access: ${{ off: "off", approval: "with approval", full: "full" }[level] || level}`,
+  memberRequestNoMcp: "Member's MCP servers: none",
+  memberRequestWrites: (member) =>
+    `If you approve, ${member} may change files in its own workspace (not its memory).`,
+  memberRequestReadOnly: (member) => `${member} has no file tools and changes no files.`,
   memberRequestApprove: "Approve request",
   memberRequestDecline: "Decline request",
   memberRequestApproved: "Approved. The member gets the request as soon as it is free.",

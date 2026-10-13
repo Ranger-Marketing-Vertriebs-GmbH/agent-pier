@@ -160,7 +160,8 @@ export class TeamService {
       ),
     };
   }
-  lifecycle(action, id, revision) {
+  /** `check` (archive only) runs inside the archiving transaction. */
+  lifecycle(action, id, revision, check) {
     return this.assistants.admit(async () => {
       if (!["promote", "archive", "restore"].includes(action))
         throw assistantProblem("invalid");
@@ -176,7 +177,10 @@ export class TeamService {
         for (const member of members)
           if (!member.archivedAt && member.lifetime === "permanent")
             await this.assistants.reminders?.disable(member.assistantId);
-      const result = this.store[action](id, revision);
+      const result =
+        action === "archive"
+          ? this.store.archive(id, revision, check)
+          : this.store[action](id, revision);
       await this.applyMcp();
       if (this.assistants.runtime.client?.ready)
         for (const member of members) {
@@ -327,6 +331,9 @@ export class TeamService {
   }
   archive(inv, input) {
     return this.requests.archive(inv, input);
+  }
+  requestDetail(id) {
+    return this.requests.detail(id);
   }
   decideRequest(id, input, origin) {
     return this.requests.decide(id, input, origin);

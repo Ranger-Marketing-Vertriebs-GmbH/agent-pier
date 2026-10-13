@@ -643,24 +643,51 @@ A lead reaches its own members without the owner relaying anything
   and the bridge refuses them to member turns, so there are no chains.
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
-  temporary for archive. The approval rule is the team rule without the word
-  "team": an owner turn (AgentPier chat or Telegram, not forwarded) with a verbatim
-  quote of at least three words, or the lead's standing team permission, runs at
-  once; everything else waits for the owner's decision in the lead's chat, under
-  Settings → Work → Teams or with buttons in the paired Telegram chat.
+  temporary for archive (checked again inside the archiving transaction). A request
+  runs without the owner's decision only when the owner explicitly asked for it in
+  this very turn (AgentPier chat or Telegram, not forwarded): the tool's quote must
+  be verbatim from that message, name the member (its whole display name or a word
+  of it no other member carries), and say to ask or delegate (`ask`, `delegate`,
+  `assign`, `frag…`, `delegier…`, `beauftrag…`, `übergib`, "gib … an",
+  "lass … machen", "let … do", "hand … over"; `lead-request-proof.js`). Each quote
+  authorises one request and a turn at most three. Standing team permission does
+  not apply. Everything else waits for the owner in the lead's chat, under
+  Settings → Work → Teams or with buttons in the paired Telegram chat; the card and
+  the Telegram notice show the member's shell level, its MCP servers and whether a
+  task may change files.
+- **Limits.** At most 16 open requests per lead, 6 per lead and minute and 8 per
+  owner turn (`RATE_LIMITED` beyond); a member answer that makes the lead ask again
+  in a follow-up turn always needs approval.
+- **Files.** Questions never write. A task the owner asked for in plain words or
+  approved may use `write`/`edit` in the member's own workspace during exactly its
+  own run (`TeamBridge.toolPolicy`, `LeadRequests.mayWrite`), never in `MEMORY.md`
+  or `memory/`, so a task cannot plant instructions for the owner's own chats;
+  every other member turn from a lead stays read-only.
 - **Delivery.** A request waits until the member is free (no running turn, no
   active team assignment) and then runs as an ordinary turn in the member's chat,
   shown there as the lead's bare text with "from <lead>". The member sees only the
-  question or task, never the lead's conversation; member turns cannot write files.
-  The ask tool holds the lead's call for up to 110 seconds: OpenClaw's embedded
-  harness gives plugin tools no own timeout, and its stuck-session diagnostics flag
-  a call only after two minutes. A later answer, a task result or a failure reaches
-  the lead as a hidden follow-up turn once its chat is idle, and from there the
-  paired Telegram chat when the request came from Telegram.
-- **Recovery.** Requests are durable records in the team store. A send whose
-  outcome is unknown at a restart is adopted by its stable request id instead of
-  sent again; an unknown member outcome ends `failed` once reviewed and is reported
-  to the lead. Archiving a member fails its queued requests.
+  question or task, never the lead's conversation. The ask tool holds the lead's
+  call for at most 110 seconds counted from the moment the bridge received it:
+  OpenClaw's embedded harness gives plugin tools no own timeout, and its
+  stuck-session diagnostics flag a call only after two minutes. Outside pull
+  requests the team plugin contract holds an ask for 115 seconds against the
+  pinned Gateway. An answer that misses the wait, or whose response could not be
+  written to the caller, a task result or a failure reaches the lead as a hidden
+  follow-up turn (at most 16000 characters) once its chat is idle, and from there
+  the paired Telegram chat when the request came from Telegram. Follow-ups that
+  keep failing end as `FOLLOW_UP_FAILED`, shown on the request.
+- **Tool calls and scheduled runs.** Plugin tools receive the session key but no
+  run id (OpenClaw 2026.9.8 tool context), so the bridge binds a call to the
+  session's single active AgentPier attempt. Native runs in the same session never
+  reach these tools or `write`/`edit`: check-ins run with `toolsAllow:
+["memory_search", "memory_get"]` and reminders and routines in isolated sessions
+  with no tools (pinned by the native heartbeat and reminder tests).
+- **Recovery.** Requests are durable records in the team store; settled ones are
+  pruned after 30 days or beyond the newest 200 per lead, and the scheduling pass
+  reads only open or undelivered ones. A send whose outcome is unknown at a restart
+  is adopted by its stable request id instead of sent again; an unknown member
+  outcome ends `failed` once reviewed and is reported to the lead. Archiving a
+  member fails its queued requests.
 
 ### Coding requests from team members
 

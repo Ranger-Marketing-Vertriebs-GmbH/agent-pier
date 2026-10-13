@@ -41,7 +41,7 @@ export function leadStoreFixture(t, { store: given } = {}) {
     return ledger.recordAttempt(request.id);
   }
   /** A started team of `count` members, each with a chat and in `phase`. */
-  function team(owner, { count = 2, phase = "completed" } = {}) {
+  function team(owner, { count = 2, phase = "completed", names = [] } = {}) {
     const attempt = turn(owner.chat, "Build a team", {
       kind: "owner",
       teamAllowed: true,
@@ -51,7 +51,7 @@ export function leadStoreFixture(t, { store: given } = {}) {
       parentAttemptId: attempt.id,
       objective: "Research",
       members: Array.from({ length: count }, (_, n) => ({
-        name: `Member ${n}`,
+        name: names[n] ?? `Member ${n}`,
         role: "Research",
         assignment: `Research part ${n}`,
       })),

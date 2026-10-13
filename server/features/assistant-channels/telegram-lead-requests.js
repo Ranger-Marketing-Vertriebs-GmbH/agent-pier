@@ -55,7 +55,7 @@ async function transferRequest(outbox, r) {
         kind: "lead-request-approval",
         path: requestPath(r),
         localized: true,
-        text: msg.memberRequestApproval(r.leadName, r.memberName, r.type, r.text),
+        text: approvalText(msg, r, outbox.service.assistants.teams.requests.power(r)),
         actions: ["approve", "decline"].map((decision) => ({
           decision,
           label:
@@ -114,4 +114,32 @@ export function staleRequestApproval(service, entry) {
     r.revision !== entry.actions[0].revision ||
     entry.actions[0].expiresAt < Date.now()
   );
+}
+
+// The request plus what approving it hands over: the member's shell level, its MCP
+// servers and, for a task, that it may change files in its own workspace.
+function approvalText(msg, r, power) {
+  const servers = power.mcpServers;
+  return [
+    msg.memberRequestApproval(r.leadName, r.memberName, r.type, r.text),
+    [
+      msg.memberRequestShell(power.shell),
+      servers === null
+        ? msg.teamMcpUnavailable
+        : servers.length
+          ? msg.teamMcpServers(
+              servers
+                .map((s) => (s.stdio ? msg.teamMcpStdio(s.name) : s.name))
+                .join(", "),
+            )
+          : msg.memberRequestNoMcp,
+      ...(r.type === "task"
+        ? [
+            power.files
+              ? msg.memberRequestWrites(r.memberName)
+              : msg.memberRequestReadOnly(r.memberName),
+          ]
+        : []),
+    ].join("\n"),
+  ].join("\n\n");
 }

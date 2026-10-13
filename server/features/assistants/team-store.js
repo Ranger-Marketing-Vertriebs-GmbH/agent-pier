@@ -391,9 +391,11 @@ export class TeamStore {
       throw assistantProblem("active", 409);
     return value;
   }
-  lifecycle(id, revision, patch) {
+  lifecycle(id, revision, patch, check) {
     return this.transaction(() => {
       const value = this.assertLifecycle(id, revision);
+      // A caller's own conditions, re-checked in the same transaction.
+      check?.(value);
       const next = this.write(value, patch);
       const members = value.kind === "member" ? [next] : this.members(id);
       for (const member of members) {
@@ -421,8 +423,8 @@ export class TeamStore {
     this.member(id);
     return this.lifecycle(id, revision, { lifetime: "permanent" });
   }
-  archive(id, revision) {
-    return this.lifecycle(id, revision, { archivedAt: new Date().toISOString() });
+  archive(id, revision, check) {
+    return this.lifecycle(id, revision, { archivedAt: new Date().toISOString() }, check);
   }
   restore(id, revision) {
     return this.lifecycle(id, revision, { archivedAt: null });

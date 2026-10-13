@@ -28,6 +28,8 @@ const reasons = {
     "This member already has an open task. Wait for its result or cancel it with agentpier_team_cancel.",
   MEMBER_NOT_FINISHED:
     "Only your finished temporary members without open questions or tasks can be archived. Check agentpier_team_members.",
+  RATE_LIMITED:
+    "Too many questions or tasks for your members in this turn or minute. Do not retry now; tell the owner what is still open, or let the owner approve more.",
   MEMBER_UNAVAILABLE:
     "This member never started and has no chat to answer in. Choose another member.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
@@ -42,6 +44,7 @@ const byKey = {
   memberRequestOpenTask: "TASK_OPEN",
   memberRequestNotFinished: "MEMBER_NOT_FINISHED",
   memberRequestUnavailable: "MEMBER_UNAVAILABLE",
+  memberRequestRate: "RATE_LIMITED",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",
