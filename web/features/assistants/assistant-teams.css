@@ -448,3 +448,23 @@
 .assistant-team-card .mcp-team-warning.notice {
   color: var(--muted);
 }
+/* A lead's question or task for a member, in the chat and in Settings. */
+/* A finished request is history, not a call to act. */
+.lead-request-card:not([data-pending]) {
+  border-color: var(--line);
+}
+.lead-request-card .link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+.lead-request-power {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}

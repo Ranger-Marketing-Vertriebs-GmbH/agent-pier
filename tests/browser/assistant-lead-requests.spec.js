@@ -20,6 +20,9 @@ const words = {
     open: "Open (2)",
     finished: "Finished (1)",
     question: "Question for Scout",
+    shell: "Member's shell access: full",
+    mcp: "Member's MCP servers: GitHub",
+    writes: "Scout may change files in its own workspace (not its memory).",
     task: "Task for Scout",
     approve: "Approve",
     answered: "Answered",
@@ -35,6 +38,10 @@ const words = {
     open: "Offen (2)",
     finished: "Abgeschlossen (1)",
     question: "Frage an Scout",
+    shell: "Shell-Zugriff des Mitglieds: voll",
+    mcp: "MCP-Server des Mitglieds: GitHub",
+    writes:
+      "Scout darf Dateien in seinem eigenen Arbeitsbereich ändern (nicht sein Gedächtnis).",
     task: "Aufgabe für Scout",
     approve: "Freigeben",
     answered: "Beantwortet",
@@ -85,8 +92,8 @@ const request = (id, overrides) => ({
 const at = new Date();
 at.setHours(11, 41, 0, 0);
 
-function setup(page, language, history) {
-  return chatFixture(page, {
+async function setup(page, language, history) {
+  const state = await chatFixture(page, {
     language,
     assistants: [
       chatAssistant(),
@@ -141,15 +148,24 @@ function setup(page, language, history) {
         memberAssistantId: "researcher",
         memberName: "Researcher",
         text: "What did vendor B cost?",
-        answer: "Vendor B costs 40 euros a month.",
+        hasAnswer: true,
         finishedAt: "2026-10-13T09:01:00.000Z",
       }),
       request("task-1", {
         type: "task",
         phase: "running",
         text: "Draft a migration plan for vendor B.",
+        writeAllowed: true,
+        member: { shell: "off", mcpServers: [], files: true },
       }),
-      request("ask-2", { phase: "awaiting_approval" }),
+      request("ask-2", {
+        phase: "awaiting_approval",
+        member: {
+          shell: "full",
+          mcpServers: [{ name: "GitHub", stdio: false }],
+          files: true,
+        },
+      }),
     ],
     activity: {
       home: {
@@ -161,6 +177,16 @@ function setup(page, language, history) {
     },
     ...(history ? { history } : {}),
   });
+  // The list carries summaries; a card loads the whole answer when it is opened.
+  await page.route(/\/api\/assistant-lead-requests\/ask-1$/, (route) =>
+    route.fulfill({
+      json: {
+        ...state.requests[0],
+        answer: "Vendor B costs 40 euros a month.",
+      },
+    }),
+  );
+  return state;
 }
 const fits = async (page) =>
   expect(
@@ -262,6 +288,9 @@ for (const language of ["en", "de"])
         await expect(card).toHaveCount(1);
         await expect(card).toContainText(w.question);
         await expect(card).toContainText("Which vendor did you prefer last week?");
+        // What approving hands over is on the card.
+        await expect(card).toContainText(w.shell);
+        await expect(card).toContainText(w.mcp);
         await card.scrollIntoViewIfNeeded();
         await fits(page);
         if (shots && language === "en")
@@ -282,6 +311,7 @@ for (const language of ["en", "de"])
         await expect(list.locator(".lead-request-card")).toHaveCount(2);
         const scout = list.getByRole("group", { name: "Scout" });
         await expect(scout).toContainText(w.task);
+        await expect(scout).toContainText(w.writes);
         await expect(scout).toContainText(w.question);
         await list.evaluate((e) => e.scrollIntoView({ block: "start" }));
         await fits(page);

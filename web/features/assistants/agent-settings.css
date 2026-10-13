@@ -210,7 +210,3 @@
   font-weight: 600;
   overflow-wrap: anywhere;
 }
-/* A finished request is history, not a call to act. */
-.lead-request-card:not([data-pending]) {
-  border-color: var(--line);
-}
