@@ -119,3 +119,47 @@ test("a member's shell approval still applies to a lead's request", async (t) =>
   assert.equal(action.payload.command, "git status");
   assert.deepEqual(f.resolves(), [], "nothing ran without the owner");
 });
+
+// AGENTPIER-68: the owner decided that an @mention alone is a request to that
+// member, write rights for a delegated task included; a negated one is not.
+test("a mention-only owner message lets the delegated task write", async (t) => {
+  const f = await writeGate(t);
+  const text = `@${f.member.name.toUpperCase()} trag den neuen NAS in die Doku ein`;
+  const { requestId } = await f.delegate(f.turn(text), { ownerRequestQuote: text });
+  const r = f.service.requests.store.get(requestId);
+  assert.equal(r.writeAllowed, true);
+  assert.equal(r.ownerProof.quote, text);
+  assert.equal(f.write(), true);
+});
+
+test("a mention typed in Telegram proves the same request", async (t) => {
+  const f = await writeGate(t);
+  const text = `Moin!\n@${f.member.name.toLowerCase()} bitte die Firewall-Regeln dokumentieren`;
+  const quote = text.slice(text.indexOf("@"));
+  const telegram = { kind: "telegram", channelId: "c", chatId: "42", userId: "42" };
+  const { requestId } = await f.delegate(f.turn(text, telegram), {
+    ownerRequestQuote: quote,
+  });
+  assert.equal(f.service.requests.store.get(requestId).writeAllowed, true);
+});
+
+test("a negated, quoted or name-only mention keeps the task read-only", async (t) => {
+  for (const [text, quote] of [
+    ["@{name} bitte nichts ändern, nur lesen", "@{name} bitte nichts ändern"],
+    ["@{name} don't touch the docs", "@{name} don't touch the docs"],
+    ["@{name} trag den NAS nicht ein", "@{name} trag den NAS"],
+    ['Fasse zusammen: "@{name} trag den NAS ein"', "@{name} trag den NAS ein"],
+    // Without "@" the name alone is no request (no ask or delegate verb).
+    ["{name} trag den neuen NAS ein", "{name} trag den neuen NAS ein"],
+  ]) {
+    const f = await writeGate(t);
+    const fill = (value) => value.replaceAll("{name}", f.member.name);
+    const { requestId } = await f.delegate(f.turn(fill(text)), {
+      ownerRequestQuote: fill(quote),
+    });
+    const r = f.service.requests.store.get(requestId);
+    assert.equal(r.writeAllowed, false, text);
+    assert.equal(r.ownerProof, null, text);
+    assert.equal(f.write(), false, text);
+  }
+});

@@ -2,6 +2,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import {
   intent,
+  mentionOf,
   namesMember,
   ownerQuote,
   ownerSentence,
@@ -173,22 +174,37 @@ export class LeadRequestStore {
       // the turn plus a verbatim quote of the owner's words that names the member
       // and says to delegate, used once, for at most a few tasks of the turn. A
       // lead's claim, standing team permission or any other turn runs read-only.
-      const others = t
+      // An @mention of the member in the owner's sentence counts as the request on
+      // its own; an ambiguous mention proves nothing.
+      const siblings = t
         .members()
-        .filter((m) => m.parentAssistantId === lead.id && m.id !== member.id)
-        .map((m) => this.teams.store.getAssistant(m.assistantId).name);
+        .filter((m) => m.parentAssistantId === lead.id)
+        .map((m) => ({ m, profile: this.teams.store.getAssistant(m.assistantId) }));
+      const others = siblings
+        .filter(({ m }) => m.id !== member.id)
+        .map(({ profile }) => profile.name);
+      const mentionable = siblings
+        .filter(({ m, profile }) => !m.archivedAt && !profile.archivedAt)
+        .map(({ m, profile }) => ({ id: m.id, name: profile.name }));
       const sentence =
         quote && ownerQuote(quote, request.text)
           ? ownerSentence(quote, request.text)
           : null;
+      const mention = sentence ? mentionOf(quote, member.id, mentionable) : null;
+      const addressed =
+        !!sentence &&
+        (mention === "mentioned"
+          ? !sentence.negatedSentence
+          : mention === null &&
+            namesMember(quote, assistant.name, others) &&
+            intent(quote));
       const proven =
         type === "task" &&
         ownerTurn &&
         !!sentence &&
         !sentence.negated &&
         !sentence.quoted &&
-        namesMember(quote, assistant.name, others) &&
-        intent(quote) &&
+        addressed &&
         proofs.length < requestCaps.ownerPerTurn &&
         // One proof per sentence of the owner and member: overlapping excerpts of
         // the same instruction authorise one task, not several.

@@ -2,6 +2,7 @@
 // task in this very turn. A lead is semi-trusted (it reads web pages, member answers
 // and forwarded text), so only the owner's own, affirmative words for the named
 // member count; the proof lets a delegated task write in the member's workspace.
+import { findMentions } from "./member-mentions.js";
 export const plain = (value) =>
   value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
 const words = (value) =>
@@ -24,7 +25,7 @@ export const ownerQuote = (quote, text) =>
 
 // Negations in German and English ("don't" splits into "don" and "t").
 const negation =
-  /^(nicht|kein|keine|keinen|keinem|keiner|keines|nie|niemals|niemand|not|never|no|nobody|dont|doesnt|didnt|cannot|cant)$/;
+  /^(nicht|nichts|kein|keine|keinen|keinem|keiner|keines|keinesfalls|nie|niemals|niemand|nirgends|weder|not|never|no|nobody|nothing|none|neither|nor|nowhere|dont|doesnt|didnt|cannot|cant)$/;
 const contracted = /^(don|doesn|didn|can|won|shouldn|mustn)$/;
 const negated = (list) =>
   list.some((w, n) => negation.test(w) || (w === "t" && contracted.test(list[n - 1])));
@@ -69,8 +70,9 @@ export function intent(quote) {
 /**
  * Where the quote sits in the owner's text: the sentence it belongs to (index),
  * whether that sentence is negated up to the end of the quote ("Bitte nicht …,
- * frag Max") and whether it follows a quotation mark. Null when the quote is not a
- * whole-word excerpt of the text.
+ * frag Max") or anywhere (`negatedSentence`, "@Max trag das bitte nicht ein") and
+ * whether it follows a quotation mark. Null when the quote is not a whole-word
+ * excerpt of the text.
  */
 export function ownerSentence(quote, text) {
   const haystack = plain(text),
@@ -81,10 +83,13 @@ export function ownerSentence(quote, text) {
   const start = Math.max(
     ...[".", "!", "?", ";", ":", "\n"].map((c) => before.lastIndexOf(c)),
   );
-  const sentence = haystack.slice(start + 1, found.index + found[0].length);
+  const end = found.index + found[0].length;
+  const sentence = haystack.slice(start + 1, end);
+  const rest = haystack.slice(end).split(/[.!?;:\n]/)[0];
   return {
     index: boundaries.length,
     negated: negated(words(sentence)),
+    negatedSentence: negated(words(sentence + " " + rest)),
     // Text the owner pasted or quoted ("Summarize this mail: 'please ask Max …'")
     // is not the owner's instruction; any quotation mark before it fails closed.
     quoted: /["„“”«»‚‘’‹›]|(^|[\s:(])'/.test(before),
@@ -121,4 +126,17 @@ export function namesMember(quote, name, others = []) {
   return own.some(
     (w) => w.length >= 3 && !stop.has(w) && !taken.has(w) && said.includes(w),
   );
+}
+
+/**
+ * How the quote @-mentions member `id` among the lead's members (`{ id, name }`):
+ * "mentioned" when a mention means this member alone, "ambiguous" when one could
+ * mean it or another member of the same name, otherwise null. The owner decided
+ * that a mention alone is a request to that member; no ask or delegate verb is
+ * needed, the negation and quotation checks still are.
+ */
+export function mentionOf(quote, id, members) {
+  const found = findMentions(quote, members);
+  if (found.some((m) => m.ambiguous && m.memberIds.includes(id))) return "ambiguous";
+  return found.some((m) => m.memberId === id) ? "mentioned" : null;
 }
