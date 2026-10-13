@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { codingRunNotes } from "./assistant-action-notifications.js";
 import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
+import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
 export function publicMessages(messages = []) {
   const seen = new Set();
   return messages.flatMap((m) => {
@@ -115,13 +116,19 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     messages = messages.slice(Math.max(0, end - limit), end);
     if (end > limit) nextBefore = String(offset + limit);
   }
-  const requests = service.ledger
-    .requests(id)
-    .map((r) => ({ ...r, attempt: service.ledger.attemptFor(r.id) }));
+  const files = service.attachments?.forConversation(id) || new Map();
+  const requests = requestsWithAttachments(
+    service.ledger
+      .requests(id)
+      .map((r) => ({ ...r, attempt: service.ledger.attemptFor(r.id) })),
+    files,
+  );
   // One trusted-context lookup per request and one attempt query per history read.
   const contexts = new Map(
     service.teams ? requests.map((r) => [r.id, service.teams.store.context(r.id)]) : [],
   );
+  const attempts = service.ledger.attemptRequests(id);
+  messages = withAttachments(messages, requests, { attempts, byRequest: files });
   const visible = hideInternal(messages, requests, contexts);
   return {
     ...visible,
@@ -129,10 +136,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     messages: withRunNotes(
       service,
       conversation,
-      withMessageSources(visible.messages, requests, {
-        attempts: service.ledger.attemptRequests(id),
-        contexts,
-      }),
+      withMessageSources(visible.messages, requests, { attempts, contexts }),
       nextBefore,
     ),
     nextBefore,
