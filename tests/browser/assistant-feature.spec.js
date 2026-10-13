@@ -76,7 +76,7 @@ async function featureFixture(
       });
     if (path === "/api/assistant-runtime")
       return route.fulfill({
-        json: { availability: "ready", sync: "current", version: "2026.9.8" },
+        json: { availability: "ready", sync: "current", version: "2026.9.9" },
       });
     return route.fallback();
   });

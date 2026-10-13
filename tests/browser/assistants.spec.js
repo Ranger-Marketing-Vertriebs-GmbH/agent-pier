@@ -45,7 +45,7 @@ async function assistantFixture(
         body: 'data: {"type":"connected"}\n\n',
       });
     else if (url.pathname === "/api/assistant-runtime")
-      body = { availability: "ready", sync: "current", version: "2026.9.8" };
+      body = { availability: "ready", sync: "current", version: "2026.9.9" };
     else if (url.pathname.endsWith("/messages"))
       body = {
         messages: [

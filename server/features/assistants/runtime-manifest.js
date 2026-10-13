@@ -1,40 +1,40 @@
-// Official npm distribution integrity and nodejs.org SHASUMS256, verified 2026-10-07;
-// dependency lock extended with the search plugins 2026-10-11.
+// Official npm distribution integrity verified 2026-10-14 (OpenClaw 2026.9.9 and its
+// search plugins); nodejs.org SHASUMS256 verified 2026-10-07.
 export const runtimeManifest = {
-  version: "2026.9.8",
+  version: "2026.9.9",
   // Qualified predecessors an activation may roll back to (see the release
   // qualification); the managed team plugin must stay compatible with each.
-  rollbackTargets: ["2026.9.7"],
+  rollbackTargets: ["2026.9.8", "2026.9.7"],
   nodeVersion: "26.7.0",
   npmVersion: "11.19.0",
   dependencyLockSha256:
-    "563cf3904093b49428854c6462500f0852cc5ca8171a76f733195f2f047afef8",
-  packageUrl: "https://registry.npmjs.org/openclaw/-/openclaw-2026.9.8.tgz",
+    "c197993dfd41721ca4917033ecde633551cb325611539e1439ea0711e24c3545",
+  packageUrl: "https://registry.npmjs.org/openclaw/-/openclaw-2026.9.9.tgz",
   packageIntegrity:
-    "G+JkNUhtpDE3cXR4AEi2NyyG9fqI/T2WUSl8ZnR8AATH8Dh1kC3qYFL7wwPoZtgHiP/cszA86PEiE0PDysxb9Q==",
-  // Official OpenClaw web search plugins (npm dist integrity, verified 2026-10-11).
+    "3sB6ejq5smBozfBhVEDfK48wFpbkx+0f6PJ19qZjC3ab3RoFrYO58CnE2mAsbUy8sXdxdBtjQ3vkAqcW9BZXAw==",
+  // Official OpenClaw web search plugins (npm dist integrity, verified 2026-10-14).
   // They join the locked graph; a Gateway only loads one its configuration uses.
   searchPlugins: {
     duckduckgo: {
       id: "duckduckgo",
       package: "@openclaw/duckduckgo-plugin",
-      version: "2026.9.8",
+      version: "2026.9.9",
       integrity:
-        "FaKJI2E7cDb1IEu9iVKbJBdPz8pO2mmwLyiwiNm6scBwyXhObodwHe+Y1B3CcyQ+QHhwjM9UM4Pq1fquo2WUsw==",
+        "KbbF4te7gsS+WsUtg4ihrxnMI2i8zhtTf+8HaBjEOwCyd8aC8sEIJx7sKkiqk4s3FUq2rAjs9vdx4JB2W5JpJg==",
     },
     perplexity: {
       id: "perplexity",
       package: "@openclaw/perplexity-plugin",
-      version: "2026.9.8",
+      version: "2026.9.9",
       integrity:
-        "cIMgxl7QAnjdTS0djIcrZM65cRXVwLE/M8W59T7AvhjPh5B5LeYuHGRCd46AC6o0R0aIa8/prTPEkDl1yMYnDw==",
+        "JRnGCkPGT7FOXgmn9zI88BtU6oIZB945egsgLZapjIiWZYyA1zQ32/jHVOfvaigwexddqGGLsPJSYCV8rtrdcg==",
     },
     brave: {
       id: "brave",
       package: "@openclaw/brave-plugin",
-      version: "2026.9.8",
+      version: "2026.9.9",
       integrity:
-        "QHG1EGYN52uv9ayhNGRobql3M1ojqohc36Fa/U+UpYK2bR6BndueWWHdgNcsbsF+nkg++/AKJLf/elethqhJKQ==",
+        "Zk6xMf+pP4gMCK0Lw0okDM5MVprJgHNkbzsxj8dXRI9TH3MU2GrDkXYGi99wNR78putj//ENjndHGoZbuuh/DA==",
     },
   },
   nodeChecksums: {
