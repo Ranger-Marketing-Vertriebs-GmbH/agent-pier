@@ -67,7 +67,7 @@ test("the attachment routes store owner uploads in the agent's workspace only", 
   assert.match(shown.headers.get("content-security-policy"), /sandbox/);
   assert.deepEqual(Buffer.from(await shown.arrayBuffer()), png);
 
-  // An image the agent rewrites in place is only offered as a download (R2).
+  // An image the agent rewrites in place (R2).
   const [savedName] = fs.readdirSync(path.join(workspace, "attachments"));
   fs.writeFileSync(
     path.join(workspace, "attachments", savedName),
@@ -76,10 +76,9 @@ test("the attachment routes store owner uploads in the agent's workspace only", 
       flag: "r+",
     },
   );
+  // Bytes that are no longer the uploaded image are not served at all.
   const rewritten = await fixtureFetch(`${url}/api/assistant-attachments/${file.id}`);
-  assert.equal(rewritten.status, 200);
-  assert.equal(rewritten.headers.get("content-type"), "application/octet-stream");
-  assert.match(rewritten.headers.get("content-disposition"), /^attachment; /);
+  assert.equal(rewritten.status, 404);
   const text = await (await upload("notes.md", "# Notes\n")).json();
   const download = await fixtureFetch(`${url}/api/assistant-attachments/${text.id}`);
   assert.equal(download.headers.get("content-type"), "application/octet-stream");

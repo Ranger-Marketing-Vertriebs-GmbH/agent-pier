@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import {
   INLINE_IMAGE_TYPES,
@@ -33,6 +33,7 @@ const agentId = /^[A-Za-z0-9][A-Za-z0-9-]{0,99}$/;
 const record = (row) => row && { ...JSON.parse(row.body), id: row.id, row };
 const publicFile = ({ id, name, type, kind, size }) => ({ id, name, type, kind, size });
 const agentPath = (file) => `${FOLDER}/${file.file}`;
+const digest = (body) => createHash("sha256").update(body).digest("hex");
 
 /**
  * The owner's chat attachments to agents. Each file is copied into the receiving
@@ -170,7 +171,7 @@ export class AgentAttachments {
    * link; only after proving that it is the inode in the checked folder, and that the
    * folder is still the checked directory at its real place, are the bytes written
    * through the descriptor. A folder swapped in between can then receive nothing.
-   * Returns the inode identity that every later read requires.
+   * Returns the content digest that every later read requires.
    */
   async create(folder, file, body) {
     const target = path.join(folder.path, file);
@@ -208,7 +209,7 @@ export class AgentAttachments {
         throw assistantProblem("attachmentStorageUnsafe", 409);
       }
       await handle.writeFile(body);
-      return { dev: String(own.dev), ino: String(own.ino) };
+      return { sha256: digest(body) };
     } catch (error) {
       if (error.key === "attachmentStorageUnsafe") throw error;
       await fs.rm(target, { force: true });
@@ -340,8 +341,9 @@ export class AgentAttachments {
     }
     return attachments.length ? { message, attachments } : { message };
   }
-  // A copy is read only as the very file that was written: the same inode, no other
-  // hard link to it and the recorded size. A swapped, linked or grown file is refused.
+  // A copy is read only with the bytes that were written: the recorded size and
+  // SHA-256, as a regular file with no other hard link. Inode numbers are not used:
+  // Linux reuses a freed one at once, and a restore gives every copy a new one.
   async read(assistantId, file) {
     const folder = await this.folder(assistantId, false);
     if (!folder) throw assistantProblem("attachmentNotFound", 404);
@@ -355,14 +357,13 @@ export class AgentAttachments {
       if (
         !stat.isFile() ||
         stat.nlink !== 1n ||
-        String(stat.dev) !== file.dev ||
-        String(stat.ino) !== file.ino ||
+        typeof file.sha256 !== "string" ||
         stat.size !== BigInt(file.size) ||
         file.size > MAX_ATTACHMENT_BYTES
       )
         throw Error("file");
       const body = await handle.readFile();
-      if (body.length !== file.size) throw Error("file");
+      if (body.length !== file.size || digest(body) !== file.sha256) throw Error("file");
       return body;
     } catch {
       throw assistantProblem("attachmentNotFound", 404);
