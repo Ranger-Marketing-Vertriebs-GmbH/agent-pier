@@ -136,3 +136,16 @@
 .assistant-sidebar-member small {
   font-size: 10px;
 }
+/* The two sections under a lead: its permanent members, then its team members. */
+.assistant-sidebar-section {
+  margin: 6px 0 0 37px;
+  padding: 0 6px;
+  color: var(--text-meta);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.assistant-sidebar-permanent {
+  padding-top: 2px;
+}

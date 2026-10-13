@@ -3,6 +3,7 @@ import { assistantApi } from "./assistant-api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import SidebarGroup from "../../app/SidebarGroup.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
+import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
 import useAssistants from "./useAssistants.js";
 import { avatarGlyph } from "./avatar-glyph.js";
 import { connectionMissing } from "./connection-state.js";
@@ -78,9 +79,27 @@ export default function AssistantSidebar({ navigate, route }) {
       setOpening(null);
     }
   }
+  // A member kept as a permanent agent stays under the lead that created it; only
+  // when that lead is archived (or gone) does it become a root agent of its own.
+  const leads = new Map(assistants.map((a) => [a.id, a]));
+  const leadGone = (a) => {
+    const lead = leads.get(a.parentAssistantId);
+    return !lead || !!lead.archivedAt;
+  };
   const roots = assistants.filter(
-    (a) => !a.archivedAt && (!a.teamMemberId || a.lifetime === "permanent"),
+    (a) =>
+      !a.archivedAt && (!a.teamMemberId || (a.lifetime === "permanent" && leadGone(a))),
   );
+  const permanentOf = (parent) =>
+    parent.teamMemberId
+      ? []
+      : assistants.filter(
+          (child) =>
+            child.parentAssistantId === parent.id &&
+            child.teamMemberId &&
+            child.lifetime === "permanent" &&
+            !child.archivedAt,
+        );
   const selectedMember = (parent) =>
     assistants.some(
       (child) => child.parentAssistantId === parent.id && child.id === route.assistantId,
@@ -104,9 +123,8 @@ export default function AssistantSidebar({ navigate, route }) {
   ]);
   const quiet = (phase) =>
     ["ready", "completed", "failed", "cancelled", "declined", "partial"].includes(phase);
-  function item(assistant) {
+  function item(assistant, nested = false) {
     const member = members.find((m) => m.assistantId === assistant.id);
-    const nested = assistant.teamMemberId && assistant.lifetime === "task";
     const chat = conversations.find(
       (c) =>
         c.assistantId === assistant.id &&
@@ -205,7 +223,9 @@ export default function AssistantSidebar({ navigate, route }) {
             if (!groups.has(id)) groups.set(id, []);
             groups.get(id).push(child);
           }
-          const memberCount = [...groups.values()].reduce((n, c) => n + c.length, 0);
+          const permanent = permanentOf(parent);
+          const temporaryCount = [...groups.values()].reduce((n, c) => n + c.length, 0);
+          const memberCount = temporaryCount + permanent.length;
           const hidden = folded(parent);
           const current = route.assistantId === parent.id && route.view === "agents";
           return (
@@ -229,6 +249,25 @@ export default function AssistantSidebar({ navigate, route }) {
                   </button>
                 )}
               </div>
+              {!hidden && permanent.length > 0 && (
+                <>
+                  <div className="assistant-sidebar-section" aria-hidden="true">
+                    {leadRequestCopy.permanentSection}
+                  </div>
+                  <div
+                    className="assistant-sidebar-team assistant-sidebar-permanent"
+                    role="group"
+                    aria-label={leadRequestCopy.permanentSection}
+                  >
+                    {permanent.map((child) => item(child, true))}
+                  </div>
+                </>
+              )}
+              {!hidden && temporaryCount > 0 && (
+                <div className="assistant-sidebar-section">
+                  {leadRequestCopy.temporarySection}
+                </div>
+              )}
               {!hidden &&
                 [...groups].reverse().map(([id, children]) => {
                   const team = teams.find((t) => t.id === id);
@@ -249,7 +288,7 @@ export default function AssistantSidebar({ navigate, route }) {
                           </small>
                         )}
                       </div>
-                      {children.map(item)}
+                      {children.map((child) => item(child, true))}
                     </div>
                   );
                 })}
