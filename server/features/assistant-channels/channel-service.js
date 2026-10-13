@@ -11,6 +11,7 @@ import { TelegramClient } from "./telegram-client.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
 import { telegramMessages } from "./telegram-messages.js";
 import { NativeTelegramStore } from "./native-telegram-store.js";
+import { leadRequestWork } from "./telegram-lead-requests.js";
 export class ChannelService {
   constructor({
     dataDir,
@@ -227,6 +228,7 @@ export class ChannelService {
   }
   hasTeamWork(id) {
     return (
+      leadRequestWork(this.teamOutbox, id) ||
       this.assistants.teams?.store
         .list()
         .some(
@@ -234,7 +236,8 @@ export class ChannelService {
             t.origin?.channelId === id &&
             (!["completed", "failed", "cancelled", "declined"].includes(t.phase) ||
               (t.resultBatch && !this.teamOutbox.transferred(`result:${t.id}`))),
-        ) || false
+        ) ||
+      false
     );
   }
   recoverNotification(channelId, id, action) {
