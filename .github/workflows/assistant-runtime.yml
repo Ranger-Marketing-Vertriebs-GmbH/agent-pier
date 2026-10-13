@@ -39,7 +39,10 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: assistant-runtime-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # One group per pull request (a new revision cancels the old run); every other
+  # run, including each call from full.yml for a nightly or a release, gets its
+  # own group, so none can cancel a pending one.
+  group: assistant-runtime-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   fresh-install:

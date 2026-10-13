@@ -21,6 +21,7 @@ export const runEverything = [
   /^\.nvmrc$/,
   /^\.node-version$/,
   /^\.github\/workflows\/verify\.yml$/,
+  /^\.github\/actions\//,
   /^scripts\/test[^/]*\.mjs$/,
   /^scripts\/affected-tests\.mjs$/,
   /^scripts\/affected\//,
@@ -68,19 +69,23 @@ export function versionOnly(file, before, after) {
   }
 }
 
-// Code that branches on the host platform or drives macOS tools is worth a
-// macOS run before the merge queue; everything else runs on Linux only.
+// Code that branches on the host platform, drives macOS tools or loads macOS
+// libraries, and files named for macOS, are worth a macOS run before the merge
+// queue; everything else runs on Linux only. Case-insensitive and without a
+// trailing word boundary, so `Darwin` (uname -s) and `darwinAbi` count too.
 const platformCode =
-  /process\.platform|\bdarwin\b|\bhdiutil\b|\blaunchctl\b|\bdiskutil\b/;
+  /process\.(?:platform|arch)|os\.platform\(|darwin|macos|hdiutil|launchctl|diskutil|libSystem|\.dylib|uname -s/i;
+const platformPath = /darwin|macos/i;
 const platformFile = /\.(?:m?js|cjs|jsx|sh|rb|in)$/;
 // Unit tests are pure: platform names in them are fixture data.
 const pureTests = /^tests\/unit\//;
 export function needsMacos(changed, read) {
   return changed.filter(
     (file) =>
-      platformFile.test(file) &&
       !pureTests.test(file) &&
-      platformCode.test(read(file) || ""),
+      !matches(inert, file) &&
+      (platformPath.test(file) ||
+        (platformFile.test(file) && platformCode.test(read(file) || ""))),
   );
 }
 
