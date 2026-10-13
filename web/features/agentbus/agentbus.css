@@ -1,65 +1,57 @@
 .project-agentbus-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin: 4px 0 18px;
+  display: grid;
+  gap: 8px;
+  margin: 0 0 4px;
 }
 .project-agentbus-status {
-  font-size: 11px;
-  color: #9d9ea2;
-  white-space: nowrap;
+  padding: 0 4px;
+  font-size: 12px;
+  color: #92949d;
 }
 .project-agentbus-list {
-  display: grid;
-  gap: 12px;
   margin: 0 0 20px;
 }
 .project-agentbus-session {
   display: flex;
-  align-items: flex-start;
-  gap: 20px;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--panel);
+  align-items: center;
+  gap: 12px;
   min-width: 0;
+  min-height: 58px;
+  padding: 10px 12px 10px 14px;
+  background: #16171b;
 }
 .project-agentbus-session-details {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
-.project-agentbus-session-details h3 {
-  font-size: 14px;
-  font-weight: 500;
+.project-agentbus-session-details :is(h3, h4) {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 400;
   overflow-wrap: anywhere;
 }
 .project-agentbus-session-details p {
   margin: 0;
   font-size: 12px;
-  line-height: 1.7;
-  color: #a7a8ac;
+  line-height: 1.5;
+  color: #a2a3a7;
   overflow-wrap: anywhere;
 }
 .project-agentbus-session-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
-  font-size: 11px;
-  color: #a7a8ac;
+  gap: 8px;
+  font-size: 12px;
+  color: #92949d;
 }
 .agentbus-pending {
-  padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--panel);
-  font-size: 11px;
-  color: var(--accent);
+  flex: none;
+  font-size: 12px;
+  color: #92949d;
   white-space: nowrap;
 }
 .agentbus-launch {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   mergeProjects,
   resolveProjectId,
+  groupFirstRuns,
   groupRunCounts,
   latestGate,
   sweepRunCounts,
@@ -166,11 +167,28 @@ test("the run sweep reads further pages at once and marks a capped status", asyn
   const result = await sweepRunCounts(read);
   assert.deepEqual(requested.sort(), [1, 2, 3, 4, 5]);
   assert.ok(parallel > 1);
-  assert.deepEqual(result, { counts: { m1: 30, m2: 70 }, capped: true });
+  assert.deepEqual(result, {
+    counts: { m1: 30, m2: 70 },
+    first: { m1: "0", m2: "30" },
+    capped: true,
+  });
   const small = await sweepRunCounts(async () => ({
     runs: [{ id: "1", projectId: "m1" }],
     total: 1,
     pageSize: 20,
   }));
-  assert.deepEqual(small, { counts: { m1: 1 }, capped: false });
+  assert.deepEqual(small, { counts: { m1: 1 }, first: { m1: "1" }, capped: false });
+});
+
+test("the first listed run of each project is remembered", () => {
+  assert.deepEqual(
+    groupFirstRuns([
+      { id: "a", projectId: "m1" },
+      { id: "b", projectId: "m1" },
+      { id: "c", projectId: "m2" },
+      { id: "d" },
+    ]),
+    { m1: "a", m2: "c" },
+  );
+  assert.deepEqual(groupFirstRuns(undefined), {});
 });

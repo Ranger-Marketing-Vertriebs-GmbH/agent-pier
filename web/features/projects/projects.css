@@ -1,24 +1,57 @@
-.projects-hub {
-  padding-bottom: 28px;
+/* Projects hub in the settings pattern (handoff 2c/3e): SettingsShell header, project
+   list, detail pane with underline tabs. Tab bodies are styled in project-tabs.css. */
+.projects-hub .settings-shell-content {
+  max-width: none;
 }
-.projects-hub .page-heading {
-  margin: 34px 0 26px;
-}
-.projects-actions {
-  display: flex;
+.projects-hub .settings-shell-actions .button {
+  height: 36px;
   gap: 8px;
-  flex-shrink: 0;
-}
-.projects-actions .button {
-  height: 38px;
-  gap: 8px;
-  padding: 0 15px;
-  font-size: 11px;
+  padding: 0 14px;
+  font-size: 12px;
   white-space: nowrap;
 }
-.projects-hub > .repository-notice,
-.projects-hub > .error {
-  margin: 0 0 18px;
+.projects-hub .repository-notice,
+.projects-hub .project-load-error {
+  margin: 0 0 16px;
+}
+.project-add-menu {
+  position: relative;
+}
+.project-add-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: #e8e8ec;
+}
+.project-add-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid #303137;
+  border-radius: 12px;
+  background: #1b1c20;
+  box-shadow: 0 18px 40px -12px #000;
+}
+.project-add-popover [role="menuitem"] {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #e8e8ec;
+  text-align: left;
+}
+.project-add-popover [role="menuitem"]:hover,
+.project-add-popover [role="menuitem"]:focus-visible {
+  background: #232428;
 }
 .project-list .list-detail-caps {
   padding: 0 12px;
@@ -28,9 +61,9 @@
 }
 .project-list .list-detail-items > button {
   display: flex;
-  align-items: flex-start;
-  gap: 11px;
-  color: #cfd0d4;
+  align-items: center;
+  gap: 12px;
+  color: #e8e8ec;
 }
 .project-list .list-detail-items > button:hover {
   background: #222327;
@@ -45,10 +78,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #3a3b3f;
-  border-radius: 7px;
+  border: 1px solid #303137;
+  border-radius: 8px;
   background: #232428;
-  color: #9d9ea2;
+  color: #a2a3a7;
 }
 .project-list .selected .project-item-icon {
   color: #ffc99d;
@@ -58,10 +91,10 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 .project-item-text strong {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   overflow-wrap: anywhere;
 }
@@ -69,8 +102,8 @@
   color: #ffc99d;
 }
 .project-item-text small {
-  font-size: 10px;
-  color: #8a8b8f;
+  font-size: 12px;
+  color: #92949d;
   overflow-wrap: anywhere;
 }
 .project-item-text .project-hint {
@@ -80,8 +113,8 @@
 }
 .project-hint::before {
   content: "";
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   flex-shrink: 0;
   border-radius: 50%;
   background: currentColor;
@@ -90,46 +123,43 @@
   color: #ffc99d;
 }
 .project-item-text .project-hint.failed {
-  color: #e5796b;
+  color: #e7a3a3;
 }
 .project-item-chevron {
   display: none;
   flex-shrink: 0;
-  align-self: center;
-  color: #6e6f73;
+  color: #6f7075;
 }
 .project-card {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: #18191d;
-  border: 1px solid #303137;
-  border-radius: 9px;
+  background: #16171b;
+  border: 1px solid #28292d;
+  border-radius: 12px;
 }
 .project-card-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 20px 22px 0;
+  gap: 16px;
+  padding: 18px 22px 0;
 }
 .project-card-header > div:first-child {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 3px;
 }
-.project-card-header h1,
 .project-card-header h2 {
   font:
-    600 17px "Manrope",
+    700 18px "Manrope",
     sans-serif;
-  letter-spacing: -0.3px;
   overflow-wrap: anywhere;
 }
 .project-card-header span {
-  font-size: 11px;
-  color: #8b8c90;
+  font-size: 12px;
+  color: #92949d;
   overflow-wrap: anywhere;
 }
 .project-card-primary {
@@ -139,117 +169,20 @@
   gap: 8px;
 }
 .project-card-primary .button {
-  height: 38px;
+  height: 36px;
   gap: 8px;
-  padding: 0 15px;
-  font-size: 11px;
+  padding: 0 14px;
+  font-size: 12px;
   white-space: nowrap;
 }
+/* The margin goes on the frame, not the inner tablist: the hover arrows anchor to the
+   frame (Step 0 Task 7 review note). */
 .project-card .underline-tabs-frame {
-  margin: 14px 22px 0;
+  margin: 12px 22px 0;
 }
 .project-tabpanel {
   min-width: 0;
   padding: 18px 22px 22px;
-  overflow: auto;
-  scrollbar-width: none;
-}
-.project-tabpanel::-webkit-scrollbar {
-  display: none;
-}
-.project-facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 1px;
-  margin: 0;
-  background: #303137;
-  border: 1px solid #303137;
-  border-radius: 8px;
-  overflow: hidden;
-}
-.project-facts > div {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 13px 14px;
-  background: #141519;
-}
-.project-facts dt,
-.project-caps {
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: #7d7e82;
-}
-.project-facts dd {
-  margin: 0;
-  font-size: 12px;
-  color: #e8e8ec;
-  overflow-wrap: anywhere;
-}
-.project-facts dd.mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.project-caps {
-  margin: 26px 0 6px;
-  font-size: 9px;
-}
-.project-sessions {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.project-sessions li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 0;
-  border-bottom: 1px solid #303137;
-}
-.project-sessions .provider-mark.small {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-}
-.project-session-name {
-  flex: 1 1 160px;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.project-session-name strong {
-  font-size: 13px;
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
-.project-session-name small {
-  font-size: 10px;
-  color: #8b8c90;
-}
-.project-session-status {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  color: #bfc0c4;
-}
-.project-session-status i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #737478;
-}
-.project-session-status.running i {
-  background: #f49a58;
-}
-.project-sessions .button {
-  height: 30px;
-  padding: 0 10px;
-  font-size: 10px;
 }
 .project-empty {
   margin: 10px 0 0;
@@ -282,127 +215,6 @@
 }
 .project-runs .project-empty {
   justify-self: stretch;
-}
-.project-runs-table .run-toolbar {
-  margin-top: 16px;
-}
-.project-knowledge {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.project-knowledge-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.project-knowledge-toolbar form {
-  display: flex;
-  gap: 8px;
-  flex: 1 1 200px;
-  min-width: 0;
-}
-.project-knowledge-toolbar form input {
-  flex: 1;
-  min-width: 0;
-}
-.project-knowledge-toolbar .button {
-  height: 38px;
-  gap: 8px;
-  padding: 0 14px;
-  font-size: 11px;
-  white-space: nowrap;
-}
-.project-knowledge-hint {
-  margin: 14px 0 4px;
-  font-size: 11px;
-  line-height: 1.7;
-  color: #8b8c90;
-}
-.project-knowledge-entries {
-  display: flex;
-  flex-direction: column;
-}
-.project-knowledge-entry {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 16px 0;
-  border-bottom: 1px solid #303137;
-  cursor: pointer;
-}
-.project-knowledge-entry-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.project-knowledge-entry-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #e8e8ec;
-  font-size: 14px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  overflow-wrap: anywhere;
-}
-.project-knowledge-entry-toggle[aria-expanded="true"] {
-  color: #ffc99d;
-}
-.project-knowledge-entry-chevron {
-  flex-shrink: 0;
-  transition: transform 0.15s ease;
-}
-.project-knowledge-entry-toggle[aria-expanded="true"] .project-knowledge-entry-chevron {
-  transform: rotate(90deg);
-}
-.project-knowledge-entry-time {
-  flex-shrink: 0;
-  font-size: 10px;
-  color: #8b8c90;
-}
-.project-knowledge-entry-body {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-.project-knowledge-entry-body p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.7;
-  color: #a7a8ac;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-.project-knowledge-entry-body p.expanded {
-  -webkit-line-clamp: unset;
-  overflow: visible;
-}
-.project-knowledge-entry-meta {
-  font-size: 10px;
-  color: #8b8c90;
-}
-.project-knowledge-entry-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.project-knowledge-entry-actions .button {
-  height: 28px;
-  padding: 0 10px;
-  font-size: 10px;
 }
 .clone-dialog .repository-clone-fields {
   padding: 0;
@@ -437,80 +249,67 @@
   text-overflow: ellipsis;
 }
 @media (max-width: 700px) {
-  .projects-hub {
-    padding-bottom: 100px;
-  }
-  .projects-hub .page-heading {
-    margin: 28px 0 20px;
-  }
-  .projects-actions {
-    width: 100%;
-  }
-  .projects-actions .button {
-    flex: 1;
-    justify-content: center;
-  }
-  .projects-hub:has(.project-list.has-detail) .page-heading {
+  /* The page header replaces the app's own phone header on Projects. */
+  .app:has(.projects-hub) .mobile-header {
     display: none;
   }
+  /* The hidden header must not push the update notice down (see update-notice.css). */
+  body:has(.projects-hub):has(.mobile-header) .update-notice {
+    top: calc(env(safe-area-inset-top) + 8px);
+  }
   .project-list .list-detail-caps {
-    padding: 0;
+    display: none;
   }
   .project-list .list-detail-items {
-    gap: 10px;
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid #28292d;
+    border-radius: 12px;
+    background: #232428;
   }
   .project-list .list-detail-items > button,
   .project-list .list-detail-items > button.selected {
-    align-items: center;
-    padding: 16px 15px;
-    background: #191a1e;
-    border: 1px solid #2e2f33;
-    border-radius: 9px;
+    min-height: 60px;
+    padding: 10px 12px 10px 14px;
+    border-radius: 0;
+    background: #16171b;
+  }
+  .project-item-text strong {
+    font-size: 15px;
   }
   .project-item-chevron {
     display: block;
   }
-  .project-card {
-    background: none;
-    border: 0;
-    border-radius: 0;
+  .project-detail-shell .settings-shell-body {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
-  .project-card-header {
-    padding: 0;
+  /* The merge button stacks above "Start session" and makes the bar taller. */
+  .project-detail-shell:has(.project-launch-bar .button + .button) .settings-shell-body {
+    padding-bottom: calc(148px + env(safe-area-inset-bottom));
   }
-  .project-card-header h1 {
-    font:
-      650 26px "Manrope",
-      sans-serif;
-    letter-spacing: -1px;
-  }
-  .project-card-header span {
-    font-size: 10px;
-  }
-  .project-card-primary {
+  .project-launch-bar {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: 5;
-    padding: 14px 23px 22px;
-    background: #101114;
-    border-top: 1px solid #28292d;
+    display: flex;
     flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid #28292d;
+    background: #15161a;
   }
-  .project-card-primary .button {
+  .project-launch-bar .button {
     width: 100%;
-    height: 43px;
+    height: 44px;
     justify-content: center;
-    font-size: 12px;
-  }
-  .project-card .underline-tabs {
-    margin: 14px -23px 0;
-    padding: 0 23px;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
   }
   .project-tabpanel {
-    padding: 16px 0 0;
-    overflow: visible;
+    padding: 4px 0 0;
   }
   .project-empty {
     padding: 20px;
@@ -518,15 +317,6 @@
   .clone-dialog .repository-clone-fields {
     grid-template-columns: minmax(0, 1fr);
   }
-  .project-knowledge-toolbar form {
-    flex-basis: 100%;
-  }
-  .project-knowledge-entry {
-    padding: 12px 0;
-  }
-}
-.project-load-error {
-  margin: 0 0 18px;
 }
 .project-load-error > p {
   font-size: 12px;

@@ -1,10 +1,11 @@
 export const projectsHubCopy = {
-  topline: "WORKSPACE / PROJEKTE",
   subtle: "Lokal gespeichert",
   title: "Projekte",
   description:
     "Vom Repository zur nächsten Sitzung. Wissen, AgentBus und Läufe je Projekt.",
   addFolder: "Ordner hinzufügen",
+  addMenu: "Projekt hinzufügen",
+  projectsCount: (count) => (count === 1 ? "1 Projekt" : `${count} Projekte`),
   listLabel: "Projekte",
   loading: "Projekte werden geladen …",
   partialError:
@@ -18,7 +19,7 @@ export const projectsHubCopy = {
   back: "Alle Projekte",
   tabsLabel: "Projektbereiche",
   tabOverview: "Übersicht",
-  tabKnowledge: "Projektwissen",
+  tabKnowledge: "Wissen",
   tabAgentBus: "AgentBus",
   tabRuns: "Läufe",
   notFound: "Projekt nicht gefunden",
@@ -36,7 +37,6 @@ export const projectOverviewCopy = {
   noToken: "Keins",
   sessions: (count) => `Sitzungen · ${count}`,
   noSessions: "Noch keine Sitzungen in diesem Projekt.",
-  open: "Öffnen",
   openSession: (name) => `Sitzung ${name} öffnen`,
   justNow: "gerade eben",
 };

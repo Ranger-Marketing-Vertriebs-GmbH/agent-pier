@@ -69,3 +69,15 @@ export function projectsRoutePath(route) {
   }
   return `/projects${route.projectId ? `/${encodeURIComponent(route.projectId)}` : ""}${query.size ? `?${query}` : ""}`;
 }
+
+// A pipeline run's own page; run rows and attention strips open it.
+export function pipelineRunRoute(pipelineItem) {
+  return {
+    view: "pipelines",
+    pipelineTab: "runs",
+    pipelineItem,
+    pipelinePage: 1,
+    pipelineStatus: "",
+    projectId: "",
+  };
+}

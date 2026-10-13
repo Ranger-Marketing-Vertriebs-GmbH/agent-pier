@@ -66,7 +66,14 @@ export async function hubFixture(page, controls = {}) {
         ],
         projects: [
           ...(controls.unregistered
-            ? [{ id: "r2", name: "loose", url: "", path: "/work/loose" }]
+            ? [
+                {
+                  id: "r2",
+                  name: "loose",
+                  url: "",
+                  path: controls.loosePath || "/work/loose",
+                },
+              ]
             : []),
           {
             id: "r1",

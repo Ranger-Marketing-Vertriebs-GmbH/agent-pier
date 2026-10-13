@@ -1,3 +1,4 @@
+import { pipelineRunRoute, projectsRoute } from "./routes.js";
 import { normalizePath } from "./useProjectHub.js";
 
 // "https://github.com/acme/app.git" → "github.com/acme/app"
@@ -23,4 +24,28 @@ export function projectSessions(sessions, project) {
         session.purpose !== "login" && normalizePath(session.cwd) === project.path,
     )
     .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+}
+
+// Counts from a capped sweep are lower bounds and read as "100+".
+export const hintCount = (count, capped) => (capped ? `${count}+` : count);
+
+const attentionPart = (attention, kind, memoryId) => ({
+  count: (memoryId && attention[kind]?.[memoryId]) || 0,
+  run: (memoryId && attention.first?.[kind]?.[memoryId]) || "",
+  capped: Boolean(attention.capped?.[kind]),
+});
+
+// Waiting decisions and failed runs of one project, from the hub's run sweep.
+export function projectAttention(attention, memoryId) {
+  return {
+    decisions: attentionPart(attention, "decisions", memoryId),
+    failed: attentionPart(attention, "failed", memoryId),
+  };
+}
+
+// One run that is surely the only one opens directly; otherwise the filtered list.
+export function attentionTarget(projectId, status, part) {
+  return part.count === 1 && !part.capped && part.run
+    ? pipelineRunRoute(part.run)
+    : projectsRoute({ projectId, projectTab: "runs", pipelineStatus: status });
 }

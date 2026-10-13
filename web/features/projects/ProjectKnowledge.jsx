@@ -1,21 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import Icon from "../../components/Icon.jsx";
+import GroupLabel from "../../components/GroupLabel.jsx";
+import { InfoHintButton, InfoHintText, useInfoHint } from "../../components/InfoHint.jsx";
+import ListCard from "../../components/ListCard.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
+import Segmented from "../../components/Segmented.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { memoryCopy as copy } from "../../lib/i18n/messages/memory.js";
 import MemoryEditor from "../memory/MemoryEditor.jsx";
 import MemoryHistory from "../memory/MemoryHistory.jsx";
 import useProjectMemory from "../memory/useProjectMemory.js";
-import {
-  memoryPaging,
-  memoryPageCount,
-  entryAuthor,
-} from "../memory/memory-presentation.js";
+import { memoryPaging, memoryPageCount } from "../memory/memory-presentation.js";
 import CountUnavailable from "./CountUnavailable.jsx";
-import { relativeTime } from "./ProjectOverview.jsx";
+import ProjectKnowledgeEntry from "./ProjectKnowledgeEntry.jsx";
 import { projectsRoute, projectsRoutePath } from "./routes.js";
 import useSettledReplace from "../../lib/useSettledReplace.js";
 
@@ -55,7 +54,13 @@ function useEntryCounts(memoryId, version) {
 
 const withCount = (label, count) => (count === null ? label : `${label} · ${count}`);
 
-export default function ProjectKnowledge({ project, route, onNavigate, reloadHub }) {
+export default function ProjectKnowledge({
+  project,
+  route,
+  onNavigate,
+  reloadHub,
+  mobile = false,
+}) {
   const query = route.query || "",
     page = route.memoryPage || 1,
     archived = route.archived === true;
@@ -73,6 +78,8 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
   const [expanded, setExpanded] = useState("");
   const [countVersion, setCountVersion] = useState(0);
   const counts = useEntryCounts(project.memoryId, countVersion);
+  const hint = useInfoHint();
+  const entriesHeading = useId();
   useEffect(() => {
     setSearch(query);
   }, [query]);
@@ -126,39 +133,34 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
     );
   return (
     <div className="project-knowledge">
-      <div className="project-knowledge-toolbar">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            navigate({ query: search, memoryPage: 1 });
-          }}
-        >
-          <input
-            aria-label={copy.search}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={copy.search}
-          />
-          <button className="button secondary compact">{copy.search}</button>
-        </form>
-        <div className="segment" role="group" aria-label={copy.entries}>
-          <button
-            type="button"
-            className={archived ? "" : "selected"}
-            aria-pressed={!archived}
-            onClick={() => navigate({ archived: false, memoryPage: 1 })}
-          >
-            {withCount(copy.active, counts.active)}
-          </button>
-          <button
-            type="button"
-            className={archived ? "selected" : ""}
-            aria-pressed={archived}
-            onClick={() => navigate({ archived: true, memoryPage: 1 })}
-          >
-            {withCount(copy.archived, counts.archived)}
-          </button>
-        </div>
+      <form
+        className="project-knowledge-search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          navigate({ query: search, memoryPage: 1 });
+        }}
+      >
+        <input
+          aria-label={copy.search}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={copy.search}
+        />
+        <button className="button secondary compact">{copy.search}</button>
+      </form>
+      <div className="project-knowledge-filter">
+        <Segmented
+          label={copy.entries}
+          value={archived ? "archived" : "active"}
+          options={[
+            { value: "active", label: withCount(copy.active, counts.active) },
+            { value: "archived", label: withCount(copy.archived, counts.archived) },
+          ]}
+          onChange={(value) =>
+            navigate({ archived: value === "archived", memoryPage: 1 })
+          }
+        />
+        <InfoHintButton hint={hint} />
         <button
           type="button"
           className="button secondary compact"
@@ -167,16 +169,8 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
         >
           {commonCopy.refresh}
         </button>
-        <button
-          type="button"
-          className="button primary"
-          onClick={() => setEditor({ entry: null })}
-        >
-          <Icon name="plus" size={16} />
-          {copy.newEntry}
-        </button>
       </div>
-      <p className="project-knowledge-hint">{copy.tabHint}</p>
+      <InfoHintText hint={hint}>{copy.tabHint}</InfoHintText>
       {counts.failed && (
         <CountUnavailable
           message={copy.countsUnavailable}
@@ -189,92 +183,50 @@ export default function ProjectKnowledge({ project, route, onNavigate, reloadHub
           {commonCopy.pending}
         </p>
       )}
-      <section className="project-knowledge-entries" aria-label={copy.entries}>
-        {!state.loading && state.data?.items.length === 0 && (
-          <p className="project-empty">{copy.empty}</p>
-        )}
-        {state.data?.items.map((entry) => {
-          const open = expanded === entry.id;
-          const bodyId = `project-knowledge-body-${entry.id}`;
-          const toggle = () => setExpanded(open ? "" : entry.id);
-          const stopAnd = (run) => (event) => {
-            event.stopPropagation();
-            run();
-          };
-          return (
-            <article className="project-knowledge-entry" key={entry.id} onClick={toggle}>
-              <div className="project-knowledge-entry-head">
-                <button
-                  type="button"
-                  className="project-knowledge-entry-toggle"
-                  aria-expanded={open}
-                  aria-controls={bodyId}
-                  onClick={stopAnd(toggle)}
-                >
-                  <Icon
-                    name="chevron"
-                    size={14}
-                    className="project-knowledge-entry-chevron"
-                  />
-                  {entry.title}
-                </button>
-                <span className="project-knowledge-entry-time">
-                  {relativeTime(entry.updatedAt)}
-                </span>
-              </div>
-              <div id={bodyId} className="project-knowledge-entry-body">
-                <p className={open ? "expanded" : ""}>{entry.content}</p>
-                <span className="project-knowledge-entry-meta">
-                  {entryAuthor(entry)} · {copy.version(entry.revision)}
-                </span>
-              </div>
-              {open && (
-                <div className="project-knowledge-entry-actions">
-                  {!entry.archived && (
-                    <button
-                      type="button"
-                      className="button secondary compact"
-                      aria-label={copy.edit(entry.title)}
-                      onClick={stopAnd(() => setEditor({ entry }))}
-                    >
-                      {copy.editEntry}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="button secondary compact"
-                    aria-label={copy.history(entry.title)}
-                    onClick={stopAnd(() => setHistory(entry))}
-                  >
-                    {copy.historyTitle}
-                  </button>
-                  <button
-                    type="button"
-                    className="button secondary compact"
-                    aria-label={
-                      entry.archived
-                        ? copy.restore(entry.title)
-                        : copy.archive(entry.title)
-                    }
-                    disabled={action.busy}
-                    onClick={stopAnd(() => changeArchive(entry))}
-                  >
-                    {entry.archived ? copy.active : copy.archived}
-                  </button>
-                </div>
-              )}
-            </article>
-          );
-        })}
-        {state.data && (
-          <Pagination
-            label={copy.entries}
-            paging={memoryPaging(state.data, page, (next) =>
-              navigate({ memoryPage: next }),
-            )}
-          />
-        )}
-      </section>
+      <GroupLabel
+        as={mobile ? "h2" : "h3"}
+        id={entriesHeading}
+        action={{
+          label: (
+            <>
+              <span aria-hidden="true">+ </span>
+              {copy.newEntry}
+            </>
+          ),
+          onClick: () => setEditor({ entry: null }),
+        }}
+      >
+        {copy.entries}
+      </GroupLabel>
+      {!state.loading && state.data?.items.length === 0 && (
+        <p className="project-empty">{copy.empty}</p>
+      )}
+      {state.data?.items.length > 0 && (
+        <ListCard labelledBy={entriesHeading} className="project-knowledge-entries">
+          {state.data.items.map((entry) => (
+            <ProjectKnowledgeEntry
+              key={entry.id}
+              entry={entry}
+              open={expanded === entry.id}
+              onToggle={() =>
+                setExpanded((current) => (current === entry.id ? "" : entry.id))
+              }
+              busy={action.busy}
+              onEdit={() => setEditor({ entry })}
+              onHistory={() => setHistory(entry)}
+              onArchive={() => changeArchive(entry)}
+            />
+          ))}
+        </ListCard>
+      )}
+      {state.data && (
+        <Pagination
+          label={copy.entries}
+          paging={memoryPaging(state.data, page, (next) =>
+            navigate({ memoryPage: next }),
+          )}
+        />
+      )}
       {editor && (
         <MemoryEditor
           projectId={project.memoryId}

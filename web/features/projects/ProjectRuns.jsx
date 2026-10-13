@@ -13,17 +13,8 @@ import RunStatusFilter from "../pipelines/RunStatusFilter.jsx";
 import RunTable from "../pipelines/RunTable.jsx";
 import { runsPaging } from "../pipelines/runs-paging.js";
 import useRunStatusCounts from "../pipelines/useRunStatusCounts.js";
-import { projectsRoute, projectsRoutePath } from "./routes.js";
+import { pipelineRunRoute, projectsRoute, projectsRoutePath } from "./routes.js";
 import useSettledReplace from "../../lib/useSettledReplace.js";
-
-const runRoute = (pipelineItem) => ({
-  view: "pipelines",
-  pipelineTab: "runs",
-  pipelineItem,
-  pipelinePage: 1,
-  pipelineStatus: "",
-  projectId: "",
-});
 
 function RegisterHint({ project, onNavigate, reloadHub }) {
   const action = useAsyncAction();
@@ -132,7 +123,7 @@ export default function ProjectRuns({ project, route, onNavigate, home, reloadHu
         <RunTable
           runs={list.data.runs}
           showProject={false}
-          onOpen={(run) => onNavigate(runRoute(run.id))}
+          onOpen={(run) => onNavigate(pipelineRunRoute(run.id))}
         />
       )}
       {list.data && <Pagination label={pipelineCopy.runs} paging={paging} />}
@@ -141,7 +132,7 @@ export default function ProjectRuns({ project, route, onNavigate, home, reloadHu
           home={home}
           fixedProject={{ id: memoryId, cwd: project.path }}
           close={() => setStarting(false)}
-          onCreated={(run) => onNavigate(runRoute(run.id))}
+          onCreated={(run) => onNavigate(pipelineRunRoute(run.id))}
         />
       )}
     </div>

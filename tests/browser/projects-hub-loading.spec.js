@@ -77,13 +77,13 @@ test("failed entry counts show no fake zero and retry recovers", async ({ page }
   const controls = countControls();
   await hubFixture(page, controls);
   await page.goto(base + "/projects/m1?tab=knowledge");
-  const segment = page.getByRole("group", { name: "Wissenseinträge" });
+  const segment = page.getByRole("radiogroup", { name: "Wissenseinträge" });
   const hint = page.getByText("Die Anzahl der Einträge konnte nicht geladen werden.");
   await expect(hint).toBeVisible();
-  await expect(segment.getByRole("button")).toHaveText(["Aktiv", "Archiv"]);
+  await expect(segment.locator("label")).toHaveText(["Aktiv", "Archiv"]);
   controls.fail = false;
   await page.getByRole("button", { name: "Erneut versuchen" }).click();
-  await expect(segment.getByRole("button")).toHaveText(["Aktiv · 4", "Archiv · 1"]);
+  await expect(segment.locator("label")).toHaveText(["Aktiv · 4", "Archiv · 1"]);
   await expect(hint).toHaveCount(0);
 });
 
@@ -91,13 +91,13 @@ test("a failed message count shows no fake zero and retry recovers", async ({ pa
   const controls = countControls();
   await hubFixture(page, controls);
   await page.goto(base + "/projects/m1?tab=agentbus");
-  const segment = page.getByRole("tablist", { name: "AgentBus-Ansicht" });
+  const segment = page.getByRole("radiogroup", { name: "AgentBus-Ansicht" });
   const hint = page.getByText("Die Anzahl der Nachrichten konnte nicht geladen werden.");
   await expect(hint).toBeVisible();
-  await expect(segment.getByRole("tab")).toHaveText(["Sitzungen · 1", "Nachrichten"]);
+  await expect(segment.locator("label")).toHaveText(["Sitzungen · 1", "Nachrichten"]);
   controls.fail = false;
   await page.getByRole("button", { name: "Erneut versuchen" }).click();
-  await expect(segment.getByRole("tab")).toHaveText(["Sitzungen · 1", "Nachrichten · 2"]);
+  await expect(segment.locator("label")).toHaveText(["Sitzungen · 1", "Nachrichten · 2"]);
   await expect(hint).toHaveCount(0);
 });
 
@@ -109,13 +109,13 @@ test.describe("English count hints", () => {
     await page.goto(base + "/projects/m1?tab=knowledge");
     await expect(page.getByText("The entry counts could not be loaded.")).toBeVisible();
     await expect(
-      page.getByRole("group", { name: "Knowledge entries" }).getByRole("button"),
+      page.getByRole("radiogroup", { name: "Knowledge entries" }).locator("label"),
     ).toHaveText(["Active", "Archive"]);
     await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
     await page.getByRole("tab", { name: /^AgentBus/ }).click();
     await expect(page.getByText("The message count could not be loaded.")).toBeVisible();
     await expect(
-      page.getByRole("tablist", { name: "AgentBus view" }).getByRole("tab"),
+      page.getByRole("radiogroup", { name: "AgentBus view" }).locator("label"),
     ).toHaveText(["Sessions · 1", "Messages"]);
   });
 });

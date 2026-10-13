@@ -1,9 +1,12 @@
-import React from "react";
+import React, { useId } from "react";
+import GroupLabel from "../../components/GroupLabel.jsx";
+import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { projectOverviewCopy as copy } from "../../lib/i18n/messages/projects.js";
 import { locale } from "../../lib/i18n/index.js";
 import { names } from "../../lib/providers.js";
+import ProjectAttention from "./ProjectAttention.jsx";
 
 const units = [
   ["year", 31536000],
@@ -23,48 +26,77 @@ export function relativeTime(value, now = Date.now()) {
   return copy.justNow;
 }
 
-export default function ProjectOverview({ facts, sessions, select }) {
+export default function ProjectOverview({
+  projectId,
+  facts,
+  sessions,
+  select,
+  attention,
+  onNavigate,
+  mobile,
+}) {
+  const rowId = useId();
+  const sessionsLabel = copy.sessions(sessions.length);
   return (
     <div className="project-overview">
-      <dl className="project-facts" aria-label={copy.factsLabel}>
+      <ProjectAttention
+        projectId={projectId}
+        attention={attention}
+        onNavigate={onNavigate}
+      />
+      <GroupLabel as={mobile ? "h2" : "h3"}>{copy.factsLabel}</GroupLabel>
+      <dl className="list-card project-facts" aria-label={copy.factsLabel}>
         {facts.map((fact) => (
-          <div key={fact.label}>
+          <div key={fact.label} className="project-fact">
             <dt>{fact.label}</dt>
             <dd className={fact.mono ? "mono" : ""}>{fact.value}</dd>
           </div>
         ))}
       </dl>
-      <h3 className="project-caps">{copy.sessions(sessions.length)}</h3>
+      <GroupLabel as={mobile ? "h2" : "h3"}>{sessionsLabel}</GroupLabel>
       {sessions.length ? (
-        <ul className="project-sessions">
-          {sessions.map((session) => (
-            <li key={session.id}>
-              <ProviderMark tool={session.tool} small />
-              <span className="project-session-name">
-                <strong>{session.name}</strong>
-                <small>
-                  {[names[session.tool] || session.tool, relativeTime(session.createdAt)]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </small>
-              </span>
-              <span
-                className={`project-session-status ${session.status === "running" ? "running" : ""}`}
-              >
-                <i aria-hidden="true" />
-                {session.status === "running" ? commonCopy.running : commonCopy.ended}
-              </span>
-              <button
-                type="button"
-                className="button secondary compact"
-                aria-label={copy.openSession(session.name)}
-                onClick={() => select(session)}
-              >
-                {copy.open}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div
+          className="list-card project-sessions"
+          role="list"
+          aria-label={sessionsLabel}
+        >
+          {sessions.map((session) => {
+            const running = session.status === "running";
+            const ids = `${rowId}-${session.id}`;
+            return (
+              <div className="list-row two-line" role="listitem" key={session.id}>
+                <button
+                  type="button"
+                  className="list-row-main"
+                  aria-label={copy.openSession(session.name)}
+                  aria-describedby={`${ids}-sub ${ids}-status`}
+                  onClick={() => select(session)}
+                >
+                  <ProviderMark tool={session.tool} small />
+                  <span className="list-row-text">
+                    <span className="list-row-label">{session.name}</span>
+                    <span className="list-row-sub" id={`${ids}-sub`}>
+                      {[
+                        names[session.tool] || session.tool,
+                        relativeTime(session.createdAt),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </span>
+                  <span
+                    id={`${ids}-status`}
+                    className={`project-session-status ${running ? "running" : ""}`}
+                  >
+                    <i aria-hidden="true" />
+                    {running ? commonCopy.running : commonCopy.ended}
+                  </span>
+                  <Icon name="chevron" size={14} className="list-row-chevron" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <p className="project-empty">{copy.noSessions}</p>
       )}

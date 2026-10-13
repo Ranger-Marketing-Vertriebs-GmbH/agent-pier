@@ -122,6 +122,14 @@ export function groupRunCounts(runs) {
   return counts;
 }
 
+// The first listed run of each project, so a single hint can open that run directly.
+export function groupFirstRuns(runs) {
+  const first = {};
+  for (const run of runs || [])
+    if (run.projectId && !first[run.projectId]) first[run.projectId] = run.id;
+  return first;
+}
+
 // Hands out tickets in request order and accepts an answer only when no newer
 // request has been applied yet, so a slow answer never replaces a newer one.
 export function latestGate() {
@@ -149,7 +157,11 @@ export async function sweepRunCounts(read) {
     Array.from({ length: Math.max(0, pages - 1) }, (_, index) => read(index + 2)),
   );
   const runs = [first, ...rest].flatMap((data) => data.runs || []);
-  return { counts: groupRunCounts(runs), capped: runs.length < total };
+  return {
+    counts: groupRunCounts(runs),
+    first: groupFirstRuns(runs),
+    capped: runs.length < total,
+  };
 }
 
 // One status-filtered listing per hint, grouped by the run's project, instead of
@@ -164,6 +176,7 @@ function useAttention(sweep) {
   const [attention, setAttention] = useState({
     decisions: {},
     failed: {},
+    first: { decisions: {}, failed: {} },
     capped: { decisions: false, failed: false },
   });
   useEffect(() => {
@@ -192,6 +205,7 @@ function useAttention(sweep) {
           setAttention({
             decisions: decisions.counts,
             failed: failed.counts,
+            first: { decisions: decisions.first, failed: failed.first },
             capped: { decisions: decisions.capped, failed: failed.capped },
           });
       } catch {

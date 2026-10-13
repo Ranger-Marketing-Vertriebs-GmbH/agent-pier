@@ -114,3 +114,36 @@ test("a project without older entries offers no merge", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "notes", level: 2 })).toBeVisible();
   await expect(page.getByRole("button", { name: "Merge older entry" })).toHaveCount(0);
 });
+
+test("the phone launch bar with a merge button leaves the content uncovered", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await hubFixture(page, {
+    async intercept(route, url, method) {
+      if (url.pathname !== "/api/memory/projects" || method !== "GET") return false;
+      const notes = { id: "m2", name: "notes", cwd: "/work/notes", entryCount: 0 };
+      await route.fulfill({
+        json: {
+          projects: [
+            { ...notes, olderDuplicates: [older] },
+            { ...notes, id: "m9", entryCount: 3, duplicateOf: "m2" },
+          ],
+        },
+      });
+      return true;
+    },
+  });
+  await page.goto(base + "/projects/m2");
+  const bar = page.locator(".project-launch-bar");
+  await expect(bar.getByRole("button")).toHaveCount(2);
+  const { padding, height } = await bar.evaluate((node) => ({
+    padding: parseFloat(
+      getComputedStyle(
+        node.closest(".project-detail-shell").querySelector(".settings-shell-body"),
+      ).paddingBottom,
+    ),
+    height: node.getBoundingClientRect().height,
+  }));
+  expect(padding).toBeGreaterThanOrEqual(height);
+});
