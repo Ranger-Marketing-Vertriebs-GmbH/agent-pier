@@ -190,3 +190,40 @@ test("push concurrency is bounded globally and shutdown discards queued sends", 
   await Promise.all(work);
   assert.ok(calls <= 4);
 });
+test("renaming a device keeps its delivery state; a new push subscription resets it", async (t) => {
+  let fail = false;
+  const f = await fixture(t, async () => {
+      if (fail)
+        throw Object.assign(new Error("Fixture push failed"), { statusCode: 500 });
+      return { statusCode: 201 };
+    }),
+    secret = subscription();
+  const { subscription: first } = await f.service.subscribe({
+    deviceId: "device-one",
+    label: "Phone",
+    subscription: secret,
+  });
+  assert.equal((await f.service.test(first.id)).sent, true);
+  fail = true;
+  assert.equal((await f.service.test(first.id)).sent, false);
+  const failed = f.service.status().subscriptions[0];
+  assert.equal(typeof failed.lastSuccessAt, "string");
+  assert.equal(typeof failed.lastFailure, "string");
+  await f.service.subscribe({
+    deviceId: "device-one",
+    label: "Work phone",
+    subscription: secret,
+  });
+  const renamed = f.service.status().subscriptions[0];
+  assert.equal(renamed.label, "Work phone");
+  assert.equal(renamed.lastSuccessAt, failed.lastSuccessAt);
+  assert.equal(renamed.lastFailure, failed.lastFailure);
+  await f.service.subscribe({
+    deviceId: "device-one",
+    label: "Work phone",
+    subscription: { ...secret, endpoint: "https://push.example.com/send/rotated" },
+  });
+  const rotated = f.service.status().subscriptions[0];
+  assert.equal(rotated.lastSuccessAt, undefined);
+  assert.equal(rotated.lastFailure, undefined);
+});

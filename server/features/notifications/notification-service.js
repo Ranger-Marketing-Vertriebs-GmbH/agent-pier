@@ -50,16 +50,21 @@ export class NotificationService {
       subscription = pushSubscription(input.subscription);
     if (label.length > 80) throw problem(serverMessages.notifications.deviceLabelTooLong);
     const existing = this.db
-      .prepare("SELECT id,public FROM subscriptions WHERE device_id=?")
+      .prepare("SELECT id,public,secret FROM subscriptions WHERE device_id=?")
       .get(deviceId);
     if (!existing && this.status().subscriptions.length >= 50)
       throw problem(serverMessages.notifications.deviceLimit, 409);
+    const previous = existing ? JSON.parse(existing.public) : null;
     const summary = {
       id: existing?.id || randomUUID(),
       deviceId,
       label,
-      createdAt: existing ? JSON.parse(existing.public).createdAt : this.now(),
+      createdAt: previous ? previous.createdAt : this.now(),
     };
+    // Renaming keeps the delivery state of an unchanged push subscription.
+    if (previous && existing.secret === JSON.stringify(subscription))
+      for (const key of ["lastSuccessAt", "lastFailure"])
+        if (previous[key] !== undefined) summary[key] = previous[key];
     this.db
       .prepare(
         "INSERT INTO subscriptions VALUES(?,?,?,?) ON CONFLICT(device_id) DO UPDATE SET public=excluded.public,secret=excluded.secret",
