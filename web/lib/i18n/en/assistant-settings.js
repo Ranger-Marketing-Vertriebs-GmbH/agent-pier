@@ -9,6 +9,7 @@ export const assistantSettingsCopy = {
   createAgent: "Create agent",
   backTo: (tab) => `Back to ${tab}`,
   searchProvider: (name) => `Search provider · ${name}`,
+  speechProvider: "Speech recognition · Deepgram",
   searchProviders: {
     duckduckgo: "DuckDuckGo",
     perplexity: "Perplexity",

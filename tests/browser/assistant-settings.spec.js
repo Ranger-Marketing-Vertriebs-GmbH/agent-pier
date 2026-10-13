@@ -66,8 +66,9 @@ test("links to Accounts and Settings navigate inside the app", async ({ page }) 
   await setup(page, { runtime: { availability: "failed", sync: "stale" } });
   await page.goto(baseURL + settingsPath("telegram"));
   await page.evaluate(() => (window.__marker = "same-document"));
-  await page.getByRole("link", { name: "Manage Deepgram in Accounts" }).click();
-  await expect(page).toHaveURL(/\/accounts$/);
+  await page.getByRole("link", { name: /^Speech recognition · Deepgram/ }).click();
+  await expect(page).toHaveURL(/\/accounts\?section=services&item=speech$/);
+  await expect(page.getByLabel("Deepgram API key")).toBeVisible();
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
   const panel = await openAccountItem(page, "ChatGPT for agents");
   await panel.getByRole("link", { name: "Agent service settings" }).click();

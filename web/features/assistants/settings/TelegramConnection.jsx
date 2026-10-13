@@ -3,12 +3,15 @@ import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow, { SelectRow, unknownValue } from "../../../components/ListRow.jsx";
+import ReferenceRow from "../../../components/ReferenceRow.jsx";
 import { routePath } from "../../../app/routes.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { assistantApi } from "../assistant-api.js";
-import RouteLink from "../RouteLink.jsx";
 import { agentRoute, channelActivity } from "./agent-settings-fields.js";
+
+// Voice messages use the central Deepgram key, managed on its Accounts subpage.
+const speechAccount = { view: "accounts", section: "services", item: "speech" };
 
 /** The start message and link that pair the owner's private chat. */
 export function PairingBlock({ pairing }) {
@@ -176,9 +179,11 @@ export function ConnectionGroup({ assistant, telegram, draft, go, navigate }) {
         </ListCard>
       )}
       {telegram.showPair && <PairingBlock pairing={telegram.pairing} />}
-      <RouteLink route={{ view: "accounts" }} navigate={navigate}>
-        {copy.speechLink}
-      </RouteLink>
+      <ReferenceRow
+        title={settingsCopy.speechProvider}
+        href={routePath(speechAccount)}
+        onOpen={() => navigate(speechAccount)}
+      />
     </section>
   );
 }
