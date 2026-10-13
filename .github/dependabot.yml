@@ -15,6 +15,10 @@ updates:
       prefix: chore
       include: scope
     groups:
+      # tap-runner peers core at the exact same version, so a bump of either
+      # alone cannot install. Listed first: Dependabot uses the first matching group.
+      stryker:
+        patterns: ["@stryker-mutator/*"]
       production-minor-patch:
         dependency-type: production
         update-types: [minor, patch]
