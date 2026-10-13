@@ -122,6 +122,10 @@ jobs:
       # Simulated model endpoints, accounts and channels only: no secrets, so the
       # live provider test and the predecessor-runtime cross-version test skip.
       - name: Run the deterministic native contracts
+        # Outside pull requests the team plugin contract holds an ask for 115 s, the
+        # full wait budget of lead-requests.js; pull requests use a 12 s ask.
+        env:
+          AGENTPIER_TEAM_LONG_ASK: ${{ github.event_name != 'pull_request' && '1' || '' }}
         run: >-
           node --test --test-concurrency=1
           --test-reporter=spec --test-reporter-destination=stdout

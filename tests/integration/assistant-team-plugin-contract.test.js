@@ -42,7 +42,7 @@ test("plugin guard rejects a prepare response after native invocation retirement
 const packageRoot = process.env.AGENTPIER_TEAM_CONTRACT_RUNTIME;
 test(
   "pinned runtime executes the installed product plugin through the attempt-bound bridge",
-  { skip: !packageRoot, timeout: 180000 },
+  { skip: !packageRoot, timeout: 330000 },
   async (t) => {
     assert.ok(path.isAbsolute(packageRoot));
     const runtimeVersion = JSON.parse(
@@ -62,7 +62,9 @@ test(
     });
     const requests = [];
     const asks = [],
-      askDelayMs = 12000;
+      // The full wait budget (lead-requests.js askWaitMs is 110 s) outside pull
+      // requests; 12 s, beyond the ordinary 10 s bridge budget, otherwise.
+      askDelayMs = process.env.AGENTPIER_TEAM_LONG_ASK === "1" ? 115000 : 12000;
     const model = http.createServer(async (req, res) => {
       let raw = "";
       for await (const part of req) raw += part;
@@ -285,8 +287,8 @@ test(
     ledger.transition(askAttempt.id, "accepted", { runtimeRunId: askSend.runId });
     const asked = await runtime.client.call(
       "agent.wait",
-      { runId: askSend.runId, timeoutMs: 60000 },
-      { timeoutMs: 65000 },
+      { runId: askSend.runId, timeoutMs: askDelayMs + 48000 },
+      { timeoutMs: askDelayMs + 53000 },
     );
     assert.equal(asked.status, "ok");
     assert.ok(asked.terminalReceipt.successfulToolNames.includes("agentpier_team_ask"));
