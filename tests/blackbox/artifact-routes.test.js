@@ -90,7 +90,15 @@ test("artifact list route validates search and pin filters and searches session 
     (await list("q=QUARTERLY")).items.map((item) => item.id),
     [report.id],
   );
-  // The session's name and the project's name find all of their artifacts.
+  // The session's name and the project's name find all of their artifacts, from stored
+  // metadata: search never lists sessions through tmux.
+  const sessionList = f.application.sessions.list;
+  f.application.sessions.list = () => {
+    throw new Error("search must not list sessions through tmux");
+  };
+  t.after(() => {
+    f.application.sessions.list = sessionList;
+  });
   assert.equal((await list(`q=${encodeURIComponent("disposable mcp")}`)).total, 2);
   assert.equal((await list(`q=${encodeURIComponent(project.name)}`)).total, 2);
   assert.equal((await list("q=no-such-artifact")).total, 0);
@@ -102,4 +110,15 @@ test("artifact list route validates search and pin filters and searches session 
     "pinned=true&pinned=true",
   ])
     assert.equal((await f.request(`/api/artifacts?${query}`)).status, 400, query);
+});
+
+test("searching artifacts shares one owner budget while plain lists stay unlimited", async (t) => {
+  const f = await applicationFixture(t);
+  for (let index = 0; index < 120; index++)
+    assert.equal((await f.request("/api/artifacts?q=report")).status, 200, String(index));
+  const limited = await f.request("/api/artifacts?q=report");
+  assert.equal(limited.status, 429);
+  assert.equal((await limited.json()).code, "ARTIFACT_RATE_LIMITED");
+  assert.equal((await f.request("/api/artifacts")).status, 200);
+  assert.equal((await f.request("/api/artifacts?pinned=true")).status, 200);
 });

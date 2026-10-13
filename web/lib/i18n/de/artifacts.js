@@ -116,6 +116,7 @@ export const artifactCopy = {
     ARTIFACT_UNAVAILABLE:
       "Die Artifact-Veröffentlichung ist vorübergehend nicht verfügbar.",
     ARTIFACT_BUSY: "Ein anderes Artifact wird geladen. Versuche es gleich erneut.",
+    ARTIFACT_RATE_LIMITED: "Zu viele Suchanfragen. Versuche es in einer Minute erneut.",
     ARTIFACT_IO_ERROR: "Das Artifact konnte nicht gelesen oder gespeichert werden.",
   },
 };

@@ -156,6 +156,13 @@ export class ProjectMemory {
     if (!row) throw failure(serverMessages.memory.projectNotFound, 404);
     return { ...row };
   }
+  /** IDs and names only, without the entry counts of projects(). */
+  projectNames() {
+    return this.db
+      .prepare("SELECT id,name FROM projects")
+      .all()
+      .map((row) => ({ id: row.id, name: row.name }));
+  }
   projects() {
     return {
       projects: this.db

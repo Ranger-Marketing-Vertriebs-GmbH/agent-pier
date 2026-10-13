@@ -31,5 +31,6 @@ export const artifacts = {
   ARTIFACT_CONFLICT: "This request ID was already used with different arguments.",
   ARTIFACT_UNAVAILABLE: "Artifact publishing is temporarily unavailable.",
   ARTIFACT_BUSY: "Another artifact is loading. Please try again shortly.",
+  ARTIFACT_RATE_LIMITED: "Too many searches. Try again in a minute.",
   ARTIFACT_IO_ERROR: "The artifact could not be read or saved.",
 };

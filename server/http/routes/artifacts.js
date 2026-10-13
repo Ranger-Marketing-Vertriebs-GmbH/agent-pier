@@ -1,34 +1,30 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
+import { ArtifactNames } from "../../features/artifacts/artifact-names.js";
 import {
   artifactError,
   artifactSearch,
 } from "../../features/artifacts/artifact-errors.js";
 export function artifactsRoutes({ artifacts, audit, sessions, memory }) {
   const router = Router();
-  // Search also finds artifacts by their session's or project's name. A source that
-  // cannot be read narrows the search to titles instead of failing the list.
-  async function namedMatches(search) {
-    const needle = search.toLocaleLowerCase();
-    const named = (rows) =>
-      (rows || [])
-        .filter((row) =>
-          String(row?.name || "")
-            .toLocaleLowerCase()
-            .includes(needle),
-        )
-        .map((row) => row.id);
-    const [sessionRows, projectRows] = await Promise.all([
-      Promise.resolve()
-        .then(() => sessions?.list())
-        .catch(() => []),
-      Promise.resolve()
-        .then(() => memory?.projects().projects)
-        .catch(() => []),
-    ]);
-    return [...named(sessionRows), ...named(projectRows)];
-  }
   let bundles = 0;
-  router.get("/artifacts", async (req, res) => {
+  // Search also finds artifacts by their session's or project's name.
+  const names = new ArtifactNames({
+    sessions: () => sessions?.names(),
+    projects: () => memory?.projectNames(),
+  });
+  // Searching may read session metadata (at most every few seconds); one owner budget
+  // that 5 s polling and debounced typing in a few tabs stay well below.
+  const searchLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 120,
+    keyGenerator: () => "owner",
+    skip: (req) => req.query.q === undefined,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    handler: (_req, _res, next) => next(artifactError("ARTIFACT_RATE_LIMITED", 429)),
+  });
+  router.get("/artifacts", searchLimit, async (req, res) => {
     const { q, pinned } = req.query;
     if (
       (q !== undefined && !artifactSearch(q)) ||
@@ -43,7 +39,7 @@ export function artifactsRoutes({ artifacts, audit, sessions, memory }) {
         page: req.query.page === undefined ? 1 : Number(req.query.page),
         q: search,
         pinned: pinned === undefined ? undefined : pinned === "true",
-        matches: search ? await namedMatches(search) : undefined,
+        matches: search ? await names.matches(search) : undefined,
       }),
     );
   });
