@@ -188,6 +188,8 @@ test("platform code asks for a macOS run; other code does not", () => {
   assert.equal(platform.macos, true);
   assert.match(platform.reasons.at(-1), /platform code: macOS run/);
   assert.equal(select(["server/lib/util.js"]).macos, false);
+  const unit = { ...repo, "tests/unit/beta.test.js": 'const os = "darwin";\n' };
+  assert.equal(select(["tests/unit/beta.test.js"], unit).macos, false);
 });
 
 test("a changed file that does not parse runs everything", () => {

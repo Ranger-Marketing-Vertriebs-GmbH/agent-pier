@@ -73,9 +73,14 @@ export function versionOnly(file, before, after) {
 const platformCode =
   /process\.platform|\bdarwin\b|\bhdiutil\b|\blaunchctl\b|\bdiskutil\b/;
 const platformFile = /\.(?:m?js|cjs|jsx|sh|rb|in)$/;
+// Unit tests are pure: platform names in them are fixture data.
+const pureTests = /^tests\/unit\//;
 export function needsMacos(changed, read) {
   return changed.filter(
-    (file) => platformFile.test(file) && platformCode.test(read(file) || ""),
+    (file) =>
+      platformFile.test(file) &&
+      !pureTests.test(file) &&
+      platformCode.test(read(file) || ""),
   );
 }
 
