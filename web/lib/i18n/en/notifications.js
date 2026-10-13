@@ -15,12 +15,19 @@ export const notificationCopy = {
     "This browser does not support push notifications here. A secure HTTPS connection or localhost and a supported browser are required.",
   denied:
     "Notifications are blocked in the browser. Change the site permission in browser settings and reload this view.",
+  appGroup: "App",
+  installedStatus: "Installed",
+  notInstalled: "Running in the browser.",
+  pushToggle: "Notifications",
   deviceLabel: "Device name",
-  defaultDevice: "This device",
+  saveName: "Save name",
+  thisDevice: "This device",
+  unnamedDevice: "Unnamed device",
+  deviceName: (browser, platform, app) =>
+    `${browser || "Browser"}${platform ? ` on ${platform}` : ""}${app ? " (app)" : ""}`,
   active: "Enabled on this device.",
   inactive: "Not enabled on this device.",
-  enable: "Enable notifications",
-  disable: "Disable notifications",
+  incomplete: "Not fully enabled. Turn it off and on again.",
   test: "Send test notification",
   sent: "Test notification sent.",
   testFailed: "The test notification could not be sent.",
@@ -28,11 +35,17 @@ export const notificationCopy = {
   storageFailed:
     "The device identifier could not be saved. Allow local site storage and try again.",
   unsubscribeFailed:
-    "The server subscription was removed. The browser subscription could not be removed yet. Please disable again.",
+    "The server subscription was removed. The browser subscription could not be removed yet. Please try again.",
   loading: "Loading settings …",
   unavailable: "Notifications are unavailable on this server.",
   devices: "Registered devices",
-  remove: "Unregister device",
+  remove: "Unregister",
+  removeNamed: (name) => `Unregister ${name}`,
+  removeTitle: "Unregister device?",
+  removeConfirm: (name) =>
+    `“${name}” will no longer receive notifications. They can be enabled again on that device.`,
+  registeredAt: (time) => `Registered ${time}`,
+  deliveredAt: (time) => `last delivered ${time}`,
   noDevices: "No devices registered.",
   lastFailure: "Last delivery error",
 };

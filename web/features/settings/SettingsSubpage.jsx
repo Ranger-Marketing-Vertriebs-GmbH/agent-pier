@@ -19,7 +19,7 @@ const pages = {
 const wideSections = new Set(["ssh", "audit"]);
 // The former OperationsPage sections keep the `.operations-page` scope of
 // operations.css (heading sizes, `overflow-wrap: anywhere` on long paths and hashes).
-const operationsSections = new Set(["notifications", "diagnostics", "backups", "audit"]);
+const operationsSections = new Set(["diagnostics", "backups", "audit"]);
 
 export default function SettingsSubpage({ section, route, state, frame }) {
   if (section === "assistants") return <AgentServiceRoute frame={frame} />;
