@@ -8,7 +8,7 @@ import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/message
 import useAssistants from "../useAssistants.js";
 import RemindersGroup from "./RemindersGroup.jsx";
 import RoutinesGroup from "./RoutinesGroup.jsx";
-import { agentRoute, telegramServer } from "./agent-settings-fields.js";
+import { agentRoute, isPersonal, telegramServer } from "./agent-settings-fields.js";
 import { channelStep, heartbeatStep } from "./agent-settings-steps.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import useTelegramChannel from "./useTelegramChannel.js";
@@ -18,6 +18,7 @@ import ProactivityGroup from "./ProactivityGroup.jsx";
 import { ConnectionGroup } from "./TelegramConnection.jsx";
 import TelegramConnectionPage from "./TelegramConnectionPage.jsx";
 import TelegramActivityPage from "./TelegramActivityPage.jsx";
+import TelegramSendersSettings from "../TelegramSendersSettings.jsx";
 
 const channelCopy = assistantCopy.channel;
 const conflictLabels = {
@@ -100,6 +101,10 @@ export default function TelegramTab({ assistant, page, go, navigate }) {
               <RemindersGroup assistantId={assistant.id} connected={connected} />
               <RoutinesGroup assistantId={assistant.id} connected={connected} />
             </>
+          )}
+          {/* Its own bot for other people: immediate actions, outside the draft. */}
+          {isPersonal(assistant) && (
+            <TelegramSendersSettings assistantId={assistant.id} />
           )}
         </>
       )}

@@ -129,6 +129,13 @@
   font-size: 22px;
   letter-spacing: 0.12em;
 }
+.accounts-login-url {
+  overflow-wrap: anywhere;
+}
+.accounts-login-url a {
+  color: var(--accent);
+  text-decoration: underline;
+}
 .visually-hidden {
   position: absolute;
   width: 1px;

@@ -4,24 +4,13 @@ import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { Pagination, usePagination } from "../../components/Pagination.jsx";
-import { formatTimestamp, formatNumber } from "../../lib/i18n/index.js";
+import { formatTimestamp } from "../../lib/i18n/index.js";
+import { backupSize } from "./backup-size.js";
 import OperationJob from "./OperationJob.jsx";
 import BackupForm from "./BackupForm.jsx";
 import RestoreForm from "./RestoreForm.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
-const UNITS = [
-  ["megabyte", 1048576, 1],
-  ["kilobyte", 1024, 0],
-];
-function backupSize(bytes = 0) {
-  const [unit, size, digits] = UNITS.find(([, size]) => bytes >= size) || ["byte", 1, 0];
-  return formatNumber(bytes / size, {
-    style: "unit",
-    unit,
-    maximumFractionDigits: digits,
-  });
-}
 export default function BackupsPage({ route, navigate }) {
   const resource = useResource("/operations/backups"),
     [dialog, setDialog] = useState(""),

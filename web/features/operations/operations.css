@@ -52,6 +52,16 @@
   margin: 0;
   min-width: 0;
 }
+.operations-upload {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.operations-upload progress {
+  width: 100%;
+  accent-color: var(--accent);
+}
 .operations-filters {
   display: flex;
   flex-wrap: wrap;
@@ -191,4 +201,8 @@
 .release-notes-content table {
   display: block;
   overflow-x: auto;
+}
+.release-badge {
+  font-weight: 500;
+  vertical-align: middle;
 }

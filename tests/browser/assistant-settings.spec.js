@@ -193,7 +193,9 @@ test("mobile settings switch tabs in place and use 38×22 switches", async ({ pa
     "Telegram",
   ]);
   await agentTab(page, "Telegram").click();
-  await expect(page.getByRole("region", { name: "Telegram" })).toBeInViewport();
+  await expect(
+    page.getByRole("region", { name: "Telegram", exact: true }),
+  ).toBeInViewport();
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
   await agentTab(page, "Capabilities").click();
   const box = await page

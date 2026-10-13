@@ -74,7 +74,7 @@ export const operationsCopy = {
   includeHistory: "Include history",
   withCredentials: "Include encrypted credentials",
   backupPrivacy:
-    "History may contain private task content. Local CLI profiles, keychains and repository working directories are not backed up.",
+    "AgentPier history may contain private task content and is not encrypted. CLI histories are only backed up in backups with a passphrase, and then encrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. External local CLI profiles, keychains and repository working directories stay out.",
   passphrase: "Passphrase",
   plan: "Review backup scope",
   create: "Create backup",
@@ -88,6 +88,8 @@ export const operationsCopy = {
   deleteBackup: "Delete this backup?",
   inspectArchive: "Inspect and restore backup",
   archive: "Backup file",
+  uploadProgress: (percent, done, total) =>
+    `Uploading backup file: ${percent}% (${done} of ${total})`,
   inspect: "Inspect archive",
   targetDataDir: "New data directory",
   restore: "Restore to new directory",
@@ -107,6 +109,7 @@ export const operationsCopy = {
   needsMcpServerAddress: (name) =>
     `MCP server ${name} (enter the token in its address again)`,
   importedSessions: "Imported sessions",
+  changedFilesLeftOut: "Files changed during the backup, not restored",
   importedRuns: "Imported runs",
   updates: "Updates",
   currentVersion: "Installed version",
@@ -116,9 +119,15 @@ export const operationsCopy = {
   channelStableHelp:
     "Only approved stable releases. Switching to Stable does not install an older version.",
   channelPreviewHelp:
-    "Preview includes release candidates for testing as well as stable releases. This selection applies to this AgentPier installation.",
+    "Preview includes release candidates for testing as well as stable releases. This selection applies to this AgentPier installation. Release candidates can contain unfinished changes. After a release candidate has migrated your data, rolling back to the previous stable version can be impossible, so create a backup under Settings → Operations → Backups first. Switching back to Stable keeps the installed release candidate until a newer stable release arrives.",
   channelManagedHelp:
     "A custom update source is configured. It is managed on the server.",
+  channelUnsupportedHelp:
+    "Update channels apply only to a versioned installation. This instance runs from a source checkout or on an unsupported platform, so the selection is disabled.",
+  channelManagedSource: (source) => `Update source: ${source}`,
+  stagedPrereleaseHelp:
+    "Pre-releases that are already staged can still be activated after switching to Stable.",
+  prerelease: "Pre-release",
   channel: "Update channel",
   saveChannelFirst: "Save the update channel first.",
   channelBusy: "The update channel can change once the running update job has finished.",
@@ -285,7 +294,15 @@ export const backupCopy = {
       "MCP client grants, OAuth credentials and start request capabilities",
     "Shared native extensions, Agency agent files and their local installation records":
       "Shared native extensions, Agency agent files and their local installation records",
-    "encrypted-managed-profiles": "Managed profiles and credentials (encrypted)",
+    "encrypted-managed-profiles":
+      "Logins, settings, instructions, skills and agents of managed CLI profiles (encrypted)",
+    "cli-histories":
+      "CLI histories (encrypted): Codex sessions and generated images, Claude Code projects, to-dos and file history, OpenCode sessions",
+    "CLI caches, logs, telemetry and files outside the profile allowlists":
+      "CLI caches, logs, telemetry and files outside the profile allowlists",
+    "CLI conversation histories": "CLI conversation histories",
+    "Linked, shared or foreign files in CLI profiles":
+      "Linked, shared or foreign files in CLI profiles",
     "encrypted-repository-credentials": "Repository credentials (encrypted)",
     "External local CLI profiles and OS keychains":
       "External local CLI profiles and OS keychains",
@@ -309,6 +326,12 @@ export const backupCopy = {
     "MCP server OAuth logins": "MCP server OAuth logins",
     "MCP server header and environment values and address tokens":
       "MCP server header and environment values and address tokens",
+    "Files removed while the backup was written":
+      "Files removed while the backup was written",
+    "Files that changed while the backup was written":
+      "Files that changed while the backup was written (only line-based histories are restored)",
+    "CLI histories are only backed up in backups with a passphrase, and then encrypted":
+      "CLI histories are only backed up in backups with a passphrase, and then encrypted",
     "Managed native configuration and credentials":
       "Managed native configuration and credentials",
     "coordinated-application-snapshot; independent-native-captures":

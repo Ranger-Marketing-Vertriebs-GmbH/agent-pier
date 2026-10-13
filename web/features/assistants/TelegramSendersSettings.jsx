@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import GroupLabel from "../../components/GroupLabel.jsx";
 import { telegramSendersCopy } from "../../lib/i18n/messages/telegram-senders.js";
 import { assistantApi } from "./assistant-api.js";
 import RestartConfirmation from "./RestartConfirmation.jsx";
@@ -124,8 +125,7 @@ export default function TelegramSendersSettings({ assistantId }) {
     !!data && (data.pending || data.revocationFailed || state === "pending");
   return (
     <section className="assistant-accounts" aria-label={copy.title}>
-      <h2>{copy.title}</h2>
-      <p className="assistant-note">{copy.description}</p>
+      <GroupLabel hint={copy.description}>{copy.title}</GroupLabel>
       <p className="assistant-note">{copy.boundary}</p>
       <ErrorMessage error={error || pollError} />
       {pending && (

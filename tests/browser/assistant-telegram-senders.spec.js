@@ -2,6 +2,8 @@ import path from "node:path";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { home, setupAssistantSettings } from "../helpers/assistant-settings-browser.js";
+import { agentTab, settingsPath } from "../helpers/agent-settings-page.js";
+import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";
 
 // Screenshots for a review go to this directory when it is set; never into docs/.
 const shots = process.env.AGENTPIER_TELEGRAM_SENDERS_SHOTS;
@@ -59,7 +61,7 @@ test("connects an agent's own bot for chosen people after confirming the restart
 }) => {
   await setupAssistantSettings(page);
   const state = await senders(page);
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const section = page.getByRole("region", { name: "Telegram for other people" });
   await expect(section).toBeVisible();
   await expect(section.getByText("Nobody can write to the bot yet.")).toBeVisible();
@@ -117,7 +119,7 @@ test("removes a person and disconnects the bot", async ({ page }) => {
     ],
   };
   const state = await senders(page, { bot, restart: false, voice: false });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const section = page.getByRole("region", { name: "Telegram for other people" });
   await expect(section.getByText("Voice messages are not transcribed.")).toBeVisible();
   await section.getByRole("button", { name: "Remove Alice" }).click();
@@ -135,7 +137,7 @@ test("a pending change can be applied, and shell blocks a new bot", async ({ pag
   await setupAssistantSettings(page);
   const bot = { username: "helper_fixture_bot", revision: 1, people: [] };
   const state = await senders(page, { bot, state: "pending" });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const section = page.getByRole("region", { name: "Telegram for other people" });
   await expect(section.getByText("Status: waiting for a restart")).toBeVisible();
   await section.getByRole("button", { name: "Apply now" }).click();
@@ -148,7 +150,7 @@ test("a pending change can be applied, and shell blocks a new bot", async ({ pag
   const other = await page.context().newPage();
   await setupAssistantSettings(other, { assistant: { shell: "approval" } });
   await senders(other, { shell: "approval" });
-  await other.goto(baseURL + "/agents/home/settings");
+  await other.goto(baseURL + settingsPath("telegram"));
   const blocked = other.getByRole("region", { name: "Telegram for other people" });
   await expect(blocked.getByText("Turn shell off before you connect")).toBeVisible();
   await expect(blocked.getByLabel("Bot token")).toHaveCount(0);
@@ -167,12 +169,11 @@ test("fits a phone screen", async ({ page }) => {
       ],
     },
   });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const section = page.getByRole("region", { name: "Telegram for other people" });
   await section.scrollIntoViewIfNeeded();
   await expect(section.getByText("Status: running")).toBeVisible();
-  // The jump link of the section's chip row on narrow screens.
-  await expect(page.getByRole("link", { name: "Telegram for others" })).toHaveCount(1);
+  await expect(agentTab(page, "Telegram")).toHaveAttribute("aria-selected", "true");
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
@@ -185,7 +186,7 @@ test("a removed bot still running and a stdio agent are explained", async ({ pag
   await setupAssistantSettings(page);
   const state = await senders(page);
   state.view = { ...state.view, pending: true };
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const section = page.getByRole("region", { name: "Telegram for other people" });
   await expect(
     section.getByText("The agent service still runs a bot or person you removed."),
@@ -200,7 +201,7 @@ test("a removed bot still running and a stdio agent are explained", async ({ pag
   await setupAssistantSettings(other);
   const stdio = await senders(other);
   stdio.view = { ...stdio.view, stdio: true };
-  await other.goto(baseURL + "/agents/home/settings");
+  await other.goto(baseURL + settingsPath("telegram"));
   const blocked = other.getByRole("region", { name: "Telegram for other people" });
   await expect(blocked.getByText("This agent has a stdio MCP server")).toBeVisible();
   await expect(blocked.getByLabel("Bot token")).toHaveCount(0);
@@ -222,7 +223,7 @@ test("an agent with its own bot binds remote MCP servers only", async ({ page })
       ],
     }),
   );
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("capabilities"));
   await expect(page.getByRole("checkbox", { name: /Files/ })).toBeDisabled();
   await expect(page.getByRole("checkbox", { name: /Lookup/ })).toBeEnabled();
   await expect(
@@ -255,9 +256,12 @@ test("a changed Deepgram key asks to restart the agent service", async ({ page }
     });
   });
   await page.goto(baseURL + "/accounts");
-  const panel = page.getByRole("region", { name: "Speech recognition" });
+  const panel = await openAccountItem(page, "Speech recognition");
   await panel.getByRole("button", { name: "Remove speech key" }).click();
-  await panel.getByRole("button", { name: "Save and restart" }).click();
+  await accountDetail(page)
+    .getByRole("alertdialog", { name: "Restart the agent service?" })
+    .getByRole("button", { name: "Save and restart" })
+    .click();
   await expect(panel.getByText("No key configured", { exact: true })).toBeVisible();
   expect(puts).toEqual([
     { revision: 1, model: "nova-3", language: "auto", removeApiKey: true },
@@ -271,6 +275,43 @@ test("a changed Deepgram key asks to restart the agent service", async ({ page }
   ]);
 });
 
+test("a new Deepgram key saved from the bar asks to restart first", async ({ page }) => {
+  await setupAssistantSettings(page);
+  const puts = [];
+  await page.route(/\/api\/assistant-speech$/, async (route) => {
+    if (route.request().method() !== "PUT")
+      return route.fulfill({
+        json: { revision: 1, model: "nova-3", language: "auto", hasSecret: false },
+      });
+    const body = route.request().postDataJSON();
+    puts.push(body);
+    if (!body.confirmRestart)
+      return route.fulfill({
+        status: 409,
+        json: {
+          code: "ASSISTANT_RESTART_REQUIRED",
+          error: "Restart required.",
+          affected,
+        },
+      });
+    return route.fulfill({
+      json: { revision: 2, model: "nova-3", language: "auto", hasSecret: true },
+    });
+  });
+  await page.goto(baseURL + "/accounts");
+  const panel = await openAccountItem(page, "Speech recognition");
+  await panel.getByLabel("Deepgram API key").fill("dg-fixture-key");
+  await saveBar(page).getByRole("button", { name: "Save speech settings" }).click();
+  const dialog = panel.getByRole("alertdialog", { name: "Restart the agent service?" });
+  await expect(dialog).toContainText("Home");
+  await dialog.getByRole("button", { name: "Save and restart" }).click();
+  await expect(panel.getByText("Key saved", { exact: false })).toBeVisible();
+  expect(puts.map((body) => [body.apiKey, body.confirmRestart ?? false])).toEqual([
+    ["dg-fixture-key", false],
+    ["dg-fixture-key", true],
+  ]);
+});
+
 test("a revocation the automatic restart could not apply asks the owner", async ({
   page,
 }) => {
@@ -280,7 +321,7 @@ test("a revocation the automatic restart could not apply asks the owner", async 
     state: "pending",
   });
   state.view = { ...state.view, pending: true, revocationFailed: true };
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const section = page.getByRole("region", { name: "Telegram for other people" });
   await expect(section.getByRole("alert")).toContainText(
     "the automatic restart could not stop it",

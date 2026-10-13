@@ -23,6 +23,12 @@ export default function McpGroup({ assistant, draft, notice, reloadKey, navigate
   const [servers, setServers] = useState(null),
     [error, setError] = useState("");
   const bound = assistant.mcpServers || [];
+  // An agent with its own Telegram bot for other people binds remote servers only.
+  const noStdio = Boolean(assistant.telegramSenders);
+  const stdioLocked = (server) =>
+    noStdio &&
+    server.transport === "stdio" &&
+    !draft.values.mcpServers.includes(server.id);
   // A saved binding compiles the server: its login status is read again after a save.
   useEffect(() => {
     let live = true;
@@ -61,13 +67,16 @@ export default function McpGroup({ assistant, draft, notice, reloadKey, navigate
               sub={loginShown(server) ? <McpOAuthStatus server={server} /> : undefined}
               pill={server.transport === "stdio" ? copy.stdioBadge : undefined}
               checked={draft.values.mcpServers.includes(server.id)}
-              disabled={draft.saving}
+              disabled={draft.saving || stdioLocked(server)}
               onChange={(on) =>
                 draft.set("mcpServers", toggleId(draft.values.mcpServers, server.id, on))
               }
             />
           ))}
         </ListCard>
+      )}
+      {noStdio && (servers || []).some((server) => server.transport === "stdio") && (
+        <p className="mcp-hint">{copy.stdioTelegramSenders}</p>
       )}
       {loginMissing && <p className="mcp-hint">{mcpOAuthCopy.agentLoginHint}</p>}
       {notice && (

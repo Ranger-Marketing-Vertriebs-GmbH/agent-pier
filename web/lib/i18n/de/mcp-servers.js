@@ -55,6 +55,8 @@ export const mcpServerCopy = {
     "Lege Token und Passwörter in Header- oder Umgebungswerten ab, nie im Adresspfad oder in den Argumenten: Diese werden angezeigt.",
   stdioMarker: "stdio, lokaler Befehl",
   stdioBadge: "stdio",
+  stdioTelegramSenders:
+    "Dieser Agent hat einen eigenen Telegram-Bot für andere Personen und kann daher keine stdio-Server nutzen: Diese führen Befehle auf diesem Rechner aus. Entfernte Server bleiben verfügbar.",
   stdioWarningTitle: "Lokalen Befehl ausführen?",
   stdioWarning:
     "Ein stdio-Server führt diesen Befehl mit deinen Benutzerrechten aus, ohne Sandbox. Sobald er einem Agenten zugewiesen ist, startet er für jede Sitzung jedes Agenten, auch für Agenten, die ihn nie nutzen. Füge nur Befehle hinzu, denen du vertraust.",
