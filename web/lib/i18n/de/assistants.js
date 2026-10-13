@@ -307,6 +307,13 @@ export const assistantCopy = {
   optionsClose: "Optionen schließen",
   backToChat: "Zurück zur Unterhaltung",
   you: "Du",
+  // The meta line under a message that reached the agent through Telegram.
+  telegramSource: {
+    via: "über Telegram",
+    // The meta line under the bubble, and what screen readers hear instead.
+    at: (via, time) => `${via} · ${time}`,
+    spokenAt: (via, time) => `${via}, ${time}`,
+  },
   earlier: "Ältere Nachrichten",
   emptyChat: "Woran möchtest du arbeiten?",
   loading: "Wird geladen …",

@@ -5,6 +5,8 @@ import { SpeechConnections } from "../../server/features/speech/speech-connectio
 import { SpeechService } from "../../server/features/speech/speech-service.js";
 import { DeepgramTranscriber } from "../../server/features/speech/deepgram-transcriber.js";
 import { TelegramClient } from "../../server/features/assistant-channels/telegram-client.js";
+import { withMessageSources } from "../../server/features/assistants/message-source.js";
+import { publicMessages } from "../../server/features/assistants/conversations.js";
 export async function qualifyAssistantChannels({ dataDir, assistants, assistantId }) {
   const botId = Date.now(),
     token = `${botId}:synthetic-test-token-for-contract`;
@@ -69,6 +71,11 @@ export async function qualifyAssistantChannels({ dataDir, assistants, assistantI
     updates.push(message(1, { text: `/start ${pair.code}` }));
     await channels.ingress.poll(channel.id, signal);
     assert.equal(channels.store.get(channel.id).chatId, "42");
+    // Long and multi-line, with trailing whitespace: the chat must still find its turn.
+    const list = `Shopping list:\n${Array.from(
+      { length: 80 },
+      (_, n) => `- item ${n}: ${"fresh ".repeat(6)}`,
+    ).join("\n")}\n`;
     for (const [updateId, content] of [
       [2, { text: "Check your status then reply." }],
       [
@@ -82,6 +89,7 @@ export async function qualifyAssistantChannels({ dataDir, assistants, assistantI
           },
         },
       ],
+      [4, { text: list }],
     ]) {
       const input = message(updateId, content);
       updates.push(input, input);
@@ -106,14 +114,52 @@ export async function qualifyAssistantChannels({ dataDir, assistants, assistantI
       }
       assert.equal(channels.ledger.get(entry.id).state, "delivered");
     }
-    assert.deepEqual(delivered, [
-      "A useful assistant reply.",
-      "A useful assistant reply.",
-    ]);
+    assert.deepEqual(delivered, Array(3).fill("A useful assistant reply."));
     assert.equal(transcribed, 1);
-    assert.equal(channels.ledger.list(channel.id).length, 2);
+    // The chat marks Telegram turns by their request (message-source.js): OpenClaw
+    // keeps the attempt's delivery key and the sent text on each user turn.
+    const conversationId = channel.conversationId;
+    const requests = assistants.ledger.requests(conversationId);
+    const raw = await assistants.runtime.client.call("chat.history", {
+      sessionKey: assistants.store.getConversation(conversationId).runtimeSessionKey,
+      limit: 100,
+    });
+    // The contract's service runs without teams, so the trusted context is not
+    // recorded; the request's client key stands in for it here.
+    const contexts = new Map(
+      requests.map((r) => [
+        r.id,
+        assistants.teams?.store.context(r.id) || {
+          kind: r.clientRequestId.startsWith("telegram:") ? "telegram" : "owner",
+        },
+      ]),
+    );
+    const turns = publicMessages(raw.messages).filter((m) => m.role === "user");
+    assert.ok(turns.every((m) => m.turnKey));
+    const marked = withMessageSources(turns, requests, {
+      attempts: assistants.ledger.attemptRequests(conversationId),
+      contexts,
+    });
+    const sourceOf = (text) => marked.find((m) => m.text === text)?.source;
+    assert.equal(sourceOf("Check your status then reply."), "telegram");
+    assert.equal(sourceOf("Check your status again."), undefined);
+    assert.ok(
+      marked.some((m) => m.source === "telegram" && m.text.startsWith("Shopping")),
+    );
+    // Without the key, the text alone still finds the long turn.
+    const unkeyed = withMessageSources(
+      turns.map(({ turnKey: _key, ...m }) => m),
+      requests,
+      { contexts },
+    );
+    assert.equal(unkeyed.filter((m) => m.source === "telegram").length, 3);
+    assert.equal(
+      unkeyed.find((m) => m.text === "Check your status again.").source,
+      undefined,
+    );
+    assert.equal(channels.ledger.list(channel.id).length, 3);
     await channels.process(channel.id, signal);
-    assert.equal(delivered.length, 2);
+    assert.equal(delivered.length, 3);
   } finally {
     await channels.close();
   }

@@ -105,6 +105,13 @@ export function localizedCopy(german, english) {
 export function formatTimestamp(value) {
   return new Date(value).toLocaleString(locale);
 }
+// A message's time: the clock time today, date and time on any other day.
+export function formatMessageTime(value, now = new Date()) {
+  const date = new Date(value);
+  return date.toDateString() === now.toDateString()
+    ? date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
+    : date.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
+}
 export function formatNumber(value, options) {
   return new Intl.NumberFormat(locale, options).format(value);
 }
