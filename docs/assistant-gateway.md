@@ -401,6 +401,22 @@ which the Accounts page explains. The server log line adds the Gateway error cod
 the wizard status and the Gateway's reason with device codes, bearer values and
 token-like strings redacted.
 
+The agent editor offers the models a ChatGPT account can select. One Gateway
+`models.list` read (`agentId: "main"`, `provider: "openai"`, `view: "all"`) serves
+every account, because the accounts share the native `main` agent; the Gateway's
+per-profile `providerOutcomes` decide whether an account gets the list. Rows of other
+providers, IDs that are not bare model IDs and rows marked unavailable (other than
+by a cooldown) are dropped. `authProfileId` is not used: OpenClaw scopes it to
+personal accounts of an authenticated Gateway user and refuses the agent's own
+OAuth profiles with `FORBIDDEN`. The list is cached in memory for ten minutes (a
+failed read is retried after one); loading the agents page starts a background read
+when it is stale, a completed sign-in and **Refresh models** force a rediscovery,
+and concurrent reads share one Gateway call. The refresh route shares one owner
+budget of twelve requests a minute. When the list cannot be loaded the editor keeps
+the model ID field and says so. `assistant-chatgpt-models-contract.test.js` pins the
+request and row shape against the pinned Gateway with synthetic credentials, which
+it rejects; a signed-in list cannot be observed offline.
+
 **Check connection** runs the native credential probe. **Disconnect** removes the
 selected profile through OpenClaw; pending or unresolved work using that account
 blocks removal. Admission is serialized with assistant creation, configuration,
