@@ -1,4 +1,7 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
+import { serverMessages } from "../../lib/i18n/de.js";
+import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 
 export function assistantAccountRoutes({
@@ -22,6 +25,34 @@ export function assistantAccountRoutes({
     assistants.changed();
     res.json(result);
   });
+  // Each refresh asks the Gateway to rediscover provider models. Concurrent reads
+  // share one Gateway call; one owner budget bounds the rest.
+  const refreshLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 12,
+    keyGenerator: () => "owner",
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    // Built once per assistant service set, which the feature creates on demand.
+    validate: { creationStack: false },
+    handler: (_req, res) => {
+      const message = serverMessages.assistants.modelsRateLimited;
+      res.status(429).json({
+        code: "models-rate-limited",
+        error: message,
+        ...messageIdentity(message),
+      });
+    },
+  });
+  router.post(
+    "/assistant-model-accounts/:id/models/refresh",
+    refreshLimit,
+    async (req, res) => {
+      const result = await accounts.refreshModels(req.params.id);
+      assistants.changed();
+      res.json(result);
+    },
+  );
   router.delete("/assistant-model-accounts/:id", async (req, res) =>
     res.json({ accounts: await assistants.logoutAccount(accounts, req.params.id) }),
   );

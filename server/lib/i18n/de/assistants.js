@@ -165,6 +165,8 @@ export const assistants = {
     "Mit Shell-Zugriff führt der Agent Befehle als dein Benutzerkonto auf diesem Rechner aus, auch außerhalb seines Arbeitsbereichs. Bestätige die Warnung, um den Zugriff einzuschalten.",
   shellFullConfirmationRequired:
     "Mit vollem Shell-Zugriff führt der Agent jeden Befehl ohne Nachfrage aus. Bestätige das ausdrücklich.",
+  modelsRateLimited:
+    "Zu viele Aktualisierungen der Modellliste. Bitte versuche es in einer Minute erneut.",
   allowlistEntryNotFound:
     "Dieser Eintrag steht nicht mehr in der Liste erlaubter Befehle. Bitte neu laden.",
 };
