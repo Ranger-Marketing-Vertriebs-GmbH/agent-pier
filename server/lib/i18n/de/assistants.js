@@ -140,6 +140,16 @@ export const assistants = {
     "Die MCP-Serverliste dieses Teams lässt sich gerade nicht lesen. Versuche es später erneut.",
   teamMcpServerNotBound:
     "Ein vorgeschlagenes Teammitglied nennt einen MCP-Server, der dem leitenden Agenten nicht zugewiesen ist.",
+  attachmentTooLarge: "Diese Datei ist größer als 10 MB.",
+  attachmentUnsupported:
+    "Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPEG, PNG, WebP, GIF, HEIC), PDF und Textdateien.",
+  attachmentTooMany: "Zu viele Anhänge. Eine Nachricht kann höchstens 5 Dateien enthalten.",
+  attachmentNotFound: "Dieser Anhang ist nicht mehr verfügbar. Füge die Datei erneut hinzu.",
+  attachmentStorageFull:
+    "Der Anhang-Ordner dieses Agenten ist voll. Bitte den Agenten, ältere Dateien in attachments/ zu löschen.",
+  attachmentStorageUnsafe:
+    "Der Anhang-Ordner im Arbeitsbereich dieses Agenten ist unsicher. Prüfe, ob attachments/ ein normaler Ordner ist.",
+  attachmentRateLimited: "Zu viele Anhänge in kurzer Zeit. Warte einen Moment.",
   invalid: "Ungültige Agenten-Eingabe.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   conflict: "Die Daten wurden inzwischen geändert. Bitte neu laden.",
