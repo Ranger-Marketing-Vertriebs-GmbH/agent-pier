@@ -154,6 +154,12 @@ export default function AssistantModelAccounts({ navigate }) {
             <>
               <code className="assistant-device-code">{attempt.code}</code>
               <p>{copy.loginInstructions}</p>
+              <p className="assistant-login-url">
+                {copy.loginPage}{" "}
+                <a href={attempt.url} target="_blank" rel="noopener noreferrer">
+                  {attempt.url}
+                </a>
+              </p>
               <a
                 className="button secondary"
                 href={attempt.url}

@@ -151,6 +151,13 @@
   flex-basis: 100%;
   margin: 0;
 }
+.assistant-login-url {
+  overflow-wrap: anywhere;
+}
+.assistant-login-url a {
+  color: var(--accent);
+  text-decoration: underline;
+}
 .assistant-device-code {
   font-size: 22px;
   letter-spacing: 2px;
