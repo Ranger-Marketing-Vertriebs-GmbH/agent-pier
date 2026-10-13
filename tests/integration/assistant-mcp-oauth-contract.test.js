@@ -12,9 +12,18 @@ import { selectedAssistantRuntime } from "../../server/features/assistants/runti
 import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
 import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
-import { approve, oauthMcpServer } from "../helpers/mcp-oauth-test-server.js";
+import {
+  authorize,
+  exchanged,
+  oauthMcpServer,
+} from "../helpers/mcp-oauth-test-server.js";
 import { nudgedIdleTtl } from "../../server/features/mcp-servers/mcp-oauth-logins.js";
-import { createMcpCli } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+import {
+  createMcpCli,
+  defaultBusyRetryDelaysMs,
+  leaseLocked,
+  parseLoginOutput,
+} from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs.
 // docs/mcp-oauth-qualification.md records what this contract establishes.
@@ -144,7 +153,17 @@ async function harness(t) {
   const token = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8")).gateway.auth
     .token;
   const gatewayEnv = runtimeEnvironment(runtime.paths, selected.nodePath, token);
-  function cli(args, env = gatewayEnv) {
+  // Like createMcpCli: a call whose lease transaction could not start while the
+  // Gateway wrote the shared state database did nothing and is repeated.
+  async function cli(args, env = gatewayEnv) {
+    for (let attempt = 0; ; attempt++) {
+      const run = await cliOnce(args, env);
+      if (run.code === 0 || !leaseLocked(run.stderr)) return run;
+      if (attempt >= defaultBusyRetryDelaysMs.length) return run;
+      await sleep(defaultBusyRetryDelaysMs[attempt]);
+    }
+  }
+  function cliOnce(args, env) {
     const started = Date.now();
     return new Promise((resolve) => {
       execFile(
@@ -197,15 +216,26 @@ async function harness(t) {
       patch: { mcp: { servers: patch } },
       replacePaths: replace,
     }));
-  return { dataDir, runtime, turn, cli, status, allow, servers, gatewayEnv };
-}
-
-/** `openclaw mcp login <name>` with its redirect port taken; returns the URL line. */
-function printedUrl(run, name) {
-  const lines = run.stdout.split("\n");
-  const at = lines.indexOf(`Open this URL to authorize "${name}":`);
-  assert.ok(at >= 0, run.stdout);
-  return new URL(lines[at + 1]);
+  /**
+   * `openclaw mcp login <name>` with its redirect port taken: `{ run, url }`. OpenClaw's
+   * console redaction masks about one PKCE challenge in 200; like createMcpCli's
+   * startLogin, such a login is repeated (twice at most) instead of handing out a
+   * URL whose challenge no longer matches the verifier.
+   */
+  async function login(name, env) {
+    for (let attempt = 1; ; attempt++) {
+      const run = await cli(["mcp", "login", name], env);
+      assert.equal(run.code, 0, run.stderr);
+      const parsed = parseLoginOutput(run.stdout, name);
+      if (parsed?.redacted && attempt < 3) {
+        t.diagnostic(`login ${name}: redacted authorization URL, attempt ${attempt}`);
+        continue;
+      }
+      assert.ok(parsed?.authorizationUrl, run.stdout);
+      return { run, url: new URL(parsed.authorizationUrl) };
+    }
+  }
+  return { dataDir, runtime, turn, cli, login, status, allow, servers, gatewayEnv };
 }
 
 test(
@@ -216,7 +246,8 @@ test(
     t.after(() => oauth.close());
     const held = await holdPort();
     t.after(() => held.close());
-    const { runtime, turn, cli, status, allow, servers, gatewayEnv } = await harness(t);
+    const { runtime, turn, cli, login, status, allow, servers, gatewayEnv } =
+      await harness(t);
     const client = runtime.client;
     const generation = runtime.generation;
     const redirectUrl = `http://127.0.0.1:${held.port}/api/mcp-servers/oauth/callback`;
@@ -271,27 +302,19 @@ test(
     });
 
     // (a) Login with the redirect port held prints the URL and exits at once.
-    const login = await cli(["mcp", "login", "docs"]);
-    assert.equal(login.code, 0);
-    assert.equal(login.stderr, "");
-    assert.ok(login.ms < 30000, `${login.ms} ms`);
-    const authorizationUrl = printedUrl(login, "docs");
-    assert.deepEqual(login.stdout.split("\n"), [
+    const { run: started, url: authorizationUrl } = await login("docs");
+    assert.equal(started.stderr, "");
+    assert.ok(started.ms < 30000, `${started.ms} ms`);
+    // The URL line itself is checked by its parameters (authorize, below).
+    const printed = started.stdout.split("\n");
+    assert.deepEqual(printed.toSpliced(2, 1), [
       `Could not start the local OAuth callback (listen EADDRINUSE: address already in use 127.0.0.1:${held.port}).`,
       'Open this URL to authorize "docs":',
-      authorizationUrl.href,
       "After approval, run openclaw mcp login docs --code <code>.",
       "",
     ]);
-    assert.equal(
-      `${authorizationUrl.origin}${authorizationUrl.pathname}`,
-      `${oauth.origin}/authorize`,
-    );
+    assert.equal(new URL(printed[2]).href, authorizationUrl.href);
     const query = authorizationUrl.searchParams;
-    assert.equal(query.get("redirect_uri"), redirectUrl);
-    assert.equal(query.get("code_challenge_method"), "S256");
-    assert.equal(query.get("resource"), oauth.url);
-    assert.match(query.get("state"), /^[0-9a-f-]{36}$/);
     // Dynamic client registration as a public client for exactly that redirect URL.
     const [registration] = oauth.log.filter((e) => e.path === "/register");
     assert.deepEqual(registration.metadata, {
@@ -314,7 +337,7 @@ test(
     // (b) The browser returns to the redirect URL; --code completes the login. The
     // CLI takes only the code: checking the callback's state is the caller's job.
     oauth.state.expiresIn = 31; // Stale at once within OpenClaw's 30 s skew.
-    const callback = await approve(authorizationUrl.href);
+    const callback = await authorize(oauth, authorizationUrl, redirectUrl);
     assert.equal(callback.searchParams.get("state"), query.get("state"));
     const code = callback.searchParams.get("code");
     const exchangedFrom = Date.now();
@@ -322,6 +345,7 @@ test(
     const exchangedTo = Date.now();
     assert.equal(done.code, 0, done.stderr);
     assert.equal(done.stdout, 'MCP OAuth credentials saved for "docs".\n');
+    exchanged(oauth);
     oauth.state.expiresIn = 3600;
     const authorized = await state("docs");
     // Issued during the --code run, however slow the runner.
@@ -390,8 +414,8 @@ test(
     // A new login right after a failed start: the server stays backed off for the
     // next turn until an `mcp` config change resets the backoff.
     oauth.state.refreshRevoked = false;
-    const relogin = await cli(["mcp", "login", "docs"]);
-    const recallback = await approve(printedUrl(relogin, "docs").href);
+    const relogin = await login("docs");
+    const recallback = await authorize(oauth, relogin.url, redirectUrl);
     const redone = await cli([
       "mcp",
       "login",
@@ -400,6 +424,7 @@ test(
       recallback.searchParams.get("code"),
     ]);
     assert.equal(redone.code, 0, redone.stderr);
+    exchanged(oauth);
     assert.equal((await state("docs")).state, "authorized");
     // The failed start above backs the server off for 30 s (doubling up to 10 min);
     // a new session within that window is offered nothing despite valid tokens.
@@ -451,8 +476,8 @@ test(
     });
 
     // (e) Log in again, then rename and change the URL: both orphan the login.
-    const third = await cli(["mcp", "login", "docs"]);
-    const thirdCallback = await approve(printedUrl(third, "docs").href);
+    const third = await login("docs");
+    const thirdCallback = await authorize(oauth, third.url, redirectUrl);
     const thirdDone = await cli([
       "mcp",
       "login",
@@ -461,6 +486,7 @@ test(
       thirdCallback.searchParams.get("code"),
     ]);
     assert.equal(thirdDone.code, 0, thirdDone.stderr);
+    exchanged(oauth);
     assert.equal((await state("docs")).state, "authorized");
     await servers({ docs: null, renamed: docs }, ["mcp.servers.docs"]);
     assert.equal((await state("renamed")).state, "unauthenticated");
@@ -479,8 +505,8 @@ test(
     await own.logout("docs", { server: docs });
     await servers({ renamed: null, docs }, ["mcp.servers.renamed"]);
     assert.equal((await state("docs")).state, "unauthenticated", "orphan cleared");
-    const fourth = await cli(["mcp", "login", "docs"]);
-    const fourthCallback = await approve(printedUrl(fourth, "docs").href);
+    const fourth = await login("docs");
+    const fourthCallback = await authorize(oauth, fourth.url, redirectUrl);
     const fourthDone = await cli([
       "mcp",
       "login",
@@ -489,6 +515,7 @@ test(
       fourthCallback.searchParams.get("code"),
     ]);
     assert.equal(fourthDone.code, 0, fourthDone.stderr);
+    exchanged(oauth);
 
     // (f) The CLI needs only HOME, OPENCLAW_STATE_DIR and OPENCLAW_CONFIG_PATH
     // (and a PATH); no Gateway token and no running Gateway.
@@ -530,7 +557,7 @@ test(
   async (t) => {
     const oauth = await oauthMcpServer();
     t.after(() => oauth.close());
-    const { cli, status, servers } = await harness(t);
+    const { cli, login, status, servers } = await harness(t);
     const redirectUrl = "https://agentpier.invalid/api/mcp-servers/oauth/callback";
     await servers({
       secure: {
@@ -540,18 +567,16 @@ test(
         oauth: { redirectUrl },
       },
     });
-    const login = await cli(["mcp", "login", "secure"]);
-    assert.equal(login.code, 0);
-    const url = printedUrl(login, "secure");
-    assert.deepEqual(login.stdout.split("\n"), [
+    const { run, url } = await login("secure");
+    const printed = run.stdout.split("\n");
+    assert.deepEqual(printed.toSpliced(2, 1), [
       "Could not start the local OAuth callback (OAuth callback redirect must use HTTP on a loopback address).",
       'Open this URL to authorize "secure":',
-      url.href,
       "After approval, run openclaw mcp login secure --code <code>.",
       "",
     ]);
-    assert.equal(url.searchParams.get("redirect_uri"), redirectUrl);
-    const callback = await approve(url.href);
+    assert.equal(new URL(printed[2]).href, url.href);
+    const callback = await authorize(oauth, url, redirectUrl);
     assert.equal(callback.origin, "https://agentpier.invalid");
     const done = await cli([
       "mcp",
@@ -561,6 +586,7 @@ test(
       callback.searchParams.get("code"),
     ]);
     assert.equal(done.code, 0, done.stderr);
+    exchanged(oauth);
     assert.equal((await status("secure")).server.authStatus.state, "authorized");
   },
 );
