@@ -4,6 +4,10 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
+import {
+  emitChange,
+  setupAssistantSettings,
+} from "../helpers/assistant-settings-browser.js";
 
 const listed = [
   { modelId: "gpt-6-astra", label: "GPT-6 Astra" },
@@ -82,6 +86,10 @@ const english = {
   loading: "Loading ChatGPT models …",
   failed:
     "The ChatGPT model list could not be loaded. Enter a model ID or try again later.",
+  stale:
+    "The ChatGPT model list could not be refreshed and may be out of date. A custom model ID stays possible.",
+  unknown:
+    "The Gateway checked this list with another ChatGPT account. Some models may not work with this one.",
   save: "Save agent",
 };
 const german = {
@@ -97,6 +105,10 @@ const german = {
   loading: "ChatGPT-Modelle werden geladen …",
   failed:
     "Die ChatGPT-Modellliste konnte nicht geladen werden. Gib eine Modell-ID ein oder versuche es später erneut.",
+  stale:
+    "Die ChatGPT-Modellliste konnte nicht aktualisiert werden und ist eventuell veraltet. Eine eigene Modell-ID bleibt möglich.",
+  unknown:
+    "Das Gateway hat diese Liste mit einem anderen ChatGPT-Konto geprüft. Manche Modelle funktionieren mit diesem Konto eventuell nicht.",
   save: "Agent speichern",
 };
 
@@ -169,22 +181,77 @@ for (const [language, copy] of [
       .poll(() => state.saved?.model)
       .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-preview" });
   });
-}
 
-test("a failed refresh keeps the list and the model ID field usable", async ({
-  page,
-}) => {
-  const state = await setup(page);
-  await newAgent(page, english);
-  state.refreshAnswer = () => ({ status: 429 });
-  await page.getByRole("button", { name: english.refresh }).click();
-  await expect(page.getByText(english.failed)).toBeVisible();
-  const model = page.getByRole("combobox", { name: english.model, exact: true });
-  await expect(model.locator("option")).toHaveCount(5);
-  await model.selectOption({ label: english.custom });
-  await page.getByRole("textbox", { name: english.modelId }).fill("gpt-6-astra-mini");
-  await expect(page.getByText(/Too many|429/)).toHaveCount(0);
-});
+  test(`${language}: a failed refresh keeps the list, says it may be out of date`, async ({
+    page,
+  }) => {
+    const state = await setup(page, { language });
+    await newAgent(page, copy);
+    state.refreshAnswer = () => ({ status: 429 });
+    await page.getByRole("button", { name: copy.refresh }).click();
+    await expect(page.getByText(copy.stale)).toBeVisible();
+    await expect(page.getByText(copy.failed)).toHaveCount(0);
+    const model = page.getByRole("combobox", { name: copy.model, exact: true });
+    await expect(model).toHaveAttribute(
+      "aria-describedby",
+      await page.getByText(copy.stale).getAttribute("id"),
+    );
+    await expect(model.locator("option")).toHaveCount(5);
+    await model.selectOption({ label: copy.custom });
+    await page.getByRole("textbox", { name: copy.modelId }).fill("gpt-6-astra-mini");
+    await expect(page.getByText(/Too many|429/)).toHaveCount(0);
+  });
+
+  test(`${language}: a list checked with another account and an empty list say so`, async ({
+    page,
+  }) => {
+    const state = await setup(page, { language, modelCatalog: "unknown" });
+    await newAgent(page, copy);
+    await expect(page.getByText(copy.unknown)).toBeVisible();
+    await expect(
+      page.getByRole("combobox", { name: copy.model, exact: true }).locator("option"),
+    ).toHaveCount(5);
+    Object.assign(state.account, { models: [], modelCatalog: "ready" });
+    await page.getByRole("button", { name: copy.refresh }).click();
+    await expect(page.getByText(copy.failed)).toBeVisible();
+    await expect(page.getByRole("textbox", { name: copy.modelId })).toBeVisible();
+  });
+
+  test(`${language}: an agent's saved model outside the list stays a custom ID`, async ({
+    page,
+  }) => {
+    const account = {
+      id: "openclaw:test",
+      name: "Personal ChatGPT",
+      providerId: "openai-chatgpt",
+      status: "ok",
+      available: true,
+      models: listed,
+      modelCatalog: "ready",
+    };
+    await setupAssistantSettings(page, {
+      language,
+      assistant: { model: { connectionId: "openclaw:test", modelId: "gpt-6-legacy" } },
+      models: [account],
+    });
+    await page.goto(baseURL + "/agents/home/settings");
+    const model = page.getByRole("combobox", { name: copy.model, exact: true });
+    await expect(model.locator("option:checked")).toHaveText(copy.custom);
+    await expect(page.getByRole("textbox", { name: copy.modelId })).toHaveValue(
+      "gpt-6-legacy",
+    );
+    // A failed refresh's hint lasts only until the server reports a newer state.
+    await page.route("**/models/refresh", (route) =>
+      route.fulfill({ status: 429, json: {} }),
+    );
+    await page.getByRole("button", { name: copy.refresh }).click();
+    await expect(page.getByText(copy.stale)).toBeVisible();
+    account.modelCatalog = "unknown";
+    await emitChange(page);
+    await expect(page.getByText(copy.unknown)).toBeVisible();
+    await expect(page.getByText(copy.stale)).toHaveCount(0);
+  });
+}
 
 test("screenshots: the open ChatGPT model list on desktop and mobile", async ({
   page,

@@ -271,6 +271,10 @@ export const assistantCopy = {
   customModel: "Custom model ID…",
   refreshAccountModels: "Refresh models",
   accountModelsLoading: "Loading ChatGPT models …",
+  accountModelsStale:
+    "The ChatGPT model list could not be refreshed and may be out of date. A custom model ID stays possible.",
+  accountModelsUnverified:
+    "The Gateway checked this list with another ChatGPT account. Some models may not work with this one.",
   accountModelsFailed:
     "The ChatGPT model list could not be loaded. Enter a model ID or try again later.",
   chooseConnection: "Choose a connection",
