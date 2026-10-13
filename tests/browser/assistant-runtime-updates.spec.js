@@ -9,7 +9,7 @@ async function setup(page, { malformed = false } = {}) {
     actions: [],
     status: {
       phase: "idle",
-      currentVersion: "2026.9.8",
+      currentVersion: "2026.9.9",
       targetVersion: "2026.10.1",
       candidateReady: false,
       updateAvailable: true,
@@ -33,7 +33,7 @@ async function setup(page, { malformed = false } = {}) {
       if (action === "recover")
         Object.assign(state.status, {
           phase: "rolled_back",
-          currentVersion: "2026.9.8",
+          currentVersion: "2026.9.9",
           recoveryRequired: false,
           diagnostic: "UPDATE_ROLLED_BACK",
         });
@@ -114,7 +114,7 @@ test("an installation already on the qualified version cannot stage it again", a
   page,
 }) => {
   const state = await setup(page);
-  Object.assign(state.status, { targetVersion: "2026.9.8", updateAvailable: false });
+  Object.assign(state.status, { targetVersion: "2026.9.9", updateAvailable: false });
   await page.goto(baseURL + "/settings/assistants");
   await expect(page.getByText("The qualified version is already active.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Stage update" })).toBeDisabled();

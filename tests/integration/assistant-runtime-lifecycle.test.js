@@ -24,7 +24,7 @@ test("disabled service stays inert and interrupted installation cannot launch af
   assert.equal(supervisor.status().availability, "disabled");
   const starting = supervisor.start();
   await supervisor.close();
-  finish({ nodePath: "not-used", entryPath: "not-used", version: "2026.9.8" });
+  finish({ nodePath: "not-used", entryPath: "not-used", version: "2026.9.9" });
   await starting;
   assert.equal(supervisor.status().availability, "disabled");
 });

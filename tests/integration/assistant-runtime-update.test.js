@@ -90,6 +90,6 @@ test("a second process installing concurrently gets RUNTIME_BUSY until its lock 
   assert.equal(fs.existsSync(lock), true);
   other.kill("SIGKILL");
   await once(other, "exit");
-  assert.equal((await stageAssistantRuntime(options)).version, "2026.9.8");
+  assert.equal((await stageAssistantRuntime(options)).version, "2026.9.9");
   assert.equal(fs.existsSync(lock), false);
 });

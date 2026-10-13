@@ -132,8 +132,8 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({
         json: {
           phase: "idle",
-          currentVersion: "2026.9.8",
-          targetVersion: "2026.9.8",
+          currentVersion: "2026.9.9",
+          targetVersion: "2026.9.9",
           candidateReady: false,
           affectedAssistants: 0,
           blockers: [],

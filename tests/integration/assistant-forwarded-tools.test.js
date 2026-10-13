@@ -265,7 +265,7 @@ test("native write tools never let forwarded or scheduled turns rewrite instruct
 test("the Gateway plugin reports its live write guard before writes are granted", async (t) => {
   const f = await workflowFixture(t);
   let availability = "ready";
-  f.assistants.runtime.status = () => ({ version: "2026.9.8", availability });
+  f.assistants.runtime.status = () => ({ version: "2026.9.9", availability });
   t.mock.timers.enable({ apis: ["setInterval"] });
   const { bridge, retire } = await nativeWriteGuard(t, f);
   const settle = async () => {
@@ -277,6 +277,8 @@ test("the Gateway plugin reports its live write guard before writes are granted"
   f.assistants.runtime.status = () => ({ version: "2026.9.7", availability });
   assert.equal(bridge.guardLive(), false, "unverified runtimes keep memory read-only");
   f.assistants.runtime.status = () => ({ version: "2026.9.8", availability });
+  assert.equal(bridge.guardLive(), true, "the qualified rollback target keeps writes");
+  f.assistants.runtime.status = () => ({ version: "2026.9.9", availability });
   f.assistants.runtime.child = { pid: 1 };
   const other = await fetch(bridge.connection.url + "/guard", {
     method: "POST",
@@ -356,7 +358,7 @@ test("the Gateway plugin reports its live write guard before writes are granted"
 
 test("only the active Gateway registry reports a guard, and setup loads never throw", async (t) => {
   const f = await workflowFixture(t);
-  f.assistants.runtime.status = () => ({ version: "2026.9.8" });
+  f.assistants.runtime.status = () => ({ version: "2026.9.9" });
   const { bridge } = await nativeWriteGuard(t, f, { registrationMode: "discovery" });
   await new Promise((r) => setTimeout(r, 100));
   assert.equal(bridge.guardLive(), false, "discovery registries carry no live hook");

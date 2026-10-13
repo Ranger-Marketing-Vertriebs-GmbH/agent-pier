@@ -27,7 +27,7 @@ test("symbols resolve by their original export name, whatever the chunk hash", a
     ["jobs-scheduling-BFO_sCWD.mjs", "n"],
     ["jobs-scheduling-Zx81Qa_c.mjs", "q"],
   ]) {
-    const root = fakePackage(t, "2026.9.8", {
+    const root = fakePackage(t, "2026.9.9", {
       [file]: scheduling(alias),
       "service-m6MonO39.mjs": "class CronService {}\nexport { CronService as t };\n",
       "unrelated.js": "export const value = 1;\n",
@@ -58,7 +58,7 @@ test("a missing or ambiguous symbol fails with the OpenClaw version", async (t) 
 });
 
 test("located symbols name the defining chunk, not barrels re-exporting it", (t) => {
-  const root = fakePackage(t, "2026.9.8", {
+  const root = fakePackage(t, "2026.9.9", {
     "auth-profiles-E6czwkgH.mjs":
       'import { s as computeJobNextRunAtMs } from "./profiles-CssUDvXQ.mjs";\n' +
       "export { computeJobNextRunAtMs };\n",

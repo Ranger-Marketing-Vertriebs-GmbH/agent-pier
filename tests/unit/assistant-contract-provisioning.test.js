@@ -8,7 +8,7 @@ import { provisionContractRuntime } from "../../scripts/provision-assistant-cont
 const fixture = (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-contracts-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
-  const runtime = path.join(dataDir, "assistants/runtimes/2026.9.8-node26.7.0-lock1");
+  const runtime = path.join(dataDir, "assistants/runtimes/2026.9.9-node26.7.0-lock1");
   return {
     dataDir,
     runtime,
@@ -25,7 +25,7 @@ test("contracts use the runtime the installer's --with-assistants step selected"
   const env = await provisionContractRuntime(dataDir, {
     provision: async (options) => {
       calls.push(options);
-      return { status: "ready", version: "2026.9.8" };
+      return { status: "ready", version: "2026.9.9" };
     },
     select,
   });
@@ -51,7 +51,7 @@ test("a failed or staged provisioning stops before any contract runs", async (t)
   const { dataDir, select } = fixture(t);
   for (const result of [
     { status: "failed", code: "RUNTIME_PROVISIONING_FAILED" },
-    { status: "staged", version: "2026.9.8", selected: "2026.9.7" },
+    { status: "staged", version: "2026.9.9", selected: "2026.9.8" },
     null,
   ])
     await assert.rejects(
