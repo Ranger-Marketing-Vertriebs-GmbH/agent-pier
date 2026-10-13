@@ -46,7 +46,10 @@ export function runTestFiles({
               `--test-reporter-destination=${events}`,
             ]
           : []),
-        ...(testTimeout ? [`--test-timeout=${testTimeout}`] : []),
+        // Since Node 24 a file whose timed-out test leaves a handle open (a timer,
+        // a socket) never exits, and the runner waits for it forever. Exiting once
+        // the file's tests are done makes the per-test timeout end the file.
+        ...(testTimeout ? [`--test-timeout=${testTimeout}`, "--test-force-exit"] : []),
         ...nodeArgs,
         ...selected,
       ],

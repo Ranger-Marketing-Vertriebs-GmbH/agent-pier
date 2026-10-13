@@ -32,9 +32,13 @@ function runnerRoot(t, tests) {
 function runFiles(root, args) {
   const { NODE_TEST_CONTEXT, GITHUB_STEP_SUMMARY, ...env } = process.env;
   (void NODE_TEST_CONTEXT, GITHUB_STEP_SUMMARY);
+  // spawnSync blocks this test's event loop, so its own timeout cannot fire:
+  // bound the nested run so a hanging runner fails here instead of the CI job.
   return spawnSync(process.execPath, ["scripts/test-files.mjs", ...args], {
     cwd: root,
     encoding: "utf8",
+    timeout: 120000,
+    killSignal: "SIGKILL",
     env: { ...env, GITHUB_STEP_SUMMARY: path.join(root, "summary.md") },
   });
 }
@@ -130,6 +134,9 @@ test("a hung test fails its file at the per-test timeout", (t) => {
   });
   const started = Date.now();
   const result = runFiles(root, ["--retry", "--test-timeout", "500", "hang.test.js"]);
+  // Regression: on Node 24+ the file kept running after the timeout because
+  // the test's interval held its event loop open, and the CI job hung.
+  assert.equal(result.signal, null, "the runner must end on its own");
   assert.equal(result.status, 1);
   assert.match(result.stdout, /FAILED twice: hang\.test\.js/);
   assert.ok(Date.now() - started < 30000);
