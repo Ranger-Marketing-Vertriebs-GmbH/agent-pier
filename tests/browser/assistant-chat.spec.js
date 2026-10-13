@@ -254,6 +254,7 @@ test("a streamed reply grows across Gateway delta frames", async ({ page }) => {
     { deltaText: " neuen Meldungen." },
   ];
   const bubble = page.locator(".assistant-message.assistant");
+  const content = bubble.locator(".message-content");
   for (const [frame, expected] of frames.map((f, i) => [
     f,
     ["Noch", "Noch keine", "Noch keine neuen Meldungen."][i],
@@ -261,7 +262,7 @@ test("a streamed reply grows across Gateway delta frames", async ({ page }) => {
     const text = streams.delta({ sessionKey: "s", runId: "r", state: "delta", ...frame });
     await emit(page, { type: "delta", conversationId: "dinner", runId: "r", text });
     await expect(bubble).toHaveCount(1);
-    await expect(bubble).toContainText(expected);
+    await expect(content).toHaveText(expected);
   }
   state.messages.push({
     id: "done",
@@ -270,7 +271,7 @@ test("a streamed reply grows across Gateway delta frames", async ({ page }) => {
   });
   await emit(page, { type: "change" });
   await expect(bubble).toHaveCount(1);
-  await expect(bubble).toContainText("Noch keine neuen Meldungen.");
+  await expect(content).toHaveText("Noch keine neuen Meldungen.");
 });
 
 test("coding run notes show the outcome with a link to the run", async ({ page }) => {

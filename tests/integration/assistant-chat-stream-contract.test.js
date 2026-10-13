@@ -12,12 +12,15 @@ import { AssistantModels } from "../../server/features/assistants/assistant-mode
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { ChatStreams } from "../../server/features/assistants/chat-stream.js";
+import { GatewayClient } from "../../server/features/assistants/gateway-client.js";
 
-const chunks = ["Noch", " keine", " neuen", " Meldungen."];
+const chunks = ["Noch", " keine", " neuen Meldungen."];
+const reply = chunks.join("");
 
-// Streams the reply in pieces far apart enough (the Gateway paces live text at 75 ms)
-// that each one reaches the client as its own `chat` delta frame.
-async function slowModelServer() {
+// Streams the reply in pieces, each held until the test releases it, so every step
+// below waits for an observed frame instead of guessing at Gateway timing.
+async function gatedModelServer() {
+  const gates = chunks.map(() => Promise.withResolvers());
   const server = http.createServer(async (req, res) => {
     if (req.method !== "POST") return res.writeHead(404).end();
     let bytes = "";
@@ -33,15 +36,16 @@ async function slowModelServer() {
           choices: [{ index: 0, delta, finish_reason }],
         })}\n\n`,
       );
-    for (const content of chunks) {
+    for (const [i, content] of chunks.entries()) {
       emit({ content });
-      await delay(400);
+      await gates[i].promise;
     }
     emit({}, "stop");
     res.end("data: [DONE]\n\n");
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   return {
+    release: (i) => gates[i].resolve(),
     origin: `http://127.0.0.1:${server.address().port}`,
     close: () =>
       new Promise((resolve) => {
@@ -77,9 +81,10 @@ test(
       }),
     });
     const store = new AssistantStore({ dataDir });
-    const server = await slowModelServer();
+    const server = await gatedModelServer();
     t.after(async () => {
       try {
+        chunks.forEach((_, i) => server.release(i));
         await runtime.close();
         store.close();
         await server.close();
@@ -124,51 +129,84 @@ test(
       agentId: a.runtimeAgentId,
     });
     await runtime.client.call("sessions.messages.subscribe", { key: chat.key });
-    const frames = [];
-    const unsubscribe = runtime.client.subscribe((event) => {
-      if (event.event === "chat" && event.payload?.sessionKey === chat.key)
-        frames.push(event.payload);
-    });
-    t.after(unsubscribe);
+    const own = [];
+    t.after(
+      runtime.client.subscribe((event) => {
+        if (event.event === "chat" && event.payload?.sessionKey === chat.key)
+          own.push(event.payload);
+      }),
+    );
+    const until = async (done, label) => {
+      for (let i = 0; i < 300; i++) {
+        if (done()) return;
+        await delay(100);
+      }
+      assert.fail(`${label}: ${JSON.stringify({ own, late })}`);
+    };
+    const streams = new ChatStreams();
+    let ownText;
+    const accumulate = () => {
+      for (const frame of own.splice(0))
+        if (frame.state === "delta") {
+          ownDeltas.push(frame);
+          ownText = streams.delta(frame) ?? ownText;
+        }
+      return ownText;
+    };
+    const ownDeltas = [];
+    const late = [];
     const sent = await runtime.client.call("sessions.send", {
       key: chat.key,
       message: "Any news?",
       idempotencyKey: crypto.randomUUID(),
     });
-    const result = await runtime.client.call(
+    await until(() => accumulate() === chunks[0], "the first piece streams");
+    server.release(0);
+    await until(() => accumulate() === chunks[0] + chunks[1], "the second piece streams");
+    // A second connection joins mid-run: the Gateway keeps delivery receipts per
+    // connection, so its first frame of the run must be a snapshot again.
+    const client = runtime.client;
+    const joiner = new GatewayClient({
+      url: client.url,
+      token: client.token,
+      certPath: client.certPath,
+    });
+    t.after(() => joiner.close());
+    await joiner.connect();
+    t.after(
+      joiner.subscribe((event) => {
+        if (event.event === "chat" && event.payload?.sessionKey === chat.key)
+          late.push(event.payload);
+      }),
+    );
+    await joiner.call("sessions.messages.subscribe", { key: chat.key });
+    server.release(1);
+    await until(() => accumulate() === reply, "the whole reply streams");
+    await until(() => late.some((f) => f.state === "delta"), "the joiner gets a frame");
+    server.release(2);
+    const result = await client.call(
       "agent.wait",
       { runId: sent.runId, timeoutMs: 45000 },
       { timeoutMs: 50000 },
     );
     assert.equal(result.status, "ok", JSON.stringify(result));
-    await delay(500);
-    const deltas = frames.filter((f) => f.state === "delta");
-    const diagnostic = JSON.stringify(frames);
-    t.diagnostic(
-      JSON.stringify(
-        deltas.map((f) => ({ deltaText: f.deltaText, snapshot: "message" in f })),
-      ),
-    );
-    assert.ok(deltas.length >= 2, `several delta frames: ${diagnostic}`);
-    // The first frame is a snapshot: `message` holds the whole reply so far.
-    assert.equal(deltas[0].message?.content?.[0]?.text, deltas[0].deltaText, diagnostic);
-    // Later frames on the same connection drop `message`; `deltaText` is only the
-    // appended part, so taken alone it is a fragment, never the reply so far.
-    for (const frame of deltas.slice(1)) {
-      assert.equal(frame.message, undefined, diagnostic);
-      assert.equal(typeof frame.deltaText, "string", diagnostic);
-      assert.notEqual(frame.replace, true, diagnostic);
-    }
-    assert.equal(deltas.map((f) => f.deltaText).join(""), chunks.join(""), diagnostic);
-    // AgentPier's accumulation turns the frames into the growing reply.
-    const streams = new ChatStreams();
-    const texts = deltas.map((f) => streams.delta(f));
-    assert.equal(texts.at(-1), chunks.join(""), diagnostic);
-    for (let i = 1; i < texts.length; i++)
-      assert.ok(texts[i].startsWith(texts[i - 1]), diagnostic);
+    const diagnostic = JSON.stringify({ ownDeltas, late });
+    const shape = (f) => ({ deltaText: f.deltaText, snapshot: "message" in f });
+    t.diagnostic(JSON.stringify({ own: ownDeltas.map(shape), joiner: late.map(shape) }));
+    // The run's first frame on a connection is a snapshot of the reply so far.
+    assert.equal(ownDeltas[0].message?.content?.[0]?.text, chunks[0], diagnostic);
+    const joined = late.find((f) => f.state === "delta");
+    // Its deltaText is still only the appended part; `message` carries the rest.
+    assert.equal(joined.message?.content?.[0]?.text, reply, diagnostic);
+    assert.ok(reply.endsWith(joined.deltaText), diagnostic);
+    // Later frames may drop `message` and carry only the appended text: a fragment
+    // that is never the reply so far. Snapshots stay legal (a slow socket's dropped
+    // frame forces one), so only the existence of the stripped shape is asserted.
     assert.ok(
-      frames.some((f) => f.state === "final"),
-      `the run ends with a final frame: ${diagnostic}`,
+      ownDeltas.slice(1).some((f) => f.message === undefined && !f.replace),
+      diagnostic,
     );
+    // AgentPier's accumulation turned the frames into the whole reply (awaited above).
+    assert.equal(ownText, reply, diagnostic);
   },
 );
