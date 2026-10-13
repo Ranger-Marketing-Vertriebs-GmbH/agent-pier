@@ -1,0 +1,80 @@
+name: Browser shard
+description: Build the app and run one Playwright shard in one browser.
+inputs:
+  browser:
+    description: chromium or webkit
+    required: true
+  shard:
+    description: This shard's number, from 1
+    required: true
+  total:
+    description: The number of shards
+    required: true
+  specs:
+    description: Space-separated spec files; empty runs every spec
+    required: false
+    default: ""
+  repeat-timing-regressions:
+    description: Also repeat the known WebKit timing regressions without retries
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      with:
+        node-version: 24
+        cache: npm
+    - name: Install browser test prerequisites
+      shell: bash
+      run: |
+        # Playwright downloads its own browsers; the runner's Chrome APT
+        # repository is unnecessary and can fail while its index is updating.
+        sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+        sudo apt-get update
+        sudo apt-get install -y tmux
+    - shell: bash
+      run: npm ci
+    - name: Restore the Playwright browser
+      id: playwright-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ inputs.browser }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+    - if: steps.playwright-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npx playwright install --with-deps "$BROWSER"
+      env:
+        BROWSER: ${{ inputs.browser }}
+    - if: steps.playwright-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: npx playwright install-deps "$BROWSER"
+      env:
+        BROWSER: ${{ inputs.browser }}
+    - shell: bash
+      run: npm run build
+    # Word splitting of $SPECS is intended: one spec path per word.
+    - shell: bash
+      run: npm run test:e2e -- --shard="$SHARD/$TOTAL" $SPECS
+      env:
+        AGENTPIER_TEST_BROWSER: ${{ inputs.browser }}
+        SHARD: ${{ inputs.shard }}
+        TOTAL: ${{ inputs.total }}
+        SPECS: ${{ inputs.specs }}
+    # Known WebKit timing regressions, repeated without the CI retry so one
+    # failed repetition fails.
+    - name: Repeat WebKit timing regressions
+      if: inputs.repeat-timing-regressions == 'true'
+      shell: bash
+      run: >-
+        npx playwright test tests/browser/model-control.spec.js tests/browser/chat-upload-recovery.spec.js
+        --grep 'two tabs retry|model field.*390x500|model errors remain'
+        --repeat-each=5 --retries=0
+      env:
+        AGENTPIER_TEST_BROWSER: ${{ inputs.browser }}
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      if: failure()
+      with:
+        name: browser-failure-${{ inputs.browser }}-${{ inputs.shard }}
+        path: test-results/
+        retention-days: 7
