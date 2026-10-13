@@ -137,6 +137,8 @@ export class AssistantService {
   }
   list() {
     assertWired(this);
+    // The agents page shows the ChatGPT model lists; stale ones load in the background.
+    this.accounts?.ensureModels?.();
     const teamData = this.teams?.list();
     const assistants = this.store.listAssistants().map((a) => this.withMcp(a));
     const conversations = this.store
