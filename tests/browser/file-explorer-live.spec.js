@@ -7,6 +7,7 @@ import {
   openExplorerDisclosure,
   openExplorerPanel,
 } from "../helpers/file-explorer-layout.js";
+import { waitForFileJob } from "../helpers/file-explorer.js";
 import { chooseLanguage } from "../helpers/settings.js";
 
 async function cleanupAll(cleanups) {
@@ -236,10 +237,25 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
       .filter({ hasText: "Deleted" })
       .getByRole("checkbox", { name: "Select document.txt", exact: true })
       .check();
+    // Wait for the restore job itself, not for a 5 s disk poll: a cold WebKit run
+    // needs longer to submit the job and the server to finish it.
+    const restoreSubmitted = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/files/operations" &&
+        response.request().postDataJSON()?.kind === "restore",
+      { timeout: 60000 },
+    );
     await page.getByRole("button", { name: "Restore", exact: true }).click();
-    await expect
-      .poll(() => readTextWhenPresent(document))
-      .toBe(process.platform === "darwin" ? "local-edit" : "external");
+    const restoreResponse = await restoreSubmitted;
+    expect(restoreResponse.status()).toBe(202);
+    const restore = await waitForFileJob(f, (await restoreResponse.json()).id, {
+      timeout: 60000,
+    });
+    expect(restore.status).toBe("completed");
+    expect(await readTextWhenPresent(document)).toBe(
+      process.platform === "darwin" ? "local-edit" : "external",
+    );
     // Let the job-triggered Trash refresh settle before leaving the page.
     await expect(
       page
