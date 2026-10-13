@@ -119,7 +119,9 @@ test("a turn with files reaches sessions.send in the shape the pinned Gateway ac
   });
   const [text, note] = params.message.split("\n\n");
   assert.equal(text, "Look at these.");
-  const paths = [...note.matchAll(/^- (attachments\/\S+)/gm)].map((m) => m[1]);
+  const paths = [...note.matchAll(/^- ("attachments\/[^"]+")/gm)].map((m) =>
+    JSON.parse(m[1]),
+  );
   assert.equal(paths.length, 2);
   for (const file of paths)
     assert.ok(fs.statSync(path.join(workspaces, a.id, file)).isFile(), file);
@@ -193,7 +195,7 @@ test("files alone are a message, and members only reach their own uploads", asyn
     attachments: [own.id],
   });
   const message = sent.at(-1).message;
-  assert.match(message, /^\[Attached files, saved in your workspace\]\n- attachments\//);
+  assert.match(message, /^\[Files attached by the owner, [^\n]*\]\n- "attachments\//);
   assert.equal(sent.at(-1).attachments, undefined);
   assert.equal(
     fs.readdirSync(path.join(workspaces, member.a.id, "attachments")).length,
@@ -204,4 +206,22 @@ test("files alone are a message, and members only reach their own uploads", asyn
     service.send(lead.c.id, { clientRequestId: "bad", text: "x", attachments: "id" }),
     { status: 400 },
   );
+});
+
+test("a retried delivery key cannot add files to an accepted message (M6)", async (t) => {
+  const { service, sent, agent } = setup(t);
+  const { c } = agent("lead");
+  await service.send(c.id, { clientRequestId: "plain", text: "Hello" });
+  const late = await service.attachments.stage(c.id, "late.md", Buffer.from("x"));
+  await assert.rejects(
+    service.send(c.id, {
+      clientRequestId: "plain",
+      text: "Hello",
+      attachments: [late.id],
+    }),
+    { status: 409 },
+  );
+  assert.equal(sent.length, 1);
+  const page = await service.history(c.id);
+  assert.equal(page.requests[0].attachments, undefined);
 });

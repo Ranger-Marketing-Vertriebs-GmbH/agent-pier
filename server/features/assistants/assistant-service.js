@@ -459,7 +459,7 @@ export class AssistantService {
         .find((r) => r.clientRequestId === input.clientRequestId);
       if (existing) {
         const request = this.ledger.accept(conversationId, input);
-        this.attachments.claim(conversationId, input.attachments, request.id);
+        this.attachments.claim(conversationId, input.attachments, request.id, true);
         this.teams?.store.recordContext(request.id, context);
         return { request, attempt: this.ledger.attemptFor(request.id) };
       }

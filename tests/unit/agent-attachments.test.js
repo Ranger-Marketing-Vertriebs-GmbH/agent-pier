@@ -6,7 +6,10 @@ import path from "node:path";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
 import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
-import { MAX_ATTACHMENT_BYTES } from "../../server/features/assistants/agent-attachment-types.js";
+import {
+  MAX_ATTACHMENT_BYTES,
+  NOTE_HEADER,
+} from "../../server/features/assistants/agent-attachment-types.js";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
@@ -19,7 +22,7 @@ const heic = Buffer.concat([
   Buffer.from("mif1heic"),
 ]);
 
-function setup(t, { images = true, now = () => Date.now() } = {}) {
+function setup(t, { images = true, now = () => Date.now(), hooks } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-attachments-"));
   const workspaces = path.join(dataDir, "workspaces");
   fs.mkdirSync(workspaces, { mode: 0o700 });
@@ -51,6 +54,7 @@ function setup(t, { images = true, now = () => Date.now() } = {}) {
     models: new AssistantModels({ connections }),
     config: { workspaces },
     now,
+    hooks,
   });
   return { store, attachments, agent, workspaces };
 }
@@ -177,13 +181,13 @@ test("a request claims its uploads once and delivers images the model can see", 
   const delivery = await attachments.delivery({ id: "r1", text: "Look at this." }, a.id);
   const lines = delivery.message.split("\n");
   assert.equal(lines[0], "Look at this.");
-  assert.equal(lines[2], "[Attached files, saved in your workspace]");
+  assert.equal(lines[2], NOTE_HEADER);
   assert.match(
     lines[3],
-    /^- attachments\/\d{8}-\d{6}-[0-9a-f]{8}-photo\.png \(image\/png, 0\.1 KB\)$/,
+    /^- "attachments\/\d{8}-\d{6}-[0-9a-f]{8}-photo\.png" \(image\/png, 0\.1 KB\)$/,
   );
-  assert.match(lines[4], /IMG_0001\.HEIC \(image\/heic, /);
-  assert.match(lines[5], /notes\.md \(text\/plain, /);
+  assert.match(lines[4], /IMG_0001\.HEIC" \(image\/heic, /);
+  assert.match(lines[5], /notes\.md" \(text\/plain, /);
   // Only the PNG goes inline: HEIC and text reach the agent as workspace files.
   assert.deepEqual(delivery.attachments, [
     {
@@ -208,7 +212,7 @@ test("a request claims its uploads once and delivers images the model can see", 
   const only = await attachments.stage(c.id, "only.txt", Buffer.from("x"));
   attachments.claim(c.id, [only.id], "r3");
   const alone = await attachments.delivery({ id: "r3", text: "" }, a.id);
-  assert.match(alone.message, /^\[Attached files, saved in your workspace\]\n- /);
+  assert.ok(alone.message.startsWith(`${NOTE_HEADER}\n- "attachments/`));
   // A text-only model receives no inline images, only the saved paths.
   const textOnly = agent("text-only", "router");
   assert.equal(attachments.imageInput(textOnly.a.id), false);
@@ -242,4 +246,107 @@ test("content is served from the owning workspace only and never through links",
   await attachments.purge(a.id);
   assert.equal(fs.existsSync(folder), false);
   assert.equal(attachments.forConversation(c.id).size, 0);
+});
+
+test("a folder swapped for a link during the write receives nothing (M1)", async (t) => {
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "agent-attachments-swap-"));
+  t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+  let swap = false;
+  const { attachments, agent } = setup(t, {
+    hooks: {
+      checked: (folder) => {
+        if (!swap) return;
+        fs.renameSync(folder.path, `${folder.path}-moved`);
+        fs.symlinkSync(outside, folder.path);
+      },
+    },
+  });
+  const { c } = agent("lead");
+  swap = true;
+  await assert.rejects(attachments.stage(c.id, "evil.md", Buffer.from("owner data")), {
+    status: 409,
+    key: "attachmentStorageUnsafe",
+  });
+  assert.deepEqual(fs.readdirSync(outside), []);
+  assert.equal(attachments.forConversation(c.id).size, 0);
+});
+
+test("reads refuse hard links, swapped and grown copies (M1, M2)", async (t) => {
+  const { attachments, agent, workspaces } = setup(t);
+  const { a, c } = agent("lead");
+  const folder = path.join(workspaces, a.id, "attachments");
+  const fileOf = (name) => fs.readdirSync(folder).find((f) => f.endsWith(name));
+  const linked = await attachments.stage(c.id, "linked.png", png);
+  fs.linkSync(
+    path.join(folder, fileOf("linked.png")),
+    path.join(workspaces, "elsewhere.png"),
+  );
+  await assert.rejects(attachments.content(linked.id), { status: 404 });
+  const swapped = await attachments.stage(c.id, "swapped.png", png);
+  const target = path.join(folder, fileOf("swapped.png"));
+  fs.rmSync(target);
+  fs.writeFileSync(target, png);
+  await assert.rejects(attachments.content(swapped.id), { status: 404 });
+  const grown = await attachments.stage(c.id, "grown.png", png);
+  fs.appendFileSync(path.join(folder, fileOf("grown.png")), Buffer.alloc(7 * 1048576));
+  await assert.rejects(attachments.content(grown.id), { status: 404 });
+  // Nothing of these goes inline, whatever the index once recorded.
+  attachments.claim(c.id, [linked.id, swapped.id, grown.id], "r");
+  const turn = await attachments.delivery({ id: "r", text: "x" }, a.id);
+  assert.equal(turn.attachments, undefined);
+  const fine = await attachments.stage(c.id, "fine.png", png);
+  assert.deepEqual((await attachments.content(fine.id)).body, png);
+});
+
+test("stored names stay within 255 UTF-8 bytes (M4)", async (t) => {
+  const { attachments, agent, workspaces } = setup(t);
+  const { a, c } = agent("lead");
+  const stored = await attachments.stage(
+    c.id,
+    `${"写".repeat(300)}.txt`,
+    Buffer.from("x"),
+  );
+  assert.ok(Buffer.byteLength(stored.name) <= 200);
+  const [file] = fs.readdirSync(path.join(workspaces, a.id, "attachments"));
+  assert.ok(Buffer.byteLength(file) <= 255, `${Buffer.byteLength(file)} bytes`);
+  const forced = await attachments.stage(c.id, `${"写".repeat(300)}`, png);
+  assert.ok(forced.name.length > 0);
+  for (const name of fs.readdirSync(path.join(workspaces, a.id, "attachments")))
+    assert.ok(Buffer.byteLength(name) <= 255);
+});
+
+test("the index follows the folder and a failed insert leaves no file (M5)", async (t) => {
+  const { attachments, agent, workspaces } = setup(t);
+  const { a, c } = agent("lead");
+  const folder = path.join(workspaces, a.id, "attachments");
+  const sent = await attachments.stage(c.id, "sent.md", Buffer.from("x"));
+  attachments.claim(c.id, [sent.id], "r1");
+  // The agent deletes its copy: the next upload drops the stale row.
+  fs.rmSync(path.join(folder, fs.readdirSync(folder)[0]));
+  await attachments.stage(c.id, "next.md", Buffer.from("y"));
+  assert.equal(attachments.files("r1").length, 0);
+  // Files the agent put there itself count against the quota as well.
+  for (let n = 0; n < 1000; n++) fs.writeFileSync(path.join(folder, `junk-${n}`), "");
+  await assert.rejects(attachments.stage(c.id, "full.md", Buffer.from("z")), {
+    status: 409,
+    key: "attachmentStorageFull",
+  });
+  for (let n = 0; n < 1000; n++) fs.rmSync(path.join(folder, `junk-${n}`));
+  const before = fs.readdirSync(folder).length;
+  attachments.index = () => {
+    throw Error("database is locked");
+  };
+  await assert.rejects(attachments.stage(c.id, "lost.md", Buffer.from("z")));
+  assert.equal(fs.readdirSync(folder).length, before);
+});
+
+test("an accepted request cannot gain files on a retry (M6)", async (t) => {
+  const { attachments, agent } = setup(t);
+  const { c } = agent("lead");
+  const late = await attachments.stage(c.id, "late.md", Buffer.from("x"));
+  assert.deepEqual(attachments.claim(c.id, [], "accepted", true), []);
+  assert.throws(() => attachments.claim(c.id, [late.id], "accepted", true), {
+    status: 409,
+  });
+  assert.equal(attachments.files("accepted").length, 0);
 });
