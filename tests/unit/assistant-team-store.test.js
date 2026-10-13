@@ -115,6 +115,8 @@ test("fifth member and competing approvals do not allocate profiles or exceed pa
   );
   f.teams.decide(p.id, { revision: 1, decision: "decline" }, { kind: "owner" });
   assert.equal(f.teams.get(p.id).phase, "declined");
+  // The decline is when the proposal ended; the lead's chat notes it there.
+  assert.ok(Date.parse(f.teams.get(p.id).finishedAt) >= Date.parse(p.createdAt));
 });
 test("one request authorization admits one proposal and rejects later policy revision edits", (t) => {
   const f = fixture(t);

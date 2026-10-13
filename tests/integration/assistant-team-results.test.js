@@ -125,3 +125,28 @@ test("an owner stop before any member completed skips the synthesis", async (t) 
   assert.equal(current.resultState, "skipped");
   assert.equal(current.resultDiagnostic, "TEAM_CANCELLED");
 });
+test("a team records when it ended and serves that time for the lead's chat note", async (t) => {
+  const f = teamFixture(t),
+    { team, attempt } = await f.proposal({ count: 1 });
+  await f.service.reconcile();
+  assert.equal(f.service.list().teams[0].finishedAt, undefined);
+  f.complete(f.service.store.members(team.id)[0].attemptId);
+  await f.service.reconcile();
+  const ended = f.service.store.get(team.id);
+  assert.equal(ended.phase, "completed");
+  assert.ok(Date.parse(ended.finishedAt) >= Date.parse(ended.createdAt));
+  assert.equal(f.service.list().teams[0].finishedAt, ended.finishedAt);
+  f.assistants.ledger.transition(attempt.id, "completed");
+  await f.service.reconcile();
+  // A team that ended before the time was recorded ends at its synthesis turn.
+  const { finishedAt: _recorded, ...legacy } = f.service.store.get(team.id);
+  assert.ok(legacy.resultAttemptId);
+  assert.equal(
+    f.service.project(legacy).finishedAt,
+    f.assistants.ledger.getAttempt(legacy.resultAttemptId).createdAt,
+  );
+  assert.equal(
+    f.service.project({ ...legacy, resultAttemptId: "missing" }).finishedAt,
+    undefined,
+  );
+});
