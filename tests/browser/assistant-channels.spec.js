@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
+import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 async function setup(page) {
   await fixture(page);
@@ -110,7 +111,7 @@ test("Telegram pairing and unknown delivery recovery remain visible in mobile ag
 }) => {
   const state = await setup(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const panel = page.getByRole("region", { name: "Telegram" });
   await panel.getByLabel("Telegram bot token").fill("123456:synthetic-token-for-test");
   await panel.getByRole("button", { name: "Connect Telegram" }).click();
@@ -134,6 +135,7 @@ test("Telegram pairing and unknown delivery recovery remain visible in mobile ag
       },
     ],
   };
+  await panel.getByRole("link", { name: /^Telegram activity/ }).click();
   await expect(panel.getByText("Dinner ideas")).toBeVisible();
   await expect(
     panel.getByText("Delivery outcome unknown", { exact: true }),
@@ -178,7 +180,7 @@ test("the oldest blocked input remains actionable behind twenty newer inputs", a
       })),
     ],
   };
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram", "telegram-activity"));
   const panel = page.getByRole("region", { name: "Telegram" });
   await expect(panel.getByText("Oldest blocked input")).toBeVisible();
   await panel.getByRole("button", { name: "Acknowledge without resending" }).click();
@@ -210,11 +212,12 @@ test("an answer without text and a full queue are explained and reviewable", asy
       },
     ],
   };
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const panel = page.getByRole("region", { name: "Telegram" });
   await expect(
     panel.getByText("The Telegram queue is full.", { exact: false }),
   ).toBeVisible();
+  await panel.getByRole("link", { name: /^Telegram activity/ }).click();
   await expect(panel.getByText("Answer without text", { exact: true })).toBeVisible();
   await expect(
     panel.getByText("finished without a text answer", { exact: false }),
@@ -287,7 +290,7 @@ test("mobile recovery keeps uncertain team notifications separate from original 
     route.fulfill({ json: { entries: [] } }),
   );
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram", "telegram-activity"));
   await expect(page.getByText("Team notification", { exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: "Acknowledge without resending", exact: true })
@@ -299,7 +302,7 @@ test("Telegram links use the browser address, which the owner can change", async
   page,
 }) => {
   const state = await setup(page);
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const panel = page.getByRole("region", { name: "Telegram" });
   await panel.getByLabel("Telegram bot token").fill("123456:synthetic-token-for-test");
   await panel.getByRole("button", { name: "Connect Telegram" }).click();
@@ -312,6 +315,7 @@ test("Telegram links use the browser address, which the owner can change", async
   state.channel = {
     ...state.channel,
     appUrl: origin,
+    language: "en",
     enabled: true,
     chatId: "42",
     ignoredMessages: { private: 2, group: 1 },
@@ -325,18 +329,23 @@ test("Telegram links use the browser address, which the owner can change", async
       },
     ],
   };
+  await panel.getByRole("link", { name: /^Connection/ }).click();
   await expect(
     panel.getByText("Ignored messages: 2 from other private chats, 1 from groups."),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Back to Telegram" }).click();
+  await panel.getByRole("link", { name: /^Telegram activity/ }).click();
   await expect(panel.getByText(/Deepgram balance or quota is exhausted/)).toBeVisible();
   await expect(panel.getByText('{"err_msg":"Insufficient credits"}')).toBeVisible();
+  await page.getByRole("button", { name: "Back to Telegram" }).click();
   const address = panel.getByLabel("AgentPier address for links");
   await expect(address).toHaveValue(origin);
   await address.fill("https://pier.example");
-  await panel.getByRole("button", { name: "Save address" }).click();
+  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => state.patched?.appUrl).toBe("https://pier.example");
   await expect(address).toHaveValue("https://pier.example");
   await panel.getByLabel("Language of Telegram notices").selectOption("de");
+  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => state.patched?.language).toBe("de");
   expect(state.patched.appUrl).toBeUndefined();
 });

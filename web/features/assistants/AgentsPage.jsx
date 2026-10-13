@@ -1,11 +1,11 @@
-import AssistantHeader from "./AssistantHeader.jsx";
 import { avatarGlyph } from "./avatar-glyph.js";
 import React, { useEffect, useRef, useState } from "react";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useAssistants from "./useAssistants.js";
 import { assistantApi } from "./assistant-api.js";
-import AssistantSettings from "./AssistantSettings.jsx";
+import AgentCreate from "./settings/AgentCreate.jsx";
+import AgentSettingsPage from "./settings/AgentSettingsPage.jsx";
 import AssistantChat from "./AssistantChat.jsx";
 import useSessionViewport from "../sessions/useSessionViewport.js";
 import { connectionMissing } from "./connection-state.js";
@@ -14,7 +14,6 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
     assistants,
     teams = [],
     models = [],
-    runtime,
     error: loadError,
     refresh,
   } = useAssistants();
@@ -73,58 +72,16 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
     );
   if (route.agentSettings && assistant)
     return (
-      <section className="assistant-detail assistant-settings-page">
-        <AssistantHeader
-          assistant={assistant}
-          variant="settings"
-          navigate={navigate}
-          onBack={() => back(assistant)}
-          openNavigation={openNavigation}
-          navigationOpen={navigationOpen}
-        />
-        <div className="assistant-settings-scroll">
-          <ErrorMessage error={error || loadError} />
-          <div className="assistant-settings-layout">
-            <div className="assistant-settings-main">
-              <AssistantSettings
-                key={assistant.id}
-                assistant={assistant}
-                navigate={navigate}
-                onSaved={() => {}}
-                onCancel={() => open(assistant)}
-              />
-            </div>
-            <aside className="assistant-runtime-card assistant-operation-summary">
-              <h2>{copy.runtime}</h2>
-              <p className="assistant-note">{copy.runtimeDescription}</p>
-              {copy.runtimeDiagnostics[runtime.diagnostic] && (
-                <p role="status" className="assistant-notice">
-                  {copy.runtimeDiagnostics[runtime.diagnostic]}
-                </p>
-              )}
-              <dl>
-                <div>
-                  <dt>{copy.serviceState}</dt>
-                  <dd>{copy.status[runtime.availability]}</dd>
-                </div>
-                <div>
-                  <dt>{copy.syncState}</dt>
-                  <dd>{copy.status[runtime.sync]}</dd>
-                </div>
-              </dl>
-              <button
-                type="button"
-                className="button secondary"
-                onClick={() =>
-                  navigate({ view: "settings", settingsSection: "assistants" })
-                }
-              >
-                {copy.runtimeLink}
-              </button>
-            </aside>
-          </div>
-        </div>
-      </section>
+      <AgentSettingsPage
+        key={assistant.id}
+        assistant={assistant}
+        route={route}
+        navigate={navigate}
+        onBack={() => back(assistant)}
+        openNavigation={openNavigation}
+        navigationOpen={navigationOpen}
+        error={error || loadError}
+      />
     );
   return (
     <div className="page assistants-page">
@@ -150,11 +107,15 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
             {copy.create}
           </button>
           {creating && (
-            <AssistantSettings
+            <AgentCreate
               navigate={navigate}
-              onSaved={(a) => {
+              onCreated={(created) => {
                 setCreating(false);
-                navigate({ view: "agents", assistantId: a.id, agentSettings: true });
+                navigate({
+                  view: "agents",
+                  assistantId: created.id,
+                  agentSettings: true,
+                });
               }}
               onCancel={() => setCreating(false)}
             />

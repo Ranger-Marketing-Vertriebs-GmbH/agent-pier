@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
+import { settingsPath } from "../helpers/agent-settings-page.js";
+import { connectedChannel } from "../helpers/assistant-settings-browser.js";
 import { fixture } from "./providers-fixture.js";
 async function setup(page) {
   await fixture(page);
@@ -33,6 +35,8 @@ async function setup(page) {
         contentType: "text/event-stream",
         body: 'data: {"type":"connected"}\n\n',
       });
+    else if (path === "/api/assistant-channels")
+      body = { channels: [connectedChannel()] };
     else if (path.endsWith("/routines")) {
       if (method === "POST") {
         state.created = route.request().postDataJSON();
@@ -66,8 +70,9 @@ async function setup(page) {
 }
 test("English routines create a daily prompt, pause and remove it", async ({ page }) => {
   const state = await setup(page);
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const panel = page.getByRole("region", { name: "Routines" });
+  await panel.getByRole("button", { name: "+ Routine" }).click();
   await panel.getByLabel("Routine name").fill("Meal plan");
   await panel.getByLabel("Task prompt").fill("Make a vegetarian meal plan.");
   await panel.getByLabel("Routine time", { exact: true }).fill("18:30");
@@ -77,6 +82,7 @@ test("English routines create a daily prompt, pause and remove it", async ({ pag
     .poll(() => state.created?.trigger)
     .toEqual({ kind: "cron", expr: "30 18 * * *", tz: "Europe/Berlin" });
   await expect(panel.getByText("Daily at 18:30 (Europe/Berlin)")).toBeVisible();
+  await panel.getByRole("button", { name: /^Meal plan/ }).click();
   await panel.getByRole("button", { name: "Pause routine" }).click();
   await expect(panel.getByRole("button", { name: "Resume routine" })).toBeVisible();
   await panel.getByRole("button", { name: "Remove routine" }).click();
@@ -86,8 +92,9 @@ test("event routines distinguish manual and coding events and show unknown deliv
   page,
 }) => {
   const state = await setup(page);
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const panel = page.getByRole("region", { name: "Routines" });
+  await panel.getByRole("button", { name: "+ Routine" }).click();
   await panel.getByLabel("Routine name").fill("Review summary");
   await panel.getByLabel("Task prompt").fill("Summarize what to review next.");
   await panel.getByLabel("Routine trigger").selectOption("event");
@@ -96,6 +103,7 @@ test("event routines distinguish manual and coding events and show unknown deliv
   await expect
     .poll(() => state.created?.trigger)
     .toEqual({ kind: "event", eventKind: "coding.completed" });
+  await panel.getByRole("button", { name: /^Review summary/ }).click();
   await panel.getByRole("button", { name: "Run once" }).click();
   await expect(
     panel.getByText(

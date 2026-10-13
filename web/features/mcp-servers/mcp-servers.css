@@ -119,25 +119,6 @@
 .mcp-stored {
   color: var(--muted);
 }
-.mcp-agent-options {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-.mcp-agent-options label {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-}
-.mcp-agent-options input[type="checkbox"] {
-  flex: none;
-  width: 18px;
-  height: 18px;
-}
 .mcp-team-servers {
   margin: 4px 0 0;
   font-size: 0.9em;

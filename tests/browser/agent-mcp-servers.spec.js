@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
+import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 
 const secret = "Bearer fixture-secret-token";
@@ -349,10 +350,10 @@ for (const [label, use] of [
         },
       );
       const notice = "Saved \u2014 will be applied to running agents shortly.";
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       const panel = page.getByRole("region", { name: "MCP servers" });
       await panel.getByLabel("docs").check();
-      await panel.getByRole("button", { name: "Save MCP servers" }).click();
+      await saveBar(page).getByRole("button", { name: "Save agent" }).click();
       await expect(panel.getByText(notice)).toBeVisible();
       expect(state.bindings).toEqual(["s1"]);
       await page.goto(baseURL + "/accounts");
@@ -370,15 +371,15 @@ for (const [label, use] of [
         { id: "s1", name: "docs", transport: "http", url: "https://a.example/mcp" },
         { id: "s2", name: "local", transport: "stdio", stdio: true, command: "/bin/x" },
       );
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       const panel = page.getByRole("region", { name: "MCP servers" });
       await panel.getByLabel("docs").check();
-      await panel.getByRole("button", { name: "Save MCP servers" }).click();
+      await saveBar(page).getByRole("button", { name: "Save agent" }).click();
       await expect(panel.getByText("MCP servers saved.")).toBeVisible();
       expect(state.bindings).toEqual(["s1"]);
       await panel.getByLabel(/local/).check();
-      await panel.getByRole("button", { name: "Save MCP servers" }).click();
-      const warning = panel.getByRole("alertdialog");
+      await saveBar(page).getByRole("button", { name: "Save agent" }).click();
+      const warning = page.getByRole("dialog", { name: "Give agents a local command?" });
       await expect(warning).toContainText("every session of every agent");
       expect(state.bindings).toEqual(["s1"]);
       if (label === "phone") await fits(page);
@@ -441,7 +442,7 @@ for (const [label, use] of [
 
     test("temporary members list their servers read only", async ({ page }) => {
       await setup(page);
-      await page.goto(baseURL + "/agents/temp-agent/settings");
+      await page.goto(baseURL + settingsPath("capabilities", undefined, "temp-agent"));
       const panel = page.getByRole("region", { name: "MCP servers" });
       await expect(panel).toContainText("Granted by the lead agent's team proposal");
       await expect(panel).toContainText("docs");

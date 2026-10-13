@@ -3,7 +3,6 @@ export const assistantWorkflowCopy = {
   hint: "Wähle die Projekte und Pipelines, die dieser Agent verwenden darf. Projektwissen bleibt von persönlichen Notizen getrennt.",
   projects: "Freigegebene Projekte",
   pipelines: "Freigegebene Pipelines",
-  permissions: "Aktionsberechtigungen",
   noResources:
     "Noch keine Einträge vorhanden. Richte zuerst Projekte und Pipelines in AgentPier ein.",
   memoryWrite: "Vorschläge zum Ändern von Projektwissen erlauben",
@@ -11,7 +10,6 @@ export const assistantWorkflowCopy = {
   publish: "Ausgewählten Pipelines das Veröffentlichen von Pull Requests erlauben",
   policyHint:
     "Änderungen am Projektwissen benötigen immer eine Freigabe. Coding-Aufträge ebenfalls, sofern oben nicht anders eingestellt. Speichern übernimmt die gewählte Pipeline- und Kontokonfiguration; nach Pipeline-Änderungen erneut speichern. Freigaben innerhalb der Pipeline bleiben erhalten.",
-  save: "Projektzugriff speichern",
   actions: "Aktionen und Coding-Aufträge",
   noActions:
     "Noch keine Aktionen. Bitte diesen Agenten im Chat, Projektwissen nachzuschlagen oder einen Coding-Auftrag vorzuschlagen.",

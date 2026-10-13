@@ -5,7 +5,6 @@ export const assistantProactivityCopy = {
   heartbeat: "Check in on its own",
   heartbeatDescription:
     "At set times the agent reads its conversation and notes and decides whether something needs your attention. Only then does it write in its chat, which also reaches your paired Telegram chat.",
-  heartbeatNeedsMemory: "Needs memory to be switched on above.",
   heartbeatChannel: "Needs a paired Telegram chat for this agent.",
   heartbeatReply:
     "Check-ins appear in the agent's chat, marked “Check-in:” on Telegram, so you can reply to them directly. A check-in that comes due while the agent is answering appears after that answer and may not know it yet.",

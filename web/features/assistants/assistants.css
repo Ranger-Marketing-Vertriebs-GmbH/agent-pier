@@ -151,13 +151,6 @@
   flex-basis: 100%;
   margin: 0;
 }
-.assistant-login-url {
-  overflow-wrap: anywhere;
-}
-.assistant-login-url a {
-  color: var(--accent);
-  text-decoration: underline;
-}
 .assistant-device-code {
   font-size: 22px;
   letter-spacing: 2px;
@@ -193,18 +186,6 @@
   height: 100%;
   overflow-y: auto;
 }
-.assistant-settings-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 270px;
-  gap: 24px;
-  margin-top: 28px;
-}
-.assistant-settings-main {
-  min-width: 0;
-}
-.assistant-settings-main > .assistant-form {
-  max-width: none;
-}
 .assistant-operation-summary {
   align-self: start;
   padding: 22px;
@@ -219,17 +200,9 @@
 .assistant-operation-summary dl {
   gap: 18px;
 }
-@media (max-width: 1000px) {
-  .assistant-settings-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 @media (max-width: 650px) {
   .assistant-detail {
     padding: 16px 12px;
-  }
-  .assistant-settings-layout {
-    margin-top: 18px;
   }
 }
 
@@ -250,13 +223,6 @@
 
 .assistant-member-provenance p {
   margin: 6px 0;
-}
-.assistant-personal-panel {
-  margin-top: 1.5rem;
-}
-.assistant-personal-panel form {
-  display: grid;
-  gap: 0.9rem;
 }
 .assistant-capability-options {
   border: 1px solid var(--line);

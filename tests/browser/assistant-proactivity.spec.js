@@ -1,24 +1,36 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
-import { setupAssistantSettings as setup } from "../helpers/assistant-settings-browser.js";
+import {
+  connectedChannel,
+  setupAssistantSettings as setup,
+} from "../helpers/assistant-settings-browser.js";
+import { agentTab, saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 
 test.use({ timezoneId: "Europe/Berlin" });
 const section = (page) => page.locator("#agent-proactivity");
 
 test("check-ins are off, need memory, explain their cost and save", async ({ page }) => {
-  const state = await setup(page);
-  await page.goto(baseURL + "/agents/home/settings");
+  const state = await setup(page, { channel: connectedChannel(), applyUpdates: true });
+  await page.goto(baseURL + settingsPath("telegram"));
   const proactivity = section(page);
   await expect(
     proactivity.getByRole("group", { name: "Acting on its own" }),
   ).toBeVisible();
   // Recall across conversations is not offered in this release.
   await expect(page.getByText("Remember across conversations")).toHaveCount(0);
-  const heartbeat = proactivity.getByRole("checkbox", { name: "Check in on its own" });
+  const heartbeat = proactivity.getByRole("switch", { name: "Check in on its own" });
   await expect(heartbeat).not.toBeChecked();
   await expect(heartbeat).toBeDisabled();
-  await expect(proactivity).toContainText("Needs memory to be switched on above.");
-  await page.getByRole("checkbox", { name: /^Remember information/ }).check();
+  await expect(proactivity).toContainText(
+    "Needs memory: switch on “Remember information” under Capabilities.",
+  );
+  await agentTab(page, "Capabilities").click();
+  await page.getByRole("switch", { name: "Remember information" }).check();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
+  await expect.poll(() => state.updates.length).toBe(1);
+  expect(state.updates[0].capabilities.memory).toBe(true);
+  expect(state.updates[0].capabilities).not.toHaveProperty("recall");
+  await agentTab(page, "Telegram").click();
   await expect(heartbeat).toBeEnabled();
   await expect(proactivity).toContainText("paired Telegram chat");
   await heartbeat.check();
@@ -31,7 +43,6 @@ test("check-ins are off, need memory, explain their cost and save", async ({ pag
   await expect(proactivity).toContainText(
     "Times in Europe/Berlin, within one day. About 6 extra model runs per day, each reading the recent conversation.",
   );
-  // The browser's zone is the saved one: nothing to adopt.
   await expect(proactivity.getByRole("button", { name: /Use my time zone/ })).toHaveCount(
     0,
   );
@@ -40,11 +51,9 @@ test("check-ins are off, need memory, explain their cost and save", async ({ pag
   await proactivity.getByLabel("How often").selectOption("1h");
   await expect(proactivity).toContainText("About 12 extra model runs per day");
   await proactivity.screenshot({ path: ".cache/assistant-proactivity-desktop-en.png" });
-  await page.getByRole("button", { name: "Save" }).first().click();
-  await expect.poll(() => state.updates.length).toBe(1);
-  expect(state.updates[0].capabilities.memory).toBe(true);
-  expect(state.updates[0].capabilities).not.toHaveProperty("recall");
-  expect(state.updates[0].heartbeat).toEqual({
+  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => state.updates.length).toBe(2);
+  expect(state.updates[1].heartbeat).toEqual({
     enabled: true,
     interval: "1h",
     start: 8,
@@ -55,19 +64,22 @@ test("check-ins are off, need memory, explain their cost and save", async ({ pag
 
 test("switching memory off also switches check-ins off", async ({ page }) => {
   const state = await setup(page, {
+    channel: connectedChannel(),
+    applyUpdates: true,
     assistant: {
       capabilities: { memory: true, reminders: false },
       heartbeat: { enabled: true, interval: "4h", start: 9, end: 18, timeZone: "UTC" },
     },
   });
-  await page.goto(baseURL + "/agents/home/settings");
-  await page.getByRole("checkbox", { name: /^Remember information/ }).uncheck();
-  await expect(
-    section(page).getByRole("checkbox", { name: "Check in on its own" }),
-  ).toBeDisabled();
-  await page.getByRole("button", { name: "Save" }).first().click();
+  await page.goto(baseURL + settingsPath("capabilities"));
+  await page.getByRole("switch", { name: /^Remember information/ }).uncheck();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect.poll(() => state.updates.length).toBe(1);
   expect(state.updates[0].heartbeat.enabled).toBe(false);
+  await agentTab(page, "Telegram").click();
+  await expect(
+    section(page).getByRole("switch", { name: "Check in on its own" }),
+  ).toBeDisabled();
 });
 
 test("an agent's saved check-ins load into the form and fit a phone", async ({
@@ -75,6 +87,7 @@ test("an agent's saved check-ins load into the form and fit a phone", async ({
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await setup(page, {
+    channel: connectedChannel(),
     assistant: {
       capabilities: { memory: true, reminders: true },
       heartbeat: {
@@ -86,7 +99,7 @@ test("an agent's saved check-ins load into the form and fit a phone", async ({
       },
     },
   });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const proactivity = section(page);
   await expect(proactivity.getByLabel("How often")).toHaveValue("4h");
   // The saved zone is kept until the owner adopts the browser's.
@@ -110,10 +123,11 @@ test("an agent's saved check-ins load into the form and fit a phone", async ({
 });
 
 test("a new agent switches check-ins on after saving", async ({ page }) => {
-  await setup(page);
+  await setup(page, { channel: connectedChannel() });
   await page.goto(baseURL + "/agents");
   await page.getByRole("button", { name: "New agent" }).click();
-  const heartbeat = section(page).getByRole("checkbox", { name: "Check in on its own" });
+  await agentTab(page, "Capabilities").click();
+  const heartbeat = section(page).getByRole("switch", { name: "Check in on its own" });
   await expect(heartbeat).toBeDisabled();
   await expect(section(page)).toContainText("Available after saving the agent");
 });
@@ -121,14 +135,15 @@ test("a new agent switches check-ins on after saving", async ({ page }) => {
 test("the proactivity section is translated", async ({ page }) => {
   await setup(page, {
     language: "de",
+    channel: connectedChannel(),
     assistant: { capabilities: { memory: true, reminders: false } },
   });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   const proactivity = section(page);
   await expect(
     proactivity.getByRole("group", { name: "Von sich aus handeln" }),
   ).toBeVisible();
-  await proactivity.getByRole("checkbox", { name: "Sich von selbst melden" }).check();
+  await proactivity.getByRole("switch", { name: "Sich von selbst melden" }).check();
   await expect(proactivity).toContainText(
     "Etwa 3 zusätzliche Modellläufe pro Tag, jeweils mit dem letzten Teil der Unterhaltung.",
   );
@@ -139,14 +154,15 @@ test("a refused check-in keeps the form and shows why", async ({ page }) => {
   const message =
     "Check-ins need a paired Telegram chat. Connect a Telegram chat to this agent first.";
   const state = await setup(page, {
+    channel: connectedChannel(),
     saveStatus: 409,
     saveError: message,
     assistant: { capabilities: { memory: true, reminders: false } },
   });
-  await page.goto(baseURL + "/agents/home/settings");
-  const heartbeat = section(page).getByRole("checkbox", { name: "Check in on its own" });
+  await page.goto(baseURL + settingsPath("telegram"));
+  const heartbeat = section(page).getByRole("switch", { name: "Check in on its own" });
   await heartbeat.check();
-  await page.getByRole("button", { name: "Save" }).first().click();
+  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => state.updates.length).toBe(1);
   await expect(page.getByText(message).first()).toBeVisible();
   await expect(heartbeat).toBeChecked();
@@ -157,16 +173,19 @@ test("a refused check-in without memory shows the German reason", async ({ page 
     "Meldungen brauchen das Gedächtnis. Schalte zuerst „Informationen merken“ ein oder schalte die Meldungen mit ab.";
   const state = await setup(page, {
     language: "de",
+    channel: connectedChannel(),
     saveStatus: 409,
     saveError: message,
     assistant: { capabilities: { memory: true, reminders: false } },
   });
-  await page.goto(baseURL + "/agents/home/settings");
-  const heartbeat = section(page).getByRole("checkbox", {
+  await page.goto(baseURL + settingsPath("telegram"));
+  const heartbeat = section(page).getByRole("switch", {
     name: "Sich von selbst melden",
   });
   await heartbeat.check();
-  await page.getByRole("button", { name: "Agent speichern" }).first().click();
+  await saveBar(page, "Ungespeicherte Änderungen")
+    .getByRole("button", { name: "Speichern", exact: true })
+    .click();
   await expect.poll(() => state.updates.length).toBe(1);
   await expect(page.getByText(message).first()).toBeVisible();
   await expect(heartbeat).toBeChecked();

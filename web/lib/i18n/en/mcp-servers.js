@@ -57,8 +57,6 @@ export const mcpServerCopy = {
     "Put tokens and passwords in header or environment values, never in the address path or the arguments: those are shown.",
   stdioMarker: "stdio, local command",
   stdioBadge: "stdio",
-  stdioTelegramSenders:
-    "This agent has its own Telegram bot for other people, so it cannot use stdio servers: they run commands on this computer. Remote servers stay available.",
   stdioWarningTitle: "Run a local command?",
   stdioWarning:
     "A stdio server runs this command with your user rights, without a sandbox. Once it is bound to an agent, it starts for every session of every agent, even for agents that never use it. Only add commands you trust.",
@@ -72,10 +70,8 @@ export const mcpServerCopy = {
     "Choose which central MCP servers this agent can use. A change applies to the running agent service without a restart.",
   agentNone: "No MCP servers are set up yet. Add them under Accounts.",
   agentOpenAccounts: "Open Accounts",
-  agentSave: "Save MCP servers",
   agentSaved: "MCP servers saved.",
   pendingNotice: "Saved — will be applied to running agents shortly.",
-  agentServersLegend: "MCP servers for this agent",
   temporaryTitle: "MCP servers",
   temporaryNote: "Granted by the lead agent's team proposal. Read only.",
   temporaryNone: "The lead agent granted no MCP servers.",

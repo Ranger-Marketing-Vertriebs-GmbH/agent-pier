@@ -7,7 +7,6 @@ export const assistantChannelCopy = {
   appUrl: "AgentPier-Adresse für Links",
   appUrlHint:
     "Telegram-Hinweise verlinken auf diese Adresse. Sie wird beim Verbinden oder Koppeln aus diesem Browser übernommen; leer lassen, um Hinweise ohne Links zu senden.",
-  saveAppUrl: "Adresse speichern",
   ignored: (privateCount, groupCount) =>
     `Ignorierte Nachrichten: ${privateCount} aus anderen privaten Chats, ${groupCount} aus Gruppen.`,
   teamNotification: "Team-Benachrichtigung",

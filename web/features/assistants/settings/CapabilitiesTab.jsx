@@ -1,0 +1,125 @@
+import React, { useEffect, useState } from "react";
+import SaveBar from "../../../components/SaveBar.jsx";
+import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
+import useTabDraft from "../../../lib/settings/useTabDraft.js";
+import { sameValue } from "../../../lib/settings/draft-state.js";
+import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
+import { assistantShellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
+import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
+import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
+import TemporaryMcpServers from "../../mcp-servers/TemporaryMcpServers.jsx";
+import useAssistants from "../useAssistants.js";
+import { capabilityServer, isPersonal } from "./agent-settings-fields.js";
+import { capabilityStep } from "./agent-settings-steps.js";
+import useAgentDraftGuard from "./useAgentDraftGuard.js";
+import ConflictNotice from "./ConflictNotice.jsx";
+import ConfirmationSheet from "./ConfirmationSheet.jsx";
+import { MemoryGroup, ShellGroup, WebGroup } from "./CapabilityGroups.jsx";
+import McpGroup from "./McpGroup.jsx";
+import MemoryPage from "./MemoryPage.jsx";
+import AllowlistPage from "./AllowlistPage.jsx";
+
+const subpages = { memory: MemoryPage, allowlist: AllowlistPage };
+const conflictLabels = {
+  memory: () => copy.personal.enableMemory,
+  reminders: () => copy.personal.enableReminders,
+  webSearch: () => copy.personal.enableWebSearch,
+  webFetch: () => copy.personal.enableWebFetch,
+  browser: () => copy.personal.enableBrowser,
+  documents: () => copy.personal.enableDocuments,
+  shell: () => assistantShellCopy.title,
+  mcpServers: () => mcpServerCopy.agentTitle,
+};
+
+/** Capabilities: memory, web, shell and MCP servers in one draft and one PATCH. */
+export default function CapabilitiesTab({ assistant, page, go, navigate }) {
+  const { refresh, runtime, members = [] } = useAssistants();
+  const personal = isPersonal(assistant);
+  const draft = useTabDraft({
+    server: capabilityServer(assistant),
+    revisions: { assistant: assistant.revision },
+  });
+  const label = settingsCopy.tabs.capabilities;
+  const steps = [capabilityStep({ assistant, label })];
+  const [notice, setNotice] = useState(""),
+    [mcpReload, setMcpReload] = useState(0);
+  useEffect(() => {
+    if (draft.dirty) setNotice("");
+  }, [draft.dirty]);
+  const after = async (result, mcpChanged) => {
+    if (result.status === "saved") {
+      if (mcpChanged) setMcpReload((n) => n + 1);
+      if (mcpChanged)
+        setNotice(
+          result.results.assistant?.pending
+            ? mcpServerCopy.pendingNotice
+            : mcpServerCopy.agentSaved,
+        );
+      await refresh();
+    }
+    return result;
+  };
+  const mcpChanged = () => !sameValue(draft.values.mcpServers, draft.base.mcpServers);
+  const save = async () => {
+    const changed = mcpChanged();
+    return after(await draft.save(steps), changed);
+  };
+  const overwrite = async () => {
+    const changed = mcpChanged();
+    return after(await draft.overwrite(steps), changed);
+  };
+  const sheet = useAgentDraftGuard({
+    draft,
+    assistantId: assistant.id,
+    tab: "capabilities",
+    label,
+    save,
+  });
+  const member = members.find((m) => m.assistantId === assistant.id);
+  // A save started from a subpage (the unsaved sheet) may ask to confirm, too.
+  const sheets = (
+    <>
+      <ConfirmationSheet
+        confirmation={draft.confirmation}
+        onShellCancel={() => draft.set("shell", draft.base.shell)}
+      />
+      <UnsavedChangesSheet {...sheet} />
+    </>
+  );
+  const Subpage = subpages[page];
+  if (Subpage)
+    return (
+      <>
+        <Subpage assistant={assistant} onBack={() => go("capabilities")} />
+        {sheets}
+      </>
+    );
+  return (
+    <>
+      <ConflictNotice draft={draft} labels={conflictLabels} />
+      {personal && <MemoryGroup assistant={assistant} draft={draft} go={go} />}
+      {personal && (
+        <WebGroup draft={draft} browser={runtime?.browser} navigate={navigate} />
+      )}
+      <ShellGroup assistant={assistant} draft={draft} go={go} />
+      {personal && Array.isArray(assistant.mcpServers) && (
+        <McpGroup
+          assistant={assistant}
+          draft={draft}
+          notice={notice}
+          reloadKey={mcpReload}
+          navigate={navigate}
+        />
+      )}
+      {!personal && member && <TemporaryMcpServers servers={member.mcpServers} />}
+      <SaveBar
+        draft={draft}
+        onSave={save}
+        onOverwrite={overwrite}
+        saveLabel={copy.save}
+        note={copy.pendingConfigShort}
+      />
+      {sheets}
+    </>
+  );
+}

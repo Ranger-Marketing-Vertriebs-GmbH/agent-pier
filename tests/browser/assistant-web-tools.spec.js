@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { agentTab, saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
 
@@ -133,7 +134,8 @@ async function setup(page, options = {}) {
   return state;
 }
 // Phones save from the sticky save bar, desktop from the profile form.
-const save = (page) => page.getByRole("button", { name: "Save agent", exact: true });
+const save = (page) =>
+  saveBar(page).getByRole("button", { name: "Save agent", exact: true });
 
 for (const [label, use] of [
   ["desktop", {}],
@@ -144,7 +146,7 @@ for (const [label, use] of [
 
     test("capability switches send the full capabilities object", async ({ page }) => {
       const state = await setup(page);
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       await expect(page.getByText("Memory & reminders")).toBeVisible();
       await expect(page.getByText("Web & documents")).toBeVisible();
       await page.getByLabel("Search the web").check();
@@ -153,7 +155,9 @@ for (const [label, use] of [
       await page.getByLabel("Remember information").check();
       await expect(page.getByLabel("Use a browser")).toBeEnabled();
       if (label === "phone") {
-        const box = await page.locator("#agent-profile").boundingBox();
+        const box = await page
+          .locator("#agent-settings-tabpanel-capabilities")
+          .boundingBox();
         expect(box.width).toBeLessThanOrEqual(390);
         expect(
           await page.evaluate(
@@ -180,6 +184,7 @@ for (const [label, use] of [
       const state = await setup(page);
       await page.goto(baseURL + "/agents");
       await page.getByRole("button", { name: "New agent" }).click();
+      await agentTab(page, "Capabilities").click();
       for (const name of [
         "Search the web",
         "Read web pages",
@@ -192,11 +197,12 @@ for (const [label, use] of [
       // The four web switches and scheduled check-ins.
       await expect(page.getByText("Available after saving the agent")).toHaveCount(5);
       await expect(page.getByLabel("Remember information")).toBeEnabled();
+      await page.getByLabel("Remember information").check();
+      await agentTab(page, "Profile").click();
       await page.getByLabel("Name", { exact: true }).fill("Fresh");
       await page.getByLabel("Model connection").selectOption("router");
       await page.getByRole("textbox", { name: "Model ID" }).fill("model");
-      await page.getByLabel("Remember information").check();
-      await page.getByRole("button", { name: "Save agent" }).click();
+      await saveBar(page).getByRole("button", { name: "Create agent" }).click();
       await expect.poll(() => state.creates.length).toBe(1);
       expect(state.creates[0].capabilities).toMatchObject({
         memory: true,
@@ -211,7 +217,7 @@ for (const [label, use] of [
       page,
     }) => {
       await setup(page, { browser: { available: false } });
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       const browser = page.getByLabel("Use a browser");
       await expect(browser).toBeDisabled();
       await expect(page.getByText("No supported browser found")).toBeVisible();
@@ -222,7 +228,7 @@ for (const [label, use] of [
       page,
     }) => {
       await setup(page, { search: { provider: "brave", ready: false } });
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       await expect(page.getByLabel("Search the web")).toBeDisabled();
       await expect(page.getByText("Web search is not set up")).toBeVisible();
     });
@@ -231,10 +237,10 @@ for (const [label, use] of [
       page,
     }) => {
       const state = await setup(page, { restartFirst: true });
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       await page.getByLabel("Read web pages").check();
       await save(page).click();
-      const dialog = page.getByRole("alertdialog", {
+      const dialog = page.getByRole("dialog", {
         name: "Restart the agent service?",
       });
       await expect(dialog).toBeVisible();
