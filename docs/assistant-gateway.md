@@ -1371,8 +1371,9 @@ server decides by the bytes, never by the name or the browser's type.
   agent that names and contents are untrusted data, not instructions.
 - **Copies on disk.** Each copy is created by descriptor (`O_EXCL|O_NOFOLLOW`) and
   written only after its inode is proven to be in the checked folder. The index keeps
-  its device, inode and size; reads and inline delivery refuse a swapped, hard-linked
-  or grown file and check the inline limits on the bytes read. JPEG and WebP above
+  its size and SHA-256 (not its inode: Linux reuses inode numbers at once and a restore
+  assigns new ones); reads and inline delivery refuse changed, hard-linked or grown
+  files and check the inline limits on the bytes read. JPEG and WebP above
   80 megapixels are refused like PNG and GIF. The quota counts the folder itself, and
   index rows whose copy is gone are dropped.
 - **Backups.** Copies and their index are part of host backups and runtime update

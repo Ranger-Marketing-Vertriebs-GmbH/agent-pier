@@ -285,8 +285,9 @@ test("reads refuse hard links, swapped and grown copies (M1, M2)", async (t) => 
   await assert.rejects(attachments.content(linked.id), { status: 404 });
   const swapped = await attachments.stage(c.id, "swapped.png", png);
   const target = path.join(folder, fileOf("swapped.png"));
+  // Replaced by other bytes of the same size: Linux may even reuse the inode number.
   fs.rmSync(target);
-  fs.writeFileSync(target, png);
+  fs.writeFileSync(target, Buffer.alloc(png.length, 0x42));
   await assert.rejects(attachments.content(swapped.id), { status: 404 });
   const grown = await attachments.stage(c.id, "grown.png", png);
   fs.appendFileSync(path.join(folder, fileOf("grown.png")), Buffer.alloc(7 * 1048576));
@@ -296,6 +297,11 @@ test("reads refuse hard links, swapped and grown copies (M1, M2)", async (t) => 
   const turn = await attachments.delivery({ id: "r", text: "x" }, a.id);
   assert.equal(turn.attachments, undefined);
   const fine = await attachments.stage(c.id, "fine.png", png);
+  assert.deepEqual((await attachments.content(fine.id)).body, png);
+  // A copy restored with its bytes at a new inode (as a backup restore does) is kept.
+  const restored = path.join(folder, fileOf("fine.png"));
+  fs.rmSync(restored);
+  fs.writeFileSync(restored, png);
   assert.deepEqual((await attachments.content(fine.id)).body, png);
 });
 
@@ -389,7 +395,7 @@ test("a copy linked out of a swapped folder is never written (R1)", async (t) =>
   assert.ok(store);
 });
 
-test("an image rewritten in place is no longer shown inline (R2)", async (t) => {
+test("an image rewritten in place is neither shown nor sent inline (R2)", async (t) => {
   const { attachments, agent, workspaces } = setup(t);
   const { a, c } = agent("lead");
   const photo = await attachments.stage(c.id, "p.png", png);
@@ -398,8 +404,7 @@ test("an image rewritten in place is no longer shown inline (R2)", async (t) => 
   const fd = fs.openSync(path.join(folder, name), "r+");
   fs.writeSync(fd, Buffer.alloc(png.length, 0x41), 0, png.length, 0);
   fs.closeSync(fd);
-  const shown = await attachments.content(photo.id);
-  assert.equal(shown.inline, false);
+  await assert.rejects(attachments.content(photo.id), { status: 404 });
   // Nor does it travel inline to the model.
   attachments.claim(c.id, [photo.id], "r");
   assert.equal(
