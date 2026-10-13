@@ -90,6 +90,7 @@ const english = {
     "The ChatGPT model list could not be refreshed and may be out of date. A custom model ID stays possible.",
   unknown:
     "The Gateway checked this list with another ChatGPT account. Some models may not work with this one.",
+  createAgent: "Create agent",
   save: "Save agent",
 };
 const german = {
@@ -109,6 +110,7 @@ const german = {
     "Die ChatGPT-Modellliste konnte nicht aktualisiert werden und ist eventuell veraltet. Eine eigene Modell-ID bleibt möglich.",
   unknown:
     "Das Gateway hat diese Liste mit einem anderen ChatGPT-Konto geprüft. Manche Modelle funktionieren mit diesem Konto eventuell nicht.",
+  createAgent: "Agent anlegen",
   save: "Agent speichern",
 };
 
@@ -137,7 +139,7 @@ for (const [language, copy] of [
     await expect(options.getByRole("option")).toHaveText(["GPT-6 Sol (gpt-6-sol)"]);
     await options.getByRole("option", { name: "GPT-6 Sol (gpt-6-sol)" }).click();
     await expect(model).toHaveValue("gpt-6-sol");
-    await page.getByRole("button", { name: copy.save }).click();
+    await page.getByRole("button", { name: copy.createAgent }).click();
     await expect
       .poll(() => state.saved?.model)
       .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-sol" });
@@ -176,7 +178,7 @@ for (const [language, copy] of [
     await model.selectOption("gpt-6-astra");
     await model.selectOption({ label: copy.custom });
     await page.getByRole("textbox", { name: copy.modelId }).fill("gpt-6-preview");
-    await page.getByRole("button", { name: copy.save }).click();
+    await page.getByRole("button", { name: copy.createAgent }).click();
     await expect
       .poll(() => state.saved?.model)
       .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-preview" });
@@ -229,7 +231,7 @@ for (const [language, copy] of [
       models: listed,
       modelCatalog: "ready",
     };
-    await setupAssistantSettings(page, {
+    const state = await setupAssistantSettings(page, {
       language,
       assistant: { model: { connectionId: "openclaw:test", modelId: "gpt-6-legacy" } },
       models: [account],
@@ -250,6 +252,12 @@ for (const [language, copy] of [
     await emitChange(page);
     await expect(page.getByText(copy.unknown)).toBeVisible();
     await expect(page.getByText(copy.stale)).toHaveCount(0);
+    // The Profile tab's bar saves a listed model as the agent's model.
+    await model.selectOption("gpt-6-sol");
+    await page.getByRole("button", { name: copy.save }).click();
+    await expect
+      .poll(() => state.updates.at(-1)?.model)
+      .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-sol" });
   });
 }
 
@@ -258,15 +266,30 @@ test("screenshots: the open ChatGPT model list on desktop and mobile", async ({
 }) => {
   test.skip(!shots, "set AGENTPIER_CHATGPT_MODEL_SHOTS to capture review screenshots");
   fs.mkdirSync(shots, { recursive: true });
-  await setup(page);
+  await setupAssistantSettings(page, {
+    assistant: { model: { connectionId: "openclaw:test", modelId: "gpt-6-sol" } },
+    models: [
+      {
+        id: "openclaw:test",
+        name: "Personal ChatGPT",
+        providerId: "openai-chatgpt",
+        status: "ok",
+        available: true,
+        models: listed,
+        modelCatalog: "unknown",
+      },
+    ],
+  });
   for (const [name, viewport] of [
     ["desktop", { width: 1440, height: 1000 }],
     ["mobile", { width: 390, height: 844 }],
   ]) {
     await page.setViewportSize(viewport);
-    await newAgent(page, english);
+    // The Profile tab of an existing agent, with the account's hint showing.
+    await page.goto(baseURL + "/agents/home/settings");
     const model = page.getByRole("combobox", { name: english.model, exact: true });
-    await model.scrollIntoViewIfNeeded();
+    await expect(page.getByText(english.unknown)).toBeVisible();
+    await page.getByRole("button", { name: english.refresh }).scrollIntoViewIfNeeded();
     await model.click();
     await expect(page.getByRole("combobox", { name: english.search })).toBeVisible();
     expect(
