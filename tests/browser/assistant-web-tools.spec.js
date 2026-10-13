@@ -3,6 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { agentTab, saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
+import { openAccountItem } from "../helpers/accounts-browser.js";
 
 const home = {
   id: "home",
@@ -257,7 +258,7 @@ for (const [label, use] of [
     test("web search settings store a Brave key without showing it", async ({ page }) => {
       const state = await setup(page);
       await page.goto(baseURL + "/accounts");
-      const panel = page.getByRole("region", { name: "Web search" });
+      const panel = await openAccountItem(page, "Web search");
       await expect(panel.getByRole("radio", { name: /DuckDuckGo/ })).toBeChecked();
       await panel.getByRole("radio", { name: /Brave/ }).check();
       await expect(panel.getByText("No key stored")).toBeVisible();
@@ -299,7 +300,7 @@ for (const [label, use] of [
         ],
       });
       await page.goto(baseURL + "/accounts");
-      const panel = page.getByRole("region", { name: "Web search" });
+      const panel = await openAccountItem(page, "Web search");
       await panel.getByRole("radio", { name: /Perplexity/ }).check();
       await expect(panel.getByRole("option", { name: "Other" })).toHaveCount(0);
       await panel.locator("select").selectOption("or1");
@@ -317,7 +318,7 @@ for (const [label, use] of [
     }) => {
       const state = await setup(page, { restartFirst: true });
       await page.goto(baseURL + "/accounts");
-      const panel = page.getByRole("region", { name: "Web search" });
+      const panel = await openAccountItem(page, "Web search");
       await panel.getByRole("radio", { name: /Perplexity/ }).check();
       await panel.getByRole("button", { name: "Save search settings" }).click();
       const dialog = panel.getByRole("alertdialog");

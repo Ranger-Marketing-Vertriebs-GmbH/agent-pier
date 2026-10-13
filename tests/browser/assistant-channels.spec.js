@@ -3,6 +3,10 @@ import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
+import {
+  openAccountItem,
+  saveBar as accountSaveBar,
+} from "../helpers/accounts-browser.js";
 async function setup(page) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
@@ -97,13 +101,18 @@ test("Deepgram settings save a write-only credential and allow removal", async (
 }) => {
   await setup(page);
   await page.goto(baseURL + "/accounts");
-  const panel = page.getByRole("region", { name: "Speech recognition" });
+  const panel = await openAccountItem(page, "Speech recognition");
   await panel.getByLabel("Deepgram API key").fill("private-fixture-key");
   await panel.getByLabel("Recognition language").selectOption("de");
   await panel.getByRole("button", { name: "Save speech settings" }).click();
   await expect(panel.getByText("Key saved", { exact: true })).toBeVisible();
   await expect(panel.getByLabel("Deepgram API key")).toHaveValue("");
-  await panel.getByRole("button", { name: "Remove speech key" }).click();
+  // Removing saves at once, so it waits until unsaved changes are saved or cancelled.
+  const remove = panel.getByRole("button", { name: "Remove speech key" });
+  await panel.getByLabel("Recognition model").fill("nova-9");
+  await expect(remove).toBeDisabled();
+  await accountSaveBar(page).getByRole("button", { name: "Cancel", exact: true }).click();
+  await remove.click();
   await expect(panel.getByText("No key configured", { exact: true })).toBeVisible();
 });
 test("Telegram pairing and unknown delivery recovery remain visible in mobile agent settings", async ({

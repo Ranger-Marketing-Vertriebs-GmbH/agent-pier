@@ -5,8 +5,6 @@ export const mcpServerCopy = {
   loading: "Lädt …",
   empty: "Noch keine MCP-Server.",
   add: "MCP-Server hinzufügen",
-  edit: "Bearbeiten",
-  editNamed: (name) => `${name} bearbeiten`,
   remove: "Entfernen",
   removeNamed: (name) => `${name} entfernen`,
   confirmRemove: (name) =>

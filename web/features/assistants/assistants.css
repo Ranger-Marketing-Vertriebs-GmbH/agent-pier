@@ -136,10 +136,6 @@
 .assistant-accounts {
   margin: 24px 0;
 }
-.assistant-accounts .account-card {
-  flex-wrap: wrap;
-  overflow-wrap: anywhere;
-}
 .assistant-login {
   display: flex;
   flex-wrap: wrap;

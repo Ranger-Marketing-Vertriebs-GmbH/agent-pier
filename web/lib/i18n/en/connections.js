@@ -1,9 +1,7 @@
 export const connectionCopy = {
-  title: "Shared provider connections",
   description:
     "Save one API key per provider connection and use it with compatible CLIs. Choose the CLI, model and launch mode for each session.",
   add: "Add provider connection",
-  edit: "Edit provider connection",
   name: "Connection name",
   key: "API key",
   save: "Save connection",
@@ -28,8 +26,6 @@ export const connectionCopy = {
   keyHelp:
     "The key is stored centrally. Changes apply to new sessions; running native processes are not stopped.",
   removeKey: "Remove saved API key",
-  editNamed: (name) => `Edit ${name}`,
-  deleteNamed: (name) => `Delete ${name}`,
   delete: "Delete connection",
   restartRequired:
     "Agents use this connection. Applying the change restarts their Gateway, so agents are briefly unavailable.",
@@ -40,11 +36,7 @@ export const connectionCopy = {
   responses: "Responses API access confirmed",
   responsesHelp:
     "My Z.ai connection allows the Responses API for Codex. This is my own confirmation, not an automatic check.",
-  compatible: "Compatible CLIs",
-  compatibleRoute: (cli, route) => `${cli} (${route})`,
   noCompatible: "No compatible CLI available",
-  accountDescription:
-    "Native sign-ins remain tied to their respective CLI. Shared API connections are managed separately.",
   cli: "CLI",
   access: "Connection",
   nativeModel: "Native model (optional)",

@@ -143,7 +143,7 @@ export default function McpCliFinds({ refresh, onAdopted }) {
   // Heading and intro stay while the finds load and after a failed load.
   return (
     <section className="mcp-cli-finds" aria-labelledby={titleId}>
-      <h3 id={titleId}>{copy.foundTitle}</h3>
+      <h2 id={titleId}>{copy.foundTitle}</h2>
       <p className="mcp-hint">{copy.foundHint}</p>
       <ErrorMessage error={error} />
       {!finds && !error && <p className="mcp-hint">{copy.foundLoading}</p>}

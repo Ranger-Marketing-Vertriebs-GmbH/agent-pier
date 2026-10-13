@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
+import { openAccountItem } from "../helpers/accounts-browser.js";
 
 test.use({ locale: "en-GB" });
 
@@ -32,11 +33,14 @@ test("connection list and launch dialog label adapter routes", async ({ page }) 
   const controls = await fixture(page);
   controls.state.providerConnections = [chatOnly];
   await page.goto(baseURL + "/accounts");
+  const detail = await openAccountItem(page, chatOnly.name);
   await expect(
-    page.getByText(
-      "Compatible CLIs: Codex (via adapter · Chat Completions), Claude Code (via adapter · Chat Completions), OpenCode (native)",
-    ),
-  ).toBeVisible();
+    detail.getByRole("group", { name: "Compatible CLIs" }).locator(".list-row"),
+  ).toHaveText([
+    /Codex.*via adapter · Chat Completions/,
+    /Claude Code.*via adapter · Chat Completions/,
+    /OpenCode.*native/,
+  ]);
   await page.goto(baseURL + "/");
   await page.getByRole("button", { name: "New session", exact: true }).first().click();
   await page.getByLabel("CLI", { exact: true }).selectOption("claude");
@@ -61,11 +65,10 @@ test("OpenCode SDK routes show only the protocol", async ({ page }) => {
     },
   ];
   await page.goto(baseURL + "/accounts");
+  const detail = await openAccountItem(page, chatOnly.name);
   await expect(
-    page.getByText("Compatible CLIs: Claude Code (native), OpenCode (Responses)", {
-      exact: true,
-    }),
-  ).toBeVisible();
+    detail.getByRole("group", { name: "Compatible CLIs" }).locator(".list-row"),
+  ).toHaveText([/Claude Code.*native/, /OpenCode.*Responses/]);
   await page.goto(baseURL + "/");
   await page.getByRole("button", { name: "New session", exact: true }).first().click();
   await page.getByLabel("CLI", { exact: true }).selectOption("opencode");

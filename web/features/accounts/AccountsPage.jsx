@@ -1,159 +1,178 @@
-import useAssistantFeature from "../assistants/useAssistantFeature.js";
-import useAccountAuthStatus from "./useAccountAuthStatus.js";
-import NativeAccountActions from "./NativeAccountActions.jsx";
-import ProviderConnections from "../provider-connections/ProviderConnections.jsx";
-import { connectionCopy } from "../../lib/i18n/messages/connections.js";
-import { commonCopy } from "../../lib/i18n/messages/common.js";
-import { accountsPageCopy as copy } from "../../lib/i18n/messages/accounts.js";
-import React, { lazy, Suspense } from "react";
-import ProviderAccountSummary from "../providers/ProviderAccountSummary.jsx";
-import { names } from "../../lib/providers.js";
+import React, { Suspense, useEffect, useState } from "react";
+import ErrorMessage from "../../components/ErrorMessage.jsx";
+import SettingsShell from "../../components/SettingsShell.jsx";
 import Icon from "../../components/Icon.jsx";
-import ProviderMark from "../../components/ProviderMark.jsx";
-const SpeechSettings = lazy(() => import("../assistants/SpeechSettings.jsx"));
-const McpServersSettings = lazy(() => import("../mcp-servers/McpServersSettings.jsx"));
-const WebSearchSettings = lazy(() => import("../assistants/WebSearchSettings.jsx"));
-const AssistantModelAccounts = lazy(
-  () => import("../assistants/AssistantModelAccounts.jsx"),
-);
+import { InfoHintButton, InfoHintText, useInfoHint } from "../../components/InfoHint.jsx";
+import {
+  accountsHubCopy as hubCopy,
+  accountsPageCopy as copy,
+} from "../../lib/i18n/messages/accounts.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
+import useAssistantFeature from "../assistants/useAssistantFeature.js";
+import useAssistants from "../assistants/useAssistants.js";
+import { useMcpOAuth } from "../mcp-servers/McpOAuthLogin.jsx";
+import AccountsHub from "./AccountsHub.jsx";
+import { detailComponents } from "./account-details.js";
+import {
+  accountItemTitle,
+  itemRoute,
+  resolveAccountItem,
+  sectionLabel,
+} from "./accounts-items.js";
+import { usageEntry } from "./account-usage-view.js";
+import useAccountAuthStates from "./useAccountAuthStates.js";
+import useAccountUsage from "./useAccountUsage.js";
+import useAccountsData from "./useAccountsData.js";
+import useNarrowViewport from "./useNarrowViewport.js";
+import "./accounts-page.css";
+
+const ids = (list) => (list || []).map((item) => item.id);
+
+/**
+ * Accounts: a hub of four groups (models, services for agents, MCP servers, native CLI
+ * accounts); each entry opens as a subpage (phones) or in the detail pane (desktop).
+ * Detail components receive DetailProps:
+ * { entry, usage, agentsEnabled, state, data, refresh, navigate, act, oauth, mcpNotice,
+ *   notifyMcp, authStates }.
+ */
 export default function AccountsPage({
   state,
-  setModal,
+  ready = true,
   act,
   refresh,
+  route,
   onNavigate,
-  mcpOAuth,
-  mcpSection,
+  openNavigation,
+  navigationOpen = false,
 }) {
-  const { enabled: agentsEnabled } = useAssistantFeature();
-  return (
-    <div className="page accounts-page">
-      <div className="page-topline">
-        <span>{copy.pageToplineLabel}</span>
-        <span className="subtle">
-          <Icon name="shield" size={13} />
-          {copy.subtle}
-        </span>
-      </div>
-      <header className="page-heading">
-        <div>
-          <h1>{copy.pageHeadingTitle}</h1>
-          <p>{connectionCopy.accountDescription}</p>
-        </div>
-        <button
-          className="button primary"
-          onClick={() =>
-            setModal({
-              type: "account",
-            })
-          }
-        >
-          <Icon name="plus" />
-          {commonCopy.addAccount}
-        </button>
-      </header>
-      <ProviderConnections
-        connections={state.providerConnections || []}
-        refresh={refresh}
-      />
-      {agentsEnabled && (
-        <Suspense fallback={null}>
-          <AssistantModelAccounts navigate={onNavigate} />
-          <SpeechSettings />
-          <WebSearchSettings connections={state.providerConnections || []} />
-        </Suspense>
-      )}
-      {/* The central MCP servers exist with or without agents. */}
-      <Suspense fallback={null}>
-        <McpServersSettings
-          oauthResult={mcpOAuth}
-          agentsEnabled={!!agentsEnabled}
-          focus={mcpSection === "mcp-servers"}
-        />
-      </Suspense>
-      <h2>{connectionCopy.native}</h2>
-      <div className="account-list">
-        {state.accounts
-          .filter((a) => a.tool !== "shell")
-          .map((a) => (
-            <AccountCard
-              key={a.id}
-              a={a}
-              state={state}
-              setModal={setModal}
-              act={act}
-              refresh={refresh}
-            />
-          ))}
-      </div>
-      <div className="account-info">
-        <Icon name="shield" size={22} />
-        <div>
-          <h3>{copy.accountInfoHeading}</h3>
-          <p>{copy.accountInfoDescription}</p>
-        </div>
-      </div>
-    </div>
+  const feature = useAssistantFeature();
+  const agentsEnabled = feature.loading ? null : Boolean(feature.enabled);
+  const { runtime } = useAssistants();
+  const data = useAccountsData({
+    agentsEnabled: agentsEnabled === true,
+    runtimeReady: runtime.availability === "ready",
+  });
+  const [mcpNotice, setMcpNotice] = useState("");
+  const oauth = useMcpOAuth({ reload: data.reloadMcp, notify: setMcpNotice });
+  const authStates = useAccountAuthStates(state.accounts);
+  const usage = useAccountUsage(
+    JSON.stringify([
+      agentsEnabled,
+      ids(state.providerConnections),
+      ids(state.accounts),
+      (data.mcpServers || []).map((server) => [server.id, server.revision]),
+      ids(data.chatgpt),
+      data.speech?.revision,
+      data.webSearch?.revision,
+    ]),
   );
-}
-
-function AccountCard({ a, state, setModal, act, refresh }) {
-  const auth = useAccountAuthStatus(a);
-  if (a.kind === "local" && auth !== "authenticated") return null;
+  const entry = resolveAccountItem(route, {
+    agentsEnabled,
+    connections: ready ? (state.providerConnections ?? null) : null,
+    accounts: ready ? state.accounts : null,
+    chatgpt: data.chatgpt,
+    mcpServers: data.mcpServers,
+    errors: { chatgpt: data.chatgptError, mcpServers: data.mcpError },
+  });
+  const narrow = useNarrowViewport();
+  const info = useInfoHint();
+  const missing = entry?.kind === "missing";
+  useEffect(() => {
+    if (missing) onNavigate(itemRoute(route.section), true);
+  }, [missing, route.section, onNavigate]);
+  const Detail = entry ? detailComponents[entry.kind] : null;
+  const pending = entry?.kind === "loading" || entry?.kind === "error";
+  const open = Boolean(Detail) || pending;
+  const subpage = open && narrow;
+  // A loading or failed entry has no name yet; its group names the subpage.
+  const title = subpage
+    ? accountItemTitle(entry) || sectionLabel(entry.section)
+    : copy.pageHeadingTitle;
+  const retry = () =>
+    (entry.record.source === "chatgpt" ? data.reloadChatgpt() : data.reloadMcp()).catch(
+      () => {},
+    );
+  const local = (
+    <span className="accounts-local">
+      <Icon name="shield" size={12} />
+      {copy.subtle.trim()}
+    </span>
+  );
+  const loadingLine = (
+    <p className="loading" role="status">
+      {hubCopy.loading}
+    </p>
+  );
   return (
-    <article className="account-card">
-      <ProviderMark tool={a.tool} />
-      <div className="account-details">
-        <h2>{a.name}</h2>
-        <p>
-          {names[a.tool]}
-          <span> · </span>
-          {a.kind === "local"
-            ? copy.localProfileDescription
-            : a.hasSecret
-              ? copy.managedProfileWithKey
-              : copy.managedProfileDescription}
-        </p>
-        {a.provider && (
+    <SettingsShell
+      className="accounts-page"
+      title={title}
+      subtitle={subpage ? hubCopy.breadcrumb(sectionLabel(entry.section)) : local}
+      description={hubCopy.intro}
+      leading={subpage ? "back" : "menu"}
+      onLeading={subpage ? () => onNavigate(itemRoute(entry.section)) : openNavigation}
+      navigationOpen={navigationOpen}
+      actions={
+        subpage ? null : (
           <>
-            <p className="field-description">{connectionCopy.legacy}</p>
-            <ProviderAccountSummary account={a} />
+            {local}
+            <InfoHintButton hint={info} label={hubCopy.infoLabel} />
           </>
-        )}
-      </div>
-      <div className="account-actions">
-        <NativeAccountActions
-          account={a}
-          auth={auth}
+        )
+      }
+    >
+      {!subpage && (
+        <InfoHintText hint={info}>
+          <strong>{copy.accountInfoHeading}</strong> {copy.accountInfoDescription}
+        </InfoHintText>
+      )}
+      <div className={["accounts-layout", open ? "has-detail" : ""].join(" ").trim()}>
+        <AccountsHub
           state={state}
-          act={act}
-          refresh={refresh}
+          data={data}
+          usage={usage}
+          agentsEnabled={agentsEnabled === true}
+          selected={entry}
+          navigate={onNavigate}
+          oauth={oauth}
+          oauthResult={route.mcpOAuth}
+          mcpNotice={mcpNotice}
+          focusMcp={route.section === "mcp-servers" && !route.item}
+          authStates={authStates}
         />
-        {a.kind === "managed" && (
-          <>
-            <button
-              className="icon-button"
-              aria-label={commonCopy.editNamedItem(a.name)}
-              onClick={() =>
-                setModal({
-                  type: "account",
-                  item: a,
-                })
-              }
-            >
-              <Icon name="edit" size={16} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label={copy.iconButtonAriaLabel(a.name)}
-              onClick={() => act("deleteAccount", a)}
-            >
-              <Icon name="trash" size={16} />
-            </button>
-          </>
-        )}
-        {a.kind === "local" && <span className="badge">{commonCopy.local}</span>}
+        <div className="accounts-pane">
+          {Detail ? (
+            <Suspense fallback={loadingLine}>
+              <Detail
+                key={`${entry.section}:${entry.item}`}
+                entry={entry}
+                usage={usageEntry(usage, entry.kind, entry.item)}
+                agentsEnabled={agentsEnabled === true}
+                state={state}
+                data={data}
+                refresh={refresh}
+                navigate={onNavigate}
+                act={act}
+                oauth={oauth}
+                mcpNotice={mcpNotice}
+                notifyMcp={setMcpNotice}
+                authStates={authStates}
+              />
+            </Suspense>
+          ) : entry?.kind === "loading" ? (
+            loadingLine
+          ) : entry?.kind === "error" ? (
+            <div className="accounts-detail-error">
+              <ErrorMessage error={entry.record.error} />
+              <button type="button" className="button secondary" onClick={retry}>
+                {commonCopy.retry}
+              </button>
+            </div>
+          ) : (
+            <p className="accounts-empty">{hubCopy.selectHint}</p>
+          )}
+        </div>
       </div>
-    </article>
+    </SettingsShell>
   );
 }

@@ -22,6 +22,11 @@ subpage, hints behind ⓘ, central settings as dashed reference rows into Accoun
 | `Sheet`                                                          | Bottom sheet on phones, centred dialog (max 420px) on desktop; used for chain confirmations.                                                                                                                                                                    |
 | `UnsavedChangesSheet`                                            | "Save changes?" with "Save and switch", "Discard", "Cancel"; body names the tab and the number of changed fields.                                                                                                                                               |
 
+`SaveBar` also takes `saveDisabled` (keeps the primary disabled while the form is not
+savable, e.g. a required key re-entry) and `saveFocusKey` (sets `data-focus-key` on the
+primary so an inline confirmation can return focus to it). `ListRow` takes `current` to
+mark the entry open in a detail pane (`aria-current="page"`).
+
 Warnings, the selected shell level's hint, the stdio warning and all error and conflict
 notices stay visible; other explanations move behind ⓘ verbatim.
 

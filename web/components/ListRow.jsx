@@ -52,6 +52,7 @@ export default function ListRow({
   hint,
   hintLabel,
   disabled = false,
+  current = false,
   className = "",
   children,
 }) {
@@ -76,6 +77,7 @@ export default function ListRow({
       className="list-row-main"
       href={href}
       aria-disabled={disabled || undefined}
+      aria-current={current ? "page" : undefined}
       onClick={(event) => {
         // A disabled link row never navigates, not even natively.
         if (disabled) return event.preventDefault();

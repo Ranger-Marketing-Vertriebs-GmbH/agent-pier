@@ -1,124 +1,142 @@
-import React, { useEffect, useState } from "react";
-import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
+import React, { useMemo, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import ListCard from "../../components/ListCard.jsx";
+import { SelectRow } from "../../components/ListRow.jsx";
+import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
+import AccountDetail, { AccountSaveBar } from "../accounts/AccountDetail.jsx";
+import FieldRow from "../accounts/FieldRow.jsx";
+import UsedByGroup from "../accounts/UsedByGroup.jsx";
+import useAccountDraft from "../accounts/useAccountDraft.js";
+import { accountItemTitle } from "../accounts/accounts-items.js";
 import { assistantApi } from "./assistant-api.js";
-import RestartConfirmation from "./RestartConfirmation.jsx";
-import { restartRequired } from "../provider-connections/restart-confirmation.js";
-export default function SpeechSettings() {
+
+const serverOf = (settings) => ({
+  apiKey: "",
+  model: settings?.model ?? "",
+  language: settings?.language ?? "auto",
+});
+
+/** The central Deepgram connection for agent voice messages. */
+export default function SpeechSettings({ entry, usage, agentsEnabled, data, navigate }) {
   const copy = assistantCopy.speech;
-  const [settings, setSettings] = useState(null),
-    [key, setKey] = useState(""),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    // Asked when agents' own Telegram bots run with the key: { affected, input }.
-    [restart, setRestart] = useState(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    assistantApi
-      .speech(controller.signal)
-      .then(setSettings)
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
-      });
-    return () => controller.abort();
-  }, []);
-  async function save(removeApiKey = false, confirmed = null) {
+  const settings = data.speech;
+  const formRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const { reloadSpeech } = data;
+  const server = useMemo(
+    () => serverOf(settings),
+    [settings?.model, settings?.language], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const form = useAccountDraft({
+    server,
+    revisions: settings ? { speech: settings.revision } : {},
+    refresh: async () => {
+      const next = await reloadSpeech();
+      return next && { server: serverOf(next), revisions: { speech: next.revision } };
+    },
+    tab: accountItemTitle(entry),
+    entry,
+    steps: [
+      {
+        id: "speech",
+        label: copy.save,
+        resource: "speech",
+        async run({ values, revision }) {
+          const next = await assistantApi.saveSpeech({
+            revision,
+            model: values.model,
+            language: values.language,
+            ...(values.apiKey ? { apiKey: values.apiKey } : {}),
+          });
+          data.setSpeech(next);
+          return next;
+        },
+      },
+    ],
+  });
+  const { draft } = form;
+  async function removeKey() {
     setBusy(true);
     setError("");
-    // A confirmed save repeats the request the owner was asked about.
-    const input = confirmed || {
-      revision: settings.revision,
-      model: settings.model,
-      language: settings.language,
-      ...(removeApiKey ? { removeApiKey: true } : key ? { apiKey: key } : {}),
-    };
     try {
-      const next = await assistantApi.saveSpeech({
-        ...input,
-        ...(confirmed ? { confirmRestart: true } : {}),
-      });
-      setSettings(next);
-      setKey("");
-      setRestart(null);
-    } catch (e) {
-      if (restartRequired(e)) setRestart({ affected: e.affected || {}, input });
-      else setError(e.message);
+      data.setSpeech(
+        await assistantApi.saveSpeech({
+          revision: settings.revision,
+          model: settings.model,
+          language: settings.language,
+          removeApiKey: true,
+        }),
+      );
+    } catch (failure) {
+      setError(failure.message);
     } finally {
       setBusy(false);
     }
   }
   return (
-    <section className="assistant-accounts" aria-label={copy.title}>
-      <h2>{copy.title}</h2>
-      <p className="assistant-note">{copy.description}</p>
-      <ErrorMessage error={error} />
+    <AccountDetail
+      title={accountItemTitle(entry)}
+      destructive={
+        settings?.hasSecret && (
+          <button
+            type="button"
+            className="button secondary danger-text"
+            // Removing saves at once: unsaved changes would turn into a conflict.
+            disabled={busy || draft.dirty || draft.saving}
+            onClick={removeKey}
+          >
+            {copy.remove}
+          </button>
+        )
+      }
+      bar={<AccountSaveBar form={form} formRef={formRef} saveLabel={copy.save} />}
+    >
+      <p className="accounts-note">{copy.description}</p>
+      <ErrorMessage error={error || data.speechError} />
       {settings && (
         <form
-          className="assistant-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save();
+          ref={formRef}
+          className="accounts-detail-group"
+          onSubmit={(event) => {
+            event.preventDefault();
+            form.save();
           }}
         >
-          <p className="assistant-note" role="status">
+          <p className="accounts-note" role="status">
             {settings.hasSecret ? copy.saved : copy.missing}
           </p>
-          <label>
-            {copy.key}
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              maxLength={1024}
-            />
-          </label>
-          <div className="assistant-model-fields">
-            <label>
-              {copy.model}
+          <ListCard>
+            <FieldRow label={copy.key}>
+              <input
+                type="password"
+                autoComplete="new-password"
+                maxLength={1024}
+                value={draft.values.apiKey}
+                onChange={(event) => draft.set("apiKey", event.target.value)}
+              />
+            </FieldRow>
+            <FieldRow label={copy.model}>
               <input
                 required
-                value={settings.model}
-                onChange={(e) => setSettings({ ...settings, model: e.target.value })}
+                value={draft.values.model}
+                onChange={(event) => draft.set("model", event.target.value)}
               />
-            </label>
-            <label>
-              {copy.language}
-              <select
-                value={settings.language}
-                onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-              >
-                <option value="auto">{copy.auto}</option>
-                <option value="de">{copy.german}</option>
-                <option value="en">{copy.english}</option>
-              </select>
-            </label>
-          </div>
-          <div className="assistant-actions">
-            <button className="button primary" disabled={busy}>
-              {copy.save}
-            </button>
-            {settings.hasSecret && (
-              <button
-                type="button"
-                className="button secondary"
-                disabled={busy}
-                onClick={() => save(true)}
-              >
-                {copy.remove}
-              </button>
-            )}
-          </div>
-          {restart && (
-            <RestartConfirmation
-              affected={restart.affected}
-              busy={busy}
-              onConfirm={() => save(false, restart.input)}
-              onCancel={() => setRestart(null)}
+            </FieldRow>
+            <SelectRow
+              label={copy.language}
+              value={draft.values.language}
+              onChange={(value) => draft.set("language", value)}
+              options={[
+                { value: "auto", label: copy.auto },
+                { value: "de", label: copy.german },
+                { value: "en", label: copy.english },
+              ]}
             />
-          )}
+          </ListCard>
         </form>
       )}
-    </section>
+      <UsedByGroup usage={usage} agentsEnabled={agentsEnabled} navigate={navigate} />
+    </AccountDetail>
   );
 }

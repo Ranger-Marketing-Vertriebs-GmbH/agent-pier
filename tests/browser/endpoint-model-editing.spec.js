@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
+import { accountDetail } from "../helpers/accounts-browser.js";
 
 test.use({ locale: "en-GB" });
 
@@ -9,7 +10,7 @@ async function openEndpointDialog(page) {
   await page
     .getByRole("button", { name: "Add provider connection", exact: true })
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = accountDetail(page);
   await dialog.getByLabel("Connection name", { exact: true }).fill("GPU box");
   await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
   return dialog;
@@ -140,8 +141,7 @@ test.describe("German UI", () => {
     await page.goto(baseURL + "/accounts");
     await page.getByRole("button", { name: /Provider-Zugang hinzufügen/ }).click();
     await expect(
-      page
-        .getByRole("dialog")
+      accountDetail(page)
         .getByLabel("API-Anbieter")
         .locator("option", { hasText: "Eigener Endpunkt" }),
     ).toHaveCount(1);

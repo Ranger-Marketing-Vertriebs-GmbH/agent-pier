@@ -232,44 +232,6 @@
     font-size: 11px;
     height: 39px;
   }
-  .account-card {
-    padding: 17px 15px;
-    gap: 13px;
-    flex-wrap: wrap;
-  }
-  .account-card > .provider-mark {
-    width: 33px;
-    height: 33px;
-    border-radius: 8px;
-  }
-  .account-details {
-    flex-basis: calc(100% - 50px);
-  }
-  .account-details h2 {
-    font-size: 13px;
-  }
-  .account-details p {
-    font-size: 9px;
-  }
-  .account-actions {
-    margin-left: 46px;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-  .account-actions:has(.badge) {
-    margin-top: -4px;
-  }
-  .account-info {
-    padding: 8px 2px;
-    margin-top: 26px;
-    gap: 12px;
-  }
-  .account-info h3 {
-    font-size: 11px;
-  }
-  .account-info p {
-    font-size: 10px;
-  }
   .session-workspace {
     height: calc(100dvh - 44px);
     padding: 6px 12px 0;

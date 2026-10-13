@@ -104,6 +104,8 @@ export async function fixture(page) {
         createdAt: stamp,
       };
       repositories.projects.push(result);
+    } else if (path === "/api/accounts/usage") {
+      result = {};
     } else if (path === "/api/sessions") {
       result = {
         id: "session-repo",

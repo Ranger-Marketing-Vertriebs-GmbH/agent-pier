@@ -1,6 +1,11 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import {
+  accountDetail,
+  accountRow,
+  openAccountItem,
+} from "../helpers/accounts-browser.js";
 
 async function fixture(page) {
   const state = {
@@ -61,9 +66,7 @@ test("signed-in Claude account replaces login action and becomes the persistent 
 }) => {
   const f = await fixture(page);
   await page.goto(baseURL + "/accounts");
-  const card = page
-    .locator(".account-card")
-    .filter({ has: page.getByRole("heading", { name: "Work Claude", exact: true }) });
+  const card = await openAccountItem(page, "Work Claude");
   await expect(card.getByText("Angemeldet", { exact: true })).toBeVisible();
   await expect(card.getByRole("button", { name: "Anmelden", exact: true })).toHaveCount(
     0,
@@ -88,25 +91,15 @@ for (const tool of ["claude", "codex", "opencode"])
     const f = await fixture(page);
     f.state.accounts[0] = { id: `local-${tool}`, name: "Local CLI", tool, kind: "local" };
     await page.goto(baseURL + "/accounts");
-    await expect(
-      page.getByRole("heading", { name: "Work Claude", exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Local CLI", exact: true }),
-    ).toHaveCount(0);
+    await expect(accountRow(page, "Work Claude")).toBeVisible();
+    await expect(accountRow(page, "Local CLI")).toHaveCount(0);
     f.authStates[`local-${tool}`] = "authenticated";
     await page.reload();
-    await expect(
-      page.getByRole("heading", { name: "Local CLI", exact: true }),
-    ).toBeVisible();
+    await expect(accountRow(page, "Local CLI")).toBeVisible();
     f.authStates[`local-${tool}`] = "unknown";
     await page.reload();
-    await expect(
-      page.getByRole("heading", { name: "Work Claude", exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Local CLI", exact: true }),
-    ).toHaveCount(0);
+    await expect(accountRow(page, "Work Claude")).toBeVisible();
+    await expect(accountRow(page, "Local CLI")).toHaveCount(0);
   });
 
 for (const tool of ["claude", "codex", "opencode"])
@@ -124,10 +117,8 @@ for (const tool of ["claude", "codex", "opencode"])
     ];
     f.authStates[`managed-${tool}`] = "unauthenticated";
     await page.goto(baseURL + "/accounts");
-    const card = page.locator(".account-card");
-    await expect(
-      card.getByRole("heading", { name: "New account", exact: true }),
-    ).toBeVisible();
+    await expect(accountRow(page, "New account")).toBeVisible();
+    const card = await openAccountItem(page, "New account");
     await expect(
       card.getByRole("button", { name: "Anmelden", exact: true }),
     ).toBeEnabled();
@@ -139,8 +130,11 @@ test("local login and logout update without reloading the accounts page", async 
   const f = await fixture(page);
   await page.clock.install();
   await page.goto(baseURL + "/accounts");
-  await expect(page.getByText("Angemeldet", { exact: true })).toBeVisible();
-  const local = page.getByRole("heading", { name: "Server Claude", exact: true });
+  await openAccountItem(page, "Work Claude");
+  await expect(
+    accountDetail(page).getByText("Angemeldet", { exact: true }),
+  ).toBeVisible();
+  const local = accountRow(page, "Server Claude");
   await expect(local).toHaveCount(0);
   f.authStates["local-claude"] = "authenticated";
   await page.clock.fastForward(11000);

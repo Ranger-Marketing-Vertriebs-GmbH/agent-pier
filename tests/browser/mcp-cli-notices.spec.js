@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { finds, header, openAdd, setup, stdioServer } from "./mcp-cli-fixture.js";
 
@@ -18,8 +19,8 @@ test("a change that rules out a bound CLI says that saving removes it there", as
     return false;
   };
   await page.goto(baseURL + "/accounts");
-  await page.getByRole("button", { name: "Edit docs" }).click();
-  const dialog = page.getByRole("dialog");
+  await openAccountItem(page, "docs");
+  const dialog = accountDetail(page);
   const claude = dialog.getByRole("checkbox", { name: "Claude Code" });
   await expect(claude).toBeChecked();
   const notes = dialog.locator(".mcp-cli-notes");
@@ -35,7 +36,7 @@ test("a change that rules out a bound CLI says that saving removes it there", as
   await dialog.getByLabel("Working directory").fill("/tmp");
   await expect(notes).toHaveText("Saving removes docs from Claude Code.");
   await dialog.getByRole("button", { name: "Save server" }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   const writes = state.requests.filter((r) => r.method !== "GET");
   expect(writes[0].body).toMatchObject({ cwd: "/tmp", clis: ["codex"] });
 });
@@ -76,6 +77,7 @@ test("a find with environment references stays in the CLI and says why", async (
     ],
   });
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(
     found.getByText(
@@ -97,8 +99,11 @@ test("the finds keep their heading while loading and after a failed load", async
     return route.fulfill({ status: 500, json: { error: "Finds unavailable." } });
   });
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
-  await expect(found.getByRole("heading", { name: "Found in the CLIs" })).toBeVisible();
+  await expect(
+    found.getByRole("heading", { name: "Found in the CLIs", level: 2 }),
+  ).toBeVisible();
   await expect(found.getByText(/^Entries you added to a CLI yourself/)).toBeVisible();
   await expect(found.getByText("Looking in the CLIs…")).toBeVisible();
   release();
@@ -133,6 +138,7 @@ test("an adoption reloads the finds once and confirms what was adopted", async (
     return route.fulfill({ json: { adopted, failed: [] } });
   };
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(found.getByRole("button", { name: "Adopt all" })).toBeVisible();
   // The first page load asks for the finds once.
@@ -168,6 +174,7 @@ test("the finds reload after an adoption even when the list fails to reload", as
     });
   };
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await settledFindLoads(page, state, 1);
   await page.route("**/api/mcp-servers", (route) =>

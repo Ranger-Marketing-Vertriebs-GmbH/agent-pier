@@ -3,6 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { saveBar } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
+import { accountRow, openAccountItem } from "../helpers/accounts-browser.js";
 async function setup(page, ready = true) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
@@ -52,7 +53,7 @@ test("ChatGPT login shows code, completes, checks and disconnects the selected a
 }) => {
   const state = await setup(page);
   await page.goto(baseURL + "/accounts");
-  const panel = page.getByRole("region", { name: "ChatGPT for agents" });
+  const panel = await openAccountItem(page, "ChatGPT for agents");
   await panel.getByRole("button", { name: "Connect ChatGPT" }).click();
   await expect(panel.getByText("ABCD-EFGHI")).toBeVisible();
   await expect(panel.getByRole("link", { name: "Open sign-in page" })).toHaveAttribute(
@@ -60,20 +61,21 @@ test("ChatGPT login shows code, completes, checks and disconnects the selected a
     "https://auth.openai.com/codex/device",
   );
   state.status = "completed";
-  await expect(panel.getByText("Personal ChatGPT")).toBeVisible();
+  await expect(accountRow(page, "Personal ChatGPT")).toBeVisible();
   await expect(panel.getByText("ABCD-EFGHI")).toHaveCount(0);
-  await panel.getByRole("button", { name: "Check connection" }).click();
+  const account = await openAccountItem(page, "Personal ChatGPT");
+  await account.getByRole("button", { name: "Check connection" }).click();
   await expect.poll(() => state.checked).toBe(true);
-  await expect(panel.getByText("Connection verified")).toBeVisible();
-  await panel.getByRole("button", { name: "Disconnect" }).click();
+  await expect(account.getByText("Connection verified")).toBeVisible();
+  await account.getByRole("button", { name: "Disconnect" }).click();
   await expect.poll(() => state.removed).toBe(true);
-  await expect(panel.getByText("Personal ChatGPT")).toHaveCount(0);
+  await expect(accountRow(page, "Personal ChatGPT")).toHaveCount(0);
 });
 test("device login can be cancelled and fits mobile", async ({ page }) => {
   await setup(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(baseURL + "/accounts");
-  const panel = page.getByRole("region", { name: "ChatGPT for agents" });
+  const panel = await openAccountItem(page, "ChatGPT for agents");
   await panel.getByRole("button", { name: "Connect ChatGPT" }).click();
   await expect(panel.getByText("ABCD-EFGHI")).toBeVisible();
   await page.screenshot({
@@ -92,7 +94,7 @@ test("offline account UI links to assistant service and selected ChatGPT account
 }) => {
   const state = await setup(page, false);
   await page.goto(baseURL + "/accounts");
-  const panel = page.getByRole("region", { name: "ChatGPT for agents" });
+  const panel = await openAccountItem(page, "ChatGPT for agents");
   await expect(panel.getByRole("button", { name: "Connect ChatGPT" })).toBeDisabled();
   await expect(
     panel.getByRole("link", { name: "Agent service settings" }),
@@ -145,15 +147,16 @@ test("an older account fetch cannot restore an account after disconnect", async 
     await route.fulfill({ json: { availability: "ready" } });
   });
   await page.goto(baseURL + "/accounts");
-  const panel = page.getByRole("region", { name: "ChatGPT for agents" });
-  await expect(panel.getByText("Personal ChatGPT")).toBeVisible();
+  const panel = await openAccountItem(page, "ChatGPT for agents");
+  await expect(accountRow(page, "Personal ChatGPT")).toBeVisible();
   resumeRuntime();
   await expect.poll(() => captured).toBe(true);
   await panel.getByRole("button", { name: "Connect ChatGPT" }).click();
   state.status = "completed";
-  await expect(panel.getByText("Personal ChatGPT")).toBeVisible();
-  await panel.getByRole("button", { name: "Disconnect" }).click();
-  await expect(panel.getByText("Personal ChatGPT")).toHaveCount(0);
+  await expect(accountRow(page, "Personal ChatGPT")).toBeVisible();
+  const detail = await openAccountItem(page, "Personal ChatGPT");
+  await detail.getByRole("button", { name: "Disconnect" }).click();
+  await expect(accountRow(page, "Personal ChatGPT")).toHaveCount(0);
   const lateResponse = page.waitForResponse((response) =>
     response.url().endsWith("/api/assistant-model-accounts"),
   );
@@ -162,5 +165,5 @@ test("an older account fetch cannot restore an account after disconnect", async 
   await expect.poll(() => state.removed).toBe(true);
   // Synchronize with the deliberately late response before the final assertion.
   await page.waitForTimeout(200);
-  await expect(panel.getByText("Personal ChatGPT")).toHaveCount(0);
+  await expect(accountRow(page, "Personal ChatGPT")).toHaveCount(0);
 });

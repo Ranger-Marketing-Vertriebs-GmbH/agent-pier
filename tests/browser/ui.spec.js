@@ -1,6 +1,12 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
+import {
+  accountDetail,
+  accountRow,
+  openAccountItem,
+  saveBar,
+} from "../helpers/accounts-browser.js";
 
 test.use({ channel: process.env.TUIUI_BROWSER_CHANNEL || undefined });
 
@@ -180,7 +186,7 @@ test("account creation, directory selection, session lifecycle and reload preser
   await page.getByLabel("Account-Name").fill("Arbeit");
   await page.getByLabel("API-Key (optional)").fill("never-return-me");
   await page.getByRole("button", { name: "Account erstellen" }).click();
-  await expect(page.getByText("Arbeit", { exact: true })).toBeVisible();
+  await expect(accountRow(page, "Arbeit")).toBeVisible();
   await expect(page.getByText("never-return-me")).toHaveCount(0);
   await page.getByRole("button", { name: "Neue Sitzung", exact: true }).first().click();
   await page.getByLabel("Name der Sitzung").fill("Review");
@@ -269,25 +275,24 @@ test("failed account submission preserves input, then account editing and deleti
     { times: 1 },
   );
   await page.getByRole("button", { name: "Account erstellen" }).click();
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(saveBar(page).getByRole("alert")).toContainText(
     "Profil konnte nicht erstellt werden",
   );
   await expect(page.getByLabel("Account-Name")).toHaveValue("Team");
   await page.getByRole("button", { name: "Account erstellen" }).click();
-  await page.getByRole("button", { name: "Team bearbeiten" }).click();
+  await openAccountItem(page, "Team");
   await page.getByLabel("Account-Name").fill("Team privat");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Team privat", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Team privat löschen" }).click();
-  await page.getByRole("button", { name: "Account löschen", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Team privat", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "Lokales Konto", exact: true }),
-  ).toBeVisible();
+  await expect(accountRow(page, "Team privat")).toBeVisible();
+  await accountDetail(page)
+    .getByRole("button", { name: "Account löschen", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Account löschen", exact: true })
+    .click();
+  await expect(accountRow(page, "Team privat")).toHaveCount(0);
+  await expect(accountRow(page, "Lokales Konto")).toBeVisible();
 });
 
 test("native login opens a visible terminal and a closed socket reconnects", async ({
@@ -304,7 +309,10 @@ test("native login opens a visible terminal and a closed socket reconnects", asy
   });
   await page.goto(base);
   await navigateTo(page, "Accounts");
-  await page.getByRole("button", { name: "Anmelden", exact: true }).click();
+  await openAccountItem(page, "Arbeit");
+  await accountDetail(page)
+    .getByRole("button", { name: "Anmelden", exact: true })
+    .click();
   await page.getByRole("button", { name: "Anmeldeterminal öffnen", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Anmeldung · Arbeit", exact: true }),

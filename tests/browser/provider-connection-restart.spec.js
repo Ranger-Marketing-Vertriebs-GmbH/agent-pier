@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
+import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";
 
 test.use({ locale: "en-GB" });
 
@@ -29,8 +30,8 @@ test("changing a connection agents use asks to restart their Gateway first", asy
   controls.assistantConnections.add(connection.id);
   await page.goto(baseURL + "/accounts");
 
-  await page.getByRole("button", { name: "Edit Agent router", exact: true }).click();
-  const dialog = page.getByRole("dialog");
+  await openAccountItem(page, "Agent router");
+  const dialog = accountDetail(page);
   await dialog.getByLabel("Connection name", { exact: true }).fill("Agent router 2");
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
   await expect(dialog.getByRole("status")).toContainText(
@@ -41,13 +42,16 @@ test("changing a connection agents use asks to restart their Gateway first", asy
   await dialog
     .getByRole("button", { name: "Save and restart agents", exact: true })
     .click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   expect(requests(controls, "PATCH").at(-1).body).toEqual({
     name: "Agent router 2",
     confirmRestart: true,
   });
 
-  await page.getByRole("button", { name: "Delete Agent router 2", exact: true }).click();
+  await openAccountItem(page, "Agent router 2");
+  await accountDetail(page)
+    .getByRole("button", { name: "Delete connection", exact: true })
+    .click();
   const removal = page.getByRole("dialog");
   await removal.getByRole("button", { name: "Delete connection", exact: true }).click();
   await expect(removal.getByRole("status")).toContainText("restarts their Gateway");
@@ -70,7 +74,10 @@ test("deleting a connection names the agents that lose it", async ({ page }) => 
     teamMembers: 3,
   };
   await page.goto(baseURL + "/accounts");
-  await page.getByRole("button", { name: "Delete Agent router", exact: true }).click();
+  await openAccountItem(page, "Agent router");
+  await accountDetail(page)
+    .getByRole("button", { name: "Delete connection", exact: true })
+    .click();
   const removal = page.getByRole("dialog");
   await removal.getByRole("button", { name: "Delete connection", exact: true }).click();
   await expect(removal).toContainText(
