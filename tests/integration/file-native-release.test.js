@@ -110,169 +110,175 @@ function revisedArchive(bytes, version, omit = () => false) {
   return gzipSync(JSON.stringify(archive));
 }
 
-test("packaged native support survives relocation, initial installation and update staging", async (t) => {
-  t.diagnostic(
-    JSON.stringify({
-      acceptance: "native-release",
-      platform: process.platform,
-      arch: process.arch,
-      node: process.version,
-    }),
-  );
-  const f = await fixture(t);
-  if (!(await relocatableRuntime(t, f.root))) return;
-  const archive = path.join(f.root, "release.aprelease");
-  await buildRelease({
-    source: f.source,
-    output: archive,
-    node: process.execPath,
-    nodeLicense: f.nodeLicense,
-    prepareDependencies: false,
-  });
-  const bytes = await fs.readFile(archive);
-  await fs.rm(f.source, { recursive: true });
-  const unpacked = path.join(f.root, "unpacked");
-  await fs.mkdir(unpacked);
-  unpackRelease(bytes, unpacked);
-  await smokeRelease(unpacked);
-  assert.match(
-    await fs.readFile(path.join(unpacked, "node_modules/koffi/LICENSE.txt"), "utf8"),
-    /MIT License/,
-  );
-  const installRoot = path.join(f.root, "install");
-  const dataDir = path.join(f.root, "data");
-  await installRelease(
-    { archive, installRoot, dataDir, installDependencies: false },
-    { run: async () => ({ stdout: "fixture tool available" }) },
-  );
-  assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
-  const releases = new Releases({ installRoot, dataDir });
-  const update = path.join(f.root, "update.aprelease");
-  await fs.writeFile(update, revisedArchive(bytes, "1.1.0"));
-  assert.equal((await releases.stage({ archive: update })).version, "1.1.0");
-  await smokeRelease(path.join(installRoot, "releases/1.1.0"));
-  const badNames = path.join(f.root, "missing-name-policy.aprelease");
-  await fs.writeFile(
-    badNames,
-    revisedArchive(
-      bytes,
-      "1.1.2",
-      (name) => name === "server/features/files/file-native-names.js",
-    ),
-  );
-  await assert.rejects(releases.stage({ archive: badNames }), {
-    message: serverMessages.releases.smokeFailed,
-  });
-  const missingInstallRoot = path.join(f.root, "missing-name-policy-install");
-  await assert.rejects(
-    installRelease(
-      {
-        archive: badNames,
-        installRoot: missingInstallRoot,
-        dataDir: path.join(f.root, "missing-name-policy-data"),
-        installDependencies: false,
-      },
+// Builds and installs a native package: 207 s on a macOS runner (2026-10-13),
+// too close to the 300 s per-test default that CI sets.
+test(
+  "packaged native support survives relocation, initial installation and update staging",
+  { timeout: 600000 },
+  async (t) => {
+    t.diagnostic(
+      JSON.stringify({
+        acceptance: "native-release",
+        platform: process.platform,
+        arch: process.arch,
+        node: process.version,
+      }),
+    );
+    const f = await fixture(t);
+    if (!(await relocatableRuntime(t, f.root))) return;
+    const archive = path.join(f.root, "release.aprelease");
+    await buildRelease({
+      source: f.source,
+      output: archive,
+      node: process.execPath,
+      nodeLicense: f.nodeLicense,
+      prepareDependencies: false,
+    });
+    const bytes = await fs.readFile(archive);
+    await fs.rm(f.source, { recursive: true });
+    const unpacked = path.join(f.root, "unpacked");
+    await fs.mkdir(unpacked);
+    unpackRelease(bytes, unpacked);
+    await smokeRelease(unpacked);
+    assert.match(
+      await fs.readFile(path.join(unpacked, "node_modules/koffi/LICENSE.txt"), "utf8"),
+      /MIT License/,
+    );
+    const installRoot = path.join(f.root, "install");
+    const dataDir = path.join(f.root, "data");
+    await installRelease(
+      { archive, installRoot, dataDir, installDependencies: false },
       { run: async () => ({ stdout: "fixture tool available" }) },
-    ),
-    { message: serverMessages.releases.smokeFailed },
-  );
-  await assert.rejects(fs.access(path.join(missingInstallRoot, "current")), {
-    code: "ENOENT",
-  });
-  assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
-  const faulty = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.1")));
-  const metadataModule = faulty.files.find(
-    (file) => file.path === "server/features/files/file-metadata.js",
-  );
-  const faultySource =
-    Buffer.from(metadataModule.content, "base64")
+    );
+    assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
+    const releases = new Releases({ installRoot, dataDir });
+    const update = path.join(f.root, "update.aprelease");
+    await fs.writeFile(update, revisedArchive(bytes, "1.1.0"));
+    assert.equal((await releases.stage({ archive: update })).version, "1.1.0");
+    await smokeRelease(path.join(installRoot, "releases/1.1.0"));
+    const badNames = path.join(f.root, "missing-name-policy.aprelease");
+    await fs.writeFile(
+      badNames,
+      revisedArchive(
+        bytes,
+        "1.1.2",
+        (name) => name === "server/features/files/file-native-names.js",
+      ),
+    );
+    await assert.rejects(releases.stage({ archive: badNames }), {
+      message: serverMessages.releases.smokeFailed,
+    });
+    const missingInstallRoot = path.join(f.root, "missing-name-policy-install");
+    await assert.rejects(
+      installRelease(
+        {
+          archive: badNames,
+          installRoot: missingInstallRoot,
+          dataDir: path.join(f.root, "missing-name-policy-data"),
+          installDependencies: false,
+        },
+        { run: async () => ({ stdout: "fixture tool available" }) },
+      ),
+      { message: serverMessages.releases.smokeFailed },
+    );
+    await assert.rejects(fs.access(path.join(missingInstallRoot, "current")), {
+      code: "ENOENT",
+    });
+    assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
+    const faulty = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.1")));
+    const metadataModule = faulty.files.find(
+      (file) => file.path === "server/features/files/file-metadata.js",
+    );
+    const faultySource =
+      Buffer.from(metadataModule.content, "base64")
+        .toString()
+        .replace(
+          "export async function copyMetadata(",
+          "async function discardedCopyMetadata(",
+        ) + "\nexport async function copyMetadata() { return { warnings: [] }; }\n";
+    metadataModule.content = Buffer.from(faultySource).toString("base64");
+    metadataModule.sha256 = digest(Buffer.from(faultySource));
+    const faultyArchive = path.join(f.root, "faulty-metadata.aprelease");
+    await fs.writeFile(faultyArchive, gzipSync(JSON.stringify(faulty)));
+    await assert.rejects(releases.stage({ archive: faultyArchive }), {
+      message: serverMessages.releases.smokeFailed,
+    });
+    assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
+    const faultyWrite = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.2")));
+    const writeModule = faultyWrite.files.find(
+      (file) => file.path === "server/features/files/file-native-write.js",
+    );
+    const noWrite = Buffer.from(writeModule.content, "base64")
       .toString()
       .replace(
-        "export async function copyMetadata(",
-        "async function discardedCopyMetadata(",
-      ) + "\nexport async function copyMetadata() { return { warnings: [] }; }\n";
-  metadataModule.content = Buffer.from(faultySource).toString("base64");
-  metadataModule.sha256 = digest(Buffer.from(faultySource));
-  const faultyArchive = path.join(f.root, "faulty-metadata.aprelease");
-  await fs.writeFile(faultyArchive, gzipSync(JSON.stringify(faulty)));
-  await assert.rejects(releases.stage({ archive: faultyArchive }), {
-    message: serverMessages.releases.smokeFailed,
-  });
-  assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
-  const faultyWrite = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.2")));
-  const writeModule = faultyWrite.files.find(
-    (file) => file.path === "server/features/files/file-native-write.js",
-  );
-  const noWrite = Buffer.from(writeModule.content, "base64")
-    .toString()
-    .replace(
-      "return writeSync(",
-      "return args.bytes.length; /* disabled write */ writeSync(",
+        "return writeSync(",
+        "return args.bytes.length; /* disabled write */ writeSync(",
+      );
+    assert.notEqual(noWrite, Buffer.from(writeModule.content, "base64").toString());
+    writeModule.content = Buffer.from(noWrite).toString("base64");
+    writeModule.sha256 = digest(Buffer.from(noWrite));
+    const noWriteArchive = path.join(f.root, "faulty-write.aprelease");
+    await fs.writeFile(noWriteArchive, gzipSync(JSON.stringify(faultyWrite)));
+    await assert.rejects(releases.stage({ archive: noWriteArchive }), {
+      message: serverMessages.releases.smokeFailed,
+    });
+    assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
+    const faultyLink = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.3")));
+    const linkModule = faultyLink.files.find(
+      (file) => file.path === "server/features/files/file-native-write.js",
     );
-  assert.notEqual(noWrite, Buffer.from(writeModule.content, "base64").toString());
-  writeModule.content = Buffer.from(noWrite).toString("base64");
-  writeModule.sha256 = digest(Buffer.from(noWrite));
-  const noWriteArchive = path.join(f.root, "faulty-write.aprelease");
-  await fs.writeFile(noWriteArchive, gzipSync(JSON.stringify(faultyWrite)));
-  await assert.rejects(releases.stage({ archive: noWriteArchive }), {
-    message: serverMessages.releases.smokeFailed,
-  });
-  assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
-  const faultyLink = JSON.parse(gunzipSync(revisedArchive(bytes, "1.1.3")));
-  const linkModule = faultyLink.files.find(
-    (file) => file.path === "server/features/files/file-native-write.js",
-  );
-  const wrongLink = Buffer.from(linkModule.content, "base64")
-    .toString()
-    .replace('case "readLink": {', 'case "readLink": { return "wrong-link";');
-  assert.notEqual(wrongLink, Buffer.from(linkModule.content, "base64").toString());
-  linkModule.content = Buffer.from(wrongLink).toString("base64");
-  linkModule.sha256 = digest(Buffer.from(wrongLink));
-  const wrongLinkArchive = path.join(f.root, "faulty-link.aprelease");
-  await fs.writeFile(wrongLinkArchive, gzipSync(JSON.stringify(faultyLink)));
-  await assert.rejects(releases.stage({ archive: wrongLinkArchive }), {
-    message: serverMessages.releases.smokeFailed,
-  });
-  assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
-  const broken = path.join(f.root, "broken.aprelease");
-  await fs.writeFile(
-    broken,
-    revisedArchive(bytes, "1.2.0", (name) =>
-      name.startsWith(`node_modules/${platformPackage}/`),
-    ),
-  );
-  await assert.rejects(releases.stage({ archive: broken }), {
-    message: serverMessages.releases.smokeFailed,
-  });
-  await assert.rejects(fs.access(path.join(installRoot, "releases/1.2.0")), {
-    code: "ENOENT",
-  });
-  assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
-  assert.equal(
-    (await fs.readdir(installRoot)).some((name) => name.startsWith(".staging-")),
-    false,
-  );
+    const wrongLink = Buffer.from(linkModule.content, "base64")
+      .toString()
+      .replace('case "readLink": {', 'case "readLink": { return "wrong-link";');
+    assert.notEqual(wrongLink, Buffer.from(linkModule.content, "base64").toString());
+    linkModule.content = Buffer.from(wrongLink).toString("base64");
+    linkModule.sha256 = digest(Buffer.from(wrongLink));
+    const wrongLinkArchive = path.join(f.root, "faulty-link.aprelease");
+    await fs.writeFile(wrongLinkArchive, gzipSync(JSON.stringify(faultyLink)));
+    await assert.rejects(releases.stage({ archive: wrongLinkArchive }), {
+      message: serverMessages.releases.smokeFailed,
+    });
+    assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
+    const broken = path.join(f.root, "broken.aprelease");
+    await fs.writeFile(
+      broken,
+      revisedArchive(bytes, "1.2.0", (name) =>
+        name.startsWith(`node_modules/${platformPackage}/`),
+      ),
+    );
+    await assert.rejects(releases.stage({ archive: broken }), {
+      message: serverMessages.releases.smokeFailed,
+    });
+    await assert.rejects(fs.access(path.join(installRoot, "releases/1.2.0")), {
+      code: "ENOENT",
+    });
+    assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
+    assert.equal(
+      (await fs.readdir(installRoot)).some((name) => name.startsWith(".staging-")),
+      false,
+    );
 
-  // Even a resolvable ancestor installation must not mask absent release payloads.
-  await fs.mkdir(path.join(f.root, "node_modules/@koromix"), { recursive: true });
-  await fs.rename(
-    path.join(unpacked, "node_modules", platformPackage),
-    path.join(f.root, "node_modules", platformPackage),
-  );
-  await assert.rejects(smokeRelease(unpacked), {
-    message: serverMessages.releases.smokeFailed,
-  });
-  await fs.rename(
-    path.join(unpacked, "node_modules/koffi"),
-    path.join(f.root, "node_modules/koffi"),
-  );
-  await assert.rejects(smokeRelease(unpacked), {
-    message: serverMessages.releases.smokeFailed,
-  });
-  // Historical releases do not declare or ship the native explorer foundation.
-  await fs.writeFile(
-    path.join(unpacked, "package.json"),
-    '{"type":"module","version":"0.9.0"}',
-  );
-  await smokeRelease(unpacked);
-});
+    // Even a resolvable ancestor installation must not mask absent release payloads.
+    await fs.mkdir(path.join(f.root, "node_modules/@koromix"), { recursive: true });
+    await fs.rename(
+      path.join(unpacked, "node_modules", platformPackage),
+      path.join(f.root, "node_modules", platformPackage),
+    );
+    await assert.rejects(smokeRelease(unpacked), {
+      message: serverMessages.releases.smokeFailed,
+    });
+    await fs.rename(
+      path.join(unpacked, "node_modules/koffi"),
+      path.join(f.root, "node_modules/koffi"),
+    );
+    await assert.rejects(smokeRelease(unpacked), {
+      message: serverMessages.releases.smokeFailed,
+    });
+    // Historical releases do not declare or ship the native explorer foundation.
+    await fs.writeFile(
+      path.join(unpacked, "package.json"),
+      '{"type":"module","version":"0.9.0"}',
+    );
+    await smokeRelease(unpacked);
+  },
+);

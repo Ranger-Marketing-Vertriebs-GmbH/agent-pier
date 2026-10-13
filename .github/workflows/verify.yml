@@ -37,11 +37,14 @@ jobs:
             fi
           fi
       - run: npm ci
-      # A failed test file runs once more; files that pass only on that retry are
-      # listed as flaky in the job summary, files that fail twice fail the job.
+      # A failed test file runs once more if the runner finished; files that pass
+      # only on that retry are listed as flaky in the job summary. A file that fails
+      # twice, or more than two flaky files, fail the job. Each test may take at
+      # most 300 s (slowest observed without its own limit: 41 s).
       - run: npm run check
         env:
           AGENTPIER_TEST_RETRY_FAILED_FILES: "1"
+          AGENTPIER_TEST_TIMEOUT_MS: "300000"
       - name: AgentBus Node and Bun compatibility
         run: >-
           npm exec --yes --package=bun@1.3.10 --
