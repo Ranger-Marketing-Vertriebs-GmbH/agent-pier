@@ -9,6 +9,7 @@ import { assertWired } from "./service-wiring.js";
 import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js";
 import { ExecAllowlist } from "./exec-allowlist.js";
 import { assistantActivity } from "./assistant-activity.js";
+import { ChatStreams } from "./chat-stream.js";
 import {
   auditProactivity,
   lacksMemory,
@@ -36,6 +37,7 @@ export class AssistantService {
     this.ledger = new RequestLedger(store.db);
     this.markOutstandingUnknown();
     this.events = new AssistantEvents();
+    this.chatStreams = new ChatStreams();
     this.gatewayEvents = new GatewayEventHub();
     this.locks = new Map();
     this.closed = false;
@@ -109,22 +111,26 @@ export class AssistantService {
         .listConversations()
         .find((c) => c.runtimeSessionKey === payload.sessionKey);
       if (!conversation) return;
-      if (event.event === "chat" && payload.state === "delta")
+      // Only a run's first frame carries the whole reply; later ones carry what was
+      // appended. The browser always receives the reply so far.
+      const text =
+        event.event === "chat" && payload.state === "delta"
+          ? this.chatStreams.delta(payload)
+          : undefined;
+      if (text !== undefined)
         this.events.publish({
           type: "delta",
           conversationId: conversation.id,
           runId: payload.runId,
-          text: String(
-            payload.message?.content
-              ?.filter?.((c) => c.type === "text")
-              .map((c) => c.text)
-              .join("") ||
-              payload.deltaText ||
-              "",
-          ).slice(0, 65536),
+          text: text.slice(0, 65536),
         });
-      if (event.event === "chat" && ["final", "aborted", "error"].includes(payload.state))
+      if (
+        event.event === "chat" &&
+        ["final", "aborted", "error"].includes(payload.state)
+      ) {
+        this.chatStreams.end(payload.sessionKey, payload.runId);
         this.reconcile().catch(() => {});
+      }
     });
   }
   list() {
