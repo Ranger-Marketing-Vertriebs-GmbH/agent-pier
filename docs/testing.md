@@ -127,6 +127,22 @@ verification is not interrupted. The Secrets workflow still scans branch pushes.
 | Browser contracts         | Linux Chromium and WebKit; optional local macOS Chrome  | Full browser suite against a fixture-owned frontend           | Preserve failure screenshot, trace and reporter output; include desktop and existing mobile scenarios. |
 | Extended generated checks | All backend CI workers                                  | 300 runs with recorded seed `173205`                          | Reproduce failures with their exact seed/path before adding a regression.                              |
 
+### Affected-test selection
+
+`scripts/affected-tests.mjs` chooses the tests a change can affect, for fast pull-request feedback; the merge queue, nightly and release runs still run everything.
+
+```sh
+node scripts/affected-tests.mjs --base origin/main --json   # print the selection
+npm run test:affected -- --base origin/main                 # run the selected node tests
+```
+
+It prints `{ mode, node, browser, reasons }`. `mode` is `all`, `selected` or `none`.
+
+- **Node tests** are selected through a static graph. The graph follows imports, re-exports and dynamic imports of string literals across the repository. It also follows paths that tests name, such as a fixture they spawn or a screenshot they write. A server message catalog (`server/lib/i18n/de/<name>.js`) selects only the modules that read its namespace, plus the catalog tests.
+- **Browser specs** are selected when they import the change, or when their file name contains the changed feature's name. The feature name comes from `web/features/<name>`, `server/features/<name>`, `server/http/routes/<name>.js` or a catalog of that name; `scripts/affected/browser-map.mjs` lists the extra names. Shared code selects every spec: `web/{app,components,lib,styles,startup}`, `public/`, `server/{app,application,http,lib}` and similar.
+- **Everything runs** when any of these change: dependencies, CI, the test runners or their configuration, the build configuration or the selector. Everything also runs when the diff cannot be computed, a changed module does not parse, or no test imports or names a changed file. Above 60 % of a suite, that whole suite runs.
+- **Nothing runs** when only documentation that no test names has changed.
+
 CI must use disposable homes and independent data directories. Cache dependency downloads, never generated credential files or test profiles. Mocked platform selection is useful contract coverage but does not replace actual Linux/macOS subprocess runs. External provider checks, CLI installations and tests with real credentials remain separate opt-in jobs; a skipped prerequisite must be reported as skipped rather than passed.
 
 ## Nightly quality and mutation pilot
