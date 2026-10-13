@@ -3,10 +3,11 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import {
-  failedFiles,
+  defaultMaxFlaky,
+  retryFailed,
   retryOutcome,
   retryPlan,
-  skippedTests,
+  runEvents,
   summaryMarkdown,
 } from "./test-retry.mjs";
 
@@ -21,6 +22,8 @@ export function runTestFiles({
   retry = false,
   noSkips = false,
   neverRetry = [],
+  maxFlaky = defaultMaxFlaky,
+  testTimeout,
 }) {
   const recording = retry || noSkips;
   const events = path.join(
@@ -43,6 +46,7 @@ export function runTestFiles({
               `--test-reporter-destination=${events}`,
             ]
           : []),
+        ...(testTimeout ? [`--test-timeout=${testTimeout}`] : []),
         ...nodeArgs,
         ...selected,
       ],
@@ -51,27 +55,25 @@ export function runTestFiles({
     if (child.error) throw child.error;
     const lines = fs.existsSync(events) ? fs.readFileSync(events, "utf8") : "";
     fs.rmSync(events, { force: true });
-    return {
-      status: child.status ?? 1,
-      failures: failedFiles(lines, root),
-      skipped: skippedTests(lines),
-    };
+    return { status: child.status ?? 1, signal: child.signal, ...runEvents(lines, root) };
   };
   const relative = files.map((file) => path.relative(root, path.resolve(root, file)));
   const first = run(relative);
-  if (!retry || first.status === 0) return skipCheck(first, first.status);
+  if (!retry || (first.status === 0 && !first.signal))
+    return skipCheck(first, first.signal ? 1 : first.status);
   const plan = retryPlan({ ...first, files: relative, neverRetry });
   if (plan.fail) {
     report(label, { flaky: [], failed: [], reason: plan.fail });
-    return first.status;
+    return first.status || 1;
   }
+  if (!plan.retry.length) return skipCheck(first, 0);
   console.log(`Retrying ${plan.retry.length} failed test file(s) once.`);
   const second = run(plan.retry);
-  const outcome = retryOutcome({ retried: plan.retry, ...second });
-  report(label, outcome);
+  const outcome = retryOutcome({ retried: plan.retry, ...second, maxFlaky });
+  report(label, { ...outcome, maxFlaky });
   return skipCheck(
     { skipped: [...first.skipped, ...second.skipped] },
-    outcome.failed.length ? 1 : 0,
+    retryFailed(outcome) ? 1 : 0,
   );
 
   function skipCheck({ skipped }, status) {
@@ -84,7 +86,7 @@ export function runTestFiles({
 function report(label, result) {
   for (const file of result.flaky) console.log(`FLAKY (passed on retry): ${file}`);
   for (const file of result.failed) console.log(`FAILED twice: ${file}`);
-  if (result.reason) console.log(`Not retried: ${result.reason}.`);
+  if (result.reason) console.log(`Failed without a retry pass: ${result.reason}.`);
   if (process.env.GITHUB_ACTIONS === "true")
     for (const file of result.flaky)
       console.log(`::warning file=${file}::${file} passed only on its retry (flaky)`);

@@ -61,7 +61,7 @@ jobs:
         timeout-minutes: 20
         run: >-
           node scripts/test-files.mjs --label "assistant core contracts"
-          --concurrency 1 --retry --no-skips
+          --concurrency 1 --retry --no-skips --test-timeout 300000
           tests/integration/assistant-runtime-contract.test.js
           tests/integration/assistant-provider-contract.test.js
           tests/integration/assistant-chat-stream-contract.test.js

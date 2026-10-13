@@ -31,6 +31,8 @@ process.exitCode = runTestFiles({
   nodeArgs: ["--test-concurrency=4", ...options],
   label: strategy,
   retry: process.env.AGENTPIER_TEST_RETRY_FAILED_FILES === "1",
+  // CI sets a per-test ceiling so a hung test fails its file instead of the job.
+  testTimeout: Number(process.env.AGENTPIER_TEST_TIMEOUT_MS) || undefined,
   // Fixed seeds fail deterministically; a retry would only hide a real failure.
   neverRetry: ["tests/property/"],
 });
