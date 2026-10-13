@@ -23,6 +23,42 @@ function useVisible(ref) {
   return visible;
 }
 
+// The server reads two bundles at a time and answers busy beyond that (another tab,
+// Open, or a preview of an artifact selected a moment ago): wait and try again.
+const busyDelays = [500, 1500, 3000];
+
+function wait(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
+}
+
+async function loadPreview(id, signal) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const snapshot = await api(
+        `/artifacts/${encodeURIComponent(id)}/bundle`,
+        "GET",
+        undefined,
+        signal,
+      );
+      return await artifactPreviewDocument(snapshot);
+    } catch (failure) {
+      if (failure?.code !== "ARTIFACT_BUSY" || attempt >= busyDelays.length)
+        throw failure;
+      await wait(busyDelays[attempt], signal);
+    }
+  }
+}
+
 /** A scaled, inert picture of the selected artifact; loaded once per version. */
 export default function ArtifactPreview({ item }) {
   const frame = useRef(null);
@@ -33,13 +69,7 @@ export default function ArtifactPreview({ item }) {
     if (!visible) return undefined;
     const controller = new AbortController();
     setState(null);
-    api(
-      `/artifacts/${encodeURIComponent(item.id)}/bundle`,
-      "GET",
-      undefined,
-      controller.signal,
-    )
-      .then((snapshot) => artifactPreviewDocument(snapshot))
+    loadPreview(item.id, controller.signal)
       .then((html) => {
         if (!controller.signal.aborted) setState({ version, html });
       })
@@ -50,6 +80,7 @@ export default function ArtifactPreview({ item }) {
     // The version changes when the artifact is replaced; polling alone never reloads.
   }, [visible, version, item.id]);
   const current = state?.version === version ? state : null;
+  // `inert`: neither pointer nor keyboard reaches links inside the picture.
   return (
     <div className="artifact-preview" ref={frame}>
       {current?.html ? (
@@ -59,6 +90,7 @@ export default function ArtifactPreview({ item }) {
           referrerPolicy="no-referrer"
           srcDoc={current.html}
           tabIndex={-1}
+          inert
           loading="lazy"
         />
       ) : (

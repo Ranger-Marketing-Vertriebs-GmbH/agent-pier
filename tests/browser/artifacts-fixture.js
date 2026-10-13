@@ -83,10 +83,17 @@ export function artifactItems() {
 }
 
 const page = Buffer.from(
-  '<link rel="stylesheet" href="style.css"><h1>Private report</h1>' +
+  '<link rel="stylesheet" href="style.css"><h1>Private report</h1><p>Body</p>' +
     '<script>document.body.append("SCRIPT RAN")</script>',
 ).toString("base64");
-const style = Buffer.from("h1 { color: rgb(1, 2, 3); }").toString("base64");
+// A remote image-set slips past the bundle's url() rewrite; the CSPs must block it. The
+// string literal tries to close the inlined <style> element.
+export const remoteProbe = "/remote-probe.png";
+const style = Buffer.from(
+  "h1 { color: rgb(1, 2, 3); }" +
+    `body { background-image: image-set("http://127.0.0.1:${process.env.AGENTPIER_TEST_PORT || 4389}${remoteProbe}" 1x); }` +
+    'p::after { content: "</style><b id=breakout>broken</b>"; }',
+).toString("base64");
 // A 1×1 PNG.
 const png =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
