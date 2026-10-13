@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import SettingsShell from "../../components/SettingsShell.jsx";
 import useReturnTarget from "../../app/useReturnTarget.js";
@@ -46,11 +46,17 @@ export default function AccountsPage({
   openNavigation,
   navigationOpen = false,
 }) {
-  // Opened through a cross-link (`returnTo`): moves inside Accounts keep it, and the
-  // page the link landed on leads back to its origin; other pages go up as usual.
+  // Opened through a cross-link (`returnTo`): moves inside Accounts keep it. On phones
+  // only the page the link landed on leads back to its origin (other entries go up to
+  // their group, a later hub shows the menu); on wider screens Accounts is one page
+  // and keeps the origin's back arrow for the whole visit.
   const returnTo = route.returnTo;
   const returnTarget = useReturnTarget(route, onNavigate);
-  const landing = useRef(returnTo ? `${route.section}:${route.item}` : null);
+  const here = `${route.section}:${route.item}`;
+  // The landing page follows each new `returnTo`, including history moves that keep
+  // this page mounted.
+  const [landing, setLanding] = useState({ returnTo, key: here });
+  if (landing.returnTo !== returnTo) setLanding({ returnTo, key: here });
   const navigate = useCallback(
     (next, replace) =>
       onNavigate(
@@ -102,7 +108,7 @@ export default function AccountsPage({
   const subpage = open && narrow;
   const toOrigin =
     Boolean(returnTarget) &&
-    (!subpage || landing.current === `${route.section}:${route.item}`);
+    (!narrow || (landing.returnTo === returnTo ? landing.key : here) === here);
   // A loading or failed entry has no name yet; its group names the subpage.
   const title = subpage
     ? accountItemTitle(entry) || sectionLabel(entry.section)
@@ -128,7 +134,7 @@ export default function AccountsPage({
       title={title}
       subtitle={subpage ? hubCopy.breadcrumb(sectionLabel(entry.section)) : local}
       description={hubCopy.intro}
-      leading={subpage || returnTarget ? "back" : "menu"}
+      leading={subpage || toOrigin ? "back" : "menu"}
       leadingLabel={toOrigin ? returnTarget.label : undefined}
       onLeading={
         toOrigin

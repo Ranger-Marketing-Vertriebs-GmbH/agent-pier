@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { setupAssistantSettings as setup } from "../helpers/assistant-settings-browser.js";
 import { agentTab, settingsPath } from "../helpers/agent-settings-page.js";
+import { openAccountItem } from "../helpers/accounts-browser.js";
+import { navigateTo } from "../helpers/navigation.js";
 
 // A page opened through a cross-link leads back to exactly where the owner came from;
 // opened any other way it keeps its hierarchical back.
@@ -123,13 +125,93 @@ test("a cross-link's origin does not leak into later navigation", async ({ page 
   await page.goto(baseURL + settingsPath("telegram"));
   await page.getByRole("link", { name: copy.en.speech }).click();
   await expect(page).toHaveURL(/returnTo=/);
-  // Leaving Accounts by other means drops the origin.
-  await page.goto(baseURL + "/settings/assistants");
-  await expect(page).toHaveURL(/\/settings\/assistants$/);
-  await back(page, copy.en.backToWorkspace).click();
+  // Leaving through the app's own navigation drops the origin, even within Accounts.
+  await navigateTo(page, "Accounts");
+  await expect(page).toHaveURL(/\/accounts$/);
+  await expect(back(page, copy.en.backToAgent)).toHaveCount(0);
+  await navigateTo(page, "Settings");
   await expect(page).toHaveURL(/\/settings$/);
-  await page.goto(baseURL + "/settings?tab=access");
+  await page.getByRole("tab", { name: "Access" }).click();
   await page.getByRole("link", { name: /^Provider access, MCP servers/ }).click();
   await expect(page).toHaveURL(/\/accounts\?returnTo=%2Fsettings%3Ftab%3Daccess$/);
-  await expect(back(page, "Back to Access")).toBeVisible();
+  await back(page, "Back to Access").click();
+  await expect(page).toHaveURL(/\/settings\?tab=access$/);
+});
+
+test.describe("cross-links on phones", () => {
+  test.use({ viewport: sizes.phone });
+
+  test("only the landing page leads to the origin; other entries go up", async ({
+    page,
+  }) => {
+    await setup(page);
+    await page.goto(baseURL + settingsPath());
+    await page.getByRole("link", { name: copy.en.connections }).click();
+    await expect(back(page, copy.en.backToAgent)).toBeVisible();
+    await openAccountItem(page, "ChatGPT for agents");
+    await expect(page).toHaveURL(/item=chatgpt&returnTo=/);
+    await expect(back(page, copy.en.backToAgent)).toHaveCount(0);
+    await back(page, "Back").click();
+    await expect(page).toHaveURL(/\/accounts\?section=models&returnTo=/);
+    await back(page, copy.en.backToAgent).click();
+    await expect(page).toHaveURL(/\/agents\/home\/settings$/);
+  });
+
+  test("a hub reached later keeps the menu", async ({ page }) => {
+    await setup(page);
+    await page.goto(baseURL + settingsPath("telegram"));
+    await page.getByRole("link", { name: copy.en.speech }).click();
+    await expect(back(page, copy.en.backToAgent)).toBeVisible();
+    // An unknown entry returns to its group: a hub the link did not land on.
+    await page.goto(
+      baseURL +
+        "/accounts?section=services&item=gone&returnTo=" +
+        encodeURIComponent("/agents/home/settings?tab=telegram"),
+    );
+    await expect(page).toHaveURL(/\/accounts\?section=services&returnTo=/);
+    await expect(page.getByRole("button", { name: copy.en.menu })).toBeVisible();
+    await expect(back(page, copy.en.backToAgent)).toHaveCount(0);
+  });
+
+  test("history moves recompute the landing page", async ({ page }) => {
+    await setup(page);
+    await page.goto(baseURL + "/accounts?section=services");
+    await expect(page.getByRole("button", { name: copy.en.menu })).toBeVisible();
+    // Mounted without an origin, then moved through history onto a cross-link entry.
+    await page.evaluate(
+      (path) => {
+        history.pushState(history.state, "", path);
+        dispatchEvent(new PopStateEvent("popstate", { state: history.state }));
+      },
+      "/accounts?section=services&item=speech&returnTo=" +
+        encodeURIComponent("/agents/home/settings?tab=telegram"),
+    );
+    await expect(page.getByLabel("Deepgram API key")).toBeVisible();
+    await back(page, copy.en.backToAgent).click();
+    await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=telegram$/);
+  });
+});
+
+test("Accounts on desktop keeps the origin for the whole visit", async ({ page }) => {
+  await setup(page);
+  await page.goto(baseURL + settingsPath("telegram"));
+  await page.getByRole("link", { name: copy.en.speech }).click();
+  await openAccountItem(page, "Web search");
+  await expect(page).toHaveURL(/item=web-search&returnTo=/);
+  await back(page, copy.en.backToAgent).click();
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=telegram$/);
+});
+
+test("chained cross-links lead back through every origin", async ({ page }) => {
+  await setup(page, { runtime: { availability: "failed", sync: "stale" } });
+  await page.goto(baseURL + settingsPath("telegram"));
+  await page.getByRole("link", { name: copy.en.speech }).click();
+  const panel = await openAccountItem(page, "ChatGPT for agents");
+  await panel.getByRole("link", { name: copy.en.runtime }).click();
+  await expect(page).toHaveURL(/\/settings\/assistants\?returnTo=/);
+  await page.reload();
+  await back(page, "Back to Accounts").click();
+  await expect(page).toHaveURL(/\/accounts\?section=models&item=chatgpt&returnTo=/);
+  await back(page, copy.en.backToAgent).click();
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=telegram$/);
 });

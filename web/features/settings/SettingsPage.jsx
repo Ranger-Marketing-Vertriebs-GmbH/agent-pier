@@ -1,5 +1,4 @@
 import React from "react";
-import useReturnTarget from "../../app/useReturnTarget.js";
 import SettingsSubpage from "./SettingsSubpage.jsx";
 import WorkspaceTab from "./WorkspaceTab.jsx";
 import { AccessTab, OperationsTab } from "./SummaryTabs.jsx";
@@ -18,12 +17,11 @@ export default function SettingsPage({
   navigationOpen,
 }) {
   const { section, tab } = settingsLocation(route);
-  // Opened through a cross-link (`returnTo`): a subpage's back arrow returns there.
-  const returnTarget = useReturnTarget(route, onNavigate);
   const frame = {
     section,
     tab,
-    returnTarget,
+    // A subpage opened through a cross-link (`returnTo`) leads back there.
+    route,
     openNavigation,
     navigationOpen,
     go: (next, replace = false) => onNavigate(next, replace),

@@ -98,19 +98,52 @@ test("returnTo is rebuilt from the parsed origin, never echoed", () => {
     withReturn("/settings/assistants", "/agents/home/settings?tab=work&evil=<x>#frag"),
   );
   assert.equal(route.returnTo, "/agents/home/settings?tab=work");
-  // A nested returnTo in the origin is cut off instead of chaining.
-  const nested = read(
-    withReturn("/accounts", withReturn("/settings/assistants", "/agents/home/settings")),
+});
+
+test("chained cross-links keep the first origin, one level deep", () => {
+  const agent = {
+    view: "agents",
+    assistantId: "home",
+    agentSettings: true,
+    agentTab: "telegram",
+  };
+  const speech = crossLinkRoute(
+    { view: "accounts", section: "services", item: "speech" },
+    agent,
   );
-  assert.equal(nested.returnTo, "/settings/assistants");
-  assert.equal(returnRoute(nested).returnTo, undefined);
-  assert.equal(
-    crossLinkRoute(
-      { view: "settings", settingsSection: "assistants" },
-      { view: "accounts", returnTo: "/agents/home/settings" },
-    ).returnTo,
-    "/accounts",
+  const service = crossLinkRoute(
+    { view: "settings", settingsSection: "assistants" },
+    speech,
   );
+  const reloaded = read(routePath(service));
+  const accounts = returnRoute(reloaded);
+  assert.deepEqual(accounts, speech);
+  assert.deepEqual(returnRoute(accounts), agent);
+  // Back on Accounts, the address still leads on to the agent after a reload.
+  assert.deepEqual(read(routePath(accounts)), speech);
+  // A third link drops the oldest origin instead of nesting without bound.
+  const third = crossLinkRoute({ view: "accounts", section: "models" }, reloaded);
+  const settings = returnRoute(read(routePath(third)));
+  assert.equal(settings.settingsSection, "assistants");
+  assert.deepEqual(returnRoute(settings), {
+    view: "accounts",
+    section: "services",
+    item: "speech",
+  });
+  // Origins that do not honour returnTo never carry one.
+  const forged = read(
+    withReturn("/accounts", withReturn("/agents/home/settings", "/settings/assistants")),
+  );
+  assert.equal(forged.returnTo, "/agents/home/settings");
+  // Three hand-made levels are cut to two.
+  const deep = read(
+    withReturn(
+      "/accounts",
+      withReturn("/settings/assistants", withReturn("/accounts?section=cli", "/agents")),
+    ),
+  );
+  assert.equal(returnRoute(returnRoute(deep)).returnTo, undefined);
+  assert.equal(returnRoute(returnRoute(deep)).section, "cli");
 });
 
 test("appPathParts accepts only same-origin app paths", () => {
