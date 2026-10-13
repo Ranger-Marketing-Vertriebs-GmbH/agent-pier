@@ -42,8 +42,9 @@ const agentPath = (file) => `${FOLDER}/${file.file}`;
  */
 export class AgentAttachments {
   // `config.workspaces` is the Gateway's workspace root; each agent owns <root>/<id>.
-  constructor({ store, models, config, now = Date.now }) {
-    Object.assign(this, { store, models, config, now });
+  // `hooks.checked` runs after the folder check (a test seam for the swap race).
+  constructor({ store, models, config, now = Date.now, hooks = {} }) {
+    Object.assign(this, { store, models, config, now, hooks });
     this.db = store.db;
     this.queues = new Map();
   }
@@ -66,25 +67,40 @@ export class AgentAttachments {
     });
   }
   // The agent's attachments folder: a real directory inside its own real workspace.
+  // The workspace is checked before anything is created in it, so no folder is ever
+  // made through a linked workspace.
   async folder(assistantId, create = true) {
     const root = this.config?.workspaces;
     if (!root || !agentId.test(assistantId)) throw assistantProblem("unavailable", 503);
     const workspace = path.join(root, assistantId);
     const folder = path.join(workspace, FOLDER);
     try {
-      if (create) await fs.mkdir(workspace, { recursive: true, mode: 0o700 });
+      const realRoot = await fs.realpath(root);
+      if (create)
+        await fs.mkdir(workspace, { mode: 0o700 }).catch((error) => {
+          if (error.code !== "EEXIST") throw error;
+        });
+      const own = await fs.lstat(workspace);
+      if (
+        !own.isDirectory() ||
+        (await fs.realpath(workspace)) !== path.join(realRoot, assistantId)
+      )
+        throw Error("unsafe");
       if (create)
         await fs.mkdir(folder, { mode: 0o700 }).catch((error) => {
           if (error.code !== "EEXIST") throw error;
         });
-      const [own, real] = await Promise.all([fs.lstat(folder), fs.realpath(folder)]);
-      const expected = path.join(await fs.realpath(root), assistantId, FOLDER);
-      if (!own.isDirectory() || real !== expected) throw Error("unsafe");
+      const [stat, real] = await Promise.all([
+        fs.lstat(folder, { bigint: true }),
+        fs.realpath(folder),
+      ]);
+      if (!stat.isDirectory() || real !== path.join(realRoot, assistantId, FOLDER))
+        throw Error("unsafe");
+      return { path: folder, dev: stat.dev, ino: stat.ino, real };
     } catch (error) {
       if (!create && error.code === "ENOENT") return null;
       throw assistantProblem("attachmentStorageUnsafe", 409);
     }
-    return folder;
   }
   rows(sql, ...args) {
     return this.db
@@ -105,13 +121,13 @@ export class AgentAttachments {
     const detected = detectAttachment(body, name);
     if (!detected) throw assistantProblem("attachmentUnsupported", 415);
     const folder = await this.folder(conversation.assistantId);
-    await this.expire(conversation.assistantId, folder);
+    await this.expire(conversation.assistantId, folder.path);
     const staged = this.rows(
       "SELECT * FROM agent_attachments WHERE conversation_id=? AND request_id IS NULL",
       conversation.id,
     );
     if (staged.length >= MAX_STAGED) throw assistantProblem("attachmentTooMany", 409);
-    await this.assertQuota(conversation.assistantId, folder, body.length);
+    await this.assertQuota(conversation.assistantId, folder.path, body.length);
     const display = safeFileName(name);
     const wanted = extensions[detected.type];
     const stored =
@@ -124,13 +140,19 @@ export class AgentAttachments {
       .replace("T", "-")
       .replace(/\..*$/, "");
     const file = `${stamp}-${randomBytes(4).toString("hex")}-${stored}`;
-    try {
-      await fs.writeFile(path.join(folder, file), body, { flag: "wx", mode: 0o600 });
-    } catch {
-      throw assistantProblem("attachmentStorageUnsafe", 409);
-    }
-    const entry = { name: display, file, size: body.length, ...detected };
+    const identity = await this.create(folder, file, body);
+    const entry = { name: display, file, size: body.length, ...detected, ...identity };
     const id = randomUUID();
+    try {
+      this.index(id, conversation, entry);
+    } catch (error) {
+      // An unindexed copy would be invisible to the quota and never cleaned up.
+      await fs.rm(path.join(folder.path, file), { force: true });
+      throw error;
+    }
+    return publicFile({ id, ...entry });
+  }
+  index(id, conversation, entry) {
     this.db
       .prepare(
         "INSERT INTO agent_attachments (id,assistant_id,conversation_id,body,created_at) VALUES (?,?,?,?,?)",
@@ -142,7 +164,56 @@ export class AgentAttachments {
         JSON.stringify(entry),
         this.now(),
       );
-    return publicFile({ id, ...entry });
+  }
+  /**
+   * Creates the copy by descriptor. The empty file is created without following a
+   * link; only after proving that it is the inode in the checked folder, and that the
+   * folder is still the checked directory at its real place, are the bytes written
+   * through the descriptor. A folder swapped in between can then receive nothing.
+   * Returns the inode identity that every later read requires.
+   */
+  async create(folder, file, body) {
+    const target = path.join(folder.path, file);
+    let handle;
+    try {
+      handle = await fs.open(
+        target,
+        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+        0o600,
+      );
+    } catch {
+      throw assistantProblem("attachmentStorageUnsafe", 409);
+    }
+    try {
+      await this.hooks.checked?.(folder);
+      const own = await handle.stat({ bigint: true });
+      const [named, dir, real] = await Promise.all([
+        fs.lstat(target, { bigint: true }).catch(() => null),
+        fs.lstat(folder.path, { bigint: true }).catch(() => null),
+        fs.realpath(folder.path).catch(() => null),
+      ]);
+      if (
+        !named ||
+        named.dev !== own.dev ||
+        named.ino !== own.ino ||
+        dir?.dev !== folder.dev ||
+        dir?.ino !== folder.ino ||
+        !dir.isDirectory() ||
+        real !== folder.real
+      ) {
+        if (named?.ino === own.ino && named?.dev === own.dev)
+          await fs.rm(target, { force: true });
+        throw assistantProblem("attachmentStorageUnsafe", 409);
+      }
+      await handle.writeFile(body);
+      return { dev: String(own.dev), ino: String(own.ino) };
+    } catch (error) {
+      if (error.key === "attachmentStorageUnsafe") throw error;
+      await fs.rm(target, { force: true });
+      throw assistantProblem("attachmentStorageUnsafe", 409);
+    } finally {
+      await handle.close();
+    }
   }
   async expire(assistantId, folder) {
     const old = this.rows(
@@ -156,20 +227,29 @@ export class AgentAttachments {
     await fs.rm(path.join(folder, file.file), { force: true });
     this.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
   }
+  /**
+   * Counts what is really in the folder (bounded, and orphans count too) and drops
+   * index rows whose copy is gone, so the index never outgrows the folder.
+   */
   async assertQuota(assistantId, folder, adding) {
-    let bytes = adding,
-      count = 1;
+    const entries = await fs.readdir(folder, { withFileTypes: true });
+    if (entries.length >= MAX_AGENT_FILES)
+      throw assistantProblem("attachmentStorageFull", 409);
+    let bytes = adding;
+    const present = new Set();
+    for (const entry of entries) {
+      present.add(entry.name);
+      if (!entry.isFile()) continue;
+      bytes +=
+        (await fs.lstat(path.join(folder, entry.name)).catch(() => null))?.size || 0;
+    }
     for (const file of this.rows(
       "SELECT * FROM agent_attachments WHERE assistant_id=?",
       assistantId,
-    )) {
-      const stat = await fs.lstat(path.join(folder, file.file)).catch(() => null);
-      if (!stat?.isFile()) continue;
-      bytes += stat.size;
-      count++;
-    }
-    if (bytes > MAX_AGENT_BYTES || count > MAX_AGENT_FILES)
-      throw assistantProblem("attachmentStorageFull", 409);
+    ))
+      if (!present.has(file.file))
+        this.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
+    if (bytes > MAX_AGENT_BYTES) throw assistantProblem("attachmentStorageFull", 409);
   }
   async discard(conversationId, id) {
     const conversation = this.store.getConversation(conversationId);
@@ -180,15 +260,16 @@ export class AgentAttachments {
         conversationId,
       );
       if (!file) throw assistantProblem("attachmentNotFound", 404);
-      await this.remove(file, await this.folder(conversation.assistantId));
+      await this.remove(file, (await this.folder(conversation.assistantId)).path);
     });
   }
   /**
    * Binds staged uploads to an accepted request, in the caller's transaction. A
    * retried delivery of the same request names the same files; anything else is a
-   * conflict or a file that is gone.
+   * conflict or a file that is gone. `existing` marks a request accepted earlier:
+   * it can gain no files, since its delivery has already been sent.
    */
-  claim(conversationId, ids = [], requestId) {
+  claim(conversationId, ids = [], requestId, existing = false) {
     if (
       !Array.isArray(ids) ||
       ids.some((id) => typeof id !== "string" || id.length > 100) ||
@@ -198,7 +279,8 @@ export class AgentAttachments {
     if (ids.length > MAX_ATTACHMENTS_PER_MESSAGE)
       throw assistantProblem("attachmentTooMany");
     const claimed = this.files(requestId);
-    if (claimed.length || !ids.length) {
+    // An accepted request keeps exactly the files it was accepted with.
+    if (existing || claimed.length || !ids.length) {
       if (claimed.map((f) => f.id).join() !== ids.join())
         throw assistantProblem("conflict", 409);
       return claimed;
@@ -235,14 +317,17 @@ export class AgentAttachments {
     if (this.imageInput(assistantId) === false) return { message };
     let total = 0;
     for (const file of files) {
+      if (!INLINE_IMAGE_TYPES.has(file.type)) continue;
+      // The limits apply to the bytes actually read, and those must still be the
+      // image that was uploaded.
+      const body = await this.read(assistantId, file).catch(() => null);
       if (
-        !INLINE_IMAGE_TYPES.has(file.type) ||
-        file.size > MAX_INLINE_IMAGE_BYTES ||
-        total + file.size > MAX_INLINE_TOTAL_BYTES
+        !body ||
+        body.length > MAX_INLINE_IMAGE_BYTES ||
+        total + body.length > MAX_INLINE_TOTAL_BYTES ||
+        detectAttachment(body, file.name)?.type !== file.type
       )
         continue;
-      const body = await this.read(assistantId, file).catch(() => null);
-      if (!body) continue;
       total += body.length;
       attachments.push({
         type: "image",
@@ -253,19 +338,30 @@ export class AgentAttachments {
     }
     return attachments.length ? { message, attachments } : { message };
   }
-  // A copy is read only as a regular file inside the agent's real folder.
+  // A copy is read only as the very file that was written: the same inode, no other
+  // hard link to it and the recorded size. A swapped, linked or grown file is refused.
   async read(assistantId, file) {
     const folder = await this.folder(assistantId, false);
     if (!folder) throw assistantProblem("attachmentNotFound", 404);
     let handle;
     try {
       handle = await fs.open(
-        path.join(folder, file.file),
+        path.join(folder.path, file.file),
         constants.O_RDONLY | constants.O_NOFOLLOW,
       );
-      const stat = await handle.stat();
-      if (!stat.isFile() || stat.size > MAX_ATTACHMENT_BYTES) throw Error("file");
-      return await handle.readFile();
+      const stat = await handle.stat({ bigint: true });
+      if (
+        !stat.isFile() ||
+        stat.nlink !== 1n ||
+        String(stat.dev) !== file.dev ||
+        String(stat.ino) !== file.ino ||
+        stat.size !== BigInt(file.size) ||
+        file.size > MAX_ATTACHMENT_BYTES
+      )
+        throw Error("file");
+      const body = await handle.readFile();
+      if (body.length !== file.size) throw Error("file");
+      return body;
     } catch {
       throw assistantProblem("attachmentNotFound", 404);
     } finally {
@@ -317,7 +413,7 @@ export class AgentAttachments {
   purge(assistantId) {
     return this.serial(assistantId, async () => {
       const folder = await this.folder(assistantId, false);
-      if (folder) await fs.rm(folder, { recursive: true, force: true });
+      if (folder) await fs.rm(folder.path, { recursive: true, force: true });
       this.db
         .prepare("DELETE FROM agent_attachments WHERE assistant_id=?")
         .run(assistantId);
