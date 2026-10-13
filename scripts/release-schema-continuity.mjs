@@ -5,13 +5,12 @@ import { compareReleaseVersions } from "../server/features/operations/version.js
 
 /**
  * Installations that activated a published release candidate may already run on
- * its data schema. The final release and every later candidate of the same version
- * must therefore still accept that schema, or those installations are stranded
- * without an update or rollback path.
+ * its data schema. Every later release, including releases of a newer version that
+ * replaces an abandoned candidate line, must therefore still accept that schema, or
+ * those installations are stranded without an update or rollback path.
  */
 export async function requireSchemaContinuity({ tag, manifest, repo, run }) {
-  const version = tag.slice(1),
-    core = version.split("-")[0];
+  const version = tag.slice(1);
   const listed = JSON.parse(
     await run([
       "release",
@@ -25,14 +24,14 @@ export async function requireSchemaContinuity({ tag, manifest, repo, run }) {
     ]),
   );
   if (!Array.isArray(listed)) throw Error("Unexpected release list.");
+  // Every published RC that precedes this release: lower core versions and
+  // earlier candidates of the same core version. The tag itself is excluded.
   const earlier = listed
     .filter(
       (release) =>
         release?.isDraft === false &&
         typeof release.tagName === "string" &&
-        new RegExp(`^v${core.replaceAll(".", "\\.")}-rc\\.(?:0|[1-9]\\d*)$`).test(
-          release.tagName,
-        ) &&
+        /^v\d+\.\d+\.\d+-rc\.(?:0|[1-9]\d*)$/.test(release.tagName) &&
         compareReleaseVersions(release.tagName.slice(1), version) < 0,
     )
     .map((release) => release.tagName);

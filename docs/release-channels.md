@@ -40,15 +40,16 @@ Activating a release can migrate the private data directory to a newer data sche
 Every package declares the range of data schemas it can open (`schemaMin` to
 `schemaMax`), and `latest.json` repeats that range.
 
-- Once a schema version `N` ships in any published RC, it is frozen. The final
-  release and every later RC of the same version must accept it:
-  `schemaMin <= N <= schemaMax`. Do not rework or renumber a migration after an RC
-  that contains it has been published.
+- Once a schema version `N` ships in any published RC, it is frozen. Every later
+  release must accept it: `schemaMin <= N <= schemaMax`. This covers the final
+  release, later RCs of the same version, and releases of a newer version, for
+  example a `1.30.0` that replaces an abandoned `1.29.0-rc.1`. Do not rework or
+  renumber a migration after an RC that contains it has been published.
 - Avoid schema bumps in late RCs. Put migrations into the first RC of a version so
   that testers exercise them for the longest time.
-- The publish step enforces this rule. Before it creates or publishes a release
-  `x.y.z` or `x.y.z-rc.N`, it reads `latest.json` of every earlier published
-  `x.y.z-rc.*` and fails if the new release does not accept that RC's `schemaMax`.
+- The publish step enforces this rule. Before it creates or publishes a release, it
+  reads `latest.json` of every published, non-draft RC that precedes the new
+  version, and fails if the new release does not accept that RC's `schemaMax`.
 - Testers take a backup in Settings → Backups before they activate an RC that changes
   the data schema.
 
