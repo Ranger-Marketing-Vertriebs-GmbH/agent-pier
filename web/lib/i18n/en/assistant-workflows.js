@@ -3,7 +3,6 @@ export const assistantWorkflowCopy = {
   hint: "Choose the projects and pipelines this agent may use. Project memory remains separate from personal notes.",
   projects: "Allowed projects",
   pipelines: "Allowed pipelines",
-  permissions: "Action permissions",
   noResources:
     "No registered entries yet. Configure projects and pipelines in AgentPier first.",
   memoryWrite: "Allow proposals to update project memory",
@@ -11,7 +10,6 @@ export const assistantWorkflowCopy = {
   publish: "Allow selected pipelines to publish pull requests",
   policyHint:
     "Memory changes always require approval. Coding tasks require approval unless enabled above. Saving records the selected pipeline and account configuration; save again after changing a pipeline. Human pipeline gates remain in place.",
-  save: "Save project access",
   actions: "Actions and coding tasks",
   noActions:
     "No actions yet. Ask this agent in chat to inspect project memory or propose a coding task.",

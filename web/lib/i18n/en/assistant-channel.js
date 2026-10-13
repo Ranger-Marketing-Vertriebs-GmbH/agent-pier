@@ -7,7 +7,6 @@ export const assistantChannelCopy = {
   appUrl: "AgentPier address for links",
   appUrlHint:
     "Telegram notices link back to this address. It is taken from this browser when you connect or pair; leave it empty to send notices without links.",
-  saveAppUrl: "Save address",
   ignored: (privateCount, groupCount) =>
     `Ignored messages: ${privateCount} from other private chats, ${groupCount} from groups.`,
   teamNotification: "Team notification",

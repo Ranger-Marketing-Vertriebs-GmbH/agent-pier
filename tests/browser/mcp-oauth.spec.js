@@ -3,6 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { messageIdentity } from "../../server/lib/i18n/message-identity.js";
+import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 
 const provider = "https://auth.example.test";
@@ -408,15 +409,19 @@ for (const [label, use] of [
       await expect(panel.getByRole("status").filter({ hasText: /^Saved/ })).toHaveText(
         "Saved \u2014 will be applied to running agents shortly. Saved. The previous OAuth login could not be removed right now; AgentPier retries in the background.",
       );
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       const agent = page.getByRole("region", { name: "MCP servers" });
       await expect(agent.getByLabel(/docs/)).toBeChecked();
       await expect(agent.getByText("Status unknown", { exact: true })).toBeVisible();
       await expect(agent.getByText("Connected", { exact: true })).toBeVisible();
       await expect(agent).toContainText("Log in to OAuth servers under Accounts");
       if (label === "phone") await fits(page);
-      // Saving the bindings reads the statuses again.
-      await agent.getByRole("button", { name: "Save MCP servers" }).click();
+      // Saving the bindings reads the statuses again; a save needs a change.
+      await agent.getByLabel(/tracker/).uncheck();
+      await saveBar(page).getByRole("button", { name: "Save agent" }).click();
+      await expect(agent.getByText("MCP servers saved.")).toBeVisible();
+      await agent.getByLabel(/tracker/).check();
+      await saveBar(page).getByRole("button", { name: "Save agent" }).click();
       await expect(agent.getByText("MCP servers saved.")).toBeVisible();
       await expect(agent.getByText("Connected", { exact: true })).toHaveCount(2);
       await expect(agent).not.toContainText("Log in to OAuth servers under Accounts");

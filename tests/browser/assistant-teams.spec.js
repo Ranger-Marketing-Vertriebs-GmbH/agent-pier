@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
+import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 async function setup(page) {
   await fixture(page);
@@ -125,6 +126,22 @@ async function setup(page) {
     } else if (p.endsWith("/decision")) {
       proposal.phase = "declined";
       body = proposal;
+    } else if (p.endsWith("/work") && method === "PUT") {
+      const input = route.request().postDataJSON();
+      if (input.team) {
+        posted.push(input.team);
+        if (input.team.revision !== policy.revision)
+          return route.fulfill({
+            status: 409,
+            json: { error: "The data has changed. Please reload." },
+          });
+        Object.assign(policy, input.team, { revision: policy.revision + 1 });
+      }
+      body = { access: { revision: 0 }, team: policy };
+    } else if (p.endsWith("/access")) {
+      body = { revision: 0 };
+    } else if (p === "/api/assistant-workspace-catalog") {
+      body = { projects: [], pipelines: [] };
     } else if (p.endsWith("/team-policy") || p === "/api/assistant-team-settings") {
       const input = route.request().postDataJSON(),
         current = p.endsWith("/team-policy") ? policy : teamSettings;
@@ -236,9 +253,9 @@ test("completed member keeps its chat through archive, restore and promotion; pa
   await expect(notice).toHaveCount(0);
   await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
   await expect(page).toHaveURL(/\/agents\/member-0\/chats\/chat-0$/);
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("work"));
   await page.getByLabel("Allow teams without asking each time").check();
-  await page.getByRole("button", { name: "Save team settings", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => posted.at(-1)?.autonomous).toBe(true);
   await page.screenshot({ path: ".cache/assistant-team-policy-en.png", fullPage: true });
 });
@@ -257,15 +274,18 @@ test("policy drafts cannot borrow a newer revision to restore revoked authority"
 }) => {
   const { policy, posted } = await setup(page);
   policy.autonomous = true;
-  await page.goto(baseURL + "/agents/home/settings");
-  await expect(page.getByLabel("Allow teams without asking each time")).toBeChecked();
+  await page.goto(baseURL + settingsPath("work"));
+  const autonomous = page.getByLabel("Allow teams without asking each time");
+  await expect(autonomous).toBeChecked();
+  await page.getByRole("spinbutton", { name: "Maximum team size" }).fill("5");
   policy.autonomous = false;
   policy.revision = 2;
   await refreshFromEvent(page);
-  await page.getByRole("button", { name: "Save team settings", exact: true }).click();
+  await expect(autonomous).not.toBeChecked();
+  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => posted.at(-1)?.revision).toBe(1);
   await expect(
-    page.getByText("The data has changed. Please reload.", { exact: true }),
+    page.getByText("The data has changed. Please reload.", { exact: true }).first(),
   ).toBeVisible();
   expect(policy.autonomous).toBe(false);
 });

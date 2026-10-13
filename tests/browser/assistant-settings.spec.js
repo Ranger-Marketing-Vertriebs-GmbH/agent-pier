@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { agentTab, settingsPath } from "../helpers/agent-settings-page.js";
 import {
   emitChange as change,
   home,
@@ -42,7 +43,7 @@ test("settings edits survive a revision bump and a conflicting change offers a r
 
 test("hidden tabs stop polling and resume when visible again", async ({ page }) => {
   const state = await setup(page);
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   await expect.poll(() => state.counts.channels).toBeGreaterThan(1);
   await visibility(page, "hidden");
   await page.waitForTimeout(500);
@@ -55,14 +56,14 @@ test("hidden tabs stop polling and resume when visible again", async ({ page }) 
 
 test("slow polls never overlap", async ({ page }) => {
   const state = await setup(page, { actionDelay: 4500 });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("work"));
   await page.waitForTimeout(10500);
   expect(state.inflight.maxActions).toBe(1);
 });
 
 test("links to Accounts and Settings navigate inside the app", async ({ page }) => {
   await setup(page, { runtime: { availability: "failed", sync: "stale" } });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   await page.evaluate(() => (window.__marker = "same-document"));
   await page.getByRole("link", { name: "Manage Deepgram in Accounts" }).click();
   await expect(page).toHaveURL(/\/accounts$/);
@@ -105,7 +106,7 @@ for (const [language, locale] of [
         },
       ],
     });
-    await page.goto(baseURL + "/agents/home/settings");
+    await page.goto(baseURL + settingsPath("telegram"));
     const expected = new Date(at).toLocaleString(locale);
     await expect(page.getByText(expected, { exact: false }).first()).toBeVisible();
     expect(await page.getByText(expected, { exact: false }).count()).toBeGreaterThan(2);
@@ -147,7 +148,7 @@ test("review-lane Telegram entries offer the review action", async ({ page }) =>
       ],
     },
   });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram", "telegram-activity"));
   const panel = page.getByRole("region", { name: "Telegram" });
   await expect(panel.getByText("Answer without text")).toBeVisible();
   await expect(panel.getByText("Outcome reviewed in chat")).toBeVisible();
@@ -178,43 +179,25 @@ test("runtime and conversation faults are explained", async ({ page }) => {
   await expect(page.getByText(/session is not available/i)).toBeVisible();
 });
 
-test("mobile settings have section links and inline permission checkboxes", async ({
-  page,
-}) => {
-  await setup(page, {
-    assistant: { capabilities: { memory: true, reminders: true } },
-  });
+test("mobile settings switch tabs in place and use 38×22 switches", async ({ page }) => {
+  await setup(page, { assistant: { capabilities: { memory: true, reminders: true } } });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath());
   await page.evaluate(() => (window.__marker = "same-document"));
-  const nav = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(nav).toBeVisible();
-  for (const name of ["Telegram", "Memory", "Reminders"])
-    await expect(nav.getByRole("link", { name, exact: true })).toBeVisible();
-  await nav.getByRole("link", { name: "Telegram", exact: true }).click();
-  await expect(
-    page.getByRole("region", { name: "Telegram", exact: true }),
-  ).toBeInViewport();
+  await expect(page.getByRole("tab")).toHaveText([
+    "Profile",
+    "Capabilities",
+    "Work",
+    "Telegram",
+  ]);
+  await agentTab(page, "Telegram").click();
+  await expect(page.getByRole("region", { name: "Telegram" })).toBeInViewport();
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
-  // Measured in one synchronous step so a running scroll cannot skew the comparison.
-  const { box, text } = await page
-    .locator(".assistant-team-permission")
-    .first()
-    .evaluate((el) => {
-      const range = document.createRange();
-      range.selectNodeContents(el.lastChild);
-      const t = range.getBoundingClientRect();
-      const b = el.querySelector("input").getBoundingClientRect();
-      return {
-        box: { x: b.x, y: b.y, width: b.width, height: b.height },
-        text: { top: t.top, height: t.height, left: t.left },
-      };
-    });
-  expect(box.height).toBeLessThanOrEqual(24);
-  expect(box.x + box.width).toBeLessThanOrEqual(text.left);
-  expect(
-    Math.abs(box.y + box.height / 2 - (text.top + text.height / 2)),
-  ).toBeLessThanOrEqual(8);
+  await agentTab(page, "Capabilities").click();
+  const box = await page
+    .getByRole("switch", { name: "Remember information" })
+    .boundingBox();
+  expect([Math.round(box.width), Math.round(box.height)]).toEqual([38, 22]);
 });
 
 test("settings header names the view instead of a status badge", async ({ page }) => {
@@ -224,17 +207,15 @@ test("settings header names the view instead of a status badge", async ({ page }
   await expect(page.locator(".assistant-header-status")).toHaveCount(0);
 });
 
-test("section links move focus to the section heading", async ({ page }) => {
+test("arrow keys move between the settings tabs", async ({ page }) => {
   await setup(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(baseURL + "/agents/home/settings");
-  await page
-    .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("link", { name: "Telegram", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Telegram", exact: true }),
-  ).toBeFocused();
+  await page.goto(baseURL + settingsPath());
+  await agentTab(page, "Profile").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page).toHaveURL(/tab=capabilities$/);
+  await expect(agentTab(page, "Capabilities")).toBeFocused();
+  await expect(agentTab(page, "Capabilities")).toHaveAttribute("aria-selected", "true");
 });
 
 test("the model field lists the connection's models and keeps a custom model ID", async ({

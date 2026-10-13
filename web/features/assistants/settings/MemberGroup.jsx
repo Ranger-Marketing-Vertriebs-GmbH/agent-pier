@@ -1,14 +1,17 @@
-import React, { useState } from "react";
-import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
-import ErrorMessage from "../../components/ErrorMessage.jsx";
-import useAssistants from "./useAssistants.js";
-import TemporaryMcpServers from "../mcp-servers/TemporaryMcpServers.jsx";
-import { assistantApi } from "./assistant-api.js";
-export default function AssistantMemberSettings({ assistant }) {
-  const { members = [], assistants, refresh } = useAssistants(),
-    member = members.find((m) => m.assistantId === assistant.id);
+import React, { useId, useState } from "react";
+import ErrorMessage from "../../../components/ErrorMessage.jsx";
+import GroupLabel from "../../../components/GroupLabel.jsx";
+import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
+import useAssistants from "../useAssistants.js";
+import { assistantApi } from "../assistant-api.js";
+
+/** Provenance, assignment, phase and lifecycle actions of a team member. */
+export default function MemberGroup({ assistant }) {
+  const { members = [], assistants, refresh } = useAssistants();
+  const member = members.find((m) => m.assistantId === assistant.id);
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const id = useId();
   if (!member) return null;
   const parent = assistants.find((a) => a.id === member.parentAssistantId),
     active = !["completed", "failed", "cancelled"].includes(member.phase);
@@ -32,10 +35,10 @@ export default function AssistantMemberSettings({ assistant }) {
     }
   }
   return (
-    <>
-      <section className="assistant-runtime-card">
-        <h2>{copy.team.memberSettings}</h2>
-        <ErrorMessage error={error} />
+    <section className="agent-member" aria-labelledby={id}>
+      <GroupLabel id={id}>{copy.team.memberSettings}</GroupLabel>
+      <ErrorMessage error={error} />
+      <div className="list-card agent-member-card">
         <p>{copy.team.inherited(parent?.name || copy.title, member.inheritedRevision)}</p>
         <p>
           {member.lifetime === "permanent" ? copy.team.permanent : copy.team.taskBound}
@@ -98,10 +101,7 @@ export default function AssistantMemberSettings({ assistant }) {
             </>
           )}
         </div>
-      </section>
-      {member.lifetime !== "permanent" && (
-        <TemporaryMcpServers servers={member.mcpServers} />
-      )}
-    </>
+      </div>
+    </section>
   );
 }

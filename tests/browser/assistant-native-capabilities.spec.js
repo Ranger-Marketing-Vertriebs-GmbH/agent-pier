@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
+import { settingsPath } from "../helpers/agent-settings-page.js";
+import { connectedChannel } from "../helpers/assistant-settings-browser.js";
 async function setup(page, reminders = []) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
@@ -28,7 +30,8 @@ async function setup(page, reminders = []) {
       };
     else if (url.pathname === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
-    else if (url.pathname === "/api/assistant-channels") body = { channels: [] };
+    else if (url.pathname === "/api/assistant-channels")
+      body = { channels: [connectedChannel()] };
     else if (url.pathname === "/api/assistant-events")
       return route.fulfill({
         contentType: "text/event-stream",
@@ -93,7 +96,7 @@ test("English agent settings edit native memory with its revision and manage dai
   page,
 }) => {
   const state = await setup(page);
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
   const memory = page
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "Memory", exact: true }) })
@@ -105,6 +108,8 @@ test("English agent settings edit native memory with its revision and manage dai
   await page.getByLabel("Search memory").fill("router");
   await memory.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("The router is in the hallway.")).toBeVisible();
+  await page.goto(baseURL + settingsPath("telegram"));
+  await page.getByRole("button", { name: "+ Create reminder" }).click();
   await page.getByLabel("Reminder name").fill("Take a break");
   await page.getByLabel("Reminder text").fill("Stretch for a minute");
   await page.getByLabel("Repeat").selectOption("daily");
@@ -114,6 +119,7 @@ test("English agent settings edit native memory with its revision and manage dai
   await expect
     .poll(() => state.created?.schedule)
     .toEqual({ kind: "cron", expr: "30 18 * * *", tz: "Europe/Berlin" });
+  await page.getByRole("button", { name: /^Take a break/ }).click();
   await page.getByRole("button", { name: "Pause reminder", exact: true }).click();
   await expect(page.getByText("Telegram: Delivered", { exact: true })).toBeVisible();
   await expect(
@@ -125,6 +131,7 @@ test("English agent settings edit native memory with its revision and manage dai
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
+  await page.getByRole("button", { name: /^Take a break/ }).click();
   await expect(
     page.getByRole("button", { name: "Resume reminder", exact: true }),
   ).toBeVisible();
@@ -144,7 +151,7 @@ test("English agent settings let the owner review an unconfirmed reminder", asyn
   const state = await setup(page, [
     { id: "reminder", name: "", status: "unknown", enabled: false, reviewRequired: true },
   ]);
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("telegram"));
   await expect(
     page.getByText("It is unclear whether this reminder was created."),
   ).toBeVisible();
@@ -154,7 +161,7 @@ test("English agent settings let the owner review an unconfirmed reminder", asyn
 });
 test("notes the agent wrote under memory/ are shown read-only", async ({ page }) => {
   await setup(page);
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
   const memory = page
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "Memory", exact: true }) })

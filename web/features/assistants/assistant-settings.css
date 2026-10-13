@@ -1,11 +1,4 @@
-.assistant-anchor {
-  scroll-margin-top: 72px;
-}
-.assistant-section-nav,
-.assistant-section-title,
-.assistant-save-bar {
-  display: none;
-}
+/* Agent settings page frame; the tabs and groups live in agent-settings.css. */
 .assistant-team-permission input {
   flex: none;
   width: 18px;
@@ -17,10 +10,7 @@
   padding: 0;
 }
 .assistant-settings-scroll {
-  padding: 28px;
-}
-.assistant-settings-scroll > .assistant-settings-layout {
-  margin-top: 0;
+  padding: 16px 24px 0;
 }
 @media (max-width: 700px) {
   .assistant-settings-page.assistant-detail {
@@ -38,185 +28,6 @@
     padding: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-  }
-  .assistant-section-nav {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding: 8px 12px;
-    background: var(--surface-input);
-    border-bottom: 1px solid var(--line);
-    scrollbar-width: none;
-  }
-  .assistant-section-nav a {
-    flex: none;
-    padding: 6px 12px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    color: inherit;
-    font-size: 13px;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-  .assistant-section-nav a[aria-current="location"] {
-    border-color: var(--accent-line);
-    background: var(--surface-accent);
-    color: var(--accent-text);
-  }
-  .assistant-settings-page .assistant-settings-layout {
-    margin-top: 0;
-    gap: 0;
-  }
-  .assistant-settings-page :is(.assistant-anchor, #agent-profile) {
-    scroll-margin-top: 56px;
-  }
-  .assistant-settings-page .assistant-form {
-    gap: 16px;
-    padding: 18px 16px;
-    border: 0;
-    border-radius: 0;
-    background: none;
-  }
-  .assistant-settings-page :is(.assistant-anchor, .assistant-runtime-card) {
-    border-top: 1px solid var(--line);
-  }
-  .assistant-settings-page .assistant-runtime-card {
-    margin: 0;
-    border-width: 1px 0 0;
-    border-radius: 0;
-    background: none;
-    padding: 18px 16px;
-  }
-  .assistant-section-title,
-  .assistant-settings-page .assistant-form h2 {
-    display: block;
-    margin: 0;
-    font:
-      600 17px Manrope,
-      sans-serif;
-  }
-  .assistant-settings-page .assistant-form label {
-    gap: 8px;
-    font-size: 13px;
-    color: var(--text-menu);
-  }
-  .assistant-settings-page .assistant-form :is(input, textarea, select) {
-    font-size: 16px;
-    color: var(--text);
-  }
-  /* Selects shrink their text box below the 16px line; one size keeps them like inputs. */
-  .assistant-settings-page
-    .assistant-form
-    :is(input:not([type="checkbox"], [type="radio"]), select) {
-    height: 47px;
-    line-height: 21px;
-  }
-  .assistant-settings-page .assistant-form select {
-    appearance: none;
-    padding-right: 40px;
-    background-image: var(--select-chevron);
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 16px 16px;
-  }
-  .assistant-settings-page .assistant-capability-options {
-    margin: 0;
-    gap: 12px;
-    padding: 14px;
-    border-radius: 12px;
-  }
-  .assistant-settings-page .assistant-capability-options legend {
-    float: left;
-    width: 100%;
-    padding: 0;
-    font-size: 13px;
-    font-weight: 600;
-  }
-  .assistant-settings-page .assistant-capability-options label {
-    align-items: center;
-    gap: 10px;
-    color: var(--text);
-  }
-  .assistant-settings-page input[type="checkbox"]:not([role="switch"]) {
-    appearance: none;
-    display: grid;
-    place-content: center;
-    flex: none;
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    padding: 0;
-    border: 1.5px solid var(--text-faint);
-    border-radius: 4px;
-    background: none;
-  }
-  .assistant-settings-page input[type="checkbox"]:not([role="switch"]):checked {
-    border-color: var(--accent);
-    background: var(--accent);
-  }
-  .assistant-settings-page input[type="checkbox"]:not([role="switch"]):checked::before {
-    content: "";
-    width: 8px;
-    height: 4px;
-    margin-top: -2px;
-    border: solid var(--on-accent);
-    border-width: 0 0 2.4px 2.4px;
-    transform: rotate(-45deg);
-  }
-  .assistant-settings-page input[type="checkbox"]:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-  .assistant-profile-actions {
-    display: none;
-  }
-  .assistant-save-bar {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--header-line);
-    background: var(--sidebar-bg);
-  }
-  .assistant-save-bar p {
-    flex: 1;
-    min-width: 0;
-    margin: 0;
-    color: var(--muted);
-    font-size: 11px;
-    line-height: 1.4;
-  }
-  .assistant-save-bar p.assistant-save-error {
-    padding: 6px 8px;
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 11px;
-    line-height: 1.35;
-    overflow-wrap: anywhere;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .assistant-save-bar .button {
-    flex: none;
-    height: 40px;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .assistant-save-bar .button.secondary {
-    margin-left: auto;
-    padding: 0 14px;
-  }
-  .assistant-save-bar .button.primary {
-    padding: 0 16px;
   }
 }
 .assistant-state-badge.connectionMissing {
@@ -246,32 +57,4 @@
 }
 .assistant-restart-confirmation p {
   margin: 0;
-}
-/* The people an agent's own Telegram bot admits. */
-.assistant-telegram-people {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  max-width: 560px;
-}
-.assistant-telegram-people li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  overflow-wrap: anywhere;
-}
-.assistant-telegram-person {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-}
-.assistant-telegram-person label {
-  flex: 1 1 180px;
 }

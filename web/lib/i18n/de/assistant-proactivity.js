@@ -5,7 +5,6 @@ export const assistantProactivityCopy = {
   heartbeat: "Sich von selbst melden",
   heartbeatDescription:
     "Zu festen Zeiten liest der Agent seine Unterhaltung und Notizen und entscheidet, ob etwas deine Aufmerksamkeit braucht. Nur dann schreibt er in seinen Chat, der auch deinen verbundenen Telegram-Chat erreicht.",
-  heartbeatNeedsMemory: "Braucht das oben eingeschaltete Gedächtnis.",
   heartbeatChannel: "Braucht einen verbundenen Telegram-Chat für diesen Agenten.",
   heartbeatReply:
     "Meldungen erscheinen im Chat des Agenten, auf Telegram mit „Check-in:“ markiert, sodass du direkt antworten kannst. Wird eine Meldung fällig, während der Agent antwortet, erscheint sie nach dieser Antwort und kennt sie womöglich noch nicht.",

@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
+import { saveBar } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 async function setup(page, ready = true) {
   await fixture(page);
@@ -33,7 +34,6 @@ async function setup(page, ready = true) {
       body = {
         id: "owned",
         status: state.status,
-        ...(state.diagnostic ? { diagnostic: state.diagnostic } : {}),
         ...(state.status === "awaiting_user"
           ? { code: "ABCD-EFGHI", url: "https://auth.openai.com/codex/device" }
           : {}),
@@ -59,10 +59,6 @@ test("ChatGPT login shows code, completes, checks and disconnects the selected a
     "href",
     "https://auth.openai.com/codex/device",
   );
-  await expect(panel.getByText("Sign-in page:")).toBeVisible();
-  await expect(
-    panel.getByRole("link", { name: "https://auth.openai.com/codex/device" }),
-  ).toHaveAttribute("href", "https://auth.openai.com/codex/device");
   state.status = "completed";
   await expect(panel.getByText("Personal ChatGPT")).toBeVisible();
   await expect(panel.getByText("ABCD-EFGHI")).toHaveCount(0);
@@ -91,21 +87,6 @@ test("device login can be cancelled and fits mobile", async ({ page }) => {
   await expect(panel.getByText("Sign-in cancelled")).toBeVisible();
   await expect(panel.getByText("ABCD-EFGHI")).toHaveCount(0);
 });
-test("a failed sign-in names its reason", async ({ page }) => {
-  const state = await setup(page);
-  state.status = "starting";
-  await page.goto(baseURL + "/accounts");
-  const panel = page.getByRole("region", { name: "ChatGPT for agents" });
-  await panel.getByRole("button", { name: "Connect ChatGPT" }).click();
-  await expect(panel.getByText("Starting sign-in…")).toBeVisible();
-  Object.assign(state, { status: "failed", diagnostic: "LOGIN_UNAVAILABLE" });
-  await expect(panel.getByText("Sign-in failed. Please try again.")).toBeVisible();
-  await expect(
-    panel.getByText(
-      "The agent service does not offer the ChatGPT sign-in right now. Restart the agent service and try again.",
-    ),
-  ).toBeVisible();
-});
 test("offline account UI links to assistant service and selected ChatGPT account saves", async ({
   page,
 }) => {
@@ -128,7 +109,7 @@ test("offline account UI links to assistant service and selected ChatGPT account
   await page.getByLabel("Name", { exact: true }).fill("Home");
   await page.getByLabel("Model connection").selectOption("openclaw:test");
   await page.getByLabel("Model ID").fill("gpt-6-astra");
-  await page.getByRole("button", { name: "Save agent" }).click();
+  await saveBar(page).getByRole("button", { name: "Create agent" }).click();
   await expect
     .poll(() => saved?.model)
     .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-astra" });

@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
+import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 test("English project grants and exact action approvals link existing coding runs on desktop and mobile", async ({
   page,
@@ -64,7 +65,14 @@ test("English project grants and exact action approvals link existing coding run
         pipelines: [{ id: "pipeline", name: "Build" }],
       };
     else if (url.pathname.endsWith("/shell-allowlist")) body = { entries: [] };
-    else if (url.pathname.endsWith("/access")) {
+    else if (url.pathname.endsWith("/work") && method === "PUT") {
+      const input = route.request().postDataJSON();
+      if (input.access) policy = { ...input.access, revision: 1 };
+      body = {
+        access: policy,
+        team: { revision: 0, autonomous: false, maxMembers: 4, runTimeoutMinutes: 10 },
+      };
+    } else if (url.pathname.endsWith("/access")) {
       if (method === "PUT") policy = { ...route.request().postDataJSON(), revision: 1 };
       body = policy;
     } else if (url.pathname.endsWith("/actions")) body = { actions: [action] };
@@ -98,13 +106,18 @@ test("English project grants and exact action approvals link existing coding run
     else return route.fallback();
     await route.fulfill({ json: body });
   });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + settingsPath("work"));
+  await page.getByRole("link", { name: /^Allowed projects/ }).click();
   await page.getByLabel("Demo project", { exact: true }).check();
+  await page.getByRole("button", { name: "Back to Work" }).click();
+  await page.getByRole("link", { name: /^Allowed pipelines/ }).click();
   await page.getByLabel("Build", { exact: true }).check();
+  await page.getByRole("button", { name: "Back to Work" }).click();
   await page.getByLabel("Allow proposals to update project memory").check();
-  await page.getByRole("button", { name: "Save project access" }).click();
+  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => policy.projectIds).toEqual(["project"]);
   expect(policy.autonomous).toBe(false);
+  await page.getByRole("link", { name: /^Actions and coding tasks/ }).click();
   await expect(
     page.getByText("Implement the requested feature", { exact: true }),
   ).toBeVisible();
@@ -129,7 +142,7 @@ test("English project grants and exact action approvals link existing coding run
   ]);
   expect(cancellations).toBe(1);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.reload();
+  await page.goto(baseURL + settingsPath("work"));
   await expect(
     page.getByRole("heading", { name: "Projects and coding tasks" }),
   ).toBeVisible();

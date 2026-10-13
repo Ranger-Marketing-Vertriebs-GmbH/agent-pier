@@ -1,0 +1,167 @@
+/* Agent settings tabs (settings pattern, docs/settings-pattern.md). Theme variables only. */
+.agent-settings-tabs {
+  padding: 0 24px;
+  border-bottom: 1px solid var(--header-line);
+  background: var(--header-bg);
+}
+.agent-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 720px) 270px;
+  gap: 24px;
+  align-items: start;
+  justify-content: center;
+}
+.agent-settings-main {
+  min-width: 0;
+}
+.agent-runtime-aside {
+  position: sticky;
+  top: 0;
+}
+.agent-runtime-group {
+  display: none;
+}
+@media (max-width: 1099px) {
+  .agent-settings-layout {
+    grid-template-columns: minmax(0, 720px);
+  }
+  .agent-runtime-aside {
+    display: none;
+  }
+  .agent-runtime-group {
+    display: block;
+  }
+}
+.agent-fields {
+  display: grid;
+}
+.agent-field {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+}
+.agent-field :is(input, textarea, select) {
+  color: var(--text);
+  font-size: 16px;
+}
+.agent-revision {
+  margin: 10px 4px 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.agent-review-strip {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: 12px;
+  background: var(--surface-accent);
+}
+.agent-subpage-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+.agent-subpage-header h2 {
+  font-size: 17px;
+  font-weight: 600;
+}
+.agent-subpage-back {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: var(--text);
+}
+.agent-row-note,
+.agent-detail,
+.agent-empty,
+.agent-member-card,
+.agent-pairing {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px 12px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.agent-shell-levels {
+  padding: 8px 12px;
+}
+.agent-shell-levels .segmented {
+  width: 100%;
+}
+.agent-pending-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: 12px;
+  background: var(--surface-accent);
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.agent-create {
+  display: grid;
+  gap: 4px;
+  margin-top: 16px;
+}
+@media (max-width: 700px) {
+  .agent-settings-tabs {
+    padding: 0;
+  }
+  .agent-settings-layout {
+    padding: 0 12px;
+  }
+  /* Selects shrink their text box below the 16px line; one size keeps them like inputs. */
+  .agent-field :is(input:not([type="checkbox"], [type="radio"]), select) {
+    height: 47px;
+    line-height: 21px;
+  }
+  .agent-field select {
+    appearance: none;
+    padding-right: 40px;
+    background-image: var(--select-chevron);
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px 16px;
+  }
+}
+
+.agent-entry-line {
+  display: block;
+}
+
+.agent-sub-part::before {
+  content: " · ";
+}
+.list-row-main[aria-expanded="true"] .list-row-chevron {
+  transform: rotate(180deg);
+}
+.agent-field-error {
+  color: var(--warning);
+}
+.agent-telegram-details {
+  margin-top: 12px;
+}
+/* A navigating row without a value keeps its chevron at the right edge. */
+:is(.agent-settings-layout, .agent-create) .list-row-text + .list-row-chevron {
+  margin-left: auto;
+}
+/* Blocks of a subpage and the profile form keep the page's vertical rhythm. */
+.agent-subpage > :not(.agent-subpage-header) + *,
+.agent-settings-form {
+  margin-top: 12px;
+}

@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { agentTab, saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
 
@@ -151,13 +152,9 @@ async function setup(page, options = {}) {
   });
   return state;
 }
-// Desktop saves in the profile form; phones save from the sticky save bar.
-const save = (page) =>
-  page
-    .locator("#agent-profile, .assistant-save-bar")
-    .getByRole("button", { name: "Save agent" })
-    .filter({ visible: true });
+const save = (page) => saveBar(page).getByRole("button", { name: "Save agent" });
 const shell = (page) => page.locator("#agent-shell");
+const allowlist = (page) => page.locator("#agent-allowlist");
 const header = (page) => page.locator(".assistant-header-name");
 
 async function fitsPhone(page) {
@@ -175,43 +172,39 @@ for (const [label, use] of [
 
     test("shell is off by default and says what does not work", async ({ page }) => {
       await setup(page);
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       await expect(shell(page).getByRole("radio", { name: /^Off/ })).toBeChecked();
       await expect(shell(page)).toContainText("gh, git or mail programs");
       await expect(header(page).getByText(/^Shell:/)).toHaveCount(0);
-      await expect(shell(page).getByText("No always allowed commands.")).toBeVisible();
+      await shell(page)
+        .getByRole("link", { name: /^Always allowed commands/ })
+        .click();
+      await expect(
+        allowlist(page).getByText("No always allowed commands."),
+      ).toBeVisible();
       if (label === "phone") await fitsPhone(page);
     });
 
-    test("the section chips lead to the shell section", async ({ page }) => {
-      test.skip(label !== "phone", "the section chips are shown on phones only");
+    test("the Capabilities tab leads to the shell group", async ({ page }) => {
       await setup(page);
       await page.goto(baseURL + "/agents/home/settings");
-      const chip = page
-        .getByRole("navigation", { name: "Settings sections" })
-        .getByRole("link", { name: "Shell", exact: true });
-      // Scrolled there by hand, the shell section (inside the profile form) is current.
-      await shell(page).evaluate((section) => section.scrollIntoView({ block: "start" }));
-      await expect(chip).toHaveAttribute("aria-current", "location");
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await chip.click();
-      await expect(chip).toHaveAttribute("aria-current", "location");
+      await agentTab(page, "Capabilities").click();
       await expect(
-        shell(page).getByRole("heading", { name: "Shell", exact: true }),
-      ).toBeFocused();
+        shell(page).getByRole("heading", { name: "Shell access", exact: true }),
+      ).toBeVisible();
     });
 
     test("raising the level shows the warning and resubmits with confirmShell", async ({
       page,
     }) => {
       const state = await setup(page);
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       await shell(page)
         .getByRole("radio", { name: /^With approval/ })
         .check();
       await expect(shell(page)).toContainText("can read AgentPier's own data");
       await save(page).click();
-      const dialog = page.getByRole("alertdialog", { name: "Turn on shell access?" });
+      const dialog = page.getByRole("dialog", { name: "Turn on shell access?" });
       await expect(dialog).toContainText("team write guard does not cover shell");
       expect(state.patches).toHaveLength(1);
       expect(state.patches[0].confirmShell).toBeUndefined();
@@ -230,13 +223,14 @@ for (const [label, use] of [
       await page.getByLabel("Name", { exact: true }).fill("Fresh");
       await page.getByLabel("Model connection").selectOption("router");
       await page.getByRole("textbox", { name: "Model ID" }).fill("model");
+      await agentTab(page, "Capabilities").click();
       await shell(page)
         .getByRole("radio", { name: /^With approval/ })
         .check();
       await expect(shell(page).getByText("Always allowed commands")).toHaveCount(0);
-      await page.getByRole("button", { name: "Save agent" }).click();
+      await saveBar(page).getByRole("button", { name: "Create agent" }).click();
       await page
-        .getByRole("alertdialog", { name: "Turn on shell access?" })
+        .getByRole("dialog", { name: "Turn on shell access?" })
         .getByRole("button", { name: "Turn on shell access" })
         .click();
       await expect.poll(() => state.creates.length).toBe(2);
@@ -246,16 +240,16 @@ for (const [label, use] of [
 
     test("full access asks twice before it is saved", async ({ page }) => {
       const state = await setup(page);
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       await shell(page)
         .getByRole("radio", { name: /^Full access/ })
         .check();
       await save(page).click();
       await page
-        .getByRole("alertdialog", { name: "Turn on shell access?" })
+        .getByRole("dialog", { name: "Turn on shell access?" })
         .getByRole("button", { name: "Turn on shell access" })
         .click();
-      const full = page.getByRole("alertdialog", {
+      const full = page.getByRole("dialog", {
         name: "Run every command without asking?",
       });
       await expect(full).toContainText("no prompts at all");
@@ -278,15 +272,15 @@ for (const [label, use] of [
       page,
     }) => {
       const state = await setup(page, { agent: { shell: "full" }, pending: true });
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       await expect(header(page).getByText("Shell: full")).toBeVisible();
       await shell(page).getByRole("radio", { name: /^Off/ }).check();
       await save(page).click();
       await expect.poll(() => state.patches.length).toBe(1);
       expect(state.patches[0]).toMatchObject({ shell: "off" });
       expect(state.patches[0].confirmShell).toBeUndefined();
-      await expect(page.getByRole("alertdialog")).toHaveCount(0);
-      await page.goto(baseURL + "/agents/home/settings");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await page.goto(baseURL + settingsPath("capabilities"));
       await expect(shell(page).getByRole("status")).toHaveText(
         "The new shell level applies as soon as the agent service is back.",
       );
@@ -323,8 +317,8 @@ for (const [label, use] of [
           },
         ],
       });
-      await page.goto(baseURL + "/agents/home/settings");
-      const list = shell(page).locator(".assistant-shell-entry");
+      await page.goto(baseURL + settingsPath("capabilities", "allowlist"));
+      const list = allowlist(page).locator(".assistant-shell-entry");
       await expect(list).toHaveCount(3);
       await expect(list.nth(0)).toContainText("Added by AgentPier");
       await expect(list.nth(0)).toContainText("With any arguments");
@@ -332,8 +326,8 @@ for (const [label, use] of [
       await expect(list.nth(1)).toContainText("Only with the approved arguments");
       await expect(list.nth(1)).toContainText("Linked command entries: 1");
       await expect(list.nth(2)).toContainText("Exact command");
-      await expect(shell(page).getByText("=node-command:0123")).toHaveCount(0);
-      await shell(page)
+      await expect(allowlist(page).getByText("=node-command:0123")).toHaveCount(0);
+      await allowlist(page)
         .getByRole("button", { name: "Delete entry /usr/bin/git" })
         .click();
       await expect(list).toHaveCount(2);
@@ -347,7 +341,7 @@ for (const [label, use] of [
       await setup(page, {
         agent: { teamMemberId: "m1", lifetime: "task", shell: "approval" },
       });
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       await expect(shell(page)).toContainText(
         "Task-bound team members never get shell access.",
       );
@@ -483,28 +477,28 @@ for (const [label, use] of [
           { id: "broken", pattern: "/usr/bin/git", source: "agentpier", kind: "program" },
         ],
       });
-      await page.goto(baseURL + "/agents/home/settings");
-      await shell(page)
+      await page.goto(baseURL + settingsPath("capabilities", "allowlist"));
+      await allowlist(page)
         .getByRole("button", { name: "Delete entry /usr/bin/git" })
         .click();
-      await expect(shell(page).getByRole("alert")).toHaveText(
+      await expect(allowlist(page).getByRole("alert")).toHaveText(
         "The agent service is not ready.",
       );
-      await expect(shell(page).locator(".assistant-shell-entry")).toHaveCount(1);
+      await expect(allowlist(page).locator(".assistant-shell-entry")).toHaveCount(1);
       await expect(
-        shell(page).getByRole("button", { name: "Delete entry /usr/bin/git" }),
+        allowlist(page).getByRole("button", { name: "Delete entry /usr/bin/git" }),
       ).toBeEnabled();
       expect(state.deletes).toEqual(["broken"]);
     });
 
     test("cancelling the warning returns to the saved level", async ({ page }) => {
       const state = await setup(page);
-      await page.goto(baseURL + "/agents/home/settings");
+      await page.goto(baseURL + settingsPath("capabilities"));
       await shell(page)
         .getByRole("radio", { name: /^Full access/ })
         .check();
       await save(page).click();
-      const dialog = page.getByRole("alertdialog", { name: "Turn on shell access?" });
+      const dialog = page.getByRole("dialog", { name: "Turn on shell access?" });
       await dialog.getByRole("button", { name: "Cancel" }).click();
       await expect(dialog).toHaveCount(0);
       await expect(shell(page).getByRole("radio", { name: /^Off/ })).toBeChecked();
