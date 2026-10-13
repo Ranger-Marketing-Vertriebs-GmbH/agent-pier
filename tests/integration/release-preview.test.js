@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Releases } from "../../server/features/operations/releases.js";
+import { retryAfterSeconds } from "../../server/features/operations/release-download.js";
 
 const root = "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/";
 const entry = (version, extra = {}) => ({
@@ -311,18 +312,32 @@ test("an exhausted GitHub API quota reports a rate limit instead of a download f
   const { releases } = await fixture(t, [entry("1.29.0-rc.1")]);
   releases.setUpdateChannel("preview");
   const seen = [];
-  for (const headers of [{ "x-ratelimit-remaining": "0" }, { "retry-after": "60" }])
+  const reset = String(Math.floor(Date.now() / 1000) + 290);
+  for (const [headers, message] of [
+    [{ "x-ratelimit-remaining": "0" }, /später erneut/],
+    [{ "x-ratelimit-remaining": "0", "x-ratelimit-reset": reset }, /in 5 Min\./],
+    [{ "retry-after": "60" }, /in 1 Min\./],
+    [{ "retry-after": "125" }, /in 3 Min\./],
+  ])
     for (const status of [403, 429]) {
       releases.fetchImpl = async (url, init) => {
         seen.push(init?.headers?.Accept);
         return new Response("limited", { status, headers });
       };
-      await assert.rejects(releases.check(), {
-        status: 503,
-        message: /GitHub begrenzt/,
-      });
+      await assert.rejects(releases.check(), { status: 503, message });
     }
   assert.ok(seen.every((accept) => accept === "application/vnd.github+json"));
   releases.fetchImpl = async () => new Response("forbidden", { status: 403 });
   await assert.rejects(releases.check(), { status: 502 });
+});
+
+test("GitHub retry hints become a wait time in seconds", () => {
+  const now = Date.parse("2026-10-13T12:00:00Z");
+  const wait = (headers) => retryAfterSeconds(new Headers(headers), now);
+  assert.equal(wait({ "retry-after": "30" }), 30);
+  assert.equal(wait({ "retry-after": "Tue, 13 Oct 2026 12:02:00 GMT" }), 120);
+  assert.equal(wait({ "x-ratelimit-reset": String(now / 1000 + 600) }), 600);
+  assert.equal(wait({ "x-ratelimit-reset": String(now / 1000 - 5) }), 1);
+  assert.equal(wait({ "retry-after": "soon" }), null);
+  assert.equal(wait({}), null);
 });

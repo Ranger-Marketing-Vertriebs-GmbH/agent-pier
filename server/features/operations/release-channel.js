@@ -61,7 +61,14 @@ export async function previewManifest(fetchImpl) {
       );
     } catch (error) {
       if (error.rateLimited)
-        throw problem(serverMessages.releases.previewRateLimited, 503);
+        throw problem(
+          error.retryAfter
+            ? serverMessages.releases.previewRateLimitedFor(
+                Math.ceil(error.retryAfter / 60),
+              )
+            : serverMessages.releases.previewRateLimited,
+          503,
+        );
       if (error.status) throw error;
       throw problem(serverMessages.releases.channelManifestInvalid);
     }

@@ -67,7 +67,9 @@ export const releaseCopy = Object.freeze({
   previewLimit:
     "Die Liste der Vorabversionen ist zu groß. Bitte später erneut nach Updates suchen.",
   previewRateLimited:
-    "GitHub begrenzt gerade die Abfragen der Release-Liste. Bitte in einer Stunde erneut nach Updates suchen.",
+    "GitHub begrenzt gerade die Abfragen der Release-Liste. Bitte später erneut nach Updates suchen.",
+  previewRateLimitedFor: (minutes) =>
+    `GitHub begrenzt gerade die Abfragen der Release-Liste. Bitte in ${minutes} Min. erneut nach Updates suchen.`,
   channelRequired: "Bitte zuerst auf dem Server einen HTTPS-Release-Kanal einrichten.",
   channelHttpsRequired:
     "Der Release-Kanal muss HTTPS ohne eingebettete Zugangsdaten verwenden.",
