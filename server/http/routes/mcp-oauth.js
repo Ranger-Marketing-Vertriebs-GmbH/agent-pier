@@ -27,15 +27,12 @@ const handle = (work) => async (req, res, next) => {
 };
 
 /**
- * Owner routes, behind the login: start and end an OAuth login. The browser's
- * origin (checked by the security layer for every POST) decides whether it can
- * reach the compiled redirect.
+ * Each login registers a client and starts the OpenClaw CLI. One shared owner
+ * budget covers every login and proxy address without trusting forwarded IPs.
+ * Build it when the app starts, not while answering a request.
  */
-export function mcpOAuthRoutes({ assistantMcpOAuth: oauth }) {
-  const router = Router();
-  // Each login registers a client and starts the OpenClaw CLI. One shared owner
-  // budget covers every login and proxy address without trusting forwarded IPs.
-  const limited = rateLimit({
+export function mcpOAuthRateLimit() {
+  return rateLimit({
     windowMs: 60_000,
     limit: 30,
     keyGenerator: () => "owner",
@@ -53,6 +50,17 @@ export function mcpOAuthRoutes({ assistantMcpOAuth: oauth }) {
         });
     },
   });
+}
+/**
+ * Owner routes, behind the login: start and end an OAuth login. The browser's
+ * origin (checked by the security layer for every POST) decides whether it can
+ * reach the compiled redirect.
+ */
+export function mcpOAuthRoutes({
+  assistantMcpOAuth: oauth,
+  mcpOAuthLimit: limited = mcpOAuthRateLimit(),
+}) {
+  const router = Router();
   router.post(
     "/mcp-servers/:id/oauth/login",
     limited,

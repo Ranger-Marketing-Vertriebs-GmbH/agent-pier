@@ -9,7 +9,7 @@ import { assistantWebSearchRoutes } from "./assistant-web-search.js";
 import { assistantTelegramSenderRoutes } from "./assistant-telegram-senders.js";
 import { assistantAccountRoutes } from "./assistant-accounts.js";
 import { mcpServerErrors, replyStdioConfirmation } from "./mcp-servers.js";
-import { mcpOAuthRoutes } from "./mcp-oauth.js";
+import { mcpOAuthRateLimit, mcpOAuthRoutes } from "./mcp-oauth.js";
 import { assistantShellRoutes, replyShellConfirmation } from "./assistant-shell.js";
 import { Router } from "express";
 import path from "node:path";
@@ -33,6 +33,8 @@ const reply = (res, status, code, message) =>
  */
 export function assistantRoutes(services) {
   const router = Router();
+  // The routes below are built lazily; their rate limiters are built now.
+  const limits = { mcpOAuthLimit: mcpOAuthRateLimit() };
   let built = null;
   let routes = null;
   router.use(assistantFeatureRoutes(services));
@@ -53,7 +55,7 @@ export function assistantRoutes(services) {
       );
     }
     if (built !== assistants) {
-      routes = activeAssistantRoutes(services);
+      routes = activeAssistantRoutes({ ...services, ...limits });
       built = assistants;
     }
     return routes(req, res, next);
