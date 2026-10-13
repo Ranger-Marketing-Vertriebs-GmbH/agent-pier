@@ -15,6 +15,11 @@ Always, as public (unencrypted) members:
   capabilities), the audit log, pinned artifacts, the sanitized MCP server store.
 - Agent data under `assistants/` without runtimes, package caches, update snapshots,
   TLS material and backup keys (see `docs/assistant-gateway.md`).
+- Agent chat attachments: the owner's uploaded files in each agent's
+  `workspaces/<agent>/attachments/` (up to 512 MB per agent; photos and documents
+  may be private) together with their index in `assistants.sqlite`, so a restore
+  brings back both. They are public members like the rest of the workspaces; leave
+  agents' attachment folders out of a backup only by deleting the files first.
 
 With **Include history**, also public: AgentPier session records and terminal
 captures, chat histories and AgentBus history. This history can contain private task

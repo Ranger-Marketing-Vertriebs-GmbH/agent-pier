@@ -1365,6 +1365,18 @@ server decides by the bytes, never by the name or the browser's type.
   returns the files by id. Thumbnails and downloads are served by
   `GET /api/assistant-attachments/:id` behind the login, with `nosniff`, a sandboxed
   content policy and no file system path. Uploads and reads are rate limited.
+- **Untrusted names.** File names lose controls, invisible formatting (bidi,
+  zero-width) and line separators, are NFC-normalised and cut by whole characters
+  within 200 UTF-8 bytes. The note quotes each path as a JSON string and tells the
+  agent that names and contents are untrusted data, not instructions.
+- **Copies on disk.** Each copy is created by descriptor (`O_EXCL|O_NOFOLLOW`) and
+  written only after its inode is proven to be in the checked folder. The index keeps
+  its device, inode and size; reads and inline delivery refuse a swapped, hard-linked
+  or grown file and check the inline limits on the bytes read. JPEG and WebP above
+  80 megapixels are refused like PNG and GIF. The quota counts the folder itself, and
+  index rows whose copy is gone are dropped.
+- **Backups.** Copies and their index are part of host backups and runtime update
+  snapshots (see [backups](backups.md)).
 - **Limits.** Agents cannot be deleted today (only archived), so the copies follow
   the workspace; `AgentAttachments.purge` removes an agent's folder and index for a
   future deletion path. OpenClaw also stages inline images it receives under
