@@ -56,6 +56,8 @@ function classify({ attempts, member, pendingApprovals, team }) {
   return idle;
 }
 
+const reviewPhases = new Set(["uncertain", "provisioning_uncertain"]);
+
 export function assistantActivity({
   assistants = [],
   conversations = [],
@@ -81,7 +83,13 @@ export function assistantActivity({
         ? "active"
         : null;
     const counts = awaiting[assistant.id] ?? { own: 0, team: 0 };
-    const pendingApprovals = counts.own + counts.team + proposals;
+    // A member whose outcome is unknown holds its team open until the owner reviews
+    // it; the lead's chat lists it with the approvals.
+    const reviews = members.filter(
+      (m) =>
+        !m.archivedAt && reviewPhases.has(m.phase) && own.some((t) => t.id === m.teamId),
+    ).length;
+    const pendingApprovals = counts.own + counts.team + proposals + reviews;
     result[assistant.id] = {
       ...classify({
         attempts: attempts.get(assistant.id) ?? [],

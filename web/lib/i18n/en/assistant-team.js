@@ -63,6 +63,11 @@ export const assistantTeamCopy = {
     cancelled: (title) => `Team cancelled: ${title}`,
     declined: (title) => `Team proposal declined: ${title}`,
   },
+  awaitingReview: "Waiting for your review",
+  reviewTitle: (title) => `Review needed: ${title}`,
+  reviewHint:
+    "The outcome of these members is unknown. The team can only finish once you review them.",
+  reviewMember: (name) => `Review ${name}`,
   pendingTitle: "Teams waiting for you",
   listHint:
     "Every team this agent started, with its members, status and results. Open a member to read its chat.",

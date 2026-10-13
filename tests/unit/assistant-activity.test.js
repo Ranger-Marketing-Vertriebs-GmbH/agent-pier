@@ -88,6 +88,29 @@ test("pending approvals sum own actions, team coding requests and team proposals
   assert.equal(actionsOnly.label, "team.states.awaiting_approval");
 });
 
+test("a team member whose outcome is unknown waits for the lead's owner", () => {
+  const member = (id, phase, extra = {}) => ({
+    id,
+    assistantId: id,
+    teamId: "t",
+    parentAssistantId: "home",
+    phase,
+    ...extra,
+  });
+  const entry = derive({
+    assistants: [agent("home"), agent("m1"), agent("m2"), agent("m3"), agent("m4")],
+    teams: [{ id: "t", parentAssistantId: "home", phase: "running" }],
+    members: [
+      member("m1", "provisioning_uncertain"),
+      member("m2", "uncertain"),
+      member("m3", "running"),
+      member("m4", "uncertain", { archivedAt: "x" }),
+    ],
+  }).home;
+  assert.equal(entry.pendingApprovals, 2);
+  assert.equal(entry.state, "waiting");
+});
+
 test("attention outranks waiting, waiting outranks working", () => {
   const awaiting = { home: { own: 1, team: 0 } };
   assert.equal(
