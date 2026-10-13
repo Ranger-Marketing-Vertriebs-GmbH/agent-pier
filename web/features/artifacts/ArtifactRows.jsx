@@ -62,7 +62,8 @@ export function ArtifactTitle({ item }) {
   );
 }
 
-function ArtifactRow({ item, now, sub, selected, onSelect, href, target }) {
+// A selected row is the selection in a list (aria-current="true"), not a page.
+function ArtifactRow({ item, now, sub, selected, onSelect, href, target, children }) {
   return (
     <ListRow
       icon={<ArtifactTypeIcon mediaType={item.mediaType} />}
@@ -72,9 +73,11 @@ function ArtifactRow({ item, now, sub, selected, onSelect, href, target }) {
       onClick={onSelect ? () => onSelect(item) : undefined}
       href={href}
       target={target}
-      current={selected}
+      current={selected ? "true" : false}
       className={["artifact-row", selected ? "is-selected" : ""].join(" ").trim()}
-    />
+    >
+      {children}
+    </ListRow>
   );
 }
 
@@ -106,9 +109,10 @@ export default function ArtifactRows({ items, lists, selectedId, onSelect, hrefF
 
 /**
  * The compact form for one session: no source line (the session is the source) and no
- * groups; each row opens the viewer in a new tab, as Open did.
+ * groups; each row opens the viewer in a new tab, as Open did, and `detailFor` adds a
+ * secondary link to the artifact's detail.
  */
-export function CompactArtifactRows({ items, label, linkFor }) {
+export function CompactArtifactRows({ items, label, linkFor, detailFor }) {
   const now = new Date();
   return (
     <ListCard label={label} className="artifact-rows-compact">
@@ -119,7 +123,17 @@ export function CompactArtifactRows({ items, label, linkFor }) {
           now={now}
           href={linkFor(item)}
           target="_blank"
-        />
+        >
+          {detailFor && (
+            <a
+              className="list-row-icon-button"
+              aria-label={copy.showDetails(item.title)}
+              {...detailFor(item)}
+            >
+              <Icon name="info" size={16} />
+            </a>
+          )}
+        </ArtifactRow>
       ))}
     </ListCard>
   );

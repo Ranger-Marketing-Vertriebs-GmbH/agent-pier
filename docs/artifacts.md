@@ -17,21 +17,29 @@ the tooltip).
 
 A row opens the detail: in the right pane on desktop (the newest artifact is shown
 until one is chosen), as a subpage with a back arrow on phones. The selection is part
-of the address (`/artifacts?artifact=<id>`, `tab=pinned` for the Pinned tab), so the
-viewer's **Back to AgentPier** returns to the same detail. The detail shows a
+of the address together with the filters (`/artifacts[/<projectId>]?session=<id>&q=<term>&page=<n>&tab=pinned&artifact=<id>`),
+so a reload or the viewer's **Back to AgentPier** returns to the same detail and list. The detail shows a
 preview, **Open**, **Copy link** (the link only works when signed in), the source
 session and project, the pin switch, technical details and **Delete artifact**,
 which asks for confirmation. The preview loads the selected artifact only, once it
-is on screen, in an iframe with `sandbox=""`: scripts never run there, so pages that
-draw their content with JavaScript look empty until opened.
+is on screen, in an inert iframe with `sandbox=""`: scripts never run there, so pages
+that draw their content with JavaScript look empty until opened. The frame inherits
+the app's Content-Security-Policy, which loads no `data:` stylesheets or fonts:
+bundled CSS and its `@import`s are inlined, bundled fonts are not, so the preview uses
+system fonts. While two other bundles are loading, the preview retries with a short
+backoff.
 
 The session's **Artifacts** panel lists that session's artifacts in compact rows that
-open the viewer; pinning and deleting happen on the Artifacts page.
+open the viewer, with the retention hint above them. Each row's ⓘ opens the artifact's
+detail on the Artifacts page (pin, delete), and **Manage in Artifacts** opens the page
+filtered to the session; the filter shows as a removable chip.
 
 `GET /api/artifacts` takes `projectId`, `sessionId`, `page`, `q` (up to 200
 characters, no control characters) and `pinned=true|false`, and returns
 `{ items, page, total, counts: { all, pinned } }`; `counts` follows every filter
-except `pinned`.
+except `pinned`. Search also matches session names (from the stored session metadata)
+and project names, read at most every 5 seconds; searches share an owner budget of 120
+requests per minute and answer `ARTIFACT_RATE_LIMITED` (429) beyond it.
 
 ## Publishing and updating
 

@@ -25,7 +25,8 @@ subpage, hints behind ⓘ, central settings as dashed reference rows into Accoun
 `SaveBar` also takes `saveDisabled` (keeps the primary disabled while the form is not
 savable, e.g. a required key re-entry) and `saveFocusKey` (sets `data-focus-key` on the
 primary so an inline confirmation can return focus to it). `ListRow` takes `current` to
-mark the entry open in a detail pane (`aria-current="page"`).
+mark the entry open in a detail pane (`aria-current="page"`); pass a token such as
+`"true"` for a selection that is not a page.
 
 On phones the end of a scrolled page clears the iPhone home indicator: the scroller's
 bottom padding and the save bar add `var(--safe-area-inset-bottom)` (from

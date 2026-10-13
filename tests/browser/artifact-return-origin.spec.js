@@ -275,3 +275,31 @@ for (const failure of ["loading", "unavailable", "unsupported"])
       pending.resolve();
     }
   });
+
+test("the session panel links each artifact's detail and filters the page to the session", async ({
+  page,
+  context,
+}) => {
+  await fixture(context);
+  await page.goto(`${baseURL}/sessions/origin/chat`);
+  await page.locator(".session-artifacts summary").click();
+  const panel = page.locator(".session-artifacts");
+  await expect(panel).toContainText(
+    "Pin results to keep them after deleting the session.",
+  );
+  await panel.getByRole("link", { name: "Details of Report" }).click();
+  await expect(page).toHaveURL(`${baseURL}/artifacts?session=origin&artifact=example`);
+  await expect(
+    page.locator(".artifact-detail").getByRole("heading", { name: "Report" }),
+  ).toBeVisible();
+  await expect(page.getByText("Session: Session origin")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Remove the filter for session Session origin" })
+    .click();
+  await expect(page).toHaveURL(`${baseURL}/artifacts`);
+
+  await page.goto(`${baseURL}/sessions/origin/chat`);
+  await page.locator(".session-artifacts summary").click();
+  await page.getByRole("link", { name: "Manage in Artifacts" }).click();
+  await expect(page).toHaveURL(`${baseURL}/artifacts?session=origin`);
+});
