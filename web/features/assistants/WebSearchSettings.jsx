@@ -1,174 +1,225 @@
-import React, { useEffect, useState } from "react";
-import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
+import React, { useMemo, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import GroupLabel from "../../components/GroupLabel.jsx";
+import ListCard from "../../components/ListCard.jsx";
+import { RadioRow, SelectRow } from "../../components/ListRow.jsx";
+import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
+import { runSaveChain } from "../../lib/settings/save-chain.js";
+import AccountDetail, { AccountSaveBar } from "../accounts/AccountDetail.jsx";
+import FieldRow from "../accounts/FieldRow.jsx";
+import UsedByGroup from "../accounts/UsedByGroup.jsx";
+import useAccountDraft from "../accounts/useAccountDraft.js";
+import { accountItemTitle } from "../accounts/accounts-items.js";
+import { restartNote } from "../accounts/account-usage-view.js";
 import { assistantApi } from "./assistant-api.js";
 import RestartConfirmation from "./RestartConfirmation.jsx";
-import { restartRequired } from "../provider-connections/restart-confirmation.js";
 
 const providers = ["duckduckgo", "perplexity", "brave"];
 
+const serverOf = (settings) => ({
+  provider: settings?.provider ?? "duckduckgo",
+  connectionId: settings?.connectionId || "",
+  braveKey: "",
+});
+
 /** The search provider agents use; keys are written here and never shown again. */
-export default function WebSearchSettings({ connections = [] }) {
+export default function WebSearchSettings({
+  entry,
+  usage,
+  agentsEnabled,
+  state,
+  data,
+  navigate,
+}) {
   const copy = assistantCopy.webSearch;
-  const [settings, setSettings] = useState(null),
-    [provider, setProvider] = useState("duckduckgo"),
-    [connectionId, setConnectionId] = useState(""),
-    [key, setKey] = useState(""),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    [restart, setRestart] = useState(null),
-    [pending, setPending] = useState(null);
-  const openRouter = connections.filter((c) => c.providerId === "openrouter");
-  const adopt = (next) => {
-    setSettings(next);
-    setProvider(next.provider);
-    setConnectionId(next.connectionId || "");
-  };
-  useEffect(() => {
-    const controller = new AbortController();
-    assistantApi
-      .webSearch(controller.signal)
-      .then(adopt)
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
-      });
-    return () => controller.abort();
-  }, []);
-  const buildInput = (removeKey) => ({
-    revision: settings.revision,
-    provider,
-    ...(provider === "perplexity" && connectionId ? { connectionId } : {}),
-    ...(provider === "brave" && removeKey ? { braveKey: null } : {}),
-    ...(provider === "brave" && !removeKey && key ? { braveKey: key } : {}),
+  const settings = data.webSearch;
+  const formRef = useRef(null);
+  const [removal, setRemoval] = useState(null);
+  const [error, setError] = useState("");
+  const openRouter = (state.providerConnections || []).filter(
+    (connection) => connection.providerId === "openrouter",
+  );
+  const { reloadWebSearch } = data;
+  const server = useMemo(
+    () => serverOf(settings),
+    [settings?.provider, settings?.connectionId], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const form = useAccountDraft({
+    server,
+    revisions: settings ? { webSearch: settings.revision } : {},
+    refresh: async () => {
+      const next = await reloadWebSearch();
+      return next && { server: serverOf(next), revisions: { webSearch: next.revision } };
+    },
+    tab: accountItemTitle(entry),
+    entry,
+    steps: [
+      {
+        id: "web-search",
+        label: copy.save,
+        resource: "webSearch",
+        async run({ values, revision, confirmations }) {
+          const next = await assistantApi.saveWebSearch({
+            revision,
+            provider: values.provider,
+            ...(values.provider === "perplexity" && values.connectionId
+              ? { connectionId: values.connectionId }
+              : {}),
+            ...(values.provider === "brave" && values.braveKey
+              ? { braveKey: values.braveKey }
+              : {}),
+            ...confirmations,
+          });
+          data.setWebSearch(next);
+          return next;
+        },
+      },
+    ],
   });
-  async function save(removeKey = false, confirmRestart = false) {
-    // The confirmed request repeats the one the owner was asked about.
-    const input = confirmRestart && pending ? pending : buildInput(removeKey);
-    setBusy(true);
+  const { draft } = form;
+  const values = draft.values;
+  // Any change withdraws an open restart question; it was about the previous state.
+  const edit = (key, value) => {
+    draft.confirmation?.cancel();
+    draft.set(key, value);
+  };
+  async function removeKey() {
     setError("");
-    try {
-      const next = await assistantApi.saveWebSearch({
-        ...input,
-        ...(confirmRestart ? { confirmRestart: true } : {}),
-      });
-      adopt(next);
-      setKey("");
-      setRestart(null);
-      setPending(null);
-    } catch (e) {
-      if (restartRequired(e)) {
-        setRestart(e.affected || {});
-        setPending(input);
-      } else setError(e.message);
-    } finally {
-      setBusy(false);
-    }
+    const result = await runSaveChain({
+      steps: [
+        {
+          id: "remove-key",
+          label: copy.removeKey,
+          run: ({ confirmations }) =>
+            assistantApi.saveWebSearch({
+              revision: settings.revision,
+              provider: "brave",
+              braveKey: null,
+              ...confirmations,
+            }),
+        },
+      ],
+      values: {},
+      base: {},
+      ask: (request) =>
+        new Promise((resolve) =>
+          setRemoval({
+            ...request,
+            confirm: () => {
+              setRemoval(null);
+              resolve(true);
+            },
+            cancel: () => {
+              setRemoval(null);
+              resolve(false);
+            },
+          }),
+        ),
+    });
+    if (result.status === "saved") data.setWebSearch(result.results["remove-key"]);
+    else if (result.error) setError(result.error.message);
   }
-  const dirty = () => setRestart(null);
+  const restart = draft.confirmation?.kind === "restart" ? draft.confirmation : removal;
   return (
-    <section className="assistant-accounts" aria-label={copy.title}>
-      <h2>{copy.title}</h2>
-      <p className="assistant-note">{copy.description}</p>
-      <ErrorMessage error={error} />
+    <AccountDetail
+      title={accountItemTitle(entry)}
+      destructive={
+        values.provider === "brave" &&
+        settings?.hasBraveKey && (
+          <button
+            type="button"
+            className="button secondary danger-text"
+            // Removing saves at once: unsaved changes would turn into a conflict.
+            disabled={draft.saving || draft.dirty || Boolean(removal)}
+            onClick={removeKey}
+          >
+            {copy.removeKey}
+          </button>
+        )
+      }
+      bar={
+        <AccountSaveBar
+          form={form}
+          formRef={formRef}
+          saveLabel={copy.save}
+          note={restartNote(usage)}
+        />
+      }
+    >
+      <ErrorMessage error={error || data.webSearchError} />
       {settings && (
         <form
-          className="assistant-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save();
+          ref={formRef}
+          className="accounts-detail-group"
+          onSubmit={(event) => {
+            event.preventDefault();
+            form.save();
           }}
         >
-          <p className="assistant-note" role="status">
+          <p className="accounts-note" role="status">
             {settings.ready ? copy.ready : copy.notConfigured}
           </p>
-          <fieldset className="assistant-capability-options">
-            <legend>{copy.provider}</legend>
+          <GroupLabel hint={copy.description}>{copy.provider}</GroupLabel>
+          <ListCard label={copy.provider}>
             {providers.map((id) => (
-              <label className="assistant-team-permission" key={id}>
-                <input
-                  type="radio"
-                  name="web-search-provider"
-                  value={id}
-                  checked={provider === id}
-                  onChange={() => {
-                    dirty();
-                    setProvider(id);
-                  }}
-                />
-                {copy[id]}
-              </label>
+              <RadioRow
+                key={id}
+                name="web-search-provider"
+                value={id}
+                label={copy[id]}
+                checked={values.provider === id}
+                onChange={(value) => edit("provider", value)}
+              />
             ))}
-          </fieldset>
-          {provider === "perplexity" &&
+          </ListCard>
+          {values.provider === "perplexity" &&
             (openRouter.length ? (
-              <label>
-                {copy.connection}
-                <select
-                  value={connectionId}
-                  onChange={(e) => {
-                    dirty();
-                    setConnectionId(e.target.value);
-                  }}
-                >
-                  <option value="">{copy.noConnection}</option>
-                  {openRouter.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <ListCard>
+                <SelectRow
+                  label={copy.connection}
+                  value={values.connectionId}
+                  onChange={(value) => edit("connectionId", value)}
+                  options={[
+                    { value: "", label: copy.noConnection },
+                    ...openRouter.map((connection) => ({
+                      value: connection.id,
+                      label: connection.name,
+                    })),
+                  ]}
+                />
+              </ListCard>
             ) : (
-              <p className="assistant-note">{copy.noConnections}</p>
+              <p className="accounts-note">{copy.noConnections}</p>
             ))}
-          {provider === "brave" && (
+          {values.provider === "brave" && (
             <>
-              <p className="assistant-note" role="status">
+              <p className="accounts-note" role="status">
                 {settings.hasBraveKey ? copy.braveKeyStored : copy.braveKeyMissing}
               </p>
-              <label>
-                {copy.braveKey}
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={key}
-                  maxLength={1024}
-                  onChange={(e) => {
-                    dirty();
-                    setKey(e.target.value);
-                  }}
-                />
-              </label>
+              <ListCard>
+                <FieldRow label={copy.braveKey}>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    maxLength={1024}
+                    value={values.braveKey}
+                    onChange={(event) => edit("braveKey", event.target.value)}
+                  />
+                </FieldRow>
+              </ListCard>
             </>
           )}
-          {restart && (
-            <RestartConfirmation
-              affected={restart}
-              busy={busy}
-              onConfirm={() => save(false, true)}
-              onCancel={() => {
-                setRestart(null);
-                setPending(null);
-              }}
-            />
-          )}
-          <div className="assistant-actions">
-            <button className="button primary" disabled={busy}>
-              {busy ? copy.saving : copy.save}
-            </button>
-            {provider === "brave" && settings.hasBraveKey && (
-              <button
-                type="button"
-                className="button secondary"
-                disabled={busy}
-                onClick={() => save(true)}
-              >
-                {copy.removeKey}
-              </button>
-            )}
-          </div>
         </form>
       )}
-    </section>
+      {restart && (
+        <RestartConfirmation
+          affected={restart.data?.affected}
+          busy={false}
+          onConfirm={restart.confirm}
+          onCancel={restart.cancel}
+        />
+      )}
+      <UsedByGroup usage={usage} agentsEnabled={agentsEnabled} navigate={navigate} />
+    </AccountDetail>
   );
 }

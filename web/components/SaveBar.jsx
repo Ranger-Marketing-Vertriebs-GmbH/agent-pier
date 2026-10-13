@@ -2,7 +2,11 @@ import React from "react";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 
 // One bar per tab or subpage: visible while it has unsaved changes or reports the
-// last save's error, conflict or partial result.
+// last save's error, conflict or partial result. `saveDisabled` keeps the primary
+// disabled while the form is not savable (e.g. a required key re-entry);
+// `saveFocusKey` lets an inline confirmation (`useAlertDialogFocus(onCancel,
+// returnKey)`) return focus to the primary, also in WebKit where a clicked button
+// never had focus.
 export default function SaveBar({
   draft,
   onSave,
@@ -10,6 +14,8 @@ export default function SaveBar({
   saveLabel,
   cancelLabel,
   note,
+  saveDisabled = false,
+  saveFocusKey,
 }) {
   const { outcome } = draft;
   if (!draft.dirty && !draft.saving && !outcome) return null;
@@ -67,7 +73,8 @@ export default function SaveBar({
               <button
                 type="button"
                 className="button primary"
-                disabled={draft.saving || !draft.dirty}
+                disabled={draft.saving || !draft.dirty || saveDisabled}
+                data-focus-key={saveFocusKey}
                 onClick={onSave}
               >
                 {draft.saving ? commonCopy.saving : (saveLabel ?? commonCopy.save)}

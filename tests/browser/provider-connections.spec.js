@@ -1,6 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
+import {
+  accountDetail,
+  accountRow,
+  keyInput,
+  openAccountItem,
+  saveBar,
+} from "../helpers/accounts-browser.js";
 function nativeAccounts(controls) {
   controls.state.accounts = ["codex", "claude", "opencode"].map((tool) => ({
     id: `local-${tool}`,
@@ -18,20 +25,24 @@ test("a central provider connection stores one key without choosing a CLI or mod
   await page
     .getByRole("button", { name: "Provider-Zugang hinzufügen", exact: true })
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = accountDetail(page);
   await dialog.getByLabel("Name des Zugangs", { exact: true }).fill("Shared OpenRouter");
   await dialog.getByLabel("API-Anbieter", { exact: true }).selectOption("openrouter");
-  await dialog.getByLabel("API-Key", { exact: true }).fill("fixture-central-key");
+  await (await keyInput(dialog, "API-Key")).fill("fixture-central-key");
   await expect(dialog.getByLabel("Anbietermodell", { exact: true })).toHaveCount(0);
   controls.failConnection = true;
-  await dialog.getByRole("button", { name: "Zugang speichern", exact: true }).click();
+  await saveBar(page)
+    .getByRole("button", { name: "Zugang speichern", exact: true })
+    .click();
   await expect(dialog.getByRole("alert")).toContainText("Fixture connection conflict");
   await expect(dialog.getByLabel("Name des Zugangs", { exact: true })).toHaveValue(
     "Shared OpenRouter",
   );
   controls.failConnection = false;
-  await dialog.getByRole("button", { name: "Zugang speichern", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
+  await saveBar(page)
+    .getByRole("button", { name: "Zugang speichern", exact: true })
+    .click();
+  await expect(saveBar(page)).toHaveCount(0);
   expect(
     controls.calls
       .filter(
@@ -44,14 +55,10 @@ test("a central provider connection stores one key without choosing a CLI or mod
     apiKey: "fixture-central-key",
   });
   await expect(page.locator("body")).not.toContainText("fixture-central-key");
-  await page
-    .getByRole("button", { name: "Shared OpenRouter bearbeiten", exact: true })
-    .click();
-  await expect(page.getByLabel("API-Key", { exact: true })).toHaveValue("");
-  await page.getByRole("button", { name: "Zugang speichern", exact: true }).click();
-  expect(controls.calls.filter((call) => call.method === "PATCH").at(-1).body).toEqual({
-    name: "Shared OpenRouter",
-  });
+  await openAccountItem(page, "Shared OpenRouter");
+  await expect(await keyInput(accountDetail(page), "API-Key")).toHaveValue("");
+  await expect(saveBar(page)).toHaveCount(0);
+  expect(controls.calls.some((call) => call.method === "PATCH")).toBe(false);
 });
 test("mobile launch selects the CLI before compatible access and shares one connection across CLIs", async ({
   page,
@@ -182,33 +189,48 @@ test("central connection rotation removal and deletion preserve one immutable pr
     },
   ];
   await page.goto(baseURL + "/accounts");
-  await page.getByRole("button", { name: "Shared Z.ai bearbeiten", exact: true }).click();
+  await openAccountItem(page, "Shared Z.ai");
   await expect(page.getByLabel("API-Anbieter", { exact: true })).toBeDisabled();
-  await page.getByLabel("API-Key", { exact: true }).fill("fixture-rotation");
+  await (await keyInput(accountDetail(page), "API-Key")).fill("fixture-rotation");
   await page.getByLabel("Responses-API-Zugang bestätigt", { exact: true }).check();
-  await page.getByRole("button", { name: "Zugang speichern", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await saveBar(page)
+    .getByRole("button", { name: "Zugang speichern", exact: true })
+    .click();
+  await expect(saveBar(page)).toHaveCount(0);
   expect(controls.calls.filter((call) => call.method === "PATCH").at(-1).body).toEqual({
     name: "Shared Z.ai",
     apiKey: "fixture-rotation",
     responsesAccess: true,
   });
-  await expect(page.locator(".provider-connection-card")).toContainText("Codex");
-  await page.getByRole("button", { name: "Shared Z.ai löschen", exact: true }).click();
+  // The rotated key is stored: the field returns to its status line.
+  await expect(
+    accountDetail(page).getByRole("button", { name: "Ersetzen", exact: true }),
+  ).toBeVisible();
+  await expect(accountDetail(page).getByLabel("API-Key", { exact: true })).toHaveCount(0);
+  await expect(
+    accountDetail(page).getByRole("group", { name: "Kompatible CLIs" }),
+  ).toContainText("Codex");
+  await accountDetail(page)
+    .getByRole("button", { name: "Zugang löschen", exact: true })
+    .click();
   await expect(page.getByRole("dialog")).toContainText(
     "Provider-Zugang „Shared Z.ai“ und seinen gespeicherten Key löschen?",
   );
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("button", { name: "Shared Z.ai bearbeiten", exact: true }).click();
+  await openAccountItem(page, "Shared Z.ai");
   await page.getByLabel("Gespeicherten API-Key entfernen", { exact: true }).check();
-  await page.getByRole("button", { name: "Zugang speichern", exact: true }).click();
-  await expect(page.locator(".provider-connection-card")).toContainText("API-Key fehlt");
+  await saveBar(page)
+    .getByRole("button", { name: "Zugang speichern", exact: true })
+    .click();
+  await expect(accountRow(page, "Shared Z.ai")).toContainText("API-Key fehlt");
   expect(controls.calls.filter((call) => call.method === "PATCH").at(-1).body).toEqual({
     name: "Shared Z.ai",
     removeApiKey: true,
   });
-  await page.getByRole("button", { name: "Shared Z.ai löschen", exact: true }).click();
+  await accountDetail(page)
+    .getByRole("button", { name: "Zugang löschen", exact: true })
+    .click();
   // A keyless connection has no saved key to delete.
   await expect(page.getByRole("dialog")).toContainText(
     "Provider-Zugang „Shared Z.ai“ löschen?",
@@ -218,5 +240,5 @@ test("central connection rotation removal and deletion preserve one immutable pr
     .getByRole("dialog")
     .getByRole("button", { name: "Zugang löschen", exact: true })
     .click();
-  await expect(page.locator(".provider-connection-card")).toHaveCount(0);
+  await expect(accountRow(page, "Shared Z.ai")).toHaveCount(0);
 });

@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";
 
 import { fixture, createForm } from "./providers-fixture.js";
 
@@ -18,7 +19,9 @@ for (const tool of ["codex", "claude", "opencode"])
     await expect(details).toContainText("1.048.576");
     await expect(details).toContainText("262.144");
     await expect(
-      page.getByRole("dialog").getByText("Gebündelter Katalog", { exact: true }),
+      accountDetail(page)
+        .locator("fieldset")
+        .getByText("Gebündelter Katalog", { exact: true }),
     ).toBeVisible();
     await expect(page.getByLabel("Responses-API-Zugang bestätigt")).toHaveCount(0);
     await page
@@ -42,7 +45,7 @@ for (const tool of ["codex", "claude", "opencode"])
       ),
     ).toBe(true);
     await expect(page.locator("body")).not.toContainText("fixture-private-key");
-    await expect(page.locator(".account-card")).toContainText("z-ai/glm-5.3");
+    await expect(accountDetail(page)).toContainText("z-ai/glm-5.3");
   });
 
 for (const id of ["zai", "zai-coding-plan"])
@@ -64,7 +67,7 @@ for (const id of ["zai", "zai-coding-plan"])
         (c) => c.method === "PATCH" && c.path === "/api/accounts/legacy-gateway",
       ).body.provider,
     ).toEqual({ id, modelId: "glm-5.3", responsesAccess: true });
-    await expect(page.locator(".account-card")).toContainText("API-Key fehlt");
+    await expect(accountDetail(page)).toContainText("API-Key fehlt");
     await expect(page.getByRole("button", { name: "Anmelden", exact: true })).toHaveCount(
       0,
     );
@@ -108,24 +111,21 @@ test("provider account retains a blank key, rotates it, removes it and returns t
   const controls = await fixture(page, { account });
   await page.goto(baseURL + "/accounts");
   async function edit() {
-    await page.getByRole("button", { name: "Gateway bearbeiten" }).click();
+    await openAccountItem(page, "Gateway");
     await expect(page.getByLabel("Anbietermodell", { exact: true })).toHaveValue(
       "z-ai/glm-5.3",
     );
   }
   await edit();
   await expect(page.getByLabel("API-Key (optional)", { exact: true })).toBeEmpty();
-  await page.getByRole("button", { name: "Speichern", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  expect(
-    controls.calls.filter((c) => c.method === "PATCH").at(-1).body,
-  ).not.toHaveProperty("apiKey");
+  await expect(saveBar(page)).toHaveCount(0);
+  expect(controls.calls.some((c) => c.method === "PATCH")).toBe(false);
   await edit();
   await page
     .getByLabel("API-Key (optional)", { exact: true })
     .fill("fixture-rotated-key");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   expect(controls.calls.filter((c) => c.method === "PATCH").at(-1).body.apiKey).toBe(
     "fixture-rotated-key",
   );
@@ -134,7 +134,7 @@ test("provider account retains a blank key, rotates it, removes it and returns t
   await expect(page.getByLabel("API-Key (optional)", { exact: true })).toBeDisabled();
   await page.getByLabel("API-Anbieter", { exact: true }).selectOption("");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   expect(controls.calls.filter((c) => c.method === "PATCH").at(-1).body).toEqual({
     name: "Gateway",
     provider: null,
@@ -289,7 +289,9 @@ test("provider cards expose stale catalog provenance and recover through refresh
     },
   });
   await page.goto(baseURL + "/accounts");
-  const card = page.locator(".account-card");
+  const card = (await openAccountItem(page, "Gateway card"))
+    .locator("section.accounts-detail-group")
+    .first();
   await card.getByText("Anbietermodell & Kontext", { exact: true }).click();
   await expect(card.getByText("Gebündelter Katalog", { exact: true })).toBeVisible();
   controls.failRefresh = true;
@@ -326,10 +328,10 @@ test("renaming a running provider account does not submit a provider change", as
     },
   });
   await page.goto(baseURL + "/accounts");
-  await page.getByRole("button", { name: "Gateway bearbeiten" }).click();
+  await openAccountItem(page, "Gateway");
   await page.getByLabel("Account-Name").fill("Renamed gateway");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Renamed gateway", exact: true }),
   ).toBeVisible();
@@ -355,16 +357,16 @@ for (const unavailable of ["delisted", "unreachable"]) {
     if (unavailable === "delisted") controls.catalogs.openrouter = [];
     else controls.failCatalog = true;
     await page.goto(baseURL + "/accounts");
-    await page.getByRole("button", { name: "Gateway bearbeiten" }).click();
+    await openAccountItem(page, "Gateway");
     await page.getByLabel("Gespeicherten API-Key entfernen").check();
     const save = page.getByRole("button", { name: "Speichern", exact: true });
     await expect(save).toBeEnabled();
     await save.click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(saveBar(page)).toHaveCount(0);
     expect(controls.calls.filter((call) => call.method === "PATCH").at(-1).body).toEqual({
       name: "Gateway",
       removeApiKey: true,
     });
-    await expect(page.locator(".account-card")).toContainText("API-Key fehlt");
+    await expect(accountDetail(page)).toContainText("API-Key fehlt");
   });
 }

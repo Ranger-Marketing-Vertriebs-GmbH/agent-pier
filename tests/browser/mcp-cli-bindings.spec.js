@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { bound, finds, header, openAdd, setup, stdioServer } from "./mcp-cli-fixture.js";
 
@@ -47,7 +48,7 @@ test("the form offers coding CLIs, explains a disabled one and saves the choice"
   await expect(dialog.getByText("Codex does not support SSE servers.")).toBeVisible();
   await dialog.getByRole("checkbox", { name: "Claude Code" }).check();
   await dialog.getByRole("button", { name: "Save server" }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   const writes = state.requests.filter((r) => r.method !== "GET");
   expect(writes).toHaveLength(1);
   expect(writes[0].body).toMatchObject({
@@ -117,7 +118,7 @@ test("a local command for a CLI is confirmed before anything is saved", async ({
   await expect(confirm).toBeVisible();
   expect(state.requests.filter((r) => r.method !== "GET")).toHaveLength(0);
   await dialog.getByRole("button", { name: "Confirm and save" }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   const writes = state.requests.filter((r) => r.method !== "GET");
   expect(writes).toHaveLength(1);
   expect(writes[0].body).toMatchObject({ clis: ["codex"], confirmStdio: true });
@@ -133,11 +134,11 @@ test("an edit that rules out a bound CLI saves both in one request", async ({ pa
     return false;
   };
   await page.goto(baseURL + "/accounts");
-  await page.getByRole("button", { name: "Edit docs" }).click();
-  const dialog = page.getByRole("dialog");
+  await openAccountItem(page, "docs");
+  const dialog = accountDetail(page);
   await dialog.getByLabel("Working directory").fill("/tmp");
   await dialog.getByRole("button", { name: "Save server" }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   const writes = state.requests.filter((r) => r.method !== "GET");
   expect(writes.map((r) => `${r.method} ${r.path}`)).toEqual(["PUT /api/mcp-servers/s1"]);
   expect(writes[0].body).toMatchObject({ cwd: "/tmp", clis: ["codex"] });
@@ -154,8 +155,8 @@ test("a refused edit keeps the form and changes no CLI", async ({ page }) => {
     return false;
   };
   await page.goto(baseURL + "/accounts");
-  await page.getByRole("button", { name: "Edit docs" }).click();
-  const dialog = page.getByRole("dialog");
+  await openAccountItem(page, "docs");
+  const dialog = accountDetail(page);
   await dialog.getByLabel("Working directory").fill("relative");
   await dialog.getByRole("checkbox", { name: "Codex" }).uncheck();
   await dialog.getByRole("button", { name: "Save server" }).click();
@@ -209,27 +210,9 @@ test("a conflict offers both choices and an OAuth server the CLI's login command
     return false;
   };
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "docs");
   await expect(page.getByText("Agents: Home · CLIs: Claude Code, Codex")).toBeVisible();
   await expect(page.getByText("Codex: edited by hand in the CLI")).toBeVisible();
-  // Codex status comes from the owner's profile; managed accounts are listed below it.
-  await expect(
-    page.getByText("Log in once in your Codex profile: codex mcp login search"),
-  ).toBeVisible();
-  await expect(
-    page
-      .getByRole("group", { name: "Codex accounts for search" })
-      .getByText("No Codex accounts managed by AgentPier yet."),
-  ).toBeVisible();
-  // An unknown login state is neutral, not an error.
-  await expect(
-    page.getByText("If OpenCode asks for a login: run opencode mcp auth search"),
-  ).toBeVisible();
-  await expect(
-    page.getByText("If Claude Code asks for a login: open /mcp in Claude Code"),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Adopt search from OpenCode" }),
-  ).toBeVisible();
   // Problems read differently from a written entry.
   await expect(page.getByText("Codex: edited by hand in the CLI")).toHaveClass(
     /mcp-oauth-login-required/,
@@ -255,6 +238,26 @@ test("a conflict offers both choices and an OAuth server the CLI's login command
   await expect(
     page.getByRole("button", { name: "Adopt the change to docs from Codex" }),
   ).toHaveCount(0);
+  await openAccountItem(page, "search");
+  // Codex status comes from the owner's profile; managed accounts are listed below it.
+  await expect(
+    page.getByText("Log in once in your Codex profile: codex mcp login search"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("group", { name: "Codex accounts for search" })
+      .getByText("No Codex accounts managed by AgentPier yet."),
+  ).toBeVisible();
+  // An unknown login state is neutral, not an error.
+  await expect(
+    page.getByText("If OpenCode asks for a login: run opencode mcp auth search"),
+  ).toBeVisible();
+  await expect(
+    page.getByText("If Claude Code asks for a login: open /mcp in Claude Code"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Adopt search from OpenCode" }),
+  ).toBeVisible();
 });
 
 test("a CLI that cannot be written names the reason, a failed choice the server's", async ({
@@ -287,6 +290,7 @@ test("a CLI that cannot be written names the reason, a failed choice the server'
     return false;
   };
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "docs");
   await expect(
     page.getByText(
       "Claude Code: could not write: its configuration file cannot be edited in place without changing other entries",
@@ -301,6 +305,7 @@ test("a CLI that cannot be written names the reason, a failed choice the server'
 test("the CLI statuses read in German", async ({ page }) => {
   await setup(page, { language: "de", servers: [bound()] });
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "docs");
   await expect(page.getByText("Codex: in der CLI von Hand geändert")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Änderung übernehmen: docs aus Codex" }),
@@ -333,6 +338,7 @@ test("entries found in the CLIs are adopted one by one or all at once, names onl
     });
   };
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(found.getByText("in Claude Code, Codex")).toBeVisible();
   await expect(found.getByText("Values: Authorization")).toBeVisible();
@@ -376,6 +382,7 @@ test("a found entry that fails to adopt is named; German copy", async ({ page })
         })
       : false;
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "In den CLIs gefunden");
   const found = page.getByRole("region", { name: "In den CLIs gefunden" });
   await expect(found.getByText("wird gespeichert als /usr/bin/true")).toBeVisible();
   await found.getByRole("button", { name: "my.tool übernehmen" }).click();
@@ -404,6 +411,7 @@ test("an adoption failure reads in English from its message key", async ({ page 
         })
       : false;
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(found.getByText("Command not found on this computer.")).toBeVisible();
   await found.getByRole("button", { name: "Adopt my.tool" }).click();
@@ -416,6 +424,7 @@ test("the section reports when nothing else is found", async ({ page }) => {
   await setup(page);
   await page.goto(baseURL + "/accounts?section=mcp-servers");
   await expect(page).toHaveURL(/\/accounts\?section=mcp-servers$/);
+  await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(found.getByText("Nothing else found in the CLIs.")).toBeVisible();
   await expect(page.getByRole("region", { name: "MCP servers" })).toBeInViewport();

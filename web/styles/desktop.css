@@ -109,10 +109,4 @@
     align-items: flex-start;
     flex-direction: column;
   }
-  .account-card {
-    flex-wrap: wrap;
-  }
-  .account-actions {
-    margin-left: 58px;
-  }
 }

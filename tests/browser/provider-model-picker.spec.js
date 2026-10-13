@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { fixture, createForm } from "./providers-fixture.js";
+import { accountDetail } from "../helpers/accounts-browser.js";
 
 test("keyboard selection keeps long-catalog results below the search input", async ({
   page,
@@ -110,7 +111,7 @@ for (const viewport of [
     const list = page.getByRole("listbox", { name: "Anbietermodell: Optionen" });
     await expect(list.getByRole("option")).toHaveCount(1);
     await search.press("Enter");
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(accountDetail(page)).toBeVisible();
     await expect(model).toHaveValue("");
     await search.press("ArrowDown");
     await search.press("Enter");
@@ -126,14 +127,14 @@ for (const viewport of [
     await search.press("Enter");
     await expect(model).toHaveValue("z-ai/glm-5.3");
     await search.press("Escape");
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(accountDetail(page)).toBeVisible();
     await expect(model).toBeFocused();
     await model.press("u");
     await expect(search).toHaveValue("u");
     await search.pressSequentially("nknown");
     const panel = page.locator(".anchored-options");
     const box = await panel.boundingBox();
-    const dialog = await page.getByRole("dialog").boundingBox();
+    const dialog = await accountDetail(page).boundingBox();
     expect(box.x).toBeGreaterThanOrEqual(dialog.x);
     expect(box.x + box.width).toBeLessThanOrEqual(dialog.x + dialog.width + 1);
     expect(box.y).toBeGreaterThanOrEqual(Math.max(0, dialog.y));

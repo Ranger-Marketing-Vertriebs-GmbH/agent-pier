@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { fixture as providerFixture } from "./providers-fixture.js";
 import { emptyAgency, emptyExtensions } from "../helpers/extensions.js";
+import { openAccountItem } from "../helpers/accounts-browser.js";
 
 test.use({ locale: "en-GB" });
 
@@ -149,7 +150,7 @@ test("English provider picker supports translated search, empty results and keyb
     },
   });
   await page.goto("/accounts");
-  await page.getByRole("button", { name: "Edit Gateway account", exact: true }).click();
+  await openAccountItem(page, "Gateway account");
   await page.getByLabel("API provider", { exact: true }).selectOption("openrouter");
   const model = page.getByLabel("Provider model", { exact: true });
   await expect(model).toBeEnabled();

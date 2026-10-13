@@ -1,9 +1,7 @@
 export const connectionCopy = {
-  title: "Zentrale Provider-Zugänge",
   description:
     "Einen API-Key pro Provider-Zugang speichern und mit kompatiblen CLIs verwenden. CLI, Modell und Startmodus wählst du für jede Sitzung.",
   add: "Provider-Zugang hinzufügen",
-  edit: "Provider-Zugang bearbeiten",
   name: "Name des Zugangs",
   key: "API-Key",
   save: "Zugang speichern",
@@ -28,8 +26,6 @@ export const connectionCopy = {
   keyHelp:
     "Der Key wird zentral gespeichert. Änderungen gelten für neue Sitzungen; laufende native Prozesse werden nicht beendet.",
   removeKey: "Gespeicherten API-Key entfernen",
-  editNamed: (name) => `${name} bearbeiten`,
-  deleteNamed: (name) => `${name} löschen`,
   delete: "Zugang löschen",
   restartRequired:
     "Agenten nutzen diesen Zugang. Die Änderung startet ihr Gateway neu; die Agenten sind dabei kurz nicht erreichbar.",
@@ -40,11 +36,7 @@ export const connectionCopy = {
   responses: "Responses-API-Zugang bestätigt",
   responsesHelp:
     "Mein Z.ai-Zugang erlaubt die Responses API für Codex. Diese Angabe ist eine eigene Bestätigung und keine automatische Prüfung.",
-  compatible: "Kompatible CLIs",
-  compatibleRoute: (cli, route) => `${cli} (${route})`,
   noCompatible: "Keine kompatible CLI verfügbar",
-  accountDescription:
-    "Native Anmeldungen bleiben an ihre jeweilige CLI gebunden. Zentrale API-Zugänge werden getrennt davon verwaltet.",
   cli: "CLI",
   access: "Zugang",
   nativeModel: "Natives Modell (optional)",

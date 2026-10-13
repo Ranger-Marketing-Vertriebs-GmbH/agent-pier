@@ -3,6 +3,16 @@ import {
   resolveDraftRoute,
   ROUTE_TOOLS,
 } from "../../web/features/provider-connections/endpoint-routes.js";
+const emptyUsage = {
+  agentsEnabled: false,
+  connections: {},
+  chatgpt: {},
+  mcpServers: {},
+  webSearch: null,
+  speech: null,
+  cliAccounts: {},
+};
+
 export async function fixture(page, { account, session } = {}) {
   const providers = [
     ...["openrouter", "zai", "zai-coding-plan"].map((id) => ({
@@ -73,6 +83,7 @@ export async function fixture(page, { account, session } = {}) {
     state,
     catalogs,
     calls: [],
+    usage: null,
     failRefresh: false,
     failCatalog: false,
     holdProvider: null,
@@ -162,17 +173,6 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({
         json: { revision: 0, model: "nova-3", language: "auto", hasSecret: false },
       });
-    // An agent without its own Telegram bot for other people.
-    if (method === "GET" && path.startsWith("/api/assistant-telegram-senders/"))
-      return route.fulfill({
-        json: {
-          assistantId: decodeURIComponent(path.split("/").pop()),
-          bot: null,
-          status: null,
-          voice: false,
-          shell: "off",
-        },
-      });
     if (method === "GET" && path === "/api/assistant-web-search")
       return route.fulfill({
         json: { revision: 0, provider: "duckduckgo", hasBraveKey: false, ready: true },
@@ -191,6 +191,8 @@ export async function fixture(page, { account, session } = {}) {
         body: 'data: {"type":"connected"}\n\n',
       });
     if (path === "/api/state") return route.fulfill({ json: state });
+    if (path === "/api/accounts/usage")
+      return route.fulfill({ json: controls.usage ?? emptyUsage });
     if (path === "/api/pipeline-profiles")
       return route.fulfill({ json: { profiles: [] } });
     if (path === "/api/ssh-accesses") return route.fulfill({ json: { accesses: [] } });
@@ -392,7 +394,8 @@ export async function createForm(page, tool = "codex", controls) {
   ];
   await page.goto(baseURL + "/accounts");
   await page
-    .getByRole("button", { name: "Gateway account bearbeiten", exact: true })
+    .locator(".accounts-hub")
+    .getByRole("link", { name: /^Gateway account/ })
     .click();
   await page.getByLabel("API-Anbieter", { exact: true }).waitFor();
 }

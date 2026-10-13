@@ -6,3 +6,4 @@ export const accountDialogCopy = localizedCopy(
   en.accountDialogCopy,
 );
 export const accountsPageCopy = localizedCopy(de.accountsPageCopy, en.accountsPageCopy);
+export const accountsHubCopy = localizedCopy(de.accountsHubCopy, en.accountsHubCopy);

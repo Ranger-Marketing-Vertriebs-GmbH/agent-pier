@@ -1,4 +1,10 @@
 import { test, expect } from "@playwright/test";
+import {
+  accountDetail,
+  backToAccounts,
+  openAccountItem,
+  saveBar as accountSaveBar,
+} from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
@@ -228,7 +234,7 @@ for (const [label, use] of [
       const panel = page.getByRole("region", { name: "MCP servers" });
       await expect(panel.getByText("No MCP servers yet.")).toBeVisible();
       await panel.getByRole("button", { name: "Add MCP server" }).click();
-      const dialog = page.getByRole("dialog");
+      const dialog = accountDetail(page);
       await expect(dialog.getByText(/1 to 30 letters, digits, hyphens/)).toBeVisible();
       await dialog.getByLabel("Name", { exact: true }).fill("docs");
       await dialog.getByLabel("Address").fill("https://mcp.example.com/v1?token=abc");
@@ -237,26 +243,25 @@ for (const [label, use] of [
       await dialog.getByLabel("Value", { exact: true }).fill(secret);
       if (label === "phone") await fits(page);
       await dialog.getByRole("button", { name: "Save server" }).click();
-      await expect(dialog).toHaveCount(0);
+      await expect(accountSaveBar(page)).toHaveCount(0);
       expect(state.requests[0].body).toMatchObject({
         name: "docs",
         transport: "http",
         headers: { Authorization: secret },
       });
-      const item = panel.getByRole("listitem");
+      const item = accountDetail(page);
       await expect(item).toContainText("docs");
       await expect(item).toContainText("https://mcp.example.com/v1");
       await expect(item).toContainText("Authorization");
       expect(await page.content()).not.toContain(secret);
       expect(await page.content()).not.toContain("token=abc");
       // Editing shows the header name as stored and offers replacing it.
-      await panel.getByRole("button", { name: "Edit docs" }).click();
       await expect(dialog.getByText("stored", { exact: true })).toBeVisible();
       await expect(dialog.getByLabel(/Authorization: New value/)).toHaveValue("");
       expect(await page.content()).not.toContain(secret);
       await dialog.getByRole("button", { name: "Remove", exact: true }).click();
       await dialog.getByRole("button", { name: "Save server" }).click();
-      await expect(dialog).toHaveCount(0);
+      await expect(accountSaveBar(page)).toHaveCount(0);
       expect(state.requests[1].body).toEqual({
         revision: 1,
         headers: { Authorization: null },
@@ -271,7 +276,7 @@ for (const [label, use] of [
       await page.goto(baseURL + "/accounts");
       const panel = page.getByRole("region", { name: "MCP servers" });
       await panel.getByRole("button", { name: "Add MCP server" }).click();
-      const dialog = page.getByRole("dialog");
+      const dialog = accountDetail(page);
       await dialog.getByLabel("Name", { exact: true }).fill("local");
       await dialog.getByRole("radio", { name: "Local command (stdio)" }).check();
       await dialog.getByRole("textbox", { name: /^Command/ }).fill("npx");
@@ -283,12 +288,12 @@ for (const [label, use] of [
       expect(state.servers).toHaveLength(0);
       if (label === "phone") await fits(page);
       await warning.getByRole("button", { name: "Confirm and save" }).click();
-      await expect(dialog).toHaveCount(0);
+      await expect(accountSaveBar(page)).toHaveCount(0);
       expect(state.requests.at(-1).body).toMatchObject({
         confirmStdio: true,
         args: ["-y", "server"],
       });
-      const item = panel.getByRole("listitem");
+      const item = accountDetail(page);
       await expect(item).toContainText("/opt/homebrew/bin/npx");
       await expect(item.getByText("stdio", { exact: true })).toBeVisible();
     });
@@ -308,21 +313,20 @@ for (const [label, use] of [
       });
       await page.goto(baseURL + "/accounts");
       const panel = page.getByRole("region", { name: "MCP servers" });
-      await panel.getByRole("button", { name: "Edit local" }).click();
-      const dialog = page.getByRole("dialog");
+      const dialog = await openAccountItem(page, "local");
       await dialog
         .getByRole("textbox", { name: /^Command/ })
         .fill("/usr/local/bin/other");
       await dialog.getByRole("button", { name: "Save server" }).click();
       await expect(dialog.getByRole("alertdialog")).toContainText("without a sandbox");
       await dialog.getByRole("button", { name: "Confirm and save" }).click();
-      await expect(dialog).toHaveCount(0);
+      await expect(accountSaveBar(page)).toHaveCount(0);
       expect(state.requests.map((r) => r.body.confirmStdio)).toEqual([undefined, true]);
-      await expect(panel.getByRole("listitem")).toContainText("/usr/local/bin/other");
+      await expect(dialog).toContainText("/usr/local/bin/other");
       // Removing asks first and then drops the server.
-      await panel.getByRole("button", { name: "Remove local" }).click();
-      await expect(panel.getByRole("alertdialog")).toContainText("lose access");
-      await panel.getByRole("button", { name: "Remove server" }).click();
+      await dialog.getByRole("button", { name: "Remove local" }).click();
+      await expect(dialog.getByRole("alertdialog")).toContainText("lose access");
+      await dialog.getByRole("button", { name: "Remove server" }).click();
       await expect(panel.getByText("No MCP servers yet.")).toBeVisible();
     });
 
@@ -358,8 +362,9 @@ for (const [label, use] of [
       expect(state.bindings).toEqual(["s1"]);
       await page.goto(baseURL + "/accounts");
       const settings = page.getByRole("region", { name: "MCP servers" });
-      await settings.getByRole("button", { name: "Remove more" }).click();
-      await settings.getByRole("button", { name: "Remove server" }).click();
+      await openAccountItem(page, "more");
+      await accountDetail(page).getByRole("button", { name: "Remove more" }).click();
+      await accountDetail(page).getByRole("button", { name: "Remove server" }).click();
       await expect(settings.getByText(notice)).toBeVisible();
       await expect(settings.getByText("more")).toHaveCount(0);
       if (label === "phone") await fits(page);
@@ -407,8 +412,10 @@ for (const [label, use] of [
       const insideAlert = () =>
         page.evaluate(() => !!document.activeElement?.closest('[role="alertdialog"]'));
       // Remove: focus enters, Tab stays inside, Escape cancels and focus returns.
-      await panel.getByRole("button", { name: "Remove docs" }).click();
-      const removal = panel.getByRole("alertdialog");
+      await openAccountItem(page, "docs");
+      const remove = accountDetail(page).getByRole("button", { name: "Remove docs" });
+      await remove.click();
+      const removal = accountDetail(page).getByRole("alertdialog");
       await expect(removal.getByRole("button", { name: "Cancel" })).toBeFocused();
       for (let i = 0; i < 3; i++) {
         await page.keyboard.press("Tab");
@@ -418,10 +425,11 @@ for (const [label, use] of [
       expect(await insideAlert()).toBe(true);
       await page.keyboard.press("Escape");
       await expect(removal).toHaveCount(0);
-      await expect(panel.getByRole("button", { name: "Remove docs" })).toBeFocused();
-      // Stdio confirmation inside the side panel: Escape closes only the warning.
+      await expect(remove).toBeFocused();
+      // The stdio confirmation: Escape closes only the warning.
+      if (label === "phone") await backToAccounts(page);
       await panel.getByRole("button", { name: "Add MCP server" }).click();
-      const dialog = page.getByRole("dialog");
+      const dialog = accountDetail(page);
       await dialog.getByLabel("Name", { exact: true }).fill("local");
       await dialog.getByRole("radio", { name: "Local command (stdio)" }).check();
       await dialog.getByRole("textbox", { name: /^Command/ }).fill("npx");

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { openAccountItem } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { header, setup } from "./mcp-cli-fixture.js";
 
@@ -92,6 +93,7 @@ test("each managed Codex account shows its login and logs in in a new tab", asyn
   const state = await setup(page, { servers: [codexServer()] });
   handleLogins(state);
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   // The owner's own profile keeps the CLI's command.
   await expect(
@@ -135,6 +137,7 @@ test("a pending login can be cancelled", async ({ page }) => {
   });
   handleLogins(state);
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   await area
     .getByRole("button", {
@@ -151,6 +154,7 @@ test("a refused tab offers the login page as a link", async ({ page }) => {
   const state = await setup(page, { servers: [codexServer()] });
   handleLogins(state);
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   await area
     .getByRole("button", { name: "Log in to search in the Codex account Spare" })
@@ -176,6 +180,7 @@ test("over plain HTTP from the network only the CLI command is offered", async (
       }),
   });
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   await area
     .getByRole("button", { name: "Log in to search in the Codex account Private" })
@@ -206,6 +211,7 @@ test("a login Codex cannot start shows its error and closes the tab", async ({
       }),
   });
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   await area
     .getByRole("button", { name: "Log in to search in the Codex account Private" })
@@ -230,6 +236,7 @@ test("the callback's result names the account and the server", async ({ page }) 
 test("without managed accounts the area says so", async ({ page }) => {
   await setup(page, { servers: [codexServer([])] });
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "search");
   await expect(
     page
       .getByRole("group", { name: "Codex accounts for search" })
@@ -249,6 +256,7 @@ test("German: Codex-Accounts mit Status, Anmelden und Ergebnis", async ({ page }
       "Die Anmeldung des Codex-Accounts Ops bei search ist fehlgeschlagen. Der Zugriff wurde beim Anbieter abgelehnt.",
     ),
   ).toBeVisible();
+  await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex-Accounts für search" });
   await expect(area.getByText("Work: angemeldet")).toBeVisible();
   await expect(area.getByText("Spare: Status unbekannt")).toBeVisible();
@@ -270,6 +278,7 @@ test("a connected account can log in again, for a login revoked at the provider"
   const state = await setup(page, { servers: [codexServer()] });
   handleLogins(state);
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   const again = area.getByRole("button", {
     name: "Log in to search again in the Codex account Work",
@@ -291,6 +300,7 @@ test("German: erneut anmelden und Hinweis ohne HTTPS", async ({ page }) => {
       route.fulfill({ status: 409, json: { code: "plain-http-remote", error: "x" } }),
   });
   await page.goto(baseURL + "/accounts");
+  await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex-Accounts für search" });
   await area
     .getByRole("button", { name: "Im Codex-Account Work erneut bei search anmelden" })

@@ -272,11 +272,12 @@ function Application() {
               {...{
                 refresh,
                 state,
-                setModal,
+                ready,
                 act,
+                route,
                 onNavigate: navigate,
-                mcpOAuth: route.mcpOAuth,
-                mcpSection: route.section,
+                openNavigation,
+                navigationOpen: mobileNav,
               }}
             />
           ) : activeSession ? (

@@ -1,4 +1,10 @@
 import { test, expect } from "@playwright/test";
+import {
+  accountDetail,
+  backToAccounts,
+  openAccountItem,
+  saveBar as accountSaveBar,
+} from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
@@ -194,6 +200,10 @@ for (const [label, use] of [
 ]) {
   test.describe(label, () => {
     test.use(use);
+    // Phones show the hub and a subpage one at a time.
+    const hub = async (page) => {
+      if (label === "phone") await backToAccounts(page);
+    };
 
     test("an OAuth server is created, logged in through the provider and logged out", async ({
       page,
@@ -202,7 +212,7 @@ for (const [label, use] of [
       await page.goto(baseURL + "/accounts");
       const panel = page.getByRole("region", { name: "MCP servers" });
       await panel.getByRole("button", { name: "Add MCP server" }).click();
-      const dialog = page.getByRole("dialog");
+      const dialog = accountDetail(page);
       await dialog.getByLabel("Name", { exact: true }).fill("docs");
       await dialog.getByLabel("Address").fill("https://docs.example/mcp");
       await expect(dialog.getByRole("button", { name: "Add entry" })).toBeVisible();
@@ -214,7 +224,7 @@ for (const [label, use] of [
       await dialog.getByLabel("OAuth scope (optional)").fill(" read write ");
       if (label === "phone") await fits(page);
       await dialog.getByRole("button", { name: "Save server" }).click();
-      await expect(dialog).toHaveCount(0);
+      await expect(accountSaveBar(page)).toHaveCount(0);
       expect(state.requests[0].body).toEqual({
         name: "docs",
         transport: "http",
@@ -222,7 +232,8 @@ for (const [label, use] of [
         auth: "oauth",
         oauthScope: "read write",
       });
-      const item = panel.getByRole("listitem").filter({ hasText: "docs" });
+      // The page lands on the new server.
+      const item = accountDetail(page);
       await expect(item.getByText("Not connected", { exact: true })).toBeVisible();
       await expect(item).toContainText("read write");
       state.status.s1 = { oauthStatus: "login-required" };
@@ -242,14 +253,16 @@ for (const [label, use] of [
       const banner = panel.getByRole("status").filter({ hasText: "Logged in to docs" });
       await expect(banner).toHaveText(/Agents bound to it can use its tools/);
       await expect(page).toHaveURL(baseURL + "/accounts");
+      await panel.getByRole("button", { name: "Dismiss" }).click();
+      await expect(banner).toHaveCount(0);
+      await openAccountItem(page, "docs");
       await expect(item.getByText("Connected", { exact: true })).toBeVisible();
       await expect(item.getByText(/Access valid until .*2099/)).toBeVisible();
       await expect(item.getByRole("button", { name: "Log in to docs" })).toHaveCount(0);
       if (label === "phone") await fits(page);
-      await panel.getByRole("button", { name: "Dismiss" }).click();
-      await expect(banner).toHaveCount(0);
       await item.getByRole("button", { name: "Log out of docs" }).click();
-      await expect(panel.getByText("Logged out of docs.")).toBeVisible();
+      // The confirmation shows next to the buttons, also on phones.
+      await expect(item.getByText("Logged out of docs.")).toBeVisible();
       await expect(item.getByText("Not connected", { exact: true })).toBeVisible();
       expect(state.requests.map((r) => `${r.method} ${r.path}`)).toEqual([
         "POST /api/mcp-servers",
@@ -264,21 +277,20 @@ for (const [label, use] of [
       const state = await setup(page);
       state.servers.push(oauthServer("s1", "docs"));
       await page.goto(baseURL + "/accounts");
-      const panel = page.getByRole("region", { name: "MCP servers" });
-      const item = panel.getByRole("listitem").filter({ hasText: "docs" });
+      const item = await openAccountItem(page, "docs");
       const login = item.getByRole("button", { name: "Log in to docs" });
       state.refusal = "plain-http-remote";
       await login.click();
       await expect(item.getByRole("alert")).toHaveText(
         "OAuth needs HTTPS or the AgentPier host itself. Open AgentPier through Tailscale (HTTPS) or directly on the AgentPier host.",
       );
-      // The list's own notice, not the (empty) status line of the CLI finds.
+      // The notice shows next to the buttons, also on phones.
       await expect(
-        panel.getByRole("status").filter({ hasText: /^OAuth logins cannot start/ }),
+        item.getByRole("status").filter({ hasText: /^OAuth logins cannot start/ }),
       ).toContainText(
         "OAuth logins cannot start from the address you opened AgentPier with.",
       );
-      expect(page.url()).toBe(baseURL + "/accounts");
+      expect(page.url()).toContain(baseURL + "/accounts");
       state.refusal = "loopback-redirect";
       await login.click();
       await expect(item.getByRole("alert")).toContainText(
@@ -302,8 +314,8 @@ for (const [label, use] of [
       await login.click();
       await expect(login).toHaveText("Opening login …");
       await expect(login).toBeDisabled();
-      expect(page.url()).toBe(baseURL + "/accounts");
-      await expect(panel.getByText(/cannot start from the address/)).toHaveCount(0);
+      expect(page.url()).toContain(baseURL + "/accounts");
+      await expect(item.getByText(/cannot start from the address/)).toHaveCount(0);
       state.status.s1 = { oauthStatus: "login-required" };
       await page.evaluate(() =>
         window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })),
@@ -347,9 +359,7 @@ for (const [label, use] of [
         headerNames: ["Authorization"],
       });
       await page.goto(baseURL + "/accounts");
-      const panel = page.getByRole("region", { name: "MCP servers" });
-      await panel.getByRole("button", { name: "Edit docs" }).click();
-      const dialog = page.getByRole("dialog");
+      const dialog = await openAccountItem(page, "docs");
       await dialog.getByRole("radio", { name: "OAuth", exact: true }).check();
       await dialog.getByRole("button", { name: "Save server" }).click();
       const confirmation = dialog.getByRole("alertdialog", { name: "Switch to OAuth?" });
@@ -361,14 +371,13 @@ for (const [label, use] of [
       expect(state.requests).toHaveLength(0);
       await dialog.getByRole("button", { name: "Save server" }).click();
       await dialog.getByRole("button", { name: "Delete headers and save" }).click();
-      await expect(dialog).toHaveCount(0);
+      await expect(accountSaveBar(page)).toHaveCount(0);
       expect(state.requests[0].body).toEqual({
         revision: 1,
         auth: "oauth",
         oauthScope: "",
       });
-      const item = panel.getByRole("listitem").filter({ hasText: "docs" });
-      await expect(item.getByText("Not connected", { exact: true })).toBeVisible();
+      await expect(dialog.getByText("Not connected", { exact: true })).toBeVisible();
     });
 
     test("statuses show on the list and the agent, and deferred logouts warn", async ({
@@ -395,17 +404,19 @@ for (const [label, use] of [
       state.bindings = ["s1", "s3"];
       await page.goto(baseURL + "/accounts");
       const panel = page.getByRole("region", { name: "MCP servers" });
-      const docs = panel.getByRole("listitem").filter({ hasText: "docs" });
-      await expect(docs.getByText("Status unknown", { exact: true })).toBeVisible();
-      await expect(docs).toContainText("The login status cannot be read right now");
-      const wiki = panel.getByRole("listitem").filter({ hasText: "wiki" });
-      await expect(wiki.getByText("Removing old login", { exact: true })).toBeVisible();
-      await expect(wiki).toContainText("The previous login is still being removed.");
+      const detail = accountDetail(page);
+      await openAccountItem(page, "docs");
+      await expect(detail.getByText("Status unknown", { exact: true })).toBeVisible();
+      await expect(detail).toContainText("The login status cannot be read right now");
+      await hub(page);
+      await openAccountItem(page, "wiki");
+      await expect(detail.getByText("Removing old login", { exact: true })).toBeVisible();
+      await expect(detail).toContainText("The previous login is still being removed.");
       if (label === "phone") await fits(page);
       state.deferLogout = true;
       state.pendingApply = true;
-      await panel.getByRole("button", { name: "Remove wiki" }).click();
-      await panel.getByRole("button", { name: "Remove server" }).click();
+      await detail.getByRole("button", { name: "Remove wiki" }).click();
+      await detail.getByRole("button", { name: "Remove server" }).click();
       await expect(panel.getByRole("status").filter({ hasText: /^Saved/ })).toHaveText(
         "Saved \u2014 will be applied to running agents shortly. Saved. The previous OAuth login could not be removed right now; AgentPier retries in the background.",
       );
@@ -438,7 +449,7 @@ test("German copy for status, login and the callback result", async ({ page }) =
   await expect(panel.getByRole("alert")).toContainText(
     "Die Anmeldung bei docs ist fehlgeschlagen. Der Zugriff wurde beim Anbieter abgelehnt.",
   );
-  const item = panel.getByRole("listitem").filter({ hasText: "docs" });
+  const item = await openAccountItem(page, "docs");
   await expect(item.getByText("Anmeldung nötig", { exact: true })).toBeVisible();
   await expect(item.getByRole("button", { name: "Bei docs anmelden" })).toBeVisible();
   await expect(item.getByRole("button", { name: "Von docs abmelden" })).toBeVisible();

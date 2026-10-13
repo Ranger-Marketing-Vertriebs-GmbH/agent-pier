@@ -2,6 +2,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
+import { accountDetail, saveBar } from "../helpers/accounts-browser.js";
 
 test.use({ locale: "en-GB" });
 
@@ -33,7 +34,7 @@ async function openEndpoint(page, { preset = "llamacpp", labels = ENGLISH } = {}
   const controls = await fixture(page);
   await page.goto(baseURL + "/accounts");
   await page.getByRole("button", { name: labels.add, exact: true }).click();
-  const dialog = page.getByRole("dialog");
+  const dialog = accountDetail(page);
   await dialog.getByLabel(labels.provider, { exact: true }).selectOption("endpoint");
   await dialog.getByLabel(labels.server, { exact: true }).selectOption(preset);
   const status = dialog.locator(".endpoint-adapter-status");
@@ -51,7 +52,7 @@ async function openEndpoint(page, { preset = "llamacpp", labels = ENGLISH } = {}
 async function savedEndpoint(dialog, controls) {
   await dialog.getByLabel("Connection name", { exact: true }).fill("GPU box");
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(dialog.page())).toHaveCount(0);
   return controls.calls
     .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
     .at(-1).body.endpoint;
@@ -257,7 +258,8 @@ test.describe("German UI", () => {
       const overflow = await details.evaluate((element) => ({
         page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         dialog:
-          element.closest("dialog").scrollWidth - element.closest("dialog").clientWidth,
+          element.closest(".accounts-detail").scrollWidth -
+          element.closest(".accounts-detail").clientWidth,
         options: element.scrollWidth - element.clientWidth,
       }));
       expect(overflow).toEqual({ page: 0, dialog: 0, options: 0 });

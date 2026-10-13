@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { agentTab, settingsPath } from "../helpers/agent-settings-page.js";
+import { openAccountItem } from "../helpers/accounts-browser.js";
 import {
   emitChange as change,
   home,
@@ -68,7 +69,8 @@ test("links to Accounts and Settings navigate inside the app", async ({ page }) 
   await page.getByRole("link", { name: "Manage Deepgram in Accounts" }).click();
   await expect(page).toHaveURL(/\/accounts$/);
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
-  await page.getByRole("link", { name: "Agent service settings" }).click();
+  const panel = await openAccountItem(page, "ChatGPT for agents");
+  await panel.getByRole("link", { name: "Agent service settings" }).click();
   await expect(page).toHaveURL(/\/settings\/assistants$/);
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
 });

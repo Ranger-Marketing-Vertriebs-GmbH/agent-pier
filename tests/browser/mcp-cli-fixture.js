@@ -1,3 +1,4 @@
+import { accountDetail } from "../helpers/accounts-browser.js";
 import { fixture } from "./providers-fixture.js";
 
 /** The central MCP API; `state` records requests and holds what the list returns. */
@@ -67,7 +68,7 @@ export async function openAdd(page) {
     .getByRole("region", { name: "MCP servers" })
     .getByRole("button", { name: "Add MCP server" })
     .click();
-  return page.getByRole("dialog");
+  return accountDetail(page);
 }
 
 export const stdioServer = () =>

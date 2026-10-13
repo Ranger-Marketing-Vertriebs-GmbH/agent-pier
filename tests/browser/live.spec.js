@@ -1,3 +1,4 @@
+import { accountRow } from "../helpers/accounts-browser.js";
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import fs from "node:fs";
@@ -75,7 +76,7 @@ test("live backend account save and real terminal compose, resize and reconnect"
   await page.getByRole("button", { name: "Account hinzufügen" }).click();
   await page.getByLabel("Account-Name").fill("Browser Test");
   await page.getByRole("button", { name: "Account erstellen", exact: true }).click();
-  await expect(page.getByText("Browser Test", { exact: true })).toBeVisible();
+  await expect(accountRow(page, "Browser Test")).toBeVisible();
   expect(application.accounts.list().some((a) => a.name === "Browser Test")).toBe(true);
   await chatFixture("browser-terminal", "Terminal Integration");
   await page.goto(url + "/#browser-terminal");

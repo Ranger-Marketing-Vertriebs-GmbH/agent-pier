@@ -1,6 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
+import {
+  accountDetail,
+  backToAccounts,
+  openAccountItem,
+  saveBar,
+} from "../helpers/accounts-browser.js";
 
 test.use({ locale: "en-GB" });
 
@@ -19,7 +25,7 @@ test("create a keyless Ollama connection, confirm context and launch with it", a
   await page
     .getByRole("button", { name: "Add provider connection", exact: true })
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = accountDetail(page);
   await dialog.getByLabel("Connection name", { exact: true }).fill("GPU box");
   await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
   await expect(dialog.getByLabel("OpenAI-compatible base URL")).toHaveValue(
@@ -41,9 +47,10 @@ test("create a keyless Ollama connection, confirm context and launch with it", a
     const id = row.querySelector(".endpoint-model-id");
     return {
       page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      dialog: [...document.querySelectorAll("[role=dialog], [role=dialog] *")].filter(
-        (element) => element.getBoundingClientRect().right > window.innerWidth + 1,
-      ).length,
+      dialog: [
+        ...document.querySelectorAll(".accounts-detail, .accounts-detail *"),
+      ].filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
+        .length,
       scroller: scroller.scrollWidth - scroller.clientWidth,
       idHeight: id.getBoundingClientRect().height,
     };
@@ -53,7 +60,7 @@ test("create a keyless Ollama connection, confirm context and launch with it", a
   expect(overflow.scroller).toBeLessThanOrEqual(0);
   expect(overflow.idHeight).toBeLessThan(40);
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   const created = controls.calls
     .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
     .at(-1).body;
@@ -68,6 +75,7 @@ test("create a keyless Ollama connection, confirm context and launch with it", a
     contextTokens: 8192,
     contextEdited: true,
   });
+  await backToAccounts(page);
   await expect(page.getByText("No API key required")).toBeVisible();
 
   await page.goto(baseURL + "/");
@@ -135,11 +143,13 @@ test("changing the address of a keyed endpoint requires the key again", async ({
     },
   ];
   await page.goto(baseURL + "/accounts");
-  await page.getByRole("button", { name: "Edit Gateway box", exact: true }).click();
-  const dialog = page.getByRole("dialog");
-  const save = dialog.getByRole("button", { name: "Save connection", exact: true });
+  const dialog = await openAccountItem(page, "Gateway box");
+  const save = saveBar(page).getByRole("button", {
+    name: "Save connection",
+    exact: true,
+  });
   await expect(dialog.getByRole("alert")).toHaveCount(0);
-  await expect(save).toBeEnabled();
+  await expect(saveBar(page)).toHaveCount(0);
   await dialog
     .getByLabel("OpenAI-compatible base URL")
     .fill("http://other.example:11434/v1");
@@ -155,7 +165,7 @@ test("changing the address after a test discards the stale test result", async (
   await page
     .getByRole("button", { name: "Add provider connection", exact: true })
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = accountDetail(page);
   await dialog.getByLabel("Connection name", { exact: true }).fill("GPU box");
   await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
   await expect(
@@ -171,7 +181,7 @@ test("changing the address after a test discards the stale test result", async (
   await expect(dialog.getByText(/does not report the loaded context/)).toHaveCount(0);
   await dialog.getByLabel("Context llama3:8b", { exact: true }).fill("8192");
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   const created = controls.calls
     .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
     .at(-1).body;
@@ -201,7 +211,7 @@ test("a rejected API key reads as an authentication failure", async ({ page }) =
   await page
     .getByRole("button", { name: "Add provider connection", exact: true })
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = accountDetail(page);
   await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
   await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
   await expect(

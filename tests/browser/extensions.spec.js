@@ -1,3 +1,4 @@
+import { accountRow } from "../helpers/accounts-browser.js";
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
@@ -116,7 +117,7 @@ test("the MCP tab points to the central MCP server list", async ({ page }) => {
   ).toHaveCount(0);
   await page.getByRole("button", { name: "MCP-Server öffnen", exact: true }).click();
   await expect(page).toHaveURL(/\/accounts\?section=mcp-servers$/);
-  await expect(page.getByRole("region", { name: "In den CLIs gefunden" })).toBeVisible();
+  await expect(accountRow(page, "In den CLIs gefunden")).toBeVisible();
   expect(writes).toHaveLength(0);
 });
 test("skill file upload and GitHub download show native shared scope and protect existing skills", async ({

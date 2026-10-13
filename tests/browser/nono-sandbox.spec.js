@@ -1,3 +1,4 @@
+import { accountDetail, openAccountItem } from "../helpers/accounts-browser.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 
@@ -75,7 +76,10 @@ test("the sandbox-profile selector is absent for a login launch", async ({ page 
     route.fulfill({ json: { state: "unauthenticated", checkedAt: Date.now() } }),
   );
   await page.goto(base + "/accounts");
-  await page.getByRole("button", { name: "Anmelden", exact: true }).click();
+  await openAccountItem(page, "Managed Codex");
+  await accountDetail(page)
+    .getByRole("button", { name: "Anmelden", exact: true })
+    .click();
   const dialog = page.getByRole("dialog", { name: "Codex anmelden" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Sandbox-Profil")).toHaveCount(0);

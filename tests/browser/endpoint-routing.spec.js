@@ -2,6 +2,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
+import { accountDetail, saveBar } from "../helpers/accounts-browser.js";
 
 test.use({ locale: "en-GB" });
 
@@ -11,7 +12,7 @@ async function openNewEndpoint(page, preset = "llamacpp") {
   await page
     .getByRole("button", { name: "Add provider connection", exact: true })
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = accountDetail(page);
   await dialog.getByLabel("Connection name", { exact: true }).fill("GPU box");
   await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
   await dialog.getByLabel("Server type", { exact: true }).selectOption(preset);
@@ -64,7 +65,7 @@ test("routes resolve live and explain unavailable choices", async ({ page }) => 
     "Uses: not offered Not available: protocol not enabled",
   );
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   const created = controls.calls
     .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
     .at(-1).body;
@@ -164,7 +165,7 @@ test("test proposals fill adapter options that stay editable", async ({ page }) 
     .getByRole("checkbox", { name: "Read <think> tags as reasoning", exact: true })
     .check();
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   const created = controls.calls
     .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
     .at(-1).body;
@@ -181,7 +182,7 @@ test("image support per model is saved as a tri-state", async ({ page }) => {
   await expect(images).toHaveValue("");
   await images.selectOption("no");
   await dialog.getByRole("button", { name: "Save connection", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
   const created = controls.calls
     .filter((call) => call.path === "/api/provider-connections" && call.method === "POST")
     .at(-1).body;
@@ -202,7 +203,8 @@ test.describe("narrow screen", () => {
     const overflow = await routing.evaluate((element) => ({
       page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       dialog:
-        element.closest("dialog").scrollWidth - element.closest("dialog").clientWidth,
+        element.closest(".accounts-detail").scrollWidth -
+        element.closest(".accounts-detail").clientWidth,
       routing: element.scrollWidth - element.clientWidth,
     }));
     expect(overflow).toEqual({ page: 0, dialog: 0, routing: 0 });
@@ -219,7 +221,8 @@ test.describe("narrow screen", () => {
     const overflow = await options.evaluate((element) => ({
       page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       dialog:
-        element.closest("dialog").scrollWidth - element.closest("dialog").clientWidth,
+        element.closest(".accounts-detail").scrollWidth -
+        element.closest(".accounts-detail").clientWidth,
       options: element.scrollWidth - element.clientWidth,
     }));
     expect(overflow).toEqual({ page: 0, dialog: 0, options: 0 });
@@ -232,7 +235,7 @@ test.describe("German UI", () => {
     await fixture(page);
     await page.goto(baseURL + "/accounts");
     await page.getByRole("button", { name: /Provider-Zugang hinzufügen/ }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = accountDetail(page);
     await dialog.getByLabel("API-Anbieter", { exact: true }).selectOption("endpoint");
     await dialog.getByLabel("Server-Typ", { exact: true }).selectOption("llamacpp");
     const routing = dialog.getByRole("group", { name: "CLIs und Routen", exact: true });

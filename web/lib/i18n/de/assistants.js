@@ -172,7 +172,8 @@ export const assistantCopy = {
     brave: "Brave Search (API-Schlüssel)",
     connection: "OpenRouter-Verbindung",
     noConnection: "Verbindung wählen",
-    noConnections: "Lege oben eine OpenRouter-Verbindung an, um Perplexity zu nutzen.",
+    noConnections:
+      "Lege unter Modell-Zugänge eine OpenRouter-Verbindung an, um Perplexity zu nutzen.",
     braveKey: "Brave-API-Schlüssel",
     braveKeyStored: "Schlüssel gespeichert",
     braveKeyMissing: "Kein Schlüssel gespeichert",

@@ -6,7 +6,6 @@ import { names, utilityPages } from "../lib/providers.js";
 import Modal from "../components/Modal.jsx";
 import AsyncForm from "../components/AsyncForm.jsx";
 import LaunchDialog from "../features/sessions/LaunchDialog.jsx";
-import AccountDialog from "../features/accounts/AccountDialog.jsx";
 import { forgetCachedChat } from "../features/chat/chat-session-cache.js";
 import ToolInstaller from "../features/tools/ToolInstaller.jsx";
 import { toolInstallerCopy } from "../lib/i18n/messages/tools.js";
@@ -55,14 +54,6 @@ export default function AppDialogs({
             }
           />
         </Modal>
-      )}
-      {modal?.type === "account" && (
-        <AccountDialog
-          account={modal.item}
-          tools={state.tools}
-          close={close}
-          saved={refresh}
-        />
       )}
       {modal &&
         ["rename", "stop", "remove", "deleteAccount", "login"].includes(modal.type) && (

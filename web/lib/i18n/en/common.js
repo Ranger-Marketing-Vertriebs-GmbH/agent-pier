@@ -22,7 +22,6 @@ export const commonCopy = {
   profilesLoading: "Loading profiles …",
   active: "Active",
   stopped: "Stopped",
-  editAccount: "Edit account",
   addAccount: "Add account",
   createAccount: "Create account",
   accountName: "Account name",
