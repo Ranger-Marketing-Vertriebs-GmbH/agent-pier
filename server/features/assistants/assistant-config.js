@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import {
@@ -14,6 +13,7 @@ import { assistantBootstrap } from "./assistant-bootstrap.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
+import { waitForAgentInRoster } from "./openclaw-config/agent-roster.js";
 import { agentExec, shellSections, shellTools } from "./openclaw-config/shell.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
@@ -45,7 +45,9 @@ export class AssistantConfig {
     teamReady,
     hostCapacity,
     adoption = {},
+    roster = {},
   }) {
+    // `roster`: waitForAgentInRoster options (timeoutMs, and a clock for tests).
     Object.assign(this, {
       client,
       models,
@@ -54,6 +56,7 @@ export class AssistantConfig {
       teamReady,
       hostCapacity,
       adoption,
+      roster,
     });
     this.queue = Promise.resolve();
     this.applied = new Map();
@@ -182,22 +185,8 @@ export class AssistantConfig {
         if (created.agentId !== assistant.runtimeAgentId)
           throw assistantProblem("conflict", 409);
       }
-      // Profile creation commits before the Gateway's runtime roster reloads. While
-      // its plugins reload, the Gateway answers the read-only roster call with
-      // UNAVAILABLE; a lost connection (nothing answered) still fails at once.
-      let visible = false;
-      for (let n = 0; n < 50; n++) {
-        const roster = await this.client.call("agents.list", {}).catch((error) => {
-          if (error.code === "UNAVAILABLE" && error.answered) return {};
-          throw error;
-        });
-        if (roster.agents?.some((a) => a.id === assistant.runtimeAgentId)) {
-          visible = true;
-          break;
-        }
-        await delay(100);
-      }
-      if (!visible) throw assistantProblem("unavailable", 503);
+      // Profile creation commits before the Gateway's runtime roster reloads.
+      await waitForAgentInRoster(this.client, assistant.runtimeAgentId, this.roster);
       // Events count from the last write on; agents.update always writes.
       adoption.mark();
       await this.client.call("agents.update", {

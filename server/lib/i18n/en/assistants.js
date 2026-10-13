@@ -136,6 +136,8 @@ export const assistants = {
   hostCapacity:
     "At least one agent team is larger than this value. Choose a larger capacity or reduce the team size.",
   unavailable: "The agent service is not ready. Check runtime settings.",
+  agentLoading:
+    "The agent service did not load the agent in time. Try again in a moment.",
   provider: "This model connection is not available for agents.",
   uncertain:
     "The outcome of this request is still unknown. Check the history before trying again.",

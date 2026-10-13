@@ -148,6 +148,8 @@ export const assistants = {
   hostCapacity:
     "Mindestens ein Agententeam ist größer als dieser Wert. Wähle eine größere Kapazität oder verkleinere das Team.",
   unavailable: "Der Agentendienst ist nicht bereit. Prüfe die Laufzeit-Einstellungen.",
+  agentLoading:
+    "Der Agentendienst hat den Agenten nicht rechtzeitig geladen. Versuche es in einem Moment erneut.",
   provider: "Dieser Provider-Zugang ist für Agenten nicht verfügbar.",
   uncertain:
     "Der Ausgang dieser Anfrage ist noch unklar. Prüfe den Verlauf vor einem neuen Versuch.",

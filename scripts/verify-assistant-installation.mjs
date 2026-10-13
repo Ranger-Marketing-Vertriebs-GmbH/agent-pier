@@ -3,13 +3,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { setTimeout as delay } from "node:timers/promises";
 import { isMainModule } from "../server/lib/is-main-module.js";
 import { runtimeManifest } from "../server/features/assistants/runtime-manifest.js";
 import { stageAssistantRuntime } from "../server/features/assistants/runtime-install.js";
 import { RuntimeSupervisor } from "../server/features/assistants/runtime-supervisor.js";
 import { GatewayClient } from "../server/features/assistants/gateway-client.js";
 import { runtimePaths } from "../server/features/assistants/runtime-paths.js";
+import { waitForAgentInRoster } from "../server/features/assistants/openclaw-config/agent-roster.js";
 import { runtimeEnvironment } from "../server/features/assistants/runtime-config.js";
 import { readJSON } from "../server/lib/storage.js";
 
@@ -198,13 +198,12 @@ export function runQualificationCommand(
   });
 }
 
+// The same deadline the application waits for a new agent (agent-roster.js).
 async function assertRoster(runtime, agentId) {
-  for (let attempt = 0; attempt < 60; attempt++) {
-    const roster = await runtime.client.call("agents.list", {});
-    if (roster.agents?.some((agent) => agent.id === agentId)) return;
-    await delay(100);
-  }
-  assert.fail("Synthetic agent did not appear in the authenticated Gateway roster.");
+  await waitForAgentInRoster(runtime.client, agentId).catch((error) => {
+    if (error.key !== "agentLoading") throw error;
+    assert.fail("Synthetic agent did not appear in the authenticated Gateway roster.");
+  });
 }
 
 // Exported so the Gateway contract can also be exercised with immutable binaries
