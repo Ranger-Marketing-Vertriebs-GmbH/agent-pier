@@ -129,6 +129,16 @@ export const assistants = {
     "The MCP server list of this team cannot be read right now. Try again later.",
   teamMcpServerNotBound:
     "A proposed team member names an MCP server that is not bound to the lead agent.",
+  attachmentTooLarge: "This file is larger than 10 MB.",
+  attachmentUnsupported:
+    "This file type is not supported. You can attach images (JPEG, PNG, WebP, GIF, HEIC), PDF and text files.",
+  attachmentTooMany: "Too many attachments. A message can hold at most 5 files.",
+  attachmentNotFound: "This attachment is no longer available. Add the file again.",
+  attachmentStorageFull:
+    "This agent's attachment folder is full. Ask the agent to delete older files in attachments/.",
+  attachmentStorageUnsafe:
+    "The attachment folder in this agent's workspace is unsafe. Check that attachments/ is a normal folder.",
+  attachmentRateLimited: "Too many attachments in a short time. Wait a moment.",
   invalid: "Invalid agent input.",
   notFound: "Agent or conversation not found.",
   conflict: "The data has changed. Please reload.",
