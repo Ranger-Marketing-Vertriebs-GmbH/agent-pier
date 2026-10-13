@@ -1,14 +1,49 @@
 import { Router } from "express";
-import { artifactError } from "../../features/artifacts/artifact-errors.js";
-export function artifactsRoutes({ artifacts, audit }) {
+import {
+  artifactError,
+  artifactSearch,
+} from "../../features/artifacts/artifact-errors.js";
+export function artifactsRoutes({ artifacts, audit, sessions, memory }) {
   const router = Router();
+  // Search also finds artifacts by their session's or project's name. A source that
+  // cannot be read narrows the search to titles instead of failing the list.
+  async function namedMatches(search) {
+    const needle = search.toLocaleLowerCase();
+    const named = (rows) =>
+      (rows || [])
+        .filter((row) =>
+          String(row?.name || "")
+            .toLocaleLowerCase()
+            .includes(needle),
+        )
+        .map((row) => row.id);
+    const [sessionRows, projectRows] = await Promise.all([
+      Promise.resolve()
+        .then(() => sessions?.list())
+        .catch(() => []),
+      Promise.resolve()
+        .then(() => memory?.projects().projects)
+        .catch(() => []),
+    ]);
+    return [...named(sessionRows), ...named(projectRows)];
+  }
   let bundles = 0;
   router.get("/artifacts", async (req, res) => {
+    const { q, pinned } = req.query;
+    if (
+      (q !== undefined && !artifactSearch(q)) ||
+      (pinned !== undefined && pinned !== "true" && pinned !== "false")
+    )
+      throw artifactError("ARTIFACT_INVALID_INPUT");
+    const search = q?.trim() || undefined;
     res.json(
       await artifacts.list({
         sessionId: req.query.sessionId,
         projectId: req.query.projectId,
         page: req.query.page === undefined ? 1 : Number(req.query.page),
+        q: search,
+        pinned: pinned === undefined ? undefined : pinned === "true",
+        matches: search ? await namedMatches(search) : undefined,
       }),
     );
   });

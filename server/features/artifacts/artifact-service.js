@@ -8,6 +8,7 @@ import {
   artifactFailure,
   artifactLimits,
   artifactId,
+  artifactSearch,
 } from "./artifact-errors.js";
 export class ArtifactService {
   constructor({
@@ -87,6 +88,10 @@ export class ArtifactService {
       orphaned:
         this.store.state.retired.includes(sessionId) || !this.sessionExists(sessionId),
     };
+  }
+  // What the owner's list and detail show; receipts keep the plain summary.
+  overview(record) {
+    return { ...this.summary(record), fileCount: record.files.length };
   }
   assertSession(context) {
     if (
@@ -225,33 +230,51 @@ export class ArtifactService {
     });
   }
   get(id) {
-    return this.serial(() => this.summary(this.record(id)));
+    return this.serial(() => this.overview(this.record(id)));
   }
-  list({ sessionId, projectId, page = 1 } = {}) {
+  /**
+   * Newest first, 20 per page. `q` matches the title (case-insensitive) or one of the
+   * `matches` session and project IDs the caller resolved from names; `pinned` keeps
+   * pinned artifacts only. `counts` ignores `pinned`, so tabs show both totals.
+   */
+  list({ sessionId, projectId, page = 1, q, pinned, matches } = {}) {
     return this.serial(() => {
       if (
         !Number.isSafeInteger(page) ||
         page < 1 ||
         page > 100000 ||
         (sessionId !== undefined && !artifactId(sessionId)) ||
-        (projectId !== undefined && !artifactId(projectId))
+        (projectId !== undefined && !artifactId(projectId)) ||
+        (q !== undefined && !artifactSearch(q)) ||
+        (pinned !== undefined && typeof pinned !== "boolean")
       )
         throw artifactError("ARTIFACT_INVALID_INPUT");
+      const needle = q?.trim().toLocaleLowerCase();
+      const related = new Set(needle ? matches || [] : []);
       const records = Object.values(this.store.state.records)
         .filter(
           (r) =>
             !r.deleted &&
             !this.deleting.has(r.id) &&
             (!sessionId || r.sessionId === sessionId) &&
-            (!projectId || r.projectId === projectId),
+            (!projectId || r.projectId === projectId) &&
+            (!needle ||
+              r.title.toLocaleLowerCase().includes(needle) ||
+              related.has(r.sessionId) ||
+              related.has(r.projectId)),
         )
         .sort(
           (a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id),
         );
+      const shown = pinned ? records.filter((r) => r.pinned) : records;
       return {
-        items: records.slice((page - 1) * 20, page * 20).map((r) => this.summary(r)),
+        items: shown.slice((page - 1) * 20, page * 20).map((r) => this.overview(r)),
         page,
-        total: records.length,
+        total: shown.length,
+        counts: {
+          all: records.length,
+          pinned: records.filter((r) => r.pinned).length,
+        },
       };
     });
   }
