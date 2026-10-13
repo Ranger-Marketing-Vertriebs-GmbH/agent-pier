@@ -9,6 +9,7 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useResource from "../../lib/useResource.js";
 import ProjectFields, { segmentLimit } from "./ProjectFields.jsx";
+import { listedProjectsPath } from "./project-list.js";
 import "./run-dialog.css";
 
 function PipelineField({ definitions, value, onChange, disabled }) {
@@ -60,7 +61,7 @@ export default function NewRunDialog({
   fixedProject,
 }) {
   const definitions = useResource("/pipelines"),
-    projects = useResource("/memory/projects");
+    projects = useResource(listedProjectsPath);
   const [pipelineId, setPipelineId] = useState(route.selectedPipeline || ""),
     [projectId, setProjectId] = useState(fixedProject?.id || ""),
     [cwd, setCwd] = useState(fixedProject?.cwd || home || ""),
