@@ -86,7 +86,14 @@ for (const locale of ["de-DE", "en-GB"]) {
       const state = await operationsFixture(page);
       state.releases.supported = false;
       await page.goto("/settings/updates");
-      await expect(page.getByRole("combobox")).toBeDisabled();
+      const select = page.getByRole("combobox");
+      await expect(select).toBeDisabled();
+      const reason =
+        locale === "en-GB"
+          ? /Update channels apply only to a versioned installation/
+          : /Updatekanäle gelten nur für eine versionierte Installation/;
+      await expect(page.getByText(reason)).toBeVisible();
+      await expect(select).toHaveAccessibleDescription(reason);
     });
     test("pre-releases are marked and preview explains the risk", async ({
       page,

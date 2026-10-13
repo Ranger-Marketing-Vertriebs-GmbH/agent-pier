@@ -64,7 +64,11 @@ export default function UpdatesPage({ route, navigate }) {
                 releases.updateChannelManaged ||
                 !releases.supported
               }
-              aria-describedby="update-channel-help"
+              aria-describedby={
+                releases.supported
+                  ? "update-channel-help"
+                  : "update-channel-unsupported update-channel-help"
+              }
               onChange={(event) => {
                 const updateChannel = event.target.value;
                 action.run(async () => {
@@ -82,6 +86,11 @@ export default function UpdatesPage({ route, navigate }) {
                 <option value="custom">{copy.channelCustom}</option>
               )}
             </select>
+            {!releases.supported && (
+              <p className="field-description" id="update-channel-unsupported">
+                {copy.channelUnsupportedHelp}
+              </p>
+            )}
             <p className="field-description" id="update-channel-help">
               {releases.updateChannelManaged
                 ? [
