@@ -20,6 +20,7 @@
     "test:blackbox": "node scripts/test.mjs blackbox",
     "test:property": "node scripts/test.mjs property",
     "test:matrix": "node scripts/test.mjs matrix",
+    "test:affected": "node scripts/affected-tests.mjs --run",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
