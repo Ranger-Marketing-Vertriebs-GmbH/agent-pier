@@ -1,7 +1,7 @@
 import { removeSession } from "./session-removal.js";
 import { recordManualInput } from "./manual-input-guard.js";
 import { prepareModelViewport } from "../models/model-viewport.js";
-import { drainSessionLists, getSessionList } from "./session-list.js";
+import { drainSessionLists, getSessionList, listSessionNames } from "./session-list.js";
 import { SessionOperations } from "./session-operations.js";
 import { sendSlashCommand } from "./session-slash-command.js";
 import { inputChat, withChatInput } from "./session-chat-input.js";
@@ -251,6 +251,10 @@ export class SessionManager {
   }
   list() {
     return getSessionList(this);
+  }
+  /** IDs and names from stored metadata only (artifact search). */
+  names() {
+    return listSessionNames(this.directory);
   }
   get(id) {
     return this.serial(() => this.current(id), id);
