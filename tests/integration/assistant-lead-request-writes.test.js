@@ -132,6 +132,30 @@ test("a mention-only owner message lets the delegated task write", async (t) => 
   assert.equal(f.write(), true);
 });
 
+test("the lead need not quote the owner's mention", async (t) => {
+  const f = await writeGate(t);
+  const text = `@${f.member.name} trag den neuen NAS in die Doku ein`;
+  const { requestId } = await f.delegate(f.turn(text), {
+    ownerRequestQuote: "trag den neuen NAS in die Doku ein",
+  });
+  assert.equal(f.service.requests.store.get(requestId).writeAllowed, true);
+  assert.equal(f.write(), true);
+});
+
+test("a mention of one member does not let another member's task write", async (t) => {
+  const f = await writeGate(t);
+  const other = f.store.getAssistant(f.temporary.assistantId).name;
+  const { requestId } = await f.delegate(
+    f.turn(`@${other} trag den NAS in die Doku ein`),
+    {
+      ownerRequested: false,
+      ownerRequestQuote: undefined,
+    },
+  );
+  assert.equal(f.service.requests.store.get(requestId).writeAllowed, false);
+  assert.equal(f.write(), false);
+});
+
 test("a mention typed in Telegram proves the same request", async (t) => {
   const f = await writeGate(t);
   const text = `Moin!\n@${f.member.name.toLowerCase()} bitte die Firewall-Regeln dokumentieren`;

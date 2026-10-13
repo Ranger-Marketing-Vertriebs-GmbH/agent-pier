@@ -4,6 +4,7 @@ import {
   intent,
   mentionOf,
   namesMember,
+  ownerMentions,
   ownerQuote,
   ownerSentence,
   plain,
@@ -174,8 +175,8 @@ export class LeadRequestStore {
       // the turn plus a verbatim quote of the owner's words that names the member
       // and says to delegate, used once, for at most a few tasks of the turn. A
       // lead's claim, standing team permission or any other turn runs read-only.
-      // An @mention of the member in the owner's sentence counts as the request on
-      // its own; an ambiguous mention proves nothing.
+      // An @mention of the member in the owner's message counts as the request on
+      // its own, quoted by the lead or not; an ambiguous mention proves nothing.
       const siblings = t
         .members()
         .filter((m) => m.parentAssistantId === lead.id)
@@ -198,21 +199,44 @@ export class LeadRequestStore {
           : mention === null &&
             namesMember(quote, assistant.name, others) &&
             intent(quote));
-      const proven =
-        type === "task" &&
-        ownerTurn &&
+      const open =
+        type === "task" && ownerTurn && proofs.length < requestCaps.ownerPerTurn;
+      // One proof per owner sentence and member, and per mention: overlapping
+      // excerpts or a repeated mention authorise one task, not several.
+      const used = (index, mention = -1) =>
+        proofs.some(
+          (r) =>
+            (r.memberId === member.id && r.ownerProof.sentence === index) ||
+            (mention >= 0 && r.ownerProof.mention === mention),
+        );
+      let proof =
+        open &&
         !!sentence &&
         !sentence.negated &&
         !sentence.quoted &&
         addressed &&
-        proofs.length < requestCaps.ownerPerTurn &&
-        // One proof per sentence of the owner and member: overlapping excerpts of
-        // the same instruction authorise one task, not several.
-        !proofs.some(
-          (r) =>
-            plain(r.ownerProof.quote) === plain(quote) ||
-            (r.memberId === member.id && r.ownerProof.sentence === sentence.index),
+        !used(sentence.index) &&
+        !proofs.some((r) => plain(r.ownerProof.quote) === plain(quote))
+          ? { requestId: request.id, quote, sentence: sentence.index }
+          : null;
+      // Second way: the owner's own message @mentions this member, whatever the
+      // lead quoted.
+      if (open && !proof) {
+        const m = ownerMentions(request.text, mentionable).find(
+          (x) =>
+            x.memberId === member.id &&
+            !x.negated &&
+            !x.quoted &&
+            !used(x.index, x.start),
         );
+        if (m)
+          proof = {
+            requestId: request.id,
+            quote: m.excerpt,
+            sentence: m.index,
+            mention: m.start,
+          };
+      }
       return t.insert(
         {
           id: randomUUID(),
@@ -229,10 +253,8 @@ export class LeadRequestStore {
           memberName: assistant.name,
           text,
           origin: context,
-          ownerProof: proven
-            ? { requestId: request.id, quote, sentence: sentence.index }
-            : null,
-          writeAllowed: proven,
+          ownerProof: proof,
+          writeAllowed: !!proof,
           runTimeoutMinutes: policy.runTimeoutMinutes,
           phase: "queued",
           fingerprint: hash,
