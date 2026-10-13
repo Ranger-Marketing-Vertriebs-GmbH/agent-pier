@@ -63,6 +63,11 @@ export const assistantTeamCopy = {
     cancelled: (title) => `Team abgebrochen: ${title}`,
     declined: (title) => `Teamvorschlag abgelehnt: ${title}`,
   },
+  awaitingReview: "Wartet auf deine Prüfung",
+  reviewTitle: (title) => `Prüfung nötig: ${title}`,
+  reviewHint:
+    "Das Ergebnis dieser Mitglieder ist unklar. Das Team kann erst abschließen, wenn du sie prüfst.",
+  reviewMember: (name) => `${name} prüfen`,
   pendingTitle: "Teams warten auf dich",
   listHint:
     "Alle Teams, die dieser Agent gestartet hat, mit Mitgliedern, Status und Ergebnissen. Öffne ein Mitglied, um seinen Chat zu lesen.",
