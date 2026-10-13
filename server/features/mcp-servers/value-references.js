@@ -6,10 +6,28 @@ import { problem } from "../../lib/storage.js";
  * `{env:VAR}` and `{file:path}`: references a CLI expands itself, each in its own
  * way. A `$` without braces (`$VAR`, `pa$$word`) is no reference.
  */
-const reference = /\$\{[^}]+\}|\{(?:env|file):[^}]+\}/;
+const openers = ["${", "{env:", "{file:"];
+
+/**
+ * Whether `value` holds `opener`, then at least one character other than `}`, then
+ * `}`. A linear scan: a regular expression backtracks quadratically on a long run of
+ * openers without a closing brace. An opener whose next `}` follows directly is
+ * empty, and the next candidate starts after that `}`.
+ */
+function hasOpened(value, opener) {
+  for (let start = value.indexOf(opener); start !== -1;) {
+    const body = start + opener.length;
+    const close = value.indexOf("}", body);
+    if (close === -1) return false;
+    if (close > body) return true;
+    start = value.indexOf(opener, close + 1);
+  }
+  return false;
+}
 
 /** Whether `value` is a string holding a reference. */
-export const hasReference = (value) => typeof value === "string" && reference.test(value);
+export const hasReference = (value) =>
+  typeof value === "string" && openers.some((opener) => hasOpened(value, opener));
 
 const inList = (value) => (Array.isArray(value) ? value.some(hasReference) : false);
 
