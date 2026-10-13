@@ -9,7 +9,9 @@ const maxModels = 500;
 /**
  * The Gateway's `models.list` answer for the `openai` provider, reduced to what
  * the agent editor shows. `null` marks an answer this version does not understand.
- * A row the Gateway marks unavailable is dropped unless only a cooldown blocks it.
+ * Only rows the Gateway marks available survive, and those blocked by a cooldown
+ * alone; without `includeDetails` every row carries a boolean, so a row without
+ * one is dropped (fail closed).
  */
 export function parseModelsList(result) {
   if (!result || typeof result !== "object" || !Array.isArray(result.models)) return null;
@@ -19,7 +21,7 @@ export function parseModelsList(result) {
     if (!row || typeof row !== "object" || row.provider !== "openai") continue;
     const modelId = row.id;
     if (typeof modelId !== "string" || !accountModelId.test(modelId)) continue;
-    if (row.available === false && row.unavailableReason !== "cooldown") continue;
+    if (row.available !== true && row.unavailableReason !== "cooldown") continue;
     if (seen.has(modelId) || models.length >= maxModels) continue;
     seen.add(modelId);
     const label =
@@ -35,18 +37,26 @@ export function parseModelsList(result) {
   );
   const pending =
     Array.isArray(result.pendingProviders) && result.pendingProviders.includes("openai");
-  return { models, outcomes, pending };
+  // The Gateway serves its previous catalog when a rediscovery failed.
+  return { models, outcomes, pending, stale: result.refreshFailed === true };
 }
 
+/** A Gateway error code for the log; never the Gateway's message text. */
+const errorCode = (error) =>
+  /^[A-Z_]{1,60}$/.test(error?.code) ? error.code : "unexpected answer";
+
 /**
- * The models each signed-in ChatGPT account can select, read from the running
- * Gateway. One `models.list` read serves every account, because the accounts
- * share the native `main` agent; the Gateway's per-profile outcome decides
- * whether an account gets the list. Reads run in the background, at most one at
- * a time, and a listed catalog stays current for `ttlMs`.
+ * The ChatGPT models of the native `main` agent, read from the running Gateway.
+ * The accounts share that agent, so one `models.list` read serves all of them:
+ * discovery and row availability follow the profile the Gateway selects, not each
+ * account. A profile's own outcome, when the Gateway reports one, still withholds
+ * the list from a rejected account. Reads run in the background, one at a time; a
+ * forced read asked for during an unforced one runs right after it.
  */
 export class ModelAccountCatalog {
   #inflight = null;
+  #forced = false;
+  #queued = null;
   #result = null;
   #failed = false;
   #attemptedAt = -Infinity;
@@ -56,46 +66,67 @@ export class ModelAccountCatalog {
     ttlMs = catalogTtlMs,
     retryMs = catalogRetryMs,
     onChange = () => {},
+    warn = console.warn,
   }) {
-    Object.assign(this, { runtime, now, ttlMs, retryMs, onChange });
+    Object.assign(this, { runtime, now, ttlMs, retryMs, onChange, warn });
   }
-  /** The read in progress, if any. */
+  /** The read in progress or queued, if any. */
   get loading() {
-    return this.#inflight;
+    return this.#queued || this.#inflight;
   }
-  /** What the editor shows for one account; never waits for the Gateway. */
-  account(profileId) {
-    const ready = !!this.runtime.client?.ready;
+  /**
+   * What the editor shows for one of `accounts` signed-in accounts; never waits.
+   * `unknown`: the Gateway checked the list against another account.
+   */
+  account(profileId, { accounts = 1 } = {}) {
+    if (this.#inflight || this.#queued)
+      return { models: this.#models(profileId), modelCatalog: "loading" };
     const outcome = this.#result?.outcomes.get(profileId);
-    const rejected = outcome !== undefined && outcome !== "ready";
-    const models = rejected ? [] : this.#result?.models || [];
-    const modelCatalog = this.#inflight
-      ? "loading"
-      : !ready || this.#failed || rejected
+    const models = this.#models(profileId);
+    const modelCatalog =
+      !this.runtime.client?.ready ||
+      this.#failed ||
+      this.#result?.stale ||
+      (outcome !== undefined && outcome !== "ready") ||
+      (this.#result && !models.length)
         ? "failed"
-        : this.#result
-          ? "ready"
-          : "loading";
+        : !this.#result
+          ? "loading"
+          : outcome === undefined && accounts > 1
+            ? "unknown"
+            : "ready";
     return { models, modelCatalog };
+  }
+  #models(profileId) {
+    const outcome = this.#result?.outcomes.get(profileId);
+    return outcome !== undefined && outcome !== "ready" ? [] : this.#result?.models || [];
   }
   stale() {
     const age = this.now() - this.#attemptedAt;
-    return age >= (this.#failed || !this.#result ? this.retryMs : this.ttlMs);
+    const failed = this.#failed || !this.#result || this.#result.stale;
+    return age >= (failed ? this.retryMs : this.ttlMs);
   }
   /** Starts a background read when the cached catalog is stale. */
   ensure() {
-    if (this.#inflight || !this.runtime.client?.ready || !this.stale()) return;
+    if (this.loading || !this.runtime.client?.ready || !this.stale()) return;
     this.refresh().catch(() => {});
   }
   /**
    * Reads the catalog now. `force` asks the Gateway to rediscover provider models,
-   * for example after a sign-in. A read already running is shared, not repeated.
+   * for example after a sign-in. A read already running is shared; a forced one
+   * asked for during an unforced read is chained after it, once.
    */
   refresh({ force = false } = {}) {
-    if (this.#inflight) return this.#inflight;
+    if (this.#inflight && (!force || this.#forced)) return this.#inflight;
+    if (this.#inflight)
+      return (this.#queued ??= this.#inflight
+        .catch(() => {})
+        .then(() => {
+          this.#queued = null;
+          return this.refresh({ force: true });
+        }));
     const client = this.runtime.client;
     if (!client?.ready) return Promise.reject(Object.assign(Error(), { status: 503 }));
-    this.#attemptedAt = this.now();
     const read = (refresh) =>
       client.call(
         "models.list",
@@ -107,7 +138,8 @@ export class ModelAccountCatalog {
         },
         { timeoutMs: 60000 },
       );
-    const job = (async () => {
+    this.#forced = force;
+    this.#inflight = (async () => {
       try {
         let parsed = parseModelsList(await read(force));
         // A first read can come before discovery; a refresh waits for it.
@@ -117,6 +149,7 @@ export class ModelAccountCatalog {
         this.#failed = false;
       } catch (error) {
         this.#failed = true;
+        this.warn(`ChatGPT model list could not be read (${errorCode(error)}).`);
         throw error;
       } finally {
         this.#attemptedAt = this.now();
@@ -124,7 +157,6 @@ export class ModelAccountCatalog {
         this.onChange();
       }
     })();
-    this.#inflight = job;
-    return job;
+    return this.#inflight;
   }
 }

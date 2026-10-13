@@ -53,9 +53,10 @@ test("a model list refresh needs login and origin, and one owner budget bounds i
     403,
   );
   const statuses = [];
-  for (let i = 0; i < 13; i++)
+  for (let i = 0; i < 12; i++)
     statuses.push((await fixtureFetch(endpoint, options)).status);
-  assert.deepEqual(statuses.slice(0, 11), Array(11).fill(503), "no running Gateway");
+  assert.deepEqual(statuses, Array(12).fill(503), "no running Gateway");
+  assert.equal((await fixtureFetch(endpoint, options)).status, 429);
   const limited = await fixtureFetch(endpoint, options);
   assert.equal(limited.status, 429);
   const body = await limited.json();

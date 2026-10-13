@@ -36,16 +36,22 @@ export class AssistantModelAccounts {
   requireReady() {
     if (!this.runtime.client?.ready) throw assistantProblem("unavailable", 503);
   }
-  /** Synchronous: cached model lists, with a background read once they are stale. */
-  capabilities() {
+  /**
+   * Starts a background model list read once the cached one is stale. Only pages
+   * that show the lists call this; runs, checks and logouts never read models.
+   */
+  ensureModels() {
     if (this.records.length) this.catalog.ensure();
+  }
+  /** Synchronous: the cached model lists, never a Gateway read. */
+  capabilities() {
     return this.records.map((r) => ({
       id: r.id,
       name: String(r.name || "ChatGPT").slice(0, 200),
       providerId: "openai-chatgpt",
       status: this.runtime.client?.ready ? r.status : "offline",
       available: !!this.runtime.client?.ready && ["ok", "expiring"].includes(r.status),
-      ...this.catalog.account(r.profileId),
+      ...this.catalog.account(r.profileId, { accounts: this.records.length }),
     }));
   }
   /** Rereads the Gateway's model list now; the account must exist. */
@@ -54,7 +60,9 @@ export class AssistantModelAccounts {
     const record = this.record(id);
     // A failed read is reported as the account's list state, never as an upstream error.
     await this.catalog.refresh({ force: true }).catch(() => {});
-    const { models, modelCatalog } = this.catalog.account(record.profileId);
+    const { models, modelCatalog } = this.catalog.account(record.profileId, {
+      accounts: this.records.length,
+    });
     return { models, modelCatalog };
   }
   async list() {

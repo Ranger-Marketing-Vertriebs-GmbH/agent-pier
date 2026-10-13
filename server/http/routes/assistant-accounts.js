@@ -17,9 +17,10 @@ export function assistantAccountRoutes({
       next();
     },
   );
-  router.get("/assistant-model-accounts", async (_req, res) =>
-    res.json({ accounts: await accounts.list() }),
-  );
+  router.get("/assistant-model-accounts", async (_req, res) => {
+    accounts.ensureModels();
+    res.json({ accounts: await accounts.list() });
+  });
   router.post("/assistant-model-accounts/:id/check", async (req, res) => {
     const result = await assistants.admit(() => accounts.check(req.params.id));
     assistants.changed();
@@ -48,9 +49,10 @@ export function assistantAccountRoutes({
     "/assistant-model-accounts/:id/models/refresh",
     refreshLimit,
     async (req, res) => {
-      const result = await accounts.refreshModels(req.params.id);
-      assistants.changed();
-      res.json(result);
+      // The catalog publishes its own change event when the read ends. Maintenance
+      // already refuses this POST (activeAssistantRoutes); admission is not used,
+      // because a read of up to two minutes would hold every other admission.
+      res.json(await accounts.refreshModels(req.params.id));
     },
   );
   router.delete("/assistant-model-accounts/:id", async (req, res) =>
