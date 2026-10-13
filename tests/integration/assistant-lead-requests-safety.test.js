@@ -1,41 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ask, lead, quoteFor, until } from "../helpers/lead-request-service-fixture.js";
+import { ask, lead, until, writeGate } from "../helpers/lead-request-service-fixture.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { askWaitMs } from "../../server/features/assistants/lead-requests.js";
 import {
   followUp,
   followUpMaxChars,
 } from "../../server/features/assistants/lead-request-text.js";
-
-// The write gate (Q5): owner-requested or owner-approved tasks may write in the
-// member's own workspace during exactly their own run; nothing else from a lead may.
-async function writeGate(t) {
-  const f = await lead(t);
-  const bridge = new TeamBridge({ assistants: f.assistants, teams: f.service });
-  await bridge.start();
-  t.after(() => bridge.close());
-  const member = f.store.getAssistant(f.permanent.assistantId);
-  const memberChat = f.store.getConversation(
-    f.service.store.member(f.permanent.id).conversationId,
-  );
-  const write = (path = "notes/plan.md", who = member, session = memberChat) =>
-    bridge.toolPolicy({
-      agentId: who.runtimeAgentId,
-      sessionKey: session.runtimeSessionKey,
-      toolName: "write",
-      path,
-    }).allow;
-  const delegate = (inv, extra) =>
-    f.service.delegate(inv, {
-      memberId: f.permanent.id,
-      task: "Draft the plan",
-      ownerRequested: true,
-      ownerRequestQuote: quoteFor(f.permanent),
-      ...extra,
-    });
-  return { ...f, bridge, member, memberChat, write, delegate };
-}
 
 test("an owner-requested task writes in the member's workspace, never its memory", async (t) => {
   const f = await writeGate(t);

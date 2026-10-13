@@ -17,12 +17,12 @@ export const writeTools = ["write", "edit"];
 export const guardReportMs = 15000;
 // Approximates the case-insensitive, normalization-insensitive lookup of APFS:
 // "AGENTſ.md" (U+017F) and the Kelvin sign U+212A fold to ASCII here.
-const fold = (name) => name.normalize("NFKC").toUpperCase().toLowerCase();
+export const fold = (name) => name.normalize("NFKC").toUpperCase().toLowerCase();
 const protectedNames = new Set(bootstrapFiles.map(fold));
 // The OpenClaw 2026.9.8 file tools repair model-corrupted paths after this hook runs
 // (agent-tools.before-tool-call.decision: XML arg_value suffix, Office extensions);
 // every repaired spelling is classified, not only the raw one.
-function repairs(value) {
+export function repairs(value) {
   const forms = new Set([value, value.trim()]);
   for (const form of [...forms]) {
     let stripped = form;

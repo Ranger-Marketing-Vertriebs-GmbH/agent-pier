@@ -1,6 +1,7 @@
 import { setImmediate as tick } from "node:timers/promises";
 import { teamFixture } from "./assistant-team-fixture.js";
 import { requestCaps } from "../../server/features/assistants/lead-request-store.js";
+import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 
 // The owner's own words for each member of the fixture team.
 export const quoteFor = (member) => `ask ${member.name} what the budget is`;
@@ -57,3 +58,32 @@ export const ask = (f, member, inv, extra = {}) =>
     question: "What is the budget?",
     ...extra,
   });
+
+// The write gate (Q5): owner-requested or owner-approved tasks may write in the
+// member's own workspace during exactly their own run; nothing else from a lead may.
+export async function writeGate(t) {
+  const f = await lead(t);
+  const bridge = new TeamBridge({ assistants: f.assistants, teams: f.service });
+  await bridge.start();
+  t.after(() => bridge.close());
+  const member = f.store.getAssistant(f.permanent.assistantId);
+  const memberChat = f.store.getConversation(
+    f.service.store.member(f.permanent.id).conversationId,
+  );
+  const write = (path = "notes/plan.md", who = member, session = memberChat) =>
+    bridge.toolPolicy({
+      agentId: who.runtimeAgentId,
+      sessionKey: session.runtimeSessionKey,
+      toolName: "write",
+      path,
+    }).allow;
+  const delegate = (inv, extra) =>
+    f.service.delegate(inv, {
+      memberId: f.permanent.id,
+      task: "Draft the plan",
+      ownerRequested: true,
+      ownerRequestQuote: quoteFor(f.permanent),
+      ...extra,
+    });
+  return { ...f, bridge, member, memberChat, write, delegate };
+}
