@@ -234,6 +234,7 @@ test("content is served from the owning workspace only and never through links",
     name: "photo.png",
     type: "image/png",
     kind: "image",
+    inline: true,
     body: png,
   });
   await assert.rejects(attachments.content("missing"), { status: 404 });
@@ -349,4 +350,60 @@ test("an accepted request cannot gain files on a retry (M6)", async (t) => {
     status: 409,
   });
   assert.equal(attachments.files("accepted").length, 0);
+});
+
+test("a copy linked out of a swapped folder is never written (R1)", async (t) => {
+  let outside, folder, moved;
+  const { attachments, agent, workspaces, store } = setup(t, {
+    hooks: {
+      // Between the open and the check, the real folder comes back and the file
+      // created outside is linked into it, so path and inode match again.
+      checked: () => {
+        if (!moved) return;
+        const [name] = fs.readdirSync(outside);
+        fs.unlinkSync(folder);
+        fs.renameSync(moved, folder);
+        fs.linkSync(path.join(outside, name), path.join(folder, name));
+      },
+    },
+  });
+  const { a, c } = agent("lead");
+  outside = fs.mkdtempSync(path.join(os.tmpdir(), "agent-attachments-link-"));
+  t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+  await attachments.stage(c.id, "warm.md", Buffer.from("w"));
+  folder = path.join(workspaces, a.id, "attachments");
+  const create = attachments.create.bind(attachments);
+  attachments.create = async (...args) => {
+    moved = `${folder}-moved`;
+    fs.renameSync(folder, moved);
+    fs.symlinkSync(outside, folder);
+    return create(...args);
+  };
+  await assert.rejects(attachments.stage(c.id, "e.fish", Buffer.from("echo pwned")), {
+    status: 409,
+    key: "attachmentStorageUnsafe",
+  });
+  for (const name of fs.readdirSync(outside))
+    assert.equal(fs.readFileSync(path.join(outside, name), "utf8"), "");
+  assert.equal(fs.readdirSync(folder).filter((n) => n.endsWith("e.fish")).length, 0);
+  assert.ok(store);
+});
+
+test("an image rewritten in place is no longer shown inline (R2)", async (t) => {
+  const { attachments, agent, workspaces } = setup(t);
+  const { a, c } = agent("lead");
+  const photo = await attachments.stage(c.id, "p.png", png);
+  const folder = path.join(workspaces, a.id, "attachments");
+  const [name] = fs.readdirSync(folder);
+  const fd = fs.openSync(path.join(folder, name), "r+");
+  fs.writeSync(fd, Buffer.alloc(png.length, 0x41), 0, png.length, 0);
+  fs.closeSync(fd);
+  const shown = await attachments.content(photo.id);
+  assert.equal(shown.inline, false);
+  // Nor does it travel inline to the model.
+  attachments.claim(c.id, [photo.id], "r");
+  assert.equal(
+    (await attachments.delivery({ id: "r", text: "x" }, a.id)).attachments,
+    undefined,
+  );
 });

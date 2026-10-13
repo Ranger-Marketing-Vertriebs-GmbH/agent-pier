@@ -196,6 +196,8 @@ export class AgentAttachments {
         !named ||
         named.dev !== own.dev ||
         named.ino !== own.ino ||
+        // A second link (made while the folder was swapped) would expose the bytes.
+        own.nlink !== 1n ||
         dir?.dev !== folder.dev ||
         dir?.ino !== folder.ino ||
         !dir.isDirectory() ||
@@ -232,12 +234,12 @@ export class AgentAttachments {
    * index rows whose copy is gone, so the index never outgrows the folder.
    */
   async assertQuota(assistantId, folder, adding) {
-    const entries = await fs.readdir(folder, { withFileTypes: true });
-    if (entries.length >= MAX_AGENT_FILES)
-      throw assistantProblem("attachmentStorageFull", 409);
     let bytes = adding;
     const present = new Set();
-    for (const entry of entries) {
+    // Streamed, and stopped at the cap: a folder flooded by the agent costs no more.
+    for await (const entry of await fs.opendir(folder)) {
+      if (present.size + 1 >= MAX_AGENT_FILES)
+        throw assistantProblem("attachmentStorageFull", 409);
       present.add(entry.name);
       if (!entry.isFile()) continue;
       bytes +=
@@ -389,7 +391,13 @@ export class AgentAttachments {
     const [file] = this.rows("SELECT * FROM agent_attachments WHERE id=?", String(id));
     if (!file) throw assistantProblem("attachmentNotFound", 404);
     const body = await this.read(file.row.assistant_id, file);
-    return { name: file.name, type: file.type, kind: file.kind, body };
+    // Shown in the browser only while the bytes still are the image recorded, within
+    // the size caps; anything else is offered as a download.
+    const inline =
+      file.kind === "image" &&
+      file.type !== "image/heic" &&
+      detectAttachment(body, file.name)?.type === file.type;
+    return { name: file.name, type: file.type, kind: file.kind, inline, body };
   }
   // Whether the agent's model takes images: the fact its compiled provider declares.
   imageInput(assistantId) {
@@ -409,7 +417,12 @@ export class AgentAttachments {
       maxFiles: MAX_ATTACHMENTS_PER_MESSAGE,
     };
   }
-  /** Removes an agent's copies and their index, for when the agent itself goes. */
+  /**
+   * Removes an agent's copies and their index, for when the agent itself goes.
+   * Unwired: nothing deletes agents yet. Before anyone wires it, harden it against a
+   * folder swapped between the check and the recursive removal (remove by verified
+   * descriptor or rename the checked inode aside first), as create() does for writes.
+   */
   purge(assistantId) {
     return this.serial(assistantId, async () => {
       const folder = await this.folder(assistantId, false);

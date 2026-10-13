@@ -66,7 +66,7 @@ export function assistantAttachmentRoutes({
     if (assistants.closed || assistants.recovering || assistants.maintenance)
       throw assistantProblem("unavailable", 503);
     const file = await attachments().content(req.params.file);
-    const inline = file.kind === "image" && file.type !== "image/heic";
+    const inline = file.inline === true;
     res
       .set({
         "Content-Type": inline ? file.type : "application/octet-stream",
