@@ -21,6 +21,7 @@ import { officialChannel, ReleaseNotes } from "./release-notes.js";
 import { download } from "./release-download.js";
 import {
   isOfficialChannel,
+  publicChannel,
   offeredVersion,
   channelManifest,
   previewManifest,
@@ -134,7 +135,7 @@ export class Releases {
         : {}),
       releases,
       staged,
-      channel: this.channel,
+      channel: publicChannel(this.channel),
       updateChannel: this.updateChannel,
       updateChannelManaged: !isOfficialChannel(this.channel),
     };

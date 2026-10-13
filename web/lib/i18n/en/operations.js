@@ -121,9 +121,13 @@ export const operationsCopy = {
   channelStableHelp:
     "Only approved stable releases. Switching to Stable does not install an older version.",
   channelPreviewHelp:
-    "Preview includes release candidates for testing as well as stable releases. This selection applies to this AgentPier installation.",
+    "Preview includes release candidates for testing as well as stable releases. This selection applies to this AgentPier installation. Release candidates can contain unfinished changes. After a release candidate has migrated your data, rolling back to the previous stable version can be impossible, so create a backup under Settings → Backups first. Switching back to Stable keeps the installed release candidate until a newer stable release arrives.",
   channelManagedHelp:
     "A custom update source is configured. It is managed on the server.",
+  channelManagedSource: (source) => `Update source: ${source}`,
+  stagedPrereleaseHelp:
+    "Pre-releases that are already staged can still be activated after switching to Stable.",
+  prerelease: "Pre-release",
   channel: "Update channel",
   releaseNotes: "What’s new in this version",
   releaseNotesLoading: "Loading release notes …",

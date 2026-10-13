@@ -163,7 +163,7 @@ export function operationResponse(state, path, method, body, query) {
     return {
       plan: {
         current: "1.0.0",
-        version: "1.1.0",
+        version: state.checkVersion || "1.1.0",
         upToDate: false,
         platform: "darwin-arm64",
         sha256: "a".repeat(64),

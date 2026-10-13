@@ -10,6 +10,16 @@ import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { releasePresentation } from "./release-presentation.js";
 import { serverText } from "../../lib/server-messages.js";
+const isPrerelease = (version) => typeof version === "string" && version.includes("-");
+// Marks release candidates wherever a version can be installed or activated.
+function PrereleaseBadge({ version }) {
+  return isPrerelease(version) ? (
+    <>
+      {" "}
+      <span className="badge release-badge">{copy.prerelease}</span>
+    </>
+  ) : null;
+}
 export default function UpdatesPage({ route, navigate }) {
   const resource = useResource("/operations/releases"),
     action = useAsyncAction(),
@@ -37,6 +47,7 @@ export default function UpdatesPage({ route, navigate }) {
         <>
           <p>
             {copy.currentVersion}: {releases.current || copy.unknown}
+            <PrereleaseBadge version={releases.current} />
           </p>
           <div className="operations-form">
             <label htmlFor="update-channel">{copy.channel}</label>
@@ -47,7 +58,12 @@ export default function UpdatesPage({ route, navigate }) {
                   ? "custom"
                   : releases.updateChannel || "stable"
               }
-              disabled={jobPending || action.busy || releases.updateChannelManaged}
+              disabled={
+                jobPending ||
+                action.busy ||
+                releases.updateChannelManaged ||
+                !releases.supported
+              }
               aria-describedby="update-channel-help"
               onChange={(event) => {
                 const updateChannel = event.target.value;
@@ -68,10 +84,17 @@ export default function UpdatesPage({ route, navigate }) {
             </select>
             <p className="field-description" id="update-channel-help">
               {releases.updateChannelManaged
-                ? copy.channelManagedHelp
+                ? [
+                    copy.channelManagedHelp,
+                    releases.channel && copy.channelManagedSource(releases.channel),
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
                 : releases.updateChannel === "preview"
                   ? copy.channelPreviewHelp
-                  : copy.channelStableHelp}
+                  : presentation.staged.some((staged) => isPrerelease(staged.version))
+                    ? `${copy.channelStableHelp} ${copy.stagedPrereleaseHelp}`
+                    : copy.channelStableHelp}
             </p>
           </div>
           {(!releases.supported || !releases.installed) && (
@@ -93,7 +116,10 @@ export default function UpdatesPage({ route, navigate }) {
           )}
           {presentation.candidate && (
             <article className="operations-card">
-              <h2>{presentation.candidate.version}</h2>
+              <h2>
+                {presentation.candidate.version}
+                <PrereleaseBadge version={presentation.candidate.version} />
+              </h2>
               <ReleaseNotes
                 version={presentation.candidate.version}
                 from={releases.current}
@@ -122,6 +148,7 @@ export default function UpdatesPage({ route, navigate }) {
             <article className="operations-card" key={staged.id}>
               <h3>
                 {copy.staged}: {staged.version}
+                <PrereleaseBadge version={staged.version} />
               </h3>
               <ReleaseNotes version={staged.version} from={releases.current} />
               <button
