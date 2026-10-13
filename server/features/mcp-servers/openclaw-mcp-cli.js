@@ -45,11 +45,14 @@ const reasonLength = 300;
 // exchanges again and the tokens stay, which McpOAuthLogins.complete() checks. A lock
 // anywhere else may follow the code exchange: repeating `--code` with the used code
 // would make OpenClaw's SDK drop the tokens it just saved, so that failure stands.
-const defaultBusyRetryDelaysMs = [250, 1000];
+export const defaultBusyRetryDelaysMs = [250, 1000];
 const leaseLockLine = /\boperation=state\.lease\b.*\bstep=begin\b/;
+// One login and up to two repeats after a redacted authorization URL (see
+// parseLoginOutput): all three are hit by chance about once in eight million.
+const defaultLoginAttempts = 3;
 
 /** Whether the CLI failed only because its lease transaction could not start. */
-function leaseLocked(stderr) {
+export function leaseLocked(stderr) {
   const reason = reasonOf(stderr);
   if (/store unavailable \(sqlite-busy\)/i.test(reason)) return true;
   return /^database is locked$/i.test(reason) && leaseLockLine.test(stderr);
@@ -125,7 +128,30 @@ const lines = (text) =>
     .split(/\r?\n/)
     .map((line) => line.trim());
 
-/** The authorization URL and its `state` from the output of `openclaw mcp login`. */
+// OpenClaw 2026.9.8 passes every console line through its secret redaction, which
+// masks values that merely look like keys: `uH-5fn…uU68` (six characters, an
+// ellipsis, the last four) or `…***`. About one random PKCE challenge in 200 in a
+// printed authorization URL is hit (494 of 100,000 sampled). The provider then
+// stores the masked challenge, and `--code` fails with InvalidGrantError because the
+// verifier no longer matches. A serialized URL never contains anything outside
+// printable ASCII, nor `***`, and an S256 challenge is exactly 43 base64url
+// characters (RFC 7636), so such a URL is recognized and never handed out.
+const s256Challenge = /^[A-Za-z0-9_-]{43}$/;
+
+function redactedUrl(line, url) {
+  if (/[^\x21-\x7e]|\*\*\*/.test(line)) return true;
+  const query = url.searchParams;
+  return (
+    query.get("code_challenge_method") === "S256" &&
+    !s256Challenge.test(query.get("code_challenge") ?? "")
+  );
+}
+
+/**
+ * The authorization URL and its `state` from the output of `openclaw mcp login`:
+ * `{ authorizationUrl, state }`, `{ authorized: true }` after a mere refresh,
+ * `{ redacted: true }` for a URL OpenClaw's output redaction mangled, or null.
+ */
 export function parseLoginOutput(stdout, name) {
   const all = lines(stdout);
   const saved = `MCP OAuth credentials saved for "${name}".`;
@@ -134,13 +160,15 @@ export function parseLoginOutput(stdout, name) {
     if (all.includes(saved)) return { authorized: true };
     return null;
   }
+  const line = all[prompt + 1] || "";
   let url;
   try {
-    url = new URL(all[prompt + 1] || "");
+    url = new URL(line);
   } catch {
     return null;
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (redactedUrl(line, url)) return { redacted: true };
   const state = url.searchParams.get("state");
   if (!state) return null;
   return { authorizationUrl: url.href, state };
@@ -214,6 +242,7 @@ export function createMcpCli({
   timeoutMs = defaultTimeoutMs,
   maxOutputBytes = defaultMaxOutputBytes,
   busyRetryDelaysMs = defaultBusyRetryDelaysMs,
+  loginAttempts = defaultLoginAttempts,
   spawn = nodeSpawn,
 }) {
   async function run(command, args, secrets = [], overrides = {}) {
@@ -295,14 +324,21 @@ export function createMcpCli({
   return {
     async startLogin(name) {
       checkedName(name);
-      const stdout = await run("login", ["login", name]);
-      const parsed = parseLoginOutput(stdout, name);
-      if (!parsed)
-        throw new McpCliError(
-          "url-missing",
-          "OpenClaw MCP login printed no authorization URL.",
-        );
-      return parsed;
+      // A redacted URL is useless: a new `login` replaces the session with a fresh
+      // verifier, challenge and state. Only a redaction that sticks (a provider's
+      // client id that looks like a key) exhausts the attempts.
+      for (let attempt = 1; ; attempt++) {
+        const parsed = parseLoginOutput(await run("login", ["login", name]), name);
+        if (parsed?.redacted && attempt < loginAttempts) continue;
+        if (!parsed || parsed.redacted)
+          throw new McpCliError(
+            "url-missing",
+            parsed
+              ? "OpenClaw MCP login printed only a redacted authorization URL."
+              : "OpenClaw MCP login printed no authorization URL.",
+          );
+        return parsed;
+      }
     },
     async completeLogin(name, code) {
       checkedName(name);

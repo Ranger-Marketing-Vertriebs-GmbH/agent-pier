@@ -88,6 +88,20 @@ query carries `response_type=code`, `client_id`, `code_challenge`,
 36 characters) and `resource` (the server URL). AgentPier reads `state` from that
 URL (`new URL(line).searchParams.get("state")`).
 
+**The printed URL can be redacted.** OpenClaw passes every console line through its
+secret redaction (`redactSensitiveText`, default patterns), which masks values that
+merely look like keys: `code_challenge=uH-5fn…uU68` (six characters, an ellipsis,
+the last four) or a value ending in `***`. With the pinned runtime, 494 of 100,000
+sampled authorization URLs had their random PKCE challenge masked (about one in 200);
+no other parameter was affected. A browser that opens such a URL makes the provider
+store the masked challenge, so the `--code` exchange fails (see the verifier mismatch
+under (b)). `parseLoginOutput` recognizes a redacted URL (anything outside printable
+ASCII, `***`, or an S256 challenge that is not 43 base64url characters) and
+`startLogin` runs `login` again (three runs at most) before it fails with
+`url-missing`. Every new `login` replaces the session with a fresh verifier,
+challenge and state. The contract repeats its logins the same way and compares the
+URL by its parameters with the request the authorization server received.
+
 If the CLI can bind the redirect host and port (loopback HTTP only), it does not
 exit: it prints `Waiting for the browser to return to OpenClaw...` and waits up to
 300 seconds for the callback (from the 2026.9.8 source, `MCP_OAUTH_CALLBACK_TIMEOUT_MS`;
@@ -133,21 +147,19 @@ toggle never triggers a re-apply (a unit test applies after the nudge and sees n
 patch), and a Gateway start drops it. The reset is not free: the reload disposes the
 MCP runtimes of every session (stdio servers restart too), once per login.
 
-**Known defect (OpenClaw 2026.9.8): verifier mismatch.** Rarely, `login --code`
-exits `1` with `[openclaw] Reason: InvalidGrantError`. The authorization server
-refused the code exchange because the `code_verifier` did not match the
-`code_challenge` in the URL that the same `login` had just printed. OpenClaw's SDK
-then repeats the exchange with the now-used code, which is refused as well. There was
-one registration, one authorization and no other OAuth traffic, and AgentPier ran no
-other CLI call in between. The mismatch is therefore inside OpenClaw. Every
-occurrence followed a turn that had just started the server without credentials:
-a first login, the login after the start-up drain, or the live contract's login
-after its logged-out turn (CI job 114686246612, 2026-10-12, Linux). Frequency: two
-of about twelve CI runs of the compiled contract on 2026-10-12, and about one in
-twelve loaded local runs. Owner impact: a rare failed login (`oauth=error`,
-`reason=cli-failed`) that succeeds when started again. The compiled contract repeats
-such a login once and reports it with a test diagnostic. Any other failure, or a
-second mismatch, still fails.
+**Verifier mismatch from a redacted URL (OpenClaw 2026.9.8).** Rarely,
+`login --code` exits `1` with `[openclaw] Reason: InvalidGrantError`. The
+authorization server refuses the exchange (`code_verifier mismatch`), OpenClaw's SDK repeats it
+with the now-used code, and that is refused as well. The cause is the console
+redaction under (a): the URL that `login` printed carried a masked `code_challenge`,
+the provider stored that, and no verifier matches it. A local reproduction with the
+pinned CLI and the mock authorization server showed exactly this sequence (printed
+and stored challenge `gP-lEf6m8…Y0zU`). Both InvalidGrantError failures of the live
+contract in CI (2026-10-12 and 2026-10-13) printed a masked challenge; the compiled
+contract's earlier reports of the same signature (CI job 114686246612) fit the same
+cause. Since AgentPier no longer hands out a redacted URL, the owner no longer sees
+this failure. The compiled contract still repeats such a login once and reports it
+with a test diagnostic.
 
 Accepted exposure: the CLI takes the code only as an argument (no stdin input), so
 for the about one second `login --code=<code>` runs, other local users of the

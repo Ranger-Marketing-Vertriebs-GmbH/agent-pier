@@ -89,6 +89,54 @@ test("a login without an authorization URL or state fails with url-missing", asy
   );
 });
 
+test("an authorization URL OpenClaw's redaction masked is never handed out", async (t) => {
+  // Printed by OpenClaw 2026.9.8 in CI (shortened): the masked challenge would make
+  // the provider refuse the verifier at `--code`.
+  const query = (challenge) =>
+    `http://127.0.0.1:37559/authorize?response_type=code&client_id=client-1` +
+    `&code_challenge=${challenge}&code_challenge_method=S256&state=3f2b8c1e-4d5a-4f6b-9c7d-8e9f0a1b2c3d`;
+  const parse = (line) =>
+    parseLoginOutput(`Open this URL to authorize "docs":\n${line}\n`, "docs");
+  for (const challenge of [
+    "8U-JRzEOa…BKJI",
+    "phaju_90RaFjWrz6JlSAQLTVrNS***",
+    "Zx9w8v7u6t5s4r3q2p1o0nMLKJIHGFEDCBA_abcdef",
+  ])
+    assert.deepEqual(parse(query(challenge)), { redacted: true }, challenge);
+  const intact = "jQ_qw-2Rlr4cgFrhojDbbtYIjMQPyKOd7AA2PU7Uslw";
+  assert.equal(parse(query(intact)).authorizationUrl, new URL(query(intact)).href);
+
+  // A new login replaces the session with a fresh challenge.
+  const once = setup(t, "redacted-once");
+  const login = await once.cli.startLogin("docs");
+  assert.ok(fs.existsSync(`${once.record}.redacted`), "the first login was redacted");
+  assert.equal(
+    new URL(login.authorizationUrl).searchParams.get("code_challenge"),
+    "Zx9w8v7u6t5s4r3q2p1o0nMLKJIHGFEDCBA_abcdefg",
+  );
+
+  // A redaction that sticks fails after three logins instead of a broken URL.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-cli-redacted-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (const mode of ["redacted", "redacted-stars"]) {
+    const log = path.join(dir, mode);
+    const cli = createMcpCli({
+      runtime,
+      environment: () => ({
+        PATH: process.env.PATH,
+        FAKE_OPENCLAW_MODE: mode,
+        FAKE_OPENCLAW_LOG: log,
+      }),
+    });
+    await assert.rejects(cli.startLogin("docs"), (error) => {
+      assert.equal(error.code, "url-missing");
+      assert.match(error.message, /redacted authorization URL/);
+      return true;
+    });
+    assert.equal(fs.readFileSync(log, "utf8").trim().split("\n").length, 3, mode);
+  }
+});
+
 test("a hanging CLI times out and only its own child is killed", async (t) => {
   const bystander = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
     stdio: "ignore",
