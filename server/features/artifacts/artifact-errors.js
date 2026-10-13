@@ -25,3 +25,6 @@ export const artifactLimits = {
 };
 export const artifactId = (value) =>
   typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(value);
+// A search term: up to 200 characters without control characters.
+export const artifactSearch = (value) =>
+  typeof value === "string" && value.length <= 200 && !/[\x00-\x1f\x7f]/.test(value);

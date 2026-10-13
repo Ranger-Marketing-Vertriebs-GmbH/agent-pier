@@ -50,3 +50,56 @@ test("artifact owner routes require login, return inert bundles and preserve pin
   assert.equal((await f.request(route + "/bundle")).status, 404);
   assert.equal((await f.request("/api/artifacts?sessionId=../invalid")).status, 400);
 });
+test("artifact list route validates search and pin filters and searches session and project names", async (t) => {
+  const f = await applicationFixture(t);
+  const issued = await issue(f, { choices: true });
+  const project = f.application.memory.projects().projects[0];
+  await fs.writeFile(path.join(f.project, "report.html"), "<h1>Report</h1>");
+  const publish = (title) =>
+    f.application.artifacts.publish(
+      { sessionId: issued.session.id, projectId: project.id, cwd: f.project },
+      { requestId: randomUUID(), title, sourcePath: "report.html" },
+      async () => {},
+    );
+  const report = await publish("Quarterly report");
+  const chart = await publish("Latency chart");
+  assert.equal(
+    (
+      await f.request(`/api/artifacts/${chart.id}`, {
+        method: "PATCH",
+        body: { pinned: true },
+      })
+    ).status,
+    200,
+  );
+  const list = async (query) => {
+    const response = await f.request(`/api/artifacts?${query}`);
+    assert.equal(response.status, 200, query);
+    return response.json();
+  };
+  assert.equal((await fetch(`${f.url}/api/artifacts?q=report`)).status, 401);
+  const all = await list("");
+  assert.deepEqual(all.counts, { all: 2, pinned: 1 });
+  const pinned = await list("pinned=true");
+  assert.deepEqual(
+    pinned.items.map((item) => item.id),
+    [chart.id],
+  );
+  assert.equal((await list("pinned=false")).total, 2);
+  assert.deepEqual(
+    (await list("q=QUARTERLY")).items.map((item) => item.id),
+    [report.id],
+  );
+  // The session's name and the project's name find all of their artifacts.
+  assert.equal((await list(`q=${encodeURIComponent("disposable mcp")}`)).total, 2);
+  assert.equal((await list(`q=${encodeURIComponent(project.name)}`)).total, 2);
+  assert.equal((await list("q=no-such-artifact")).total, 0);
+  for (const query of [
+    `q=${"x".repeat(201)}`,
+    "q=a%0Ab",
+    "q=a&q=b",
+    "pinned=yes",
+    "pinned=true&pinned=true",
+  ])
+    assert.equal((await f.request(`/api/artifacts?${query}`)).status, 400, query);
+});
