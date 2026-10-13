@@ -401,21 +401,31 @@ which the Accounts page explains. The server log line adds the Gateway error cod
 the wizard status and the Gateway's reason with device codes, bearer values and
 token-like strings redacted.
 
-The agent editor offers the models a ChatGPT account can select. One Gateway
-`models.list` read (`agentId: "main"`, `provider: "openai"`, `view: "all"`) serves
-every account, because the accounts share the native `main` agent; the Gateway's
-per-profile `providerOutcomes` decide whether an account gets the list. Rows of other
-providers, IDs that are not bare model IDs and rows marked unavailable (other than
-by a cooldown) are dropped. `authProfileId` is not used: OpenClaw scopes it to
-personal accounts of an authenticated Gateway user and refuses the agent's own
-OAuth profiles with `FORBIDDEN`. The list is cached in memory for ten minutes (a
-failed read is retried after one); loading the agents page starts a background read
-when it is stale, a completed sign-in and **Refresh models** force a rediscovery,
-and concurrent reads share one Gateway call. The refresh route shares one owner
-budget of twelve requests a minute. When the list cannot be loaded the editor keeps
-the model ID field and says so. `assistant-chatgpt-models-contract.test.js` pins the
-request and row shape against the pinned Gateway with synthetic credentials, which
-it rejects; a signed-in list cannot be observed offline.
+The agent editor offers the ChatGPT model catalog of the native `main` agent. One
+Gateway `models.list` read (`agentId: "main"`, `provider: "openai"`, `view: "all"`)
+serves every ChatGPT account, because the accounts share that agent. Both the listed
+models (live discovery) and each row's `available` flag come from the profile the
+Gateway selects for the agent, not from each account: all accounts see the same
+list. A profile's own `providerOutcomes` entry still withholds the list from an
+account the Gateway rejected. With more than one account, an account without an
+outcome is marked as checked against another account, and the editor says so.
+Rows of other providers, IDs that are not bare model IDs and rows not marked
+available (other than by a cooldown) are dropped; an empty list, a rejected account
+and a Gateway answer with `refreshFailed` count as a failed read. `authProfileId`
+is not used: OpenClaw scopes it to personal accounts of an authenticated Gateway
+user and refuses the agent's own OAuth profiles with `FORBIDDEN`.
+
+The list is cached in memory for ten minutes; a failed or stale read is retried
+after one minute. Loading the agents page or the account list starts a background
+read when the cache is stale; agent runs, checks and logouts never read models. A
+completed sign-in and **Refresh models** force a rediscovery: when an unforced read
+is already running, the forced one runs right after it. The refresh route shares
+one owner budget of twelve requests a minute. When the list cannot be loaded the
+editor keeps the model ID field and says so; a custom model ID is always possible.
+`assistant-chatgpt-models-contract.test.js` pins the request and row shape against
+the pinned Gateway with synthetic credentials. Its discovery goes through a local
+proxy that answers 401, so it never contacts chatgpt.com; a signed-in list cannot
+be observed offline.
 
 **Check connection** runs the native credential probe. **Disconnect** removes the
 selected profile through OpenClaw; pending or unresolved work using that account
