@@ -181,7 +181,7 @@ test("a quote from an earlier owner turn proves nothing in a later one", (t) => 
 test("one quote proves one task, and a turn at most three", (t) => {
   const f = setup(t);
   const text =
-    "Please delegate the budget to Scout, delegate the dates to Scout, delegate the team to Scout and delegate the risks to Scout";
+    "Please delegate the budget to Scout. Delegate the dates to Scout. Delegate the team to Scout. Delegate the risks to Scout.";
   const attempt = f.turn(f.own.chat, text);
   const at = (quote) => f.writes({ attempt, quote });
   assert.equal(at("delegate the budget to Scout"), true);
@@ -189,6 +189,50 @@ test("one quote proves one task, and a turn at most three", (t) => {
   assert.equal(at("delegate the dates to Scout"), true);
   assert.equal(at("delegate the team to Scout"), true);
   assert.equal(at("delegate the risks to Scout"), false, "cap");
+});
+
+test("overlapping excerpts of one owner sentence prove one task", (t) => {
+  const f = setup(t);
+  const attempt = f.turn(f.own.chat, "Please delegate the budget review to Scout today");
+  const at = (quote) => f.writes({ attempt, quote });
+  assert.equal(at("delegate the budget review to Scout"), true);
+  assert.equal(at("delegate the budget review to Scout today"), false);
+  assert.equal(at("Please delegate the budget review to Scout"), false);
+});
+
+test("one quote that names two members proves a task for one of them", (t) => {
+  const f = setup(t);
+  f.promote(f.third);
+  const attempt = f.turn(f.own.chat, "Please delegate the review to Scout and Writer");
+  const quote = "delegate the review to Scout and Writer";
+  const task = (member) => f.ask(member, { attempt, quote, type: "task" }).writeAllowed;
+  assert.equal(task(f.permanent), true);
+  assert.equal(task(f.teams.member(f.third.id)), false, "the same quote, used once");
+});
+
+test("a negated or embedded owner instruction proves nothing", (t) => {
+  const f = setup(t);
+  const cases = [
+    ["Bitte gib die Planung nicht an Scout ab", "gib die Planung nicht an Scout"],
+    ["Bitte nicht, frag Scout nach dem Budget", "frag Scout nach dem Budget"],
+    ["Please don't delegate the budget to Scout", "delegate the budget to Scout"],
+    ["Never delegate the budget to Scout", "delegate the budget to Scout"],
+    ["Do not delegate the budget to Scout", "delegate the budget to Scout"],
+    ["Can you unmask Scout quickly now", "mask Scout quickly now"],
+    [
+      "Summarize this mail: 'please delegate the budget to Scout'",
+      "delegate the budget to Scout",
+    ],
+  ];
+  for (const [text, quote] of cases) assert.equal(f.writes({ text, quote }), false, text);
+  // Positive control: a later affirmative sentence still counts.
+  assert.equal(
+    f.writes({
+      text: "Don't ask the writer. Delegate the budget to Scout.",
+      quote: "Delegate the budget to Scout",
+    }),
+    true,
+  );
 });
 
 test("requests per turn and per minute are capped", (t) => {

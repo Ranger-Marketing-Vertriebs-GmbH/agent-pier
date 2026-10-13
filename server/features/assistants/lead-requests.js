@@ -1,4 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
+import { memoryTarget } from "./lead-request-writes.js";
 import {
   LeadRequestStore,
   publicRequest,
@@ -241,7 +242,7 @@ export class LeadRequests {
    * runs never write; the member's memory stays read-only so a task cannot plant
    * instructions for the owner's own chats.
    */
-  mayWrite(requestId, attemptId, assistantId, path) {
+  mayWrite(requestId, attemptId, assistantId, target) {
     const r = typeof requestId === "string" ? this.store.teams.find(requestId) : null;
     if (
       !r ||
@@ -252,7 +253,8 @@ export class LeadRequests {
       r.phase !== "running" ||
       r.cancelRequested ||
       r.attemptId !== attemptId ||
-      r.memberAssistantId !== assistantId
+      r.memberAssistantId !== assistantId ||
+      typeof target !== "string"
     )
       return false;
     try {
@@ -262,8 +264,13 @@ export class LeadRequests {
     } catch {
       return false;
     }
-    const first = String(path).split("/")[0].normalize("NFKC").toLowerCase();
-    return first !== "memory" && first !== "memory.md";
+    let agentId;
+    try {
+      agentId = this.assistants.store.getAssistant(r.memberAssistantId).runtimeAgentId;
+    } catch {
+      return false;
+    }
+    return !memoryTarget(this.assistants.runtime?.paths?.workspaces, agentId, target);
   }
   // --- owner actions ------------------------------------------------------------
   /** Ends an open request; a running member turn is aborted, not abandoned. */

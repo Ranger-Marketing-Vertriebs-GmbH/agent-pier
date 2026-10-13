@@ -643,21 +643,38 @@ A lead reaches its own members without the owner relaying anything
   and the bridge refuses them to member turns, so there are no chains.
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
-  temporary for archive (checked again inside the archiving transaction). Questions
-  and tasks never wait for an approval; they run as soon as the member is free.
+  temporary for archive (checked again inside the archiving transaction). By the
+  owner's decision questions and tasks never wait for an approval; they run as soon
+  as the member is free. A member therefore acts on the lead's text with its own
+  capabilities: a member with full shell access or bound MCP servers uses them for
+  a lead's request without asking. A member whose shell is set to approval still
+  asks the owner before every command of such a turn (exec approvals do not depend
+  on who started the turn), and an agent with its own Telegram bot for other people
+  should only lead members whose shell and servers the owner accepts for that.
 - **Files.** Questions never write. A task may use `write`/`edit` in the member's
   own workspace only when the owner explicitly asked for it in this very turn
-  (AgentPier chat or Telegram, not forwarded): the tool's quote must be verbatim
-  from that message, name the member (its whole display name or a word of it no
-  other member carries) and say to delegate (`ask`, `delegate`, `assign`, `frag…`,
-  `delegier…`, `beauftrag…`, `übergib`, "gib … an", "lass … machen",
-  "let … do", "hand … over"; `lead-request-proof.js`). Each quote proves one task
-  and a turn at most three; standing team permission does not count. The grant is
+  (AgentPier chat or Telegram, not forwarded). The tool's quote must be a
+  whole-word, verbatim excerpt of that message and must:
+  - name the member: its whole display name as whole words (not when a longer name
+    of another member is meant, "Max Ops" for "Max"), or a word of it of three
+    letters or more that no other member carries and that is no everyday word;
+  - say to ask or delegate in a verb form (`ask`, `delegate`, `assign`, `frag`,
+    `fragt`, "frage den/die …", `delegier…`, `beauftrag…`, `übergib`, "gib … an",
+    "lass … machen", "let … do", "hand … over"; `lead-request-proof.js`);
+  - not be negated in the quote or earlier in the same owner sentence (`nicht`,
+    `kein…`, `nie`, `niemals`, "don't", "do not", `not`, `never`, `no`);
+  - not follow a quotation mark, so pasted or quoted text is never the owner's
+    instruction.
+
+  One owner sentence proves one task per member, each quote is used once and a turn
+  proves at most three; standing team permission does not count. The grant is
   stored with the request (`writeAllowed`, `ownerProof`) and holds only during the
-  task's own run (`TeamBridge.toolPolicy`, `LeadRequests.mayWrite`), never for
-  `MEMORY.md` or `memory/`, so a task cannot plant instructions for the owner's own
-  chats. Every other task runs read-only. Settings → Work → Teams marks each task
-  "may write" or "read-only".
+  task's own running attempt (`TeamBridge.toolPolicy`, `LeadRequests.mayWrite`).
+  `MEMORY.md` and `memory/` stay read-only in every spelling the write guard repairs
+  and through links in the workspace (`lead-request-writes.js`), so a task cannot
+  plant instructions for the owner's own chats. Every other task runs read-only.
+  Settings → Work → Teams marks each task "may write" or "read-only".
+
 - **Limits.** At most 16 open requests per lead, 6 per lead and minute and 8 per
   owner turn (`RATE_LIMITED` beyond), so a member answer that keeps the lead asking
   ends quickly.

@@ -1,6 +1,12 @@
 import { randomUUID, createHash } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
-import { intent, namesMember, ownerQuote, plain } from "./lead-request-proof.js";
+import {
+  intent,
+  namesMember,
+  ownerQuote,
+  ownerSentence,
+  plain,
+} from "./lead-request-proof.js";
 export { ownerQuote } from "./lead-request-proof.js";
 // Questions and tasks a lead agent sends to its own members. They live in the team
 // store as `lead-request` records beside the teams and members they refer to.
@@ -171,15 +177,26 @@ export class LeadRequestStore {
         .members()
         .filter((m) => m.parentAssistantId === lead.id && m.id !== member.id)
         .map((m) => this.teams.store.getAssistant(m.assistantId).name);
+      const sentence =
+        quote && ownerQuote(quote, request.text)
+          ? ownerSentence(quote, request.text)
+          : null;
       const proven =
         type === "task" &&
         ownerTurn &&
-        !!quote &&
-        ownerQuote(quote, request.text) &&
+        !!sentence &&
+        !sentence.negated &&
+        !sentence.quoted &&
         namesMember(quote, assistant.name, others) &&
         intent(quote) &&
         proofs.length < requestCaps.ownerPerTurn &&
-        !proofs.some((r) => plain(r.ownerProof.quote) === plain(quote));
+        // One proof per sentence of the owner and member: overlapping excerpts of
+        // the same instruction authorise one task, not several.
+        !proofs.some(
+          (r) =>
+            plain(r.ownerProof.quote) === plain(quote) ||
+            (r.memberId === member.id && r.ownerProof.sentence === sentence.index),
+        );
       return t.insert(
         {
           id: randomUUID(),
@@ -196,7 +213,9 @@ export class LeadRequestStore {
           memberName: assistant.name,
           text,
           origin: context,
-          ownerProof: proven ? { requestId: request.id, quote } : null,
+          ownerProof: proven
+            ? { requestId: request.id, quote, sentence: sentence.index }
+            : null,
           writeAllowed: proven,
           runTimeoutMinutes: policy.runTimeoutMinutes,
           phase: "queued",
