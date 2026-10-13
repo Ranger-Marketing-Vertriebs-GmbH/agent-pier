@@ -143,8 +143,10 @@ export const assistants = {
   attachmentTooLarge: "Diese Datei ist größer als 10 MB.",
   attachmentUnsupported:
     "Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPEG, PNG, WebP, GIF, HEIC), PDF und Textdateien.",
-  attachmentTooMany: "Zu viele Anhänge. Eine Nachricht kann höchstens 5 Dateien enthalten.",
-  attachmentNotFound: "Dieser Anhang ist nicht mehr verfügbar. Füge die Datei erneut hinzu.",
+  attachmentTooMany:
+    "Zu viele Anhänge. Eine Nachricht kann höchstens 5 Dateien enthalten.",
+  attachmentNotFound:
+    "Dieser Anhang ist nicht mehr verfügbar. Füge die Datei erneut hinzu.",
   attachmentStorageFull:
     "Der Anhang-Ordner dieses Agenten ist voll. Bitte den Agenten, ältere Dateien in attachments/ zu löschen.",
   attachmentStorageUnsafe:
