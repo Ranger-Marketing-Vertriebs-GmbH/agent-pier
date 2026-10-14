@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { assertJoinedAtBreaks } from "../helpers/telegram-parts.js";
 import {
   markdownToTelegramHtml,
   splitTelegramHtml,
@@ -139,4 +140,27 @@ test("every durable part stays within Telegram's limit in both renderings", () =
     balanced(part.html);
     assert.match(part.html, /^<b>Heading \d+<\/b>/);
   }
+});
+
+test("a code block split keeps every line's indentation and blank lines", () => {
+  const code = Array.from({ length: 300 }, (_, n) =>
+    n % 7 === 6 ? "" : `${" ".repeat((n % 4) * 4)}y${n} = value(${n})  `,
+  );
+  const html = markdownToTelegramHtml(`\`\`\`python\n${code.join("\n")}\n\`\`\``);
+  const parts = splitTelegramHtml(html, 1000);
+  assert.ok(parts.length > 3);
+  const inner = (part) =>
+    part.replace(/^<pre><code class="language-python">|<\/code><\/pre>$/g, "");
+  // Only one line break per boundary is dropped; indentation and trailing spaces stay.
+  const dropped = assertJoinedAtBreaks(code.join("\n"), parts.map(inner));
+  assert.deepEqual(new Set(dropped), new Set(["\n"]));
+  assert.ok(
+    parts.slice(1).some((part) => /^<pre><code class="language-python"> {4}/.test(part)),
+  );
+});
+
+test("a sentence that ends inside formatting counts as a sentence end", () => {
+  const html = `${"word ".repeat(150)}<b>Done.</b> ${"more words ".repeat(30)}`;
+  const parts = splitTelegramHtml(html.trim(), 1000);
+  assert.equal(parts[0], `${"word ".repeat(150)}<b>Done.</b>`);
 });

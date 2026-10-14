@@ -76,13 +76,15 @@ const atomic = (stack) =>
     (t, n) => t.name === "a" || (t.name === "code" && stack[n - 1]?.name !== "pre"),
   );
 const inBlock = (stack) => stack.some((t) => t.name === "pre");
+const opens = (token) => token.tag && !token.text.startsWith("</");
 /**
  * Splits Telegram HTML into parts of at most `limit` code units (Telegram allows
  * 4096 characters of visible text; markup only adds to the length counted here).
  * A part ends at the best break that leaves it at least half full: a blank line,
  * a line break, a sentence end, then a space, preferring breaks outside any tag
  * and never inside a link or inline code. The whitespace of that break is
- * dropped. Only text without any such break is cut at the limit, and never inside
+ * dropped; inside a code block only the line break, so indentation stays. Only
+ * text without any such break is cut at the limit, and never inside
  * a tag, entity or surrogate pair. Tags open at a break are closed at the end of
  * the part and reopened at the start of the next one.
  */
@@ -111,7 +113,18 @@ export function splitTelegramHtml(html, limit = 4000) {
       end = start,
       breaks = [];
     for (let n = start; n < tokens.length; n++) {
-      if (n > start && space(n) && !space(n - 1)) {
+      const at = stackAt(n);
+      if (n > start && inBlock(at)) {
+        // Code keeps every character: only the line break itself is dropped.
+        if (tokens[n].text === "\n" && !atomic(at) && !opens(tokens[n - 1]))
+          breaks.push({
+            cut: n,
+            next: n + 1,
+            tier: tokens[n - 1].text === "\n" ? paragraph : line,
+            bare: false,
+            length,
+          });
+      } else if (n > start && space(n) && !space(n - 1)) {
         let after = n;
         while (after < tokens.length && space(after)) after++;
         const run = tokens
@@ -119,16 +132,19 @@ export function splitTelegramHtml(html, limit = 4000) {
           .map((t) => t.text)
           .join("");
         const lines = run.split("\n").length - 1;
-        const at = stackAt(n);
+        // A sentence may end inside formatting (`**Done.**`).
+        let last = n - 1;
+        while (last > start && tokens[last].tag && tokens[last].text.startsWith("</"))
+          last--;
         const tier =
           lines > 1
             ? paragraph
             : lines
               ? line
-              : /[.!?…:;]$/.test(tokens[n - 1].text)
+              : /[.!?…:;]$/.test(tokens[last].text)
                 ? sentence
                 : word;
-        if (!atomic(at) && (!inBlock(at) || lines))
+        if (!atomic(at))
           breaks.push({ cut: n, next: after, tier, bare: !at.length, length });
       }
       const grown = length + tokens[n].text.length;
@@ -146,13 +162,7 @@ export function splitTelegramHtml(html, limit = 4000) {
     let cut = chosen?.cut ?? Math.max(end, start + 1),
       next = chosen?.next ?? cut;
     // A hard cut leaves tags opened right before it to the next part.
-    if (!chosen)
-      while (
-        cut > start + 1 &&
-        tokens[cut - 1].tag &&
-        !tokens[cut - 1].text.startsWith("</")
-      )
-        next = --cut;
+    if (!chosen) while (cut > start + 1 && opens(tokens[cut - 1])) next = --cut;
     parts.push(opening + body(start, cut) + closing(stackAt(cut)));
     start = next;
   }
