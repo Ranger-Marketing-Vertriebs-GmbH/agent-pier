@@ -65,8 +65,9 @@ dialog > :last-child > .dialog-actions:last-child {
   background-position: right 12px center;
   background-size: 16px 16px;
 }
-/* The empty "Choose …" option reads like an input placeholder. */
-:where(dialog) select:has(option[value=""]:checked) {
+/* A "Choose …" option marked `data-placeholder` reads like an input placeholder while
+   it is selected. A real empty-valued choice (e.g. "Global") keeps the input colour. */
+:where(dialog) select:where(:has(option[data-placeholder]:checked)) {
   color: var(--placeholder);
 }
 

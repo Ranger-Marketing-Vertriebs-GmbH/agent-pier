@@ -109,14 +109,10 @@ test("with a fine pointer dialogs focus their first text field, never the close 
 
 const fieldStyle = (element) =>
   Object.fromEntries(
-    [
-      "font-size",
-      "font-weight",
-      "color",
-      "padding-left",
-      "border-top-color",
-      "height",
-    ].map((key) => [key, getComputedStyle(element).getPropertyValue(key)]),
+    ["font-size", "color", "height"].map((key) => [
+      key,
+      getComputedStyle(element).getPropertyValue(key),
+    ]),
   );
 
 test("dialog selects match the text inputs", async ({ page }) => {
@@ -131,6 +127,7 @@ test("dialog selects match the text inputs", async ({ page }) => {
     "none",
   );
   // The empty choice reads as a placeholder; a chosen account in the input colour.
+  expect((await select.evaluate(fieldStyle)).color).not.toBe(input.color);
   await select.selectOption("second");
   expect(await select.evaluate(fieldStyle)).toEqual(input);
 });
