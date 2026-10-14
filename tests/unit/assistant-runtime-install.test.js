@@ -71,14 +71,14 @@ test("runtime selection rejects symlinked executable ancestors", async (t) => {
 test("fresh enable uses private Node and reuses a verified installation on update", async (t) => {
   const { dataDir, options } = assistantInstallFixture(t);
   const installed = await ensureAssistantRuntime(options);
-  assert.equal(installed.version, "2026.9.9");
+  assert.equal(installed.version, "2026.10.3");
   assert.ok(fs.existsSync(installed.nodePath));
   assert.ok(fs.existsSync(installed.entryPath));
   const { stageAssistantRuntime, selectedAssistantRuntime } =
     await import("../../server/features/assistants/runtime-install.js");
   assert.equal(typeof stageAssistantRuntime, "function");
   const active = path.join(dataDir, "assistants", "runtime.json");
-  const previous = { ...installed, version: "2026.9.8" };
+  const previous = { ...installed, version: "2026.9.9" };
   delete previous.dependencyLockSha256;
   fs.writeFileSync(active, JSON.stringify(previous));
   assert.equal((await stageAssistantRuntime(options)).version, installed.version);

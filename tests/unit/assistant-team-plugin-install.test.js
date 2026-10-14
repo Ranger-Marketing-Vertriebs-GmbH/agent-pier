@@ -11,7 +11,7 @@ test("managed plugin assets are private, reproducible and repaired without adopt
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "team-plugin-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const paths = runtimePaths(dataDir),
-    options = { paths, runtimeVersion: "2026.9.9" };
+    options = { paths, runtimeVersion: "2026.10.3" };
   const first = provisionTeamPlugin(options);
   assert.ok(fs.existsSync(path.join(first.directory, "index.js")));
   // Every module the shipped plugin imports is provisioned beside it.
@@ -39,10 +39,10 @@ test("managed plugin supports the qualified predecessor for cross-version rollba
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "team-plugin-previous-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const paths = runtimePaths(dataDir);
-  const previous = provisionTeamPlugin({ paths, runtimeVersion: "2026.9.7" });
+  const previous = provisionTeamPlugin({ paths, runtimeVersion: "2026.9.8" });
   assert.ok(fs.existsSync(path.join(previous.directory, "workflow-tools.js")));
   assert.throws(
-    () => provisionTeamPlugin({ paths, runtimeVersion: "2026.9.6" }),
+    () => provisionTeamPlugin({ paths, runtimeVersion: "2026.9.7" }),
     /Incompatible/,
   );
 });

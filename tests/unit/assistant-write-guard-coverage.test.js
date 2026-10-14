@@ -25,6 +25,8 @@ const readOnly = [
   "memory_search",
   "memory_get",
   "read",
+  // Loads an installed skill's SKILL.md; it grants no further tool.
+  "skills_read",
   "web_search",
   "web_fetch",
   "browser",
@@ -43,8 +45,10 @@ test("every file tool an agent can be granted is behind the write guard", () => 
   const granted = new Set([
     ...profileTools({ capabilities: everything, shell: "full" }, true, true, true),
     ...routineTools,
-    // OpenClaw grants apply_patch wherever write is allowed (writeAllowsApplyPatch).
+    // OpenClaw grants apply_patch wherever write is allowed (writeAllowsApplyPatch)
+    // and, since 2026.10.3, skills_read wherever read is.
     "apply_patch",
+    "skills_read",
   ]);
   for (const tool of granted) {
     if (tool.includes("__") || tool.startsWith("agentpier_")) continue;
@@ -55,6 +59,19 @@ test("every file tool an agent can be granted is behind the write guard", () => 
   }
   for (const tool of ["write", "edit", "apply_patch"])
     assert.ok(writeTools.includes(tool), tool);
+});
+
+// OpenClaw 2026.10.3 allows skills_read wherever `read` is allowed and not denied
+// (tool-policy-match). Accepted in AGENTPIER-69: AgentPier never names the tool and
+// compiles no tool deny list, so it follows `read`, which only memory grants.
+test("skills_read reaches exactly the agents granted read", () => {
+  const tools = (capabilities) =>
+    profileTools({ capabilities, shell: "full" }, true, true, true);
+  assert.ok(tools(everything).includes("read"));
+  assert.ok(!tools({ ...everything, memory: false }).includes("read"));
+  assert.ok(routineTools.includes("read"));
+  for (const granted of [tools(everything), routineTools])
+    assert.ok(!granted.includes("skills_read"));
 });
 
 test("a patch's paths include every hunk header OpenClaw would apply", () => {

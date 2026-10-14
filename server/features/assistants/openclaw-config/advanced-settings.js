@@ -16,7 +16,7 @@ import { validTimeZone } from "../heartbeat-schedule.js";
  * Only scalar paths that no compiler step, dedicated page or credential owns belong
  * here; none carries a `sensitive` hint.
  */
-export const advancedSettingsRuntime = "2026.9.9";
+export const advancedSettingsRuntime = "2026.10.3";
 
 const unbounded = Number.MAX_SAFE_INTEGER;
 
