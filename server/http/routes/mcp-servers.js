@@ -7,6 +7,13 @@ import { problem } from "../../lib/storage.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { record } from "../../features/extensions/mcp-config.js";
 import { mcpCliRoutes } from "./mcp-cli.js";
+import {
+  auditDetails,
+  changeSource,
+  mcpPackageRoutes,
+  packagesOf,
+  requireInstallConfirmation,
+} from "./mcp-packages.js";
 
 /** A saved change whose OAuth logout is retried later (see McpOAuthLogins.forget). */
 function deferredWarning() {
@@ -49,9 +56,11 @@ export function replyValueReference(response, error) {
  * Validation, conflicts and a busy Gateway keep their reason; a runtime that is not
  * ready and a Gateway reply (whose text can carry private details) stay "unavailable"
  * (503). Anything else is a defect: it is logged once (code, message, stack; never the
- * request) and answered as a generic 500.
+ * request) and answered as a generic 500. Package problems keep their status and code
+ * (a 502 registry or integrity failure, a 503 toolchain failure).
  */
 function routeProblem(error) {
+  if (/^MCP_PACKAGE_/.test(error?.code || "")) return error;
   if (Number.isInteger(error?.status) && error.status < 500 && !error.answered)
     return error;
   if (error?.answered || error?.status === 503)
@@ -91,6 +100,7 @@ export function mcpServerRoutes(services) {
     next();
   });
   router.use(mcpCliRoutes(services, { auditMcp, replyStdioConfirmation }));
+  router.use(mcpPackageRoutes(services, { auditMcp }));
   // OAuth servers carry their agent login status (see McpOAuthLogins.decorate); every
   // server its CLI bindings, their status and its users (CliMcpBindings.decorate).
   router.get("/mcp-servers", async (_req, res) => {
@@ -103,6 +113,24 @@ export function mcpServerRoutes(services) {
   router.post("/mcp-servers", async (req, res) => {
     const body = req.body;
     const { confirmStdio, clis, ...input } = record(body) ? body : {};
+    if (record(body) && body.source !== undefined) {
+      // The install confirmation replaces the stdio confirmation for this save.
+      requireInstallConfirmation(body);
+      const { confirmInstall: _confirm, previewId, program, ...definition } = input;
+      let created;
+      try {
+        created = await packagesOf(services).createServer(definition, {
+          previewId,
+          program,
+          ...(clis === undefined ? {} : { clis }),
+        });
+      } catch (error) {
+        if (replyValueReference(res, error)) return;
+        throw error;
+      }
+      auditMcp("mcp.package.installed", created.id, auditDetails(body.source));
+      return res.status(202).json(created);
+    }
     let server;
     try {
       server = await changes().create(record(body) ? input : body, {
@@ -123,8 +151,15 @@ export function mcpServerRoutes(services) {
   // `clis` (optional) replaces the server's coding CLIs in the same write.
   router.put("/mcp-servers/:id", async (req, res) => {
     const body = req.body;
-    const { confirmStdio, clis, ...input } = record(body) ? body : {};
     try {
+      if (record(body) && body.source !== undefined)
+        return await changeSource(services, { changes, auditMcp }, req, res);
+      const { confirmStdio, clis, ...rest } = record(body) ? body : {};
+      // A packaged server keeps its generated command; owner args follow the generated ones.
+      const input =
+        record(body) && services.mcpPackages
+          ? services.mcpPackages.prepareUpdate(req.params.id, rest)
+          : rest;
       const { server, pending, logoutDeferred, stdioChanged, cliChange } =
         await changes().update(req.params.id, record(body) ? input : body, {
           confirmStdio: confirmStdio === true,
@@ -153,6 +188,9 @@ export function mcpServerRoutes(services) {
   });
   router.delete("/mcp-servers/:id", async (req, res) => {
     const { pending, logoutDeferred, transport } = await changes().remove(req.params.id);
+    // Its package record went with the server; installs and toolchains follow in the
+    // background (prune never rejects; the response does not wait for it).
+    services.mcpPackages?.prune();
     auditMcp("mcp.deleted", req.params.id, { transport });
     if (pending || logoutDeferred)
       res.json({

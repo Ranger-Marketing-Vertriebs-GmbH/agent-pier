@@ -9,7 +9,7 @@ import { registerResponses } from "../../server/http/responses.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 
 test("every package code has a German message and keeps its code and status", () => {
-  assert.equal(packageCodes.length, 14);
+  assert.equal(packageCodes.length, 15);
   for (const code of packageCodes) {
     const error = packageProblem(code, 409);
     assert.equal(error.code, code);
