@@ -4,6 +4,7 @@ import AgentMessageAttachments from "./AgentMessageAttachments.jsx";
 import "./assistant-message-source.css";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
+import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { formatMessageTime } from "../../lib/i18n/index.js";
 import { remarkMemberMentions } from "./mention-markdown.js";
 import RouteLink from "./RouteLink.jsx";
@@ -15,6 +16,7 @@ import "./member-mentions.css";
 // the member's lead agent sent, get a quiet meta line under the bubble, which also
 // describes the message for screen readers. In a lead's chat the owner's @mentions
 // of its members (`mentions`: `{ members, navigate }`) become chips to their chats.
+// A routine's result (`scheduled`: `{ name }`) carries a badge beside the agent's name.
 export default memo(function AssistantMessage({
   role,
   name,
@@ -26,6 +28,7 @@ export default memo(function AssistantMessage({
   attachments = null,
   mentions = null,
   forwarded = false,
+  scheduled = null,
 }) {
   const metaId = useId();
   const lead = role === "user" && source === "lead" && typeof sender?.name === "string";
@@ -52,9 +55,18 @@ export default memo(function AssistantMessage({
       aria-describedby={marked ? metaId : undefined}
     >
       {/* A lead's message is the lead's words, not the owner's. */}
-      <strong className={role === "user" ? "sr-only" : undefined}>
-        {lead ? sender.name : name}
-      </strong>
+      {role === "assistant" && scheduled ? (
+        <div className="assistant-message-head">
+          <strong>{name}</strong>
+          <span className="assistant-scheduled-badge">
+            {routineCopy.chatBadge(scheduled.name)}
+          </span>
+        </div>
+      ) : (
+        <strong className={role === "user" ? "sr-only" : undefined}>
+          {lead ? sender.name : name}
+        </strong>
+      )}
       <AgentMessageAttachments files={attachments} />
       {(text || !attachments?.length) && (
         <div className="message-content">

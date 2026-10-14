@@ -1,65 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { channelFixture } from "../helpers/assistant-channel-fixture.js";
-import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeRoutines } from "../../server/features/assistants/native-routines.js";
+import { routineTools } from "../../server/features/assistants/native-capabilities.js";
+import { routineFixture as setup } from "../helpers/native-routines-fixture.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
-function setup(t) {
-  const f = channelFixture(t),
-    id = f.channel.assistantId,
-    jobs = new Map(),
-    calls = [];
-  f.store.updateAssistant(id, { capabilities: { memory: false, reminders: true } }, 1);
-  f.assistants.admit = (fn) => Promise.resolve().then(fn);
-  f.assistants.requireReady = () => {};
-  f.assistants.config = { apply: async () => {} };
-  f.assistants.runtime.client.call = async (method, input) => {
-    calls.push({ method, input });
-    if (method === "cron.list") return { jobs: [...jobs.values()], hasMore: false };
-    if (method === "cron.add") {
-      const job = { ...input, id: `job-${jobs.size}`, updatedAtMs: 1, state: {} };
-      jobs.set(job.id, job);
-      return { job };
-    }
-    if (method === "cron.update") {
-      const job = {
-        ...jobs.get(input.id),
-        ...input.patch,
-        updatedAtMs: jobs.get(input.id).updatedAtMs + 1,
-      };
-      jobs.set(job.id, job);
-      return job;
-    }
-    if (method === "cron.remove") {
-      jobs.delete(input.id);
-      return { removed: true };
-    }
-    if (method === "cron.run") return { ok: true, enqueued: true, runId: "native-run" };
-    assert.fail(method);
-  };
-  const reminders = new NativeReminders({
-    assistants: f.assistants,
-    channels: f.service,
-    dataDir: f.dataDir,
-  });
-  f.assistants.reminders = reminders;
-  const routines = new NativeRoutines({ reminders });
-  t.after(() => reminders.close());
-  const input = {
-    clientRequestId: "routine-1",
-    name: "Meal plan",
-    prompt: "Create a vegetarian meal plan for today.",
-    trigger: { kind: "cron", expr: "0 9 * * *", tz: "Europe/Berlin" },
-  };
-  return { ...f, id, jobs, calls, reminders, routines, input };
-}
-test("scheduled routines execute saved prompts with no tools and stay distinct from reminders", async (t) => {
+test("scheduled routines run saved prompts with the agent's tools in its chat and stay distinct from reminders", async (t) => {
   const f = setup(t),
     routine = await f.routines.create(f.id, f.input);
   const job = [...f.jobs.values()][0];
-  assert.equal(job.payload.message, f.input.prompt);
-  assert.deepEqual(job.payload.toolsAllow, []);
-  assert.equal(job.sessionTarget, "isolated");
+  assert.ok(job.payload.message.endsWith(`\n\n${f.input.prompt}`));
+  assert.match(job.payload.message, /not a message from the owner/);
+  assert.deepEqual(job.payload.toolsAllow, routineTools);
+  assert.equal(job.payload.lightContext, false);
+  assert.equal(job.payload.timeoutSeconds, 300);
+  // Detached from the paired chat's conversation and committed into it.
+  assert.equal(job.sessionTarget, "current");
+  assert.equal(job.sessionKey, "session");
+  assert.equal(job.delivery.mode, "announce");
+  assert.match(job.delivery.completionDestination.to, /\/complete\/[a-f0-9-]{36}$/);
   assert.equal(job.enabled, true);
   assert.deepEqual(job.schedule, f.input.trigger);
   assert.equal(routine.prompt, f.input.prompt);

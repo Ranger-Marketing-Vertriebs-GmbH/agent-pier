@@ -92,9 +92,29 @@ create a routine with a name, saved prompt and one of these triggers:
 - A cron expression with an explicit IANA timezone.
 - A manual event or a linked coding task completing successfully.
 
-A reminder repeats prescribed text. A routine asks the configured model to answer
-its saved prompt each time. Scheduled routine turns have no tools and cannot
-start coding jobs, write project knowledge or take external service actions.
+A reminder repeats prescribed text and runs without tools. A routine asks the
+configured model to answer its saved prompt each time, with the agent's own chat
+tools: memory search and file reading, web search/fetch, browser and image reading,
+shell and MCP servers, as far as the agent has them switched on. Shell approvals
+work as in chat: an approval requested by a routine run appears in the agent's
+chat and in the routine's Telegram chat. A routine run never gets the reminder and
+routine tools (no self-scheduling), the team and workspace tools or file writes:
+it is a scheduled turn, not an owner message, so it cannot delegate, start coding
+jobs, write project knowledge or change the agent's files. The run cap is the
+fixed list `routineTools` (`server/features/assistants/native-capabilities.js`);
+OpenClaw intersects it with the agent's `tools.allow`, so capability, shell and MCP
+changes apply to routines without rewriting their jobs.
+
+Each run has full context (`lightContext: false`, 300 s timeout) and runs detached
+from the conversation of the paired Telegram chat (`sessionTarget: "current"`, as
+check-ins do), so it never interrupts a running turn. OpenClaw commits the result
+into that conversation once no turn runs there: the AgentPier chat shows it with a
+"Scheduled · <routine>" badge and a later turn can refer to it. The result also goes
+to Telegram. A failed run shows as a quiet line in the chat; a result that OpenClaw
+could not commit is still shown there from AgentPier's own record. On every Gateway
+start AgentPier migrates existing routine jobs to these settings in place
+(`NativeRoutines.reconcile`); reminders keep their tool-less isolated jobs.
+
 A completion event triggers the saved prompt; it does not automatically insert
 repository content or the coding result. Include only context appropriate for
 that routine in the saved prompt.

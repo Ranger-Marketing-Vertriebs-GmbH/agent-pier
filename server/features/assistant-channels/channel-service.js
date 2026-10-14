@@ -98,11 +98,15 @@ export class ChannelService {
    * awaited: it takes the assistants' admission, which a channel operation may hold.
    */
   channelChanged(id) {
-    const heartbeats = this.assistants.reminders?.heartbeats;
-    if (!heartbeats) return;
+    const { heartbeats, routines } = this.assistants.reminders || {};
+    if (!heartbeats && !routines) return;
     const { assistantId } = this.store.get(id);
     this.heartbeatSync = Promise.resolve()
-      .then(() => heartbeats.resync(assistantId))
+      .then(() => heartbeats?.resync(assistantId))
+      .catch(() => {});
+    // Routines commit into the paired chat's conversation; they follow it as well.
+    this.routineSync = Promise.resolve()
+      .then(() => routines?.resync(assistantId))
       .catch(() => {});
   }
   list() {

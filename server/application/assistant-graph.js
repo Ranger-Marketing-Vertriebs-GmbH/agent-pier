@@ -417,6 +417,8 @@ export function connectAssistantServices(graph) {
       if (mcpChanges.pending) assistants.admit(() => mcpChanges.apply()).catch(() => {});
       // Check-in jobs follow the stored settings; maintenance repeats this on leave.
       if (!assistants.maintenance) reminders.heartbeats.reconcile().catch(() => {});
+      // Routine jobs follow the current run settings (tools, chat commit).
+      if (!assistants.maintenance) reminders.routines?.reconcile().catch(() => {});
     },
   });
   return graph;

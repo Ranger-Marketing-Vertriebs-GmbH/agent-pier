@@ -25,6 +25,7 @@ import useTouchInput from "../chat/useTouchInput.js";
 import useSessionViewport from "../sessions/useSessionViewport.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
+import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { assistantApi } from "./assistant-api.js";
 import useAssistants, { useAssistantEvent } from "./useAssistants.js";
 import { leadMembers } from "./useMemberMention.js";
@@ -295,6 +296,14 @@ export default function AssistantChat({
                 />
               ) : m.event === "coding-run" ? (
                 <CodingRunNote key={m.id} note={m} navigate={navigate} />
+              ) : m.event === "routine-failed" ? (
+                <p
+                  key={m.id}
+                  className="assistant-note assistant-event"
+                  data-routine-failed
+                >
+                  {routineCopy.chatFailed(m.name)}
+                </p>
               ) : m.role === "event" ? (
                 <p key={m.id} className="assistant-note assistant-event">
                   {copy.team.internalTurns[m.event]}
@@ -311,6 +320,7 @@ export default function AssistantChat({
                   attachments={m.attachments}
                   forwarded={m.forwarded === true}
                   mentions={mentions}
+                  scheduled={m.scheduled || null}
                 />
               ),
             )}
