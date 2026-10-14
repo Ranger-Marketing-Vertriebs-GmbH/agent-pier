@@ -6,7 +6,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
-import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
+import {
+  gatewayPath,
+  runtimeEnvironment,
+} from "../../server/features/assistants/runtime-config.js";
 import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
 import { shellSections } from "../../server/features/assistants/openclaw-config/shell.js";
 import {
@@ -355,6 +358,28 @@ test("the Gateway environment carries the wrapper and never the token", () => {
   assert.equal(runtimeEnvironment(paths, "/node/bin/node", parent).SHELL, undefined);
 });
 
+test("the Gateway PATH carries the owner's login PATH behind the runtime's Node", () => {
+  const paths = { home: "/h", tmp: "/t", state: "/s", config: "/c" };
+  assert.equal(
+    runtimeEnvironment(paths, "/node/bin/node", { PATH: "/x" }).PATH,
+    "/node/bin:/usr/bin:/bin",
+  );
+  assert.equal(
+    runtimeEnvironment(
+      paths,
+      "/node/bin/node",
+      { PATH: "/x" },
+      { pathPrepend: ownerPath },
+    ).PATH,
+    "/node/bin:/owner/bin:/opt/homebrew/bin:/usr/bin:/bin",
+  );
+  // Relative entries and duplicates never reach it.
+  assert.equal(
+    gatewayPath("/node/bin/node", ["relative", "/usr/bin", "/node/bin", "/a"]),
+    "/node/bin:/usr/bin:/a:/bin",
+  );
+});
+
 async function startWith(t, shellOwner) {
   const dataDir = tempDir(t, "assistant-shell-start-");
   const spawned = [],
@@ -423,6 +448,8 @@ test("a start writes the wrapper, compiles the owner PATH and keeps the token ou
   });
   assert.deepEqual(config.tools.allow.slice(-2), ["exec", "process"]);
   assert.deepEqual(supervisor.shell, { pathPrepend: ["/owner/bin"] });
+  // Skill checks see the programs exec runs.
+  assert.equal(env.PATH, "/rt/node/bin:/owner/bin:/usr/bin:/bin");
   // The main client is the only one that answers exec approvals.
   assert.deepEqual(
     clients.map((c) => c.caps),
@@ -449,6 +476,7 @@ test("an unresolvable owner starts the Gateway without the wrapper", async (t) =
       strictInlineEval: true,
     });
     assert.deepEqual(supervisor.shell, { pathPrepend: [] });
+    assert.equal(env.PATH, "/rt/node/bin:/usr/bin:/bin");
   }
   assert.equal(logged.length, 2);
   assert.match(logged[0], /without the owner's environment: no passwd entry/);

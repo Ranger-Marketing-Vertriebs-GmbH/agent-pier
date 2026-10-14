@@ -100,6 +100,8 @@ export function compileOpenClawConfig({
   config.discovery = hardened.discovery;
   config.telemetry = hardened.telemetry;
   config.update = hardened.update;
+  // Not a gate: OpenClaw reads an empty allowBundled as "every bundled skill". The
+  // agents' own lists are the gate (agents.defaults.skills below, agentEntry).
   config.skills = { ...config.skills, allowBundled: hardened.skillsAllowBundled };
   config.agents.defaults.heartbeat = hardened.heartbeat;
   // Compiler-owned: an MCP server could run host commands. Only applyMcp writes it,
@@ -212,6 +214,8 @@ export function compileOpenClawConfig({
   // every start without bots, removes what an earlier one wrote.
   applyTelegram(config, telegramCompiled);
   config.cron = { ...config.cron, enabled: !!(enabled && teams.native && !maintenance) };
+  // No skills for an agent without its own list: OpenClaw reads agents.defaults.skills
+  // `[]` as "none" and agentEntry writes each eligible profile's bundled skills.
   // Workspace skill folders would load model-written text as instructions.
   config.agents.defaults = { ...config.agents.defaults, skills: [] };
   // Reserve room for parent conversations as well as the host's member slots.
@@ -285,20 +289,35 @@ export function prepareRuntimeConfig(
 }
 
 /**
+ * The Gateway's `PATH`: the runtime's own Node first, then the owner's login PATH
+ * that exec already receives as `tools.exec.pathPrepend` (exec-shell.js), then the
+ * system directories. OpenClaw checks a skill's required programs on this PATH, so
+ * without the owner's directories Homebrew tools such as `gh` count as missing and
+ * the skill does not load. Absolute directories only, without duplicates.
+ */
+export function gatewayPath(nodePath, pathPrepend = []) {
+  const directories = [];
+  for (const directory of [path.dirname(nodePath), ...pathPrepend, "/usr/bin", "/bin"])
+    if (path.isAbsolute(directory) && !directories.includes(directory))
+      directories.push(directory);
+  return directories.join(path.delimiter);
+}
+
+/**
  * The Gateway's process environment. `shell` is the exec shell wrapper
- * (exec-shell.js); exec children inherit this environment, so the Gateway token is
- * not in it: the Gateway reads it from gateway.auth.token and AgentPier's client
- * holds its own copy.
+ * (exec-shell.js) and `pathPrepend` the owner's login PATH (see gatewayPath); exec
+ * children inherit this environment, so the Gateway token is not in it: the Gateway
+ * reads it from gateway.auth.token and AgentPier's client holds its own copy.
  */
 export function runtimeEnvironment(
   paths,
   nodePath,
   parent = process.env,
-  { shell } = {},
+  { shell, pathPrepend } = {},
 ) {
   return {
     ...proxyEnvironment(parent),
-    PATH: `${path.dirname(nodePath)}${path.delimiter}/usr/bin${path.delimiter}/bin`,
+    PATH: gatewayPath(nodePath, pathPrepend),
     HOME: paths.home,
     TMPDIR: paths.tmp,
     LANG: "en_US.UTF-8",
