@@ -54,6 +54,18 @@ with `version: "2026.9.8"`. `config.schema.lookup { path }` returns
 `gateway.port` reports `reloadKind: "restart"` with
 `hint.label: "Gateway Port"`.
 
+**Advanced settings.** `tests/integration/assistant-advanced-settings-contract.test.js`
+uses the same variable. Against the pinned 2026.9.9 runtime (2026-10-14, macOS arm64)
+`config.schema` was 2,144,101 bytes with 8,043 hint keys. For every path on the
+allow list (`openclaw-config/advanced-settings.js`) the contract requires that the
+schema node still exists with the same type, enum and range, carries no
+`sensitive` hint, reports the qualified `reloadKind` through `config.schema.lookup`,
+and is absent from the configuration a fresh start writes. It then saves values
+through `AdvancedConfig` on the running Gateway, resets one with a `null` merge
+(the leaf is removed, its parent stays as `{}`), and restarts twice to prove that
+stored overrides are compiled in and reset ones are gone. A patch outside the
+schema range (`attachments.ttlHours: 500`) is refused with `INVALID_REQUEST`.
+
 **Patches.** `config.patch { baseHash, raw, replacePaths }` returns
 `{ ok, path, hash, config, changedPaths, sentinel }`. Shrinking
 `agents.entries.main.tools.allow` without that exact path in `replacePaths` is

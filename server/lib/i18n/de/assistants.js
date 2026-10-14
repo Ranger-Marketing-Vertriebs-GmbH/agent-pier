@@ -185,6 +185,10 @@ export const assistants = {
     "Agenten nutzen diesen Zugang. Eine Änderung startet ihr Gateway neu; bestätige den Neustart.",
   webToolsRestartRequired:
     "Diese Änderung an den Webwerkzeugen startet das Gateway der Agenten neu; bestätige den Neustart.",
+  advancedRestartRequired:
+    "Diese Einstellung wird erst nach einem Neustart des Agenten-Gateways wirksam; bestätige den Neustart.",
+  advancedSettingUnavailable:
+    "Diese Einstellung ist mit der installierten Agenten-Laufzeit nicht verfügbar.",
   shellConfirmationRequired:
     "Mit Shell-Zugriff führt der Agent Befehle als dein Benutzerkonto auf diesem Rechner aus, auch außerhalb seines Arbeitsbereichs. Bestätige die Warnung, um den Zugriff einzuschalten.",
   shellFullConfirmationRequired:

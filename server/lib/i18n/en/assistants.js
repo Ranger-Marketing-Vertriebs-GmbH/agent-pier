@@ -168,6 +168,10 @@ export const assistants = {
     "Agents use this connection. Changing it restarts their Gateway; confirm the restart.",
   webToolsRestartRequired:
     "This web tool change restarts the agents' Gateway; confirm the restart.",
+  advancedRestartRequired:
+    "This setting takes effect only after the agents' Gateway restarts; confirm the restart.",
+  advancedSettingUnavailable:
+    "This setting is not available with the installed agent runtime.",
   shellConfirmationRequired:
     "With shell access the agent runs commands as your user account on this computer, including outside its workspace. Confirm the warning to turn access on.",
   shellFullConfirmationRequired:

@@ -33,6 +33,7 @@ import { AssistantWorkflows } from "../features/assistants/assistant-workflows.j
 import { RuntimeUpdates } from "../features/assistants/runtime-updates.js";
 import { AssistantProviderSynchronization } from "../features/assistants/assistant-provider-synchronization.js";
 import { WebToolsChanges } from "../features/assistants/web-tools-changes.js";
+import { AdvancedConfig } from "../features/assistants/advanced-config.js";
 import { resolveShellOwner } from "../features/assistants/exec-shell.js";
 import { McpChanges } from "../features/assistants/mcp-changes.js";
 import { oauthRedirect } from "../features/mcp-servers/oauth-redirect.js";
@@ -245,6 +246,15 @@ export function constructAssistantGraph(host, created = {}) {
     webSearch: assistantWebSearch,
     synchronization: assistantProviderSynchronization,
   });
+  // The owner's advanced OpenClaw settings; a restart change reuses the web tools
+  // confirmation and its list of interrupted agents.
+  const assistantAdvancedConfig = new AdvancedConfig({
+    assistants,
+    overrides: overrideStore(store),
+    synchronization: assistantProviderSynchronization,
+    usage: () => assistantWebTools.usage(),
+    audit,
+  });
   // Logout configs a killed CLI run left behind (they can name a server URL).
   sweepLogoutConfigs(assistantRuntime.paths.state);
   const assistantMcpOAuth = new McpOAuthLogins({
@@ -270,6 +280,7 @@ export function constructAssistantGraph(host, created = {}) {
     assistantUpdates,
     assistantProviderSynchronization,
     assistantWebTools,
+    assistantAdvancedConfig,
     assistantMcpChanges,
     assistantMcpOAuth,
     assistantTelegramSenders,
