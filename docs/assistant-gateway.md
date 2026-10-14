@@ -1123,7 +1123,8 @@ reports `credentialsWithheld`, so the servers need their values entered again. A
 host backup without credentials leaves the values out.
 
 Host backups also capture the server store (`<data>/mcp-servers/servers.sqlite`,
-AGENTPIER-42) as a consistent SQLite snapshot. The public archive member is a
+AGENTPIER-42; for a packaged server this includes the package record and its lock,
+but not the installed files, which `Reinstall` recreates) as a consistent SQLite snapshot. The public archive member is a
 sanitized copy that keeps only the tables and columns the store defines: server
 definitions and agent and CLI bindings stay. A stdio server's command, arguments
 and working directory are definitions and stay public, so put tokens into its

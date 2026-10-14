@@ -75,6 +75,8 @@ its model or instructions changed since it was created.
 - **MCP servers:** the central servers bound to this agent. Add and bind servers
   under **Accounts → MCP servers** (**Manage MCP servers** links there); OAuth servers
   are signed in from AgentPier ([MCP](mcp.md#central-mcp-servers-in-the-coding-clis)).
+  A local server can also be installed from an npm package under **Accounts → MCP
+  servers** ([MCP](mcp.md#installing-a-server-package)).
 
 Saving can restart the agent service briefly; AgentPier asks first and refuses the
 save while an affected agent is busy.

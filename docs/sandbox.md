@@ -114,7 +114,10 @@ linked to a non-executable file such as a key, gets no grant. No allow grant is
 declared for a working directory that is `/`, the owner's home or an ancestor of it,
 the AgentPier data directory or an ancestor of it, or anything inside the data
 directory; such a server gets the code `MCP_CWD_TOO_BROAD` as a warning and may fail
-under nono. Remote servers need no grant.
+under nono. Remote servers need no grant. A packaged MCP server is the exception to "nothing
+inside the data directory": its install under `mcp-packages/installs/<id>` and the
+toolchain it runs with under `toolchains/` are granted read-only; nothing else in the
+data directory is opened.
 
 ### An example launch
 
