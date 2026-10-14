@@ -155,7 +155,9 @@ export default function SessionReloadDialog({
             onChange={(event) => setTargetAccountId(event.target.value)}
             disabled={busy}
           >
-            <option value="">{copy.chooseAccount}</option>
+            <option value="" data-placeholder="">
+              {copy.chooseAccount}
+            </option>
             {(data.accountTargets || []).map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}

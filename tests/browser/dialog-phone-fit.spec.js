@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { operationsFixture } from "./operations-fixture.js";
+import { fixture as sshFixture } from "./ssh-fixture.js";
 
 // Legacy form dialogs whose own action row became the sticky footer must still fit
 // a phone exactly: no sideways scroll, footer inside the dialog.
@@ -59,4 +60,21 @@ test("the remote access warning fits a phone", async ({ page }) => {
   await page.goto(baseURL + "/settings/remote");
   await page.getByRole("switch", { name: "Netzwerkzugriff" }).click();
   await expectFits(page.getByRole("dialog"));
+});
+
+test("the SSH access form fits a phone and shows Global as a real choice", async ({
+  page,
+}) => {
+  await sshFixture(page);
+  await page.goto(baseURL + "/settings/ssh");
+  await page.getByRole("button", { name: "Zugang hinzufügen", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expectFits(dialog);
+  const colour = (locator) =>
+    locator.evaluate((element) => getComputedStyle(element).color);
+  const owner = dialog.getByRole("combobox").first();
+  await expect(owner).toHaveValue("");
+  expect(await colour(owner)).toBe(
+    await colour(dialog.getByLabel("Name", { exact: true })),
+  );
 });
