@@ -124,7 +124,7 @@ const copy = {
     missing: "Missing: programs himalaya",
     needsShell: "Needs shell access",
     risk: "Warning: this skill can install code from outside",
-    shadowed: "Hidden by a skill of the same name",
+    shadowed: "Off for this agent: a skill of the same name",
     search: "Search skills",
     filter: "Show",
     ready: "Ready",
@@ -141,7 +141,7 @@ const copy = {
     missing: "Fehlt: Programme himalaya",
     needsShell: "Braucht Shell-Zugriff",
     risk: "Achtung: Dieser Skill kann fremden Code installieren",
-    shadowed: "Verdeckt von einem gleichnamigen Skill",
+    shadowed: "Für diesen Agenten aus: Ein gleichnamiger Skill",
     search: "Skills suchen",
     filter: "Anzeigen",
     ready: "Bereit",
@@ -203,6 +203,10 @@ for (const language of ["en", "de"])
         const github = subpage(page).locator(".toggle-row", {
           hasText: "Work with GitHub",
         });
+        // The emoji is decoration: the switch is named by the skill alone.
+        await expect(
+          subpage(page).getByRole("switch", { name: "github", exact: true }),
+        ).toHaveCount(1);
         await github.getByRole("switch").check();
         await saveBar(page, t.unsaved).getByRole("button", { name: t.save }).click();
         await expect(saveBar(page, t.unsaved)).toHaveCount(0);
@@ -215,9 +219,17 @@ for (const language of ["en", "de"])
       });
 
       test("the page says when the agent service is not running", async ({ page }) => {
-        await setup(page, { language, unavailable: true });
+        const state = await setup(page, { language, unavailable: true });
+        state.agent.skills = ["github"];
         await page.goto(baseURL + settingsPath("capabilities", "skills"));
         await expect(subpage(page)).toContainText(t.unavailable);
+        // A switched-on skill can still be switched off without the service.
+        const github = subpage(page).getByRole("switch", { name: "github" });
+        await expect(github).toBeChecked();
+        await github.uncheck();
+        await saveBar(page, t.unsaved).getByRole("button", { name: t.save }).click();
+        await expect(saveBar(page, t.unsaved)).toHaveCount(0);
+        expect(state.patches).toEqual([{ skills: [], revision: 1 }]);
       });
     });
 
