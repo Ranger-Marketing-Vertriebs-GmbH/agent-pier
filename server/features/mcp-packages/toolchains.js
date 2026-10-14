@@ -338,8 +338,9 @@ function toolchainName(root, entry) {
 /**
  * Removes this target's node-* and python-* toolchains that are neither the current
  * pins nor in `inUse` (toolchain directories, or paths inside them). Any entry that
- * cannot be resolved disables pruning; a held install lock skips it. Returns the
- * removed folder names.
+ * cannot be resolved disables pruning, and so does a root that is a link or no
+ * folder. It waits for installs in this process; another process holding the
+ * install lock skips it. Returns the removed folder names.
  */
 export async function pruneToolchains(
   dataDir,
@@ -347,14 +348,21 @@ export async function pruneToolchains(
   { platform, arch, glibc, manifest: m = toolchainManifest } = {},
 ) {
   try {
-    return await prune(dataDir, inUse, toolchainTarget({ platform, arch, glibc }), m);
+    const target = toolchainTarget({ platform, arch, glibc });
+    const root = path.resolve(toolchainRoot(dataDir));
+    return await serialized(root, () => prune(dataDir, inUse, target, m));
   } catch (error) {
     throw packageError(error, "MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE", 503);
   }
 }
 async function prune(dataDir, inUse, target, m) {
   const root = toolchainRoot(dataDir);
-  if (!fs.existsSync(root)) return [];
+  try {
+    // Never through a link: a moved or replaced root is left alone.
+    realDirectory(root, fs.realpathSync(root));
+  } catch {
+    return [];
+  }
   let release;
   try {
     release = acquireInstallLock({ runtimes: root });

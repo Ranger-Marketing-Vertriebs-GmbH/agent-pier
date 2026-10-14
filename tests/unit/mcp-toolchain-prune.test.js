@@ -86,3 +86,43 @@ test("pruning without any toolchains is a no-op", async (t) => {
   assert.deepEqual(await pruneToolchains(f.dataDir, [], host), []);
   assert.equal(fs.existsSync(toolchainRoot(f.dataDir)), false);
 });
+
+test("pruning waits for an install in this process instead of skipping", async (t) => {
+  const f = toolchainFixture(t);
+  const opts = {
+    dataDir: f.dataDir,
+    ...host,
+    download: f.download,
+    manifest: f.manifest,
+  };
+  await ensureToolchain("node", opts);
+  const root = toolchainRoot(f.dataDir);
+  fs.mkdirSync(path.join(root, stale[0]));
+  let started, open;
+  const downloading = new Promise((resolve) => (started = resolve));
+  const gate = new Promise((resolve) => (open = resolve));
+  const held = async (url) => {
+    started();
+    await gate;
+    return f.download(url);
+  };
+  const python = ensureToolchain("python", { ...opts, download: held });
+  await downloading;
+  const pruned = pruneToolchains(f.dataDir, [], { ...host, manifest: f.manifest });
+  open();
+  await python;
+  assert.deepEqual(await pruned, [stale[0]]);
+});
+
+test("pruning refuses a linked or non-folder toolchain root", async (t) => {
+  const { f, root, opts } = await installed(t);
+  const moved = path.join(f.root, "moved");
+  fs.renameSync(root, moved);
+  fs.symlinkSync(moved, root);
+  const before = listed(moved);
+  assert.deepEqual(await pruneToolchains(f.dataDir, [], opts), []);
+  assert.deepEqual(listed(moved), before);
+  fs.rmSync(root);
+  fs.writeFileSync(root, "");
+  assert.deepEqual(await pruneToolchains(f.dataDir, [], opts), []);
+});
