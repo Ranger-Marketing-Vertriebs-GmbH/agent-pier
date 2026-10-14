@@ -23,7 +23,7 @@ export async function fetchRegistryJson(url, { download = defaultDownload } = {}
 }
 
 export const npmPackument = (name, { registry = npmRegistry, download } = {}) =>
-  fetchRegistryJson(`${registry}/${name.replace("/", "%2F")}`, { download });
+  fetchRegistryJson(`${registry}/${name.replaceAll("/", "%2F")}`, { download });
 
 const isPrerelease = (version) => /-/.test(version.split("+")[0]);
 
