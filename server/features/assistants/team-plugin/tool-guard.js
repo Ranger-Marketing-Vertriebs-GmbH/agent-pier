@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { patchPaths } from "./patch-paths.js";
+export { patchPaths };
 // Files OpenClaw loads into every prompt as agent instructions. Native tools may
 // never rewrite them; AgentPier owns AGENTS.md and the owner edits USER.md.
 export const bootstrapFiles = [
@@ -16,21 +18,6 @@ export const bootstrapFiles = [
 // read, write, edit, apply_patch). apply_patch is implied wherever write is
 // allowed (writeAllowsApplyPatch), so it is guarded like write.
 export const writeTools = ["write", "edit", "apply_patch"];
-// apply_patch hunk headers (OpenClaw's parsePatchText, which trims each header).
-const patchHeader = /^\*\*\* (?:Add File|Delete File|Update File|Move to): (.*)$/;
-/**
- * Every path a patch could touch: each trimmed line that reads like a hunk header,
- * a superset of the hunks OpenClaw applies (a header-like content line only adds a
- * path to check). Null when there is none, which is never allowed.
- */
-export function patchPaths(input) {
-  if (typeof input !== "string") return null;
-  const paths = input
-    .split(/\r?\n/)
-    .map((line) => patchHeader.exec(line.trim())?.[1])
-    .filter((target) => target !== undefined);
-  return paths.length ? paths : null;
-}
 /** The tool call's targets, each as classifyWrite sees a single-path call. */
 export function writeTargets(toolName, params) {
   if (toolName !== "apply_patch") return [params];
@@ -74,7 +61,9 @@ export const workspaceId = (agentId) =>
 // Workspace-relative POSIX path, or null when the target cannot be proven to stay
 // inside the calling agent's own workspace.
 function relativeTarget(raw, roots, ownId) {
-  if (!raw || raw.includes("\0")) return null;
+  // No workspace file needs a control or line-separator character; a path holding
+  // one may be read differently by another parser, so it is never a target.
+  if (!raw || /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(raw)) return null;
   let target = raw.replaceAll("\\", "/");
   if (!target || /^(@|~|file:)/i.test(target)) return null;
   if (path.posix.isAbsolute(target)) {

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { hiddenHunks } from "../helpers/patch-cases.js";
 import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
@@ -169,7 +170,10 @@ async function nativeWriteGuard(t, f, { registrationMode = "full" } = {}) {
         {
           toolName: "apply_patch",
           params: {
-            input: ["*** Begin Patch", ...lines, "*** End Patch"].join("\n"),
+            input:
+              typeof lines === "string"
+                ? lines
+                : ["*** Begin Patch", ...lines, "*** End Patch"].join("\n"),
           },
         },
         ctx || { agentId, sessionKey: "session" },
@@ -409,6 +413,8 @@ test("apply_patch is guarded like write on every path it touches", async (t) => 
     ["   *** Add File: TOOLS.md", "+Planted"],
     // Without a recognizable hunk nothing is allowed.
     ["no hunk here"],
+    // Hunk headers holding a line separator (review B1), beside an ordinary hunk.
+    ...hiddenHunks,
   ])
     assert.equal(await patch(lines), false, JSON.stringify(lines));
   f.assistants.ledger.transition(direct.attemptId, "completed");
