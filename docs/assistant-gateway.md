@@ -4,9 +4,12 @@ For setup and everyday use, start with the [agents guide](agents.md).
 
 Status: operating guide for the optional managed agent subsystem. Agents are off
 until the owner turns them on; foundation, ChatGPT and provider accounts, Telegram
-with Deepgram, visible teams, team coding requests, native memory, reminders and
-routines are implemented. Service adapters (Gmail, Microsoft 365, Google Calendar,
-Apple) and a sandbox remain deferred. Date: 2026-10-08, updated 2026-10-09.
+with Deepgram, visible teams, team coding requests, lead questions and tasks with
+@-mentions, native memory, reminders, routines with the agent's tools, check-ins,
+web, browser and document tools, MCP servers, shell access, skills, agents' own
+Telegram bots, chat attachments and the advanced settings are implemented. Service
+adapters (Gmail, Microsoft 365, Google Calendar, Apple) and a sandbox remain
+deferred. Date: 2026-10-08, updated 2026-10-14.
 Companion to [ADR 0002](adr/0002-managed-openclaw-assistants.md) and the
 [status/recovery evidence](research/openclaw-status-recovery-spike.md).
 Chronological qualification and spike logs live in `docs/research/`:
@@ -21,8 +24,8 @@ ones) and temporary members grouped by team. A permanent member becomes a root a
 only when its lead is archived. The Agents directory manages profiles. Per-agent
 settings configure instructions, models, service access and team permission.
 
-Place shared service operation under **Settings > Agents > Agent service**. Call the
-main card **Assistant service**; show OpenClaw as its managed runtime, not another
+Place shared service operation under **Settings → Workspace → Agents → Agent
+service**. Call the main card **Agent service**; show OpenClaw as its managed runtime, not another
 application the user must administer. The card shows readiness, host, active work,
 restart preparation and diagnostics. Central model/service connections remain in
 AgentPier. Technical details such as protocol, pin and private state locations are
@@ -66,8 +69,8 @@ processes on the same native host are not an OS sandbox.
 
 ## Opt-in switch
 
-Agents are off by default. **Settings > Agents** carries the single switch ("Enable
-agents"). While it is off the subsystem is dormant: AgentPier creates no `assistants/`
+Agents are off by default. **Settings → Workspace → Agents** carries the single switch
+("Enable agents"). While it is off the subsystem is dormant: AgentPier creates no `assistants/`
 folder or database, starts no Gateway, poller, scheduler or background loop, installs
 or downloads nothing, and shows no agent navigation or account sections. Turning it
 on provisions the runtime and starts the service. The choice is stored in
@@ -153,7 +156,7 @@ live pid in it always ends in `OWNERSHIP_CONFLICT`. Resolve it by hand once: che
 the pid from the file (`ps -p <pid> -o pid,command`). If it is a leftover
 `openclaw-gateway` from this data directory, stop it (`kill <pid>`); if it is an
 unrelated process, leave it running. Then delete `assistants/owner.json` and start
-the service under Settings > Agents > Agent service. The next start writes a
+the service under Settings → Workspace → Agents → Agent service. The next start writes a
 complete record.
 
 Executable evidence reuses the release-cleanup process checks: `/proc/<pid>/exe`
@@ -194,7 +197,7 @@ The update workflow extends the current pinned installer:
    required Gateway contracts. A failed download or validation must leave the active
    selection intact. Do not run an upstream self-updater against managed files.
 2. Show current and target versions, affected assistants and blocking work under
-   Settings > Agents. Activation is explicit; downloading a candidate must not
+   Settings → Workspace → Agents → Agent service. Activation is explicit; downloading a candidate must not
    implicitly migrate live state. Include enabled existing installations in the
    normal AgentPier update path, not a developer-only setup command.
 3. Enter maintenance: gate new execution, coordinate Telegram/transcription/delivery
@@ -334,7 +337,7 @@ Sandbox design stays deferred as agreed. Remaining release checks are tracked in
 
 The foundation now provisions OpenClaw 2026.9.9 with Node 26.7.0 in private
 application data, starts one owned foreground Gateway, and waits for authenticated
-protocol readiness. It is optional: enabling it in Settings > Agents provisions
+protocol readiness. It is optional: enabling it in Settings → Workspace → Agents provisions
 the runtime; enabled installations provision the selected version at startup after
 an AgentPier update. Installation failures preserve the previous runtime selection.
 The current platform probes cover macOS arm64; the manifest also pins macOS x64
@@ -595,7 +598,7 @@ Known limits: AgentPier cannot tell third-party text pasted into the web compose
 from the owner's own words (only Telegram forwards are detected), and an owner
 message that mentions a team in another sense ("my team meets at three") can still
 be quoted by the model. The mitigation is visibility: the team card (in the proposal
-and under Settings → Work → Teams) and the Telegram start notice show "Started because you wrote: “…”" with the quote, and the owner
+and under the lead's agent settings → **Work → Teams**) and the Telegram start notice show "Started because you wrote: “…”" with the quote, and the owner
 can stop the team at any time.
 
 Default limits are four members, eight concurrent members per host and ten minutes
@@ -714,7 +717,7 @@ A lead reaches its own members without the owner relaying anything
   `MEMORY.md` and `memory/` stay read-only in every spelling the write guard repairs
   and through links in the workspace (`lead-request-writes.js`), so a task cannot
   plant instructions for the owner's own chats. Every other task runs read-only.
-  Settings → Work → Teams marks each task "may write" or "read-only".
+  The lead's agent settings → **Work → Teams** mark each task "may write" or "read-only".
 
 - **Limits.** At most 16 open requests per lead, 6 per lead and minute and 8 per
   owner turn (`RATE_LIMITED` beyond), so a member answer that keeps the lead asking
@@ -1598,7 +1601,9 @@ compiled web tools contract at the runner's preinstalled Google Chrome and fails
 when none is installed. The live provider
 test and the cross-version test stay manual. The browser matrix runs every
 `assistant*.spec.js` in Chromium and WebKit; a Playwright `tablet` project (820x1180,
-touch) repeats those specs at iPad size.
+touch) repeats those specs at iPad size. The slim `Assistant runtime (queue)` workflow
+(`assistant-runtime-queue.yml`) is the required merge-queue gate: it passes at once
+when no assistant runtime path changed and otherwise runs the core native contracts.
 
 Dependabot must never update `server/features/assistants/runtime-lock/`; the
 exclusion and the refresh procedure for security alerts there are described in

@@ -8,7 +8,7 @@ sandbox decisions remain deferred.
 
 ## Project access and actions
 
-In **Agents > agent > Settings > Projects and coding tasks**, select registered
+In the agent's settings, **Work → Projects and coding tasks**, select registered
 projects and pipelines, then save. All agents, including permanent team members,
 start with empty project access. In their team turns, team members can only
 request coding tasks on their parent's access (see below). Project access
@@ -31,7 +31,8 @@ revision invalidates pending proposals; ask the agent for a new proposal.
 Ask the agent to inspect project knowledge or propose a concrete coding task.
 The workspace tool first discovers the granted project/pipeline IDs. Approval
 shows the project, pipeline, exact task and optional base branch, or the exact
-memory change. Owner decisions are available in Agent Settings; Telegram-origin
+memory change. Owner decisions are available in the agent's settings (**Work → Actions and coding
+tasks**) and in its chat; Telegram-origin
 proposals also have approval buttons bound to the original channel/chat/user.
 Approvals expire after 24 hours. The model cannot grant itself access or accept
 human review gates inside pipelines. Forwarded Telegram messages are quoted data
@@ -51,7 +52,7 @@ members also have no reminder, routine or personal memory tools.
 A member's request always waits for your exact approval, even when the parent
 has standing permission to start pipelines. It appears in the parent's actions,
 in the parent's chat until decided, in the team's card under the parent's
-Settings → Work → Teams and, when a Telegram chat is bound (the chat that started
+agent settings → **Work → Teams** and, when a Telegram chat is bound (the chat that started
 the team, otherwise the parent's paired chat), as a Telegram
 approval linking to the team task. Telegram decisions must come from exactly
 that chat and user. Before the start AgentPier checks the parent's access and
