@@ -4,6 +4,8 @@ import { mcpPackageCopy as copy } from "../../lib/i18n/messages/mcp-packages.js"
 import { mcpServerCopy } from "../../lib/i18n/messages/mcp-servers.js";
 import "./mcp-packages.css";
 
+/** Nested copies of one package share name and version; their lock path tells them apart. */
+const dependencyKey = (entry) => entry.path ?? `${entry.name}@${entry.version}`;
 const shortIntegrity = (value) =>
   value && value.length > 24 ? `${value.slice(0, 24)}…` : value || "—";
 
@@ -23,7 +25,7 @@ function LockDiff({ diff }) {
             <span>{`${title} (${list.length})`}</span>
             <ul>
               {list.map((entry) => (
-                <li key={entry.name}>{text(entry)}</li>
+                <li key={dependencyKey(entry)}>{text(entry)}</li>
               ))}
             </ul>
           </div>
@@ -80,9 +82,7 @@ export default function McpPackageConfirmation({
         <summary>{copy.dependencies(preview.dependencyCount ?? 0)}</summary>
         <ul>
           {(preview.dependencies || []).map((entry) => (
-            <li key={`${entry.name}@${entry.version}`}>
-              {`${entry.name} ${entry.version}`}
-            </li>
+            <li key={dependencyKey(entry)}>{`${entry.name} ${entry.version}`}</li>
           ))}
         </ul>
       </details>
