@@ -105,7 +105,8 @@ test("a long relayed answer is read whole, or relayed as far as it goes with a n
     [(text) => text, (text) => text],
     [
       () => "[chat.history omitted: message too large]",
-      (text) => `${text.slice(0, 8000).trimEnd()}\n\nThe full reply is in AgentPier.`,
+      (text) =>
+        `${text.slice(0, 8000).trimEnd()}\n\nReply shortened – the rest could not be sent.`,
     ],
   ]) {
     const f = await telegramLead(t, "Please ask Member 0 what the budget is");

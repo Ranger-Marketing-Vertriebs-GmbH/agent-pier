@@ -112,10 +112,8 @@ test("a reply OpenClaw will not serve whole sends what there is and a note", asy
   const shown = visible(sends);
   assert.doesNotMatch(shown, /chat\.history|truncated/);
   assert.ok(shown.startsWith(reply.slice(0, 200).replace(/\*\*/g, "")));
-  assert.match(
-    sends.at(-1).text,
-    /^The full reply is in AgentPier\.\n\n<a href="https:\/\/pier\.example\/agents\//,
-  );
+  // The note says what is true: the rest was not sent (the chat shows no more).
+  assert.equal(sends.at(-1).text, "Reply shortened – the rest could not be sent.");
 });
 
 test("a reply replaced by the placeholder and unreadable alone sends only the note", async (t) => {
@@ -126,21 +124,44 @@ test("a reply replaced by the placeholder and unreadable alone sends only the no
   const entry = await fixture.deliver();
   assert.equal(entry.state, "delivered");
   assert.equal(fixture.sends.length, 1);
-  assert.match(fixture.sends[0].text, /^The full reply is in AgentPier\./);
+  assert.match(fixture.sends[0].text, /^Reply shortened – the rest could not be sent\.$/);
   // An unreadable single message keeps the page's 8000 characters and the note.
   await deliver();
   assert.ok(sends.length >= 2);
-  assert.match(sends.at(-1).text, /^The full reply is in AgentPier\./);
+  assert.match(sends.at(-1).text, /^Reply shortened – the rest could not be sent\.$/);
 });
 
-test("a reply beyond AgentPier's limit sends its first parts and a note", async (t) => {
+test("a reply beyond AgentPier's limit sends what OpenClaw serves and a note", async (t) => {
   const reply = longReply(200);
   assert.ok(reply.length > 65536);
   const { sends, deliver } = setup(t, reply);
   const entry = await deliver();
   assert.equal(entry.state, "delivered");
-  assert.equal(sends.length, maxReplyParts + 1);
-  assert.match(sends.at(-1).text, /^The full reply is in AgentPier\./);
+  assert.ok(sends.length > 16 && sends.length <= maxReplyParts + 1);
+  assert.equal(sends.at(-1).text, "Reply shortened – the rest could not be sent.");
   assert.match(visible(sends.slice(0, 1)), /^Part 0/);
   assert.doesNotMatch(visible(sends), /truncated/);
+});
+
+test("a whole reply needing many messages is sent without a note", async (t) => {
+  // Escaped "&" makes these 80 paragraphs need more than the old cap of 16.
+  const reply = Array.from(
+    { length: 80 },
+    (_, n) => `Part ${n}: ${"R&D & Q&A news. ".repeat(40)}`,
+  ).join("\n\n");
+  assert.ok(reply.length < 65536);
+  const { sends, deliver } = setup(t, reply);
+  await deliver();
+  assert.ok(sends.length > 16 && sends.length < maxReplyParts, `${sends.length}`);
+  assert.doesNotMatch(visible(sends), /Reply shortened/);
+  assert.match(visible(sends.slice(-1)), /Part 79/);
+});
+
+test("a whole reply beyond the flood bound stops at it with a note", async (t) => {
+  // Escaping makes each "&" five characters of HTML: far more parts than usual.
+  const reply = "&& ".repeat(21000);
+  const { sends, deliver } = setup(t, reply);
+  await deliver();
+  assert.equal(sends.length, maxReplyParts + 1);
+  assert.equal(sends.at(-1).text, "Reply shortened – the rest could not be sent.");
 });

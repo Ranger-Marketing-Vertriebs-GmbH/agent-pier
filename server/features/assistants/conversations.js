@@ -72,13 +72,22 @@ function hideInternal(messages, requests, contexts) {
 export async function conversationMessage(service, id, messageId) {
   const conversation = service.store.getConversation(id);
   const client = service.runtime.client;
-  if (!client?.ready || typeof messageId !== "string") return null;
+  const generation = service.runtime.generation;
+  // Like a history page: no read while the runtime is swapped or recovering.
+  const unsettled = () =>
+    service.maintenance ||
+    service.recovering ||
+    service.closed ||
+    service.runtime.generation !== generation ||
+    service.runtime.client !== client;
+  if (!client?.ready || typeof messageId !== "string" || unsettled()) return null;
   const page = await client.call("chat.history", {
     sessionKey: conversation.runtimeSessionKey,
     messageId,
     limit: 1,
     maxChars: historyTextLimit,
   });
+  if (unsettled()) return null;
   return publicMessages(page?.messages).find((m) => m.id === messageId)?.text ?? null;
 }
 export async function conversationHistory(service, id, { before, limit = 100 } = {}) {

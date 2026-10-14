@@ -35,6 +35,12 @@ test("a cut message is read on its own and the longer text wins", async () => {
   // Complete text is not read again.
   await completeMessage(assistants, "c1", { id: "m2", text: "Done." });
   assert.equal(asked.length, 1);
+  // A longer text that does not continue the page's is not the same message.
+  assistants.message = async () => "Something else, and much longer.";
+  assert.deepEqual(await completeMessage(assistants, "c1", page), {
+    text: "Hello",
+    cut: true,
+  });
   // A placeholder or failure alone keeps the page's text.
   assistants.message = async () => "[chat.history omitted: message too large]";
   assert.deepEqual(await completeMessage(assistants, "c1", page), {

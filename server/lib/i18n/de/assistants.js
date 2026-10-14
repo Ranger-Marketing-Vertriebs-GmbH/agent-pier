@@ -101,7 +101,7 @@ export const assistants = {
     "Die Entscheidung konnte nicht gespeichert werden. Versuche es in AgentPier erneut.",
   telegramReplyUnavailable:
     "Die Antwort enthält keinen Text. Öffne AgentPier, um sie anzusehen.",
-  telegramReplyIncomplete: "Die vollständige Antwort steht in AgentPier.",
+  telegramReplyIncomplete: "Antwort gekürzt – der Rest konnte nicht gesendet werden.",
   telegramInputNeedsReview: "Eine Nachricht braucht deine Aufmerksamkeit in AgentPier.",
   telegramPrivateBot:
     "Dieser Bot ist privat und antwortet nur der Person, mit der er verbunden ist.",

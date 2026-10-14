@@ -523,9 +523,10 @@ message cut with "...(truncated)..."). A reply the page cut is read again on its
 (`chat.history` with `messageId` and `maxChars` 65,536) before it goes to Telegram;
 lead relays do the same. If OpenClaw still cannot serve it whole (over 65,536
 characters, or its "message too large" placeholder), Telegram gets what is
-available, at most 16 parts, and a closing note that the full reply is in
-AgentPier, with a link when an address is set. Placeholders and cut markers are
-never sent. Replies are split into parts of at most 4,000 UTF-16 code units (see
+available and a closing note that the reply was shortened and the rest could not
+be sent (the AgentPier chat shows no more of it). A reply is sent in at most 40
+messages; beyond that bound the same note follows. Placeholders and cut markers
+are never sent. Replies are split into parts of at most 4,000 UTF-16 code units (see
 formatting below), preserving surrogate pairs. Each confirmed
 remote message ID is recorded before proceeding to the next part. Known rate limits
 wait for the provider's retry deadline.
