@@ -150,6 +150,49 @@ test("a host backup captures the MCP server store without values, tokens or logi
   assert.ok(login.id);
 });
 
+test("a host backup keeps the package source of a packaged server", async (t) => {
+  const { folder, dataDir } = temporary(t);
+  const servers = open(dataDir);
+  const packaged = servers.create(
+    { name: "packaged", transport: "stdio", args: ["--x"] },
+    {
+      pendingCommand: true,
+      packageRecord: {
+        registry: "npm",
+        name: "server-x",
+        version: "1.0.0",
+        program: "server-x",
+        programPath: "index.js",
+        allowScripts: false,
+        lock: "{}",
+        lockDigest: "d".repeat(64),
+        integrity: "sha512-x",
+        status: "installing",
+      },
+    },
+  );
+  servers.close();
+  const { file } = await new Backup({ dataDir }).create({});
+  const member = loadArchive(file).files.find(
+    (m) => m.path === "mcp-servers/servers.sqlite",
+  );
+  const copy = path.join(folder, "copy.sqlite");
+  fs.writeFileSync(copy, Buffer.from(member.content, "base64"));
+  assert.deepEqual(
+    rows(copy, "SELECT server_id,name,version,status,install_id FROM server_packages"),
+    [
+      {
+        server_id: packaged.id,
+        name: "server-x",
+        version: "1.0.0",
+        status: "installing",
+        install_id: null,
+      },
+    ],
+  );
+  assert.equal(rows(copy, "SELECT command FROM servers")[0].command, null);
+});
+
 test("with credentials the values are sealed and a restore brings them back exactly", async (t) => {
   const { folder, dataDir } = temporary(t);
   const { docs, local, before } = seed(dataDir);

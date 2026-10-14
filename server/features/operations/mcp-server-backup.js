@@ -41,6 +41,24 @@ const knownColumns = {
   oauth_logouts: ["name", "url", "transport"],
   oauth_logout_history: ["name", "url", "transport", "at"],
   cli_entries: ["server_id", "cli", "name", "hash", "pending_hash", "written_at"],
+  server_packages: [
+    "server_id",
+    "registry",
+    "name",
+    "version",
+    "program",
+    "program_path",
+    "allow_scripts",
+    "lock",
+    "lock_digest",
+    "integrity",
+    "install_id",
+    "leading_args",
+    "toolchain_dir",
+    "status",
+    "error_code",
+    "updated_at",
+  ],
 };
 const knownIndexes = new Set(["bindings_target"]);
 // What percent-encoding can make of the 4096 characters the store accepts.

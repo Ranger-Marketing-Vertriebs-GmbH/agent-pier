@@ -145,7 +145,15 @@ export class McpChanges {
     return this.servers.list();
   }
   /** `clis`: the coding CLIs the new server is bound to in the same write. */
-  create(input, { confirmStdio = false, clis = [] } = {}) {
+  create(
+    input,
+    {
+      confirmStdio = false,
+      clis = [],
+      pendingCommand = false,
+      packageRecord = null,
+    } = {},
+  ) {
     return this.assistants.admit(async () => {
       // A reference is refused before the owner is asked to confirm a local command.
       requireLiteralValues(input);
@@ -153,6 +161,8 @@ export class McpChanges {
         requireStdioConfirmation(confirmStdio === true);
       const server = this.servers.create(input, {
         bind: clis.map((cli) => ["cli", cli]),
+        pendingCommand,
+        packageRecord,
       });
       // Unbound servers are not compiled; nothing to apply.
       return server;
