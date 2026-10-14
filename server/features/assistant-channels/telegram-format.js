@@ -64,39 +64,112 @@ const closing = (stack) =>
     .map((t) => `</${t.name}>`)
     .reverse()
     .join("");
+// Where a part may end, best first: between paragraphs, lines, sentences, words.
+const paragraph = 4,
+  line = 3,
+  sentence = 2,
+  word = 1;
+// Links and inline code are never split while another break fits; a code block
+// only at a line break, where closing and reopening it shows two clean blocks.
+const atomic = (stack) =>
+  stack.some(
+    (t, n) => t.name === "a" || (t.name === "code" && stack[n - 1]?.name !== "pre"),
+  );
+const inBlock = (stack) => stack.some((t) => t.name === "pre");
 /**
- * Splits Telegram HTML into parts of at most `limit` code units. A part never
- * ends inside a tag, entity or surrogate pair; open tags are closed at the end
- * of a part and reopened at the start of the next one.
+ * Splits Telegram HTML into parts of at most `limit` code units (Telegram allows
+ * 4096 characters of visible text; markup only adds to the length counted here).
+ * A part ends at the best break that leaves it at least half full: a blank line,
+ * a line break, a sentence end, then a space, preferring breaks outside any tag
+ * and never inside a link or inline code. The whitespace of that break is
+ * dropped. Only text without any such break is cut at the limit, and never inside
+ * a tag, entity or surrogate pair. Tags open at a break are closed at the end of
+ * the part and reopened at the start of the next one.
  */
 export function splitTelegramHtml(html, limit = 4000) {
-  const parts = [];
-  let stack = [],
-    chunk = "",
-    content = null;
-  const flush = () => {
-    // Opening tags after the last visible character move to the next part.
-    if (content) parts.push(chunk.slice(0, content.length) + closing(content.stack));
-  };
-  for (const [token] of html.matchAll(tokenPattern)) {
-    const tag = token.length > 1 && token.startsWith("<");
-    const next = !tag
-      ? stack
-      : token.startsWith("</")
+  const tokens = [];
+  let stack = [];
+  for (const [text] of html.matchAll(tokenPattern)) {
+    const tag = text.length > 1 && text.startsWith("<");
+    // `before`: the tags open where this token starts.
+    tokens.push({ text, tag, before: stack });
+    if (tag)
+      stack = text.startsWith("</")
         ? stack.slice(0, -1)
-        : [...stack, { name: /^<([a-z]+)/.exec(token)?.[1] || "", open: token }];
-    if (content && chunk.length + token.length + closing(next).length > limit) {
-      flush();
-      chunk = stack.map((t) => t.open).join("");
-      content = null;
-    }
-    chunk += token;
-    stack = next;
-    if (!tag) content = { length: chunk.length, stack };
+        : [...stack, { name: /^<([a-z]+)/.exec(text)?.[1] || "", open: text }];
   }
-  flush();
-  return parts;
+  const stackAt = (n) => (n < tokens.length ? tokens[n].before : stack);
+  const space = (n) => !tokens[n].tag && /^\s$/.test(tokens[n].text);
+  const parts = [];
+  let start = 0;
+  while (start < tokens.length) {
+    const opening = stackAt(start)
+      .map((t) => t.open)
+      .join("");
+    // The furthest end (exclusive) whose part fits, and every break before it.
+    let length = opening.length,
+      end = start,
+      breaks = [];
+    for (let n = start; n < tokens.length; n++) {
+      if (n > start && space(n) && !space(n - 1)) {
+        let after = n;
+        while (after < tokens.length && space(after)) after++;
+        const run = tokens
+          .slice(n, after)
+          .map((t) => t.text)
+          .join("");
+        const lines = run.split("\n").length - 1;
+        const at = stackAt(n);
+        const tier =
+          lines > 1
+            ? paragraph
+            : lines
+              ? line
+              : /[.!?…:;]$/.test(tokens[n - 1].text)
+                ? sentence
+                : word;
+        if (!atomic(at) && (!inBlock(at) || lines))
+          breaks.push({ cut: n, next: after, tier, bare: !at.length, length });
+      }
+      const grown = length + tokens[n].text.length;
+      if (grown + closing(stackAt(n + 1)).length > limit) break;
+      length = grown;
+      end = n + 1;
+    }
+    if (end === tokens.length) {
+      parts.push(opening + body(start, end) + closing(stack));
+      break;
+    }
+    // A break leaving the part at least half full; otherwise the best one at all.
+    const half = opening.length + (length - opening.length) / 2;
+    const chosen = best(breaks.filter((b) => b.length >= half)) || best(breaks);
+    let cut = chosen?.cut ?? Math.max(end, start + 1),
+      next = chosen?.next ?? cut;
+    // A hard cut leaves tags opened right before it to the next part.
+    if (!chosen)
+      while (
+        cut > start + 1 &&
+        tokens[cut - 1].tag &&
+        !tokens[cut - 1].text.startsWith("</")
+      )
+        next = --cut;
+    parts.push(opening + body(start, cut) + closing(stackAt(cut)));
+    start = next;
+  }
+  // Markup or whitespace alone is no message.
+  return parts.filter((part) => /\S/.test(visibleText(part)));
+  function body(from, to) {
+    let text = "";
+    for (let n = from; n < to; n++) text += tokens[n].text;
+    return text;
+  }
 }
+// The best break: by tier, then outside any tag; the latest among equals keeps
+// parts full.
+const rank = (b) => b.tier * 2 + (b.bare ? 1 : 0);
+const best = (breaks) =>
+  breaks.reduce((top, b) => (!top || rank(b) >= rank(top) ? b : top), null);
+const visibleText = (html) => html.replace(/<[^>]*>/g, "");
 const entities = { amp: "&", lt: "<", gt: ">", quot: '"' };
 const decode = (text) => text.replace(/&(amp|lt|gt|quot);/g, (_, name) => entities[name]);
 const stripTags = (text) => {
