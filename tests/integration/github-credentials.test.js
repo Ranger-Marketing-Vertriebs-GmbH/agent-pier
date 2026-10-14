@@ -80,8 +80,19 @@ test("per-host credentials select defaults and nearest cloned project without ex
   ])
     assert.equal(result.env[key], undefined);
   assert.equal(result.env.GIT_CONFIG_VALUE_0, "false");
-  assert.equal(result.env.GIT_CONFIG_COUNT, "5");
-  assert.match(result.env.GIT_CONFIG_KEY_1, /credential\.https:\/\/github.com\.helper/);
+  // Per host: reset the helper list, AgentPier's helper, then the quit fallback.
+  assert.equal(result.env.GIT_CONFIG_COUNT, "7");
+  for (const index of [1, 2, 3])
+    assert.match(
+      result.env[`GIT_CONFIG_KEY_${index}`],
+      /credential\.https:\/\/github.com\.helper/,
+    );
+  assert.equal(result.env.GIT_CONFIG_VALUE_1, "");
+  assert.match(
+    result.env.GIT_CONFIG_VALUE_2,
+    /server\/github-credentials\.js' --git-credential$/,
+  );
+  assert.match(result.env.GIT_CONFIG_VALUE_3, /^!echo quit=1 # /);
   assert.equal(
     fs.statSync(path.join(result.env.GH_CONFIG_DIR, "hosts.yml")).mode & 0o777,
     0o600,

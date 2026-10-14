@@ -13,11 +13,24 @@ import {
   readJson,
   writeJsonAtomic,
 } from "../../../vendor/agentbus/core/fsx.js";
-const modulePath = fileURLToPath(import.meta.url);
-const disabledToken = "agentpier-disabled-no-token";
+import {
+  disabledToken,
+  gitCredential,
+  nativeHost,
+  runGitCredentialCommand,
+  validId,
+} from "./session-git-credential.js";
+export { gitCredential, runGitCredentialCommand };
+// git starts the helper through this stable, dependency-light entry point.
+const helperPath = fileURLToPath(new URL("../../github-credentials.js", import.meta.url));
 const disabledConfig = "agentpier-disabled";
-const validId = (id) =>
-  typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
+// Runs after our helper for each selected host. git consults it only when ours
+// returned no credential (revoked token, unreadable session files, helper failure)
+// and then fails at once instead of prompting for a user name inside the agent's
+// pane. The comment swallows the operation git appends and names the cause in
+// git's "told us to quit" error. Other hosts keep the user's own git behaviour.
+const quitHelper =
+  "!echo quit=1 # AgentPier has no usable GitHub access for this host in this session";
 
 const tokenKeys = [
   "GH_TOKEN",
@@ -28,34 +41,6 @@ const tokenKeys = [
   "GH_REPO",
   "GH_DEBUG",
 ];
-// Native gh rejects ports and normalizes github.com / ghe.com API subdomains.
-// Only canonical host names can therefore have independent credentials.
-function nativeHost(origin) {
-  try {
-    const url = new URL(origin);
-    const host = url.hostname.toLowerCase();
-    if (
-      url.protocol !== "https:" ||
-      url.port ||
-      url.username ||
-      url.password ||
-      url.pathname !== "/" ||
-      url.search ||
-      url.hash ||
-      !host ||
-      !/^[a-z0-9.-]+$/.test(host)
-    )
-      return null;
-    if (
-      host.endsWith(".github.com") ||
-      (host.endsWith(".ghe.com") && host.split(".").length !== 3)
-    )
-      return null;
-    return host;
-  } catch {
-    return null;
-  }
-}
 export class GithubCredentials {
   constructor({ dataDir, repositories, resolveGh } = {}) {
     this.dataDir = fs.realpathSync(dataDir);
@@ -140,16 +125,18 @@ export class GithubCredentials {
     if (purpose === "login" || !["claude", "codex", "opencode"].includes(account?.tool))
       return launch;
     const canonical = fs.realpathSync(cwd);
+    const selections = this.selections(canonical);
     const folder = this.folder(id);
     ensureDir(this.directory);
     if (fs.existsSync(folder) && !replace)
       throw problem(serverMessages.repositories.sessionConfigAlreadyExists, 409);
     if (replace) fs.rmSync(folder, { recursive: true, force: true });
     ensureDir(folder);
-    const selections = this.selections(canonical);
     const env = { ...launch.env };
     for (const key of tokenKeys) delete env[key];
-    env.GH_CONFIG_DIR = folder;
+    // Without a selected connection AgentPier provides no GitHub access, so native
+    // gh keeps the user's own configuration, as git keeps the user's helpers.
+    if (selections.length) env.GH_CONFIG_DIR = folder;
     env.PATH = [
       ...(env.PATH || "").split(path.delimiter),
       path.join(this.dataDir, "clis/gh/bin"),
@@ -170,9 +157,9 @@ export class GithubCredentials {
       let count = Number(env.GIT_CONFIG_COUNT || 0);
       if (!Number.isSafeInteger(count) || count < 0 || count > 256)
         throw problem(serverMessages.repositories.invalidTemporaryGitConfig);
-      const helper = `!${quote(process.execPath)} ${quote(modulePath)} --git-credential`;
+      const helper = `!${quote(process.execPath)} ${quote(helperPath)} --git-credential`;
       for (const { host } of selections)
-        for (const value of ["", helper]) {
+        for (const value of ["", helper, quitHelper]) {
           env[`GIT_CONFIG_KEY_${count}`] = `credential.https://${host}.helper`;
           env[`GIT_CONFIG_VALUE_${count}`] = value;
           count++;
@@ -197,7 +184,7 @@ export class GithubCredentials {
     return [
       { access: "allow", path: folder },
       { access: "read", path: process.execPath },
-      { access: "read", path: modulePath },
+      { access: "read", path: helperPath },
     ].reduce((granted, grant) => addGrant(granted, grant), { ...launch, env });
   }
   disable(folder) {
@@ -274,67 +261,7 @@ export class GithubCredentials {
     }
   }
 }
-// An inert value for revoked hosts prevents native gh falling back to the
-// global keychain. Our helper rejects it and returns no credentials.
-// Unlike gh's helper this deliberately never falls back to the system keyring
-// after a configured token has been revoked. It accepts only exact HTTPS hosts.
-export function gitCredential(input, env = process.env, operation = "get") {
-  if (operation !== "get" || input.length > 65536) return "";
-  const fields = {};
-  for (const line of input.split("\n")) {
-    if (!line) break;
-    const at = line.indexOf("=");
-    if (at < 0) continue;
-    const key = line.slice(0, at);
-    if (Object.hasOwn(fields, key)) return "";
-    fields[key] = line.slice(at + 1);
-  }
-  if (
-    fields.protocol !== "https" ||
-    !fields.host ||
-    nativeHost(`https://${fields.host}`) !== fields.host
-  )
-    return "";
-  try {
-    const folder = env.GH_CONFIG_DIR;
-    if (
-      !path.isAbsolute(folder) ||
-      path.basename(path.dirname(folder)) !== "github-sessions" ||
-      !validId(path.basename(folder))
-    )
-      return "";
-    const selection = readJson(path.join(folder, "selection.json"));
-    if (
-      selection.id !== path.basename(folder) ||
-      !Array.isArray(selection.selections) ||
-      !selection.selections.some(
-        (item) => item?.host === fields.host && validId(item.credentialId),
-      )
-    )
-      return "";
-    const hosts = readJson(path.join(folder, "hosts.yml"));
-    const token = hosts[fields.host]?.oauth_token;
-    if (
-      typeof token !== "string" ||
-      !token ||
-      token === disabledToken ||
-      /[\x00-\x1f\x7f]/.test(token)
-    )
-      return "";
-    return `username=x-access-token\npassword=${token}\n\n`;
-  } catch {
-    return "";
-  }
-}
-export async function runGitCredentialCommand() {
-  let input = "";
-  for await (const chunk of process.stdin) {
-    input += chunk;
-    if (input.length > 65536) break;
-  }
-  process.stdout.write(gitCredential(input, process.env, process.argv[3]));
-}
-
 if (isMainModule(import.meta.url) && process.argv[2] === "--git-credential") {
+  // Sessions configured before the helper moved to server/github-credentials.js.
   await runGitCredentialCommand();
 }
