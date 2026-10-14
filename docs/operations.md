@@ -1,10 +1,10 @@
 # AgentPier operations and portability
 
-The implementation uses AgentPier's own account, memory, pipeline, terminal and service boundaries. The supplied AgentRunner source was reviewed read-only; its Docker checks, secret-store format and newest-two release pruning were not copied.
+How AgentPier stores, backs up, restores and moves its data, and how release packages and the installer work. For everyday use see [backups](backups.md), [installation](installation.md) and [Stable and Preview releases](release-channels.md).
 
 ## Storage and consistency
 
-Backups are versioned `.apbackup` archives with explicit regular-file members, SHA-256 content checksums, capture metadata and omissions. Version 2 is a streamed tar.gz without an overall size limit (see `docs/backups.md`); version 1 gzip/JSON archives, bounded to 256 MiB and 20,000 members, remain restorable. The encrypted credential capsule stays bounded. They are private data, including task/history content; “credentials excluded” does not mean arbitrary user text is universally redacted.
+Backups are versioned `.apbackup` archives with explicit regular-file members, SHA-256 content checksums, capture metadata and omissions. Version 2 is a streamed tar.gz without an overall size limit (see [backups](backups.md)); version 1 gzip/JSON archives, bounded to 256 MiB and 20,000 members, remain restorable. The encrypted credential capsule stays bounded. They are private data, including task/history content; “credentials excluded” does not mean arbitrary user text is universally redacted.
 
 The application mutation barrier drains application writes and pipeline transitions before synchronous metadata/SQLite capture. Encryption and compression follow after releasing it. Independent native processes continue running. Each SQLite database is a transactional `VACUUM INTO` snapshot; history files are captured prefixes at recorded times. There is no claim of one globally atomic snapshot across independent native writers. SQLite documents this distinction: [VACUUM INTO](https://www.sqlite.org/lang_vacuum.html).
 
@@ -13,7 +13,7 @@ Included application components are accounts, repository metadata, preferences, 
 File Explorer Trash, operation journals and transfer bytes are excluded even when
 credentials are included. An application backup is not a File Explorer recovery export;
 restore needed files from Trash first and transfer project/file content separately. See
-the [File Explorer guide](../file-explorer.md#storage-and-backups).
+the [File Explorer guide](file-explorer.md#storage-and-backups).
 
 The memory snapshot is sanitized before publication: capability rows and their token hashes are removed from the temporary copy and vacuumed. The live database and live capability files remain unchanged. Runtime request channels, native binding hooks, GitHub session credentials, push subscriptions/VAPID data, sockets, process identities, platform binaries, external local CLI profiles, keychains and repository worktrees are excluded.
 
@@ -94,6 +94,6 @@ node scripts/operations.mjs release-activate --staged-id STAGED_ID
 node scripts/operations.mjs release-rollback --version 1.0.0
 ```
 
-Passphrase-stdin consumes one bounded line; supply it through a password manager or private stdin, not a literal secret in shell history. CLI operation failures exit nonzero. The API schema and UI job semantics are in [operations-contracts.md](../refactor/operations-contracts.md).
+Passphrase-stdin consumes one bounded line; supply it through a password manager or private stdin, not a literal secret in shell history. CLI operation failures exit nonzero. The API schema and UI job semantics are in [operations-contracts.md](refactor/operations-contracts.md).
 
 Initial installation with `--service` waits for the installed version at `/api/health`. If health fails, the installer reports failure and preserves the selected release and data directory for inspection; service registration alone is not reported as a healthy installation.

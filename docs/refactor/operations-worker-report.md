@@ -4,7 +4,7 @@ The operations backend, HTTP API, CLI, release packaging, installer and service 
 
 ## Contracts and delivered behavior
 
-The complete HTTP schemas are in [operations-contracts.md](operations-contracts.md). Operational commands, portable storage boundaries and restore/release limitations are in [operations-portability.md](../research/operations-portability.md).
+The complete HTTP schemas are in [operations-contracts.md](operations-contracts.md). Operational commands, portable storage boundaries and restore/release limitations are in [operations-portability.md](../operations.md).
 
 - `Operations({config,audit,withSnapshotBarrier,doctorOptions,releaseOptions})` supplies shared diagnostics, persistent jobs, backups, fresh-target restore, imported AgentBus history and versioned releases. Root mounts `operationsRoutes` outside the ordinary mutation lease so backup capture can acquire its exclusive snapshot barrier.
 - Diagnostics use bounded local checks and read-only SQLite checks. Deep mode selects full SQLite integrity checking; it does not probe remote credentials or manufacture service health.

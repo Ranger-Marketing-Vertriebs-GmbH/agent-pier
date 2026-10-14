@@ -94,20 +94,20 @@ Read the [pipeline guide](docs/pipelines.md) for lifecycle and recovery details.
 
 ## Installation and operation
 
-| Task                                              | Guide                                                 |
-| ------------------------------------------------- | ----------------------------------------------------- |
-| macOS / Mac mini installation                     | [Installation](docs/installation.md)                  |
-| Linux and systemd                                 | [Linux](docs/linux.md)                                |
-| Private remote access (Tailscale or network mode) | [Remote access](docs/remote-access.md)                |
-| Reload and resume                                 | [Session reload](docs/session-reload.md)              |
-| SSH server accesses                               | [SSH access](docs/ssh-access.md)                      |
-| Optional per-session nono sandbox                 | [Sandboxing](docs/sandbox.md)                         |
-| Login and user recovery                           | [Login](docs/login.md)                                |
-| Delivery status and draft recovery                | [Mobile delivery](docs/mobile-delivery.md)            |
-| Terminal, chat and upload recovery                | [Mobile recovery](docs/mobile-recovery.md)            |
-| File browsing, editing and operation recovery     | [File Explorer](docs/file-explorer.md)                |
-| Backups, release packages and updates             | [Operations](docs/research/operations-portability.md) |
-| All features, in German                           | [German guide](README.de.md)                          |
+| Task                                              | Guide                                      |
+| ------------------------------------------------- | ------------------------------------------ |
+| macOS / Mac mini installation                     | [Installation](docs/installation.md)       |
+| Linux and systemd                                 | [Linux](docs/linux.md)                     |
+| Private remote access (Tailscale or network mode) | [Remote access](docs/remote-access.md)     |
+| Reload and resume                                 | [Session reload](docs/session-reload.md)   |
+| SSH server accesses                               | [SSH access](docs/ssh-access.md)           |
+| Optional per-session nono sandbox                 | [Sandboxing](docs/sandbox.md)              |
+| Login and user recovery                           | [Login](docs/login.md)                     |
+| Delivery status and draft recovery                | [Mobile delivery](docs/mobile-delivery.md) |
+| Terminal, chat and upload recovery                | [Mobile recovery](docs/mobile-recovery.md) |
+| File browsing, editing and operation recovery     | [File Explorer](docs/file-explorer.md)     |
+| Backups, release packages and updates             | [Operations](docs/operations.md)           |
+| All features, in German                           | [German guide](README.de.md)               |
 
 Versioned packages include their own Node runtime. Source installation remains
 available using the commands above. Follow the release and installation guides
