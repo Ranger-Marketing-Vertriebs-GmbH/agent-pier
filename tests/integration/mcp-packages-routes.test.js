@@ -178,6 +178,7 @@ test("a packaged server refuses a new source and detaches only to an own command
   const { request, updates, audit } = await app(t, {
     mcpPackages: {
       isPackaged: () => true,
+      ownerArgs: () => [],
       detach: async (id, update) => {
         await update();
         detached.push(id);
@@ -206,7 +207,7 @@ test("a packaged server refuses a new source and detaches only to an own command
   assert.deepEqual(updates, [
     {
       id: "s1",
-      input: { revision: 3, command: "/bin/sh" },
+      input: { revision: 3, command: "/bin/sh", args: [] },
       options: { confirmStdio: true },
     },
   ]);
@@ -238,6 +239,37 @@ test("an edit of a packaged server goes through prepareUpdate; delete prunes", a
   assert.equal(pruned, 1);
 });
 
+test("a detach without args keeps only the owner's args", async (t) => {
+  const { request, updates } = await app(t, {
+    mcpPackages: {
+      isPackaged: () => true,
+      ownerArgs: () => ["--owner"],
+      detach: async (_id, update) => update(),
+    },
+  });
+  const kept = await request("PUT", "/api/mcp-servers/s1", {
+    revision: 3,
+    source: null,
+    command: "/bin/sh",
+    confirmStdio: true,
+  });
+  assert.equal(kept.status, 200);
+  assert.deepEqual(updates[0].input, {
+    revision: 3,
+    command: "/bin/sh",
+    args: ["--owner"],
+  });
+  const replaced = await request("PUT", "/api/mcp-servers/s1", {
+    revision: 3,
+    source: null,
+    command: "/bin/sh",
+    args: ["--new"],
+    confirmStdio: true,
+  });
+  assert.equal(replaced.status, 200);
+  assert.deepEqual(updates[1].input.args, ["--new"]);
+});
+
 test("a detach to an unconfirmed own command asks for the stdio confirmation", async (t) => {
   const { request, audit } = await app(t, {
     mcpServerChanges: {
@@ -247,6 +279,7 @@ test("a detach to an unconfirmed own command asks for the stdio confirmation", a
     },
     mcpPackages: {
       isPackaged: () => true,
+      ownerArgs: () => [],
       detach: async (_id, update) => update(),
     },
   });

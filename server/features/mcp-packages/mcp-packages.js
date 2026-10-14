@@ -220,7 +220,6 @@ export class McpPackages {
   install(serverId, options) {
     return runInstall(this, serverId, options);
   }
-  /** Generated args stored in front of the owner's; 0 before the first install. */
   /** Refuses while a job runs for `id` or a detach is switching it away. */
   requireIdle(id) {
     if (this.jobs.get(id)?.state === "running" || this.detaching.has(id))
@@ -236,6 +235,11 @@ export class McpPackages {
     if (switching && this.servers.get(id).revision === switching.revision)
       return switching.before;
     return row?.installId ? row.leadingArgs : 0;
+  }
+  /** The server's args without the generated ones in front: what the owner entered. */
+  ownerArgs(id) {
+    const args = this.servers.get(id)?.args || [];
+    return args.slice(this.storedLeading(id, this.records.get(id)));
   }
   prepareUpdate(id, input) {
     const row = this.records.get(id);

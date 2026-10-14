@@ -228,6 +228,15 @@ test("an owner edit with the switched revision keeps the generated args", async 
   await service.jobs.idle();
 });
 
+test("owner args drop the generated leading args of a ready package", async (t) => {
+  const { service, rows } = harness(t);
+  assert.deepEqual(service.ownerArgs("s1"), ["--flag"]);
+  await attach(service);
+  await service.jobs.idle();
+  assert.match(rows.get("s1").args[0], /node_modules\/x\/index\.js$/);
+  assert.deepEqual(service.ownerArgs("s1"), ["--flag"]);
+});
+
 test("a busy server refuses before its preview is taken or a stage is made", async (t) => {
   const reached = deferred();
   const held = deferred();
