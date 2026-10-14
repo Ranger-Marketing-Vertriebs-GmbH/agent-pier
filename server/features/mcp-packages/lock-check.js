@@ -33,9 +33,14 @@ export function checkNpmLock(text, { ref, integrity, registry }) {
     .sort((a, b) => a.length - b.length);
   for (const key of keys) {
     const entry = lock.packages[key];
-    if (!key.startsWith("node_modules/") || key.split("/").includes(".."))
+    if (
+      !key.startsWith("node_modules/") ||
+      key.includes("\\") ||
+      key.split("/").some((part) => part === "" || part === "." || part === "..")
+    )
       throw foreign();
     if (!entry || typeof entry !== "object" || entry.link) throw foreign();
+    if (typeof entry.version !== "string") throw foreign();
     if (entry.hasInstallScript) needsScripts = true;
     if (entry.inBundle) {
       const parent = [...trusted].some((owner) =>
@@ -49,7 +54,7 @@ export function checkNpmLock(text, { ref, integrity, registry }) {
         throw foreign();
     }
     trusted.add(key);
-    dependencies.push({ name: nameOf(key), version: String(entry.version) });
+    dependencies.push({ name: nameOf(key), version: entry.version });
   }
   const top = lock.packages[`node_modules/${ref.name}`];
   if (!top || top.version !== ref.version || top.integrity !== integrity)

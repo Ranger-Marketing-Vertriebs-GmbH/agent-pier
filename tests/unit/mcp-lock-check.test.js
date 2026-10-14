@@ -73,6 +73,63 @@ test("bundled children are accepted only under a hashed parent", () => {
   );
 });
 
+const check = (extra) =>
+  checkNpmLock(lock(extra), { ref, integrity: "sha512-server-x", registry });
+
+test("bundled entries outside a hashed parent or with a source are refused", () => {
+  for (const extra of [
+    { "node_modules/b": { version: "1.0.0", inBundle: true } },
+    {
+      "node_modules/server-x/node_modules/b": {
+        version: "1.0.0",
+        inBundle: true,
+        resolved: "https://evil.example/b.tgz",
+      },
+    },
+    { "node_modules/other/node_modules/b": { version: "1.0.0", inBundle: true } },
+    { "node_modules/a": null },
+  ])
+    assert.throws(() => check(extra), { code: "MCP_PACKAGE_FOREIGN_SOURCE" });
+});
+
+test("nested bundles under a hashed root are accepted", () => {
+  assert.doesNotThrow(() =>
+    check({
+      "node_modules/server-x/node_modules/b": { version: "1.0.0", inBundle: true },
+      "node_modules/server-x/node_modules/b/node_modules/c": {
+        version: "1.0.0",
+        inBundle: true,
+      },
+    }),
+  );
+});
+
+test("a lock without a packages object is malformed", () => {
+  const options = { ref, integrity: "sha512-server-x", registry };
+  assert.throws(
+    () => checkNpmLock(JSON.stringify({ lockfileVersion: 3, packages: null }), options),
+    { code: "MCP_PACKAGE_INSTALL_FAILED" },
+  );
+});
+
+test("non-string versions and odd key segments are refused", () => {
+  assert.throws(
+    () => check({ "node_modules/a": { ...entry("a", "1.0.0"), version: 1 } }),
+    {
+      code: "MCP_PACKAGE_FOREIGN_SOURCE",
+    },
+  );
+  for (const key of [
+    "node_modules//a",
+    "node_modules/./a",
+    "node_modules/a/../b",
+    "node_modules\\a",
+  ])
+    assert.throws(() => check({ [key]: entry("a", "1.0.0") }), {
+      code: "MCP_PACKAGE_FOREIGN_SOURCE",
+    });
+});
+
 test("a top-level integrity that differs from the registry is refused", () => {
   assert.throws(
     () => checkNpmLock(lock({}), { ref, integrity: "sha512-other", registry }),
