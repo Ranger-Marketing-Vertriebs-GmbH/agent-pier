@@ -26,9 +26,9 @@ export const advancedSettings = Object.freeze([
     path: "agents.defaults.timeoutSeconds",
     group: "runs",
     schema: { type: "integer", minimum: 0, maximum: unbounded },
-    // 0 would let a turn run forever and hold its conversation; one minute is the
-    // shortest turn a tool call still fits into.
-    limits: { minimum: 60, maximum: 7 * 24 * 3600 },
+    // 0 would let a turn run forever and hold its conversation. Below five minutes
+    // one mistyped digit would abort nearly every tool-using turn of every agent.
+    limits: { minimum: 300, maximum: 7 * 24 * 3600 },
     unit: "seconds",
     reloadKind: "hot",
     fallback: 48 * 3600,
@@ -76,7 +76,9 @@ export const advancedSettings = Object.freeze([
     path: "agents.defaults.imageMaxDimensionPx",
     group: "media",
     schema: { type: "integer", exclusiveMinimum: 0, maximum: unbounded },
-    limits: { minimum: 256, maximum: 8192 },
+    // Providers refuse larger images once a request carries many of them (Anthropic:
+    // 2000 px per side beyond 20 images), which would fail every later turn.
+    limits: { minimum: 256, maximum: 2000 },
     unit: "pixels",
     reloadKind: "hot",
     fallback: 1200,
@@ -86,6 +88,11 @@ export const advancedSettings = Object.freeze([
     path: "attachments.ttlHours",
     group: "media",
     schema: { type: "integer", minimum: 1, maximum: 168 },
+    // Any value turns on a recursive sweep of all stored media, received images and
+    // voice notes included; shorter than the longest default turn (48 h) it could
+    // remove media a running or follow-up turn still needs. Unset sweeps nothing but
+    // outgoing staging.
+    limits: { minimum: 48 },
     unit: "hours",
     reloadKind: "hot",
     fallback: null,

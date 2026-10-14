@@ -39,8 +39,19 @@ function tempPaths(t, prefix) {
 }
 
 test("the allow list is reviewed against every OpenClaw update", () => {
-  // Bumping the pinned runtime fails here until the list was compared with the new
-  // config.schema (the native interfaces contract checks the live schema).
+  // Bumping the bundled OpenClaw fails here until the list was compared with the new
+  // config.schema (the advanced settings contract checks the live schema). The
+  // version comes from the runtime lock that installations are provisioned from.
+  const lock = JSON.parse(
+    fs.readFileSync(
+      new URL(
+        "../../server/features/assistants/runtime-lock/package-lock.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  assert.equal(advancedSettingsRuntime, lock.packages["node_modules/openclaw"].version);
   assert.equal(advancedSettingsRuntime, runtimeManifest.version);
   const ids = new Set(advancedSettings.map((s) => s.id));
   assert.equal(ids.size, advancedSettings.length);
@@ -85,7 +96,9 @@ test("only allow-listed paths with a valid value are overrides", () => {
     ["agents.defaults.timeoutSeconds", "600"],
     ["agents.defaults.timeoutSeconds", 600.5],
     ["agents.defaults.timeoutSeconds", 0],
-    ["agents.defaults.timeoutSeconds", 59],
+    ["agents.defaults.timeoutSeconds", 299],
+    ["agents.defaults.imageMaxDimensionPx", 2001],
+    ["attachments.ttlHours", 47],
     ["agents.defaults.thinkingDefault", "extreme"],
     ["agents.defaults.userTimezone", "+02:00"],
     ["agents.defaults.userTimezone", "Mars/Olympus"],
@@ -136,7 +149,7 @@ test("a removed override is gone after the next start", (t) => {
   const paths = tempPaths(t, "overrides-removed-");
   const store = new OverrideStore(database());
   store.set("agents.defaults.timeoutSeconds", 600);
-  store.set("attachments.ttlHours", 24);
+  store.set("attachments.ttlHours", 72);
   prepareRuntimeConfig(paths, 1234, undefined, { overrides: store.list() });
   assert.equal(readJSON(paths.config).agents.defaults.timeoutSeconds, 600);
   store.remove("agents.defaults.timeoutSeconds");

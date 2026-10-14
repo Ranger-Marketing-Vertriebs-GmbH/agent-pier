@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { AdvancedConfig } from "../../server/features/assistants/advanced-config.js";
 import { OverrideStore } from "../../server/features/assistants/openclaw-config/overrides.js";
@@ -59,6 +62,7 @@ function setup({
   version = advancedSettingsRuntime,
   gateway = fakeGateway(),
   restartGateway,
+  paths,
 } = {}) {
   const db = new DatabaseSync(":memory:");
   migrateAssistants(db);
@@ -68,6 +72,7 @@ function setup({
   const runtime = {
     status: () => ({ availability, version }),
     client: availability === "ready" ? gateway : null,
+    paths,
   };
   const synchronization = {
     restarts: 0,
@@ -107,7 +112,7 @@ test("a stopped Gateway lists every allowed setting with the qualified facts", a
   assert.equal(run.current, null);
   assert.equal(run.reloadKind, "hot");
   assert.equal(run.available, true);
-  assert.equal(run.minimum, 60);
+  assert.equal(run.minimum, 300);
   assert.equal(run.fallback, 172800);
   assert.deepEqual(settings.find((s) => s.id === "imageQuality").options, [
     "auto",
@@ -156,7 +161,7 @@ test("a hot setting applies live and a reset removes it from the Gateway", async
   assert.equal(overrides.get(timeout).value, 900);
   assert.equal(result.settings.find((s) => s.path === timeout).current, 900);
   assert.ok(admitted.length);
-  await advanced.save("attachments.ttlHours", 24);
+  await advanced.save("attachments.ttlHours", 72);
   await advanced.save("attachments.ttlHours", null);
   assert.equal(gateway.config.attachments?.ttlHours, undefined);
   assert.equal(overrides.get("attachments.ttlHours"), null);
@@ -194,7 +199,7 @@ test("a restart setting asks first and restarts with the stored value", async ()
 
 test("a failed restart restores the previous override", async () => {
   const gateway = fakeGateway({ kinds: { [timeout]: "restart" } });
-  const { advanced, overrides } = setup({
+  const { advanced, overrides, audit } = setup({
     gateway,
     async restartGateway(operation) {
       await operation();
@@ -206,6 +211,14 @@ test("a failed restart restores the previous override", async () => {
     status: 503,
   });
   assert.equal(overrides.get(timeout).value, 700);
+  // The audit records the change and then that it was undone.
+  assert.deepEqual(
+    audit.map((entry) => [entry.outcome, entry.details.from, entry.details.to]),
+    [
+      ["success", 700, 900],
+      ["failure", 900, 700],
+    ],
+  );
 });
 
 test("a path the running Gateway does not know is shown but not editable", async () => {
@@ -237,4 +250,30 @@ test("another runtime version or a Gateway in transition refuses changes", async
     key: "active",
   });
   assert.deepEqual(starting.overrides.list(), []);
+});
+
+test("a stopped Gateway takes the installed runtime's version into account", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "advanced-installed-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(
+    path.join(root, "runtime.json"),
+    JSON.stringify({ version: "2026.9.8" }),
+  );
+  const rolledBack = setup({ availability: "disabled", version: null, paths: { root } });
+  const listed = await rolledBack.advanced.get();
+  assert.deepEqual(listed.gateway, {
+    running: false,
+    version: "2026.9.8",
+    qualified: false,
+  });
+  assert.ok(listed.settings.every((s) => !s.available));
+  await assert.rejects(rolledBack.advanced.save(timeout, 900), {
+    key: "advancedSettingUnavailable",
+  });
+  fs.writeFileSync(
+    path.join(root, "runtime.json"),
+    JSON.stringify({ version: advancedSettingsRuntime }),
+  );
+  const current = setup({ availability: "disabled", version: null, paths: { root } });
+  assert.equal((await current.advanced.get()).gateway.qualified, true);
 });
