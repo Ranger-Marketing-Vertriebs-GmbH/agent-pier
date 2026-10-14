@@ -9,6 +9,8 @@ import { accountItemTitle, itemRoute } from "../accounts/accounts-items.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import { OAuthSwitchConfirmation } from "./McpAuthFields.jsx";
 import McpFeedback from "./McpFeedback.jsx";
+import McpPackageConfirmation from "./McpPackageConfirmation.jsx";
+import McpPackagePanel from "./McpPackagePanel.jsx";
 import McpRemoveConfirmation from "./McpRemoveConfirmation.jsx";
 import McpServerFields from "./McpServerFields.jsx";
 import McpServerInfo from "./McpServerInfo.jsx";
@@ -44,6 +46,8 @@ export default function McpServerDetail({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const consumed = useRef(null);
+  // The program the install confirmation chose; confirm() itself takes no arguments.
+  const programChoice = useRef(null);
   const { reloadMcp } = data;
   // After a 409 and for Reload / Overwrite the draft reads the newer revision itself,
   // so "Overwrite anyway" never sends the stale one.
@@ -63,6 +67,7 @@ export default function McpServerDetail({
       mcpServerStep({
         server,
         label: copy.save,
+        chosenProgram: () => programChoice.current,
         saved: async (result) => {
           notifyMcp(savedNotice(result));
           await reloadMcp();
@@ -151,6 +156,7 @@ export default function McpServerDetail({
           reload={data.reloadMcp}
         />
       )}
+      {server?.source && <McpPackagePanel server={server} onChanged={reloadMcp} />}
       <McpFeedback oauth={oauth} notice={mcpNotice} />
       <ErrorMessage error={error} />
       <form
@@ -177,6 +183,18 @@ export default function McpServerDetail({
           names={server.headerNames}
           busy={false}
           onConfirm={confirmation.confirm}
+          onCancel={confirmation.cancel}
+        />
+      )}
+      {confirmation?.kind === "package" && (
+        <McpPackageConfirmation
+          preview={confirmation.data.preview}
+          allowScripts={draft.values.allowScripts}
+          returnKey="mcp-form-save"
+          onConfirm={(program) => {
+            programChoice.current = program ?? null;
+            confirmation.confirm();
+          }}
           onCancel={confirmation.cancel}
         />
       )}

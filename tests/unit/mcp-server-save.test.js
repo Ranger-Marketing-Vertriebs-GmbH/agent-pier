@@ -129,3 +129,145 @@ test("targets drop CLIs that cannot run the server", () => {
   assert.deepEqual(added, wanted);
   assert.equal(clisChanged, wanted.length > 0);
 });
+
+test("a new packaged server asks for the install confirmation with its preview", async () => {
+  const preview = { previewId: "p1", programs: ["a", "b"], dependencyCount: 3 };
+  const previews = [];
+  const step = mcpServerStep({
+    server: null,
+    label: "Save",
+    saved: async () => {},
+    previewPackage: async (input) => previews.push(input) && preview,
+    saveServer: async () => assert.fail("must not save before confirmation"),
+  });
+  const values = {
+    ...mcpServerValues(null),
+    name: "pkg",
+    transport: "stdio",
+    source: "package",
+    packageName: " x ",
+    packageVersion: "1.0.0",
+    clis: ["claude"],
+  };
+  await assert.rejects(step.run({ values, confirmations: {} }), (error) => {
+    assert.equal(error.code, "MCP_PACKAGE_INSTALL_REQUIRED");
+    assert.deepEqual(step.confirmation(error), {
+      kind: "package",
+      flags: { confirmInstall: true, previewId: "p1" },
+      data: { preview },
+    });
+    return true;
+  });
+  assert.deepEqual(previews, [
+    { registry: "npm", name: "x", version: "1.0.0", allowScripts: false },
+  ]);
+});
+
+test("the confirmed install carries the chosen program and no stdio confirmation", async () => {
+  const sent = [];
+  const step = mcpServerStep({
+    server: null,
+    label: "Save",
+    saved: async () => {},
+    previewPackage: async () => ({ previewId: "p1", programs: ["a", "b"] }),
+    chosenProgram: () => "b",
+    saveServer: async (_server, body) => sent.push(body) && { id: "n1" },
+  });
+  const values = {
+    ...mcpServerValues(null),
+    name: "pkg",
+    transport: "stdio",
+    source: "package",
+    packageName: "x",
+    packageVersion: "1.0.0",
+    clis: ["claude"],
+  };
+  const { result, asked } = await chain(step, values, mcpServerValues(null));
+  assert.equal(result.status, "saved");
+  assert.deepEqual(asked, ["package"]);
+  assert.equal(sent[0].program, "b");
+  assert.equal(sent[0].confirmInstall, true);
+  assert.equal(sent[0].previewId, "p1");
+  assert.equal(sent[0].confirmStdio, undefined);
+  assert.deepEqual(sent[0].clis, ["claude"]);
+});
+
+test("an own-command server switching to a package is previewed and sent with its source", async () => {
+  const server = {
+    id: "s1",
+    name: "own",
+    transport: "stdio",
+    command: "/bin/sh",
+    args: [],
+    headerNames: [],
+    envNames: [],
+    revision: 4,
+    clis: [],
+  };
+  const sent = [];
+  const step = mcpServerStep({
+    server,
+    label: "Save",
+    saved: async () => {},
+    previewPackage: async () => ({ previewId: "p2", programs: ["x"] }),
+    saveServer: async (_server, body) => {
+      sent.push(body);
+      return { ...server, source: { status: "installing" } };
+    },
+  });
+  const values = {
+    ...mcpServerValues(server),
+    source: "package",
+    packageName: "x",
+    packageVersion: "1.0.0",
+  };
+  await assert.rejects(step.run({ values, revision: 4, confirmations: {} }), {
+    code: "MCP_PACKAGE_INSTALL_REQUIRED",
+  });
+  await step.run({
+    values,
+    revision: 4,
+    confirmations: { confirmInstall: true, previewId: "p2" },
+  });
+  assert.equal(sent[0].command, undefined);
+  assert.deepEqual(sent[0].source, {
+    registry: "npm",
+    name: "x",
+    version: "1.0.0",
+    allowScripts: false,
+  });
+  assert.equal(sent[0].confirmInstall, true);
+  assert.equal(sent[0].previewId, "p2");
+});
+
+test("an edit of a packaged server is never previewed again", async () => {
+  const server = {
+    id: "s2",
+    name: "pkg",
+    transport: "stdio",
+    command: "/data/node",
+    args: ["/data/x.js"],
+    source: {
+      registry: "npm",
+      name: "x",
+      version: "1.0.0",
+      status: "ready",
+      leadingArgs: 1,
+    },
+    headerNames: [],
+    envNames: [],
+    revision: 2,
+    clis: [],
+  };
+  const sent = [];
+  const step = mcpServerStep({
+    server,
+    label: "Save",
+    saved: async () => {},
+    previewPackage: async () => assert.fail("no preview for an installed package"),
+    saveServer: async (_server, body) => sent.push(body) && { ...server, revision: 3 },
+  });
+  const values = { ...mcpServerValues(server), args: "--owner" };
+  await step.run({ values, revision: 2, confirmations: {} });
+  assert.deepEqual(sent[0], { revision: 2, args: ["--owner"] });
+});

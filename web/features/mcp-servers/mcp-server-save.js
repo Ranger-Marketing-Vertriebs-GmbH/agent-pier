@@ -6,6 +6,7 @@ import { draftFrom, dropsStoredHeaders, requestBody } from "./mcp-server-draft.j
 // Client-side questions the form asked before sending anything.
 export const OAUTH_SWITCH_REQUIRED = "MCP_OAUTH_SWITCH_CONFIRMATION_REQUIRED";
 export const CLI_STDIO_REQUIRED = "MCP_CLI_STDIO_CONFIRMATION_REQUIRED";
+export const PACKAGE_INSTALL_REQUIRED = "MCP_PACKAGE_INSTALL_REQUIRED";
 const question = (code) => Object.assign(new Error(code), { code });
 
 /** The draft of one server: its form fields plus the coding CLIs it goes to. */
@@ -36,9 +37,18 @@ const defaultSave = (server, body) =>
 /**
  * One request stores the definition and its CLIs together or neither. A switch to
  * OAuth that deletes stored headers and a local command for a newly chosen CLI are
- * confirmed first; the server may still ask for its own stdio confirmation.
+ * confirmed first; the server may still ask for its own stdio confirmation. A package
+ * to install (new server, or an own-command server switching to one) is previewed and
+ * confirmed once instead; `chosenProgram()` returns the program that dialog selected.
  */
-export function mcpServerStep({ server, label, saveServer = defaultSave, saved }) {
+export function mcpServerStep({
+  server,
+  label,
+  saveServer = defaultSave,
+  previewPackage = assistantApi.previewMcpPackage,
+  chosenProgram = () => null,
+  saved,
+}) {
   return {
     id: "mcp-server",
     label,
@@ -47,23 +57,54 @@ export function mcpServerStep({ server, label, saveServer = defaultSave, saved }
       if (dropsStoredHeaders(values, server) && !confirmations.confirmSwitch)
         throw question(OAUTH_SWITCH_REQUIRED);
       const { wanted, added, clisChanged } = mcpTargets(values, server);
-      if (values.transport === "stdio" && added.length && !confirmations.confirmStdio)
+      const installing =
+        values.transport === "stdio" && values.source === "package" && !server?.source;
+      if (installing && !confirmations.confirmInstall) {
+        const preview = await previewPackage({
+          registry: values.registry,
+          name: values.packageName.trim(),
+          version: values.packageVersion,
+          allowScripts: values.allowScripts === true,
+        });
+        throw Object.assign(question(PACKAGE_INSTALL_REQUIRED), { preview });
+      }
+      // The install confirmation covers the CLIs as well: no second stdio question.
+      if (
+        !installing &&
+        values.transport === "stdio" &&
+        added.length &&
+        !confirmations.confirmStdio
+      )
         throw question(CLI_STDIO_REQUIRED);
+      const program = installing ? chosenProgram() : null;
       const body = {
         ...requestBody(values, server),
         ...(server ? { revision } : {}),
         ...(clisChanged ? { clis: wanted } : {}),
         ...(confirmations.confirmStdio ? { confirmStdio: true } : {}),
+        ...(installing
+          ? {
+              confirmInstall: true,
+              previewId: confirmations.previewId,
+              ...(program ? { program } : {}),
+            }
+          : {}),
       };
       const result = await saveServer(server, body);
       await saved(result);
       return result;
     },
     confirmation: (error) =>
-      error?.code === OAUTH_SWITCH_REQUIRED
-        ? { kind: "oauthSwitch", flags: { confirmSwitch: true } }
-        : error?.code === CLI_STDIO_REQUIRED
-          ? { kind: "cliStdio", flags: { confirmStdio: true } }
-          : confirmationRequest(error),
+      error?.code === PACKAGE_INSTALL_REQUIRED
+        ? {
+            kind: "package",
+            flags: { confirmInstall: true, previewId: error.preview.previewId },
+            data: { preview: error.preview },
+          }
+        : error?.code === OAUTH_SWITCH_REQUIRED
+          ? { kind: "oauthSwitch", flags: { confirmSwitch: true } }
+          : error?.code === CLI_STDIO_REQUIRED
+            ? { kind: "cliStdio", flags: { confirmStdio: true } }
+            : confirmationRequest(error),
   };
 }

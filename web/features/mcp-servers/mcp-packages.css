@@ -1,0 +1,72 @@
+.mcp-field > label.mcp-check,
+label.mcp-check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  text-align: start;
+}
+label.mcp-check input[type="checkbox"] {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.mcp-warning {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--warning);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+.mcp-form select,
+.mcp-package select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.mcp-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.mcp-package-update {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mcp-package-log pre {
+  max-height: 240px;
+  margin: 8px 0 0;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mcp-package-dependencies ul,
+.mcp-package-diff ul {
+  max-height: 200px;
+  margin: 6px 0 0;
+  padding-left: 20px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.mcp-package-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mcp-package-status-failed,
+.mcp-package-status-missing {
+  color: #f0b9ab;
+  border-color: currentColor;
+}
+.mcp-package-status-ready {
+  color: var(--success);
+  border-color: currentColor;
+}

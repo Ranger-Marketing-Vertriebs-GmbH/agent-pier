@@ -5,7 +5,8 @@ import { cliSupport, clis } from "./cli-support.js";
 
 /**
  * The form's Coding CLIs: one checkbox each, disabled with the reason it cannot run the
- * server. A chosen CLI the draft rules out is named in a live note: saving removes the
+ * server, or every unchosen one while `lockedHint` says why (a package not installed
+ * yet). A chosen CLI the draft rules out is named in a live note: saving removes the
  * server from a CLI it is bound to (`bound`), and a newly chosen one does not get it.
  */
 export default function McpCliChoices({
@@ -14,6 +15,7 @@ export default function McpCliChoices({
   selected,
   bound = [],
   name,
+  lockedHint = "",
   onChange,
 }) {
   const toggle = (cli, on) =>
@@ -34,14 +36,18 @@ export default function McpCliChoices({
       {clis.map((cli) => {
         const support = cliSupport(cli, target);
         const reason = `${id}-${cli}-reason`;
+        // A locked server keeps its CLIs (they can still be removed) but gets no new one.
+        const locked = !!lockedHint && !selected.includes(cli);
         return (
           <div key={cli} className="mcp-cli-choice">
             <label>
               <input
                 type="checkbox"
                 checked={support.supported && selected.includes(cli)}
-                disabled={!support.supported}
-                aria-describedby={support.supported ? undefined : reason}
+                disabled={!support.supported || locked}
+                aria-describedby={
+                  !support.supported ? reason : locked ? `${id}-locked` : undefined
+                }
                 onChange={(event) => toggle(cli, event.target.checked)}
               />
               <span>{names[cli]}</span>
@@ -54,6 +60,11 @@ export default function McpCliChoices({
           </div>
         );
       })}
+      {lockedHint && (
+        <p className="mcp-hint" id={`${id}-locked`}>
+          {lockedHint}
+        </p>
+      )}
       <div className="mcp-cli-notes" aria-live="polite">
         {dropped.map((cli) => (
           <p key={cli} className="mcp-hint mcp-cli-note">

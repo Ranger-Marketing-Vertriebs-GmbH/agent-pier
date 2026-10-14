@@ -18,13 +18,20 @@ export function draftFrom(server) {
     name: server?.name || "",
     transport: server?.transport || "http",
     url: server?.url || "",
-    command: server?.command || "",
-    args: (server?.args || []).join("\n"),
+    command: server?.source ? "" : server?.command || "",
+    // A packaged server shows the owner's arguments only; the server reports
+    // leadingArgs 0 until a first install stored a generated argument.
+    args: (server?.args || []).slice(server?.source?.leadingArgs ?? 0).join("\n"),
     cwd: server?.cwd || "",
     auth: server?.auth === "oauth" ? "oauth" : "headers",
     oauthScope: server?.oauthScope || "",
     headers: storedRows(server?.headerNames),
     env: storedRows(server?.envNames),
+    source: server?.source ? "package" : "command",
+    registry: server?.source?.registry || "npm",
+    packageName: server?.source?.name || "",
+    packageVersion: server?.source?.version || "",
+    allowScripts: server?.source?.allowScripts === true,
   };
 }
 
@@ -58,6 +65,13 @@ export function dropsStoredHeaders(draft, server) {
  */
 export function requestBody(draft, server) {
   const stdio = draft.transport === "stdio";
+  const packaged = stdio && draft.source === "package";
+  const packageSource = () => ({
+    registry: draft.registry,
+    name: draft.packageName.trim(),
+    version: draft.packageVersion,
+    allowScripts: draft.allowScripts === true,
+  });
   const oauth = !stdio && draft.auth === "oauth";
   const secrets = oauth ? {} : secretMap(stdio ? draft.env : draft.headers);
   const secretKey = stdio ? "env" : "headers";
@@ -68,7 +82,9 @@ export function requestBody(draft, server) {
       transport: draft.transport,
       ...(stdio
         ? {
-            command: draft.command.trim(),
+            ...(packaged
+              ? { source: packageSource() }
+              : { command: draft.command.trim() }),
             args: lines(draft.args),
             ...(draft.cwd.trim() ? { cwd: draft.cwd.trim() } : {}),
           }
@@ -78,13 +94,22 @@ export function requestBody(draft, server) {
     };
   const original = draftFrom(server);
   const changed = (key) => draft[key].trim() !== original[key].trim();
+  // A packaged server switched back to an own command (`source: null`) always sends
+  // its args: the stored ones still start with the generated program path.
+  const detach = stdio && !!server.source && !packaged;
   return {
     revision: server.revision,
     ...(changed("name") ? { name: draft.name.trim() } : {}),
     ...(stdio
       ? {
-          ...(changed("command") ? { command: draft.command.trim() } : {}),
-          ...(draft.args !== original.args ? { args: lines(draft.args) } : {}),
+          // An own-command server switching to a package (D1): its source, never a
+          // command; a packaged server's source changes only through its update.
+          ...(packaged && !server.source ? { source: packageSource() } : {}),
+          ...(detach ? { source: null, command: draft.command.trim() } : {}),
+          ...(!packaged && !detach && changed("command")
+            ? { command: draft.command.trim() }
+            : {}),
+          ...(detach || draft.args !== original.args ? { args: lines(draft.args) } : {}),
           ...(changed("cwd") ? { cwd: draft.cwd.trim() } : {}),
         }
       : {

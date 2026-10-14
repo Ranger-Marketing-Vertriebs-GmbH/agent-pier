@@ -87,3 +87,93 @@ test("an OAuth server edit sends a changed scope and a switch back to headers", 
     headers: { Authorization: "Bearer t" },
   });
 });
+
+test("a new packaged server sends its source and no command", () => {
+  const draft = {
+    ...draftFrom(null),
+    transport: "stdio",
+    name: "pkg",
+    source: "package",
+    registry: "npm",
+    packageName: "server-x",
+    packageVersion: "1.0.0",
+    args: "--owner",
+  };
+  assert.deepEqual(requestBody(draft, null), {
+    name: "pkg",
+    transport: "stdio",
+    args: ["--owner"],
+    source: { registry: "npm", name: "server-x", version: "1.0.0", allowScripts: false },
+  });
+});
+
+const packaged = (status, extra = {}) => ({
+  id: "s2",
+  name: "pkg",
+  transport: "stdio",
+  command: "/data/toolchains/node/bin/node",
+  args: ["/data/mcp-packages/installs/i/node_modules/x/index.js", "--owner"],
+  source: { registry: "npm", name: "x", version: "1.0.0", status, leadingArgs: 1 },
+  headerNames: [],
+  envNames: [],
+  revision: 3,
+  ...extra,
+});
+
+test("a ready packaged server shows only the owner's arguments", () => {
+  const draft = draftFrom(packaged("ready"));
+  assert.equal(draft.source, "package");
+  assert.equal(draft.packageName, "x");
+  assert.equal(draft.packageVersion, "1.0.0");
+  assert.equal(draft.args, "--owner");
+});
+
+test("a missing or failed packaged server still hides its generated argument", () => {
+  for (const status of ["missing", "failed"])
+    assert.equal(draftFrom(packaged(status)).args, "--owner", status);
+});
+
+test("an own-command server switched to a package sends its source, never a command", () => {
+  const server = {
+    id: "s1",
+    name: "own",
+    transport: "stdio",
+    command: "/bin/sh",
+    args: ["--x"],
+    headerNames: [],
+    envNames: [],
+    revision: 4,
+  };
+  const draft = {
+    ...draftFrom(server),
+    source: "package",
+    registry: "npm",
+    packageName: "server-x",
+    packageVersion: "1.0.0",
+  };
+  assert.deepEqual(requestBody(draft, server), {
+    revision: 4,
+    source: { registry: "npm", name: "server-x", version: "1.0.0", allowScripts: false },
+  });
+});
+
+test("an edit of a packaged server sends owner arguments only, never a command or source", () => {
+  const server = packaged("ready");
+  const draft = { ...draftFrom(server), args: "--owner\n--more" };
+  assert.deepEqual(requestBody(draft, server), {
+    revision: 3,
+    args: ["--owner", "--more"],
+  });
+});
+
+test("a packaged server switched to its own command detaches with command and args", () => {
+  const server = packaged("failed");
+  const draft = { ...draftFrom(server), source: "command", command: " /usr/bin/srv " };
+  // Unchanged owner args are still sent: the generated ones must not survive the detach.
+  assert.deepEqual(requestBody(draft, server), {
+    revision: 3,
+    source: null,
+    command: "/usr/bin/srv",
+    args: ["--owner"],
+  });
+});
