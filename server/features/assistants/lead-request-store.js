@@ -2,7 +2,6 @@ import { randomUUID, createHash } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import {
   intent,
-  mentionOf,
   namesMember,
   ownerMentions,
   ownerQuote,
@@ -175,8 +174,9 @@ export class LeadRequestStore {
       // the turn plus a verbatim quote of the owner's words that names the member
       // and says to delegate, used once, for at most a few tasks of the turn. A
       // lead's claim, standing team permission or any other turn runs read-only.
-      // An @mention of the member in the owner's message counts as the request on
-      // its own, quoted by the lead or not; an ambiguous mention proves nothing.
+      // An @mention of the member in the owner's own message (where the chat shows
+      // a chip) counts as the request on its own, whatever the lead quoted; an
+      // ambiguous mention proves nothing.
       const siblings = t
         .members()
         .filter((m) => m.parentAssistantId === lead.id)
@@ -191,14 +191,10 @@ export class LeadRequestStore {
         quote && ownerQuote(quote, request.text)
           ? ownerSentence(quote, request.text)
           : null;
-      const mention = sentence ? mentionOf(quote, member.id, mentionable) : null;
+      // The lead's quote proves a request only by name and an ask or delegate verb;
+      // mentions count only from the owner's own message below.
       const addressed =
-        !!sentence &&
-        (mention === "mentioned"
-          ? !sentence.negatedSentence
-          : mention === null &&
-            namesMember(quote, assistant.name, others) &&
-            intent(quote));
+        !!sentence && namesMember(quote, assistant.name, others) && intent(quote);
       const open =
         type === "task" && ownerTurn && proofs.length < requestCaps.ownerPerTurn;
       // One proof per owner sentence and member, and per mention: overlapping
@@ -227,14 +223,14 @@ export class LeadRequestStore {
             x.memberId === member.id &&
             !x.negated &&
             !x.quoted &&
-            !used(x.index, x.start),
+            !used(x.sentence, x.ordinal),
         );
         if (m)
           proof = {
             requestId: request.id,
             quote: m.excerpt,
-            sentence: m.index,
-            mention: m.start,
+            sentence: m.sentence,
+            mention: m.ordinal,
           };
       }
       return t.insert(

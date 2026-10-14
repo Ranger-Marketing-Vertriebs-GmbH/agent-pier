@@ -28,7 +28,10 @@ export default memo(function AssistantMessage({
 }) {
   const metaId = useId();
   const lead = role === "user" && source === "lead" && typeof sender?.name === "string";
-  const chips = role === "user" && !lead && mentions?.members.length ? mentions : null;
+  // Only the owner's own messages (here or through Telegram) can mention a member.
+  const owner =
+    role === "user" && (!source || (source === "telegram" && sender?.kind === "owner"));
+  const chips = owner && mentions?.members.length ? mentions : null;
   const markdown = useMemo(
     () =>
       chips

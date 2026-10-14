@@ -2,7 +2,10 @@
 // task in this very turn. A lead is semi-trusted (it reads web pages, member answers
 // and forwarded text), so only the owner's own, affirmative words for the named
 // member count; the proof lets a delegated task write in the member's workspace.
-import { findMentions } from "./member-mentions.js";
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { gfmFromMarkdown } from "mdast-util-gfm";
+import { gfm } from "micromark-extension-gfm";
+import { nodeText, treeMentions } from "./member-mentions.js";
 export const plain = (value) =>
   value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
 const words = (value) =>
@@ -23,12 +26,24 @@ export const ownerQuote = (quote, text) =>
   plain(quote).split(" ").length >= 3 &&
   wordMatch(plain(quote)).test(plain(text));
 
-// Negations in German and English ("don't" splits into "don" and "t").
+// Negations in German and English ("don't" splits into "don" and "t"), and words
+// that limit a request to reading. Kept broad: a false hit only runs read-only.
 const negation =
-  /^(nicht|nichts|kein|keine|keinen|keinem|keiner|keines|keinesfalls|nie|niemals|niemand|nirgends|weder|not|never|no|nobody|nothing|none|neither|nor|nowhere|dont|doesnt|didnt|cannot|cant)$/;
-const contracted = /^(don|doesn|didn|can|won|shouldn|mustn)$/;
+  /^(nicht|nichts|kein|keine|keinen|keinem|keiner|keines|keinesfalls|nie|niemals|niemand|nirgends|weder|ohne|unverändert|not|never|no|nobody|nothing|none|neither|nor|nowhere|without|unchanged|readonly|dont|doesnt|didnt|isnt|arent|wont|cannot|cant)$/;
+const contracted =
+  /^(don|doesn|didn|isn|aren|wasn|weren|won|can|couldn|wouldn|shouldn|mustn|hasn|haven|hadn)$/;
+const limits = [
+  [/^read$/, /^only$/],
+  [/^nur$/, /^(lesen|lesend|ansehen|anschauen|schauen|gucken|prüfen)$/],
+  [/^only$/, /^(read|look|review|check)$/],
+];
 const negated = (list) =>
-  list.some((w, n) => negation.test(w) || (w === "t" && contracted.test(list[n - 1])));
+  list.some(
+    (w, n) =>
+      negation.test(w) ||
+      (w === "t" && contracted.test(list[n - 1])) ||
+      limits.some(([a, b]) => a.test(w) && b.test(list[n + 1] || "")),
+  );
 
 // Kept deliberately small, verb forms only: one word that means ask or delegate,
 // "frage" followed by its object, or a German/English verb pair.
@@ -70,9 +85,8 @@ export function intent(quote) {
 /**
  * Where the quote sits in the owner's text: the sentence it belongs to (index),
  * whether that sentence is negated up to the end of the quote ("Bitte nicht …,
- * frag Max") or anywhere (`negatedSentence`, "@Max trag das bitte nicht ein") and
- * whether it follows a quotation mark. Null when the quote is not a whole-word
- * excerpt of the text.
+ * frag Max") and whether it follows a quotation mark. Null when the quote is not a
+ * whole-word excerpt of the text.
  */
 export function ownerSentence(quote, text) {
   const haystack = plain(text),
@@ -83,13 +97,10 @@ export function ownerSentence(quote, text) {
   const start = Math.max(
     ...[".", "!", "?", ";", ":", "\n"].map((c) => before.lastIndexOf(c)),
   );
-  const end = found.index + found[0].length;
-  const sentence = haystack.slice(start + 1, end);
-  const rest = haystack.slice(end).split(/[.!?;:\n]/)[0];
+  const sentence = haystack.slice(start + 1, found.index + found[0].length);
   return {
     index: boundaries.length,
     negated: negated(words(sentence)),
-    negatedSentence: negated(words(sentence + " " + rest)),
     quoted: quotedBefore(before),
   };
 }
@@ -130,45 +141,44 @@ export function namesMember(quote, name, others = []) {
 }
 
 /**
- * How the quote @-mentions member `id` among the lead's members (`{ id, name }`):
- * "mentioned" when a mention means this member alone, "ambiguous" when one could
- * mean it or another member of the same name, otherwise null. The owner decided
- * that a mention alone is a request to that member; no ask or delegate verb is
- * needed, the negation and quotation checks still are.
- */
-export function mentionOf(quote, id, members) {
-  const found = findMentions(quote, members);
-  if (found.some((m) => m.ambiguous && m.memberIds.includes(id))) return "ambiguous";
-  return found.some((m) => m.memberId === id) ? "mentioned" : null;
-}
-
-/**
- * The @mentions in the owner's own text, each with what the proof needs: the
- * member it means alone (`memberId`, null when ambiguous), its offset (`start`, so
- * one mention proves one task), the sentence it is in (`index`, counted as
- * `ownerSentence` counts), whether anything in that sentence negates it, whether
- * it follows a quotation mark, and the sentence itself (`excerpt`, at most 300
- * characters) to show the owner why a task may write.
+ * The @mentions in the owner's own message, found where the chat shows them as
+ * chips: the message is parsed as the chat parses it, and code, block quotes, links,
+ * images and HTML mention nobody. Each mention carries the member it means alone
+ * (`memberId`, null when ambiguous), its place among the message's mentions
+ * (`ordinal`, so one mention proves one task), the owner sentence it is in
+ * (`sentence`, counted as `ownerSentence` counts, so both ways of proof share one
+ * sentence), whether anything in its paragraph negates or limits it, whether a
+ * quotation mark comes before it, and the paragraph (`excerpt`, at most 300
+ * characters) to show the owner why a task may write. At most `mentionLimit`.
  */
 export function ownerMentions(text, members) {
-  if (typeof text !== "string") return [];
-  const own = text.normalize("NFKC"),
-    boundary = /[.!?;:]/g;
-  return findMentions(own, members).map((m) => {
-    const before = own.slice(0, m.start);
-    const start = Math.max(
-      ...[".", "!", "?", ";", ":"].map((c) => before.lastIndexOf(c)),
-    );
-    boundary.lastIndex = m.end;
-    const end = boundary.exec(own)?.index ?? own.length;
-    const sentence = own.slice(start + 1, end).trim();
-    return {
-      memberId: m.memberId,
-      start: m.start,
-      index: (before.match(boundary) || []).length,
-      negated: negated(words(sentence)),
-      quoted: quotedBefore(before),
-      excerpt: Array.from(sentence).slice(0, 300).join(""),
-    };
+  if (typeof text !== "string" || !text.includes("@")) return [];
+  const tree = fromMarkdown(text, {
+    extensions: [gfm()],
+    mdastExtensions: [gfmFromMarkdown()],
+  });
+  let ordinal = 0;
+  return treeMentions(tree, members).flatMap(({ node, block, mentions }) => {
+    const scope = nodeText(block).trim();
+    const negatedScope = negated(words(scope));
+    const from = node.position?.start.offset ?? 0;
+    const source = text.slice(from, node.position?.end.offset ?? text.length);
+    let cursor = 0;
+    return mentions.map((m) => {
+      // Where the mention stands in the owner's text; escapes before it in the same
+      // text node may shift it, so it is looked up there.
+      const said = node.value.slice(m.start, m.end);
+      const at = source.indexOf(said, cursor);
+      if (at >= 0) cursor = at + said.length;
+      const before = text.slice(0, from + Math.max(at, 0));
+      return {
+        memberId: m.memberId,
+        ordinal: ordinal++,
+        sentence: (plain(before).match(/[.!?;:]/g) || []).length,
+        negated: negatedScope,
+        quoted: quotedBefore(before),
+        excerpt: Array.from(scope).slice(0, 300).join(""),
+      };
+    });
   });
 }

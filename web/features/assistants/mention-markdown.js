@@ -1,32 +1,35 @@
-import { splitMentions } from "../../../server/features/assistants/member-mentions.js";
+import { treeMentions } from "../../../server/features/assistants/member-mentions.js";
 
 // A remark plugin that turns @mentions of the lead's members in an owner message
-// into `member-mention` elements, parsed exactly as the server's write proof does.
-// Code and the text of links stay as they are.
-const skip = new Set(["link", "linkReference", "inlineCode", "code", "html"]);
+// into `member-mention` elements. It finds them with the server's own
+// `treeMentions`, on the same Markdown tree, so a chip appears exactly where a
+// mention can count: never in code, block quotes, links, images or HTML.
+// Ambiguous mentions stay plain text.
+const chip = (text, memberId) => ({
+  type: "memberMention",
+  data: {
+    hName: "member-mention",
+    hProperties: { member: memberId },
+    hChildren: [{ type: "text", value: text }],
+  },
+});
 export function remarkMemberMentions(members) {
-  function walk(node) {
-    if (!node.children || skip.has(node.type)) return;
-    node.children = node.children.flatMap((child) => {
-      if (child.type !== "text") {
-        walk(child);
-        return [child];
+  return () => (tree) => {
+    // Last first, so earlier positions in a parent stay valid while splicing.
+    for (const { parent, node, mentions } of treeMentions(tree, members).reverse()) {
+      const parts = [];
+      let from = 0;
+      for (const m of mentions) {
+        if (m.ambiguous) continue;
+        if (m.start > from)
+          parts.push({ type: "text", value: node.value.slice(from, m.start) });
+        parts.push(chip(node.value.slice(m.start, m.end), m.memberId));
+        from = m.end;
       }
-      const parts = splitMentions(child.value, members);
-      if (parts.every((part) => typeof part === "string")) return [child];
-      return parts.map((part) =>
-        typeof part === "string"
-          ? { type: "text", value: part }
-          : {
-              type: "memberMention",
-              data: {
-                hName: "member-mention",
-                hProperties: { member: part.memberId },
-                hChildren: [{ type: "text", value: part.mention }],
-              },
-            },
-      );
-    });
-  }
-  return () => walk;
+      if (!parts.length) continue;
+      if (from < node.value.length)
+        parts.push({ type: "text", value: node.value.slice(from) });
+      parent.children.splice(parent.children.indexOf(node), 1, ...parts);
+    }
+  };
 }
