@@ -329,7 +329,9 @@
   .dialog-actions {
     padding: 16px 21px;
   }
-  .dialog-actions > .button {
+  /* Touch-sized buttons in dialog footers only, not in inline action rows. */
+  dialog > .dialog-actions > .button,
+  dialog > * > .dialog-actions:last-child > .button {
     height: 44px;
     padding: 0 14px;
     font-size: 12px;

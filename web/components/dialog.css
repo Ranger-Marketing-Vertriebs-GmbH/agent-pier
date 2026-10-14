@@ -1,6 +1,12 @@
 /* Shared dialog frame for Modal and Sheet: sticky header and footer, padded body,
    bottom sheet with a grab handle on phones. Building blocks used inside dialogs
    (check rows, learn-more details, permission lists, status lines) live here too. */
+/* Sticky header and footer must not cover the control that takes focus: scrolling
+   into view keeps clear of both bars. */
+dialog:where(:not(.sheet)) {
+  scroll-padding-top: 76px;
+  scroll-padding-bottom: 88px;
+}
 dialog:focus {
   /* The dialog itself takes focus on open when it has no field; controls keep their
      :focus-visible ring for keyboard users. */
@@ -312,9 +318,19 @@ label.check-row:has(input:disabled) .check-row-text {
   color: #cdced2;
 }
 
-@media (max-width: 700px) {
+/* The pad variables follow each feature's own breakpoints (ssh.css switches at 600px,
+   operations, pipelines and memory at 700px), so the footer bleeds exactly to the edge. */
+@media (max-width: 600px) {
   dialog > .ssh-form {
     --dialog-pad: 20px;
+  }
+}
+@media (max-width: 700px) {
+  dialog:where(:not(.sheet)) {
+    scroll-padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+  dialog > .operations-form {
+    --dialog-pad: 16px;
   }
   dialog > .pipeline-form {
     --dialog-pad: 16px;
