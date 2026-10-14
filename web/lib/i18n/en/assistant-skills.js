@@ -17,6 +17,8 @@ export const assistantSkillsCopy = {
   loading: "Loading skills…",
   empty: "No skills match.",
   unavailable: "Skills can be listed while the agent service runs.",
+  offlineHint:
+    "You can switch these skills off now; switching skills on needs the agent service.",
   states: {
     ready: "Ready",
     missing: "Missing",
@@ -24,7 +26,7 @@ export const assistantSkillsCopy = {
     disabled: "Disabled in OpenClaw",
     unavailable: "No longer bundled with this OpenClaw version",
     shadowed:
-      "Hidden by a skill of the same name in the agent's folder; the bundled skill is not used",
+      "Off for this agent: a skill of the same name in the agent's folders would run in its place. Your choice stays saved and applies again once that skill is gone.",
   },
   missing: {
     bins: (names) => `programs ${names}`,
@@ -47,6 +49,5 @@ export const assistantSkillsCopy = {
       "Warning: this skill works around a feature AgentPier manages itself (coding runs, MCP servers or the canvas).",
     secrets: "Warning: this skill reads secrets from your password manager.",
   },
-  riskLabel: "Warning",
   count: (on) => (on === 1 ? "1 on" : `${on} on`),
 };

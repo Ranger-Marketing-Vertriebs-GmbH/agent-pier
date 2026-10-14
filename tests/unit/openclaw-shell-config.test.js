@@ -375,7 +375,14 @@ test("the Gateway PATH carries the owner's login PATH behind the runtime's Node"
   );
   // Relative entries and duplicates never reach it.
   assert.equal(
-    gatewayPath("/node/bin/node", ["relative", "/usr/bin", "/node/bin", "/a"]),
+    gatewayPath("/node/bin/node", [
+      "relative",
+      "/usr/bin",
+      "/node/bin",
+      "/a",
+      "/b:/evil",
+      "/c\0",
+    ]),
     "/node/bin:/usr/bin:/a:/bin",
   );
 });

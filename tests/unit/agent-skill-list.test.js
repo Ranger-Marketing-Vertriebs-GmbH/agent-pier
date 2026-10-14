@@ -48,7 +48,10 @@ test("the status line names what is missing", () => {
     "Missing: programs himalaya; environment variables or API keys MAIL_KEY",
   );
   assert.equal(statusText(skills[2], copy), "Not available on this system (darwin)");
-  assert.match(statusText(skills[3], copy), /^Hidden by a skill of the same name/);
+  assert.match(
+    statusText(skills[3], copy),
+    /^Off for this agent: a skill of the same name/,
+  );
   assert.equal(statusText({ state: "missing", missing: none }, copy), "Missing");
   assert.equal(skillLocked(skills[3], false), true);
   assert.equal(skillLocked(skills[3], true), false);

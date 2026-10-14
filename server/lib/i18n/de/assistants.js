@@ -128,7 +128,7 @@ export const assistants = {
   telegramBotInUse:
     "Dieser Telegram-Bot wird bereits genutzt: als dein AgentPier-Bot oder von einem anderen Agenten. Lege für jeden Zweck einen eigenen Bot an.",
   skillUnavailable:
-    "Dieser Skill ist nicht als mitgelieferter OpenClaw-Skill verfügbar oder wird von einem gleichnamigen Skill im Arbeitsordner verdeckt.",
+    "Dieser Skill ist nicht als mitgelieferter OpenClaw-Skill verfügbar, oder ein gleichnamiger Skill in den Ordnern des Agenten würde an seiner Stelle laufen.",
   telegramSendersShell:
     "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen Shell-Zugriff haben. Schalte die Shell aus oder trenne zuerst den Bot.",
   telegramSendersStdio:

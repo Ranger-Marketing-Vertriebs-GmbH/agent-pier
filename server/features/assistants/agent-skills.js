@@ -6,6 +6,10 @@ import {
   personalShell,
   personalSkills,
 } from "./native-capabilities.js";
+import {
+  shadowingSkillNames,
+  skillShadowRoots,
+} from "./openclaw-config/skill-shadows.js";
 import { assistantProblem, skillNamePattern } from "./assistant-validation.js";
 
 // Bundled OpenClaw skills per agent (docs/assistant-gateway.md#skills). The owner
@@ -58,11 +62,18 @@ export function bundledSkillNames(entryPath) {
   }
 }
 
-/** Removes the given absolute host directories (and anything below them) from text. */
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Replaces the given absolute host directories with "…" in text, only where a whole
+ * path segment matches (`/Users/d` never cuts into `/Users/dave`).
+ */
 export function withoutHostPaths(text, roots = []) {
   let result = String(text ?? "");
-  for (const root of roots.filter((r) => path.isAbsolute(r || "") && r.length > 1))
-    result = result.split(root).join("…");
+  for (const root of roots.filter((r) => path.isAbsolute(r || "") && r.length > 1)) {
+    const clean = root.replace(/\/+$/, "");
+    result = result.replace(new RegExp(`${escapeRegExp(clean)}(?![\\w.-])`, "g"), "…");
+  }
   return result;
 }
 
@@ -113,12 +124,27 @@ export function sanitizeSkill(entry, roots = []) {
  * The agent's skill page from OpenClaw's `skills.status` report for that agent and
  * the runtime's bundled names. A bundled name that the report resolves to another
  * source is `shadowed`: a workspace (or other) skill of that name would run instead,
- * so it is never shown as the bundled one.
+ * so it is never shown as the bundled one; so is one a skill in the agent's folders
+ * would replace (`shadowed`, skill-shadows.js). The compiler drops both from the
+ * agent's list while the owner's choice stays stored. A `fallback` report was read
+ * for another agent (this one does not exist in the Gateway yet): its other
+ * sources and agent filter say nothing about this agent.
  */
-export function skillCatalog({ report, bundled = new Set(), assistant, roots = [] }) {
+export function skillCatalog({
+  report,
+  bundled = new Set(),
+  assistant,
+  roots = [],
+  shadowed = new Set(),
+  fallback = false,
+}) {
   const entries = new Map();
   for (const entry of Array.isArray(report?.skills) ? report.skills : [])
-    if (typeof entry?.name === "string" && skillNamePattern.test(entry.name))
+    if (
+      typeof entry?.name === "string" &&
+      skillNamePattern.test(entry.name) &&
+      (!fallback || entry.source === bundledSource)
+    )
       entries.set(entry.name, entry);
   const assigned = personalSkills(assistant);
   const names = new Set([
@@ -131,16 +157,19 @@ export function skillCatalog({ report, bundled = new Set(), assistant, roots = [
   const skills = [...names].sort().map((name) => {
     const entry = entries.get(name);
     const on = assigned.includes(name);
+    const hidden = {
+      name,
+      description: "",
+      state: "shadowed",
+      missing: requirementsOf({}, roots),
+      usesShell: false,
+    };
     const base = entry
-      ? entry.source === bundledSource
-        ? sanitizeSkill(entry, roots)
-        : {
-            name,
-            description: "",
-            state: "shadowed",
-            missing: requirementsOf({}, roots),
-            usesShell: false,
-          }
+      ? entry.source !== bundledSource
+        ? hidden
+        : shadowed.has(name)
+          ? { ...sanitizeSkill(entry, roots), state: "shadowed" }
+          : sanitizeSkill(entry, roots)
       : {
           name,
           description: "",
@@ -152,8 +181,12 @@ export function skillCatalog({ report, bundled = new Set(), assistant, roots = [
       ...base,
       assigned: on,
       // OpenClaw confirms it offers the skill to this agent's next turn.
-      active: on && base.state === "ready" && entry?.blockedByAgentFilter === false,
-      ...(skillRisks[name] ? { risk: skillRisks[name] } : {}),
+      active:
+        on &&
+        !fallback &&
+        base.state === "ready" &&
+        entry?.blockedByAgentFilter === false,
+      ...(Object.hasOwn(skillRisks, name) ? { risk: skillRisks[name] } : {}),
     };
   });
   return { skills, assigned, shell: personalShell(assistant) };
@@ -166,7 +199,7 @@ const unknownAgent = (error) =>
 
 /** Reads an agent's skills from the running Gateway and checks assignments. */
 export class AgentSkills {
-  constructor({ store, runtime, roots = [os.homedir()] }) {
+  constructor({ store, runtime, roots = [os.homedir(), os.userInfo().homedir] }) {
     Object.assign(this, { store, runtime, roots });
   }
   async report(assistant) {
@@ -178,7 +211,7 @@ export class AgentSkills {
       // An agent the Gateway has not created yet (no apply so far) has no workspace
       // of its own; the bundled skills and their requirements are the same.
       if (!unknownAgent(error)) throw error;
-      return client.call("skills.status", {});
+      return { ...(await client.call("skills.status", {})), fallback: true };
     }
   }
   /** The catalog for an eligible agent; 400 for temporary members and archived ones. */
@@ -196,12 +229,37 @@ export class AgentSkills {
     ].filter((root) => typeof root === "string" && path.isAbsolute(root));
     // Longest first, so a nested directory is cut before its parent.
     roots.sort((a, b) => b.length - a.length);
+    const root = this.runtime.paths?.root;
     return skillCatalog({
       report,
       bundled: bundledSkillNames(entryPath),
       assistant,
       roots,
+      shadowed: root
+        ? shadowingSkillNames(skillShadowRoots(root, assistant.id))
+        : new Set(),
+      fallback: report?.fallback === true,
     });
+  }
+  /** Runs `apply` once, shortly after the last of a burst of skills.changed events. */
+  changed(apply, delayMs = 500) {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(
+      () =>
+        Promise.resolve()
+          .then(apply)
+          .catch(() => {}),
+      delayMs,
+    );
+    this.timer.unref?.();
+  }
+  /** Applies every agent with skills again, past the unchanged-config shortcut. */
+  async reapply(config) {
+    for (const assistant of this.store.listAssistants())
+      if (personalSkills(assistant).length) {
+        config.applied?.delete(assistant.id);
+        await config.apply(assistant.id).catch(() => {});
+      }
   }
   /**
    * Refuses a list with a skill that is not bundled, or that another skill of the

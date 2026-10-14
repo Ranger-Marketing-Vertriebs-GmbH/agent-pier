@@ -12,6 +12,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { assertWired } from "./service-wiring.js";
 import { assistantBootstrap } from "./assistant-bootstrap.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
+import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
 import { waitForAgentInRoster } from "./openclaw-config/agent-roster.js";
@@ -136,8 +137,12 @@ export class AssistantConfig {
       ? shellSections({ profiles: this.store.listAssistants?.() || [assistant] })
           .globalTools.length > 0
       : undefined;
-    // The agent's bundled skills (agentEntry), applied hot like tools.allow.
-    const skills = nativeReady ? personalSkills(assistant) : [];
+    // The agent's bundled skills (agentEntry), applied hot like tools.allow, without
+    // names a same-named skill in its folders would replace (skill-shadows.js).
+    const assigned = nativeReady ? personalSkills(assistant) : [];
+    const shadowed = shadowedSkills(path.dirname(this.workspaces), assistant, assigned);
+    let skills = assigned.filter((name) => !shadowed.includes(name));
+    let gatewayDropped = false;
     const bootstrap = assistantBootstrap(assistant, lease.display);
     const fingerprint = createHash("sha256")
       .update(
@@ -191,6 +196,20 @@ export class AssistantConfig {
       }
       // Profile creation commits before the Gateway's runtime roster reloads.
       await waitForAgentInRoster(this.client, assistant.runtimeAgentId, this.roster);
+      // The Gateway's own view decides as well: a name it resolves to any other
+      // source than the bundled skill is never compiled.
+      if (skills.length) {
+        const report = await this.client
+          .call("skills.status", { agentId: assistant.runtimeAgentId })
+          .catch(() => null);
+        for (const entry of report?.skills || [])
+          if (skills.includes(entry?.name) && entry.source !== "openclaw-bundled")
+            shadowed.push(entry.name);
+        const before = skills.length;
+        skills = assigned.filter((name) => !shadowed.includes(name));
+        // Not what the fingerprint says: the next apply must ask the Gateway again.
+        gatewayDropped = skills.length !== before;
+      }
       // Events count from the last write on; agents.update always writes.
       adoption.mark();
       await this.client.call("agents.update", {
@@ -217,6 +236,7 @@ export class AssistantConfig {
               pathPrepend,
               mcpTools,
               senderFacing,
+              shadowedSkills: shadowed,
             });
           const keyed = agents.entries && !Array.isArray(agents.entries);
           const keyedEntry = () => {
@@ -340,7 +360,8 @@ export class AssistantConfig {
       // A turn admitted next must run with this config, not the previous one.
       await adoption.settle(base.hash, effective.hash);
       this.store.markEffective(id, assistant.revision);
-      this.applied.set(id, fingerprint);
+      if (gatewayDropped) this.applied.delete(id);
+      else this.applied.set(id, fingerprint);
       // The Gateway now runs the stored profile, its shell level included.
       this.onApplied?.(id);
       return {

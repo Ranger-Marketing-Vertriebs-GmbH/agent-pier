@@ -1260,7 +1260,9 @@ the Gateway itself keeps its private `HOME`, state and configuration.**
   the runtime's Node and ahead of `/usr/bin:/bin`. OpenClaw checks the programs a
   skill requires on the Gateway's `PATH`, so without them Homebrew tools such as
   `gh` or `himalaya` would count as missing and their skills would not load. This
-  grants nothing beyond what exec already receives; the directories are computed
+  grants nothing beyond what exec already receives (the owner's directories come
+  before `/usr/bin:/bin`, so a user-writable one such as `~/bin` can shadow system
+  tools for the Gateway process as it already can for exec); the directories are computed
   at every Gateway start, so an AgentPier update applies it without manual steps.
 - If the owner account cannot be resolved, the Gateway starts without the wrapper
   and logs a diagnostic; commands then run with the private `HOME`, and the
@@ -1349,13 +1351,15 @@ none, and a new agent starts without any.
 - **Compilation.** The selection is stored on the agent profile (`skills`, sorted
   names) and compiled into `agents.entries.<id>.skills`, which OpenClaw reads as the
   agent's final allow list. `agents.defaults.skills` stays `[]`, so every agent
-  without its own list has no skills, and the compiler removes lists from entries it
-  does not manage. `skills.allowBundled` is not a gate: OpenClaw reads the empty list
+  without its own list has no skills, and every Gateway start removes lists from
+  entries AgentPier does not manage. `skills.allowBundled` is not a gate: OpenClaw reads the empty list
   as "every bundled skill allowed"; the agents' own lists are.
 - **Live changes.** A save applies with `config.patch` (`reloadKind: "hot"`); a shorter
   or removed list names `agents.entries.<id>.skills` in `replacePaths`. OpenClaw
   refreshes the skill snapshot at the agent's next turn, without a Gateway restart.
-  The save is audited as `assistant.updated` with the skill names.
+  The save is audited as `assistant.updated` with the skill names. Like any other
+  capability change, a save waits while the agent works on a turn (409 `active`),
+  although skills only apply at its next turn.
 - **Status.** `GET /api/assistants/:id/skills` reads `skills.status` for the agent
   from the running Gateway (503 while it is not ready). Each skill is **ready**,
   **missing** something (programs, any-of programs, environment variables or API
@@ -1367,10 +1371,20 @@ none, and a new agent starts without any.
   the page only names what is missing.
 - **Only bundled skills.** A save is refused (409 `skillUnavailable`) for a name that
   the running Gateway does not report as an `openclaw-bundled` skill: ClawHub,
-  managed, Custodian and workspace skills are never assignable. A workspace skill
-  with the same name as a bundled one takes precedence in OpenClaw; the page shows
-  such a skill as **shadowed** and never as the active bundled one, and adding it is
-  refused. Names already assigned can always be kept or removed.
+  managed, Custodian and workspace skills are never assignable. Names already
+  assigned can always be kept or removed, also while the Gateway is down.
+- **Shadowed skills are never compiled.** OpenClaw matches an agent's list by name
+  across all sources, and a skill in the agent's workspace (`skills/`,
+  `.agents/skills/`) or in the Gateway's managed or personal folders wins over the
+  bundled one. Shell commands run as the owner and could plant such a folder, so the
+  owner's switch for a bundled skill must not load it. Every compile (Gateway start
+  and live apply) drops an assigned name that a skill in those folders carries (by
+  folder or frontmatter name, a few levels deep, which over-approximates OpenClaw's
+  discovery), and a live apply also drops any name `skills.status` resolves to
+  another source. The owner's choice stays stored: the page shows the skill as
+  **shadowed** and off for this agent, adding such a skill is refused, and it applies
+  again once the other skill is gone. Owner turns apply the agent before they start,
+  and the Gateway's `skills.changed` event re-applies every agent with skills.
 - **Programs.** OpenClaw checks the programs a skill requires on the Gateway's
   `PATH`, which carries the owner's login `PATH` (see
   [Environment of shell commands](#environment-of-shell-commands)). Most skills run

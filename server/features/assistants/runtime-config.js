@@ -2,8 +2,9 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { proxyEnvironment } from "../../lib/proxy-environment.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
-import { guardedTools, memoryTools } from "./native-capabilities.js";
+import { guardedTools, memoryTools, personalSkills } from "./native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
+import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { hardenedDefaults } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
 import { applyShell, shellSections, withoutShell } from "./openclaw-config/shell.js";
@@ -85,6 +86,8 @@ export function compileOpenClawConfig({
   mcp,
   // { accounts, speech }; see openclaw-config/telegram-senders.js readTelegramInputs.
   telegram,
+  // { [runtimeAgentId]: names } assigned skills a same-named skill would replace.
+  skillShadows = {},
 }) {
   const config = applyOverrides(existing || freshDefaults(paths), overrides);
   // Paths are this installation's; a restored or copied configuration cannot pick them.
@@ -206,6 +209,7 @@ export function compileOpenClawConfig({
           pathPrepend: shell?.pathPrepend,
           mcpTools: mcpServers.agentTools[profile.runtimeAgentId],
           senderFacing: !!telegramCompiled.accounts[profile.runtimeAgentId],
+          shadowedSkills: skillShadows[profile.runtimeAgentId],
         }),
       );
     }
@@ -268,6 +272,13 @@ export function prepareRuntimeConfig(
 ) {
   const existing = readJSON(paths.config, null);
   const token = existing?.gateway?.auth?.token || randomBytes(32).toString("hex");
+  // Read from disk here so the compiler itself stays pure.
+  const skillShadows = Object.fromEntries(
+    (teams?.profiles || []).map((profile) => [
+      profile.runtimeAgentId,
+      shadowedSkills(paths.root, profile, personalSkills(profile)),
+    ]),
+  );
   writePrivate(
     paths.config,
     compileOpenClawConfig({
@@ -283,6 +294,7 @@ export function prepareRuntimeConfig(
       shell,
       mcp,
       telegram,
+      skillShadows,
     }),
   );
   return token;
@@ -293,12 +305,18 @@ export function prepareRuntimeConfig(
  * that exec already receives as `tools.exec.pathPrepend` (exec-shell.js), then the
  * system directories. OpenClaw checks a skill's required programs on this PATH, so
  * without the owner's directories Homebrew tools such as `gh` count as missing and
- * the skill does not load. Absolute directories only, without duplicates.
+ * the skill does not load. Absolute directories only, without duplicates, path
+ * delimiters or NUL characters.
  */
 export function gatewayPath(nodePath, pathPrepend = []) {
   const directories = [];
   for (const directory of [path.dirname(nodePath), ...pathPrepend, "/usr/bin", "/bin"])
-    if (path.isAbsolute(directory) && !directories.includes(directory))
+    if (
+      path.isAbsolute(directory) &&
+      !directory.includes(path.delimiter) &&
+      !directory.includes("\0") &&
+      !directories.includes(directory)
+    )
       directories.push(directory);
   return directories.join(path.delimiter);
 }

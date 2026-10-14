@@ -30,6 +30,9 @@ export function agentEntry(
     pathPrepend = [],
     // The agent owns a bot for other people (openclaw-config/telegram-senders.js).
     senderFacing = false,
+    // Assigned skills a same-named workspace or managed skill would replace
+    // (skill-shadows.js): never compiled, so that skill never loads through them.
+    shadowedSkills = [],
   },
 ) {
   const next = { ...entry };
@@ -49,7 +52,9 @@ export function agentEntry(
   // The agent's final skill list (agents.defaults.skills is []): only the bundled
   // skills the owner switched on, and only once native tools are ready.
   if (toolsManaged) {
-    const skills = nativeReady ? personalSkills(assistant) : [];
+    const skills = nativeReady
+      ? personalSkills(assistant).filter((name) => !shadowedSkills.includes(name))
+      : [];
     if (skills.length) next.skills = skills;
     else delete next.skills;
   }
