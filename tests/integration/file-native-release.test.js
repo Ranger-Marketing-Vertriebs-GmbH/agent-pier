@@ -148,7 +148,10 @@ test(
     const dataDir = path.join(f.root, "data");
     await installRelease(
       { archive, installRoot, dataDir, installDependencies: false },
-      { run: async () => ({ stdout: "fixture tool available" }) },
+      {
+        run: async () => ({ stdout: "fixture tool available" }),
+        toolchains: async () => ({}),
+      },
     );
     assert.equal(await fs.readlink(path.join(installRoot, "current")), "releases/1.0.0");
     const releases = new Releases({ installRoot, dataDir });
@@ -177,7 +180,10 @@ test(
           dataDir: path.join(f.root, "missing-name-policy-data"),
           installDependencies: false,
         },
-        { run: async () => ({ stdout: "fixture tool available" }) },
+        {
+          run: async () => ({ stdout: "fixture tool available" }),
+          toolchains: async () => ({}),
+        },
       ),
       { message: serverMessages.releases.smokeFailed },
     );

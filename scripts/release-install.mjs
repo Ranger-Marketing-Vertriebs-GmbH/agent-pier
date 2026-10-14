@@ -14,6 +14,7 @@ import { resumeSetup } from "./setup-resume.mjs";
 export { ensureDependencies } from "./install-dependencies.mjs";
 import { ensureDependencies } from "./install-dependencies.mjs";
 import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
+import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
 export async function installRelease(options, dependencies = {}) {
   if (options.resume) return resumeSetup(options, dependencies);
   return installInitialRelease(options, dependencies);
@@ -38,6 +39,7 @@ async function installInitialRelease(
     platform = process.platform,
     home = os.homedir(),
     assistantRuntime,
+    toolchains = provisionInstallerToolchains,
   } = {},
 ) {
   if (
@@ -71,6 +73,7 @@ async function installInitialRelease(
     { dataDir, enable: withAssistants },
     { assistantRuntime },
   );
+  const toolchainResult = await toolchains({ dataDir });
   const configuredEnv = {
     ...dependencies.env,
     AGENTPIER_INSTALL_ROOT: installRoot,
@@ -98,6 +101,7 @@ async function installInitialRelease(
     installedDependencies: dependencies.installed,
     serviceInstalled: service,
     ...(assistants ? { assistantRuntime: assistants } : {}),
+    toolchains: toolchainResult,
   };
 }
 export async function runInstaller(args, dependencies = {}) {

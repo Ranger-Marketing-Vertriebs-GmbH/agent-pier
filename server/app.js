@@ -1,3 +1,4 @@
+import { stageToolchainsInBackground } from "./features/mcp-packages/toolchain-provisioning.js";
 import { assistantRoutes } from "./http/routes/assistants.js";
 import { agentText } from "./lib/i18n/agent-text.js";
 import { messageIdentity } from "./lib/i18n/message-identity.js";
@@ -151,6 +152,9 @@ export async function createApplication(config) {
   });
   server.once("listening", () => services.releaseMigration.resumeAfterActivation());
   server.once("listening", () => services.mcpAccess.initialize());
+  server.once("listening", () =>
+    stageToolchainsInBackground({ dataDir: config.dataDir }),
+  );
   server.once("listening", () => {
     const report = (error) =>
       console.error(
