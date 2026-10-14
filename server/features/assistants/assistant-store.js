@@ -78,6 +78,11 @@ export class AssistantStore {
       if (fields.shell !== "off") throw assistantProblem("invalid");
       delete fields.shell;
     }
+    // Likewise skills: an ineligible profile may only restate an empty list.
+    if ("skills" in fields && !personalEligible(current)) {
+      if (fields.skills.length) throw assistantProblem("invalid");
+      delete fields.skills;
+    }
     const result = { ...current, ...fields, revision: revision + 1 };
     // Older clients send only the original keys; keep stored newer capabilities.
     if (fields.capabilities)

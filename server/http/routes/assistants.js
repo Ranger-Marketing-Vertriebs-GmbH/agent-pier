@@ -12,6 +12,7 @@ import { assistantAccountRoutes, modelRefreshRateLimit } from "./assistant-accou
 import { mcpServerErrors, replyStdioConfirmation } from "./mcp-servers.js";
 import { mcpOAuthRateLimit, mcpOAuthRoutes } from "./mcp-oauth.js";
 import { assistantShellRoutes, replyShellConfirmation } from "./assistant-shell.js";
+import { assistantSkillRoutes } from "./assistant-skills.js";
 import {
   assistantAttachmentRateLimits,
   assistantAttachmentRoutes,
@@ -105,6 +106,7 @@ function activeAssistantRoutes(services) {
   router.use(mcpOAuthRoutes(services));
   router.use("/mcp-servers", mcpServerErrors);
   router.use(assistantShellRoutes(services));
+  router.use(assistantSkillRoutes(services));
   router.use(assistantAttachmentRoutes(services));
   router.get("/assistants", (_req, res) => res.json(assistants.list()));
   router.post("/assistants", async (req, res) => {
@@ -156,6 +158,16 @@ function activeAssistantRoutes(services) {
           stdioConfirmed: outcome.stdioAdded === true,
           count: patch.mcpServers.length,
         },
+      });
+    // A skill assignment is audited by its names: they are public catalog entries.
+    if (Array.isArray(patch.skills))
+      audit.append({
+        action: "assistant.updated",
+        resourceType: "assistant",
+        resourceId: req.params.id,
+        outcome: "success",
+        source: "user",
+        details: { fields: ["skills"], skills: result.skills || [] },
       });
     res.json(result);
   });

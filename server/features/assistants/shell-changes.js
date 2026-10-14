@@ -63,6 +63,7 @@ export function withoutUnchanged(patch, changes, current) {
         ([key, value]) => (current.capabilities?.[key] ?? false) === value,
       ),
     shell: () => changes.shell === (current.shell ?? "off"),
+    skills: () => isDeepStrictEqual(changes.skills, current.skills ?? []),
     heartbeat: () => isDeepStrictEqual(changes.heartbeat, current.heartbeat),
   };
   return Object.fromEntries(

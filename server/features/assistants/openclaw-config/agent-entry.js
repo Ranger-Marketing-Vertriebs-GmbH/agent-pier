@@ -2,6 +2,7 @@ import {
   sessionTools,
   personalCapabilities,
   personalShell,
+  personalSkills,
   profileTools,
 } from "../native-capabilities.js";
 import { agentExec } from "./shell.js";
@@ -45,6 +46,13 @@ export function agentEntry(
       ).filter((tool) => !senderFacing || !sessionTools.includes(tool)),
       ...(exec && { exec }),
     };
+  // The agent's final skill list (agents.defaults.skills is []): only the bundled
+  // skills the owner switched on, and only once native tools are ready.
+  if (toolsManaged) {
+    const skills = nativeReady ? personalSkills(assistant) : [];
+    if (skills.length) next.skills = skills;
+    else delete next.skills;
+  }
   if (memoryManaged)
     next.memory = {
       search: {

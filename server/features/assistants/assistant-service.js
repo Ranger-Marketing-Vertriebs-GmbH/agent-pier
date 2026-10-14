@@ -11,6 +11,7 @@ import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
 import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js";
 import { ExecAllowlist } from "./exec-allowlist.js";
+import { AgentSkills } from "./agent-skills.js";
 import { assistantActivity } from "./assistant-activity.js";
 import { ChatStreams } from "./chat-stream.js";
 import {
@@ -37,6 +38,7 @@ export class AssistantService {
     this.shellChanges = new ShellChanges(this, { now });
     config.onApplied = (id) => this.shellChanges.applied(id);
     this.allowlist = new ExecAllowlist(this);
+    this.skills = new AgentSkills({ store, runtime });
     this.sessionFailures = new Map();
     this.ledger = new RequestLedger(store.db);
     this.attachments = new AgentAttachments({ store, models, config });
@@ -176,6 +178,8 @@ export class AssistantService {
     const { confirmShell, confirmFull, ...input } = body || {};
     return this.admit(async () => {
       const shell = shellChange({ shell: "off" }, input, { confirmShell, confirmFull });
+      // Skills are assigned once the agent exists (agent-skills.js).
+      if (input.skills?.length) throw assistantProblem("invalid");
       const lease = await this.models.resolve(input.model || {});
       lease.release();
       // Web capabilities need the Gateway sections an update can apply with the
@@ -281,6 +285,8 @@ export class AssistantService {
       // Refuses ineligible agents and unconfirmed stdio servers before any change.
       if (binds)
         outcome.stdioAdded = this.mcp.checkBindings(current, mcpServers, confirmStdio);
+      // Only bundled skills the running Gateway reports, refused before any change.
+      if (patch.skills) await this.skills.check(current, changes.skills);
       // Without the owner's confirmation nothing changes, not even reminders.
       const restart =
         !!patch.capabilities &&
@@ -305,7 +311,7 @@ export class AssistantService {
       // Saved first, so a request arriving now is denied (exec-approvals.js). A
       // failed live apply stays pending and is retried; never reported as live.
       if (shell) pending = (await this.shellChanges.settle(id, shell)) || pending;
-      else if (patch.capabilities && this.runtime.client?.ready)
+      else if ((patch.capabilities || patch.skills) && this.runtime.client?.ready)
         await this.config.apply(id);
       pending = (await this.syncHeartbeat(id, patch)) || pending;
       this.changed();

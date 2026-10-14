@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from "node:util";
 import {
   personalCapabilities,
   personalShell,
+  personalSkills,
   profileTools,
   sessionTools,
 } from "./native-capabilities.js";
@@ -135,6 +136,8 @@ export class AssistantConfig {
       ? shellSections({ profiles: this.store.listAssistants?.() || [assistant] })
           .globalTools.length > 0
       : undefined;
+    // The agent's bundled skills (agentEntry), applied hot like tools.allow.
+    const skills = nativeReady ? personalSkills(assistant) : [];
     const bootstrap = assistantBootstrap(assistant, lease.display);
     const fingerprint = createHash("sha256")
       .update(
@@ -149,6 +152,7 @@ export class AssistantConfig {
           capabilities,
           exec,
           shellGlobal,
+          skills,
           bootstrap,
           senderFacing,
         ]),
@@ -233,6 +237,9 @@ export class AssistantConfig {
                     }
                   : null,
               };
+            // A merge patch keeps an omitted list: null removes the last skill.
+            if (managed && Array.isArray(current?.skills) && !next.skills)
+              next.skills = null;
             return next;
           };
           const patch = keyed
@@ -252,6 +259,9 @@ export class AssistantConfig {
                 `agents.entries.${assistant.runtimeAgentId}.tools.exec.pathPrepend`,
               ]
             : [`agents.${arrayKey}`];
+          // A shorter or removed skill list drops array items as well.
+          if (keyed && Array.isArray(agents.entries[assistant.runtimeAgentId]?.skills))
+            replacePaths.push(`agents.entries.${assistant.runtimeAgentId}.skills`);
           const globalAllow = shellAllow(config.tools?.allow, shellGlobal);
           if (globalAllow) replacePaths.push("tools.allow");
           return {
@@ -294,6 +304,11 @@ export class AssistantConfig {
         (this.teamReady || this.nativeReady) &&
         // OpenClaw's merge keeps existing keys first: compare regardless of key order.
         !isDeepStrictEqual((entry || legacy)?.tools?.exec ?? null, exec ?? null)
+      )
+        throw assistantProblem("conflict", 409);
+      if (
+        (this.teamReady || this.nativeReady) &&
+        !isDeepStrictEqual((entry || legacy)?.skills ?? [], skills)
       )
         throw assistantProblem("conflict", 409);
       if (
