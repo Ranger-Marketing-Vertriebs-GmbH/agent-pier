@@ -184,7 +184,7 @@ from wandering into files it was never meant to touch, but it is not a boundary 
 a hostile CLI.
 
 This is consistent with, and does not replace, the existing security posture described
-in the [README](../README.md#data-and-boundaries): AgentPier remains a trusted
+in the [README](../README.md#data-and-security-boundaries): AgentPier remains a trusted
 personal workspace, not an isolation boundary for mutually untrusted users.
 
 ## Known limitations
