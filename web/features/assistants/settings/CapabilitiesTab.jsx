@@ -5,6 +5,7 @@ import useTabDraft from "../../../lib/settings/useTabDraft.js";
 import { sameValue } from "../../../lib/settings/draft-state.js";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantShellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
+import { assistantSkillsCopy } from "../../../lib/i18n/messages/assistant-skills.js";
 import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import TemporaryMcpServers from "../../mcp-servers/TemporaryMcpServers.jsx";
@@ -18,8 +19,11 @@ import { MemoryGroup, ShellGroup, WebGroup } from "./CapabilityGroups.jsx";
 import McpGroup from "./McpGroup.jsx";
 import MemoryPage from "./MemoryPage.jsx";
 import AllowlistPage from "./AllowlistPage.jsx";
+import SkillsGroup from "./SkillsGroup.jsx";
+import SkillsPage from "./SkillsPage.jsx";
+import { shellEligible } from "../shell-level.js";
 
-const subpages = { memory: MemoryPage, allowlist: AllowlistPage };
+const subpages = { memory: MemoryPage, allowlist: AllowlistPage, skills: SkillsPage };
 const conflictLabels = {
   memory: () => copy.personal.enableMemory,
   reminders: () => copy.personal.enableReminders,
@@ -29,9 +33,10 @@ const conflictLabels = {
   documents: () => copy.personal.enableDocuments,
   shell: () => assistantShellCopy.title,
   mcpServers: () => mcpServerCopy.agentTitle,
+  skills: () => assistantSkillsCopy.title,
 };
 
-/** Capabilities: memory, web, shell and MCP servers in one draft and one PATCH. */
+/** Capabilities: memory, web, shell, skills and MCP servers in one draft and one PATCH. */
 export default function CapabilitiesTab({ assistant, page, go, navigate }) {
   const { refresh, runtime, members = [] } = useAssistants();
   const personal = isPersonal(assistant);
@@ -86,11 +91,23 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       <UnsavedChangesSheet {...sheet} />
     </>
   );
+  const saveBar = (
+    <SaveBar
+      draft={draft}
+      onSave={save}
+      onOverwrite={overwrite}
+      saveLabel={copy.save}
+      note={copy.pendingConfigShort}
+    />
+  );
   const Subpage = subpages[page];
   if (Subpage)
     return (
       <>
-        <Subpage assistant={assistant} onBack={() => go("capabilities")} />
+        {/* The skills subpage edits this tab's draft and saves with its bar. */}
+        {page === "skills" && <ConflictNotice draft={draft} labels={conflictLabels} />}
+        <Subpage assistant={assistant} draft={draft} onBack={() => go("capabilities")} />
+        {page === "skills" && saveBar}
         {sheets}
       </>
     );
@@ -102,6 +119,9 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
         <WebGroup draft={draft} browser={runtime?.browser} navigate={navigate} />
       )}
       <ShellGroup assistant={assistant} draft={draft} go={go} />
+      {shellEligible(assistant) && (
+        <SkillsGroup assistant={assistant} draft={draft} go={go} />
+      )}
       {personal && Array.isArray(assistant.mcpServers) && (
         <McpGroup
           assistant={assistant}
@@ -112,13 +132,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
         />
       )}
       {!personal && member && <TemporaryMcpServers servers={member.mcpServers} />}
-      <SaveBar
-        draft={draft}
-        onSave={save}
-        onOverwrite={overwrite}
-        saveLabel={copy.save}
-        note={copy.pendingConfigShort}
-      />
+      {saveBar}
       {sheets}
     </>
   );

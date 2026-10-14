@@ -136,6 +136,7 @@ export const assistantApi = {
       acknowledgeUnknownOutcome: true,
     }),
   shellAllowlist: (id) => api(`/assistants/${encodeURIComponent(id)}/shell-allowlist`),
+  skills: (id) => api(`/assistants/${encodeURIComponent(id)}/skills`),
   removeShellAllowlistEntry: (id, entry) =>
     api(
       `/assistants/${encodeURIComponent(id)}/shell-allowlist/${encodeURIComponent(entry)}`,

@@ -1,0 +1,81 @@
+/* Agent skills subpage: search and filter above one switch per bundled skill. */
+.agent-skills-toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+.agent-skills-search,
+.agent-skills-filter {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  border: 1px solid var(--header-line);
+  border-radius: 10px;
+  background: var(--header-bg);
+  color: var(--muted);
+}
+.agent-skills-search {
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px;
+}
+.agent-skills-search:focus-within,
+.agent-skills-filter:focus-within {
+  border-color: var(--accent);
+}
+.agent-skills-search input,
+.agent-skills-filter select {
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text);
+}
+.agent-skills-search input {
+  flex: 1;
+  font-size: 14px;
+}
+.agent-skills-filter {
+  position: relative;
+  flex: none;
+  max-width: 45%;
+  padding: 0 32px 0 12px;
+}
+.agent-skills-filter select {
+  max-width: 100%;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  appearance: none;
+  cursor: pointer;
+}
+.agent-skills-filter svg {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+}
+.agent-skill-line {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.agent-skill-line + .agent-skill-line {
+  margin-top: 2px;
+}
+.agent-skill-state.ok {
+  color: var(--success);
+}
+.agent-skill-state.warn,
+.agent-skill-shell {
+  color: var(--warning);
+}
+.agent-skill-risk {
+  margin-top: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--accent-line);
+  border-radius: 6px;
+  background: var(--accent-faint);
+  color: var(--accent-text);
+}
