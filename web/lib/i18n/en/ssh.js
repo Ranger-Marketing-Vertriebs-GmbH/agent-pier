@@ -80,6 +80,7 @@ export const sshCopy = {
   testOk: "Connection successful",
   busy: "Please wait …",
   saved: "Saved",
+  sessionSummary: "Choose the hosts your agent may use in this session.",
   sessionHint:
     "Select accesses and save. Ready SSH tools let your agent use the assigned hosts. Saving does not run a remote command.",
   commandHint: "Append a remote command to the copied connection command, for example:",

@@ -67,8 +67,10 @@ export const sessionReloadCopy = {
     `The connection no longer offers a route for this CLI (before: ${from}). The reload may fail; check the connection's routing first.`,
   retryCurrent: "Retry with current account",
   switchTitle: "Continue with another account",
-  switchHint:
-    "Resume this exact conversation with another account for the same CLI. Select an account that is already signed in. The conversation is copied; credentials stay separate. The original history is retained if the switch fails.",
+  switchSummary:
+    "Resume this exact conversation with another signed-in account for the same CLI.",
+  switchDetails:
+    "The conversation is copied; credentials stay separate. The original history is retained if the switch fails.",
   switchNow: "Switch account & resume",
   targetAccount: "Target account",
   chooseAccount: "Choose an account …",
@@ -100,7 +102,6 @@ export const sessionReloadCopy = {
   reloading:
     "Waiting for the resumed conversation · confirm any prompts in the terminal.",
   completed: "Conversation resumed with refreshed integrations.",
-  close: "Close",
   refresh: "Check again",
 };
 

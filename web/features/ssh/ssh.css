@@ -4,7 +4,6 @@
 .ssh-page > p,
 .ssh-card p,
 .ssh-form p,
-.ssh-dialog > p,
 .ssh-launch > p {
   color: var(--muted);
   line-height: 1.6;
@@ -100,17 +99,35 @@
   padding-top: 8px;
   border-top: 1px solid var(--line);
 }
-.ssh-dialog a {
-  display: inline-block;
-  margin-top: 20px;
+.ssh-dialog-manage {
+  justify-self: start;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--accent);
+}
+.ssh-dialog .ssh-copy {
+  margin: 4px 0 0;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.ssh-dialog .ssh-copy pre {
+  justify-self: stretch;
+}
+.ssh-choice {
+  display: grid;
+  gap: 6px;
+}
+.ssh-choice-remove {
+  justify-self: start;
+  padding: 4px 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-text);
 }
 .ssh-launch {
   border-top: 1px solid var(--line);
   padding-top: 16px;
-}
-.ssh-choices legend {
-  font-weight: 600;
 }
 @media (max-width: 600px) {
   .ssh-card {
@@ -120,11 +137,9 @@
     flex: 1 1 auto;
   }
 }
-.ssh-dialog,
 .ssh-form {
   padding: 0 26px 26px;
 }
-.ssh-dialog > p,
 .ssh-page > p,
 .ssh-card > p {
   margin-bottom: 12px;
@@ -133,13 +148,11 @@
   justify-content: flex-end;
 }
 .ssh-card .button:not(.primary),
-.ssh-dialog .button:not(.primary),
 .ssh-form .button:not(.primary),
 .ssh-launch .button {
   border: 1px solid var(--line);
 }
 @media (max-width: 600px) {
-  .ssh-dialog,
   .ssh-form {
     padding: 0 20px 20px;
   }

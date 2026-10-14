@@ -11,7 +11,7 @@ export default function SshCopy({ label, text, button, compact = false }) {
         </pre>
       )}
       <button
-        className="button"
+        className="button secondary"
         type="button"
         onClick={async () => {
           try {
