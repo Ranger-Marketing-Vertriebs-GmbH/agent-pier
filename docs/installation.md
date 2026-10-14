@@ -193,6 +193,49 @@ npm run service:install
 
 Data in `.data/` or your custom data directory is retained. Create a host backup under **Settings → Operations → Backups** before migrations; [docs/backups.md](backups.md) describes what it holds, the archive format and how to restore it into a new data directory. OAuth and Keychain logins may be tied to the individual Mac; sign in again on the Mac mini instead of copying Keychain files from a MacBook.
 
+### Upgrading from 1.x
+
+AgentPier 2.0 keeps the data schema of 1.28, so the update itself needs no
+migration step. A few changes need one action from you or change what you can roll
+back to:
+
+- **Take a backup before you update** if you might go back to 1.28.x. Backups made
+  by 2.0 use [archive format 2](backups.md#archive-format), which 1.28.x cannot
+  restore. 2.0 still restores backups made by 1.x.
+- **Codex MCP logins.** Managed Codex accounts now keep MCP OAuth tokens in their own
+  profile instead of the macOS keychain. Sign in once more to each OAuth MCP server
+  you used from a managed Codex account, under **Accounts → MCP servers** (see
+  [Central MCP servers](mcp.md#central-mcp-servers-in-the-coding-clis)).
+- **Lead agents instruct their members without approval.** Questions and tasks from
+  a lead to its team members run without an approval prompt, and each member uses
+  its own capabilities for them. Check your members' shell access and MCP servers
+  after the update; see [Teams](agents.md#teams-asks-and-tasks).
+- **Settings moved.** Settings has the tabs **Workspace**, **Access** and
+  **Operations**; agent settings have **Profile**, **Capabilities**, **Work** and
+  **Telegram**; **Accounts** groups **Model access**, **Services for agents**,
+  **MCP servers** and **Native CLI accounts**. MCP servers for the coding CLIs moved
+  from **Extensions** to **Accounts → MCP servers**. Navigation and **Sign out** are
+  in the sidebar **Menu**. Old links and bookmarks still open the right page.
+- **Backups capture less of the CLI profiles.** Profiles are copied by
+  [allowlist](backups.md#cli-profile-allowlists), CLI conversation histories only
+  into backups with a passphrase, and restored hook scripts need `chmod +x` again.
+- **Removed HTTP routes.** `POST /api/accounts/:id/extensions/mcp` and
+  `DELETE /api/accounts/:id/extensions/mcp/:name` are gone; scripts use
+  `/api/mcp-servers` instead.
+
+Going back to 1.28.x under **Settings → Operations → Updates** remains possible and
+keeps your data, with these limits:
+
+- 2.0 backups cannot be restored there.
+- Agent shell access, web, browser and document tools, bound MCP servers, the
+  agents' own Telegram bots, check-ins, attachments and lead requests stop until you
+  update again. Their data stays.
+- Saving an agent's capabilities on 1.28.x drops its web, browser and document
+  settings.
+- If the agent service already runs OpenClaw 2026.9.9, agents' memory writes stay
+  read-only on 1.28.x until you activate 2026.9.8 again under
+  **Settings → Workspace → Agents → Agent service**.
+
 ## Stop and remove
 
 ```sh
