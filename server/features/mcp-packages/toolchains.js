@@ -8,7 +8,7 @@ import { download as fetchDownload } from "../operations/releases.js";
 import { acquireInstallLock } from "../assistants/runtime-install-lock.js";
 import { proxyEnvironment } from "../../lib/proxy-environment.js";
 import { writePrivate } from "../../lib/storage.js";
-import { packageCode, packageProblem } from "./package-errors.js";
+import { packageError, packageProblem } from "./package-errors.js";
 import { toolchainManifest, toolchainTarget } from "./toolchain-manifest.js";
 import { privateFolder, regularFile, sha256Matches } from "./verified-files.js";
 import { relocateSysconfig } from "./cpython-relocation.js";
@@ -224,52 +224,62 @@ export function readToolchain(
 function lock(root) {
   try {
     return acquireInstallLock({ runtimes: root });
-  } catch {
-    throw packageProblem("MCP_PACKAGE_BUSY", 409);
+  } catch (error) {
+    if (error?.code === "RUNTIME_BUSY")
+      throw packageProblem("MCP_PACKAGE_BUSY", 409, "toolchainBusy");
+    throw unavailable();
   }
 }
-async function install(kind, options) {
+/** Under the lock: clears abandoned stages, installs into a new one, moves it in. */
+async function staged(kind, root, target, options) {
   const {
     dataDir,
     download = downloadFile,
     execute = executeFile,
-    manifest: m = toolchainManifest,
+    manifest: m,
     environment = process.env,
   } = options;
-  const target = toolchainTarget(options);
-  const existing = readToolchain(kind, { ...options, manifest: m });
-  if (existing) return existing;
-  const { root } = toolchainPaths(dataDir);
-  const release = lock(root);
+  let stage;
   try {
-    const current = readToolchain(kind, { ...options, manifest: m });
-    if (current) return current;
     // Under the lock no other installer is staging: every stage is abandoned.
     for (const name of fs.readdirSync(root))
       if (name.startsWith(".stage-"))
         fs.rmSync(path.join(root, name), { recursive: true, force: true });
-    const stage = privateFolder(path.join(root, `.stage-${randomUUID()}`));
+    stage = privateFolder(path.join(root, `.stage-${randomUUID()}`));
+    const work = kind === "node" ? installNode : installPython;
+    const env = isolated(stage, environment);
+    const { content, receipt } = await work({
+      stage,
+      final: path.resolve(directoryOf(kind, dataDir, target, m)),
+      target,
+      m,
+      download,
+      execute,
+      env,
+    });
+    writePrivate(path.join(content, "receipt.json"), { kind, target, ...receipt });
+    fs.renameSync(content, directoryOf(kind, dataDir, target, m));
+  } catch (error) {
+    throw packageError(error, "MCP_PACKAGE_INSTALL_FAILED", 502);
+  } finally {
     try {
-      const work = kind === "node" ? installNode : installPython;
-      const env = isolated(stage, environment);
-      const { content, receipt } = await work({
-        stage,
-        final: path.resolve(directoryOf(kind, dataDir, target, m)),
-        target,
-        m,
-        download,
-        execute,
-        env,
-      });
-      writePrivate(path.join(content, "receipt.json"), { kind, target, ...receipt });
-      fs.renameSync(content, directoryOf(kind, dataDir, target, m));
-    } catch (error) {
-      const code = packageCode(error, "MCP_PACKAGE_INSTALL_FAILED");
-      throw code === error.code ? error : packageProblem(code, 502);
-    } finally {
-      fs.rmSync(stage, { recursive: true, force: true });
+      if (stage) fs.rmSync(stage, { recursive: true, force: true });
+    } catch {
+      /* The next install clears it. */
     }
-    return readToolchain(kind, { ...options, manifest: m });
+  }
+}
+async function install(kind, options) {
+  const target = toolchainTarget(options);
+  const existing = readToolchain(kind, options);
+  if (existing) return existing;
+  const { root } = toolchainPaths(options.dataDir);
+  const release = lock(root);
+  try {
+    const current = readToolchain(kind, options);
+    if (current) return current;
+    await staged(kind, root, target, options);
+    return readToolchain(kind, options);
   } finally {
     release();
   }
@@ -291,12 +301,21 @@ function serialized(root, operation) {
  */
 export function ensureToolchain(kind, options) {
   if (!kinds.includes(kind)) return Promise.reject(unavailable());
-  const root = path.resolve(toolchainRoot(options.dataDir));
+  let root;
+  try {
+    root = path.resolve(toolchainRoot(options.dataDir));
+  } catch {
+    return Promise.reject(unavailable());
+  }
   const key = `${root}:${kind}`;
   if (jobs.has(key)) return jobs.get(key);
-  const job = serialized(root, () => install(kind, options)).finally(() =>
-    jobs.delete(key),
-  );
+  const settings = { ...options, manifest: options.manifest ?? toolchainManifest };
+  // Whatever fails without a package code (storage, file system) never shows a path.
+  const job = serialized(root, () => install(kind, settings))
+    .catch((error) => {
+      throw packageError(error, "MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE", 503);
+    })
+    .finally(() => jobs.delete(key));
   jobs.set(key, job);
   return job;
 }
@@ -319,9 +338,15 @@ export async function pruneToolchains(
   inUse = [],
   { platform, arch, glibc, manifest: m = toolchainManifest } = {},
 ) {
+  try {
+    return await prune(dataDir, inUse, toolchainTarget({ platform, arch, glibc }), m);
+  } catch (error) {
+    throw packageError(error, "MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE", 503);
+  }
+}
+async function prune(dataDir, inUse, target, m) {
   const root = toolchainRoot(dataDir);
   if (!fs.existsSync(root)) return [];
-  const target = toolchainTarget({ platform, arch, glibc });
   let release;
   try {
     release = acquireInstallLock({ runtimes: root });

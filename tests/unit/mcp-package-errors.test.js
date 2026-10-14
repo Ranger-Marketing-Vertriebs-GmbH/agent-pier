@@ -22,6 +22,10 @@ test("every package code has a German message and keeps its code and status", ()
 
 test("an unknown code is a defect, not a silent generic message", () => {
   assert.throws(() => packageProblem("MCP_PACKAGE_NOPE"), /Unknown package code/);
+  assert.throws(
+    () => packageProblem("MCP_PACKAGE_BUSY", 409, "nope"),
+    /Unknown package message/,
+  );
 });
 
 test("the response layer passes a package code through to the client", async () => {

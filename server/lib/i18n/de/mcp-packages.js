@@ -18,4 +18,6 @@ export const mcpPackages = {
   installFailed: "Die Installation ist fehlgeschlagen. Details stehen im Protokoll.",
   previewExpired: "Die Vorschau ist abgelaufen. Bitte die Installation erneut prüfen.",
   busy: "Für diesen Server läuft bereits eine Installation.",
+  toolchainBusy:
+    "Gerade wird bereits eine Toolchain installiert. Bitte gleich erneut versuchen.",
 };

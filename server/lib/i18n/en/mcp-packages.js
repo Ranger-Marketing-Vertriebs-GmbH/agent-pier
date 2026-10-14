@@ -16,4 +16,5 @@ export const mcpPackages = Object.freeze({
   installFailed: "The installation failed. See the log for details.",
   previewExpired: "The preview has expired. Please check the installation again.",
   busy: "An installation is already running for this server.",
+  toolchainBusy: "A toolchain is already being installed. Please try again shortly.",
 });
