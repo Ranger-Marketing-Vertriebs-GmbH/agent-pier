@@ -1,4 +1,5 @@
 import test from "node:test";
+import { assertJoinedAtBreaks } from "../helpers/telegram-parts.js";
 import assert from "node:assert/strict";
 import { teamFixture } from "../helpers/assistant-team-fixture.js";
 import { channelFixture, telegramMessage } from "../helpers/assistant-channel-fixture.js";
@@ -110,7 +111,9 @@ test("maximum Telegram proposal is complete and buttons follow all delivered det
   assert.ok(sends.length > 1);
   assert.ok(sends.slice(0, -1).every((s) => !s.reply_markup));
   assert.equal(sends.at(-1).reply_markup.inline_keyboard[0].length, 2);
-  // Parts end at line or word breaks, whose whitespace is dropped.
-  const words = (text) => text.replace(/\s+/g, "");
-  assert.equal(words(sends.map((s) => s.text).join("")), words(entry.text));
+  // Parts end at line or word breaks, whose whitespace alone is dropped.
+  assertJoinedAtBreaks(
+    entry.text,
+    sends.map((s) => s.text),
+  );
 });

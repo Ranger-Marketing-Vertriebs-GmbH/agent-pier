@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
+import { assertJoinedAtBreaks } from "../helpers/telegram-parts.js";
 import {
   markdownToTelegramHtml,
   splitTelegramHtml,
@@ -25,8 +26,6 @@ const visible = (html) =>
     .replaceAll("&gt;", ">")
     .replaceAll("&quot;", '"')
     .replaceAll("&amp;", "&");
-// A part ends at a break whose whitespace is dropped; nothing else may change.
-const words = (text) => text.replace(/\s+/g, "");
 
 test("Markdown becomes Telegram HTML with strict escaping", () => {
   assert.equal(markdownToTelegramHtml("**bold** and *it*"), "<b>bold</b> and <i>it</i>");
@@ -82,8 +81,9 @@ test("long formatted text splits into balanced parts without cutting tags or ent
     assert.match(part, /<\/b>$/);
     assert.ok(!/&[a-z]*$/.test(part.replace(/<\/b>$/, "")));
   }
-  assert.equal(words(parts.map(visible).join("")), words(visible(html)));
-  // Each part ends between words, never inside one.
+  // Only the space at each break is dropped; each part ends between words.
+  for (const separator of assertJoinedAtBreaks(visible(html), parts.map(visible)))
+    assert.equal(separator, " ");
   for (const part of parts.slice(0, -1)) assert.match(part, /a&amp;b<\/b>$/);
 });
 
@@ -132,7 +132,7 @@ test("splitting never cuts inside a tag, entity or surrogate pair and keeps tags
     fc.property(markdownish, fc.integer({ min: 1200, max: 4000 }), (text, limit) => {
       const html = markdownToTelegramHtml(text);
       const parts = splitTelegramHtml(html, limit);
-      assert.equal(words(parts.map(visible).join("")), words(visible(html)));
+      assertJoinedAtBreaks(visible(html), parts.map(visible));
       for (const part of parts) {
         assert.ok(part.length <= limit);
         assert.ok(!strayLessThan(part), part);

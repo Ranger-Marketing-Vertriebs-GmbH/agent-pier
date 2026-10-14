@@ -575,7 +575,8 @@ request or a notice) goes out as several messages, in order. Each part holds at 
 characters, and ends at the best break that leaves it at least half full: a blank
 line, a line break, a sentence end, then a space. Breaks outside any formatting are
 preferred; a part never ends inside a link or inline code, and a code block only
-between its lines. The whitespace at the break is dropped. Formatting still open at a
+between its lines. The whitespace at the break is dropped (in a code block only the
+line break, so indentation stays). Formatting still open at a
 break (bold text, a code block) is closed and reopened in the next part. Only text
 without any such break, such as a single overlong word or URL, is cut at the limit,
 never inside a tag, entity or surrogate pair. Parts are not numbered.
