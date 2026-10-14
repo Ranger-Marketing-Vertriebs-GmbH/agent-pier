@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
 
-// Text-like fields only: a checkbox or radio would open the dialog with a focus ring.
+// Text entry fields only: a select, checkbox or radio would open with a focus ring.
 const fields = [
-  "input:not([type=checkbox], [type=radio], [type=hidden], [type=button], [type=submit])",
-  "select",
+  "input:not([type=checkbox], [type=radio], [type=hidden], [type=button], [type=submit], [type=file])",
   "textarea",
 ]
   .map((selector) => `${selector}:not(:disabled)`)
@@ -16,7 +15,7 @@ function visible(element) {
 /**
  * Opens a `<dialog>` modally on mount and closes it on unmount. Initial focus never
  * lands on the close button: it goes to a `[data-autofocus]` element, else the first
- * visible text field, else the dialog itself (which has no visible focus ring).
+ * visible text entry field, else the dialog itself (which has no visible focus ring).
  */
 export default function useModalDialog() {
   const ref = useRef(null);
