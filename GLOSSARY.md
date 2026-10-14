@@ -57,6 +57,63 @@ A single filesystem or network capability a sandboxed session needs in order for
 AgentPier integration to keep working. Adapters declare their own grants.
 _Avoid_: Permission, allowance, rule, exception.
 
+### Agents
+
+**Agent**:
+A persistent assistant run by the managed OpenClaw service, with its own chat, notes,
+capabilities and tools. The UI says "agent"; code, routes and older design documents
+say "assistant" for the same thing.
+_Avoid_: Assistant (in UI text), bot, persona.
+
+**Agent service**:
+The one managed OpenClaw Gateway process that runs all agents on a host. "Gateway" is
+OpenClaw's own name for it and appears in design documents and code.
+_Avoid_: Runtime (for the process), daemon.
+
+**Team**:
+The members one agent works with on a task. A team belongs to its lead.
+_Avoid_: Crew, group, swarm.
+
+**Lead**:
+The agent that owns a team and sends its members questions and tasks.
+_Avoid_: Parent (in UI text), manager, orchestrator.
+
+**Member**:
+An agent that belongs to a lead's team. A _temporary member_ is created for one task
+and finishes with it; a _permanent member_ was kept with "Keep as permanent agent"
+and stays nested under its lead.
+_Avoid_: Subagent, child, worker.
+
+**Ask**, **Task**:
+The two kinds of lead request. An ask is a question to any member and never writes
+files; a task is work delegated to a permanent member and may write only with the
+owner's explicit request in the same message.
+_Avoid_: Job, ticket, delegation (for the record itself).
+
+**Routine**:
+A saved task prompt that runs daily or on an event and reports to the agent's chat
+and paired Telegram chat.
+_Avoid_: Cron job, schedule (unqualified).
+
+**Reminder**:
+A one-time or daily text the agent sends to its paired Telegram chat.
+_Avoid_: Notification, alarm.
+
+**Check-in**:
+An optional scheduled look at the agent's conversation and notes, after which it
+writes only when something needs the owner's attention.
+_Avoid_: Heartbeat (in UI text), ping.
+
+**MCP server binding**:
+The link between one central MCP server and an agent or a coding CLI that receives it.
+_Avoid_: MCP integration, MCP assignment.
+
+**Skill**:
+Always qualify it. A _CLI skill_ is a shared `SKILL.md` for the coding CLIs, managed
+under Extensions. An _agent skill_ is a skill bundled with OpenClaw that the owner
+switches on per agent under Capabilities.
+_Avoid_: Skill (unqualified), plugin, tool.
+
 ### Profiles
 
 _Profile_ is also ambiguous. Four unrelated things carry the name, so qualify every
@@ -72,7 +129,8 @@ The reusable CLI and model configuration a pipeline stage runs with.
 _Avoid_: Profile (unqualified), stage config.
 
 **Extension profile**:
-A named selection of shared CLI skills, MCP integrations and plugins.
+A named selection of shared CLI skills, plugins, marketplaces and Agency agents. MCP
+servers for the coding CLIs are managed centrally, not per extension profile.
 _Avoid_: Profile (unqualified), plugin set.
 
 **Sandbox profile**:
