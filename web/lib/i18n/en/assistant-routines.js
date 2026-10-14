@@ -1,7 +1,7 @@
 export const routineCopy = {
   title: "Routines",
   description:
-    "Save a task to generate a fresh result daily or on an event. Results go to the paired Telegram chat and appear in this agent's chat. Routines use the agent's tools and approvals, but cannot schedule or delegate.",
+    "Save a task to generate a fresh result daily or on an event. Results go to the paired Telegram chat and appear in this agent's chat. Routines use the agent's tools and approvals, but cannot schedule or delegate. They read the chat's recent messages, including forwarded ones, and run while nobody watches, so with full shell access they act without asking.",
   name: "Routine name",
   prompt: "Task prompt",
   trigger: "Routine trigger",

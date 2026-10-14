@@ -1,7 +1,7 @@
 export const routineCopy = {
   title: "Routinen",
   description:
-    "Speichere eine Aufgabe, die täglich oder bei einem Ereignis ein neues Ergebnis erstellt. Ergebnisse gehen an den gekoppelten Telegram-Chat und erscheinen im Chat dieses Agenten. Routinen nutzen die Werkzeuge und Freigaben des Agenten, können aber nichts planen oder delegieren.",
+    "Speichere eine Aufgabe, die täglich oder bei einem Ereignis ein neues Ergebnis erstellt. Ergebnisse gehen an den gekoppelten Telegram-Chat und erscheinen im Chat dieses Agenten. Routinen nutzen die Werkzeuge und Freigaben des Agenten, können aber nichts planen oder delegieren. Sie lesen die letzten Nachrichten des Chats, auch weitergeleitete, und laufen, ohne dass jemand zusieht. Mit vollem Shell-Zugriff handeln sie also ohne Rückfrage.",
   name: "Routinenname",
   prompt: "Aufgabenbeschreibung",
   trigger: "Routinenauslöser",
