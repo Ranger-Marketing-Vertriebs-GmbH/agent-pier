@@ -5,6 +5,12 @@ export const lockDigest = (text) => createHash("sha256").update(text).digest("he
 const foreign = () => packageProblem("MCP_PACKAGE_FOREIGN_SOURCE", 400);
 const nameOf = (key) =>
   key.slice(key.lastIndexOf("node_modules/") + "node_modules/".length);
+/** Where a package sits in the graph, by package names (`a > b`): no folder names. */
+const pathOf = (key) =>
+  key
+    .split("/node_modules/")
+    .map((part) => part.replace(/^node_modules\//, ""))
+    .join(" > ");
 
 /**
  * Validates an npm lockfileVersion 3 resolved by AgentPier: every package comes from
@@ -54,7 +60,7 @@ export function checkNpmLock(text, { ref, integrity, registry }) {
         throw foreign();
     }
     trusted.add(key);
-    dependencies.push({ name: nameOf(key), version: entry.version, path: key });
+    dependencies.push({ name: nameOf(key), version: entry.version, path: pathOf(key) });
   }
   const top = lock.packages[`node_modules/${ref.name}`];
   if (!top || top.version !== ref.version || top.integrity !== integrity)
