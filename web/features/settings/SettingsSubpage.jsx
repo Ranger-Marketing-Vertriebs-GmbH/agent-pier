@@ -23,6 +23,8 @@ const operationsSections = new Set(["diagnostics", "backups", "audit"]);
 
 export default function SettingsSubpage({ section, route, state, frame }) {
   if (section === "assistants") return <AgentServiceRoute frame={frame} />;
+  if (section === "assistants-advanced")
+    return <AgentServiceRoute frame={frame} advanced />;
   if (section === "updates")
     return (
       <Suspense

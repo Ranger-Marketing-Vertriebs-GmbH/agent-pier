@@ -1,0 +1,50 @@
+/* Settings → Agent service → Advanced (AgentAdvancedPage.jsx). */
+.advanced-settings-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #f49a5833;
+  border-radius: 10px;
+  background: #30261c;
+  font-size: 13px;
+  color: #ffc99d;
+}
+.advanced-setting-row .list-row-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.advanced-setting-unit {
+  color: #92949d;
+  font-size: 13px;
+}
+.advanced-setting-badge {
+  padding: 1px 7px;
+  font-size: 11px;
+}
+.advanced-setting-badge.live {
+  border-color: #5fbf7533;
+  background: #1c2b20;
+  color: #9fd3a8;
+}
+.advanced-setting-row input.list-row-number {
+  width: 88px;
+}
+.advanced-setting-row .list-row-select {
+  max-width: 45%;
+  margin-left: 0;
+}
+.advanced-setting-row .list-row-select select {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.advanced-setting-reset {
+  flex: none;
+  padding: 6px 4px;
+  font-size: 12px;
+  color: #f49a58;
+}
+.advanced-setting-reset:hover:not(:disabled) {
+  color: #ffc99d;
+}

@@ -186,7 +186,7 @@ export const assistants = {
   webToolsRestartRequired:
     "Diese Änderung an den Webwerkzeugen startet das Gateway der Agenten neu; bestätige den Neustart.",
   advancedRestartRequired:
-    "Diese Einstellung wird erst nach einem Neustart des Agenten-Gateways wirksam; bestätige den Neustart.",
+    "Diese Einstellung wird erst nach einem Neustart des Agentendienstes wirksam; bestätige den Neustart.",
   advancedSettingUnavailable:
     "Diese Einstellung ist mit der installierten Agenten-Laufzeit nicht verfügbar.",
   shellConfirmationRequired:

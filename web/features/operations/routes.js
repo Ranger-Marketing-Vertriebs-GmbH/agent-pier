@@ -1,5 +1,7 @@
 export const sections = new Set([
   "assistants",
+  // Nested below the agent service; it belongs to the workspace tab but is no row there.
+  "assistants-advanced",
   "notifications",
   "diagnostics",
   "backups",

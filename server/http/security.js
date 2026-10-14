@@ -5,7 +5,7 @@ import {
   oauthCallbackPath,
 } from "../features/mcp-servers/oauth-redirect.js";
 export const appDocumentPath =
-  /^\/(?:agents(?:\/[A-Za-z0-9_-]+\/(?:settings|(?:chats|teams)\/[A-Za-z0-9_-]+))?|accounts|repositories|files|artifacts(?:\/(?:view\/)?[A-Za-z0-9_-]+)?|settings(?:\/(?:assistants|notifications|diagnostics|backups|updates|audit|mcp|remote|ssh|github))?|projects(?:\/[^/]+)?|memory(?:\/[^/]+)?|pipelines(?:\/(?:runs|definitions|profiles|verification)(?:\/[^/]+)?)?|agentbus(?:\/messages(?:\/[^/]+)?)?|(?:extensions|plugins)(?:\/[^/]+)?|sessions\/[^/]+(?:\/(?:chat|reader|terminal|files))?)?\/?$/;
+  /^\/(?:agents(?:\/[A-Za-z0-9_-]+\/(?:settings|(?:chats|teams)\/[A-Za-z0-9_-]+))?|accounts|repositories|files|artifacts(?:\/(?:view\/)?[A-Za-z0-9_-]+)?|settings(?:\/(?:assistants-advanced|assistants|notifications|diagnostics|backups|updates|audit|mcp|remote|ssh|github))?|projects(?:\/[^/]+)?|memory(?:\/[^/]+)?|pipelines(?:\/(?:runs|definitions|profiles|verification)(?:\/[^/]+)?)?|agentbus(?:\/messages(?:\/[^/]+)?)?|(?:extensions|plugins)(?:\/[^/]+)?|sessions\/[^/]+(?:\/(?:chat|reader|terminal|files))?)?\/?$/;
 export function authorizeRequest(req, config, websocket = false) {
   if (req.headers.authorization)
     throw problem("Machine tokens are accepted only at the MCP endpoint.", 403);
