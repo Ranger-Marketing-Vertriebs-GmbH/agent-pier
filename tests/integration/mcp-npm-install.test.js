@@ -118,7 +118,10 @@ test("the owner's npm configuration never applies", async (t) => {
     },
   });
   assert.equal(JSON.parse(lockText).lockfileVersion, 3);
-  assert.match(lockText, new RegExp(registry.url.replace(/[.:/]/g, "\\$&")));
+  assert.match(
+    lockText,
+    new RegExp(registry.url.replace(/[.*+?^${}()|[\]\\/:]/g, "\\$&")),
+  );
 });
 
 test("npm failures never leak output or paths", async (t) => {
