@@ -118,8 +118,25 @@
   border-color: #c56660;
   color: #fff;
 }
-.button.danger:hover {
+.button.danger:hover:not(:disabled) {
   background: #b4544e;
+}
+/* A quieter destructive action, e.g. revoking access next to other actions. */
+.button.destructive {
+  background: transparent;
+  border-color: #6b3a37;
+  color: #f0a39d;
+}
+.button.destructive:hover:not(:disabled) {
+  background: #2a1b1a;
+  border-color: #8a4945;
+}
+/* Disabled filled buttons stay legible: a neutral surface instead of a faded fill. */
+.button:is(.primary, .danger):disabled {
+  opacity: 1;
+  background: #26272b;
+  border-color: #313236;
+  color: #7c7d82;
 }
 .new-session {
   width: 100%;
