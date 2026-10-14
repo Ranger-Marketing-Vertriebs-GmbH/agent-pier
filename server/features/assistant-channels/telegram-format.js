@@ -179,7 +179,8 @@ export function splitTelegramHtml(html, limit = 4000) {
 const rank = (b) => b.tier * 2 + (b.bare ? 1 : 0);
 const best = (breaks) =>
   breaks.reduce((top, b) => (!top || rank(b) >= rank(top) ? b : top), null);
-const visibleText = (html) => html.replace(/<[^>]*>/g, "");
+// Repeats until stable, so no tag survives a single pass (e.g. "<<b>b>").
+const visibleText = (html) => stripTags(html);
 const entities = { amp: "&", lt: "<", gt: ">", quot: '"' };
 const decode = (text) => text.replace(/&(amp|lt|gt|quot);/g, (_, name) => entities[name]);
 const stripTags = (text) => {
