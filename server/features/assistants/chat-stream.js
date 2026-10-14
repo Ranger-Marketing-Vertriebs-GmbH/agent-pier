@@ -17,7 +17,7 @@ function messageText(message) {
 
 /**
  * The reply so far after one Gateway `chat` delta frame, or undefined when the frame
- * cannot be placed. OpenClaw 2026.9.8 sends a run's first frame on a connection, and
+ * cannot be placed. OpenClaw 2026.10.3 sends a run's first frame on a connection, and
  * any frame after a rewrite, as a snapshot whose `message` holds the whole reply; later
  * frames omit `message` and their `deltaText` holds only the appended text
  * (`replace: true` makes it the whole text instead). Mirrors the Gateway client's

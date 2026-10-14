@@ -357,6 +357,23 @@ registration or authorization) and runs manually with the cross-version variable
 (see [release qualification](assistant-release-qualification.md)). Both MCP OAuth
 contracts passed against 2026.9.9 with the other native contracts.
 
+## OpenClaw 2026.10.3
+
+2026.10.3 hides the `[openclaw] Reason:` line of a failed CLI command unless
+`OPENCLAW_DEBUG` is set; without it, stderr carries only a generic "The CLI command
+failed." and a `doctor` hint, which leaves nothing to classify. The `Reason:` lines
+quoted in this document (`Missing MCP OAuth authorization session`,
+`InvalidGrantError`, `database is locked`) therefore reach AgentPier only because
+`createMcpCli` (`server/features/mcp-servers/openclaw-mcp-cli.js`) runs every
+`openclaw` command with `OPENCLAW_DEBUG=1`. OpenClaw reads the variable only when it
+formats a failure; as a side effect it adds a stack trace to stderr, which
+AgentPier ignores. The CLI contract runs its commands the same way and asserts that
+a failure without the variable prints no `Reason:` line.
+
+Both MCP OAuth contracts passed against 2026.10.3 on 2026-10-14 with the other
+native contracts. `assistant-mcp-oauth-cross-version.test.js` passed 2026.9.9 →
+2026.10.3 on the same day, with no SDK missing-issuer warning after the update.
+
 ## Compiled path
 
 The compiled contract runs one server `docs` (logged in) and one server `spare`

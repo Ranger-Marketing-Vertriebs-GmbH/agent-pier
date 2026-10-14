@@ -46,7 +46,7 @@ prevails.
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Native memory         | Two pinned Gateway contracts verify deletion/re-index/restart, model-reference switching and agent isolation.                                                                                                                                                                                                                                                                                                                           | Deterministic HTTP model; no semantic embeddings or erasure of historical transcripts/backups.                                                                                          |
 | Native scheduling     | Nine native scheduler cases cover Berlin/New York DST, explicit timezones, 30-day downtime, restart, missed-run policy, backlog spacing and duplicate completion delivery.                                                                                                                                                                                                                                                              | Injected clock with real scheduler/SQLite; not an operating-system suspend or crash experiment.                                                                                         |
-| Runtime update        | Two native cases verify OpenClaw 2026.9.7 → 2026.9.8 and 2026.9.8 → 2026.9.9 activation and rollback after injected candidate validation failure.                                                                                                                                                                                                                                                                                       | Node 26.7.0, macOS arm64, exact adjacent pair only.                                                                                                                                     |
+| Runtime update        | Two native cases verify activation and rollback after injected candidate validation failure for OpenClaw 2026.9.7 → 2026.9.8, 2026.9.8 → 2026.9.9 and 2026.9.9 → 2026.10.3 (see below).                                                                                                                                                                                                                                                 | Node 26.7.0, macOS arm64, exact adjacent pair only.                                                                                                                                     |
 | Project identity      | Three real Git/ProjectMemory/ProjectRebind cases cover git initialization, automatic rebind and duplicate-project merging.                                                                                                                                                                                                                                                                                                              | Synthetic projects; no real user coding task executed.                                                                                                                                  |
 | Native interfaces     | Two pinned Gateway contracts verify the locked core, hello features, config schema and lookup, `replacePaths`, stale hashes, pairing list and a denied exec approval.                                                                                                                                                                                                                                                                   | Deterministic HTTP model; no WhatsApp login, pairing approval or allowed exec.                                                                                                          |
 | Web tools and browser | The compiled team-mode startup configuration (team plugin, memory, DuckDuckGo plugin from the runtime descriptor, isolated browser) is accepted; `web_fetch` refuses loopback, the browser uses only `openclaw` profiles in the data dir, temporary members get no capability tool; each bundled search plugin loads.                                                                                                                   | Deterministic model, no real search; `pdf` granted but not offered on custom providers; Linux Chrome sandbox CI-only, unverified locally.                                               |
@@ -116,11 +116,119 @@ the update branch.
   2026.9.9 runs no schema migration that 2026.9.8 would refuse. This is read from the
   packages, not exercised: a committed update is not rolled back by AgentPier.
 
+### OpenClaw 2026.9.9 → 2026.10.3 (2026-10-14)
+
+The update to 2026.10.3 was qualified on macOS arm64 against the lock
+`5d0ace4d722a…`. It is the first update in this record that migrates OpenClaw's
+state database, so it cannot be undone once committed.
+
+**Pins.** `openclaw` 2026.10.3 and the search plugins
+`@openclaw/{duckduckgo,perplexity,brave}-plugin` 2026.10.3 (peer dependency
+`openclaw >=2026.10.3`), Node 26.7.0 (2026.10.3 requires
+`>=24.16.0 <25 || >=26.1.0`, as before). The lock was resolved in full with
+`scripts/refresh-assistant-runtime-lock.mjs`; a second run reproduced it byte for
+byte. `rollbackTargets` is now `["2026.9.9", "2026.9.8"]`: 2026.9.7 is dropped
+because the team plugin no longer accepts it. `writeGuardRuntimes` adds 2026.10.3
+after the native write and team plugin contracts passed on it.
+
+**Lock changes.** Against the 2026.9.9 lock, `chokidar` and `readdirp` are gone and
+19 entries change version: OpenClaw itself, `@openclaw/ai` and the three plugins;
+`@openclaw/fs-safe` 0.21.1 → 0.24.2 with its seven platform packages; npm
+11.20.0 → 12.1.0; `openai` 7.20 → 7.23; `@anthropic-ai/sdk` 0.127 → 0.128;
+`@google/genai` 2.23 → 2.24; `@agentclientprotocol/sdk` 1.4 → 1.5; and `dotenv`
+18.0.1 → 18.0.3.
+
+**Correction: bundled packages are not in the lock.** The 2026.9.8 → 2026.9.9
+lock refresh removed 146 entries. All of them were bundled packages
+(`inBundle`): 143 from npm's own bundle and three that OpenClaw bundles
+(`@openclaw/proxyline`, `chrome-devtools-mcp`, `undici`).
+`npm install --package-lock-only` does not record the children of bundled
+dependencies, and the 2026.10.3 lock leaves them out the same way. Their
+integrity is still covered by the SHA-512 of the archive that contains them, but
+Dependabot cannot see them, so their advisories need a manual review of the
+containing package.
+
+**Database migration.** 2026.10.3 raises the state database schema from 19 to 20;
+the migration adds `cron_run_receipts.delivery_attempt_state`
+(`TEXT NOT NULL DEFAULT 'unknown'`). The agent database stays at schema 24. The
+versions were read from the `createNewerSqliteSchemaVersionError` literals in both
+packages and confirmed by a live probe: 2026.9.9 and 2026.9.8 refuse a schema-20
+database. A rollback before the update is committed restores the snapshot taken
+before activation; after commit there is no downgrade.
+
+**Adaptations.**
+
+- **Agent roster.** 2026.10.3 refuses an `agents.list` array and boolean `default`
+  markers on agent entries with exit code 78 (`INVALID_CONFIG`); 2026.9.x only
+  warned. A fresh configuration now writes `agents.entries: { main: {} }`, and
+  `canonicalAgentRoster()` in `runtime-config.js` converts a legacy list at every
+  compile: a roster of two or more agents gets `agents.ownership: "explicit"` with
+  `agents.defaults.systemAgent` and `talk` on the former default agent. 2026.9.8,
+  2026.9.9 and 2026.10.3 accept the result.
+- **CLI failure reasons.** 2026.10.3 prints the `[openclaw] Reason:` line of a
+  failed CLI command only with `OPENCLAW_DEBUG`. `openclaw-mcp-cli.js` sets
+  `OPENCLAW_DEBUG=1`, which OpenClaw reads only when it formats a failure; the
+  stack trace it adds on stderr is ignored (see
+  [MCP OAuth qualification](mcp-oauth-qualification.md#openclaw-2026103)).
+- **Scheduler scope.** OpenClaw's `CronService` now requires `scheduler.scope()`;
+  only the schedule qualification test helper needed it.
+- **Session creation.** `sessions.create` can answer `UNAVAILABLE` (retryable) after
+  waiting about 20 seconds for the model catalog. `createGatewaySession` in
+  `server/features/assistants/session-create.js` retries an answered `UNAVAILABLE`
+  that is `retryable` or carries the remote error class
+  `SessionMutationFactsUnavailableError` (see below), pausing 500, 1000 and
+  2000 ms within the 60-second budget. A team member whose creation still fails
+  this way returns to `queued` instead of `provisioning_uncertain`.
+  `assistant-session-create.test.js` and `assistant-team-recovery.test.js` cover
+  the retry.
+- **Session storage refusal.** `sessions.create` can also answer `UNAVAILABLE`
+  without `retryable`, from `SessionMutationFactsUnavailableError` ("Session
+  access facts are unavailable; retry after session storage is ready."). OpenClaw
+  2026.9.9 has the same refusal. It comes before the session entry commits. A retry cannot
+  create a second session with the same label. `session-create.js` therefore
+  retries it like the catalog answer. `assistant-session-create.test.js` and
+  `assistant-team-recovery.test.js` cover the retry. The skills contract hit it
+  three times during qualification; about 125 further creates on 2026.10.3 and 38
+  on 2026.9.9 did not reproduce it.
+
+**New native tool.** 2026.10.3 grants `skills_read` to every agent whose allow list
+contains `read`, which covers all agents with memory and routine runs. It is
+read-only and returns only installed skills that are eligible for the agent; the
+owner accepted it (see [Skills](assistant-gateway.md#skills)).
+
+**Not applicable.** Sealed immutable install generations (opt-in), the migration of
+agents to local Claws (manual), the provider-native compaction default (API-key
+routes only) and the webhook listener migration do not affect AgentPier.
+
+**Results.**
+
+- All 31 files of the `native-contracts` job passed on 2026.10.3: 65 tests, 0
+  failures, 0 skipped. The same run on 2026.9.9 gave the identical result, so the
+  "28 native contract files … 57 tests" in the 2026.9.9 section above is outdated:
+  the job has since grown to 31 files.
+- `npm run check` had one failure, the known environment-dependent Unicode
+  login-shell test in `tests/integration/shell.test.js`.
+- `assistant-runtime-cross-version.test.js` 2026.9.9 → 2026.10.3: 3 of 3 cases
+  passed (activation, rollback after failed validation, and the legacy agent
+  roster). A live check confirmed the database boundary: after a rollback the state
+  database stays at `user_version` 19 and 2026.9.9 starts; after commit it is at 20
+  and 2026.9.9 refuses to start, first on `meta.lastTouchedVersion`, then on
+  schema 20.
+- `assistant-mcp-oauth-cross-version.test.js` 2026.9.9 → 2026.10.3 passed, with no
+  SDK missing-issuer warning after the update.
+- `scripts/verify-assistant-installation.mjs` passed on 2026.10.3.
+- The team plugin, native write and runtime contracts passed with the new code on
+  the rollback targets 2026.9.9 and 2026.9.8 (4 of 4 on each).
+- The write-guard contract passed on 2026.10.3.
+- Browser: the Chromium desktop `assistant*.spec.js` files gave 347 passed and 5
+  skipped (screenshot-only). One timing flake (`assistant-chat.spec.js:224`, iPad
+  keyboard) passed 3 of 3 runs on its own.
+
 Repeat the cross-version tests with immutable executable installations only:
 
 ```sh
-AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME=/absolute/path/to/2026.9.7-runtime \
-AGENTPIER_ASSISTANT_UPDATE_RUNTIME=/absolute/path/to/2026.9.8-runtime \
+AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME=/absolute/path/to/2026.9.9-runtime \
+AGENTPIER_ASSISTANT_UPDATE_RUNTIME=/absolute/path/to/2026.10.3-runtime \
   node --test tests/integration/assistant-runtime-cross-version.test.js \
   tests/integration/assistant-mcp-oauth-cross-version.test.js
 ```

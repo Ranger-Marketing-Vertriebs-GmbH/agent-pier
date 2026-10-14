@@ -68,7 +68,8 @@ its model or instructions changed since it was created.
   teaches the agent a tool, mostly a command-line program such as `gh`. Switch on the
   ones this agent may use; each one shows whether it is ready or what it is missing,
   and risky skills show a warning first. A skill is a hint, not a permission: most
-  skills need shell access, and shell access decides what the agent can run. These
+  skills need shell access, and shell access decides what the agent can run. Agents
+  with memory can also read the instructions of their installed skills. These
   agent skills are separate from the CLI skills under **Extensions**
   ([shared CLI extensions](shared-cli-extensions.md)).
 - **MCP servers:** the central servers bound to this agent. Add and bind servers

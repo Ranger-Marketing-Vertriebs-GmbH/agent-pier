@@ -1,7 +1,7 @@
 import { publicMessages } from "./conversations.js";
 import { historyTextLimit } from "./history-text.js";
 
-// OpenClaw (2026.9.9, pickSummaryFromOutput) caps the `summary` a cron run's
+// OpenClaw (2026.10.3, pickSummaryFromOutput) caps the `summary` a cron run's
 // completion webhook carries at 2000 UTF-16 code units plus "…" (one less when the
 // cut would split a surrogate pair). The full reply stays in the job's session:
 // the run reports `agent:<agent>:cron:<job>:run:<id>`, whose transcript the job's

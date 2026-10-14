@@ -1,4 +1,4 @@
-// Runs OpenClaw's own apply_patch (2026.9.9 dist, exposed under VITEST) for each
+// Runs OpenClaw's own apply_patch (2026.10.3 dist, exposed under VITEST) for each
 // patch read as JSON from stdin, each in a fresh workspace, and prints what it
 // touched: { added, modified, deleted } or { error }. Run with the runtime's Node:
 //   node openclaw-apply-patch.mjs <openclaw dist directory> <scratch directory>

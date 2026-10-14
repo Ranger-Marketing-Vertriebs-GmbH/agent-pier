@@ -8,7 +8,7 @@
 // agent's own bot for other people (openclaw-config/telegram-senders.js) run in
 // OpenClaw's per-sender sessions and never reach an AgentPier conversation.
 //
-// OpenClaw 2026.9.8 stores a `sessions.send` turn with the idempotency key
+// OpenClaw 2026.10.3 stores a `sessions.send` turn with the idempotency key
 // `<run id>:user` (the run id is the key AgentPier sent: the attempt id), at the top
 // level and in `__openclaw`, and keeps the sent text unchanged. That key links a
 // history message to its attempt and so to its request; the contract checks it

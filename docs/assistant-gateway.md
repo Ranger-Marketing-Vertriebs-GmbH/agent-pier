@@ -260,7 +260,8 @@ for the implementation and remaining native platform/version qualification.
   `apply_patch` wherever `write` is allowed, and hook matchers compare exact tool
   ids, so `apply_patch` must be named: until it was, a forwarded or otherwise
   unproven turn could add, change or delete workspace files and patch `AGENTS.md`
-  (proven against 2026.9.9 by `assistant-write-guard-contract.test.js`). A patch is
+  (proven against 2026.9.9 by `assistant-write-guard-contract.test.js`, which also
+  passes on 2026.10.3). A patch is
   checked on every path a hunk header names (`Add`, `Update`, `Delete`, `Move to`),
   and one refused path, or no recognizable hunk, refuses the whole patch.
   `tests/unit/assistant-write-guard-coverage.test.js` fails when AgentPier grants a
@@ -335,13 +336,22 @@ Sandbox design stays deferred as agreed. Remaining release checks are tracked in
 
 ## Implemented foundation
 
-The foundation now provisions OpenClaw 2026.9.9 with Node 26.7.0 in private
+The foundation now provisions OpenClaw 2026.10.3 with Node 26.7.0 in private
 application data, starts one owned foreground Gateway, and waits for authenticated
 protocol readiness. It is optional: enabling it in Settings → Workspace → Agents provisions
 the runtime; enabled installations provision the selected version at startup after
 an AgentPier update. Installation failures preserve the previous runtime selection.
 The current platform probes cover macOS arm64; the manifest also pins macOS x64
 and Linux arm64/x64 packages, which still require native-host qualification.
+
+**Agent roster shape.** OpenClaw 2026.10.3 refuses to start (exit code 78,
+`INVALID_CONFIG`) with an `agents.list` array or a boolean `default` marker on an
+agent entry; 2026.9.x only warned. A fresh configuration therefore writes
+`agents.entries: { main: {} }`, and every compile converts a legacy list into keyed
+`agents.entries` (`canonicalAgentRoster()` in `runtime-config.js`). A roster of two
+or more agents gets `agents.ownership: "explicit"`, and `agents.defaults.systemAgent`
+and `talk` point at the former default agent. 2026.9.8, 2026.9.9 and 2026.10.3 all
+accept the converted shape.
 
 AgentPier stores assistant definitions, configuration revisions, conversations,
 request identities and execution attempts in its assistant database. OpenClaw owns
@@ -647,7 +657,7 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.9.9 and its qualified rollback predecessors 2026.9.8 and 2026.9.7. Eligible parents receive the eight managed team tools (propose, status,
+to OpenClaw 2026.10.3 and its qualified rollback predecessors 2026.9.9 and 2026.9.8. Eligible parents receive the eight managed team tools (propose, status,
 stop, and the [member tools](#lead-questions-and-tasks-for-members)) and
 `session_status`; members receive only `session_status`. Direct native spawning
 and alternative session mutation tools are not offered; `exec` and `process` only
@@ -1186,6 +1196,12 @@ that tried the server without credentials backs it off for up to 10 minutes, and
 only such a change lifts that backoff. It restarts the MCP runtimes of every session
 once (stdio servers too), without a Gateway restart.
 
+**Failure reasons.** AgentPier classifies a failed `openclaw mcp` command by its
+`[openclaw] Reason:` line. OpenClaw 2026.10.3 prints that line only with
+`OPENCLAW_DEBUG`, so AgentPier runs the CLI with `OPENCLAW_DEBUG=1`. OpenClaw reads
+it only when it formats a failure; the stack trace it then adds on stderr is
+ignored.
+
 **Status** (from `openclaw mcp status --json`, cached for 10 seconds and refreshed
 after a login or logout):
 
@@ -1439,6 +1455,10 @@ none, and a new agent starts without any.
   change the host (`healthcheck`), duplicate an AgentPier feature (`coding-agent`,
   `visualize`, `mcporter`) or reach secrets (`1password`) show a warning before they
   are switched on.
+- **`skills_read`.** OpenClaw 2026.10.3 also grants the read-only `skills_read` tool
+  to every agent whose allow list contains `read`: all agents with memory, and
+  routine runs. It returns only skills that are installed and eligible for that
+  agent. The owner accepted this grant.
 - **macOS privacy.** Programs such as `remindctl`, `memo` or `peekaboo` need Reminders,
   Notes or Screen Recording permission for the process that runs them. A background
   service cannot show the prompt; grant it in System Settings if a skill fails.

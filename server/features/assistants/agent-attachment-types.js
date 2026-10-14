@@ -6,7 +6,7 @@ import { acceptableDimensions } from "./image-dimensions.js";
 // limits first; the server decides by the bytes, never by a name or a client type.
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
-// OpenClaw 2026.9.8 refuses inline chat images above 6 MiB (MAX_IMAGE_BYTES) and
+// OpenClaw 2026.10.3 refuses inline chat images above 6 MiB (MAX_IMAGE_BYTES) and
 // carries one RPC frame of at most 25 MiB; base64 adds a third. Images beyond either
 // budget reach the agent only through the workspace copy.
 export const MAX_INLINE_IMAGE_BYTES = 6 * 1024 * 1024;

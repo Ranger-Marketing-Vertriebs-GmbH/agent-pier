@@ -1,7 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 import path from "node:path";
 
-// Verified against OpenClaw 2026.9.8, see docs/assistant-mcp-qualification.md.
+// Verified against OpenClaw 2026.10.3, see docs/assistant-mcp-qualification.md.
 
 /** The global grant OpenClaw needs besides each agent's `<name>__*` glob. */
 export const mcpGlobalTool = "bundle-mcp";
