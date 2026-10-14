@@ -131,13 +131,6 @@
   background: #2a1b1a;
   border-color: #8a4945;
 }
-/* Disabled filled buttons stay legible: a neutral surface instead of a faded fill. */
-.button:is(.primary, .danger):disabled {
-  opacity: 1;
-  background: #26272b;
-  border-color: #313236;
-  color: #7c7d82;
-}
 .new-session {
   width: 100%;
   justify-content: flex-start;

@@ -7,6 +7,21 @@ dialog:where(:not(.sheet)) {
   scroll-padding-top: 76px;
   scroll-padding-bottom: 88px;
 }
+/* Disabled filled buttons in dialogs stay legible and keep a hint of their role,
+   instead of a faded fill that is hard to read. Outside dialogs the global faded
+   look stays, so buttons that toggle quickly (chat send, save bars) do not flash. */
+dialog .button.primary:disabled {
+  opacity: 1;
+  background: #2e261f;
+  border-color: #4a3a2c;
+  color: #b39a84;
+}
+dialog .button.danger:disabled {
+  opacity: 1;
+  background: #2c1f1e;
+  border-color: #553532;
+  color: #c09995;
+}
 dialog:focus {
   /* The dialog itself takes focus on open when it has no field; controls keep their
      :focus-visible ring for keyboard users. */
