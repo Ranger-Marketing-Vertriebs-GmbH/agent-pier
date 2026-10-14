@@ -365,6 +365,11 @@ and the first package install retries. After an AgentPier update with new pins, 
 new toolchains are prepared in the background. Supported: macOS and Linux (glibc) on
 arm64 and x64; other hosts report `MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE`.
 
+A toolchain that fails verification is never repaired automatically; package
+installs report `MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE`. Delete the affected folder under
+`<data>/toolchains/` (for example `node-v26.7.0-linux-x64`) and AgentPier reinstalls it
+on next use.
+
 ### Assistant qualification in a source checkout
 
 The optional assistant service is configured under **Settings → Workspace → Agents**;
