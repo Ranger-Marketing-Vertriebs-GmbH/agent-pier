@@ -8,11 +8,6 @@ Create a user when you first open AgentPier, then sign in with a username and pa
 
 ## One-command installation on macOS
 
-The following commands require a release that includes `install-agentpier.sh`.
-The Homebrew option also requires a published tap with a verified formula.
-Until those are published, use the existing release installation described in the
-next section. Local changes alone do not make a public installer available.
-
 On a native Apple Silicon or Intel Mac running macOS 14 or later:
 
 ```sh
@@ -25,7 +20,7 @@ installer when needed. Prompts, Command Line Tools and an administrator password
 may be required. Run it as a regular user, without `sudo`; on Apple Silicon, use a
 native terminal without Rosetta.
 
-If Homebrew is already installed and the tap has been published:
+If Homebrew is already installed:
 
 ```sh
 brew install ranger-marketing-vertriebs-gmbh/tap/agentpier-installer && agentpier-install
@@ -61,7 +56,7 @@ preserved during repair because a concurrent application update may still use th
 Leftovers from an interrupted update to a later version do not prevent repair,
 provided their structure and ownership are valid.
 
-**Application updates remain under Settings → Updates.** `brew upgrade` or
+**Application updates remain under Settings → Operations → Updates.** `brew upgrade` or
 `brew uninstall agentpier-installer` affects only the installer package. The running
 application, its service and private data remain separate. To stop the service of
 an installation using the default path:
@@ -167,7 +162,7 @@ npm run service:status
 
 Installation writes only the AgentPier LaunchAgent at `~/Library/LaunchAgents/dev.agentpier.server.plist`. It starts the web service when the user logs in and restarts it after a crash. The service runs under that user account; it is not a system service that starts before login.
 
-The plist saves the Node path, project and data directories, and PATH at installation time. Run `npm run service:install` again after moving the project or upgrading Node. Your CLI sessions survive a web service restart. A machine restart or crash, however, ends all CLI processes. On the next startup—after login on macOS, since the LaunchAgent starts only then—AgentPier automatically resumes interrupted sessions with their own conversations if **Resume interrupted sessions automatically** is enabled in settings (on by default). Responses and processes running at the time of interruption are lost; sessions stopped by the user remain stopped.
+The plist saves the Node path, project and data directories, and PATH at installation time. Run `npm run service:install` again after moving the project or upgrading Node. Your CLI sessions survive a web service restart. A machine restart or crash, however, ends all CLI processes. On the next startup—after login on macOS, since the LaunchAgent starts only then—AgentPier automatically resumes interrupted sessions with their own conversations if **Resume interrupted sessions automatically** is enabled under **Settings → Workspace → General** (on by default). Responses and processes running at the time of interruption are lost; sessions stopped by the user remain stopped.
 
 ## 5. Optional: private remote access
 
@@ -175,17 +170,17 @@ There are two supported ways to access AgentPier from another device: [Tailscale
 
 ## 6. Updating
 
-**Settings → Updates → Update channel** defaults to **Stable**, which offers only
-stable releases. **Preview** also offers release candidates such as `1.29.0-rc.1`
+**Settings → Operations → Updates → Update channel** defaults to **Stable**, which offers only
+stable releases. **Preview** also offers release candidates such as `2.1.0-rc.1`
 so that new versions can be tested before their stable release. The selection
 applies to the entire AgentPier installation and persists across restarts.
-Preview also includes stable releases: for example, `1.29.0` supersedes
-`1.29.0-rc.2`. Switching back to Stable does not install an older version; an
+Preview also includes stable releases: for example, `2.1.0` supersedes
+`2.1.0-rc.2`. Switching back to Stable does not install an older version; an
 installed RC stays active until a newer stable version is offered. Already staged
 versions remain available for explicit activation. If a custom source is configured
 through `AGENTPIER_RELEASE_CHANNEL`, the update source is managed on the server.
 
-For a versioned installation, check for a new version under **Settings → Updates**, download the package, then activate it. For an offered or already staged update, the app displays the GitHub release notes for that specific version. Notes load separately; missing notes or an unreachable GitHub do not prevent the update. Custom update sources do not display potentially unrelated official release notes. Packages come from the [official GitHub releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases) by default; a custom source can be set with `AGENTPIER_RELEASE_CHANNEL`. Downloads are verified with SHA-256. If the new version fails to start, the previous version is reactivated. CLI sessions survive a web service restart.
+For a versioned installation, check for a new version under **Settings → Operations → Updates**, download the package, then activate it. For an offered or already staged update, the app displays the GitHub release notes for that specific version. Notes load separately; missing notes or an unreachable GitHub do not prevent the update. Custom update sources do not display potentially unrelated official release notes. Packages come from the [official GitHub releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases) by default; a custom source can be set with `AGENTPIER_RELEASE_CHANNEL`. Downloads are verified with SHA-256. If the new version fails to start, the previous version is reactivated. CLI sessions survive a web service restart.
 
 For a source checkout, update the repository files, then run:
 
@@ -196,7 +191,7 @@ npm test
 npm run service:install
 ```
 
-Data in `.data/` or your custom data directory is retained. Create a host backup under **Settings → Backups** before migrations; [docs/backups.md](backups.md) describes what it holds, the archive format and how to restore it into a new data directory. OAuth and Keychain logins may be tied to the individual Mac; sign in again on the Mac mini instead of copying Keychain files from a MacBook.
+Data in `.data/` or your custom data directory is retained. Create a host backup under **Settings → Operations → Backups** before migrations; [docs/backups.md](backups.md) describes what it holds, the archive format and how to restore it into a new data directory. OAuth and Keychain logins may be tied to the individual Mac; sign in again on the Mac mini instead of copying Keychain files from a MacBook.
 
 ## Stop and remove
 
@@ -222,7 +217,7 @@ Do not use `tailscale serve reset` if other exposures exist. Remove the project 
 
 ### Remove old versions
 
-Under **Settings → Updates → Remove old versions**, older versions can be deleted individually or together. The confirmation lists the exact selection. Deleted versions are no longer available for rollback.
+Under **Settings → Operations → Updates → Remove old versions**, older versions can be deleted individually or together. The confirmation lists the exact selection. Deleted versions are no longer available for rollback.
 
 The active version, newer staged versions and versions with running processes are retained. If the existing `ps` process check cannot run reliably, nothing is deleted. Cleanup is locked during activation, rollback or session migration. It does not change session data or profiles.
 
@@ -237,7 +232,7 @@ When activating a staged version, the confirmation offers **Move running session
 ### Managed assistant runtime
 
 The assistant service is optional and off initially: until the owner turns on
-**Settings > Agents**, nothing is created, downloaded or started. Installations that
+**Settings → Workspace → Agents → Enable agents**, nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
 private OpenClaw 2026.9.9 installation and Node 26.7.0 under the data directory's
 `assistants/runtimes/` directory. AgentPier itself retains its Node 22.13+ support.
@@ -258,7 +253,7 @@ Provisioning paths:
 - After an AgentPier update, an installation with assistants enabled prepares the
   runtime the new version ships in the background through the same staging path
   and installation lock. AgentPier starts without waiting; the selection is not
-  changed. Activation stays an owner action under Settings > Agents > Agent service. With
+  changed. Activation stays an owner action under Settings → Workspace → Agents → Agent service. With
   assistants disabled, nothing is downloaded.
 
 Downloads are aborted only after 30 seconds without data, not after a total
@@ -299,8 +294,8 @@ This installs the runtime only; it does not enable or start a service.
 
 ### Assistant qualification in a source checkout
 
-The optional assistant service is configured under **Settings > Agents**;
-create profiles under **Agents**, then use their direct sidebar chats. Agents use
+The optional assistant service is configured under **Settings → Workspace → Agents**;
+create agents under **Agents** in the sidebar menu, then use their direct sidebar chats. Agents use
 the model connections and ChatGPT accounts configured in AgentPier (OpenRouter,
 Ollama, llama.cpp, generic and Azure OpenAI-compatible endpoints; see
 [model connections](assistant-model-connections.md)).

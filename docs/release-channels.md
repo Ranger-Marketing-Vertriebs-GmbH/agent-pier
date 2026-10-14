@@ -24,7 +24,7 @@ rate limit. Stable checks do not require the release-list API.
    The existing release workflow builds all four platform packages and installer
    assets, verifies their checksums, then publishes a GitHub prerelease. It does
    not replace the latest stable release or update the stable Homebrew formula.
-3. Select Preview in Settings → Updates on a test installation, check for updates,
+3. Select Preview in Settings → Operations → Updates on a test installation, check for updates,
    stage the candidate and activate it. Publish a new numbered RC for each revision;
    published assets remain immutable.
 4. After testing, prepare the final version `1.29.0` through the same reviewed
@@ -50,7 +50,7 @@ Every package declares the range of data schemas it can open (`schemaMin` to
 - The publish step enforces this rule. Before it creates or publishes a release, it
   reads `latest.json` of every published, non-draft RC that precedes the new
   version, and fails if the new release does not accept that RC's `schemaMax`.
-- Testers take a backup in Settings → Backups before they activate an RC that changes
+- Testers take a backup in Settings → Operations → Backups before they activate an RC that changes
   the data schema.
 
 ### When the guard fails
@@ -100,7 +100,7 @@ The command line follows the same saved, installation-wide choice.
 without an archive, read the preference from the data directory. A reinstall that
 reuses a data directory with Preview selected therefore installs the newest RC.
 `--channel` sets a custom manifest source; it does not choose between Stable and
-Preview. Select Stable in Settings → Updates first to stay on stable releases.
+Preview. Select Stable in Settings → Operations → Updates first to stay on stable releases.
 
 `AGENTPIER_RELEASE_CHANNEL` remains a custom manifest source override. A custom
 source disables the official Stable/Preview selector and retains its existing
