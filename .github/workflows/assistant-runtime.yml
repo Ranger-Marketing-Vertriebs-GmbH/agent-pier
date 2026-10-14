@@ -145,6 +145,7 @@ jobs:
           tests/integration/assistant-native-write-contract.test.js
           tests/integration/assistant-team-plugin-contract.test.js
           tests/integration/assistant-native-interfaces-contract.test.js
+          tests/integration/assistant-advanced-settings-contract.test.js
           tests/integration/assistant-web-tools-contract.test.js
           tests/integration/assistant-web-tools-compiled-contract.test.js
           tests/integration/assistant-shell-contract.test.js
