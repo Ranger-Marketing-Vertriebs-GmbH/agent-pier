@@ -140,10 +140,13 @@ All three need a paired Telegram chat and live in the agent's **Telegram** tab.
 
 - **Reminders** send a one-time or daily text. You can also ask for one in the chat.
 - **Routines** save a task prompt that runs daily or on an event (an owner request or
-  a linked coding run that completed); **Run once** starts one now. A routine runs
-  with the agent's own reading, web, shell and MCP tools, never with scheduling, team
-  or file-writing tools. Its result goes to the paired Telegram chat and appears in
-  the agent's chat marked "Scheduled · <name>".
+  a linked coding run that completed); **Run once** starts one now. A routine uses
+  the agent's own tools and approvals (memory, its workspace files, web, browser,
+  shell and MCP servers, as far as they are switched on) but cannot schedule, ask or
+  delegate. Its result goes to the paired Telegram chat and appears in the agent's
+  chat marked "Scheduled · <name>"; a failed run shows a short line there. Routines
+  read the chat's recent messages, including forwarded ones, and run while nobody
+  watches, so with full shell access they act without asking.
 - **Check in on its own** (under **Acting on its own**) lets the agent look at its
   conversation and notes every hour, every 2 or 4 hours or once a day, within active
   hours, and write only when something needs your attention. It needs **Remember
