@@ -97,23 +97,22 @@ test("a fresh Gateway grants no profile write tools before its guard reports liv
   prepareRuntimeConfig(paths, 1234, teams);
   let config = JSON.parse(fs.readFileSync(paths.config, "utf8"));
   // A previous run's granted entries and orphaned profiles lose their writes too.
-  config.agents.list.push(
-    { id: "ap-memory", skills: ["planted"], tools: { allow: ["read", "write", "edit"] } },
-    { id: "ap-orphan", tools: { allow: ["read", "write", "edit"] } },
-  );
+  Object.assign(config.agents.entries, {
+    "ap-memory": { skills: ["planted"], tools: { allow: ["read", "write", "edit"] } },
+    "ap-orphan": { tools: { allow: ["read", "write", "edit"] } },
+  });
   fs.writeFileSync(paths.config, JSON.stringify(config));
   prepareRuntimeConfig(paths, 1234, teams);
   config = JSON.parse(fs.readFileSync(paths.config, "utf8"));
-  assert.ok(config.agents.list.every((a) => !("skills" in a)));
+  const entries = Object.entries(config.agents.entries);
+  assert.ok(entries.every(([, a]) => !("skills" in a)));
   assert.deepEqual(config.agents.defaults.skills, []);
-  for (const entry of config.agents.list.filter((a) => a.tools))
+  for (const [id, entry] of entries.filter(([, a]) => a.tools))
     assert.ok(
       !entry.tools.allow.includes("write") && !entry.tools.allow.includes("edit"),
-      entry.id,
+      id,
     );
-  assert.ok(
-    config.agents.list.find((a) => a.id === "ap-memory").tools.allow.includes("read"),
-  );
+  assert.ok(config.agents.entries["ap-memory"].tools.allow.includes("read"));
 });
 
 test("new capabilities default to off and are validated as booleans", () => {

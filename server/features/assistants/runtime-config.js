@@ -53,7 +53,7 @@ function freshDefaults(paths) {
         skipBootstrap: true,
         heartbeat: hardened.heartbeat,
       },
-      list: [{ id: "main", default: true }],
+      entries: { main: {} },
     },
     channels: hardened.channels,
     browser: hardened.browser,
@@ -65,6 +65,47 @@ function freshDefaults(paths) {
     telemetry: hardened.telemetry,
     update: hardened.update,
   };
+}
+
+/**
+ * OpenClaw 2026.10 refuses to start with the legacy roster shapes that 2026.9.x still
+ * migrated in memory: an `agents.list` array, or a boolean `default` marker on an
+ * entry. Both now need `openclaw doctor --fix`. This writes the canonical shape that
+ * 2026.9.9's own `agents.create` persists: keyed `agents.entries` without markers,
+ * and a roster of two or more agents with explicit ownership whose system and talk
+ * surfaces stay with the former default agent. Configurations already canonical pass
+ * through unchanged.
+ */
+export function canonicalAgentRoster(config) {
+  const agents = config.agents;
+  if (!agents || typeof agents !== "object") return config;
+  if (Array.isArray(agents.list)) {
+    if (
+      !agents.entries ||
+      typeof agents.entries !== "object" ||
+      Array.isArray(agents.entries)
+    )
+      agents.entries = Object.fromEntries(
+        agents.list
+          .filter((entry) => entry && typeof entry.id === "string" && entry.id)
+          .map(({ id, ...entry }) => [id, entry]),
+      );
+    delete agents.list;
+  }
+  const entries = Object.entries(agents.entries || {});
+  const marked = entries.find(([, entry]) => entry?.default === true)?.[0];
+  for (const [, entry] of entries)
+    if (entry && typeof entry.default === "boolean") delete entry.default;
+  if (entries.length > 1 && agents.ownership === undefined) {
+    const owner = marked || "main";
+    agents.ownership = "explicit";
+    agents.defaults = {
+      ...agents.defaults,
+      systemAgent: { agentId: owner, ...agents.defaults?.systemAgent },
+    };
+    config.talk = { agentId: owner, ...config.talk };
+  }
+  return config;
 }
 
 // Pure: the same inputs and runtime state always yield the same configuration.
@@ -88,7 +129,9 @@ export function compileOpenClawConfig({
   // { [runtimeAgentId]: names } assigned skills a same-named skill would replace.
   skillShadows = {},
 }) {
-  const config = applyOverrides(existing || freshDefaults(paths), overrides);
+  const config = canonicalAgentRoster(
+    applyOverrides(existing || freshDefaults(paths), overrides),
+  );
   // Paths are this installation's; a restored or copied configuration cannot pick them.
   config.agents = {
     ...config.agents,
