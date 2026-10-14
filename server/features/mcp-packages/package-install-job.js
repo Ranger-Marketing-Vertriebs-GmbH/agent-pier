@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import { installNpm } from "./npm-package-install.js";
 import { packageCode, packageError, packageProblem } from "./package-errors.js";
 import { commitInstall, npmCommand, stageInstall } from "./package-store.js";
@@ -20,11 +21,36 @@ export const sourceFields = (preview, program) => ({
   integrity: preview.integrity,
 });
 
+const withReal = (dir) => {
+  try {
+    return [dir, fs.realpathSync(dir)];
+  } catch {
+    return [dir];
+  }
+};
+/**
+ * Replaces the data dir with `<data>` and the home dir with `~` (each also by its real
+ * path), longest first: npm output names local paths.
+ */
+export function pathRedactor(dataDir, home = os.homedir()) {
+  const pairs = [
+    ...withReal(dataDir).map((dir) => [dir, "<data>"]),
+    ...withReal(home).map((dir) => [dir, "~"]),
+  ]
+    .filter(([dir]) => typeof dir === "string" && dir.length > 1)
+    .sort((a, b) => b[0].length - a[0].length);
+  return (text) =>
+    pairs.reduce((out, [dir, label]) => out.split(dir).join(label), String(text));
+}
+
 /**
  * Installs `preview` (or the stored lock) as a job of `service` (McpPackages) and
  * switches the server to it. Returns the job snapshot.
  */
 export function runInstall(service, serverId, { preview, program, kind }) {
+  // Checked before staging, so a busy server leaves no stage behind.
+  service.requireIdle(serverId);
+  const redact = pathRedactor(service.dataDir);
   let staged;
   try {
     staged = stageInstall(service.dataDir);
@@ -33,7 +59,8 @@ export function runInstall(service, serverId, { preview, program, kind }) {
     throw installError(error);
   }
   const { installId, stage } = staged;
-  return service.jobs.run(serverId, { kind, installId }, async (log, note) => {
+  return service.jobs.run(serverId, { kind, installId }, async (jobLog, note) => {
+    const log = (text) => jobLog(redact(text));
     try {
       // Never install from an unchecked lock, even one checked at preview time.
       const checked = service.checkLock(preview.lockText, preview.ref, preview.integrity);
@@ -115,7 +142,8 @@ export async function activate(service, serverId, fields, command, leading) {
   const previous = service.records.get(serverId);
   // Before the first install the stored args are the owner's only.
   const before = previous?.installId ? previous.leadingArgs : 0;
-  service.switching.set(serverId, before);
+  const { revision } = service.servers.get(serverId);
+  service.switching.set(serverId, { before, revision });
   service.records.put(serverId, fields);
   try {
     await switchCommand(service, serverId, command, leading, before);
@@ -132,6 +160,7 @@ export async function switchCommand(service, serverId, command, leading, before)
   for (let attempt = 0; ; attempt++) {
     const server = service.servers.get(serverId);
     const owner = (server.args || []).slice(before);
+    service.switching.set(serverId, { before, revision: server.revision });
     try {
       await service.changes.update(
         serverId,
