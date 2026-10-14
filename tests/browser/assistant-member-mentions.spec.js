@@ -154,7 +154,9 @@ for (const language of ["en", "de"])
         const option = page.getByRole("option", { name: /Network Architect/ });
         if (label === "phone") await option.tap();
         else await option.click();
+        // WebKit drops a tap's click when its pointerdown is cancelled (iOS Safari).
         await expect(field).toHaveValue("@Network Architect ");
+        await expect(field).toBeFocused();
         await expect(page.getByRole("listbox", { name: w.list })).toBeHidden();
         await field.pressSequentially("trag den NAS ein");
         await expect(field).toHaveValue("@Network Architect trag den NAS ein");
