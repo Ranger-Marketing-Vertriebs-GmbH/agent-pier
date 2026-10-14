@@ -223,6 +223,8 @@ back to:
   `DELETE /api/accounts/:id/extensions/mcp/:name` are gone; scripts use
   `/api/mcp-servers` instead.
 
+After 2.0.0, the 1.x line receives no further fixes, including security fixes.
+
 Going back to 1.28.x under **Settings → Operations → Updates** remains possible and
 keeps your data, with these limits:
 
