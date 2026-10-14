@@ -95,7 +95,8 @@ save while an affected agent is busy.
 - **Connection:** create a dedicated bot with BotFather, paste its token under
   **Telegram bot token**, choose **Connect Telegram**, then **Pair my private chat**.
   Messages from that chat reach the agent's conversation and are marked "via
-  Telegram"; replies go back to Telegram. **Telegram activity** shows deliveries that
+  Telegram"; replies go back to Telegram, a long one in full as several messages
+  split between paragraphs or lines. **Telegram activity** shows deliveries that
   need a decision. Voice messages are transcribed when a Deepgram key is set under
   **Accounts → Services for agents → Speech recognition**.
 - **Acting on its own:** see [check-ins](#routines-reminders-and-check-ins).
@@ -143,7 +144,8 @@ All three need a paired Telegram chat and live in the agent's **Telegram** tab.
   a linked coding run that completed); **Run once** starts one now. A routine uses
   the agent's own tools and approvals (memory, its workspace files, web, browser,
   shell and MCP servers, as far as they are switched on) but cannot schedule, ask or
-  delegate. Its result goes to the paired Telegram chat and appears in the agent's
+  delegate. Its whole result goes to the paired Telegram chat (several messages
+  when it is long) and appears in the agent's
   chat marked "Scheduled · <name>"; a failed run shows a short line there. Routines
   read the chat's recent messages, including forwarded ones, and run while nobody
   watches, so with full shell access they act without asking.

@@ -4,6 +4,7 @@ import { codingRunNotes } from "./assistant-action-notifications.js";
 import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
 import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
+export const historyTextLimit = 65536;
 export function publicMessages(messages = []) {
   const seen = new Set();
   return messages.flatMap((m) => {
@@ -87,6 +88,9 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         sessionKey: conversation.runtimeSessionKey,
         limit,
         offset,
+        // OpenClaw cuts each message at 8000 characters unless told otherwise; the
+        // chat and Telegram replies show up to AgentPier's own 65536.
+        maxChars: historyTextLimit,
       });
       if (
         service.maintenance ||
