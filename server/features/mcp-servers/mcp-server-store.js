@@ -3,15 +3,24 @@ import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { privateDatabase } from "../../lib/private-database.js";
 import { problem } from "../../lib/storage.js";
-import { mcpUrl, record, values } from "../extensions/mcp-config.js";
+import { mcpUrl, record } from "../extensions/mcp-config.js";
 import { CliEntryStore } from "./cli-entry-store.js";
-import { clis } from "./cli-native.js";
 import { resolveCommand, sanitisedPrefix } from "./command-resolution.js";
+import {
+  cleanArgs,
+  cleanAuth,
+  cleanCwd,
+  invalid,
+  messages,
+  publicUrl,
+  splitMap,
+  target,
+  targetKinds,
+} from "./mcp-server-fields.js";
 import { changedValues, requireLiteralValues } from "./value-references.js";
+export { publicUrl } from "./mcp-server-fields.js";
 
-const messages = serverMessages.mcpServers;
 const transports = ["http", "sse", "stdio"];
-const targetKinds = ["agent", "cli"];
 const schema = `
 CREATE TABLE IF NOT EXISTS servers(
   id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, transport TEXT NOT NULL,
@@ -36,76 +45,6 @@ CREATE TABLE IF NOT EXISTS oauth_logout_history(
   PRIMARY KEY(name, url));`;
 // Logouts remembered for a rollback to an earlier update snapshot.
 const logoutHistoryLimit = 500;
-
-/**
- * A URL as responses show it: origin and path only. The query string and fragment
- * can carry tokens and stay in the store; the compiler alone reads the full URL.
- */
-export function publicUrl(value) {
-  try {
-    const url = new URL(value);
-    return `${url.protocol}//${url.host}${url.pathname}`;
-  } catch {
-    return undefined;
-  }
-}
-/** `auth` and `oauthScope` of a remote definition; a stdio server has neither. */
-function cleanAuth(input) {
-  const auth = input.auth ?? "headers";
-  if (auth !== "headers" && auth !== "oauth") throw invalid();
-  if (input.transport === "stdio") {
-    if (input.auth !== undefined || input.oauthScope) throw invalid();
-    return { auth: "headers", oauthScope: null };
-  }
-  let scope = input.oauthScope;
-  if (scope === undefined || scope === null) scope = "";
-  if (typeof scope !== "string") throw invalid();
-  scope = scope.trim();
-  if (scope.length > 512 || /[\x00-\x1f\x7f]/.test(scope)) throw invalid();
-  // A scope only means something with OAuth; with headers it is dropped.
-  return { auth, oauthScope: auth === "oauth" && scope ? scope : null };
-}
-const invalid = (message = messages.invalidRequest) => problem(message);
-const target = (kind, id) => {
-  if (!targetKinds.includes(kind)) throw invalid(messages.invalidTarget);
-  if (typeof id !== "string" || !id || id.length > 200 || /[\x00-\x1f]/.test(id))
-    throw invalid(messages.invalidTarget);
-  if (kind === "cli" && !clis.includes(id)) throw invalid(messages.invalidTarget);
-};
-function cleanArgs(value = []) {
-  if (
-    !Array.isArray(value) ||
-    value.length > 100 ||
-    value.some((a) => typeof a !== "string" || a.length > 16384 || a.includes("\0"))
-  )
-    throw invalid(serverMessages.extensions.invalidArgumentList);
-  return value;
-}
-function cleanCwd(value) {
-  if (value === undefined || value === null || value === "") return null;
-  if (
-    typeof value !== "string" ||
-    value.length > 4096 ||
-    /[\x00-\x1f\x7f]/.test(value) ||
-    !path.isAbsolute(value)
-  )
-    throw invalid(messages.invalidCwd);
-  return value;
-}
-/** Split a patch map into values to set and names to remove (`null`). */
-function splitMap(input, headers) {
-  if (input === undefined) return { set: {}, drop: [] };
-  if (!record(input))
-    throw invalid(serverMessages.extensions.invalidEnvironmentOrHeadersObject);
-  const set = {};
-  const drop = [];
-  for (const [key, value] of Object.entries(input))
-    if (value === null) drop.push(key);
-    else set[key] = value;
-  values(set, headers);
-  values(Object.fromEntries(drop.map((k) => [k, ""])), headers);
-  return { set, drop };
-}
 
 /** Central MCP servers the owner binds to agents; secrets never leave `secrets()`. */
 export class McpServerStore {
