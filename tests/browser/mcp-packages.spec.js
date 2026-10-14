@@ -169,7 +169,14 @@ test("an update shows the lock diff before it is confirmed", async ({ page }) =>
   const state = await packageSetup(page, { servers: [packagedServer("ready")] });
   state.preview = preview({
     diff: {
-      added: [{ name: "extra", version: "2.0.0" }],
+      added: [
+        { name: "extra", version: "2.0.0", path: "node_modules/extra" },
+        {
+          name: "extra",
+          version: "2.0.0",
+          path: "node_modules/helper/node_modules/extra",
+        },
+      ],
       removed: [{ name: "old", version: "0.1.0" }],
       changed: [{ name: "helper", from: "0.9.0", to: "1.0.0" }],
     },
@@ -194,7 +201,9 @@ test("an update shows the lock diff before it is confirmed", async ({ page }) =>
   await expect(dialog.getByLabel("Arguments")).toHaveValue("--owner");
   await panel.getByRole("button", { name: "Check update" }).click();
   const confirm = panel.getByRole("alertdialog", { name: "Update this package?" });
-  await expect(confirm.getByText("extra 2.0.0")).toBeVisible();
+  // Nested copies of one package stay separate lines.
+  await expect(confirm.getByText("Added (2)")).toBeVisible();
+  await expect(confirm.getByText("extra 2.0.0")).toHaveCount(2);
   await expect(confirm.getByText("old 0.1.0")).toBeVisible();
   await expect(confirm.getByText("helper 0.9.0 → 1.0.0")).toBeVisible();
   expect(state.requests.find((r) => r.path.endsWith("/preview")).body).toMatchObject({
@@ -290,7 +299,7 @@ test("German: a failed package shows its error, log and Reinstall; bindings wait
       kind: "install",
       state: "failed",
       code: "MCP_PACKAGE_INSTALL_FAILED",
-      log: "npm error code E404\nnpm error 404 Not Found - GET <data>/server-x",
+      log: "npm error code E404\nnpm error 404 Not Found - GET https://registry.npmjs.org/server-x",
     },
     error: {
       code: "MCP_PACKAGE_INSTALL_FAILED",

@@ -54,25 +54,29 @@ export function checkNpmLock(text, { ref, integrity, registry }) {
         throw foreign();
     }
     trusted.add(key);
-    dependencies.push({ name: nameOf(key), version: entry.version });
+    dependencies.push({ name: nameOf(key), version: entry.version, path: key });
   }
   const top = lock.packages[`node_modules/${ref.name}`];
   if (!top || top.version !== ref.version || top.integrity !== integrity)
     throw packageProblem("MCP_PACKAGE_INTEGRITY_MISMATCH", 502);
   dependencies.sort(
-    (a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version),
+    (a, b) =>
+      a.name.localeCompare(b.name) ||
+      a.version.localeCompare(b.version) ||
+      a.path.localeCompare(b.path),
   );
   return { digest: lockDigest(text), dependencies, needsScripts };
 }
 
+/** Added, removed and changed packages; nested copies of one name stay apart by path. */
 export function lockDiff(before = [], after = []) {
-  const map = (list) => new Map(list.map((d) => [d.name, d.version]));
-  const old = map(before);
-  const next = map(after);
-  const added = after.filter((d) => !old.has(d.name));
-  const removed = before.filter((d) => !next.has(d.name));
+  const keyOf = (d) => `${d.name}\u0000${d.path}`;
+  const old = new Map(before.map((d) => [keyOf(d), d.version]));
+  const next = new Set(after.map(keyOf));
+  const added = after.filter((d) => !old.has(keyOf(d)));
+  const removed = before.filter((d) => !next.has(keyOf(d)));
   const changed = after
-    .filter((d) => old.has(d.name) && old.get(d.name) !== d.version)
-    .map((d) => ({ name: d.name, from: old.get(d.name), to: d.version }));
+    .filter((d) => old.has(keyOf(d)) && old.get(keyOf(d)) !== d.version)
+    .map((d) => ({ name: d.name, path: d.path, from: old.get(keyOf(d)), to: d.version }));
   return { added, removed, changed };
 }

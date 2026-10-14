@@ -25,8 +25,8 @@ test("a registry-only lock yields its dependencies and digest", () => {
   const result = checkNpmLock(text, { ref, integrity: "sha512-server-x", registry });
   assert.equal(result.needsScripts, false);
   assert.deepEqual(result.dependencies, [
-    { name: "server-x", version: "1.1.0" },
-    { name: "zod", version: "3.0.0" },
+    { name: "server-x", version: "1.1.0", path: "node_modules/server-x" },
+    { name: "zod", version: "3.0.0", path: "node_modules/zod" },
   ]);
   assert.match(result.digest, /^[0-9a-f]{64}$/);
 });
@@ -152,18 +152,59 @@ test("lockDiff lists added, removed and changed packages", () => {
   assert.deepEqual(
     lockDiff(
       [
-        { name: "a", version: "1.0.0" },
-        { name: "b", version: "1.0.0" },
+        { name: "a", version: "1.0.0", path: "node_modules/a" },
+        { name: "b", version: "1.0.0", path: "node_modules/b" },
       ],
       [
-        { name: "a", version: "1.1.0" },
-        { name: "c", version: "2.0.0" },
+        { name: "a", version: "1.1.0", path: "node_modules/a" },
+        { name: "c", version: "2.0.0", path: "node_modules/c" },
       ],
     ),
     {
-      added: [{ name: "c", version: "2.0.0" }],
-      removed: [{ name: "b", version: "1.0.0" }],
-      changed: [{ name: "a", from: "1.0.0", to: "1.1.0" }],
+      added: [{ name: "c", version: "2.0.0", path: "node_modules/c" }],
+      removed: [{ name: "b", version: "1.0.0", path: "node_modules/b" }],
+      changed: [{ name: "a", path: "node_modules/a", from: "1.0.0", to: "1.1.0" }],
     },
   );
+});
+
+test("nested copies of one package stay separate entries, keyed by their path", () => {
+  const text = lock({
+    "node_modules/zod": entry("zod", "3.0.0"),
+    "node_modules/server-x/node_modules/zod": entry("zod", "2.0.0"),
+  });
+  const { dependencies } = checkNpmLock(text, {
+    ref,
+    integrity: "sha512-server-x",
+    registry,
+  });
+  assert.deepEqual(
+    dependencies.filter((d) => d.name === "zod"),
+    [
+      { name: "zod", version: "2.0.0", path: "node_modules/server-x/node_modules/zod" },
+      { name: "zod", version: "3.0.0", path: "node_modules/zod" },
+    ],
+  );
+});
+
+test("lockDiff compares packages by name and path, never merging nested copies", () => {
+  const top = (version) => ({ name: "zod", version, path: "node_modules/zod" });
+  const nested = (version) => ({
+    name: "zod",
+    version,
+    path: "node_modules/server-x/node_modules/zod",
+  });
+  assert.deepEqual(
+    lockDiff([top("3.0.0"), nested("2.0.0")], [top("3.1.0"), nested("2.0.0")]),
+    {
+      added: [],
+      removed: [],
+      changed: [{ name: "zod", path: "node_modules/zod", from: "3.0.0", to: "3.1.0" }],
+    },
+  );
+  assert.deepEqual(lockDiff([top("3.0.0")], [top("3.0.0"), nested("2.0.0")]), {
+    added: [nested("2.0.0")],
+    removed: [],
+    changed: [],
+  });
 });

@@ -32,8 +32,8 @@ export const preview = (extra = {}) => ({
   integrity: "sha512-abcdefghijklmnopqrstuvwxyz0123456789",
   dependencyCount: 2,
   dependencies: [
-    { name: "helper", version: "1.0.0" },
-    { name: "server-x", version: "1.1.0" },
+    { name: "helper", version: "1.0.0", path: "node_modules/helper" },
+    { name: "server-x", version: "1.1.0", path: "node_modules/server-x" },
   ],
   programs: ["server-x"],
   needsScripts: false,
