@@ -152,6 +152,22 @@ test("SSH dialog keeps Save visible on a phone with many hosts", async ({ page }
   await expect.poll(() => state.puts.length).toBe(1);
 });
 
+test("the tools dialog describes a partial grant as partial", async ({ page }) => {
+  await fixture(page);
+  const dialog = await openDialog(page, "AgentPier tools");
+  await expect(
+    dialog.getByText("Only the permissions listed below", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText("All tools for all projects", { exact: false }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByRole("list", { name: "Permissions" }).getByRole("listitem"),
+  ).toHaveCount(2);
+  await dialog.getByText("Learn more", { exact: true }).click();
+  await expect(dialog.getByText("with no time limit", { exact: false })).toBeVisible();
+});
+
 test("keyboard focus never hides under the sticky header or footer", async ({
   page,
   browserName,

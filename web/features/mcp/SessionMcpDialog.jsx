@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import Modal from "../../components/Modal.jsx";
 import LearnMore from "../../components/LearnMore.jsx";
 import PermissionList from "../../components/PermissionList.jsx";
@@ -12,6 +12,7 @@ export default function SessionMcpDialog({ session, close }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const grant = session.agentpierTools;
+  const scopesId = useId();
   return (
     <Modal
       title={copy.sessionTools}
@@ -48,12 +49,20 @@ export default function SessionMcpDialog({ session, close }) {
       <StatusChip tone={revoked ? "neutral" : "ok"} pill>
         {revoked ? copy.revoked : copy.active}
       </StatusChip>
-      <LearnMore hint={copy.sessionToolsSummary}>
+      <LearnMore
+        hint={
+          grant.selection.allResources === true
+            ? copy.sessionToolsSummary
+            : copy.sessionToolsLimited
+        }
+      >
         <p>{copy.sessionToolsHint}</p>
       </LearnMore>
-      <h3 className="dialog-section-label">{copy.scopes}</h3>
+      <h3 id={scopesId} className="dialog-section-label">
+        {copy.scopes}
+      </h3>
       <PermissionList
-        label={copy.scopes}
+        labelledBy={scopesId}
         items={grant.selection.scopes.map((scope) => [scope, copy.scopeLabels[scope]])}
       />
     </Modal>

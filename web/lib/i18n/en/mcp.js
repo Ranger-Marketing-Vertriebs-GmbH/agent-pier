@@ -1,6 +1,8 @@
 export const mcpCopy = {
   sessionTools: "AgentPier tools",
   sessionToolsSummary: "All tools for all projects, accounts and provider connections.",
+  sessionToolsLimited:
+    "Only the permissions listed below, for selected projects, accounts and provider connections.",
   sessionToolsHint:
     "Remains valid while this session is running, with no time limit. Stopping or deleting the session, or revoking access, ends the grant. Started runs continue after the session ends. Pipeline sessions do not receive this access.",
   title: "MCP & access",
