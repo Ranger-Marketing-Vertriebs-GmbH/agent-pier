@@ -5,6 +5,19 @@ import { validateHeartbeat } from "./heartbeat-schedule.js";
 // The key travels with the error so agent tools can name a stable reason.
 export const assistantProblem = (key, status = 400) =>
   Object.assign(problem(serverMessages.assistants[key], status), { key });
+// OpenClaw skill names (agent-skills.js); a list holds at most `maxSkills` of them.
+export const skillNamePattern = /^[a-z0-9][a-z0-9-]{0,63}$/;
+export const maxSkills = 64;
+/** A submitted skill list: sorted names without duplicates, or a 400. */
+export function validateSkills(value) {
+  if (
+    !Array.isArray(value) ||
+    value.length > maxSkills ||
+    value.some((name) => typeof name !== "string" || !skillNamePattern.test(name))
+  )
+    throw assistantProblem("invalid");
+  return [...new Set(value)].sort();
+}
 export function textValue(value, max = 65536, empty = false) {
   if (
     typeof value !== "string" ||
@@ -40,6 +53,7 @@ export function validateDefinition(input, partial = false) {
           "model",
           "capabilities",
           "shell",
+          "skills",
           "heartbeat",
           "confirmInstructions",
         ].includes(k),
@@ -53,6 +67,7 @@ export function validateDefinition(input, partial = false) {
     if (!shellLevels.includes(input.shell)) throw assistantProblem("invalid");
     result.shell = input.shell;
   }
+  if ("skills" in input) result.skills = validateSkills(input.skills);
   if ("heartbeat" in input) result.heartbeat = validateHeartbeat(input.heartbeat);
   if ("capabilities" in input) {
     const c = input.capabilities;

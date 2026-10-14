@@ -238,3 +238,19 @@ test("MCP CLI audits keep the CLIs, the conflict choice and adoption only", () =
     undefined,
   );
 });
+test("agent skill assignments keep valid skill names only", () => {
+  const audited = auditEvent({
+    action: "assistant.updated",
+    resourceType: "assistant",
+    resourceId: "a",
+    source: "user",
+    outcome: "success",
+    details: { fields: ["skills"], skills: ["github", "../x", 3, "weather"] },
+  });
+  assert.deepEqual(audited.details.skills, ["github", "weather"]);
+  const tooMany = Array.from({ length: 65 }, (_, i) => `s${i}`);
+  assert.equal(
+    auditEvent({ ...audited, details: { skills: tooMany } }).details.skills,
+    undefined,
+  );
+});

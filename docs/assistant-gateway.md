@@ -1338,6 +1338,54 @@ archived permanent member is restored, and when a level is raised again over
 entries that survived an earlier lowering (entries are only removed by deleting
 them). Check the agent settings after a restore if in doubt.
 
+## Skills
+
+OpenClaw bundles skills: short instructions (`SKILL.md`) that teach an agent a tool,
+mostly a command-line program such as `gh`, `himalaya` or `tmux`. In **Capabilities →
+Skills** the owner switches bundled skills on per agent. Only personal agents and
+promoted permanent members have skills; temporary members and archived agents have
+none, and a new agent starts without any.
+
+- **Compilation.** The selection is stored on the agent profile (`skills`, sorted
+  names) and compiled into `agents.entries.<id>.skills`, which OpenClaw reads as the
+  agent's final allow list. `agents.defaults.skills` stays `[]`, so every agent
+  without its own list has no skills, and the compiler removes lists from entries it
+  does not manage. `skills.allowBundled` is not a gate: OpenClaw reads the empty list
+  as "every bundled skill allowed"; the agents' own lists are.
+- **Live changes.** A save applies with `config.patch` (`reloadKind: "hot"`); a shorter
+  or removed list names `agents.entries.<id>.skills` in `replacePaths`. OpenClaw
+  refreshes the skill snapshot at the agent's next turn, without a Gateway restart.
+  The save is audited as `assistant.updated` with the skill names.
+- **Status.** `GET /api/assistants/:id/skills` reads `skills.status` for the agent
+  from the running Gateway (503 while it is not ready). Each skill is **ready**,
+  **missing** something (programs, any-of programs, environment variables or API
+  keys, configuration, or the operating system), **unsupported** on this system,
+  **disabled**, **unavailable** (an assigned name the runtime no longer bundles) or
+  **shadowed**. The browser never receives file or base paths, install options or
+  configuration checks, and host directories are cut out of every text. Upstream
+  descriptions stay in their original language. Entering API keys is not offered;
+  the page only names what is missing.
+- **Only bundled skills.** A save is refused (409 `skillUnavailable`) for a name that
+  the running Gateway does not report as an `openclaw-bundled` skill: ClawHub,
+  managed, Custodian and workspace skills are never assignable. A workspace skill
+  with the same name as a bundled one takes precedence in OpenClaw; the page shows
+  such a skill as **shadowed** and never as the active bundled one, and adding it is
+  refused. Names already assigned can always be kept or removed.
+- **Programs.** OpenClaw checks the programs a skill requires on the Gateway's
+  `PATH`, which carries the owner's login `PATH` (see
+  [Environment of shell commands](#environment-of-shell-commands)). Most skills run
+  those programs through `exec`: the page marks them **needs shell access** while the
+  agent's shell is off. An allow list is visibility, not an authorization boundary;
+  shell remains the real gate.
+- **Warnings.** Every bundled skill is listed. Skills that install foreign code
+  (`clawhub`, `skill-creator`), steer the Gateway (`control-ui`, `node-connect`),
+  change the host (`healthcheck`), duplicate an AgentPier feature (`coding-agent`,
+  `visualize`, `mcporter`) or reach secrets (`1password`) show a warning before they
+  are switched on.
+- **macOS privacy.** Programs such as `remindctl`, `memo` or `peekaboo` need Reminders,
+  Notes or Screen Recording permission for the process that runs them. A background
+  service cannot show the prompt; grant it in System Settings if a skill fails.
+
 ## Proactivity: check-ins (2026-10-12)
 
 The **Acting on its own** group in an agent's settings (section **Proactivity**)

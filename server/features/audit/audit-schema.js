@@ -152,6 +152,11 @@ export function auditEvent(input) {
     if (["off", "approval", "full"].includes(details[key]))
       event.details[key] = details[key];
   if (details.entryId !== undefined) event.details.entryId = auditId(details.entryId);
+  // An agent's skill assignment names the bundled skills, public catalog names.
+  if (Array.isArray(details.skills) && details.skills.length <= 64)
+    event.details.skills = details.skills.filter(
+      (name) => typeof name === "string" && /^[a-z0-9][a-z0-9-]{0,63}$/.test(name),
+    );
   // An agent's own Telegram bot names what changed; never a token, id or name.
   if (
     [

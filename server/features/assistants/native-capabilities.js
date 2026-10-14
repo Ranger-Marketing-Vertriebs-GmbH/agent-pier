@@ -51,6 +51,14 @@ export function personalShell(assistant) {
     ? assistant.shell
     : "off";
 }
+/**
+ * The bundled skills compiled for an agent (agent-skills.js): sorted, without
+ * duplicates; none for temporary members and archived agents.
+ */
+export function personalSkills(assistant) {
+  if (!personalEligible(assistant) || !Array.isArray(assistant.skills)) return [];
+  return [...new Set(assistant.skills.filter((name) => typeof name === "string"))].sort();
+}
 export function personalCapabilities(assistant) {
   const eligible = personalEligible(assistant);
   return Object.fromEntries(
