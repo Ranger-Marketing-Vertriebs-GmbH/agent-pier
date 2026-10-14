@@ -48,3 +48,33 @@ test("managed directories inside the data dir get read grants; others do not", (
     ],
   );
 });
+
+const managedGrants = (managedDirs, realpath = (p) => p) =>
+  stdioGrants([{ ...packaged("ready"), managedDirs }], {
+    dataDir: "/data",
+    realpath,
+    executable: () => true,
+    readHead: () => "",
+  }).filter((g) => !g.path.endsWith("/bin/node"));
+
+test("a managed directory whose real path leaves the managed roots gets no grant", () => {
+  const link = "/data/mcp-packages/installs/link";
+  const grants = managedGrants([link], (p) => (p === link ? "/etc" : p));
+  assert.deepEqual(grants, []);
+});
+
+test("the managed roots themselves are never granted", () => {
+  assert.deepEqual(
+    managedGrants(["/data/toolchains", "/data/mcp-packages/installs"]),
+    [],
+  );
+});
+
+test("a managed directory whose real path cannot be read gets no grant", () => {
+  const gone = "/data/mcp-packages/installs/gone";
+  const grants = managedGrants([gone, "/data/mcp-packages/installs/i"], (p) => {
+    if (p === gone) throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    return p;
+  });
+  assert.deepEqual(grants, [{ access: "read", path: "/data/mcp-packages/installs/i" }]);
+});

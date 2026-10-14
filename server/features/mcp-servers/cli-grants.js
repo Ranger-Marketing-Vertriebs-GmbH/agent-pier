@@ -115,7 +115,13 @@ export function stdioGrants(
       ? [path.join(data, "mcp-packages", "installs"), path.join(data, "toolchains")]
       : [];
     for (const dir of definition.managedDirs || []) {
-      const resolved = real(dir);
+      // Fail closed: a directory whose real path cannot be read is never granted.
+      let resolved;
+      try {
+        resolved = realpath(dir);
+      } catch {
+        continue;
+      }
       if (managedRoots.some((root) => resolved !== root && within(resolved, root)))
         grants.push({ access: "read", path: resolved });
     }
