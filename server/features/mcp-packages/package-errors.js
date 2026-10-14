@@ -19,13 +19,21 @@ const keys = {
 };
 export const packageCodes = Object.keys(keys);
 
-/** A problem with a stable `MCP_PACKAGE_*` code; its message never carries a path. */
-export function packageProblem(code, status = 400) {
-  const key = keys[code];
-  if (!key) throw Error(`Unknown package code ${code}`);
-  return Object.assign(problem(serverMessages.mcpPackages[key], status), { code });
+/**
+ * A problem with a stable `MCP_PACKAGE_*` code; its message never carries a path.
+ * `message` names another catalog key when one code has several wordings.
+ */
+export function packageProblem(code, status = 400, message = keys[code]) {
+  if (!keys[code]) throw Error(`Unknown package code ${code}`);
+  const text = serverMessages.mcpPackages[message];
+  if (typeof text !== "string") throw Error(`Unknown package message ${message}`);
+  return Object.assign(problem(text, status), { code });
 }
 
 /** The stable code of `error`, else `fallback`: installer output can carry paths. */
 export const packageCode = (error, fallback) =>
   packageCodes.includes(error?.code) ? error.code : fallback;
+
+/** `error` when it already has a package code, else a fresh `fallback` problem. */
+export const packageError = (error, fallback, status) =>
+  packageCodes.includes(error?.code) ? error : packageProblem(fallback, status);
