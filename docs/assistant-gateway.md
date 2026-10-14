@@ -891,6 +891,12 @@ configuration and then writes the stored overrides, so a reset override never
 survives in `openclaw.json`. Stored rows that are no longer allowed or valid are
 skipped and logged by path. Overrides apply only to the runtime version the allow
 list was qualified against; a rolled-back runtime starts with OpenClaw's defaults.
+The owner edits them under **Settings → Workspace → Agent service → Advanced**
+(`GET`/`PUT /api/assistant-advanced-settings`, `advanced-config.js`). Labels and help
+are AgentPier's own German and English texts. A `hot` or `none` setting is patched into
+the running Gateway and stored only once OpenClaw accepted it; a `restart` setting
+asks the owner to confirm a maintenance restart. While the Gateway is stopped, a
+saved value applies at its next start.
 
 ### Search provider
 

@@ -44,10 +44,13 @@ export function TabFrame({ frame, bar, children }) {
 
 // One section of a tab; the back button returns to that tab on every width, or to the
 // page a cross-link came from (`returnTo` in `frame.route`). The frame, not the whole
-// settings page, follows the agent list for the origin's name.
-export function SubpageFrame({ frame, title, wide = false, bar, children }) {
-  const tab = operationsCopy.groups[frame.tab];
-  const origin = useReturnTarget(frame.route, frame.go);
+// settings page, follows the agent list for the origin's name. A nested section names
+// its `parent` ({ label, back }) instead of the tab.
+export function SubpageFrame({ frame, title, wide = false, bar, parent, children }) {
+  const tab = parent?.label ?? operationsCopy.groups[frame.tab];
+  const returned = useReturnTarget(frame.route, frame.go);
+  const origin =
+    returned ?? (parent && { label: settingsHubCopy.backTo(tab), back: parent.back });
   return (
     <SettingsShell
       className={["settings-page-shell", "settings-subpage", wide ? "wide" : ""]

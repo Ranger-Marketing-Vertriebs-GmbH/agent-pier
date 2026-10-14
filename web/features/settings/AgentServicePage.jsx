@@ -2,9 +2,11 @@ import React from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GroupLabel from "../../components/GroupLabel.jsx";
 import ListCard from "../../components/ListCard.jsx";
-import { NumberRow } from "../../components/ListRow.jsx";
+import ListRow, { NumberRow } from "../../components/ListRow.jsx";
 import SaveBar from "../../components/SaveBar.jsx";
 import UnsavedChangesSheet from "../../components/UnsavedChangesSheet.jsx";
+import { routePath } from "../../app/routes.js";
+import { assistantAdvancedCopy } from "../../lib/i18n/messages/assistant-advanced.js";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { assistantTeamCopy as teamCopy } from "../../lib/i18n/messages/assistant-team.js";
 import useTabDraft from "../../lib/settings/useTabDraft.js";
@@ -13,7 +15,7 @@ import AssistantRuntimeSettings from "../assistants/AssistantRuntimeSettings.jsx
 import { assistantApi } from "../assistants/assistant-api.js";
 import useAssistants from "../assistants/useAssistants.js";
 import { SubpageFrame } from "./SettingsFrame.jsx";
-import { staysOn } from "./settings-navigation.js";
+import { staysOn, subpage } from "./settings-navigation.js";
 import {
   capacityInvalid,
   capacityRange,
@@ -94,6 +96,15 @@ export default function AgentServicePage({ frame, diagnostic }) {
         />
       </ListCard>
       <ErrorMessage error={fieldError} />
+      <GroupLabel id="agent-service-advanced">{assistantAdvancedCopy.title}</GroupLabel>
+      <ListCard labelledBy="agent-service-advanced">
+        <ListRow
+          label={assistantAdvancedCopy.entry}
+          sub={assistantAdvancedCopy.entrySub}
+          href={routePath(subpage("assistants-advanced"))}
+          onClick={() => frame.go(subpage("assistants-advanced"))}
+        />
+      </ListCard>
       <UnsavedChangesSheet {...sheet} />
     </SubpageFrame>
   );

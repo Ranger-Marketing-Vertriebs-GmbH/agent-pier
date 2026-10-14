@@ -5,10 +5,12 @@ import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import { SubpageFrame } from "./SettingsFrame.jsx";
 import { tabRoot } from "./settings-navigation.js";
 const AgentServicePage = lazy(() => import("./AgentServicePage.jsx"));
+const AgentAdvancedPage = lazy(() => import("./AgentAdvancedPage.jsx"));
 
 // The agent service needs agents switched on. While they are off, its old address
-// (/settings/assistants) lands on the workspace tab, where the switch lives.
-export default function AgentServiceRoute({ frame }) {
+// (/settings/assistants) lands on the workspace tab, where the switch lives. `advanced`
+// shows its nested advanced settings page under the same rule.
+export default function AgentServiceRoute({ frame, advanced = false }) {
   const feature = useAssistantFeature();
   const off = !feature.loading && !feature.enabled;
   const { go } = frame;
@@ -30,10 +32,14 @@ export default function AgentServiceRoute({ frame }) {
   if (!feature.enabled) return loading;
   return (
     <Suspense fallback={loading}>
-      <AgentServicePage
-        frame={frame}
-        diagnostic={problem && `${copy.diagnostic}: ${problem}`}
-      />
+      {advanced ? (
+        <AgentAdvancedPage frame={frame} />
+      ) : (
+        <AgentServicePage
+          frame={frame}
+          diagnostic={problem && `${copy.diagnostic}: ${problem}`}
+        />
+      )}
     </Suspense>
   );
 }

@@ -97,6 +97,9 @@ export const assistantApi = {
     api("/assistant-telegram-senders/apply", "POST", input),
   webSearch: (signal) => api("/assistant-web-search", "GET", undefined, signal),
   saveWebSearch: (input) => api("/assistant-web-search", "PUT", input),
+  advancedSettings: (signal) =>
+    api("/assistant-advanced-settings", "GET", undefined, signal),
+  saveAdvancedSetting: (input) => api("/assistant-advanced-settings", "PUT", input),
   mcpServers: () => api("/mcp-servers"),
   createMcpServer: (input) => api("/mcp-servers", "POST", input),
   updateMcpServer: (id, input) =>

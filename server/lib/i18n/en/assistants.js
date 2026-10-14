@@ -169,7 +169,7 @@ export const assistants = {
   webToolsRestartRequired:
     "This web tool change restarts the agents' Gateway; confirm the restart.",
   advancedRestartRequired:
-    "This setting takes effect only after the agents' Gateway restarts; confirm the restart.",
+    "This setting takes effect only after the agent service restarts; confirm the restart.",
   advancedSettingUnavailable:
     "This setting is not available with the installed agent runtime.",
   shellConfirmationRequired:
