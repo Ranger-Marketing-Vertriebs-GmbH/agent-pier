@@ -2,9 +2,8 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { proxyEnvironment } from "../../lib/proxy-environment.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
-import { guardedTools, memoryTools, personalSkills } from "./native-capabilities.js";
+import { guardedTools, memoryTools } from "./native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
-import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { hardenedDefaults } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
 import { applyShell, shellSections, withoutShell } from "./openclaw-config/shell.js";
@@ -268,17 +267,22 @@ export function prepareRuntimeConfig(
   paths,
   port,
   teams,
-  { maintenance = false, tls, overrides = [], webTools, shell, mcp, telegram } = {},
+  {
+    maintenance = false,
+    tls,
+    overrides = [],
+    webTools,
+    shell,
+    mcp,
+    telegram,
+    // Read from disk by the caller (runtime-supervisor.js, skill-shadows.js). This
+    // module stays free of third-party imports: the installer's dependency checks
+    // load it through runtime-install.js before node_modules exists.
+    skillShadows,
+  } = {},
 ) {
   const existing = readJSON(paths.config, null);
   const token = existing?.gateway?.auth?.token || randomBytes(32).toString("hex");
-  // Read from disk here so the compiler itself stays pure.
-  const skillShadows = Object.fromEntries(
-    (teams?.profiles || []).map((profile) => [
-      profile.runtimeAgentId,
-      shadowedSkills(paths.root, profile, personalSkills(profile)),
-    ]),
-  );
   writePrivate(
     paths.config,
     compileOpenClawConfig({

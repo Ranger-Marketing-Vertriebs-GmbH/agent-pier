@@ -7,6 +7,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runtimePaths } from "./runtime-paths.js";
 import { selectedAssistantRuntime } from "./runtime-install.js";
 import { prepareRuntimeConfig, runtimeEnvironment } from "./runtime-config.js";
+import { personalSkills } from "./native-capabilities.js";
+import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { GatewayClient } from "./gateway-client.js";
 import { prepareGatewayTls } from "./gateway-tls.js";
 import { openConsoleLog, rotateConsoleLog } from "./gateway-log.js";
@@ -239,6 +241,13 @@ export class RuntimeSupervisor extends EventEmitter {
       shell,
       mcp: teams?.mcp,
       telegram: teams?.telegram,
+      // Assigned skills a same-named skill in the agent's folders would replace.
+      skillShadows: Object.fromEntries(
+        (teams?.profiles || []).map((profile) => [
+          profile.runtimeAgentId,
+          shadowedSkills(this.paths.root, profile, personalSkills(profile)),
+        ]),
+      ),
     });
     await this.beforeSpawn?.();
     if (generation !== this.generation) return;
