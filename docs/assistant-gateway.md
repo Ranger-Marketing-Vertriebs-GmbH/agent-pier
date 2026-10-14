@@ -1,5 +1,7 @@
 # Managed assistant Gateway design
 
+For setup and everyday use, start with the [agents guide](agents.md).
+
 Status: operating guide for the optional managed agent subsystem. Agents are off
 until the owner turns them on; foundation, ChatGPT and provider accounts, Telegram
 with Deepgram, visible teams, team coding requests, native memory, reminders and
