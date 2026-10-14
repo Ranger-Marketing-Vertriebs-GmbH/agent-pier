@@ -1,6 +1,7 @@
 import React, { useId } from "react";
 import Icon from "../../components/Icon.jsx";
 import { InfoHintButton, InfoHintText, useInfoHint } from "../../components/InfoHint.jsx";
+import { formatNumber } from "../../lib/i18n/index.js";
 import { assistantAdvancedCopy as copy } from "../../lib/i18n/messages/assistant-advanced.js";
 
 // IANA zones of this browser; the server checks the name again.
@@ -12,6 +13,22 @@ function timeZones() {
   }
 }
 
+/**
+ * OpenClaw's value while the setting is unset, in the field's own unit: a number
+ * from the server (with our note, e.g. "48 hours"), an option label, or our words
+ * where it depends on the host or the model.
+ */
+export function fallbackText(setting) {
+  const text = copy.settings[setting.id];
+  if (typeof setting.fallback === "number") {
+    const amount = `${formatNumber(setting.fallback)} ${text.unit}`;
+    return text.fallbackNote ? `${amount} (${text.fallbackNote})` : amount;
+  }
+  if (typeof setting.fallback === "string")
+    return text.options?.[setting.fallback] ?? setting.fallback;
+  return text.fallback;
+}
+
 /** Options of a select setting; "" is OpenClaw's default and comes first. */
 export function settingOptions(setting, value) {
   const text = copy.settings[setting.id];
@@ -19,7 +36,7 @@ export function settingOptions(setting, value) {
   // A stored zone this browser does not list stays selectable.
   const listed = value && !values.includes(value) ? [value, ...values] : values;
   return [
-    { value: "", label: copy.defaultOption(text.fallback) },
+    { value: "", label: copy.defaultOption(fallbackText(setting)) },
     ...listed.map((option) => ({
       value: option,
       label: text.options?.[option] ?? option,
@@ -39,7 +56,6 @@ function Control({ setting, value, onChange, disabled, ...aria }) {
         min={setting.minimum}
         max={setting.maximum}
         step={setting.type === "integer" ? 1 : "any"}
-        placeholder={copy.reset}
         disabled={disabled}
         onChange={(event) =>
           onChange(event.target.value === "" ? "" : Number(event.target.value))
@@ -85,7 +101,9 @@ export default function AdvancedSettingRow({ setting, value, onChange, disabled 
               {text.unit && <span className="advanced-setting-unit"> ({text.unit})</span>}
             </span>
             <span className="list-row-sub" id={`${id}-sub`}>
-              {setting.available ? copy.defaultValue(text.fallback) : copy.unavailable}
+              {setting.available
+                ? copy.defaultValue(fallbackText(setting))
+                : copy.unavailable}
               {setting.available && (
                 <span
                   className={`list-row-pill advanced-setting-badge${restart ? "" : " live"}`}

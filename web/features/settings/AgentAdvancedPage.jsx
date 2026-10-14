@@ -55,7 +55,12 @@ export default function AgentAdvancedPage({ frame }) {
     load(controller.signal);
     return () => controller.abort();
   }, [load]);
-  const settings = useMemo(() => data?.settings || [], [data]);
+  // A setting this build has no texts for (a newer server) is left out, never shown
+  // with upstream words.
+  const settings = useMemo(
+    () => (data?.settings || []).filter((s) => copy.settings[s.id]),
+    [data],
+  );
   const draft = useTabDraft({
     server: serverOf(data),
     refresh: async () => ({ server: serverOf(await load()) }),
