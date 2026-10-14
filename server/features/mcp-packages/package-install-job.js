@@ -28,9 +28,11 @@ const withReal = (dir) => {
     return [dir];
   }
 };
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /**
  * Replaces the data dir with `<data>` and the home dir with `~` (each also by its real
- * path), longest first: npm output names local paths.
+ * path), longest first and only as a whole path (never inside a URL or a longer name):
+ * npm output names local paths.
  */
 export function pathRedactor(dataDir, home = os.homedir()) {
   const pairs = [
@@ -39,8 +41,13 @@ export function pathRedactor(dataDir, home = os.homedir()) {
   ]
     .filter(([dir]) => typeof dir === "string" && dir.length > 1)
     .sort((a, b) => b[0].length - a[0].length);
-  return (text) =>
-    pairs.reduce((out, [dir, label]) => out.split(dir).join(label), String(text));
+  if (!pairs.length) return (text) => String(text);
+  const labels = new Map([...pairs].reverse());
+  const pattern = new RegExp(
+    `(?<![\\w.~-])(?:${pairs.map(([dir]) => escapeRegExp(dir)).join("|")})(?=$|[/\\s"'\`()[\\]{},:;])`,
+    "g",
+  );
+  return (text) => String(text).replace(pattern, (dir) => labels.get(dir));
 }
 
 /**
