@@ -206,9 +206,13 @@ test("an assigned skill a workspace skill shadows is not compiled but stays stor
   report = [bundled("github", { source: "openclaw-managed" }), bundled("weather")];
   await f.service.skills.reapply(f.config);
   assert.deepEqual(f.live(home).skills, ["weather"]);
-  // A list the Gateway shortened is asked again at the next apply (no shortcut).
-  report = [bundled("github"), bundled("weather")];
+  // A name the Gateway resolved elsewhere is dropped reliably: the apply is cached,
+  // so an owner turn takes the shortcut; the re-apply restores it once that changes.
+  const before = f.client.patches.length;
   await f.config.apply(home.id);
+  assert.equal(f.client.patches.length, before, "no full apply per turn");
+  report = [bundled("github"), bundled("weather")];
+  await f.service.skills.reapply(f.config);
   assert.deepEqual(f.live(home).skills, ["github", "weather"]);
   // The service listens for the Gateway's skills.changed event.
   report = [bundled("github", { source: "openclaw-workspace" }), bundled("weather")];
@@ -290,7 +294,7 @@ test("skills the Gateway cannot confirm are not compiled and not cached", async 
   await f.config.apply(home.id);
   assert.equal(f.live(home).skills, undefined);
   f.client.answers["skills.status"] = answer;
-  await f.config.apply(home.id);
+  await f.service.skills.reapply(f.config);
   assert.deepEqual(f.live(home).skills, ["github"]);
 });
 

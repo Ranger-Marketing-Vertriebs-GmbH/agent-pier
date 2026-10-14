@@ -72,7 +72,9 @@ export class AssistantConfig {
   /**
    * Keeps only the names the Gateway reports as the bundled skill for this agent.
    * Fails closed: without a report (an error, or none) nothing is verified, and
-   * `complete` is false so the apply is not cached and asks again next time.
+   * `complete` is false so the apply is not cached and asks again next time. A
+   * name the report resolves elsewhere is dropped reliably and the apply is cached:
+   * skills.changed and the ready re-apply bring it back once that changes.
    */
   async verifySkills(assistant, names) {
     if (!names.length) return { skills: [], complete: true };
@@ -85,8 +87,7 @@ export class AssistantConfig {
         .filter((entry) => entry?.source === "openclaw-bundled")
         .map((entry) => entry.name),
     );
-    const skills = names.filter((name) => bundled.has(name));
-    return { skills, complete: skills.length === names.length };
+    return { skills: names.filter((name) => bundled.has(name)), complete: true };
   }
   /** The list an apply would compile now (disk scan, then the Gateway's view). */
   async expectedSkills(assistant) {
