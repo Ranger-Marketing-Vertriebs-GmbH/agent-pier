@@ -5,7 +5,7 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
-import { nodeText, treeMentions } from "./member-mentions.js";
+import { mentionableSource, nodeText, treeMentions } from "./member-mentions.js";
 export const plain = (value) =>
   value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
 const words = (value) =>
@@ -34,15 +34,23 @@ const contracted =
   /^(don|doesn|didn|isn|aren|wasn|weren|won|can|couldn|wouldn|shouldn|mustn|hasn|haven|hadn)$/;
 const limits = [
   [/^read$/, /^only$/],
-  [/^nur$/, /^(lesen|lesend|ansehen|anschauen|schauen|gucken|prüfen)$/],
+  [/^just$/, /^(read|look|review|check)$/],
+  [/^look$/, /^only$/],
   [/^only$/, /^(read|look|review|check)$/],
+  [/^hands$/, /^off$/],
+  [/^nur$/, /^(lesen|lesend|ansehen|anschauen|schauen|gucken|prüfen)$/],
+  [/^finger$/, /^weg$/],
+  [/^in$/, /^ruhe$/],
 ];
+// "leave … alone" with anything in between.
+const alone = (list, n) => list[n] === "alone" && list.slice(0, n).includes("leave");
 const negated = (list) =>
   list.some(
     (w, n) =>
       negation.test(w) ||
       (w === "t" && contracted.test(list[n - 1])) ||
-      limits.some(([a, b]) => a.test(w) && b.test(list[n + 1] || "")),
+      limits.some(([a, b]) => a.test(w) && b.test(list[n + 1] || "")) ||
+      alone(list, n),
   );
 
 // Kept deliberately small, verb forms only: one word that means ask or delegate,
@@ -141,43 +149,59 @@ export function namesMember(quote, name, others = []) {
 }
 
 /**
- * The @mentions in the owner's own message, found where the chat shows them as
- * chips: the message is parsed as the chat parses it, and code, block quotes, links,
- * images and HTML mention nobody. Each mention carries the member it means alone
+ * The owner's message parsed as the chat parses it, for `ownerMentions`: null when
+ * it holds no "@", is too large or too deeply nested (`mentionableSource`) or does
+ * not parse. Kept apart so the parse runs outside the store's transaction.
+ */
+export function parseOwnerMessage(text) {
+  if (typeof text !== "string" || !text.includes("@") || !mentionableSource(text))
+    return null;
+  try {
+    const tree = fromMarkdown(text, {
+      extensions: [gfm()],
+      mdastExtensions: [gfmFromMarkdown()],
+    });
+    return { text, tree };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The @mentions in the owner's own message (`parseOwnerMessage`), found where the
+ * chat shows them as chips (`treeMentions`). Each carries the member it means alone
  * (`memberId`, null when ambiguous), its place among the message's mentions
  * (`ordinal`, so one mention proves one task), the owner sentence it is in
  * (`sentence`, counted as `ownerSentence` counts, so both ways of proof share one
- * sentence), whether anything in its paragraph negates or limits it, whether a
- * quotation mark comes before it, and the paragraph (`excerpt`, at most 300
- * characters) to show the owner why a task may write. At most `mentionLimit`.
+ * sentence), whether a quotation mark comes before it and the paragraph around it
+ * (`excerpt`, at most 300 characters) to show the owner why a task may write.
+ * `negated` is the whole message's: a negation or a limit to reading anywhere in
+ * it, in any paragraph, list, heading, table or footnote, means no mention proves
+ * anything; the owner can send such an instruction on its own.
  */
-export function ownerMentions(text, members) {
-  if (typeof text !== "string" || !text.includes("@")) return [];
-  const tree = fromMarkdown(text, {
-    extensions: [gfm()],
-    mdastExtensions: [gfmFromMarkdown()],
-  });
+export function ownerMentions(parsed, members) {
+  if (!parsed) return [];
+  const { text, tree } = parsed;
+  let found;
+  try {
+    found = treeMentions(tree, members, text);
+  } catch {
+    return [];
+  }
+  if (!found.length) return [];
+  const message = negated(words(text)) || negated(words(nodeText(tree)));
   let ordinal = 0;
-  return treeMentions(tree, members).flatMap(({ node, block, mentions }) => {
-    const scope = nodeText(block).trim();
-    const negatedScope = negated(words(scope));
-    const from = node.position?.start.offset ?? 0;
-    const source = text.slice(from, node.position?.end.offset ?? text.length);
-    let cursor = 0;
+  return found.flatMap(({ block, mentions }) => {
+    const excerpt = Array.from(nodeText(block).trim()).slice(0, 300).join("");
     return mentions.map((m) => {
-      // Where the mention stands in the owner's text; escapes before it in the same
-      // text node may shift it, so it is looked up there.
-      const said = node.value.slice(m.start, m.end);
-      const at = source.indexOf(said, cursor);
-      if (at >= 0) cursor = at + said.length;
-      const before = text.slice(0, from + Math.max(at, 0));
+      const before = text.slice(0, m.offset);
       return {
         memberId: m.memberId,
         ordinal: ordinal++,
         sentence: (plain(before).match(/[.!?;:]/g) || []).length,
-        negated: negatedScope,
+        negated: message,
         quoted: quotedBefore(before),
-        excerpt: Array.from(scope).slice(0, 300).join(""),
+        excerpt,
       };
     });
   });

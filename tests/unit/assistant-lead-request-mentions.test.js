@@ -93,9 +93,14 @@ test("negated, quoted or forwarded mentions prove nothing", (t) => {
     assert.equal(f.task(f.scout, f.turn(text)).writeAllowed, false, text);
   const forwarded = { kind: "owner", forwarded: true };
   assert.equal(f.task(f.scout, f.turn("@Scout go", forwarded)).writeAllowed, false);
-  // A later affirmative sentence still counts.
+  // A negation anywhere in the message, even in another paragraph, counts.
   assert.equal(
     f.task(f.scout, f.turn("Don't ask Writer.\n\n@Scout update the docs.")).writeAllowed,
+    false,
+  );
+  // Positive control.
+  assert.equal(
+    f.task(f.scout, f.turn("Moin.\n\n@Scout update the docs.")).writeAllowed,
     true,
   );
 });

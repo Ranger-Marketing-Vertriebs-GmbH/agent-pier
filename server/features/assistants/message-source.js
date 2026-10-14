@@ -14,8 +14,9 @@
 // history message to its attempt and so to its request; the contract checks it
 // (tests/helpers/assistant-channel-contract.js).
 //
-// The browser gets `{ source: "telegram", sender: { kind: "owner" } }` and nothing
-// else: never a Telegram user, chat or channel id.
+// The browser gets `{ source: "telegram", sender: { kind: "owner" } }` (plus
+// `forwarded: true` for a forwarded message) and nothing else: never a Telegram
+// user, chat or channel id.
 //
 // A question or task a lead agent sent to its member (lead-requests.js) is recorded
 // with the lead's name and the bare text the lead wrote; the member's chat shows that
@@ -32,8 +33,14 @@ export function turnKey(message) {
 /** The public source of a request's trusted context, or null for any other turn. */
 export function requestSource(context) {
   if (!context || typeof context !== "object") return null;
+  // A forwarded Telegram message is the owner's to read, not the owner's request:
+  // the chat shows no member chips on it.
   if (context.kind === "telegram")
-    return { source: "telegram", sender: { kind: "owner" } };
+    return {
+      source: "telegram",
+      sender: { kind: "owner" },
+      ...(context.forwarded ? { forwarded: true } : {}),
+    };
   if (
     context.kind === "lead-request" &&
     typeof context.leadName === "string" &&

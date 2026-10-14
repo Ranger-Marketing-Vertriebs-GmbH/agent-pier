@@ -181,6 +181,14 @@ for (const language of ["en", "de"])
               sender: { kind: "owner" },
             },
             {
+              id: "fwd",
+              role: "user",
+              text: "@Max Ops forwarded",
+              source: "telegram",
+              sender: { kind: "owner" },
+              forwarded: true,
+            },
+            {
               id: "lead",
               role: "user",
               text: "@Max Ops from a lead",
@@ -224,7 +232,7 @@ for (const language of ["en", "de"])
         await expect(
           page
             .locator(".assistant-message")
-            .filter({ hasText: "from a lead" })
+            .filter({ hasText: /from a lead|forwarded/ })
             .locator(".member-mention-chip"),
         ).toHaveCount(0);
         // Live: the longest name wins, in any case.

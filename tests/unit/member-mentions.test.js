@@ -71,7 +71,7 @@ test("Telegram text is parsed the same way", () => {
 const tree = (text) =>
   fromMarkdown(text, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] });
 const shown = (text) =>
-  treeMentions(tree(text), team).flatMap(({ node, mentions }) =>
+  treeMentions(tree(text), team, text).flatMap(({ node, mentions }) =>
     mentions.map((m) => node.value.slice(m.start, m.end)),
   );
 
@@ -95,10 +95,12 @@ test("mentions count only in the owner's own text of a Markdown message", () => 
   ])
     assert.deepEqual(shown(text), [], text);
   // Each entry names its paragraph, heading or table cell.
-  const [entry] = treeMentions(tree("# Plan\n\nfirst @Max then"), team);
+  const plan = "# Plan\n\nfirst @Max then";
+  const [entry] = treeMentions(tree(plan), team, plan);
   assert.equal(entry.block.type, "paragraph");
   assert.equal(entry.parent, entry.block);
-  const many = treeMentions(tree("@Max ".repeat(50)), team);
+  const fifty = "@Max ".repeat(50);
+  const many = treeMentions(tree(fifty), team, fifty);
   assert.equal(many.flatMap((e) => e.mentions).length, mentionLimit);
 });
 
@@ -123,4 +125,35 @@ test("the composer finds the typed query and ranks matching members", () => {
     ["doc", "max", "ops", "net"],
   );
   assert.deepEqual(mentionMatches("zzz", team), []);
+});
+
+test("the chat's remark plugin makes chips exactly where mentions count", async () => {
+  const { remarkMemberMentions } =
+    await import("../../web/features/assistants/mention-markdown.js");
+  const chips = (text, members = team) => {
+    const parsed = tree(text);
+    remarkMemberMentions(members)()(parsed, { value: text });
+    const found = [];
+    const walk = (node) => {
+      if (node.type === "memberMention")
+        found.push([node.data.hChildren[0].value, node.data.hProperties.member]);
+      (node.children || []).forEach(walk);
+    };
+    walk(parsed);
+    return found;
+  };
+  assert.deepEqual(chips("Hi @Max Ops and @max."), [
+    ["@Max Ops", "ops"],
+    ["@max", "max"],
+  ]);
+  const twins = [
+    { id: "a", name: "Scout" },
+    { id: "b", name: "scout" },
+  ];
+  assert.deepEqual(chips("@Scout go", twins), [], "ambiguous");
+  assert.deepEqual(chips("&#64;Max go"), [], "reference");
+  assert.deepEqual(chips("&#64;Max go @Max"), [], "reference beside a mention");
+  assert.deepEqual(chips("\\@Max go"), [], "escape");
+  assert.deepEqual(chips("> @Max go"), [], "block quote");
+  assert.deepEqual(chips("@Max go " + "x".repeat(20000)), [], "too long");
 });
