@@ -82,7 +82,7 @@ To remove credentials, run `opencode mcp logout agentpier`, then remove `mcp.age
 
 CLI login redirects to `/settings/mcp?authorization=<opaque-id>`. The owner sees the client-provided name, client ID, callback URLs, expiry and requested permissions. Names and callback addresses are shown as text. The initial selection includes only requested catalog and run read permissions. Projects, source accounts and provider connections all start unselected; each resource group remains inaccessible until explicitly selected. Select both the source account and central provider connection when granting runs that use a central provider.
 
-To start pipelines, explicitly select **Läufe starten** (`runs:start`) during browser consent, together with the needed projects, source accounts and provider connections. The initial read-only selection does not authorize starting runs. Add `definitions:write` only when the client should edit profiles or pipelines, and `runs:cancel` when it should cancel its own runs.
+To start pipelines, explicitly select **Start runs** (`runs:start`) during browser consent, together with the needed projects, source accounts and provider connections. The initial read-only selection does not authorize starting runs. Add `definitions:write` only when the client should edit profiles or pipelines, and `runs:cancel` when it should cancel its own runs.
 
 Publication is a separate, initially unchecked permission. It permits pipeline publication steps such as pushes and pull requests. Human approval gates remain in the web interface.
 
