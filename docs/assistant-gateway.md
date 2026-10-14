@@ -717,10 +717,12 @@ A lead reaches its own members without the owner relaying anything
   keep failing end as `FOLLOW_UP_FAILED`, shown on the request.
 - **Tool calls and scheduled runs.** Plugin tools receive the session key but no
   run id (OpenClaw 2026.9.8 and 2026.9.9 tool context), so the bridge binds a call to the
-  session's single active AgentPier attempt. Native runs in the same session never
-  reach these tools or `write`/`edit`: check-ins run with `toolsAllow:
-["memory_search", "memory_get"]` and reminders and routines in isolated sessions
-  with no tools (pinned by the native heartbeat and reminder tests).
+  session's single active AgentPier attempt. Native runs never reach these tools
+  or `write`/`edit`: they run in their own `cron:<job>` session, which has no
+  attempt; check-ins run with `toolsAllow: ["memory_search", "memory_get"]`,
+  reminders with no tools, and routines with `routineTools`, which leaves out the
+  plugin's tools and writes (pinned by the native heartbeat, reminder and routine
+  tests).
 - **Recovery.** Requests are durable records in the team store; settled ones are
   pruned after 30 days or beyond the newest 200 per lead, and the scheduling pass
   reads only open or undelivered ones. A send whose outcome is unknown at a restart

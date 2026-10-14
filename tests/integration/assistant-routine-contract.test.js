@@ -1,30 +1,76 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeRoutines } from "../../server/features/assistants/native-routines.js";
+import { conversationHistory } from "../../server/features/assistants/conversations.js";
+import { routineTools } from "../../server/features/assistants/native-capabilities.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
-import { assistantRoutineModel } from "../helpers/assistant-routine-model.js";
+import {
+  fixtureModels,
+  proactivityModel,
+} from "../helpers/assistant-proactivity-model.js";
+
 const installed = process.env.AGENTPIER_ASSISTANT_ROUTINE_RUNTIME;
+const long = { timeoutMs: 60000 };
+const text = (request) => JSON.stringify(request.messages);
+const isRoutine = (request) => text(request).includes("ROUTINE_NATIVE_CONTRACT");
+const offered = (request) => request.tools?.map((tool) => tool.function.name) ?? [];
+const toolResults = (request) =>
+  JSON.stringify(request.messages.filter((m) => m.role === "tool"));
+
 test(
-  "pinned native disabled event routine executes once and hands generated output to the outbox",
-  { skip: !installed, timeout: 180000 },
+  "pinned native routines run with the agent's chat tools and land in its chat",
+  { skip: !installed, timeout: 300000 },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
     let runtime, reminders, model;
+    const page = http.createServer((req, res) => {
+      page.hits++;
+      res.end("PAGE_MARKER");
+    });
+    page.hits = 0;
+    await new Promise((r) => page.listen(0, "127.0.0.1", r));
     t.after(async () => {
       await runtime?.close();
       await reminders?.close();
       await model?.close();
+      page.closeAllConnections();
+      await new Promise((r) => page.close(r));
     });
-    const f = channelFixture(t),
+    const f = channelFixture(t, { language: () => "en" }),
       id = f.channel.assistantId;
-    f.store.updateAssistant(id, { capabilities: { memory: false, reminders: true } }, 1);
-    model = await assistantRoutineModel();
+    f.store.updateAssistant(
+      id,
+      {
+        capabilities: { memory: true, reminders: true, webFetch: true, webSearch: false },
+      },
+      1,
+    );
+    const local = `http://127.0.0.1:${page.address().port}/news`;
+    model = await proactivityModel();
+    // The routine reads a workspace note, fetches a page, then answers. The fetch
+    // targets a local fixture: OpenClaw refuses it before any request is sent,
+    // which proves the tool ran (no internet involved).
+    let quick = false;
+    model.reply = (request) => {
+      if (!isRoutine(request)) return { text: "Chat reply." };
+      if (quick) return { text: "ROUTINE_SECOND without notes." };
+      const results = request.messages.filter((m) => m.role === "tool").length;
+      if (results === 0)
+        return { tool: { name: "read", arguments: { path: "memory/news-sent.md" } } };
+      if (results === 1)
+        return { tool: { name: "web_fetch", arguments: { url: local } } };
+      return { text: "ROUTINE_RESULT Three new items today." };
+    };
     runtime = new RuntimeSupervisor({
       dataDir: f.dataDir,
       install: async () => ({
@@ -42,82 +88,220 @@ test(
       dataDir: f.dataDir,
     });
     f.assistants.reminders = reminders;
-    const routines = new NativeRoutines({ reminders }),
-      connection = await reminders.start();
-    await runtime.start();
-    const config = await runtime.client.call("config.get", {});
-    await runtime.client.call("config.patch", {
-      baseHash: config.hash,
-      raw: JSON.stringify({
-        cron: {
-          enabled: true,
-          webhookToken: connection.token,
-          webhookSsrfPolicy: { allowedHostnames: ["127.0.0.1"] },
-        },
-      }),
+    const routines = new NativeRoutines({ reminders });
+    f.assistants.routines = routines;
+    const connection = await reminders.start();
+    // The compiled native configuration: team plugin, memory, cron, web fetch.
+    const plugin = provisionTeamPlugin({
+      paths: runtime.paths,
+      runtimeVersion: runtimeManifest.version,
     });
+    runtime.teamConfiguration = async () => ({
+      directory: plugin.directory,
+      connection: { url: "http://127.0.0.1:1", token: "routine-fixture" },
+      hostMaxConcurrent: 4,
+      native: { token: connection.token },
+      profiles: f.store.listAssistants(),
+    });
+    await runtime.start();
     f.assistants.config = new AssistantConfig({
       client: runtime.client,
       store: f.store,
       workspaces: runtime.paths.workspaces,
-      models: {
-        resolve: () => ({
-          providerId: "fixture",
-          modelRef: "fixture/fixture-model",
-          provider: {
-            baseUrl: model.url,
-            api: "openai-completions",
-            apiKey: "fixture-key",
-            models: [
-              {
-                id: "fixture-model",
-                name: "Fixture",
-                contextWindow: 32768,
-                maxTokens: 4096,
-              },
-            ],
-          },
-          release() {},
-        }),
-      },
+      models: fixtureModels(model),
     });
+    f.assistants.config.nativeReady = () => true;
+    // Writes are granted in chat (a proven guard), never in a routine run.
+    f.assistants.config.writeGuard = () => true;
+    await f.assistants.config.apply(id);
+    const agent = f.store.getAssistant(id);
+    const workspace = path.join(runtime.paths.workspaces, id, "memory");
+    fs.mkdirSync(workspace, { recursive: true });
+    fs.writeFileSync(
+      path.join(workspace, "news-sent.md"),
+      "NOTE_MARKER sent on Monday\n",
+    );
+    // The paired conversation as AgentPier opens it: one native session per agent.
+    const session = await runtime.client.call(
+      "sessions.create",
+      { agentId: agent.runtimeAgentId, label: `AgentPier ${id}` },
+      long,
+    );
+    const conversation = f.store.getConversation(f.channel.conversationId);
+    f.store.db
+      .prepare("UPDATE conversations SET session_key=?, body=? WHERE id=?")
+      .run(
+        session.key,
+        JSON.stringify({ ...conversation, runtimeSessionKey: session.key }),
+        conversation.id,
+      );
+    // A chat turn first: it is offered the scheduling and write tools a run lacks.
+    let offset = model.requests.length;
+    const sent = await runtime.client.call(
+      "sessions.send",
+      { key: session.key, message: "Hello there.", idempotencyKey: randomUUID() },
+      long,
+    );
+    await runtime.client.call(
+      "agent.wait",
+      { runId: sent.runId, timeoutMs: 60000 },
+      { timeoutMs: 65000 },
+    );
+    const chatTools = offered(model.requests[offset]);
+    t.diagnostic(`chat tools=${JSON.stringify(chatTools)}`);
+    for (const name of ["agentpier_routine", "agentpier_reminder", "write", "web_fetch"])
+      assert.ok(chatTools.includes(name), `chat offers ${name}`);
+
     const routine = await routines.create(id, {
       clientRequestId: "contract-event",
-      name: "Meal plan",
-      prompt: "Generate a new meal plan. ROUTINE_NATIVE_CONTRACT",
+      name: "News digest",
+      prompt: "Collect today's news. ROUTINE_NATIVE_CONTRACT",
       trigger: { kind: "event", eventKind: "manual" },
     });
-    const receipt = await routines.trigger(id, routine.id, {
-      eventId: "contract-event-1",
-    });
+    const jobId = reminders.bindings.get(routine.id).nativeId;
+    const job = async () => (await reminders.jobs(agent)).find((j) => j.id === jobId);
+    const created = await job();
+    assert.equal(created.enabled, false);
+    assert.equal(created.sessionTarget, "current");
+    assert.equal(created.sessionKey, session.key);
+    assert.deepEqual(created.payload.toolsAllow, routineTools);
+
+    // Existing jobs are migrated in place: shape the job as #192 created it.
+    await runtime.client.call(
+      "cron.update",
+      {
+        id: jobId,
+        patch: {
+          sessionTarget: "isolated",
+          payload: {
+            kind: "agentTurn",
+            message: "Collect today's news. ROUTINE_NATIVE_CONTRACT",
+            timeoutSeconds: 90,
+            lightContext: true,
+            toolsAllow: [],
+          },
+          delivery: { mode: "webhook", to: `${connection.url}/complete/${routine.id}` },
+        },
+      },
+      long,
+    );
+    assert.deepEqual((await job()).payload.toolsAllow, []);
+    await routines.reconcile();
+    const migrated = await job();
+    t.diagnostic(`migrated job=${JSON.stringify(migrated).slice(0, 1200)}`);
+    assert.equal(migrated.sessionTarget, "current");
+    assert.equal(migrated.sessionKey, session.key);
+    assert.deepEqual(migrated.payload.toolsAllow, routineTools);
+    assert.equal(migrated.payload.lightContext, false);
+    assert.equal(migrated.payload.timeoutSeconds, 300);
+    assert.equal(migrated.delivery.mode, "announce");
+    assert.equal(migrated.enabled, false, "an event routine stays natively disabled");
+
+    offset = model.requests.length;
+    const receipt = await routines.trigger(id, routine.id, { eventId: "contract-1" });
     assert.equal(receipt.status, "queued");
-    const deadline = Date.now() + 60000;
+    const deadline = Date.now() + 90000;
     while (!f.service.outbox.all(f.channel.id).length && Date.now() < deadline)
       await delay(200);
-    assert.equal(
-      f.service.outbox.all(f.channel.id).length,
-      1,
-      "native webhook must deliver the completed generated result",
-    );
-    assert.equal(f.service.outbox.all(f.channel.id)[0].text, "A useful assistant reply.");
-    const calls = model.requests.filter((r) =>
-      JSON.stringify(r.messages).includes("ROUTINE_NATIVE_CONTRACT"),
-    );
-    assert.ok(calls.length > 0);
-    assert.ok(
-      calls.every((r) => !r.tools?.length),
-      "unattended execution must advertise no tools",
-    );
+    const [delivered] = f.service.outbox.all(f.channel.id);
+    assert.equal(delivered?.text, "ROUTINE_RESULT Three new items today.");
+
+    const runRequests = model.requests.slice(offset).filter(isRoutine);
+    const runTools = offered(runRequests[0]);
+    t.diagnostic(`routine tools=${JSON.stringify(runTools)}`);
     assert.deepEqual(
-      await routines.trigger(id, routine.id, { eventId: "contract-event-1" }),
+      [...runTools].sort(),
+      ["memory_get", "memory_search", "read", "session_status", "web_fetch"],
+      "the agent's chat tools without scheduling, writes or a switched-off capability",
+    );
+    const results = toolResults(runRequests.at(-1));
+    t.diagnostic(`routine tool results=${results.slice(0, 800)}`);
+    assert.match(results, /NOTE_MARKER/, "read returns the workspace note");
+    assert.match(
+      results,
+      /Blocked hostname or private\/internal\/special-use IP/,
+      "web_fetch ran and refused the private target",
+    );
+    assert.equal(page.hits, 0);
+    // Full context: the agent's conversation reaches the run.
+    assert.match(text(runRequests[0]), /Hello there\./);
+
+    // The result is committed into the conversation and badged in AgentPier's chat.
+    const history = async () =>
+      (await runtime.client.call("chat.history", { sessionKey: session.key }, long))
+        .messages;
+    const commitDeadline = Date.now() + 30000;
+    while (
+      !JSON.stringify(await history()).includes("ROUTINE_RESULT") &&
+      Date.now() < commitDeadline
+    )
+      await delay(250);
+    const service = {
+      store: f.store,
+      ledger: f.assistants.ledger,
+      runtime,
+      routines,
+    };
+    const chat = await conversationHistory(service, conversation.id);
+    const result = chat.messages.find((m) => m.text.includes?.("ROUTINE_RESULT"));
+    assert.deepEqual(result?.scheduled, { name: "News digest" });
+    assert.equal(
+      chat.messages.filter((m) => m.role === "assistant" && m.scheduled).length,
+      1,
+      "shown once, from the conversation itself",
+    );
+    // A later chat turn knows what the routine said.
+    offset = model.requests.length;
+    const followUp = await runtime.client.call(
+      "sessions.send",
+      {
+        key: session.key,
+        message: "What did you send this morning?",
+        idempotencyKey: randomUUID(),
+      },
+      long,
+    );
+    await runtime.client.call(
+      "agent.wait",
+      { runId: followUp.runId, timeoutMs: 60000 },
+      { timeoutMs: 65000 },
+    );
+    assert.ok(
+      model.requests.slice(offset).some((r) => text(r).includes("ROUTINE_RESULT")),
+      "the follow-up turn sees the routine's result",
+    );
+
+    assert.deepEqual(
+      await routines.trigger(id, routine.id, { eventId: "contract-1" }),
       receipt,
     );
-    const job = (await reminders.jobs(f.store.getAssistant(id))).find(
-      (j) => j.id === reminders.bindings.get(routine.id).nativeId,
+    // A capability switched off leaves the next run without its tools, while the
+    // job itself is unchanged: the cap is intersected with the agent's tools.allow.
+    const before = await job();
+    f.store.updateAssistant(
+      id,
+      { capabilities: { memory: false, reminders: true, webFetch: true } },
+      f.store.getAssistant(id).revision,
     );
-    assert.equal(job.enabled, false);
+    await f.assistants.config.apply(id);
+    await routines.reconcile();
+    assert.deepEqual((await job()).payload, before.payload);
+    quick = true;
+    offset = model.requests.length;
+    await routines.trigger(id, routine.id, { eventId: "contract-2" });
+    const second = Date.now() + 90000;
+    while (f.service.outbox.all(f.channel.id).length < 2 && Date.now() < second)
+      await delay(200);
+    assert.equal(
+      f.service.outbox.all(f.channel.id)[1]?.text,
+      "ROUTINE_SECOND without notes.",
+    );
+    const narrowed = offered(model.requests.slice(offset).find(isRoutine));
+    t.diagnostic(`routine tools without memory=${JSON.stringify(narrowed)}`);
+    assert.deepEqual([...narrowed].sort(), ["session_status", "web_fetch"]);
+
     const runs = await routines.runs(id, routine.id);
-    assert.equal(runs.entries.filter((r) => r.status === "ok").length, 1);
+    assert.equal(runs.entries.filter((r) => r.status === "ok").length, 2);
     await routines.remove(id, routine.id);
     assert.equal((await routines.list(id)).routines.length, 0);
   },

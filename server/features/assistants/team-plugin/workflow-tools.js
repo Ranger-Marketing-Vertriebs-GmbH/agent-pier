@@ -42,7 +42,7 @@ export const workflowDefinitions = {
   },
   routine: {
     description:
-      "Manage saved-prompt Telegram routines using native OpenClaw scheduling. Unlike a verbatim reminder, a routine generates a response to its saved prompt each time. Use create/list/update(pause/resume)/remove. A trigger is at(ISO timestamp with a UTC offset or Z, e.g. 2026-10-09T09:00:00+02:00; times without an offset and date-only values are rejected), cron(expr,tz), or event(eventKind manual or coding.completed). coding.completed runs after one of your linked coding tasks completes. Native runs have no tools and cannot take external actions. Always use the stored id/revision for updates; do not claim unconfirmed work succeeded.",
+      "Manage saved-prompt Telegram routines using native OpenClaw scheduling. Unlike a verbatim reminder, a routine generates a response to its saved prompt each time. Use create/list/update(pause/resume)/remove. A trigger is at(ISO timestamp with a UTC offset or Z, e.g. 2026-10-09T09:00:00+02:00; times without an offset and date-only values are rejected), cron(expr,tz), or event(eventKind manual or coding.completed). coding.completed runs after one of your linked coding tasks completes. Each run is a separate scheduled turn with your usual chat tools (web, memory reading, shell, MCP) and approvals, except routines, reminders, team, workspace and file writes; it never counts as an owner request. Its result reaches the owner in Telegram and in this chat. Always use the stored id/revision for updates; do not claim unconfirmed work succeeded.",
     parameters: schema(
       {
         action: { type: "string", enum: ["create", "list", "update", "remove"] },

@@ -148,6 +148,7 @@ export class AssistantMaintenance {
     this.s.assistants.gatewayEvents?.ready();
     this.s.assistants.reconcile().catch(() => {});
     this.s.assistantReminders?.heartbeats?.reconcile().catch(() => {});
+    this.s.assistantReminders?.routines?.reconcile().catch(() => {});
   }
   recoveryState() {
     if (this.s.assistantProviderSynchronization?.changing) return null;

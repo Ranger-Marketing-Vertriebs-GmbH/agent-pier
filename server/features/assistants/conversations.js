@@ -3,6 +3,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { codingRunNotes } from "./assistant-action-notifications.js";
 import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
 import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
+import { withRoutineResults } from "./routine-results.js";
 export function publicMessages(messages = []) {
   const seen = new Set();
   return messages.flatMap((m) => {
@@ -133,11 +134,15 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
   return {
     ...visible,
     requests: requestsWithSources(visible.requests, contexts),
-    messages: withRunNotes(
-      service,
-      conversation,
-      withMessageSources(visible.messages, requests, { attempts, contexts }),
-      nextBefore,
+    messages: withRoutineResults(
+      withRunNotes(
+        service,
+        conversation,
+        withMessageSources(visible.messages, requests, { attempts, contexts }),
+        nextBefore,
+      ),
+      service.routines?.results.forConversation(id) || [],
+      { from: nextBefore && messages.length ? messages[0].timestamp : -Infinity },
     ),
     nextBefore,
     stale,

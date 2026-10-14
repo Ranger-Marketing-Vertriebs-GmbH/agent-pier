@@ -4,6 +4,8 @@ import { personalCapabilities } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
+// OpenClaw's silent-reply token; an empty summary is just as silent.
+const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";
 const revoked = (binding) => ["revoked", "removed"].includes(binding.state);
 // Creation was submitted but never confirmed; only an owner review resolves it.
 const unconfirmed = (binding) => ["pending", "unknown"].includes(binding.state);
@@ -182,6 +184,21 @@ export class NativeReminders {
   nativeEnabled() {
     return true;
   }
+  /** How a run executes and where its result goes; `to` is its completion webhook. */
+  run(binding, values, to) {
+    return {
+      sessionTarget: "isolated",
+      payload: {
+        kind: "agentTurn",
+        message: this.payload(values),
+        timeoutSeconds: 90,
+        lightContext: true,
+        // A reminder returns its text verbatim: it needs no tool at all.
+        toolsAllow: [],
+      },
+      delivery: { mode: "webhook", to },
+    };
+  }
   create(id, input, origin, assertCurrent = () => {}) {
     return this.assistants.admit(async () => {
       assertCurrent();
@@ -228,17 +245,9 @@ export class NativeReminders {
           enabled: this.nativeEnabled(values),
           deleteAfterRun: false,
           schedule: values.schedule,
-          sessionTarget: "isolated",
           wakeMode: "now",
           failureAlert: false,
-          payload: {
-            kind: "agentTurn",
-            message: this.payload(values),
-            timeoutSeconds: 90,
-            lightContext: true,
-            toolsAllow: [],
-          },
-          delivery: { mode: "webhook", to: `${connection.url}/complete/${binding.id}` },
+          ...this.run(binding, values, `${connection.url}/complete/${binding.id}`),
         });
         const job = result?.job || result;
         if (!job?.id) throw assistantProblem("unavailable", 503);
@@ -388,6 +397,8 @@ export class NativeReminders {
         ? textValue(event.summary, 65536)
         : telegramMessages(this.channels.store.get(binding.source.channelId))
             .reminderFailed;
+    // A routine that found nothing to say (OpenClaw's silent token) sends nothing.
+    if (binding.kind === "routine" && event.status === "ok" && silent(text)) return;
     this.channels.outbox.enqueue({
       key: `native-reminder:${event.jobId}:${event.runAtMs}`,
       source: { ...binding.source, reminderBindingId: binding.id },
@@ -402,6 +413,8 @@ export class NativeReminders {
         ? {}
         : { path: `/agents/${encodeURIComponent(binding.assistantId)}/settings` }),
     });
+    // Also shown in the agent's chat, whether or not Telegram delivers it.
+    if (binding.kind === "routine") this.routines?.completed(binding, event);
     this.assistants.changed();
   }
   async hasRunning() {

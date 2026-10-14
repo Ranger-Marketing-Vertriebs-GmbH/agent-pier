@@ -1,7 +1,7 @@
 export const routineCopy = {
   title: "Routines",
   description:
-    "Save a task to generate a fresh result daily or on an event. Results go to the paired Telegram chat. Routines run without tools or team delegation.",
+    "Save a task to generate a fresh result daily or on an event. Results go to the paired Telegram chat and appear in this agent's chat. Routines use the agent's tools and approvals, but cannot schedule, delegate or change files.",
   name: "Routine name",
   prompt: "Task prompt",
   trigger: "Routine trigger",
@@ -35,4 +35,8 @@ export const routineCopy = {
   scheduled: "Scheduled",
   dailyAt: (time, timezone) => `Daily at ${time} (${timezone})`,
   nextRun: (time) => `Next run: ${time}`,
+  // Marks a routine's result in the agent's chat; a failed run is a quiet line.
+  chatBadge: (name) => (name ? `Scheduled · ${name}` : "Scheduled"),
+  chatFailed: (name) =>
+    name ? `Routine “${name}” could not finish.` : "A routine could not finish.",
 };

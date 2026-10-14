@@ -42,6 +42,22 @@ export const sessionTools = [
   "sessions_send",
   "sessions_spawn",
 ];
+/**
+ * The run-level cap of a routine (payload.toolsAllow): every tool an agent's own
+ * profile can hold, so OpenClaw's intersection with the agent's tools.allow leaves
+ * exactly the agent's current chat tools and a capability change needs no job
+ * rewrite. Left out: reminders and routines (a routine never schedules), the team
+ * and workspace tools (the bridge serves only an owner's turn, never a scheduled
+ * run) and writes (the tool guard grants them only to an owner's turn). `*__*`
+ * stands for the agent's MCP tools (`<server>__<tool>`).
+ */
+export const routineTools = [
+  "session_status",
+  ...memoryTools.filter((tool) => !guardedTools.includes(tool)),
+  ...Object.values(capabilityTools).flat(),
+  ...shellTools,
+  "*__*",
+];
 export const personalEligible = (assistant) =>
   !assistant.archivedAt &&
   (!assistant.teamMemberId || assistant.lifetime === "permanent");

@@ -82,6 +82,20 @@ export class ExecApprovals {
       a.store.listAssistants().find((p) => p.runtimeAgentId === agentId);
     if (!assistant) return { reason: "UNKNOWN_AGENT" };
     if (personalShell(assistant) === "off") return { reason: "SHELL_OFF" };
+    // A routine's run asks in the chat its result goes to, and through the
+    // Telegram chat the routine was bound to.
+    const routine = a.routines?.runOrigin(assistant, sessionKey);
+    if (routine)
+      return {
+        assistantId: assistant.id,
+        conversationId: routine.conversation.id,
+        origin: {
+          kind: "telegram",
+          channelId: routine.binding.source.channelId,
+          chatId: routine.binding.source.chatId,
+          userId: routine.binding.source.userId,
+        },
+      };
     const conversation =
       typeof sessionKey === "string" &&
       a.store.listConversations().find((c) => c.runtimeSessionKey === sessionKey);

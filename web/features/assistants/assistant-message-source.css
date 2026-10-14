@@ -16,3 +16,26 @@
   font-size: 12px;
   line-height: 1.4;
 }
+/* A routine's result: the agent's name with a quiet "Scheduled · <routine>" badge. */
+.assistant-message-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 6px;
+}
+.assistant-message-head > strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+.assistant-scheduled-badge {
+  max-width: 100%;
+  padding: 1px 8px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--surface-accent);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
