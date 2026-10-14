@@ -58,6 +58,11 @@ test("the session helper answers git 2.46+ requests and never echoes capabilitie
   assert.equal(output, `username=x-access-token\npassword=${token}\n\n`);
   assert.doesNotMatch(output, /capability/);
   assert.equal(gitCredential(input.replace(/\n/g, "\r\n"), env), output);
+  // git forwards the host as written in the remote URL.
+  assert.equal(
+    gitCredential(input.replace("host=github.com", "host=GitHub.com"), env),
+    output,
+  );
   for (const operation of ["store", "erase"])
     assert.equal(gitCredential(input, env, operation), "");
   assert.equal(
