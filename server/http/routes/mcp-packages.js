@@ -48,7 +48,14 @@ export async function changeSource(services, { changes, auditMcp }, req, res) {
     if (!packages.isPackaged(id) || typeof patch.command !== "string") throw invalid();
     const before = services.mcpServers.get(id).source;
     // The own command needs the stdio confirmation like any command change.
-    await packages.detach(id, () => changes().update(id, patch, options));
+    // Without new args the owner's stay; the generated program path never does.
+    await packages.detach(id, () =>
+      changes().update(
+        id,
+        patch.args === undefined ? { ...patch, args: packages.ownerArgs(id) } : patch,
+        options,
+      ),
+    );
     auditMcp("mcp.package.removed", id, auditDetails(before));
     return res.json(services.mcpServers.get(id));
   }
