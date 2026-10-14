@@ -881,9 +881,16 @@ The `browser`, `mcp`, `secrets`, `env`, `plugins` and `tools` paths are locked
 against configuration overrides; the compiler rewrites the browser block on each
 start and removes any `mcp` block it did not write. `channels`, `bindings`,
 `session`, `commands`, `approvals`, `accessGroups` and `models.providers.deepgram`
-belong to the agents' own Telegram bots and are locked as well. Overrides of the parents
-`models` and `models.providers` are refused for that reason (individual providers
-below them stay configurable).
+belong to the agents' own Telegram bots and are locked as well.
+
+Owner overrides (layer 3, `openclaw-config/overrides.js`) reach only the paths on the
+allow list in `openclaw-config/advanced-settings.js`, with a value their qualified
+schema accepts; every other path, including any key a future OpenClaw adds, stays
+AgentPier's. Each start first removes every allow-listed path from the existing
+configuration and then writes the stored overrides, so a reset override never
+survives in `openclaw.json`. Stored rows that are no longer allowed or valid are
+skipped and logged by path. Overrides apply only to the runtime version the allow
+list was qualified against; a rolled-back runtime starts with OpenClaw's defaults.
 
 ### Search provider
 

@@ -20,7 +20,10 @@ import { AssistantStore } from "../features/assistants/assistant-store.js";
 import { AssistantModels } from "../features/assistants/assistant-models.js";
 import { AssistantConfig } from "../features/assistants/assistant-config.js";
 import { AssistantService } from "../features/assistants/assistant-service.js";
-import { OverrideStore } from "../features/assistants/openclaw-config/overrides.js";
+import {
+  OverrideStore,
+  overridesFor,
+} from "../features/assistants/openclaw-config/overrides.js";
 import { RuntimeSupervisor } from "../features/assistants/runtime-supervisor.js";
 import {
   AssistantMaintenance,
@@ -44,6 +47,13 @@ import {
   wire,
 } from "../features/assistants/service-wiring.js";
 
+// A row that can no longer apply is reported by path, never by value.
+const overrideStore = (store) =>
+  new OverrideStore(store.db, {
+    onSkip: (path) =>
+      console.warn(`Skipped invalid OpenClaw configuration override: ${path}`),
+  });
+
 /**
  * Phase one: constructs every assistant service. Back-references between services
  * are not assigned here; marked services refuse to run until the connect step.
@@ -56,11 +66,7 @@ export function constructAssistantGraph(host, created = {}) {
     new RuntimeSupervisor({
       dataDir,
       // Read at each launch; the store is constructed right after the supervisor.
-      configOverrides: () =>
-        new OverrideStore(store.db, {
-          onSkip: (path) =>
-            console.warn(`Skipped invalid OpenClaw configuration override: ${path}`),
-        }).list(),
+      configOverrides: (version) => overridesFor(overrideStore(store), version),
     }),
     "assistantRuntime",
     ["teamConfiguration", "maintenance", "beforeSpawn", "afterReady"],
