@@ -63,7 +63,7 @@ label.mcp-check input[type="checkbox"] {
 }
 .mcp-package-status-failed,
 .mcp-package-status-missing {
-  color: #f0b9ab;
+  color: var(--error-text);
   border-color: currentColor;
 }
 .mcp-package-status-ready {
