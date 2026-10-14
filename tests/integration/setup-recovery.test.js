@@ -14,7 +14,7 @@ test("state is reconciled under lock after another process completes setup", asy
   const options = { ...f.options, service: false };
   const common = `import fs from "node:fs"; import { spawnSync } from "node:child_process"; import { installRelease } from ${JSON.stringify(installerUrl)};
     const options = JSON.parse(process.argv[1]); const stages = [];
-    const dependencies = { run: async () => ({ stdout: "fixture" }), inspectService: async () => ({ state: "missing", listener: false }), releaseOptions: { smoke: async (dir) => stages.push(dir) } };`;
+    const dependencies = { toolchains: async () => ({}), run: async () => ({ stdout: "fixture" }), inspectService: async () => ({ state: "missing", listener: false }), releaseOptions: { smoke: async (dir) => stages.push(dir) } };`;
   const second = `${common} await installRelease(options, dependencies);`;
   const first = `${common}
     const open = fs.openSync; let intercepted = false;
@@ -87,7 +87,7 @@ for (const window of ["lock-only", "receipt-temp", "cache-rename", "pointer-rena
         if (interrupted === "pointer-rename" && /\\/.current-[a-f0-9-]+$/.test(String(file))) process.exit(9);
         return original.call(this, file, ...args);
       };
-      await installRelease(JSON.parse(process.argv[1]), { run: async () => ({ stdout: "fixture" }), inspectService: async () => ({ state: "missing", listener: false }), releaseOptions: { smoke: async () => {} } });`;
+      await installRelease(JSON.parse(process.argv[1]), { toolchains: async () => ({}), run: async () => ({ stdout: "fixture" }), inspectService: async () => ({ state: "missing", listener: false }), releaseOptions: { smoke: async () => {} } });`;
     await assert.rejects(
       execute(process.execPath, [
         "--input-type=module",
@@ -154,3 +154,12 @@ for (const operation of ["writeFileSync", "fsyncSync", "renameSync"]) {
     assert.equal((await f.install({ service: false })).version, "1.0.0");
   });
 }
+
+test("setup provisions toolchains through the injected provisioner only", async (t) => {
+  const f = await setupFixture(t);
+  const calls = [];
+  const toolchains = async (input) => (calls.push(input.dataDir), {});
+  const result = await f.install({ service: false }, { toolchains });
+  assert.deepEqual(calls, [f.dataDir]);
+  assert.deepEqual(result.toolchains, {});
+});

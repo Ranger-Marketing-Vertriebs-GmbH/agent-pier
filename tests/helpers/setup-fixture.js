@@ -54,6 +54,7 @@ export async function setupFixture(t) {
       state.listener = true;
     },
     health: async () => state.healthy,
+    toolchains: async () => ({}),
     home: temporary,
   };
   const options = {

@@ -45,6 +45,7 @@ test("repair preserves a release pointer while another process is switching it",
   const installer = `import { installRelease } from ${JSON.stringify(installerUrl)};
     await installRelease(JSON.parse(process.argv[1]), {
       run: async () => ({ stdout: "fixture" }),
+      toolchains: async () => ({}),
       inspectService: async () => ({ state: "missing", listener: false }),
     });`;
   const script = `import fs from "node:fs";

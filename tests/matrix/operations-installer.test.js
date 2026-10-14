@@ -98,6 +98,7 @@ for (const healthy of [false, true])
       { archive, installRoot, dataDir, service: true },
       {
         run: async () => ({ stdout: "fixture" }),
+        toolchains: async () => ({}),
         releaseOptions: { smoke: async () => {} },
         serviceRunner: async () => {
           serviceCalls++;

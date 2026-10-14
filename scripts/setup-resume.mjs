@@ -25,6 +25,7 @@ import {
 } from "./setup-state.mjs";
 import { inspectSetupService } from "./setup-service.mjs";
 import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
+import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
 import { proxyEnvironment, proxyVariables } from "../server/lib/proxy-environment.js";
 const proxyKeys = [...proxyVariables, "NODE_USE_ENV_PROXY"];
 const withoutProxy = (env = {}) =>
@@ -86,6 +87,7 @@ export async function resumeSetup(
     home = os.homedir(),
     afterPhase = async () => {},
     assistantRuntime,
+    toolchains = provisionInstallerToolchains,
   } = {},
 ) {
   let inspected = inspectSetup(options);
@@ -205,6 +207,7 @@ export async function resumeSetup(
       { dataDir, enable: options.withAssistants === true },
       { assistantRuntime },
     );
+    const toolchainResult = await toolchains({ dataDir });
     if (options.service) {
       let serviceState = await inspectService(serviceInput);
       if (
@@ -255,6 +258,7 @@ export async function resumeSetup(
       serviceInstalled: Boolean(options.service),
       ...(options.service ? { url: "http://127.0.0.1:4380" } : {}),
       ...(assistants ? { assistantRuntime: assistants } : {}),
+      toolchains: toolchainResult,
     };
   } finally {
     unlock();
