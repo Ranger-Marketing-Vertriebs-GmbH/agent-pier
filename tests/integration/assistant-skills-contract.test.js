@@ -171,3 +171,36 @@ test(
     await assert.rejects(save(["github"]), { status: 409, key: "skillUnavailable" });
   },
 );
+
+// OpenClaw 2026.10.3 allows skills_read wherever `read` is allowed (accepted in
+// AGENTPIER-69). AgentPier grants `read` only with memory, so an agent with skills is
+// offered the tool exactly when it has memory.
+test("skills_read follows the read tool that memory grants", options, async (t) => {
+  const h = await compiledShell(t, installed, { prefix: "skills-read-" });
+  const agent = (name, memory) => {
+    const created = h.create(name);
+    return h.store.updateAssistant(
+      created.id,
+      { capabilities: { memory, reminders: false }, skills: ["github"] },
+      created.revision,
+    );
+  };
+  const reader = agent("Reader", true),
+    plain = agent("Plain", false);
+  await h.runtime.start();
+  for (const a of [reader, plain]) await h.config.apply(a.id);
+  const offered = {};
+  for (const [label, a] of [
+    ["reader", reader],
+    ["plain", plain],
+  ]) {
+    const turn = await h.send(a, label, "true");
+    offered[label] = (await h.settle(turn)).offered;
+    t.diagnostic(`${label} offered=${JSON.stringify(offered[label])}`);
+  }
+  await h.idle();
+  assert.ok(offered.reader.includes("read"));
+  assert.ok(offered.reader.includes("skills_read"));
+  assert.ok(!offered.plain.includes("read"));
+  assert.ok(!offered.plain.includes("skills_read"));
+});

@@ -21,7 +21,7 @@ import { runInstaller } from "../../scripts/release-install.mjs";
 import { installerArguments, resolveSetupOptions } from "../../scripts/setup-options.mjs";
 
 const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
-const previous = { version: "2026.9.8", nodeVersion: "26.6.0", nodePath: "/old" };
+const previous = { version: "2026.9.9", nodeVersion: "26.6.0", nodePath: "/old" };
 
 function selectPrevious(dataDir) {
   fs.mkdirSync(path.join(dataDir, "assistants"), { recursive: true });
@@ -190,7 +190,7 @@ test("the installer enables and pre-provisions assistants with --with-assistants
   const provisioned = [];
   const assistantRuntime = async (options) => {
     provisioned.push(options.dataDir);
-    return { version: "2026.9.9" };
+    return { version: "2026.10.3" };
   };
   const result = await runInstaller(
     [
@@ -208,7 +208,7 @@ test("the installer enables and pre-provisions assistants with --with-assistants
   assert.deepEqual(read(path.join(f.dataDir, "assistant-feature.json")), {
     enabled: true,
   });
-  assert.deepEqual(result.assistantRuntime, { status: "ready", version: "2026.9.9" });
+  assert.deepEqual(result.assistantRuntime, { status: "ready", version: "2026.10.3" });
 });
 
 test("the interactive installer provisions the runtime when assistants are enabled", async (t) => {
@@ -247,7 +247,10 @@ test("installer provisioning uses the shared provisioner and enabled flag", asyn
     },
   );
   assert.equal(result.status, "ready");
-  assert.equal(read(path.join(f.dataDir, "assistants/runtime.json")).version, "2026.9.9");
+  assert.equal(
+    read(path.join(f.dataDir, "assistants/runtime.json")).version,
+    "2026.10.3",
+  );
 });
 
 test("setup forwards --with-assistants to the release installer", () => {
@@ -308,8 +311,8 @@ test("an installer rerun next to an older selection reports the staged runtime",
   );
   assert.deepEqual(result, {
     status: "staged",
-    version: "2026.9.9",
-    selected: "2026.9.8",
+    version: "2026.10.3",
+    selected: "2026.9.9",
   });
   assert.deepEqual(read(path.join(f.dataDir, "assistants/runtime.json")), previous);
 });

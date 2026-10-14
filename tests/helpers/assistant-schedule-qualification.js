@@ -98,7 +98,8 @@ async function fixture(t, { skipMissedJobs = false } = {}) {
   fs.writeFileSync(
     process.env.OPENCLAW_CONFIG_PATH,
     JSON.stringify({
-      agents: { list: [{ id: f.store.getAssistant(id).runtimeAgentId }] },
+      // Keyed entries: OpenClaw 2026.10 refuses the legacy agents.list at start.
+      agents: { entries: { [f.store.getAssistant(id).runtimeAgentId]: {} } },
     }),
   );
   const scheduler = {
@@ -107,6 +108,27 @@ async function fixture(t, { skipMissedJobs = false } = {}) {
     schedule: (timer) => {
       timers.set(timer.id, timer);
       return { cancel: () => timers.delete(timer.id) };
+    },
+    // OpenClaw 2026.10's CronService schedules through an owned scope (its
+    // GatewayScheduler.scope()); stopping the scope cancels only that owner's timers.
+    scope: () => {
+      const controller = new AbortController();
+      const owned = new Set();
+      const close = () => {
+        controller.abort();
+        for (const id of owned) timers.delete(id);
+      };
+      return {
+        signal: controller.signal,
+        now: () => now,
+        schedule: (timer) => {
+          owned.add(timer.id);
+          return scheduler.schedule(timer);
+        },
+        beginClose: close,
+        close,
+        stop: async () => close(),
+      };
     },
   };
   const makeNative = () =>

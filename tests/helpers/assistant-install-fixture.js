@@ -45,7 +45,7 @@ export function assistantInstallFixture(t) {
     packages: {
       "": pkg,
       "node_modules/openclaw": {
-        version: "2026.9.9",
+        version: "2026.10.3",
         resolved: "file:openclaw.tgz",
         integrity: `sha512-${integrity}`,
       },
@@ -66,7 +66,7 @@ export function assistantInstallFixture(t) {
       .update(fs.readFileSync(path.join(lockDirectory, "package-lock.json")))
       .digest("hex");
   const manifest = {
-    version: "2026.9.9",
+    version: "2026.10.3",
     nodeVersion: "26.7.0",
     npmVersion: "11.19.0",
     packageUrl: "https://example.invalid/openclaw.tgz",
@@ -129,7 +129,7 @@ export function addSearchPlugins(f) {
       {
         id,
         package: `@openclaw/${id}-plugin`,
-        version: "2026.9.9",
+        version: "2026.10.3",
         integrity: createHash("sha512").update(id).digest("base64"),
       },
     ]),
@@ -143,7 +143,7 @@ export function addSearchPlugins(f) {
       version: pin.version,
       resolved: `https://registry.npmjs.org/${pin.package}/-/${pin.id}-plugin-${pin.version}.tgz`,
       integrity: `sha512-${pin.integrity}`,
-      peerDependencies: { openclaw: ">=2026.9.9" },
+      peerDependencies: { openclaw: ">=2026.10.3" },
     };
   }
   lock.packages[""].dependencies = pkg.dependencies;
