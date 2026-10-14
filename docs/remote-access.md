@@ -121,7 +121,7 @@ Jeder Eintrag ist ein Name oder eine IP ohne Schema, Pfad oder Port; es sind hö
 
 **„Speichern“** schreibt in den Einstellungen nur die Konfiguration; den Neustart löst der separate Knopf **„Dienst neu starten“** aus. Die Seite prüft danach `/api/health` über die gerade geöffnete Adresse, nicht über Loopback; wird der Netzwerkmodus über genau diese Verbindung ausgeschaltet, endet sie mit dem Neustart und die Seite sagt das statt weiter zu prüfen. `npm run remote -- enable`/`disable`/`hosts` startet den installierten Dienst dagegen selbst neu (`--no-restart` überspringt das) und prüft danach `/api/health` auf Loopback. Ist kein Dienst installiert, meldet das Skript den manuellen Neustart mit `npm run service:install` oder `npm start`.
 
-Ein Gerät, dessen Host-Header nicht erlaubt ist, oder ein Zugriff bei ausgeschaltetem Netzwerkmodus erhält die Fehlermeldung „Netzwerkzugriff ist aus oder dieser Host ist nicht freigegeben. Einstellungen → Fernzugriff prüfen.“ In diesem Fall die Hostliste und den Bind-Modus prüfen und, falls nötig, den Dienst nach einer Änderung neu starten.
+Ein Gerät, dessen Host-Header nicht erlaubt ist, oder ein Zugriff bei ausgeschaltetem Netzwerkmodus erhält die Fehlermeldung „Netzwerkzugriff ist aus oder dieser Host ist nicht freigegeben. Einstellungen → Zugriff → Fernzugriff prüfen.“ In diesem Fall die Hostliste und den Bind-Modus prüfen und, falls nötig, den Dienst nach einer Änderung neu starten.
 
 ### Ausschalten
 
