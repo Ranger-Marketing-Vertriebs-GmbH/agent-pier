@@ -18,6 +18,7 @@ export const mcpCliCopy = {
     unreadable: "ihre Konfigurationsdatei lässt sich nicht lesen",
     "too-large": "ihre Konfigurationsdatei ist größer als 64 MiB und bleibt unverändert",
     duplicate: "der Name steht in mehr als einer ihrer Konfigurationsdateien",
+    package: "sein Paket ist noch nicht installiert oder fehlt",
     changed: "ihre Konfigurationsdatei änderte sich laufend; bitte erneut speichern",
     layout:
       "ihre Konfigurationsdatei lässt sich nicht an Ort und Stelle ändern, ohne andere Einträge zu verändern",

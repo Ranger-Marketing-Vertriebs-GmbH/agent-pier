@@ -79,6 +79,7 @@ export const mcpServers = {
   cliReasonInvalid: "Diese Coding-CLI kann den Server so nicht eintragen.",
   cliReasonDuplicate:
     "Die CLI führt diesen Namen mehrfach. Bitte einen der Einträge in der CLI entfernen.",
+  cliReasonPackage: "Das Paket des Servers ist noch nicht installiert oder fehlt.",
   cliLoginNotBound:
     "Der Server ist Codex nicht zugeordnet. Bitte Codex unter den Coding-CLIs des Servers auswählen.",
   cliLoginAccountInvalid:
