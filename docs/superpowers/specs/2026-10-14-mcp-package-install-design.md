@@ -219,20 +219,24 @@ Results go to a new `docs/mcp-package-qualification.md`.
 3. **PyPI packages** plus the manual qualification including OPNsense and
    `docs/mcp-package-qualification.md`.
 
-## Open questions
+## Resolved questions (owner, 2026-10-14)
 
-1. **Python download verification:** confirm that `uv python install` verifies the
-   CPython archive against a checksum embedded in the pinned `uv` release. If it does
-   not, AgentPier pins the python-build-standalone asset and its SHA-256 itself and
-   passes the verified file to `uv` (for example through `--mirror` pointing at a local
-   directory).
-2. **Python version:** which CPython minor to pin (proposal: the newest 3.x that the
-   qualification servers support); servers whose `requires_python` excludes it fail
-   with `MCP_PACKAGE_INSTALL_FAILED`.
-3. **Linux libc:** the uv `gnu` builds assume glibc; whether any supported Linux target
-   needs the `musl` build (`docs/linux.md` lists only x64 and arm64).
-4. **Detecting `needsScripts` for Python:** the preview can only report a missing wheel
-   reliably after a `--only-binary :all:` resolution attempt; the exact signal from
-   `uv pip compile` needs to be confirmed.
-5. **Node sharing:** whether the Node toolchain should later replace the copy inside the
-   OpenClaw runtime directory (out of scope here; both stay separate).
+1. **Python download verification:** AgentPier does not rely on `uv` verifying the
+   CPython archive. It pins the python-build-standalone asset per platform with its
+   SHA-256, verifies the download itself and passes the verified file to `uv` (for
+   example through `--mirror` pointing at a local directory).
+2. **Python version:** the newest stable CPython 3.x that the qualification servers
+   support, fixed in PR 1. Servers whose `requires_python` excludes it fail with
+   `MCP_PACKAGE_INSTALL_FAILED`.
+3. **Linux libc:** glibc only (the uv `gnu` builds). A musl host fails with
+   `MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE` and a clear message.
+4. **Detecting `needsScripts` for Python:** the preview runs a trial
+   `uv pip compile --only-binary :all:` resolution; a failure there means a build is
+   needed. Metadata heuristics are not used.
+5. **Node sharing:** the Node toolchain and the copy inside the OpenClaw runtime stay
+   separate; whether to share them is a later ticket.
+
+## Related constraint
+
+An installed package is a stdio server like any other: agents with a Telegram bot for
+other people still refuse stdio servers (`docs/AGENTS.md`, "Telegram for other people").
