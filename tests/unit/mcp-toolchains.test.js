@@ -104,10 +104,10 @@ test("CPython's sysconfig points into the installed toolchain", async (t) => {
     path.join(cpython, "lib/python3.14/_sysconfigdata__darwin_darwin.py"),
     "utf8",
   );
-  const includePy = /"INCLUDEPY": "([^"]+)"/.exec(data)[1];
+  const includePy = /'INCLUDEPY': '([^']+)'/.exec(data)[1];
   assert.equal(includePy, path.join(cpython, "include/python3.14"));
   assert.ok(fs.statSync(includePy).isDirectory());
-  assert.ok(data.includes(`"prefix": "${cpython}"`));
+  assert.ok(data.includes(`'prefix': '${cpython}'`));
   assert.ok(data.includes(`-I${cpython}/include -L${cpython}/lib`));
   assert.ok(data.includes(`'--prefix=${cpython}' 'INSTALL=/usr/bin/install -c'`));
   assert.doesNotMatch(data, /(["'=]|-[IL])\/install/);
@@ -147,6 +147,23 @@ test("a failing CPython unpack reports MCP_PACKAGE_INSTALL_FAILED without output
   assert.doesNotMatch(error.message, /tar failed/);
   assert.equal(readToolchain("python", options(f)), null);
   assert.deepEqual(fs.readdirSync(toolchainRoot(f.dataDir)), []);
+});
+
+test("a sysconfig rewrite CPython cannot import fails the install", async (t) => {
+  const f = toolchainFixture(t);
+  const run = promisify(execFile);
+  const imports = [];
+  const execute = (file, args, opts) => {
+    if (args[0] !== "-I") return run(file, args, opts);
+    assert.equal(args[1], "-B", "bytecode would record the stage path");
+    imports.push(args.at(-1));
+    return Promise.reject(Error(`SyntaxError in ${args.at(-1)}`));
+  };
+  const error = await ensureToolchain("python", options(f, { execute })).catch((e) => e);
+  assert.equal(error.code, "MCP_PACKAGE_INSTALL_FAILED");
+  assert.doesNotMatch(error.message, /SyntaxError/);
+  assert.match(imports[0] ?? "", /_sysconfigdata__darwin_darwin\.py$/);
+  assert.equal(readToolchain("python", options(f)), null);
 });
 
 test("a redirected or second-named CPython program is refused", async (t) => {

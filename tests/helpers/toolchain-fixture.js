@@ -28,13 +28,12 @@ function cpythonSource(source, version) {
   fs.writeFileSync(
     path.join(lib, "_sysconfigdata__darwin_darwin.py"),
     [
-      "build_time_vars = {",
-      `    "BINDIR": "/install/bin",`,
-      `    "CFLAGS": "-O3 -I/install/include -L/install/lib",`,
-      `    "CONFIG_ARGS": "'--prefix=/install' 'INSTALL=/usr/bin/install -c'",`,
-      `    "INCLUDEPY": "/install/include/python${minor}",`,
-      `    "prefix": "/install",`,
-      "}",
+      // pprint style: single quotes unless the value contains one.
+      "build_time_vars = {'BINDIR': '/install/bin',",
+      " 'CFLAGS': '-O3 -I/install/include -L/install/lib',",
+      ` 'CONFIG_ARGS': "'--prefix=/install' 'INSTALL=/usr/bin/install -c'",`,
+      ` 'INCLUDEPY': '/install/include/python${minor}',`,
+      " 'prefix': '/install'}",
       "",
     ].join("\n"),
   );

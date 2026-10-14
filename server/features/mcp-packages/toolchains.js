@@ -18,6 +18,9 @@ const downloadFile = (url) => fetchDownload(url, fetch, 256 * 1024 * 1024);
 const kinds = ["node", "python"];
 const npmCli = path.join("lib", "node_modules", "npm", "bin", "npm-cli.js");
 const pythonPath = path.join("cpython", "bin", "python3");
+const importFile =
+  "import importlib.util as u, sys; s = u.spec_from_file_location('m', sys.argv[1]); " +
+  "s.loader.exec_module(u.module_from_spec(s))";
 const jobs = new Map();
 const queues = new Map();
 const unavailable = () => packageProblem("MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE", 503);
@@ -110,10 +113,18 @@ async function installPython({ stage, final, target, m, download, execute, env }
   // The relocatable archive is unpacked as is; only sysconfig learns the final path.
   const cpython = path.join(content, "cpython");
   await extract(archive, cpython, execute, env);
-  relocateSysconfig(cpython, path.join(final, "cpython"), m.python.version);
+  const sysconfig = relocateSysconfig(
+    cpython,
+    path.join(final, "cpython"),
+    m.python.version,
+  );
   const python = containedPython(content, fs.realpathSync(content), pythonPath, m);
   const reported = await execute(python, ["--version"], { env, timeout: 30000 });
   if (reported.stdout.trim() !== `Python ${m.python.version}`) throw unavailable();
+  // A rewrite CPython cannot import would break every later build. -B: -I ignores
+  // PYTHONDONTWRITEBYTECODE, and bytecode written here would record the stage path.
+  for (const file of sysconfig)
+    await execute(python, ["-I", "-B", "-c", importFile, file], { env, timeout: 30000 });
   return {
     content,
     receipt: {
