@@ -45,6 +45,47 @@ dialog > :last-child > .dialog-actions:last-child {
   color: #e7a3a3;
 }
 
+/* Feature forms that end with their own action row: that row becomes the sticky
+   footer, bleeding to the edges of the form's padding (--dialog-pad). */
+dialog > .ssh-form {
+  --dialog-pad: 26px;
+}
+dialog > .operations-form {
+  --dialog-pad: 20px;
+}
+dialog.file-action-dialog > form {
+  --dialog-pad: 1.25rem;
+}
+dialog > .pipeline-form {
+  --dialog-pad: 22px;
+}
+dialog > .memory-editor {
+  --dialog-pad: 24px;
+}
+dialog
+  > :is(.ssh-form, .operations-form, .pipeline-form, .memory-editor, form)
+  > :is(.ssh-actions, .operations-actions, .pipeline-actions, .memory-actions):last-child,
+dialog.file-action-dialog > form > .file-action-buttons:last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  justify-content: flex-end;
+  margin: 0 calc(var(--dialog-pad, 20px) * -1) calc(var(--dialog-pad, 20px) * -1);
+  padding: 14px var(--dialog-pad, 20px);
+  border-top: 1px solid #323337;
+  background: #18191d;
+}
+dialog.file-action-dialog > .file-action-buttons:last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 14px 1.25rem;
+  border-top: 1px solid #323337;
+  background: #18191d;
+}
+
 /* A one-line state of the dialog's subject, e.g. "SSH tools are ready". */
 .dialog-status {
   display: flex;
@@ -253,6 +294,27 @@ label.check-row:has(input:disabled) .check-row-text {
 }
 
 @media (max-width: 700px) {
+  dialog > .ssh-form {
+    --dialog-pad: 20px;
+  }
+  dialog > .pipeline-form {
+    --dialog-pad: 16px;
+  }
+  dialog > .memory-editor {
+    --dialog-pad: 18px;
+  }
+  dialog
+    > :is(.ssh-form, .operations-form, .pipeline-form, .memory-editor, form)
+    > :is(
+      .ssh-actions,
+      .operations-actions,
+      .pipeline-actions,
+      .memory-actions
+    ):last-child,
+  dialog.file-action-dialog > form > .file-action-buttons:last-child,
+  dialog.file-action-dialog > .file-action-buttons:last-child {
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
   .dialog-body {
     padding: 2px 21px calc(21px + env(safe-area-inset-bottom));
   }
