@@ -96,8 +96,8 @@ save while an affected agent is busy.
   **Telegram bot token**, choose **Connect Telegram**, then **Pair my private chat**.
   Messages from that chat reach the agent's conversation and are marked "via
   Telegram"; replies go back to Telegram, a long one in full as several messages
-  split between paragraphs or lines (beyond about 64,000 characters the rest is in
-  AgentPier, which a closing note says). **Telegram activity** shows deliveries that
+  split between paragraphs or lines (beyond about 64,000 characters or 40 messages
+  a closing note says the reply was shortened). **Telegram activity** shows deliveries that
   need a decision. Voice messages are transcribed when a Deepgram key is set under
   **Accounts → Services for agents → Speech recognition**.
 - **Acting on its own:** see [check-ins](#routines-reminders-and-check-ins).

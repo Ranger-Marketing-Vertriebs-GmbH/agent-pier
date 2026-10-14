@@ -6,8 +6,9 @@ import { completeMessage } from "../assistants/history-text.js";
 // History can trail the completion event briefly; after this grace a completed
 // run without assistant text is handed to the owner instead of holding the queue.
 export const replyGraceMs = 60_000;
-// A reply beyond this many Telegram messages goes on in AgentPier.
-export const maxReplyParts = 16;
+// A hard bound against flooding the chat; a reply OpenClaw serves whole (at most
+// 65536 characters) normally needs far fewer messages.
+export const maxReplyParts = 40;
 export class TelegramDelivery {
   constructor(service) {
     this.service = service;
@@ -82,16 +83,15 @@ export class TelegramDelivery {
   }
   /**
    * A reply's durable parts: all of it, or what OpenClaw serves of a reply too
-   * large for it (and at most `maxReplyParts`), closed by a note that the whole
-   * reply is in AgentPier.
+   * large for it (and at most `maxReplyParts`), closed by a note that the rest
+   * was not sent.
    */
   replyParts(channel, { text, cut }) {
     const parts = text.trim() ? telegramParts(text) : [];
     if (!cut && parts.length <= maxReplyParts) return parts;
-    const link = this.service.link(channel.id, this.service.chatPath(channel));
     return [
       ...parts.slice(0, maxReplyParts),
-      ...telegramParts(telegramMessages(channel).telegramReplyIncomplete, link),
+      ...telegramParts(telegramMessages(channel).telegramReplyIncomplete),
     ];
   }
   async process(id, signal) {

@@ -91,7 +91,7 @@ export const assistants = {
   teamDecisionStale: "This proposal has already been decided or is no longer valid.",
   teamDecisionFailed: "The decision could not be saved. Try again in AgentPier.",
   telegramReplyUnavailable: "The answer has no text. Open AgentPier to view it.",
-  telegramReplyIncomplete: "The full reply is in AgentPier.",
+  telegramReplyIncomplete: "Reply shortened – the rest could not be sent.",
   telegramInputNeedsReview: "A message needs your attention in AgentPier.",
   telegramPrivateBot:
     "This bot is private and only answers the person it is paired with.",

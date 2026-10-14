@@ -24,7 +24,9 @@ export async function completeMessage(assistants, conversationId, message) {
   if (!page.cut || !assistants.message) return page;
   try {
     const alone = historyText(await assistants.message(conversationId, message.id));
-    if (alone.text.length > page.text.length) return alone;
+    // Only a longer text that continues the page's one is the same message.
+    if (alone.text.length > page.text.length && alone.text.startsWith(page.text))
+      return alone;
   } catch {
     /* The page's text is what there is. */
   }

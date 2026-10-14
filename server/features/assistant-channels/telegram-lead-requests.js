@@ -59,7 +59,8 @@ async function transferRequest(outbox, r) {
           m.role === "assistant" && [attempt.id, attempt.runtimeRunId].includes(m.runId),
       )
       .at(-1);
-    // The history page cuts long replies; this one is read on its own.
+    // The history page cuts long replies; this one is read on its own. Unlike a
+    // direct reply it is one outbox notice, bounded by the outbox's 65536.
     const reply = await completeMessage(a, r.parentConversationId, message);
     text = reply.cut ? withNote(reply.text, msg.telegramReplyIncomplete) : reply.text;
   }
