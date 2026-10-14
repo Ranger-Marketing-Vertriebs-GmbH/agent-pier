@@ -13,6 +13,7 @@ export const connectionCopy = {
   legacyHelp:
     "This older provider binding can still be edited. Manage new shared API connections under “Shared provider connections”.",
   providerNames: {
+    "openai-chatgpt": "ChatGPT",
     openrouter: "OpenRouter",
     zai: "Z.ai API",
     "zai-coding-plan": "Z.ai Coding Plan",
