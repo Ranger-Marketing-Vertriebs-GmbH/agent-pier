@@ -12,6 +12,7 @@ import { AssistantWorkflows } from "../../server/features/assistants/assistant-w
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 import { assistantModelServer } from "./assistant-model-server.js";
 import { listTree, ownerAccount } from "./assistant-shell-gateway.js";
 
@@ -151,7 +152,7 @@ export async function compiledShell(t, installed, { prefix }) {
     async send(agent, label, command) {
       commands.set(label, command);
       const assistant = store.getAssistant(agent.id);
-      const session = await runtime.client.call("sessions.create", {
+      const session = await createGatewaySession(runtime.client, {
         agentId: assistant.runtimeAgentId,
         label: `AgentPier ${label}`,
       });
@@ -229,7 +230,7 @@ export async function compiledShell(t, installed, { prefix }) {
     // conversation (team members).
     async direct(agentId, label, command) {
       commands.set(label, command);
-      const session = await runtime.client.call("sessions.create", { agentId, label });
+      const session = await createGatewaySession(runtime.client, { agentId, label });
       const sent = await runtime.client.call("sessions.send", {
         key: session.key,
         message: `Run the command. [cmd:${label}]`,

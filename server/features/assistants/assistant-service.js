@@ -1,7 +1,7 @@
 import { assistantProblem, validateDefinition } from "./assistant-validation.js";
 import { sendTurn } from "./conversation-turns.js";
 import { AgentAttachments } from "./agent-attachments.js";
-import { sessionCreateTimeoutMs } from "./gateway-client.js";
+import { createGatewaySession } from "./session-create.js";
 import { RequestLedger } from "./request-ledger.js";
 import { AssistantEvents } from "./assistant-events.js";
 import { conversationHistory, conversationMessage } from "./conversations.js";
@@ -33,8 +33,11 @@ export class AssistantService {
     accounts,
     audit,
     now = Date.now,
+    // createGatewaySession options (a clock for tests); team members use them too.
+    sessionCreate,
   }) {
     Object.assign(this, { store, models, runtime, config, login, accounts, audit, now });
+    this.sessionCreate = sessionCreate;
     this.shellChanges = new ShellChanges(this, { now });
     config.onApplied = (id) => this.shellChanges.applied(id);
     this.allowlist = new ExecAllowlist(this);
@@ -433,10 +436,10 @@ export class AssistantService {
       this.requireReady();
       await this.config.apply(assistantId);
       const assistant = this.store.getAssistant(assistantId);
-      const created = await this.runtime.client.call(
-        "sessions.create",
+      const created = await createGatewaySession(
+        this.runtime.client,
         { agentId: assistant.runtimeAgentId, label: `AgentPier ${assistant.id}` },
-        { timeoutMs: sessionCreateTimeoutMs },
+        this.sessionCreate,
       );
       if (!created.key) throw assistantProblem("unavailable", 503);
       const conversation = this.store.saveConversation({

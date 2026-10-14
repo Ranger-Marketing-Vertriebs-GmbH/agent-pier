@@ -111,12 +111,23 @@ export class GatewayClient extends EventEmitter {
                 ),
                 {
                   answered: true,
+                  // OpenClaw marks an answer that did nothing and may be repeated
+                  // (sessions.create while its model catalog loads, 2026.10.3).
+                  ...(frame.error?.retryable === true ? { retryable: true } : {}),
                   // The Gateway's reason, only for callers that must tell one
                   // INVALID_REQUEST from another (a stale base hash); never
                   // logged or shown.
                   ...(frame.error?.code === "INVALID_REQUEST" &&
                   typeof frame.error.message === "string"
                     ? { remoteMessage: frame.error.message.slice(0, 300) }
+                    : {}),
+                  // OpenClaw answers an error its handler threw as UNAVAILABLE with
+                  // "<class name>: <message> <- <causes>". Only the class name is
+                  // kept: it tells a refusal before any write from other failures
+                  // (session-create.js); the text may carry host paths.
+                  ...(frame.error?.code === "UNAVAILABLE" &&
+                  /^[A-Z][A-Za-z]{0,80}Error(?=: )/.test(frame.error.message)
+                    ? { remoteError: frame.error.message.split(":", 1)[0] }
                     : {}),
                 },
               ),

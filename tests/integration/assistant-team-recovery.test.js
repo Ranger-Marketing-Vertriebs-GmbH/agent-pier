@@ -27,6 +27,50 @@ test("ambiguous session after uncertain creation stays blocked", async (t) => {
   assert.equal(f.runs.size, 0);
   assert.equal(f.service.store.members(team.id)[0].phase, "provisioning_uncertain");
 });
+// OpenClaw 2026.10.3 answers "retry shortly" while its model catalog loads.
+test("a session the Gateway asked to retry is created without uncertainty", async (t) => {
+  const f = teamFixture(t),
+    { team } = await f.proposal({ count: 1 });
+  const sleeps = [];
+  f.assistants.sessionCreate = { sleep: async (ms) => sleeps.push(ms) };
+  f.loadCatalog(1);
+  await f.service.reconcile();
+  const [member] = f.service.store.members(team.id);
+  assert.equal(sleeps.length, 1);
+  assert.equal(f.calls.filter((c) => c.method === "sessions.create").length, 2);
+  assert.equal(f.sessions.length, 1);
+  assert.ok(member.conversationId);
+  assert.notEqual(member.phase, "provisioning_uncertain");
+});
+test("a catalog that stays unavailable returns the member to the queue", async (t) => {
+  const f = teamFixture(t),
+    { team } = await f.proposal({ count: 1 });
+  f.assistants.sessionCreate = { sleep: async () => {} };
+  f.loadCatalog(Infinity);
+  await f.service.reconcile();
+  const [member] = f.service.store.members(team.id);
+  assert.equal(member.phase, "queued");
+  assert.equal(member.provisionStep, undefined);
+  assert.equal(f.sessions.length, 0);
+  f.loadCatalog(0);
+  await f.service.reconcile();
+  assert.equal(f.sessions.length, 1);
+  assert.ok(f.service.store.members(team.id)[0].conversationId);
+});
+// OpenClaw refuses sessions.create, not marked retryable, before session storage is
+// ready; seconds later the same call succeeds.
+test("a session refused before storage is ready is created without uncertainty", async (t) => {
+  const f = teamFixture(t),
+    { team } = await f.proposal({ count: 1 });
+  f.assistants.sessionCreate = { sleep: async () => {} };
+  f.refuseStorage(1);
+  await f.service.reconcile();
+  const [member] = f.service.store.members(team.id);
+  assert.equal(f.calls.filter((c) => c.method === "sessions.create").length, 2);
+  assert.equal(f.sessions.length, 1);
+  assert.ok(member.conversationId);
+  assert.notEqual(member.phase, "provisioning_uncertain");
+});
 test("parent cancellation does not stop members; stop member and team stay distinct", async (t) => {
   const f = teamFixture(t),
     { team, attempt } = await f.proposal();
