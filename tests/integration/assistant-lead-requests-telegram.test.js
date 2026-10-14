@@ -99,3 +99,51 @@ test("a slow answer to a Telegram request goes back to the owner's Telegram chat
     1,
   );
 });
+
+test("a long relayed answer is read whole, or relayed as far as it goes with a note", async (t) => {
+  for (const [alone, expected] of [
+    [(text) => text, (text) => text],
+    [
+      () => "[chat.history omitted: message too large]",
+      (text) => `${text.slice(0, 8000).trimEnd()}\n\nThe full reply is in AgentPier.`,
+    ],
+  ]) {
+    const f = await telegramLead(t, "Please ask Member 0 what the budget is");
+    const teams = f.assistants.teams;
+    teams.requests.waitMs = 0;
+    const result = await teams.ask(
+      { attemptId: f.entry.attemptId, toolCallId: "ask", assertCurrent() {} },
+      { memberId: f.member.id, question: "What is the budget?" },
+    );
+    const r = teams.requests.store.get(result.requestId);
+    f.replies.set(f.member.conversationId, [
+      { role: "assistant", runId: r.attemptId, text: "The budget is 5k." },
+    ]);
+    f.assistants.ledger.transition(r.attemptId, "completed");
+    f.assistants.ledger.transition(f.entry.attemptId, "completed");
+    await teams.requests.advance();
+    const delivered = teams.requests.store.get(r.id);
+    // The lead's relay is longer than the history page serves.
+    const full = `Member 0 says: ${"the budget, in detail. ".repeat(600)}`;
+    f.replies.set(f.lead.chat.id, [
+      {
+        id: "lead-1",
+        role: "assistant",
+        runId: delivered.resultAttemptId,
+        text: `${full.slice(0, 8000)}\n...(truncated)...`,
+      },
+    ]);
+    const asked = [];
+    f.assistants.message = async (conversationId, messageId) => {
+      asked.push([conversationId, messageId]);
+      return alone(full);
+    };
+    f.assistants.ledger.transition(delivered.resultAttemptId, "completed");
+    await f.service.teamOutbox.transfer();
+    const notice = f.service.outbox
+      .all(f.channel.id)
+      .find((e) => e.kind === "lead-request-result");
+    assert.deepEqual(asked, [[f.lead.chat.id, "lead-1"]]);
+    assert.equal(notice.text, expected(full));
+  }
+});

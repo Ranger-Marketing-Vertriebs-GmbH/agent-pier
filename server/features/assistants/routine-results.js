@@ -1,3 +1,4 @@
+import { historyText } from "./history-text.js";
 // What the agent's chat shows of its routines: a delivered result (badged with the
 // routine's name) or a failed run (a quiet line). OpenClaw commits a delivered
 // result into the conversation itself; this record only names it. A result that
@@ -45,9 +46,13 @@ export function withRoutineResults(messages, results, { from = -Infinity } = {})
   const committed = results.filter((r) => r.status === "ok" && r.committed);
   const marked = messages.map((m) => {
     if (m.role !== "assistant") return m;
-    const result = committed.findLast(
-      (r) => turnText(r.text) === turnText(m.text) && !(m.timestamp < r.runAtMs),
-    );
+    // The history page cuts a long reply; its kept beginning still identifies it.
+    const shown = historyText(m.text);
+    const same = (r) =>
+      shown.cut
+        ? !!turnText(shown.text) && turnText(r.text).startsWith(turnText(shown.text))
+        : turnText(r.text) === turnText(m.text);
+    const result = committed.findLast((r) => same(r) && !(m.timestamp < r.runAtMs));
     return result ? { ...m, scheduled: { name: result.name } } : m;
   });
   const own = results

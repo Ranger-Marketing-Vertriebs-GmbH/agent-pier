@@ -1,4 +1,5 @@
 import { telegramMessages } from "./telegram-messages.js";
+import { completeMessage, withNote } from "../assistants/history-text.js";
 // A lead's questions and tasks for its members that came from the owner's Telegram
 // chat: the lead's follow-up turn with the member's answer or result goes back
 // there once it completes.
@@ -52,12 +53,15 @@ async function transferRequest(outbox, r) {
   if (attempt.state === "completed") {
     const history = await a.history(r.parentConversationId);
     if (history.stale) return;
-    text = history.messages
+    const message = history.messages
       .filter(
         (m) =>
           m.role === "assistant" && [attempt.id, attempt.runtimeRunId].includes(m.runId),
       )
-      .at(-1)?.text;
+      .at(-1);
+    // The history page cuts long replies; this one is read on its own.
+    const reply = await completeMessage(a, r.parentConversationId, message);
+    text = reply.cut ? withNote(reply.text, msg.telegramReplyIncomplete) : reply.text;
   }
   if (!text?.trim())
     text = [msg.memberRequestNoReply(r.memberName), r.answer || ""]

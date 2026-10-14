@@ -397,7 +397,7 @@ export class NativeReminders {
     if (event.status === "ok") textValue(event.summary, 65536);
     const text =
       event.status === "ok"
-        ? await this.resultText(binding, event, key)
+        ? await this.resultText(binding, event, { key })
         : telegramMessages(this.channels.store.get(binding.source.channelId))
             .reminderFailed;
     // Reading the full result waits on the Gateway; a pause meanwhile still holds.
@@ -426,13 +426,16 @@ export class NativeReminders {
    * A successful run's full result. OpenClaw's webhook caps the summary; the run's
    * session has the rest. A replay keeps what the outbox entry `key` already holds.
    */
-  resultText(binding, event, key) {
+  resultText(binding, event, { key, limit } = {}) {
     return cronResultText({
       client: this.assistants.runtime.client,
       agentId: this.assistants.store.getAssistant(binding.assistantId).runtimeAgentId,
       event,
-      known: this.channels.outbox.all(binding.source.channelId).find((e) => e.key === key)
-        ?.text,
+      known:
+        key &&
+        this.channels.outbox.all(binding.source.channelId).find((e) => e.key === key)
+          ?.text,
+      limit,
     });
   }
   async hasRunning() {

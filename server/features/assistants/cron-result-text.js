@@ -1,4 +1,5 @@
-import { historyTextLimit, publicMessages } from "./conversations.js";
+import { publicMessages } from "./conversations.js";
+import { historyTextLimit } from "./history-text.js";
 
 // OpenClaw (2026.9.9, pickSummaryFromOutput) caps the `summary` a cron run's
 // completion webhook carries at 2000 UTF-16 code units plus "…" (one less when the
@@ -28,16 +29,23 @@ function runOf(sessionKey, agentId, jobId) {
 /**
  * The text a completed run delivers: its summary, or, when OpenClaw capped the
  * summary, the run's last reply that the summary begins. `known` is a text already
- * delivered for this run (a replayed webhook). Any doubt keeps the summary.
+ * delivered for this run (a replayed webhook); `limit` bounds the text. Any doubt
+ * keeps the summary.
  */
-export async function cronResultText({ client, agentId, event, known }) {
+export async function cronResultText({
+  client,
+  agentId,
+  event,
+  known,
+  limit = historyTextLimit,
+}) {
   const summary = event.summary;
   if (typeof summary !== "string" || !capped(summary)) return summary;
   const prefix = summary.slice(0, -1);
   const proven = (text) =>
     typeof text === "string" &&
     text.length > prefix.length &&
-    text.length <= historyTextLimit &&
+    text.length <= limit &&
     text.startsWith(prefix);
   if (proven(known)) return known;
   const run = runOf(event.sessionKey, agentId, event.jobId);

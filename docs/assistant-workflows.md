@@ -136,7 +136,10 @@ webhook carries at most 2,000 characters of the result (its run `summary`, cut w
 "…"); for a cut summary AgentPier reads the whole reply from the job's session
 (`chat.history` on `agent:<agent>:cron:<job>`, accepted only while that session is
 still the reported run and the reply begins with the summary), otherwise the summary
-is all there is. Reminders and check-ins are completed the same way. A failed run shows as a quiet line in the chat; a result that OpenClaw
+is all there is. Reminders and check-ins are completed the same way. The chat's
+history page keeps OpenClaw's default of 8,000 characters per message, so a longer
+result shows cut there ("...(truncated)...") and still carries its badge; Telegram
+gets it whole. A failed run shows as a quiet line in the chat; a result that OpenClaw
 could not commit is still shown there from AgentPier's own record. On every Gateway
 start AgentPier migrates existing routine jobs to these settings in place
 (`NativeRoutines.reconcile`); reminders keep their tool-less isolated jobs.

@@ -9,7 +9,10 @@ import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supe
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeRoutines } from "../../server/features/assistants/native-routines.js";
-import { conversationHistory } from "../../server/features/assistants/conversations.js";
+import {
+  conversationHistory,
+  conversationMessage,
+} from "../../server/features/assistants/conversations.js";
 import { routineTools } from "../../server/features/assistants/native-capabilities.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
@@ -367,8 +370,8 @@ test(
     assert.equal(full?.text, digest);
     assert.ok(full.parts.length > 1);
     assert.equal(routines.results.forConversation(conversation.id).at(-1)?.text, digest);
-    // The chat reads the committed digest whole (beyond OpenClaw's 8000-character
-    // history default) and badges it.
+    // The chat's history page keeps OpenClaw's 8000-character default; the cut
+    // digest is still recognized and badged.
     let shown;
     const shownDeadline = Date.now() + 30000;
     do {
@@ -377,8 +380,10 @@ test(
       );
       if (!shown) await delay(250);
     } while (!shown && Date.now() < shownDeadline);
-    assert.equal(shown?.text, digest);
+    assert.equal(shown?.text, `${digest.slice(0, 8000)}\n...(truncated)...`);
     assert.deepEqual(shown.scheduled, { name: "News digest" });
+    // Read on its own, as a Telegram relay does, the same message is whole.
+    assert.equal(await conversationMessage(service, conversation.id, shown.id), digest);
     const narrowed = offered(model.requests.slice(offset).find(isRoutine));
     t.diagnostic(`routine tools without memory=${JSON.stringify(narrowed)}`);
     assert.deepEqual([...narrowed].sort(), ["session_status", "web_fetch"]);
