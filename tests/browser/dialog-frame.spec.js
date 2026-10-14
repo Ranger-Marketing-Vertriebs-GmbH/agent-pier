@@ -74,7 +74,10 @@ async function openDialog(page, name) {
   return dialog;
 }
 
-test("dialogs never open with focus on the close button", async ({ page }) => {
+test("dialogs never open with focus on the close button", async ({
+  page,
+  browserName,
+}) => {
   await fixture(page);
   const rename = await openDialog(page, "Rename session");
   await expect(rename.getByRole("textbox", { name: "New name" })).toBeFocused();
@@ -86,6 +89,8 @@ test("dialogs never open with focus on the close button", async ({ page }) => {
   const tools = await openDialog(page, "AgentPier tools");
   await expect(tools).toBeFocused();
   await expect(tools.getByRole("button", { name: "Close dialog" })).not.toBeFocused();
+  // macOS WebKit skips buttons on Tab unless the system setting asks for it.
+  if (browserName === "webkit") return;
   await page.keyboard.press("Tab");
   await expect(tools.getByRole("button", { name: "Close dialog" })).toBeFocused();
 });
