@@ -72,7 +72,9 @@ absolute-time handling, restart catch-up, preserved startup deferral, normal
 resumption, one-shot completion, skip policy, paused/event routines, staggered
 backlogs and simulated host sleep. The wrapper reports their results. The
 existing `assistant-routine-contract.test.js` separately exercises the real
-gateway, generated model output and HTTP webhook boundary.
+gateway, generated model output and HTTP webhook boundary, including the webhook's
+2,000-character `summary` cap and the whole reply AgentPier reads from the job's
+session instead.
 
 ## Qualification limits
 

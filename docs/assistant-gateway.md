@@ -517,9 +517,11 @@ separately, including the recognized text. Blocked inputs remain directly access
 above recent activity even when newer messages fill the history window.
 Transcription errors can be retried
 explicitly. Completed model replies are selected by the exact native run identity;
-other history cannot be forwarded accidentally. Replies are split into parts of at
-most 4,000 UTF-16 code units (see formatting below), preserving surrogate pairs. Each
-confirmed remote message ID is recorded before proceeding to the next part. Known rate limits
+other history cannot be forwarded accidentally. AgentPier reads history with
+`maxChars` 65,536, so a reply is never cut at OpenClaw's default of 8,000 characters
+per message. Replies are split into parts of at most 4,000 UTF-16 code units (see
+formatting below), preserving surrogate pairs. Each confirmed
+remote message ID is recorded before proceeding to the next part. Known rate limits
 wait for the provider's retry deadline.
 
 If a send loses its acknowledgement, its outcome remains unknown across restart.

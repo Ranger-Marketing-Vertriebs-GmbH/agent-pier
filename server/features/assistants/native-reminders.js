@@ -3,6 +3,7 @@ import { ReminderWebhook } from "./reminder-webhook.js";
 import { personalCapabilities } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
+import { cronResultText } from "./cron-result-text.js";
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
 // OpenClaw's silent-reply token; an empty summary is just as silent.
 const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";
@@ -392,15 +393,19 @@ export class NativeReminders {
       !["ok", "error"].includes(event.status)
     )
       throw assistantProblem("invalid", 403);
+    const key = `native-reminder:${event.jobId}:${event.runAtMs}`;
+    if (event.status === "ok") textValue(event.summary, 65536);
     const text =
       event.status === "ok"
-        ? textValue(event.summary, 65536)
+        ? await this.resultText(binding, event, key)
         : telegramMessages(this.channels.store.get(binding.source.channelId))
             .reminderFailed;
+    // Reading the full result waits on the Gateway; a pause meanwhile still holds.
+    if (!this.acceptsDelivery({ source: { reminderBindingId: binding.id } })) return;
     // A routine that found nothing to say (OpenClaw's silent token) sends nothing.
     if (binding.kind === "routine" && event.status === "ok" && silent(text)) return;
     this.channels.outbox.enqueue({
-      key: `native-reminder:${event.jobId}:${event.runAtMs}`,
+      key,
       source: { ...binding.source, reminderBindingId: binding.id },
       kind: "reminder",
       text,
@@ -414,8 +419,21 @@ export class NativeReminders {
         : { path: `/agents/${encodeURIComponent(binding.assistantId)}/settings` }),
     });
     // Also shown in the agent's chat, whether or not Telegram delivers it.
-    if (binding.kind === "routine") this.routines?.completed(binding, event);
+    if (binding.kind === "routine") this.routines?.completed(binding, event, text);
     this.assistants.changed();
+  }
+  /**
+   * A successful run's full result. OpenClaw's webhook caps the summary; the run's
+   * session has the rest. A replay keeps what the outbox entry `key` already holds.
+   */
+  resultText(binding, event, key) {
+    return cronResultText({
+      client: this.assistants.runtime.client,
+      agentId: this.assistants.store.getAssistant(binding.assistantId).runtimeAgentId,
+      event,
+      known: this.channels.outbox.all(binding.source.channelId).find((e) => e.key === key)
+        ?.text,
+    });
   }
   async hasRunning() {
     for (const agent of this.assistants.store.listAssistants()) {

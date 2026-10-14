@@ -64,9 +64,19 @@ test(
     // targets a local fixture: OpenClaw refuses it before any request is sent,
     // which proves the tool ran (no internet involved).
     let quick = false;
+    // A digest beyond OpenClaw's 2000-character run summary, its 8000-character
+    // history default and Telegram's message limit.
+    const digest = [
+      "ROUTINE_SECOND without notes.",
+      ...Array.from(
+        { length: 30 },
+        (_, n) =>
+          `**Section ${n}**\n${"Some news of the day in a sentence. ".repeat(8)}[Quelle ${n}](https://news.example/${n})`,
+      ),
+    ].join("\n\n");
     model.reply = (request) => {
       if (!isRoutine(request)) return { text: "Chat reply." };
-      if (quick) return { text: "ROUTINE_SECOND without notes." };
+      if (quick) return { text: digest };
       const results = request.messages.filter((m) => m.role === "tool").length;
       if (results === 0)
         return { tool: { name: "read", arguments: { path: "memory/news-sent.md" } } };
@@ -116,6 +126,12 @@ test(
     const routines = new NativeRoutines({ reminders });
     f.assistants.routines = routines;
     const connection = await reminders.start();
+    const completions = [];
+    const complete = reminders.complete.bind(reminders);
+    reminders.complete = (bindingId, event) => {
+      completions.push(event);
+      return complete(bindingId, event);
+    };
     // The compiled native configuration: team plugin, memory, cron, web fetch.
     const plugin = provisionTeamPlugin({
       paths: runtime.paths,
@@ -338,10 +354,31 @@ test(
     const second = Date.now() + 90000;
     while (f.service.outbox.all(f.channel.id).length < 2 && Date.now() < second)
       await delay(200);
-    assert.equal(
-      f.service.outbox.all(f.channel.id)[1]?.text,
-      "ROUTINE_SECOND without notes.",
+    // OpenClaw caps the webhook's summary; the run's session has the whole reply,
+    // which Telegram receives in several messages.
+    const cappedRun = completions.at(-1);
+    assert.equal(cappedRun.summary, `${digest.slice(0, 2000)}…`);
+    assert.match(
+      cappedRun.sessionKey,
+      new RegExp(`^agent:[^:]+:cron:${jobId}:run:[^:]+$`, "i"),
     );
+    const full = f.service.outbox.all(f.channel.id)[1];
+    assert.ok(digest.length > 8000);
+    assert.equal(full?.text, digest);
+    assert.ok(full.parts.length > 1);
+    assert.equal(routines.results.forConversation(conversation.id).at(-1)?.text, digest);
+    // The chat reads the committed digest whole (beyond OpenClaw's 8000-character
+    // history default) and badges it.
+    let shown;
+    const shownDeadline = Date.now() + 30000;
+    do {
+      shown = (await conversationHistory(service, conversation.id)).messages.find((m) =>
+        m.text?.startsWith?.("ROUTINE_SECOND"),
+      );
+      if (!shown) await delay(250);
+    } while (!shown && Date.now() < shownDeadline);
+    assert.equal(shown?.text, digest);
+    assert.deepEqual(shown.scheduled, { name: "News digest" });
     const narrowed = offered(model.requests.slice(offset).find(isRoutine));
     t.diagnostic(`routine tools without memory=${JSON.stringify(narrowed)}`);
     assert.deepEqual([...narrowed].sort(), ["session_status", "web_fetch"]);

@@ -326,7 +326,7 @@ export class NativeRoutines extends NativeReminders {
     });
   }
   /** Records an accepted completion for the paired chat's conversation. */
-  completed(binding, event) {
+  completed(binding, event, text = event.summary) {
     const conversation = this.conversation(binding);
     if (!conversation) return;
     const ok = event.status === "ok";
@@ -340,7 +340,7 @@ export class NativeRoutines extends NativeReminders {
       status: ok ? "ok" : "error",
       // Committed: OpenClaw wrote it into the conversation, whose history shows it.
       ...(ok && {
-        text: event.summary.trim(),
+        text: text.trim(),
         committed: event.deliveryStatus === "delivered",
       }),
     });

@@ -254,8 +254,11 @@ export class NativeHeartbeats {
     // A replay is already handled; the prefix's language may have changed since.
     if (outbox.all(binding.source.channelId).some((e) => e.key === key)) return;
     const channel = store.get(binding.source.channelId);
+    // OpenClaw's webhook caps a long check-in; the run's session has all of it.
+    const result = await this.reminders.resultText(binding, event, key);
+    if (!this.acceptsDelivery(entry)) return;
     // Marked in the chat's language, so a check-in never passes for a reply.
-    const text = `${telegramMessages(channel).heartbeatPrefix} ${event.summary.trim()}`;
+    const text = `${telegramMessages(channel).heartbeatPrefix} ${result.trim()}`;
     outbox.enqueue({
       key,
       // The destination is the binding's, fixed when the owner enabled check-ins.

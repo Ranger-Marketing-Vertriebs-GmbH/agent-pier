@@ -131,7 +131,12 @@ from the conversation of the paired Telegram chat (`sessionTarget: "current"`, a
 check-ins do), so it never interrupts a running turn. OpenClaw commits the result
 into that conversation once no turn runs there: the AgentPier chat shows it with a
 "Scheduled · <routine>" badge and a later turn can refer to it. The result also goes
-to Telegram. A failed run shows as a quiet line in the chat; a result that OpenClaw
+to Telegram, split into several messages when it is long. OpenClaw's completion
+webhook carries at most 2,000 characters of the result (its run `summary`, cut with
+"…"); for a cut summary AgentPier reads the whole reply from the job's session
+(`chat.history` on `agent:<agent>:cron:<job>`, accepted only while that session is
+still the reported run and the reply begins with the summary), otherwise the summary
+is all there is. Reminders and check-ins are completed the same way. A failed run shows as a quiet line in the chat; a result that OpenClaw
 could not commit is still shown there from AgentPier's own record. On every Gateway
 start AgentPier migrates existing routine jobs to these settings in place
 (`NativeRoutines.reconcile`); reminders keep their tool-less isolated jobs.
