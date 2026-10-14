@@ -155,6 +155,36 @@ test("SSH dialog keeps Save visible on a phone with many hosts", async ({ page }
   await expect.poll(() => state.puts.length).toBe(1);
 });
 
+test("keyboard focus never hides under the sticky header or footer", async ({
+  page,
+  browserName,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await fixture(page);
+  const dialog = await openDialog(page, "SSH accesses");
+  await expect(dialog.getByRole("checkbox")).toHaveCount(hosts.length);
+  const clear = () =>
+    page.evaluate(() => {
+      const active = document.activeElement;
+      const dialog = active.closest("dialog");
+      const header = dialog.querySelector(".dialog-heading").getBoundingClientRect();
+      const footer = dialog.querySelector(".dialog-actions").getBoundingClientRect();
+      const box = active.getBoundingClientRect();
+      return box.top >= header.bottom - 1 && box.bottom <= footer.top + 1;
+    });
+  const boxes = dialog.getByRole("checkbox");
+  const visit = async (index, key) => {
+    // macOS WebKit does not Tab to checkboxes by default; focus them directly there.
+    if (browserName === "webkit") await boxes.nth(index).focus();
+    else await page.keyboard.press(key);
+    await expect(boxes.nth(index)).toBeFocused();
+    expect(await clear(), `host-${index} hidden after ${key}`).toBe(true);
+  };
+  await boxes.first().focus();
+  for (let index = 1; index < hosts.length; index++) await visit(index, "Tab");
+  for (let index = hosts.length - 2; index >= 0; index--) await visit(index, "Shift+Tab");
+});
+
 test.describe("touch", () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
   test("on touch screens dialogs focus themselves so no keyboard opens", async ({
