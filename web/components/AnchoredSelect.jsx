@@ -128,16 +128,18 @@ export default function AnchoredSelect({
     const option = menu?.querySelector(`[data-index="${active}"]`);
     if (!option) return;
     // Keep keyboard selection visible without scrolling the surrounding dialog.
-    const menuBox = menu.getBoundingClientRect();
-    const scale = menuBox.height / menu.offsetHeight || 1;
-    const top =
-      (option.getBoundingClientRect().top - menuBox.top) / scale +
-      menu.scrollTop -
-      menu.clientTop;
-    const bottom = top + option.offsetHeight;
-    if (top < menu.scrollTop) menu.scrollTop = top;
-    else if (bottom > menu.scrollTop + menu.clientHeight)
-      menu.scrollTop = bottom - menu.clientHeight;
+    // Measured in unrounded rects: clientHeight and offsetHeight round, and with a
+    // fractional max-height under CSS zoom WebKit would leave the option clipped.
+    const menuBox = menu.getBoundingClientRect(),
+      optionBox = option.getBoundingClientRect(),
+      style = getComputedStyle(menu);
+    const scale = menuBox.width / menu.offsetWidth || 1;
+    const viewTop = menuBox.top + parseFloat(style.borderTopWidth) * scale,
+      viewBottom = menuBox.bottom - parseFloat(style.borderBottomWidth) * scale;
+    if (optionBox.top < viewTop)
+      menu.scrollTop -= Math.ceil((viewTop - optionBox.top) / scale);
+    else if (optionBox.bottom > viewBottom)
+      menu.scrollTop += Math.ceil((optionBox.bottom - viewBottom) / scale);
   }, [open, active]);
   function keydown(event) {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
