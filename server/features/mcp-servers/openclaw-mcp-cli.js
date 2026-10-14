@@ -262,7 +262,9 @@ export function createMcpCli({
       return Promise.reject(
         new McpCliError("runtime-unavailable", "The assistant runtime is not available."),
       );
-    const env = { ...resolve(environment), ...overrides };
+    // OpenClaw 2026.10 prints a failed command's "Reason:" line (which failure() and
+    // leaseLocked() read) only with OPENCLAW_DEBUG; it changes nothing else there.
+    const env = { ...resolve(environment), OPENCLAW_DEBUG: "1", ...overrides };
     delete env.OPENCLAW_GATEWAY_TOKEN;
     return new Promise((done, reject) => {
       // Its own process group, so a timeout or an output flood also ends what the
