@@ -31,7 +31,8 @@ export default function Modal({
       className={[wide ? "wide" : "", className].filter(Boolean).join(" ")}
       onCancel={(e) => {
         e.preventDefault();
-        close();
+        // Escape honours a disabled close button, e.g. while a request is running.
+        if (!closeDisabled) close();
       }}
       onClick={(e) => {
         if (dismissOnBackdrop && e.target === e.currentTarget) {

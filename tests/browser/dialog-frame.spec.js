@@ -150,6 +150,14 @@ test("SSH dialog keeps Save visible on a phone with many hosts", async ({ page }
   await expect(dialog.getByRole("heading", { name: "SSH accesses" })).toHaveCount(1);
   await save.click();
   await expect.poll(() => state.puts.length).toBe(1);
+  // The security explanations are one tap away, not deleted.
+  await dialog.getByText("Learn more", { exact: true }).click();
+  for (const text of [
+    "Saving does not run a remote command",
+    "They do not isolate processes",
+    "Existing SSH connections remain open",
+  ])
+    await expect(dialog.getByText(text, { exact: false })).toBeVisible();
 });
 
 test("the tools dialog describes a partial grant as partial", async ({ page }) => {
@@ -214,7 +222,7 @@ test.describe("touch", () => {
   test("tapping anywhere on a check row toggles it", async ({ page }) => {
     await fixture(page);
     const dialog = await openDialog(page, "SSH accesses");
-    const box = dialog.getByRole("checkbox", { name: /host-1 / });
+    const box = dialog.getByRole("checkbox", { name: "host-1", exact: true });
     await expect(box).not.toBeChecked();
     await dialog.getByText("deploy@10.0.0.1:22", { exact: true }).tap();
     await expect(box).toBeChecked();
