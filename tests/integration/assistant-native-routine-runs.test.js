@@ -7,6 +7,8 @@ import {
   routineTools,
 } from "../../server/features/assistants/native-capabilities.js";
 import { ExecApprovals } from "../../server/features/assistants/exec-approvals.js";
+import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
+import { NativeHeartbeats } from "../../server/features/assistants/native-heartbeats.js";
 import { withRoutineResults } from "../../server/features/assistants/routine-results.js";
 import { conversationHistory } from "../../server/features/assistants/conversations.js";
 
@@ -45,14 +47,12 @@ function legacy(f, binding) {
 }
 const updates = (f) => f.calls.filter((c) => c.method === "cron.update");
 
-test("a routine run gets exactly the agent's chat tools minus scheduling, team, workspace and writes", () => {
+test("a routine run gets exactly the agent's chat tools minus scheduling, team and workspace", () => {
   for (const excluded of [
     "agentpier_routine",
     "agentpier_reminder",
     "agentpier_workspace",
     ...delegationTools,
-    "write",
-    "edit",
     "cron",
   ])
     assert.equal(matches(excluded), false, excluded);
@@ -66,6 +66,8 @@ test("a routine run gets exactly the agent's chat tools minus scheduling, team, 
     "memory_search",
     "memory_get",
     "read",
+    "write",
+    "edit",
     "web_search",
     "web_fetch",
     "browser",
@@ -79,6 +81,8 @@ test("a routine run gets exactly the agent's chat tools minus scheduling, team, 
     ["session_status", "web_fetch", "browser", "view_image", "github__*"],
   );
   assert.equal(matches("github__create_issue"), true);
+  // Writes follow the proven guard exactly as in chat.
+  assert.equal(effective(base, false).includes("write"), false);
 });
 
 test("existing routine jobs are migrated once to tools and the chat commit; reminders stay tool-less", async (t) => {
@@ -295,4 +299,82 @@ test("a routine run's exec approval is shown in its chat and offered in its Tele
     }),
     { reason: "UNKNOWN_SESSION" },
   );
+});
+
+test("a routine's own run may write in its workspace; reminders, check-ins and other sessions may not", async (t) => {
+  const f = routineFixture(t);
+  f.store.updateAssistant(
+    f.id,
+    { capabilities: { memory: true, reminders: true } },
+    f.store.getAssistant(f.id).revision,
+  );
+  const routine = await f.routines.create(f.id, f.input);
+  const reminder = await f.reminders.create(f.id, {
+    clientRequestId: "reminder-1",
+    name: "Water",
+    message: "Water the plants.",
+    schedule: { kind: "cron", expr: "0 8 * * *", tz: "Europe/Berlin" },
+  });
+  // A check-in binding with its own native job, as NativeHeartbeats keeps it.
+  new NativeHeartbeats({ reminders: f.reminders });
+  const { binding: checkIn } = f.reminders.bindings.reserve(
+    f.id,
+    "heartbeat:1",
+    { assistantId: f.id, channelId: f.channel.id },
+    {},
+    { kind: "heartbeat" },
+  );
+  f.reminders.bindings.patch(checkIn.id, { state: "bound", nativeId: "job-heartbeat" });
+  f.assistants.routines = f.routines;
+  const bridge = new TeamBridge({
+    assistants: f.assistants,
+    teams: { store: { context: () => null } },
+  });
+  await bridge.start();
+  t.after(() => bridge.close());
+  const agent = () => f.store.getAssistant(f.id);
+  const nativeId = (id) => f.reminders.bindings.get(id).nativeId;
+  const write = (job, { who = agent().runtimeAgentId, toolName = "write" } = {}) =>
+    bridge.toolPolicy({
+      agentId: who,
+      sessionKey: `agent:${agent().runtimeAgentId}:cron:${job}:run:r1`,
+      toolName,
+      path: "memory/news-sent.md",
+    }).allow;
+  assert.equal(write(nativeId(routine.id)), true);
+  assert.equal(write(nativeId(routine.id), { toolName: "edit" }), true);
+  assert.equal(write(nativeId(reminder.id)), false, "a reminder's run");
+  assert.equal(write("job-heartbeat"), false, "a check-in's run");
+  assert.equal(write("unknown-job"), false);
+  // Another agent (a member) never borrows the routine's run.
+  const member = f.store.createAssistant({
+    name: "Member",
+    model: { connectionId: "test", modelId: "fixture" },
+    capabilities: { memory: true, reminders: true },
+  });
+  assert.equal(write(nativeId(routine.id), { who: member.runtimeAgentId }), false);
+  // The owner's chat session without a running owner turn stays read-only.
+  assert.equal(
+    bridge.toolPolicy({
+      agentId: agent().runtimeAgentId,
+      sessionKey: "session",
+      toolName: "write",
+      path: "memory/news-sent.md",
+    }).allow,
+    false,
+  );
+  // Memory or routines switched off, or the routine paused: no writes.
+  f.store.updateAssistant(
+    f.id,
+    { capabilities: { memory: false, reminders: true } },
+    agent().revision,
+  );
+  assert.equal(write(nativeId(routine.id)), false);
+  f.store.updateAssistant(
+    f.id,
+    { capabilities: { memory: true, reminders: true } },
+    agent().revision,
+  );
+  await f.routines.update(f.id, routine.id, { enabled: false, revision: 1 });
+  assert.equal(write(nativeId(routine.id)), false);
 });

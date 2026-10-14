@@ -13,6 +13,7 @@ import { conversationHistory } from "../../server/features/assistants/conversati
 import { routineTools } from "../../server/features/assistants/native-capabilities.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
+import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import {
   fixtureModels,
@@ -32,7 +33,7 @@ test(
   { skip: !installed, timeout: 300000 },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
-    let runtime, reminders, model;
+    let runtime, reminders, model, bridge;
     const page = http.createServer((req, res) => {
       page.hits++;
       res.end("PAGE_MARKER");
@@ -42,6 +43,7 @@ test(
     t.after(async () => {
       await runtime?.close();
       await reminders?.close();
+      await bridge?.close();
       await model?.close();
       page.closeAllConnections();
       await new Promise((r) => page.close(r));
@@ -56,6 +58,7 @@ test(
       1,
     );
     const local = `http://127.0.0.1:${page.address().port}/news`;
+    const notePath = "memory/news-sent.md";
     model = await proactivityModel();
     // The routine reads a workspace note, fetches a page, then answers. The fetch
     // targets a local fixture: OpenClaw refuses it before any request is sent,
@@ -69,6 +72,28 @@ test(
         return { tool: { name: "read", arguments: { path: "memory/news-sent.md" } } };
       if (results === 1)
         return { tool: { name: "web_fetch", arguments: { url: local } } };
+      // It records what it sent: write, then edit, the note it read.
+      if (results === 2)
+        return {
+          tool: {
+            name: "write",
+            arguments: {
+              path: notePath,
+              content: "NOTE_MARKER sent on Monday\nSENT_TODAY\n",
+            },
+          },
+        };
+      if (results === 3)
+        return {
+          tool: {
+            name: "edit",
+            arguments: {
+              path: notePath,
+              oldText: "SENT_TODAY",
+              newText: "SENT_TODAY_EDITED",
+            },
+          },
+        };
       return { text: "ROUTINE_RESULT Three new items today." };
     };
     runtime = new RuntimeSupervisor({
@@ -96,9 +121,15 @@ test(
       paths: runtime.paths,
       runtimeVersion: runtimeManifest.version,
     });
+    // The real bridge answers the write guard: a routine's run is its own origin.
+    bridge = new TeamBridge({
+      assistants: f.assistants,
+      generation: () => runtime.generation,
+      teams: { store: { context: () => null } },
+    });
     runtime.teamConfiguration = async () => ({
       directory: plugin.directory,
-      connection: { url: "http://127.0.0.1:1", token: "routine-fixture" },
+      connection: await bridge.start(),
       hostMaxConcurrent: 4,
       native: { token: connection.token },
       profiles: f.store.listAssistants(),
@@ -211,8 +242,17 @@ test(
     t.diagnostic(`routine tools=${JSON.stringify(runTools)}`);
     assert.deepEqual(
       [...runTools].sort(),
-      ["memory_get", "memory_search", "read", "session_status", "web_fetch"],
-      "the agent's chat tools without scheduling, writes or a switched-off capability",
+      [
+        "apply_patch",
+        "edit",
+        "memory_get",
+        "memory_search",
+        "read",
+        "session_status",
+        "web_fetch",
+        "write",
+      ],
+      "the agent's chat tools without scheduling or a switched-off capability",
     );
     const results = toolResults(runRequests.at(-1));
     t.diagnostic(`routine tool results=${results.slice(0, 800)}`);
@@ -223,6 +263,12 @@ test(
       "web_fetch ran and refused the private target",
     );
     assert.equal(page.hits, 0);
+    assert.doesNotMatch(results, /Only the owner's own messages may change files/);
+    assert.equal(
+      fs.readFileSync(path.join(workspace, "news-sent.md"), "utf8"),
+      "NOTE_MARKER sent on Monday\nSENT_TODAY_EDITED\n",
+      "the routine's run wrote and edited its note",
+    );
     // Full context: the agent's conversation reaches the run.
     assert.match(text(runRequests[0]), /Hello there\./);
 

@@ -418,8 +418,9 @@ Member runs do not trigger the parent's `coding.completed` routines. Temporary
 members never receive memory-write, reminder or routine tools.
 
 Native OpenClaw cron executes saved-prompt routines and manual/coding-completed
-events with the agent's own chat tools, minus scheduling, team, workspace and write
-tools (a scheduled run is never an owner turn), and commits their results into the
+events with the agent's own chat tools, including writes to its own workspace as a
+distinct routine origin, minus scheduling, team and workspace tools (a scheduled run
+is never an owner turn and cannot delegate), and commits their results into the
 paired chat's conversation; reminders run without tools. AgentPier stores delivery/event identities and approval
 records, not a second clock or knowledge index. Managed updates use a quiescent
 boundary, private backup, validation and conservative recovery. The current

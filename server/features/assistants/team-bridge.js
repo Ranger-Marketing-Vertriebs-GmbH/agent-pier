@@ -176,7 +176,8 @@ export class TeamBridge {
     );
   }
   // Native write/edit calls are permitted only while the current turn is the owner's
-  // own message; forwarded, scheduled, internal and member turns never write.
+  // own message or a routine's run (routineWrite); forwarded, other scheduled,
+  // internal and member turns never write, apart from an owner-proven task.
   toolPolicy(input) {
     if (
       !input ||
@@ -193,8 +194,10 @@ export class TeamBridge {
       );
       return c.runtimeSessionKey === input.sessionKey && active.has(a.state);
     });
-    if (matches.length !== 1 || this.closed || !this.assistants.runtime.client?.ready)
-      return { allow: false };
+    if (this.closed || !this.assistants.runtime.client?.ready) return { allow: false };
+    // A routine's own run session has no attempt: its writes are its own origin.
+    if (!matches.length) return { allow: this.routineWrite(input) };
+    if (matches.length !== 1) return { allow: false };
     const attempt = matches[0],
       request = this.assistants.ledger.getRequest(attempt.requestId),
       parent = this.assistants.store.getAssistant(
@@ -218,6 +221,20 @@ export class TeamBridge {
               input.path,
             ))),
     };
+  }
+  // A routine is standing work its owner configured for this agent: its run may
+  // change the agent's own workspace like an owner turn. This origin is only the
+  // run session of a bound, enabled routine of the calling agent with memory and
+  // routines on; reminders, check-ins and every other session never match, and it
+  // grants nothing to delegated tasks (their writes stay owner-text only).
+  routineWrite(input) {
+    const agent = this.assistants.store
+      .listAssistants()
+      .find((a) => a.runtimeAgentId === input.agentId);
+    if (!agent || agent.archivedAt) return false;
+    const capabilities = personalCapabilities(agent);
+    if (!capabilities.memory || !capabilities.reminders) return false;
+    return !!this.assistants.routines?.runOrigin(agent, input.sessionKey);
   }
   invoke({ ticket, action, input, ...extra }) {
     if (Object.keys(extra).length) throw assistantProblem("invalid");
