@@ -18,6 +18,8 @@ export const assistantSkillsCopy = {
   loading: "Skills werden geladen …",
   empty: "Keine Skills passen.",
   unavailable: "Skills lassen sich anzeigen, solange der Agentendienst läuft.",
+  offlineHint:
+    "Diese Skills kannst du jetzt ausschalten; zum Einschalten braucht es den Agentendienst.",
   states: {
     ready: "Bereit",
     missing: "Fehlt",
@@ -25,7 +27,7 @@ export const assistantSkillsCopy = {
     disabled: "In OpenClaw abgeschaltet",
     unavailable: "In dieser OpenClaw-Version nicht mehr enthalten",
     shadowed:
-      "Verdeckt von einem gleichnamigen Skill im Ordner des Agenten; der mitgelieferte Skill wird nicht genutzt",
+      "Für diesen Agenten aus: Ein gleichnamiger Skill in den Ordnern des Agenten würde an seiner Stelle laufen. Deine Auswahl bleibt gespeichert und gilt wieder, sobald dieser Skill entfernt ist.",
   },
   missing: {
     bins: (names) => `Programme ${names}`,
@@ -48,6 +50,5 @@ export const assistantSkillsCopy = {
       "Achtung: Dieser Skill umgeht eine Funktion, die AgentPier selbst verwaltet (Coding-Läufe, MCP-Server oder die Leinwand).",
     secrets: "Achtung: Dieser Skill liest Geheimnisse aus deinem Passwortmanager.",
   },
-  riskLabel: "Achtung",
   count: (on) => `${on} an`,
 };

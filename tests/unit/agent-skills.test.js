@@ -17,6 +17,11 @@ import {
 import { personalSkills } from "../../server/features/assistants/native-capabilities.js";
 import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
 import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import {
+  shadowedSkills,
+  shadowingSkillNames,
+  skillShadowRoots,
+} from "../../server/features/assistants/openclaw-config/skill-shadows.js";
 
 const none = { bins: [], anyBins: [], env: [], config: [], os: [] };
 const host = "/Users/owner/Library/AgentPier/assistants";
@@ -238,4 +243,104 @@ test("the start compile writes each eligible agent's list over defaults of none"
   assert.deepEqual(entries["ap-a"].skills, ["github"]);
   for (const id of ["ap-b", "ap-c", "foreign"])
     assert.equal(entries[id].skills, undefined);
+});
+
+test("skill folders that would replace a bundled skill are found by any name", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "skill-shadows-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const plant = (dir, text = "---\n---\n") => {
+    fs.mkdirSync(path.join(root, dir), { recursive: true });
+    fs.writeFileSync(path.join(root, dir, "SKILL.md"), text);
+  };
+  plant("workspaces/a/skills/tmux");
+  plant("workspaces/a/skills/group/inner", "---\nname: 'github'\n---\n");
+  plant("workspaces/a/.agents/skills/x", '---\ndescription: d\nname: "weather"\n---\n');
+  plant("state/skills/notion");
+  plant("workspaces/other/skills/spike");
+  const roots = skillShadowRoots(root, "a");
+  assert.deepEqual([...shadowingSkillNames(roots)].sort(), [
+    "github",
+    "inner",
+    "notion",
+    "tmux",
+    "weather",
+    "x",
+  ]);
+  assert.deepEqual(shadowedSkills(root, { id: "a" }, ["github", "spike", "summarize"]), [
+    "github",
+  ]);
+  assert.deepEqual(shadowedSkills(root, { id: "a" }, []), []);
+});
+
+test("shadowed names are neither compiled nor shown as active", () => {
+  const assistant = agent({ skills: ["github", "tmux"], capabilities: {} });
+  const ready = { teamsReady: true, nativeReady: true };
+  assert.deepEqual(
+    agentEntry({}, assistant, { ...ready, shadowedSkills: ["github"] }).skills,
+    ["tmux"],
+  );
+  assert.equal(
+    agentEntry({}, assistant, { ...ready, shadowedSkills: ["github", "tmux"] }).skills,
+    undefined,
+  );
+  const config = compileOpenClawConfig({
+    existing: { agents: { entries: { "ap-a": { id: "ap-a" } } } },
+    paths: { workspaces: "/w", logs: "/l" },
+    port: 1,
+    token: "t",
+    teams: {
+      directory: "/plugin",
+      connection: { url: "http://127.0.0.1:1", token: "b" },
+      hostMaxConcurrent: 2,
+      native: { token: "h" },
+      profiles: [assistant],
+    },
+    skillShadows: { "ap-a": ["tmux"] },
+  });
+  assert.deepEqual(config.agents.entries["ap-a"].skills, ["github"]);
+  const { skills } = skillCatalog({
+    report: { skills: [status("github", { blockedByAgentFilter: false })] },
+    assistant,
+    shadowed: new Set(["github"]),
+  });
+  assert.deepEqual(
+    skills.map((s) => [s.name, s.state, s.assigned, s.active]),
+    [
+      ["github", "shadowed", true, false],
+      ["tmux", "unavailable", true, false],
+    ],
+  );
+});
+
+test("a fallback report for another agent never decides this agent's state", () => {
+  const { skills } = skillCatalog({
+    report: {
+      skills: [
+        status("github", { blockedByAgentFilter: false }),
+        status("tmux", { source: "openclaw-workspace" }),
+      ],
+    },
+    bundled: new Set(["github", "tmux"]),
+    assistant: agent({ skills: ["github"] }),
+    fallback: true,
+  });
+  assert.deepEqual(
+    skills.map((s) => [s.name, s.state, s.active]),
+    [
+      ["github", "ready", false],
+      ["tmux", "unavailable", false],
+    ],
+  );
+});
+
+test("host paths are cut only at whole segments; prototype names are no risk", () => {
+  assert.equal(
+    withoutHostPaths("/Users/d/x /Users/dave/y /Users/d. /Users/d", ["/Users/d/"]),
+    "…/x /Users/dave/y /Users/d. …",
+  );
+  const { skills } = skillCatalog({
+    report: { skills: [status("constructor")] },
+    assistant: agent(),
+  });
+  assert.equal("risk" in skills[0], false);
 });

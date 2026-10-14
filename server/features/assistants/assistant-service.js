@@ -46,6 +46,10 @@ export class AssistantService {
     this.events = new AssistantEvents();
     this.chatStreams = new ChatStreams();
     this.gatewayEvents = new GatewayEventHub();
+    // A skill folder changed (one may now shadow an assigned skill): re-apply.
+    this.gatewayEvents.on("skills.changed", () =>
+      this.skills.changed(() => this.admit(() => this.skills.reapply(this.config))),
+    );
     this.locks = new Map();
     this.closed = false;
     this.onStatus = (state) => {
@@ -529,6 +533,7 @@ export class AssistantService {
   async close() {
     this.closed = true;
     clearInterval(this.poll);
+    clearTimeout(this.skills.timer);
     this.unsubscribe?.();
     this.chatStreams.clear();
     this.gatewayEvents.unsubscribe?.();
