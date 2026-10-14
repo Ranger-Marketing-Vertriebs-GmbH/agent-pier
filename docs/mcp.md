@@ -282,3 +282,55 @@ needs the owner's confirmation, because every session of that CLI starts it.
 - **Extensions** does not edit MCP servers: Skills and Plugins show a reference row
   with the number of central servers bound to that CLI, linking to Accounts →
   **MCP servers**.
+
+### Installing a server package
+
+A local (stdio) server can come from an npm package instead of an own command (PyPI
+packages are not supported yet). In **Accounts → MCP servers** set **Source** to
+**Install package**, keep **Registry** at npm, enter the **Package** and choose a
+**Version**. The list is read from the registry, newest first; prereleases are hidden
+unless **Show prereleases** is on, and deprecated versions are marked. An existing
+server with an own command switches the same way: its arguments and environment stay,
+and it keeps running its own command until the install is ready.
+
+Saving first resolves the complete dependency graph without running package code and
+asks **Install this package?** (**Update this package?** for an update). The dialog
+shows the package, its integrity, the number of packages in total and the **Program**
+it starts; nothing is installed before you confirm with **Install**. This
+confirmation replaces the usual local-command confirmation, and it states that the
+program runs with your user's rights in the CLIs and agents you choose.
+
+AgentPier installs the frozen graph with its own pinned Node toolchain into
+`mcp-packages/installs/` in the data directory as a background job, without install
+scripts. A package that needs install scripts or a source build is refused with a
+hint until you tick **Allow install scripts or source builds** for it; its code then
+runs during installation with your user's rights, so allow it only for packages you
+trust. Only `registry.npmjs.org` is accepted anywhere in the graph. The job log
+(**Installation log**) replaces the data directory and the home directory with
+placeholders, and credentials in URLs are masked.
+
+The form shows the status: _Installing…_, _Installed_, _Installation failed_ or
+_Installation missing_ (the files of a ready install are gone or changed).
+
+- **Bindings.** Until the package is ready, the controls for Coding CLIs and agents
+  are locked for new bindings ("Coding CLIs and agents can be added once the package
+  is installed."), and the CLIs and agents never receive a server whose package is not
+  ready (reason "its package is not installed yet or is missing"). Existing
+  bindings stay.
+- **Update.** **Check update** looks for a newer version; **New version** resolves it
+  and shows the changes to the installed packages (_Added_, _Removed_, _Changed_ with
+  old and new version, taken from the lock). The new install is activated only after
+  it succeeded; a failed update keeps the old install.
+- **Reinstall.** Installs exactly the stored lock again, for example after a failed
+  install, a missing install or a restore on another computer.
+- **Use own command.** Switches a packaged server back to an own command: the form
+  then asks for the command, and saving removes the installed package.
+  **Keep package** cancels the switch. Detaching is refused while an install runs.
+  Deleting the server is allowed during a running install: the job then fails and its
+  files are cleaned up.
+- **Backups.** A backup contains the package record and its lock, not the installed
+  files; after a restore the status is _Installation missing_ and **Reinstall**
+  recreates the install from the lock.
+- **Cleanup.** Removing a server (or switching it to an own command) deletes its
+  installs. Toolchain versions that no packaged server and no running install uses
+  are removed from `toolchains/` in the data directory.

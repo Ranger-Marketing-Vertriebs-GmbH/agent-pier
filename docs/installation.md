@@ -370,6 +370,11 @@ installs report `MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE`. Delete the affected folder 
 `<data>/toolchains/` (for example `node-v26.7.0-linux-x64`) and AgentPier reinstalls it
 on next use.
 
+Once no packaged MCP server and no running install uses an older toolchain version,
+AgentPier removes its folder (at start, after each install and after a server is
+removed); the current pins always stay. How packages are installed:
+[MCP](mcp.md#installing-a-server-package).
+
 ### Assistant qualification in a source checkout
 
 The optional assistant service is configured under **Settings → Workspace → Agents**;
