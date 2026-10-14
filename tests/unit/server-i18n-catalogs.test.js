@@ -101,3 +101,18 @@ test("long text skips template matching", () => {
     args: ["Codex"],
   });
 });
+
+test("the network-access error names the current settings path in both languages", async () => {
+  const { http: de } = await import("../../server/lib/i18n/de/http.js");
+  const { http: en } = await import("../../server/lib/i18n/en/http.js");
+  const { operationsCopy: webDe } = await import("../../web/lib/i18n/de/operations.js");
+  const { operationsCopy: webEn } = await import("../../web/lib/i18n/en/operations.js");
+  for (const [message, web] of [
+    [de.networkHostNotAllowed, webDe],
+    [en.networkHostNotAllowed, webEn],
+  ])
+    assert.ok(
+      message.includes(`${web.title} → ${web.groups.access} → ${web.sections.remote}`),
+      message,
+    );
+});

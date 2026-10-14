@@ -21,5 +21,5 @@ export const http = Object.freeze({
   tailscaleAccountDenied: "Dieses Tailscale-Konto hat keinen Zugriff.",
   originRequired: "Ursprung der Anfrage fehlt.",
   networkHostNotAllowed:
-    "Netzwerkzugriff ist aus oder dieser Host ist nicht freigegeben. Einstellungen → Fernzugriff prüfen.",
+    "Netzwerkzugriff ist aus oder dieser Host ist nicht freigegeben. Einstellungen → Zugriff → Fernzugriff prüfen.",
 });
