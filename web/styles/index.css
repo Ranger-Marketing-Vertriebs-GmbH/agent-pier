@@ -24,6 +24,7 @@
 @import "../features/dashboard/dashboard.css";
 @import "../features/accounts/accounts.css";
 @import "../components/forms.css";
+@import "../components/dialog.css";
 @import "../features/sessions/workspace.css";
 @import "desktop.css";
 @import "mobile.css";

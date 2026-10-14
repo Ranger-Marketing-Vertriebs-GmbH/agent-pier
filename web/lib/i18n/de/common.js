@@ -126,6 +126,7 @@ export const commonCopy = {
   saveAndSwitch: "Speichern und wechseln",
   discard: "Verwerfen",
   showHint: "Hinweis anzeigen",
+  learnMore: "Mehr erfahren",
   changedElsewhere: "Inzwischen an anderer Stelle geändert.",
   overwrite: "Trotzdem überschreiben",
   unsavedChanges: "Ungespeicherte Änderungen",

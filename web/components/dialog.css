@@ -1,0 +1,297 @@
+/* Shared dialog frame for Modal and Sheet: sticky header and footer, padded body,
+   bottom sheet with a grab handle on phones. Building blocks used inside dialogs
+   (check rows, learn-more details, permission lists, status lines) live here too. */
+dialog:focus {
+  /* The dialog itself takes focus on open when it has no field; controls keep their
+     :focus-visible ring for keyboard users. */
+  outline: none;
+}
+dialog > .dialog-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #1b1c20;
+}
+dialog > .dialog-actions:last-child,
+dialog > :last-child > .dialog-actions:last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+.dialog-body {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 2px 25px 25px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cfd0d4;
+}
+.dialog-body > * {
+  min-width: 0;
+}
+.dialog-hint {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.dialog-actions-note {
+  min-width: 0;
+  margin-right: auto;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.dialog-actions-note.error {
+  color: #e7a3a3;
+}
+
+/* A one-line state of the dialog's subject, e.g. "SSH tools are ready". */
+.dialog-status {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #17181c;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #cfd0d4;
+}
+.dialog-status::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #737478;
+  transform: translateY(-1px);
+}
+.dialog-status-ok::before {
+  background: #86b88e;
+}
+.dialog-status-pending::before {
+  background: #f49a58;
+}
+.dialog-status-warning::before {
+  background: #e8b765;
+}
+.dialog-status-error {
+  border-color: #5a3532;
+}
+.dialog-status-error::before {
+  background: #e5796b;
+}
+.dialog-status-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.dialog-status-action > .dialog-status {
+  flex: 1 1 220px;
+}
+
+/* Learn more: a short visible hint, the full explanation one tap away. */
+.learn-more > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+.learn-more > summary::-webkit-details-marker {
+  display: none;
+}
+.learn-more > summary svg {
+  transition: transform 0.16s;
+}
+.learn-more[open] > summary svg {
+  transform: rotate(180deg);
+}
+.learn-more > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.learn-more-body {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border-left: 2px solid var(--accent-line);
+  background: #17181c;
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* Check rows: a whole-row tap target with title, subtitle and a themed checkbox. */
+.check-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.check-list > legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cdced2;
+}
+label.check-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 56px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #17181c;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background 0.16s,
+    border-color 0.16s;
+}
+label.check-row:hover:not(:has(input:disabled)) {
+  background: #1d1e22;
+}
+label.check-row:has(input:checked) {
+  border-color: var(--accent-line);
+  background: #1f1a16;
+}
+label.check-row:has(input:disabled) {
+  cursor: default;
+}
+label.check-row:has(input:disabled) .check-row-text {
+  opacity: 0.72;
+}
+.check-row input[type="checkbox"] {
+  appearance: none;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  padding: 0;
+  border: 1.5px solid #4a4b50;
+  border-radius: 6px;
+  background: #141519 center / 14px 14px no-repeat;
+  cursor: inherit;
+}
+.check-row input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23242529' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+.check-row input[type="checkbox"]:disabled {
+  opacity: 0.6;
+}
+.check-row input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.check-row-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.check-row-title {
+  font-weight: 600;
+}
+.check-row-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+}
+.check-row-meta {
+  font-size: 11px;
+  color: var(--accent-text);
+}
+
+/* Permission list: granted capabilities with check marks. */
+.permission-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #17181c;
+}
+.permission-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  font-size: 13px;
+  color: var(--text);
+}
+.permission-list svg {
+  flex: none;
+  color: #86b88e;
+}
+.dialog-section-label {
+  margin-bottom: -8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cdced2;
+}
+
+@media (max-width: 700px) {
+  .dialog-body {
+    padding: 2px 21px calc(21px + env(safe-area-inset-bottom));
+  }
+  dialog > .dialog-actions:last-child,
+  dialog > :last-child > .dialog-actions:last-child {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  .dialog-body + .dialog-actions:last-child {
+    flex-wrap: wrap;
+  }
+  .dialog-body + .dialog-actions:last-child > .button {
+    flex: 1 1 auto;
+  }
+  .dialog-body + .dialog-actions:last-child > .dialog-actions-note {
+    flex: 1 1 100%;
+  }
+  .dialog-body:has(+ .dialog-actions) {
+    padding-bottom: 21px;
+  }
+  /* Grab handle of a bottom sheet; full-height panels and viewers have none. */
+  dialog:where(:not(.chat-image-dialog, .task-drawer, .launch-dialog, .side-panel))
+    > .dialog-heading::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: #3d3e43;
+    transform: translateX(-50%);
+  }
+  dialog.sheet::before {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: -10px auto 14px;
+    border-radius: 2px;
+    background: #3d3e43;
+  }
+}

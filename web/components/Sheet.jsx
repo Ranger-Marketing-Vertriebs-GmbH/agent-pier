@@ -1,16 +1,13 @@
-import React, { useEffect, useId, useRef } from "react";
+import React, { useId } from "react";
+import useModalDialog from "./useModalDialog.js";
 
 function SheetDialog({ title, onCancel, className = "", children }) {
-  const ref = useRef(null);
+  const ref = useModalDialog();
   const titleId = useId();
-  useEffect(() => {
-    const dialog = ref.current;
-    dialog.showModal();
-    return () => dialog.close();
-  }, []);
   return (
     <dialog
       ref={ref}
+      tabIndex={-1}
       className={["sheet", className].filter(Boolean).join(" ")}
       aria-labelledby={titleId}
       onCancel={(event) => {
@@ -26,7 +23,8 @@ function SheetDialog({ title, onCancel, className = "", children }) {
   );
 }
 
-// A bottom sheet on phones and a centred dialog (max 420px) on desktop.
+// A bottom sheet with a grab handle on phones and a centred dialog (max 420px) on
+// desktop.
 export default function Sheet({ open, ...props }) {
   return open ? <SheetDialog {...props} /> : null;
 }
