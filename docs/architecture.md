@@ -115,6 +115,50 @@ Session MCP exposes project key generation, bounded local-path import, public-ke
 
 Each SSH invocation captures one endpoint, username, identity and pin revision with an execution-specific known-hosts file. MCP checks effective grants and the revision before spawn and during execution. `server/ssh.mjs` resolves the same effective access for the manual helper; already-started manual connections may continue after revocation. Codex/Claude startup hooks and the OpenCode context plugin compose SSH discovery with Memory, AgentBus and existing user configuration, including zero-host projects. Login/headless sessions remain excluded; shell sessions receive manual access without a model hint. See [SSH accesses](ssh-access.md) for provisioning, reload and storage details.
 
-## Proposed persistent assistant subsystem
+## Agents (managed OpenClaw)
 
-[ADR 0002: Managed OpenClaw assistants and visible agent teams](adr/0002-managed-openclaw-assistants.md) records the proposed extension for persistent assistants, direct agent chats and generated teams. It is a design record; the current coding-session architecture above remains the implemented behavior.
+Agents are optional. While they are switched on, AgentPier supervises one pinned
+OpenClaw Gateway per host as the same OS user and talks to it over authenticated
+loopback WSS with a pinned certificate. The browser never reaches the Gateway
+directly.
+
+- `server/features/assistants/`: the runtime manifest, installation and update
+  lifecycle (`runtime-*.js`), the supervisor (`runtime-supervisor.js`), the Gateway
+  client, and the OpenClaw configuration compiler (`openclaw-config/`). The compiler
+  writes locked paths and AgentPier-owned settings, plus only the allow-listed
+  overrides from the advanced settings (`advanced-config.js`). The same directory
+  holds agent profiles and conversations, capabilities and skills, shell approvals and
+  the allowlist, teams (`team-*.js`, with the bundled `team-plugin/`), lead requests
+  (`lead-request*.js`), reminders, routines and check-ins (`native-*.js`) and chat
+  attachments (`agent-attachments.js`).
+- `server/features/assistant-channels/`: Telegram pairing, ingress, delivery and the
+  durable outbox, and agents' own bots for other people (`telegram-senders.js`).
+- `server/features/mcp-servers/`: the central MCP server store, bindings to agents and
+  to the coding CLIs, and OAuth logins (see below).
+- HTTP routes live in `server/http/routes/assistant*.js` and `mcp-*.js`.
+
+See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and
+[ADR 0002](adr/0002-managed-openclaw-assistants.md).
+
+## Central MCP servers in the coding CLIs
+
+`server/features/mcp-servers/` writes servers bound to Claude Code, Codex or OpenCode
+into each CLI's native configuration before every session start and on every save. It
+records the entries it wrote by name and SHA-256 hash, changes only entries that still
+match, and offers entries found in the CLIs for adoption. See
+[MCP](mcp.md#central-mcp-servers-in-the-coding-clis).
+
+## Artifacts
+
+`server/features/artifacts/` stores private static pages published by sessions and
+agents through the `artifact_publish` MCP tool and shows them in a sandboxed viewer
+without scripts. See [artifacts](artifacts.md).
+
+## Operations
+
+`server/features/operations/` owns host backups (streamed format 2 in
+`archive-v2.js`, format 1 still restorable, CLI profiles captured by allowlist),
+restores with resumable uploads, diagnostics, and versioned releases with activation,
+rollback, cleanup, session migration and the Stable and Preview channels. See
+[backups](backups.md), [operations](operations.md) and
+[release channels](release-channels.md).
