@@ -517,9 +517,9 @@ separately, including the recognized text. Blocked inputs remain directly access
 above recent activity even when newer messages fill the history window.
 Transcription errors can be retried
 explicitly. Completed model replies are selected by the exact native run identity;
-other history cannot be forwarded accidentally. Replies are split into plain-text
-parts of at most 4,000 UTF-16 code units, preserving surrogate pairs. Each confirmed
-remote message ID is recorded before proceeding to the next part. Known rate limits
+other history cannot be forwarded accidentally. Replies are split into parts of at
+most 4,000 UTF-16 code units (see formatting below), preserving surrogate pairs. Each
+confirmed remote message ID is recorded before proceeding to the next part. Known rate limits
 wait for the provider's retry deadline.
 
 If a send loses its acknowledgement, its outcome remains unknown across restart.
@@ -565,8 +565,18 @@ sent as plain text.
 Agent replies are Markdown. AgentPier renders a small subset (bold, italic,
 strikethrough, code, links) as Telegram HTML and escapes all other
 text. If Telegram rejects the formatted message, the same text is sent as plain text;
-a send whose outcome is unknown is never retried in another format. Parts are
-split at 4,000 UTF-16 code units.
+a send whose outcome is unknown is never retried in another format.
+
+A long message (a reply, a routine result, a reminder, a check-in, a relayed lead
+request or a notice) goes out as several messages, in order. Each part holds at most
+4,000 UTF-16 code units of HTML, which keeps its visible text below Telegram's 4,096
+characters, and ends at the best break that leaves it at least half full: a blank
+line, a line break, a sentence end, then a space. Breaks outside any formatting are
+preferred; a part never ends inside a link or inline code, and a code block only
+between its lines. The whitespace at the break is dropped. Formatting still open at a
+break (bold text, a code block) is closed and reopened in the next part. Only text
+without any such break, such as a single overlong word or URL, is cut at the limit,
+never inside a tag, entity or surrogate pair. Parts are not numbered.
 
 API references: [Telegram polling](https://core.telegram.org/bots/api#getupdates),
 [Telegram messages](https://core.telegram.org/bots/api#sendmessage),
