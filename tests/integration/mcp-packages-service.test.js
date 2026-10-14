@@ -58,8 +58,8 @@ test("an update shows the diff, switches only on success and removes the old ins
   const before = s.servers.get(server.id).args[0];
   const next = await preview(s, "2.0.0", { serverId: server.id });
   assert.deepEqual(next.diff.changed, [
-    { name: "helper", from: "1.0.0", to: "2.0.0" },
-    { name: "server-x", from: "1.0.0", to: "2.0.0" },
+    { name: "helper", path: "helper", from: "1.0.0", to: "2.0.0" },
+    { name: "server-x", path: "server-x", from: "1.0.0", to: "2.0.0" },
   ]);
   await s.packages.updatePackage(server.id, {
     version: "2.0.0",

@@ -170,11 +170,11 @@ test("an update shows the lock diff before it is confirmed", async ({ page }) =>
   state.preview = preview({
     diff: {
       added: [
-        { name: "extra", version: "2.0.0", path: "node_modules/extra" },
+        { name: "extra", version: "2.0.0", path: "extra" },
         {
           name: "extra",
           version: "2.0.0",
-          path: "node_modules/helper/node_modules/extra",
+          path: "helper > extra",
         },
       ],
       removed: [{ name: "old", version: "0.1.0" }],
@@ -234,13 +234,11 @@ test("on a phone the package panel and its update confirmation fit the width", a
         {
           name: "@modelcontextprotocol/sdk-with-a-long-name",
           version: "1.20.0-beta.1",
-          path: "node_modules/@modelcontextprotocol/sdk-with-a-long-name",
+          path: "@modelcontextprotocol/sdk-with-a-long-name",
         },
       ],
       removed: [],
-      changed: [
-        { name: "helper", path: "node_modules/helper", from: "0.9.0", to: "1.0.0" },
-      ],
+      changed: [{ name: "helper", path: "helper", from: "0.9.0", to: "1.0.0" }],
     },
   });
   await page.goto(baseURL + "/accounts");
