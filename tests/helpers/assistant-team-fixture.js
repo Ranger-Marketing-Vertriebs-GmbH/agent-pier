@@ -15,6 +15,8 @@ export function teamFixture(t) {
   let loseSession = false,
     loseProfile = false,
     loseSend = false,
+    loadingCatalog = 0,
+    refusingStorage = 0,
     now = 0;
   const runtime = Object.assign(new EventEmitter(), {
     generation: 1,
@@ -32,6 +34,26 @@ export function teamFixture(t) {
         return { agents: [...profiles].map((id) => ({ id })) };
       if (method === "sessions.list") return { sessions };
       if (method === "sessions.create") {
+        // As OpenClaw 2026.10.3 after its bounded model-catalog wait: no session.
+        if (loadingCatalog > 0) {
+          loadingCatalog--;
+          throw Object.assign(Error("Assistant Gateway unavailable (UNAVAILABLE)."), {
+            code: "UNAVAILABLE",
+            status: 503,
+            answered: true,
+            retryable: true,
+          });
+        }
+        // As OpenClaw before a new session's storage is ready: no session.
+        if (refusingStorage > 0) {
+          refusingStorage--;
+          throw Object.assign(Error("Assistant Gateway unavailable (UNAVAILABLE)."), {
+            code: "UNAVAILABLE",
+            status: 503,
+            answered: true,
+            remoteError: "SessionMutationFactsUnavailableError",
+          });
+        }
         const s = {
           key: `session-${sessions.length}`,
           agentId: input.agentId,
@@ -138,6 +160,8 @@ export function teamFixture(t) {
     loseSession: () => (loseSession = true),
     loseProfile: () => (loseProfile = true),
     loseSend: () => (loseSend = true),
+    loadCatalog: (answers) => (loadingCatalog = answers),
+    refuseStorage: (answers) => (refusingStorage = answers),
     complete(id, status = "ok") {
       const r = runs.get(id);
       runs.set(id, { ...r, status });

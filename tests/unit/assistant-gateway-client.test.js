@@ -25,7 +25,29 @@ test("TCP open is not authenticated readiness and RPCs preserve correlation", as
     (error) =>
       error.code === "INVALID_REQUEST" &&
       error.answered === true &&
-      error.remoteMessage === "changed since last load",
+      error.remoteMessage === "changed since last load" &&
+      error.retryable === undefined,
+  );
+  // A retryable answer keeps its code and flag: OpenClaw sends it when it did nothing.
+  await assert.rejects(
+    client.call("busy", {}),
+    (error) =>
+      error.code === "UNAVAILABLE" &&
+      error.answered === true &&
+      error.retryable === true &&
+      error.remoteMessage === undefined &&
+      error.remoteError === undefined,
+  );
+  // An error OpenClaw's handler threw keeps only its class name, never the text.
+  await assert.rejects(
+    client.call("refused", {}),
+    (error) =>
+      error.code === "UNAVAILABLE" &&
+      error.answered === true &&
+      error.remoteError === "SessionMutationFactsUnavailableError" &&
+      error.retryable === undefined &&
+      error.remoteMessage === undefined &&
+      !JSON.stringify({ ...error, message: error.message }).includes("secret"),
   );
   const waiting = client.call("pending", {});
   client.close();

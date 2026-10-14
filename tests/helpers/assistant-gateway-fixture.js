@@ -29,7 +29,7 @@ export async function gatewayFixture({ token = "fixture", delay = 0, features } 
       calls.push(req);
       if (req.method === "pending") return;
       const ok =
-        req.method !== "stale" &&
+        !["stale", "busy", "refused"].includes(req.method) &&
         (req.method !== "connect" || req.params.auth?.token === token);
       const send = () =>
         ws.readyState === 1 &&
@@ -52,7 +52,30 @@ export async function gatewayFixture({ token = "fixture", delay = 0, features } 
                       message: "changed since last load",
                     },
                   }
-                : { error: { code: "UNAUTHORIZED", message: "secret must not escape" } }),
+                : req.method === "busy"
+                  ? // As OpenClaw 2026.10.3's bounded model-catalog wait.
+                    {
+                      error: {
+                        code: "UNAVAILABLE",
+                        message: "The model catalog is still loading; retry shortly.",
+                        retryable: true,
+                      },
+                    }
+                  : req.method === "refused"
+                    ? // As OpenClaw's dispatcher answers an error a handler threw.
+                      {
+                        error: {
+                          code: "UNAVAILABLE",
+                          message:
+                            "SessionMutationFactsUnavailableError: Session access facts are unavailable; retry after session storage is ready. <- Error: /secret/path is locked",
+                        },
+                      }
+                    : {
+                        error: {
+                          code: "UNAUTHORIZED",
+                          message: "secret must not escape",
+                        },
+                      }),
           }),
         );
       if (req.method === "connect") setTimeout(send, delay);

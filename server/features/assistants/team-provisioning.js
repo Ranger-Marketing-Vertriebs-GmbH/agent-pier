@@ -1,4 +1,4 @@
-import { sessionCreateTimeoutMs } from "./gateway-client.js";
+import { createGatewaySession, sessionNotCreated } from "./session-create.js";
 
 export class TeamProvisioning {
   constructor({ teams, assistants }) {
@@ -43,11 +43,26 @@ export class TeamProvisioning {
   async createSession(id, agentId, label) {
     const { teams, assistants: a } = this;
     teams.write(teams.member(id), { phase: "provisioning", provisionStep: "session" });
-    const created = await a.runtime.client.call(
-      "sessions.create",
-      { agentId, label },
-      { timeoutMs: sessionCreateTimeoutMs },
-    );
+    let created;
+    try {
+      created = await createGatewaySession(
+        a.runtime.client,
+        { agentId, label },
+        a.sessionCreate,
+      );
+    } catch (error) {
+      if (!sessionNotCreated(error)) throw error;
+      // The Gateway answered that no session exists: the claim returns to the
+      // queue and the next tick provisions the member again.
+      const m = teams.member(id);
+      if (m.phase === "cancelled") return m;
+      return teams.write(
+        m,
+        m.stopRequested
+          ? { phase: "cancelled" }
+          : { phase: "queued", provisionStep: undefined, claimedAt: undefined },
+      );
+    }
     if (!created.key) throw Error("Unconfirmed session");
     return this.adopt(id, created.key);
   }
