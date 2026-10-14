@@ -45,9 +45,11 @@ Write new repository documentation in English, including guides under `docs/`, a
 
 Place Git worktrees under the repository's ignored `.worktrees/` directory, never beside the repository. After successful completion and merge, remove clean, inactive worktrees with `git worktree remove`. Preserve worktrees with uncommitted changes, unmerged work, or active sessions.
 
-Treat `docs/superpowers/plans/` and `docs/superpowers/specs/` as temporary working documents. Remove completed plans and specs in the final cleanup commit before opening a pull request. Retain documents for active, unfinished work; keep lasting architecture and operating guidance elsewhere in `docs/`. If a pull request is already open, perform this cleanup before merging.
+Plans, specs, and progress logs are working documents, never deliverables. Before opening every pull request, delete the ones the change created or completed: `docs/superpowers/plans/`, `docs/superpowers/specs/`, and similar files such as `docs/refactor/` progress logs. A pull request must not add or leave behind such documents unless they belong to unfinished work tracked elsewhere. Keep lasting architecture and operating guidance elsewhere in `docs/`. If a pull request is already open, finish this cleanup before merging.
 
-Follow the history's concise imperative prefixes: `fix:`, `feat:`, and `chore:`. Keep commits focused. Describe the problem, resulting behavior, and validation in PRs; link relevant issues and include screenshots for visible UI changes. CI checks Linux/macOS and Chromium/WebKit.
+Every pull request must review and update the documentation its change affects, in the same pull request: `README.md` and `README.de.md`, guides under `docs/`, ADRs, and every quoted UI path or label. This covers renamed or moved settings, new or removed features, changed behavior, and CLI or route changes. Name the docs you checked or updated in the description, or state why none were affected.
+
+Follow the history's concise imperative prefixes: `fix:`, `feat:`, and `chore:`. Keep commits focused. Describe the problem, resulting behavior, and validation in PRs; list the docs you checked as part of validation, link relevant issues, and include screenshots for visible UI changes. CI checks Linux/macOS and Chromium/WebKit.
 
 ## Security & Configuration
 
