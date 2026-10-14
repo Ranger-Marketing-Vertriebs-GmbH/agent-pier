@@ -151,6 +151,7 @@ test("capability drafts flatten switches and send only what changed", () => {
     documents: false,
     shell: "off",
     mcpServers: ["a", "b"],
+    skills: [],
   });
   assert.deepEqual(
     capabilityPatch({ values: { ...base, webFetch: true }, base, assistant }),
@@ -173,9 +174,22 @@ test("capability drafts flatten switches and send only what changed", () => {
     }),
     { shell: "approval", mcpServers: ["a"] },
   );
+  // Skills are sent sorted, and only when they changed.
+  assert.deepEqual(
+    capabilityServer(agent({ skills: ["weather", "github", "weather"] })).skills,
+    ["github", "weather"],
+  );
+  assert.deepEqual(
+    capabilityPatch({ values: { ...base, skills: ["github"] }, base, assistant }),
+    { skills: ["github"] },
+  );
   const member = agent({ teamMemberId: "m", lifetime: "task" });
   assert.deepEqual(
-    capabilityPatch({ values: { ...base, shell: "full" }, base, assistant: member }),
+    capabilityPatch({
+      values: { ...base, shell: "full", skills: ["github"] },
+      base,
+      assistant: member,
+    }),
     {},
   );
 });

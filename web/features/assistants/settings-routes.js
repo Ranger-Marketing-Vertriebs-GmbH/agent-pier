@@ -4,6 +4,7 @@ export const agentTabs = ["profile", "capabilities", "work", "telegram"];
 export const agentPages = {
   memory: "capabilities",
   allowlist: "capabilities",
+  skills: "capabilities",
   actions: "work",
   projects: "work",
   pipelines: "work",

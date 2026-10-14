@@ -17,7 +17,7 @@ export const webCapabilityKeys = capabilityKeys.slice(2);
 export const capabilityDefaults = Object.fromEntries(
   capabilityKeys.map((key) => [key, false]),
 );
-export const capabilityFormKeys = [...capabilityKeys, "shell", "mcpServers"];
+export const capabilityFormKeys = [...capabilityKeys, "shell", "mcpServers", "skills"];
 export const profileKeys = ["name", "instructions", "connectionId", "modelId"];
 export const heartbeatKeys = ["heartbeatEnabled", "interval", "start", "end", "timeZone"];
 export const channelKeys = ["language", "appUrl"];
@@ -28,6 +28,7 @@ export const teamKeys = ["teamAutonomous", "maxMembers", "runTimeoutMinutes"];
 const pageTabs = {
   memory: "capabilities",
   allowlist: "capabilities",
+  skills: "capabilities",
   actions: "work",
   projects: "work",
   pipelines: "work",
@@ -48,7 +49,7 @@ export function agentPageAllowed(assistant, page) {
   if (!page) return true;
   if (!pageTabs[page] || !isPersonal(assistant)) return false;
   if (page === "memory") return assistant.capabilities?.memory === true;
-  if (page === "allowlist") return shellEligible(assistant);
+  if (page === "allowlist" || page === "skills") return shellEligible(assistant);
   return true;
 }
 
@@ -106,6 +107,7 @@ export const capabilityServer = (assistant) => ({
   ...pick(assistant?.capabilities, capabilityKeys),
   shell: shellLevel(assistant),
   mcpServers: sortedIds(assistant?.mcpServers),
+  skills: sortedIds(assistant?.skills),
 });
 
 /** One PATCH for the Capabilities tab; only changed parts are sent. */
@@ -121,6 +123,7 @@ export function capabilityPatch({ values, base, assistant }) {
   // Only a changed level is sent: the server asks to confirm a raise.
   if (shellEligible(assistant) && changed("shell")) patch.shell = values.shell;
   if (changed("mcpServers")) patch.mcpServers = values.mcpServers;
+  if (shellEligible(assistant) && changed("skills")) patch.skills = values.skills;
   // Check-ins need memory: switching memory off switches a saved schedule off too.
   if (!values.memory && assistant.heartbeat?.enabled)
     patch.heartbeat = { ...heartbeatForm(assistant), enabled: false };
