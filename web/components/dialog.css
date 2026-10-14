@@ -295,6 +295,10 @@ label.check-row:has(input:disabled) .check-row-text {
 .check-row-title {
   font-weight: 600;
 }
+.check-row-details {
+  display: grid;
+  gap: 2px;
+}
 .check-row-subtitle {
   font-size: 12px;
   color: var(--muted);
@@ -406,5 +410,12 @@ label.check-row:has(input:disabled) .check-row-text {
     margin: -10px auto 14px;
     border-radius: 2px;
     background: #3d3e43;
+  }
+}
+
+@media (forced-colors: active) {
+  /* The drawn check mark is a background image, which forced colours drop. */
+  .check-row input[type="checkbox"] {
+    appearance: auto;
   }
 }
