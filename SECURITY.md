@@ -26,6 +26,14 @@ server's OS user. The web login, host/origin validation, account-scoped credenti
 and private runtime files protect specific boundaries; they do not isolate
 mutually untrusted operating-system users or malicious local software.
 
+Optional agents run a pinned OpenClaw Gateway as the same OS user. An agent with
+shell access runs commands unconfined, with that user's logins, files and keys; the
+nono sandbox applies to CLI sessions only. Local (stdio) MCP servers run host
+commands for every agent or CLI they are bound to. An agent's own Telegram bot
+accepts messages from the people the owner allows. A lead agent's questions and
+tasks run on its members without approval, with each member's own capabilities. See
+[agents](docs/agents.md#security-notes).
+
 Complete initial user setup before sharing permitted network access. Use the
 documented private remote-access configuration and protect the machine and its
 backups. Credentials are stored in private files and are not automatically
