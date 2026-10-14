@@ -94,13 +94,24 @@ create a routine with a name, saved prompt and one of these triggers:
 
 A reminder repeats prescribed text and runs without tools. A routine asks the
 configured model to answer its saved prompt each time, with the agent's own chat
-tools: memory search and file reading, web search/fetch, browser and image reading,
-shell and MCP servers, as far as the agent has them switched on. Shell approvals
-work as in chat: an approval requested by a routine run appears in the agent's
-chat and in the routine's Telegram chat. A routine run never gets the reminder and
-routine tools (no self-scheduling), the team and workspace tools or file writes:
-it is a scheduled turn, not an owner message, so it cannot delegate, start coding
-jobs, write project knowledge or change the agent's files. The run cap is the
+tools: memory search, reading and writing its own workspace files, web
+search/fetch, browser and image reading, shell and MCP servers, as far as the agent
+has them switched on. Shell approvals work as in chat: an approval requested by a
+routine run appears in the agent's chat and in the routine's Telegram chat.
+
+A routine is standing work its owner configured, so the write guard admits a
+routine run as its own origin (`TeamBridge.routineWrite`): only the run session of
+a bound, enabled routine of the calling agent with memory and routines switched on
+may change that agent's workspace, under the same workspace and instruction-file
+limits as an owner turn. It is not owner text: it never makes a delegated task
+writable (owner proof stays owner-text only), and reminder and check-in runs,
+forwarded and tool-provided content still never write.
+
+A routine run never gets the reminder and routine tools (no self-scheduling).
+Known limitation: it does not get the team and workspace tools either, so it
+cannot ask or delegate to members, start coding jobs or write project knowledge.
+The bridge serves those tools only within an owner's chat turn (an AgentPier
+attempt for the session), which a routine's own run session does not have. The run cap is the
 fixed list `routineTools` (`server/features/assistants/native-capabilities.js`);
 OpenClaw intersects it with the agent's `tools.allow`, so capability, shell and MCP
 changes apply to routines without rewriting their jobs.

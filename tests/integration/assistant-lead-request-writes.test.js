@@ -187,3 +187,26 @@ test("a negated, quoted or name-only mention keeps the task read-only", async (t
     assert.equal(f.write(), false, text);
   }
 });
+
+test("a routine origin never makes a delegated task writable", async (t) => {
+  const f = await writeGate(t);
+  // Worst case: every session counts as some routine's run of the member.
+  f.assistants.routines = { runOrigin: () => ({ binding: {}, conversation: {} }) };
+  f.store.updateAssistant(
+    f.member.id,
+    { capabilities: { memory: true, reminders: true } },
+    f.store.getAssistant(f.member.id).revision,
+  );
+  // A task the owner did not ask for runs read-only in the member's turn.
+  await f.delegate(f.turn(), { ownerRequested: false, ownerRequestQuote: undefined });
+  assert.ok(
+    f.assistants.ledger
+      .pending()
+      .some(
+        (a) =>
+          f.assistants.ledger.getRequest(a.requestId).conversationId === f.memberChat.id,
+      ),
+    "the task's member turn is running",
+  );
+  assert.equal(f.write(), false);
+});
