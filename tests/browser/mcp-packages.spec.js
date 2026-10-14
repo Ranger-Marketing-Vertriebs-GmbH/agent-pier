@@ -223,6 +223,47 @@ test("an update shows the lock diff before it is confirmed", async ({ page }) =>
   });
 });
 
+test("on a phone the package panel and its update confirmation fit the width", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await packageSetup(page, { servers: [packagedServer("ready")] });
+  state.preview = preview({
+    diff: {
+      added: [
+        {
+          name: "@modelcontextprotocol/sdk-with-a-long-name",
+          version: "1.20.0-beta.1",
+          path: "node_modules/@modelcontextprotocol/sdk-with-a-long-name",
+        },
+      ],
+      removed: [],
+      changed: [
+        { name: "helper", path: "node_modules/helper", from: "0.9.0", to: "1.0.0" },
+      ],
+    },
+  });
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAccountItem(page, "pkg");
+  const panel = dialog.getByRole("region", { name: "Package" });
+  await panel.getByRole("button", { name: "Check update" }).click();
+  const confirm = panel.getByRole("alertdialog", { name: "Update this package?" });
+  await expect(confirm.getByText("helper 0.9.0 → 1.0.0")).toBeVisible();
+  const overflow = (locator) =>
+    locator.evaluate((element) => element.scrollWidth - element.clientWidth);
+  expect(await overflow(panel)).toBeLessThanOrEqual(0);
+  expect(await overflow(confirm)).toBeLessThanOrEqual(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
+  const box = await confirm.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  if (screens) await panel.screenshot({ path: `${screens}/en-phone.png` });
+});
+
 test("a packaged server switches back to an own command with its owner args", async ({
   page,
 }) => {
