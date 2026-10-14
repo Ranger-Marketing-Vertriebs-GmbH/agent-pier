@@ -56,6 +56,17 @@ async function fixture(page) {
         },
       });
     }
+    if (path.endsWith("/reload"))
+      return route.fulfill({
+        json: {
+          eligible: true,
+          reason: null,
+          nativeId: "native-fixture",
+          activity: { state: "idle" },
+          state: "idle",
+          accountTargets: [{ id: "second", name: "Second account" }],
+        },
+      });
     if (path.endsWith("/chat"))
       return route.fulfill({ json: { availability: "ready", messages: [], tasks: [] } });
     return route.fulfill({ json: {} });
@@ -74,11 +85,12 @@ async function openDialog(page, name) {
   return dialog;
 }
 
-test("dialogs never open with focus on the close button", async ({
+test("with a fine pointer dialogs focus their first text field, never the close button", async ({
   page,
   browserName,
 }) => {
   await fixture(page);
+  expect(await page.evaluate(() => matchMedia("(pointer: fine)").matches)).toBe(true);
   const rename = await openDialog(page, "Rename session");
   await expect(rename.getByRole("textbox", { name: "New name" })).toBeFocused();
   await expect(rename.getByRole("button", { name: "Close dialog" })).not.toBeFocused();
@@ -93,6 +105,34 @@ test("dialogs never open with focus on the close button", async ({
   if (browserName === "webkit") return;
   await page.keyboard.press("Tab");
   await expect(tools.getByRole("button", { name: "Close dialog" })).toBeFocused();
+});
+
+const fieldStyle = (element) =>
+  Object.fromEntries(
+    [
+      "font-size",
+      "font-weight",
+      "color",
+      "padding-left",
+      "border-top-color",
+      "height",
+    ].map((key) => [key, getComputedStyle(element).getPropertyValue(key)]),
+  );
+
+test("dialog selects match the text inputs", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page);
+  const rename = await openDialog(page, "Rename session");
+  const input = await rename.getByRole("textbox").evaluate(fieldStyle);
+  await page.keyboard.press("Escape");
+  const switcher = await openDialog(page, "Continue with another account");
+  const select = switcher.getByRole("combobox", { name: "Target account" });
+  expect(await select.evaluate((element) => getComputedStyle(element).appearance)).toBe(
+    "none",
+  );
+  // The empty choice reads as a placeholder; a chosen account in the input colour.
+  await select.selectOption("second");
+  expect(await select.evaluate(fieldStyle)).toEqual(input);
 });
 
 test("SSH dialog keeps Save visible on a phone with many hosts", async ({ page }) => {
@@ -116,7 +156,18 @@ test("SSH dialog keeps Save visible on a phone with many hosts", async ({ page }
 });
 
 test.describe("touch", () => {
-  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  test("on touch screens dialogs focus themselves so no keyboard opens", async ({
+    page,
+  }) => {
+    await fixture(page);
+    expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+    await page.getByRole("button", { name: "Rename session", exact: true }).first().tap();
+    const rename = page.getByRole("dialog");
+    await expect(rename).toBeFocused();
+    await expect(rename.getByRole("textbox", { name: "New name" })).not.toBeFocused();
+    await expect(rename.getByRole("button", { name: "Close dialog" })).not.toBeFocused();
+  });
   test("tapping anywhere on a check row toggles it", async ({ page }) => {
     await fixture(page);
     const dialog = await openDialog(page, "SSH accesses");
