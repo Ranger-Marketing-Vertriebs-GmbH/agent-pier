@@ -125,9 +125,9 @@ test(
       valueAt((await runtime.client.call("config.get", {})).config, target);
     await advanced.save("agents.defaults.timeoutSeconds", 900);
     await advanced.save("agents.defaults.userTimezone", "Europe/Berlin");
-    await advanced.save("attachments.ttlHours", 24);
+    await advanced.save("attachments.ttlHours", 72);
     assert.equal(await read("agents.defaults.timeoutSeconds"), 900);
-    assert.equal(await read("attachments.ttlHours"), 24);
+    assert.equal(await read("attachments.ttlHours"), 72);
     const saved = await advanced.get();
     assert.equal(
       saved.settings.find((s) => s.id === "userTimezone").current,

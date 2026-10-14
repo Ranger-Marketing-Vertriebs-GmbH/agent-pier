@@ -1,3 +1,5 @@
+import path from "node:path";
+import { readJSON } from "../../lib/storage.js";
 import {
   advancedSetting,
   advancedSettings,
@@ -42,8 +44,23 @@ export class AdvancedConfig {
   get runtime() {
     return this.assistants.runtime;
   }
+  // The version the next start runs: the selected installation (runtime.json), which
+  // after a rollback is not the manifest's. Null when nothing is installed yet.
+  installedVersion() {
+    const root = this.runtime.paths?.root;
+    if (!root) return null;
+    try {
+      const version = readJSON(path.join(root, "runtime.json"), null)?.version;
+      return typeof version === "string" ? version : null;
+    } catch {
+      return null;
+    }
+  }
   gateway() {
-    const { availability, version } = this.runtime.status();
+    const { availability, version: running } = this.runtime.status();
+    // A Gateway that has not started since AgentPier did reports no version; its
+    // next start runs the selected installation.
+    const version = running || this.installedVersion();
     const ready = availability === "ready" && !!this.runtime.client?.ready;
     // A Gateway that is starting, stopping or reconnecting compiled (or will
     // compile) its configuration already; a write now would miss it.
@@ -161,14 +178,17 @@ export class AdvancedConfig {
     const before = this.overrides.get(target)?.value;
     if (value === undefined) this.overrides.remove(target);
     else this.overrides.set(target, value);
+    this.record(target, before, value, "success");
+  }
+  record(target, from, to, outcome) {
     try {
       this.audit?.append({
         action: "assistant.advancedSettingChanged",
         resourceType: "assistantRuntime",
         resourceId: target,
         source: "user",
-        outcome: "success",
-        details: { path: target, from: before ?? null, to: value ?? null },
+        outcome,
+        details: { path: target, from: from ?? null, to: to ?? null },
       });
     } catch (error) {
       console.error("Advanced setting audit failed:", error?.message);
@@ -189,8 +209,12 @@ export class AdvancedConfig {
       });
     } catch (error) {
       if (stored) {
+        // The audit names the undone change, so it never claims a value that is
+        // no longer stored.
+        const attempted = this.overrides.get(target)?.value;
         if (previous) this.overrides.set(target, previous.value);
         else this.overrides.remove(target);
+        this.record(target, attempted, previous?.value, "failure");
       }
       throw error;
     }

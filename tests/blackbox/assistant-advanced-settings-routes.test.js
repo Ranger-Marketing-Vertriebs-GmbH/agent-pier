@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import express from "express";
 import { assistantAdvancedSettingsRoutes } from "../../server/http/routes/assistant-advanced-settings.js";
+import { DatabaseSync } from "node:sqlite";
 import { restartRequired } from "../../server/features/assistants/assistant-provider-synchronization.js";
+import { AdvancedConfig } from "../../server/features/assistants/advanced-config.js";
+import { OverrideStore } from "../../server/features/assistants/openclaw-config/overrides.js";
+import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
 
 async function serve(t, advanced) {
   const app = express();
@@ -73,4 +77,39 @@ test("reads and saves settings, asks to restart and hides runtime errors", async
   const failed = await request("PUT", { path: "fails", value: 1, confirmRestart: true });
   assert.equal(failed.status, 503);
   assert.equal(JSON.stringify(failed.body).includes("/private"), false);
+});
+
+test("the real service refuses paths and values off the allow list", async (t) => {
+  const db = new DatabaseSync(":memory:");
+  migrateAssistants(db);
+  const overrides = new OverrideStore(db);
+  const advanced = new AdvancedConfig({
+    assistants: {
+      runtime: { status: () => ({ availability: "disabled", version: null }) },
+      admit: (operation) => operation(),
+    },
+    overrides,
+    synchronization: {},
+  });
+  const request = await serve(t, advanced);
+  for (const body of [
+    { path: "gateway.auth.token", value: "x" },
+    { path: "__proto__.polluted", value: 1 },
+    // An own "__proto__" key, as JSON.parse creates it from a request body.
+    { path: "attachments.ttlHours", value: JSON.parse('{"__proto__":{"polluted":1}}') },
+    { path: "attachments.ttlHours", value: 24 },
+    { path: "agents.defaults.imageMaxDimensionPx", value: 4000 },
+  ]) {
+    const refused = await request("PUT", body);
+    assert.equal(refused.status, 400, JSON.stringify(body));
+  }
+  assert.deepEqual(overrides.list(), []);
+  assert.equal(Object.prototype.polluted, undefined);
+  const saved = await request("PUT", { path: "attachments.ttlHours", value: 72 });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.settings.find((s) => s.id === "mediaRetention").override, 72);
+  assert.deepEqual(
+    overrides.list().map((row) => row.path),
+    ["attachments.ttlHours"],
+  );
 });
