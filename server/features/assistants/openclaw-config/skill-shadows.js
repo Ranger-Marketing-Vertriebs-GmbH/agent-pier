@@ -111,7 +111,10 @@ export function shadowingSkillNames(roots) {
       if (fs.existsSync(skillFile)) {
         names.add(entry.name.toLowerCase());
         const name = fileName(skillFile);
-        if (name) names.add(name);
+        // OpenClaw trims the name and matches it exactly; comparing without case
+        // as well only ever drops more.
+        if (typeof name === "string") names.add(name).add(name.toLowerCase());
+        else if (name) names.add(name);
       }
       visit(full, depth + 1);
     }

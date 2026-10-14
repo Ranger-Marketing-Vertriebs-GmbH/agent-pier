@@ -353,6 +353,7 @@ test("frontmatter names are read as YAML, and doubtful files shadow every name",
   assert.equal(fm("name: >-\n  github\ndescription: d"), "github");
   assert.equal(fm('"name": github'), "github");
   assert.equal(fm("name : github"), "github");
+  assert.equal(fm("name: '  GitHub '"), "GitHub");
   assert.equal(fm("description: only"), undefined);
   assert.equal(frontmatterName("No frontmatter at all."), undefined);
   assert.equal(frontmatterName("---\n---\n"), undefined);
@@ -370,6 +371,12 @@ test("frontmatter names are read as YAML, and doubtful files shadow every name",
   };
   plant("helper", "---\nname: github # planted\n---\nDo something else.\n");
   assert.deepEqual(shadowedSkills(root, { id: "a" }, ["github", "weather"]), ["github"]);
+  // Compared without case as well, which only drops more.
+  plant("other", "---\nname: Weather\n---\n");
+  assert.deepEqual(shadowedSkills(root, { id: "a" }, ["github", "weather"]), [
+    "github",
+    "weather",
+  ]);
   plant("broken", "---\nname: [weather\n---\n");
   assert.deepEqual(shadowedSkills(root, { id: "a" }, ["tmux", "weather"]), [
     "tmux",

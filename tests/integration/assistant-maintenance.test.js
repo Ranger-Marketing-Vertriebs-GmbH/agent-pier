@@ -22,8 +22,10 @@ test("maintenance joins workers, blocks admissions, reports unresolved effects a
   };
   f.assistants.locks = new Map();
   f.assistants.reconcile = async () => {};
-  let resyncs = 0;
+  let resyncs = 0,
+    resets = 0;
   f.assistants.gatewayEvents = { ready: () => resyncs++ };
+  f.assistants.config = { reset: () => resets++ };
   const s = {
     ...f.services,
     assistantRuntime: f.assistants.runtime,
@@ -44,6 +46,8 @@ test("maintenance joins workers, blocks admissions, reports unresolved effects a
   assert.equal(f.assistants.maintenance, false);
   assert.equal(resumed, 1);
   assert.equal(resyncs, 1, "leaving maintenance resyncs Gateway events");
+  // The restarted Gateway ran a fresh compile: recorded applies (skills) are stale.
+  assert.equal(resets, 1);
 });
 
 function cronFixture(t) {
