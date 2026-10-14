@@ -154,11 +154,12 @@ test(
     assert.equal(shadowed.assigned, true);
     assert.equal(shadowed.active, false);
     assert.equal(shadowed.description, "");
-    // Gone again, the stored choice applies again.
+    // Gone again, the stored choice applies again through the re-apply that
+    // skills.changed and every ready run (the turn's apply keeps its cached list).
     fs.rmSync(shadow, { recursive: true });
     let restored;
     for (let attempt = 0; attempt < 100 && !restored; attempt++) {
-      await h.config.apply(agent.id);
+      await h.assistants.skills.reapply(h.config);
       restored = (await entry()).skills?.includes("github");
       if (!restored) await new Promise((resolve) => setTimeout(resolve, 200));
     }

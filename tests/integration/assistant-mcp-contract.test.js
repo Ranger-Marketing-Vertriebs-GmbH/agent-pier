@@ -11,6 +11,7 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
+import { gatewayPath } from "../../server/features/assistants/runtime-config.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import {
   endStdioServers,
@@ -332,14 +333,21 @@ test(
     t.diagnostic(`stdio starts=${started.length} first=${JSON.stringify(first)}`);
     assert.equal(first.env.HOME, runtime.paths.home);
     assert.equal(first.env.TMPDIR, undefined);
-    // OpenClaw appends its platform's standard directories (macOS: Homebrew and
-    // /usr/local/bin; Linux: Linuxbrew) to the Gateway's own PATH.
-    const [runtimeBin, ...rest] = first.env.PATH.split(path.delimiter);
-    assert.equal(runtimeBin, path.dirname(node));
-    assert.deepEqual(rest.slice(0, 2), ["/usr/bin", "/bin"]);
+    // The stdio server inherits the Gateway's PATH: the runtime's Node first, and
+    // the same owner login PATH exec gets (runtime.shell.pathPrepend) plus /usr/bin
+    // and /bin, sanitised by gatewayPath. OpenClaw's PATH bootstrap reorders it
+    // (system directories right after Node) and may append its platform's standard
+    // directories (macOS: Homebrew and /usr/local/bin; Linux: Linuxbrew). Nothing
+    // else reaches it, and no Homebrew directory is assumed to exist.
+    const expected = gatewayPath(node, runtime.shell.pathPrepend).split(path.delimiter);
+    const dirs = first.env.PATH.split(path.delimiter);
+    t.diagnostic(`stdio PATH=${JSON.stringify(dirs)}`);
+    assert.equal(dirs[0], path.dirname(node));
+    for (const dir of expected) assert.ok(dirs.includes(dir), `missing ${dir}`);
     const standard =
       /^(\/opt\/homebrew|\/usr\/local|\/home\/linuxbrew\/\.linuxbrew)\/s?bin$/;
-    for (const dir of rest.slice(2)) assert.match(dir, standard);
+    for (const dir of dirs)
+      assert.ok(expected.includes(dir) || standard.test(dir), `unexpected ${dir}`);
     assert.equal(fs.realpathSync(first.cwd), fs.realpathSync(cwd));
     assert.equal(first.env.MCP_FIXTURE_SECRET, "set");
     // One stdio process per session (eight turns so far), each kept running.
