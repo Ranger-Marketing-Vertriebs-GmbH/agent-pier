@@ -253,12 +253,16 @@ export class NativeHeartbeats {
     const { outbox, store } = this.reminders.channels;
     // A replay is already handled; the prefix's language may have changed since.
     if (outbox.all(binding.source.channelId).some((e) => e.key === key)) return;
-    const channel = store.get(binding.source.channelId);
+    const prefix = telegramMessages(store.get(binding.source.channelId)).heartbeatPrefix;
     // OpenClaw's webhook caps a long check-in; the run's session has all of it.
-    const result = await this.reminders.resultText(binding, event, key);
+    const result = await this.reminders.resultText(binding, event, {
+      limit: 65536 - prefix.length - 1,
+    });
+    // The read waits on the Gateway: a pause or a replay meanwhile still holds.
     if (!this.acceptsDelivery(entry)) return;
+    if (outbox.all(binding.source.channelId).some((e) => e.key === key)) return;
     // Marked in the chat's language, so a check-in never passes for a reply.
-    const text = `${telegramMessages(channel).heartbeatPrefix} ${result.trim()}`;
+    const text = `${prefix} ${result.trim()}`;
     outbox.enqueue({
       key,
       // The destination is the binding's, fixed when the owner enabled check-ins.

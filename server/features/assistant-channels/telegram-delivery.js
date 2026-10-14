@@ -2,9 +2,12 @@ import { actionApprovals } from "../assistants/assistant-action-notifications.js
 import { sendTelegramParts } from "./telegram-send-parts.js";
 import { telegramParts } from "./telegram-format.js";
 import { telegramMessages } from "./telegram-messages.js";
+import { completeMessage } from "../assistants/history-text.js";
 // History can trail the completion event briefly; after this grace a completed
 // run without assistant text is handed to the owner instead of holding the queue.
 export const replyGraceMs = 60_000;
+// A reply beyond this many Telegram messages goes on in AgentPier.
+export const maxReplyParts = 16;
 export class TelegramDelivery {
   constructor(service) {
     this.service = service;
@@ -77,6 +80,20 @@ export class TelegramDelivery {
       assistants.changed();
     }
   }
+  /**
+   * A reply's durable parts: all of it, or what OpenClaw serves of a reply too
+   * large for it (and at most `maxReplyParts`), closed by a note that the whole
+   * reply is in AgentPier.
+   */
+  replyParts(channel, { text, cut }) {
+    const parts = text.trim() ? telegramParts(text) : [];
+    if (!cut && parts.length <= maxReplyParts) return parts;
+    const link = this.service.link(channel.id, this.service.chatPath(channel));
+    return [
+      ...parts.slice(0, maxReplyParts),
+      ...telegramParts(telegramMessages(channel).telegramReplyIncomplete, link),
+    ];
+  }
   async process(id, signal) {
     const { store, ledger, assistants, clientFactory } = this.service;
     const channel = store.get(id),
@@ -126,14 +143,14 @@ export class TelegramDelivery {
       if (this.settleApproval(entry)) return;
       const history = await assistants.history(entry.conversationId);
       if (history.stale || signal.aborted) return;
-      const reply = history.messages
+      const message = history.messages
         .filter(
           (m) =>
             m.role === "assistant" &&
             [attempt.id, attempt.runtimeRunId].filter(Boolean).includes(m.runId),
         )
-        .at(-1)?.text;
-      if (!reply?.trim()) {
+        .at(-1);
+      if (!message?.text?.trim()) {
         const now = this.service.now(),
           since = entry.replyMissingSince ?? now;
         if (now - since >= replyGraceMs) {
@@ -149,16 +166,12 @@ export class TelegramDelivery {
           });
         return;
       }
-      if (reply.length > 65536) {
-        ledger.patch(entry.id, {
-          state: "delivery_failed",
-          diagnostic: "REPLY_TOO_LARGE",
-        });
-        return;
-      }
+      // The history page cuts long replies; this one is read on its own.
+      const reply = await completeMessage(assistants, entry.conversationId, message);
+      if (signal.aborted) return;
       entry = ledger.patch(entry.id, {
         state: "outbound",
-        parts: telegramParts(reply),
+        parts: this.replyParts(channel, reply),
         remoteMessageIds: [],
         nextDeliveryAt: 0,
         diagnostic: null,

@@ -517,9 +517,15 @@ separately, including the recognized text. Blocked inputs remain directly access
 above recent activity even when newer messages fill the history window.
 Transcription errors can be retried
 explicitly. Completed model replies are selected by the exact native run identity;
-other history cannot be forwarded accidentally. AgentPier reads history with
-`maxChars` 65,536, so a reply is never cut at OpenClaw's default of 8,000 characters
-per message. Replies are split into parts of at most 4,000 UTF-16 code units (see
+other history cannot be forwarded accidentally. History pages keep OpenClaw's default
+of 8,000 characters per message (also in the AgentPier chat, which shows a longer
+message cut with "...(truncated)..."). A reply the page cut is read again on its own
+(`chat.history` with `messageId` and `maxChars` 65,536) before it goes to Telegram;
+lead relays do the same. If OpenClaw still cannot serve it whole (over 65,536
+characters, or its "message too large" placeholder), Telegram gets what is
+available, at most 16 parts, and a closing note that the full reply is in
+AgentPier, with a link when an address is set. Placeholders and cut markers are
+never sent. Replies are split into parts of at most 4,000 UTF-16 code units (see
 formatting below), preserving surrogate pairs. Each confirmed
 remote message ID is recorded before proceeding to the next part. Known rate limits
 wait for the provider's retry deadline.

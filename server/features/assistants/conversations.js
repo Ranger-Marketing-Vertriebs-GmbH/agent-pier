@@ -4,7 +4,7 @@ import { codingRunNotes } from "./assistant-action-notifications.js";
 import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
 import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
-export const historyTextLimit = 65536;
+import { historyTextLimit } from "./history-text.js";
 export function publicMessages(messages = []) {
   const seen = new Set();
   return messages.flatMap((m) => {
@@ -64,6 +64,23 @@ function hideInternal(messages, requests, contexts) {
     }),
   };
 }
+/**
+ * One message of a conversation read on its own with AgentPier's text limit
+ * instead of OpenClaw's page default (8000 characters per message); null when
+ * the Gateway does not serve it.
+ */
+export async function conversationMessage(service, id, messageId) {
+  const conversation = service.store.getConversation(id);
+  const client = service.runtime.client;
+  if (!client?.ready || typeof messageId !== "string") return null;
+  const page = await client.call("chat.history", {
+    sessionKey: conversation.runtimeSessionKey,
+    messageId,
+    limit: 1,
+    maxChars: historyTextLimit,
+  });
+  return publicMessages(page?.messages).find((m) => m.id === messageId)?.text ?? null;
+}
 export async function conversationHistory(service, id, { before, limit = 100 } = {}) {
   const conversation = service.store.getConversation(id);
   const offset = before ? Number(before) : 0;
@@ -88,9 +105,6 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         sessionKey: conversation.runtimeSessionKey,
         limit,
         offset,
-        // OpenClaw cuts each message at 8000 characters unless told otherwise; the
-        // chat and Telegram replies show up to AgentPier's own 65536.
-        maxChars: historyTextLimit,
       });
       if (
         service.maintenance ||

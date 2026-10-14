@@ -3,8 +3,6 @@ import assert from "node:assert/strict";
 import { routineFixture } from "../helpers/native-routines-fixture.js";
 import { NativeHeartbeats } from "../../server/features/assistants/native-heartbeats.js";
 import { summaryCap } from "../../server/features/assistants/cron-result-text.js";
-import { conversationHistory } from "../../server/features/assistants/conversations.js";
-import { telegramMessage } from "../helpers/assistant-channel-fixture.js";
 
 // A news digest well beyond Telegram's 4096 and OpenClaw's 2000-character summary:
 // sections with bold headings and a source link each.
@@ -26,7 +24,7 @@ function gateway(f, runSession, reply = digest) {
   const original = f.assistants.runtime.client.call;
   const [, jobSession, sessionId] = /^(.*):run:([^:]+)$/.exec(runSession);
   const reads = [];
-  const state = { sessionId };
+  const state = { sessionId, reply };
   f.assistants.runtime.client.call = async (method, input) => {
     if (method !== "chat.history") return original(method, input);
     reads.push(input);
@@ -37,8 +35,10 @@ function gateway(f, runSession, reply = digest) {
       sessionId: state.sessionId,
       messages: [
         { role: "user", content: [{ type: "text", text: "Routine prompt" }] },
+        // An earlier text of the run (before a tool call) is not its result.
+        { role: "assistant", content: [{ type: "text", text: "Let me look." }] },
         { role: "assistant", content: [{ type: "toolCall", name: "web_fetch" }] },
-        { role: "assistant", content: [{ type: "text", text: reply }] },
+        { role: "assistant", content: [{ type: "text", text: state.reply }] },
       ],
     };
   };
@@ -133,7 +133,7 @@ test("a capped summary stays the fallback when the run's reply cannot be proven"
   const jobId = f.reminders.bindings.get(routine.id).nativeId;
   const agent = f.store.getAssistant(f.id).runtimeAgentId;
   const runSession = `agent:${agent}:cron:${jobId}:run:run-1`;
-  const reads = gateway(f, runSession, `Something else entirely. ${digest}`);
+  const reads = gateway(f, runSession);
   const complete = (runAtMs, extra) =>
     f.reminders.complete(routine.id, {
       jobId,
@@ -148,24 +148,32 @@ test("a capped summary stays the fallback when the run's reply cannot be proven"
   await complete(2000, { sessionKey: `agent:someone:cron:${jobId}:run:run-1` });
   await complete(3000, {});
   assert.equal(reads.length, 0);
-  // A reply that does not begin with the summary is not this run's result.
-  await complete(4000, { sessionKey: runSession });
-  assert.equal(reads.length, 1);
-  // A later run of the job has replaced the transcript.
+  // A later run of the job has replaced the transcript, even with the same text.
   reads.state.sessionId = "run-2";
-  await complete(4500, { sessionKey: runSession });
-  assert.equal(reads.length, 2);
+  await complete(4000, { sessionKey: runSession });
   reads.state.sessionId = "run-1";
+  // A reply that does not begin with the summary is not this run's result.
+  reads.state.reply = `Something else entirely. ${digest}`;
+  await complete(5000, { sessionKey: runSession });
+  // Nor is OpenClaw's placeholder for a message too large to serve.
+  reads.state.reply = "[chat.history omitted: message too large]";
+  await complete(6000, { sessionKey: runSession });
+  // A reply beyond AgentPier's limit falls back as well.
+  reads.state.reply = `${digest}${"x".repeat(65536)}`;
+  await complete(7000, { sessionKey: runSession });
+  assert.equal(reads.length, 4);
+  reads.state.reply = digest;
   // The Gateway being away keeps the summary as well.
   f.setReady(false);
-  await complete(5000, { sessionKey: runSession });
-  assert.equal(reads.length, 2);
+  await complete(8000, { sessionKey: runSession });
+  assert.equal(reads.length, 4);
   f.setReady(true);
-  for (const entry of f.service.outbox.all(f.channel.id))
-    assert.equal(entry.text, capped(digest));
+  const entries = f.service.outbox.all(f.channel.id);
+  assert.equal(entries.length, 8);
+  for (const entry of entries) assert.equal(entry.text, capped(digest));
   // A short summary is complete: no history read at all.
-  await complete(6000, { summary: "Short.", sessionKey: runSession });
-  assert.equal(reads.length, 2);
+  await complete(9000, { summary: "Short.", sessionKey: runSession });
+  assert.equal(reads.length, 4);
 });
 
 test("a replayed completion keeps the full text it was first delivered with", async (t) => {
@@ -214,7 +222,7 @@ test("a routine paused while its full result is read sends nothing", async (t) =
   assert.deepEqual(f.routines.results.forConversation(f.channel.conversationId), []);
 });
 
-test("a long check-in reaches Telegram in full", async (t) => {
+async function checkIn(t) {
   const f = routineFixture(t);
   f.store.updateAssistant(
     f.id,
@@ -224,80 +232,64 @@ test("a long check-in reaches Telegram in full", async (t) => {
     },
     f.store.getAssistant(f.id).revision,
   );
+  const pushes = [];
   const heartbeats = new NativeHeartbeats({
     reminders: f.reminders,
-    notifications: { notify: async () => {} },
+    notifications: { notify: async (input) => pushes.push(input) },
   });
   await heartbeats.sync(f.id);
   const binding = f.reminders.bindings.list(f.id).find((b) => b.kind === "heartbeat");
   const agent = f.store.getAssistant(f.id).runtimeAgentId;
   const runSession = `agent:${agent}:cron:${binding.nativeId}:run:run-9`;
-  gateway(f, runSession);
-  await f.reminders.complete(binding.id, {
-    jobId: binding.nativeId,
-    runAtMs: 1000,
-    status: "ok",
-    summary: capped(digest),
-    deliveryStatus: "delivered",
-    sessionKey: runSession,
-  });
+  const reads = gateway(f, runSession);
+  const complete = (summary = capped(digest)) =>
+    f.reminders.complete(binding.id, {
+      jobId: binding.nativeId,
+      runAtMs: 1000,
+      status: "ok",
+      summary,
+      deliveryStatus: "delivered",
+      sessionKey: runSession,
+    });
+  return { f, binding, reads, pushes, complete };
+}
+
+test("a long check-in reaches Telegram in full", async (t) => {
+  const { f, complete } = await checkIn(t);
+  await complete();
   const [entry] = f.service.outbox.all(f.channel.id);
-  assert.ok(entry.text.endsWith(digest));
+  assert.ok(entry.text.endsWith(` ${digest}`));
   assert.ok(entry.parts.length > 1);
 });
 
-test("an ordinary reply longer than OpenClaw's history default reaches Telegram in full", async (t) => {
-  const f = routineFixture(t);
-  const reply = `${digest}\n\n${digest}`;
-  assert.ok(reply.length > 8000);
-  const reads = [];
-  let runId;
-  const service = {
-    store: f.store,
-    ledger: f.assistants.ledger,
-    runtime: {
-      generation: 1,
-      client: {
-        ready: true,
-        // OpenClaw's chat.history: each text cut at maxChars, 8000 by default.
-        call: async (method, input) => {
-          assert.equal(method, "chat.history");
-          reads.push(input);
-          const max = input.maxChars ?? 8000;
-          return {
-            messages: [
-              {
-                role: "assistant",
-                content: [
-                  {
-                    type: "text",
-                    text:
-                      reply.length > max
-                        ? `${reply.slice(0, max)}\n...(truncated)...`
-                        : reply,
-                  },
-                ],
-                timestamp: 2000,
-                __openclaw: { id: "m1", runId },
-              },
-            ],
-          };
-        },
-      },
-    },
-  };
-  f.assistants.history = (id) => conversationHistory(service, id);
-  const sends = telegram(f);
-  await f.service.ingress.receive(f.channel.id, [telegramMessage(1)]);
-  await f.service.ingress.dispatch(f.channel.id);
-  const entry = f.service.ledger.list(f.channel.id)[0];
-  runId = entry.attemptId;
-  f.assistants.ledger.transition(entry.attemptId, "completed");
-  await f.service.delivery.process(f.channel.id, new AbortController().signal);
-  await f.service.delivery.process(f.channel.id, new AbortController().signal);
-  assert.equal(reads[0].maxChars, 65536);
-  assert.ok(sends.length > 2);
-  const joined = sends.map((s) => s.text).join("\n\n");
-  assert.doesNotMatch(joined, /truncated/);
-  assert.equal(joined.match(/<a href=/g).length, 36, "every link of both digests");
+test("a check-in paused while its full result is read sends nothing", async (t) => {
+  const { f, binding, reads, pushes, complete } = await checkIn(t);
+  reads.during = () => f.reminders.bindings.patch(binding.id, { deliveryEnabled: false });
+  await complete();
+  assert.equal(reads.length, 1);
+  assert.deepEqual(f.service.outbox.all(f.channel.id), []);
+  assert.deepEqual(pushes, []);
+});
+
+test("a check-in replayed while its full result is read is sent and announced once", async (t) => {
+  const { f, reads, pushes, complete } = await checkIn(t);
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  reads.during = () => gate;
+  const first = complete();
+  const second = complete();
+  await new Promise((resolve) => setImmediate(resolve));
+  release();
+  await Promise.all([first, second]);
+  assert.equal(f.service.outbox.all(f.channel.id).length, 1);
+  assert.equal(pushes.length, 1);
+});
+
+test("a check-in whose full text would not fit with its prefix keeps the summary", async (t) => {
+  const { f, reads, complete } = await checkIn(t);
+  reads.state.reply = `${digest}${"y".repeat(65536 - digest.length - 2)}`;
+  await complete();
+  const [entry] = f.service.outbox.all(f.channel.id);
+  assert.ok(entry.text.endsWith(` ${capped(digest)}`));
+  assert.ok(entry.text.length <= 65536);
 });

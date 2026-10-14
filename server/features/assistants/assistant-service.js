@@ -4,7 +4,7 @@ import { AgentAttachments } from "./agent-attachments.js";
 import { sessionCreateTimeoutMs } from "./gateway-client.js";
 import { RequestLedger } from "./request-ledger.js";
 import { AssistantEvents } from "./assistant-events.js";
-import { conversationHistory } from "./conversations.js";
+import { conversationHistory, conversationMessage } from "./conversations.js";
 import { reconcileRuns } from "./run-reconciler.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { webCapabilityKeys } from "./native-capabilities.js";
@@ -454,6 +454,10 @@ export class AssistantService {
   }
   history(id, options) {
     return conversationHistory(this, id, options);
+  }
+  /** One message read on its own, beyond the history page's 8000 characters. */
+  message(id, messageId) {
+    return conversationMessage(this, id, messageId);
   }
   async cancel(id) {
     this.requireReady();
