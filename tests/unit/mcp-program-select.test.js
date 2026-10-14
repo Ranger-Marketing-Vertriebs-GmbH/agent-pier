@@ -28,3 +28,14 @@ test("choosing a program", () => {
   assert.throws(() => chooseProgram(two, "z"), { code: "MCP_PACKAGE_PROGRAM_REQUIRED" });
   assert.throws(() => chooseProgram([], undefined), { code: "MCP_PACKAGE_NO_PROGRAM" });
 });
+
+test("names must start alphanumerically and backslash paths are normalised", () => {
+  assert.deepEqual(
+    npmPrograms("x", { ".": "a.js", "..": "b.js", ".hidden": "c.js" }),
+    [],
+  );
+  assert.deepEqual(npmPrograms("x", { a: "bin\\a.js" }), [
+    { name: "a", path: "bin/a.js" },
+  ]);
+  assert.deepEqual(npmPrograms("x", { a: "a/../../x" }), []);
+});

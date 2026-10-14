@@ -13,7 +13,9 @@ export function npmPrograms(name, bin) {
     typeof bin === "string" ? [[name.split("/").pop(), bin]] : Object.entries(bin || {});
   return entries
     .map(([program, file]) => ({ name: program, path: safe(file) }))
-    .filter((program) => program.path && /^[A-Za-z0-9._-]{1,100}$/.test(program.name));
+    .filter(
+      (program) => program.path && /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(program.name),
+    );
 }
 
 export function chooseProgram(programs, wanted) {
