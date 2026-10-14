@@ -31,7 +31,7 @@ in the distribution. Its MPL-covered files retain that license. `node-pty` retai
 its MIT and bundled component notices. Other dependencies retain their own MIT,
 Apache, ISC, BSD or other notices as supplied by their authors.
 
-Koffi 3.2.1 and its `@koromix/koffi-*` platform packages are licensed under MIT.
+Koffi 3.3.2 and its `@koromix/koffi-*` platform packages are licensed under MIT.
 Copyright (C) 2026 Niels Martignène. Their complete licenses and bundled component
 notices are preserved in `node_modules/koffi/` and `node_modules/@koromix/`.
 Versioned installation and update archives include the platform's optional native
@@ -42,6 +42,23 @@ in the project allowScripts policy. The reviewed node-pty 1.1.0 scripts remain
 allowed for native compilation on platforms without a shipped prebuild. Older npm
 versions may not enforce allowScripts; release validation always requires the
 platform binary inside the staged archive.
+
+## Fonts
+
+The web interface bundles the DM Sans and Manrope fonts through
+`@fontsource/dm-sans` 5.3.0 and `@fontsource/manrope` 5.3.0. The fonts are licensed
+under the SIL Open Font License 1.1: DM Sans, Copyright 2014 The DM Sans Project
+Authors; Manrope, Copyright 2019 The Manrope Project Authors. The complete license
+texts are preserved in `node_modules/@fontsource/` and included in
+`dist/third-party-licenses.txt` with the browser distribution.
+
+## Managed agent runtime
+
+The optional agent service is not bundled. When the owner turns agents on, AgentPier
+downloads the pinned OpenClaw package (MIT) with its locked npm dependencies and
+plugins, and a pinned Node.js runtime under the Node.js license, into the data
+directory. Their license files stay inside that runtime installation; the locked
+versions are listed in `server/features/assistants/runtime-lock/package-lock.json`.
 
 ## Unicode upload-name data
 
