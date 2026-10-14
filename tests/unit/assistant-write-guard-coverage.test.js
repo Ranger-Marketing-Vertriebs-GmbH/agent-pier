@@ -6,9 +6,16 @@ import {
   shellTools,
 } from "../../server/features/assistants/native-capabilities.js";
 import {
+  classifyWrite,
   patchPaths,
   writeTools,
 } from "../../server/features/assistants/team-plugin/tool-guard.js";
+import {
+  envelope as wrap,
+  hiddenHunks,
+  lineTerminators,
+  patchCases,
+} from "../helpers/patch-cases.js";
 
 // Tools AgentPier grants that never change a file. A new granted tool must be put
 // here, behind the write guard (writeTools), or behind shell approvals.
@@ -72,4 +79,90 @@ test("a patch's paths include every hunk header OpenClaw would apply", () => {
   ]);
   assert.equal(patchPaths(envelope("nothing")), null);
   assert.equal(patchPaths(undefined), null);
+});
+
+test("a patch with a foreign line terminator, an unknown header or an ambiguous line is refused", () => {
+  for (const input of hiddenHunks) assert.equal(patchPaths(input), null);
+  const headers = [
+    "*** Add File: ",
+    "*** Delete File: ",
+    "*** Update File: ",
+    "*** Move to: ",
+  ];
+  for (const terminator of lineTerminators)
+    for (const header of headers) {
+      const body =
+        header === "*** Move to: "
+          ? [
+              "*** Update File: notes/a.md",
+              `${header}x${terminator}/../AGENTS.md`,
+              "@@",
+              "+b",
+            ]
+          : [
+              `${header}x${terminator}/../AGENTS.md`,
+              ...(header.includes("Delete")
+                ? []
+                : header.includes("Update")
+                  ? ["@@", "+b"]
+                  : ["+b"]),
+            ];
+      assert.equal(
+        patchPaths(wrap("*** Add File: notes/ok.md", "+ok", ...body)),
+        null,
+        JSON.stringify([header, terminator]),
+      );
+    }
+  // CRLF patches are refused as a whole, too.
+  assert.equal(
+    patchPaths(wrap("*** Add File: notes/a.md", "+a").replaceAll("\n", "\r\n")),
+    null,
+  );
+  for (const lines of [
+    // Tabs make no header OpenClaw knows, so no header the guard may skip.
+    ["*** Add File:\tAGENTS.md", "+x"],
+    ["***\tAdd File: AGENTS.md", "+x"],
+    ["*** add file: AGENTS.md", "+x"],
+    ["*** Copy File: AGENTS.md"],
+    // A header-looking context line inside an update hunk.
+    ["*** Update File: notes/a.md", "@@", " *** Add File: AGENTS.md", "+b"],
+    // No hunk at all, or an empty update.
+    ["nothing"],
+    ["*** Update File: notes/a.md"],
+  ])
+    assert.equal(patchPaths(wrap(...lines)), null, JSON.stringify(lines));
+  // Quoted paths and move targets are read literally, as OpenClaw reads them.
+  assert.deepEqual(patchPaths(wrap('*** Add File: "AGENTS.md"', "+x")), ['"AGENTS.md"']);
+  assert.deepEqual(
+    patchPaths(wrap("*** Update File: notes/a.md", "*** Move to: AGENTS.md", "@@", "+b")),
+    ["notes/a.md", "AGENTS.md"],
+  );
+  assert.deepEqual(
+    patchPaths(wrap("*** Update File: notes/a.md", "@@", "-a", "+b", "*** End of File")),
+    ["notes/a.md"],
+  );
+});
+
+test("whatever a fuzzed patch names, no line separator reaches a checked path", () => {
+  for (const input of patchCases(2000, 7)) {
+    const paths = patchPaths(input);
+    if (!paths) continue;
+    for (const target of paths)
+      assert.doesNotMatch(target, /[\r\n\u2028\u2029\u0085\v\f]/, JSON.stringify(input));
+  }
+});
+
+test("write targets never hold control or line-separator characters", () => {
+  const options = { roots: ["/workspaces"], agentId: "ap-agent" };
+  assert.deepEqual(classifyWrite({ path: "notes/a.md" }, options), {
+    path: "notes/a.md",
+  });
+  for (const character of [...lineTerminators, "\n", "\u0000", "\u001b", "\u009b", "\t"])
+    assert.deepEqual(
+      classifyWrite({ path: `notes/a${character}.md` }, options),
+      { outside: true },
+      JSON.stringify(character),
+    );
+  // A quoted instruction file name is never a plain root name.
+  assert.deepEqual(classifyWrite({ path: '"AGENTS.md"' }, options), { bootstrap: true });
 });

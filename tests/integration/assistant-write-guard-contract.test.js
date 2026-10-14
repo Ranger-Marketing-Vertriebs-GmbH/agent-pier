@@ -9,6 +9,7 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
+import { hiddenHunks } from "../helpers/patch-cases.js";
 import {
   fixtureModels,
   proactivityModel,
@@ -190,15 +191,21 @@ test(
     contexts.set(own.id, { kind: "owner" });
     const ownAttempt = f.assistants.ledger.recordAttempt(own.id);
     f.assistants.ledger.transition(ownAttempt.id, "running");
-    model.reply = (request) =>
-      request.messages.at(-1)?.role === "tool"
-        ? { text: "Noted." }
-        : {
-            tool: {
-              name: "apply_patch",
-              arguments: { input: patch(["*** Add File: notes/owner.md", "+OWNER"]) },
-            },
-          };
+    // First the review's hidden hunks (B1): an ordinary hunk beside one whose header
+    // holds a line separator and aims at an instruction file; then a plain patch.
+    const ownerPatches = [
+      ...hiddenHunks,
+      patch(["*** Add File: notes/owner.md", "+OWNER"]),
+    ];
+    model.reply = (request) => {
+      const turn = request.messages.slice(
+        request.messages.findLastIndex((m) => m.role === "user"),
+      );
+      const done = turn.filter((m) => m.role === "tool").length;
+      return done < ownerPatches.length
+        ? { tool: { name: "apply_patch", arguments: { input: ownerPatches[done] } } }
+        : { text: "Noted." };
+    };
     const owned = await runtime.client.call(
       "sessions.send",
       { key: session.key, message: "Note this down.", idempotencyKey: randomUUID() },
@@ -214,6 +221,22 @@ test(
       "OWNER\n",
       "the owner's patch applies",
     );
+    // No hidden hunk applied, not even its ordinary half.
+    const ownerResults = model.requests
+      .at(-1)
+      .messages.filter((m) => m.role === "tool")
+      .slice(-ownerPatches.length)
+      .map((m) => String(m.content).slice(0, 200));
+    t.diagnostic(`owner results=${JSON.stringify(ownerResults)}`);
+    assert.equal(fs.readFileSync(path.join(workspace, "AGENTS.md"), "utf8"), agents);
+    for (const planted of [
+      "SOUL.md",
+      "skills/evil/SKILL.md",
+      "notes/ok.md",
+      "notes/ok2.md",
+      "notes/ok3.md",
+    ])
+      assert.equal(fs.existsSync(path.join(workspace, planted)), false, planted);
     f.assistants.ledger.transition(ownAttempt.id, "completed");
 
     // Without a proven guard no file tool is offered at all, apply_patch included.
