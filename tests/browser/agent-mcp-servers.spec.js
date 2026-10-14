@@ -394,6 +394,33 @@ for (const [label, use] of [
       expect(state.requests.at(-1).body.confirmStdio).toBe(true);
     });
 
+    test("a package that is not installed cannot be given to an agent yet", async ({
+      page,
+    }) => {
+      const state = await setup(page);
+      const pkg = (id, name, status) => ({
+        id,
+        name,
+        transport: "stdio",
+        stdio: true,
+        command: "/data/node",
+        source: { registry: "npm", name, version: "1.0.0", status, leadingArgs: 1 },
+      });
+      state.servers.push(
+        pkg("s1", "installing", "installing"),
+        pkg("s2", "ready", "ready"),
+      );
+      await page.goto(baseURL + settingsPath("capabilities"));
+      const panel = page.getByRole("region", { name: "MCP servers" });
+      await expect(panel.getByLabel(/installing/)).toBeDisabled();
+      await expect(panel.getByLabel(/ready/)).toBeEnabled();
+      await expect(
+        panel.getByText(
+          "Coding CLIs and agents can be added once the package is installed.",
+        ),
+      ).toBeVisible();
+    });
+
     test("the confirmation dialogs hold focus, cancel on Escape and return focus", async ({
       page,
     }) => {

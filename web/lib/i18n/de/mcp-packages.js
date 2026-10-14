@@ -1,0 +1,55 @@
+export const mcpPackageCopy = {
+  sourceLabel: "Quelle",
+  sources: { command: "Eigener Befehl", package: "Paket installieren" },
+  registryLabel: "Registry",
+  registries: { npm: "npm" },
+  nameLabel: "Paket",
+  versionLabel: "Version",
+  versionsLoading: "Versionen werden geladen…",
+  versionsUnavailable:
+    "Die Versionen konnten nicht geladen werden. Prüfe den Paketnamen oder versuche es später erneut.",
+  showPrereleases: "Vorabversionen anzeigen",
+  prerelease: "Vorabversion",
+  deprecated: "veraltet",
+  installed: "installiert",
+  allowScripts: "Installationsskripte oder Builds aus dem Quellcode erlauben",
+  allowScriptsWarning:
+    "Dann läuft Code aus dem Paket bei der Installation mit den Rechten deines Benutzers. Erlaube das nur für Pakete, denen du vertraust.",
+  confirmTitle: "Dieses Paket installieren?",
+  updateTitle: "Dieses Paket aktualisieren?",
+  confirmAction: "Installieren",
+  updateAction: "Aktualisieren",
+  confirmNote:
+    "Das installierte Programm läuft als lokaler Befehl mit den Rechten deines Benutzers in den CLIs und Agenten, die du auswählst.",
+  dependencies: (count) => `${count} Pakete insgesamt`,
+  integrity: "Integrität",
+  programLabel: "Programm",
+  needsScripts:
+    "Dieses Paket braucht Installationsskripte oder einen Build aus dem Quellcode. Erlaube sie im Formular, um es zu installieren.",
+  scriptsAllowed:
+    "Installationsskripte und Builds aus dem Quellcode sind für dieses Paket erlaubt.",
+  changesTitle: "Änderungen an den installierten Paketen",
+  diffAdded: "Hinzugefügt",
+  diffRemoved: "Entfernt",
+  diffChanged: "Geändert",
+  diffNone: "Keine Paketänderungen.",
+  diffChange: (name, from, to) => `${name} ${from} → ${to}`,
+  status: {
+    installing: "Wird installiert…",
+    ready: "Installiert",
+    failed: "Installation fehlgeschlagen",
+    missing: "Installation fehlt",
+  },
+  panelLabel: "Paket",
+  reinstall: "Neu installieren",
+  updateLabel: "Neue Version",
+  checkUpdate: "Update prüfen",
+  log: "Installationsprotokoll",
+  versionAt: (version, date) => `${version} · ${date}`,
+  useOwnCommand: "Eigenen Befehl verwenden",
+  keepPackage: "Paket behalten",
+  detachHint:
+    "Beim Speichern wechselt dieser Server zum Befehl unten, und sein installiertes Paket wird entfernt.",
+  bindingLocked:
+    "Coding-CLIs und Agenten lassen sich hinzufügen, sobald das Paket installiert ist.",
+};

@@ -7,6 +7,7 @@ import ReferenceRow from "../../../components/ReferenceRow.jsx";
 import { routePath } from "../../../app/routes.js";
 import { useCrossLink } from "../../../app/cross-link.js";
 import { mcpOAuthCopy } from "../../../lib/i18n/messages/mcp-oauth.js";
+import { mcpPackageCopy } from "../../../lib/i18n/messages/mcp-packages.js";
 import { mcpServerCopy as copy } from "../../../lib/i18n/messages/mcp-servers.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { assistantApi } from "../assistant-api.js";
@@ -30,6 +31,11 @@ export default function McpGroup({ assistant, draft, notice, reloadKey, navigate
   const stdioLocked = (server) =>
     noStdio &&
     server.transport === "stdio" &&
+    !draft.values.mcpServers.includes(server.id);
+  // A package that is not installed (installing, failed, missing) gets no new agent.
+  const packageLocked = (server) =>
+    !!server.source &&
+    server.source.status !== "ready" &&
     !draft.values.mcpServers.includes(server.id);
   // A saved binding compiles the server: its login status is read again after a save.
   useEffect(() => {
@@ -69,7 +75,7 @@ export default function McpGroup({ assistant, draft, notice, reloadKey, navigate
               sub={loginShown(server) ? <McpOAuthStatus server={server} /> : undefined}
               pill={server.transport === "stdio" ? copy.stdioBadge : undefined}
               checked={draft.values.mcpServers.includes(server.id)}
-              disabled={draft.saving || stdioLocked(server)}
+              disabled={draft.saving || stdioLocked(server) || packageLocked(server)}
               onChange={(on) =>
                 draft.set("mcpServers", toggleId(draft.values.mcpServers, server.id, on))
               }
@@ -79,6 +85,9 @@ export default function McpGroup({ assistant, draft, notice, reloadKey, navigate
       )}
       {noStdio && (servers || []).some((server) => server.transport === "stdio") && (
         <p className="mcp-hint">{copy.stdioTelegramSenders}</p>
+      )}
+      {(servers || []).some(packageLocked) && (
+        <p className="mcp-hint">{mcpPackageCopy.bindingLocked}</p>
       )}
       {loginMissing && <p className="mcp-hint">{mcpOAuthCopy.agentLoginHint}</p>}
       {notice && (

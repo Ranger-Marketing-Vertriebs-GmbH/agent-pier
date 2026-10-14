@@ -105,6 +105,16 @@ export const assistantApi = {
   updateMcpServer: (id, input) =>
     api(`/mcp-servers/${encodeURIComponent(id)}`, "PUT", input),
   removeMcpServer: (id) => api(`/mcp-servers/${encodeURIComponent(id)}`, "DELETE"),
+  mcpPackageVersions: (registry, name) =>
+    api(
+      `/mcp-packages/versions?registry=${encodeURIComponent(registry)}&name=${encodeURIComponent(name)}`,
+    ),
+  previewMcpPackage: (input) => api("/mcp-packages/preview", "POST", input),
+  mcpPackageStatus: (id) => api(`/mcp-servers/${encodeURIComponent(id)}/package`),
+  updateMcpPackage: (id, input) =>
+    api(`/mcp-servers/${encodeURIComponent(id)}/package/update`, "POST", input),
+  reinstallMcpPackage: (id) =>
+    api(`/mcp-servers/${encodeURIComponent(id)}/package/reinstall`, "POST", {}),
   loginMcpServer: (id) =>
     api(`/mcp-servers/${encodeURIComponent(id)}/oauth/login`, "POST", {}),
   logoutMcpServer: (id) =>
