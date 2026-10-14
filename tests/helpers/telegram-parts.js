@@ -23,3 +23,14 @@ export function assertJoinedAtBreaks(original, pieces) {
   assert.match(original.slice(at), /^\s*$/, "the parts end where the text ends");
   return dropped;
 }
+
+/** Telegram HTML without tags, repeated until no tag is left. */
+export function withoutTags(html) {
+  let previous;
+  let text = html;
+  do {
+    previous = text;
+    text = text.replace(/<[^>]*>/g, "");
+  } while (text !== previous);
+  return text;
+}

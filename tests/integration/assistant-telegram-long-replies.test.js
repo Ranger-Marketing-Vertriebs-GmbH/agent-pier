@@ -6,6 +6,7 @@ import {
   conversationMessage,
 } from "../../server/features/assistants/conversations.js";
 import { maxReplyParts } from "../../server/features/assistant-channels/telegram-delivery.js";
+import { withoutTags } from "../helpers/telegram-parts.js";
 
 const placeholder = "[chat.history omitted: message too large]";
 const section = (n) =>
@@ -75,7 +76,7 @@ function setup(t, reply, { alone } = {}) {
   };
   return { f, reads, sends, deliver };
 }
-const visible = (sends) => sends.map((s) => s.text.replace(/<[^>]*>/g, "")).join("\n\n");
+const visible = (sends) => sends.map((s) => withoutTags(s.text)).join("\n\n");
 
 test("a reply beyond the history page is read on its own and sent whole", async (t) => {
   const reply = longReply(40);

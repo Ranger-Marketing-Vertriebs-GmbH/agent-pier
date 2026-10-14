@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assertJoinedAtBreaks } from "../helpers/telegram-parts.js";
+import { assertJoinedAtBreaks, withoutTags } from "../helpers/telegram-parts.js";
 import {
   markdownToTelegramHtml,
   splitTelegramHtml,
@@ -63,7 +63,7 @@ test("a link, inline code or code line at the limit moves whole to the next part
   for (const [n, part] of blocks.entries()) {
     if (n) assert.match(part, /^<pre><code class="language-js">const value\d+ = /);
     assert.match(part, /\);<\/code><\/pre>$/, "a part ends after a whole code line");
-    shown.push(part.replace(/^Intro\.\n\n/, "").replace(/<[^>]*>/g, ""));
+    shown.push(withoutTags(part.replace(/^Intro\.\n\n/, "")));
   }
   assert.equal(shown.join("\n"), block.join("\n"));
 });
