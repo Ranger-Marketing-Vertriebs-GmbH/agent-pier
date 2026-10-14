@@ -18,6 +18,8 @@ import { personalSkills } from "../../server/features/assistants/native-capabili
 import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
 import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
 import {
+  anyName,
+  frontmatterName,
   shadowedSkills,
   shadowingSkillNames,
   skillShadowRoots,
@@ -343,4 +345,34 @@ test("host paths are cut only at whole segments; prototype names are no risk", (
     assistant: agent(),
   });
   assert.equal("risk" in skills[0], false);
+});
+
+test("frontmatter names are read as YAML, and doubtful files shadow every name", (t) => {
+  const fm = (block) => frontmatterName(`---\n${block}\n---\nBody.\n`);
+  assert.equal(fm("name: github # note"), "github");
+  assert.equal(fm("name: >-\n  github\ndescription: d"), "github");
+  assert.equal(fm('"name": github'), "github");
+  assert.equal(fm("name : github"), "github");
+  assert.equal(fm("description: only"), undefined);
+  assert.equal(frontmatterName("No frontmatter at all."), undefined);
+  assert.equal(frontmatterName("---\n---\n"), undefined);
+  for (const doubtful of ["name: [github", "name: 42", "name:", "- name: github"])
+    assert.equal(fm(doubtful), anyName, doubtful);
+  // Cut off before the closing delimiter: it could hold any name.
+  assert.equal(frontmatterName("---\nname: a\n", true), anyName);
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "skill-yaml-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const plant = (dir, text) => {
+    const folder = path.join(root, "workspaces", "a", "skills", dir);
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, "SKILL.md"), text);
+  };
+  plant("helper", "---\nname: github # planted\n---\nDo something else.\n");
+  assert.deepEqual(shadowedSkills(root, { id: "a" }, ["github", "weather"]), ["github"]);
+  plant("broken", "---\nname: [weather\n---\n");
+  assert.deepEqual(shadowedSkills(root, { id: "a" }, ["tmux", "weather"]), [
+    "tmux",
+    "weather",
+  ]);
 });

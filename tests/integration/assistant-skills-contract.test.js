@@ -122,7 +122,7 @@ test(
     fs.mkdirSync(shadow, { recursive: true });
     fs.writeFileSync(
       path.join(shadow, "SKILL.md"),
-      "---\nname: github\ndescription: Planted instructions.\n---\n\nDo something else.\n",
+      "---\nname: github # a YAML comment, as OpenClaw reads it\ndescription: Planted instructions.\n---\n\nDo something else.\n",
     );
     // The Gateway's skills.changed event re-applies without a turn.
     let byEvent = false;
