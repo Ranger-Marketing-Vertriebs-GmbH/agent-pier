@@ -1,65 +1,74 @@
 # AgentPier
 
-**Your coding CLIs, connected — from desktop to mobile.**
+**Your coding CLIs and personal agents, on your own machine.**
 
-AgentPier is a self-hosted workspace for Codex, Claude Code and OpenCode. Use their
-native terminals, continue conversations from your phone, and run implementation,
-review and verification through reusable pipelines.
+Self-hosted workspace for coding CLIs (Codex, Claude Code, OpenCode) and persistent
+personal agents. Native terminals and chat on desktop and phone, reviewed pipelines,
+and agents that work as a team.
 
-[Deutsch](README.de.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) ·
-[Apache-2.0](LICENSE)
+[Deutsch](README.de.md) · [Docs index](docs/README.md) ·
+[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [License](LICENSE)
 
-## Why AgentPier?
+![AgentPier with an agent chat, a team member and coding sessions in the sidebar](docs/screenshots/agentpier-agent-chat-desktop.png)
 
-- **Pipelines with review:** reusable CLI profiles, isolated Git worktrees,
-  bounded review loops, automated checks, human approval, diffs and artifacts.
-- **Native CLI sessions:** real tmux-backed terminals with the CLI's own login,
-  models and supported permission prompts. Chat messages enter that same session.
-- **Mobile chat that recovers:** immediate delivery status, persistent drafts,
-  reconnecting terminals and incremental history updates when you return.
-- **Files and images:** drag files into desktop chat or terminal, upload, preview
-  and retry individual files; recover
-  interrupted uploads after a reload without automatically sending them again.
-- **File explorer:** browse host or project files, edit text, transfer folders and
-  recover interrupted copy, move, upload and Trash operations.
-- **Multiple accounts and providers:** separate credentials, host-scoped GitHub
-  access, and shared CLI skills, MCP integrations and plugins.
-- **Reload and resume:** restart a coding CLI with refreshed integrations while
-  keeping its exact conversation, session identity and attachments.
-- **Session SSH access:** name and reuse SSH keys across hosts, and assign accesses
-  to coding sessions through scoped MCP tools with pinned host keys.
-- **AgentBus:** bundled coordination between participating coding sessions in
-  the same project.
+<img src="docs/screenshots/agentpier-agent-chat-phone.png" alt="The same agent chat on a phone" width="260">
 
-![Pipeline builder with synthetic example data](docs/screenshots/agentpier-pipelines-builder-desktop.png)
+## What you get
 
-## Quick start
+- **Native CLI sessions:** real tmux-backed terminals with each CLI's own login,
+  models and prompts, plus a chat view that recovers on the phone
+  ([reload and resume](docs/session-reload.md), [mobile delivery](docs/mobile-delivery.md)).
+- **Pipelines with review:** reusable profiles, isolated Git worktrees, bounded
+  review loops, checks and human approval ([pipelines](docs/pipelines.md)).
+- **Agents and teams:** persistent agents whose leads ask and delegate to their
+  members, with @-mentions, Telegram, skills, routines, check-ins and attachments
+  ([agents](docs/agents.md)).
+- **Central MCP servers:** add a server once and bind it to agents and to your coding
+  CLIs, with OAuth sign-in from AgentPier ([MCP](docs/mcp.md)).
+- **Accounts hub:** native CLI accounts, provider connections, ChatGPT for agents and
+  agent services in one place ([providers](docs/providers.md)).
+- **Files and knowledge:** a file explorer, private artifacts, shared project memory
+  and AgentBus between sessions ([files](docs/file-explorer.md),
+  [artifacts](docs/artifacts.md), [memory](docs/memory.md),
+  [AgentBus](docs/agentbus-integration.md)).
+- **Phone-first:** install as an app, push notifications, and delivery and upload
+  recovery ([notifications](docs/notifications.md), [mobile recovery](docs/mobile-recovery.md)).
+- **Operations:** backups, updates with Stable and Preview channels, and an activity
+  log ([backups](docs/backups.md), [release channels](docs/release-channels.md)).
 
-### Install on macOS
+## Requirements
 
-Requires macOS 14+ (Apple Silicon or Intel). Available after the installer release
-and Homebrew tap are published.
+- macOS 14 or later (Apple Silicon or Intel), or Linux on x64 or arm64.
+- Node.js 22.13 or later (bundled in release packages), Git and tmux.
+- Optional: Tailscale for remote access, and a Chromium-based browser for the agents'
+  browser tool.
+- At least one coding CLI or model provider. Provider accounts and their costs are
+  your own.
 
-**Install script** — installs prerequisites and the login service:
+## Install
+
+**macOS, install script.** Installs prerequisites and the login service:
 
 ```sh
 (agentpier_tmp=$(mktemp -d) && trap 'rm -rf "$agentpier_tmp"' EXIT && curl --fail --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/latest/download/install-agentpier.sh -o "$agentpier_tmp/install.sh" && /bin/sh "$agentpier_tmp/install.sh")
 ```
 
-**Homebrew** — if Homebrew is already installed:
+**macOS, Homebrew:**
 
 ```sh
 brew install ranger-marketing-vertriebs-gmbh/tap/agentpier-installer && agentpier-install
 ```
 
-Then open **http://127.0.0.1:4380**. Application updates stay in AgentPier.
-[Options and details](docs/installation.md#one-command-installation-on-macos).
+Both open AgentPier at **http://127.0.0.1:4380**. Options:
+[installation guide](docs/installation.md#one-command-installation-on-macos).
 
-### Run from source (macOS / Linux)
+**Linux.** Download the `.aprelease` package for your architecture from the
+[releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases)
+and install it with `sh scripts/install.sh --archive <package> --service` from a
+checkout. See the [Linux guide](docs/linux.md) and the
+[exact commands](docs/operations.md#installer-and-exact-commands).
 
-Use macOS or Linux with **Node.js 22.13+**, **Git** and **tmux**. Install at least
-one supported coding CLI, or use AgentPier's CLI installer after starting it.
-Provider accounts and any associated usage costs remain your responsibility.
+**From source (macOS or Linux):**
 
 ```sh
 git clone https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier.git
@@ -69,77 +78,71 @@ npm run build
 npm start
 ```
 
-Open **http://127.0.0.1:4380** and create the initial user. Subsequent visits require
-login. Setup is available through configured permitted network access as well;
-it is not restricted to the local computer. Complete initial setup before sharing
-access. See [login](docs/login.md) and [remote access](docs/remote-access.md), which
-covers Tailscale Serve and the network mode without Tailscale that is protected
-only by the login.
+## First steps
 
-Choose a CLI, account and project folder, then start a session. The native terminal
-handles CLI login and menus; the chat view shows saved conversation history.
-Choose German or English under **Settings → Language**.
+1. Open **http://127.0.0.1:4380** and create the workspace user. Later visits need the
+   [login](docs/login.md). Finish this before you share access.
+2. Open **Accounts** from the sidebar **Menu**: sign in to a coding CLI under
+   **Native CLI accounts**, or add a provider connection under **Model access**.
+   Missing CLIs can be installed from the overview.
+3. Choose **New session**, pick a CLI, an account and a project folder, and start.
+   The native terminal handles CLI logins and menus; the chat shows the saved
+   conversation.
+4. Optional: switch on agents under **Settings → Workspace → Agents → Enable agents**
+   and create one under **Agents** ([agents guide](docs/agents.md)).
 
-Stopping the web server leaves native CLI sessions running. Stop a session in the
-interface when you want to terminate that CLI process.
+Choose German or English under **Settings → Workspace → General → Language**.
+Stopping the web server leaves CLI sessions running; stop a session in the interface
+to end its CLI process.
 
-## From one session to a reviewed pipeline
+## Update
 
-Register a project, define profiles for implementation and review, and choose a
-pipeline template. Each run uses its own Git worktree. Checks and review feedback
-can send a stage through a bounded repair loop; approval and cleanup are deliberate
-actions. Open the stages' normal chat or terminal views to inspect their work.
+Installed versions update under **Settings → Operations → Updates**, on the
+**Stable** or **Preview** channel ([release channels](docs/release-channels.md)). A
+failed start returns to the previous version. Coding CLIs update from the overview
+([CLI updates](docs/cli-updates.md)). A source checkout updates with `git pull`,
+`npm ci` and `npm run build` ([updating](docs/installation.md#6-updating)).
 
-Read the [pipeline guide](docs/pipelines.md) for lifecycle and recovery details.
+> **Upgrading from 1.x**
+>
+> - Backups made by 2.0 cannot be restored on 1.x. Take a backup before updating if
+>   you might roll back.
+> - Sign in again once to OAuth MCP servers used from managed Codex accounts.
+> - Lead agents now ask and instruct their members without an approval prompt.
+> - Settings moved into the Workspace, Access and Operations tabs; old links still work.
+> - Backups copy CLI profiles by allowlist, include CLI histories only with a
+>   passphrase, and restored hook scripts need `chmod +x` again.
+>
+> Details: [Upgrading from 1.x](docs/installation.md#upgrading-from-1x).
 
-## Installation and operation
+## Guides
 
-| Task                                              | Guide                                      |
-| ------------------------------------------------- | ------------------------------------------ |
-| macOS / Mac mini installation                     | [Installation](docs/installation.md)       |
-| Linux and systemd                                 | [Linux](docs/linux.md)                     |
-| Private remote access (Tailscale or network mode) | [Remote access](docs/remote-access.md)     |
-| Reload and resume                                 | [Session reload](docs/session-reload.md)   |
-| SSH server accesses                               | [SSH access](docs/ssh-access.md)           |
-| Optional per-session nono sandbox                 | [Sandboxing](docs/sandbox.md)              |
-| Login and user recovery                           | [Login](docs/login.md)                     |
-| Delivery status and draft recovery                | [Mobile delivery](docs/mobile-delivery.md) |
-| Terminal, chat and upload recovery                | [Mobile recovery](docs/mobile-recovery.md) |
-| File browsing, editing and operation recovery     | [File Explorer](docs/file-explorer.md)     |
-| Backups, release packages and updates             | [Operations](docs/operations.md)           |
-| All features, in German                           | [German guide](README.de.md)               |
+The [docs index](docs/README.md) lists every guide.
 
-Versioned packages include their own Node runtime. Source installation remains
-available using the commands above. Follow the release and installation guides
-for available platforms and explicit service setup.
+| Area    | Guides                                                                                                                                                                                                                      |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Use     | [Providers](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Files](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Notifications](docs/notifications.md) |
+| Agents  | [Agents](docs/agents.md) · [Workflows](docs/assistant-workflows.md) · [Model connections](docs/assistant-model-connections.md) · [Runtime updates](docs/assistant-runtime-updates.md)                                       |
+| Operate | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Remote access](docs/remote-access.md) · [Backups](docs/backups.md) · [Operations](docs/operations.md) · [Sandbox](docs/sandbox.md)                                |
+| Develop | [Architecture](docs/architecture.md) · [Settings pattern](docs/settings-pattern.md) · [Testing](docs/testing.md) · [Frontend](web/README.md) · [Contributing](CONTRIBUTING.md)                                              |
 
-## Data and boundaries
+## Data and security boundaries
 
-AgentPier runs on your machine. Runtime data defaults to `.data/` and includes
-credentials, account profiles, session metadata and saved conversations. These
-files are excluded from Git and use private filesystem permissions; they are not
-automatically encrypted at rest.
+AgentPier is a trusted personal workspace, not an isolation boundary between users.
+Its data lives in `.data/` for a source checkout and in
+`~/Library/Application Support/AgentPier` for a macOS installation. The data holds
+credentials, profiles, session metadata and conversations with private file
+permissions, but is not encrypted at rest. The login protects the web workspace;
+[remote access](docs/remote-access.md) explains Tailscale Serve and the network mode.
 
-The login protects the web workspace. Native CLIs still run as the server's OS
-user, and their own permissions determine what they may access. Treat AgentPier
-as a trusted personal workspace, not as an isolation boundary for mutually
-untrusted users. Provider requests still go to the services configured in the CLI.
+Coding CLIs and agents run as your operating-system user. The optional
+[nono sandbox](docs/sandbox.md) confines CLI sessions only, not agents. An agent with
+shell access works with your logins, files and keys; local MCP servers run commands
+on the host; an agent's own Telegram bot answers the people you allow; and a lead
+agent's questions and tasks run on its members without approval. See
+[SECURITY.md](SECURITY.md).
 
-A session may opt in to running its coding CLI inside an operating-system
-sandbox provided by [nono](https://nono.sh). That confines the CLI against
-accidental access outside what it needs, but the sandboxed session still grants
-read-write access to the specific parts of the AgentPier data directory its active
-integrations need (a managed account's own credentials, project memory, AgentBus),
-plus read access to AgentPier's own code, so it is not a boundary against a hostile
-CLI. See [the sandboxing guide](docs/sandbox.md).
-
-The chat reader reflects saved native history rather than character-by-character
-terminal output. Supported model menus, tasks and approval prompts depend on the
-installed CLI version. The native terminal remains available when a structured
-integration cannot represent a prompt. Receipt status confirms handoff to the CLI;
-it does not claim that the model has already started processing the message.
-
-## Development and contributions
+## Development
 
 ```sh
 npm ci
