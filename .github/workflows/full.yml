@@ -172,6 +172,9 @@ jobs:
   assistant-runtime:
     name: full assistant runtime
     uses: ./.github/workflows/assistant-runtime.yml
+  mcp-toolchains:
+    name: MCP toolchains
+    uses: ./.github/workflows/mcp-toolchains.yml
   # One result for callers such as release.yml: every job above passed.
   result:
     name: full suite
@@ -184,6 +187,7 @@ jobs:
         chromium,
         webkit,
         assistant-runtime,
+        mcp-toolchains,
       ]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest

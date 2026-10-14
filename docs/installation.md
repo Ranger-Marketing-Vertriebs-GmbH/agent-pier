@@ -348,6 +348,22 @@ For isolated diagnostics, the same installer is available as
 `node scripts/install-assistant-runtime.mjs --data-dir /absolute/disposable/path`.
 This installs the runtime only; it does not enable or start a service.
 
+### Toolchains for MCP server packages
+
+AgentPier installs MCP server packages from npm and PyPI with its own pinned
+toolchains under the data directory's `toolchains/` directory: Node 26.7.0 with npm
+11.19.0, uv 0.12.21 and CPython 3.14.7 (python-build-standalone 20260929). They are
+separate from the agents' OpenClaw runtime and need no agents. Every archive is
+checked against a SHA-256 pinned in AgentPier before it is unpacked; CPython is
+installed by the pinned uv only from the archive AgentPier verified. Nothing is
+installed globally, and your own npm, pip or uv configuration is never read.
+
+The installer provisions both toolchains; a failed download never fails the
+installation (the result reports `toolchains.<kind>.status: "failed"` with a code),
+and the first package install retries. After an AgentPier update with new pins, the
+new toolchains are prepared in the background. Supported: macOS and Linux (glibc) on
+arm64 and x64; other hosts report `MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE`.
+
 ### Assistant qualification in a source checkout
 
 The optional assistant service is configured under **Settings → Workspace → Agents**;
