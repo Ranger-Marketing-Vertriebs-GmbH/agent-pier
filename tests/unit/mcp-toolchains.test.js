@@ -294,3 +294,25 @@ test("an install lock held elsewhere reports MCP_PACKAGE_BUSY", async (t) => {
     again();
   }
 });
+
+test("a ready toolchain is returned while another kind is installing", async (t) => {
+  const f = toolchainFixture(t);
+  const node = await ensureToolchain("node", options(f));
+  let open;
+  const gate = new Promise((resolve) => (open = resolve));
+  const held = async (url) => {
+    if (url === f.manifest.uv.url(f.target)) await gate;
+    return f.download(url);
+  };
+  const python = ensureToolchain("python", options(f, { download: held }));
+  try {
+    const timeout = new Promise((resolve) => setTimeout(resolve, 1000, "waited"));
+    assert.deepEqual(
+      await Promise.race([ensureToolchain("node", options(f)), timeout]),
+      node,
+    );
+  } finally {
+    open();
+  }
+  assert.equal((await python).kind, "python");
+});
