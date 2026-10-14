@@ -20,6 +20,11 @@ for (const [n, patch] of JSON.parse(input).entries()) {
   const workspace = path.join(scratch, String(n));
   fs.mkdirSync(path.join(workspace, "notes"), { recursive: true });
   fs.writeFileSync(path.join(workspace, "notes/existing.md"), "a\n");
+  // Instruction files exist, so updates, deletes and moves onto them can apply;
+  // a link to the workspace itself reaches them under another name.
+  fs.writeFileSync(path.join(workspace, "AGENTS.md"), "a\n");
+  fs.writeFileSync(path.join(workspace, "SOUL.md"), "a\n");
+  fs.symlinkSync(".", path.join(workspace, "selflink"));
   try {
     const { summary } = await applyPatch(patch, {
       cwd: workspace,

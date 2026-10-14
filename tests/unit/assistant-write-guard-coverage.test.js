@@ -1,4 +1,5 @@
 import test from "node:test";
+import { randomInt } from "node:crypto";
 import assert from "node:assert/strict";
 import {
   profileTools,
@@ -144,11 +145,17 @@ test("a patch with a foreign line terminator, an unknown header or an ambiguous 
 });
 
 test("whatever a fuzzed patch names, no line separator reaches a checked path", () => {
-  for (const input of patchCases(2000, 7)) {
+  // A new seed each run; a failure names it (AGENTPIER_PATCH_FUZZ_SEED replays it).
+  const seed = Number(process.env.AGENTPIER_PATCH_FUZZ_SEED) || randomInt(1, 2 ** 31);
+  for (const input of patchCases(2000, seed)) {
     const paths = patchPaths(input);
     if (!paths) continue;
     for (const target of paths)
-      assert.doesNotMatch(target, /[\r\n\u2028\u2029\u0085\v\f]/, JSON.stringify(input));
+      assert.doesNotMatch(
+        target,
+        /[\r\n\u2028\u2029\u0085\v\f]/,
+        `seed ${seed}: ${JSON.stringify(input)}`,
+      );
   }
 });
 

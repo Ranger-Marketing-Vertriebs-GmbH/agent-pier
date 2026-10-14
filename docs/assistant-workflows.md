@@ -113,8 +113,8 @@ conversation"), and those may include forwarded Telegram text, member results or
 answers built from web content. A run with write or shell rights may therefore act
 on instructions planted there. An owner chat turn sees the same history with the
 same rights; the difference is that nobody watches a routine run as it happens.
-Owners who switch on shell "Full access" or file writes for an agent with routines
-should keep that in mind; shell "Approval" still asks before every command.
+Owners who give an agent with routines shell "Full access" or memory (which brings
+file writes) should keep that in mind; shell "Approval" still asks before every command.
 
 A routine run never gets the reminder and routine tools (no self-scheduling).
 Known limitation: it does not get the team and workspace tools either, so it
