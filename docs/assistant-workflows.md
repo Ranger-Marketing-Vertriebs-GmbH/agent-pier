@@ -107,6 +107,15 @@ limits as an owner turn. It is not owner text: it never makes a delegated task
 writable (owner proof stays owner-text only), and reminder and check-in runs,
 forwarded and tool-provided content still never write.
 
+Accepted risk: a routine run reads the paired conversation's recent turns
+(OpenClaw prepends up to ten short user and assistant lines as "Recent
+conversation"), and those may include forwarded Telegram text, member results or
+answers built from web content. A run with write or shell rights may therefore act
+on instructions planted there. An owner chat turn sees the same history with the
+same rights; the difference is that nobody watches a routine run as it happens.
+Owners who switch on shell "Full access" or file writes for an agent with routines
+should keep that in mind; shell "Approval" still asks before every command.
+
 A routine run never gets the reminder and routine tools (no self-scheduling).
 Known limitation: it does not get the team and workspace tools either, so it
 cannot ask or delegate to members, start coding jobs or write project knowledge.

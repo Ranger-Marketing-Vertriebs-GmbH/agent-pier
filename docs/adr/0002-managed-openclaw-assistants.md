@@ -419,7 +419,8 @@ members never receive memory-write, reminder or routine tools.
 
 Native OpenClaw cron executes saved-prompt routines and manual/coding-completed
 events with the agent's own chat tools, including writes to its own workspace as a
-distinct routine origin, minus scheduling, team and workspace tools (a scheduled run
+distinct routine origin (a deliberate widening of the owner-only write rule: the
+owner configured the routine as standing work), minus scheduling, team and workspace tools (a scheduled run
 is never an owner turn and cannot delegate), and commits their results into the
 paired chat's conversation; reminders run without tools. AgentPier stores delivery/event identities and approval
 records, not a second clock or knowledge index. Managed updates use a quiescent

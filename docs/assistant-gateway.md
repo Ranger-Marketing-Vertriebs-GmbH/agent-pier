@@ -229,9 +229,14 @@ for the implementation and remaining native platform/version qualification.
 
 ## Security boundaries
 
-- **Owner turns only write natively.** A turn that is forwarded, scheduled,
-  internal or made by a team member receives no native write tools (`write`, `edit`)
-  and cannot change memory, reminders or routines. Forwarded Telegram text or voice is
+- **Only owner turns and a routine's own run write natively.** The write guard
+  covers every native file tool (`write`, `edit`, `apply_patch`). It admits the
+  owner's own turn, an owner-proven member task and, as a deliberate widening of the
+  owner-only rule, the run of a routine the owner configured for that agent
+  (`TeamBridge.routineWrite`, see [workflows](assistant-workflows.md)). A turn that is
+  forwarded, internal, made by a team member without owner proof, or a reminder or
+  check-in run, cannot change files, and no turn but the owner's changes memory
+  settings, reminders or routines. Forwarded Telegram text or voice is
   quoted data, never authority. Plain-language team requests follow the rule in
   [Visible teams](#visible-teams-operation-and-recovery).
 - **Bootstrap and skills protection.** The files OpenClaw loads into every prompt
@@ -665,7 +670,7 @@ A lead reaches its own members without the owner relaying anything
   asks the owner before every command of such a turn (exec approvals do not depend
   on who started the turn), and an agent with its own Telegram bot for other people
   should only lead members whose shell and servers the owner accepts for that.
-- **Files.** Questions never write. A task may use `write`/`edit` in the member's
+- **Files.** Questions never write. A task may use `write`/`edit`/`apply_patch` in the member's
   own workspace only when the owner explicitly asked for it in this very turn
   (AgentPier chat or Telegram, not forwarded). The tool's quote must be a
   whole-word, verbatim excerpt of that message and must:
