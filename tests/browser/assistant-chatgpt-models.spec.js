@@ -146,6 +146,16 @@ for (const [language, copy] of [
     expect(state.refreshes).toBe(0);
   });
 
+  test(`${language}: the connection select names the provider with the account`, async ({
+    page,
+  }) => {
+    await setup(page, { language });
+    await newAgent(page, copy);
+    await expect(page.getByLabel(copy.connection).locator("option:checked")).toHaveText(
+      "ChatGPT · Personal ChatGPT",
+    );
+  });
+
   test(`${language}: a list that cannot load shows the hint and free text, refresh loads it`, async ({
     page,
   }) => {

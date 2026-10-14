@@ -6,6 +6,7 @@ import { providerCopy } from "../../lib/i18n/messages/providers.js";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { assistantWorkflowCopy } from "../../lib/i18n/messages/assistant-workflows.js";
 import { assistantApi } from "./assistant-api.js";
+import { connectionLabel } from "./connection-label.js";
 import useAssistants from "./useAssistants.js";
 
 const CUSTOM = "\u0000custom";
@@ -120,7 +121,7 @@ export default function AssistantModelFields({
           <option value="">{copy.chooseConnection}</option>
           {models.map((m) => (
             <option key={m.id} value={m.id} disabled={!m.available}>
-              {m.name}
+              {connectionLabel(m)}
               {assistantWorkflowCopy.providerReasons[m.reason]
                 ? ` · ${assistantWorkflowCopy.providerReasons[m.reason]}`
                 : ""}

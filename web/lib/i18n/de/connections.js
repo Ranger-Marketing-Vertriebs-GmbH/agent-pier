@@ -13,6 +13,7 @@ export const connectionCopy = {
   legacyHelp:
     "Diese ältere Anbieterbindung bleibt bearbeitbar. Neue gemeinsame API-Zugänge verwaltest du unter „Zentrale Provider-Zugänge“.",
   providerNames: {
+    "openai-chatgpt": "ChatGPT",
     openrouter: "OpenRouter",
     zai: "Z.ai API",
     "zai-coding-plan": "Z.ai Coding Plan",
