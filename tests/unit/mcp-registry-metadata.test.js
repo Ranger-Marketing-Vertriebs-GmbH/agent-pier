@@ -51,6 +51,41 @@ test("versions are newest first with prerelease and deprecated markers", () => {
   });
 });
 
+test("versions without a publish time sort last and ties use semver order", () => {
+  const order = npmVersions({
+    time: {
+      "1.9.0": "2026-02-01T00:00:00.000Z",
+      "1.10.0": "2026-02-01T00:00:00.000Z",
+      "1.10.0-rc.2": "2026-02-01T00:00:00.000Z",
+      "1.10.0-rc.10": "2026-02-01T00:00:00.000Z",
+    },
+    versions: {
+      "0.1.0": {},
+      "1.9.0": {},
+      "1.10.0": {},
+      "1.10.0-rc.2": {},
+      "1.10.0-rc.10": {},
+      "0.2.0": {},
+      "1.0.0+build-1": {},
+    },
+  }).versions;
+  assert.deepEqual(
+    order.map((entry) => entry.version),
+    ["1.10.0", "1.10.0-rc.10", "1.10.0-rc.2", "1.9.0", "1.0.0+build-1", "0.2.0", "0.1.0"],
+  );
+  assert.deepEqual(
+    order.map((entry) => entry.publishedAt === null),
+    [false, false, false, false, true, true, true],
+  );
+});
+
+test("build metadata with a hyphen is not a prerelease", () => {
+  const [entry] = npmVersions({ versions: { "1.0.0+build-1": {} } }).versions;
+  assert.equal(entry.prerelease, false);
+  const [pre] = npmVersions({ versions: { "1.0.0-beta+build": {} } }).versions;
+  assert.equal(pre.prerelease, true);
+});
+
 test("version info carries integrity, bin and install scripts", () => {
   assert.deepEqual(npmVersionInfo(packument, "1.1.0"), {
     integrity: "sha512-b",

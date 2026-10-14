@@ -25,20 +25,58 @@ export async function fetchRegistryJson(url, { download = defaultDownload } = {}
 export const npmPackument = (name, { registry = npmRegistry, download } = {}) =>
   fetchRegistryJson(`${registry}/${name.replace("/", "%2F")}`, { download });
 
+const isPrerelease = (version) => /-/.test(version.split("+")[0]);
+
+function identifierCompare(a, b) {
+  const numA = /^\d+$/.test(a);
+  const numB = /^\d+$/.test(b);
+  if (numA && numB) return Number(a) - Number(b);
+  if (numA !== numB) return numA ? -1 : 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** Ascending semver order; build metadata is ignored. */
+export function compareSemver(a, b) {
+  const [coreA, ...preA] = a.split("+")[0].split("-");
+  const [coreB, ...preB] = b.split("+")[0].split("-");
+  const partsA = coreA.split(".");
+  const partsB = coreB.split(".");
+  for (let index = 0; index < Math.max(partsA.length, partsB.length); index += 1) {
+    const diff = identifierCompare(partsA[index] ?? "0", partsB[index] ?? "0");
+    if (diff) return diff;
+  }
+  const tagA = preA.join("-");
+  const tagB = preB.join("-");
+  if (!tagA || !tagB) return (tagA ? -1 : 0) + (tagB ? 1 : 0);
+  const idsA = tagA.split(".");
+  const idsB = tagB.split(".");
+  for (let index = 0; index < Math.min(idsA.length, idsB.length); index += 1) {
+    const diff = identifierCompare(idsA[index], idsB[index]);
+    if (diff) return diff;
+  }
+  return idsA.length - idsB.length;
+}
+
+function newestFirst(a, b) {
+  if (a.publishedAt !== b.publishedAt) {
+    if (a.publishedAt === null) return 1;
+    if (b.publishedAt === null) return -1;
+    const byTime = b.publishedAt.localeCompare(a.publishedAt);
+    if (byTime) return byTime;
+  }
+  return compareSemver(b.version, a.version) || b.version.localeCompare(a.version);
+}
+
 export function npmVersions(packument) {
   const time = packument?.time || {};
   const versions = Object.entries(packument?.versions || {})
     .map(([version, info]) => ({
       version,
       publishedAt: typeof time[version] === "string" ? time[version] : null,
-      prerelease: version.includes("-"),
+      prerelease: isPrerelease(version),
       deprecated: !!info?.deprecated,
     }))
-    .sort(
-      (a, b) =>
-        String(b.publishedAt).localeCompare(String(a.publishedAt)) ||
-        b.version.localeCompare(a.version),
-    );
+    .sort(newestFirst);
   return { latest: packument?.["dist-tags"]?.latest ?? null, versions };
 }
 
