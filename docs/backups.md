@@ -1,6 +1,6 @@
 # Host backups
 
-Settings → Backups creates a host backup of the data directory and restores one into
+Settings → Operations → Backups creates a host backup of the data directory and restores one into
 a new, separate data directory. The running instance never switches its data
 directory. `node scripts/operations.mjs backup|inspect|restore` offers the same
 operations on the command line.

@@ -6,7 +6,7 @@ Grants limit the MCP API. They do not provide OS-level isolation from the truste
 
 ## Prepare the connection
 
-Open **Settings → MCP & Zugriffe** to copy the actual server address. For use on the same machine, HTTP is allowed only for `localhost`, `127.0.0.1` or `[::1]` with an explicit fixed port. The server supplies `http://127.0.0.1:<actual-port>/mcp` when no remote origin is configured; do not copy that address to another computer.
+Open **Settings → Access → MCP & access** to copy the actual server address. For use on the same machine, HTTP is allowed only for `localhost`, `127.0.0.1` or `[::1]` with an explicit fixed port. The server supplies `http://127.0.0.1:<actual-port>/mcp` when no remote origin is configured; do not copy that address to another computer.
 
 For a CLI on another computer, configure [private HTTPS access](remote-access.md) on the AgentPier host. Its setup script records the actual `remoteUrl`. A configured HTTPS address remains HTTPS, and an invalid remote configuration is reported rather than silently downgraded to local HTTP. Other HTTP hostnames, LAN addresses and tailnet addresses are not offered as MCP setup URLs.
 

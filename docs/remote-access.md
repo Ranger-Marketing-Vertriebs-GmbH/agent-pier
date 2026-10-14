@@ -85,7 +85,7 @@ Dieser Warntext erscheint sowohl in der Bestätigung auf der Einstellungsseite a
 
 ### Einschalten über die Einstellungen
 
-1. Unter **Einstellungen → Fernzugriff** öffnet sich die Übersicht mit den drei Karten **Lokal**, **Tailscale** und **Netzwerk**.
+1. Unter **Einstellungen → Zugriff → Fernzugriff** öffnet sich die Übersicht mit den drei Karten **Lokal**, **Tailscale** und **Netzwerk**.
 2. In der Karte **Netzwerk** den Schalter **Netzwerkzugriff** aktivieren.
 3. Der Bestätigungsdialog **„Klartext-HTTP einschalten?“** zeigt den obigen Warntext. Erst **„Trotzdem einschalten“** aktiviert den Entwurf; **„Abbrechen“** verwirft ihn.
 4. Optional die **Bind-Adresse** wählen (alle Schnittstellen `0.0.0.0` oder alle Schnittstellen inklusive IPv6 `::`) und unter **Zusätzliche Hosts** Namen oder IPs ohne Port hinzufügen, etwa einen eigenen DNS-Namen oder den Host eines eigenen Reverse-Proxys. Erkannte Adressen sind automatisch erlaubt und müssen nicht eingetragen werden.

@@ -8,7 +8,7 @@ and without delaying the start. A first installation selects its initial runtime
 subsequent starts use the existing selection. No upstream updater
 or arbitrary version input is exposed.
 
-Settings > Agents > Agent service shows the current and target versions. Preparing the update
+Settings → Workspace → Agents → Agent service shows the current and target versions. Preparing the update
 does not interrupt work. Activation enters maintenance, checks assistant/channel/
 scheduled work, stops the owned Gateway, and creates a private snapshot before
 switching the selection. Authenticated readiness and read-only reconciliation must
@@ -57,7 +57,7 @@ any snapshot; it is generated again on each start. Central accounts and coding
 sessions are outside this restore boundary. Backups must not be attached to
 diagnostic reports.
 
-Host backups (Settings > Backups) include `assistants/` except `logs/`, `runtimes/`,
+Host backups (Settings → Operations → Backups) include `assistants/` except `logs/`, `runtimes/`,
 `npm-cache/`, `tmp/`, `backups/`, `tls/`, `backup-keys/`, the Gateway ownership
 record, the reminder webhook secret and the host-bound runtime state (`runtime.json`,
 `candidate.json`, `update.json`, `runtime-maintenance.json`). A host backup is refused

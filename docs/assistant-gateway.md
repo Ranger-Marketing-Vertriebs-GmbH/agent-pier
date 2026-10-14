@@ -489,7 +489,7 @@ not send to Telegram. Input is persisted before polling acknowledgement. Stable
 request identities survive duplicate updates and restart. Telegram retains unread
 updates for at most 24 hours; that provider limit still applies while disconnected.
 
-Configure Deepgram under **Accounts → Speech recognition**. The key stays in a
+Configure Deepgram under **Accounts → Services for agents → Speech recognition**. The key stays in a
 private backend store; model and language are shared by all assistant voice inputs.
 The adapter uses direct HTTP, smart formatting and model-specific proper-name hints,
 following the existing pattern in the user-owned Mimisbrunnr project. Voice notes
@@ -872,7 +872,7 @@ startup configuration.
 
 | Switch             | Grants       | What it does                                                                                    |
 | ------------------ | ------------ | ----------------------------------------------------------------------------------------------- |
-| **Search the web** | `web_search` | Searches with the provider chosen under **Accounts → Web search**                               |
+| **Search the web** | `web_search` | Searches with the provider chosen under **Accounts → Services for agents → Web search**         |
 | **Read web pages** | `web_fetch`  | Fetches a public address and reads its text; private, loopback and internal targets are refused |
 | **Use a browser**  | `browser`    | Drives a separate, headless browser profile owned by AgentPier                                  |
 | **Read images**    | `view_image` | Looks at images; needs a model that accepts images                                              |
@@ -913,7 +913,7 @@ configuration and then writes the stored overrides, so a reset override never
 survives in `openclaw.json`. Stored rows that are no longer allowed or valid are
 skipped and logged by path. Overrides apply only to the runtime version the allow
 list was qualified against; a rolled-back runtime starts with OpenClaw's defaults.
-The owner edits them under **Settings → Workspace → Agent service → Advanced**
+The owner edits them under **Settings → Workspace → Agents → Agent service → Advanced settings**
 (`GET`/`PUT /api/assistant-advanced-settings`, `advanced-config.js`). Labels and help
 are AgentPier's own German and English texts. A `hot` or `none` setting is patched into
 the running Gateway and stored only once OpenClaw accepted it; a `restart` setting
@@ -922,7 +922,7 @@ saved value applies at its next start.
 
 ### Search provider
 
-**Accounts → Web search** selects one provider for all agents:
+**Accounts → Services for agents → Web search** selects one provider for all agents:
 
 - **DuckDuckGo** (default) needs no key.
 - **Perplexity** uses an existing OpenRouter connection's key; searches are billed to
