@@ -15,8 +15,9 @@ This is a community-maintained project without a guaranteed response-time SLA.
 
 ## Supported versions
 
-Security fixes target the latest released version on the main development line.
-Older releases do not have a separate long-term support commitment. Update before
+Security fixes target the latest released version on the main development line,
+currently 2.x. After 2.0.0, the 1.x line receives no further fixes, including
+security fixes. Older releases do not have a separate long-term support commitment. Update before
 testing whether an issue is still present, when doing so is safe for your setup.
 
 ## Deployment model
