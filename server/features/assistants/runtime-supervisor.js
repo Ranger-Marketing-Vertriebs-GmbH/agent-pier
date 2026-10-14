@@ -234,7 +234,7 @@ export class RuntimeSupervisor extends EventEmitter {
     const token = prepareRuntimeConfig(this.paths, port, teams, {
       maintenance: !!this.maintenance?.(),
       tls,
-      overrides: this.configOverrides?.() || [],
+      overrides: this.configOverrides?.(runtime.version) || [],
       webTools: teams?.webTools,
       shell,
       mcp: teams?.mcp,
