@@ -371,9 +371,9 @@ installs report `MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE`. Delete the affected folder 
 on next use.
 
 Once no packaged MCP server and no running install uses an older toolchain version,
-AgentPier removes its folder (at start, after each install and after a server is
-removed); the current pins always stay. How packages are installed:
-[MCP](mcp.md#installing-a-server-package).
+AgentPier removes its folder (at start, after each install, after a server is removed
+and after a server switches back to an own command); the current pins always stay.
+How packages are installed: [MCP](mcp.md#installing-a-server-package).
 
 ### Assistant qualification in a source checkout
 
