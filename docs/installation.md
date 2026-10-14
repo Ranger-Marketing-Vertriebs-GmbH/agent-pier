@@ -76,7 +76,7 @@ AgentPier version currently running.
 
 Coding CLIs can be updated independently of AgentPier releases under **Your tools → Update CLI**. See [CLI updates](cli-updates.md) for details and manual commands.
 
-The following sections describe running from a source checkout. For a versioned installation with immutable releases, a bundled Node runtime and a separate data directory, use the [release installer and exact commands](research/operations-portability.md#installer-and-exact-commands) instead. Download the `.aprelease` package for your platform from the [official GitHub releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases): `darwin` for macOS or `linux`, with `arm64` or `x64` matching your machine.
+The following sections describe running from a source checkout. For a versioned installation with immutable releases, a bundled Node runtime and a separate data directory, use the [release installer and exact commands](operations.md#installer-and-exact-commands) instead. Download the `.aprelease` package for your platform from the [official GitHub releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases): `darwin` for macOS or `linux`, with `arm64` or `x64` matching your machine.
 
 The [file explorer](file-explorer.md) uses the file permissions of the user running
 the web service. Versioned packages include Koffi and the matching native module;

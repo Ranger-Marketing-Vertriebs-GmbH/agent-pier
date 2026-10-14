@@ -49,7 +49,7 @@ Anhänge bleiben erhalten. [Wiederherstellung](docs/mobile-recovery.md). Der
 [Datei-Explorer](docs/file-explorer.md) verwaltet Host- und Projektdateien,
 Textbearbeitung, Übertragungen, Papierkorb und unterbrochene Dateioperationen.
 
-Die Anleitungen für den dauerhaften Betrieb stehen unter [Mac mini](docs/installation.md) und [Linux](docs/linux.md). Der [versionierte Installer](docs/research/operations-portability.md#installer-and-exact-commands) installiert ein passendes Release mit separatem Datenverzeichnis; Abhängigkeiten und Autostart benötigen die expliziten Optionen `--install-dependencies` und `--service`. Er bestätigt bei Dienstinstallation die gestartete Version per Healthcheck. Ein gebautes Release-Artefakt wird vorausgesetzt; eine bereits veröffentlichte Version ist damit nicht zugesichert.
+Die Anleitungen für den dauerhaften Betrieb stehen unter [Mac mini](docs/installation.md) und [Linux](docs/linux.md). Der [versionierte Installer](docs/operations.md#installer-and-exact-commands) installiert ein passendes Release mit separatem Datenverzeichnis; Abhängigkeiten und Autostart benötigen die expliziten Optionen `--install-dependencies` und `--service`. Er bestätigt bei Dienstinstallation die gestartete Version per Healthcheck. Ein gebautes Release-Artefakt wird vorausgesetzt; eine bereits veröffentlichte Version ist damit nicht zugesichert.
 
 ## Sitzungen und Chat
 
@@ -185,7 +185,7 @@ Unter **Einstellungen** findest du zusätzliche Bereiche mit eigenen URLs:
 - **Updates:** In einer versionierten Installation neue Releases prüfen, vorbereiten, aktivieren und zu kompatiblen früheren Versionen zurückkehren. Die Prüfung nach dem Neustart bestätigt die tatsächliche Version; native Sitzungen behalten ihre alten Hilfsprogramme.
 - **Aktivitätsprotokoll:** Dauerhafte Ereignisse nach Aktion, Ergebnis, Sitzung und Projekt filtern. Keine rohen Chat-Inhalte oder Schlüssel werden als Ereignisdetails gespeichert.
 
-[Backup, Restore, Installer und Release-Betrieb](docs/research/operations-portability.md) beschreiben die Formate und Befehle. [Fernzugriff](docs/remote-access.md) erklärt Tailscale Serve, eine separate AgentPier-Identität und den Netzwerkmodus ohne Tailscale, der nur durch die Anmeldung geschützt ist. Push auf einem iPhone benötigt eine unterstützte installierte Home-Screen-Web-App und die Gerätefreigabe.
+[Backup, Restore, Installer und Release-Betrieb](docs/operations.md) beschreiben die Formate und Befehle. [Fernzugriff](docs/remote-access.md) erklärt Tailscale Serve, eine separate AgentPier-Identität und den Netzwerkmodus ohne Tailscale, der nur durch die Anmeldung geschützt ist. Push auf einem iPhone benötigt eine unterstützte installierte Home-Screen-Web-App und die Gerätefreigabe.
 
 ## Daten und Dauerhaftigkeit
 
