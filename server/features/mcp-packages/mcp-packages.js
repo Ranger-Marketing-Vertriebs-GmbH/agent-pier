@@ -56,6 +56,8 @@ export class McpPackages {
     this.previews = new Map();
     // serverId → leading args stored before a running switch (package-install-job.js, activate()).
     this.switching = new Map();
+    // Servers whose detach is switching them to an own command right now.
+    this.detaching = new Set();
   }
   get cacheDir() {
     return path.join(packageRoot(this.dataDir), ".npm-cache");
@@ -204,8 +206,12 @@ export class McpPackages {
     const server = this.servers.get(id);
     if (server.transport !== "stdio" || this.isPackaged(id) || !record(source))
       throw invalid();
+    this.requireIdle(id);
     const confirmed = this.confirmedPreview(previewId, source, program ?? source.program);
     await beforeInstall?.();
+    // Another attach or a detach may have run while the owner's edits were saved.
+    this.requireIdle(id);
+    if (this.isPackaged(id)) throw packageProblem("MCP_PACKAGE_BUSY", 409);
     this.records.put(id, this.pendingRecord(confirmed));
     this.install(id, { ...confirmed, kind: "install" });
     return this.servers.get(id);
@@ -215,8 +221,20 @@ export class McpPackages {
     return runInstall(this, serverId, options);
   }
   /** Generated args stored in front of the owner's; 0 before the first install. */
+  /** Refuses while a job runs for `id` or a detach is switching it away. */
+  requireIdle(id) {
+    if (this.jobs.get(id)?.state === "running" || this.detaching.has(id))
+      throw packageProblem("MCP_PACKAGE_BUSY", 409);
+  }
+  /**
+   * Generated args stored in front of the owner's; 0 before the first install. While
+   * a switch runs, its count before the switch holds only until the switch commits
+   * (the revision moves on); then the ready record's count applies.
+   */
   storedLeading(id, row) {
-    if (this.switching.has(id)) return this.switching.get(id);
+    const switching = this.switching.get(id);
+    if (switching && this.servers.get(id).revision === switching.revision)
+      return switching.before;
     return row?.installId ? row.leadingArgs : 0;
   }
   prepareUpdate(id, input) {
@@ -232,16 +250,23 @@ export class McpPackages {
   }
   /** `update` switches the server to an own command first; then the record goes. */
   async detach(id, update) {
-    if (this.jobs.get(id)?.state === "running")
-      throw packageProblem("MCP_PACKAGE_BUSY", 409);
+    this.requireIdle(id);
     if (!this.isPackaged(id)) throw invalid();
-    await update?.();
-    this.records.remove(id);
+    // No install may start (and switch back) while the own command is being saved.
+    this.detaching.add(id);
+    try {
+      await update?.();
+      if (this.isPackaged(id)) this.records.remove(id);
+    } finally {
+      this.detaching.delete(id);
+    }
     return this.prune();
   }
   async updatePackage(id, { version, allowScripts, previewId, program } = {}) {
     const row = this.records.get(id);
     if (!row) throw invalid();
+    // Before the preview is taken: a busy server keeps it for a retry.
+    this.requireIdle(id);
     const confirmed = this.confirmedPreview(
       previewId,
       { registry: row.registry, name: row.name, version, allowScripts },
@@ -252,6 +277,7 @@ export class McpPackages {
   reinstall(id) {
     const row = this.records.get(id);
     if (!row) throw invalid();
+    this.requireIdle(id);
     const ref = packageRef(row);
     const preview = {
       ref,
@@ -282,6 +308,7 @@ export class McpPackages {
   start() {
     // A crash can leave preview resolutions behind; no preview survives a restart.
     try {
+      // Built by hand: packageRoot() would create the folder only to remove it.
       fs.rmSync(path.join(this.dataDir, "mcp-packages", "previews"), {
         recursive: true,
         force: true,

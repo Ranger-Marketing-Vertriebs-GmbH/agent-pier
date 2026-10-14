@@ -21,7 +21,7 @@ const packument = {
 };
 
 /** In-memory stand-ins for the server store, its package records and the changes. */
-function harness(t, { toolchainDir, failSwitch = false } = {}) {
+function harness(t, { toolchainDir, failSwitch = false, afterCommit, ciOutput } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-packages-unit-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const rows = new Map([
@@ -49,6 +49,7 @@ function harness(t, { toolchainDir, failSwitch = false } = {}) {
       switches.push({ patch, record: records.get(id) });
       if (failSwitch) throw Object.assign(Error("conflict"), { status: 500 });
       rows.set(id, { ...rows.get(id), ...patch, revision: rows.get(id).revision + 1 });
+      await afterCommit?.();
     },
   };
   const npmCalls = [];
@@ -64,6 +65,7 @@ function harness(t, { toolchainDir, failSwitch = false } = {}) {
         JSON.stringify({ version: "1.0.0" }),
       );
       fs.writeFileSync(path.join(dir, "index.js"), "");
+      return { stdout: ciOutput?.(cwd) ?? "", stderr: "" };
     }
     return { stdout: "", stderr: "" };
   };
@@ -90,6 +92,11 @@ const source = { registry: "npm", name: "x", version: "1.0.0" };
 const attach = async (service) => {
   const { previewId } = await service.preview(source);
   return service.attach("s1", { source, previewId });
+};
+const deferred = () => {
+  let resolve;
+  const promise = new Promise((done) => (resolve = done));
+  return { promise, resolve };
 };
 const installEntries = (dataDir) =>
   fs.readdirSync(path.join(dataDir, "mcp-packages", "installs"));
@@ -176,4 +183,110 @@ test("toolchain entries are folders under this data dir's toolchain root, by nam
   assert.equal(toolchainEntry("/data", root), null);
   assert.equal(toolchainEntry("/data", "/data"), null);
   assert.equal(toolchainEntry("/data", null), null);
+});
+
+test("a running detach refuses installs; afterwards the record is gone and no job ran", async (t) => {
+  const { service, records, npmCalls } = harness(t);
+  await attach(service);
+  await service.jobs.idle();
+  const ciRuns = npmCalls.filter((call) => call === "ci").length;
+  const held = deferred();
+  const detaching = service.detach("s1", () => held.promise);
+  assert.throws(() => service.reinstall("s1"), { code: "MCP_PACKAGE_BUSY" });
+  const { previewId } = await service.preview(source);
+  await assert.rejects(service.updatePackage("s1", { version: "1.0.0", previewId }), {
+    code: "MCP_PACKAGE_BUSY",
+  });
+  assert.ok(service.previews.has(previewId));
+  held.resolve();
+  await detaching;
+  await service.jobs.idle();
+  assert.equal(records.get("s1"), null);
+  assert.equal(service.jobs.get("s1").kind, "install");
+  assert.equal(npmCalls.filter((call) => call === "ci").length, ciRuns);
+});
+
+test("an owner edit with the switched revision keeps the generated args", async (t) => {
+  const reached = deferred();
+  const held = deferred();
+  const { service, rows } = harness(t, {
+    afterCommit: () => {
+      reached.resolve();
+      return held.promise;
+    },
+  });
+  await attach(service);
+  await reached.promise;
+  const program = rows.get("s1").args[0];
+  assert.match(program, /node_modules\/x\/index\.js$/);
+  const patch = service.prepareUpdate("s1", {
+    revision: rows.get("s1").revision,
+    args: ["--new"],
+  });
+  assert.deepEqual(patch.args, [program, "--new"]);
+  held.resolve();
+  await service.jobs.idle();
+});
+
+test("a busy server refuses before its preview is taken or a stage is made", async (t) => {
+  const reached = deferred();
+  const held = deferred();
+  const { dataDir, service } = harness(t, {
+    afterCommit: () => {
+      reached.resolve();
+      return held.promise;
+    },
+  });
+  await attach(service);
+  await reached.promise;
+  const before = installEntries(dataDir);
+  const { previewId } = await service.preview(source);
+  await assert.rejects(service.updatePackage("s1", { version: "1.0.0", previewId }), {
+    code: "MCP_PACKAGE_BUSY",
+  });
+  assert.throws(() => service.reinstall("s1"), { code: "MCP_PACKAGE_BUSY" });
+  assert.ok(service.previews.has(previewId));
+  assert.deepEqual(installEntries(dataDir), before);
+  held.resolve();
+  await service.jobs.idle();
+});
+
+test("concurrent attaches: the second is busy and keeps the first's record", async (t) => {
+  const { service, records } = harness(t);
+  const first = await service.preview(source);
+  const second = await service.preview({ ...source, allowScripts: true });
+  const gate = deferred();
+  const one = service.attach(
+    "s1",
+    { source, previewId: first.previewId },
+    () => gate.promise,
+  );
+  const two = service.attach(
+    "s1",
+    { source: { ...source, allowScripts: true }, previewId: second.previewId },
+    () => gate.promise,
+  );
+  gate.resolve();
+  await one;
+  await assert.rejects(two, { code: "MCP_PACKAGE_BUSY" });
+  assert.equal(records.get("s1").allowScripts, false);
+  assert.equal(service.jobs.get("s1").state, "running");
+  await service.jobs.idle();
+  assert.equal(records.get("s1").allowScripts, false);
+  assert.equal(records.get("s1").status, "ready");
+});
+
+test("the job log names no data or home path", async (t) => {
+  const home = os.homedir();
+  const { dataDir, service } = harness(t, {
+    ciOutput: (cwd) => `${cwd}\n${fs.realpathSync(cwd)}\n${home}/secret\n`,
+  });
+  await attach(service);
+  await service.jobs.idle();
+  const { log } = service.status("s1").job;
+  assert.ok(!log.includes(dataDir));
+  assert.ok(!log.includes(fs.realpathSync(dataDir)));
+  assert.ok(!log.includes(home));
+  assert.match(log, /<data>\/mcp-packages\/installs\/\.stage-/);
+  assert.match(log, /~\/secret/);
 });
