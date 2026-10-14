@@ -155,6 +155,16 @@ export async function createApplication(config) {
   server.once("listening", () =>
     stageToolchainsInBackground({ dataDir: config.dataDir }),
   );
+  // Marks installs a restart interrupted as failed and prunes in the background.
+  server.once("listening", () => {
+    try {
+      services.mcpPackages?.start();
+    } catch (error) {
+      console.error(
+        `AgentPier could not start MCP packages: ${error?.code || "unknown error"}`,
+      );
+    }
+  });
   server.once("listening", () => {
     const report = (error) =>
       console.error(

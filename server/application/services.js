@@ -30,6 +30,7 @@ import { ModelController } from "../features/models/model-controller.js";
 import { ExtensionsStore } from "../features/extensions/extension-store.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
+import { McpPackages } from "../features/mcp-packages/mcp-packages.js";
 import { CliMcpBindings } from "../features/mcp-servers/cli-bindings.js";
 import { CliOAuthStatus } from "../features/mcp-servers/cli-oauth-status.js";
 import { ToolInstaller } from "../features/tools/tool-installer.js";
@@ -204,6 +205,14 @@ export async function createServices(config) {
       // Every saved change is written into the bound CLIs at once.
       onSaved: async () => services.cliMcp?.reconcileAll(),
     });
+  // Packaged MCP servers (docs/mcp.md); started once AgentPier listens (app.js).
+  const mcpPackages =
+    mcpServers &&
+    new McpPackages({
+      dataDir: config.dataDir,
+      servers: mcpServers,
+      changes: mcpServerChanges,
+    });
   const cliMcp =
     mcpServers &&
     new CliMcpBindings({
@@ -312,6 +321,7 @@ export async function createServices(config) {
     extensions,
     mcpServers,
     mcpServerChanges,
+    mcpPackages,
     cliMcp,
     sharedProfiles,
     agency,

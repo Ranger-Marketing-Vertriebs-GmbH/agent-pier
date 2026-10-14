@@ -260,7 +260,8 @@ export class McpPackages {
     } finally {
       this.detaching.delete(id);
     }
-    return this.prune();
+    // Not awaited: toolchain pruning can queue behind a running toolchain install.
+    this.prune();
   }
   async updatePackage(id, { version, allowScripts, previewId, program } = {}) {
     const row = this.records.get(id);

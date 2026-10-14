@@ -16,6 +16,7 @@ const keys = {
   MCP_PACKAGE_INSTALL_FAILED: "installFailed",
   MCP_PACKAGE_PREVIEW_EXPIRED: "previewExpired",
   MCP_PACKAGE_BUSY: "busy",
+  MCP_PACKAGE_CONFIRMATION_REQUIRED: "confirmationRequired",
 };
 export const packageCodes = Object.keys(keys);
 
