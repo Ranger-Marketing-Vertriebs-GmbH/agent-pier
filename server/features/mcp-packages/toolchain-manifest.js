@@ -20,6 +20,8 @@ export const toolchainManifest = Object.freeze({
     version: runtimeManifest.nodeVersion,
     npmVersion: runtimeManifest.npmVersion,
     checksums: runtimeManifest.nodeChecksums,
+    url: (target) =>
+      `https://nodejs.org/dist/v${runtimeManifest.nodeVersion}/node-v${runtimeManifest.nodeVersion}-${target}.tar.gz`,
   },
   uv: {
     version: uvVersion,

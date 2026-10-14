@@ -69,7 +69,7 @@ export function toolchainFixture(t, { target = "darwin-arm64" } = {}) {
     },
   };
   const byUrl = new Map([
-    [`https://nodejs.org/dist/v${m.node.version}/${nodeName}.tar.gz`, bytes.node],
+    [m.node.url(target), bytes.node],
     [m.uv.url(target), bytes.uv],
     [m.python.url(target), bytes.python],
   ]);
