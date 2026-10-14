@@ -30,7 +30,7 @@ const disabledConfig = "agentpier-disabled";
 // pane. The comment swallows the operation git appends and names the cause in
 // git's "told us to quit" error. Other hosts keep the user's own git behaviour.
 const quitHelper =
-  "!echo quit=1 # AgentPier has no usable GitHub access for this host in this session";
+  "!echo quit=1 # AgentPier helper returned no credential for this host; see docs/github-agents.md";
 
 const tokenKeys = [
   "GH_TOKEN",
@@ -134,9 +134,9 @@ export class GithubCredentials {
     ensureDir(folder);
     const env = { ...launch.env };
     for (const key of tokenKeys) delete env[key];
-    // Without a selected connection AgentPier provides no GitHub access, so native
-    // gh keeps the user's own configuration, as git keeps the user's helpers.
-    if (selections.length) env.GH_CONFIG_DIR = folder;
+    // Always the session folder, even without a selected connection: an empty
+    // hosts.yml keeps native gh logged out instead of using the owner's login.
+    env.GH_CONFIG_DIR = folder;
     env.PATH = [
       ...(env.PATH || "").split(path.delimiter),
       path.join(this.dataDir, "clis/gh/bin"),

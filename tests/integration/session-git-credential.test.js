@@ -11,7 +11,8 @@ import { GithubCredentials } from "../../server/features/repositories/github-cre
 const helperEntry = fileURLToPath(
   new URL("../../server/github-credentials.js", import.meta.url),
 );
-const gitAvailable = !spawnSync("git", ["--version"]).error;
+const gitVersion = spawnSync("git", ["--version"], { encoding: "utf8" });
+const gitAvailable = !gitVersion.error;
 
 function setup(t) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-sgc-")));
@@ -70,11 +71,15 @@ test(
     const { repositories, prepare, fill, prompted } = setup(t);
     repositories.createCredential({ name: "A", host: "github.com", token: "fixture-a" });
     const prepared = await prepare("capabilities");
-    const result = fill(prepared.env);
-    assert.equal(result.error, undefined, "git credential fill must not hang");
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /^username=x-access-token$/m);
-    assert.match(result.stdout, /^password=fixture-a$/m);
+    // git >= 2.46 forwards the capability[] lines to the helper.
+    for (const host of ["github.com", "GitHub.com"]) {
+      const result = fill(prepared.env, host);
+      const context = `${gitVersion.stdout.trim()}: ${result.stderr}`;
+      assert.equal(result.error, undefined, "git credential fill must not hang");
+      assert.equal(result.status, 0, context);
+      assert.match(result.stdout, /^username=x-access-token$/m, context);
+      assert.match(result.stdout, /^password=fixture-a$/m, context);
+    }
     assert.equal(prompted(), "");
   },
 );
@@ -95,7 +100,7 @@ test(
     const result = fill(prepared.env);
     assert.equal(result.error, undefined, "git credential fill must not hang");
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /no usable GitHub access/);
+    assert.match(result.stderr, /AgentPier helper returned no credential for this host/);
     assert.doesNotMatch(result.stdout, /password=/);
     assert.equal(prompted(), "");
     // Hosts without a selection keep git's own behaviour, prompts included.
@@ -125,10 +130,19 @@ test(
   },
 );
 
-test("sessions without a selected connection keep the user's own gh configuration", async (t) => {
-  const { prepare } = setup(t);
+test("sessions without a selected connection keep gh logged out and git untouched", async (t) => {
+  const { repositories, prepare } = setup(t);
   const prepared = await prepare("unselected");
-  assert.equal(prepared.env.GH_CONFIG_DIR, undefined);
+  // An empty session config, never the owner's own gh login.
+  assert.equal(
+    prepared.env.GH_CONFIG_DIR,
+    path.join(repositories.dataDir, "github-sessions", "unselected"),
+  );
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(path.join(prepared.env.GH_CONFIG_DIR, "hosts.yml"))),
+    {},
+  );
+  // git keeps the user's own helpers for hosts without a connection.
   assert.equal(prepared.env.GIT_CONFIG_COUNT, "0");
 });
 

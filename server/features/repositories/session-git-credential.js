@@ -45,20 +45,16 @@ export function nativeHost(origin) {
 // An inert value for revoked hosts prevents native gh falling back to the
 // global keychain. Our helper rejects it and returns no credentials.
 // Unlike gh's helper this deliberately never falls back to the system keyring
-// after a configured token has been revoked. It accepts only exact HTTPS hosts.
+// after a configured token has been revoked. It accepts only canonical HTTPS hosts.
 // When it prints nothing, the helper that follows it in the session's git
 // configuration tells git to quit instead of prompting inside the agent's pane.
 export function gitCredential(input, env = process.env, operation = "get") {
   if (operation !== "get") return "";
   const fields = parseCredentialRequest(input);
-  const host = fields?.get("host");
-  if (
-    !fields ||
-    fields.get("protocol") !== "https" ||
-    !host ||
-    nativeHost(`https://${host}`) !== host
-  )
-    return "";
+  // git matches credential.<url> case-insensitively but forwards the host as
+  // written in the remote URL, so GitHub.com must find the github.com token.
+  const host = fields?.get("host") && nativeHost(`https://${fields.get("host")}`);
+  if (!fields || fields.get("protocol") !== "https" || !host) return "";
   try {
     const folder = env.GH_CONFIG_DIR;
     if (
