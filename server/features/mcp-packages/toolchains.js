@@ -298,6 +298,7 @@ function serialized(root, operation) {
  * Installs the pinned toolchain once; concurrent callers of one kind share one job,
  * and installs of both kinds in this process wait for each other instead of
  * failing with MCP_PACKAGE_BUSY. Another process installing still reports BUSY.
+ * An installed toolchain is returned at once, without queueing.
  */
 export function ensureToolchain(kind, options) {
   if (!kinds.includes(kind)) return Promise.reject(unavailable());
@@ -307,9 +308,16 @@ export function ensureToolchain(kind, options) {
   } catch {
     return Promise.reject(unavailable());
   }
+  const settings = { ...options, manifest: options.manifest ?? toolchainManifest };
+  try {
+    // A ready toolchain never waits behind an install of the other kind.
+    const ready = readToolchain(kind, settings);
+    if (ready) return Promise.resolve(ready);
+  } catch {
+    /* Fails the same way, with its code, on the queued path. */
+  }
   const key = `${root}:${kind}`;
   if (jobs.has(key)) return jobs.get(key);
-  const settings = { ...options, manifest: options.manifest ?? toolchainManifest };
   // Whatever fails without a package code (storage, file system) never shows a path.
   const job = serialized(root, () => install(kind, settings))
     .catch((error) => {
