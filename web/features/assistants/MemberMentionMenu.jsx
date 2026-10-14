@@ -4,7 +4,9 @@ import "./member-mentions.css";
 
 // The listbox of the @mention autocomplete above a lead's composer. The textarea
 // keeps the focus and points into the list (aria-activedescendant); a press on an option picks it without
-// blurring, by mouse, pen or touch. Always mounted so aria-controls resolves.
+// blurring, by mouse, pen or touch. Only mousedown is cancelled to keep the focus:
+// WebKit (iOS Safari) drops the click of a tap whose pointerdown was cancelled.
+// Always mounted so aria-controls resolves.
 export default function MemberMentionMenu({ mention }) {
   const copy = leadRequestCopy.mentions;
   return (
@@ -22,7 +24,6 @@ export default function MemberMentionMenu({ mention }) {
           role="option"
           aria-selected={index === mention.active}
           className="member-mention-option"
-          onPointerDown={(event) => event.preventDefault()}
           onMouseDown={(event) => event.preventDefault()}
           onPointerEnter={() => mention.hover(index)}
           onClick={() => mention.choose(member)}
