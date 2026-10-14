@@ -8,7 +8,7 @@ Before the final pipeline feature, the refactor, shared memory, providers and ch
 - Independent reviews of memory scope/lifetime, provider edits/context, native observations, lifecycle/transport extraction and pagination; confirmed findings fixed with regressions.
 - Local test web restart and HTML/provider route checks; existing protected native processes preserved.
 
-No global coding CLI/service was installed and no paid model calls were made. Provider configuration checks do not certify account entitlement or live inference; see [providers](providers.md). The [remote matrix](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/actions/runs/34065818044) at `6a749cc` passes all six jobs: macOS/Linux with Node 22/24 and Chromium/WebKit. Backend CI has 389 passing tests and one optional installed-Codex check skipped; Ubuntu/Node 24 also passes ten repeated shell/memory exit runs. The final pipeline verification below completes the whole-goal checks.
+No global coding CLI/service was installed and no paid model calls were made. Provider configuration checks do not certify account entitlement or live inference; see [providers](../providers.md). The [remote matrix](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/actions/runs/34065818044) at `6a749cc` passes all six jobs: macOS/Linux with Node 22/24 and Chromium/WebKit. Backend CI has 389 passing tests and one optional installed-Codex check skipped; Ubuntu/Node 24 also passes ten repeated shell/memory exit runs. The final pipeline verification below completes the whole-goal checks.
 
 ## Final pipeline verification
 
@@ -20,7 +20,7 @@ The following is historical verification from earlier feature batches.
 
 # AgentPier — Prüfstand 2026-09-06
 
-Der aktuelle Stand läuft **nur als lokaler Test-Webdienst** auf `http://127.0.0.1:4380`. Der irrtümlich auf dem MacBook eingerichtete LaunchAgent `dev.tuiui.server` und seine einzelne Tailscale-Serve-Freigabe wurden entfernt. Kein AgentPier-Autostart wurde installiert. Die vorhandenen Claude- und Codex-Sitzungen wurden nicht bedient oder beendet. Die spätere Einrichtung ist für [Mac mini](installation.md) und [Linux](linux.md) dokumentiert.
+Der aktuelle Stand läuft **nur als lokaler Test-Webdienst** auf `http://127.0.0.1:4380`. Der irrtümlich auf dem MacBook eingerichtete LaunchAgent `dev.tuiui.server` und seine einzelne Tailscale-Serve-Freigabe wurden entfernt. Kein AgentPier-Autostart wurde installiert. Die vorhandenen Claude- und Codex-Sitzungen wurden nicht bedient oder beendet. Die spätere Einrichtung ist für [Mac mini](../installation.md) und [Linux](../linux.md) dokumentiert.
 
 ## Ausgeführt
 
@@ -73,23 +73,23 @@ Die Arbeitsanzeige hängt von erkennbaren nativen CLI-Statuszeilen ab; unbekannt
 
 ## Ansichten
 
-- [Chat mit Aufgaben auf Desktop](screenshots/agentpier-chat-desktop.png)
-- [Mobile Chatansicht mit aufgeklappten Aufgaben](screenshots/agentpier-chat-mobile.png)
-- [Kompakte Navigation mit Arbeitsstatus](screenshots/agentpier-sidebar-desktop.png)
-- [Mobile Navigation](screenshots/agentpier-sidebar-mobile.png)
-- [Mobiles Aufgabenpanel links](screenshots/agentpier-tasks-left-mobile.png)
-- [Native TUI mit Unicode](screenshots/agentpier-unicode-terminal.png)
-- [Modell-Dropdown](screenshots/agentpier-model-dropdown.png)
-- [Plugins und Marketplace](screenshots/agentpier-plugins.png)
-- [Mobile Plugin-Verwaltung](screenshots/agentpier-plugins-mobile.png)
-- [Verankerte Account-Auswahl auf Mobilgeräten](screenshots/agentpier-launch-mobile.png)
+- [Chat mit Aufgaben auf Desktop](../screenshots/agentpier-chat-desktop.png)
+- [Mobile Chatansicht mit aufgeklappten Aufgaben](../screenshots/agentpier-chat-mobile.png)
+- [Kompakte Navigation mit Arbeitsstatus](../screenshots/agentpier-sidebar-desktop.png)
+- [Mobile Navigation](../screenshots/agentpier-sidebar-mobile.png)
+- [Mobiles Aufgabenpanel links](../screenshots/agentpier-tasks-left-mobile.png)
+- [Native TUI mit Unicode](../screenshots/agentpier-unicode-terminal.png)
+- [Modell-Dropdown](../screenshots/agentpier-model-dropdown.png)
+- [Plugins und Marketplace](../screenshots/agentpier-plugins.png)
+- [Mobile Plugin-Verwaltung](../screenshots/agentpier-plugins-mobile.png)
+- [Verankerte Account-Auswahl auf Mobilgeräten](../screenshots/agentpier-launch-mobile.png)
 
-- [GitHub-CLI-Installer](screenshots/agentpier-gh-installer.png)
+- [GitHub-CLI-Installer](../screenshots/agentpier-gh-installer.png)
 
 ## Pipeline views
 
-- [Desktop builder](screenshots/agentpier-pipelines-builder-desktop.png)
-- [Mobile builder](screenshots/agentpier-pipelines-builder-mobile.png)
-- [Desktop run](screenshots/agentpier-pipelines-run-desktop.png)
-- [Mobile run](screenshots/agentpier-pipelines-run-mobile.png)
-- [Mobile profile editor](screenshots/agentpier-pipelines-profile-mobile.png)
+- [Desktop builder](../screenshots/agentpier-pipelines-builder-desktop.png)
+- [Mobile builder](../screenshots/agentpier-pipelines-builder-mobile.png)
+- [Desktop run](../screenshots/agentpier-pipelines-run-desktop.png)
+- [Mobile run](../screenshots/agentpier-pipelines-run-mobile.png)
+- [Mobile profile editor](../screenshots/agentpier-pipelines-profile-mobile.png)
