@@ -1,12 +1,14 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import {
   personalEligible,
   personalShell,
   personalSkills,
 } from "./native-capabilities.js";
 import {
+  anyName,
   shadowingSkillNames,
   skillShadowRoots,
 } from "./openclaw-config/skill-shadows.js";
@@ -167,7 +169,7 @@ export function skillCatalog({
     const base = entry
       ? entry.source !== bundledSource
         ? hidden
-        : shadowed.has(name)
+        : shadowed.has(name) || shadowed.has(anyName)
           ? { ...sanitizeSkill(entry, roots), state: "shadowed" }
           : sanitizeSkill(entry, roots)
       : {
@@ -253,13 +255,23 @@ export class AgentSkills {
     );
     this.timer.unref?.();
   }
-  /** Applies every agent with skills again, past the unchanged-config shortcut. */
+  /**
+   * Applies every agent with skills again, past the unchanged-config shortcut,
+   * unless the list it would compile now is the one its last apply wrote.
+   */
   async reapply(config) {
-    for (const assistant of this.store.listAssistants())
-      if (personalSkills(assistant).length) {
-        config.applied?.delete(assistant.id);
-        await config.apply(assistant.id).catch(() => {});
-      }
+    for (const assistant of this.store.listAssistants()) {
+      if (
+        !personalSkills(assistant).length &&
+        !config.compiledSkills?.get(assistant.id)?.length
+      )
+        continue;
+      const last = config.compiledSkills?.get(assistant.id);
+      const next = await config.expectedSkills?.(assistant).catch(() => null);
+      if (last && next && isDeepStrictEqual(last, next)) continue;
+      config.applied?.delete(assistant.id);
+      await config.apply(assistant.id).catch(() => {});
+    }
   }
   /**
    * Refuses a list with a skill that is not bundled, or that another skill of the
