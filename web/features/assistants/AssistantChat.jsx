@@ -309,6 +309,7 @@ export default function AssistantChat({
                   sender={m.sender}
                   timestamp={m.timestamp}
                   attachments={m.attachments}
+                  forwarded={m.forwarded === true}
                   mentions={mentions}
                 />
               ),
@@ -333,6 +334,7 @@ export default function AssistantChat({
                   source={latest.source}
                   sender={latest.sender}
                   timestamp={Date.parse(latest.createdAt) || 0}
+                  forwarded={latest.forwarded === true}
                   mentions={mentions}
                 />
               )}

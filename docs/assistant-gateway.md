@@ -666,8 +666,28 @@ A lead reaches its own members without the owner relaying anything
   - not follow a quotation mark, so pasted or quoted text is never the owner's
     instruction.
 
-  One owner sentence proves one task per member, each quote is used once and a turn
-  proves at most three; standing team permission does not count. The grant is
+  An @mention is a second way (AGENTPIER-68, owner decision): when the owner's own
+  message of the turn mentions a member with `@<display name>`, a task to that
+  member in that turn may write without any quote or ask verb. AgentPier finds the
+  mention itself, and the lead's quote never counts one. The message is parsed as
+  the chat renders it (`treeMentions` in `member-mentions.js`, shared by the proof
+  and the chat's chips), so a mention counts only where the owner sees a chip:
+  - never in code, block quotes, struck-through text, links, URLs, images,
+    footnotes or HTML, never from a character reference (`&#64;`) or an escape
+    (`\@`), and never right after a letter, digit or path or markup character;
+  - names match case-insensitively by a simple per-character fold, without
+    normalisation, so look-alike or invisible characters mention nobody; a name two
+    members share proves nothing;
+  - any negation or limit to reading anywhere in the message (`nicht`, `nichts`,
+    `kein…`, `ohne`, "nur lesen", "Finger weg", "in Ruhe", "don't", "isn't",
+    "read-only", "just read", "hands off", "leave … alone", …) means no mention
+    proves anything; the owner can send such an instruction on its own;
+  - no quotation mark may come before the mention;
+  - messages over 20000 characters, nested more than 24 levels or that fail to parse
+    have no mentions, and at most the first 20 are looked at.
+
+  Each mention proves one task. One owner sentence proves one task per member across
+  both ways, each quote is used once and a turn proves at most three; standing team permission does not count. The grant is
   stored with the request (`writeAllowed`, `ownerProof`) and holds only during the
   task's own running attempt (`TeamBridge.toolPolicy`, `LeadRequests.mayWrite`).
   `MEMORY.md` and `memory/` stay read-only in every spelling the write guard repairs

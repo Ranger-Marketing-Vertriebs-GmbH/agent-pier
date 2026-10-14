@@ -145,3 +145,12 @@ test("no Telegram id, chat id or channel reaches the public projection", () => {
     kind: "owner",
   });
 });
+
+test("a forwarded Telegram message is marked so the chat shows no member chips", () => {
+  assert.deepEqual(requestSource({ ...telegram, forwarded: true }), {
+    source: "telegram",
+    sender: { kind: "owner" },
+    forwarded: true,
+  });
+  assert.equal("forwarded" in requestSource(telegram), false);
+});

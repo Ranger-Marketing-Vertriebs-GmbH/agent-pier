@@ -6,6 +6,7 @@ import {
   ownerMentions,
   ownerQuote,
   ownerSentence,
+  parseOwnerMessage,
   plain,
 } from "./lead-request-proof.js";
 export { ownerQuote } from "./lead-request-proof.js";
@@ -133,6 +134,15 @@ export class LeadRequestStore {
         ? input.ownerRequestQuote
         : undefined;
     const t = this.teams;
+    // The owner's message is parsed for mentions before the transaction; inside it
+    // only a parse of exactly the recorded text is used.
+    let owner = null;
+    if (type === "task")
+      try {
+        owner = parseOwnerMessage(this.lead(attemptId).request.text);
+      } catch {
+        owner = null;
+      }
     return t.transaction(() => {
       const { request, conversation, lead } = this.lead(attemptId);
       const key = `${attemptId}:${operationId}`;
@@ -218,7 +228,9 @@ export class LeadRequestStore {
       // Second way: the owner's own message @mentions this member, whatever the
       // lead quoted.
       if (open && !proof) {
-        const m = ownerMentions(request.text, mentionable).find(
+        const parsed =
+          owner?.text === request.text ? owner : parseOwnerMessage(request.text);
+        const m = ownerMentions(parsed, mentionable).find(
           (x) =>
             x.memberId === member.id &&
             !x.negated &&
