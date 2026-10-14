@@ -33,7 +33,7 @@ export function endpointCapability(connection) {
   // directly, independently of the connection's per-CLI routing choices.
   const models = endpoint.models.flatMap(
     ({ modelId, label, contextTokens, outputTokens }) =>
-      // OpenClaw 2026.9.8 rejects model context windows below 4,000 tokens.
+      // OpenClaw 2026.10.3 rejects model context windows below 4,000 tokens.
       contextTokens >= 4000
         ? [
             {

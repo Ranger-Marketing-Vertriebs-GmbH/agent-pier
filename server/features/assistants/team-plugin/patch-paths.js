@@ -1,4 +1,4 @@
-// The files an apply_patch call touches, read exactly as OpenClaw 2026.9.9 reads the
+// The files an apply_patch call touches, read exactly as OpenClaw 2026.10.3 reads the
 // patch (src/agents/apply-patch.ts: parsePatchText, parseOneHunk and
 // parseUpdateFileChunk in dist/core-coding-tools-*.mjs). The parser is a port that
 // keeps only the structure: the same `\r?\n` split, the same trims and the same

@@ -237,6 +237,9 @@ keeps your data, with these limits:
 - If the agent service already runs OpenClaw 2026.9.9, agents' memory writes stay
   read-only on 1.28.x until you activate 2026.9.8 again under
   **Settings → Workspace → Agents → Agent service**.
+- Once the agent service has committed the update to OpenClaw 2026.10.3, 2026.9.8
+  can no longer be activated: its agent state database was migrated (see
+  [Managed assistant runtime](#managed-assistant-runtime)).
 
 ## Stop and remove
 
@@ -279,7 +282,7 @@ When activating a staged version, the confirmation offers **Move running session
 The assistant service is optional and off initially: until the owner turns on
 **Settings → Workspace → Agents → Enable agents**, nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
-private OpenClaw 2026.9.9 installation and Node 26.7.0 under the data directory's
+private OpenClaw 2026.10.3 installation and Node 26.7.0 under the data directory's
 `assistants/runtimes/` directory. AgentPier itself retains its Node 22.13+ support.
 Downloads are checked against pinned official Node checksums and npm package
 integrity before activation. Failed staging preserves the previously selected runtime.
@@ -332,6 +335,14 @@ No manual service edits are needed:
   An installation that runs on Node 22.13 to 22.20 behind a proxy now stops an
   update download with `PROXY_REQUIRES_NEWER_NODE` instead of trying a direct
   connection. Upgrade the Node that runs AgentPier to 22.21+ or 24+.
+
+**The update to OpenClaw 2026.10.3 cannot be undone once committed.** It migrates
+the agent service's state database (schema 19 to 20), and OpenClaw 2026.9.9 and
+2026.9.8 refuse the migrated database. If activation fails before the update is
+committed, AgentPier rolls back to the snapshot it took beforehand. After commit,
+neither **Settings → Workspace → Agents → Agent service** nor an older AgentPier
+can return the agent service to 2026.9.x. Create a host backup under
+**Settings → Operations → Backups** before you activate 2026.10.3.
 
 For isolated diagnostics, the same installer is available as
 `node scripts/install-assistant-runtime.mjs --data-dir /absolute/disposable/path`.

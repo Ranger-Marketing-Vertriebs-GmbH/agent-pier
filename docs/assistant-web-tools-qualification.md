@@ -119,6 +119,10 @@ accepted, `plugins.list` reports the pinned package and version with
 `plugins.entries.<id>.config.webSearch.apiKey` (Perplexity, Brave) is redacted by
 `config.get`. It passed on 2026-10-11 against the same runtime.
 
+On 2026-10-14 both contracts also passed on macOS arm64 against OpenClaw 2026.10.3
+with the 2026.10.3 search plugins, as part of the `native-contracts` run recorded in
+the [release qualification](assistant-release-qualification.md#openclaw-202699--2026103-2026-10-14).
+
 ## Verified configuration
 
 ### (a) DuckDuckGo
@@ -126,8 +130,9 @@ accepted, `plugins.list` reports the pinned package and version with
 DuckDuckGo, Perplexity and Brave are **not bundled** in OpenClaw 2026.9.8 or 2026.9.9. They are
 official external plugins: `@openclaw/duckduckgo-plugin`,
 `@openclaw/perplexity-plugin` and `@openclaw/brave-plugin`. Each is published at the
-OpenClaw version, with peer dependency `openclaw >=<that version>` (pinned: `2026.9.9`;
-its packages differ from `2026.9.8` only in version metadata). Each package
+OpenClaw version, with peer dependency `openclaw >=<that version>` (pinned:
+`2026.10.3`; the `2026.9.9` packages differed from `2026.9.8` only in version
+metadata). Each package
 has no runtime dependencies and imports only `openclaw/plugin-sdk/*`. The bundled
 web search providers are `gemini` (google), `grok` (xai), `minimax` and `ollama`.
 
@@ -325,8 +330,8 @@ and restart the Gateway when they change, rather than relying on live patches.
   restrictive allow list is covered for DuckDuckGo only. Perplexity and Brave are
   covered one at a time without the team allow list; their compiled form differs
   only by the key entry.
-- A runtime installed before the plugins were bundled (lock `93bd048153fd`, or the
-  2026.9.7 rollback target) has none; its descriptor reports `searchPlugins: {}`
+- A runtime installed before the plugins were bundled (lock `93bd048153fd`, or a
+  2026.9.7 installation, which is no longer a rollback target) has none; its descriptor reports `searchPlugins: {}`
   and AgentPier withholds web search.
 - No real search API was called. One early probe incidentally ran a real DuckDuckGo
   search, which is not repeated.

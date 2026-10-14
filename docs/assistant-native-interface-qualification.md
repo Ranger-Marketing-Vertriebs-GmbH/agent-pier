@@ -29,6 +29,12 @@ On 2026-10-11, both tests passed on macOS arm64 (Darwin 25.5) against the pinned
 TAP output was kept outside the repository; temporary native state was removed
 after completion.
 
+On 2026-10-14 both tests, and the advanced settings contract below, passed on
+macOS arm64 against OpenClaw 2026.10.3 as part of the `native-contracts` run
+recorded in the
+[release qualification](assistant-release-qualification.md#openclaw-202699--2026103-2026-10-14).
+The facts below were recorded on 2026.9.8 unless stated otherwise.
+
 ## Covered behavior
 
 **Locked core.** After start, `config.get` shows `gateway.terminal.enabled: false`

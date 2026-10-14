@@ -1,7 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { capabilityTools, usedCapabilities } from "../native-capabilities.js";
 
-// Verified against OpenClaw 2026.9.8, see docs/assistant-web-tools-qualification.md.
+// Verified against OpenClaw 2026.10.3, see docs/assistant-web-tools-qualification.md.
 
 /**
  * Which web tools this runtime can actually serve. `webTools` is

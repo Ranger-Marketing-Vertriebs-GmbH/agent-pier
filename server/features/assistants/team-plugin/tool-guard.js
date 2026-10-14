@@ -14,7 +14,7 @@ export const bootstrapFiles = [
   "HEARTBEAT.md",
   "BOOTSTRAP.md",
 ];
-// Every file-changing tool in OpenClaw's fs section (2026.9.9 tool catalog: ls,
+// Every file-changing tool in OpenClaw's fs section (2026.10.3 tool catalog: ls,
 // read, write, edit, apply_patch). apply_patch is implied wherever write is
 // allowed (writeAllowsApplyPatch), so it is guarded like write.
 export const writeTools = ["write", "edit", "apply_patch"];
@@ -30,7 +30,7 @@ export const guardReportMs = 15000;
 // "AGENTſ.md" (U+017F) and the Kelvin sign U+212A fold to ASCII here.
 export const fold = (name) => name.normalize("NFKC").toUpperCase().toLowerCase();
 const protectedNames = new Set(bootstrapFiles.map(fold));
-// The OpenClaw 2026.9.8 file tools repair model-corrupted paths after this hook runs
+// The OpenClaw 2026.10.3 file tools repair model-corrupted paths after this hook runs
 // (agent-tools.before-tool-call.decision: XML arg_value suffix, Office extensions);
 // every repaired spelling is classified, not only the raw one.
 export function repairs(value) {

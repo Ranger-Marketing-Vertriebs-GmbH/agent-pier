@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { splitCommand } from "./exec-allowlist-policy.js";
 
-// How OpenClaw 2026.9.8 writes an allow-always (dist: exec-approvals-allow-always,
+// How OpenClaw 2026.10.3 writes an allow-always (dist: exec-approvals-allow-always,
 // exec-command-resolution): one path entry per program whose `argPattern` hashes
 // the working directory and the program's arguments, plus a companion
 // `=node-command:<sha256(command.trim()) hex[0,16]>`. Nothing in the file links

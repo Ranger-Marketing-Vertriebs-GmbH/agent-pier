@@ -158,8 +158,13 @@ AGENTPIER_ASSISTANT_UPDATE_RUNTIME=/absolute/path/to/installed-runtime \
 
 This passed with OpenClaw 2026.9.8 and Node 26.7.0 on macOS arm64. The subsequent
 [cross-version qualification](assistant-release-qualification.md) also passed
-2026.9.7 → 2026.9.8 and 2026.9.8 → 2026.9.9 activation and rollback after failed validation. Other version
-pairs and native hosts remain unqualified. The installer now also consumes the reviewed dependency lock described below;
+2026.9.7 → 2026.9.8, 2026.9.8 → 2026.9.9 and 2026.9.9 → 2026.10.3 activation and rollback after failed validation. Other version
+pairs and native hosts remain unqualified.
+
+The update to OpenClaw 2026.10.3 migrates the state database from schema 19 to 20,
+which 2026.9.9 and 2026.9.8 refuse. Rollback before commit restores the snapshot
+taken before activation, so it works as for any other update; after commit no
+downgrade to 2026.9.x is possible. The installer now also consumes the reviewed dependency lock described below;
 all separately downloaded package archives carry integrity checks.
 
 ## Locked dependency installation
@@ -169,7 +174,10 @@ The runtime manifest pins OpenClaw, Node and the npm bundled with that Node arch
 Their combined SHA-256 (package bytes, a NUL separator, then lock bytes) is pinned in
 the manifest. The graph fixes registry tarball versions and SHA-512 integrities,
 including platform-specific optional packages. Bundled dependencies are covered by
-their containing package archive's integrity.
+their containing package archive's integrity. They are not listed in the lock:
+`npm install --package-lock-only` does not record the children of a bundled
+dependency (npm's own bundle and the packages OpenClaw bundles), so Dependabot cannot
+report advisories for them.
 
 Before any download, the installer verifies the lock digest and metadata. It then
 checks Node and OpenClaw archive integrity and executes the private, pinned npm with
@@ -189,7 +197,7 @@ cryptographically attested installed filesystem contents.
 
 The runtime also contains the official OpenClaw web search plugins
 `@openclaw/duckduckgo-plugin`, `@openclaw/perplexity-plugin` and
-`@openclaw/brave-plugin`, each at the OpenClaw version (2026.9.9). They are exact root
+`@openclaw/brave-plugin`, each at the OpenClaw version (2026.10.3). They are exact root
 dependencies in `runtime-lock/package.json`. The manifest pins each one's
 package name, version, plugin id and npm SHA-512 integrity (`searchPlugins`), and
 the lock check refuses a graph whose plugin entry differs from the pin or does not
@@ -204,8 +212,8 @@ records the pins. The runtime descriptor (`install()`, `ensureAssistantRuntime()
 and `selectedAssistantRuntime()`) exposes them as
 `searchPlugins: { duckduckgo: { id, directory }, perplexity: …, brave: … }`.
 For a selected runtime, the pins come from its receipt: a runtime installed before
-the plugins were bundled, such as the previous lock or the 2026.9.7 rollback
-target, reports `searchPlugins: {}`. A Gateway loads a plugin only when its
+the plugins were bundled, such as one from an earlier lock, reports
+`searchPlugins: {}`. A Gateway loads a plugin only when its
 configuration names the directory in `plugins.load.paths` and the id in
 `plugins.allow`; AgentPier compiles both only for the provider chosen in the web
 search settings, and only while an agent uses web search. A plugin directory that

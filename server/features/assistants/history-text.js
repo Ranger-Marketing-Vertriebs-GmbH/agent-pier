@@ -1,4 +1,4 @@
-// OpenClaw's chat.history (2026.9.9) cuts each message text at `maxChars` (8000 by
+// OpenClaw's chat.history (2026.10.3) cuts each message text at `maxChars` (8000 by
 // default) and marks the cut; a message whose JSON exceeds 128 KiB is replaced by a
 // placeholder. Neither marker nor placeholder is ever shown or sent as reply text.
 export const historyTextLimit = 65536;
