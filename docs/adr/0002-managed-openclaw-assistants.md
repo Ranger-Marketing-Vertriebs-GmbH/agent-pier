@@ -5,7 +5,7 @@
 Status: agreed; implemented (opt-in, off by default). Service adapters, team spend
 budgets and a sandbox are deferred.
 
-Date: 2026-10-08, updated 2026-10-09
+Date: 2026-10-08, updated 2026-10-14
 
 ---
 
@@ -41,7 +41,8 @@ AgentPier. Present an AgentPier-native UI and control it through the AgentPier
 backend. Keep OpenClaw as an external runtime behind an adapter; do not fork it or
 embed its dashboard as the main product interface.
 
-The subsystem is opt-in. **Settings > Agents** holds one switch; while it is off the
+The subsystem is opt-in. **Settings > Agents** (now **Settings → Workspace →
+Agents**) holds one switch; while it is off the
 subsystem is dormant and nothing is created, installed, started or shown. Existing
 installations that already used agents migrate to enabled. See the
 [operating guide](../assistant-gateway.md#opt-in-switch).
@@ -315,7 +316,8 @@ from terminal failure, and reconcile external effects before retrying uncertain
 work. Native log warnings alone must not determine task status.
 
 The [Gateway design](../assistant-gateway.md) places service operation in
-Settings > Agents > Agent service while preserving direct agent chats. It separates
+Settings > Agents > Agent service (now Settings → Workspace → Agents → Agent
+service) while preserving direct agent chats. It separates
 service availability, status reconciliation, run outcome and external delivery.
 
 OpenClaw's logging path must be set explicitly; isolated HOME/TMPDIR does not by
@@ -431,6 +433,38 @@ and [runtime updates](../assistant-runtime-updates.md) for concrete behavior and
 qualification limits. The subsequent [release qualification](../assistant-release-qualification.md)
 records native memory deletion/model switching, scheduler DST/downtime behavior,
 the qualified runtime upgrade pair and project identity isolation after merging main.
+
+## Lead requests (2026-10-13)
+
+A lead reaches its own members directly with the team tools `agentpier_team_ask`,
+`_delegate`, `_cancel`, `_archive` and `_members`; every lead gets them, members never
+do, so there are no chains. By the owner's decision (PR #271) a lead's
+questions and tasks run without an approval request as soon as the member is free.
+This replaces ask-first for these requests; team creation itself keeps the proposal,
+one-assignment and standing-permission rules above.
+
+The member acts with its own capabilities: one with full shell access or bound MCP
+servers uses them for a lead's request without asking, while shell set to approval
+still asks the owner before each command. Questions never write. A task may write in
+the member's own workspace only with the owner's explicit wording in the same turn
+(the member's name and an ask or delegate verb, unnegated and unquoted) or an
+`@Name` mention the owner sees as a chip (AGENTPIER-68); `MEMORY.md` and `memory/` stay read-only.
+Accepted risk: an owner who gives members wide shell or MCP rights lets a lead use
+them unattended. The owner-facing record lists every request as "may write" or
+"read-only" in the lead's agent settings (Work → Teams). See
+[lead questions and tasks](../assistant-gateway.md#lead-questions-and-tasks-for-members).
+
+Related 2.0 additions follow the same ownership rule (AgentPier compiles, OpenClaw
+executes):
+
+- **MCP server bindings.** Central MCP servers are bound per agent and compiled into
+  the Gateway configuration; stdio servers need an owner confirmation because they run
+  host commands. See [MCP servers for agents](../assistant-gateway.md#mcp-servers-for-agents-2026-10-11).
+- **Per-agent skills.** Only skills bundled with OpenClaw are assignable, per agent;
+  shell access remains the real gate. See [skills](../assistant-gateway.md#skills).
+- **Advanced settings.** A short allow list of OpenClaw settings outside security,
+  access and management, applied only to the runtime version it was qualified
+  against. See [agents](../agents.md#turn-agents-on).
 
 ## OpenClaw coupling and version requalification
 
