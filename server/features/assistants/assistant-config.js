@@ -62,9 +62,42 @@ export class AssistantConfig {
     });
     this.queue = Promise.resolve();
     this.applied = new Map();
+    // The skill list each agent's last apply wrote (AgentSkills.reapply).
+    this.compiledSkills = new Map();
   }
   reset() {
     this.applied.clear();
+    this.compiledSkills.clear();
+  }
+  /**
+   * Keeps only the names the Gateway reports as the bundled skill for this agent.
+   * Fails closed: without a report (an error, or none) nothing is verified, and
+   * `complete` is false so the apply is not cached and asks again next time.
+   */
+  async verifySkills(assistant, names) {
+    if (!names.length) return { skills: [], complete: true };
+    const report = await this.client
+      .call("skills.status", { agentId: assistant.runtimeAgentId })
+      .catch(() => null);
+    if (!Array.isArray(report?.skills)) return { skills: [], complete: false };
+    const bundled = new Set(
+      report.skills
+        .filter((entry) => entry?.source === "openclaw-bundled")
+        .map((entry) => entry.name),
+    );
+    const skills = names.filter((name) => bundled.has(name));
+    return { skills, complete: skills.length === names.length };
+  }
+  /** The list an apply would compile now (disk scan, then the Gateway's view). */
+  async expectedSkills(assistant) {
+    const assigned = this.nativeReady?.() ? personalSkills(assistant) : [];
+    const shadowed = shadowedSkills(path.dirname(this.workspaces), assistant, assigned);
+    return (
+      await this.verifySkills(
+        assistant,
+        assigned.filter((name) => !shadowed.includes(name)),
+      )
+    ).skills;
   }
   // Runs before every turn admission, including when the configuration is unchanged,
   // so instructions planted between turns never reach the next prompt.
@@ -199,16 +232,11 @@ export class AssistantConfig {
       // The Gateway's own view decides as well: a name it resolves to any other
       // source than the bundled skill is never compiled.
       if (skills.length) {
-        const report = await this.client
-          .call("skills.status", { agentId: assistant.runtimeAgentId })
-          .catch(() => null);
-        for (const entry of report?.skills || [])
-          if (skills.includes(entry?.name) && entry.source !== "openclaw-bundled")
-            shadowed.push(entry.name);
-        const before = skills.length;
-        skills = assigned.filter((name) => !shadowed.includes(name));
+        const verified = await this.verifySkills(assistant, skills);
+        shadowed.push(...skills.filter((name) => !verified.skills.includes(name)));
+        skills = verified.skills;
         // Not what the fingerprint says: the next apply must ask the Gateway again.
-        gatewayDropped = skills.length !== before;
+        gatewayDropped = !verified.complete;
       }
       // Events count from the last write on; agents.update always writes.
       adoption.mark();
@@ -362,6 +390,7 @@ export class AssistantConfig {
       this.store.markEffective(id, assistant.revision);
       if (gatewayDropped) this.applied.delete(id);
       else this.applied.set(id, fingerprint);
+      this.compiledSkills.set(id, skills);
       // The Gateway now runs the stored profile, its shell level included.
       this.onApplied?.(id);
       return {

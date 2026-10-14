@@ -46,10 +46,12 @@ export class AssistantService {
     this.events = new AssistantEvents();
     this.chatStreams = new ChatStreams();
     this.gatewayEvents = new GatewayEventHub();
-    // A skill folder changed (one may now shadow an assigned skill): re-apply.
-    this.gatewayEvents.on("skills.changed", () =>
-      this.skills.changed(() => this.admit(() => this.skills.reapply(this.config))),
-    );
+    // A skill folder changed (one may now shadow an assigned skill), or a Gateway
+    // started from a compile that could not ask it: re-apply agents with skills.
+    const reapplySkills = () =>
+      this.skills.changed(() => this.admit(() => this.skills.reapply(this.config)));
+    this.gatewayEvents.on("skills.changed", reapplySkills);
+    this.gatewayEvents.onReady(reapplySkills);
     this.locks = new Map();
     this.closed = false;
     this.onStatus = (state) => {

@@ -266,3 +266,53 @@ test("a shell and skills save applies both live", async (t) => {
   assert.equal(f.live(home).tools.exec.mode, "ask");
   assert.deepEqual(f.live(home).skills, ["github"]);
 });
+
+test("skills the Gateway cannot confirm are not compiled and not cached", async (t) => {
+  const f = shellService(t, ["Home"]);
+  const [home] = f.agents;
+  let failing = false;
+  skillGateway(f, () => [bundled("github")]);
+  const answer = f.client.answers["skills.status"];
+  f.client.answers["skills.status"] = (params) => {
+    if (failing) throw Object.assign(Error("busy"), { code: "UNAVAILABLE" });
+    return answer(params);
+  };
+  await save(f, home, ["github"]);
+  assert.deepEqual(f.live(home).skills, ["github"]);
+  failing = true;
+  f.config.applied.delete(home.id);
+  await f.config.apply(home.id);
+  assert.equal(f.live(home).skills, undefined);
+  assert.equal(f.config.applied.has(home.id), false);
+  // A report without the name verifies nothing either.
+  failing = false;
+  f.client.answers["skills.status"] = () => ({ skills: [] });
+  await f.config.apply(home.id);
+  assert.equal(f.live(home).skills, undefined);
+  f.client.answers["skills.status"] = answer;
+  await f.config.apply(home.id);
+  assert.deepEqual(f.live(home).skills, ["github"]);
+});
+
+test("a ready Gateway re-applies agents whose skills changed, and only those", async (t) => {
+  const f = shellService(t, ["Home", "Other"]);
+  const [home, other] = f.agents;
+  f.config.workspaces = path.join(f.dataDir, "workspaces");
+  skillGateway(f, () => [bundled("github"), bundled("weather")]);
+  await save(f, home, ["github"]);
+  await save(f, other, ["weather"]);
+  // A start compile could not see this one (any file it misses): the Gateway's
+  // ready re-applies past the start's list.
+  const planted = path.join(f.dataDir, "workspaces", home.id, "skills", "helper");
+  fs.mkdirSync(planted, { recursive: true });
+  fs.writeFileSync(path.join(planted, "SKILL.md"), "---\nname: github # x\n---\n");
+  const patches = f.client.patches.length;
+  f.service.gatewayEvents.ready();
+  for (let n = 0; n < 50 && f.live(home).skills; n++)
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(f.live(home).skills, undefined);
+  // The other agent's list is unchanged: it is not patched again.
+  const written = f.client.patches.slice(patches).map((p) => p.patch);
+  assert.ok(written.every((patch) => !patch.agents?.entries?.[other.runtimeAgentId]));
+  assert.deepEqual(f.live(other).skills, ["weather"]);
+});
