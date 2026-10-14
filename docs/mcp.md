@@ -317,10 +317,10 @@ _Installation missing_ (the files of a ready install are gone or changed).
   is installed."), and the CLIs and agents never receive a server whose package is not
   ready (reason "its package is not installed yet or is missing"). Existing
   bindings stay.
-- **Update.** **Check update** looks for a newer version; **New version** resolves it
-  and shows the changes to the installed packages (_Added_, _Removed_, _Changed_ with
-  old and new version, taken from the lock). The new install is activated only after
-  it succeeded; a failed update keeps the old install.
+- **Update.** Choose the version in **New version**; **Check update** resolves it and
+  shows the changes to the installed packages (_Added_, _Removed_, _Changed_ with old
+  and new version, taken from the lock) before you confirm with **Update**. The new
+  install is activated only after it succeeded; a failed update keeps the old install.
 - **Reinstall.** Installs exactly the stored lock again, for example after a failed
   install, a missing install or a restore on another computer.
 - **Use own command.** Switches a packaged server back to an own command: the form

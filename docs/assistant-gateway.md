@@ -1124,17 +1124,17 @@ host backup without credentials leaves the values out.
 
 Host backups also capture the server store (`<data>/mcp-servers/servers.sqlite`,
 AGENTPIER-42; for a packaged server this includes the package record and its lock,
-but not the installed files, which `Reinstall` recreates) as a consistent SQLite snapshot. The public archive member is a
-sanitized copy that keeps only the tables and columns the store defines: server
-definitions and agent and CLI bindings stay. A stdio server's command, arguments
-and working directory are definitions and stay public, so put tokens into its
-environment, never into its arguments. Header and environment values, the query
-string and fragment of each address, the OAuth login state (`oauth_connected`, the
-registered login redirect) and pending or remembered OAuth logouts are removed. So
-are the records of the native CLI entries AgentPier wrote for a server with removed
-values or a removed address token, or for a deleted server: an entry's hash covers
-its values and would let anyone test guesses of a short one. The copy is vacuumed
-so no removed value survives in a free page.
+but not the installed files, which **Reinstall** recreates) as a consistent SQLite
+snapshot. The public archive member is a sanitized copy that keeps only the tables
+and columns the store defines: server definitions and agent and CLI bindings stay. A
+stdio server's command, arguments and working directory are definitions and stay
+public, so put tokens into its environment, never into its arguments. Header and
+environment values, the query string and fragment of each address, the OAuth login
+state (`oauth_connected`, the registered login redirect) and pending or remembered
+OAuth logouts are removed. So are the records of the native CLI entries AgentPier
+wrote for a server with removed values or a removed address token, or for a deleted
+server: an entry's hash covers its values and would let anyone test guesses of a
+short one. The copy is vacuumed so no removed value survives in a free page.
 
 A backup with credentials seals the values, the full addresses and those entry
 records in its passphrase capsule (`mcp-server-secrets/servers.json`). The restore
