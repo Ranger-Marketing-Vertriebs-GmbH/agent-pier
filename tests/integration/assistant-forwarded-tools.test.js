@@ -153,7 +153,7 @@ async function nativeWriteGuard(t, f, { registrationMode = "full" } = {}) {
     on: (name, handler, options) => hooks.push({ name, handler, options }),
   });
   const [hook] = hooks.filter((h) => h.name === "before_tool_call");
-  assert.deepEqual(hook.options.matcher, ["write", "edit"]);
+  assert.deepEqual(hook.options.matcher, ["write", "edit", "apply_patch"]);
   const agentId = f.store.getAssistant(f.id).runtimeAgentId;
   const call = async (target, { toolName = "write", ctx } = {}) =>
     !(
@@ -162,9 +162,23 @@ async function nativeWriteGuard(t, f, { registrationMode = "full" } = {}) {
         ctx || { agentId, sessionKey: "session" },
       )
     )?.block;
+  // apply_patch with the given hunk lines, inside the Begin/End envelope.
+  const patch = async (lines, ctx) =>
+    !(
+      await hook.handler(
+        {
+          toolName: "apply_patch",
+          params: {
+            input: ["*** Begin Patch", ...lines, "*** End Patch"].join("\n"),
+          },
+        },
+        ctx || { agentId, sessionKey: "session" },
+      )
+    )?.block;
   return {
     bridge,
     call,
+    patch,
     agentId,
     root,
     workspace: path.join(root, f.id),
@@ -371,4 +385,42 @@ test("only the active Gateway registry reports a guard, and setup loads never th
     }),
   );
   assert.ok(tools.length > 0);
+});
+
+test("apply_patch is guarded like write on every path it touches", async (t) => {
+  const f = await workflowFixture(t);
+  const { patch } = await nativeWriteGuard(t, f);
+  const add = (target) => [`*** Add File: ${target}`, "+Injected"];
+  const direct = await f.invocation("direct-patch", origin(f, false));
+  assert.equal(await patch(add("memory/today.md")), true, "the owner's own turn");
+  assert.equal(await patch(["*** Update File: memory/today.md", "@@", "-a", "+b"]), true);
+  assert.equal(await patch(["*** Delete File: notes/old.md"]), true);
+  for (const lines of [
+    add("AGENTS.md"),
+    ["*** Update File: SOUL.md", "@@", "+Planted"],
+    ["*** Delete File: USER.md"],
+    // A rename onto an instruction file, or out of the workspace.
+    ["*** Update File: memory/today.md", "*** Move to: AGENTS.md", "@@", "-a", "+b"],
+    ["*** Update File: memory/today.md", "*** Move to: ../elsewhere.md", "@@", "+b"],
+    // One protected hunk refuses the whole patch.
+    [...add("memory/fine.md"), ...add("skills/helper/SKILL.md")],
+    add("/etc/elsewhere.md"),
+    // OpenClaw trims hunk headers; so does the guard.
+    ["   *** Add File: TOOLS.md", "+Planted"],
+    // Without a recognizable hunk nothing is allowed.
+    ["no hunk here"],
+  ])
+    assert.equal(await patch(lines), false, JSON.stringify(lines));
+  f.assistants.ledger.transition(direct.attemptId, "completed");
+  assert.equal(await patch(add("memory/today.md")), false, "no active turn");
+
+  const forwarded = await f.invocation("forwarded-patch", origin(f, true));
+  assert.equal(await patch(add("memory/today.md")), false, "a forwarded turn");
+  assert.equal(await patch(["*** Delete File: notes/old.md"]), false);
+  f.assistants.ledger.transition(forwarded.attemptId, "completed");
+  for (const context of [{ kind: "team-member" }, { kind: "reminder" }]) {
+    const turn = await f.invocation(`${context.kind}-patch`, context);
+    assert.equal(await patch(add("memory/today.md")), false, context.kind);
+    f.assistants.ledger.transition(turn.attemptId, "completed");
+  }
 });
