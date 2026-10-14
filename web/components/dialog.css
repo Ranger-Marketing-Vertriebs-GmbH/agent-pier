@@ -45,6 +45,25 @@ dialog > :last-child > .dialog-actions:last-child {
   color: #e7a3a3;
 }
 
+/* Selects in dialogs look like the text inputs beside them: same height, padding,
+   colour and font, with a themed chevron instead of the native control. Feature rules
+   with a class still override this element-level rule. */
+:where(dialog) select:where(:not([multiple], [size])) {
+  appearance: none;
+  -webkit-appearance: none;
+  height: auto;
+  line-height: normal;
+  padding-right: 40px;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+}
+/* The empty "Choose …" option reads like an input placeholder. */
+:where(dialog) select:has(option[value=""]:checked) {
+  color: var(--placeholder);
+}
+
 /* Feature forms that end with their own action row: that row becomes the sticky
    footer, bleeding to the edges of the form's padding (--dialog-pad). */
 dialog > .ssh-form {
