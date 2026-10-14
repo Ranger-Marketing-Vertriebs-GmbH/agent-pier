@@ -260,8 +260,11 @@ export class RuntimeSupervisor extends EventEmitter {
         ],
         {
           cwd: this.paths.root,
+          // The Gateway's PATH carries the owner's login PATH, as exec does, so its
+          // skill checks find the programs commands would run.
           env: runtimeEnvironment(this.paths, runtime.nodePath, process.env, {
             shell: execShell || undefined,
+            pathPrepend: shell.pathPrepend,
           }),
           stdio: ["ignore", log, log],
         },

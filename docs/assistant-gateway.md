@@ -239,8 +239,12 @@ for the implementation and remaining native platform/version qualification.
   `BOOTSTRAP.md`) cannot be rewritten by native tools; AgentPier owns `AGENTS.md` and
   the owner edits `USER.md` through the settings. The check folds case, Unicode
   normalization and OpenClaw's path repairs, so alternative spellings are caught.
-  Workspace skills are disabled (`skills.allowBundled` is empty, per-agent skills are
-  removed and autonomous skill review is off).
+  Skills are off unless the owner assigns them: `agents.defaults.skills` is `[]`
+  (no skills for an agent without its own list), each eligible agent's
+  `agents.entries.<id>.skills` holds only the bundled skills the owner switched on
+  (see [Skills](#skills)), and autonomous skill review is off. `skills.allowBundled`
+  is not a gate: OpenClaw reads the empty list AgentPier writes as "every bundled
+  skill allowed".
 - **Write guard handshake.** The bundled `agentpier-teams` plugin registers the tool
   guard inside the Gateway and reports it to AgentPier, bound to the runtime
   generation. The report is dropped on reconnect and repeated periodically (at the
@@ -1252,8 +1256,15 @@ the Gateway itself keeps its private `HOME`, state and configuration.**
   `path_helper`, never the owner's profile) and the Gateway's own `PATH`. Programs
   installed system-wide (`/usr/bin`, and the Homebrew directories) are therefore
   found even without the owner `PATH`.
+- The Gateway process itself gets the same directories in its own `PATH`, behind
+  the runtime's Node and ahead of `/usr/bin:/bin`. OpenClaw checks the programs a
+  skill requires on the Gateway's `PATH`, so without them Homebrew tools such as
+  `gh` or `himalaya` would count as missing and their skills would not load. This
+  grants nothing beyond what exec already receives; the directories are computed
+  at every Gateway start, so an AgentPier update applies it without manual steps.
 - If the owner account cannot be resolved, the Gateway starts without the wrapper
-  and logs a diagnostic; commands then run with the private `HOME`.
+  and logs a diagnostic; commands then run with the private `HOME`, and the
+  Gateway's `PATH` is only the runtime's Node, `/usr/bin` and `/bin`.
 - The Gateway token is only in `gateway.auth.token`; `OPENCLAW_GATEWAY_TOKEN` is
   not in the Gateway's environment, so no command sees it.
 
