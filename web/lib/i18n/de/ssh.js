@@ -81,6 +81,7 @@ export const sshCopy = {
   testOk: "Verbindung erfolgreich",
   busy: "Bitte warten …",
   saved: "Gespeichert",
+  sessionSummary: "Wähle die Hosts, die dein Agent in dieser Sitzung nutzen darf.",
   sessionHint:
     "Wähle Zugänge aus und speichere sie. Bereite SSH-Werkzeuge ermöglichen deinem Agenten die Nutzung zugewiesener Hosts. Speichern führt keinen Remote-Befehl aus.",
   commandHint:

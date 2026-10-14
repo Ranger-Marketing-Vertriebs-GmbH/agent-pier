@@ -69,8 +69,10 @@ export const sessionReloadCopy = {
     `Der Provider-Zugang bietet für diese CLI keine Route mehr an (vorher: ${from}). Das Neuladen kann fehlschlagen; prüfe zuerst das Routing des Zugangs.`,
   retryCurrent: "Mit aktuellem Account erneut versuchen",
   switchTitle: "Mit anderem Account fortsetzen",
-  switchHint:
-    "Setze dieselbe Unterhaltung mit einem anderen Account derselben CLI fort. Wähle einen bereits angemeldeten Account. Der Verlauf wird kopiert; Zugangsdaten bleiben getrennt. Bei einem Fehler bleibt der ursprüngliche Verlauf erhalten.",
+  switchSummary:
+    "Setze dieselbe Unterhaltung mit einem anderen, bereits angemeldeten Account derselben CLI fort.",
+  switchDetails:
+    "Der Verlauf wird kopiert; Zugangsdaten bleiben getrennt. Bei einem Fehler bleibt der ursprüngliche Verlauf erhalten.",
   switchNow: "Account wechseln und fortsetzen",
   targetAccount: "Zielaccount",
   chooseAccount: "Account auswählen …",
@@ -104,7 +106,6 @@ export const sessionReloadCopy = {
   reloading:
     "Warte auf die fortgesetzte Unterhaltung · mögliche Rückfragen im Terminal bestätigen.",
   completed: "Unterhaltung mit aktualisierten Integrationen fortgesetzt.",
-  close: "Schließen",
   refresh: "Erneut prüfen",
 };
 

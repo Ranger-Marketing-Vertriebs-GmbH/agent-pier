@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Modal from "../../components/Modal.jsx";
+import LearnMore from "../../components/LearnMore.jsx";
+import Icon from "../../components/Icon.jsx";
 import api from "../../lib/api.js";
 import useSshAccesses from "./useSshAccesses.js";
 import SshChoices from "./SshChoices.jsx";
@@ -7,6 +9,12 @@ import SshCopy from "./SshCopy.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
 import "./ssh.css";
+const toolTones = {
+  ready: "ok",
+  starting: "pending",
+  "reload-required": "warning",
+  unavailable: "neutral",
+};
 export default function SessionSshDialog({ session, close, openReload }) {
   const path = `/sessions/${encodeURIComponent(session.id)}/ssh-accesses`;
   const { data, setData, error: loadError, reload } = useSshAccesses(path);
@@ -54,6 +62,24 @@ export default function SessionSshDialog({ session, close, openReload }) {
     };
   }, [path, tools?.state]);
 
+  const save = async () => {
+    setBusy(true);
+    setError("");
+    setSaved(false);
+    try {
+      const result = await api(path, "PUT", { accessIds: selected });
+      if (mounted.current) {
+        setData(result);
+        setSaved(true);
+      }
+    } catch (err) {
+      if (mounted.current) setError(err.message);
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  };
+  const state = tools?.state || "unavailable";
+
   return (
     <Modal
       title={copy.title}
@@ -61,75 +87,93 @@ export default function SessionSshDialog({ session, close, openReload }) {
         if (!busy) close();
       }}
       closeDisabled={busy}
+      className="ssh-dialog"
+      footer={
+        data ? (
+          <>
+            {error ? (
+              <p className="dialog-actions-note error" role="alert">
+                {error}
+              </p>
+            ) : (
+              (busy || saved) && (
+                <p className="dialog-actions-note" role="status">
+                  {busy ? copy.busy : copy.saved}
+                </p>
+              )
+            )}
+            <button className="button primary" disabled={busy} onClick={save}>
+              {copy.save}
+            </button>
+          </>
+        ) : null
+      }
     >
-      <div className="ssh-dialog">
+      <LearnMore hint={copy.sessionSummary}>
         <p>{copy.sessionHint}</p>
         <p>{copy.scope}</p>
         <p>{copy.revokeHint}</p>
-        {!data && !loadError && <p role="status">{copy.loading}</p>}
-        {loadError && (
-          <div>
-            <p role="alert">{loadError}</p>
-            <button className="button" onClick={reload}>
-              {copy.retry}
-            </button>
-          </div>
-        )}
-        {data && (
-          <>
-            <p role="status">
+      </LearnMore>
+      {!data && !loadError && <p role="status">{copy.loading}</p>}
+      {loadError && (
+        <div className="dialog-status-action">
+          <p className="dialog-status dialog-status-error" role="alert">
+            {loadError}
+          </p>
+          <button className="button secondary" onClick={reload}>
+            {copy.retry}
+          </button>
+        </div>
+      )}
+      {data && (
+        <>
+          <div className="dialog-status-action">
+            <p
+              className={`dialog-status dialog-status-${toolTones[state]}`}
+              role="status"
+            >
               {
                 {
                   ready: copy.toolsReady,
                   starting: copy.toolsStarting,
                   "reload-required": copy.toolsReload,
                   unavailable: copy.toolsUnavailable,
-                }[tools?.state || "unavailable"]
+                }[state]
               }
             </p>
-            {tools?.state === "reload-required" && openReload && (
-              <>
-                {dirty && <p role="status">{copy.unsaved}</p>}
-                <button className="button" disabled={busy || dirty} onClick={openReload}>
-                  {copy.reload}
-                </button>
-              </>
+            {state === "reload-required" && openReload && (
+              <button
+                className="button secondary"
+                disabled={busy || dirty}
+                onClick={openReload}
+              >
+                {copy.reload}
+              </button>
             )}
-            <SshChoices
-              accesses={data.accesses}
-              selected={selected}
-              inherited={data.inheritedIds || []}
-              disabled={busy}
-              change={(ids) => {
-                setSelected(ids);
-                setSaved(false);
-              }}
-            />
-            <button
-              className="button primary"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                setError("");
-                setSaved(false);
-                try {
-                  const result = await api(path, "PUT", { accessIds: selected });
-                  if (mounted.current) {
-                    setData(result);
-                    setSaved(true);
-                  }
-                } catch (err) {
-                  if (mounted.current) setError(err.message);
-                } finally {
-                  if (mounted.current) setBusy(false);
-                }
-              }}
-            >
-              {copy.save}
-            </button>
-            {data.commands.length > 0 && (
-              <details>
-                <summary>{copy.advanced}</summary>
+          </div>
+          {state === "reload-required" && openReload && dirty && (
+            <p className="dialog-hint" role="status">
+              {copy.unsaved}
+            </p>
+          )}
+          <SshChoices
+            accesses={data.accesses}
+            selected={selected}
+            inherited={data.inheritedIds || []}
+            disabled={busy}
+            hideLegend
+            change={(ids) => {
+              setSelected(ids);
+              setSaved(false);
+            }}
+          />
+          {data.commands.length > 0 && (
+            <details className="learn-more">
+              <summary>
+                {copy.advanced}
+                <Icon name="down" size={14} />
+              </summary>
+              <div className="learn-more-body">
                 <p>
                   {copy.commandHint} <code>-- uname -a</code>
                 </p>
@@ -141,17 +185,14 @@ export default function SessionSshDialog({ session, close, openReload }) {
                     button={copy.copyCommand}
                   />
                 ))}
-              </details>
-            )}
-          </>
-        )}
-        {busy && <p role="status">{copy.busy}</p>}
-        {saved && <p role="status">{copy.saved}</p>}
-        {error && <p role="alert">{error}</p>}
-        <a href="/settings/ssh">
-          {data?.inheritedIds?.length ? projectCopy.manageProject : copy.manage}
-        </a>
-      </div>
+              </div>
+            </details>
+          )}
+        </>
+      )}
+      <a className="ssh-dialog-manage" href="/settings/ssh">
+        {data?.inheritedIds?.length ? projectCopy.manageProject : copy.manage}
+      </a>
     </Modal>
   );
 }

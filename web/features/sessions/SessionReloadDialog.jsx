@@ -1,9 +1,19 @@
 import React, { useEffect, useState } from "react";
 import Modal from "../../components/Modal.jsx";
+import CheckRow from "../../components/CheckRow.jsx";
+import Icon from "../../components/Icon.jsx";
+import LearnMore from "../../components/LearnMore.jsx";
 import { sessionReloadCopy as copy } from "../../lib/i18n/messages/sessions.js";
 import useSessionReload from "./useSessionReload.js";
 import { routeLabel } from "../provider-connections/route-label.js";
 import "./session-reload.css";
+
+const stateTones = {
+  waiting: "pending",
+  reloading: "pending",
+  completed: "ok",
+  failed: "error",
+};
 
 export default function SessionReloadDialog({
   session,
@@ -24,145 +34,154 @@ export default function SessionReloadDialog({
   const active = ["waiting", "reloading"].includes(data?.state);
   const needsInterrupt =
     data && !["idle", "stopped"].includes(data.activity?.state ?? data.activity);
+  const choosing = data?.eligible && !active && !reload.pending;
+  const target = switchAccount ? targetAccountId : undefined;
+  const actions = [
+    choosing &&
+      switchAccount &&
+      data.state === "failed" &&
+      (!data.targetAccountId || data.targetAccountId === data.accountId) && (
+        <button
+          key="retry-current"
+          className="button secondary"
+          disabled={busy || (needsInterrupt && !interrupt)}
+          onClick={() => reload.submit("now", interrupt)}
+        >
+          {copy.retryCurrent}
+        </button>
+      ),
+    choosing && (
+      <button
+        key="queue"
+        className="button secondary"
+        disabled={busy || !validTarget}
+        onClick={() => reload.submit("when-idle", false, target)}
+      >
+        {copy.queue}
+      </button>
+    ),
+    choosing && (
+      <button
+        key="now"
+        className="button primary"
+        disabled={busy || !validTarget || (needsInterrupt && !interrupt)}
+        onClick={() => reload.submit("now", interrupt, target)}
+      >
+        {switchAccount ? copy.switchNow : copy.now}
+      </button>
+    ),
+    data?.state === "waiting" && (
+      <button
+        key="cancel"
+        className="button secondary"
+        disabled={busy}
+        onClick={reload.cancel}
+      >
+        {copy.cancel}
+      </button>
+    ),
+    reload.pending && (
+      <button
+        key="retry"
+        className="button primary"
+        disabled={busy}
+        onClick={() => reload.submit()}
+      >
+        {copy.retry}
+      </button>
+    ),
+    !data && error && (
+      <button key="refresh" className="button secondary" onClick={reload.refresh}>
+        {copy.refresh}
+      </button>
+    ),
+  ].filter(Boolean);
   return (
-    <Modal title={switchAccount ? copy.switchTitle : copy.title} close={close}>
-      <div className="session-reload-dialog">
-        <p>{switchAccount ? copy.switchHint : copy.hint}</p>
+    <Modal
+      title={switchAccount ? copy.switchTitle : copy.title}
+      close={close}
+      className="session-reload-dialog"
+      footer={actions.length ? actions : null}
+    >
+      <LearnMore hint={switchAccount ? copy.switchSummary : copy.hint}>
+        {switchAccount && <p>{copy.switchDetails}</p>}
         <p>{copy.terminalHint}</p>
-        <button className="button" onClick={openTerminal}>
-          {copy.openTerminal}
-        </button>
-        {!data && !error && <p role="status">{copy.loading}</p>}
-        {error && <p role="alert">{error}</p>}
-        {busy && <p role="status">{copy.submitting}</p>}
-        {/* Present from the first render, so filling it is announced. */}
-        <div className="session-reload-route" role="status">
-          {data?.routeChange && (
-            <p>
-              {data.routeChange.to
-                ? copy.routeChanged(
-                    routeLabel(data.routeChange.from),
-                    routeLabel(data.routeChange.to),
-                  )
-                : copy.routeUnavailable(routeLabel(data.routeChange.from))}
-            </p>
-          )}
-        </div>
-        {data && (
-          <>
-            {["waiting", "reloading", "completed", "failed"].includes(data.state) && (
-              <p role={data.state === "failed" ? "alert" : "status"}>
-                {copy[data.state]}
-              </p>
-            )}
-            {!data.eligible && !active && (
-              <p role="status">
-                {data.reason === "native-session-unverified"
-                  ? copy.unverified
-                  : copy.unsupported}
-              </p>
-            )}
-            {data.eligible && !active && !reload.pending && (
-              <>
-                {switchAccount && (
-                  <label>
-                    {copy.targetAccount}
-                    <select
-                      aria-label={copy.targetAccount}
-                      value={targetAccountId}
-                      onChange={(event) => setTargetAccountId(event.target.value)}
-                      disabled={busy}
-                    >
-                      <option value="">{copy.chooseAccount}</option>
-                      {(data.accountTargets || []).map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name}
-                        </option>
-                      ))}
-                    </select>
-                    {!data.accountTargets?.length && <span>{copy.noAccounts}</span>}
-                  </label>
-                )}
-                {needsInterrupt && (
-                  <>
-                    <p>{copy.uncertain}</p>
-                    <label className="session-reload-acknowledgement">
-                      <input
-                        type="checkbox"
-                        checked={interrupt}
-                        onChange={(event) => setInterrupt(event.target.checked)}
-                        disabled={busy}
-                      />
-                      <span>{copy.interrupt}</span>
-                    </label>
-                  </>
-                )}
-                {switchAccount &&
-                  data.state === "failed" &&
-                  (!data.targetAccountId || data.targetAccountId === data.accountId) && (
-                    <button
-                      className="button primary"
-                      disabled={busy || (needsInterrupt && !interrupt)}
-                      onClick={() => reload.submit("now", interrupt)}
-                    >
-                      {copy.retryCurrent}
-                    </button>
-                  )}
-                <div className="session-reload-actions">
-                  <button
-                    className="button primary"
-                    disabled={busy || !validTarget || (needsInterrupt && !interrupt)}
-                    onClick={() =>
-                      reload.submit(
-                        "now",
-                        interrupt,
-                        switchAccount ? targetAccountId : undefined,
-                      )
-                    }
-                  >
-                    {switchAccount ? copy.switchNow : copy.now}
-                  </button>
-                  <button
-                    className="button"
-                    disabled={busy || !validTarget}
-                    onClick={() =>
-                      reload.submit(
-                        "when-idle",
-                        false,
-                        switchAccount ? targetAccountId : undefined,
-                      )
-                    }
-                  >
-                    {copy.queue}
-                  </button>
-                </div>
-              </>
-            )}
-            {data.state === "waiting" && (
-              <button className="button" disabled={busy} onClick={reload.cancel}>
-                {copy.cancel}
-              </button>
-            )}
-          </>
+      </LearnMore>
+      {!data && !error && <p role="status">{copy.loading}</p>}
+      {error && (
+        <p className="dialog-status dialog-status-error" role="alert">
+          {error}
+        </p>
+      )}
+      {busy && (
+        <p className="dialog-status dialog-status-pending" role="status">
+          {copy.submitting}
+        </p>
+      )}
+      {/* Present from the first render, so filling it is announced. */}
+      <div className="session-reload-route" role="status">
+        {data?.routeChange && (
+          <p className="dialog-status dialog-status-warning">
+            {data.routeChange.to
+              ? copy.routeChanged(
+                  routeLabel(data.routeChange.from),
+                  routeLabel(data.routeChange.to),
+                )
+              : copy.routeUnavailable(routeLabel(data.routeChange.from))}
+          </p>
         )}
-        {reload.pending && (
-          <button
-            className="button primary"
-            disabled={busy}
-            onClick={() => reload.submit()}
-          >
-            {copy.retry}
-          </button>
-        )}
-        {!data && error && (
-          <button className="button" onClick={reload.refresh}>
-            {copy.refresh}
-          </button>
-        )}
-        <button className="button" onClick={close}>
-          {copy.close}
-        </button>
       </div>
+      {data && ["waiting", "reloading", "completed", "failed"].includes(data.state) && (
+        <p
+          className={`dialog-status dialog-status-${stateTones[data.state]}`}
+          role={data.state === "failed" ? "alert" : "status"}
+        >
+          {copy[data.state]}
+        </p>
+      )}
+      {data && !data.eligible && !active && (
+        <p className="dialog-status" role="status">
+          {data.reason === "native-session-unverified"
+            ? copy.unverified
+            : copy.unsupported}
+        </p>
+      )}
+      {choosing && switchAccount && (
+        <label>
+          {copy.targetAccount}
+          <select
+            aria-label={copy.targetAccount}
+            value={targetAccountId}
+            onChange={(event) => setTargetAccountId(event.target.value)}
+            disabled={busy}
+          >
+            <option value="">{copy.chooseAccount}</option>
+            {(data.accountTargets || []).map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
+          {!data.accountTargets?.length && (
+            <span className="dialog-hint">{copy.noAccounts}</span>
+          )}
+        </label>
+      )}
+      {choosing && needsInterrupt && (
+        <>
+          <p className="dialog-hint">{copy.uncertain}</p>
+          <CheckRow
+            title={copy.interrupt}
+            checked={interrupt}
+            onChange={(event) => setInterrupt(event.target.checked)}
+            disabled={busy}
+          />
+        </>
+      )}
+      <button className="button secondary session-reload-terminal" onClick={openTerminal}>
+        <Icon name="terminal" size={16} />
+        {copy.openTerminal}
+      </button>
     </Modal>
   );
 }

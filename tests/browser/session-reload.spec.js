@@ -190,7 +190,7 @@ test("busy reload requires acknowledgement and preserves chat draft and history"
   expect(state.posts).toHaveLength(1);
   expect(state.posts[0]).toMatchObject({ mode: "now", interrupt: true });
   await page.screenshot({ path: ".cache/session-reload-mobile-en.png" });
-  await dialog(page).getByRole("button", { name: "Close", exact: true }).click();
+  await dialog(page).getByRole("button", { name: "Close dialog", exact: true }).click();
   await expect(input).toHaveValue("Keep my draft");
   await expect(page.getByText("Existing answer", { exact: true })).toBeVisible();
   expect(state.inputs).toEqual([]);
@@ -208,7 +208,7 @@ test("queued reload remains visible after closing and can be cancelled", async (
     .getByRole("button", { name: "Wait until idle", exact: true })
     .click();
   await expect(dialog(page)).toContainText("Reload queued · waiting until idle");
-  await dialog(page).getByRole("button", { name: "Close", exact: true }).click();
+  await dialog(page).getByRole("button", { name: "Close dialog", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Reload queued · waiting until idle", exact: true }),
   ).toBeVisible();
@@ -235,7 +235,7 @@ test("ambiguous POST retries the same request after closing the dialog", async (
   await open(page);
   await dialog(page).getByRole("button", { name: "Reload now", exact: true }).click();
   await expect(dialog(page).getByRole("alert")).toContainText("could not be confirmed");
-  await dialog(page).getByRole("button", { name: "Close", exact: true }).click();
+  await dialog(page).getByRole("button", { name: "Close dialog", exact: true }).click();
   await open(page);
   state.abortPost = false;
   await dialog(page).getByRole("button", { name: "Retry request", exact: true }).click();
