@@ -96,6 +96,17 @@ test("the allow list matches the bundled OpenClaw schema", options, async (t) =>
     const lookup = await client.call("config.schema.lookup", { path: setting.path });
     assert.equal(lookup.reloadKind, setting.reloadKind, setting.path);
   }
+  // The facts our copy states, where upstream documents them: the image default,
+  // and that an unset retention runs no general sweep (any value deletes received
+  // media too, which is why the floor is 48 hours).
+  assert.match(
+    schema.uiHints["agents.defaults.imageMaxDimensionPx"].help,
+    /\(default: 1200\)/,
+  );
+  assert.match(
+    schema.uiHints["attachments.ttlHours"].help,
+    /Leave unset to disable that sweep/,
+  );
   // The Gateway validates a patch against the same schema.
   const current = await client.call("config.get", {});
   await assert.rejects(
