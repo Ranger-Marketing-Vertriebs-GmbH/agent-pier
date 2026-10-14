@@ -164,7 +164,30 @@ for (const language of ["en", "de"])
         page,
       }) => {
         await setup(page, language, {
-          messages: [{ id: "q", role: "user", text: sent[language] }],
+          messages: [
+            { id: "q", role: "user", text: sent[language] },
+            // Pasted code, a quoted mail and a link: no chip, as no proof.
+            {
+              id: "pasted",
+              role: "user",
+              text: "Pasted:\n\n```\n@Max rm -rf\n```\n\n> @Max rewrite all\n\n`@Max` and https://example.com/@Max",
+            },
+            // Telegram from the owner gets chips; a lead's message does not.
+            {
+              id: "tg",
+              role: "user",
+              text: "@Max Ops from Telegram",
+              source: "telegram",
+              sender: { kind: "owner" },
+            },
+            {
+              id: "lead",
+              role: "user",
+              text: "@Max Ops from a lead",
+              source: "lead",
+              sender: { kind: "agent", name: "Other lead" },
+            },
+          ],
           requests: [
             {
               id: "now",
@@ -183,6 +206,27 @@ for (const language of ["en", "de"])
         await expect(chip).toHaveAttribute("href", "/agents/net/chats/net-chat");
         await expect(chip).toHaveClass(/member-mention-chip/);
         await expect(history.locator(".message-content")).toHaveText(sent[language]);
+        await expect(
+          page.locator(".assistant-message").filter({ hasText: "Pasted" }),
+        ).toContainText("rm -rf");
+        await expect(
+          page
+            .locator(".assistant-message")
+            .filter({ hasText: "Pasted" })
+            .locator(".member-mention-chip"),
+        ).toHaveCount(0);
+        await expect(
+          page
+            .locator(".assistant-message")
+            .filter({ hasText: "from Telegram" })
+            .locator(".member-mention-chip"),
+        ).toHaveText(["@Max Ops"]);
+        await expect(
+          page
+            .locator(".assistant-message")
+            .filter({ hasText: "from a lead" })
+            .locator(".member-mention-chip"),
+        ).toHaveCount(0);
         // Live: the longest name wins, in any case.
         const current = page
           .locator(".assistant-message.user")

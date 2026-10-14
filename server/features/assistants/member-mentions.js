@@ -4,9 +4,11 @@
 //
 // After "@" the longest display name of a member wins, case-insensitively and only
 // when it ends at a word boundary; names may contain spaces ("@Network Architect").
-// An "@" inside a word (mail@example.org, /ask@bot) starts no mention. A name two
-// members share makes the mention ambiguous; an unknown name is no mention at all.
-const wordChar = /[\p{L}\p{N}]$/u;
+// An "@" inside a word or a path (mail@example.org, /ask@bot, x.com/@scout) starts
+// no mention. A name two members share makes the mention ambiguous; an unknown name
+// is no mention at all. Text is compared as written, never normalised, so look-alike
+// letters and invisible characters mention nobody on either side.
+const attached = /[\p{L}\p{N}/.:=_\-\\[>@`~]$/u;
 const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const pattern = (name) =>
   new RegExp(`${name.split(/\s+/).map(escape).join("\\s+")}(?![\\p{L}\\p{N}])`, "iuy");
@@ -29,7 +31,7 @@ export function findMentions(text, members) {
     found = [];
   if (typeof text !== "string" || !list.length) return found;
   for (let at = text.indexOf("@"); at >= 0; at = text.indexOf("@", at + 1)) {
-    if (wordChar.test(text.slice(Math.max(0, at - 2), at))) continue;
+    if (attached.test(text.slice(Math.max(0, at - 2), at))) continue;
     let length = 0,
       ids = [];
     for (const { id, match } of list) {
@@ -53,22 +55,58 @@ export function findMentions(text, members) {
   return found;
 }
 
+// Where a mention may stand in a Markdown message, as the chat renders it: in the
+// owner's own text, never in code, block quotes, links, images or HTML.
+const skipped = new Set([
+  "code",
+  "inlineCode",
+  "html",
+  "blockquote",
+  "link",
+  "linkReference",
+  "image",
+  "imageReference",
+  "definition",
+  "footnoteDefinition",
+  "footnoteReference",
+]);
+const blocks = new Set(["paragraph", "heading", "tableCell"]);
+/** At most this many mentions of one message are looked at. */
+export const mentionLimit = 20;
+
 /**
- * `text` split into plain strings and resolved mentions (`{ mention, memberId }`),
- * for rendering. Ambiguous mentions stay plain text.
+ * The mentions in a parsed Markdown message (an mdast tree, as remark builds it for
+ * the chat and as the server parses the owner's text): `{ parent, node, block,
+ * mentions }` per text node, where `block` is the paragraph, heading or table cell
+ * around it. The server's proof and the browser's chips both use this, so a mention
+ * counts only where the owner sees a chip.
  */
-export function splitMentions(text, members) {
-  const parts = [];
-  let from = 0;
-  for (const m of findMentions(text, members)) {
-    if (m.ambiguous) continue;
-    if (m.start > from) parts.push(text.slice(from, m.start));
-    parts.push({ mention: text.slice(m.start, m.end), memberId: m.memberId });
-    from = m.end;
-  }
-  if (from < (text?.length || 0)) parts.push(text.slice(from));
-  return parts;
+export function treeMentions(tree, members) {
+  const found = [];
+  let count = 0;
+  const walk = (node, block) => {
+    for (const child of node.children || []) {
+      if (count >= mentionLimit) return;
+      if (skipped.has(child.type)) continue;
+      if (child.type !== "text") {
+        walk(child, blocks.has(child.type) ? child : block);
+        continue;
+      }
+      const mentions = findMentions(child.value, members).slice(0, mentionLimit - count);
+      if (!mentions.length) continue;
+      count += mentions.length;
+      found.push({ parent: node, node: child, block, mentions });
+    }
+  };
+  walk(tree, tree);
+  return found;
 }
+
+/** All text of a node, with a space between its parts. */
+export const nodeText = (node) =>
+  typeof node.value === "string"
+    ? node.value
+    : (node.children || []).map(nodeText).join(" ");
 
 /**
  * The "@query" being typed just before `caret`, for the composer's autocomplete:
@@ -78,7 +116,7 @@ export function splitMentions(text, members) {
 export function mentionQuery(text, caret) {
   const before = String(text).slice(0, caret);
   const at = before.lastIndexOf("@");
-  if (at < 0 || wordChar.test(before.slice(Math.max(0, at - 2), at))) return null;
+  if (at < 0 || attached.test(before.slice(Math.max(0, at - 2), at))) return null;
   const query = before.slice(at + 1);
   if (query.length > 60 || /\n|\s{2}|^\s/.test(query)) return null;
   return { start: at, query };

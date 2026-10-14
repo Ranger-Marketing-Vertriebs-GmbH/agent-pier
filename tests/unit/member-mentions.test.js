@@ -3,9 +3,13 @@ import assert from "node:assert/strict";
 import {
   findMentions,
   mentionMatches,
+  mentionLimit,
   mentionQuery,
-  splitMentions,
+  treeMentions,
 } from "../../server/features/assistants/member-mentions.js";
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { gfmFromMarkdown } from "mdast-util-gfm";
+import { gfm } from "micromark-extension-gfm";
 
 const team = [
   { id: "net", name: "Network Architect" },
@@ -39,6 +43,9 @@ test("unknown, embedded and ambiguous mentions resolve to nobody", () => {
   assert.deepEqual(ids("@Nobody here"), []);
   assert.deepEqual(ids("write to max@example.org"), []);
   assert.deepEqual(ids("/ask@Max hello"), []);
+  for (const before of ["/", ".", ":", "=", "_", "-", "\\", "[", ">", "@", "`", "~"])
+    assert.deepEqual(ids(`${before}@Max hello`), [], before);
+  assert.deepEqual(ids("(@Max) hello"), ["max"]);
   assert.deepEqual(ids("@ Max hello"), []);
   assert.deepEqual(ids("@Max", []), []);
   assert.deepEqual(ids("no mention at all"), []);
@@ -61,16 +68,38 @@ test("Telegram text is parsed the same way", () => {
   assert.deepEqual(ids("@Max Ops\n@Max"), ["ops", "max"]);
 });
 
-test("rendering splits resolved mentions out and keeps the rest as text", () => {
-  assert.deepEqual(splitMentions("Hi @max ops, und @Max.", team), [
-    "Hi ",
-    { mention: "@max ops", memberId: "ops" },
-    ", und ",
-    { mention: "@Max", memberId: "max" },
-    ".",
+const tree = (text) =>
+  fromMarkdown(text, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] });
+const shown = (text) =>
+  treeMentions(tree(text), team).flatMap(({ node, mentions }) =>
+    mentions.map((m) => node.value.slice(m.start, m.end)),
+  );
+
+test("mentions count only in the owner's own text of a Markdown message", () => {
+  assert.deepEqual(shown("Hi @max ops, und **@Max**.\n\n- @Network Architect"), [
+    "@max ops",
+    "@Max",
+    "@Network Architect",
   ]);
-  assert.deepEqual(splitMentions("plain", team), ["plain"]);
-  assert.deepEqual(splitMentions("", team), []);
+  for (const text of [
+    "```\n@Max\n```",
+    "    @Max indented",
+    "> @Max quoted",
+    "`@Max`",
+    "[@Max](https://example.com)",
+    "https://example.com/@Max",
+    "www.example.com/@Max",
+    "max@Max.example",
+    "![@Max](x.png)",
+    "<div>\n@Max\n</div>",
+  ])
+    assert.deepEqual(shown(text), [], text);
+  // Each entry names its paragraph, heading or table cell.
+  const [entry] = treeMentions(tree("# Plan\n\nfirst @Max then"), team);
+  assert.equal(entry.block.type, "paragraph");
+  assert.equal(entry.parent, entry.block);
+  const many = treeMentions(tree("@Max ".repeat(50)), team);
+  assert.equal(many.flatMap((e) => e.mentions).length, mentionLimit);
 });
 
 test("the composer finds the typed query and ranks matching members", () => {
