@@ -3,6 +3,7 @@ import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { personalCapabilities, writeGuardRuntimes } from "./native-capabilities.js";
 import { toolError } from "./tool-errors.js";
+import { writeTools } from "./team-plugin/tool-guard.js";
 const actions = new Set([
   "propose",
   "status",
@@ -184,7 +185,7 @@ export class TeamBridge {
       Object.keys(input).some(
         (k) => !["agentId", "sessionKey", "toolName", "path"].includes(k),
       ) ||
-      !["write", "edit"].includes(input.toolName)
+      !writeTools.includes(input.toolName)
     )
       throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "path"]) textValue(input[k], 4096);

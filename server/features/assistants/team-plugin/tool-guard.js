@@ -12,7 +12,31 @@ export const bootstrapFiles = [
   "HEARTBEAT.md",
   "BOOTSTRAP.md",
 ];
-export const writeTools = ["write", "edit"];
+// Every file-changing tool in OpenClaw's fs section (2026.9.9 tool catalog: ls,
+// read, write, edit, apply_patch). apply_patch is implied wherever write is
+// allowed (writeAllowsApplyPatch), so it is guarded like write.
+export const writeTools = ["write", "edit", "apply_patch"];
+// apply_patch hunk headers (OpenClaw's parsePatchText, which trims each header).
+const patchHeader = /^\*\*\* (?:Add File|Delete File|Update File|Move to): (.*)$/;
+/**
+ * Every path a patch could touch: each trimmed line that reads like a hunk header,
+ * a superset of the hunks OpenClaw applies (a header-like content line only adds a
+ * path to check). Null when there is none, which is never allowed.
+ */
+export function patchPaths(input) {
+  if (typeof input !== "string") return null;
+  const paths = input
+    .split(/\r?\n/)
+    .map((line) => patchHeader.exec(line.trim())?.[1])
+    .filter((target) => target !== undefined);
+  return paths.length ? paths : null;
+}
+/** The tool call's targets, each as classifyWrite sees a single-path call. */
+export function writeTargets(toolName, params) {
+  if (toolName !== "apply_patch") return [params];
+  const paths = patchPaths(params?.input);
+  return paths ? paths.map((target) => ({ path: target })) : [{}];
+}
 // Must stay below AgentPier's tolerance for a missing report after reconnecting.
 export const guardReportMs = 15000;
 // Approximates the case-insensitive, normalization-insensitive lookup of APFS:
@@ -145,30 +169,36 @@ export function registerToolGuard(api) {
     "before_tool_call",
     async (event, ctx) => {
       const deny = (blockReason) => ({ block: true, blockReason });
-      let target;
+      const targets = [];
       try {
-        target = classifyWrite(event.params, { roots, agentId: ctx?.agentId });
+        for (const params of writeTargets(event.toolName, event.params))
+          targets.push(classifyWrite(params, { roots, agentId: ctx?.agentId }));
       } catch {
         return deny("The write target could not be verified.");
       }
-      if (target.outside) return deny("Writes are limited to this agent's workspace.");
-      if (target.bootstrap)
+      if (targets.some((target) => target.outside))
+        return deny("Writes are limited to this agent's workspace.");
+      if (targets.some((target) => target.bootstrap))
         return deny("Agent instruction files are managed by AgentPier.");
       if (!ctx?.sessionKey) return deny("This turn is not authorized to change files.");
-      // The bridge alone knows whether the current turn came directly from the owner.
-      const response = await bridge(
-        "/tool-policy",
-        {
-          agentId: ctx.agentId,
-          sessionKey: ctx.sessionKey,
-          toolName: event.toolName,
-          path: target.path,
-        },
-        ctx.abortSignal,
-      ).catch(() => null);
-      const policy = response?.ok ? await response.json().catch(() => null) : null;
-      if (policy?.allow === true) return undefined;
-      return deny("Only the owner's own messages may change files.");
+      // The bridge alone knows whether the current turn came directly from the owner;
+      // every path of a patch must be allowed.
+      for (const target of targets) {
+        const response = await bridge(
+          "/tool-policy",
+          {
+            agentId: ctx.agentId,
+            sessionKey: ctx.sessionKey,
+            toolName: event.toolName,
+            path: target.path,
+          },
+          ctx.abortSignal,
+        ).catch(() => null);
+        const policy = response?.ok ? await response.json().catch(() => null) : null;
+        if (policy?.allow !== true)
+          return deny("Only the owner's own messages may change files.");
+      }
+      return undefined;
     },
     { matcher: writeTools, priority: 1000 },
   );

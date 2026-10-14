@@ -245,6 +245,16 @@ for the implementation and remaining native platform/version qualification.
   (see [Skills](#skills)), and autonomous skill review is off. `skills.allowBundled`
   is not a gate: OpenClaw reads the empty list AgentPier writes as "every bundled
   skill allowed".
+- **Every file tool is guarded.** The guard's hook matches `write`, `edit` and
+  `apply_patch`, every file-changing tool of OpenClaw's fs section. OpenClaw grants
+  `apply_patch` wherever `write` is allowed, and hook matchers compare exact tool
+  ids, so `apply_patch` must be named: until it was, a forwarded or otherwise
+  unproven turn could add, change or delete workspace files and patch `AGENTS.md`
+  (proven against 2026.9.9 by `assistant-write-guard-contract.test.js`). A patch is
+  checked on every path a hunk header names (`Add`, `Update`, `Delete`, `Move to`),
+  and one refused path, or no recognizable hunk, refuses the whole patch.
+  `tests/unit/assistant-write-guard-coverage.test.js` fails when AgentPier grants a
+  tool that is neither read-only, guarded nor a shell tool.
 - **Write guard handshake.** The bundled `agentpier-teams` plugin registers the tool
   guard inside the Gateway and reports it to AgentPier, bound to the runtime
   generation. The report is dropped on reconnect and repeated periodically (at the
