@@ -354,8 +354,9 @@ AgentPier installs MCP server packages from npm and PyPI with its own pinned
 toolchains under the data directory's `toolchains/` directory: Node 26.7.0 with npm
 11.19.0, uv 0.12.21 and CPython 3.14.7 (python-build-standalone 20260929). They are
 separate from the agents' OpenClaw runtime and need no agents. Every archive is
-checked against a SHA-256 pinned in AgentPier before it is unpacked; CPython is
-installed by the pinned uv only from the archive AgentPier verified. Nothing is
+checked against a SHA-256 pinned in AgentPier before it is unpacked. AgentPier
+unpacks the verified CPython archive itself and records the toolchain folder in
+CPython's build configuration (sysconfig); uv never downloads Python. Nothing is
 installed globally, and your own npm, pip or uv configuration is never read.
 
 The installer provisions both toolchains; a failed download never fails the

@@ -26,6 +26,12 @@ const options = (f, extra = {}) => ({
 const unavailable = { code: "MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE" };
 const stages = (dataDir) =>
   fs.readdirSync(toolchainRoot(dataDir)).filter((name) => name.startsWith(".stage"));
+const entries = (directory) =>
+  fs
+    .readdirSync(directory, { recursive: true })
+    .map((name) => path.join(directory, String(name)));
+const real = (python, name) =>
+  path.join(fs.realpathSync(python.directory), "cpython", "bin", name);
 function tree(directory) {
   return fs
     .readdirSync(directory, { recursive: true })
@@ -64,20 +70,47 @@ test("node toolchain installs once, verifies and is read back without downloads"
   assert.deepEqual(stages(f.dataDir), []);
 });
 
-test("python toolchain installs CPython only from the verified mirror", async (t) => {
+test("python toolchain is the verified CPython archive in its final folder", async (t) => {
   const f = toolchainFixture(t);
   const python = await ensureToolchain("python", options(f));
   assert.equal(python.kind, "python");
   assert.equal(python.uvVersion, "0.12.21");
   assert.equal(python.pythonVersion, "3.14.7");
+  assert.equal(python.pythonPath, path.join(python.directory, "cpython/bin/python3"));
   assert.equal(execFileSync(python.pythonPath).toString().trim(), "Python 3.14.7");
-  assert.ok(python.pythonPath.startsWith(python.directory + path.sep));
+  assert.equal(fs.realpathSync(python.pythonPath), real(python, "python3.14"));
   assert.deepEqual(readToolchain("python", options(f)), python);
-  // The mirror and the downloaded archive stay in the stage, which is removed.
+  // Nothing refers to the removed stage, no link dangles, no installer leftovers.
+  for (const entry of entries(python.directory)) {
+    const stat = fs.lstatSync(entry);
+    if (stat.isSymbolicLink()) {
+      assert.doesNotMatch(fs.readlinkSync(entry), /\.stage-/, entry);
+      assert.ok(fs.existsSync(entry), `dangling ${entry}`);
+    } else if (stat.isFile())
+      assert.equal(fs.readFileSync(entry).includes(".stage-"), false, entry);
+  }
   const names = tree(python.directory);
-  assert.equal(names.includes("mirror"), false);
+  for (const leftover of [".lock", ".temp", ".gitignore", "mirror"])
+    assert.equal(names.includes(leftover), false, leftover);
   assert.equal(names.includes(f.manifest.python.asset(f.target)), false);
   assert.deepEqual(stages(f.dataDir), []);
+});
+
+test("CPython's sysconfig points into the installed toolchain", async (t) => {
+  const f = toolchainFixture(t);
+  const python = await ensureToolchain("python", options(f));
+  const cpython = path.join(python.directory, "cpython");
+  const data = fs.readFileSync(
+    path.join(cpython, "lib/python3.14/_sysconfigdata__darwin_darwin.py"),
+    "utf8",
+  );
+  const includePy = /"INCLUDEPY": "([^"]+)"/.exec(data)[1];
+  assert.equal(includePy, path.join(cpython, "include/python3.14"));
+  assert.ok(fs.statSync(includePy).isDirectory());
+  assert.ok(data.includes(`"prefix": "${cpython}"`));
+  assert.ok(data.includes(`-I${cpython}/include -L${cpython}/lib`));
+  assert.ok(data.includes(`'--prefix=${cpython}' 'INSTALL=/usr/bin/install -c'`));
+  assert.doesNotMatch(data, /(["'=]|-[IL])\/install/);
 });
 
 test("a corrupt download leaves nothing behind and keeps the code stable", async (t) => {
@@ -102,18 +135,36 @@ test("an unreachable download reports MCP_PACKAGE_DOWNLOAD_FAILED", async (t) =>
   assert.doesNotMatch(error.message, /secret/);
 });
 
-test("a failing uv install reports MCP_PACKAGE_INSTALL_FAILED without output", async (t) => {
+test("a failing CPython unpack reports MCP_PACKAGE_INSTALL_FAILED without output", async (t) => {
   const f = toolchainFixture(t);
   const run = promisify(execFile);
   const execute = (file, args, opts) =>
-    args[0] === "python"
-      ? Promise.reject(Error(`uv failed in ${file}`))
+    file === "tar" && args.includes(path.join(path.dirname(args[1]), "cpython"))
+      ? Promise.reject(Error(`tar failed in ${args[1]}`))
       : run(file, args, opts);
   const error = await ensureToolchain("python", options(f, { execute })).catch((e) => e);
   assert.equal(error.code, "MCP_PACKAGE_INSTALL_FAILED");
-  assert.doesNotMatch(error.message, /uv failed/);
+  assert.doesNotMatch(error.message, /tar failed/);
   assert.equal(readToolchain("python", options(f)), null);
   assert.deepEqual(fs.readdirSync(toolchainRoot(f.dataDir)), []);
+});
+
+test("a redirected or second-named CPython program is refused", async (t) => {
+  const f = toolchainFixture(t);
+  const python = await ensureToolchain("python", options(f));
+  const bin = path.dirname(python.pythonPath);
+  fs.rmSync(python.pythonPath);
+  fs.symlinkSync("/bin/sh", python.pythonPath);
+  assert.throws(() => readToolchain("python", options(f)), unavailable);
+  fs.rmSync(python.pythonPath);
+  fs.copyFileSync(path.join(bin, "python3.14"), path.join(bin, "other"));
+  fs.symlinkSync("other", python.pythonPath);
+  assert.throws(() => readToolchain("python", options(f)), unavailable);
+  fs.rmSync(python.pythonPath);
+  fs.symlinkSync("python3.14", python.pythonPath);
+  assert.deepEqual(readToolchain("python", options(f)), python);
+  fs.linkSync(path.join(bin, "python3.14"), path.join(f.root, "second-name"));
+  assert.throws(() => readToolchain("python", options(f)), unavailable);
 });
 
 test("a tampered installation is refused, not used", async (t) => {

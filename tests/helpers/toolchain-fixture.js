@@ -14,10 +14,35 @@ function tarball(root, name) {
   return execFileSync("tar", ["-czf", "-", "-C", root, name]);
 }
 
+/** The python-build-standalone `install_only_stripped` layout with `/install` paths. */
+function cpythonSource(source, version) {
+  const minor = version.split(".").slice(0, 2).join(".");
+  const root = path.join(source, "python");
+  script(path.join(root, "bin", `python${minor}`), `echo "Python ${version}"`);
+  fs.symlinkSync(`python${minor}`, path.join(root, "bin", "python3"));
+  fs.symlinkSync(`python${minor}`, path.join(root, "bin", "python"));
+  fs.mkdirSync(path.join(root, "include", `python${minor}`), { recursive: true });
+  fs.writeFileSync(path.join(root, "include", `python${minor}`, "Python.h"), "");
+  const lib = path.join(root, "lib", `python${minor}`);
+  fs.mkdirSync(lib, { recursive: true });
+  fs.writeFileSync(
+    path.join(lib, "_sysconfigdata__darwin_darwin.py"),
+    [
+      "build_time_vars = {",
+      `    "BINDIR": "/install/bin",`,
+      `    "CFLAGS": "-O3 -I/install/include -L/install/lib",`,
+      `    "CONFIG_ARGS": "'--prefix=/install' 'INSTALL=/usr/bin/install -c'",`,
+      `    "INCLUDEPY": "/install/include/python${minor}",`,
+      `    "prefix": "/install",`,
+      "}",
+      "",
+    ].join("\n"),
+  );
+}
+
 /**
  * Fake Node, uv and CPython archives whose programs are shell scripts, plus a
- * manifest pinning their checksums. The fake uv installs a fake CPython only from
- * the `file://` mirror AgentPier prepared, as the real one does.
+ * manifest pinning their checksums. The CPython archive has the real layout.
  */
 export function toolchainFixture(t, { target = "darwin-arm64" } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-toolchains-"));
@@ -40,24 +65,15 @@ export function toolchainFixture(t, { target = "darwin-arm64" } = {}) {
     "",
   );
   const uvName = `uv-${m.uv.triples[target]}`;
-  const asset = m.python.asset(target);
   script(
     path.join(source, uvName, "uv"),
-    [
-      `if [ "$1" = "--version" ]; then echo "uv ${m.uv.version} (fixture)"; exit 0; fi`,
-      `if [ "$1" = "python" ] && [ "$2" = "install" ]; then`,
-      `  [ -f "\${UV_PYTHON_INSTALL_MIRROR#file://}/${m.python.build}/${asset}" ] || exit 3`,
-      `  dir="$5/cpython-$3-fixture/bin"; mkdir -p "$dir"`,
-      `  printf '#!/bin/sh\\necho "Python %s"\\n' "$3" > "$dir/python3"; chmod +x "$dir/python3"`,
-      `  exit 0`,
-      `fi`,
-      `exit 2`,
-    ].join("\n"),
+    `if [ "$1" = "--version" ]; then echo "uv ${m.uv.version} (fixture)"; exit 0; fi\nexit 2`,
   );
+  cpythonSource(source, m.python.version);
   const bytes = {
     node: tarball(source, nodeName),
     uv: tarball(source, uvName),
-    python: Buffer.from("fixture cpython archive"),
+    python: tarball(source, "python"),
   };
   const manifest = {
     ...m,

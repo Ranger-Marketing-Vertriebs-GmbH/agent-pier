@@ -11,11 +11,13 @@ import { writePrivate } from "../../lib/storage.js";
 import { packageCode, packageProblem } from "./package-errors.js";
 import { toolchainManifest, toolchainTarget } from "./toolchain-manifest.js";
 import { privateFolder, regularFile, sha256Matches } from "./verified-files.js";
+import { relocateSysconfig } from "./cpython-relocation.js";
 
 const executeFile = promisify(execFile);
 const downloadFile = (url) => fetchDownload(url, fetch, 256 * 1024 * 1024);
 const kinds = ["node", "python"];
 const npmCli = path.join("lib", "node_modules", "npm", "bin", "npm-cli.js");
+const pythonPath = path.join("cpython", "bin", "python3");
 const jobs = new Map();
 const queues = new Map();
 const unavailable = () => packageProblem("MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE", 503);
@@ -73,6 +75,7 @@ function isolated(stage, environment) {
     UV_NO_CONFIG: "1",
     UV_CACHE_DIR: path.join(stage, "cache"),
     UV_PYTHON_DOWNLOADS: "manual",
+    PYTHONDONTWRITEBYTECODE: "1",
   };
 }
 
@@ -92,7 +95,7 @@ async function installNode({ stage, target, m, download, execute, env }) {
   return { content, receipt: { version: m.node.version, checksum } };
 }
 
-async function installPython({ stage, target, m, download, execute, env }) {
+async function installPython({ stage, final, target, m, download, execute, env }) {
   const uvBytes = await fetchVerified(m.uv.url(target), m.uv.checksums[target], download);
   const content = privateFolder(path.join(stage, "python"));
   await extract(uvBytes, path.join(content, "uv"), execute, env);
@@ -104,34 +107,12 @@ async function installPython({ stage, target, m, download, execute, env }) {
     m.python.checksums[target],
     download,
   );
-  // uv reads `<mirror>/<build>/<asset>`; only this verified file is in the mirror,
-  // and the mirror stays in the stage, outside the installed toolchain.
-  const mirror = path.join(stage, "mirror");
-  const build = privateFolder(path.join(mirror, m.python.build));
-  fs.writeFileSync(path.join(build, m.python.asset(target)), archive, { mode: 0o600 });
-  const pythonRoot = path.join(content, "cpython");
-  try {
-    await execute(
-      uv,
-      ["python", "install", m.python.version, "--install-dir", pythonRoot, "--no-bin"],
-      {
-        env: { ...env, UV_PYTHON_INSTALL_MIRROR: `file://${mirror}` },
-        timeout: 300000,
-        maxBuffer: 1024 * 1024,
-      },
-    );
-  } catch {
-    throw packageProblem("MCP_PACKAGE_INSTALL_FAILED", 502);
-  }
-  const installed = fs
-    .readdirSync(pythonRoot)
-    .find((name) => name.startsWith(`cpython-${m.python.version}-`));
-  if (!installed) throw unavailable();
-  const relative = path.join("cpython", installed, "bin", "python3");
-  const reported = await execute(path.join(content, relative), ["--version"], {
-    env,
-    timeout: 30000,
-  });
+  // The relocatable archive is unpacked as is; only sysconfig learns the final path.
+  const cpython = path.join(content, "cpython");
+  await extract(archive, cpython, execute, env);
+  relocateSysconfig(cpython, path.join(final, "cpython"), m.python.version);
+  const python = containedPython(content, fs.realpathSync(content), pythonPath, m);
+  const reported = await execute(python, ["--version"], { env, timeout: 30000 });
   if (reported.stdout.trim() !== `Python ${m.python.version}`) throw unavailable();
   return {
     content,
@@ -140,7 +121,7 @@ async function installPython({ stage, target, m, download, execute, env }) {
       pythonChecksum: m.python.checksums[target],
       uvVersion: m.uv.version,
       pythonVersion: m.python.version,
-      pythonPath: relative,
+      pythonPath,
     },
   };
 }
@@ -158,14 +139,13 @@ function containedFile(directory, real, relative) {
   if (fs.realpathSync(file) !== path.join(real, relative)) throw unavailable();
   return file;
 }
-/** CPython's bin/python3 links to python3.x in the same bin folder. */
-function containedPython(directory, real, relative) {
+/** CPython's `bin/python3` links to `bin/python3.x`, a regular file with one name. */
+function containedPython(directory, real, relative, m) {
+  const minor = m.python.version.split(".").slice(0, 2).join(".");
   const file = path.join(directory, relative);
-  const bin = path.join(real, path.dirname(relative));
-  if (fs.realpathSync(path.dirname(file)) !== bin) throw unavailable();
-  const target = fs.realpathSync(file);
-  if (path.dirname(target) !== bin) throw unavailable();
-  regularFile(target);
+  const program = path.join(real, "cpython", "bin", `python${minor}`);
+  if (fs.realpathSync(file) !== program) throw unavailable();
+  regularFile(path.join(directory, "cpython", "bin", `python${minor}`));
   return file;
 }
 function readReceipt(file) {
@@ -198,17 +178,12 @@ function verified(kind, directory, target, m) {
       npmCliPath: containedFile(directory, real, npmCli),
     };
   }
-  const pythonPath = new RegExp(
-    `^cpython/cpython-${m.python.version.replaceAll(".", "\\.")}-[A-Za-z0-9_.-]+/bin/python3$`,
-  );
   if (
     receipt.uvChecksum !== m.uv.checksums[target] ||
     receipt.pythonChecksum !== m.python.checksums[target] ||
     receipt.uvVersion !== m.uv.version ||
     receipt.pythonVersion !== m.python.version ||
-    typeof receipt.pythonPath !== "string" ||
-    !pythonPath.test(receipt.pythonPath) ||
-    receipt.pythonPath.split("/").includes("..")
+    receipt.pythonPath !== pythonPath
   )
     throw unavailable();
   return {
@@ -217,7 +192,7 @@ function verified(kind, directory, target, m) {
     uvPath: containedFile(directory, real, path.join("uv", "uv")),
     uvVersion: m.uv.version,
     pythonVersion: m.python.version,
-    pythonPath: containedPython(directory, real, receipt.pythonPath),
+    pythonPath: containedPython(directory, real, pythonPath, m),
   };
 }
 
@@ -279,6 +254,7 @@ async function install(kind, options) {
       const env = isolated(stage, environment);
       const { content, receipt } = await work({
         stage,
+        final: path.resolve(directoryOf(kind, dataDir, target, m)),
         target,
         m,
         download,
