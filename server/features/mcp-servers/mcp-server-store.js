@@ -4,6 +4,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { privateDatabase } from "../../lib/private-database.js";
 import { problem } from "../../lib/storage.js";
 import { mcpUrl, record } from "../extensions/mcp-config.js";
+import { PackageRecords } from "../mcp-packages/package-records.js";
 import { CliEntryStore } from "./cli-entry-store.js";
 import { resolveCommand, sanitisedPrefix } from "./command-resolution.js";
 import {
@@ -67,6 +68,7 @@ export class McpServerStore {
       this.db.exec("ALTER TABLE servers ADD COLUMN oauth_login_redirect TEXT");
     // Which native CLI entries AgentPier wrote (cli-reconciler.js).
     this.cliEntries = new CliEntryStore(this.db);
+    this.packages = new PackageRecords(this.db, dataDir);
   }
   transaction(work) {
     this.db.exec("BEGIN IMMEDIATE");
@@ -93,13 +95,20 @@ export class McpServerStore {
       name: row.name,
       transport: row.transport,
       ...(row.url ? { url: publicUrl(row.url) } : {}),
-      ...(row.command ? { command: row.command, args: JSON.parse(row.args) } : {}),
+      // A packaged server shows its args while its command is still pending.
+      ...(row.transport === "stdio"
+        ? {
+            ...(row.command ? { command: row.command } : {}),
+            args: JSON.parse(row.args),
+          }
+        : {}),
       ...(row.cwd ? { cwd: row.cwd } : {}),
       auth: row.auth ?? "headers",
       ...(row.oauth_scope ? { oauthScope: row.oauth_scope } : {}),
       headerNames: this.names(row.id, "header"),
       envNames: this.names(row.id, "env"),
       revision: row.revision,
+      ...this.packages.publicFields(row.id),
     };
   }
   row(id) {
@@ -141,6 +150,7 @@ export class McpServerStore {
           cwd: row.cwd,
           auth: row.auth ?? "headers",
           oauthScope: row.oauth_scope ?? null,
+          ...this.packages.definitionFields(row.id),
         };
       });
   }
@@ -179,8 +189,9 @@ export class McpServerStore {
         name,
         transport: "stdio",
         url: null,
+        // node:sqlite cannot bind undefined: a pending command is stored as NULL.
         command: keepCommand
-          ? input.command
+          ? (input.command ?? null)
           : resolveCommand(input.command, this.resolveOptions),
         args: cleanArgs(input.args),
         cwd: cleanCwd(input.cwd),
@@ -292,10 +303,17 @@ export class McpServerStore {
       throw error;
     }
   }
-  /** `bind`: `[kind, targetId]` pairs bound in the same transaction. */
-  create(input, { bind = [] } = {}) {
+  /**
+   * `bind`: `[kind, targetId]` pairs bound in the same transaction. `pendingCommand`
+   * stores a stdio server whose command a package install generates later;
+   * `packageRecord` is its package source, written in the same transaction.
+   */
+  create(input, { bind = [], pendingCommand = false, packageRecord = null } = {}) {
     requireLiteralValues(input);
-    const fields = this.definition(input);
+    if (pendingCommand && (input?.transport !== "stdio" || input.command !== undefined))
+      throw invalid();
+    if (packageRecord && !pendingCommand) throw invalid();
+    const fields = this.definition(input, pendingCommand);
     const id = randomUUID();
     this.transaction(() => {
       this.insertOrUpdate(
@@ -306,6 +324,7 @@ export class McpServerStore {
       );
       this.writeSecrets(id, input, fields.transport, true, fields.auth);
       for (const [kind, targetId] of bind) this.bind(id, kind, targetId);
+      if (packageRecord) this.packages.put(id, packageRecord);
     });
     return this.get(id);
   }

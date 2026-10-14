@@ -60,7 +60,11 @@ export class CentralMcpChanges {
     else {
       if (record(input) && input.transport === "stdio")
         requireStdioConfirmation(options.confirmStdio === true);
-      server = this.servers.create(input, { bind: clis.map((cli) => ["cli", cli]) });
+      server = this.servers.create(input, {
+        bind: clis.map((cli) => ["cli", cli]),
+        pendingCommand: options.pendingCommand === true,
+        packageRecord: options.packageRecord ?? null,
+      });
     }
     await this.onSaved();
     return server;
