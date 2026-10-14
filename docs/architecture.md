@@ -101,7 +101,7 @@ Reuse shared path/configuration and shell/TOML serializers rather than adding ad
 
 ## Verification
 
-`npm run check` combines lint, formatting, file size, backend strategies and production build. Browser tests run against an isolated application by default. Property failures record reproducible seeds and shrink their examples. Platform and browser CI matrices are defined in `.github/workflows/verify.yml`; a configured matrix is not evidence that an unexecuted platform passed. See [testing](testing.md) for commands, fixture ownership and the limits of native compatibility checks.
+`npm run check` combines lint, formatting, file size, backend strategies and production build. Browser tests run against an isolated application by default. Property failures record reproducible seeds and shrink their examples. Platform and browser CI matrices are defined in `.github/workflows/verify.yml` (pull requests and merge queue) and `full.yml` (nightly and release); a configured matrix is not evidence that an unexecuted platform passed. See [testing](testing.md) for commands, fixture ownership and the limits of native compatibility checks.
 
 ### Project and session SSH accesses
 

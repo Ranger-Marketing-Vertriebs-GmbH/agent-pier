@@ -57,15 +57,21 @@ AGENTPIER_TEST_BROWSER=webkit npm run test:e2e
 
 `npm run check` includes lint, formatting, structure, build and backend tests.
 Browser tests use their own disposable server and login. See [testing](docs/testing.md)
-for focused strategies and platform details. CI checks Linux/macOS, Node 22/24,
-Chromium and WebKit. Some platform-specific browser cases are deliberately skipped.
+for focused strategies and platform details. Pull requests run the static checks and
+the tests the change can affect (Linux, Node 24, Chromium). The merge queue runs the
+full Node and Chromium suites, plus advisory macOS and WebKit jobs. Every OS, Node and
+browser combination runs nightly and before a release (`full.yml`); see
+[the CI tiers](docs/testing.md#automated-ci-matrix). Some platform-specific browser
+cases are deliberately skipped.
 
 ## Pull requests
 
 `main` is protected, including for administrators. Work on a branch and open a
-pull request. Merging requires the backend, browser and secret checks to pass on
-an up-to-date branch, with review conversations resolved. Direct pushes, force
-pushes and branch deletion are disabled.
+pull request. Pull requests merge through the merge queue, which rebases them onto
+`main` and needs the backend, browser and secret checks to pass, with review
+conversations resolved. Keep the branch history linear (rebase, no merge commits);
+a branch in the queue rejects pushes. Direct pushes, force pushes and branch
+deletion are disabled.
 
 Keep changes focused. Use concise imperative commit prefixes such as `fix:`,
 `feat:` and `chore:`. Describe the problem, resulting behavior and validation.
