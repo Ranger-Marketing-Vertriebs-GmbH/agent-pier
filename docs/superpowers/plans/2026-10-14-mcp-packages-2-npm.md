@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Depends on plan 1 being merged: `ensureToolchain("node", { dataDir })` → `{ kind: "node", version, directory, nodePath, npmCliPath }`, `packageProblem(code, status)`, `packageCode(error, fallback)`, `regularFile(file, code?)`, `privateFolder(dir)`, `sha256Matches`.
+- Depends on plan 1 (merged on `main`, `server/features/mcp-packages/`): `ensureToolchain("node", { dataDir })` → `{ kind: "node", version, directory, nodePath, npmCliPath }` (`directory` = `<data>/toolchains/node-v<version>-<target>`, not realpath'd); `readToolchain(kind, { dataDir })`; `toolchainRoot(dataDir)` → `<data>/toolchains`; async `pruneToolchains(dataDir, inUse)` (serialized with toolchain installs; any `inUse` entry outside `toolchainRoot(dataDir)` disables the whole prune, so callers pass only `<root>/<folder>` paths); `toolchainTarget()` (throws `MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE` on an unsupported host); `packageProblem(code, status = 400, messageKey?)` (throws on an unknown code); `packageCode(error, fallback)`; `regularFile(file, code?)`; `privateFolder(dir)`. Plan 2 adds the code `MCP_PACKAGE_CONFIRMATION_REQUIRED` (Task 10); `MCP_PACKAGE_INSTALL_REQUIRED` is a browser-only question code and never a server code.
 - Registries: only `https://registry.npmjs.org` in production. Tests inject a local registry URL; the production default must never be overridable from a request.
 - Exact versions only; no ranges, tags, URLs, `git+`, `file:` or paths.
 - Install without opt-in: `npm ci --ignore-scripts`; with `allowScripts: true`: `npm ci` (scripts run). Resolution always `npm install --package-lock-only --ignore-scripts`.
@@ -20,8 +20,10 @@
 - Statuses of a package record: `installing`, `ready`, `failed`; the computed status also reports `missing` when a `ready` record's install fails its receipt check. Only `ready` is compiled for agents and CLIs.
 - One owner confirmation per install (`confirmInstall: true` replaces `confirmStdio` for that save).
 - Audit details: registry, name, version, `allowScripts`; never env values, args or paths.
-- UI copy: German and English in `web/lib/i18n/{de,en,messages}/mcp-packages.js` with matching keys; run the catalog parity tests and exercise the UI in English.
-- Files ≤ 600 lines. `server/features/mcp-servers/mcp-server-store.js` is 574 lines today: Task 1 moves its pure helpers out before anything is added.
+- UI copy: German and English in `web/lib/i18n/{de,en,messages}/mcp-packages.js` with matching keys; run the catalog parity tests and exercise the UI in English. Server messages: every new key goes into both `server/lib/i18n/de/` and `server/lib/i18n/en/` (`tests/unit/server-i18n-catalogs.test.js` enforces parity).
+- `node:sqlite` refuses `undefined` as a bound value: anything written to a column is a value or `null`, never `undefined`.
+- Owner decisions carried from plan 1: **D1** an existing own-command stdio server can switch to a package (Tasks 8–11); **D2** toolchains no record and no running job uses are pruned (Tasks 8–9).
+- Files ≤ 600 lines. `server/features/mcp-servers/mcp-server-store.js` is 574 lines today: Task 1 moves its pure helpers out before anything is added (≈ 515 lines after Task 1, ≈ 530 after Task 6). `mcp-packages.js` lands at ≈ 400 lines; if it passes 450, move `install`/`activate`/`switchCommand` into `package-install-job.js`.
 - Commits: English, `feat:`/`fix:`/`chore:`/`docs:`, trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Review Focus
@@ -31,35 +33,39 @@
 3. **A restored backup on a new machine:** records exist, install directories do not. Expect computed status `missing`, the server skipped by the compilers, and **Reinstall** to install from the stored lock without a new resolution or confirmation (test in Task 9 and Task 11).
 4. **A package whose `bin` path escapes its directory** (`"bin": "../../x"`) or points to a missing file: refused with `MCP_PACKAGE_NO_PROGRAM`, never a command outside the install (test in Task 4).
 5. **A lock with a dependency from a tarball URL or another registry:** refused with `MCP_PACKAGE_FOREIGN_SOURCE` before `npm ci` runs (test in Task 3).
+6. **The first install reaches the CLIs and agents without another save:** the record is written in the server's create transaction (`installing`) and set to `ready` before the command switch, so the reconciliation and the agents' apply that the switch triggers already see it ready (tests in Tasks 6 and 9).
+7. **Toolchain pruning never disables itself and never removes a toolchain in use:** paths are kept by folder name under `<data>/toolchains`, so a stored real path (`/private/var` vs `/var`) or a foreign path cannot turn pruning off (test in Task 9).
 
 ---
 
 ## File Structure
 
-| File                                                                                                                                                                     | Responsibility                                                                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Create `server/features/mcp-servers/mcp-server-fields.js`                                                                                                                | Pure field helpers moved from the store (`publicUrl`, `cleanAuth`, `cleanArgs`, `cleanCwd`, `splitMap`, `invalid`, `target`). |
-| Modify `server/features/mcp-servers/mcp-server-store.js`                                                                                                                 | Imports the helpers; `create(..., { pendingCommand })`; package fields in `publicServer()` and `definitions()`.               |
-| Create `server/features/mcp-packages/package-spec.js`                                                                                                                    | Validate `{ registry, name, version }`.                                                                                       |
-| Create `server/features/mcp-packages/registry-metadata.js`                                                                                                               | npm packument → versions list, version info.                                                                                  |
-| Create `server/features/mcp-packages/lock-check.js`                                                                                                                      | npm lock validation, digest, dependency list, diff.                                                                           |
-| Create `server/features/mcp-packages/program-select.js`                                                                                                                  | npm `bin` → programs; choose one.                                                                                             |
-| Create `server/features/mcp-packages/npm-package-install.js`                                                                                                             | Resolve and install with the managed npm.                                                                                     |
-| Create `server/features/mcp-packages/package-store.js`                                                                                                                   | Install directories, receipts, commit, prune, command generation.                                                             |
-| Create `server/features/mcp-packages/package-records.js`                                                                                                                 | `server_packages` table on the MCP server database.                                                                           |
-| Create `server/features/mcp-packages/install-jobs.js`                                                                                                                    | Per-server background jobs with status and redacted log tail.                                                                 |
-| Create `server/features/mcp-packages/mcp-packages.js`                                                                                                                    | Service: versions, preview, create, update, reinstall, detach, start, prune.                                                  |
-| Create `server/http/routes/mcp-packages.js`                                                                                                                              | `/mcp-packages/versions`, `/mcp-packages/preview`, `/mcp-servers/:id/package*`.                                               |
-| Modify `server/http/routes/mcp-servers.js`, `server/application/services.js`, `server/app.js`                                                                            | Delegation and wiring.                                                                                                        |
-| Modify `server/features/mcp-servers/central-changes.js`, `server/features/assistants/mcp-changes.js`                                                                     | Pass `pendingCommand` through `create`.                                                                                       |
-| Modify `server/features/assistants/openclaw-config/mcp-servers.js`, `server/features/mcp-servers/cli-reconciler.js`, `cli-status.js`, `cli-grants.js`, `cli-bindings.js` | Skip non-ready packages; read grants for managed directories.                                                                 |
-| Modify `server/features/operations/mcp-server-backup.js`                                                                                                                 | Known columns for `server_packages`.                                                                                          |
-| Create `web/lib/i18n/{de,en,messages}/mcp-packages.js`; modify `web/lib/i18n/{de,en}/mcp-cli.js`                                                                         | Copy.                                                                                                                         |
-| Modify `web/features/assistants/assistant-api.js`                                                                                                                        | API methods.                                                                                                                  |
-| Modify `web/features/mcp-servers/mcp-server-draft.js`, `mcp-server-save.js`, `McpServerFields.jsx`, `McpServerDetail.jsx`                                                | Source switch, preview confirmation, status panel.                                                                            |
-| Create `web/features/mcp-servers/McpPackageFields.jsx`, `McpPackageConfirmation.jsx`, `McpPackagePanel.jsx`, `useMcpPackageVersions.js`                                  | Package UI.                                                                                                                   |
-| Create `tests/helpers/npm-registry-fixture.js`                                                                                                                           | Local npm registry serving packuments and tarballs.                                                                           |
-| Docs: `docs/mcp.md`, `docs/AGENTS.md`, `docs/sandbox.md`                                                                                                                 | Behaviour and limits.                                                                                                         |
+| File                                                                                                                                                                                                                                                                                              | Responsibility                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create `server/features/mcp-servers/mcp-server-fields.js`                                                                                                                                                                                                                                         | Pure field helpers moved from the store (`publicUrl`, `cleanAuth`, `cleanArgs`, `cleanCwd`, `splitMap`, `invalid`, `target`).                   |
+| Modify `server/features/mcp-servers/mcp-server-store.js`                                                                                                                                                                                                                                          | Imports the helpers; `create(..., { pendingCommand, packageRecord })`; package fields in `publicServer()` and `definitions()`.                  |
+| Create `server/features/mcp-packages/package-spec.js`                                                                                                                                                                                                                                             | Validate `{ registry, name, version }`.                                                                                                         |
+| Create `server/features/mcp-packages/registry-metadata.js`                                                                                                                                                                                                                                        | npm packument → versions list, version info.                                                                                                    |
+| Create `server/features/mcp-packages/lock-check.js`                                                                                                                                                                                                                                               | npm lock validation, digest, dependency list, diff.                                                                                             |
+| Create `server/features/mcp-packages/program-select.js`                                                                                                                                                                                                                                           | npm `bin` → programs; choose one.                                                                                                               |
+| Create `server/features/mcp-packages/npm-package-install.js`                                                                                                                                                                                                                                      | Resolve and install with the managed npm.                                                                                                       |
+| Create `server/features/mcp-packages/package-store.js`                                                                                                                                                                                                                                            | Install directories, receipts, commit, prune, command generation.                                                                               |
+| Create `server/features/mcp-packages/package-records.js`                                                                                                                                                                                                                                          | `server_packages` table on the MCP server database.                                                                                             |
+| Create `server/features/mcp-packages/install-jobs.js`                                                                                                                                                                                                                                             | Per-server background jobs with status and redacted log tail.                                                                                   |
+| Create `server/features/mcp-packages/mcp-packages.js`                                                                                                                                                                                                                                             | Service: versions, preview, create, attach, update, reinstall, detach, status, start, prune (installs and toolchains).                          |
+| Create `server/http/routes/mcp-packages.js`                                                                                                                                                                                                                                                       | `/mcp-packages/versions`, `/mcp-packages/preview`, `/mcp-servers/:id/package*`, the `source` change of `PUT /mcp-servers/:id` (attach, detach). |
+| Modify `server/http/routes/mcp-servers.js`, `server/application/services.js`, `server/app.js`                                                                                                                                                                                                     | Delegation and wiring.                                                                                                                          |
+| Modify `server/features/mcp-packages/package-errors.js`, `server/lib/i18n/{de,en}/mcp-packages.js`, `server/lib/i18n/{de,en}/mcp-servers.js`                                                                                                                                                      | `MCP_PACKAGE_CONFIRMATION_REQUIRED`; `cliReasonPackage`.                                                                                        |
+| Modify `server/features/mcp-servers/central-changes.js`, `server/features/assistants/mcp-changes.js`                                                                                                                                                                                              | Pass `pendingCommand` and `packageRecord` through `create`.                                                                                     |
+| Modify `server/features/assistants/openclaw-config/mcp-servers.js`, `server/features/mcp-servers/cli-reconciler.js`, `cli-status.js`, `cli-grants.js`, `cli-bindings.js`                                                                                                                          | Skip non-ready packages; read grants for managed directories.                                                                                   |
+| Modify `server/features/operations/mcp-server-backup.js`                                                                                                                                                                                                                                          | Known columns for `server_packages`.                                                                                                            |
+| Create `web/lib/i18n/{de,en,messages}/mcp-packages.js`; modify `web/lib/i18n/{de,en}/mcp-cli.js`                                                                                                                                                                                                  | Copy.                                                                                                                                           |
+| Modify `web/features/assistants/assistant-api.js`                                                                                                                                                                                                                                                 | API methods.                                                                                                                                    |
+| Modify `web/features/mcp-servers/mcp-server-draft.js`, `mcp-server-save.js`, `McpServerFields.jsx`, `McpServerDetail.jsx`                                                                                                                                                                         | Source switch, preview confirmation, status panel.                                                                                              |
+| Create `web/features/mcp-servers/McpPackageFields.jsx`, `McpPackageConfirmation.jsx`, `McpPackagePanel.jsx`, `useMcpPackageVersions.js`                                                                                                                                                           | Package UI.                                                                                                                                     |
+| Create `tests/helpers/npm-registry-fixture.js`                                                                                                                                                                                                                                                    | Local npm registry serving packuments and tarballs.                                                                                             |
+| Create tests: `tests/unit/mcp-package-{spec,records,compile,cli-status,store}.test.js`, `tests/unit/mcp-{registry-metadata,lock-check,program-select,install-jobs}.test.js`, `tests/integration/mcp-{npm-install,packages-service,packages-routes}.test.js`, `tests/browser/mcp-packages.spec.js` | Coverage per task.                                                                                                                              |
+| Docs: `docs/mcp.md`, `docs/AGENTS.md`, `docs/sandbox.md`                                                                                                                                                                                                                                          | Behaviour and limits.                                                                                                                           |
 
 ---
 
@@ -73,13 +79,35 @@
 
 **Interfaces:**
 
-- Produces: `mcp-server-fields.js` exports `publicUrl`, `cleanAuth`, `invalid`, `target`, `cleanArgs`, `cleanCwd`, `splitMap`, `messages`; `mcp-server-store.js` keeps exporting `publicUrl` (re-export) because `operations/mcp-server-backup.js:8` imports it from the store.
+- Produces: `mcp-server-fields.js` exports `publicUrl`, `cleanAuth`, `invalid`, `target`, `targetKinds`, `cleanArgs`, `cleanCwd`, `splitMap`, `messages`; `mcp-server-store.js` keeps exporting `publicUrl` (re-export) because `operations/mcp-server-backup.js:8` imports it from the store.
 
 - [ ] **Step 1: Move the helpers verbatim**
 
-Cut lines 38–108 of `mcp-server-store.js` (from the `publicUrl` JSDoc through `splitMap`) plus the `messages`, `transports`… constants they use into `mcp-server-fields.js`, exporting each function. Keep `transports` and `schema` in the store. At the top of the store:
+Cut lines 38–108 of `mcp-server-store.js` (from the `publicUrl` JSDoc through `splitMap`) plus the `messages` and `targetKinds` constants into `mcp-server-fields.js`, exporting each function and both constants. Keep `transports`, `schema` and `logoutHistoryLimit` in the store. The new file starts with the imports the moved code needs:
 
 ```js
+// server/features/mcp-servers/mcp-server-fields.js
+import path from "node:path";
+import { serverMessages } from "../../lib/i18n/de.js";
+import { problem } from "../../lib/storage.js";
+import { record, values } from "../extensions/mcp-config.js";
+import { clis } from "./cli-native.js";
+
+export const messages = serverMessages.mcpServers;
+export const targetKinds = ["agent", "cli"];
+```
+
+The store still uses `targetKinds` (`bindingsByTarget`), `invalid`, `target`, `messages`, `cleanArgs`, `cleanCwd`, `cleanAuth`, `splitMap`, `record`, `mcpUrl`, `problem` and `path`; it no longer uses `values` or `clis`. Replace its imports so lint finds nothing unused:
+
+```js
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+import { serverMessages } from "../../lib/i18n/de.js";
+import { privateDatabase } from "../../lib/private-database.js";
+import { problem } from "../../lib/storage.js";
+import { mcpUrl, record } from "../extensions/mcp-config.js";
+import { CliEntryStore } from "./cli-entry-store.js";
+import { resolveCommand, sanitisedPrefix } from "./command-resolution.js";
 import {
   cleanArgs,
   cleanAuth,
@@ -89,16 +117,18 @@ import {
   publicUrl,
   splitMap,
   target,
+  targetKinds,
 } from "./mcp-server-fields.js";
+import { changedValues, requireLiteralValues } from "./value-references.js";
 export { publicUrl } from "./mcp-server-fields.js";
 ```
 
-`target()` uses `targetKinds` and `clis`; move `targetKinds` with it and import `clis` from `./cli-native.js` in the new file.
+The store calls `publicUrl` in `publicServer`, hence the import beside the re-export (a re-export alone binds no local name). Delete the store's own `const messages = …` and `const targetKinds = …` lines.
 
 - [ ] **Step 2: Run the existing tests (pure refactor)**
 
-Run: `node --test tests/unit/mcp-server-store.test.js tests/unit/mcp-server-store-cli.test.js tests/unit/mcp-server-oauth-record.test.js tests/integration/mcp-server-backup-hashes.test.js && wc -l server/features/mcp-servers/mcp-server-store.js`
-Expected: PASS; the store is ≤ 510 lines.
+Run: `node --test tests/unit/mcp-server-store.test.js tests/unit/mcp-server-store-cli.test.js tests/unit/mcp-server-oauth-record.test.js tests/integration/mcp-server-backup-hashes.test.js && npx eslint server/features/mcp-servers/mcp-server-store.js server/features/mcp-servers/mcp-server-fields.js && wc -l server/features/mcp-servers/mcp-server-store.js`
+Expected: PASS, no lint findings; the store is about 515 lines (well below 600).
 
 - [ ] **Step 3: Commit**
 
@@ -168,8 +198,11 @@ test("no accepted npm name contains a path or URL separator sequence", () => {
     fc.property(fc.string(), (name) => {
       try {
         const ref = packageRef({ registry: "npm", name, version: "1.0.0" });
+        // `a..b` is a valid npm name; only a whole `..` segment would escape.
         return (
-          !ref.name.includes("..") && !ref.name.includes(":") && !/\s/.test(ref.name)
+          !ref.name.split("/").includes("..") &&
+          !ref.name.includes(":") &&
+          !/\s/.test(ref.name)
         );
       } catch (error) {
         return error.code === "MCP_PACKAGE_INVALID";
@@ -887,7 +920,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `npmManifestText(ref)` → deterministic `package.json` text: `{"name":"agentpier-mcp-package","private":true,"dependencies":{"<name>":"<version>"}}\n`.
   - `resolveNpm({ stage, ref, node, registry, cacheDir, execute?, environment? })` → `{ manifestText, lockText }`.
   - `installNpm({ directory, manifestText, lockText, ref, node, registry, cacheDir, allowScripts, execute?, environment?, log? })` → void; verifies `node_modules/<name>/package.json` has `ref.version`; failures → `MCP_PACKAGE_INSTALL_FAILED`.
-- Test helper `npmRegistryFixture(t, packages)` where `packages` is `[{ name, version, bin?, files?, scripts?, dependencies? }]` → `{ url, packument(name), integrity(name, version), close }`; serves `/<name>` (scoped as `%2F` or `/`) and `/<name>/-/<file>.tgz`.
+- Test helper `npmRegistryFixture(t, packages)` where `packages` is `[{ name, version, bin?, files?, scripts?, dependencies? }]` → `{ url, packument(name), integrity(name, version) }` (the server closes and its files are removed through `t.after`); serves `/<name>` (scoped as `%2F` or `/`) and `/<name>/-/<file>.tgz`.
 - Test helper `hostNode()` → `{ nodePath: process.execPath, npmCliPath }` from `npm root -g`.
 
 - [ ] **Step 1: Write the fixture and the failing test**
@@ -1247,8 +1280,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 
 - Create: `server/features/mcp-packages/package-records.js`
-- Modify: `server/features/mcp-servers/mcp-server-store.js` (constructor, `publicServer`, `definitions`, `create`)
-- Modify: `server/features/mcp-servers/central-changes.js:52-66` and `server/features/assistants/mcp-changes.js:148-160` (pass `pendingCommand`)
+- Modify: `server/features/mcp-servers/mcp-server-store.js` (constructor, `definition`, `publicServer`, `definitions`, `create`)
+- Modify: `server/features/mcp-servers/central-changes.js:52-66` and `server/features/assistants/mcp-changes.js:148-160` (pass `pendingCommand` and `packageRecord`)
 - Modify: `server/features/operations/mcp-server-backup.js:23-42` (`knownColumns`)
 - Test: `tests/unit/mcp-package-records.test.js`; rerun `tests/integration/mcp-server-backup-hashes.test.js`, `tests/integration/mcp-server-host-backups.test.js`
 
@@ -1257,8 +1290,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Produces:
   - `PackageRecords(db, dataDir)` with `get(serverId)` → row object or `null`; `put(serverId, fields)`; `update(serverId, fields)`; `remove(serverId)`; `all()`; `installIds()` → `Set`; `computedStatus(row)` → `"installing" | "failed" | "ready" | "missing"`; `publicFields(serverId)` → `{ source }` or `{}`; `definitionFields(serverId)` → `{ packageStatus, managedDirs }` or `{}`.
   - Row fields (camelCase in JS): `serverId, registry, name, version, program, programPath, allowScripts, lock, lockDigest, integrity, installId, leadingArgs, toolchainDir, status, errorCode, updatedAt`.
-  - `source` in responses: `{ registry, name, version, program, allowScripts, status, errorCode, leadingArgs }`.
-  - `McpServerStore.create(input, { bind, pendingCommand })`: with `pendingCommand: true` a stdio server is stored without `command` (`input.command` must be absent).
+  - `source` in responses: `{ registry, name, version, program, allowScripts, status, errorCode, leadingArgs }`, where `leadingArgs` is `0` while `installId` is null (no generated argument is stored yet), so a client always slices the owner's arguments with `source.leadingArgs`.
+  - `McpServerStore.create(input, { bind, pendingCommand, packageRecord })`: with `pendingCommand: true` a stdio server is stored with `command` NULL (`input.command` must be absent); `packageRecord` (requires `pendingCommand`) is written in the same transaction, so whatever runs after the create (CLI reconciliation, agent apply) already sees the package.
+  - `McpServerStore.definition(input, keepCommand)` stores `input.command ?? null` when `keepCommand` is true (`node:sqlite` refuses `undefined`), so every later update of a pending server keeps it pending.
+  - `publicServer` returns `args` for every stdio row, with or without a command; `command` only when one is stored.
+  - `CentralMcpChanges.create(input, { …, pendingCommand, packageRecord })` and `McpChanges.create(input, { …, pendingCommand, packageRecord })` pass both to the store.
   - `McpServerStore.packages` (the `PackageRecords` instance).
 
 - [ ] **Step 1: Write the failing test**
@@ -1271,6 +1307,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
+import { CentralMcpChanges } from "../../server/features/mcp-servers/central-changes.js";
 import {
   commitInstall,
   stageInstall,
@@ -1295,22 +1332,24 @@ const record = (extra = {}) => ({
   lockDigest: "d".repeat(64),
   integrity: "sha512-x",
   installId: null,
-  leadingArgs: 1,
+  leadingArgs: 0,
   toolchainDir: "/data/toolchains/node",
   status: "installing",
   errorCode: null,
   ...extra,
 });
-
-test("a pending packaged server has no command and is not compiled", (t) => {
-  const { servers } = store(t);
-  const server = servers.create(
-    { name: "pkg", transport: "stdio", args: ["--x"] },
-    { pendingCommand: true },
+const pending = (servers, input = {}, extra = {}) =>
+  servers.create(
+    { name: "pkg", transport: "stdio", ...input },
+    { pendingCommand: true, packageRecord: record(extra) },
   );
-  servers.packages.put(server.id, record());
-  assert.equal(servers.get(server.id).command, undefined);
-  assert.deepEqual(servers.get(server.id).source, {
+
+test("a pending packaged server has no command, shows its args and is not compiled", (t) => {
+  const { servers } = store(t);
+  const server = pending(servers, { args: ["--x"] });
+  assert.equal(server.command, undefined);
+  assert.deepEqual(server.args, ["--x"]);
+  assert.deepEqual(server.source, {
     registry: "npm",
     name: "server-x",
     version: "1.0.0",
@@ -1318,14 +1357,26 @@ test("a pending packaged server has no command and is not compiled", (t) => {
     allowScripts: false,
     status: "installing",
     errorCode: null,
-    leadingArgs: 1,
+    leadingArgs: 0,
   });
   const definition = servers.definitions().find((d) => d.id === server.id);
   assert.equal(definition.command, null);
   assert.equal(definition.packageStatus, "installing");
 });
 
-test("pendingCommand never stores an owner command", (t) => {
+test("an owner edit of a pending server keeps it pending", (t) => {
+  const { servers } = store(t);
+  const server = pending(servers, { args: ["--x"] });
+  const renamed = servers.update(server.id, {
+    revision: server.revision,
+    name: "renamed",
+  });
+  assert.equal(renamed.command, undefined);
+  assert.deepEqual(renamed.args, ["--x"]);
+  assert.equal(renamed.source.status, "installing");
+});
+
+test("pendingCommand never stores an owner command; a record needs pendingCommand", (t) => {
   const { servers } = store(t);
   assert.throws(() =>
     servers.create(
@@ -1333,23 +1384,49 @@ test("pendingCommand never stores an owner command", (t) => {
       { pendingCommand: true },
     ),
   );
+  assert.throws(() =>
+    servers.create(
+      { name: "pkg", transport: "stdio", command: "/bin/sh" },
+      { packageRecord: record() },
+    ),
+  );
+  assert.deepEqual(servers.list(), []);
+});
+
+test("the record is stored before the CLIs are reconciled", async (t) => {
+  const { servers } = store(t);
+  const seen = [];
+  const changes = new CentralMcpChanges({
+    servers,
+    onSaved: async () => seen.push(servers.definitions()),
+  });
+  await changes.create(
+    { name: "pkg", transport: "stdio", args: [] },
+    {
+      confirmStdio: true,
+      clis: ["claude"],
+      pendingCommand: true,
+      packageRecord: record(),
+    },
+  );
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0][0].packageStatus, "installing");
+  assert.deepEqual(servers.targetsOf(seen[0][0].id).clis, ["claude"]);
 });
 
 test("a ready record whose install vanished reports missing", (t) => {
   const { dataDir, servers } = store(t);
-  const server = servers.create(
-    { name: "pkg", transport: "stdio" },
-    { pendingCommand: true },
-  );
+  const server = pending(servers);
   const { installId, stage } = stageInstall(dataDir);
   commitInstall(dataDir, { installId, stage, receipt: { lockDigest: "d".repeat(64) } });
-  servers.packages.put(server.id, record({ status: "ready", installId }));
+  servers.packages.put(server.id, record({ status: "ready", installId, leadingArgs: 1 }));
   let definition = servers.definitions().find((d) => d.id === server.id);
   assert.equal(definition.packageStatus, "ready");
   assert.deepEqual(definition.managedDirs, [
     path.join(dataDir, "mcp-packages", "installs", installId),
     "/data/toolchains/node",
   ]);
+  assert.equal(servers.get(server.id).source.leadingArgs, 1);
   fs.rmSync(path.join(dataDir, "mcp-packages", "installs", installId), {
     recursive: true,
   });
@@ -1360,11 +1437,7 @@ test("a ready record whose install vanished reports missing", (t) => {
 
 test("removing the server removes its record", (t) => {
   const { servers } = store(t);
-  const server = servers.create(
-    { name: "pkg", transport: "stdio" },
-    { pendingCommand: true },
-  );
-  servers.packages.put(server.id, record());
+  const server = pending(servers);
   servers.remove(server.id);
   assert.equal(servers.packages.get(server.id), null);
 });
@@ -1386,8 +1459,7 @@ Expected: FAIL (`pendingCommand` unknown, `packages` undefined).
 
 ```js
 // server/features/mcp-packages/package-records.js
-import path from "node:path";
-import { readInstall } from "./package-store.js";
+import { installDirectory, readInstall } from "./package-store.js";
 
 const schema = `
 CREATE TABLE IF NOT EXISTS server_packages(
@@ -1482,7 +1554,8 @@ export class PackageRecords {
         allowScripts: row.allowScripts,
         status: this.computedStatus(row),
         errorCode: row.errorCode,
-        leadingArgs: row.leadingArgs,
+        // No generated argument is stored before the first install.
+        leadingArgs: row.installId ? row.leadingArgs : 0,
       },
     };
   }
@@ -1494,10 +1567,9 @@ export class PackageRecords {
       packageStatus: status,
       managedDirs:
         status === "ready"
-          ? [
-              path.join(this.dataDir, "mcp-packages", "installs", row.installId),
-              row.toolchainDir,
-            ].filter(Boolean)
+          ? [installDirectory(this.dataDir, row.installId), row.toolchainDir].filter(
+              Boolean,
+            )
           : [],
     };
   }
@@ -1507,21 +1579,94 @@ export class PackageRecords {
 Store edits (keep each change to the lines shown):
 
 ```js
-// mcp-server-store.js — constructor, after `this.cliEntries = new CliEntryStore(this.db);`
+// mcp-server-store.js — import
+import { PackageRecords } from "../mcp-packages/package-records.js";
+// constructor, after `this.cliEntries = new CliEntryStore(this.db);`
     this.packages = new PackageRecords(this.db, dataDir);
+// publicServer(row) — replaces the line `...(row.command ? { command: row.command, args: JSON.parse(row.args) } : {}),`
+      // A packaged server shows its args while its command is still pending.
+      ...(row.transport === "stdio"
+        ? {
+            ...(row.command ? { command: row.command } : {}),
+            args: JSON.parse(row.args),
+          }
+        : {}),
 // publicServer(row) — after `revision: row.revision,`
       ...this.packages.publicFields(row.id),
 // definitions() — after `oauthScope: row.oauth_scope ?? null,`
           ...this.packages.definitionFields(row.id),
-// create(input, { bind = [], pendingCommand = false } = {})
-    if (pendingCommand && (input?.transport !== "stdio" || input.command !== undefined))
-      throw invalid();
-    const fields = this.definition(input, pendingCommand);
+// definition(input, keepCommand) — the stdio `command:` property
+        // node:sqlite cannot bind undefined: a pending command is stored as NULL.
+        command: keepCommand
+          ? (input.command ?? null)
+          : resolveCommand(input.command, this.resolveOptions),
 ```
 
-`definition(input, keepCommand)` already keeps `input.command` (here `undefined`, stored as `NULL`) when `keepCommand` is true. Add the import `import { PackageRecords } from "../mcp-packages/package-records.js";`.
+`create` becomes:
 
-`central-changes.js` `create(input, { clis: wanted, ...options })`: pass `pendingCommand: options.pendingCommand === true` to `agents.create(input, { ...options, clis })` (already spread) and to the direct `this.servers.create(input, { bind: …, pendingCommand: options.pendingCommand === true })`. In `assistants/mcp-changes.js` `create(input, { confirmStdio = false, clis = [], pendingCommand = false } = {})` pass `pendingCommand` to `this.servers.create(input, { bind: …, pendingCommand })`.
+```js
+  /**
+   * `bind`: `[kind, targetId]` pairs bound in the same transaction. `pendingCommand`
+   * stores a stdio server whose command a package install generates later;
+   * `packageRecord` is its package source, written in the same transaction.
+   */
+  create(input, { bind = [], pendingCommand = false, packageRecord = null } = {}) {
+    requireLiteralValues(input);
+    if (pendingCommand && (input?.transport !== "stdio" || input.command !== undefined))
+      throw invalid();
+    if (packageRecord && !pendingCommand) throw invalid();
+    const fields = this.definition(input, pendingCommand);
+    const id = randomUUID();
+    this.transaction(() => {
+      this.insertOrUpdate(
+        "INSERT INTO servers(name,transport,url,command,args,cwd,auth,oauth_scope,revision,id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        fields,
+        id,
+        1,
+      );
+      this.writeSecrets(id, input, fields.transport, true, fields.auth);
+      for (const [kind, targetId] of bind) this.bind(id, kind, targetId);
+      if (packageRecord) this.packages.put(id, packageRecord);
+    });
+    return this.get(id);
+  }
+```
+
+The `keepCommand` change also covers `patched()`, which passes `row.command ?? undefined` with `keepCommand` true for every update that leaves the command alone.
+
+`central-changes.js` `create(input, { clis: wanted, ...options })`: the agents path already spreads `options` into `agents.create(input, { ...options, clis })`. The direct path becomes:
+
+```js
+server = this.servers.create(input, {
+  bind: clis.map((cli) => ["cli", cli]),
+  pendingCommand: options.pendingCommand === true,
+  packageRecord: options.packageRecord ?? null,
+});
+```
+
+`assistants/mcp-changes.js`:
+
+```js
+  /** `clis`: the coding CLIs the new server is bound to in the same write. */
+  create(
+    input,
+    { confirmStdio = false, clis = [], pendingCommand = false, packageRecord = null } = {},
+  ) {
+    return this.assistants.admit(async () => {
+      // A reference is refused before the owner is asked to confirm a local command.
+      requireLiteralValues(input);
+      if (record(input) && input.transport === "stdio")
+        requireStdioConfirmation(confirmStdio === true);
+      const server = this.servers.create(input, {
+        bind: clis.map((cli) => ["cli", cli]),
+        pendingCommand,
+        packageRecord,
+      });
+      // Unbound servers are not compiled; nothing to apply.
+      return server;
+    });
+  }
+```
 
 `operations/mcp-server-backup.js` `knownColumns`: add
 
@@ -1535,8 +1680,8 @@ Store edits (keep each change to the lines shown):
 
 - [ ] **Step 4: Run tests**
 
-Run: `node --test tests/unit/mcp-package-records.test.js tests/unit/mcp-server-store.test.js tests/unit/mcp-central-changes.test.js tests/integration/mcp-server-backup-hashes.test.js tests/integration/mcp-server-host-backups.test.js tests/integration/mcp-server-backup-crafted.test.js && wc -l server/features/mcp-servers/mcp-server-store.js`
-Expected: PASS; the store stays ≤ 520 lines. If a backup test enumerates exact table lists, add `server_packages` to its expectation (the table is part of the sanitized copy; it holds no secret).
+Run: `node --test tests/unit/mcp-package-records.test.js tests/unit/mcp-server-store.test.js tests/unit/mcp-server-store-cli.test.js tests/unit/mcp-central-changes.test.js tests/integration/mcp-server-backup-hashes.test.js tests/integration/mcp-server-host-backups.test.js tests/integration/mcp-server-backup-crafted.test.js && wc -l server/features/mcp-servers/mcp-server-store.js`
+Expected: PASS; the store is about 530 lines. If a backup test enumerates exact table lists, add `server_packages` to its expectation (the table is part of the sanitized copy; it holds no secret).
 
 - [ ] **Step 5: Commit**
 
@@ -1558,9 +1703,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `server/features/assistants/openclaw-config/mcp-servers.js:30-33` (`mcpServerConfig`)
 - Modify: `server/features/mcp-servers/cli-reconciler.js:78-84` (`desired`)
 - Modify: `server/features/mcp-servers/cli-status.js:18-36` (reason `package`)
-- Modify: `server/lib/i18n/de/mcp-servers.js` (`cliReasonPackage`), `web/lib/i18n/{de,en}/mcp-cli.js` (`reasons.package`)
+- Modify: `server/lib/i18n/de/mcp-servers.js` and `server/lib/i18n/en/mcp-servers.js` (`cliReasonPackage`), `web/lib/i18n/{de,en}/mcp-cli.js` (`reasons.package`)
 - Modify: `server/features/mcp-servers/cli-grants.js:93-110` (managed directories)
-- Test: extend `tests/unit/openclaw-mcp-config.test.js`, `tests/unit/cli-mcp-grants.test.js`; create `tests/unit/mcp-package-compile.test.js`
+- Test: create `tests/unit/mcp-package-compile.test.js` and `tests/unit/mcp-package-cli-status.test.js`; rerun `tests/unit/openclaw-mcp-config.test.js`, `tests/unit/cli-mcp-grants.test.js`, `tests/unit/cli-mcp-native.test.js`
 
 **Interfaces:**
 
@@ -1618,12 +1763,49 @@ test("managed directories inside the data dir get read grants; others do not", (
 });
 ```
 
-Add to the reconciler test (`tests/unit/cli-mcp-native.test.js` or a new `tests/unit/mcp-package-cli-status.test.js`) a case: a store double whose `definitions()` returns `packaged("installing")` bound to `claude` yields `desired("claude").get("s1").reason === "package"`. Use the existing reconciler construction from `tests/unit/mcp-server-store-cli.test.js` as the template (`new CliMcpReconciler({ servers, locate, configs, warn })`).
+```js
+// tests/unit/mcp-package-cli-status.test.js
+import test from "node:test";
+import assert from "node:assert/strict";
+import { cliMcpFixture } from "../helpers/cli-mcp.js";
+import { reasonIdentity } from "../../server/features/mcp-servers/cli-status.js";
+
+const record = (status) => ({
+  registry: "npm",
+  name: "server-x",
+  version: "1.0.0",
+  program: "server-x",
+  programPath: "index.js",
+  allowScripts: false,
+  lock: "{}",
+  lockDigest: "d".repeat(64),
+  integrity: "sha512-x",
+  installId: null,
+  leadingArgs: 0,
+  toolchainDir: null,
+  status,
+  errorCode: status === "failed" ? "MCP_PACKAGE_INSTALL_FAILED" : null,
+});
+
+test("a CLI reports a packaged server that is not ready with reason package", (t) => {
+  const f = cliMcpFixture(t);
+  for (const status of ["installing", "failed"]) {
+    const server = f.servers.create(
+      { name: `pkg-${status}`, transport: "stdio", args: [] },
+      { bind: [["cli", "claude"]], pendingCommand: true, packageRecord: record(status) },
+    );
+    assert.equal(f.reconciler.desired("claude").get(server.id).reason, "package", status);
+  }
+  assert.deepEqual(reasonIdentity("package"), {
+    messageKey: "mcpServers.cliReasonPackage",
+  });
+});
+```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `node --test tests/unit/mcp-package-compile.test.js`
-Expected: FAIL (installing server compiled; no managed grants).
+Run: `node --test tests/unit/mcp-package-compile.test.js tests/unit/mcp-package-cli-status.test.js`
+Expected: FAIL (installing server compiled; no managed grants; reason `invalid` instead of `package`).
 
 - [ ] **Step 3: Implement**
 
@@ -1643,7 +1825,12 @@ if (server.packageStatus !== undefined && server.packageStatus !== "ready") retu
       }
 ```
 
-`cli-status.js` `reasonMessages`: add `package: messages.cliReasonPackage,` in the per-server group. `server/lib/i18n/de/mcp-servers.js`: `cliReasonPackage: "sein Paket ist noch nicht installiert oder fehlt",`. `web/lib/i18n/de/mcp-cli.js` `reasons.package: "sein Paket ist noch nicht installiert oder fehlt"`, `web/lib/i18n/en/mcp-cli.js` `reasons.package: "its package is not installed yet or is missing"`.
+`cli-status.js` `reasonMessages`: add `package: messages.cliReasonPackage,` in the per-server group (after `duplicate`). Server catalogs, after `cliReasonDuplicate` (same key in both, sentence style like the neighbouring keys):
+
+- `server/lib/i18n/de/mcp-servers.js`: `cliReasonPackage: "Das Paket des Servers ist noch nicht installiert oder fehlt.",`
+- `server/lib/i18n/en/mcp-servers.js`: `cliReasonPackage: "The server's package is not installed yet or is missing.",`
+
+Browser catalogs (lower-case fragment like the other `reasons`): `web/lib/i18n/de/mcp-cli.js` `reasons.package: "sein Paket ist noch nicht installiert oder fehlt"`, `web/lib/i18n/en/mcp-cli.js` `reasons.package: "its package is not installed yet or is missing"`.
 
 `cli-grants.js` inside the loop, after `for (const file of paths) grants.push(...)`:
 
@@ -1664,7 +1851,7 @@ The command (managed Node) lies inside `dataDir`, so `add(definition.command)` g
 
 - [ ] **Step 4: Run tests**
 
-Run: `node --test tests/unit/mcp-package-compile.test.js tests/unit/openclaw-mcp-config.test.js tests/unit/cli-mcp-grants.test.js tests/unit/cli-mcp-native.test.js tests/unit/i18n-catalogs.test.js tests/unit/server-i18n-catalogs.test.js`
+Run: `node --test tests/unit/mcp-package-compile.test.js tests/unit/mcp-package-cli-status.test.js tests/unit/openclaw-mcp-config.test.js tests/unit/cli-mcp-grants.test.js tests/unit/cli-mcp-native.test.js tests/unit/i18n-catalogs.test.js tests/unit/server-i18n-catalogs.test.js`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1672,7 +1859,9 @@ Expected: PASS.
 ```bash
 git add server/features/assistants/openclaw-config/mcp-servers.js server/features/mcp-servers/cli-reconciler.js \
   server/features/mcp-servers/cli-status.js server/features/mcp-servers/cli-grants.js \
-  server/lib/i18n/de/mcp-servers.js web/lib/i18n/de/mcp-cli.js web/lib/i18n/en/mcp-cli.js tests/unit
+  server/lib/i18n/de/mcp-servers.js server/lib/i18n/en/mcp-servers.js \
+  web/lib/i18n/de/mcp-cli.js web/lib/i18n/en/mcp-cli.js \
+  tests/unit/mcp-package-compile.test.js tests/unit/mcp-package-cli-status.test.js
 git commit -m "feat: compile packaged MCP servers only from a ready install
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -1690,21 +1879,26 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Interfaces:**
 
-- Produces `PackageJobs`:
-  - `run(serverId, { kind, installId }, work)` → job snapshot `{ kind, state: "running", code: null, log: "" }`; throws `MCP_PACKAGE_BUSY` (409) while that server has a running job; `work(log)` is awaited in the background; a rejection stores `state: "failed"` and `code = packageCode(error, "MCP_PACKAGE_INSTALL_FAILED")`.
-  - `get(serverId)` → snapshot or `null`; `runningInstallIds()` → `Set`; `idle()` → promise resolving when no job runs (tests).
+- Produces `PackageJobs({ settled })`:
+  - `run(serverId, { kind, installId }, work)` → job snapshot `{ kind, state: "running", code: null, log: "" }`; throws `MCP_PACKAGE_BUSY` (409) while that server has a running job; `work(log, note)` is awaited in the background; `note({ toolchainDir })` records the toolchain the job uses; a rejection stores `state: "failed"` and `code = packageCode(error, "MCP_PACKAGE_INSTALL_FAILED")`. After the state is final, `settled(serverId)` runs once (McpPackages prunes there, so a failed job's stage is removed too).
+  - `get(serverId)` → snapshot or `null`; `runningInstallIds()` → `Set`; `runningToolchainDirs()` → `Set`; `idle()` → promise resolving when no job runs (tests).
   - Log tail: at most 4,000 characters, URL credentials replaced (`https://user:pass@` → `https://***@`).
 - Produces `McpPackages` (`mcp-packages.js`), constructor `{ dataDir, servers, changes, registry = npmRegistry, download, toolchain = (kind) => ensureToolchain(kind, { dataDir }), execute, environment, now = Date.now, previewTtl = 15 * 60 * 1000 }`:
   - `versions({ registry, name })` → `{ latest, versions }`.
   - `preview({ registry, name, version, allowScripts = false, serverId })` → `{ previewId, registry, name, version, integrity, dependencyCount, dependencies, programs: [name], needsScripts, diff }` (`diff` only with `serverId` of a packaged server).
-  - `createServer(input, { clis, previewId, program })` → public server (with `source`); `input.source` must match the preview.
-  - `prepareUpdate(id, input)` → the patch to send through `changes.update` (`command` refused; `args` prefixed with the stored leading args; `source: null` handled by `detach`).
-  - `detach(id)` → removes the record and prunes.
+  - `confirmedPreview(previewId, source, wanted)` → `{ preview, program }`: the preview taken once, its program chosen, the scripts rule checked (shared by create, attach and update).
+  - `createServer(input, { clis, previewId, program })` → public server (with `source`, status `installing`); `input.source` must match the preview; the record is written in the server's create transaction (`packageRecord`).
+  - `attach(id, { source, previewId, program }, beforeInstall?)` (D1) → public server: an existing stdio server without a record switches to the package. The preview is checked first, then `beforeInstall()` runs (the route saves the owner's other edits there), then the record is written as `installing` and the install job starts. The own command stays stored until the switch replaces command and args together.
+  - `isPackaged(id)` → boolean.
+  - `prepareUpdate(id, input)` → the patch to send through `changes.update` for a packaged server (`command` refused; `args` prefixed with the generated args currently stored).
+  - `detach(id, update)` → refuses `MCP_PACKAGE_BUSY` while a job runs, awaits `update()` (the route's switch to an own command), removes the record and returns `prune()`.
   - `updatePackage(id, { version, allowScripts, previewId, program })` → `{ job }`.
   - `reinstall(id)` → `{ job }`.
-  - `status(id)` → `{ source, job }`.
-  - `start()` → marks `installing` records without a running job as `failed` (`MCP_PACKAGE_INSTALL_FAILED`) and prunes.
-  - `prune()` → `pruneInstalls(dataDir, union(records.installIds(), jobs.runningInstallIds()))`.
+  - `status(id)` → `{ source, job, error }`; `error` is `null` or `{ code, message, messageKey }` for the failed job's code (else the record's `errorCode`), so the browser shows it through `serverText` like any server message.
+  - `start()` → removes leftover `mcp-packages/previews/`, marks `installing` records without a running job as `failed` (`MCP_PACKAGE_INSTALL_FAILED`) and returns `prune()`.
+  - `prune()` → synchronously `pruneInstalls(dataDir, records' install ids ∪ running jobs' install ids)`; returns the promise of `pruneToolchains(dataDir, inUse)` (never rejects; a failure is logged with its code). `inUse` is every record's `toolchainDir` and every running job's toolchain, nulls dropped, each mapped to `path.join(toolchainRoot(dataDir), path.basename(dir))` when the basename starts with `node-` or `python-`, others dropped.
+- Install order (Review Focus 6): `activate()` reads the previous record, writes the new record (`installId`, `leadingArgs`, `toolchainDir`, `status: "ready"`) and then switches the command through `changes.update`, so the reconciliation and the agents' apply it triggers see the package ready. A failed switch restores the previous record (a first install then ends `failed`, an update stays on the old install).
+- Owner args across the switch: `switchCommand` slices the owner's args with the leading count stored before the switch (`0` before the first install); while a switch runs, `prepareUpdate` uses that same count (`this.switching`), so an owner edit in that window is neither duplicated nor lost.
 
 - [ ] **Step 1: Write the failing jobs test**
 
@@ -1713,6 +1907,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PackageJobs } from "../../server/features/mcp-packages/install-jobs.js";
+
+const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 test("one job per server, failures keep a stable code and a redacted tail", async () => {
   const jobs = new PackageJobs();
@@ -1725,6 +1921,7 @@ test("one job per server, failures keep a stable code and a redacted tail", asyn
     code: "MCP_PACKAGE_BUSY",
   });
   assert.deepEqual([...jobs.runningInstallIds()], ["i1"]);
+  await tick();
   finish();
   await jobs.idle();
   assert.equal(jobs.get("s1").state, "done");
@@ -1744,6 +1941,26 @@ test("the log tail is bounded", async () => {
   await jobs.idle();
   assert.ok(jobs.get("s").log.length <= 4000);
 });
+
+test("a running job's toolchain is in use; settled runs once its state is final", async () => {
+  const settled = [];
+  const jobs = new PackageJobs({
+    settled: (id) => settled.push([id, jobs.get(id).state]),
+  });
+  let finish;
+  jobs.run("s1", { kind: "install", installId: "i1" }, (_log, note) => {
+    note({ toolchainDir: "/data/toolchains/node-v1-x" });
+    return new Promise((resolve) => (finish = resolve));
+  });
+  await tick();
+  assert.deepEqual([...jobs.runningToolchainDirs()], ["/data/toolchains/node-v1-x"]);
+  assert.deepEqual(settled, []);
+  finish();
+  await jobs.idle();
+  assert.deepEqual(settled, [["s1", "done"]]);
+  assert.equal(jobs.runningToolchainDirs().size, 0);
+  assert.equal(jobs.runningInstallIds().size, 0);
+});
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1762,7 +1979,8 @@ const redact = (text) => String(text).replace(/(\w+:\/\/)[^\s/@]+@/g, "$1***@");
 
 /** Background package jobs, one per server; state lives in memory only. */
 export class PackageJobs {
-  constructor() {
+  constructor({ settled = () => {} } = {}) {
+    this.settled = settled;
     this.jobs = new Map();
     this.running = new Set();
   }
@@ -1772,23 +1990,43 @@ export class PackageJobs {
       ? { kind: job.kind, state: job.state, code: job.code, log: job.log }
       : null;
   }
+  runningJobs() {
+    return [...this.jobs.values()].filter((job) => job.state === "running");
+  }
   runningInstallIds() {
     return new Set(
-      [...this.jobs.values()]
-        .filter((j) => j.state === "running" && j.installId)
-        .map((j) => j.installId),
+      this.runningJobs()
+        .map((job) => job.installId)
+        .filter(Boolean),
+    );
+  }
+  runningToolchainDirs() {
+    return new Set(
+      this.runningJobs()
+        .map((job) => job.toolchainDir)
+        .filter(Boolean),
     );
   }
   run(serverId, { kind, installId = null }, work) {
     if (this.jobs.get(serverId)?.state === "running")
       throw packageProblem("MCP_PACKAGE_BUSY", 409);
-    const job = { kind, installId, state: "running", code: null, log: "" };
+    const job = {
+      kind,
+      installId,
+      toolchainDir: null,
+      state: "running",
+      code: null,
+      log: "",
+    };
     this.jobs.set(serverId, job);
     const log = (text) => {
       job.log = redact(`${job.log}${text}\n`).slice(-tailLimit);
     };
+    const note = ({ toolchainDir } = {}) => {
+      if (typeof toolchainDir === "string") job.toolchainDir = toolchainDir;
+    };
     const promise = Promise.resolve()
-      .then(() => work(log))
+      .then(() => work(log, note))
       .then(
         () => {
           job.state = "done";
@@ -1798,7 +2036,14 @@ export class PackageJobs {
           job.code = packageCode(error, "MCP_PACKAGE_INSTALL_FAILED");
         },
       )
-      .finally(() => this.running.delete(promise));
+      .finally(() => {
+        try {
+          this.settled(serverId);
+        } catch {
+          /* Pruning runs again after the next job and at start. */
+        }
+        this.running.delete(promise);
+      });
     this.running.add(promise);
     return this.get(serverId);
   }
@@ -1817,9 +2062,10 @@ Note: `job.code` takes only codes from `packageCodes`; `EACCES` falls back.
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { record } from "../extensions/mcp-config.js";
 import { privateFolder } from "./verified-files.js";
-import { ensureToolchain } from "./toolchains.js";
+import { ensureToolchain, pruneToolchains, toolchainRoot } from "./toolchains.js";
 import { PackageJobs } from "./install-jobs.js";
 import { checkNpmLock, lockDiff } from "./lock-check.js";
 import { installNpm, npmManifestText, resolveNpm } from "./npm-package-install.js";
@@ -1841,6 +2087,26 @@ import {
 } from "./registry-metadata.js";
 
 const previewLimit = 20;
+const invalid = () => packageProblem("MCP_PACKAGE_INVALID", 400);
+/**
+ * A toolchain folder by name under this data dir's root, else null. pruneToolchains
+ * stops pruning for any entry outside its root (a real path such as /private/var for
+ * /var, or a toolchain of another data dir), so entries are kept by folder name.
+ */
+const toolchainEntry = (dataDir, dir) =>
+  typeof dir === "string" && /^(node|python)-/.test(path.basename(dir))
+    ? path.join(toolchainRoot(dataDir), path.basename(dir))
+    : null;
+/** The record fields a confirmed preview and its program determine. */
+const sourceFields = (preview, program) => ({
+  ...preview.ref,
+  program: program.name,
+  programPath: program.path,
+  allowScripts: preview.allowScripts,
+  lock: preview.lockText,
+  lockDigest: preview.digest,
+  integrity: preview.integrity,
+});
 
 /** Previews, installs, updates and removes packaged MCP servers (docs/mcp.md). */
 export class McpPackages {
@@ -1869,8 +2135,10 @@ export class McpPackages {
       previewTtl,
     });
     this.records = servers.packages;
-    this.jobs = new PackageJobs();
+    this.jobs = new PackageJobs({ settled: () => this.prune() });
     this.previews = new Map();
+    // serverId → leading args stored before a running switch (see activate()).
+    this.switching = new Map();
   }
   get cacheDir() {
     return path.join(packageRoot(this.dataDir), ".npm-cache");
@@ -1966,42 +2234,67 @@ export class McpPackages {
       throw packageProblem("MCP_PACKAGE_PREVIEW_EXPIRED", 409);
     return preview;
   }
-  async createServer(input, { clis, previewId, program } = {}) {
-    if (!record(input) || input.transport !== "stdio" || input.command !== undefined)
-      throw packageProblem("MCP_PACKAGE_INVALID", 400);
-    const { source, ...definition } = input;
+  /** The preview taken once, its program chosen and the scripts rule checked. */
+  confirmedPreview(previewId, source, wanted) {
     const preview = this.takePreview(previewId, source);
-    const chosen = chooseProgram(preview.programs, program ?? source.program);
+    const program = chooseProgram(preview.programs, wanted);
     if (preview.needsScripts === true && !preview.allowScripts)
       throw packageProblem("MCP_PACKAGE_NEEDS_SCRIPTS", 400);
-    const server = await this.changes.create(definition, {
-      confirmStdio: true,
-      pendingCommand: true,
-      ...(clis === undefined ? {} : { clis }),
-    });
-    this.records.put(server.id, {
-      ...preview.ref,
-      program: chosen.name,
-      programPath: chosen.path,
-      allowScripts: preview.allowScripts,
-      lock: preview.lockText,
-      lockDigest: preview.digest,
-      integrity: preview.integrity,
+    return { preview, program };
+  }
+  /** The record of a confirmed package before its first install. */
+  pendingRecord({ preview, program }) {
+    return {
+      ...sourceFields(preview, program),
       installId: null,
-      leadingArgs: 1,
+      leadingArgs: 0,
       toolchainDir: null,
       status: "installing",
       errorCode: null,
+    };
+  }
+  isPackaged(id) {
+    return !!this.records.get(id);
+  }
+  async createServer(input, { clis, previewId, program } = {}) {
+    if (!record(input) || input.transport !== "stdio" || input.command !== undefined)
+      throw invalid();
+    const { source, ...definition } = input;
+    if (!record(source)) throw invalid();
+    const confirmed = this.confirmedPreview(previewId, source, program ?? source.program);
+    // Written in the server's own transaction: the first reconciliation already sees
+    // a package that is installing, not a stdio server without a command.
+    const server = await this.changes.create(definition, {
+      confirmStdio: true,
+      pendingCommand: true,
+      packageRecord: this.pendingRecord(confirmed),
+      ...(clis === undefined ? {} : { clis }),
     });
-    this.install(server.id, { preview, program: chosen, kind: "install" });
+    this.install(server.id, { ...confirmed, kind: "install" });
     return this.servers.get(server.id);
+  }
+  /**
+   * Switches an own-command stdio server to a package (owner decision D1). The own
+   * command stays stored until the install switches command and args together; until
+   * then the compilers skip the server, as for a new package.
+   */
+  async attach(id, { source, previewId, program } = {}, beforeInstall) {
+    const server = this.servers.get(id);
+    if (server.transport !== "stdio" || this.isPackaged(id) || !record(source))
+      throw invalid();
+    const confirmed = this.confirmedPreview(previewId, source, program ?? source.program);
+    await beforeInstall?.();
+    this.records.put(id, this.pendingRecord(confirmed));
+    this.install(id, { ...confirmed, kind: "install" });
+    return this.servers.get(id);
   }
   /** Installs `preview` (or the stored lock) and switches the server to it. */
   install(serverId, { preview, program, kind }) {
     const { installId, stage } = stageInstall(this.dataDir);
-    return this.jobs.run(serverId, { kind, installId }, async (log) => {
+    return this.jobs.run(serverId, { kind, installId }, async (log, note) => {
       try {
         const node = await this.toolchain("node");
+        note({ toolchainDir: node.directory });
         await installNpm({
           directory: stage,
           manifestText: preview.manifestText,
@@ -2029,21 +2322,19 @@ export class McpPackages {
           { ...receipt, installId },
           node,
         );
-        await this.switchCommand(serverId, command, leading);
-        this.records.update(serverId, {
-          ...preview.ref,
-          program: program.name,
-          programPath: program.path,
-          allowScripts: preview.allowScripts,
-          lock: preview.lockText,
-          lockDigest: preview.digest,
-          integrity: preview.integrity,
-          installId,
-          leadingArgs: leading.length,
-          toolchainDir: node.directory,
-          status: "ready",
-          errorCode: null,
-        });
+        await this.activate(
+          serverId,
+          {
+            ...sourceFields(preview, program),
+            installId,
+            leadingArgs: leading.length,
+            toolchainDir: node.directory ?? null,
+            status: "ready",
+            errorCode: null,
+          },
+          command,
+          leading,
+        );
       } catch (error) {
         const current = this.records.get(serverId);
         if (current && current.status !== "ready")
@@ -2052,18 +2343,34 @@ export class McpPackages {
             errorCode: packageCode(error, "MCP_PACKAGE_INSTALL_FAILED"),
           });
         throw error;
-      } finally {
-        this.prune();
       }
     });
   }
+  /**
+   * The ready record first, then the command switch through the normal update path:
+   * the reconciliation and the agents' apply it triggers already see the package
+   * ready. A failed switch restores the previous record.
+   */
+  async activate(serverId, fields, command, leading) {
+    const previous = this.records.get(serverId);
+    // Before the first install the stored args are the owner's only.
+    const before = previous?.installId ? previous.leadingArgs : 0;
+    this.switching.set(serverId, before);
+    this.records.put(serverId, fields);
+    try {
+      await this.switchCommand(serverId, command, leading, before);
+    } catch (error) {
+      if (previous) this.records.put(serverId, previous);
+      throw error;
+    } finally {
+      this.switching.delete(serverId);
+    }
+  }
   /** Through the normal update path: agents apply live, CLIs reconcile. One retry on 409. */
-  async switchCommand(serverId, command, leading) {
+  async switchCommand(serverId, command, leading, before) {
     for (let attempt = 0; ; attempt++) {
       const server = this.servers.get(serverId);
-      const row = this.records.get(serverId);
-      // Before the first install the stored args are the owner's only.
-      const owner = (server.args || []).slice(row?.installId ? row.leadingArgs : 0);
+      const owner = (server.args || []).slice(before);
       try {
         await this.changes.update(
           serverId,
@@ -2076,36 +2383,44 @@ export class McpPackages {
       }
     }
   }
+  /** Generated args stored in front of the owner's; 0 before the first install. */
+  storedLeading(id, row) {
+    if (this.switching.has(id)) return this.switching.get(id);
+    return row?.installId ? row.leadingArgs : 0;
+  }
   prepareUpdate(id, input) {
     const row = this.records.get(id);
     if (!row || !record(input)) return input;
-    if (input.command !== undefined) throw packageProblem("MCP_PACKAGE_INVALID", 400);
+    if (input.command !== undefined) throw invalid();
     if (input.args === undefined) return input;
-    const server = this.servers.get(id);
-    const leading = row.installId ? (server.args || []).slice(0, row.leadingArgs) : [];
+    const leading = (this.servers.get(id).args || []).slice(
+      0,
+      this.storedLeading(id, row),
+    );
     return { ...input, args: [...leading, ...input.args] };
   }
-  detach(id) {
+  /** `update` switches the server to an own command first; then the record goes. */
+  async detach(id, update) {
+    if (this.jobs.get(id)?.state === "running")
+      throw packageProblem("MCP_PACKAGE_BUSY", 409);
+    if (!this.isPackaged(id)) throw invalid();
+    await update?.();
     this.records.remove(id);
-    this.prune();
+    return this.prune();
   }
-  async updatePackage(id, { version, allowScripts, previewId, program }) {
+  async updatePackage(id, { version, allowScripts, previewId, program } = {}) {
     const row = this.records.get(id);
-    if (!row) throw packageProblem("MCP_PACKAGE_INVALID", 400);
-    const preview = this.takePreview(previewId, {
-      registry: row.registry,
-      name: row.name,
-      version,
-      allowScripts,
-    });
-    const chosen = chooseProgram(preview.programs, program ?? row.program);
-    if (preview.needsScripts === true && !preview.allowScripts)
-      throw packageProblem("MCP_PACKAGE_NEEDS_SCRIPTS", 400);
-    return { job: this.install(id, { preview, program: chosen, kind: "update" }) };
+    if (!row) throw invalid();
+    const confirmed = this.confirmedPreview(
+      previewId,
+      { registry: row.registry, name: row.name, version, allowScripts },
+      program ?? row.program,
+    );
+    return { job: this.install(id, { ...confirmed, kind: "update" }) };
   }
   reinstall(id) {
     const row = this.records.get(id);
-    if (!row) throw packageProblem("MCP_PACKAGE_INVALID", 400);
+    if (!row) throw invalid();
     const ref = { registry: row.registry, name: row.name, version: row.version };
     const preview = {
       ref,
@@ -2125,34 +2440,65 @@ export class McpPackages {
     };
   }
   status(id) {
-    return { source: this.servers.get(id).source ?? null, job: this.jobs.get(id) };
+    const source = this.servers.get(id).source ?? null;
+    const job = this.jobs.get(id);
+    const code = job?.state === "failed" ? job.code : (source?.errorCode ?? null);
+    if (!code) return { source, job, error: null };
+    // Stable code plus the server message and its key; the browser translates the key.
+    const { message } = packageProblem(code);
+    return { source, job, error: { code, message, ...messageIdentity(message) } };
   }
   start() {
+    // A crash can leave preview resolutions behind; no preview survives a restart.
+    fs.rmSync(path.join(this.dataDir, "mcp-packages", "previews"), {
+      recursive: true,
+      force: true,
+    });
     for (const row of this.records.all())
       if (row.status === "installing" && !this.jobs.get(row.serverId))
         this.records.update(row.serverId, {
           status: "failed",
           errorCode: "MCP_PACKAGE_INSTALL_FAILED",
         });
-    this.prune();
+    return this.prune();
   }
+  /**
+   * Removes installs and stages nothing references now, then (in the background, never
+   * rejecting) the toolchains no record and no running job uses. Tests await it.
+   */
   prune() {
     pruneInstalls(
       this.dataDir,
       new Set([...this.records.installIds(), ...this.jobs.runningInstallIds()]),
     );
+    const inUse = [
+      ...this.records.all().map((row) => row.toolchainDir),
+      ...this.jobs.runningToolchainDirs(),
+    ]
+      .map((dir) => toolchainEntry(this.dataDir, dir))
+      .filter(Boolean);
+    return pruneToolchains(this.dataDir, inUse).catch((error) =>
+      console.error(
+        `AgentPier could not prune MCP package toolchains (${packageCode(error, "MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE")}).`,
+      ),
+    );
   }
 }
 ```
 
+Notes:
+
+- `prune()` runs after every settled job (the `settled` hook), so a failed or aborted job's `.stage-<id>`, the old install after an update and an install committed for a server deleted mid-job are removed as soon as the job ends. Routes call it after `DELETE` and after `detach`; `start()` calls it once at boot. Jobs never await the toolchain part, so a toolchain install holding the serialized queue never delays a job.
+- `status()` calls `packageProblem(code)` only with codes from `packageCodes` (job codes come from `packageCode`, record codes from the same source).
+- The service lands at about 400 lines (limit 600).
+
 - [ ] **Step 5: Run the jobs test and commit**
 
-Run: `node --test tests/unit/mcp-install-jobs.test.js`
-Expected: PASS. (The service is covered end to end in Task 9.)
+Run: `node --test tests/unit/mcp-install-jobs.test.js && npx eslint server/features/mcp-packages`
+Expected: PASS, no lint findings. (The service is covered end to end in Task 9.)
 
 ```bash
 git add server/features/mcp-packages/install-jobs.js server/features/mcp-packages/mcp-packages.js \
-  server/features/mcp-packages/package-records.js server/features/operations/mcp-server-backup.js \
   tests/unit/mcp-install-jobs.test.js
 git commit -m "feat: run MCP package installs as background jobs
 
@@ -2169,7 +2515,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Interfaces:**
 
-- Consumes: `McpPackages`, `McpServerStore`, `CentralMcpChanges`, `npmRegistryFixture`, `hostNode`.
+- Consumes: `McpPackages` (incl. `attach`, `detach`, `prune`, `status`), `McpServerStore`, `CentralMcpChanges`, `npmRegistryFixture`, `hostNode`, `toolchainTarget`.
 
 - [ ] **Step 1: Write the tests**
 
@@ -2180,11 +2526,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { hostNode, npmRegistryFixture } from "../helpers/npm-registry-fixture.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../../server/features/mcp-servers/central-changes.js";
 import { McpPackages } from "../../server/features/mcp-packages/mcp-packages.js";
+import { toolchainTarget } from "../../server/features/mcp-packages/toolchain-manifest.js";
 
+const executeFile = promisify(execFile);
 const v1 = {
   name: "server-x",
   version: "1.0.0",
@@ -2197,16 +2547,36 @@ const helpers = [
   { name: "helper", version: "1.0.0", files: { "i.js": "" } },
   { name: "helper", version: "2.0.0", files: { "i.js": "" } },
 ];
+const program =
+  /mcp-packages\/installs\/[0-9a-f-]{36}\/node_modules\/server-x\/index\.js$/;
+const stored = (extra = {}) => ({
+  registry: "npm",
+  name: "server-x",
+  version: "1.0.0",
+  program: "server-x",
+  programPath: "index.js",
+  allowScripts: false,
+  lock: "{}",
+  lockDigest: "d".repeat(64),
+  integrity: "sha512-x",
+  installId: null,
+  leadingArgs: 0,
+  toolchainDir: null,
+  status: "installing",
+  errorCode: null,
+  ...extra,
+});
 
-async function setup(t, packages = [v1, v2, ...helpers]) {
-  const registry = await npmRegistryFixture(t, packages);
+async function setup(t, published = [v1, v2, ...helpers]) {
+  const registry = await npmRegistryFixture(t, published);
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-packages-service-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const servers = new McpServerStore({ dataDir });
+  // What each reconciliation saw: the definitions right after a stored change.
   const saved = [];
   const changes = new CentralMcpChanges({
     servers,
-    onSaved: async () => saved.push(Date.now()),
+    onSaved: async () => saved.push(servers.definitions()),
   });
   const node = {
     kind: "node",
@@ -2214,6 +2584,8 @@ async function setup(t, packages = [v1, v2, ...helpers]) {
     directory: path.dirname(path.dirname(process.execPath)),
     ...hostNode(),
   };
+  // Every npm call's arguments, to tell a resolution from an install.
+  const calls = [];
   const packages = new McpPackages({
     dataDir,
     servers,
@@ -2225,8 +2597,12 @@ async function setup(t, packages = [v1, v2, ...helpers]) {
       return Buffer.from(await response.arrayBuffer());
     },
     toolchain: async () => node,
+    execute: (file, args, options) => {
+      calls.push(args);
+      return executeFile(file, args, options);
+    },
   });
-  return { dataDir, servers, changes, packages, saved };
+  return { dataDir, servers, changes, packages, saved, calls };
 }
 const create = async ({ packages }, extra = {}) => {
   const preview = await packages.preview({
@@ -2247,6 +2623,7 @@ const create = async ({ packages }, extra = {}) => {
   );
   return { preview, server };
 };
+const definitionOf = (snapshot, id) => snapshot.find((d) => d.id === id);
 
 test("create installs, switches the command and keeps owner args", async (t) => {
   const s = await setup(t);
@@ -2254,16 +2631,24 @@ test("create installs, switches the command and keeps owner args", async (t) => 
   assert.equal(preview.dependencyCount, 2);
   assert.deepEqual(preview.programs, ["server-x"]);
   assert.equal(server.source.status, "installing");
+  assert.equal(server.source.leadingArgs, 0);
+  assert.deepEqual(server.args, ["--owner"]);
+  // The create's reconciliation already saw the package as installing.
+  assert.equal(definitionOf(s.saved[0], server.id).packageStatus, "installing");
   await s.packages.jobs.idle();
   const ready = s.servers.get(server.id);
   assert.equal(ready.source.status, "ready");
+  assert.equal(ready.source.leadingArgs, 1);
   assert.equal(ready.command, process.execPath);
-  assert.match(
-    ready.args[0],
-    /mcp-packages\/installs\/[0-9a-f-]{36}\/node_modules\/server-x\/index\.js$/,
-  );
+  assert.match(ready.args[0], program);
   assert.deepEqual(ready.args.slice(1), ["--owner"]);
   assert.deepEqual(ready.envNames, ["TOKEN"]);
+  // The switch's reconciliation saw the package ready with its new command, so the
+  // CLIs and agents get the server without another save.
+  const last = definitionOf(s.saved.at(-1), server.id);
+  assert.equal(last.packageStatus, "ready");
+  assert.equal(last.command, process.execPath);
+  assert.deepEqual(s.packages.status(server.id).error, null);
 });
 
 test("an update shows the diff, switches only on success and removes the old install", async (t) => {
@@ -2293,7 +2678,7 @@ test("an update shows the diff, switches only on success and removes the old ins
   assert.deepEqual(after.args.slice(1), ["--owner"]);
 });
 
-test("a failed update keeps the previous install active", async (t) => {
+test("a failed update keeps the previous install active and reports its code", async (t) => {
   const s = await setup(t);
   const { server } = await create(s);
   await s.packages.jobs.idle();
@@ -2318,20 +2703,30 @@ test("a failed update keeps the previous install active", async (t) => {
   assert.equal(after.source.status, "ready");
   assert.equal(after.source.version, "1.0.0");
   assert.deepEqual(after.args, before.args);
+  const { error } = s.packages.status(server.id);
+  assert.equal(error.code, "MCP_PACKAGE_INSTALL_FAILED");
+  assert.equal(error.messageKey, "mcpPackages.installFailed");
+  // The failed job's stage is gone; only the active install is left.
+  assert.deepEqual(fs.readdirSync(path.join(s.dataDir, "mcp-packages", "installs")), [
+    s.servers.packages.get(server.id).installId,
+  ]);
 });
 
 test("a vanished install reports missing and reinstalls from the stored lock", async (t) => {
   const s = await setup(t);
   const { server } = await create(s);
   await s.packages.jobs.idle();
+  const lockDigest = s.servers.packages.get(server.id).lockDigest;
   fs.rmSync(path.join(s.dataDir, "mcp-packages", "installs"), { recursive: true });
   assert.equal(s.servers.get(server.id).source.status, "missing");
-  let resolved = false;
-  const original = s.packages.preview.bind(s.packages);
-  s.packages.preview = async (...a) => ((resolved = true), original(...a));
+  s.calls.length = 0;
   s.packages.reinstall(server.id);
   await s.packages.jobs.idle();
-  assert.equal(resolved, false);
+  // No new resolution: npm ran `ci` only, and the stored lock is unchanged.
+  assert.ok(s.calls.length > 0);
+  assert.ok(s.calls.every((args) => !args.includes("--package-lock-only")));
+  assert.ok(s.calls.some((args) => args.includes("ci")));
+  assert.equal(s.servers.packages.get(server.id).lockDigest, lockDigest);
   assert.equal(s.servers.get(server.id).source.status, "ready");
 });
 
@@ -2339,40 +2734,49 @@ test("a restart during the first install marks it failed", async (t) => {
   const s = await setup(t);
   const server = s.servers.create(
     { name: "pkg", transport: "stdio" },
-    { pendingCommand: true },
+    { pendingCommand: true, packageRecord: stored() },
   );
-  s.servers.packages.put(server.id, {
-    registry: "npm",
-    name: "server-x",
-    version: "1.0.0",
-    program: "server-x",
-    programPath: "index.js",
-    allowScripts: false,
-    lock: "{}",
-    lockDigest: "d",
-    integrity: "x",
-    installId: null,
-    leadingArgs: 1,
-    toolchainDir: null,
-    status: "installing",
-    errorCode: null,
-  });
-  s.packages.start();
+  const previews = path.join(s.dataDir, "mcp-packages", "previews", "left-over");
+  fs.mkdirSync(previews, { recursive: true });
+  await s.packages.start();
   assert.equal(s.servers.get(server.id).source.status, "failed");
   assert.equal(s.servers.get(server.id).source.errorCode, "MCP_PACKAGE_INSTALL_FAILED");
+  assert.equal(fs.existsSync(path.dirname(previews)), false);
 });
 
-test("an owner edit during the install survives the switch", async (t) => {
+test("an owner edit during the switch is kept and retried once", async (t) => {
   const s = await setup(t);
+  const real = s.changes;
+  let raced = false;
+  // The owner saves (through prepareUpdate, like the PUT route) just before the
+  // install's own update, whose revision is then stale (409) and retried.
+  s.packages.changes = {
+    create: (...args) => real.create(...args),
+    update: async (id, input, options) => {
+      if (!raced) {
+        raced = true;
+        const current = s.servers.get(id);
+        s.servers.update(
+          id,
+          s.packages.prepareUpdate(id, {
+            revision: current.revision,
+            name: "renamed",
+            args: ["--edited"],
+          }),
+        );
+      }
+      return real.update(id, input, options);
+    },
+  };
   const { server } = await create(s);
-  s.servers.update(server.id, {
-    revision: s.servers.get(server.id).revision,
-    name: "renamed",
-  });
   await s.packages.jobs.idle();
   const after = s.servers.get(server.id);
+  assert.equal(raced, true);
   assert.equal(after.name, "renamed");
   assert.equal(after.source.status, "ready");
+  assert.equal(after.command, process.execPath);
+  assert.match(after.args[0], program);
+  assert.deepEqual(after.args.slice(1), ["--edited"]);
 });
 
 test("an expired or mismatched preview is refused", async (t) => {
@@ -2394,18 +2798,99 @@ test("an expired or mismatched preview is refused", async (t) => {
     { code: "MCP_PACKAGE_PREVIEW_EXPIRED" },
   );
 });
+
+test("an own-command server switches to a package and back (D1)", async (t) => {
+  const s = await setup(t);
+  const own = await s.changes.create(
+    { name: "own", transport: "stdio", command: "/bin/sh", args: ["--x"] },
+    { confirmStdio: true },
+  );
+  const preview = await s.packages.preview({
+    registry: "npm",
+    name: "server-x",
+    version: "1.0.0",
+  });
+  const attached = await s.packages.attach(own.id, {
+    source: { registry: "npm", name: "server-x", version: "1.0.0" },
+    previewId: preview.previewId,
+  });
+  assert.equal(attached.source.status, "installing");
+  assert.equal(attached.command, "/bin/sh");
+  await s.packages.jobs.idle();
+  const ready = s.servers.get(own.id);
+  assert.equal(ready.source.status, "ready");
+  assert.equal(ready.command, process.execPath);
+  assert.match(ready.args[0], program);
+  assert.deepEqual(ready.args.slice(1), ["--x"]);
+  // A packaged server is never attached twice.
+  await assert.rejects(
+    s.packages.attach(own.id, {
+      source: { registry: "npm", name: "server-x", version: "1.0.0" },
+      previewId: preview.previewId,
+    }),
+    { code: "MCP_PACKAGE_INVALID" },
+  );
+  // Back to an own command: the command switches first, then the record and installs go.
+  await s.packages.detach(own.id, () =>
+    s.changes.update(
+      own.id,
+      { revision: ready.revision, command: "/bin/sh", args: ["--x"] },
+      { confirmStdio: true },
+    ),
+  );
+  const detached = s.servers.get(own.id);
+  assert.equal(detached.source, undefined);
+  assert.equal(detached.command, "/bin/sh");
+  assert.deepEqual(fs.readdirSync(path.join(s.dataDir, "mcp-packages", "installs")), []);
+});
+
+test("unused toolchains are pruned; one a record names by its real path is kept", async (t) => {
+  let target;
+  try {
+    target = toolchainTarget();
+  } catch {
+    t.skip("no pinned toolchain for this host");
+    return;
+  }
+  const s = await setup(t);
+  const root = path.join(s.dataDir, "toolchains");
+  const kept = path.join(root, `node-v0.0.1-${target}`);
+  const stale = path.join(root, `node-v0.0.2-${target}`);
+  fs.mkdirSync(kept, { recursive: true });
+  fs.mkdirSync(stale, { recursive: true });
+  // os.tmpdir() is /var/... on macOS while realpath gives /private/var/...
+  s.servers.create(
+    { name: "a", transport: "stdio" },
+    {
+      pendingCommand: true,
+      packageRecord: stored({ toolchainDir: fs.realpathSync(kept) }),
+    },
+  );
+  s.servers.create(
+    { name: "b", transport: "stdio" },
+    { pendingCommand: true, packageRecord: stored({ toolchainDir: null }) },
+  );
+  s.servers.create(
+    { name: "c", transport: "stdio" },
+    { pendingCommand: true, packageRecord: stored({ toolchainDir: "/usr/local" }) },
+  );
+  await s.packages.prune();
+  assert.equal(fs.existsSync(kept), true);
+  assert.equal(fs.existsSync(stale), false);
+});
 ```
 
 - [ ] **Step 2: Run the tests and fix what fails**
 
 Run: `node --test tests/integration/mcp-packages-service.test.js`
-Expected: PASS. A failure is a defect in the Task 8 code: fix it there, rerun, keep the test unchanged.
+Expected: PASS (9 tests; the prune test skips only on a host without pinned toolchains). A failure is a defect in the Task 6 or Task 8 code: fix it there, rerun, keep the test unchanged.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add tests/integration/mcp-packages-service.test.js server/features/mcp-packages
-git commit -m "test: cover MCP package install, update, reinstall and recovery
+git add tests/integration/mcp-packages-service.test.js server/features/mcp-packages \
+  server/features/mcp-servers
+git commit -m "test: cover MCP package install, update, reinstall, attach and recovery
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -2417,10 +2902,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 
 - Create: `server/http/routes/mcp-packages.js`
-- Modify: `server/http/routes/mcp-servers.js` (POST, PUT, DELETE handlers; mount the package routes after `mcpCliRoutes`)
+- Modify: `server/http/routes/mcp-servers.js` (`routeProblem`, POST, PUT, DELETE handlers; mount the package routes after `mcpCliRoutes`)
+- Modify: `server/features/mcp-packages/package-errors.js` (`MCP_PACKAGE_CONFIRMATION_REQUIRED`), `server/lib/i18n/de/mcp-packages.js`, `server/lib/i18n/en/mcp-packages.js` (`confirmationRequired`)
 - Modify: `server/application/services.js:191-206` (create `McpPackages` after `mcpServerChanges`; expose as `services.mcpPackages`)
 - Modify: `server/app.js` (next to the `listening` hooks: `server.once("listening", () => services.mcpPackages?.start());`)
-- Test: `tests/integration/mcp-packages-routes.test.js`
+- Test: `tests/integration/mcp-packages-routes.test.js`; update `tests/unit/mcp-package-errors.test.js` (15 codes)
 
 **Interfaces:**
 
@@ -2428,32 +2914,45 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `GET /api/mcp-packages/versions?registry=&name=` → `{ latest, versions }`.
   - `POST /api/mcp-packages/preview` body `{ registry, name, version, allowScripts, serverId? }` → preview.
   - `POST /api/mcp-servers` with `source` + `previewId` + `confirmInstall: true` (+ optional `program`, `clis`) → `202` public server; without `confirmInstall: true` → `409 { code: "MCP_PACKAGE_CONFIRMATION_REQUIRED" }`.
-  - `PUT /api/mcp-servers/:id`: packaged server → `mcpPackages.prepareUpdate`; `source: null` → update then `detach`.
+  - `PUT /api/mcp-servers/:id`:
+    - with a `source` object on a server without a record (D1) → needs `confirmInstall: true` (else `409 MCP_PACKAGE_CONFIRMATION_REQUIRED`), refuses a `command` (`400 MCP_PACKAGE_INVALID`), saves the other changed fields (name, args, cwd, env, `clis`) through `changes.update` with the stdio confirmation covered by the install confirmation, then `mcpPackages.attach` → `202` public server; audit `mcp.package.installed`.
+    - with a `source` object on a packaged server → `400 MCP_PACKAGE_INVALID` (use `/package/update`).
+    - with `source: null` on a packaged server → needs the own `command` in the body (else `400 MCP_PACKAGE_INVALID`); `mcpPackages.detach(id, () => changes.update(...))` (the own command needs `confirmStdio` like any command change) → `200` public server; audit `mcp.package.removed`.
+    - otherwise on a packaged server → `mcpPackages.prepareUpdate` (a `command` → `400`; `args` get the generated args in front).
   - `DELETE /api/mcp-servers/:id` → after removal `mcpPackages.prune()`.
   - `POST /api/mcp-servers/:id/package/update` body `{ version, allowScripts, previewId, program, confirmInstall: true }` → `202 { job }`.
   - `POST /api/mcp-servers/:id/package/reinstall` → `202 { job }`.
-  - `GET /api/mcp-servers/:id/package` → `{ source, job }`.
-- Audit actions: `mcp.package.installed`, `mcp.package.updated`, `mcp.package.reinstalled`, details `{ registry, name, version, allowScripts }`.
+  - `GET /api/mcp-servers/:id/package` → `{ source, job, error }`.
+- Errors: every `MCP_PACKAGE_*` error keeps its status and code on `/mcp-servers/*` too (`routeProblem` passes it through; the global handler adds `messageKey`), so a `502` registry or integrity failure and a `503` toolchain failure reach the browser with their code instead of a logged generic `500` or "assistant unavailable".
+- Audit actions: `mcp.package.installed`, `mcp.package.updated`, `mcp.package.reinstalled`, `mcp.package.removed`, details `{ registry, name, version, allowScripts }`.
 
 - [ ] **Step 1: Write the failing route test**
 
-The app helper follows `tests/unit/mcp-route-errors.test.js` (Express app, `mcpServerRoutes(services)`, `registerResponses(app)`), plus a JSON body parser:
-
 ```js
+// tests/integration/mcp-packages-routes.test.js
 import test from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import { mcpServerRoutes } from "../../server/http/routes/mcp-servers.js";
 import { registerResponses } from "../../server/http/responses.js";
+import { packageProblem } from "../../server/features/mcp-packages/package-errors.js";
 
-async function app(t, extra) {
-  const calls = [];
+const source = { registry: "npm", name: "x", version: "1.0.0" };
+const packagedServer = { id: "s1", name: "pkg", transport: "stdio", source };
+
+async function app(t, extra = {}) {
   const audit = [];
+  const updates = [];
   const services = {
-    mcpServerChanges: { list: () => [] },
-    mcpServers: {
-      get: () => ({ source: { registry: "npm", name: "x", version: "1.0.0" } }),
+    mcpServerChanges: {
+      list: () => [],
+      update: async (id, input, options) => {
+        updates.push({ id, input, options });
+        return { server: { id, transport: "stdio" }, cliChange: null };
+      },
+      remove: async () => ({ transport: "stdio" }),
     },
+    mcpServers: { get: () => packagedServer },
     audit: { append: (entry) => audit.push(entry) },
     ...extra,
   };
@@ -2471,40 +2970,28 @@ async function app(t, extra) {
       headers: { "content-type": "application/json" },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    return { status: response.status, body: await response.json() };
+    const text = await response.text();
+    return { status: response.status, body: text ? JSON.parse(text) : null };
   };
-  return { request, calls, audit };
+  return { request, audit, updates };
 }
-```
 
-Then:
-
-```js
-// tests/integration/mcp-packages-routes.test.js (core cases)
 test("creating a packaged server needs the install confirmation", async (t) => {
   const seen = [];
   const { request } = await app(t, {
     mcpPackages: {
       createServer: async (input, options) => {
         seen.push({ input, options });
-        return {
-          id: "s1",
-          name: input.name,
-          transport: "stdio",
-          source: { status: "installing" },
-        };
+        return { ...packagedServer, source: { ...source, status: "installing" } };
       },
     },
   });
-  const body = {
-    name: "pkg",
-    transport: "stdio",
-    source: { registry: "npm", name: "x", version: "1.0.0" },
-    previewId: "p",
-  };
+  const body = { name: "pkg", transport: "stdio", source, previewId: "p" };
   const refused = await request("POST", "/api/mcp-servers", body);
   assert.equal(refused.status, 409);
   assert.equal(refused.body.code, "MCP_PACKAGE_CONFIRMATION_REQUIRED");
+  assert.equal(refused.body.messageKey, "mcpPackages.confirmationRequired");
+  assert.equal(seen.length, 0);
   const accepted = await request("POST", "/api/mcp-servers", {
     ...body,
     confirmInstall: true,
@@ -2512,34 +2999,47 @@ test("creating a packaged server needs the install confirmation", async (t) => {
   assert.equal(accepted.status, 202);
   assert.deepEqual(seen[0].options, { previewId: "p", program: undefined });
   assert.equal(seen[0].input.confirmInstall, undefined);
+  assert.equal(seen[0].input.previewId, undefined);
 });
 
 test("package errors keep their stable code in responses", async (t) => {
   const { request } = await app(t, {
     mcpPackages: {
       versions: async () => {
-        const { packageProblem } =
-          await import("../../server/features/mcp-packages/package-errors.js");
         throw packageProblem("MCP_PACKAGE_NOT_FOUND", 404);
+      },
+      reinstall: () => {
+        throw packageProblem("MCP_PACKAGE_INTEGRITY_MISMATCH", 502);
+      },
+      updatePackage: async () => {
+        throw packageProblem("MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE", 503);
       },
     },
   });
-  const response = await request(
+  const missing = await request(
     "GET",
     "/api/mcp-packages/versions?registry=npm&name=nope",
   );
-  assert.equal(response.status, 404);
-  assert.equal(response.body.code, "MCP_PACKAGE_NOT_FOUND");
+  assert.equal(missing.status, 404);
+  assert.equal(missing.body.code, "MCP_PACKAGE_NOT_FOUND");
+  const integrity = await request("POST", "/api/mcp-servers/s1/package/reinstall", {});
+  assert.equal(integrity.status, 502);
+  assert.equal(integrity.body.code, "MCP_PACKAGE_INTEGRITY_MISMATCH");
+  const toolchain = await request("POST", "/api/mcp-servers/s1/package/update", {
+    version: "2.0.0",
+    previewId: "p",
+    confirmInstall: true,
+  });
+  assert.equal(toolchain.status, 503);
+  assert.equal(toolchain.body.code, "MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE");
 });
 
 test("the audit records package name and version, never env or args", async (t) => {
   const { request, audit } = await app(t, {
     mcpPackages: {
       createServer: async () => ({
-        id: "s1",
-        name: "pkg",
-        transport: "stdio",
-        source: { status: "installing" },
+        ...packagedServer,
+        source: { ...source, status: "installing" },
       }),
     },
   });
@@ -2548,10 +3048,11 @@ test("the audit records package name and version, never env or args", async (t) 
     transport: "stdio",
     args: ["--secret-arg"],
     env: { TOKEN: "abc" },
-    source: { registry: "npm", name: "x", version: "1.0.0", allowScripts: true },
+    source: { ...source, allowScripts: true },
     previewId: "p",
     confirmInstall: true,
   });
+  assert.equal(audit.at(-1).action, "mcp.package.installed");
   assert.deepEqual(audit.at(-1).details, {
     registry: "npm",
     name: "x",
@@ -2560,45 +3061,199 @@ test("the audit records package name and version, never env or args", async (t) 
   });
   assert.doesNotMatch(JSON.stringify(audit), /secret-arg|abc/);
 });
+
+test("an own-command server switches to a package only with the confirmation (D1)", async (t) => {
+  const attached = [];
+  const { request, updates, audit } = await app(t, {
+    mcpPackages: {
+      isPackaged: () => false,
+      attach: async (id, options, beforeInstall) => {
+        attached.push({ id, options });
+        await beforeInstall?.();
+        return { ...packagedServer, source: { ...source, status: "installing" } };
+      },
+    },
+  });
+  const body = { revision: 3, source, previewId: "p", args: ["--x"] };
+  const refused = await request("PUT", "/api/mcp-servers/s1", body);
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.code, "MCP_PACKAGE_CONFIRMATION_REQUIRED");
+  const command = await request("PUT", "/api/mcp-servers/s1", {
+    ...body,
+    command: "/bin/sh",
+    confirmInstall: true,
+  });
+  assert.equal(command.status, 400);
+  assert.equal(command.body.code, "MCP_PACKAGE_INVALID");
+  assert.equal(attached.length, 0);
+  const accepted = await request("PUT", "/api/mcp-servers/s1", {
+    ...body,
+    confirmInstall: true,
+  });
+  assert.equal(accepted.status, 202);
+  assert.deepEqual(attached[0], {
+    id: "s1",
+    options: { source, previewId: "p", program: undefined },
+  });
+  // The other edits go through the normal update first, confirmed by the install.
+  assert.deepEqual(updates, [
+    { id: "s1", input: { revision: 3, args: ["--x"] }, options: { confirmStdio: true } },
+  ]);
+  assert.equal(audit.at(-1).action, "mcp.package.installed");
+});
+
+test("a packaged server refuses a new source and detaches only to an own command", async (t) => {
+  const detached = [];
+  const { request, updates, audit } = await app(t, {
+    mcpPackages: {
+      isPackaged: () => true,
+      detach: async (id, update) => {
+        await update();
+        detached.push(id);
+      },
+    },
+  });
+  const again = await request("PUT", "/api/mcp-servers/s1", {
+    revision: 3,
+    source,
+    previewId: "p",
+    confirmInstall: true,
+  });
+  assert.equal(again.status, 400);
+  assert.equal(again.body.code, "MCP_PACKAGE_INVALID");
+  const bare = await request("PUT", "/api/mcp-servers/s1", { revision: 3, source: null });
+  assert.equal(bare.status, 400);
+  assert.equal(bare.body.code, "MCP_PACKAGE_INVALID");
+  const own = await request("PUT", "/api/mcp-servers/s1", {
+    revision: 3,
+    source: null,
+    command: "/bin/sh",
+    confirmStdio: true,
+  });
+  assert.equal(own.status, 200);
+  assert.deepEqual(detached, ["s1"]);
+  assert.deepEqual(updates, [
+    {
+      id: "s1",
+      input: { revision: 3, command: "/bin/sh" },
+      options: { confirmStdio: true },
+    },
+  ]);
+  assert.equal(audit.at(-1).action, "mcp.package.removed");
+});
+
+test("an edit of a packaged server goes through prepareUpdate; delete prunes", async (t) => {
+  let pruned = 0;
+  const { request, updates } = await app(t, {
+    mcpPackages: {
+      prepareUpdate: (_id, input) => ({
+        ...input,
+        args: ["/gen/index.js", ...input.args],
+      }),
+      prune: async () => {
+        pruned += 1;
+      },
+    },
+  });
+  const edited = await request("PUT", "/api/mcp-servers/s1", {
+    revision: 3,
+    args: ["--owner"],
+    confirmStdio: true,
+  });
+  assert.equal(edited.status, 200);
+  assert.deepEqual(updates[0].input, { revision: 3, args: ["/gen/index.js", "--owner"] });
+  const removed = await request("DELETE", "/api/mcp-servers/s1");
+  assert.equal(removed.status, 204);
+  assert.equal(pruned, 1);
+});
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `node --test tests/integration/mcp-packages-routes.test.js`
-Expected: FAIL (routes missing).
+Expected: FAIL (routes missing; unknown code `MCP_PACKAGE_CONFIRMATION_REQUIRED`).
 
-- [ ] **Step 3: Implement routes and wiring**
+- [ ] **Step 3: Add the confirmation code**
+
+`server/features/mcp-packages/package-errors.js` `keys`: add `MCP_PACKAGE_CONFIRMATION_REQUIRED: "confirmationRequired",` after `MCP_PACKAGE_BUSY`. Catalogs (same key in both):
+
+- `server/lib/i18n/de/mcp-packages.js`: `confirmationRequired: "Bitte die Installation des Pakets bestätigen.",`
+- `server/lib/i18n/en/mcp-packages.js`: `confirmationRequired: "Please confirm the installation of the package.",`
+
+`tests/unit/mcp-package-errors.test.js`: change `assert.equal(packageCodes.length, 14);` to `assert.equal(packageCodes.length, 15);`.
+
+- [ ] **Step 4: Implement routes and wiring**
 
 ```js
 // server/http/routes/mcp-packages.js
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { record } from "../../features/extensions/mcp-config.js";
-import { serverMessages } from "../../lib/i18n/de.js";
-import { problem } from "../../lib/storage.js";
+import { packageProblem } from "../../features/mcp-packages/package-errors.js";
 
-export const PACKAGE_CONFIRMATION_REQUIRED = "MCP_PACKAGE_CONFIRMATION_REQUIRED";
+const invalid = () => packageProblem("MCP_PACKAGE_INVALID", 400);
+/** One owner confirmation per install; it replaces the stdio confirmation. */
 export const requireInstallConfirmation = (body) => {
   if (body?.confirmInstall !== true)
-    throw Object.assign(
-      problem(serverMessages.mcpServers.stdioConfirmationRequired, 409),
-      {
-        code: PACKAGE_CONFIRMATION_REQUIRED,
-      },
-    );
+    throw packageProblem("MCP_PACKAGE_CONFIRMATION_REQUIRED", 409);
 };
 export const auditDetails = (source) => ({
-  registry: source.registry,
-  name: source.name,
-  version: source.version,
-  allowScripts: source.allowScripts === true,
+  registry: source?.registry,
+  name: source?.name,
+  version: source?.version,
+  allowScripts: source?.allowScripts === true,
 });
+const packagesOf = (services) => {
+  if (!services.mcpPackages) throw assistantProblem("unavailable", 503);
+  return services.mcpPackages;
+};
+
+/**
+ * `PUT /mcp-servers/:id` with `source`: `null` detaches a packaged server to the own
+ * command in the body; an object switches an own-command server to a package (D1).
+ */
+export async function changeSource(services, { changes, auditMcp }, req, res) {
+  const packages = packagesOf(services);
+  const id = req.params.id;
+  const {
+    confirmStdio,
+    confirmInstall: _confirm,
+    clis,
+    source,
+    previewId,
+    program,
+    ...patch
+  } = req.body;
+  const options = {
+    confirmStdio: confirmStdio === true,
+    ...(clis === undefined ? {} : { clis }),
+  };
+  if (source === null) {
+    if (!packages.isPackaged(id) || typeof patch.command !== "string") throw invalid();
+    const before = services.mcpServers.get(id).source;
+    await packages.detach(id, () => changes().update(id, patch, options));
+    auditMcp("mcp.package.removed", id, auditDetails(before));
+    return res.json(services.mcpServers.get(id));
+  }
+  if (!record(source) || packages.isPackaged(id) || patch.command !== undefined)
+    throw invalid();
+  requireInstallConfirmation(req.body);
+  const edits =
+    Object.keys(patch).some((key) => key !== "revision") || clis !== undefined;
+  // The install confirmation covers the other stdio fields saved with it.
+  const server = await packages.attach(
+    id,
+    { source, previewId, program },
+    edits
+      ? () => changes().update(id, patch, { ...options, confirmStdio: true })
+      : undefined,
+  );
+  auditMcp("mcp.package.installed", id, auditDetails(source));
+  return res.status(202).json(server);
+}
 
 export function mcpPackageRoutes(services, { auditMcp }) {
-  const packages = () => {
-    if (!services.mcpPackages) throw assistantProblem("unavailable", 503);
-    return services.mcpPackages;
-  };
+  const packages = () => packagesOf(services);
   const router = Router();
   router.get("/mcp-packages/versions", async (req, res) => {
     res.set("Cache-Control", "no-store");
@@ -2617,11 +3272,15 @@ export function mcpPackageRoutes(services, { auditMcp }) {
     const body = record(req.body) ? req.body : {};
     requireInstallConfirmation(body);
     const result = await packages().updatePackage(req.params.id, body);
-    const source = services.mcpServers.get(req.params.id).source;
+    const current = services.mcpServers.get(req.params.id).source;
     auditMcp(
       "mcp.package.updated",
       req.params.id,
-      auditDetails({ ...source, version: body.version, allowScripts: body.allowScripts }),
+      auditDetails({
+        ...current,
+        version: body.version,
+        allowScripts: body.allowScripts,
+      }),
     );
     res.status(202).json(result);
   });
@@ -2640,34 +3299,84 @@ export function mcpPackageRoutes(services, { auditMcp }) {
 
 `server/http/routes/mcp-servers.js` edits:
 
-- Import `mcpPackageRoutes`, `requireInstallConfirmation`, `PACKAGE_CONFIRMATION_REQUIRED`.
-- Mount: `router.use(mcpPackageRoutes(services, { auditMcp }));` after `router.use(mcpCliRoutes(...))`.
-- In `replyStdioConfirmation`, also accept `PACKAGE_CONFIRMATION_REQUIRED`: `if (error?.code !== STDIO_CONFIRMATION_REQUIRED && error?.code !== PACKAGE_CONFIRMATION_REQUIRED) return false;`
-- POST handler, before `changes().create`:
+- Imports: `import { auditDetails, changeSource, mcpPackageRoutes, requireInstallConfirmation } from "./mcp-packages.js";`
+- `routeProblem`, first line of the function body:
+
+```js
+// Package problems keep their status and code (502 registry, 503 toolchain).
+if (/^MCP_PACKAGE_/.test(error?.code || "")) return error;
+```
+
+- Mount: `router.use(mcpPackageRoutes(services, { auditMcp }));` right after `router.use(mcpCliRoutes(...))`. `/mcp-packages/*` errors reach the global handler, `/mcp-servers/:id/package*` errors pass `mcpServerErrors`; both keep `MCP_PACKAGE_*` codes.
+- POST handler, right after `const { confirmStdio, clis, ...input } = record(body) ? body : {};`:
 
 ```js
 if (record(body) && body.source !== undefined) {
-  const { confirmInstall, previewId, program, clis: packageClis, ...definition } = input;
+  // The install confirmation replaces the stdio confirmation for this save.
+  requireInstallConfirmation(body);
+  const { confirmInstall: _confirm, previewId, program, ...definition } = input;
+  if (!services.mcpPackages) throw assistantProblem("unavailable", 503);
+  let created;
   try {
-    requireInstallConfirmation(body);
+    created = await services.mcpPackages.createServer(definition, {
+      previewId,
+      program,
+      ...(clis === undefined ? {} : { clis }),
+    });
   } catch (error) {
-    if (replyStdioConfirmation(res, error)) return;
+    if (replyValueReference(res, error)) return;
     throw error;
   }
-  const server = await services.mcpPackages.createServer(definition, {
-    previewId,
-    program,
-    ...(clis === undefined ? {} : { clis }),
-  });
-  auditMcp("mcp.package.installed", server.id, auditDetails(body.source));
-  return res.status(202).json(server);
+  auditMcp("mcp.package.installed", created.id, auditDetails(body.source));
+  return res.status(202).json(created);
 }
 ```
 
-(Destructure `confirmInstall`, `previewId`, `program` out of `input` so they never reach the store; import `auditDetails` from `./mcp-packages.js`.)
+- PUT handler: the whole handler becomes
 
-- PUT handler: before `changes().update(...)`, `const detach = record(body) && body.source === null;` remove `source` from `input`; `const patch = services.mcpPackages ? services.mcpPackages.prepareUpdate(req.params.id, detachInput) : detachInput;` and after a successful update `if (detach) services.mcpPackages?.detach(req.params.id);`. A detach must carry a `command` (own command); if it does not, answer `400` via `packageProblem("MCP_PACKAGE_INVALID")`.
-- DELETE handler: after `changes().remove(...)`, `services.mcpPackages?.prune();`.
+```js
+router.put("/mcp-servers/:id", async (req, res) => {
+  const body = req.body;
+  try {
+    if (record(body) && body.source !== undefined)
+      return await changeSource(services, { changes, auditMcp }, req, res);
+    const { confirmStdio, clis, ...rest } = record(body) ? body : {};
+    // A packaged server keeps its generated command; owner args follow the generated ones.
+    const input =
+      record(body) && services.mcpPackages
+        ? services.mcpPackages.prepareUpdate(req.params.id, rest)
+        : rest;
+    const { server, pending, logoutDeferred, stdioChanged, cliChange } =
+      await changes().update(req.params.id, record(body) ? input : body, {
+        confirmStdio: confirmStdio === true,
+        ...(clis === undefined ? {} : { clis }),
+      });
+    // The owner confirmed a local command that changed or now runs in a new CLI.
+    const newCli = server.transport === "stdio" && cliChange?.added.length > 0;
+    auditMcp("mcp.updated", server.id, {
+      transport: server.transport,
+      fields: [
+        ...Object.keys(record(body) ? input : {}).filter((key) => key !== "revision"),
+        ...(cliChange ? ["clis"] : []),
+      ],
+      ...(cliChange ? { clis: cliChange.clis } : {}),
+      stdioConfirmed: (stdioChanged || newCli) && confirmStdio === true,
+    });
+    res.json({
+      ...server,
+      ...(pending ? { pending: true } : {}),
+      ...(logoutDeferred ? { oauthWarning: deferredWarning() } : {}),
+    });
+  } catch (error) {
+    if (replyStdioConfirmation(res, error) || replyValueReference(res, error)) return;
+    throw error;
+  }
+});
+```
+
+The audit and the response are today's code; `input` (after `prepareUpdate`) has the same keys as the owner's patch, so the audited field names do not change.
+
+- DELETE handler: after `await changes().remove(req.params.id)`, add `services.mcpPackages?.prune();` (it never rejects; the response does not wait for toolchain pruning).
 
 `services.js` after `mcpServerChanges` (line 206):
 
@@ -2683,17 +3392,21 @@ const mcpPackages =
 
 and include `mcpPackages` in the returned `services` object next to `mcpServerChanges`. Import `McpPackages` from `../features/mcp-packages/mcp-packages.js`.
 
-- [ ] **Step 4: Run tests**
+`app.js`, beside the other `listening` hooks: `server.once("listening", () => services.mcpPackages?.start());`
 
-Run: `node --test tests/integration/mcp-packages-routes.test.js tests/unit/mcp-settings-routes.test.js tests/unit/mcp-route-errors.test.js`
-Expected: PASS.
+- [ ] **Step 5: Run tests**
 
-- [ ] **Step 5: Commit**
+Run: `node --test tests/integration/mcp-packages-routes.test.js tests/unit/mcp-package-errors.test.js tests/unit/server-i18n-catalogs.test.js tests/unit/mcp-settings-routes.test.js tests/unit/mcp-route-errors.test.js && npx eslint server/http/routes server/application/services.js server/app.js`
+Expected: PASS, no lint findings.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add server/http/routes/mcp-packages.js server/http/routes/mcp-servers.js server/application/services.js \
-  server/app.js tests/integration/mcp-packages-routes.test.js
-git commit -m "feat: serve MCP package preview, install, update and reinstall
+  server/app.js server/features/mcp-packages/package-errors.js server/lib/i18n/de/mcp-packages.js \
+  server/lib/i18n/en/mcp-packages.js tests/integration/mcp-packages-routes.test.js \
+  tests/unit/mcp-package-errors.test.js
+git commit -m "feat: serve MCP package preview, install, update, reinstall and source switches
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -2715,8 +3428,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 
 - API (`assistantApi`): `mcpPackageVersions(registry, name)` → GET versions; `previewMcpPackage(input)` → POST preview; `mcpPackageStatus(id)`; `updateMcpPackage(id, input)`; `reinstallMcpPackage(id)`.
-- Draft fields: `source: "command" | "package"`, `registry: "npm"`, `packageName`, `packageVersion`, `allowScripts`, `program`; for a packaged server `args` shows only owner args (`server.args.slice(server.source.leadingArgs)` when ready, all args otherwise).
-- `mcpServerStep({ …, previewPackage, chosenProgram })`: for a new packaged server without `confirmations.confirmInstall` it calls `previewPackage` and throws code `MCP_PACKAGE_INSTALL_REQUIRED` with `preview`; `confirmation` maps it to `{ kind: "package", flags: { confirmInstall: true, previewId }, data: { preview } }`. `chosenProgram()` returns the program the confirmation dialog selected (or `null`); the body then carries `program`. (`confirmation.confirm()` in `web/lib/settings/useTabDraft.js` takes no arguments, so the choice travels through this callback.)
+- Draft fields: `source: "command" | "package"`, `registry: "npm"`, `packageName`, `packageVersion`, `allowScripts`, `program`; for a packaged server `args` shows only owner args: always `server.args.slice(server.source.leadingArgs)` (the server reports `leadingArgs: 0` until a first install stored a generated argument, so `ready`, `missing`, `failed` and `installing` all slice correctly and an edit never sends a generated argument back).
+- Body for an existing own-command stdio server switched to **Install package** (D1): `source` plus the changed fields, never `command`; the route attaches the package.
+- `mcpServerStep({ …, previewPackage, chosenProgram })`: for a stdio server whose draft source is `package` and that has no `source` yet (new server, or an own-command server switching, D1) without `confirmations.confirmInstall` it calls `previewPackage` and throws code `MCP_PACKAGE_INSTALL_REQUIRED` with `preview`; `confirmation` maps it to `{ kind: "package", flags: { confirmInstall: true, previewId }, data: { preview } }`. `chosenProgram()` returns the program the confirmation dialog selected (or `null`); the body then carries `program`. (`confirmation.confirm()` in `web/lib/settings/useTabDraft.js` takes no arguments, so the choice travels through this callback.)
 
 - [ ] **Step 1: Copy (German and English, same keys)**
 
@@ -2815,17 +3529,14 @@ import { localizedCopy } from "../index.js";
 export const mcpPackageCopy = localizedCopy(de.mcpPackageCopy, en.mcpPackageCopy);
 ```
 
-Error codes reach the browser with the German server message and `messageKey` (existing `messageIdentity`); no extra browser copy is needed for them.
+Error codes reach the browser with the German server message and `messageKey` (existing `messageIdentity`): save errors through the save chain, and the panel's job error through `status.error` (`{ code, message, messageKey }` from `GET /mcp-servers/:id/package`), shown with `serverText(error.message, error.messageKey)` from `web/lib/server-messages.js`. No extra browser copy is needed for them.
 
 - [ ] **Step 2: Draft and save tests (failing first)**
 
+The test files already import `draftFrom` and `requestBody` (draft test) and `mcpServerStep` and `mcpServerValues` (save test); add only the tests.
+
 ```js
 // add to tests/unit/mcp-server-draft.test.js
-import {
-  draftFrom,
-  requestBody,
-} from "../../web/features/mcp-servers/mcp-server-draft.js";
-
 test("a new packaged server sends its source and no command", () => {
   const draft = {
     ...draftFrom(null),
@@ -2865,6 +3576,46 @@ test("a ready packaged server shows only the owner's arguments", () => {
   assert.equal(draft.source, "package");
   assert.equal(draft.args, "--owner");
 });
+
+test("a missing or failed packaged server still hides its generated argument", () => {
+  for (const status of ["missing", "failed"]) {
+    const draft = draftFrom({
+      name: "pkg",
+      transport: "stdio",
+      command: "/data/toolchains/node/bin/node",
+      args: ["/data/mcp-packages/installs/i/node_modules/x/index.js", "--owner"],
+      source: { registry: "npm", name: "x", version: "1.0.0", status, leadingArgs: 1 },
+      headerNames: [],
+      envNames: [],
+      revision: 3,
+    });
+    assert.equal(draft.args, "--owner", status);
+  }
+});
+
+test("an own-command server switched to a package sends its source, never a command", () => {
+  const server = {
+    id: "s1",
+    name: "own",
+    transport: "stdio",
+    command: "/bin/sh",
+    args: ["--x"],
+    headerNames: [],
+    envNames: [],
+    revision: 4,
+  };
+  const draft = {
+    ...draftFrom(server),
+    source: "package",
+    registry: "npm",
+    packageName: "server-x",
+    packageVersion: "1.0.0",
+  };
+  assert.deepEqual(requestBody(draft, server), {
+    revision: 4,
+    source: { registry: "npm", name: "server-x", version: "1.0.0", allowScripts: false },
+  });
+});
 ```
 
 ```js
@@ -2896,6 +3647,54 @@ test("a new packaged server asks for the install confirmation with its preview",
     return true;
   });
 });
+
+test("an own-command server switching to a package is previewed and sent with its source", async () => {
+  const server = {
+    id: "s1",
+    name: "own",
+    transport: "stdio",
+    command: "/bin/sh",
+    args: [],
+    headerNames: [],
+    envNames: [],
+    revision: 4,
+    clis: [],
+  };
+  const sent = [];
+  const step = mcpServerStep({
+    server,
+    label: "Save",
+    saved: async () => {},
+    previewPackage: async () => ({ previewId: "p2", programs: ["x"] }),
+    saveServer: async (_server, body) => {
+      sent.push(body);
+      return { ...server, source: { status: "installing" } };
+    },
+  });
+  const values = {
+    ...mcpServerValues(server),
+    source: "package",
+    packageName: "x",
+    packageVersion: "1.0.0",
+  };
+  await assert.rejects(step.run({ values, revision: 4, confirmations: {} }), {
+    code: "MCP_PACKAGE_INSTALL_REQUIRED",
+  });
+  await step.run({
+    values,
+    revision: 4,
+    confirmations: { confirmInstall: true, previewId: "p2" },
+  });
+  assert.equal(sent[0].command, undefined);
+  assert.deepEqual(sent[0].source, {
+    registry: "npm",
+    name: "x",
+    version: "1.0.0",
+    allowScripts: false,
+  });
+  assert.equal(sent[0].confirmInstall, true);
+  assert.equal(sent[0].previewId, "p2");
+});
 ```
 
 Run: `node --test tests/unit/mcp-server-draft.test.js tests/unit/mcp-server-save.test.js` → FAIL.
@@ -2923,17 +3722,33 @@ Run: `node --test tests/unit/mcp-server-draft.test.js tests/unit/mcp-server-save
     packageName: server?.source?.name || "",
     packageVersion: server?.source?.version || "",
     allowScripts: server?.source?.allowScripts === true,
-    args: (server?.args || []).slice(server?.source?.status === "ready" ? server.source.leadingArgs : 0).join("\n"),
+    // The server reports leadingArgs 0 until a generated argument is stored.
+    args: (server?.args || []).slice(server?.source?.leadingArgs ?? 0).join("\n"),
 ```
 
-(replacing the existing `args:` line). In `requestBody`, for a new stdio server with `draft.source === "package"` replace `command: draft.command.trim()` by `source: { registry: draft.registry, name: draft.packageName.trim(), version: draft.packageVersion, allowScripts: draft.allowScripts === true }`; for an existing packaged server never send `command` (`changed("command")` is skipped when `draft.source === "package"`).
+(replacing the existing `args:` line). In `requestBody`:
+
+```js
+const packaged = stdio && draft.source === "package";
+const packageSource = () => ({
+  registry: draft.registry,
+  name: draft.packageName.trim(),
+  version: draft.packageVersion,
+  allowScripts: draft.allowScripts === true,
+});
+```
+
+- New server: inside the `stdio` branch replace `command: draft.command.trim(),` by `...(packaged ? { source: packageSource() } : { command: draft.command.trim() }),`.
+- Existing server: replace `...(changed("command") ? { command: draft.command.trim() } : {}),` by `...(!packaged && changed("command") ? { command: draft.command.trim() } : {}),` and add after it `...(packaged && !server.source ? { source: packageSource() } : {}),` (D1: an own-command server switching; a packaged server's source changes only through `/package/update`).
 
 `mcp-server-save.js` `mcpServerStep({ server, label, saveServer = defaultSave, previewPackage = assistantApi.previewMcpPackage, chosenProgram = () => null, saved })`:
 
 ```js
 export const PACKAGE_INSTALL_REQUIRED = "MCP_PACKAGE_INSTALL_REQUIRED";
 // in run(), before building body:
-      const installing = !server && values.transport === "stdio" && values.source === "package";
+      // A new server, or an own-command server switching to a package (D1).
+      const installing =
+        values.transport === "stdio" && values.source === "package" && !server?.source;
       if (installing && !confirmations.confirmInstall) {
         const preview = await previewPackage({
           registry: values.registry,
@@ -3014,11 +3829,13 @@ export default function useMcpPackageVersions(registry, name) {
 }
 ```
 
-`McpPackageFields.jsx` (rendered by `McpServerFields` in the stdio branch when `values.source === "package"`, after a `Segment` with `copy.sources`; for an existing server the source is shown read-only): registry `Segment` (`["npm"]`), package name input (`autoCapitalize="none"`, `spellCheck={false}`), a `<select>` for the version whose options are `versions.filter((v) => showPrereleases || !v.prerelease)` labelled `copy.versionAt(v.version, new Date(v.publishedAt).toLocaleDateString())` plus ` · ${copy.deprecated}` when deprecated; preselect `latest` when the draft has no version (`useEffect` setting `set("packageVersion")(latest)`); a "Show prereleases" checkbox; the loading/failed hint (`role="status"`); the `allowScripts` checkbox with `copy.allowScriptsWarning` in a `.mcp-warning` paragraph when checked. Then the existing args, cwd and env fields.
+`McpServerFields.jsx`, stdio branch: a `Segment` labelled `copy.sourceLabel` with `copy.sources` (`command`, `package`) sits above the command field. It is editable for a new server and for an existing own-command server (D1: `server && !server.source`); once a server is packaged (`server?.source`) it is replaced by read-only text `copy.sources.package` (switching back is the API's `source: null`, not offered in this form). When `values.source === "package"` the command field is hidden and `McpPackageFields` renders instead.
+
+`McpPackageFields.jsx`: registry `Segment` (`["npm"]`), package name input (`autoCapitalize="none"`, `spellCheck={false}`), a `<select>` for the version whose options are `versions.filter((v) => showPrereleases || !v.prerelease)` labelled `copy.versionAt(v.version, new Date(v.publishedAt).toLocaleDateString())` plus ` · ${copy.deprecated}` when deprecated; preselect `latest` when the draft has no version (`useEffect` setting `set("packageVersion")(latest)`); a "Show prereleases" checkbox; the loading/failed hint (`role="status"`); the `allowScripts` checkbox with `copy.allowScriptsWarning` in a `.mcp-warning` paragraph when checked. Then the existing args, cwd and env fields.
 
 `McpPackageConfirmation.jsx`: an `alertdialog` like `StdioConfirmation` (reuse `useAlertDialogFocus`), title `copy.confirmTitle` (or `copy.updateAction` for updates), `name@version`, registry, integrity (first 24 characters + "…"), `copy.dependencies(preview.dependencyCount)` in a `<details>` listing `name version`, a program `<select>` when `preview.programs.length > 1`, the warning when `allowScripts`, `copy.needsScripts` when `preview.needsScripts && !allowScripts` (confirm disabled), the diff (three lists) when `preview.diff`, and Confirm/Cancel buttons.
 
-`McpPackagePanel.jsx` in `McpServerDetail` above the form for a packaged server: `copy.status[source.status]` (with `role="status"`), `name@version`, the error message for `source.errorCode` (from the last failed job: `job.code`), `<details><summary>{copy.log}</summary><pre>{job.log}</pre></details>`, **Reinstall** when status is `failed` or `missing`, and an update row (version select from `useMcpPackageVersions`, **Check update** → `previewMcpPackage({ …, serverId })` → `McpPackageConfirmation` with the diff → `updateMcpPackage`). While `source.status === "installing"` or `job.state === "running"`, poll `mcpPackageStatus` every 2 s and call `data.reloadMcp()` when it settles.
+`McpPackagePanel.jsx` in `McpServerDetail` above the form for a packaged server: `copy.status[source.status]` (with `role="status"`), `name@version`, the error of the last failed job or the record (`status.error` from `mcpPackageStatus(id)`, rendered as `serverText(status.error.message, status.error.messageKey)` in a `role="alert"` paragraph), `<details><summary>{copy.log}</summary><pre>{job.log}</pre></details>`, **Reinstall** when status is `failed` or `missing`, and an update row (version select from `useMcpPackageVersions`, **Check update** → `previewMcpPackage({ …, serverId })` → `McpPackageConfirmation` with the diff → `updateMcpPackage`). While `source.status === "installing"` or `job.state === "running"`, poll `mcpPackageStatus` every 2 s and call `data.reloadMcp()` when it settles.
 
 In `McpServerDetail.jsx` add `{confirmation?.kind === "package" && <McpPackageConfirmation preview={confirmation.data.preview} allowScripts={draft.values.allowScripts} onConfirm={(program) => { programChoice.current = program ?? null; confirmation.confirm(); }} onCancel={confirmation.cancel} />}` beside the stdio confirmations.
 
@@ -3082,7 +3899,8 @@ async function setup(page) {
       },
     });
   });
-  await page.route(/\/api\/mcp-servers(\/.*)?$/, (route) => {
+  // Only the list and one server here; the package status has its own route below.
+  await page.route(/\/api\/mcp-servers(\/[^/]+)?$/, (route) => {
     const request = route.request();
     if (request.method() === "GET") return route.fulfill({ json: state.servers });
     const body = request.postDataJSON();
@@ -3095,11 +3913,21 @@ async function setup(page) {
       headerNames: [],
       envNames: [],
       revision: 1,
-      source: { ...body.source, status: "installing", leadingArgs: 1, errorCode: null },
+      // Before its first install the server reports no generated argument.
+      source: { ...body.source, status: "installing", leadingArgs: 0, errorCode: null },
     };
     state.servers = [server];
     return route.fulfill({ status: 202, json: server });
   });
+  await page.route(/\/api\/mcp-servers\/[^/]+\/package$/, (route) =>
+    route.fulfill({
+      json: {
+        source: state.servers[0]?.source ?? null,
+        job: { kind: "install", state: "running", code: null, log: "" },
+        error: null,
+      },
+    }),
+  );
   return state;
 }
 
@@ -3114,7 +3942,8 @@ test("installing an npm package previews, confirms once and shows progress", asy
   await dialog.getByLabel("Name", { exact: true }).fill("pkg");
   await dialog.getByRole("radio", { name: "Local command (stdio)" }).check();
   await dialog.getByRole("radio", { name: "Install package" }).check();
-  await dialog.getByLabel("Package").fill("server-x");
+  // exact: "Install package" (the source radio) also contains "Package".
+  await dialog.getByLabel("Package", { exact: true }).fill("server-x");
   const version = dialog.getByLabel("Version");
   await expect(version).toHaveValue("1.1.0");
   await expect(version.locator("option")).toHaveCount(2);
@@ -3151,8 +3980,8 @@ test("allowing scripts shows the warning before the preview", async ({ page }) =
 });
 ```
 
-Run: `npm run build && npx playwright test tests/browser/mcp-packages.spec.js --project=desktop`
-Expected: PASS. Then run with `--project=tablet` and in WebKit (`npx playwright test tests/browser/mcp-packages.spec.js --browser=webkit` if the config defines browsers per project; check `playwright.config.js` and follow its project names). Also exercise German once by changing the language to `de` in a copy of the first test and asserting `Paket installieren`.
+Run: `npm run build && npx playwright test tests/browser/mcp-packages.spec.js --project=desktop && AGENTPIER_TEST_BROWSER=webkit npx playwright test tests/browser/mcp-packages.spec.js --project=desktop`
+Expected: PASS in Chromium and WebKit (`playwright.config.js` picks the engine from `AGENTPIER_TEST_BROWSER`; its `tablet` project only matches `assistant*.spec.js`). Also exercise German once: add a third test that sets `agentpier-language` to `de`, opens the form the same way (stdio radio `Lokaler Befehl (stdio)` as `web/lib/i18n/de/mcp-servers.js` names it) and asserts `getByRole("radio", { name: "Paket installieren" })` is visible.
 
 - [ ] **Step 6: Run unit suites and commit**
 
@@ -3175,6 +4004,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `docs/mcp.md` (new subsection under "Central MCP servers in the coding CLIs", line 156)
 - Modify: `docs/AGENTS.md` ("MCP servers" bullet in "Capabilities")
 - Modify: `docs/sandbox.md` ("The grant model", line 62)
+- Modify: `docs/installation.md` ("Toolchains for MCP server packages", line 351) and `docs/linux.md` ("Toolchains für MCP-Pakete", line 160; a small edit to a German document stays German)
 - Check: `grep -rn "servers.sqlite\|mcp-servers/" docs/` and update any list of MCP server backup contents (e.g. `docs/assistant-gateway.md` "Backups") to say package sources and locks are backed up, installs are not.
 
 - [ ] **Step 1: Write the docs**
@@ -3185,7 +4015,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Installing a server package
 
 A local (stdio) server can come from a package instead of an own command: choose
-**Install package**, a registry (npm), the package and a version. The version list is
+**Install package**, a registry (npm), the package and a version. An existing local
+server with an own command can switch to **Install package** the same way; its
+arguments and environment stay, and it keeps running its own command until the
+install is ready. The version list is
 read from the registry, newest first; prereleases are hidden unless **Show
 prereleases** is on, and deprecated versions are marked. Saving first resolves the
 complete dependency graph without running package code and shows the package, its
@@ -3203,11 +4036,15 @@ is ready; until then the CLIs show "its package is not installed yet or is missi
 and switches only after the new install succeeded; a failed update keeps the old one.
 **Reinstall** installs exactly the stored graph again, for example after restoring a
 backup on another computer: backups contain the package source and its lock, not the
-installed files. Removing the server, or switching it to an own command, deletes its
-installs.
+installed files. Removing the server deletes its installs. Toolchain versions that no
+packaged server uses any more are removed from `toolchains/` in the data directory.
 ```
 
 `docs/AGENTS.md`, extend the **MCP servers** bullet: "A local server can also be installed from an npm package under **Accounts → MCP servers** ([MCP](mcp.md#installing-a-server-package))."
+
+`docs/installation.md`, end of the second paragraph of "Toolchains for MCP server packages": "Once no packaged MCP server and no running install uses an older toolchain version, AgentPier removes its folder (at start, after each install and after a server is removed); the current pins always stay."
+
+`docs/linux.md`, after the first sentence of "Toolchains für MCP-Pakete": "Ältere Toolchain-Versionen, die kein MCP-Paket mehr nutzt, entfernt AgentPier selbst."
 
 `docs/sandbox.md`, in the grant model: "A packaged MCP server is the exception to "nothing inside the data directory": its install under `mcp-packages/installs/<id>` and the toolchain it runs with under `toolchains/` are granted read-only; nothing else in the data directory is opened."
 
@@ -3244,4 +4081,4 @@ git commit -m "chore: remove the completed npm package plan
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-The PR lists `docs/mcp.md`, `docs/AGENTS.md`, `docs/sandbox.md` and any backup doc touched, plus screenshots of the form, the confirmation and the status panel.
+The spec `docs/superpowers/specs/2026-10-14-mcp-package-install-design.md` stays: plan 3 (PyPI) still needs it. The PR lists `docs/mcp.md`, `docs/AGENTS.md`, `docs/sandbox.md`, `docs/installation.md`, `docs/linux.md` and any backup doc touched, plus screenshots of the form (including the switch of an own-command server), the confirmation and the status panel.
