@@ -58,10 +58,11 @@ export class AdvancedConfig {
   }
   gateway() {
     const { availability, version: running } = this.runtime.status();
-    // A Gateway that has not started since AgentPier did reports no version; its
-    // next start runs the selected installation.
-    const version = running || this.installedVersion();
     const ready = availability === "ready" && !!this.runtime.client?.ready;
+    // Only a ready Gateway's own version applies. Otherwise the next start runs the
+    // selected installation, which after a rollback differs from the version the
+    // last start reported (and a Gateway that never started reports none).
+    const version = ready ? running : (this.installedVersion() ?? running);
     // A Gateway that is starting, stopping or reconnecting compiled (or will
     // compile) its configuration already; a write now would miss it.
     const settled = ready || availability === "disabled" || availability === "failed";

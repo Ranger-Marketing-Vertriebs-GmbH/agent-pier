@@ -277,3 +277,29 @@ test("a stopped Gateway takes the installed runtime's version into account", asy
   const current = setup({ availability: "disabled", version: null, paths: { root } });
   assert.equal((await current.advanced.get()).gateway.qualified, true);
 });
+
+test("a rollback while the Gateway is stopped follows the installed runtime", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "advanced-rollback-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(
+    path.join(root, "runtime.json"),
+    JSON.stringify({ version: "2026.9.8" }),
+  );
+  // The last start ran the qualified runtime; the rollback selected 2026.9.8 since.
+  const stopped = setup({
+    availability: "disabled",
+    version: advancedSettingsRuntime,
+    paths: { root },
+  });
+  const listed = await stopped.advanced.get();
+  assert.equal(listed.gateway.version, "2026.9.8");
+  assert.equal(listed.gateway.qualified, false);
+  assert.ok(listed.settings.every((s) => !s.available));
+  await assert.rejects(stopped.advanced.save(timeout, 900), {
+    key: "advancedSettingUnavailable",
+  });
+  assert.deepEqual(stopped.overrides.list(), []);
+  // A ready Gateway reports what it actually runs.
+  const ready = setup({ version: advancedSettingsRuntime, paths: { root } });
+  assert.equal((await ready.advanced.get()).gateway.qualified, true);
+});
