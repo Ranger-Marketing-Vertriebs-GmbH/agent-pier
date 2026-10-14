@@ -240,6 +240,8 @@ test("completeLogin passes the code as one argument and never reveals it", async
   const ok = setup(t);
   await ok.cli.completeLogin("docs", code);
   assert.deepEqual(ok.recorded().argv, ["mcp", "login", "docs", `--code=${code}`]);
+  // OpenClaw 2026.10 prints a failure's "Reason:" line only with OPENCLAW_DEBUG.
+  assert.equal(ok.recorded().env.OPENCLAW_DEBUG, "1");
 
   const failing = setup(t, "fail-generic");
   await assert.rejects(failing.cli.completeLogin("docs", code), (error) => {

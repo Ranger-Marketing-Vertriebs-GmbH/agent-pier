@@ -152,7 +152,9 @@ async function harness(t) {
   // The Gateway's own environment; the CLI then reads and writes its private state.
   const token = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8")).gateway.auth
     .token;
+  // With OPENCLAW_DEBUG like createMcpCli: 2026.10 prints "Reason:" only then.
   const gatewayEnv = runtimeEnvironment(runtime.paths, selected.nodePath, token);
+  gatewayEnv.OPENCLAW_DEBUG = "1";
   // Like createMcpCli: a call whose lease transaction could not start while the
   // Gateway wrote the shared state database did nothing and is repeated.
   async function cli(args, env = gatewayEnv) {
@@ -367,6 +369,11 @@ test(
     const reused = await cli(["mcp", "login", "docs", "--code", code]);
     assert.equal(reused.code, 1);
     assert.match(reused.stderr, /Missing MCP OAuth authorization session/);
+    // Without it only "The CLI command failed." and a doctor hint: nothing to classify.
+    const { OPENCLAW_DEBUG: _debug, ...quiet } = gatewayEnv;
+    const hidden = await cli(["mcp", "login", "docs", "--code", code], quiet);
+    assert.equal(hidden.code, 1);
+    assert.doesNotMatch(hidden.stderr, /Reason:/);
 
     // (b, d) The next turn, without a config reload, refreshes the stale token
     // unattended and offers the tool.
