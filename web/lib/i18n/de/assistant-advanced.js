@@ -29,8 +29,8 @@ export const assistantAdvancedCopy = {
   settings: {
     runTimeout: {
       label: "Zeitlimit pro Auftrag",
-      help: "Wie lange ein Agent höchstens an einer Nachricht arbeiten darf, bevor der Lauf abgebrochen wird. Angabe in Sekunden, von 60 Sekunden bis 7 Tage.",
-      fallback: "48 Stunden",
+      help: "Wie lange ein Agent höchstens an einer Nachricht arbeiten darf, bevor der Lauf abgebrochen wird. Angabe in Sekunden, von 300 (5 Minuten) bis 604800 (7 Tage).",
+      fallbackNote: "48 Stunden",
       unit: "Sekunden",
     },
     thinkingDefault: {
@@ -57,7 +57,6 @@ export const assistantAdvancedCopy = {
     imageQuality: {
       label: "Bildqualität",
       help: "Wie stark Bilder für das Modell verkleinert werden. „Sparsam“ spart Token, „Hoch“ erhält mehr Details bei Bildschirmfotos und Dokumenten.",
-      fallback: "Automatisch",
       options: {
         auto: "Automatisch",
         efficient: "Sparsam",
@@ -67,14 +66,13 @@ export const assistantAdvancedCopy = {
     },
     imageMaxDimension: {
       label: "Maximale Bildgröße",
-      help: "Auf welche längste Seite Bilder in Unterhaltungen und Werkzeugergebnissen verkleinert werden, von 256 bis 8192 Pixel. Kleinere Werte sparen Token.",
-      fallback: "1200 Pixel",
+      help: "Auf welche längste Seite Bilder in Unterhaltungen und Werkzeugergebnissen verkleinert werden, von 256 bis 2000 Pixel. Kleinere Werte sparen Token; größere Bilder lehnen Modellanbieter ab, sobald eine Unterhaltung viele davon enthält.",
       unit: "Pixel",
     },
     mediaRetention: {
       label: "Aufbewahrung von Mediendateien",
-      help: "Nach wie vielen Stunden die Agentenlaufzeit ihre zwischengespeicherten Mediendateien löscht, etwa empfangene Bilder und Audiodateien (1 bis 168 Stunden). Ohne Angabe räumt sie nach ihrer eigenen Vorgabe auf. Dateianhänge in den Arbeitsbereichen der Agenten sind nicht betroffen.",
-      fallback: "Vorgabe der Agentenlaufzeit",
+      help: "Ohne Angabe räumt die Agentenlaufzeit nur ausgehende Zwischendateien auf. Mit einem Wert löscht sie alle gespeicherten Mediendateien, die älter sind, auch empfangene Bilder und Sprachnachrichten, etwa aus Telegram. Erlaubt sind 48 bis 168 Stunden. Dateianhänge in den Arbeitsbereichen der Agenten sind nicht betroffen.",
+      fallback: "keine allgemeine Bereinigung (nur ausgehende Zwischendateien)",
       unit: "Stunden",
     },
   },

@@ -28,8 +28,8 @@ export const assistantAdvancedCopy = {
   settings: {
     runTimeout: {
       label: "Time limit per task",
-      help: "How long an agent may work on one message before the run is stopped. In seconds, from 60 seconds to 7 days.",
-      fallback: "48 hours",
+      help: "How long an agent may work on one message before the run is stopped. In seconds, from 300 (5 minutes) to 604800 (7 days).",
+      fallbackNote: "48 hours",
       unit: "seconds",
     },
     thinkingDefault: {
@@ -56,7 +56,6 @@ export const assistantAdvancedCopy = {
     imageQuality: {
       label: "Image quality",
       help: "How much images are scaled down for the model. “Efficient” saves tokens, “High” keeps more detail in screenshots and documents.",
-      fallback: "Automatic",
       options: {
         auto: "Automatic",
         efficient: "Efficient",
@@ -66,14 +65,13 @@ export const assistantAdvancedCopy = {
     },
     imageMaxDimension: {
       label: "Maximum image size",
-      help: "The longest side images in conversations and tool results are scaled down to, from 256 to 8192 pixels. Smaller values save tokens.",
-      fallback: "1200 pixels",
+      help: "The longest side images in conversations and tool results are scaled down to, from 256 to 2000 pixels. Smaller values save tokens; model providers refuse larger images once a conversation holds many of them.",
       unit: "pixels",
     },
     mediaRetention: {
       label: "Media file retention",
-      help: "After how many hours the agent runtime deletes its cached media files, such as received images and audio (1 to 168 hours). Without a value it cleans up by its own rules. File attachments in the agents' workspaces are not affected.",
-      fallback: "agent runtime default",
+      help: "Without a value the agent runtime only cleans up outgoing staging files. With a value it deletes every stored media file older than that, including received images and voice notes, for example from Telegram. 48 to 168 hours are allowed. File attachments in the agents' workspaces are not affected.",
+      fallback: "no general cleanup (only outgoing staging files)",
       unit: "hours",
     },
   },
