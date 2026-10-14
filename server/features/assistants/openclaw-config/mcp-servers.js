@@ -29,6 +29,8 @@ export function mcpEligible(profile) {
  */
 export function mcpServerConfig(server, secrets, redirectUrl = null) {
   if (!record(server) || !serverName.test(server.name ?? "")) return null;
+  // A packaged server runs only from a verified install (docs/mcp.md).
+  if (server.packageStatus !== undefined && server.packageStatus !== "ready") return null;
   if (server.auth === "oauth") return oauthServerConfig(server, redirectUrl);
   if (!record(secrets)) return null;
   const { headers = {}, env = {} } = secrets;

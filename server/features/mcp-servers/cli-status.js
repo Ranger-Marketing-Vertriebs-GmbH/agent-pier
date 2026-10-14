@@ -30,6 +30,7 @@ const reasonMessages = {
   cwd: messages.cliCwdUnsupported,
   invalid: messages.cliReasonInvalid,
   duplicate: messages.cliReasonDuplicate,
+  package: messages.cliReasonPackage,
   // A find AgentPier cannot take over.
   "unsupported-fields": messages.cliNotAdoptable,
   "env-references": messages.cliFindEnvReferences,

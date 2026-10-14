@@ -109,6 +109,16 @@ export function stdioGrants(
       for (const program of interpreters(file, { pathEnv, readHead, exists }))
         add(program);
     for (const file of paths) grants.push({ access: "read", path: file });
+    // A packaged server's install and toolchain live in the data dir by design; only
+    // those two trees are opened, read-only (docs/sandbox.md).
+    const managedRoots = data
+      ? [path.join(data, "mcp-packages", "installs"), path.join(data, "toolchains")]
+      : [];
+    for (const dir of definition.managedDirs || []) {
+      const resolved = real(dir);
+      if (managedRoots.some((root) => resolved !== root && within(resolved, root)))
+        grants.push({ access: "read", path: resolved });
+    }
     if (!definition.cwd) continue;
     if (tooBroad(definition.cwd))
       warn("An MCP server's working directory was not granted (MCP_CWD_TOO_BROAD).");

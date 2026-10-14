@@ -77,6 +77,13 @@ export class CliMcpReconciler {
     const out = new Map();
     for (const definition of this.servers.definitions()) {
       if (!bound.has(definition.id)) continue;
+      if (
+        definition.packageStatus !== undefined &&
+        definition.packageStatus !== "ready"
+      ) {
+        out.set(definition.id, { definition, reason: "package" });
+        continue;
+      }
       const support = cliSupport(cli, definition);
       if (!support.supported)
         out.set(definition.id, { definition, reason: support.reason });

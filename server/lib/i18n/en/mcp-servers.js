@@ -74,6 +74,7 @@ export const mcpServers = Object.freeze({
   cliReasonInvalid: "This coding CLI cannot take the server as it is.",
   cliReasonDuplicate:
     "The CLI lists this name more than once. Please remove one of the entries in the CLI.",
+  cliReasonPackage: "The server's package is not installed yet or is missing.",
   cliLoginNotBound:
     "The server is not assigned to Codex. Select Codex among the server's coding CLIs.",
   cliLoginAccountInvalid:
