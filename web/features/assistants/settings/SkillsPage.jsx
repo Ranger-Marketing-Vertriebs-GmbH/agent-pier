@@ -60,7 +60,19 @@ export default function SkillsPage({ assistant, draft, onBack }) {
   }, [assistantId, assistant.revision]);
   const on = draft.values.skills;
   const shellOff = draft.values.shell === "off";
-  const skills = catalog ? visibleSkills(catalog.skills || [], { filter, term, on }) : [];
+  // Without the agent service the switched-on skills can still be switched off.
+  const offline = Boolean(error) && !catalog;
+  const skills = catalog
+    ? visibleSkills(catalog.skills || [], { filter, term, on })
+    : offline
+      ? visibleSkills(
+          // The saved ones, so a switch stays in place once it is turned off.
+          [...new Set([...(draft.base.skills || []), ...on])]
+            .sort()
+            .map((name) => ({ name, description: "", state: "offline", missing: {} })),
+          { term },
+        )
+      : [];
   return (
     <section id="agent-skills-page" className="agent-subpage" aria-label={copy.title}>
       <SubpageHeader
@@ -100,6 +112,9 @@ export default function SkillsPage({ assistant, draft, onBack }) {
       <ErrorMessage error={error} />
       {!catalog && !error && <p className="assistant-note">{copy.loading}</p>}
       {catalog && !skills.length && <p className="assistant-note">{copy.empty}</p>}
+      {offline && skills.length > 0 && (
+        <p className="assistant-note">{copy.offlineHint}</p>
+      )}
       {skills.length > 0 && (
         <ListCard label={copy.title} className="agent-skills-list">
           {skills.map((skill) => {
@@ -107,10 +122,25 @@ export default function SkillsPage({ assistant, draft, onBack }) {
             return (
               <ToggleRow
                 key={skill.name}
-                label={skill.emoji ? `${skill.emoji} ${skill.name}` : skill.name}
-                sub={<SkillDetails skill={skill} shellOff={shellOff} on={checked} />}
+                label={
+                  skill.emoji ? (
+                    <>
+                      <span aria-hidden="true">{skill.emoji} </span>
+                      {skill.name}
+                    </>
+                  ) : (
+                    skill.name
+                  )
+                }
+                sub={
+                  offline ? undefined : (
+                    <SkillDetails skill={skill} shellOff={shellOff} on={checked} />
+                  )
+                }
                 checked={checked}
-                disabled={draft.saving || skillLocked(skill, checked)}
+                disabled={
+                  draft.saving || skillLocked(skill, checked) || (offline && !checked)
+                }
                 onChange={(next) => draft.set("skills", toggleId(on, skill.name, next))}
               />
             );
