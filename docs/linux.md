@@ -162,7 +162,8 @@ unchanged; the optional Gateway uses its separately provisioned Node runtime.
 Für MCP-Serverpakete aus npm und PyPI stellt AgentPier eigene, per SHA-256 geprüfte
 Toolchains unter `toolchains/` im Datenverzeichnis bereit: Node für npm, uv mit CPython
 für PyPI. Quellcode-Builds von PyPI-Paketen (nur mit ausdrücklicher Freigabe) nutzen
-den Systemcompiler `cc`/`c++`; unter Linux muss dafür ein C-Compiler installiert sein. Ältere Toolchain-Versionen, die kein MCP-Paket mehr nutzt, entfernt AgentPier
+den Systemcompiler `cc`/`c++`; unter Linux muss dafür ein C-Compiler installiert
+sein. Ältere Toolchain-Versionen, die kein MCP-Paket mehr nutzt, entfernt AgentPier
 selbst. Unter Linux wird glibc vorausgesetzt; auf musl-Systemen (z. B. Alpine) meldet
 AgentPier `MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE`. Details:
 [installation](installation.md#toolchains-for-mcp-server-packages).

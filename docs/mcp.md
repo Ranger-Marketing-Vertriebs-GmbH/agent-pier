@@ -294,8 +294,8 @@ by their author are marked "withdrawn by its author" (yanked) and are not instal
 server with an own command switches the same way: its arguments and environment stay,
 and it keeps running its own command until the install is ready.
 
-Saving first resolves the complete dependency graph without running package code and
-asks **Install this package?** (**Update this package?** for an update). The dialog
+Saving first resolves the complete dependency graph without running package code
+(unless source builds are allowed for a PyPI package) and asks **Install this package?** (**Update this package?** for an update). The dialog
 shows the package, its integrity (for a PyPI package the number of files, for example
 "3 files", and the file expected to be installed, "Expected: …"), the number of
 packages in total and the **Program** it starts; nothing is installed before you
@@ -331,7 +331,9 @@ fetches at build time (for example setuptools) come from PyPI outside the frozen
 hash-checked lock; the confirmation says so ("Build tools such as setuptools are then
 downloaded from PyPI during the build; they are not part of the frozen, hash-checked
 dependency list."). Because the program of a built package is only known after the
-build, the confirmation does not name it yet.
+build, the confirmation does not name it yet. A source-only package with several
+programs cannot pick its program in the form yet: its build fails with "program
+required". A failed preview says only "installation failed" and shows no log.
 
 **Dependency constraints (PyPI only).** For a PyPI package you can enter up to 10
 dependency constraints, one per line, each a PyPI package name with version limits
