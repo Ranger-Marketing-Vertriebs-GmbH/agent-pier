@@ -2,10 +2,13 @@ import React, { useId, useState } from "react";
 import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
 import { mcpPackageCopy as copy } from "../../lib/i18n/messages/mcp-packages.js";
 import { mcpServerCopy } from "../../lib/i18n/messages/mcp-servers.js";
+import { showsPath } from "./mcp-package-labels.js";
 import "./mcp-packages.css";
 
 /** Nested copies of one package share name and version; their lock path tells them apart. */
 const dependencyKey = (entry) => entry.path ?? `${entry.name}@${entry.version}`;
+const labelled = (entry, list, text) =>
+  showsPath(entry, list) ? copy.dependencyAt(text, entry.path) : text;
 const shortIntegrity = (value) =>
   value && value.length > 24 ? `${value.slice(0, 24)}…` : value || "—";
 
@@ -48,7 +51,7 @@ function LockDiff({ diff }) {
             <span>{`${title} (${list.length})`}</span>
             <ul>
               {list.map((entry) => (
-                <li key={dependencyKey(entry)}>{text(entry)}</li>
+                <li key={dependencyKey(entry)}>{labelled(entry, list, text(entry))}</li>
               ))}
             </ul>
           </div>
@@ -133,7 +136,13 @@ export default function McpPackageConfirmation({
         <summary>{copy.dependencies(preview.dependencyCount ?? 0)}</summary>
         <ul>
           {(preview.dependencies || []).map((entry) => (
-            <li key={dependencyKey(entry)}>{`${entry.name} ${entry.version}`}</li>
+            <li key={dependencyKey(entry)}>
+              {labelled(
+                entry,
+                preview.dependencies || [],
+                `${entry.name} ${entry.version}`,
+              )}
+            </li>
           ))}
         </ul>
       </details>

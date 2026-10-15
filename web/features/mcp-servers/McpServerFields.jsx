@@ -6,6 +6,7 @@ import McpAuthFields from "./McpAuthFields.jsx";
 import McpCliChoices from "./McpCliChoices.jsx";
 import McpPackageFields from "./McpPackageFields.jsx";
 import McpSecretRows from "./McpSecretRows.jsx";
+import { keepPackageValues } from "./mcp-server-draft.js";
 
 /** The fields of one MCP server; a refused value is shown at its field. */
 export default function McpServerFields({ formId, values, server, set, fieldError }) {
@@ -203,8 +204,10 @@ function McpSourceField({ server, values, set }) {
           type="button"
           className="button secondary"
           onClick={() => {
-            set("source")(detaching ? "package" : "command");
-            if (detaching) set("command")("");
+            if (!detaching) return set("source")("command");
+            // Keep package: back to exactly what is stored, so nothing is left to save.
+            for (const [key, value] of Object.entries(keepPackageValues(server)))
+              set(key)(value);
           }}
         >
           {detaching ? copy.keepPackage : copy.useOwnCommand}

@@ -4,6 +4,7 @@ import {
   constraintLines,
   draftFrom,
   dropsStoredHeaders,
+  keepPackageValues,
   requestBody,
 } from "../../web/features/mcp-servers/mcp-server-draft.js";
 
@@ -204,5 +205,19 @@ test("a packaged server switched to its own command detaches with command and ar
     source: null,
     command: "/usr/bin/srv",
     args: ["--owner"],
+  });
+});
+
+test("keeping the package restores the stored command and owner args", () => {
+  const server = {
+    transport: "stdio",
+    command: "/data/node",
+    args: ["/data/installs/i/x.js", "--owner"],
+    source: { registry: "npm", leadingArgs: 1 },
+  };
+  assert.deepEqual(keepPackageValues(server), {
+    source: "package",
+    command: "",
+    args: "--owner",
   });
 });

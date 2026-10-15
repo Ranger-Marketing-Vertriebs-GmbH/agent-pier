@@ -53,7 +53,7 @@
   border-radius: 6px;
   background: #3c2823;
   padding: 12px;
-  color: #f0b9ab;
+  color: var(--error-text);
   font-size: 12px;
   line-height: 1.6;
   overflow-wrap: anywhere;

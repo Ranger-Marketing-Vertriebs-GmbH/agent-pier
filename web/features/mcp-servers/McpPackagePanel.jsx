@@ -240,6 +240,7 @@ export default function McpPackagePanel({ server, onChanged }) {
               type="button"
               className="button secondary"
               disabled={busy || !version || unchanged}
+              data-focus-key={`mcp-package-check-${server.id}`}
               onClick={checkUpdate}
             >
               {copy.checkUpdate}
@@ -254,6 +255,7 @@ export default function McpPackagePanel({ server, onChanged }) {
           allowScripts={allowScripts}
           defaultProgram={source.program}
           busy={busy}
+          returnKey={`mcp-package-check-${server.id}`}
           onConfirm={confirmUpdate}
           onCancel={() => setPreview(null)}
         />

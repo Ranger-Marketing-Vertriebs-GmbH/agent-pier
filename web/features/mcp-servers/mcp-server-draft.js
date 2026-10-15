@@ -45,6 +45,12 @@ export function draftFrom(server) {
   };
 }
 
+/** The fields "Keep package" restores: the package source and the stored owner args. */
+export function keepPackageValues(server) {
+  const stored = draftFrom(server);
+  return { source: "package", command: stored.command, args: stored.args };
+}
+
 /** `{ Name: "value" }` for new and replaced entries, `{ Name: null }` for removed ones. */
 function secretMap(rows) {
   const map = {};
