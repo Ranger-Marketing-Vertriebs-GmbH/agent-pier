@@ -1,5 +1,6 @@
 import { download as fetchDownload } from "../operations/releases.js";
 import { packageProblem } from "./package-errors.js";
+import { pypiVersionPattern } from "./package-spec.js";
 
 export const npmRegistry = "https://registry.npmjs.org";
 const metadataLimit = 64 * 1024 * 1024;
@@ -75,6 +76,7 @@ export function npmVersions(packument) {
       publishedAt: typeof time[version] === "string" ? time[version] : null,
       prerelease: isPrerelease(version),
       deprecated: !!info?.deprecated,
+      yanked: false,
     }))
     .sort(newestFirst);
   return { latest: packument?.["dist-tags"]?.latest ?? null, versions };
@@ -88,5 +90,46 @@ export function npmVersionInfo(packument, version) {
     integrity: info.dist?.integrity ?? null,
     bin: info.bin ?? null,
     installScripts: installHooks.some((hook) => typeof info.scripts?.[hook] === "string"),
+  };
+}
+
+export const pypiRegistry = "https://pypi.org";
+export const pypiProject = (name, { registry = pypiRegistry, download } = {}) =>
+  fetchRegistryJson(`${registry}/pypi/${encodeURIComponent(name)}/json`, { download });
+const pypiPrerelease = /(?:a|b|rc|\.dev)\d+/i;
+
+export function pypiVersions(project) {
+  const versions = Object.entries(project?.releases || {})
+    .filter(
+      ([version, files]) =>
+        Array.isArray(files) && files.length && pypiVersionPattern.test(version),
+    )
+    .map(([version, files]) => ({
+      version,
+      publishedAt:
+        files
+          .map((f) => f.upload_time_iso_8601)
+          .filter((at) => typeof at === "string")
+          .sort()[0] ?? null,
+      prerelease: pypiPrerelease.test(version),
+      deprecated: false,
+      yanked: files.every((f) => f.yanked === true),
+    }))
+    .sort(newestFirst);
+  return { latest: project?.info?.version ?? null, versions };
+}
+
+export function pypiVersionInfo(project, version) {
+  const files = project?.releases?.[version];
+  if (!Array.isArray(files) || !files.length)
+    throw packageProblem("MCP_PACKAGE_VERSION_NOT_FOUND", 404);
+  return {
+    files: files.map((f) => ({
+      filename: f.filename,
+      url: f.url,
+      sha256: f.digests?.sha256,
+      packagetype: f.packagetype,
+    })),
+    requiresPython: files.find((f) => f.requires_python)?.requires_python ?? null,
   };
 }
