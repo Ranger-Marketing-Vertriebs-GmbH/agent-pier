@@ -321,6 +321,7 @@ export default function AssistantChat({
                   name={m.role === "user" ? copy.you : assistant.name}
                   text={m.text}
                   cut={m.cut === true}
+                  partial={m.partial === true}
                   source={m.source}
                   sender={m.sender}
                   timestamp={m.timestamp}

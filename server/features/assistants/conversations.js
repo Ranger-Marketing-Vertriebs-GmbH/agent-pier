@@ -4,7 +4,8 @@ import { codingRunNotes } from "./assistant-action-notifications.js";
 import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
 import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
-import { completePage, historyTextLimit, withoutMarks } from "./history-text.js";
+import { historyTextLimit } from "./history-text.js";
+import { completePage, historyReads, withoutMarks } from "./history-completion.js";
 export function publicMessages(messages = []) {
   const seen = new Set();
   return messages.flatMap((m) => {
@@ -96,6 +97,16 @@ export async function conversationMessage(service, id, messageId) {
   if (unsettled()) return null;
   return publicMessages(page?.messages).find((m) => m.id === messageId)?.text ?? null;
 }
+// Single reads of cut messages, per service: running ones and retry delays.
+const pageReads = new WeakMap();
+function readsOf(service) {
+  if (!pageReads.has(service))
+    pageReads.set(
+      service,
+      historyReads({ now: () => (service.now ? service.now() : Date.now()) }),
+    );
+  return pageReads.get(service);
+}
 export async function conversationHistory(service, id, { before, limit = 100 } = {}) {
   const conversation = service.store.getConversation(id);
   const offset = before ? Number(before) : 0;
@@ -126,6 +137,8 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
       const page = await completePage(publicMessages(history.messages), {
         known: new Map(messages.map((m) => [m.id, m])),
         read: (messageId) => conversationMessage(service, id, messageId),
+        reads: readsOf(service),
+        scope: id,
       });
       if (
         service.maintenance ||

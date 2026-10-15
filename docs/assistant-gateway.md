@@ -545,16 +545,22 @@ explicitly. Completed model replies are selected by the exact native run identit
 other history cannot be forwarded accidentally. OpenClaw's history pages cut every
 message at its default of 8,000 characters and mark the cut. AgentPier reads each
 message a page cut again on its own (`chat.history` with `messageId` and `maxChars`
-65,536): at most eight per page, newest first and four at a time, while the cache
-keeps texts already completed, so later pages need no new reads and the rest follow
-on later pages. The AgentPier chat therefore shows long messages whole, the owner's
-own turns included, and never shows OpenClaw's marker. A message still incomplete
-after its own read (over 65,536 characters, or OpenClaw's "message too large"
-placeholder) is served with `cut: true`, and the chat ends it with a short note that
-the rest is too long to show. Each owner turn with a delivery key is served with
-the `requestId` of its request, so the chat replaces the turn it shows while a run
-is active by request, not by comparing texts; turns without a key still match by
-text. Telegram gets what is available of an incomplete reply and a closing note
+65,536): at most eight per page, newest first and four at a time; concurrent pages
+share a running read, and the cache keeps each result, so later pages need no new
+reads. The AgentPier chat therefore shows long messages whole, the owner's own turns
+included, and never shows OpenClaw's marker. A message is served in one of three
+states: whole; `cut: true` when its own read confirmed it is still incomplete (over
+65,536 characters, or OpenClaw's "message too large" placeholder), with a short note
+that the rest is too long to show; or `partial: true` while its own read is still
+due (beyond the eight of a page, a failed or unanswered read, or a page served from
+the cache while the Gateway is unavailable), with a note that the rest loads
+shortly. A failed or unanswered read is never taken as a confirmed cut; it is retried
+after 5 seconds, doubling up to 5 minutes, and a message waiting for its retry
+leaves room for older ones on the page. Each owner turn with a delivery key is
+served with the `requestId` of its request, so the chat replaces the turn it shows
+while a run is active by request, not by comparing texts; turns without a key still
+match by text. Before a reply goes to Telegram, a partial one is read again on its
+own; Telegram gets what is available of an incomplete reply and a closing note
 that the reply was shortened and the rest could not be sent; lead relays do the
 same. A reply is sent in at most 40
 messages; beyond that bound the same note follows. Placeholders and cut markers
