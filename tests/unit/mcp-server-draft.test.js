@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  constraintLines,
   draftFrom,
   dropsStoredHeaders,
   requestBody,
@@ -105,6 +106,34 @@ test("a new packaged server sends its source and no command", () => {
     args: ["--owner"],
     source: { registry: "npm", name: "server-x", version: "1.0.0", allowScripts: false },
   });
+});
+
+test("a PyPI source sends its constraint lines; npm sends none", () => {
+  const draft = {
+    ...draftFrom(null),
+    transport: "stdio",
+    name: "pkg",
+    source: "package",
+    registry: "pypi",
+    packageName: "srv-x",
+    packageVersion: "1.0",
+    packageConstraints: " fastmcp<4 \n\n  httpx>=0.27,<1\n",
+  };
+  assert.deepEqual(requestBody(draft, null).source, {
+    registry: "pypi",
+    name: "srv-x",
+    version: "1.0",
+    allowScripts: false,
+    constraints: ["fastmcp<4", "httpx>=0.27,<1"],
+  });
+  assert.equal(
+    requestBody({ ...draft, registry: "npm" }, null).source.constraints,
+    undefined,
+  );
+  assert.deepEqual(constraintLines(" a<1 \n\n b>2 "), ["a<1", "b>2"]);
+  const stored = { source: { registry: "pypi", constraints: ["fastmcp<4", "a<1"] } };
+  assert.equal(draftFrom(stored).packageConstraints, "fastmcp<4\na<1");
+  assert.equal(draftFrom(null).packageConstraints, "");
 });
 
 const packaged = (status, extra = {}) => ({

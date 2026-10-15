@@ -21,6 +21,9 @@ import "./mcp-servers.css";
 import "./mcp-cli.css";
 
 const valueReference = (error) => error?.code === "MCP_SERVER_VALUE_REFERENCE";
+// A preview refusing the dependency constraints belongs to that field.
+const refusedConstraints = (error) =>
+  error?.messageKey === "mcpPackages.invalidConstraints";
 
 /** One central MCP server: create (item=new) or view, edit, log in, remove. */
 export default function McpServerDetail({
@@ -81,6 +84,11 @@ export default function McpServerDetail({
   // A refused value belongs to its field, not to the bar.
   useEffect(() => {
     const failure = draft.outcome?.error;
+    if (refusedConstraints(failure)) {
+      consumed.current = draft.outcome;
+      setFieldError({ field: "packageConstraints", text: failure.message });
+      return;
+    }
     if (!valueReference(failure)) return;
     consumed.current = draft.outcome;
     setFieldError({

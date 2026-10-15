@@ -70,3 +70,27 @@ label.mcp-check input[type="checkbox"] {
   color: var(--success);
   border-color: currentColor;
 }
+.mcp-package-integrity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mcp-package-integrity code {
+  font-size: 0.85em;
+  word-break: break-all;
+}
+.mcp-package-constraints {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+.mcp-package textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}

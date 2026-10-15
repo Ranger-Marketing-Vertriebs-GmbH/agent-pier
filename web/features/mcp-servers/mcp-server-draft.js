@@ -2,6 +2,15 @@
 let counter = 0;
 const nextKey = () => `row-${++counter}`;
 const lines = (text) => text.split("\n").filter((line) => line !== "");
+/** Dependency constraints of a PyPI source: one per line, blank lines dropped. */
+export const constraintLines = (text = "") =>
+  text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+/** Only PyPI sources carry constraints (D4); npm sends none. */
+export const sourceConstraints = (registry, text) =>
+  registry === "pypi" ? { constraints: constraintLines(text) } : {};
 
 /** Stored entries show their names only; their values never reach the browser. */
 const storedRows = (names = []) =>
@@ -32,6 +41,7 @@ export function draftFrom(server) {
     packageName: server?.source?.name || "",
     packageVersion: server?.source?.version || "",
     allowScripts: server?.source?.allowScripts === true,
+    packageConstraints: (server?.source?.constraints || []).join("\n"),
   };
 }
 
@@ -71,6 +81,7 @@ export function requestBody(draft, server) {
     name: draft.packageName.trim(),
     version: draft.packageVersion,
     allowScripts: draft.allowScripts === true,
+    ...sourceConstraints(draft.registry, draft.packageConstraints),
   });
   const oauth = !stdio && draft.auth === "oauth";
   const secrets = oauth ? {} : secretMap(stdio ? draft.env : draft.headers);
