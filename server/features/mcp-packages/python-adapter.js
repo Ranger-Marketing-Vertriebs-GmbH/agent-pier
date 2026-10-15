@@ -118,7 +118,14 @@ export const pythonAdapter = {
       ref.version,
     );
     const files = trustedFiles(info, registry);
-    if (!files.length) throw packageProblem("MCP_PACKAGE_FOREIGN_SOURCE", 400);
+    if (!files.length) {
+      // Every file yanked is the maintainers' withdrawal, not a foreign source.
+      const withdrawn = info.files.length && info.files.every((f) => f.yanked === true);
+      throw packageProblem(
+        withdrawn ? "MCP_PACKAGE_VERSION_YANKED" : "MCP_PACKAGE_FOREIGN_SOURCE",
+        400,
+      );
+    }
     const digests = files.map((file) => file.sha256);
     const bytes = await topWheel(files, download);
     const python = await toolchain();

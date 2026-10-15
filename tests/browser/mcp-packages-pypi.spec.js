@@ -146,6 +146,32 @@ test("a refused constraint is named at its field", async ({ page }) => {
   await expect(field).not.toHaveAttribute("aria-invalid", "true");
 });
 
+test("a fully yanked version is named at the version field", async ({ page }) => {
+  const state = await packageSetup(page);
+  state.versions = pypiVersions;
+  state.preview = {
+    status: 400,
+    json: {
+      code: "MCP_PACKAGE_VERSION_YANKED",
+      error:
+        "Die Maintainer haben diese Version zurückgezogen (yanked). Bitte eine andere Version wählen.",
+      messageKey: "mcpPackages.versionYanked",
+    },
+  };
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAdd(page);
+  await dialog.getByLabel("Name", { exact: true }).fill("opnsense");
+  await choosePypi(dialog);
+  const version = dialog.getByLabel("Version", { exact: true });
+  await expect(version).toHaveValue("0.4.1");
+  await dialog.getByRole("button", { name: "Save server" }).click();
+  await expect(version).toHaveAttribute("aria-invalid", "true");
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "The maintainers withdrew (yanked) this version. Choose another version.",
+  );
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+});
+
 test("a package that is built first names its program and the build tools", async ({
   page,
 }) => {

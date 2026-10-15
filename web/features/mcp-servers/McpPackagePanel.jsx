@@ -40,6 +40,7 @@ export default function McpPackagePanel({ server, onChanged }) {
   const storedText = stored.join("\n");
   const [constraints, setConstraints] = useState(storedText);
   const [constraintsError, setConstraintsError] = useState("");
+  const [versionError, setVersionError] = useState("");
   // A finished update stores new constraints: the field starts from them again.
   useEffect(() => setConstraints(storedText), [storedText]);
   const changed = useRef(onChanged);
@@ -83,12 +84,15 @@ export default function McpPackagePanel({ server, onChanged }) {
     setBusy(true);
     setError("");
     setConstraintsError("");
+    setVersionError("");
     try {
       await work();
     } catch (failure) {
       // A refused constraint is named at its field.
       if (failure.messageKey === "mcpPackages.invalidConstraints")
         setConstraintsError(failure.message);
+      else if (failure.messageKey === "mcpPackages.versionYanked")
+        setVersionError(failure.message);
       else setError(failure.message);
     } finally {
       setBusy(false);
@@ -195,7 +199,11 @@ export default function McpPackagePanel({ server, onChanged }) {
             versions={versions}
             value={version}
             installed={source.version}
-            onChange={setVersion}
+            error={versionError}
+            onChange={(next) => {
+              setVersionError("");
+              setVersion(next);
+            }}
           />
           {pypi && (
             <McpConstraints

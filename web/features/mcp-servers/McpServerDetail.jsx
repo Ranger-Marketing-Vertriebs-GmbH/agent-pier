@@ -25,6 +25,9 @@ const valueReference = (error) => error?.code === "MCP_SERVER_VALUE_REFERENCE";
 const refusedConstraints = (error) =>
   error?.messageKey === "mcpPackages.invalidConstraints";
 
+// A yanked release belongs to the version field.
+const refusedVersion = (error) => error?.messageKey === "mcpPackages.versionYanked";
+
 /** One central MCP server: create (item=new) or view, edit, log in, remove. */
 export default function McpServerDetail({
   entry,
@@ -87,6 +90,11 @@ export default function McpServerDetail({
     if (refusedConstraints(failure)) {
       consumed.current = draft.outcome;
       setFieldError({ field: "packageConstraints", text: failure.message });
+      return;
+    }
+    if (refusedVersion(failure)) {
+      consumed.current = draft.outcome;
+      setFieldError({ field: "packageVersion", text: failure.message });
       return;
     }
     if (!valueReference(failure)) return;

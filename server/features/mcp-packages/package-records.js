@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS server_packages(
 // Columns added after plan 2; a store created then gains them when it opens.
 const addedColumns = [
   ["constraints", "TEXT NOT NULL DEFAULT '[]'"],
-  // Before the column a reinstall without receipt built when the owner allowed it.
+  // npm ignores needsScripts; only PyPI reads it. Before the column a reinstall
+  // without receipt built when the owner allowed it.
   ["needs_scripts", "INTEGER NOT NULL DEFAULT 0", "allow_scripts"],
 ];
 const columns = {

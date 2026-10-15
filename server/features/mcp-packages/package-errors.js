@@ -9,6 +9,7 @@ const keys = {
   MCP_PACKAGE_NEEDS_SCRIPTS: "needsScripts",
   MCP_PACKAGE_INTEGRITY_MISMATCH: "integrityMismatch",
   MCP_PACKAGE_FOREIGN_SOURCE: "foreignSource",
+  MCP_PACKAGE_VERSION_YANKED: "versionYanked",
   MCP_PACKAGE_NO_PROGRAM: "noProgram",
   MCP_PACKAGE_PROGRAM_REQUIRED: "programRequired",
   MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE: "toolchainUnavailable",
