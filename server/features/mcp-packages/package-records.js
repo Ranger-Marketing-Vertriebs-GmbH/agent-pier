@@ -79,6 +79,9 @@ export class PackageRecords {
         db.exec(`ALTER TABLE server_packages ADD COLUMN ${name} ${type}`);
         if (from) db.exec(`UPDATE server_packages SET ${name}=${from}`);
       }
+    // McpPackages answers this: an `installing` row no job owns (a restore, a crash
+    // before start()) reads as failed instead of installing forever.
+    this.orphaned = () => false;
   }
   get(serverId) {
     return (
@@ -113,6 +116,7 @@ export class PackageRecords {
     );
   }
   computedStatus(row) {
+    if (row.status === "installing" && this.orphaned(row.serverId)) return "failed";
     if (row.status !== "ready") return row.status;
     return row.installId && readInstall(this.dataDir, row.installId, row.lockDigest)
       ? "ready"
@@ -121,6 +125,7 @@ export class PackageRecords {
   publicFields(serverId) {
     const row = this.get(serverId);
     if (!row) return {};
+    const status = this.computedStatus(row);
     return {
       source: {
         registry: row.registry,
@@ -128,8 +133,9 @@ export class PackageRecords {
         version: row.version,
         program: row.program,
         allowScripts: row.allowScripts,
-        status: this.computedStatus(row),
-        errorCode: row.errorCode,
+        status,
+        errorCode:
+          row.errorCode ?? (status === "failed" ? "MCP_PACKAGE_INSTALL_FAILED" : null),
         // No generated argument is stored before the first install.
         leadingArgs: row.installId ? row.leadingArgs : 0,
         constraints: row.constraints,

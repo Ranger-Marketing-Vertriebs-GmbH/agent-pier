@@ -16,6 +16,7 @@ import {
   logFailure,
   runInstall,
   sourceFields,
+  switchedTo,
 } from "./package-install-job.js";
 import { chooseProgram } from "./program-select.js";
 import { pypiIndexRegistry, pythonAdapter } from "./python-adapter.js";
@@ -77,6 +78,10 @@ export class McpPackages {
     this.switching = new Map();
     // Servers whose detach is switching them to an own command right now.
     this.detaching = new Set();
+    // createServer() calls between storing the installing record and starting its job.
+    this.claiming = 0;
+    this.records.orphaned = (id) =>
+      this.claiming === 0 && this.jobs.get(id)?.state !== "running";
   }
   adapterOf(registry) {
     const adapter = Object.hasOwn(this.adapters, registry)
@@ -245,23 +250,29 @@ export class McpPackages {
     const { source, ...definition } = input;
     if (!record(source)) throw invalid();
     const confirmed = this.confirmedPreview(previewId, source, program ?? source.program);
-    this.consumePreview(previewId);
     let server;
+    // Until its job runs, the new record is installing, not orphaned.
+    this.claiming += 1;
     try {
-      // Written in the server's own transaction: the first reconciliation already sees
-      // a package that is installing, not a stdio server without a command.
-      server = await this.changes.create(definition, {
-        confirmStdio: true,
-        pendingCommand: true,
-        packageRecord: this.pendingRecord(confirmed),
-        ...(clis === undefined ? {} : { clis }),
-      });
-    } catch (error) {
-      // Nothing was stored (a taken name, a refused CLI): the owner may save again.
-      this.previews.set(previewId, confirmed.preview);
-      throw error;
+      this.consumePreview(previewId);
+      try {
+        // Written in the server's own transaction: the first reconciliation already
+        // sees a package that is installing, not a stdio server without a command.
+        server = await this.changes.create(definition, {
+          confirmStdio: true,
+          pendingCommand: true,
+          packageRecord: this.pendingRecord(confirmed),
+          ...(clis === undefined ? {} : { clis }),
+        });
+      } catch (error) {
+        // Nothing was stored (a taken name, a refused CLI): the owner may save again.
+        this.previews.set(previewId, confirmed.preview);
+        throw error;
+      }
+      this.install(server.id, { ...confirmed, kind: "install" });
+    } finally {
+      this.claiming -= 1;
     }
-    this.install(server.id, { ...confirmed, kind: "install" });
     return this.servers.get(server.id);
   }
   /**
@@ -324,13 +335,15 @@ export class McpPackages {
   }
   /**
    * Generated args stored in front of the owner's; 0 before the first install. While
-   * a switch runs, its count before the switch holds only until the switch commits
-   * (the revision moves on); then the ready record's count applies.
+   * a switch runs, its old count holds until the stored command is the switch's own
+   * (an owner edit racing it keeps the old command and the old count).
    */
   storedLeading(id, row) {
     const switching = this.switching.get(id);
-    if (switching && this.servers.get(id).revision === switching.revision)
-      return switching.before;
+    if (switching)
+      return switchedTo(this.servers.get(id), switching)
+        ? switching.after
+        : switching.before;
     return row?.installId ? row.leadingArgs : 0;
   }
   /** The server's args without the generated ones in front: what the owner entered. */
@@ -442,15 +455,20 @@ export class McpPackages {
     }
     for (const row of this.records.all())
       if (row.status === "installing" && !this.jobs.get(row.serverId))
-        this.records.update(row.serverId, {
-          status: "failed",
-          errorCode: "MCP_PACKAGE_INSTALL_FAILED",
-        });
+        try {
+          this.records.update(row.serverId, {
+            status: "failed",
+            errorCode: "MCP_PACKAGE_INSTALL_FAILED",
+          });
+        } catch (error) {
+          logFailure("record an interrupted MCP package install", error);
+        }
     // An install deleted while AgentPier was stopped (or a restore) is missing: the CLIs
-    // drop its entry now instead of starting a deleted program until a reinstall.
-    const missing = this.records
-      .all()
-      .some((row) => this.records.computedStatus(row) === "missing");
+    // drop its entry now instead of starting a deleted program until a reinstall. Agents
+    // in maintenance refuse changes; the next change or CLI session reconciles then.
+    const missing =
+      !this.changes.maintenance?.() &&
+      this.records.all().some((row) => this.records.computedStatus(row) === "missing");
     const reconciled = missing
       ? Promise.resolve()
           .then(() => this.changes.onSaved())
