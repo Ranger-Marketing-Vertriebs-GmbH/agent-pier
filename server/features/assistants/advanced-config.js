@@ -184,8 +184,8 @@ export class AdvancedConfig {
   // The setting's id names it (a path is no audit identifier); the schema keeps the
   // old and new value only as the setting's own scalar type.
   record(action, target, from, to, outcome) {
-    const { id } = advancedSetting(target);
     try {
+      const { id } = advancedSetting(target);
       this.audit?.append({
         action,
         resourceType: "setting",
