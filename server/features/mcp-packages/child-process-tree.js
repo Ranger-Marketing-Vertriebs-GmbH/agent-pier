@@ -9,7 +9,8 @@ const cancelled = (output) =>
  * Runs `file` like a promisified execFile, but as the leader of its own process group:
  * npm and uv start scripts, builds and compilers of their own. An abort (`signal`),
  * the timeout or output beyond `maxBuffer` sends SIGTERM to the whole group, SIGKILL
- * after `graceMs` and again once the leader closed. A run that ends by itself never
+ * after `graceMs` (an abort whose reason carries a numeric `graceMs`, as a shutdown's,
+ * uses that instead) and again once the leader closed. A run that ends by itself never
  * signals the group, so a reused group id is never hit. The one SIGKILL after the leader
  * of a *stopped* run closed is accepted: it reaches the group within moments of its end.
  *
@@ -51,7 +52,7 @@ export function runProcessTree(
         /* The group is gone already. */
       }
     };
-    const stop = (reason) => {
+    const stop = (reason, wait = graceMs) => {
       if (stopping) return;
       stopping = reason;
       killGroup("SIGTERM");
@@ -61,9 +62,10 @@ export function runProcessTree(
         // closing them lets `close` follow the leader's exit instead of waiting on it.
         child.stdout.destroy();
         child.stderr.destroy();
-      }, graceMs);
+      }, wait);
     };
-    const onAbort = () => stop("aborted");
+    const urgent = () => signal.reason?.graceMs;
+    const onAbort = () => stop("aborted", Number.isFinite(urgent()) ? urgent() : graceMs);
     signal?.addEventListener("abort", onAbort, { once: true });
     if (timeout > 0) timer = setTimeout(() => stop("timeout"), timeout);
     // Decoded per stream, so a multibyte character split across chunks stays whole.

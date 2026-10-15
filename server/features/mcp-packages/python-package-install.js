@@ -72,6 +72,7 @@ export async function resolvePython({
   execute = runProcessTree,
   environment = process.env,
   log,
+  signal,
 }) {
   const work = path.join(stage, ".uv-work");
   try {
@@ -106,7 +107,7 @@ export async function resolvePython({
           ...constraintArgs,
           ...extra,
         ],
-        { cwd: work, env, execute, log },
+        { cwd: work, env, execute, log, signal },
       );
     const trial = await compile(wheelsOnly);
     let needsScripts = false;

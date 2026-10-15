@@ -66,6 +66,8 @@ export class McpPackages {
     this.records = servers.packages;
     this.jobs = new PackageJobs({ settled: () => this.prune() });
     this.previews = new Map();
+    // AbortController of each running preview → its settling (never rejects).
+    this.previewRuns = new Map();
     // serverId → leading args stored before a running switch (package-install-job.js, activate()).
     this.switching = new Map();
     // Servers whose detach is switching them to an own command right now.
@@ -126,8 +128,10 @@ export class McpPackages {
     // Previews resolve outside installs/, so pruning never races a running preview.
     const stage = path.join(packageRoot(this.dataDir), "previews", previewId);
     let resolved;
+    // Tracked, so close() can stop its npm or uv process group at shutdown.
+    const controller = new AbortController();
     try {
-      resolved = await adapter.preview({
+      const running = adapter.preview({
         ref,
         allowScripts,
         constraints,
@@ -139,8 +143,13 @@ export class McpPackages {
         cacheDir: this.cacheDir(ref.registry),
         execute: this.execute,
         environment: this.environment,
+        signal: controller.signal,
       });
+      const quiet = () => {};
+      this.previewRuns.set(controller, running.then(quiet, quiet));
+      resolved = await running;
     } finally {
+      this.previewRuns.delete(controller);
       this.resolving -= 1;
       fs.rmSync(stage, { recursive: true, force: true });
     }
@@ -263,16 +272,23 @@ export class McpPackages {
     return this.jobs.cancel(id);
   }
   /**
-   * AgentPier stops: running installs end with their npm or uv process groups (which
-   * run detached and would outlive it) and their stages go. Resolves once all settled,
-   * or after `waitMs`: a toolchain download only notices the cancel once it ends.
+   * AgentPier stops: running installs and previews end with their npm or uv process
+   * groups (which run detached and would outlive it); the stages go. The groups get
+   * SIGKILL after `graceMs`. Resolves once all settled, or after `waitMs`: a toolchain
+   * download only notices the cancel once it ends. server/index.js exits forcibly 6 s
+   * after a stop signal and shutdown.js starts this first, so `graceMs` plus the
+   * settling stays well inside `waitMs`, and `waitMs` well inside those 6 s.
    */
-  close({ waitMs = 10000 } = {}) {
+  close({ waitMs = 3000, graceMs = 500 } = {}) {
+    const reason = { graceMs };
+    for (const controller of this.previewRuns.keys()) controller.abort(reason);
+    const settled = Promise.all([
+      this.jobs.cancelAll(reason),
+      ...this.previewRuns.values(),
+    ]);
     let timer;
     const bound = new Promise((resolve) => (timer = setTimeout(resolve, waitMs)));
-    return Promise.race([this.jobs.cancelAll(), bound]).finally(() =>
-      clearTimeout(timer),
-    );
+    return Promise.race([settled, bound]).finally(() => clearTimeout(timer));
   }
   /** Refuses while a job runs for `id` or a detach is switching it away. */
   requireIdle(id) {

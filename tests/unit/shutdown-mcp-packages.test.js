@@ -20,17 +20,24 @@ function services(calls, extra = {}) {
   };
 }
 
-test("shutdown stops running MCP package installs before the server store closes", async () => {
+test("shutdown starts stopping MCP package installs first and awaits it before the store closes", async () => {
   const calls = [];
   const close = createShutdown({
     services: services(calls, {
-      mcpPackages: { close: async () => calls.push("mcpPackages") },
+      mcpPackages: {
+        close: () => {
+          calls.push("mcpPackages:start");
+          return new Promise((resolve) =>
+            setTimeout(() => resolve(calls.push("mcpPackages:done")), 50),
+          );
+        },
+      },
       mcpServers: { close: () => calls.push("mcpServers") },
     }),
     wss: null,
     server: { listening: false },
   });
   await close();
-  assert.ok(calls.includes("mcpPackages"));
-  assert.ok(calls.indexOf("mcpPackages") < calls.indexOf("mcpServers"));
+  assert.equal(calls[0], "mcpPackages:start");
+  assert.ok(calls.indexOf("mcpPackages:done") < calls.indexOf("mcpServers"));
 });

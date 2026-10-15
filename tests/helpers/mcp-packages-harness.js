@@ -27,6 +27,7 @@ export function harness(
     beforeSwitch,
     ciOutput,
     onCi,
+    onResolve,
     adapters,
   } = {},
 ) {
@@ -65,6 +66,7 @@ export function harness(
   const execute = async (_node, args, options) => {
     const { cwd } = options;
     npmCalls.push(args[1]);
+    if (args.includes("--package-lock-only")) await onResolve?.(options);
     if (args.includes("--package-lock-only"))
       fs.writeFileSync(path.join(cwd, "package-lock.json"), lockOf());
     if (args[1] === "ci") {
