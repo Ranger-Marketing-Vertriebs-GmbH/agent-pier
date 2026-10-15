@@ -173,15 +173,23 @@ test("an expired or mismatched preview is refused", async (t) => {
     ),
     { code: "MCP_PACKAGE_PREVIEW_EXPIRED" },
   );
-  // Taken once: the matching source cannot reuse the refused preview either.
+  // A refused check leaves the preview: the matching source can still use it, once.
+  const created = await s.packages.createServer(
+    { name: "pkg", transport: "stdio", source: ref() },
+    { previewId: confirmed.previewId },
+  );
   await assert.rejects(
     s.packages.createServer(
-      { name: "pkg", transport: "stdio", source: ref() },
+      { name: "pkg2", transport: "stdio", source: ref() },
       { previewId: confirmed.previewId },
     ),
     { code: "MCP_PACKAGE_PREVIEW_EXPIRED" },
   );
-  assert.deepEqual(s.servers.list(), []);
+  await s.packages.jobs.idle();
+  assert.deepEqual(
+    s.servers.list().map((server) => server.id),
+    [created.id],
+  );
 });
 
 test("an own-command server switches to a package and back (D1)", async (t) => {
