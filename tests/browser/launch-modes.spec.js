@@ -123,7 +123,7 @@ test("Claude offers a skip-permissions mode with a risk note in English", async 
   const mode = page.getByLabel("Launch mode", { exact: true });
   await expect(mode).toHaveValue("auto");
   await expect(mode.locator('option[value="bypass"]')).toHaveText(
-    "No permission prompts",
+    "No permission prompts · no checks",
   );
   await mode.selectOption("bypass");
   await expect(page.locator("#launch-mode-description")).toHaveText(
@@ -186,6 +186,9 @@ test("a successful launch preselects that mode next time for the same CLI only",
   await expect(page.locator("#launch-mode-description")).toContainText(
     "Ohne Rückfragen führt Claude",
   );
+  await expect(page.locator("#launch-mode-description")).toContainText(
+    "Aus deiner letzten Sitzung vorausgewählt.",
+  );
   await cli.selectOption("opencode");
   await expect(mode).toHaveValue("auto");
 });
@@ -213,4 +216,86 @@ test("an unreadable launch-mode memory keeps the defaults", async ({ page }) => 
   await page.addInitScript(() => localStorage.setItem("agentpier.launch-modes", "{"));
   await launchFixture(page);
   await expect(page.getByLabel("Startmodus", { exact: true })).toHaveValue("yolo");
+});
+
+test("a task profile keeps its own permission mode across a CLI round trip", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "agentpier.launch-modes",
+      JSON.stringify({ codex: "default", claude: "bypass" }),
+    ),
+  );
+  const profileLaunches = [];
+  await page.route("**/api/pipeline-profiles", (route) =>
+    route.fulfill({
+      json: {
+        profiles: [
+          {
+            id: "review",
+            name: "Review",
+            enabled: true,
+            config: {
+              accountId: "local-claude",
+              cliTool: "claude",
+              models: { available: [""], default: "" },
+              prompts: { params: [] },
+              permissions: { mode: "plan" },
+            },
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/pipeline-profiles/review/launch", (route) => {
+    profileLaunches.push(route.request().postDataJSON());
+    return route.fulfill({ status: 409, json: { error: "Profile launch captured" } });
+  });
+  await launchFixture(page);
+  const mode = page.getByLabel("Startmodus", { exact: true });
+  const cli = page.getByLabel("CLI", { exact: true });
+  await page.getByLabel("Aufgabenprofil", { exact: true }).selectOption("review");
+  await expect(mode).toHaveValue("profile");
+  await cli.selectOption("codex");
+  await expect(mode).toHaveValue("yolo");
+  await cli.selectOption("claude");
+  await expect(mode).toHaveValue("profile");
+  await expect(page.locator(".launch-mode-remembered")).toHaveCount(0);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toHaveText("Profile launch captured");
+  expect(profileLaunches).toHaveLength(1);
+  expect(profileLaunches[0]).not.toHaveProperty("launchMode");
+});
+
+test("unattended modes carry a warning and say when memory preselected them", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("agentpier-language", "en");
+    localStorage.setItem("agentpier.launch-modes", JSON.stringify({ claude: "bypass" }));
+  });
+  await launchFixture(page);
+  const mode = page.getByLabel("Launch mode", { exact: true });
+  const note = page.locator("#launch-mode-description");
+  const remembered = "Preselected from your last session.";
+  await expect(mode).toHaveValue("yolo");
+  await expect(note).toHaveClass(/launch-mode-warning/);
+  await expect(note).not.toContainText(remembered);
+  await page.getByLabel("CLI", { exact: true }).selectOption("claude");
+  await expect(mode).toHaveValue("bypass");
+  await expect(note).toHaveClass(/launch-mode-warning/);
+  await expect(note).toContainText(remembered);
+  await expect(mode.locator('option[value="bypass"]')).toHaveText(
+    "No permission prompts · no checks",
+  );
+  await mode.selectOption("auto");
+  await expect(note).not.toHaveClass(/launch-mode-warning/);
+  await expect(note).not.toContainText(remembered);
+  await mode.selectOption("bypass");
+  await expect(note).toHaveClass(/launch-mode-warning/);
+  await expect(note).not.toContainText(remembered);
 });
