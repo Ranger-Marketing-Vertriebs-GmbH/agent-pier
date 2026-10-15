@@ -1,13 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { proxyEnvironment } from "../../lib/proxy-environment.js";
 import { readJSON } from "../../lib/storage.js";
+import { runProcessTree } from "./child-process-tree.js";
 import { packageError, packageProblem } from "./package-errors.js";
 import { privateFolder } from "./verified-files.js";
 
-const executeFile = promisify(execFile);
 const failed = () => packageProblem("MCP_PACKAGE_INSTALL_FAILED", 502);
 /** Any failure becomes the stable install code: npm output and errors carry paths. */
 const wrapped = (error) => packageError(error, "MCP_PACKAGE_INSTALL_FAILED", 502);
@@ -32,16 +30,17 @@ function npmEnvironment({ work, node, cacheDir, environment }) {
   };
 }
 
-async function npm(args, { cwd, node, env, execute, log }) {
+async function npm(args, { cwd, node, env, execute, log, signal }) {
   try {
     const { stdout, stderr } = await execute(
       node.nodePath,
       [node.npmCliPath, ...args, "--no-audit", "--no-fund"],
-      { cwd, env, timeout: 600000, maxBuffer: 4 * 1024 * 1024 },
+      { cwd, env, timeout: 600000, maxBuffer: 4 * 1024 * 1024, signal },
     );
     log?.(`${stdout}\n${stderr}`);
   } catch (error) {
     log?.(`${error.stdout || ""}\n${error.stderr || ""}`);
+    if (signal?.aborted) throw packageProblem("MCP_PACKAGE_CANCELLED", 409);
     throw failed();
   }
 }
@@ -53,7 +52,7 @@ export async function resolveNpm({
   node,
   registry,
   cacheDir,
-  execute = executeFile,
+  execute = runProcessTree,
   environment = process.env,
   log,
 }) {
@@ -97,9 +96,10 @@ export async function installNpm({
   registry,
   cacheDir,
   allowScripts,
-  execute = executeFile,
+  execute = runProcessTree,
   environment = process.env,
   log,
+  signal,
 }) {
   const work = path.join(directory, ".npm-work");
   try {
@@ -117,7 +117,7 @@ export async function installNpm({
         `--registry=${registry}`,
         ...(allowScripts === true ? [] : ["--ignore-scripts"]),
       ],
-      { cwd: directory, node, env, execute, log },
+      { cwd: directory, node, env, execute, log, signal },
     );
     const installed = readJSON(
       path.join(directory, "node_modules", ...ref.name.split("/"), "package.json"),

@@ -219,6 +219,7 @@ test("an edit of a packaged server goes through prepareUpdate; delete prunes", a
   let pruned = 0;
   const { request, updates } = await app(t, {
     mcpPackages: {
+      cancel: async () => false,
       prepareUpdate: (_id, input) => ({
         ...input,
         args: ["/gen/index.js", ...input.args],
@@ -443,4 +444,20 @@ test("a failing audit append never turns a finished install into an error", asyn
   assert.equal(logged.length, 1);
   assert.match(logged[0], /package\.installed/);
   assert.doesNotMatch(logged[0], /abc/);
+});
+
+test("deleting a server cancels its running install before pruning", async (t) => {
+  const calls = [];
+  const { request } = await app(t, {
+    mcpPackages: {
+      cancel: (id) => {
+        calls.push(["cancel", id]);
+        return Promise.resolve(true);
+      },
+      prune: () => calls.push(["prune"]),
+    },
+  });
+  const response = await request("DELETE", "/api/mcp-servers/s1");
+  assert.equal(response.status, 204);
+  assert.deepEqual(calls, [["cancel", "s1"], ["prune"]]);
 });

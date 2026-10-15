@@ -175,6 +175,7 @@ export const pythonAdapter = {
     execute,
     environment,
     log,
+    signal,
   }) {
     return installPython({
       directory,
@@ -188,6 +189,7 @@ export const pythonAdapter = {
       execute,
       environment,
       log,
+      signal,
     });
   },
   programsAfterInstall(directory, ref) {

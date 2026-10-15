@@ -34,6 +34,8 @@ export function createShutdown({ services, wss, server }) {
     await plugins.close();
     await repositories.close();
     await extensions.close();
+    // npm and uv run in their own process groups: they must not outlive AgentPier.
+    await services.mcpPackages?.close();
     try {
       services.mcpServers?.close();
     } catch {}

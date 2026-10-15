@@ -67,6 +67,7 @@ export const npmAdapter = {
     execute,
     environment,
     log,
+    signal,
   }) {
     return installNpm({
       directory,
@@ -80,6 +81,7 @@ export const npmAdapter = {
       execute,
       environment,
       log,
+      signal,
     });
   },
   // npm names its programs in the packument, so the preview already chose one.
