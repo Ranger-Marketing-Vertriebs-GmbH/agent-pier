@@ -211,7 +211,9 @@
   font-size: 14px;
   line-height: 1.6;
 }
-.assistant-message.streaming .message-content > :last-child::after {
+/* A trailing code block carries the caret on its <pre>, not after its copy button. */
+.assistant-message.streaming .message-content > :last-child:not(.code-block)::after,
+.assistant-message.streaming .message-content > .code-block:last-child > pre::after {
   content: "";
   display: inline-block;
   width: 8px;
@@ -255,7 +257,8 @@
   text-align: center;
 }
 @media (prefers-reduced-motion: reduce) {
-  .assistant-message.streaming .message-content > :last-child::after {
+  .assistant-message.streaming .message-content > :last-child:not(.code-block)::after,
+  .assistant-message.streaming .message-content > .code-block:last-child > pre::after {
     animation: none;
   }
 }
