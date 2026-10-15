@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** The owner can install a stdio MCP server from a PyPI package at an exact version, wheels only by default and source builds only with the per-package opt-in, and the feature is qualified with real npm and PyPI servers, including a read-only OPNsense server bound to the network architect agent.
+**Goal:** The owner can install a stdio MCP server from a PyPI package at an exact version, wheels only by default and source builds only with the per-package opt-in, optionally narrowing its dependencies with owner-entered constraints, and the feature is qualified with real npm and PyPI servers, including a read-only OPNsense server bound to the network architect agent.
 
-**Architecture:** The npm-specific code of plan 2 (in `McpPackages.resolvePreview`, `McpPackages.reinstall`, `checkLock` and `runInstall` in `package-install-job.js`) moves behind a registry adapter (`npm-adapter.js`); `python-adapter.js` implements the same interface with uv: a trial `uv pip compile --only-binary :all:` detects packages that need a build, `uv pip compile --generate-hashes --no-header` freezes the graph, `uv venv --relocatable` plus `uv pip sync --require-hashes` installs it, programs come from the top wheel's `entry_points.txt`, and the command is `<install>/venv/bin/<program>`. Records, jobs, routes, UI, compilers, grants and backups stay shared.
+**Architecture:** The npm-specific code of plan 2 (in `McpPackages.resolvePreview`, `McpPackages.reinstall`, `checkLock` and `runInstall` in `package-install-job.js`) moves behind a registry adapter (`npm-adapter.js`); `python-adapter.js` implements the same interface with uv: a trial `uv pip compile --only-binary :all:` detects packages that need a build, `uv pip compile --generate-hashes --no-header --no-annotate` (plus `-c constraints.txt` when the owner entered dependency constraints) freezes the graph, `uv venv --relocatable` plus `uv pip sync --require-hashes` installs it, programs come from the top wheel's `entry_points.txt`, and the command is `<install>/venv/bin/<program>`. Records, jobs, routes, UI, compilers, grants and backups stay shared.
 
 **Tech Stack:** Node.js ES modules, managed uv 0.12.21 and CPython 3.14.7 (plan 1), `node:test`, Playwright.
 
@@ -16,10 +16,12 @@
 - `pythonPath` is `<toolchain>/cpython/bin/python3` and is always passed explicitly (`--python`). CPython is an extracted python-build-standalone archive; PR 1 relocated only `_sysconfigdata_*.py`. Not relocated: `_sysconfig_vars_*.json`, pkgconfig, `python3.x-config`, the libpython install name, and `CC = clang` (preflight B11). Moving the data directory later leaves sysconfig pointing at the old path (documented, not fixed here).
 - Index: only `https://pypi.org/simple` (files from `https://files.pythonhosted.org`); tests inject a local index.
 - uv environment for every call (built from scratch, nothing else inherited): `UV_NO_CONFIG=1`, `UV_INDEX_URL=<index>`, `UV_PYTHON_DOWNLOADS=never`, `UV_LINK_MODE=copy`, `UV_CACHE_DIR=<data>/mcp-packages/.uv-cache`, `NO_COLOR=1`, private `HOME`/`TMPDIR`, `PATH=/usr/bin:/bin`, plus `proxyEnvironment(environment)`. With the opt-in only: `CC=cc`, `CXX=c++` (uv patches its own managed Pythons the same way; without it a Linux host without clang cannot build any C extension, preflight B12).
-- Compile always passes `--generate-hashes --no-header --python <pythonPath>` (the header would store the data-directory path in the lock, preflight B2).
+- Compile always passes `--generate-hashes --no-header --no-annotate --python <pythonPath>`: the header stores the `--python` path and the `# via` annotations name the input and constraints files by path (preflight B2), which would put stage paths into the stored lock.
 - Without opt-in: `--only-binary :all:` on compile and sync. With opt-in: no such flag. Build dependencies of an sdist (for example `setuptools`) come from the index at build time and are not in the hashed lock (preflight B13); a compile with the opt-in may run an sdist's build backend to read its metadata, so package code can already run at preview time (B14). Both are stated in the docs and the opt-in warning.
 - needsScripts detection (spec "Resolved questions" 4): the trial `uv pip compile --only-binary :all:` fails with `has no usable wheels` / `Wheels are required for` (verified with uv 0.12.21 and `docopt==0.6.2`, preflight B4). Any other trial failure (for example `requires_python` excluding 3.14) is `MCP_PACKAGE_INSTALL_FAILED`.
 - Owner decision D3: lock lines with environment markers (`name==1.0 ; python_version >= "3.11"`) are allowed; extras (`name[extra]==1.0`) are rejected as `MCP_PACKAGE_FOREIGN_SOURCE`.
+- Owner decision D4 (2026-10-15): a PyPI source may carry up to 10 dependency constraint lines (PEP 508 name plus version specifiers only, for example `fastmcp<4`). They are validated strictly, passed to the resolve as a uv constraints file, stored in the package record (column `constraints`, kept in backups), shown in preview, confirmation and status, frozen into the hashed lock (reinstall never resolves again) and kept by an update unless edited. npm sources take none.
+- Owner decision D5 (2026-10-15): build tools that an sdist build fetches at build time stay outside the hashed lock; this happens only with the explicit build opt-in, and the confirmation's scripts/builds warning names it (de+en).
 - Preview resolves are capped at 2 at a time per service (`previewConcurrency`); a third concurrent preview is `409 MCP_PACKAGE_BUSY` with the message key `previewBusy`.
 - Copy in German and English with matching keys (`web/lib/i18n/{de,en}/mcp-packages.js`, `server/lib/i18n/{de,en}/mcp-packages.js`); source and test files ≤ 600 lines; commits in English with the `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` trailer; never push to `main`.
 
@@ -28,31 +30,33 @@
 1. **A requirements lock with a direct URL, VCS, editable, option or extras line** (`pkg @ https://…`, `git+`, `-e`, `--extra-index-url`, `pkg[extra]==1`): refused with `MCP_PACKAGE_FOREIGN_SOURCE` before any sync; a marker line is accepted (Task 2).
 2. **A PyPI release whose top package exists only as sdist and the owner did not opt in:** preview reports `needsScripts: true` and creation is refused with `MCP_PACKAGE_NEEDS_SCRIPTS`, not `MCP_PACKAGE_NO_PROGRAM`; nothing is built (Tasks 4 and 6).
 3. **Console scripts of dependencies** (the venv's `bin/` also holds `mcp`, `uvicorn`, `httpx`): only the top distribution's `console_scripts` are offered, and the chosen one is checked again after install (Tasks 3 and 6).
-4. **A yanked version selected deliberately:** installable, marked in the dropdown (Tasks 1 and 8).
+4. **A yanked version selected deliberately:** installable, marked in the dropdown (Tasks 1 and 9).
 5. **The install directory moved by the stage rename:** the program still starts (relocatable venv), the receipt check passes, and no file of the install is a hard link into `.uv-cache` (Task 6).
 6. **The npm path after the adapter extraction:** every plan 2 test passes unchanged except the explicit `yanked: false` addition (Task 4).
 7. **A source build on Linux without clang:** `CC=cc` makes a real setuptools C extension build (Task 7).
+8. **Dependency constraints (D4):** only `name` + version specifiers pass validation (no URL, path, extra, marker, option); they change the resolve but never a reinstall; an update keeps them unless edited; an npm source with constraints is refused (Task 8).
 
 ---
 
 ## File Structure
 
-| File                                                                                                                         | Responsibility                                                                                       |
-| ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Modify `server/features/mcp-packages/package-spec.js`                                                                        | `registries` gains `pypi`; PEP 503 names; exact PEP 440 versions; `canonicalPypiVersion`.            |
-| Modify `server/features/mcp-packages/registry-metadata.js`                                                                   | PyPI JSON → versions (with `yanked`), version files; npm versions gain `yanked: false`.              |
-| Create `server/features/mcp-packages/python-lock-check.js`                                                                   | Parse and validate `requirements.lock` (D3); dependency list.                                        |
-| Create `server/features/mcp-packages/wheel-programs.js`                                                                      | Console scripts from a wheel or an installed `.dist-info`.                                           |
-| Modify `server/features/mcp-packages/package-store.js`                                                                       | `pythonCommand`.                                                                                     |
-| Create `server/features/mcp-packages/npm-adapter.js`                                                                         | Plan 2's npm calls behind the adapter interface.                                                     |
-| Modify `server/features/mcp-packages/mcp-packages.js`, `package-install-job.js`                                              | Adapters by `ref.registry`, `cacheDir(registry)`, `checkStored`, preview cap, program after install. |
-| Create `server/features/mcp-packages/python-package-install.js`                                                              | uv environment, trial and real compile, venv, sync.                                                  |
-| Create `server/features/mcp-packages/python-adapter.js`                                                                      | PyPI adapter.                                                                                        |
-| Modify `server/lib/i18n/{de,en}/mcp-packages.js`                                                                             | `previewBusy`.                                                                                       |
-| Modify `web/lib/i18n/{de,en}/mcp-packages.js`, `web/features/mcp-servers/McpPackageFields.jsx`, `McpPackageConfirmation.jsx` | PyPI option, `yanked`, program after build, opt-in wording.                                          |
-| Create `tests/helpers/pypi-index-fixture.js`, `tests/helpers/mcp-python-service.js`                                          | Local PEP 503 index + JSON API; Python service on `cliMcpFixture`.                                   |
-| Modify `.github/workflows/mcp-toolchains.yml`, `tests/unit/mcp-toolchains-workflow.test.js`                                  | Python install tests in the native Linux/macOS job.                                                  |
-| Create `docs/mcp-package-qualification.md`; modify `docs/mcp.md`, `docs/AGENTS.md`                                           | Results and behaviour.                                                                               |
+| File                                                                                                                                                                                             | Responsibility                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Modify `server/features/mcp-packages/package-spec.js`                                                                                                                                            | `registries` gains `pypi`; PEP 503 names; exact PEP 440 versions; `canonicalPypiVersion`.            |
+| Modify `server/features/mcp-packages/registry-metadata.js`                                                                                                                                       | PyPI JSON → versions (with `yanked`), version files; npm versions gain `yanked: false`.              |
+| Create `server/features/mcp-packages/python-lock-check.js`                                                                                                                                       | Parse and validate `requirements.lock` (D3); dependency list.                                        |
+| Create `server/features/mcp-packages/wheel-programs.js`                                                                                                                                          | Console scripts from a wheel or an installed `.dist-info`.                                           |
+| Modify `server/features/mcp-packages/package-store.js`                                                                                                                                           | `pythonCommand`.                                                                                     |
+| Create `server/features/mcp-packages/npm-adapter.js`                                                                                                                                             | Plan 2's npm calls behind the adapter interface.                                                     |
+| Modify `server/features/mcp-packages/mcp-packages.js`, `package-install-job.js`                                                                                                                  | Adapters by `ref.registry`, `cacheDir(registry)`, `checkStored`, preview cap, program after install. |
+| Create `server/features/mcp-packages/python-package-install.js`                                                                                                                                  | uv environment, trial and real compile, venv, sync.                                                  |
+| Create `server/features/mcp-packages/python-adapter.js`                                                                                                                                          | PyPI adapter.                                                                                        |
+| Modify `server/lib/i18n/{de,en}/mcp-packages.js`                                                                                                                                                 | `previewBusy`, `invalidConstraints`.                                                                 |
+| Modify `server/features/mcp-packages/package-records.js`, `server/features/operations/mcp-server-backup.js`, `server/http/routes/mcp-packages.js`                                                | Constraints column (with migration), backup column list, audit details.                              |
+| Modify `web/lib/i18n/{de,en}/mcp-packages.js`, `web/features/mcp-servers/McpPackageFields.jsx`, `McpPackageConfirmation.jsx`, `McpPackagePanel.jsx`, `mcp-server-draft.js`, `mcp-server-save.js` | PyPI option, `yanked`, constraints field, program after build, opt-in and build-tools wording.       |
+| Create `tests/helpers/pypi-index-fixture.js`, `tests/helpers/mcp-python-service.js`                                                                                                              | Local PEP 503 index + JSON API; Python service on `cliMcpFixture`.                                   |
+| Modify `.github/workflows/mcp-toolchains.yml`, `tests/unit/mcp-toolchains-workflow.test.js`                                                                                                      | Python install tests in the native Linux/macOS job.                                                  |
+| Create `docs/mcp-package-qualification.md`; modify `docs/mcp.md`, `docs/AGENTS.md`                                                                                                               | Results and behaviour.                                                                               |
 
 ---
 
@@ -1131,6 +1135,7 @@ test("a wheel-only resolve compiles once, hashed, headerless, for the managed Py
     "compile",
     "--generate-hashes",
     "--no-header",
+    "--no-annotate",
     "--only-binary",
     ":all:",
   ])
@@ -1330,6 +1335,7 @@ export async function resolvePython({
           input,
           "--generate-hashes",
           "--no-header",
+          "--no-annotate",
           "--python",
           python.pythonPath,
           "-o",
@@ -2045,20 +2051,334 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 8: PyPI in the form
+### Task 8: Dependency constraints for PyPI sources (owner decision D4)
+
+The owner can pin transitive dependencies of a PyPI package with up to 10 PEP 508 constraint lines such as `fastmcp<4`. They narrow the resolve only (`uv pip compile -c constraints.txt`); the result is still one hashed lock, so reinstall never resolves again, and an update keeps the stored constraints unless the owner edits them. npm sources take none (the owner asked for PyPI only; the docs say so).
+
+**Files:**
+
+- Modify: `server/features/mcp-packages/package-spec.js` (`packageConstraints`)
+- Modify: `server/lib/i18n/de/mcp-packages.js`, `server/lib/i18n/en/mcp-packages.js` (`invalidConstraints`)
+- Modify: `server/features/mcp-packages/package-records.js` (column `constraints`, migration, public fields)
+- Modify: `server/features/operations/mcp-server-backup.js` (`knownColumns.server_packages` gains `constraints`)
+- Modify: `server/features/mcp-packages/python-package-install.js`, `python-adapter.js`, `npm-adapter.js`, `mcp-packages.js`, `package-install-job.js`
+- Modify: `server/http/routes/mcp-packages.js` (`auditDetails` gains `constraints`)
+- Test: extend `tests/unit/mcp-package-spec.test.js`, `tests/unit/mcp-package-records.test.js`, `tests/unit/mcp-python-install.test.js`, `tests/integration/mcp-server-host-backups.test.js`, `tests/integration/mcp-python-packages.test.js`
+
+**Interfaces:**
+
+- `packageConstraints(input, ref)` → canonical lines (`normalizePypiName(name)` + specifiers without spaces, for example `FastMCP >= 3, < 4` → `fastmcp>=3,<4`). Accepted per line: a PyPI name and one or more comma-separated clauses `==`/`!=` (optionally `.*`), `~=`, `<=`, `>=`, `<`, `>` with a PEP 440 version. Refused with `400 MCP_PACKAGE_INVALID` (message key `invalidConstraints`): anything else (URLs, paths, `@`, extras, markers, `;`, options such as `-e`/`--index-url`/`--hash`, `===`), the top package itself, a name twice, more than 10 lines, a line over 100 characters, a non-array, and any constraint on an npm source.
+- Records: column `constraints TEXT NOT NULL DEFAULT '[]'` (JSON array); `PackageRecords` adds it to existing stores with `ALTER TABLE` and reads a missing or invalid value as `[]`; `publicFields().source.constraints`.
+- `resolvePython({ …, constraints = [] })` writes `constraints.txt` in its work folder and passes `-c <file>` to both compiles; compiles also pass `--no-annotate` (Task 5), so the file path never reaches the lock.
+- Adapter `preview({ …, constraints })`; npm ignores it (always `[]`).
+- `McpPackages.preview(input)` reads `input.constraints`; for an update preview (`serverId`) without `constraints` the stored ones apply. The preview response and the stored preview carry `constraints`; `takePreview` refuses (`MCP_PACKAGE_PREVIEW_EXPIRED`) when the confirmed source's constraints differ. `updatePackage(id, { constraints, … })` defaults to `row.constraints`. `sourceFields` stores `constraints`. `reinstall` keeps the record's constraints and never resolves.
+
+- [ ] **Step 1: Write the failing unit tests**
+
+```js
+// add to tests/unit/mcp-package-spec.test.js
+import { packageConstraints } from "../../server/features/mcp-packages/package-spec.js";
+
+const top = { registry: "pypi", name: "opnsense-mcp-server", version: "0.4.1" };
+test("PyPI constraints are a name with version limits only (D4)", () => {
+  assert.deepEqual(packageConstraints({}, top), []);
+  assert.deepEqual(
+    packageConstraints(
+      { constraints: ["fastmcp<4", " FastMCP_Slim >= 3.0 , < 4 ", "httpx==0.28.*"] },
+      top,
+    ),
+    ["fastmcp<4", "fastmcp-slim>=3.0,<4", "httpx==0.28.*"],
+  );
+  for (const line of [
+    "fastmcp",
+    "fastmcp[cli]<4",
+    "x @ https://example.com/x.whl",
+    "-e git+https://github.com/a/b.git",
+    "--index-url https://example.com/simple",
+    "x<4 ; python_version < '3.12'",
+    "x<4 --hash=sha256:aa",
+    "../x<1",
+    "x~=1.*",
+    "x===1",
+    "x<4\ny<2",
+    "opnsense-mcp-server<1",
+    `x<${"1".repeat(100)}`,
+  ])
+    assert.throws(
+      () => packageConstraints({ constraints: [line] }, top),
+      { code: "MCP_PACKAGE_INVALID" },
+      line,
+    );
+  assert.throws(() => packageConstraints({ constraints: ["a<1", "A<2"] }, top), {
+    code: "MCP_PACKAGE_INVALID",
+  });
+  assert.throws(
+    () =>
+      packageConstraints(
+        { constraints: Array.from({ length: 11 }, (_, i) => `p${i}<1`) },
+        top,
+      ),
+    { code: "MCP_PACKAGE_INVALID" },
+  );
+  assert.throws(() => packageConstraints({ constraints: "fastmcp<4" }, top), {
+    code: "MCP_PACKAGE_INVALID",
+  });
+  const npm = { registry: "npm", name: "x", version: "1.0.0" };
+  assert.deepEqual(packageConstraints({ constraints: [] }, npm), []);
+  assert.throws(() => packageConstraints({ constraints: ["y<1"] }, npm), {
+    code: "MCP_PACKAGE_INVALID",
+  });
+});
+```
+
+```js
+// add to tests/unit/mcp-package-records.test.js
+import { DatabaseSync } from "node:sqlite";
+import { PackageRecords } from "../../server/features/mcp-packages/package-records.js";
+
+test("constraints are stored as a list and shown with the source", (t) => {
+  const { servers } = store(t);
+  const server = pending(servers, {}, { registry: "pypi", constraints: ["fastmcp<4"] });
+  assert.deepEqual(servers.packages.get(server.id).constraints, ["fastmcp<4"]);
+  assert.deepEqual(servers.get(server.id).source.constraints, ["fastmcp<4"]);
+});
+
+test("a store from before constraints gains the column; old rows read []", () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE servers(id TEXT PRIMARY KEY)");
+  db.exec(`CREATE TABLE server_packages(
+    server_id TEXT PRIMARY KEY REFERENCES servers(id) ON DELETE CASCADE,
+    registry TEXT NOT NULL, name TEXT NOT NULL, version TEXT NOT NULL,
+    program TEXT NOT NULL, program_path TEXT NOT NULL, allow_scripts INTEGER NOT NULL DEFAULT 0,
+    lock TEXT NOT NULL, lock_digest TEXT NOT NULL, integrity TEXT NOT NULL,
+    install_id TEXT, leading_args INTEGER NOT NULL DEFAULT 0, toolchain_dir TEXT,
+    status TEXT NOT NULL CHECK(status IN ('installing','ready','failed')),
+    error_code TEXT, updated_at INTEGER NOT NULL)`);
+  db.exec("INSERT INTO servers VALUES ('s1')");
+  db.exec(
+    "INSERT INTO server_packages VALUES ('s1','npm','x','1.0.0','x','i.js',0,'{}','d','i',NULL,0,NULL,'installing',NULL,1)",
+  );
+  const records = new PackageRecords(db, "/unused");
+  assert.deepEqual(records.get("s1").constraints, []);
+});
+```
+
+Also add `constraints: []` to the exact `source` expectation of "a pending packaged server has no command, shows its args and is not compiled", and to every other test that compares a whole `source` (`grep -rn "leadingArgs: 0" tests/` finds them).
+
+```js
+// add to tests/unit/mcp-python-install.test.js
+test("constraints narrow both compiles through a constraints file", async (t) => {
+  const calls = [];
+  const execute = async (file, args) => {
+    const at = args.indexOf("-c");
+    calls.push(fs.readFileSync(args[at + 1], "utf8"));
+    assert.ok(args.includes("--no-annotate"));
+    fs.writeFileSync(
+      args[args.indexOf("-o") + 1],
+      "srv-x==1.0 \\\n    --hash=sha256:x\n",
+    );
+    return { stdout: "", stderr: "" };
+  };
+  await resolvePython({
+    stage: tmp(t),
+    ref,
+    python,
+    index: "http://i/simple",
+    cacheDir: tmp(t),
+    allowScripts: false,
+    constraints: ["fastmcp<4", "httpx==0.28.*"],
+    execute,
+    environment: {},
+  });
+  assert.deepEqual(calls, ["fastmcp<4\nhttpx==0.28.*\n"]);
+});
+```
+
+Run: `node --test tests/unit/mcp-package-spec.test.js tests/unit/mcp-package-records.test.js tests/unit/mcp-python-install.test.js`
+Expected: FAIL (`packageConstraints` missing, no column, no `-c`).
+
+- [ ] **Step 2: Implement validation and copy**
+
+In `package-spec.js`:
+
+```js
+const pep440 = String.raw`\d+(?:\.\d+)*(?:(?:a|b|rc)\d+)?(?:\.post\d+)?(?:\.dev\d+)?`;
+const clause = String.raw`(?:(?:==|!=)\s*${pep440}(?:\.\*)?|(?:~=|<=|>=|<|>)\s*${pep440})`;
+// A PyPI name and version limits, nothing else: no URL, path, extra, marker or option.
+const constraintLine = new RegExp(
+  String.raw`^([A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?)\s*(${clause}(?:\s*,\s*${clause})*)$`,
+  "i",
+);
+export const constraintLimits = Object.freeze({ count: 10, length: 100 });
+const invalidConstraints = () =>
+  packageProblem("MCP_PACKAGE_INVALID", 400, "invalidConstraints");
+
+/** The owner's dependency constraints of a PyPI source (D4), canonical; npm has none. */
+export function packageConstraints(input = {}, ref) {
+  const lines = input.constraints ?? [];
+  if (!Array.isArray(lines)) throw invalidConstraints();
+  if (ref.registry !== "pypi") {
+    if (lines.length) throw invalidConstraints();
+    return [];
+  }
+  if (lines.length > constraintLimits.count) throw invalidConstraints();
+  const names = new Set();
+  return lines.map((line) => {
+    if (typeof line !== "string" || line.length > constraintLimits.length)
+      throw invalidConstraints();
+    const match = constraintLine.exec(line.trim());
+    if (!match) throw invalidConstraints();
+    const name = normalizePypiName(match[1]);
+    if (name === ref.name || names.has(name)) throw invalidConstraints();
+    names.add(name);
+    return `${name}${match[2].replace(/\s+/g, "")}`;
+  });
+}
+```
+
+Server copy — en: `invalidConstraints: "Dependency constraints take one PyPI package name with version limits per line (for example fastmcp<4), at most 10.",`; de: `invalidConstraints: "Abhängigkeitsgrenzen bestehen aus einem PyPI-Paketnamen mit Versionsgrenzen pro Zeile (zum Beispiel fastmcp<4), höchstens 10.",`.
+
+- [ ] **Step 3: Store them**
+
+`package-records.js`: add `constraints TEXT NOT NULL DEFAULT '[]'` to the schema and `constraints: "constraints"` to `columns`; in the constructor after `db.exec(schema)`:
+
+```js
+const known = db.prepare("PRAGMA table_info(server_packages)").all();
+if (!known.some((column) => column.name === "constraints"))
+  db.exec(
+    "ALTER TABLE server_packages ADD COLUMN constraints TEXT NOT NULL DEFAULT '[]'",
+  );
+```
+
+`fromRow` sets `constraints: parsedList(row.constraints)` (`JSON.parse` in `try`, an array of strings or `[]`); `toValue` writes `JSON.stringify(value ?? [])` for `constraints`; `publicFields` adds `constraints: row.constraints`. `mcp-server-backup.js`: append `"constraints"` to `knownColumns.server_packages` (constraints are not secret; without this the sanitizer drops the column from backups). Extend the backup test in `tests/integration/mcp-server-host-backups.test.js` to put a record with `constraints: ["fastmcp<4"]` and assert `SELECT constraints FROM server_packages` in the copy is `'["fastmcp<4"]'`.
+
+- [ ] **Step 4: Resolve with them**
+
+`python-package-install.js` — `resolvePython` gains `constraints = []`; after writing `requirements.in`:
+
+```js
+const constraintArgs = [];
+if (constraints.length) {
+  const file = path.join(work, "constraints.txt");
+  fs.writeFileSync(file, `${constraints.join("\n")}\n`, { mode: 0o600 });
+  constraintArgs.push("-c", file);
+}
+```
+
+and `compile` appends `...constraintArgs` before `...extra`. `python-adapter.js` passes `constraints` from its `preview` arguments to `resolvePython`; `npm-adapter.js` accepts and ignores it.
+
+`mcp-packages.js`:
+
+```js
+async preview(input) {
+  const ref = packageRef(input);
+  const current = input.serverId ? this.records.get(input.serverId) : null;
+  // An update keeps the stored constraints unless the owner sends new ones.
+  const constraints = packageConstraints(
+    input.constraints === undefined && current ? { constraints: current.constraints } : input,
+    ref,
+  );
+  try {
+    return await this.resolvePreview(ref, input, constraints, current);
+  } catch (error) {
+    throw packageError(error, "MCP_PACKAGE_INSTALL_FAILED", 502);
+  }
+}
+```
+
+`resolvePreview(ref, input, constraints, current)` passes `constraints` to `adapter.preview`, stores it in the preview, returns it in the response (`constraints`), and uses the given `current` for the diff. `takePreview(previewId, source)` additionally refuses when `JSON.stringify(preview.constraints) !== JSON.stringify(packageConstraints(source, ref))`. `updatePackage(id, { version, allowScripts, constraints, previewId, program })` builds the source with `constraints: constraints ?? row.constraints`. `reinstall` puts `constraints: row.constraints` into its preview object. `package-install-job.js` `sourceFields` adds `constraints: preview.constraints ?? []`; the receipt adds `constraints` too. `routes/mcp-packages.js` `auditDetails` adds `constraints: Array.isArray(source?.constraints) ? source.constraints : []` (no secrets; an audit names what was pinned).
+
+- [ ] **Step 5: Integration test against the local index**
+
+```js
+// add to tests/integration/mcp-python-packages.test.js
+test(
+  "a constraint narrows the resolve and stays for reinstall and update",
+  { skip },
+  async (t) => {
+    const s = await pythonPackageService(t, [
+      { name: "srv-y", version: "1.0", script: "srv-y", requires: ["helper-x>=2"] },
+      { name: "srv-y", version: "1.1", script: "srv-y", requires: ["helper-x>=2"] },
+      helper,
+      { ...helper, version: "3.0" },
+    ]);
+    const free = await s.packages.preview(pypiRef("srv-y"));
+    assert.ok(
+      free.dependencies.some((d) => d.name === "helper-x" && d.version === "3.0"),
+    );
+    const { preview, server: ready } = await createPython(s, "srv-y", {
+      constraints: ["Helper_X < 3"],
+    });
+    assert.deepEqual(preview.constraints, ["helper-x<3"]);
+    assert.ok(
+      preview.dependencies.some((d) => d.name === "helper-x" && d.version === "2.0"),
+    );
+    assert.deepEqual(ready.source.constraints, ["helper-x<3"]);
+    fs.rmSync(installs(s), { recursive: true });
+    s.packages.reinstall(ready.id);
+    await s.packages.jobs.idle();
+    assert.equal(s.servers.get(ready.id).source.status, "ready");
+    const update = await s.packages.preview({
+      ...pypiRef("srv-y", "1.1"),
+      serverId: ready.id,
+    });
+    assert.deepEqual(update.constraints, ["helper-x<3"]);
+    assert.deepEqual(
+      update.diff.changed.map((c) => c.name),
+      ["srv-y"],
+    );
+    await assert.rejects(
+      s.packages.preview({
+        ...pypiRef("srv-y"),
+        constraints: ["helper-x @ http://e/x.whl"],
+      }),
+      { code: "MCP_PACKAGE_INVALID" },
+    );
+  },
+);
+```
+
+The fixture already serves two releases per project (`releases[version]`); `createPython` spreads `constraints` into both preview and source. Note `"Helper_X < 3"` checks the canonical form end to end.
+
+- [ ] **Step 6: Run and commit**
+
+Run: `node --test tests/unit/mcp-package-spec.test.js tests/unit/mcp-package-records.test.js tests/unit/mcp-python-install.test.js tests/unit/mcp-packages-service.test.js tests/integration/mcp-server-host-backups.test.js tests/integration/mcp-packages-routes.test.js tests/integration/mcp-packages-service.test.js tests/unit/server-i18n-catalogs.test.js && AGENTPIER_MCP_PYTHON_TESTS=1 node --test tests/integration/mcp-python-packages.test.js`
+Expected: PASS; every touched file stays below 600 lines.
+
+```bash
+git add server tests/unit tests/integration
+git commit -m "feat: pin dependencies of PyPI MCP packages with constraints
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 9: PyPI and constraints in the form
 
 **Files:**
 
 - Modify: `web/lib/i18n/de/mcp-packages.js`, `web/lib/i18n/en/mcp-packages.js`
-- Modify: `web/features/mcp-servers/McpPackageFields.jsx`, `web/features/mcp-servers/McpPackageConfirmation.jsx`
+- Modify: `web/features/mcp-servers/McpPackageFields.jsx`, `McpPackageConfirmation.jsx`, `McpPackagePanel.jsx`, `mcp-server-draft.js`, `mcp-server-save.js`
 - Modify: `tests/browser/mcp-packages-fixture.js` (export `pypiVersions`), `tests/browser/mcp-packages.spec.js`
 
 - [ ] **Step 1: Copy (both catalogs, same keys)**
 
-English: `registries: { npm: "npm", pypi: "PyPI" }`, `yanked: "withdrawn by its author"`, `noProgramsYet: "The program is chosen after the build."`, and `allowScriptsWarning: "Package code then runs while the package is checked and installed, with your user's rights. Allow it only for packages you trust."`.
-German: `registries: { npm: "npm", pypi: "PyPI" }`, `yanked: "vom Autor zurückgezogen"`, `noProgramsYet: "Das Programm wird nach dem Build gewählt."`, and `allowScriptsWarning` with the same meaning ("Paketcode läuft dann schon beim Prüfen und beim Installieren mit den Rechten deines Benutzers. Erlaube das nur für Pakete, denen du vertraust." — keep the catalog's existing form of address if it differs).
+English:
 
-- [ ] **Step 2: Failing browser test**
+- `registries: { npm: "npm", pypi: "PyPI" }`, `yanked: "withdrawn by its author"`, `noProgramsYet: "The program is chosen after the build."`
+- `allowScriptsWarning: "Package code then runs while the package is checked and installed, with your user's rights. Allow it only for packages you trust."`
+- `buildToolsNote: "Build tools such as setuptools are then downloaded from PyPI during the build; they are not part of the frozen, hash-checked dependency list."`
+- `constraintsLabel: "Dependency constraints"`, `constraintsHint: "Optional. One PyPI package with version limits per line, for example fastmcp<4. They apply when the package is resolved; reinstalling uses the frozen list."`, `constraintsTitle: "Constraints"`
+
+German:
+
+- `registries: { npm: "npm", pypi: "PyPI" }`, `yanked: "vom Autor zurückgezogen"`, `noProgramsYet: "Das Programm wird nach dem Build gewählt."`
+- `allowScriptsWarning: "Paketcode läuft dann schon beim Prüfen und beim Installieren mit den Rechten deines Benutzers. Erlaube das nur für Pakete, denen du vertraust."` (keep the catalog's existing form of address if it differs)
+- `buildToolsNote: "Build-Werkzeuge wie setuptools werden dann während des Builds von PyPI geladen; sie gehören nicht zur eingefrorenen, per Prüfsumme gesicherten Abhängigkeitsliste."`
+- `constraintsLabel: "Abhängigkeitsgrenzen"`, `constraintsHint: "Optional. Ein PyPI-Paket mit Versionsgrenzen pro Zeile, zum Beispiel fastmcp<4. Sie gelten beim Auflösen; eine Neuinstallation nutzt die eingefrorene Liste."`, `constraintsTitle: "Grenzen"`
+
+- [ ] **Step 2: Failing browser tests**
 
 ```js
 // tests/browser/mcp-packages-fixture.js
@@ -2085,7 +2405,9 @@ export const pypiVersions = {
 
 ```js
 // add to tests/browser/mcp-packages.spec.js (import pypiVersions)
-test("a PyPI package shows withdrawn versions marked and installs", async ({ page }) => {
+test("a PyPI package shows withdrawn versions and installs with a constraint", async ({
+  page,
+}) => {
   const state = await packageSetup(page);
   state.versions = pypiVersions;
   state.preview = preview({
@@ -2094,29 +2416,38 @@ test("a PyPI package shows withdrawn versions marked and installs", async ({ pag
     version: "0.4.1",
     integrity: "sha256:85540ca61ed3cc27731471c45e1c74fb0a888827fb145bc58ce3a2104d243d19",
     programs: ["opnsense-mcp"],
+    constraints: ["fastmcp<4"],
   });
   acceptCreate(state);
   await page.goto(baseURL + "/accounts");
   const dialog = await openAdd(page);
   await dialog.getByLabel("Name", { exact: true }).fill("opnsense");
   await choosePackage(dialog);
+  await expect(dialog.getByLabel("Dependency constraints")).toHaveCount(0);
   await dialog.getByRole("radio", { name: "PyPI" }).check();
   await dialog.getByLabel("Package", { exact: true }).fill("opnsense-mcp-server");
   const version = dialog.getByLabel("Version", { exact: true });
   await expect(version).toHaveValue("0.4.1");
   await expect(version.locator("option").nth(1)).toContainText("withdrawn by its author");
+  await dialog.getByLabel("Dependency constraints").fill("fastmcp<4\n\n");
   await dialog.getByRole("button", { name: "Save server" }).click();
   const confirm = page.getByRole("alertdialog", { name: "Install this package?" });
   await expect(confirm.getByText("PyPI")).toBeVisible();
+  await expect(confirm.getByText("fastmcp<4")).toBeVisible();
+  expect(state.requests.find((r) => r.path.endsWith("/preview")).body).toMatchObject({
+    registry: "pypi",
+    constraints: ["fastmcp<4"],
+  });
   await confirm.getByRole("button", { name: "Install" }).click();
   expect(writes(state, "/api/mcp-servers")[0].body.source).toMatchObject({
     registry: "pypi",
     name: "opnsense-mcp-server",
     version: "0.4.1",
+    constraints: ["fastmcp<4"],
   });
 });
 
-test("a package that is built first names its program after the build", async ({
+test("a package that is built first names its program and the build tools", async ({
   page,
 }) => {
   const state = await packageSetup(page);
@@ -2131,38 +2462,43 @@ test("a package that is built first names its program after the build", async ({
   await dialog.getByRole("button", { name: "Save server" }).click();
   const confirm = page.getByRole("alertdialog", { name: "Install this package?" });
   await expect(confirm.getByText("The program is chosen after the build.")).toBeVisible();
+  await expect(confirm.getByText(/Build tools such as setuptools/)).toBeVisible();
   await expect(confirm.getByRole("button", { name: "Install" })).toBeEnabled();
 });
 ```
 
-Run: `npm run build && npx playwright test tests/browser/mcp-packages.spec.js` → FAIL (no PyPI option, no `yanked` marker, no hint).
+Extend the German test ("German: the form offers the package source") with `await dialog.getByRole("radio", { name: "PyPI" }).check();` and `await expect(dialog.getByLabel("Abhängigkeitsgrenzen")).toBeVisible();`. For the status panel, add to the update test's packaged server `source: { …, registry: "pypi", constraints: ["fastmcp<4"] }` in a new short test that asserts the panel shows `fastmcp<4` and that **Check update** sends `constraints: ["fastmcp<4"]` unless the field is edited.
+
+Run: `npm run build && npx playwright test tests/browser/mcp-packages.spec.js` → FAIL.
 
 - [ ] **Step 3: Implement**
 
-- `McpPackageFields.jsx`: registry `Segment` options `["npm", "pypi"]`; the name input's placeholder is `values.registry === "pypi" ? "mcp-server-name" : "@scope/server"` (identifiers, not copy); `optionLabel` adds `entry.yanked && copy.yanked` after `copy.deprecated`.
-- `McpPackageConfirmation.jsx`: when `programs.length === 0`, show `<p className="mcp-hint">{copy.noProgramsYet}</p>` where the program select would be; `onConfirm` passes `null` as today.
-- Switching the registry clears the version (`set("packageVersion")("")`) so an npm version never reaches a PyPI preview.
+- `McpPackageFields.jsx`: registry `Segment` options `["npm", "pypi"]`; switching the registry clears the version; the name placeholder is `values.registry === "pypi" ? "mcp-server-name" : "@scope/server"` (identifiers, not copy); `optionLabel` adds `entry.yanked && copy.yanked`. Export `McpConstraints({ id, value, onChange })` (a `<textarea>` labelled `copy.constraintsLabel` with `copy.constraintsHint` as description, `spellCheck={false}`, `autoCapitalize="none"`) and `constraintLines(text)` (`text.split("\n").map((l) => l.trim()).filter(Boolean)`); render `McpConstraints` only when `values.registry === "pypi"`.
+- `mcp-server-draft.js`: `packageConstraints: (server?.source?.constraints || []).join("\n")`.
+- `mcp-server-save.js`: `previewPackage` and the saved `source` (in `requestBody`) carry `constraints: values.registry === "pypi" ? constraintLines(values.packageConstraints) : []`.
+- `McpPackageConfirmation.jsx`: when `preview.constraints?.length`, a `<dt>{copy.constraintsTitle}</dt><dd>` with the lines; when `programs.length === 0` show `copy.noProgramsYet`; when `allowScripts && preview.registry === "pypi"` append `copy.buildToolsNote` to the scripts warning.
+- `McpPackagePanel.jsx`: show the stored constraints under the heading for PyPI sources; the update area holds `McpConstraints` prefilled with them; `checkUpdate` and `confirmUpdate` send `constraints: constraintLines(text)`; `unchanged` also compares the constraint lines.
 
-Run: `npm run build && npx playwright test tests/browser/mcp-packages.spec.js && node --test tests/unit/i18n-*.test.js tests/unit/server-i18n-catalogs.test.js` → PASS. `wc -l tests/browser/mcp-packages.spec.js` stays below 600. Exercise the form once in English in a browser and once in German.
+Run: `npm run build && npx playwright test tests/browser/mcp-packages.spec.js && node --test tests/unit/i18n-*.test.js tests/unit/server-i18n-catalogs.test.js` → PASS. `wc -l tests/browser/mcp-packages.spec.js web/features/mcp-servers/McpPackage*.jsx` stays below 600. Exercise the form once in English in a browser and once in German.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add web tests/browser/mcp-packages.spec.js tests/browser/mcp-packages-fixture.js
-git commit -m "feat: offer PyPI as an MCP package registry
+git commit -m "feat: offer PyPI and dependency constraints in the MCP package form
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 9: Review the OPNsense server before installing it
+### Task 10: Review the OPNsense server before installing it
 
 **Files:**
 
 - Create: `docs/mcp-package-qualification.md` (first section)
 
-Facts from the preflight (2026-10-15, preflight C1–C10), to verify again, not to copy blindly: PyPI `opnsense-mcp-server` 0.4.1, `requires_python >=3.11`, source `https://github.com/lucamarien/opnsense-mcp-server`, wheel `opnsense_mcp_server-0.4.1-py3-none-any.whl` sha256 `85540ca61ed3cc27731471c45e1c74fb0a888827fb145bc58ce3a2104d243d19`, program `opnsense-mcp`, writes gated by `OPNSENSE_ALLOW_WRITES` (default false). **Known blocker (C10):** 0.4.1 requires only `fastmcp>=2.0`; fastmcp 4.1.0 depends on `httpx2`, so no `httpx` distribution is installed while `opnsense_mcp/api_client.py:11` imports `httpx` — the server cannot start from a fresh resolve.
+Facts from the preflight (2026-10-15, preflight C1–C10), to verify again, not to copy blindly: PyPI `opnsense-mcp-server` 0.4.1, `requires_python >=3.11`, source `https://github.com/lucamarien/opnsense-mcp-server`, wheel `opnsense_mcp_server-0.4.1-py3-none-any.whl` sha256 `85540ca61ed3cc27731471c45e1c74fb0a888827fb145bc58ce3a2104d243d19`, program `opnsense-mcp`, writes gated by `OPNSENSE_ALLOW_WRITES` (default false). **Known blocker (C10):** 0.4.1 requires only `fastmcp>=2.0`; fastmcp 4.1.0 depends on `httpx2`, so no `httpx` distribution is installed while `opnsense_mcp/api_client.py:11` imports `httpx` — the server cannot start from an unconstrained resolve. **Working range (checked 2026-10-15 by resolving and inspecting installed files, no package code run):** fastmcp `>=3.0.0,<4`. With the constraint `fastmcp<4` the resolve picks fastmcp 3.4.8 with `httpx` 0.28.1 and `mcp` 1.30.0, and `fastmcp/server/lifespan.py` (`lifespan`), `Context.lifespan_context` and `FastMCP(version=, lifespan=)` exist; fastmcp 2.x (`fastmcp<3` → 2.14.7) has `httpx` but no `fastmcp.server.lifespan`, so the import fails there too. 3.0.0, 3.1.0 and 3.2.0 wheels also ship `lifespan.py` and require `httpx>=0.28.1,<1.0`.
 
 - [ ] **Step 1: Download and inspect the exact release without running it**
 
@@ -2178,7 +2514,7 @@ cat src/*.dist-info/entry_points.txt; grep '^Requires-Dist' src/*.dist-info/META
 grep -n -E "ALLOW_WRITES|require_writes|BLOCKED_ENDPOINTS|def post|import httpx" -r src/opnsense_mcp
 ```
 
-Then list every `.post(` call site with its function and whether that function calls `require_writes()` or `SavepointManager.create()` before the first POST (an `ast` walk over `src/opnsense_mcp`, run with `python3 -I` from a script outside `$D`). Expected: (a) the write switch and its default, (b) the non-GET call sites and their gate, (c) the blocklist, (d) the ungated POSTs (search endpoints, `opn_ping`, `opn_traceroute`, `opn_dns_lookup`), (e) `opn_download_config(include_sensitive=True)`, (f) whether the newest release still imports `httpx` without depending on it. If a newer release than 0.4.1 exists, review that one instead and note it.
+Then list every `.post(` call site with its function and whether that function calls `require_writes()` or `SavepointManager.create()` before the first POST (an `ast` walk over `src/opnsense_mcp`, run with `python3 -I` from a script outside `$D`). Expected: (a) the write switch and its default, (b) the non-GET call sites and their gate, (c) the blocklist, (d) the ungated POSTs (search endpoints, `opn_ping`, `opn_traceroute`, `opn_dns_lookup`), (e) `opn_download_config(include_sensitive=True)`, (f) whether the newest release still imports `httpx` without depending on it, and (g) the fastmcp range that provides every name `opnsense_mcp` imports from `fastmcp` (resolve with `-c` and read the installed files; do not run the server). If a newer release than 0.4.1 exists, review that one instead and note it.
 
 - [ ] **Step 2: Write the findings**
 
@@ -2203,7 +2539,8 @@ uv 0.12.21 and CPython 3.14.7.
 - Blocked endpoints: `<list>` (`api_client.py:<line>`).
 - `opn_download_config` with `include_sensitive=true` returns the configuration
   unredacted: the API user gets no backup privilege.
-- Dependencies: `<Requires-Dist>`; `<httpx finding>`.
+- Dependencies: `<Requires-Dist>`; `<httpx finding>`; installs with the dependency
+  constraint `fastmcp<4` (working range `<range>`).
 - Verdict: <read-only by default in code: yes/no>; the enforced boundary is the
   restricted API user (status and diagnostics read privileges only).
 ```
@@ -2221,7 +2558,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 10: Manual qualification with real servers (owner present)
+### Task 11: Manual qualification with real servers (owner present)
 
 **Files:**
 
@@ -2232,8 +2569,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 1. Which agent is the network architect (or permission to create one in the disposable instance).
 2. The OPNsense details. Ask the owner to type the API key and secret **themselves** into the server's **Environment** fields in the disposable AgentPier form (`OPNSENSE_URL`, `OPNSENSE_API_KEY`, `OPNSENSE_API_SECRET`, `OPNSENSE_VERIFY_SSL=true`); AgentPier stores them in its secret storage (`server_secrets`). Never ask for the key or secret in the chat. If the owner pastes them anyway, do not repeat them, do not write them to any file, log, shell history, commit or this document, and only enter them through the form. The API user must be a dedicated user/group with status and diagnostics read privileges only (no backup, no firmware, no write privileges).
 3. If OPNsense uses a private CA: the path of its CA certificate (public data). Set `SSL_CERT_FILE=<path>` in the server's environment; with nono the file must lie inside a granted directory (copy it into the disposable data directory).
-4. The OPNsense blocker (Task 9, C10). Unless a newer release fixed it, the server cannot start. Ask the owner to choose: (a) wait for an upstream release and qualify OPNsense in a follow-up, (b) open a follow-up ticket for owner-pinned extra requirements/constraints (out of scope for this PR), or (c) another read-only OPNsense MCP server, reviewed like Task 9 first. Record the decision in the qualification document. Do not patch the package or its environment by hand.
-5. For the opt-in row: whether to install the `pandoc` CLI on the host for the `mcp-pandoc` call (it is not installed now), or to accept a started server with its tool list plus the tool's own "pandoc not found" result.
+4. Nothing to decide for the OPNsense blocker: the owner chose dependency constraints (D4). The server is installed as `opnsense-mcp-server` 0.4.1 with the constraint `fastmcp<4` and the program `opnsense-mcp` (Task 10 confirms the range). Do not patch the package or its environment by hand.
+5. `pandoc` for the `mcp-pandoc` row: the owner installs the CLI before the qualification. Check `command -v pandoc` (and `pandoc --version`) first; if it is missing, stop and ask the owner through the controller to install it, then continue. If the server cannot find it on its own `PATH`, set `PYPANDOC_PANDOC=<absolute path of pandoc>` in the server's environment (pypandoc reads it).
 6. Signing in a Claude Code account in the disposable instance, if Claude Code bindings need one.
 
 **Steps:**
@@ -2252,24 +2589,43 @@ Use a disposable Claude Code profile inside that data directory (`docs/mcp.md` "
 
 For each row: create the server from the form (latest stable version unless noted), wait for **Installed**, bind it to one agent and to Claude Code, and make one real tool call from each.
 
-| Server                                                        | Registry                                         | Arguments / env                                                             | Tool call                                                 |
-| ------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `@modelcontextprotocol/server-memory`                         | npm                                              | —                                                                           | create an entity, read it back                            |
-| `@modelcontextprotocol/server-filesystem`                     | npm                                              | an allowed directory (inside the disposable data dir)                       | list the directory                                        |
-| `mcp-server-time` (2026.10.10 on 2026-10-15)                  | PyPI                                             | —                                                                           | current time in Europe/Berlin                             |
-| `mcp-server-fetch` (2026.10.10)                               | PyPI                                             | —                                                                           | fetch `https://example.com`                               |
-| `opnsense-mcp-server` (per owner decision 4)                  | PyPI                                             | owner's environment values, see above; bound to the network architect agent | list interfaces or gateway status                         |
-| `mcp-pandoc` (0.11.1; dependency `pandoc==2.4` is sdist-only) | PyPI, **Allow install scripts or source builds** | —                                                                           | `convert-contents` Markdown → HTML (per owner decision 5) |
+| Server                                                                      | Registry                                         | Arguments / env                                                             | Tool call                                             |
+| --------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `@modelcontextprotocol/server-memory`                                       | npm                                              | —                                                                           | create an entity, read it back                        |
+| `@modelcontextprotocol/server-filesystem`                                   | npm                                              | an allowed directory (inside the disposable data dir)                       | list the directory                                    |
+| `mcp-server-time` (2026.10.10 on 2026-10-15)                                | PyPI                                             | —                                                                           | current time in Europe/Berlin                         |
+| `mcp-server-fetch` (2026.10.10)                                             | PyPI                                             | —                                                                           | fetch `https://example.com`                           |
+| `opnsense-mcp-server` 0.4.1, constraint `fastmcp<4`, program `opnsense-mcp` | PyPI                                             | owner's environment values, see above; bound to the network architect agent | list interfaces or gateway status                     |
+| `mcp-pandoc` (0.11.1; dependency `pandoc==2.4` is sdist-only)               | PyPI, **Allow install scripts or source builds** | —                                                                           | `convert-contents`: a real Markdown → HTML conversion |
 
-For the opt-in row, first confirm that without the opt-in the confirmation shows the needs-scripts notice and **Install** stays disabled. For OPNsense also confirm that a write tool (for example `opn_add_alias` with a dummy name) answers "Write operations disabled" and that nothing changed on the firewall.
+For the opt-in row, first confirm that without the opt-in the confirmation shows the needs-scripts notice and **Install** stays disabled, and with it the build-tools note. For OPNsense confirm that the confirmation and the status panel list `fastmcp<4` and that the installed graph holds fastmcp 3.x and `httpx`. For OPNsense also confirm that a write tool (for example `opn_add_alias` with a dummy name) answers "Write operations disabled" and that nothing changed on the firewall.
 
 Also check: update one server to an older/newer version and see the diff; delete its install directory and use **Reinstall**; remove a server and confirm `mcp-packages/installs/` no longer holds its directory.
 
-- [ ] **Step 3: Record results**
+- [ ] **Step 3: Draft the upstream issue (never post it without approval)**
 
-Append to `docs/mcp-package-qualification.md` a table: server, version, registry, install time, agent call result, Claude Code call result, notes; plus the update/reinstall/remove checks, the owner's OPNsense decision and the build-dependency note (setuptools came from PyPI at build time). Linux results come from the `mcp-toolchains` workflow (toolchains, local-index installs and the C-extension build); state that real-server calls ran on macOS only unless the owner provides a Linux host. No credential, host name of the firewall or API user name goes into the document.
+Write the draft into the session (not into the repository) and then **stop and ask the controller** for approval before anything is posted to GitHub or anywhere else; post only the approved text, with the owner's account, and record the issue link in the qualification document.
 
-- [ ] **Step 4: Stop the instance, delete the disposable data directory, commit**
+```markdown
+Title: opnsense-mcp-server fails to start with fastmcp 4.x (`import httpx`, httpx2 only)
+
+`opnsense-mcp-server` 0.4.1 declares `fastmcp>=2.0`. Since fastmcp 4.x
+(4.1.0, 2026-10-08) depends on `httpx2` instead of `httpx`, a fresh install
+(`pip install opnsense-mcp-server==0.4.1` or `uvx opnsense-mcp-server`) resolves
+fastmcp 4.1.0 and no `httpx` distribution, while `opnsense_mcp/api_client.py`
+imports `httpx`, so the server cannot start. fastmcp 2.x lacks
+`fastmcp.server.lifespan`, which `server.py` imports.
+
+Pinning `fastmcp>=3,<4` (resolves fastmcp 3.4.8 and httpx 0.28.1) works.
+Suggested fix: declare `httpx` as a direct dependency and bound fastmcp to the
+supported major version (`fastmcp>=3,<4`) until 4.x is supported.
+```
+
+- [ ] **Step 4: Record results**
+
+Append to `docs/mcp-package-qualification.md` a table: server, version, registry, install time, agent call result, Claude Code call result, notes; plus the update/reinstall/remove checks, the OPNsense constraint (`fastmcp<4`, resolved fastmcp version), the upstream issue link (or "not posted") and the build-tools note (setuptools came from PyPI at build time, outside the lock, D5). Linux results come from the `mcp-toolchains` workflow (toolchains, local-index installs and the C-extension build); state that real-server calls ran on macOS only unless the owner provides a Linux host. No credential, host name of the firewall or API user name goes into the document.
+
+- [ ] **Step 5: Stop the instance, delete the disposable data directory, commit**
 
 ```bash
 rm -rf "$AGENTPIER_DATA_DIR"
@@ -2281,7 +2637,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 11: Docs, full check and cleanup
+### Task 12: Docs, full check and cleanup
 
 **Files:**
 
@@ -2293,7 +2649,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 In `docs/mcp.md` replace "A local (stdio) server can come from an npm package instead of an own command (PyPI packages are not supported yet)." with "A local (stdio) server can come from an npm or PyPI package instead of an own command.", and "keep **Registry** at npm" with "choose the **Registry** (npm or PyPI)"; mention that withdrawn (yanked) PyPI versions are marked. Add a paragraph:
 
-"PyPI packages install from wheels into their own virtual environment with AgentPier's CPython 3.14.7 and uv; only `pypi.org` is used. A package that needs a build from source installs only when **Allow install scripts or source builds** is ticked; its build code then already runs while the package is checked, uses the system compiler `cc`, and fetches its build tools (for example setuptools) from PyPI at build time, outside the frozen lock. Builds that need Rust or other tools outside `/usr/bin` are not supported. A package that does not support Python 3.14 fails to install. The frozen graph matches the platform it was resolved on; after a restore on another platform, **Reinstall** can fail and an update resolves it again. Moving the data directory leaves the toolchain's build settings pointing at the old path; source builds then need the toolchain to be provisioned again. Qualified servers are listed in [MCP package qualification](mcp-package-qualification.md)."
+"PyPI packages install from wheels into their own virtual environment with AgentPier's CPython 3.14.7 and uv; only `pypi.org` is used. A package that needs a build from source installs only when **Allow install scripts or source builds** is ticked; its build code then already runs while the package is checked, uses the system compiler `cc`, and fetches its build tools (for example setuptools) from PyPI at build time, outside the frozen lock. These build tools are not part of the frozen, hash-checked lock; the confirmation says so. Builds that need Rust or other tools outside `/usr/bin` are not supported. A package that does not support Python 3.14 fails to install. The frozen graph matches the platform it was resolved on; after a restore on another platform, **Reinstall** can fail and an update resolves it again. Moving the data directory leaves the toolchain's build settings pointing at the old path; source builds then need the toolchain to be provisioned again. Qualified servers are listed in [MCP package qualification](mcp-package-qualification.md)."
+
+Add a paragraph on **Dependency constraints**: "For a PyPI package you can enter up to 10 dependency constraints, one per line, each a PyPI package name with version limits (for example `fastmcp<4`). They narrow the resolution when the package is checked, installed or updated; the result is frozen with hashes as usual, **Reinstall** uses the frozen list without resolving again, and an update keeps the constraints unless you change them. URLs, paths, extras and markers are refused. npm packages have no constraints field."
 
 In `docs/AGENTS.md` change "installed from an npm package" to "installed from an npm or PyPI package". Check `README.md`, `README.de.md`, `docs/installation.md` and `docs/linux.md` for npm-only package wording and update what this change affects.
 
@@ -2313,4 +2671,4 @@ git commit -m "docs: describe PyPI MCP packages and remove the working documents
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-The PR lists `docs/mcp.md`, `docs/AGENTS.md` and `docs/mcp-package-qualification.md` (and every other doc checked), links AGENTPIER-72, states the owner's OPNsense decision, and includes screenshots of the PyPI form and the OPNsense (or substitute) server's status panel, uploaded to the assets repository.
+The PR lists `docs/mcp.md`, `docs/AGENTS.md` and `docs/mcp-package-qualification.md` (and every other doc checked), links AGENTPIER-72, states the OPNsense constraint and the upstream issue status, and includes screenshots of the PyPI form and the OPNsense (or substitute) server's status panel, uploaded to the assets repository.
