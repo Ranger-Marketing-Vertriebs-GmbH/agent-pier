@@ -169,6 +169,11 @@ function failed(service, serverId, stage, error) {
   }
 }
 
+/** Whether the stored server already runs the switch's command and generated args. */
+export const switchedTo = (server, { command, leading }) =>
+  server?.command === command &&
+  leading.every((arg, index) => server.args?.[index] === arg);
+
 /**
  * The ready record first, then the command switch through the normal update path:
  * the reconciliation and the agents' apply it triggers already see the package
@@ -185,8 +190,9 @@ export async function activate(
   const previous = service.records.get(serverId);
   // Before the first install the stored args are the owner's only.
   const before = previous?.installId ? previous.leadingArgs : 0;
-  const { revision } = service.servers.get(serverId);
-  service.switching.set(serverId, { before, revision });
+  // The new install's id is in the command (PyPI) or its first arg (npm), so the
+  // stored definition says unambiguously whether the switch has committed.
+  service.switching.set(serverId, { before, after: leading.length, command, leading });
   service.records.put(serverId, fields);
   try {
     await switchCommand(service, serverId, command, leading, before, { signal });
@@ -215,7 +221,6 @@ export async function switchCommand(
     if (attempt > 0) stopIfCancelled(signal);
     const server = service.servers.get(serverId);
     const owner = (server.args || []).slice(before);
-    service.switching.set(serverId, { before, revision: server.revision });
     try {
       await service.changes.update(
         serverId,

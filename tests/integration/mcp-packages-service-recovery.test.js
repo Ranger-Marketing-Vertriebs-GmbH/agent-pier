@@ -159,3 +159,26 @@ test("a restart takes a missing install's server out of the coding CLIs", async 
   await s.packages.jobs.idle();
   assert.match(s.entries("claude").pkg.args[0], program);
 });
+
+test("an installing record without a job reads as failed until a reinstall", async (t) => {
+  const s = await packageService(t);
+  // As after a backup restore: the record says installing, no job runs.
+  const orphan = s.servers.create(
+    { name: "restored", transport: "stdio" },
+    { pendingCommand: true, packageRecord: stored() },
+  );
+  const source = s.servers.get(orphan.id).source;
+  assert.equal(source.status, "failed");
+  assert.equal(source.errorCode, "MCP_PACKAGE_INSTALL_FAILED");
+  assert.equal(s.packages.status(orphan.id).error.code, "MCP_PACKAGE_INSTALL_FAILED");
+  // The stored row is unchanged; start() persists the verdict.
+  assert.equal(s.servers.packages.get(orphan.id).status, "installing");
+});
+
+test("a server being created reads as installing to its own first reconciliation", async (t) => {
+  const s = await packageService(t);
+  await createPackaged(s);
+  const first = s.saved[0].definitions.find((d) => d.name === "pkg");
+  assert.equal(first.packageStatus, "installing");
+  await s.packages.jobs.idle();
+});
