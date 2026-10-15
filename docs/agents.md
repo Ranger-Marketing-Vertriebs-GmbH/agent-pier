@@ -123,7 +123,9 @@ the proposal in its chat or in Telegram. `/team <task>` or **Allow a team for th
 message** behind **+** in the composer allows one team for one request; **Allow teams
 without asking each time** allows them in general. Temporary members get their own
 chat, finish with the task and can be kept with **Keep as permanent agent**.
-Permanent members stay under their lead in the sidebar.
+Permanent members stay under their lead in the sidebar. Every member row and chat header
+shows the model the member actually runs on; it starts as a copy of the lead's model and
+can be changed for permanent members.
 
 A lead also talks to its members directly:
 
