@@ -325,6 +325,39 @@ test("a streamed reply is shown once when the history already has it", async ({
   await expect(reply).toHaveCount(1);
 });
 
+test("a stored reply hides a stream that has not caught up yet", async ({ page }) => {
+  const state = await setup(page, { messages: [] });
+  state.requests = [
+    {
+      id: "q1",
+      state: "accepted",
+      text: "Plan dinner",
+      attempt: { id: "a1", state: "accepted" },
+    },
+  ];
+  await emit(page, { type: "change" });
+  await emit(page, {
+    type: "delta",
+    conversationId: "dinner",
+    runId: "a1",
+    text: "Dinner is",
+  });
+  await expect(page.locator(".assistant-message.assistant.streaming")).toHaveCount(1);
+  state.messages.push(
+    { id: "u1", role: "user", text: "Plan dinner", timestamp: 1 },
+    {
+      id: "m-final",
+      role: "assistant",
+      runId: "a1",
+      text: "Dinner is ready.",
+      timestamp: 2,
+    },
+  );
+  await emit(page, { type: "change" });
+  await expect(page.locator(".assistant-message.assistant")).toHaveCount(1);
+  await expect(page.locator(".assistant-message.assistant.streaming")).toHaveCount(0);
+});
+
 test("an earlier reply of the same run keeps the live stream visible", async ({
   page,
 }) => {

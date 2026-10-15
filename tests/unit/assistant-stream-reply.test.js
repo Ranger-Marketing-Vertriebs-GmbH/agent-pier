@@ -52,3 +52,8 @@ test("a stream without a run or text is never covered", () => {
   assert.equal(streamInHistory({ text: "Done." }, history), false);
   assert.equal(streamInHistory(null, history), false);
 });
+
+test("a stored reply that the stream has not caught up with covers it", () => {
+  const history = { messages: [reply("a1", "Dinner is ready.")], requests: [] };
+  assert.equal(streamInHistory({ runId: "a1", text: "Dinner is" }, history), true);
+});
