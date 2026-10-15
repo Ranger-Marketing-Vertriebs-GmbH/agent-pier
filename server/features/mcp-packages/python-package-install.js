@@ -11,6 +11,28 @@ const wrapped = (error) => packageError(error, "MCP_PACKAGE_INSTALL_FAILED", 502
 // uv 0.12.21 (preflight B4): "<pkg> has no usable wheels" plus the hint "Wheels are
 // required for". uv wraps the first message at its terminal width.
 const noWheel = /has\s+no\s+usable\s+wheels|Wheels\s+are\s+required\s+for/;
+// uv's resolver report when no set of versions satisfies the requirements; without a
+// terminal uv 0.12.21 writes "error: No solution found when resolving dependencies".
+const noSolution = /No\s+solution\s+found\s+when\s+resolving/;
+// Inside that report: a release (top or dependency) excludes the managed Python.
+const pythonMismatch =
+  /requires\s+Python\s|Python\s+version\s+\([^)]*\)\s+does\s+not\s+satisfy/;
+/**
+ * What a failed `uv pip compile` means: "build" (a missing wheel wins, it needs a
+ * build), "python" (a release excludes the managed Python), "unsatisfiable" (no set of
+ * versions fits) or "failed" (anything else, such as a network error).
+ */
+export function compileFailure(output) {
+  if (noWheel.test(output)) return "build";
+  if (!noSolution.test(output)) return "failed";
+  return pythonMismatch.test(output) ? "python" : "unsatisfiable";
+}
+const refusals = {
+  python: () => packageProblem("MCP_PACKAGE_UNSATISFIABLE", 400, "pythonUnsupported"),
+  unsatisfiable: () => packageProblem("MCP_PACKAGE_UNSATISFIABLE", 400),
+};
+/** The stable refusal for a failed compile; uv's report stays in the log. */
+const refusal = (output) => (refusals[compileFailure(output)] ?? failed)();
 // `--no-build` means the same, but uv refuses it next to `--only-binary`.
 const wheelsOnly = ["--only-binary", ":all:"];
 
@@ -112,11 +134,12 @@ export async function resolvePython({
     const trial = await compile(wheelsOnly);
     let needsScripts = false;
     if (!trial.ok) {
-      if (!noWheel.test(trial.output)) throw failed();
+      if (compileFailure(trial.output) !== "build") throw refusal(trial.output);
       needsScripts = true;
       if (allowScripts !== true)
         return { requirementsText, lockText: null, needsScripts };
-      if (!(await compile([])).ok) throw failed();
+      const built = await compile([]);
+      if (!built.ok) throw refusal(built.output);
     }
     return { requirementsText, lockText: fs.readFileSync(output, "utf8"), needsScripts };
   } catch (error) {

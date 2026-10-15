@@ -8,7 +8,7 @@ import { ensureToolchain, pruneToolchains } from "./toolchains.js";
 import { PackageJobs } from "./install-jobs.js";
 import { lockDiff } from "./lock-check.js";
 import { npmAdapter } from "./npm-adapter.js";
-import { packageError, packageProblem } from "./package-errors.js";
+import { packageCode, packageProblem } from "./package-errors.js";
 import { packageConstraints, packageName, packageRef } from "./package-spec.js";
 import { packageRoot, pruneInstalls, readInstall } from "./package-store.js";
 import {
@@ -123,7 +123,12 @@ export class McpPackages {
     try {
       return await this.resolvePreview(ref, input, constraints, current);
     } catch (error) {
-      throw packageError(error, "MCP_PACKAGE_INSTALL_FAILED", 502);
+      // A preview has no job log: a generic failure says so instead of "see the log".
+      if (
+        packageCode(error, "MCP_PACKAGE_INSTALL_FAILED") === "MCP_PACKAGE_INSTALL_FAILED"
+      )
+        throw packageProblem("MCP_PACKAGE_INSTALL_FAILED", 502, "previewFailed");
+      throw error;
     }
   }
   async resolvePreview(ref, input, constraints, current) {

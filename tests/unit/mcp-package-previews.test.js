@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { McpPackages } from "../../server/features/mcp-packages/mcp-packages.js";
+import { packageProblem } from "../../server/features/mcp-packages/package-errors.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import { deferred, harness, source } from "../helpers/mcp-packages-harness.js";
 
 const twoPrograms = {
@@ -79,9 +81,32 @@ test("a rejected preview frees its resolve slot", async (t) => {
       },
     },
   });
-  await assert.rejects(service.preview(source), { code: "MCP_PACKAGE_INSTALL_FAILED" });
+  await assert.rejects(service.preview(source), (error) => {
+    assert.equal(error.code, "MCP_PACKAGE_INSTALL_FAILED");
+    assert.equal(error.message, serverMessages.mcpPackages.previewFailed);
+    return true;
+  });
   assert.equal(service.resolving, 0);
   assert.equal((await service.preview(source)).programs.length, 2);
+});
+
+test("a preview refusal with its own reason keeps it", async (t) => {
+  const refusal = packageProblem("MCP_PACKAGE_UNSATISFIABLE", 400);
+  const { service } = harness(t, {
+    adapters: {
+      npm: {
+        ...twoPrograms,
+        preview: async () => {
+          throw refusal;
+        },
+      },
+    },
+  });
+  await assert.rejects(service.preview(source), (error) => {
+    assert.equal(error, refusal);
+    assert.equal(error.message, serverMessages.mcpPackages.unsatisfiable);
+    return true;
+  });
 });
 
 test("a detach whose record cannot be removed answers with a package code", async (t) => {

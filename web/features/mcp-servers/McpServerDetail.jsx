@@ -16,17 +16,12 @@ import McpServerFields from "./McpServerFields.jsx";
 import McpServerInfo from "./McpServerInfo.jsx";
 import StdioConfirmation from "./StdioConfirmation.jsx";
 import { savedNotice } from "./mcp-notices.js";
+import { refusalField } from "./mcp-package-labels.js";
 import { mcpServerStep, mcpServerValues } from "./mcp-server-save.js";
 import "./mcp-servers.css";
 import "./mcp-cli.css";
 
 const valueReference = (error) => error?.code === "MCP_SERVER_VALUE_REFERENCE";
-// A preview refusing the dependency constraints belongs to that field.
-const refusedConstraints = (error) =>
-  error?.messageKey === "mcpPackages.invalidConstraints";
-
-// A yanked release belongs to the version field.
-const refusedVersion = (error) => error?.messageKey === "mcpPackages.versionYanked";
 
 /** One central MCP server: create (item=new) or view, edit, log in, remove. */
 export default function McpServerDetail({
@@ -87,14 +82,11 @@ export default function McpServerDetail({
   // A refused value belongs to its field, not to the bar.
   useEffect(() => {
     const failure = draft.outcome?.error;
-    if (refusedConstraints(failure)) {
+    // The registry is read when the refusal arrives.
+    const field = refusalField(failure, draft.values.registry);
+    if (field) {
       consumed.current = draft.outcome;
-      setFieldError({ field: "packageConstraints", text: failure.message });
-      return;
-    }
-    if (refusedVersion(failure)) {
-      consumed.current = draft.outcome;
-      setFieldError({ field: "packageVersion", text: failure.message });
+      setFieldError({ field, text: failure.message });
       return;
     }
     if (!valueReference(failure)) return;
@@ -106,6 +98,7 @@ export default function McpServerDetail({
         ? `${failure.message} ${copy.referenceNames(failure.names.join(", "))}`
         : failure.message,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.outcome]);
   const barDraft =
     draft.outcome && draft.outcome === consumed.current
