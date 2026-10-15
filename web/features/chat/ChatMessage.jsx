@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import ToolOutput from "./ToolOutput.jsx";
 import TruncatedToolOutput from "./TruncatedToolOutput.jsx";
 import ToolChanges from "./ToolChanges.jsx";
+import { formatSize } from "./tool-output.js";
 import { defaultUrlTransform } from "react-markdown";
 import ChatMarkdown from "../../components/ChatMarkdown.jsx";
 import { projectLinkPath } from "./chat-file-link.js";
@@ -73,7 +74,18 @@ export default function Message({
               sessionId={sessionId}
             />
           ) : (
-            <ToolOutput text={message.text} toolName={message.toolName} />
+            <>
+              {message.shellOmitted && (
+                <p className="tool-output-omitted">
+                  {copy.shellOutputOmitted(
+                    formatSize(
+                      Object.values(message.shellOmitted).reduce((a, b) => a + b, 0),
+                    ),
+                  )}
+                </p>
+              )}
+              <ToolOutput text={message.text} toolName={message.toolName} />
+            </>
           ))}
       </details>
     );

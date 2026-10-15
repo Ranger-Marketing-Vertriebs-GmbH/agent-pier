@@ -191,6 +191,7 @@ export function normalizeClaude(records) {
             toolName: "Bash",
             shellOutput: true,
             status: "completed",
+            ...(record.shellOmitted && { shellOmitted: record.shellOmitted }),
           }),
           text: content,
           ...timestamp,

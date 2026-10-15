@@ -436,6 +436,43 @@ for (const copy of [
       await expect(output).toContainText("README.md");
       await expect(output).toContainText("Shell cwd was reset");
       await expect(page.locator("body")).not.toContainText("bash-");
+      // Long output keeps its newest part and says what was left out; an agent's
+      // own tool row still starts closed inside its activity group.
+      const lines = Array.from({ length: 5000 }, (_, i) => `entry ${i}`).join("\n");
+      state.messages = [
+        ...state.messages.filter((message) => message.id !== "bash-output"),
+        ...normalizeClaude([
+          {
+            type: "user",
+            uuid: "long-output",
+            timestamp: at(1002),
+            message: { role: "user", content: `<bash-stdout>${lines}</bash-stdout>` },
+          },
+          {
+            type: "assistant",
+            uuid: "agent",
+            timestamp: at(1003),
+            message: {
+              role: "assistant",
+              content: [{ type: "tool_use", id: "call", name: "Bash", input: {} }],
+            },
+          },
+        ]).messages,
+      ];
+      await state.publish();
+      const long = page.locator('details.chat-tool[data-message-id="long-output"]');
+      await expect(long).toHaveAttribute("open", "");
+      await expect(long.locator(".tool-output-omitted")).toContainText(
+        copy.locale === "en-GB"
+          ? "Earlier output omitted ("
+          : "Ältere Ausgabe ausgelassen (",
+      );
+      await expect(long.locator(".tool-output-label")).toHaveText(["stdout"]);
+      await expect(page.locator("body")).not.toContainText('{"stdout"');
+      await page.locator(".chat-tool-group > summary").click();
+      const agent = page.locator('details.chat-tool[data-message-id="call"]');
+      await expect(agent).toBeVisible();
+      await expect(agent).not.toHaveAttribute("open");
       expect(state.inputs).toHaveLength(1);
     });
   });

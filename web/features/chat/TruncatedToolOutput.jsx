@@ -3,11 +3,8 @@ import api from "../../lib/api.js";
 import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
 import useLanguage from "../../lib/i18n/useLanguage.js";
 import ToolOutput from "./ToolOutput.jsx";
+import { formatSize } from "./tool-output.js";
 
-const formatSize = (bytes) =>
-  bytes < 1048576
-    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-    : `${(bytes / 1048576).toFixed(1)} MB`;
 const utf8 = (value) => new TextEncoder().encode(value).length;
 
 export default function TruncatedToolOutput({ message, sessionId }) {
