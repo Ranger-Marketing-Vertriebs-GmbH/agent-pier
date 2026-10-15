@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import tls from "node:tls";
 import {
   compileFailure,
   installPython,
@@ -61,22 +62,20 @@ test("the uv environment is built from scratch; compilers only with the opt-in",
 test("uv gets SSL_CERT_FILE only when the owner configured a CA for Node", (t) => {
   const work = tmp(t);
   const extra = path.join(work, "company.pem");
-  fs.writeFileSync(extra, "-----BEGIN CERTIFICATE-----\nX\n-----END CERTIFICATE-----\n");
+  fs.writeFileSync(extra, `${tls.rootCertificates[0]}\n`);
   const base = { work, index: "https://pypi.org/simple", cacheDir: path.join(work, "c") };
   assert.equal(uvEnvironment({ ...base, environment: {} }).SSL_CERT_FILE, undefined);
   const env = uvEnvironment({ ...base, environment: { NODE_EXTRA_CA_CERTS: extra } });
   assert.equal(path.dirname(env.SSL_CERT_FILE), work);
-  assert.match(
-    fs.readFileSync(env.SSL_CERT_FILE, "utf8"),
-    /-----BEGIN CERTIFICATE-----\nX\n/,
-  );
+  const bundle = fs.readFileSync(env.SSL_CERT_FILE, "utf8");
+  assert.ok(bundle.endsWith(`${tls.rootCertificates[0]}\n`));
   assert.equal(env.UV_NATIVE_TLS, undefined);
 });
 
 test("the CA bundle goes away with the uv work folder", async (t) => {
   const stage = tmp(t);
   const extra = path.join(tmp(t), "company.pem");
-  fs.writeFileSync(extra, "-----BEGIN CERTIFICATE-----\nX\n-----END CERTIFICATE-----\n");
+  fs.writeFileSync(extra, `${tls.rootCertificates[0]}\n`);
   let bundle;
   await resolvePython({
     stage,
