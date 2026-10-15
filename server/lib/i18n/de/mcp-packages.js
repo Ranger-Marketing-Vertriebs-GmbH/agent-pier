@@ -27,4 +27,5 @@ export const mcpPackages = {
     "Gerade wird bereits eine Toolchain installiert. Bitte gleich erneut versuchen.",
   invalidConstraints:
     "Abhängigkeitsgrenzen bestehen aus einem PyPI-Paketnamen mit Versionsgrenzen pro Zeile (zum Beispiel fastmcp<4), höchstens 10.",
+  cancelled: "Die Installation wurde abgebrochen, weil der Server gelöscht wurde.",
 };
