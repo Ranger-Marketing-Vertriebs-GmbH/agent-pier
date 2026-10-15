@@ -331,9 +331,9 @@ fetches at build time (for example setuptools) come from PyPI outside the frozen
 hash-checked lock; the confirmation says so ("Build tools such as setuptools are then
 downloaded from PyPI during the build; they are not part of the frozen, hash-checked
 dependency list."). Because the program of a built package is only known after the
-build, the confirmation does not name it yet. A source-only package with several
-programs cannot pick its program in the form yet: its build fails with "program
-required". A failed preview says only "installation failed" and shows no log.
+build, the confirmation does not name it yet. A source-only package whose build installs
+several programs stops at _Choose program_: the package panel lists the programs, and
+**Use this program** starts the chosen one without installing again. A failed preview says only "installation failed" and shows no log.
 
 **Dependency constraints (PyPI only).** For a PyPI package you can enter up to 10
 dependency constraints, one per line, each a PyPI package name with version limits
@@ -354,7 +354,8 @@ replaces the install directory; set the path the server offers for its data (for
 `server-memory` `MEMORY_FILE_PATH`) to a folder of your own. Qualified servers are
 listed in [MCP package qualification](mcp-package-qualification.md).
 
-The form shows the status: _Installing…_, _Installed_, _Installation failed_ or
+The form shows the status: _Installing…_, _Installed_, _Choose program_ (a build
+installed several programs and waits for your choice), _Installation failed_ or
 _Installation missing_ (the files of a ready install are gone or changed).
 
 - **Bindings.** Until the package is ready, the controls for Coding CLIs and agents
@@ -390,4 +391,5 @@ _Installation missing_ (the files of a ready install are gone or changed).
   `package.detached` with the registry, package name, version, the install-scripts
   choice and the dependency constraints (PyPI); never an argument, environment value or
   path. They are recorded when the change is accepted, so they do not say whether the
-  background install succeeded (its status and log do).
+  background install succeeded (its status and log do). Choosing the program after a
+  build is recorded as `package.activated` with the same details.

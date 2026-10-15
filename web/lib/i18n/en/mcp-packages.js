@@ -49,7 +49,11 @@ export const mcpPackageCopy = {
     ready: "Installed",
     failed: "Installation failed",
     missing: "Installation missing",
+    choosing: "Choose program",
   },
+  choosingHint:
+    "The build installed several programs. Choose the one this server starts; nothing is installed again.",
+  chooseProgram: "Use this program",
   panelLabel: "Package",
   reinstall: "Reinstall",
   updateLabel: "New version",
