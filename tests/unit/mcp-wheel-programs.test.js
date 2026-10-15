@@ -119,3 +119,33 @@ test("a symlinked venv/bin directory cannot escape the install", (t) => {
     code: "MCP_PACKAGE_NO_PROGRAM",
   });
 });
+
+test("a symlinked dist-info folder is not read", (t) => {
+  const venv = fs.mkdtempSync(path.join(os.tmpdir(), "venv-"));
+  t.after(() => fs.rmSync(venv, { recursive: true, force: true }));
+  const site = path.join(venv, "lib", "python3.14", "site-packages");
+  const real = path.join(venv, "elsewhere");
+  fs.mkdirSync(site, { recursive: true });
+  fs.mkdirSync(real);
+  fs.writeFileSync(
+    path.join(real, "entry_points.txt"),
+    "[console_scripts]\nx = x:main\n",
+  );
+  fs.symlinkSync(real, path.join(site, "srv-1.0.dist-info"));
+  assert.equal(installedEntryPoints(venv, "srv"), "");
+});
+
+test("two dist-info folders of one distribution give no program", (t) => {
+  const venv = fs.mkdtempSync(path.join(os.tmpdir(), "venv-"));
+  t.after(() => fs.rmSync(venv, { recursive: true, force: true }));
+  const site = path.join(venv, "lib", "python3.14", "site-packages");
+  for (const version of ["1.0", "2.0"]) {
+    const dist = path.join(site, `srv-${version}.dist-info`);
+    fs.mkdirSync(dist, { recursive: true });
+    fs.writeFileSync(
+      path.join(dist, "entry_points.txt"),
+      `[console_scripts]\nsrv${version[0]} = x:main\n`,
+    );
+  }
+  assert.equal(installedEntryPoints(venv, "srv"), "");
+});
