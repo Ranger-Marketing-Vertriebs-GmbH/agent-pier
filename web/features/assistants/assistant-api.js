@@ -115,6 +115,8 @@ export const assistantApi = {
     api(`/mcp-servers/${encodeURIComponent(id)}/package/update`, "POST", input),
   reinstallMcpPackage: (id) =>
     api(`/mcp-servers/${encodeURIComponent(id)}/package/reinstall`, "POST", {}),
+  chooseMcpPackageProgram: (id, input) =>
+    api(`/mcp-servers/${encodeURIComponent(id)}/package/program`, "POST", input),
   loginMcpServer: (id) =>
     api(`/mcp-servers/${encodeURIComponent(id)}/oauth/login`, "POST", {}),
   logoutMcpServer: (id) =>

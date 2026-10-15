@@ -5,6 +5,7 @@ import { mcpPackageCopy as copy } from "../../lib/i18n/messages/mcp-packages.js"
 import { serverText } from "../../lib/server-messages.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import McpPackageConfirmation from "./McpPackageConfirmation.jsx";
+import McpPackageProgramChoice from "./McpPackageProgramChoice.jsx";
 import {
   McpAllowScripts,
   McpConstraints,
@@ -18,9 +19,10 @@ import "./mcp-packages.css";
 const pollMs = 2000;
 
 /**
- * The package of a packaged server: its status (installing, ready, failed, missing)
- * with its program and PyPI constraints, the last error and the redacted job log,
- * Reinstall when the install is gone or failed, and an update that shows the lock
+ * The package of a packaged server: its status (installing, ready, choosing, failed,
+ * missing) with its program and PyPI constraints, the last error and the redacted job log,
+ * the program choice when a build installed several, Reinstall when the install is gone
+ * or failed, and an update that shows the lock
  * diff before it is confirmed; the update keeps the constraints unless edited. While a job
  * runs the status is polled; `onChanged` reloads the servers once it settles.
  */
@@ -129,6 +131,12 @@ export default function McpPackagePanel({ server, onChanged }) {
     });
   const reinstall = () =>
     act(async () => started(await assistantApi.reinstallMcpPackage(server.id)));
+  const choose = (program) =>
+    act(async () =>
+      started(await assistantApi.chooseMcpPackageProgram(server.id, { program })),
+    );
+  const programs = status?.programs ?? [];
+  const choosing = shown === "choosing";
   const unchanged =
     version === source.version &&
     allowScripts === (source.allowScripts === true) &&
@@ -179,7 +187,13 @@ export default function McpPackagePanel({ server, onChanged }) {
         </details>
       )}
       <ErrorMessage error={error} />
-      {(shown === "failed" || shown === "missing") && (
+      {choosing && programs.length > 0 && (
+        <McpPackageProgramChoice programs={programs} busy={busy} onChoose={choose} />
+      )}
+      {/* A choosing record whose program list is gone can only be built again. */}
+      {(shown === "failed" ||
+        shown === "missing" ||
+        (choosing && status && programs.length === 0)) && (
         <div className="mcp-actions">
           <button
             type="button"
@@ -191,7 +205,7 @@ export default function McpPackagePanel({ server, onChanged }) {
           </button>
         </div>
       )}
-      {!running && !preview && (
+      {!running && !preview && !choosing && (
         <div className="mcp-package-update">
           <McpVersionPicker
             id={`${id}-update`}

@@ -320,3 +320,87 @@ test("on a phone the PyPI confirmation wraps its digest within the width", async
   expect(box.x + box.width).toBeLessThanOrEqual(390);
   if (screens) await confirm.screenshot({ path: `${screens}/en-pypi-phone.png` });
 });
+
+test("a build with several programs waits for the program choice", async ({ page }) => {
+  const server = pypiServer();
+  server.source = { ...server.source, status: "choosing", program: "", leadingArgs: 0 };
+  const state = await packageSetup(page, { servers: [server] });
+  state.versions = pypiVersions;
+  state.packageStatus = {
+    source: server.source,
+    job: { kind: "install", state: "done", code: null, log: "" },
+    error: null,
+    programs: ["opnsense-mcp", "opnsense-admin"],
+  };
+  state.reply = ({ path }) =>
+    path.endsWith("/package/program")
+      ? {
+          status: 202,
+          json: { job: { kind: "activate", state: "running", code: null, log: "" } },
+        }
+      : null;
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAccountItem(page, "pkg");
+  const panel = dialog.getByRole("region", { name: "Package" });
+  await expect(
+    panel.getByRole("status").filter({ hasText: "Choose program" }),
+  ).toBeVisible();
+  await expect(panel.getByText(/several programs/)).toBeVisible();
+  // No update is offered while the build waits for its program.
+  await expect(panel.getByRole("button", { name: "Check update" })).toHaveCount(0);
+  const select = panel.getByLabel("Program", { exact: true });
+  await expect(select).toHaveValue("opnsense-mcp");
+  await select.selectOption("opnsense-admin");
+  if (screens) await panel.screenshot({ path: `${screens}/en-pypi-choosing.png` });
+  await panel.getByRole("button", { name: "Use this program" }).click();
+  await expect(
+    panel.getByRole("status").filter({ hasText: "Installing…" }),
+  ).toBeVisible();
+  expect(writes(state, "/api/mcp-servers/s1/package/program")[0].body).toEqual({
+    program: "opnsense-admin",
+  });
+  // The bindings stay locked until the program runs.
+  await expect(dialog.getByText(/added once the package is installed/)).toBeVisible();
+});
+
+test("German: the program choice is translated", async ({ page }) => {
+  const server = pypiServer();
+  server.source = { ...server.source, status: "choosing", program: "", leadingArgs: 0 };
+  const state = await packageSetup(page, { servers: [server], language: "de" });
+  state.versions = pypiVersions;
+  state.packageStatus = {
+    source: server.source,
+    job: null,
+    error: null,
+    programs: ["opnsense-mcp", "opnsense-admin"],
+  };
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAccountItem(page, "pkg");
+  const panel = dialog.getByRole("region", { name: "Paket" });
+  await expect(
+    panel.getByRole("status").filter({ hasText: "Programm wählen" }),
+  ).toBeVisible();
+  await expect(panel.getByText(/mehrere Programme/)).toBeVisible();
+  await expect(panel.getByLabel("Programm", { exact: true })).toHaveValue("opnsense-mcp");
+  await expect(
+    panel.getByRole("button", { name: "Dieses Programm verwenden" }),
+  ).toBeVisible();
+});
+
+test("a waiting build whose programs are gone offers only Reinstall", async ({
+  page,
+}) => {
+  const server = pypiServer();
+  server.source = { ...server.source, status: "choosing", program: "", leadingArgs: 0 };
+  const state = await packageSetup(page, { servers: [server] });
+  state.versions = pypiVersions;
+  state.packageStatus = { source: server.source, job: null, error: null, programs: [] };
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAccountItem(page, "pkg");
+  const panel = dialog.getByRole("region", { name: "Package" });
+  await expect(
+    panel.getByRole("status").filter({ hasText: "Choose program" }),
+  ).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Reinstall" })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Use this program" })).toHaveCount(0);
+});
