@@ -22,6 +22,8 @@ export const launchDialogCopy = {
     "YOLO runs commands without approval prompts or a sandbox. Applies only to this new session.",
   claudeAutoDescription:
     "Auto evaluates actions using Claude’s safety checks. Availability depends on version, model and account policies; approval prompts may still appear.",
+  claudeBypassDescription:
+    "Claude runs every command and change without asking. Use it only in trusted projects, ideally with a sandbox profile. Applies only to this new session.",
   opencodeAutoDescription:
     "Auto approves permission requests automatically. Explicit denials remain active. Applies only to this new session.",
   codingSessionDescription: "A real terminal. Your tool, your account, your project.",
@@ -32,6 +34,7 @@ export const launchDialogCopy = {
   nativeModeOption: "Standard · tool defaults",
   codexYoloOption: "YOLO · no approval prompts or sandbox",
   claudeAutoOption: "Auto · with safety checks",
+  claudeBypassOption: "No permission prompts",
   opencodeAutoOption: "Auto · approve requests automatically",
   agentbusLaunchLabel: "AgentBus · connect sessions in the same project",
   agentbusLaunchHint:

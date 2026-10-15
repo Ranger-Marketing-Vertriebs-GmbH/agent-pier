@@ -96,6 +96,18 @@ the same conversation receives subsequent answers. AgentPier 1.17.0 to 1.17.10 w
 verified with this mode. The probe does not use user credentials or send prompts
 to a remote model.
 
+### Skip-permissions sessions (2026-10-15)
+
+A session launched with `--dangerously-skip-permissions` (launch mode `bypass`) runs in
+Claude's `bypassPermissions` mode, so ordinary tool calls never reach
+`PermissionRequest` and no approval appears in AgentPier. Safety checks that Claude Code
+2.1.300 marks as bypass-immune (for example dangerous removals) can still prompt and
+then use the same hook. `AskUserQuestion` is unaffected: its `PreToolUse` hook runs in
+every permission mode. Claude Code exits at startup when this flag runs as root unless
+`IS_SANDBOX=1` or its bubblewrap sandbox is set; AgentPier passes neither, so the
+account store rejects the mode as root. Verified against the strings of the installed
+2.1.300 binary, without launching it.
+
 ### Permission lifetime and terminal handoff (2026-10-03)
 
 Ordinary Claude tool approvals (`PermissionRequest` without `AskUserQuestion`)

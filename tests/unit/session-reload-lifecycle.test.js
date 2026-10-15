@@ -288,3 +288,17 @@ test("Codex reload maps the live provider label before rebuilding the launch", a
     'model_reasoning_effort="max"',
   ]);
 });
+
+test("reload relaunches a skip-permissions Claude session in the same launch mode", async () => {
+  const f = fixture();
+  const modes = [];
+  const command = f.services.accounts.command;
+  f.services.accounts.command = (id, tools, login, mode, opts) => {
+    modes.push([login, mode]);
+    return command(id, tools, login, mode, opts);
+  };
+  f.session.launchMode = "bypass";
+  const plan = await f.prepareReload(f.session, "native-exact");
+  await f.restartReload(f.session, plan);
+  assert.deepEqual(modes, [[false, "bypass"]]);
+});

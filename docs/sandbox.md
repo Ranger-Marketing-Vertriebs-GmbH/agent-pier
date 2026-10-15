@@ -170,6 +170,29 @@ nono cannot initialize nested inside another operating-system sandbox: if the Ag
 server process itself already runs under one, wrapping a session in nono on top of it
 fails at launch. Run AgentPier unsandboxed if you want to use this feature.
 
+## Unattended launch modes
+
+The launch dialog's launch mode decides how often the CLI stops to ask before it acts.
+Codex offers YOLO (`--yolo`: no approval prompts and no Codex sandbox) and Claude Code
+offers "No permission prompts" (`--dangerously-skip-permissions`). In that mode Claude
+runs every command and file change without asking; only the few safety checks Claude
+Code keeps even then (in 2.1.300, for example, dangerous removals) can still raise a
+prompt, which reaches AgentPier's approval relay as usual. `AskUserQuestion` keeps
+working, because AgentPier relays it through a `PreToolUse` hook rather than a
+permission prompt. The mode applies only to the new session, is stored with it and
+survives a reload; login sessions reject it like every non-default mode.
+
+Claude Code refuses this flag when it runs as root, and AgentPier does not forward
+`IS_SANDBOX` to the CLI, so a server running as root rejects the mode at launch with a
+clear message instead of starting a session that exits immediately.
+
+Both unattended modes remove the CLI's own last line of defence. Use them only in
+projects you trust, and preferably together with a nono sandbox profile: the sandbox
+still limits which files and paths the CLI can reach, even when nothing asks first. The
+dialog remembers the last launch mode per CLI in the browser and preselects it next
+time; a remembered mode the CLI no longer offers falls back to the default (Codex YOLO,
+Claude Code and OpenCode Auto).
+
 ## Why the boundary is partial
 
 Full integration parity — keeping project memory, AgentBus, the SSH tools, the GitHub
