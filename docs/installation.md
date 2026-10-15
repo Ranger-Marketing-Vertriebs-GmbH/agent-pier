@@ -316,15 +316,23 @@ downloads use the same rules.
 Proxies: run the installer in a shell where `HTTPS_PROXY`/`HTTP_PROXY` (either
 case), `NO_PROXY`/`no_proxy` and, for a company CA, `NODE_EXTRA_CA_CERTS` are set.
 No manual service edits are needed. `uv` (used for PyPI MCP packages) does not read
-`NODE_EXTRA_CA_CERTS`, so behind a TLS-intercepting proxy PyPI previews and installs
-fail until a follow-up passes the CA to `uv`:
+`NODE_EXTRA_CA_CERTS` itself; for each uv run AgentPier writes a private bundle of
+Node's built-in root certificates plus the certificates in that file and passes it
+as `SSL_CERT_FILE`, so PyPI previews and installs trust the same CA as npm. The
+bundle is readable only by your user and is deleted with the run's work folder. An
+unreadable file (or one without a PEM certificate) is skipped with a log line, and
+uv then uses its own roots. The bundle does not contain the operating system's
+certificate store, even if Node itself was started with `--use-system-ca`; a CA that
+Node trusts only from that store must also be listed in `NODE_EXTRA_CA_CERTS` to
+reach uv:
 
 - The installer writes exactly these variables, plus `NODE_USE_ENV_PROXY=1`, into
   the launchd `EnvironmentVariables` or the systemd `Environment=` lines. No other
   variable of the shell is persisted. Rerunning the installer with changed proxy
   settings updates the service; a rerun from a shell without proxy variables keeps
   the settings the service already has.
-- AgentPier passes the same set to `npm ci` and to the assistant Gateway.
+- AgentPier passes the same set to `npm ci` and to the assistant Gateway, and,
+  as the bundle above, to `uv`.
 - `localhost`, `127.0.0.1`, `::1` and `[::1]` are always added to `NO_PROXY` and
   `no_proxy`, so health checks and the Gateway connection never use the proxy.
 - Node's built-in `fetch` honours the proxy on Node 22.21+ or 24+ (not on Node 23,

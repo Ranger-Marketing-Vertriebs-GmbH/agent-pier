@@ -1,7 +1,8 @@
 /**
  * Proxy settings are the only network configuration AgentPier passes on to the
- * processes it starts (npm ci, the assistant Gateway, its own service). Node never
- * reads a lowercase node_extra_ca_certs, so only the uppercase form is kept.
+ * processes it starts (npm ci, the assistant Gateway, its own service; uv receives
+ * the CA as a bundle, see mcp-packages/uv-certificates.js). Node never reads a
+ * lowercase node_extra_ca_certs, so only the uppercase form is kept.
  */
 const routing = ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"];
 const exclusions = ["NO_PROXY", "no_proxy"];

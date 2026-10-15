@@ -3,6 +3,7 @@ import path from "node:path";
 import { proxyEnvironment } from "../../lib/proxy-environment.js";
 import { runProcessTree } from "./child-process-tree.js";
 import { packageError, packageProblem } from "./package-errors.js";
+import { uvCertificateFile } from "./uv-certificates.js";
 import { privateFolder } from "./verified-files.js";
 
 const failed = () => packageProblem("MCP_PACKAGE_INSTALL_FAILED", 502);
@@ -37,13 +38,15 @@ const refusal = (output) => (refusals[compileFailure(output)] ?? failed)();
 const wheelsOnly = ["--only-binary", ":all:"];
 
 /**
- * Only proxy variables are inherited; uv reads no config file (uv.toml, pip.conf
- * variables, pyproject) and downloads no Python. Source builds (opt-in) use the
- * system `cc`: CPython's sysconfig names `clang`, which a Linux host often lacks
- * (preflight B12).
+ * Only proxy variables and the owner's CA (as SSL_CERT_FILE, a bundle in `work`)
+ * are passed on; uv reads no config file (uv.toml, pip.conf variables, pyproject)
+ * and downloads no Python. UV_NATIVE_TLS stays unset: the operating system's store
+ * is not what Node trusts. Source builds (opt-in) use the system `cc`: CPython's
+ * sysconfig names `clang`, which a Linux host often lacks (preflight B12).
  */
 export function uvEnvironment({ work, index, cacheDir, environment, allowScripts }) {
   for (const name of ["home", "tmp"]) privateFolder(path.join(work, name));
+  const certificates = uvCertificateFile(work, environment ?? process.env);
   return {
     ...proxyEnvironment(environment),
     HOME: path.join(work, "home"),
@@ -55,6 +58,8 @@ export function uvEnvironment({ work, index, cacheDir, environment, allowScripts
     UV_PYTHON_DOWNLOADS: "never",
     UV_LINK_MODE: "copy",
     UV_CACHE_DIR: privateFolder(cacheDir),
+    // Node's roots plus the owner's CA, as one file: see uv-certificates.js.
+    ...(certificates ? { SSL_CERT_FILE: certificates } : {}),
     ...(allowScripts === true ? { CC: "cc", CXX: "c++" } : {}),
   };
 }
