@@ -87,3 +87,23 @@ export function npmCommand(dataDir, receipt, node) {
     throw packageProblem("MCP_PACKAGE_NO_PROGRAM", 502);
   }
 }
+/** The venv's console script of the program, contained in the install. */
+export function pythonCommand(dataDir, receipt) {
+  try {
+    const directory = verifiedInstall(dataDir, receipt.installId);
+    const bin = path.join(directory, "venv", "bin");
+    const file = receipt.program.path;
+    if (typeof file !== "string" || !file || file.includes("/") || file.includes("\\"))
+      throw Error("outside");
+    const program = path.join(bin, file);
+    if (path.dirname(program) !== bin || file === "." || file === "..")
+      throw Error("outside");
+    const stat = fs.lstatSync(program);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw Error("not a script");
+    const realBin = path.join(fs.realpathSync(directory), "venv", "bin");
+    if (fs.realpathSync(program) !== path.join(realBin, file)) throw Error("outside");
+    return { command: program, leading: [] };
+  } catch {
+    throw packageProblem("MCP_PACKAGE_NO_PROGRAM", 502);
+  }
+}
