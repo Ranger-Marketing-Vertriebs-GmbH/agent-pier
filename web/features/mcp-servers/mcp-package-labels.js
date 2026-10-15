@@ -10,3 +10,9 @@ export function refusalField(error, registry) {
   if (key === "mcpPackages.versionYanked") return "packageVersion";
   return null;
 }
+
+/** A nested copy of a name that appears more than once shows where it sits in the graph. */
+export const showsPath = (entry, list) =>
+  typeof entry.path === "string" &&
+  entry.path !== entry.name &&
+  list.filter((other) => other.name === entry.name).length > 1;

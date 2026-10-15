@@ -28,6 +28,8 @@ export const mcpPackageCopy = {
   updateAction: "Aktualisieren",
   confirmNote:
     "Das installierte Programm läuft als lokaler Befehl mit den Rechten deines Benutzers in den CLIs und Agenten, die du auswählst.",
+  dependencyAt: (label, path) => `${label} (${path})`,
+  namePlaceholder: { npm: "@scope/server", pypi: "mcp-server-name" },
   dependencies: (count) => `${count} Pakete insgesamt`,
   integrity: "Integrität",
   files: (count) => (count === 1 ? "1 Datei" : `${count} Dateien`),

@@ -186,7 +186,8 @@ test("an update shows the lock diff before it is confirmed", async ({ page }) =>
   const confirm = panel.getByRole("alertdialog", { name: "Update this package?" });
   // Nested copies of one package stay separate lines.
   await expect(confirm.getByText("Added (2)")).toBeVisible();
-  await expect(confirm.getByText("extra 2.0.0")).toHaveCount(2);
+  await expect(confirm.getByText("extra 2.0.0", { exact: true })).toHaveCount(1);
+  await expect(confirm.getByText("extra 2.0.0 (helper > extra)")).toBeVisible();
   await expect(confirm.getByText("old 0.1.0")).toBeVisible();
   await expect(confirm.getByText("helper 0.9.0 → 1.0.0")).toBeVisible();
   expect(state.requests.find((r) => r.path.endsWith("/preview")).body).toMatchObject({
@@ -382,4 +383,56 @@ test("German: the form offers the package source", async ({ page }) => {
   await dialog.getByRole("radio", { name: "PyPI" }).check();
   await expect(dialog.getByLabel("Abhängigkeitsgrenzen")).toBeVisible();
   await expect(dialog.getByText(/fastmcp<4/)).toBeVisible();
+});
+
+test("cancelling the update confirmation returns focus to Check update", async ({
+  page,
+}) => {
+  const state = await packageSetup(page, { servers: [packagedServer("ready")] });
+  state.preview = preview({ diff: { added: [], removed: [], changed: [] } });
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAccountItem(page, "pkg");
+  const panel = dialog.getByRole("region", { name: "Package" });
+  await panel.getByRole("button", { name: "Check update" }).click();
+  await panel
+    .getByRole("alertdialog", { name: "Update this package?" })
+    .getByRole("button", { name: "Cancel" })
+    .click();
+  await expect(panel.getByRole("button", { name: "Check update" })).toBeFocused();
+});
+
+test("keeping the package after typing a command leaves nothing to save", async ({
+  page,
+}) => {
+  await packageSetup(page, { servers: [packagedServer("ready")] });
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAccountItem(page, "pkg");
+  await dialog.getByRole("button", { name: "Use own command" }).click();
+  await dialog.getByRole("textbox", { name: /^Command/ }).fill("/usr/bin/server-x");
+  await dialog.getByLabel("Arguments").fill("--other");
+  await dialog.getByRole("button", { name: "Keep package" }).click();
+  await expect(saveBar(page)).toHaveCount(0);
+  await expect(dialog.getByLabel("Arguments")).toHaveValue("--owner");
+});
+
+test("a new package name clears the chosen version until its list loads", async ({
+  page,
+}) => {
+  const state = await packageSetup(page);
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  await page.route(/\/api\/mcp-packages\/versions\?.*name=other/, async (route) => {
+    await held;
+    await route.fulfill({ json: state.versions });
+  });
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAdd(page);
+  await choosePackage(dialog);
+  await dialog.getByLabel("Package", { exact: true }).fill("server-x");
+  const version = dialog.getByLabel("Version", { exact: true });
+  await expect(version).toHaveValue("1.1.0");
+  await dialog.getByLabel("Package", { exact: true }).fill("other");
+  await expect(version).toHaveValue("");
+  release();
+  await expect(version).toHaveValue("1.1.0");
 });

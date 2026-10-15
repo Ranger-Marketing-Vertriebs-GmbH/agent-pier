@@ -188,8 +188,12 @@ export default function McpPackageFields({
           autoCapitalize="none"
           autoComplete="off"
           spellCheck={false}
-          placeholder={values.registry === "pypi" ? "mcp-server-name" : "@scope/server"}
-          onChange={(event) => set("packageName")(event.target.value)}
+          placeholder={copy.namePlaceholder[values.registry] ?? copy.namePlaceholder.npm}
+          onChange={(event) => {
+            set("packageName")(event.target.value);
+            // A version belongs to one package; the new list preselects again.
+            set("packageVersion")("");
+          }}
         />
       </label>
       <McpVersionPicker
