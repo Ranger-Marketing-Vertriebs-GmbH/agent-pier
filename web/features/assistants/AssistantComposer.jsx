@@ -7,7 +7,6 @@ import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import ComposerOptions from "./ComposerOptions.jsx";
 import AgentAttachmentTray from "./AgentAttachmentTray.jsx";
-import useAgentAttachments from "./useAgentAttachments.js";
 import { ACCEPT } from "./agent-attachment-upload.js";
 import { assistantAttachmentsCopy as attachCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 import MemberMentionMenu from "./MemberMentionMenu.jsx";
@@ -18,13 +17,15 @@ const optionsId = "assistant-composer-options";
 
 // One rounded box (handoff 1d/2a/2d): the field grows to six lines; attachments, team
 // permission and the keyboard hint sit behind "+"; Stop replaces Send while working.
-// Files can also be pasted or dropped; `onFiles` reports how many are ready, and
+// Files can also be pasted (dropping is handled by the chat panel, which owns
+// `attachments`); `onFiles` reports how many are ready, and
 // `onSubmit(event, ids)` resolves true once the message with them was accepted.
 // A lead's composer offers its members after "@" (`mentionMembers`).
 export default function AssistantComposer({
   assistant,
   conversationId,
   drafts,
+  attachments,
   text,
   setText,
   teamAllowed,
@@ -45,9 +46,7 @@ export default function AssistantComposer({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const field = useRef(null);
   const optionsButton = useRef(null);
-  const [dragging, setDragging] = useState(false);
   const picker = useRef(null);
-  const attachments = useAgentAttachments(conversationId);
   const ready = attachments.ids.join();
   const member = Boolean(assistant.teamMemberId);
   const hint = sendHint(touchInput);
@@ -72,7 +71,6 @@ export default function AssistantComposer({
     setOptionsOpen(false);
     picker.current?.click();
   };
-  const withFiles = (event) => [...(event.dataTransfer?.types || [])].includes("Files");
   const submitWithFiles = async (event) => {
     event.preventDefault();
     if (attachments.blocked) return;
@@ -132,22 +130,8 @@ export default function AssistantComposer({
   );
   return (
     <form
-      className={`assistant-composer${member ? " member" : ""}${dragging ? " dragging" : ""}`}
+      className={`assistant-composer${member ? " member" : ""}`}
       onSubmit={submitWithFiles}
-      onDragOver={(event) => {
-        if (!withFiles(event)) return;
-        event.preventDefault();
-        setDragging(true);
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false);
-      }}
-      onDrop={(event) => {
-        if (!withFiles(event)) return;
-        event.preventDefault();
-        setDragging(false);
-        attachments.add(event.dataTransfer.files);
-      }}
     >
       <ChatScrollToBottom active output={output} stick={stick} scroll={scroll} />
       <ComposerOptions
