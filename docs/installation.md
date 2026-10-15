@@ -315,7 +315,9 @@ downloads use the same rules.
 
 Proxies: run the installer in a shell where `HTTPS_PROXY`/`HTTP_PROXY` (either
 case), `NO_PROXY`/`no_proxy` and, for a company CA, `NODE_EXTRA_CA_CERTS` are set.
-No manual service edits are needed:
+No manual service edits are needed. `uv` (used for PyPI MCP packages) does not read
+`NODE_EXTRA_CA_CERTS`, so behind a TLS-intercepting proxy PyPI previews and installs
+fail until a follow-up passes the CA to `uv`:
 
 - The installer writes exactly these variables, plus `NODE_USE_ENV_PROXY=1`, into
   the launchd `EnvironmentVariables` or the systemd `Environment=` lines. No other
