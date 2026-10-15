@@ -271,3 +271,57 @@ test("a lock that is not text is an install failure", () => {
       code: "MCP_PACKAGE_INSTALL_FAILED",
     });
 });
+
+test("option-like tokens inside a marker are foreign", () => {
+  for (const req of [
+    `c==1.0 ; python_version > "3" -i evil`,
+    `c==1.0 ; python_version > "3" --config-settings x=y`,
+    `c==1.0 ; python_version > "3" --no-binary idna`,
+    `c==1.0 ; -e .`,
+    `c==1.0 ; python_version > "3"\t--pre`,
+    "c==1.0 --no-binary idna",
+  ])
+    assert.throws(
+      () => checkPythonLock(lock(`${req} \\\n    --hash=sha256:${h("d")}`), { ref }),
+      foreign,
+      req,
+    );
+});
+
+test("only ASCII space and tab count as whitespace", () => {
+  const d = `--hash=sha256:${h("d")}`;
+  for (const extra of [
+    `idna==3.10 \\\n     ${d}`,
+    `idna==3.10 \\\n    ${d} `,
+    `idna==3.10 \\\n    ${d} \\\n    --hash=sha256:${h("e")}`,
+    `idna==3.10 \\\n    ${d}`,
+    `idna==3.10 \\\n    ${d}`,
+    `idna==3.10 \\     ${d}`,
+    `idna==3.10 ; python_version > "3" \\\n    ${d}`,
+    `﻿idna==3.10 \\\n    ${d}`,
+    `　idna==3.10 \\\n    ${d}`,
+  ])
+    assert.throws(() => checkPythonLock(lock(extra), { ref }), foreign, extra);
+  assert.throws(() => checkPythonLock(`﻿${lock()}`, { ref }), foreign);
+});
+
+test("single-quoted markers as uv writes them are accepted", () => {
+  const text = lock(
+    `colorama==0.4.6 ; sys_platform == 'win32' \\\n    --hash=sha256:${h("d")}\n` +
+      `pywin32==311 ; sys_platform == 'win32' and python_version >= '3.10' \\\n` +
+      `    --hash=sha256:${h("e")}\n`,
+  );
+  assert.deepEqual(
+    checkPythonLock(text, { ref }).dependencies.map((d) => d.name),
+    ["colorama", "mcp-server-time", "pywin32", "tzdata"],
+  );
+});
+
+test("dependencies are sorted by plain code-unit order", () => {
+  const entry = (name) => `${name}==1.0 \\\n    --hash=sha256:${h("d")}\n`;
+  const text = lock(["zz", "ab", "a0", "a-b", "a"].map(entry).join(""));
+  assert.deepEqual(
+    checkPythonLock(text, { ref }).dependencies.map((d) => d.name),
+    ["a", "a-b", "a0", "ab", "mcp-server-time", "tzdata", "zz"],
+  );
+});
