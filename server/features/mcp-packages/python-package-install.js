@@ -1,12 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { proxyEnvironment } from "../../lib/proxy-environment.js";
+import { runProcessTree } from "./child-process-tree.js";
 import { packageError, packageProblem } from "./package-errors.js";
 import { privateFolder } from "./verified-files.js";
 
-const executeFile = promisify(execFile);
 const failed = () => packageProblem("MCP_PACKAGE_INSTALL_FAILED", 502);
 /** Any failure becomes the stable install code: uv output and errors carry paths. */
 const wrapped = (error) => packageError(error, "MCP_PACKAGE_INSTALL_FAILED", 502);
@@ -40,19 +38,21 @@ export function uvEnvironment({ work, index, cacheDir, environment, allowScripts
 }
 
 /** Runs uv; its raw output goes only to `log` (the job log redacts it). */
-async function uv(python, args, { cwd, env, execute, log }) {
+async function uv(python, args, { cwd, env, execute, log, signal }) {
   try {
     const { stdout, stderr } = await execute(python.uvPath, args, {
       cwd,
       env,
       timeout: 600000,
       maxBuffer: 4 * 1024 * 1024,
+      signal,
     });
     log?.(`${stdout}\n${stderr}`);
     return { ok: true, output: "" };
   } catch (error) {
     const output = `${error.stdout || ""}\n${error.stderr || ""}`;
     log?.(output);
+    if (signal?.aborted) throw packageProblem("MCP_PACKAGE_CANCELLED", 409);
     return { ok: false, output };
   }
 }
@@ -69,7 +69,7 @@ export async function resolvePython({
   cacheDir,
   allowScripts,
   constraints = [],
-  execute = executeFile,
+  execute = runProcessTree,
   environment = process.env,
   log,
 }) {
@@ -134,9 +134,10 @@ export async function installPython({
   index,
   cacheDir,
   allowScripts,
-  execute = executeFile,
+  execute = runProcessTree,
   environment = process.env,
   log,
+  signal,
 }) {
   const work = path.join(directory, ".uv-work");
   try {
@@ -149,7 +150,7 @@ export async function installPython({
     privateFolder(work);
     const env = uvEnvironment({ work, index, cacheDir, environment, allowScripts });
     const venv = path.join(directory, "venv");
-    const options = { cwd: work, env, execute, log };
+    const options = { cwd: work, env, execute, log, signal };
     const created = await uv(
       python,
       ["venv", "--relocatable", "--python", python.pythonPath, venv],

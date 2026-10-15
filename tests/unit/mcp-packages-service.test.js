@@ -11,103 +11,15 @@ import {
   pythonAdapter,
 } from "../../server/features/mcp-packages/python-adapter.js";
 
-const registryUrl = "http://registry.test";
-const integrity = "sha512-top";
-const lockOf = (resolved = `${registryUrl}/x/-/x-1.0.0.tgz`) =>
-  JSON.stringify({
-    lockfileVersion: 3,
-    packages: { "": {}, "node_modules/x": { version: "1.0.0", resolved, integrity } },
-  });
-const packument = {
-  name: "x",
-  "dist-tags": { latest: "1.0.0" },
-  versions: { "1.0.0": { bin: { x: "index.js" }, dist: { integrity } } },
-};
-
-/** In-memory stand-ins for the server store, its package records and the changes. */
-function harness(
-  t,
-  { toolchainDir, failSwitch = false, afterCommit, ciOutput, adapters } = {},
-) {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-packages-unit-"));
-  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
-  const rows = new Map([
-    [
-      "s1",
-      { id: "s1", transport: "stdio", command: "own", args: ["--flag"], revision: 1 },
-    ],
-  ]);
-  const map = new Map();
-  const records = {
-    get: (id) => (map.has(id) ? { ...map.get(id) } : null),
-    put: (id, fields) => map.set(id, { serverId: id, ...fields }),
-    update: (id, fields) => map.has(id) && map.set(id, { ...map.get(id), ...fields }),
-    remove: (id) => map.delete(id),
-    all: () => [...map.values()].map((row) => ({ ...row })),
-    installIds: () => new Set([...map.values()].map((r) => r.installId).filter(Boolean)),
-  };
-  const servers = {
-    packages: records,
-    get: (id) => ({ ...rows.get(id), source: records.get(id) ?? undefined }),
-  };
-  const switches = [];
-  const changes = {
-    update: async (id, patch) => {
-      switches.push({ patch, record: records.get(id) });
-      if (failSwitch) throw Object.assign(Error("conflict"), { status: 500 });
-      rows.set(id, { ...rows.get(id), ...patch, revision: rows.get(id).revision + 1 });
-      await afterCommit?.();
-    },
-  };
-  const npmCalls = [];
-  const execute = async (_node, args, { cwd }) => {
-    npmCalls.push(args[1]);
-    if (args.includes("--package-lock-only"))
-      fs.writeFileSync(path.join(cwd, "package-lock.json"), lockOf());
-    if (args[1] === "ci") {
-      const dir = path.join(cwd, "node_modules", "x");
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(
-        path.join(dir, "package.json"),
-        JSON.stringify({ version: "1.0.0" }),
-      );
-      fs.writeFileSync(path.join(dir, "index.js"), "");
-      return { stdout: ciOutput?.(cwd) ?? "", stderr: "" };
-    }
-    return { stdout: "", stderr: "" };
-  };
-  const service = new McpPackages({
-    dataDir,
-    servers,
-    changes,
-    registry: registryUrl,
-    download: async () => Buffer.from(JSON.stringify(packument)),
-    toolchain: async () => ({
-      kind: "node",
-      version: "22.0.0",
-      directory:
-        toolchainDir?.(dataDir) ?? path.join(dataDir, "toolchains", "node-v22.0.0-test"),
-      nodePath: process.execPath,
-      npmCliPath: "/npm-cli.js",
-    }),
-    execute,
-    environment: {},
-    ...(adapters ? { adapters } : {}),
-  });
-  return { dataDir, service, records, rows, switches, npmCalls };
-}
-const source = { registry: "npm", name: "x", version: "1.0.0" };
-const attach = async (service) => {
-  const { previewId } = await service.preview(source);
-  return service.attach("s1", { source, previewId });
-};
-const deferred = () => {
-  let resolve;
-  const promise = new Promise((done) => (resolve = done));
-  return { promise, resolve };
-};
-const installEntries = (dataDir) =>
-  fs.readdirSync(path.join(dataDir, "mcp-packages", "installs"));
+import {
+  attach,
+  deferred,
+  harness,
+  installEntries,
+  integrity,
+  lockOf,
+  source,
+} from "../helpers/mcp-packages-harness.js";
 
 test("an attached package is ready before its command switches; toolchainDir is a toolchain folder", async (t) => {
   const { dataDir, service, records, rows, switches } = harness(t);
@@ -319,7 +231,7 @@ const heldAdapter = () => {
         new Promise((resolve) =>
           waiting.push(() =>
             resolve({
-              integrity: "sha512-top",
+              integrity,
               programs: [{ name: "x", path: "index.js" }],
               needsScripts: false,
               manifestText: "{}",

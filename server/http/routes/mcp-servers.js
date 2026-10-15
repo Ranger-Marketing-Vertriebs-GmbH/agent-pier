@@ -197,8 +197,11 @@ export function mcpServerRoutes(services) {
   });
   router.delete("/mcp-servers/:id", async (req, res) => {
     const { pending, logoutDeferred, transport } = await changes().remove(req.params.id);
-    // Its package record went with the server; installs and toolchains follow in the
-    // background (prune never rejects; the response does not wait for it).
+    // A running install of the deleted server stops now: npm or uv end with their
+    // whole process tree and the stage goes. Its package record went with the server;
+    // installs and toolchains follow in the background (neither call rejects, and the
+    // response waits for neither).
+    services.mcpPackages?.cancel(req.params.id);
     services.mcpPackages?.prune();
     auditMcp("mcp.deleted", req.params.id, { transport });
     if (pending || logoutDeferred)

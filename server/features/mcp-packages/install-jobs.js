@@ -36,6 +36,7 @@ export class PackageJobs {
   run(serverId, { kind, installId = null }, work) {
     if (this.jobs.get(serverId)?.state === "running")
       throw packageProblem("MCP_PACKAGE_BUSY", 409);
+    const controller = new AbortController();
     const job = {
       kind,
       installId,
@@ -43,6 +44,7 @@ export class PackageJobs {
       state: "running",
       code: null,
       log: "",
+      controller,
     };
     this.jobs.set(serverId, job);
     const log = (text) => {
@@ -52,14 +54,18 @@ export class PackageJobs {
       if (typeof toolchainDir === "string") job.toolchainDir = toolchainDir;
     };
     const promise = Promise.resolve()
-      .then(() => work(log, note))
+      .then(() => work(log, note, controller.signal))
       .then(
         () => {
           job.state = "done";
         },
         (error) => {
-          job.state = "failed";
-          job.code = packageCode(error, "MCP_PACKAGE_INSTALL_FAILED");
+          // A cancel wins over whatever the aborted npm or uv reported.
+          const aborted = controller.signal.aborted;
+          job.state = aborted ? "cancelled" : "failed";
+          job.code = aborted
+            ? "MCP_PACKAGE_CANCELLED"
+            : packageCode(error, "MCP_PACKAGE_INSTALL_FAILED");
         },
       )
       .finally(() => {
@@ -70,8 +76,22 @@ export class PackageJobs {
         }
         this.running.delete(promise);
       });
+    job.promise = promise;
     this.running.add(promise);
     return this.get(serverId);
+  }
+  /** Aborts the running job of `serverId`; true once it settled, false when none ran. */
+  cancel(serverId) {
+    const job = this.jobs.get(serverId);
+    if (job?.state !== "running") return Promise.resolve(false);
+    job.controller.abort();
+    return job.promise.then(() => true);
+  }
+  /** Aborts every running job (AgentPier stops); resolves once all of them settled. */
+  async cancelAll() {
+    const jobs = this.runningJobs();
+    for (const job of jobs) job.controller.abort();
+    await Promise.all(jobs.map((job) => job.promise));
   }
   async idle() {
     while (this.running.size) await Promise.all([...this.running]);

@@ -258,6 +258,22 @@ export class McpPackages {
   install(serverId, options) {
     return runInstall(this, serverId, options);
   }
+  /** Stops the running install of `id` (its server was deleted); see PackageJobs#cancel. */
+  cancel(id) {
+    return this.jobs.cancel(id);
+  }
+  /**
+   * AgentPier stops: running installs end with their npm or uv process groups (which
+   * run detached and would outlive it) and their stages go. Resolves once all settled,
+   * or after `waitMs`: a toolchain download only notices the cancel once it ends.
+   */
+  close({ waitMs = 10000 } = {}) {
+    let timer;
+    const bound = new Promise((resolve) => (timer = setTimeout(resolve, waitMs)));
+    return Promise.race([this.jobs.cancelAll(), bound]).finally(() =>
+      clearTimeout(timer),
+    );
+  }
   /** Refuses while a job runs for `id` or a detach is switching it away. */
   requireIdle(id) {
     if (this.jobs.get(id)?.state === "running" || this.detaching.has(id))

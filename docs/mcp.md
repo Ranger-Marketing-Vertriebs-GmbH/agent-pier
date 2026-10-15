@@ -372,8 +372,12 @@ _Installation missing_ (the files of a ready install are gone or changed).
 - **Use own command.** Switches a packaged server back to an own command: the form
   then asks for the command, and saving removes the installed package.
   **Keep package** cancels the switch. Detaching is refused while an install runs.
-  Deleting the server is allowed during a running install: the job then fails and its
-  files are cleaned up.
+  Deleting the server is allowed during a running install: AgentPier stops the
+  running npm or uv process (with the scripts and builds it started) at once and
+  removes the unfinished install. While a first install still downloads its Node.js or
+  Python toolchain, that download completes before the install stops. Stopping
+  AgentPier ends running installs the same way: a first install then shows as failed
+  (**Reinstall** starts it again), and an update keeps the previous install.
 - **Backups.** A backup contains the package record and its lock, not the installed
   files; after a restore the status is _Installation missing_ and **Reinstall**
   recreates the install from the lock.

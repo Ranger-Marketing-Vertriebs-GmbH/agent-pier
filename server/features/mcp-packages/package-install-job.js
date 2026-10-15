@@ -10,6 +10,10 @@ export const installError = (error) =>
   packageError(error, "MCP_PACKAGE_INSTALL_FAILED", 500);
 export const logFailure = (what, error, fallback = "MCP_PACKAGE_INSTALL_FAILED") =>
   console.error(`AgentPier could not ${what} (${packageCode(error, fallback)}).`);
+/** Stops a cancelled job between its steps; npm and uv stop through the signal. */
+export function stopIfCancelled(signal) {
+  if (signal?.aborted) throw packageProblem("MCP_PACKAGE_CANCELLED", 409);
+}
 /** The record fields a confirmed preview and its program determine. */
 export const sourceFields = (preview, program) => ({
   ...preview.ref,
@@ -69,7 +73,7 @@ export function runInstall(service, serverId, { preview, program, kind }) {
     throw installError(error);
   }
   const { installId, stage } = staged;
-  return service.jobs.run(serverId, { kind, installId }, async (jobLog, note) => {
+  return service.jobs.run(serverId, { kind, installId }, async (jobLog, note, signal) => {
     const log = (text) => jobLog(redact(text));
     try {
       const { ref } = preview;
@@ -82,7 +86,9 @@ export function runInstall(service, serverId, { preview, program, kind }) {
       });
       if (checked.digest !== preview.digest)
         throw packageProblem("MCP_PACKAGE_INTEGRITY_MISMATCH", 502);
+      // A first toolchain download runs to its end; the cancel takes effect after it.
       const toolchain = await service.toolchain(adapter.toolchainKind);
+      stopIfCancelled(signal);
       const toolchainDir = toolchainEntry(service.dataDir, toolchain?.directory);
       if (!toolchainDir) throw packageProblem("MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE", 503);
       note({ toolchainDir });
@@ -95,6 +101,7 @@ export function runInstall(service, serverId, { preview, program, kind }) {
         execute: service.execute,
         environment: service.environment,
         log,
+        signal,
       });
       // Some packages name their programs for sure only once installed (and built).
       const installed = adapter.programsAfterInstall(stage, ref);
@@ -115,12 +122,14 @@ export function runInstall(service, serverId, { preview, program, kind }) {
           directory: toolchainDir,
         },
       };
+      stopIfCancelled(signal);
       commitInstall(service.dataDir, { installId, stage, receipt });
       const { command, leading } = adapter.command(
         service.dataDir,
         { ...receipt, installId },
         toolchain,
       );
+      stopIfCancelled(signal);
       await activate(
         service,
         serverId,
@@ -134,6 +143,7 @@ export function runInstall(service, serverId, { preview, program, kind }) {
         },
         command,
         leading,
+        { signal },
       );
     } catch (error) {
       failed(service, serverId, stage, error);
@@ -147,10 +157,13 @@ function failed(service, serverId, stage, error) {
   try {
     if (stage) fs.rmSync(stage, { recursive: true, force: true });
     const current = service.records.get(serverId);
+    const code = packageCode(error, "MCP_PACKAGE_INSTALL_FAILED");
+    // A deleted server has no record left; one that remains was stopped by a shutdown,
+    // whose cancel is a plain failed install (the cancel message names a deletion).
     if (current && current.status !== "ready")
       service.records.update(serverId, {
         status: "failed",
-        errorCode: packageCode(error, "MCP_PACKAGE_INSTALL_FAILED"),
+        errorCode: code === "MCP_PACKAGE_CANCELLED" ? "MCP_PACKAGE_INSTALL_FAILED" : code,
       });
   } catch (cleanup) {
     logFailure("record a failed MCP package install", cleanup);
@@ -162,7 +175,14 @@ function failed(service, serverId, stage, error) {
  * the reconciliation and the agents' apply it triggers already see the package
  * ready. A failed switch restores the previous record.
  */
-export async function activate(service, serverId, fields, command, leading) {
+export async function activate(
+  service,
+  serverId,
+  fields,
+  command,
+  leading,
+  { signal } = {},
+) {
   const previous = service.records.get(serverId);
   // Before the first install the stored args are the owner's only.
   const before = previous?.installId ? previous.leadingArgs : 0;
@@ -172,7 +192,8 @@ export async function activate(service, serverId, fields, command, leading) {
   try {
     await switchCommand(service, serverId, command, leading, before);
   } catch (error) {
-    if (previous) service.records.put(serverId, previous);
+    // A deleted server keeps no record: its row went with it.
+    if (previous && !signal?.aborted) service.records.put(serverId, previous);
     throw error;
   } finally {
     service.switching.delete(serverId);

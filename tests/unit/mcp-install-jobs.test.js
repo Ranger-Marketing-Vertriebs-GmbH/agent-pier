@@ -55,3 +55,40 @@ test("a running job's toolchain is in use; settled runs once its state is final"
   assert.equal(jobs.runningToolchainDirs().size, 0);
   assert.equal(jobs.runningInstallIds().size, 0);
 });
+
+test("cancel aborts the job's signal and settles it as cancelled", async () => {
+  const jobs = new PackageJobs();
+  let seen;
+  jobs.run("s1", { kind: "install", installId: "i1" }, (_log, _note, signal) => {
+    seen = signal;
+    return new Promise((_resolve, reject) =>
+      signal.addEventListener("abort", () => reject(Error("aborted"))),
+    );
+  });
+  await tick();
+  assert.equal(seen.aborted, false);
+  assert.equal(await jobs.cancel("s1"), true);
+  assert.equal(seen.aborted, true);
+  assert.equal(jobs.get("s1").state, "cancelled");
+  assert.equal(jobs.get("s1").code, "MCP_PACKAGE_CANCELLED");
+  assert.equal(jobs.runningInstallIds().size, 0);
+  assert.equal(await jobs.cancel("s1"), false);
+  assert.equal(await jobs.cancel("unknown"), false);
+});
+
+test("cancelAll stops every running job and waits until they settled", async () => {
+  const jobs = new PackageJobs();
+  const hang = (_log, _note, signal) =>
+    new Promise((_resolve, reject) =>
+      signal.addEventListener("abort", () => reject(Error("aborted"))),
+    );
+  jobs.run("s1", { kind: "install", installId: "i1" }, hang);
+  jobs.run("s2", { kind: "update", installId: "i2" }, hang);
+  jobs.run("s3", { kind: "install", installId: "i3" }, async () => {});
+  await tick();
+  await jobs.cancelAll();
+  assert.equal(jobs.get("s1").state, "cancelled");
+  assert.equal(jobs.get("s2").state, "cancelled");
+  assert.equal(jobs.get("s3").state, "done");
+  assert.equal(jobs.running.size, 0);
+});
