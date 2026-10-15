@@ -47,6 +47,7 @@ test("a failing run rejects with its exit code and output", async () => {
       assert.equal(error.code, 3);
       assert.equal(error.stdout, "partial\n");
       assert.equal(error.killed, false);
+      assert.doesNotMatch(error.message, /\/bin\//);
       return true;
     },
   );
@@ -62,8 +63,50 @@ test("an aborted run ends the whole process group and rejects as cancelled", asy
   );
   const grandchild = await pidFrom(pidFile);
   controller.abort();
+  await assert.rejects(run, (error) => {
+    assert.equal(error.code, "MCP_PACKAGE_CANCELLED");
+    assert.equal(typeof error.stdout, "string");
+    assert.equal(typeof error.stderr, "string");
+    return true;
+  });
+  assert.equal(await gone(grandchild), true);
+});
+
+test("a tree that ignores SIGTERM is killed after the grace period", async (t) => {
+  const pidFile = path.join(scratch(t), "pid");
+  const controller = new AbortController();
+  const run = runProcessTree(
+    "/bin/sh",
+    ["-c", `trap '' TERM; sleep 30 & echo $! > "$1"; wait`, "sh", pidFile],
+    { env, signal: controller.signal, graceMs: 200 },
+  );
+  const grandchild = await pidFrom(pidFile);
+  controller.abort();
   await assert.rejects(run, { code: "MCP_PACKAGE_CANCELLED" });
   assert.equal(await gone(grandchild), true);
+});
+
+test("an escaped descendant holding the pipes does not keep a stopped run open", async (t) => {
+  const pidFile = path.join(scratch(t), "pid");
+  const escape = `perl -e 'use POSIX; setsid(); open F, ">", $ARGV[0]; print F $$; close F; sleep 4' "$1" & sleep 30`;
+  const controller = new AbortController();
+  const run = runProcessTree("/bin/sh", ["-c", escape, "sh", pidFile], {
+    env,
+    signal: controller.signal,
+    graceMs: 200,
+  });
+  const escaped = await pidFrom(pidFile);
+  t.after(() => {
+    try {
+      process.kill(escaped, "SIGKILL");
+    } catch {
+      /* It ended already. */
+    }
+  });
+  const started = Date.now();
+  controller.abort();
+  await assert.rejects(run, { code: "MCP_PACKAGE_CANCELLED" });
+  assert.ok(Date.now() - started < 1500, `settled after ${Date.now() - started} ms`);
 });
 
 test("an already aborted signal starts nothing", async (t) => {
@@ -99,7 +142,11 @@ test("output beyond maxBuffer stops the run", async () => {
       env,
       maxBuffer: 1000,
     }),
-    (error) => error.killed === true,
+    (error) => {
+      assert.equal(error.killed, true);
+      assert.ok(error.stdout.length <= 1000, String(error.stdout.length));
+      return true;
+    },
   );
 });
 

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import path from "node:path";
 import { packageProblem } from "./package-errors.js";
 
 const cancelled = (output) =>
@@ -54,7 +55,13 @@ export function runProcessTree(
       if (stopping) return;
       stopping = reason;
       killGroup("SIGTERM");
-      grace = setTimeout(() => killGroup("SIGKILL"), graceMs);
+      grace = setTimeout(() => {
+        killGroup("SIGKILL");
+        // A descendant that left the group (setsid) may still hold the pipes open:
+        // closing them lets `close` follow the leader's exit instead of waiting on it.
+        child.stdout.destroy();
+        child.stderr.destroy();
+      }, graceMs);
     };
     const onAbort = () => stop("aborted");
     signal?.addEventListener("abort", onAbort, { once: true });
@@ -91,13 +98,16 @@ export function runProcessTree(
       if (stopping === "aborted") return reject(cancelled({ stdout, stderr }));
       if (code === 0 && !stopping) return resolve({ stdout, stderr });
       reject(
-        Object.assign(new Error(`${file} exited with ${code ?? killedBy}`), {
-          code,
-          signal: killedBy,
-          killed: !!stopping,
-          stdout,
-          stderr,
-        }),
+        Object.assign(
+          new Error(`${path.basename(file)} exited with ${code ?? killedBy}`),
+          {
+            code,
+            signal: killedBy,
+            killed: !!stopping,
+            stdout,
+            stderr,
+          },
+        ),
       );
     });
   });
