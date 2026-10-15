@@ -320,3 +320,101 @@ for (const language of ["en", "de"])
         t.cleanup();
       }
     });
+
+// The whole chat panel is the drop zone, like the session chat.
+const dropShots = process.env.AGENTPIER_DROP_SHOTS;
+const fileTransfer = (page, name = "dropped.png", type = "image/png") =>
+  page.evaluateHandle(
+    ([bytes, fileName, fileType]) => {
+      const carrier = new DataTransfer();
+      carrier.items.add(new File([new Uint8Array(bytes)], fileName, { type: fileType }));
+      return carrier;
+    },
+    [[...png], name, type],
+  );
+
+async function openDropChat(page) {
+  const state = await chatFixture(page, { language: "en" });
+  await attachmentRoutes(page, state);
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  await expect(page.locator("#assistant-message")).toBeVisible();
+  return state;
+}
+
+test("dropping a file on the agent chat panel shows the hint and attaches it", async ({
+  page,
+}) => {
+  const state = await openDropChat(page);
+  const panel = page.locator(".assistant-chat-panel");
+  const dataTransfer = await fileTransfer(page);
+  await panel.dispatchEvent("dragover", { dataTransfer });
+  await expect(panel).toHaveAttribute("data-dropping", "true");
+  await expect(panel).toHaveAttribute("data-drop-hint", "Drop files here");
+  if (dropShots) await page.screenshot({ path: path.join(dropShots, "agent-drop.png") });
+  await panel.dispatchEvent("drop", { dataTransfer });
+  await expect(
+    page.getByRole("list", { name: "Attachments" }).getByText("dropped.png"),
+  ).toBeVisible();
+  await expect(panel).not.toHaveAttribute("data-dropping", "true");
+  await expect.poll(() => state.uploads.map((u) => u.name)).toEqual(["dropped.png"]);
+});
+
+test("dragged text does not arm the agent chat drop zone", async ({ page }) => {
+  const state = await openDropChat(page);
+  const panel = page.locator(".assistant-chat-panel");
+  const dataTransfer = await page.evaluateHandle(() => {
+    const carrier = new DataTransfer();
+    carrier.setData("text/plain", "some selected text");
+    return carrier;
+  });
+  await panel.dispatchEvent("dragover", { dataTransfer });
+  await expect(panel).not.toHaveAttribute("data-dropping", "true");
+  await panel.dispatchEvent("drop", { dataTransfer });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(state.uploads).toEqual([]);
+});
+
+test("a dropped unsupported file explains itself and uploads nothing", async ({
+  page,
+}) => {
+  const state = await openDropChat(page);
+  const panel = page.locator(".assistant-chat-panel");
+  await panel.dispatchEvent("drop", {
+    dataTransfer: await fileTransfer(page, "tool.exe", "application/octet-stream"),
+  });
+  await expect(page.getByRole("alert")).toHaveText(words.en.unsupported);
+  expect(state.uploads).toEqual([]);
+});
+
+test("a cancelled drag clears the agent chat overlay without uploading", async ({
+  page,
+}) => {
+  const state = await openDropChat(page);
+  const panel = page.locator(".assistant-chat-panel");
+  await panel.dispatchEvent("dragover", { dataTransfer: await fileTransfer(page) });
+  await expect(panel).toHaveAttribute("data-dropping", "true");
+  await page.evaluate(() => window.dispatchEvent(new Event("dragend")));
+  await expect(panel).not.toHaveAttribute("data-dropping", "true");
+  expect(state.uploads).toEqual([]);
+});
+
+test("touch-only devices do not arm the agent chat drop zone", async ({ browser }) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    viewport: { width: 390, height: 844 },
+    storageState: `.cache/browser-auth-${new URL(baseURL).port}.json`,
+  });
+  const page = await context.newPage();
+  try {
+    const state = await openDropChat(page);
+    const panel = page.locator(".assistant-chat-panel");
+    const dataTransfer = await fileTransfer(page);
+    await panel.dispatchEvent("dragover", { dataTransfer });
+    await expect(panel).not.toHaveAttribute("data-dropping", "true");
+    await panel.dispatchEvent("drop", { dataTransfer });
+    await page.waitForTimeout(150);
+    expect(state.uploads).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});

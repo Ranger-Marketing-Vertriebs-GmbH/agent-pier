@@ -18,6 +18,9 @@ import React, {
   useState,
 } from "react";
 import AssistantComposer from "./AssistantComposer.jsx";
+import useAgentAttachments from "./useAgentAttachments.js";
+import useFileDrop from "../../components/useFileDrop.js";
+import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 import AssistantMessage from "./AssistantMessage.jsx";
 import CodingRunNote from "./CodingRunNote.jsx";
 import { plainText } from "./plain-text.js";
@@ -69,6 +72,13 @@ export default function AssistantChat({
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState(0);
   const touchInput = useTouchInput();
+  const attachments = useAgentAttachments(conversationId);
+  // The whole panel takes dropped files; the composer stays droppable while the agent
+  // works, only an archived agent takes none.
+  const drop = useFileDrop({
+    enabled: !assistant.archivedAt,
+    onFiles: attachments.add,
+  });
   // The newest reply that was already there on load is history, not news.
   const baseline = useRef(undefined);
   const output = useRef(null);
@@ -250,7 +260,11 @@ export default function AssistantChat({
       <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
       {member && <AssistantMemberContext member={member} navigate={navigate} />}
 
-      <div className="assistant-chat-panel">
+      <div
+        className="assistant-chat-panel"
+        {...drop}
+        data-drop-hint={assistantAttachmentsCopy.drop}
+      >
         <ErrorMessage error={error} />
         {!connected && (
           <p role="status" className="assistant-notice">
@@ -413,6 +427,7 @@ export default function AssistantChat({
           assistant={assistant}
           conversationId={conversationId}
           drafts={drafts}
+          attachments={attachments}
           text={text}
           setText={setText}
           teamAllowed={teamAllowed}

@@ -125,10 +125,6 @@
   max-height: 180px;
   object-fit: cover;
 }
-.assistant-composer.dragging .assistant-composer-box {
-  border-color: var(--accent);
-  background: var(--surface-accent);
-}
 @media (max-width: 700px) {
   .agent-attachment-name,
   .agent-attachment-meta {
