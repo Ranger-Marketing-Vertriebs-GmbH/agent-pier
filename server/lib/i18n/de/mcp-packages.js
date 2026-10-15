@@ -19,6 +19,8 @@ export const mcpPackages = {
   previewExpired: "Die Vorschau ist abgelaufen. Bitte die Installation erneut prüfen.",
   busy: "Für diesen Server läuft bereits eine Installation.",
   confirmationRequired: "Bitte die Installation des Pakets bestätigen.",
+  previewBusy:
+    "Gerade werden schon mehrere Pakete geprüft. Bitte gleich noch einmal versuchen.",
   toolchainBusy:
     "Gerade wird bereits eine Toolchain installiert. Bitte gleich erneut versuchen.",
 };

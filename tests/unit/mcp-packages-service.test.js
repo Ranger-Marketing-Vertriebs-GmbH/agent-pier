@@ -21,7 +21,10 @@ const packument = {
 };
 
 /** In-memory stand-ins for the server store, its package records and the changes. */
-function harness(t, { toolchainDir, failSwitch = false, afterCommit, ciOutput } = {}) {
+function harness(
+  t,
+  { toolchainDir, failSwitch = false, afterCommit, ciOutput, adapters } = {},
+) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-packages-unit-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const rows = new Map([
@@ -85,6 +88,7 @@ function harness(t, { toolchainDir, failSwitch = false, afterCommit, ciOutput } 
     }),
     execute,
     environment: {},
+    ...(adapters ? { adapters } : {}),
   });
   return { dataDir, service, records, rows, switches, npmCalls };
 }
@@ -298,4 +302,131 @@ test("the job log names no data or home path", async (t) => {
   assert.ok(!log.includes(home));
   assert.match(log, /<data>\/mcp-packages\/installs\/\.stage-/);
   assert.match(log, /~\/secret/);
+});
+
+const heldAdapter = () => {
+  const waiting = [];
+  return {
+    waiting,
+    adapter: {
+      toolchainKind: "node",
+      versions: async () => ({ latest: null, versions: [] }),
+      preview: () =>
+        new Promise((resolve) =>
+          waiting.push(() =>
+            resolve({
+              integrity: "sha512-top",
+              programs: [{ name: "x", path: "index.js" }],
+              needsScripts: false,
+              manifestText: "{}",
+              lockText: "{}",
+              digest: "d",
+              dependencies: [],
+            }),
+          ),
+        ),
+    },
+  };
+};
+
+test("at most two previews resolve at once; a third is busy", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-preview-cap-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const held = heldAdapter();
+  const service = new McpPackages({
+    dataDir,
+    servers: { packages: { get: () => null } },
+    changes: {},
+    toolchain: async () => ({}),
+    adapters: { npm: held.adapter },
+  });
+  const ref = { registry: "npm", name: "x", version: "1.0.0" };
+  const first = service.preview(ref);
+  const second = service.preview(ref);
+  await assert.rejects(service.preview(ref), (error) => {
+    assert.equal(error.code, "MCP_PACKAGE_BUSY");
+    assert.equal(error.status, 409);
+    assert.match(error.message, /Pakete|packages/);
+    return true;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  held.waiting.splice(0).forEach((open) => open());
+  await Promise.all([first, second]);
+  const third = service.preview(ref);
+  await new Promise((resolve) => setImmediate(resolve));
+  held.waiting.splice(0).forEach((open) => open());
+  assert.equal((await third).programs[0], "x");
+});
+
+test("a preview that needs a build is refused for that before its programs", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-needs-build-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const service = new McpPackages({
+    dataDir,
+    servers: { packages: { get: () => null } },
+    changes: {},
+    toolchain: async () => ({}),
+    adapters: {
+      npm: {
+        toolchainKind: "node",
+        preview: async () => ({
+          integrity: "sha256:a",
+          programs: [],
+          needsScripts: true,
+          manifestText: "x==1\n",
+          lockText: null,
+          digest: null,
+          dependencies: [],
+        }),
+      },
+    },
+  });
+  const ref = { registry: "npm", name: "x", version: "1.0.0" };
+  const preview = await service.preview(ref);
+  assert.deepEqual(preview.programs, []);
+  assert.throws(() => service.confirmedPreview(preview.previewId, ref), {
+    code: "MCP_PACKAGE_NEEDS_SCRIPTS",
+  });
+});
+
+test("a package without programs at preview gets the program its install names", async (t) => {
+  const installed = [];
+  const adapter = {
+    toolchainKind: "node",
+    preview: async ({ toolchain }) => {
+      await toolchain();
+      return {
+        integrity: "sha256:a",
+        programs: [],
+        needsScripts: false,
+        manifestText: "x==1\n",
+        lockText: "x==1 --hash=sha256:a\n",
+        digest: "d",
+        dependencies: [],
+      };
+    },
+    checkStored: () => ({ digest: "d", dependencies: [] }),
+    manifestText: () => "x==1\n",
+    install: async ({ directory }) => installed.push(directory),
+    programsAfterInstall: () => [{ name: "x-server", path: "bin/x-server" }],
+    command: (_dataDir, receipt) => ({
+      command: "/bin/run",
+      leading: [receipt.program.path],
+    }),
+    toolchainVersion: () => "1.0",
+  };
+  const { service, records, rows } = harness(t, { adapters: { npm: adapter } });
+  const { previewId, programs } = await service.preview(source);
+  assert.deepEqual(programs, []);
+  await service.attach("s1", { source, previewId });
+  assert.equal(records.get("s1").program, "");
+  assert.equal(records.get("s1").programPath, "");
+  await service.jobs.idle();
+  assert.equal(installed.length, 1);
+  const row = records.get("s1");
+  assert.equal(row.status, "ready");
+  assert.equal(row.program, "x-server");
+  assert.equal(row.programPath, "bin/x-server");
+  assert.equal(rows.get("s1").command, "/bin/run");
+  assert.deepEqual(rows.get("s1").args, ["bin/x-server", "--flag"]);
 });
