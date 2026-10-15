@@ -1,4 +1,4 @@
-import { installDirectory, readInstall } from "./package-store.js";
+import { choosingReceipt, installDirectory, readInstall } from "./package-store.js";
 
 const schema = (table) => `
 CREATE TABLE IF NOT EXISTS ${table}(
@@ -165,9 +165,7 @@ export class PackageRecords {
     if (row.status === "installing" && this.orphaned(row.serverId)) return "failed";
     // Built, waiting for the owner's program: runs nothing, yet keeps its install.
     if (row.status === "choosing")
-      return row.installId && readInstall(this.dataDir, row.installId, row.lockDigest)
-        ? "choosing"
-        : "missing";
+      return choosingReceipt(this.dataDir, row) ? "choosing" : "missing";
     if (row.status !== "ready") return row.status;
     return row.installId && readInstall(this.dataDir, row.installId, row.lockDigest)
       ? "ready"

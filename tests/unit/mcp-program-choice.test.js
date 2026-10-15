@@ -2,10 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { harness, source } from "../helpers/mcp-packages-harness.js";
+import { deferred, harness, source } from "../helpers/mcp-packages-harness.js";
 
 /** A preview without programs whose install (a build) names two. */
-const builtTwo = (installs = [], { fail = () => false } = {}) => ({
+const builtTwo = (
+  installs = [],
+  { fail = () => false, commandFails = () => false } = {},
+) => ({
   toolchainKind: "node",
   preview: async () => ({
     integrity: "sha256:a",
@@ -27,10 +30,11 @@ const builtTwo = (installs = [], { fail = () => false } = {}) => ({
     { name: "a-server", path: "a-server" },
     { name: "b-server", path: "b-server" },
   ],
-  command: (_dataDir, receipt) => ({
-    command: `/bin/${receipt.program.name}`,
-    leading: [],
-  }),
+  command: (_dataDir, receipt) => {
+    if (commandFails())
+      throw Object.assign(Error("outside"), { code: "MCP_PACKAGE_NO_PROGRAM" });
+    return { command: `/bin/${receipt.program.name}`, leading: [] };
+  },
   toolchainVersion: () => "1.0",
 });
 
@@ -127,13 +131,66 @@ test("a program named before the install still decides at once", async (t) => {
 });
 
 test("a failed switch after the choice keeps the choice open", async (t) => {
-  const { service, records, rows } = await choosing(t, { failSwitch: true });
+  const { service, records, rows, dataDir } = await choosing(t, { failSwitch: true });
   service.chooseProgram("s1", "a-server");
   await service.jobs.idle();
   assert.equal(service.jobs.get("s1").state, "failed");
   assert.equal(records.get("s1").status, "choosing");
   assert.equal(rows.get("s1").command, "own");
   assert.deepEqual(service.status("s1").programs, ["a-server", "b-server"]);
+  // The receipt waits for a choice again.
+  assert.equal(receiptOf(dataDir, records.get("s1").installId).program, null);
+});
+
+test("a program the adapter refuses leaves the receipt unchanged", async (t) => {
+  let refuse = false;
+  const { service, records, rows, dataDir } = await choosing(t, {
+    commandFails: () => refuse,
+  });
+  const { installId } = records.get("s1");
+  const before = fs.readFileSync(
+    path.join(dataDir, "mcp-packages", "installs", installId, "receipt.json"),
+    "utf8",
+  );
+  refuse = true;
+  service.chooseProgram("s1", "a-server");
+  await service.jobs.idle();
+  assert.equal(service.jobs.get("s1").code, "MCP_PACKAGE_NO_PROGRAM");
+  assert.equal(records.get("s1").status, "choosing");
+  assert.equal(rows.get("s1").command, "own");
+  assert.equal(
+    fs.readFileSync(
+      path.join(dataDir, "mcp-packages", "installs", installId, "receipt.json"),
+      "utf8",
+    ),
+    before,
+  );
+});
+
+test("a choice while the server's job runs is refused as busy", async (t) => {
+  const hold = deferred();
+  let holding = false;
+  const { service, records } = await choosing(t, {
+    beforeSwitch: () => holding && hold.promise,
+  });
+  holding = true;
+  service.chooseProgram("s1", "a-server");
+  assert.throws(() => service.chooseProgram("s1", "b-server"), {
+    code: "MCP_PACKAGE_BUSY",
+  });
+  hold.resolve();
+  await service.jobs.idle();
+  assert.equal(records.get("s1").program, "a-server");
+});
+
+test("a cancelled choice keeps the record and its receipt waiting", async (t) => {
+  const { service, records, rows, dataDir } = await choosing(t);
+  service.chooseProgram("s1", "a-server");
+  assert.equal(await service.cancel("s1"), true);
+  assert.equal(service.jobs.get("s1").state, "cancelled");
+  assert.equal(records.get("s1").status, "choosing");
+  assert.equal(rows.get("s1").command, "own");
+  assert.equal(receiptOf(dataDir, records.get("s1").installId).program, null);
 });
 
 test("a reinstall of a choosing record builds again and waits again", async (t) => {
@@ -176,4 +233,40 @@ test("a failed reinstall of a choosing record without its install fails", async 
   assert.equal(row.status, "failed");
   assert.equal(row.errorCode, "MCP_PACKAGE_INSTALL_FAILED");
   assert.deepEqual(service.status("s1").programs, []);
+});
+
+/** A ready server on the install of program `a-server`, chosen after a build. */
+async function readyOnA(t) {
+  const h = await choosing(t);
+  h.service.chooseProgram("s1", "a-server");
+  await h.service.jobs.idle();
+  assert.equal(h.records.get("s1").status, "ready");
+  return h;
+}
+
+test("an update with an empty program keeps the server's program", async (t) => {
+  const { service, records, rows } = await readyOnA(t);
+  const { previewId } = await service.preview({ ...source, serverId: "s1" });
+  await service.updatePackage("s1", { version: "1.0.0", previewId, program: "" });
+  await service.jobs.idle();
+  assert.equal(service.jobs.get("s1").state, "done");
+  const row = records.get("s1");
+  assert.equal(row.status, "ready");
+  assert.equal(row.program, "a-server");
+  assert.equal(rows.get("s1").command, "/bin/a-server");
+});
+
+test("a running server never waits for a choice: it stays on its install", async (t) => {
+  const { service, records, rows, dataDir } = await readyOnA(t);
+  // A ready record without a program name (written before names were stored).
+  records.update("s1", { program: "" });
+  const { installId } = records.get("s1");
+  service.reinstall("s1");
+  await service.jobs.idle();
+  assert.equal(service.jobs.get("s1").code, "MCP_PACKAGE_PROGRAM_REQUIRED");
+  const row = records.get("s1");
+  assert.equal(row.status, "ready");
+  assert.equal(row.installId, installId);
+  assert.equal(rows.get("s1").command, "/bin/a-server");
+  assert.ok(fs.existsSync(path.join(dataDir, "mcp-packages", "installs", installId)));
 });

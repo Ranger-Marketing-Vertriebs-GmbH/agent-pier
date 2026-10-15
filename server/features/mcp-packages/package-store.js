@@ -58,6 +58,15 @@ export function readInstall(dataDir, installId, digest) {
     return null;
   }
 }
+/**
+ * The receipt of a `choosing` record whose built install, with its program list, is
+ * still there; else null (a record not choosing, or its install gone or replaced).
+ */
+export function choosingReceipt(dataDir, row) {
+  if (row?.status !== "choosing" || !row.installId) return null;
+  const receipt = readInstall(dataDir, row.installId, row.lockDigest);
+  return Array.isArray(receipt?.programs) ? receipt : null;
+}
 export function pruneInstalls(dataDir, keep) {
   let names;
   try {
