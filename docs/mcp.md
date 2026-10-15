@@ -285,29 +285,72 @@ needs the owner's confirmation, because every session of that CLI starts it.
 
 ### Installing a server package
 
-A local (stdio) server can come from an npm package instead of an own command (PyPI
-packages are not supported yet). In **Accounts → MCP servers** set **Source** to
-**Install package**, keep **Registry** at npm, enter the **Package** and choose a
-**Version**. The list is read from the registry, newest first; prereleases are hidden
-unless **Show prereleases** is on, and deprecated versions are marked. An existing
+A local (stdio) server can come from an npm or PyPI package instead of an own command.
+In **Accounts → MCP servers** set **Source** to **Install package**, choose the
+**Registry** (npm or PyPI), enter the **Package** and choose a **Version**. The list is
+read from the registry, newest first; prereleases are hidden unless **Show
+prereleases** is on, deprecated npm versions are marked, and PyPI versions withdrawn
+by their author are marked "withdrawn by its author" (yanked) and are not installed. An existing
 server with an own command switches the same way: its arguments and environment stay,
 and it keeps running its own command until the install is ready.
 
 Saving first resolves the complete dependency graph without running package code and
 asks **Install this package?** (**Update this package?** for an update). The dialog
-shows the package, its integrity, the number of packages in total and the **Program**
-it starts; nothing is installed before you confirm with **Install**. This
+shows the package, its integrity (for a PyPI package the number of files, for example
+"3 files", and the file expected to be installed, "Expected: …"), the number of
+packages in total and the **Program** it starts; nothing is installed before you
+confirm with **Install**. The expected file is a forecast of the wheel the installer
+picks, not a guarantee. A package that is built from source has no file yet: the
+dialog then says "Expected build from …" and "The program is chosen after the build." This
 confirmation replaces the usual local-command confirmation, and it states that the
 program runs with your user's rights in the CLIs and agents you choose.
 
-AgentPier installs the frozen graph with its own pinned Node toolchain into
-`mcp-packages/installs/` in the data directory as a background job, without install
-scripts. A package that needs install scripts or a source build is refused with a
-hint until you tick **Allow install scripts or source builds** for it; its code then
-runs during installation with your user's rights, so allow it only for packages you
-trust. Only `registry.npmjs.org` is accepted anywhere in the graph. The job log
+AgentPier installs the frozen graph with its own pinned toolchain (Node for npm, uv
+with CPython for PyPI) into `mcp-packages/installs/` in the data directory as a
+background job, without install scripts. A package that needs install scripts or a
+source build is refused with a hint until you tick **Allow install scripts or source
+builds** for it; its code then runs during installation with your user's rights, so
+allow it only for packages you trust. Only `registry.npmjs.org` (npm) and `pypi.org`
+(PyPI, files from `files.pythonhosted.org`) are accepted anywhere in the graph. The job log
 (**Installation log**) replaces the data directory and the home directory with
 placeholders, and credentials in URLs are masked.
+
+PyPI packages install from wheels into their own virtual environment with AgentPier's
+CPython 3.14.7 and uv. A package that does not support Python 3.14 fails to install.
+The frozen graph matches the platform it was resolved on; after a restore on another
+platform, **Reinstall** can fail and an update resolves it again. Moving the data
+directory leaves the toolchain's build settings pointing at the old path; source
+builds then need the toolchain to be provisioned again.
+
+**Source builds (PyPI).** A package that has no usable wheel installs only with
+**Allow install scripts or source builds** ticked. The preview and the confirmation
+already run the package's build code while the package is checked, with your user's
+rights. The build uses the system compilers (`CC=cc`, `CXX=c++`); builds that need
+Rust or other tools outside `/usr/bin` are not supported. Build tools that the build
+fetches at build time (for example setuptools) come from PyPI outside the frozen,
+hash-checked lock; the confirmation says so ("Build tools such as setuptools are then
+downloaded from PyPI during the build; they are not part of the frozen, hash-checked
+dependency list."). Because the program of a built package is only known after the
+build, the confirmation does not name it yet.
+
+**Dependency constraints (PyPI only).** For a PyPI package you can enter up to 10
+dependency constraints, one per line, each a PyPI package name with version limits
+(for example `fastmcp<4`), at most 100 characters per line. They narrow the resolution
+when the package is checked, installed or updated, for example to stay on a release
+line a server still works with. The result is frozen with hashes as usual,
+**Reinstall** uses the frozen list without resolving again, and an update keeps the
+constraints unless you change them. URLs, paths, extras and markers are refused. npm
+packages have no constraints field.
+
+**Notes for servers.** The server runs with the environment you set; a `PATH` set on
+the server that omits `/usr/bin` breaks the PyPI program's relocatable virtual
+environment wrapper, because it needs `dirname` and `realpath`. A server may not find
+tools the CLIs' `PATH` offers (for example `pandoc`): point it at them with an
+environment value. Servers that store data next to their code (for example the npm
+`server-memory`, which writes `memory.jsonl`) lose it when an update or reinstall
+replaces the install directory; set the path the server offers for its data (for
+`server-memory` `MEMORY_FILE_PATH`) to a folder of your own. Qualified servers are
+listed in [MCP package qualification](mcp-package-qualification.md).
 
 The form shows the status: _Installing…_, _Installed_, _Installation failed_ or
 _Installation missing_ (the files of a ready install are gone or changed).
@@ -316,9 +359,8 @@ _Installation missing_ (the files of a ready install are gone or changed).
   are locked for new bindings ("Coding CLIs and agents can be added once the package
   is installed."), and the CLIs and agents never receive a server whose package is not
   ready (reason "its package is not installed yet or is missing"). Existing
-  bindings stay. An install that goes missing leaves a CLI's entry in place until
-  AgentPier next writes that CLI's servers: at its start, before a session of that
-  CLI, or with any MCP server change.
+  bindings stay. A missing install is removed from the CLIs' entries when AgentPier
+  starts, before a session of that CLI, or with any MCP server change.
 - **Update.** Choose the version in **New version**; **Check update** resolves it and
   shows the changes to the installed packages (_Added_, _Removed_, _Changed_ with old
   and new version, taken from the lock) before you confirm with **Update**. The new
@@ -340,6 +382,6 @@ _Installation missing_ (the files of a ready install are gone or changed).
   reinstall and switch back to an own command are recorded on the server as
   `package.installed`, `package.updated`, `package.reinstalled` and
   `package.detached` with the registry, package name, version, the install-scripts
-  choice and the dependency constraints; never an argument, environment value or
+  choice and the dependency constraints (PyPI); never an argument, environment value or
   path. They are recorded when the change is accepted, so they do not say whether the
   background install succeeded (its status and log do).

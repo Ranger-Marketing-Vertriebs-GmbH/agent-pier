@@ -31,8 +31,9 @@ Optional agents run a pinned OpenClaw Gateway as the same OS user. An agent with
 shell access runs commands unconfined, with that user's logins, files and keys; the
 nono sandbox applies to CLI sessions only. Local (stdio) MCP servers run host
 commands for every agent or CLI they are bound to; a server installed from an npm
-package runs the package's program with the same rights, and install scripts run only
-after the owner allows them for that package. An agent's own Telegram bot
+or PyPI package runs the package's program with the same rights, and install scripts and
+source builds run only after the owner allows them for that package (a PyPI build
+already runs its code while the package is checked). An agent's own Telegram bot
 accepts messages from the people the owner allows. A lead agent's questions and
 tasks run on its members without approval, with each member's own capabilities. See
 [agents](docs/agents.md#security-notes).
