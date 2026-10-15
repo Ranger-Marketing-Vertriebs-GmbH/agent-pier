@@ -7,6 +7,14 @@ const unwrapped = (text) =>
     const rest = whole.slice(offset + match.length);
     return `${offset ? "\n" : ""}${inner}${rest && !rest.startsWith("\n") ? "\n" : ""}`;
   });
+// Claude bash mode: the server shows "<bash-input> ls</bash-input>" as "! ls"; this
+// copy covers rows cached before that. `!ls` and `! ls` are the same command.
+const BASH_INPUT = /^\s*<bash-input>([\s\S]*?)<\/bash-input>\s*$/;
+const bashInput = (text) => {
+  const command = BASH_INPUT.exec(text)?.[1];
+  return command === undefined ? text : `! ${command.trim()}`;
+};
+const bang = (text) => text.replace(/^\s*!\s*/, "! ");
 const normalized = (text) => text.replaceAll("\r\n", "\n").trim();
 // Exact evidence tolerates only the trailing whitespace Claude trims from a prompt.
 const exactly = (text) => text.trimEnd();
@@ -71,8 +79,8 @@ export function queuedImagesUnique(item, message, items, messages) {
 export function deliveryContentMatches(item, message, exact = false) {
   const equal = (native, sent) =>
     exact
-      ? exactly(unwrapped(native)) === exactly(sent)
-      : normalized(unwrapped(native)) === normalized(sent);
+      ? exactly(bang(bashInput(unwrapped(native)))) === exactly(bang(sent))
+      : normalized(bang(bashInput(unwrapped(native)))) === normalized(bang(sent));
   if (equal(message?.text || "", item.text)) return true;
   if (message?.claudeImageInput) return queuedImagesMatch(item, message.claudeImageInput);
   const input = message?.imageInput;

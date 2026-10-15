@@ -53,6 +53,37 @@ function slashCommand(record) {
   return { ...record, message: { ...record.message, content: command } };
 }
 
+// Claude Code bash mode (`! ls`) writes the command and its output as user records:
+// "<bash-input> ls</bash-input>" and "<bash-stdout>…</bash-stdout><bash-stderr>…</bash-stderr>".
+// Only records that consist of exactly those tags are rewritten; text that merely
+// mentions them stays as written. Keep in sync with web/features/chat/delivery-content.js.
+const BASH_INPUT = /^\s*<bash-input>([\s\S]*?)<\/bash-input>\s*$/;
+const BASH_OUTPUT =
+  /^\s*(?:<bash-stdout>([\s\S]*?)<\/bash-stdout>)?\s*(?:<bash-stderr>([\s\S]*?)<\/bash-stderr>)?\s*$/;
+const outputText = (text) => (text || "").replace(/^(?:\r?\n)+/, "").trimEnd();
+
+/** A bash-mode command is shown as typed (`! ls`); its output becomes shell output. */
+function bashMode(record) {
+  if (record?.type !== "user" || record.isMeta) return record;
+  const text = recordText(record);
+  if (typeof text !== "string") return record;
+  const command = BASH_INPUT.exec(text)?.[1];
+  if (command !== undefined)
+    return { ...record, message: { ...record.message, content: `! ${command.trim()}` } };
+  const output = BASH_OUTPUT.exec(text);
+  if (!output || (output[1] === undefined && output[2] === undefined)) return record;
+  const streams = { stdout: outputText(output[1]), stderr: outputText(output[2]) };
+  const shown = Object.fromEntries(Object.entries(streams).filter(([, value]) => value));
+  return {
+    ...record,
+    shellOutput: true,
+    message: {
+      ...record.message,
+      content: Object.keys(shown).length ? JSON.stringify(shown) : "",
+    },
+  };
+}
+
 // A queued prompt with images is an array of text and image blocks only.
 const queuedBlocks = (prompt) =>
   Array.isArray(prompt) &&
@@ -99,7 +130,7 @@ export function claudeConversationRecord(record) {
       queuedBlocks(attachment.prompt)
     )
   )
-    return slashCommand(unwrapPastes(record));
+    return bashMode(slashCommand(unwrapPastes(record)));
   const images = Array.isArray(attachment.prompt);
   return {
     ...record,

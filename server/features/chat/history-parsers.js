@@ -185,6 +185,13 @@ export function normalizeClaude(records) {
         messages.set(baseId, {
           id: baseId,
           role: record.type,
+          // Claude bash-mode output (see claude-conversation-record.js).
+          ...(record.shellOutput && {
+            role: "tool",
+            toolName: "Bash",
+            shellOutput: true,
+            status: "completed",
+          }),
           text: content,
           ...timestamp,
         });

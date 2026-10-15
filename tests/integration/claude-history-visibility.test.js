@@ -140,3 +140,36 @@ test("Claude limit failures survive live, indexed, full and appended history rea
   assert.equal(appended.at(-1).text, "Still limited. Try again at 15:00.");
   assert.equal(appended.filter((m) => m.id === "limit").length, 1);
 });
+
+test("live, indexed and full Claude reads agree on bash-mode commands and output", async (t) => {
+  const f = await claudeHistoryFixture(t);
+  const records = [];
+  for (let i = 0; i < 70; i++) {
+    records.push(f.user(`u${i}`, `prompt ${i}`, { origin: { kind: "human" } }));
+    if (i % 7 === 0)
+      records.push(
+        f.user(`bash${i}`, `<bash-input> ls ${i} </bash-input>`),
+        f.user(
+          `out${i}`,
+          `<bash-stdout>file ${i}</bash-stdout><bash-stderr>warn ${i}</bash-stderr>`,
+        ),
+      );
+    records.push(f.assistant(`a${i}`, [{ type: "text", text: `answer ${i}` }]));
+  }
+  await f.write(records);
+  const full = (await f.history.read(f.session, "native")).messages;
+  assert.equal(full.length, 140 + 10 * 2);
+  const command = full.find((message) => message.id === "bash14");
+  assert.deepEqual([command.role, command.text], ["user", "! ls 14"]);
+  const output = full.find((message) => message.id === "out14");
+  assert.deepEqual(
+    [output.role, output.shellOutput, JSON.parse(output.text)],
+    ["tool", true, { stdout: "file 14", stderr: "warn 14" }],
+  );
+  const provisional = await f.pages();
+  assert.deepEqual(provisional.messages, full);
+  await f.indexed();
+  const indexed = await f.pages();
+  assert.ok(indexed.first.next?.indexed, "served from the index");
+  assert.deepEqual(indexed.messages, full);
+});
