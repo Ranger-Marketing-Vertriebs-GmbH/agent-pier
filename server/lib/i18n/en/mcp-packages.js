@@ -23,4 +23,5 @@ export const mcpPackages = Object.freeze({
   toolchainBusy: "A toolchain is already being installed. Please try again shortly.",
   invalidConstraints:
     "Dependency constraints take one PyPI package name with version limits per line (for example fastmcp<4), at most 10.",
+  cancelled: "The installation was cancelled because the server was deleted.",
 });

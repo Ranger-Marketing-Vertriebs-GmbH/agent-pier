@@ -9,7 +9,7 @@ import { registerResponses } from "../../server/http/responses.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 
 test("every package code has a German message and keeps its code and status", () => {
-  assert.equal(packageCodes.length, 16);
+  assert.equal(packageCodes.length, 17);
   for (const code of packageCodes) {
     const error = packageProblem(code, 409);
     assert.equal(error.code, code);
@@ -18,6 +18,12 @@ test("every package code has a German message and keeps its code and status", ()
     assert.ok(error.message.length > 10, code);
   }
   assert.ok(serverMessages.mcpPackages.toolchainUnavailable.includes("Toolchain"));
+});
+
+test("a cancelled install has its own code and message", () => {
+  const error = packageProblem("MCP_PACKAGE_CANCELLED", 409);
+  assert.equal(error.code, "MCP_PACKAGE_CANCELLED");
+  assert.equal(error.message, serverMessages.mcpPackages.cancelled);
 });
 
 test("an unknown code is a defect, not a silent generic message", () => {
