@@ -11,7 +11,12 @@ import { npmAdapter } from "./npm-adapter.js";
 import { packageError, packageProblem } from "./package-errors.js";
 import { packageConstraints, packageName, packageRef } from "./package-spec.js";
 import { packageRoot, pruneInstalls, readInstall } from "./package-store.js";
-import { logFailure, runInstall, sourceFields } from "./package-install-job.js";
+import {
+  installError,
+  logFailure,
+  runInstall,
+  sourceFields,
+} from "./package-install-job.js";
 import { chooseProgram } from "./program-select.js";
 import { pypiIndexRegistry, pythonAdapter } from "./python-adapter.js";
 import { npmRegistry } from "./registry-metadata.js";
@@ -180,14 +185,15 @@ export class McpPackages {
       diff,
     };
   }
-  /** The confirmed preview for `source`; expired, unknown or different → refused. */
-  takePreview(previewId, source) {
+  /** The confirmed preview for `source`, left in place; expired, unknown or different → refused. */
+  peekPreview(previewId, source) {
     const preview = this.previews.get(previewId);
-    this.previews.delete(previewId);
     const ref = packageRef(source);
+    const expired = preview && preview.expires < this.now();
+    if (expired) this.previews.delete(previewId);
     if (
       !preview ||
-      preview.expires < this.now() ||
+      expired ||
       preview.ref.registry !== ref.registry ||
       preview.ref.name !== ref.name ||
       preview.ref.version !== ref.version ||
@@ -199,12 +205,18 @@ export class McpPackages {
       throw packageProblem("MCP_PACKAGE_PREVIEW_EXPIRED", 409);
     return preview;
   }
+  /** Takes a checked preview once; a second use of the same id is refused. */
+  consumePreview(previewId) {
+    if (!this.previews.delete(previewId))
+      throw packageProblem("MCP_PACKAGE_PREVIEW_EXPIRED", 409);
+  }
   /**
-   * The preview taken once, the scripts rule checked and its program chosen. Without
-   * programs at preview time the install names them (adapter.programsAfterInstall).
+   * The preview with the scripts rule checked and its program chosen; it stays until
+   * the caller consumes it, so a refused choice can be retried. Without programs at
+   * preview time the install names them (adapter.programsAfterInstall).
    */
   confirmedPreview(previewId, source, wanted) {
-    const preview = this.takePreview(previewId, source);
+    const preview = this.peekPreview(previewId, source);
     // Before the program: a package that must be built names its programs only then.
     if (preview.needsScripts === true && !preview.allowScripts)
       throw packageProblem("MCP_PACKAGE_NEEDS_SCRIPTS", 400);
@@ -233,14 +245,22 @@ export class McpPackages {
     const { source, ...definition } = input;
     if (!record(source)) throw invalid();
     const confirmed = this.confirmedPreview(previewId, source, program ?? source.program);
-    // Written in the server's own transaction: the first reconciliation already sees
-    // a package that is installing, not a stdio server without a command.
-    const server = await this.changes.create(definition, {
-      confirmStdio: true,
-      pendingCommand: true,
-      packageRecord: this.pendingRecord(confirmed),
-      ...(clis === undefined ? {} : { clis }),
-    });
+    this.consumePreview(previewId);
+    let server;
+    try {
+      // Written in the server's own transaction: the first reconciliation already sees
+      // a package that is installing, not a stdio server without a command.
+      server = await this.changes.create(definition, {
+        confirmStdio: true,
+        pendingCommand: true,
+        packageRecord: this.pendingRecord(confirmed),
+        ...(clis === undefined ? {} : { clis }),
+      });
+    } catch (error) {
+      // Nothing was stored (a taken name, a refused CLI): the owner may save again.
+      this.previews.set(previewId, confirmed.preview);
+      throw error;
+    }
     this.install(server.id, { ...confirmed, kind: "install" });
     return this.servers.get(server.id);
   }
@@ -259,7 +279,14 @@ export class McpPackages {
     // Another attach or a detach may have run while the owner's edits were saved.
     this.requireIdle(id);
     if (this.isPackaged(id)) throw packageProblem("MCP_PACKAGE_BUSY", 409);
-    this.records.put(id, this.pendingRecord(confirmed));
+    // Taken only now: an attach that lost to a concurrent one keeps its preview.
+    this.consumePreview(previewId);
+    try {
+      this.records.put(id, this.pendingRecord(confirmed));
+    } catch (error) {
+      this.previews.set(previewId, confirmed.preview);
+      throw installError(error);
+    }
     this.install(id, { ...confirmed, kind: "install" });
     return this.servers.get(id);
   }
@@ -330,7 +357,11 @@ export class McpPackages {
     this.detaching.add(id);
     try {
       await update?.();
-      if (this.isPackaged(id)) this.records.remove(id);
+      try {
+        if (this.isPackaged(id)) this.records.remove(id);
+      } catch (error) {
+        throw installError(error);
+      }
     } finally {
       this.detaching.delete(id);
     }
@@ -358,6 +389,7 @@ export class McpPackages {
       // A record installed without a program yet stores "".
       program ?? (row.program || undefined),
     );
+    this.consumePreview(previewId);
     return { job: this.install(id, { ...confirmed, kind: "update" }) };
   }
   reinstall(id) {
