@@ -6,6 +6,10 @@ import path from "node:path";
 import { McpPackages } from "../../server/features/mcp-packages/mcp-packages.js";
 import { toolchainRoot } from "../../server/features/mcp-packages/toolchains.js";
 import { toolchainEntry } from "../../server/features/mcp-packages/toolchain-entry.js";
+import {
+  pypiIndexRegistry,
+  pythonAdapter,
+} from "../../server/features/mcp-packages/python-adapter.js";
 
 const registryUrl = "http://registry.test";
 const integrity = "sha512-top";
@@ -429,4 +433,80 @@ test("a package without programs at preview gets the program its install names",
   assert.equal(row.programPath, "bin/x-server");
   assert.equal(rows.get("s1").command, "/bin/run");
   assert.deepEqual(rows.get("s1").args, ["bin/x-server", "--flag"]);
+});
+
+/** An adapter whose preview lists no programs; `installs` records each install's preview. */
+const lateProgramAdapter = (installs, { needsScripts = false } = {}) => ({
+  toolchainKind: "node",
+  preview: async () => ({
+    integrity: "sha256:a",
+    programs: [],
+    needsScripts,
+    manifestText: "x==1\n",
+    lockText: "x==1 --hash=sha256:a\n",
+    digest: "d",
+    dependencies: [],
+  }),
+  checkStored: () => ({ digest: "d", dependencies: [] }),
+  manifestText: () => "x==1\n",
+  install: async ({ preview }) => installs.push(preview),
+  programsAfterInstall: () => [{ name: "x-server", path: "x-server" }],
+  command: () => ({ command: "/bin/run", leading: [] }),
+  toolchainVersion: () => "1.0",
+});
+
+test("PyPI is registered by default with its index and the uv cache", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-packages-unit-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const service = new McpPackages({ dataDir, servers: { packages: {} } });
+  assert.equal(service.adapterOf("pypi"), pythonAdapter);
+  assert.deepEqual(service.registries.pypi, pypiIndexRegistry);
+  assert.deepEqual(pypiIndexRegistry, {
+    api: "https://pypi.org",
+    index: "https://pypi.org/simple",
+  });
+  assert.equal(service.cacheDir("pypi"), path.join(dataDir, "mcp-packages", ".uv-cache"));
+  assert.equal(service.cacheDir("npm"), path.join(dataDir, "mcp-packages", ".npm-cache"));
+});
+
+test("a program named before the install must look like a program name", async (t) => {
+  const { service } = harness(t, { adapters: { npm: lateProgramAdapter([]) } });
+  for (const wanted of ["../x", "-x", "a b", "x/y", "a".repeat(101), 7]) {
+    const { previewId } = await service.preview(source);
+    assert.throws(() => service.confirmedPreview(previewId, source, wanted), {
+      code: "MCP_PACKAGE_INVALID",
+    });
+  }
+  const { previewId } = await service.preview(source);
+  assert.equal(
+    service.confirmedPreview(previewId, source, "x-server").program.name,
+    "x-server",
+  );
+});
+
+test("the receipt keeps whether a build was needed; reinstall installs the same way", async (t) => {
+  const installs = [];
+  const { dataDir, service, records } = harness(t, {
+    adapters: { npm: lateProgramAdapter(installs) },
+  });
+  const opted = { ...source, allowScripts: true };
+  const { previewId } = await service.preview(opted);
+  await service.attach("s1", { source: opted, previewId });
+  await service.jobs.idle();
+  const row = records.get("s1");
+  const receipt = JSON.parse(
+    fs.readFileSync(
+      path.join(dataDir, "mcp-packages", "installs", row.installId, "receipt.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(receipt.needsScripts, false);
+  service.reinstall("s1");
+  await service.jobs.idle();
+  assert.equal(installs.at(-1).needsScripts, false);
+  // Without a readable receipt the owner's opt-in decides, as at the first install.
+  fs.rmSync(path.join(dataDir, "mcp-packages", "installs"), { recursive: true });
+  service.reinstall("s1");
+  await service.jobs.idle();
+  assert.equal(installs.at(-1).needsScripts, true);
 });

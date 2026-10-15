@@ -1,5 +1,6 @@
 name: MCP toolchains
 # Pins checked against the real downloads on every target. Pull requests run Linux.
+# The same job installs PyPI packages with the real uv and CPython from a local index.
 on:
   workflow_dispatch:
   workflow_call:
@@ -11,6 +12,14 @@ on:
       - "server/features/mcp-packages/verified-files.js"
       - "server/features/mcp-packages/cpython-relocation.js"
       - "scripts/verify-mcp-toolchains.mjs"
+      - "server/features/mcp-packages/python-*"
+      - "server/features/mcp-packages/wheel-programs.js"
+      - "server/features/mcp-packages/package-store.js"
+      - "server/features/mcp-packages/package-install-job.js"
+      - "server/features/mcp-packages/mcp-packages.js"
+      - "tests/integration/mcp-python-packages.test.js"
+      - "tests/helpers/pypi-index-fixture.js"
+      - "tests/helpers/mcp-python-service.js"
   pull_request:
     paths:
       - ".github/workflows/mcp-toolchains.yml"
@@ -18,6 +27,14 @@ on:
       - "server/features/mcp-packages/verified-files.js"
       - "server/features/mcp-packages/cpython-relocation.js"
       - "scripts/verify-mcp-toolchains.mjs"
+      - "server/features/mcp-packages/python-*"
+      - "server/features/mcp-packages/wheel-programs.js"
+      - "server/features/mcp-packages/package-store.js"
+      - "server/features/mcp-packages/package-install-job.js"
+      - "server/features/mcp-packages/mcp-packages.js"
+      - "tests/integration/mcp-python-packages.test.js"
+      - "tests/helpers/pypi-index-fixture.js"
+      - "tests/helpers/mcp-python-service.js"
 permissions:
   contents: read
 concurrency:
@@ -47,3 +64,7 @@ jobs:
       - run: node scripts/verify-mcp-toolchains.mjs "$TARGET"
         env:
           TARGET: ${{ matrix.target }}
+      - name: Python package installs against a local index
+        env:
+          AGENTPIER_MCP_PYTHON_TESTS: "1"
+        run: node --test tests/integration/mcp-python-packages.test.js

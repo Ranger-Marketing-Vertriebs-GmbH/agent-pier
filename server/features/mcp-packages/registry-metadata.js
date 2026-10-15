@@ -1,6 +1,6 @@
 import { download as fetchDownload } from "../operations/releases.js";
 import { packageProblem } from "./package-errors.js";
-import { pypiVersionPattern } from "./package-spec.js";
+import { canonicalPypiVersion, pypiVersionPattern } from "./package-spec.js";
 
 export const npmRegistry = "https://registry.npmjs.org";
 const metadataLimit = 64 * 1024 * 1024;
@@ -119,8 +119,20 @@ export function pypiVersions(project) {
   return { latest: project?.info?.version ?? null, versions };
 }
 
+/** The release under `version`, else under another spelling of the same version. */
+function pypiRelease(project, version) {
+  const releases = project?.releases;
+  if (!releases || typeof releases !== "object") return null;
+  if (Object.hasOwn(releases, version)) return releases[version];
+  const wanted = canonicalPypiVersion(version);
+  const key = Object.keys(releases).find(
+    (other) => pypiVersionPattern.test(other) && canonicalPypiVersion(other) === wanted,
+  );
+  return key === undefined ? null : releases[key];
+}
+
 export function pypiVersionInfo(project, version) {
-  const files = project?.releases?.[version];
+  const files = pypiRelease(project, version);
   if (!Array.isArray(files) || !files.length)
     throw packageProblem("MCP_PACKAGE_VERSION_NOT_FOUND", 404);
   return {
@@ -129,6 +141,7 @@ export function pypiVersionInfo(project, version) {
       url: f.url,
       sha256: f.digests?.sha256,
       packagetype: f.packagetype,
+      yanked: f.yanked === true,
     })),
     requiresPython: files.find((f) => f.requires_python)?.requires_python ?? null,
   };

@@ -38,3 +38,35 @@ test("every module the native check runs triggers the workflow", () => {
         `${event}: ${file}`,
       );
 });
+
+test("the Python install tests run natively against the local index and trigger the workflow", () => {
+  const verify = steps.findIndex((step) =>
+    step.run?.includes("verify-mcp-toolchains.mjs"),
+  );
+  const index = steps.findIndex((step) =>
+    step.run?.includes("mcp-python-packages.test.js"),
+  );
+  assert.ok(index > verify, "after the toolchain check");
+  assert.equal(steps[index].env?.AGENTPIER_MCP_PYTHON_TESTS, "1");
+  assert.match(
+    steps[index].run,
+    /^node --test tests\/integration\/mcp-python-packages\.test\.js$/,
+  );
+  for (const event of ["push", "pull_request"])
+    for (const file of [
+      "server/features/mcp-packages/python-adapter.js",
+      "server/features/mcp-packages/python-package-install.js",
+      "server/features/mcp-packages/python-lock-check.js",
+      "server/features/mcp-packages/wheel-programs.js",
+      "server/features/mcp-packages/package-store.js",
+      "server/features/mcp-packages/package-install-job.js",
+      "server/features/mcp-packages/mcp-packages.js",
+      "tests/integration/mcp-python-packages.test.js",
+      "tests/helpers/pypi-index-fixture.js",
+      "tests/helpers/mcp-python-service.js",
+    ])
+      assert.ok(
+        workflow.on[event].paths.some((pattern) => matches(pattern, file)),
+        `${event}: ${file}`,
+      );
+});

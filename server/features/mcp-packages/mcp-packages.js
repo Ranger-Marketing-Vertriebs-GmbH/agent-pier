@@ -10,14 +10,23 @@ import { lockDiff } from "./lock-check.js";
 import { npmAdapter } from "./npm-adapter.js";
 import { packageError, packageProblem } from "./package-errors.js";
 import { packageName, packageRef } from "./package-spec.js";
-import { packageRoot, pruneInstalls } from "./package-store.js";
+import { packageRoot, pruneInstalls, readInstall } from "./package-store.js";
 import { logFailure, runInstall, sourceFields } from "./package-install-job.js";
 import { chooseProgram } from "./program-select.js";
+import { pypiIndexRegistry, pythonAdapter } from "./python-adapter.js";
 import { npmRegistry } from "./registry-metadata.js";
 import { toolchainEntry } from "./toolchain-entry.js";
 
 const previewLimit = 20;
 const invalid = () => packageProblem("MCP_PACKAGE_INVALID", 400);
+// A program name as program-select.js accepts one from npm or a wheel.
+const programName = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+/** The program the owner named before the install can say which ones exist. */
+function laterProgram(wanted) {
+  if (wanted === undefined || wanted === "") return { name: "", path: "" };
+  if (typeof wanted !== "string" || !programName.test(wanted)) throw invalid();
+  return { name: wanted, path: "" };
+}
 
 /** Previews, installs, updates and removes packaged MCP servers (docs/mcp.md). */
 export class McpPackages {
@@ -32,7 +41,8 @@ export class McpPackages {
     environment,
     now = Date.now,
     previewTtl = 15 * 60 * 1000,
-    adapters = { npm: npmAdapter },
+    pypi = pypiIndexRegistry,
+    adapters = { npm: npmAdapter, pypi: pythonAdapter },
     previewConcurrency = 2,
   }) {
     Object.assign(this, {
@@ -51,7 +61,7 @@ export class McpPackages {
     this.adapters = adapters;
     this.previewConcurrency = previewConcurrency;
     // Registry name → index URL its adapter talks to.
-    this.registries = { npm: this.registry };
+    this.registries = { npm: this.registry, pypi };
     this.resolving = 0;
     this.records = servers.packages;
     this.jobs = new PackageJobs({ settled: () => this.prune() });
@@ -176,7 +186,7 @@ export class McpPackages {
       throw packageProblem("MCP_PACKAGE_NEEDS_SCRIPTS", 400);
     const program = preview.programs.length
       ? chooseProgram(preview.programs, wanted)
-      : { name: typeof wanted === "string" ? wanted : "", path: "" };
+      : laterProgram(wanted);
     return { preview, program };
   }
   /** The record of a confirmed package before its first install. */
@@ -305,6 +315,10 @@ export class McpPackages {
       manifestText: this.adapterOf(ref.registry).manifestText(ref),
       lockText: row.lock,
       digest: row.lockDigest,
+      // As the install it replaces; without its receipt the owner's opt-in decides.
+      needsScripts:
+        readInstall(this.dataDir, row.installId, row.lockDigest)?.needsScripts ??
+        row.allowScripts,
     };
     this.checkStored(row);
     return {
