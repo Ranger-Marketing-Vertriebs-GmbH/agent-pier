@@ -1,8 +1,10 @@
 # MCP package qualification
 
-Managed MCP server packages (see [MCP](mcp.md#installing-a-server-package)) are
-qualified against real servers before AgentPier documents them as supported. This
-document records the code review of third-party servers and the qualification runs.
+Managed MCP server packages (see [MCP](mcp.md#installing-a-server-package)) were
+qualified on 2026-10-15 on macOS 26.5.1 (arm64), AgentPier 9cd23303 (branch
+`feat/mcp-packages-pypi`), toolchains Node 26.7.0 (npm 11.19.0), uv 0.12.21 and CPython
+3.14.7. This document records the code review of third-party servers and the
+qualification runs.
 
 ## OPNsense server review (opnsense-mcp-server 0.4.1)
 
@@ -30,12 +32,12 @@ newer code (last commit 2026-08-19).
   registry.
 - Blocked endpoints: `core/system/halt`, `core/system/reboot`,
   `core/firmware/poweroff`, `core/firmware/update`, `core/firmware/upgrade`
-  (`api_client.py:16`). The check runs on the unnormalised path while httpx later
-  resolves `..` segments, so a crafted `uuid` argument can reach other endpoints.
+  (`api_client.py:16`). The check runs on the unnormalised path, so path
+  normalisation after the check can bypass it.
   With writes off this is limited to GET requests (`opn_get_dnsbl`,
   `opn_haproxy_get`); OPNsense ignores halt, reboot, poweroff, update and upgrade on
-  GET. Upstream issue #9 reports a blocklist bypass privately; the API user's
-  privileges remain the boundary.
+  GET. Upstream issue #9 (open) asks how to report a blocklist bypass privately; it
+  is probably the same bug. The API user's privileges remain the boundary.
 - `opn_download_config` and `opn_get_config_section` with `include_sensitive=true`
   return the configuration unredacted, and the default redaction covers only a fixed
   list of tag names: the API user gets no backup privilege. Without it,
@@ -52,7 +54,8 @@ newer code (last commit 2026-08-19).
   the dependency constraint `fastmcp<4`, which resolves fastmcp 3.4.8, `httpx` 0.28.1
   and `mcp` 1.30.0.
 - Verdict: read-only by default in code: yes. The enforced boundary is the restricted
-  API user.
+  API user. The key needs `System: Firmware`, which also allows firmware and reboot
+  actions; the owner accepted it with the write switch and the agent's shell kept off.
 
 ### Restricted OPNsense API user
 
@@ -100,3 +103,72 @@ this user (gateway and route changes included), but not service, firmware or sta
 actions. It also breaks `opn_ping`, `opn_traceroute` and `opn_dns_lookup`, whose
 OPNsense endpoints save a job through the same code path. Add it when those three
 tools are not needed.
+
+## Qualification run (2026-10-15, macOS arm64)
+
+A disposable AgentPier from this branch ran with its own data directory, its own
+`HOME` and its own tmux socket. Every server went through the real routes: preview,
+confirmation (`confirmInstall`), install job and package status. Each server was then
+bound to Claude Code, and the exact command, args and env that AgentPier wrote into the
+disposable `~/.claude.json` were started by a plain MCP stdio client (`initialize`,
+`tools/list`, one real `tools/call`) with `PATH=/usr/bin:/bin`. Times are the preview
+request and the install job until **Installed** (polled every second), with the
+toolchains already staged at startup.
+
+| Server                                    | Version    | Registry             | Preview / install | Direct MCP call                                                                                                         | Notes                                                                                                                                                        |
+| ----------------------------------------- | ---------- | -------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@modelcontextprotocol/server-memory`     | 1.0.0      | npm                  | 4.5 s / < 2 s     | `create_entities` then `open_nodes` returned the entity                                                                 | 96 packages, 9 tools. Without `MEMORY_FILE_PATH` the server writes `memory.jsonl` into its install directory, which an update or reinstall replaces: set it. |
+| `@modelcontextprotocol/server-filesystem` | 1.0.0      | npm                  | 0.8 s / 1 s       | `list_directory` and `read_text_file` on the allowed directory; `/etc` refused ("path outside allowed directories")     | Allowed directory as the owner argument after the generated one; 104 packages, 14 tools.                                                                     |
+| `mcp-server-time`                         | 2026.10.10 | PyPI                 | 3.5 s / 1 s       | `get_current_time` for `Europe/Berlin` returned the local time (+02:00, DST)                                            | First PyPI preview (cold uv cache); 32 packages.                                                                                                             |
+| `mcp-server-fetch`                        | 2026.10.10 | PyPI                 | 0.2 s / 1 s       | `fetch https://example.com` returned "Example Domain" as Markdown                                                       | 44 packages.                                                                                                                                                 |
+| `opnsense-mcp-server`                     | 0.4.1      | PyPI, `fastmcp<4`    | 0.1 s / 2 s       | 81 tools listed; `opn_add_alias` answered "Write operations disabled"; `opn_system_status` could not connect (expected) | Program `opnsense-mcp`; placeholder environment values and a TEST-NET address, no firewall. See below.                                                       |
+| `mcp-pandoc`                              | 0.11.1     | PyPI, builds allowed | 0.3 s / 1 s       | `convert-contents` Markdown to HTML returned `<h1 id="qualification">` and `<strong>`                                   | Built `pandoc==2.4` from its sdist; pandoc 3.12.1 found only with `PYPANDOC_PANDOC` set (see below).                                                         |
+
+- `mcp-pandoc` without the opt-in: the preview reported `needsScripts: true` with no
+  dependencies, and the install was refused with `MCP_PACKAGE_NEEDS_SCRIPTS`; no server
+  was created. With the opt-in the preview resolved 36 packages and the install log
+  showed `Building pandoc==2.4`. The server's `PATH` (`/usr/bin:/bin`) does not contain
+  Homebrew's pandoc, so the first call answered "No pandoc was found"; with the
+  environment value `PYPANDOC_PANDOC=/opt/homebrew/bin/pandoc` set in the form, the
+  conversion worked.
+- OPNsense: without a constraint the preview resolves fastmcp 4.1.0 and `httpx2`
+  2.13.1. With `fastmcp<4` the preview, the stored record and the install receipt list
+  the constraint, and the installed environment holds fastmcp 3.4.8, `httpx` 0.28.1 and
+  `mcp` 1.30.0 (no `httpx2`). Without `OPNSENSE_URL`, `OPNSENSE_API_KEY` and
+  `OPNSENSE_API_SECRET` the server stops at startup (`ConfigError`). With placeholder
+  values and an unreachable TEST-NET address it starts, lists 81 tools, refuses the
+  write tool before any request and fails the read tool on version detection. The
+  real-firewall run is the owner's (below).
+- Build tools (D6): with the opt-in, the build of `pandoc==2.4` fetched its build
+  backend (`setuptools`) from PyPI at build time, outside the hashed lock; the
+  confirmation's scripts and builds warning names this.
+
+### Update, reinstall and remove
+
+- Update: `mcp-server-time` 2026.10.10 to 2026.8.18. The update preview's diff listed
+  one change (`mcp-server-time` 2026.10.10 to 2026.8.18), nothing added or removed.
+  The job installed into a new directory, the old one was pruned, the Claude Code entry
+  moved to the new program and the direct call worked again.
+- Reinstall: after its install directory was deleted by hand, the package status showed
+  `missing`; **Reinstall** synced the stored lock (32 packages) into a new directory
+  and the direct call worked again. Until then the Claude
+  Code entry kept pointing at the deleted program.
+- Remove: deleting the `server-filesystem` server removed its directory from
+  `mcp-packages/installs/` and its Claude Code entry.
+- Yanked files: no PyPI release had a per-file yank among all releases of the 1,500 most
+  downloaded projects and the packages above (PyPI yanks whole releases). A yanked
+  dependency release pinned by a constraint (`tzlocal==5.4.1` for `mcp-server-time`)
+  previewed without `MCP_PACKAGE_INTEGRITY_MISMATCH`; only the top release's files are
+  checked against PyPI's digests.
+- Package create, update and reinstall answered `400` ("Ungültige Audit-Aktion")
+  although the job ran and finished: the audit schema rejects the three-part
+  `mcp.package.*` actions. Reported for a fix before merge.
+
+### Scope
+
+- Linux: the `mcp-toolchains` workflow run 38692582095 (commit 808c5d44) passed on
+  linux-x64, linux-arm64, darwin-x64 and darwin-arm64 (toolchains, local-index
+  installs and the C-extension build). Real-server calls ran on macOS only.
+- Agent and Claude Code calls, and OPNsense with real credentials and the restricted
+  API user, are done by the owner in the real instance after merge.
+- Upstream issue: not posted (owner decision).
