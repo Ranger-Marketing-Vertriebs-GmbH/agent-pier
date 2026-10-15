@@ -317,6 +317,8 @@ export const assistantCopy = {
   you: "Du",
   // Under a message longer than the chat can load (65,536 characters).
   messageCut: "Gekürzt: Der Rest dieser Nachricht ist zu lang für die Anzeige.",
+  // Under a long message whose rest the chat has not loaded yet.
+  messagePartial: "Der Rest dieser Nachricht wird gleich geladen.",
   // The meta line under a message that reached the agent through Telegram.
   telegramSource: {
     via: "über Telegram",

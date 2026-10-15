@@ -33,6 +33,9 @@ function setup(t) {
   const sent = [];
   const reads = [];
   let history = [];
+  // Single reads of these ids fail: "missing" serves no message, "throw" rejects.
+  const failing = new Map();
+  const clock = { at: 1_000_000 };
   const client = new EventEmitter();
   client.ready = true;
   client.subscribe = (f) => {
@@ -46,6 +49,8 @@ function setup(t) {
     }
     if (method === "chat.history") {
       reads.push(params);
+      if (failing.get(params.messageId) === "throw") throw Error("disconnected");
+      if (failing.get(params.messageId) === "missing") return { messages: [] };
       const max = params.maxChars ?? 8000;
       const shown = params.messageId
         ? history.filter((m) => m.__openclaw?.id === params.messageId)
@@ -73,6 +78,7 @@ function setup(t) {
       imageInput: () => true,
     },
     config: { apply: async () => {}, reset() {}, workspaces },
+    now: () => clock.at,
   });
   t.after(async () => {
     await service.close();
@@ -97,6 +103,8 @@ function setup(t) {
     c,
     turn,
     setHistory: (h) => (history = h),
+    failing,
+    clock,
     pageReads: () => reads.filter((r) => !r.messageId).length,
     singleReads: () => reads.filter((r) => r.messageId),
   };
@@ -168,14 +176,16 @@ test("a page reads only a bounded number of cut messages on their own", async (t
   const first = (await service.history(c.id)).messages;
   const reads = singleReads().length;
   assert.ok(reads > 0 && reads < 30, `${reads} single reads`);
-  // The newest are completed first; the rest are shown cut until a later page.
+  // The newest are completed first; the rest are partial until a later page.
   assert.equal(first.at(-1).cut, undefined);
+  assert.equal(first.at(-1).partial, undefined);
   assert.equal(first.at(-1).text.length, 9003);
-  assert.equal(first[0].cut, true);
+  assert.equal(first[0].cut, undefined);
+  assert.equal(first[0].partial, true);
   assert.equal(first[0].text.length, 8000);
   for (let n = 0; n < 5; n++) await service.history(c.id);
   const later = (await service.history(c.id)).messages;
-  assert.ok(later.every((m) => !m.cut && m.text.length > 9000));
+  assert.ok(later.every((m) => !m.cut && !m.partial && m.text.length > 9000));
   assert.equal(singleReads().length, 30);
   assert.equal(pageReads(), 7);
 });
@@ -203,6 +213,90 @@ test("files stay on a turn whose note is cut beyond AgentPier's limit", async (t
   setHistory([turn(sent[0], "turn-1", 1000)]);
   const [message] = (await service.history(c.id)).messages;
   same(message.text, text);
+  assert.equal(message.cut, undefined);
+  assert.deepEqual(
+    message.attachments.map((f) => f.id),
+    [notes.id],
+  );
+});
+
+const cutReply = (n, id = `m${n}`) => ({
+  role: "assistant",
+  content: [{ type: "text", text: `${n} ${"e".repeat(9000)}` }],
+  timestamp: 1000 + n,
+  __openclaw: { id },
+});
+
+for (const mode of ["missing", "throw"])
+  test(`an unanswered single read (${mode}) is retried later, never taken as cut`, async (t) => {
+    const { service, c, setHistory, failing, clock, singleReads } = setup(t);
+    setHistory([cutReply(0)]);
+    // Not served (the id is unknown, the runtime was swapped) or disconnected.
+    failing.set("m0", mode);
+    let [message] = (await service.history(c.id)).messages;
+    assert.equal(message.cut, undefined);
+    assert.equal(message.partial, true);
+    assert.equal(message.text.length, 8000);
+    // Not read again before its retry is due.
+    await service.history(c.id);
+    assert.equal(singleReads().length, 1);
+    // Reconnected: the next due read completes it.
+    failing.clear();
+    clock.at += 5000;
+    [message] = (await service.history(c.id)).messages;
+    assert.equal(message.partial, undefined);
+    assert.equal(message.text.length, 9002);
+    assert.equal(singleReads().length, 2);
+  });
+
+test("reads that keep failing back off and leave room for older messages", async (t) => {
+  const { service, c, setHistory, failing, clock, singleReads } = setup(t);
+  setHistory(Array.from({ length: 10 }, (_, n) => cutReply(n)));
+  failing.set("m9", "throw").set("m8", "missing");
+  await service.history(c.id);
+  assert.equal(singleReads().length, 8);
+  // The failing newest two wait; the two oldest are read instead.
+  const second = (await service.history(c.id)).messages;
+  assert.deepEqual(
+    singleReads()
+      .slice(8)
+      .map((r) => r.messageId)
+      .sort(),
+    ["m0", "m1"],
+  );
+  assert.deepEqual(
+    second.filter((m) => m.partial).map((m) => m.id),
+    ["m8", "m9"],
+  );
+  // Each further failure doubles the delay.
+  clock.at += 5000;
+  await service.history(c.id);
+  assert.equal(singleReads().length, 12);
+  clock.at += 5000;
+  await service.history(c.id);
+  assert.equal(singleReads().length, 12);
+  clock.at += 5000;
+  await service.history(c.id);
+  assert.equal(singleReads().length, 14);
+});
+
+test("concurrent pages share one single read per message", async (t) => {
+  const { service, c, setHistory, singleReads } = setup(t);
+  setHistory([cutReply(0), cutReply(1)]);
+  const pages = await Promise.all([service.history(c.id), service.history(c.id)]);
+  assert.equal(singleReads().length, 2);
+  for (const page of pages) assert.ok(page.messages.every((m) => m.text.length > 9000));
+});
+
+test("files stay on a cut turn whose request has Windows line endings", async (t) => {
+  const { service, sent, c, turn, setHistory } = setup(t);
+  const text = `${"line one\r\n".repeat(6550)}end`;
+  const notes = await service.attachments.stage(c.id, "notes.md", Buffer.from("# x\n"));
+  await service.send(c.id, { clientRequestId: "crlf", text, attachments: [notes.id] });
+  assert.ok(sent[0].message.length > 65536);
+  setHistory([turn(sent[0], "turn-1", 1000)]);
+  const [message] = (await service.history(c.id)).messages;
+  same(message.text, text.replace(/\r\n/g, "\n"));
   assert.equal(message.cut, undefined);
   assert.deepEqual(
     message.attachments.map((f) => f.id),

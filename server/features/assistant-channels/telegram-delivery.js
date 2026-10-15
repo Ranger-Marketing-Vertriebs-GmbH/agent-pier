@@ -150,8 +150,8 @@ export class TelegramDelivery {
             [attempt.id, attempt.runtimeRunId].filter(Boolean).includes(m.runId),
         )
         .at(-1);
-      // A reply too large to show at all has no text but is marked cut.
-      if (!message?.text?.trim() && message?.cut !== true) {
+      // A reply too large for the page has no text there but is marked incomplete.
+      if (!message?.text?.trim() && message?.cut !== true && message?.partial !== true) {
         const now = this.service.now(),
           since = entry.replyMissingSince ?? now;
         if (now - since >= replyGraceMs) {

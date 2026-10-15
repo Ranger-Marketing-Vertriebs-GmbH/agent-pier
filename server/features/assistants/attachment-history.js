@@ -35,16 +35,19 @@ export function withAttachments(messages, requests, { attempts, byRequest }) {
         text: text.slice(0, text.length - entry.note.length).trimEnd(),
         attachments: entry.files,
       };
-    // A turn cut before its note's end (over AgentPier's history limit) still shows
-    // its files; it is incomplete only when the owner's own words were cut too.
-    const words = message.cut === true && byId.get(requestId)?.text;
-    if (typeof words !== "string") return message;
-    const { cut: _cut, ...rest } = message;
+    // A turn cut before its note's end (over AgentPier's history limit, or not yet
+    // read whole) still shows its files; it stays incomplete only when the owner's
+    // own words were cut too.
+    const incomplete = message.cut === true || message.partial === true;
+    const request = byId.get(requestId);
+    if (!incomplete || typeof request?.text !== "string") return message;
+    const words = normalized(request.text);
+    const { cut, partial, ...rest } = message;
     return {
       ...rest,
       text: text.slice(0, words.length).trimEnd(),
       attachments: entry.files,
-      ...(text.length < words.length && { cut: true }),
+      ...(text.length < words.length && (cut ? { cut } : { partial })),
     };
   });
 }

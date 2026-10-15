@@ -8,8 +8,14 @@ const lastLine = "ich glaub ich muss die eh alle migrieren";
 const long = `${"x\n".repeat(4500)}${lastLine}`;
 const timestamp = Date.now();
 const copy = {
-  en: { cut: "Shortened: the rest of this message is too long to show." },
-  de: { cut: "Gekürzt: Der Rest dieser Nachricht ist zu lang für die Anzeige." },
+  en: {
+    cut: "Shortened: the rest of this message is too long to show.",
+    partial: "The rest of this message loads shortly.",
+  },
+  de: {
+    cut: "Gekürzt: Der Rest dieser Nachricht ist zu lang für die Anzeige.",
+    partial: "Der Rest dieser Nachricht wird gleich geladen.",
+  },
 };
 
 async function setup(page, language = "en") {
@@ -121,19 +127,64 @@ test("a long owner turn shows once while it runs and whole afterwards", async ({
 });
 
 for (const language of ["en", "de"]) {
-  test(`a message too long to show says it was shortened (${language})`, async ({
+  test(`a long message says it was shortened or still loads (${language})`, async ({
     page,
   }) => {
     const state = await setup(page, language);
     state.messages = [
       ...state.messages,
       { id: "huge", role: "assistant", text: "y ".repeat(500), cut: true, timestamp },
+      { id: "loading", role: "user", text: "z ".repeat(500), partial: true, timestamp },
     ];
     await changed(page);
-    const note = page
-      .locator(".assistant-message.assistant")
-      .locator(".assistant-message-cut");
-    await expect(note).toHaveText(copy[language].cut);
+    const note = (role) =>
+      page.locator(`.assistant-message.${role}`).locator(".assistant-message-cut");
+    await expect(note("assistant")).toHaveText(copy[language].cut);
+    // Not loaded whole yet: a neutral note, not a claim that it was shortened.
+    await expect(note("user")).toHaveText(copy[language].partial);
     await expect(page.locator("text=(truncated)")).toHaveCount(0);
   });
 }
+
+test("long turn screenshots", async ({ page }) => {
+  const directory = process.env.LONG_TURN_SHOTS;
+  test.skip(!directory, "Screenshots are taken on request.");
+  const state = await setup(page);
+  const docs = Array.from(
+    { length: 30 },
+    (_, n) => `- step ${n + 1}: migrate the module and check its tests`,
+  ).join("\n");
+  state.requests = [
+    {
+      id: "request-1",
+      clientRequestId: "long",
+      text: `${docs}\n\n${lastLine}`,
+      state: "completed",
+      createdAt: new Date(timestamp).toISOString(),
+      attempt: { id: "attempt-1", state: "completed", reviewedAt: null },
+    },
+  ];
+  state.messages = [
+    ...state.messages,
+    {
+      id: "stored",
+      role: "user",
+      text: `${docs}\n\n${lastLine}`,
+      requestId: "request-1",
+      timestamp,
+    },
+    { id: "reply", role: "assistant", text: "Then let's migrate them all.", timestamp },
+  ];
+  await changed(page);
+  await expect(
+    page.locator(".assistant-message.assistant", { hasText: "migrate them all" }),
+  ).toBeVisible();
+  await page.screenshot({ path: `${directory}/long-turn-complete-en.png` });
+  state.messages = [
+    { id: "first", role: "user", text: "Hello", timestamp },
+    { id: "stored", role: "user", text: docs.slice(0, 900), partial: true, timestamp },
+  ];
+  await changed(page);
+  await expect(page.locator(".assistant-message-cut")).toBeVisible();
+  await page.screenshot({ path: `${directory}/long-turn-partial-en.png` });
+});

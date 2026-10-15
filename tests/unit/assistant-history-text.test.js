@@ -56,6 +56,14 @@ test("a cut message is read on its own and the longer text wins", async () => {
   });
 });
 
+test("a partial history message is read on its own", async () => {
+  const assistants = { message: async () => "Hello world" };
+  assert.deepEqual(
+    await completeMessage(assistants, "c1", { id: "m1", text: "Hello", partial: true }),
+    { text: "Hello world", cut: false },
+  );
+});
+
 test("a history message already marked cut stays incomplete", async () => {
   // The chat history serves its own cut flag instead of OpenClaw's marker.
   const assistants = { message: async () => "Hello" };
