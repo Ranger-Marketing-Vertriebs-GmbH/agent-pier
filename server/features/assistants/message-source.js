@@ -59,12 +59,13 @@ export function requestSource(context) {
 const normalized = (text) => text.replace(/\r\n?/g, "\n").trimEnd();
 
 /**
- * Adds `source` and `sender` to user messages a Telegram request submitted and drops
- * the internal `turnKey`. A message with a delivery key belongs to the request whose
- * attempt sent it (`attempts`: delivery key → request id). Without a key it belongs
- * to the newest request accepted at or before it (OpenClaw stamps the entry after
- * AgentPier accepted the request, on the same clock), and only when the texts are
- * equal. `contexts` maps a request id to its trusted context.
+ * Adds `source` and `sender` to user messages a Telegram request submitted, adds
+ * `requestId` to user messages with a delivery key, and drops the internal
+ * `turnKey`. A message with a delivery key belongs to the request whose attempt sent
+ * it (`attempts`: delivery key → request id). Without a key it belongs to the newest
+ * request accepted at or before it (OpenClaw stamps the entry after AgentPier
+ * accepted the request, on the same clock), and only when the texts are equal.
+ * `contexts` maps a request id to its trusted context.
  */
 export function withMessageSources(
   messages,
@@ -81,8 +82,10 @@ export function withMessageSources(
     const request = key
       ? byId.get(attempts.get(key))
       : byText(accepted, message.text, message.timestamp);
+    // The request a keyed turn belongs to, so the chat need not compare texts.
+    const linked = key && request ? { ...message, requestId: request.id } : message;
     const source = request && requestSource(contexts.get(request.id));
-    return source ? { ...message, ...source } : message;
+    return source ? { ...linked, ...source } : linked;
   });
 }
 

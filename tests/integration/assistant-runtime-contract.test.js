@@ -9,6 +9,7 @@ import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supe
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import { publicMessages } from "../../server/features/assistants/conversations.js";
 const dataDir = process.env.AGENTPIER_ASSISTANT_CONTRACT_DIR;
 // Five Gateway starts (initial, crash, recovery, stop/start): a passing hosted
 // macOS run already took 89 s, and the same runner type is often 30 % slower.
@@ -218,6 +219,37 @@ test(
       ),
     );
     step("service-history");
+    // OpenClaw's history page cuts a turn over 8000 characters and marks the cut; a
+    // `messageId` read with AgentPier's limit has it whole. The chat serves it whole
+    // and names its request, so the browser need not compare texts (conversations.js).
+    const longText = `${"A line of pasted notes.\n".repeat(400)}LONG_TURN_END`;
+    const longTurn = await service.send(conversation.id, {
+      clientRequestId: "long-turn-contract",
+      text: longText,
+    });
+    for (
+      let n = 0;
+      n < 100 && service.ledger.getAttempt(longTurn.attempt.id).state !== "completed";
+      n++
+    ) {
+      await delay(100);
+      await service.reconcile();
+    }
+    assert.equal(service.ledger.getAttempt(longTurn.attempt.id).state, "completed");
+    const rawPage = await runtime.client.call("chat.history", {
+      sessionKey: conversation.runtimeSessionKey,
+      limit: 100,
+    });
+    const rawTurn = publicMessages(rawPage.messages).find(
+      (m) => m.turnKey === longTurn.attempt.id,
+    );
+    assert.equal(rawTurn?.text, `${longText.slice(0, 8000)}\n...(truncated)...`);
+    const servedTurn = (await service.history(conversation.id)).messages.find(
+      (m) => m.requestId === longTurn.request.id,
+    );
+    assert.equal(servedTurn?.text, longText);
+    assert.equal(servedTurn.cut, undefined);
+    step("long-turn");
     await qualifyAssistantChannels({ dataDir, assistants: service, assistantId: a.id });
     step("channels");
     const crashed = await service.send(conversation.id, {

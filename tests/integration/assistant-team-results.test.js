@@ -81,6 +81,40 @@ test("the internal synthesis turn is hidden from the owner's visible history", a
   // The durable ledger keeps the exact instruction for audit.
   assert.ok(f.assistants.ledger.getRequest(synthesis.id).text.includes("Summarize"));
 });
+test("an internal turn is hidden by its delivery key even when its text differs", async (t) => {
+  const f = teamFixture(t),
+    { team, attempt, chat } = await f.proposal({ count: 1 });
+  await f.service.reconcile();
+  f.complete(f.service.store.members(team.id)[0].attemptId);
+  f.assistants.ledger.transition(attempt.id, "completed");
+  await f.service.reconcile();
+  await f.service.reconcile();
+  const synthesis = f.assistants.ledger
+    .requests(chat.id)
+    .find((r) => r.clientRequestId === `team-result:${team.id}`);
+  const key = `${f.assistants.ledger.attemptFor(synthesis.id).id}:user`;
+  const call = f.assistants.runtime.client.call;
+  f.assistants.runtime.client.call = async (method, input) =>
+    method === "chat.history" && input.sessionKey === chat.runtimeSessionKey
+      ? {
+          messages: [
+            {
+              role: "user",
+              // A page cut at OpenClaw's 8000 characters no longer equals the request.
+              content: `${synthesis.text.slice(0, 20)}\n...(truncated)...`,
+              timestamp: 2,
+              idempotencyKey: key,
+              __openclaw: { id: "u2", idempotencyKey: key },
+            },
+          ],
+        }
+      : call(method, input);
+  const history = await f.assistants.history(chat.id);
+  assert.deepEqual(
+    history.messages.map((m) => [m.role, m.event || m.text]),
+    [["event", "team-result"]],
+  );
+});
 test("an owner stop after some members completed ends cancelled and still synthesizes their reports", async (t) => {
   const f = teamFixture(t),
     { team, attempt, chat } = await f.proposal({ count: 2 });

@@ -39,3 +39,11 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+/* A message longer than the chat can load: a quiet note after its text. */
+.assistant-message-cut {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.4;
+}
