@@ -157,7 +157,7 @@ test("only sha256 files from files.pythonhosted.org that are not yanked count", 
   const result = await ok.preview();
   assert.deepEqual(result.programs, []);
   assert.equal(result.integrity, `sha256:${sha(sdistBytes)}`);
-  assert.ok(!ok.downloads.some((url) => url.startsWith("https://evil.test")));
+  assert.ok(!ok.downloads.some((url) => new URL(url).hostname === "evil.test"));
   const foreign = setup(t, {
     files: [file("srv_x-1.0.tar.gz", sdistBytes, { url: "https://evil.test/x.tar.gz" })],
   });
