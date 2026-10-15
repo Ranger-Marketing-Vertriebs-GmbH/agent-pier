@@ -74,6 +74,7 @@ export default function McpServerFields({ formId, values, server, set, fieldErro
               values={values}
               set={set}
               constraintsError={errorOf("packageConstraints")}
+              versionError={errorOf("packageVersion")}
             />
           )}
           {!packaged && (

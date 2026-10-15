@@ -164,6 +164,21 @@ test("only sha256 files from files.pythonhosted.org that are not yanked count", 
   await assert.rejects(foreign.preview(), { code: "MCP_PACKAGE_FOREIGN_SOURCE" });
 });
 
+test("a release whose files are all yanked is named as yanked, not as foreign", async (t) => {
+  const yanked = setup(t, {
+    files: release().map((f) => ({ ...f, yanked: true })),
+  });
+  await assert.rejects(yanked.preview(), { code: "MCP_PACKAGE_VERSION_YANKED" });
+  // One yanked file beside a foreign one is still a foreign source.
+  const mixed = setup(t, {
+    files: [
+      file("srv_x-1.0-py3-none-any.whl", wheelBytes, { yanked: true }),
+      file("srv_x-1.0.tar.gz", sdistBytes, { url: "https://evil.test/x.tar.gz" }),
+    ],
+  });
+  await assert.rejects(mixed.preview(), { code: "MCP_PACKAGE_FOREIGN_SOURCE" });
+});
+
 test("an injected test index may serve its files from any host", async (t) => {
   const registry = { api: "http://127.0.0.1:1", index: "http://127.0.0.1:1/simple" };
   const files = release().map((f) => ({

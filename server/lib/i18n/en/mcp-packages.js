@@ -8,6 +8,8 @@ export const mcpPackages = Object.freeze({
     "The package needs install scripts or a build from source. Allow this explicitly to install it.",
   integrityMismatch: "A package checksum does not match the registry.",
   foreignSource: "A dependency does not come from the public registry and is rejected.",
+  versionYanked:
+    "The maintainers withdrew (yanked) this version. Choose another version.",
   noProgram: "The package contains no runnable program.",
   programRequired: "The package contains several programs. Please choose one.",
   toolchainUnavailable:

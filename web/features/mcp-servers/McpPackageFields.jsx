@@ -26,14 +26,24 @@ function optionLabel(entry, installed) {
  * A package version, newest first; prereleases hide behind a toggle, deprecated and
  * yanked ones stay selectable and `installed` is marked. Loading and registry failures are named.
  */
-export function McpVersionPicker({ id, label, versions, value, onChange, installed }) {
+export function McpVersionPicker({
+  id,
+  label,
+  versions,
+  value,
+  onChange,
+  installed,
+  error,
+}) {
   const [showPrereleases, setShowPrereleases] = useState(false);
   const options = versionOptions(versions.versions, { showPrereleases, selected: value });
-  const hint = versions.loading
-    ? copy.versionsLoading
-    : versions.failed
-      ? versions.error || copy.versionsUnavailable
-      : "";
+  const hint = error
+    ? error
+    : versions.loading
+      ? copy.versionsLoading
+      : versions.failed
+        ? versions.error || copy.versionsUnavailable
+        : "";
   return (
     <div className="mcp-field">
       <label htmlFor={id}>{label}</label>
@@ -41,6 +51,7 @@ export function McpVersionPicker({ id, label, versions, value, onChange, install
         id={id}
         value={value}
         required
+        aria-invalid={error ? true : undefined}
         aria-describedby={`${id}-hint`}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -65,8 +76,8 @@ export function McpVersionPicker({ id, label, versions, value, onChange, install
       </label>
       <small
         id={`${id}-hint`}
-        role="status"
-        className={versions.failed ? "mcp-field-error" : "mcp-hint"}
+        role={error ? "alert" : "status"}
+        className={error || versions.failed ? "mcp-field-error" : "mcp-hint"}
       >
         {hint}
       </small>
@@ -135,7 +146,13 @@ export function McpConstraints({ id, value, onChange, error }) {
  * Registry, package and version of a package to install, with the scripts opt-in
  * and, for PyPI, its dependency constraints.
  */
-export default function McpPackageFields({ formId, values, set, constraintsError }) {
+export default function McpPackageFields({
+  formId,
+  values,
+  set,
+  constraintsError,
+  versionError,
+}) {
   const versions = useMcpPackageVersions(values.registry, values.packageName);
   // The newest stable version is preselected; a version the package lacks goes.
   useEffect(() => {
@@ -180,6 +197,7 @@ export default function McpPackageFields({ formId, values, set, constraintsError
         label={copy.versionLabel}
         versions={versions}
         value={values.packageVersion}
+        error={versionError}
         onChange={set("packageVersion")}
       />
       {values.registry === "pypi" && (

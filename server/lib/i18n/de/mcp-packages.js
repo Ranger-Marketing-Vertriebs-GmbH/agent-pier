@@ -10,6 +10,8 @@ export const mcpPackages = {
   integrityMismatch: "Die Prüfsumme eines Pakets stimmt nicht mit der Registry überein.",
   foreignSource:
     "Eine Abhängigkeit stammt nicht aus der öffentlichen Registry und wird abgelehnt.",
+  versionYanked:
+    "Die Maintainer haben diese Version zurückgezogen (yanked). Bitte eine andere Version wählen.",
   noProgram: "Das Paket enthält kein startbares Programm.",
   programRequired: "Das Paket enthält mehrere Programme. Bitte eines auswählen.",
   toolchainUnavailable:
