@@ -10,7 +10,7 @@ const filler = Array.from({ length: 24 }, (_, n) => ({
   text: `Earlier message ${n} with enough words to take up a couple of lines in the transcript view.`,
 }));
 
-async function setup(page, { messages = filler, member = null } = {}) {
+async function setup(page, { messages = filler, member = null, requests = [] } = {}) {
   await fixture(page);
   await page.addInitScript(() => {
     localStorage.setItem("agentpier-language", "en");
@@ -71,7 +71,11 @@ async function setup(page, { messages = filler, member = null } = {}) {
       body = { availability: "ready", sync: "current" };
     else if (p.endsWith("/messages")) {
       if (method === "POST") state.posted.push(route.request().postDataJSON());
-      body = { messages: state.messages, requests: state.requests ?? [], stale: false };
+      body = {
+        messages: state.messages,
+        requests: state.requests ?? requests,
+        stale: false,
+      };
     } else if (p.endsWith("/conversations")) body = { id: "dinner", assistantId: "home" };
     else if (p === "/api/assistants/home") body = assistant;
     await route.fulfill({ json: body });
@@ -463,4 +467,33 @@ test("coding run notes show the outcome with a link to the run", async ({ page }
   await expect(link).toHaveAttribute("href", "/pipelines/runs/run-7");
   await link.click();
   await expect(page).toHaveURL(/\/pipelines\/runs\/run-7$/);
+});
+
+test("the streaming caret follows the code of a reply ending in a fenced block", async ({
+  page,
+}) => {
+  await setup(page, {
+    messages: [{ id: "q", role: "user", text: "Install it" }],
+    requests: [
+      {
+        id: "r",
+        text: "Install it",
+        state: "accepted",
+        attempt: { id: "a1", state: "accepted" },
+      },
+    ],
+  });
+  const text = "Run this:\n\n```sh\nnpm ci\n```";
+  await emit(page, { type: "delta", conversationId: "dinner", text });
+  const block = page.locator(".assistant-message.streaming .code-block");
+  await expect(block.getByRole("button", { name: "Copy code" })).toBeVisible();
+  const caret = (selector) =>
+    page
+      .locator(selector)
+      .evaluate((element) => getComputedStyle(element, "::after").content);
+  expect(await caret(".assistant-message.streaming .code-block > pre")).toBe('""');
+  expect(await caret(".assistant-message.streaming .code-block")).toBe("none");
+  expect(
+    await caret(".assistant-message.streaming .message-content > p:first-child"),
+  ).toBe("none");
 });

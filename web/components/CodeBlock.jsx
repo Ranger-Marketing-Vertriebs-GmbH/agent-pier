@@ -22,23 +22,37 @@ function selectContents(element) {
 export default function CodeBlock({ node: _node, className, children, ...props }) {
   const pre = useRef(null),
     timer = useRef(null),
+    mounted = useRef(false),
     [status, setStatus] = useState("");
-  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      clearTimeout(timer.current);
+    };
+  }, []);
+  // Clearing first and setting the status on the next tick lets the live region
+  // announce a repeated copy again.
   const show = (next) => {
     clearTimeout(timer.current);
-    setStatus(next);
-    timer.current = setTimeout(
-      () => setStatus(""),
-      next === "copied" ? copiedFor : failedFor,
-    );
+    setStatus("");
+    timer.current = setTimeout(() => {
+      setStatus(next);
+      timer.current = setTimeout(
+        () => setStatus(""),
+        next === "copied" ? copiedFor : failedFor,
+      );
+    }, 50);
   };
   const copyCode = async () => {
     const element = pre.current;
     try {
       if (!navigator.clipboard?.writeText) throw Error("Clipboard unavailable");
       await navigator.clipboard.writeText(element.textContent.replace(/\n$/, ""));
-      show("copied");
+      if (mounted.current) show("copied");
     } catch {
+      // The write may settle after the message re-rendered without this block.
+      if (!mounted.current) return;
       selectContents(element);
       show("failed");
     }
