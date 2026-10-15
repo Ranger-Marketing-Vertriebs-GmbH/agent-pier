@@ -10,6 +10,8 @@ import { atomic, readJson, identifier } from "./files.js";
 import { problem } from "../../lib/storage.js";
 import { ImportedHistory } from "./imported-history.js";
 import { removeAbandonedWork } from "./work-claims.js";
+// The audited resource of each non-release job kind; release-* jobs are "release".
+const jobResources = { backup: "backup", restore: "restore" };
 export class Operations {
   constructor({
     config,
@@ -32,7 +34,9 @@ export class Operations {
     this.importedHistory = new ImportedHistory(config.dataDir);
     this.jobs = new OperationJobs(config.dataDir, {
       onFailure: (job) => {
-        const resourceType = job.kind.startsWith("release-") ? "release" : job.kind;
+        const resourceType = job.kind.startsWith("release-")
+          ? "release"
+          : jobResources[job.kind];
         this.audit?.append({
           action: `${resourceType}.failed`,
           resourceType,
