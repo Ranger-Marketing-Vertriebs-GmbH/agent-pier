@@ -398,8 +398,8 @@ export class McpPackages {
         // Kept unless the owner edits them, as in the update preview.
         constraints: constraints === undefined ? row.constraints : constraints,
       },
-      // A record installed without a program yet stores "".
-      program ?? (row.program || undefined),
+      // No program (or "") keeps the stored one; a record without one stores "".
+      program === undefined || program === "" ? row.program || undefined : program,
     );
     this.consumePreview(previewId);
     return { job: this.install(id, { ...confirmed, kind: "update" }) };

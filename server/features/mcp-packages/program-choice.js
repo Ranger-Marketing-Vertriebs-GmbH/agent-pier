@@ -5,20 +5,19 @@ import {
   logFailure,
   stopIfCancelled,
 } from "./package-install-job.js";
-import { readInstall, rewriteReceipt } from "./package-store.js";
+import { choosingReceipt, rewriteReceipt } from "./package-store.js";
 import { chooseProgram, programName } from "./program-select.js";
 
 /** The record and receipt of a `choosing` server whose install is still there, else null. */
-function choosingReceipt(service, id) {
+function choosing(service, id) {
   const row = service.records.get(id);
-  if (row?.status !== "choosing" || !row.installId) return null;
-  const receipt = readInstall(service.dataDir, row.installId, row.lockDigest);
-  return Array.isArray(receipt?.programs) ? { row, receipt } : null;
+  const receipt = choosingReceipt(service.dataDir, row);
+  return receipt ? { row, receipt } : null;
 }
 
 /** The programs the owner may choose from; none unless the record is `choosing`. */
 export function choosablePrograms(service, id) {
-  return choosingReceipt(service, id)?.receipt.programs.map((p) => p.name) ?? [];
+  return choosing(service, id)?.receipt.programs.map((p) => p.name) ?? [];
 }
 
 /**
@@ -27,7 +26,7 @@ export function choosablePrograms(service, id) {
  * Returns the job snapshot; a refused choice starts no job.
  */
 export function chooseInstalledProgram(service, id, wanted) {
-  const found = choosingReceipt(service, id);
+  const found = choosing(service, id);
   if (!found) throw packageProblem("MCP_PACKAGE_INVALID", 400);
   service.requireIdle(id);
   const { row, receipt } = found;

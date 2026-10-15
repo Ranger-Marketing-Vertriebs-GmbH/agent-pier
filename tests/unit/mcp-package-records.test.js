@@ -123,7 +123,16 @@ test("listing servers reads all package records in one query", (t) => {
 test("a choosing record whose install is gone is missing", (t) => {
   const { servers, dataDir } = store(t);
   const { installId, stage } = stageInstall(dataDir);
-  commitInstall(dataDir, { installId, stage, receipt: { lockDigest: "d".repeat(64) } });
+  // A build waiting for the owner's choice lists its programs in the receipt.
+  const programs = [
+    { name: "a", path: "a" },
+    { name: "b", path: "b" },
+  ];
+  commitInstall(dataDir, {
+    installId,
+    stage,
+    receipt: { lockDigest: "d".repeat(64), program: null, programs },
+  });
   const server = pending(servers, {}, { status: "choosing", installId });
   assert.equal(servers.get(server.id).source.status, "choosing");
   const definition = servers.definitions().find((d) => d.id === server.id);

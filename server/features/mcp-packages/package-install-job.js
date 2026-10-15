@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import { packageCode, packageError, packageProblem } from "./package-errors.js";
-import { commitInstall, readInstall, stageInstall } from "./package-store.js";
+import { choosingReceipt, commitInstall, stageInstall } from "./package-store.js";
 import { chooseProgram } from "./program-select.js";
 import { toolchainEntry } from "./toolchain-entry.js";
 
@@ -106,8 +106,14 @@ export function runInstall(service, serverId, { preview, program, kind }) {
       // Some packages name their programs for sure only once installed (and built).
       const installed = adapter.programsAfterInstall(stage, ref);
       const wanted = program?.name || undefined;
-      // Several programs and none named yet: the owner picks one (owner decision 1).
-      const choosing = !!installed && installed.length > 1 && wanted === undefined;
+      // Several programs and none named yet: the owner picks one (owner decision 1),
+      // unless the server runs an install now. Its command points into that install,
+      // which a `choosing` record would let prune delete: it is refused instead.
+      const choosing =
+        !!installed &&
+        installed.length > 1 &&
+        wanted === undefined &&
+        service.records.get(serverId)?.status !== "ready";
       const chosen = choosing
         ? null
         : installed
@@ -171,12 +177,6 @@ export function runInstall(service, serverId, { preview, program, kind }) {
   });
 }
 
-/** A `choosing` record whose built install (and its program list) is still there. */
-export const choiceIntact = (service, row) =>
-  row?.status === "choosing" &&
-  !!row.installId &&
-  Array.isArray(readInstall(service.dataDir, row.installId, row.lockDigest)?.programs);
-
 /**
  * The stage goes; a first install ends `failed`, an update stays on its old install,
  * and a record waiting for its program keeps waiting while that install is intact.
@@ -188,7 +188,11 @@ function failed(service, serverId, stage, error) {
     const code = packageCode(error, "MCP_PACKAGE_INSTALL_FAILED");
     // A deleted server has no record left; one that remains was stopped by a shutdown,
     // whose cancel is a plain failed install (the cancel message names a deletion).
-    if (current && current.status !== "ready" && !choiceIntact(service, current))
+    if (
+      current &&
+      current.status !== "ready" &&
+      !choosingReceipt(service.dataDir, current)
+    )
       service.records.update(serverId, {
         status: "failed",
         errorCode: code === "MCP_PACKAGE_CANCELLED" ? "MCP_PACKAGE_INSTALL_FAILED" : code,
