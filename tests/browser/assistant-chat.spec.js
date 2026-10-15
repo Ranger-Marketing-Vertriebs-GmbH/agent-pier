@@ -71,7 +71,7 @@ async function setup(page, { messages = filler, member = null } = {}) {
       body = { availability: "ready", sync: "current" };
     else if (p.endsWith("/messages")) {
       if (method === "POST") state.posted.push(route.request().postDataJSON());
-      body = { messages: state.messages, requests: [], stale: false };
+      body = { messages: state.messages, requests: state.requests ?? [], stale: false };
     } else if (p.endsWith("/conversations")) body = { id: "dinner", assistantId: "home" };
     else if (p === "/api/assistants/home") body = assistant;
     await route.fulfill({ json: body });
@@ -272,6 +272,86 @@ test("a streamed reply grows across Gateway delta frames", async ({ page }) => {
   await emit(page, { type: "change" });
   await expect(bubble).toHaveCount(1);
   await expect(content).toHaveText("Noch keine neuen Meldungen.");
+});
+
+test("a streamed reply is shown once when the history already has it", async ({
+  page,
+}) => {
+  const state = await setup(page, { messages: [] });
+  // The run is still unresolved while OpenClaw has already stored the reply.
+  state.requests = [
+    {
+      id: "q1",
+      state: "accepted",
+      text: "Plan dinner",
+      attempt: { id: "a1", state: "accepted" },
+    },
+  ];
+  await emit(page, { type: "change" });
+  const reply = page.locator(".assistant-message.assistant", {
+    hasText: "Dinner is ready.",
+  });
+  await emit(page, {
+    type: "delta",
+    conversationId: "dinner",
+    runId: "a1",
+    text: "Dinner is ready.",
+  });
+  await expect(reply).toHaveCount(1);
+  await expect(reply).toHaveClass(/streaming/);
+  state.messages.push(
+    { id: "u1", role: "user", text: "Plan dinner", timestamp: Date.now() },
+    {
+      id: "m-final",
+      role: "assistant",
+      runId: "a1",
+      text: "Dinner is ready.",
+      timestamp: Date.now(),
+    },
+  );
+  await emit(page, { type: "change" });
+  await expect(page.locator(".assistant-message.assistant:not(.streaming)")).toHaveCount(
+    1,
+  );
+  await expect(reply).toHaveCount(1);
+  // A late frame of the same run does not bring the copy back.
+  await emit(page, {
+    type: "delta",
+    conversationId: "dinner",
+    runId: "a1",
+    text: "Dinner is ready.",
+  });
+  await page.waitForTimeout(200);
+  await expect(reply).toHaveCount(1);
+});
+
+test("an earlier reply of the same run keeps the live stream visible", async ({
+  page,
+}) => {
+  const state = await setup(page, { messages: [] });
+  state.requests = [
+    {
+      id: "q1",
+      state: "accepted",
+      text: "Plan dinner",
+      attempt: { id: "a1", state: "accepted", runtimeRunId: "r1" },
+    },
+  ];
+  // A tool-using run stores its first reply before the next one streams.
+  state.messages.push(
+    { id: "u1", role: "user", text: "Plan dinner", timestamp: 1 },
+    { id: "m1", role: "assistant", runId: "r1", text: "Let me check.", timestamp: 2 },
+  );
+  await emit(page, { type: "change" });
+  await emit(page, {
+    type: "delta",
+    conversationId: "dinner",
+    runId: "r1",
+    text: "Pasta tonight.",
+  });
+  await expect(
+    page.locator(".assistant-message.assistant.streaming", { hasText: "Pasta tonight." }),
+  ).toHaveCount(1);
 });
 
 test("coding run notes show the outcome with a link to the run", async ({ page }) => {

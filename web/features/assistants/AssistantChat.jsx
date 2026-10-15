@@ -29,6 +29,7 @@ import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { assistantApi } from "./assistant-api.js";
 import useAssistants, { useAssistantEvent } from "./useAssistants.js";
 import { leadMembers } from "./useMemberMention.js";
+import { streamInHistory } from "./stream-reply.js";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
 const sameTurnText = (a, b) => turnText(a) === turnText(b);
@@ -62,7 +63,8 @@ export default function AssistantChat({
   );
   const [text, setText] = useState(() => drafts.get(conversationId));
   const [history, setHistory] = useState({ messages: [], requests: [], stale: false });
-  const [delta, setDelta] = useState("");
+  // The streamed reply so far, with its run: { runId, text } or null.
+  const [delta, setDelta] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState(0);
@@ -86,7 +88,8 @@ export default function AssistantChat({
           ["completed", "failed", "cancelled"].includes(r.state),
         )
       )
-        setDelta("");
+        setDelta(null);
+      else setDelta((d) => (streamInHistory(d, next) ? null : d));
     } catch (e) {
       setError(e.message);
     }
@@ -97,7 +100,7 @@ export default function AssistantChat({
   }, [refresh]);
   useEffect(() => {
     if (lastEvent?.type === "delta" && lastEvent.conversationId === conversationId)
-      setDelta(lastEvent.text);
+      setDelta({ runId: lastEvent.runId, text: lastEvent.text });
     if (["change", "connected"].includes(lastEvent?.type)) refresh();
   }, [lastEvent, conversationId, refresh]);
   const member = members.find((m) => m.assistantId === assistant.id);
@@ -348,11 +351,11 @@ export default function AssistantChat({
                   mentions={mentions}
                 />
               )}
-            {delta && (
+            {delta?.text && !streamInHistory(delta, history) && (
               <AssistantMessage
                 role="assistant"
                 name={assistant.name}
-                text={delta}
+                text={delta.text}
                 streaming={Boolean(active)}
               />
             )}
