@@ -74,7 +74,9 @@ backlogs and simulated host sleep. The wrapper reports their results. The
 existing `assistant-routine-contract.test.js` separately exercises the real
 gateway, generated model output and HTTP webhook boundary, including the webhook's
 2,000-character `summary` cap and the whole reply AgentPier reads from the job's
-session instead.
+session instead. `assistant-routine-restart-contract.test.js` (same variable)
+restarts the real Gateway and lets the native scheduler fire a routine without any
+chat turn or apply; the run must be offered `write` and `edit` and change its note.
 
 ## Qualification limits
 
