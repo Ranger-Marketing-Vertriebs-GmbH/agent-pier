@@ -2,6 +2,10 @@ import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { record } from "../../features/extensions/mcp-config.js";
 import { packageProblem } from "../../features/mcp-packages/package-errors.js";
+import {
+  packageConstraints,
+  packageName,
+} from "../../features/mcp-packages/package-spec.js";
 
 const invalid = () => packageProblem("MCP_PACKAGE_INVALID", 400);
 
@@ -11,12 +15,25 @@ export const requireInstallConfirmation = (body) => {
     throw packageProblem("MCP_PACKAGE_CONFIRMATION_REQUIRED", 409);
 };
 
-/** Audit details of a package: never env values, args or paths. */
+/** The constraints an accepted source carried, canonical; none when unreadable. */
+function auditConstraints(source) {
+  try {
+    return packageConstraints(source, {
+      registry: source.registry,
+      name: packageName(source),
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Audit details of a package: never env values, args or paths. Constraints are not secret. */
 export const auditDetails = (source) => ({
   registry: source?.registry,
   name: source?.name,
   version: source?.version,
   allowScripts: source?.allowScripts === true,
+  constraints: auditConstraints(source),
 });
 
 export const packagesOf = (services) => {
@@ -109,6 +126,8 @@ export function mcpPackageRoutes(services, { auditMcp }) {
         ...current,
         version: body.version,
         allowScripts: body.allowScripts,
+        // An update without constraints kept the stored ones.
+        ...(body.constraints === undefined ? {} : { constraints: body.constraints }),
       }),
     );
     res.status(202).json(result);

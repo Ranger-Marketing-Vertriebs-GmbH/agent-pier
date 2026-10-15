@@ -58,6 +58,8 @@ const knownColumns = {
     "status",
     "error_code",
     "updated_at",
+    "constraints",
+    "needs_scripts",
   ],
 };
 const knownIndexes = new Set(["bindings_target"]);

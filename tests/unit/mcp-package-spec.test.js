@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fc from "fast-check";
 import {
   canonicalPypiVersion,
+  packageConstraints,
   packageRef,
 } from "../../server/features/mcp-packages/package-spec.js";
 
@@ -89,6 +90,118 @@ test("no accepted PyPI name contains a path, URL or extras character", () => {
       } catch (error) {
         return error.code === "MCP_PACKAGE_INVALID";
       }
+    }),
+  );
+});
+
+const top = { registry: "pypi", name: "opnsense-mcp-server", version: "0.4.1" };
+const refused = (constraints, ref = top) =>
+  assert.throws(
+    () => packageConstraints({ constraints }, ref),
+    { code: "MCP_PACKAGE_INVALID", status: 400, message: /fastmcp<4/ },
+    JSON.stringify(constraints),
+  );
+
+test("PyPI constraints are a name with version limits only (D4)", () => {
+  assert.deepEqual(packageConstraints({}, top), []);
+  assert.deepEqual(packageConstraints({ constraints: [] }, top), []);
+  assert.deepEqual(
+    packageConstraints(
+      {
+        constraints: [
+          "fastmcp<4",
+          " FastMCP_Slim >= 3.0 , < 4 ",
+          "httpx==0.28.*",
+          "a.b~=1.2rc1",
+          "c!=2.0.post1",
+          "d<=1.0.dev3",
+          "e>1",
+        ],
+      },
+      top,
+    ),
+    [
+      "fastmcp<4",
+      "fastmcp-slim>=3.0,<4",
+      "httpx==0.28.*",
+      "a-b~=1.2rc1",
+      "c!=2.0.post1",
+      "d<=1.0.dev3",
+      "e>1",
+    ],
+  );
+  for (const line of [
+    "",
+    "   ",
+    "fastmcp",
+    "fastmcp<",
+    "fastmcp<4,",
+    "fastmcp[cli]<4",
+    "x @ https://example.com/x.whl",
+    "https://example.com/x.whl",
+    "file:///tmp/x.whl",
+    "-e git+https://github.com/a/b.git",
+    "--index-url https://example.com/simple",
+    "-c other.txt",
+    "-r other.txt",
+    "x<4 ; python_version < '3.12'",
+    "x<4;python_version<'3.12'",
+    "x<4 --hash=sha256:aa",
+    "x<4 # comment",
+    "../x<1",
+    "/abs/x<1",
+    "./x<1",
+    "x~=1.*",
+    "x~=1",
+    "x<1.*",
+    "x===1",
+    "x=1",
+    "x==1.0+local",
+    "x==latest",
+    "x<4\ny<2",
+    "x<4\r",
+    "x\t<4\u00a0",
+    "opnsense-mcp-server<1",
+    "OpNsense_MCP.Server>=0.1",
+    `x<${"1".repeat(100)}`,
+  ])
+    refused([line]);
+  for (const value of [1, null, ["x<1"], { name: "x" }]) refused([value]);
+  refused(["a<1", "A<2"]);
+  refused(["a-b<1", "a_b>0"]);
+  refused(Array.from({ length: 11 }, (_, i) => `p${i}<1`));
+  assert.equal(
+    packageConstraints(
+      { constraints: Array.from({ length: 10 }, (_, i) => `p${i}<1`) },
+      top,
+    ).length,
+    10,
+  );
+  refused("fastmcp<4");
+  refused({ 0: "fastmcp<4" });
+  refused(null);
+  const npm = { registry: "npm", name: "x", version: "1.0.0" };
+  assert.deepEqual(packageConstraints({}, npm), []);
+  assert.deepEqual(packageConstraints({ constraints: [] }, npm), []);
+  refused(["y<1"], npm);
+});
+
+test("canonical constraints are accepted again unchanged", () => {
+  const name = fc.stringMatching(/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,20}[A-Za-z0-9])?$/);
+  const version = fc
+    .array(fc.integer({ min: 0, max: 999 }), { minLength: 2, maxLength: 4 })
+    .map((parts) => parts.join("."));
+  const operator = fc.constantFrom("==", "!=", "~=", "<=", ">=", "<", ">");
+  const spaces = fc.constantFrom("", " ", "  ");
+  fc.assert(
+    fc.property(name, operator, version, spaces, (n, op, v, gap) => {
+      fc.pre(n.replace(/[-_.]+/g, "-").toLowerCase() !== top.name);
+      const once = packageConstraints(
+        { constraints: [`${n}${gap}${op}${gap}${v}`] },
+        top,
+      );
+      assert.deepEqual(packageConstraints({ constraints: once }, top), once);
+      assert.doesNotMatch(once[0], /\s/);
     }),
   );
 });

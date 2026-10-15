@@ -504,9 +504,11 @@ test("the receipt keeps whether a build was needed; reinstall installs the same 
   service.reinstall("s1");
   await service.jobs.idle();
   assert.equal(installs.at(-1).needsScripts, false);
-  // Without a readable receipt the owner's opt-in decides, as at the first install.
+  // Without a readable receipt the stored record decides, not the owner's opt-in:
+  // a wheel-only install stays wheel-only.
+  assert.equal(records.get("s1").needsScripts, false);
   fs.rmSync(path.join(dataDir, "mcp-packages", "installs"), { recursive: true });
   service.reinstall("s1");
   await service.jobs.idle();
-  assert.equal(installs.at(-1).needsScripts, true);
+  assert.equal(installs.at(-1).needsScripts, false);
 });

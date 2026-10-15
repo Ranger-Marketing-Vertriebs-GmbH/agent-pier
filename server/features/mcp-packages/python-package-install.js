@@ -57,7 +57,10 @@ async function uv(python, args, { cwd, env, execute, log }) {
   }
 }
 
-/** Resolves `name==version` to a hashed lock; builds nothing without the opt-in. */
+/**
+ * Resolves `name==version` to a hashed lock, narrowed by the owner's checked
+ * `constraints` (D4); builds nothing without the opt-in.
+ */
 export async function resolvePython({
   stage,
   ref,
@@ -65,6 +68,7 @@ export async function resolvePython({
   index,
   cacheDir,
   allowScripts,
+  constraints = [],
   execute = executeFile,
   environment = process.env,
   log,
@@ -77,7 +81,14 @@ export async function resolvePython({
     const input = path.join(work, "requirements.in");
     const output = path.join(work, "requirements.lock");
     fs.writeFileSync(input, requirementsText, { mode: 0o600 });
-    // No header and no annotations: both name the stage paths (preflight B2).
+    const constraintArgs = [];
+    if (constraints.length) {
+      const file = path.join(work, "constraints.txt");
+      fs.writeFileSync(file, `${constraints.join("\n")}\n`, { mode: 0o600 });
+      constraintArgs.push("-c", file);
+    }
+    // No header and no annotations: both name the input and constraints files by
+    // their stage paths (preflight B2).
     const compile = (extra) =>
       uv(
         python,
@@ -92,6 +103,7 @@ export async function resolvePython({
           python.pythonPath,
           "-o",
           output,
+          ...constraintArgs,
           ...extra,
         ],
         { cwd: work, env, execute, log },

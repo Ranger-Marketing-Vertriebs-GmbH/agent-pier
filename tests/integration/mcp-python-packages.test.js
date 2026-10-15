@@ -214,3 +214,66 @@ test(
     );
   },
 );
+
+test(
+  "a constraint narrows the resolve and stays for reinstall and update",
+  { skip },
+  async (t) => {
+    const s = await pythonPackageService(t, [
+      { name: "srv-y", version: "1.0", script: "srv-y", requires: ["helper-x>=2"] },
+      { name: "srv-y", version: "1.1", script: "srv-y", requires: ["helper-x>=2"] },
+      helper,
+      { ...helper, version: "3.0" },
+    ]);
+    const version = (preview, name) =>
+      preview.dependencies.find((d) => d.name === name)?.version;
+    const free = await s.packages.preview(pypiRef("srv-y"));
+    assert.equal(version(free, "helper-x"), "3.0");
+    assert.deepEqual(free.constraints, []);
+    const { preview, server: ready } = await createPython(s, "srv-y", {
+      constraints: ["Helper_X < 3"],
+    });
+    assert.deepEqual(preview.constraints, ["helper-x<3"]);
+    assert.equal(version(preview, "helper-x"), "2.0");
+    assert.equal(ready.source.status, "ready", s.packages.jobs.get(ready.id)?.log);
+    assert.deepEqual(ready.source.constraints, ["helper-x<3"]);
+    const row = s.servers.packages.get(ready.id);
+    assert.match(row.lock, /^helper-x==2\.0 /m);
+    // The constraints file never reaches the lock (no annotations, no header).
+    assert.doesNotMatch(row.lock, /constraints|\.uv-work|#/);
+    // Reinstall: the frozen lock, no resolve, still helper-x 2.0.
+    fs.rmSync(installs(s), { recursive: true });
+    const compiles = uvRuns(s, "pip compile").length;
+    s.packages.reinstall(ready.id);
+    await s.packages.jobs.idle();
+    assert.equal(s.servers.get(ready.id).source.status, "ready");
+    assert.equal(uvRuns(s, "pip compile").length, compiles);
+    assert.equal(s.servers.packages.get(ready.id).lock, row.lock);
+    // An update keeps the constraint: only the top package changes.
+    const update = await s.packages.preview({
+      ...pypiRef("srv-y", "1.1"),
+      serverId: ready.id,
+    });
+    assert.deepEqual(update.constraints, ["helper-x<3"]);
+    assert.deepEqual(
+      update.diff.changed.map((c) => c.name),
+      ["srv-y"],
+    );
+    await s.packages.updatePackage(ready.id, {
+      version: "1.1",
+      previewId: update.previewId,
+    });
+    await s.packages.jobs.idle();
+    const updated = s.servers.get(ready.id);
+    assert.equal(updated.source.version, "1.1");
+    assert.deepEqual(updated.source.constraints, ["helper-x<3"]);
+    assert.match(s.servers.packages.get(ready.id).lock, /^helper-x==2\.0 /m);
+    await assert.rejects(
+      s.packages.preview({
+        ...pypiRef("srv-y"),
+        constraints: ["helper-x @ http://e/x.whl"],
+      }),
+      { code: "MCP_PACKAGE_INVALID" },
+    );
+  },
+);

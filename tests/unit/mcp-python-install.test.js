@@ -303,3 +303,54 @@ test("a failed venv or sync is an install failure and leaves no work folder", as
     assert.equal(fs.existsSync(path.join(directory, ".uv-work")), false, failing);
   }
 });
+
+test("constraints narrow both compiles through a constraints file", async (t) => {
+  const seen = [];
+  const execute = async (file, args) => {
+    assert.ok(args.includes("--no-annotate") && args.includes("--no-header"));
+    const at = args.indexOf("-c");
+    seen.push(fs.readFileSync(args[at + 1], "utf8"));
+    assert.equal(path.basename(args[at + 1]), "constraints.txt");
+    assert.equal(fs.statSync(args[at + 1]).mode & 0o777, 0o600);
+    if (args.includes("--only-binary"))
+      throw failure("old-x has no usable wheels\nhint: Wheels are required for `old-x`");
+    writeLock(args, "srv-x==1.0 \\\n    --hash=sha256:x\n");
+    return { stdout: "", stderr: "" };
+  };
+  const stage = tmp(t);
+  const result = await resolvePython({
+    stage,
+    ref,
+    python,
+    index: "http://i/simple",
+    cacheDir: tmp(t),
+    allowScripts: true,
+    constraints: ["fastmcp<4", "httpx==0.28.*"],
+    execute,
+    environment: {},
+  });
+  assert.equal(result.needsScripts, true);
+  assert.deepEqual(seen, ["fastmcp<4\nhttpx==0.28.*\n", "fastmcp<4\nhttpx==0.28.*\n"]);
+  // The constraints narrow the resolve only; the input stays the top package.
+  assert.equal(result.requirementsText, "srv-x==1.0\n");
+  assert.deepEqual(fs.readdirSync(stage), []);
+});
+
+test("without constraints no constraints file is passed", async (t) => {
+  const execute = async (file, args) => {
+    assert.equal(args.includes("-c"), false);
+    writeLock(args, "srv-x==1.0 \\\n    --hash=sha256:x\n");
+    return { stdout: "", stderr: "" };
+  };
+  await resolvePython({
+    stage: tmp(t),
+    ref,
+    python,
+    index: "http://i/simple",
+    cacheDir: tmp(t),
+    allowScripts: false,
+    constraints: [],
+    execute,
+    environment: {},
+  });
+});

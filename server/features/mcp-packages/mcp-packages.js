@@ -9,7 +9,7 @@ import { PackageJobs } from "./install-jobs.js";
 import { lockDiff } from "./lock-check.js";
 import { npmAdapter } from "./npm-adapter.js";
 import { packageError, packageProblem } from "./package-errors.js";
-import { packageName, packageRef } from "./package-spec.js";
+import { packageConstraints, packageName, packageRef } from "./package-spec.js";
 import { packageRoot, pruneInstalls, readInstall } from "./package-store.js";
 import { logFailure, runInstall, sourceFields } from "./package-install-job.js";
 import { chooseProgram } from "./program-select.js";
@@ -101,13 +101,21 @@ export class McpPackages {
   }
   async preview(input) {
     const ref = packageRef(input);
+    const current = input.serverId ? this.records.get(input.serverId) : null;
+    // An update keeps the stored constraints unless the owner sends new ones (D4).
+    const constraints = packageConstraints(
+      input.constraints === undefined && current
+        ? { constraints: current.constraints }
+        : input,
+      ref,
+    );
     try {
-      return await this.resolvePreview(ref, input);
+      return await this.resolvePreview(ref, input, constraints, current);
     } catch (error) {
       throw packageError(error, "MCP_PACKAGE_INSTALL_FAILED", 502);
     }
   }
-  async resolvePreview(ref, input) {
+  async resolvePreview(ref, input, constraints, current) {
     const allowScripts = input.allowScripts === true;
     const adapter = this.adapterOf(ref.registry);
     // Each resolve runs npm or uv; more than a few at once only queue on the host.
@@ -122,6 +130,7 @@ export class McpPackages {
       resolved = await adapter.preview({
         ref,
         allowScripts,
+        constraints,
         // A loader: metadata errors come before any toolchain install.
         toolchain: () => this.toolchain(adapter.toolchainKind),
         stage: privateFolder(stage),
@@ -135,15 +144,15 @@ export class McpPackages {
       this.resolving -= 1;
       fs.rmSync(stage, { recursive: true, force: true });
     }
-    const current = input.serverId ? this.records.get(input.serverId) : null;
     const diff =
       current && resolved.lockText
         ? lockDiff(this.checkStored(current).dependencies, resolved.dependencies)
         : null;
     this.previews.set(previewId, {
+      ...resolved,
       ref,
       allowScripts,
-      ...resolved,
+      constraints,
       expires: this.now() + this.previewTtl,
     });
     while (this.previews.size > previewLimit)
@@ -156,6 +165,7 @@ export class McpPackages {
       dependencies: resolved.dependencies,
       programs: resolved.programs.map((p) => p.name),
       needsScripts: resolved.needsScripts,
+      constraints,
       diff,
     };
   }
@@ -170,7 +180,10 @@ export class McpPackages {
       preview.ref.registry !== ref.registry ||
       preview.ref.name !== ref.name ||
       preview.ref.version !== ref.version ||
-      preview.allowScripts !== (source.allowScripts === true)
+      preview.allowScripts !== (source.allowScripts === true) ||
+      // The lock was resolved under exactly these constraints (canonical form).
+      JSON.stringify(preview.constraints) !==
+        JSON.stringify(packageConstraints(source, ref))
     )
       throw packageProblem("MCP_PACKAGE_PREVIEW_EXPIRED", 409);
     return preview;
@@ -290,14 +303,24 @@ export class McpPackages {
     // Not awaited: toolchain pruning can queue behind a running toolchain install.
     this.prune();
   }
-  async updatePackage(id, { version, allowScripts, previewId, program } = {}) {
+  async updatePackage(
+    id,
+    { version, allowScripts, constraints, previewId, program } = {},
+  ) {
     const row = this.records.get(id);
     if (!row) throw invalid();
     // Before the preview is taken: a busy server keeps it for a retry.
     this.requireIdle(id);
     const confirmed = this.confirmedPreview(
       previewId,
-      { registry: row.registry, name: row.name, version, allowScripts },
+      {
+        registry: row.registry,
+        name: row.name,
+        version,
+        allowScripts,
+        // Kept unless the owner edits them, as in the update preview.
+        constraints: constraints === undefined ? row.constraints : constraints,
+      },
       // A record installed without a program yet stores "".
       program ?? (row.program || undefined),
     );
@@ -311,14 +334,16 @@ export class McpPackages {
     const preview = {
       ref,
       allowScripts: row.allowScripts,
+      // Frozen in the stored lock: a reinstall never resolves again.
+      constraints: row.constraints,
       integrity: row.integrity,
       manifestText: this.adapterOf(ref.registry).manifestText(ref),
       lockText: row.lock,
       digest: row.lockDigest,
-      // As the install it replaces; without its receipt the owner's opt-in decides.
+      // As the install it replaces; without its receipt the record says the same.
       needsScripts:
         readInstall(this.dataDir, row.installId, row.lockDigest)?.needsScripts ??
-        row.allowScripts,
+        row.needsScripts === true,
     };
     this.checkStored(row);
     return {
