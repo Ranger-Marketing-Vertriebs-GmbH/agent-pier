@@ -157,6 +157,9 @@ export class TeamBridge {
       throw assistantProblem("invalid", 403);
     this.guard = { generation: this.generation(), instance: input.instance };
     this.assistants.changed?.();
+    // The start compiled every agent without writes; the hook restores them once
+    // per generation (write-guard-reapply.js), so scheduled runs can write too.
+    this.onGuard?.();
     return { ok: true };
   }
   // A ready, verified runtime whose memory agents still lack a reported guard.

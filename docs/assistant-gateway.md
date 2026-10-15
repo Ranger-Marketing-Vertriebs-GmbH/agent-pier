@@ -271,7 +271,17 @@ for the implementation and remaining native platform/version qualification.
   generation. The report is dropped on reconnect and repeated periodically (at the
   latest every 15 s). Until a current report exists, agents with memory access stay
   read-only and the status shows `WRITE_GUARD_PENDING`. Reports from a retired plugin
-  registry are ignored.
+  registry are ignored. Every start compiles all agents without `write` and `edit`;
+  once the guard is reported for the current generation and the Gateway is ready
+  (whichever comes last), AgentPier re-applies every active agent with memory access
+  once (`WriteGuardReapply`, a hot `config.patch` per agent, no restart and no
+  interrupted turn). Scheduled routines fire inside the Gateway without an apply of
+  their own, so without this pass only agents that had a chat turn, a settings save
+  or a **Run once** since the start could write. Periodic reports of the same
+  generation apply nothing; a failed agent is logged and applied again by its next
+  turn, save or trigger. A routine that fires in the seconds between readiness and
+  the pass still runs read-only; overdue jobs are deferred 120 s after a start (see
+  [routine qualification](assistant-routine-qualification.md)) and are not affected.
 - **Approvals are audited.** Every approval, decline and withdrawal of an action
   (memory change, coding start, member coding request) is recorded with its actor,
   source and outcome.
