@@ -1,7 +1,9 @@
 import React from "react";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import api from "../../../lib/api.js";
+import { assistantShellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { assistantWorkflowCopy as copy } from "../../../lib/i18n/messages/assistant-workflows.js";
+import ExecApprovalCard from "../ExecApprovalCard.jsx";
 import SubpageHeader from "./SubpageHeader.jsx";
 
 const decide = (action, decision) =>
@@ -10,7 +12,29 @@ const decide = (action, decision) =>
     decision,
   });
 
+// A shell command takes the Gateway's decisions (allow-once, allow-always, deny):
+// waiting, it is the chat's card; decided, it shows the command and its outcome.
+function ExecCard({ action: a, act }) {
+  if (a.state === "awaiting_approval")
+    return <ExecApprovalCard action={a} decide={(_, d) => act(() => decide(a, d))} />;
+  return (
+    <article className="assistant-card assistant-reminder-row">
+      <h3>{assistantShellCopy.exec.history}</h3>
+      <pre className="exec-approval-command">
+        <code>{a.payload.command}</code>
+      </pre>
+      {a.payload.cwd && (
+        <p>
+          {assistantShellCopy.exec.folder}: <code>{a.payload.cwd}</code>
+        </p>
+      )}
+      <p>{copy.states[a.state]}</p>
+    </article>
+  );
+}
+
 function ActionCard({ action: a, assistantId, busy, act }) {
+  if (a.payload.action === "exec") return <ExecCard action={a} act={act} />;
   return (
     <article className="assistant-card assistant-reminder-row">
       <h3>{a.payload.action === "coding_start" ? copy.coding : copy.memory}</h3>

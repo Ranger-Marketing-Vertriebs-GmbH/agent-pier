@@ -112,7 +112,8 @@ export default function AssistantChat({
     !latest.attempt.reviewedAt &&
     !["completed", "failed", "cancelled"].includes(latest.attempt.state);
   const uncertain = ["uncertain", "interrupted"].includes(latest?.attempt?.state);
-  const ownActions = useAssistantActions(assistant.id, !assistant.teamMemberId);
+  // Every agent's own requests wait in its chat: a permanent member may have a shell.
+  const ownActions = useAssistantActions(assistant.id);
   const entry = activityFor(activity, assistant.id);
   const canSend = Boolean(
     (text.trim() || files) &&
@@ -246,9 +247,7 @@ export default function AssistantChat({
         attempt={active ? latest.attempt : null}
         member={member}
       />
-      {!assistant.teamMemberId && (
-        <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
-      )}
+      <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
       {member && <AssistantMemberContext member={member} navigate={navigate} />}
 
       <div className="assistant-chat-panel">
@@ -400,7 +399,7 @@ export default function AssistantChat({
             )}
           </div>
           {!member && <PendingTeams assistant={assistant} navigate={navigate} />}
-          {!assistant.teamMemberId && <AssistantActionApprovals {...ownActions} />}
+          <AssistantActionApprovals {...ownActions} />
         </div>
         <div
           className="assistant-announcer"

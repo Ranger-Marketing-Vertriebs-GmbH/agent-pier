@@ -127,3 +127,26 @@ test("sidebar subline prefers team state, then activity, then the model", () => 
     { text: "Arbeitet", tone: "accent" },
   );
 });
+
+// A turn that waits for a shell approval stays "accepted" until the owner decides;
+// the header must say what it waits for, as the sidebar does, for every agent.
+test("header status shows a pending approval before the running attempt", () => {
+  const waiting = entry("waiting", "team.states.awaiting_approval", {
+    reason: "approval",
+    pendingApprovals: 1,
+  });
+  for (const state of ["pending", "accepted", "running"])
+    assert.deepEqual(status({ attempt: { state }, entry: waiting }), {
+      tone: "waiting",
+      label: "Wartet auf Freigabe",
+    });
+  assert.deepEqual(
+    status({ attempt: { state: "accepted" }, entry: entry("working", "status.running") }),
+    { tone: "working", label: "Angenommen" },
+  );
+  // An unclear outcome still needs the owner's review first.
+  assert.deepEqual(status({ attempt: { state: "uncertain" }, entry: waiting }), {
+    tone: "attention",
+    label: "Ausgang unklar",
+  });
+});

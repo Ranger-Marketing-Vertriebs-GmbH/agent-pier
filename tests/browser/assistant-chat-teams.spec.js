@@ -93,7 +93,9 @@ test.describe("approval strip", () => {
       expect(await button.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
   });
 
-  test("is absent without approvals and in member chats", async ({ page }) => {
+  // A member's count holds only its own requests (team coding requests count for the
+  // lead), and those wait in its own chat, so the strip shows there too.
+  test("is absent without approvals and counts a member's own ones", async ({ page }) => {
     await chatFixture(page, {
       assistants: [
         chatAssistant(),
@@ -113,7 +115,9 @@ test.describe("approval strip", () => {
     await expect(page.locator(".assistant-approval-strip")).toHaveCount(0);
     await page.goto(baseURL + "/agents/member-0/chats/member-chat");
     await expect(page.locator(".assistant-header")).toBeVisible();
-    await expect(page.locator(".assistant-approval-strip")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: /Waiting for your approval · 1/ }),
+    ).toBeVisible();
   });
 });
 

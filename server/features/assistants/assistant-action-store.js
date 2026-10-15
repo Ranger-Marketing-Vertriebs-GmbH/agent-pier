@@ -37,22 +37,33 @@ export class AssistantActionStore {
       .map((r) => JSON.parse(r.body));
   }
   // Approvals the owner still has to decide, per agent. Team coding requests are stored
-  // on the parent agent with a teamId. Expiry is applied lazily elsewhere, so it is
-  // checked here as well.
+  // on the parent agent with a teamId. A member's shell request in a turn its lead
+  // delegated (leadAssistantId) waits in both chats, so it counts for both. Expiry is
+  // applied lazily elsewhere, so it is checked here as well.
   awaitingCounts(now = Date.now()) {
     const counts = {};
     const rows = this.db
       .prepare(
-        "SELECT assistant_id, json_extract(body,'$.teamId') AS team_id, json_extract(body,'$.expiresAt') AS expires_at FROM assistant_actions WHERE json_extract(body,'$.state')='awaiting_approval'",
+        "SELECT assistant_id, json_extract(body,'$.teamId') AS team_id, json_extract(body,'$.leadAssistantId') AS lead_id, json_extract(body,'$.expiresAt') AS expires_at FROM assistant_actions WHERE json_extract(body,'$.state')='awaiting_approval'",
       )
       .all();
+    const count = (id) => (counts[id] ??= { own: 0, team: 0 });
     for (const r of rows) {
       if (r.expires_at != null && r.expires_at <= now) continue;
-      const count = (counts[r.assistant_id] ??= { own: 0, team: 0 });
-      if (r.team_id) count.team++;
-      else count.own++;
+      if (r.team_id) count(r.assistant_id).team++;
+      else count(r.assistant_id).own++;
+      if (r.lead_id) count(r.lead_id).team++;
     }
     return counts;
+  }
+  // Members' requests still waiting in turns this lead delegated.
+  delegated(leadId) {
+    return this.db
+      .prepare(
+        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.leadAssistantId')=? AND json_extract(body,'$.state')='awaiting_approval' ORDER BY rowid",
+      )
+      .all(leadId)
+      .map((r) => JSON.parse(r.body));
   }
   get(id) {
     const r = this.db.prepare("SELECT body FROM assistant_actions WHERE id=?").get(id);

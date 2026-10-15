@@ -20,7 +20,7 @@ export function assistantWorkflowRoutes({ assistants }) {
     }),
   );
   router.get("/assistants/:id/actions", (req, res) =>
-    res.json(service().list(req.params.id)),
+    res.json(service().list(req.params.id, { delegated: true })),
   );
   router.post("/assistant-actions/:id/decision", async (req, res) =>
     res.json(

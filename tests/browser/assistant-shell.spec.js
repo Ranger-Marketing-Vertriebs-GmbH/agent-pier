@@ -1,157 +1,50 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { agentTab, saveBar, settingsPath } from "../helpers/agent-settings-page.js";
-import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
-import { fixture } from "./providers-fixture.js";
+import { command, execAction, profile, setup } from "./assistant-shell-fixture.js";
 
-const levels = ["off", "approval", "full"];
-const profile = {
-  id: "home",
+const memberRecord = (overrides = {}) => ({
+  id: "m1",
+  kind: "member",
+  teamId: "team",
+  parentAssistantId: "lead",
+  assistantId: "home",
   name: "Home",
-  instructions: "Plan meals",
-  revision: 1,
-  effectiveRevision: 1,
-  model: { connectionId: "router", modelId: "model" },
-  capabilities: { memory: false, reminders: false },
-};
-const command = `/opt/homebrew/bin/gh pr list --limit 5 ${"--json title ".repeat(80)}`;
-const execAction = (id, extra = {}) => ({
-  id,
+  role: "Network",
+  assignment: "Plan the network",
+  lifetime: "task",
+  conversationId: "chat",
+  ...overrides,
+});
+const memberExec = (id, extra = {}) =>
+  execAction(id, {
+    revision: 3,
+    allowAlwaysByAgentPier: false,
+    allowAlwaysPlan: undefined,
+    payload: { ...execAction(id).payload, command: "ip route show" },
+    ...extra,
+  });
+const teamCoding = {
+  id: "coding",
   revision: 1,
   assistantId: "home",
+  teamId: "team",
   state: "awaiting_approval",
+  payload: { action: "coding_start", task: "Compare vendors" },
+};
+const waitingForApproval = {
+  state: "waiting",
+  reason: "approval",
+  label: "team.states.awaiting_approval",
+  pendingApprovals: 1,
+  team: null,
+};
+const acceptedTurn = {
+  id: "r1",
+  text: "Check the routes",
   createdAt: "2026-10-11T10:00:00.000Z",
-  expiresAt: "2026-10-11T10:30:00.000Z",
-  payload: {
-    action: "exec",
-    command,
-    cwd: "/Users/owner/Projects/demo",
-    agentId: "agentpier-home",
-    allowedDecisions: ["allow-once", "deny"],
-  },
-  allowAlwaysByAgentPier: true,
-  allowAlwaysPlan: {
-    kind: "paths",
-    paths: ["/opt/homebrew/bin/gh"],
-    writable: ["/opt/homebrew/bin/gh"],
-  },
-  ...extra,
-});
-
-// A stand-in for the server: raising the level needs confirmShell, full also
-// confirmFull, lowering needs neither (server/features/assistants/shell-changes.js).
-async function setup(page, options = {}) {
-  await fixture(page);
-  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
-  const state = {
-    agent: { ...profile, ...options.agent },
-    patches: [],
-    deletes: [],
-    creates: [],
-    decisions: [],
-    actions: options.actions || [],
-    entries: options.entries || [],
-  };
-  await page.route(/\/api\/assistant/, async (route) => {
-    if (await fulfillEnabledAssistantFeature(route)) return;
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    const method = request.method();
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
-    if (path === "/api/assistants/home" && method === "PATCH") {
-      const body = request.postDataJSON();
-      state.patches.push(body);
-      const from = state.agent.shell || "off";
-      if (body.shell && levels.indexOf(body.shell) > levels.indexOf(from)) {
-        const required = [
-          ...(body.confirmShell ? [] : ["confirmShell"]),
-          ...(body.shell === "full" && !body.confirmFull ? ["confirmFull"] : []),
-        ];
-        if (required.length)
-          return route.fulfill({
-            status: 409,
-            json: {
-              code: "ASSISTANT_SHELL_CONFIRMATION_REQUIRED",
-              error: "Bestätigung nötig",
-              required,
-            },
-          });
-      }
-      state.agent = {
-        ...state.agent,
-        ...(body.shell ? { shell: body.shell } : {}),
-        ...(options.pending ? { shellPending: true } : {}),
-        revision: state.agent.revision + 1,
-      };
-      return route.fulfill({ json: { ...state.agent, pending: !!options.pending } });
-    }
-    if (path === "/api/assistants/home/shell-allowlist")
-      return route.fulfill({ json: { entries: state.entries } });
-    if (path.startsWith("/api/assistants/home/shell-allowlist/") && method === "DELETE") {
-      const entry = decodeURIComponent(path.split("/").pop());
-      state.deletes.push(entry);
-      if (entry === "broken")
-        return route.fulfill({
-          status: 503,
-          json: { code: "unavailable", error: "The agent service is not ready." },
-        });
-      state.entries = state.entries.filter((e) => e.id !== entry);
-      return route.fulfill({ json: { removed: entry, entries: state.entries } });
-    }
-    if (path === "/api/assistants/home/actions")
-      return route.fulfill({ json: { actions: state.actions } });
-    if (path.endsWith("/decision")) {
-      const id = path.split("/")[3];
-      state.decisions.push([id, request.postDataJSON()]);
-      state.actions = state.actions.filter((a) => a.id !== id);
-      // Decided elsewhere or expired: the server refuses and drops it from the list.
-      if (id === "stale")
-        return route.fulfill({
-          status: 409,
-          json: { code: "conflict", error: "This request was already decided." },
-        });
-      return route.fulfill({ json: {} });
-    }
-    if (path === "/api/assistants" && method === "POST") {
-      const body = request.postDataJSON();
-      state.creates.push(body);
-      if (body.shell && body.shell !== "off" && !body.confirmShell)
-        return route.fulfill({
-          status: 409,
-          json: {
-            code: "ASSISTANT_SHELL_CONFIRMATION_REQUIRED",
-            error: "Bestätigung nötig",
-            required: ["confirmShell"],
-          },
-        });
-      return route.fulfill({ json: { ...profile, id: "fresh", shell: body.shell } });
-    }
-    if (path === "/api/assistants")
-      return route.fulfill({
-        json: {
-          assistants: [state.agent],
-          conversations: [{ id: "chat", assistantId: "home" }],
-          models: [{ id: "router", name: "Router", available: true }],
-        },
-      });
-    if (path === "/api/assistant-runtime")
-      return route.fulfill({ json: { availability: "ready", sync: "current" } });
-    if (path === "/api/assistant-web-search")
-      return route.fulfill({
-        json: { revision: 0, provider: "duckduckgo", ready: true },
-      });
-    if (path.endsWith("/messages"))
-      return route.fulfill({ json: { messages: [], requests: [], stale: false } });
-    if (path === "/api/assistant-channels")
-      return route.fulfill({ json: { channels: [] } });
-    return route.fulfill({ json: {} });
-  });
-  return state;
-}
+  attempt: { id: "a1", state: "accepted" },
+};
 const save = (page) => saveBar(page).getByRole("button", { name: "Save agent" });
 const shell = (page) => page.locator("#agent-shell");
 const allowlist = (page) => page.locator("#agent-allowlist");
@@ -350,6 +243,115 @@ for (const [label, use] of [
       await expect(shell(page).getByRole("radio", { name: /^Off/ })).toBeChecked();
       await expect(header(page).getByText(/^Shell:/)).toHaveCount(0);
       await expect(shell(page).getByText("Always allowed commands")).toHaveCount(0);
+    });
+
+    // A permanent member may have a shell (shell-level.js). Its request waits in its
+    // own chat while the turn stays accepted; the header says what it waits for.
+    test("a permanent member's exec request is decided in its own chat", async ({
+      page,
+    }) => {
+      const state = await setup(page, {
+        agent: { teamMemberId: "m1", lifetime: "permanent", shell: "approval" },
+        members: [memberRecord({ lifetime: "permanent", phase: "completed" })],
+        actions: [memberExec("member")],
+        activity: { home: waitingForApproval },
+        requests: [acceptedTurn],
+      });
+      await page.goto(baseURL + "/agents/home/chats/chat");
+      const cards = page.getByRole("article", {
+        name: "Shell command awaiting approval",
+      });
+      await expect(cards).toHaveCount(1);
+      await expect(cards).toContainText("ip route show");
+      await expect(
+        page.getByRole("button", { name: /^Waiting for your approval · 1/ }),
+      ).toBeVisible();
+      await expect(page.locator(".assistant-header-label")).toHaveText(
+        "Awaiting approval",
+      );
+      await cards.getByRole("button", { name: "Allow once" }).click();
+      await expect
+        .poll(() => state.decisions)
+        .toEqual([["member", { revision: 3, decision: "allow-once" }]]);
+      await expect(cards).toHaveCount(0);
+      if (label === "phone") await fitsPhone(page);
+    });
+
+    // Task members have no shell; their coding requests belong to the lead's team
+    // card and never repeat in the member's chat.
+    test("a task-bound member's chat repeats no team request", async ({ page }) => {
+      await setup(page, {
+        agent: { teamMemberId: "m1", lifetime: "task", shell: "approval" },
+        members: [memberRecord({ phase: "running" })],
+        actions: [teamCoding],
+      });
+      await page.goto(baseURL + "/agents/home/chats/chat");
+      await expect(page.locator(".assistant-header-label")).toBeVisible();
+      await expect(page.locator(".assistant-approval-card")).toHaveCount(0);
+      await expect(page.locator(".assistant-approval-strip")).toHaveCount(0);
+      await expect(page.getByText("Compare vendors")).toHaveCount(0);
+    });
+
+    // A turn the lead delegated asks in the lead's chat as well; the card is the
+    // member's action, so one decision ends it in both chats.
+    test("a delegated member's exec request is decided in the lead's chat", async ({
+      page,
+    }) => {
+      const state = await setup(page, {
+        assistants: [{ ...profile, id: "scout", name: "Network Architect" }],
+        actions: [
+          memberExec("delegated", { assistantId: "scout", leadAssistantId: "home" }),
+        ],
+        activity: { home: waitingForApproval },
+        requests: [acceptedTurn],
+      });
+      await page.goto(baseURL + "/agents/home/chats/chat");
+      const cards = page.getByRole("article", {
+        name: "Shell command awaiting approval",
+      });
+      await expect(cards).toHaveCount(1);
+      await expect(cards).toContainText("Network Architect");
+      await expect(page.locator(".assistant-header-label")).toHaveText(
+        "Awaiting approval",
+      );
+      await cards.getByRole("button", { name: "Deny" }).click();
+      await expect
+        .poll(() => state.decisions)
+        .toEqual([["delegated", { revision: 3, decision: "deny" }]]);
+      await expect(cards).toHaveCount(0);
+    });
+
+    // Settings → Work → Actions lists shell requests too and decides them as such.
+    test("the action history shows and decides a shell request", async ({ page }) => {
+      const state = await setup(page, {
+        agent: { teamMemberId: "m1", lifetime: "permanent", shell: "approval" },
+        actions: [
+          memberExec("done", {
+            state: "completed",
+            result: { decision: "allow-once" },
+            payload: { ...memberExec("x").payload, command: "uptime" },
+          }),
+          memberExec("member"),
+        ],
+      });
+      await page.goto(baseURL + settingsPath("work", "actions"));
+      const history = page.getByRole("region", { name: "Actions and coding tasks" });
+      await expect(history.getByText("Project memory change")).toHaveCount(0);
+      const card = history.getByRole("article", {
+        name: "Shell command awaiting approval",
+      });
+      await expect(card).toContainText("ip route show");
+      await expect(history.getByRole("button", { name: "Approve action" })).toHaveCount(
+        0,
+      );
+      const done = history.locator("article").filter({ hasText: "uptime" });
+      await expect(done).toContainText("Shell command");
+      await expect(done).toContainText("Completed");
+      await card.getByRole("button", { name: "Allow once" }).click();
+      await expect
+        .poll(() => state.decisions)
+        .toEqual([["member", { revision: 3, decision: "allow-once" }]]);
+      if (label === "phone") await fitsPhone(page);
     });
 
     test("exec approvals are decided once, always or denied", async ({ page }) => {

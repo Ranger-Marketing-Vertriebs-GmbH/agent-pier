@@ -1359,10 +1359,18 @@ session, or shell Off) is denied at once. The action shows the command, folder,
 agent, expiry (30 minutes) and OpenClaw's notes, with **Allow once**, **Always
 allow** and **Deny**.
 
-- The card appears in the agent chat. A turn that came from Telegram also gets the
+- The card appears in the agent chat, a permanent team member's own chat included,
+  and under Settings → Work → Actions. When the member's turn was delegated by its
+  lead (a lead's question or task, or a team assignment), the action also records
+  `leadAssistantId`: the lead's chat lists the same action and counts it in its
+  approval strip, so the owner can decide from either chat; the decision ends it in
+  both. A direct chat with the member asks only there. The lead agent's own
+  `actions` tool does not list it. A turn that came from Telegram also gets the
   three buttons in that private chat, for the owner only; the existing stale and
   private-chat rules apply. Each decision goes to the Gateway exactly once and is
   audited (`assistant.answered`, with the allowlist outcome).
+- While a turn waits for an approval, the chat header says **Awaiting approval**, as
+  the sidebar does, instead of the turn's accepted or running state.
 - Allow once runs the command once; Deny never runs it.
 - Events missed while disconnected are reconciled at every ready against
   `exec.approval.list` and `approval.history`. A Gateway restart cancels pending

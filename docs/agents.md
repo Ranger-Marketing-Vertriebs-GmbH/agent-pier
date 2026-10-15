@@ -64,7 +64,9 @@ its model or instructions changed since it was created.
 - **Shell access:** **Off**, **With approval** or **Full access**. With approval, the
   agent asks before every command that is not always allowed; the request appears in
   the chat and in the paired Telegram chat with **Allow once**, **Always allow** and
-  **Deny**. **Always allowed commands** lists what you allowed permanently; delete an
+  **Deny**. A permanent team member asks in its own chat; when its lead asked or
+  delegated the turn, the request also appears in the lead's chat, and deciding in
+  either chat settles it in both. **Always allowed commands** lists what you allowed permanently; delete an
   entry and the agent asks again. Temporary team members never get shell access.
 - **Skills:** **Bundled skills** lists the skills that ship with OpenClaw. A skill
   teaches the agent a tool, mostly a command-line program such as `gh`. Switch on the
