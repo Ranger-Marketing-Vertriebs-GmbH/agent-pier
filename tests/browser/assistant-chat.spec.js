@@ -137,6 +137,43 @@ for (const [name, size, touch] of [
       await page.screenshot({ path: `.cache/assistant-chat-${name}-en.png` });
     });
 
+    test("code blocks offer a copy button that copies their text", async ({ page }) => {
+      await page.addInitScript(() => {
+        window.copiedTexts = [];
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: { writeText: async (text) => window.copiedTexts.push(text) },
+        });
+      });
+      const line = "printf 'a very long line that has to scroll sideways' ".repeat(4);
+      await setup(page, {
+        messages: [
+          { id: "q", role: "user", text: "Show it\n\n```\necho user\n```" },
+          {
+            id: "m1",
+            role: "assistant",
+            text: "Run `npm ci` then:\n\n```sh\n" + line + "\n```",
+          },
+        ],
+      });
+      const message = page.locator(".assistant-message.assistant");
+      const button = message.getByRole("button", { name: "Copy code", exact: true });
+      await expect(button).toHaveCount(1);
+      await expect(
+        page
+          .locator(".assistant-message.user")
+          .getByRole("button", { name: "Copy code" }),
+      ).toHaveCount(1);
+      const box = await button.boundingBox();
+      expect(box.width).toBeGreaterThanOrEqual(32);
+      expect(box.height).toBeGreaterThanOrEqual(32);
+      const pre = message.locator("pre");
+      expect(await pre.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true);
+      await button.click();
+      expect(await page.evaluate(() => window.copiedTexts)).toEqual([line]);
+      await expect(message.getByRole("status")).toHaveText("Copied");
+    });
+
     test("streaming stays pinned unless the reader scrolled up", async ({ page }) => {
       await setup(page);
       await expect.poll(() => gap(page)).toBeLessThan(5);

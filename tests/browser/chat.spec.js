@@ -445,3 +445,55 @@ test("native chat hides manual conversation picker while legacy chat retains it 
     page.getByRole("combobox", { name: "Conversation", exact: true }),
   ).toHaveCount(0);
 });
+
+const stubClipboard = (page, { fail = false } = {}) =>
+  page.addInitScript((fail) => {
+    localStorage.setItem("agentpier-language", "en");
+    window.copiedTexts = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          if (fail) throw Error("denied");
+          window.copiedTexts.push(text);
+        },
+      },
+    });
+  }, fail);
+
+test("native chat copies the exact text of a fenced code block", async ({ page }) => {
+  await stubClipboard(page);
+  await fixture(page);
+  await page.goto(base + "/sessions/chat-demo/chat");
+  const block = page.locator(".code-block").filter({ hasText: "const mode" });
+  const button = block.getByRole("button", { name: "Copy code", exact: true });
+  await expect(button).toBeVisible();
+  await expect(
+    page.getByLabel("Chat history").getByRole("button", { name: "Copy code" }),
+  ).toHaveCount(1);
+  await button.focus();
+  await page.keyboard.press("Enter");
+  expect(await page.evaluate(() => window.copiedTexts)).toEqual([
+    'const mode = mobile ? "reader" : "terminal";',
+  ]);
+  await expect(block.getByRole("status")).toHaveText("Copied");
+  await expect(button.locator("path")).toHaveAttribute("d", "m5 12 4 4L19 6");
+  await expect(button.locator("path")).not.toHaveAttribute("d", "m5 12 4 4L19 6", {
+    timeout: 4000,
+  });
+});
+
+test("native chat selects the code block text when copying fails", async ({ page }) => {
+  await stubClipboard(page, { fail: true });
+  await fixture(page);
+  await page.goto(base + "/sessions/chat-demo/chat");
+  const block = page.locator(".code-block").filter({ hasText: "const mode" });
+  await block.getByRole("button", { name: "Copy code", exact: true }).click();
+  await expect(block.getByRole("status")).toHaveText(
+    "Copy failed – the text is selected.",
+  );
+  await expect(block.getByText("Copy failed – the text is selected.")).toBeVisible();
+  expect(await page.evaluate(() => getSelection().toString().trim())).toBe(
+    'const mode = mobile ? "reader" : "terminal";',
+  );
+});

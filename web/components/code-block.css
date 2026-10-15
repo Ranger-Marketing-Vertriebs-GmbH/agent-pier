@@ -1,0 +1,53 @@
+/* Fenced code blocks in chat Markdown: the copy button floats over the top-right
+   corner of the <pre>, which reserves room for it so the code never sits beneath. */
+.code-block {
+  position: relative;
+  margin: 12px 0;
+  max-width: 100%;
+}
+.code-block > .code-block-pre {
+  margin: 0;
+  padding-right: 52px;
+  min-height: 46px;
+}
+.code-block-copy {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+.code-block-copy:hover {
+  color: var(--text);
+  border-color: var(--button-secondary-line);
+}
+.code-block-copy:focus-visible {
+  outline-offset: 2px;
+}
+.code-block-copy[data-copied] {
+  color: var(--success);
+}
+.code-block-status {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--error-text);
+}
+@media (pointer: coarse) {
+  .code-block > .code-block-pre {
+    padding-right: 56px;
+    min-height: 50px;
+  }
+  .code-block-copy {
+    width: 36px;
+    height: 36px;
+  }
+}
