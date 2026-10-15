@@ -359,6 +359,10 @@ unpacks the verified CPython archive itself and records the toolchain folder in
 CPython's build configuration (sysconfig); uv never downloads Python. Nothing is
 installed globally, and your own npm, pip or uv configuration is never read.
 
+PyPI packages without a usable wheel are built from source only when the owner allows
+it for that package; the build uses the system compilers `cc` and `c++` (on macOS the
+Xcode command line tools, on Linux a C compiler such as `build-essential`).
+
 The installer provisions both toolchains; a failed download never fails the
 installation (the result reports `toolchains.<kind>.status: "failed"` with a code),
 and the first package install retries. After an AgentPier update with new pins, the

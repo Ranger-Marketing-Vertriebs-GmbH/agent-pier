@@ -139,8 +139,10 @@ toolchains already staged at startup.
   values and an unreachable TEST-NET address it starts, lists 81 tools, refuses the
   write tool before any request and fails the read tool on version detection. The
   real-firewall run is the owner's (below).
-- Build tools (D6): with the opt-in, the build of `pandoc==2.4` fetched its build
-  backend (`setuptools`) from PyPI at build time, outside the hashed lock; the
+- Build tools (D6): the install log of the opt-in run showed `Building pandoc==2.4`.
+  That the build fetches its build backend (`setuptools`) from the index at build time,
+  and that it is not in the stored lock, is asserted by the gated integration test
+  `tests/integration/mcp-python-packages.test.js`, not observed in this manual run; the
   confirmation's scripts and builds warning names this.
 
 ### Update, reinstall and remove
