@@ -169,10 +169,14 @@ test("PyPI versions skip empty and non-PEP 440 releases and mark prereleases and
         url: "https://files.pythonhosted.org/x-1.1.tar.gz",
         sha256: "b",
         packagetype: "sdist",
+        yanked: false,
       },
     ],
     requiresPython: ">=3.10",
   });
+  // The same release under another spelling of its version (PEP 440 normalisation).
+  assert.equal(pypiVersionInfo(project, "1.01").files[0].filename, "x-1.1.tar.gz");
+  assert.equal(pypiVersionInfo(project, "1.0").files[0].yanked, true);
   assert.throws(() => pypiVersionInfo(project, "0.9"), {
     code: "MCP_PACKAGE_VERSION_NOT_FOUND",
   });

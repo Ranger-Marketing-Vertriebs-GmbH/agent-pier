@@ -103,6 +103,7 @@ export function runInstall(service, serverId, { preview, program, kind }) {
         integrity: preview.integrity,
         lockDigest: checked.digest,
         allowScripts: preview.allowScripts,
+        needsScripts: preview.needsScripts === true,
         program: chosen,
         toolchain: {
           kind: adapter.toolchainKind,
