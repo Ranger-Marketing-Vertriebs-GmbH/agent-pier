@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { normalizeClaude } from "../../server/features/chat/history-parsers.js";
 import { deliveryMatches, deliveryNotices } from "../../web/features/chat/chat-draft.js";
 import { deliveryContentMatches } from "../../web/features/chat/delivery-content.js";
+import { TOOL_TEXT_LIMIT } from "../../server/features/chat/tool-text.js";
 
 // Shapes Claude Code writes for a bash-mode prompt typed as `! cd ~/x && ls`:
 // the command keeps the space after `!`, the output is a separate user record.
@@ -118,4 +119,70 @@ test("rows cached before the server fix still confirm a bash-mode message", () =
     }),
     false,
   );
+});
+
+test("a plain command does not match a bash-mode command and vice versa", () => {
+  const row = (text) => ({ role: "user", id: "m", timestamp: now + 1, text });
+  assert.equal(deliveryContentMatches(item("ls"), row("! ls")), false);
+  assert.equal(deliveryContentMatches(item("ls"), row("! ls"), true), false);
+  assert.equal(deliveryContentMatches(item("! ls"), row("ls")), false);
+  assert.equal(deliveryContentMatches(item("!ls"), row("ls"), true), false);
+});
+
+const quick = (label, run) => {
+  const started = performance.now();
+  const result = run();
+  const elapsed = performance.now() - started;
+  assert.ok(elapsed < 200, `${label} took ${Math.round(elapsed)} ms`);
+  return result;
+};
+const user = (content) => ({
+  type: "user",
+  uuid: "u",
+  message: { role: "user", content },
+});
+
+test("bash-mode detection stays linear on hostile user text", () => {
+  const spaces = `${" ".repeat(50000)}x`;
+  const plain = quick("leading whitespace", () => normalizeClaude([user(spaces)]));
+  assert.deepEqual(
+    plain.messages.map((m) => [m.role, m.text]),
+    [["user", spaces]],
+  );
+  const repeated = `<bash-stdout>${"</bash-stdout><bash-stderr>".repeat(20000)}`;
+  const tags = quick("repeated tags", () => normalizeClaude([user(repeated)]));
+  assert.deepEqual(
+    tags.messages.map((m) => m.role),
+    ["user"],
+  );
+  const gaps = `<bash-stdout>a</bash-stdout>${" ".repeat(50000)}x`;
+  quick("whitespace after a block", () => normalizeClaude([user(gaps)]));
+  const inputs = `<bash-input>${"</bash-input> ".repeat(20000)}x`;
+  const input = quick("repeated input tags", () => normalizeClaude([user(inputs)]));
+  assert.equal(input.messages[0].text, inputs);
+  quick("matcher", () =>
+    deliveryContentMatches(item(`! ${spaces}`), { role: "user", text: inputs }, true),
+  );
+});
+
+test("long shell output keeps the tail of each stream within one tool payload", () => {
+  const stdout = Array.from({ length: 4000 }, (_, i) => `line "${i}"`).join("\n");
+  const stderr = "e".repeat(30000);
+  const [output] = normalizeClaude([
+    user(`<bash-stdout>${stdout}</bash-stdout><bash-stderr>${stderr}</bash-stderr>`),
+  ]).messages;
+  assert.ok(output.text.length <= TOOL_TEXT_LIMIT, `${output.text.length} chars`);
+  const shown = JSON.parse(output.text);
+  assert.ok(stdout.endsWith(shown.stdout) && shown.stdout.endsWith('line "3999"'));
+  assert.ok(stderr.endsWith(shown.stderr) && shown.stderr.length > 0);
+  assert.deepEqual(output.shellOmitted, {
+    stdout: Buffer.byteLength(stdout) - Buffer.byteLength(shown.stdout),
+    stderr: stderr.length - shown.stderr.length,
+  });
+  const [small] = normalizeClaude([user("<bash-stdout>ok</bash-stdout>")]).messages;
+  assert.equal(small.shellOmitted, undefined);
+  const emoji = "😀".repeat(20000);
+  const [pairs] = normalizeClaude([user(`<bash-stdout>${emoji}</bash-stdout>`)]).messages;
+  assert.ok(emoji.endsWith(JSON.parse(pairs.text).stdout));
+  assert.ok(pairs.text.length <= TOOL_TEXT_LIMIT);
 });

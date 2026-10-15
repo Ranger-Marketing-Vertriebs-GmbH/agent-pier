@@ -1,3 +1,5 @@
+import { TOOL_TEXT_LIMIT } from "./tool-text.js";
+
 const blocks = (record) =>
   Array.isArray(record?.message?.content) ? record.message.content : [];
 const recordText = (record) => {
@@ -56,31 +58,95 @@ function slashCommand(record) {
 // Claude Code bash mode (`! ls`) writes the command and its output as user records:
 // "<bash-input> ls</bash-input>" and "<bash-stdout>…</bash-stdout><bash-stderr>…</bash-stderr>".
 // Only records that consist of exactly those tags are rewritten; text that merely
-// mentions them stays as written. Keep in sync with web/features/chat/delivery-content.js.
-const BASH_INPUT = /^\s*<bash-input>([\s\S]*?)<\/bash-input>\s*$/;
-const BASH_OUTPUT =
-  /^\s*(?:<bash-stdout>([\s\S]*?)<\/bash-stdout>)?\s*(?:<bash-stderr>([\s\S]*?)<\/bash-stderr>)?\s*$/;
-const outputText = (text) => (text || "").replace(/^(?:\r?\n)+/, "").trimEnd();
+// mentions them stays as written. Every user record passes through here, so parsing
+// is linear (no backtracking regex). Keep in sync with web/features/chat/delivery-content.js.
+const skipSpace = (text, at) => {
+  while (at < text.length && /\s/.test(text[at])) at++;
+  return at;
+};
+function bashInput(text) {
+  const trimmed = text.trim();
+  return trimmed.startsWith("<bash-input>") && trimmed.endsWith("</bash-input>")
+    ? trimmed.slice("<bash-input>".length, -"</bash-input>".length)
+    : undefined;
+}
+function bashStreams(text) {
+  let at = skipSpace(text, 0);
+  const streams = {};
+  for (const name of ["stdout", "stderr"]) {
+    const open = `<bash-${name}>`;
+    if (!text.startsWith(open, at)) continue;
+    const end = text.indexOf(`</bash-${name}>`, at + open.length);
+    if (end < 0) return null;
+    streams[name] = text.slice(at + open.length, end);
+    at = skipSpace(text, end + open.length + 1);
+  }
+  return Object.keys(streams).length && at === text.length ? streams : null;
+}
+const outputText = (text = "") => text.replace(/^(?:\r?\n)+/, "").trimEnd();
+// Keep the newest output within one tool payload: larger rows are cut into head and
+// tail for the browser (tool-text.js), which would break the JSON of the streams.
+const tail = (text, length) => {
+  let start = Math.max(0, text.length - length);
+  const code = text.charCodeAt(start);
+  if (start && code >= 0xdc00 && code <= 0xdfff) start++;
+  return text.slice(start);
+};
+function shellOutput(streams) {
+  const shown = Object.fromEntries(
+    Object.entries(streams)
+      .map(([name, text]) => [name, outputText(text)])
+      .filter(([, text]) => text),
+  );
+  // Streams share the budget fairly; escapes in JSON shrink it until the row fits.
+  const full = { ...shown };
+  const names = Object.keys(full).sort((a, b) => full[a].length - full[b].length);
+  let budget = Math.min(
+    TOOL_TEXT_LIMIT,
+    names.reduce((sum, name) => sum + full[name].length, 0),
+  );
+  let content = JSON.stringify(shown);
+  while (content.length > TOOL_TEXT_LIMIT) {
+    let remaining = Math.max(budget, 0);
+    names.forEach((name, index) => {
+      const take = Math.min(
+        full[name].length,
+        Math.floor(remaining / (names.length - index)),
+      );
+      shown[name] = tail(full[name], take);
+      remaining -= take;
+    });
+    const next = JSON.stringify(shown);
+    budget -= Math.max(next.length - TOOL_TEXT_LIMIT, 0);
+    content = next;
+  }
+  const omitted = Object.fromEntries(
+    Object.entries(shown)
+      .map(([name, text]) => [
+        name,
+        Buffer.byteLength(outputText(streams[name])) - Buffer.byteLength(text),
+      ])
+      .filter(([, bytes]) => bytes > 0),
+  );
+  return { content: content === "{}" ? "" : content, omitted };
+}
 
 /** A bash-mode command is shown as typed (`! ls`); its output becomes shell output. */
 function bashMode(record) {
   if (record?.type !== "user" || record.isMeta) return record;
   const text = recordText(record);
   if (typeof text !== "string") return record;
-  const command = BASH_INPUT.exec(text)?.[1];
+  const command = bashInput(text);
   if (command !== undefined)
     return { ...record, message: { ...record.message, content: `! ${command.trim()}` } };
-  const output = BASH_OUTPUT.exec(text);
-  if (!output || (output[1] === undefined && output[2] === undefined)) return record;
-  const streams = { stdout: outputText(output[1]), stderr: outputText(output[2]) };
-  const shown = Object.fromEntries(Object.entries(streams).filter(([, value]) => value));
+  const streams = bashStreams(text);
+  if (!streams) return record;
+  const { content, omitted } = shellOutput(streams);
   return {
     ...record,
     shellOutput: true,
-    message: {
-      ...record.message,
-      content: Object.keys(shown).length ? JSON.stringify(shown) : "",
-    },
+    ...(Object.keys(omitted).length && { shellOmitted: omitted }),
+    message: { ...record.message, content },
   };
 }
 

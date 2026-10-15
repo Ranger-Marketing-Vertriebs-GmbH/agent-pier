@@ -115,3 +115,8 @@ export function outputPreview(blocks, limit = 8, fromEnd = false) {
   }
   return { blocks: fromEnd ? visible.reverse() : visible, truncated };
 }
+
+export const formatSize = (bytes) =>
+  bytes < 1048576
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / 1048576).toFixed(1)} MB`;

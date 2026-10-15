@@ -9,10 +9,11 @@ const unwrapped = (text) =>
   });
 // Claude bash mode: the server shows "<bash-input> ls</bash-input>" as "! ls"; this
 // copy covers rows cached before that. `!ls` and `! ls` are the same command.
-const BASH_INPUT = /^\s*<bash-input>([\s\S]*?)<\/bash-input>\s*$/;
 const bashInput = (text) => {
-  const command = BASH_INPUT.exec(text)?.[1];
-  return command === undefined ? text : `! ${command.trim()}`;
+  const trimmed = text.trim();
+  return trimmed.startsWith("<bash-input>") && trimmed.endsWith("</bash-input>")
+    ? `! ${trimmed.slice("<bash-input>".length, -"</bash-input>".length).trim()}`
+    : text;
 };
 const bang = (text) => text.replace(/^\s*!\s*/, "! ");
 const normalized = (text) => text.replaceAll("\r\n", "\n").trim();

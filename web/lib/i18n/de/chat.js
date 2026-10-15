@@ -60,6 +60,7 @@ export const chatMessageCopy = {
   toolFailures: (count) => `${count} fehlgeschlagen`,
   chatToolLabel: "Tool-Aktivität",
   shellOutputLabel: "Shell-Ausgabe",
+  shellOutputOmitted: (size) => `Ältere Ausgabe ausgelassen (${size})`,
   toolDetails: "Details",
   subagentLabel: (description, type) =>
     `Unteragent: ${description || "Aufgabe ohne Titel"}${type ? ` (${type})` : ""}`,
