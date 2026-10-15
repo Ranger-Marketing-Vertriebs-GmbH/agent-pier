@@ -91,10 +91,10 @@ test("a PyPI package shows withdrawn versions and installs with a constraint", a
   const confirm = page.getByRole("alertdialog", { name: "Install this package?" });
   await expect(confirm.getByText("PyPI", { exact: true })).toBeVisible();
   await expect(confirm.getByText("fastmcp<4", { exact: true })).toBeVisible();
-  // Every release file is pinned; the digest shown is the file that installs.
+  // Every release file is pinned; the digest shown is the file expected to install.
   await expect(confirm.getByText("3 files", { exact: true })).toBeVisible();
   await expect(
-    confirm.getByText("Installs opnsense_mcp_server-0.4.1-py3-none-any.whl"),
+    confirm.getByText("Expected: opnsense_mcp_server-0.4.1-py3-none-any.whl"),
   ).toBeVisible();
   await expect(confirm.getByText(`sha256:${wheelDigest}`, { exact: true })).toBeVisible();
   await expect(confirm.getByText("opnsense-mcp", { exact: true })).toHaveCount(0);
@@ -170,7 +170,7 @@ test("a package that is built first names its program and the build tools", asyn
   await expect(confirm.getByText("The program is chosen after the build.")).toBeVisible();
   await expect(confirm.getByText(/Build tools such as setuptools/)).toBeVisible();
   await expect(confirm.getByText(/not part of the frozen, hash-checked/)).toBeVisible();
-  await expect(confirm.getByText("Built from old_x-0.4.1.tar.gz")).toBeVisible();
+  await expect(confirm.getByText("Expected build from old_x-0.4.1.tar.gz")).toBeVisible();
   await expect(confirm.getByText(`sha256:${sdistDigest}`)).toBeVisible();
   await expect(confirm.getByRole("button", { name: "Install" })).toBeEnabled();
 });

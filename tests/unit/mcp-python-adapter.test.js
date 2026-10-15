@@ -101,6 +101,7 @@ function setup(
       cacheDir: path.join(stage, "cache"),
       execute,
       environment: {},
+      host: { platform: "linux", arch: "x64" },
       ...extra,
     });
   return { preview, downloads, calls, stage };
@@ -124,10 +125,16 @@ test("a preview reads the pure wheel's scripts and pins the release's PyPI diges
       .map((d) => `sha256:${d}`)
       .join(" "),
   );
-  // The confirmation names the file the install uses with its digest.
+  // The confirmation names the file the install is expected to use, with its digest:
+  // on Linux the macOS wheel does not fit, so the pure wheel; on a Mac the platform one.
   assert.deepEqual(result.installFile, {
     filename: "srv_x-1.0-py3-none-any.whl",
     sha256: sha(wheelBytes),
+  });
+  const onMac = await preview({ host: { platform: "darwin", arch: "arm64" } });
+  assert.deepEqual(onMac.installFile, {
+    filename: "srv_x-1.0-cp314-cp314-macosx_11_0_arm64.whl",
+    sha256: sha(otherWheel),
   });
   assert.ok(downloads.includes(`${host}/srv_x-1.0-py3-none-any.whl`));
   assert.ok(!downloads.some((url) => url.includes("cp314")));
