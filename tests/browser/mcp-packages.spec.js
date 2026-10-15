@@ -2,33 +2,16 @@ import { test, expect } from "@playwright/test";
 import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { openAdd } from "./mcp-cli-fixture.js";
-import { packagedServer, packageSetup, preview, writes } from "./mcp-packages-fixture.js";
+import {
+  acceptCreate,
+  choosePackage,
+  packagedServer,
+  packageSetup,
+  preview,
+  writes,
+} from "./mcp-packages-fixture.js";
 
 const screens = process.env.MCP_PACKAGE_SCREENS;
-
-/** POST /mcp-servers answers 202 with an installing packaged server. */
-const acceptCreate = (state) => {
-  state.reply = ({ path, method, body }) => {
-    if (path !== "/api/mcp-servers" || method !== "POST") return null;
-    const server = packagedServer("installing", {
-      name: body.name,
-      args: body.args || [],
-      source: { ...body.source, status: "installing", leadingArgs: 0, errorCode: null },
-    });
-    state.servers = [server];
-    state.packageStatus = {
-      source: server.source,
-      job: { kind: "install", state: "running", code: null, log: "" },
-      error: null,
-    };
-    return { status: 202, json: server };
-  };
-};
-
-async function choosePackage(dialog) {
-  await dialog.getByRole("radio", { name: "Local command (stdio)" }).check();
-  await dialog.getByRole("radio", { name: "Install package" }).check();
-}
 
 test("installing an npm package previews, confirms once and shows progress", async ({
   page,
@@ -120,7 +103,7 @@ test("allowing scripts warns in the form and in the confirmation", async ({ page
   await confirm.getByRole("button", { name: "Cancel" }).click();
   await dialog.getByLabel("Allow install scripts or source builds").check();
   await expect(
-    dialog.getByText(/runs during installation with your user's rights/),
+    dialog.getByText(/runs while the package is checked and installed/),
   ).toBeVisible();
   await dialog.getByRole("button", { name: "Save server" }).click();
   confirm = page.getByRole("alertdialog", { name: "Install this package?" });
@@ -395,4 +378,8 @@ test("German: the form offers the package source", async ({ page }) => {
   await dialog.getByRole("radio", { name: "Paket installieren" }).check();
   await expect(dialog.getByLabel("Paket", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Vorabversionen anzeigen")).toBeVisible();
+  await expect(dialog.getByLabel("Abhängigkeitsgrenzen")).toHaveCount(0);
+  await dialog.getByRole("radio", { name: "PyPI" }).check();
+  await expect(dialog.getByLabel("Abhängigkeitsgrenzen")).toBeVisible();
+  await expect(dialog.getByText(/fastmcp<4/)).toBeVisible();
 });

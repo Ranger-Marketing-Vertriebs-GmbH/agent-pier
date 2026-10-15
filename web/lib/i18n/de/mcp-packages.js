@@ -2,7 +2,7 @@ export const mcpPackageCopy = {
   sourceLabel: "Quelle",
   sources: { command: "Eigener Befehl", package: "Paket installieren" },
   registryLabel: "Registry",
-  registries: { npm: "npm" },
+  registries: { npm: "npm", pypi: "PyPI" },
   nameLabel: "Paket",
   versionLabel: "Version",
   versionsLoading: "Versionen werden geladen…",
@@ -11,10 +11,17 @@ export const mcpPackageCopy = {
   showPrereleases: "Vorabversionen anzeigen",
   prerelease: "Vorabversion",
   deprecated: "veraltet",
+  yanked: "vom Autor zurückgezogen",
   installed: "installiert",
   allowScripts: "Installationsskripte oder Builds aus dem Quellcode erlauben",
   allowScriptsWarning:
-    "Dann läuft Code aus dem Paket bei der Installation mit den Rechten deines Benutzers. Erlaube das nur für Pakete, denen du vertraust.",
+    "Paketcode läuft dann schon beim Prüfen und beim Installieren mit den Rechten deines Benutzers. Erlaube das nur für Pakete, denen du vertraust.",
+  buildToolsNote:
+    "Build-Werkzeuge wie setuptools werden dann während des Builds von PyPI geladen; sie gehören nicht zur eingefrorenen, per Prüfsumme gesicherten Abhängigkeitsliste.",
+  constraintsLabel: "Abhängigkeitsgrenzen",
+  constraintsHint:
+    "Optional. Ein PyPI-Paket mit Versionsgrenzen pro Zeile, zum Beispiel fastmcp<4. Sie gelten beim Auflösen; eine Neuinstallation nutzt die eingefrorene Liste.",
+  constraintsTitle: "Grenzen",
   confirmTitle: "Dieses Paket installieren?",
   updateTitle: "Dieses Paket aktualisieren?",
   confirmAction: "Installieren",
@@ -23,7 +30,11 @@ export const mcpPackageCopy = {
     "Das installierte Programm läuft als lokaler Befehl mit den Rechten deines Benutzers in den CLIs und Agenten, die du auswählst.",
   dependencies: (count) => `${count} Pakete insgesamt`,
   integrity: "Integrität",
+  files: (count) => (count === 1 ? "1 Datei" : `${count} Dateien`),
+  installsFile: (name) => `Installiert wird ${name}`,
+  buildsFile: (name) => `Gebaut wird aus ${name}`,
   programLabel: "Programm",
+  noProgramsYet: "Das Programm wird nach dem Build gewählt.",
   needsScripts:
     "Dieses Paket braucht Installationsskripte oder einen Build aus dem Quellcode. Erlaube sie im Formular, um es zu installieren.",
   scriptsAllowed:

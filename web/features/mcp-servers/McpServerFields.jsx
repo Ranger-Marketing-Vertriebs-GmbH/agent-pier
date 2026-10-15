@@ -69,7 +69,12 @@ export default function McpServerFields({ formId, values, server, set, fieldErro
         <>
           <McpSourceField server={server} values={values} set={set} />
           {packaged && !server?.source && (
-            <McpPackageFields formId={formId} values={values} set={set} />
+            <McpPackageFields
+              formId={formId}
+              values={values}
+              set={set}
+              constraintsError={errorOf("packageConstraints")}
+            />
           )}
           {!packaged && (
             <label>

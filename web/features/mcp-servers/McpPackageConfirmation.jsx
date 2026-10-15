@@ -9,6 +9,28 @@ const dependencyKey = (entry) => entry.path ?? `${entry.name}@${entry.version}`;
 const shortIntegrity = (value) =>
   value && value.length > 24 ? `${value.slice(0, 24)}…` : value || "—";
 
+/**
+ * PyPI pins every release file (`sha256:<hex>` each, space-separated); the one shown
+ * in full is the file the install uses: its wheel, or the sdist it builds from.
+ */
+function PypiIntegrity({ integrity, installFile }) {
+  const count = integrity ? integrity.split(" ").length : 0;
+  const built = installFile && !installFile.filename.endsWith(".whl");
+  return (
+    <dd className="mcp-package-integrity">
+      <span title={integrity || undefined}>{copy.files(count)}</span>
+      {installFile && (
+        <>
+          <span>
+            {(built ? copy.buildsFile : copy.installsFile)(installFile.filename)}
+          </span>
+          <code>{`sha256:${installFile.sha256}`}</code>
+        </>
+      )}
+    </dd>
+  );
+}
+
 /** Added, removed and changed packages of an update, with their versions. */
 function LockDiff({ diff }) {
   const groups = [
@@ -39,8 +61,9 @@ function LockDiff({ diff }) {
 
 /**
  * The one owner confirmation of a package install or update: what is installed from
- * where, its dependencies, the program when the package has several, the scripts
- * warning and, for an update, the lock diff. It replaces the stdio confirmation.
+ * where, its dependencies, the PyPI constraints, the program when the package has
+ * several (or that a build names it), the scripts warning and, for an update, the
+ * lock diff. It replaces the stdio confirmation.
  */
 export default function McpPackageConfirmation({
   preview,
@@ -60,6 +83,8 @@ export default function McpPackageConfirmation({
   );
   const title = update ? copy.updateTitle : copy.confirmTitle;
   const blocked = preview.needsScripts === true && !allowScripts;
+  const pypi = preview.registry === "pypi";
+  const constraints = preview.constraints || [];
   return (
     <div
       {...focus}
@@ -74,9 +99,34 @@ export default function McpPackageConfirmation({
         <dt>{copy.registryLabel}</dt>
         <dd>{copy.registries[preview.registry] || preview.registry}</dd>
         <dt>{copy.integrity}</dt>
-        <dd title={preview.integrity || undefined}>
-          {shortIntegrity(preview.integrity)}
-        </dd>
+        {pypi ? (
+          <PypiIntegrity
+            integrity={preview.integrity}
+            installFile={preview.installFile}
+          />
+        ) : (
+          <dd title={preview.integrity || undefined}>
+            {shortIntegrity(preview.integrity)}
+          </dd>
+        )}
+        {constraints.length > 0 && (
+          <>
+            <dt>{copy.constraintsTitle}</dt>
+            <dd>
+              <ul className="mcp-package-constraints" aria-label={copy.constraintsTitle}>
+                {constraints.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        )}
+        {programs.length === 0 && (
+          <>
+            <dt>{copy.programLabel}</dt>
+            <dd>{copy.noProgramsYet}</dd>
+          </>
+        )}
       </dl>
       <details className="mcp-package-dependencies">
         <summary>{copy.dependencies(preview.dependencyCount ?? 0)}</summary>
@@ -106,6 +156,7 @@ export default function McpPackageConfirmation({
       {allowScripts && (
         <p className="mcp-warning">
           {copy.scriptsAllowed} {copy.allowScriptsWarning}
+          {pypi && ` ${copy.buildToolsNote}`}
         </p>
       )}
       {blocked && (

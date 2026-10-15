@@ -1,7 +1,12 @@
 import { confirmationRequest } from "../../lib/settings/save-chain.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import { cliSupport } from "./cli-support.js";
-import { draftFrom, dropsStoredHeaders, requestBody } from "./mcp-server-draft.js";
+import {
+  draftFrom,
+  dropsStoredHeaders,
+  requestBody,
+  sourceConstraints,
+} from "./mcp-server-draft.js";
 
 // Client-side questions the form asked before sending anything.
 export const OAUTH_SWITCH_REQUIRED = "MCP_OAUTH_SWITCH_CONFIRMATION_REQUIRED";
@@ -65,6 +70,7 @@ export function mcpServerStep({
           name: values.packageName.trim(),
           version: values.packageVersion,
           allowScripts: values.allowScripts === true,
+          ...sourceConstraints(values.registry, values.packageConstraints),
         });
         throw Object.assign(question(PACKAGE_INSTALL_REQUIRED), { preview });
       }

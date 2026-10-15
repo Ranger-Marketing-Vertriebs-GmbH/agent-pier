@@ -24,6 +24,34 @@ export const versions = {
   ],
 };
 
+/** A PyPI release list: PEP 440 versions, one of them yanked by its author. */
+export const pypiVersions = {
+  latest: "0.4.1",
+  versions: [
+    {
+      version: "0.5.0rc1",
+      publishedAt: "2026-09-02T00:00:00Z",
+      prerelease: true,
+      deprecated: false,
+      yanked: false,
+    },
+    {
+      version: "0.4.1",
+      publishedAt: "2026-08-19T00:00:00Z",
+      prerelease: false,
+      deprecated: false,
+      yanked: false,
+    },
+    {
+      version: "0.4.0",
+      publishedAt: "2026-07-01T00:00:00Z",
+      prerelease: false,
+      deprecated: false,
+      yanked: true,
+    },
+  ],
+};
+
 export const preview = (extra = {}) => ({
   previewId: "p1",
   registry: "npm",
@@ -84,7 +112,9 @@ export async function packageSetup(page, options = {}) {
       return state.versions.status
         ? route.fulfill(state.versions)
         : route.fulfill({ json: state.versions });
-    return route.fulfill({ json: state.preview });
+    return state.preview.status
+      ? route.fulfill(state.preview)
+      : route.fulfill({ json: state.preview });
   });
   state.handle = async ({ route, request, path, body }) => {
     if (path.endsWith("/package") && request.method() === "GET")
@@ -104,3 +134,27 @@ export async function packageSetup(page, options = {}) {
 
 export const writes = (state, path) =>
   state.requests.filter((r) => r.method !== "GET" && r.path === path);
+
+/** POST /mcp-servers answers 202 with an installing packaged server. */
+export const acceptCreate = (state) => {
+  state.reply = ({ path, method, body }) => {
+    if (path !== "/api/mcp-servers" || method !== "POST") return null;
+    const server = packagedServer("installing", {
+      name: body.name,
+      args: body.args || [],
+      source: { ...body.source, status: "installing", leadingArgs: 0, errorCode: null },
+    });
+    state.servers = [server];
+    state.packageStatus = {
+      source: server.source,
+      job: { kind: "install", state: "running", code: null, log: "" },
+      error: null,
+    };
+    return { status: 202, json: server };
+  };
+};
+
+export async function choosePackage(dialog) {
+  await dialog.getByRole("radio", { name: "Local command (stdio)" }).check();
+  await dialog.getByRole("radio", { name: "Install package" }).check();
+}

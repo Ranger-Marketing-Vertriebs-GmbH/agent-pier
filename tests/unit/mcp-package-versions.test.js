@@ -43,3 +43,13 @@ test("prereleases stay hidden unless shown or selected; order is kept", () => {
   );
   assert.equal(versionOptions(versions, { showPrereleases: true }).length, 4);
 });
+
+test("a yanked PyPI release is not preselected, even under the latest tag", () => {
+  const pypi = [
+    { version: "0.5.0rc1", prerelease: true, yanked: false },
+    { version: "0.4.1", prerelease: false, yanked: true },
+    { version: "0.4.0", prerelease: false, yanked: false },
+  ];
+  assert.equal(newestStable({ latest: "0.4.1", versions: pypi }), "0.4.0");
+  assert.equal(newestStable({ latest: null, versions: pypi.slice(0, 2) }), "0.4.1");
+});

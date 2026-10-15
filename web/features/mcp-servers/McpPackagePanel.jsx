@@ -5,8 +5,13 @@ import { mcpPackageCopy as copy } from "../../lib/i18n/messages/mcp-packages.js"
 import { serverText } from "../../lib/server-messages.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import McpPackageConfirmation from "./McpPackageConfirmation.jsx";
-import { McpAllowScripts, McpVersionPicker } from "./McpPackageFields.jsx";
+import {
+  McpAllowScripts,
+  McpConstraints,
+  McpVersionPicker,
+} from "./McpPackageFields.jsx";
 import { newestStable } from "./mcp-package-versions.js";
+import { constraintLines, sourceConstraints } from "./mcp-server-draft.js";
 import useMcpPackageVersions from "./useMcpPackageVersions.js";
 import "./mcp-packages.css";
 
@@ -14,8 +19,9 @@ const pollMs = 2000;
 
 /**
  * The package of a packaged server: its status (installing, ready, failed, missing)
- * with the last error and the redacted job log, Reinstall when the install is gone or
- * failed, and an update that shows the lock diff before it is confirmed. While a job
+ * with its program and PyPI constraints, the last error and the redacted job log,
+ * Reinstall when the install is gone or failed, and an update that shows the lock
+ * diff before it is confirmed; the update keeps the constraints unless edited. While a job
  * runs the status is polled; `onChanged` reloads the servers once it settles.
  */
 export default function McpPackagePanel({ server, onChanged }) {
@@ -29,6 +35,13 @@ export default function McpPackagePanel({ server, onChanged }) {
   const [version, setVersion] = useState("");
   const [allowScripts, setAllowScripts] = useState(source.allowScripts === true);
   const versions = useMcpPackageVersions(source.registry, source.name);
+  const pypi = source.registry === "pypi";
+  const stored = source.constraints || [];
+  const storedText = stored.join("\n");
+  const [constraints, setConstraints] = useState(storedText);
+  const [constraintsError, setConstraintsError] = useState("");
+  // A finished update stores new constraints: the field starts from them again.
+  useEffect(() => setConstraints(storedText), [storedText]);
   const changed = useRef(onChanged);
   changed.current = onChanged;
   const job = status?.job ?? null;
@@ -69,10 +82,14 @@ export default function McpPackagePanel({ server, onChanged }) {
   const act = async (work) => {
     setBusy(true);
     setError("");
+    setConstraintsError("");
     try {
       await work();
     } catch (failure) {
-      setError(failure.message);
+      // A refused constraint is named at its field.
+      if (failure.messageKey === "mcpPackages.invalidConstraints")
+        setConstraintsError(failure.message);
+      else setError(failure.message);
     } finally {
       setBusy(false);
     }
@@ -87,6 +104,7 @@ export default function McpPackagePanel({ server, onChanged }) {
           name: source.name,
           version,
           allowScripts,
+          ...sourceConstraints(source.registry, constraints),
           serverId: server.id,
         }),
       ),
@@ -97,6 +115,7 @@ export default function McpPackagePanel({ server, onChanged }) {
         await assistantApi.updateMcpPackage(server.id, {
           version,
           allowScripts,
+          ...sourceConstraints(source.registry, constraints),
           previewId: preview.previewId,
           confirmInstall: true,
           ...(program ? { program } : {}),
@@ -107,7 +126,9 @@ export default function McpPackagePanel({ server, onChanged }) {
   const reinstall = () =>
     act(async () => started(await assistantApi.reinstallMcpPackage(server.id)));
   const unchanged =
-    version === source.version && allowScripts === (source.allowScripts === true);
+    version === source.version &&
+    allowScripts === (source.allowScripts === true) &&
+    (!pypi || constraintLines(constraints).join("\n") === storedText);
   const failure = status?.error;
   return (
     <section className="mcp-item mcp-package" aria-label={copy.panelLabel}>
@@ -117,6 +138,31 @@ export default function McpPackagePanel({ server, onChanged }) {
           {copy.status[shown] || shown}
         </span>
       </div>
+      {(source.program || (pypi && stored.length > 0)) && (
+        <dl className="mcp-details">
+          {source.program && (
+            <>
+              <dt>{copy.programLabel}</dt>
+              <dd>{source.program}</dd>
+            </>
+          )}
+          {pypi && stored.length > 0 && (
+            <>
+              <dt>{copy.constraintsTitle}</dt>
+              <dd>
+                <ul
+                  className="mcp-package-constraints"
+                  aria-label={copy.constraintsTitle}
+                >
+                  {stored.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </dd>
+            </>
+          )}
+        </dl>
+      )}
       {failure && (
         <p className="mcp-field-error" role="alert">
           {serverText(failure.message, failure.messageKey)}
@@ -151,7 +197,22 @@ export default function McpPackagePanel({ server, onChanged }) {
             installed={source.version}
             onChange={setVersion}
           />
-          <McpAllowScripts checked={allowScripts} onChange={setAllowScripts} />
+          {pypi && (
+            <McpConstraints
+              id={`${id}-constraints`}
+              value={constraints}
+              error={constraintsError}
+              onChange={(text) => {
+                setConstraintsError("");
+                setConstraints(text);
+              }}
+            />
+          )}
+          <McpAllowScripts
+            checked={allowScripts}
+            registry={source.registry}
+            onChange={setAllowScripts}
+          />
           <div className="mcp-actions">
             <button
               type="button"
