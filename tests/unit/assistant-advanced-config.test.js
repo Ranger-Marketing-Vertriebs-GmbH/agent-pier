@@ -131,8 +131,8 @@ test("a stopped Gateway stores the change for its next start", async () => {
   assert.deepEqual(
     audit.map((entry) => entry.details),
     [
-      { path: timeout, from: null, to: 900 },
-      { path: timeout, from: 900, to: null },
+      { setting: "runTimeout", from: null, to: 900 },
+      { setting: "runTimeout", from: 900, to: null },
     ],
   );
 });
@@ -213,10 +213,15 @@ test("a failed restart restores the previous override", async () => {
   assert.equal(overrides.get(timeout).value, 700);
   // The audit records the change and then that it was undone.
   assert.deepEqual(
-    audit.map((entry) => [entry.outcome, entry.details.from, entry.details.to]),
+    audit.map((entry) => [
+      entry.action,
+      entry.outcome,
+      entry.details.from,
+      entry.details.to,
+    ]),
     [
-      ["success", 700, 900],
-      ["failure", 900, 700],
+      ["setting.updated", "success", 700, 900],
+      ["setting.rolled-back", "failure", 900, 700],
     ],
   );
 });

@@ -179,20 +179,23 @@ export class AdvancedConfig {
     const before = this.overrides.get(target)?.value;
     if (value === undefined) this.overrides.remove(target);
     else this.overrides.set(target, value);
-    this.record(target, before, value, "success");
+    this.record("setting.updated", target, before, value, "success");
   }
-  record(target, from, to, outcome) {
+  // The setting's id names it (a path is no audit identifier); the schema keeps the
+  // old and new value only as the setting's own scalar type.
+  record(action, target, from, to, outcome) {
+    const { id } = advancedSetting(target);
     try {
       this.audit?.append({
-        action: "assistant.advancedSettingChanged",
-        resourceType: "assistantRuntime",
-        resourceId: target,
+        action,
+        resourceType: "setting",
+        resourceId: id,
         source: "user",
         outcome,
-        details: { path: target, from: from ?? null, to: to ?? null },
+        details: { setting: id, from: from ?? null, to: to ?? null },
       });
     } catch (error) {
-      console.error("Advanced setting audit failed:", error?.message);
+      console.error(`Advanced setting audit ${action} failed:`, error?.message);
     }
   }
   /**
@@ -215,7 +218,7 @@ export class AdvancedConfig {
         const attempted = this.overrides.get(target)?.value;
         if (previous) this.overrides.set(target, previous.value);
         else this.overrides.remove(target);
-        this.record(target, attempted, previous?.value, "failure");
+        this.record("setting.rolled-back", target, attempted, previous?.value, "failure");
       }
       throw error;
     }

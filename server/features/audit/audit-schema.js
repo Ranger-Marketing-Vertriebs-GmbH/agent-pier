@@ -1,5 +1,9 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import {
+  advancedSettingById,
+  auditableSettingValue,
+} from "../assistants/openclaw-config/advanced-settings.js";
 const resources = new Set([
   "assistant",
   "artifact",
@@ -264,6 +268,14 @@ export function auditEvent(input) {
       event.details.resolution = details.resolution;
     if (typeof details.adopted === "boolean") event.details.adopted = details.adopted;
     packageDetails(details, event);
+  }
+  // Advanced OpenClaw settings (advanced-config.js) name the setting and its old and
+  // new value, kept only as that setting's own scalar type (null: unset).
+  if (input.resourceType === "setting" && advancedSettingById(details.setting)) {
+    event.details.setting = details.setting;
+    for (const key of ["from", "to"])
+      if (auditableSettingValue(details.setting, details[key]))
+        event.details[key] = details[key];
   }
   // Agent proactivity changes name the switched opt-in as a flag (proactivity-changes.js).
   if (input.resourceType === "assistant" && typeof details.heartbeat === "boolean")
