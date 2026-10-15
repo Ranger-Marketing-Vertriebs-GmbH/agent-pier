@@ -380,6 +380,8 @@ export function connectAssistantServices(graph) {
     assistants,
     live: () => bridge.guardLive(),
     generation: () => runtime.generation,
+    // Their applies fail until the connection is usable again (pauseBlocked).
+    blocked: (id) => synchronization.blocked.has(id),
   });
   bridge.onGuard = () => guardReapply.request();
   assistants.gatewayEvents.onReady(() => guardReapply.request());

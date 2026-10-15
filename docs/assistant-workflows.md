@@ -107,8 +107,8 @@ may change that agent's workspace, under the same workspace and instruction-file
 limits as an owner turn. It is not owner text: it never makes a delegated task
 writable (owner proof stays owner-text only), and reminder and check-in runs,
 forwarded and tool-provided content still never write. After a Gateway start the
-routine's agent regains `write` and `edit` as soon as the write guard is reported,
-without a chat turn (see the write guard handshake in
+routine's agent regains `write` and `edit` after the write guard is reported and
+the Gateway is ready, without a chat turn (see the write guard handshake in
 [the Gateway guide](assistant-gateway.md#security-boundaries)).
 
 Accepted risk: a routine run reads the paired conversation's recent turns
