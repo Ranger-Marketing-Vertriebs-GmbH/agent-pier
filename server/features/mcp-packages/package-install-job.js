@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
-import { installNpm } from "./npm-package-install.js";
 import { packageCode, packageError, packageProblem } from "./package-errors.js";
-import { commitInstall, npmCommand, stageInstall } from "./package-store.js";
+import { commitInstall, stageInstall } from "./package-store.js";
+import { chooseProgram } from "./program-select.js";
 import { toolchainEntry } from "./toolchain-entry.js";
 
 /** Store, file and toolchain errors carry paths: only a stable code leaves the service. */
@@ -13,8 +13,8 @@ export const logFailure = (what, error, fallback = "MCP_PACKAGE_INSTALL_FAILED")
 /** The record fields a confirmed preview and its program determine. */
 export const sourceFields = (preview, program) => ({
   ...preview.ref,
-  program: program.name,
-  programPath: program.path,
+  program: program?.name ?? "",
+  programPath: program?.path ?? "",
   allowScripts: preview.allowScripts,
   lock: preview.lockText,
   lockDigest: preview.digest,
@@ -69,46 +69,58 @@ export function runInstall(service, serverId, { preview, program, kind }) {
   return service.jobs.run(serverId, { kind, installId }, async (jobLog, note) => {
     const log = (text) => jobLog(redact(text));
     try {
+      const { ref } = preview;
+      const adapter = service.adapterOf(ref.registry);
       // Never install from an unchecked lock, even one checked at preview time.
-      const checked = service.checkLock(preview.lockText, preview.ref, preview.integrity);
+      const checked = service.checkStored({
+        ...ref,
+        lock: preview.lockText,
+        integrity: preview.integrity,
+      });
       if (checked.digest !== preview.digest)
         throw packageProblem("MCP_PACKAGE_INTEGRITY_MISMATCH", 502);
-      const node = await service.toolchain("node");
-      const toolchainDir = toolchainEntry(service.dataDir, node?.directory);
+      const toolchain = await service.toolchain(adapter.toolchainKind);
+      const toolchainDir = toolchainEntry(service.dataDir, toolchain?.directory);
       if (!toolchainDir) throw packageProblem("MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE", 503);
       note({ toolchainDir });
-      await installNpm({
+      await adapter.install({
         directory: stage,
-        manifestText: preview.manifestText,
-        lockText: preview.lockText,
-        ref: preview.ref,
-        node,
-        registry: service.registry,
-        cacheDir: service.cacheDir,
-        allowScripts: preview.allowScripts,
+        preview,
+        toolchain,
+        registry: service.registries[ref.registry],
+        cacheDir: service.cacheDir(ref.registry),
         execute: service.execute,
         environment: service.environment,
         log,
       });
+      // Some packages name their programs for sure only once installed (and built).
+      const installed = adapter.programsAfterInstall(stage, ref);
+      const chosen = installed
+        ? chooseProgram(installed, program?.name || undefined)
+        : program;
       const receipt = {
-        ...preview.ref,
+        ...ref,
         integrity: preview.integrity,
         lockDigest: checked.digest,
         allowScripts: preview.allowScripts,
-        program,
-        toolchain: { kind: "node", version: node.version, directory: toolchainDir },
+        program: chosen,
+        toolchain: {
+          kind: adapter.toolchainKind,
+          version: adapter.toolchainVersion(toolchain),
+          directory: toolchainDir,
+        },
       };
       commitInstall(service.dataDir, { installId, stage, receipt });
-      const { command, leading } = npmCommand(
+      const { command, leading } = adapter.command(
         service.dataDir,
         { ...receipt, installId },
-        node,
+        toolchain,
       );
       await activate(
         service,
         serverId,
         {
-          ...sourceFields(preview, program),
+          ...sourceFields(preview, chosen),
           installId,
           leadingArgs: leading.length,
           toolchainDir,

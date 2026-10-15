@@ -6,19 +6,14 @@ import { record } from "../extensions/mcp-config.js";
 import { privateFolder } from "./verified-files.js";
 import { ensureToolchain, pruneToolchains } from "./toolchains.js";
 import { PackageJobs } from "./install-jobs.js";
-import { checkNpmLock, lockDiff } from "./lock-check.js";
-import { npmManifestText, resolveNpm } from "./npm-package-install.js";
+import { lockDiff } from "./lock-check.js";
+import { npmAdapter } from "./npm-adapter.js";
 import { packageError, packageProblem } from "./package-errors.js";
 import { packageName, packageRef } from "./package-spec.js";
 import { packageRoot, pruneInstalls } from "./package-store.js";
 import { logFailure, runInstall, sourceFields } from "./package-install-job.js";
-import { chooseProgram, npmPrograms } from "./program-select.js";
-import {
-  npmPackument,
-  npmRegistry,
-  npmVersionInfo,
-  npmVersions,
-} from "./registry-metadata.js";
+import { chooseProgram } from "./program-select.js";
+import { npmRegistry } from "./registry-metadata.js";
 import { toolchainEntry } from "./toolchain-entry.js";
 
 const previewLimit = 20;
@@ -37,6 +32,8 @@ export class McpPackages {
     environment,
     now = Date.now,
     previewTtl = 15 * 60 * 1000,
+    adapters = { npm: npmAdapter },
+    previewConcurrency = 2,
   }) {
     Object.assign(this, {
       dataDir,
@@ -51,6 +48,11 @@ export class McpPackages {
       now,
       previewTtl,
     });
+    this.adapters = adapters;
+    this.previewConcurrency = previewConcurrency;
+    // Registry name → index URL its adapter talks to.
+    this.registries = { npm: this.registry };
+    this.resolving = 0;
     this.records = servers.packages;
     this.jobs = new PackageJobs({ settled: () => this.prune() });
     this.previews = new Map();
@@ -59,22 +61,33 @@ export class McpPackages {
     // Servers whose detach is switching them to an own command right now.
     this.detaching = new Set();
   }
-  get cacheDir() {
-    return path.join(packageRoot(this.dataDir), ".npm-cache");
+  adapterOf(registry) {
+    const adapter = Object.hasOwn(this.adapters, registry)
+      ? this.adapters[registry]
+      : null;
+    if (!adapter) throw invalid();
+    return adapter;
   }
-  /** The lock checked against the reference, its integrity and this registry. */
-  checkLock(lockText, ref, integrity) {
-    return checkNpmLock(lockText, {
-      ref: packageRef(ref),
-      integrity,
-      registry: this.registry,
-    });
+  cacheDir(registry) {
+    return path.join(
+      packageRoot(this.dataDir),
+      registry === "pypi" ? ".uv-cache" : ".npm-cache",
+    );
+  }
+  /** A stored or previewed lock, checked again by its registry's adapter. */
+  checkStored({ registry, name, version, lock, integrity }) {
+    const ref = packageRef({ registry, name, version });
+    return this.adapterOf(registry).checkStored(
+      { lockText: lock, ref, integrity },
+      { registry: this.registries[registry] },
+    );
   }
   async versions(input) {
     const name = packageName(input);
-    return npmVersions(
-      await npmPackument(name, { registry: this.registry, download: this.download }),
-    );
+    return this.adapterOf(input.registry).versions(name, {
+      registry: this.registries[input.registry],
+      download: this.download,
+    });
   }
   async preview(input) {
     const ref = packageRef(input);
@@ -86,47 +99,41 @@ export class McpPackages {
   }
   async resolvePreview(ref, input) {
     const allowScripts = input.allowScripts === true;
-    const info = npmVersionInfo(
-      await npmPackument(ref.name, { registry: this.registry, download: this.download }),
-      ref.version,
-    );
-    const programs = npmPrograms(ref.name, info.bin);
-    if (!programs.length) throw packageProblem("MCP_PACKAGE_NO_PROGRAM", 400);
-    const node = await this.toolchain("node");
+    const adapter = this.adapterOf(ref.registry);
+    // Each resolve runs npm or uv; more than a few at once only queue on the host.
+    if (this.resolving >= this.previewConcurrency)
+      throw packageProblem("MCP_PACKAGE_BUSY", 409, "previewBusy");
+    this.resolving += 1;
     const previewId = randomUUID();
     // Previews resolve outside installs/, so pruning never races a running preview.
     const stage = path.join(packageRoot(this.dataDir), "previews", previewId);
     let resolved;
     try {
-      resolved = await resolveNpm({
-        stage: privateFolder(stage),
+      resolved = await adapter.preview({
         ref,
-        node,
-        registry: this.registry,
-        cacheDir: this.cacheDir,
+        allowScripts,
+        // A loader: metadata errors come before any toolchain install.
+        toolchain: () => this.toolchain(adapter.toolchainKind),
+        stage: privateFolder(stage),
+        registry: this.registries[ref.registry],
+        download: this.download,
+        cacheDir: this.cacheDir(ref.registry),
         execute: this.execute,
         environment: this.environment,
       });
     } finally {
+      this.resolving -= 1;
       fs.rmSync(stage, { recursive: true, force: true });
     }
-    const checked = this.checkLock(resolved.lockText, ref, info.integrity);
     const current = input.serverId ? this.records.get(input.serverId) : null;
-    const diff = current
-      ? lockDiff(
-          this.checkLock(current.lock, current, current.integrity).dependencies,
-          checked.dependencies,
-        )
-      : null;
-    const needsScripts = checked.needsScripts || info.installScripts;
+    const diff =
+      current && resolved.lockText
+        ? lockDiff(this.checkStored(current).dependencies, resolved.dependencies)
+        : null;
     this.previews.set(previewId, {
       ref,
       allowScripts,
-      integrity: info.integrity,
-      programs,
-      needsScripts,
       ...resolved,
-      digest: checked.digest,
       expires: this.now() + this.previewTtl,
     });
     while (this.previews.size > previewLimit)
@@ -134,11 +141,11 @@ export class McpPackages {
     return {
       previewId,
       ...ref,
-      integrity: info.integrity,
-      dependencyCount: checked.dependencies.length,
-      dependencies: checked.dependencies,
-      programs: programs.map((p) => p.name),
-      needsScripts,
+      integrity: resolved.integrity,
+      dependencyCount: resolved.dependencies.length,
+      dependencies: resolved.dependencies,
+      programs: resolved.programs.map((p) => p.name),
+      needsScripts: resolved.needsScripts,
       diff,
     };
   }
@@ -158,12 +165,18 @@ export class McpPackages {
       throw packageProblem("MCP_PACKAGE_PREVIEW_EXPIRED", 409);
     return preview;
   }
-  /** The preview taken once, its program chosen and the scripts rule checked. */
+  /**
+   * The preview taken once, the scripts rule checked and its program chosen. Without
+   * programs at preview time the install names them (adapter.programsAfterInstall).
+   */
   confirmedPreview(previewId, source, wanted) {
     const preview = this.takePreview(previewId, source);
-    const program = chooseProgram(preview.programs, wanted);
+    // Before the program: a package that must be built names its programs only then.
     if (preview.needsScripts === true && !preview.allowScripts)
       throw packageProblem("MCP_PACKAGE_NEEDS_SCRIPTS", 400);
+    const program = preview.programs.length
+      ? chooseProgram(preview.programs, wanted)
+      : { name: typeof wanted === "string" ? wanted : "", path: "" };
     return { preview, program };
   }
   /** The record of a confirmed package before its first install. */
@@ -275,7 +288,8 @@ export class McpPackages {
     const confirmed = this.confirmedPreview(
       previewId,
       { registry: row.registry, name: row.name, version, allowScripts },
-      program ?? row.program,
+      // A record installed without a program yet stores "".
+      program ?? (row.program || undefined),
     );
     return { job: this.install(id, { ...confirmed, kind: "update" }) };
   }
@@ -288,11 +302,11 @@ export class McpPackages {
       ref,
       allowScripts: row.allowScripts,
       integrity: row.integrity,
-      manifestText: npmManifestText(ref),
+      manifestText: this.adapterOf(ref.registry).manifestText(ref),
       lockText: row.lock,
       digest: row.lockDigest,
     };
-    this.checkLock(row.lock, ref, row.integrity);
+    this.checkStored(row);
     return {
       job: this.install(id, {
         preview,
