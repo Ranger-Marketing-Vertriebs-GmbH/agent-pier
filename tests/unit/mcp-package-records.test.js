@@ -79,19 +79,60 @@ test("an owner edit of a pending server keeps it pending", (t) => {
 
 test("pendingCommand never stores an owner command; a record needs pendingCommand", (t) => {
   const { servers } = store(t);
-  assert.throws(() =>
-    servers.create(
-      { name: "pkg", transport: "stdio", command: "/bin/sh" },
-      { pendingCommand: true },
-    ),
+  assert.throws(
+    () =>
+      servers.create(
+        { name: "pkg", transport: "stdio", command: "/bin/sh" },
+        { pendingCommand: true },
+      ),
+    { status: 400 },
   );
-  assert.throws(() =>
-    servers.create(
-      { name: "pkg", transport: "stdio", command: "/bin/sh" },
-      { packageRecord: record() },
-    ),
+  assert.throws(
+    () =>
+      servers.create(
+        { name: "pkg", transport: "stdio", command: "/bin/sh" },
+        { packageRecord: record() },
+      ),
+    { status: 400 },
   );
   assert.deepEqual(servers.list(), []);
+});
+
+test("only a literal true pendingCommand stores a server without a command", (t) => {
+  const { servers } = store(t);
+  assert.throws(
+    () => servers.create({ name: "pkg", transport: "stdio" }, { pendingCommand: "yes" }),
+    { status: 400 },
+  );
+  assert.deepEqual(servers.list(), []);
+});
+
+test("listing servers reads all package records in one query", (t) => {
+  const { servers } = store(t);
+  pending(servers, {}, {});
+  servers.create(
+    { name: "pkg2", transport: "stdio" },
+    { pendingCommand: true, packageRecord: record() },
+  );
+  const get = t.mock.method(servers.packages, "get");
+  assert.equal(servers.list().length, 2);
+  assert.equal(servers.definitions().length, 2);
+  assert.equal(get.mock.callCount(), 0);
+});
+
+test("a choosing record whose install is gone is missing", (t) => {
+  const { servers, dataDir } = store(t);
+  const { installId, stage } = stageInstall(dataDir);
+  commitInstall(dataDir, { installId, stage, receipt: { lockDigest: "d".repeat(64) } });
+  const server = pending(servers, {}, { status: "choosing", installId });
+  assert.equal(servers.get(server.id).source.status, "choosing");
+  const definition = servers.definitions().find((d) => d.id === server.id);
+  assert.equal(definition.packageStatus, "choosing");
+  assert.deepEqual(definition.managedDirs, []);
+  fs.rmSync(path.join(dataDir, "mcp-packages", "installs", installId), {
+    recursive: true,
+  });
+  assert.equal(servers.get(server.id).source.status, "missing");
 });
 
 test("the record is stored before the CLIs are reconciled", async (t) => {
