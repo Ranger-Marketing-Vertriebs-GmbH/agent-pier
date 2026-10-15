@@ -311,11 +311,14 @@ background job, without install scripts. A package that needs install scripts or
 source build is refused with a hint until you tick **Allow install scripts or source
 builds** for it; its code then runs during installation with your user's rights, so
 allow it only for packages you trust. Only `registry.npmjs.org` (npm) and `pypi.org`
-(PyPI, files from `files.pythonhosted.org`) are accepted anywhere in the graph. Behind a
+(PyPI, files from `files.pythonhosted.org`) are accepted anywhere in the graph; a
+redirect to another host is refused, and so is a release whose integrity lists several
+hashes. Behind a
 TLS-intercepting proxy, uv trusts the CA set in `NODE_EXTRA_CA_CERTS` (see
 [Installation](installation.md)). The job log
 (**Installation log**) replaces the data directory and the home directory with
-placeholders, and credentials in URLs are masked.
+placeholders, and credentials in URLs are masked. npm and uv run without standard
+input, in their own process group and with one shared limit for their output.
 
 PyPI packages install from wheels into their own virtual environment with AgentPier's
 CPython 3.14.7 and uv. A package that does not support Python 3.14 fails to install.
