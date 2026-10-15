@@ -333,7 +333,12 @@ downloaded from PyPI during the build; they are not part of the frozen, hash-che
 dependency list."). Because the program of a built package is only known after the
 build, the confirmation does not name it yet. A source-only package whose build installs
 several programs stops at _Choose program_: the package panel lists the programs, and
-**Use this program** starts the chosen one without installing again. A failed preview says only "installation failed" and shows no log.
+**Use this program** starts the chosen one without installing again. A preview that
+fails names the reason instead of a log: dependency limits that no set of versions
+satisfies are reported at the constraints field (for npm at the version), a release that
+does not support the managed Python version is reported at the version, and any other
+failure asks you to check the version or try again later. An `npm ci` install of an
+already checked lock never reports unsatisfiable limits; its failure points to the log.
 
 **Dependency constraints (PyPI only).** For a PyPI package you can enter up to 10
 dependency constraints, one per line, each a PyPI package name with version limits

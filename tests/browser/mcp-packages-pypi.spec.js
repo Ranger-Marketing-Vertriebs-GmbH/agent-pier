@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { accountDetail, openAccountItem } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+import { englishServerMessages } from "../../server/lib/i18n/catalog-en.js";
 import { openAdd } from "./mcp-cli-fixture.js";
 import {
   acceptCreate,
@@ -170,6 +172,47 @@ test("a fully yanked version is named at the version field", async ({ page }) =>
     "The maintainers withdrew (yanked) this version. Choose another version.",
   );
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
+});
+
+test("unsatisfiable limits are named at the constraints field, other failures in the bar", async ({
+  page,
+}) => {
+  const state = await packageSetup(page);
+  state.versions = pypiVersions;
+  state.preview = {
+    status: 400,
+    json: {
+      code: "MCP_PACKAGE_UNSATISFIABLE",
+      error: serverMessages.mcpPackages.unsatisfiable,
+      messageKey: "mcpPackages.unsatisfiable",
+    },
+  };
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAdd(page);
+  await dialog.getByLabel("Name", { exact: true }).fill("opnsense");
+  await choosePypi(dialog);
+  await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("0.4.1");
+  const field = dialog.getByLabel("Dependency constraints");
+  await field.fill("fastmcp<1");
+  await dialog.getByRole("button", { name: "Save server" }).click();
+  await expect(field).toHaveAttribute("aria-invalid", "true");
+  await expect(dialog.getByRole("alert")).toHaveText(
+    englishServerMessages.mcpPackages.unsatisfiable,
+  );
+  await field.fill("fastmcp<4");
+  state.preview = {
+    status: 502,
+    json: {
+      code: "MCP_PACKAGE_INSTALL_FAILED",
+      error: serverMessages.mcpPackages.previewFailed,
+      messageKey: "mcpPackages.previewFailed",
+    },
+  };
+  await dialog.getByRole("button", { name: "Save server" }).click();
+  await expect(field).not.toHaveAttribute("aria-invalid", "true");
+  await expect(
+    page.getByText(englishServerMessages.mcpPackages.previewFailed),
+  ).toBeVisible();
 });
 
 test("a package that is built first names its program and the build tools", async ({

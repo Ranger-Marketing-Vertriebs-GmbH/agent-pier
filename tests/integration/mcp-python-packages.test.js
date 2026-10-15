@@ -12,6 +12,7 @@ import {
 import { mcpServerConfig } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
 import { gatewayPath } from "../../server/features/assistants/runtime-config.js";
 import { toolchainRoot } from "../../server/features/mcp-packages/toolchains.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 // Real uv 0.12.21 and CPython 3.14.7 (the managed toolchain, downloaded once into
 // $TMPDIR/agentpier-test-toolchains) against a local index; CI sets the variable.
@@ -275,6 +276,33 @@ test(
       }),
       { code: "MCP_PACKAGE_INVALID" },
     );
+  },
+);
+
+test(
+  "a constraint no version satisfies and a release without the managed Python are named",
+  { skip },
+  async (t) => {
+    const s = await pythonPackageService(t, [
+      { name: "srv-y", version: "1.0", script: "srv-y", requires: ["helper-x>=2"] },
+      helper,
+      { name: "srv-old", version: "1.0", script: "srv-old", requiresPython: ">=3.99" },
+    ]);
+    // Real uv: "No solution found when resolving dependencies" for helper-x<2.
+    await assert.rejects(
+      s.packages.preview({ ...pypiRef("srv-y"), constraints: ["helper-x<2"] }),
+      (error) => {
+        assert.equal(error.code, "MCP_PACKAGE_UNSATISFIABLE");
+        assert.equal(error.status, 400);
+        assert.equal(error.message, serverMessages.mcpPackages.unsatisfiable);
+        return true;
+      },
+    );
+    await assert.rejects(s.packages.preview(pypiRef("srv-old")), (error) => {
+      assert.equal(error.code, "MCP_PACKAGE_UNSATISFIABLE");
+      assert.equal(error.message, serverMessages.mcpPackages.pythonUnsupported);
+      return true;
+    });
   },
 );
 

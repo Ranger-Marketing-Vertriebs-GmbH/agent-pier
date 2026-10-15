@@ -9,7 +9,7 @@ import { registerResponses } from "../../server/http/responses.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 
 test("every package code has a German message and keeps its code and status", () => {
-  assert.equal(packageCodes.length, 17);
+  assert.equal(packageCodes.length, 18);
   for (const code of packageCodes) {
     const error = packageProblem(code, 409);
     assert.equal(error.code, code);
@@ -24,6 +24,16 @@ test("a cancelled install has its own code and message", () => {
   const error = packageProblem("MCP_PACKAGE_CANCELLED", 409);
   assert.equal(error.code, "MCP_PACKAGE_CANCELLED");
   assert.equal(error.message, serverMessages.mcpPackages.cancelled);
+});
+
+test("a preview failure has its own wording without a log", () => {
+  const error = packageProblem("MCP_PACKAGE_INSTALL_FAILED", 502, "previewFailed");
+  assert.equal(error.code, "MCP_PACKAGE_INSTALL_FAILED");
+  assert.doesNotMatch(error.message, /Protokoll/);
+  assert.equal(packageProblem("MCP_PACKAGE_UNSATISFIABLE", 400).status, 400);
+  const python = packageProblem("MCP_PACKAGE_UNSATISFIABLE", 400, "pythonUnsupported");
+  assert.equal(python.code, "MCP_PACKAGE_UNSATISFIABLE");
+  assert.notEqual(python.message, serverMessages.mcpPackages.unsatisfiable);
 });
 
 test("an unknown code is a defect, not a silent generic message", () => {

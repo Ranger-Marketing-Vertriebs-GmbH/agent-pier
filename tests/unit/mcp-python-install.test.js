@@ -4,10 +4,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+  compileFailure,
   installPython,
   resolvePython,
   uvEnvironment,
 } from "../../server/features/mcp-packages/python-package-install.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 const python = { uvPath: "/tc/uv/uv", pythonPath: "/tc/cpython/bin/python3" };
 const ref = { registry: "pypi", name: "srv-x", version: "1.0" };
@@ -353,4 +355,99 @@ test("without constraints no constraints file is passed", async (t) => {
     execute,
     environment: {},
   });
+});
+
+// uv 0.12.21 without a terminal (verified against the managed toolchain): "error: No
+// solution found when resolving dependencies" plus "cause:" lines; on a terminal "×"/"╰─▶".
+test("a failed compile is a needed build, a Python mismatch, an unsatisfiable graph or another failure", () => {
+  assert.equal(
+    compileFailure(
+      "  × No solution found when resolving dependencies:\n  ╰─▶ Because x==1.0 has no\n      usable wheels and you require x==1.0, we can conclude",
+    ),
+    "build",
+  );
+  assert.equal(
+    compileFailure(
+      "  × No solution found when resolving dependencies:\n  ╰─▶ Because only helper-x<=2.0 is available and srv-y==1.0 depends on helper-x>=3",
+    ),
+    "unsatisfiable",
+  );
+  assert.equal(
+    compileFailure(
+      "error: No solution found when resolving dependencies\n  cause: Because there is no version of helper-x==9.0 and srv-x==1.0 depends on helper-x==9.0",
+    ),
+    "unsatisfiable",
+  );
+  for (const cause of [
+    "Because srv-top==1.0 requires Python >=3.99 and you require srv-top==1.0",
+    "Because the current Python version (3.14.7) does not satisfy Python>=3.15 and srv-x==1.0 depends on Python>=3.15",
+  ])
+    assert.equal(
+      compileFailure(
+        `error: No solution found when resolving dependencies\n  cause: ${cause}`,
+      ),
+      "python",
+    );
+  assert.equal(
+    compileFailure("error: Failed to fetch: `http://127.0.0.1:1/simple/x/`"),
+    "failed",
+  );
+  assert.equal(compileFailure("Python>=3.15 without a resolver report"), "failed");
+});
+
+test("an unsatisfiable resolve is named as such, with or without the build", async (t) => {
+  const conflict =
+    "  × No solution found when resolving dependencies:\n  ╰─▶ Because only helper-x<=2.0 is available and srv-x==1.0 depends on helper-x>=3";
+  const python314 =
+    "error: No solution found when resolving dependencies\n  cause: Because srv-x==1.0 requires Python >=3.15 and you require srv-x==1.0";
+  const cases = [
+    [conflict, "unsatisfiable"],
+    [python314, "pythonUnsupported"],
+  ];
+  for (const [output, message] of cases)
+    for (const allowScripts of [false, true]) {
+      const logged = [];
+      const error = await resolvePython({
+        stage: tmp(t),
+        ref,
+        python,
+        index: "http://i/simple",
+        cacheDir: tmp(t),
+        allowScripts,
+        constraints: ["helper-x<3"],
+        execute: async () => {
+          throw failure(output);
+        },
+        environment: {},
+        log: (text) => logged.push(text),
+      }).catch((caught) => caught);
+      assert.equal(error.code, "MCP_PACKAGE_UNSATISFIABLE");
+      assert.equal(error.status, 400);
+      assert.equal(error.message, serverMessages.mcpPackages[message]);
+      // The resolver report stays in the log; the answer carries none of it.
+      assert.doesNotMatch(error.message, /helper-x|srv-x|Because/);
+      assert.match(logged.join("\n"), /Because/);
+    }
+});
+
+test("a build compile that is unsatisfiable after the missing wheel is named as such", async (t) => {
+  const execute = async (file, args) => {
+    if (args.includes("--only-binary")) throw failure("old-x has no usable wheels");
+    throw failure(
+      "error: No solution found when resolving dependencies\n  cause: Because only helper-x<=2.0 is available and old-x==1.0 depends on helper-x>=3",
+    );
+  };
+  await assert.rejects(
+    resolvePython({
+      stage: tmp(t),
+      ref,
+      python,
+      index: "http://i/simple",
+      cacheDir: tmp(t),
+      allowScripts: true,
+      execute,
+      environment: {},
+    }),
+    { code: "MCP_PACKAGE_UNSATISFIABLE" },
+  );
 });

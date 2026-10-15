@@ -30,7 +30,14 @@ function npmEnvironment({ work, node, cacheDir, environment }) {
   };
 }
 
-async function npm(args, { cwd, node, env, execute, log, signal }) {
+// npm 11: "npm error code ETARGET" (no matching version) or ERESOLVE (peer conflict).
+const unresolvable = /\bcode (?:ETARGET|ERESOLVE)\b/;
+
+/**
+ * Runs npm; its raw output goes only to `log`. `resolving` names an unresolvable
+ * dependency graph: only the lockfile resolve can, `npm ci` installs a checked lock.
+ */
+async function npm(args, { cwd, node, env, execute, log, signal, resolving = false }) {
   try {
     const { stdout, stderr } = await execute(
       node.nodePath,
@@ -39,8 +46,11 @@ async function npm(args, { cwd, node, env, execute, log, signal }) {
     );
     log?.(`${stdout}\n${stderr}`);
   } catch (error) {
-    log?.(`${error.stdout || ""}\n${error.stderr || ""}`);
+    const output = `${error.stdout || ""}\n${error.stderr || ""}`;
+    log?.(output);
     if (signal?.aborted) throw packageProblem("MCP_PACKAGE_CANCELLED", 409);
+    if (resolving && unresolvable.test(output))
+      throw packageProblem("MCP_PACKAGE_UNSATISFIABLE", 400);
     throw failed();
   }
 }
@@ -73,7 +83,7 @@ export async function resolveNpm({
         "--save-exact",
         `--registry=${registry}`,
       ],
-      { cwd: project, node, env, execute, log, signal },
+      { cwd: project, node, env, execute, log, signal, resolving: true },
     );
     return {
       manifestText,

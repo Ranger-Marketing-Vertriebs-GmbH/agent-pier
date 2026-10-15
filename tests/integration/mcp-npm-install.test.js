@@ -164,6 +164,47 @@ test("npm failures never leak output or paths", async (t) => {
   assert.equal(fs.existsSync(path.join(dir, "install", ".npm-work")), false);
 });
 
+test("a dependency version that does not exist is unsatisfiable, only in the resolve", async (t) => {
+  const broken = { ...server, dependencies: { helper: "9.0.0" } };
+  const registry = await npmRegistryFixture(t, [broken, helper]);
+  const dir = work(t);
+  const ref = { registry: "npm", name: "server-x", version: "1.0.0" };
+  const logged = [];
+  const options = {
+    ref,
+    node: hostNode(),
+    registry: registry.url,
+    cacheDir: path.join(dir, "cache"),
+    log: (text) => logged.push(text),
+  };
+  // Real npm: "npm error code ETARGET" for helper@9.0.0.
+  await assert.rejects(
+    resolveNpm({ stage: path.join(dir, "resolve"), ...options }),
+    (error) => {
+      assert.equal(error.code, "MCP_PACKAGE_UNSATISFIABLE");
+      assert.equal(error.status, 400);
+      assert.doesNotMatch(error.message, /helper|ETARGET|127\.0\.0\.1/);
+      return true;
+    },
+  );
+  assert.match(logged.join("\n"), /ETARGET/);
+  // npm ci installs a checked lock: the same words there are an install failure (R3).
+  const execute = async () => {
+    throw Object.assign(Error("npm"), { stdout: "", stderr: "npm error code ETARGET" });
+  };
+  await assert.rejects(
+    installNpm({
+      directory: path.join(dir, "install"),
+      manifestText: npmManifestText(ref),
+      lockText: "{}",
+      allowScripts: false,
+      ...options,
+      execute,
+    }),
+    { code: "MCP_PACKAGE_INSTALL_FAILED" },
+  );
+});
+
 test("an install whose package version differs fails", async (t) => {
   const dir = work(t);
   const ref = { registry: "npm", name: "@scope/tool", version: "1.0.0" };

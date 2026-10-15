@@ -12,6 +12,8 @@ spec = json.loads(sys.argv[2])
 dist = spec["module"] + "-" + spec["version"]
 files = {spec["module"] + "/__init__.py": "def main():\n    print('ok')\n"}
 meta = "Metadata-Version: 2.1\nName: %s\nVersion: %s\n" % (spec["name"], spec["version"])
+if spec.get("requiresPython"):
+    meta += "Requires-Python: %s\n" % spec["requiresPython"]
 for dep in spec.get("requires", []):
     meta += "Requires-Dist: %s\n" % dep
 files[dist + ".dist-info/METADATA"] = meta
@@ -85,8 +87,8 @@ function artifact(work, python, pkg) {
 
 /**
  * A PEP 503 simple index plus the PyPI JSON API for `packages`, on 127.0.0.1. A
- * package is `{ name, version, script?, scripts? (sdist), requires?, sdistOnly?, sdist?,
- * file? }`.
+ * package is `{ name, version, script?, scripts? (sdist), requires?, requiresPython?
+ * (wheel metadata), sdistOnly?, sdist?, file? }`.
  * `requests` lists every path served, so a test can prove uv used this index.
  */
 export async function pypiIndexFixture(t, python, packages) {
@@ -128,8 +130,12 @@ export async function pypiIndexFixture(t, python, packages) {
       links: [],
       json: { info: { version: pkg.version }, releases: {} },
     };
+    // PyPI names Requires-Python on the link (PEP 503); uv reads it from there.
+    const requiresPython = pkg.requiresPython
+      ? ` data-requires-python="${pkg.requiresPython.replace(/</g, "&lt;").replace(/>/g, "&gt;")}"`
+      : "";
     project.links.push(
-      `<a href="${base}/files/${filename}#sha256=${sha256}">${filename}</a>`,
+      `<a href="${base}/files/${filename}#sha256=${sha256}"${requiresPython}>${filename}</a>`,
     );
     project.json.info.version = pkg.version;
     project.json.releases[pkg.version] = [
@@ -141,7 +147,7 @@ export async function pypiIndexFixture(t, python, packages) {
         packagetype,
         upload_time_iso_8601: "2026-10-01T00:00:00Z",
         yanked: false,
-        requires_python: ">=3.10",
+        requires_python: pkg.requiresPython ?? ">=3.10",
       },
     ];
     projects.set(pkg.name, project);

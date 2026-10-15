@@ -11,6 +11,7 @@ import {
   McpConstraints,
   McpVersionPicker,
 } from "./McpPackageFields.jsx";
+import { refusalField } from "./mcp-package-labels.js";
 import { newestStable } from "./mcp-package-versions.js";
 import { constraintLines, sourceConstraints } from "./mcp-server-draft.js";
 import useMcpPackageVersions from "./useMcpPackageVersions.js";
@@ -90,11 +91,10 @@ export default function McpPackagePanel({ server, onChanged }) {
     try {
       await work();
     } catch (failure) {
-      // A refused constraint is named at its field.
-      if (failure.messageKey === "mcpPackages.invalidConstraints")
-        setConstraintsError(failure.message);
-      else if (failure.messageKey === "mcpPackages.versionYanked")
-        setVersionError(failure.message);
+      // A refused constraint or version is named at its field.
+      const field = refusalField(failure, source.registry);
+      if (field === "packageConstraints") setConstraintsError(failure.message);
+      else if (field === "packageVersion") setVersionError(failure.message);
       else setError(failure.message);
     } finally {
       setBusy(false);

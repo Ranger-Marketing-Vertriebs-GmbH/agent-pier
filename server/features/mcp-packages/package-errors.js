@@ -19,6 +19,7 @@ const keys = {
   MCP_PACKAGE_BUSY: "busy",
   MCP_PACKAGE_CONFIRMATION_REQUIRED: "confirmationRequired",
   MCP_PACKAGE_CANCELLED: "cancelled",
+  MCP_PACKAGE_UNSATISFIABLE: "unsatisfiable",
 };
 export const packageCodes = Object.keys(keys);
 
