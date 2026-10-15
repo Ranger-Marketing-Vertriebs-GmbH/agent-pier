@@ -125,6 +125,25 @@ test("createAssistantServices returns a graph whose every reference is connected
   assert.equal(assistantWorkflows.timer, undefined);
 });
 
+test("a ready Gateway with a live write guard re-applies the memory agents", async (t) => {
+  const services = createAssistantServices(options(t));
+  t.after(() => release(services));
+  const { assistants, assistantTeams, assistantRuntime } = services;
+  const applied = [];
+  assistantTeams.bridge.guardLive = () => true;
+  assistantRuntime.status = () => ({ availability: "ready" });
+  assistants.store.listAssistants = () => [
+    { id: "home", capabilities: { memory: true } },
+    { id: "plain", capabilities: { memory: false } },
+  ];
+  assistants.config.apply = async (id) => applied.push(id);
+  // A guard reported during the start: readiness (gatewayEvents.ready) runs the pass.
+  assistants.gatewayEvents.ready();
+  for (let n = 0; n < 50 && !applied.length; n++)
+    await new Promise((r) => setTimeout(r, 5));
+  assert.deepEqual(applied, ["home"]);
+});
+
 test("a failed construction releases every opened service one after another", async (t) => {
   const settings = options(t);
   // A file where the speech database belongs fails construction after the teams.
