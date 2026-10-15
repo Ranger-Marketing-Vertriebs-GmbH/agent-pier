@@ -135,7 +135,11 @@ export async function pypiIndexFixture(t, python, packages, { tls } = {}) {
     };
     // PyPI names Requires-Python on the link (PEP 503); uv reads it from there.
     const requiresPython = pkg.requiresPython
-      ? ` data-requires-python="${pkg.requiresPython.replace(/</g, "&lt;").replace(/>/g, "&gt;")}"`
+      ? ` data-requires-python="${pkg.requiresPython
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")}"`
       : "";
     project.links.push(
       `<a href="${base}/files/${filename}#sha256=${sha256}"${requiresPython}>${filename}</a>`,
