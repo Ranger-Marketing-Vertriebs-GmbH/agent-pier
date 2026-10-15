@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import http from "node:http";
+import https from "node:https";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 
@@ -89,14 +90,15 @@ function artifact(work, python, pkg) {
  * A PEP 503 simple index plus the PyPI JSON API for `packages`, on 127.0.0.1. A
  * package is `{ name, version, script?, scripts? (sdist), requires?, requiresPython?
  * (wheel metadata), sdistOnly?, sdist?, file? }`.
- * `requests` lists every path served, so a test can prove uv used this index.
+ * `requests` lists every path served, so a test can prove uv used this index. With
+ * `tls: { key, cert }` the index is served over HTTPS.
  */
-export async function pypiIndexFixture(t, python, packages) {
+export async function pypiIndexFixture(t, python, packages, { tls } = {}) {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "pypi-index-"));
   const files = new Map();
   const projects = new Map();
   const requests = [];
-  const server = http.createServer((req, res) => {
+  const handler = (req, res) => {
     const url = decodeURIComponent(req.url.split("#")[0].split("?")[0]);
     requests.push(url);
     if (files.has(url)) return res.end(files.get(url));
@@ -113,9 +115,10 @@ export async function pypiIndexFixture(t, python, packages) {
       return res.end(JSON.stringify(projects.get(json[1]).json));
     }
     res.writeHead(404).end();
-  });
+  };
+  const server = tls ? https.createServer(tls, handler) : http.createServer(handler);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const base = `http://127.0.0.1:${server.address().port}`;
+  const base = `${tls ? "https" : "http"}://127.0.0.1:${server.address().port}`;
   t.after(() => {
     server.close();
     fs.rmSync(work, { recursive: true, force: true });

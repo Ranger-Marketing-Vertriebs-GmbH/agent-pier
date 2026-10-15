@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import {
@@ -8,7 +9,10 @@ import {
   pinnedSetuptools,
   pypiRef,
   pythonPackageService,
+  sharedPython,
 } from "../helpers/mcp-python-service.js";
+import { pypiIndexFixture } from "../helpers/pypi-index-fixture.js";
+import { resolvePython } from "../../server/features/mcp-packages/python-package-install.js";
 import { mcpServerConfig } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
 import { gatewayPath } from "../../server/features/assistants/runtime-config.js";
 import { toolchainRoot } from "../../server/features/mcp-packages/toolchains.js";
@@ -336,5 +340,87 @@ test(
         .trim(),
       "built",
     );
+  },
+);
+
+// A CA plus a leaf it signed (CA:FALSE, SAN IP:127.0.0.1): rustls rejects a CA
+// certificate used as the server's own. A config file and -extfile instead of
+// -addext/-copy_extensions, so macOS LibreSSL and Linux OpenSSL both accept it.
+function companyAuthority(dir) {
+  const file = (name) => path.join(dir, name);
+  fs.writeFileSync(
+    file("openssl.cnf"),
+    [
+      "[req]",
+      "distinguished_name = dn",
+      "prompt = no",
+      "[dn]",
+      "CN = AgentPier test company CA",
+      "[ca]",
+      "basicConstraints = critical,CA:TRUE",
+      "keyUsage = critical,keyCertSign,cRLSign",
+      "subjectKeyIdentifier = hash",
+      "[leaf]",
+      "basicConstraints = critical,CA:FALSE",
+      "keyUsage = critical,digitalSignature,keyEncipherment",
+      "extendedKeyUsage = serverAuth",
+      "subjectAltName = IP:127.0.0.1",
+      "",
+    ].join("\n"),
+  );
+  const openssl = (args) => execFileSync("openssl", args, { stdio: "ignore" });
+  const common = ["-config", file("openssl.cnf"), "-newkey", "rsa:2048", "-nodes"];
+  const ca = ["-keyout", file("ca.key"), "-out", file("ca.pem")];
+  openssl(["req", "-x509", ...common, "-extensions", "ca", "-days", "1", ...ca]);
+  const leaf = ["-keyout", file("leaf.key"), "-out", file("leaf.csr")];
+  openssl(["req", "-new", ...common, "-subj", "/CN=127.0.0.1", ...leaf]);
+  openssl([
+    "x509",
+    "-req",
+    "-in",
+    file("leaf.csr"),
+    "-CA",
+    file("ca.pem"),
+    "-CAkey",
+    file("ca.key"),
+    "-set_serial",
+    "2",
+    "-days",
+    "1",
+    "-extfile",
+    file("openssl.cnf"),
+    "-extensions",
+    "leaf",
+    "-out",
+    file("leaf.pem"),
+  ]);
+  return { ca: file("ca.pem"), key: file("leaf.key"), cert: file("leaf.pem") };
+}
+
+test(
+  "uv trusts an index signed by the owner's CA through NODE_EXTRA_CA_CERTS",
+  { skip },
+  async (t) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uv-tls-"));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const authority = companyAuthority(dir);
+    const python = await sharedPython();
+    const index = await pypiIndexFixture(t, python, [server, helper], {
+      tls: { key: fs.readFileSync(authority.key), cert: fs.readFileSync(authority.cert) },
+    });
+    const stage = fs.mkdtempSync(path.join(dir, "stage-"));
+    const resolve = (environment) =>
+      resolvePython({
+        stage,
+        ref: pypiRef("srv-x"),
+        python,
+        index: index.index,
+        cacheDir: path.join(dir, "cache"),
+        environment,
+      });
+    await assert.rejects(resolve({}), { code: "MCP_PACKAGE_INSTALL_FAILED" });
+    const resolved = await resolve({ NODE_EXTRA_CA_CERTS: authority.ca });
+    assert.match(resolved.lockText, /^srv-x==1\.0 /m);
+    assert.match(resolved.lockText, /^helper-x==2\.0 /m);
   },
 );
