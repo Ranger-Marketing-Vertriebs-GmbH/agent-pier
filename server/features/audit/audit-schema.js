@@ -81,10 +81,12 @@ const changeFields = new Set([
 ]);
 // MCP package references (package-spec.js validated them before the install): the
 // registry, an npm or PyPI name, an exact version and the canonical constraint lines.
+// The limits of package-spec.js: npm versions up to 256 characters, a constraint line
+// up to 100 (one specifier may use nearly all of it).
 const packageRegistries = ["npm", "pypi"];
 const packageName = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[A-Za-z0-9][A-Za-z0-9._~-]{0,213}$/;
-const packageVersion = /^[0-9][0-9A-Za-z.+!-]{0,127}$/;
-const specifier = String.raw`(?:==|!=|~=|<=|>=|<|>)[0-9][0-9a-z.*!]{0,40}`;
+const packageVersion = /^[0-9][0-9A-Za-z.+!-]{0,255}$/;
+const specifier = String.raw`(?:==|!=|~=|<=|>=|<|>)[0-9][0-9a-z.*!]{0,97}`;
 const constraintLine = new RegExp(
   String.raw`^[a-z0-9][a-z0-9._-]{0,99}${specifier}(?:,${specifier}){0,9}$`,
 );
