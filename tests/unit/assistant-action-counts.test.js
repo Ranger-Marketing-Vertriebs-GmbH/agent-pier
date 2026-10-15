@@ -51,3 +51,25 @@ test("expired approvals no longer count", (t) => {
   });
   assert.deepEqual(actions.awaitingCounts(action.expiresAt), {});
 });
+
+// A member's shell request in a turn its lead delegated waits in both chats.
+test("a delegated request counts for the member and its lead", (t) => {
+  const { assistant, actions, reserve } = setup(t);
+  const lead = assistant("Lead"),
+    member = assistant("Member");
+  const waiting = reserve(member.id, {
+    state: "awaiting_approval",
+    leadAssistantId: lead.id,
+  });
+  reserve(member.id, { state: "completed", leadAssistantId: lead.id });
+
+  assert.deepEqual(actions.awaitingCounts(0), {
+    [member.id]: { own: 1, team: 0 },
+    [lead.id]: { own: 0, team: 1 },
+  });
+  assert.deepEqual(
+    actions.delegated(lead.id).map((a) => a.id),
+    [waiting.id],
+  );
+  assert.deepEqual(actions.delegated(member.id), []);
+});

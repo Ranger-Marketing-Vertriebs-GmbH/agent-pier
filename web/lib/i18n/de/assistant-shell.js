@@ -50,6 +50,7 @@ export const assistantShellCopy = {
   remove: "Löschen",
   removeLabel: (pattern) => `Eintrag ${pattern} löschen`,
   exec: {
+    history: "Shell-Befehl",
     title: "Shell-Befehl wartet auf Freigabe",
     agent: "Agent",
     folder: "Ordner",

@@ -108,7 +108,8 @@ export class ExecApprovals {
     // The Telegram target follows the request that started the run, as for other
     // actions; a run AgentPier cannot place answers only in the web.
     const attempt = a.ledger?.attemptForRun(request.runId);
-    let origin = { kind: "owner" };
+    let origin = { kind: "owner" },
+      lead = null;
     if (attempt) {
       const req = a.ledger.getRequest(attempt.requestId);
       const context =
@@ -120,13 +121,26 @@ export class ExecApprovals {
           chatId: context.chatId,
           userId: context.userId,
         };
+      lead = this.lead(context);
     }
     return {
       assistantId: assistant.id,
       conversationId: conversation.id,
       ...(attempt ? { attemptId: attempt.id } : {}),
+      // A turn the lead delegated also asks in the lead's chat (workflows.list).
+      ...(lead && lead !== assistant.id ? { leadAssistantId: lead } : {}),
       origin,
     };
+  }
+  // The lead that delegated the turn: a lead's request, or a team assignment.
+  lead(context) {
+    if (context?.kind === "lead-request") return context.leadAssistantId || null;
+    if (context?.kind !== "team-member") return null;
+    try {
+      return this.w.a.teams.store.get(context.teamId).parentAssistantId || null;
+    } catch {
+      return null;
+    }
   }
   payload(id, request, expiresAt) {
     const allowed = Array.isArray(request.allowedDecisions)

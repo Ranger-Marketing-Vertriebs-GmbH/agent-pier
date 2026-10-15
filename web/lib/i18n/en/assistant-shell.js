@@ -50,6 +50,7 @@ export const assistantShellCopy = {
   remove: "Delete",
   removeLabel: (pattern) => `Delete entry ${pattern}`,
   exec: {
+    history: "Shell command",
     title: "Shell command awaiting approval",
     agent: "Agent",
     folder: "Folder",

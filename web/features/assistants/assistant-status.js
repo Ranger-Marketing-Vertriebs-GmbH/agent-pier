@@ -43,12 +43,24 @@ export function headerStatus({
       tone: attentionRuntime.has(availability) ? "attention" : "muted",
       label: copy.status[availability] ?? availability ?? "",
     };
+  const current = entry ?? IDLE_ACTIVITY;
+  // A turn waiting for the owner's approval stays accepted or running; the header
+  // says what it waits for, as the sidebar does. An unclear outcome comes first.
+  if (
+    attempt &&
+    !attentionAttempts.has(attempt.state) &&
+    current.reason === "approval" &&
+    current.pendingApprovals > 0
+  )
+    return {
+      tone: "waiting",
+      label: copyAt(copy, current.label) ?? copy.team.states.awaiting_approval,
+    };
   if (attempt)
     return {
       tone: attentionAttempts.has(attempt.state) ? "attention" : "working",
       label: copy.status[attempt.state] ?? attempt.state,
     };
-  const current = entry ?? IDLE_ACTIVITY;
   if (current.state !== "idle")
     return {
       tone: current.state,

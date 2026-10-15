@@ -3,10 +3,12 @@ import api from "../../lib/api.js";
 import usePolling from "./usePolling.js";
 import { useAssistantEvent } from "./useAssistants.js";
 
-// The agent's own coding tasks and memory changes waiting for the owner. Loaded on
-// change events and polled while one waits, because approvals expire. Team members'
-// requests belong to their team card (useTeamCodingRequests).
-export default function useAssistantActions(assistantId, enabled = true) {
+// What waits for the owner in this agent's chat: its own coding tasks, memory changes
+// and shell commands (team members included: a permanent member may have a shell),
+// and its members' shell commands in turns it delegated (leadAssistantId). Loaded on
+// change events and polled while one waits, because approvals expire. Team coding
+// requests (teamId) belong to the lead's team card (useTeamCodingRequests).
+export default function useAssistantActions(assistantId) {
   const [actions, setActions] = useState([]),
     [error, setError] = useState("");
   const lastEvent = useAssistantEvent();
@@ -25,11 +27,10 @@ export default function useAssistantActions(assistantId, enabled = true) {
     [assistantId],
   );
   useEffect(() => {
-    if (enabled && (!lastEvent || ["change", "connected"].includes(lastEvent.type)))
-      load();
-  }, [enabled, lastEvent, load]);
+    if (!lastEvent || ["change", "connected"].includes(lastEvent.type)) load();
+  }, [lastEvent, load]);
   usePolling(load, 5000, {
-    enabled: enabled && actions.length > 0,
+    enabled: actions.length > 0,
     immediate: false,
     restartKey: load,
   });

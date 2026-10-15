@@ -56,6 +56,7 @@ export class AssistantWorkflows {
         "requestedBy",
         "onBehalfOf",
         "teamId",
+        "leadAssistantId",
         "memberName",
         "diagnostic",
       ]
@@ -71,12 +72,14 @@ export class AssistantWorkflows {
     } else if (a.payload?.action === "exec") projected.allowAlwaysByAgentPier = false;
     return projected;
   }
-  list(id) {
+  // `delegated` adds members' requests still waiting in turns this agent delegated,
+  // for the owner's views; the agent's own tool listing leaves them out.
+  list(id, { delegated = false } = {}) {
     this.a.store.getAssistant(id);
+    const actions = this.store.list(id);
+    if (delegated) actions.push(...this.store.delegated(id));
     return {
-      actions: this.store
-        .list(id)
-        .map((a) => ({ ...this.project(a), ...this.liveRun(a) })),
+      actions: actions.map((a) => ({ ...this.project(a), ...this.liveRun(a) })),
     };
   }
   // The run as it is now; the stored snapshot only covers runs that are gone.
