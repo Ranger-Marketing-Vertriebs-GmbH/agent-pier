@@ -24,6 +24,7 @@ export const mcpPackages = Object.freeze({
   invalidConstraints:
     "Dependency constraints take one PyPI package name with version limits per line (for example fastmcp<4), at most 10.",
   cancelled: "The installation was cancelled because the server was deleted.",
+  previewCancelled: "The check was cancelled because AgentPier is stopping.",
   unsatisfiable:
     "No set of dependency versions fits this package version and its constraints. Change the dependency constraints or choose another version.",
   pythonUnsupported:

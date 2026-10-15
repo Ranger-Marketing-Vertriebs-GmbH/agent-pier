@@ -79,6 +79,11 @@ export class McpPackages {
     this.detaching = new Set();
     // createServer() calls between storing the installing record and starting its job.
     this.claiming = 0;
+    // A deleted server stops its running install at once, from every deletion path
+    // (the route's own cancel() stays as an idempotent no-op).
+    servers.onRemoved = (id) => {
+      this.cancel(id).catch(() => {});
+    };
     this.records.orphaned = (id) =>
       this.claiming === 0 && this.jobs.get(id)?.state !== "running";
   }
@@ -128,6 +133,9 @@ export class McpPackages {
         packageCode(error, "MCP_PACKAGE_INSTALL_FAILED") === "MCP_PACKAGE_INSTALL_FAILED"
       )
         throw packageProblem("MCP_PACKAGE_INSTALL_FAILED", 502, "previewFailed");
+      // Only a shutdown stops a preview; no server is involved.
+      if (error?.code === "MCP_PACKAGE_CANCELLED")
+        throw packageProblem("MCP_PACKAGE_CANCELLED", 409, "previewCancelled");
       throw error;
     }
   }

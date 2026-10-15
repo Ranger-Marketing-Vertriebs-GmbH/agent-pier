@@ -468,6 +468,8 @@ export class McpServerStore {
       this.db.prepare("DELETE FROM server_secrets WHERE server_id=?").run(id);
       this.db.prepare("DELETE FROM servers WHERE id=?").run(id);
     });
+    // Only a committed removal gets here; the hook must not throw into the caller.
+    this.onRemoved?.(id);
   }
   bindings(kind, targetId) {
     target(kind, targetId);
