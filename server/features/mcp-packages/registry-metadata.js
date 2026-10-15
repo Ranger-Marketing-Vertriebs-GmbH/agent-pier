@@ -115,7 +115,7 @@ const pypiPrerelease = /(?:a|b|rc|\.dev)\d+/i;
 
 /**
  * PyPI marks the JSON API's `releases` key deprecated. Its absence must not read as
- * "no versions": it fails loudly so a change of the API is noticed (docs/mcp.md).
+ * "no versions": it fails loudly so a change of the API is noticed.
  */
 function releasesOf(project) {
   const releases = project?.releases;

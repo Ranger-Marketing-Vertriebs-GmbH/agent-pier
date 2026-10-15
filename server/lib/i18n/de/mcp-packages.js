@@ -28,6 +28,7 @@ export const mcpPackages = {
   invalidConstraints:
     "Abhängigkeitsgrenzen bestehen aus einem PyPI-Paketnamen mit Versionsgrenzen pro Zeile (zum Beispiel fastmcp<4), höchstens 10.",
   cancelled: "Die Installation wurde abgebrochen, weil der Server gelöscht wurde.",
+  previewCancelled: "Die Prüfung wurde abgebrochen, weil AgentPier beendet wird.",
   unsatisfiable:
     "Keine Kombination von Abhängigkeitsversionen passt zu dieser Paketversion und ihren Grenzen. Bitte die Abhängigkeitsgrenzen ändern oder eine andere Version wählen.",
   pythonUnsupported:

@@ -185,3 +185,22 @@ test("close stops a running preview's npm and waits for it", async (t) => {
   await assert.rejects(preview, { code: "MCP_PACKAGE_CANCELLED" });
   assert.equal(service.previewRuns.size, 0);
 });
+
+test("a preview stopped by shutdown does not claim the server was deleted", async (t) => {
+  const reached = deferred();
+  const { service } = harness(t, {
+    onResolve: async ({ signal }) => {
+      reached.resolve();
+      await new Promise((resolve) => signal.addEventListener("abort", resolve));
+      throw Object.assign(Error("aborted"), { stdout: "", stderr: "" });
+    },
+  });
+  const preview = service.preview(source);
+  await reached.promise;
+  await service.close();
+  await assert.rejects(preview, (error) => {
+    assert.equal(error.code, "MCP_PACKAGE_CANCELLED");
+    assert.doesNotMatch(error.message, /gelöscht/);
+    return true;
+  });
+});
