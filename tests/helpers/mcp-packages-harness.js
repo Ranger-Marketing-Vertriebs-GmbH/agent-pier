@@ -29,6 +29,7 @@ export function harness(
     onCi,
     onResolve,
     adapters,
+    installedName = "x",
   } = {},
 ) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-packages-unit-"));
@@ -75,7 +76,7 @@ export function harness(
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(
         path.join(dir, "package.json"),
-        JSON.stringify({ name: "x", version: "1.0.0" }),
+        JSON.stringify({ name: installedName, version: "1.0.0" }),
       );
       fs.writeFileSync(path.join(dir, "index.js"), "");
       return { stdout: ciOutput?.(cwd) ?? "", stderr: "" };

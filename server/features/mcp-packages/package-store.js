@@ -68,19 +68,19 @@ export function choosingReceipt(dataDir, row) {
   return Array.isArray(receipt?.programs) ? receipt : null;
 }
 export function pruneInstalls(dataDir, keep) {
+  const root = path.join(dataDir, "mcp-packages", "installs");
   let names;
   try {
-    names = fs.readdirSync(path.join(dataDir, "mcp-packages", "installs"));
+    // Never through a link: a moved or replaced folder is left alone.
+    for (const dir of [path.dirname(root), root])
+      if (!fs.lstatSync(dir).isDirectory()) return;
+    names = fs.readdirSync(root);
   } catch {
     return;
   }
   for (const name of names) {
     const id = name.replace(/^\.stage-/, "");
-    if (!keep.has(id))
-      fs.rmSync(path.join(dataDir, "mcp-packages", "installs", name), {
-        recursive: true,
-        force: true,
-      });
+    if (!keep.has(id)) fs.rmSync(path.join(root, name), { recursive: true, force: true });
   }
 }
 /** The managed Node plus the program's absolute path, contained in the install. */

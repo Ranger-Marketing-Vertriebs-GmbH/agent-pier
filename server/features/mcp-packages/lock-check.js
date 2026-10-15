@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { packageProblem } from "./package-errors.js";
 
 export const lockDigest = (text) => createHash("sha256").update(text).digest("hex");
+// One SRI sha512 value: 64 bytes are 86 base64 characters plus "==".
+const sha512 = /^sha512-[A-Za-z0-9+/]{86}==$/;
 const foreign = () => packageProblem("MCP_PACKAGE_FOREIGN_SOURCE", 400);
 const nameOf = (key) =>
   key.slice(key.lastIndexOf("node_modules/") + "node_modules/".length);
@@ -56,7 +58,7 @@ export function checkNpmLock(text, { ref, integrity, registry }) {
     } else {
       if (typeof entry.resolved !== "string" || !entry.resolved.startsWith(prefix))
         throw foreign();
-      if (typeof entry.integrity !== "string" || !entry.integrity.startsWith("sha512-"))
+      if (typeof entry.integrity !== "string" || !sha512.test(entry.integrity))
         throw foreign();
     }
     trusted.add(key);

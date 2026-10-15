@@ -124,7 +124,8 @@ export async function installNpm({
       path.join(directory, "node_modules", ...ref.name.split("/"), "package.json"),
       {},
     );
-    if (installed?.version !== ref.version) throw failed();
+    if (installed?.name !== ref.name || installed?.version !== ref.version)
+      throw failed();
   } catch (error) {
     throw wrapped(error);
   } finally {

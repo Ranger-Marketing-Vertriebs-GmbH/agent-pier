@@ -426,3 +426,12 @@ test("the receipt keeps whether a build was needed; reinstall installs the same 
   await service.jobs.idle();
   assert.equal(installs.at(-1).needsScripts, false);
 });
+
+test("an install whose top package has another name fails", async (t) => {
+  // The folder says x, its manifest names another package.
+  const { service, records } = harness(t, { installedName: "y" });
+  await attach(service);
+  await service.jobs.idle();
+  assert.equal(records.get("s1").status, "failed");
+  assert.equal(service.jobs.get("s1").code, "MCP_PACKAGE_INSTALL_FAILED");
+});
