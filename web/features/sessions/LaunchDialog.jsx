@@ -18,9 +18,11 @@ import AsyncForm from "../../components/AsyncForm.jsx";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import {
+  defaultLaunchMode,
   launchModes,
-  preferredLaunchMode as defaultMode,
   rememberLaunchMode,
+  rememberedLaunchMode,
+  unattendedLaunchMode,
 } from "./launch-modes.js";
 const modeCopy = (tool, mode) =>
   ({
@@ -67,13 +69,37 @@ export default function LaunchDialog({
       access.setModel(selected.config.models.default);
       access.setNativeModel(selected.config.models.default);
     }
-    setLaunchMode(selected ? "profile" : defaultMode(access.tool));
+    if (selected) chooseMode("profile");
+    else preselectMode(access.tool);
+  }
+  // A remembered mode only preselects plain launches. With a task profile the
+  // profile's own permission mode stays in charge: its CLI keeps "profile", and
+  // another CLI falls back to the built-in default, never to a remembered
+  // unattended mode that would override the profile at launch.
+  function preselectMode(tool, selectedProfile = null) {
+    if (selectedProfile) {
+      chooseMode(
+        selectedProfile.config.cliTool === tool ? "profile" : defaultLaunchMode(tool),
+      );
+      return;
+    }
+    const remembered = rememberedLaunchMode(tool);
+    chooseMode(remembered || defaultLaunchMode(tool), Boolean(remembered));
+  }
+  function chooseMode(mode, remembered = false) {
+    setLaunchMode(mode);
+    setModeRemembered(remembered);
   }
   const [cwd, setCwd] = useState(initialCwd || state.defaultCwd || state.home || ""),
     [browse, setBrowse] = useState(false),
     [name, setName] = useState(initialProfile?.name || ""),
     [launchMode, setLaunchMode] = useState(() =>
-      initialProfile ? "profile" : defaultMode(access.tool),
+      initialProfile
+        ? "profile"
+        : rememberedLaunchMode(access.tool) || defaultLaunchMode(access.tool),
+    ),
+    [modeRemembered, setModeRemembered] = useState(
+      () => !initialProfile && Boolean(rememberedLaunchMode(access.tool)),
     ),
     [busEnabled, setBusEnabled] = useState(true),
     [agentpierTools, setAgentpierTools] = useState(true),
@@ -86,6 +112,7 @@ export default function LaunchDialog({
       : launchMode === "default"
         ? copy.nativeModeDescription
         : modeCopy(selectedTool, launchMode)[1];
+  const unattended = unattendedLaunchMode(selectedTool, launchMode);
   return (
     <Modal
       title={browse ? commonCopy.workingDirectory : commonCopy.newSession}
@@ -173,7 +200,12 @@ export default function LaunchDialog({
                     onChange={(value) => {
                       if (value === access.tool) return;
                       access.chooseTool(value);
-                      setLaunchMode(defaultMode(value));
+                      preselectMode(
+                        value,
+                        value === "shell" || !profileId
+                          ? null
+                          : profile || initialProfile,
+                      );
                       if (value === "shell") {
                         setProfileId("");
                         setParams({});
@@ -284,7 +316,7 @@ export default function LaunchDialog({
                       describedBy="launch-mode-description"
                       value={launchMode}
                       disabled={!selectedTool}
-                      onChange={setLaunchMode}
+                      onChange={(mode) => chooseMode(mode)}
                       options={[
                         ...(profileCli
                           ? [
@@ -308,12 +340,19 @@ export default function LaunchDialog({
                 )}
                 {coding && (
                   <div
-                    className="form-note"
+                    className={`form-note${unattended ? " launch-mode-warning" : ""}`}
                     id="launch-mode-description"
                     aria-live="polite"
                   >
                     <Icon name="shield" />
-                    {modeDescription}
+                    <span>
+                      {modeDescription}
+                      {modeRemembered && (
+                        <span className="launch-mode-remembered">
+                          {copy.launchModeRemembered}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 )}
               </section>

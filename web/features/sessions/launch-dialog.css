@@ -164,3 +164,13 @@ dialog.launch-dialog-shell {
   bottom: 0;
   z-index: 1;
 }
+/* Same warning treatment as other risk notes: the shared warning tone on a left rule. */
+.launch-dialog .form-note.launch-mode-warning {
+  padding-left: 9px;
+  border-left: 3px solid var(--warning);
+  border-radius: 4px;
+  color: var(--warning);
+}
+.launch-mode-remembered {
+  display: block;
+}

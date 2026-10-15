@@ -26,6 +26,7 @@ export const launchDialogCopy = {
     "Auto prüft Aktionen mit Claudes Sicherheitsprüfung. Verfügbarkeit hängt von Version, Modell und Kontorichtlinien ab; Rückfragen bleiben möglich.",
   claudeBypassDescription:
     "Ohne Rückfragen führt Claude jeden Befehl und jede Änderung aus, ohne zu fragen. Nur in vertrauenswürdigen Projekten nutzen, am besten mit Sandbox-Profil. Gilt nur für diese neue Sitzung.",
+  launchModeRemembered: "Aus deiner letzten Sitzung vorausgewählt.",
   opencodeAutoDescription:
     "Auto bestätigt Berechtigungsanfragen automatisch. Explizite Verbote bleiben aktiv. Gilt nur für diese neue Sitzung.",
   codingSessionDescription: "Ein echtes Terminal. Dein Tool, dein Account, dein Projekt.",
@@ -36,7 +37,7 @@ export const launchDialogCopy = {
   nativeModeOption: "Standard · Tool-Voreinstellungen",
   codexYoloOption: "YOLO · ohne Rückfragen und Sandbox",
   claudeAutoOption: "Auto · mit Sicherheitsprüfung",
-  claudeBypassOption: "Ohne Rückfragen",
+  claudeBypassOption: "Ohne Rückfragen · ohne Prüfung",
   opencodeAutoOption: "Auto · Anfragen automatisch bestätigen",
   agentbusLaunchLabel: "AgentBus · Sitzungen im selben Projekt verbinden",
   agentbusLaunchHint:

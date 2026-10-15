@@ -26,15 +26,26 @@ function readRemembered() {
   }
 }
 
+/** Today's built-in preselection, independent of anything remembered. */
+export function defaultLaunchMode(tool) {
+  return Object.hasOwn(DEFAULTS, tool) ? DEFAULTS[tool] : "default";
+}
+
 /**
- * The mode the owner last launched with for this CLI, or today's default when
- * nothing usable is stored (unknown id, another tool's mode, blocked storage).
+ * The mode the owner last launched with for this CLI, or null when nothing
+ * usable is stored (unknown id, another tool's mode, blocked storage).
  */
-export function preferredLaunchMode(tool) {
+export function rememberedLaunchMode(tool) {
   const saved = readRemembered();
   const mode = Object.hasOwn(saved, tool) ? saved[tool] : undefined;
-  if (typeof mode === "string" && valid(tool, mode)) return mode;
-  return Object.hasOwn(DEFAULTS, tool) ? DEFAULTS[tool] : "default";
+  return typeof mode === "string" && valid(tool, mode) ? mode : null;
+}
+
+/** Modes that drop the CLI's approval prompts; the dialog marks them as a warning. */
+export function unattendedLaunchMode(tool, mode) {
+  return (
+    (tool === "codex" && mode === "yolo") || (tool === "claude" && mode === "bypass")
+  );
 }
 
 /** Called after a successful launch, so a rejected attempt is not remembered. */
