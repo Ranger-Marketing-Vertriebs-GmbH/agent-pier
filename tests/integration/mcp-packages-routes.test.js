@@ -461,3 +461,44 @@ test("deleting a server cancels its running install before pruning", async (t) =
   assert.equal(response.status, 204);
   assert.deepEqual(calls, [["cancel", "s1"], ["prune"]]);
 });
+
+test("choosing a program answers 202 with the job and audits the activation", async (t) => {
+  const seen = [];
+  const { request, audit } = await app(t, {
+    mcpPackages: {
+      chooseProgram: (id, program) => {
+        seen.push([id, program]);
+        return { kind: "activate", state: "running", code: null, log: "" };
+      },
+    },
+  });
+  // No install confirmation: the owner confirmed the build; this picks one of its programs.
+  const response = await request("POST", "/api/mcp-servers/s1/package/program", {
+    program: "b-server",
+  });
+  assert.equal(response.status, 202);
+  assert.equal(response.body.job.state, "running");
+  assert.deepEqual(seen, [["s1", "b-server"]]);
+  assert.equal(audit.at(-1).action, "package.activated");
+  assert.deepEqual(audit.at(-1).details, {
+    registry: "npm",
+    name: "x",
+    version: "1.0.0",
+    allowScripts: false,
+    constraints: [],
+  });
+});
+
+test("a refused program choice answers its code and audits nothing", async (t) => {
+  const { request, audit } = await app(t, {
+    mcpPackages: {
+      chooseProgram: () => {
+        throw packageProblem("MCP_PACKAGE_PROGRAM_REQUIRED", 400);
+      },
+    },
+  });
+  const response = await request("POST", "/api/mcp-servers/s1/package/program", ["x"]);
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, "MCP_PACKAGE_PROGRAM_REQUIRED");
+  assert.equal(audit.length, 0);
+});

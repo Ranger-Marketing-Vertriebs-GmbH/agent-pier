@@ -29,7 +29,8 @@ with zipfile.ZipFile(sys.argv[1], "w") as z:
     z.writestr(dist + ".dist-info/RECORD", "\n".join(record) + "\n")
 `;
 
-// A real setuptools sdist with one C extension and a console script (Task 7).
+// A real setuptools sdist with one C extension and its console scripts (`script` or
+// `scripts`).
 const sdistBuilder = String.raw`
 import sys, tarfile, io, json
 spec = json.loads(sys.argv[2])
@@ -43,8 +44,8 @@ PyMODINIT_FUNC PyInit__hello(void) { return PyModule_Create(&D); }
 files = {
     "PKG-INFO": "Metadata-Version: 2.1\nName: %s\nVersion: %s\n" % (spec["name"], spec["version"]),
     "pyproject.toml": '[build-system]\nrequires = ["setuptools"]\nbuild-backend = "setuptools.build_meta"\n',
-    "setup.py": "from setuptools import setup, Extension\nsetup(name=%r, version=%r, packages=[%r], ext_modules=[Extension(%r, [%r])], entry_points={'console_scripts': [%r]})\n"
-        % (spec["name"], spec["version"], m, m + "._hello", m + "/_hello.c", "%s = %s:main" % (spec["script"], m)),
+    "setup.py": "from setuptools import setup, Extension\nsetup(name=%r, version=%r, packages=[%r], ext_modules=[Extension(%r, [%r])], entry_points={'console_scripts': %r})\n"
+        % (spec["name"], spec["version"], m, m + "._hello", m + "/_hello.c", ["%s = %s:main" % (s, m) for s in spec.get("scripts", [spec.get("script")])]),
     m + "/__init__.py": "from %s._hello import hi\ndef main():\n    print(hi())\n" % m,
     m + "/_hello.c": c,
 }
@@ -84,7 +85,8 @@ function artifact(work, python, pkg) {
 
 /**
  * A PEP 503 simple index plus the PyPI JSON API for `packages`, on 127.0.0.1. A
- * package is `{ name, version, script?, requires?, sdistOnly?, sdist?, file? }`.
+ * package is `{ name, version, script?, scripts? (sdist), requires?, sdistOnly?, sdist?,
+ * file? }`.
  * `requests` lists every path served, so a test can prove uv used this index.
  */
 export async function pypiIndexFixture(t, python, packages) {

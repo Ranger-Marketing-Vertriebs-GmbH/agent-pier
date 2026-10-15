@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import { packageCode, packageError, packageProblem } from "./package-errors.js";
-import { commitInstall, stageInstall } from "./package-store.js";
+import { commitInstall, readInstall, stageInstall } from "./package-store.js";
 import { chooseProgram } from "./program-select.js";
 import { toolchainEntry } from "./toolchain-entry.js";
 
@@ -105,9 +105,14 @@ export function runInstall(service, serverId, { preview, program, kind }) {
       });
       // Some packages name their programs for sure only once installed (and built).
       const installed = adapter.programsAfterInstall(stage, ref);
-      const chosen = installed
-        ? chooseProgram(installed, program?.name || undefined)
-        : program;
+      const wanted = program?.name || undefined;
+      // Several programs and none named yet: the owner picks one (owner decision 1).
+      const choosing = !!installed && installed.length > 1 && wanted === undefined;
+      const chosen = choosing
+        ? null
+        : installed
+          ? chooseProgram(installed, wanted)
+          : program;
       const receipt = {
         ...ref,
         integrity: preview.integrity,
@@ -116,6 +121,8 @@ export function runInstall(service, serverId, { preview, program, kind }) {
         needsScripts: preview.needsScripts === true,
         constraints: preview.constraints ?? [],
         program: chosen,
+        // What program-choice.js offers while the record is `choosing`.
+        ...(installed ? { programs: installed } : {}),
         toolchain: {
           kind: adapter.toolchainKind,
           version: adapter.toolchainVersion(toolchain),
@@ -124,6 +131,19 @@ export function runInstall(service, serverId, { preview, program, kind }) {
       };
       stopIfCancelled(signal);
       commitInstall(service.dataDir, { installId, stage, receipt });
+      if (choosing) {
+        // The server keeps what it runs now; only the record learns the new install.
+        const current = service.records.get(serverId);
+        service.records.put(serverId, {
+          ...sourceFields(preview, null),
+          installId,
+          leadingArgs: service.storedLeading(serverId, current),
+          toolchainDir,
+          status: "choosing",
+          errorCode: null,
+        });
+        return;
+      }
       const { command, leading } = adapter.command(
         service.dataDir,
         { ...receipt, installId },
@@ -151,7 +171,16 @@ export function runInstall(service, serverId, { preview, program, kind }) {
   });
 }
 
-/** The stage goes; a first install ends `failed`, an update stays on its old install. */
+/** A `choosing` record whose built install (and its program list) is still there. */
+export const choiceIntact = (service, row) =>
+  row?.status === "choosing" &&
+  !!row.installId &&
+  Array.isArray(readInstall(service.dataDir, row.installId, row.lockDigest)?.programs);
+
+/**
+ * The stage goes; a first install ends `failed`, an update stays on its old install,
+ * and a record waiting for its program keeps waiting while that install is intact.
+ */
 function failed(service, serverId, stage, error) {
   try {
     if (stage) fs.rmSync(stage, { recursive: true, force: true });
@@ -159,7 +188,7 @@ function failed(service, serverId, stage, error) {
     const code = packageCode(error, "MCP_PACKAGE_INSTALL_FAILED");
     // A deleted server has no record left; one that remains was stopped by a shutdown,
     // whose cancel is a plain failed install (the cancel message names a deletion).
-    if (current && current.status !== "ready")
+    if (current && current.status !== "ready" && !choiceIntact(service, current))
       service.records.update(serverId, {
         status: "failed",
         errorCode: code === "MCP_PACKAGE_CANCELLED" ? "MCP_PACKAGE_INSTALL_FAILED" : code,

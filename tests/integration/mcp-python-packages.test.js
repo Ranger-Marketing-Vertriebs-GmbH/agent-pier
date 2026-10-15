@@ -277,3 +277,36 @@ test(
     );
   },
 );
+
+test(
+  "an sdist with two scripts waits for the program choice and then starts",
+  { skip },
+  async (t) => {
+    const s = await pythonPackageService(t, [
+      {
+        name: "two-c",
+        version: "1.0",
+        scripts: ["two-a", "two-b"],
+        sdist: "c-extension",
+      },
+      { name: "setuptools", version: "84.0.0", file: await pinnedSetuptools() },
+    ]);
+    const { server } = await createPython(s, "two-c", { allowScripts: true });
+    assert.equal(server.source.status, "choosing", s.packages.jobs.get(server.id)?.log);
+    assert.deepEqual(s.packages.status(server.id).programs, ["two-a", "two-b"]);
+    const runs = s.calls.length;
+    s.packages.chooseProgram(server.id, "two-b");
+    await s.packages.jobs.idle();
+    const ready = s.servers.get(server.id);
+    assert.equal(ready.source.status, "ready", s.packages.jobs.get(server.id)?.log);
+    assert.equal(ready.source.program, "two-b");
+    assert.equal(s.calls.length, runs, "no uv run after the choice");
+    assert.match(ready.command, /\/venv\/bin\/two-b$/);
+    assert.equal(
+      execFileSync(ready.command, { env: { PATH: "/usr/bin:/bin" } })
+        .toString()
+        .trim(),
+      "built",
+    );
+  },
+);

@@ -8,14 +8,15 @@ const safe = (file) => {
   return normal.replace(/^\.\//, "");
 };
 
+/** A program name as npm or a wheel may declare one (and the owner may choose). */
+export const programName = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+
 export function npmPrograms(name, bin) {
   const entries =
     typeof bin === "string" ? [[name.split("/").pop(), bin]] : Object.entries(bin || {});
   return entries
     .map(([program, file]) => ({ name: program, path: safe(file) }))
-    .filter(
-      (program) => program.path && /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(program.name),
-    );
+    .filter((program) => program.path && programName.test(program.name));
 }
 
 export function chooseProgram(programs, wanted) {

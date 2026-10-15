@@ -18,15 +18,14 @@ import {
   sourceFields,
   switchedTo,
 } from "./package-install-job.js";
-import { chooseProgram } from "./program-select.js";
+import { chooseInstalledProgram, choosablePrograms } from "./program-choice.js";
+import { chooseProgram, programName } from "./program-select.js";
 import { pypiIndexRegistry, pythonAdapter } from "./python-adapter.js";
 import { npmRegistry } from "./registry-metadata.js";
 import { toolchainEntry } from "./toolchain-entry.js";
 
 const previewLimit = 20;
 const invalid = () => packageProblem("MCP_PACKAGE_INVALID", 400);
-// A program name as program-select.js accepts one from npm or a wheel.
-const programName = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 /** The program the owner named before the install can say which ones exist. */
 function laterProgram(wanted) {
   if (wanted === undefined || wanted === "") return { name: "", path: "" };
@@ -433,14 +432,25 @@ export class McpPackages {
       }),
     };
   }
+  /** Activates one program of a build that named several (status `choosing`). */
+  chooseProgram(id, wanted) {
+    return chooseInstalledProgram(this, id, wanted);
+  }
   status(id) {
     const source = this.servers.get(id).source ?? null;
     const job = this.jobs.get(id);
+    // The programs of a build waiting for the owner's choice; none otherwise.
+    const programs = choosablePrograms(this, id);
     const code = job?.state === "failed" ? job.code : (source?.errorCode ?? null);
-    if (!code) return { source, job, error: null };
+    if (!code) return { source, job, error: null, programs };
     // Stable code plus the server message and its key; the browser translates the key.
     const { message } = packageProblem(code);
-    return { source, job, error: { code, message, ...messageIdentity(message) } };
+    return {
+      source,
+      job,
+      error: { code, message, ...messageIdentity(message) },
+      programs,
+    };
   }
   start() {
     // A crash can leave preview resolutions behind; no preview survives a restart.

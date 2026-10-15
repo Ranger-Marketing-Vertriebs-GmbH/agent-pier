@@ -94,9 +94,9 @@ export async function changeSource(services, { changes, auditMcp }, req, res) {
 }
 
 /**
- * Package versions and previews, and the package of a server: status, update and
- * reinstall. Responses carry codes, versions and the redacted job log; never a path,
- * lock text or raw npm output.
+ * Package versions and previews, and the package of a server: status, update,
+ * reinstall and the program choice after a build. Responses carry codes, versions and
+ * the redacted job log; never a path, lock text or raw npm output.
  */
 export function mcpPackageRoutes(services, { auditMcp }) {
   const packages = () => packagesOf(services);
@@ -140,6 +140,18 @@ export function mcpPackageRoutes(services, { auditMcp }) {
       auditDetails(services.mcpServers.get(req.params.id).source),
     );
     res.status(202).json(result);
+  });
+  // No install confirmation: the owner confirmed the build; this picks one of its
+  // own programs and switches the command without a rebuild (owner decision 1).
+  router.post("/mcp-servers/:id/package/program", (req, res) => {
+    const body = record(req.body) ? req.body : {};
+    const job = packages().chooseProgram(req.params.id, body.program);
+    auditMcp(
+      "package.activated",
+      req.params.id,
+      auditDetails(services.mcpServers.get(req.params.id).source),
+    );
+    res.status(202).json({ job });
   });
   return router;
 }
