@@ -40,6 +40,10 @@ export function commitInstall(dataDir, { installId, stage, receipt }) {
   fs.renameSync(stage, final);
   return final;
 }
+/** Replaces the receipt of a committed install (the program chosen after a build). */
+export function rewriteReceipt(dataDir, installId, receipt) {
+  writePrivate(path.join(verifiedInstall(dataDir, installId), "receipt.json"), receipt);
+}
 /** The receipt of an install whose lock digest is `digest`, else null. */
 export function readInstall(dataDir, installId, digest) {
   try {
