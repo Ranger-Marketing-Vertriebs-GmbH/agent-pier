@@ -4,6 +4,9 @@ import {
   fetchRegistryJson,
   npmVersionInfo,
   npmVersions,
+  pypiProject,
+  pypiVersionInfo,
+  pypiVersions,
 } from "../../server/features/mcp-packages/registry-metadata.js";
 
 const packument = {
@@ -34,18 +37,21 @@ test("versions are newest first with prerelease and deprecated markers", () => {
         publishedAt: "2026-04-01T00:00:00.000Z",
         prerelease: true,
         deprecated: false,
+        yanked: false,
       },
       {
         version: "1.1.0",
         publishedAt: "2026-03-01T00:00:00.000Z",
         prerelease: false,
         deprecated: false,
+        yanked: false,
       },
       {
         version: "1.0.0",
         publishedAt: "2026-01-02T00:00:00.000Z",
         prerelease: false,
         deprecated: true,
+        yanked: false,
       },
     ],
   });
@@ -111,4 +117,76 @@ test("registry failures map to stable codes", async () => {
     fetchRegistryJson("https://r/x", { download: async () => Buffer.from("{") }),
     { code: "MCP_PACKAGE_REGISTRY_UNAVAILABLE" },
   );
+});
+
+const file = (filename, packagetype, sha256, at, extra = {}) => ({
+  filename,
+  url: `https://files.pythonhosted.org/${filename}`,
+  digests: { sha256 },
+  packagetype,
+  upload_time_iso_8601: at,
+  yanked: false,
+  requires_python: ">=3.10",
+  ...extra,
+});
+const project = {
+  info: { version: "1.1" },
+  releases: {
+    "1.0": [
+      file("x-1.0-py3-none-any.whl", "bdist_wheel", "a", "2026-01-01T00:00:00Z", {
+        yanked: true,
+      }),
+    ],
+    1.1: [file("x-1.1.tar.gz", "sdist", "b", "2026-02-01T00:00:00Z")],
+    "2.0b1": [
+      file("x-2.0b1-py3-none-any.whl", "bdist_wheel", "c", "2026-03-01T00:00:00Z"),
+    ],
+    0.9: [],
+    "1.0-legacy": [file("x-legacy.tar.gz", "sdist", "d", "2025-01-01T00:00:00Z")],
+  },
+};
+const entry = (version, publishedAt, prerelease, yanked) => ({
+  version,
+  publishedAt,
+  prerelease,
+  deprecated: false,
+  yanked,
+});
+
+test("PyPI versions skip empty and non-PEP 440 releases and mark prereleases and yanked ones", () => {
+  assert.deepEqual(pypiVersions(project), {
+    latest: "1.1",
+    versions: [
+      entry("2.0b1", "2026-03-01T00:00:00Z", true, false),
+      entry("1.1", "2026-02-01T00:00:00Z", false, false),
+      entry("1.0", "2026-01-01T00:00:00Z", false, true),
+    ],
+  });
+  assert.deepEqual(pypiVersionInfo(project, "1.1"), {
+    files: [
+      {
+        filename: "x-1.1.tar.gz",
+        url: "https://files.pythonhosted.org/x-1.1.tar.gz",
+        sha256: "b",
+        packagetype: "sdist",
+      },
+    ],
+    requiresPython: ">=3.10",
+  });
+  assert.throws(() => pypiVersionInfo(project, "0.9"), {
+    code: "MCP_PACKAGE_VERSION_NOT_FOUND",
+  });
+});
+
+test("the PyPI project is read from the JSON API of the given registry", async () => {
+  const urls = [];
+  const download = async (url) => {
+    urls.push(url);
+    return Buffer.from(JSON.stringify(project));
+  };
+  assert.deepEqual(
+    await pypiProject("x-y", { registry: "http://127.0.0.1:1", download }),
+    project,
+  );
+  assert.deepEqual(urls, ["http://127.0.0.1:1/pypi/x-y/json"]);
 });
