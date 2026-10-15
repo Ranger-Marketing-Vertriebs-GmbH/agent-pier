@@ -152,7 +152,8 @@ toolchains already staged at startup.
 - Reinstall: after its install directory was deleted by hand, the package status showed
   `missing`; **Reinstall** synced the stored lock (32 packages) into a new directory
   and the direct call worked again. Until then the Claude
-  Code entry kept pointing at the deleted program.
+  Code entry kept pointing at the deleted program; AgentPier now removes it at its
+  next start, before a Claude Code session or with any MCP server change.
 - Remove: deleting the `server-filesystem` server removed its directory from
   `mcp-packages/installs/` and its Claude Code entry.
 - Yanked files: no PyPI release had a per-file yank among all releases of the 1,500 most

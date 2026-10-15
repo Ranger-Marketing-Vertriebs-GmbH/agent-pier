@@ -382,7 +382,17 @@ export class McpPackages {
           status: "failed",
           errorCode: "MCP_PACKAGE_INSTALL_FAILED",
         });
-    return this.prune();
+    // An install deleted while AgentPier was stopped (or a restore) is missing: the CLIs
+    // drop its entry now instead of starting a deleted program until a reinstall.
+    const missing = this.records
+      .all()
+      .some((row) => this.records.computedStatus(row) === "missing");
+    const reconciled = missing
+      ? Promise.resolve()
+          .then(() => this.changes.onSaved())
+          .catch((error) => logFailure("update the CLIs for a missing install", error))
+      : undefined;
+    return Promise.all([this.prune(), reconciled]);
   }
   /**
    * Removes installs and stages nothing references now, then (in the background, never
