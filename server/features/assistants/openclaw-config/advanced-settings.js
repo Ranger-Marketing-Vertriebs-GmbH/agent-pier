@@ -106,6 +106,28 @@ export function advancedSetting(path) {
   return byPath.get(path);
 }
 
+const byId = new Map(advancedSettings.map((setting) => [setting.id, setting]));
+
+export function advancedSettingById(id) {
+  return byId.get(id);
+}
+
+/**
+ * A value the audit log may keep for the setting with this `id`: null (unset) or a
+ * scalar of the setting's upstream type, not AgentPier's narrower limits, so an
+ * override stored before a limit changed is still named. None is a credential.
+ */
+export function auditableSettingValue(id, value) {
+  const setting = byId.get(id);
+  if (!setting) return false;
+  if (value === null) return true;
+  const { schema } = setting;
+  if (schema.type === "integer") return Number.isSafeInteger(value);
+  if (schema.type !== "string" || typeof value !== "string") return false;
+  if (schema.enum) return schema.enum.includes(value);
+  return setting.format === "timeZone" && ianaZone.test(value);
+}
+
 /** The effective bounds: the upstream schema narrowed by AgentPier's limits. */
 export function settingBounds(setting) {
   const { schema, limits = {} } = setting;

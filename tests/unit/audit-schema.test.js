@@ -327,3 +327,49 @@ test("MCP package audits keep registry, name, version, allowScripts and constrai
     {},
   );
 });
+
+test("advanced setting audits keep the setting and only its own scalar values", () => {
+  const setting = (details) =>
+    auditEvent({
+      action: "setting.updated",
+      resourceType: "setting",
+      resourceId: "runTimeout",
+      source: "user",
+      outcome: "success",
+      details,
+    }).details;
+  assert.deepEqual(setting({ setting: "runTimeout", from: null, to: 3600 }), {
+    setting: "runTimeout",
+    from: null,
+    to: 3600,
+  });
+  assert.deepEqual(
+    setting({ setting: "userTimezone", from: "Europe/Berlin", to: null }),
+    {
+      setting: "userTimezone",
+      from: "Europe/Berlin",
+      to: null,
+    },
+  );
+  // A value outside the setting's type, an unknown setting or a path never enters.
+  assert.deepEqual(
+    setting({ setting: "thinkingDefault", from: "sk-secret", to: "high" }),
+    {
+      setting: "thinkingDefault",
+      to: "high",
+    },
+  );
+  assert.deepEqual(setting({ setting: "runTimeout", from: "3600", to: 1.5 }), {
+    setting: "runTimeout",
+  });
+  assert.deepEqual(setting({ setting: "gateway.auth.token", from: null, to: "x" }), {});
+  assert.deepEqual(setting({ path: "agents.defaults.timeoutSeconds", to: 1 }), {});
+  assert.throws(() =>
+    auditEvent({
+      action: "assistant.advancedSettingChanged",
+      resourceType: "setting",
+      source: "user",
+      outcome: "success",
+    }),
+  );
+});
