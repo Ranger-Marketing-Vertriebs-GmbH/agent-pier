@@ -236,6 +236,34 @@ test("an install whose package version differs fails", async (t) => {
   );
 });
 
+test("a scoped install must name its scope and version in its own manifest", async (t) => {
+  const ref = { registry: "npm", name: "@scope/tool", version: "1.0.0" };
+  const install = (manifest) => {
+    const dir = work(t);
+    return installNpm({
+      directory: path.join(dir, "install"),
+      manifestText: npmManifestText(ref),
+      lockText: "{}",
+      ref,
+      node: hostNode(),
+      registry: "http://127.0.0.1:9",
+      cacheDir: path.join(dir, "cache"),
+      allowScripts: false,
+      execute: async (_file, _args, { cwd }) => {
+        const target = path.join(cwd, "node_modules", "@scope", "tool");
+        fs.mkdirSync(target, { recursive: true });
+        fs.writeFileSync(path.join(target, "package.json"), JSON.stringify(manifest));
+        return { stdout: "", stderr: "" };
+      },
+    });
+  };
+  await install({ name: "@scope/tool", version: "1.0.0" });
+  for (const name of ["tool", "@other/tool", "scope/tool"])
+    await assert.rejects(install({ name, version: "1.0.0" }), {
+      code: "MCP_PACKAGE_INSTALL_FAILED",
+    });
+});
+
 test("the manifest is deterministic", () => {
   assert.equal(
     npmManifestText({ registry: "npm", name: "@a/b", version: "1.2.3" }),

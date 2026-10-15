@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import {
+  packageCode,
   packageCodes,
   packageProblem,
 } from "../../server/features/mcp-packages/package-errors.js";
@@ -62,4 +63,13 @@ test("the response layer passes a package code through to the client", async () 
   } finally {
     server.close();
   }
+});
+
+test("packageCode keeps known codes only", () => {
+  assert.equal(packageCode(null, "F"), "F");
+  assert.equal(packageCode(undefined, "F"), "F");
+  assert.equal(packageCode({ code: "toString" }, "F"), "F");
+  assert.equal(packageCode({ code: "EACCES" }, "F"), "F");
+  assert.equal(packageCode({ code: "MCP_PACKAGE_BUSY" }, "F"), "MCP_PACKAGE_BUSY");
+  assert.equal(packageCode("MCP_PACKAGE_BUSY", "F"), "F");
 });

@@ -115,8 +115,14 @@ test("listing servers reads all package records in one query", (t) => {
     { pendingCommand: true, packageRecord: record() },
   );
   const get = t.mock.method(servers.packages, "get");
+  const all = t.mock.method(servers.packages, "all");
+  const byServer = t.mock.method(servers.packages, "byServer");
   assert.equal(servers.list().length, 2);
+  assert.equal(byServer.mock.callCount(), 1);
+  assert.equal(all.mock.callCount(), 1);
   assert.equal(servers.definitions().length, 2);
+  assert.equal(byServer.mock.callCount(), 2);
+  assert.equal(all.mock.callCount(), 2);
   assert.equal(get.mock.callCount(), 0);
 });
 

@@ -406,6 +406,45 @@ test("a build with several programs waits for the program choice", async ({ page
   await expect(dialog.getByText(/added once the package is installed/)).toBeVisible();
 });
 
+test("a refused program choice names the reason and keeps the choice", async ({
+  page,
+}) => {
+  const server = pypiServer();
+  server.source = { ...server.source, status: "choosing", program: "", leadingArgs: 0 };
+  const state = await packageSetup(page, { servers: [server] });
+  state.versions = pypiVersions;
+  state.packageStatus = {
+    source: server.source,
+    job: null,
+    error: null,
+    programs: ["opnsense-mcp", "opnsense-admin"],
+  };
+  state.reply = ({ path }) =>
+    path.endsWith("/package/program")
+      ? {
+          status: 409,
+          json: {
+            code: "MCP_PACKAGE_BUSY",
+            error: serverMessages.mcpPackages.busy,
+            messageKey: "mcpPackages.busy",
+          },
+        }
+      : null;
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAccountItem(page, "pkg");
+  const panel = dialog.getByRole("region", { name: "Package" });
+  const select = panel.getByLabel("Program", { exact: true });
+  await select.selectOption("opnsense-admin");
+  await panel.getByRole("button", { name: "Use this program" }).click();
+  await expect(panel.getByText(englishServerMessages.mcpPackages.busy)).toBeVisible();
+  expect(writes(state, "/api/mcp-servers/s1/package/program")).toHaveLength(1);
+  await expect(
+    panel.getByRole("status").filter({ hasText: "Choose program" }),
+  ).toBeVisible();
+  await expect(select).toHaveValue("opnsense-admin");
+  await expect(panel.getByRole("button", { name: "Use this program" })).toBeEnabled();
+});
+
 test("German: the program choice is translated", async ({ page }) => {
   const server = pypiServer();
   server.source = { ...server.source, status: "choosing", program: "", leadingArgs: 0 };

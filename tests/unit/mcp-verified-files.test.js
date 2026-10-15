@@ -30,3 +30,16 @@ test("regularFile refuses links and hard-linked files", (t) => {
   fs.linkSync(file, path.join(dir, "hard"));
   assert.throws(() => regularFile(file), { code: "MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE" });
 });
+
+test("regularFile refuses folders and missing files with the given code", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "verified-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  assert.throws(() => regularFile(dir, "MCP_PACKAGE_INSTALL_FAILED"), {
+    code: "MCP_PACKAGE_INSTALL_FAILED",
+  });
+  assert.throws(() => regularFile(path.join(dir, "missing")), {
+    code: "MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE",
+  });
+  assert.equal(sha256Matches(Buffer.from("abc"), ""), false);
+  assert.equal(sha256Matches(Buffer.from("abc"), undefined), false);
+});

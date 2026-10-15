@@ -9,6 +9,7 @@ import { acquireInstallLock } from "../../server/features/assistants/runtime-ins
 import {
   ensureToolchain,
   nodeDirectory,
+  pruneToolchains,
   pythonDirectory,
   readToolchain,
   toolchainPaths,
@@ -332,4 +333,41 @@ test("a ready toolchain is returned while another kind is installing", async (t)
     open();
   }
   assert.equal((await python).kind, "python");
+});
+
+test("a toolchain is refused for an unsupported architecture or a musl Linux", async (t) => {
+  const f = toolchainFixture(t);
+  for (const host of [
+    { platform: "linux", arch: "ppc64", glibc: "2.39" },
+    { platform: "darwin", arch: "ia32" },
+    { platform: "linux", arch: "arm64", glibc: null },
+  ])
+    for (const kind of ["node", "python"])
+      await assert.rejects(
+        ensureToolchain(kind, {
+          dataDir: f.dataDir,
+          download: f.download,
+          manifest: f.manifest,
+          ...host,
+        }),
+        unavailable,
+        `${kind} ${JSON.stringify(host)}`,
+      );
+  assert.deepEqual(f.downloads, []);
+});
+
+test("the glibc option is what pruning uses on Linux", async (t) => {
+  const f = toolchainFixture(t);
+  await assert.rejects(
+    pruneToolchains(f.dataDir, [], { platform: "linux", arch: "x64", glibc: null }),
+    unavailable,
+  );
+  assert.deepEqual(
+    await pruneToolchains(f.dataDir, [], {
+      platform: "linux",
+      arch: "x64",
+      glibc: "2.39",
+    }),
+    [],
+  );
 });

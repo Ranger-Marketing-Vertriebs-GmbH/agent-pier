@@ -417,6 +417,7 @@ test("a failed compile is a needed build, a Python mismatch, an unsatisfiable gr
   );
   for (const cause of [
     "Because srv-top==1.0 requires Python >=3.99 and you require srv-top==1.0",
+    "Because srv-top==1.0 requires Python>=3.15 and you require srv-top==1.0",
     "Because the current Python version (3.14.7) does not satisfy Python>=3.15 and srv-x==1.0 depends on Python>=3.15",
   ])
     assert.equal(
