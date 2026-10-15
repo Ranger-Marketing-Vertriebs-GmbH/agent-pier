@@ -186,3 +186,37 @@ test("long shell output keeps the tail of each stream within one tool payload", 
   assert.ok(emoji.endsWith(JSON.parse(pairs.text).stdout));
   assert.ok(pairs.text.length <= TOOL_TEXT_LIMIT);
 });
+
+test("escape-heavy shell output still fills most of one tool payload", () => {
+  const ansi = Array.from({ length: 3000 }, (_, i) => `\u001b[32mok ${i}\u001b[0m`).join(
+    "\n",
+  );
+  const cases = [
+    { stdout: ansi },
+    { stdout: "a\n".repeat(30000) },
+    { stdout: '"'.repeat(40000) },
+    { stdout: '"'.repeat(40000), stderr: ansi },
+    { stdout: "plain ".repeat(5000), stderr: '"'.repeat(40000) },
+  ];
+  for (const streams of cases) {
+    const tags = Object.entries(streams)
+      .map(([name, text]) => `<bash-${name}>${text}</bash-${name}>`)
+      .join("");
+    const [output] = normalizeClaude([user(tags)]).messages;
+    const label = Object.keys(streams).join("+");
+    assert.ok(output.text.length <= TOOL_TEXT_LIMIT, `${label}: ${output.text.length}`);
+    assert.ok(
+      output.text.length >= TOOL_TEXT_LIMIT * 0.8,
+      `${label}: only ${output.text.length} of ${TOOL_TEXT_LIMIT}`,
+    );
+    const shown = JSON.parse(output.text);
+    for (const [name, text] of Object.entries(shown)) {
+      assert.ok(text.length > 0, `${label}: empty ${name}`);
+      assert.ok(
+        streams[name].trimEnd().endsWith(text),
+        `${label}: ${name} keeps its tail`,
+      );
+    }
+    assert.ok(Object.keys(output.shellOmitted).length > 0);
+  }
+});

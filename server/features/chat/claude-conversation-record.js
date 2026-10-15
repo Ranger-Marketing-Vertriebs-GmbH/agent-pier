@@ -93,38 +93,50 @@ const tail = (text, length) => {
   return text.slice(start);
 };
 function shellOutput(streams) {
-  const shown = Object.fromEntries(
+  const full = Object.fromEntries(
     Object.entries(streams)
       .map(([name, text]) => [name, outputText(text)])
       .filter(([, text]) => text),
   );
-  // Streams share the budget fairly; escapes in JSON shrink it until the row fits.
-  const full = { ...shown };
+  // Streams share the budget fairly by kept length. JSON escapes can expand text up
+  // to six times (ANSI colours), so search the largest share whose JSON still fits.
   const names = Object.keys(full).sort((a, b) => full[a].length - full[b].length);
-  let budget = Math.min(
-    TOOL_TEXT_LIMIT,
-    names.reduce((sum, name) => sum + full[name].length, 0),
-  );
-  let content = JSON.stringify(shown);
-  while (content.length > TOOL_TEXT_LIMIT) {
-    let remaining = Math.max(budget, 0);
+  const fit = (budget) => {
+    const kept = {};
+    let remaining = budget;
     names.forEach((name, index) => {
       const take = Math.min(
         full[name].length,
         Math.floor(remaining / (names.length - index)),
       );
-      shown[name] = tail(full[name], take);
+      kept[name] = tail(full[name], take);
       remaining -= take;
     });
-    const next = JSON.stringify(shown);
-    budget -= Math.max(next.length - TOOL_TEXT_LIMIT, 0);
-    content = next;
+    // A stream left without room is dropped; its size still counts as omitted.
+    return JSON.stringify(
+      Object.fromEntries(Object.entries(kept).filter(([, text]) => text)),
+    );
+  };
+  let content = JSON.stringify(full);
+  if (content.length > TOOL_TEXT_LIMIT) {
+    let low = 0;
+    let high = Math.min(
+      TOOL_TEXT_LIMIT,
+      names.reduce((sum, name) => sum + full[name].length, 0),
+    );
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      if (fit(middle).length <= TOOL_TEXT_LIMIT) low = middle;
+      else high = middle - 1;
+    }
+    content = fit(low);
   }
+  const kept = JSON.parse(content);
   const omitted = Object.fromEntries(
-    Object.entries(shown)
+    Object.entries(full)
       .map(([name, text]) => [
         name,
-        Buffer.byteLength(outputText(streams[name])) - Buffer.byteLength(text),
+        Buffer.byteLength(text) - Buffer.byteLength(kept[name] || ""),
       ])
       .filter(([, bytes]) => bytes > 0),
   );
