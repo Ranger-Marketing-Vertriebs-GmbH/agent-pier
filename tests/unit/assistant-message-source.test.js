@@ -60,6 +60,8 @@ test("a keyed Telegram turn is the owner's, whatever its text and time", () => {
   const [marked] = mark([user("m1", "Plan dinner (edited)", 0, "attempt-1")], f);
   assert.deepEqual(marked, {
     ...user("m1", "Plan dinner (edited)", 0),
+    // The chat finds the request's pending turn by this id, not by its text.
+    requestId: "r1",
     source: "telegram",
     sender: { kind: "owner" },
   });
@@ -99,7 +101,7 @@ test("web messages, replies and internal turns stay unmarked", () => {
     user("m2", "Team result", 5100),
   ];
   assert.deepEqual(mark(messages, f), [
-    user("m1", "From the web", 1100),
+    { ...user("m1", "From the web", 1100), requestId: "r1" },
     messages[1],
     messages[2],
   ]);

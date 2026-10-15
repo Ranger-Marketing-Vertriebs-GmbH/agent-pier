@@ -50,18 +50,19 @@ test("an answer within the wait returns as the ask tool's result", async (t) => 
         }
       : call(method, input);
   const history = await f.assistants.history(memberChat);
+  const request = history.requests.find(
+    (x) => x.clientRequestId === `lead-request:${r.id}`,
+  );
   assert.deepEqual(history.messages[0], {
     id: "q1",
     role: "user",
     text: "What is the budget?",
     timestamp: 5,
     runId: null,
+    requestId: request.id,
     source: "lead",
     sender: { kind: "agent", name: "Parent" },
   });
-  const request = history.requests.find(
-    (x) => x.clientRequestId === `lead-request:${r.id}`,
-  );
   assert.equal(request.source, "lead");
   assert.equal(request.text, "What is the budget?");
 });

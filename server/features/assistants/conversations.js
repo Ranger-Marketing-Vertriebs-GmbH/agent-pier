@@ -4,7 +4,7 @@ import { codingRunNotes } from "./assistant-action-notifications.js";
 import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
 import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
-import { historyTextLimit } from "./history-text.js";
+import { completePage, historyTextLimit, withoutMarks } from "./history-text.js";
 export function publicMessages(messages = []) {
   const seen = new Set();
   return messages.flatMap((m) => {
@@ -42,16 +42,22 @@ export function publicMessages(messages = []) {
 // words. The ledger keeps their exact text for audit; the visible history shows a
 // compact event in their place.
 const internalKinds = new Set(["team-result", "coding-result", "member-result"]);
-function hideInternal(messages, requests, contexts) {
+function hideInternal(messages, requests, contexts, attempts) {
   const internal = requests
     .map((r) => [r, contexts.get(r.id)?.kind])
     .filter(([, kind]) => internalKinds.has(kind));
   if (!internal.length) return { messages, requests };
-  const kindOf = (text) =>
-    internal.find(([r]) => text === r.text || text.endsWith(r.text))?.[1];
+  // A turn's delivery key names its request; the text decides only without one.
+  const kindOf = (m) => {
+    const kind =
+      m.turnKey && attempts.has(m.turnKey)
+        ? contexts.get(attempts.get(m.turnKey))?.kind
+        : internal.find(([r]) => m.text === r.text || m.text.endsWith(r.text))?.[1];
+    return internalKinds.has(kind) ? kind : null;
+  };
   return {
     messages: messages.map((m) => {
-      const kind = m.role === "user" && kindOf(m.text);
+      const kind = m.role === "user" && kindOf(m);
       return kind
         ? { id: m.id, role: "event", event: kind, timestamp: m.timestamp, runId: m.runId }
         : m;
@@ -115,6 +121,12 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         limit,
         offset,
       });
+      // The page cuts every text at OpenClaw's 8000 characters; cut ones are
+      // completed from the cache or read on their own (history-text.js).
+      const page = await completePage(publicMessages(history.messages), {
+        known: new Map(messages.map((m) => [m.id, m])),
+        read: (messageId) => conversationMessage(service, id, messageId),
+      });
       if (
         service.maintenance ||
         service.recovering ||
@@ -124,7 +136,6 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         service.runtime.client !== client
       )
         throw assistantProblem("unavailable", 503);
-      const page = publicMessages(history.messages);
       const merged = new Map(messages.map((m) => [m.id, m]));
       for (const m of page) merged.set(m.id, m);
       service.store.cacheMessages(
@@ -156,8 +167,11 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     service.teams ? requests.map((r) => [r.id, service.teams.store.context(r.id)]) : [],
   );
   const attempts = service.ledger.attemptRequests(id);
-  messages = withAttachments(messages, requests, { attempts, byRequest: files });
-  const visible = hideInternal(messages, requests, contexts);
+  messages = withAttachments(withoutMarks(messages), requests, {
+    attempts,
+    byRequest: files,
+  });
+  const visible = hideInternal(messages, requests, contexts, attempts);
   return {
     ...visible,
     requests: requestsWithSources(visible.requests, contexts),

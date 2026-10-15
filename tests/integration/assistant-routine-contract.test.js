@@ -370,8 +370,8 @@ test(
     assert.equal(full?.text, digest);
     assert.ok(full.parts.length > 1);
     assert.equal(routines.results.forConversation(conversation.id).at(-1)?.text, digest);
-    // The chat's history page keeps OpenClaw's 8000-character default; the cut
-    // digest is still recognized and badged.
+    // OpenClaw's history page cuts the digest at 8000 characters; the chat reads it
+    // on its own, shows it whole and still badges it.
     let shown;
     const shownDeadline = Date.now() + 30000;
     do {
@@ -380,7 +380,7 @@ test(
       );
       if (!shown) await delay(250);
     } while (!shown && Date.now() < shownDeadline);
-    assert.equal(shown?.text, `${digest.slice(0, 8000)}\n...(truncated)...`);
+    assert.equal(shown?.text, digest);
     assert.deepEqual(shown.scheduled, { name: "News digest" });
     // Read on its own, as a Telegram relay does, the same message is whole.
     assert.equal(await conversationMessage(service, conversation.id, shown.id), digest);

@@ -56,6 +56,15 @@ test("a cut message is read on its own and the longer text wins", async () => {
   });
 });
 
+test("a history message already marked cut stays incomplete", async () => {
+  // The chat history serves its own cut flag instead of OpenClaw's marker.
+  const assistants = { message: async () => "Hello" };
+  assert.deepEqual(
+    await completeMessage(assistants, "c1", { id: "m1", text: "Hello", cut: true }),
+    { text: "Hello", cut: true },
+  );
+});
+
 test("a note always fits, cutting the text by code point", () => {
   assert.equal(withNote("Text  ", "Note."), "Text\n\nNote.");
   assert.equal(withNote("", "Note."), "Note.");

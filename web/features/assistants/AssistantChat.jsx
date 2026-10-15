@@ -36,6 +36,10 @@ import { streamInHistory } from "./stream-reply.js";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
 const sameTurnText = (a, b) => turnText(a) === turnText(b);
+// A stored turn names its request; older or unkeyed turns still match by text.
+const sameTurn = (m, request) =>
+  m.role === "user" &&
+  (m.requestId ? m.requestId === request.id : sameTurnText(m.text, request.text));
 // Streamed deltas re-render the chat on every token; the team approvals do not need to.
 const PendingTeams = memo(TeamApprovals);
 export default function AssistantChat({
@@ -330,6 +334,7 @@ export default function AssistantChat({
                   role={m.role}
                   name={m.role === "user" ? copy.you : assistant.name}
                   text={m.text}
+                  cut={m.cut === true}
                   source={m.source}
                   sender={m.sender}
                   timestamp={m.timestamp}
@@ -349,9 +354,7 @@ export default function AssistantChat({
               )}
             {active &&
               !latest.internal &&
-              !history.messages.some(
-                (m) => m.role === "user" && sameTurnText(m.text, latest.text),
-              ) && (
+              !history.messages.some((m) => sameTurn(m, latest)) && (
                 <AssistantMessage
                   role="user"
                   name={copy.you}

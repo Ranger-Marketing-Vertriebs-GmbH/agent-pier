@@ -542,14 +542,21 @@ separately, including the recognized text. Blocked inputs remain directly access
 above recent activity even when newer messages fill the history window.
 Transcription errors can be retried
 explicitly. Completed model replies are selected by the exact native run identity;
-other history cannot be forwarded accidentally. History pages keep OpenClaw's default
-of 8,000 characters per message (also in the AgentPier chat, which shows a longer
-message cut with "...(truncated)..."). A reply the page cut is read again on its own
-(`chat.history` with `messageId` and `maxChars` 65,536) before it goes to Telegram;
-lead relays do the same. If OpenClaw still cannot serve it whole (over 65,536
-characters, or its "message too large" placeholder), Telegram gets what is
-available and a closing note that the reply was shortened and the rest could not
-be sent (the AgentPier chat shows no more of it). A reply is sent in at most 40
+other history cannot be forwarded accidentally. OpenClaw's history pages cut every
+message at its default of 8,000 characters and mark the cut. AgentPier reads each
+message a page cut again on its own (`chat.history` with `messageId` and `maxChars`
+65,536): at most eight per page, newest first and four at a time, while the cache
+keeps texts already completed, so later pages need no new reads and the rest follow
+on later pages. The AgentPier chat therefore shows long messages whole, the owner's
+own turns included, and never shows OpenClaw's marker. A message still incomplete
+after its own read (over 65,536 characters, or OpenClaw's "message too large"
+placeholder) is served with `cut: true`, and the chat ends it with a short note that
+the rest is too long to show. Each owner turn with a delivery key is served with
+the `requestId` of its request, so the chat replaces the turn it shows while a run
+is active by request, not by comparing texts; turns without a key still match by
+text. Telegram gets what is available of an incomplete reply and a closing note
+that the reply was shortened and the rest could not be sent; lead relays do the
+same. A reply is sent in at most 40
 messages; beyond that bound the same note follows. Placeholders and cut markers
 are never sent. Replies are split into parts of at most 4,000 UTF-16 code units (see
 formatting below), preserving surrogate pairs. Each confirmed

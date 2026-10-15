@@ -17,6 +17,7 @@ const sentText = (request, note) =>
  */
 export function withAttachments(messages, requests, { attempts, byRequest }) {
   if (!byRequest.size) return messages;
+  const byId = new Map(requests.map((request) => [request.id, request]));
   const sent = requests
     .filter((request) => byRequest.has(request.id) && typeof request.text === "string")
     .map((request) => [sentText(request, byRequest.get(request.id).note), request.id]);
@@ -27,11 +28,23 @@ export function withAttachments(messages, requests, { attempts, byRequest }) {
       ? attempts.get(message.turnKey)
       : sent.find(([candidate]) => candidate === text)?.[1];
     const entry = requestId && byRequest.get(requestId);
-    if (!entry || !text.endsWith(entry.note)) return message;
+    if (!entry) return message;
+    if (text.endsWith(entry.note))
+      return {
+        ...message,
+        text: text.slice(0, text.length - entry.note.length).trimEnd(),
+        attachments: entry.files,
+      };
+    // A turn cut before its note's end (over AgentPier's history limit) still shows
+    // its files; it is incomplete only when the owner's own words were cut too.
+    const words = message.cut === true && byId.get(requestId)?.text;
+    if (typeof words !== "string") return message;
+    const { cut: _cut, ...rest } = message;
     return {
-      ...message,
-      text: text.slice(0, text.length - entry.note.length).trimEnd(),
+      ...rest,
+      text: text.slice(0, words.length).trimEnd(),
       attachments: entry.files,
+      ...(text.length < words.length && { cut: true }),
     };
   });
 }

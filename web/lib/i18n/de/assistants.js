@@ -315,6 +315,8 @@ export const assistantCopy = {
   optionsClose: "Optionen schließen",
   backToChat: "Zurück zur Unterhaltung",
   you: "Du",
+  // Under a message longer than the chat can load (65,536 characters).
+  messageCut: "Gekürzt: Der Rest dieser Nachricht ist zu lang für die Anzeige.",
   // The meta line under a message that reached the agent through Telegram.
   telegramSource: {
     via: "über Telegram",

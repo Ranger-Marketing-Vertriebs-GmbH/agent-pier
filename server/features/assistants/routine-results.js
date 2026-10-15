@@ -47,7 +47,7 @@ export function withRoutineResults(messages, results, { from = -Infinity } = {})
   const marked = messages.map((m) => {
     if (m.role !== "assistant") return m;
     // The history page cuts a long reply; its kept beginning still identifies it.
-    const shown = historyText(m.text);
+    const shown = m.cut === true ? { text: m.text, cut: true } : historyText(m.text);
     const same = (r) =>
       shown.cut
         ? !!turnText(shown.text) && turnText(r.text).startsWith(turnText(shown.text))

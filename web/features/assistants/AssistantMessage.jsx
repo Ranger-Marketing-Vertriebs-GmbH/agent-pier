@@ -17,10 +17,12 @@ import "./member-mentions.css";
 // describes the message for screen readers. In a lead's chat the owner's @mentions
 // of its members (`mentions`: `{ members, navigate }`) become chips to their chats.
 // A routine's result (`scheduled`: `{ name }`) carries a badge beside the agent's name.
+// A message the history could not load whole (`cut`) ends with a short note.
 export default memo(function AssistantMessage({
   role,
   name,
   text,
+  cut = false,
   streaming = false,
   source = null,
   sender = null,
@@ -73,6 +75,7 @@ export default memo(function AssistantMessage({
           <ChatMarkdown {...markdown}>{text}</ChatMarkdown>
         </div>
       )}
+      {cut && <p className="assistant-message-cut">{copy.messageCut}</p>}
     </article>
   );
   if (!marked) return message;
