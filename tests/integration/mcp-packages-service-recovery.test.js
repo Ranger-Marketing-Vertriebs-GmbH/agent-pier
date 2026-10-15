@@ -141,3 +141,21 @@ test("unused toolchains are pruned; one a record names by its real path is kept"
   assert.equal(fs.existsSync(kept), true);
   assert.equal(fs.existsSync(stale), false);
 });
+
+test("a restart takes a missing install's server out of the coding CLIs", async (t) => {
+  const s = await packageService(t);
+  const { server } = await createPackaged(s);
+  await s.packages.jobs.idle();
+  assert.match(s.entries("claude").pkg.args[0], program);
+  const { installId } = s.servers.packages.get(server.id);
+  fs.rmSync(path.join(s.dataDir, "mcp-packages", "installs", installId), {
+    recursive: true,
+  });
+  assert.equal(s.servers.get(server.id).source.status, "missing");
+  await s.packages.start();
+  // The CLI no longer starts a deleted program; Reinstall brings the entry back.
+  assert.equal(s.entries("claude").pkg, undefined);
+  s.packages.reinstall(server.id);
+  await s.packages.jobs.idle();
+  assert.match(s.entries("claude").pkg.args[0], program);
+});

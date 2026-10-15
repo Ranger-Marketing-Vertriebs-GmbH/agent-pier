@@ -316,7 +316,9 @@ _Installation missing_ (the files of a ready install are gone or changed).
   are locked for new bindings ("Coding CLIs and agents can be added once the package
   is installed."), and the CLIs and agents never receive a server whose package is not
   ready (reason "its package is not installed yet or is missing"). Existing
-  bindings stay.
+  bindings stay. An install that goes missing leaves a CLI's entry in place until
+  AgentPier next writes that CLI's servers: at its start, before a session of that
+  CLI, or with any MCP server change.
 - **Update.** Choose the version in **New version**; **Check update** resolves it and
   shows the changes to the installed packages (_Added_, _Removed_, _Changed_ with old
   and new version, taken from the lock) before you confirm with **Update**. The new
