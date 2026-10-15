@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
 
+// The audited action of each status that ends a pipeline run.
+const pipelineEnded = {
+  completed: "pipeline.completed",
+  failed: "pipeline.failed",
+  cancelled: "pipeline.cancelled",
+};
+
 /** Observe durable metadata and native activity without attaching a terminal client. */
 export class OperationsEvents {
   constructor({
@@ -121,10 +128,10 @@ export class OperationsEvents {
     ]);
     const change = this.transition(`pipeline:${run.id}`, value);
     if (!change.changed) return;
-    const ended = ["completed", "failed", "cancelled"].includes(run.status);
+    const ended = Object.hasOwn(pipelineEnded, run.status);
     if (!ended && run.status !== "awaiting-human") return;
     this.emit({
-      action: ended ? `pipeline.${run.status}` : "pipeline.updated",
+      action: ended ? pipelineEnded[run.status] : "pipeline.updated",
       resourceType: "pipeline",
       resourceId: run.id,
       ...(run.projectId ? { projectId: run.projectId } : {}),

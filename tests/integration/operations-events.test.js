@@ -80,3 +80,47 @@ test("closed browser observes completion and every pipeline gate without replayi
   assert.equal(audit.list().total, 4);
   assert.equal(JSON.stringify(audit.export()).includes("Phone"), false);
 });
+
+test("ended pipeline runs are audited with their own status action", async (t) => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-event-test-"));
+  const audit = new AuditStore({ dataDir });
+  const notifications = {
+    status: () => ({ subscriptions: [] }),
+    observations: new Map(),
+    observation(key) {
+      return this.observations.get(key);
+    },
+    observe(key, value) {
+      this.observations.set(key, value);
+    },
+    notify: async () => {},
+  };
+  const events = new OperationsEvents({
+    audit,
+    notifications,
+    sessions: { list: async () => [] },
+    pipelines: { store: { all: () => [] } },
+    intervalMs: 0,
+  });
+  t.after(async () => {
+    await events.close();
+    audit.close();
+    await fs.rm(dataDir, { recursive: true, force: true });
+  });
+  for (const status of ["completed", "failed", "cancelled"]) {
+    const run = { id: `run-${status}`, status: "running", nodes: [] };
+    events.pipeline(run);
+    run.status = status;
+    events.pipeline(run);
+  }
+  assert.deepEqual(
+    audit
+      .export()
+      .map(({ action, outcome, resourceId }) => [action, outcome, resourceId]),
+    [
+      ["pipeline.completed", "success", "run-completed"],
+      ["pipeline.failed", "failure", "run-failed"],
+      ["pipeline.cancelled", "success", "run-cancelled"],
+    ],
+  );
+});
