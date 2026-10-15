@@ -126,3 +126,10 @@ test("pruning refuses a linked or non-folder toolchain root", async (t) => {
   fs.writeFileSync(root, "");
   assert.deepEqual(await pruneToolchains(f.dataDir, [], opts), []);
 });
+
+test("an unresolvable in-use entry (null) disables pruning", async (t) => {
+  const { f, root, opts } = await installed(t);
+  const before = listed(root);
+  assert.deepEqual(await pruneToolchains(f.dataDir, [null], opts), []);
+  assert.deepEqual(listed(root), before);
+});

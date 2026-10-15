@@ -397,4 +397,22 @@ test("MCP package audits keep the longest constraint and version the service acc
     packageEvent({ registry: "npm", name: "srv", version: npmVersion }).details.version,
     npmVersion,
   );
+  // One character more is dropped: a 101-character line, a 257-character version.
+  const longLine = `helper-x>=${"1.".repeat(43)}11,<2`;
+  assert.equal(longLine.length, 101);
+  assert.deepEqual(
+    packageEvent({
+      registry: "pypi",
+      name: "srv",
+      version: "1.0",
+      constraints: [longLine],
+    }).details.constraints,
+    [],
+  );
+  const longVersion = `1.0.0-${"a".repeat(251)}`;
+  assert.equal(longVersion.length, 257);
+  assert.equal(
+    packageEvent({ registry: "npm", name: "srv", version: longVersion }).details.version,
+    undefined,
+  );
 });

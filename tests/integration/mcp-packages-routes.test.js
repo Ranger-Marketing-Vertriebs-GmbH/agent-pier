@@ -502,3 +502,66 @@ test("a refused program choice answers its code and audits nothing", async (t) =
   assert.equal(response.body.code, "MCP_PACKAGE_PROGRAM_REQUIRED");
   assert.equal(audit.length, 0);
 });
+
+test("a source that is not an object, or null on an own-command server, is invalid", async (t) => {
+  const s = await packageService(t);
+  const { request } = await app(t, {
+    mcpServerChanges: s.changes,
+    mcpServers: s.servers,
+    mcpPackages: s.packages,
+  });
+  const own = await s.changes.create(
+    { name: "own", transport: "stdio", command: s.executable("own") },
+    { confirmStdio: true },
+  );
+  for (const bad of ["x", 7, [], true]) {
+    const created = await request("POST", "/api/mcp-servers", {
+      name: "pkg",
+      transport: "stdio",
+      source: bad,
+      confirmInstall: true,
+    });
+    assert.equal(created.status, 400, JSON.stringify(bad));
+    assert.equal(created.body.code, "MCP_PACKAGE_INVALID");
+    const changed = await request("PUT", `/api/mcp-servers/${own.id}`, {
+      revision: own.revision,
+      source: bad,
+      confirmInstall: true,
+    });
+    assert.equal(changed.status, 400, JSON.stringify(bad));
+    assert.equal(changed.body.code, "MCP_PACKAGE_INVALID");
+  }
+  // `source: null` detaches a packaged server only; an own-command server has none.
+  const detached = await request("PUT", `/api/mcp-servers/${own.id}`, {
+    revision: own.revision,
+    source: null,
+    command: "/bin/x",
+  });
+  assert.equal(detached.status, 400);
+  assert.equal(detached.body.code, "MCP_PACKAGE_INVALID");
+  assert.equal(s.servers.list().length, 1);
+});
+
+test("an attach without other edits stores nothing but the package", async (t) => {
+  const attached = [];
+  const { request, updates } = await app(t, {
+    mcpPackages: {
+      isPackaged: () => false,
+      attach: async (id, input, beforeInstall) => {
+        attached.push({ id, input, beforeInstall });
+        return packagedServer;
+      },
+    },
+  });
+  // A stale revision: the attach itself writes only the package record; the later
+  // command switch re-reads the current revision (package-install-job.js).
+  const response = await request("PUT", "/api/mcp-servers/s1", {
+    revision: 1,
+    source,
+    previewId: "p",
+    confirmInstall: true,
+  });
+  assert.equal(response.status, 202);
+  assert.equal(attached[0].beforeInstall, undefined);
+  assert.equal(updates.length, 0);
+});

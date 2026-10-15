@@ -17,7 +17,7 @@ const noWheel = /has\s+no\s+usable\s+wheels|Wheels\s+are\s+required\s+for/;
 const noSolution = /No\s+solution\s+found\s+when\s+resolving/;
 // Inside that report: a release (top or dependency) excludes the managed Python.
 const pythonMismatch =
-  /requires\s+Python\s|Python\s+version\s+\([^)]*\)\s+does\s+not\s+satisfy/;
+  /requires\s+Python\b|Python\s+version\s+\([^)]*\)\s+does\s+not\s+satisfy/;
 /**
  * What a failed `uv pip compile` means: "build" (a missing wheel wins, it needs a
  * build), "python" (a release excludes the managed Python), "unsatisfiable" (no set of

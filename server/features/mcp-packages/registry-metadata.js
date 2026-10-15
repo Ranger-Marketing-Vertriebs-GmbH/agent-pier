@@ -1,12 +1,7 @@
 import { download as fetchDownload } from "../operations/releases.js";
 import { packageProblem } from "./package-errors.js";
 import { comparePep440 } from "./pep440.js";
-import {
-  canonicalPypiVersion,
-  isPypiVersion,
-  packageName,
-  pypiVersionPattern,
-} from "./package-spec.js";
+import { canonicalPypiVersion, isPypiVersion, packageName } from "./package-spec.js";
 
 export const npmRegistry = "https://registry.npmjs.org";
 const metadataLimit = 64 * 1024 * 1024;
@@ -159,7 +154,7 @@ function pypiRelease(project, version) {
   if (Object.hasOwn(releases, version)) return releases[version];
   const wanted = canonicalPypiVersion(version);
   const key = Object.keys(releases).find(
-    (other) => pypiVersionPattern.test(other) && canonicalPypiVersion(other) === wanted,
+    (other) => isPypiVersion(other) && canonicalPypiVersion(other) === wanted,
   );
   return key === undefined ? null : releases[key];
 }

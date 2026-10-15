@@ -277,6 +277,18 @@ test("PyPI versions longer than 128 characters are not listed", () => {
   assert.deepEqual(listed.versions, []);
 });
 
+test("another spelling longer than 128 characters is not the requested release", () => {
+  // `1.000…0` reads as 1.0, but it is no version this service lists or stores.
+  const long = `1.${"0".repeat(130)}`;
+  const project = {
+    info: {},
+    releases: { [long]: [file("a.whl", "bdist_wheel", "a", "2026-01-01T00:00:00Z")] },
+  };
+  assert.throws(() => pypiVersionInfo(project, "1.0"), {
+    code: "MCP_PACKAGE_VERSION_NOT_FOUND",
+  });
+});
+
 test("a PyPI answer without releases is a registry failure, not an empty list", (t) => {
   const errors = t.mock.method(console, "error", () => {});
   assert.throws(() => pypiVersions({ info: { version: "1.0" } }), {

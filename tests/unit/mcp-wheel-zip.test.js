@@ -59,3 +59,14 @@ test("an oversized entry_points.txt is not read", { skip }, async (t) => {
     "",
   );
 });
+
+test("a wheel without entry_points.txt gives nothing", { skip }, async (t) => {
+  assert.equal(
+    await read(t, {
+      "srv-1.0.dist-info/METADATA": "Name: srv\nVersion: 1.0\n",
+      "srv-1.0.dist-info/RECORD": "",
+      "srv/__init__.py": "",
+    }),
+    "",
+  );
+});

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { McpPackages } from "../../server/features/mcp-packages/mcp-packages.js";
+import { switchedTo } from "../../server/features/mcp-packages/package-install-job.js";
 import { attach, harness } from "../helpers/mcp-packages-harness.js";
 
 test("an owner edit racing the switch keeps the old leading args until it commits", async (t) => {
@@ -28,7 +29,7 @@ test("an owner edit racing the switch keeps the old leading args until it commit
   assert.deepEqual(racedArgs, ["--new"]);
 });
 
-test("a restart leaves rows alone while agents are in maintenance", async (t) => {
+test("a restart skips the CLI reconcile while agents are in maintenance", async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-start-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   let reconciled = 0;
@@ -72,4 +73,27 @@ test("a start that cannot write a record logs a code, never the error text", asy
   const logged = errors.mock.calls.map((call) => String(call.arguments[0])).join("\n");
   assert.match(logged, /MCP_PACKAGE_INSTALL_FAILED/);
   assert.doesNotMatch(logged, /private|SQLITE/);
+});
+
+test("switchedTo needs the switch's command and its generated args in front", () => {
+  // npm: the managed node stays the command; the program path leads the args.
+  const node = "/data/toolchains/node/bin/node";
+  const npm = { command: node, leading: ["/data/installs/new/node_modules/x/index.js"] };
+  assert.equal(switchedTo({ command: node, args: [...npm.leading, "--x"] }, npm), true);
+  assert.equal(
+    switchedTo(
+      { command: node, args: ["/data/installs/old/node_modules/x/index.js", "--x"] },
+      npm,
+    ),
+    false,
+  );
+  assert.equal(switchedTo({ command: node, args: [] }, npm), false);
+  // PyPI: the venv's program is the command; nothing is generated in front.
+  const pypi = { command: "/data/installs/new/venv/bin/srv", leading: [] };
+  assert.equal(switchedTo({ command: pypi.command, args: ["--x"] }, pypi), true);
+  assert.equal(
+    switchedTo({ command: "/data/installs/old/venv/bin/srv", args: [] }, pypi),
+    false,
+  );
+  assert.equal(switchedTo(undefined, pypi), false);
 });

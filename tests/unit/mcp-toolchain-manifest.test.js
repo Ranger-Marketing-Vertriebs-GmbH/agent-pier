@@ -57,3 +57,19 @@ test("the target check refuses musl, Windows and unknown architectures", () => {
       JSON.stringify(host),
     );
 });
+
+test("the manifest is frozen all the way down and shares nothing mutable", () => {
+  for (const part of [
+    m,
+    m.node,
+    m.node.checksums,
+    m.uv,
+    m.uv.checksums,
+    m.uv.triples,
+    m.python,
+    m.python.checksums,
+  ])
+    assert.equal(Object.isFrozen(part), true);
+  assert.notEqual(m.node.checksums, runtimeManifest.nodeChecksums);
+  assert.equal(Object.isFrozen(runtimeManifest.nodeChecksums), false);
+});

@@ -33,9 +33,19 @@ export async function pinnedSetuptools() {
   const ok = (bytes) =>
     createHash("sha256").update(bytes).digest("hex") === setuptools.sha256;
   if (fs.existsSync(file) && ok(fs.readFileSync(file))) return file;
-  const response = await fetch(setuptools.url);
-  if (!response.ok) throw Error(`setuptools download failed: ${response.status}`);
-  const bytes = Buffer.from(await response.arrayBuffer());
+  let bytes;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await fetch(setuptools.url);
+      if (!response.ok) throw Error(`setuptools download failed: ${response.status}`);
+      bytes = Buffer.from(await response.arrayBuffer());
+      break;
+    } catch (error) {
+      // files.pythonhosted.org hiccups must not fail the gated build tests.
+      if (attempt >= 2) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
+    }
+  }
   if (!ok(bytes)) throw Error("setuptools checksum mismatch");
   fs.mkdirSync(sharedToolchains, { recursive: true });
   const partial = `${file}.${process.pid}.partial`;

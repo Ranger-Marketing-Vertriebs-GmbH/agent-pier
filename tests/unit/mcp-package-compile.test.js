@@ -30,6 +30,16 @@ test("OpenClaw skips a pending packaged server whose command is null", () => {
   assert.equal(mcpServerConfig(pending, { headers: {}, env: {} }), null);
 });
 
+test("OpenClaw skips a server whose command is null, packaged or not", () => {
+  const secrets = { headers: {}, env: {} };
+  assert.equal(mcpServerConfig({ ...packaged("ready"), command: null }, secrets), null);
+  const plain = { ...packaged("ready"), command: null };
+  delete plain.packageStatus;
+  delete plain.managedDirs;
+  assert.equal(mcpServerConfig(plain, secrets), null);
+  assert.equal(mcpServerConfig(packaged("choosing"), secrets), null);
+});
+
 test("managed directories inside the data dir get read grants; others do not", () => {
   const grants = stdioGrants(
     [
