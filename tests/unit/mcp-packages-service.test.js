@@ -375,6 +375,7 @@ test("a preview that needs a build is refused for that before its programs", asy
         toolchainKind: "node",
         preview: async () => ({
           integrity: "sha256:a",
+          installFile: { filename: "x-1.tar.gz", sha256: "a" },
           programs: [],
           needsScripts: true,
           manifestText: "x==1\n",
@@ -388,6 +389,7 @@ test("a preview that needs a build is refused for that before its programs", asy
   const ref = { registry: "npm", name: "x", version: "1.0.0" };
   const preview = await service.preview(ref);
   assert.deepEqual(preview.programs, []);
+  assert.deepEqual(preview.installFile, { filename: "x-1.tar.gz", sha256: "a" });
   assert.throws(() => service.confirmedPreview(preview.previewId, ref), {
     code: "MCP_PACKAGE_NEEDS_SCRIPTS",
   });

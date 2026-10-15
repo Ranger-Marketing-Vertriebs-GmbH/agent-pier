@@ -4,6 +4,7 @@ import { download as fetchDownload } from "../operations/releases.js";
 import { packageError, packageProblem } from "./package-errors.js";
 import { normalizePypiName } from "./package-spec.js";
 import { pythonCommand } from "./package-store.js";
+import { installFile } from "./python-install-file.js";
 import { installPython, resolvePython } from "./python-package-install.js";
 import { checkPythonLock } from "./python-lock-check.js";
 import { pypiProject, pypiVersionInfo, pypiVersions } from "./registry-metadata.js";
@@ -138,6 +139,7 @@ export const pythonAdapter = {
         : checkPythonLock(resolved.lockText, { ref, digests });
     return {
       integrity: integrityOf(digests),
+      installFile: installFile(files),
       programs,
       needsScripts: resolved.needsScripts,
       manifestText: resolved.requirementsText,

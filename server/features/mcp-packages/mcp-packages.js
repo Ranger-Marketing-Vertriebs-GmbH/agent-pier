@@ -161,6 +161,8 @@ export class McpPackages {
       previewId,
       ...ref,
       integrity: resolved.integrity,
+      // PyPI: the release file the install uses ({ filename, sha256 }); npm has none.
+      installFile: resolved.installFile ?? null,
       dependencyCount: resolved.dependencies.length,
       dependencies: resolved.dependencies,
       programs: resolved.programs.map((p) => p.name),
