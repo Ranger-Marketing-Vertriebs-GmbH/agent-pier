@@ -73,11 +73,20 @@ test("a lead's request asks in the member's and the lead's chat, decided once", 
     [f.id]: { own: 1, team: 0 },
     [f.lead.id]: { own: 0, team: 1 },
   });
-  // The lead agent's own tool listing stays its own.
-  assert.deepEqual(
-    f.workflows.list(f.lead.id).actions.map((a) => a.id),
-    [],
+  // The lead agent's own `actions` tool, called in the lead's turn, stays its own.
+  const leadChat = f.store.saveConversation({
+    assistantId: f.lead.id,
+    runtimeSessionKey: "lead-session",
+  });
+  const turn = await f.assistants.send(leadChat.id, {
+    clientRequestId: "lead-turn",
+    text: "What waits?",
+  });
+  const own = await f.workflows.invoke(
+    { attemptId: turn.attempt.id, toolCallId: "lead-turn", assertCurrent() {} },
+    { action: "actions" },
   );
+  assert.deepEqual(own.actions, []);
 
   const decided = await f.workflows.decide(
     inLead.id,
