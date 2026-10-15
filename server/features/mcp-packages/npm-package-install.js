@@ -55,6 +55,7 @@ export async function resolveNpm({
   execute = runProcessTree,
   environment = process.env,
   log,
+  signal,
 }) {
   const work = path.join(stage, ".npm-work");
   const project = path.join(stage, "resolve");
@@ -72,7 +73,7 @@ export async function resolveNpm({
         "--save-exact",
         `--registry=${registry}`,
       ],
-      { cwd: project, node, env, execute, log },
+      { cwd: project, node, env, execute, log, signal },
     );
     return {
       manifestText,

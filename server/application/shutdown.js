@@ -3,6 +3,11 @@ export function createShutdown({ services, wss, server }) {
   const { agentbus, installer, plugins, repositories, extensions, history, sessions } =
     services;
   async function close() {
+    // npm and uv run in their own process groups and must not outlive AgentPier: their
+    // stop starts first, so its bound (McpPackages#close) ends well before the forced
+    // exit in server/index.js. It is awaited before the server store closes, because
+    // a settling job still writes its package record.
+    const packagesClosed = services.mcpPackages?.close();
     // Closes only the assistant services that the opt-in actually created.
     await services.assistantFeature?.close();
     services.chatStreams?.close();
@@ -34,8 +39,7 @@ export function createShutdown({ services, wss, server }) {
     await plugins.close();
     await repositories.close();
     await extensions.close();
-    // npm and uv run in their own process groups: they must not outlive AgentPier.
-    await services.mcpPackages?.close();
+    await packagesClosed;
     try {
       services.mcpServers?.close();
     } catch {}

@@ -10,6 +10,7 @@ import {
   deferred,
   harness,
   installEntries,
+  source,
 } from "../helpers/mcp-packages-harness.js";
 
 /** An `npm ci` that waits for the job's abort and then fails like an aborted run. */
@@ -138,4 +139,49 @@ test("an aborted npm or uv rejects as cancelled, not as a failed install", async
     }),
     { code: "MCP_PACKAGE_CANCELLED" },
   );
+});
+
+test("a shutdown cancel during an update's failing switch restores the previous record", async (t) => {
+  let hold = null;
+  const { service, records, rows } = harness(t, {
+    beforeSwitch: async () => {
+      if (!hold) return;
+      hold.reached.resolve();
+      await hold.release.promise;
+      throw Object.assign(Error("conflict"), { status: 500 });
+    },
+  });
+  await attach(service);
+  await service.jobs.idle();
+  const ready = records.get("s1");
+  const command = rows.get("s1").command;
+  hold = { reached: deferred(), release: deferred() };
+  service.reinstall("s1");
+  await hold.reached.promise;
+  const closed = service.close();
+  hold.release.resolve();
+  await closed;
+  assert.equal(service.jobs.get("s1").state, "cancelled");
+  assert.deepEqual(records.get("s1"), ready);
+  assert.equal(rows.get("s1").command, command);
+});
+
+test("close stops a running preview's npm and waits for it", async (t) => {
+  const reached = deferred();
+  const signals = [];
+  const { service } = harness(t, {
+    onResolve: async ({ signal }) => {
+      signals.push(signal);
+      reached.resolve();
+      await new Promise((resolve) => signal.addEventListener("abort", resolve));
+      throw Object.assign(Error("aborted"), { stdout: "", stderr: "" });
+    },
+  });
+  const preview = service.preview(source);
+  await reached.promise;
+  assert.ok(signals[0] instanceof AbortSignal);
+  await service.close();
+  assert.equal(signals[0].aborted, true);
+  await assert.rejects(preview, { code: "MCP_PACKAGE_CANCELLED" });
+  assert.equal(service.previewRuns.size, 0);
 });

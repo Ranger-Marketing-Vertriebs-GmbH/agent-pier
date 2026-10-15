@@ -87,10 +87,13 @@ export class PackageJobs {
     job.controller.abort();
     return job.promise.then(() => true);
   }
-  /** Aborts every running job (AgentPier stops); resolves once all of them settled. */
-  async cancelAll() {
+  /**
+   * Aborts every running job (AgentPier stops) with `reason` as the abort reason;
+   * resolves once all of them settled.
+   */
+  async cancelAll(reason) {
     const jobs = this.runningJobs();
-    for (const job of jobs) job.controller.abort();
+    for (const job of jobs) job.controller.abort(reason);
     await Promise.all(jobs.map((job) => job.promise));
   }
   async idle() {

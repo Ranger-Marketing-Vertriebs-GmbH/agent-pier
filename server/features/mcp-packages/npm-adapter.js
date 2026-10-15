@@ -21,6 +21,7 @@ export const npmAdapter = {
     cacheDir,
     execute,
     environment,
+    signal,
   }) {
     const info = npmVersionInfo(
       await npmPackument(ref.name, { registry, download }),
@@ -38,6 +39,7 @@ export const npmAdapter = {
       cacheDir,
       execute,
       environment,
+      signal,
     });
     const checked = checkNpmLock(resolved.lockText, {
       ref,

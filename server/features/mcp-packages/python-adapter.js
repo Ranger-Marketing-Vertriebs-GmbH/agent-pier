@@ -110,6 +110,7 @@ export const pythonAdapter = {
     cacheDir,
     execute,
     environment,
+    signal,
     // The host the install file is ranked for (tests pin it).
     host,
   }) {
@@ -144,6 +145,7 @@ export const pythonAdapter = {
       constraints,
       execute,
       environment,
+      signal,
     });
     const checked =
       resolved.lockText === null

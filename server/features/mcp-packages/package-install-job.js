@@ -129,7 +129,6 @@ export function runInstall(service, serverId, { preview, program, kind }) {
         { ...receipt, installId },
         toolchain,
       );
-      stopIfCancelled(signal);
       await activate(
         service,
         serverId,
@@ -190,10 +189,12 @@ export async function activate(
   service.switching.set(serverId, { before, revision });
   service.records.put(serverId, fields);
   try {
-    await switchCommand(service, serverId, command, leading, before);
+    await switchCommand(service, serverId, command, leading, before, { signal });
   } catch (error) {
-    // A deleted server keeps no record: its row went with it.
-    if (previous && !signal?.aborted) service.records.put(serverId, previous);
+    // A deleted server keeps no record: its row (and the one put above) went with it.
+    // A server that remains (a shutdown cancel) gets its previous record back.
+    if (previous && service.records.get(serverId))
+      service.records.put(serverId, previous);
     throw error;
   } finally {
     service.switching.delete(serverId);
@@ -201,8 +202,17 @@ export async function activate(
 }
 
 /** Through the normal update path: agents apply live, CLIs reconcile. One retry on 409. */
-export async function switchCommand(service, serverId, command, leading, before) {
+export async function switchCommand(
+  service,
+  serverId,
+  command,
+  leading,
+  before,
+  { signal } = {},
+) {
   for (let attempt = 0; ; attempt++) {
+    // A cancel that came during the first attempt starts no retry.
+    if (attempt > 0) stopIfCancelled(signal);
     const server = service.servers.get(serverId);
     const owner = (server.args || []).slice(before);
     service.switching.set(serverId, { before, revision: server.revision });
