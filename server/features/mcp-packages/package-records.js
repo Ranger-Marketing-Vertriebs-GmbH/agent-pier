@@ -1,13 +1,13 @@
 import { installDirectory, readInstall } from "./package-store.js";
 
-const schema = `
-CREATE TABLE IF NOT EXISTS server_packages(
+const schema = (table) => `
+CREATE TABLE IF NOT EXISTS ${table}(
   server_id TEXT PRIMARY KEY REFERENCES servers(id) ON DELETE CASCADE,
   registry TEXT NOT NULL, name TEXT NOT NULL, version TEXT NOT NULL,
   program TEXT NOT NULL, program_path TEXT NOT NULL, allow_scripts INTEGER NOT NULL DEFAULT 0,
   lock TEXT NOT NULL, lock_digest TEXT NOT NULL, integrity TEXT NOT NULL,
   install_id TEXT, leading_args INTEGER NOT NULL DEFAULT 0, toolchain_dir TEXT,
-  status TEXT NOT NULL CHECK(status IN ('installing','ready','failed')),
+  status TEXT NOT NULL CHECK(status IN ('installing','ready','failed','choosing')),
   error_code TEXT, updated_at INTEGER NOT NULL,
   constraints TEXT NOT NULL DEFAULT '[]', needs_scripts INTEGER NOT NULL DEFAULT 0);`;
 // Columns added after plan 2; a store created then gains them when it opens.
@@ -67,21 +67,67 @@ function toValue(key, value) {
 export class PackageRecords {
   constructor(db, dataDir) {
     Object.assign(this, { db, dataDir });
-    db.exec(schema);
-    const known = new Set(
-      db
+    // A current table opens without a write lock; anything else migrates in one
+    // transaction: the table, added columns, their backfill and a rebuilt status check
+    // land together or not at all (SQLite DDL is transactional).
+    if (this.migrationNeeded()) {
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        // Checked again under the lock: another open may have migrated meanwhile.
+        if (this.migrationNeeded()) this.migrate();
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+    }
+    // McpPackages answers this: an `installing` row no job owns (a restore, a crash
+    // before start()) reads as failed instead of installing forever.
+    this.orphaned = () => false;
+  }
+  tableColumns() {
+    return new Set(
+      this.db
         .prepare("PRAGMA table_info(server_packages)")
         .all()
         .map((column) => column.name),
     );
+  }
+  tableSql() {
+    return (
+      this.db
+        .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?")
+        .get("server_packages")?.sql ?? null
+    );
+  }
+  migrationNeeded() {
+    const sql = this.tableSql();
+    if (!sql || !sql.includes("'choosing'")) return true;
+    const known = this.tableColumns();
+    return addedColumns.some(([name]) => !known.has(name));
+  }
+  migrate() {
+    const { db } = this;
+    db.exec(schema("server_packages"));
+    const known = this.tableColumns();
     for (const [name, type, from] of addedColumns)
       if (!known.has(name)) {
         db.exec(`ALTER TABLE server_packages ADD COLUMN ${name} ${type}`);
         if (from) db.exec(`UPDATE server_packages SET ${name}=${from}`);
       }
-    // McpPackages answers this: an `installing` row no job owns (a restore, a crash
-    // before start()) reads as failed instead of installing forever.
-    this.orphaned = () => false;
+    // A table from before the choose-program state: SQLite cannot alter its CHECK, so
+    // the rows move to a rebuilt table. Nothing references server_packages; the copy
+    // re-checks each row's server.
+    if (!this.tableSql().includes("'choosing'")) {
+      const names = ["server_id", ...Object.values(columns), "updated_at"].join(",");
+      db.exec("DROP TABLE IF EXISTS server_packages_next");
+      db.exec(schema("server_packages_next"));
+      db.exec(
+        `INSERT INTO server_packages_next(${names}) SELECT ${names} FROM server_packages`,
+      );
+      db.exec("DROP TABLE server_packages");
+      db.exec("ALTER TABLE server_packages_next RENAME TO server_packages");
+    }
   }
   get(serverId) {
     return (
@@ -117,13 +163,23 @@ export class PackageRecords {
   }
   computedStatus(row) {
     if (row.status === "installing" && this.orphaned(row.serverId)) return "failed";
+    // Built, waiting for the owner's program: runs nothing, yet keeps its install.
+    if (row.status === "choosing")
+      return row.installId && readInstall(this.dataDir, row.installId, row.lockDigest)
+        ? "choosing"
+        : "missing";
     if (row.status !== "ready") return row.status;
     return row.installId && readInstall(this.dataDir, row.installId, row.lockDigest)
       ? "ready"
       : "missing";
   }
-  publicFields(serverId) {
-    const row = this.get(serverId);
+  /** Every record by server id: one query for a whole list. */
+  byServer() {
+    return new Map(this.all().map((row) => [row.serverId, row]));
+  }
+  /** `rows` (from byServer()) spares a query per server while listing. */
+  publicFields(serverId, rows) {
+    const row = rows ? (rows.get(serverId) ?? null) : this.get(serverId);
     if (!row) return {};
     const status = this.computedStatus(row);
     return {
@@ -142,8 +198,8 @@ export class PackageRecords {
       },
     };
   }
-  definitionFields(serverId) {
-    const row = this.get(serverId);
+  definitionFields(serverId, rows) {
+    const row = rows ? (rows.get(serverId) ?? null) : this.get(serverId);
     if (!row) return {};
     const status = this.computedStatus(row);
     return {

@@ -89,7 +89,7 @@ export class McpServerStore {
       .all(id, kind)
       .map((r) => r.name);
   }
-  publicServer(row) {
+  publicServer(row, packages) {
     return {
       id: row.id,
       name: row.name,
@@ -108,7 +108,7 @@ export class McpServerStore {
       headerNames: this.names(row.id, "header"),
       envNames: this.names(row.id, "env"),
       revision: row.revision,
-      ...this.packages.publicFields(row.id),
+      ...this.packages.publicFields(row.id, packages),
     };
   }
   row(id) {
@@ -117,10 +117,11 @@ export class McpServerStore {
     return row;
   }
   list() {
+    const packages = this.packages.byServer();
     return this.db
       .prepare("SELECT * FROM servers ORDER BY name")
       .all()
-      .map((row) => this.publicServer(row));
+      .map((row) => this.publicServer(row, packages));
   }
   get(id) {
     return this.publicServer(this.row(id));
@@ -130,6 +131,7 @@ export class McpServerStore {
    * stored arguments cannot be parsed reports `args: null` instead of throwing.
    */
   definitions() {
+    const packages = this.packages.byServer();
     return this.db
       .prepare("SELECT * FROM servers ORDER BY name")
       .all()
@@ -150,7 +152,7 @@ export class McpServerStore {
           cwd: row.cwd,
           auth: row.auth ?? "headers",
           oauthScope: row.oauth_scope ?? null,
-          ...this.packages.definitionFields(row.id),
+          ...this.packages.definitionFields(row.id, packages),
         };
       });
   }
@@ -309,11 +311,13 @@ export class McpServerStore {
    * `packageRecord` is its package source, written in the same transaction.
    */
   create(input, { bind = [], pendingCommand = false, packageRecord = null } = {}) {
+    // Only a literal true leaves the command to an install; anything else needs one.
+    const pending = pendingCommand === true;
     requireLiteralValues(input);
-    if (pendingCommand && (input?.transport !== "stdio" || input.command !== undefined))
+    if (pending && (input?.transport !== "stdio" || input.command !== undefined))
       throw invalid();
-    if (packageRecord && !pendingCommand) throw invalid();
-    const fields = this.definition(input, pendingCommand);
+    if (packageRecord && !pending) throw invalid();
+    const fields = this.definition(input, pending);
     const id = randomUUID();
     this.transaction(() => {
       this.insertOrUpdate(
