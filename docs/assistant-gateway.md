@@ -953,7 +953,11 @@ The owner edits them under **Settings → Workspace → Agents → Agent service
 are AgentPier's own German and English texts. A `hot` or `none` setting is patched into
 the running Gateway and stored only once OpenClaw accepted it; a `restart` setting
 asks the owner to confirm a maintenance restart. While the Gateway is stopped, a
-saved value applies at its next start.
+saved value applies at its next start. Each stored change is audited as
+`setting.updated` (resourceType `setting`, the setting's `id` as resource id) with
+`details.setting`, `from` and `to`; the audit schema keeps a value only as a scalar of
+that setting's own type. A change undone because the confirmed restart failed is
+audited as `setting.rolled-back` with outcome `failure`.
 
 ### Search provider
 
