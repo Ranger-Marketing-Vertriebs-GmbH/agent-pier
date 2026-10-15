@@ -60,16 +60,32 @@ const listing = (directory) => {
   }
 };
 
+/** A folder reached without a link. */
+const realFolder = (dir) => {
+  try {
+    return fs.lstatSync(dir).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * The entry points of the installed distribution `name`: exactly one `.dist-info`
+ * folder, found in sorted order and never through a link. Two copies (a leftover of
+ * another version) or a linked one leave the program unknown.
+ */
 export function installedEntryPoints(venvDir, name) {
   const lib = path.join(venvDir, "lib");
-  for (const version of listing(lib)) {
+  const found = [];
+  for (const version of listing(lib).sort()) {
     const site = path.join(lib, version, "site-packages");
-    for (const entry of listing(site)) {
+    for (const entry of listing(site).sort()) {
       if (!entry.endsWith(".dist-info")) continue;
       const dist = entry.slice(0, -".dist-info".length).replace(/-[^-]+$/, "");
-      if (normalizePypiName(dist) !== name) continue;
-      return regularText(path.join(site, entry, "entry_points.txt"));
+      if (normalizePypiName(dist) === name) found.push(path.join(site, entry));
     }
   }
-  return "";
+  return found.length === 1 && realFolder(found[0])
+    ? regularText(path.join(found[0], "entry_points.txt"))
+    : "";
 }

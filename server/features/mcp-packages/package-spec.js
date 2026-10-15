@@ -43,10 +43,11 @@ export function packageRef(input = {}) {
 
 // D4 constraint lines: a PyPI name and comma-separated version limits, nothing else
 // (no URL, path, `@`, extra, marker, option, hash, comment or `===`). Spaces and tabs
-// only; `~=` needs two release segments and no wildcard (PEP 440).
+// only; `~=` needs two release segments and no wildcard; a `==`/`!=` wildcard follows
+// the release numbers directly, never a pre-, post- or dev-release (PEP 440).
 const release = String.raw`\d+(?:\.\d+)*`;
 const suffix = String.raw`(?:(?:a|b|rc)\d+)?(?:\.post\d+)?(?:\.dev\d+)?`;
-const clause = String.raw`(?:(?:==|!=)[ \t]*${release}${suffix}(?:\.\*)?|~=[ \t]*\d+(?:\.\d+)+${suffix}|(?:<=|>=|<|>)[ \t]*${release}${suffix})`;
+const clause = String.raw`(?:(?:==|!=)[ \t]*${release}(?:\.\*|${suffix})|~=[ \t]*\d+(?:\.\d+)+${suffix}|(?:<=|>=|<|>)[ \t]*${release}${suffix})`;
 const constraintLine = new RegExp(
   String.raw`^([A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?)[ \t]*(${clause}(?:[ \t]*,[ \t]*${clause})*)$`,
   "i",

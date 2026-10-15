@@ -8,6 +8,7 @@ import { CentralMcpChanges } from "../../server/features/mcp-servers/central-cha
 import { McpPackages } from "../../server/features/mcp-packages/mcp-packages.js";
 import { toolchainRoot } from "../../server/features/mcp-packages/toolchains.js";
 import { auditDetails } from "../../server/http/routes/mcp-packages.js";
+import { packageConstraints } from "../../server/features/mcp-packages/package-spec.js";
 
 const top = { registry: "pypi", name: "srv-x", version: "1.0" };
 
@@ -202,4 +203,20 @@ test("the audit names the canonical constraints of a source", () => {
   assert.deepEqual(auditDetails({ ...top }).constraints, []);
   assert.deepEqual(auditDetails({ registry: "npm", name: "x" }).constraints, []);
   assert.deepEqual(auditDetails(undefined).constraints, []);
+});
+
+test("a wildcard goes only after release numbers", () => {
+  const ref = { registry: "pypi", name: "srv", version: "1.0" };
+  assert.deepEqual(packageConstraints({ constraints: ["x==1.0.*", "y!=2.*"] }, ref), [
+    "x==1.0.*",
+    "y!=2.*",
+  ]);
+  for (const line of ["x==1.0a1.*", "x==1.0.post1.*", "x!=1.0.dev1.*", "x==1.0rc1.*"])
+    assert.throws(
+      () => packageConstraints({ constraints: [line] }, ref),
+      {
+        code: "MCP_PACKAGE_INVALID",
+      },
+      line,
+    );
 });
