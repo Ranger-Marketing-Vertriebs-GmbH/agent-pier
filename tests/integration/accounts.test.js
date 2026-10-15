@@ -8,11 +8,12 @@ import {
   cleanEnvironment,
   detectTools,
 } from "../../server/features/accounts/account-store.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
-function setup(t) {
+function setup(t, { uid = 501 } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "tuiui-accounts-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  return { dir, store: new AccountStore({ dataDir: dir, home: dir }) };
+  return { dir, store: new AccountStore({ dataDir: dir, home: dir, uid: () => uid }) };
 }
 test("profiles persist independently and public metadata never contains keys", (t) => {
   const { dir, store } = setup(t);
@@ -133,6 +134,7 @@ test("explicit launch modes use each native CLI flag and leave profile settings 
   for (const { tool, mode, args } of [
     { tool: "codex", mode: "yolo", args: ["--yolo", ...CODEX_STORES] },
     { tool: "claude", mode: "auto", args: ["--permission-mode", "auto"] },
+    { tool: "claude", mode: "bypass", args: ["--dangerously-skip-permissions"] },
     { tool: "opencode", mode: "auto", args: ["--auto"] },
   ]) {
     const account = store.create({ tool, name: tool });
@@ -166,6 +168,7 @@ test("launch mode validation rejects malformed values and modes from another too
       "toString",
       "__proto__",
       tool === "codex" ? "auto" : "yolo",
+      ...(tool === "claude" ? ["--dangerously-skip-permissions"] : ["bypass"]),
     ])
       assert.throws(
         () => store.command(`local-${tool}`, { [tool]: `/opt/${tool}` }, false, mode),
@@ -178,6 +181,7 @@ test("login commands reject selected launch modes without adding permission flag
   for (const { tool, mode, args } of [
     { tool: "codex", mode: "yolo", args: ["login", "--device-auth", ...CODEX_STORES] },
     { tool: "claude", mode: "auto", args: [] },
+    { tool: "claude", mode: "bypass", args: [] },
     { tool: "opencode", mode: "auto", args: ["auth", "login"] },
   ]) {
     const account = store.create({ tool, name: tool });
@@ -190,6 +194,30 @@ test("login commands reject selected launch modes without adding permission flag
     assert.equal(login.launchMode, "default");
     assert.equal(login.env.OPENCODE_PERMISSION, undefined);
   }
+});
+test("skip-permissions mode is refused with a stable message when AgentPier runs as root", (t) => {
+  const { store } = setup(t, { uid: 0 });
+  const account = store.create({ tool: "claude", name: "Root" });
+  for (const id of ["local-claude", account.id])
+    assert.throws(
+      () => store.command(id, { claude: "/opt/claude" }, false, "bypass"),
+      (error) =>
+        error.status === 409 &&
+        error.message === serverMessages.accounts.skipPermissionsAsRoot,
+    );
+  assert.deepEqual(
+    store.command(account.id, { claude: "/opt/claude" }, false, "auto").args,
+    ["--permission-mode", "auto"],
+  );
+});
+test("skip-permissions root guard reads the process uid when none is injected", (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "tuiui-accounts-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const store = new AccountStore({ dataDir: dir, home: dir });
+  const run = () =>
+    store.command("local-claude", { claude: "/opt/claude" }, false, "bypass");
+  if (process.getuid?.() === 0) assert.throws(run, (error) => error.status === 409);
+  else assert.deepEqual(run().args, ["--dangerously-skip-permissions"]);
 });
 test("tool detection marks absent executables instead of inventing commands", () => {
   const result = detectTools({ PATH: "/nonexistent", HOME: "/nonexistent" }, false);

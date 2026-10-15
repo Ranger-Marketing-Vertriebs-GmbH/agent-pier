@@ -11,6 +11,7 @@ const nativeArguments = {
   claude: {
     default: [],
     auto: ["--permission-mode", "auto"],
+    bypass: ["--dangerously-skip-permissions"],
     login: [],
   },
   opencode: { default: [], auto: ["--auto"], login: ["auth", "login"] },
@@ -31,13 +32,14 @@ function accountsFixture(t) {
     accounts: new AccountStore({
       dataDir: path.join(root, "data"),
       home: root,
+      uid: () => 501,
     }),
   };
 }
 
 for (const tool of Object.keys(nativeArguments)) {
   for (const kind of ["local", "managed"]) {
-    for (const mode of ["default", "auto", "yolo"]) {
+    for (const mode of ["default", "auto", "yolo", "bypass"]) {
       for (const login of [false, true]) {
         test(`native launch: ${tool} / ${kind} / ${mode} / ${login ? "login" : "work"}`, (t) => {
           const { root, accounts } = accountsFixture(t);
@@ -140,7 +142,7 @@ test("Shell is local, starts a login shell and never receives coding-agent secre
     "CLAUDE_CONFIG_DIR",
   ])
     assert.equal(launch.env[key], undefined);
-  for (const mode of ["auto", "yolo"])
+  for (const mode of ["auto", "yolo", "bypass"])
     assert.throws(() =>
       accounts.command("local-shell", { shell: "/bin/sh" }, false, mode),
     );

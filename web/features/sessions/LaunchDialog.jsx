@@ -17,8 +17,18 @@ import Modal from "../../components/Modal.jsx";
 import AsyncForm from "../../components/AsyncForm.jsx";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
-const defaultMode = (tool) =>
-  ({ codex: "yolo", claude: "auto", opencode: "auto" })[tool] || "default";
+import {
+  launchModes,
+  preferredLaunchMode as defaultMode,
+  rememberLaunchMode,
+} from "./launch-modes.js";
+const modeCopy = (tool, mode) =>
+  ({
+    "codex:yolo": [copy.codexYoloOption, copy.codexYoloDescription],
+    "claude:auto": [copy.claudeAutoOption, copy.claudeAutoDescription],
+    "claude:bypass": [copy.claudeBypassOption, copy.claudeBypassDescription],
+    "opencode:auto": [copy.opencodeAutoOption, copy.opencodeAutoDescription],
+  })[`${tool}:${mode}`] || [mode, ""];
 export default function LaunchDialog({
   state,
   tool,
@@ -75,11 +85,7 @@ export default function LaunchDialog({
       ? copy.profileModeDescription(profile?.config.permissions.mode || "")
       : launchMode === "default"
         ? copy.nativeModeDescription
-        : selectedTool === "codex"
-          ? copy.codexYoloDescription
-          : selectedTool === "claude"
-            ? copy.claudeAutoDescription
-            : copy.opencodeAutoDescription;
+        : modeCopy(selectedTool, launchMode)[1];
   return (
     <Modal
       title={browse ? commonCopy.workingDirectory : commonCopy.newSession}
@@ -141,6 +147,7 @@ export default function LaunchDialog({
                     sshAccessIds,
                   })
                 : await api("/sessions", "POST", body);
+              if (!profile && coding) rememberLaunchMode(access.tool, launchMode);
               await created(result.session || result);
             }}
           >
@@ -291,28 +298,10 @@ export default function LaunchDialog({
                           value: "default",
                           label: copy.nativeModeOption,
                         },
-                        ...(selectedTool === "codex"
-                          ? [
-                              {
-                                value: "yolo",
-                                label: copy.codexYoloOption,
-                              },
-                            ]
-                          : selectedTool === "claude"
-                            ? [
-                                {
-                                  value: "auto",
-                                  label: copy.claudeAutoOption,
-                                },
-                              ]
-                            : selectedTool === "opencode"
-                              ? [
-                                  {
-                                    value: "auto",
-                                    label: copy.opencodeAutoOption,
-                                  },
-                                ]
-                              : []),
+                        ...launchModes(selectedTool).map((value) => ({
+                          value,
+                          label: modeCopy(selectedTool, value)[0],
+                        })),
                       ]}
                     />
                   </label>

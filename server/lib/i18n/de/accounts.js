@@ -9,6 +9,8 @@ export const accounts = Object.freeze({
   localProfileReadOnly: "Das lokale Profil wird hier nicht verändert.",
   invalidApiKey: "Ungültiger API-Key.",
   invalidLaunchMode: "Ungültiger Startmodus für dieses CLI-Tool.",
+  skipPermissionsAsRoot:
+    "„Ohne Rückfragen“ ist nicht verfügbar, weil AgentPier als root läuft. Claude Code verweigert diesen Modus für root.",
   launchModeRequiresWorkSession:
     "Startmodi gelten nur für neue Arbeitssitzungen, nicht für die Anmeldung.",
   managedLoginRequired: "Bitte einen separaten Account für die Anmeldung anlegen.",

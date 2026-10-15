@@ -307,3 +307,14 @@ test("quoted confirmation shortcuts without a native dialog do not imply waiting
     );
   }
 });
+
+test("Claude skip-permissions footer keeps idle and working detection", () => {
+  const bypass = (spinner = "") =>
+    claude(spinner).replace(
+      "⏵⏵ auto mode on (shift+tab to cycle)",
+      "⏵⏵ bypass permissions on (shift+tab to cycle)",
+    );
+  assert.match(bypass(), /bypass permissions on/);
+  assert.equal(parseSessionActivity("claude", bypass()).state, "idle");
+  assert.equal(parseSessionActivity("claude", bypass(spin())).state, "working");
+});

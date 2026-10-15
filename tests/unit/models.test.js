@@ -492,3 +492,16 @@ for (const [tool, busy, shortcut, confirmation] of [
     assert.equal(selected.pending, false);
     assert.deepEqual(calls, [shortcut, [confirmation]]);
   });
+
+test("Claude skip-permissions footer alone still marks the composer ready for /model", () => {
+  const screen =
+    "Answer complete.\n\n────────────────────────\n❯ \n────────────────────────\n  ⏵⏵ bypass permissions on (shift+tab to cycle)";
+  assert.equal(modelPromptReady("claude", screen), true);
+  assert.equal(
+    modelPromptReady(
+      "claude",
+      `${screen.replace("Answer complete.", "")}\nDo you want to proceed?`,
+    ),
+    false,
+  );
+});

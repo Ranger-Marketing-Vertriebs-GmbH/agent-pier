@@ -8,6 +8,8 @@ export const accounts = Object.freeze({
   localProfileReadOnly: "The local profile is not modified here.",
   invalidApiKey: "Invalid API key.",
   invalidLaunchMode: "Invalid launch mode for this CLI tool.",
+  skipPermissionsAsRoot:
+    "“No permission prompts” is unavailable because AgentPier runs as root. Claude Code refuses this mode for root.",
   launchModeRequiresWorkSession:
     "Launch modes apply only to new work sessions, not to sign-in.",
   managedLoginRequired: "Please create a separate account for sign-in.",

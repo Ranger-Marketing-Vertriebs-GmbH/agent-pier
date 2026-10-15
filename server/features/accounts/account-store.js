@@ -33,7 +33,11 @@ const TOOLS = [
 const SHELL = { id: "shell", name: "Shell" };
 const LAUNCH_ARGS = {
   codex: { default: [], yolo: ["--yolo"] },
-  claude: { default: [], auto: ["--permission-mode", "auto"] },
+  claude: {
+    default: [],
+    auto: ["--permission-mode", "auto"],
+    bypass: ["--dangerously-skip-permissions"],
+  },
   opencode: { default: [], auto: ["--auto"] },
   shell: { default: ["-l"] },
 };
@@ -153,7 +157,14 @@ function removeCodexApiKey(root) {
   else fs.rmSync(file, { force: true });
 }
 export class AccountStore {
-  constructor({ dataDir, home = os.homedir(), providerCatalog, providerConnections }) {
+  constructor({
+    dataDir,
+    home = os.homedir(),
+    providerCatalog,
+    providerConnections,
+    uid = () => process.getuid?.(),
+  }) {
+    this.uid = uid;
     this.dataDir = privateDirectory(path.resolve(dataDir));
     this.home = home;
     this.file = path.join(dataDir, "accounts.json");
@@ -382,6 +393,10 @@ export class AccountStore {
       throw problem(serverMessages.accounts.invalidLaunchMode);
     if (login && launchMode !== "default")
       throw problem(serverMessages.accounts.launchModeRequiresWorkSession);
+    // Claude Code exits at startup when --dangerously-skip-permissions runs as
+    // root; refusing here gives a stable message instead of a dead session.
+    if (launchMode === "bypass" && this.uid() === 0)
+      throw problem(serverMessages.accounts.skipPermissionsAsRoot, 409);
     if (login && account.kind === "local")
       throw problem(serverMessages.accounts.managedLoginRequired);
     if (login && account.hasSecret)
