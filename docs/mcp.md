@@ -334,3 +334,10 @@ _Installation missing_ (the files of a ready install are gone or changed).
 - **Cleanup.** Removing a server (or switching it to an own command) deletes its
   installs. Toolchain versions that no packaged server and no running install uses
   are removed from `toolchains/` in the data directory.
+- **Audit.** A confirmed install (new server or switch to a package), update,
+  reinstall and switch back to an own command are recorded on the server as
+  `package.installed`, `package.updated`, `package.reinstalled` and
+  `package.detached` with the registry, package name, version, the install-scripts
+  choice and the dependency constraints; never an argument, environment value or
+  path. They are recorded when the change is accepted, so they do not say whether the
+  background install succeeded (its status and log do).

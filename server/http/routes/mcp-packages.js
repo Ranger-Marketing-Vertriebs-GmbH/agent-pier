@@ -73,7 +73,7 @@ export async function changeSource(services, { changes, auditMcp }, req, res) {
         options,
       ),
     );
-    auditMcp("mcp.package.removed", id, auditDetails(before));
+    auditMcp("package.detached", id, auditDetails(before));
     return res.json(services.mcpServers.get(id));
   }
   if (!record(source) || packages.isPackaged(id) || patch.command !== undefined)
@@ -89,7 +89,7 @@ export async function changeSource(services, { changes, auditMcp }, req, res) {
       ? () => changes().update(id, patch, { ...options, confirmStdio: true })
       : undefined,
   );
-  auditMcp("mcp.package.installed", id, auditDetails(source));
+  auditMcp("package.installed", id, auditDetails(source));
   return res.status(202).json(server);
 }
 
@@ -120,7 +120,7 @@ export function mcpPackageRoutes(services, { auditMcp }) {
     const result = await packages().updatePackage(req.params.id, body);
     const current = services.mcpServers.get(req.params.id).source;
     auditMcp(
-      "mcp.package.updated",
+      "package.updated",
       req.params.id,
       auditDetails({
         ...current,
@@ -135,7 +135,7 @@ export function mcpPackageRoutes(services, { auditMcp }) {
   router.post("/mcp-servers/:id/package/reinstall", (req, res) => {
     const result = packages().reinstall(req.params.id);
     auditMcp(
-      "mcp.package.reinstalled",
+      "package.reinstalled",
       req.params.id,
       auditDetails(services.mcpServers.get(req.params.id).source),
     );

@@ -23,6 +23,8 @@ const resources = new Set([
   "notification",
   "diagnostic",
   "tool",
+  // MCP package installs of an MCP server (resourceType "mcp", the server's id).
+  "package",
 ]);
 const verbs = new Set([
   "revoked",
@@ -55,6 +57,8 @@ const verbs = new Set([
   "sent",
   "refreshed",
   "inspected",
+  "reinstalled",
+  "detached",
 ]);
 // Names of the fields an MCP server or agent binding change can send.
 const changeFields = new Set([
@@ -71,6 +75,31 @@ const changeFields = new Set([
   "clis",
   "heartbeat",
 ]);
+// MCP package references (package-spec.js validated them before the install): the
+// registry, an npm or PyPI name, an exact version and the canonical constraint lines.
+const packageRegistries = ["npm", "pypi"];
+const packageName = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[A-Za-z0-9][A-Za-z0-9._~-]{0,213}$/;
+const packageVersion = /^[0-9][0-9A-Za-z.+!-]{0,127}$/;
+const specifier = String.raw`(?:==|!=|~=|<=|>=|<|>)[0-9][0-9a-z.*!]{0,40}`;
+const constraintLine = new RegExp(
+  String.raw`^[a-z0-9][a-z0-9._-]{0,99}${specifier}(?:,${specifier}){0,9}$`,
+);
+function packageDetails(details, event) {
+  if (packageRegistries.includes(details.registry)) {
+    event.details.registry = details.registry;
+    if (typeof details.name === "string" && packageName.test(details.name))
+      event.details.name = details.name;
+    if (typeof details.version === "string" && packageVersion.test(details.version))
+      event.details.version = details.version;
+  }
+  if (typeof details.allowScripts === "boolean")
+    event.details.allowScripts = details.allowScripts;
+  if (Array.isArray(details.constraints) && details.constraints.length <= 10)
+    event.details.constraints = details.constraints.filter(
+      (line) =>
+        typeof line === "string" && line.length <= 100 && constraintLine.test(line),
+    );
+}
 export function auditId(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value))
     throw problem(serverMessages.audit.invalidIdentifier);
@@ -234,6 +263,7 @@ export function auditEvent(input) {
     if (["overwrite", "adopt"].includes(details.resolution))
       event.details.resolution = details.resolution;
     if (typeof details.adopted === "boolean") event.details.adopted = details.adopted;
+    packageDetails(details, event);
   }
   // Agent proactivity changes name the switched opt-in as a flag (proactivity-changes.js).
   if (input.resourceType === "assistant" && typeof details.heartbeat === "boolean")

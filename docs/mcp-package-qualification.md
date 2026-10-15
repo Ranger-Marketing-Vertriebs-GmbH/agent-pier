@@ -162,7 +162,9 @@ toolchains already staged at startup.
   checked against PyPI's digests.
 - Package create, update and reinstall answered `400` ("Ungültige Audit-Aktion")
   although the job ran and finished: the audit schema rejects the three-part
-  `mcp.package.*` actions. Reported for a fix before merge.
+  `mcp.package.*` actions. Fixed: the actions are now `package.installed`,
+  `package.updated`, `package.reinstalled` and `package.detached`, and a failing
+  audit append is logged instead of answering a finished change as an error.
 
 ### Scope
 
