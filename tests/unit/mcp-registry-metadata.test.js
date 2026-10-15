@@ -2,11 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   fetchRegistryJson,
+  npmPackument,
   npmVersionInfo,
   npmVersions,
   pypiProject,
   pypiVersionInfo,
   pypiVersions,
+  registryDownload,
 } from "../../server/features/mcp-packages/registry-metadata.js";
 
 const packument = {
@@ -193,4 +195,62 @@ test("the PyPI project is read from the JSON API of the given registry", async (
     project,
   );
   assert.deepEqual(urls, ["http://127.0.0.1:1/pypi/x-y/json"]);
+});
+
+const redirect = (location) => ({
+  status: 302,
+  ok: false,
+  headers: new Headers({ location }),
+  body: { cancel: async () => {} },
+});
+const notFound = { status: 404, ok: false, headers: new Headers(), body: null };
+
+test("registry metadata follows redirects only on its own origin", async () => {
+  const seen = [];
+  const fetchImpl = async (url) => {
+    seen.push(url);
+    if (url.endsWith("/a")) return redirect("https://registry.npmjs.org/b");
+    if (url.endsWith("/b")) return notFound;
+    if (url.endsWith("/d")) return redirect("http://registry.npmjs.org/b");
+    return redirect("https://evil.example/x");
+  };
+  await assert.rejects(registryDownload("https://registry.npmjs.org/a", fetchImpl), {
+    status: 404,
+  });
+  assert.deepEqual(seen, [
+    "https://registry.npmjs.org/a",
+    "https://registry.npmjs.org/b",
+  ]);
+  await assert.rejects(registryDownload("https://registry.npmjs.org/c", fetchImpl), {
+    code: "DOWNLOAD_ORIGIN_CHANGED",
+  });
+  assert.equal(seen.includes("https://evil.example/x"), false);
+  // A downgrade to http on the same host is refused before it is fetched.
+  await assert.rejects(registryDownload("https://registry.npmjs.org/d", fetchImpl));
+  assert.equal(seen.includes("http://registry.npmjs.org/b"), false);
+});
+
+test("a scoped npm name keeps its @ and encodes its slash", async () => {
+  const urls = [];
+  await npmPackument("@scope/server-x", {
+    registry: "https://registry.npmjs.org",
+    download: async (url) => {
+      urls.push(url);
+      return Buffer.from("{}");
+    },
+  });
+  assert.deepEqual(urls, ["https://registry.npmjs.org/@scope%2Fserver-x"]);
+});
+
+test("version info reads only own version keys", () => {
+  const inherited = Object.create({ "1.0.0": { dist: { integrity: "sha512-x" } } });
+  assert.throws(() => npmVersionInfo({ versions: inherited }, "1.0.0"), {
+    code: "MCP_PACKAGE_VERSION_NOT_FOUND",
+  });
+  assert.throws(() => npmVersionInfo({ versions: {} }, "constructor"), {
+    code: "MCP_PACKAGE_VERSION_NOT_FOUND",
+  });
+  assert.throws(() => npmVersionInfo({ versions: { "1.0.0": "text" } }, "1.0.0"), {
+    code: "MCP_PACKAGE_VERSION_NOT_FOUND",
+  });
 });

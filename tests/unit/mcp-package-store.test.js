@@ -157,3 +157,30 @@ test("a scoped package program resolves inside the install", (t) => {
     { command: "/n", leading: [path.join(final, "node_modules/@scope/x/run.js")] },
   );
 });
+
+test("pruning never follows a linked installs folder", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-prune-link-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-prune-outside-"));
+  t.after(() => {
+    fs.rmSync(dataDir, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
+  });
+  fs.writeFileSync(path.join(outside, "keep.txt"), "x");
+  fs.mkdirSync(path.join(dataDir, "mcp-packages"), { recursive: true });
+  fs.symlinkSync(outside, path.join(dataDir, "mcp-packages", "installs"));
+  pruneInstalls(dataDir, new Set());
+  assert.equal(fs.existsSync(path.join(outside, "keep.txt")), true);
+});
+
+test("pruning never follows a linked packages folder", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-prune-link-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-prune-outside-"));
+  t.after(() => {
+    fs.rmSync(dataDir, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
+  });
+  fs.mkdirSync(path.join(outside, "installs", "old"), { recursive: true });
+  fs.symlinkSync(outside, path.join(dataDir, "mcp-packages"));
+  pruneInstalls(dataDir, new Set());
+  assert.equal(fs.existsSync(path.join(outside, "installs", "old")), true);
+});

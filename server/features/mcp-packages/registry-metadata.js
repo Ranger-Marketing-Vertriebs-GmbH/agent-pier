@@ -4,10 +4,14 @@ import { canonicalPypiVersion, pypiVersionPattern } from "./package-spec.js";
 
 export const npmRegistry = "https://registry.npmjs.org";
 const metadataLimit = 64 * 1024 * 1024;
-const defaultDownload = (url) =>
-  fetchDownload(url, fetch, metadataLimit, { headers: { accept: "application/json" } });
+/** The default metadata download: JSON, size-capped, redirects only on the same origin. */
+export const registryDownload = (url, fetchImpl = fetch) =>
+  fetchDownload(url, fetchImpl, metadataLimit, {
+    headers: { accept: "application/json" },
+    pinOrigin: true,
+  });
 
-export async function fetchRegistryJson(url, { download = defaultDownload } = {}) {
+export async function fetchRegistryJson(url, { download = registryDownload } = {}) {
   let bytes;
   try {
     bytes = await download(url);
@@ -84,8 +88,13 @@ export function npmVersions(packument) {
 
 const installHooks = ["preinstall", "install", "postinstall"];
 export function npmVersionInfo(packument, version) {
-  const info = packument?.versions?.[version];
-  if (!info) throw packageProblem("MCP_PACKAGE_VERSION_NOT_FOUND", 404);
+  const versions = packument?.versions;
+  const info =
+    versions && typeof versions === "object" && Object.hasOwn(versions, version)
+      ? versions[version]
+      : null;
+  if (!info || typeof info !== "object")
+    throw packageProblem("MCP_PACKAGE_VERSION_NOT_FOUND", 404);
   return {
     integrity: info.dist?.integrity ?? null,
     bin: info.bin ?? null,

@@ -1,13 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { checkNpmLock, lockDiff } from "../../server/features/mcp-packages/lock-check.js";
 
+const sri = (name) => `sha512-${createHash("sha512").update(name).digest("base64")}`;
 const registry = "https://registry.npmjs.org";
 const ref = { registry: "npm", name: "server-x", version: "1.1.0" };
 const entry = (name, version, extra = {}) => ({
   version,
   resolved: `${registry}/${name}/-/${name}-${version}.tgz`,
-  integrity: `sha512-${name}`,
+  integrity: sri(name),
   ...extra,
 });
 const lock = (packages) =>
@@ -22,7 +24,7 @@ const lock = (packages) =>
 
 test("a registry-only lock yields its dependencies and digest", () => {
   const text = lock({ "node_modules/zod": entry("zod", "3.0.0") });
-  const result = checkNpmLock(text, { ref, integrity: "sha512-server-x", registry });
+  const result = checkNpmLock(text, { ref, integrity: sri("server-x"), registry });
   assert.equal(result.needsScripts, false);
   assert.deepEqual(result.dependencies, [
     { name: "server-x", version: "1.1.0", path: "server-x" },
@@ -36,7 +38,7 @@ test("install scripts anywhere in the graph are reported", () => {
     "node_modules/esbuild": entry("esbuild", "0.1.0", { hasInstallScript: true }),
   });
   assert.equal(
-    checkNpmLock(text, { ref, integrity: "sha512-server-x", registry }).needsScripts,
+    checkNpmLock(text, { ref, integrity: sri("server-x"), registry }).needsScripts,
     true,
   );
 });
@@ -47,7 +49,7 @@ test("foreign sources, links and missing hashes are refused", () => {
       "node_modules/a": {
         version: "1.0.0",
         resolved: "https://evil.example/a.tgz",
-        integrity: "sha512-a",
+        integrity: sri("a"),
       },
     },
     {
@@ -58,7 +60,7 @@ test("foreign sources, links and missing hashes are refused", () => {
     { "../outside": entry("a", "1.0.0") },
   ])
     assert.throws(
-      () => checkNpmLock(lock(extra), { ref, integrity: "sha512-server-x", registry }),
+      () => checkNpmLock(lock(extra), { ref, integrity: sri("server-x"), registry }),
       { code: "MCP_PACKAGE_FOREIGN_SOURCE" },
       JSON.stringify(extra),
     );
@@ -69,12 +71,12 @@ test("bundled children are accepted only under a hashed parent", () => {
     "node_modules/server-x/node_modules/inner": { version: "1.0.0", inBundle: true },
   });
   assert.doesNotThrow(() =>
-    checkNpmLock(ok, { ref, integrity: "sha512-server-x", registry }),
+    checkNpmLock(ok, { ref, integrity: sri("server-x"), registry }),
   );
 });
 
 const check = (extra) =>
-  checkNpmLock(lock(extra), { ref, integrity: "sha512-server-x", registry });
+  checkNpmLock(lock(extra), { ref, integrity: sri("server-x"), registry });
 
 test("bundled entries outside a hashed parent or with a source are refused", () => {
   for (const extra of [
@@ -105,7 +107,7 @@ test("nested bundles under a hashed root are accepted", () => {
 });
 
 test("a lock without a packages object is malformed", () => {
-  const options = { ref, integrity: "sha512-server-x", registry };
+  const options = { ref, integrity: sri("server-x"), registry };
   assert.throws(
     () => checkNpmLock(JSON.stringify({ lockfileVersion: 3, packages: null }), options),
     { code: "MCP_PACKAGE_INSTALL_FAILED" },
@@ -132,7 +134,7 @@ test("non-string versions and odd key segments are refused", () => {
 
 test("a top-level integrity that differs from the registry is refused", () => {
   assert.throws(
-    () => checkNpmLock(lock({}), { ref, integrity: "sha512-other", registry }),
+    () => checkNpmLock(lock({}), { ref, integrity: sri("other"), registry }),
     {
       code: "MCP_PACKAGE_INTEGRITY_MISMATCH",
     },
@@ -141,7 +143,7 @@ test("a top-level integrity that differs from the registry is refused", () => {
     () =>
       checkNpmLock(lock({}), {
         ref: { ...ref, version: "2.0.0" },
-        integrity: "sha512-server-x",
+        integrity: sri("server-x"),
         registry,
       }),
     { code: "MCP_PACKAGE_INTEGRITY_MISMATCH" },
@@ -177,7 +179,7 @@ test("nested copies of one package stay separate entries, keyed by their path", 
   });
   const { dependencies } = checkNpmLock(text, {
     ref,
-    integrity: "sha512-server-x",
+    integrity: sri("server-x"),
     registry,
   });
   assert.deepEqual(
@@ -210,4 +212,22 @@ test("lockDiff compares packages by name and path, never merging nested copies",
     removed: [],
     changed: [],
   });
+});
+
+test("an integrity that is not one full sha512 value is foreign", () => {
+  for (const bad of [
+    "sha512-short",
+    `${sri("zod")} sha1-abc`,
+    `${sri("zod")}\n`,
+    `sha512-${"A".repeat(87)}=`,
+  ])
+    assert.throws(
+      () =>
+        checkNpmLock(
+          lock({ "node_modules/zod": entry("zod", "3.0.0", { integrity: bad }) }),
+          { ref, integrity: sri("server-x"), registry },
+        ),
+      { code: "MCP_PACKAGE_FOREIGN_SOURCE" },
+      bad,
+    );
 });

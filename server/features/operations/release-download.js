@@ -70,6 +70,7 @@ export async function download(
     environment = process.env,
     nodeVersion = process.versions.node,
     headers = null,
+    pinOrigin = false,
   } = {},
 ) {
   // Older Node releases ignore NODE_USE_ENV_PROXY and would bypass the proxy.
@@ -82,7 +83,7 @@ export async function download(
   const state = reset({});
   for (let attempt = 0; ; attempt++) {
     try {
-      await transfer(url, fetchImpl, limit, idleTimeout, state, headers);
+      await transfer(url, fetchImpl, limit, idleTimeout, state, headers, pinOrigin);
       return Buffer.concat(state.chunks, state.length);
     } catch (error) {
       if (attempt >= retries || error?.[transient] !== true) throw error;
@@ -91,7 +92,16 @@ export async function download(
   }
 }
 
-async function transfer(url, fetchImpl, limit, idleTimeout, state, extraHeaders) {
+async function transfer(
+  url,
+  fetchImpl,
+  limit,
+  idleTimeout,
+  state,
+  extraHeaders,
+  pinOrigin,
+) {
+  const origin = new URL(url).origin;
   if (!state.validator) reset(state);
   const controller = new AbortController();
   let timer;
@@ -118,6 +128,13 @@ async function transfer(url, fetchImpl, limit, idleTimeout, state, extraHeaders)
       const target = new URL(url);
       if (target.protocol !== "https:" || target.username || target.password)
         throw problem(serverMessages.releases.httpsDownloadRequired);
+      // Registry metadata never leaves the registry it was asked for.
+      if (pinOrigin && target.origin !== origin)
+        throw failure(
+          serverMessages.releases.downloadFailed,
+          "DOWNLOAD_ORIGIN_CHANGED",
+          502,
+        );
       response = await idle(
         fetchImpl(target.href, {
           signal: controller.signal,
