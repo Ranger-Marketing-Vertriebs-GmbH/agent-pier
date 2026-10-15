@@ -386,6 +386,60 @@ test("a cached wrapped row from before the server fix still clears the handoff n
   await expect(page.locator(".chat-delivery-status")).toHaveCount(0);
 });
 
+// Claude Code bash mode records `! ls` as <bash-input> plus a <bash-stdout> record.
+for (const copy of [
+  { locale: "de-DE", label: "Nachricht", send: "Senden", mine: "Deine Nachricht" },
+  { locale: "en-GB", label: "Message", send: "Send", mine: "Your message" },
+])
+  test.describe(copy.locale, () => {
+    test.use({ locale: copy.locale });
+    test("a bash-mode command clears its notice and shows its output as shell output", async ({
+      page,
+    }) => {
+      const { normalizeClaude } =
+        await import("../../server/features/chat/history-parsers.js");
+      const state = await fixture(page, { label: copy.label });
+      await page.getByLabel(copy.label, { exact: true }).fill("!ls -a");
+      await page.getByRole("button", { name: copy.send, exact: true }).click();
+      await expect(page.locator(".chat-delivery-message")).toHaveCount(1);
+      const at = (offset) => new Date(Date.now() + offset).toISOString();
+      state.messages = normalizeClaude([
+        {
+          type: "user",
+          uuid: "bash",
+          timestamp: at(1000),
+          message: { role: "user", content: "<bash-input> ls -a</bash-input>" },
+        },
+        {
+          type: "user",
+          uuid: "bash-output",
+          timestamp: at(1001),
+          message: {
+            role: "user",
+            content:
+              "<bash-stdout>README.md\nsrc</bash-stdout><bash-stderr>\nShell cwd was reset</bash-stderr>",
+          },
+        },
+      ]).messages;
+      await state.publish();
+      await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+      await expect(page.locator(".chat-delivery-status")).toHaveCount(0);
+      const mine = page.getByRole("article", { name: copy.mine, exact: true });
+      await expect(mine).toHaveCount(1);
+      await expect(mine).toContainText("! ls -a");
+      await expect(page.locator(".chat-tool-group")).toHaveCount(0);
+      const output = page.locator("details.chat-tool[open]");
+      await expect(output.locator("summary")).toContainText(
+        copy.locale === "en-GB" ? "Shell output" : "Shell-Ausgabe",
+      );
+      await expect(output.locator(".tool-output-label")).toHaveText(["stdout", "stderr"]);
+      await expect(output).toContainText("README.md");
+      await expect(output).toContainText("Shell cwd was reset");
+      await expect(page.locator("body")).not.toContainText("bash-");
+      expect(state.inputs).toHaveLength(1);
+    });
+  });
+
 const focused = (page) =>
   page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "");
 const delivered = (page) =>

@@ -12,8 +12,9 @@ import "./tool-groups.css";
 export function groupMessages(messages, known = new Map()) {
   const groups = [];
   for (const message of messages) {
-    // Subagent rows stand alone so their label and state stay visible.
-    if (message.role !== "tool" || message.subagent) {
+    // Subagent rows stand alone so their label and state stay visible; bash-mode
+    // output stays beside the user's command instead of folding into agent activity.
+    if (message.role !== "tool" || message.subagent || message.shellOutput) {
       groups.push({ key: `message:${message.id}`, message });
     } else {
       let group = groups.at(-1);

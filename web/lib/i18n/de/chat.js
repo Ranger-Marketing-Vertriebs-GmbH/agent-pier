@@ -59,6 +59,7 @@ export const chatMessageCopy = {
   toolCount: (count) => `${count} ${count === 1 ? "Aufruf" : "Aufrufe"}`,
   toolFailures: (count) => `${count} fehlgeschlagen`,
   chatToolLabel: "Tool-Aktivität",
+  shellOutputLabel: "Shell-Ausgabe",
   toolDetails: "Details",
   subagentLabel: (description, type) =>
     `Unteragent: ${description || "Aufgabe ohne Titel"}${type ? ` (${type})` : ""}`,

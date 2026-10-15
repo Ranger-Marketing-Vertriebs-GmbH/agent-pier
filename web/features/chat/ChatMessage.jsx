@@ -21,7 +21,8 @@ export default function Message({
   subagentsLive = true,
   observedSubagents = [],
 }) {
-  const [toolOpen, setToolOpen] = useState(false);
+  // Bash-mode output answers the user's own command, so it starts expanded.
+  const [toolOpen, setToolOpen] = useState(Boolean(message.shellOutput));
   if (message.role === "tool") {
     const toolImages = (message.images || []).filter((image) => image?.source === "tool");
     const subagent = message.subagent;
@@ -36,6 +37,7 @@ export default function Message({
         className={subagent ? "chat-tool chat-subagent" : "chat-tool"}
         data-message-id={message.id}
         data-status={subagent ? status : undefined}
+        open={toolOpen}
         onToggle={(event) => setToolOpen(event.currentTarget.open)}
       >
         <summary>
@@ -43,7 +45,9 @@ export default function Message({
           <strong>
             {subagent
               ? copy.subagentLabel(subagent.description, subagent.type)
-              : message.toolName || copy.chatToolLabel}
+              : message.shellOutput
+                ? copy.shellOutputLabel
+                : message.toolName || copy.chatToolLabel}
           </strong>
           <small>
             {subagent
