@@ -254,3 +254,49 @@ test("version info reads only own version keys", () => {
     code: "MCP_PACKAGE_VERSION_NOT_FOUND",
   });
 });
+
+test("PyPI versions with the same upload time sort by PEP 440", () => {
+  const at = "2026-01-01T00:00:00Z";
+  const listed = pypiVersions({
+    info: { version: "1.0" },
+    releases: {
+      "1.0rc1": [file("a.whl", "bdist_wheel", "a", at)],
+      "1.0": [file("b.whl", "bdist_wheel", "b", at)],
+      "1.0.post1": [file("c.whl", "bdist_wheel", "c", at)],
+    },
+  }).versions.map((v) => v.version);
+  assert.deepEqual(listed, ["1.0.post1", "1.0", "1.0rc1"]);
+});
+
+test("PyPI versions longer than 128 characters are not listed", () => {
+  const long = `1.${"0".repeat(130)}`;
+  const listed = pypiVersions({
+    info: {},
+    releases: { [long]: [file("a.whl", "bdist_wheel", "a", "2026-01-01T00:00:00Z")] },
+  });
+  assert.deepEqual(listed.versions, []);
+});
+
+test("a PyPI answer without releases is a registry failure, not an empty list", (t) => {
+  const errors = t.mock.method(console, "error", () => {});
+  assert.throws(() => pypiVersions({ info: { version: "1.0" } }), {
+    code: "MCP_PACKAGE_REGISTRY_UNAVAILABLE",
+  });
+  assert.throws(() => pypiVersionInfo({ info: {}, releases: [] }, "1.0"), {
+    code: "MCP_PACKAGE_REGISTRY_UNAVAILABLE",
+  });
+  assert.match(String(errors.mock.calls[0].arguments[0]), /releases/);
+});
+
+test("pypiProject refuses a name that is not a PyPI name before any request", async () => {
+  let requests = 0;
+  const download = async () => {
+    requests += 1;
+    return Buffer.from("{}");
+  };
+  for (const name of ["../x", "a/b", "", "x".repeat(201)])
+    await assert.rejects(pypiProject(name, { download }), {
+      code: "MCP_PACKAGE_INVALID",
+    });
+  assert.equal(requests, 0);
+});

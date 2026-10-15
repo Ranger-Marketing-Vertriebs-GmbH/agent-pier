@@ -336,3 +336,20 @@ test("versions come from the JSON API of the configured registry", async () => {
   assert.equal(result.latest, "1.0");
   assert.deepEqual(urls, ["http://127.0.0.1:1/pypi/srv-x/json"]);
 });
+
+test("a stored integrity longer than 512 digests is refused", () => {
+  const digests = Array.from({ length: 513 }, (_, i) => sha(`file ${i}`));
+  const integrity = digests.map((digest) => `sha256:${digest}`).join(" ");
+  assert.throws(
+    () => pythonAdapter.checkStored({ lockText: lockOf(digests[0]), ref, integrity }),
+    { code: "MCP_PACKAGE_INTEGRITY_MISMATCH" },
+  );
+});
+
+test("a release with more than 512 trusted files is refused at preview", async (t) => {
+  const files = Array.from({ length: 513 }, (_, i) =>
+    file(`srv_x-1.0-${i}.tar.gz`, Buffer.from(`sdist ${i}`)),
+  );
+  const { preview } = setup(t, { files, lock: lockOf(sha("sdist 0")) });
+  await assert.rejects(preview(), { code: "MCP_PACKAGE_INSTALL_FAILED" });
+});

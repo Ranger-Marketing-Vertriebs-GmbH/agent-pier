@@ -1,6 +1,12 @@
 import { download as fetchDownload } from "../operations/releases.js";
 import { packageProblem } from "./package-errors.js";
-import { canonicalPypiVersion, pypiVersionPattern } from "./package-spec.js";
+import { comparePep440 } from "./pep440.js";
+import {
+  canonicalPypiVersion,
+  isPypiVersion,
+  packageName,
+  pypiVersionPattern,
+} from "./package-spec.js";
 
 export const npmRegistry = "https://registry.npmjs.org";
 const metadataLimit = 64 * 1024 * 1024;
@@ -62,15 +68,15 @@ export function compareSemver(a, b) {
   return idsA.length - idsB.length;
 }
 
-function newestFirst(a, b) {
+const newestFirst = (compare) => (a, b) => {
   if (a.publishedAt !== b.publishedAt) {
     if (a.publishedAt === null) return 1;
     if (b.publishedAt === null) return -1;
     const byTime = b.publishedAt.localeCompare(a.publishedAt);
     if (byTime) return byTime;
   }
-  return compareSemver(b.version, a.version) || b.version.localeCompare(a.version);
-}
+  return compare(b.version, a.version) || b.version.localeCompare(a.version);
+};
 
 export function npmVersions(packument) {
   const time = packument?.time || {};
@@ -82,7 +88,7 @@ export function npmVersions(packument) {
       deprecated: !!info?.deprecated,
       yanked: false,
     }))
-    .sort(newestFirst);
+    .sort(newestFirst(compareSemver));
   return { latest: packument?.["dist-tags"]?.latest ?? null, versions };
 }
 
@@ -104,14 +110,33 @@ export function npmVersionInfo(packument, version) {
 
 export const pypiRegistry = "https://pypi.org";
 export const pypiProject = (name, { registry = pypiRegistry, download } = {}) =>
-  fetchRegistryJson(`${registry}/pypi/${encodeURIComponent(name)}/json`, { download });
+  Promise.resolve().then(() =>
+    fetchRegistryJson(
+      `${registry}/pypi/${encodeURIComponent(packageName({ registry: "pypi", name }))}/json`,
+      { download },
+    ),
+  );
 const pypiPrerelease = /(?:a|b|rc|\.dev)\d+/i;
 
+/**
+ * PyPI marks the JSON API's `releases` key deprecated. Its absence must not read as
+ * "no versions": it fails loudly so a change of the API is noticed (docs/mcp.md).
+ */
+function releasesOf(project) {
+  const releases = project?.releases;
+  if (releases && typeof releases === "object" && !Array.isArray(releases))
+    return releases;
+  console.error(
+    "AgentPier could not read PyPI releases (the JSON API returned no releases key).",
+  );
+  throw packageProblem("MCP_PACKAGE_REGISTRY_UNAVAILABLE", 502);
+}
+
 export function pypiVersions(project) {
-  const versions = Object.entries(project?.releases || {})
+  const versions = Object.entries(releasesOf(project))
     .filter(
       ([version, files]) =>
-        Array.isArray(files) && files.length && pypiVersionPattern.test(version),
+        Array.isArray(files) && files.length && isPypiVersion(version),
     )
     .map(([version, files]) => ({
       version,
@@ -124,14 +149,13 @@ export function pypiVersions(project) {
       deprecated: false,
       yanked: files.every((f) => f.yanked === true),
     }))
-    .sort(newestFirst);
+    .sort(newestFirst(comparePep440));
   return { latest: project?.info?.version ?? null, versions };
 }
 
 /** The release under `version`, else under another spelling of the same version. */
 function pypiRelease(project, version) {
-  const releases = project?.releases;
-  if (!releases || typeof releases !== "object") return null;
+  const releases = releasesOf(project);
   if (Object.hasOwn(releases, version)) return releases[version];
   const wanted = canonicalPypiVersion(version);
   const key = Object.keys(releases).find(

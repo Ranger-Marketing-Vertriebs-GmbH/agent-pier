@@ -16,13 +16,16 @@ export const pypiVersionPattern =
 /** The spelling uv writes into a lock: lowercase, no leading zeros in numbers. */
 export const canonicalPypiVersion = (version) =>
   version.toLowerCase().replace(/(^|[.!]|a|b|rc|post|dev)0+(?=\d)/g, "$1");
+/** A listable/storable PyPI version: PEP 440 public form, at most 128 characters. */
+export const isPypiVersion = (version) =>
+  version.length <= 128 && pypiVersionPattern.test(version);
 const names = {
   npm: (name) => name.length <= 214 && npmName.test(name),
   pypi: (name) => pypiName.test(name),
 };
 const versions = {
   npm: (version) => version.length <= 256 && npmVersion.test(version),
-  pypi: (version) => version.length <= 128 && pypiVersionPattern.test(version),
+  pypi: isPypiVersion,
 };
 
 export function packageName({ registry, name } = {}) {
