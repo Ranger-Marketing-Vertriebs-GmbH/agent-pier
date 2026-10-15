@@ -16,6 +16,9 @@ export const sourceFields = (preview, program) => ({
   program: program?.name ?? "",
   programPath: program?.path ?? "",
   allowScripts: preview.allowScripts,
+  // Whether the lock needs a build: a reinstall without receipt syncs the same way.
+  needsScripts: preview.needsScripts === true,
+  constraints: preview.constraints ?? [],
   lock: preview.lockText,
   lockDigest: preview.digest,
   integrity: preview.integrity,
@@ -104,6 +107,7 @@ export function runInstall(service, serverId, { preview, program, kind }) {
         lockDigest: checked.digest,
         allowScripts: preview.allowScripts,
         needsScripts: preview.needsScripts === true,
+        constraints: preview.constraints ?? [],
         program: chosen,
         toolchain: {
           kind: adapter.toolchainKind,

@@ -129,6 +129,7 @@ test("the audit records package name and version, never env or args", async (t) 
     name: "x",
     version: "1.0.0",
     allowScripts: true,
+    constraints: [],
   });
   assert.doesNotMatch(JSON.stringify(audit), /secret-arg|abc/);
 });
@@ -335,13 +336,44 @@ test("updates and reinstalls answer 202 with the job and audit the package only"
     [
       [
         "mcp.package.updated",
-        { registry: "npm", name: "x", version: "2.0.0", allowScripts: true },
+        {
+          registry: "npm",
+          name: "x",
+          version: "2.0.0",
+          allowScripts: true,
+          constraints: [],
+        },
       ],
       [
         "mcp.package.reinstalled",
-        { registry: "npm", name: "x", version: "1.0.0", allowScripts: false },
+        {
+          registry: "npm",
+          name: "x",
+          version: "1.0.0",
+          allowScripts: false,
+          constraints: [],
+        },
       ],
     ],
+  );
+});
+
+test("an update audits the constraints it installs: edited or kept", async (t) => {
+  const pypi = { registry: "pypi", name: "srv-x", version: "1.0", constraints: ["a<1"] };
+  const { request, audit } = await app(t, {
+    mcpServers: { get: () => ({ ...packagedServer, source: pypi }) },
+    mcpPackages: { updatePackage: async () => ({ job: null }) },
+  });
+  for (const extra of [{ constraints: ["FastMCP < 4"] }, {}])
+    await request("POST", "/api/mcp-servers/s1/package/update", {
+      version: "1.1",
+      previewId: "p",
+      confirmInstall: true,
+      ...extra,
+    });
+  assert.deepEqual(
+    audit.map((entry) => entry.details.constraints),
+    [["fastmcp<4"], ["a<1"]],
   );
 });
 

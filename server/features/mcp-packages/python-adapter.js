@@ -98,6 +98,7 @@ export const pythonAdapter = {
   async preview({
     ref,
     allowScripts,
+    constraints = [],
     toolchain,
     stage,
     registry,
@@ -127,6 +128,7 @@ export const pythonAdapter = {
       index: registry.index,
       cacheDir,
       allowScripts,
+      constraints,
       execute,
       environment,
     });

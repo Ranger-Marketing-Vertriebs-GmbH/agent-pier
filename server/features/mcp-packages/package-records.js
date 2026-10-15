@@ -8,7 +8,14 @@ CREATE TABLE IF NOT EXISTS server_packages(
   lock TEXT NOT NULL, lock_digest TEXT NOT NULL, integrity TEXT NOT NULL,
   install_id TEXT, leading_args INTEGER NOT NULL DEFAULT 0, toolchain_dir TEXT,
   status TEXT NOT NULL CHECK(status IN ('installing','ready','failed')),
-  error_code TEXT, updated_at INTEGER NOT NULL);`;
+  error_code TEXT, updated_at INTEGER NOT NULL,
+  constraints TEXT NOT NULL DEFAULT '[]', needs_scripts INTEGER NOT NULL DEFAULT 0);`;
+// Columns added after plan 2; a store created then gains them when it opens.
+const addedColumns = [
+  ["constraints", "TEXT NOT NULL DEFAULT '[]'"],
+  // Before the column a reinstall without receipt built when the owner allowed it.
+  ["needs_scripts", "INTEGER NOT NULL DEFAULT 0", "allow_scripts"],
+];
 const columns = {
   registry: "registry",
   name: "name",
@@ -24,7 +31,20 @@ const columns = {
   toolchainDir: "toolchain_dir",
   status: "status",
   errorCode: "error_code",
+  constraints: "constraints",
+  needsScripts: "needs_scripts",
 };
+/** The stored constraint lines; anything but a JSON list of strings reads as none. */
+function parsedList(text) {
+  try {
+    const list = JSON.parse(text);
+    return Array.isArray(list) && list.every((line) => typeof line === "string")
+      ? list
+      : [];
+  } catch {
+    return [];
+  }
+}
 const fromRow = (row) =>
   row && {
     serverId: row.server_id,
@@ -32,16 +52,32 @@ const fromRow = (row) =>
       Object.entries(columns).map(([key, column]) => [key, row[column]]),
     ),
     allowScripts: row.allow_scripts === 1,
+    needsScripts: row.needs_scripts === 1,
+    constraints: parsedList(row.constraints),
     updatedAt: row.updated_at,
   };
-const toValue = (key, value) =>
-  key === "allowScripts" ? (value ? 1 : 0) : (value ?? null);
+function toValue(key, value) {
+  if (key === "allowScripts" || key === "needsScripts") return value ? 1 : 0;
+  if (key === "constraints") return JSON.stringify(Array.isArray(value) ? value : []);
+  return value ?? null;
+}
 
 /** One package source per server, beside the servers it belongs to (and backed up with them). */
 export class PackageRecords {
   constructor(db, dataDir) {
     Object.assign(this, { db, dataDir });
     db.exec(schema);
+    const known = new Set(
+      db
+        .prepare("PRAGMA table_info(server_packages)")
+        .all()
+        .map((column) => column.name),
+    );
+    for (const [name, type, from] of addedColumns)
+      if (!known.has(name)) {
+        db.exec(`ALTER TABLE server_packages ADD COLUMN ${name} ${type}`);
+        if (from) db.exec(`UPDATE server_packages SET ${name}=${from}`);
+      }
   }
   get(serverId) {
     return (
@@ -95,6 +131,7 @@ export class PackageRecords {
         errorCode: row.errorCode,
         // No generated argument is stored before the first install.
         leadingArgs: row.installId ? row.leadingArgs : 0,
+        constraints: row.constraints,
       },
     };
   }

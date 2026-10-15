@@ -11,6 +11,7 @@ export const npmAdapter = {
   async versions(name, { registry, download }) {
     return npmVersions(await npmPackument(name, { registry, download }));
   },
+  // Constraints are PyPI only (D4): the service refuses them for npm before this.
   async preview({
     ref,
     toolchain,

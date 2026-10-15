@@ -19,4 +19,6 @@ export const mcpPackages = Object.freeze({
   confirmationRequired: "Please confirm the installation of the package.",
   previewBusy: "Several packages are being checked right now. Please try again shortly.",
   toolchainBusy: "A toolchain is already being installed. Please try again shortly.",
+  invalidConstraints:
+    "Dependency constraints take one PyPI package name with version limits per line (for example fastmcp<4), at most 10.",
 });

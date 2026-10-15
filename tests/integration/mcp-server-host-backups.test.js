@@ -158,15 +158,17 @@ test("a host backup keeps the package source of a packaged server", async (t) =>
     {
       pendingCommand: true,
       packageRecord: {
-        registry: "npm",
+        registry: "pypi",
         name: "server-x",
         version: "1.0.0",
         program: "server-x",
-        programPath: "index.js",
-        allowScripts: false,
-        lock: "{}",
+        programPath: "server-x",
+        allowScripts: true,
+        needsScripts: true,
+        constraints: ["fastmcp<4"],
+        lock: "server-x==1.0.0",
         lockDigest: "d".repeat(64),
-        integrity: "sha512-x",
+        integrity: "sha256:x",
         status: "installing",
       },
     },
@@ -179,7 +181,10 @@ test("a host backup keeps the package source of a packaged server", async (t) =>
   const copy = path.join(folder, "copy.sqlite");
   fs.writeFileSync(copy, Buffer.from(member.content, "base64"));
   assert.deepEqual(
-    rows(copy, "SELECT server_id,name,version,status,install_id FROM server_packages"),
+    rows(
+      copy,
+      "SELECT server_id,name,version,status,install_id,constraints,needs_scripts FROM server_packages",
+    ),
     [
       {
         server_id: packaged.id,
@@ -187,6 +192,8 @@ test("a host backup keeps the package source of a packaged server", async (t) =>
         version: "1.0.0",
         status: "installing",
         install_id: null,
+        constraints: '["fastmcp<4"]',
+        needs_scripts: 1,
       },
     ],
   );
