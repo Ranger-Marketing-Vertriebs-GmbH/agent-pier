@@ -373,3 +373,28 @@ test("advanced setting audits keep the setting and only its own scalar values", 
     }),
   );
 });
+
+test("MCP package audits keep the longest constraint and version the service accepts", () => {
+  const packageEvent = (details) =>
+    auditEvent({
+      action: "package.installed",
+      resourceType: "mcp",
+      resourceId: "s1",
+      source: "user",
+      outcome: "success",
+      details,
+    });
+  // 100 characters: the constraint limit of package-spec.js.
+  const line = `helper-x>=${"1.".repeat(43)}1,<2`;
+  assert.equal(line.length, 100);
+  const npmVersion = `1.0.0-${"a".repeat(200)}`;
+  assert.deepEqual(
+    packageEvent({ registry: "pypi", name: "srv", version: "1.0", constraints: [line] })
+      .details.constraints,
+    [line],
+  );
+  assert.equal(
+    packageEvent({ registry: "npm", name: "srv", version: npmVersion }).details.version,
+    npmVersion,
+  );
+});
