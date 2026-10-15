@@ -124,6 +124,11 @@ test("a preview reads the pure wheel's scripts and pins the release's PyPI diges
       .map((d) => `sha256:${d}`)
       .join(" "),
   );
+  // The confirmation names the file the install uses with its digest.
+  assert.deepEqual(result.installFile, {
+    filename: "srv_x-1.0-py3-none-any.whl",
+    sha256: sha(wheelBytes),
+  });
   assert.ok(downloads.includes(`${host}/srv_x-1.0-py3-none-any.whl`));
   assert.ok(!downloads.some((url) => url.includes("cp314")));
 });
@@ -202,6 +207,10 @@ test("an sdist-only release needs a build and names its programs after it", asyn
   assert.equal(result.lockText, null);
   assert.deepEqual(result.dependencies, []);
   assert.equal(result.integrity, `sha256:${sha(sdistBytes)}`);
+  assert.deepEqual(result.installFile, {
+    filename: "srv_x-1.0.tar.gz",
+    sha256: sha(sdistBytes),
+  });
 });
 
 test("a stored lock is checked against the digests in its integrity", () => {
