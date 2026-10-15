@@ -254,3 +254,76 @@ test("agent skill assignments keep valid skill names only", () => {
     undefined,
   );
 });
+test("MCP package audits keep registry, name, version, allowScripts and constraints", () => {
+  const packageEvent = (action, details) =>
+    auditEvent({
+      action,
+      resourceType: "mcp",
+      resourceId: "s1",
+      source: "user",
+      outcome: "success",
+      details,
+    });
+  for (const action of [
+    "package.installed",
+    "package.updated",
+    "package.reinstalled",
+    "package.detached",
+  ])
+    assert.equal(packageEvent(action, {}).action, action);
+  assert.deepEqual(
+    packageEvent("package.installed", {
+      registry: "pypi",
+      name: "mcp-pandoc",
+      version: "0.8.1.post1",
+      allowScripts: true,
+      constraints: ["fastmcp<4", "httpx>=0.27,<1"],
+      env: { TOKEN: "secret" },
+    }).details,
+    {
+      registry: "pypi",
+      name: "mcp-pandoc",
+      version: "0.8.1.post1",
+      allowScripts: true,
+      constraints: ["fastmcp<4", "httpx>=0.27,<1"],
+    },
+  );
+  assert.deepEqual(
+    packageEvent("package.installed", {
+      registry: "npm",
+      name: "@scope/server-x",
+      version: "1.0.0-rc.1",
+      allowScripts: false,
+      constraints: [],
+    }).details,
+    {
+      registry: "npm",
+      name: "@scope/server-x",
+      version: "1.0.0-rc.1",
+      allowScripts: false,
+      constraints: [],
+    },
+  );
+  // Anything that is not a package reference stays out.
+  assert.deepEqual(
+    packageEvent("package.installed", {
+      registry: "git",
+      name: "x y",
+      version: "1.0; rm -rf",
+      allowScripts: "yes",
+      constraints: ["a<1", "TOKEN=secret", 3, "x".repeat(101)],
+    }).details,
+    { constraints: ["a<1"] },
+  );
+  // Outside an MCP server the package fields are not recorded.
+  assert.deepEqual(
+    auditEvent({
+      action: "setting.updated",
+      resourceType: "setting",
+      source: "user",
+      outcome: "success",
+      details: { registry: "npm", name: "x", allowScripts: true, constraints: ["a<1"] },
+    }).details,
+    {},
+  );
+});

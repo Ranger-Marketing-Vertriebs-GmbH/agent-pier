@@ -81,15 +81,24 @@ export const mcpServerErrors = (error, _req, _res, next) => next(routeProblem(er
 export function mcpServerRoutes(services) {
   const { audit } = services;
   // Names and flags only: no header, env, argument, cwd or URL value is recorded.
-  const auditMcp = (action, id, details) =>
-    audit.append({
-      action,
-      resourceType: "mcp",
-      resourceId: id,
-      outcome: "success",
-      source: "user",
-      details,
-    });
+  // Called once the change is stored (or its install job started): a failing append
+  // is logged (action and code only) and never answers a finished change as an error.
+  const auditMcp = (action, id, details) => {
+    try {
+      audit.append({
+        action,
+        resourceType: "mcp",
+        resourceId: id,
+        outcome: "success",
+        source: "user",
+        details,
+      });
+    } catch (error) {
+      console.error(
+        `AgentPier could not audit ${action} (${error?.code || error?.message || "no code"}).`,
+      );
+    }
+  };
   const changes = () => {
     if (!services.mcpServerChanges) throw assistantProblem("unavailable", 503);
     return services.mcpServerChanges;
@@ -128,7 +137,7 @@ export function mcpServerRoutes(services) {
         if (replyValueReference(res, error)) return;
         throw error;
       }
-      auditMcp("mcp.package.installed", created.id, auditDetails(body.source));
+      auditMcp("package.installed", created.id, auditDetails(body.source));
       return res.status(202).json(created);
     }
     let server;

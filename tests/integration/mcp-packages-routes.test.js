@@ -123,7 +123,7 @@ test("the audit records package name and version, never env or args", async (t) 
     previewId: "p",
     confirmInstall: true,
   });
-  assert.equal(audit.at(-1).action, "mcp.package.installed");
+  assert.equal(audit.at(-1).action, "package.installed");
   assert.deepEqual(audit.at(-1).details, {
     registry: "npm",
     name: "x",
@@ -171,7 +171,7 @@ test("an own-command server switches to a package only with the confirmation (D1
   assert.deepEqual(updates, [
     { id: "s1", input: { revision: 3, args: ["--x"] }, options: { confirmStdio: true } },
   ]);
-  assert.equal(audit.at(-1).action, "mcp.package.installed");
+  assert.equal(audit.at(-1).action, "package.installed");
 });
 
 test("a packaged server refuses a new source and detaches only to an own command", async (t) => {
@@ -212,7 +212,7 @@ test("a packaged server refuses a new source and detaches only to an own command
       options: { confirmStdio: true },
     },
   ]);
-  assert.equal(audit.at(-1).action, "mcp.package.removed");
+  assert.equal(audit.at(-1).action, "package.detached");
 });
 
 test("an edit of a packaged server goes through prepareUpdate; delete prunes", async (t) => {
@@ -335,7 +335,7 @@ test("updates and reinstalls answer 202 with the job and audit the package only"
     audit.map((entry) => [entry.action, entry.details]),
     [
       [
-        "mcp.package.updated",
+        "package.updated",
         {
           registry: "npm",
           name: "x",
@@ -345,7 +345,7 @@ test("updates and reinstalls answer 202 with the job and audit the package only"
         },
       ],
       [
-        "mcp.package.reinstalled",
+        "package.reinstalled",
         {
           registry: "npm",
           name: "x",
@@ -412,4 +412,35 @@ test("preview, create and status responses never name the data directory", async
     assert.ok(!text.includes(s.root) && !text.includes(real), text);
     assert.doesNotMatch(text, /toolchains|node_modules|lockfileVersion|"lock"/);
   }
+});
+
+test("a failing audit append never turns a finished install into an error", async (t) => {
+  const logged = [];
+  t.mock.method(console, "error", (...args) => logged.push(args.join(" ")));
+  const { request } = await app(t, {
+    audit: {
+      append: () => {
+        throw Object.assign(new Error("Ungültige Audit-Aktion."), { status: 400 });
+      },
+    },
+    mcpPackages: {
+      createServer: async () => ({
+        ...packagedServer,
+        source: { ...source, status: "installing" },
+      }),
+    },
+  });
+  const created = await request("POST", "/api/mcp-servers", {
+    name: "pkg",
+    transport: "stdio",
+    env: { TOKEN: "abc" },
+    source,
+    previewId: "p",
+    confirmInstall: true,
+  });
+  assert.equal(created.status, 202);
+  assert.equal(created.body.id, "s1");
+  assert.equal(logged.length, 1);
+  assert.match(logged[0], /package\.installed/);
+  assert.doesNotMatch(logged[0], /abc/);
 });
