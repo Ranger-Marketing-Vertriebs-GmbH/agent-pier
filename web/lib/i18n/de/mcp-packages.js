@@ -31,8 +31,8 @@ export const mcpPackageCopy = {
   dependencies: (count) => `${count} Pakete insgesamt`,
   integrity: "Integrität",
   files: (count) => (count === 1 ? "1 Datei" : `${count} Dateien`),
-  installsFile: (name) => `Installiert wird ${name}`,
-  buildsFile: (name) => `Gebaut wird aus ${name}`,
+  expectedFile: (name) => `Voraussichtlich: ${name}`,
+  expectedBuild: (name) => `Voraussichtlich gebaut aus ${name}`,
   programLabel: "Programm",
   noProgramsYet: "Das Programm wird nach dem Build gewählt.",
   needsScripts:

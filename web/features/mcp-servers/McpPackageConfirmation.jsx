@@ -11,7 +11,8 @@ const shortIntegrity = (value) =>
 
 /**
  * PyPI pins every release file (`sha256:<hex>` each, space-separated); the one shown
- * in full is the file the install uses: its wheel, or the sdist it builds from.
+ * in full is the file the install is expected to use (uv picks it by tags at install
+ * time): its wheel, or the sdist it builds from.
  */
 function PypiIntegrity({ integrity, installFile }) {
   const count = integrity ? integrity.split(" ").length : 0;
@@ -22,7 +23,7 @@ function PypiIntegrity({ integrity, installFile }) {
       {installFile && (
         <>
           <span>
-            {(built ? copy.buildsFile : copy.installsFile)(installFile.filename)}
+            {(built ? copy.expectedBuild : copy.expectedFile)(installFile.filename)}
           </span>
           <code>{`sha256:${installFile.sha256}`}</code>
         </>

@@ -57,7 +57,10 @@ function digestsOf(integrity) {
   return digests;
 }
 
-/** The top release's wheel (a pure one first), checked against its PyPI digest. */
+/**
+ * The top release's wheel (a pure one first), checked against its PyPI digest. It only
+ * reads the programs; installFile() names the file uv is expected to install.
+ */
 async function topWheel(files, download) {
   const wheels = files.filter((file) => file.packagetype === "bdist_wheel");
   const wheel =
@@ -107,6 +110,8 @@ export const pythonAdapter = {
     cacheDir,
     execute,
     environment,
+    // The host the install file is ranked for (tests pin it).
+    host,
   }) {
     const info = pypiVersionInfo(
       await pypiProject(ref.name, { registry: registry.api, download }),
@@ -139,7 +144,8 @@ export const pythonAdapter = {
         : checkPythonLock(resolved.lockText, { ref, digests });
     return {
       integrity: integrityOf(digests),
-      installFile: installFile(files),
+      // Shown in the confirmation; may differ from topWheel (a platform wheel ranks first).
+      installFile: installFile(files, host),
       programs,
       needsScripts: resolved.needsScripts,
       manifestText: resolved.requirementsText,
