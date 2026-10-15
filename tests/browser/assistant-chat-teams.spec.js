@@ -188,7 +188,7 @@ test.describe("member chat", () => {
     await expect(strip).toContainText("Compare the three biggest vendors");
     const status = page.locator(".assistant-header-status");
     await expect(status).toContainText("Working");
-    await expect(status).toContainText("· Research");
+    await expect(status).toContainText("· Research · openai/gpt-4.1-mini");
     // Member chats offer only files behind "+" (no team permission).
     await expect(page.getByRole("button", { name: "Options", exact: true })).toHaveCount(
       1,

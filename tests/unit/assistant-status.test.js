@@ -116,7 +116,7 @@ test("sidebar subline prefers team state, then activity, then the model", () => 
       model: assistant.model,
       member: { role: "Review", phase: "ready" },
     }),
-    { text: "Bereit", tone: "meta" },
+    { text: "Bereit · gpt-x", tone: "meta" },
   );
   assert.deepEqual(
     subline({
@@ -124,7 +124,7 @@ test("sidebar subline prefers team state, then activity, then the model", () => 
       model: assistant.model,
       member: { role: "Review", phase: "running" },
     }),
-    { text: "Arbeitet", tone: "accent" },
+    { text: "Arbeitet · gpt-x", tone: "accent" },
   );
 });
 

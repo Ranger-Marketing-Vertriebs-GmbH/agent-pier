@@ -147,7 +147,9 @@ export default function AssistantSidebar({ navigate, route }) {
         className={`session-item assistant-sidebar-item ${nested ? "assistant-sidebar-member" : ""} ${current ? "selected" : ""}`}
         aria-label={copy.sidebarLabel(
           assistant.name,
-          member ? member.role : assistant.model.modelId,
+          member
+            ? `${member.role} · ${assistant.model.modelId}`
+            : assistant.model.modelId,
           member
             ? copy.team.states[member.phase]
             : connectionMissing(assistant, models)
@@ -168,19 +170,20 @@ export default function AssistantSidebar({ navigate, route }) {
           {opening === assistant.id ? (
             <small>{copy.loading}</small>
           ) : nested ? (
-            <small>
-              <span className={subline.tone === "accent" ? "accent" : ""}>
+            <>
+              <small className={subline.tone === "accent" ? "accent" : ""}>
                 {subline.text}
-              </span>
+              </small>
               {member && (
-                <>
-                  {" · "}
-                  <span id={`assistant-task-${assistant.id}`} title={member.assignment}>
-                    {member.assignment}
-                  </span>
-                </>
+                <small
+                  id={`assistant-task-${assistant.id}`}
+                  className="assistant-sidebar-task"
+                  title={member.assignment}
+                >
+                  {member.assignment}
+                </small>
               )}
-            </small>
+            </>
           ) : (
             <>
               <small className={subline.tone === "accent" ? "accent" : ""}>

@@ -79,9 +79,15 @@ export function sidebarSubline({ assistant, entry, member, model, copy }) {
       tone: "accent",
     };
   const label = current.state !== "idle" ? copyAt(copy, current.label) : undefined;
-  if (label) return { text: label, tone: "accent" };
-  // Member rows add the role (root rows) or the assignment (team block) themselves.
+  const modelId = model?.modelId ?? assistant?.model?.modelId ?? "";
+  // Members run on their own model, so it follows the status; the role (root rows) or
+  // the assignment (team block) are added by the row itself.
+  const withModel = (text) => (member && modelId ? `${text} · ${modelId}` : text);
+  if (label) return { text: withModel(label), tone: "accent" };
   if (member)
-    return { text: copy.team.states[member.phase] ?? member.phase, tone: "meta" };
-  return { text: model?.modelId ?? assistant?.model?.modelId ?? "", tone: "meta" };
+    return {
+      text: withModel(copy.team.states[member.phase] ?? member.phase),
+      tone: "meta",
+    };
+  return { text: modelId, tone: "meta" };
 }

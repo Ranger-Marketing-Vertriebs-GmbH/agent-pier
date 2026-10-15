@@ -16,7 +16,7 @@ const scout = {
   lifetime: "task",
   teamId: "t1",
 };
-async function fixture(page, activity, withMembers = true) {
+async function fixture(page, activity, withMembers = true, assistants = [lead, scout]) {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.route(/\/api\/assistant/, (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -32,7 +32,7 @@ async function fixture(page, activity, withMembers = true) {
     if (path === "/api/assistants")
       return route.fulfill({
         json: {
-          assistants: [lead, scout],
+          assistants,
           conversations: [],
           models: [{ id: "router", name: "OpenRouter", available: true }],
           teams: [
@@ -146,6 +146,42 @@ test("nested row subline colour follows the subline tone", async ({ page }) => {
   const small = page.locator(".assistant-sidebar-member small").first();
   await expect(small).toContainText("google/gemini-3.8-flash");
   await expect(small.locator(".accent")).toHaveCount(0);
+});
+
+test("task members show their own model next to the status and keep the assignment", async ({
+  page,
+}) => {
+  const other = { connectionId: "router", modelId: "anthropic/claude-sonnet-5" };
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page, undefined, true, [lead, { ...scout, model: other }]);
+  await page.goto(baseURL);
+  await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+  await page.locator(".assistant-team-pill").click();
+  const row = page.locator(".assistant-sidebar-member");
+  await expect(row.locator("small").first()).toHaveText(
+    "Working · anthropic/claude-sonnet-5",
+  );
+  await expect(row.locator("small").nth(1)).toHaveText("Review competitor pages");
+  await expect(row).toHaveAttribute(
+    "aria-label",
+    /Research · anthropic\/claude-sonnet-5/,
+  );
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+});
+
+test("a permanent member shows its changed model", async ({ page }) => {
+  const changed = { connectionId: "router", modelId: "openai/gpt-5-mini" };
+  const permanent = { ...scout, lifetime: "permanent", model: changed };
+  await fixture(page, undefined, true, [lead, permanent]);
+  await page.goto(baseURL);
+  await page.locator(".assistant-team-pill").click();
+  const group = page.getByRole("group", { name: "Permanent" });
+  await expect(group.locator("small").first()).toHaveText("Working · openai/gpt-5-mini");
+  await expect(group.locator(".assistant-sidebar-task")).toHaveText(
+    "Review competitor pages",
+  );
 });
 
 test("unfolded team members stay unfolded after a reload and folded ones stay folded", async ({

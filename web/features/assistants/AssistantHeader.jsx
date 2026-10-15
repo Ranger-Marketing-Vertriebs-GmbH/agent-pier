@@ -33,7 +33,9 @@ export default function AssistantHeader({
   });
   const missing = status.tone === "missing";
   const settings = variant === "settings";
-  const detail = member ? member.role : assistant.model.modelId;
+  const detail = member
+    ? `${member.role} · ${assistant.model.modelId}`
+    : assistant.model.modelId;
   const shell = shellLevel(assistant);
   return (
     <>
