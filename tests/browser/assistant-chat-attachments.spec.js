@@ -343,7 +343,9 @@ async function openDropChat(page) {
 
 test("dropping a file on the agent chat panel shows the hint and attaches it", async ({
   page,
+  isMobile,
 }) => {
+  test.skip(isMobile, "File drop is desktop-only; touch devices use the picker.");
   const state = await openDropChat(page);
   const panel = page.locator(".assistant-chat-panel");
   const dataTransfer = await fileTransfer(page);
@@ -376,7 +378,9 @@ test("dragged text does not arm the agent chat drop zone", async ({ page }) => {
 
 test("a dropped unsupported file explains itself and uploads nothing", async ({
   page,
+  isMobile,
 }) => {
+  test.skip(isMobile, "File drop is desktop-only; touch devices use the picker.");
   const state = await openDropChat(page);
   const panel = page.locator(".assistant-chat-panel");
   await panel.dispatchEvent("drop", {
@@ -388,7 +392,9 @@ test("a dropped unsupported file explains itself and uploads nothing", async ({
 
 test("a cancelled drag clears the agent chat overlay without uploading", async ({
   page,
+  isMobile,
 }) => {
+  test.skip(isMobile, "File drop is desktop-only; touch devices use the picker.");
   const state = await openDropChat(page);
   const panel = page.locator(".assistant-chat-panel");
   await panel.dispatchEvent("dragover", { dataTransfer: await fileTransfer(page) });
