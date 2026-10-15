@@ -224,10 +224,16 @@ test("registry metadata follows redirects only on its own origin", async () => {
   await assert.rejects(registryDownload("https://registry.npmjs.org/c", fetchImpl), {
     code: "DOWNLOAD_ORIGIN_CHANGED",
   });
-  assert.equal(seen.includes("https://evil.example/x"), false);
+  assert.equal(
+    seen.some((url) => new URL(url).host === "evil.example"),
+    false,
+  );
   // A downgrade to http on the same host is refused before it is fetched.
   await assert.rejects(registryDownload("https://registry.npmjs.org/d", fetchImpl));
-  assert.equal(seen.includes("http://registry.npmjs.org/b"), false);
+  assert.equal(
+    seen.some((url) => new URL(url).protocol === "http:"),
+    false,
+  );
 });
 
 test("a scoped npm name keeps its @ and encodes its slash", async () => {
