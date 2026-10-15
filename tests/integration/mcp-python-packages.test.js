@@ -5,6 +5,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import {
   createPython,
+  pinnedSetuptools,
   pypiRef,
   pythonPackageService,
 } from "../helpers/mcp-python-service.js";
@@ -168,5 +169,48 @@ test(
     assert.equal(updated.source.status, "ready");
     assert.equal(updated.source.version, "2.0");
     assert.match(s.servers.packages.get(ready.id).lock, /^helper-x==3\.0 /m);
+  },
+);
+
+test(
+  "with the opt-in an sdist with a C extension builds with cc and starts",
+  { skip },
+  async (t) => {
+    const s = await pythonPackageService(t, [
+      { name: "old-c", version: "1.0", script: "old-c", sdist: "c-extension" },
+      { name: "setuptools", version: "84.0.0", file: await pinnedSetuptools() },
+    ]);
+    // Without the opt-in: nothing builds, the install is refused.
+    const refused = await s.packages.preview(pypiRef("old-c"));
+    assert.equal(refused.needsScripts, true);
+    await assert.rejects(
+      s.packages.createServer(
+        { name: "old", transport: "stdio", source: pypiRef("old-c") },
+        { previewId: refused.previewId },
+      ),
+      { code: "MCP_PACKAGE_NEEDS_SCRIPTS" },
+    );
+    assert.ok(!s.index.requests.includes("/files/setuptools-84.0.0-py3-none-any.whl"));
+    // With the opt-in: the build backend comes from the index (outside the lock).
+    const { preview, server: ready } = await createPython(s, "old-c", {
+      allowScripts: true,
+    });
+    assert.equal(preview.needsScripts, true);
+    assert.deepEqual(preview.programs, []);
+    assert.equal(ready.source.status, "ready", s.packages.jobs.get(ready.id)?.log);
+    assert.equal(ready.source.program, "old-c");
+    assert.ok(s.index.requests.includes("/files/setuptools-84.0.0-py3-none-any.whl"));
+    assert.doesNotMatch(s.servers.packages.get(ready.id).lock, /setuptools/);
+    assert.ok(
+      syncs(s)
+        .at(-1)
+        .every((arg) => arg !== "--only-binary"),
+    );
+    assert.equal(
+      execFileSync(ready.command, { env: { PATH: "/usr/bin:/bin" } })
+        .toString()
+        .trim(),
+      "built",
+    );
   },
 );
