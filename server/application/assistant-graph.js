@@ -5,6 +5,7 @@ import { NativeMemory } from "../features/assistants/native-memory.js";
 import { NativeReminders } from "../features/assistants/native-reminders.js";
 import { NativeHeartbeats } from "../features/assistants/native-heartbeats.js";
 import { TeamBridge } from "../features/assistants/team-bridge.js";
+import { WriteGuardReapply } from "../features/assistants/write-guard-reapply.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
 import { TelegramSenders } from "../features/assistant-channels/telegram-senders.js";
 import { stdioAgents } from "../features/assistants/openclaw-config/telegram-senders.js";
@@ -373,6 +374,15 @@ export function connectAssistantServices(graph) {
         assistant.runtimeAgentId,
       ),
   });
+  // A guard report, and leaving maintenance with a live guard, re-applies the agents
+  // the Gateway start compiled without write and edit (AGENTPIER-80).
+  const guardReapply = new WriteGuardReapply({
+    assistants,
+    live: () => bridge.guardLive(),
+    generation: () => runtime.generation,
+  });
+  bridge.onGuard = () => guardReapply.request();
+  assistants.gatewayEvents.onReady(() => guardReapply.request());
   // Agents whose model connection is blocked keep no check-in job.
   reminders.heartbeats.blocked = (id) => synchronization.blocked.has(id);
   wire(runtime, "assistantRuntime", {

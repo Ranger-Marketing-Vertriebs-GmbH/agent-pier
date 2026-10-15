@@ -76,6 +76,8 @@ test("createAssistantServices returns a graph whose every reference is connected
     assistantProviderSynchronization,
   );
   assert.ok(assistantTeams.bridge);
+  // A guard report re-applies the agents a fresh start compiled without writes.
+  assert.equal(typeof assistantTeams.bridge.onGuard, "function");
   assert.ok(assistantUpdates);
   for (const hook of ["teamConfiguration", "maintenance", "beforeSpawn", "afterReady"])
     assert.equal(typeof assistantRuntime[hook], "function", hook);
