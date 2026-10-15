@@ -23,6 +23,8 @@ export const pypiIndexRegistry = Object.freeze({
 const fileHost = "https://files.pythonhosted.org/";
 const wheelLimit = 128 * 1024 * 1024;
 const sha256 = /^[0-9a-f]{64}$/;
+// The release files pinned in the stored integrity; a release with more is refused.
+export const maxReleaseFiles = 512;
 const mismatch = () => packageProblem("MCP_PACKAGE_INTEGRITY_MISMATCH", 502);
 const manifestText = (ref) => `${ref.name}==${ref.version}\n`;
 
@@ -51,6 +53,9 @@ const integrityOf = (digests) =>
     .map((digest) => `sha256:${digest}`)
     .join(" ");
 function digestsOf(integrity) {
+  // `sha256:<64 hex>` plus a space each: the bound of what a preview may store.
+  if (typeof integrity === "string" && integrity.length > maxReleaseFiles * 72)
+    throw mismatch();
   const parts = typeof integrity === "string" && integrity ? integrity.split(" ") : [];
   const digests = parts.map((part) => /^sha256:([0-9a-f]{64})$/.exec(part)?.[1]);
   if (!digests.length || digests.some((digest) => !digest)) throw mismatch();
@@ -127,6 +132,8 @@ export const pythonAdapter = {
         400,
       );
     }
+    if (files.length > maxReleaseFiles)
+      throw packageProblem("MCP_PACKAGE_INSTALL_FAILED", 502);
     const digests = files.map((file) => file.sha256);
     const bytes = await topWheel(files, download);
     const python = await toolchain();
