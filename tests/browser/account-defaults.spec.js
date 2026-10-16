@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
@@ -77,7 +78,7 @@ test("signed-in Claude account replaces login action and becomes the persistent 
   await expect.poll(() => f.state.defaultAccountIds.claude).toBe("managed-claude");
   await page.reload();
   await expect(card.getByText("Standard-Account", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Neue Sitzung", exact: true }).first().click();
+  await openNewSession(page);
   await expect(page.getByRole("combobox", { name: "Zugang", exact: true })).toHaveValue(
     "managed-claude",
   );

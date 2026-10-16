@@ -95,7 +95,7 @@ npm start
 2. Öffne **Accounts** über das **Menü** der Seitenleiste: Melde dich unter **Native
    CLI-Accounts** bei einer Coding-CLI an oder lege unter **Modell-Zugänge** einen
    Provider-Zugang an. Fehlende CLIs lassen sich in der Übersicht installieren.
-3. Wähle **Neue Sitzung**, eine CLI, einen Account und einen Projektordner und
+3. Wähle **Neu → Sitzung**, eine CLI, einen Account und einen Projektordner und
    starte. Das native Terminal übernimmt CLI-Anmeldungen und Menüs; der Chat zeigt
    den gespeicherten Verlauf.
 4. Optional: Schalte Agenten unter

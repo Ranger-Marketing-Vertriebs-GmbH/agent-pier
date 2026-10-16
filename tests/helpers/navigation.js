@@ -23,3 +23,18 @@ export async function navigateTo(page, name) {
   const menu = await openMenu(page);
   await menu.getByRole("button", { name, exact: true }).click();
 }
+// "+ Neu" in the sidebar offers a session or an agent; on phones the header's "+"
+// opens the session dialog directly.
+export async function openNewSession(page) {
+  await page.locator(".mobile-header").waitFor({ state: "attached" });
+  const header = page
+    .locator(".mobile-header")
+    .getByRole("button", { name: /^(Neue Sitzung|New session)$/ });
+  if (await header.isVisible()) return header.click();
+  await page.locator(".sidebar").waitFor({ state: "attached" });
+  await page
+    .locator(".sidebar .sidebar-launch")
+    .getByRole("button", { name: /^(Neu|New)$/ })
+    .click();
+  await page.getByRole("menuitem", { name: /^(Sitzung|Session)$/ }).click();
+}

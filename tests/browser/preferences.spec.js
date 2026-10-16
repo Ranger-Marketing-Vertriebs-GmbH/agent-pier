@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
-import { navigateTo } from "../helpers/navigation.js";
+import { navigateTo, openNewSession } from "../helpers/navigation.js";
 test("settings save a default folder and explicit repository launch wins", async ({
   page,
 }) => {
@@ -71,7 +71,7 @@ test("settings save a default folder and explicit repository launch wins", async
   await expect(
     page.getByLabel("Standard-Arbeitsverzeichnis", { exact: true }),
   ).toHaveValue("/work");
-  await page.getByRole("button", { name: "Neue Sitzung", exact: true }).click();
+  await openNewSession(page);
   await expect(page.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
     "/work",
   );
@@ -135,7 +135,7 @@ test("shell has a terminal-only deep link and never exposes coding model or bus 
   await expect(page.getByLabel("Interaktives Terminal")).toBeVisible();
   await expect(page.getByRole("button", { name: "Chat", exact: true })).toHaveCount(0);
   expect(calls.some((c) => /\/(chat|models)(\/|$)/.test(c.path))).toBe(false);
-  await page.getByRole("button", { name: "Neue Sitzung", exact: true }).click();
+  await openNewSession(page);
   await expect(page.getByLabel("Startmodus", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: /AgentBus/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Sitzung starten", exact: true }).click();

@@ -28,3 +28,9 @@ test("assistant deep links retain selected chat and settings with server documen
   );
   assert.equal(readRoute({ pathname: "/agents/../../private" }).view, "missing");
 });
+test("the new-agent flow has its own address", () => {
+  const route = readRoute({ pathname: "/agents", search: "?new=1" });
+  assert.deepEqual(route, { view: "agents", creating: true });
+  assert.equal(routePath(route), "/agents?new=1");
+  assert.deepEqual(readRoute({ pathname: "/agents", search: "" }), { view: "agents" });
+});

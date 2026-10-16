@@ -21,8 +21,7 @@
     height: 28px;
     border-radius: 8px;
   }
-  .sidebar-head .local-badge,
-  .sidebar-launch .shortcut {
+  .sidebar-head .local-badge {
     display: none;
   }
   .sidebar-launch {

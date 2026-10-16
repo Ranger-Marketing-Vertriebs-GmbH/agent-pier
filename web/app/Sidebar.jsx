@@ -8,6 +8,7 @@ const AssistantSidebar = lazy(
   () => import("../features/assistants/AssistantSidebar.jsx"),
 );
 import useMobileLayout from "../lib/useMobileLayout.js";
+import SidebarNewMenu from "./SidebarNewMenu.jsx";
 import SidebarMenu from "./SidebarMenu.jsx";
 import SidebarGroup from "./SidebarGroup.jsx";
 import SessionRow from "./SessionRow.jsx";
@@ -80,16 +81,21 @@ export default function Sidebar({
         />
       </div>
       <div className="sidebar-launch">
-        <button
-          aria-label={commonCopy.newSession}
-          className="button primary new-session"
-          onClick={() => launch()}
+        <SidebarNewMenu
           disabled={!installed}
-        >
-          <Icon name="plus" />
-          {commonCopy.newSession}
-          <span className="shortcut">↗</span>
-        </button>
+          items={[
+            { id: "session", label: copy.newSessionItem, onSelect: () => launch() },
+            ...(agentsEnabled
+              ? [
+                  {
+                    id: "agent",
+                    label: copy.newAgentItem,
+                    onSelect: () => navigate({ view: "agents", creating: true }),
+                  },
+                ]
+              : []),
+          ]}
+        />
       </div>
       <div className="sidebar-scroll">
         {agentsEnabled && (

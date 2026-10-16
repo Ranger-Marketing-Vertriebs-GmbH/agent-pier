@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 async function fixture(page) {
@@ -17,10 +18,7 @@ async function fixture(page) {
     }),
   );
   await page.goto(base);
-  await page
-    .locator(page.viewportSize().width < 701 ? ".mobile-header" : ".sidebar")
-    .getByRole("button", { name: "Neue Sitzung", exact: true })
-    .click();
+  await openNewSession(page);
 }
 for (const viewport of [
   { width: 1440, height: 1000 },

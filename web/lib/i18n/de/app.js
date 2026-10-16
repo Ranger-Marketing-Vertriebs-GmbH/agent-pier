@@ -26,6 +26,9 @@ export const mobileHeaderCopy = {
   mobileBrand: "AgentPier",
 };
 export const sidebarCopy = {
+  newLabel: "Neu",
+  newSessionItem: "Sitzung",
+  newAgentItem: "Agent",
   brandAriaLabel: "AgentPier Startseite",
   brandLabel: "AgentPier",
   localBadge: "LOCAL",

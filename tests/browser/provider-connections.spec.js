@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
@@ -144,10 +145,7 @@ test("missing keys cannot be selected or launched and native model IDs remain se
     },
   ];
   await page.goto(baseURL + "/");
-  await page
-    .locator(".sidebar")
-    .getByRole("button", { name: "Neue Sitzung", exact: true })
-    .click();
+  await openNewSession(page);
   const access = page.getByLabel("Zugang", { exact: true });
   await access.click();
   await expect(page.getByRole("option", { name: /Missing key/ })).toBeDisabled();
