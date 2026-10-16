@@ -1,4 +1,4 @@
-/* Mobile first: the mode choice stacks under its host with 44 px targets. */
+/* Mobile first: the mode choice stacks under its host as a settings radio list. */
 .ssh-grant-search {
   display: block;
   margin: 0.75rem 0 0.25rem;
@@ -12,31 +12,17 @@
 }
 .ssh-grant-modes {
   margin: 0 0.75rem 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
   min-width: 0;
 }
-.ssh-grant-mode {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  min-height: 44px;
-  padding: 0.5rem 0;
-}
-.ssh-grant-mode input {
-  width: 1.25rem;
-  height: 1.25rem;
-  flex: none;
-}
-.ssh-grant-mode span {
-  display: grid;
-  gap: 0.125rem;
-  overflow-wrap: anywhere;
+.ssh-grant-modes .group-label {
+  margin-top: 8px;
 }
 .ssh-grant-warning {
   margin: 0.5rem 0 0;
-  font-weight: 600;
+  padding-left: 9px;
+  border-left: 3px solid var(--warning);
+  font-size: 13px;
+  color: var(--warning);
 }
 .ssh-grant-removed {
   display: grid;

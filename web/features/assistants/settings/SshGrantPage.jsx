@@ -1,7 +1,8 @@
 import React, { useId, useState } from "react";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import ListCard from "../../../components/ListCard.jsx";
-import { CheckboxRow } from "../../../components/ListRow.jsx";
+import GroupLabel from "../../../components/GroupLabel.jsx";
+import { CheckboxRow, RadioRow } from "../../../components/ListRow.jsx";
 import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantSshCopy as copy } from "../../../lib/i18n/messages/assistant-ssh.js";
 import { setSshGrant, sshModes } from "./agent-settings-fields.js";
@@ -100,27 +101,30 @@ export default function SshGrantPage({
                     }
                   />
                   {mode && (
-                    <fieldset className="ssh-grant-modes" disabled={disabled}>
-                      <legend>{copy.modeLegend}</legend>
-                      {sshModes.map((m) => (
-                        <label key={m} className="ssh-grant-mode">
-                          <input
-                            type="radio"
+                    <div className="ssh-grant-modes">
+                      <GroupLabel as="h3" id={`ssh-mode-${h.id}-label`}>
+                        {copy.modeLegend}
+                      </GroupLabel>
+                      <ListCard labelledBy={`ssh-mode-${h.id}-label`} disabled={disabled}>
+                        {sshModes.map((m) => (
+                          <RadioRow
+                            key={m}
                             name={`ssh-mode-${h.id}`}
                             value={m}
+                            label={copy.modes[m]}
+                            sub={copy.modeHints[m]}
                             checked={mode === m}
-                            onChange={() => onChange(setSshGrant(grants, h.id, m))}
+                            disabled={disabled}
+                            onChange={(value) =>
+                              onChange(setSshGrant(grants, h.id, value))
+                            }
                           />
-                          <span>
-                            <strong>{copy.modes[m]}</strong>{" "}
-                            <small>{copy.modeHints[m]}</small>
-                          </span>
-                        </label>
-                      ))}
+                        ))}
+                      </ListCard>
                       {mode !== "approval" && (
                         <p className="ssh-grant-warning">{copy.trustedWarning}</p>
                       )}
-                    </fieldset>
+                    </div>
                   )}
                 </div>
               );

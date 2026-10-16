@@ -38,8 +38,18 @@ for (const [label, viewport] of [
         ).toBeVisible();
         expect(await fits(page)).toBe(true);
         for (const radio of await page.getByRole("radio").all()) {
-          const box = await radio.locator("xpath=ancestor::label").boundingBox();
-          expect(box.height).toBeGreaterThanOrEqual(44);
+          const rowLocator = radio.locator(
+            "xpath=ancestor::div[contains(@class,'list-row')][1]",
+          );
+          const row = await rowLocator.boundingBox();
+          expect(row.height).toBeGreaterThanOrEqual(44);
+          // The control and its label share one row, not stacked.
+          const dot = await radio.boundingBox();
+          const text = await rowLocator.locator(".list-row-label").boundingBox();
+          expect(dot.y).toBeGreaterThanOrEqual(row.y);
+          expect(dot.y + dot.height).toBeLessThanOrEqual(row.y + row.height);
+          expect(text.y).toBeLessThan(dot.y + dot.height);
+          expect(text.y + text.height).toBeGreaterThan(dot.y);
         }
         await setup(page, {
           actions: [sshAction("a1", { payload: { command: longLine } })],
@@ -82,10 +92,10 @@ test("the card and the modes work with the keyboard alone", async ({
     access: { revision: 0, sshAccesses: [{ accessId: opnsense.id, mode: "approval" }] },
   });
   await page.goto(baseURL + settingsPath("work", "ssh"));
-  const approval = page.getByRole("radio", { name: /^With approval/ });
+  const approval = page.getByRole("radio", { name: "With approval", exact: true });
   await approval.focus();
   await page.keyboard.press("ArrowDown");
-  await expect(page.getByRole("radio", { name: /^Trusted Runs/ })).toBeChecked();
+  await expect(page.getByRole("radio", { name: "Trusted", exact: true })).toBeChecked();
 });
 
 test("a routine's result says when SSH was refused", async ({ page }) => {
