@@ -196,6 +196,11 @@
   margin: 0;
   font-size: 1rem;
 }
+.mcp-consent {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
 .mcp-wizard-progress {
   display: grid;
   gap: 6px;

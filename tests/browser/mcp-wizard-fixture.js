@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { baseURL } from "../helpers/browser.js";
 import { setup } from "./mcp-cli-fixture.js";
 import { preview, versions } from "./mcp-packages-fixture.js";
@@ -43,7 +44,7 @@ export function createdServer(state, body) {
   };
 }
 
-const stdioRefusal = {
+export const stdioRefusal = {
   status: 409,
   json: {
     code: "MCP_STDIO_CONFIRMATION_REQUIRED",
@@ -156,4 +157,102 @@ export async function fits(page) {
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
   ).toBe(true);
+}
+
+export const agent = (id, name, extra = {}) => ({
+  id,
+  name,
+  instructions: "",
+  revision: 1,
+  effectiveRevision: 1,
+  model: { connectionId: "router", modelId: "model" },
+  capabilities: { memory: false, reminders: false },
+  shell: "off",
+  mcpServers: [],
+  ...extra,
+});
+
+/** Owner-managed agents behind GET /assistants and PATCH /assistants/:id. */
+export async function withAgents(page, state, agents) {
+  state.agents = structuredClone(agents);
+  state.refuseAgent = null;
+  const attempts = new Map();
+  await page.route(/\/api\/assistant/, async (route) => {
+    if (await fulfillEnabledAssistantFeature(route)) return;
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === "/api/assistant-events")
+      return route.fulfill({
+        contentType: "text/event-stream",
+        body: 'data: {"type":"connected"}\n\n',
+      });
+    if (path === "/api/assistant-runtime")
+      return route.fulfill({ json: { availability: "ready", sync: "current" } });
+    if (path === "/api/assistants" && request.method() === "GET")
+      return route.fulfill({
+        json: {
+          assistants: state.agents,
+          conversations: [],
+          models: [],
+          teams: [],
+          members: [],
+        },
+      });
+    const match = /^\/api\/assistants\/([^/]+)$/.exec(path);
+    if (!match || request.method() !== "PATCH") return route.fallback();
+    const id = match[1];
+    const body = request.postDataJSON();
+    state.requests.push({ method: "PATCH", path, body });
+    const attempt = (attempts.get(id) ?? 0) + 1;
+    attempts.set(id, attempt);
+    const refusal = state.refuseAgent?.(id, attempt);
+    if (refusal) return route.fulfill(refusal);
+    const target = state.agents.find((item) => item.id === id);
+    if (body.revision !== target.revision)
+      return route.fulfill({
+        status: 409,
+        json: { error: "geändert", messageKey: "assistants.conflict" },
+      });
+    const added = body.mcpServers.filter((sid) => !target.mcpServers.includes(sid));
+    const stdio = added.some(
+      (sid) => state.servers.find((s) => s.id === sid)?.transport === "stdio",
+    );
+    if (stdio && body.confirmStdio !== true) return route.fulfill(stdioRefusal);
+    Object.assign(target, { mcpServers: body.mcpServers, revision: target.revision + 1 });
+    for (const server of state.servers)
+      server.users = {
+        ...server.users,
+        agents: state.agents
+          .filter((a) => a.mcpServers.includes(server.id))
+          .map((a) => a.name),
+      };
+    return route.fulfill({ json: target });
+  });
+}
+
+/** Creates an own-command server "tool" (uvx) through the wizard and stops at Connect. */
+export async function commandToConnect(wizard, env = []) {
+  await chooseSource(wizard, /Own command/);
+  await wizard.getByLabel("Name", { exact: true }).fill("tool");
+  await wizard.getByLabel("Command").fill("uvx");
+  await expect(primary(wizard)).toBeEnabled();
+  await primary(wizard).click();
+  for (const [index, [name, value]] of env.entries()) {
+    await wizard.getByRole("button", { name: "Add a setting" }).click();
+    await wizard
+      .locator(".mcp-setting")
+      .nth(index)
+      .getByLabel("Name", { exact: true })
+      .fill(name);
+    await wizard
+      .locator(".mcp-setting")
+      .nth(index)
+      .getByLabel("Value", { exact: true })
+      .fill(value);
+  }
+  await primary(wizard).click();
+  await wizard.getByRole("button", { name: "Allow and save" }).click();
+  await expect(
+    wizard.getByRole("heading", { level: 1, name: "Who may use tool?" }),
+  ).toBeVisible();
 }

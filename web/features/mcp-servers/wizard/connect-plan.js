@@ -38,6 +38,16 @@ export const onlyTarget = (diff, target) => ({
   agents: target.kind === "agent" ? diff.agents.filter((c) => c.id === target.id) : [],
 });
 
+/** One failed result per target: nothing was bound (for example the install failed). */
+export const notConnected = (diff, code) => [
+  ...(diff.clis.changed ? [{ target: { kind: "cli" }, ok: false, error: { code } }] : []),
+  ...diff.agents.map((change) => ({
+    target: { kind: "agent", id: change.id, name: change.name, add: change.add },
+    ok: false,
+    error: { code },
+  })),
+];
+
 const conflict = (error) =>
   error?.status === 409 && error?.messageKey === "assistants.conflict";
 

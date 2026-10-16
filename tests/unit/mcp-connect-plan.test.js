@@ -4,8 +4,10 @@ import fc from "fast-check";
 import {
   AGENT_GONE,
   connectDiff,
+  notConnected,
   onlyTarget,
   ownerManaged,
+  PACKAGE_NOT_READY,
   runConnect,
 } from "../../web/features/mcp-servers/wizard/connect-plan.js";
 
@@ -262,5 +264,21 @@ test("property: only the wizard's server is added or removed; other bindings sta
         assert.equal(after.includes("s1"), row.want);
       });
     }),
+  );
+});
+
+test("a package that did not install connects nothing and says so per target", () => {
+  const diff = connectDiff({
+    server: server(),
+    clis: ["claude"],
+    agents: ["a"],
+    assistants: [agent("a")],
+  });
+  assert.deepEqual(
+    notConnected(diff, PACKAGE_NOT_READY).map((r) => [r.target.kind, r.ok, r.error.code]),
+    [
+      ["cli", false, PACKAGE_NOT_READY],
+      ["agent", false, PACKAGE_NOT_READY],
+    ],
   );
 });

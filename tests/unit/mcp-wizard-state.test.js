@@ -161,3 +161,15 @@ test("names are sanitised to the server rule and made unique", () => {
     }),
   );
 });
+
+test("connect results are kept for Done", () => {
+  const state = run([
+    { type: "connected", results: [{ ok: true }], diff: { agents: [] }, consented: true },
+  ]);
+  assert.deepEqual(state.connect, {
+    results: [{ ok: true }],
+    diff: { agents: [] },
+    consented: true,
+  });
+  assert.equal(initialWizard().connect, null);
+});

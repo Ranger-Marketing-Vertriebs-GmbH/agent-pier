@@ -3,6 +3,7 @@ import Sheet from "../../../components/Sheet.jsx";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import { itemRoute } from "../../accounts/accounts-items.js";
 import usePackageStatus from "../usePackageStatus.js";
+import ConnectStep from "./ConnectStep.jsx";
 import InstallStep from "./InstallStep.jsx";
 import OwnCommandStep from "./OwnCommandStep.jsx";
 import PackageStep from "./PackageStep.jsx";
@@ -38,6 +39,7 @@ const screens = {
   settings: SettingsStep,
   install: InstallStep,
   review: ReviewStep,
+  connect: ConnectStep,
 };
 
 const stepRoute = (step) =>
