@@ -2,9 +2,12 @@ import React, { useId } from "react";
 import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 
-/** Asks before a server is removed; focus starts on the safe choice. */
+/**
+ * Asks before a server is removed; focus starts on the safe choice and returns to the
+ * Remove button, found by its key: Safari on macOS does not focus it on click.
+ */
 export default function McpRemoveConfirmation({ server, busy, onConfirm, onCancel }) {
-  const focus = useAlertDialogFocus(onCancel);
+  const focus = useAlertDialogFocus(onCancel, `remove-${server.id}`);
   const textId = useId();
   return (
     <div
