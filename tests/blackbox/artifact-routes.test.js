@@ -48,6 +48,14 @@ test("artifact owner routes require login, return inert bundles and preserve pin
   assert.equal(listing.items[0].orphaned, true);
   assert.equal((await f.request(route, { method: "DELETE" })).status, 204);
   assert.equal((await f.request(route + "/bundle")).status, 404);
+  // Repeating the deletion stays successful without a second audit entry.
+  assert.equal((await f.request(route, { method: "DELETE" })).status, 204);
+  assert.equal(
+    f.application.audit
+      .list({})
+      .events.filter((event) => event.action === "artifact.deleted").length,
+    1,
+  );
   assert.equal((await f.request("/api/artifacts?sessionId=../invalid")).status, 400);
 });
 test("artifact list route validates search and pin filters and searches session and project names", async (t) => {

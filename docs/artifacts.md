@@ -96,7 +96,8 @@ needed by the preview. There is no application backend, service worker or networ
 Stopping or reloading a session preserves its artifacts. Deleting a session
 removes its unpinned artifacts. Pinned artifacts survive in the project overview;
 unpinning one whose session has been deleted also deletes it after confirmation.
-The owner can delete any artifact manually. There is no age-based expiration or
+The owner can delete any artifact manually; deleting it again succeeds without a
+second audit entry. There is no age-based expiration or
 silent eviction.
 
 Each publication permits up to **50 MiB** and **500 files**. Managed storage is

@@ -321,10 +321,13 @@ export class ArtifactService {
         ? this.store.state.records[id]
         : null;
       if (!record) throw artifactError("ARTIFACT_NOT_FOUND", 404);
+      // A repeated deletion stays successful but reports that nothing changed.
+      if (record.deleted) return false;
       const next = structuredClone(this.store.state);
       next.records[id] = { id, sessionId: record.sessionId, deleted: true };
       this.store.save(next);
       await this.store.cleanup(this.onError);
+      return true;
     }).finally(() => this.deleting.delete(id));
   }
   retireSession(sessionId) {
