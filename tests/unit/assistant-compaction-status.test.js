@@ -212,3 +212,25 @@ test("the header says the agent is summarising while its run compacts", () => {
     "Fasst den bisherigen Verlauf zusammen – bei langen Chats kann das ein paar Minuten dauern.",
   );
 });
+
+test("the tracker names the run and forgets a status another run replaced", () => {
+  let now = 1000;
+  const tracker = new Compactions({ now: () => now });
+  tracker.observe(status("memory_flushing"));
+  assert.equal(tracker.run(key), "run-1");
+  assert.equal(tracker.run("agent:other:main"), null);
+  // The flush's end was lost (cancelled run); the next run's first event ends it.
+  assert.equal(tracker.observe(lifecycle("start", "run-2")), true);
+  assert.equal(tracker.run(key), null);
+  // A different run that flushes replaces the old one at once.
+  tracker.observe(status("memory_flushing"));
+  assert.equal(tracker.observe(status("memory_flushing", "run-3")), false);
+  assert.equal(tracker.run(key), "run-3");
+  // Expired entries leave on any event, also those of sessions nobody reads.
+  tracker.observe(
+    status("memory_flushing", "run-4", "agent:x:internal-session-effects:a"),
+  );
+  now += 61 * 60000;
+  tracker.observe({ stream: "tool", sessionKey: "agent:elsewhere:main", data: {} });
+  assert.equal(tracker.running.size, 0);
+});

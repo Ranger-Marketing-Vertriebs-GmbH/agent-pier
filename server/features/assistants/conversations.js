@@ -250,9 +250,18 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     ),
     nextBefore,
     stale,
-    // While the run summarises the conversation (compactions.js), not answers yet.
-    compacting: Boolean(service.compactions?.active(conversation.runtimeSessionKey)),
+    // While the active attempt's run summarises the conversation (compactions.js).
+    compacting: summarising(service, conversation, requests),
   };
+}
+// Only the conversation's active attempt (its id is the Gateway run's idempotency key,
+// runtimeRunId the run id) can be summarising; a cancelled one never is.
+const settled = new Set(["completed", "failed", "cancelled"]);
+function summarising(service, conversation, requests) {
+  const run = service.compactions?.run(conversation.runtimeSessionKey);
+  const attempt = requests.at(-1)?.attempt;
+  if (!run || !attempt || attempt.reviewedAt || settled.has(attempt.state)) return false;
+  return run === attempt.runtimeRunId || run === attempt.id;
 }
 const pageStart = (nextBefore, messages) =>
   nextBefore && messages.length ? messages[0].timestamp : -Infinity;

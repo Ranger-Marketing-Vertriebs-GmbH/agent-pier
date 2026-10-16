@@ -42,6 +42,9 @@ const sameTurnText = (a, b) => turnText(a) === turnText(b);
 const sameTurn = (m, request) =>
   m.role === "user" &&
   (m.requestId ? m.requestId === request.id : sameTurnText(m.text, request.text));
+// Quiet notes join the history between turns; an internal turn's event line is the
+// newest message that is not one of them.
+const noteEvents = new Set(["compaction", "memory-note", "routine-failed", "coding-run"]);
 // Streamed deltas re-render the chat on every token; the team approvals do not need to.
 const PendingTeams = memo(TeamApprovals);
 export default function AssistantChat({
@@ -373,7 +376,8 @@ export default function AssistantChat({
             )}
             {active &&
               latest.internal &&
-              history.messages.at(-1)?.event !== latest.internal && (
+              history.messages.findLast((m) => !noteEvents.has(m.event))?.event !==
+                latest.internal && (
                 <p className="assistant-note assistant-event">
                   {copy.team.internalTurns[latest.internal]}
                 </p>

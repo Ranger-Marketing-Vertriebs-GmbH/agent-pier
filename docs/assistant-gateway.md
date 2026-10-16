@@ -927,11 +927,14 @@ was compacted and the plan was gone. Four rules close that gap:
   going). OpenClaw has no own run status for the compaction call
   (`preflight_compacting` stays internal), and a preflight compaction without a
   memory flush is not signalled at all. `Compactions` (`compactions.js`) follows
-  these events per session; `lifecycle` `end` or `error` ends it, a reconnect clears
-  it and a status older than an hour expires. Only a start or end of a known
-  conversation's compaction publishes `change`; the history then carries
-  `compacting: true`, and while its attempt is active the chat shows "Summarising
-  the conversation so far — this can take a few minutes for long chats." in the run
+  these events per session with the run id; `lifecycle` `end` or `error`, and any
+  event of another run on the session (the end of a cancelled or dead run may be
+  lost), ends it, a reconnect clears it and a status older than an hour expires on
+  the next event or read. Only a start or end of a known conversation's compaction
+  publishes `change`; the history carries `compacting: true` only while that run is
+  the conversation's active attempt (its id or `runtimeRunId`), and the chat then
+  shows "Summarising the conversation so far — this can take a few minutes for long
+  chats." in the run
   line and "Summarising conversation" in the header. The finished compaction is a
   system message `__openclaw.kind: "compaction"` with `tokensBefore` and
   `tokensAfter` in `chat.history`; the chat history (and its cache) turns it into a
