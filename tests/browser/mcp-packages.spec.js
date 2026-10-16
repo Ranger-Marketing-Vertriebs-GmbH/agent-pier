@@ -8,8 +8,12 @@ import {
   packagedServer,
   packageSetup,
   preview,
+  toInstall,
   writes,
 } from "./mcp-packages-fixture.js";
+
+const openStep = (page, step) =>
+  page.goto(`${baseURL}/accounts?section=mcp-servers&item=s1&step=${step}`);
 
 const screens = process.env.MCP_PACKAGE_SCREENS;
 
@@ -19,32 +23,28 @@ test("installing an npm package previews, confirms once and shows progress", asy
   const state = await packageSetup(page);
   acceptCreate(state);
   await page.goto(baseURL + "/accounts");
-  const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("pkg");
-  await choosePackage(dialog);
-  await expect(dialog.getByRole("textbox", { name: /^Command/ })).toHaveCount(0);
-  // exact: "Install package" (the source radio) also contains "Package".
-  await dialog.getByLabel("Package", { exact: true }).fill("server-x");
-  const version = dialog.getByLabel("Version", { exact: true });
+  const wizard = await openAdd(page);
+  await choosePackage(wizard);
+  await expect(wizard.getByRole("textbox", { name: /^Command/ })).toHaveCount(0);
+  await wizard.getByLabel("Package", { exact: true }).fill("server-x");
+  const version = wizard.getByLabel("Version", { exact: true });
   // Newest stable preselected; the prerelease hides, the deprecated one is marked.
   await expect(version).toHaveValue("1.1.0");
   await expect(version.locator("option")).toHaveCount(2);
   await expect(version.locator("option").nth(1)).toContainText("1.0.0");
   await expect(version.locator("option").nth(1)).toContainText("deprecated");
-  await dialog.getByLabel("Show prereleases").check();
+  await wizard.getByLabel("Show prereleases").check();
   await expect(version.locator("option")).toHaveCount(3);
   await expect(version.locator("option").first()).toContainText("prerelease");
-  await dialog.getByRole("checkbox", { name: "Claude Code" }).check();
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  const confirm = page.getByRole("alertdialog", { name: "Install this package?" });
+  await wizard.getByLabel("Name", { exact: true }).fill("pkg");
+  const confirm = await toInstall(wizard);
   await expect(confirm.getByText("server-x@1.1.0")).toBeVisible();
   await expect(confirm.getByText("sha512-abcdefghijklmnopq…")).toBeVisible();
   await confirm.getByText("2 packages in total").click();
   await expect(confirm.getByText("helper 1.0.0")).toBeVisible();
-  // No stdio question besides this one, even with a CLI chosen.
-  await expect(page.getByRole("alertdialog")).toHaveCount(1);
-  if (screens)
-    await accountDetail(page).screenshot({ path: `${screens}/en-install-confirm.png` });
+  // No stdio question besides this one.
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  if (screens) await wizard.screenshot({ path: `${screens}/en-install-confirm.png` });
   expect(state.requests.find((r) => r.path.endsWith("/preview")).body).toEqual({
     registry: "npm",
     name: "server-x",
@@ -52,16 +52,18 @@ test("installing an npm package previews, confirms once and shows progress", asy
     allowScripts: false,
   });
   await confirm.getByRole("button", { name: "Install" }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Installing…" }).first(),
-  ).toBeVisible();
-  const save = writes(state, "/api/mcp-servers")[0].body;
+  await expect(wizard.getByText(/continues in the background/)).toBeVisible();
+  const created = writes(state, "/api/mcp-servers");
+  expect(created).toHaveLength(1);
+  const save = created[0].body;
   expect(save).toMatchObject({
+    name: "pkg",
     confirmInstall: true,
     previewId: "p1",
-    clis: ["claude"],
     source: { registry: "npm", name: "server-x", version: "1.1.0", allowScripts: false },
   });
+  // Connect binds the CLIs later; the install confirmation asked for no stdio consent.
+  expect(save.clis).toBeUndefined();
   expect(save.confirmStdio).toBeUndefined();
   expect(save.command).toBeUndefined();
 });
@@ -73,16 +75,14 @@ test("a package with several programs lets the confirmation choose one", async (
   state.preview = preview({ programs: ["server-x", "server-x-cli"] });
   acceptCreate(state);
   await page.goto(baseURL + "/accounts");
-  const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("pkg");
-  await choosePackage(dialog);
-  await dialog.getByLabel("Package", { exact: true }).fill("server-x");
-  await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("1.1.0");
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  const confirm = page.getByRole("alertdialog", { name: "Install this package?" });
+  const wizard = await openAdd(page);
+  await choosePackage(wizard);
+  await wizard.getByLabel("Package", { exact: true }).fill("server-x");
+  await expect(wizard.getByLabel("Version", { exact: true })).toHaveValue("1.1.0");
+  const confirm = await toInstall(wizard);
   await confirm.getByLabel("Program").selectOption("server-x-cli");
   await confirm.getByRole("button", { name: "Install" }).click();
-  await expect(saveBar(page)).toHaveCount(0);
+  await expect(wizard.getByText("Saved", { exact: true })).toBeVisible();
   expect(writes(state, "/api/mcp-servers")[0].body.program).toBe("server-x-cli");
 });
 
@@ -90,28 +90,28 @@ test("allowing scripts warns in the form and in the confirmation", async ({ page
   const state = await packageSetup(page);
   state.preview = preview({ needsScripts: true });
   await page.goto(baseURL + "/accounts");
-  const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("pkg");
-  await choosePackage(dialog);
-  await dialog.getByLabel("Package", { exact: true }).fill("server-x");
-  await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("1.1.0");
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  let confirm = page.getByRole("alertdialog", { name: "Install this package?" });
+  const wizard = await openAdd(page);
+  await choosePackage(wizard);
+  await wizard.getByLabel("Package", { exact: true }).fill("server-x");
+  await expect(wizard.getByLabel("Version", { exact: true })).toHaveValue("1.1.0");
+  let confirm = await toInstall(wizard);
   // A package that needs scripts cannot be confirmed without the opt-in.
   await expect(confirm.getByRole("alert")).toContainText("needs install scripts");
   await expect(confirm.getByRole("button", { name: "Install" })).toBeDisabled();
   await confirm.getByRole("button", { name: "Cancel" }).click();
-  await dialog.getByLabel("Allow install scripts or source builds").check();
+  await expect(page).toHaveURL(/step=package/);
+  await wizard.getByText("More options").click();
+  await wizard.getByLabel("Allow install scripts or source builds").check();
   await expect(
-    dialog.getByText(/runs while the package is checked and installed/),
+    wizard.getByText(/runs while the package is checked and installed/),
   ).toBeVisible();
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  confirm = page.getByRole("alertdialog", { name: "Install this package?" });
+  confirm = await toInstall(wizard);
   await expect(confirm.getByText(/scripts and source builds are allowed/)).toBeVisible();
   await expect(confirm.getByRole("button", { name: "Install" })).toBeEnabled();
   expect(state.requests.filter((r) => r.path.endsWith("/preview")).at(-1).body).toEqual(
     expect.objectContaining({ allowScripts: true }),
   );
+  expect(writes(state, "/api/mcp-servers")).toHaveLength(0);
 });
 
 test("an unknown package or an unreachable registry is named at the version", async ({
@@ -127,10 +127,10 @@ test("an unknown package or an unreachable registry is named at the version", as
     },
   };
   await page.goto(baseURL + "/accounts");
-  const dialog = await openAdd(page);
-  await choosePackage(dialog);
-  await dialog.getByLabel("Package", { exact: true }).fill("no-such-server");
-  const version = dialog.getByLabel("Version", { exact: true });
+  const wizard = await openAdd(page);
+  await choosePackage(wizard);
+  await wizard.getByLabel("Package", { exact: true }).fill("no-such-server");
+  const version = wizard.getByLabel("Version", { exact: true });
   await expect(version).toHaveAccessibleDescription(
     "This package does not exist in the selected registry.",
   );
@@ -142,7 +142,7 @@ test("an unknown package or an unreachable registry is named at the version", as
       messageKey: "mcpPackages.registryUnavailable",
     },
   };
-  await dialog.getByLabel("Package", { exact: true }).fill("server-y");
+  await wizard.getByLabel("Package", { exact: true }).fill("server-y");
   await expect(version).toHaveAccessibleDescription(
     "The registry is currently unreachable. Please try again later.",
   );
@@ -180,8 +180,6 @@ test("an update shows the lock diff before it is confirmed", async ({ page }) =>
   await expect(version.locator("option", { hasText: "installed" })).toHaveText(
     /^1\.0\.0 · .* · deprecated · installed$/,
   );
-  // Only the owner's argument is editable; the generated program path stays hidden.
-  await expect(dialog.getByLabel("Arguments")).toHaveValue("--owner");
   await panel.getByRole("button", { name: "Check update" }).click();
   const confirm = panel.getByRole("alertdialog", { name: "Update this package?" });
   // Nested copies of one package stay separate lines.
@@ -205,6 +203,9 @@ test("an update shows the lock diff before it is confirmed", async ({ page }) =>
     previewId: "p1",
     confirmInstall: true,
   });
+  // Only the owner's argument is editable; the generated program path stays hidden.
+  await openStep(page, "setup");
+  await expect(accountDetail(page).getByLabel("Arguments")).toHaveValue("--owner");
 });
 
 test("an update to a version that renamed its only program names the rename", async ({
@@ -286,13 +287,13 @@ test("a packaged server switches back to an own command with its owner args", as
     path === "/api/mcp-servers/s1" && method === "PUT"
       ? { json: { ...state.servers[0], source: undefined, revision: 4 } }
       : null;
-  await page.goto(baseURL + "/accounts");
-  const dialog = await openAccountItem(page, "pkg");
+  await openStep(page, "setup");
+  const dialog = accountDetail(page);
   await dialog.getByRole("button", { name: "Use own command" }).click();
   await expect(dialog.getByText(/removes its installed package/)).toBeVisible();
   await dialog.getByRole("textbox", { name: /^Command/ }).fill("/usr/bin/server-x");
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  await expect(saveBar(page)).toHaveCount(0);
+  await saveBar(page).getByRole("button", { name: "Save changes" }).click();
+  await expect(page).toHaveURL(/item=s1$/);
   const body = writes(state, "/api/mcp-servers/s1")[0].body;
   expect(body).toEqual({
     revision: 3,
@@ -321,17 +322,18 @@ test("an own-command server switches to a package with one confirmation (D1)", a
           },
         }
       : null;
-  await page.goto(baseURL + "/accounts");
-  const dialog = await openAccountItem(page, "pkg");
+  await openStep(page, "setup");
+  const dialog = accountDetail(page);
   await dialog.getByRole("radio", { name: "Install package" }).check();
   await dialog.getByLabel("Package", { exact: true }).fill("server-x");
   await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("1.1.0");
-  await dialog.getByRole("button", { name: "Save server" }).click();
+  await saveBar(page).getByRole("button", { name: "Save changes" }).click();
+  // An edit keeps the install dialog; only the wizard confirms inline.
   await page
     .getByRole("alertdialog", { name: "Install this package?" })
     .getByRole("button", { name: "Install" })
     .click();
-  await expect(saveBar(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/item=s1$/);
   const body = writes(state, "/api/mcp-servers/s1")[0].body;
   expect(body).toEqual({
     revision: 3,
@@ -382,37 +384,44 @@ test("German: a failed package shows its error, log and Reinstall; bindings wait
   await expect(panel.getByText(/npm error code E404/)).toBeHidden();
   await log.click();
   await expect(panel.getByText(/npm error code E404/)).toBeVisible();
-  await expect(dialog.getByRole("checkbox", { name: "Claude Code" })).toBeDisabled();
-  await expect(
-    dialog.getByText(
-      "Coding-CLIs und Agenten lassen sich hinzufügen, sobald das Paket installiert ist.",
-    ),
-  ).toBeVisible();
-  await expect(
-    dialog.getByRole("button", { name: "Eigenen Befehl verwenden" }),
-  ).toBeVisible();
   if (screens) await panel.screenshot({ path: `${screens}/de-status-panel.png` });
   await panel.getByRole("button", { name: "Neu installieren" }).click();
   await expect(
     panel.getByRole("status").filter({ hasText: "Wird installiert…" }),
   ).toBeVisible();
   expect(writes(state, "/api/mcp-servers/s1/package/reinstall")).toHaveLength(1);
+  // Bindings wait for the package; the set-up step still offers the own command.
+  state.servers[0].source.status = "failed";
+  await openStep(page, "connect");
+  await expect(dialog.getByRole("switch", { name: "Claude Code" })).toBeDisabled();
+  await expect(
+    dialog
+      .getByText(
+        "Coding-CLIs und Agenten lassen sich hinzufügen, sobald das Paket installiert ist.",
+      )
+      .first(),
+  ).toBeVisible();
+  await openStep(page, "setup");
+  await expect(
+    dialog.getByRole("button", { name: "Eigenen Befehl verwenden" }),
+  ).toBeVisible();
 });
 
-test("German: the form offers the package source", async ({ page }) => {
+test("German: the wizard offers the package source", async ({ page }) => {
   await packageSetup(page, { language: "de" });
   await page.goto(baseURL + "/accounts");
   await page
     .getByRole("region", { name: "MCP-Server" })
     .getByRole("button", { name: "MCP-Server hinzufügen" })
     .click();
-  const dialog = accountDetail(page);
-  await dialog.getByRole("radio", { name: "Lokaler Befehl (stdio)" }).check();
-  await dialog.getByRole("radio", { name: "Paket installieren" }).check();
+  const dialog = page.locator(".mcp-wizard");
+  await dialog.getByRole("radio", { name: "Paket aus npm oder PyPI" }).check();
+  await dialog.getByRole("button", { name: "Weiter", exact: true }).click();
   await expect(dialog.getByLabel("Paket", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Vorabversionen anzeigen")).toBeVisible();
   await expect(dialog.getByLabel("Abhängigkeitsgrenzen")).toHaveCount(0);
   await dialog.getByRole("radio", { name: "PyPI" }).check();
+  await dialog.getByText("Weitere Optionen").click();
   await expect(dialog.getByLabel("Abhängigkeitsgrenzen")).toBeVisible();
   await expect(dialog.getByText(/fastmcp<4/)).toBeVisible();
 });
@@ -437,8 +446,8 @@ test("keeping the package after typing a command leaves nothing to save", async 
   page,
 }) => {
   await packageSetup(page, { servers: [packagedServer("ready")] });
-  await page.goto(baseURL + "/accounts");
-  const dialog = await openAccountItem(page, "pkg");
+  await openStep(page, "setup");
+  const dialog = accountDetail(page);
   await dialog.getByRole("button", { name: "Use own command" }).click();
   await dialog.getByRole("textbox", { name: /^Command/ }).fill("/usr/bin/server-x");
   await dialog.getByLabel("Arguments").fill("--other");

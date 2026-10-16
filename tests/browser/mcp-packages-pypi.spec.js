@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { accountDetail, openAccountItem } from "../helpers/accounts-browser.js";
+import { openAccountItem } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { englishServerMessages } from "../../server/lib/i18n/catalog-en.js";
@@ -11,6 +11,7 @@ import {
   packageSetup,
   preview,
   pypiVersions,
+  toInstall,
   writes,
 } from "./mcp-packages-fixture.js";
 
@@ -56,10 +57,13 @@ const pypiServer = () => {
   };
 };
 
-async function choosePypi(dialog, name = "opnsense-mcp-server") {
-  await choosePackage(dialog);
-  await dialog.getByRole("radio", { name: "PyPI" }).check();
-  await dialog.getByLabel("Package", { exact: true }).fill(name);
+/** The wizard's package step for a PyPI package, with its options unfolded. */
+async function choosePypi(wizard, name = "opnsense-mcp-server", serverName = "opnsense") {
+  await choosePackage(wizard);
+  await wizard.getByRole("radio", { name: "PyPI" }).check();
+  await wizard.getByLabel("Package", { exact: true }).fill(name);
+  await wizard.getByLabel("Name", { exact: true }).fill(serverName);
+  await wizard.getByText("More options").click();
 }
 
 test("a PyPI package shows withdrawn versions and installs with a constraint", async ({
@@ -71,8 +75,8 @@ test("a PyPI package shows withdrawn versions and installs with a constraint", a
   acceptCreate(state);
   await page.goto(baseURL + "/accounts");
   const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("opnsense");
   await choosePackage(dialog);
+  await dialog.getByText("More options").click();
   await expect(dialog.getByLabel("Dependency constraints")).toHaveCount(0);
   await dialog.getByRole("radio", { name: "PyPI" }).check();
   await expect(dialog.getByLabel("Package", { exact: true })).toHaveAttribute(
@@ -80,6 +84,7 @@ test("a PyPI package shows withdrawn versions and installs with a constraint", a
     "mcp-server-name",
   );
   await dialog.getByLabel("Package", { exact: true }).fill("opnsense-mcp-server");
+  await dialog.getByLabel("Name", { exact: true }).fill("opnsense");
   const version = dialog.getByLabel("Version", { exact: true });
   await expect(version).toHaveValue("0.4.1");
   await expect(version.locator("option")).toHaveCount(2);
@@ -89,8 +94,7 @@ test("a PyPI package shows withdrawn versions and installs with a constraint", a
   await expect(version.locator("option").first()).toContainText("0.5.0rc1 ·");
   await expect(version.locator("option").first()).toContainText("prerelease");
   await dialog.getByLabel("Dependency constraints").fill("  fastmcp<4\n\n");
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  const confirm = page.getByRole("alertdialog", { name: "Install this package?" });
+  const confirm = await toInstall(dialog);
   await expect(confirm.getByText("PyPI", { exact: true })).toBeVisible();
   await expect(confirm.getByText("fastmcp<4", { exact: true })).toBeVisible();
   // Every release file is pinned; the digest shown is the file expected to install.
@@ -100,8 +104,7 @@ test("a PyPI package shows withdrawn versions and installs with a constraint", a
   ).toBeVisible();
   await expect(confirm.getByText(`sha256:${wheelDigest}`, { exact: true })).toBeVisible();
   await expect(confirm.getByText("opnsense-mcp", { exact: true })).toHaveCount(0);
-  if (screens)
-    await accountDetail(page).screenshot({ path: `${screens}/en-pypi-confirm.png` });
+  if (screens) await dialog.screenshot({ path: `${screens}/en-pypi-confirm.png` });
   expect(state.requests.find((r) => r.path.endsWith("/preview")).body).toEqual({
     registry: "pypi",
     name: "opnsense-mcp-server",
@@ -110,6 +113,7 @@ test("a PyPI package shows withdrawn versions and installs with a constraint", a
     constraints: ["fastmcp<4"],
   });
   await confirm.getByRole("button", { name: "Install" }).click();
+  await expect(dialog.getByText("Saved", { exact: true })).toBeVisible();
   expect(writes(state, "/api/mcp-servers")[0].body.source).toEqual({
     registry: "pypi",
     name: "opnsense-mcp-server",
@@ -133,12 +137,12 @@ test("a refused constraint is named at its field", async ({ page }) => {
   };
   await page.goto(baseURL + "/accounts");
   const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("opnsense");
   await choosePypi(dialog);
   await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("0.4.1");
   const field = dialog.getByLabel("Dependency constraints");
   await field.fill("fastmcp[cli]<4");
-  await dialog.getByRole("button", { name: "Save server" }).click();
+  await toInstall(dialog);
+  await expect(page).toHaveURL(/step=package/);
   await expect(field).toHaveAttribute("aria-invalid", "true");
   await expect(dialog.getByRole("alert")).toHaveText(
     /^Dependency constraints take one PyPI package name with version limits per line/,
@@ -162,11 +166,11 @@ test("a fully yanked version is named at the version field", async ({ page }) =>
   };
   await page.goto(baseURL + "/accounts");
   const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("opnsense");
   await choosePypi(dialog);
   const version = dialog.getByLabel("Version", { exact: true });
   await expect(version).toHaveValue("0.4.1");
-  await dialog.getByRole("button", { name: "Save server" }).click();
+  await toInstall(dialog);
+  await expect(page).toHaveURL(/step=package/);
   await expect(version).toHaveAttribute("aria-invalid", "true");
   await expect(dialog.getByRole("alert")).toHaveText(
     "The maintainers withdrew (yanked) this version. Choose another version.",
@@ -174,7 +178,7 @@ test("a fully yanked version is named at the version field", async ({ page }) =>
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
 });
 
-test("unsatisfiable limits are named at the constraints field, other failures in the bar", async ({
+test("unsatisfiable limits are named at the constraints field, other failures at the install", async ({
   page,
 }) => {
   const state = await packageSetup(page);
@@ -189,12 +193,12 @@ test("unsatisfiable limits are named at the constraints field, other failures in
   };
   await page.goto(baseURL + "/accounts");
   const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("opnsense");
   await choosePypi(dialog);
   await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("0.4.1");
   const field = dialog.getByLabel("Dependency constraints");
   await field.fill("fastmcp<1");
-  await dialog.getByRole("button", { name: "Save server" }).click();
+  await toInstall(dialog);
+  await expect(page).toHaveURL(/step=package/);
   await expect(field).toHaveAttribute("aria-invalid", "true");
   await expect(dialog.getByRole("alert")).toHaveText(
     englishServerMessages.mcpPackages.unsatisfiable,
@@ -208,8 +212,9 @@ test("unsatisfiable limits are named at the constraints field, other failures in
       messageKey: "mcpPackages.previewFailed",
     },
   };
-  await dialog.getByRole("button", { name: "Save server" }).click();
   await expect(field).not.toHaveAttribute("aria-invalid", "true");
+  await toInstall(dialog);
+  await expect(page).toHaveURL(/step=install/);
   await expect(
     page.getByText(englishServerMessages.mcpPackages.previewFailed),
   ).toBeVisible();
@@ -228,14 +233,12 @@ test("a package that is built first names its program and the build tools", asyn
   });
   await page.goto(baseURL + "/accounts");
   const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("old");
-  await choosePypi(dialog, "old-x");
+  await choosePypi(dialog, "old-x", "old");
   await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("0.4.1");
   await dialog.getByLabel("Allow install scripts or source builds").check();
   // The form's warning names the build tools as well.
   await expect(dialog.getByText(/Build tools such as setuptools/)).toBeVisible();
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  const confirm = page.getByRole("alertdialog", { name: "Install this package?" });
+  const confirm = await toInstall(dialog);
   await expect(confirm.getByText("The program is chosen after the build.")).toBeVisible();
   await expect(confirm.getByText(/Build tools such as setuptools/)).toBeVisible();
   await expect(confirm.getByText(/not part of the frozen, hash-checked/)).toBeVisible();
@@ -249,14 +252,15 @@ test("an npm package names no build tools and takes no constraints", async ({ pa
   state.preview = preview({ needsScripts: true });
   await page.goto(baseURL + "/accounts");
   const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("pkg");
   await choosePackage(dialog);
   await dialog.getByLabel("Package", { exact: true }).fill("server-x");
+  await dialog.getByLabel("Name", { exact: true }).fill("pkg");
   await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("1.1.0");
+  await dialog.getByText("More options").click();
+  await expect(dialog.getByLabel("Dependency constraints")).toHaveCount(0);
   await dialog.getByLabel("Allow install scripts or source builds").check();
   await expect(dialog.getByText(/Build tools/)).toHaveCount(0);
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  const confirm = page.getByRole("alertdialog", { name: "Install this package?" });
+  const confirm = await toInstall(dialog);
   await expect(confirm.getByText(/scripts and source builds are allowed/)).toBeVisible();
   await expect(confirm.getByText(/Build tools/)).toHaveCount(0);
   await expect(confirm.getByText("sha512-abcdefghijklmnopq…")).toBeVisible();
@@ -343,12 +347,10 @@ test("on a phone the PyPI confirmation wraps its digest within the width", async
   state.preview = pypiPreview();
   await page.goto(baseURL + "/accounts");
   const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("opnsense");
   await choosePypi(dialog);
   await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("0.4.1");
   await dialog.getByLabel("Dependency constraints").fill("fastmcp<4");
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  const confirm = page.getByRole("alertdialog", { name: "Install this package?" });
+  const confirm = await toInstall(dialog);
   await expect(confirm.getByText(`sha256:${wheelDigest}`)).toBeVisible();
   const overflow = (locator) =>
     locator.evaluate((element) => element.scrollWidth - element.clientWidth);
@@ -403,7 +405,10 @@ test("a build with several programs waits for the program choice", async ({ page
     program: "opnsense-admin",
   });
   // The bindings stay locked until the program runs.
-  await expect(dialog.getByText(/added once the package is installed/)).toBeVisible();
+  await page.goto(`${baseURL}/accounts?section=mcp-servers&item=s1&step=connect`);
+  await expect(
+    dialog.getByText(/added once the package is installed/).first(),
+  ).toBeVisible();
 });
 
 test("a refused program choice names the reason and keeps the choice", async ({

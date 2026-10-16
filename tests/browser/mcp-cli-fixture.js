@@ -1,4 +1,3 @@
-import { accountDetail } from "../helpers/accounts-browser.js";
 import { fixture } from "./providers-fixture.js";
 
 /** The central MCP API; `state` records requests and holds what the list returns. */
@@ -63,12 +62,15 @@ export const bound = (extra = {}) =>
     ...extra,
   });
 
+/** Opens the wizard from the list; returns its frame (an `.accounts-detail`). */
 export async function openAdd(page) {
   await page
     .getByRole("region", { name: "MCP servers" })
     .getByRole("button", { name: "Add MCP server" })
     .click();
-  return accountDetail(page);
+  const wizard = page.locator(".mcp-wizard");
+  await wizard.getByRole("heading", { level: 1 }).waitFor();
+  return wizard;
 }
 
 export const stdioServer = () =>
