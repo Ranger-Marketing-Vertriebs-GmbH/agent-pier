@@ -83,6 +83,14 @@ async function open(page, server, options = {}) {
     if (p.endsWith("/queued") && method === "POST") {
       const body = request.postDataJSON();
       server.queuedPosts.push(body);
+      await server.hold?.();
+      if (server.dropNext) {
+        server.dropNext = false;
+        return route.abort("connectionreset");
+      }
+      // A repeated submission (same appendId) changes nothing, as on the server.
+      if (body.appendId && server.queued?.lastAppend === body.appendId)
+        return route.fulfill({ json: server.queued });
       const text = [server.queued?.text, body.text]
         .map((part) => String(part || "").trimEnd())
         .filter((part) => part.trim())
@@ -104,6 +112,7 @@ async function open(page, server, options = {}) {
           ...(body.attachments || []).map(() => notes),
         ],
         state: "waiting",
+        lastAppend: body.appendId,
       };
       return route.fulfill({ json: server.queued });
     }
@@ -153,7 +162,9 @@ test("Enter while the agent works queues the message on the server instead of st
   await expect(stopButton(page)).toBeVisible();
   expect(server.cancels).toEqual([]);
   expect(server.posted).toEqual([]);
-  expect(server.queuedPosts).toEqual([{ text: "And add a dessert" }]);
+  expect(server.queuedPosts).toEqual([
+    { text: "And add a dessert", appendId: expect.any(String) },
+  ]);
 
   // A second Enter adds to the same queued message, on its own line.
   await field(page).pressSequentially("Without nuts");
@@ -209,7 +220,7 @@ test("Edit takes the queued message and its files back into the composer", async
   await sendWhenDone(page).click();
   await expect(queued(page)).toContainText("1 file");
   expect(server.queuedPosts).toEqual([
-    { text: "Use these notes", attachments: ["file-1"] },
+    { text: "Use these notes", attachments: ["file-1"], appendId: expect.any(String) },
   ]);
   // The server owns the files now: the tray lets go of them without deleting them.
   await expect(page.getByRole("list", { name: "Attachments" })).toHaveCount(0);
@@ -352,4 +363,59 @@ test("on a phone, Send when done queues next to Stop", async ({ page }) => {
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(390);
   if (shots) await page.screenshot({ path: `${shots}/queued-phone-en.png` });
+});
+
+test("a double submit queues the text once, and a retry repeats its key", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "Enter breaks the line on touch input");
+  const server = agentServer();
+  server.start();
+  await open(page, server);
+  let release;
+  server.hold = () => new Promise((resolve) => (release = resolve));
+  await field(page).fill("Add a dessert");
+  await field(page).press("Enter");
+  await expect.poll(() => server.queuedPosts.length).toBe(1);
+  await sendWhenDone(page).click();
+  await field(page).press("Enter");
+  server.hold = null;
+  release();
+  await expect(queued(page)).toContainText("Add a dessert");
+  await page.waitForTimeout(300);
+  expect(server.queuedPosts).toHaveLength(1);
+  expect(server.queued.text).toBe("Add a dessert");
+
+  // A lost answer: the same submission goes out again under the same key.
+  server.dropNext = true;
+  await field(page).fill("Without nuts");
+  await field(page).press("Enter");
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(field(page)).toHaveValue("Without nuts");
+  await field(page).press("Enter");
+  await expect(queued(page)).toContainText("Without nuts");
+  expect(server.queuedPosts).toHaveLength(3);
+  expect(server.queuedPosts[2].appendId).toBe(server.queuedPosts[1].appendId);
+  expect(server.queuedPosts[1].appendId).not.toBe(server.queuedPosts[0].appendId);
+});
+
+test("the announcement stays put while the agent flips between waiting and blocked", async ({
+  page,
+}) => {
+  const server = agentServer();
+  server.start();
+  server.end();
+  server.queued = {
+    text: "Later",
+    teamAllowed: false,
+    attachments: [],
+    state: "waiting",
+  };
+  await open(page, server, {
+    runtime: { availability: "reconnecting", sync: "current" },
+  });
+  await expect(queued(page)).toContainText("Not sent yet");
+  // Shown on the card, but not announced again and again.
+  await expect(page.locator(".assistant-queued-live")).toHaveText(notice);
 });

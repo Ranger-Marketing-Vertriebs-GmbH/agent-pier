@@ -224,8 +224,10 @@ way to stop the turn. Pressing Enter, or choosing **Send when done** next to **S
 (also on phones and tablets, where Enter starts a new line), queues the next message
 instead: the composer clears and the message waits above it with "Will be sent when
 _agent_ is done". A further message joins the queued one on a new line; each chat holds
-one queued message of at most 65,536 characters and five files. **Edit** takes it back
-into the composer, before any text typed since, with its files.
+one queued message of at most 65,536 characters and five files. If any part allows a
+team (**Allow a team for this message**), the whole queued message does. **Edit** takes
+it back into the composer, before any text typed since, with its files. An archived
+agent takes no queued messages.
 
 AgentPier keeps the queued message on the server, so a reload, another tab or device
 and a restart still show it. Once the turn ends, also when it failed or you stopped it,
@@ -233,8 +235,9 @@ the server sends the queued message once, with its files and team permission, th
 the normal send. An uncertain or interrupted turn holds it until you resolve that turn;
 while the agent service is not ready the notice says the agent cannot take messages
 right now. If the agent refuses it, for example because a file is gone, the notice
-shows the reason and **Edit** brings it back. Its files stay with it until it is sent
-or taken back.
+shows the reason; such a message takes no more text until **Edit** brings it back. A
+queued message that could not go out for a day is not sent anymore and says so. Its
+files stay with it until it is sent or taken back.
 
 ## Attachments
 
