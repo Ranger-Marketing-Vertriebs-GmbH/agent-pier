@@ -80,3 +80,34 @@ test("backup snapshots memory and encrypted credentials into a fresh remapped re
     { message: serverMessages.backups.restoreTargetLive },
   );
 });
+
+test("backup leaves out temporary files a crashed writer left behind", async (t) => {
+  const root = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-leftover-")),
+  );
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const dataDir = path.join(root, "source");
+  const leftover = ".0b8f3c1e-1111-4222-8333-944445555666.tmp";
+  await fs.mkdir(path.join(dataDir, "chat"), { recursive: true });
+  await fs.mkdir(path.join(dataDir, "provider-connection-secrets"));
+  await fs.writeFile(path.join(dataDir, "accounts.json"), "[]");
+  await fs.writeFile(path.join(dataDir, "chat/s1.binding.json"), "{}");
+  // What writePrivate leaves when the process dies between write and rename.
+  await fs.writeFile(path.join(dataDir, `chat/s1.snapshot.json${leftover}`), "{}");
+  await fs.writeFile(
+    path.join(dataDir, `provider-connection-secrets/p.json${leftover}`),
+    "{}",
+  );
+  const made = await new Backup({ dataDir, home: root }).create({
+    includeHistory: true,
+    withCredentials: true,
+    passphrase: "fixture passphrase sufficiently long",
+  });
+  const target = path.join(root, "restored");
+  await new Restore({ dataDir }).apply({
+    archive: made.file,
+    targetDataDir: target,
+    passphrase: "fixture passphrase sufficiently long",
+  });
+  assert.deepEqual(await fs.readdir(path.join(target, "chat")), ["s1.binding.json"]);
+});

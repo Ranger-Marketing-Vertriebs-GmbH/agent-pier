@@ -23,7 +23,9 @@ Always, as public (unencrypted) members:
 
 With **Include history**, also public: AgentPier session records and terminal
 captures, chat histories and AgentBus history. This history can contain private task
-content; it is not encrypted.
+content; it is not encrypted. Only chat files a restore accepts are captured; a
+temporary file that a crashed writer left in `chat/` or in a credential folder is
+left out.
 
 With **Include history** and **Include encrypted credentials** together, each
 managed CLI profile's conversation history (table below), always encrypted (see
