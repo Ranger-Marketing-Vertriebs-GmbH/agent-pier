@@ -63,23 +63,16 @@ function LockDiff({ diff }) {
   );
 }
 
-/**
- * The one owner confirmation of a package install or update: what is installed from
- * where, its dependencies, the PyPI constraints, the program when the package has
- * several (or that a build names it), the scripts warning and, for an update, the
- * lock diff. It replaces the stdio confirmation.
- */
-export default function McpPackageConfirmation({
+/** Details, dependencies, program, diff, warnings and the two actions. */
+function ConfirmationBody({
   preview,
   allowScripts,
-  update = false,
+  update,
   defaultProgram,
   busy = false,
-  returnKey,
   onConfirm,
   onCancel,
 }) {
-  const focus = useAlertDialogFocus(onCancel, returnKey);
   const programId = useId();
   const programs = preview.programs || [];
   const [program, setProgram] = useState(
@@ -90,18 +83,11 @@ export default function McpPackageConfirmation({
     update && defaultProgram && programs.length === 1 && programs[0] !== defaultProgram
       ? programs[0]
       : null;
-  const title = update ? copy.updateTitle : copy.confirmTitle;
   const blocked = preview.needsScripts === true && !allowScripts;
   const pypi = preview.registry === "pypi";
   const constraints = preview.constraints || [];
   return (
-    <div
-      {...focus}
-      className="mcp-confirmation mcp-package-confirmation"
-      role="alertdialog"
-      aria-label={title}
-    >
-      <strong>{title}</strong>
+    <>
       <dl className="mcp-details">
         <dt>{copy.nameLabel}</dt>
         <dd>{`${preview.name}@${preview.version}`}</dd>
@@ -202,6 +188,55 @@ export default function McpPackageConfirmation({
           {mcpServerCopy.cancel}
         </button>
       </div>
+    </>
+  );
+}
+
+function DialogConfirmation(props) {
+  const focus = useAlertDialogFocus(props.onCancel, props.returnKey);
+  const title = props.update ? copy.updateTitle : copy.confirmTitle;
+  return (
+    <div
+      {...focus}
+      className="mcp-confirmation mcp-package-confirmation"
+      role="alertdialog"
+      aria-label={title}
+    >
+      <strong>{title}</strong>
+      <ConfirmationBody {...props} />
     </div>
+  );
+}
+
+// The wizard's Install step shows the same content on the page, not as a dialog.
+function InlineConfirmation(props) {
+  const id = useId();
+  const title = props.update ? copy.updateTitle : copy.confirmTitle;
+  return (
+    <section className="mcp-package-confirmation mcp-package-inline" aria-labelledby={id}>
+      <h2 id={id} className="mcp-wizard-subtitle">
+        {title}
+      </h2>
+      <ConfirmationBody {...props} />
+    </section>
+  );
+}
+
+/**
+ * The one owner confirmation of a package install or update: what is installed from
+ * where, its dependencies, the PyPI constraints, the program when the package has
+ * several (or that a build names it), the scripts warning and, for an update, the
+ * lock diff. It replaces the stdio confirmation. `inline` shows it on the page (the
+ * wizard's Install step) instead of as an alert dialog.
+ */
+export default function McpPackageConfirmation({
+  inline = false,
+  update = false,
+  ...props
+}) {
+  return inline ? (
+    <InlineConfirmation update={update} {...props} />
+  ) : (
+    <DialogConfirmation update={update} {...props} />
   );
 }

@@ -3,6 +3,16 @@ import useTabDraft from "../../lib/settings/useTabDraft.js";
 import useUnsavedChangesGuard from "../../lib/settings/useUnsavedChangesGuard.js";
 
 /**
+ * Whether a navigation keeps `entry` on screen: the same Accounts item and, for the
+ * MCP wizard's edit steps, the same step. Each edit step keeps its own draft.
+ */
+export const staysOnEntry = (entry, request) =>
+  request.next?.view === "accounts" &&
+  request.next.section === entry.section &&
+  request.next.item === entry.item &&
+  (request.next.step ?? "") === (entry.step ?? "");
+
+/**
  * One entry's draft and its unsaved-changes guard. Navigations that keep the same
  * entry on screen never ask; the steps are read at save time. After a full save the
  * draft restarts from the server record (one render later, when the refreshed record
@@ -76,10 +86,7 @@ export default function useAccountDraft({
     draft,
     tab,
     save,
-    stays: (request) =>
-      request.next?.view === "accounts" &&
-      request.next.section === entry.section &&
-      request.next.item === entry.item,
+    stays: (request) => staysOnEntry(entry, request),
   });
   return { draft, sheet, save, overwrite, generation, gate, leave };
 }
