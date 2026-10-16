@@ -225,7 +225,10 @@ staging folder beside the target, validated (SQLite integrity and schema version
 artifacts, agent sealing, project mappings) and renamed into place only when
 everything succeeded. CLI histories return to the same profile folders. Claude Code
 transcripts of a remapped project move to the folder Claude Code derives from the
-new project directory. Newer Claude Code versions shorten long folder names with a
+new project directory. Preferences come back as saved, except that the default
+project folder follows its project mapping (and is dropped when the project is not
+mapped) and default accounts the restored profiles cannot serve are cleared. Newer
+Claude Code versions shorten long folder names with a
 hash suffix; those folders are not moved. Other settings keyed by a project path
 keep the old path: `.claude.json` `projects` entries (trust, project MCP servers),
 Codex `config.toml` `[projects."<path>"]` and the `cwd` recorded in Codex rollouts.

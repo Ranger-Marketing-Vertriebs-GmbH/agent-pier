@@ -110,7 +110,10 @@ export async function mapProjects(directory, projectMap = {}) {
     preferences = readJson(preferencesFile, null);
   if (preferences) {
     const mapped = mappings.find((m) => m.oldCwd === preferences.defaultCwd);
-    const restored = mapped ? { defaultCwd: mapped.cwd } : {};
+    // Other settings come back as saved; only host-bound ones are remapped.
+    const restored = { ...preferences };
+    if (mapped) restored.defaultCwd = mapped.cwd;
+    else delete restored.defaultCwd;
     if (Object.hasOwn(preferences, "defaultAccountIds"))
       restored.defaultAccountIds = new Preferences({
         dataDir: directory,
