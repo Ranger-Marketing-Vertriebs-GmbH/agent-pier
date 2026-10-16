@@ -150,6 +150,14 @@
   border-radius: 8px;
   background: var(--surface-raised);
 }
+.mcp-wizard-switch {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.mcp-wizard-switch p {
+  margin: 0;
+}
 .mcp-wizard code,
 .mcp-wizard .mcp-wizard-mono {
   word-break: break-all;
