@@ -20,6 +20,7 @@ export default function AssistantHeader({
   navigationOpen = false,
   attempt,
   member,
+  compacting = false,
 }) {
   const { runtime, models, activity = {} } = useAssistants();
   const status = headerStatus({
@@ -30,6 +31,7 @@ export default function AssistantHeader({
     entry: activityFor(activity, assistant.id),
     member,
     copy,
+    compacting,
   });
   const missing = status.tone === "missing";
   const settings = variant === "settings";

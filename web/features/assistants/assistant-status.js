@@ -34,6 +34,7 @@ export function headerStatus({
   entry,
   member,
   copy,
+  compacting = false,
 }) {
   if (connectionMissing(assistant, models))
     return { tone: "missing", label: copy.status.connectionMissing };
@@ -56,6 +57,9 @@ export function headerStatus({
       tone: "waiting",
       label: copyAt(copy, current.label) ?? copy.team.states.awaiting_approval,
     };
+  // While the run summarises its long history first (compactions.js).
+  if (attempt && compacting && !attentionAttempts.has(attempt.state))
+    return { tone: "working", label: copy.status.compacting };
   if (attempt)
     return {
       tone: attentionAttempts.has(attempt.state) ? "attention" : "working",

@@ -9,6 +9,7 @@ import { reconcileRuns } from "./run-reconciler.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { MemoryFlushes } from "./memory-flushes.js";
 import { MemoryNotes } from "./memory-notes.js";
+import { Compactions } from "./compactions.js";
 import { awaitWriteGuard, noteReadOnlyTurn, orderedTurn } from "./write-guard-wait.js";
 import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
@@ -62,6 +63,18 @@ export class AssistantService {
     this.memoryFlushes = new MemoryFlushes({ now });
     this.memoryNotes = new MemoryNotes(store.db, now);
     this.gatewayEvents.on("agent", (payload) => this.memoryFlushes.observe(payload));
+    // The chat says when a run summarises its conversation; only a start or an end of
+    // a known conversation's compaction refreshes the clients.
+    this.compactions = new Compactions({ now });
+    this.gatewayEvents.on("agent", (payload) => {
+      if (
+        this.compactions.observe(payload) &&
+        this.store
+          .listConversations()
+          .some((c) => c.runtimeSessionKey === payload.sessionKey)
+      )
+        this.changed();
+    });
     this.gatewayEvents.onReady(reapplySkills);
     this.locks = new Map();
     this.closed = false;
@@ -124,6 +137,7 @@ export class AssistantService {
   }
   bindGateway() {
     this.memoryFlushes.clear();
+    this.compactions?.clear();
     this.bindEvents();
     this.gatewayEvents.bind(this.runtime.client);
   }

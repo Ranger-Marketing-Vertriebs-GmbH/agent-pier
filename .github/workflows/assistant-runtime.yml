@@ -142,6 +142,7 @@ jobs:
           tests/integration/assistant-schedule-qualification.test.js
           tests/integration/assistant-memory-contract.test.js
           tests/integration/assistant-memory-flush-contract.test.js
+          tests/integration/assistant-compaction-contract.test.js
           tests/integration/assistant-runtime-update-native.test.js
           tests/integration/assistant-native-write-contract.test.js
           tests/integration/assistant-team-plugin-contract.test.js

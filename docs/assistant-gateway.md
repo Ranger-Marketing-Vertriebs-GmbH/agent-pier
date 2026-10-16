@@ -917,6 +917,31 @@ was compacted and the plan was gone. Four rules close that gap:
   The exposure is limited by the first-session pin (one internal session per
   flush) and the date bound (today's or yesterday's note only). Nothing in
   AgentPier starts other `internal-session-effects` runs today.
+- **Summarising status.** A long conversation makes OpenClaw shorten its history
+  before it answers, which can take minutes. The pinned runtime signals it on the
+  source session with Gateway `agent` events: before a run (preflight,
+  `runSessionCompactionIfNeeded`) `run_status` / `memory_flushing` for the flush,
+  then `preparing_context` when the flush ends and the compaction model call
+  follows, then `preparing_workspace` for the run itself; inside a run the
+  `compaction` stream with phase `start` and `end` (`willRetry: true` keeps it
+  going). OpenClaw has no own run status for the compaction call
+  (`preflight_compacting` stays internal), and a preflight compaction without a
+  memory flush is not signalled at all. `Compactions` (`compactions.js`) follows
+  these events per session; `lifecycle` `end` or `error` ends it, a reconnect clears
+  it and a status older than an hour expires. Only a start or end of a known
+  conversation's compaction publishes `change`; the history then carries
+  `compacting: true`, and while its attempt is active the chat shows "Summarising
+  the conversation so far — this can take a few minutes for long chats." in the run
+  line and "Summarising conversation" in the header. The finished compaction is a
+  system message `__openclaw.kind: "compaction"` with `tokensBefore` and
+  `tokensAfter` in `chat.history`; the chat history (and its cache) turns it into a
+  note `compaction:<id>` at that place, which the chat shows as "Earlier messages
+  were summarised (about N k → M k tokens)." Readers of replies (Telegram delivery,
+  team results) take assistant turns only, and AgentPier never sets
+  `agents.defaults.compaction.notifyUser`, so Telegram receives nothing.
+  `assistant-compaction-contract.test.js` checks on the pinned runtime that the
+  status covers the flush and the summary call but not the answer, and that the
+  marker carries both token counts.
 - **No silent read-only window.** After a start or reconnect the guard reports
   within one interval (15 s). An owner or paired Telegram turn of a memory agent
   waits for it, outside the admission lock, but only until 20 s after the Gateway
