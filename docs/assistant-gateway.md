@@ -647,8 +647,12 @@ well: the team proposal tool carries
 `ownerRequestedTeam` and a verbatim `ownerRequestQuote` (at most 300 characters),
 and AgentPier admits the team without confirmation only when the quote has at
 least three words, contains "team" (also inside compounds such as "Rechercheteam")
-and appears in the stored user text of the same request after whitespace and case
-normalization. The turn context comes from AgentPier's own records, never from the
+and appears as whole words in the owner's own prose of the stored user text of the
+same request after whitespace and case normalization, by the same rules as a lead's
+task quote (below): not in code, block quotes, links or other text the owner quoted
+or pasted (also Telegram quote, code and link formatting), not after a quotation
+mark, and not in a message with a negation anywhere ("do not build a team …",
+"kein Team …"); such a request needs the owner's approval. The turn context comes from AgentPier's own records, never from the
 model. The owner's own web and Telegram messages qualify, including transcribed
 Telegram voice; forwarded content (text or voice), scheduled turns and internal
 member/result turns never authorize, and one request authorizes at most one team.
