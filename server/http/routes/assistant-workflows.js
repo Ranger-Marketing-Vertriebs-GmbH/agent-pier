@@ -14,9 +14,14 @@ export function assistantWorkflowRoutes({ assistants }) {
     res.json(service().access.get(req.params.id)),
   );
   router.put("/assistants/:id/access", (req, res) =>
-    assistants.admit(() => {
+    assistants.admit(async () => {
       const { revision, ...input } = req.body;
-      res.json(service().access.save(req.params.id, input, revision));
+      const before = service().access.get(req.params.id).sshAccesses.length > 0;
+      const saved = service().access.save(req.params.id, input, revision);
+      // Gaining the first or losing the last grant changes the agent's tool list.
+      if (before !== saved.sshAccesses.length > 0 && assistants.runtime?.client?.ready)
+        await assistants.config.apply(req.params.id).catch(() => {});
+      res.json(saved);
     }),
   );
   router.get("/assistants/:id/actions", (req, res) =>
