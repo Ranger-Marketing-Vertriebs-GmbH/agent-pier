@@ -192,6 +192,37 @@
 .mcp-setting > .button.text {
   justify-self: start;
 }
+.mcp-wizard-subtitle {
+  margin: 0;
+  font-size: 1rem;
+}
+.mcp-wizard-progress {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mcp-wizard-progress li {
+  padding-left: 22px;
+  position: relative;
+  color: var(--muted);
+}
+.mcp-wizard-progress li::before {
+  content: "○";
+  position: absolute;
+  left: 0;
+}
+.mcp-wizard-progress li.is-current {
+  color: inherit;
+  font-weight: 600;
+}
+.mcp-wizard-progress li.is-done {
+  color: inherit;
+}
+.mcp-wizard-progress li.is-done::before {
+  content: "✓";
+}
 @media (min-width: 900px) {
   .mcp-wizard-layout {
     display: grid;

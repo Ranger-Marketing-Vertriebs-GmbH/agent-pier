@@ -5,6 +5,7 @@ import {
   phone,
   primary,
   wizardSetup,
+  writes,
 } from "./mcp-wizard-fixture.js";
 
 for (const [label, use] of [
@@ -99,6 +100,43 @@ for (const [label, use] of [
           "Letters, digits and underscores; it cannot start with a digit.",
         ),
       ).toBeVisible();
+    });
+
+    test("an own command is allowed and saved with its settings and arguments", async ({
+      page,
+    }) => {
+      const state = await wizardSetup(page);
+      const wizard = await openWizard(page);
+      await chooseSource(wizard, /Own command/);
+      await wizard.getByLabel("Name", { exact: true }).fill("tool");
+      await wizard.getByLabel("Command").fill("uvx");
+      await expect(primary(wizard)).toBeEnabled();
+      await primary(wizard).click();
+      await wizard.getByRole("button", { name: "Add a setting" }).click();
+      await wizard
+        .locator(".mcp-setting")
+        .getByLabel("Name", { exact: true })
+        .fill("API_TOKEN");
+      await wizard
+        .locator(".mcp-setting")
+        .getByLabel("Value", { exact: true })
+        .fill("abc");
+      await wizard.getByText(/^Arguments and working directory/).click();
+      await wizard.getByRole("button", { name: "Add an argument" }).click();
+      await wizard.getByLabel("Argument 1", { exact: true }).fill("--read-only");
+      await primary(wizard).click();
+      await expect(wizard.getByText("Run a local command?")).toBeVisible();
+      await wizard.getByRole("button", { name: "Allow and save" }).click();
+      await expect(page).toHaveURL(/step=connect/);
+      expect(writes(state)[0].body).toEqual({
+        name: "tool",
+        transport: "stdio",
+        command: "uvx",
+        args: ["--read-only"],
+        env: { API_TOKEN: "abc" },
+        confirmStdio: true,
+        origin: "manual",
+      });
     });
   });
 }
