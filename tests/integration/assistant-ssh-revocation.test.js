@@ -140,3 +140,33 @@ test("the startup sweep kills a command a crashed AgentPier left running", async
   await f.workflows.ssh.start();
   await waitFor(() => !alive(), 2000);
 });
+
+test("removing a host keeps the agent's unrelated pending approvals valid", async (t) => {
+  const f = await agentSshFixture(t);
+  f.workflows.ssh.approvals.pollMs = 20;
+  f.grant([{ accessId: hostId, mode: "approval" }]);
+  const coding = await f.workflows.invoke(await f.invocation(), {
+    action: "coding_start",
+    projectId: f.project.id,
+    pipelineId: f.pipeline.id,
+    task: "Implement feature",
+  });
+  assert.equal(coding.state, "awaiting_approval");
+  const call = f.execute(f.ownTurn(), "process.exit(0)");
+  const card = await waitFor(() =>
+    f.workflows.store
+      .list(f.id)
+      .find((a) => a.id !== coding.id && a.state === "awaiting_approval"),
+  );
+  f.workflows.ssh.revokeAccess(hostId);
+  assert.equal(f.workflows.get(card.id).state, "cancelled");
+  assert.equal(await codeOf(call), "SSH_REVOKED");
+  const pending = f.workflows.get(coding.id);
+  await f.workflows.decide(
+    pending.id,
+    { revision: pending.revision, decision: "approve" },
+    { kind: "owner" },
+  );
+  await f.workflows.tick();
+  assert.equal(f.starts.length, 1);
+});

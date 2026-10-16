@@ -1,4 +1,4 @@
-import { AssistantAccess, exact } from "./assistant-access.js";
+import { AssistantAccess, approvalRevision, exact } from "./assistant-access.js";
 import {
   AssistantActionStore,
   actionTerminal as terminal,
@@ -215,7 +215,7 @@ export class AssistantWorkflows {
       const action = this.store.reserve({
         ...ctx,
         payload,
-        accessRevision: p.revision,
+        accessRevision: approvalRevision(p),
         key: `${inv.attemptId}:${inv.toolCallId}`,
         // A member's request always waits for the owner, whatever the parent's
         // standing permission says.
