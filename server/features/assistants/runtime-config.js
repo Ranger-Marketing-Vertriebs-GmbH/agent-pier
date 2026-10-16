@@ -42,6 +42,7 @@ export const nativeTools = [
   "agentpier_reminder",
   "agentpier_routine",
   "agentpier_workspace",
+  "agentpier_ssh",
 ];
 
 function freshDefaults(paths) {
@@ -251,6 +252,7 @@ export function compileOpenClawConfig({
           pathPrepend: shell?.pathPrepend,
           mcpTools: mcpServers.agentTools[profile.runtimeAgentId],
           senderFacing: !!telegramCompiled.accounts[profile.runtimeAgentId],
+          ssh: !!teams.sshAgents?.has(profile.id),
           shadowedSkills: skillShadows[profile.runtimeAgentId],
         }),
       );

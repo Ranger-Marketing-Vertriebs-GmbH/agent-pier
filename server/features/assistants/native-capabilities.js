@@ -49,14 +49,16 @@ export const sessionTools = [
  * rewrite. Writes stay with the tool guard, which admits a routine's own run
  * (TeamBridge.routineWrite). Left out: reminders and routines (a routine never
  * schedules) and the team and workspace tools (the bridge serves them only in an
- * owner's chat turn; a known limitation for routines). `*__*` stands for the
- * agent's MCP tools (`<server>__<tool>`).
+ * owner's chat turn). `agentpier_ssh` is in: the bridge admits a routine's run
+ * session for SSH only, and only on hosts marked "Trusted incl. routines". `*__*`
+ * stands for the agent's MCP tools (`<server>__<tool>`).
  */
 export const routineTools = [
   "session_status",
   ...memoryTools,
   ...Object.values(capabilityTools).flat(),
   ...shellTools,
+  "agentpier_ssh",
   "*__*",
 ];
 export const personalEligible = (assistant) =>
@@ -101,6 +103,8 @@ export function profileTools(
   available = {},
   // `<name>__*` globs of the MCP servers bound to this agent (mcpSections).
   mcpTools = [],
+  // The agent holds at least one SSH grant (assistant-access.js hasSshGrants).
+  ssh = false,
 ) {
   const capabilities = personalCapabilities(assistant);
   return [
@@ -125,5 +129,6 @@ export function profileTools(
     // Paired with the entry's tools.exec override (openclaw-config/shell.js).
     ...(nativeReady && personalShell(assistant) !== "off" ? shellTools : []),
     ...(nativeReady && !assistant.archivedAt ? mcpTools : []),
+    ...(nativeReady && ssh && personalEligible(assistant) ? ["agentpier_ssh"] : []),
   ];
 }

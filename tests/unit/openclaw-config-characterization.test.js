@@ -145,6 +145,7 @@ test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
     "agentpier_reminder",
     "agentpier_routine",
     "agentpier_workspace",
+    "agentpier_ssh",
   ]);
   assert.equal(config.tools.fs.workspaceOnly, true);
   assert.deepEqual(config.cron, {

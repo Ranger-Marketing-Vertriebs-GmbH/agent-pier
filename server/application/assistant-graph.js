@@ -116,6 +116,7 @@ export function constructAssistantGraph(host, created = {}) {
       "shellPathPrepend",
       "mcpTools",
       "senderFacing",
+      "sshGranted",
     ],
   );
   const assistants = (created.assistants = expectWiring(
@@ -381,6 +382,8 @@ export function connectAssistantServices(graph) {
       !!(runtime.telegram || runtime.telegramStarting)?.accounts.includes(
         assistant.runtimeAgentId,
       ),
+    // Agents with an SSH grant get agentpier_ssh (assistant-access.js).
+    sshGranted: (assistant) => workflows.access.hasSshGrants(assistant.id),
   });
   // A guard report, and leaving maintenance with a live guard, re-applies the agents
   // the Gateway start compiled without write and edit (AGENTPIER-80).
@@ -413,6 +416,8 @@ export function connectAssistantServices(graph) {
         hostMaxConcurrent: teams.store.settings().hostMaxConcurrent,
         native: await reminders.start(),
         profiles: store.listAssistants(),
+        // Eligible agents with an SSH grant (assistant-access.js sshAgents).
+        sshAgents: workflows.access.sshAgents(),
         // Read at each start; secrets reach only the compiled openclaw.json.
         mcp: readMcpInputs(mcpServers, { redirectUrl: mcpChanges.redirectUrl() }),
         webTools: {

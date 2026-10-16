@@ -103,6 +103,7 @@ const nativeAllow = [
   "agentpier_reminder",
   "agentpier_routine",
   "agentpier_workspace",
+  "agentpier_ssh",
 ];
 const agentAllow = (config, id) => config.agents.entries[id].tools.allow;
 
