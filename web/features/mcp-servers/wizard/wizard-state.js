@@ -64,6 +64,7 @@ export function initialWizard() {
     fieldError: null,
     serverId: null,
     finished: false,
+    connect: null,
     notice: "",
   };
 }
@@ -94,6 +95,15 @@ export function wizardReducer(state, action) {
       return { ...state, fieldError: action.fieldError };
     case "saved":
       return { ...state, serverId: action.id, fieldError: null };
+    case "connected":
+      return {
+        ...state,
+        connect: {
+          results: action.results,
+          diff: action.diff,
+          consented: action.consented,
+        },
+      };
     case "finished":
       return { ...state, finished: true };
     case "lost":
