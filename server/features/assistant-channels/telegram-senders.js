@@ -44,6 +44,8 @@ export class TelegramSenders {
     clientFactory = (token) => new TelegramClient({ token, ...(apiRoot && { apiRoot }) }),
     // Assistant ids bound to a stdio MCP server (openclaw-config/telegram-senders.js).
     stdioAgents = () => new Set(),
+    // Assistant ids with an SSH grant (assistant-access.js sshAgents).
+    sshAgents = () => new Set(),
     // The agent ids the next start finds in openclaw.json: the start compiles bots
     // only for these (configuredAgents), so every comparison uses the same set.
     configured = null,
@@ -63,6 +65,7 @@ export class TelegramSenders {
       clientFactory,
       store,
       stdioAgents,
+      sshAgents,
       retryMs,
       maxAttempts,
       warn,
@@ -93,6 +96,8 @@ export class TelegramSenders {
       throw assistantProblem("telegramSendersShell", 409);
     if (this.stdioAgents().has(assistantId))
       throw assistantProblem("telegramSendersStdio", 409);
+    if (this.sshAgents().has(assistantId))
+      throw assistantProblem("telegramSendersSsh", 409);
     return profile;
   }
   /**
@@ -116,6 +121,7 @@ export class TelegramSenders {
         telegram: inputs,
         agents: this.configured(),
         stdio: this.stdioAgents(),
+        ssh: this.sshAgents(),
       }),
     );
   }
@@ -316,6 +322,7 @@ export class TelegramSenders {
       voice: this.voiceAvailable(),
       shell: personalShell(profile),
       stdio: this.stdioAgents().has(assistantId),
+      ssh: this.sshAgents().has(assistantId),
     };
   }
   voiceAvailable() {
@@ -328,12 +335,15 @@ export class TelegramSenders {
   /**
    * `running`, `starting`, `error` (the account failed), `stopped` (no Gateway),
    * `pending` (saved, not yet in the running Gateway) or `inactive` (nobody allowed,
-   * or the agent cannot own a bot: archived, shell or a stdio MCP server).
+   * or the agent cannot own a bot: archived, shell, a stdio MCP server or SSH grants).
    */
   async status(bot) {
     const runtime = this.assistants.runtime;
     const profile = this.assistants.store.getAssistant(bot.assistantId);
-    if (!bot.people.length || !telegramEligible(profile, this.stdioAgents()))
+    if (
+      !bot.people.length ||
+      !telegramEligible(profile, this.stdioAgents(), this.sshAgents())
+    )
       return { state: "inactive" };
     if (!runtime.client?.ready || !runtime.telegram) return { state: "stopped" };
     if (this.agentPending(bot.assistantId)) return { state: "pending" };

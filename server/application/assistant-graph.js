@@ -246,6 +246,8 @@ export function constructAssistantGraph(host, created = {}) {
         return new Set();
       }
     },
+    // Agents with SSH grants never own a bot for other people (assistant-access.js).
+    sshAgents: () => assistantWorkflows.access.sshAgents(),
   });
   const assistantWebTools = new WebToolsChanges({
     assistants,

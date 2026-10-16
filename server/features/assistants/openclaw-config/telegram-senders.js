@@ -22,16 +22,19 @@ export const telegramSurfaces = [
 ];
 
 /**
- * Agents that may own a bot for other people: personal, not archived and without
- * shell. A sender must never reach host commands, whatever the store says.
+ * Agents that may own a bot for other people: personal, not archived, without shell,
+ * stdio MCP servers or SSH grants. A sender must never reach host commands, whatever
+ * the store says.
  */
-export function telegramEligible(profile, stdio = new Set()) {
+export function telegramEligible(profile, stdio = new Set(), ssh = new Set()) {
   return (
     !!profile?.runtimeAgentId &&
     personalEligible(profile) &&
     personalShell(profile) === "off" &&
     // A stdio MCP server runs host commands as well; remote servers stay allowed.
-    !stdio.has(profile.id)
+    !stdio.has(profile.id) &&
+    // So does agentpier_ssh on the hosts the owner granted (assistant-access.js).
+    !ssh.has(profile.id)
   );
 }
 
@@ -107,7 +110,7 @@ export function configuredAgents(config) {
  * - `voice`: the Deepgram settings, or null (text only).
  * - `skipped`: assistant ids of stored bots that are not compiled.
  */
-export function telegramSections({ profiles = [], telegram, agents, stdio } = {}) {
+export function telegramSections({ profiles = [], telegram, agents, stdio, ssh } = {}) {
   const sections = {
     accounts: {},
     bindings: [],
@@ -126,7 +129,7 @@ export function telegramSections({ profiles = [], telegram, agents, stdio } = {}
     );
     // An allowlist without ids is rejected by OpenClaw's validation.
     if (
-      !telegramEligible(profile, stdio) ||
+      !telegramEligible(profile, stdio, ssh) ||
       !people.length ||
       !stored.token ||
       (agents && !agents.has(profile.runtimeAgentId))

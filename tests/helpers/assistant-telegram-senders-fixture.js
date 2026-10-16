@@ -41,6 +41,8 @@ export function fixture(t) {
   const runtime = { client: null, telegram: null, telegramStarting: null, calls: [] };
   // Assistant ids bound to a stdio MCP server.
   const stdio = new Set();
+  // Assistant ids with an SSH grant (assistant-access.js sshAgents).
+  const ssh = new Set();
   // Runtime agent ids missing from openclaw.json (never created in the Gateway).
   const unconfigured = new Set();
   const assistants = {
@@ -73,6 +75,7 @@ export function fixture(t) {
     audit: { append: (entry) => audit.push(entry) },
     clientFactory,
     stdioAgents: () => stdio,
+    sshAgents: () => ssh,
     // Every agent of the store has its Gateway entry, unless a test removes it.
     configured: () =>
       new Set(
@@ -99,6 +102,7 @@ export function fixture(t) {
     audit,
     restarts,
     stdio,
+    ssh,
     unconfigured,
     // An agent the Gateway already runs (applied once).
     agent(name = "Home", extra = {}) {
@@ -136,6 +140,7 @@ export function fixture(t) {
           telegram: senders.inputs(),
           agents: senders.configured(),
           stdio,
+          ssh,
         }),
       );
     },

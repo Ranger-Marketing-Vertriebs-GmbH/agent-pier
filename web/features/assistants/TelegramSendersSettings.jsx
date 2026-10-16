@@ -111,14 +111,17 @@ export default function TelegramSendersSettings({ assistantId }) {
       assistantApi.applyTelegramSenders(confirmRestart ? { confirmRestart: true } : {}),
     );
   const state = bot && data.status?.state;
-  // An agent with shell or a stdio MCP server cannot get a bot (server enforced).
+  // An agent with shell, a stdio MCP server or SSH grants cannot get a bot (server
+  // enforced).
   const blocked =
     data && !bot
       ? data.shell && data.shell !== "off"
         ? copy.shellBlocked
         : data.stdio
           ? copy.stdioBlocked
-          : ""
+          : data.ssh
+            ? copy.sshBlocked
+            : ""
       : "";
   // Saved, but the agent service still runs something else; also after a removal.
   const pending =

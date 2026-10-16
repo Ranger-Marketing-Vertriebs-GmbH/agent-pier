@@ -194,6 +194,7 @@ export function compileOpenClawConfig({
     telegram: enabled && teams.native ? telegram : undefined,
     agents: configuredAgents(config),
     stdio: stdioAgents(mcp || {}),
+    ssh: teams?.sshAgents,
   });
   if (enabled && teams.native) {
     // memory and skills.workshop are written only here; otherwise they stay inert
