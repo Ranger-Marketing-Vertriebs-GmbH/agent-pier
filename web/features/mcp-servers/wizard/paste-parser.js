@@ -1,9 +1,10 @@
 import { splitCommandLine } from "./command-mapper.js";
 import { mapEntry } from "./paste-entry.js";
+import { pasteLimit } from "./paste-shared.js";
 import { parseRelaxedJson, PasteJsonError } from "./paste-json.js";
 
 // Reads a guide's setup block in this browser: no network, no eval, deterministic.
-export const pasteLimit = 64 * 1024;
+export { pasteLimit };
 export const serverLimit = 20;
 const blocks = ["mcpServers", "servers", "mcp", "context_servers"];
 const isRecord = (value) =>

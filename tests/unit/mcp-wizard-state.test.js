@@ -8,6 +8,7 @@ import {
   isDirty,
   nextStep,
   pasteLeft,
+  pasteRefused,
   previousStep,
   reachable,
   resolveStep,
@@ -299,4 +300,24 @@ test("an own command switches to the package it names", () => {
   assert.equal(state.draft.packageName, "@modelcontextprotocol/server-everything");
   assert.equal(state.draft.hints.program, "everything");
   assert.deepEqual(state.visited, ["source", "package"]);
+});
+
+test("Add another server does not return to Paste when only refused servers remain", () => {
+  const result = {
+    ok: true,
+    servers: [
+      { name: "a" },
+      { name: "b", refused: "noCommand" },
+      { key: "c", refused: "invalidArgs" },
+    ],
+    warnings: [],
+  };
+  const state = run([
+    { type: "via", via: "paste" },
+    { type: "pasteResult", result, index: 0 },
+    { type: "pasted", index: 0, draft: { path: "command", name: "a" } },
+  ]);
+  assert.equal(pasteLeft(state.paste), false);
+  assert.deepEqual(pasteRefused(state.paste), ["b", "c"]);
+  assert.deepEqual(run([{ type: "reset", keepPaste: false }], state), initialWizard());
 });
