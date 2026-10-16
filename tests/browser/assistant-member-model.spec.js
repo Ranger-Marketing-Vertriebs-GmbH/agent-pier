@@ -59,7 +59,11 @@ function setup(lifetime = "task") {
   };
 }
 
-test("a task member's row and header show the lead's new model", async ({ page }) => {
+// The server resolves the lead's model (assistant-member-model.test.js); this checks
+// that the row and header show the model the server sends after a change.
+test("a task member's row and header show the server-provided model after a change", async ({
+  page,
+}) => {
   const state = await chatFixture(page, setup());
   await page.goto(baseURL + "/agents/member-0/chats/member-chat");
   const status = page.locator(".assistant-header-status");
@@ -82,7 +86,10 @@ test("a task member's profile names the lead's model instead of offering a choic
   await expect(
     page.getByText("Follows the lead's model.", { exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".agent-profile-card")).toContainText("openai/gpt-4.1-mini");
+  await expect(page.locator(".agent-profile-card")).toContainText(
+    "OpenRouter · openai/gpt-4.1-mini",
+  );
+  await expect(page.getByText("Manage connections", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Model connection")).toHaveCount(0);
   await expect(page.getByText(/^Model: /)).toHaveCount(0);
   await expect(page.getByLabel("Name", { exact: true })).toBeEditable();
@@ -92,6 +99,7 @@ test("a permanent member's profile offers its own model", async ({ page }) => {
   await chatFixture(page, setup("permanent"));
   await page.goto(baseURL + "/agents/member-0/settings");
   await expect(page.getByLabel("Model connection")).toBeVisible();
+  await expect(page.getByText("Manage connections", { exact: true })).toBeVisible();
   await expect(page.getByText("Follows the lead's model.", { exact: true })).toHaveCount(
     0,
   );

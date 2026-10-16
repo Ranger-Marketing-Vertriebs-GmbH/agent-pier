@@ -4,6 +4,7 @@ import { routePath } from "../../../app/routes.js";
 import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
 import AssistantModelFields from "../AssistantModelFields.jsx";
+import { connectionLabel } from "../connection-label.js";
 
 /**
  * Whether the profile fields may be sent: the mounted form reports its own errors;
@@ -50,8 +51,13 @@ export default function ProfileFields({
         </label>
         {followsLead ? (
           <div className="agent-field agent-model-follows">
-            <span>{copy.model}</span>
-            <strong>{modelId}</strong>
+            <span>{copy.modelChoice}</span>
+            {/* Two connections can offer the same model ID: name the lead's one. */}
+            <strong>
+              {[connectionLabel(models.find((m) => m.id === connectionId)), modelId]
+                .filter(Boolean)
+                .join(" · ")}
+            </strong>
             <p className="assistant-note" role="note">
               {copy.team.followsLeadModel}
             </p>
@@ -69,14 +75,17 @@ export default function ProfileFields({
           </div>
         )}
       </div>
-      {!models.some((model) => model.available) && (
+      {/* A member that follows its lead chooses no connection of its own. */}
+      {!followsLead && !models.some((model) => model.available) && (
         <p className="assistant-note">{copy.noConnections}</p>
       )}
-      <ReferenceRow
-        title={copy.connections}
-        href={routePath(accounts)}
-        onOpen={() => navigate(accounts)}
-      />
+      {!followsLead && (
+        <ReferenceRow
+          title={copy.connections}
+          href={routePath(accounts)}
+          onOpen={() => navigate(accounts)}
+        />
+      )}
     </>
   );
 }

@@ -73,7 +73,12 @@ export class AssistantStore {
       .run(id, 1, JSON.stringify(record));
     return record;
   }
-  /** The stored record, without resolving a temporary member's model. */
+  /**
+   * The stored record, without resolving a temporary member's model: a task member's
+   * stored model is only the one it last held when written (at creation or a later
+   * write), not the one it runs on. Reads (getAssistant, listAssistants) resolve the
+   * effective model.
+   */
   storedAssistant(id) {
     const row = this.db.prepare("SELECT body FROM assistants WHERE id=?").get(id);
     if (!row) throw assistantProblem("notFound", 404);

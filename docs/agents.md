@@ -129,9 +129,11 @@ Permanent members stay under their lead in the sidebar. Every member row and cha
 shows the model the member actually runs on:
 
 - **Temporary members** always use the lead's current model. Change the lead's model
-  and its temporary members use the new one from their next turn on. When the lead's
-  model connection is removed or unavailable, they stop working with the same hint as
-  the lead until you choose another model for the lead.
+  and its temporary members use the new one from their next turn on; the member's own
+  Profile revision does not change. A model chosen for a temporary member in an earlier
+  AgentPier version is ignored. When the lead's model connection is removed or
+  unavailable, they stop working with the same hint as the lead until you choose
+  another model for the lead.
 - **Permanent members** have their own model. A member kept with **Keep as permanent
   agent** takes over the lead's model of that moment; later changes to the lead do not
   affect it. Change it in the member's Profile.
