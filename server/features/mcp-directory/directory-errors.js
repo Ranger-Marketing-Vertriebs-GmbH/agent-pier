@@ -4,6 +4,7 @@ import { problem } from "../../lib/storage.js";
 const codes = {
   MCP_DIRECTORY_DISABLED: ["disabled", 409],
   MCP_DIRECTORY_UNAVAILABLE: ["unavailable", 503],
+  MCP_DIRECTORY_MISCONFIGURED: ["misconfigured", 502],
   MCP_DIRECTORY_NOT_FOUND: ["notFound", 404],
   MCP_DIRECTORY_INVALID: ["invalid", 502],
   MCP_DIRECTORY_INVALID_REQUEST: ["invalidRequest", 400],

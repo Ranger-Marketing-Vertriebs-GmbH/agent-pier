@@ -7,6 +7,7 @@ test("each code has its status and a stable message key", () => {
   for (const [code, status, key] of [
     ["MCP_DIRECTORY_DISABLED", 409, "mcpDirectory.disabled"],
     ["MCP_DIRECTORY_UNAVAILABLE", 503, "mcpDirectory.unavailable"],
+    ["MCP_DIRECTORY_MISCONFIGURED", 502, "mcpDirectory.misconfigured"],
     ["MCP_DIRECTORY_NOT_FOUND", 404, "mcpDirectory.notFound"],
     ["MCP_DIRECTORY_INVALID", 502, "mcpDirectory.invalid"],
     ["MCP_DIRECTORY_INVALID_REQUEST", 400, "mcpDirectory.invalidRequest"],
