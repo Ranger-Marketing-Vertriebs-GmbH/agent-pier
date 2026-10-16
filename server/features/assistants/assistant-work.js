@@ -20,6 +20,7 @@ export function saveWork({ assistants, access, teams }, id, body) {
   if (assistants.maintenance) throw assistantProblem("active", 409);
   const accessPart = body.access ? part(body.access) : null;
   const teamPart = body.team ? part(body.team) : null;
+  const before = accessPart ? access.get(id) : null;
   const result = teams.transaction(() => {
     const next = accessPart
       ? access.prepare(id, accessPart.input, accessPart.revision)
@@ -30,6 +31,7 @@ export function saveWork({ assistants, access, teams }, id, body) {
     if (next) access.write(id, next);
     return { access: next || access.get(id), team };
   });
+  if (before) access.auditSsh(id, before, result.access, "owner");
   assistants.changed();
   return result;
 }
