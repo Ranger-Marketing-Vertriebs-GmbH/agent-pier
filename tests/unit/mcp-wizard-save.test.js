@@ -110,3 +110,38 @@ test("a preview that would save instead refuses with translated copy", async () 
     },
   );
 });
+
+test("a server from the directory saves the entry it came from", async () => {
+  const bodies = [];
+  const draft = draftFor("remote", {
+    name: "files",
+    url: "https://acme.files.example/mcp",
+    origin: "directory",
+    directoryOrigin: { name: "com.example/files", version: "1.2.0" },
+  });
+  await saveNewServer({
+    draft,
+    saveServer: async (_server, body) => {
+      bodies.push(body);
+      return { id: "s1" };
+    },
+  });
+  assert.equal(bodies[0].origin, "directory");
+  assert.deepEqual(bodies[0].directoryOrigin, {
+    name: "com.example/files",
+    version: "1.2.0",
+  });
+});
+
+test("a server set up by hand sends no directory origin", async () => {
+  const bodies = [];
+  const draft = draftFor("remote", { name: "docs", url: "https://docs.example/mcp" });
+  await saveNewServer({
+    draft,
+    saveServer: async (_server, body) => {
+      bodies.push(body);
+      return { id: "s1" };
+    },
+  });
+  assert.equal(bodies[0].directoryOrigin, undefined);
+});

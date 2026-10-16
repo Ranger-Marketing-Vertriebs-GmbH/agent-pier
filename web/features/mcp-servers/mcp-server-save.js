@@ -45,7 +45,8 @@ const defaultSave = (server, body) =>
  * confirmed first; the server may still ask for its own stdio confirmation. A package
  * to install (new server, or an own-command server switching to one) is previewed and
  * confirmed once instead; `chosenProgram()` returns the program that dialog selected.
- * `origin` (how a new server was set up) goes into a create body only.
+ * `origin` (how a new server was set up) and `directoryOrigin` (the directory entry
+ * it came from) go into a create body only.
  */
 export function mcpServerStep({
   server,
@@ -54,6 +55,7 @@ export function mcpServerStep({
   previewPackage = assistantApi.previewMcpPackage,
   chosenProgram = () => null,
   origin = null,
+  directoryOrigin = null,
   saved,
 }) {
   return {
@@ -99,6 +101,7 @@ export function mcpServerStep({
           : {}),
         // How a new server was set up; the server records it in the create audit.
         ...(!server && origin ? { origin } : {}),
+        ...(!server && directoryOrigin ? { directoryOrigin } : {}),
       };
       const result = await saveServer(server, body);
       await saved(result);

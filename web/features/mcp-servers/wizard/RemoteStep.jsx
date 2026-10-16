@@ -1,16 +1,62 @@
 import React, { useId, useState } from "react";
 import Segment from "../../../components/Segment.jsx";
+import { mcpDirectoryCopy as directoryCopy } from "../../../lib/i18n/messages/mcp-directory.js";
 import { mcpOAuthCopy } from "../../../lib/i18n/messages/mcp-oauth.js";
 import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import FieldError from "../FieldError.jsx";
 import NameField from "../NameField.jsx";
 import { fieldErrors } from "../field-errors.js";
+import { composeUrl } from "./directory-draft.js";
 import { addressWarnings } from "./setting-hints.js";
 import { guessTransport } from "./wizard-state.js";
 import WizardStep from "./WizardStep.jsx";
 
 const signIns = ["headers", "oauth", "none"];
+/** One field per `{var}` of a directory address; the address follows them. */
+function UrlTemplate({ draft, set }) {
+  const template = draft.urlTemplate;
+  const write = (name, value) => {
+    const next = { ...template, values: { ...template.values, [name]: value } };
+    set("urlTemplate")(next);
+    set("url")(composeUrl(next));
+  };
+  return (
+    <fieldset className="mcp-wizard-template">
+      {draft.hints.directory && (
+        <p className="mcp-hint">
+          {directoryCopy.listedAs(
+            draft.hints.directory.name,
+            draft.hints.directory.version,
+          )}
+        </p>
+      )}
+      {template.variables.map((variable) => (
+        <label key={variable.name}>
+          {directoryCopy.urlVariable(variable.name)}
+          <input
+            value={
+              Object.hasOwn(template.values, variable.name)
+                ? template.values[variable.name]
+                : ""
+            }
+            required={variable.required}
+            autoCapitalize="none"
+            spellCheck={false}
+            onChange={(event) => write(variable.name, event.target.value)}
+          />
+          {variable.description && (
+            <small className="mcp-hint">{variable.description}</small>
+          )}
+        </label>
+      ))}
+      <p className="mcp-hint mcp-wizard-mono">
+        {directoryCopy.addressPreview(draft.url)}
+      </p>
+    </fieldset>
+  );
+}
+
 const authRowOf = (headers) =>
   headers.find((row) => row.key === "auth") ?? {
     key: "auth",
@@ -52,12 +98,14 @@ export default function RemoteStep({ state, dispatch, go, headingRef }) {
         error={errorOf("name")}
         errorId={errorId}
       />
+      {draft.urlTemplate && <UrlTemplate draft={draft} set={set} />}
       <div className="mcp-field">
         <label htmlFor={`${formId}-url`}>{mcpServerCopy.urlLabel}</label>
         <input
           id={`${formId}-url`}
           type="url"
           required
+          readOnly={Boolean(draft.urlTemplate)}
           value={draft.url}
           placeholder="https://example.com/mcp"
           autoCapitalize="none"

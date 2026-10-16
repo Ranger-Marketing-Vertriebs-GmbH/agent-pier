@@ -16,6 +16,13 @@ const tokenParameter = /token|key|secret|auth|password|passwd|sig|credential/i;
 
 export const isSecretName = (name) => secretPattern.test(String(name ?? ""));
 
+/**
+ * The per-setting hints of a draft. The package step can drop a directory entry's
+ * hints (`useDirectory: false`); paste hints never set that flag.
+ */
+export const settingHints = (hints = {}) =>
+  hints.useDirectory === false ? {} : (hints.settings ?? {});
+
 export const isWriteSwitch = (name, description = "") =>
   writePattern.test(String(name ?? "")) || writePattern.test(String(description ?? ""));
 
@@ -28,7 +35,7 @@ export function writeSwitch(rows, { hints = {} } = {}) {
     (row) =>
       row.name &&
       !row.removed &&
-      isWriteSwitch(row.name, hints.settings?.[row.name]?.description),
+      isWriteSwitch(row.name, settingHints(hints)[row.name]?.description),
   );
   if (!found) return null;
   if (found.stored && !found.value) return { name: found.name, state: "stored" };
@@ -74,5 +81,6 @@ export const storedCount = (rows) => rows.filter(kept).length;
 /** Of those, the ones masked as secret (directory marker or name heuristic). */
 export const secretCount = (rows, hints = {}) =>
   rows.filter(
-    (row) => kept(row) && (hints.settings?.[row.name]?.secret || isSecretName(row.name)),
+    (row) =>
+      kept(row) && (settingHints(hints)[row.name]?.secret || isSecretName(row.name)),
   ).length;

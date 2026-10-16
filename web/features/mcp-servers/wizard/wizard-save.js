@@ -34,6 +34,7 @@ const step = ({ draft, program, saveServer, previewPackage, saved }) =>
     server: null,
     label: "",
     origin: draft.origin,
+    directoryOrigin: draft.directoryOrigin ?? null,
     chosenProgram: () => program,
     saved,
     ...(saveServer ? { saveServer } : {}),

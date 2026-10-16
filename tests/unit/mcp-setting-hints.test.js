@@ -5,6 +5,7 @@ import {
   isSecretName,
   isWriteSwitch,
   secretCount,
+  settingHints,
   settingProblem,
   storedCount,
   writeSwitch,
@@ -105,4 +106,23 @@ test("counts for the summary and Done", () => {
   ];
   assert.equal(storedCount(rows), 3);
   assert.equal(secretCount(rows, { settings: { A: { secret: true } } }), 2);
+});
+
+test("dropped directory hints apply to markers, counts and the write switch alike", () => {
+  const hints = {
+    settings: {
+      PASS_PHRASE: { secret: true },
+      MODE: { description: "Works like ALLOW_WRITES" },
+    },
+    directory: { name: "a.b/c", version: "1.0.0" },
+  };
+  const rows = [row("PASS_PHRASE", "x"), row("MODE", "true")];
+  assert.equal(settingHints(hints).PASS_PHRASE.secret, true);
+  assert.equal(secretCount(rows, hints), 1);
+  assert.equal(writeSwitch(rows, { hints }).name, "MODE");
+  const dropped = { ...hints, useDirectory: false };
+  assert.deepEqual(settingHints(dropped), {});
+  assert.equal(secretCount(rows, dropped), 0);
+  assert.equal(writeSwitch(rows, { hints: dropped }), null);
+  assert.deepEqual(settingHints(), {});
 });

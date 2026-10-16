@@ -3,7 +3,7 @@ import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js"
 import FieldError from "../FieldError.jsx";
 import { fieldErrors } from "../field-errors.js";
 import SettingRow from "./SettingRow.jsx";
-import { settingProblem } from "./setting-hints.js";
+import { settingHints, settingProblem } from "./setting-hints.js";
 import WizardStep from "./WizardStep.jsx";
 
 const newKey = () => `row-${Math.random().toString(36).slice(2)}`;
@@ -90,7 +90,7 @@ export default function SettingsStep({ state, dispatch, go, headingRef }) {
   const editable = stdio || draft.signIn === "headers";
   const all = draft[key];
   const rows = all.filter((row) => stdio || row.key !== authKey);
-  const hints = draft.hints.settings ?? {};
+  const hints = settingHints(draft.hints);
   const set = (field) => (value) => dispatch({ type: "set", key: field, value });
   const { errorId, errorOf, describe } = fieldErrors(formId, fieldError);
   const [tried, setTried] = useState(false);

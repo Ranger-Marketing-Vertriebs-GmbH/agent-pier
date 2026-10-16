@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useState } from "react";
 import { locale } from "../../../lib/i18n/index.js";
+import { mcpDirectoryCopy as directoryCopy } from "../../../lib/i18n/messages/mcp-directory.js";
 import { mcpPackageCopy } from "../../../lib/i18n/messages/mcp-packages.js";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import McpPackageFields from "../McpPackageFields.jsx";
@@ -77,6 +78,26 @@ export default function PackageStep({ state, dispatch, go, headingRef, data }) {
       primary={{ label: copy.continue }}
       onSubmit={() => go("settings")}
     >
+      {draft.hints.directory && (
+        <div className="mcp-wizard-notice">
+          <p>
+            {directoryCopy.listedAs(
+              draft.hints.directory.name,
+              draft.hints.directory.version,
+            )}
+          </p>
+          <label className="mcp-check">
+            <input
+              type="checkbox"
+              checked={draft.hints.useDirectory !== false}
+              onChange={(event) =>
+                set("hints")({ ...draft.hints, useDirectory: event.target.checked })
+              }
+            />
+            <span>{directoryCopy.useHints}</span>
+          </label>
+        </div>
+      )}
       <McpPackageFields
         formId={formId}
         values={draft}
