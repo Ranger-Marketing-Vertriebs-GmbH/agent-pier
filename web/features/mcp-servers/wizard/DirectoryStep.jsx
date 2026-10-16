@@ -27,10 +27,14 @@ export function SettingsLink({ navigate }) {
   );
 }
 
-function statusText(state, shown) {
+function statusText(state, shown, opening) {
+  if (opening) return copy.detailLoading;
   if (state.phase === "idle") return copy.emptyHint;
   if (state.phase === "loading") return copy.loading;
-  return state.phase === "done" && shown.length ? copy.results(shown.length) : "";
+  if (state.phase !== "done") return "";
+  if (shown.length) return copy.results(shown.length);
+  // Hits exist, but "Installable here" hides every one of them.
+  return state.entries.length ? copy.hiddenByFilter(state.entries.length) : "";
 }
 
 /** Search the MCP Registry; a hit opens its detail; "Use this server" fills the draft. */
@@ -41,6 +45,8 @@ export default function DirectoryStep({ dispatch, go, headingRef, data, navigate
   const [filter, setFilter] = useState("installable");
   const [state, setState] = useState(idle);
   const [detail, setDetail] = useState(null);
+  // The result whose detail is being fetched.
+  const [opening, setOpening] = useState(null);
   // Only the latest search or detail request may change the screen.
   const latest = useRef(0);
   // What "Try again" repeats: the failed search, page or detail.
@@ -52,6 +58,7 @@ export default function DirectoryStep({ dispatch, go, headingRef, data, navigate
   const run = async (cursor = "", search = cursor ? state.search : term.trim()) => {
     const ticket = ++latest.current;
     retry.current = () => run(cursor, search);
+    setOpening(null);
     setState((current) => ({
       ...(cursor ? current : idle),
       search,
@@ -75,11 +82,14 @@ export default function DirectoryStep({ dispatch, go, headingRef, data, navigate
   const open = async (entry) => {
     const ticket = ++latest.current;
     retry.current = () => open(entry);
+    setOpening(entry.name);
     try {
       const found = await directoryApi.detail(entry.name);
       if (ticket === latest.current) setDetail(found);
     } catch (error) {
       fail(ticket)(error);
+    } finally {
+      if (ticket === latest.current) setOpening(null);
     }
   };
   const use = (option) => {
@@ -132,7 +142,7 @@ export default function DirectoryStep({ dispatch, go, headingRef, data, navigate
           ))}
         </div>
         <p role="status" className="mcp-hint">
-          {statusText(state, shown)}
+          {statusText(state, shown, opening)}
         </p>
         {state.phase === "loading" && !state.entries.length && (
           <div aria-hidden="true">
@@ -159,7 +169,17 @@ export default function DirectoryStep({ dispatch, go, headingRef, data, navigate
         )}
         {state.phase === "done" && !shown.length && (
           <div className="mcp-wizard-notice mcp-directory-nohit">
-            <p>{copy.noHit}</p>
+            {state.entries.length ? (
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setFilter("all")}
+              >
+                {copy.showAll}
+              </button>
+            ) : (
+              <p>{copy.noHit}</p>
+            )}
             <button
               type="button"
               className="button secondary"
@@ -188,6 +208,7 @@ export default function DirectoryStep({ dispatch, go, headingRef, data, navigate
               <DirectoryResult
                 key={entry.name}
                 entry={entry}
+                busy={opening === entry.name}
                 onOpen={() => open(entry)}
               />
             ))}

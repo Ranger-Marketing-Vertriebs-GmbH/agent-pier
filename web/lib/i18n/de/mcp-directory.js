@@ -22,6 +22,10 @@ export const mcpDirectoryCopy = {
   emptyHint: "Die Suche findet nur Servernamen, zum Beispiel „github“ oder „filesystem“.",
   loading: "Verzeichnis wird durchsucht…",
   results: (count) => `${count} Server gefunden`,
+  hiddenByFilter: (count) =>
+    `${count} Server gefunden, keiner davon ist hier installierbar`,
+  showAll: "Alle zeigen",
+  detailLoading: "Serverdetails werden geladen…",
   noHit: "Kein Server mit diesem Namen im Verzeichnis.",
   noHitPackage: "Paket einrichten",
   noHitPaste: "Einrichtung aus einer Anleitung einfügen",
