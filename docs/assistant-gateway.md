@@ -313,6 +313,21 @@ is **idle**. `pendingApprovals` carries the count shown in the chat. Clients ref
 list on every `change` event, so a runtime failure publishes `change` after marking
 outstanding attempts uncertain.
 
+**Queued owner message.** While a conversation has an unresolved attempt, the owner's
+next message waits in `queued_messages` (one row per conversation,
+`queued-messages.js`): `POST /api/assistant-conversations/:id/queued` starts or extends
+it (text joined on a new line, at most 65,536 characters and five staged files, a new
+delivery key per change), the history payload carries it as `queued` for every tab,
+and `DELETE …/queued` hands it back unless its dispatch began (409). After every reconcile pass `dispatchQueued`
+(`queued-dispatch.js`) claims each waiting row of an idle conversation (no unreviewed
+pending, uncertain or interrupted attempt, a ready service, an agent that is not
+archived) as `sending` and delivers it through the normal owner send, whose ledger
+dedupes the delivery key; a restart resets `sending` to `waiting`, so a cut-off
+dispatch is answered by the ledger instead of being sent twice. A 409 or 503 refusal
+lets it wait for the next pass; any other refusal keeps it as `failed` with the reason.
+Its staged files are excluded from expiry, the staging cap and removal until the
+message claims them or is taken back.
+
 Keep session keys and run IDs separate. A session can be reused for several runs;
 even the same run ID can appear when an interrupted request is retried in the tested
 runtime. Record AgentPier attempt and action identities separately from runtime IDs.

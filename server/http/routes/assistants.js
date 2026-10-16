@@ -185,6 +185,13 @@ function activeAssistantRoutes(services) {
   router.post("/assistant-conversations/:id/messages", async (req, res) =>
     res.status(202).json(await assistants.send(req.params.id, req.body)),
   );
+  // The message queued while the agent works; the history shows it to every tab.
+  router.post("/assistant-conversations/:id/queued", (req, res) =>
+    res.json(assistants.queue(req.params.id, req.body)),
+  );
+  router.delete("/assistant-conversations/:id/queued", (req, res) =>
+    res.json(assistants.takeBackQueued(req.params.id)),
+  );
   router.post("/assistant-attempts/:id/cancel", async (req, res) =>
     res.json(await assistants.cancel(req.params.id)),
   );
