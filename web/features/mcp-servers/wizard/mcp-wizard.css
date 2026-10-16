@@ -312,3 +312,116 @@
   display: grid;
   gap: 4px;
 }
+.mcp-wizard-card.is-disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.mcp-wizard-card.is-disabled input[type="radio"] {
+  cursor: default;
+}
+.mcp-directory-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.mcp-directory-search label {
+  grid-column: 1 / -1;
+}
+.mcp-directory-search input,
+.mcp-directory-search .button {
+  min-height: 44px;
+}
+.mcp-directory-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mcp-directory-filters .button {
+  min-height: 44px;
+}
+.mcp-directory-filters .button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+}
+.mcp-directory-results {
+  display: grid;
+  gap: 12px;
+}
+.mcp-directory-result {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.mcp-directory-result p,
+.mcp-directory-detail p {
+  margin: 0;
+}
+.mcp-directory-open {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.mcp-directory-text,
+.mcp-directory-detail {
+  overflow-wrap: anywhere;
+}
+.mcp-directory-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.mcp-directory-chips .is-unsupported {
+  opacity: 0.55;
+}
+.mcp-directory-chips .is-warning {
+  color: var(--warning);
+}
+.mcp-directory-skeleton {
+  height: 88px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+.mcp-directory-error,
+.mcp-directory-nohit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.mcp-directory-nohit p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.mcp-directory-error .button,
+.mcp-directory-nohit .button {
+  min-height: 44px;
+}
+.mcp-directory-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.mcp-directory-detail .list-row-pill {
+  margin-left: 6px;
+}
+dialog.sheet.mcp-directory-sheet {
+  max-height: 90dvh;
+  overflow-y: auto;
+}

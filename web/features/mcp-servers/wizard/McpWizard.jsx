@@ -4,6 +4,7 @@ import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js"
 import { itemRoute } from "../../accounts/accounts-items.js";
 import usePackageStatus from "../usePackageStatus.js";
 import ConnectStep from "./ConnectStep.jsx";
+import DirectoryStep from "./DirectoryStep.jsx";
 import DoneStep from "./DoneStep.jsx";
 import InstallStep from "./InstallStep.jsx";
 import OwnCommandStep from "./OwnCommandStep.jsx";
@@ -35,6 +36,7 @@ import "./mcp-wizard.css";
  */
 const screens = {
   source: SourceStep,
+  directory: DirectoryStep,
   paste: PasteStep,
   package: PackageStep,
   remote: RemoteStep,

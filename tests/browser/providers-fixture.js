@@ -192,6 +192,11 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({ json: [] });
     if (method === "GET" && path === "/api/mcp-servers/cli-finds")
       return route.fulfill({ json: { finds: [], problems: [] } });
+    // The wizard's Source card asks this; the live registry is never reached.
+    if (method === "GET" && path === "/api/mcp-directory/status")
+      return route.fulfill({
+        json: { enabled: true, host: "registry.example.test", reachable: true },
+      });
     if (path === "/api/assistant-model-accounts")
       return route.fulfill({ json: { accounts: [] } });
     if (path === "/api/assistant-runtime")
