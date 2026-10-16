@@ -366,6 +366,15 @@ export const assistantCopy = {
     interrupted: "Interrupted",
     uncertain: "Outcome unknown",
     cancelled: "Cancelled",
+    compacting: "Summarising conversation",
+  },
+  // A run that shortens its long history first (server compactions.js).
+  compaction: {
+    running:
+      "Summarising the conversation so far — this can take a few minutes for long chats.",
+    note: (before, after) =>
+      `Earlier messages were summarised (about ${before}k → ${after}k tokens).`,
+    noteWithoutTokens: "Earlier messages were summarised.",
   },
   teamActive: {
     working: "Team working",

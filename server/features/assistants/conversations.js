@@ -8,9 +8,35 @@ import { withMemoryNotes } from "./memory-notes.js";
 import { historyTextLimit } from "./history-text.js";
 import { cachedWindow } from "./assistant-store.js";
 import { completePage, historyReads, withoutMarks } from "./history-completion.js";
-export function publicMessages(messages = []) {
+// A compaction marker (OpenClaw 2026.10.3: a system message with
+// `__openclaw.kind: "compaction"` and its token counts) is a chat note only where the
+// chat asks for it (`compactions`); every other reader sees the turns alone.
+const tokenCount = (n) => (Number.isFinite(n) && n >= 0 ? n : null);
+function compactionNote(m) {
+  const meta = m.__openclaw;
+  return {
+    id: `compaction:${meta.id}`,
+    role: "event",
+    event: "compaction",
+    tokensBefore: tokenCount(meta.tokensBefore),
+    tokensAfter: tokenCount(meta.tokensAfter),
+    timestamp: m.timestamp || 0,
+    runId: null,
+  };
+}
+export function publicMessages(messages = [], { compactions = false } = {}) {
   const seen = new Set();
   return messages.flatMap((m) => {
+    if (
+      compactions &&
+      m?.role === "system" &&
+      m.__openclaw?.kind === "compaction" &&
+      typeof m.__openclaw.id === "string" &&
+      !seen.has(`compaction:${m.__openclaw.id}`)
+    ) {
+      seen.add(`compaction:${m.__openclaw.id}`);
+      return [compactionNote(m)];
+    }
     if (!["user", "assistant"].includes(m.role)) return [];
     const text =
       typeof m.content === "string"
@@ -147,12 +173,15 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
       });
       // The page cuts every text at OpenClaw's 8000 characters; cut ones are
       // completed from the cache or read on their own (history-text.js).
-      const page = await completePage(publicMessages(history.messages), {
-        known: new Map(messages.map((m) => [m.id, m])),
-        read: (messageId) => conversationMessage(service, id, messageId),
-        reads: readsOf(service),
-        scope: id,
-      });
+      const page = await completePage(
+        publicMessages(history.messages, { compactions: true }),
+        {
+          known: new Map(messages.map((m) => [m.id, m])),
+          read: (messageId) => conversationMessage(service, id, messageId),
+          reads: readsOf(service),
+          scope: id,
+        },
+      );
       if (
         service.maintenance ||
         service.recovering ||
@@ -222,6 +251,8 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     ),
     nextBefore,
     stale,
+    // While the run summarises the conversation (compactions.js), not answers yet.
+    compacting: Boolean(service.compactions?.active(conversation.runtimeSessionKey)),
   };
 }
 const pageStart = (nextBefore, messages) =>

@@ -376,6 +376,15 @@ export const assistantCopy = {
     interrupted: "Unterbrochen",
     uncertain: "Ausgang unklar",
     cancelled: "Abgebrochen",
+    compacting: "Fasst Verlauf zusammen",
+  },
+  // Ein Lauf, der zuerst seinen langen Verlauf kürzt (Server compactions.js).
+  compaction: {
+    running:
+      "Fasst den bisherigen Verlauf zusammen – bei langen Chats kann das ein paar Minuten dauern.",
+    note: (before, after) =>
+      `Ältere Nachrichten wurden zusammengefasst (etwa ${before}k → ${after}k Tokens).`,
+    noteWithoutTokens: "Ältere Nachrichten wurden zusammengefasst.",
   },
   teamActive: {
     working: "Team arbeitet",

@@ -35,6 +35,7 @@ import { assistantApi } from "./assistant-api.js";
 import useAssistants, { useAssistantEvents } from "./useAssistants.js";
 import { leadMembers } from "./useMemberMention.js";
 import { streamInHistory } from "./stream-reply.js";
+import { compactionNoteText } from "./compaction-note.js";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
 const sameTurnText = (a, b) => turnText(a) === turnText(b);
@@ -132,6 +133,8 @@ export default function AssistantChat({
     !latest.attempt.reviewedAt &&
     !["completed", "failed", "cancelled"].includes(latest.attempt.state);
   const uncertain = ["uncertain", "interrupted"].includes(latest?.attempt?.state);
+  // The run summarises its long history before it answers (compactions.js).
+  const compacting = Boolean(active && !uncertain && history.compacting);
   // Every agent's own requests wait in its chat: a permanent member may have a shell.
   const ownActions = useAssistantActions(assistant.id);
   const entry = activityFor(activity, assistant.id);
@@ -266,6 +269,7 @@ export default function AssistantChat({
         navigationOpen={navigationOpen}
         attempt={active ? latest.attempt : null}
         member={member}
+        compacting={compacting}
       />
       <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
       {member && <AssistantMemberContext member={member} navigate={navigate} />}
@@ -341,6 +345,14 @@ export default function AssistantChat({
                 >
                   {memoryNoteCopy.reasons[m.reason] || memoryNoteCopy.unknown}
                 </p>
+              ) : m.event === "compaction" ? (
+                <p
+                  key={m.id}
+                  className="assistant-note assistant-event"
+                  data-compaction-note
+                >
+                  {compactionNoteText(copy, m)}
+                </p>
               ) : m.role === "event" ? (
                 <p key={m.id} className="assistant-note assistant-event">
                   {copy.team.internalTurns[m.event]}
@@ -397,11 +409,12 @@ export default function AssistantChat({
               <p
                 role="status"
                 className={`assistant-note assistant-run-state${active && !uncertain ? " working" : ""}`}
+                data-compacting={compacting || undefined}
               >
                 {active && !uncertain && (
                   <span className="assistant-run-dot" aria-hidden="true" />
                 )}
-                {copy.status[latest.attempt.state]}
+                {compacting ? copy.compaction.running : copy.status[latest.attempt.state]}
               </p>
             )}
             {uncertain && (

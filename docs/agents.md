@@ -98,6 +98,13 @@ information** on, AgentPier tells the agent to write durable facts and plans to
 never to say it saved something unless the write succeeded. Before a conversation
 is shortened, the agent gets one last chance to append to the day note.
 
+Shortening a long conversation can take a few minutes before the agent answers.
+Meanwhile the chat shows **Summarising the conversation so far — this can take a few
+minutes for long chats.** instead of **Working**, and the header shows **Summarising
+conversation**. Afterwards a quiet line such as **Earlier messages were summarised
+(about 251k → 18k tokens).** marks the place in the chat. Both appear only in
+AgentPier; nothing is sent to the paired Telegram chat.
+
 Only your own messages (in the chat or the paired Telegram chat) and its routines'
 runs can change an agent's memory. Forwarded content, reminders, check-ins and tasks
 from a lead agent cannot. When a write is refused, the chat shows a quiet line such as
