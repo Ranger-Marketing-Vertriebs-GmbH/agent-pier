@@ -16,6 +16,7 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { permanentReasons } from "./native-routines.js";
 import { ExecApprovals, execDecisions } from "./exec-approvals.js";
 import { allowAlwaysByAgentPier, decideExec, execPlan } from "./exec-decisions.js";
+import { AgentSsh } from "./agent-ssh.js";
 const maxEventRetryMs = 300000;
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
@@ -28,11 +29,13 @@ export class AssistantWorkflows {
     this.store = new AssistantActionStore(this.a.store.db);
     this.coding = new AssistantCoding(this);
     this.exec = new ExecApprovals(this);
+    this.ssh = new AgentSsh(this);
     if (autoStart) this.start();
   }
   /** Starts advancing open actions; the application starts it after recovery. */
   start() {
     if (this.timer || this.closed) return;
+    this.ssh.start().catch(() => {});
     this.timer = setInterval(() => this.tick().catch(() => {}), 1000);
     this.timer.unref();
   }
@@ -520,6 +523,7 @@ export class AssistantWorkflows {
     this.closed = true;
     clearInterval(this.timer);
     this.exec.close();
+    this.ssh.close();
     await this.running?.catch(() => {});
   }
 }
