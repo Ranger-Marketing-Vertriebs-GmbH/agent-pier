@@ -157,7 +157,7 @@ backup limits.
 
 Accounts → **MCP servers** is the one place for the MCP servers the owner uses. A server
 can be given to agents and to the coding CLIs Claude Code, Codex and OpenCode (**Coding
-CLIs** in the server form). A server bound to a CLI is written into that CLI's own
+CLIs** on the wizard's **Connect** step). A server bound to a CLI is written into that CLI's own
 configuration (`~/.claude.json` `mcpServers`, `~/.codex/config.toml` `mcp_servers`,
 `~/.config/opencode/opencode.json(c)` `mcp`), so it also works when the CLI is started
 in a terminal, and the shared CLI profile carries it to every AgentPier account of that
@@ -165,6 +165,18 @@ CLI. AgentPier writes at every save and before every session start; running sess
 see a change after a restart. The list, the CLI bindings and the finds work with or
 without agents; agent OAuth logins need agents. A local (stdio) command given to a CLI
 needs the owner's confirmation, because every session of that CLI starts it.
+
+**Add MCP server** opens a wizard: **Source** (package from npm or PyPI, server on the
+internet, or own command), **Set up**, **Settings**, then **Install** (package) or
+**Check and save**, **Connect** and a result screen. Connect lists the coding CLIs and,
+with agents on, every owner-managed agent; one card **What this allows** names what a
+local server may do (your user's rights, the server's own write switch, and that shell
+access is separate). The server is saved first, then the CLIs (one change), then each
+agent on its own; the result screen shows every target and offers **Try again** for the
+ones that failed. While a package still installs, **Connect when installed** keeps the
+choice and connects once it is ready. A saved server opens an overview with one card
+per step (**Source and name**, **Settings**, the package panel, **Who may use it**);
+**Change** opens that step, which saves on its own.
 
 - **Support.** Claude Code: stdio, HTTP, SSE. Codex: stdio, HTTP (no SSE). OpenCode:
   stdio and HTTP or SSE (`remote`). Only Claude Code cannot start a stdio command in a
@@ -174,6 +186,8 @@ needs the owner's confirmation, because every session of that CLI starts it.
   the form says that saving removes the server from that CLI; a newly chosen CLI that
   drops out is named too. [cli-mcp-qualification.md](cli-mcp-qualification.md)
   records the native forms and how they were verified.
+- **Own command lookup.** The own-command step shows where the command resolves on the
+  AgentPier service's PATH (`GET /api/mcp-commands/resolve`, read-only, nothing runs).
 - **Ownership.** AgentPier records each entry it wrote by name and SHA-256 hash in
   `<data>/mcp-servers/servers.sqlite` (`cli_entries`); the native files get no marker.
   An entry is AgentPier's while it still matches that hash. Entries anyone else wrote
@@ -295,24 +309,29 @@ needs the owner's confirmation, because every session of that CLI starts it.
 ### Installing a server package
 
 A local (stdio) server can come from an npm or PyPI package instead of an own command.
-In **Accounts → MCP servers** set **Source** to **Install package**, choose the
-**Registry** (npm or PyPI), enter the **Package** and choose a **Version**. The list is
+In **Accounts → MCP servers** choose **Package from npm or PyPI** on the wizard's
+**Source** step, then the **Registry** (npm or PyPI), the **Package** and a **Version**.
+The package step names the publisher and source link as npm or PyPI state them, marked
+"Link given by the publisher, not verified."; **More options** holds the PyPI
+constraints and **Allow install scripts or source builds**. The version list is
 read from the registry, newest first; prereleases are hidden unless **Show
 prereleases** is on, deprecated npm versions are marked, and PyPI versions withdrawn
 by their author are marked "withdrawn by its author" (yanked) and are not installed. An existing
-server with an own command switches the same way: its arguments and environment stay,
+server with an own command switches to a package on **Source and name → Change** in its
+overview: its arguments and environment stay,
 and the CLIs and agents keep running its own command until the install is ready, also
-while the program choice waits and after a failed install (the form then still shows
+while the program choice waits and after a failed install (the overview then still shows
 that command, for example for **Use own command**).
 
-Saving first resolves the complete dependency graph without running package code
-(unless source builds are allowed for a PyPI package) and asks **Install this package?** (**Update this package?** for an update). The dialog
-shows the package, its integrity (for a PyPI package the number of files, for example
+**Install** first resolves the complete dependency graph without running package code
+(unless source builds are allowed for a PyPI package) and shows **Install this package?**
+on the page; a saved server asks the same, or **Update this package?** for an update, in
+a dialog. The confirmation shows the package, its integrity (for a PyPI package the number of files, for example
 "3 files", and the file expected to be installed, "Expected: …"), the number of
 packages in total and the **Program** it starts; nothing is installed before you
 confirm with **Install**. The expected file is a forecast of the wheel the installer
 picks, not a guarantee. A package that is built from source has no file yet: the
-dialog then says "Expected build from …" and "The program is chosen after the build." This
+confirmation then says "Expected build from …" and "The program is chosen after the build." This
 confirmation replaces the usual local-command confirmation, and it states that the
 program runs with your user's rights in the CLIs and agents you choose.
 
