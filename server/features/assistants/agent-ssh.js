@@ -7,6 +7,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
 import { permits, sshOrigin } from "./agent-ssh-origin.js";
 import { commandDigest, commandPreview } from "./agent-ssh-text.js";
+import { SshApprovals } from "./agent-ssh-approvals.js";
 
 // Agent SSH (spec docs/superpowers/specs/2026-10-16-agent-ssh-design.md): the bridge
 // hands an `agentpier_ssh` call here; AgentPier runs it in-process through the pinned
@@ -55,6 +56,7 @@ export class AgentSsh {
   constructor(w, { now = Date.now, intervalMs = 250 } = {}) {
     Object.assign(this, { w, now, intervalMs });
     this.children = new Set();
+    this.approvals = new SshApprovals(this);
   }
   get catalog() {
     const store = this.w.s.sshManagement?.store;
@@ -180,8 +182,7 @@ export class AgentSsh {
     const verdict = permits(grant.mode, cls);
     if (verdict === "refuse")
       throw this.refuse(caller, cls, input, "sshRoutineNotTrusted");
-    // Approval hosts stay closed until approvals exist (Task 9 replaces this line).
-    if (verdict === "card") throw this.refuse(caller, cls, input, "sshOriginRefused");
+    if (verdict === "card") return this.approvals.request(inv, caller, cls, host, input);
     const key = `ssh:${inv.attemptId || inv.sessionKey}:${inv.toolCallId}`;
     if (this.w.store.byKey(key)) throw assistantProblem("conflict", 409);
     const result = await this.run({
