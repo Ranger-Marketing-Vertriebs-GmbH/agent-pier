@@ -88,6 +88,25 @@ member also shows whether its model changed since it took it over from the lead.
 Saving can restart the agent service briefly; AgentPier asks first and refuses the
 save while an affected agent is busy.
 
+### Memory
+
+An agent remembers only what it writes down: its conversation gets shortened
+(compacted) when it grows long, and older turns are cut. With **Remember
+information** on, AgentPier tells the agent to write durable facts and plans to
+`MEMORY.md` and day notes to `memory/YYYY-MM-DD.md` as soon as you share them, and
+never to say it saved something unless the write succeeded. Before a conversation
+is shortened, the agent gets one last chance to append to the day note.
+
+Only your own messages (in the chat or the paired Telegram chat) and its routines'
+runs can change an agent's memory. Forwarded content, reminders, check-ins and tasks
+from a lead agent cannot. When a write is refused, the chat shows a quiet line such as
+**Memory not saved: only your own messages can change memory.** Right after the
+agent service starts, a message waits a few seconds until memory can be written; if
+it still cannot, the chat says the message ran read-only. **Memory** in the agent's
+settings shows what was actually saved. Project knowledge that an agent proposes
+(**Work**) waits for your approval; when you decline it or it expires, the agent is
+told it was not saved.
+
 ### Work
 
 - **Projects and coding tasks:** **Allowed projects**, **Allowed pipelines**, whether

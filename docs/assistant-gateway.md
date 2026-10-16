@@ -859,6 +859,53 @@ enabling cron does not also start OpenClaw's default weekly skill collection rev
 Explicit repository memory access is now described in [agent workflows](assistant-workflows.md).
 Semantic search and comprehensive deletion/re-ingestion remain follow-ups.
 
+#### Persistence, compaction and visible failures (AGENTPIER-99)
+
+An agent once said it had saved a plan without ever calling `write`; the conversation
+was compacted and the plan was gone. Four rules close that gap:
+
+- **Guidance.** `skipBootstrap` keeps OpenClaw's own workspace templates (and their
+  "write it down" routine) out, so the managed `AGENTS.md` section
+  (`assistant-bootstrap.js`) carries a short `## Memory` routine whenever memory is
+  on: the conversation is compacted and is not memory; durable facts and plans go
+  to `MEMORY.md`, day notes to `memory/YYYY-MM-DD.md`, written when the owner shares
+  them; never claim "saved" without a successful write in the same turn; say plainly
+  when a write is refused. Team members also learn that memory is read-only in
+  turns their lead asks or delegates. When the agent's `write` and `edit` are
+  withheld (no live guard), the section says memory is read-only right now. Turn
+  admission rewrites `AGENTS.md`, so existing workspaces pick the text up on their
+  next turn.
+- **Pre-compaction flush.** OpenClaw 2026.10.3 runs its memory flush as a separate
+  run in a detached internal session `agent:<id>:internal-session-effects:<run>`,
+  whose only file tool is an append-only `write` restricted to the day note
+  (`memory/<date>.md`, "memory-triggered compaction runs expose only read and
+  append-only write"). No AgentPier attempt is bound to that key, so the guard used
+  to refuse it and the day note stayed empty. The source run reports the flush on
+  its own session as the Gateway agent event `run_status` / `memory_flushing`
+  (and leaves it with the next phase); `MemoryFlushes` follows those events, and
+  `TeamBridge.flushWrite` admits exactly the flush's `write` of
+  `memory/YYYY-MM-DD.md` for the same agent while that session's single active
+  attempt is the flushing run (attempt id or Gateway run id) and an owner or paired
+  Telegram turn that is not forwarded, or while the session is a routine run with
+  routine writes. Forwarded, lead-requested, scheduled, other-agent and ambiguous
+  flushes, `edit`, `apply_patch` and every other path stay refused; a flush report
+  older than ten minutes is ignored. `assistant-memory-flush-contract.test.js`
+  forces a compaction on the pinned runtime and checks both sides.
+- **No silent read-only window.** After a start or reconnect the guard reports
+  within one interval (15 s). An owner or paired Telegram turn of a memory agent
+  waits for it, outside the admission lock, for up to 16 s
+  (`write-guard-wait.js`) before it is applied and sent. If the guard is still
+  pending, the turn runs read-only, its `AGENTS.md` says so, and the chat shows a
+  note.
+- **Visible refusals.** A refused write to `MEMORY.md` or `memory/` records one
+  chat note per turn and reason (`memory-notes.js`, table `assistant_memory_notes`,
+  newest 100 per conversation): not the owner's own message, a lead's task, or a
+  refused flush. The chat renders them as quiet lines ("Memory not saved: …").
+  A declined, expired or failed project knowledge write (`memory_write`) hands one
+  attributed follow-up turn (`memory-result`) to the requesting agent's
+  conversation, so the agent can correct an earlier claim
+  ([agent workflows](assistant-workflows.md)).
+
 ### Reminders
 
 Enable **Allow Telegram reminders** and pair that agent's Telegram channel. Request

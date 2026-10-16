@@ -34,7 +34,10 @@ shows the project, pipeline, exact task and optional base branch, or the exact
 memory change. Owner decisions are available in the agent's settings (**Work → Actions and coding
 tasks**) and in its chat; Telegram-origin
 proposals also have approval buttons bound to the original channel/chat/user.
-Approvals expire after 24 hours. The model cannot grant itself access or accept
+Approvals expire after 24 hours. When a project knowledge change is declined,
+expires or fails, AgentPier sends the requesting agent's conversation one attributed
+follow-up turn saying it was not saved, so the agent does not keep believing it was
+stored. The model cannot grant itself access or accept
 human review gates inside pipelines. Forwarded Telegram messages are quoted data
 and cannot invoke workspace, reminder or routine tools as owner instructions.
 
