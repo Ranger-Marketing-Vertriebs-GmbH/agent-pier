@@ -487,7 +487,8 @@ and host, never with the search term.
 
 On the wizard's Source step, **Search the directory** searches server names; the
 default filter **Installable here** hides entries AgentPier cannot run (Docker/OCI,
-NuGet, Cargo, MCPB), **All** shows them greyed with the reason. An entry's detail
+NuGet, Cargo, MCPB), **All** shows them greyed with the reason. When the filter
+hides every hit, the screen says so and offers **Show all**. An entry's detail
 names its publisher namespace (the registry verified namespace and package ownership;
 nobody reviewed the code), its status, its source link (given by the publisher, not
 verified), how it runs and the settings it needs. **Use this server** only fills in the

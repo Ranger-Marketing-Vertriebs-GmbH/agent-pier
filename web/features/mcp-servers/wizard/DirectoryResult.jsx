@@ -7,12 +7,17 @@ export const optionChip = (option) =>
     ? copy.options.unsupported(option.registryType || option.transport)
     : (copy.options[option.kind] ?? option.kind);
 
-/** One search hit: title or name, namespace, description, ways to run, version. */
-export default function DirectoryResult({ entry, onOpen }) {
+/** One search hit: title or name, namespace, description, ways to run, version.
+ * `busy` while its detail loads. */
+export default function DirectoryResult({ entry, busy = false, onOpen }) {
   const id = useId();
   const title = entry.title || entry.name;
   return (
-    <article className="mcp-directory-result" aria-labelledby={id}>
+    <article
+      className="mcp-directory-result"
+      aria-labelledby={id}
+      aria-busy={busy || undefined}
+    >
       <button type="button" id={id} className="mcp-directory-open" onClick={onOpen}>
         {title}
       </button>

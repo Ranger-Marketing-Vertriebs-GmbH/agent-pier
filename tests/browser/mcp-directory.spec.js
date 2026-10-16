@@ -127,6 +127,41 @@ for (const [label, use] of [
       ).toBeVisible();
     });
 
+    test("hits hidden by the filter offer All instead of no hit", async ({ page }) => {
+      await directorySetup(page, {
+        directory: { pages: { container: [[dto.container]] } },
+      });
+      const wizard = await search(page, "container");
+      await expect(wizard.getByRole("status")).toHaveText(
+        "1 server found, none can be installed here",
+      );
+      await expect(
+        wizard.getByText("No server with this name in the directory."),
+      ).toHaveCount(0);
+      await wizard.getByRole("button", { name: "Show all", exact: true }).click();
+      await expect(wizard.getByRole("article", { name: /container-only/ })).toBeVisible();
+      await expect(wizard.getByRole("status")).toHaveText("1 server found");
+    });
+
+    test("opening a result says that its detail is loading", async ({ page }) => {
+      await directorySetup(page);
+      let release;
+      const gate = new Promise((resolve) => (release = resolve));
+      await page.route(/\/api\/mcp-directory\/servers\/.+/, async (route) => {
+        await gate;
+        await route.fallback();
+      });
+      const wizard = await search(page);
+      const card = wizard.getByRole("article", { name: "OPNsense" });
+      await card.getByRole("button", { name: "OPNsense" }).click();
+      await expect(wizard.getByRole("status")).toHaveText("Loading the server details…");
+      await expect(card).toHaveAttribute("aria-busy", "true");
+      release();
+      await expect(page.getByRole("dialog", { name: "OPNsense" })).toBeVisible();
+      await expect(card).not.toHaveAttribute("aria-busy", "true");
+      await expect(wizard.getByRole("status")).toHaveText("2 servers found");
+    });
+
     test("a directory turned off during the search links to Settings", async ({
       page,
     }) => {
