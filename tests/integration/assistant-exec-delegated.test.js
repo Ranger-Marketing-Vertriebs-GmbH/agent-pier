@@ -129,3 +129,36 @@ test("a team assignment asks in the team lead's chat as well", async (t) => {
   assert.equal(lost.state, "awaiting_approval");
   assert.equal(lost.leadAssistantId, undefined);
 });
+
+test("a member's shell request in work started from Telegram asks there as well", async (t) => {
+  const f = await setup(t);
+  const telegram = { channelId: f.channel.id, chatId: "42", userId: "42" };
+  for (const [id, context] of [
+    [
+      "asked",
+      {
+        kind: "lead-request",
+        requestId: "r",
+        leadAssistantId: f.lead.id,
+        leadName: "Chief of Staff",
+        display: "Run the tests",
+        telegram,
+      },
+    ],
+    ["assigned", { kind: "team-member", teamId: "team-1", memberId: "m1", telegram }],
+  ]) {
+    const action = await f.request(id, {}, context);
+    assert.equal(action.state, "awaiting_approval");
+    assert.deepEqual(f.workflows.store.get(action.id).origin, {
+      kind: "telegram",
+      ...telegram,
+    });
+  }
+  // Work started in the web chat asks only there.
+  const web = await f.request(
+    "web",
+    {},
+    { kind: "team-member", teamId: "team-1", memberId: "m1" },
+  );
+  assert.deepEqual(f.workflows.store.get(web.id).origin, { kind: "owner" });
+});

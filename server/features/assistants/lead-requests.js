@@ -7,6 +7,7 @@ import {
   requestTerminal,
 } from "./lead-request-store.js";
 import { excerpt, followUp, memberPrompt } from "./lead-request-text.js";
+import { ownerTelegram } from "./team-coding.js";
 // How long the ask tool holds the lead's turn for an answer. AgentPier runs agents
 // on OpenClaw's embedded harness, where a plugin tool call has no own timeout; its
 // stuck-session diagnostics only flag a call as long-running after two minutes, so
@@ -385,6 +386,7 @@ export class LeadRequests {
           leadAssistantId: r.parentAssistantId,
           leadName: r.leadName,
           display: r.text,
+          ...(ownerTelegram(r.origin) ? { telegram: ownerTelegram(r.origin) } : {}),
         },
       );
       const next = this.teams.write(this.store.get(id), {

@@ -200,3 +200,22 @@ test("a rejected owner quote never fails a proposal: the checkbox still authoriz
     assert.equal(asked.phase, "awaiting_approval");
   }
 });
+test("a member's turn carries the owner's Telegram chat of a team started there", async (t) => {
+  const f = teamFixture(t);
+  const telegram = { channelId: "c1", chatId: "42", userId: "42" };
+  const turnContext = async (context) => {
+    const { team } = await f.proposal({ count: 1, context });
+    await f.service.reconcile();
+    const [member] = f.service.store.members(team.id);
+    const attempt = f.assistants.ledger.getAttempt(member.attemptId);
+    return f.service.store.context(attempt.requestId);
+  };
+  const started = await turnContext({ kind: "telegram", ...telegram, forwarded: false });
+  assert.equal(started.kind, "team-member");
+  assert.deepEqual(started.telegram, telegram);
+  f.service.store
+    .list()
+    .forEach((team) => f.service.store.write(team, { phase: "completed" }));
+  const web = await turnContext({ kind: "owner" });
+  assert.equal(web.telegram, undefined);
+});

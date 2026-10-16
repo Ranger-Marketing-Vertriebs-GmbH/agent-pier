@@ -67,6 +67,13 @@ test("a slow answer to a Telegram request goes back to the owner's Telegram chat
   assert.equal(result.status, "asked");
   const r = teams.requests.store.get(result.requestId);
   assert.equal(r.phase, "running");
+  // The member's turn names the owner's Telegram chat, so its shell approvals are
+  // offered there too.
+  assert.deepEqual(f.contexts.at(-1).telegram, {
+    channelId: f.channel.id,
+    chatId: "42",
+    userId: "42",
+  });
   f.replies.set(f.member.conversationId, [
     { role: "assistant", runId: r.attemptId, text: "The budget is 5k." },
   ]);

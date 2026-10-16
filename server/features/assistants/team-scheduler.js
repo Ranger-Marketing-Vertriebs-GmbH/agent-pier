@@ -1,5 +1,6 @@
 import { TeamProvisioning } from "./team-provisioning.js";
 import { memberTerminal, TeamResults } from "./team-results.js";
+import { ownerTelegram } from "./team-coding.js";
 export class TeamScheduler {
   constructor({ teams, assistants, now = Date.now, mcp = null }) {
     Object.assign(this, { teams, assistants, now, mcp });
@@ -113,11 +114,17 @@ export class TeamScheduler {
       return;
     }
     teams.write(m, { phase: "admitting" });
+    const telegram = ownerTelegram(teams.find(m.teamId)?.origin);
     try {
       const sent = await a.send(
         m.conversationId,
         { clientRequestId: `team-member:${id}`, text: m.assignment },
-        { kind: "team-member", teamId: m.teamId, memberId: id },
+        {
+          kind: "team-member",
+          teamId: m.teamId,
+          memberId: id,
+          ...(telegram ? { telegram } : {}),
+        },
       );
       m = teams.member(id);
       teams.write(m, {

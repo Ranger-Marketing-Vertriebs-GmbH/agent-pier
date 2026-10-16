@@ -116,7 +116,14 @@ export function teamFixture(t) {
     await assistants.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
-  async function proposal({ count = 4, allowed = true, parent, members } = {}) {
+  // `context` is the trusted context of the parent's turn (an owner turn by default).
+  async function proposal({
+    count = 4,
+    allowed = true,
+    parent,
+    members,
+    context = { kind: "owner" },
+  } = {}) {
     parent ||= store.createAssistant({
       name: "Parent",
       instructions: "Original",
@@ -130,7 +137,7 @@ export function teamFixture(t) {
       clientRequestId: crypto.randomUUID(),
       text: "Team",
     });
-    service.store.recordContext(request.id, { kind: "owner", teamAllowed: allowed });
+    service.store.recordContext(request.id, { ...context, teamAllowed: allowed });
     const attempt = assistants.ledger.recordAttempt(request.id);
     const result = await service.propose(
       { attemptId: attempt.id, toolCallId: "call", assertCurrent() {} },
