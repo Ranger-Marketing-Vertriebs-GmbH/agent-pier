@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useLanguage from "../../lib/i18n/useLanguage.js";
 import { mcpPackageCopy as copy } from "../../lib/i18n/messages/mcp-packages.js";
@@ -15,9 +15,8 @@ import { refusalField } from "./mcp-package-labels.js";
 import { newestStable } from "./mcp-package-versions.js";
 import { constraintLines, sourceConstraints } from "./mcp-server-draft.js";
 import useMcpPackageVersions from "./useMcpPackageVersions.js";
+import usePackageStatus from "./usePackageStatus.js";
 import "./mcp-packages.css";
-
-const pollMs = 2000;
 
 /**
  * The package of a packaged server: its status (installing, ready, choosing, failed,
@@ -30,11 +29,10 @@ const pollMs = 2000;
 export default function McpPackagePanel({ server, onChanged }) {
   useLanguage();
   const id = useId();
-  const [status, setStatus] = useState(null);
-  const [error, setError] = useState("");
+  const { status, setStatus, error, setError, source, job, running, shown } =
+    usePackageStatus(server, onChanged);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
-  const source = status?.source ?? server.source;
   const [version, setVersion] = useState("");
   const [allowScripts, setAllowScripts] = useState(source.allowScripts === true);
   const versions = useMcpPackageVersions(source.registry, source.name);
@@ -46,37 +44,6 @@ export default function McpPackagePanel({ server, onChanged }) {
   const [versionError, setVersionError] = useState("");
   // A finished update stores new constraints: the field starts from them again.
   useEffect(() => setConstraints(storedText), [storedText]);
-  const changed = useRef(onChanged);
-  changed.current = onChanged;
-  const job = status?.job ?? null;
-  const running = source.status === "installing" || job?.state === "running";
-  const shown = job?.state === "running" ? "installing" : source.status;
-
-  useEffect(() => {
-    let live = true;
-    assistantApi
-      .mcpPackageStatus(server.id)
-      .then((next) => live && setStatus(next))
-      .catch((failure) => live && setError(failure.message));
-    return () => {
-      live = false;
-    };
-  }, [server.id, server.revision, server.source.status]);
-
-  useEffect(() => {
-    if (!running) return undefined;
-    const timer = setInterval(() => {
-      assistantApi.mcpPackageStatus(server.id).then(
-        (next) => {
-          setStatus(next);
-          if (next.source?.status !== "installing" && next.job?.state !== "running")
-            changed.current?.();
-        },
-        () => {},
-      );
-    }, pollMs);
-    return () => clearInterval(timer);
-  }, [running, server.id]);
 
   // The newest stable version is offered for an update.
   useEffect(() => {
