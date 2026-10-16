@@ -81,6 +81,7 @@ export const mcpWizardCopy = {
     intro:
       "Diese Werte bekommt der Server, wenn er startet. Die Anleitung des Anbieters sagt, welche er braucht.",
     headersIntro: "Diese Header werden bei jeder Anfrage an den Server mitgeschickt.",
+    noHeaders: "Bei dieser Anmeldung werden keine Header mitgeschickt.",
     required: "Pflicht",
     secret: "Geheim",
     optional: "Optional",

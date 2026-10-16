@@ -154,6 +154,44 @@
 .mcp-wizard .mcp-wizard-mono {
   word-break: break-all;
 }
+.mcp-setting-list {
+  display: grid;
+  gap: 12px;
+}
+.mcp-setting {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.mcp-setting-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.mcp-setting-head input {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.mcp-setting-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 6px;
+}
+.mcp-setting-value:has(> :only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.mcp-setting .mcp-wizard-icon {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+}
+.mcp-setting > .button.text {
+  justify-self: start;
+}
 @media (min-width: 900px) {
   .mcp-wizard-layout {
     display: grid;

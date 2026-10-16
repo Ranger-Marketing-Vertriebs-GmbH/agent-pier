@@ -72,6 +72,7 @@ export const mcpWizardCopy = {
     intro:
       "The server gets these values when it starts. The provider's guide says which ones it needs.",
     headersIntro: "These headers are sent with every request to the server.",
+    noHeaders: "With this sign-in no headers are sent.",
     required: "Required",
     secret: "Secret",
     optional: "Optional",
