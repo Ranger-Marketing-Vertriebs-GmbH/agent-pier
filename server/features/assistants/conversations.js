@@ -5,6 +5,7 @@ import { requestsWithSources, turnKey, withMessageSources } from "./message-sour
 import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
 import { historyTextLimit } from "./history-text.js";
+import { cachedMessageLimit } from "./assistant-store.js";
 import { completePage, historyReads, withoutMarks } from "./history-completion.js";
 export function publicMessages(messages = []) {
   const seen = new Set();
@@ -97,6 +98,11 @@ export async function conversationMessage(service, id, messageId) {
   if (unsettled()) return null;
   return publicMessages(page?.messages).find((m) => m.id === messageId)?.text ?? null;
 }
+// Cached messages are flat records of primitive fields.
+function sameMessage(a, b) {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
+}
 // Single reads of cut messages, per service: running ones and retry delays.
 const pageReads = new WeakMap();
 function readsOf(service) {
@@ -151,10 +157,15 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         throw assistantProblem("unavailable", 503);
       const merged = new Map(messages.map((m) => [m.id, m]));
       for (const m of page) merged.set(m.id, m);
-      service.store.cacheMessages(
-        id,
-        [...merged.values()].sort((a, b) => a.timestamp - b.timestamp),
-      );
+      const cached = [...merged.values()]
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .slice(-cachedMessageLimit);
+      // The chat polls every 2 s during a run; an unchanged page writes nothing.
+      if (
+        cached.length !== messages.length ||
+        cached.some((m, i) => !sameMessage(m, messages[i]))
+      )
+        service.store.cacheMessages(id, cached);
       messages = page;
       stale = false;
       if (history.hasMore)
