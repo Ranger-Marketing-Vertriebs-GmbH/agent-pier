@@ -21,6 +21,8 @@ test("links are http(s) only, without credentials, and git forms become https", 
   assert.equal(webLink("git@github.com:o/r.git"), "https://github.com/o/r");
   assert.equal(webLink("github:o/r"), "https://github.com/o/r");
   assert.equal(webLink("git://github.com/o/r.git"), "https://github.com/o/r");
+  assert.equal(webLink("ssh://git@github.com/o/r.git"), "https://github.com/o/r");
+  assert.equal(webLink("git+ssh://git@gitlab.com/g/r.git"), "https://gitlab.com/g/r");
   assert.equal(webLink("https://user:pw@example.test/x"), null);
   assert.equal(webLink("javascript:alert(1)"), null);
   assert.equal(webLink("ftp://example.test"), null);

@@ -9,6 +9,7 @@ import {
   initialWizard,
   wizardReducer,
 } from "../../web/features/mcp-servers/wizard/wizard-state.js";
+import { mcpWizardCopy } from "../../web/lib/i18n/messages/mcp-wizard.js";
 
 const draftFor = (path, values) => ({
   ...wizardReducer(initialWizard(), { type: "choose", path }).draft,
@@ -97,4 +98,15 @@ test("a package is previewed first, then installed with the preview and program"
   assert.equal(bodies[0].program, "server-x");
   assert.equal(bodies[0].source.name, "server-x");
   assert.equal(bodies[0].clis, undefined);
+});
+
+test("a preview that would save instead refuses with translated copy", async () => {
+  const draft = draftFor("remote", { name: "docs", url: "https://docs.example/mcp" });
+  await assert.rejects(
+    previewNewPackage({ draft, previewPackage: async () => ({ previewId: "p1" }) }),
+    (error) => {
+      assert.equal(error.message, mcpWizardCopy.install.previewFailed);
+      return true;
+    },
+  );
 });
