@@ -4,9 +4,8 @@ import {
   intent,
   namesMember,
   ownerMentions,
-  ownerQuote,
-  ownerSentence,
-  parseOwnerMessage,
+  ownerQuoteProof,
+  parseOwnerText,
   plain,
 } from "./lead-request-proof.js";
 export { ownerQuote } from "./lead-request-proof.js";
@@ -134,12 +133,14 @@ export class LeadRequestStore {
         ? input.ownerRequestQuote
         : undefined;
     const t = this.teams;
-    // The owner's message is parsed for mentions before the transaction; inside it
-    // only a parse of exactly the recorded text is used.
+    // The owner's message is parsed for the proofs before the transaction; inside
+    // it only a parse of the same request (its text and context never change) is used.
     let owner = null;
     if (type === "task")
       try {
-        owner = parseOwnerMessage(this.lead(attemptId).request.text);
+        const { request } = this.lead(attemptId);
+        const parsed = parseOwnerText(request.text, t.context(request.id).hidden);
+        owner = { requestId: request.id, parsed };
       } catch {
         owner = null;
       }
@@ -197,10 +198,13 @@ export class LeadRequestStore {
       const mentionable = siblings
         .filter(({ m, profile }) => !m.archivedAt && !profile.archivedAt)
         .map(({ m, profile }) => ({ id: m.id, name: profile.name }));
-      const sentence =
-        quote && ownerQuote(quote, request.text)
-          ? ownerSentence(quote, request.text)
-          : null;
+      // Only the owner's own prose proves anything: never text the owner quoted,
+      // pasted, coded or linked (Markdown, or a Telegram message's formatting).
+      const parsed =
+        owner?.requestId === request.id
+          ? owner.parsed
+          : parseOwnerText(request.text, context.hidden);
+      const sentence = quote ? ownerQuoteProof(quote, parsed) : null;
       // The lead's quote proves a request only by name and an ask or delegate verb;
       // mentions count only from the owner's own message below.
       const addressed =
@@ -228,8 +232,6 @@ export class LeadRequestStore {
       // Second way: the owner's own message @mentions this member, whatever the
       // lead quoted.
       if (open && !proof) {
-        const parsed =
-          owner?.text === request.text ? owner : parseOwnerMessage(request.text);
         const m = ownerMentions(parsed, mentionable).find(
           (x) =>
             x.memberId === member.id &&

@@ -740,15 +740,21 @@ A lead reaches its own members without the owner relaying anything
 - **Files.** Questions never write. A task may use `write`/`edit`/`apply_patch` in the member's
   own workspace only when the owner explicitly asked for it in this very turn
   (AgentPier chat or Telegram, not forwarded). The tool's quote must be a
-  whole-word, verbatim excerpt of that message and must:
+  whole-word, verbatim excerpt of the owner's own prose in that message, which is
+  read as for mentions (below): never code, block quotes, struck-through text,
+  links, images, footnotes or HTML, nor a Telegram message's quote, code, pre,
+  link or strikethrough formatting, and nothing of a message over 20000 characters
+  or nested more than 24 levels. The quote must:
   - name the member: its whole display name as whole words (not when a longer name
     of another member is meant, "Max Ops" for "Max"), or a word of it of three
     letters or more that no other member carries and that is no everyday word;
   - say to ask or delegate in a verb form (`ask`, `delegate`, `assign`, `frag`,
     `fragt`, "frage den/die …", `delegier…`, `beauftrag…`, `übergib`, "gib … an",
     "lass … machen", "let … do", "hand … over"; `lead-request-proof.js`);
-  - not be negated in the quote or earlier in the same owner sentence (`nicht`,
-    `kein…`, `nie`, `niemals`, "don't", "do not", `not`, `never`, `no`);
+  - stand in a message without any negation or limit to reading, anywhere in it,
+    as for mentions (owner decision; `nicht`, `kein…`, `nie`, `niemals`, "don't",
+    "do not", `not`, `never`, `no`, "read only", …); the owner can send such an
+    instruction on its own;
   - not follow a quotation mark, so pasted or quoted text is never the owner's
     instruction.
 
