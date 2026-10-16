@@ -27,6 +27,8 @@ export const mcpWizardCopy = {
     command: "Own command",
     commandHint: "A program that is already installed on this computer.",
     advanced: "Advanced",
+    paste: "Paste setup from a guide",
+    pasteHint: "For guides that show a JSON block for Claude Desktop, Cursor or VS Code.",
   },
   package: {
     title: "Which package?",
@@ -66,6 +68,9 @@ export const mcpWizardCopy = {
     checking: "Looking for the command…",
     found: (path) => `Found: ${path}`,
     missing: "Not found on this computer.",
+    looksLikePackage: "This looks like a package. Let AgentPier install it instead?",
+    switchToPackage: "Switch to package",
+    docker: "Docker is not supported; it runs as an own command with your user's rights.",
   },
   settings: {
     title: (name) => `Settings for ${name}`,
@@ -212,5 +217,87 @@ export const mcpWizardCopy = {
     save: "Save changes",
     renameNote:
       "Running sessions keep the old name until they restart; OAuth logins under the old name are signed out.",
+  },
+  paste: {
+    title: "Paste the setup",
+    label: "Setup from the guide",
+    helper:
+      "Paste the JSON block meant for Claude Desktop, Cursor or a similar app. AgentPier reads it in this browser. Only the package name is looked up at npm or PyPI; your values stay on this computer.",
+    pasteButton: "Paste",
+    read: "Read setup",
+    editText: "Edit the text",
+    foundTitle: "Here is what we found",
+    name: "Name",
+    source: "Source",
+    sources: {
+      npm: (name) => `npm package ${name}`,
+      pypi: (name) => `PyPI package ${name}`,
+      remote: (kind) => `Online (${kind})`,
+      command: (command) => `Own command ${command}`,
+    },
+    args: "Arguments",
+    settings: "Settings",
+    valueTaken: "value taken over",
+    valueMissing: "needs a value",
+    secretsNote: "All values are stored on this computer only and are never shown again.",
+    reviewNote:
+      "A guide is not a security review. Check who published the package before you install it.",
+    notTaken: "Not taken over",
+    warningsTitle: "Notes",
+    others: (names, count) =>
+      `${count} more ${count === 1 ? "server" : "servers"} in this block: ${names} – set them up one at a time`,
+    position: (line, column) => `Line ${line}, column ${column}.`,
+    errors: {
+      tooLong: "This is too long for a setup block.",
+      invalidJson:
+        "This is not valid JSON. Copy the whole block including the braces { }.",
+      tooDeep: "This block is nested too deeply to be a setup block.",
+      noServer:
+        "No server found. AgentPier understands mcpServers, servers, mcp and context_servers blocks.",
+      notJson:
+        "This is not JSON. Paste the JSON variant from the guide, or set the server up by hand.",
+      invalidArgs:
+        "The arguments of this server are not all text, so it cannot be taken over.",
+      noCommand: "This server has neither a command nor an address.",
+    },
+    ignored: {
+      runner:
+        "AgentPier installs the package itself instead of downloading it at every start.",
+      yes: "Only needed for npx.",
+      cmdWrapper: "A Windows command wrapper; not needed here.",
+      resolverFlag: "AgentPier resolves dependencies itself.",
+      unknownFlag: "This option is not used when AgentPier installs the package.",
+      unmanaged: "AgentPier does not manage this setting.",
+      consumed: "Used to choose the connection type.",
+      envFile: "AgentPier cannot read env files; type the values here.",
+      oauth: "Sign-in is chosen on the address step.",
+      unknown: "Unknown setting; not taken over.",
+      invalidName: "This name is not allowed for a setting.",
+      notString: "Only text values are taken over.",
+    },
+    warnings: {
+      pinned: "Pinned to an exact version when you install.",
+      extras: "Extras are not installed.",
+      docker:
+        "Docker is not supported as a package; this runs as an own command with your user's rights.",
+      reference: (name, ref) =>
+        `${name} points to another setting (${ref}). Type the real value in Settings.`,
+      placeholder: (name) => `The guide shows a placeholder for ${name}.`,
+      tokenInArgs:
+        "Put tokens in settings or headers; arguments and addresses are shown.",
+      tokenInQuery:
+        "Put tokens in settings or headers; arguments and addresses are shown.",
+      stringified: (name) => `${name} is taken over as text.`,
+      cwdRelative: "The working directory must be an absolute path; it was left empty.",
+      guessed: "Guessed from the address; change it if needed.",
+      duplicateKey: (name) => `${name} appears twice; the last one is used.`,
+      nameChanged: (name, _ref, to) => `The name ${name} was changed to ${to}.`,
+      nameTaken: (name, _ref, to) =>
+        `${name} is already used; the new server is called ${to}.`,
+      tooMany: "Only the first 100 entries are taken over.",
+      controlChars: (name) => `${name} contained control characters and was left empty.`,
+      tooLongValue: (name) => `${name} is longer than 16 KiB and was left empty.`,
+      tooManyServers: "Only the first 20 servers in this block are read.",
+    },
   },
 };

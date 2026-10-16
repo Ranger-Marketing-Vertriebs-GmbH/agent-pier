@@ -32,6 +32,9 @@ export const mcpWizardCopy = {
     command: "Eigener Befehl",
     commandHint: "Ein Programm, das auf diesem Rechner schon installiert ist.",
     advanced: "Erweitert",
+    paste: "Einrichtung aus einer Anleitung einfügen",
+    pasteHint:
+      "Für Anleitungen mit einem JSON-Block für Claude Desktop, Cursor oder VS Code.",
   },
   package: {
     title: "Welches Paket?",
@@ -75,6 +78,11 @@ export const mcpWizardCopy = {
     checking: "Befehl wird gesucht…",
     found: (path) => `Gefunden: ${path}`,
     missing: "Auf diesem Rechner nicht gefunden.",
+    looksLikePackage:
+      "Das sieht nach einem Paket aus. Soll AgentPier es stattdessen installieren?",
+    switchToPackage: "Zum Paket wechseln",
+    docker:
+      "Docker wird nicht unterstützt; es läuft als eigener Befehl mit deinen Benutzerrechten.",
   },
   settings: {
     title: (name) => `Einstellungen für ${name}`,
@@ -226,5 +234,90 @@ export const mcpWizardCopy = {
     save: "Änderungen speichern",
     renameNote:
       "Laufende Sitzungen behalten den alten Namen bis zum Neustart; OAuth-Anmeldungen unter dem alten Namen werden abgemeldet.",
+  },
+  paste: {
+    title: "Einrichtung einfügen",
+    label: "Einrichtung aus der Anleitung",
+    helper:
+      "Füge den JSON-Block für Claude Desktop, Cursor oder eine ähnliche App ein. AgentPier liest ihn in diesem Browser. Nur der Paketname wird bei npm oder PyPI nachgeschlagen; deine Werte bleiben auf diesem Rechner.",
+    pasteButton: "Einfügen",
+    read: "Einrichtung lesen",
+    editText: "Text bearbeiten",
+    foundTitle: "Das haben wir gefunden",
+    name: "Name",
+    source: "Quelle",
+    sources: {
+      npm: (name) => `npm-Paket ${name}`,
+      pypi: (name) => `PyPI-Paket ${name}`,
+      remote: (kind) => `Online (${kind})`,
+      command: (command) => `Eigener Befehl ${command}`,
+    },
+    args: "Argumente",
+    settings: "Einstellungen",
+    valueTaken: "Wert übernommen",
+    valueMissing: "braucht einen Wert",
+    secretsNote:
+      "Alle Werte werden nur auf diesem Rechner gespeichert und nie wieder angezeigt.",
+    reviewNote:
+      "Eine Anleitung ist keine Sicherheitsprüfung. Prüfe vor der Installation, wer das Paket veröffentlicht hat.",
+    notTaken: "Nicht übernommen",
+    warningsTitle: "Hinweise",
+    others: (names, count) =>
+      `${count} ${count === 1 ? "weiterer Server" : "weitere Server"} in diesem Block: ${names} – richte sie nacheinander ein`,
+    position: (line, column) => `Zeile ${line}, Spalte ${column}.`,
+    errors: {
+      tooLong: "Das ist zu lang für einen Einrichtungsblock.",
+      invalidJson:
+        "Das ist kein gültiges JSON. Kopiere den ganzen Block samt geschweifter Klammern { }.",
+      tooDeep: "Dieser Block ist zu tief verschachtelt für einen Einrichtungsblock.",
+      noServer:
+        "Kein Server gefunden. AgentPier versteht mcpServers-, servers-, mcp- und context_servers-Blöcke.",
+      notJson:
+        "Das ist kein JSON. Füge die JSON-Variante aus der Anleitung ein oder richte den Server von Hand ein.",
+      invalidArgs:
+        "Die Argumente dieses Servers sind nicht alle Text, deshalb kann er nicht übernommen werden.",
+      noCommand: "Dieser Server hat weder einen Befehl noch eine Adresse.",
+    },
+    ignored: {
+      runner:
+        "AgentPier installiert das Paket selbst, statt es bei jedem Start herunterzuladen.",
+      yes: "Nur für npx nötig.",
+      cmdWrapper: "Ein Windows-Befehlsaufruf; hier nicht nötig.",
+      resolverFlag: "AgentPier löst Abhängigkeiten selbst auf.",
+      unknownFlag:
+        "Diese Option wird bei der Installation durch AgentPier nicht genutzt.",
+      unmanaged: "AgentPier verwaltet diese Einstellung nicht.",
+      consumed: "Wurde zur Wahl der Verbindungsart genutzt.",
+      envFile: "AgentPier kann keine env-Dateien lesen; trag die Werte hier ein.",
+      oauth: "Die Anmeldung wählst du beim Adressschritt.",
+      unknown: "Unbekannte Einstellung; nicht übernommen.",
+      invalidName: "Dieser Name ist für eine Einstellung nicht erlaubt.",
+      notString: "Nur Textwerte werden übernommen.",
+    },
+    warnings: {
+      pinned: "Wird bei der Installation auf eine exakte Version festgelegt.",
+      extras: "Extras werden nicht installiert.",
+      docker:
+        "Docker wird als Paket nicht unterstützt; das läuft als eigener Befehl mit deinen Benutzerrechten.",
+      reference: (name, ref) =>
+        `${name} verweist auf eine andere Einstellung (${ref}). Trag den echten Wert unter Einstellungen ein.`,
+      placeholder: (name) => `Die Anleitung zeigt einen Platzhalter für ${name}.`,
+      tokenInArgs:
+        "Leg Tokens besser in Einstellungen oder Header; Argumente und Adressen werden angezeigt.",
+      tokenInQuery:
+        "Leg Tokens besser in Einstellungen oder Header; Argumente und Adressen werden angezeigt.",
+      stringified: (name) => `${name} wird als Text übernommen.`,
+      cwdRelative:
+        "Der Arbeitsordner muss ein absoluter Pfad sein; er wurde leer gelassen.",
+      guessed: "Aus der Adresse geschlossen; ändere das bei Bedarf.",
+      duplicateKey: (name) => `${name} kommt doppelt vor; der letzte Eintrag gilt.`,
+      nameChanged: (name, _ref, to) => `Der Name ${name} wurde zu ${to} geändert.`,
+      nameTaken: (name, _ref, to) =>
+        `${name} ist schon vergeben; der neue Server heißt ${to}.`,
+      tooMany: "Nur die ersten 100 Einträge werden übernommen.",
+      controlChars: (name) => `${name} enthielt Steuerzeichen und wurde leer gelassen.`,
+      tooLongValue: (name) => `${name} ist länger als 16 KiB und wurde leer gelassen.`,
+      tooManyServers: "Nur die ersten 20 Server in diesem Block werden gelesen.",
+    },
   },
 };
