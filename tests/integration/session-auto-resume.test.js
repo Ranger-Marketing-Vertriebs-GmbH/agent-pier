@@ -94,6 +94,14 @@ async function launched(log, count) {
   }
 }
 
+// A relaunched CLI writes its line after tmux started it; wait for the expected
+// launches, then long enough that a duplicate relaunch would also show up.
+async function settledLaunches(log, count) {
+  await launched(log, count);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  return (await readFile(log, "utf8")).trim().split("\n");
+}
+
 for (const enabled of [true, false])
   test(`a waiting reload on a lost tmux server runs exactly once (automatic resume ${enabled ? "on" : "off"})`, async (t) => {
     const dataDir = await mkdtemp(path.join(tmpdir(), "ap-waiting-reload-"));
@@ -167,7 +175,7 @@ for (const enabled of [true, false])
     assert.equal(session.status, "running");
     assert.equal(session.reload.state, "completed");
     assert.equal(session.interruption, undefined);
-    const lines = (await readFile(log, "utf8")).trim().split("\n");
+    const lines = await settledLaunches(log, 2);
     assert.equal(lines.length, 2, `CLI launches: ${lines}`);
     assert.equal(lines[0], "first");
     // The owner's reload is the resume: no marker, notice or automatic attempt.
@@ -228,7 +236,7 @@ test("an automatic resume stands down when a reload replaced the session before 
   await autoResume.close();
   await reload.close();
   assert.equal((await sessions.get("lost")).status, "running");
-  const lines = (await readFile(log, "utf8")).trim().split("\n");
+  const lines = await settledLaunches(log, 2);
   assert.equal(lines.length, 2, `CLI launches: ${lines}`);
   assert.equal(lines[0], "first");
   assert.deepEqual(audit, []);
