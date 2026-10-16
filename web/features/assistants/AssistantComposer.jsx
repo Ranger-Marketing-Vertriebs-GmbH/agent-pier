@@ -6,7 +6,7 @@ import useMobileLayout from "../../lib/useMobileLayout.js";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import ComposerOptions from "./ComposerOptions.jsx";
-import "./assistant-queue.css";
+import QueuedMessage from "./QueuedMessage.jsx";
 import AgentAttachmentTray from "./AgentAttachmentTray.jsx";
 import { ACCEPT } from "./agent-attachment-upload.js";
 import { assistantAttachmentsCopy as attachCopy } from "../../lib/i18n/messages/assistant-attachments.js";
@@ -18,8 +18,9 @@ const optionsId = "assistant-composer-options";
 
 // One rounded box (handoff 1d/2a/2d): the field grows to six lines; attachments, team
 // permission and the keyboard hint sit behind "+"; Stop replaces Send while working.
-// Meanwhile Enter and "Send when done" queue the message (`queued`, shown above the
-// field until it is sent or taken back with `onTakeBack`); only Stop stops the turn.
+// Meanwhile, and while a queued message still waits, Enter and "Send when done" queue
+// the message on the server (`queued`, shown above the field until it is sent or
+// taken back with `onTakeBack`); only Stop stops the turn.
 // Files can also be pasted (dropping is handled by the chat panel, which owns
 // `attachments`); `onFiles` reports how many are ready, and
 // `onSubmit(event, ids)` resolves true once the message with them was accepted.
@@ -41,6 +42,7 @@ export default function AssistantComposer({
   onFiles,
   onStop,
   queued,
+  available,
   onTakeBack,
   output,
   stick,
@@ -99,7 +101,8 @@ export default function AssistantComposer({
     setTeamAllowed(value);
     drafts.allowTeam(conversationId, value);
   };
-  const canQueue = Boolean(active && (text.trim() || ready) && !attachments.blocked);
+  const queueing = active || Boolean(queued);
+  const canQueue = Boolean(queueing && (text.trim() || ready) && !attachments.blocked);
   const later = canQueue && (
     <button key="later" className="assistant-later">
       <Icon name="history" size={14} />
@@ -107,28 +110,29 @@ export default function AssistantComposer({
     </button>
   );
   // Keyed apart, so focus on Send never carries over to Stop.
-  const submit = active ? (
-    <button
-      key="stop"
-      type="button"
-      className="assistant-stop"
-      aria-label={copy.stop}
-      onClick={onStop}
-    >
-      <Icon name="stop" size={12} fill />
-      {copy.stopShort}
-    </button>
-  ) : (
-    <button
-      key="send"
-      className="assistant-send"
-      aria-label={copy.send}
-      aria-busy={busy || undefined}
-      disabled={!canSend || attachments.blocked}
-    >
-      <Icon name="arrow" size={17} strokeWidth="2" />
-    </button>
-  );
+  const submit =
+    queueing && !active ? null : active ? (
+      <button
+        key="stop"
+        type="button"
+        className="assistant-stop"
+        aria-label={copy.stop}
+        onClick={onStop}
+      >
+        <Icon name="stop" size={12} fill />
+        {copy.stopShort}
+      </button>
+    ) : (
+      <button
+        key="send"
+        className="assistant-send"
+        aria-label={copy.send}
+        aria-busy={busy || undefined}
+        disabled={!canSend || attachments.blocked}
+      >
+        <Icon name="arrow" size={17} strokeWidth="2" />
+      </button>
+    );
   const toggle = (
     <button
       ref={optionsButton}
@@ -178,33 +182,14 @@ export default function AssistantComposer({
         }}
       />
       <div className="assistant-composer-box">
-        {queued && (
-          <div className="assistant-queued" role="status">
-            <div className="assistant-queued-body">
-              <span className="assistant-queued-notice">
-                <Icon name="history" size={13} />
-                {copy.queued.notice(assistant.name)}
-              </span>
-              {queued.text && <p className="assistant-queued-text">{queued.text}</p>}
-              {queued.files.length > 0 && (
-                <span className="assistant-queued-files">
-                  {copy.queued.files(queued.files.length)}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              className="assistant-queued-edit"
-              aria-label={copy.queued.editLabel}
-              onClick={() => {
-                onTakeBack();
-                field.current?.focus();
-              }}
-            >
-              {copy.queued.edit}
-            </button>
-          </div>
-        )}
+        <QueuedMessage
+          queued={queued}
+          name={assistant.name}
+          active={active}
+          available={available}
+          field={field}
+          onTakeBack={onTakeBack}
+        />
         <AgentAttachmentTray attachments={attachments} />
         {member && toggle}
         <label className="sr-only" htmlFor="assistant-message">

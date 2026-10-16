@@ -144,6 +144,10 @@ export const assistantApi = {
     ),
   send: (id, input) =>
     api(`/assistant-conversations/${encodeURIComponent(id)}/messages`, "POST", input),
+  queue: (id, input) =>
+    api(`/assistant-conversations/${encodeURIComponent(id)}/queued`, "POST", input),
+  takeBackQueued: (id) =>
+    api(`/assistant-conversations/${encodeURIComponent(id)}/queued`, "DELETE"),
   cancel: (id) => api(`/assistant-attempts/${encodeURIComponent(id)}/cancel`, "POST", {}),
   recover: (id) =>
     api(`/assistant-attempts/${encodeURIComponent(id)}/recover`, "POST", {
