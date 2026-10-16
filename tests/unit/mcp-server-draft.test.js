@@ -221,3 +221,21 @@ test("keeping the package restores the stored command and owner args", () => {
     args: "--owner",
   });
 });
+
+test("a switch to a package that has not installed yet keeps the own command", () => {
+  for (const status of ["installing", "failed", "choosing"]) {
+    const server = {
+      ...packaged(status),
+      command: "/usr/bin/own",
+      args: ["--owner"],
+      source: { ...packaged(status).source, leadingArgs: 0 },
+    };
+    assert.equal(draftFrom(server).command, "/usr/bin/own", status);
+    assert.equal(keepPackageValues(server).command, "/usr/bin/own", status);
+    // Use own command: the detach sends the command it still runs.
+    const draft = { ...draftFrom(server), source: "command" };
+    assert.equal(requestBody(draft, server).command, "/usr/bin/own", status);
+  }
+  assert.equal(draftFrom(packaged("ready")).command, "");
+  assert.equal(draftFrom(packaged("missing")).command, "");
+});

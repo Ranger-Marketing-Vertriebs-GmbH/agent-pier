@@ -292,7 +292,9 @@ read from the registry, newest first; prereleases are hidden unless **Show
 prereleases** is on, deprecated npm versions are marked, and PyPI versions withdrawn
 by their author are marked "withdrawn by its author" (yanked) and are not installed. An existing
 server with an own command switches the same way: its arguments and environment stay,
-and it keeps running its own command until the install is ready.
+and the CLIs and agents keep running its own command until the install is ready, also
+while the program choice waits and after a failed install (the form then still shows
+that command, for example for **Use own command**).
 
 Saving first resolves the complete dependency graph without running package code
 (unless source builds are allowed for a PyPI package) and asks **Install this package?** (**Update this package?** for an update). The dialog
@@ -371,8 +373,8 @@ _Installation missing_ (the files of a ready install are gone or changed).
 - **Bindings.** Until the package is ready, the controls for Coding CLIs and agents
   are locked for new bindings ("Coding CLIs and agents can be added once the package
   is installed."), and the CLIs and agents never receive a server whose package is not
-  ready (reason "its package is not installed yet or is missing"). Existing
-  bindings stay. A missing install is removed from the CLIs' entries when AgentPier
+  ready (reason "its package is not installed yet or is missing"); a server switching
+  from an own command keeps running that command until then. Existing bindings stay. A missing install is removed from the CLIs' entries when AgentPier
   starts, before a session of that CLI, or with any MCP server change.
 - **Update.** Choose the version in **New version**; **Check update** resolves it and
   shows the changes to the installed packages (_Added_, _Removed_, _Changed_ with old

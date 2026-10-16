@@ -290,7 +290,7 @@ export class McpPackages {
   /**
    * Switches an own-command stdio server to a package (owner decision D1). The own
    * command stays stored until the install switches command and args together; until
-   * then the compilers skip the server, as for a new package.
+   * then the CLIs and agents keep running it, also after a failed install.
    */
   async attach(id, { source, previewId, program } = {}, beforeInstall) {
     const server = this.servers.get(id);
