@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
+import { observeBuild } from "../../lib/build-check.js";
 import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assistant-attachments.js";
 import { fileDataUrl } from "../chat/chat-upload-transport.js";
 import {
@@ -11,6 +12,8 @@ import {
 } from "./agent-attachment-upload.js";
 
 const conversationPath = (id) => `/assistant-conversations/${encodeURIComponent(id)}`;
+const attachmentPath = (conversationId, id) =>
+  `${conversationPath(conversationId)}/attachments/${encodeURIComponent(id)}`;
 let nextKey = 0;
 
 /**
@@ -42,22 +45,39 @@ export default function useAgentAttachments(conversationId) {
       .then((policy) => live && setImageInput(policy.imageInput ?? null))
       .catch(() => {});
     const uploads = controllers.current;
+    // A reload or a closed tab unmounts nothing: the page discards its unsent uploads
+    // as it goes, with requests that outlive it.
+    const leave = () => {
+      for (const item of current.current)
+        if (item.id)
+          fetch(`/api${attachmentPath(conversationId, item.id)}`, {
+            method: "DELETE",
+            keepalive: true,
+          })
+            .then(observeBuild)
+            .catch(() => {});
+    };
+    // A page restored from the back-forward cache lost those files on the server.
+    const back = (event) => {
+      if (event.persisted) update((list) => list.filter((item) => !item.id));
+    };
+    window.addEventListener("pagehide", leave);
+    window.addEventListener("pageshow", back);
     return () => {
       live = false;
+      window.removeEventListener("pagehide", leave);
+      window.removeEventListener("pageshow", back);
       // Unsent uploads leave with the chat; the server forgets them as well.
       for (const controller of uploads.values()) controller.abort();
       uploads.clear();
       for (const item of current.current)
         if (item.id)
-          api(
-            `${conversationPath(conversationId)}/attachments/${encodeURIComponent(item.id)}`,
-            "DELETE",
-          ).catch(() => {});
+          api(attachmentPath(conversationId, item.id), "DELETE").catch(() => {});
       current.current = [];
       setItems([]);
       setError("");
     };
-  }, [conversationId]);
+  }, [conversationId, update]);
 
   const upload = async (item, file) => {
     const controller = new AbortController();
@@ -124,11 +144,7 @@ export default function useAgentAttachments(conversationId) {
     if (!item) return;
     controllers.current.get(key)?.abort();
     update((list) => list.filter((entry) => entry.key !== key));
-    if (item.id)
-      api(
-        `${conversationPath(conversationId)}/attachments/${encodeURIComponent(item.id)}`,
-        "DELETE",
-      ).catch(() => {});
+    if (item.id) api(attachmentPath(conversationId, item.id), "DELETE").catch(() => {});
   };
 
   // After a successful send: the server now owns the sent files as part of the

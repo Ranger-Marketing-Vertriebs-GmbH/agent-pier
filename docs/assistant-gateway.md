@@ -1653,8 +1653,11 @@ server decides by the bytes, never by the name or the browser's type.
   (`<date>-<time>-<random>-<safe name>`), mode 0600. The folder must be a real
   directory inside the agent's real workspace; a link there refuses the upload. The
   index (name, type, size, request) lives in the assistants database, never in the
-  workspace. Unsent uploads expire after a day; each agent holds at most 512 MB or
-  1000 files there.
+  workspace. Unsent uploads expire after a day, and a page that is closed or reloaded
+  discards its own. A conversation keeps at most 20 unsent uploads; a further one
+  replaces the oldest, so files abandoned elsewhere never block a new message. Each
+  agent holds at most 512 MB or 1000 files there. When the agent deletes a sent copy,
+  the chat history keeps the message without that file.
 - **Delivery.** `sessions.send` carries the owner's text followed by a note that
   names each saved copy by its workspace-relative path, so the agent can read it with
   its tools. Images the agent's model accepts also travel inline as `attachments`
