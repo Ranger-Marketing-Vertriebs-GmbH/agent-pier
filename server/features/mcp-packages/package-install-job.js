@@ -225,7 +225,16 @@ export async function activate(
   const before = previous?.installId ? previous.leadingArgs : 0;
   // The new install's id is in the command (PyPI) or its first arg (npm), so the
   // stored definition says unambiguously whether the switch has committed.
-  service.switching.set(serverId, { before, after: leading.length, command, leading });
+  // The install (and toolchain) the server runs until the switch committed: prune
+  // keeps them, so a failed switch goes back to an install that still exists.
+  service.switching.set(serverId, {
+    before,
+    after: leading.length,
+    command,
+    leading,
+    running: previous?.installId ?? null,
+    runningToolchain: previous?.toolchainDir ?? null,
+  });
   service.records.put(serverId, fields);
   try {
     await switchCommand(service, serverId, command, leading, before, { signal });

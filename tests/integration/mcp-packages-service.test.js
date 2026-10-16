@@ -109,6 +109,38 @@ test("a failed update keeps the previous install active and reports its code", a
   assert.equal(s.packages.jobs.get(server.id).log.includes(s.dataDir), false);
 });
 
+test("a failed update switch keeps a usable old install despite a concurrent prune", async (t) => {
+  const s = await packageService(t);
+  const { server } = await createPackaged(s);
+  await s.packages.jobs.idle();
+  const oldProgram = s.servers.get(server.id).args[0];
+  const oldInstall = s.servers.packages.get(server.id).installId;
+  const next = await preview(s, "2.0.0", { serverId: server.id });
+  const update = s.changes.update.bind(s.changes);
+  let runningExists = null;
+  s.changes.update = async (id, input, options) => {
+    if (id === server.id && input.command !== undefined) {
+      // Whatever else prunes now: another server deleted, another job settling.
+      await s.packages.prune();
+      runningExists = fs.existsSync(s.servers.get(server.id).args[0]);
+      throw Object.assign(Error("store failed"), { status: 500 });
+    }
+    return update(id, input, options);
+  };
+  await s.packages.updatePackage(server.id, {
+    version: "2.0.0",
+    previewId: next.previewId,
+  });
+  await s.packages.jobs.idle();
+  assert.equal(runningExists, true);
+  const after = s.servers.get(server.id);
+  assert.equal(after.args[0], oldProgram);
+  assert.equal(s.servers.packages.get(server.id).installId, oldInstall);
+  assert.equal(after.source.status, "ready");
+  assert.equal(after.source.version, "1.0.0");
+  assert.ok(fs.existsSync(oldProgram));
+});
+
 test("a vanished install reports missing and reinstalls from the stored lock", async (t) => {
   const s = await packageService(t);
   const { server } = await createPackaged(s);
