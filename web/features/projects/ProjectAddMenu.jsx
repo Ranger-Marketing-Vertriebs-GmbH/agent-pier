@@ -24,6 +24,13 @@ export default function ProjectAddMenu({ label, items }) {
       trigger.current?.focus();
       return;
     }
+    if (event.key === "Tab") {
+      // Tab closes the menu and moves on from the trigger. Leaving it to the blur
+      // fails where Tab skips buttons (Safari's default) and focus leaves the page.
+      trigger.current?.focus();
+      setOpen(false);
+      return;
+    }
     const controls = [...event.currentTarget.querySelectorAll("[role='menuitem']")];
     const position = controls.indexOf(document.activeElement);
     const next =
