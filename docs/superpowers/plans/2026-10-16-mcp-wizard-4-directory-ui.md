@@ -709,6 +709,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Produces:
   - `draftFromEntry(entry, option, { taken }) → Draft` with `path` (`"package"|"remote"`), `name`, `origin: "directory"`, `directoryOrigin: { name, version }`, `hints: { settings, directory: { name, title, version } }`, package fields (`registry`, `packageName`, `packageVersion`, `argRows`, `env`) or remote fields (`transport`, `url`, `urlTemplate: { url, variables, values } | null`, `signIn`, `headers`).
   - `composeUrl(template) → string` – every `{var}` replaced by the URL-encoded value.
+  - `composeValue({ value, values }) → string` – same, unencoded. Env and header rows whose value wraps a `{var}` in other text (`Token {key}`, `postgres://{user}:{pw}@db/x`) carry `template: { value, variables, values }` and their settings hint carries `template`; Tasks 6/7 render one field per variable and save `composeValue(...)` as the literal. Only the first `Bearer {var}` header has `key: "auth"`.
   - `isSelectable(option) → boolean` (`kind !== "unsupported"`).
   - Wizard state: `stepOrder(path, "directory")` → `["source", "directory", …]`; action `fromDirectory { draft }` (like PR 2's `pasted`, visiting `directory`, the set-up step and `settings`).
 
