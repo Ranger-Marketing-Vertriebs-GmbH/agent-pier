@@ -68,7 +68,12 @@ const runResult = (a) => ({
 // sessions, capacity and an unavailable runtime retry with backoff; stable request
 // identity never sends twice. Anything else is recorded and settles. Returns
 // whether nothing is left to do.
-async function handOver(w, a, field, { conversationId, requestId, text, context }) {
+export async function handOver(
+  w,
+  a,
+  field,
+  { conversationId, requestId, text, context },
+) {
   const retryAt = `${field}RetryAt`,
     failures = `${field}Failures`;
   if (a[retryAt] > w.now()) return false;
@@ -94,7 +99,7 @@ async function handOver(w, a, field, { conversationId, requestId, text, context 
     return false;
   }
 }
-function archived(w, id) {
+export function archived(w, id) {
   try {
     return !!w.a.store.getAssistant(id).archivedAt;
   } catch (error) {
