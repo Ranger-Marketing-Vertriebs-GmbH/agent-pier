@@ -8,6 +8,7 @@ const source = fileURLToPath(new URL("./team-plugin/", import.meta.url));
 const files = [
   "index.js",
   "workflow-tools.js",
+  "ssh-tool.js",
   "tool-guard.js",
   "patch-paths.js",
   "openclaw.plugin.json",

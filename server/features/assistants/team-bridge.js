@@ -20,6 +20,7 @@ const actions = new Set([
   "reminder",
   "routine",
   "workspace",
+  "ssh",
 ]);
 const active = new Set(["pending", "accepted", "running"]);
 const leavingReady = new Set([
@@ -90,6 +91,13 @@ export class TeamBridge {
       !this.assistants.runtime.client?.ready
     )
       throw assistantProblem("unavailable", 403);
+    // A routine's own run session (no attempt) stays current while its routine does.
+    if (record.routine) {
+      const run = this.routineRun(record);
+      if (record.action !== "ssh" || run?.binding.id !== record.routine.binding.id)
+        throw assistantProblem("invalid", 403);
+      return record;
+    }
     const a = this.assistants.ledger.getAttempt(record.attemptId);
     if (!active.has(a.state) || a.reviewedAt) throw assistantProblem("invalid", 403);
     const c = this.assistants.store.getConversation(
@@ -104,7 +112,7 @@ export class TeamBridge {
       (parent.teamMemberId &&
         !(
           record.action === "workspace" ||
-          (["reminder", "routine"].includes(record.action) &&
+          (["reminder", "routine", "ssh"].includes(record.action) &&
             parent.lifetime === "permanent")
         )) ||
       parent.archivedAt
@@ -132,10 +140,17 @@ export class TeamBridge {
       );
       return c.runtimeSessionKey === input.sessionKey && active.has(a.state);
     });
-    if (matches.length !== 1) throw assistantProblem("invalid", 403);
+    let bound;
+    if (matches.length === 1) bound = { attemptId: matches[0].id };
+    else if (!matches.length && input.action === "ssh") {
+      // Only SSH serves a routine's run: its owner granted the host "incl. routines".
+      const routine = this.routineRun(input);
+      if (!routine) throw assistantProblem("invalid", 403);
+      bound = { attemptId: null, routine };
+    } else throw assistantProblem("invalid", 403);
     const record = this.valid({
       ...input,
-      attemptId: matches[0].id,
+      ...bound,
       generation: this.generation(),
       expires: this.now() + 30000,
     });
@@ -263,6 +278,20 @@ export class TeamBridge {
     if (!capabilities.memory || !capabilities.reminders) return false;
     return !!this.assistants.routines?.runOrigin(agent, input.sessionKey);
   }
+  // The run session of a bound, enabled routine of a personal agent with routines on.
+  routineRun(input) {
+    const agent = this.assistants.store
+      .listAssistants()
+      .find((a) => a.runtimeAgentId === input.agentId);
+    if (
+      !agent ||
+      agent.archivedAt ||
+      (agent.teamMemberId && agent.lifetime !== "permanent") ||
+      !personalCapabilities(agent).reminders
+    )
+      return null;
+    return this.assistants.routines?.runOrigin(agent, input.sessionKey) || null;
+  }
   invoke({ ticket, action, input, ...extra }) {
     if (Object.keys(extra).length) throw assistantProblem("invalid");
     const record = this.tickets.get(ticket);
@@ -281,10 +310,14 @@ export class TeamBridge {
       // Waits (an ask) count from here, the moment the call reached AgentPier.
       startedAt: Date.now(),
       assertCurrent: () => this.valid(record),
+      routine: record.routine || null,
+      sessionKey: record.sessionKey,
     };
     record.invocation = invocation;
     record.promise = Promise.resolve().then(() => {
       invocation.assertCurrent();
+      if (action === "ssh")
+        return this.assistants.workflows.ssh.invoke(invocation, input);
       if (action === "workspace")
         return this.assistants.workflows.invoke(invocation, input);
       if (action === "routine") return this.assistants.routines.invoke(invocation, input);
