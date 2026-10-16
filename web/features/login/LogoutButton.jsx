@@ -1,6 +1,7 @@
 import React, { useContext, useState } from "react";
 import { LoginContext } from "./LoginContext.js";
 import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
+import { requestNavigation } from "../../lib/navigation-guard.js";
 export default function LogoutButton() {
   const auth = useContext(LoginContext);
   const [error, setError] = useState("");
@@ -9,7 +10,9 @@ export default function LogoutButton() {
   async function logout() {
     setBusy(true);
     try {
-      await auth.logout();
+      // Signing out leaves the workspace: unsaved changes ask first, like a navigation.
+      const left = await requestNavigation({ reason: "logout", commit: auth.logout });
+      if (!left) setBusy(false);
     } catch (failure) {
       setError(failure.message);
       setBusy(false);

@@ -1,7 +1,11 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import Icon from "./Icon.jsx";
 import { edgeClassNames } from "./scroll-fade.js";
 import useScrollFade from "./useScrollFade.js";
+
+// The tab an arrow key chose, by tab list, until it is selected. Module state: a page
+// may render a new tab list for the selected tab.
+const keyboardSwitch = new Map();
 
 // Tabs fill the row on phones and scroll with an edge fade when they do not fit; the
 // active tab stays in view with a 48px margin.
@@ -18,6 +22,15 @@ export default function UnderlineTabs({
     activeSelector: '[aria-selected="true"]',
     revealKey: `${selected}:${tabs.length}`,
   });
+  // An arrow key switch may wait for a decision (unsaved changes): focus follows the
+  // tab once it is selected, so a refused switch leaves focus on the selected tab.
+  useEffect(() => {
+    if (keyboardSwitch.get(idPrefix) !== selected) return;
+    keyboardSwitch.delete(idPrefix);
+    const active = document.activeElement;
+    if (active && active !== document.body && !list.current?.contains(active)) return;
+    list.current?.querySelector('[aria-selected="true"]')?.focus();
+  }, [idPrefix, selected]);
   const move = (event, index) => {
     const count = tabs.length;
     let next = null;
@@ -27,8 +40,12 @@ export default function UnderlineTabs({
     else if (event.key === "ArrowLeft") next = (index - 1 + count) % count;
     if (next === null) return;
     event.preventDefault();
+    if (tabs[next].id === selected) {
+      event.currentTarget.parentElement.children[next].focus();
+      return;
+    }
+    keyboardSwitch.set(idPrefix, tabs[next].id);
     onSelect(tabs[next].id);
-    event.currentTarget.parentElement.children[next].focus();
   };
   return (
     <div className={edgeClassNames(edges, "underline-tabs-frame")}>
