@@ -47,6 +47,9 @@ export class CodexMcpLogins {
    * - `tools()`: detected CLIs; the installed Codex runs the login.
    * - `prepare(account)`: writes the central servers into the account (as a session
    *   start does), so Codex knows the server by name and URL.
+   * - `inEffect()`: ids of the servers whose AgentPier entry Codex runs (after
+   *   `prepare`), or null when unknown. Codex logs in by name: a server whose name the
+   *   owner's own entry holds would log in that entry, so it is refused.
    * - `callbackBase()`: the callback URL Codex sends the provider to (it appends its own
    *   path segment); `remoteUrl()`: the configured HTTPS remote origin, if any.
    * - `onSettled({ serverId, name, accountId, result })`: after each completion.
@@ -58,6 +61,7 @@ export class CodexMcpLogins {
     servers,
     tools,
     prepare = async () => {},
+    inEffect = () => null,
     callbackBase,
     remoteUrl = () => null,
     spawn = spawnChild,
@@ -78,6 +82,7 @@ export class CodexMcpLogins {
       servers,
       tools,
       prepare,
+      inEffect,
       callbackBase,
       remoteUrl,
       spawn,
@@ -138,6 +143,8 @@ export class CodexMcpLogins {
       key,
       serverId,
       name: server.name,
+      url: server.url,
+      auth: server.auth,
       accountId,
       base: this.callbackBase(),
       child: null,
@@ -155,6 +162,11 @@ export class CodexMcpLogins {
       throw failure(messages.cliLoginPrepareFailed, "prepare-failed", 409);
     }
     if (ended()) throw failure(messages.cliLoginEnded, "login-ended", 409);
+    const effective = this.inEffect();
+    if (effective && !effective.has(serverId)) {
+      this.forget(login);
+      throw failure(messages.cliLoginNotInEffect, "not-in-effect", 409);
+    }
     try {
       await this.run(tool.path, login);
     } catch (error) {
@@ -314,8 +326,9 @@ export class CodexMcpLogins {
   }
 
   /**
-   * Ends every login whose account is gone or whose server is gone, renamed or no
-   * longer bound to Codex (called after such changes). Results of those pairs go too.
+   * Ends every login whose account is gone or whose server is gone, renamed, moved to
+   * another URL or auth method, or no longer bound to Codex (called after such
+   * changes). Results of those pairs go too.
    */
   prune() {
     let bound;
@@ -324,17 +337,23 @@ export class CodexMcpLogins {
     } catch {
       return;
     }
-    const current = (serverId, accountId, name) => {
+    const current = (serverId, accountId, login) => {
       try {
         this.account(accountId);
         const server = this.servers.get(serverId);
-        return bound.has(serverId) && (name === undefined || server.name === name);
+        return (
+          bound.has(serverId) &&
+          (login === undefined ||
+            (server.name === login.name &&
+              server.url === login.url &&
+              server.auth === login.auth))
+        );
       } catch {
         return false;
       }
     };
     for (const login of [...this.byKey.values()])
-      if (!current(login.serverId, login.accountId, login.name)) {
+      if (!current(login.serverId, login.accountId, login)) {
         this.end(login);
         this.results.delete(login.key);
         this.closed(login, "obsolete");

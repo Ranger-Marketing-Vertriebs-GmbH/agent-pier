@@ -82,6 +82,8 @@ export const mcpServers = {
   cliReasonPackage: "Das Paket des Servers ist noch nicht installiert oder fehlt.",
   cliLoginNotBound:
     "Der Server ist Codex nicht zugeordnet. Bitte Codex unter den Coding-CLIs des Servers auswählen.",
+  cliLoginNotInEffect:
+    "Codex führt den Eintrag dieses Servers nicht, etwa weil ein eigener Eintrag in Codex den Namen belegt. Bitte zuerst den Status des Servers in Codex klären.",
   cliLoginAccountInvalid:
     "Anmelden lässt sich nur in einem von AgentPier verwalteten Codex-Konto. Im eigenen Codex-Profil bitte codex mcp login im Terminal ausführen.",
   cliLoginCodexMissing:

@@ -472,6 +472,38 @@ test("a removed account or an unbound, renamed or deleted server ends its logins
   assert.deepEqual(fake.runs[2].child.signals, ["SIGTERM"]);
 });
 
+test("a server moved to another URL or auth method ends its logins", async () => {
+  const { logins, fake, servers, closed } = setup();
+  servers.items.s1 = { ...servers.items.s1, url: "https://mcp.example.test/mcp" };
+  await logins.start("s1", "a1", local);
+  await logins.start("s1", "a2", local);
+  logins.prune();
+  assert.equal(closed.length, 0, "nothing changed");
+  servers.items.s1 = { ...servers.items.s1, url: "https://moved.example.test/mcp" };
+  logins.prune();
+  assert.deepEqual(fake.runs[0].child.signals, ["SIGTERM"]);
+  assert.deepEqual(fake.runs[1].child.signals, ["SIGTERM"]);
+  await logins.start("s1", "a1", local);
+  servers.items.s1 = { ...servers.items.s1, auth: "headers" };
+  logins.prune();
+  assert.deepEqual(fake.runs[2].child.signals, ["SIGTERM"]);
+  assert.equal(closed.filter((event) => event.reason === "obsolete").length, 3);
+});
+
+test("a server whose entry Codex does not run is not logged in", async () => {
+  const { logins, fake, prepared } = setup({
+    service: { inEffect: () => new Set(["s2"]) },
+  });
+  await assert.rejects(logins.start("s1", "a1", local), {
+    code: "not-in-effect",
+    status: 409,
+  });
+  // Checked after the account was prepared (the entry may just have been written).
+  assert.deepEqual(prepared, ["a1"]);
+  assert.equal(fake.runs.length, 0);
+  assert.deepEqual(logins.view("s1"), {});
+});
+
 test("a process that ignores SIGTERM is killed after a grace period", async () => {
   const { logins, fake, timers } = setup({ service: { killGraceMs: 2000 } });
   await logins.start("s1", "a1", local);

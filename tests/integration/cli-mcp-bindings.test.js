@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 import { CentralMcpChanges } from "../../server/features/mcp-servers/central-changes.js";
 import { CliMcpBindings } from "../../server/features/mcp-servers/cli-bindings.js";
 import {
@@ -53,12 +54,46 @@ test("a session starts even when its CLI's configuration cannot be read", async 
   f.raw("claude", "{ broken");
   const account = f.accounts.get("local-claude");
   const prepared = await cli.prepare({ account, launch: launch() });
-  assert.ok(prepared.sandboxGrants.some((grant) => grant.path === command));
+  // Nothing shows AgentPier's entry in effect there: no grant for its command.
+  assert.deepEqual(prepared, launch());
   assert.equal(f.text("claude"), "{ broken");
   assert.equal(f.warnings.length, 1);
   assert.doesNotMatch(f.warnings[0], /broken|secret|\//);
   f.servers.close();
   assert.deepEqual(await cli.prepare({ account, launch: launch() }), launch());
+});
+
+const grantsOf = (prepared) =>
+  (prepared.sandboxGrants ?? []).map((grant) => `${grant.access}:${grant.path}`);
+
+test("a stdio server whose entry a CLI does not run gets no sandbox grants", async (t) => {
+  const f = cliMcpFixture(t);
+  const cli = service(f);
+  const command = f.executable();
+  const work = path.join(f.root, "private-project");
+  fs.mkdirSync(work);
+  const server = f.servers.create(stdio({ command, cwd: work }), {
+    bind: [["cli", "codex"]],
+  });
+  const account = f.accounts.get("local-codex");
+  // The owner's own entry under the same name: Codex runs that one.
+  f.write("codex", { local: { command: "/fake/bin/owner-server" } });
+  assert.deepEqual(await cli.prepare({ account, launch: launch() }), launch());
+  assert.equal(cli.reconciler.inspect("codex").statuses[server.id].status, "name-taken");
+  assert.equal(f.entries("codex").local.command, "/fake/bin/owner-server");
+  // A file AgentPier cannot edit in place (layout): nothing was written.
+  f.raw("codex", `mcp_servers = { other = { command = "/fake/bin/x" } }\n`);
+  assert.deepEqual(await cli.prepare({ account, launch: launch() }), launch());
+  assert.equal(cli.reconcileOne("codex").error, "layout");
+  // Written: the grants follow.
+  f.raw("codex", "");
+  const grants = grantsOf(await cli.prepare({ account, launch: launch() }));
+  assert.ok(grants.includes(`read:${command}`));
+  assert.ok(grants.includes(`allow:${work}`));
+  // Edited by hand (conflict): the owner's command runs, not AgentPier's.
+  f.write("codex", { local: { command: "/fake/bin/edited" } });
+  assert.deepEqual(await cli.prepare({ account, launch: launch() }), launch());
+  assert.equal(cli.reconciler.inspect("codex").statuses[server.id].status, "conflict");
 });
 
 test("binding refuses what a CLI cannot run and asks before a CLI gets a local command", async (t) => {
@@ -284,4 +319,29 @@ test("an OAuth server bound to Codex lists each managed account's login", async 
     ],
   });
   assert.equal(listed.cliStatus.claude.oauth.accounts, undefined);
+});
+
+test("a name-taken OAuth server shows no login of the owner's other entry", async (t) => {
+  const f = cliMcpFixture(t);
+  const cli = service(f, {
+    // Codex reports login states by name only.
+    oauthStatus: {
+      codex: async () => ({ docs: "connected" }),
+      accountStates: () => ({ accounts: [], states: {} }),
+    },
+  });
+  const server = f.servers.create(http({ auth: "oauth", headers: undefined }), {
+    bind: [["cli", "codex"]],
+  });
+  f.write("codex", { docs: { url: "https://owner-other.example.test/mcp" } });
+  cli.reconcileAll();
+  const [listed] = await cli.decorate(f.servers.list());
+  assert.equal(listed.cliStatus.codex.status, "name-taken");
+  assert.equal(listed.cliStatus.codex.oauth, undefined);
+  assert.deepEqual([...cli.inEffect("codex")], []);
+  f.raw("codex", "");
+  cli.reconcileAll();
+  assert.deepEqual([...cli.inEffect("codex")], [server.id]);
+  const [written] = await cli.decorate(f.servers.list());
+  assert.equal(written.cliStatus.codex.oauth.state, "connected");
 });
