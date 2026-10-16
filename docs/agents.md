@@ -235,9 +235,12 @@ the server sends the queued message once, with its files and team permission, th
 the normal send. An uncertain or interrupted turn holds it until you resolve that turn;
 while the agent service is not ready the notice says the agent cannot take messages
 right now. If the agent refuses it, for example because a file is gone, the notice
-shows the reason; such a message takes no more text until **Edit** brings it back. A
-queued message that could not go out for a day is not sent anymore and says so. Its
-files stay with it until it is sent or taken back.
+shows the reason; such a message takes no more text until **Edit** brings it back. When
+delivery keeps being refused for a while, the notice says that AgentPier keeps trying.
+A queued message that could have gone out for a day without being sent (for example on
+a host that was stopped or restored) is not sent anymore and says so; a long turn never
+expires it. Its files stay with it until it is sent or taken back, also while it is
+failed or expired: **Edit** returns them to the composer.
 
 ## Attachments
 

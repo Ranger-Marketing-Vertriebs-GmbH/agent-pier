@@ -12,7 +12,9 @@ const noticeText = (kind, queued, name) =>
       ? copy.queued.failed(serverProblemText(queued, copy.queued.unknownError))
       : kind === "blocked"
         ? copy.queued.blocked(name)
-        : copy.queued.notice(name);
+        : kind === "retrying"
+          ? copy.queued.retrying(name)
+          : copy.queued.notice(name);
 
 // The message queued while the agent works, above the field: what waits, for whom,
 // and Edit to take it back (not while it is on its way). The notice is announced by

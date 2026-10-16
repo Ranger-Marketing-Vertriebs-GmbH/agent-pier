@@ -23,6 +23,8 @@ const record = (row) =>
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         lastAppend: row.last_append,
+        deliverableSince: row.deliverable_since ?? null,
+        retrying: row.retrying === 1,
       }
     : null;
 
@@ -73,13 +75,22 @@ export class QueuedMessages {
   // A row whose delivery key the ledger knows was sent: a later append must start a
   // new message instead of sending the old text again.
   forgetDelivered(conversationId = null) {
-    this.db
-      .prepare(
-        `DELETE FROM queued_messages WHERE (? IS NULL OR conversation_id=?) AND EXISTS
-          (SELECT 1 FROM requests r WHERE r.conversation_id=queued_messages.conversation_id
-            AND r.client_key=queued_messages.client_key)`,
-      )
-      .run(conversationId, conversationId);
+    const delivered = `EXISTS (SELECT 1 FROM requests r
+      WHERE r.conversation_id=queued_messages.conversation_id
+        AND r.client_key=queued_messages.client_key)`;
+    if (conversationId === null) {
+      this.db.prepare(`DELETE FROM queued_messages WHERE ${delivered}`).run();
+      return;
+    }
+    // A read probes first and writes only when there is something to drop.
+    if (
+      this.db
+        .prepare(`SELECT 1 FROM queued_messages WHERE conversation_id=? AND ${delivered}`)
+        .get(conversationId)
+    )
+      this.db
+        .prepare("DELETE FROM queued_messages WHERE conversation_id=?")
+        .run(conversationId);
   }
   get(conversationId) {
     this.forgetDelivered(conversationId);
@@ -112,11 +123,12 @@ export class QueuedMessages {
     const stamp = new Date(this.now()).toISOString();
     this.db
       .prepare(
-        `INSERT INTO queued_messages VALUES (?,?,?,?,?,'waiting',NULL,?,?,?)
+        `INSERT INTO queued_messages VALUES (?,?,?,?,?,'waiting',NULL,?,?,?,NULL,0)
         ON CONFLICT(conversation_id) DO UPDATE SET client_key=excluded.client_key,
           text=excluded.text, team_allowed=excluded.team_allowed,
           attachments=excluded.attachments, state='waiting', error=NULL,
-          updated_at=excluded.updated_at, last_append=excluded.last_append`,
+          updated_at=excluded.updated_at, last_append=excluded.last_append,
+          deliverable_since=NULL, retrying=0`,
       )
       .run(
         conversationId,
@@ -136,6 +148,36 @@ export class QueuedMessages {
       this.db
         .prepare(
           "UPDATE queued_messages SET state='sending' WHERE conversation_id=? AND client_key=? AND state='waiting'",
+        )
+        .run(message.conversationId, message.clientRequestId).changes === 1
+    );
+  }
+  // Since when the message could have gone out; the clock stops while it cannot
+  // (another turn runs, the agent is archived), so only a host that stayed down or
+  // was restored lets a message expire.
+  deliverable(message, now) {
+    if (message.deliverableSince !== null) return message.deliverableSince;
+    this.db
+      .prepare(
+        "UPDATE queued_messages SET deliverable_since=? WHERE conversation_id=? AND deliverable_since IS NULL",
+      )
+      .run(now, message.conversationId);
+    return now;
+  }
+  blocked(message) {
+    if (message.deliverableSince === null) return;
+    this.db
+      .prepare(
+        "UPDATE queued_messages SET deliverable_since=NULL WHERE conversation_id=?",
+      )
+      .run(message.conversationId);
+  }
+  // Whether the card says that delivery keeps being retried; true when it changed.
+  markRetrying(message) {
+    return (
+      this.db
+        .prepare(
+          "UPDATE queued_messages SET retrying=1 WHERE conversation_id=? AND client_key=? AND retrying=0",
         )
         .run(message.conversationId, message.clientRequestId).changes === 1
     );

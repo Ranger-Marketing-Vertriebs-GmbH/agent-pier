@@ -329,9 +329,13 @@ delivers it through the normal owner send, whose ledger dedupes the delivery key
 row whose key the ledger already knows counts as delivered and is dropped, also at
 startup, so a later append never sends the old text again. A 409, 503 or other server
 fault returns it to `waiting` with a per-conversation backoff from 2 to 30 seconds and
-publishes no `change`; a refusal of the message itself keeps it as `failed` with the
-problem text (unexpected errors show only the generic internal error). A row waiting
-for more than a day turns `failed` instead of being sent late. Its staged files are
+publishes no `change`; a backoff behind other turns ends when they do. After ten tries
+or ten minutes of retries the row is marked `retrying` (one `change`), and the card
+says so while retries continue every 30 seconds. A refusal of the message itself keeps
+it as `failed` with the problem text (unexpected errors show only the generic internal
+error). A row that has been deliverable for more than a day (`deliverable_since`; the
+clock stops while another turn runs or the agent is archived) turns `failed` instead
+of being sent late. Its staged files are
 excluded from expiry, the staging cap and removal until the message claims them or is
 taken back.
 

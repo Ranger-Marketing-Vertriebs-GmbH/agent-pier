@@ -34,4 +34,9 @@ test("the queued notice follows the server state and whether the agent can take 
     queuedNotice({ state: "failed" }, { active: true, available: true }),
     "failed",
   );
+  // Retried for a while: the card says so once the turn is over.
+  const retrying = { state: "waiting", retrying: true };
+  assert.equal(queuedNotice(retrying, free), "retrying");
+  assert.equal(queuedNotice(retrying, { active: true, available: true }), "waiting");
+  assert.equal(queuedNotice(retrying, { active: false, available: false }), "blocked");
 });
