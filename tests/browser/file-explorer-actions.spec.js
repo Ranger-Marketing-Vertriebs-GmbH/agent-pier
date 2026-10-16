@@ -8,7 +8,7 @@ import { baseURL } from "../helpers/browser.js";
 import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser.js";
 
 async function chooseNew(page, name) {
-  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "New", exact: true }).click();
   await page
     .getByRole("menu", { name: "New", exact: true })
     .getByRole("menuitem", { name, exact: true })
