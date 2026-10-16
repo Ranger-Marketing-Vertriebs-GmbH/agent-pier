@@ -35,7 +35,13 @@ export function resolveCommand(
   const fail = () => problem(serverMessages.mcpServers.commandNotFound);
   if (typeof command !== "string") throw fail();
   const value = command.trim();
-  if (!value || value.length > 4096 || /[\x00-\x1f\x7f]/.test(value)) throw fail();
+  if (
+    !value ||
+    value.length > 4096 ||
+    /[\x00-\x1f\x7f]/.test(value) ||
+    !value.isWellFormed()
+  )
+    throw fail();
   if (path.isAbsolute(value)) {
     if (!exists(value)) throw fail();
     return value;

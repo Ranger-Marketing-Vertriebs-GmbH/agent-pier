@@ -59,8 +59,28 @@ export function cliInput(definition, secrets) {
   };
 }
 
-export const cliEntry = (cli, definition, secrets) =>
-  nativeMcp(cli, cliInput(definition, secrets));
+/** Whether every string in `value` (keys included) has a UTF-8 form. */
+const wellFormed = (value) =>
+  typeof value === "string"
+    ? value.isWellFormed()
+    : Array.isArray(value)
+      ? value.every(wellFormed)
+      : value && typeof value === "object"
+        ? Object.entries(value).every(
+            ([key, item]) => wellFormed(key) && wellFormed(item),
+          )
+        : true;
+
+/**
+ * The native entry of a stored definition. A value no CLI file can hold (a lone
+ * surrogate, stored before input checks refused it) throws, so the reconciler fails
+ * only this entry, never the whole file.
+ */
+export function cliEntry(cli, definition, secrets) {
+  const entry = nativeMcp(cli, cliInput(definition, secrets));
+  if (!wellFormed(entry)) throw new Error("MCP entry has no UTF-8 form");
+  return entry;
+}
 
 /** JSON with keys sorted at every level and undefined members left out. */
 export function canonicalJson(value) {

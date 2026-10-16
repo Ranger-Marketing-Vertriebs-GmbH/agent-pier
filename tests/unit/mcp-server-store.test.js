@@ -83,6 +83,33 @@ test("public servers show only the URL's origin and path", () => {
   assert.equal(s.definitions()[0].url, full);
 });
 
+test("text with a lone surrogate is rejected: no CLI file can hold it", () => {
+  const s = store();
+  const lone = "x\ud800y";
+  const local = (extra) => ({
+    name: "local",
+    transport: "stdio",
+    command: "/abs/server",
+    ...extra,
+  });
+  assert.throws(() => s.create(local({ args: [lone] })), { status: 400 });
+  assert.throws(() => s.create(local({ cwd: `/work/${lone}` })), { status: 400 });
+  assert.throws(() => s.create(local({ env: { TOKEN: lone } })), { status: 400 });
+  assert.throws(() => s.create(local({ command: `/abs/${lone}` })), { status: 400 });
+  assert.throws(() => s.create(http({ headers: { Authorization: lone } })), {
+    status: 400,
+  });
+  assert.throws(
+    () => s.create(http({ auth: "oauth", headers: undefined, oauthScope: lone })),
+    { status: 400 },
+  );
+  const server = s.create(local({ args: ["ok \u{1F600}"] }));
+  assert.throws(() => s.update(server.id, { revision: server.revision, args: [lone] }), {
+    status: 400,
+  });
+  assert.deepEqual(s.list().length, 1);
+});
+
 test("URLs with credentials, fragments or other schemes are rejected", () => {
   const s = store();
   for (const url of [

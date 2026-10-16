@@ -193,3 +193,19 @@ test("a server the CLI cannot run is reported and its old entry removed", (t) =>
   });
   assert.equal(f.entries("claude").local, undefined);
 });
+
+test("a stored value no CLI file can hold fails only its own entry", (t) => {
+  const f = cliMcpFixture(t);
+  const other = f.servers.create(http(), { bind: [["cli", "codex"]] });
+  const odd = f.servers.create(stdio(), { bind: [["cli", "codex"]] });
+  // A lone surrogate, stored before input checks refused it.
+  f.servers.db
+    .prepare("UPDATE servers SET args=? WHERE id=?")
+    .run(JSON.stringify(["x\ud800y"]), odd.id);
+  const result = f.reconciler.reconcile("codex");
+  assert.equal(result.error, undefined, f.warnings.join(" | "));
+  assert.deepEqual(result.statuses[other.id], { status: "written" });
+  assert.deepEqual(result.statuses[odd.id], { status: "error", reason: "invalid" });
+  assert.ok(f.entries("codex").docs);
+  assert.equal(f.entries("codex").local, undefined);
+});

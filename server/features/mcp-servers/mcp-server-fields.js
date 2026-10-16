@@ -31,7 +31,8 @@ export function cleanAuth(input) {
   if (scope === undefined || scope === null) scope = "";
   if (typeof scope !== "string") throw invalid();
   scope = scope.trim();
-  if (scope.length > 512 || /[\x00-\x1f\x7f]/.test(scope)) throw invalid();
+  if (scope.length > 512 || /[\x00-\x1f\x7f]/.test(scope) || !scope.isWellFormed())
+    throw invalid();
   // A scope only means something with OAuth; with headers it is dropped.
   return { auth, oauthScope: auth === "oauth" && scope ? scope : null };
 }
@@ -46,7 +47,14 @@ export function cleanArgs(value = []) {
   if (
     !Array.isArray(value) ||
     value.length > 100 ||
-    value.some((a) => typeof a !== "string" || a.length > 16384 || a.includes("\0"))
+    value.some(
+      (a) =>
+        typeof a !== "string" ||
+        a.length > 16384 ||
+        a.includes("\0") ||
+        // A lone surrogate has no UTF-8 form: no CLI file could hold it.
+        !a.isWellFormed(),
+    )
   )
     throw invalid(serverMessages.extensions.invalidArgumentList);
   return value;
@@ -57,6 +65,7 @@ export function cleanCwd(value) {
     typeof value !== "string" ||
     value.length > 4096 ||
     /[\x00-\x1f\x7f]/.test(value) ||
+    !value.isWellFormed() ||
     !path.isAbsolute(value)
   )
     throw invalid(messages.invalidCwd);

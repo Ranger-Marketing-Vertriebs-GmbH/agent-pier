@@ -195,8 +195,9 @@ needs the owner's confirmation, because every session of that CLI starts it.
   _duplicate_ (the name is defined in two OpenCode files), _changed_ (the file kept
   changing during three attempts), _layout_, _write-failed_ or _failed_ (AgentPier
   could not prepare the CLI's servers and tries again at the next session start). A single
-  server can also be _invalid_ for a CLI. Another CLI or the agents are never held up by
-  one CLI's file.
+  server can also be _invalid_ for a CLI (for example a value stored before AgentPier
+  refused unpaired UTF-16 surrogates, which no CLI file can hold); it fails only its own
+  entry. Another CLI or the agents are never held up by one CLI's file.
 - **Found in the CLIs.** Entries added to a CLI outside AgentPier are listed with
   **Adopt** and **Adopt all**; they are never changed until adopted. Identical entries
   from several CLIs become one server bound to each; the same name with different
@@ -222,7 +223,9 @@ needs the owner's confirmation, because every session of that CLI starts it.
   `400 MCP_SERVER_VALUE_REFERENCE`, the `field` and, for headers and environment
   variables, their `names` (never the value); the form shows the message at that field.
   Only values a write changes are checked, before any stdio confirmation; a stored
-  server is not migrated. A shell argument such as `sh -c "srv --dir ${HOME}"` is
+  server is not migrated. Text with an unpaired UTF-16 surrogate in the command, an
+  argument, the working directory, a header or environment value or the OAuth scope is
+  refused as invalid. A shell argument such as `sh -c "srv --dir ${HOME}"` is
   refused too; use a wrapper script for it.
 - **Secrets.** Header and environment values are stored by AgentPier and written in
   plain text into the CLI files with mode 0600, because the CLIs read them there. They
