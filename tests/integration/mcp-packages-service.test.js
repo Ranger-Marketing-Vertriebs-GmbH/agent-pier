@@ -10,6 +10,7 @@ import {
   program,
   ref,
 } from "../helpers/mcp-packages-service.js";
+import { packageProblem } from "../../server/features/mcp-packages/package-errors.js";
 
 const definitionOf = (snapshot, id) => snapshot.definitions.find((d) => d.id === id);
 
@@ -238,4 +239,23 @@ test("an own-command server switches to a package and back (D1)", async (t) => {
   const entry = s.entries("claude").own;
   assert.equal(entry.command, command);
   assert.deepEqual(entry.args, ["--x"]);
+});
+
+test("a job failed on a busy toolchain names that in the package status", async (t) => {
+  const s = await packageService(t);
+  const { server } = await createPackaged(s);
+  await s.packages.jobs.idle();
+  const next = await preview(s, "2.0.0", { serverId: server.id });
+  s.packages.toolchain = async () => {
+    throw packageProblem("MCP_PACKAGE_BUSY", 409, "toolchainBusy");
+  };
+  await s.packages.updatePackage(server.id, {
+    version: "2.0.0",
+    previewId: next.previewId,
+  });
+  await s.packages.jobs.idle();
+  const { error, job } = s.packages.status(server.id);
+  assert.equal(job.code, "MCP_PACKAGE_BUSY");
+  assert.equal(error.code, "MCP_PACKAGE_BUSY");
+  assert.equal(error.messageKey, "mcpPackages.toolchainBusy");
 });

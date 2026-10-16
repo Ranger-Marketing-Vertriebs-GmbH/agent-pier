@@ -16,6 +16,11 @@ export class PackageJobs {
       ? { kind: job.kind, state: job.state, code: job.code, log: job.log }
       : null;
   }
+  /** The server message a failed job ended with: one code can have several wordings. */
+  failureMessage(serverId) {
+    const job = this.jobs.get(serverId);
+    return job?.state === "failed" ? job.message : null;
+  }
   runningJobs() {
     return [...this.jobs.values()].filter((job) => job.state === "running");
   }
@@ -43,6 +48,7 @@ export class PackageJobs {
       toolchainDir: null,
       state: "running",
       code: null,
+      message: null,
       log: "",
       controller,
     };
@@ -66,6 +72,8 @@ export class PackageJobs {
           job.code = aborted
             ? "MCP_PACKAGE_CANCELLED"
             : packageCode(error, "MCP_PACKAGE_INSTALL_FAILED");
+          // Only a package problem's own message: other errors can name paths.
+          job.message = !aborted && job.code === error?.code ? error.message : null;
         },
       )
       .finally(() => {

@@ -454,10 +454,14 @@ export class McpPackages {
     const job = this.jobs.get(id);
     // The programs of a build waiting for the owner's choice; none otherwise.
     const programs = choosablePrograms(this, id);
-    const code = job?.state === "failed" ? job.code : (source?.errorCode ?? null);
+    const failed = job?.state === "failed";
+    const code = failed ? job.code : (source?.errorCode ?? null);
     if (!code) return { source, job, error: null, programs };
     // Stable code plus the server message and its key; the browser translates the key.
-    const { message } = packageProblem(code);
+    // A failed job keeps its own wording (a busy toolchain is not a busy server).
+    const own = failed ? this.jobs.failureMessage(id) : null;
+    const message =
+      own && messageIdentity(own).messageKey ? own : packageProblem(code).message;
     return {
       source,
       job,
