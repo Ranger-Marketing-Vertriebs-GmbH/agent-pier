@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createReloadLifecycle } from "../../server/application/session-reload-lifecycle.js";
 import { NonoSandbox } from "../../server/features/nono/nono-launch.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
+import { codexSandboxArguments } from "../../server/lib/sandbox.js";
 
 const reload = serverMessages.sessionReload;
 
@@ -301,4 +302,33 @@ test("reload relaunches a skip-permissions Claude session in the same launch mod
   const plan = await f.prepareReload(f.session, "native-exact");
   await f.restartReload(f.session, plan);
   assert.deepEqual(modes, [[false, "bypass"]]);
+});
+
+test("a reload reuses the permission arguments stored at launch, once", async () => {
+  const f = fixture();
+  f.services.accounts.get = () => ({ id: "account", tool: "codex" });
+  f.services.models.read = async () => null;
+  const permissionArgs = [
+    "-c",
+    'approval_policy="untrusted"',
+    ...codexSandboxArguments(),
+  ];
+  const session = { ...f.session, tool: "codex", permissionArgs };
+  const plan = await f.prepareReload(session, "native-exact");
+  const args = plan.launch.args;
+  assert.deepEqual(
+    args.slice(args.indexOf("-c"), args.indexOf("-c") + 4),
+    permissionArgs,
+  );
+  assert.equal(args.filter((arg) => arg === codexSandboxArguments()[1]).length, 1);
+  assert.deepEqual(args.slice(-2), ["resume", "native-exact"]);
+  // A record from before the arguments were stored keeps its launch mode alone.
+  const legacy = await f.prepareReload(
+    { ...session, permissionArgs: undefined },
+    "native-exact",
+  );
+  assert.equal(
+    legacy.launch.args.some((arg) => arg.startsWith("approval_policy=")),
+    false,
+  );
 });

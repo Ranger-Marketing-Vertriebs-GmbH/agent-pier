@@ -61,6 +61,9 @@ export function createReloadLifecycle(services) {
     let launch = accounts.command(account.id, binaries, false, session.launchMode, {
       modelId,
     });
+    // A task profile session keeps the permission settings it was launched with;
+    // records from before these were stored fall back to the launch mode alone.
+    if (session.permissionArgs?.length) launch.args.push(...session.permissionArgs);
     if (reasoningEffort)
       launch.args.push("-c", `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`);
     if (session.provider) {
@@ -72,8 +75,13 @@ export function createReloadLifecycle(services) {
       throw problem(serverMessages.sessionReload.accessModeChanged, 409);
     if (session.attachments?.directory && session.tool !== "opencode") {
       launch.args.push("--add-dir", session.attachments.directory);
-      if (session.tool === "codex" && launch.launchMode !== "yolo")
-        launch.args.push(...codexSandboxArguments());
+      const sandbox = codexSandboxArguments();
+      if (
+        session.tool === "codex" &&
+        launch.launchMode !== "yolo" &&
+        !launch.args.includes(sandbox[1])
+      )
+        launch.args.push(...sandbox);
     }
     // Same declaration as the first launch: a reloaded session re-runs the adapter
     // chain, so it would otherwise keep every adapter grant but lose its
