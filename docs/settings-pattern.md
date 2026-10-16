@@ -143,12 +143,12 @@ moves focus to a tab only once it is selected.
 
 ## Routes
 
-| Page           | Address                                       | Route fields                                                                                                                                                                                                                                                                                                                    |
-| -------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Settings       | `/settings?tab=access`, `/settings/<section>` | `settingsSection`, `settingsTab` (`workspace` / `access` / `operations`; derived from the section; `settingsSection: "general"` is the tab root). `settingsSectionGroups`, `settingsTabOf()` in `web/features/operations/routes.js`.                                                                                            |
-| Agent settings | `/agents/:id/settings?tab=<tab>&page=<page>`  | `agentTab` (`profile` / `capabilities` / `work` / `telegram`), `agentPage` (`memory`, `allowlist`, `actions`, `projects`, `pipelines`, `telegram-activity`, `telegram-connection`); read with `agentSettingsLocation(route)`. `agentTeam` (`team=<id>`, Work tab only) opens that team in the Teams group (`agentTeamRoute()`). |
-| Accounts       | `/accounts?section=<group>&item=<id or new>`  | `section` (`models` / `services` / `mcp-servers` / `cli`), `item`; MCP OAuth results keep working.                                                                                                                                                                                                                              |
-| Extensions     | `/extensions/:profile?tab=<tab>`              | `extensionTab`; default `defaultExtensionTab` in `web/features/extensions/routes.js`.                                                                                                                                                                                                                                           |
+| Page           | Address                                                  | Route fields                                                                                                                                                                                                                                                                                                                    |
+| -------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings       | `/settings?tab=access`, `/settings/<section>`            | `settingsSection`, `settingsTab` (`workspace` / `access` / `operations`; derived from the section; `settingsSection: "general"` is the tab root). `settingsSectionGroups`, `settingsTabOf()` in `web/features/operations/routes.js`.                                                                                            |
+| Agent settings | `/agents/:id/settings?tab=<tab>&page=<page>`             | `agentTab` (`profile` / `capabilities` / `work` / `telegram`), `agentPage` (`memory`, `allowlist`, `actions`, `projects`, `pipelines`, `telegram-activity`, `telegram-connection`); read with `agentSettingsLocation(route)`. `agentTeam` (`team=<id>`, Work tab only) opens that team in the Teams group (`agentTeamRoute()`). |
+| Accounts       | `/accounts?section=<group>&item=<id or new>&step=<step>` | `section` (`models` / `services` / `mcp-servers` / `cli`), `item`, `step` (MCP server wizard and edit steps only, see Wizards); MCP OAuth results keep working.                                                                                                                                                                 |
+| Extensions     | `/extensions/:profile?tab=<tab>`                         | `extensionTab`; default `defaultExtensionTab` in `web/features/extensions/routes.js`.                                                                                                                                                                                                                                           |
 
 Defaults are left out of addresses; `useWorkspaceNavigation` replaces any address whose
 canonical form differs, which is how legacy links redirect.
@@ -187,6 +187,17 @@ tab and subpage the owner came from.
   artifact panel links (an artifact's detail, "Manage in Artifacts") carry the session,
   and the list's back arrow reads "Back to <session>". A phone detail subpage still
   goes back to the list first.
+
+## Wizards
+
+A multi-step flow (the MCP server wizard, `web/features/mcp-servers/wizard/`) keeps its
+draft in a React reducer only, never in storage. The address carries an allowlisted
+`step` (`web/features/accounts/routes.js`) so browser history moves between steps; a
+reload drops the draft and returns to the first step with a notice. Each step has one
+`h1` that takes focus, a form whose Enter submits the primary action, and a sticky bar.
+`useWizardGuard` asks before a navigation leaves an unsaved draft. Saved records are
+edited step by step: each edit step owns its draft (`useAccountDraft` keeps it only for
+the same `item` and `step`) and saves with the usual save bar.
 
 ## Server summaries
 

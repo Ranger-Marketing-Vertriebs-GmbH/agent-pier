@@ -79,8 +79,9 @@ member also shows whether its model changed since it took it over from the lead.
   with memory can also read the instructions of their installed skills. These
   agent skills are separate from the CLI skills under **Extensions**
   ([shared CLI extensions](shared-cli-extensions.md)).
-- **MCP servers:** the central servers bound to this agent. Add and bind servers
-  under **Accounts → MCP servers** (**Manage MCP servers** links there); OAuth servers
+- **MCP servers:** the central servers bound to this agent. Add servers under
+  **Accounts → MCP servers**; the wizard's **Connect** step can bind them to agents
+  directly (**Manage MCP servers** links there); OAuth servers
   are signed in from AgentPier ([MCP](mcp.md#central-mcp-servers-in-the-coding-clis)).
   A local server can also be installed from an npm or PyPI package under **Accounts → MCP
   servers** ([MCP](mcp.md#installing-a-server-package)).
