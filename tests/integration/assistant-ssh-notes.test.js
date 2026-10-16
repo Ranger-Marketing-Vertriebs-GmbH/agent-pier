@@ -108,3 +108,28 @@ test("the Telegram result names the exit code but never the output", async (t) =
   assert.equal(result.text.includes("TOP-SECRET-OUTPUT"), false);
   assert.match(f.followUps[0].input.text, /TOP-SECRET-OUTPUT/);
 });
+
+test("Telegram cannot approve a command it could not show in full", async (t) => {
+  const f = await agentSshFixture(t);
+  f.workflows.ssh.approvals.holdMs = 50;
+  f.grant([{ accessId: hostId, mode: "approval" }]);
+  for (const command of [`echo ${"x".repeat(2000)}`, "ls‮ -la"]) {
+    const { actionId } = await f.execute(f.ownTurn(telegram(f)), command);
+    const action = f.workflows.get(actionId);
+    await assert.rejects(
+      f.workflows.decide(
+        actionId,
+        { decision: "approve", revision: action.revision },
+        telegram(f),
+      ),
+      { status: 403 },
+    );
+    assert.equal(f.workflows.get(actionId).state, "awaiting_approval");
+    await f.workflows.decide(
+      actionId,
+      { decision: "decline", revision: action.revision },
+      telegram(f),
+    );
+    assert.equal(f.workflows.get(actionId).state, "declined");
+  }
+});
