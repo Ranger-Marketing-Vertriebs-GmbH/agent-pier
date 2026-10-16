@@ -11,13 +11,14 @@ import "../mcp-servers.css";
 
 /**
  * The names the directory entry a server came from marks required, for the option the
- * server runs (its package registry, else a remote). Opening the edit step is the owner
- * action that asks; a failure marks nothing.
+ * server runs (its package, else the first of its registry, else a remote). Opening the
+ * edit step is the owner action that asks; a failure marks nothing.
  */
 function useRequiredNames(server) {
   const [requiredNames, setRequiredNames] = useState([]);
   const origin = server.directoryOrigin?.name;
   const registry = server.source?.registry;
+  const packageName = server.source?.name;
   const stdio = server.transport === "stdio";
   useEffect(() => {
     setRequiredNames([]);
@@ -28,7 +29,9 @@ function useRequiredNames(server) {
         if (!live) return;
         const options = Array.isArray(entry?.options) ? entry.options : [];
         const option = registry
-          ? options.find((item) => item.kind === registry)
+          ? (options.find(
+              (item) => item.kind === registry && item.identifier === packageName,
+            ) ?? options.find((item) => item.kind === registry))
           : options.find((item) => item.kind?.startsWith("remote-"));
         const inputs = (stdio ? option?.env : option?.headers) ?? [];
         setRequiredNames(inputs.filter((item) => item.required).map((item) => item.name));
@@ -38,7 +41,7 @@ function useRequiredNames(server) {
     return () => {
       live = false;
     };
-  }, [origin, registry, stdio]);
+  }, [origin, registry, packageName, stdio]);
   return requiredNames;
 }
 

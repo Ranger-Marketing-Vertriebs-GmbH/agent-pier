@@ -26,7 +26,8 @@ import "./mcp-packages.css";
  * or failed, and an update that shows the lock
  * diff before it is confirmed; the update keeps the constraints unless edited. While a job
  * runs the status is polled; `onChanged` reloads the servers once it settles.
- * `listedVersion` (a newer version the MCP directory lists) is named and offered.
+ * `listedVersion` (a newer version the MCP directory lists) is named and offered when the
+ * registry's version list has it.
  */
 export default function McpPackagePanel({ server, onChanged, listedVersion = "" }) {
   useLanguage();
@@ -179,9 +180,10 @@ export default function McpPackagePanel({ server, onChanged, listedVersion = "" 
           </button>
         </div>
       )}
-      {listedVersion && (
-        <p className="mcp-hint">{directoryCopy.listedVersion(listedVersion)}</p>
-      )}
+      {listedVersion &&
+        versions.versions.some((entry) => entry.version === listedVersion) && (
+          <p className="mcp-hint">{directoryCopy.listedVersion(listedVersion)}</p>
+        )}
       {!running && !preview && !choosing && (
         <div className="mcp-package-update">
           <McpVersionPicker
