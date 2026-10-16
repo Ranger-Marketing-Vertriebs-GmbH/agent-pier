@@ -52,9 +52,17 @@ export class SshManagement {
     audit,
     projectRegistry,
     rebindProject,
+    onAccessChanged = null,
   } = {}) {
     this.dataDir = path.resolve(dataDir);
-    Object.assign(this, { home, barrier, audit, projectRegistry, rebindProject });
+    Object.assign(this, {
+      home,
+      barrier,
+      audit,
+      projectRegistry,
+      rebindProject,
+      onAccessChanged,
+    });
     this.catalog = new SshCatalog({ dataDir });
     this.store = new SshAccessStore({ dataDir, catalog: this.catalog });
     this.grants = new SshSessions({ dataDir, store: this.store });
@@ -512,6 +520,9 @@ export class SshManagement {
         case "updateHost":
           return this.store.update(input.id, input.body);
         case "removeHost":
+          // Agents' grants and open approvals go first (agent-ssh.js); a failure
+          // keeps the host, and a stale grant left by a crash is inert anyway.
+          await this.onAccessChanged?.(input.id);
           this.grants.revokeAccess(input.id);
           return this.store.remove(input.id);
         case "reassign": {
