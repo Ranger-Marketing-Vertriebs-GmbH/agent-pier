@@ -3,33 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { profile, setup } from "./assistant-shell-fixture.js";
 import { setupAssistantSettings } from "../helpers/assistant-settings-browser.js";
 import { settingsPath } from "../helpers/agent-settings-page.js";
-
-export const sshAction = (id, extra = {}) => ({
-  id,
-  revision: 1,
-  assistantId: "home",
-  state: "awaiting_approval",
-  createdAt: "2026-10-16T10:00:00.000Z",
-  expiresAt: "2026-10-16T10:10:00.000Z",
-  ...extra,
-  payload: {
-    action: "ssh",
-    accessId: "11111111-1111-4111-8111-111111111111",
-    hostName: "opnsense",
-    host: "opnsense.invalid",
-    port: 22,
-    username: "root",
-    hostFingerprint: "SHA256:abcdefghijklmnopqrstuvwxyz0123456789",
-    projectId: null,
-    projectName: null,
-    command: "uptime",
-    timeoutSeconds: 30,
-    originClass: "owner",
-    ...extra.payload,
-  },
-});
-export const openChat = (page) => page.goto(baseURL + "/agents/home/chats/chat");
-export const sshCard = (page) => page.getByRole("article", { name: "SSH command" });
+import { openChat, sshAction, sshCard } from "./assistant-ssh-fixture.js";
 
 test("an SSH card shows host, user and the exact command and allows once", async ({
   page,
