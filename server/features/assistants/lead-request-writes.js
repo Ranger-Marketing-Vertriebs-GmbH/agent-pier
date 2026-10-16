@@ -10,7 +10,8 @@ const present = (file) => {
     return false;
   }
 };
-const isMemory = (relative) => {
+/** Whether a workspace-relative path is MEMORY.md or below memory/. */
+export const isMemory = (relative) => {
   const first = fold(relative.split("/")[0]);
   return first === "memory" || first === "memory.md";
 };
