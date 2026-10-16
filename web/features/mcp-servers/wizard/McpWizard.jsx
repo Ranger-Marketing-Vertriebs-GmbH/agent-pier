@@ -4,6 +4,7 @@ import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js"
 import { itemRoute } from "../../accounts/accounts-items.js";
 import usePackageStatus from "../usePackageStatus.js";
 import ConnectStep from "./ConnectStep.jsx";
+import DoneStep from "./DoneStep.jsx";
 import InstallStep from "./InstallStep.jsx";
 import OwnCommandStep from "./OwnCommandStep.jsx";
 import PackageStep from "./PackageStep.jsx";
@@ -29,7 +30,7 @@ import "./mcp-wizard.css";
  * Each step receives StepProps: { state, dispatch, go, back, headingRef, server,
  * packageStatus, data, navigate, agentsEnabled, oauth, notifyMcp, setWaiting }.
  * `go(step)` visits and navigates, `back()` returns to the previous reachable step,
- * `server` is the saved record (or null). Later steps are added here.
+ * `server` is the saved record (or null).
  */
 const screens = {
   source: SourceStep,
@@ -40,6 +41,7 @@ const screens = {
   install: InstallStep,
   review: ReviewStep,
   connect: ConnectStep,
+  done: DoneStep,
 };
 
 const stepRoute = (step) =>

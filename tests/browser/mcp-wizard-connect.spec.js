@@ -173,5 +173,72 @@ for (const [label, use] of [
         expect(later(state)).toEqual([]);
       });
     }
+
+    test("Done reports each CLI and agent; a refused agent is tried again alone", async ({
+      page,
+    }) => {
+      const state = await wizardSetup(page, { agents: true });
+      await withAgents(page, state, [home(), agent("ops", "Ops")]);
+      state.refuseAgent = (id, attempt) =>
+        id === "home" && attempt === 1
+          ? {
+              status: 409,
+              json: {
+                error: "Es läuft noch eine Anfrage.",
+                messageKey: "assistants.active",
+              },
+            }
+          : null;
+      const wizard = await openWizard(page);
+      await commandToConnect(wizard, [["API_TOKEN", "abc"]]);
+      await wizard.getByRole("switch", { name: "Claude Code" }).check();
+      await wizard.getByRole("switch", { name: "Home" }).check();
+      await wizard.getByRole("switch", { name: "Ops" }).check();
+      await primary(wizard).click();
+      await expect(
+        wizard.getByRole("heading", { level: 1, name: "tool is saved" }),
+      ).toBeVisible();
+      await expect(wizard.getByText("Claude Code: written")).toBeVisible();
+      await expect(wizard.getByText(/^Home · not connected: /)).toBeVisible();
+      await expect(wizard.getByText("Ops · connected")).toBeVisible();
+      await expect(wizard.getByText("1 stored, values hidden")).toBeVisible();
+      await expect(
+        wizard.getByText("Restart running sessions to see the new tools."),
+      ).toBeVisible();
+      const before = later(state).length;
+      await wizard.getByRole("button", { name: "Try again" }).click();
+      await expect(wizard.getByText("Home · connected")).toBeVisible();
+      await expect(
+        wizard.getByRole("heading", { level: 1, name: "tool is ready" }),
+      ).toBeVisible();
+      expect(
+        later(state)
+          .slice(before)
+          .map((r) => r.path),
+      ).toEqual(["/api/assistants/home"]);
+      await wizard.getByRole("button", { name: "Open server" }).click();
+      await expect(page).toHaveURL(/item=s1$/);
+    });
+
+    test("a failed install connects nothing and Done says why", async ({ page }) => {
+      const state = await wizardSetup(page, { agents: true });
+      await withAgents(page, state, [home()]);
+      const wizard = await openWizard(page);
+      await installToConnect(wizard);
+      await wizard.getByRole("switch", { name: "Home" }).check();
+      await primary(wizard).click();
+      state.finishInstall("failed");
+      await expect(
+        wizard.getByText(/Nothing was connected because the package is not installed/),
+      ).toBeVisible({ timeout: 8000 });
+      expect(later(state)).toEqual([]);
+      await wizard.getByRole("button", { name: "Add another server" }).click();
+      await expect(
+        wizard.getByRole("heading", {
+          level: 1,
+          name: "Where does the server come from?",
+        }),
+      ).toBeVisible();
+    });
   });
 }

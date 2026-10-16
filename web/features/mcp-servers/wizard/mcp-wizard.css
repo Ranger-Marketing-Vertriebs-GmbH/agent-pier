@@ -193,8 +193,27 @@
   justify-self: start;
 }
 .mcp-wizard-subtitle {
-  margin: 0;
+  margin: 0 0 4px;
   font-size: 1rem;
+}
+.mcp-wizard-card-block p {
+  margin: 0;
+}
+.mcp-wizard-results {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mcp-wizard-results li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.mcp-wizard-results li.is-failed > span {
+  color: var(--error-text);
 }
 .mcp-consent {
   padding: 12px 14px;
