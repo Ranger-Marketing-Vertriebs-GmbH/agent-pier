@@ -5,7 +5,7 @@ import { requestsWithSources, turnKey, withMessageSources } from "./message-sour
 import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
 import { historyTextLimit } from "./history-text.js";
-import { cachedMessageLimit } from "./assistant-store.js";
+import { cachedWindow } from "./assistant-store.js";
 import { completePage, historyReads, withoutMarks } from "./history-completion.js";
 export function publicMessages(messages = []) {
   const seen = new Set();
@@ -157,9 +157,9 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         throw assistantProblem("unavailable", 503);
       const merged = new Map(messages.map((m) => [m.id, m]));
       for (const m of page) merged.set(m.id, m);
-      const cached = [...merged.values()]
-        .sort((a, b) => a.timestamp - b.timestamp)
-        .slice(-cachedMessageLimit);
+      const cached = cachedWindow(
+        [...merged.values()].sort((a, b) => a.timestamp - b.timestamp),
+      );
       // The chat polls every 2 s during a run; an unchanged page writes nothing.
       if (
         cached.length !== messages.length ||
