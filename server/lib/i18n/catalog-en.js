@@ -32,6 +32,7 @@ import { backups } from "./en/backups.js";
 import { mcp } from "./en/mcp.js";
 import { mcpServers } from "./en/mcp-servers.js";
 import { mcpPackages } from "./en/mcp-packages.js";
+import { mcpDirectory } from "./en/mcp-directory.js";
 import { memory } from "./en/memory.js";
 import { providers } from "./en/providers.js";
 import { notifications } from "./en/notifications.js";
@@ -54,6 +55,7 @@ export const englishServerMessages = Object.freeze({
   mcp,
   mcpServers,
   mcpPackages,
+  mcpDirectory,
   memory,
   providers,
   notifications,
