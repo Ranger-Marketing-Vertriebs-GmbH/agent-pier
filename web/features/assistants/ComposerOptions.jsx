@@ -28,8 +28,19 @@ export default function ComposerOptions({
         return;
       onClose(false);
     };
+    // Safari on macOS does not focus a clicked switch or button, so focus falls to
+    // the page and Escape never reaches this layer's own handler.
+    const escape = (event) => {
+      if (event.key !== "Escape" || document.activeElement !== document.body) return;
+      event.stopPropagation();
+      onClose(true);
+    };
     document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
   }, [open, onClose, trigger]);
   return (
     <div

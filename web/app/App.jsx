@@ -76,8 +76,12 @@ function Application() {
     setSidebarCollapsed(collapsed);
   };
   // In-page menu buttons (agent chat, session chat) get the focus back on Escape.
-  const openNavigation = useCallback(() => {
-    navOpener.current = document.activeElement;
+  // The clicked button itself: Safari on macOS does not focus a button on click.
+  const openNavigation = useCallback((event) => {
+    navOpener.current =
+      event?.currentTarget instanceof HTMLElement
+        ? event.currentTarget
+        : document.activeElement;
     setMobileNav(true);
   }, []);
   const fileNavigationGuard = useFileNavigationGuard();
