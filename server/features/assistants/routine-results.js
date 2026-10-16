@@ -4,6 +4,8 @@ import { historyText } from "./history-text.js";
 // result into the conversation itself; this record only names it. A result that
 // could not be committed is kept here with its text, so it still shows.
 const kept = 200;
+// A result's badge: the routine's name and what AgentPier noted on the run.
+const scheduled = (r) => ({ name: r.name, ...(r.notes ? { notes: r.notes } : {}) });
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trim();
 
 export class RoutineResults {
@@ -56,7 +58,7 @@ export function withRoutineResults(messages, results, { from = -Infinity } = {})
         ? !!turnText(shown.text) && turnText(r.text).startsWith(turnText(shown.text))
         : turnText(r.text) === turnText(m.text);
     const result = committed.findLast((r) => same(r) && !(m.timestamp < r.runAtMs));
-    return result ? { ...m, scheduled: { name: result.name } } : m;
+    return result ? { ...m, scheduled: scheduled(result) } : m;
   });
   const own = results
     .filter((r) => r.at >= from && !(r.status === "ok" && r.committed))
@@ -68,7 +70,7 @@ export function withRoutineResults(messages, results, { from = -Infinity } = {})
             text: r.text,
             timestamp: r.at,
             runId: null,
-            scheduled: { name: r.name },
+            scheduled: scheduled(r),
           }
         : {
             id: `routine:${r.id}`,
@@ -77,6 +79,7 @@ export function withRoutineResults(messages, results, { from = -Infinity } = {})
             name: r.name,
             timestamp: r.at,
             runId: null,
+            ...(r.notes ? { notes: r.notes } : {}),
           },
     );
   if (!own.length) return marked;

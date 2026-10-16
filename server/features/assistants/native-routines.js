@@ -43,6 +43,9 @@ export class NativeRoutines extends NativeReminders {
     this.kind = "routine";
     this.receipts = new RoutineEvents(this.assistants.store.db);
     this.results = new RoutineResults(this.assistants.store.db);
+    // Refusals during a run, by native job id (note → when), until its completion
+    // records them. Memory only: the tool error already reached the model.
+    this.refusals = new Map();
     reminders.routines = this;
   }
   values(input, old) {
@@ -330,6 +333,13 @@ export class NativeRoutines extends NativeReminders {
     const conversation = this.conversation(binding);
     if (!conversation) return;
     const ok = event.status === "ok";
+    const key = String(event.jobId || "").toLowerCase();
+    // A run that completed without a record (silent, paused) leaves its notes here;
+    // only notes from this run's start on belong to it.
+    const notes = [...(this.refusals.get(key) || [])]
+      .filter(([, at]) => at >= event.runAtMs)
+      .map(([note]) => note);
+    this.refusals.delete(key);
     this.results.record({
       id: `${event.jobId}:${event.runAtMs}`,
       conversationId: conversation.id,
@@ -343,7 +353,16 @@ export class NativeRoutines extends NativeReminders {
         text: text.trim(),
         committed: event.deliveryStatus === "delivered",
       }),
+      ...(notes.length ? { notes } : {}),
     });
+  }
+  /** A run session's refusal (agent-ssh.js), shown with that run's result. */
+  noteRefusal(sessionKey, note) {
+    const match = runSession.exec(typeof sessionKey === "string" ? sessionKey : "");
+    if (!match) return;
+    const key = match[2].toLowerCase();
+    // The latest time counts: a stale note from an earlier run must not hide it.
+    this.refusals.set(key, new Map(this.refusals.get(key)).set(note, Date.now()));
   }
   /**
    * The routine a native run session belongs to, with the conversation its result

@@ -328,6 +328,7 @@ export default function AssistantChat({
                   data-routine-failed
                 >
                   {routineCopy.chatFailed(m.name)}
+                  {m.notes?.includes("ssh_refused") ? ` · ${routineCopy.sshRefused}` : ""}
                 </p>
               ) : m.event === "memory-note" ? (
                 <p
