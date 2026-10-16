@@ -462,3 +462,33 @@ test("a file picked while the previous message is sending stays attached", async
   expect(state.posted[0].attachments).toEqual(["file-1"]);
   expect(state.deleted).toEqual([]);
 });
+
+test("leaving the page discards its unsent uploads on the server", async ({ page }) => {
+  // Playwright sees no request a page sends while it unloads: the page records them.
+  await page.addInitScript(() => {
+    const native = window.fetch;
+    window.fetch = (url, init) => {
+      if (init?.keepalive)
+        sessionStorage.setItem(
+          "agentpier-test-leaving",
+          `${sessionStorage.getItem("agentpier-test-leaving") || ""}${init.method} ${url}\n`,
+        );
+      return native(url, init);
+    };
+  });
+  const state = await openDropChat(page);
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles([textFile("one.md"), textFile("two.md")]);
+  await expect.poll(() => state.uploads.length).toBe(2);
+  await expect(page.getByRole("button", { name: "Send" })).toBeEnabled();
+  await page.reload();
+  await expect(page.locator("#assistant-message")).toBeVisible();
+  const sent = await page.evaluate(() =>
+    sessionStorage.getItem("agentpier-test-leaving"),
+  );
+  expect(sent?.trim().split("\n").sort()).toEqual([
+    "DELETE /api/assistant-conversations/dinner/attachments/file-1",
+    "DELETE /api/assistant-conversations/dinner/attachments/file-2",
+  ]);
+});

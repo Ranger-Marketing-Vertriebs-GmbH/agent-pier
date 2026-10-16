@@ -14,7 +14,9 @@ import {
   safeFileName,
 } from "./agent-attachment-types.js";
 
-// Files picked in the composer but not sent yet; they expire after a day.
+// Files picked in the composer but not sent yet; they expire after a day. A page left
+// without sending may leave its files behind, so a conversation at the cap gives up
+// its oldest unsent files instead of refusing the next one.
 const MAX_STAGED = 20;
 const STAGED_TTL = 24 * 3600 * 1000;
 // Per agent; counted over the copies still present in its workspace.
@@ -124,10 +126,11 @@ export class AgentAttachments {
     const folder = await this.folder(conversation.assistantId);
     await this.expire(conversation.assistantId, folder.path);
     const staged = this.rows(
-      "SELECT * FROM agent_attachments WHERE conversation_id=? AND request_id IS NULL",
+      "SELECT * FROM agent_attachments WHERE conversation_id=? AND request_id IS NULL ORDER BY created_at, rowid",
       conversation.id,
     );
-    if (staged.length >= MAX_STAGED) throw assistantProblem("attachmentTooMany", 409);
+    for (const file of staged.slice(0, Math.max(0, staged.length - MAX_STAGED + 1)))
+      await this.remove(file, folder.path);
     await this.assertQuota(conversation.assistantId, folder.path, body.length);
     const display = safeFileName(name);
     const wanted = extensions[detected.type];

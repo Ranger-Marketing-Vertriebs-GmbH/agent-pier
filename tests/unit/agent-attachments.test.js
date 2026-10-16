@@ -85,7 +85,7 @@ test("uploads land in the agent's own workspace with private generated names", a
   assert.ok(fs.readdirSync(folder).some((name) => name.endsWith("x.txt.pdf")));
 });
 
-test("uploads are refused when too large, unsupported, too many or unsafe", async (t) => {
+test("uploads are refused when too large, unsupported or unsafe", async (t) => {
   const { attachments, agent, workspaces } = setup(t);
   const { a, c } = agent("lead");
   await assert.rejects(
@@ -103,12 +103,6 @@ test("uploads are refused when too large, unsupported, too many or unsafe", asyn
   await assert.rejects(attachments.stage("missing", "a.txt", Buffer.from("x")), {
     status: 404,
   });
-  for (let n = 0; n < 20; n++)
-    await attachments.stage(c.id, `n${n}.txt`, Buffer.from("x"));
-  await assert.rejects(attachments.stage(c.id, "more.txt", Buffer.from("x")), {
-    status: 409,
-    key: "attachmentTooMany",
-  });
   // A link in place of the folder never redirects a write outside the workspace.
   const other = agent("other");
   const outside = fs.mkdtempSync(path.join(os.tmpdir(), "agent-attachments-outside-"));
@@ -121,6 +115,27 @@ test("uploads are refused when too large, unsupported, too many or unsafe", asyn
   });
   assert.deepEqual(fs.readdirSync(outside), []);
   assert.ok(a.id);
+});
+
+test("uploads abandoned by closed pages make room for a new message", async (t) => {
+  let clock = Date.parse("2026-10-13T10:00:00Z");
+  const { attachments, agent, workspaces } = setup(t, { now: () => clock++ });
+  const { a, c } = agent("lead");
+  const folder = path.join(workspaces, a.id, "attachments");
+  const sent = await attachments.stage(c.id, "sent.md", Buffer.from("s"));
+  attachments.claim(c.id, [sent.id], "r1");
+  // Four reloads, each leaving the five files a message may hold.
+  const abandoned = [];
+  for (let n = 0; n < 20; n++)
+    abandoned.push(await attachments.stage(c.id, `n${n}.txt`, Buffer.from("x")));
+  // A fresh page's first file is accepted; the oldest unsent upload makes room.
+  const fresh = await attachments.stage(c.id, "fresh.txt", Buffer.from("y"));
+  await assert.rejects(attachments.discard(c.id, abandoned[0].id), { status: 404 });
+  await attachments.discard(c.id, abandoned[1].id);
+  await attachments.discard(c.id, fresh.id);
+  // Sent files are never reclaimed.
+  assert.equal(attachments.files("r1").length, 1);
+  assert.equal(fs.readdirSync(folder).length, 19);
 });
 
 test("staged uploads expire after a day and can be discarded until sent", async (t) => {
