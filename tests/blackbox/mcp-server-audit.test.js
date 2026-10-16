@@ -26,7 +26,11 @@ test("MCP server changes and stdio confirmations are audited by name, never by v
   let [created] = await audit("mcp.created");
   assert.equal(created.resourceType, "mcp");
   assert.equal(created.resourceId, http.id);
-  assert.deepEqual(created.details, { transport: "http", stdioConfirmed: false });
+  assert.deepEqual(created.details, {
+    transport: "http",
+    stdioConfirmed: false,
+    origin: "manual",
+  });
 
   const stdioBody = {
     name: "local",
@@ -42,7 +46,11 @@ test("MCP server changes and stdio confirmations are audited by name, never by v
     await send("/api/mcp-servers", "POST", { ...stdioBody, confirmStdio: true })
   ).json();
   created = (await audit("mcp.created")).find((e) => e.resourceId === local.id);
-  assert.deepEqual(created.details, { transport: "stdio", stdioConfirmed: true });
+  assert.deepEqual(created.details, {
+    transport: "stdio",
+    stdioConfirmed: true,
+    origin: "manual",
+  });
 
   // An update names the fields it sent; a refused one is not audited.
   assert.equal(

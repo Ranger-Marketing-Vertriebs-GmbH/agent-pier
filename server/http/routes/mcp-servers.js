@@ -15,6 +15,10 @@ import {
   requireInstallConfirmation,
 } from "./mcp-packages.js";
 
+const origins = ["manual", "paste", "directory"];
+/** How a new server was set up (wizard source); anything else counts as manual. */
+const createOrigin = (body) => (origins.includes(body?.origin) ? body.origin : "manual");
+
 /** A saved change whose OAuth logout is retried later (see McpOAuthLogins.forget). */
 function deferredWarning() {
   const message = serverMessages.mcpServers.oauthLogoutDeferred;
@@ -121,7 +125,8 @@ export function mcpServerRoutes(services) {
   // `clis` (optional) binds the server to coding CLIs in the same write.
   router.post("/mcp-servers", async (req, res) => {
     const body = req.body;
-    const { confirmStdio, clis, ...input } = record(body) ? body : {};
+    const { confirmStdio, clis, origin: _origin, ...input } = record(body) ? body : {};
+    const origin = createOrigin(record(body) ? body : null);
     if (record(body) && body.source !== undefined) {
       // The install confirmation replaces the stdio confirmation for this save.
       requireInstallConfirmation(body);
@@ -137,7 +142,10 @@ export function mcpServerRoutes(services) {
         if (replyValueReference(res, error)) return;
         throw error;
       }
-      auditMcp("package.installed", created.id, auditDetails(body.source));
+      auditMcp("package.installed", created.id, {
+        ...auditDetails(body.source),
+        origin,
+      });
       return res.status(202).json(created);
     }
     let server;
@@ -154,6 +162,7 @@ export function mcpServerRoutes(services) {
       transport: server.transport,
       stdioConfirmed: server.transport === "stdio" && confirmStdio === true,
       ...(clis === undefined ? {} : { clis }),
+      origin,
     });
     res.status(201).json(server);
   });

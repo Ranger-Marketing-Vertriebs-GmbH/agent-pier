@@ -269,6 +269,9 @@ export function auditEvent(input) {
     if (["overwrite", "adopt"].includes(details.resolution))
       event.details.resolution = details.resolution;
     if (typeof details.adopted === "boolean") event.details.adopted = details.adopted;
+    // How the owner set a new server up; never what it holds.
+    if (["manual", "paste", "directory"].includes(details.origin))
+      event.details.origin = details.origin;
     packageDetails(details, event);
   }
   // Advanced OpenClaw settings (advanced-config.js) name the setting and its old and
