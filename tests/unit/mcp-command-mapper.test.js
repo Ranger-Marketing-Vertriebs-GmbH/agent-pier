@@ -181,3 +181,13 @@ test("cmd /c with nothing after it stays the cmd command", () => {
     ["command", "cmd", ["/c"]],
   );
 });
+
+test("a second -p/--package is named in the ignored notes, not dropped", () => {
+  const two = mapCommand("npx", ["-p", "first-pkg", "--package=second-pkg", "serve"]);
+  assert.equal(two.packageName, "first-pkg");
+  assert.equal(two.program, "serve");
+  assert.deepEqual(
+    two.ignored.filter((note) => note.code === "extraPackage"),
+    [{ key: "second-pkg", code: "extraPackage" }],
+  );
+});

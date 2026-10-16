@@ -118,6 +118,8 @@ export const mcpWizardCopy = {
     argsNone: "keine",
     argsHint: "Nur nötig, wenn die Anleitung zusätzliche Argumente nennt.",
     argument: (n) => `Argument ${n}`,
+    argumentRequired:
+      "Dieses Argument braucht einen Wert. Trage ihn ein oder entferne das Argument.",
     addArgument: "Argument hinzufügen",
     removeArgument: (n) => `Argument ${n} entfernen`,
     cwd: "Arbeitsordner (optional, absoluter Pfad)",
@@ -255,6 +257,9 @@ export const mcpWizardCopy = {
     settings: "Einstellungen",
     valueTaken: "Wert übernommen",
     valueMissing: "braucht einen Wert",
+    fields: { args: "Ein Argument", url: "Die Adresse", command: "Der Befehl" },
+    refusedLeft: (names) =>
+      `Nicht übernommen aus diesem Block: ${names}. Richte sie von Hand ein.`,
     secretsNote:
       "Alle Werte werden nur auf diesem Rechner gespeichert und nie wieder angezeigt.",
     reviewNote:
@@ -282,6 +287,8 @@ export const mcpWizardCopy = {
         "Ein Server mit diesem Namen existiert bereits. Wähle einen anderen Namen.",
     },
     ignored: {
+      extraPackage:
+        "Ein weiteres Paket des Befehls; nur das erste wird installiert. Füge dieses bei Bedarf separat hinzu.",
       runner:
         "AgentPier installiert das Paket selbst, statt es bei jedem Start herunterzuladen.",
       yes: "Nur für npx nötig.",

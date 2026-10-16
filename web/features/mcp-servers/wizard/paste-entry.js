@@ -3,7 +3,7 @@ import { isPlaceholder, looksLikeToken } from "./paste-placeholders.js";
 import { sanitiseName, uniqueName } from "./server-name.js";
 import { addressWarnings, isSecretName } from "./setting-hints.js";
 import { hasReference, referenceName } from "./value-references.js";
-import { guessTransport } from "./wizard-state.js";
+import { guessTransport } from "./paste-shared.js";
 
 // One server entry from a guide → a wizard draft with every dropped key, reference
 // and placeholder named. Values are taken as literals or left empty and required.
@@ -44,6 +44,7 @@ const stdioTypes = new Set(["stdio", "local"]);
 const isRecord = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 const shown = (key) => String(key).slice(0, 60);
+const refName = (value) => shown(referenceName(value) ?? "");
 const refuse = (code) => Object.assign(new Error(code), { code });
 
 /** A literal value, or empty + required with the reason; null drops the setting. */
@@ -67,7 +68,7 @@ function literal(name, raw, { notes, inputs, header }) {
   }
   if (hasReference(value)) {
     const input = /\$\{input:([^}]+)\}/.exec(value)?.[1];
-    notes.warnings.push({ code: "reference", name, ref: referenceName(value) });
+    notes.warnings.push({ code: "reference", name, ref: refName(value) });
     const described = input && inputs[input];
     return {
       value: "",
@@ -134,12 +135,16 @@ function argumentRows(list, { notes }) {
     throw refuse("invalidArgs");
   if (list.length > entryLimits.args) notes.warnings.push({ code: "tooMany" });
   return list.slice(0, entryLimits.args).map((arg) => {
-    if (arg.length > entryLimits.value || control.test(arg)) {
-      notes.warnings.push({ code: "controlChars", name: "args" });
+    if (arg.length > entryLimits.value) {
+      notes.warnings.push({ code: "tooLongValue", field: "args" });
+      return "";
+    }
+    if (control.test(arg)) {
+      notes.warnings.push({ code: "controlChars", field: "args" });
       return "";
     }
     if (hasReference(arg)) {
-      notes.warnings.push({ code: "reference", name: "args", ref: referenceName(arg) });
+      notes.warnings.push({ code: "reference", field: "args", ref: refName(arg) });
       return "";
     }
     if (looksLikeToken(arg)) notes.warnings.push({ code: "tokenInArgs" });
@@ -156,7 +161,7 @@ function remoteDraft(url, entry, type, context) {
   }
   let address = url;
   if (hasReference(url)) {
-    notes.warnings.push({ code: "reference", name: "url", ref: referenceName(url) });
+    notes.warnings.push({ code: "reference", field: "url", ref: refName(url) });
     address = "";
   } else if (addressWarnings(url).includes("tokenInQuery"))
     notes.warnings.push({ code: "tokenInQuery" });
@@ -197,8 +202,8 @@ function stdioDraft(entry, context) {
   if (commandReference)
     notes.warnings.push({
       code: "reference",
-      name: "command",
-      ref: referenceName(command),
+      field: "command",
+      ref: refName(command),
     });
   const { rows, settings } = settingRows(env, "env", context);
   let cwd = "";
@@ -228,7 +233,12 @@ function stdioDraft(entry, context) {
     env: rows,
     argRows: mapped.args,
     cwd,
-    hints: { settings, ...(mapped.program ? { program: mapped.program } : {}) },
+    hints: {
+      settings,
+      ...(mapped.program ? { program: mapped.program } : {}),
+      // An argument left empty above is a row the owner must fill or remove.
+      ...(mapped.args.includes("") ? { argsRequired: true } : {}),
+    },
   };
   if (mapped.kind === "command")
     return { ...common, path: "command", source: "command", command: mapped.command };
