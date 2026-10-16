@@ -130,3 +130,44 @@ test("the Work tab history lists trusted SSH runs", async ({ page }) => {
   await expect(page.getByText("SSH on opnsense · done · 1.2 s")).toBeVisible();
   await expect(page.getByText("Trusted run")).toBeVisible();
 });
+
+const note = (id, extra = {}) => ({
+  id: `ssh-run:${id}`,
+  role: "event",
+  event: "ssh-run",
+  hostName: "opnsense",
+  commandPreview: "uptime",
+  outcome: "done",
+  durationMs: 1200,
+  timestamp: 1760608800000 + Number(id.length),
+  runId: null,
+  ...extra,
+});
+async function withMessages(page, messages) {
+  await page.route(/\/messages(\?|$)/, (route) =>
+    route.fulfill({ json: { messages, requests: [], stale: false } }),
+  );
+}
+
+test("trusted runs show as quiet lines in the transcript", async ({ page }) => {
+  await setup(page);
+  await withMessages(page, [
+    note("t1"),
+    note("t22", {
+      hostName: "nas-01",
+      commandPreview: "systemctl restart smb",
+      outcome: "exit",
+      exitCode: 1,
+    }),
+    note("t333", { commandPreview: "ls‮", outcome: "timedOut" }),
+  ]);
+  await openChat(page);
+  const first = page.locator("[data-ssh-run]").first();
+  await expect(first).toContainText("SSH on opnsense: uptime · done");
+  await expect(first).toHaveAttribute("title", "Took 1.2 s");
+  await expect(page.getByText("SSH on nas-01:")).toBeVisible();
+  await expect(page.locator("[data-ssh-run=exit]")).toContainText(
+    "systemctl restart smb · exit 1",
+  );
+  await expect(page.locator("[data-ssh-run=timedOut]")).toContainText("U+202E");
+});

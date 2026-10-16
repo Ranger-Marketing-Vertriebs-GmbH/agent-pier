@@ -23,6 +23,7 @@ import useFileDrop from "../../components/useFileDrop.js";
 import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 import AssistantMessage from "./AssistantMessage.jsx";
 import CodingRunNote from "./CodingRunNote.jsx";
+import SshRunNote from "./SshRunNote.jsx";
 import { plainText } from "./plain-text.js";
 import useTouchInput from "../chat/useTouchInput.js";
 import useSessionViewport from "../sessions/useSessionViewport.js";
@@ -321,6 +322,8 @@ export default function AssistantChat({
                 />
               ) : m.event === "coding-run" ? (
                 <CodingRunNote key={m.id} note={m} navigate={navigate} />
+              ) : m.event === "ssh-run" ? (
+                <SshRunNote key={m.id} note={m} />
               ) : m.event === "routine-failed" ? (
                 <p
                   key={m.id}
