@@ -7,7 +7,7 @@ import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js"
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import useAssistants from "../useAssistants.js";
 import { assistantApi } from "../assistant-api.js";
-import { profileServer } from "./agent-settings-fields.js";
+import { followsLeadModel, profileServer } from "./agent-settings-fields.js";
 import { profileStep } from "./agent-settings-steps.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import ConflictNotice from "./ConflictNotice.jsx";
@@ -31,7 +31,8 @@ export default function ProfileTab({ assistant, navigate }) {
     revisions: { assistant: assistant.revision },
   });
   const label = settingsCopy.tabs.profile;
-  const steps = [profileStep({ assistantId: assistant.id, label })];
+  const followsLead = followsLeadModel(assistant);
+  const steps = [profileStep({ assistantId: assistant.id, label, followsLead })];
   const after = async (result) => {
     if (result.status === "saved") await refresh();
     return result;
@@ -94,6 +95,7 @@ export default function ProfileTab({ assistant, navigate }) {
           models={models}
           modelKey={assistant.id}
           navigate={navigate}
+          followsLead={followsLead}
         />
         <p className="agent-revision">
           {copy.revisions(assistant.revision, assistant.effectiveRevision)}

@@ -134,6 +134,8 @@ export const assistants = {
     "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen Shell-Zugriff haben. Schalte die Shell aus oder trenne zuerst den Bot.",
   telegramSendersStdio:
     "Diesem Agenten ist ein stdio-MCP-Server zugeordnet, der Befehle auf diesem Rechner ausführt. Entferne ihn, bevor du einen Bot für andere Personen verbindest.",
+  memberModelFollowsLead:
+    "Ein auftragsgebundenes Mitglied nutzt das Modell seines leitenden Agenten. Ändere das Modell dort oder behalte das Mitglied als dauerhaften Agenten.",
   memberRequestNotPermanent:
     "Aufgaben lassen sich nur an dauerhafte Mitglieder übergeben.",
   memberRequestOpenTask:

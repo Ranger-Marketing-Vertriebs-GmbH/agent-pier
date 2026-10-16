@@ -1,6 +1,7 @@
 export const assistantTeamCopy = {
-  modelChanged: "Model: changed since creation",
-  modelOriginal: "Model: as created",
+  modelChanged: "Model: changed since taken over from the lead",
+  modelOriginal: "Model: as taken over from the lead",
+  followsLeadModel: "Follows the lead's model.",
   instructionsChanged: "Instructions: changed since creation",
   instructionsOriginal: "Instructions: as created",
   setupUnknown:
@@ -32,7 +33,9 @@ export const assistantTeamCopy = {
   permanent: "Permanent agent",
   taskBound: "Task-bound member",
   independent:
-    "Model and instructions are an independent copy. Parent edits do not overwrite them. You can override them after completion.",
+    "Model and instructions are this agent's own. Changes to the lead do not overwrite them.",
+  independentTask:
+    "The instructions are an independent copy that changes to the lead do not overwrite; you can change them after completion. The model always follows the lead.",
   promote: "Keep as permanent agent",
   states: {
     partial: "Partially successful",

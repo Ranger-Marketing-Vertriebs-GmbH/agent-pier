@@ -14,8 +14,17 @@ export function profileValid(draft) {
   return form ? form.reportValidity() : draft.values.name.trim() !== "";
 }
 
-/** Name, instructions and model of an agent draft (Profile tab and create mode). */
-export default function ProfileFields({ draft, models, modelKey, navigate }) {
+/**
+ * Name, instructions and model of an agent draft (Profile tab and create mode). With
+ * `followsLead` (a temporary team member) the model is the lead's and only shown.
+ */
+export default function ProfileFields({
+  draft,
+  models,
+  modelKey,
+  navigate,
+  followsLead = false,
+}) {
   const { name, instructions, connectionId, modelId } = draft.values;
   const accounts = useCrossLink()({ view: "accounts", section: "models" });
   return (
@@ -39,16 +48,26 @@ export default function ProfileFields({ draft, models, modelKey, navigate }) {
             onChange={(event) => draft.set("instructions", event.target.value)}
           />
         </label>
-        <div className="agent-field">
-          <AssistantModelFields
-            key={modelKey}
-            models={models}
-            connectionId={connectionId}
-            modelId={modelId}
-            setConnection={(value) => draft.set("connectionId", value)}
-            setModel={(value) => draft.set("modelId", value)}
-          />
-        </div>
+        {followsLead ? (
+          <div className="agent-field agent-model-follows">
+            <span>{copy.model}</span>
+            <strong>{modelId}</strong>
+            <p className="assistant-note" role="note">
+              {copy.team.followsLeadModel}
+            </p>
+          </div>
+        ) : (
+          <div className="agent-field">
+            <AssistantModelFields
+              key={modelKey}
+              models={models}
+              connectionId={connectionId}
+              modelId={modelId}
+              setConnection={(value) => draft.set("connectionId", value)}
+              setModel={(value) => draft.set("modelId", value)}
+            />
+          </div>
+        )}
       </div>
       {!models.some((model) => model.available) && (
         <p className="assistant-note">{copy.noConnections}</p>

@@ -475,16 +475,20 @@ test("historical assignments group same-named members with direct chat access", 
 test("member settings identify model and instruction overrides independently", async ({
   page,
 }) => {
-  const { members } = await setup(page);
+  const { members, assistants } = await setup(page);
+  // Only a permanent member has a model of its own that can differ.
+  members[0].lifetime = assistants[1].lifetime = "permanent";
   members[0].overrides = { model: true, instructions: false };
   await page.goto(baseURL + "/agents/member-0/settings");
   await expect(
-    page.getByText("Model: changed since creation", { exact: true }),
+    page.getByText("Model: changed since taken over from the lead", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Instructions: as created", { exact: true })).toBeVisible();
   members[0].overrides = { model: false, instructions: true };
   await refreshFromEvent(page);
-  await expect(page.getByText("Model: as created", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Model: as taken over from the lead", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByText("Instructions: changed since creation", { exact: true }),
   ).toBeVisible();
