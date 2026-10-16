@@ -53,6 +53,14 @@ export const stdioRefusal = {
   },
 };
 
+/** Like the server: a changed command, arguments, directory or env needs a confirmation. */
+const changesStdio = (server, body) =>
+  (body.command !== undefined && body.command !== server.command) ||
+  (body.args !== undefined &&
+    JSON.stringify(body.args) !== JSON.stringify(server.args ?? [])) ||
+  (body.cwd !== undefined && (body.cwd || null) !== (server.cwd || null)) ||
+  Object.keys(body.env ?? {}).length > 0;
+
 /** mcp-cli-fixture plus what the wizard calls: versions, preview, resolve, create, update. */
 export async function wizardSetup(page, options = {}) {
   const state = await setup(page, options);
@@ -118,7 +126,11 @@ export async function wizardSetup(page, options = {}) {
           json: { error: "changed", messageKey: "mcpServers.conflict" },
         });
       const added = (body.clis ?? []).filter((cli) => !server.clis.includes(cli));
-      if (server.transport === "stdio" && added.length && body.confirmStdio !== true)
+      if (
+        server.transport === "stdio" &&
+        (added.length || changesStdio(server, body)) &&
+        body.confirmStdio !== true
+      )
         return route.fulfill(stdioRefusal);
       const { revision: _r, confirmStdio: _c, headers, env, ...rest } = body;
       Object.assign(server, rest, { revision: server.revision + 1 });

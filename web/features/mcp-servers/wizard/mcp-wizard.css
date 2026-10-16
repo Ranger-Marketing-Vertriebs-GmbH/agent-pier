@@ -217,7 +217,7 @@
 }
 .mcp-consent {
   padding: 12px 14px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 12px;
 }
 .mcp-wizard-progress {
@@ -269,4 +269,24 @@
   .mcp-wizard-bar .button {
     width: auto;
   }
+}
+
+.mcp-step-cards {
+  display: grid;
+  gap: 12px;
+}
+.mcp-step-card {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.mcp-step-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.mcp-step-card .button {
+  justify-self: start;
+  min-height: 44px;
 }
