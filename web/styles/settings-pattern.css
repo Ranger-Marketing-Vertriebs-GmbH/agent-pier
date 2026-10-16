@@ -132,6 +132,9 @@ label.list-row-main {
   font-size: 12px;
   color: #ffc99d;
 }
+.list-row-pill + .list-row-pill {
+  margin-inline-start: 6px;
+}
 .list-row-chevron {
   flex: none;
   color: #6f7075;
