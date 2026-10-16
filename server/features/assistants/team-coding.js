@@ -41,17 +41,27 @@ export function memberContext(w, chat, attempt, origin) {
 // The owner's Telegram chat for a member's approval: the chat that started the
 // team, otherwise the parent's own paired chat. Decisions must match it exactly.
 function memberTelegram(w, team) {
-  const pick = ({ channelId, chatId, userId }) => ({ channelId, chatId, userId });
-  if (team.origin?.kind === "telegram" && !team.origin.forwarded)
-    return pick(team.origin);
+  const own = ownerTelegram(team.origin);
+  if (own) return own;
   const channel = w.s.assistantChannels?.store
     .list()
     .find(
       (c) =>
         c.assistantId === team.parentAssistantId && c.enabled && c.chatId && c.userId,
     );
-  return channel ? pick({ ...channel, channelId: channel.id }) : null;
+  return channel
+    ? { channelId: channel.id, chatId: channel.chatId, userId: channel.userId }
+    : null;
 }
+/**
+ * The owner's Telegram chat a turn came from (not forwarded), or null. A member's
+ * turn for a lead request or team assignment carries it as `telegram`, so its
+ * shell approvals are offered there as well.
+ */
+export const ownerTelegram = (origin) =>
+  origin?.kind === "telegram" && !origin.forwarded
+    ? { channelId: origin.channelId, chatId: origin.chatId, userId: origin.userId }
+    : null;
 const runEnded = new Set(["completed", "failed", "cancelled"]);
 const retryable = new Set([409, 429, 503]);
 const runResult = (a) => ({

@@ -114,12 +114,15 @@ export class ExecApprovals {
       const req = a.ledger.getRequest(attempt.requestId);
       const context =
         req.conversationId === conversation.id && a.teams?.store.context(req.id);
-      if (context?.kind === "telegram")
+      // A member's turn for a lead request or team assignment the owner started
+      // in Telegram asks there too (`telegram`, see team-coding.js).
+      const telegram = context?.kind === "telegram" ? context : context?.telegram;
+      if (telegram)
         origin = {
           kind: "telegram",
-          channelId: context.channelId,
-          chatId: context.chatId,
-          userId: context.userId,
+          channelId: telegram.channelId,
+          chatId: telegram.chatId,
+          userId: telegram.userId,
         };
       lead = this.lead(context);
     }

@@ -1462,7 +1462,11 @@ allow** and **Deny**.
   both. A direct chat with the member asks only there. The lead agent's own
   `actions` tool does not list it. A turn that came from Telegram also gets the
   three buttons in that private chat, for the owner only; the existing stale and
-  private-chat rules apply. Each decision goes to the Gateway exactly once and is
+  private-chat rules apply. So does a member's turn for a lead's request or a team
+  assignment whose lead turn the owner sent from Telegram (not forwarded): the
+  member's turn context carries that chat (`telegram`, `ownerTelegram` in
+  `team-coding.js`), and the approval is offered there and in the web (owner
+  decision). Each decision goes to the Gateway exactly once and is
   audited (`assistant.answered`, with the allowlist outcome).
 - While a turn waits for an approval, the chat header says **Awaiting approval**, as
   the sidebar does, instead of the turn's accepted or running state.
