@@ -257,6 +257,72 @@ test.describe("settings workspace field checks", () => {
     await expect(required).toHaveCount(0);
   });
 
+  test("signing out with unsaved changes asks like a navigation", async ({ page }) => {
+    await operationsFixture(page);
+    // A mocked sign-out keeps the shared browser login for the other specs.
+    let logouts = 0;
+    await page.route("**/auth/logout", (route) => {
+      logouts++;
+      return route.fulfill({ status: 204, body: "" });
+    });
+    await page.goto(baseURL + "/settings");
+    const resume = page.getByRole("switch", {
+      name: "Resume interrupted sessions automatically",
+    });
+    await expect(resume).toBeEnabled();
+    const before = await resume.isChecked();
+    await resume.click();
+    const signOut = async () => {
+      await page.getByRole("button", { name: "Menu", exact: true }).click();
+      await page
+        .locator("#sidebar-menu")
+        .getByRole("button", { name: "Sign out" })
+        .click();
+    };
+    const sheet = page.getByRole("dialog", { name: "Save changes?" });
+    await signOut();
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole("button", { name: "Cancel" }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(logouts).toBe(0);
+    await expect(page.locator(".login-page")).toHaveCount(0);
+    await expect(resume).toBeChecked({ checked: !before });
+    await signOut();
+    await sheet.getByRole("button", { name: "Discard", exact: true }).click();
+    await expect(page.locator(".login-page")).toBeVisible();
+    expect(logouts).toBe(1);
+  });
+
+  test("closing the unsaved sheet returns focus to what opened it", async ({ page }) => {
+    await operationsFixture(page);
+    await page.goto(baseURL + "/settings");
+    await page
+      .getByRole("switch", { name: "Resume interrupted sessions automatically" })
+      .click();
+    const sheet = page.getByRole("dialog", { name: "Save changes?" });
+    const row = settingsRow(page, "App & notifications");
+    await row.focus();
+    await page.keyboard.press("Enter");
+    await expect(sheet).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+    await expect(row).toBeFocused();
+    // An arrow key switch the sheet refused leaves focus on the tab still selected.
+    const workspace = page.getByRole("tab", { name: "Workspace" });
+    const access = page.getByRole("tab", { name: "Access" });
+    await workspace.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole("button", { name: "Cancel" }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(workspace).toHaveAttribute("aria-selected", "true");
+    await expect(workspace).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await sheet.getByRole("button", { name: "Discard", exact: true }).click();
+    await expect(access).toHaveAttribute("aria-selected", "true");
+    await expect(access).toBeFocused();
+  });
+
   test("an agent switch the server did not apply stays unsaved", async ({ page }) => {
     await operationsFixture(page);
     const feature = await featureRoute(page);

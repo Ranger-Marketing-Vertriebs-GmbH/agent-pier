@@ -133,8 +133,13 @@ const sheet = useUnsavedChangesGuard({
 
 Tab switches, back, agent switch and extension profile switch are route changes, so
 they reach the guard automatically. A switch that is not a route change calls
-`requestNavigation({ reason: "application", next, commit })` itself. Normalisation
+`requestNavigation({ reason: "application", next, commit })` itself; **Sign out** asks
+the same way (`reason: "logout"`) before it ends the session. Normalisation
 (`"normalization"`) and editor tab closes (`"tab-close"`) never prompt.
+
+Closing a sheet or dialog returns focus to the element that opened it. When the sheet
+refused a tab switch, focus returns to the tab that stays selected; `UnderlineTabs`
+moves focus to a tab only once it is selected.
 
 ## Routes
 
