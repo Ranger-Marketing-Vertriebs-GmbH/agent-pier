@@ -54,6 +54,25 @@ export const assistants = {
     failed: "Freigabe fehlgeschlagen; bitte in AgentPier prüfen",
     unknown: "Ergebnis unklar; bitte in AgentPier prüfen",
   },
+  sshApproval: "SSH-Befehl wartet auf Freigabe",
+  sshAgent: (name) => `Agent: ${name}`,
+  sshRequestedBy: (name) => `Angefragt von ${name}`,
+  sshTarget: (name, endpoint) => `Host: ${name} (${endpoint})`,
+  sshTimeout: (seconds) => `Zeitlimit: ${seconds} s`,
+  sshOpenToApprove:
+    "Der Befehl ist lang oder enthält versteckte Zeichen. Prüfe und erlaube ihn in AgentPier.",
+  sshAllowOnce: "Einmal erlauben",
+  sshDeny: "Ablehnen",
+  sshStates: {
+    completed: (code) => `SSH-Befehl beendet · Exit-Code ${code}`,
+    failed: "SSH-Befehl fehlgeschlagen; prüfe ihn in AgentPier",
+    declined: "SSH-Befehl abgelehnt",
+    expired: "Freigabe abgelaufen; der Befehl lief nicht",
+    cancelled: "Freigabe abgebrochen; der Zugang hat sich geändert",
+    unknown: "Ergebnis unbekannt; prüfe es in AgentPier",
+  },
+  sshTimedOut: "Zeitlimit erreicht",
+  sshTruncated: "Ausgabe gekürzt",
   execAllowlistPrograms: (programs) =>
     `Für diesen Agenten jetzt immer erlaubt, jeweils mit beliebigen Argumenten: ${programs}. Manche Programme können über ihre Argumente andere Befehle ausführen, etwa git über Hooks oder Aliase; „Immer erlauben“ deckt auch das ab. Du kannst die Einträge in den Agent-Einstellungen löschen.`,
   execAllowlistSkipped: (reason) =>
@@ -134,6 +153,18 @@ export const assistants = {
     "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen Shell-Zugriff haben. Schalte die Shell aus oder trenne zuerst den Bot.",
   telegramSendersStdio:
     "Diesem Agenten ist ein stdio-MCP-Server zugeordnet, der Befehle auf diesem Rechner ausführt. Entferne ihn, bevor du einen Bot für andere Personen verbindest.",
+  telegramSendersSsh:
+    "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keine SSH-Zugänge haben. Entferne die SSH-Zugänge oder trenne zuerst den Bot.",
+  sshNotGranted: "Dieser SSH-Zugang ist dem Agenten nicht zugewiesen.",
+  sshHostUnavailable:
+    "Dieser SSH-Zugang ist nicht verfügbar: Er wurde entfernt, oder OpenSSH fehlt.",
+  sshRoutineNotTrusted:
+    "In Routinen laufen nur SSH-Zugänge mit „Vertraut inkl. Routinen“.",
+  sshOriginRefused: "SSH ist in dieser Runde nicht erlaubt.",
+  sshBusy: "Für diesen Agenten läuft bereits ein SSH-Befehl.",
+  sshApprovalLimit:
+    "Für diesen Agenten warten bereits drei SSH-Befehle auf deine Freigabe.",
+  sshRevoked: "Der SSH-Zugang hat sich geändert; der Befehl wurde gestoppt.",
   memberModelFollowsLead:
     "Ein auftragsgebundenes Mitglied nutzt das Modell seines leitenden Agenten. Ändere das Modell dort oder behalte das Mitglied als dauerhaften Agenten.",
   memberRequestNotPermanent:

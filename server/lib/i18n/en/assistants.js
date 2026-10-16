@@ -52,6 +52,25 @@ export const assistants = {
     failed: "Approval failed; review in AgentPier",
     unknown: "Outcome unknown; review in AgentPier",
   },
+  sshApproval: "SSH command awaiting approval",
+  sshAgent: (name) => `Agent: ${name}`,
+  sshRequestedBy: (name) => `Requested by ${name}`,
+  sshTarget: (name, endpoint) => `Host: ${name} (${endpoint})`,
+  sshTimeout: (seconds) => `Time limit: ${seconds} s`,
+  sshOpenToApprove:
+    "The command is long or contains hidden characters. Review and allow it in AgentPier.",
+  sshAllowOnce: "Allow once",
+  sshDeny: "Deny",
+  sshStates: {
+    completed: (code) => `SSH command finished · exit code ${code}`,
+    failed: "SSH command failed; review in AgentPier",
+    declined: "SSH command denied",
+    expired: "Approval expired; the command did not run",
+    cancelled: "Approval cancelled; the access changed",
+    unknown: "Outcome unknown; review in AgentPier",
+  },
+  sshTimedOut: "timed out",
+  sshTruncated: "output truncated",
   execAllowlistPrograms: (programs) =>
     `Now always allowed for this agent, each with any arguments: ${programs}. Some programs can run other commands through their arguments, such as git hooks or aliases; "Always allow" covers that too. You can delete the entries in the agent settings.`,
   execAllowlistSkipped: (reason) =>
@@ -123,6 +142,17 @@ export const assistants = {
     "An agent with its own Telegram bot for other people must not have shell access. Turn shell off or disconnect the bot first.",
   telegramSendersStdio:
     "This agent has a stdio MCP server, which runs commands on this computer. Remove it before you connect a bot for other people.",
+  telegramSendersSsh:
+    "An agent with its own Telegram bot for other people must not have SSH accesses. Remove the SSH accesses or disconnect the bot first.",
+  sshNotGranted: "This SSH access is not granted to the agent.",
+  sshHostUnavailable:
+    "This SSH access is unavailable: it was removed, or OpenSSH is missing.",
+  sshRoutineNotTrusted:
+    "In routines only SSH accesses marked “Trusted incl. routines” run.",
+  sshOriginRefused: "SSH is not allowed in this turn.",
+  sshBusy: "An SSH command is already running for this agent.",
+  sshApprovalLimit: "Three SSH commands of this agent already wait for your approval.",
+  sshRevoked: "The SSH access changed; the command was stopped.",
   memberModelFollowsLead:
     "A task-bound member uses its lead's model. Change the model there or keep the member as a permanent agent.",
   memberRequestNotPermanent: "Tasks can only be delegated to permanent members.",
