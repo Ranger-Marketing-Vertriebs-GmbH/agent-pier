@@ -207,6 +207,38 @@ test("an update shows the lock diff before it is confirmed", async ({ page }) =>
   });
 });
 
+test("an update to a version that renamed its only program names the rename", async ({
+  page,
+}) => {
+  const state = await packageSetup(page, { servers: [packagedServer("ready")] });
+  state.preview = preview({
+    programs: ["server-x-mcp"],
+    diff: { added: [], removed: [], changed: [] },
+  });
+  state.reply = ({ path }) =>
+    path.endsWith("/package/update")
+      ? {
+          status: 202,
+          json: { job: { kind: "update", state: "running", code: null, log: "" } },
+        }
+      : null;
+  await page.goto(baseURL + "/accounts");
+  const dialog = await openAccountItem(page, "pkg");
+  const panel = dialog.getByRole("region", { name: "Package" });
+  await panel.getByRole("button", { name: "Check update" }).click();
+  const confirm = panel.getByRole("alertdialog", { name: "Update this package?" });
+  await expect(
+    confirm.getByText(
+      "This version renamed the program server-x to server-x-mcp. The update starts server-x-mcp.",
+    ),
+  ).toBeVisible();
+  await confirm.getByRole("button", { name: "Update" }).click();
+  // No program is sent: the server takes the only one of the new version.
+  expect(writes(state, "/api/mcp-servers/s1/package/update")[0].body).not.toHaveProperty(
+    "program",
+  );
+});
+
 test("on a phone the package panel and its update confirmation fit the width", async ({
   page,
 }) => {

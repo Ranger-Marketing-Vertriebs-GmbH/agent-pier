@@ -402,21 +402,28 @@ export class McpPackages {
     if (!row) throw invalid();
     // Before the preview is taken: a busy server keeps it for a retry.
     this.requireIdle(id);
+    const source = {
+      registry: row.registry,
+      name: row.name,
+      version,
+      allowScripts,
+      // Kept unless the owner edits them, as in the update preview.
+      constraints: constraints === undefined ? row.constraints : constraints,
+    };
+    // No program (or "") keeps the stored one; a record without one stores "". A
+    // version whose only program has another name takes that one (the update preview
+    // names the rename); a build that names its programs later does the same.
+    const kept = program === undefined || program === "";
+    const listed = kept ? this.peekPreview(previewId, source).programs : [];
+    const renamed = listed.length === 1 && listed[0].name !== row.program;
     const confirmed = this.confirmedPreview(
       previewId,
-      {
-        registry: row.registry,
-        name: row.name,
-        version,
-        allowScripts,
-        // Kept unless the owner edits them, as in the update preview.
-        constraints: constraints === undefined ? row.constraints : constraints,
-      },
-      // No program (or "") keeps the stored one; a record without one stores "".
-      program === undefined || program === "" ? row.program || undefined : program,
+      source,
+      kept ? (renamed ? undefined : row.program || undefined) : program,
     );
     this.consumePreview(previewId);
-    return { job: this.install(id, { ...confirmed, kind: "update" }) };
+    const chosen = kept ? { ...confirmed.program, kept: true } : confirmed.program;
+    return { job: this.install(id, { ...confirmed, program: chosen, kind: "update" }) };
   }
   reinstall(id) {
     const row = this.records.get(id);

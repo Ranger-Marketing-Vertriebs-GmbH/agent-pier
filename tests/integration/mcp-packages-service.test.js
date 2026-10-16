@@ -77,6 +77,44 @@ test("an update shows the diff, switches only on success and removes the old ins
   assert.deepEqual(installsOf(s.dataDir), [s.servers.packages.get(server.id).installId]);
 });
 
+test("an update takes the only program of a version that renamed it", async (t) => {
+  const at = (version, extra) => ({
+    name: "server-x",
+    version,
+    files: { "index.js": "" },
+    ...extra,
+  });
+  const v1 = at("1.0.0", {
+    bin: { "server-x": "index.js" },
+    dependencies: { helper: "1.0.0" },
+  });
+  const renamed = at("2.0.0", {
+    bin: { "server-x-mcp": "index.js" },
+    dependencies: { helper: "2.0.0" },
+  });
+  const helpers = ["1.0.0", "2.0.0"].map((version) => ({
+    name: "helper",
+    version,
+    files: { "i.js": "" },
+  }));
+  const s = await packageService(t, [v1, renamed, ...helpers]);
+  const { server } = await createPackaged(s);
+  await s.packages.jobs.idle();
+  const next = await preview(s, "2.0.0", { serverId: server.id });
+  assert.deepEqual(next.programs, ["server-x-mcp"]);
+  // As the update panel sends it: no program when the preview lists at most one.
+  await s.packages.updatePackage(server.id, {
+    version: "2.0.0",
+    previewId: next.previewId,
+  });
+  await s.packages.jobs.idle();
+  const updated = s.servers.get(server.id);
+  assert.equal(updated.source.status, "ready");
+  assert.equal(updated.source.version, "2.0.0");
+  assert.equal(updated.source.program, "server-x-mcp");
+  assert.equal(s.packages.jobs.get(server.id).state, "done");
+});
+
 test("a failed update keeps the previous install active and reports its code", async (t) => {
   const s = await packageService(t);
   const { server } = await createPackaged(s);

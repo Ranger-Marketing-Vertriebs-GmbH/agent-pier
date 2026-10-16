@@ -105,7 +105,9 @@ export function runInstall(service, serverId, { preview, program, kind }) {
       });
       // Some packages name their programs for sure only once installed (and built).
       const installed = adapter.programsAfterInstall(stage, ref);
-      const wanted = program?.name || undefined;
+      // The stored program an update kept gives way when the build has only another.
+      const wanted =
+        program?.kept && installed?.length === 1 ? undefined : program?.name || undefined;
       // Several programs and none named yet: the owner picks one (owner decision 1),
       // unless the server runs an install now. Its command points into that install,
       // which a `choosing` record would let prune delete: it is refused instead.
