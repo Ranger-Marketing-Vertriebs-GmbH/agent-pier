@@ -321,3 +321,31 @@ test("Add another server does not return to Paste when only refused servers rema
   assert.deepEqual(pasteRefused(state.paste), ["b", "c"]);
   assert.deepEqual(run([{ type: "reset", keepPaste: false }], state), initialWizard());
 });
+
+test("the directory is its own entry: Source → Directory → set-up → Settings", () => {
+  const state = run([
+    { type: "via", via: "directory" },
+    {
+      type: "fromDirectory",
+      draft: {
+        path: "remote",
+        name: "docs",
+        url: "https://x.test/mcp",
+        origin: "directory",
+      },
+    },
+  ]);
+  assert.deepEqual(stepOrder(state.path, state.via), [
+    "source",
+    "directory",
+    "remote",
+    "settings",
+    "review",
+    "connect",
+    "done",
+  ]);
+  assert.equal(previousStep(state, "remote"), "directory");
+  assert.equal(state.draft.origin, "directory");
+  assert.equal(initialWizard().draft.directoryOrigin, null);
+  assert.equal(initialWizard().draft.urlTemplate, null);
+});

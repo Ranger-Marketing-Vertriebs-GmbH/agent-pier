@@ -42,11 +42,14 @@ const fieldSteps = {
   cwd: "settings",
 };
 
-/** A pasted block adds the Paste step between Source and the path's set-up step. */
+// Entries that add their own step between Source and the path's set-up step.
+const entries = ["paste", "directory"];
+
+/** A pasted block or a directory entry adds its step after Source. */
 export const stepOrder = (path, via = null) => {
   const order = orders[path] ?? ["source"];
-  if (via !== "paste") return order;
-  return path ? ["source", "paste", ...order.slice(1)] : ["source", "paste"];
+  if (!entries.includes(via)) return order;
+  return path ? ["source", via, ...order.slice(1)] : ["source", via];
 };
 
 /** The indicator's stages; a path without a package has no Install stage. */
@@ -72,6 +75,8 @@ export function initialWizard() {
       agents: [],
       origin: "manual",
       hints: {},
+      directoryOrigin: null,
+      urlTemplate: null,
     },
     fieldError: null,
     serverId: null,
@@ -149,6 +154,17 @@ export function wizardReducer(state, action) {
         path,
         paste: { ...state.paste, applied: action.index ?? state.paste.index },
         visited: ["source", "paste", path, "settings"],
+        draft: { ...initialWizard().draft, ...pathValues[path], ...values },
+        fieldError: null,
+      };
+    }
+    case "fromDirectory": {
+      // "Use this server" only fills the draft; nothing is installed or bound here.
+      const { path, ...values } = action.draft;
+      return {
+        ...state,
+        path,
+        visited: ["source", "directory", path, "settings"],
         draft: { ...initialWizard().draft, ...pathValues[path], ...values },
         fieldError: null,
       };
