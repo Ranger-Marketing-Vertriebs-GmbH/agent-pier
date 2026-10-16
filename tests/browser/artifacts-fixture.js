@@ -151,6 +151,12 @@ export async function artifactsFixture(context, { language = "en", items } = {})
       });
     if (pathname === "/api/artifacts") {
       state.requests.push(url.search);
+      // The server rejects control characters in the search term.
+      if (/[\x00-\x1f\x7f]/.test(url.searchParams.get("q") || ""))
+        return route.fulfill({
+          status: 400,
+          json: { error: "Invalid input", code: "ARTIFACT_INVALID_INPUT" },
+        });
       const q = (url.searchParams.get("q") || "").toLowerCase();
       const projectId = url.searchParams.get("projectId");
       const names = (item) => [

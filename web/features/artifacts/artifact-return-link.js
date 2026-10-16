@@ -1,4 +1,4 @@
-import { readRoute, routePath } from "../../app/routes.js";
+import { readReturnTo, readRoute, routePath } from "../../app/routes.js";
 import { appPathParts, returnParam, withoutReturnParam } from "../../app/return-to.js";
 
 function returnPath(value) {
@@ -9,8 +9,10 @@ function returnPath(value) {
     hash: "",
     search: withoutReturnParam(parts.search),
   });
-  if (route.view === "artifacts" || (route.view === "workspace" && route.mode))
-    return routePath(route);
+  // The Artifacts page keeps its own validated way back to the session it came from.
+  if (route.view === "artifacts")
+    return routePath({ ...route, ...readReturnTo(parts.search, "artifacts") });
+  if (route.view === "workspace" && route.mode) return routePath(route);
   return "/artifacts";
 }
 

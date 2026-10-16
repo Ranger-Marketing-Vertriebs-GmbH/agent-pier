@@ -15,13 +15,14 @@ import ArtifactDetail from "./ArtifactDetail.jsx";
 import ArtifactEmpty from "./ArtifactEmpty.jsx";
 import ArtifactRows from "./ArtifactRows.jsx";
 import { formatBytes, storageWarning } from "./artifact-presentation.js";
-import { artifactsRoute } from "./routes.js";
+import { artifactSearchTerm, artifactsRoute } from "./routes.js";
 import useArtifacts from "./useArtifacts.js";
 import useArtifactSummary from "./useArtifactSummary.js";
 import "./artifacts.css";
 
 const pageSize = 20;
 
+// The workspace projects; null until loaded and when they could not be loaded.
 function useProjects() {
   const [projects, setProjects] = useState(null);
   useEffect(() => {
@@ -30,9 +31,7 @@ function useProjects() {
       .then((result) => {
         if (!controller.signal.aborted) setProjects(result.projects || []);
       })
-      .catch(() => {
-        if (!controller.signal.aborted) setProjects([]);
-      });
+      .catch(() => {});
     return () => controller.abort();
   }, []);
   return projects;
@@ -124,7 +123,7 @@ export default function ArtifactsPage({
   const q = route.q || "";
   const page = route.page || 1;
   const [term, setTerm] = useState(q);
-  const typed = useDebounced(term.trim().slice(0, 200));
+  const typed = useDebounced(artifactSearchTerm(term));
   const latest = useRef({});
   useEffect(() => {
     latest.current = { route, onNavigate, typed };
@@ -138,7 +137,18 @@ export default function ArtifactsPage({
     if (q !== latest.current.typed) setTerm(q);
   }, [q]);
   const [revision, setRevision] = useState(0);
-  const [gone, setGone] = useState(false);
+  // The "no longer available" notice belongs to the list it was shown on: another
+  // tab, project, session filter, search or page hides it.
+  const listKey = JSON.stringify([
+    tab,
+    route.projectId || "",
+    route.session || "",
+    q,
+    page,
+  ]);
+  const [goneAt, setGoneAt] = useState(null);
+  if (goneAt !== null && goneAt !== listKey) setGoneAt(null);
+  const gone = goneAt === listKey;
   const list = useArtifacts({
     projectId: route.projectId || undefined,
     sessionId: route.session || undefined,
@@ -158,11 +168,19 @@ export default function ArtifactsPage({
   const listed = items.find((item) => item.id === selectedId);
   const summary = useArtifactSummary(selectedId, listed, revision);
   const go = (fields, replace) => onNavigate({ ...route, ...fields }, replace);
+  // An unknown or deleted project in the address drops out, like unknown accounts.
+  const unknownProject =
+    Boolean(route.projectId) &&
+    Boolean(projects) &&
+    !projects.some((project) => project.id === route.projectId);
+  useEffect(() => {
+    if (unknownProject) onNavigate({ ...route, projectId: "", page: 1 }, true);
+  }, [unknownProject, route, onNavigate]);
   useEffect(() => {
     if (!route.artifact || !summary.gone) return;
-    setGone(true);
+    setGoneAt(listKey);
     onNavigate({ ...route, artifact: "" }, true);
-  }, [route, summary.gone, onNavigate]);
+  }, [route, summary.gone, onNavigate, listKey]);
   const item = summary.item;
   const subpage = narrow && Boolean(route.artifact);
   const lists = { sessions, projects, tools };
@@ -178,7 +196,7 @@ export default function ArtifactsPage({
     .filter(Boolean)
     .join(" · ");
   const select = (entry) => {
-    setGone(false);
+    setGoneAt(null);
     go({ artifact: entry.id });
   };
   const clearFilters = () => {
@@ -279,9 +297,12 @@ export default function ArtifactsPage({
             )}
             <ErrorMessage error={list.error} />
             {!data ? (
-              <p className="loading" role="status">
-                {copy.listLoading}
-              </p>
+              // A rejected request shows its error above instead of loading forever.
+              list.error ? null : (
+                <p className="loading" role="status">
+                  {copy.listLoading}
+                </p>
+              )
             ) : !items.length ? (
               <ArtifactEmpty
                 term={q}

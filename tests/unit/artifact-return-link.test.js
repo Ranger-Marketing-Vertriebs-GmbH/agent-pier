@@ -69,6 +69,21 @@ test("return destinations preserve explicit modes and project filters", () => {
   );
 });
 
+test("an Artifacts page destination keeps its own way back to the session", () => {
+  const detail = "/artifacts?session=s1&artifact=a1&returnTo=%2Fsessions%2Fs1%2Fchat";
+  const link = artifactLink("/artifacts/view/a1", detail, location);
+  assert.equal(artifactReturnPath(new URL(link, location).search), detail);
+  // The nested origin follows the Artifacts page rule: sessions only, one level.
+  for (const inner of ["/settings", "//outside.example", "/artifacts"])
+    assert.equal(
+      artifactReturnPath(
+        `?${new URLSearchParams({ returnTo: `/artifacts?${new URLSearchParams({ returnTo: inner })}` })}`,
+      ),
+      "/artifacts",
+      inner,
+    );
+});
+
 test("invalid or unsafe return destinations use the artifact list fallback", () => {
   for (const path of [
     "",

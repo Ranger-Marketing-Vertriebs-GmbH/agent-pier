@@ -1,4 +1,5 @@
 // Pure presentation of artifact summaries: type, time, date group, source and size.
+import { artifactSearchTerm } from "./routes.js";
 const imageFormats = {
   "image/png": "PNG",
   "image/jpeg": "JPEG",
@@ -144,7 +145,7 @@ export function artifactListQuery({ sessionId, projectId, page = 1, q, pinned })
   const query = new URLSearchParams({ page: String(page) });
   if (sessionId) query.set("sessionId", sessionId);
   if (projectId) query.set("projectId", projectId);
-  const term = typeof q === "string" ? q.trim().slice(0, 200) : "";
+  const term = artifactSearchTerm(q);
   if (term) query.set("q", term);
   if (pinned) query.set("pinned", "true");
   return query.toString();

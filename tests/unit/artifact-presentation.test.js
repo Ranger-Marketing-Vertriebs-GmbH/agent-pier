@@ -132,6 +132,7 @@ test("list queries carry only active filters", () => {
     artifactListQuery({ projectId: "p1", page: 2, q: "  audit ", pinned: true }),
     "page=2&projectId=p1&q=audit&pinned=true",
   );
+  assert.equal(artifactListQuery({ q: "Settings\tQA\n" }), "page=1&q=Settings+QA");
   assert.equal(
     artifactListQuery({ sessionId: "s1", q: "   ", pinned: false }),
     "page=1&sessionId=s1",
