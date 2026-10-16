@@ -3,6 +3,8 @@ import api from "../../lib/api.js";
 // Save-chain steps of the settings page (see docs/settings-pattern.md). Each step
 // owns its draft keys, so a retry after a partial save skips finished steps.
 const preferenceKeys = ["defaultCwd", "autoResumeInterrupted"];
+// The MCP directory setting is one record on the server; either draft key sends both.
+const directoryKeys = ["mcpDirectoryEnabled", "mcpDirectoryBaseUrl"];
 
 // A label may be a function: it is read when the bar reports "Partially saved: …",
 // after the language step may have switched the UI language.
@@ -54,13 +56,18 @@ export const preferencesStep = ({
   labelled(
     {
       id: "preferences",
-      keys: preferenceKeys,
+      keys: [...preferenceKeys, ...directoryKeys],
       run: async ({ values, changed }) => {
         const body = Object.fromEntries(
           preferenceKeys
             .filter((key) => changed.includes(key))
             .map((key) => [key, values[key]]),
         );
+        if (directoryKeys.some((key) => changed.includes(key)))
+          body.mcpDirectory = {
+            enabled: values.mcpDirectoryEnabled,
+            baseUrl: String(values.mcpDirectoryBaseUrl ?? "").trim(),
+          };
         const result = await save(body);
         // The preferences are stored; a failed reload of the workspace state only
         // delays the canonical directory and must not report the save as failed.

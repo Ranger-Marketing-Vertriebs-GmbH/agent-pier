@@ -14,6 +14,7 @@ import { setLanguage } from "../../lib/i18n/index.js";
 import useLanguage from "../../lib/i18n/useLanguage.js";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { mcpDirectoryCopy } from "../../lib/i18n/messages/mcp-directory.js";
 import { notificationCopy } from "../../lib/i18n/messages/notifications.js";
 import { operationsCopy } from "../../lib/i18n/messages/operations.js";
 import { settingsHubCopy, settingsPageCopy } from "../../lib/i18n/messages/settings.js";
@@ -24,6 +25,7 @@ import useAssistantFeature, {
   FEATURE_CHECK_FAILED,
 } from "../assistants/useAssistantFeature.js";
 import DirectoryRow from "./DirectoryRow.jsx";
+import McpDirectoryRow, { officialRegistry } from "./McpDirectoryRow.jsx";
 import { TabFrame } from "./SettingsFrame.jsx";
 import { staysOn, subpage } from "./settings-navigation.js";
 import {
@@ -50,6 +52,8 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
     defaultCwd: ready ? state.defaultCwd || state.home || "" : "",
     autoResumeInterrupted: state.autoResumeInterrupted !== false,
     agentsEnabled: feature.enabled,
+    mcpDirectoryEnabled: state.mcpDirectory?.enabled !== false,
+    mcpDirectoryBaseUrl: state.mcpDirectory?.baseUrl || officialRegistry,
   };
   const draft = useTabDraft({ server });
   const [saved, setSaved] = useState(false);
@@ -101,6 +105,18 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
   const locked = !ready || draft.saving;
   const fieldError =
     ready && draft.changedKeys.includes("defaultCwd") ? directoryError(draft.values) : "";
+  // A refused registry address is named at its field, not in the bar, while the
+  // field still holds a changed address.
+  const addressRefused =
+    draft.outcome?.status === "error" &&
+    draft.outcome.error?.messageKey === "mcpDirectory.invalidSettings";
+  const addressError =
+    addressRefused && draft.changedKeys.includes("mcpDirectoryBaseUrl")
+      ? mcpDirectoryCopy.baseUrlInvalid
+      : "";
+  const bar = addressRefused
+    ? { ...draft, outcome: { ...draft.outcome, error: undefined } }
+    : draft;
   const diagnostic = feature.error
     ? featureCopy.errors[feature.error] || featureCopy.problem(feature.error)
     : "";
@@ -109,7 +125,7 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
       frame={frame}
       bar={
         <SaveBar
-          draft={draft}
+          draft={bar}
           onSave={save}
           onOverwrite={overwrite}
           saveLabel={settingsPageCopy.saveSettings}
@@ -141,6 +157,12 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
         />
       </ListCard>
       <ErrorMessage error={fieldError} />
+      <McpDirectoryRow
+        values={draft.values}
+        edit={edit}
+        error={addressError}
+        disabled={locked}
+      />
       <GroupLabel id="settings-agents">{operationsCopy.sections.assistants}</GroupLabel>
       <ListCard labelledBy="settings-agents">
         <ToggleRow

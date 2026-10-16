@@ -64,6 +64,35 @@ test("the workspace saves language first and sends only changed preferences", as
   ]);
 });
 
+test("a changed MCP directory key sends the whole directory setting", async () => {
+  const directory = {
+    ...base,
+    mcpDirectoryEnabled: true,
+    mcpDirectoryBaseUrl: "https://registry.modelcontextprotocol.io",
+  };
+  const calls = [];
+  const result = await runSaveChain({
+    steps: workspace(calls),
+    values: { ...directory, mcpDirectoryBaseUrl: "  https://mirror.example.test/ " },
+    base: directory,
+  });
+  assert.equal(result.status, "saved");
+  assert.deepEqual(calls, [
+    [
+      "preferences",
+      { mcpDirectory: { enabled: true, baseUrl: "https://mirror.example.test/" } },
+    ],
+    ["refresh"],
+  ]);
+  const untouched = [];
+  await runSaveChain({
+    steps: workspace(untouched),
+    values: { ...directory, autoResumeInterrupted: false },
+    base: directory,
+  });
+  assert.deepEqual(untouched[0], ["preferences", { autoResumeInterrupted: false }]);
+});
+
 test("unchanged steps are skipped and a failed refresh does not fail the save", async () => {
   const calls = [];
   const values = { ...base, defaultCwd: "~/work" };
