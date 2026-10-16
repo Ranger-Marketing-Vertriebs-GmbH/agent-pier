@@ -195,6 +195,8 @@ test.describe("agent chat transcript", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await chatFixture(page, { history: working });
     await page.goto(chat);
+    // The chat listens for events once it is open; its loaded history shows that.
+    await expect(page.locator(".assistant-run-state.working")).toBeVisible();
     await emit(page, {
       type: "delta",
       conversationId: "dinner",
@@ -253,6 +255,7 @@ test.describe("agent chat transcript layout details", () => {
   const stream = async (page) => {
     await chatFixture(page, { history: working });
     await page.goto(chat);
+    await expect(page.locator(".assistant-run-state.working")).toBeVisible();
     await emit(page, { type: "delta", conversationId: "dinner", text: "Draft" });
     await expect(page.locator(".assistant-message.streaming")).toBeVisible();
   };
