@@ -93,6 +93,28 @@ recommendations the owner can veto.
     open SSH approvals per agent.
 12. **Default:** The bridge holds an approval for 110 s (`askWaitMs`). The card
     itself expires after 10 minutes.
+13. **Late approvals (owner decision).** When the owner allows after the 110 s hold,
+    the result arrives as a follow-up message. The follow-up turn keeps the original
+    turn's origin class. Cards expire after 10 minutes (see Approval flow).
+14. **No forced card for turns that read web pages or documents, in v1 (owner
+    decision).** A turn that consumed `web_fetch`, `browser`, document or MCP output
+    can still run commands on `trusted` hosts without a card. This residual risk is
+    documented in the mode picker, `docs/agents.md` "Security notes" and the ADR. A
+    taint-based downgrade using the plugin's `before_tool_call` guard stays a
+    possible follow-up.
+15. **Default (owner can veto):** A lead's questions (`agentpier_team_ask`) count as
+    delegated turns, just like tasks. A `trusted` host of a permanent member
+    therefore runs without a card when the lead asks a question, and `approval`
+    hosts still show the card in both chats.
+16. **Project-owned hosts (owner decision).** Any catalog host can be granted to an
+    agent, global or project-owned. Project-owned hosts show a project badge in the
+    picker and on the approval card. Project ownership governs where keys are
+    placed, not who may use the host. Agents have no launch project, so there is no
+    project inheritance; only explicit grants count.
+17. **Trusted runs are visible (owner decision).** A trusted run leaves a compact,
+    non-interactive line in the chat, for example "SSH on opnsense: uptime · done".
+    It also appears in the Work tab's action history and in the audit. See "Trusted
+    run notes" under Approval flow.
 
 ## Architecture
 
@@ -194,6 +216,12 @@ Web:
 - `web/features/assistants/SshApprovalCard.jsx` (new) with
   `ssh-approval-card.css`.
 - `AssistantActionApprovals.jsx` (routing).
+- `web/features/assistants/SshRunNote.jsx` and `ssh-run-note.js` (new). The
+  transcript renders `event: "ssh-run"` next to `CodingRunNote`.
+- `settings/ActionHistory.jsx` lists trusted SSH rows.
+- Server side of the notes: `assistant-action-notifications.js`
+  (`codingRunNotes` becomes `actionNotes`) and `conversations.js`
+  (`withRunNotes`).
 - `web/lib/i18n/{de,en}/assistant-ssh.js` (new) and
   `web/lib/i18n/messages/assistant-ssh.js`.
 
@@ -237,6 +265,11 @@ two steps is inert.
   `prepare()` rebuilds the body from its own whitelist, so the field is dropped on
   the next save. That fails safe (fewer permissions), and an older build has no SSH
   tool anyway.
+- **Trusted-run rows:** these are ordinary `assistant_actions` rows with
+  `payload.action: "ssh"` and `trusted: true` (see "Trusted run notes"). They need
+  no schema change and are pruned to the newest 500 per agent. The implementation
+  verifies that an older build's action list tolerates the unknown kind after a
+  downgrade.
 - **Backups:** the assistants DB is backed up, but SSH data is not
   (`docs/ssh-access.md`). After a restore without SSH data, grants point at unknown
   ids:
@@ -460,12 +493,69 @@ awaiting_approval ─Allow once→ executing ─→ completed | failed
   `team-coding.js`).
 - The first decision wins; the other card shows the final state.
 
-**Trusted runs** create no action and no card. They are visible in:
+### Trusted run notes
 
-- the transcript, through the tool call itself;
-- the audit log;
-- a compact read-only line in the Work tab's action history ("Ran on <host> · exit
-  0 · 1.2 s"), fed from the audit. No row is added to `assistant_actions`.
+A trusted run creates no card. It reuses the mechanism behind coding-run chat notes
+instead of adding a new store:
+
+- **Server mechanism:** `codingRunNotes()` in `assistant-action-notifications.js`
+  turns an action's `chatNotes` into `role: "event"` messages, and
+  `withRunNotes()` in `conversations.js` merges them into the transcript by
+  timestamp, with pagination.
+- **Minimal storage:** every spawned trusted run writes one terminal
+  `assistant_actions` row. No new table and no schema change:
+
+  ```js
+  {
+    payload: {
+      action: "ssh",
+      trusted: true,
+      accessId,
+      hostName,
+      commandPreview, // first line, ≤ 80 characters, ellipsis when shortened
+      commandSha256,
+    },
+    assistantId,
+    conversationId,
+    attemptId,
+    key: "ssh:<attemptId>:<toolCallId>",
+    state: "completed" | "failed", // revoked runs: "failed" with result.reason "revoked"
+    result: { exitCode, signal, timedOut, truncated, durationMs },
+    chatNotes: { result: { at, state } },
+    settled: true, // never notifies, never reaches Telegram
+  }
+  ```
+
+  The row is written once, after the run, so it never sits in `awaiting_approval`
+  and never counts in `awaitingCounts`. A trusted row stores only the preview, not
+  the full command. The full text stays in the transcript's tool call.
+
+- **Note derivation:** `codingRunNotes()` is generalised to `actionNotes()`. For
+  `payload.action === "ssh"` it emits `{id: "ssh-run:<actionId>", role: "event",
+event: "ssh-run", hostName, commandPreview, outcome, durationMs, memberName?,
+timestamp}`. `outcome` is one of `done`, `exit` (with `exitCode`), `timedOut`,
+  `truncated` or `revoked`.
+- **Rendering:**
+  - A new `SshRunNote.jsx`, analogous to `CodingRunNote.jsx`, renders
+    `sshRunNoteText()`: "SSH on {host}: {command} · {outcome}". Examples:
+    - "SSH on opnsense: uptime · done";
+    - "SSH on nas-01: systemctl restart smb · exit 1";
+    - "SSH on nas-01: tail -f … · timed out".
+  - The preview runs through the same escaping helper as the card, so hidden
+    characters show as badges.
+  - The duration appears as a `title` and as visually hidden text, not in the
+    sentence.
+  - The note sits in the conversation where the run happened. For a member's
+    delegated run, that is the member's chat; the lead sees the member's result as
+    usual.
+- **Approval-mode runs** get no extra note. The card's final state (completed, exit
+  code, duration) already marks the spot in the transcript.
+- **Work tab history:** `ActionHistory` lists the same rows ("SSH on opnsense ·
+  done · 1.2 s"), with no actions, alongside the approval-mode SSH actions.
+- **Retention:** trusted SSH rows are pruned to the newest 500 per agent when a new
+  row is written. That keeps `assistant_actions` bounded while the audit keeps the
+  complete record. Pruned notes disappear from the transcript; the tool call
+  remains.
 
 ## Security analysis
 
@@ -474,20 +564,20 @@ The trust boundary is unchanged: one OS user, and agents are unsandboxed (see
 `ssh` with the owner's `~/.ssh`" with pinned, per-host, per-agent, audited access.
 For an agent with shell `full`, it does not reduce what is possible.
 
-| Threat                                                                                                                                          | Mitigation                                                                                                                                                                                                                                                                     |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Prompt injection through remote output** (a file or MOTD says "now run `rm -rf`") leading to a follow-up command on the same or another host. | Output envelope `untrusted: true` with a notice, and a tool description rule. `approval` hosts show every command. `trusted` is an explicit per-host opt-in with warning copy in the mode picker. Commands run one at a time per agent, every run is audited, and no "always". |
-| **Prompt injection through web content, documents, member answers or MCP output** inside an owner turn, aimed at a trusted host.                | This is residual risk of `trusted`, and the mode picker says so. The `approval` mode is the initial choice. A taint-based downgrade is Open question 2. Member answers reach the lead as a `member-result` turn, which is refused outright.                                    |
-| **Forwarded or third-party Telegram content.**                                                                                                  | `forwarded` turns are refused without a card. Bots for other people are ineligible for agents with grants (`telegramEligible`).                                                                                                                                                |
-| **Unattended escalation** (routine, reminder, check-in, scheduled turn).                                                                        | Only routine runs of a bound, enabled routine reach the bridge (`runOrigin`), and only `routines` hosts run there. Reminders have `toolsAllow: []`, check-ins only memory, and both are refused anyway.                                                                        |
-| **Lead escalates through a member** (the lead delegates "run X" to a permanent member with trusted grants).                                     | This is intended by decision 3 (`trusted` covers lead-delegated turns). The member uses only its own grants, never the lead's, and `approval` hosts still show the card in both chats. A proposal's `mcpServers` cannot carry SSH.                                             |
-| **Agent changes its own grants.**                                                                                                               | The access PUT is an owner-only HTTP route. No agent tool writes `assistant_access`, and the bridge has no grant action.                                                                                                                                                       |
-| **Hidden-character or truncated approvals.**                                                                                                    | Exact rendering with escaped control and bidi characters. Telegram withholds buttons for long or hidden-character commands, and the card requires expansion before allowing.                                                                                                   |
-| **Stale approval** (host re-keyed, grant removed, hours later).                                                                                 | 10-minute expiry. `connectionRevision` and the grant are re-checked at decision time and every 250 ms while running.                                                                                                                                                           |
-| **Host impersonation / MITM.**                                                                                                                  | Reuses the pinned `known_hosts` per invocation with `StrictHostKeyChecking=yes` and `UpdateHostKeys=no`. Registering a host still requires a pin with provenance.                                                                                                              |
-| **Key exfiltration through the tool.**                                                                                                          | There is no key or management action, and the result never contains key material or paths. (A full-shell agent can still read the files; this is documented.)                                                                                                                  |
-| **Secrets in commands leaking into logs.**                                                                                                      | The audit stores only the digest and length. Diagnostics name action ids, and Telegram never receives output.                                                                                                                                                                  |
-| **Resource abuse.**                                                                                                                             | One command per agent, at most 3 open approvals, 120 s and 64 KiB caps, and the bridge's ticket limit of 1000.                                                                                                                                                                 |
+| Threat                                                                                                                                          | Mitigation                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Prompt injection through remote output** (a file or MOTD says "now run `rm -rf`") leading to a follow-up command on the same or another host. | Output envelope `untrusted: true` with a notice, and a tool description rule. `approval` hosts show every command. `trusted` is an explicit per-host opt-in with warning copy in the mode picker. Commands run one at a time per agent, every run is audited, and no "always".                  |
+| **Prompt injection through web content, documents, member answers or MCP output** inside an owner turn, aimed at a trusted host.                | This is residual risk of `trusted`, and the mode picker says so. The `approval` mode is the initial choice. Per decision 14 there is no forced card in v1; a taint-based downgrade is a possible follow-up. Member answers reach the lead as a `member-result` turn, which is refused outright. |
+| **Forwarded or third-party Telegram content.**                                                                                                  | `forwarded` turns are refused without a card. Bots for other people are ineligible for agents with grants (`telegramEligible`).                                                                                                                                                                 |
+| **Unattended escalation** (routine, reminder, check-in, scheduled turn).                                                                        | Only routine runs of a bound, enabled routine reach the bridge (`runOrigin`), and only `routines` hosts run there. Reminders have `toolsAllow: []`, check-ins only memory, and both are refused anyway.                                                                                         |
+| **Lead escalates through a member** (the lead delegates "run X" to a permanent member with trusted grants).                                     | This is intended by decision 3 (`trusted` covers lead-delegated turns). The member uses only its own grants, never the lead's, and `approval` hosts still show the card in both chats. A proposal's `mcpServers` cannot carry SSH.                                                              |
+| **Agent changes its own grants.**                                                                                                               | The access PUT is an owner-only HTTP route. No agent tool writes `assistant_access`, and the bridge has no grant action.                                                                                                                                                                        |
+| **Hidden-character or truncated approvals.**                                                                                                    | Exact rendering with escaped control and bidi characters. Telegram withholds buttons for long or hidden-character commands, and the card requires expansion before allowing.                                                                                                                    |
+| **Stale approval** (host re-keyed, grant removed, hours later).                                                                                 | 10-minute expiry. `connectionRevision` and the grant are re-checked at decision time and every 250 ms while running.                                                                                                                                                                            |
+| **Host impersonation / MITM.**                                                                                                                  | Reuses the pinned `known_hosts` per invocation with `StrictHostKeyChecking=yes` and `UpdateHostKeys=no`. Registering a host still requires a pin with provenance.                                                                                                                               |
+| **Key exfiltration through the tool.**                                                                                                          | There is no key or management action, and the result never contains key material or paths. (A full-shell agent can still read the files; this is documented.)                                                                                                                                   |
+| **Secrets in commands leaking into logs.**                                                                                                      | The audit stores only the digest and length. Diagnostics name action ids, and Telegram never receives output.                                                                                                                                                                                   |
+| **Resource abuse.**                                                                                                                             | One command per agent, at most 3 open approvals, 120 s and 64 KiB caps, and the bridge's ticket limit of 1000.                                                                                                                                                                                  |
 
 ### Concurrency and revocation
 
@@ -623,6 +713,14 @@ real `~/.ssh`.
   - the Telegram payload withholds buttons for long or hidden-character commands;
   - the audit records for every path, with no command text in any record (assert
     on the serialised audit file).
+- `assistant-ssh-notes.test.js`:
+  - a trusted run writes exactly one settled `assistant_actions` row with a preview,
+    not the full command;
+  - `actionNotes()` emits the `ssh-run` event and `withRunNotes()` orders it with
+    pagination;
+  - no Telegram outbox entry and no awaiting count are created;
+  - rows are pruned to the newest 500 per agent;
+  - approval-mode runs emit no note.
 - `assistant-ssh-revocation.test.js`:
   - removing the host, changing the mode, archiving the agent or cancelling the
     turn during a run kills the child within 500 ms;
@@ -653,6 +751,8 @@ real `~/.ssh`.
     empty-catalog state, the removed-host state;
   - approval card: Allow once / Deny, a long command that needs expansion, the
     hidden-character warning, the delegated card in the lead's chat;
+  - the trusted run note ("SSH on opnsense: uptime · done") in the transcript
+    and in the Work tab history;
   - checks for no horizontal scroll, keyboard-only operation, and the
     `aria-live` announcement.
 - Catalog parity tests for the new de/en files.
@@ -689,29 +789,5 @@ real `~/.ssh`.
 
 ## Open questions
 
-1. **Late approvals: follow-up message or hard expiry at 110 s?** A follow-up turn
-   lets the owner approve from a phone minutes later, but it starts a new agent turn
-   with remote output in it.
-   **Recommendation:** follow-up message, with the class inherited from the
-   original turn and a 10-minute card expiry (as specified).
-2. **Downgrade trusted to approval in tainted turns?** A turn that already consumed
-   `web_fetch`, `browser` or document output could force a card even on trusted
-   hosts. The plugin's `before_tool_call` guard sees the session's earlier tool
-   calls.
-   **Recommendation:** not in v1, because the residual risk is documented and
-   opt-in. Revisit after real use; the guard hook makes it a contained follow-up.
-3. **Do lead questions (`ask`) count as delegated turns for Trusted?** Decision 3
-   says "delegated by the lead", and questions "never change files", but a remote
-   command can change state.
-   **Recommendation:** yes, treat questions like tasks. The owner chose to trust
-   the lead's delegation, and approval hosts still show cards.
-4. **Can project-owned hosts be granted to agents?** Agents have no launch project,
-   so project inheritance does not apply.
-   **Recommendation:** yes, allow any catalog host and show the project badge.
-   Ownership governs key placement, not who may use the host.
-5. **Visibility of trusted runs in the chat.** Should a trusted run also render a
-   compact chat line (host, exit, duration), beyond the tool call and the Work-tab
-   history?
-   **Recommendation:** yes, as a non-interactive activity line in the transcript,
-   if the chat-activity surface can show it without a new store. Otherwise keep v1
-   to the Work-tab history and the audit.
+None. The five questions from the first draft were answered and moved to Decisions
+13–17. Decision 15 is a default the owner can still veto.
