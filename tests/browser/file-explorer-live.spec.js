@@ -33,7 +33,7 @@ async function readTextWhenPresent(file) {
 }
 
 async function createEntry(page, kind, name) {
-  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "New", exact: true }).click();
   await page
     .getByRole("menu", { name: "New", exact: true })
     .getByRole("menuitem", {

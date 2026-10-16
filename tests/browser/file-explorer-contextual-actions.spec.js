@@ -28,7 +28,7 @@ test("file actions stay contextual and keep creation and advanced commands in me
   ).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "New", exact: true }).click();
   const newMenu = page.getByRole("menu", { name: "New", exact: true });
   await expect(newMenu.getByRole("menuitem", { name: "New file" })).toBeVisible();
   await expect(newMenu.getByRole("menuitem", { name: "New folder" })).toBeVisible();

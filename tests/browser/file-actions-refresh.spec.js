@@ -22,7 +22,10 @@ for (const [kind, label] of [
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "a.txt", exact: true })).toBeVisible();
     await page.getByRole("checkbox", { name: "Select a.txt", exact: true }).check();
-    await page.getByRole("button", { name: "New", exact: true }).click();
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: "New", exact: true })
+      .click();
     await page
       .getByRole("menu", { name: "New", exact: true })
       .getByRole("menuitem", { name: label, exact: true })

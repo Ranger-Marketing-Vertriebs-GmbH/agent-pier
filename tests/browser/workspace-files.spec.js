@@ -179,7 +179,10 @@ for (const mobile of [false, true])
           exact: true,
         })
         .click();
-      await page.getByRole("button", { name: "Neu", exact: true }).click();
+      await page
+        .getByRole("main")
+        .getByRole("button", { name: "Neu", exact: true })
+        .click();
       await page.getByRole("menuitem", { name: "Neuer Ordner", exact: true }).click();
       await page
         .getByRole("dialog")
