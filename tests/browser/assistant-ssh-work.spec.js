@@ -2,32 +2,8 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { setupAssistantSettings as setup } from "../helpers/assistant-settings-browser.js";
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
+import { catalog, nas, opnsense } from "./assistant-ssh-fixture.js";
 
-export const opnsense = {
-  id: "11111111-1111-4111-8111-111111111111",
-  name: "opnsense",
-  host: "opnsense.invalid",
-  port: 22,
-  username: "root",
-  hostFingerprint: "SHA256:opnsense",
-  projectId: null,
-  projectName: null,
-};
-export const nas = {
-  id: "22222222-2222-4222-8222-222222222222",
-  name: "nas-01",
-  host: "nas.invalid",
-  port: 2222,
-  username: "admin",
-  hostFingerprint: "SHA256:nas",
-  projectId: "p1",
-  projectName: "Homelab",
-};
-export const catalog = (sshHosts = [opnsense, nas]) => ({
-  projects: [],
-  pipelines: [],
-  sshHosts,
-});
 const row = (page) => page.getByRole("link", { name: /^SSH accesses/ });
 const save = (page) => saveBar(page).getByRole("button", { name: "Save", exact: true });
 const back = (page) => page.getByRole("button", { name: "Back to Work" });
