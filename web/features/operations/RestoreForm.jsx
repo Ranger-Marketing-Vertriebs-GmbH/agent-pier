@@ -67,19 +67,33 @@ export default function RestoreForm({ close, started }) {
             return;
           }
           action.run(async () => {
-            const id =
-              archiveId ||
-              (await uploadArchive(file, {
-                uploadId,
+            const upload = (resume) =>
+              uploadArchive(file, {
+                uploadId: resume,
                 started: setUploadId,
                 progress: (done, total) => setProgress({ done, total }),
-              }));
-            setArchiveId(id);
-            setProgress(null);
-            const result = await api("/operations/restore/inspect", "POST", {
-              archiveId: id,
-              ...(passphrase ? { passphrase } : {}),
-            });
+              }).catch((error) => {
+                // The server no longer has this upload: the next attempt starts anew.
+                if (error?.status === 404) setUploadId("");
+                throw error;
+              });
+            const inspect = async (id) => {
+              setArchiveId(id);
+              setProgress(null);
+              return api("/operations/restore/inspect", "POST", {
+                archiveId: id,
+                ...(passphrase ? { passphrase } : {}),
+              });
+            };
+            let result;
+            try {
+              result = await inspect(archiveId || (await upload(uploadId)));
+            } catch (error) {
+              // An uploaded archive the server removed (expired) is uploaded again.
+              if (error?.status !== 404 || !archiveId) throw error;
+              setArchiveId("");
+              result = await inspect(await upload(""));
+            }
             setInspection(result.inspection);
           });
         }}
