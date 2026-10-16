@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
-import { codingRunNotes } from "./assistant-action-notifications.js";
+import { actionNotes } from "./assistant-action-notifications.js";
 import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
 import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
@@ -49,6 +49,7 @@ const internalKinds = new Set([
   "coding-result",
   "member-result",
   "memory-result",
+  "ssh-result",
 ]);
 function hideInternal(messages, requests, contexts, attempts) {
   const internal = requests
@@ -225,15 +226,13 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
 }
 const pageStart = (nextBefore, messages) =>
   nextBefore && messages.length ? messages[0].timestamp : -Infinity;
-// Coding run notes join the page they fall into. A page reaches from its first
+// Coding and SSH run notes join the page they fall into. A page reaches from its first
 // message (or the very start when no earlier page exists) to the present; the
 // client keeps the newer copy of a note that an older page repeats.
 function withRunNotes(service, conversation, messages, nextBefore) {
   const actions = service.workflows?.store.list(conversation.assistantId) || [];
   const from = nextBefore && messages.length ? messages[0].timestamp : -Infinity;
-  const notes = codingRunNotes(actions, conversation.id).filter(
-    (n) => n.timestamp >= from,
-  );
+  const notes = actionNotes(actions, conversation.id).filter((n) => n.timestamp >= from);
   if (!notes.length) return messages;
   return [...messages, ...notes]
     .map((m, i) => [m, i])
