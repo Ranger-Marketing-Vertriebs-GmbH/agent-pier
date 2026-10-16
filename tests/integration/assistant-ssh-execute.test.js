@@ -239,12 +239,3 @@ test("a lead's grant never reaches its member and task members get nothing", asy
     "FORBIDDEN",
   );
 });
-
-test("an approval host is refused until approvals exist", async (t) => {
-  const f = await agentSshFixture(t);
-  f.grant([{ accessId: hostId, mode: "approval" }]);
-  assert.equal(
-    await code(f.execute(f.ownTurn(), "process.exit(0)")),
-    "SSH_ORIGIN_REFUSED",
-  );
-});

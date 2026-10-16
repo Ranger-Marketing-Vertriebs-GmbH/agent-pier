@@ -17,6 +17,7 @@ import { permanentReasons } from "./native-routines.js";
 import { ExecApprovals, execDecisions } from "./exec-approvals.js";
 import { allowAlwaysByAgentPier, decideExec, execPlan } from "./exec-decisions.js";
 import { AgentSsh } from "./agent-ssh.js";
+import { sshDecisions } from "./agent-ssh-approvals.js";
 const maxEventRetryMs = 300000;
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
@@ -235,10 +236,11 @@ export class AssistantWorkflows {
     });
   }
   decide(id, input, origin) {
-    let exec = false;
+    let kind = "action";
     try {
-      exec = this.store.get(id).payload.action === "exec";
+      kind = { exec: "exec", ssh: "ssh" }[this.store.get(id).payload.action] || "action";
     } catch {}
+    const exec = kind === "exec";
     return decideAudited(
       this.s.audit,
       {
@@ -246,7 +248,7 @@ export class AssistantWorkflows {
         actionId: id,
         decision: input?.decision,
         revision: input?.revision,
-        kind: exec ? "exec" : "action",
+        kind,
         assistantId: () => this.store.get(id).assistantId,
         attribution: () => this.store.get(id),
         // Whether AgentPier wrote the allowlist entry for a withheld allow-always.
@@ -280,8 +282,9 @@ export class AssistantWorkflows {
         throw assistantProblem("invalid");
       const action = this.store.get(id);
       // Exec approvals take the Gateway's decisions; other actions their own.
-      const exec = action.payload.action === "exec";
-      if (!(exec ? execDecisions : coding).includes(input.decision))
+      const exec = action.payload.action === "exec",
+        ssh = action.payload.action === "ssh";
+      if (!(exec ? execDecisions : ssh ? sshDecisions : coding).includes(input.decision))
         throw assistantProblem("invalid");
       if (input.decision === "review" && origin.kind !== "owner")
         throw assistantProblem("invalid", 403);
@@ -302,6 +305,8 @@ export class AssistantWorkflows {
         (input.decision !== "review" && action.expiresAt < Date.now())
       )
         throw assistantProblem("conflict", 409);
+      // SSH approvals re-check grant, host and pin themselves (agent-ssh-approvals.js).
+      if (ssh) return this.project(this.ssh.approvals.decide(action, input.decision));
       // Project grants do not apply to exec; the Gateway decides the request.
       if (exec) return this.project(await decideExec(this, action, input.decision));
       if (input.decision === "approve")
@@ -378,6 +383,7 @@ export class AssistantWorkflows {
     this.a.changed();
   }
   async advanceAction(a) {
+    if (a.payload.action === "ssh") return this.ssh.approvals.advance(a);
     // An exec decision being sent finishes the action itself.
     if (a.payload.action === "exec" && this.exec.deciding.has(a.payload.approvalId))
       return;

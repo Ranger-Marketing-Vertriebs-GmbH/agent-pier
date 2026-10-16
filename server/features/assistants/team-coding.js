@@ -43,12 +43,13 @@ export function memberContext(w, chat, attempt, origin) {
 function memberTelegram(w, team) {
   const own = ownerTelegram(team.origin);
   if (own) return own;
+  return pairedTelegram(w, team.parentAssistantId);
+}
+/** An agent's enabled, paired private chat, or null. */
+export function pairedTelegram(w, assistantId) {
   const channel = w.s.assistantChannels?.store
     .list()
-    .find(
-      (c) =>
-        c.assistantId === team.parentAssistantId && c.enabled && c.chatId && c.userId,
-    );
+    .find((c) => c.assistantId === assistantId && c.enabled && c.chatId && c.userId);
   return channel
     ? { channelId: channel.id, chatId: channel.chatId, userId: channel.userId }
     : null;
