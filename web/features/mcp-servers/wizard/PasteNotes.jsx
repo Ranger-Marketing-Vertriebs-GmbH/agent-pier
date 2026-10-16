@@ -4,8 +4,11 @@ import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js"
 /** A warning as one sentence; its parts are names from the guide, shown as text. */
 export const warningText = (note) => {
   const render = copy.paste.warnings[note.code];
+  // A field of the entry (args, url, command) is named in words; other names are the
+  // guide's own and stay as written.
+  const name = note.field ? copy.paste.fields[note.field] : (note.name ?? "");
   return typeof render === "function"
-    ? render(note.name ?? "", note.ref ?? "", note.to ?? "")
+    ? render(name, note.ref ?? "", note.to ?? "")
     : render;
 };
 

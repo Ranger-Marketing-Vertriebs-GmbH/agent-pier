@@ -105,6 +105,7 @@ export const mcpWizardCopy = {
     argsNone: "none",
     argsHint: "Only needed when the guide names extra arguments.",
     argument: (n) => `Argument ${n}`,
+    argumentRequired: "This argument needs a value. Type it or remove the argument.",
     addArgument: "Add an argument",
     removeArgument: (n) => `Remove argument ${n}`,
     cwd: "Working directory (optional, absolute path)",
@@ -238,6 +239,9 @@ export const mcpWizardCopy = {
     settings: "Settings",
     valueTaken: "value taken over",
     valueMissing: "needs a value",
+    fields: { args: "An argument", url: "The address", command: "The command" },
+    refusedLeft: (names) =>
+      `Not taken over from this block: ${names}. Set these up by hand.`,
     secretsNote: "All values are stored on this computer only and are never shown again.",
     reviewNote:
       "A guide is not a security review. Check who published the package before you install it.",
@@ -263,6 +267,8 @@ export const mcpWizardCopy = {
       nameTaken: "A server with this name already exists. Choose another name.",
     },
     ignored: {
+      extraPackage:
+        "A further package of the command; only the first one is installed. Add this one separately if needed.",
       runner:
         "AgentPier installs the package itself instead of downloading it at every start.",
       yes: "Only needed for npx.",

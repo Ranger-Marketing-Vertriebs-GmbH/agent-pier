@@ -10,12 +10,18 @@ const newKey = () => `row-${Math.random().toString(36).slice(2)}`;
 // The sign-in header is typed on the remote step; it stays out of this list.
 const authKey = "auth";
 
-function Arguments({ draft, set, errorOf, describe, errorId }) {
+function Arguments({ draft, set, errorOf, describe, errorId, tried }) {
   const rows = draft.argRows;
   const write = (next) => set("argRows")(next);
   const count = rows.filter(Boolean).length;
+  // A pasted argument that could not be taken over stays a row until it has a value.
+  const missing = (value) => draft.hints.argsRequired === true && !value.trim();
+  const unfilled = rows.some(missing);
   return (
-    <details className="mcp-advanced" open={Boolean(errorOf("args") || errorOf("cwd"))}>
+    <details
+      className="mcp-advanced"
+      open={Boolean(errorOf("args") || errorOf("cwd") || unfilled)}
+    >
       <summary>
         {copy.settings.argsTitle} · {count || copy.settings.argsNone}
       </summary>
@@ -29,6 +35,7 @@ function Arguments({ draft, set, errorOf, describe, errorId }) {
             autoCapitalize="none"
             spellCheck={false}
             {...describe("args")}
+            aria-invalid={tried && missing(value) ? true : undefined}
             onChange={(event) =>
               write(rows.map((item, at) => (at === index ? event.target.value : item)))
             }
@@ -43,6 +50,11 @@ function Arguments({ draft, set, errorOf, describe, errorId }) {
           </button>
         </div>
       ))}
+      {tried && unfilled && (
+        <p role="alert" className="mcp-field-error">
+          {copy.settings.argumentRequired}
+        </p>
+      )}
       <button
         type="button"
         className="button secondary"
@@ -105,7 +117,11 @@ export default function SettingsStep({ state, dispatch, go, headingRef }) {
       primary={{ label: copy.continue }}
       onSubmit={() => {
         setTried(true);
-        if (!editable || !Object.values(problems).some(Boolean))
+        const argsMissing =
+          stdio &&
+          draft.hints.argsRequired === true &&
+          draft.argRows.some((a) => !a.trim());
+        if (!argsMissing && (!editable || !Object.values(problems).some(Boolean)))
           go(path === "package" ? "install" : "review");
       }}
     >
@@ -155,6 +171,7 @@ export default function SettingsStep({ state, dispatch, go, headingRef }) {
           errorOf={errorOf}
           describe={describe}
           errorId={errorId}
+          tried={tried}
         />
       )}
     </WizardStep>

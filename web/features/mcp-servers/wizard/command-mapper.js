@@ -111,6 +111,11 @@ const own = (command, args, ignored = [], warnings = []) => ({
 function npmRunner(runner, command, args, original, notes) {
   const ignored = [...notes.ignored, { key: runner, code: "runner" }];
   let pkg = null;
+  // The first -p/--package is the package; each further one is named, not dropped.
+  const take = (spec) => {
+    if (pkg === null) pkg = spec;
+    else ignored.push({ key: String(spec).slice(0, 60), code: "extraPackage" });
+  };
   let index = 0;
   for (; index < args.length; index += 1) {
     const arg = args[index];
@@ -120,8 +125,8 @@ function npmRunner(runner, command, args, original, notes) {
     }
     if (hasOwnFlag(arg, npmOwnFlags)) return own(command, original.args, notes.ignored);
     if (quietFlags.includes(arg)) ignored.push({ key: arg, code: "yes" });
-    else if (arg === "-p" || arg === "--package") pkg = args[(index += 1)] ?? "";
-    else if (arg.startsWith("--package=")) pkg = arg.slice("--package=".length);
+    else if (arg === "-p" || arg === "--package") take(args[(index += 1)] ?? "");
+    else if (arg.startsWith("--package=")) take(arg.slice("--package=".length));
     else if (arg.startsWith("-")) ignored.push({ key: arg, code: "unknownFlag" });
     else break;
   }

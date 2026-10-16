@@ -176,7 +176,7 @@ test("remote entries: serverUrl, streamable types, Bearer header, token in the q
   );
   const ref = one('{"mcpServers":{"x":{"url":"https://${HOST}/mcp"}}}');
   assert.equal(ref.draft.url, "");
-  assert.deepEqual(ref.warnings[0], { code: "reference", name: "url", ref: "HOST" });
+  assert.deepEqual(ref.warnings[0], { code: "reference", field: "url", ref: "HOST" });
 });
 
 test("names are sanitised and kept unique against existing servers", () => {
@@ -247,4 +247,21 @@ test("errors: too long, invalid JSON with position, no server, TOML, claude mcp 
   );
   assert.equal(dup.servers.length, 1);
   assert.deepEqual(dup.warnings, [{ code: "duplicateKey", name: "a" }]);
+});
+
+test("long references are cut, long and control arguments get their own reasons", () => {
+  const long = "A".repeat(500);
+  const ref = one(`{"mcpServers":{"x":{"command":"run","args":["\${${long}}"]}}}`);
+  assert.equal(ref.warnings.find((w) => w.code === "reference").ref.length, 60);
+  const big = one(
+    `{"mcpServers":{"x":{"command":"run","args":["${"b".repeat(16385)}"]}}}`,
+  );
+  assert.deepEqual(big.warnings, [{ code: "tooLongValue", field: "args" }]);
+  const ctl = one('{"mcpServers":{"x":{"command":"run","args":["a\\u0001b"]}}}');
+  assert.deepEqual(ctl.warnings, [{ code: "controlChars", field: "args" }]);
+  // The emptied argument stays a row the owner has to fill.
+  assert.deepEqual(ctl.draft.argRows, [""]);
+  assert.equal(ctl.draft.hints.argsRequired, true);
+  const fine = one('{"mcpServers":{"x":{"command":"run","args":["a"]}}}');
+  assert.equal(fine.draft.hints.argsRequired, undefined);
 });

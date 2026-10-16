@@ -54,7 +54,7 @@ function Found({ server, name, setName, nameError, versions }) {
               <ul className="mcp-wizard-notes">
                 {draft.argRows.map((arg, index) => (
                   <li key={index} className="mcp-wizard-mono">
-                    {arg}
+                    {arg || copy.paste.valueMissing}
                   </li>
                 ))}
               </ul>
