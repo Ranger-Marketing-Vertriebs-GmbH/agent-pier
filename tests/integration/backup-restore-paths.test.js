@@ -242,3 +242,28 @@ test("database work copies are owner-only and gone once archived", async (t) => 
   });
   assert.deepEqual(fs.readdirSync(scratch), []);
 });
+
+test("sealed histories differing only in letter case restore like public members", async (t) => {
+  const { root, restore } = setup(t);
+  // Normal on Linux: two Claude Code project folders for /Projects and /projects.
+  const history = [
+    "profiles/a/claude/projects/-home-u-Projects-app/memory/MEMORY.md",
+    "profiles/a/claude/projects/-home-u-projects-app/memory/MEMORY.md",
+  ];
+  const file = await craftedSeal(root, "case", history);
+  fs.writeFileSync(path.join(root, "Probe"), "");
+  const insensitive = fs.existsSync(path.join(root, "probe"));
+  fs.rmSync(path.join(root, "Probe"));
+  const target = path.join(root, "target-case");
+  if (insensitive) {
+    await assert.rejects(
+      restore.apply({ archive: file, targetDataDir: target, passphrase }),
+      { message: serverMessages.backups.caseConflict },
+    );
+    assert.equal(fs.existsSync(target), false);
+  } else {
+    await restore.apply({ archive: file, targetDataDir: target, passphrase });
+    for (const name of history)
+      assert.equal(fs.readFileSync(path.join(target, name), "utf8"), "planted");
+  }
+});

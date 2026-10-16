@@ -220,10 +220,11 @@ reads and verifies every member.
 Backup errors name the component they come from, for example
 `Profile "Work" (Codex): A file is not a regular, owned file and cannot be backed
 up.` or `Sessions: Contains a symbolic link and cannot be backed up.` Insufficient
-space reports the required and available size. Two members that differ only in
-letter case or Unicode normalization (possible in a backup from Linux) cannot both
-be restored on a file system that ignores the difference, such as APFS; the restore
-stops with a message that says so.
+space reports the required and available size. Two members, public or sealed CLI
+history, that differ only in letter case or Unicode normalization (possible in a
+backup from Linux) are both restored on a file system that tells them apart. On a
+file system that ignores the difference, such as APFS, they cannot both be
+restored; the restore stops with a message that says so.
 
 ## Restore
 
