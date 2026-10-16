@@ -117,6 +117,16 @@ const workNames = {
 // A restore stage sits beside its target, wherever that is.
 const stageName =
   /^\.agentpier-restore-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+/**
+ * Whether `file` is a chunked restore upload that can still be resumed: its data
+ * file and a valid description exist. Such uploads outlive the process that took
+ * them and expire only by their own idle time (RestoreUploads.sweep).
+ */
+export function resumableUpload(file) {
+  if (!file.endsWith(".apbackup.upload") || !fs.existsSync(file)) return false;
+  const meta = readJson(`${file}.json`, null);
+  return Number.isSafeInteger(meta?.size) && meta.size > 0;
+}
 /** Whether `target` is a path backup work may claim (and its cleanup remove). */
 export function claimable(dataDir, target) {
   if (typeof target !== "string" || !path.isAbsolute(target)) return false;
@@ -129,7 +139,7 @@ export function claimable(dataDir, target) {
 /**
  * Removes work of processes that are gone: claimed targets of dead owners, and
  * unclaimed work files in the operations folders (left by a crash before a claim
- * existed). Runs once when the server starts.
+ * existed). Resumable uploads are kept. Runs once when the server starts.
  */
 export function removeAbandonedWork(
   dataDir,
@@ -138,7 +148,7 @@ export function removeAbandonedWork(
   const kept = liveTargets(dataDir, { alive, now });
   for (const entry of claims(dataDir)) {
     if (kept.has(entry.target)) continue;
-    if (claimable(dataDir, entry.target))
+    if (claimable(dataDir, entry.target) && !resumableUpload(entry.target))
       fs.rmSync(entry.target, { recursive: true, force: true });
     fs.rmSync(entry.file, { force: true });
   }
@@ -149,7 +159,7 @@ export function removeAbandonedWork(
       const target = path.join(directory, entry);
       // An upload's description belongs to its data file.
       const owner = entry.endsWith(".upload.json") ? target.slice(0, -5) : target;
-      if (name.test(entry) && !kept.has(owner))
+      if (name.test(entry) && !kept.has(owner) && !resumableUpload(owner))
         fs.rmSync(target, { recursive: true, force: true });
     }
   }

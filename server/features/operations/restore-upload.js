@@ -15,8 +15,10 @@ import { claim } from "./work-claims.js";
  * Restore uploads. A browser sends an archive in slices of at most CHUNK_LIMIT
  * bytes, each a short request appended at an exact offset, so no request comes
  * near the server's request timeout and an interrupted upload resumes where the
- * server's copy ends. Only a complete archive with a valid format header is kept as
- * `<id>.apbackup`; inspection and restore verify every member.
+ * server's copy ends, also after a server restart. Only a complete archive with a
+ * valid format header is kept as `<id>.apbackup`; inspection and restore verify
+ * every member. A successful restore removes it; one left unused expires like an
+ * idle upload.
  */
 export const CHUNK_LIMIT = 64 * 1024 * 1024;
 const messages = serverMessages.backups;
@@ -45,7 +47,8 @@ const sizeValue = (value) => {
   return value;
 };
 
-// An upload without a new slice for this long is abandoned and removed.
+// An upload without a new slice, or an archive unused, for this long is abandoned
+// and removed.
 export const UPLOAD_TTL = 24 * 60 * 60 * 1000;
 
 export class RestoreUploads {
@@ -55,6 +58,8 @@ export class RestoreUploads {
     this.ttl = ttl;
     this.busy = new Set();
     this.releases = new Map();
+    // Archives an inspection or restore reads: id -> number of readers.
+    this.readers = new Map();
   }
   /** Pending uploads: `{ id, data, meta, size, offset, idle }`. */
   pending() {
@@ -76,8 +81,26 @@ export class RestoreUploads {
     }
     return result;
   }
-  /** Removes uploads idle beyond the TTL; returns the bytes the others still need. */
+  /** Uploaded archives: `{ id, file, idle }`. */
+  archives() {
+    const result = [];
+    for (const name of fs.readdirSync(this.directory)) {
+      const match = /^([A-Za-z0-9_-]+)\.apbackup$/.exec(name);
+      const file = path.join(this.directory, name);
+      const stat = match && fs.statSync(file, { throwIfNoEntry: false });
+      if (stat?.isFile())
+        result.push({ id: match[1], file, idle: Date.now() - stat.mtimeMs });
+    }
+    return result;
+  }
+  /**
+   * Removes uploads and archives idle beyond the TTL; returns the bytes the
+   * remaining uploads still need.
+   */
   sweep(except) {
+    for (const archive of this.archives())
+      if (archive.idle > this.ttl && !this.readers.has(archive.id))
+        fs.rmSync(archive.file, { force: true });
     let reserved = 0;
     for (const upload of this.pending()) {
       if (upload.id === except || this.busy.has(upload.id)) {
@@ -95,6 +118,33 @@ export class RestoreUploads {
     fs.rmSync(files.meta, { force: true });
     this.releases.get(id)?.();
     this.releases.delete(id);
+  }
+  /**
+   * Marks the uploaded archive `id` as read until the returned release is called;
+   * its idle time starts again. Returns null when there is no such archive.
+   */
+  read(id) {
+    const { archive } = this.files(id);
+    const now = new Date();
+    try {
+      fs.utimesSync(archive, now, now);
+    } catch (error) {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    }
+    this.readers.set(id, (this.readers.get(id) || 0) + 1);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const left = this.readers.get(id) - 1;
+      if (left) this.readers.set(id, left);
+      else this.readers.delete(id);
+    };
+  }
+  /** Removes the uploaded archive `id` once it has been restored. */
+  discard(id) {
+    fs.rmSync(this.files(id).archive, { force: true });
   }
   files(id) {
     const base = path.join(this.directory, `${identifier(id)}.apbackup`);
@@ -163,6 +213,9 @@ export class RestoreUploads {
     try {
       await validateUpload(upload.data);
       fs.renameSync(upload.data, upload.archive);
+      // An archive expires a TTL after it was completed (or last read).
+      const now = new Date();
+      fs.utimesSync(upload.archive, now, now);
       return { archiveId: id };
     } finally {
       this.remove(id);
@@ -192,6 +245,8 @@ export class RestoreUploads {
         );
       await validateUpload(data);
       fs.renameSync(data, archive);
+      const now = new Date();
+      fs.utimesSync(archive, now, now);
       return { archiveId };
     } finally {
       fs.rmSync(data, { force: true });
