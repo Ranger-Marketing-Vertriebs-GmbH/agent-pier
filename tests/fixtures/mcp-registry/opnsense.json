@@ -1,0 +1,76 @@
+{
+  "server": {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+    "name": "io.github.example/opnsense-mcp-server",
+    "title": "OPNsense",
+    "description": "Manage an OPNsense firewall: rules, aliases, DHCP and diagnostics.",
+    "version": "0.4.1",
+    "repository": {
+      "url": "https://github.com/example/opnsense-mcp-server",
+      "source": "github"
+    },
+    "websiteUrl": "https://example.test/opnsense",
+    "icons": [{ "src": "https://example.test/icon.png" }],
+    "futureField": { "ignored": true },
+    "packages": [
+      {
+        "registryType": "npm",
+        "registryBaseUrl": "https://registry.npmjs.org",
+        "identifier": "opnsense-mcp-server",
+        "version": "0.4.1",
+        "runtimeHint": "npx",
+        "transport": { "type": "stdio" },
+        "packageArguments": [{ "type": "named", "name": "--log-level", "value": "info" }],
+        "environmentVariables": [
+          {
+            "name": "OPNSENSE_URL",
+            "description": "Address of your OPNsense",
+            "isRequired": true
+          },
+          {
+            "name": "OPNSENSE_API_KEY",
+            "description": "API key from OPNsense",
+            "isRequired": true,
+            "isSecret": true
+          },
+          {
+            "name": "OPNSENSE_API_SECRET",
+            "description": "Matching secret",
+            "isRequired": true,
+            "isSecret": true
+          },
+          {
+            "name": "OPNSENSE_VERIFY_SSL",
+            "description": "Check the certificate",
+            "format": "boolean",
+            "default": "true"
+          },
+          {
+            "name": "OPNSENSE_ALLOW_WRITES",
+            "description": "Allow write access",
+            "format": "boolean",
+            "default": "false"
+          }
+        ]
+      },
+      {
+        "registryType": "oci",
+        "identifier": "ghcr.io/example/opnsense-mcp-server",
+        "version": "0.4.1",
+        "transport": { "type": "stdio" }
+      }
+    ],
+    "_meta": {
+      "io.modelcontextprotocol.registry/publisher-provided": { "tool": "<b>x</b>" }
+    }
+  },
+  "_meta": {
+    "io.modelcontextprotocol.registry/official": {
+      "status": "active",
+      "statusChangedAt": "2025-10-01T10:00:00Z",
+      "publishedAt": "2025-10-01T10:00:00Z",
+      "updatedAt": "2025-10-02T10:00:00Z",
+      "isLatest": true
+    }
+  }
+}

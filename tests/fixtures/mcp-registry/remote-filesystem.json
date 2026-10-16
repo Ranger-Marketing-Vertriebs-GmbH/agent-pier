@@ -1,0 +1,37 @@
+{
+  "server": {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+    "name": "com.pulsemcp/remote-filesystem",
+    "description": "Read and write files in a hosted workspace.",
+    "version": "1.2.0",
+    "remotes": [
+      {
+        "type": "streamable-http",
+        "url": "https://{tenant}.files.example.test/mcp",
+        "variables": {
+          "tenant": { "description": "Your tenant id", "isRequired": true }
+        },
+        "headers": [
+          {
+            "name": "Authorization",
+            "description": "Bearer token",
+            "isRequired": true,
+            "isSecret": true,
+            "value": "Bearer {token}",
+            "variables": { "token": { "isSecret": true, "isRequired": true } }
+          }
+        ]
+      },
+      { "type": "sse", "url": "https://files.example.test/sse" }
+    ]
+  },
+  "_meta": {
+    "io.modelcontextprotocol.registry/official": {
+      "status": "active",
+      "statusChangedAt": "2025-11-01T00:00:00.123456Z",
+      "publishedAt": "2025-11-01T00:00:00.123456Z",
+      "updatedAt": "2025-11-01T00:00:00.123456Z",
+      "isLatest": true
+    }
+  }
+}

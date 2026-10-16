@@ -1,0 +1,20 @@
+{
+  "server": {
+    "name": "io.github.example/bidi",
+    "title": "Safe‮exe.txt",
+    "description": "line\u0000one‏ two",
+    "version": "1.0.0",
+    "repository": { "url": "javascript:alert(1)" },
+    "websiteUrl": "https://user:pw@example.test",
+    "packages": [
+      {
+        "registryType": "pypi",
+        "registryBaseUrl": "https://evil.example.test/simple",
+        "identifier": "fetch",
+        "version": "1.0",
+        "transport": { "type": "stdio" }
+      }
+    ]
+  },
+  "_meta": { "io.modelcontextprotocol.registry/official": { "status": "active" } }
+}
