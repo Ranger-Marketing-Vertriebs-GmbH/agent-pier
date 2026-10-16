@@ -1,0 +1,16 @@
+{
+  "server": {
+    "name": "ai.smithery/old",
+    "description": "Old weather server.",
+    "version": "1.0.0",
+    "remotes": [
+      { "type": "streamable-http", "url": "https://server.smithery.ai/old/mcp" }
+    ]
+  },
+  "_meta": {
+    "io.modelcontextprotocol.registry/official": {
+      "status": "deprecated",
+      "statusMessage": "Use ai.smithery/example-weather instead."
+    }
+  }
+}

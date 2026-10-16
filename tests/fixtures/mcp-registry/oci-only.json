@@ -1,0 +1,16 @@
+{
+  "server": {
+    "name": "io.github.example/container-only",
+    "description": "Runs only as a container.",
+    "version": "1.0.0",
+    "packages": [
+      {
+        "registryType": "oci",
+        "identifier": "docker.io/example/server",
+        "version": "1.0.0",
+        "transport": { "type": "stdio" }
+      }
+    ]
+  },
+  "_meta": { "io.modelcontextprotocol.registry/official": { "status": "active" } }
+}

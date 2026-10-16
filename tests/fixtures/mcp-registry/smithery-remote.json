@@ -1,0 +1,23 @@
+{
+  "server": {
+    "name": "ai.smithery/example-weather",
+    "description": "Weather forecasts.",
+    "version": "2025.10.1",
+    "remotes": [
+      {
+        "type": "streamable-http",
+        "url": "https://server.smithery.ai/example/weather/mcp",
+        "headers": [
+          {
+            "name": "Authorization",
+            "description": "Bearer token for Smithery authentication",
+            "isRequired": true,
+            "isSecret": true,
+            "value": "Bearer {smithery_api_key}"
+          }
+        ]
+      }
+    ]
+  },
+  "_meta": { "io.modelcontextprotocol.registry/official": { "status": "active" } }
+}

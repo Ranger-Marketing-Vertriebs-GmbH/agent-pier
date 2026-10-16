@@ -1,0 +1,11 @@
+{
+  "server": {
+    "name": "ai.smithery/gone",
+    "description": "Removed by its publisher.",
+    "version": "1.0.0",
+    "remotes": [
+      { "type": "streamable-http", "url": "https://server.smithery.ai/gone/mcp" }
+    ]
+  },
+  "_meta": { "io.modelcontextprotocol.registry/official": { "status": "deleted" } }
+}
