@@ -37,6 +37,8 @@ export const mcpPackageCopy = {
   expectedBuild: (name) => `Expected build from ${name}`,
   programLabel: "Program",
   noProgramsYet: "The program is chosen after the build.",
+  programRenamed: (from, to) =>
+    `This version renamed the program ${from} to ${to}. The update starts ${to}.`,
   needsScripts:
     "This package needs install scripts or a source build. Allow them in the form to install it.",
   scriptsAllowed: "Install scripts and source builds are allowed for this package.",

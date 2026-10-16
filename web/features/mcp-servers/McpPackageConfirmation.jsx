@@ -85,6 +85,11 @@ export default function McpPackageConfirmation({
   const [program, setProgram] = useState(
     programs.includes(defaultProgram) ? defaultProgram : programs[0] || null,
   );
+  // An update to a version whose only program has another name takes that program.
+  const renamedTo =
+    update && defaultProgram && programs.length === 1 && programs[0] !== defaultProgram
+      ? programs[0]
+      : null;
   const title = update ? copy.updateTitle : copy.confirmTitle;
   const blocked = preview.needsScripts === true && !allowScripts;
   const pypi = preview.registry === "pypi";
@@ -161,6 +166,9 @@ export default function McpPackageConfirmation({
             ))}
           </select>
         </div>
+      )}
+      {renamedTo && (
+        <p className="mcp-hint">{copy.programRenamed(defaultProgram, renamedTo)}</p>
       )}
       {preview.diff && <LockDiff diff={preview.diff} />}
       {allowScripts && (

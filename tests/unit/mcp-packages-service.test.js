@@ -435,3 +435,31 @@ test("an install whose top package has another name fails", async (t) => {
   assert.equal(records.get("s1").status, "failed");
   assert.equal(service.jobs.get("s1").code, "MCP_PACKAGE_INSTALL_FAILED");
 });
+
+test("an update whose build renamed its only program takes that program", async (t) => {
+  let built = [{ name: "x-server", path: "x-server" }];
+  const adapter = {
+    ...lateProgramAdapter([]),
+    programsAfterInstall: () => built,
+    command: (_dataDir, receipt) => ({
+      command: "/bin/run",
+      leading: [receipt.program.path],
+    }),
+  };
+  const { service, records, rows } = harness(t, { adapters: { npm: adapter } });
+  const first = await service.preview(source);
+  await service.attach("s1", { source, previewId: first.previewId });
+  await service.jobs.idle();
+  assert.equal(records.get("s1").program, "x-server");
+  built = [{ name: "x-mcp", path: "x-mcp" }];
+  const next = await service.preview({ ...source, serverId: "s1" });
+  // The panel sends no program: the build names its programs only after the install.
+  await service.updatePackage("s1", {
+    version: source.version,
+    previewId: next.previewId,
+  });
+  await service.jobs.idle();
+  assert.equal(service.jobs.get("s1").state, "done");
+  assert.equal(records.get("s1").program, "x-mcp");
+  assert.deepEqual(rows.get("s1").args, ["x-mcp", "--flag"]);
+});

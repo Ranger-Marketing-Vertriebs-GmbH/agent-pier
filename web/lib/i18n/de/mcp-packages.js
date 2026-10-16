@@ -37,6 +37,8 @@ export const mcpPackageCopy = {
   expectedBuild: (name) => `Voraussichtlich gebaut aus ${name}`,
   programLabel: "Programm",
   noProgramsYet: "Das Programm wird nach dem Build gewählt.",
+  programRenamed: (from, to) =>
+    `Diese Version hat das Programm ${from} in ${to} umbenannt. Das Update startet ${to}.`,
   needsScripts:
     "Dieses Paket braucht Installationsskripte oder einen Build aus dem Quellcode. Erlaube sie im Formular, um es zu installieren.",
   scriptsAllowed:
