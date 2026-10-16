@@ -33,7 +33,7 @@ test("cleanup removes selected old versions and stale receipts but preserves cur
       .cleanupStatus()
       .versions.filter((v) => v.canDelete)
       .map((v) => v.version),
-    ["1.0.0", "1.1.0"],
+    ["1.1.0", "1.0.0"],
   );
   assert.deepEqual(await r.cleanup(["1.0.0"]), { removedVersions: ["1.0.0"] });
   assert.deepEqual(await fs.readdir(path.join(r.installRoot, "releases")), [
@@ -324,4 +324,16 @@ test("the cleanup job succeeds and records a valid audit event", async (t) => {
   assert.equal(events.length, 1);
   assert.equal(events[0].action, "release.deleted");
   assert.equal(events[0].details.version, "1.0.0");
+});
+test("cleanup lists versions newest first like the release history", async (t) => {
+  const r = await fixture(t);
+  for (const version of ["1.10.0", "1.3.0-rc.9", "1.3.0-rc.10"]) {
+    const dir = path.join(r.installRoot, "releases", version);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, "release.json"), JSON.stringify({ version }));
+  }
+  assert.deepEqual(
+    r.cleanupStatus().versions.map((v) => v.version),
+    ["1.10.0", "1.3.0", "1.3.0-rc.10", "1.3.0-rc.9", "1.2.0", "1.1.0", "1.0.0"],
+  );
 });
