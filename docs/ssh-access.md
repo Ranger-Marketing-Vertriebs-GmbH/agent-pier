@@ -102,6 +102,17 @@ commands on it, and its open approvals can no longer run: allowing one marks it
 **Access changed**. The activity log records `ssh.executed` and `ssh.denied` with a
 SHA-256 digest and length of the command, never its text or output.
 
+Every finished run leaves a note in the chat it ran from, in **With approval** mode as
+well as in the trusted modes; a denied, expired or cancelled request leaves none.
+
+Downgrading to a release without agent SSH keeps the stored SSH rows but no longer
+understands them. Such a release shows a finished run's note as a generic coding-run
+note without project or pipeline, and a waiting SSH request as a generic memory-proposal card
+without the command. Allowing that card cannot run the command: the older release
+checks it as a project action, finds no project grant and marks it failed. Commands
+that were running when the service stopped are marked as unknown on its next start.
+The grants themselves stay stored and take effect again after upgrading.
+
 ## Scope and storage
 
 This is convenience scoping under one OS user, **not an operating-system sandbox**. Processes with that user's filesystem permissions may read the same private files. Use OS/container isolation when that must be prevented. Existing personal `~/.ssh` access is not revoked or changed.
