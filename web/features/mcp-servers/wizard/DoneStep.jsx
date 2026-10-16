@@ -7,6 +7,7 @@ import { usesOAuth } from "../McpOAuthStatus.jsx";
 import ConnectResults from "./ConnectResults.jsx";
 import { storedCount } from "./setting-hints.js";
 import WizardStep from "./WizardStep.jsx";
+import { pasteLeft } from "./wizard-state.js";
 
 const noConnect = { results: [], diff: null, consented: false };
 
@@ -44,7 +45,7 @@ export default function DoneStep({
         label: copy.done.another,
         onClick: () => {
           // The other servers of a pasted block wait here; closing drops them.
-          const rest = state.paste.result?.ok && state.paste.result.servers.length > 1;
+          const rest = pasteLeft(state.paste);
           dispatch({ type: "reset", keepPaste: rest });
           navigate(itemRoute("mcp-servers", "new", rest ? "paste" : undefined));
         },

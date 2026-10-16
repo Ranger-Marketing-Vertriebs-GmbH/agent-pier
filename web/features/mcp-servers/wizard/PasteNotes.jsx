@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 
 /** A warning as one sentence; its parts are names from the guide, shown as text. */
@@ -24,13 +24,14 @@ export function PasteWarnings({ warnings }) {
 
 /** "Not taken over": every dropped key by name with its reason; never a value. */
 export function PasteIgnored({ ignored }) {
+  const id = useId();
   if (!ignored.length) return null;
   return (
-    <section aria-labelledby="mcp-paste-ignored">
-      <h3 id="mcp-paste-ignored" className="mcp-wizard-subtitle">
+    <section>
+      <h3 id={id} className="mcp-wizard-subtitle">
         {copy.paste.notTaken}
       </h3>
-      <ul className="mcp-wizard-notes" aria-label={copy.paste.notTaken}>
+      <ul className="mcp-wizard-notes" aria-labelledby={id}>
         {ignored.map((note, index) => (
           <li key={index}>
             <code className="mcp-wizard-mono">{note.key}</code> –{" "}

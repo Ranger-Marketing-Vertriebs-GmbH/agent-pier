@@ -128,6 +128,8 @@ test("several servers: one at a time, Docker stays an own command", () => {
   assert.equal(files.draft.packageVersion, "2025.8.21");
   assert.deepEqual(files.draft.argRows, ["/Users/me/Documents"]);
   assert.deepEqual(files.others, ["github", "fetch"]);
+  // Servers already set up are no longer named as waiting.
+  assert.deepEqual(pickServer(result, 2, [0]).others, ["github"]);
   const github = pickServer(result, 1);
   assert.equal(github.draft.path, "command");
   assert.equal(github.draft.command, "docker");
