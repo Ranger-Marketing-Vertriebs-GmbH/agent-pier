@@ -24,6 +24,35 @@ const content = [
   "story",
   "paid_media",
 ];
+// Telegram formatting that marks text as not the owner's own words, as the same
+// Markdown does in the web chat: quotes, code, links behind text, struck-through text.
+const quoting = new Set([
+  "blockquote",
+  "expandable_blockquote",
+  "code",
+  "pre",
+  "text_link",
+  "strikethrough",
+]);
+/**
+ * The [start, end) ranges of `text` (UTF-16 offsets, as Telegram counts) that such
+ * entities cover; the owner proofs leave them out (`parseOwnerText`). More than
+ * Telegram's 100 entities hide the whole text.
+ */
+export function telegramHidden(entities, text) {
+  if (!Array.isArray(entities)) return [];
+  if (entities.length > 100) return text ? [[0, text.length]] : [];
+  return entities.flatMap((e) =>
+    quoting.has(e?.type) &&
+    Number.isInteger(e.offset) &&
+    Number.isInteger(e.length) &&
+    e.offset >= 0 &&
+    e.length > 0 &&
+    e.offset < text.length
+      ? [[e.offset, Math.min(text.length, e.offset + e.length)]]
+      : [],
+  );
+}
 /**
  * Telegram service messages (pinned messages, chat member or title changes and
  * the like) carry no user content and are acknowledged without any reply.
@@ -127,6 +156,7 @@ export class ChannelLedger {
       throw channelError("CHANNEL_QUEUE_FULL", 409);
     const voice = message.voice;
     const text = typeof message.text === "string" ? message.text.slice(0, 65536) : "";
+    const hidden = telegramHidden(message.entities, text);
     // Rejected before any download: the sender is told why (see TelegramIngress).
     const diagnostic =
       voice && Number(voice.duration) > this.maxVoiceSeconds
@@ -145,6 +175,7 @@ export class ChannelLedger {
       kind: voice ? "voice" : "text",
       state: diagnostic ? "failed" : voice ? "voice_pending" : "queued",
       text,
+      ...(hidden.length ? { hidden } : {}),
       forwarded: !!message.forward_origin,
       ...(diagnostic === "MEDIA_UNSUPPORTED" &&
       typeof message.caption === "string" &&
