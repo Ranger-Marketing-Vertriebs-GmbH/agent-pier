@@ -225,14 +225,14 @@ test("a negated or embedded owner instruction proves nothing", (t) => {
     ],
   ];
   for (const [text, quote] of cases) assert.equal(f.writes({ text, quote }), false, text);
-  // Positive control: a later affirmative sentence still counts.
+  // As for mentions, a negation anywhere in the message stops the proof, also
+  // before a later affirmative sentence; the owner can send that one on its own.
+  const later = "Delegate the budget to Scout";
   assert.equal(
-    f.writes({
-      text: "Don't ask the writer. Delegate the budget to Scout.",
-      quote: "Delegate the budget to Scout",
-    }),
-    true,
+    f.writes({ text: `Don't ask the writer. ${later}.`, quote: later }),
+    false,
   );
+  assert.equal(f.writes({ text: `Hi. ${later}.`, quote: later }), true);
 });
 
 test("requests per turn and per minute are capped", (t) => {

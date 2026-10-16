@@ -5,7 +5,13 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
-import { mentionableSource, nodeText, treeMentions } from "./member-mentions.js";
+import {
+  mentionLimits,
+  mentionableSource,
+  nodeText,
+  skipped,
+  treeMentions,
+} from "./member-mentions.js";
 export const plain = (value) =>
   value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
 const words = (value) =>
@@ -148,23 +154,108 @@ export function namesMember(quote, name, others = []) {
   );
 }
 
+// [start, end) offsets of a message, at most this many; beyond, all of it is hidden.
+const hiddenLimit = 100;
+const ranges = (hidden, length) => {
+  if (!Array.isArray(hidden)) return [];
+  if (hidden.length > hiddenLimit) return [[0, length]];
+  return hidden.flatMap((r) =>
+    Array.isArray(r) && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] < r[1]
+      ? [[Math.max(0, r[0]), Math.min(length, r[1])]]
+      : [],
+  );
+};
+
 /**
- * The owner's message parsed as the chat parses it, for `ownerMentions`: null when
- * it holds no "@", is too large or too deeply nested (`mentionableSource`) or does
- * not parse. Kept apart so the parse runs outside the store's transaction.
+ * The owner's message parsed as the chat parses it: `{ text, tree, hidden }`, or
+ * null when it is too large or too deeply nested (`mentionableSource`) or does not
+ * parse. `hidden` lists [start, end) offsets that are not the owner's own words
+ * either, such as a Telegram message's quotes, code and links (channel-ledger.js).
+ * Kept apart so the parse runs outside the store's transaction.
  */
-export function parseOwnerMessage(text) {
-  if (typeof text !== "string" || !text.includes("@") || !mentionableSource(text))
-    return null;
+export function parseOwnerText(text, hidden = []) {
+  if (typeof text !== "string" || !mentionableSource(text)) return null;
   try {
     const tree = fromMarkdown(text, {
       extensions: [gfm()],
       mdastExtensions: [gfmFromMarkdown()],
     });
-    return { text, tree };
+    return { text, tree, hidden: ranges(hidden, text.length) };
   } catch {
     return null;
   }
+}
+
+/** `parseOwnerText` for `ownerMentions` alone: null when the text holds no "@". */
+export const parseOwnerMessage = (text, hidden) =>
+  typeof text === "string" && text.includes("@") ? parseOwnerText(text, hidden) : null;
+
+// A negation or a limit to reading anywhere in the message, in any paragraph, list,
+// heading, table or footnote, also in quoted or pasted text.
+const messageNegated = ({ text, tree }) =>
+  negated(words(text)) || negated(words(nodeText(tree)));
+
+// What stands in the owner's prose where the owner's own words are not: no letter,
+// no space, and never part of a quote that may prove anything.
+const blank = "\u0000";
+// Kept where they stand, so sentences and quotation marks count as in the message.
+const kept = /^[.!?;:"„“”«»‚‘’‹›']+$/u;
+
+/**
+ * The owner's own prose of a parsed message (`parseOwnerText`): its text with every
+ * part the chat does not show as the owner's words blanked out, as for mentions
+ * (code, block quotes, struck-through text, links, images, footnotes and HTML) and
+ * the `hidden` ranges. Null when the tree is nested too deeply.
+ */
+export function ownerProse(parsed) {
+  if (!parsed) return null;
+  const out = parsed.text.split(""),
+    hide = [...parsed.hidden];
+  let ok = true;
+  const walk = (node, depth) => {
+    if (depth > mentionLimits.depth) ok = false;
+    for (const child of ok ? node.children || [] : []) {
+      if (!skipped.has(child.type)) walk(child, depth + 1);
+      else {
+        const start = child.position?.start?.offset,
+          end = child.position?.end?.offset;
+        if (Number.isInteger(start) && Number.isInteger(end)) hide.push([start, end]);
+        else ok = false;
+      }
+    }
+  };
+  walk(parsed.tree, 0);
+  if (!ok) return null;
+  for (const [start, end] of hide)
+    for (let i = start; i < end && i < out.length; i++)
+      if (!kept.test(out[i].normalize("NFKC"))) out[i] = blank;
+  return out.join("");
+}
+
+/**
+ * Where the lead's quote of the owner stands in the owner's own prose
+ * (`ownerProse`), as `ownerSentence` tells it, or null when it is no whole-word
+ * excerpt of at least three words of that prose. `negated` is the whole message's
+ * as for mentions (`ownerMentions`): a negation anywhere in it means the quote
+ * proves nothing.
+ */
+export function ownerQuoteProof(quote, parsed) {
+  const prose = ownerProse(parsed);
+  if (!prose || typeof quote !== "string" || quote.includes(blank)) return null;
+  if (!ownerQuote(quote, prose)) return null;
+  const sentence = ownerSentence(quote, prose);
+  return sentence && { ...sentence, negated: sentence.negated || messageNegated(parsed) };
+}
+
+/**
+ * Whether a lead's quote proves that the owner asked for a team: at least three
+ * words, one of them containing "team" (also "Rechercheteam"), as a whole-word
+ * excerpt of the owner's own prose, after no quotation mark and in a message
+ * without any negation (`ownerQuoteProof`).
+ */
+export function ownerTeamQuote(quote, parsed) {
+  const found = ownerQuoteProof(quote, parsed);
+  return !!found && !found.negated && !found.quoted && plain(quote).includes("team");
 }
 
 /**
@@ -177,7 +268,8 @@ export function parseOwnerMessage(text) {
  * (`excerpt`, at most 300 characters) to show the owner why a task may write.
  * `negated` is the whole message's: a negation or a limit to reading anywhere in
  * it, in any paragraph, list, heading, table or footnote, means no mention proves
- * anything; the owner can send such an instruction on its own.
+ * anything; the owner can send such an instruction on its own. A mention in a
+ * `hidden` range of the message is none.
  */
 export function ownerMentions(parsed, members) {
   if (!parsed) return [];
@@ -189,20 +281,30 @@ export function ownerMentions(parsed, members) {
     return [];
   }
   if (!found.length) return [];
-  const message = negated(words(text)) || negated(words(nodeText(tree)));
+  const message = messageNegated(parsed),
+    hidden = parsed.hidden || [];
   let ordinal = 0;
   return found.flatMap(({ block, mentions }) => {
     const excerpt = Array.from(nodeText(block).trim()).slice(0, 300).join("");
-    return mentions.map((m) => {
+    return mentions.flatMap((m) => {
+      // A mention in a hidden range (a Telegram quote or code) is none at all.
+      if (
+        hidden.some(
+          ([start, end]) => m.offset < end && m.offset + m.end - m.start > start,
+        )
+      )
+        return [];
       const before = text.slice(0, m.offset);
-      return {
-        memberId: m.memberId,
-        ordinal: ordinal++,
-        sentence: (plain(before).match(/[.!?;:]/g) || []).length,
-        negated: message,
-        quoted: quotedBefore(before),
-        excerpt,
-      };
+      return [
+        {
+          memberId: m.memberId,
+          ordinal: ordinal++,
+          sentence: (plain(before).match(/[.!?;:]/g) || []).length,
+          negated: message,
+          quoted: quotedBefore(before),
+          excerpt,
+        },
+      ];
     });
   });
 }

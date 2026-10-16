@@ -95,8 +95,8 @@ export function findMentions(text, members) {
 
 // Where a mention may stand in a Markdown message, as the chat renders it: in the
 // owner's own text, never in code, block quotes, struck-through text, links, images,
-// footnotes or HTML.
-const skipped = new Set([
+// footnotes or HTML. The lead's quote of the owner counts only outside them, too.
+export const skipped = new Set([
   "code",
   "inlineCode",
   "html",
