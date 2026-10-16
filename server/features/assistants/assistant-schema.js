@@ -9,7 +9,7 @@ export function migrateAssistants(db) {
     CREATE TABLE IF NOT EXISTS messages (conversation_id TEXT PRIMARY KEY REFERENCES conversations(id), body TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS agent_attachments (id TEXT PRIMARY KEY, assistant_id TEXT NOT NULL, conversation_id TEXT NOT NULL REFERENCES conversations(id), request_id TEXT, position INTEGER, body TEXT NOT NULL, created_at INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS agent_attachments_conversation ON agent_attachments(conversation_id, request_id);
-    CREATE TABLE IF NOT EXISTS queued_messages (conversation_id TEXT PRIMARY KEY REFERENCES conversations(id), client_key TEXT NOT NULL, text TEXT NOT NULL, team_allowed INTEGER NOT NULL, attachments TEXT NOT NULL, state TEXT NOT NULL, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS queued_messages (conversation_id TEXT PRIMARY KEY REFERENCES conversations(id), client_key TEXT NOT NULL, text TEXT NOT NULL, team_allowed INTEGER NOT NULL, attachments TEXT NOT NULL, state TEXT NOT NULL, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_append TEXT);
     CREATE TABLE IF NOT EXISTS openclaw_overrides (path TEXT PRIMARY KEY, value TEXT NOT NULL, revision INTEGER NOT NULL);
   `);
 }

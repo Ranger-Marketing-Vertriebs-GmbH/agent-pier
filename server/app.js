@@ -227,6 +227,11 @@ export async function createApplication(config) {
   );
   // Chat input allows 32000 characters; multi-byte text exceeds the global limit.
   app.use("/api/sessions/:id/input", express.json({ limit: "256kb", strict: true }));
+  // An agent message (or the queued one) holds 65,536 characters of any script.
+  app.use(
+    /^\/api\/assistant-conversations\/[^/]+\/(?:messages|queued)$/,
+    express.json({ limit: "256kb", strict: true }),
+  );
   app.use(express.json({ limit: "64kb", strict: true }));
   const mount = (router) =>
     app.use("/api", guardMutations(router, services.mutationBarrier));

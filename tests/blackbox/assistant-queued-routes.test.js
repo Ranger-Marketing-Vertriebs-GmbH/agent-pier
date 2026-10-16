@@ -72,3 +72,16 @@ test("the queued message routes keep, show and hand back one message", async (t)
     "a".repeat(60000),
   );
 });
+
+test("a full-length message in three-byte characters passes the body limit", async (t) => {
+  const { call } = await agentChat(t);
+  const text = "€".repeat(65536);
+  const queued = await call("POST", "/queued", { text });
+  assert.equal(queued.status, 200, await queued.clone().text());
+  assert.equal((await queued.json()).text.length, 65536);
+  const back = await call("DELETE", "/queued");
+  assert.equal((await back.json()).text, text);
+  // The send reaches validation and the service check instead of the body limit.
+  const sent = await call("POST", "/messages", { clientRequestId: "long", text });
+  assert.notEqual(sent.status, 413, await sent.clone().text());
+});

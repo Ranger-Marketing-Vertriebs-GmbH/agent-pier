@@ -22,17 +22,23 @@ const record = (row) =>
         error: row.error,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
+        lastAppend: row.last_append,
       }
     : null;
 
-// The owner's input for queueing: like a send without a delivery key.
+// The owner's input for queueing: like a send without a delivery key. `appendId`
+// names one submission, so a repeated request adds its text only once.
 export function validateQueueInput(input) {
-  const keys = ["text", "teamAllowed", "attachments"];
+  const keys = ["text", "teamAllowed", "attachments", "appendId"];
   if (
     !input ||
     typeof input !== "object" ||
     Object.keys(input).some((k) => !keys.includes(k)) ||
     ("teamAllowed" in input && typeof input.teamAllowed !== "boolean") ||
+    ("appendId" in input &&
+      (typeof input.appendId !== "string" ||
+        !input.appendId ||
+        input.appendId.length > 100)) ||
     ("attachments" in input &&
       (!Array.isArray(input.attachments) ||
         input.attachments.some((id) => typeof id !== "string" || id.length > 100)))
@@ -40,7 +46,12 @@ export function validateQueueInput(input) {
     throw assistantProblem("invalid");
   const attachments = input.attachments || [];
   textValue(input.text ?? "", MAX_TEXT, attachments.length > 0);
-  return { text: input.text ?? "", teamAllowed: input.teamAllowed === true, attachments };
+  return {
+    text: input.text ?? "",
+    teamAllowed: input.teamAllowed === true,
+    attachments,
+    appendId: input.appendId ?? null,
+  };
 }
 
 /**
@@ -55,10 +66,23 @@ export class QueuedMessages {
   constructor(db, now = Date.now) {
     this.db = db;
     this.now = now;
-    // A dispatch cut off by a restart starts over; the ledger dedupes its key.
+    // A dispatch cut off by a restart starts over, unless the ledger took it already.
     db.prepare("UPDATE queued_messages SET state='waiting' WHERE state='sending'").run();
+    this.forgetDelivered();
+  }
+  // A row whose delivery key the ledger knows was sent: a later append must start a
+  // new message instead of sending the old text again.
+  forgetDelivered(conversationId = null) {
+    this.db
+      .prepare(
+        `DELETE FROM queued_messages WHERE (? IS NULL OR conversation_id=?) AND EXISTS
+          (SELECT 1 FROM requests r WHERE r.conversation_id=queued_messages.conversation_id
+            AND r.client_key=queued_messages.client_key)`,
+      )
+      .run(conversationId, conversationId);
   }
   get(conversationId) {
+    this.forgetDelivered(conversationId);
     return record(
       this.db
         .prepare("SELECT * FROM queued_messages WHERE conversation_id=?")
@@ -73,9 +97,12 @@ export class QueuedMessages {
   }
   // Appends to the queued message on a new line (or starts it); every change is a new
   // message with a new delivery key. Refused once its dispatch has started.
-  put(conversationId, { text, teamAllowed, attachments }) {
+  put(conversationId, { text, teamAllowed, attachments, appendId = null }) {
     const current = this.get(conversationId);
     if (current?.state === "sending") throw assistantProblem("queuedSending", 409);
+    // A refused message waits for the owner to edit it; it is not retried quietly.
+    if (current?.state === "failed") throw assistantProblem("queuedFailed", 409);
+    if (appendId && current?.lastAppend === appendId) return current;
     const joined = joinedText(current?.text, text);
     if (joined.length > MAX_TEXT) throw assistantProblem("queuedTooLong", 413);
     const files = [...(current?.attachments || []), ...attachments];
@@ -85,11 +112,11 @@ export class QueuedMessages {
     const stamp = new Date(this.now()).toISOString();
     this.db
       .prepare(
-        `INSERT INTO queued_messages VALUES (?,?,?,?,?,'waiting',NULL,?,?)
+        `INSERT INTO queued_messages VALUES (?,?,?,?,?,'waiting',NULL,?,?,?)
         ON CONFLICT(conversation_id) DO UPDATE SET client_key=excluded.client_key,
           text=excluded.text, team_allowed=excluded.team_allowed,
           attachments=excluded.attachments, state='waiting', error=NULL,
-          updated_at=excluded.updated_at`,
+          updated_at=excluded.updated_at, last_append=excluded.last_append`,
       )
       .run(
         conversationId,
@@ -99,6 +126,7 @@ export class QueuedMessages {
         JSON.stringify(files),
         stamp,
         stamp,
+        appendId,
       );
     return this.get(conversationId);
   }

@@ -320,6 +320,15 @@ export class AgentAttachments {
     );
     return this.files(requestId);
   }
+  // Staged files handed back to the composer start their expiry anew.
+  touch(conversationId, ids = []) {
+    for (const id of ids)
+      this.db
+        .prepare(
+          "UPDATE agent_attachments SET created_at=? WHERE id=? AND conversation_id=? AND request_id IS NULL",
+        )
+        .run(this.now(), id, conversationId);
+  }
   queued(conversationId) {
     const row = this.db
       .prepare("SELECT attachments FROM queued_messages WHERE conversation_id=?")
