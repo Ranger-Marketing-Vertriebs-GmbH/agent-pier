@@ -1,3 +1,4 @@
+import { queuedView } from "./queued-dispatch.js";
 import { createHash } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { actionNotes } from "./assistant-action-notifications.js";
@@ -249,6 +250,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
       service.memoryNotes?.forConversation(id) || [],
       { from: pageStart(nextBefore, messages) },
     ),
+    queued: queuedView(service, id),
     nextBefore,
     stale,
     // While the active attempt's run summarises the conversation (compactions.js).

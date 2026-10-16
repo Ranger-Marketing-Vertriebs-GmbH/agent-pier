@@ -195,6 +195,9 @@ export const assistants = {
   provider: "This model connection is not available for agents.",
   uncertain:
     "The outcome of this request is still unknown. Check the history before trying again.",
+  queuedTooLong: "The queued message has no room for more text. Edit it first.",
+  queuedSending: "The queued message is being sent right now.",
+  queuedAttachment: "This attachment belongs to a queued message.",
   active: "A request is still running. Wait for its result or stop it first.",
   disabled: "Agents are turned off. Turn them on under Settings > Agents.",
   storageUnsafe:

@@ -213,6 +213,10 @@ export const assistants = {
   provider: "Dieser Provider-Zugang ist für Agenten nicht verfügbar.",
   uncertain:
     "Der Ausgang dieser Anfrage ist noch unklar. Prüfe den Verlauf vor einem neuen Versuch.",
+  queuedTooLong:
+    "Die wartende Nachricht hat keinen Platz für mehr Text. Bearbeite sie zuerst.",
+  queuedSending: "Die wartende Nachricht wird gerade gesendet.",
+  queuedAttachment: "Dieser Anhang gehört zu einer wartenden Nachricht.",
   active: "Es läuft noch eine Anfrage. Warte auf das Ergebnis oder stoppe sie zuerst.",
   disabled: "Agenten sind ausgeschaltet. Aktiviere sie unter Einstellungen > Agenten.",
   storageUnsafe:

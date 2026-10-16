@@ -36,6 +36,9 @@ const record = (row) => row && { ...JSON.parse(row.body), id: row.id, row };
 const publicFile = ({ id, name, type, kind, size }) => ({ id, name, type, kind, size });
 const agentPath = (file) => `${FOLDER}/${file.file}`;
 const digest = (body) => createHash("sha256").update(body).digest("hex");
+// Staged files a queued message names (queued-messages.js): never expired or removed.
+const unqueued =
+  "id NOT IN (SELECT j.value FROM queued_messages q, json_each(q.attachments) j)";
 
 /**
  * The owner's chat attachments to agents. Each file is copied into the receiving
@@ -126,7 +129,7 @@ export class AgentAttachments {
     const folder = await this.folder(conversation.assistantId);
     await this.expire(conversation.assistantId, folder.path);
     const staged = this.rows(
-      "SELECT * FROM agent_attachments WHERE conversation_id=? AND request_id IS NULL ORDER BY created_at, rowid",
+      `SELECT * FROM agent_attachments WHERE conversation_id=? AND request_id IS NULL AND ${unqueued} ORDER BY created_at, rowid`,
       conversation.id,
     );
     for (const file of staged.slice(0, Math.max(0, staged.length - MAX_STAGED + 1)))
@@ -223,7 +226,7 @@ export class AgentAttachments {
   }
   async expire(assistantId, folder) {
     const old = this.rows(
-      "SELECT * FROM agent_attachments WHERE assistant_id=? AND request_id IS NULL AND created_at<?",
+      `SELECT * FROM agent_attachments WHERE assistant_id=? AND request_id IS NULL AND created_at<? AND ${unqueued}`,
       assistantId,
       this.now() - STAGED_TTL,
     );
@@ -274,6 +277,8 @@ export class AgentAttachments {
         conversationId,
       );
       if (!file) throw assistantProblem("attachmentNotFound", 404);
+      if (this.queued(conversationId).includes(id))
+        throw assistantProblem("queuedAttachment", 409);
       await this.remove(file, (await this.folder(conversation.assistantId)).path);
     });
   }
@@ -314,6 +319,27 @@ export class AgentAttachments {
         .run(requestId, position, id),
     );
     return this.files(requestId);
+  }
+  queued(conversationId) {
+    const row = this.db
+      .prepare("SELECT attachments FROM queued_messages WHERE conversation_id=?")
+      .get(conversationId);
+    return row ? JSON.parse(row.attachments) : [];
+  }
+  // The public form of staged files, in the given order. Strictly, every one must be
+  // staged in this conversation; otherwise missing ones are left out.
+  staged(conversationId, ids = [], strict = true) {
+    const files = ids.map(
+      (id) =>
+        this.rows(
+          "SELECT * FROM agent_attachments WHERE id=? AND conversation_id=? AND request_id IS NULL",
+          id,
+          conversationId,
+        )[0],
+    );
+    if (strict && files.some((file) => !file))
+      throw assistantProblem("attachmentNotFound", 404);
+    return files.filter(Boolean).map(publicFile);
   }
   files(requestId) {
     return this.rows(
