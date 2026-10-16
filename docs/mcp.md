@@ -167,7 +167,7 @@ without agents; agent OAuth logins need agents. A local (stdio) command given to
 needs the owner's confirmation, because every session of that CLI starts it.
 
 **Add MCP server** opens a wizard: **Source** (package from npm or PyPI, server on the
-internet, or own command), **Set up**, **Settings**, then **Install** (package) or
+internet, own command, or [the MCP directory](#mcp-directory)), **Set up**, **Settings**, then **Install** (package) or
 **Check and save**, **Connect** and a result screen. Connect lists the coding CLIs and,
 with agents on, every owner-managed agent; one card **What this allows** names what a
 local server may do (your user's rights, the server's own write switch, and that shell
@@ -476,8 +476,24 @@ review.
 - `GET /api/mcp-directory/servers/:name` answers one entry's latest version,
   `404 MCP_DIRECTORY_NOT_FOUND` when the registry does not know it and
   `502 MCP_DIRECTORY_INVALID` when its data fails the checks.
+- `GET /api/mcp-directory/updates` answers `{ updates }`, each `{ serverId, version }`
+  for a newer version of the same package or `{ serverId, hint }` (`identifier` or
+  `remote`); it answers no updates and asks nothing while the setting is off.
 
 Search and entry answer `409 MCP_DIRECTORY_DISABLED` while the setting is off and
 `503 MCP_DIRECTORY_UNAVAILABLE` when the registry cannot be reached, times out or
 answers with an error, invalid JSON or too much data. Failures are logged with the code
 and host, never with the search term.
+
+On the wizard's Source step, **Search the directory** searches server names; the
+default filter **Installable here** hides entries AgentPier cannot run (Docker/OCI,
+NuGet, Cargo, MCPB), **All** shows them greyed with the reason. An entry's detail
+names its publisher namespace (the registry verified namespace and package ownership;
+nobody reviewed the code), its status, its source link (given by the publisher, not
+verified), how it runs and the settings it needs. **Use this server** only fills in the
+setup; installing still needs **Install** and binding still needs **Connect**. A server
+set up from the directory remembers that entry (name and version, part of backups);
+when the MCP list opens, AgentPier asks the directory for at most 20 such servers and
+shows **Update available** when a newer exact version of the same package is listed.
+The package panel then pre-fills that version for **Check update**. A different
+package or address is shown as a hint only.
