@@ -145,6 +145,18 @@ export async function buildSessionLaunch(manager, options) {
       : {}),
   };
   if (options.nativeModelId) session.nativeModelId = options.nativeModelId;
+  // A task profile's effective permission arguments; a reload reuses exactly these.
+  if (options.permissionArgs?.length) {
+    if (
+      !Array.isArray(options.permissionArgs) ||
+      options.permissionArgs.length > 8 ||
+      options.permissionArgs.some(
+        (arg) => typeof arg !== "string" || arg.length > 300 || /[\x00-\x1f]/.test(arg),
+      )
+    )
+      throw failure(serverMessages.sessions.invalidOptions);
+    session.permissionArgs = [...options.permissionArgs];
+  }
   if (
     options.agentpierTools &&
     !pipeline &&

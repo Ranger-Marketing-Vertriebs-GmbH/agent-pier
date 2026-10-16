@@ -4,6 +4,8 @@ Use **Reload & resume** in a Codex, Claude Code or OpenCode session to restart i
 
 AgentPier verifies the native conversation ID before stopping the CLI and resumes that exact conversation. The AgentPier session ID, working directory, account, attachments, saved chat draft and SSH assignments remain attached to the same session. A reload does not resend chat messages or start a fresh conversation. Login, shell, pipeline and imported historical sessions are excluded.
 
+A session started from a task profile keeps the permission settings it was launched with, such as Claude Code's `--permission-mode` or Codex's `approval_policy`. Reload and automatic resume reuse exactly these settings; editing the profile later affects only new sessions. Sessions started before AgentPier stored these settings fall back to their launch mode.
+
 Choose **After the response** to wait until the CLI is confirmed idle. The queued action is visible and can be cancelled. If the CLI activity cannot be identified, it keeps waiting. Immediate reload during an active or unrecognized state requires acknowledgement that the current step will be interrupted. Saved conversation history survives; unfinished tool calls or remote work cannot be guaranteed to resume automatically. Check their outcome before asking the agent to repeat them.
 
 If preflight validation fails, the existing CLI keeps running. If startup fails after the CLI has stopped, the session retains its verified conversation identity for a deliberate retry. Queued actions survive a web-service restart. Restored backups contain historical sessions, without queued reload actions or live tool capabilities.
