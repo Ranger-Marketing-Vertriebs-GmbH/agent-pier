@@ -439,3 +439,29 @@ _Installation missing_ (the files of a ready install are gone or changed).
   path. They are recorded when the change is accepted, so they do not say whether the
   background install succeeded (its status and log do). Choosing the program after a
   build is recorded as `package.activated` with the same details.
+
+### MCP directory
+
+**Settings → Workspace → MCP directory → Search the MCP Registry** lets AgentPier search
+the official [MCP Registry](https://registry.modelcontextprotocol.io) on demand (on by
+default). The AgentPier server sends only the search term or the entry name to the
+configured **Registry address** (under **Advanced**; `https://` only, `http://` only
+for a registry on this computer, no credentials, query or fragment), keeps answers for
+an hour in memory (failed answers for 429 or 5xx for one minute; changing the setting
+empties it) and never syncs, prefetches or installs anything. Downloads stay on the
+registry's origin, are limited in size and time out after 10 seconds. Entries are
+checked and shortened before the browser sees them: unknown fields, icons and
+publisher metadata are dropped, links must be `https://` or `http://`, and only npm and
+PyPI packages with exact versions are offered. A directory listing is not a security
+review.
+
+- `GET /api/mcp-directory/status` answers `{ enabled, host, reachable }`.
+- `GET /api/mcp-directory/servers?search=&cursor=` answers `{ entries, nextCursor }`.
+- `GET /api/mcp-directory/servers/:name` answers one entry's latest version,
+  `404 MCP_DIRECTORY_NOT_FOUND` when the registry does not know it and
+  `502 MCP_DIRECTORY_INVALID` when its data fails the checks.
+
+Search and entry answer `409 MCP_DIRECTORY_DISABLED` while the setting is off and
+`503 MCP_DIRECTORY_UNAVAILABLE` when the registry cannot be reached, times out or
+answers with an error, invalid JSON or too much data. Failures are logged with the code
+and host, never with the search term.
