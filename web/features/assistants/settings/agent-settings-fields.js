@@ -218,11 +218,19 @@ export function workBody({ values, changed, revisions, withTeam, sshHostIds = nu
   if (accessKeys.some((key) => changed.includes(key)))
     body.access = {
       revision: revisions.access,
-      ...Object.fromEntries(accessKeys.map((key) => [key, values[key]])),
-      // Grants of removed hosts drop on save; an unreadable catalog drops nothing.
-      sshAccesses: sshHostIds
-        ? values.sshAccesses.filter((g) => sshHostIds.includes(g.accessId))
-        : values.sshAccesses,
+      ...Object.fromEntries(
+        accessKeys
+          .filter((key) => key !== "sshAccesses")
+          .map((key) => [key, values[key]]),
+      ),
+      // Only changed grants are sent (the server keeps absent ones), so an unreadable
+      // SSH catalog cannot fail other saves. Grants of removed hosts drop on save; an
+      // unreadable catalog drops nothing.
+      ...(changed.includes("sshAccesses") && {
+        sshAccesses: sshHostIds
+          ? values.sshAccesses.filter((g) => sshHostIds.includes(g.accessId))
+          : values.sshAccesses,
+      }),
     };
   if (withTeam && teamKeys.some((key) => changed.includes(key)))
     body.team = {

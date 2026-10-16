@@ -58,14 +58,17 @@ test("a save drops removed hosts, but never while the catalog is unreadable", ()
     { accessId: "a", mode: "trusted" },
     { accessId: "gone", mode: "approval" },
   ]);
-  const body = (sshHostIds) =>
+  const body = (sshHostIds, changed = ["sshAccesses"]) =>
     workBody({
       values,
-      changed: ["publish"],
+      changed,
       revisions: { access: 2 },
       withTeam: false,
       sshHostIds,
-    }).access.sshAccesses;
-  assert.deepEqual(body(["a"]), [{ accessId: "a", mode: "trusted" }]);
-  assert.deepEqual(body(null), values.sshAccesses);
+    }).access;
+  assert.deepEqual(body(["a"]).sshAccesses, [{ accessId: "a", mode: "trusted" }]);
+  assert.deepEqual(body(null).sshAccesses, values.sshAccesses);
+  // Unchanged grants stay out, so an unreadable SSH catalog cannot fail the save.
+  assert.equal("sshAccesses" in body(null, ["publish"]), false);
+  assert.equal("sshAccesses" in body(["a"], ["publish"]), false);
 });
