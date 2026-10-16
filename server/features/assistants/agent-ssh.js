@@ -181,8 +181,12 @@ export class AgentSsh {
     const host = this.host(input.accessId);
     if (!host) throw this.refuse(caller, cls, input, "sshHostUnavailable");
     const verdict = permits(grant.mode, cls);
-    if (verdict === "refuse")
+    if (verdict === "refuse") {
+      // The routine's result says so even if the model leaves it out.
+      if (cls === "routine")
+        this.w.a.routines?.noteRefusal?.(inv.sessionKey, "ssh_refused");
       throw this.refuse(caller, cls, input, "sshRoutineNotTrusted");
+    }
     if (verdict === "card") return this.approvals.request(inv, caller, cls, host, input);
     const key = `ssh:${inv.attemptId || inv.sessionKey}:${inv.toolCallId}`;
     if (this.w.store.byKey(key)) throw assistantProblem("conflict", 409);
