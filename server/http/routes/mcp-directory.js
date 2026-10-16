@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { directoryProblem } from "../../features/mcp-directory/directory-errors.js";
+import { directoryUpdates } from "../../features/mcp-directory/updates.js";
 
 /**
  * The read-only MCP directory: status for the Source card, search and one entry's
@@ -27,6 +28,18 @@ export function mcpDirectoryRoutes(services) {
       }),
     ),
   );
+  // The list's update pill: a turned-off directory answers no updates and asks nothing.
+  router.get("/mcp-directory/updates", async (_req, res) => {
+    const source = services.mcpDirectory;
+    if (!source || !services.mcpServers || !source.current().enabled)
+      return res.json({ updates: [] });
+    res.json({
+      updates: await directoryUpdates({
+        servers: services.mcpServers.list(),
+        detail: (name) => source.detail(name),
+      }),
+    });
+  });
   // Express decodes `%2F`, so `io.github.user/my-server` arrives as one name.
   router.get("/mcp-directory/servers/:name", async (req, res) =>
     res.json(await directory().detail(req.params.name)),
