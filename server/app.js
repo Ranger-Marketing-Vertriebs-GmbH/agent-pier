@@ -59,6 +59,7 @@ import { mcpOAuthCallbackRoutes } from "./http/routes/mcp-oauth.js";
 import { mcpCliOAuthCallbackRoutes } from "./http/routes/mcp-cli-oauth.js";
 import { createCodexMcpLogins } from "./application/codex-mcp-logins.js";
 import { mcpServerRoutes } from "./http/routes/mcp-servers.js";
+import { mcpCommandRoutes } from "./http/routes/mcp-commands.js";
 import { registerResponses } from "./http/responses.js";
 import { buildHeader, buildIdentity } from "./http/build-identity.js";
 import { attachTerminalWebSocket } from "./http/terminal-websocket.js";
@@ -249,6 +250,7 @@ export async function createApplication(config) {
   mount(providerRoutes(services));
   mount(providerConnectionRoutes(services));
   mount(mcpServerRoutes(services));
+  mount(mcpCommandRoutes(services));
   mount(assistantRoutes(services));
   mount(memoryRoutes(services));
   mount(pipelineDefinitionRoutes(services));
