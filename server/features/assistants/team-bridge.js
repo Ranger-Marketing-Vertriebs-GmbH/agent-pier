@@ -4,6 +4,7 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { personalCapabilities, writeGuardRuntimes } from "./native-capabilities.js";
 import { toolError } from "./tool-errors.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
+import { flushSessionAgent, flushTarget } from "./memory-flushes.js";
 const actions = new Set([
   "propose",
   "status",
@@ -192,30 +193,17 @@ export class TeamBridge {
     )
       throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "path"]) textValue(input[k], 4096);
-    const matches = this.assistants.ledger.pending().filter((a) => {
-      const c = this.assistants.store.getConversation(
-        this.assistants.ledger.getRequest(a.requestId).conversationId,
-      );
-      return c.runtimeSessionKey === input.sessionKey && active.has(a.state);
-    });
     if (this.closed || !this.assistants.runtime.client?.ready) return { allow: false };
+    if (flushSessionAgent(input.sessionKey)) return { allow: this.flushWrite(input) };
+    const matches = this.bound(input.sessionKey);
     // A routine's own run session has no attempt: its writes are its own origin.
     if (!matches.length) return { allow: this.routineWrite(input) };
     if (matches.length !== 1) return { allow: false };
-    const attempt = matches[0],
-      request = this.assistants.ledger.getRequest(attempt.requestId),
-      parent = this.assistants.store.getAssistant(
-        this.assistants.store.getConversation(request.conversationId).assistantId,
-      ),
-      origin = this.teams.store?.context(request.id);
-    const current =
-      !attempt.reviewedAt &&
-      parent.runtimeAgentId === input.agentId &&
-      !parent.archivedAt;
+    const { attempt, parent, origin, current } = this.turn(matches[0], input.agentId);
     return {
       allow:
         current &&
-        ((["owner", "telegram"].includes(origin?.kind) && !origin.forwarded) ||
+        (this.ownerOrigin(origin) ||
           // A task the owner asked for or approved, in exactly its own member turn.
           (origin?.kind === "lead-request" &&
             !!this.teams.requests?.mayWrite(
@@ -225,6 +213,58 @@ export class TeamBridge {
               input.path,
             ))),
     };
+  }
+  // The active attempts bound to a runtime session.
+  bound(sessionKey) {
+    return this.assistants.ledger.pending().filter((a) => {
+      const c = this.assistants.store.getConversation(
+        this.assistants.ledger.getRequest(a.requestId).conversationId,
+      );
+      return c.runtimeSessionKey === sessionKey && active.has(a.state);
+    });
+  }
+  turn(attempt, agentId) {
+    const request = this.assistants.ledger.getRequest(attempt.requestId),
+      parent = this.assistants.store.getAssistant(
+        this.assistants.store.getConversation(request.conversationId).assistantId,
+      ),
+      origin = this.teams.store?.context(request.id);
+    const current =
+      !attempt.reviewedAt && parent.runtimeAgentId === agentId && !parent.archivedAt;
+    return { attempt, parent, origin, current };
+  }
+  ownerOrigin(origin) {
+    return ["owner", "telegram"].includes(origin?.kind) && !origin.forwarded;
+  }
+  // OpenClaw's pre-compaction memory flush runs in its own internal session
+  // (memory-flushes.js); its one write is the append-only daily note. It writes for
+  // the run it interrupts: an owner's (or the paired Telegram chat's) own turn, or a
+  // routine's run, of the same agent, never a forwarded, lead-requested or other
+  // turn. One flush of the agent at a time; anything ambiguous is refused.
+  flushWrite(input) {
+    if (
+      flushSessionAgent(input.sessionKey) !== input.agentId ||
+      input.toolName !== "write" ||
+      !flushTarget.test(input.path)
+    )
+      return false;
+    const decisions = (this.assistants.memoryFlushes?.active() || []).flatMap((flush) => {
+      const matches = this.bound(flush.sessionKey);
+      if (matches.length > 1) return [false];
+      if (!matches.length) {
+        const source = { agentId: input.agentId, sessionKey: flush.sessionKey };
+        if (this.routineWrite(source)) return [true];
+        return flush.sessionKey.startsWith(`agent:${input.agentId}:`) ? [false] : [];
+      }
+      const { attempt, parent, origin, current } = this.turn(matches[0], input.agentId);
+      if (parent.runtimeAgentId !== input.agentId) return [];
+      return [
+        current &&
+          [attempt.id, attempt.runtimeRunId].includes(flush.runId) &&
+          this.ownerOrigin(origin),
+      ];
+    });
+    return decisions.length === 1 && decisions[0] === true;
   }
   // A routine is standing work its owner configured for this agent: its run may
   // change the agent's own workspace like an owner turn. This origin is only the

@@ -7,6 +7,7 @@ import { AssistantEvents } from "./assistant-events.js";
 import { conversationHistory, conversationMessage } from "./conversations.js";
 import { reconcileRuns } from "./run-reconciler.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
+import { MemoryFlushes } from "./memory-flushes.js";
 import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
 import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js";
@@ -55,6 +56,9 @@ export class AssistantService {
     const reapplySkills = () =>
       this.skills.changed(() => this.admit(() => this.skills.reapply(this.config)));
     this.gatewayEvents.on("skills.changed", reapplySkills);
+    // The write guard admits OpenClaw's memory flush of an owner run (team-bridge.js).
+    this.memoryFlushes = new MemoryFlushes({ now });
+    this.gatewayEvents.on("agent", (payload) => this.memoryFlushes.observe(payload));
     this.gatewayEvents.onReady(reapplySkills);
     this.locks = new Map();
     this.closed = false;
@@ -116,6 +120,7 @@ export class AssistantService {
     }
   }
   bindGateway() {
+    this.memoryFlushes.clear();
     this.bindEvents();
     this.gatewayEvents.bind(this.runtime.client);
   }
