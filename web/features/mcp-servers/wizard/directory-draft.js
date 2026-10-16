@@ -6,18 +6,27 @@ import { isSecretName } from "./setting-hints.js";
 const variable = "[A-Za-z_][A-Za-z0-9_-]{0,63}";
 const template = new RegExp(`\\{${variable}\\}`);
 const templates = new RegExp(`\\{(${variable})\\}`, "g");
+const wholeTemplate = new RegExp(`^\\{${variable}\\}$`);
 const bearerTemplate = new RegExp(`^Bearer \\{${variable}\\}$`);
 
 /** Whether the owner may pick this way to run (Q5: unsupported ones are greyed). */
 export const isSelectable = (option) => option?.kind !== "unsupported";
 
+const fill = (text, values, encode) =>
+  text.replace(templates, (_, name) => encode(values[name] ?? ""));
+
 /** The address with every `{var}` replaced by its URL-encoded value. */
-export const composeUrl = ({ url, values = {} }) =>
-  url.replace(templates, (_, name) => encodeURIComponent(values[name] ?? ""));
+export const composeUrl = ({ url, values = {} }) => fill(url, values, encodeURIComponent);
+
+/**
+ * A header or env value with every `{var}` replaced as typed (`Token {key}`); the
+ * browser composes it and saves the result as a literal.
+ */
+export const composeValue = ({ value, values = {} }) => fill(value, values, String);
 
 function hint(item, extra = {}) {
   return {
-    description: item.description ?? "",
+    description: item.description || extra.description || "",
     required: item.required === true || extra.required === true,
     secret: item.secret === true || extra.secret === true || isSecretName(item.name),
     ...(item.choices?.length ? { choices: item.choices } : {}),
@@ -25,8 +34,18 @@ function hint(item, extra = {}) {
     ...(item.default !== null && item.default !== undefined
       ? { default: item.default }
       : {}),
+    ...(extra.template ? { template: extra.template } : {}),
   };
 }
+
+const isTemplated = (item) => typeof item.value === "string" && template.test(item.value);
+// `{var}` alone is the field itself; anything around it must survive the save.
+const isWrapped = (item) => isTemplated(item) && !wholeTemplate.test(item.value);
+
+/** A value that wraps templates in other text keeps them for the owner to fill. */
+const templateOf = (item) => ({
+  template: { value: item.value, variables: item.variables ?? [], values: {} },
+});
 
 const literal = (value) =>
   typeof value === "string" && !template.test(value) ? value : "";
@@ -46,12 +65,14 @@ export function draftFromEntry(entry, option, { taken = [] } = {}) {
   });
   if (option.kind === "npm" || option.kind === "pypi") {
     const env = option.env.map((item, index) => {
-      settings[item.name] = hint(item);
+      const own = isWrapped(item);
+      settings[item.name] = hint(item, own ? { template: item.value } : {});
       return {
         key: `directory-env-${index}`,
         name: item.name,
         value: literal(item.value),
         fixed: true,
+        ...(own ? templateOf(item) : {}),
       };
     });
     return {
@@ -67,15 +88,28 @@ export function draftFromEntry(entry, option, { taken = [] } = {}) {
       hints: hints(),
     };
   }
+  let authTaken = false;
   const headers = option.headers.map((item, index) => {
     const bearer = bearerTemplate.test(item.value ?? "");
-    settings[item.name] = hint(item, bearer ? { required: true, secret: true } : {});
+    const own = !bearer && isWrapped(item);
+    const token = item.variables?.[0];
+    settings[item.name] = hint(
+      item,
+      bearer
+        ? { required: true, secret: true, description: token?.description }
+        : own
+          ? { template: item.value }
+          : {},
+    );
+    const auth = bearer && !authTaken;
+    if (auth) authTaken = true;
     return {
-      key: bearer ? "auth" : `directory-header-${index}`,
+      key: auth ? "auth" : `directory-header-${index}`,
       name: item.name,
       value: literal(item.value),
       fixed: true,
       ...(bearer ? { bearer: true } : {}),
+      ...(own ? templateOf(item) : {}),
     };
   });
   const variables = option.urlVariables ?? [];

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fc from "fast-check";
 import {
   composeUrl,
+  composeValue,
   draftFromEntry,
   isSelectable,
 } from "../../web/features/mcp-servers/wizard/directory-draft.js";
@@ -99,6 +100,7 @@ test("a fixed literal value is kept, a templated value is left to fill", () => {
       ["TOKEN", ""],
     ],
   );
+  assert.equal(draft.env[1].template, undefined, "a bare {var} is the field itself");
   assert.equal(draft.registry, "pypi");
 });
 
@@ -137,8 +139,94 @@ test("a remote option with URL variables and a Bearer header", () => {
     fc.property(fc.string(), (value) => {
       const url = composeUrl({ ...draft.urlTemplate, values: { tenant: value } });
       assert.ok(!url.includes("{tenant}"));
+      // A value may make the address invalid, but never point it somewhere else.
+      if (!URL.canParse(url)) return;
+      const parsed = new URL(url);
+      assert.equal(parsed.protocol, "https:");
+      assert.ok(parsed.hostname.endsWith(".files.example.test"));
     }),
   );
+});
+
+const tokenVariable = {
+  name: "key",
+  description: "Your API key from the dashboard",
+  required: true,
+  secret: true,
+  default: null,
+  choices: [],
+};
+
+test("a header or env value with text around a template keeps that template", () => {
+  const remote = draftFromEntry(entry([]), {
+    kind: "remote-http",
+    url: "https://docs.example.test/mcp",
+    urlVariables: [],
+    headers: [input("X-Api-Token", { value: "Token {key}", variables: [tokenVariable] })],
+  });
+  const [row] = remote.headers;
+  assert.equal(row.value, "");
+  assert.equal(row.bearer, undefined);
+  assert.notEqual(row.key, "auth");
+  assert.deepEqual(row.template, {
+    value: "Token {key}",
+    variables: [tokenVariable],
+    values: {},
+  });
+  assert.equal(remote.hints.settings["X-Api-Token"].template, "Token {key}");
+  assert.equal(
+    composeValue({ ...row.template, values: { key: "a b/c" } }),
+    "Token a b/c",
+  );
+
+  const userVariable = { ...tokenVariable, name: "user", secret: false };
+  const pwVariable = { ...tokenVariable, name: "pw" };
+  const pkg = draftFromEntry(entry([]), {
+    kind: "npm",
+    identifier: "pg-mcp",
+    version: "1.0.0",
+    packageArgs: [],
+    env: [
+      input("DATABASE_URL", {
+        value: "postgres://{user}:{pw}@db/x",
+        variables: [userVariable, pwVariable],
+      }),
+    ],
+  });
+  assert.deepEqual(pkg.env[0].template, {
+    value: "postgres://{user}:{pw}@db/x",
+    variables: [userVariable, pwVariable],
+    values: {},
+  });
+  assert.equal(
+    composeValue({ ...pkg.env[0].template, values: { user: "app", pw: "s3cret" } }),
+    "postgres://app:s3cret@db/x",
+  );
+  assert.equal(composeValue({ value: "Basic {creds}" }), "Basic ");
+});
+
+test("only the first Bearer header is the sign-in row; the token hint falls back", () => {
+  const draft = draftFromEntry(entry([]), {
+    kind: "remote-http",
+    url: "https://docs.example.test/mcp",
+    urlVariables: [],
+    headers: [
+      input("Authorization", { value: "Bearer {key}", variables: [tokenVariable] }),
+      input("X-Proxy-Authorization", { value: "Bearer {proxy}" }),
+    ],
+  });
+  assert.deepEqual(
+    draft.headers.map(({ key, bearer, template }) => [key, bearer, template]),
+    [
+      ["auth", true, undefined],
+      ["directory-header-1", true, undefined],
+    ],
+  );
+  assert.deepEqual(draft.hints.settings.Authorization, {
+    description: "Your API key from the dashboard",
+    required: true,
+    secret: true,
+  });
 });
 
 test("a remote option without variables keeps its address and has no template", () => {
