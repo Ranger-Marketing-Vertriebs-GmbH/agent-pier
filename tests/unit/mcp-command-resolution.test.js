@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
+  findCommand,
   resolveCommand,
   sanitisedPrefix,
 } from "../../server/features/mcp-servers/command-resolution.js";
@@ -34,4 +38,48 @@ test("the tool prefix equals the validated name", () => {
   for (const bad of ["a.b", "a".repeat(31), "1abc", "", "a b", "_x", null])
     assert.throws(() => sanitisedPrefix(bad), { status: 400 });
   assert.equal(sanitisedPrefix("a".repeat(30)).length, 30);
+});
+
+test("the lookup finds bare commands on the PATH like a save does", () => {
+  const options = { pathEnv: "/nope:/opt/bin:/usr/bin", exists };
+  assert.equal(findCommand("tool", options), "/opt/bin/tool");
+  for (const command of [
+    "missing",
+    "./tool",
+    "bin/tool",
+    "",
+    "  ",
+    5,
+    "a\nb",
+    "..",
+    "a..b",
+  ])
+    assert.equal(findCommand(command, options), null, String(command));
+});
+
+test("the lookup walks absolute paths through listed directory entries", (t) => {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mcp-find-")));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const tool = path.join(dir, "tool");
+  fs.writeFileSync(tool, "#!/bin/sh\n", { mode: 0o755 });
+  fs.writeFileSync(path.join(dir, "data"), "x", { mode: 0o644 });
+  fs.mkdirSync(path.join(dir, "sub"));
+  assert.equal(findCommand(tool), tool);
+  assert.equal(findCommand(`  ${dir}//./tool `), `${dir}//./tool`);
+  assert.equal(findCommand(`${dir}/sub/../tool`), null);
+  for (const missing of ["data", "sub", "nope", "tool/x"])
+    assert.equal(findCommand(path.join(dir, missing)), null, missing);
+});
+
+test("the absolute lookup checks only paths built from listed names", () => {
+  const listed = [];
+  const tree = { "/": ["opt"], "/opt": ["tool"] };
+  const options = {
+    exists: (file) => file === "/opt/tool",
+    list: (dir) => (listed.push(dir), tree[dir] ?? []),
+  };
+  assert.equal(findCommand("/opt/tool", options), "/opt/tool");
+  assert.equal(findCommand("/opt/other", options), null);
+  assert.equal(findCommand("/etc/passwd", options), null);
+  assert.deepEqual([...new Set(listed)], ["/", "/opt"]);
 });

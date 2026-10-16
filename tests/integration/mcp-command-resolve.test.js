@@ -4,13 +4,26 @@ import express from "express";
 import { mcpCommandRoutes } from "../../server/http/routes/mcp-commands.js";
 import { registerResponses } from "../../server/http/responses.js";
 
+/** The entries directly below `dir` in the fake tree of `executables`. */
+const listing = (executables, dir) => [
+  ...new Set(
+    [...executables]
+      .filter((file) => file.startsWith(dir === "/" ? "/" : `${dir}/`))
+      .map((file) => file.slice(dir === "/" ? 1 : dir.length + 1).split("/")[0]),
+  ),
+];
+
 async function app(t, executables) {
   const application = express();
   application.use(
     "/api",
     mcpCommandRoutes({
       mcpServers: {
-        resolveOptions: { pathEnv: "/fake/bin", exists: (file) => executables.has(file) },
+        resolveOptions: {
+          pathEnv: "/fake/bin",
+          exists: (file) => executables.has(file),
+          list: (dir) => listing(executables, dir),
+        },
       },
     }),
   );
@@ -60,4 +73,6 @@ test("an absolute path must be an executable file", async (t) => {
   const resolve = await app(t, new Set(["/opt/tool"]));
   assert.deepEqual((await resolve("/opt/tool")).body, { found: true, path: "/opt/tool" });
   assert.deepEqual((await resolve("/opt/other")).body, { found: false });
+  assert.deepEqual((await resolve("/opt")).body, { found: false });
+  assert.deepEqual((await resolve("/opt/x/../tool")).body, { found: false });
 });

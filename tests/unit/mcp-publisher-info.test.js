@@ -73,6 +73,28 @@ test("PyPI: author or maintainer, Source before Repository before Homepage", () 
   });
 });
 
+test("npm person strings keep only the name before mail or link", () => {
+  const publisher = (author) => npmPublisher({ author }).publisher;
+  assert.equal(publisher("Jane Doe <jane@x> (https://x)"), "Jane Doe");
+  assert.equal(publisher("Jane Doe (https://x) <jane@x>"), "Jane Doe");
+  assert.equal(publisher("Jane Doe <jane@x"), "Jane Doe");
+  assert.equal(publisher("Jane Doe (https://x"), "Jane Doe");
+  assert.equal(publisher("Jane > Doe ) x"), "Jane > Doe ) x");
+  for (const author of [
+    "<script>alert(1)</script>Jane",
+    "<<script>script>alert(1)</script>",
+    "(<script>)alert(1)",
+    "<scr<script>ipt>",
+  ])
+    assert.equal(publisher(author), null, author);
+  fc.assert(
+    fc.property(fc.string(), (author) => {
+      const value = publisher(author);
+      assert.ok(value === null || !/[<(]/.test(value));
+    }),
+  );
+});
+
 test("publisher fields never throw and never carry control characters", () => {
   fc.assert(
     fc.property(fc.anything(), fc.anything(), (author, repository) => {

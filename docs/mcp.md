@@ -188,6 +188,8 @@ per step (**Source and name**, **Settings**, the package panel, **Who may use it
   records the native forms and how they were verified.
 - **Own command lookup.** The own-command step shows where the command resolves on the
   AgentPier service's PATH (`GET /api/mcp-commands/resolve`, read-only, nothing runs).
+  An absolute path is checked by walking listed directory entries from `/`, so the
+  lookup reports directories it may not list and paths with `..` as not found.
 - **Ownership.** AgentPier records each entry it wrote by name and SHA-256 hash in
   `<data>/mcp-servers/servers.sqlite` (`cli_entries`); the native files get no marker.
   An entry is AgentPier's while it still matches that hash. Entries anyone else wrote

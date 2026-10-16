@@ -37,10 +37,16 @@ export function webLink(value) {
   return url.href.replace(/\/$/, url.pathname === "/" ? "/" : "");
 }
 
+/** The text before the first "<" or "(": the name in npm's "Name <mail> (url)". */
+const nameBeforeContact = (text) => {
+  const cuts = [text.indexOf("<"), text.indexOf("(")].filter((cut) => cut >= 0);
+  return cuts.length ? text.slice(0, Math.min(...cuts)) : text;
+};
+
 /** "Name <mail> (url)" or { name }: the name only. */
 const personName = (person) =>
   typeof person === "string"
-    ? person.replace(/<[^>]*>|\([^)]*\)/g, "")
+    ? nameBeforeContact(person)
     : person && typeof person === "object" && typeof person.name === "string"
       ? person.name
       : "";
