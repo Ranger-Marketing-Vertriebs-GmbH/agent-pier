@@ -114,3 +114,25 @@ test("the summarising status fits a phone and stays clear of the composer", asyn
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(390);
 });
+
+test("a note after an internal turn does not repeat the turn's line", async ({
+  page,
+}) => {
+  const internal = "Team results received. The agent is summarizing them.";
+  await chatFixture(page, {
+    history: {
+      messages: [
+        ...earlier,
+        { id: "t1", role: "event", event: "team-result", timestamp: 1, runId: null },
+        { ...note, timestamp: 1.5 },
+      ],
+      requests: [{ ...request("running"), internal: "team-result" }],
+      stale: false,
+      compacting: true,
+    },
+  });
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  await expect(page.locator("[data-compaction-note]")).toHaveCount(1);
+  await expect(runState(page)).toHaveText(copy.en.running);
+  await expect(page.getByText(internal, { exact: true })).toHaveCount(1);
+});

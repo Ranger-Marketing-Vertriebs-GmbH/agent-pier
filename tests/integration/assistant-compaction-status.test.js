@@ -28,7 +28,7 @@ function gatewayClient(pages) {
   return client;
 }
 
-function compactingService(t) {
+function compactingService(t, { now = () => Date.now() } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-compaction-"));
   const store = new AssistantStore({ dataDir });
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -49,6 +49,7 @@ function compactingService(t) {
     runtime,
     models: { listCapabilities: () => [], resolve: () => ({ release() {} }) },
     config: { apply: async () => {}, reset() {} },
+    now,
   });
   service.reconcile = async () => {};
   t.after(() => service.close());
@@ -57,11 +58,23 @@ function compactingService(t) {
     if (e.type === "change") changes.push(e);
   });
   const emit = (frame) => runtime.client.emit("event", frame);
-  return { service, store, runtime, news: news.id, history, changes, emit };
+  // An owner turn the Gateway runs as `runId`, as sendMessage records it.
+  const send = (runId) => {
+    const request = service.ledger.accept(news.id, {
+      clientRequestId: crypto.randomUUID(),
+      text: `Turn ${runId}`,
+    });
+    const attempt = service.ledger.recordAttempt(request.id);
+    return service.ledger.transition(attempt.id, "accepted", { runtimeRunId: runId });
+  };
+  const done = (attempt, state = "completed") =>
+    service.ledger.transition(attempt.id, state);
+  return { service, store, runtime, news: news.id, history, changes, emit, send, done };
 }
 
 test("the history says while a run flushes memory and compacts before it answers", async (t) => {
   const f = compactingService(t);
+  f.send("run-1");
   assert.equal((await f.service.history(f.news)).compacting, false);
   f.emit(status("memory_flushing"));
   assert.equal(f.changes.length, 1, "the clients refresh once");
@@ -79,6 +92,7 @@ test("the history says while a run flushes memory and compacts before it answers
 
 test("a compaction inside a run shows until it ends, a retry keeps it", async (t) => {
   const f = compactingService(t);
+  const first = f.send("run-1");
   f.emit(agent("lifecycle", "run-1", { phase: "start" }));
   f.emit(agent("compaction", "run-1", { phase: "start" }));
   assert.equal((await f.service.history(f.news)).compacting, true);
@@ -89,6 +103,8 @@ test("a compaction inside a run shows until it ends, a retry keeps it", async (t
   f.emit(agent("compaction", "run-1", { phase: "end", completed: true }));
   assert.equal((await f.service.history(f.news)).compacting, false);
   // A run that fails during its compaction ends the status too.
+  f.done(first);
+  f.send("run-2");
   f.emit(agent("compaction", "run-2", { phase: "start" }));
   f.emit(agent("lifecycle", "run-2", { phase: "error" }));
   assert.equal((await f.service.history(f.news)).compacting, false);
@@ -99,9 +115,39 @@ test("other sessions and a reconnect leave no summary status behind", async (t) 
   const f = compactingService(t);
   f.emit(status("memory_flushing", "run-9", "agent:unknown:main"));
   assert.equal(f.changes.length, 0, "an unknown session refreshes nothing");
+  f.send("run-1");
   f.emit(status("memory_flushing"));
   assert.equal((await f.service.history(f.news)).compacting, true);
   f.service.bindGateway();
+  assert.equal((await f.service.history(f.news)).compacting, false);
+});
+
+test("a run cancelled while it flushed leaves no status for the next turn", async (t) => {
+  const f = compactingService(t);
+  const flushing = f.send("run-1");
+  f.emit(status("memory_flushing"));
+  assert.equal((await f.service.history(f.news)).compacting, true);
+  // The run dies; its end never reaches AgentPier.
+  f.done(flushing, "cancelled");
+  assert.equal((await f.service.history(f.news)).compacting, false);
+  f.send("run-2");
+  assert.equal(
+    (await f.service.history(f.news)).compacting,
+    false,
+    "the next turn is not summarising before it says so",
+  );
+  // It does say so: its own flush shows.
+  f.emit(status("memory_flushing", "run-2"));
+  assert.equal((await f.service.history(f.news)).compacting, true);
+});
+
+test("a summary status whose end never arrives expires", async (t) => {
+  let now = 1000;
+  const f = compactingService(t, { now: () => now });
+  f.send("run-1");
+  f.emit(status("memory_flushing"));
+  assert.equal((await f.service.history(f.news)).compacting, true);
+  now += 61 * 60000;
   assert.equal((await f.service.history(f.news)).compacting, false);
 });
 
