@@ -37,6 +37,7 @@ export const routineCopy = {
   nextRun: (time) => `Next run: ${time}`,
   // Marks a routine's result in the agent's chat; a failed run is a quiet line.
   chatBadge: (name) => (name ? `Scheduled · ${name}` : "Scheduled"),
+  sshRefused: "SSH refused: host not trusted for routines",
   chatFailed: (name) =>
     name ? `Routine “${name}” could not finish.` : "A routine could not finish.",
 };

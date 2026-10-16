@@ -10,6 +10,8 @@ export const telegramSendersCopy = {
     "A bot or person you removed is still running: the automatic restart could not stop it. Restart the agent service now.",
   removedPending:
     "The agent service still runs a bot or person you removed. Restart it to stop them now.",
+  sshBlocked:
+    "This agent has SSH accesses. Remove them under Work → SSH accesses before you connect a bot for other people.",
   shellBlocked:
     "This agent has shell access. Turn shell off before you connect a bot for other people.",
   token: "Bot token",

@@ -60,6 +60,7 @@ export const assistantTeamCopy = {
     "coding-result": "Ergebnis eines Coding-Laufs eingegangen.",
     "memory-result":
       "Eine Notiz im Projektwissen wurde nicht gespeichert. Der Agent wurde informiert.",
+    "ssh-result": "Ergebnis eines SSH-Befehls eingegangen.",
   },
   notes: {
     started: (title) => `Team gestartet: ${title}`,
