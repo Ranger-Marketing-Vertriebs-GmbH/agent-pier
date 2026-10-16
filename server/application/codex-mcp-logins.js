@@ -5,9 +5,11 @@ import { cliOAuthCallback } from "../features/mcp-servers/oauth-redirect.js";
  * Brokered Codex MCP logins for the central MCP servers, or null without the server
  * store. Before Codex runs, the account gets the central servers exactly as a session
  * start writes them (canonical profile, then the shared projection), so the login and
- * later sessions agree on the server's name and URL. A completed login shows at once
- * and the next list reads Codex again. `config.cliLoginSpawn` replaces starting the
- * CLI; test fixtures set it so that no test reaches the real Codex unless it opts in.
+ * later sessions agree on the server's name and URL; a server whose AgentPier entry
+ * Codex does not run (its name is the owner's) is not logged in. A completed login
+ * shows at once and the next list reads Codex again. `config.cliLoginSpawn` replaces
+ * starting the CLI; test fixtures set it so that no test reaches the real Codex unless
+ * it opts in.
  */
 export function createCodexMcpLogins(services, effective) {
   if (!services.mcpServers) return null;
@@ -20,6 +22,7 @@ export function createCodexMcpLogins(services, effective) {
       services.cliMcp?.reconcileOne("codex");
       services.sharedProfiles?.prepare(account, null);
     },
+    inEffect: () => services.cliMcp?.inEffect("codex") ?? null,
     callbackBase: () => cliOAuthCallback(effective()),
     remoteUrl: () => effective().remoteUrl,
     ...(services.config.cliLoginSpawn ? { spawn: services.config.cliLoginSpawn } : {}),

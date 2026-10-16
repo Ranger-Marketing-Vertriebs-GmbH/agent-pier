@@ -229,6 +229,10 @@ needs the owner's confirmation, because every session of that CLI starts it.
 - **OAuth.** AgentPier writes each CLI's OAuth form without static headers. Only Codex
   has a reliable login state (`codex mcp list --json`); for Claude Code (`/mcp` in a
   session) and OpenCode (`opencode mcp auth <name>`) AgentPier shows the login command.
+  Login states and commands are shown only while AgentPier's entry is in effect in
+  that CLI (_written_): the CLIs log in by name, so for a taken name the state would be
+  the owner's other entry's, and **Log in** for Codex is refused with
+  `409 not-in-effect`.
   The first Codex line is the owner's own profile (`~/.codex`): AgentPier never logs in
   there (its tokens may live in the keychain) and shows `codex mcp login <name>`.
 - **Codex accounts.** Below it, an OAuth server bound to Codex lists every
@@ -267,14 +271,15 @@ needs the owner's confirmation, because every session of that CLI starts it.
     `mcp.completed`, `mcp.cancelled` (the owner cancelled) or `mcp.failed` with a
     `failReason` (a provider error such as `access-denied`, `cli-failed`,
     `cli-timeout`, `expired`, `replaced` by a newer login, or `obsolete` when the
-    account was removed or the server deleted, renamed or unbound from Codex; these
+    account was removed or the server deleted, renamed, moved to another URL or auth
+    method or unbound from Codex; these
     last ones come from `source: "system"`). Agent OAuth logins use the same
     `mcp.completed`/`mcp.failed` actions; a Codex login is told apart by
     `details.accountId` (always set) together with `details.clis: ["codex"]`, which
     an agent login never carries.
   - Pending logins of an account that is removed, or of a server that is deleted,
-    renamed or unbound from Codex, end at once.
-- **Sandbox.** A bound stdio server runs inside the CLI's nono sandbox; see
+    renamed, given another URL or auth method or unbound from Codex, end at once.
+- **Sandbox.** A bound stdio server whose entry is in effect (_written_) runs inside the CLI's nono sandbox; see
   [sandbox.md](sandbox.md#the-grant-model) for its grants and the working directories
   that get none (`MCP_CWD_TOO_BROAD`).
 - **Audit.** Binding and unbinding CLIs, conflict choices and adoptions are recorded as

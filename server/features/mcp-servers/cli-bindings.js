@@ -25,6 +25,8 @@ const codeOf = (error) =>
   typeof error?.code === "string" && /^[A-Z0-9_]{1,40}$/.test(error.code)
     ? error.code
     : "ERROR";
+// Whether the reconcile `result` of a CLI has server `id`'s AgentPier entry in effect.
+const inEffect = (result, id) => result?.statuses?.[id]?.status === "written";
 
 /**
  * Central MCP servers in the coding CLIs: each `cli` binding becomes an entry in the
@@ -92,7 +94,7 @@ export class CliMcpBindings {
   async decorate(list) {
     const results = this.inspectAll();
     const names = this.agentNames();
-    const oauth = await this.oauthStates(list);
+    const oauth = await this.oauthStates(list, results);
     return list.map((server) => {
       const targets = this.servers.targetsOf(server.id);
       return {
@@ -119,18 +121,19 @@ export class CliMcpBindings {
     return (await this.decorate([this.servers.get(id)]))[0];
   }
   /**
-   * `{ [cli]: { [serverId]: { state, command } } }` for OAuth servers bound to a CLI:
-   * Codex reports its login state; for the others the owner sees the login command.
-   * Codex also lists each AgentPier-managed account (`accounts`, see codexAccounts).
+   * `{ [cli]: { [serverId]: { state, command } } }` for OAuth servers whose entry is in
+   * effect in a CLI (`written` in `results`): Codex reports its login state; for the
+   * others the owner sees the login command. Codex also lists each AgentPier-managed
+   * account (`accounts`, see codexAccounts). A login state is read by name, so a
+   * server whose name the owner's own entry holds (or that is not written) shows none.
    */
-  async oauthStates(list) {
+  async oauthStates(list, results = this.inspectAll()) {
     const oauth = list.filter(
       (server) => server.auth === "oauth" && server.transport !== "stdio",
     );
     const out = {};
     for (const cli of clis) {
-      const bound = new Set(this.servers.bindings("cli", cli));
-      const mine = oauth.filter((server) => bound.has(server.id));
+      const mine = oauth.filter((server) => inEffect(results[cli], server.id));
       if (!mine.length) continue;
       const codex = cli === "codex" && this.oauthStatus;
       const known = codex ? await this.oauthStatus.codex() : {};
@@ -279,21 +282,30 @@ export class CliMcpBindings {
       stdioConfirmed: stdioChanged && confirmStdio === true,
     };
   }
+  /** Ids of the servers whose AgentPier entry `cli` runs now. */
+  inEffect(cli) {
+    const result = this.reconciler.inspect(cli);
+    return new Set(
+      this.servers.bindings("cli", cli).filter((id) => inEffect(result, id)),
+    );
+  }
   /**
    * Before a session of `account` starts: its CLI is brought in step (a missing managed
    * entry is restored, a conflict left alone) and the sandbox is granted what each
-   * bound stdio server runs. Never fails the launch; problems are logged by code.
+   * bound stdio server runs whose AgentPier entry is in effect there. A server whose
+   * name the owner's own entry holds, whose entry the owner edited (conflict) or that
+   * could not be written runs the owner's command or none: it gets no grant. Never
+   * fails the launch; problems are logged by code.
    */
   async prepare({ account, launch, purpose }) {
     if (purpose === "login" || !clis.includes(account.tool)) return launch;
-    this.reconcileOne(account.tool);
+    const result = this.reconcileOne(account.tool);
     try {
-      const bound = new Set(this.servers.bindings("cli", account.tool));
       const definitions = this.servers
         .definitions()
         .filter(
           (definition) =>
-            bound.has(definition.id) &&
+            inEffect(result, definition.id) &&
             definition.transport === "stdio" &&
             cliSupport(account.tool, definition).supported,
         );

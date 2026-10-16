@@ -77,6 +77,8 @@ export const mcpServers = Object.freeze({
   cliReasonPackage: "The server's package is not installed yet or is missing.",
   cliLoginNotBound:
     "The server is not assigned to Codex. Select Codex among the server's coding CLIs.",
+  cliLoginNotInEffect:
+    "Codex does not run this server's entry, for example because your own entry in Codex uses the name. Resolve the server's status in Codex first.",
   cliLoginAccountInvalid:
     "AgentPier logs in only in Codex accounts it manages. In your own Codex profile run codex mcp login in a terminal.",
   cliLoginCodexMissing: "Logging in needs Codex installed on the AgentPier host.",

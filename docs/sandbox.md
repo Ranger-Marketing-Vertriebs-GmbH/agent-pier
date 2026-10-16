@@ -104,7 +104,8 @@ declares that grant: AgentPier classifies a path that does not exist as a single
 a missing file grant without complaint, so this is harmless.
 
 Central MCP servers bound to a coding CLI ([mcp.md](mcp.md#central-mcp-servers-in-the-coding-clis))
-run inside that CLI's sandbox. For each bound stdio server
+run inside that CLI's sandbox. For each bound stdio server whose AgentPier entry is in
+effect in that CLI (status _written_)
 `server/features/mcp-servers/cli-grants.js` declares read access to its resolved
 command, to the file that command links to, and to the interpreter its `#!` line names
 (for `#!/usr/bin/env name` also `name` resolved on the session's PATH), and full access
@@ -114,7 +115,9 @@ linked to a non-executable file such as a key, gets no grant. No allow grant is
 declared for a working directory that is `/`, the owner's home or an ancestor of it,
 the AgentPier data directory or an ancestor of it, or anything inside the data
 directory; such a server gets the code `MCP_CWD_TOO_BROAD` as a warning and may fail
-under nono. Remote servers need no grant. A packaged MCP server is the one exception
+under nono. A server whose name the owner's own entry holds, whose entry the owner
+edited, or that could not be written (for example _layout_ or an unreadable file) gets
+no grant: the CLI runs the owner's command or none. Remote servers need no grant. A packaged MCP server is the one exception
 for the data directory: its install under `mcp-packages/installs/<id>` and the
 toolchain it runs with under `toolchains/` are granted read-only; nothing else in the
 data directory is opened.
