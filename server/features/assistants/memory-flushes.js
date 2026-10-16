@@ -3,7 +3,28 @@
 // so no AgentPier attempt is bound to the key its write tool reports. The source
 // run announces the flush on its own session: run_status `memory_flushing` before
 // it, any other phase after it (agent-runner-memory: runMemoryFlushIfNeeded).
+// Any internal key is routed to the flush policy (and refused unless it is one);
+// a flush's own key is `<prefix><runId>-<sha16>` with the run id the hook reports.
 const flushSession = /^agent:([^:]{1,200}):internal-session-effects:[A-Za-z0-9-]{1,200}$/;
+const flushRunKey =
+  /^agent:[^:]{1,200}:internal-session-effects:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-[0-9a-f]{16}$/;
+/** The flush run id a flush session key names, or null. */
+export const flushRunOf = (sessionKey) => sessionKey.match(flushRunKey)?.[1] || null;
+// memory-core names the day note in the Gateway's user timezone (resolveCronStyleNow:
+// agents.defaults.userTimezone, else the host's). A flush writes today's note; just
+// after midnight the run may still hold yesterday's.
+export function flushDates(now, timeZone) {
+  const day = (ms) => {
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone, dateStyle: "short" }).format(
+        ms,
+      );
+    } catch {
+      return new Intl.DateTimeFormat("en-CA", { dateStyle: "short" }).format(ms);
+    }
+  };
+  return [day(now), day(now - 86400000)].map((d) => `memory/${d}.md`);
+}
 // The flush's only writer appends to memory/<date>.md (wrapToolMemoryFlushAppendOnlyWrite).
 export const flushTarget = /^memory\/\d{4}-\d{2}-\d{2}\.md$/;
 // A flush runs one bounded model turn; a report older than this is not trusted.
@@ -32,6 +53,16 @@ export class MemoryFlushes {
       (payload.stream === "lifecycle" && ["end", "error"].includes(phase))
     )
       this.running.delete(key);
+  }
+  /**
+   * Pins a flush to the first internal session that writes for it: true when
+   * `sessionKey` is (or now becomes) that session, false for any other.
+   */
+  pin(flush, sessionKey) {
+    const entry = this.running.get(flush.sessionKey);
+    if (!entry || entry.runId !== flush.runId) return false;
+    entry.writer ??= sessionKey;
+    return entry.writer === sessionKey;
   }
   clear() {
     this.running.clear();

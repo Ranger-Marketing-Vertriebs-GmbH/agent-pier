@@ -180,6 +180,8 @@ export function registerToolGuard(api) {
             sessionKey: ctx.sessionKey,
             toolName: event.toolName,
             path: target.path,
+            // Pins a memory flush to its own run (memory-flushes.js).
+            ...(typeof ctx.runId === "string" ? { runId: ctx.runId } : {}),
           },
           ctx.abortSignal,
         ).catch(() => null);

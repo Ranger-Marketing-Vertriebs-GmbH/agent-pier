@@ -1,7 +1,14 @@
 // Quiet chat lines for memory that an agent could not write: a refused write to
 // MEMORY.md or memory/ (team-bridge.js) or an owner turn that ran before the write
 // guard was back (write-guard-wait.js). The chat translates `reason`.
-export const memoryNoteReasons = ["guard-pending", "not-owner", "lead-request", "flush"];
+export const memoryNoteReasons = [
+  "guard-pending",
+  "not-owner",
+  "forwarded",
+  "automatic",
+  "lead-request",
+  "flush",
+];
 const kept = 100;
 
 export class MemoryNotes {
