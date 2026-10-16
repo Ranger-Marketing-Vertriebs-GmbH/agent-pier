@@ -28,6 +28,10 @@ const devices = () => [
     lastSuccessAt: "2026-10-12T18:40:00.000Z",
   },
 ];
+// The engine's locale data joins an English date and time: Chromium and Linux
+// WebKit write "Oct 13, 9:13 PM", macOS WebKit's newer CLDR "Oct 13 at 9:13 PM".
+const enTimes = (text) =>
+  new RegExp(text.replace(/([A-Z][a-z]{2} \d+), /g, "$1(?:,| at) "));
 const copy = {
   de: {
     switch: "Benachrichtigungen",
@@ -55,9 +59,9 @@ const copy = {
     phoneOwn: "Safari on iPhone",
     pill: "This device",
     unnamed: "Unnamed device",
-    ownTimes: "Registered Oct 13, 9:13 PM · last delivered 9:15 PM",
-    phoneTimes: "Registered Oct 13, 9:27 PM",
-    legacyTimes: "Registered Sep 2, 8:05 AM · last delivered Oct 12, 8:40 PM",
+    ownTimes: enTimes("Registered Oct 13, 9:13 PM · last delivered 9:15 PM"),
+    phoneTimes: enTimes("Registered Oct 13, 9:27 PM"),
+    legacyTimes: enTimes("Registered Sep 2, 8:05 AM · last delivered Oct 12, 8:40 PM"),
     failure: "Last delivery error: Delivery failed. Try a test notification.",
     remove: (name) => `Unregister ${name}`,
     confirm: "Unregister device?",
