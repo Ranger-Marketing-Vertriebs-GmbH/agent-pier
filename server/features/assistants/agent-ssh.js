@@ -57,6 +57,7 @@ export class AgentSsh {
     Object.assign(this, { w, now, intervalMs });
     this.children = new Set();
     this.approvals = new SshApprovals(this);
+    this.hook = (accessId) => this.revokeAccess(accessId);
   }
   get catalog() {
     const store = this.w.s.sshManagement?.store;
@@ -379,7 +380,24 @@ export class AgentSsh {
         (await acquireExecutionLock(path.join(dir, name))).release();
       } catch {}
   }
+  /** SshManagement.removeHost: every agent's grant and open card for the host, at once. */
+  revokeAccess(accessId) {
+    if (this.closed) return [];
+    const changed = this.w.access.revokeSsh(accessId, () =>
+      this.approvals.cancelFor(accessId),
+    );
+    this.w.a.changed();
+    // An agent without grants loses agentpier_ssh; a failed apply converges later.
+    for (const id of changed)
+      if (!this.w.access.hasSshGrants(id) && this.w.a.runtime?.client?.ready)
+        Promise.resolve()
+          .then(() => this.w.a.admit(() => this.w.a.config.apply(id)))
+          .catch(() => {});
+    return changed;
+  }
   close() {
+    if (this.w.s.sshManagement?.onAccessChanged === this.hook)
+      this.w.s.sshManagement.onAccessChanged = null;
     this.closed = true;
     for (const child of this.children) child.kill("SIGKILL");
   }

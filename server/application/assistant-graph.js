@@ -206,6 +206,9 @@ export function constructAssistantGraph(host, created = {}) {
     services: scope,
     autoStart: false,
   }));
+  // Removing an SSH host revokes agent grants and open approvals first (agent-ssh.js).
+  if (host.sshManagement)
+    host.sshManagement.onAccessChanged = assistantWorkflows.ssh.hook;
   const maintenance = new AssistantMaintenance(scope);
   const assistantUpdates = new RuntimeUpdates({
     dataDir,

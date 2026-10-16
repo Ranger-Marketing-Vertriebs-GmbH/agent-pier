@@ -179,3 +179,12 @@ test("a failed construction releases every opened service one after another", as
     "end assistants",
   ]);
 });
+
+test("the graph binds SSH host removal to the agents and unbinds it on close", async (t) => {
+  const sshManagement = { onAccessChanged: null };
+  const graph = constructAssistantGraph({ ...options(t), sshManagement });
+  t.after(() => release(graph));
+  assert.equal(sshManagement.onAccessChanged, graph.assistantWorkflows.ssh.hook);
+  await graph.assistantWorkflows.close();
+  assert.equal(sshManagement.onAccessChanged, null);
+});
