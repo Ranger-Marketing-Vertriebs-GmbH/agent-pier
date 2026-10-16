@@ -83,7 +83,7 @@ function nativeItem(item) {
     result.argv = item.command;
   }
   // Core enums are snake_case ("user_shell"); app-server items use camelCase.
-  if (typeof result.source === "string")
+  if (type === "commandExecution" && typeof result.source === "string")
     result.source = result.source.replace(/_([a-z])/g, (_, letter) =>
       letter.toUpperCase(),
     );

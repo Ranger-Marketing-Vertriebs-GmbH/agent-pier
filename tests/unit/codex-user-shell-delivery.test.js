@@ -114,6 +114,15 @@ test("running and failed user shell commands keep their status", () => {
   );
   const failed = rows(shell("/bin/zsh -lc false", { status: "failed", exitCode: 1 }));
   assert.equal(failed[1].status, "failed");
+  const statuses = ["in_progress", "inProgress", "completed", "declined"];
+  assert.deepEqual(
+    statuses.map((status) => rows(shell("/bin/zsh -lc ls", { status }))[1].status),
+    ["running", "running", "completed", "failed"],
+  );
+  for (const status of ["interrupted", "unknown", undefined, 7]) {
+    const [, row] = rows(shell("/bin/zsh -lc ls", { status, exitCode: null }));
+    assert.equal("status" in row, false, String(status));
+  }
 });
 
 test("long Codex shell output keeps its tail within one tool payload", () => {
@@ -127,16 +136,31 @@ test("long Codex shell output keeps its tail within one tool payload", () => {
   });
 });
 
-test("user shell command parsing stays linear on hostile commands", () => {
-  for (const command of [
-    `/bin/zsh -lc ${"'a'".repeat(50000)}`,
-    `/bin/zsh -lc "${"\\\\".repeat(50000)}"`,
-    `/bin/zsh -lc ${'"'.repeat(50001)}`,
-    `${" ".repeat(100000)}x`,
-  ]) {
-    const started = performance.now();
-    rows(shell(command));
-    const elapsed = performance.now() - started;
-    assert.ok(elapsed < 200, `${command.slice(0, 20)} took ${Math.round(elapsed)} ms`);
+test("user shell command parsing scales linearly on hostile commands", () => {
+  // About 1 MB per shape; doubling the input must not much more than double the time.
+  const shapes = [
+    (n) => `/bin/zsh -lc ${"'a'".repeat(n / 3)}`,
+    (n) => `/bin/zsh -lc "${"\\".repeat(n / 2)}"`,
+    (n) => `/bin/zsh -lc ${'"'.repeat(n + 1)}`,
+    (n) => `${" ".repeat(n)}x`,
+  ];
+  const best = (command) => {
+    let fastest = Infinity;
+    for (let run = 0; run < 3; run++) {
+      const started = performance.now();
+      rows(shell(command));
+      fastest = Math.min(fastest, performance.now() - started);
+    }
+    return fastest;
+  };
+  for (const shape of shapes) {
+    const small = best(shape(600000));
+    const large = best(shape(1200000));
+    const label = shape(12).slice(0, 20);
+    assert.ok(large < 2000, `${label} took ${Math.round(large)} ms`);
+    assert.ok(
+      large <= 3 * small + 20,
+      `${label}: ${Math.round(small)} ms -> ${Math.round(large)} ms for 2x input`,
+    );
   }
 });
