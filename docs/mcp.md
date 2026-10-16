@@ -178,6 +178,22 @@ choice and connects once it is ready. A saved server opens an overview with one 
 per step (**Source and name**, **Settings**, the package panel, **Who may use it**);
 **Change** opens that step, which saves on its own.
 
+**Paste setup from a guide** on the Source step reads a guide's JSON block in the
+browser: `mcpServers` (Claude Desktop, Claude Code `.mcp.json`, Cursor, Windsurf,
+Cline), `servers` with `inputs` (VS Code), `mcp` (OpenCode), `context_servers` (Zed), a
+single entry, a block without its outer braces, or one package runner command line
+(`npx`, `bunx`, `pnpm dlx`, `yarn dlx`, `uvx`, `uv tool run`, `pipx run`). Comments and
+trailing commas are accepted. Such a runner becomes a package that AgentPier installs
+and pins itself; Docker stays an own command. Every key that is not taken over is
+listed by name with its reason, never with its value. Values that refer to another
+setting (`${…}`, `{env:…}`, `{file:…}`) or that are obvious placeholders become empty,
+required settings. Nothing is sent while reading except the package name, which is
+looked up at npm or PyPI; the pasted text stays in the wizard and is dropped when it
+closes. A block may hold up to 20 servers in 64 KiB; after one is finished, **Add
+another server** offers the rest without pasting again. Codex TOML and `claude mcp add`
+lines are not read yet. The own-command step offers **Switch to package** when its
+command is such a runner.
+
 - **Support.** Claude Code: stdio, HTTP, SSE. Codex: stdio, HTTP (no SSE). OpenCode:
   stdio and HTTP or SSE (`remote`). Only Claude Code cannot start a stdio command in a
   working directory. Unsupported combinations are disabled with a reason in the form
