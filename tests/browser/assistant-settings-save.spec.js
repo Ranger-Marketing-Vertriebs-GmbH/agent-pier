@@ -139,6 +139,7 @@ test("the Work tab saves grants and team policy in one request, then only what c
       revision: 0,
       projectIds: ["p1"],
       pipelineIds: [],
+      sshAccesses: [],
       memoryWrite: false,
       autonomous: false,
       publish: false,

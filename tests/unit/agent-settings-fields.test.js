@@ -256,6 +256,7 @@ test("work drafts send only the half that changed, each with its revision", () =
   assert.deepEqual(base, {
     projectIds: ["p1", "p2"],
     pipelineIds: [],
+    sshAccesses: [],
     memoryWrite: true,
     autonomous: false,
     publish: false,
@@ -285,6 +286,7 @@ test("work drafts send only the half that changed, each with its revision", () =
         revision: 4,
         projectIds: ["p1", "p2"],
         pipelineIds: [],
+        sshAccesses: [],
         memoryWrite: true,
         autonomous: false,
         publish: true,
