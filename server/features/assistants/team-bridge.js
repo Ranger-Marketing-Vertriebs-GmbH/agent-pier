@@ -4,7 +4,8 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { personalCapabilities, writeGuardRuntimes } from "./native-capabilities.js";
 import { toolError } from "./tool-errors.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
-import { flushSessionAgent, flushTarget } from "./memory-flushes.js";
+import { flushSessionAgent } from "./memory-flushes.js";
+import { flushWrite, noteRefusal } from "./memory-write-policy.js";
 import { isMemory } from "./lead-request-writes.js";
 const actions = new Set([
   "propose",
@@ -46,8 +47,13 @@ export class TeamBridge {
     // Leaving ready (disconnect, restart, failure) may reload the Gateway's plugins;
     // writes wait for the guard's next periodic report.
     let previous = assistants.runtime?.status?.().availability;
+    // When the Gateway last became ready: owner turns wait for the guard only
+    // within a window after it (write-guard-wait.js).
+    this.readyAt = previous === "ready" ? now() : null;
     assistants.runtime?.on?.("status", (state) => {
       if (previous === "ready" && leavingReady.has(state.availability)) this.guard = null;
+      if (state.availability === "ready" && previous !== "ready")
+        this.readyAt = this.now();
       previous = state.availability;
     });
     this.tickets = new Map();
@@ -188,19 +194,21 @@ export class TeamBridge {
     if (
       !input ||
       Object.keys(input).some(
-        (k) => !["agentId", "sessionKey", "toolName", "path"].includes(k),
+        (k) => !["agentId", "sessionKey", "toolName", "path", "runId"].includes(k),
       ) ||
       !writeTools.includes(input.toolName)
     )
       throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "path"]) textValue(input[k], 4096);
+    // The hook's run id (OpenClaw 2026.10.3 reports it); only flushes rely on it.
+    if ("runId" in input) textValue(input.runId, 512);
     if (this.closed || !this.assistants.runtime.client?.ready) return { allow: false };
     const allow = this.writeAllowed(input);
-    if (!allow && isMemory(input.path)) this.noteRefusal(input);
+    if (!allow && isMemory(input.path)) noteRefusal(this, input);
     return { allow };
   }
   writeAllowed(input) {
-    if (flushSessionAgent(input.sessionKey)) return this.flushWrite(input);
+    if (flushSessionAgent(input.sessionKey)) return flushWrite(this, input);
     const matches = this.bound(input.sessionKey);
     // A routine's own run session has no attempt: its writes are its own origin.
     if (!matches.length) return this.routineWrite(input);
@@ -218,37 +226,6 @@ export class TeamBridge {
             input.path,
           )))
     );
-  }
-  // A refused write to MEMORY.md or memory/ shows in the turn's chat as a quiet
-  // note (memory-notes.js), once per turn and reason, so neither the owner nor the
-  // agent's next reply can take it for saved.
-  noteRefusal(input) {
-    const notes = this.assistants.memoryNotes;
-    if (!notes) return;
-    const flush = !!flushSessionAgent(input.sessionKey);
-    const turns = flush
-      ? (this.assistants.memoryFlushes?.active() || []).flatMap((f) => {
-          const matches = this.bound(f.sessionKey);
-          return matches.length === 1
-            ? [{ attempt: matches[0], key: `flush:${f.runId}` }]
-            : [];
-        })
-      : this.bound(input.sessionKey).map((attempt) => ({ attempt }));
-    if (turns.length !== 1) return;
-    const { attempt, parent, origin } = this.turn(turns[0].attempt, input.agentId);
-    if (parent.runtimeAgentId !== input.agentId || (!flush && this.ownerOrigin(origin)))
-      return;
-    const reason = flush
-      ? "flush"
-      : origin?.kind === "lead-request"
-        ? "lead-request"
-        : "not-owner";
-    const added = notes.record({
-      key: turns[0].key || `${attempt.id}:${reason}`,
-      conversationId: this.assistants.ledger.getRequest(attempt.requestId).conversationId,
-      reason,
-    });
-    if (added) this.assistants.changed?.();
   }
   // The active attempts bound to a runtime session.
   bound(sessionKey) {
@@ -271,36 +248,6 @@ export class TeamBridge {
   }
   ownerOrigin(origin) {
     return ["owner", "telegram"].includes(origin?.kind) && !origin.forwarded;
-  }
-  // OpenClaw's pre-compaction memory flush runs in its own internal session
-  // (memory-flushes.js); its one write is the append-only daily note. It writes for
-  // the run it interrupts: an owner's (or the paired Telegram chat's) own turn, or a
-  // routine's run, of the same agent, never a forwarded, lead-requested or other
-  // turn. One flush of the agent at a time; anything ambiguous is refused.
-  flushWrite(input) {
-    if (
-      flushSessionAgent(input.sessionKey) !== input.agentId ||
-      input.toolName !== "write" ||
-      !flushTarget.test(input.path)
-    )
-      return false;
-    const decisions = (this.assistants.memoryFlushes?.active() || []).flatMap((flush) => {
-      const matches = this.bound(flush.sessionKey);
-      if (matches.length > 1) return [false];
-      if (!matches.length) {
-        const source = { agentId: input.agentId, sessionKey: flush.sessionKey };
-        if (this.routineWrite(source)) return [true];
-        return flush.sessionKey.startsWith(`agent:${input.agentId}:`) ? [false] : [];
-      }
-      const { attempt, parent, origin, current } = this.turn(matches[0], input.agentId);
-      if (parent.runtimeAgentId !== input.agentId) return [];
-      return [
-        current &&
-          [attempt.id, attempt.runtimeRunId].includes(flush.runId) &&
-          this.ownerOrigin(origin),
-      ];
-    });
-    return decisions.length === 1 && decisions[0] === true;
   }
   // A routine is standing work its owner configured for this agent: its run may
   // change the agent's own workspace like an owner turn. This origin is only the

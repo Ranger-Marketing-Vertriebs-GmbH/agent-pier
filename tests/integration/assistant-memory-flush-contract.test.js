@@ -247,7 +247,10 @@ test(
       "a forwarded run's flush is refused",
     );
     assert.equal(daily() || "", "", "nothing was written for the forwarded run");
-    // The owner's own turns: the next compaction's flush appends the note.
+    // The owner's own turns: the next compaction's flush appends to the day note,
+    // keeping what it already holds (OpenClaw's append-only flush writer).
+    fs.mkdirSync(path.join(workspace, "memory"), { recursive: true });
+    fs.writeFileSync(path.join(workspace, seen[0].target), "existing note\n");
     const flushes = seen.length;
     await turn("My router lives at 10.0.0.1.", { kind: "owner" });
     await turn("And the DNS server at 10.0.0.53.", { kind: "owner" });
@@ -262,6 +265,9 @@ test(
       ),
     );
     assert.match(daily(), /flushfact/, "the daily note got the flush's content");
+    assert.match(daily(), /^existing note\n[\s\S]*flushfact/, "appended, not replaced");
+    // The plugin reported each flush's own run id with its key.
+    assert.ok(admitted.every((p) => p.runId && p.sessionKey.includes(`:${p.runId}-`)));
     assert.equal(fs.existsSync(path.join(workspace, "MEMORY.md")), false);
   },
 );
