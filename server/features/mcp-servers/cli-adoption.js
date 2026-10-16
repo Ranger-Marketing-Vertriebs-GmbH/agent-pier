@@ -125,7 +125,9 @@ export function changeRefusal(parsed) {
  * The update that makes `server` (public) match the owner's edit `parsed`, found in
  * `cli`. OpenCode's `remote` cannot tell SSE from HTTP, and Claude Code and Codex
  * write an OAuth server like a header server without headers: both keep the server's
- * own kind. A different connection type or settings AgentPier does not manage: 409.
+ * own kind. A field the CLI cannot express keeps the server's value: Claude Code's
+ * native form has no OAuth scope. A different connection type or settings AgentPier
+ * does not manage: 409.
  */
 export function patchFromNative(server, cli, parsed) {
   if (!parsed?.ok) throw changeRefusal(parsed);
@@ -160,7 +162,12 @@ export function patchFromNative(server, cli, parsed) {
     url: definition.url,
     auth,
     ...(auth === "oauth"
-      ? { oauthScope: definition.oauthScope ?? "" }
+      ? {
+          oauthScope:
+            (cli === "claude" && server.auth === "oauth"
+              ? server.oauthScope
+              : definition.oauthScope) ?? "",
+        }
       : { headers: replace(server.headerNames, secrets.headers) }),
   };
 }
