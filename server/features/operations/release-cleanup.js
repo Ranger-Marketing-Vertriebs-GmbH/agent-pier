@@ -136,6 +136,8 @@ export function cleanupState({
         },
       ];
     });
+    // Newest first, in the same order as the release history.
+    versions.sort((a, b) => compareReleaseVersions(b.version, a.version));
     return { available: true, versions };
   } catch {
     return blocked;
