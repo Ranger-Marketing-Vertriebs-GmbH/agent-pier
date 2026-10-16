@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { resolveCommand } from "../../features/mcp-servers/command-resolution.js";
+import { findCommand } from "../../features/mcp-servers/command-resolution.js";
 
 /**
- * The wizard's own-command lookup: the same PATH resolution a save uses, answered as
- * found or not. Nothing is executed; the name is never logged. Kept apart from
+ * The wizard's own-command lookup: the path a save would resolve, answered as found
+ * or not. Nothing is executed; the name is never logged. Kept apart from
  * /mcp-servers/:id so no server id can be mistaken for it.
  */
 export function mcpCommandRoutes(services) {
@@ -11,14 +11,8 @@ export function mcpCommandRoutes(services) {
   router.get("/mcp-commands/resolve", (req, res) => {
     res.set("Cache-Control", "no-store");
     const name = typeof req.query.name === "string" ? req.query.name : "";
-    try {
-      res.json({
-        found: true,
-        path: resolveCommand(name, services.mcpServers?.resolveOptions),
-      });
-    } catch {
-      res.json({ found: false });
-    }
+    const found = findCommand(name, services.mcpServers?.resolveOptions);
+    res.json(found ? { found: true, path: found } : { found: false });
   });
   return router;
 }
