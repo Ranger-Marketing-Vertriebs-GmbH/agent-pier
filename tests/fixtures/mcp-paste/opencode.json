@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "local-files": {
+      "type": "local",
+      "command": ["node", "/srv/files/server.js", "--root", "/srv/data"],
+      "environment": { "FILES_TOKEN": "{env:FILES_TOKEN}" },
+      "enabled": true
+    },
+    "docs": {
+      "type": "remote",
+      "url": "https://docs.example.test/sse",
+      "headers": { "X-Api-Key": "abc123" },
+      "oauth": false
+    }
+  }
+}

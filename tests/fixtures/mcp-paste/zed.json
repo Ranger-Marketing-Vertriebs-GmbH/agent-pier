@@ -1,0 +1,12 @@
+{
+  "context_servers": {
+    "postgres": {
+      "command": {
+        "path": "uvx",
+        "args": ["mcp-server-postgres", "postgresql://localhost/db"],
+        "env": { "PGPASSWORD": "<password>" }
+      },
+      "settings": {}
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  // VS Code mcp.json
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "gh-token",
+      "description": "GitHub personal access token",
+      "password": true,
+    },
+  ],
+  "servers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer ${input:gh-token}" },
+    },
+    "fetch": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-server-fetch"],
+      "envFile": "${workspaceFolder}/.env",
+    },
+  },
+}

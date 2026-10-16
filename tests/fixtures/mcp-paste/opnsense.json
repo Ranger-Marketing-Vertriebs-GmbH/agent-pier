@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "opnsense": {
+      "command": "npx",
+      "args": ["-y", "opnsense-mcp-server"],
+      "env": {
+        "OPNSENSE_URL": "https://192.168.1.1",
+        "OPNSENSE_API_KEY": "your-api-key-here",
+        "OPNSENSE_API_SECRET": "your-api-secret-here",
+        "OPNSENSE_VERIFY_SSL": false,
+        "OPNSENSE_ALLOW_WRITES": "false"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
