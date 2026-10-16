@@ -1,7 +1,8 @@
 // Who published a package and where its source lives, as the registry states it.
 // Shown to the owner as "according to npm/PyPI" and "link given by the publisher,
 // not verified"; never trusted for anything else.
-export const hidden = /[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g;
+export const hidden =
+  /[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2060\u2066-\u2069\ufeff]/g;
 const linkLimit = 2048;
 
 /** Trimmed text without control or bidi characters, cut at `cap` with "…"; else null. */

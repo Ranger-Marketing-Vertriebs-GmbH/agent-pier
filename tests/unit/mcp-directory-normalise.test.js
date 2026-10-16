@@ -335,3 +335,30 @@ test("more package arguments than the cap make the option unsupported", () => {
   item.server.packages[0].packageArguments.pop();
   assert.equal(normaliseEntry(item).options[0].packageArgs.length, 100);
 });
+
+test("zero-width, line-separator and mark characters never survive in text", () => {
+  const invisible = /[\u061c\u200b-\u200d\u2060\ufeff\u2028\u2029]/;
+  const item = fixture("smithery-remote");
+  Object.assign(item.server, {
+    title: "Op\u200bns\u200c\u200dense\ufeff\u2060",
+    description: "a\u061cb\u2028c\u2029d",
+  });
+  const entry = normaliseEntry(item);
+  assert.equal(entry.title, "Opnsense");
+  assert.equal(entry.description, "abcd");
+  fc.assert(
+    fc.property(
+      fc.array(fc.constantFrom("a", "\u061c", "\u200b", "\u200c", "\u200d", "\u2060")),
+      fc.array(fc.constantFrom("b", "\ufeff", "\u2028", "\u2029")),
+      (left, right) => {
+        const copy = fixture("smithery-remote");
+        Object.assign(copy.server, {
+          title: `T${left.join("")}`,
+          description: `D${right.join("")}`,
+        });
+        const out = normaliseEntry(copy);
+        assert.doesNotMatch(`${out.title}${out.description}`, invisible);
+      },
+    ),
+  );
+});
