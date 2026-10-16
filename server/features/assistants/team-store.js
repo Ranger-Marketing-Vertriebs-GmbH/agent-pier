@@ -396,10 +396,26 @@ export class TeamStore {
       const value = this.assertLifecycle(id, revision);
       // A caller's own conditions, re-checked in the same transaction.
       check?.(value);
-      const next = this.write(value, patch);
+      // A kept member runs on its lead's model of this moment from now on, and a later
+      // change of its own counts against it (memberOverrides).
+      const frozen = (member) =>
+        patch.lifetime === "permanent" && member.lifetime !== "permanent"
+          ? {
+              snapshot: {
+                ...member.snapshot,
+                model: this.store.getAssistant(member.assistantId).model,
+              },
+            }
+          : {};
+      const next = this.write(
+        value,
+        value.kind === "member" ? { ...patch, ...frozen(value) } : patch,
+      );
       const members = value.kind === "member" ? [next] : this.members(id);
       for (const member of members) {
-        if (value.kind === "team") this.write(member, patch);
+        if (value.kind === "team") this.write(member, { ...patch, ...frozen(member) });
+        // Read with the model it runs on: a temporary member's is its lead's, which
+        // the stored record keeps once the member is permanent.
         const a = this.store.getAssistant(member.assistantId);
         const updated = {
           ...a,

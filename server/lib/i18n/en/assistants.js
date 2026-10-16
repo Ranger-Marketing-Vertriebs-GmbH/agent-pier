@@ -123,6 +123,8 @@ export const assistants = {
     "An agent with its own Telegram bot for other people must not have shell access. Turn shell off or disconnect the bot first.",
   telegramSendersStdio:
     "This agent has a stdio MCP server, which runs commands on this computer. Remove it before you connect a bot for other people.",
+  memberModelFollowsLead:
+    "A task-bound member uses its lead's model. Change the model there or keep the member as a permanent agent.",
   memberRequestNotPermanent: "Tasks can only be delegated to permanent members.",
   memberRequestOpenTask:
     "This member already has an open task. Wait for its result or cancel it first.",

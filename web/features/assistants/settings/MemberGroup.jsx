@@ -43,12 +43,20 @@ export default function MemberGroup({ assistant }) {
         <p>
           {member.lifetime === "permanent" ? copy.team.permanent : copy.team.taskBound}
         </p>
-        <p className="assistant-note">{copy.team.independent}</p>
+        <p className="assistant-note">
+          {member.lifetime === "permanent"
+            ? copy.team.independent
+            : copy.team.independentTask}
+        </p>
         {member.overrides && (
           <div className="assistant-member-provenance">
-            <p>
-              {member.overrides.model ? copy.team.modelChanged : copy.team.modelOriginal}
-            </p>
+            {"model" in member.overrides && (
+              <p>
+                {member.overrides.model
+                  ? copy.team.modelChanged
+                  : copy.team.modelOriginal}
+              </p>
+            )}
             <p>
               {member.overrides.instructions
                 ? copy.team.instructionsChanged

@@ -97,10 +97,15 @@ export const profileServer = (assistant) => ({
   connectionId: assistant?.model?.connectionId || "",
   modelId: assistant?.model?.modelId || "",
 });
-export const profilePatch = (values) => ({
+/** A temporary member runs on its lead's model and has none of its own to edit. */
+export const followsLeadModel = (assistant) =>
+  !!assistant?.teamMemberId && assistant.lifetime !== "permanent";
+export const profilePatch = (values, { followsLead = false } = {}) => ({
   name: values.name,
   instructions: values.instructions,
-  model: { connectionId: values.connectionId, modelId: values.modelId },
+  ...(!followsLead && {
+    model: { connectionId: values.connectionId, modelId: values.modelId },
+  }),
 });
 
 export const capabilityServer = (assistant) => ({

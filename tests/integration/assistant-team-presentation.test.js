@@ -4,7 +4,13 @@ import { teamFixture } from "../helpers/assistant-team-fixture.js";
 
 test("member provenance compares each field with its original snapshot, not today's parent", async (t) => {
   const f = teamFixture(t),
-    { team, parent } = await f.proposal({ count: 1 });
+    { team, parent } = await f.proposal({ count: 1, allowed: false });
+  // A permanent member has a model of its own; a temporary one follows its lead's.
+  await f.service.decide(
+    team.id,
+    { revision: team.revision, decision: "approve", lifetime: "permanent" },
+    { kind: "owner" },
+  );
   const m = f.service.store.members(team.id)[0];
   const original = f.store.getAssistant(m.assistantId);
   const current = () => f.service.list().members.find((x) => x.id === m.id);
@@ -35,6 +41,19 @@ test("member provenance compares each field with its original snapshot, not toda
   assert.deepEqual(current().overrides, { model: false, instructions: false });
   assert.equal(current().snapshot, undefined);
   assert.equal(current().instructions, undefined);
+});
+
+test("a temporary member's provenance names only its instructions", async (t) => {
+  const f = teamFixture(t),
+    { team, parent } = await f.proposal({ count: 1 });
+  const m = f.service.store.members(team.id)[0];
+  const current = () => f.service.list().members.find((x) => x.id === m.id);
+  f.store.updateAssistant(
+    parent.id,
+    { model: { connectionId: "new", modelId: "new" } },
+    parent.revision,
+  );
+  assert.deepEqual(current().overrides, { instructions: false });
 });
 
 for (const [phases, expected] of [

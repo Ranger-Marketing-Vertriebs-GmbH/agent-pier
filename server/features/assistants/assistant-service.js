@@ -13,6 +13,7 @@ import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js"
 import { ExecAllowlist } from "./exec-allowlist.js";
 import { AgentSkills } from "./agent-skills.js";
 import { assistantActivity } from "./assistant-activity.js";
+import { temporaryMember } from "./team-presentation.js";
 import { ChatStreams } from "./chat-stream.js";
 import {
   auditProactivity,
@@ -252,6 +253,9 @@ export class AssistantService {
       // A form sends every field; only the ones that differ are a change, so an
       // unchanged name or model never holds back lowering the shell level.
       patch = withoutUnchanged(body, changes, current);
+      // A temporary member runs on its lead's model; only a permanent one has its own.
+      if (patch.model && temporaryMember(current))
+        throw assistantProblem("memberModelFollowsLead", 409);
       // Refuses an ineligible agent or a missing confirmation before any change.
       shell = shellChange(current, patch, { confirmShell, confirmFull });
       // People on the agent's own Telegram bot must never reach host commands.

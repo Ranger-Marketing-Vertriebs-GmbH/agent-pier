@@ -1,5 +1,5 @@
 import path from "node:path";
-import { memberInstructions } from "./team-presentation.js";
+import { effectiveModel, memberInstructions } from "./team-presentation.js";
 import { randomUUID } from "node:crypto";
 import { privateDatabase } from "../../lib/private-database.js";
 import { fencedDatabase } from "./ledger-fence.js";
@@ -73,16 +73,39 @@ export class AssistantStore {
       .run(id, 1, JSON.stringify(record));
     return record;
   }
-  getAssistant(id) {
+  /** The stored record, without resolving a temporary member's model. */
+  storedAssistant(id) {
     const row = this.db.prepare("SELECT body FROM assistants WHERE id=?").get(id);
     if (!row) throw assistantProblem("notFound", 404);
     return JSON.parse(row.body);
   }
+  /**
+   * Every read carries the model the agent runs on (effectiveModel): a temporary
+   * member's is its lead's current one, so runtime config, capability checks and
+   * the agents list all follow a change to the lead without copying it.
+   */
+  getAssistant(id) {
+    const record = this.storedAssistant(id);
+    if (!record.teamMemberId) return record;
+    let lead;
+    try {
+      lead = this.storedAssistant(record.parentAssistantId);
+    } catch {
+      /* No readable lead: the member keeps its own model. */
+    }
+    return { ...record, model: effectiveModel(record, lead) };
+  }
   listAssistants() {
-    return this.db
+    const records = this.db
       .prepare("SELECT body FROM assistants ORDER BY rowid")
       .all()
       .map((r) => JSON.parse(r.body));
+    const byId = new Map(records.map((r) => [r.id, r]));
+    return records.map((r) =>
+      r.teamMemberId
+        ? { ...r, model: effectiveModel(r, byId.get(r.parentAssistantId)) }
+        : r,
+    );
   }
   updateAssistant(id, patch, revision) {
     const changes = validateDefinition(patch, true),

@@ -49,7 +49,9 @@ be refreshed. The agent appears in the sidebar under **Agents**; its chat opens 
 ### Profile
 
 Name, instructions and model. A team member also shows where it came from and whether
-its model or instructions changed since it was created.
+its instructions changed since it was created. A temporary member has no model of its
+own: its Profile shows the lead's model with "Follows the lead's model." A permanent
+member also shows whether its model changed since it took it over from the lead.
 
 ### Capabilities
 
@@ -124,8 +126,15 @@ message** behind **+** in the composer allows one team for one request; **Allow 
 without asking each time** allows them in general. Temporary members get their own
 chat, finish with the task and can be kept with **Keep as permanent agent**.
 Permanent members stay under their lead in the sidebar. Every member row and chat header
-shows the model the member actually runs on; it starts as a copy of the lead's model and
-can be changed for permanent members.
+shows the model the member actually runs on:
+
+- **Temporary members** always use the lead's current model. Change the lead's model
+  and its temporary members use the new one from their next turn on. When the lead's
+  model connection is removed or unavailable, they stop working with the same hint as
+  the lead until you choose another model for the lead.
+- **Permanent members** have their own model. A member kept with **Keep as permanent
+  agent** takes over the lead's model of that moment; later changes to the lead do not
+  affect it. Change it in the member's Profile.
 
 A lead also talks to its members directly:
 
