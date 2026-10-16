@@ -208,9 +208,11 @@ test("Overwrite anyway sends the newer MCP revision", async ({ page }) => {
   await mcpApi(page, state);
   await page.goto(baseURL + "/accounts");
   const detail = await openAccountItem(page, "docs");
+  await detail.getByRole("button", { name: "Change: Source and name" }).click();
+  await expect(page).toHaveURL(/item=s1&step=setup/);
   await detail.getByLabel("Address").fill("https://docs.example/v2");
   state.revision = 4;
-  await saveBar(page).getByRole("button", { name: "Save server" }).click();
+  await saveBar(page).getByRole("button", { name: "Save changes" }).click();
   await expect(saveBar(page).getByRole("alert")).toContainText("Changed elsewhere");
   await saveBar(page).getByRole("button", { name: "Overwrite anyway" }).click();
   await expect(saveBar(page)).toHaveCount(0);
