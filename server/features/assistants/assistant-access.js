@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { requirePipeline } from "../mcp/tool-policy.js";
+import { sshModes } from "./agent-ssh-origin.js";
+import { personalEligible } from "./native-capabilities.js";
+// The session grant limit (ssh-sessions.js) also bounds an agent's SSH hosts.
+const maxSshAccesses = 30;
+const byAccessId = (a, b) =>
+  a.accessId < b.accessId ? -1 : a.accessId > b.accessId ? 1 : 0;
 export const digest = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export function exact(input, keys) {
@@ -32,7 +38,7 @@ export class AssistantAccess {
       .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
       .get(id);
     return row
-      ? JSON.parse(row.body)
+      ? { sshAccesses: [], ...JSON.parse(row.body) }
       : {
           revision: 0,
           projectIds: [],
@@ -43,6 +49,7 @@ export class AssistantAccess {
           accountIds: [],
           connectionIds: [],
           definitions: {},
+          sshAccesses: [],
         };
   }
   definition(id) {
@@ -54,18 +61,43 @@ export class AssistantAccess {
     return { pipeline, profiles, hash: digest({ pipeline, profiles }) };
   }
   catalog() {
+    const projects = this.s.memory
+      .projects()
+      .projects.map(({ id, name }) => ({ id, name }));
+    const names = new Map(projects.map((p) => [p.id, p.name]));
+    const hosts = this.sshHosts();
     return {
-      projects: this.s.memory.projects().projects.map(({ id, name }) => ({ id, name })),
+      projects,
       pipelines: this.s.pipelineDefinitions
         .listPipelines()
         .map(({ id, name }) => ({ id, name })),
+      // Public catalog metadata only; null tells the Work tab it could not be read.
+      sshHosts:
+        hosts &&
+        hosts.map(({ id, name, host, port, username, hostFingerprint, projectId }) => ({
+          id,
+          name,
+          host,
+          port,
+          username,
+          hostFingerprint,
+          projectId: projectId ?? null,
+          projectName: (projectId && names.get(projectId)) || null,
+        })),
     };
   }
   /** Validates a policy change against `revision`; returns the record, writes nothing. */
   prepare(id, input, revision) {
     this.eligible(id);
     if (this.s.assistants.maintenance) throw assistantProblem("active", 409);
-    exact(input, ["projectIds", "pipelineIds", "memoryWrite", "autonomous", "publish"]);
+    exact(input, [
+      "projectIds",
+      "pipelineIds",
+      "memoryWrite",
+      "autonomous",
+      "publish",
+      "sshAccesses",
+    ]);
     const old = this.get(id);
     if (old.revision !== revision) throw assistantProblem("conflict", 409);
     for (const key of ["projectIds", "pipelineIds"]) {
@@ -95,6 +127,11 @@ export class AssistantAccess {
     }
     return {
       ...input,
+      // Absent keeps the stored grants: the MCP path and older clients never send them.
+      sshAccesses:
+        input.sshAccesses === undefined
+          ? old.sshAccesses
+          : this.sshList(id, input.sshAccesses),
       revision: revision + 1,
       accountIds: [...accountIds],
       connectionIds: [...connectionIds],
@@ -110,9 +147,131 @@ export class AssistantAccess {
     return next;
   }
   save(id, input, revision) {
+    const before = this.get(id);
     const next = this.write(id, this.prepare(id, input, revision));
+    this.auditSsh(id, before, next, "owner");
     this.s.assistants.changed();
     return next;
+  }
+  // A replaced SSH grant list: catalog hosts with a mode, sorted; an agent with its
+  // own bot for other people never gets one (telegram-senders.js).
+  sshList(id, value) {
+    if (!Array.isArray(value) || value.length > maxSshAccesses)
+      throw assistantProblem("invalid");
+    const seen = new Set();
+    const list = value.map((entry) => {
+      exact(entry, ["accessId", "mode"]);
+      textValue(entry.accessId, 100);
+      if (!sshModes.includes(entry.mode) || seen.has(entry.accessId))
+        throw assistantProblem("invalid");
+      seen.add(entry.accessId);
+      return { accessId: entry.accessId, mode: entry.mode };
+    });
+    if (!list.length) return list;
+    const hosts = this.sshHosts();
+    if (!hosts) throw assistantProblem("sshHostUnavailable", 503);
+    if (list.some((g) => !hosts.some((h) => h.id === g.accessId)))
+      throw assistantProblem("sshHostUnavailable", 409);
+    if (this.s.assistantTelegramSenders?.connected(id))
+      throw assistantProblem("telegramSendersSsh", 409);
+    return list.sort(byAccessId);
+  }
+  // The SSH catalog's hosts, or null while it cannot be read (never "no hosts").
+  sshHosts() {
+    const store = this.s.sshManagement?.store;
+    if (!store) return null;
+    try {
+      return store.list();
+    } catch {
+      return null;
+    }
+  }
+  sshGrant(id, accessId) {
+    return this.get(id).sshAccesses.find((g) => g.accessId === accessId) || null;
+  }
+  hasSshGrants(id) {
+    try {
+      return (
+        personalEligible(this.s.assistants.store.getAssistant(id)) &&
+        this.get(id).sshAccesses.length > 0
+      );
+    } catch {
+      return false;
+    }
+  }
+  /** Eligible agents with at least one SSH grant; never throws (compiles use it). */
+  sshAgents() {
+    try {
+      return new Set(
+        this.db
+          .prepare("SELECT assistant_id FROM assistant_access")
+          .all()
+          .map((r) => r.assistant_id)
+          .filter((id) => this.hasSshGrants(id)),
+      );
+    } catch {
+      return new Set();
+    }
+  }
+  /**
+   * Removes one SSH host from every agent's grants in one transaction, together with
+   * `during` (cancelling its open approvals); returns the agents whose grants changed.
+   */
+  revokeSsh(accessId, during = () => {}) {
+    const changed = [];
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      for (const row of this.db
+        .prepare("SELECT assistant_id, body FROM assistant_access")
+        .all()) {
+        const before = { sshAccesses: [], ...JSON.parse(row.body) };
+        if (!before.sshAccesses.some((g) => g.accessId === accessId)) continue;
+        const after = this.write(row.assistant_id, {
+          ...before,
+          sshAccesses: before.sshAccesses.filter((g) => g.accessId !== accessId),
+          revision: before.revision + 1,
+        });
+        changed.push({ id: row.assistant_id, before, after });
+      }
+      during();
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+    for (const c of changed) this.auditSsh(c.id, c.before, c.after, "host-removed");
+    if (changed.length) this.s.assistants.changed();
+    return changed.map((c) => c.id);
+  }
+  /** One `assistant.updated` record per grant change: ids and modes, never more. */
+  auditSsh(id, before, after, reason) {
+    const from = new Map((before?.sshAccesses || []).map((g) => [g.accessId, g.mode]));
+    const to = new Map((after?.sshAccesses || []).map((g) => [g.accessId, g.mode]));
+    const added = [...to.keys()].filter((k) => !from.has(k));
+    const removed = [...from.keys()].filter((k) => !to.has(k));
+    const modeChanged = [...to]
+      .filter(([k, mode]) => from.has(k) && from.get(k) !== mode)
+      .map(([accessId, mode]) => ({ accessId, from: from.get(accessId), to: mode }));
+    if (!added.length && !removed.length && !modeChanged.length) return;
+    try {
+      this.s.audit?.append({
+        action: "assistant.updated",
+        resourceType: "assistant",
+        resourceId: id,
+        source: "user",
+        outcome: "success",
+        details: {
+          kind: "ssh-grants",
+          revision: after.revision,
+          added,
+          removed,
+          modeChanged,
+          reason,
+        },
+      });
+    } catch (error) {
+      console.error("Agent SSH grant audit failed:", error?.message);
+    }
   }
   authorize(id, projectId, pipelineId, revision) {
     this.eligible(id);
