@@ -15,6 +15,19 @@ const shared = () => agent("haus", "Haus", { telegramSenders: true });
 const later = (state) =>
   state.requests.filter((r) => r.method === "PUT" || r.method === "PATCH");
 
+async function installToConnect(wizard) {
+  await chooseSource(wizard, "Package from npm or PyPI");
+  await wizard.getByLabel("Package", { exact: true }).fill("server-x");
+  await expect(wizard.getByLabel("Version", { exact: true })).toHaveValue("1.1.0");
+  await primary(wizard).click();
+  await primary(wizard).click();
+  await wizard
+    .getByRole("region", { name: "Install this package?" })
+    .getByRole("button", { name: "Install" })
+    .click();
+  await wizard.getByRole("button", { name: "Continue", exact: true }).click();
+}
+
 for (const [label, use] of [
   ["desktop", {}],
   ["phone", phone],
@@ -103,16 +116,10 @@ for (const [label, use] of [
       const state = await wizardSetup(page, { agents: true });
       await withAgents(page, state, [home()]);
       const wizard = await openWizard(page);
-      await chooseSource(wizard, "Package from npm or PyPI");
-      await wizard.getByLabel("Package", { exact: true }).fill("server-x");
-      await expect(wizard.getByLabel("Version", { exact: true })).toHaveValue("1.1.0");
-      await primary(wizard).click();
-      await primary(wizard).click();
-      await wizard
-        .getByRole("region", { name: "Install this package?" })
-        .getByRole("button", { name: "Install" })
-        .click();
-      await wizard.getByRole("button", { name: "Continue", exact: true }).click();
+      await installToConnect(wizard);
+      await expect(
+        wizard.getByRole("status").filter({ hasText: "Installing…" }),
+      ).toBeVisible();
       await wizard.getByRole("switch", { name: "Claude Code" }).check();
       await wizard.getByRole("switch", { name: "Home" }).check();
       await expect(primary(wizard)).toHaveText("Connect when installed");
@@ -131,5 +138,40 @@ for (const [label, use] of [
       await expect(page).toHaveURL(/step=done/, { timeout: 8000 });
       expect(later(state).map((r) => r.method)).toEqual(["PUT", "PATCH"]);
     });
+
+    for (const status of ["failed", "choosing"]) {
+      test(`a package that ends ${status} while Connect is open binds nothing`, async ({
+        page,
+      }) => {
+        const state = await wizardSetup(page, { agents: true });
+        await withAgents(page, state, [home()]);
+        const wizard = await openWizard(page);
+        await installToConnect(wizard);
+        await wizard.getByRole("switch", { name: "Claude Code" }).check();
+        await wizard.getByRole("switch", { name: "Home" }).check();
+        state.finishInstall(status);
+        await expect(primary(wizard)).not.toHaveText("Connect when installed", {
+          timeout: 8000,
+        });
+        await primary(wizard).click();
+        await expect(page).toHaveURL(/step=done/);
+        expect(later(state)).toEqual([]);
+      });
+
+      test(`a wait for the package ends when it turns ${status}`, async ({ page }) => {
+        const state = await wizardSetup(page, { agents: true });
+        await withAgents(page, state, [home()]);
+        const wizard = await openWizard(page);
+        await installToConnect(wizard);
+        await wizard.getByRole("switch", { name: "Claude Code" }).check();
+        await primary(wizard).click();
+        await expect(
+          wizard.getByText(/Connecting as soon as the package is installed/),
+        ).toBeVisible();
+        state.finishInstall(status);
+        await expect(page).toHaveURL(/step=done/, { timeout: 8000 });
+        expect(later(state)).toEqual([]);
+      });
+    }
   });
 }
