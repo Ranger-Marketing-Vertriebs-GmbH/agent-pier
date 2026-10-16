@@ -46,6 +46,17 @@ export const profileExtensionsCopy = {
   extensionSectionPlaceholder: "Name, description or scope",
   noMatchingSkills: "No skills match your search.",
   noSkills: "No skills found in the known profile directories.",
+  skillVisibilityNotice: (scope) =>
+    `${scope}. Known user and profile folders are shown; project- and plugin-specific skills are not fully covered. Only skills installed here can be removed.`,
+  skillScopes: {
+    sharedUserSkillScope: "User · shared by Codex and compatible CLIs",
+    codexProfileSkillScope: "Codex profile · existing skills",
+    systemReadOnlyScope: "System · read-only",
+    claudeProfileScope: "Claude profile",
+    claudeUserScope: "Claude user",
+    openCodeProfileScope: "OpenCode profile",
+    openCodeUserScope: "OpenCode user",
+  },
 };
 export const skillInstallFormCopy = {
   fileRequired: "Please choose a skill file first.",

@@ -10,6 +10,11 @@ import {
 import ExtensionHint from "./ExtensionHint.jsx";
 import ExtensionsFrame from "./ExtensionsFrame.jsx";
 import RowLines from "./RowLines.jsx";
+import { skillScopeLabel } from "./useProfileExtensions.js";
+
+// A keyed scope is translated before it enters the notice; older payloads keep note.
+const skillsNote = (skills) =>
+  skills?.scopeKey ? copy.skillVisibilityNotice(skillScopeLabel(skills)) : skills?.note;
 
 export default function SkillsTab({ ext, account, request, hideError }) {
   const { data, busy, setConfirm, skillQuery, setSkillQuery, skillPaging, skillSearch } =
@@ -25,9 +30,9 @@ export default function SkillsTab({ ext, account, request, hideError }) {
           placeholder={copy.extensionSectionPlaceholder}
         />
       </div>
-      {data?.skills.note && (
+      {skillsNote(data?.skills) && (
         <ExtensionHint>
-          <p>{data.skills.note}</p>
+          <p>{skillsNote(data.skills)}</p>
         </ExtensionHint>
       )}
       {skillPaging.items.length ? (
@@ -40,7 +45,7 @@ export default function SkillsTab({ ext, account, request, hideError }) {
                 <RowLines
                   lines={[
                     skill.description,
-                    `${skill.scope} · ${skill.removable ? hub.installedHere : hub.readOnly}`,
+                    `${skillScopeLabel(skill)} · ${skill.removable ? hub.installedHere : hub.readOnly}`,
                     <code key="path" className="extension-path">
                       {skill.path}
                     </code>,

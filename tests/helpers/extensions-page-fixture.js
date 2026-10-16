@@ -22,14 +22,16 @@ export async function extensionsPageFixture(
   ];
   const skills = {
     installPath: "/fixture/.agents/skills",
-    note: "Benutzer · von Codex und kompatiblen CLIs geteilt.",
+    note: "Benutzer · von Codex und kompatiblen CLIs geteilt. Angezeigt werden bekannte Benutzer- und Profilordner; projekt- und pluginabhängige Skills sind nicht vollständig erfasst. Entfernen ist nur für hier installierte Skills möglich.",
+    scopeKey: "sharedUserSkillScope",
     items: [
       {
         id: "review",
         name: "project-review",
         description: "Prüft Änderungen und dokumentiert Ergebnisse.",
         path: "/fixture/.agents/skills/project-review",
-        scope: "Benutzer · geteilt",
+        scope: "Benutzer · von Codex und kompatiblen CLIs geteilt",
+        scopeKey: "sharedUserSkillScope",
         removable: true,
       },
     ],

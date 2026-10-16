@@ -12,6 +12,11 @@ import {
   downloadSkill,
 } from "./skill-packages.js";
 import { record, publicMcp, safePath, readConfig } from "./mcp-config.js";
+// The stable scopeKey lets browsers translate the scope; scope keeps the German label.
+const skillScope = (scopeKey) => ({
+  scope: serverMessages.extensions[scopeKey],
+  scopeKey,
+});
 export class ExtensionsStore {
   constructor({
     accounts,
@@ -42,7 +47,7 @@ export class ExtensionsStore {
     const shared = {
       path: path.join(this.home, ".agents/skills"),
       boundary: this.home,
-      scope: serverMessages.extensions.sharedUserSkillScope,
+      ...skillScope("sharedUserSkillScope"),
     };
     if (account.tool === "codex") {
       const dir = env.CODEX_HOME || path.join(this.home, ".codex");
@@ -55,7 +60,7 @@ export class ExtensionsStore {
           ? {
               path: path.join(dir, "skills"),
               boundary,
-              scope: serverMessages.extensions.codexProfileSkillScope,
+              ...skillScope("codexProfileSkillScope"),
             }
           : shared,
         sources: [
@@ -63,13 +68,13 @@ export class ExtensionsStore {
           {
             path: path.join(dir, "skills"),
             boundary,
-            scope: serverMessages.extensions.codexProfileSkillScope,
+            ...skillScope("codexProfileSkillScope"),
             readOnly: !this.sharedProfiles,
           },
           {
             path: "/etc/codex/skills",
             boundary: "/etc/codex",
-            scope: serverMessages.extensions.systemReadOnlyScope,
+            ...skillScope("systemReadOnlyScope"),
             readOnly: true,
           },
         ],
@@ -80,10 +85,9 @@ export class ExtensionsStore {
       const target = {
         path: path.join(dir, "skills"),
         boundary,
-        scope:
-          account.kind === "managed"
-            ? serverMessages.extensions.claudeProfileScope
-            : serverMessages.extensions.claudeUserScope,
+        ...skillScope(
+          account.kind === "managed" ? "claudeProfileScope" : "claudeUserScope",
+        ),
       };
       return {
         account,
@@ -105,10 +109,9 @@ export class ExtensionsStore {
     const target = {
       path: path.join(dir, "skills"),
       boundary,
-      scope:
-        account.kind === "managed"
-          ? serverMessages.extensions.openCodeProfileScope
-          : serverMessages.extensions.openCodeUserScope,
+      ...skillScope(
+        account.kind === "managed" ? "openCodeProfileScope" : "openCodeUserScope",
+      ),
     };
     return {
       account,
@@ -187,6 +190,7 @@ export class ExtensionsStore {
             ...metadata,
             path: directory,
             scope: source.scope,
+            scopeKey: source.scopeKey,
             removable: !source.readOnly && !stat.isSymbolicLink() && Boolean(installed),
           });
           return;
@@ -218,6 +222,7 @@ export class ExtensionsStore {
         installPath: locations.target.path,
         items: skills,
         note: serverMessages.extensions.skillVisibilityNotice(locations.target.scope),
+        scopeKey: locations.target.scopeKey,
       },
     };
   }
@@ -294,6 +299,7 @@ export class ExtensionsStore {
         description: item.description,
         path: item.path,
         scope: locations.target.scope,
+        scopeKey: locations.target.scopeKey,
         removable: true,
       };
     } catch (error) {
