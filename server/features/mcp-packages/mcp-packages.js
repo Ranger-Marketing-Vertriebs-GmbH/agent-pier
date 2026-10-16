@@ -73,7 +73,8 @@ export class McpPackages {
     this.previews = new Map();
     // AbortController of each running preview → its settling (never rejects).
     this.previewRuns = new Map();
-    // serverId → leading args stored before a running switch (package-install-job.js, activate()).
+    // serverId → leading args stored before a running switch and the install it still
+    // runs (package-install-job.js, activate()).
     this.switching = new Map();
     // Servers whose detach is switching them to an own command right now.
     this.detaching = new Set();
@@ -509,10 +510,15 @@ export class McpPackages {
    */
   prune() {
     try {
-      // A running job's install id keeps its `.stage-<id>` as well.
+      // A running job's install id keeps its `.stage-<id>` as well; a running switch
+      // keeps the install its server still runs.
       pruneInstalls(
         this.dataDir,
-        new Set([...this.records.installIds(), ...this.jobs.runningInstallIds()]),
+        new Set([
+          ...this.records.installIds(),
+          ...this.jobs.runningInstallIds(),
+          ...[...this.switching.values()].map((s) => s.running).filter(Boolean),
+        ]),
       );
     } catch (error) {
       logFailure("prune MCP package installs", error);
@@ -520,6 +526,7 @@ export class McpPackages {
     const inUse = [
       ...this.records.all().map((row) => row.toolchainDir),
       ...this.jobs.runningToolchainDirs(),
+      ...[...this.switching.values()].map((s) => s.runningToolchain),
     ]
       .map((dir) => toolchainEntry(this.dataDir, dir))
       .filter(Boolean);
