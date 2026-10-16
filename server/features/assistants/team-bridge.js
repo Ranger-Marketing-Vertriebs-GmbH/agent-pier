@@ -5,6 +5,7 @@ import { personalCapabilities, writeGuardRuntimes } from "./native-capabilities.
 import { toolError } from "./tool-errors.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
 import { flushSessionAgent, flushTarget } from "./memory-flushes.js";
+import { isMemory } from "./lead-request-writes.js";
 const actions = new Set([
   "propose",
   "status",
@@ -194,25 +195,60 @@ export class TeamBridge {
       throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "path"]) textValue(input[k], 4096);
     if (this.closed || !this.assistants.runtime.client?.ready) return { allow: false };
-    if (flushSessionAgent(input.sessionKey)) return { allow: this.flushWrite(input) };
+    const allow = this.writeAllowed(input);
+    if (!allow && isMemory(input.path)) this.noteRefusal(input);
+    return { allow };
+  }
+  writeAllowed(input) {
+    if (flushSessionAgent(input.sessionKey)) return this.flushWrite(input);
     const matches = this.bound(input.sessionKey);
     // A routine's own run session has no attempt: its writes are its own origin.
-    if (!matches.length) return { allow: this.routineWrite(input) };
-    if (matches.length !== 1) return { allow: false };
+    if (!matches.length) return this.routineWrite(input);
+    if (matches.length !== 1) return false;
     const { attempt, parent, origin, current } = this.turn(matches[0], input.agentId);
-    return {
-      allow:
-        current &&
-        (this.ownerOrigin(origin) ||
-          // A task the owner asked for or approved, in exactly its own member turn.
-          (origin?.kind === "lead-request" &&
-            !!this.teams.requests?.mayWrite(
-              origin.requestId,
-              attempt.id,
-              parent.id,
-              input.path,
-            ))),
-    };
+    return (
+      current &&
+      (this.ownerOrigin(origin) ||
+        // A task the owner asked for or approved, in exactly its own member turn.
+        (origin?.kind === "lead-request" &&
+          !!this.teams.requests?.mayWrite(
+            origin.requestId,
+            attempt.id,
+            parent.id,
+            input.path,
+          )))
+    );
+  }
+  // A refused write to MEMORY.md or memory/ shows in the turn's chat as a quiet
+  // note (memory-notes.js), once per turn and reason, so neither the owner nor the
+  // agent's next reply can take it for saved.
+  noteRefusal(input) {
+    const notes = this.assistants.memoryNotes;
+    if (!notes) return;
+    const flush = !!flushSessionAgent(input.sessionKey);
+    const turns = flush
+      ? (this.assistants.memoryFlushes?.active() || []).flatMap((f) => {
+          const matches = this.bound(f.sessionKey);
+          return matches.length === 1
+            ? [{ attempt: matches[0], key: `flush:${f.runId}` }]
+            : [];
+        })
+      : this.bound(input.sessionKey).map((attempt) => ({ attempt }));
+    if (turns.length !== 1) return;
+    const { attempt, parent, origin } = this.turn(turns[0].attempt, input.agentId);
+    if (parent.runtimeAgentId !== input.agentId || (!flush && this.ownerOrigin(origin)))
+      return;
+    const reason = flush
+      ? "flush"
+      : origin?.kind === "lead-request"
+        ? "lead-request"
+        : "not-owner";
+    const added = notes.record({
+      key: turns[0].key || `${attempt.id}:${reason}`,
+      conversationId: this.assistants.ledger.getRequest(attempt.requestId).conversationId,
+      reason,
+    });
+    if (added) this.assistants.changed?.();
   }
   // The active attempts bound to a runtime session.
   bound(sessionKey) {
