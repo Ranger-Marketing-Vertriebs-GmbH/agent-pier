@@ -133,11 +133,38 @@ for (const [label, use] of [
       await expect(card.getByText("PyPI package mcp-server-fetch")).toBeVisible();
       await expect(card.getByText("--ignore-robots-txt")).toBeVisible();
       await expect(card.getByText(/Published by/)).toBeVisible();
+      await primary(wizard).click();
+      await expect(card.getByRole("alert")).toHaveText(
+        "Enter 1 to 30 letters, digits, hyphens or underscores, starting with a letter.",
+      );
       await card.getByLabel("Name", { exact: true }).fill("fetch");
+      await expect(card.getByRole("alert")).toHaveCount(0);
       await primary(wizard).click();
       await expect(
         wizard.getByRole("heading", { level: 1, name: "Settings for fetch" }),
       ).toBeVisible();
+      // Back to Paste and on again keeps the name typed on the card.
+      const back = wizard.getByRole("button", { name: "Back", exact: true });
+      await back.click();
+      await expect(page).toHaveURL(/step=package/);
+      await back.click();
+      await expect(page).toHaveURL(/step=paste/);
+      await expect(card.getByLabel("Name", { exact: true })).toHaveValue("fetch");
+      await primary(wizard).click();
+      await expect(
+        wizard.getByRole("heading", { level: 1, name: "Settings for fetch" }),
+      ).toBeVisible();
+    });
+
+    test("an oversized paste is named too long, not invalid JSON", async ({ page }) => {
+      await wizardSetup(page);
+      const wizard = await paste(
+        page,
+        `{"mcpServers":{"a":{"command":"x","args":["${"y".repeat(70 * 1024)}"]}}}`,
+      );
+      await expect(wizard.getByRole("alert")).toHaveText(
+        "This is too long for a setup block.",
+      );
     });
 
     test("the rest of a pasted block waits for Add another server", async ({
@@ -159,9 +186,23 @@ for (const [label, use] of [
       await wizard.getByRole("button", { name: "Skip for now" }).click();
       await wizard.getByRole("button", { name: "Add another server" }).click();
       await expect(page).toHaveURL(/step=paste/);
-      await expect(wizard.getByRole("radio", { name: "github" })).toBeVisible();
-      await wizard.getByRole("radio", { name: "github" }).check();
+      // The saved server is gone from the chooser; the next one waits, preselected.
+      await expect(wizard.getByRole("radio", { name: "github" })).toBeChecked();
+      await expect(wizard.getByRole("radio", { name: "filesystem" })).toHaveCount(0);
+      await expect(
+        wizard.getByText(
+          "1 more server in this block: fetch – set them up one at a time",
+        ),
+      ).toBeVisible();
       await expect(card.getByText("Own command docker")).toBeVisible();
+      await expect(card.getByLabel("Name", { exact: true })).toHaveValue("github");
+      // A name already in use is refused in the owner's language before anything runs.
+      await card.getByLabel("Name", { exact: true }).fill("filesystem");
+      await primary(wizard).click();
+      await expect(card.getByRole("alert")).toHaveText(
+        "A server with this name already exists. Choose another name.",
+      );
+      await expect(page).toHaveURL(/step=paste/);
     });
   });
 }

@@ -227,7 +227,6 @@ export const mcpWizardCopy = {
     read: "Read setup",
     editText: "Edit the text",
     foundTitle: "Here is what we found",
-    name: "Name",
     source: "Source",
     sources: {
       npm: (name) => `npm package ${name}`,
@@ -259,6 +258,9 @@ export const mcpWizardCopy = {
       invalidArgs:
         "The arguments of this server are not all text, so it cannot be taken over.",
       noCommand: "This server has neither a command nor an address.",
+      nameInvalid:
+        "Enter 1 to 30 letters, digits, hyphens or underscores, starting with a letter.",
+      nameTaken: "A server with this name already exists. Choose another name.",
     },
     ignored: {
       runner:

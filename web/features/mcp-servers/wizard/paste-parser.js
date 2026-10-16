@@ -114,14 +114,17 @@ export function parsePaste(text, { taken = [] } = {}) {
   });
 }
 
-/** One server of a result with the block's warnings, and the other servers' names. */
-export function pickServer(result, index = 0) {
+/**
+ * One server of a result with the block's warnings, and the names of the other
+ * servers still waiting (`done` lists the ones already set up).
+ */
+export function pickServer(result, index = 0, done = []) {
   const server = result.servers[index];
   return {
     ...server,
     warnings: [...result.warnings, ...server.warnings],
     others: result.servers
-      .filter((_, at) => at !== index)
+      .filter((_, at) => at !== index && !done.includes(at))
       .map((item) => item.name || item.key),
   };
 }

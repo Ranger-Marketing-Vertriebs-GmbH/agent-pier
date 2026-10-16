@@ -11,6 +11,8 @@ export default function NameField({
   error,
   errorId,
   renamed = false,
+  // The step checks the name itself and shows a catalog message, not the browser's.
+  selfChecked = false,
 }) {
   const describedBy = [`${id}-rule`, error ? errorId : "", renamed ? `${id}-rename` : ""]
     .filter(Boolean)
@@ -21,9 +23,9 @@ export default function NameField({
       <input
         id={id}
         value={value}
-        required
+        required={!selfChecked}
         maxLength={30}
-        pattern="[A-Za-z][A-Za-z0-9_\-]{0,29}"
+        pattern={selfChecked ? undefined : "[A-Za-z][A-Za-z0-9_\\-]{0,29}"}
         autoCapitalize="none"
         spellCheck={false}
         aria-invalid={error ? true : undefined}

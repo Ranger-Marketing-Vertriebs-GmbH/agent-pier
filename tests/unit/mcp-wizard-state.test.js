@@ -7,6 +7,7 @@ import {
   initialWizard,
   isDirty,
   nextStep,
+  pasteLeft,
   previousStep,
   reachable,
   resolveStep,
@@ -17,6 +18,7 @@ import {
   stepOrder,
   wizardReducer,
 } from "../../web/features/mcp-servers/wizard/wizard-state.js";
+import { pasteLimit } from "../../web/features/mcp-servers/wizard/paste-parser.js";
 import {
   sanitiseName,
   uniqueName,
@@ -214,20 +216,56 @@ test("paste is its own entry: Source → Paste → set-up → Settings", () => {
   assert.equal(run([{ type: "choose", path: "remote" }], pasted).via, null);
 });
 
-test("Add another server keeps the pasted block when asked", () => {
-  const result = { ok: true, servers: [{ name: "a" }, { name: "b" }], warnings: [] };
+test("Add another server offers the next unfinished server of a pasted block", () => {
+  const result = {
+    ok: true,
+    servers: [{ name: "a" }, { name: "b" }, { name: "c" }],
+    warnings: [],
+  };
   const state = run([
     { type: "via", via: "paste" },
     { type: "pasteText", text: "x" },
-    { type: "pasteResult", result, index: 0 },
+    { type: "pasteResult", result, index: 1 },
+    { type: "pasted", index: 1, draft: { path: "command", name: "b" } },
   ]);
+  assert.equal(state.paste.applied, 1);
+  assert.equal(pasteLeft(state.paste), true);
   const kept = run([{ type: "reset", keepPaste: true }], state);
-  assert.deepEqual(kept.paste, { text: "x", result, index: 0 });
+  assert.deepEqual(kept.paste, { text: "x", result, index: 0, applied: null, done: [1] });
   assert.equal(kept.via, "paste");
   assert.equal(reachable(kept, "paste"), true);
-  assert.deepEqual(run([{ type: "reset" }], state).paste, {
-    text: "",
-    result: null,
-    index: 0,
-  });
+  const second = run(
+    [
+      { type: "pasted", index: 0, draft: { path: "command", name: "a" } },
+      { type: "reset", keepPaste: true },
+    ],
+    kept,
+  );
+  assert.equal(second.paste.index, 2);
+  assert.deepEqual(second.paste.done, [1, 0]);
+  const last = run(
+    [{ type: "pasted", index: 2, draft: { path: "command", name: "c" } }],
+    second,
+  );
+  assert.equal(pasteLeft(last.paste), false);
+  // Nothing left: a plain new wizard, the block is dropped.
+  assert.deepEqual(run([{ type: "reset", keepPaste: true }], last), initialWizard());
+  assert.deepEqual(run([{ type: "reset" }], state).paste, initialWizard().paste);
+  // Choosing another server keeps what is done; reading a new block clears it.
+  assert.deepEqual(
+    run([{ type: "pasteResult", result, index: 2 }], kept).paste.done,
+    [1],
+  );
+  const other = { ...result, servers: [{ name: "z" }] };
+  assert.deepEqual(
+    run([{ type: "pasteResult", result: other, index: 0 }], kept).paste.done,
+    [],
+  );
+});
+
+test("a pasted text is stored up to a hard cap so the parser can say it is too long", () => {
+  const huge = "x".repeat(pasteLimit * 32);
+  const stored = run([{ type: "pasteText", text: huge }]).paste.text;
+  assert.ok(stored.length > pasteLimit);
+  assert.ok(stored.length < huge.length);
 });
