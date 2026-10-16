@@ -115,6 +115,15 @@ told it was not saved.
   without another approval, and publish pull requests. **Actions and coding tasks**
   lists what it proposed and what waits for your decision
   ([agent workflows](assistant-workflows.md)).
+- **SSH accesses:** the hosts from **Settings → Access → SSH accesses** this agent may
+  run commands on, each with a mode. **With approval** (the default) shows every
+  command in the chat and in the paired Telegram chat with **Allow once** and **Deny**;
+  a command with hidden characters or more than 2,000 characters can only be allowed
+  in AgentPier. **Trusted** runs without asking in your own chats and in tasks or
+  questions from the agent's lead and leaves a line such as "SSH on opnsense: uptime ·
+  done" in the chat. **Trusted incl. routines** also runs in the agent's routines.
+  Every command is listed under **Actions and coding tasks** and recorded in the
+  activity log by its fingerprint, never its text. Agents cannot add hosts or keys.
 - **Team:** **Allow teams without asking each time**, **Maximum team size** and
   **Member time limit (minutes)**.
 - **Teams:** the agent's active and archived teams and, below them, **Questions and
@@ -135,8 +144,8 @@ told it was not saved.
 - **Telegram for other people:** gives the agent its own bot for people you choose,
   each with a separate conversation. Add each person by numeric Telegram user ID
   under **Allowed people**. The agent never uses shell, local (stdio) MCP servers,
-  AgentPier's own tools or session tools for them, so shell must be off and stdio
-  servers removed before you connect such a bot.
+  AgentPier's own tools or session tools for them, so shell must be off, stdio
+  servers removed and SSH accesses removed before you connect such a bot.
 
 ## Teams, asks and tasks
 
@@ -166,7 +175,9 @@ A lead also talks to its members directly:
 - **These questions and tasks run without an approval prompt.** The member works with
   its own capabilities: a member with full shell access or bound MCP servers uses them
   without asking; a member whose shell is set to approval still asks you before each
-  command.
+  command. A permanent member uses only its own SSH accesses, never its lead's; an SSH
+  command on a host set to **With approval** shows its card in the member's chat and in
+  the lead's chat.
 - Questions never write files. A task may change files in the member's workspace only
   when you asked for it yourself in the same message: name the member and say to ask
   or delegate, or mention it with `@`. Type `@` in the lead's composer to pick a
@@ -190,7 +201,9 @@ All three need a paired Telegram chat and live in the agent's **Telegram** tab.
   when it is long) and appears in the agent's
   chat marked "Scheduled · <name>"; a failed run shows a short line there. Routines
   read the chat's recent messages, including forwarded ones, and run while nobody
-  watches, so with full shell access they act without asking.
+  watches, so with full shell access they act without asking. A routine can run SSH
+  commands only on hosts set to **Trusted incl. routines**; on any other host it is
+  refused and its result says so.
 - **Check in on its own** (under **Acting on its own**) lets the agent look at its
   conversation and notes every hour, every 2 or 4 hours or once a day, within active
   hours, and write only when something needs your attention. It needs **Remember
@@ -219,6 +232,11 @@ are part of host backups.
   capabilities.
 - Web pages can contain instructions meant to mislead an agent; switch on web tools
   only for agents whose other tools you would trust with that.
+- **SSH accesses** set to **Trusted** run commands without asking. Commands the agent
+  derives from web pages, documents, MCP results or remote output could therefore run
+  without your confirmation; keep **With approval** for hosts where that matters. SSH
+  for agents is convenience scoping under your user account, not a sandbox: an agent
+  with **Full access** shell can read AgentPier's SSH key files.
 
 See [SECURITY.md](../SECURITY.md) for the reporting policy and the full trust model.
 

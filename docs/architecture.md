@@ -115,6 +115,8 @@ Session MCP exposes project key generation, bounded local-path import, public-ke
 
 Each SSH invocation captures one endpoint, username, identity and pin revision with an execution-specific known-hosts file. MCP checks effective grants and the revision before spawn and during execution. `server/ssh.mjs` resolves the same effective access for the manual helper; already-started manual connections may continue after revocation. Codex/Claude startup hooks and the OpenCode context plugin compose SSH discovery with Memory, AgentBus and existing user configuration, including zero-host projects. Login/headless sessions remain excluded; shell sessions receive manual access without a model hint. See [SSH accesses](ssh-access.md) for provisioning, reload and storage details.
 
+Agents reach SSH through the `agentpier_ssh` tool of the `agentpier-teams` plugin, not the session MCP server. The loopback team bridge binds the call to the agent's ledger attempt (or, without one, to a bound routine's run session) and hands it to `AgentSsh` (`server/features/assistants/agent-ssh.js`), which runs the command in the AgentPier process through `SshAccessStore.connection()` and `ssh-run.js`. Grants live in `assistant_access.body.sshAccesses`; approvals and trusted runs are `assistant_actions` rows; `SshManagement.removeHost` revokes agent grants before the catalog changes.
+
 ## Agents (managed OpenClaw)
 
 Agents are optional. While they are switched on, AgentPier supervises one pinned
@@ -129,7 +131,7 @@ directly.
   overrides from the advanced settings (`advanced-config.js`). The same directory
   holds agent profiles and conversations, capabilities and skills, shell approvals and
   the allowlist, teams (`team-*.js`, with the bundled `team-plugin/`), lead requests
-  (`lead-request*.js`), reminders, routines and check-ins (`native-*.js`) and chat
+  (`lead-request*.js`), agent SSH access (`agent-ssh*.js`), reminders, routines and check-ins (`native-*.js`) and chat
   attachments (`agent-attachments.js`).
 - `server/features/assistant-channels/`: Telegram pairing, ingress, delivery and the
   durable outbox, and agents' own bots for other people (`telegram-senders.js`).

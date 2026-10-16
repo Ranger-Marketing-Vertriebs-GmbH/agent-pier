@@ -20,7 +20,7 @@ _(German)_ are not translated yet.
 | [AgentBus](agentbus-integration.md) _(German)_             | Messages between sessions in the same project                |
 | [Artifacts](artifacts.md)                                  | Private pages published from sessions and agents             |
 | [MCP](mcp.md)                                              | AgentPier's MCP access for CLIs and central MCP servers      |
-| [SSH accesses](ssh-access.md)                              | SSH keys and hosts for projects and sessions                 |
+| [SSH accesses](ssh-access.md)                              | SSH keys and hosts for projects, sessions and agents         |
 | [GitHub connections](github-agents.md) _(German)_          | Tokens for clones and pull requests                          |
 | [Shared CLI extensions](shared-cli-extensions.md)          | CLI skills, plugins, marketplaces and Agency agents          |
 | [Codex context](codex-context.md)                          | Codex context windows and model status                       |
@@ -58,6 +58,7 @@ _(German)_ are not translated yet.
 | [Settings pattern](settings-pattern.md)                   | The shared layout and save model of settings pages      |
 | [ADR 0001](adr/0001-optional-per-session-nono-sandbox.md) | Optional per-session nono sandbox                       |
 | [ADR 0002](adr/0002-managed-openclaw-assistants.md)       | Managed OpenClaw agents and visible agent teams         |
+| [ADR 0003](adr/0003-agent-ssh-access.md)                  | SSH access for agents                                   |
 | [Protocol adapter](protocol-adapter.md)                   | How custom endpoints are adapted to each CLI's protocol |
 | [Startup loading](startup-loading.md)                     | The startup screen shown before the app loads           |
 | [Chat observability](chat-observability.md)               | Chat context and subagent observations                  |

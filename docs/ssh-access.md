@@ -83,6 +83,25 @@ The first unified-catalog migration invalidates persisted SSH capabilities. Exis
 
 Stop the old service before upgrading; concurrent old and new catalog writers are unsupported. Installations with a unified SSH catalog cannot downgrade to releases that do not support it. The earlier reusable-key catalog's version 1.8 minimum is insufficient for this format.
 
+## Agents
+
+Agents use SSH accesses through AgentPier, never through the session MCP server. Grant
+hosts per agent under **Agents → Settings → Work → SSH accesses** and choose a mode:
+**With approval**, **Trusted** or **Trusted incl. routines** (see
+[agents](agents.md#work)). Any host can be granted, global or project-owned; the
+project badge only says where the key lives. Temporary team members never get SSH
+accesses, and a lead's grants never pass to its members.
+
+The agent's `agentpier_ssh` tool can list its granted hosts and run one command at a
+time; it cannot create, import, scan, test or download keys or hosts. AgentPier runs
+the command with the same pinned connection as sessions (`-F /dev/null`, only the
+pinned host key, no agent forwarding), with at most 16 KiB of command, 120 seconds and
+64 KiB of output. Removing a host here first revokes it from every agent and cancels
+its open approvals. Editing a host's address, port, user, key or pin stops running
+commands on it, and its open approvals can no longer run: allowing one marks it
+**Access changed**. The activity log records `ssh.executed` and `ssh.denied` with a
+SHA-256 digest and length of the command, never its text or output.
+
 ## Scope and storage
 
 This is convenience scoping under one OS user, **not an operating-system sandbox**. Processes with that user's filesystem permissions may read the same private files. Use OS/container isolation when that must be prevented. Existing personal `~/.ssh` access is not revoked or changed.

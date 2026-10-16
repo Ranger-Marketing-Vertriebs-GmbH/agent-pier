@@ -1124,6 +1124,20 @@ key that Perplexity uses, take effect at the next Gateway start.
   agent ("Available after saving the agent"); the server stores them as off on
   create. Switch them on in the agent's settings after saving.
 
+## Agent SSH access (2026-10-16)
+
+`agentpier_ssh` (actions `hosts`, `execute`) is compiled into an agent's `tools.allow`
+only while the agent holds an SSH grant, and it is part of `routineTools`. The bridge
+admits `action: "ssh"` for owner and permanent-member turns like the other personal
+tools and, as the only action, for a routine's run session without an attempt
+(`TeamBridge.routineRun`, a bound, enabled routine with routines on). The plugin's
+call budget for `ssh` is 245 seconds: a 110-second approval hold plus a 120-second
+command. Forwarded, member-result, reminder, check-in and unknown turns are refused
+with `SSH_ORIGIN_REFUSED`; a routine may run only on `routines` hosts
+(`SSH_ROUTINE_NOT_TRUSTED`). Late approvals return as an `ssh-result` follow-up turn
+that keeps the original turn's origin class. Agents with SSH grants never own a bot
+for other people.
+
 ## MCP servers for agents (2026-10-11)
 
 Agents can use tools from MCP servers that the owner manages in one central list
