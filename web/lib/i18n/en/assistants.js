@@ -300,6 +300,14 @@ export const assistantCopy = {
   send: "Send",
   stop: "Stop response",
   stopShort: "Stop",
+  // A message written while the agent works waits above the composer until it is done.
+  queued: {
+    send: "Send when done",
+    notice: (name) => `Will be sent when ${name} is done`,
+    files: (count) => (count === 1 ? "1 file" : `${count} files`),
+    edit: "Edit",
+    editLabel: "Edit queued message",
+  },
   showApprovals: "Show",
   memberCount: (count) => (count === 1 ? "1 member" : `${count} members`),
   options: "Options",

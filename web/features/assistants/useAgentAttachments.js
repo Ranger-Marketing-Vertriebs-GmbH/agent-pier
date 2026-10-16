@@ -155,15 +155,27 @@ export default function useAgentAttachments(conversationId) {
     setError("");
   };
 
+  // Files of a queued message leave the tray until it is sent or taken back; like the
+  // tray's own files, they are discarded when the chat closes unsent.
+  const hold = (ids, queued) => {
+    const held = new Set(ids);
+    update((list) =>
+      list.map((item) => (held.has(item.id) ? { ...item, queued } : item)),
+    );
+  };
+  const tray = items.filter((item) => !item.queued);
+
   return {
-    items,
+    items: tray,
     error,
     imageInput,
     add,
     remove,
     sent,
-    ids: items.filter((item) => item.status === "ready").map((item) => item.id),
+    queue: (ids) => hold(ids, true),
+    unqueue: (ids) => hold(ids, false),
+    ids: tray.filter((item) => item.status === "ready").map((item) => item.id),
     // Sending waits for uploads and for failed files to be removed.
-    blocked: items.some((item) => item.status !== "ready"),
+    blocked: tray.some((item) => item.status !== "ready"),
   };
 }

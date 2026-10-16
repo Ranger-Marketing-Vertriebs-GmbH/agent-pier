@@ -352,11 +352,13 @@
   white-space: nowrap;
 }
 .assistant-send,
-.assistant-stop {
+.assistant-stop,
+.assistant-later {
   flex: none;
   margin-left: auto;
 }
-.assistant-composer-hint + :is(.assistant-send, .assistant-stop) {
+.assistant-composer-hint + :is(.assistant-send, .assistant-stop, .assistant-later),
+.assistant-later + .assistant-stop {
   margin-left: 0;
 }
 .assistant-send {

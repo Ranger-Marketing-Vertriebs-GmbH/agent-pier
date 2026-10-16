@@ -1,0 +1,75 @@
+/* The message queued while the agent works (AssistantComposer). */
+.assistant-later {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: 18px;
+  background: var(--surface-accent);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+/* The queued message, above the field: what waits, for whom, and a way back. */
+.assistant-queued {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 8px 8px 10px;
+  border: 1px dashed var(--accent-line);
+  border-radius: 12px;
+  background: var(--surface-accent);
+}
+.assistant-queued-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.assistant-queued-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.assistant-queued-notice svg {
+  flex: none;
+}
+.assistant-queued-text {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.assistant-queued-files {
+  color: var(--hint);
+  font-size: 12px;
+}
+.assistant-queued-edit {
+  flex: none;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--button-secondary-line);
+  border-radius: 14px;
+  background: var(--button-secondary-bg);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.assistant-composer.member .assistant-composer-box {
+  flex-wrap: wrap;
+}
+.assistant-composer.member .assistant-queued {
+  flex-basis: 100%;
+}
