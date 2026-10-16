@@ -33,6 +33,11 @@ const invalid = () =>
 export const cursorOf = (value) =>
   typeof value === "string" && /^[\x21-\x7e]{1,512}$/.test(value) ? value : null;
 
+/** True when every brace in a value belongs to a `{name}` template with a safe name. */
+const templatesSafe = (value) =>
+  [...value.matchAll(template)].every((match) => !reserved.has(match[1])) &&
+  !/[{}]/.test(value.replace(template, ""));
+
 const choicesOf = (list) =>
   Array.isArray(list)
     ? list
@@ -94,7 +99,8 @@ function inputs(list, kind) {
         typeof item.name === "string" &&
         item.name.length <= limits.inputName &&
         !reserved.has(item.name) &&
-        rule.test(item.name),
+        rule.test(item.name) &&
+        (typeof item.value !== "string" || templatesSafe(item.value)),
     )
     .slice(0, limits.inputs)
     .map((item) => {
@@ -113,12 +119,16 @@ function inputs(list, kind) {
     });
 }
 
-/** An http(s) URL that may hold `{var}` templates; no credentials, no fragment. */
+/**
+ * An http(s) URL that may hold `{var}` templates; no credentials, no fragment. Only
+ * printable ASCII: no bidi or C1 controls, and an IDN host must come as punycode, so
+ * the owner sees the host the CLI will reach.
+ */
 function templateUrl(value) {
   if (typeof value !== "string" || value.length > limits.url) return null;
-  if (/[\x00-\x20\x7f\\]/.test(value)) return null;
+  if (/[^\x21-\x7e]|\\/.test(value) || !templatesSafe(value)) return null;
   const probe = value.replace(template, "x");
-  if (/[{}#]/.test(probe) || !webLink(probe)) return null;
+  if (probe.includes("#") || !webLink(probe)) return null;
   return value;
 }
 
@@ -153,7 +163,9 @@ function packageArgs(list) {
           ? arg.name
           : null;
       if (!name) return null;
-      rows.push(name, ...(value === null ? [] : [value]));
+      // An optional option with no value is left out: a bare flag would take the next
+      // row as its value.
+      if (value !== null) rows.push(name, value);
     } else if (value !== null) rows.push(value);
   }
   return rows;

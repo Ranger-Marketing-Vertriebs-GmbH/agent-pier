@@ -217,3 +217,66 @@ test("property: any input normalises without throwing and without control charac
     ),
   );
 });
+
+test("remote URLs outside printable ASCII are refused, IDN hosts need punycode", () => {
+  const reason = (url) => {
+    const item = fixture("smithery-remote");
+    item.server.remotes[0].url = url;
+    const [option] = normaliseEntry(item).options;
+    return [option.kind, option.unsupportedReason, option.url];
+  };
+  for (const url of [
+    "https://ex.test/‮mcp",
+    "https://ex.test/\u0085x",
+    "https://аpple.com/mcp",
+  ])
+    assert.deepEqual(reason(url), ["unsupported", "url", null], JSON.stringify(url));
+  assert.deepEqual(reason("https://xn--pple-43d.com/mcp"), [
+    "remote-http",
+    null,
+    "https://xn--pple-43d.com/mcp",
+  ]);
+});
+
+test("reserved templates and prototype keys never become variables or options", () => {
+  const item = fixture("smithery-remote");
+  const [remote] = item.server.remotes;
+  remote.url = "https://{tenant}.example.test/mcp";
+  remote.variables = JSON.parse(
+    '{"__proto__":{"description":"polluted"},"tenant":{"description":"Tenant"}}',
+  );
+  remote.headers.push({ name: "X-Odd", value: "{__proto__} {constructor}" });
+  const [option] = normaliseEntry(item).options;
+  assert.deepEqual(
+    option.urlVariables.map((v) => [v.name, v.description]),
+    [["tenant", "Tenant"]],
+  );
+  assert.deepEqual(
+    option.headers.map((header) => header.name),
+    ["Authorization"],
+  );
+  remote.url = "https://ex.test/{__proto__}/mcp";
+  assert.equal(normaliseEntry(item).options[0].unsupportedReason, "url");
+  for (const type of ["toString", "constructor", "__proto__"]) {
+    remote.type = type;
+    assert.deepEqual(
+      [
+        normaliseEntry(item).options[0].kind,
+        normaliseEntry(item).options[0].unsupportedReason,
+      ],
+      ["unsupported", "transport"],
+      type,
+    );
+  }
+});
+
+test("an optional named argument without a value is left out, not passed bare", () => {
+  const item = fixture("opnsense");
+  item.server.packages[0].packageArguments.push(
+    { type: "named", name: "--port" },
+    { type: "positional", value: "serve" },
+  );
+  const [npm] = normaliseEntry(item).options;
+  assert.equal(npm.kind, "npm");
+  assert.deepEqual(npm.packageArgs, ["--log-level", "info", "serve"]);
+});
