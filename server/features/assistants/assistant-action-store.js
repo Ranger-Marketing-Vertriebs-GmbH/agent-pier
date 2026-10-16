@@ -113,4 +113,14 @@ export class AssistantActionStore {
       .run(JSON.stringify(next), id);
     return next;
   }
+  // Trusted SSH runs keep only their newest rows per agent; the audit keeps the rest.
+  pruneTrustedSsh(assistantId, keep) {
+    const trusted =
+      "assistant_id=? AND json_extract(body,'$.payload.action')='ssh' AND json_extract(body,'$.payload.trusted')=1";
+    this.db
+      .prepare(
+        `DELETE FROM assistant_actions WHERE ${trusted} AND rowid NOT IN (SELECT rowid FROM assistant_actions WHERE ${trusted} ORDER BY rowid DESC LIMIT ?)`,
+      )
+      .run(assistantId, assistantId, keep);
+  }
 }
