@@ -419,3 +419,21 @@ test("the announcement stays put while the agent flips between waiting and block
   // Shown on the card, but not announced again and again.
   await expect(page.locator(".assistant-queued-live")).toHaveText(notice);
 });
+
+test("a message that keeps being retried says so", async ({ page }) => {
+  const server = agentServer();
+  server.start();
+  server.end();
+  server.queued = {
+    text: "Later",
+    teamAllowed: false,
+    attachments: [],
+    state: "waiting",
+    retrying: true,
+  };
+  await open(page, server);
+  await expect(queued(page)).toContainText(
+    "Not sent yet: AgentPier keeps trying to send it to Home assistant",
+  );
+  await expect(edit(page)).toBeVisible();
+});

@@ -309,6 +309,7 @@ export const assistantCopy = {
     editLabel: "Edit queued message",
     label: "Queued message",
     sending: "Sending now…",
+    retrying: (name) => `Not sent yet: AgentPier keeps trying to send it to ${name}`,
     blocked: (name) => `Not sent yet: ${name} can't take messages right now`,
     failed: (reason) => `Not sent: ${reason}`,
     unknownError: "The agent did not accept it.",

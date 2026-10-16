@@ -3,12 +3,15 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { validateQueueInput } from "./queued-messages.js";
 
-// A queued message older than this is not sent anymore (a restored or long stopped
-// host would otherwise deliver it days later).
+// A queued message that could have gone out for this long is not sent anymore (a
+// restored or long stopped host would otherwise deliver it days later).
 const MAX_AGE = 24 * 3600 * 1000;
-// Retries after a passing refusal back off from 2 s to 30 s per conversation.
+// Retries after a passing refusal back off from 2 s to 30 s per conversation; after
+// ten tries or ten minutes the card says that delivery keeps being retried.
 const FIRST_RETRY = 2000;
 const LAST_RETRY = 30000;
+const NOTICE_TRIES = 10;
+const NOTICE_AFTER = 10 * 60 * 1000;
 const retries = new WeakMap();
 const retriesOf = (service) => {
   if (!retries.has(service)) retries.set(service, new Map());
@@ -25,6 +28,7 @@ export function queuedView(service, conversationId) {
     teamAllowed: message.teamAllowed,
     attachments: service.attachments.staged(conversationId, message.attachments, false),
     state: message.state,
+    retrying: message.retrying,
     ...(message.state === "failed" && message.error
       ? { error: message.error, ...messageIdentity(message.error) }
       : {}),
@@ -53,6 +57,7 @@ export function queueMessage(service, conversationId, input) {
 export function takeBackQueued(service, conversationId) {
   service.store.getConversation(conversationId);
   const message = service.queued.take(conversationId);
+  retriesOf(service).delete(conversationId);
   // Back in the composer, its files are fresh drafts again for the staging expiry.
   service.attachments.touch(conversationId, message.attachments);
   service.changed();
@@ -94,28 +99,37 @@ export async function dispatchQueued(service, conversationId) {
   if (service.closed || service.maintenance || !service.runtime.client?.ready) return;
   const now = service.now();
   const backoff = retriesOf(service);
+  const pending = service.ledger.pending();
+  const running = new Set(pending.map((a) => a.id));
   const busy = new Set(
-    service.ledger
-      .pending()
-      .map((a) => service.ledger.getRequest(a.requestId).conversationId),
+    pending.map((a) => service.ledger.getRequest(a.requestId).conversationId),
   );
+  // A backoff behind other turns ends with them: a busy member that refused the
+  // owner's turn takes it as soon as its own turn is over.
+  const waits = (id) => {
+    const entry = backoff.get(id);
+    if (!entry || entry.at <= now) return false;
+    return !entry.blockers.length || entry.blockers.some((a) => running.has(a));
+  };
   const ready = [];
   for (const m of service.queued.waiting()) {
     if (conversationId && m.conversationId !== conversationId) continue;
-    if (now - Date.parse(m.updatedAt) > MAX_AGE) {
+    const conversation = service.store.getConversation(m.conversationId);
+    if (
+      busy.has(m.conversationId) ||
+      conversation.archivedAt ||
+      service.store.getAssistant(conversation.assistantId).archivedAt
+    ) {
+      service.queued.blocked(m);
+      continue;
+    }
+    if (now - service.queued.deliverable(m, now) > MAX_AGE) {
+      backoff.delete(m.conversationId);
       service.queued.fail(m, serverMessages.assistants.queuedExpired);
       service.changed();
       continue;
     }
-    const conversation = service.store.getConversation(m.conversationId);
-    if (
-      busy.has(m.conversationId) ||
-      (backoff.get(m.conversationId)?.at ?? 0) > now ||
-      conversation.archivedAt ||
-      service.store.getAssistant(conversation.assistantId).archivedAt
-    )
-      continue;
-    ready.push(m);
+    if (!waits(m.conversationId)) ready.push(m);
   }
   await Promise.all(
     ready.map(async (message) => {
@@ -129,11 +143,7 @@ export async function dispatchQueued(service, conversationId) {
         const result = outcome(error);
         if (result.retry) {
           service.queued.release(message);
-          const delay = Math.min(
-            (backoff.get(message.conversationId)?.delay ?? FIRST_RETRY / 2) * 2,
-            LAST_RETRY,
-          );
-          backoff.set(message.conversationId, { delay, at: service.now() + delay });
+          retryLater(service, message, [...running]);
           return;
         }
         backoff.delete(message.conversationId);
@@ -142,4 +152,24 @@ export async function dispatchQueued(service, conversationId) {
       }
     }),
   );
+}
+
+// Schedules the next try and, once retries have gone on for a while, shows it.
+function retryLater(service, message, blockers) {
+  const backoff = retriesOf(service);
+  const now = service.now();
+  const last = backoff.get(message.conversationId);
+  const entry = {
+    delay: Math.min((last?.delay ?? FIRST_RETRY / 2) * 2, LAST_RETRY),
+    tries: (last?.tries ?? 0) + 1,
+    since: last?.since ?? now,
+    blockers,
+  };
+  entry.at = now + entry.delay;
+  backoff.set(message.conversationId, entry);
+  if (
+    (entry.tries >= NOTICE_TRIES || now - entry.since >= NOTICE_AFTER) &&
+    service.queued.markRetrying(message)
+  )
+    service.changed();
 }

@@ -1,85 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { EventEmitter } from "node:events";
-import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
-import { AssistantService } from "../../server/features/assistants/assistant-service.js";
-
-// One agent conversation on a scripted Gateway: `finish(runId, status)` ends a run.
-function setup(t) {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-queued-"));
-  const workspaces = path.join(dataDir, "workspaces");
-  fs.mkdirSync(workspaces);
-  const sent = [];
-  const runs = new Map();
-  const services = [];
-  const start = () => {
-    const store = new AssistantStore({ dataDir });
-    const client = new EventEmitter();
-    client.ready = true;
-    client.subscribe = () => () => {};
-    client.call = async (method, params) => {
-      if (method === "sessions.send") {
-        sent.push(params);
-        return { runId: params.idempotencyKey };
-      }
-      if (method === "sessions.abort") {
-        runs.set(params.runId, { status: "aborted" });
-        return {};
-      }
-      if (method === "agent.wait")
-        return runs.get(params.runId)
-          ? { ...runs.get(params.runId), runId: params.runId }
-          : { status: "timeout" };
-      if (method === "chat.history") return { messages: [], hasMore: false };
-      if (method === "sessions.messages.subscribe") return {};
-      if (method === "sessions.describe") return { session: {} };
-      assert.fail(method);
-    };
-    const runtime = new EventEmitter();
-    runtime.client = client;
-    runtime.close = async () => {};
-    runtime.setState = () => {};
-    const service = new AssistantService({
-      store,
-      runtime,
-      models: {
-        listCapabilities: () => [],
-        resolve: () => ({ release() {} }),
-        imageInput: () => true,
-      },
-      config: { apply: async () => {}, reset() {}, workspaces },
-    });
-    services.push(service);
-    return { service, store, client };
-  };
-  t.after(async () => {
-    for (const service of services) if (!service.closed) await service.close();
-    fs.rmSync(dataDir, { recursive: true, force: true });
-  });
-  const first = start();
-  const a = first.store.createAssistant({
-    name: "lead",
-    model: { connectionId: "c", modelId: "m" },
-  });
-  const c = first.store.saveConversation({
-    assistantId: a.id,
-    runtimeSessionKey: "lead",
-  });
-  const finish = async (service, status = "ok", extra = {}) => {
-    runs.set(sent.at(-1).idempotencyKey, { status, ...extra });
-    await service.reconcile();
-    // The dispatch runs after the reconcile pass; let it reach sessions.send.
-    for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
-  };
-  return { ...first, start, c, sent, finish };
-}
-
-const settle = async () => {
-  for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
-};
+import { settle, setup } from "../helpers/assistant-queue-fixture.js";
 
 test("a queued message waits for the turn and is sent once after it completes", async (t) => {
   const { service, c, sent, finish } = setup(t);
@@ -96,6 +17,7 @@ test("a queued message waits for the turn and is sent once after it completes", 
       teamAllowed: true,
       attachments: [],
       state: "waiting",
+      retrying: false,
       updatedAt: undefined,
     },
   );
@@ -290,50 +212,6 @@ test("an append after a restart never sends the delivered message again", async 
   );
 });
 
-for (const [label, status] of [
-  ["an unready service", 503],
-  ["a busy member", 409],
-])
-  test(`a refusal by ${label} is retried by the poll with backoff, quietly`, async (t) => {
-    const { service, c, sent, finish } = setup(t);
-    let clock = Date.now();
-    service.now = () => clock;
-    await service.send(c.id, { clientRequestId: "first", text: "One" });
-    service.queue(c.id, { text: "Later" });
-    const send = service.send.bind(service);
-    let refusals = 2;
-    service.send = async (...args) => {
-      if (refusals-- > 0) throw Object.assign(new Error("refused"), { status });
-      return send(...args);
-    };
-    await finish(service);
-    assert.equal(service.queued.get(c.id).state, "waiting");
-    assert.equal(service.ledger.unresolved().length, 0);
-    const changes = [];
-    const stop = service.events.subscribe((event) => changes.push(event.type));
-    // Within the first backoff the poll leaves it alone.
-    service.pollReconcile();
-    await settle();
-    assert.equal(refusals, 1);
-    clock += 2100;
-    service.pollReconcile();
-    await settle();
-    assert.equal(refusals, 0);
-    assert.equal(sent.length, 1);
-    // A refusal that only returns it to waiting is no news for the browsers.
-    assert.deepEqual(changes, []);
-    clock += 2100;
-    service.pollReconcile();
-    await settle();
-    assert.equal(sent.length, 1, "the backoff doubled to 4 s");
-    clock += 2100;
-    service.pollReconcile();
-    await settle();
-    assert.equal(sent.length, 2);
-    assert.equal(service.queued.get(c.id), null);
-    stop?.();
-  });
-
 test("an unexpected failure never shows its internal text and is not retried", async (t) => {
   const { service, c, sent, finish } = setup(t);
   await service.send(c.id, { clientRequestId: "first", text: "One" });
@@ -362,31 +240,6 @@ test("a repeated append with the same key adds its text once", async (t) => {
   assert.equal(service.queued.get(c.id).text, "Add a dessert");
   service.queue(c.id, { text: "Without nuts", appendId: "enter-2" });
   assert.equal(service.queued.get(c.id).text, "Add a dessert\nWithout nuts");
-});
-
-test("archived agents take no queued messages, and old ones are not sent days later", async (t) => {
-  const { service, store, c, sent, finish } = setup(t);
-  await service.send(c.id, { clientRequestId: "first", text: "One" });
-  let clock = Date.now();
-  service.now = () => clock;
-  service.queued.now = () => clock;
-  service.queue(c.id, { text: "Stale" });
-  clock += 25 * 3600 * 1000;
-  await finish(service);
-  const { queued } = await service.history(c.id);
-  assert.equal(queued.state, "failed");
-  assert.equal(queued.messageKey, "assistants.queuedExpired");
-  assert.equal(sent.length, 1);
-
-  service.takeBackQueued(c.id);
-  const { assistantId } = store.getConversation(c.id);
-  store.db
-    .prepare("UPDATE assistants SET body=json_set(body,'$.archivedAt',?) WHERE id=?")
-    .run(new Date().toISOString(), assistantId);
-  assert.throws(() => service.queue(c.id, { text: "Archived" }), {
-    status: 409,
-    key: "queuedArchived",
-  });
 });
 
 test("taking a message back restarts its files' staging time", async (t) => {

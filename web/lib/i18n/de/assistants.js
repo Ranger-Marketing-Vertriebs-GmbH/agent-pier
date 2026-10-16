@@ -318,6 +318,8 @@ export const assistantCopy = {
     editLabel: "Wartende Nachricht bearbeiten",
     label: "Wartende Nachricht",
     sending: "Wird jetzt gesendet …",
+    retrying: (name) =>
+      `Noch nicht gesendet: AgentPier versucht weiter, sie an ${name} zu senden`,
     blocked: (name) =>
       `Noch nicht gesendet: ${name} kann gerade keine Nachrichten annehmen`,
     failed: (reason) => `Nicht gesendet: ${reason}`,
