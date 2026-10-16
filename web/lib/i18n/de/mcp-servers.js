@@ -3,7 +3,6 @@ export const mcpServerCopy = {
   description:
     "Zentrale MCP-Server für Agenten und Coding-CLIs. Header- und Umgebungswerte liegen auf diesem Computer und werden nie wieder angezeigt.",
   loading: "Lädt …",
-  empty: "Noch keine MCP-Server.",
   add: "MCP-Server hinzufügen",
   remove: "Entfernen",
   removeNamed: (name) => `${name} entfernen`,

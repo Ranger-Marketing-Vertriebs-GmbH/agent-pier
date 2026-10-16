@@ -232,7 +232,7 @@ for (const [label, use] of [
       const state = await setup(page);
       await page.goto(baseURL + "/accounts");
       const panel = page.getByRole("region", { name: "MCP servers" });
-      await expect(panel.getByText("No MCP servers yet.")).toBeVisible();
+      await expect(panel.getByText("No MCP servers yet")).toBeVisible();
       await panel.getByRole("button", { name: "Add MCP server" }).click();
       const dialog = accountDetail(page);
       await expect(dialog.getByText(/1 to 30 letters, digits, hyphens/)).toBeVisible();
@@ -327,7 +327,7 @@ for (const [label, use] of [
       await dialog.getByRole("button", { name: "Remove local" }).click();
       await expect(dialog.getByRole("alertdialog")).toContainText("lose access");
       await dialog.getByRole("button", { name: "Remove server" }).click();
-      await expect(panel.getByText("No MCP servers yet.")).toBeVisible();
+      await expect(panel.getByText("No MCP servers yet")).toBeVisible();
     });
 
     test("a saved change whose live apply is pending shows a notice", async ({

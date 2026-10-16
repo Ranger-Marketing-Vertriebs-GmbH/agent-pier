@@ -1,0 +1,179 @@
+/* The new-server wizard: mobile first, a step list beside the content on desktop.
+   No animated transitions (reduced motion). */
+.mcp-wizard {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.mcp-wizard-top {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  min-height: 44px;
+}
+.mcp-wizard-top .mcp-wizard-icon {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 18px;
+}
+.mcp-wizard-heading {
+  margin: 0;
+  text-align: center;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mcp-wizard-steps ol {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  margin: 8px 0 16px;
+  padding: 0;
+}
+.mcp-wizard-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.mcp-wizard-steps li.is-done {
+  color: var(--accent);
+}
+.mcp-wizard-steps li[aria-current="step"] {
+  color: var(--text);
+  font-weight: 600;
+}
+.mcp-wizard-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.mcp-wizard-steps .mcp-wizard-stage {
+  display: none;
+}
+.mcp-wizard-steps li[aria-current="step"] .mcp-wizard-stage {
+  display: inline;
+}
+.mcp-wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mcp-wizard-title {
+  font-size: 1.375rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.mcp-wizard-title:focus {
+  outline: none;
+}
+.mcp-wizard-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mcp-wizard-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  padding: 12px 0 calc(12px + var(--safe-area-inset-bottom));
+  /* The page background, so the sticky bar covers what scrolls beneath it. */
+  background: var(--surface-input);
+}
+.mcp-wizard-bar .button {
+  min-height: 44px;
+  width: 100%;
+}
+.mcp-wizard-bar .button.text {
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+}
+.mcp-wizard-cards {
+  display: grid;
+  gap: 12px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.mcp-wizard-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  padding: 14px 16px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.mcp-wizard-card:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+}
+.mcp-wizard-card:has(input:focus-visible) {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: 2px;
+}
+.mcp-wizard-card input[type="radio"] {
+  /* Matches the radio rows of the settings pattern. */
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  padding: 0;
+  border: 1px solid #3a3b40;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.mcp-wizard-card input[type="radio"]:checked {
+  border: 5px solid var(--accent);
+}
+.mcp-wizard-card .mcp-hint {
+  grid-column: 2;
+}
+.mcp-wizard-card-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+}
+.mcp-wizard-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+.mcp-wizard code,
+.mcp-wizard .mcp-wizard-mono {
+  word-break: break-all;
+}
+@media (min-width: 900px) {
+  .mcp-wizard-layout {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 640px);
+    gap: 24px;
+  }
+  .mcp-wizard-steps ol {
+    flex-direction: column;
+  }
+  .mcp-wizard-steps .mcp-wizard-stage {
+    display: inline;
+  }
+  .mcp-wizard-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+  .mcp-wizard-bar {
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+  }
+  .mcp-wizard-bar .button {
+    width: auto;
+  }
+}

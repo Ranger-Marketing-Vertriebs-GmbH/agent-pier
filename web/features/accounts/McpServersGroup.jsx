@@ -7,6 +7,7 @@ import { routePath } from "../../app/routes.js";
 import { mcpCliCopy as cliCopy } from "../../lib/i18n/messages/mcp-cli.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 import { accountsHubCopy as hubCopy } from "../../lib/i18n/messages/accounts.js";
+import { mcpWizardCopy as wizardCopy } from "../../lib/i18n/messages/mcp-wizard.js";
 import McpFeedback from "../mcp-servers/McpFeedback.jsx";
 import { McpOAuthResultBanner } from "../mcp-servers/McpOAuthLogin.jsx";
 import AddLabel from "./AddLabel.jsx";
@@ -75,7 +76,19 @@ export default function McpServersGroup({
       )}
       <ErrorMessage error={error} />
       {feedback && <McpFeedback oauth={oauth} notice={notice} />}
-      {servers && !servers.length && <p className="accounts-note">{copy.empty}</p>}
+      {servers && !servers.length && (
+        <div className="list-card mcp-empty">
+          <strong>{wizardCopy.emptyTitle}</strong>
+          <p className="accounts-note">{wizardCopy.emptyBody}</p>
+          <button
+            type="button"
+            className="button primary"
+            onClick={() => navigate(itemRoute("mcp-servers", "new"))}
+          >
+            {wizardCopy.addFirst}
+          </button>
+        </div>
+      )}
       <ListCard labelledBy={`${id}-label`}>
         {(servers || []).map((server) => (
           <ListRow
