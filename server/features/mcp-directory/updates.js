@@ -1,6 +1,7 @@
 import { normalizePypiName } from "../mcp-packages/package-spec.js";
 import { comparePep440 } from "../mcp-packages/pep440.js";
 import { compareSemver } from "../mcp-packages/registry-metadata.js";
+import { publicUrl } from "../mcp-servers/mcp-server-fields.js";
 
 // "Update available" for servers set up from the directory (decisions Q8, Q9): only a
 // newer exact version of the same package. A changed identifier or address is a hint.
@@ -32,10 +33,11 @@ export function directoryUpdate(server, entry) {
   }
   if (server.transport !== "stdio" && server.url) {
     // A template address ({var}) never equals a stored one; it is not compared.
+    // The store shows an address without its query and in URL-normalised form.
     const remotes = entry.options.filter(
       (option) => option.kind?.startsWith("remote-") && !option.urlVariables?.length,
     );
-    if (remotes.length && !remotes.some((option) => option.url === server.url))
+    if (remotes.length && !remotes.some((option) => publicUrl(option.url) === server.url))
       return { serverId: server.id, hint: "remote" };
   }
   return null;
