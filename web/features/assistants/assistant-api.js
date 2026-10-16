@@ -109,6 +109,8 @@ export const assistantApi = {
     api(
       `/mcp-packages/versions?registry=${encodeURIComponent(registry)}&name=${encodeURIComponent(name)}`,
     ),
+  resolveMcpCommand: (name) =>
+    api(`/mcp-commands/resolve?name=${encodeURIComponent(name)}`),
   previewMcpPackage: (input) => api("/mcp-packages/preview", "POST", input),
   mcpPackageStatus: (id) => api(`/mcp-servers/${encodeURIComponent(id)}/package`),
   updateMcpPackage: (id, input) =>

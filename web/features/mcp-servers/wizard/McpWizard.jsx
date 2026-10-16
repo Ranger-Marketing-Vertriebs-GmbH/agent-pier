@@ -3,6 +3,9 @@ import Sheet from "../../../components/Sheet.jsx";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import { itemRoute } from "../../accounts/accounts-items.js";
 import usePackageStatus from "../usePackageStatus.js";
+import OwnCommandStep from "./OwnCommandStep.jsx";
+import PackageStep from "./PackageStep.jsx";
+import RemoteStep from "./RemoteStep.jsx";
 import SourceStep from "./SourceStep.jsx";
 import StepIndicator from "./StepIndicator.jsx";
 import useWizardGuard from "./useWizardGuard.js";
@@ -26,6 +29,9 @@ import "./mcp-wizard.css";
  */
 const screens = {
   source: SourceStep,
+  package: PackageStep,
+  remote: RemoteStep,
+  command: OwnCommandStep,
 };
 
 const stepRoute = (step) =>
