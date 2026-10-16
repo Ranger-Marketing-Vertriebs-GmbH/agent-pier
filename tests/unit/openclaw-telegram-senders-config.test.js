@@ -81,6 +81,12 @@ test("eligible agents: personal, not archived, without shell", () => {
   assert.equal(telegramEligible({ id: "x" }), false);
 });
 
+test("an agent with SSH grants never owns a bot for other people", () => {
+  const ssh = new Set(["a"]);
+  assert.equal(telegramEligible(profile("a"), new Set(), ssh), false);
+  assert.equal(telegramEligible(profile("b"), new Set(), ssh), true);
+});
+
 test("without native Telegram bots nothing is compiled and stale surfaces are removed", () => {
   const stale = seeded([profile("a")]);
   Object.assign(stale, {
@@ -337,6 +343,19 @@ test("an agent bound to a stdio MCP server gets no bot", () => {
     teams: teams(profiles),
     telegram: { accounts: [account("a"), account("b")], speech: null },
     mcp,
+  });
+  assert.deepEqual(Object.keys(config.channels.telegram.accounts), ["ap-b"]);
+});
+
+test("an agent with SSH grants gets no bot in the compiled configuration", () => {
+  const profiles = [profile("a"), profile("b")];
+  const config = compileOpenClawConfig({
+    existing: seeded(profiles),
+    paths,
+    port: 1234,
+    token: "t",
+    teams: { ...teams(profiles), sshAgents: new Set(["a"]) },
+    telegram: { accounts: [account("a"), account("b")], speech: null },
   });
   assert.deepEqual(Object.keys(config.channels.telegram.accounts), ["ap-b"]);
 });

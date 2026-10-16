@@ -227,6 +227,8 @@ export class RuntimeSupervisor extends EventEmitter {
           // The agents the compile below finds in the configuration it starts from.
           agents: configuredAgents(readJSON(this.paths.config, null)),
           stdio: stdioAgents(teams.mcp || {}),
+          // Must match the compile in runtime-config.js, or the bot stays pending.
+          ssh: teams.sshAgents,
         }),
       );
     // What this start compiles, before it answers: a revocation saved meanwhile must
