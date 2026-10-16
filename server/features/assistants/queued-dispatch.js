@@ -143,6 +143,10 @@ export async function dispatchQueued(service, conversationId) {
         const result = outcome(error);
         if (result.retry) {
           service.queued.release(message);
+          // A 409 means another turn holds it (a busy member, host concurrency): like
+          // a running turn, that stops the expiry clock. Faults and an unready
+          // service keep it running, so a host that stays down lets it expire.
+          if (error.status === 409) service.queued.blocked(message);
           retryLater(service, message, [...running]);
           return;
         }

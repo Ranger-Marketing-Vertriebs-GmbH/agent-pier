@@ -334,8 +334,9 @@ or ten minutes of retries the row is marked `retrying` (one `change`), and the c
 says so while retries continue every 30 seconds. A refusal of the message itself keeps
 it as `failed` with the problem text (unexpected errors show only the generic internal
 error). A row that has been deliverable for more than a day (`deliverable_since`; the
-clock stops while another turn runs or the agent is archived) turns `failed` instead
-of being sent late. Its staged files are
+clock stops while another turn runs, a 409 refusal names one, or the agent is
+archived; 5xx faults and an unready service keep it running, so a host that stays down
+or is restored lets the message expire) turns `failed` instead of being sent late. Its staged files are
 excluded from expiry, the staging cap and removal until the message claims them or is
 taken back.
 

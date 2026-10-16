@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
+import { QueuedMessages } from "../../server/features/assistants/queued-messages.js";
 import { settle, setup } from "../helpers/assistant-queue-fixture.js";
 
 const day = 24 * 3600 * 1000;
@@ -189,4 +190,27 @@ test("a queue table from an earlier build gains its new columns", () => {
     .map((c) => c.name);
   for (const name of ["last_append", "deliverable_since", "retrying"])
     assert.ok(columns.includes(name), name);
+  // The migrated table takes and returns a queued message.
+  db.exec(
+    "INSERT INTO assistants VALUES ('a', 1, '{}'); INSERT INTO conversations VALUES ('c', 'a', 'key', '{}')",
+  );
+  const queue = new QueuedMessages(db);
+  queue.put("c", { text: "Migrated", teamAllowed: false, attachments: [] });
+  assert.equal(queue.get("c").text, "Migrated");
+  assert.equal(queue.get("c").deliverableSince, null);
+});
+
+test("a refusal by a busy member stops the expiry clock (a 503 does not, above)", async (t) => {
+  const { service, c, finish } = setup(t);
+  const clock = clockOf(service);
+  await service.send(c.id, { clientRequestId: "first", text: "One" });
+  await finish(service);
+  refuse(service, 409);
+  service.queue(c.id, { text: "After the member" });
+  await settle();
+  clock.now += day + 60000;
+  service.pollReconcile();
+  await settle();
+  const { queued } = await service.history(c.id);
+  assert.equal(queued.state, "waiting");
 });
