@@ -30,6 +30,8 @@ export function agentEntry(
     pathPrepend = [],
     // The agent owns a bot for other people (openclaw-config/telegram-senders.js).
     senderFacing = false,
+    // The agent holds an SSH grant (agentpier_ssh).
+    ssh = false,
     // Assigned skills a same-named workspace or managed skill would replace
     // (skill-shadows.js): never compiled, so that skill never loads through them.
     shadowedSkills = [],
@@ -46,6 +48,7 @@ export function agentEntry(
         guardProven,
         available,
         mcpTools,
+        ssh,
       ).filter((tool) => !senderFacing || !sessionTools.includes(tool)),
       ...(exec && { exec }),
     };

@@ -151,6 +151,8 @@ export class AssistantConfig {
     const mcpTools = this.mcpTools?.(assistant) || [];
     // An agent whose own bot for other people the Gateway runs has no session tools.
     const senderFacing = !!this.senderFacing?.(assistant);
+    // The agent holds an SSH grant (assistant-access.js); the Gateway start uses the same.
+    const ssh = !!this.sshGranted?.(assistant);
     const allowed = profileTools(
       assistant,
       this.teamReady?.(),
@@ -158,6 +160,7 @@ export class AssistantConfig {
       !!this.writeGuard?.(),
       available,
       mcpTools,
+      ssh,
     ).filter((tool) => !senderFacing || !sessionTools.includes(tool));
     // The owner's login PATH the running Gateway was started with (exec-shell.js).
     const pathPrepend = this.shellPathPrepend?.() || [];
@@ -196,6 +199,7 @@ export class AssistantConfig {
           skills,
           bootstrap,
           senderFacing,
+          ssh,
         ]),
       )
       .digest("hex");
@@ -267,6 +271,7 @@ export class AssistantConfig {
               pathPrepend,
               mcpTools,
               senderFacing,
+              ssh,
               shadowedSkills: shadowed,
             });
           const keyed = agents.entries && !Array.isArray(agents.entries);
