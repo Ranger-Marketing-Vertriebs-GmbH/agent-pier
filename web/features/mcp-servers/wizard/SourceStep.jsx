@@ -1,5 +1,8 @@
 import React, { useState } from "react";
+import { mcpDirectoryCopy as directoryCopy } from "../../../lib/i18n/messages/mcp-directory.js";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
+import { SettingsLink } from "./DirectoryStep.jsx";
+import useDirectoryStatus from "./useDirectoryStatus.js";
 import WizardStep from "./WizardStep.jsx";
 
 const cards = [
@@ -21,15 +24,41 @@ const cards = [
   },
 ];
 
+/** Why the directory card cannot be used, or what it offers. */
+function DirectoryHint({ directory, navigate }) {
+  const { status, error } = directory;
+  if (status && !status.enabled)
+    return (
+      <>
+        {directoryCopy.turnedOff} <SettingsLink navigate={navigate} />
+      </>
+    );
+  if (error || (status && !status.reachable)) return directoryCopy.unreachable;
+  return directoryCopy.sourceCardHint;
+}
+
 /** "Where does the server come from?" – native radio cards in one fieldset. */
-export default function SourceStep({ state, dispatch, go, headingRef }) {
-  const [choice, setChoice] = useState(state.path ?? "package");
+export default function SourceStep({ state, dispatch, go, headingRef, navigate }) {
+  const directory = useDirectoryStatus();
+  const usable = Boolean(directory.status?.enabled && directory.status.reachable);
+  const [choice, setChoice] = useState(
+    state.via === "directory" ? "directory" : (state.path ?? "package"),
+  );
+  // A directory that turned off or unreachable leaves no card chosen to continue with.
+  const picked = choice === "directory" && !usable ? null : choice;
   return (
     <WizardStep
       title={copy.source.title}
       headingRef={headingRef}
-      primary={{ label: copy.continue }}
+      primary={{ label: copy.continue, disabled: !picked }}
       onSubmit={() => {
+        if (!picked) return;
+        if (picked === "directory") {
+          dispatch({ type: "via", via: "directory" });
+          dispatch({ type: "dismiss" });
+          go("directory");
+          return;
+        }
         if (choice !== state.path) dispatch({ type: "choose", path: choice });
         dispatch({ type: "dismiss" });
         go(choice);
@@ -42,6 +71,20 @@ export default function SourceStep({ state, dispatch, go, headingRef }) {
       )}
       <fieldset className="mcp-wizard-cards">
         <legend className="visually-hidden">{copy.source.title}</legend>
+        <label className={`mcp-wizard-card${usable ? "" : " is-disabled"}`}>
+          <input
+            type="radio"
+            name="mcp-wizard-source"
+            value="directory"
+            disabled={!usable}
+            checked={choice === "directory"}
+            onChange={() => setChoice("directory")}
+          />
+          <span className="mcp-wizard-card-title">{directoryCopy.sourceCard}</span>
+          <small className="mcp-hint">
+            <DirectoryHint directory={directory} navigate={navigate} />
+          </small>
+        </label>
         {cards.map((card) => (
           <label key={card.value} className="mcp-wizard-card">
             <input
