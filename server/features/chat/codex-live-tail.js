@@ -78,8 +78,15 @@ function nativeItem(item) {
       result[key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
   if (type === "agentMessage")
     result.text = (item.content || []).map((part) => part.text || "").join("\n");
-  if (type === "commandExecution" && Array.isArray(item.command))
+  if (type === "commandExecution" && Array.isArray(item.command)) {
     result.command = item.command.join(" ");
+    result.argv = item.command;
+  }
+  // Core enums are snake_case ("user_shell"); app-server items use camelCase.
+  if (typeof result.source === "string")
+    result.source = result.source.replace(/_([a-z])/g, (_, letter) =>
+      letter.toUpperCase(),
+    );
   if (typeof result.status === "string")
     result.status = result.status[0].toLowerCase() + result.status.slice(1);
   return result;

@@ -1,4 +1,4 @@
-import { TOOL_TEXT_LIMIT } from "./tool-text.js";
+import { shellOutput } from "./shell-output.js";
 
 const blocks = (record) =>
   Array.isArray(record?.message?.content) ? record.message.content : [];
@@ -83,66 +83,6 @@ function bashStreams(text) {
   }
   return Object.keys(streams).length && at === text.length ? streams : null;
 }
-const outputText = (text = "") => text.replace(/^(?:\r?\n)+/, "").trimEnd();
-// Keep the newest output within one tool payload: larger rows are cut into head and
-// tail for the browser (tool-text.js), which would break the JSON of the streams.
-const tail = (text, length) => {
-  let start = Math.max(0, text.length - length);
-  const code = text.charCodeAt(start);
-  if (start && code >= 0xdc00 && code <= 0xdfff) start++;
-  return text.slice(start);
-};
-function shellOutput(streams) {
-  const full = Object.fromEntries(
-    Object.entries(streams)
-      .map(([name, text]) => [name, outputText(text)])
-      .filter(([, text]) => text),
-  );
-  // Streams share the budget fairly by kept length. JSON escapes can expand text up
-  // to six times (ANSI colours), so search the largest share whose JSON still fits.
-  const names = Object.keys(full).sort((a, b) => full[a].length - full[b].length);
-  const fit = (budget) => {
-    const kept = {};
-    let remaining = budget;
-    names.forEach((name, index) => {
-      const take = Math.min(
-        full[name].length,
-        Math.floor(remaining / (names.length - index)),
-      );
-      kept[name] = tail(full[name], take);
-      remaining -= take;
-    });
-    // A stream left without room is dropped; its size still counts as omitted.
-    return JSON.stringify(
-      Object.fromEntries(Object.entries(kept).filter(([, text]) => text)),
-    );
-  };
-  let content = JSON.stringify(full);
-  if (content.length > TOOL_TEXT_LIMIT) {
-    let low = 0;
-    let high = Math.min(
-      TOOL_TEXT_LIMIT,
-      names.reduce((sum, name) => sum + full[name].length, 0),
-    );
-    while (low < high) {
-      const middle = Math.ceil((low + high) / 2);
-      if (fit(middle).length <= TOOL_TEXT_LIMIT) low = middle;
-      else high = middle - 1;
-    }
-    content = fit(low);
-  }
-  const kept = JSON.parse(content);
-  const omitted = Object.fromEntries(
-    Object.entries(full)
-      .map(([name, text]) => [
-        name,
-        Buffer.byteLength(text) - Buffer.byteLength(kept[name] || ""),
-      ])
-      .filter(([, bytes]) => bytes > 0),
-  );
-  return { content: content === "{}" ? "" : content, omitted };
-}
-
 /** A bash-mode command is shown as typed (`! ls`); its output becomes shell output. */
 function bashMode(record) {
   if (record?.type !== "user" || record.isMeta) return record;
