@@ -42,6 +42,8 @@ export function workspaceRoutes(services) {
   router.get("/preferences", (_req, res) => res.json(preferences.get()));
   router.patch("/preferences", async (req, res) => {
     const updated = await preferences.update(req.body);
+    // A changed directory setting starts from an empty cache (another base, or off).
+    if (req.body?.mcpDirectory !== undefined) services.mcpDirectory?.clear();
     // Sessions interrupted while the setting was off are resumed once it is turned on.
     if (req.body?.autoResumeInterrupted === true)
       services.autoResume

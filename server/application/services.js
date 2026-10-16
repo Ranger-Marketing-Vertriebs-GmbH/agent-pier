@@ -40,6 +40,7 @@ import { GithubCredentials } from "../features/repositories/github-credentials.j
 import { SessionActivity } from "../features/sessions/session-activity.js";
 import { AgentBus } from "../features/agentbus/agent-bus.js";
 import { Preferences } from "../features/settings/preferences.js";
+import { McpDirectory } from "../features/mcp-directory/client.js";
 import { AccountStore, detectUtilities } from "../features/accounts/account-store.js";
 import { toolBinDirectories } from "../features/tools/tool-paths.js";
 import { NonoSandbox } from "../features/nono/nono-launch.js";
@@ -63,6 +64,10 @@ export async function createServices(config) {
   const endpointTester = new EndpointTester({ connections: providerConnections });
   const accounts = new AccountStore({ ...config, providerCatalog, providerConnections });
   const preferences = new Preferences({ ...config, accounts });
+  // The MCP Registry, asked only on an owner request (docs/mcp.md); memory cache only.
+  const mcpDirectory = new McpDirectory({
+    settings: () => preferences.get().mcpDirectory,
+  });
   const providerAccess = new ProviderAccess({
     preferences,
     accounts,
@@ -329,6 +334,7 @@ export async function createServices(config) {
     plugins,
     agentbus,
     preferences,
+    mcpDirectory,
     nonoSandbox,
   };
   // Assistant services stay null until the owner opts in; failures never stop startup.

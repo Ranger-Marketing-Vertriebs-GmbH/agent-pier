@@ -5,6 +5,10 @@ import path from "node:path";
 import os from "node:os";
 import { Preferences } from "../../server/features/settings/preferences.js";
 import { applicationFixture, fixtureFetch as fetch } from "../helpers/application.js";
+const mcpDirectory = {
+  enabled: true,
+  baseUrl: "https://registry.modelcontextprotocol.io",
+};
 function directory(t) {
   const dir = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-preferences-")),
@@ -25,12 +29,14 @@ test("default directory persists independently of service configuration and reso
     defaultCwd: home,
     defaultAccountIds: {},
     autoResumeInterrupted: true,
+    mcpDirectory,
   });
   await prefs.update({ defaultCwd: "~/project" });
   assert.deepEqual(new Preferences({ dataDir: dir, home }).get(), {
     defaultCwd: target,
     defaultAccountIds: {},
     autoResumeInterrupted: true,
+    mcpDirectory,
   });
   assert.equal(fs.readFileSync(path.join(dir, "config.json"), "utf8"), '{"port":9911}');
   assert.equal(fs.statSync(path.join(dir, "preferences.json")).mode & 0o777, 0o600);
@@ -47,6 +53,7 @@ test("default directory persists independently of service configuration and reso
     defaultCwd: target,
     defaultAccountIds: {},
     autoResumeInterrupted: true,
+    mcpDirectory,
   });
 });
 test("preference API requires same-origin mutation and new work launches use explicit/default directory precedence", async (t) => {
@@ -76,6 +83,7 @@ test("preference API requires same-origin mutation and new work launches use exp
     defaultCwd: work,
     defaultAccountIds: {},
     autoResumeInterrupted: true,
+    mcpDirectory,
   });
   for (const body of [
     { accountId: "local-codex" },
@@ -139,4 +147,40 @@ test("enabling automatic resume over the API drains pending interruptions", asyn
   assert.equal(notified, 1);
   await patch({ defaultAccountIds: {} });
   assert.equal(notified, 1);
+});
+
+test("the MCP directory setting persists, keeps a base path and resets to the default", async (t) => {
+  const dir = directory(t);
+  const prefs = new Preferences({ dataDir: dir, home: dir });
+  const saved = () =>
+    JSON.parse(fs.readFileSync(path.join(dir, "preferences.json"), "utf8")).mcpDirectory;
+  await prefs.update({ mcpDirectory: { enabled: false } });
+  assert.deepEqual(saved(), { enabled: false });
+  assert.deepEqual(prefs.get().mcpDirectory, { ...mcpDirectory, enabled: false });
+  await prefs.update({
+    mcpDirectory: { baseUrl: " https://registry.example.test/mirror/ " },
+  });
+  assert.deepEqual(new Preferences({ dataDir: dir, home: dir }).get().mcpDirectory, {
+    enabled: false,
+    baseUrl: "https://registry.example.test/mirror",
+  });
+  for (const change of [
+    { baseUrl: "ftp://registry.example.test" },
+    { baseUrl: "http://192.168.1.2" },
+    { enabled: 1 },
+    { other: true },
+  ])
+    await assert.rejects(() => prefs.update({ mcpDirectory: change }));
+  assert.equal(prefs.get().mcpDirectory.baseUrl, "https://registry.example.test/mirror");
+  await prefs.update({ mcpDirectory: { enabled: true, baseUrl: null } });
+  assert.deepEqual(saved(), { enabled: true });
+  assert.deepEqual(prefs.get().mcpDirectory, mcpDirectory);
+  fs.writeFileSync(
+    path.join(dir, "preferences.json"),
+    JSON.stringify({ mcpDirectory: { enabled: "no", baseUrl: "http://evil.test" } }),
+  );
+  assert.deepEqual(
+    new Preferences({ dataDir: dir, home: dir }).get().mcpDirectory,
+    mcpDirectory,
+  );
 });
