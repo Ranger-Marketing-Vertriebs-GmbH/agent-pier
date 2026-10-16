@@ -144,7 +144,8 @@ export function McpConstraints({ id, value, onChange, error }) {
 
 /**
  * Registry, package and version of a package to install, with the scripts opt-in
- * and, for PyPI, its dependency constraints.
+ * and, for PyPI, its dependency constraints. A caller that shows the lookup itself
+ * passes its `versions` list and `lookup` line; `collapsed` folds the options.
  */
 export default function McpPackageFields({
   formId,
@@ -152,8 +153,14 @@ export default function McpPackageFields({
   set,
   constraintsError,
   versionError,
+  versions: shared,
+  collapsed = false,
+  moreLabel = "",
+  lookup = null,
 }) {
-  const versions = useMcpPackageVersions(values.registry, values.packageName);
+  // A caller with its own list skips this request (an empty name fetches nothing).
+  const own = useMcpPackageVersions(values.registry, shared ? "" : values.packageName);
+  const versions = shared ?? own;
   // The newest stable version is preselected; a version the package lacks goes.
   useEffect(() => {
     const listed = versions.versions.some((v) => v.version === values.packageVersion);
@@ -162,6 +169,23 @@ export default function McpPackageFields({
     else if (versions.failed && values.packageVersion) set("packageVersion")("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [versions]);
+  const options = (
+    <>
+      {values.registry === "pypi" && (
+        <McpConstraints
+          id={`${formId}-constraints`}
+          value={values.packageConstraints}
+          error={constraintsError}
+          onChange={set("packageConstraints")}
+        />
+      )}
+      <McpAllowScripts
+        checked={values.allowScripts}
+        registry={values.registry}
+        onChange={set("allowScripts")}
+      />
+    </>
+  );
   return (
     <>
       <div className="mcp-field">
@@ -196,6 +220,7 @@ export default function McpPackageFields({
           }}
         />
       </label>
+      {lookup}
       <McpVersionPicker
         id={`${formId}-version`}
         label={copy.versionLabel}
@@ -204,19 +229,14 @@ export default function McpPackageFields({
         error={versionError}
         onChange={set("packageVersion")}
       />
-      {values.registry === "pypi" && (
-        <McpConstraints
-          id={`${formId}-constraints`}
-          value={values.packageConstraints}
-          error={constraintsError}
-          onChange={set("packageConstraints")}
-        />
+      {collapsed ? (
+        <details className="mcp-advanced" open={Boolean(constraintsError)}>
+          <summary>{moreLabel}</summary>
+          {options}
+        </details>
+      ) : (
+        options
       )}
-      <McpAllowScripts
-        checked={values.allowScripts}
-        registry={values.registry}
-        onChange={set("allowScripts")}
-      />
     </>
   );
 }
