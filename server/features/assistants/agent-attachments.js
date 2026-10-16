@@ -235,7 +235,9 @@ export class AgentAttachments {
   }
   /**
    * Counts what is really in the folder (bounded, and orphans count too) and drops
-   * index rows whose copy is gone, so the index never outgrows the folder.
+   * unsent index rows whose copy is gone, so the index never outgrows the folder. A
+   * sent file's row stays, marked gone: the history still recognises the note its
+   * message carried, and shows only the files that are left.
    */
   async assertQuota(assistantId, folder, adding) {
     let bytes = adding;
@@ -252,9 +254,15 @@ export class AgentAttachments {
     for (const file of this.rows(
       "SELECT * FROM agent_attachments WHERE assistant_id=?",
       assistantId,
-    ))
-      if (!present.has(file.file))
+    )) {
+      if (present.has(file.file) || file.gone) continue;
+      if (file.row.request_id === null)
         this.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
+      else
+        this.db
+          .prepare("UPDATE agent_attachments SET body=? WHERE id=?")
+          .run(JSON.stringify({ ...JSON.parse(file.row.body), gone: true }), file.id);
+    }
     if (bytes > MAX_AGENT_BYTES) throw assistantProblem("attachmentStorageFull", 409);
   }
   async discard(conversationId, id) {
@@ -387,7 +395,7 @@ export class AgentAttachments {
     }
     for (const entry of byRequest.values()) {
       entry.note = attachmentNote(entry.files.map((f) => ({ ...f, path: agentPath(f) })));
-      entry.files = entry.files.map(publicFile);
+      entry.files = entry.files.filter((f) => !f.gone).map(publicFile);
     }
     return byRequest;
   }
