@@ -21,9 +21,11 @@ test("SSH accesses are picked with a mode and saved with the Work tab", async ({
   await expect(page.getByLabel("nas-01", { exact: true })).toHaveCount(0);
   await page.getByLabel("opnsense", { exact: true }).check();
   const modes = page.getByRole("group", { name: "Mode" });
-  await expect(modes.getByRole("radio", { name: /^With approval/ })).toBeChecked();
+  await expect(
+    modes.getByRole("radio", { name: "With approval", exact: true }),
+  ).toBeChecked();
   await expect(page.getByText(/could run without your confirmation/)).toHaveCount(0);
-  await modes.getByRole("radio", { name: /^Trusted Runs/ }).check();
+  await modes.getByRole("radio", { name: "Trusted", exact: true }).check();
   await expect(page.getByText(/could run without your confirmation/)).toBeVisible();
   await back(page).click();
   await expect(row(page)).toContainText("1 host · 1 trusted");
