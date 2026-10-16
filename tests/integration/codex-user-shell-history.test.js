@@ -122,3 +122,19 @@ test("a full Codex read shows the indexed user shell command like a page", async
   // The resumed turn exists only in the rollout tail, which full reads do not merge.
   assert.deepEqual(full.messages, page.messages.slice(0, 2));
 });
+
+test('a rollout argv that is not [shell, "-lc", cmd] stays a command row', async (t) => {
+  const x = await fixture(t);
+  const file = path.join(x.root, "rollout.jsonl");
+  const records = (await fs.readFile(file, "utf8")).replace(
+    JSON.stringify(["/bin/zsh", "-lc", "echo 'two words'"]),
+    JSON.stringify(["/bin/zsh", "-c", "echo 'two words'"]),
+  );
+  await fs.writeFile(file, records);
+  const page = await readHistoryPage(x.history, x.session, "thread");
+  const tail = page.messages.filter((m) => m.id.startsWith("tail-shell"));
+  assert.deepEqual(
+    tail.map((m) => [m.id, m.role, m.toolName, m.shellOutput, m.status]),
+    [["tail-shell", "tool", "Command", undefined, "failed"]],
+  );
+});

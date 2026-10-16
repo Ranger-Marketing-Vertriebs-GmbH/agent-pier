@@ -39,7 +39,9 @@ function shellWords(text) {
   return words;
 }
 
-// The live rollout tail keeps the core TurnItem argv (see codex-live-tail.js).
+// The live rollout tail keeps the core TurnItem argv (see codex-live-tail.js). When
+// shlex cannot join the argv (a NUL byte), Codex shows "<command included NUL byte>",
+// which is not [shell, "-lc", cmd] and so stays a Command row.
 function userCommand(item) {
   const words = Array.isArray(item.argv)
     ? item.argv
@@ -64,9 +66,16 @@ export function codexUserShellRows(item, id, turnId) {
     : codexInputTime(turnId);
   const output = typeof item.aggregatedOutput === "string" ? item.aggregatedOutput : "";
   const { content, omitted } = shellOutput({ output });
-  const failed =
+  // Unknown or interrupted states get no status rather than a stuck "running".
+  const status =
     (typeof item.exitCode === "number" && item.exitCode !== 0) ||
-    ["failed", "declined"].includes(item.status);
+    ["failed", "declined"].includes(item.status)
+      ? "failed"
+      : item.status === "completed"
+        ? "completed"
+        : ["inProgress", "in_progress"].includes(item.status)
+          ? "running"
+          : undefined;
   return [
     {
       id: `${id}:command`,
@@ -79,7 +88,7 @@ export function codexUserShellRows(item, id, turnId) {
       role: "tool",
       toolName: "Command",
       shellOutput: true,
-      status: failed ? "failed" : item.status === "completed" ? "completed" : "running",
+      ...(status && { status }),
       ...(Object.keys(omitted).length && { shellOmitted: omitted }),
       text: content,
     },
