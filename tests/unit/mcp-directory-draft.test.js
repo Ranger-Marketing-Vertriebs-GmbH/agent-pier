@@ -136,7 +136,7 @@ test("a remote option with URL variables and a Bearer header", () => {
     "https://acme%20corp.files.example.test/mcp",
   );
   fc.assert(
-    fc.property(fc.string(), (value) => {
+    fc.property(fc.string({ unit: "binary" }), (value) => {
       const url = composeUrl({ ...draft.urlTemplate, values: { tenant: value } });
       assert.ok(!url.includes("{tenant}"));
       // A value may make the address invalid, but never point it somewhere else.
@@ -242,7 +242,102 @@ test("a remote option without variables keeps its address and has no template", 
   );
 });
 
-test("unsupported options cannot be chosen", () => {
+test("unsupported options cannot be chosen or drafted", () => {
   assert.equal(isSelectable({ kind: "unsupported" }), false);
   assert.equal(isSelectable({ kind: "npm" }), true);
+  for (const kind of ["unsupported", "docker", undefined]) {
+    assert.throws(
+      () => draftFromEntry(entry([]), { kind, url: null, headers: [], env: [] }),
+      TypeError,
+    );
+  }
+});
+
+test("template names never read inherited object members", () => {
+  for (const name of ["toString", "valueOf", "hasOwnProperty", "constructor"]) {
+    assert.equal(
+      composeUrl({ url: `https://x.test/{${name}}/mcp` }),
+      "https://x.test//mcp",
+    );
+    assert.equal(composeValue({ value: `Token {${name}}`, values: {} }), "Token ");
+  }
+  assert.equal(
+    composeValue({ value: "{n}", values: { n: 42 } }),
+    "",
+    "only strings fill",
+  );
+});
+
+test("a lone surrogate in a URL value does not throw", () => {
+  const url = composeUrl({ url: "https://x.test/{t}", values: { t: "a\uD800b" } });
+  assert.equal(url, "https://x.test/a%EF%BF%BDb");
+});
+
+test("a bare {var} value takes its variable's hint metadata", () => {
+  const tenant = {
+    name: "tenant",
+    description: "Tenant id",
+    required: true,
+    secret: true,
+    default: "acme",
+    choices: ["acme", "other"],
+  };
+  const remote = draftFromEntry(entry([]), {
+    kind: "remote-http",
+    url: "https://docs.example.test/mcp",
+    urlVariables: [],
+    headers: [input("X-Tenant", { value: "{tenant}", variables: [tenant] })],
+  });
+  assert.deepEqual(remote.hints.settings["X-Tenant"], {
+    description: "Tenant id",
+    required: true,
+    secret: true,
+    choices: ["acme", "other"],
+    default: "acme",
+  });
+  const pkg = draftFromEntry(entry([]), {
+    kind: "npm",
+    identifier: "x",
+    version: "1",
+    packageArgs: [],
+    env: [input("REGION", { value: "{region}", description: "Own text" })],
+  });
+  assert.deepEqual(pkg.hints.settings.REGION, {
+    description: "Own text",
+    required: false,
+    secret: false,
+  });
+});
+
+test("duplicate env names and case-variant header names keep the first row", () => {
+  const remote = draftFromEntry(entry([]), {
+    kind: "remote-http",
+    url: "https://docs.example.test/mcp",
+    urlVariables: [],
+    headers: [
+      input("X-Api-Key", { required: true, description: "first" }),
+      input("x-api-key", { description: "second" }),
+    ],
+  });
+  assert.deepEqual(
+    remote.headers.map((row) => row.name),
+    ["X-Api-Key"],
+  );
+  assert.equal(remote.hints.settings["X-Api-Key"].description, "first");
+  assert.equal(remote.hints.settings["x-api-key"], undefined);
+  const pkg = draftFromEntry(entry([]), {
+    kind: "npm",
+    identifier: "x",
+    version: "1",
+    packageArgs: [],
+    env: [input("A", { value: "1" }), input("A", { value: "2" }), input("a")],
+  });
+  assert.deepEqual(
+    pkg.env.map((row) => [row.name, row.value]),
+    [
+      ["A", "1"],
+      ["a", ""],
+    ],
+  );
+  assert.equal(pkg.hints.settings.toString, undefined);
 });
