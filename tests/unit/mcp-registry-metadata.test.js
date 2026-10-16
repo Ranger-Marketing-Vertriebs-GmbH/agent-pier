@@ -56,7 +56,26 @@ test("versions are newest first with prerelease and deprecated markers", () => {
         yanked: false,
       },
     ],
+    publisher: null,
+    repositoryUrl: null,
   });
+});
+
+test("versions carry the publisher and source link of the latest release", () => {
+  const withPublisher = {
+    ...packument,
+    versions: {
+      ...packument.versions,
+      "1.1.0": {
+        ...packument.versions["1.1.0"],
+        author: { name: "Jane" },
+        repository: "github:jane/server-x",
+      },
+    },
+  };
+  const result = npmVersions(withPublisher);
+  assert.equal(result.publisher, "Jane");
+  assert.equal(result.repositoryUrl, "https://github.com/jane/server-x");
 });
 
 test("versions without a publish time sort last and ties use semver order", () => {
@@ -163,6 +182,8 @@ test("PyPI versions skip empty and non-PEP 440 releases and mark prereleases and
       entry("1.1", "2026-02-01T00:00:00Z", false, false),
       entry("1.0", "2026-01-01T00:00:00Z", false, true),
     ],
+    publisher: null,
+    repositoryUrl: null,
   });
   assert.deepEqual(pypiVersionInfo(project, "1.1"), {
     files: [
