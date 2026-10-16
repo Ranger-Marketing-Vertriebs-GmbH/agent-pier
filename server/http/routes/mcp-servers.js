@@ -6,6 +6,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { record } from "../../features/extensions/mcp-config.js";
+import { MCP_SERVER_ORIGINS } from "../../features/mcp-servers/server-origins.js";
 import { mcpCliRoutes } from "./mcp-cli.js";
 import {
   auditDetails,
@@ -15,9 +16,9 @@ import {
   requireInstallConfirmation,
 } from "./mcp-packages.js";
 
-const origins = ["manual", "paste", "directory"];
 /** How a new server was set up (wizard source); anything else counts as manual. */
-const createOrigin = (body) => (origins.includes(body?.origin) ? body.origin : "manual");
+const createOrigin = (body) =>
+  MCP_SERVER_ORIGINS.includes(body?.origin) ? body.origin : "manual";
 
 /** A saved change whose OAuth logout is retried later (see McpOAuthLogins.forget). */
 function deferredWarning() {
