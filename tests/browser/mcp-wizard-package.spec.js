@@ -5,6 +5,7 @@ import {
   openWizard,
   phone,
   wizardSetup,
+  writes,
 } from "./mcp-wizard-fixture.js";
 
 for (const [label, use] of [
@@ -63,6 +64,62 @@ for (const [label, use] of [
       await expect(
         wizard.getByText("The maintainers marked this version as deprecated."),
       ).toBeVisible();
+    });
+
+    test("install previews inline, saves once and shows the progress", async ({
+      page,
+    }) => {
+      const state = await wizardSetup(page);
+      const wizard = await openWizard(page);
+      await chooseSource(wizard, "Package from npm or PyPI");
+      await wizard.getByLabel("Package", { exact: true }).fill("server-x");
+      await expect(wizard.getByLabel("Version", { exact: true })).toHaveValue("1.1.0");
+      await wizard.getByRole("button", { name: "Continue", exact: true }).click();
+      await wizard.getByRole("button", { name: "Continue", exact: true }).click();
+      await expect(wizard.getByText("server-x · 0 settings (0 secret)")).toBeVisible();
+      const confirmation = wizard.getByRole("region", { name: "Install this package?" });
+      await expect(confirmation.getByText("server-x@1.1.0")).toBeVisible();
+      await confirmation.getByRole("button", { name: "Install" }).click();
+      await expect(wizard.getByText("Saved", { exact: true })).toBeVisible();
+      const created = writes(state).filter((r) => r.path === "/api/mcp-servers");
+      expect(created).toHaveLength(1);
+      expect(created[0].body).toMatchObject({
+        name: "server-x",
+        transport: "stdio",
+        source: { registry: "npm", name: "server-x", version: "1.1.0" },
+        confirmInstall: true,
+        previewId: "p1",
+        origin: "manual",
+      });
+      expect(created[0].body.clis).toBeUndefined();
+      await expect(wizard.getByText(/continues in the background/)).toBeVisible();
+      state.finishInstall();
+      await expect(wizard.getByText("Installed", { exact: true })).toBeVisible({
+        timeout: 6000,
+      });
+      await wizard.getByRole("button", { name: "Next: connect" }).click();
+      await expect(page).toHaveURL(/step=connect/);
+    });
+
+    test("a refused preview returns to the package with the message at the version", async ({
+      page,
+    }) => {
+      const state = await wizardSetup(page);
+      state.refusePreview = {
+        status: 409,
+        json: { error: "zurückgezogen", messageKey: "mcpPackages.versionYanked" },
+      };
+      const wizard = await openWizard(page);
+      await chooseSource(wizard, "Package from npm or PyPI");
+      await wizard.getByLabel("Package", { exact: true }).fill("server-x");
+      await expect(wizard.getByLabel("Version", { exact: true })).toHaveValue("1.1.0");
+      await wizard.getByRole("button", { name: "Continue", exact: true }).click();
+      await wizard.getByRole("button", { name: "Continue", exact: true }).click();
+      await expect(page).toHaveURL(/step=package/);
+      await expect(wizard.getByLabel("Version", { exact: true })).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      );
     });
   });
 }

@@ -271,3 +271,32 @@ test("an edit of a packaged server is never previewed again", async () => {
   await step.run({ values, revision: 2, confirmations: {} });
   assert.deepEqual(sent[0], { revision: 2, args: ["--owner"] });
 });
+
+test("a create carries its origin; an update never does", async () => {
+  const bodies = [];
+  const saveServer = async (server, body) => {
+    bodies.push(body);
+    return { id: "s1" };
+  };
+  const values = { ...mcpServerValues(null), name: "docs", url: "https://a.example/mcp" };
+  await mcpServerStep({
+    server: null,
+    label: "",
+    origin: "paste",
+    saveServer,
+    saved: async () => {},
+  }).run({ values, confirmations: {} });
+  await mcpServerStep({
+    server: docs,
+    label: "",
+    origin: "paste",
+    saveServer,
+    saved: async () => {},
+  }).run({
+    values: { ...mcpServerValues(docs), name: "docs2" },
+    revision: 4,
+    confirmations: {},
+  });
+  assert.equal(bodies[0].origin, "paste");
+  assert.equal(bodies[1].origin, undefined);
+});
