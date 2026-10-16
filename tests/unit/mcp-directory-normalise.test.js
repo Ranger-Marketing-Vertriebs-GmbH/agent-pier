@@ -202,7 +202,10 @@ test("property: any input normalises without throwing and without control charac
     fc.property(fc.anything({ maxDepth: 4 }), (item) => {
       const entry = normaliseEntry(item);
       if (!entry) return;
-      assert.doesNotMatch(JSON.stringify(entry), /[\u0000-\u001f‪-‮]/);
+      assert.doesNotMatch(
+        JSON.stringify(entry),
+        /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/,
+      );
     }),
   );
   fc.assert(
@@ -229,12 +232,23 @@ test("remote URLs outside printable ASCII are refused, IDN hosts need punycode",
     "https://ex.test/‮mcp",
     "https://ex.test/\u0085x",
     "https://аpple.com/mcp",
+    "git://evil.test/mcp",
+    "ssh://git@evil.test/mcp",
+    "git@evil.test:mcp",
+    "git+https://evil.test/mcp",
+    "github:evil/mcp",
+    "ftp://evil.test/mcp",
   ])
     assert.deepEqual(reason(url), ["unsupported", "url", null], JSON.stringify(url));
   assert.deepEqual(reason("https://xn--pple-43d.com/mcp"), [
     "remote-http",
     null,
     "https://xn--pple-43d.com/mcp",
+  ]);
+  assert.deepEqual(reason("https://ex.test/repo.git"), [
+    "remote-http",
+    null,
+    "https://ex.test/repo.git",
   ]);
 });
 
@@ -279,4 +293,45 @@ test("an optional named argument without a value is left out, not passed bare", 
   const [npm] = normaliseEntry(item).options;
   assert.equal(npm.kind, "npm");
   assert.deepEqual(npm.packageArgs, ["--log-level", "info", "serve"]);
+});
+
+test("configuration values are refused when too long, never cut or collapsed", () => {
+  const item = fixture("smithery-remote");
+  const [remote] = item.server.remotes;
+  remote.headers.push(
+    { name: "X-Long", value: `${"a".repeat(20000)} {tenant}` },
+    { name: "X-Spaced", value: "a  b\u202e\u0085c" },
+  );
+  const [option] = normaliseEntry(item).options;
+  assert.deepEqual(
+    option.headers.map((header) => [header.name, header.value]),
+    [
+      ["Authorization", "Bearer {smithery_api_key}"],
+      ["X-Spaced", "a  bc"],
+    ],
+  );
+  const npmItem = fixture("opnsense");
+  const [pkg] = npmItem.server.packages;
+  pkg.packageArguments.push({ type: "positional", value: "x".repeat(20000) });
+  assert.deepEqual(
+    [
+      normaliseEntry(npmItem).options[0].kind,
+      normaliseEntry(npmItem).options[0].unsupportedReason,
+    ],
+    ["unsupported", "argument"],
+  );
+  pkg.packageArguments = [{ type: "positional", value: "keep  two\tspaces" }];
+  assert.deepEqual(normaliseEntry(npmItem).options[0].packageArgs, ["keep  twospaces"]);
+});
+
+test("more package arguments than the cap make the option unsupported", () => {
+  const item = fixture("opnsense");
+  item.server.packages[0].packageArguments = Array.from({ length: 101 }, (_, i) => ({
+    type: "positional",
+    value: `a${i}`,
+  }));
+  const [npm] = normaliseEntry(item).options;
+  assert.deepEqual([npm.kind, npm.unsupportedReason], ["unsupported", "argument"]);
+  item.server.packages[0].packageArguments.pop();
+  assert.equal(normaliseEntry(item).options[0].packageArgs.length, 100);
 });
