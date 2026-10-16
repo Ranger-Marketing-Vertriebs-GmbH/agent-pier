@@ -33,8 +33,8 @@ demand by the AgentPier server.
   decision Q4).
 - No visible (readable) env or header values; every value stays write-only (Q3).
 - No background sync of the registry, no publishing to it, no auto-install or auto-update.
-- No parsing of Codex TOML or `claude mcp add …` command lines in stage 1 (see open
-  question 4); they get a clear "not understood" state.
+- No parsing of Codex TOML or `claude mcp add …` command lines (decision Q10; follow-up
+  ticket); they get a clear "not understood" state.
 - Agent settings → Capabilities → MCP servers keeps working unchanged.
 - Team bindings (`team-mcp.js`) and temporary members are out of scope.
 
@@ -48,6 +48,10 @@ demand by the AgentPier server.
 | Q4  | No shipped list of reviewed servers. No reviewed/not-reviewed notices. The only sentence: a directory listing or a guide is not a security review. Where a package is shown, its publisher and source link are shown with it ("Check who published the package before you install it.").                                                                                                                                                                                   |
 | Q5  | Unsupported registry types are shown greyed under the "All" filter and hidden by the default filter "Installable here".                                                                                                                                                                                                                                                                                                                                                    |
 | Q6  | The wizard is also the edit flow for existing servers. An existing server opens on an overview with one card per step and a "Change" action; each step opens in edit mode with today's locks (connection kind locked, name editable, package changes only through Check update → confirmation, re-binding of CLIs and agents in Connect with the same consent card). Directory updates show as a pill in the MCP list. Details in [Edit flow](#edit-flow-existing-server). |
+| Q7  | Connect while a package is still installing: the wizard remembers the CLI and agent choice and connects automatically once the package is installed ("Connect when installed"). Today's rule stays: no new bindings before the package is ready.                                                                                                                                                                                                                           |
+| Q8  | The "Update available" pill appears only for servers created from the directory. A newest-version check against npm/PyPI for other packaged servers is a separate ticket.                                                                                                                                                                                                                                                                                                  |
+| Q9  | A server created from the directory stores its origin (directory name and version) in a small non-secret column that is included in backups and restore validation.                                                                                                                                                                                                                                                                                                        |
+| Q10 | Stage 1 paste formats: JSON blocks and simple `npx`/`uvx`/`pipx` command lines. `claude mcp add …` and Codex TOML come later in a follow-up ticket.                                                                                                                                                                                                                                                                                                                        |
 
 Mockup changes after the owner review: the paste result and the directory detail no
 longer carry any "reviewed by AgentPier" box; they show a neutral note with the package's
@@ -235,7 +239,7 @@ Saves with `POST /mcp-servers` without `clis`.
   installed** and the screen shows the live status; the wizard applies the choice when the
   status becomes `ready` (today's rule: no new bindings before the package is ready). On
   failure nothing is bound and Done shows why. Closing the wizard while waiting warns
-  "Your CLI and agent choice is not saved yet." (Open question 1.)
+  "Your CLI and agent choice is not saved yet." (Decision Q7.)
 - Primary **Save and connect** (stdio with new targets: **Allow and connect**, which sends
   `confirmStdio: true` for the CLI update and for each agent that gains the server).
   Secondary **Skip for now** → Done.
@@ -461,7 +465,7 @@ list opens, the server asks the directory for the `latest` detail of each such s
 identifier and a newer exact version, the row shows "Update available"; the overview's
 package panel shows "Version <v> is listed in the directory" and pre-fills New version.
 The update then runs the existing Check update → confirmation flow. Identifier changes or
-a remote URL change are shown as a hint only, never applied. (Open question 2 and 3.)
+a remote URL change are shown as a hint only, never applied. (Decisions Q8 and Q9.)
 
 ## Architecture
 
@@ -519,7 +523,9 @@ long single-page form is removed once the browser specs run against the wizard (
     `info.maintainer`) and `repositoryUrl` (npm `repository.url` normalised; PyPI
     `project_urls` Source/Repository/Homepage), each text-capped (200) and http(s)-only.
     Shown as "published by … (according to npm/PyPI)" and "link given by the publisher,
-    not verified".
+    not verified". The fields are added where the version list is built
+    (`npmVersions`/`pypiVersions` in `registry-metadata.js`); `mcp-packages.js` passes
+    the adapter result through unchanged and needs no edit.
   - `GET /mcp-commands/resolve?name=` – resolves an own command to an absolute path with
     `resolveCommand()` from `command-resolution.js` (the same PATH lookup the save uses),
     answers `{ found, path }`; never executes anything, `Cache-Control: no-store`. A
@@ -620,21 +626,17 @@ Ship in stages, each a reviewable PR on its own branch from `main`:
 Stage 1 alone is a complete feature (no hidden directory card). Release notes mention
 the directory's preview status and that searches go to the configured registry host.
 
+## Coordination with parallel work
+
+Another session changes `server/features/mcp-packages/mcp-packages.js`,
+`program-select.js`, `server/features/mcp-servers/cli-reconciler.js` and `cli-bindings.js`
+in separate bug-fix PRs. This design requires **no change** to `cli-reconciler.js`,
+`cli-bindings.js` or `program-select.js`, and none to `mcp-packages.js` in stage 1 (CLI
+bindings go through the existing `clis` field of `POST`/`PUT /mcp-servers`). Stage 2's
+`origin` column touches `mcp-server-store.js` and the backup validation only. The
+mcp-wizard PRs rebase onto `main` after those bug-fix PRs merge and re-run the MCP suites
+before review.
+
 ## Open questions
 
-1. **Connect while a package is still installing.** Recommendation: keep today's rule (no
-   new bindings before `ready`); the wizard keeps the choice and applies it when the
-   install finishes ("Connect when installed"), dropping it with a warning if the wizard is
-   closed. Alternative: send the CLI targets with the create request (already allowed by
-   the server) and bind agents after the install – faster, but it changes the documented
-   rule for CLIs only.
-2. **Update pill scope.** Recommendation: stage 2 shows the pill only for servers created
-   from the directory (origin stored). Checking npm/PyPI "newest stable" for every
-   packaged server is a separate small ticket, since it is not directory data.
-3. **Store the directory origin on the server record.** Needed for the pill because the
-   registry cannot be searched by package identifier. Recommendation: yes, a small
-   non-secret `origin` column included in backups; servers created before stage 2 have no
-   pill.
-4. **More paste formats.** Recommendation: stage 1 understands JSON blocks and single
-   `npx`/`uvx`/`pipx` lines only; `claude mcp add …` and Codex TOML follow as a later
-   ticket once the JSON parser has proven itself.
+None. The owner answered all of them; see decisions Q7–Q10.
