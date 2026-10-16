@@ -240,3 +240,25 @@ test("a member's approval in a lead's task waits in both chats", async (t) => {
   await decide(f, action, "decline");
   assert.equal((await call).status, "denied");
 });
+
+test("an allowed member command stays in the lead's chat while it runs", async (t) => {
+  const f = await approvalFixture(t);
+  const m = f.member();
+  f.grant([{ accessId: hostId, mode: "approval" }], m.id);
+  const call = f.execute(
+    f.turn(m.conversationId, {
+      kind: "lead-request",
+      requestId: "r1",
+      leadAssistantId: f.id,
+    }),
+    "setTimeout(() => {}, 400)",
+  );
+  const action = await waitFor(() => pending(f, m.id));
+  await decide(f, action, "approve");
+  const listed = (id, options) =>
+    f.workflows.list(id, options).actions.find((a) => a.id === action.id)?.state;
+  assert.equal(listed(m.id), "executing");
+  assert.equal(listed(f.id, { delegated: true }), "executing");
+  await call;
+  assert.equal(listed(f.id, { delegated: true }), undefined);
+});
