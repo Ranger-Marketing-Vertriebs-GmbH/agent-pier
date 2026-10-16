@@ -424,3 +424,41 @@ test("touch-only devices do not arm the agent chat drop zone", async ({ browser 
     await context.close();
   }
 });
+
+const textFile = (name) => ({ name, mimeType: "text/plain", buffer: Buffer.from("x") });
+
+test("a file picked while the previous message is sending stays attached", async ({
+  page,
+}) => {
+  const state = await openDropChat(page);
+  let release;
+  const sending = new Promise((resolve) => (release = resolve));
+  await page.route(/\/api\/assistant-conversations\/dinner\/messages$/, async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    state.posted.push(route.request().postDataJSON());
+    await sending;
+    return route.fulfill({
+      json: {
+        request: { id: "sent" },
+        attempt: { id: "sent-attempt", state: "accepted" },
+      },
+    });
+  });
+  const input = page.locator('input[type="file"]');
+  const tray = page.getByRole("list", { name: "Attachments" });
+  await input.setInputFiles([textFile("first.md")]);
+  await expect(tray.getByText("first.md")).toBeVisible();
+  await page.locator("#assistant-message").fill("Here is the first file");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect.poll(() => state.posted.length).toBe(1);
+  // The next file arrives while the send is still on its way.
+  await input.setInputFiles([textFile("second.md")]);
+  await expect
+    .poll(() => state.uploads.map((u) => u.name))
+    .toEqual(["first.md", "second.md"]);
+  release();
+  await expect(tray.getByText("first.md")).toHaveCount(0);
+  await expect(tray.getByText("second.md")).toBeVisible();
+  expect(state.posted[0].attachments).toEqual(["file-1"]);
+  expect(state.deleted).toEqual([]);
+});

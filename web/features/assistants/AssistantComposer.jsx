@@ -74,7 +74,8 @@ export default function AssistantComposer({
   const submitWithFiles = async (event) => {
     event.preventDefault();
     if (attachments.blocked) return;
-    if (await onSubmit(event, attachments.ids)) attachments.sent();
+    const ids = attachments.ids;
+    if (await onSubmit(event, ids)) attachments.sent(ids);
   };
   useLayoutEffect(() => {
     const element = field.current;
