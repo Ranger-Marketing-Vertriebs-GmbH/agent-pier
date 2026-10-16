@@ -39,7 +39,12 @@ const fieldSteps = {
   cwd: "settings",
 };
 
-export const stepOrder = (path) => orders[path] ?? ["source"];
+/** A pasted block adds the Paste step between Source and the path's set-up step. */
+export const stepOrder = (path, via = null) => {
+  const order = orders[path] ?? ["source"];
+  if (via !== "paste") return order;
+  return path ? ["source", "paste", ...order.slice(1)] : ["source", "paste"];
+};
 
 /** The indicator's stages; a path without a package has no Install stage. */
 export const stages = (path) =>
@@ -52,6 +57,9 @@ export const stageIndex = (path, step) => stages(path).indexOf(stageOf[step] ?? 
 export function initialWizard() {
   return {
     path: null,
+    via: null,
+    // The pasted guide text and what was read from it: memory only, never sent.
+    paste: { text: "", result: null, index: 0 },
     visited: ["source"],
     draft: {
       ...mcpServerValues(null),
@@ -75,10 +83,30 @@ export function wizardReducer(state, action) {
       return {
         ...state,
         path: action.path,
+        via: null,
         visited: ["source", action.path],
         draft: { ...state.draft, ...pathValues[action.path] },
         fieldError: null,
       };
+    case "via":
+      return { ...state, via: action.via, path: null, visited: ["source", action.via] };
+    case "pasteText":
+      return { ...state, paste: { ...state.paste, text: action.text } };
+    case "pasteResult":
+      return {
+        ...state,
+        paste: { ...state.paste, result: action.result, index: action.index },
+      };
+    case "pasted": {
+      const { path, ...values } = action.draft;
+      return {
+        ...state,
+        path,
+        visited: ["source", "paste", path, "settings"],
+        draft: { ...initialWizard().draft, ...pathValues[path], ...values },
+        fieldError: null,
+      };
+    }
     case "set":
       return {
         ...state,
@@ -109,7 +137,15 @@ export function wizardReducer(state, action) {
     case "lost":
       return { ...initialWizard(), notice: "lost" };
     case "reset":
-      return initialWizard();
+      // "Add another server" after a pasted block offers its other servers again.
+      return action.keepPaste && state.paste.result
+        ? {
+            ...initialWizard(),
+            via: "paste",
+            visited: ["source", "paste"],
+            paste: state.paste,
+          }
+        : initialWizard();
     case "dismiss":
       return { ...state, notice: "" };
     default:
@@ -120,7 +156,7 @@ export function wizardReducer(state, action) {
 /** Whether the owner may open `step` now (visited, not closed by a save). */
 export function reachable(state, step) {
   if (step === "source") return !state.serverId;
-  const order = stepOrder(state.path);
+  const order = stepOrder(state.path, state.via);
   if (!order.includes(step) || !state.visited.includes(step)) return false;
   if (state.finished) return step === "done";
   if (state.serverId) return order.indexOf(step) >= order.indexOf(saveSteps[state.path]);
@@ -134,18 +170,19 @@ export const resolveStep = (state, requested = "source") =>
 /** The furthest step the owner can open: where a refused address sends them. */
 export function fallbackStep(state) {
   return (
-    [...stepOrder(state.path)].reverse().find((step) => reachable(state, step)) ??
-    "source"
+    [...stepOrder(state.path, state.via)]
+      .reverse()
+      .find((step) => reachable(state, step)) ?? "source"
   );
 }
 
 export function nextStep(state, step) {
-  const order = stepOrder(state.path);
+  const order = stepOrder(state.path, state.via);
   return order[order.indexOf(step) + 1] ?? null;
 }
 
 export function previousStep(state, step) {
-  const order = stepOrder(state.path);
+  const order = stepOrder(state.path, state.via);
   const before = order[order.indexOf(step) - 1];
   return before && reachable(state, before) ? before : null;
 }
@@ -154,7 +191,8 @@ export function previousStep(state, step) {
 export const stepOfField = (path, field) => fieldSteps[field] ?? path;
 
 /** Typed input that is not saved yet: closing asks before it is dropped. */
-export const isDirty = (state) => Boolean(state.path) && !state.serverId;
+export const isDirty = (state) =>
+  (Boolean(state.path) || Boolean(state.paste?.text)) && !state.serverId;
 
 /**
  * The values `mcpServerStep` saves: the sign-in choice becomes `auth`, "No sign-in"

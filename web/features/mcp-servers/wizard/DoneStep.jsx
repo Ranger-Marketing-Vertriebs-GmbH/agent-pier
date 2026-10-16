@@ -43,8 +43,10 @@ export default function DoneStep({
       secondary={{
         label: copy.done.another,
         onClick: () => {
-          dispatch({ type: "reset" });
-          navigate(itemRoute("mcp-servers", "new"));
+          // The other servers of a pasted block wait here; closing drops them.
+          const rest = state.paste.result?.ok && state.paste.result.servers.length > 1;
+          dispatch({ type: "reset", keepPaste: rest });
+          navigate(itemRoute("mcp-servers", "new", rest ? "paste" : undefined));
         },
       }}
       onSubmit={() => navigate(itemRoute("mcp-servers", server.id))}

@@ -59,6 +59,18 @@ export default function SourceStep({ state, dispatch, go, headingRef }) {
           </label>
         ))}
       </fieldset>
+      <button
+        type="button"
+        className="button secondary mcp-wizard-paste-row"
+        onClick={() => {
+          dispatch({ type: "via", via: "paste" });
+          dispatch({ type: "dismiss" });
+          go("paste");
+        }}
+      >
+        {copy.source.paste}
+      </button>
+      <small className="mcp-hint">{copy.source.pasteHint}</small>
     </WizardStep>
   );
 }
