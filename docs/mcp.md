@@ -214,7 +214,8 @@ needs the owner's confirmation, because every session of that CLI starts it.
   one (never a value), Adopt all skips it, and adopting it by key fails with the reason
   _env-references_ (`MCP_CLI_FIND_ENV_REFERENCES` from the adoption service).
   **Adopt the change** for a hand edit that adds a reference is refused with
-  `409 MCP_CLI_CHANGE_ENV_REFERENCES`.
+  `409 MCP_CLI_CHANGE_ENV_REFERENCES`. A field the CLI cannot express keeps the
+  server's value: adopting a Claude Code edit keeps the OAuth scope.
 - **Literal values.** AgentPier stores what the owner enters literally. Creating or
   updating a server with a reference in a header or environment value, the URL, the
   command, its arguments or the working directory is refused with

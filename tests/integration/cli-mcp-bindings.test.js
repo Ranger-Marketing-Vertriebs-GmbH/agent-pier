@@ -345,3 +345,35 @@ test("a name-taken OAuth server shows no login of the owner's other entry", asyn
   const [written] = await cli.decorate(f.servers.list());
   assert.equal(written.cliStatus.codex.oauth.state, "connected");
 });
+
+test("adopting a Claude Code edit keeps the OAuth scope Claude Code cannot express", async (t) => {
+  const f = cliMcpFixture(t);
+  const changes = new CentralMcpChanges({ servers: f.servers });
+  const cli = service(f, { changes: () => changes });
+  const server = f.servers.create(
+    http({ auth: "oauth", headers: undefined, oauthScope: "read write" }),
+    {
+      bind: [
+        ["cli", "claude"],
+        ["cli", "codex"],
+      ],
+    },
+  );
+  cli.reconcileAll();
+  assert.deepEqual(f.entries("codex").docs.scopes, ["read", "write"]);
+  f.write("claude", { docs: { type: "http", url: "https://moved.example.test/mcp" } });
+  await cli.resolve(server.id, "claude", "adopt");
+  const after = f.servers.get(server.id);
+  assert.deepEqual(
+    [after.url, after.auth, after.oauthScope],
+    ["https://moved.example.test/mcp", "oauth", "read write"],
+  );
+  assert.deepEqual(f.entries("codex").docs, {
+    url: "https://moved.example.test/mcp",
+    scopes: ["read", "write"],
+  });
+  // Codex expresses scopes: its edit sets them.
+  f.write("codex", { docs: { url: "https://moved.example.test/mcp", scopes: ["read"] } });
+  await cli.resolve(server.id, "codex", "adopt");
+  assert.equal(f.servers.get(server.id).oauthScope, "read");
+});
