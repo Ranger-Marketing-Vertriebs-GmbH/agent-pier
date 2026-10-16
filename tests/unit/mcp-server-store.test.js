@@ -273,3 +273,52 @@ test("an unchanged stored reference never blocks a save; a changed one is refuse
     { status: 400, code: "MCP_SERVER_VALUE_REFERENCE", field: "env" },
   );
 });
+
+test("a directory origin is stored with the server and survives rename and updates", () => {
+  const servers = store();
+  const origin = { name: "ai.smithery/docs", version: "1.2.0" };
+  const created = servers.create({ ...http(), directoryOrigin: origin });
+  assert.deepEqual(created.directoryOrigin, origin);
+  const renamed = servers.update(created.id, {
+    revision: created.revision,
+    name: "docs2",
+  });
+  assert.deepEqual(renamed.directoryOrigin, origin);
+  const moved = servers.update(created.id, {
+    revision: renamed.revision,
+    url: "https://example.com/v2",
+  });
+  assert.deepEqual(moved.directoryOrigin, origin);
+  assert.deepEqual(servers.list()[0].directoryOrigin, origin);
+  const plain = servers.create(http({ name: "plain" }));
+  assert.equal(plain.directoryOrigin, undefined);
+  assert.equal("directoryOrigin" in servers.get(plain.id), false);
+  assert.throws(
+    () =>
+      servers.create({
+        ...http({ name: "bad" }),
+        directoryOrigin: { name: "x", version: "1" },
+      }),
+    (error) => error.status === 400,
+  );
+  assert.equal(
+    servers.list().some((s) => s.name === "bad"),
+    false,
+  );
+});
+
+test("an existing store without the directory_origin column gains it", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-store-"));
+  const first = new McpServerStore({ dataDir, pathEnv: "/fake/bin", exists });
+  const { id } = first.create(http());
+  first.db.exec("ALTER TABLE servers DROP COLUMN directory_origin");
+  first.close();
+  const reopened = new McpServerStore({ dataDir, pathEnv: "/fake/bin", exists });
+  const columns = reopened.db
+    .prepare("PRAGMA table_info(servers)")
+    .all()
+    .map((c) => c.name);
+  assert.ok(columns.includes("directory_origin"));
+  assert.equal(reopened.get(id).directoryOrigin, undefined);
+  reopened.close();
+});

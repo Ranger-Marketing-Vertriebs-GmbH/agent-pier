@@ -6,6 +6,7 @@ import { problem } from "../../lib/storage.js";
 import { mcpUrl, record } from "../extensions/mcp-config.js";
 import { PackageRecords } from "../mcp-packages/package-records.js";
 import { CliEntryStore } from "./cli-entry-store.js";
+import { cleanDirectoryOrigin, readDirectoryOrigin } from "./directory-origin.js";
 import { resolveCommand, sanitisedPrefix } from "./command-resolution.js";
 import {
   cleanArgs,
@@ -28,7 +29,8 @@ CREATE TABLE IF NOT EXISTS servers(
   url TEXT, command TEXT, args TEXT NOT NULL DEFAULT '[]', cwd TEXT,
   settings TEXT NOT NULL DEFAULT '{}', revision INTEGER NOT NULL,
   auth TEXT NOT NULL DEFAULT 'headers', oauth_scope TEXT,
-  oauth_connected INTEGER NOT NULL DEFAULT 0, oauth_login_redirect TEXT);
+  oauth_connected INTEGER NOT NULL DEFAULT 0, oauth_login_redirect TEXT,
+  directory_origin TEXT);
 CREATE TABLE IF NOT EXISTS server_secrets(
   server_id TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
   kind TEXT NOT NULL CHECK(kind IN ('header','env')), name TEXT NOT NULL, value TEXT NOT NULL,
@@ -66,6 +68,8 @@ export class McpServerStore {
       );
     if (!columns.some((c) => c.name === "oauth_login_redirect"))
       this.db.exec("ALTER TABLE servers ADD COLUMN oauth_login_redirect TEXT");
+    if (!columns.some((c) => c.name === "directory_origin"))
+      this.db.exec("ALTER TABLE servers ADD COLUMN directory_origin TEXT");
     // Which native CLI entries AgentPier wrote (cli-reconciler.js).
     this.cliEntries = new CliEntryStore(this.db);
     this.packages = new PackageRecords(this.db, dataDir);
@@ -90,6 +94,7 @@ export class McpServerStore {
       .map((r) => r.name);
   }
   publicServer(row, packages) {
+    const origin = readDirectoryOrigin(row.directory_origin);
     return {
       id: row.id,
       name: row.name,
@@ -108,6 +113,7 @@ export class McpServerStore {
       headerNames: this.names(row.id, "header"),
       envNames: this.names(row.id, "env"),
       revision: row.revision,
+      ...(origin ? { directoryOrigin: origin } : {}),
       ...this.packages.publicFields(row.id, packages),
     };
   }
@@ -318,6 +324,7 @@ export class McpServerStore {
       throw invalid();
     if (packageRecord && !pending) throw invalid();
     const fields = this.definition(input, pending);
+    const origin = cleanDirectoryOrigin(input.directoryOrigin);
     const id = randomUUID();
     this.transaction(() => {
       this.insertOrUpdate(
@@ -327,6 +334,11 @@ export class McpServerStore {
         1,
       );
       this.writeSecrets(id, input, fields.transport, true, fields.auth);
+      // Updates never touch the column: a rename or package update keeps the origin.
+      if (origin)
+        this.db
+          .prepare("UPDATE servers SET directory_origin=? WHERE id=?")
+          .run(JSON.stringify(origin), id);
       for (const [kind, targetId] of bind) this.bind(id, kind, targetId);
       if (packageRecord) this.packages.put(id, packageRecord);
     });
