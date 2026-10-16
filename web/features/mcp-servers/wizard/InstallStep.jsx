@@ -177,6 +177,7 @@ export default function InstallStep({
           inline
           preview={preview}
           allowScripts={draft.allowScripts}
+          defaultProgram={draft.hints.program}
           busy={busy}
           onConfirm={install}
           onCancel={() => go("package")}

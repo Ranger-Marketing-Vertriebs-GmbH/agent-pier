@@ -8,6 +8,7 @@ import DoneStep from "./DoneStep.jsx";
 import InstallStep from "./InstallStep.jsx";
 import OwnCommandStep from "./OwnCommandStep.jsx";
 import PackageStep from "./PackageStep.jsx";
+import PasteStep from "./PasteStep.jsx";
 import RemoteStep from "./RemoteStep.jsx";
 import ReviewStep from "./ReviewStep.jsx";
 import SettingsStep from "./SettingsStep.jsx";
@@ -34,6 +35,7 @@ import "./mcp-wizard.css";
  */
 const screens = {
   source: SourceStep,
+  paste: PasteStep,
   package: PackageStep,
   remote: RemoteStep,
   command: OwnCommandStep,
@@ -66,10 +68,11 @@ export default function McpWizard({
     ? ((data.mcpServers || []).find((item) => item.id === state.serverId) ?? null)
     : null;
   const packageStatus = usePackageStatus(server?.source ? server : null, data.reloadMcp);
-  // A reload or a forward move names a step this visit cannot show.
+  // A reload or a forward move names a step this visit cannot show. A kept pasted
+  // block ("Add another server") is no lost setup: its Paste step is the fallback.
   useEffect(() => {
     if (step) return;
-    if (!state.path && entry.step) dispatch({ type: "lost" });
+    if (!state.path && !state.via && entry.step) dispatch({ type: "lost" });
     navigate(stepRoute(fallbackStep(state)), true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);

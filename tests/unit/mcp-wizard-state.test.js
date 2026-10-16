@@ -173,3 +173,61 @@ test("connect results are kept for Done", () => {
   });
   assert.equal(initialWizard().connect, null);
 });
+
+test("paste is its own entry: Source → Paste → set-up → Settings", () => {
+  const typed = run([
+    { type: "via", via: "paste" },
+    { type: "pasteText", text: "{}" },
+  ]);
+  assert.deepEqual(stepOrder(null, "paste"), ["source", "paste"]);
+  assert.equal(reachable(typed, "paste"), true);
+  assert.equal(isDirty(typed), true);
+  const pasted = run(
+    [
+      {
+        type: "pasted",
+        draft: {
+          path: "package",
+          name: "opnsense",
+          packageName: "opnsense-mcp-server",
+          origin: "paste",
+        },
+      },
+    ],
+    typed,
+  );
+  assert.deepEqual(stepOrder(pasted.path, pasted.via), [
+    "source",
+    "paste",
+    "package",
+    "settings",
+    "install",
+    "connect",
+    "done",
+  ]);
+  assert.equal(pasted.draft.transport, "stdio");
+  assert.equal(pasted.draft.packageName, "opnsense-mcp-server");
+  assert.equal(pasted.draft.origin, "paste");
+  assert.equal(reachable(pasted, "settings"), true);
+  assert.equal(previousStep(pasted, "settings"), "package");
+  assert.equal(previousStep(pasted, "package"), "paste");
+  assert.equal(run([{ type: "choose", path: "remote" }], pasted).via, null);
+});
+
+test("Add another server keeps the pasted block when asked", () => {
+  const result = { ok: true, servers: [{ name: "a" }, { name: "b" }], warnings: [] };
+  const state = run([
+    { type: "via", via: "paste" },
+    { type: "pasteText", text: "x" },
+    { type: "pasteResult", result, index: 0 },
+  ]);
+  const kept = run([{ type: "reset", keepPaste: true }], state);
+  assert.deepEqual(kept.paste, { text: "x", result, index: 0 });
+  assert.equal(kept.via, "paste");
+  assert.equal(reachable(kept, "paste"), true);
+  assert.deepEqual(run([{ type: "reset" }], state).paste, {
+    text: "",
+    result: null,
+    index: 0,
+  });
+});
