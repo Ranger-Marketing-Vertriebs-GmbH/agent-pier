@@ -546,11 +546,12 @@ other history cannot be forwarded accidentally. OpenClaw's history pages cut eve
 message at its default of 8,000 characters and mark the cut. AgentPier reads each
 message a page cut again on its own (`chat.history` with `messageId` and `maxChars`
 65,536): at most eight per page, newest first and four at a time; concurrent pages
-share a running read, and the cache keeps each result, so later pages need no new
-reads. The cache holds a conversation's newest 300 messages (three full pages: the
-newest page that the chat polls and server-side readers use, plus room to scroll back
-while the Gateway is unavailable); older messages leave it, and a history read that
-changes nothing writes nothing. The AgentPier chat therefore shows long messages whole, the owner's own turns
+share a running read, and the cache keeps each result, so later pages within the
+cached newest messages need no new reads. The cache holds a conversation's newest 300
+messages (three full pages: the newest page that the chat polls and server-side
+readers use, plus room to scroll back while the Gateway is unavailable) and at most
+about 4 MB of text; beyond the newest page, which always stays whole, the oldest
+messages leave it first. A history read that changes nothing writes nothing. The AgentPier chat therefore shows long messages whole, the owner's own turns
 included, and never shows OpenClaw's marker. A message is served in one of three
 states: whole; `cut: true` when its own read confirmed it is still incomplete (over
 65,536 characters, or OpenClaw's "message too large" placeholder), with a short note

@@ -10,7 +10,21 @@ import { validateDefinition, assistantProblem } from "./assistant-validation.js"
 // The message cache keeps a conversation's newest messages only. A history page holds
 // at most 100 messages; the chat's poll and every server-side reader ask for the
 // newest page, and three pages leave room to scroll back while the Gateway is away.
+// Beyond the newest page, which stays whole, the oldest leave once the texts exceed
+// about 4 MB, so a conversation of huge turns cannot grow the cache past it.
 export const cachedMessageLimit = 300;
+export const cachedTextLimit = 4 * 1024 * 1024;
+const newestPage = 100;
+const textLength = (m) => (typeof m.text === "string" ? m.text.length : 0);
+/** The part of sorted `messages` the cache keeps: the newest, within both bounds. */
+export function cachedWindow(messages) {
+  const kept = messages.slice(-cachedMessageLimit);
+  let total = kept.reduce((sum, m) => sum + textLength(m), 0),
+    start = 0;
+  while (total > cachedTextLimit && kept.length - start > newestPage)
+    total -= textLength(kept[start++]);
+  return start ? kept.slice(start) : kept;
+}
 export class AssistantStore {
   constructor({ dataDir }) {
     const root = path.join(dataDir, "assistants");
@@ -155,14 +169,14 @@ export class AssistantStore {
       .all()
       .map((r) => JSON.parse(r.body));
   }
-  /** Replaces the cache with the newest `cachedMessageLimit` of `messages` (sorted). */
+  /** Replaces the cache with the `cachedWindow` of `messages` (sorted). */
   cacheMessages(id, messages) {
     this.getConversation(id);
     this.db
       .prepare(
         "INSERT INTO messages VALUES (?,?) ON CONFLICT(conversation_id) DO UPDATE SET body=excluded.body",
       )
-      .run(id, JSON.stringify(messages.slice(-cachedMessageLimit)));
+      .run(id, JSON.stringify(cachedWindow(messages)));
   }
   messages(id) {
     this.getConversation(id);

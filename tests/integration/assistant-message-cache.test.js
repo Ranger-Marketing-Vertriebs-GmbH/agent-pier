@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   AssistantStore,
   cachedMessageLimit,
+  cachedTextLimit,
 } from "../../server/features/assistants/assistant-store.js";
 import { conversationHistory } from "../../server/features/assistants/conversations.js";
 
@@ -37,13 +38,16 @@ function setup(t) {
     assistantId: assistant.id,
     runtimeSessionKey: "session",
   });
-  const state = { history: [], reads: [] };
+  // Single reads of these ids serve no message, like an unanswered read.
+  const state = { history: [], reads: [], failing: new Set() };
+  const clock = { at: 1_000_000 };
   const client = {
     ready: true,
     call: async (method, params) => {
       assert.equal(method, "chat.history");
       const max = params.maxChars ?? 8000;
       if (params.messageId) state.reads.push(params.messageId);
+      if (state.failing.has(params.messageId)) return { messages: [] };
       // A page counts back from the newest message: `offset` skips the newest ones.
       const end = state.history.length - (params.offset || 0);
       const start = Math.max(0, end - (params.limit || 1));
@@ -59,11 +63,12 @@ function setup(t) {
   const service = {
     store,
     runtime: { client, generation: 1 },
+    now: () => clock.at,
     ledger: { requests: () => [], attemptRequests: () => new Map() },
   };
   const writes = t.mock.method(store, "cacheMessages");
   const read = (options) => conversationHistory(service, conversation.id, options);
-  return { store, client, state, writes, read, id: conversation.id };
+  return { store, client, state, clock, writes, read, id: conversation.id };
 }
 
 test("an unchanged history read does not rewrite the message cache", async (t) => {
@@ -114,6 +119,8 @@ test("the cache keeps only the newest messages and their completed texts", async
       runId: null,
     })),
   );
+  // Count only the writes of history reads from here on.
+  writes.mock.resetCalls();
   const cached = store.messages(id);
   assert.equal(cached.length, cachedMessageLimit);
   assert.equal(cached[0].id, `m${count - cachedMessageLimit}`);
@@ -131,7 +138,63 @@ test("the cache keeps only the newest messages and their completed texts", async
   assert.equal(after[0].id, `m${count - cachedMessageLimit + 1}`);
   assert.equal(after.at(-1).id, "new");
   assert.equal(after.find((m) => m.id === `m${count - 2}`).text, longText);
-  assert.equal(writes.mock.callCount(), 2);
+  assert.equal(writes.mock.callCount(), 1);
+});
+
+test("a message completed later is written once and then left alone", async (t) => {
+  const { store, state, clock, writes, read, id } = setup(t);
+  state.history = [native("a1", 1, longText)];
+  // The single read goes unanswered: the cache keeps the page's cut text.
+  state.failing.add("a1");
+  assert.equal((await read()).messages[0].partial, true);
+  assert.equal(writes.mock.callCount(), 1);
+  // Its retry is not due yet, so the next poll changes nothing.
+  await read();
+  assert.equal(writes.mock.callCount(), 1);
+  // The retry reads the whole text: exactly one more write, then none.
+  state.failing.delete("a1");
+  clock.at += 5000;
+  writes.mock.resetCalls();
+  const whole = await read();
+  assert.equal(whole.messages[0].text, longText);
+  assert.equal(whole.messages[0].partial, undefined);
+  await read();
+  assert.equal(writes.mock.callCount(), 1);
+  assert.equal(store.messages(id)[0].text, longText);
+  // A reply that grows under the same id is written once per change.
+  state.history.push(native("a2", 2, "Hel"));
+  await read();
+  state.history[1] = native("a2", 2, "Hello, the rest of the reply");
+  writes.mock.resetCalls();
+  await read();
+  await read();
+  assert.equal(writes.mock.callCount(), 1);
+  assert.equal(store.messages(id)[1].text, "Hello, the rest of the reply");
+});
+
+test("the cache keeps its texts within a budget but the newest page whole", (t) => {
+  const { store, id } = setup(t);
+  const huge = (count, size) =>
+    Array.from({ length: count }, (_, i) => ({
+      id: `m${i}`,
+      role: "assistant",
+      text: `${i}`.padEnd(size, "x"),
+      timestamp: i + 1,
+      runId: null,
+    }));
+  const size = 30000;
+  store.cacheMessages(id, huge(cachedMessageLimit, size));
+  const kept = store.messages(id);
+  const total = kept.reduce((sum, m) => sum + m.text.length, 0);
+  assert.ok(total <= cachedTextLimit, `${total} characters`);
+  assert.equal(kept.length, Math.floor(cachedTextLimit / size));
+  assert.equal(kept.at(-1).id, `m${cachedMessageLimit - 1}`, "the oldest leave first");
+  // The newest page stays whole even when it alone exceeds the budget.
+  store.cacheMessages(id, huge(150, 60000));
+  const page = store.messages(id);
+  assert.equal(page.length, 100);
+  assert.equal(page[0].id, "m50");
+  assert.equal(page.at(-1).id, "m149");
 });
 
 test("an oversized cache from an earlier build is pruned on the next read", async (t) => {
