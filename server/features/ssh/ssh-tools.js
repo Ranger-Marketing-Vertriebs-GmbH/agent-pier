@@ -1,21 +1,10 @@
 import path from "node:path";
-import { spawn } from "node:child_process";
 import { authorizeSsh, capabilityFile } from "./ssh-capability.js";
 import { acquireExecutionLock } from "./ssh-execution-lock.js";
 import { problem } from "../../lib/storage.js";
 import { sshManagementTools } from "./ssh-management-tools.js";
 import { sshManagementClient } from "./ssh-management-client.js";
-function decodeOutput(buffer, budget) {
-  let text = "",
-    bytes = 0;
-  for (const character of buffer.toString("utf8")) {
-    const size = Buffer.byteLength(character);
-    if (bytes + size > budget) break;
-    text += character;
-    bytes += size;
-  }
-  return text;
-}
+import { runSshCommand } from "./ssh-run.js";
 export const sshTools = [
   ...sshManagementTools,
   {
@@ -115,83 +104,29 @@ export class SshTools {
         (this.store.revision && invocation.revision !== this.store.revision(accessId))
       )
         throw problem("SSH assignment or capability revoked.", 403);
-      return await new Promise((resolve, reject) => {
-        const child = spawn(invocation.command, [...invocation.args, command], {
-          cwd: invocation.cwd,
-          shell: false,
-          stdio: ["ignore", "pipe", "pipe"],
-        });
-        this.child = child;
-        if (child.pid) lease.child(child.pid);
-        let stdout = Buffer.alloc(0),
-          stderr = Buffer.alloc(0),
-          truncated = false,
-          timedOut = false,
-          revoked = false;
-        const append = (which, chunk) => {
-          const available = 65536 - stdout.length - stderr.length;
-          const kept = chunk.subarray(0, Math.max(0, available));
-          if (which === "stdout") stdout = Buffer.concat([stdout, kept]);
-          else stderr = Buffer.concat([stderr, kept]);
-          if (chunk.length > available) {
-            truncated = true;
-            child.kill("SIGKILL");
-          }
-        };
-        child.stdout.on("data", (chunk) => append("stdout", chunk));
-        child.stderr.on("data", (chunk) => append("stderr", chunk));
-        const timeout = setTimeout(() => {
-          timedOut = true;
-          child.kill("SIGKILL");
-        }, timeoutSeconds * 1000);
-        let checking = false,
-          ended = false;
-        const authorization = setInterval(async () => {
-          if (checking || ended) return;
-          checking = true;
-          try {
-            const current = authorizeSsh(this.dataDir, this.capability);
-            if (
-              !(await this.grants.effective(current)).includes(accessId) ||
-              (this.store.revision &&
-                invocation.revision !== this.store.revision(accessId))
-            )
-              throw Error();
-            authorizeSsh(this.dataDir, this.capability);
-          } catch {
-            if (!ended) {
-              revoked = true;
-              child.kill("SIGKILL");
-            }
-          } finally {
-            checking = false;
-          }
-        }, 250);
-        const clean = () => {
-          ended = true;
-          this.child = null;
-          clearTimeout(timeout);
-          clearInterval(authorization);
-        };
-        child.once("error", () => {
-          clean();
-          reject(problem("SSH command could not start.", 502));
-        });
-        child.once("close", (exitCode, signal) => {
-          clean();
-          if (revoked)
-            return reject(problem("SSH assignment or capability revoked.", 403));
-          const output = decodeOutput(stdout, 65536);
-          resolve({
-            stdout: output,
-            stderr: decodeOutput(stderr, 65536 - Buffer.byteLength(output)),
-            exitCode,
-            signal,
-            truncated,
-            timedOut,
-          });
-        });
+      const result = await runSshCommand(invocation, command, {
+        timeoutMs: timeoutSeconds * 1000,
+        onSpawn: (child) => {
+          this.child = child;
+          if (child.pid) lease.child(child.pid);
+        },
+        // The session's capability, its effective grants and the pinned revision.
+        stillAuthorized: async () => {
+          const current = authorizeSsh(this.dataDir, this.capability);
+          if (
+            !(await this.grants.effective(current)).includes(accessId) ||
+            (this.store.revision && invocation.revision !== this.store.revision(accessId))
+          )
+            return false;
+          authorizeSsh(this.dataDir, this.capability);
+          return true;
+        },
+      }).finally(() => {
+        this.child = null;
       });
+      if (result.revoked) throw problem("SSH assignment or capability revoked.", 403);
+      const { stdout, stderr, exitCode, signal, truncated, timedOut } = result;
+      return { stdout, stderr, exitCode, signal, truncated, timedOut };
     } finally {
       try {
         try {
