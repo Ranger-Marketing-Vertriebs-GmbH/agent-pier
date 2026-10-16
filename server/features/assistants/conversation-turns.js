@@ -37,6 +37,10 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   service.teams?.assertMemberTurn(conversation.assistantId, context);
   await service.config.apply(conversation.assistantId);
   service.teams?.assertMemberTurn(conversation.assistantId, context);
+  // Applied while the write guard was still missing: the turn runs read-only.
+  const readOnly = !!service.config.writeGuardPending?.(
+    service.store.getAssistant(conversation.assistantId),
+  );
   const accept = () => {
     const request = service.ledger.accept(conversationId, input);
     service.attachments.claim(conversationId, input.attachments, request.id);
@@ -61,5 +65,6 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   return {
     request: service.ledger.getRequest(request.id),
     attempt: service.ledger.getAttempt(attempt.id),
+    ...(readOnly ? { readOnly } : {}),
   };
 }
