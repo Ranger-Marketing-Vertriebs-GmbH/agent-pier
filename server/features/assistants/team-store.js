@@ -8,19 +8,15 @@ import {
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { RequestLedger } from "./request-ledger.js";
 import { leadServerIds, memberServerNames } from "./team-mcp.js";
+import { ownerTeamQuote, parseOwnerText } from "./lead-request-proof.js";
 const terminal = new Set(["completed", "failed", "cancelled", "declined"]);
 // The quote must prove a team request, not merely an owner turn: at least three
-// words containing "team" (also in compounds such as "Rechercheteam"), found
-// case- and whitespace-insensitively in the stored user text of the same request
-// (for Telegram voice the stored transcript).
-const plain = (value) =>
-  value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
-const quoted = (quote, text) =>
-  typeof quote === "string" &&
-  typeof text === "string" &&
-  plain(quote).includes("team") &&
-  plain(quote).split(" ").length >= 3 &&
-  plain(text).includes(plain(quote));
+// words containing "team" (also in compounds such as "Rechercheteam"), as whole
+// words of the owner's own prose in the stored user text of the same request (for
+// Telegram voice the stored transcript), and with the same rules as a lead's quote
+// of a task: never quoted, pasted, coded or linked text, and no negation anywhere.
+const quoted = (quote, text, context) =>
+  ownerTeamQuote(quote, parseOwnerText(text, context.hidden));
 const teamCommand = /^\/team\s+\S/;
 const fingerprint = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -250,7 +246,7 @@ export class TeamStore {
         ["owner", "telegram"].includes(context.kind) &&
         !context.forwarded &&
         ownerRequestedTeam &&
-        quoted(ownerRequestQuote, request.text);
+        quoted(ownerRequestQuote, request.text, context);
       const authorization =
         ownerTurn && (context.teamAllowed || ownerRequest) && !consumed
           ? {
