@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { Restore } from "../../server/features/operations/restore.js";
 import { RestoreUploads } from "../../server/features/operations/restore-upload.js";
+import { Operations } from "../../server/features/operations/operations.js";
 import {
   claim,
   claimable,
@@ -263,4 +264,73 @@ test("start times come from /proc when ps is unavailable", (t) => {
     const own = procStart(process.pid);
     assert.ok(Math.abs(own - currentOwner.startedAt) < 2000);
   }
+});
+
+test("a pending upload survives a server start and resumes where it stopped", async (t) => {
+  const { root, dataDir } = setup(t);
+  const directory = new Restore({ dataDir }).directory;
+  const bytes = await archive(root);
+  const half = Math.floor(bytes.length / 2);
+  const { uploadId } = new RestoreUploads(directory, dataDir).begin(bytes.length);
+  await new RestoreUploads(directory, dataDir).append(
+    uploadId,
+    0,
+    [bytes.subarray(0, half)],
+    half,
+  );
+  // The next server process: the claiming one is gone.
+  removeAbandonedWork(dataDir, { alive: () => false });
+  new Operations({ config: { dataDir } });
+  const uploads = new RestoreUploads(directory, dataDir);
+  assert.equal(uploads.status(uploadId).offset, half);
+  await uploads.append(uploadId, half, [bytes.subarray(half)], bytes.length - half);
+  assert.deepEqual(await uploads.complete(uploadId), { archiveId: uploadId });
+  assert.deepEqual(fs.readdirSync(path.join(dataDir, "operations/work")), []);
+});
+
+test("an uploaded archive is removed by a successful restore or once unused for a day", async (t) => {
+  const { root, dataDir } = setup(t);
+  const operations = new Operations({ config: { dataDir } });
+  const bytes = await archive(root);
+  const upload = async () => {
+    const { uploadId } = operations.restore.uploads.begin(bytes.length);
+    await operations.restore.uploads.append(uploadId, 0, [bytes], bytes.length);
+    return (await operations.restore.uploads.complete(uploadId)).archiveId;
+  };
+  const settled = async (job) => {
+    for (let i = 0; i < 400; i++) {
+      const { status } = operations.jobs.get(job.id);
+      if (status !== "running") return status;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  };
+  const archiveId = await upload();
+  const file = operations.restore.uploads.files(archiveId).archive;
+  await operations.inspect({ archiveId });
+  // A failed restore keeps the archive for another attempt.
+  fs.mkdirSync(path.join(root, "taken"));
+  const failed = operations.applyRestore({
+    archiveId,
+    targetDataDir: path.join(root, "taken"),
+  });
+  assert.equal(await settled(failed), "failed");
+  assert.ok(fs.existsSync(file));
+  const restored = operations.applyRestore({
+    archiveId,
+    targetDataDir: path.join(root, "restored"),
+  });
+  assert.equal(await settled(restored), "succeeded");
+  assert.equal(fs.existsSync(file), false);
+  await assert.rejects(operations.inspect({ archiveId }), { status: 404 });
+  // An archive nobody restores expires a day after its last use.
+  const unused = await upload();
+  const old = new Date(Date.now() - 25 * 60 * 60 * 1000);
+  fs.utimesSync(operations.restore.uploads.files(unused).archive, old, old);
+  new Operations({ config: { dataDir } });
+  assert.deepEqual(
+    fs
+      .readdirSync(operations.restore.directory)
+      .filter((name) => name.endsWith(".apbackup")),
+    [],
+  );
 });

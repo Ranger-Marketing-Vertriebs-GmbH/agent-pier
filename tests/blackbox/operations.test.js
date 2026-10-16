@@ -136,6 +136,15 @@ test("operations HTTP creates, downloads, inspects and restores an archive witho
   assert.equal(archiveId, uploadId);
   const { inspection } = await (await post("/restore/inspect", { archiveId })).json();
   assert.equal(inspection.requiresPassphrase, true);
+  // A failed restore keeps the uploaded archive for another attempt.
+  const invalid = await post("/restore", { archiveId, targetDataDir: dataDir });
+  assert.equal(invalid.status, 202);
+  const failed = await wait((await invalid.json()).job.id);
+  assert.equal(failed.status, "failed");
+  assert.equal(
+    audit.export().filter((event) => event.action === "restore.failed").length,
+    1,
+  );
   const restoring = await (
     await post("/restore", {
       archiveId,
@@ -144,6 +153,8 @@ test("operations HTTP creates, downloads, inspects and restores an archive witho
     })
   ).json();
   assert.equal((await wait(restoring.job.id)).status, "succeeded");
+  // A successful one removes it.
+  assert.equal((await post("/restore/inspect", { archiveId })).status, 404);
   const jobs = await fs.readdir(path.join(dataDir, "operations/jobs"));
   for (const file of jobs)
     assert.equal(
@@ -158,14 +169,6 @@ test("operations HTTP creates, downloads, inspects and restores an archive witho
     { config: { dataDir }, log: (value) => printed.push(JSON.parse(value)) },
   );
   assert.equal(printed[0].credentialsIncluded, true);
-  const invalid = await post("/restore", { archiveId, targetDataDir: dataDir });
-  assert.equal(invalid.status, 202);
-  const failed = await wait((await invalid.json()).job.id);
-  assert.equal(failed.status, "failed");
-  assert.equal(
-    audit.export().filter((event) => event.action === "restore.failed").length,
-    1,
-  );
   assert.equal((await post("/backups", { output: "/outside" })).status, 400);
 });
 test("backup downloads share one owner rate limit", async (t) => {

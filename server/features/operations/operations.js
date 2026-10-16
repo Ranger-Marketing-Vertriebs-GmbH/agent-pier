@@ -29,6 +29,8 @@ export class Operations {
     this.audit = audit;
     this.backup = new Backup({ ...config, audit, withSnapshotBarrier, assistantsBusy });
     this.restore = new Restore({ ...config, audit });
+    // Uploads and uploaded archives outlive a restart until they expire.
+    this.restore.uploads.sweep();
     this.releases = new Releases({ ...config, ...releaseOptions });
     this.doctor = new Doctor({ ...config, ...doctorOptions });
     this.importedHistory = new ImportedHistory(config.dataDir);
@@ -83,22 +85,46 @@ export class Operations {
       return result;
     });
   }
+  /**
+   * The archive `archiveId` names: an uploaded one (`uploaded`, kept from expiring
+   * until `release`) or a backup of this host.
+   */
   archive(archiveId) {
     const id = identifier(archiveId);
     const upload = path.resolve(this.restore.directory, `${id}.apbackup`);
     if (!upload.startsWith(`${this.restore.directory}${path.sep}`))
       throw problem(serverMessages.operations.invalidIdentifier);
+    const release = this.restore.uploads.read(id);
+    if (release) return { file: upload, uploaded: true, release };
     const backup = this.backup.file(id);
-    if (fs.existsSync(upload)) return upload;
-    if (fs.existsSync(backup)) return backup;
+    if (fs.existsSync(backup)) return { file: backup, uploaded: false, release() {} };
     throw problem(serverMessages.operations.uploadNotFound, 404);
   }
-  inspect({ archiveId, ...input }) {
-    return this.restore.inspect({ ...input, archive: this.archive(archiveId) });
+  async inspect({ archiveId, ...input }) {
+    const archive = this.archive(archiveId);
+    try {
+      return await this.restore.inspect({ ...input, archive: archive.file });
+    } finally {
+      archive.release();
+    }
   }
   applyRestore({ archiveId, ...input }) {
     const archive = this.archive(archiveId);
-    return this.jobs.start("restore", () => this.restore.apply({ ...input, archive }));
+    try {
+      return this.jobs.start("restore", async () => {
+        try {
+          const result = await this.restore.apply({ ...input, archive: archive.file });
+          // The upload served its purpose; a failed restore keeps it for a retry.
+          if (archive.uploaded) this.restore.uploads.discard(identifier(archiveId));
+          return result;
+        } finally {
+          archive.release();
+        }
+      });
+    } catch (error) {
+      archive.release();
+      throw error;
+    }
   }
   stage(input) {
     return this.jobs.start("release-stage", async () => {

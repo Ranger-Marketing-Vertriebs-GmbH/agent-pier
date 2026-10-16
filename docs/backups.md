@@ -203,9 +203,14 @@ Downloads stream the file with its length. The browser uploads an archive in sli
 of at most 16 MiB (the server accepts up to 64 MiB), each appended at an exact
 offset into `<data>/operations/restores/`: no request comes near Node's request
 timeout, and a failed slice is resent from the server's offset; the same upload
-resumes while the dialog stays open. Free space for the whole archive, plus what
-other pending uploads still need, is checked when the upload starts; an upload
-without a new slice for 24 hours is removed. A one-request upload (`POST /restore/upload`) needs its
+resumes from the server's copy, also after a server restart. Free space for the
+whole archive, plus what other pending uploads still need, is checked when the
+upload starts; an upload without a new slice for 24 hours is removed. A completed
+upload is kept as `<id>.apbackup` for inspection and restore: a successful restore
+removes it at once, a failed one keeps it for another attempt, and one unused for
+24 hours (since its upload or its last inspection or restore) is removed. The
+server checks both at its start and with every upload request. When the server no
+longer has an upload or archive, the dialog uploads the chosen file again. A one-request upload (`POST /restore/upload`) needs its
 `Content-Length` and is cut off beyond it. Only an archive with a valid format
 header is kept. An inspection reads up to the last member it validates; a restore
 reads and verifies every member.
@@ -240,7 +245,9 @@ process id, start time). Only the server removes such work, once when it starts,
 and only when the claiming process is gone (its start time is read with `ps`, or
 from `/proc` on Linux) or the claim is older than seven days: running
 `scripts/operations.mjs` against the live data directory never disturbs an upload or
-restore of the server. Claims and the sweep cover only backup work: `.snapshot-*`
+restore of the server. A chunked upload with a valid description is never removed
+by that sweep: it stays resumable until it expires as above. Claims and the sweep
+cover only backup work: `.snapshot-*`
 folders in `operations/`, `*.tmp` archives in `operations/backups/`, uploads and
 `.inspect-*` folders in `operations/restores/`, and `.agentpier-restore-<uuid>`
 stages. A restore stage left by a crash is removed at the next server start. The restore report lists profiles that need a new login: a
