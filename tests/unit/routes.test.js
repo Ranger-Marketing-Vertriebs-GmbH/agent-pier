@@ -213,3 +213,34 @@ test("the central MCP list has its own Accounts address", () => {
   assert.deepEqual(read("/accounts?section=other"), { view: "accounts" });
   assert.equal(path({ view: "accounts" }), "/accounts");
 });
+
+test("MCP wizard steps are allowlisted per item and survive a round trip", () => {
+  for (const step of ["package", "settings", "connect", "done"]) {
+    const route = read(`/accounts?section=mcp-servers&item=new&step=${step}`);
+    assert.deepEqual(route, {
+      view: "accounts",
+      section: "mcp-servers",
+      item: "new",
+      step,
+    });
+    assert.equal(path(route), `/accounts?section=mcp-servers&item=new&step=${step}`);
+  }
+  assert.deepEqual(read("/accounts?section=mcp-servers&item=s1&step=settings"), {
+    view: "accounts",
+    section: "mcp-servers",
+    item: "s1",
+    step: "settings",
+  });
+  for (const query of [
+    "section=mcp-servers&item=s1&step=package",
+    "section=mcp-servers&item=new&step=setup",
+    "section=mcp-servers&item=cli-finds&step=connect",
+    "section=models&item=new&step=package",
+    "section=mcp-servers&item=new&step=%3Cscript%3E",
+  ])
+    assert.equal(read(`/accounts?${query}`).step, undefined, query);
+  assert.equal(
+    path({ view: "accounts", section: "mcp-servers", item: "s1", step: "install" }),
+    "/accounts?section=mcp-servers&item=s1",
+  );
+});
