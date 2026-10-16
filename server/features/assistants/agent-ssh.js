@@ -9,7 +9,7 @@ import { permits, sshOrigin } from "./agent-ssh-origin.js";
 import { commandDigest, commandPreview } from "./agent-ssh-text.js";
 import { SshApprovals } from "./agent-ssh-approvals.js";
 
-// Agent SSH (spec docs/superpowers/specs/2026-10-16-agent-ssh-design.md): the bridge
+// Agent SSH (docs/ssh-access.md, docs/adr/0003-agent-ssh-access.md): the bridge
 // hands an `agentpier_ssh` call here; AgentPier runs it in-process through the pinned
 // connection of SshAccessStore and audits it by digest, never by text.
 export const trustedSshRows = 500;
