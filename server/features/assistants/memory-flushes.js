@@ -14,16 +14,32 @@ export const flushRunOf = (sessionKey) => sessionKey.match(flushRunKey)?.[1] || 
 // agents.defaults.userTimezone, else the host's). A flush writes today's note; just
 // after midnight the run may still hold yesterday's.
 export function flushDates(now, timeZone) {
+  const format = (zone) =>
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  let formatter;
+  try {
+    formatter = format(timeZone);
+  } catch {
+    formatter = format(undefined);
+  }
   const day = (ms) => {
-    try {
-      return new Intl.DateTimeFormat("en-CA", { timeZone, dateStyle: "short" }).format(
-        ms,
-      );
-    } catch {
-      return new Intl.DateTimeFormat("en-CA", { dateStyle: "short" }).format(ms);
-    }
+    const parts = Object.fromEntries(
+      formatter.formatToParts(ms).map((part) => [part.type, part.value]),
+    );
+    return `${parts.year}-${parts.month}-${parts.day}`;
   };
-  return [day(now), day(now - 86400000)].map((d) => `memory/${d}.md`);
+  // Calendar days, not 24 h steps: a DST change makes one day 23 or 25 hours long.
+  const days = [];
+  for (const hours of [0, 12, 24, 36]) {
+    const date = day(now - hours * 3600000);
+    if (!days.includes(date)) days.push(date);
+  }
+  return days.slice(0, 2).map((d) => `memory/${d}.md`);
 }
 // The flush's only writer appends to memory/<date>.md (wrapToolMemoryFlushAppendOnlyWrite).
 export const flushTarget = /^memory\/\d{4}-\d{2}-\d{2}\.md$/;

@@ -78,13 +78,15 @@ export function flushWrite(bridge, input) {
 }
 
 // The one conversation a refused flush write belongs to: the reported flush's
-// source, or, when the Gateway reported none (a changed runtime), the agent's single
-// active owner turn.
+// source, or, when the Gateway reported no flush of the agent at all (a changed
+// runtime), the agent's single active owner turn. A reported routine or other
+// source never falls back to an owner conversation.
 function flushTurn(bridge, input) {
-  const reported = sources(bridge, input).filter((s) => s.attempt);
-  if (reported.length === 1)
-    return { attempt: reported[0].attempt, key: `flush:${reported[0].flush.runId}` };
-  if (reported.length) return null;
+  const all = sources(bridge, input);
+  if (all.length)
+    return all.length === 1 && all[0].attempt
+      ? { attempt: all[0].attempt, key: `flush:${all[0].flush.runId}` }
+      : null;
   const turns = bridge.assistants.ledger.pending().filter((a) => {
     if (!["pending", "accepted", "running"].includes(a.state)) return false;
     const { parent, origin, current } = bridge.turn(a, input.agentId);

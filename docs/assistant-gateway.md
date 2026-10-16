@@ -898,10 +898,13 @@ was compacted and the plan was gone. Four rules close that gap:
   runtime, checks that a forwarded run's flush writes nothing and that the owner
   run's flush appends to an existing day note.
   Residual risk: the hook sees only the tool name, path and content, not whether the
-  `write` is OpenClaw's append-only flush writer. Within an owner run's flush window
-  another internal run of the same agent that reported the same run id and wrote
-  first could replace that day's note; nothing in 2026.10.3 starts such a run, and
-  the pin, the run-id match and the date bound keep it to that one note.
+  `write` is OpenClaw's append-only flush writer, and the run-id match only ties the
+  key to its own run: it does not tell a flush run from another internal
+  `internal-session-effects` run. Within an owner run's flush window, another
+  internal run of the same agent that wrote first could replace that day's note.
+  The exposure is limited by the first-session pin (one internal session per
+  flush) and the date bound (today's or yesterday's note only). Nothing in
+  AgentPier starts other `internal-session-effects` runs today.
 - **No silent read-only window.** After a start or reconnect the guard reports
   within one interval (15 s). An owner or paired Telegram turn of a memory agent
   waits for it, outside the admission lock, but only until 20 s after the Gateway
