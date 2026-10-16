@@ -6,10 +6,11 @@ import { mcpCliCopy } from "../../lib/i18n/messages/mcp-cli.js";
 import { accountsHubCopy } from "../../lib/i18n/messages/accounts.js";
 
 // /accounts?section=<group>&item=<id>: the hub, or one entry's subpage.
-export const itemRoute = (section, item) => ({
+export const itemRoute = (section, item, step) => ({
   view: "accounts",
   ...(section ? { section } : {}),
   ...(section && item ? { item } : {}),
+  ...(section && item && step ? { step } : {}),
 });
 
 const groupKeys = {
@@ -29,9 +30,15 @@ export const sectionLabel = (section) => accountsHubCopy.groups[groupKeys[sectio
  * openclaw:<hex>.
  */
 export function resolveAccountItem(route, data) {
-  const { section, item } = route;
+  const { section, item, step } = route;
   if (!section || !item) return null;
-  const at = (kind, record = null) => ({ kind, section, item, record });
+  const at = (kind, record = null) => ({
+    kind,
+    section,
+    item,
+    record,
+    ...(step ? { step } : {}),
+  });
   const lookup = (list, kind, source) => {
     if (!Array.isArray(list)) {
       const error = source && data.errors?.[source];
