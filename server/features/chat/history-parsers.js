@@ -3,6 +3,7 @@ import {
   restoreClaudeImagePaths,
 } from "./claude-image-history.js";
 import { codexImageInput } from "./codex-image-input.js";
+import { codexUserShellRows } from "./codex-user-shell.js";
 import { codexInputTime } from "./native-input-time.js";
 import { markOpenCodeInput } from "./opencode-input-state.js";
 import { toolFileChanges, codexFileChanges } from "./tool-file-changes.js";
@@ -308,7 +309,10 @@ export function normalizeCodex(thread) {
         });
       if (item.type === "agentMessage" || item.type === "plan")
         add("assistant", string(item.text));
-      if (item.type === "commandExecution")
+      const shell =
+        item.type === "commandExecution" && codexUserShellRows(item, id, turn?.id);
+      if (shell) for (const row of shell) messages.set(row.id, row);
+      else if (item.type === "commandExecution")
         add("tool", join(string(item.command), string(item.aggregatedOutput)), {
           toolName: "Command",
           status: toolStatus(
