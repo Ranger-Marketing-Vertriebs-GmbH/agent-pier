@@ -30,7 +30,8 @@ const toggle = (list, value, on) =>
 /**
  * "Who may use <name>?": coding CLIs and agents on one screen with one consent card.
  * A new server whose package still installs keeps the choice and connects once it is
- * ready (Q7); a saved one gets no new target before its package is ready.
+ * ready (Q7); one whose package failed, is missing or awaits its program connects
+ * nothing and says why. A saved one gets no new target before its package is ready.
  */
 export function ConnectForm({
   mode,
@@ -65,8 +66,9 @@ export function ConnectForm({
   const chosen = agents ?? [];
   const stdio = server.transport === "stdio";
   const notReady = Boolean(server.source) && packageShown !== "ready";
-  const installing =
-    mode === "new" && Boolean(server.source) && packageShown === "installing";
+  const pending = (status) => status === "installing" || status == null;
+  const installing = mode === "new" && notReady && pending(packageShown);
+  const blocked = mode === "new" && notReady && !installing;
   const locked = mode === "edit" && notReady;
   const diff = connectDiff({ server, clis, agents: chosen, assistants: agentsList });
   const target = { transport: server.transport, cwd: server.cwd || "" };
@@ -77,32 +79,37 @@ export function ConnectForm({
   const run = async () => {
     setBusy(true);
     setError("");
+    let results;
     try {
-      const results = await runConnect({
+      results = await runConnect({
         diff,
         serverId: server.id,
         consented: diff.needsConsent,
         api: connectApi(data),
       });
-      await data.reloadMcp();
-      onFinished(results, { diff, consented: diff.needsConsent });
     } catch (failure) {
       setError(failure.message);
-    } finally {
       setBusy(false);
+      return;
     }
+    // The bindings are applied; a failed refresh must not keep the owner on Connect.
+    await data.reloadMcp().catch(() => {});
+    setBusy(false);
+    onFinished(results, { diff, consented: diff.needsConsent });
   };
+  const refuse = () =>
+    onFinished(notConnected(diff, PACKAGE_NOT_READY), {
+      diff,
+      consented: diff.needsConsent,
+    });
   useEffect(() => {
     if (!waiting) return;
     if (packageShown === "ready") {
       wait(false);
       run();
-    } else if (["failed", "missing"].includes(packageShown)) {
+    } else if (!pending(packageShown)) {
       wait(false);
-      onFinished(notConnected(diff, PACKAGE_NOT_READY), {
-        diff,
-        consented: diff.needsConsent,
-      });
+      refuse();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waiting, packageShown]);
@@ -123,7 +130,7 @@ export function ConnectForm({
       busy={busy}
       primary={{ label: primaryLabel, disabled: waiting, describedBy: `${id}-consent` }}
       secondary={{ label: skipLabel, onClick: onSkip, disabled: waiting }}
-      onSubmit={() => (installing ? wait(true) : run())}
+      onSubmit={() => (installing ? wait(true) : blocked ? refuse() : run())}
     >
       <p className="mcp-hint">{copy.connect.intro}</p>
       <ListCard label={copy.connect.clis}>
@@ -154,7 +161,9 @@ export function ConnectForm({
             <p role="status">{copy.connect.agentsLoading}</p>
           )}
           {targets.error && (
-            <p className="mcp-field-error">{copy.connect.agentsFailed}</p>
+            <p role="alert" className="mcp-field-error">
+              {copy.connect.agentsFailed}
+            </p>
           )}
           {agentsList.map((item) => {
             const bound = item.mcpServers.includes(server.id);
@@ -188,9 +197,10 @@ export function ConnectForm({
       {server.auth === "oauth" && clis.length > 0 && (
         <p className="mcp-hint">{copy.connect.oauthNote}</p>
       )}
-      {waiting && (
+      {mode === "new" && notReady && (
         <p role="status" className="mcp-wizard-notice">
-          {copy.connect.waiting} {mcpPackageCopy.status[packageShown] ?? ""}
+          {waiting && `${copy.connect.waiting} `}
+          {mcpPackageCopy.status[packageShown] ?? ""}
         </p>
       )}
       <ErrorMessage error={error} />
