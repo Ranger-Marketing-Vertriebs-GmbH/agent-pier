@@ -1,12 +1,9 @@
 export const mcpCliCopy = {
-  legend: "Coding CLIs",
-  hint: "AgentPier writes the server into each selected CLI's own configuration, for all of its accounts, so it also works when you start the CLI in a terminal. Running sessions see a change after a restart.",
   unsupported: {
     transport: "Codex does not support SSE servers.",
     cwd: "Claude Code cannot start a local command in a working directory; Codex and OpenCode can.",
   },
   removedOnSave: (cli, name) => `Saving removes ${name} from ${cli}.`,
-  notGiven: (cli) => `${cli} will not get this server.`,
   statuses: {
     written: "written",
     pending: "will be written at the next save or session start",
