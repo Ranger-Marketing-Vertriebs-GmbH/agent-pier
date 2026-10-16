@@ -73,6 +73,9 @@ export default function AssistantComposer({
   };
   const submitWithFiles = async (event) => {
     event.preventDefault();
+    // A button that sent stays out of the way: the next Enter belongs to the field,
+    // never to the Stop button taking the Send button's place.
+    if (!touchInput && event.nativeEvent.submitter) field.current?.focus();
     if (attachments.blocked) return;
     const ids = attachments.ids;
     if (await onSubmit(event, ids)) attachments.sent(ids);
@@ -91,8 +94,10 @@ export default function AssistantComposer({
     setTeamAllowed(value);
     drafts.allowTeam(conversationId, value);
   };
+  // Keyed apart, so focus on Send never carries over to Stop.
   const submit = active ? (
     <button
+      key="stop"
       type="button"
       className="assistant-stop"
       aria-label={copy.stop}
@@ -103,6 +108,7 @@ export default function AssistantComposer({
     </button>
   ) : (
     <button
+      key="send"
       className="assistant-send"
       aria-label={copy.send}
       aria-busy={busy || undefined}
