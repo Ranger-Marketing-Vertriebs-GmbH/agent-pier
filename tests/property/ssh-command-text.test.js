@@ -7,7 +7,17 @@ import {
   joinSegments,
 } from "../../web/features/assistants/ssh-command-text.js";
 
-const hidden = fc.constantFrom("‮", "​", "⁦", "\u0000", "\r", "﻿");
+const hidden = fc.constantFrom(
+  "‮",
+  "​",
+  "⁦",
+  "\u0000",
+  "\r",
+  "﻿",
+  "\u{E0041}",
+  "\u2028",
+  "\uFE0F",
+);
 const text = fc
   .array(fc.oneof(fc.string({ unit: "grapheme" }), hidden), { maxLength: 20 })
   .map((parts) => parts.join(""));
