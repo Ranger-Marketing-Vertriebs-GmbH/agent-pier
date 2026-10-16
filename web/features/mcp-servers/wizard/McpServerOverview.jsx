@@ -1,5 +1,6 @@
 import React, { useId, useState } from "react";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
+import { mcpDirectoryCopy as directoryCopy } from "../../../lib/i18n/messages/mcp-directory.js";
 import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import { names } from "../../../lib/providers.js";
@@ -12,6 +13,7 @@ import McpPackagePanel from "../McpPackagePanel.jsx";
 import McpRemoveConfirmation from "../McpRemoveConfirmation.jsx";
 import McpServerInfo from "../McpServerInfo.jsx";
 import { savedNotice } from "../mcp-notices.js";
+import useDirectoryUpdates from "./useDirectoryUpdates.js";
 import "../mcp-servers.css";
 import "../mcp-cli.css";
 import "./mcp-wizard.css";
@@ -53,6 +55,7 @@ export default function McpServerOverview({
   const [removing, setRemoving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const update = useDirectoryUpdates([server]).get(server.id);
   const open = (step) => navigate(itemRoute("mcp-servers", server.id, step));
   async function remove() {
     setBusy(true);
@@ -127,7 +130,19 @@ export default function McpServerOverview({
           ]}
           onChange={() => open("settings")}
         />
-        {server.source && <McpPackagePanel server={server} onChanged={data.reloadMcp} />}
+        {update?.hint === "identifier" && (
+          <p className="mcp-hint">{directoryCopy.identifierHint}</p>
+        )}
+        {update?.hint === "remote" && (
+          <p className="mcp-hint">{directoryCopy.remoteHint}</p>
+        )}
+        {server.source && (
+          <McpPackagePanel
+            server={server}
+            onChanged={data.reloadMcp}
+            listedVersion={update?.version}
+          />
+        )}
         <StepCard
           title={copy.overview.usersTitle}
           lines={[users.length ? users.join(", ") : copy.overview.nobody]}

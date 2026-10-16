@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useLanguage from "../../lib/i18n/useLanguage.js";
+import { mcpDirectoryCopy as directoryCopy } from "../../lib/i18n/messages/mcp-directory.js";
 import { mcpPackageCopy as copy } from "../../lib/i18n/messages/mcp-packages.js";
 import { serverText } from "../../lib/server-messages.js";
 import { assistantApi } from "../assistants/assistant-api.js";
@@ -25,8 +26,9 @@ import "./mcp-packages.css";
  * or failed, and an update that shows the lock
  * diff before it is confirmed; the update keeps the constraints unless edited. While a job
  * runs the status is polled; `onChanged` reloads the servers once it settles.
+ * `listedVersion` (a newer version the MCP directory lists) is named and offered.
  */
-export default function McpPackagePanel({ server, onChanged }) {
+export default function McpPackagePanel({ server, onChanged, listedVersion = "" }) {
   useLanguage();
   const id = useId();
   const { status, setStatus, error, setError, source, job, running, shown } =
@@ -34,6 +36,7 @@ export default function McpPackagePanel({ server, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const [version, setVersion] = useState("");
+  const [versionChosen, setVersionChosen] = useState(false);
   const [allowScripts, setAllowScripts] = useState(source.allowScripts === true);
   const versions = useMcpPackageVersions(source.registry, source.name);
   const pypi = source.registry === "pypi";
@@ -45,10 +48,14 @@ export default function McpPackagePanel({ server, onChanged }) {
   // A finished update stores new constraints: the field starts from them again.
   useEffect(() => setConstraints(storedText), [storedText]);
 
-  // The newest stable version is offered for an update.
+  // The directory's listed version, else the newest stable one, is offered for an
+  // update until the owner picks one.
   useEffect(() => {
-    if (!version && versions.versions.length) setVersion(newestStable(versions));
-  }, [versions, version]);
+    if (versionChosen || !versions.versions.length) return;
+    if (versions.versions.some((entry) => entry.version === listedVersion))
+      setVersion(listedVersion);
+    else if (!version) setVersion(newestStable(versions));
+  }, [versions, version, listedVersion, versionChosen]);
 
   const act = async (work) => {
     setBusy(true);
@@ -172,6 +179,9 @@ export default function McpPackagePanel({ server, onChanged }) {
           </button>
         </div>
       )}
+      {listedVersion && (
+        <p className="mcp-hint">{directoryCopy.listedVersion(listedVersion)}</p>
+      )}
       {!running && !preview && !choosing && (
         <div className="mcp-package-update">
           <McpVersionPicker
@@ -183,6 +193,7 @@ export default function McpPackagePanel({ server, onChanged }) {
             error={versionError}
             onChange={(next) => {
               setVersionError("");
+              setVersionChosen(true);
               setVersion(next);
             }}
           />

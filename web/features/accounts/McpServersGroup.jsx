@@ -5,10 +5,12 @@ import ListCard from "../../components/ListCard.jsx";
 import ListRow from "../../components/ListRow.jsx";
 import { routePath } from "../../app/routes.js";
 import { mcpCliCopy as cliCopy } from "../../lib/i18n/messages/mcp-cli.js";
+import { mcpDirectoryCopy as directoryCopy } from "../../lib/i18n/messages/mcp-directory.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 import { accountsHubCopy as hubCopy } from "../../lib/i18n/messages/accounts.js";
 import { mcpWizardCopy as wizardCopy } from "../../lib/i18n/messages/mcp-wizard.js";
 import McpFeedback from "../mcp-servers/McpFeedback.jsx";
+import useDirectoryUpdates from "../mcp-servers/wizard/useDirectoryUpdates.js";
 import { McpOAuthResultBanner } from "../mcp-servers/McpOAuthLogin.jsx";
 import AddLabel from "./AddLabel.jsx";
 import { itemRoute } from "./accounts-items.js";
@@ -37,6 +39,7 @@ export default function McpServersGroup({
   const id = useId();
   const ref = useRef(null);
   const [resultShown, setResultShown] = useState(true);
+  const updates = useDirectoryUpdates(servers);
   useEffect(() => {
     if (!oauthResult) return;
     setResultShown(true);
@@ -99,6 +102,9 @@ export default function McpServersGroup({
                 {copy.transports[server.transport]}
                 {server.transport === "stdio" && (
                   <span className="list-row-pill">{copy.stdioBadge}</span>
+                )}
+                {updates.get(server.id)?.version && (
+                  <span className="list-row-pill">{directoryCopy.updateAvailable}</span>
                 )}
               </>
             }
