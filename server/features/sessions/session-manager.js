@@ -167,7 +167,13 @@ export class SessionManager {
       await this.save(session);
     }
     if (session.status !== status || (exit !== undefined && session.exitCode !== exit)) {
-      if (lost && status === "stopped") {
+      // A waiting or running reload is the owner's own relaunch: it brings the
+      // session back, so automatic resume must not start a second one.
+      if (
+        lost &&
+        status === "stopped" &&
+        !["waiting", "reloading"].includes(session.reload?.state)
+      ) {
         session.interruption = {
           cause: "tmux-server-lost",
           at: new Date().toISOString(),
