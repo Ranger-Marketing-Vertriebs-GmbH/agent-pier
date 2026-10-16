@@ -178,16 +178,19 @@ export function sealRecord(secrets) {
     paths = new Set();
   for (const [entry, item] of value.members.entries()) {
     // Each entry restores to a CLI history path, and to no other entry's path.
+    // Paths that differ only in case or normalization are distinct, as public
+    // members are: a file system that ignores the difference refuses the second
+    // file when it is written (caseConflict).
     if (
       !item ||
       Object.keys(item).sort().join() !== "name,path" ||
       item.name !== `sealed/${entry}` ||
       !cleanPath(item.path) ||
       profileMemberKind(item.path) !== "history" ||
-      paths.has(item.path.normalize("NFC").toLowerCase())
+      paths.has(item.path)
     )
       throw failed();
-    paths.add(item.path.normalize("NFC").toLowerCase());
+    paths.add(item.path);
     byName.set(item.name, { key, id: value.id, entry, path: item.path });
   }
   return byName;
