@@ -1,7 +1,8 @@
 // The same class as server/features/assistants/agent-ssh-text.js (a unit test pins
-// it): controls other than tab and line feed, bidi controls, zero-width characters.
+// it): controls other than tab and line feed, format and default-ignorable characters,
+// and the line and paragraph separators.
 export const hiddenCharacterSource =
-  "[\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u2069\\ufeff]";
+  "(?![\\t\\n])[\\p{Cc}\\p{Cf}\\p{Default_Ignorable_Code_Point}\\u2028\\u2029\\u115f\\u1160\\u3164\\uffa0]";
 const hiddenAll = new RegExp(hiddenCharacterSource, "gu");
 const hiddenAny = new RegExp(hiddenCharacterSource, "u");
 
