@@ -198,6 +198,9 @@ export const assistants = {
   queuedTooLong: "The queued message has no room for more text. Edit it first.",
   queuedSending: "The queued message is being sent right now.",
   queuedAttachment: "This attachment belongs to a queued message.",
+  queuedFailed: "The queued message was not sent. Edit it first.",
+  queuedExpired: "The queued message was older than a day and was not sent anymore.",
+  queuedArchived: "This agent is archived and takes no more messages.",
   active: "A request is still running. Wait for its result or stop it first.",
   disabled: "Agents are turned off. Turn them on under Settings > Agents.",
   storageUnsafe:

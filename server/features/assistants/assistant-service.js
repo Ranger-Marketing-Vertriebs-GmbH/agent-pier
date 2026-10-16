@@ -4,7 +4,7 @@ import { AgentAttachments } from "./agent-attachments.js";
 import { createGatewaySession } from "./session-create.js";
 import { RequestLedger } from "./request-ledger.js";
 import { QueuedMessages } from "./queued-messages.js";
-import { dispatchQueued, queueMessage, takeBackQueued } from "./queued-dispatch.js";
+import * as queuedDispatch from "./queued-dispatch.js";
 import { AssistantEvents } from "./assistant-events.js";
 import { conversationHistory, conversationMessage } from "./conversations.js";
 import { reconcileRuns } from "./run-reconciler.js";
@@ -125,6 +125,7 @@ export class AssistantService {
   }
   pollReconcile() {
     this.shellChanges.retry().catch(() => {});
+    queuedDispatch.pollQueued(this);
     const now = this.now();
     if (
       this.ledger.unresolved().length ||
@@ -501,10 +502,10 @@ export class AssistantService {
   /** The owner's message for when the agent is done (queued-dispatch.js). */
   queue(conversationId, input) {
     assertWired(this);
-    return queueMessage(this, conversationId, input);
+    return queuedDispatch.queueMessage(this, conversationId, input);
   }
   takeBackQueued(conversationId) {
-    return takeBackQueued(this, conversationId);
+    return queuedDispatch.takeBackQueued(this, conversationId);
   }
   history(id, options) {
     return conversationHistory(this, id, options);
@@ -588,7 +589,7 @@ export class AssistantService {
     })().finally(() => {
       this.reconciling = null;
       // A turn that ended lets the conversation's queued message go out.
-      dispatchQueued(this).catch(() => {});
+      queuedDispatch.dispatchQueued(this).catch(() => {});
     });
     return this.reconciling;
   }

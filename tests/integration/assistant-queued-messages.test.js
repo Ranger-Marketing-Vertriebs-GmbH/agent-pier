@@ -154,13 +154,11 @@ test("a queued message survives a restart and a dispatch cut off is not sent twi
   await service.close();
 
   const next = start().service;
-  assert.equal(next.queued.get(c.id).state, "waiting");
-  assert.equal((await next.history(c.id)).queued.text, "After the restart");
-  await finish(next);
-  await settle();
-  // The ledger knows the key: nothing new reaches the Gateway, the queue is cleared.
-  assert.equal(sent.length, 2);
+  // The ledger took it: the restart drops the row instead of offering it again.
   assert.equal(next.queued.get(c.id), null);
+  assert.equal((await next.history(c.id)).queued, null);
+  await finish(next);
+  assert.equal(sent.length, 2);
   assert.equal(next.ledger.requests(c.id).length, 2);
 });
 
@@ -267,4 +265,140 @@ test("a refused delivery is kept as failed with its reason instead of retried", 
   await service.reconcile();
   await settle();
   assert.equal(sent.length, 1);
+});
+
+test("an append after a restart never sends the delivered message again", async (t) => {
+  const { service, start, c, sent, finish } = setup(t);
+  await service.send(c.id, { clientRequestId: "first", text: "One" });
+  service.queue(c.id, { text: "Queued A" });
+  const message = service.queued.get(c.id);
+  service.queued.begin(message);
+  await finish(service);
+  // The ledger took it; the process ended before the queue row was removed.
+  await service.send(c.id, {
+    clientRequestId: message.clientRequestId,
+    text: message.text,
+  });
+  await service.close();
+  const next = start().service;
+  assert.equal(next.queued.get(c.id), null);
+  next.queue(c.id, { text: "B" });
+  await finish(next);
+  assert.deepEqual(
+    sent.map((s) => s.message),
+    ["One", "Queued A", "B"],
+  );
+});
+
+for (const [label, status] of [
+  ["an unready service", 503],
+  ["a busy member", 409],
+])
+  test(`a refusal by ${label} is retried by the poll with backoff, quietly`, async (t) => {
+    const { service, c, sent, finish } = setup(t);
+    let clock = Date.now();
+    service.now = () => clock;
+    await service.send(c.id, { clientRequestId: "first", text: "One" });
+    service.queue(c.id, { text: "Later" });
+    const send = service.send.bind(service);
+    let refusals = 2;
+    service.send = async (...args) => {
+      if (refusals-- > 0) throw Object.assign(new Error("refused"), { status });
+      return send(...args);
+    };
+    await finish(service);
+    assert.equal(service.queued.get(c.id).state, "waiting");
+    assert.equal(service.ledger.unresolved().length, 0);
+    const changes = [];
+    const stop = service.events.subscribe((event) => changes.push(event.type));
+    // Within the first backoff the poll leaves it alone.
+    service.pollReconcile();
+    await settle();
+    assert.equal(refusals, 1);
+    clock += 2100;
+    service.pollReconcile();
+    await settle();
+    assert.equal(refusals, 0);
+    assert.equal(sent.length, 1);
+    // A refusal that only returns it to waiting is no news for the browsers.
+    assert.deepEqual(changes, []);
+    clock += 2100;
+    service.pollReconcile();
+    await settle();
+    assert.equal(sent.length, 1, "the backoff doubled to 4 s");
+    clock += 2100;
+    service.pollReconcile();
+    await settle();
+    assert.equal(sent.length, 2);
+    assert.equal(service.queued.get(c.id), null);
+    stop?.();
+  });
+
+test("an unexpected failure never shows its internal text and is not retried", async (t) => {
+  const { service, c, sent, finish } = setup(t);
+  await service.send(c.id, { clientRequestId: "first", text: "One" });
+  service.queue(c.id, { text: "X" });
+  service.config.apply = async () => {
+    throw new Error("ENOENT: /secret/path/openclaw.json");
+  };
+  await finish(service);
+  const { queued } = await service.history(c.id);
+  assert.equal(queued.state, "failed");
+  assert.equal(JSON.stringify(queued).includes("/secret/path"), false);
+  assert.equal(queued.messageKey, "http.internalError");
+  // A failed message takes no more text until the owner edits it.
+  assert.throws(() => service.queue(c.id, { text: "More" }), {
+    status: 409,
+    key: "queuedFailed",
+  });
+  assert.equal(sent.length, 1);
+});
+
+test("a repeated append with the same key adds its text once", async (t) => {
+  const { service, c } = setup(t);
+  await service.send(c.id, { clientRequestId: "first", text: "One" });
+  service.queue(c.id, { text: "Add a dessert", appendId: "enter-1" });
+  service.queue(c.id, { text: "Add a dessert", appendId: "enter-1" });
+  assert.equal(service.queued.get(c.id).text, "Add a dessert");
+  service.queue(c.id, { text: "Without nuts", appendId: "enter-2" });
+  assert.equal(service.queued.get(c.id).text, "Add a dessert\nWithout nuts");
+});
+
+test("archived agents take no queued messages, and old ones are not sent days later", async (t) => {
+  const { service, store, c, sent, finish } = setup(t);
+  await service.send(c.id, { clientRequestId: "first", text: "One" });
+  let clock = Date.now();
+  service.now = () => clock;
+  service.queued.now = () => clock;
+  service.queue(c.id, { text: "Stale" });
+  clock += 25 * 3600 * 1000;
+  await finish(service);
+  const { queued } = await service.history(c.id);
+  assert.equal(queued.state, "failed");
+  assert.equal(queued.messageKey, "assistants.queuedExpired");
+  assert.equal(sent.length, 1);
+
+  service.takeBackQueued(c.id);
+  const { assistantId } = store.getConversation(c.id);
+  store.db
+    .prepare("UPDATE assistants SET body=json_set(body,'$.archivedAt',?) WHERE id=?")
+    .run(new Date().toISOString(), assistantId);
+  assert.throws(() => service.queue(c.id, { text: "Archived" }), {
+    status: 409,
+    key: "queuedArchived",
+  });
+});
+
+test("taking a message back restarts its files' staging time", async (t) => {
+  const { service, c } = setup(t);
+  await service.send(c.id, { clientRequestId: "first", text: "One" });
+  const file = await service.attachments.stage(c.id, "notes.md", Buffer.from("# N\n"));
+  const later = Date.now() + 3600 * 1000;
+  service.queue(c.id, { text: "", attachments: [file.id] });
+  service.attachments.now = () => later;
+  service.takeBackQueued(c.id);
+  const row = service.store.db
+    .prepare("SELECT created_at FROM agent_attachments WHERE id=?")
+    .get(file.id);
+  assert.equal(row.created_at, later);
 });

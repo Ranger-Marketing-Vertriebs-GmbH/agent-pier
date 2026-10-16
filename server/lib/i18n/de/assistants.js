@@ -217,6 +217,10 @@ export const assistants = {
     "Die wartende Nachricht hat keinen Platz für mehr Text. Bearbeite sie zuerst.",
   queuedSending: "Die wartende Nachricht wird gerade gesendet.",
   queuedAttachment: "Dieser Anhang gehört zu einer wartenden Nachricht.",
+  queuedFailed: "Die wartende Nachricht wurde nicht gesendet. Bearbeite sie zuerst.",
+  queuedExpired:
+    "Die wartende Nachricht war älter als einen Tag und wurde nicht mehr gesendet.",
+  queuedArchived: "Dieser Agent ist archiviert und nimmt keine Nachrichten mehr an.",
   active: "Es läuft noch eine Anfrage. Warte auf das Ergebnis oder stoppe sie zuerst.",
   disabled: "Agenten sind ausgeschaltet. Aktiviere sie unter Einstellungen > Agenten.",
   storageUnsafe:

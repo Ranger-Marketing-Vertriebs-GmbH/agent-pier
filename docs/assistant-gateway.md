@@ -317,16 +317,23 @@ outstanding attempts uncertain.
 next message waits in `queued_messages` (one row per conversation,
 `queued-messages.js`): `POST /api/assistant-conversations/:id/queued` starts or extends
 it (text joined on a new line, at most 65,536 characters and five staged files, a new
-delivery key per change), the history payload carries it as `queued` for every tab,
-and `DELETE …/queued` hands it back unless its dispatch began (409). After every reconcile pass `dispatchQueued`
-(`queued-dispatch.js`) claims each waiting row of an idle conversation (no unreviewed
-pending, uncertain or interrupted attempt, a ready service, an agent that is not
-archived) as `sending` and delivers it through the normal owner send, whose ledger
-dedupes the delivery key; a restart resets `sending` to `waiting`, so a cut-off
-dispatch is answered by the ledger instead of being sent twice. A 409 or 503 refusal
-lets it wait for the next pass; any other refusal keeps it as `failed` with the reason.
-Its staged files are excluded from expiry, the staging cap and removal until the
-message claims them or is taken back.
+delivery key per change; a repeated `appendId` changes nothing; a `failed` message or
+an archived agent refuses with 409), the history payload carries it as `queued` for
+every tab, and `DELETE …/queued` hands it back unless its dispatch began (409), with
+its files' staging time restarted. Both routes, like `…/messages`, take JSON bodies up
+to 256 KB, so a full-length message in any script fits. After every reconcile pass,
+and on the 2-second poll while rows wait, `dispatchQueued` (`queued-dispatch.js`)
+claims each waiting row of an idle conversation (no unreviewed pending, uncertain or
+interrupted attempt, a ready service, an agent that is not archived) as `sending` and
+delivers it through the normal owner send, whose ledger dedupes the delivery key. A
+row whose key the ledger already knows counts as delivered and is dropped, also at
+startup, so a later append never sends the old text again. A 409, 503 or other server
+fault returns it to `waiting` with a per-conversation backoff from 2 to 30 seconds and
+publishes no `change`; a refusal of the message itself keeps it as `failed` with the
+problem text (unexpected errors show only the generic internal error). A row waiting
+for more than a day turns `failed` instead of being sent late. Its staged files are
+excluded from expiry, the staging cap and removal until the message claims them or is
+taken back.
 
 Keep session keys and run IDs separate. A session can be reused for several runs;
 even the same run ID can appear when an interrupted request is retried in the tested
