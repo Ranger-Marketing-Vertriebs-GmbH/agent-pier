@@ -2,8 +2,12 @@ import React from "react";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import api from "../../../lib/api.js";
 import { assistantShellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
+import { assistantSshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
 import { assistantWorkflowCopy as copy } from "../../../lib/i18n/messages/assistant-workflows.js";
 import ExecApprovalCard from "../ExecApprovalCard.jsx";
+import SshApprovalCard from "../SshApprovalCard.jsx";
+import SshCommandText from "../SshCommandText.jsx";
+import { sshHistoryText } from "../ssh-run-note.js";
 import SubpageHeader from "./SubpageHeader.jsx";
 
 const decide = (action, decision) =>
@@ -33,7 +37,35 @@ function ExecCard({ action: a, act }) {
   );
 }
 
+// An SSH command: waiting or running, it is the chat's card; otherwise one line with
+// the host, the outcome and the command (trusted rows keep only its first line).
+function SshCard({ action: a, act, assistantId }) {
+  if (["awaiting_approval", "executing"].includes(a.state))
+    return (
+      <SshApprovalCard
+        action={a}
+        viewerId={assistantId}
+        decide={(_, d) => act(() => decide(a, d))}
+      />
+    );
+  return (
+    <article className="assistant-card assistant-reminder-row">
+      <h3>{sshHistoryText(a)}</h3>
+      {a.payload.trusted && (
+        <p className="assistant-note">{assistantSshCopy.history.trusted}</p>
+      )}
+      <pre className="exec-approval-command ssh-approval-command">
+        <code>
+          <SshCommandText command={a.payload.command ?? a.payload.commandPreview ?? ""} />
+        </code>
+      </pre>
+    </article>
+  );
+}
+
 function ActionCard({ action: a, assistantId, busy, act }) {
+  if (a.payload.action === "ssh")
+    return <SshCard action={a} act={act} assistantId={assistantId} />;
   if (a.payload.action === "exec") return <ExecCard action={a} act={act} />;
   return (
     <article className="assistant-card assistant-reminder-row">

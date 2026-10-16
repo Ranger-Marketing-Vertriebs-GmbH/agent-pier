@@ -431,7 +431,7 @@ export default function AssistantChat({
             )}
           </div>
           {!member && <PendingTeams assistant={assistant} navigate={navigate} />}
-          <AssistantActionApprovals {...ownActions} />
+          <AssistantActionApprovals {...ownActions} assistantId={assistant.id} />
         </div>
         <div
           className="assistant-announcer"
