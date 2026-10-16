@@ -73,3 +73,25 @@ test("a delegated request counts for the member and its lead", (t) => {
   );
   assert.deepEqual(actions.delegated(member.id), []);
 });
+
+// An allowed SSH command stays in the lead's chat while it runs, as in the member's.
+test("a delegated SSH command stays listed for its lead while it runs", (t) => {
+  const { assistant, actions, reserve } = setup(t);
+  const lead = assistant("Lead"),
+    member = assistant("Member");
+  const ssh = (state) =>
+    reserve(member.id, {
+      state,
+      leadAssistantId: lead.id,
+      payload: { action: "ssh", command: "uptime" },
+    });
+  const running = ssh("executing");
+  ssh("completed");
+  reserve(member.id, { state: "executing", leadAssistantId: lead.id });
+
+  assert.deepEqual(
+    actions.delegated(lead.id).map((a) => a.id),
+    [running.id],
+  );
+  assert.deepEqual(actions.awaitingCounts(0), {});
+});

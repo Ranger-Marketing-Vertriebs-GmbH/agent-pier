@@ -56,11 +56,12 @@ export class AssistantActionStore {
     }
     return counts;
   }
-  // Members' requests still waiting in turns this lead delegated.
+  // Members' requests still waiting in turns this lead delegated, and their allowed SSH
+  // commands while they run, as the member's own chat shows them.
   delegated(leadId) {
     return this.db
       .prepare(
-        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.leadAssistantId')=? AND json_extract(body,'$.state')='awaiting_approval' ORDER BY rowid",
+        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.leadAssistantId')=? AND (json_extract(body,'$.state')='awaiting_approval' OR (json_extract(body,'$.state')='executing' AND json_extract(body,'$.payload.action')='ssh')) ORDER BY rowid",
       )
       .all(leadId)
       .map((r) => JSON.parse(r.body));
