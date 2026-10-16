@@ -148,6 +148,54 @@ for (const [label, use] of [
       await expect(pill).toHaveCount(0);
     });
 
+    test("a version newer than the listed one drops the hint and asks again", async ({
+      page,
+    }) => {
+      const state = await directorySetup(page, {
+        servers: [fromDirectory()],
+        versions,
+        directory: { updates: [{ serverId: "s1", version: "1.1.0" }] },
+      });
+      const asked = () =>
+        state.requests.filter((r) => r.path === "/api/mcp-directory/updates").length;
+      const base = state.handle;
+      state.handle = async (context) => {
+        if (context.path.endsWith("/package/update"))
+          return context.route.fulfill({
+            status: 202,
+            json: { job: { kind: "update", state: "running", code: null, log: "" } },
+          });
+        if (context.path.endsWith("/package") && state.packageStatus)
+          return context.route.fulfill({ json: state.packageStatus });
+        return base(context);
+      };
+      await page.goto(`${baseURL}/accounts?section=mcp-servers&item=s1`);
+      const panel = page.locator(".mcp-package");
+      const hint = panel.getByText("Version 1.1.0 is listed in the directory.");
+      await expect(hint).toBeVisible();
+      const before = asked();
+      await panel.getByRole("button", { name: "Check update" }).click();
+      await panel
+        .getByRole("alertdialog", { name: "Update this package?" })
+        .getByRole("button", { name: "Update" })
+        .click();
+      // The package ends up newer than the listed version; the directory no longer
+      // reports an update for it.
+      const updated = fromDirectory();
+      updated.source = { ...updated.source, version: "1.2.0" };
+      updated.revision = (updated.revision ?? 0) + 1;
+      state.servers = [updated];
+      state.directory.updates = [];
+      state.packageStatus = {
+        source: updated.source,
+        job: { kind: "update", state: "done", code: 0, log: "" },
+        error: null,
+      };
+      await expect(panel.getByText("server-x@1.2.0")).toBeVisible();
+      await expect(hint).toHaveCount(0);
+      await expect.poll(asked).toBeGreaterThan(before);
+    });
+
     test("edit settings marks the directory's required names", async ({ page }) => {
       await directorySetup(page, { servers: [fromDirectory()] });
       await page.goto(`${baseURL}/accounts?section=mcp-servers&item=s1&step=settings`);
