@@ -107,13 +107,13 @@ const translations = {
     locale: "de-DE",
     collapse: "Navigation einklappen",
     expand: "Navigation ausklappen",
-    newSession: "Neue Sitzung",
+    newSession: "Neu",
   },
   en: {
     locale: "en-US",
     collapse: "Collapse navigation",
     expand: "Expand navigation",
-    newSession: "New session",
+    newSession: "New",
   },
 };
 for (const [language, copy] of Object.entries(translations)) {

@@ -1,14 +1,17 @@
-import { commonCopy } from "../lib/i18n/messages/common.js";
 import { mobileHeaderCopy as copy } from "../lib/i18n/messages/app.js";
 import React from "react";
+import SidebarNewMenu from "./SidebarNewMenu.jsx";
+import useNewMenuItems from "./useNewMenuItems.js";
 import Icon from "../components/Icon.jsx";
 export default function MobileHeader({
   mobileNav,
   setMobileNav,
   select,
   launch,
+  navigate,
   installed,
 }) {
+  const items = useNewMenuItems({ launch, navigate });
   return (
     <div className="mobile-header">
       <button
@@ -23,14 +26,7 @@ export default function MobileHeader({
         {copy.mobileBrand}
         <span>.</span>
       </button>
-      <button
-        className="icon-button"
-        aria-label={commonCopy.newSession}
-        onClick={() => launch()}
-        disabled={!installed}
-      >
-        <Icon name="plus" />
-      </button>
+      <SidebarNewMenu icon align="right" items={items} disabled={!installed} />
     </div>
   );
 }

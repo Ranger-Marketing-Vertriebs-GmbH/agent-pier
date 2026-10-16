@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { fixture } from "./ssh-fixture.js";
 
@@ -28,9 +29,7 @@ for (const locale of ["de-DE", "en-GB"]) {
           });
         });
         await page.goto("/");
-        await (width < 700 ? page.getByRole("main") : page)
-          .getByRole("button", { name: en ? "New session" : "Neue Sitzung", exact: true })
-          .click();
+        await openNewSession(page);
         const dialog = page.getByRole("dialog");
         const start = dialog.getByRole("button", {
           name: en ? "Start session" : "Sitzung starten",

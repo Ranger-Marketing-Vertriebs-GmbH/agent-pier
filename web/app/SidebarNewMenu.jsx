@@ -3,7 +3,14 @@ import Icon from "../components/Icon.jsx";
 import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
 
 // The orange "+ New" button: a small menu with the two things the owner can create.
-export default function SidebarNewMenu({ items, disabled }) {
+// `icon` renders the compact "+" of the phone header and the collapsed sidebar; `align`
+// keeps the popover inside the viewport ("right" under the header's "+").
+export default function SidebarNewMenu({
+  items,
+  disabled,
+  icon = false,
+  align = "left",
+}) {
   const [open, setOpen] = useState(false);
   const root = useRef(null),
     trigger = useRef(null),
@@ -48,25 +55,27 @@ export default function SidebarNewMenu({ items, disabled }) {
     controls[next].focus();
   };
   return (
-    <div className="new-menu" ref={root}>
+    <div className={`new-menu ${icon ? "new-menu-icon" : ""}`} ref={root}>
       <button
         ref={trigger}
         type="button"
-        className="button primary new-session"
+        className={icon ? "icon-button" : "button primary new-session"}
+        aria-label={icon ? copy.newLabel : undefined}
+        title={icon ? copy.newLabel : undefined}
         aria-haspopup="menu"
         aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
       >
         <Icon name="plus" />
-        {copy.newLabel}
+        {!icon && copy.newLabel}
       </button>
       {open && (
         <div
           role="menu"
           ref={menu}
           aria-label={copy.newLabel}
-          className="new-menu-popover"
+          className={`new-menu-popover ${align === "right" ? "align-right" : ""}`}
           onKeyDown={keys}
           onBlur={(event) => {
             const next = event.relatedTarget;

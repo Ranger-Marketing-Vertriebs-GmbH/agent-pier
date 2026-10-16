@@ -70,7 +70,7 @@
   .mobile-brand span {
     color: var(--accent);
   }
-  .mobile-header > .icon-button {
+  .mobile-header .icon-button {
     color: #c4c5c9;
   }
   main:has(.session-workspace) > .mobile-header {

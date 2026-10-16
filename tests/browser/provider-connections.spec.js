@@ -86,10 +86,7 @@ test("mobile launch selects the CLI before compatible access and shares one conn
     },
   ];
   await page.goto(baseURL + "/");
-  await page
-    .locator(".mobile-header")
-    .getByRole("button", { name: "Neue Sitzung", exact: true })
-    .click();
+  await openNewSession(page);
   await page.getByLabel("CLI", { exact: true }).selectOption("codex");
   const access = page.getByLabel("Zugang", { exact: true });
   await expect(access.locator('option[value="local-claude"]')).toHaveCount(0);

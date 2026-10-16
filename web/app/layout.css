@@ -153,6 +153,14 @@
   background: var(--popover-bg);
   box-shadow: var(--popover-shadow);
 }
+.new-menu-icon .new-menu-popover {
+  right: auto;
+  min-width: 180px;
+}
+.new-menu-icon .new-menu-popover.align-right {
+  left: auto;
+  right: 0;
+}
 .new-menu-popover [role="menuitem"] {
   display: flex;
   align-items: center;

@@ -8,6 +8,7 @@ const AssistantSidebar = lazy(
   () => import("../features/assistants/AssistantSidebar.jsx"),
 );
 import useMobileLayout from "../lib/useMobileLayout.js";
+import useNewMenuItems from "./useNewMenuItems.js";
 import SidebarNewMenu from "./SidebarNewMenu.jsx";
 import SidebarMenu from "./SidebarMenu.jsx";
 import SidebarGroup from "./SidebarGroup.jsx";
@@ -31,6 +32,7 @@ export default function Sidebar({
   // Off-canvas on phones: keep the closed drawer out of the tab order.
   const mobile = useMobileLayout();
   const { enabled: agentsEnabled } = useAssistantFeature();
+  const newItems = useNewMenuItems({ launch, navigate });
   const hostname = window.location.hostname.replace(/\.$/, "");
   const localAccess =
     hostname === "localhost" ||
@@ -81,21 +83,7 @@ export default function Sidebar({
         />
       </div>
       <div className="sidebar-launch">
-        <SidebarNewMenu
-          disabled={!installed}
-          items={[
-            { id: "session", label: copy.newSessionItem, onSelect: () => launch() },
-            ...(agentsEnabled
-              ? [
-                  {
-                    id: "agent",
-                    label: copy.newAgentItem,
-                    onSelect: () => navigate({ view: "agents", creating: true }),
-                  },
-                ]
-              : []),
-          ]}
-        />
+        <SidebarNewMenu disabled={!installed} items={newItems} />
       </div>
       <div className="sidebar-scroll">
         {agentsEnabled && (
