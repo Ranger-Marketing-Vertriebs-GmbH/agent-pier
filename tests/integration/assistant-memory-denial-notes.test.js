@@ -98,3 +98,37 @@ test("a refused flush the Gateway never reported is still noted in the owner's c
   assert.equal(await f.call(today, { ctx: other }), false);
   assert.deepEqual(f.notes(), ["flush"]);
 });
+
+test("a refused flush of a reported routine or other session never lands in the owner's chat", async (t) => {
+  const f = await notesFixture(t);
+  const agent = f.store.getAssistant(f.id);
+  f.store.updateAssistant(
+    f.id,
+    { capabilities: { memory: true, reminders: true } },
+    agent.revision,
+  );
+  const routineKey = `agent:${f.agentId}:cron:job-1:run:r1`;
+  f.assistants.routines = { runOrigin: (_a, key) => key === routineKey };
+  // The owner's turn runs in its chat while other sessions of the agent flush.
+  await f.invocation("owner", { kind: "owner" });
+  const flushCtx = () => {
+    const run = crypto.randomUUID();
+    return {
+      agentId: f.agentId,
+      sessionKey: `agent:${f.agentId}:internal-session-effects:${run}-21a903bbd7325dca`,
+      runId: run,
+    };
+  };
+  for (const source of [routineKey, `agent:${f.agentId}:telegram:someone`]) {
+    f.assistants.memoryFlushes.clear();
+    f.assistants.memoryFlushes.observe({
+      stream: "run_status",
+      runId: "source-run",
+      sessionKey: source,
+      data: { phase: "memory_flushing" },
+    });
+    // Refused (an old day note), and not attributed to the owner's conversation.
+    assert.equal(await f.call("memory/2020-01-01.md", { ctx: flushCtx() }), false);
+    assert.deepEqual(f.notes(), [], source);
+  }
+});

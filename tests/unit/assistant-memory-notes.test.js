@@ -41,3 +41,24 @@ test("memory notes are kept once per key, bounded per conversation and merged in
   );
   assert.deepEqual(withMemoryNotes([{ id: "m" }], [only], { from: 5000 }), [{ id: "m" }]);
 });
+
+test("flush day notes follow calendar days across daylight saving changes", async () => {
+  const { flushDates } =
+    await import("../../server/features/assistants/memory-flushes.js");
+  // 00:30 on 30 March in Berlin, the night after the 23-hour day.
+  assert.deepEqual(flushDates(Date.parse("2026-03-29T22:30:00Z"), "Europe/Berlin"), [
+    "memory/2026-03-30.md",
+    "memory/2026-03-29.md",
+  ]);
+  // 00:30 on 26 October, after the 25-hour day.
+  assert.deepEqual(flushDates(Date.parse("2026-10-25T23:30:00Z"), "Europe/Berlin"), [
+    "memory/2026-10-26.md",
+    "memory/2026-10-25.md",
+  ]);
+  assert.deepEqual(flushDates(Date.parse("2026-01-05T12:00:00Z"), "UTC"), [
+    "memory/2026-01-05.md",
+    "memory/2026-01-04.md",
+  ]);
+  // An unknown zone falls back to the host's instead of failing.
+  assert.equal(flushDates(Date.now(), "Not/AZone").length, 2);
+});
