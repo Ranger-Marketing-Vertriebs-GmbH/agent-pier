@@ -4,6 +4,7 @@ import {
   advancedSettingById,
   auditableSettingValue,
 } from "../assistants/openclaw-config/advanced-settings.js";
+import { MCP_SERVER_ORIGINS } from "../mcp-servers/server-origins.js";
 const resources = new Set([
   "assistant",
   "artifact",
@@ -270,7 +271,7 @@ export function auditEvent(input) {
       event.details.resolution = details.resolution;
     if (typeof details.adopted === "boolean") event.details.adopted = details.adopted;
     // How the owner set a new server up; never what it holds.
-    if (["manual", "paste", "directory"].includes(details.origin))
+    if (MCP_SERVER_ORIGINS.includes(details.origin))
       event.details.origin = details.origin;
     packageDetails(details, event);
   }

@@ -169,6 +169,8 @@ test(
     assert.equal(created.status, 202, JSON.stringify(created.body));
     await s.packages.jobs.idle();
     assert.deepEqual(events().at(-1).details, {
+      // Only the create path records how the server was set up.
+      origin: "manual",
       registry: "pypi",
       name: "srv-x",
       version: "1.0",
