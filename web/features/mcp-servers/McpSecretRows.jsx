@@ -1,4 +1,5 @@
 import React from "react";
+import { mcpDirectoryCopy } from "../../lib/i18n/messages/mcp-directory.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 
 /**
@@ -6,6 +7,7 @@ import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
  * name and "stored" only; a typed value replaces them, "Remove" deletes them.
  * Rows: `{ key, name, value, stored, removed }`. `error` is shown at the rows and
  * describes them (`errorId`); the value inputs of `invalidNames` are marked invalid.
+ * Stored `requiredNames` (marked required by the MCP directory) carry a marker.
  */
 export default function McpSecretRows({
   label,
@@ -14,6 +16,7 @@ export default function McpSecretRows({
   error,
   errorId,
   invalidNames = [],
+  requiredNames = [],
 }) {
   const invalid = (row) =>
     error && invalidNames.includes(row.name.trim()) ? { "aria-invalid": true } : {};
@@ -32,7 +35,11 @@ export default function McpSecretRows({
           {row.stored ? (
             <>
               <span className="mcp-row-name">
-                <code>{row.name}</code> <em className="mcp-stored">{copy.stored}</em>
+                <code>{row.name}</code>{" "}
+                {requiredNames.includes(row.name) && (
+                  <span className="list-row-pill">{mcpDirectoryCopy.required}</span>
+                )}{" "}
+                <em className="mcp-stored">{copy.stored}</em>
                 {row.removed && (
                   <span className="mcp-removed"> · {copy.removedMarker}</span>
                 )}
