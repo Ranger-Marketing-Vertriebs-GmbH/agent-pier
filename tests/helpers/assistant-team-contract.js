@@ -5,7 +5,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createAssistantServices } from "../../server/application/assistants.js";
 import { assistantTeamModel } from "./assistant-team-model.js";
 import { ChannelOutbox } from "../../server/features/assistant-channels/channel-outbox.js";
-import { teamTools } from "../../server/features/assistants/runtime-config.js";
+import { profileTools } from "../../server/features/assistants/native-capabilities.js";
 export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
   const model = await assistantTeamModel();
   const services = createAssistantServices({
@@ -94,7 +94,9 @@ export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
     assert.ok(members.every((m) => m.phase === "completed"));
     assert.deepEqual(
       model.requests[0].tools.map((t) => t.function.name).sort(),
-      [...teamTools].sort(),
+      // The parent's tools come from its compiled profile (team tools plus the always-on
+      // workspace tool); deriving them keeps this contract from drifting.
+      profileTools(parent, true, true, true).sort(),
     );
     const childRequests = model.requests.filter((r) =>
       JSON.stringify(
@@ -102,6 +104,12 @@ export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
       ).includes("TEAM_CHILD_"),
     );
     assert.ok(childRequests.length >= 4);
+    // Members hold the session tool and the coding-run request tool, nothing else.
+    const memberTools = new Set(
+      members.flatMap((m) =>
+        profileTools(a.store.getAssistant(m.assistantId), true, true, true),
+      ),
+    );
     assert.ok(
       childRequests
         .filter(
@@ -110,7 +118,7 @@ export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
               r.messages.filter((m) => m.role === "user").at(-1)?.content,
             ).includes("Summarize"),
         )
-        .every((r) => r.tools.every((t) => t.function.name === "session_status")),
+        .every((r) => r.tools.every((t) => memberTools.has(t.function.name))),
     );
     await channels.delivery.process(channel.id, new AbortController().signal);
     assert.equal(channels.ledger.list(channel.id)[0].state, "delivered");
