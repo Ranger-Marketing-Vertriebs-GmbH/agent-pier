@@ -15,6 +15,8 @@ import { CrossLinkOrigin } from "./cross-link.js";
 import DashboardPage from "../features/dashboard/DashboardPage.jsx";
 import useWorkspaceState from "./useWorkspaceState.js";
 import useWorkspaceNavigation from "./useWorkspaceNavigation.js";
+import SidebarNewMenu from "./SidebarNewMenu.jsx";
+import useNewMenuItems from "./useNewMenuItems.js";
 import MobileHeader from "./MobileHeader.jsx";
 import useFileNavigationGuard from "../features/files/useFileNavigationGuard.js";
 import FileNavigationGuardDialog from "../features/files/FileNavigationGuardDialog.jsx";
@@ -103,6 +105,7 @@ function Application() {
       type: "launch",
       tool,
     });
+  const newItems = useNewMenuItems({ launch, navigate });
   const availableTools = [...state.tools, ...(state.utilities || [])];
   const installed = state.tools.filter((t) => t.installed).length;
   const installedToolCount = availableTools.filter((t) => t.installed).length;
@@ -129,15 +132,7 @@ function Application() {
           >
             <Icon name="arrow" />
           </button>
-          <button
-            className="icon-button"
-            aria-label={commonCopy.newSession}
-            title={commonCopy.newSession}
-            onClick={() => launch()}
-            disabled={!installed}
-          >
-            <Icon name="plus" />
-          </button>
+          <SidebarNewMenu icon items={newItems} disabled={!installed} />
         </div>
       )}
       <Sidebar
@@ -165,6 +160,7 @@ function Application() {
             setMobileNav,
             select,
             launch,
+            navigate,
             installed,
           }}
         />

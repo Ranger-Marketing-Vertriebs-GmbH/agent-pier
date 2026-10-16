@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
@@ -115,10 +116,7 @@ test("endpoint pickers hide the catalog refresh and flag models without context"
     },
   ];
   await page.goto(baseURL + "/");
-  await page
-    .locator(".mobile-header")
-    .getByRole("button", { name: "New session", exact: true })
-    .click();
+  await openNewSession(page);
   await page.getByLabel("CLI", { exact: true }).selectOption("claude");
   await page.getByLabel("Connection", { exact: true }).selectOption("provider:ctx");
   const model = page.getByLabel("Provider model", { exact: true });
