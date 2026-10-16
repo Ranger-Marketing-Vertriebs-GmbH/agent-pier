@@ -120,6 +120,8 @@ export const mcpWizardCopy = {
     summary: (name, count, secret) =>
       `${name} · ${count} Einstellungen (${secret} geheim)`,
     checking: "Das Paket und alle Abhängigkeiten werden geprüft…",
+    previewFailed:
+      "Das Paket konnte nicht geprüft werden. Geh zurück und versuch es erneut.",
     progressTitle: "Installation",
     saved: "Gespeichert",
     installing: (count) =>

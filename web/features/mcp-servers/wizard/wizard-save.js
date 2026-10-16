@@ -1,4 +1,5 @@
 import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
+import { mcpWizardCopy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import { refusalField } from "../mcp-package-labels.js";
 import { mcpServerStep, PACKAGE_INSTALL_REQUIRED } from "../mcp-server-save.js";
 import { saveValues } from "./wizard-state.js";
@@ -66,7 +67,7 @@ export async function saveNewServer({
 /** The package preview `mcpServerStep` asks for before anything is stored. */
 export async function previewNewPackage({ draft, previewPackage }) {
   const refuseSave = async () => {
-    throw new Error("A package preview must not save.");
+    throw new Error(mcpWizardCopy.install.previewFailed);
   };
   try {
     await step({

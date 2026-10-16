@@ -3,6 +3,8 @@ export const accountSections = ["models", "services", "mcp-servers", "cli"];
 // Provider connection, ChatGPT (openclaw:<hash>), MCP server and CLI account ids.
 export const accountItemPattern = /^(?:new|[A-Za-z0-9][A-Za-z0-9_.:-]{0,127})$/;
 // The MCP server wizard's steps (wizard-state.js); a saved server opens its edit steps.
+// "directory" and "paste" are reserved for the directory and paste plans: until their
+// screens exist, McpWizard sends such links back to the source step.
 export const newWizardSteps = [
   "source",
   "directory",

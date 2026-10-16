@@ -18,10 +18,11 @@ export function webLink(value) {
   let text = value.trim();
   const shorthand = /^github:([\w.-]+\/[\w.-]+)$/.exec(text);
   if (shorthand) text = `https://github.com/${shorthand[1]}`;
+  text = text.replace(/^git\+/, "");
   const ssh = /^git@([\w.-]+):(.+)$/.exec(text);
   if (ssh) text = `https://${ssh[1]}/${ssh[2]}`;
   text = text
-    .replace(/^git\+/, "")
+    .replace(/^ssh:\/\/git@/, "https://")
     .replace(/^git:\/\//, "https://")
     .replace(/\.git$/, "");
   if (text.length > linkLimit) return null;

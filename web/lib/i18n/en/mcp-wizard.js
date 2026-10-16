@@ -109,6 +109,7 @@ export const mcpWizardCopy = {
     title: (name) => `Install ${name}`,
     summary: (name, count, secret) => `${name} · ${count} settings (${secret} secret)`,
     checking: "Checking the package and all its dependencies…",
+    previewFailed: "The package could not be checked. Go back and try again.",
     progressTitle: "Installation",
     saved: "Saved",
     installing: (count) =>
