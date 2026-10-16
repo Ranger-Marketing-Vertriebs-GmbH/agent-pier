@@ -8,7 +8,7 @@ const ChatgptLoginDetail = lazy(() => import("../assistants/ChatgptLoginDetail.j
 const ChatgptAccountDetail = lazy(() => import("../assistants/ChatgptAccountDetail.jsx"));
 const SpeechSettings = lazy(() => import("../assistants/SpeechSettings.jsx"));
 const WebSearchSettings = lazy(() => import("../assistants/WebSearchSettings.jsx"));
-const McpServerDetail = lazy(() => import("../mcp-servers/McpServerDetail.jsx"));
+const McpServerEntry = lazy(() => import("../mcp-servers/McpServerEntry.jsx"));
 const McpFindsDetail = lazy(() => import("../mcp-servers/McpFindsDetail.jsx"));
 
 // Detail subpages by entry kind (see accounts-items.js). Each detail is loaded on
@@ -23,7 +23,7 @@ export const detailComponents = {
   "cli-new": NativeAccountDetail,
   speech: SpeechSettings,
   "web-search": WebSearchSettings,
-  "mcp-server": McpServerDetail,
-  "mcp-new": McpServerDetail,
+  "mcp-server": McpServerEntry,
+  "mcp-new": McpServerEntry,
   "mcp-finds": McpFindsDetail,
 };
