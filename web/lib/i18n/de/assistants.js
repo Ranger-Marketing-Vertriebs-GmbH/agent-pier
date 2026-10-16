@@ -316,6 +316,12 @@ export const assistantCopy = {
     files: (count) => (count === 1 ? "1 Datei" : `${count} Dateien`),
     edit: "Bearbeiten",
     editLabel: "Wartende Nachricht bearbeiten",
+    label: "Wartende Nachricht",
+    sending: "Wird jetzt gesendet …",
+    blocked: (name) =>
+      `Noch nicht gesendet: ${name} kann gerade keine Nachrichten annehmen`,
+    failed: (reason) => `Nicht gesendet: ${reason}`,
+    unknownError: "Der Agent hat sie nicht angenommen.",
   },
   showApprovals: "Anzeigen",
   memberCount: (count) => (count === 1 ? "1 Mitglied" : `${count} Mitglieder`),

@@ -1,35 +1,23 @@
-// The one message an agent chat holds back while its agent works: Enter or "Send when
-// done" queues it, and it goes out once the current turn has ended (completed, failed
-// or stopped). Another message joins it on a new line; every change gets a new
-// delivery key, so a retried delivery of the same content is sent only once.
-const joined = (...parts) =>
-  parts
+// The message the owner queued while the agent works lives on the server
+// (queued-dispatch.js) and comes with the history, so every tab and a reload see it.
+
+// Back in the composer, the queued text comes before what was typed since.
+export const takeBack = (text, draft) =>
+  [text, draft]
     .map((part) => String(part || "").trimEnd())
     .filter((part) => part.trim())
     .join("\n");
 
-export function queueMessage(
-  current,
-  { text, teamAllowed = false, files = [] },
-  id = () => crypto.randomUUID(),
-) {
-  return {
-    text: joined(current?.text, text),
-    teamAllowed: Boolean(current?.teamAllowed || teamAllowed),
-    files: [...(current?.files || []), ...files],
-    clientRequestId: id(),
-  };
+/**
+ * What the queued message's notice says: it is on its way (`sending`), was refused
+ * (`failed`), waits for an agent that cannot take messages now (`blocked`: the
+ * service is not ready, the agent is archived or a member is busy), or waits for the
+ * current turn (`waiting`, also while an uncertain turn awaits its review).
+ */
+export function queuedNotice(queued, { active, available }) {
+  if (!queued) return null;
+  if (queued.state === "sending") return "sending";
+  if (queued.state === "failed") return "failed";
+  if (!active && !available) return "blocked";
+  return "waiting";
 }
-
-// The message as the send endpoint takes it; files are added by the caller.
-export const queuedDelivery = ({ text, clientRequestId, teamAllowed }) => ({
-  text,
-  clientRequestId,
-  ...(teamAllowed ? { teamAllowed: true } : {}),
-});
-
-// Back in the composer, the queued text comes before what was typed since.
-export const takeBack = (queued, draft) => joined(queued?.text, draft);
-
-export const sendsQueued = (queued, { active, busy, available }) =>
-  Boolean(queued && !active && !busy && available);
