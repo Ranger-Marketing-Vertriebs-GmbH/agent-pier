@@ -3,8 +3,8 @@ import api from "../../lib/api.js";
 import usePolling from "./usePolling.js";
 import { useAssistantEvents } from "./useAssistants.js";
 
-// What waits for the owner in this agent's chat: its own coding tasks, memory changes
-// and shell commands (team members included: a permanent member may have a shell),
+// What waits for the owner in this agent's chat: its own coding tasks, memory changes,
+// shell and SSH commands (team members included: a permanent member may have a shell),
 // and its members' shell commands in turns it delegated (leadAssistantId). Loaded on
 // change events and polled while one waits, because approvals expire. Team coding
 // requests (teamId) belong to the lead's team card (useTeamCodingRequests).
@@ -17,7 +17,13 @@ export default function useAssistantActions(assistantId) {
         const r = await api(`/assistants/${encodeURIComponent(assistantId)}/actions`);
         if (!signal?.aborted)
           setActions(
-            (r.actions || []).filter((a) => a.state === "awaiting_approval" && !a.teamId),
+            (r.actions || []).filter(
+              (a) =>
+                !a.teamId &&
+                (a.state === "awaiting_approval" ||
+                  // An allowed SSH command stays visible while it runs.
+                  (a.payload?.action === "ssh" && a.state === "executing")),
+            ),
           );
       } catch {
         // Settings report load failures; the chat keeps the last list.

@@ -2,12 +2,19 @@ import React, { useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantWorkflowCopy as copy } from "../../lib/i18n/messages/assistant-workflows.js";
 import ExecApprovalCard from "./ExecApprovalCard.jsx";
+import SshApprovalCard from "./SshApprovalCard.jsx";
 
 const isExec = (a) => a.payload.action === "exec";
+const isSsh = (a) => a.payload.action === "ssh";
 
 // The agent's own pending actions as cards in the transcript (handoff 2c). The chat
 // loads them once (useAssistantActions) and also counts them in the approval strip.
-export default function AssistantActionApprovals({ actions, error, decide }) {
+export default function AssistantActionApprovals({
+  actions,
+  error,
+  decide,
+  assistantId,
+}) {
   const [busy, setBusy] = useState(false);
   async function choose(a, decision) {
     setBusy(true);
@@ -18,14 +25,23 @@ export default function AssistantActionApprovals({ actions, error, decide }) {
     }
   }
   if (!actions.length && !error) return null;
-  // Shell commands have their own card; it decides through `decide(id, decision)`.
-  const others = actions.filter((a) => !isExec(a));
+  // Shell and SSH commands have their own cards; they decide through
+  // `decide(id, decision)`. An SSH card stays while its allowed command runs.
+  const others = actions.filter((a) => !isExec(a) && !isSsh(a));
   return (
     <section className="assistant-action-approvals" aria-label={copy.pendingApprovals}>
       <h3 className="sr-only">{copy.pendingApprovals}</h3>
       <ErrorMessage error={error} />
       {actions.filter(isExec).map((a) => (
         <ExecApprovalCard key={a.id} action={a} decide={(_, d) => decide(a, d)} />
+      ))}
+      {actions.filter(isSsh).map((a) => (
+        <SshApprovalCard
+          key={a.id}
+          action={a}
+          viewerId={assistantId}
+          decide={(_, d) => decide(a, d)}
+        />
       ))}
       {others.map((a) => (
         <article className="assistant-approval-card" data-pending="" key={a.id}>
