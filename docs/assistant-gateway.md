@@ -769,7 +769,9 @@ A lead reaches its own members without the owner relaying anything
   the chat renders it (`treeMentions` in `member-mentions.js`, shared by the proof
   and the chat's chips), so a mention counts only where the owner sees a chip:
   - never in code, block quotes, struck-through text, links, URLs, images,
-    footnotes or HTML, never from a character reference (`&#64;`) or an escape
+    footnotes or HTML, nor in a Telegram message's blockquote, code, pre,
+    text_link or strikethrough entities (kept by the channel inbox as `hidden`
+    ranges of the turn context), never from a character reference (`&#64;`) or an escape
     (`\@`), and never right after a letter, digit or path or markup character;
   - names match case-insensitively by a simple per-character fold, without
     normalisation, so look-alike or invisible characters mention nobody; a name two

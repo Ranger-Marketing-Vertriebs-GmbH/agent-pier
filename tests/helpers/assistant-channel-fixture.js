@@ -20,7 +20,8 @@ export function channelFixture(t, { language = () => "de", ...options } = {}) {
     runtimeSessionKey: "session",
   });
   let ready = true;
-  const sent = [];
+  const sent = [],
+    contexts = [];
   const assistants = {
     store,
     ledger,
@@ -33,12 +34,13 @@ export function channelFixture(t, { language = () => "de", ...options } = {}) {
       },
     },
     openConversation: async () => conversation,
-    send: async (id, input) => {
+    send: async (id, input, context) => {
       if (!ready) throw Object.assign(Error(), { status: 503 });
       const request = ledger.accept(id, input);
       let attempt = ledger.attemptFor(request.id);
       if (!attempt) {
         sent.push(input);
+        contexts.push(context);
         attempt = ledger.recordAttempt(request.id);
         ledger.transition(attempt.id, "accepted");
       }
@@ -85,6 +87,8 @@ export function channelFixture(t, { language = () => "de", ...options } = {}) {
     client,
     channel: service.store.get(channel.id),
     sent,
+    // The trusted turn context of each sent input.
+    contexts,
     setReady: (v) => {
       ready = v;
     },
