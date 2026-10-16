@@ -122,6 +122,10 @@ export function sqliteSnapshot(file, scratch, options) {
     fs.rmSync(target, { force: true });
   }
 }
+// Only what a restore accepts is captured: a temporary file a writer left behind
+// after a crash would otherwise make every restore of the backup fail.
+const notChat = (name) => !/^[A-Za-z0-9_.-]+\.json$/.test(name);
+const notSecret = (name) => !/^[A-Za-z0-9_-]+\.json$/.test(name);
 const sealed = (members) =>
   members.map((member) => fileMember(member.path, member.bytes ?? readFile(member.file)));
 /**
@@ -257,7 +261,9 @@ export function capture({
             consistency: "captured-file-prefix",
           });
         }
-      files.push(...plan.tree(path.join(dataDir, "chat"), "chat", areaComponent("chat")));
+      files.push(
+        ...plan.tree(path.join(dataDir, "chat"), "chat", areaComponent("chat"), notChat),
+      );
       const busRoot = path.join(dataDir, "agentbus/projects");
       if (fs.existsSync(busRoot))
         for (const project of fs.readdirSync(busRoot).sort()) {
@@ -276,6 +282,7 @@ export function capture({
             path.join(dataDir, "provider-connection-secrets"),
             "provider-connection-secrets",
             areaComponent("providerCredentials"),
+            notSecret,
           ),
         ),
         ...sealed(
@@ -283,6 +290,7 @@ export function capture({
             path.join(dataDir, "repository-secrets"),
             "repository-secrets",
             areaComponent("repositoryCredentials"),
+            notSecret,
           ),
         ),
       );
