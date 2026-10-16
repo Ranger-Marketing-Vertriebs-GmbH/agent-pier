@@ -106,7 +106,9 @@ export class SessionReload {
         : operation(),
     );
   }
-  request(id, body = {}) {
+  /** `current` re-checks the caller's precondition once the request has the queue;
+   * when it fails, the request returns null without touching the session. */
+  request(id, body = {}, { current } = {}) {
     return this.serial(async () => {
       if (this.closed) throw problem(serverMessages.sessionReload.shuttingDown, 503);
       if (
@@ -117,6 +119,7 @@ export class SessionReload {
         throw problem(serverMessages.sessionReload.invalidRequest);
       if (body.targetAccountId !== undefined) validId(body.targetAccountId);
       const { session, value } = await this.inspect(id);
+      if (current && !(await current(session))) return null;
       if (
         session.reload?.requestId === body.requestId ||
         session.reload?.previousRequestIds?.includes(body.requestId)

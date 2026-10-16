@@ -81,6 +81,8 @@ export class SessionAutoResume {
     let result;
     try {
       const status = await reload.status(id);
+      // The owner's waiting or running reload already relaunches the session.
+      if (IN_PROGRESS.includes(status.state)) return await this.mark(session, null);
       if (!status.eligible)
         return await this.mark(session, {
           ...interruption,
@@ -89,7 +91,14 @@ export class SessionAutoResume {
         });
       // A manual reload or stop that ran meanwhile wins; this attempt leaves no trace.
       if (!(await this.isCurrent(session, { stopped: true }))) return;
-      result = await reload.request(id, { requestId: randomUUID(), mode: "now" });
+      // Re-checked when the request gets the reload queue: a reload queued ahead
+      // of it may have relaunched the session meanwhile.
+      result = await reload.request(
+        id,
+        { requestId: randomUUID(), mode: "now" },
+        { current: () => this.isCurrent(session, { stopped: true }) },
+      );
+      if (!result) return;
       const deadline = Date.now() + this.timeoutMs;
       while (
         IN_PROGRESS.includes(result.state) &&
@@ -109,7 +118,7 @@ export class SessionAutoResume {
   // A skip is no resume attempt, so it only updates the marker and writes no audit event.
   async mark(session, interruption) {
     try {
-      if (interruption && (await this.isCurrent(session)))
+      if (await this.isCurrent(session))
         await this.services.sessions.setInterruption(session.id, interruption);
     } catch {
       /* The session may be gone; an attempt's audit entry still records the outcome. */
