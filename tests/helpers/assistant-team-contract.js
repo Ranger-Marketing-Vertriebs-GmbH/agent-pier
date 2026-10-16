@@ -104,22 +104,25 @@ export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
       ).includes("TEAM_CHILD_"),
     );
     assert.ok(childRequests.length >= 4);
-    // Members hold the session tool and the coding-run request tool, nothing else.
-    const memberTools = new Set(
-      members.flatMap((m) =>
-        profileTools(a.store.getAssistant(m.assistantId), true, true, true),
-      ),
+    // Each member turn offers exactly the tools of that member's own profile.
+    const memberTurns = childRequests.filter(
+      (r) =>
+        !JSON.stringify(
+          r.messages.filter((m) => m.role === "user").at(-1)?.content,
+        ).includes("Summarize"),
     );
-    assert.ok(
-      childRequests
-        .filter(
-          (r) =>
-            !JSON.stringify(
-              r.messages.filter((m) => m.role === "user").at(-1)?.content,
-            ).includes("Summarize"),
-        )
-        .every((r) => r.tools.every((t) => memberTools.has(t.function.name))),
-    );
+    assert.ok(memberTurns.length >= 4);
+    for (const r of memberTurns) {
+      const text = JSON.stringify(
+        r.messages.filter((m) => m.role === "user").at(-1)?.content,
+      );
+      const member = members.find((m) => text.includes(m.assignment.split(":")[0]));
+      assert.ok(member, "member turn matches a member assignment");
+      assert.deepEqual(
+        r.tools.map((t) => t.function.name).sort(),
+        profileTools(a.store.getAssistant(member.assistantId), true, true, true).sort(),
+      );
+    }
     await channels.delivery.process(channel.id, new AbortController().signal);
     assert.equal(channels.ledger.list(channel.id)[0].state, "delivered");
     await channels.teamOutbox.transfer();
