@@ -1,5 +1,8 @@
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import { allowAlwaysByAgentPier, execPlan } from "./exec-decisions.js";
+import { actionPath, fenced } from "./action-text.js";
+import { notifySsh } from "./agent-ssh-notifications.js";
+import { commandPreview } from "./agent-ssh-text.js";
 // The Telegram chat bound to an action: its own Telegram origin, or for a team
 // member's request the owner chat recorded when the request was made.
 export function telegramTarget(action) {
@@ -13,6 +16,7 @@ export function notifyAction(w, action, phase) {
   if (outbox.all(target.channelId).some((e) => e.key === key)) return;
   const m = telegramMessages(store.get(target.channelId));
   if (action.payload.action === "exec") return notifyExec(w, action, phase, key, m);
+  if (action.payload.action === "ssh") return notifySsh(w, action, phase, key, m, target);
   const detail =
     (action.requestedBy ? `${m.actionRequestedByMember(action.memberName)}\n` : "") +
     (action.payload.action === "coding_start"
@@ -48,14 +52,6 @@ export function notifyAction(w, action, phase) {
         : [],
   });
 }
-const actionPath = (action) =>
-  action.teamId
-    ? `/agents/${encodeURIComponent(action.assistantId)}/teams/${encodeURIComponent(action.teamId)}`
-    : `/agents/${encodeURIComponent(action.assistantId)}/chats/${encodeURIComponent(action.conversationId)}`;
-// Model-chosen text shown verbatim: inside a code fence the Markdown renderer
-// escapes everything, and a line that would close the fence is broken up.
-const fenced = (text) =>
-  "```\n" + text.replace(/^(\s*)(```|~~~)/gm, "$1\u200b$2") + "\n```";
 const commandLimit = 1500;
 // A model-chosen name as inline code: inside it the Markdown renderer escapes
 // everything and makes no links. A backtick, which would end it, becomes a
@@ -195,25 +191,56 @@ export function noteCodingRun(w, a) {
     chatNotes: { ...a.chatNotes, [phase]: { at: w.now(), state: a.state } },
   });
 }
-// The event notes of a conversation's coding runs, oldest first.
-export function codingRunNotes(actions, conversationId) {
+// What an SSH run ended with, for its note (web/features/assistants/ssh-run-note.js).
+const sshOutcome = (r = {}, diagnostic) =>
+  r.reason === "revoked" || diagnostic === "SSH_REVOKED"
+    ? "revoked"
+    : r.timedOut
+      ? "timedOut"
+      : r.truncated
+        ? "truncated"
+        : r.exitCode === 0
+          ? "done"
+          : "exit";
+function sshNotes(a) {
+  if (!a.chatNotes.result) return [];
+  const r = a.result || {},
+    outcome = sshOutcome(r, a.diagnostic);
+  return [
+    {
+      id: `ssh-run:${a.id}`,
+      role: "event",
+      event: "ssh-run",
+      hostName: a.payload.hostName,
+      commandPreview: a.payload.commandPreview ?? commandPreview(a.payload.command || ""),
+      outcome,
+      ...(outcome === "exit" ? { exitCode: r.exitCode ?? r.signal ?? null } : {}),
+      durationMs: r.durationMs ?? null,
+      timestamp: a.chatNotes.result.at,
+      runId: null,
+      ...(a.memberName ? { memberName: a.memberName } : {}),
+    },
+  ];
+}
+const codingNotes = (a) =>
+  ["started", "result"]
+    .filter((phase) => a.chatNotes[phase])
+    .map((phase) => ({
+      id: `coding-run:${a.id}:${phase}`,
+      role: "event",
+      event: "coding-run",
+      phase,
+      state: a.chatNotes[phase].state,
+      timestamp: a.chatNotes[phase].at,
+      runId: a.runId || null,
+      projectName: a.projectName || null,
+      pipelineName: a.pipelineName || null,
+      ...(a.memberName ? { memberName: a.memberName } : {}),
+    }));
+// The event notes of a conversation's coding runs and SSH runs, oldest first.
+export function actionNotes(actions, conversationId) {
   return actions
     .filter((a) => a.conversationId === conversationId && a.chatNotes)
-    .flatMap((a) =>
-      ["started", "result"]
-        .filter((phase) => a.chatNotes[phase])
-        .map((phase) => ({
-          id: `coding-run:${a.id}:${phase}`,
-          role: "event",
-          event: "coding-run",
-          phase,
-          state: a.chatNotes[phase].state,
-          timestamp: a.chatNotes[phase].at,
-          runId: a.runId || null,
-          projectName: a.projectName || null,
-          pipelineName: a.pipelineName || null,
-          ...(a.memberName ? { memberName: a.memberName } : {}),
-        })),
-    )
+    .flatMap((a) => (a.payload.action === "ssh" ? sshNotes(a) : codingNotes(a)))
     .sort((x, y) => x.timestamp - y.timestamp);
 }
