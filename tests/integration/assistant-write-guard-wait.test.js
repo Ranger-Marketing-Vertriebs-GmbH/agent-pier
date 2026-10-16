@@ -6,29 +6,39 @@ import path from "node:path";
 import { EventEmitter } from "node:events";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
+import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
+import { writeGuardWiring } from "../../server/features/assistants/write-guard-wait.js";
 
-// A ready Gateway whose plugin has not reported its write guard yet
-// (WRITE_GUARD_PENDING): `pending` says so, `applies` records each turn's apply.
-function pendingGuardService(t) {
+// A ready 2026.10.3 Gateway whose plugin has not reported its write guard yet
+// (WRITE_GUARD_PENDING), wired to the service exactly as assistant-graph.js does.
+async function pendingGuardService(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-guard-wait-"));
   const store = new AssistantStore({ dataDir });
-  const assistant = store.createAssistant({
+  let assistant = store.createAssistant({
     name: "Home",
     model: { connectionId: "c", modelId: "m" },
   });
+  assistant = store.updateAssistant(
+    assistant.id,
+    { capabilities: { memory: true, reminders: false } },
+    assistant.revision,
+  );
   const conversation = store.saveConversation({
     assistantId: assistant.id,
     runtimeSessionKey: "agent:home:test",
   });
-  const state = { pending: true, applies: [], sends: 0 };
+  const state = { applies: [], sends: [], warnings: [] };
   const client = new EventEmitter();
   client.ready = true;
   client.subscribe = (f) => {
     client.on("event", f);
     return () => client.off("event", f);
   };
-  client.call = async (method) => {
-    if (method === "sessions.send") return { runId: `run-${++state.sends}` };
+  client.call = async (method, params) => {
+    if (method === "sessions.send") {
+      state.sends.push(params.message);
+      return { runId: `run-${state.sends.length}` };
+    }
     if (method === "sessions.messages.subscribe") return {};
     if (method === "chat.history") return { messages: [], hasMore: false };
     if (method === "sessions.describe") return { session: {} };
@@ -37,73 +47,122 @@ function pendingGuardService(t) {
   };
   const runtime = new EventEmitter();
   runtime.client = client;
+  runtime.child = { pid: process.pid };
+  runtime.status = () => ({ availability: "ready", version: "2026.10.3" });
   runtime.close = async () => {};
   runtime.setState = () => {};
+  const config = { reset() {} };
   const service = new AssistantService({
     store,
     runtime,
     models: { listCapabilities: () => [], resolve: () => ({ release() {} }) },
-    config: {
-      apply: async () => state.applies.push({ guardPending: state.pending }),
-      reset() {},
-      writeGuardPending: (profile) => {
-        assert.equal(profile.id, assistant.id);
-        return state.pending;
-      },
+    config,
+  });
+  service.warn = (line) => state.warnings.push(line);
+  service.writeGuardPollMs = 10;
+  const bridge = new TeamBridge({
+    assistants: service,
+    teams: { store: { context: () => ({ kind: "owner" }) } },
+  });
+  await bridge.start();
+  Object.assign(config, writeGuardWiring({ bridge, nativeReady: () => true }), {
+    apply: async () => {
+      state.applies.push({ guardLive: bridge.guardLive() });
+      await state.onApply?.();
     },
   });
   t.after(async () => {
+    await bridge.close();
     await service.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
+  const report = () => bridge.registerGuard({ pid: process.pid, ppid: process.ppid });
   const notes = async () =>
     (await service.history(conversation.id)).messages.filter(
       (m) => m.event === "memory-note",
     );
-  return { service, conversation, state, notes };
+  const send = (clientRequestId, context, text = "Remember: router 10.0.0.1") =>
+    service.send(conversation.id, { clientRequestId, text }, context);
+  const complete = (sent) => service.ledger.transition(sent.attempt.id, "completed");
+  return { service, bridge, state, report, notes, send, complete };
 }
 
 test("an owner turn waits for the write guard before it is applied and sent", async (t) => {
-  const f = pendingGuardService(t);
-  setTimeout(() => (f.state.pending = false), 150);
-  const sent = await f.service.send(f.conversation.id, {
-    clientRequestId: "after-guard",
-    text: "Remember my router is 10.0.0.1",
-  });
+  const f = await pendingGuardService(t);
+  assert.equal(
+    f.service.config.writeGuardPending(f.service.store.listAssistants()[0]),
+    true,
+  );
+  setTimeout(f.report, 100);
+  const sent = await f.send("after-guard");
   assert.equal(sent.attempt.state, "accepted");
-  assert.deepEqual(f.state.applies, [{ guardPending: false }], "applied with writes");
-  assert.equal(f.state.sends, 1);
+  assert.equal("readOnly" in sent, false);
+  assert.deepEqual(f.state.applies, [{ guardLive: true }], "applied with writes");
+  assert.equal(f.state.sends.length, 1);
   assert.deepEqual(await f.notes(), []);
+  assert.deepEqual(f.state.warnings, []);
 });
 
-test("a turn the guard does not reach in time runs read-only and says so in the chat", async (t) => {
-  const f = pendingGuardService(t);
-  f.service.writeGuardWaitMs = 100;
-  const sent = await f.service.send(f.conversation.id, {
-    clientRequestId: "guard-late",
-    text: "Remember my router is 10.0.0.1",
-  });
-  assert.equal(sent.attempt.state, "accepted", "the turn is still delivered");
-  assert.deepEqual(f.state.applies, [{ guardPending: true }]);
+test("the wait ends with the window after readiness; later turns do not wait", async (t) => {
+  const f = await pendingGuardService(t);
+  // Ready long enough ago that 100 ms of the window remain.
+  f.bridge.readyAt = Date.now() - 19900;
+  const first = await f.send("guard-late");
+  assert.equal(first.attempt.state, "accepted", "the turn is still delivered");
+  assert.deepEqual(f.state.applies, [{ guardLive: false }]);
   const [note, ...rest] = await f.notes();
   assert.deepEqual(rest, []);
-  assert.equal(note.role, "event");
   assert.equal(note.reason, "guard-pending");
-  assert.equal(typeof note.timestamp, "number");
+  assert.equal(f.state.warnings.length, 1, "the missing guard is logged");
   // A retry of the same request neither waits again nor adds a second note.
-  f.service.ledger.transition(sent.attempt.id, "completed");
-  await f.service.send(f.conversation.id, {
-    clientRequestId: "guard-late",
-    text: "Remember my router is 10.0.0.1",
-  });
-  assert.equal(f.state.sends, 1);
+  f.complete(first);
+  await f.send("guard-late");
+  assert.equal(f.state.sends.length, 1);
   assert.equal((await f.notes()).length, 1);
-  // Forwarded content never writes memory, so it gets no note either.
-  await f.service.send(
-    f.conversation.id,
-    { clientRequestId: "forwarded", text: "Forwarded mail" },
-    { kind: "telegram", forwarded: true },
+  // The window is over: the next turn is sent at once, read-only and noted.
+  const started = Date.now();
+  f.complete(await f.send("after-window"));
+  assert.ok(Date.now() - started < 80, "no further wait");
+  assert.equal((await f.notes()).length, 2);
+  assert.equal(f.state.warnings.length, 1, "logged once per readiness");
+  // Telegram's own chat is an owner turn too; forwarded content gets no note.
+  f.complete(await f.send("telegram", { kind: "telegram", channelId: "c" }));
+  assert.equal((await f.notes()).length, 3);
+  f.complete(await f.send("forwarded", { kind: "telegram", forwarded: true }));
+  assert.equal((await f.notes()).length, 3);
+  assert.equal(f.state.sends.length, 4);
+});
+
+test("a Telegram turn waits like a web turn, and an invalid request never waits", async (t) => {
+  const f = await pendingGuardService(t);
+  setTimeout(f.report, 100);
+  await f.send("telegram-wait", { kind: "telegram", channelId: "c" });
+  assert.deepEqual(f.state.applies, [{ guardLive: true }]);
+  const started = Date.now();
+  await assert.rejects(f.send("x".repeat(101)), { status: 400 });
+  await assert.rejects(
+    f.service.send("missing", { clientRequestId: "bad", text: "x", extra: 1 }),
+    { status: 400 },
   );
-  assert.equal(f.state.sends, 2);
-  assert.equal((await f.notes()).length, 1);
+  assert.ok(Date.now() - started < 80);
+});
+
+test("a guard that reports during the apply leaves no read-only note", async (t) => {
+  const f = await pendingGuardService(t);
+  f.bridge.readyAt = Date.now() - 20000;
+  f.state.onApply = f.report;
+  await f.send("reported-in-apply");
+  assert.deepEqual(f.state.applies, [{ guardLive: false }]);
+  assert.deepEqual(await f.notes(), [], "the turn ran with writes after all");
+});
+
+test("waiting web turns of one conversation are admitted in their order", async (t) => {
+  const f = await pendingGuardService(t);
+  const first = f.send("first", undefined, "First");
+  const second = f.send("second", undefined, "Second");
+  setTimeout(f.report, 60);
+  assert.equal((await first).attempt.state, "accepted");
+  // The second waits behind the first and then finds it still running.
+  await assert.rejects(second, { status: 409 });
+  assert.deepEqual(f.state.sends, ["First"]);
 });

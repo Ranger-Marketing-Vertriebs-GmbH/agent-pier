@@ -876,31 +876,47 @@ was compacted and the plan was gone. Four rules close that gap:
   admission rewrites `AGENTS.md`, so existing workspaces pick the text up on their
   next turn.
 - **Pre-compaction flush.** OpenClaw 2026.10.3 runs its memory flush as a separate
-  run in a detached internal session `agent:<id>:internal-session-effects:<run>`,
-  whose only file tool is an append-only `write` restricted to the day note
-  (`memory/<date>.md`, "memory-triggered compaction runs expose only read and
-  append-only write"). No AgentPier attempt is bound to that key, so the guard used
-  to refuse it and the day note stayed empty. The source run reports the flush on
-  its own session as the Gateway agent event `run_status` / `memory_flushing`
-  (and leaves it with the next phase); `MemoryFlushes` follows those events, and
-  `TeamBridge.flushWrite` admits exactly the flush's `write` of
-  `memory/YYYY-MM-DD.md` for the same agent while that session's single active
+  run (`trigger: "memory"`) in a detached internal session
+  `agent:<id>:internal-session-effects:<runId>-<sha16>`, whose only file tool is an
+  append-only `write` restricted to the day note (`memory/<date>.md`,
+  "memory-triggered compaction runs expose only read and append-only write"). No
+  AgentPier attempt is bound to that key, so the guard used to refuse it and the day
+  note stayed empty. The source run reports the flush on its own session as the
+  Gateway agent event `run_status` / `memory_flushing` (and leaves it with the next
+  phase); `MemoryFlushes` follows those events. The team plugin forwards the hook's
+  `runId`, and `flushWrite` (`memory-write-policy.js`) admits a write only when all
+  of these hold: the tool is `write`; the key is the calling agent's flush key and
+  names exactly the reported run id; the path is `memory/YYYY-MM-DD.md` for today or
+  yesterday in the Gateway's user timezone (`agents.defaults.userTimezone`, else the
+  host's); exactly one flush of the agent is reported, its session's single active
   attempt is the flushing run (attempt id or Gateway run id) and an owner or paired
-  Telegram turn that is not forwarded, or while the session is a routine run with
-  routine writes. Forwarded, lead-requested, scheduled, other-agent and ambiguous
-  flushes, `edit`, `apply_patch` and every other path stay refused; a flush report
-  older than ten minutes is ignored. `assistant-memory-flush-contract.test.js`
-  forces a compaction on the pinned runtime and checks both sides.
+  Telegram turn that is not forwarded, or the session is a routine run with routine
+  writes; and the flush is still pinned to the first internal session that wrote for
+  it. Every other key, path, tool, origin and ambiguity is refused and logged once
+  per session; a flush report older than ten minutes is ignored.
+  `assistant-memory-flush-contract.test.js` forces a compaction on the pinned
+  runtime, checks that a forwarded run's flush writes nothing and that the owner
+  run's flush appends to an existing day note.
+  Residual risk: the hook sees only the tool name, path and content, not whether the
+  `write` is OpenClaw's append-only flush writer. Within an owner run's flush window
+  another internal run of the same agent that reported the same run id and wrote
+  first could replace that day's note; nothing in 2026.10.3 starts such a run, and
+  the pin, the run-id match and the date bound keep it to that one note.
 - **No silent read-only window.** After a start or reconnect the guard reports
   within one interval (15 s). An owner or paired Telegram turn of a memory agent
-  waits for it, outside the admission lock, for up to 16 s
-  (`write-guard-wait.js`) before it is applied and sent. If the guard is still
-  pending, the turn runs read-only, its `AGENTS.md` says so, and the chat shows a
-  note.
+  waits for it, outside the admission lock, but only until 20 s after the Gateway
+  became ready (`write-guard-wait.js`); turns of one conversation keep their order
+  while they wait. A guard that never reports holds no later turn: it is logged once
+  per readiness, and the turns run read-only. Whether a turn ran read-only is
+  decided after its apply: its `AGENTS.md` then says memory is read-only, and the
+  chat shows a note.
 - **Visible refusals.** A refused write to `MEMORY.md` or `memory/` records one
   chat note per turn and reason (`memory-notes.js`, table `assistant_memory_notes`,
-  newest 100 per conversation): not the owner's own message, a lead's task, or a
-  refused flush. The chat renders them as quiet lines ("Memory not saved: …").
+  newest 100 per conversation): forwarded content, a scheduled or automatic turn,
+  a lead's task, another non-owner turn, or a refused flush. A refused flush the
+  Gateway did not report (for example after a runtime change renamed the event) is
+  attributed to the agent's single active owner turn, so it never goes unnoticed.
+  The chat renders them as quiet lines ("Memory not saved: …").
   A declined, expired or failed project knowledge write (`memory_write`) hands one
   attributed follow-up turn (`memory-result`) to the requesting agent's
   conversation, so the agent can correct an earlier claim

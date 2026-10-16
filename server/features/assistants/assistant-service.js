@@ -9,7 +9,7 @@ import { reconcileRuns } from "./run-reconciler.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { MemoryFlushes } from "./memory-flushes.js";
 import { MemoryNotes } from "./memory-notes.js";
-import { awaitWriteGuard, noteReadOnlyTurn } from "./write-guard-wait.js";
+import { awaitWriteGuard, noteReadOnlyTurn, orderedTurn } from "./write-guard-wait.js";
 import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
 import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js";
@@ -463,14 +463,23 @@ export class AssistantService {
       return conversation;
     });
   }
-  async send(conversationId, input, trustedContext = { kind: "owner" }) {
+  send(conversationId, input, trustedContext = { kind: "owner" }) {
     assertWired(this);
-    const writable = await awaitWriteGuard(this, conversationId, input, trustedContext);
-    const result = await this.admit(() =>
-      sendTurn(this, conversationId, input, trustedContext),
+    return orderedTurn(
+      this,
+      conversationId,
+      () => awaitWriteGuard(this, conversationId, input, trustedContext),
+      () =>
+        this.admit(() => sendTurn(this, conversationId, input, trustedContext)).then(
+          ({ readOnly, ...result }) => {
+            noteReadOnlyTurn(this, conversationId, trustedContext, {
+              readOnly,
+              ...result,
+            });
+            return result;
+          },
+        ),
     );
-    if (!writable) noteReadOnlyTurn(this, conversationId, result);
-    return result;
   }
   history(id, options) {
     return conversationHistory(this, id, options);

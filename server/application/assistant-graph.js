@@ -6,7 +6,7 @@ import { NativeReminders } from "../features/assistants/native-reminders.js";
 import { NativeHeartbeats } from "../features/assistants/native-heartbeats.js";
 import { TeamBridge } from "../features/assistants/team-bridge.js";
 import { WriteGuardReapply } from "../features/assistants/write-guard-reapply.js";
-import { personalCapabilities } from "../features/assistants/native-capabilities.js";
+import { writeGuardWiring } from "../features/assistants/write-guard-wait.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
 import { TelegramSenders } from "../features/assistant-channels/telegram-senders.js";
 import { stdioAgents } from "../features/assistants/openclaw-config/telegram-senders.js";
@@ -154,6 +154,9 @@ export function constructAssistantGraph(host, created = {}) {
     teams: assistantTeams,
     generation: () => assistantRuntime.generation,
   }));
+  // The timezone memory-core names the flush's day note in (memory-write-policy.js).
+  bridge.flushTimeZone = () =>
+    overrideStore(store).get("agents.defaults.userTimezone")?.value || undefined;
   const assistantSpeech = (created.speech = new SpeechConnections({ dataDir }));
   const assistantWebSearch = (created.webSearch = new WebSearchSettings({
     dataDir,
@@ -360,12 +363,10 @@ export function connectAssistantServices(graph) {
   wire(configuration, "configuration", {
     teamReady: () => bridge.status().ready,
     writeGuard: () => bridge.guardLive(),
-    // A memory agent on a ready Gateway whose guard has not reported (owner turns
-    // wait for it, write-guard-wait.js).
-    writeGuardPending: (assistant) =>
-      !!reminders.webhook.server?.listening &&
-      personalCapabilities(assistant).memory &&
-      bridge.guardPending(true),
+    ...writeGuardWiring({
+      bridge,
+      nativeReady: () => !!reminders.webhook.server?.listening,
+    }),
     hostCapacity: () => teams.store.settings().hostMaxConcurrent,
     nativeReady: () => !!reminders.webhook.server?.listening,
     webToolsAvailable: () => runtime.webTools?.availability || webToolsAvailability(),
