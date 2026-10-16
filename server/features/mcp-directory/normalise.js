@@ -1,4 +1,4 @@
-import { plainText, webLink } from "../mcp-packages/publisher-info.js";
+import { hidden, plainText, webLink } from "../mcp-packages/publisher-info.js";
 import { packageRef } from "../mcp-packages/package-spec.js";
 
 // The MCP Registry's server.json is untrusted: every field is read by name, checked
@@ -23,6 +23,19 @@ const isRecord = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 const text = (value, cap) => plainText(value, cap) ?? "";
 const bool = (value) => value === true;
+const tooLong = Symbol("too long");
+
+/**
+ * A configuration value (header, env, argument) with only control and bidi characters
+ * removed; whitespace is kept as given. Null when absent or blank, `tooLong` when over
+ * the cap: a cut value would still be passed on, and lose any template after the cut.
+ */
+function configValue(value) {
+  if (typeof value !== "string") return null;
+  if (value.length > limits.value) return tooLong;
+  const clean = value.replace(hidden, "");
+  return clean.trim() ? clean : null;
+}
 
 const notFound = () =>
   Object.assign(new Error("deleted"), { code: "MCP_DIRECTORY_NOT_FOUND" });
@@ -100,18 +113,20 @@ function inputs(list, kind) {
         item.name.length <= limits.inputName &&
         !reserved.has(item.name) &&
         rule.test(item.name) &&
-        (typeof item.value !== "string" || templatesSafe(item.value)),
+        (typeof item.value !== "string" || templatesSafe(item.value)) &&
+        configValue(item.value) !== tooLong &&
+        configValue(item.default) !== tooLong,
     )
     .slice(0, limits.inputs)
     .map((item) => {
-      const value = plainText(item.value, limits.value);
+      const value = configValue(item.value);
       return {
         name: item.name,
         description: text(item.description, 500),
         required: bool(item.isRequired),
         secret: bool(item.isSecret),
         format: typeof item.format === "string" ? text(item.format, 20) : "string",
-        default: plainText(item.default, limits.value),
+        default: configValue(item.default),
         choices: choicesOf(item.choices),
         value,
         variables: templateVariables(value, item.variables, bool(item.isSecret)),
@@ -128,7 +143,15 @@ function templateUrl(value) {
   if (typeof value !== "string" || value.length > limits.url) return null;
   if (/[^\x21-\x7e]|\\/.test(value) || !templatesSafe(value)) return null;
   const probe = value.replace(template, "x");
-  if (probe.includes("#") || !webLink(probe)) return null;
+  if (probe.includes("#") || !/^https?:\/\//i.test(probe)) return null;
+  let url;
+  try {
+    url = new URL(probe);
+  } catch {
+    return null;
+  }
+  if (!["https:", "http:"].includes(url.protocol) || url.username || url.password)
+    return null;
   return value;
 }
 
@@ -150,11 +173,12 @@ const blank = (extra) => ({
 /** Package arguments as rows; null when one needs a secret or the owner's own value. */
 function packageArgs(list) {
   if (list === undefined) return [];
-  if (!Array.isArray(list)) return null;
+  if (!Array.isArray(list) || list.length > limits.args) return null;
   const rows = [];
-  for (const arg of list.slice(0, limits.args)) {
+  for (const arg of list) {
     if (!isRecord(arg) || arg.isSecret === true) return null;
-    const value = plainText(arg.value ?? arg.default, limits.value);
+    const value = configValue(arg.value ?? arg.default);
+    if (value === tooLong) return null;
     if (value !== null && /\{[^}]+\}/.test(value)) return null;
     if (value === null && arg.isRequired === true) return null;
     if (arg.type === "named") {
