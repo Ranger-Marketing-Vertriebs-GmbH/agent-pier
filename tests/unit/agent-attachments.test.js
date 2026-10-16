@@ -6,6 +6,7 @@ import path from "node:path";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
 import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
+import { withAttachments } from "../../server/features/assistants/attachment-history.js";
 import {
   MAX_ATTACHMENT_BYTES,
   NOTE_HEADER,
@@ -343,10 +344,22 @@ test("the index follows the folder and a failed insert leaves no file (M5)", asy
   const folder = path.join(workspaces, a.id, "attachments");
   const sent = await attachments.stage(c.id, "sent.md", Buffer.from("x"));
   attachments.claim(c.id, [sent.id], "r1");
-  // The agent deletes its copy: the next upload drops the stale row.
+  const note = attachments.forConversation(c.id).get("r1").note;
+  // The agent deletes its copy: the next upload marks the sent file gone. Its row stays,
+  // so the history still recognises the note the agent received.
   fs.rmSync(path.join(folder, fs.readdirSync(folder)[0]));
   await attachments.stage(c.id, "next.md", Buffer.from("y"));
-  assert.equal(attachments.files("r1").length, 0);
+  assert.deepEqual(attachments.forConversation(c.id).get("r1"), { files: [], note });
+  // A staged upload whose copy is gone loses its row.
+  const staged = await attachments.stage(c.id, "staged.md", Buffer.from("w"));
+  fs.rmSync(
+    path.join(
+      folder,
+      fs.readdirSync(folder).find((f) => f.endsWith("staged.md")),
+    ),
+  );
+  await attachments.stage(c.id, "after.md", Buffer.from("v"));
+  await assert.rejects(attachments.discard(c.id, staged.id), { status: 404 });
   // Files the agent put there itself count against the quota as well.
   for (let n = 0; n < 1000; n++) fs.writeFileSync(path.join(folder, `junk-${n}`), "");
   await assert.rejects(attachments.stage(c.id, "full.md", Buffer.from("z")), {
@@ -360,6 +373,39 @@ test("the index follows the folder and a failed insert leaves no file (M5)", asy
   };
   await assert.rejects(attachments.stage(c.id, "lost.md", Buffer.from("z")));
   assert.equal(fs.readdirSync(folder).length, before);
+});
+
+test("the history hides the note after the agent removed one of the copies", async (t) => {
+  const { attachments, agent, workspaces } = setup(t);
+  const { a, c } = agent("lead");
+  const one = await attachments.stage(c.id, "one.md", Buffer.from("1"));
+  const two = await attachments.stage(c.id, "two.md", Buffer.from("2"));
+  attachments.claim(c.id, [one.id, two.id], "r1");
+  const request = { id: "r1", text: "Read these." };
+  const sent = (await attachments.delivery(request, a.id)).message;
+  const view = (message) =>
+    withAttachments([{ id: "m1", role: "user", ...message }], [request], {
+      attempts: new Map([["key-1", "r1"]]),
+      byRequest: attachments.forConversation(c.id),
+    })[0];
+  assert.equal(view({ text: sent }).text, "Read these.");
+  // The agent tidies its workspace; the owner attaches the next file.
+  const folder = path.join(workspaces, a.id, "attachments");
+  fs.rmSync(
+    path.join(
+      folder,
+      fs.readdirSync(folder).find((f) => f.endsWith("one.md")),
+    ),
+  );
+  await attachments.stage(c.id, "next.md", Buffer.from("3"));
+  for (const message of [{ text: sent }, { text: sent, turnKey: "key-1" }]) {
+    const shown = view(message);
+    assert.equal(shown.text, "Read these.");
+    assert.deepEqual(
+      shown.attachments.map((f) => f.name),
+      ["two.md"],
+    );
+  }
 });
 
 test("an accepted request cannot gain files on a retry (M6)", async (t) => {
