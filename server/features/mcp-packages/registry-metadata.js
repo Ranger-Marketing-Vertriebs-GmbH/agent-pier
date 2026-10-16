@@ -1,6 +1,7 @@
 import { download as fetchDownload } from "../operations/releases.js";
 import { packageProblem } from "./package-errors.js";
 import { comparePep440 } from "./pep440.js";
+import { npmPublisher, pypiPublisher } from "./publisher-info.js";
 import { canonicalPypiVersion, isPypiVersion, packageName } from "./package-spec.js";
 
 export const npmRegistry = "https://registry.npmjs.org";
@@ -84,7 +85,11 @@ export function npmVersions(packument) {
       yanked: false,
     }))
     .sort(newestFirst(compareSemver));
-  return { latest: packument?.["dist-tags"]?.latest ?? null, versions };
+  return {
+    latest: packument?.["dist-tags"]?.latest ?? null,
+    versions,
+    ...npmPublisher(packument),
+  };
 }
 
 const installHooks = ["preinstall", "install", "postinstall"];
@@ -145,7 +150,7 @@ export function pypiVersions(project) {
       yanked: files.every((f) => f.yanked === true),
     }))
     .sort(newestFirst(comparePep440));
-  return { latest: project?.info?.version ?? null, versions };
+  return { latest: project?.info?.version ?? null, versions, ...pypiPublisher(project) };
 }
 
 /** The release under `version`, else under another spelling of the same version. */
