@@ -192,6 +192,13 @@ test("switching sides after a team link does not pull the reader back", async ({
   await active.check();
   await expect(summary).toBeVisible();
   await expect(summary).not.toBeFocused();
-  await expect(active).toBeFocused();
+  // Focus stays where the click left it: on the radio, or on the page in Safari on
+  // macOS, which does not focus a clicked radio.
+  expect(
+    await active.evaluate(
+      (radio) =>
+        document.activeElement === radio || document.activeElement === document.body,
+    ),
+  ).toBe(true);
   await expect(active).toBeInViewport();
 });
