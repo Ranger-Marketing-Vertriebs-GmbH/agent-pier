@@ -6,6 +6,7 @@ import usePackageStatus from "../usePackageStatus.js";
 import OwnCommandStep from "./OwnCommandStep.jsx";
 import PackageStep from "./PackageStep.jsx";
 import RemoteStep from "./RemoteStep.jsx";
+import SettingsStep from "./SettingsStep.jsx";
 import SourceStep from "./SourceStep.jsx";
 import StepIndicator from "./StepIndicator.jsx";
 import useWizardGuard from "./useWizardGuard.js";
@@ -32,6 +33,7 @@ const screens = {
   package: PackageStep,
   remote: RemoteStep,
   command: OwnCommandStep,
+  settings: SettingsStep,
 };
 
 const stepRoute = (step) =>
