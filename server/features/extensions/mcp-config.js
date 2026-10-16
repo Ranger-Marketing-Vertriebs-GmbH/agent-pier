@@ -32,7 +32,9 @@ export function values(value = {}, headers = false) {
       ["__proto__", "constructor", "prototype"].includes(key) ||
       typeof item !== "string" ||
       item.length > 16384 ||
-      /[\x00\r\n]/.test(item)
+      /[\x00\r\n]/.test(item) ||
+      // A lone surrogate has no UTF-8 form: no CLI file could hold it.
+      !item.isWellFormed()
     )
       throw problem(serverMessages.extensions.invalidEnvironmentOrHeader);
   return value;
