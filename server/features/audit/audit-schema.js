@@ -5,6 +5,7 @@ import {
   auditableSettingValue,
 } from "../assistants/openclaw-config/advanced-settings.js";
 import { MCP_SERVER_ORIGINS } from "../mcp-servers/server-origins.js";
+import { sshAuditDetails } from "./audit-ssh-details.js";
 const resources = new Set([
   "assistant",
   "artifact",
@@ -64,6 +65,7 @@ const verbs = new Set([
   "inspected",
   "reinstalled",
   "detached",
+  "executed",
 ]);
 // Names of the fields an MCP server or agent binding change can send.
 const changeFields = new Set([
@@ -161,6 +163,8 @@ export function auditEvent(input) {
       "exec",
       "proactivity",
       "telegram",
+      "ssh",
+      "ssh-grants",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -297,6 +301,9 @@ export function auditEvent(input) {
     /^\d{1,4}\.\d{1,4}\.\d{1,4}(?:-[a-z0-9.-]{1,40})?$/.test(details.version)
   )
     event.details.version = details.version;
+  // Agent SSH runs, refusals and grant changes (audit-ssh-details.js).
+  if (input.resourceType === "ssh" || details.kind === "ssh-grants")
+    sshAuditDetails(details, event, auditId);
   return event;
 }
 const invalidInteger = {
