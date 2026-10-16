@@ -4,6 +4,7 @@ import {
   directoryUpdate,
   directoryUpdates,
 } from "../../server/features/mcp-directory/updates.js";
+import { publicUrl } from "../../server/features/mcp-servers/mcp-server-fields.js";
 
 const packaged = (extra = {}) => ({
   id: "s1",
@@ -106,4 +107,25 @@ test("at most 20 servers, 4 at a time; failures are skipped", async () => {
   assert.equal(asked.length, 20);
   assert.ok(peak <= 4);
   assert.equal(updates.length, 19);
+});
+
+test("an unchanged address is no hint once the store has shortened it", () => {
+  for (const listed of [
+    "https://mcp.example.test/mcp?region=eu",
+    "https://mcp.example.test",
+    "https://MCP.Example.test/mcp",
+    "https://mcp.example.test:443/mcp",
+  ]) {
+    const server = {
+      id: "r1",
+      transport: "http",
+      url: publicUrl(listed),
+      directoryOrigin: { name: "a.b/c", version: "1" },
+    };
+    assert.equal(
+      directoryUpdate(server, entry([{ kind: "remote-http", url: listed }])),
+      null,
+      listed,
+    );
+  }
 });
