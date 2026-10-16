@@ -60,8 +60,10 @@ const untranslated = new Map(
       "Unknown SSH tool.",
       "Invalid SSH command or timeout.",
       "SSH assignment or capability revoked.",
-      "SSH command could not start.",
     ],
+    // The shared runner: session MCP returns it to the coding agent, AgentSsh maps it
+    // to the SSH_HOST_UNAVAILABLE tool code.
+    "server/features/ssh/ssh-run.js": ["SSH command could not start."],
     // SSH management tools: only the session's ssh helper calls perform() and respond().
     "server/features/ssh/ssh-management.js": [
       "Invalid SSH request.",
