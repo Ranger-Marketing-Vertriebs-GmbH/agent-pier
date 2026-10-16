@@ -84,14 +84,14 @@ export function artifactsRoutes({ artifacts, audit, sessions, memory }) {
     res.json(result);
   });
   router.delete("/artifacts/:id", async (req, res) => {
-    await artifacts.delete(req.params.id);
-    audit.append({
-      action: "artifact.deleted",
-      resourceType: "artifact",
-      resourceId: req.params.id,
-      source: "user",
-      outcome: "success",
-    });
+    if (await artifacts.delete(req.params.id))
+      audit.append({
+        action: "artifact.deleted",
+        resourceType: "artifact",
+        resourceId: req.params.id,
+        source: "user",
+        outcome: "success",
+      });
     res.status(204).end();
   });
   return router;
