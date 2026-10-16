@@ -1,7 +1,8 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 import { AssistantDrafts } from "./assistant-drafts.js";
-// Streamed deltas change on every token; they live in their own context so only
-// chat views re-render for them, never the list, sidebar or settings.
+// The event stream lives in its own context: `subscribe(listener)` hands every event
+// to the listener, one call each, so two events of one chunk never merge into one
+// render, and nothing but the listeners runs for a streamed token.
 export const AssistantsStateContext = createContext(null);
 export const AssistantEventsContext = createContext(null);
 // One draft store for the page, so drafts survive the host being unmounted.
@@ -18,10 +19,15 @@ export const idleAssistants = {
   drafts: sharedDrafts,
   refresh: async () => {},
 };
-export const idleEvents = { lastEvent: null };
 export default function useAssistants() {
   return useContext(AssistantsStateContext) ?? idleAssistants;
 }
-export function useAssistantEvent() {
-  return useContext(AssistantEventsContext)?.lastEvent ?? null;
+/** Calls `listener(event)` for every assistant event while the host is there. */
+export function useAssistantEvents(listener) {
+  const subscribe = useContext(AssistantEventsContext)?.subscribe;
+  const current = useRef(listener);
+  useEffect(() => {
+    current.current = listener;
+  });
+  useEffect(() => subscribe?.((event) => current.current(event)), [subscribe]);
 }

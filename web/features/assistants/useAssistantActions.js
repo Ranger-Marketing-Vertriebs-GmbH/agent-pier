@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "../../lib/api.js";
 import usePolling from "./usePolling.js";
-import { useAssistantEvent } from "./useAssistants.js";
+import { useAssistantEvents } from "./useAssistants.js";
 
 // What waits for the owner in this agent's chat: its own coding tasks, memory changes
 // and shell commands (team members included: a permanent member may have a shell),
@@ -11,7 +11,6 @@ import { useAssistantEvent } from "./useAssistants.js";
 export default function useAssistantActions(assistantId) {
   const [actions, setActions] = useState([]),
     [error, setError] = useState("");
-  const lastEvent = useAssistantEvent();
   const load = useCallback(
     async (signal) => {
       try {
@@ -27,8 +26,11 @@ export default function useAssistantActions(assistantId) {
     [assistantId],
   );
   useEffect(() => {
-    if (!lastEvent || ["change", "connected"].includes(lastEvent.type)) load();
-  }, [lastEvent, load]);
+    load();
+  }, [load]);
+  useAssistantEvents((event) => {
+    if (["change", "connected"].includes(event.type)) load();
+  });
   usePolling(load, 5000, {
     enabled: actions.length > 0,
     immediate: false,
