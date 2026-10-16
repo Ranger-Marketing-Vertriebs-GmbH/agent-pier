@@ -305,3 +305,53 @@ for (const language of ["en", "de"])
           await page.screenshot({ path: `${shots}/work-finished-${label}.png` });
       });
     });
+
+test("a long task's whole text replaces its 'Show all' link once loaded", async ({
+  page,
+}) => {
+  const full = "Draft a migration plan. ".repeat(30).trim();
+  const summary = request("task-1", {
+    type: "task",
+    text: Array.from(full).slice(0, 300).join(""),
+    truncated: true,
+    writeAllowed: false,
+  });
+  await chatFixture(page, {
+    assistants: [
+      chatAssistant(),
+      memberAgent("scout", "Scout", { lifetime: "permanent" }),
+    ],
+    conversations: [
+      { id: "dinner", assistantId: "home" },
+      { id: "scout-chat", assistantId: "scout" },
+    ],
+    teams: [
+      {
+        id: "research",
+        kind: "team",
+        revision: 1,
+        parentAssistantId: "home",
+        parentConversationId: "dinner",
+        objective: "Research hosting vendors",
+        phase: "completed",
+        status: "completed",
+        members: [],
+        memberIds: ["scout"],
+        lifetime: "task",
+        createdAt: "2026-10-12T09:00:00.000Z",
+      },
+    ],
+    members: [memberRecord("scout", "Scout", { lifetime: "permanent" })],
+    requests: [summary],
+  });
+  // The detail is the whole request, which is never truncated.
+  await page.route(/\/api\/assistant-lead-requests\/task-1$/, (route) => {
+    const { truncated: _truncated, ...rest } = summary;
+    return route.fulfill({ json: { ...rest, text: full } });
+  });
+  await page.goto(baseURL + "/agents/home/settings?tab=work");
+  const card = page.locator(".lead-request-card");
+  await card.getByRole("button", { name: "Show all" }).click();
+  await expect(card.locator(".assistant-approval-task")).toHaveText(full);
+  await expect(card.getByRole("button", { name: "Show all" })).toHaveCount(0);
+});

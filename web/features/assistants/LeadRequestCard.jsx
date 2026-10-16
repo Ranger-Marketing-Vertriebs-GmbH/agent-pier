@@ -16,8 +16,11 @@ export const requestState = (r) =>
  */
 export default function LeadRequestCard({ request: summary, busy, act }) {
   const [detail, setDetail] = useState(null);
+  // The loaded detail is the whole request, never truncated.
   const r =
-    detail && detail.revision === summary.revision ? { ...summary, ...detail } : summary;
+    detail && detail.revision === summary.revision
+      ? { ...summary, ...detail, truncated: false }
+      : summary;
   const load = async () => {
     if (detail?.revision === summary.revision) return;
     try {
