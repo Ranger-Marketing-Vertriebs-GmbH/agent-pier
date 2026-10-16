@@ -130,6 +130,7 @@ test("the audit records package name and version, never env or args", async (t) 
     version: "1.0.0",
     allowScripts: true,
     constraints: [],
+    origin: "manual",
   });
   assert.doesNotMatch(JSON.stringify(audit), /secret-arg|abc/);
 });

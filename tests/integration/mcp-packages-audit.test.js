@@ -130,7 +130,8 @@ test("package installs, updates, reinstalls, attaches and detaches are audited",
   assert.deepEqual(
     recorded.map((event) => event.details),
     [
-      details("1.0.0"),
+      // Only the create path records how the server was set up.
+      details("1.0.0", { origin: "manual" }),
       details("2.0.0"),
       details("2.0.0"),
       details("2.0.0"),

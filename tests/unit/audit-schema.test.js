@@ -416,3 +416,18 @@ test("MCP package audits keep the longest constraint and version the service acc
     undefined,
   );
 });
+
+test("MCP create audits keep a known origin only", () => {
+  const event = (origin) =>
+    auditEvent({
+      action: "mcp.created",
+      resourceType: "mcp",
+      resourceId: "server-1",
+      source: "user",
+      outcome: "success",
+      details: { transport: "http", origin },
+    }).details;
+  assert.deepEqual(event("paste"), { transport: "http", origin: "paste" });
+  assert.deepEqual(event("directory"), { transport: "http", origin: "directory" });
+  assert.deepEqual(event("https://evil"), { transport: "http" });
+});
