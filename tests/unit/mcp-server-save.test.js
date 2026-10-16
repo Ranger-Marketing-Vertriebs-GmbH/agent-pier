@@ -300,3 +300,41 @@ test("a create carries its origin; an update never does", async () => {
   assert.equal(bodies[0].origin, "paste");
   assert.equal(bodies[1].origin, undefined);
 });
+
+test("a create from the directory carries its origin entry", async () => {
+  const bodies = [];
+  const values = { ...mcpServerValues(null), name: "docs", url: "https://a.example/mcp" };
+  await mcpServerStep({
+    server: null,
+    label: "",
+    origin: "directory",
+    directoryOrigin: { name: "a.b/c", version: "1.0.0" },
+    saveServer: async (_s, body) => {
+      bodies.push(body);
+      return { id: "s1" };
+    },
+    saved: async () => {},
+  }).run({ values, confirmations: {} });
+  assert.deepEqual(bodies[0].directoryOrigin, { name: "a.b/c", version: "1.0.0" });
+  assert.equal(bodies[0].origin, "directory");
+});
+
+test("an update never sends a directory origin", async () => {
+  const bodies = [];
+  await mcpServerStep({
+    server: docs,
+    label: "",
+    origin: "directory",
+    directoryOrigin: { name: "a.b/c", version: "1.0.0" },
+    saveServer: async (_s, body) => {
+      bodies.push(body);
+      return { id: "s1" };
+    },
+    saved: async () => {},
+  }).run({
+    values: { ...mcpServerValues(docs), name: "docs2" },
+    revision: 4,
+    confirmations: {},
+  });
+  assert.equal(bodies[0].directoryOrigin, undefined);
+});

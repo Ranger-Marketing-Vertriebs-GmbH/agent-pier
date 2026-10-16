@@ -150,6 +150,33 @@
   border-radius: 8px;
   background: var(--surface-raised);
 }
+.mcp-wizard-notice p {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+/* A directory address with {var} fields; the composed address below them. */
+.mcp-wizard-template {
+  display: grid;
+  gap: 12px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.mcp-wizard-template label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mcp-wizard-template input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.mcp-wizard-template p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .mcp-wizard-switch {
   display: grid;
   justify-items: start;

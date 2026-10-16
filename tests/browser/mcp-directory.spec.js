@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { fits, openWizard, phone, writes } from "./mcp-wizard-fixture.js";
+import { fits, openWizard, phone, primary, writes } from "./mcp-wizard-fixture.js";
 import { directorySetup, dto } from "./mcp-directory-fixture.js";
 
 async function search(page, term = "opnsense") {
@@ -185,6 +185,79 @@ for (const [label, use] of [
       ).toBeDisabled();
       await expect(wizard.getByText("Directory turned off")).toBeVisible();
       await expect(wizard.getByRole("link", { name: "Open Settings" })).toBeVisible();
+    });
+
+    test("a remote entry composes its address from the variables and saves its origin", async ({
+      page,
+    }) => {
+      const state = await directorySetup(page);
+      const wizard = await search(page, "files");
+      await wizard
+        .getByRole("article", { name: /remote-filesystem/ })
+        .getByRole("button")
+        .first()
+        .click();
+      await page
+        .getByRole("dialog", { name: /remote-filesystem/ })
+        .getByRole("button", { name: "Use this server" })
+        .click();
+      await expect(page).toHaveURL(/step=remote/);
+      await wizard.getByLabel("Value for {tenant}").fill("acme corp");
+      await expect(
+        wizard.getByText("Address: https://acme%20corp.files.example.test/mcp"),
+      ).toBeVisible();
+      await expect(
+        wizard.getByText(/Listed in the directory as com\.pulsemcp\/remote-filesystem/),
+      ).toBeVisible();
+      await fits(page);
+      await expect(wizard.getByLabel("Address", { exact: true })).toHaveAttribute(
+        "readonly",
+        "",
+      );
+      // The sign-in header from the directory is typed on this step.
+      await wizard.getByLabel("Token", { exact: true }).fill("tok");
+      await primary(wizard).click();
+      await primary(wizard).click();
+      await wizard.getByRole("button", { name: "Save server" }).click();
+      await expect(page).toHaveURL(/step=connect/);
+      const created = writes(state).find((r) => r.path === "/api/mcp-servers");
+      expect(created.body).toMatchObject({
+        url: "https://acme%20corp.files.example.test/mcp",
+        headers: { Authorization: "Bearer tok" },
+        origin: "directory",
+        directoryOrigin: { name: "com.pulsemcp/remote-filesystem", version: "1.2.0" },
+      });
+    });
+
+    test("the package step names the directory entry and can drop its hints", async ({
+      page,
+    }) => {
+      await directorySetup(page);
+      const wizard = await search(page);
+      await wizard
+        .getByRole("article", { name: "OPNsense" })
+        .getByRole("button", { name: "OPNsense" })
+        .click();
+      await page
+        .getByRole("dialog", { name: "OPNsense" })
+        .getByRole("button", { name: "Use this server" })
+        .click();
+      await wizard.getByRole("button", { name: "Back", exact: true }).click();
+      await expect(page).toHaveURL(/step=package/);
+      await expect(
+        wizard.getByText(
+          "Listed in the directory as io.github.example/opnsense-mcp-server (0.4.1).",
+        ),
+      ).toBeVisible();
+      const hints = wizard.getByRole("checkbox", { name: "Use its setup hints" });
+      await expect(hints).toBeChecked();
+      await hints.uncheck();
+      await wizard.getByRole("button", { name: "Continue", exact: true }).click();
+      await expect(
+        wizard
+          .locator(".mcp-setting", { hasText: "OPNSENSE_API_KEY" })
+          .getByText("No description"),
+      ).toBeVisible();
     });
   });
 }
