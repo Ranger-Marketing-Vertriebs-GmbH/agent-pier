@@ -7,7 +7,7 @@ import { usesOAuth } from "../McpOAuthStatus.jsx";
 import ConnectResults from "./ConnectResults.jsx";
 import { storedCount } from "./setting-hints.js";
 import WizardStep from "./WizardStep.jsx";
-import { pasteLeft } from "./wizard-state.js";
+import { pasteLeft, pasteRefused } from "./wizard-state.js";
 
 const noConnect = { results: [], diff: null, consented: false };
 
@@ -29,6 +29,7 @@ export default function DoneStep({
   const failed =
     connect.results.some((item) => !item.ok) || ["failed", "missing"].includes(shown);
   const rows = server.transport === "stdio" ? state.draft.env : state.draft.headers;
+  const refusedRest = pasteLeft(state.paste) ? [] : pasteRefused(state.paste);
   const agentLogin =
     agentsEnabled &&
     oauth &&
@@ -89,6 +90,9 @@ export default function DoneStep({
           </div>
         )}
       </section>
+      {refusedRest.length > 0 && (
+        <p className="mcp-hint">{copy.paste.refusedLeft(refusedRest.join(", "))}</p>
+      )}
     </WizardStep>
   );
 }

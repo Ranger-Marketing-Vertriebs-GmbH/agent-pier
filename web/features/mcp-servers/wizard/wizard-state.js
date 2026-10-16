@@ -1,7 +1,9 @@
 // The new-server wizard: the steps of each path, where the owner may go, and the
 // draft. The draft lives in memory only; the address carries the step alone.
 import { mcpServerValues } from "../mcp-server-save.js";
-import { pasteLimit } from "./paste-parser.js";
+import { guessTransport, pasteLimit } from "./paste-shared.js";
+
+export { guessTransport };
 
 const orders = {
   package: ["source", "package", "settings", "install", "connect", "done"],
@@ -79,21 +81,31 @@ export function initialWizard() {
   };
 }
 
-/** The servers of a pasted block still waiting once the current one is saved. */
-function nextPasted(paste) {
-  if (!paste?.result?.ok) return null;
+/** The servers of the pasted block not saved yet, with their place in it. */
+function waiting(paste) {
+  if (!paste?.result?.ok) return { done: [], left: [] };
   const done = [...(paste.done ?? []), paste.applied ?? paste.index];
   const left = paste.result.servers
     .map((server, at) => ({ server, at }))
     .filter(({ at }) => !done.includes(at));
-  if (!left.length) return null;
-  // A server that cannot be taken over is offered last.
-  const first = left.find(({ server }) => !server.refused) ?? left[0];
-  return { done, index: first.at };
+  return { done, left };
+}
+
+/** The next server of a pasted block that can be taken over; refused ones never return. */
+function nextPasted(paste) {
+  const { done, left } = waiting(paste);
+  const first = left.find(({ server }) => !server.refused);
+  return first ? { done, index: first.at } : null;
 }
 
 /** Whether "Add another server" still has servers of the pasted block to offer. */
 export const pasteLeft = (paste) => Boolean(nextPasted(paste));
+
+/** The names of the servers of the block that were refused and are still unsaved. */
+export const pasteRefused = (paste) =>
+  waiting(paste)
+    .left.filter(({ server }) => server.refused)
+    .map(({ server }) => server.name || server.key);
 
 export function wizardReducer(state, action) {
   switch (action.type) {
@@ -110,7 +122,7 @@ export function wizardReducer(state, action) {
       return { ...state, via: action.via, path: null, visited: ["source", action.via] };
     case "pasteText":
       // The parser refuses texts over its limit; this cap only bounds what memory
-      // keeps (read here, not at load: paste-parser imports this module's helpers).
+      // keeps.
       return {
         ...state,
         paste: { ...state.paste, text: String(action.text).slice(0, pasteLimit * 16) },
@@ -263,13 +275,4 @@ export function saveValues(draft) {
     args: (draft.argRows ?? []).join("\n"),
     clis: [],
   };
-}
-
-/** SSE when the address path ends in /sse, else HTTP. */
-export function guessTransport(url) {
-  try {
-    return /\/sse\/?$/.test(new URL(url).pathname) ? "sse" : "http";
-  } catch {
-    return "http";
-  }
 }
