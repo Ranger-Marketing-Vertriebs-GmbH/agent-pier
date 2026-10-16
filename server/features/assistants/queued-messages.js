@@ -165,10 +165,9 @@ export class QueuedMessages {
     return now;
   }
   blocked(message) {
-    if (message.deliverableSince === null) return;
     this.db
       .prepare(
-        "UPDATE queued_messages SET deliverable_since=NULL WHERE conversation_id=?",
+        "UPDATE queued_messages SET deliverable_since=NULL WHERE conversation_id=? AND deliverable_since IS NOT NULL",
       )
       .run(message.conversationId);
   }
