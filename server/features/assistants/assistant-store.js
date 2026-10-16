@@ -7,6 +7,10 @@ import { migrateAssistants } from "./assistant-schema.js";
 import { personalEligible } from "./native-capabilities.js";
 import { validateDefinition, assistantProblem } from "./assistant-validation.js";
 
+// The message cache keeps a conversation's newest messages only. A history page holds
+// at most 100 messages; the chat's poll and every server-side reader ask for the
+// newest page, and three pages leave room to scroll back while the Gateway is away.
+export const cachedMessageLimit = 300;
 export class AssistantStore {
   constructor({ dataDir }) {
     const root = path.join(dataDir, "assistants");
@@ -151,13 +155,14 @@ export class AssistantStore {
       .all()
       .map((r) => JSON.parse(r.body));
   }
+  /** Replaces the cache with the newest `cachedMessageLimit` of `messages` (sorted). */
   cacheMessages(id, messages) {
     this.getConversation(id);
     this.db
       .prepare(
         "INSERT INTO messages VALUES (?,?) ON CONFLICT(conversation_id) DO UPDATE SET body=excluded.body",
       )
-      .run(id, JSON.stringify(messages));
+      .run(id, JSON.stringify(messages.slice(-cachedMessageLimit)));
   }
   messages(id) {
     this.getConversation(id);
