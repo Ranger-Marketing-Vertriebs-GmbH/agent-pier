@@ -1,0 +1,67 @@
+/* Mobile first: the mode choice stacks under its host with 44 px targets. */
+.ssh-grant-search {
+  display: block;
+  margin: 0.75rem 0 0.25rem;
+  font-weight: 600;
+}
+.ssh-grant-search-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 0.75rem;
+}
+.ssh-grant-modes {
+  margin: 0 0.75rem 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.ssh-grant-mode {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  min-height: 44px;
+  padding: 0.5rem 0;
+}
+.ssh-grant-mode input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
+.ssh-grant-mode span {
+  display: grid;
+  gap: 0.125rem;
+  overflow-wrap: anywhere;
+}
+.ssh-grant-warning {
+  margin: 0.5rem 0 0;
+  font-weight: 600;
+}
+.ssh-grant-removed {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  opacity: 0.6;
+}
+.ssh-grant-skeleton {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.ssh-grant-skeleton li {
+  height: 3rem;
+  border-radius: 8px;
+  background: var(--surface-input);
+}
+.ssh-grant-state {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+@media (min-width: 720px) {
+  .ssh-grant-modes {
+    margin-left: 2.5rem;
+  }
+}

@@ -17,12 +17,14 @@ import { commonCopy } from "../../../lib/i18n/messages/common.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantWorkflowCopy as wf } from "../../../lib/i18n/messages/assistant-workflows.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
+import { assistantSshCopy as sshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
 import useAssistants from "../useAssistants.js";
 import {
   agentRoute,
   grantCount,
   invalidTeamKeys,
   permissionKeys,
+  sshSummary,
   teamLimits,
   toggleId,
   workServer,
@@ -33,12 +35,14 @@ import useActionHistory from "./useActionHistory.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import ActionHistory from "./ActionHistory.jsx";
 import GrantSelectionPage from "./GrantSelectionPage.jsx";
+import SshGrantPage from "./SshGrantPage.jsx";
 import TeamsGroup from "./TeamsGroup.jsx";
 
 const teamCopy = assistantCopy.team;
 const conflictLabels = {
   projectIds: () => wf.projects,
   pipelineIds: () => wf.pipelines,
+  sshAccesses: () => sshCopy.row,
   memoryWrite: () => wf.memoryWrite,
   autonomous: () => wf.autonomous,
   publish: () => wf.publish,
@@ -46,6 +50,13 @@ const conflictLabels = {
   maxMembers: () => teamCopy.maxMembers,
   runTimeoutMinutes: () => teamCopy.timeout,
 };
+
+// `sshHosts` is null when the SSH catalog could not be read (never "no hosts").
+const catalogOf = (list) => ({
+  projects: list.projects || [],
+  pipelines: list.pipelines || [],
+  sshHosts: list.sshHosts ?? null,
+});
 
 /**
  * Work: grants, permissions and team policy in one draft, saved in one transaction,
@@ -69,13 +80,18 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
       .then(([access, list]) => {
         if (!active) return;
         setPolicy(access);
-        setCatalog({ projects: list.projects || [], pipelines: list.pipelines || [] });
+        setCatalog(catalogOf(list));
       })
       .catch((e) => active && setLoadError(e.message));
     return () => {
       active = false;
     };
   }, [assistant.id]);
+  // Retry reads only the catalog again; the access policy and the draft stay as they are.
+  const retryCatalog = () =>
+    api("/assistant-workspace-catalog")
+      .then((list) => setCatalog(catalogOf(list)))
+      .catch((e) => setLoadError(e.message));
   const history = useActionHistory(assistant.id);
   // A conflict, Reload or Overwrite fetches both halves again: the access policy is
   // local state and the shared team policies only arrive on a later render.
@@ -103,7 +119,8 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
     },
   });
   const label = settingsCopy.tabs.work;
-  const steps = [workStep({ assistantId: assistant.id, label, withTeam })];
+  const sshHostIds = catalog?.sshHosts ? catalog.sshHosts.map((h) => h.id) : null;
+  const steps = [workStep({ assistantId: assistant.id, label, withTeam, sshHostIds })];
   const after = async (result) => {
     if (result.status === "saved") {
       if (result.results.work?.access) setPolicy(result.results.work.access);
@@ -142,6 +159,21 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
     return (
       <>
         <ActionHistory history={history} assistantId={assistant.id} onBack={back} />
+        {bar}
+      </>
+    );
+  if (page === "ssh")
+    return (
+      <>
+        <SshGrantPage
+          hosts={catalog ? catalog.sshHosts : loadError ? null : undefined}
+          grants={draft.values.sshAccesses}
+          disabled={!policy || draft.saving}
+          onChange={(next) => draft.set("sshAccesses", next)}
+          onRetry={retryCatalog}
+          onBack={back}
+          navigate={navigate}
+        />
         {bar}
       </>
     );
@@ -206,6 +238,16 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
             }
             disabled={!catalog}
             {...link("pipelines")}
+          />
+          <ListRow
+            label={sshCopy.row}
+            value={(() => {
+              if (!catalog?.sshHosts) return unknownValue;
+              const { count, trusted } = sshSummary(values.sshAccesses, catalog.sshHosts);
+              return count ? sshCopy.summary(count, trusted) : sshCopy.none;
+            })()}
+            disabled={!catalog}
+            {...link("ssh")}
           />
           {permissionKeys.map((key) => (
             <ToggleRow

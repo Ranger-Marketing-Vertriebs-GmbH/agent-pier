@@ -67,13 +67,14 @@ export const workStep = ({
   assistantId,
   label,
   withTeam,
+  sshHostIds = null,
   save = assistantApi.saveWork,
 }) => ({
   id: "work",
   label,
   keys: withTeam ? [...accessKeys, ...teamKeys] : accessKeys,
   run: ({ values, changed, revisions }) =>
-    save(assistantId, workBody({ values, changed, revisions, withTeam })),
+    save(assistantId, workBody({ values, changed, revisions, withTeam, sshHostIds })),
   revisions: (result) => ({
     ...(result?.access ? { access: result.access.revision } : {}),
     ...(result?.team ? { team: result.team.revision } : {}),

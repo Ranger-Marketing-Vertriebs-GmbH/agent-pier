@@ -22,7 +22,8 @@ export const profileKeys = ["name", "instructions", "connectionId", "modelId"];
 export const heartbeatKeys = ["heartbeatEnabled", "interval", "start", "end", "timeZone"];
 export const channelKeys = ["language", "appUrl"];
 export const permissionKeys = ["memoryWrite", "autonomous", "publish"];
-export const accessKeys = ["projectIds", "pipelineIds", ...permissionKeys];
+export const accessKeys = ["projectIds", "pipelineIds", "sshAccesses", ...permissionKeys];
+export const sshModes = ["approval", "trusted", "routines"];
 export const teamKeys = ["teamAutonomous", "maxMembers", "runTimeoutMinutes"];
 
 const pageTabs = {
@@ -32,6 +33,7 @@ const pageTabs = {
   actions: "work",
   projects: "work",
   pipelines: "work",
+  ssh: "work",
   "telegram-activity": "telegram",
   "telegram-connection": "telegram",
 };
@@ -88,6 +90,24 @@ export const staysOnAgentTab = (assistantId, tab, page) => (request) => {
 export const sortedIds = (ids) => [...new Set(ids || [])].sort();
 export const toggleId = (ids, id, on) =>
   sortedIds(on ? [...ids, id] : ids.filter((value) => value !== id));
+// The server sorts grants by access id the same way (assistant-access.js).
+export const sortedGrants = (grants) =>
+  (grants || [])
+    .map(({ accessId, mode }) => ({ accessId, mode }))
+    .sort((a, b) => (a.accessId < b.accessId ? -1 : a.accessId > b.accessId ? 1 : 0));
+/** The grant list with `accessId` set to `mode`, or without it when `mode` is null. */
+export function setSshGrant(grants, accessId, mode) {
+  const rest = grants.filter((g) => g.accessId !== accessId);
+  return sortedGrants(mode ? [...rest, { accessId, mode }] : rest);
+}
+/** Granted hosts that still exist, and how many of them run without asking. */
+export function sshSummary(grants, hosts) {
+  const known = grants.filter((g) => hosts.some((h) => h.id === g.accessId));
+  return {
+    count: known.length,
+    trusted: known.filter((g) => g.mode !== "approval").length,
+  };
+}
 const pick = (source, keys) =>
   Object.fromEntries(keys.map((key) => [key, source?.[key] === true]));
 
@@ -171,6 +191,7 @@ export function channelPatch({ values, base }) {
 export const workServer = (policy, team) => ({
   projectIds: sortedIds(policy?.projectIds),
   pipelineIds: sortedIds(policy?.pipelineIds),
+  sshAccesses: sortedGrants(policy?.sshAccesses),
   memoryWrite: policy?.memoryWrite === true,
   autonomous: policy?.autonomous === true,
   publish: policy?.publish === true,
@@ -192,12 +213,16 @@ export const invalidTeamKeys = (values) =>
     .map(([key]) => key);
 
 /** The PUT /assistants/:id/work body: only the halves with changes, each with its revision. */
-export function workBody({ values, changed, revisions, withTeam }) {
+export function workBody({ values, changed, revisions, withTeam, sshHostIds = null }) {
   const body = {};
   if (accessKeys.some((key) => changed.includes(key)))
     body.access = {
       revision: revisions.access,
       ...Object.fromEntries(accessKeys.map((key) => [key, values[key]])),
+      // Grants of removed hosts drop on save; an unreadable catalog drops nothing.
+      sshAccesses: sshHostIds
+        ? values.sshAccesses.filter((g) => sshHostIds.includes(g.accessId))
+        : values.sshAccesses,
     };
   if (withTeam && teamKeys.some((key) => changed.includes(key)))
     body.team = {
