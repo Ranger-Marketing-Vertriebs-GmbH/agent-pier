@@ -8,10 +8,11 @@ import * as queuedDispatch from "./queued-dispatch.js";
 import { AssistantEvents } from "./assistant-events.js";
 import { conversationHistory, conversationMessage } from "./conversations.js";
 import { reconcileRuns } from "./run-reconciler.js";
+import { recoverAttempt } from "./attempt-recovery.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { MemoryFlushes } from "./memory-flushes.js";
 import { MemoryNotes } from "./memory-notes.js";
-import { Compactions } from "./compactions.js";
+import { watchCompactions } from "./compactions.js";
 import { awaitWriteGuard, noteReadOnlyTurn, orderedTurn } from "./write-guard-wait.js";
 import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
@@ -66,18 +67,8 @@ export class AssistantService {
     this.memoryFlushes = new MemoryFlushes({ now });
     this.memoryNotes = new MemoryNotes(store.db, now);
     this.gatewayEvents.on("agent", (payload) => this.memoryFlushes.observe(payload));
-    // The chat says when a run summarises its conversation; only a start or an end of
-    // a known conversation's compaction refreshes the clients.
-    this.compactions = new Compactions({ now });
-    this.gatewayEvents.on("agent", (payload) => {
-      if (
-        this.compactions.observe(payload) &&
-        this.store
-          .listConversations()
-          .some((c) => c.runtimeSessionKey === payload.sessionKey)
-      )
-        this.changed();
-    });
+    // The chat says when a run summarises its conversation (compactions.js).
+    this.compactions = watchCompactions(this, { now });
     this.gatewayEvents.onReady(reapplySkills);
     this.locks = new Map();
     this.closed = false;
@@ -527,33 +518,9 @@ export class AssistantService {
     await this.reconcile();
     return this.ledger.getAttempt(id);
   }
-  async recover(id, input) {
-    if (input?.acknowledgeUnknownOutcome !== true) throw assistantProblem("invalid");
-    const attempt = this.ledger.getAttempt(id);
-    if (!["uncertain", "interrupted"].includes(attempt.state))
-      throw assistantProblem("active", 409);
-    if (
-      this.ledger
-        .pending()
-        .some((a) => a.id !== id && !["uncertain", "interrupted"].includes(a.state))
-    )
-      throw assistantProblem("active", 409);
-    if (this.recovering) throw assistantProblem("active", 409);
-    this.recovering = true;
-    try {
-      // Confirm the owned process has exited before permitting another delivery.
-      await this.runtime.stop();
-      await Promise.allSettled(
-        [...this.locks.values(), this.reconciling].filter(Boolean),
-      );
-      const current = this.ledger.getAttempt(id);
-      if (["uncertain", "interrupted"].includes(current.state)) this.ledger.review(id);
-      await this.runtime.start();
-      this.changed();
-      return this.ledger.getAttempt(id);
-    } finally {
-      this.recovering = false;
-    }
+  /** Lets an uncertain or interrupted attempt be delivered again (attempt-recovery.js). */
+  recover(id, input) {
+    return recoverAttempt(this, id, input);
   }
   reconcile() {
     if (this.reconciling) return this.reconciling;

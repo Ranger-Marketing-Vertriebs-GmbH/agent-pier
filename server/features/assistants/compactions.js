@@ -80,3 +80,21 @@ export class Compactions {
     this.running.clear();
   }
 }
+
+/**
+ * The service's compactions, fed by its Gateway `agent` events. Only a start or an
+ * end of a known conversation's compaction refreshes the clients.
+ */
+export function watchCompactions(service, options) {
+  const compactions = new Compactions(options);
+  service.gatewayEvents.on("agent", (payload) => {
+    if (
+      compactions.observe(payload) &&
+      service.store
+        .listConversations()
+        .some((c) => c.runtimeSessionKey === payload.sessionKey)
+    )
+      service.changed();
+  });
+  return compactions;
+}
