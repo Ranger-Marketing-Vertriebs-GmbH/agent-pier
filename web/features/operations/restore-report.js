@@ -8,3 +8,13 @@ export function needsLoginLabel(entry) {
     return copy.needsMcpServerAddress(entry.slice("mcp-address:".length));
   return entry;
 }
+
+/** A restore report value as the owner reads it: lists joined, yes or no for flags. */
+export function reportValue(key, value) {
+  if (Array.isArray(value))
+    return value
+      .map((item) => (key === "credentialsNeedingLogin" ? needsLoginLabel(item) : item))
+      .join(", ");
+  if (typeof value === "boolean") return value ? copy.yes : copy.no;
+  return String(value);
+}

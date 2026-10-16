@@ -85,6 +85,10 @@ test("mobile archive inspection restores only into the specified fresh target wi
     .click();
   await expect(page).toHaveURL(/job=job-restore/);
   await expect(page.getByText("/fixture/restored", { exact: true })).toBeVisible();
+  // Flags read as words, not as raw "true" or "false".
+  await expect(
+    page.getByText("Zugangsdaten wiederhergestellt", { exact: true }).locator("+ dd"),
+  ).toHaveText("Nein");
   expect(
     state.calls.find(
       (call) => call.path === "/operations/restore" && call.method === "POST",

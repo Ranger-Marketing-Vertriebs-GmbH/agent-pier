@@ -138,7 +138,7 @@ export function operationResponse(state, path, method, body, query) {
   if (operation === "/restore")
     return job("restore", {
       targetDataDir: body.targetDataDir,
-      credentialsRestored: 0,
+      credentialsRestored: false,
       credentialsNeedingLogin: 1,
       projectMappings: body.projectMap,
       importedSessions: 2,

@@ -104,6 +104,8 @@ export const operationsCopy = {
     "The inspected archive will be restored to a new data directory. No native sessions will be started.",
   restored: "Restore complete",
   credentialsRestored: "Credentials restored",
+  yes: "Yes",
+  no: "No",
   needsLogin: "Sign-in required",
   needsMcpServerValues: (name) => `MCP server ${name} (enter values again)`,
   needsMcpServerAddress: (name) =>
