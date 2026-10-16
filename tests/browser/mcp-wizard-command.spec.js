@@ -138,5 +138,40 @@ for (const [label, use] of [
         origin: "manual",
       });
     });
+
+    test("an npx command offers to install the package instead", async ({ page }) => {
+      await wizardSetup(page);
+      const wizard = await openWizard(page);
+      await chooseSource(wizard, /Own command/);
+      await wizard.getByLabel("Name", { exact: true }).fill("everything");
+      await wizard
+        .getByLabel("Command")
+        .fill("npx -y @modelcontextprotocol/server-everything");
+      await expect(
+        wizard.getByText("This looks like a package. Let AgentPier install it instead?"),
+      ).toBeVisible();
+      await expect(primary(wizard)).toBeDisabled();
+      await wizard.getByRole("button", { name: "Switch to package" }).click();
+      await expect(page).toHaveURL(/step=package/);
+      await expect(wizard.getByLabel("Package", { exact: true })).toHaveValue(
+        "@modelcontextprotocol/server-everything",
+      );
+      await expect(wizard.getByLabel("Name", { exact: true })).toHaveValue("everything");
+    });
+
+    test("docker is named as an own command with your rights", async ({ page }) => {
+      await wizardSetup(page, { commands: { docker: "/usr/local/bin/docker" } });
+      const wizard = await openWizard(page);
+      await chooseSource(wizard, /Own command/);
+      await wizard.getByLabel("Command").fill("docker");
+      await expect(
+        wizard.getByText(
+          "Docker is not supported; it runs as an own command with your user's rights.",
+        ),
+      ).toBeVisible();
+      await expect(wizard.getByRole("button", { name: "Switch to package" })).toHaveCount(
+        0,
+      );
+    });
   });
 }

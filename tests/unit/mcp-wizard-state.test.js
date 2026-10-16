@@ -269,3 +269,34 @@ test("a pasted text is stored up to a hard cap so the parser can say it is too l
   assert.ok(stored.length > pasteLimit);
   assert.ok(stored.length < huge.length);
 });
+
+test("an own command switches to the package it names", () => {
+  const state = run([
+    { type: "choose", path: "command" },
+    { type: "set", key: "name", value: "everything" },
+    {
+      type: "set",
+      key: "command",
+      value: "npx -y @modelcontextprotocol/server-everything",
+    },
+    {
+      type: "switchToPackage",
+      values: {
+        registry: "npm",
+        packageName: "@modelcontextprotocol/server-everything",
+        packageVersion: "",
+        argRows: [],
+        hints: { program: "everything" },
+      },
+    },
+  ]);
+  assert.equal(state.path, "package");
+  assert.equal(state.via, null);
+  assert.equal(state.draft.source, "package");
+  assert.equal(state.draft.transport, "stdio");
+  assert.equal(state.draft.name, "everything");
+  assert.equal(state.draft.command, "");
+  assert.equal(state.draft.packageName, "@modelcontextprotocol/server-everything");
+  assert.equal(state.draft.hints.program, "everything");
+  assert.deepEqual(state.visited, ["source", "package"]);
+});

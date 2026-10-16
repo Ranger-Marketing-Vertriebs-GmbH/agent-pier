@@ -141,6 +141,22 @@ export function wizardReducer(state, action) {
         fieldError: null,
       };
     }
+    case "switchToPackage":
+      // An own command that names a package: AgentPier installs it instead.
+      return {
+        ...state,
+        path: "package",
+        via: null,
+        visited: ["source", "package"],
+        draft: {
+          ...state.draft,
+          ...pathValues.package,
+          command: "",
+          ...action.values,
+          hints: { ...state.draft.hints, ...(action.values.hints ?? {}) },
+        },
+        fieldError: null,
+      };
     case "set":
       return {
         ...state,
