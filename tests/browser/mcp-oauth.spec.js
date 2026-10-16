@@ -10,6 +10,8 @@ import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fix
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { messageIdentity } from "../../server/lib/i18n/message-identity.js";
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
+import { openAdd } from "./mcp-cli-fixture.js";
+import { chooseSource, primary } from "./mcp-wizard-fixture.js";
 import { fixture } from "./providers-fixture.js";
 
 const provider = "https://auth.example.test";
@@ -211,26 +213,37 @@ for (const [label, use] of [
       const state = await setup(page);
       await page.goto(baseURL + "/accounts");
       const panel = page.getByRole("region", { name: "MCP servers" });
-      await panel.getByRole("button", { name: "Add MCP server" }).click();
-      const dialog = accountDetail(page);
-      await dialog.getByLabel("Name", { exact: true }).fill("docs");
-      await dialog.getByLabel("Address").fill("https://docs.example/mcp");
-      await expect(dialog.getByRole("button", { name: "Add entry" })).toBeVisible();
-      await dialog.getByRole("radio", { name: "OAuth", exact: true }).check();
+      const wizard = await openAdd(page);
+      await chooseSource(wizard, "Server on the internet");
+      await wizard.getByLabel("Name", { exact: true }).fill("docs");
+      await wizard
+        .getByLabel("Address", { exact: true })
+        .fill("https://docs.example/mcp");
+      await wizard.getByRole("radio", { name: /^OAuth/ }).check();
       // OAuth uses no headers; the scope sits in the advanced section.
-      await expect(dialog.getByRole("button", { name: "Add entry" })).toHaveCount(0);
-      await expect(dialog.getByText(/automatic client registration/)).toBeVisible();
-      await dialog.getByText("Advanced", { exact: true }).click();
-      await dialog.getByLabel("OAuth scope (optional)").fill(" read write ");
+      await expect(wizard.getByLabel("Token", { exact: true })).toHaveCount(0);
+      await expect(
+        wizard.getByText("You sign in once per CLI after saving."),
+      ).toBeVisible();
+      await wizard.getByText("Advanced", { exact: true }).click();
+      await wizard.getByLabel("OAuth scope (optional)").fill(" read write ");
       if (label === "phone") await fits(page);
-      await dialog.getByRole("button", { name: "Save server" }).click();
-      await expect(accountSaveBar(page)).toHaveCount(0);
+      await primary(wizard).click();
+      await expect(
+        wizard.getByText("With this sign-in no headers are sent."),
+      ).toBeVisible();
+      await primary(wizard).click();
+      await wizard.getByRole("button", { name: "Save server" }).click();
+      await wizard.getByRole("button", { name: "Skip for now" }).click();
+      await wizard.getByRole("button", { name: "Open server" }).click();
+      await expect(page).toHaveURL(/item=s1$/);
       expect(state.requests[0].body).toEqual({
         name: "docs",
         transport: "http",
         url: "https://docs.example/mcp",
         auth: "oauth",
         oauthScope: "read write",
+        origin: "manual",
       });
       // The page lands on the new server.
       const item = accountDetail(page);
@@ -359,19 +372,21 @@ for (const [label, use] of [
         headerNames: ["Authorization"],
       });
       await page.goto(baseURL + "/accounts");
-      const dialog = await openAccountItem(page, "docs");
+      await page.goto(`${baseURL}/accounts?section=mcp-servers&item=s1&step=setup`);
+      const dialog = accountDetail(page);
       await dialog.getByRole("radio", { name: "OAuth", exact: true }).check();
-      await dialog.getByRole("button", { name: "Save server" }).click();
-      const confirmation = dialog.getByRole("alertdialog", { name: "Switch to OAuth?" });
+      const save = accountSaveBar(page).getByRole("button", { name: "Save changes" });
+      await save.click();
+      const confirmation = page.getByRole("alertdialog", { name: "Switch to OAuth?" });
       await expect(confirmation).toContainText(
         "Saving deletes the stored headers Authorization",
       );
       if (label === "phone") await fits(page);
       await confirmation.getByRole("button", { name: "Cancel" }).click();
       expect(state.requests).toHaveLength(0);
-      await dialog.getByRole("button", { name: "Save server" }).click();
-      await dialog.getByRole("button", { name: "Delete headers and save" }).click();
-      await expect(accountSaveBar(page)).toHaveCount(0);
+      await save.click();
+      await page.getByRole("button", { name: "Delete headers and save" }).click();
+      await expect(page).toHaveURL(/item=s1$/);
       expect(state.requests[0].body).toEqual({
         revision: 1,
         auth: "oauth",

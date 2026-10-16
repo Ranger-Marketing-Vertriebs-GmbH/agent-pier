@@ -1,3 +1,4 @@
+import { expect } from "@playwright/test";
 import { setup } from "./mcp-cli-fixture.js";
 
 export const versions = {
@@ -154,7 +155,17 @@ export const acceptCreate = (state) => {
   };
 };
 
-export async function choosePackage(dialog) {
-  await dialog.getByRole("radio", { name: "Local command (stdio)" }).check();
-  await dialog.getByRole("radio", { name: "Install package" }).check();
+/** Chooses the package path on the wizard's Source step. */
+export async function choosePackage(wizard) {
+  await wizard.getByRole("radio", { name: "Package from npm or PyPI" }).check();
+  await wizard.getByRole("button", { name: "Continue", exact: true }).click();
+}
+
+/** From the package step through Settings to the inline install confirmation. */
+export async function toInstall(wizard) {
+  const next = wizard.getByRole("button", { name: "Continue", exact: true });
+  await next.click();
+  await expect(wizard.page()).toHaveURL(/step=settings/);
+  await next.click();
+  return wizard.getByRole("region", { name: "Install this package?" });
 }

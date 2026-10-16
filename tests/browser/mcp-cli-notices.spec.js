@@ -1,11 +1,16 @@
 import { test, expect } from "@playwright/test";
 import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
-import { finds, header, openAdd, setup, stdioServer } from "./mcp-cli-fixture.js";
+import { finds, header, setup, stdioServer } from "./mcp-cli-fixture.js";
 
 const findLoads = (state) =>
   state.requests.filter((r) => r.method === "GET" && r.path.endsWith("/cli-finds"))
     .length;
+
+const openSetup = async (page) => {
+  await page.goto(`${baseURL}/accounts?section=mcp-servers&item=s1&step=setup`);
+  return accountDetail(page);
+};
 
 test("a change that rules out a bound CLI says that saving removes it there", async ({
   page,
@@ -18,25 +23,18 @@ test("a change that rules out a bound CLI says that saving removes it there", as
     }
     return false;
   };
-  await page.goto(baseURL + "/accounts");
-  await openAccountItem(page, "docs");
-  const dialog = accountDetail(page);
-  const claude = dialog.getByRole("checkbox", { name: "Claude Code" });
-  await expect(claude).toBeChecked();
-  const notes = dialog.locator(".mcp-cli-notes");
+  const view = await openSetup(page);
+  const notes = view.locator(".mcp-cli-notes");
   await expect(notes).toHaveAttribute("aria-live", "polite");
   await expect(notes).toBeEmpty();
-  await dialog.getByLabel("Working directory").fill("/tmp");
-  await expect(claude).toBeDisabled();
-  await expect(dialog.getByText(/^Claude Code cannot start/)).toBeVisible();
+  await view.getByLabel("Working directory").fill("/tmp");
   await expect(notes).toHaveText("Saving removes docs from Claude Code.");
-  await dialog.getByLabel("Working directory").fill("");
-  await expect(claude).toBeChecked();
+  await view.getByLabel("Working directory").fill("");
   await expect(notes).toBeEmpty();
-  await dialog.getByLabel("Working directory").fill("/tmp");
+  await view.getByLabel("Working directory").fill("/tmp");
   await expect(notes).toHaveText("Saving removes docs from Claude Code.");
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  await expect(saveBar(page)).toHaveCount(0);
+  await saveBar(page).getByRole("button", { name: "Save changes" }).click();
+  await expect(page).toHaveURL(/item=s1$/);
   const writes = state.requests.filter((r) => r.method !== "GET");
   expect(writes[0].body).toMatchObject({ cwd: "/tmp", clis: ["codex"] });
 });
@@ -44,20 +42,23 @@ test("a change that rules out a bound CLI says that saving removes it there", as
 test("a CLI that drops out of the choice is named, not silently unchecked", async ({
   page,
 }) => {
-  await setup(page);
-  await page.goto(baseURL + "/accounts");
-  const dialog = await openAdd(page);
-  const notes = dialog.locator(".mcp-cli-notes");
-  await dialog.getByRole("checkbox", { name: "Codex" }).check();
-  await dialog.getByRole("radio", { name: "SSE", exact: true }).check();
-  await expect(dialog.getByRole("checkbox", { name: "Codex" })).toBeDisabled();
-  await expect(notes).toHaveText("Codex will not get this server.");
-  await dialog.getByRole("radio", { name: "Local command (stdio)" }).check();
-  await expect(dialog.getByRole("checkbox", { name: "Codex" })).toBeChecked();
+  await setup(page, {
+    servers: [
+      {
+        ...stdioServer(),
+        clis: ["claude", "codex", "opencode"],
+        users: { agents: [], clis: ["claude", "codex", "opencode"] },
+      },
+    ],
+  });
+  const view = await openSetup(page);
+  const notes = view.locator(".mcp-cli-notes");
+  // Only the CLI the change rules out is named; the others keep the server.
+  await view.getByLabel("Working directory").fill("/tmp");
+  await expect(notes).toHaveText("Saving removes docs from Claude Code.");
+  // A directory of blanks is no directory.
+  await view.getByLabel("Working directory").fill("   ");
   await expect(notes).toBeEmpty();
-  await dialog.getByRole("checkbox", { name: "Claude Code" }).check();
-  await dialog.getByLabel("Working directory").fill("/tmp");
-  await expect(notes).toHaveText("Claude Code will not get this server.");
 });
 
 test("a find with environment references stays in the CLI and says why", async ({

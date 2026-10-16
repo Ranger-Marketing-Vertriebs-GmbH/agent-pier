@@ -2,6 +2,18 @@ import { test, expect } from "@playwright/test";
 import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { bound, finds, header, openAdd, setup, stdioServer } from "./mcp-cli-fixture.js";
+import {
+  chooseSource,
+  commandToConnect,
+  primary,
+  wizardSetup,
+  writes,
+} from "./mcp-wizard-fixture.js";
+
+const openStep = async (page, step) => {
+  await page.goto(`${baseURL}/accounts?section=mcp-servers&item=s1&step=${step}`);
+  return accountDetail(page);
+};
 
 test("the central MCP list is on Accounts without agents and offers no agent login", async ({
   page,
@@ -15,113 +27,90 @@ test("the central MCP list is on Accounts without agents and offers no agent log
   await expect(page.getByRole("button", { name: /log in/i })).toHaveCount(0);
 });
 
-test("the form offers coding CLIs, explains a disabled one and saves the choice", async ({
+test("the wizard offers coding CLIs, explains a disabled one and saves the choice", async ({
   page,
 }) => {
-  const state = await setup(page);
-  state.handle = async ({ route, request, path, body }) => {
-    if (path === "/api/mcp-servers" && request.method() === "POST") {
-      state.servers.push(
-        bound({
-          name: body.name,
-          transport: body.transport,
-          url: body.url,
-          clis: body.clis,
-          cliStatus: { claude: { status: "written" } },
-          users: { agents: [], clis: body.clis },
-        }),
-      );
-      return route.fulfill({ status: 201, json: state.servers[0] });
-    }
-    return false;
-  };
+  const state = await wizardSetup(page);
   await page.goto(baseURL + "/accounts");
   await expect(
     page.getByText("Running sessions see changes after a restart."),
   ).toBeVisible();
-  const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("docs");
-  await dialog.getByRole("radio", { name: "SSE", exact: true }).check();
-  await dialog.getByLabel("Address").fill("https://mcp.example.test/sse");
-  const codex = dialog.getByRole("checkbox", { name: "Codex" });
+  const wizard = await openAdd(page);
+  await chooseSource(wizard, "Server on the internet");
+  await wizard.getByLabel("Name", { exact: true }).fill("docs");
+  await wizard
+    .getByLabel("Address", { exact: true })
+    .fill("https://mcp.example.test/sse");
+  await wizard.getByLabel("Address", { exact: true }).blur();
+  await expect(wizard.getByText("Connection: SSE")).toBeVisible();
+  await primary(wizard).click();
+  await expect(
+    wizard.getByRole("heading", { level: 1, name: "Settings for docs" }),
+  ).toBeFocused();
+  await primary(wizard).click();
+  await wizard.getByRole("button", { name: "Save server" }).click();
+  const codex = wizard.getByRole("switch", { name: "Codex" });
   await expect(codex).toBeDisabled();
-  await expect(dialog.getByText("Codex does not support SSE servers.")).toBeVisible();
-  await dialog.getByRole("checkbox", { name: "Claude Code" }).check();
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  await expect(saveBar(page)).toHaveCount(0);
-  const writes = state.requests.filter((r) => r.method !== "GET");
-  expect(writes).toHaveLength(1);
-  expect(writes[0].body).toMatchObject({
+  await expect(wizard.getByText("Codex does not support SSE servers.")).toBeVisible();
+  await wizard.getByRole("switch", { name: "Claude Code" }).check();
+  await expect(primary(wizard)).toHaveText("Save and connect");
+  await primary(wizard).click();
+  await expect(page).toHaveURL(/step=done/);
+  expect(writes(state)).toHaveLength(2);
+  expect(writes(state)[0].body).toMatchObject({
     name: "docs",
     transport: "sse",
     url: "https://mcp.example.test/sse",
-    clis: ["claude"],
   });
-  await expect(page.getByText("Claude Code: written")).toBeVisible();
-  await expect(page.getByText("CLIs: Claude Code")).toBeVisible();
+  expect(writes(state)[0].body.clis).toBeUndefined();
+  expect(writes(state)[1]).toEqual({
+    method: "PUT",
+    path: "/api/mcp-servers/s1",
+    body: { revision: 1, clis: ["claude"] },
+  });
+  await expect(wizard.getByText("Claude Code: written")).toBeVisible();
 });
 
 test("a working directory rules out Claude Code only", async ({ page }) => {
-  await setup(page);
+  await wizardSetup(page);
   await page.goto(baseURL + "/accounts");
-  const dialog = await openAdd(page);
-  await dialog.getByRole("radio", { name: "Local command (stdio)" }).check();
-  const claude = dialog.getByRole("checkbox", { name: "Claude Code" });
-  await claude.check();
-  await dialog.getByLabel("Working directory").fill("/tmp");
+  const wizard = await openAdd(page);
+  await chooseSource(wizard, /Own command/);
+  await wizard.getByLabel("Name", { exact: true }).fill("tool");
+  await wizard.getByLabel("Command").fill("uvx");
+  await expect(primary(wizard)).toBeEnabled();
+  await primary(wizard).click();
+  await wizard.getByText(/^Arguments and working directory/).click();
+  await wizard.getByLabel("Working directory (optional, absolute path)").fill("/w");
+  await primary(wizard).click();
+  await wizard.getByRole("button", { name: "Allow and save" }).click();
+  const claude = wizard.getByRole("switch", { name: "Claude Code" });
   await expect(claude).toBeDisabled();
   await expect(claude).not.toBeChecked();
-  await expect(claude).toHaveCSS("opacity", "0.5");
-  await expect(dialog.getByText(/^Claude Code cannot start/)).toBeVisible();
-  await expect(dialog.getByRole("checkbox", { name: "Codex" })).toBeEnabled();
-  await expect(dialog.getByRole("checkbox", { name: "OpenCode" })).toBeEnabled();
+  await expect(wizard.getByText(/^Claude Code cannot start/)).toBeVisible();
+  await expect(wizard.getByRole("switch", { name: "Codex" })).toBeEnabled();
+  await expect(wizard.getByRole("switch", { name: "OpenCode" })).toBeEnabled();
 });
 
 test("a local command for a CLI is confirmed before anything is saved", async ({
   page,
 }) => {
-  const state = await setup(page);
-  state.handle = async ({ route, request, path, body }) => {
-    if (path === "/api/mcp-servers" && request.method() === "POST") {
-      state.servers.push(
-        header({
-          name: body.name,
-          transport: "stdio",
-          url: undefined,
-          command: body.command,
-          args: [],
-          headerNames: [],
-          envNames: [],
-        }),
-      );
-      return route.fulfill({ status: 201, json: state.servers[0] });
-    }
-    return false;
-  };
+  const state = await wizardSetup(page);
   await page.goto(baseURL + "/accounts");
-  const dialog = await openAdd(page);
-  await dialog.getByLabel("Name", { exact: true }).fill("local");
-  await dialog.getByRole("radio", { name: "Local command (stdio)" }).check();
-  await dialog.getByRole("textbox", { name: /^Command/ }).fill("/usr/bin/true");
-  await dialog.getByRole("checkbox", { name: "Codex" }).check();
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  const confirm = dialog.getByRole("alertdialog", {
-    name: "Give coding CLIs a local command?",
-  });
-  await expect(confirm).toBeVisible();
-  await expect(confirm.getByRole("button", { name: "Cancel" })).toBeFocused();
-  // Changing the CLI choice withdraws the question (C19).
-  await dialog.getByRole("checkbox", { name: "OpenCode" }).check();
-  await expect(confirm).toHaveCount(0);
-  await dialog.getByRole("checkbox", { name: "OpenCode" }).uncheck();
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  await expect(confirm).toBeVisible();
-  expect(state.requests.filter((r) => r.method !== "GET")).toHaveLength(0);
-  await dialog.getByRole("button", { name: "Confirm and save" }).click();
-  await expect(saveBar(page)).toHaveCount(0);
-  const writes = state.requests.filter((r) => r.method !== "GET");
-  expect(writes).toHaveLength(1);
-  expect(writes[0].body).toMatchObject({ clis: ["codex"], confirmStdio: true });
+  const wizard = await openAdd(page);
+  await commandToConnect(wizard);
+  await wizard.getByRole("switch", { name: "Codex" }).check();
+  const consent = wizard.getByRole("region", { name: "What this allows" });
+  await expect(
+    consent.getByText(/Runs on this computer with your user's rights/),
+  ).toBeVisible();
+  await expect(primary(wizard)).toHaveText("Allow and connect");
+  expect(writes(state).filter((r) => r.method === "PUT")).toHaveLength(0);
+  await primary(wizard).click();
+  await expect(page).toHaveURL(/step=done/);
+  const puts = writes(state).filter((r) => r.method === "PUT");
+  expect(puts).toHaveLength(1);
+  expect(puts[0].body).toEqual({ revision: 1, clis: ["codex"], confirmStdio: true });
 });
 
 test("an edit that rules out a bound CLI saves both in one request", async ({ page }) => {
@@ -133,15 +122,16 @@ test("an edit that rules out a bound CLI saves both in one request", async ({ pa
     }
     return false;
   };
-  await page.goto(baseURL + "/accounts");
-  await openAccountItem(page, "docs");
-  const dialog = accountDetail(page);
-  await dialog.getByLabel("Working directory").fill("/tmp");
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  await expect(saveBar(page)).toHaveCount(0);
-  const writes = state.requests.filter((r) => r.method !== "GET");
-  expect(writes.map((r) => `${r.method} ${r.path}`)).toEqual(["PUT /api/mcp-servers/s1"]);
-  expect(writes[0].body).toMatchObject({ cwd: "/tmp", clis: ["codex"] });
+  const view = await openStep(page, "setup");
+  await view.getByLabel("Working directory").fill("/w");
+  await expect(view.locator(".mcp-cli-notes")).toHaveText(
+    "Saving removes docs from Claude Code.",
+  );
+  await saveBar(page).getByRole("button", { name: "Save changes" }).click();
+  await expect(page).toHaveURL(/item=s1$/);
+  const sent = state.requests.filter((r) => r.method !== "GET");
+  expect(sent.map((r) => `${r.method} ${r.path}`)).toEqual(["PUT /api/mcp-servers/s1"]);
+  expect(sent[0].body).toMatchObject({ cwd: "/w", clis: ["codex"] });
 });
 
 test("a refused edit keeps the form and changes no CLI", async ({ page }) => {
@@ -154,17 +144,16 @@ test("a refused edit keeps the form and changes no CLI", async ({ page }) => {
       });
     return false;
   };
-  await page.goto(baseURL + "/accounts");
-  await openAccountItem(page, "docs");
-  const dialog = accountDetail(page);
-  await dialog.getByLabel("Working directory").fill("relative");
-  await dialog.getByRole("checkbox", { name: "Codex" }).uncheck();
-  await dialog.getByRole("button", { name: "Save server" }).click();
-  await expect(dialog.getByRole("alert")).toBeVisible();
-  await expect(dialog.getByRole("checkbox", { name: "Claude Code" })).toBeDisabled();
-  const writes = state.requests.filter((r) => r.method !== "GET");
-  expect(writes.map((r) => `${r.method} ${r.path}`)).toEqual(["PUT /api/mcp-servers/s1"]);
-  expect(writes[0].body.clis).toEqual([]);
+  const view = await openStep(page, "setup");
+  await view.getByLabel("Working directory").fill("relative");
+  await saveBar(page).getByRole("button", { name: "Save changes" }).click();
+  await expect(saveBar(page).getByRole("alert")).toBeVisible();
+  await expect(page).toHaveURL(/step=setup/);
+  await expect(view.getByLabel("Working directory")).toHaveValue("relative");
+  const sent = state.requests.filter((r) => r.method !== "GET");
+  expect(sent.map((r) => `${r.method} ${r.path}`)).toEqual(["PUT /api/mcp-servers/s1"]);
+  expect(sent[0].body.clis).toEqual(["codex"]);
+  expect(state.servers[0].clis).toEqual(["claude", "codex"]);
 });
 
 test("a conflict offers both choices and an OAuth server the CLI's login command", async ({
