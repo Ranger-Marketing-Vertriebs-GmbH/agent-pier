@@ -11,14 +11,18 @@ login. URLs do not grant access by themselves.
 The page follows the [settings pattern](settings-pattern.md). The **All** and
 **Pinned** tabs show their counts; the search field matches titles, session names
 and project names, and the project filter keeps the `/artifacts/<projectId>`
-address. Rows are grouped by date (Today, Yesterday, This week, Earlier) and show
+address. An unknown or deleted project in the address drops out of the filter and the
+address. A pasted tab or line break in the search becomes a space; a search the server
+rejects shows its error instead of the loading state. Rows are grouped by date (Today, Yesterday, This week, Earlier) and show
 the type, the source session and project, and a relative time (the exact time is in
 the tooltip).
 
 A row opens the detail: in the right pane on desktop (the newest artifact is shown
 until one is chosen), as a subpage with a back arrow on phones. The selection is part
 of the address together with the filters (`/artifacts[/<projectId>]?session=<id>&q=<term>&page=<n>&tab=pinned&artifact=<id>`),
-so a reload or the viewer's **Back to AgentPier** returns to the same detail and list. The detail shows a
+so a reload or the viewer's **Back to AgentPier** returns to the same detail and list,
+including the page's way back to the session that opened it. The "no longer
+available" notice for a removed selection ends with the next tab, filter or search change. The detail shows a
 preview, **Open**, **Copy link** (the link only works when signed in), the source
 session and project, the pin switch, technical details and **Delete artifact**,
 which asks for confirmation. The preview loads the selected artifact only, once it
@@ -26,8 +30,8 @@ is on screen, in an inert iframe with `sandbox=""`: scripts never run there, so 
 that draw their content with JavaScript look empty until opened. The frame inherits
 the app's Content-Security-Policy, which loads no `data:` stylesheets or fonts:
 bundled CSS and its `@import`s are inlined, bundled fonts are not, so the preview uses
-system fonts. While two other bundles are loading, the preview retries with a short
-backoff.
+system fonts. While two other bundles are loading, the preview and the viewer retry
+with a short backoff.
 
 The session's **Artifacts** panel lists that session's artifacts in compact rows that
 open the viewer, with the retention hint above them. Each row's ⓘ opens the artifact's

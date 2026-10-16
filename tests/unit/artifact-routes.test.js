@@ -57,7 +57,9 @@ test("artifact routes carry the selected artifact and the Pinned tab", () => {
     assert.equal(read(`/artifacts?artifact=${artifact}`).artifact, "", artifact);
   for (const [query, field, value] of [
     ["q=" + "x".repeat(201), "q", ""],
-    ["q=a%0Ab", "q", ""],
+    // A pasted tab or line break is a space, as the server rejects control characters.
+    ["q=a%0Ab", "q", "a b"],
+    ["q=Settings%09QA", "q", "Settings QA"],
     ["q=%20%20", "q", ""],
     ["page=0", "page", 1],
     ["page=-2", "page", 1],
@@ -141,10 +143,7 @@ test("the Artifacts page returns only to the session that opened it", () => {
     crossLinkRoute({ view: "accounts", section: "models" }, session).returnTo,
     undefined,
   );
-  // The viewer's return path drops the nested origin (shared returnTo check).
+  // The viewer returns to the page with its own way back to the session.
   const link = artifactLink("/artifacts/view/a-1", address, location);
-  assert.equal(
-    artifactReturnPath(new URL(link, location).search),
-    "/artifacts?session=s1&artifact=a-1",
-  );
+  assert.equal(artifactReturnPath(new URL(link, location).search), address);
 });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import api from "../../lib/api.js";
 import { prepareArtifactDocument } from "./artifact-document.js";
 import { artifactNavigationType } from "./artifact-navigation.js";
+import { loadArtifactBundle } from "./artifact-bundle-request.js";
 
 export default function useArtifactDocument(id, frame) {
   const [snapshot, setSnapshot] = useState(null);
@@ -13,12 +13,7 @@ export default function useArtifactDocument(id, frame) {
     const controller = new AbortController();
     let alive = true;
     setLinkError(false);
-    api(
-      `/artifacts/${encodeURIComponent(id)}/bundle`,
-      "GET",
-      undefined,
-      controller.signal,
-    )
+    loadArtifactBundle(id, controller.signal)
       .then((value) => {
         if (!alive) return;
         setSnapshot({ id, value });

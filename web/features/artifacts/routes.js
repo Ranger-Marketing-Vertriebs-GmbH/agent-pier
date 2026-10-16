@@ -2,10 +2,22 @@
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export const artifactTabs = ["all", "pinned"];
 
-// The same rule as the server: up to 200 characters without control characters.
+// The server accepts up to 200 characters without control characters. A pasted tab or
+// line break becomes a space, so the search box, the address and the request agree.
+export function artifactSearchTerm(value) {
+  return typeof value === "string"
+    ? value
+        .replace(/[\x00-\x1f\x7f]/g, " ")
+        .trim()
+        .slice(0, 200)
+        .trim()
+    : "";
+}
+
 function searchTerm(value) {
-  const term = typeof value === "string" ? value.trim() : "";
-  return term.length <= 200 && !/[\x00-\x1f\x7f]/.test(term) ? term : "";
+  return typeof value === "string" && value.trim().length <= 200
+    ? artifactSearchTerm(value)
+    : "";
 }
 
 function pageNumber(value) {

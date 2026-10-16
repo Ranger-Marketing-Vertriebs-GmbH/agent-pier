@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import api from "../../lib/api.js";
 import { artifactCopy as copy } from "../../lib/i18n/messages/artifacts.js";
 import { artifactPreviewDocument } from "./artifact-preview.js";
+import { loadArtifactBundle } from "./artifact-bundle-request.js";
 
 // Waits until the preview area is on screen: the bundle is a full download and the
 // server serves two at a time.
@@ -23,40 +23,8 @@ function useVisible(ref) {
   return visible;
 }
 
-// The server reads two bundles at a time and answers busy beyond that (another tab,
-// Open, or a preview of an artifact selected a moment ago): wait and try again.
-const busyDelays = [500, 1500, 3000];
-
-function wait(ms, signal) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        reject(signal.reason);
-      },
-      { once: true },
-    );
-  });
-}
-
 async function loadPreview(id, signal) {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      const snapshot = await api(
-        `/artifacts/${encodeURIComponent(id)}/bundle`,
-        "GET",
-        undefined,
-        signal,
-      );
-      return await artifactPreviewDocument(snapshot);
-    } catch (failure) {
-      if (failure?.code !== "ARTIFACT_BUSY" || attempt >= busyDelays.length)
-        throw failure;
-      await wait(busyDelays[attempt], signal);
-    }
-  }
+  return artifactPreviewDocument(await loadArtifactBundle(id, signal));
 }
 
 /** A scaled, inert picture of the selected artifact; loaded once per version. */
