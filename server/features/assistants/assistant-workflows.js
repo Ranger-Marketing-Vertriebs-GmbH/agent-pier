@@ -18,6 +18,7 @@ import { ExecApprovals, execDecisions } from "./exec-approvals.js";
 import { allowAlwaysByAgentPier, decideExec, execPlan } from "./exec-decisions.js";
 import { AgentSsh } from "./agent-ssh.js";
 import { sshDecisions } from "./agent-ssh-approvals.js";
+import { sshTelegramApprovable } from "./agent-ssh-notifications.js";
 const maxEventRetryMs = 300000;
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
@@ -287,6 +288,14 @@ export class AssistantWorkflows {
       if (!(exec ? execDecisions : ssh ? sshDecisions : coding).includes(input.decision))
         throw assistantProblem("invalid");
       if (input.decision === "review" && origin.kind !== "owner")
+        throw assistantProblem("invalid", 403);
+      // Telegram approves only commands it showed in full (agent-ssh-notifications.js).
+      if (
+        ssh &&
+        input.decision === "approve" &&
+        origin.kind !== "owner" &&
+        !sshTelegramApprovable(action.payload.command)
+      )
         throw assistantProblem("invalid", 403);
       const target = telegramTarget(action);
       if (
