@@ -131,3 +131,53 @@ test("command lines split on spaces with quotes; shell operators are refused", (
     }),
   );
 });
+
+test("a spec outside the registry stays an own command with its original args", () => {
+  for (const [command, args] of [
+    ["npx", ["-y", "pkg@github:user/repo"]],
+    ["npx", ["pkg@file:../x"]],
+    ["npx", ["pkg@https://evil.example/t.tgz"]],
+    ["npx", ["@scope/pkg@git+https://evil.example/r.git"]],
+    ["npx", ["pkg@npm:other@1.0.0"]],
+    ["npx", ["-p", "pkg@github:user/repo", "tool"]],
+    ["uvx", ["--from", "pkg @ git+https://evil.example/r", "prog"]],
+    ["uvx", ["pkg@git+https://evil.example/r"]],
+    ["uvx", ["pkg==https://evil.example/p.whl"]],
+    ["pipx", ["run", "--spec", "pkg @ file:///tmp/x", "prog"]],
+  ]) {
+    const mapped = mapCommand(command, args);
+    assert.equal(mapped.kind, "command", JSON.stringify(args));
+    assert.equal(mapped.command, command);
+    assert.deepEqual(mapped.args, args);
+  }
+  assert.equal(mapCommand("uvx", ["pkg@1.0"]).version, "1.0");
+  assert.equal(mapCommand("uvx", ["pkg@latest"]).kind, "pypi");
+});
+
+test("registry or shell options keep the line an own command; -- ends options", () => {
+  for (const [command, args] of [
+    ["npx", ["--registry", "https://r", "pkg"]],
+    ["npx", ["--registry=https://r", "pkg"]],
+    ["npx", ["-c", "pkg"]],
+    ["uvx", ["--index-url", "https://r", "pkg"]],
+    ["uvx", ["-i", "https://r", "pkg"]],
+  ]) {
+    const mapped = mapCommand(command, args);
+    assert.equal(mapped.kind, "command", JSON.stringify(args));
+    assert.deepEqual(mapped.args, args);
+  }
+  const ended = mapCommand("npx", ["-y", "--", "server-x", "--port", "1"]);
+  assert.deepEqual(
+    [ended.kind, ended.packageName, ended.args, codes(ended.ignored)],
+    ["npm", "server-x", ["--port", "1"], ["runner", "yes"]],
+  );
+  assert.equal(mapCommand("uvx", ["--", "pkg"]).packageName, "pkg");
+});
+
+test("cmd /c with nothing after it stays the cmd command", () => {
+  const mapped = mapCommand("cmd", ["/c"]);
+  assert.deepEqual(
+    [mapped.kind, mapped.command, mapped.args],
+    ["command", "cmd", ["/c"]],
+  );
+});
