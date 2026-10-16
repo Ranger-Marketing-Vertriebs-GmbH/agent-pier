@@ -131,9 +131,11 @@ export default function useAgentAttachments(conversationId) {
       ).catch(() => {});
   };
 
-  // After a successful send: the server now owns the files as part of the message.
-  const sent = () => {
-    update([]);
+  // After a successful send: the server now owns the sent files as part of the
+  // message. Files picked while it was on its way stay for the next one.
+  const sent = (ids) => {
+    const gone = new Set(ids);
+    update((list) => list.filter((item) => !gone.has(item.id)));
     setError("");
   };
 
