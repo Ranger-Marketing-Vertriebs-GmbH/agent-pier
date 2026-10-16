@@ -9,6 +9,12 @@ const byAccessId = (a, b) =>
   a.accessId < b.accessId ? -1 : a.accessId > b.accessId ? 1 : 0;
 export const digest = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
+/**
+ * The revision pending approvals are bound to. Removing an SSH host bumps `revision`
+ * (edit concurrency) but not this, so it never revokes unrelated coding or memory
+ * approvals; older records without the field use `revision`.
+ */
+export const approvalRevision = (policy) => policy.approvalRevision ?? policy.revision;
 export function exact(input, keys) {
   if (
     !input ||
@@ -133,6 +139,7 @@ export class AssistantAccess {
           ? old.sshAccesses
           : this.sshList(id, input.sshAccesses),
       revision: revision + 1,
+      approvalRevision: revision + 1,
       accountIds: [...accountIds],
       connectionIds: [...connectionIds],
       definitions,
@@ -230,6 +237,7 @@ export class AssistantAccess {
           ...before,
           sshAccesses: before.sshAccesses.filter((g) => g.accessId !== accessId),
           revision: before.revision + 1,
+          approvalRevision: approvalRevision(before),
         });
         changed.push({ id: row.assistant_id, before, after });
       }
@@ -278,7 +286,7 @@ export class AssistantAccess {
     const policy = this.get(id);
     if (
       !policy.projectIds.includes(projectId) ||
-      (revision !== undefined && revision !== policy.revision)
+      (revision !== undefined && revision !== approvalRevision(policy))
     )
       throw assistantProblem("invalid", 403);
     this.s.memory.project(projectId);
