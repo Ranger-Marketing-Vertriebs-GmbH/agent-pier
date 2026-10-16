@@ -93,6 +93,27 @@ test("ZIP install retains related files, lists other sources read-only, rejects 
   assert.equal(fs.existsSync(installed.path), false);
   assert.equal(fs.existsSync(external), true);
 });
+test("skill listings carry stable scope keys that browsers translate", async (t) => {
+  const { store, home } = setup(t);
+  const external = path.join(home, ".agents/skills/external");
+  fs.mkdirSync(external, { recursive: true });
+  fs.writeFileSync(
+    path.join(external, "SKILL.md"),
+    content.replaceAll("demo-skill", "external"),
+  );
+  const installed = await store.installSkill("local-codex", {
+    fileName: "SKILL.md",
+    contentBase64: Buffer.from(content).toString("base64"),
+  });
+  assert.equal(installed.scopeKey, "sharedUserSkillScope");
+  const { skills } = store.list("local-codex");
+  assert.equal(skills.scopeKey, "sharedUserSkillScope");
+  assert.deepEqual(
+    [...new Set(skills.items.map((skill) => skill.scopeKey))],
+    ["sharedUserSkillScope"],
+  );
+  assert.equal(store.list("local-claude").skills.scopeKey, "claudeUserScope");
+});
 test("skill packages reject traversal, symlinks, multiple roots, invalid metadata and oversized content", async (t) => {
   const { store, home } = setup(t);
   for (const files of [

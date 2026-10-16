@@ -92,7 +92,9 @@ test("the ⓘ on the Codex skills label discloses the scope note verbatim", asyn
   await expect(controlled).toBeHidden();
   // The server's own skills note stays visible; other CLIs have no scope hint.
   await expect(
-    page.getByText("Benutzer · von Codex und kompatiblen CLIs geteilt.", { exact: true }),
+    page.getByText(
+      /^Benutzer · von Codex und kompatiblen CLIs geteilt\. Angezeigt werden/,
+    ),
   ).toBeVisible();
   await page.goto(`${base}/extensions/managed-claude`);
   await expect(extensionRow(page, "project-review")).toBeVisible();
@@ -371,6 +373,24 @@ test("phones: sidebar button, profile sheet, plugin detail and a locked switcher
 
 test.describe("in English", () => {
   test.use({ locale: "en-GB" });
+  test("the Skills tab translates the skill scope and its visibility notice", async ({
+    page,
+  }) => {
+    await extensionsPageFixture(page);
+    await page.goto(`${base}/extensions/local-codex`);
+    await expect(
+      page.getByText(
+        "User · shared by Codex and compatible CLIs. Known user and profile folders are shown; project- and plugin-specific skills are not fully covered. Only skills installed here can be removed.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(extensionRow(page, "project-review")).toContainText(
+      "User · shared by Codex and compatible CLIs · Installed here",
+    );
+    await expect(page.locator(".extension-tabpanel")).not.toContainText(
+      /Benutzer|Angezeigt/,
+    );
+  });
   test("shared profiles show four tabs, the profile sheet and the reference row", async ({
     page,
   }) => {

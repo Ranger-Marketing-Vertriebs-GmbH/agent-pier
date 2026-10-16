@@ -1,6 +1,11 @@
 import { normalizeSearch } from "../../lib/i18n/index.js";
 import { useEffect, useRef, useState } from "react";
 import { usePagination } from "../../components/Pagination.jsx";
+import { profileExtensionsCopy as copy } from "../../lib/i18n/messages/extensions.js";
+
+// Servers send a stable scopeKey beside the German scope label of older servers.
+export const skillScopeLabel = ({ scope, scopeKey }) =>
+  (scopeKey && copy.skillScopes[scopeKey]) || scope || "";
 export default function useProfileExtensions({ account, request, setParentBusy }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,7 +18,7 @@ export default function useProfileExtensions({ account, request, setParentBusy }
   const [skillQuery, setSkillQuery] = useState("");
   const skillSearch = normalizeSearch(skillQuery.trim());
   const skills = (data?.skills.items || []).filter((skill) =>
-    [skill.name, skill.description, skill.scope].some((value) =>
+    [skill.name, skill.description, skillScopeLabel(skill)].some((value) =>
       normalizeSearch(value).includes(skillSearch),
     ),
   );
