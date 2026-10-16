@@ -177,7 +177,9 @@ export class AssistantConfig {
     const shadowed = shadowedSkills(path.dirname(this.workspaces), assistant, assigned);
     let skills = assigned.filter((name) => !shadowed.includes(name));
     let gatewayDropped = false;
-    const bootstrap = assistantBootstrap(assistant, lease.display);
+    const bootstrap = assistantBootstrap(assistant, lease.display, {
+      memoryWritable: !!this.writeGuard?.(),
+    });
     const fingerprint = createHash("sha256")
       .update(
         JSON.stringify([

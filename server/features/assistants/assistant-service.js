@@ -8,6 +8,8 @@ import { conversationHistory, conversationMessage } from "./conversations.js";
 import { reconcileRuns } from "./run-reconciler.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { MemoryFlushes } from "./memory-flushes.js";
+import { MemoryNotes } from "./memory-notes.js";
+import { awaitWriteGuard, noteReadOnlyTurn } from "./write-guard-wait.js";
 import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
 import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js";
@@ -58,6 +60,7 @@ export class AssistantService {
     this.gatewayEvents.on("skills.changed", reapplySkills);
     // The write guard admits OpenClaw's memory flush of an owner run (team-bridge.js).
     this.memoryFlushes = new MemoryFlushes({ now });
+    this.memoryNotes = new MemoryNotes(store.db, now);
     this.gatewayEvents.on("agent", (payload) => this.memoryFlushes.observe(payload));
     this.gatewayEvents.onReady(reapplySkills);
     this.locks = new Map();
@@ -460,9 +463,14 @@ export class AssistantService {
       return conversation;
     });
   }
-  send(conversationId, input, trustedContext = { kind: "owner" }) {
+  async send(conversationId, input, trustedContext = { kind: "owner" }) {
     assertWired(this);
-    return this.admit(() => sendTurn(this, conversationId, input, trustedContext));
+    const writable = await awaitWriteGuard(this, conversationId, input, trustedContext);
+    const result = await this.admit(() =>
+      sendTurn(this, conversationId, input, trustedContext),
+    );
+    if (!writable) noteReadOnlyTurn(this, conversationId, result);
+    return result;
   }
   history(id, options) {
     return conversationHistory(this, id, options);

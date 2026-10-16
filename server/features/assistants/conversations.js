@@ -4,6 +4,7 @@ import { codingRunNotes } from "./assistant-action-notifications.js";
 import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
 import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
+import { withMemoryNotes } from "./memory-notes.js";
 import { historyTextLimit } from "./history-text.js";
 import { cachedWindow } from "./assistant-store.js";
 import { completePage, historyReads, withoutMarks } from "./history-completion.js";
@@ -199,20 +200,26 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
   return {
     ...visible,
     requests: requestsWithSources(visible.requests, contexts),
-    messages: withRoutineResults(
-      withRunNotes(
-        service,
-        conversation,
-        withMessageSources(visible.messages, requests, { attempts, contexts }),
-        nextBefore,
+    messages: withMemoryNotes(
+      withRoutineResults(
+        withRunNotes(
+          service,
+          conversation,
+          withMessageSources(visible.messages, requests, { attempts, contexts }),
+          nextBefore,
+        ),
+        service.routines?.results.forConversation(id) || [],
+        { from: pageStart(nextBefore, messages) },
       ),
-      service.routines?.results.forConversation(id) || [],
-      { from: nextBefore && messages.length ? messages[0].timestamp : -Infinity },
+      service.memoryNotes?.forConversation(id) || [],
+      { from: pageStart(nextBefore, messages) },
     ),
     nextBefore,
     stale,
   };
 }
+const pageStart = (nextBefore, messages) =>
+  nextBefore && messages.length ? messages[0].timestamp : -Infinity;
 // Coding run notes join the page they fall into. A page reaches from its first
 // message (or the very start when no earlier page exists) to the present; the
 // client keeps the newer copy of a note that an older page repeats.
