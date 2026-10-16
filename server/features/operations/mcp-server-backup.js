@@ -337,12 +337,6 @@ function applySealed(db, tables, sealed) {
   return addresses;
 }
 
-/**
- * Completes a restored store in `stage`: writes the sealed values, addresses and CLI
- * entry records back and returns `mcp:<name>` (values) and `mcp-address:<name>`
- * (address token) for what stays missing. The sealed member never remains in the
- * restored data directory.
- */
 /** A crafted backup's directory origin that would not validate becomes NULL. */
 function dropInvalidOrigins(db) {
   const columns = db.prepare("PRAGMA table_info(servers)").all();
@@ -356,6 +350,12 @@ function dropInvalidOrigins(db) {
     if (!readDirectoryOrigin(row.directory_origin)) clear.run(row.id);
 }
 
+/**
+ * Completes a restored store in `stage`: writes the sealed values, addresses and CLI
+ * entry records back and returns `mcp:<name>` (values) and `mcp-address:<name>`
+ * (address token) for what stays missing. The sealed member never remains in the
+ * restored data directory.
+ */
 export function restoreMcpServers(stage) {
   const file = path.join(stage, mcpStoreMember);
   const sealedFile = path.join(stage, mcpValuesMember);
