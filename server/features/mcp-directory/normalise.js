@@ -299,16 +299,15 @@ function statusOf(item, server) {
   };
 }
 
+/** A registry server name: `namespace/name`, printable and within the name cap. */
+export const isServerName = (value) =>
+  typeof value === "string" && value.length <= limits.name && namePattern.test(value);
+
 /** One registry item as the DTO, or null for an invalid or deleted entry. */
 export function normaliseEntry(item) {
   if (!isRecord(item)) return null;
   const server = isRecord(item.server) ? item.server : item;
-  if (
-    typeof server.name !== "string" ||
-    server.name.length > limits.name ||
-    !namePattern.test(server.name)
-  )
-    return null;
+  if (!isServerName(server.name)) return null;
   if (typeof server.version !== "string" || !/^[\x21-\x7e]{1,128}$/.test(server.version))
     return null;
   if (!schemaAccepted(server.$schema)) return null;
