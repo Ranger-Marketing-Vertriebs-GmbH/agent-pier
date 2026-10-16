@@ -100,7 +100,7 @@ export class McpDirectory {
     }
   }
   /** JSON from the registry, cached; failures map to stable directory codes. */
-  async request({ key, url, limit, lifetime, host }) {
+  async request({ key, url, limit, lifetime, host, lookup = false }) {
     const cached = this.cache.get(key);
     if (cached?.error) throw directoryProblem(cached.error);
     if (cached) return cached.body;
@@ -113,8 +113,14 @@ export class McpDirectory {
       bytes = await this.fetchBytes(url, limit);
     } catch (failure) {
       const upstream = failure?.upstream ?? 0;
+      // A 404 is "not found" only for a detail lookup; on a list or health URL it
+      // means the base URL is not a registry.
       const code =
-        upstream === 404 ? "MCP_DIRECTORY_NOT_FOUND" : "MCP_DIRECTORY_UNAVAILABLE";
+        upstream === 404
+          ? lookup
+            ? "MCP_DIRECTORY_NOT_FOUND"
+            : "MCP_DIRECTORY_MISCONFIGURED"
+          : "MCP_DIRECTORY_UNAVAILABLE";
       // 429 and 5xx: the registry asked for a pause; do not ask again for 60 s.
       if (negative(upstream)) remember({ error: code }, ttl.negative);
       // Code and host only: never the search term or the address.
@@ -161,6 +167,7 @@ export class McpDirectory {
       limit: detailLimit,
       lifetime: ttl.success,
       host,
+      lookup: true,
     });
     try {
       return normaliseDetail(body);

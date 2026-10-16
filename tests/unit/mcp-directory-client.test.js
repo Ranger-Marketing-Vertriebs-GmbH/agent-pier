@@ -243,3 +243,15 @@ test("a same-origin redirect is followed; a deleted detail is not found", async 
   );
   assert.equal(calls.length, 2);
 });
+
+test("a 404 on the list is a misconfigured directory, a 404 on a detail is not found", async () => {
+  const { directory } = client({ handler: () => json({}, { status: 404 }) });
+  await assert.rejects(
+    directory.search({ search: "q" }),
+    (e) => e.code === "MCP_DIRECTORY_MISCONFIGURED" && e.status === 502,
+  );
+  await assert.rejects(
+    directory.detail("a.b/c"),
+    (e) => e.code === "MCP_DIRECTORY_NOT_FOUND" && e.status === 404,
+  );
+});
