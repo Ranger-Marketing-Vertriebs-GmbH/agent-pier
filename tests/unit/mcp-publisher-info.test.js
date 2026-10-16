@@ -104,3 +104,15 @@ test("publisher fields never throw and never carry control characters", () => {
     }),
   );
 });
+
+test("zero-width, line-separator and mark characters are stripped from text", () => {
+  assert.equal(
+    plainText("J\u061ca\u200bn\u200ce\u200d \u2060D\ufeffo\u2028e\u2029"),
+    "Jane Doe",
+  );
+  assert.deepEqual(
+    npmPublisher({ author: "Ja\u200bne", maintainers: [{ name: "\ufeffBob" }] }),
+    { publisher: "Jane, Bob", repositoryUrl: null },
+  );
+  assert.equal(pypiPublisher({ info: { author: "Al\u2060ice" } }).publisher, "Alice");
+});
