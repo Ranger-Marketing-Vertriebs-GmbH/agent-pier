@@ -52,3 +52,44 @@ test("an e-mail address never reaches the bootstrap", () => {
   assert.doesNotMatch(text, /@example/);
   assert.match(text, /the model "qwen3:4b"\. /);
 });
+
+const memoryOn = { ...assistant, capabilities: { memory: true } };
+
+test("memory on: the bootstrap says the conversation is not memory and where to write", () => {
+  const text = assistantBootstrap(memoryOn, {});
+  assert.match(text, /\n## Memory\n/);
+  assert.match(text, /conversation is not your memory/);
+  assert.match(text, /compacted/);
+  assert.match(text, /`MEMORY\.md`/);
+  assert.match(text, /`memory\/YYYY-MM-DD\.md`/);
+  assert.match(text, /as soon as the user shares/);
+  assert.match(text, /Never say "saved", "noted" or "I'll remember"/);
+  assert.match(text, /succeeded in this turn/);
+  assert.match(text, /refused or fails, say plainly/);
+  assert.doesNotMatch(text, /lead/i);
+  // The managed AgentPier section stays first; memory follows it.
+  assert.ok(text.indexOf("## AgentPier") < text.indexOf("## Memory"));
+});
+
+test("memory on for a team member: lead turns keep memory read-only", () => {
+  const text = assistantBootstrap(
+    { ...memoryOn, teamMemberId: "m1", lifetime: "permanent" },
+    {},
+  );
+  assert.match(text, /## Memory/);
+  assert.match(text, /lead asks or delegates.*memory is read-only/);
+});
+
+test("memory off: no memory guidance, for leads and members alike", () => {
+  for (const profile of [
+    assistant,
+    { ...assistant, capabilities: { memory: false } },
+    { ...assistant, teamMemberId: "m1", lifetime: "permanent" },
+    // A temporary member never has memory, even when the flag is set.
+    { ...memoryOn, teamMemberId: "m1", lifetime: "task" },
+  ]) {
+    const text = assistantBootstrap(profile, {});
+    assert.doesNotMatch(text, /## Memory/);
+    assert.doesNotMatch(text, /MEMORY\.md/);
+  }
+});
