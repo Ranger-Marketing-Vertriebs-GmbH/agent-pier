@@ -6,6 +6,7 @@ import path from "node:path";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
+import { Preferences } from "../../server/features/settings/preferences.js";
 
 for (const mapped of [false, true]) {
   test(`restore preserves eligible default accounts with project mapping ${mapped}`, async (t) => {
@@ -86,3 +87,29 @@ for (const account of [
     );
   });
 }
+
+test("restore keeps saved preferences besides the remapped ones", async (t) => {
+  const root = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "restore-settings-")),
+  );
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const source = path.join(root, "source"),
+    target = path.join(root, "target");
+  await fs.mkdir(source);
+  await fs.writeFile(path.join(source, "accounts.json"), "[]");
+  await fs.writeFile(
+    path.join(source, "preferences.json"),
+    JSON.stringify({ autoResumeInterrupted: false, defaultCwd: path.join(root, "gone") }),
+  );
+  const backup = await new Backup({ dataDir: source, home: root }).create();
+  await new Restore({ dataDir: source }).apply({
+    archive: backup.file,
+    targetDataDir: target,
+  });
+  const restored = JSON.parse(await fs.readFile(path.join(target, "preferences.json")));
+  assert.deepEqual(restored, { autoResumeInterrupted: false });
+  assert.equal(
+    new Preferences({ dataDir: target, home: root }).get().autoResumeInterrupted,
+    false,
+  );
+});
