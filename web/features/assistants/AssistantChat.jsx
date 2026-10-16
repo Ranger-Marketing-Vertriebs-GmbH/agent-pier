@@ -29,6 +29,7 @@ import useSessionViewport from "../sessions/useSessionViewport.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
+import { memoryNoteCopy } from "../../lib/i18n/messages/assistant-memory-notes.js";
 import { assistantApi } from "./assistant-api.js";
 import useAssistants, { useAssistantEvent } from "./useAssistants.js";
 import { leadMembers } from "./useMemberMention.js";
@@ -323,6 +324,14 @@ export default function AssistantChat({
                   data-routine-failed
                 >
                   {routineCopy.chatFailed(m.name)}
+                </p>
+              ) : m.event === "memory-note" ? (
+                <p
+                  key={m.id}
+                  className="assistant-note assistant-event"
+                  data-memory-note={m.reason}
+                >
+                  {memoryNoteCopy.reasons[m.reason] || memoryNoteCopy.unknown}
                 </p>
               ) : m.role === "event" ? (
                 <p key={m.id} className="assistant-note assistant-event">

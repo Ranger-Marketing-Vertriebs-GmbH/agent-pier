@@ -93,3 +93,20 @@ test("memory off: no memory guidance, for leads and members alike", () => {
     assert.doesNotMatch(text, /MEMORY\.md/);
   }
 });
+
+test("memory on without writes: the agent is told memory is read-only right now", () => {
+  const text = assistantBootstrap(memoryOn, {}, { memoryWritable: false });
+  assert.match(text, /## Memory/);
+  assert.match(text, /read-only right now/);
+  assert.match(text, /nothing can be saved/);
+  for (const writable of [undefined, true])
+    assert.doesNotMatch(
+      assistantBootstrap(memoryOn, {}, { memoryWritable: writable }),
+      /read-only right now/,
+    );
+  assert.doesNotMatch(
+    assistantBootstrap(assistant, {}, { memoryWritable: false }),
+    /read-only right now/,
+    "no memory, no note",
+  );
+});
