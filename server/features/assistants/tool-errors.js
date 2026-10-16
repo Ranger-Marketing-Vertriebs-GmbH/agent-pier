@@ -32,6 +32,20 @@ const reasons = {
     "Too many questions or tasks for your members in this turn or minute. Do not retry now; tell the owner what is still open, or let the owner approve more.",
   MEMBER_UNAVAILABLE:
     "This member never started and has no chat to answer in. Choose another member.",
+  SSH_NOT_GRANTED:
+    "This SSH host is not granted to you. Use agentpier_ssh with action hosts and an accessId from it; ask the owner to grant other hosts.",
+  SSH_HOST_UNAVAILABLE:
+    "This SSH host is unavailable: it was removed or OpenSSH is missing. Tell the owner; do not retry.",
+  SSH_ROUTINE_NOT_TRUSTED:
+    "In routines only hosts the owner marked 'Trusted incl. routines' run commands. Do not retry; say in the routine's result that SSH was refused for this host.",
+  SSH_ORIGIN_REFUSED:
+    "SSH is not available in this turn: it was not the owner's own request (forwarded, scheduled or member content). Do not retry; tell the owner.",
+  SSH_BUSY:
+    "Another SSH command of yours is still running. Wait for its result before you start the next one.",
+  SSH_APPROVAL_LIMIT:
+    "Three of your SSH commands already wait for the owner's approval. Wait for decisions before you request more.",
+  SSH_REVOKED:
+    "The SSH access changed or the turn ended while the command waited or ran; it was stopped. Do not retry without the owner.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -45,6 +59,13 @@ const byKey = {
   memberRequestNotFinished: "MEMBER_NOT_FINISHED",
   memberRequestUnavailable: "MEMBER_UNAVAILABLE",
   memberRequestRate: "RATE_LIMITED",
+  sshNotGranted: "SSH_NOT_GRANTED",
+  sshHostUnavailable: "SSH_HOST_UNAVAILABLE",
+  sshRoutineNotTrusted: "SSH_ROUTINE_NOT_TRUSTED",
+  sshOriginRefused: "SSH_ORIGIN_REFUSED",
+  sshBusy: "SSH_BUSY",
+  sshApprovalLimit: "SSH_APPROVAL_LIMIT",
+  sshRevoked: "SSH_REVOKED",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",
