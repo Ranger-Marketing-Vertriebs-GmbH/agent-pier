@@ -85,7 +85,7 @@ npm start
 2. Open **Accounts** from the sidebar **Menu**: sign in to a coding CLI under
    **Native CLI accounts**, or add a provider connection under **Model access**.
    Missing CLIs can be installed from the overview.
-3. Choose **New session**, pick a CLI, an account and a project folder, and start.
+3. Choose **New → Session**, pick a CLI, an account and a project folder, and start.
    The native terminal handles CLI logins and menus; the chat shows the saved
    conversation.
 4. Optional: switch on agents under **Settings → Workspace → Agents → Enable agents**

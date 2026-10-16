@@ -50,7 +50,10 @@ export function readRoute(location) {
       view: "workspace",
       sessionId: "",
     };
-  if (pathname === "/agents") return { view: "agents" };
+  if (pathname === "/agents")
+    return new URLSearchParams(location.search).get("new") === "1"
+      ? { view: "agents", creating: true }
+      : { view: "agents" };
   const agent =
     /^\/agents\/([A-Za-z0-9_-]+)\/(settings|chats\/([A-Za-z0-9_-]+)|teams\/([A-Za-z0-9_-]+))$/.exec(
       pathname,
@@ -236,7 +239,9 @@ function basePath(route) {
         ? `/agents/${encodeURIComponent(route.assistantId)}/teams/${encodeURIComponent(route.teamId)}`
         : route.assistantId
           ? `/agents/${encodeURIComponent(route.assistantId)}/settings${agentSettingsQuery(route)}`
-          : "/agents";
+          : route.creating
+            ? "/agents?new=1"
+            : "/agents";
   if (route.view === "settings") return settingsRoutePath(route);
   if (route.view === "pipelines") return pipelineRoutePath(route);
   if (route.view === "projects") return projectsRoutePath(route);

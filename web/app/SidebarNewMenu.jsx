@@ -1,0 +1,95 @@
+import React, { useEffect, useRef, useState } from "react";
+import Icon from "../components/Icon.jsx";
+import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
+
+// The orange "+ New" button: a small menu with the two things the owner can create.
+export default function SidebarNewMenu({ items, disabled }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef(null),
+    trigger = useRef(null),
+    menu = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    menu.current?.querySelector("[role='menuitem']")?.focus();
+    const outside = (event) => {
+      if (!root.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open]);
+  const keys = (event) => {
+    if (event.key === "Escape") {
+      // One layer at a time: the phone drawer stays open behind the menu.
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      trigger.current?.focus();
+      return;
+    }
+    if (event.key === "Tab") {
+      trigger.current?.focus();
+      setOpen(false);
+      return;
+    }
+    const controls = [...event.currentTarget.querySelectorAll("[role='menuitem']")];
+    const position = controls.indexOf(document.activeElement);
+    const next =
+      event.key === "ArrowDown"
+        ? (position + 1) % controls.length
+        : event.key === "ArrowUp"
+          ? (position - 1 + controls.length) % controls.length
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? controls.length - 1
+              : null;
+    if (next === null) return;
+    event.preventDefault();
+    controls[next].focus();
+  };
+  return (
+    <div className="new-menu" ref={root}>
+      <button
+        ref={trigger}
+        type="button"
+        className="button primary new-session"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Icon name="plus" />
+        {copy.newLabel}
+      </button>
+      {open && (
+        <div
+          role="menu"
+          ref={menu}
+          aria-label={copy.newLabel}
+          className="new-menu-popover"
+          onKeyDown={keys}
+          onBlur={(event) => {
+            const next = event.relatedTarget;
+            if (next && !root.current?.contains(next)) setOpen(false);
+          }}
+        >
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                // Focus the trigger first so a dialog opened next returns focus there.
+                trigger.current?.focus();
+                setOpen(false);
+                item.onSelect();
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

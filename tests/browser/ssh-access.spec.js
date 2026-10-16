@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./ssh-fixture.js";
@@ -163,7 +164,7 @@ test("launch selections are submitted and retained when launch fails", async ({
     return route.fulfill({ status: 409, json: { error: "Launch rejected" } });
   });
   await page.goto(baseURL);
-  await page.getByRole("button", { name: "Neue Sitzung", exact: true }).click();
+  await openNewSession(page);
   await page.locator(".launch-extensions > summary").click();
   await page.getByRole("checkbox", { name: /Build server/ }).check();
   await page

@@ -456,7 +456,8 @@ test("historical assignments group same-named members with direct chat access", 
     group.getByRole("button", { name: /^Reviewer 1, / }),
   ).toHaveAccessibleDescription("Check last release notes");
   const launch = await page
-    .getByRole("button", { name: "New session", exact: true })
+    .locator(".sidebar-launch")
+    .getByRole("button", { name: "New", exact: true })
     .boundingBox();
   expect(launch.height).toBeGreaterThanOrEqual(40);
   const content = await page

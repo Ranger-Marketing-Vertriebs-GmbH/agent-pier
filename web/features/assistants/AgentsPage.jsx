@@ -18,7 +18,7 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
     error: loadError,
     refresh,
   } = useAssistants();
-  const [creating, setCreating] = useState(false),
+  const [creating, setCreating] = useState(Boolean(route.creating)),
     [error, setError] = useState("");
   const assistant = assistants.find((a) => a.id === route.assistantId);
   const request = useRef(null);
@@ -29,6 +29,14 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
     },
     [route],
   );
+  // The sidebar's "New > Agent" arrives with the flag while this page may be open.
+  useEffect(() => {
+    if (route.creating) setCreating(true);
+  }, [route.creating]);
+  const stopCreating = () => {
+    setCreating(false);
+    if (route.creating) navigate({ view: "agents" });
+  };
   async function open(a) {
     const ticket = {};
     request.current = ticket;
@@ -121,7 +129,7 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
                   agentSettings: true,
                 });
               }}
-              onCancel={() => setCreating(false)}
+              onCancel={stopCreating}
             />
           )}
           {!assistants.length && !creating && (

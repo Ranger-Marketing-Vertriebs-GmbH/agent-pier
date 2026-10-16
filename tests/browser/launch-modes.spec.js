@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 
 import { baseURL as base } from "../helpers/browser.js";
@@ -38,10 +39,7 @@ async function launchFixture(page, { accept = false } = {}) {
   return launches;
 }
 async function openDialog(page) {
-  await page
-    .getByRole("button", { name: /^(Neue Sitzung|New session)$/ })
-    .first()
-    .click();
+  await openNewSession(page);
 }
 
 test("new sessions default to Codex YOLO and Claude/OpenCode Auto", async ({ page }) => {

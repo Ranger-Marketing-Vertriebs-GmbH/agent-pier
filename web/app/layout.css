@@ -137,10 +137,36 @@
   /* 13px to the content edge in the handoff, inside the 1px button border. */
   padding: 0 12px;
 }
-.shortcut {
-  margin-left: auto;
-  font-size: 17px;
-  opacity: 0.6;
+.new-menu {
+  position: relative;
+}
+.new-menu-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--popover-bg);
+  box-shadow: var(--popover-shadow);
+}
+.new-menu-popover [role="menuitem"] {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-menu);
+  text-align: left;
+}
+.new-menu-popover [role="menuitem"]:hover,
+.new-menu-popover [role="menuitem"]:focus-visible {
+  background: var(--nav-selected);
+  color: var(--accent-text);
 }
 .sidebar-group {
   min-width: 0;

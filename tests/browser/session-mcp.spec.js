@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./ssh-fixture.js";
@@ -14,9 +15,7 @@ for (const mobile of [false, true])
       return route.fulfill({ status: 409, json: { error: "Launch rejected" } });
     });
     await page.goto(baseURL);
-    await (mobile ? page.getByRole("main") : page)
-      .getByRole("button", { name: "Neue Sitzung", exact: true })
-      .click();
+    await openNewSession(page);
     await page.locator(".launch-extensions > summary").click();
     const enabled = page.getByRole("checkbox", { name: /AgentPier-Werkzeuge/ });
     await expect(enabled).toBeChecked();

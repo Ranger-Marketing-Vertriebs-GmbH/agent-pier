@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
@@ -42,7 +43,7 @@ test("connection list and launch dialog label adapter routes", async ({ page }) 
     /OpenCode.*native/,
   ]);
   await page.goto(baseURL + "/");
-  await page.getByRole("button", { name: "New session", exact: true }).first().click();
+  await openNewSession(page);
   await page.getByLabel("CLI", { exact: true }).selectOption("claude");
   await expect(
     page
@@ -70,7 +71,7 @@ test("OpenCode SDK routes show only the protocol", async ({ page }) => {
     detail.getByRole("group", { name: "Compatible CLIs" }).locator(".list-row"),
   ).toHaveText([/Claude Code.*native/, /OpenCode.*Responses/]);
   await page.goto(baseURL + "/");
-  await page.getByRole("button", { name: "New session", exact: true }).first().click();
+  await openNewSession(page);
   await page.getByLabel("CLI", { exact: true }).selectOption("opencode");
   const option = page
     .getByLabel("Connection", { exact: true })

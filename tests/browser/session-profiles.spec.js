@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { pipelinesFixture, openPipelines } from "./pipelines-fixture.js";
 
@@ -28,9 +29,7 @@ for (const width of [1440, 390])
       }),
     );
     await openPipelines(page);
-    await (width === 390 ? page.getByRole("main") : page)
-      .getByRole("button", { name: "Neue Sitzung", exact: true })
-      .click();
+    await openNewSession(page);
     const dialog = page.getByRole("dialog", { name: "Neue Sitzung", exact: true });
     const profile = dialog.getByRole("combobox", { name: "Aufgabenprofil", exact: true });
     await expect(profile).toHaveValue("");
@@ -134,7 +133,7 @@ test("Bug Hunter instructions and parameters survive switching from Claude to Co
   profile.config.permissions.mode = "auto";
   profile.config.prompts.params = [{ key: "topic", label: "Fehler", required: true }];
   await openPipelines(page);
-  await page.getByRole("button", { name: "Neue Sitzung", exact: true }).click();
+  await openNewSession(page);
   const dialog = page.getByRole("dialog", { name: "Neue Sitzung", exact: true });
   const selection = dialog.getByRole("combobox", { name: "Aufgabenprofil", exact: true });
   await selection.selectOption(profile.id);

@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { fixture } from "./ssh-fixture.js";
 
@@ -22,7 +23,7 @@ test("Memory discovery failure is translated in the session dialog and preserves
     }),
   );
   await page.goto("/");
-  await page.getByRole("button", { name: "New session", exact: true }).click();
+  await openNewSession(page);
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Session name", { exact: true }).fill("Memory fixture");
   await dialog.getByRole("button", { name: "Choose directory", exact: true }).click();

@@ -1,3 +1,4 @@
+import { openNewSession } from "../helpers/navigation.js";
 import { accountDetail, openAccountItem } from "../helpers/accounts-browser.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
@@ -28,7 +29,7 @@ async function launchFixture(page) {
     }),
   );
   await page.goto(base);
-  await page.getByRole("button", { name: "Neue Sitzung", exact: true }).click();
+  await openNewSession(page);
 }
 
 test("the launch dialog shows a disabled sandbox-profile selector defaulting to no sandbox", async ({
@@ -100,7 +101,7 @@ test("the sandbox-profile selector is reachable for a shell launch", async ({ pa
     }),
   );
   await page.goto(base);
-  await page.getByRole("button", { name: "Neue Sitzung", exact: true }).click();
+  await openNewSession(page);
   const dialog = page.getByRole("dialog");
   // Keep the tool selector available while hiding coding-only access fields.
   await expect(dialog.getByLabel("CLI", { exact: true })).toHaveValue("shell");
@@ -149,7 +150,7 @@ test("selecting a task profile disables the sandbox-profile selector with an exp
     }),
   );
   await page.goto(base);
-  await page.getByRole("button", { name: "Neue Sitzung", exact: true }).click();
+  await openNewSession(page);
   const dialog = page.getByRole("dialog");
   const select = dialog.getByLabel("Sandbox-Profil", { exact: true });
   await expect(select).toBeEnabled();

@@ -179,8 +179,6 @@ test("the sidebar head follows the handoff measurements", async ({ page }) => {
   const launch = page.locator(".sidebar-launch .new-session");
   const button = await launch.boundingBox();
   const plus = await launch.locator("svg").boundingBox();
-  const arrow = await launch.locator(".shortcut").boundingBox();
   expect(plus.x - button.x).toBe(13);
-  expect(button.x + button.width - (arrow.x + arrow.width)).toBe(13);
   expect(button.height).toBe(43);
 });

@@ -1,5 +1,5 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
-import { navigateTo } from "../helpers/navigation.js";
+import { navigateTo, openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import {
   accountDetail,
@@ -188,7 +188,7 @@ test("account creation, directory selection, session lifecycle and reload preser
   await page.getByRole("button", { name: "Account erstellen" }).click();
   await expect(accountRow(page, "Arbeit")).toBeVisible();
   await expect(page.getByText("never-return-me")).toHaveCount(0);
-  await page.getByRole("button", { name: "Neue Sitzung", exact: true }).first().click();
+  await openNewSession(page);
   await page.getByLabel("Name der Sitzung").fill("Review");
   await page.getByLabel("Zugang", { exact: true }).selectOption("managed-1");
   await page.getByRole("button", { name: "Ordner auswählen" }).click();
