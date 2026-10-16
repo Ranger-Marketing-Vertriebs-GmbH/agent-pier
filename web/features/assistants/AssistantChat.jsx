@@ -83,6 +83,9 @@ export default function AssistantChat({
   const [files, setFiles] = useState(0);
   const typed = useRef(text);
   typed.current = text;
+  // The submission being queued: one at a time, and a retry of the same content
+  // keeps its appendId, so the server adds the text only once.
+  const appending = useRef({ busy: false, last: null });
   const touchInput = useTouchInput();
   const attachments = useAgentAttachments(conversationId);
   // The whole panel takes dropped files; the composer stays droppable while the agent
@@ -245,14 +248,22 @@ export default function AssistantChat({
   // done" queue the message, after the waiting one: only Stop stops a turn.
   async function queue(ids) {
     if (assistant.archivedAt || (!text.trim() && !ids.length)) return false;
+    const append = appending.current;
+    if (append.busy) return false;
     setError("");
     const submitted = text;
+    const content = JSON.stringify([text, teamAllowed, ids]);
+    if (append.last?.content !== content)
+      append.last = { content, id: crypto.randomUUID() };
+    append.busy = true;
     try {
       await assistantApi.queue(conversationId, {
         text,
         ...(teamAllowed ? { teamAllowed: true } : {}),
         ...(ids.length ? { attachments: ids } : {}),
+        appendId: append.last.id,
       });
+      append.last = null;
       if (drafts.get(conversationId) === submitted) {
         drafts.clear(conversationId);
         setText("");
@@ -263,6 +274,8 @@ export default function AssistantChat({
     } catch (e) {
       setError(e.message);
       return false;
+    } finally {
+      append.busy = false;
     }
   }
   async function send(event, ids = []) {

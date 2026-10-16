@@ -35,11 +35,15 @@ export default function QueuedMessage({
     field.current?.focus();
   }, [editable, field]);
   const notice = kind ? noticeText(kind, queued, name) : "";
+  // The service coming and going changes the card, not what is announced.
+  const announced = kind
+    ? noticeText(kind === "blocked" ? "waiting" : kind, queued, name)
+    : "";
   return (
     <>
       {/* role="status" is polite by itself; the chat keeps one explicit region for replies. */}
       <span className="sr-only assistant-queued-live" role="status">
-        {notice}
+        {announced}
       </span>
       {queued && (
         <div
