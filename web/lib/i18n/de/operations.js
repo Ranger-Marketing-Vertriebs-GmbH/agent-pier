@@ -104,6 +104,8 @@ export const operationsCopy = {
     "Das geprüfte Archiv wird in einem neuen Datenverzeichnis wiederhergestellt. Es werden keine nativen Sitzungen gestartet.",
   restored: "Wiederherstellung abgeschlossen",
   credentialsRestored: "Zugangsdaten wiederhergestellt",
+  yes: "Ja",
+  no: "Nein",
   needsLogin: "Erneute Anmeldung erforderlich",
   needsMcpServerValues: (name) => `MCP-Server ${name} (Werte neu eingeben)`,
   needsMcpServerAddress: (name) =>
