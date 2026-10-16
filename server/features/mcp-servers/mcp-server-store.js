@@ -152,7 +152,7 @@ export class McpServerStore {
           cwd: row.cwd,
           auth: row.auth ?? "headers",
           oauthScope: row.oauth_scope ?? null,
-          ...this.packages.definitionFields(row.id, packages),
+          ...this.packages.definitionFields(row.id, packages, row.command),
         };
       });
   }

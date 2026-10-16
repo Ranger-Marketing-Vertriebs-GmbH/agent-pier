@@ -22,12 +22,19 @@ const storedRows = (names = []) =>
     removed: false,
   }));
 
+/**
+ * Only a switch to a ready install replaces the stored command: before it (installing,
+ * failed, choosing) a server switched from an own command still runs that one.
+ */
+const ownCommand = (server) =>
+  !server?.source || ["installing", "failed", "choosing"].includes(server.source.status);
+
 export function draftFrom(server) {
   return {
     name: server?.name || "",
     transport: server?.transport || "http",
     url: server?.url || "",
-    command: server?.source ? "" : server?.command || "",
+    command: ownCommand(server) ? server?.command || "" : "",
     // A packaged server shows the owner's arguments only; the server reports
     // leadingArgs 0 until a first install stored a generated argument.
     args: (server?.args || []).slice(server?.source?.leadingArgs ?? 0).join("\n"),

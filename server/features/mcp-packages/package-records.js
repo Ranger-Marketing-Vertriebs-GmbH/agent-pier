@@ -196,9 +196,14 @@ export class PackageRecords {
       },
     };
   }
-  definitionFields(serverId, rows) {
+  /**
+   * `command` is the stored one. Only a switch to a ready install replaces it, so
+   * before that (installing, failed, choosing) a server switched from an own command
+   * still runs that command and is projected like any own-command server (docs/mcp.md).
+   */
+  definitionFields(serverId, rows, command = null) {
     const row = rows ? (rows.get(serverId) ?? null) : this.get(serverId);
-    if (!row) return {};
+    if (!row || (command && row.status !== "ready")) return {};
     const status = this.computedStatus(row);
     return {
       packageStatus: status,
