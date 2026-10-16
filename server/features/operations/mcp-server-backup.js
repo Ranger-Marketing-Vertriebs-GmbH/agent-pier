@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { problem } from "../../lib/storage.js";
 import { values } from "../extensions/mcp-config.js";
 import { clis } from "../mcp-servers/cli-native.js";
+import { readDirectoryOrigin } from "../mcp-servers/directory-origin.js";
 import { publicUrl } from "../mcp-servers/mcp-server-store.js";
 import { database } from "./restore-data.js";
 
@@ -35,6 +36,7 @@ const knownColumns = {
     "oauth_scope",
     "oauth_connected",
     "oauth_login_redirect",
+    "directory_origin",
   ],
   server_secrets: ["server_id", "kind", "name", "value"],
   bindings: ["server_id", "target_kind", "target_id"],
@@ -341,6 +343,19 @@ function applySealed(db, tables, sealed) {
  * (address token) for what stays missing. The sealed member never remains in the
  * restored data directory.
  */
+/** A crafted backup's directory origin that would not validate becomes NULL. */
+function dropInvalidOrigins(db) {
+  const columns = db.prepare("PRAGMA table_info(servers)").all();
+  if (!columns.some((column) => column.name === "directory_origin")) return;
+  const clear = db.prepare("UPDATE servers SET directory_origin=NULL WHERE id=?");
+  for (const row of db
+    .prepare(
+      "SELECT id, directory_origin FROM servers WHERE directory_origin IS NOT NULL",
+    )
+    .all())
+    if (!readDirectoryOrigin(row.directory_origin)) clear.run(row.id);
+}
+
 export function restoreMcpServers(stage) {
   const file = path.join(stage, mcpStoreMember);
   const sealedFile = path.join(stage, mcpValuesMember);
@@ -358,6 +373,7 @@ export function restoreMcpServers(stage) {
       db.exec("PRAGMA foreign_keys=ON; BEGIN IMMEDIATE");
       try {
         const addresses = sealed ? applySealed(db, tables, sealed) : new Set();
+        dropInvalidOrigins(db);
         const restored = sealed?.servers ?? new Map();
         const missing = [];
         if (tables.has(withheldTable)) {
