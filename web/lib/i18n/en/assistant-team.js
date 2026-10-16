@@ -58,6 +58,7 @@ export const assistantTeamCopy = {
     "team-result": "Team results received. The agent is summarizing them.",
     "member-result": "A member's answer arrived. The agent is passing it on.",
     "coding-result": "Coding run result received.",
+    "memory-result": "A project knowledge note was not saved. The agent was told.",
   },
   notes: {
     started: (title) => `Team started: ${title}`,

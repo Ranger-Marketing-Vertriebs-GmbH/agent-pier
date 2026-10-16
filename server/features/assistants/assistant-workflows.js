@@ -9,6 +9,7 @@ import {
   notifyAction,
   telegramTarget,
 } from "./assistant-action-notifications.js";
+import { deliverMemoryFollowUp } from "./memory-follow-up.js";
 import { deliverFollowUps, memberActions, memberContext } from "./team-coding.js";
 import { decideAudited } from "./approval-audit.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
@@ -466,8 +467,9 @@ export class AssistantWorkflows {
       a = noteCodingRun(this, a);
       notifyAction(this, a, "result");
       const emitted = await this.emitCompletion(a),
-        delivered = await deliverFollowUps(this, a);
-      if (emitted && delivered) this.store.patch(a.id, { settled: true });
+        delivered = await deliverFollowUps(this, a),
+        reported = await deliverMemoryFollowUp(this, a);
+      if (emitted && delivered && reported) this.store.patch(a.id, { settled: true });
     }
   }
   // Returns whether the terminal action has no follow-up work left.

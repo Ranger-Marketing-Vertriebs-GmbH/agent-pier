@@ -21,7 +21,13 @@ const messages = [
   note("lead-request", 5),
   note("flush", 6),
   note("something-new", 7),
+  // The agent's follow-up turn after a declined project-knowledge note.
+  { id: "followup", role: "event", event: "memory-result", timestamp: 8, runId: null },
 ];
+const followUp = {
+  en: "A project knowledge note was not saved. The agent was told.",
+  de: "Eine Notiz im Projektwissen wurde nicht gespeichert. Der Agent wurde informiert.",
+};
 const copy = {
   en: [
     "Memory is read-only for this message: write protection is still starting.",
@@ -118,4 +124,7 @@ for (const language of ["en", "de"])
       "flush",
       "something-new",
     ]);
+    await expect(log.locator(".assistant-event:not([data-memory-note])")).toHaveText(
+      followUp[language],
+    );
   });
