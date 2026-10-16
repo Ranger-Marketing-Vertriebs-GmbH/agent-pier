@@ -58,3 +58,59 @@ test("a restore archive uploads in slices, shows progress and resumes a failed s
     state.calls.find((call) => call.path === "/operations/restore/uploads").body,
   ).toEqual({ size: 3 * 1024 * 1024 });
 });
+
+/** Answers the next `method` request to `path` with the server's "not found". */
+async function goneOnce(page, path, method) {
+  let pending = true;
+  await page.route(`**/api${path}`, (route) => {
+    if (!pending || route.request().method() !== method) return route.fallback();
+    pending = false;
+    return route.fulfill({ status: 404, json: { error: "Uploaded archive not found." } });
+  });
+}
+async function chooseArchive(page) {
+  await page.goto(baseURL + "/settings/backups");
+  await page
+    .getByRole("button", { name: "Inspect and restore backup", exact: true })
+    .click();
+  await page.getByLabel("Backup file", { exact: true }).setInputFiles({
+    name: "fixture.apbackup",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.alloc(1024, 1),
+  });
+  return page.getByRole("button", { name: "Inspect archive", exact: true });
+}
+const uploadStarts = (state) =>
+  state.calls.filter(
+    (call) => call.path === "/operations/restore/uploads" && call.method === "POST",
+  );
+
+test("an upload the server no longer has starts anew on the next attempt", async ({
+  page,
+}) => {
+  const state = await operationsFixture(page);
+  state.failOnce = { path: "/operations/restore/uploads/upload-one", method: "PUT" };
+  // The server lost the upload (expired, or removed) while a slice was resent.
+  await goneOnce(page, "/operations/restore/uploads/upload-one", "GET");
+  const inspect = await chooseArchive(page);
+  await inspect.click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
+  await inspect.click();
+  await expect(page.getByLabel("New data directory", { exact: true })).toBeVisible();
+  expect(uploadStarts(state)).toHaveLength(2);
+});
+
+test("an uploaded archive the server removed is uploaded again for its inspection", async ({
+  page,
+}) => {
+  const state = await operationsFixture(page);
+  state.failOnce = { path: "/operations/restore/inspect", method: "POST" };
+  const inspect = await chooseArchive(page);
+  await inspect.click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
+  // Before the next attempt, the uploaded archive expired.
+  await goneOnce(page, "/operations/restore/inspect", "POST");
+  await inspect.click();
+  await expect(page.getByLabel("New data directory", { exact: true })).toBeVisible();
+  expect(uploadStarts(state)).toHaveLength(2);
+});
