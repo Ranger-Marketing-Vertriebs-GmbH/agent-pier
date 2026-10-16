@@ -52,8 +52,11 @@ export class McpDirectory {
     this.log = log;
     this.deadlineMs = deadlineMs;
     this.cache = new TtlCache({ now });
+    this.generation = 0;
   }
+  /** Empties the cache; answers still in flight from before are not stored. */
   clear() {
+    this.generation += 1;
     this.cache.clear();
   }
   current() {
@@ -101,6 +104,10 @@ export class McpDirectory {
     const cached = this.cache.get(key);
     if (cached?.error) throw directoryProblem(cached.error);
     if (cached) return cached.body;
+    const generation = this.generation;
+    const remember = (value, lifetime) => {
+      if (generation === this.generation) this.cache.set(key, value, lifetime);
+    };
     let bytes;
     try {
       bytes = await this.fetchBytes(url, limit);
@@ -109,7 +116,7 @@ export class McpDirectory {
       const code =
         upstream === 404 ? "MCP_DIRECTORY_NOT_FOUND" : "MCP_DIRECTORY_UNAVAILABLE";
       // 429 and 5xx: the registry asked for a pause; do not ask again for 60 s.
-      if (negative(upstream)) this.cache.set(key, { error: code }, ttl.negative);
+      if (negative(upstream)) remember({ error: code }, ttl.negative);
       // Code and host only: never the search term or the address.
       this.log(`AgentPier MCP directory request failed (${code}, ${host}).`);
       throw directoryProblem(code);
@@ -123,7 +130,7 @@ export class McpDirectory {
       );
       throw directoryProblem("MCP_DIRECTORY_UNAVAILABLE");
     }
-    this.cache.set(key, { body }, lifetime);
+    remember({ body }, lifetime);
     return body;
   }
   async search({ search = "", cursor = "" } = {}) {

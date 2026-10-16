@@ -48,7 +48,9 @@ export function registerResponses(app) {
           : error.message || serverMessages.http.requestFailed;
     res.status(status).json({
       ...(error.code === "MEMORY_DISCOVERY_CONFIG" ||
-      /^(?:SSH|ARTIFACT|PIPELINE|MCP_CLI|MCP_PACKAGE)_[A-Z_]+$/.test(error.code || "")
+      /^(?:SSH|ARTIFACT|PIPELINE|MCP_CLI|MCP_PACKAGE|MCP_DIRECTORY)_[A-Z_]+$/.test(
+        error.code || "",
+      )
         ? { code: error.code }
         : {}),
       error: message,

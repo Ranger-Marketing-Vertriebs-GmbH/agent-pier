@@ -2,6 +2,11 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { readJSON, writePrivate, problem } from "../../lib/storage.js";
+import {
+  defaultBaseUrl,
+  directorySettings,
+  normaliseBaseUrl,
+} from "../mcp-directory/directory-settings.js";
 
 export class Preferences {
   constructor({ dataDir, home, accounts }) {
@@ -30,6 +35,7 @@ export class Preferences {
       defaultCwd: this.value.defaultCwd || this.home,
       defaultAccountIds,
       autoResumeInterrupted: this.value.autoResumeInterrupted !== false,
+      mcpDirectory: directorySettings(this.value.mcpDirectory),
     };
   }
   eligible(account, tool) {
@@ -66,7 +72,12 @@ export class Preferences {
       Array.isArray(body) ||
       Object.keys(body).some(
         (key) =>
-          !["defaultCwd", "defaultAccountIds", "autoResumeInterrupted"].includes(key),
+          ![
+            "defaultCwd",
+            "defaultAccountIds",
+            "autoResumeInterrupted",
+            "mcpDirectory",
+          ].includes(key),
       )
     )
       throw problem(serverMessages.settings.invalidPreferences);
@@ -75,6 +86,9 @@ export class Preferences {
       typeof body.autoResumeInterrupted !== "boolean"
     )
       throw problem(serverMessages.settings.invalidPreferences);
+    const mcpDirectory = Object.hasOwn(body, "mcpDirectory")
+      ? this.directoryChange(body.mcpDirectory)
+      : undefined;
     const defaultCwd = Object.hasOwn(body, "defaultCwd")
       ? await this.directory(body.defaultCwd)
       : undefined;
@@ -85,9 +99,31 @@ export class Preferences {
     if (Object.hasOwn(body, "autoResumeInterrupted"))
       next.autoResumeInterrupted = body.autoResumeInterrupted;
     if (defaultCwd !== undefined) next.defaultCwd = defaultCwd;
+    if (mcpDirectory) next.mcpDirectory = mcpDirectory;
     writePrivate(this.file, next);
     this.value = next;
     return this.get();
+  }
+  /** `{ enabled?, baseUrl? }` merged onto the stored setting; `baseUrl: null` resets it. */
+  directoryChange(change) {
+    if (
+      !change ||
+      typeof change !== "object" ||
+      Array.isArray(change) ||
+      Object.keys(change).some((key) => !["enabled", "baseUrl"].includes(key)) ||
+      (Object.hasOwn(change, "enabled") && typeof change.enabled !== "boolean")
+    )
+      throw problem(serverMessages.settings.invalidPreferences);
+    const current = directorySettings(this.value.mcpDirectory);
+    const enabled = change.enabled ?? current.enabled;
+    const baseUrl =
+      change.baseUrl === undefined
+        ? current.baseUrl
+        : change.baseUrl === null
+          ? defaultBaseUrl
+          : normaliseBaseUrl(change.baseUrl);
+    // The default is not stored, so the setting follows it if it ever moves.
+    return baseUrl === defaultBaseUrl ? { enabled } : { enabled, baseUrl };
   }
   async directory(value) {
     if (
