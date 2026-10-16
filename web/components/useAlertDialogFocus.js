@@ -53,18 +53,23 @@ export function useAlertDialogFocus(onCancel, returnKey) {
       event.stopPropagation();
       if (!ref.current.querySelector("[data-autofocus]")?.disabled) cancel.current();
     } else if (event.key === "Tab") {
-      const items = [...ref.current.querySelectorAll(focusable)];
-      if (!items.length) return event.preventDefault();
-      const first = items[0];
-      const last = items[items.length - 1];
-      const active = document.activeElement;
-      if (event.shiftKey && (active === first || !ref.current.contains(active))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (active === last || !ref.current.contains(active))) {
-        event.preventDefault();
-        first.focus();
-      }
+      // Every step is taken here: Safari on macOS lets Tab skip buttons by default, so
+      // its own next stop would lie outside the dialog.
+      event.preventDefault();
+      const items = [...ref.current.querySelectorAll(focusable)].filter(
+        (item) =>
+          item.getAttribute("tabindex") !== "-1" && item.getClientRects().length > 0,
+      );
+      if (!items.length) return;
+      const at = items.indexOf(document.activeElement);
+      const next = event.shiftKey
+        ? at <= 0
+          ? items.length - 1
+          : at - 1
+        : at === -1 || at === items.length - 1
+          ? 0
+          : at + 1;
+      items[next].focus();
     }
   };
   return { ref, onKeyDown };
