@@ -18,7 +18,7 @@ export default function AssistantsHost({ publishState, publishEvents }) {
   const [runtime, setRuntime] = useState({ availability: "disabled", sync: "stale" });
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(true);
-  const [lastEvent, setLastEvent] = useState(null);
+  const listeners = useRef(new Set());
   const alive = useRef(true);
   const refresh = useCallback(async () => {
     try {
@@ -58,7 +58,7 @@ export default function AssistantsHost({ publishState, publishEvents }) {
       } catch {
         return;
       }
-      setLastEvent(event);
+      for (const listener of [...listeners.current]) listener(event);
       if (event.type === "runtime") setRuntime(event);
       if (["change", "connected"].includes(event.type)) refresh();
     };
@@ -71,7 +71,15 @@ export default function AssistantsHost({ publishState, publishEvents }) {
     () => ({ ...data, runtime, error, connected, drafts: sharedDrafts, refresh }),
     [data, runtime, error, connected, refresh],
   );
-  const events = useMemo(() => ({ lastEvent }), [lastEvent]);
+  const events = useMemo(
+    () => ({
+      subscribe: (listener) => {
+        listeners.current.add(listener);
+        return () => listeners.current.delete(listener);
+      },
+    }),
+    [],
+  );
   useEffect(() => publishState(value), [value, publishState]);
   useEffect(() => publishEvents(events), [events, publishEvents]);
   useEffect(

@@ -31,7 +31,7 @@ import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { memoryNoteCopy } from "../../lib/i18n/messages/assistant-memory-notes.js";
 import { assistantApi } from "./assistant-api.js";
-import useAssistants, { useAssistantEvent } from "./useAssistants.js";
+import useAssistants, { useAssistantEvents } from "./useAssistants.js";
 import { leadMembers } from "./useMemberMention.js";
 import { streamInHistory } from "./stream-reply.js";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
@@ -65,7 +65,6 @@ export default function AssistantChat({
     copy.conversationDiagnostics[
       conversations.find((c) => c.id === conversationId)?.diagnostic
     ];
-  const lastEvent = useAssistantEvent();
   const [teamAllowed, setTeamAllowed] = useState(() =>
     drafts.teamAllowed(conversationId),
   );
@@ -89,11 +88,16 @@ export default function AssistantChat({
   const output = useRef(null);
   const stick = useRef(true);
   const scroll = useRef(0);
+  // Only the latest history read applies: an older one answering late, or one of the
+  // previous conversation, would bring back a state that is already over.
+  const reads = useRef(0);
   // Keeps the composer above the on-screen keyboard, as the session chat does.
   useSessionViewport(true);
   const refresh = useCallback(async () => {
+    const read = ++reads.current;
     try {
       const next = await assistantApi.history(conversationId);
+      if (read !== reads.current) return;
       if (baseline.current === undefined)
         baseline.current =
           next.messages.findLast((m) => m.role === "assistant")?.id ?? null;
@@ -106,18 +110,18 @@ export default function AssistantChat({
         setDelta(null);
       else setDelta((d) => (streamInHistory(d, next) ? null : d));
     } catch (e) {
-      setError(e.message);
+      if (read === reads.current) setError(e.message);
     }
   }, [conversationId]);
   useEffect(() => {
     baseline.current = undefined;
     refresh();
   }, [refresh]);
-  useEffect(() => {
-    if (lastEvent?.type === "delta" && lastEvent.conversationId === conversationId)
-      setDelta({ runId: lastEvent.runId, text: lastEvent.text });
-    if (["change", "connected"].includes(lastEvent?.type)) refresh();
-  }, [lastEvent, conversationId, refresh]);
+  useAssistantEvents((event) => {
+    if (event.type === "delta" && event.conversationId === conversationId)
+      setDelta({ runId: event.runId, text: event.text });
+    if (["change", "connected"].includes(event.type)) refresh();
+  });
   const member = members.find((m) => m.assistantId === assistant.id);
   const memberBusy =
     member && !["completed", "failed", "cancelled"].includes(member.phase);
