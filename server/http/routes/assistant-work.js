@@ -7,20 +7,22 @@ import { assistantErrors } from "./assistant-workflows.js";
 export function assistantWorkRoutes({ assistants }) {
   const router = Router();
   router.put("/assistants/:id/work", (req, res) =>
-    assistants.admit(() => {
+    assistants.admit(async () => {
       if (!assistants.workflows || !assistants.teams)
         throw assistantProblem("unavailable", 503);
-      res.json(
-        saveWork(
-          {
-            assistants,
-            access: assistants.workflows.access,
-            teams: assistants.teams.store,
-          },
-          req.params.id,
-          req.body,
-        ),
+      const { sshToolChanged, ...saved } = saveWork(
+        {
+          assistants,
+          access: assistants.workflows.access,
+          teams: assistants.teams.store,
+        },
+        req.params.id,
+        req.body,
       );
+      // The next turn applies it anyway; a ready Gateway gets it now.
+      if (sshToolChanged && assistants.runtime?.client?.ready)
+        await assistants.config.apply(req.params.id).catch(() => {});
+      res.json(saved);
     }),
   );
   router.use(assistantErrors);
