@@ -217,6 +217,20 @@ All three need a paired Telegram chat and live in the agent's **Telegram** tab.
   hours, and write only when something needs your attention. It needs **Remember
   information**. Each check-in costs a model run.
 
+## Messages while the agent works
+
+While the agent works on a message, **Stop** replaces the send button and is the only
+way to stop the turn. Pressing Enter, or choosing **Send when done** next to **Stop**
+(also on phones and tablets, where Enter starts a new line), queues the next message
+instead: the composer clears and the message waits above it with "Will be sent when
+_agent_ is done". A further message joins the queued one on a new line; each chat holds
+one queued message. **Edit** takes it back into the composer, before any text typed
+since. Once the turn ends, also when it failed or you stopped it, the queued message is
+sent once, with its files and team permission. It is kept only while the chat is open:
+leaving the chat returns its text to the composer's draft and discards its files like
+other unsent files, and a page reload discards it like the draft. If the agent cannot
+take it, it goes back into the composer with the error.
+
 ## Attachments
 
 Choose **+ → Attach file or image**, paste or drag files into the agent chat, also in

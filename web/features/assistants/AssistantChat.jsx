@@ -36,6 +36,7 @@ import useAssistants, { useAssistantEvents } from "./useAssistants.js";
 import { leadMembers } from "./useMemberMention.js";
 import { streamInHistory } from "./stream-reply.js";
 import { compactionNoteText } from "./compaction-note.js";
+import { queueMessage, queuedDelivery, sendsQueued, takeBack } from "./queued-message.js";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
 const sameTurnText = (a, b) => turnText(a) === turnText(b);
@@ -80,6 +81,14 @@ export default function AssistantChat({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState(0);
+  // The message held back while the agent works ({ text, teamAllowed, files,
+  // clientRequestId }), sent once the turn has ended. It lives while the chat is open:
+  // leaving the chat puts its text back into the draft.
+  const [queued, setQueued] = useState(null);
+  // The delivery key of the queued message on its way, so it goes out only once.
+  const delivering = useRef(null);
+  const typed = useRef(text);
+  typed.current = text;
   const touchInput = useTouchInput();
   const attachments = useAgentAttachments(conversationId);
   // The whole panel takes dropped files; the composer stays droppable while the agent
@@ -213,22 +222,17 @@ export default function AssistantChat({
     stick.current = false;
     scrollToChild(element, target);
   });
-  async function send(event, attachments = []) {
-    event.preventDefault();
-    if (!canSend) return false;
+  // One delivery of a message; `accepted` runs once the server has taken it.
+  async function deliver(submitted, ids, accepted) {
     stick.current = true;
     setBusy(true);
     setError("");
     try {
-      const submitted = drafts.delivery(conversationId);
       await assistantApi.send(
         conversationId,
-        attachments.length ? { ...submitted, attachments } : submitted,
+        ids.length ? { ...submitted, attachments: ids } : submitted,
       );
-      if (drafts.acknowledge(conversationId, submitted.clientRequestId)) {
-        setText("");
-        setTeamAllowed(false);
-      }
+      accepted?.();
       await refresh();
       return true;
     } catch (e) {
@@ -238,6 +242,68 @@ export default function AssistantChat({
       setBusy(false);
     }
   }
+  // While the agent works, Enter and "Send when done" queue the message: only the Stop
+  // button stops a turn.
+  function hold(ids) {
+    if (assistant.archivedAt || (!text.trim() && !ids.length)) return false;
+    setQueued((current) => queueMessage(current, { text, teamAllowed, files: ids }));
+    attachments.queue(ids);
+    setText("");
+    setTeamAllowed(false);
+    drafts.clear(conversationId);
+    return false;
+  }
+  async function send(event, ids = []) {
+    event.preventDefault();
+    if (active) return hold(ids);
+    if (!canSend) return false;
+    const submitted = drafts.delivery(conversationId);
+    return deliver(submitted, ids, () => {
+      if (drafts.acknowledge(conversationId, submitted.clientRequestId)) {
+        setText("");
+        setTeamAllowed(false);
+      }
+    });
+  }
+  function takeBackQueued(message = queued) {
+    if (!message) return;
+    const value = takeBack(message, typed.current);
+    setQueued(null);
+    attachments.unqueue(message.files);
+    setText(value);
+    drafts.set(conversationId, value);
+    if (message.teamAllowed) {
+      setTeamAllowed(true);
+      drafts.allowTeam(conversationId, true);
+    }
+  }
+  const available =
+    !memberBusy && !assistant.archivedAt && runtime.availability === "ready";
+  // The turn has ended (completed, failed or stopped): the queued message goes out
+  // once. A refused delivery returns it to the composer instead of retrying.
+  useEffect(() => {
+    if (delivering.current || !sendsQueued(queued, { active, busy, available })) return;
+    const message = queued;
+    delivering.current = message.clientRequestId;
+    deliver(queuedDelivery(message), message.files).then((sent) => {
+      if (sent) {
+        attachments.sent(message.files);
+        setQueued(null);
+      } else takeBackQueued(message);
+      delivering.current = null;
+    });
+  });
+  const leaving = useRef(null);
+  leaving.current = queued;
+  useEffect(
+    () => () => {
+      const message = leaving.current;
+      if (!message) return;
+      drafts.set(conversationId, takeBack(message, drafts.get(conversationId)));
+      if (message.teamAllowed) drafts.allowTeam(conversationId, true);
+    },
+    [conversationId, drafts],
+  );
   async function earlier() {
     try {
       const page = await assistantApi.history(conversationId, history.nextBefore);
@@ -475,6 +541,8 @@ export default function AssistantChat({
           active={Boolean(active)}
           touchInput={touchInput}
           onSubmit={send}
+          queued={queued}
+          onTakeBack={() => takeBackQueued()}
           onFiles={setFiles}
           onStop={stop}
           output={output}
