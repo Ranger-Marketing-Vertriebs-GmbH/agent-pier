@@ -1,3 +1,4 @@
+import { rmSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -23,9 +24,14 @@ let stopping = false;
 async function stop() {
   if (stopping) return;
   stopping = true;
-  await application.close();
-  await fs.rm(directory, { recursive: true, force: true });
+  try {
+    await application.close();
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
 }
+// Any other exit (an error, a stop after the grace period) still removes the data.
+process.once("exit", () => rmSync(directory, { recursive: true, force: true }));
 for (const signal of ["SIGINT", "SIGTERM"])
   process.once(signal, () => stop().then(() => process.exit(0)));
 application.server.listen(port, "127.0.0.1", () =>

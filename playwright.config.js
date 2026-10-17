@@ -45,6 +45,8 @@ export default defineConfig({
           url: baseURL,
           reuseExistingServer: false,
           timeout: 20000,
+          // The default SIGKILL would skip the cleanup of the server's temp folder.
+          gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
         },
       }),
   // The browser comes from AGENTPIER_TEST_BROWSER (CI runs Chromium and WebKit).

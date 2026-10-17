@@ -92,6 +92,19 @@ export async function applicationFixture(t, overrides = {}) {
     if (disposed) return;
     disposed = true;
     authenticatedOrigins.delete(url);
+    // Local brokers keep their sockets in /tmp folders hashed from this data directory;
+    // closing removes only the socket, so the fixture removes the folders too.
+    const socketFolders = [
+      application?.requests?.socketPath,
+      application?.sessionMcp?.socketPath,
+      application?.sshManagement?.broker?.socketPath,
+      application?.memoryIntegration?.broker?.socketPath,
+      application?.agentbus?.broker?.transport?.socketPath,
+    ]
+      .filter(
+        (socket) => typeof socket === "string" && socket.startsWith("/tmp/agentpier-"),
+      )
+      .map((socket) => path.dirname(socket));
     try {
       if (application) {
         try {
@@ -117,6 +130,8 @@ export async function applicationFixture(t, overrides = {}) {
           force: true,
         });
       }
+      for (const folder of socketFolders)
+        await fs.rm(folder, { recursive: true, force: true }).catch(() => {});
       await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   }

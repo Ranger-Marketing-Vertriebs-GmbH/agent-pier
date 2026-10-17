@@ -15,6 +15,8 @@ export class ChatStreams {
     watchInput = watchNativeInput,
     debounceMs = 150,
     recoveryMs = 30000,
+    // A re-check after the source watchers armed; see chat-source-watch.js.
+    settleMs = 500,
   }) {
     Object.assign(this, {
       sessions,
@@ -27,6 +29,7 @@ export class ChatStreams {
       watchInput,
       debounceMs,
       recoveryMs,
+      settleMs,
     });
     this.entries = new Map();
   }
@@ -121,7 +124,7 @@ export class ChatStreams {
         session.purpose !== "login"
       ) {
         entry.unwatch = this.watch(
-          { session, accounts: this.accounts, ...this.config },
+          { session, accounts: this.accounts, ...this.config, settleMs: this.settleMs },
           () => this.invalidate(entry),
         );
       }

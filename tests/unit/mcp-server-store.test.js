@@ -1,13 +1,16 @@
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 
+const dataDirs = [];
+after(() => dataDirs.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
 const exists = (file) => file === "/fake/bin/npx" || file === "/abs/server";
 function store() {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-store-"));
+  dataDirs.push(dataDir);
   return new McpServerStore({ dataDir, pathEnv: "/fake/bin", exists });
 }
 const http = (extra = {}) => ({
@@ -309,6 +312,7 @@ test("a directory origin is stored with the server and survives rename and updat
 
 test("an existing store without the directory_origin column gains it", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-store-"));
+  dataDirs.push(dataDir);
   const first = new McpServerStore({ dataDir, pathEnv: "/fake/bin", exists });
   const { id } = first.create(http());
   first.db.exec("ALTER TABLE servers DROP COLUMN directory_origin");
