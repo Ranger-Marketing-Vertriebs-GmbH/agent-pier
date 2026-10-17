@@ -12,6 +12,7 @@ const keys = [
   "skills",
   "shell",
   "ssh",
+  "projects",
 ];
 
 /** One label per grant; `servers` is the number of granted MCP servers. */
@@ -26,7 +27,9 @@ export function grantLabels(grants = {}, servers = 0) {
             ? grants.skills === "all"
               ? copy.labels.allSkills
               : copy.labels.skills(grants.skills.length)
-            : copy.labels[key],
+            : key === "projects"
+              ? copy.labels.projects(Object.keys(grants.projects).length)
+              : copy.labels[key],
       ),
     ...(servers ? [copy.labels.mcpServers(servers)] : []),
   ];
@@ -38,11 +41,13 @@ export const keyLabels = (granted = [], servers = 0, shell = null) =>
     ...granted.map((key) =>
       key === "skills"
         ? copy.labels.someSkills
-        : key === "shell"
-          ? shell
-            ? copy.labels.shell(shellCopy.levels[shell] || shell)
-            : copy.labels.anyShell
-          : copy.labels[key],
+        : key === "projects"
+          ? copy.labels.someProjects
+          : key === "shell"
+            ? shell
+              ? copy.labels.shell(shellCopy.levels[shell] || shell)
+              : copy.labels.anyShell
+            : copy.labels[key],
     ),
     ...(servers ? [copy.labels.mcpServers(servers)] : []),
   ].join(", ");

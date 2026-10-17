@@ -21,6 +21,9 @@ import { AgentSsh } from "./agent-ssh.js";
 import { withExcerpts } from "../memory/memory-search.js";
 import { sshDecisions } from "./agent-ssh-approvals.js";
 import { sshTelegramApprovable } from "./agent-ssh-notifications.js";
+import { AgentProjectFiles, fileActions } from "./agent-project-files.js";
+import { workflowDefinitions } from "./team-plugin/workflow-tools.js";
+const workspaceKeys = Object.keys(workflowDefinitions.workspace.parameters.properties);
 const maxEventRetryMs = 300000;
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
@@ -35,6 +38,7 @@ export class AssistantWorkflows {
     this.exec = new ExecApprovals(this);
     this.ssh = new AgentSsh(this);
     this.forget = new AssistantMemoryForget(this);
+    this.folders = new AgentProjectFiles(this);
     if (autoStart) this.start();
   }
   /** Starts advancing open actions; the application starts it after recovery. */
@@ -133,27 +137,27 @@ export class AssistantWorkflows {
   invoke(inv, input) {
     return this.a.admit(async () => {
       const ctx = this.context(inv);
-      exact(input, [
-        "action",
-        "projectId",
-        "pipelineId",
-        "task",
-        "baseBranch",
-        "query",
-        "page",
-        "id",
-        "title",
-        "content",
-        "expectedRevision",
-        "nodeId",
-      ]);
+      exact(input, workspaceKeys);
+      // Project folders are the member's own grant (agent-project-files.js).
+      if (fileActions.has(input.action)) return this.folders.invoke(ctx, input);
       if (ctx.requestedBy && !memberActions.has(input.action))
         throw assistantProblem("invalid", 403);
       if (input.action === "catalog") {
         const p = this.access.get(ctx.assistantId),
-          catalog = this.access.catalog();
+          catalog = this.access.catalog(),
+          folders = new Map(
+            this.folders.describe(p.projectFiles).map((f) => [f.projectId, f]),
+          );
         return {
-          projects: catalog.projects.filter((x) => p.projectIds.includes(x.id)),
+          // A granted folder names its path and level (agent-project-files.js).
+          projects: catalog.projects
+            .filter((x) => p.projectIds.includes(x.id))
+            .map(({ id, name }) => {
+              const folder = folders.get(id);
+              return folder
+                ? { id, name, folder: { path: folder.path, access: folder.access } }
+                : { id, name };
+            }),
           pipelines: catalog.pipelines.filter((x) => p.pipelineIds.includes(x.id)),
         };
       }

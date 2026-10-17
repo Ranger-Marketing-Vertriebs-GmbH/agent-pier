@@ -99,6 +99,7 @@ export class TeamService {
       store: assistants.store,
       servers: () => assistants.mcp?.servers,
       sshGranted: (id) => !!assistants.workflows?.access.hasSshGrants(id),
+      projectFiles: (id) => assistants.workflows?.folders.held(id) || {},
     }),
     autoStart = true,
     now,

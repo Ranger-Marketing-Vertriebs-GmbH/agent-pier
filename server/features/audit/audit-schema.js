@@ -16,6 +16,7 @@ const memberGrantKeys = new Set([
   "skills",
   "shell",
   "ssh",
+  "projects",
 ]);
 const memberEditKeys = new Set([
   "name",
@@ -195,6 +196,7 @@ export function auditEvent(input) {
       "member-reminder",
       "member-edit",
       "member-promote",
+      "project-file",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -341,6 +343,19 @@ export function auditEvent(input) {
     /^\d{1,4}\.\d{1,4}\.\d{1,4}(?:-[a-z0-9.-]{1,40})?$/.test(details.version)
   )
     event.details.version = details.version;
+  // An agent's change in a project folder: the relative path and size, never content.
+  if (details.kind === "project-file") {
+    if (["create", "replace", "edit"].includes(details.fileChange))
+      event.details.fileChange = details.fileChange;
+    if (
+      typeof details.filePath === "string" &&
+      details.filePath.length <= 1024 &&
+      !/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(details.filePath)
+    )
+      event.details.filePath = details.filePath;
+    if (Number.isSafeInteger(details.bytes) && details.bytes >= 0)
+      event.details.bytes = details.bytes;
+  }
   // Agent SSH runs, refusals and grant changes (audit-ssh-details.js).
   if (input.resourceType === "ssh" || details.kind === "ssh-grants")
     sshAuditDetails(details, event, auditId);

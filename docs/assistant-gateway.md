@@ -287,6 +287,13 @@ for the implementation and remaining native platform/version qualification.
   readiness and the pass still runs read-only; overdue jobs are deferred 120 s after
   a start (see [routine qualification](assistant-routine-qualification.md)) and are
   not affected.
+- **Project folders go through AgentPier, not native file tools.** Native `read`,
+  `write` and `edit` keep `tools.fs.workspaceOnly`; with it off, OpenClaw would also
+  read any host file for outgoing media. Granted project folders are served by
+  `agentpier_workspace` file actions over the team bridge, resolved inside the folder
+  on every call (`project-paths.js`: real path, no links out, no `..`, `.git` and
+  AgentPier's data dir locked, case-folded), changed only with the proven guard and
+  audited with path and size ([folder access](assistant-workflows.md#direct-folder-access)).
 - **Approvals are audited.** Every approval, decline and withdrawal of an action
   (memory change, coding start, member coding request) is recorded with its actor,
   source and outcome.

@@ -55,6 +55,51 @@ stored. The model cannot grant itself access or accept
 human review gates inside pipelines. Forwarded Telegram messages are quoted data
 and cannot invoke workspace, reminder or routine tools as owner instructions.
 
+## Direct folder access
+
+Under **Work → Allowed projects**, each allowed project has **Direct folder access**:
+**None** (the default), **Read** or **Read and write**. The level belongs to the
+project grant: removing the project, or a merge that drops it, removes its level too.
+The agent's instructions list every granted folder with its project ID, path and
+level, and the workspace tool's `catalog` names them as well.
+
+The agent uses the folder through `agentpier_workspace`: `files_list`, `file_read`
+(by line `offset`/`limit`), `files_search` (a literal text) with **Read**, and
+`file_write` (a whole file, at most 64 KiB) and `file_edit` (an exact text that occurs
+once, or `replaceAll`) with **Read and write**. AgentPier performs every operation
+itself; OpenClaw's own `read`, `write` and `edit` tools stay confined to the
+agent's workspace (`tools.fs.workspaceOnly`), because widening them would also let
+outgoing media read any file on the host.
+
+- **Who:** the owner's own turns (in AgentPier or the paired Telegram chat) and a
+  task member's team turns, never forwarded content, reminders, check-ins or
+  routines.
+- **Paths:** relative to the project folder or absolute inside it. Every call
+  resolves the real path again: `..`, `~`, URL forms, control characters and
+  backslashes are refused, links may point anywhere inside the folder but never out
+  of it, and `.git` (in any spelling, also through a link) is never read or written.
+  AgentPier's own data directory is refused even when it lies inside a project.
+  Pipeline run checkouts (`.agentpier-worktrees`) can be read but not changed.
+- **Writes:** go to a temporary file beside the target and replace it by rename, so a
+  link at the target name is replaced, never followed; a file with a second hard link
+  is refused. Changes need the running Gateway's proven tool guard (the same
+  condition as native writes) and are refused with `PROJECT_WRITE_UNAVAILABLE` before
+  it reports.
+- **Audit:** each change is one `assistant.updated` record (`kind: "project-file"`)
+  with the project, the relative path, `fileChange` (`create`, `replace` or
+  `edit`), the size in bytes and, for a member, its member ID; never the content.
+  The tool call and its result stay in the agent's chat history.
+- **Limits:** reads up to 1 MiB per file and 2,000 lines per call; search skips
+  `.git`, `node_modules` and run checkouts, follows no links and stops after 5,000
+  files or 200 matches.
+
+A lead passes folder access to its task members with `projects` in its grants
+(`{ "<projectId>": "read" | "write" }`), at most at its own level, visibly and without
+your approval like its other grants. What a member uses is resolved on every call:
+when the lead drops to **Read** or loses the project, the member does too. A member
+kept as a permanent agent keeps no folder access its lead granted; grant it yourself
+in its **Work** tab.
+
 ### Coding requests from team members
 
 In a team turn, a team member (temporary or permanent) may request a coding

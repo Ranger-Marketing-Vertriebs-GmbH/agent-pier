@@ -191,6 +191,8 @@ export class AssistantConfig {
     let gatewayDropped = false;
     const bootstrap = assistantBootstrap(assistant, lease.display, {
       memoryWritable: !!this.writeGuard?.(),
+      // Its granted project folders, resolved now (agent-project-files.js).
+      projectFolders: (nativeReady && this.projectFolders?.(assistant)) || [],
     });
     const fingerprint = createHash("sha256")
       .update(

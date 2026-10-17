@@ -142,6 +142,14 @@ told it was not saved.
   without another approval, and publish pull requests. **Actions and coding tasks**
   lists what it proposed and what waits for your decision
   ([agent workflows](assistant-workflows.md)).
+- **Direct folder access:** under **Allowed projects**, each allowed project offers
+  **None**, **Read** or **Read and write** for its folder. With **Read** the agent
+  lists, reads and searches files there; with **Read and write** it also creates and
+  changes files, without an approval per change. Its instructions name each folder
+  with its path and level. `.git` internals, links leading out of the folder and
+  AgentPier's own data stay locked, and every change is recorded in the activity log
+  with its path and size, never its content
+  ([folder access](assistant-workflows.md#direct-folder-access)).
 - **SSH accesses:** the hosts from **Settings → Access → SSH accesses** this agent may
   run commands on, each with a mode. **With approval** (the default) shows every
   command in the chat and in the paired Telegram chat with **Allow once** and **Deny**;
@@ -198,7 +206,8 @@ shows the model the member actually runs on:
 
 The lead decides what each temporary member gets, and can only give what it has
 itself: web search, web pages, browser, images, skills, its MCP servers, a read-only
-copy of its memory and reminders. Without a choice of the lead a member gets memory,
+copy of its memory, reminders and its project folders (each at most at the lead's own
+**Read** or **Read and write** level). Without a choice of the lead a member gets memory,
 web search and web pages; so do members from teams that started before grants
 existed. The team proposal lists what every member gets. While a member works on
 its task, and also after it finished as long as the lead can still ask it questions
@@ -234,8 +243,8 @@ settings.
 A lead can also keep a useful member as a permanent agent itself. This takes effect
 at once; you see a note in both chats and in the member's history, and a Telegram
 notice if the lead has a paired chat. The new agent keeps what it worked with as its
-own settings (web and image tools, skills, MCP servers, reminders), but never shell
-or SSH, which you set yourself. It keeps only its own memory, which it can write;
+own settings (web and image tools, skills, MCP servers, reminders), but never shell,
+SSH or project folder access, which you set yourself. It keeps only its own memory, which it can write;
 the copy of the lead's memory is removed. Its name and
 instructions stay, and it stays under its lead. You can archive it at any time.
 

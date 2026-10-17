@@ -125,6 +125,7 @@ export function constructAssistantGraph(host, created = {}) {
       "mcpTools",
       "senderFacing",
       "sshGranted",
+      "projectFolders",
     ],
   );
   const assistants = (created.assistants = expectWiring(
@@ -428,6 +429,8 @@ export function connectAssistantServices(graph) {
       ),
     // Agents with an SSH grant get agentpier_ssh (assistant-access.js).
     sshGranted: (assistant) => workflows.access.hasSshGrants(assistant.id),
+    // Project folders the agent may use directly, named in its instructions.
+    projectFolders: (assistant) => workflows.folders.forAgent(assistant),
   });
   // A guard report, and leaving maintenance with a live guard, re-applies the agents
   // the Gateway start compiled without write and edit (AGENTPIER-80).

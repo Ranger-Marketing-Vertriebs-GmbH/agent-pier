@@ -66,6 +66,7 @@ export class MemberGrants {
     assertWithinLead(lead, grants, {
       shellSsh: this.teams.shellSsh(member.teamId, lead.id),
       ssh: !!this.teams.sshGranted(lead.id),
+      projects: this.teams.projectFiles(lead.id),
     });
     const ids = leadServerIds(this.teams.servers(), lead.id, servers);
     const { own, owner } = splitGrants(grants);

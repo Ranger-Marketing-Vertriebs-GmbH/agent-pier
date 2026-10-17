@@ -3,6 +3,24 @@ export const assistantWorkflowCopy = {
   hint: "Choose the projects and pipelines this agent may use. Project memory remains separate from personal notes.",
   projects: "Allowed projects",
   pipelines: "Allowed pipelines",
+  projectsIntro:
+    "Allowed projects can be used for project memory and coding tasks. Direct folder access additionally lets the agent read files in the project folder, or read and change them.",
+  folderLegend: "Direct folder access",
+  folderLevels: {
+    none: "None",
+    read: "Read",
+    write: "Read and write",
+  },
+  folderHints: {
+    none: "Only project memory and coding tasks.",
+    read: "Lists, reads and searches files in the folder.",
+    write:
+      "Also creates and changes files. Every change is recorded with its path and size; .git stays locked.",
+  },
+  folderWarning:
+    "The agent changes files directly, without an approval per change. Content it reads can steer it; use version control to review changes.",
+  folderSummary: (count) =>
+    count === 1 ? "1 with folder access" : `${count} with folder access`,
   noResources:
     "No registered entries yet. Configure projects and pipelines in AgentPier first.",
   memoryWrite: "Allow proposals to update project memory",
