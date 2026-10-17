@@ -267,18 +267,18 @@ export function openQueue(home) {
       }
     },
 
-    // Counts messages a sender stored since a timestamp, optionally to one recipient.
+    // Counts messages a sender stored after a timestamp, optionally to one recipient,
+    // and reports the oldest of them so callers can tell when the window frees up.
     sentSince({ runtime, session, recipient, since }) {
       const pair = recipient === undefined ? "" : " AND recipient=?";
       const params = [String(runtime), String(session), since];
       if (recipient !== undefined) params.splice(2, 0, recipient);
-      return Number(
-        db
-          .prepare(
-            `SELECT COUNT(*) AS count FROM messages WHERE from_runtime=? AND from_session=?${pair} AND ts>?`,
-          )
-          .get(...params).count,
-      );
+      const row = db
+        .prepare(
+          `SELECT COUNT(*) AS count, MIN(ts) AS oldest FROM messages WHERE from_runtime=? AND from_session=?${pair} AND ts>?`,
+        )
+        .get(...params);
+      return { count: Number(row.count), oldest: row.oldest === null ? null : Number(row.oldest) };
     },
 
     // Length of the stored reply chain ending at id, following reply_to up to max.

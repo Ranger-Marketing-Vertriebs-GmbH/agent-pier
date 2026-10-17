@@ -4,7 +4,11 @@ import { execFile } from "node:child_process";
 import { LocalRpcBroker } from "../../lib/local-rpc-broker.js";
 import { AgentBusAccess } from "./agentbus-access.js";
 import { AgentBusNotices } from "./agentbus-notices.js";
-import { SEND_BUDGET, sendBudgetRefusal } from "./agentbus-send-budget.js";
+import {
+  SEND_BUDGET,
+  refusalLogLine,
+  sendBudgetRefusal,
+} from "./agentbus-send-budget.js";
 import { resolveAgentBusProcess } from "./agentbus-process.js";
 import {
   registerPeer,
@@ -329,21 +333,10 @@ export class AgentBusBroker {
           "The recipient changed or stopped. Refresh peers_list before sending.",
         );
       const now = this.now();
-      const refusal = sendBudgetRefusal(
-        queue,
-        {
-          sender: self,
-          recipient: target,
-          replyTo: args.replyTo,
-          now,
-        },
-        this.sendBudget,
-      );
+      const budget = { sender: self, recipient: target, replyTo: args.replyTo, now };
+      const refusal = sendBudgetRefusal(queue, budget, this.sendBudget);
       if (refusal) {
-        // Identifiers only: message text never reaches the log.
-        this.log(
-          `AgentBus SEND_BUDGET refused (${refusal.limit}): ${self.key} -> ${target.key}`,
-        );
+        this.log(refusalLogLine(refusal, self, target));
         throw new PublicError("SEND_BUDGET", refusal.message);
       }
       const message = createMessage(

@@ -11,10 +11,10 @@ export const agentbus = Object.freeze({
   projectNotFound: "AgentBus project not found.",
   historyScanLimit:
     "The view is limited to 5,000 scanned files; more messages may exist.",
-  sendBudgetSender: (limit) =>
-    `SEND_BUDGET: This session already sent ${limit} messages in the last minute. Do not retry; tell the user or wait for their instruction.`,
+  sendBudgetSender: (limit, seconds) =>
+    `SEND_BUDGET: This session already sent ${limit} messages in the last minute. Wait ${seconds} seconds before sending again.`,
   sendBudgetPair: (limit, name) =>
     `SEND_BUDGET: This session already sent ${limit} messages to ${name} in the last 10 minutes. Do not retry; tell the user or wait for their instruction.`,
   sendBudgetDepth: (limit) =>
-    `SEND_BUDGET: This reply chain already reached ${limit} messages. Do not retry; tell the user or wait for their instruction.`,
+    `SEND_BUDGET: This reply chain already reached ${limit} messages. Do not retry; tell the user or wait for their instruction. Start a new thread without replyTo only if the user asked for further coordination.`,
 });

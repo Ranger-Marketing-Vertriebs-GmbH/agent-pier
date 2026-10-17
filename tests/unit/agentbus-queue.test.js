@@ -99,3 +99,27 @@ test("queue imports legacy pending and done messages without deleting malformed 
   );
   assert.equal(await fs.readFile(path.join(pending, "broken.json"), "utf8"), "not-json");
 });
+
+test("reply depth is zero for unknown ids and bounded for reply cycles", async (t) => {
+  const { queue } = await fixture(t);
+  assert.equal(queue.replyDepth("unknown", 12), 0);
+  queue.enqueue({ ...message("a1"), replyTo: "b1" });
+  queue.enqueue({ ...message("b1"), replyTo: "a1" });
+  assert.equal(queue.replyDepth("a1", 12), 12, "a reply_to cycle stops at the limit");
+  queue.enqueue({ ...message("c1"), replyTo: "missing" });
+  assert.equal(queue.replyDepth("c1", 12), 1);
+});
+
+test("sent counts report the oldest send in their window", async (t) => {
+  const { queue } = await fixture(t);
+  queue.enqueue(message("s1", 1000));
+  queue.enqueue(message("s2", 3000));
+  queue.enqueue(message("s3", 5000, "other-target"));
+  const from = { runtime: "codex", session: "sender-session" };
+  assert.deepEqual(queue.sentSince({ ...from, since: 1500 }), { count: 2, oldest: 3000 });
+  assert.deepEqual(queue.sentSince({ ...from, recipient: "codex-target", since: 0 }), {
+    count: 2,
+    oldest: 1000,
+  });
+  assert.deepEqual(queue.sentSince({ ...from, since: 9000 }), { count: 0, oldest: null });
+});
