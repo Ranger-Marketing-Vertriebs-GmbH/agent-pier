@@ -6,6 +6,7 @@ import useAssistants from "./useAssistants.js";
 import { assistantApi } from "./assistant-api.js";
 import AgentCreate from "./settings/AgentCreate.jsx";
 import AgentSettingsPage from "./settings/AgentSettingsPage.jsx";
+import AgentBrowserPage from "./browser/AgentBrowserPage.jsx";
 import AssistantChat from "./AssistantChat.jsx";
 import useSessionViewport from "../sessions/useSessionViewport.js";
 import { connectionMissing } from "./connection-state.js";
@@ -76,6 +77,17 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
         conversationId={conversationId}
         focusTeamId={team?.id}
         navigate={navigate}
+        openNavigation={openNavigation}
+        navigationOpen={navigationOpen}
+      />
+    );
+  if (route.agentBrowser && assistant)
+    return (
+      <AgentBrowserPage
+        key={assistant.id}
+        assistant={assistant}
+        navigate={navigate}
+        onBack={() => back(assistant)}
         openNavigation={openNavigation}
         navigationOpen={navigationOpen}
       />

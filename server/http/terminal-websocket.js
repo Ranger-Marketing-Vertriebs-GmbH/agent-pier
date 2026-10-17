@@ -13,6 +13,8 @@ export function attachTerminalWebSocket(server, { sessions, login, effective }) 
   server.on("upgrade", (req, socket, head) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
     if (/^\/api\/sessions\/[a-zA-Z0-9_-]+\/chat-stream$/.test(pathname)) return;
+    // The agents' browser live view has its own handler (browser-websocket.js).
+    if (/^\/api\/assistants\/[A-Za-z0-9_-]+\/browser-stream$/.test(pathname)) return;
     try {
       authorizeRequest(req, effective(), true);
       const authSession = login.require(sessionToken(req));

@@ -1,0 +1,72 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { decodeFrame, streamAddress } from "./browser-frames.js";
+
+const idle = { status: "connecting", url: "", title: "", targetId: null, tabs: [] };
+
+/**
+ * The live view of agent `id`'s browser: the server's state, the latest frame as an
+ * object URL (only the newest is kept; nothing is stored) and the commands. The
+ * socket reconnects after a drop while the view is open.
+ */
+export default function useBrowserStream(id, { preview = false, enabled = true } = {}) {
+  const [state, setState] = useState(idle);
+  const [image, setImage] = useState("");
+  const [error, setError] = useState("");
+  const socket = useRef(null);
+  useEffect(() => {
+    if (!enabled || !id) return undefined;
+    let alive = true,
+      retry,
+      current = "";
+    const connect = () => {
+      const ws = new WebSocket(streamAddress(id, preview));
+      ws.binaryType = "arraybuffer";
+      socket.current = ws;
+      ws.onmessage = (event) => {
+        if (typeof event.data === "string") {
+          let message;
+          try {
+            message = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+          if (message.type === "state") setState({ ...idle, ...message.state });
+          if (message.type === "error") setError(message.message || "");
+          return;
+        }
+        const frame = decodeFrame(event.data);
+        if (!frame) return;
+        const next = URL.createObjectURL(new Blob([frame.jpeg], { type: "image/jpeg" }));
+        if (current) URL.revokeObjectURL(current);
+        current = next;
+        setImage(next);
+      };
+      ws.onclose = () => {
+        if (socket.current === ws) socket.current = null;
+        if (alive) retry = setTimeout(connect, 2000);
+      };
+    };
+    connect();
+    return () => {
+      alive = false;
+      clearTimeout(retry);
+      socket.current?.close();
+      socket.current = null;
+      if (current) URL.revokeObjectURL(current);
+      setImage("");
+    };
+  }, [id, preview, enabled]);
+  const send = useCallback((command) => {
+    setError("");
+    if (socket.current?.readyState === WebSocket.OPEN)
+      socket.current.send(JSON.stringify(command));
+  }, []);
+  return {
+    state,
+    image,
+    error,
+    select: (targetId) => send({ type: "select", targetId }),
+    follow: () => send({ type: "follow" }),
+    start: () => send({ type: "start" }),
+  };
+}

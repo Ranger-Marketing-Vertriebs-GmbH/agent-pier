@@ -19,6 +19,28 @@ export const assistantBrowserCopy = {
   restartDescription:
     "A newly installed or removed browser applies only after the agent service restarts. Running work is not interrupted: while an agent is busy, the restart is refused.",
   restartConfirm: "Restart",
+  liveTitle: "Browser",
+  liveOpen: "Open live view",
+  liveOpenDescription: "Shows the agent browser's window live, also while minimized.",
+  liveStatus: {
+    connecting: "Connecting …",
+    live: "Live",
+    stopped: "The browser is not running.",
+    blocked: "This page may not be shown.",
+    unavailable: "The live view is not available right now.",
+  },
+  liveReason: {
+    service: "The agent service is not ready.",
+    noProfile:
+      "This agent has no browser profile. Switch on “Use a browser” and restart the agent service.",
+    request: "The browser is not answering. Trying again.",
+  },
+  liveStart: "Start browser",
+  liveTab: "Tab",
+  liveFollow: "Follow the agent",
+  liveNoImage: "No picture yet. It appears once the page changes.",
+  livePrivacy: "Only you see this view. AgentPier stores no pictures.",
+  livePreview: (name) => `Live view of ${name}'s browser`,
   reset: "Reset browser profile",
   resetDescription:
     "Stops the agent's browser and deletes its profile with every sign-in, cookie and its history.",

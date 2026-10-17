@@ -136,6 +136,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
           draft={draft}
           browser={runtime?.browser}
           refresh={refresh}
+          navigate={navigate}
         />
       )}
       <ShellGroup assistant={assistant} draft={draft} go={go} />

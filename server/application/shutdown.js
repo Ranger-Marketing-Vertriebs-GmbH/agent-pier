@@ -11,7 +11,7 @@ export function createShutdown({ services, wss, server }) {
     // Closes only the assistant services that the opt-in actually created.
     await services.assistantFeature?.close();
     services.chatStreams?.close();
-    for (const socketServer of [wss, services.chatWss])
+    for (const socketServer of [wss, services.chatWss, services.browserWss])
       for (const ws of socketServer?.clients || []) {
         ws.close(1001, serverMessages.common.serverRestarting);
         const timeout = setTimeout(() => ws.terminate(), 1000);
@@ -44,7 +44,7 @@ export function createShutdown({ services, wss, server }) {
       services.mcpServers?.close();
     } catch {}
     await history.close();
-    for (const socketServer of [wss, services.chatWss])
+    for (const socketServer of [wss, services.chatWss, services.browserWss])
       for (const ws of socketServer?.clients || [])
         ws.close(1001, serverMessages.common.serverRestarting);
     await sessions.close();
@@ -53,7 +53,7 @@ export function createShutdown({ services, wss, server }) {
     services.mcpTools?.close();
     services.mcpAccess?.close();
     services.audit.close();
-    for (const socketServer of [wss, services.chatWss])
+    for (const socketServer of [wss, services.chatWss, services.browserWss])
       if (socketServer) await new Promise((resolve) => socketServer.close(resolve));
     if (server.listening)
       await new Promise((resolve) => {

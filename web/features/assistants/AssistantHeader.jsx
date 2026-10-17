@@ -8,6 +8,7 @@ import { activityFor, headerStatus } from "./assistant-status.js";
 import { assistantShellCopy } from "../../lib/i18n/messages/assistant-shell.js";
 import { assistantBrowserCopy } from "../../lib/i18n/messages/assistant-browser.js";
 import { shellLevel } from "./shell-level.js";
+import BrowserPreview from "./browser/BrowserPreview.jsx";
 import "./assistant-shell.css";
 
 // One bar for the agent chat and its settings (handoff 1d, 2e, 2f). Below 701px it
@@ -22,6 +23,7 @@ export default function AssistantHeader({
   attempt,
   member,
   compacting = false,
+  subtitle,
 }) {
   const { runtime, models, activity = {} } = useAssistants();
   const status = headerStatus({
@@ -85,7 +87,7 @@ export default function AssistantHeader({
             )}
           </div>
           {settings && !missing ? (
-            <p className="assistant-header-sub">{copy.settingsTab}</p>
+            <p className="assistant-header-sub">{subtitle || copy.settingsTab}</p>
           ) : (
             <p className={`assistant-header-status ${status.tone}`}>
               <span className="assistant-header-dot" aria-hidden="true" />
@@ -96,6 +98,9 @@ export default function AssistantHeader({
             </p>
           )}
         </div>
+        {!settings && assistant.browserRunning && (
+          <BrowserPreview assistant={assistant} navigate={navigate} />
+        )}
         {!settings && (
           <button
             type="button"

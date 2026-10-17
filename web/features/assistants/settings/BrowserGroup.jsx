@@ -9,13 +9,14 @@ import { assistantApi } from "../assistant-api.js";
 import { shellEligible } from "../shell-level.js";
 import { isPersonal } from "./agent-settings-fields.js";
 import BrowserInstall from "./BrowserInstall.jsx";
+import { routePath } from "../../../app/routes.js";
 
 /**
  * The agent's own browser (docs/assistant-gateway.md "Browser isolation"): the
  * visible window, whether it runs and resetting its persistent profile. Shown while
  * the browser switch is on; the window needs a separate agent browser app.
  */
-export default function BrowserGroup({ assistant, draft, browser, refresh }) {
+export default function BrowserGroup({ assistant, draft, browser, refresh, navigate }) {
   const id = useId();
   const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState("");
@@ -37,6 +38,7 @@ export default function BrowserGroup({ assistant, draft, browser, refresh }) {
   if (archived && !stored && !result) return null;
   if (!archived && (!shellEligible(assistant) || draft.values.browser !== true))
     return null;
+  const liveRoute = { view: "agents", assistantId: assistant.id, agentBrowser: true };
   const window = browser?.visible;
   const reason = window && !window.available ? copy[window.reason] || copy.noApp : "";
   const on = draft.values.browserVisible === true;
@@ -67,6 +69,14 @@ export default function BrowserGroup({ assistant, draft, browser, refresh }) {
           />
         )}
         {!archived && <BrowserInstall browser={browser} refresh={refresh} />}
+        {!archived && (
+          <ListRow
+            label={copy.liveOpen}
+            sub={copy.liveOpenDescription}
+            href={routePath(liveRoute)}
+            onClick={() => navigate?.(liveRoute)}
+          />
+        )}
         {assistant.browserRunning && (
           <ListRow label={copy.running} status={{ tone: "ok", text: copy.runningNow }} />
         )}

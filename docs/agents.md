@@ -69,7 +69,10 @@ member also shows whether its model changed since it took it over from the lead.
   sign in. It needs a browser app of the agents' own, Brave, Chromium or Chrome for
   Testing, never the owner's Chrome, and on Linux a display. Without one,
   **Install browser** installs a managed Chrome for Testing with progress, then offers
-  **Restart agent service**. At most three visible
+  **Restart agent service**. **Open live view** (or the small preview in the chat header while
+  the browser runs) shows the browser live at `/agents/<id>/browser`, also while its
+  window is minimized, with its address and tabs; pick a tab or follow the agent, and
+  start a stopped browser there. Only the owner sees it, and no pictures are stored. At most three visible
   browsers run at once, and a browser idle for 15 minutes stops. **Reset browser
   profile** deletes the agent's sign-ins and cookies, also for an archived agent. The chat header shows
   **Browser running** while it runs. Temporary team members get a browser profile
