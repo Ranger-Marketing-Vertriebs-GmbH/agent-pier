@@ -30,3 +30,21 @@ dialog.project-dialog[open] {
 .project-merge-warning {
   color: #ffc99d;
 }
+/* Optional agent access when a folder is added (AddFolderDialog). */
+.project-agent-pick {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.project-agent-pick legend {
+  padding: 0;
+  font-weight: 600;
+}
+.project-agent-pick label {
+  display: grid;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}

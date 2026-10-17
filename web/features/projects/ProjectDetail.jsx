@@ -12,6 +12,8 @@ import {
 import { repositoriesPageCopy } from "../../lib/i18n/messages/repositories.js";
 import MergeDuplicateDialog from "./MergeDuplicateDialog.jsx";
 import ProjectAgentBus from "./ProjectAgentBus.jsx";
+import ProjectAgents from "./ProjectAgents.jsx";
+import { projectAgentsCopy } from "../../lib/i18n/messages/project-agents.js";
 import ProjectKnowledge from "./ProjectKnowledge.jsx";
 import ProjectOverview from "./ProjectOverview.jsx";
 import ProjectRuns from "./ProjectRuns.jsx";
@@ -87,6 +89,7 @@ export default function ProjectDetail({
     { id: "knowledge", label: copy.tabKnowledge, count: project.entryCount },
     { id: "agentbus", label: copy.tabAgentBus, count: project.sessionCount },
     { id: "runs", label: copy.tabRuns, count: runTotal },
+    { id: "agents", label: projectAgentsCopy.tab },
   ];
   const tabRow = (
     <UnderlineTabs
@@ -163,6 +166,9 @@ export default function ProjectDetail({
             onNavigate({ ...route, projectTab: "agentbus", busTab, messagePage }, replace)
           }
         />
+      )}
+      {tab === "agents" && (
+        <ProjectAgents project={project} onNavigate={onNavigate} reloadHub={reloadHub} />
       )}
       {tab === "runs" && (
         <ProjectRuns

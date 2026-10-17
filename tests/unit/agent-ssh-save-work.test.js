@@ -9,6 +9,7 @@ test("saveWork reports when an agent gains its first or loses its last SSH grant
     prepare: (_id, input, revision) => ({ ...stored, ...input, revision: revision + 1 }),
     write: (_id, next) => (stored = next),
     auditSsh() {},
+    auditProjects() {},
   };
   const teams = { transaction: (fn) => fn(), policy: () => null };
   const assistants = { changed() {} };

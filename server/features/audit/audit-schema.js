@@ -197,6 +197,7 @@ export function auditEvent(input) {
       "member-edit",
       "member-promote",
       "project-file",
+      "project-grants",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -355,6 +356,28 @@ export function auditEvent(input) {
       event.details.filePath = details.filePath;
     if (Number.isSafeInteger(details.bytes) && details.bytes >= 0)
       event.details.bytes = details.bytes;
+  }
+  // An agent's project grants and folder levels: project ids and levels only.
+  if (details.kind === "project-grants") {
+    const ids = (value) =>
+      Array.isArray(value) && value.length <= 100
+        ? value.filter(
+            (id) =>
+              typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(id),
+          )
+        : [];
+    event.details.added = ids(details.added);
+    event.details.removed = ids(details.removed);
+    const levels = ["none", "read", "write"];
+    if (Array.isArray(details.folderChanged) && details.folderChanged.length <= 100)
+      event.details.folderChanged = details.folderChanged
+        .filter(
+          (c) =>
+            ids([c?.projectId]).length === 1 &&
+            levels.includes(c.from) &&
+            levels.includes(c.to),
+        )
+        .map(({ projectId, from, to }) => ({ projectId, from, to }));
   }
   // Agent SSH runs, refusals and grant changes (audit-ssh-details.js).
   if (input.resourceType === "ssh" || details.kind === "ssh-grants")

@@ -1,0 +1,146 @@
+import { test, expect } from "@playwright/test";
+import { baseURL as base } from "../helpers/browser.js";
+import { hubFixture } from "./projects-fixture.js";
+
+const phone = { width: 390, height: 844 };
+const noOverflow = (page) =>
+  page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+
+// The agents' Work tab access, answered like the server (project-agent-access.js):
+// a stale `expected` is a conflict, removing the grant removes the folder level.
+function agentAccess({ conflictOnce = false } = {}) {
+  const state = {
+    home: { coding: false, folder: "none" },
+    puts: [],
+    conflict: conflictOnce,
+  };
+  const intercept = async (route, url, method) => {
+    if (url.pathname === "/api/assistants") {
+      await route.fulfill({
+        json: {
+          assistants: [
+            { id: "home", name: "Home" },
+            { id: "gone", name: "Gone", archivedAt: "2026-10-01T00:00:00Z" },
+            { id: "task", name: "Task", teamMemberId: "t1", lifetime: "task" },
+          ],
+          conversations: [],
+        },
+      });
+      return true;
+    }
+    const match = /^\/api\/assistant-project-access\/([^/]+)(?:\/([^/]+))?$/.exec(
+      url.pathname,
+    );
+    if (!match) return false;
+    if (method === "PUT") {
+      const body = route.request().postDataJSON();
+      state.puts.push({ projectId: match[1], agentId: match[2], ...body });
+      if (state.conflict) {
+        state.conflict = false;
+        state.home = { coding: true, folder: "read" };
+        await route.fulfill({ status: 409, json: { error: "Changed" } });
+        return true;
+      }
+      state.home = body.coding
+        ? { coding: true, folder: body.folder }
+        : { coding: false, folder: "none" };
+      await route.fulfill({ json: { id: match[2], revision: 2, ...state.home } });
+      return true;
+    }
+    await route.fulfill({
+      json: {
+        agents: [{ id: "home", name: "Home", revision: 1, ...state.home }],
+        members: [
+          {
+            id: "writer",
+            name: "Writer",
+            leadId: "home",
+            leadName: "Home",
+            folder: "read",
+          },
+        ],
+      },
+    });
+    return true;
+  };
+  return { state, intercept };
+}
+
+test.describe("English project agents", () => {
+  test.use({ locale: "en-GB" });
+
+  for (const [label, viewport] of [
+    ["desktop", null],
+    ["phone", phone],
+  ])
+    test(`the Agents tab sets folder access and coding through the Work tab access on ${label}`, async ({
+      page,
+    }) => {
+      if (viewport) await page.setViewportSize(viewport);
+      const access = agentAccess();
+      await hubFixture(page, { intercept: access.intercept });
+      await page.goto(base + "/projects/m1?tab=agents");
+      const agent = page.locator('[data-project-agent="home"]');
+      await expect(agent.getByRole("heading", { name: "Home" })).toBeVisible();
+      const coding = agent.getByLabel("May start coding sessions in this project");
+      await expect(coding).not.toBeChecked();
+      await expect(agent.getByLabel("None", { exact: true })).toBeChecked();
+      // Choosing a folder level grants the project as well.
+      await agent.getByLabel("Read and write", { exact: true }).check();
+      await expect(coding).toBeChecked();
+      expect(access.state.puts.at(-1)).toEqual({
+        projectId: "m1",
+        agentId: "home",
+        expected: { coding: false, folder: "none" },
+        coding: true,
+        folder: "write",
+      });
+      // Removing the grant removes the folder level too.
+      await coding.uncheck();
+      await expect(agent.getByLabel("None", { exact: true })).toBeChecked();
+      expect(access.state.puts.at(-1)).toMatchObject({ coding: false, folder: "none" });
+      await expect(page.getByText("via Home · Read", { exact: true })).toBeVisible();
+      expect(await noOverflow(page)).toBe(true);
+    });
+
+  test("a change made elsewhere reloads the agent and says so", async ({ page }) => {
+    const access = agentAccess({ conflictOnce: true });
+    await hubFixture(page, { intercept: access.intercept });
+    await page.goto(base + "/projects/m1?tab=agents");
+    const agent = page.locator('[data-project-agent="home"]');
+    await agent.getByLabel("Read", { exact: true }).check();
+    await expect(page.getByText(/changed elsewhere in the meantime/)).toBeVisible();
+    await expect(agent.getByLabel("Read", { exact: true })).toBeChecked();
+    await expect(
+      agent.getByLabel("May start coding sessions in this project"),
+    ).toBeChecked();
+  });
+
+  test("adding a folder can give permanent agents access right away", async ({
+    page,
+  }) => {
+    await page.setViewportSize(phone);
+    const access = agentAccess();
+    await hubFixture(page, { intercept: access.intercept });
+    await page.goto(base + "/projects");
+    await page.getByRole("button", { name: "Add project" }).first().click();
+    await page.getByRole("menuitem", { name: "Add folder" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add project" });
+    // Archived agents and task members are not offered.
+    await expect(dialog.getByLabel("Gone")).toHaveCount(0);
+    await expect(dialog.getByLabel("Task")).toHaveCount(0);
+    await dialog.getByLabel("Home").selectOption({ label: "Coding and read folder" });
+    await dialog.getByLabel("Project directory", { exact: true }).fill("/work/new");
+    await dialog.getByRole("button", { name: "Add project" }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(access.state.puts).toEqual([
+      {
+        projectId: "m3",
+        agentId: "home",
+        expected: { coding: false, folder: "none" },
+        coding: true,
+        folder: "read",
+      },
+    ]);
+  });
+});
