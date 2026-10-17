@@ -9,7 +9,7 @@ import { privateDatabase } from "../../lib/private-database.js";
 import { fencedDatabase } from "./ledger-fence.js";
 import { migrateAssistants } from "./assistant-schema.js";
 import { personalEligible } from "./native-capabilities.js";
-import { defaultGrants, memberInheritance } from "./member-grants.js";
+import { memberInheritance } from "./member-grants.js";
 import { validateDefinition, assistantProblem } from "./assistant-validation.js";
 
 // The message cache keeps a conversation's newest messages only. A history page holds
@@ -36,8 +36,8 @@ export class AssistantStore {
   constructor({ dataDir }) {
     // What the lead granted a temporary member, and whether its shell and SSH grants
     // count right now; TeamStore answers it from the team records and the lead's
-    // live setting. Without an answer a member gets nothing beyond the default.
-    this.memberGrants = () => ({ grants: defaultGrants, shellSsh: false });
+    // live setting. Without an answer a member gets nothing.
+    this.memberGrants = () => ({ grants: {}, shellSsh: false });
     const root = path.join(dataDir, "assistants");
     this.db = fencedDatabase(
       privateDatabase(root, "assistants.sqlite"),

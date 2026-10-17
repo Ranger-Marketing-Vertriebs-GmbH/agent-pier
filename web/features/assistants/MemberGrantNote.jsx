@@ -5,6 +5,12 @@ import { keyLabels } from "./member-grants.js";
 // A lead's grant to a team member, or the owner's decision on one, as a quiet line in
 // the member's and the lead's chats (server member-grant-notes.js grantNotes).
 export default function MemberGrantNote({ note }) {
+  if (note.event === "member-reminder")
+    return (
+      <p className="assistant-note assistant-event" data-member-reminder="">
+        {copy.note.reminder(note.memberName)}
+      </p>
+    );
   const labels = keyLabels(note.revoked || note.granted, note.mcpServers, note.shell);
   const text =
     note.by === "owner"

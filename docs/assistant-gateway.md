@@ -1236,7 +1236,9 @@ while the member works, and it can only grant what it holds itself. What a membe
 runs with is resolved on every read of the member (`AssistantStore.getAssistant`,
 `memberInheritance` in `member-grants.js`): each grant within what the lead holds
 right now. Nothing is copied into the member's record, so keeping a member as a
-permanent agent keeps none of it.
+permanent agent keeps none of it: promotion removes the lead's memory copy from the
+member's workspace first, and only the MCP servers named in the proposal the owner
+saw stay bound, never servers granted later.
 
 | Grant (proposal `grants`, tool `agentpier_team_grant`) | How a temporary member uses it                                                                                 |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
@@ -1248,8 +1250,10 @@ permanent agent keeps none of it.
 | `shell` (`approval` or `full`), `ssh`                  | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants |
 
 A member the lead grants nothing explicitly gets `memory`, `webSearch` and
-`webFetch`, as far as the lead has them. Team and delegation tools, routines and
-memory writes stay with the lead.
+`webFetch`, as far as the lead has them. Members reserved before grants existed
+get nothing, because the owner never saw grants for them; a new proposal gives
+their successors grants. Team and delegation tools, routines and memory writes stay
+with the lead.
 
 - **Ceiling.** The proposal (`TeamStore.propose`) and every later grant refuse a
   grant the lead does not hold now (`TEAM_GRANT_NOT_HELD`): a capability or skill it
@@ -1267,17 +1271,23 @@ memory writes stay with the lead.
 - **Later grants.** `agentpier_team_grant` (lead-only) gives a running task member of
   the lead's own team more within the same ceiling, or takes grants back with
   `revoke: true` at any time (`member-grant-requests.js`). Capabilities, skills and
-  MCP servers apply at once without the owner, but visibly: the member's record keeps
+  MCP servers apply at once without the owner, but visibly (servers granted later
+  are kept apart, `grantedMcpServerIds`, and end with the task): the member's record keeps
   a log (shown on the team card and in the member's **Capabilities → Granted by the
   lead agent**), the member's and the lead's chats get a note, and the audit records
   `assistant.updated` with `kind: "member-grant"`, the changed kinds and a server
   count, never names or content. Shell and SSH granted later always become an owner
   approval (an action card in the lead's chat and its paired Telegram chat, the
   Work tab's **Actions** list) and apply only once approved, after the ceiling is
-  checked again. Revoking shell or SSH withdraws such a pending card.
+  checked again; a card whose member ended or whose setting went off fails closed
+  (`GRANT_REVOKED`). Revoking shell or SSH, the member ending, or the setting going
+  off cancels such a pending card like other cancellations: a note in the lead's
+  chat now and the result notice in Telegram at the next tick.
 - **Memory.** Before each member turn, AgentPier replaces the member's `MEMORY.md`,
   `USER.md` and `memory/` notes with the lead's current ones (`member-memory.js`;
-  same name, depth, count and size bounds as the memory panel, no links) and
+  same name, depth, count and size bounds as the memory panel, no links; each file
+  is written to a fresh temporary name with `O_EXCL` and renamed over the target, a
+  planted link in its place is removed rather than followed) and
   removes them once the member no longer holds memory. The member gets
   `memory_search`, `memory_get` and `read`, never `write` or `edit`, and its
   instructions say that it cannot save anything and should report what is worth
@@ -1288,18 +1298,24 @@ memory writes stay with the lead.
   (`team-member` or `lead-request`). The reminder is created on the lead: it is
   listed in the lead's settings, runs as the lead's job and is delivered to the
   lead's paired Telegram chat, so it never fires from an agent that has ended and
-  the owner can pause or remove it there.
+  the owner can pause or remove it there. The members of one team create at most
+  five (`MEMBER_REMINDER_LIMIT`); each creation adds a note to the lead's chat and
+  an audit record (`kind: "member-reminder"`), never the reminder's text.
 - **Shell and SSH.** The lead's **Work → Team → Team members may use shell and
   SSH** is off by default. It is recorded with each team when it is proposed and
-  also read live: a team proposed while it was off never gets shell or SSH, and
-  switching it off revokes both for running members. A member granted shell runs at
-  most at the lead's level (its own allowlist stays empty, so with approval every
-  command asks); a member granted SSH runs `agentpier_ssh` on the lead's grants as a
+  also read live: a team proposed while it was off never gets shell or SSH.
+  Switching it off latches (`TeamStore.latchShellSsh`): the lead's teams lose the
+  setting for good, their members lose their shell and SSH grants (logged as the
+  owner's change), pending cards are cancelled, and switching it on again restores
+  nothing. A member granted shell runs at most at the lead's level; its own
+  allowlist stays empty and its cards never offer **Always allow** (refused on the
+  server too), so with approval every command asks and nothing outlives the task; a member granted SSH runs `agentpier_ssh` on the lead's grants as a
   delegated caller (`AssistantAccess.sshHolder`): the host's mode decides as for a
   permanent member's delegated turn, and approvals also ask in the lead's chat.
 - **Approval card.** The proposal (web and Telegram) lists every member's grants and
-  marks members with shell or SSH with a warning. Teams approved automatically follow
-  the same grants and the same setting.
+  marks members with shell or SSH with a warning. A proposal that grants any member
+  shell or SSH always waits for the owner's approval, even with a task or standing
+  authorization; other teams approved automatically follow their grants.
 
 **Security trade-offs.** Leads and members act unattended. Everything they read
 from the web, documents, MCP servers or remote output is untrusted data that can try

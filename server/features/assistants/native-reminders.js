@@ -4,6 +4,8 @@ import { inheritsFromLead, personalCapabilities } from "./native-capabilities.js
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import { cronResultText } from "./cron-result-text.js";
+// Reminders all task members of one team may create together on their lead.
+export const memberReminderLimit = 5;
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
 // OpenClaw's silent-reply token; an empty summary is just as silent.
 const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";
@@ -200,7 +202,7 @@ export class NativeReminders {
       delivery: { mode: "webhook", to },
     };
   }
-  create(id, input, origin, assertCurrent = () => {}) {
+  create(id, input, origin, assertCurrent = () => {}, metadata = {}) {
     return this.assistants.admit(async () => {
       assertCurrent();
       textValue(input?.clientRequestId, 768);
@@ -216,7 +218,7 @@ export class NativeReminders {
         input.clientRequestId,
         source,
         values,
-        { kind: this.kind, definition: values, routineEnabled: true },
+        { kind: this.kind, definition: values, routineEnabled: true, ...metadata },
       );
       if (!fresh && binding.state !== "prepared") {
         if (binding.state === "removed") return this.project(binding);
@@ -516,7 +518,7 @@ export class NativeReminders {
    * lead gave it, while it holds reminders; listing, pausing and removing stay
    * with the owner and the lead.
    */
-  memberCreate(member, invocation, input, origin) {
+  async memberCreate(member, invocation, input, origin) {
     if (
       this.kind !== "reminder" ||
       !["team-member", "lead-request"].includes(origin.kind) ||
@@ -524,16 +526,31 @@ export class NativeReminders {
       !personalCapabilities(member).reminders
     )
       throw assistantProblem("invalid", 403);
-    return this.create(
-      member.parentAssistantId,
+    const lead = member.parentAssistantId,
+      key = `${invocation.attemptId}:${invocation.toolCallId}`;
+    const own = this.bindings.list(lead);
+    const replay = own.some((b) => b.key === key);
+    // At most a few per team, so a steered member cannot flood the owner's chat.
+    if (
+      !replay &&
+      own.filter((b) => b.createdBy?.teamId === member.teamId && b.state !== "removed")
+        .length >= memberReminderLimit
+    )
+      throw assistantProblem("memberReminderLimit", 409);
+    const result = await this.create(
+      lead,
       {
-        clientRequestId: `${invocation.attemptId}:${invocation.toolCallId}`,
+        clientRequestId: key,
         name: input.name,
         message: input.message,
         schedule: input.schedule,
       },
       null,
       invocation.assertCurrent,
+      { createdBy: { teamId: member.teamId, memberId: member.teamMemberId } },
     );
+    // Noted in the lead's chat and audited, never with the reminder's text.
+    if (!replay) this.assistants.teams?.grants?.reminderCreated?.(member);
+    return result;
   }
 }

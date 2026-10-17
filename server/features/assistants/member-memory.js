@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 
 // The files OpenClaw indexes as memory: the two root notes and Markdown notes
 // under memory/ (native-memory.js), with the same depth, count and size bounds.
@@ -94,8 +95,16 @@ export async function mirrorLeadMemory(workspaces, member, enabled) {
     const real = await fs.realpath(dir);
     if (real !== path.join(await fs.realpath(own), path.dirname(name))) continue;
     const target = path.join(real, path.basename(name));
-    const temporary = `${target}.${process.pid}.tmp`;
-    await fs.writeFile(temporary, content, { mode: 0o600 });
+    // A fresh name that must not exist yet ("wx", O_EXCL), so nothing planted under
+    // it is followed or overwritten; a link in the target's place is removed first,
+    // so the rename replaces the link itself and never writes through it.
+    const temporary = path.join(real, `.${randomUUID()}.tmp`);
+    await fs.writeFile(temporary, content, { mode: 0o600, flag: "wx" });
+    try {
+      if ((await fs.lstat(target)).isSymbolicLink()) await fs.unlink(target);
+    } catch {
+      /* No target yet. */
+    }
     await fs.rename(temporary, target);
   }
 }

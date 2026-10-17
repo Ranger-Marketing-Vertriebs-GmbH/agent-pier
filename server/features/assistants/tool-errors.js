@@ -13,6 +13,8 @@ const reasons = {
     "mcpServers may only name MCP servers bound to you (the prefix before __ in your MCP tool names). Remove the other names and propose again.",
   TEAM_GRANT_NOT_HELD:
     "You can only grant a member tools, skills, MCP servers and access that you hold yourself. Shell and SSH also need the owner's setting 'Team members may use shell and SSH', and never more than your own shell level. Remove that grant and try again.",
+  MEMBER_REMINDER_LIMIT:
+    "Your team already set the most reminders a team may set on its lead. Do not retry; report the reminder you wanted to your lead instead.",
   MEMBER_NOT_RUNNING:
     "Grants are only for your own running task-bound members. Check agentpier_team_members for the memberId.",
   FORBIDDEN:
@@ -60,6 +62,7 @@ const byKey = {
   teamMcpServerNotBound: "MCP_SERVER_NOT_BOUND",
   teamGrantNotHeld: "TEAM_GRANT_NOT_HELD",
   teamGrantMemberEnded: "MEMBER_NOT_RUNNING",
+  memberReminderLimit: "MEMBER_REMINDER_LIMIT",
   memberRequestNotPermanent: "MEMBER_NOT_PERMANENT",
   memberRequestOpenTask: "TASK_OPEN",
   memberRequestNotFinished: "MEMBER_NOT_FINISHED",

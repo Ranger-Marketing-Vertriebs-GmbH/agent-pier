@@ -59,7 +59,10 @@ export const grantsLine = (grants, servers) => {
 export function logText(entry) {
   const date = new Date(entry.at).toLocaleString();
   const labels = keyLabels(entry.revoked || entry.granted, entry.mcpServers);
-  if (entry.revoked) return copy.log.revoked(date, labels);
+  if (entry.revoked)
+    return entry.by === "owner"
+      ? copy.log.ownerRevoked(date, labels)
+      : copy.log.revoked(date, labels);
   return entry.by === "owner"
     ? copy.log.owner(date, labels)
     : copy.log.lead(date, labels);

@@ -1,6 +1,7 @@
 import { actionTerminal } from "./assistant-action-store.js";
 import { notifyAction } from "./assistant-action-notifications.js";
 import { personalShell } from "./native-capabilities.js";
+import { temporaryMember } from "./team-presentation.js";
 import { allowAlwaysPlan } from "./exec-allowlist-policy.js";
 
 // Exec approval requests from the Gateway become assistant actions awaiting the
@@ -191,9 +192,14 @@ export class ExecApprovals {
       const expiresAt = Number.isSafeInteger(p.expiresAtMs)
         ? p.expiresAtMs
         : this.now() + defaultExpiryMs;
+      // A task member's request offers no "Always allow" (exec-decisions.js).
+      const member = temporaryMember(this.w.a.store.getAssistant(owner.assistantId));
       action = store.reserve({
         ...owner,
-        payload: this.payload(id, p.request, expiresAt),
+        payload: {
+          ...this.payload(id, p.request, expiresAt),
+          ...(member ? { onceOnly: true } : {}),
+        },
         key,
         state: "awaiting_approval",
         expiresAt,

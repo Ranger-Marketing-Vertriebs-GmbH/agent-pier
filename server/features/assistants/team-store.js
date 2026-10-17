@@ -12,8 +12,8 @@ import { leadServerIds, memberServerNames } from "./team-mcp.js";
 import {
   assertWithinLead,
   defaultFor,
-  defaultGrants,
   grantInput,
+  removeGrants,
 } from "./member-grants.js";
 import { ownerTeamQuote, parseOwnerText } from "./lead-request-proof.js";
 const terminal = new Set(["completed", "failed", "cancelled", "declined"]);
@@ -39,7 +39,8 @@ export class TeamStore {
     migrateTeams(this.db);
     store.memberGrants = (member) => ({
       // Members reserved before grants existed get the default.
-      grants: this.find(member.teamMemberId)?.grants ?? defaultGrants,
+      // Members reserved before grants existed get none: the owner never saw any.
+      grants: this.find(member.teamMemberId)?.grants ?? {},
       shellSsh: this.shellSsh(member.teamId, member.parentAssistantId),
     });
   }
@@ -125,6 +126,27 @@ export class TeamStore {
       !!this.find(`policy:${leadId}`)?.memberShellSsh
     );
   }
+  /**
+   * The lead's "Team members may use shell and SSH" went off: its teams lose the
+   * setting for good (switching it on again restores nothing) and their members
+   * lose their shell and SSH grants, logged as the owner's change. Pending cards
+   * are cancelled by MemberGrants.settingOff.
+   */
+  latchShellSsh(leadId) {
+    const at = new Date().toISOString();
+    for (const team of this.list(leadId)) {
+      if (team.policy?.memberShellSsh)
+        this.write(team, { policy: { ...team.policy, memberShellSsh: false } });
+      for (const m of this.members(team.id)) {
+        const revoked = ["shell", "ssh"].filter((key) => m.grants?.[key]);
+        if (!revoked.length) continue;
+        this.write(m, {
+          grants: removeGrants(m.grants, { shell: true, ssh: true }),
+          grantLog: [...(m.grantLog || []), { at, by: "owner", revoked }].slice(-50),
+        });
+      }
+    }
+  }
   policy(id) {
     this.store.getAssistant(id);
     const p = this.find(`policy:${id}`);
@@ -145,6 +167,7 @@ export class TeamStore {
     const current = this.policy(id);
     if (current.revision !== revision) throw assistantProblem("conflict", 409);
     const values = normalizeTeamPolicy(input, current);
+    if (current.memberShellSsh && values.memberShellSsh === false) this.latchShellSsh(id);
     if (values.maxMembers > this.settings().hostMaxConcurrent)
       throw assistantProblem("capacity", 409);
     const old = this.find(`policy:${id}`);
@@ -286,8 +309,11 @@ export class TeamStore {
         !context.forwarded &&
         ownerRequestedTeam &&
         quoted(ownerRequestQuote, request.text, context);
-      const authorization =
-        ownerTurn && (context.teamAllowed || ownerRequest) && !consumed
+      // Shell or SSH for a member always waits for the owner's own decision.
+      const ownerMust = stored.some((m) => m.grants.shell || m.grants.ssh);
+      const authorization = ownerMust
+        ? null
+        : ownerTurn && (context.teamAllowed || ownerRequest) && !consumed
           ? {
               kind: "task",
               requestId: request.id,

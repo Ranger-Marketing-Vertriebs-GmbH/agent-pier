@@ -53,17 +53,19 @@ and needs an explicit choice:
 
 - Only while the lead's **Work → Team members may use shell and SSH** (off by
   default) is on may the lead grant a temporary member `ssh`, in the team proposal
-  or later. A later SSH grant always waits for the owner's approval (web and
-  Telegram card) and applies only once approved.
+  or later. A proposal with such a grant always waits for the owner's approval, and
+  a later SSH grant always becomes an owner card (web and Telegram); neither applies
+  before the owner approved.
 - A member still holds no grant of its own: it runs `agentpier_ssh` on the lead's
   grants, every check (`AssistantAccess.sshHolder`) reads the lead's current grants,
   and the member is a delegated caller, so `approval` hosts ask the owner (also in
   the lead's chat) and `trusted` hosts run without a card.
 - The setting is recorded with each team at its proposal and read live: only teams
-  proposed while it is on can use it, and switching it off, the lead revoking the
-  grant, or the lead losing its own SSH grants revokes it for running members. The
-  proposal (web and Telegram) marks members granted SSH with a warning;
-  automatically approved teams follow the same grants and setting.
+  proposed while it is on can use it. Switching it off latches: the teams lose it
+  for good, their members' SSH grants are removed and pending cards are cancelled;
+  the lead revoking the grant or losing its own SSH grants also revokes it for
+  running members. The proposal (web and Telegram) marks members granted SSH with a
+  warning.
 - Consequence: an unattended lead or member that read untrusted content could be
   steered into granting or using SSH on the lead's `trusted` hosts. The ceiling, the
   owner's approval for later grants and the visible grant notes limit this; the

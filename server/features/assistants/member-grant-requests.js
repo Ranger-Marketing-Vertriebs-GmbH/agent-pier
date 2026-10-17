@@ -100,13 +100,11 @@ export class MemberGrants {
     this.apply(turn, inv, { removed: grants, ids, by: "lead" });
     // A pending shell or SSH card for what is revoked can no longer be approved.
     if (grants.shell || grants.ssh)
-      for (const a of this.workflows?.store.list(turn.lead.id) || [])
-        if (
-          a.payload.action === "member_grant" &&
-          a.payload.memberId === member.id &&
-          a.state === "awaiting_approval"
-        )
-          this.workflows.store.patch(a.id, { state: "cancelled", settled: true });
+      this.cancelPending(
+        turn.lead.id,
+        (a) => a.payload.memberId === member.id,
+        "REVOKED",
+      );
     this.assistants.changed?.();
     return {
       status: "revoked",
@@ -120,9 +118,16 @@ export class MemberGrants {
     const current = this.teams.member(member.id);
     const before = current.grants ?? defaultGrants;
     const grants = removed ? removeGrants(before, removed) : mergeGrants(before, added);
-    const servers = removed
+    // Later servers are kept apart from the proposal's, which the owner saw: only
+    // those stay with a member kept as a permanent agent (team-mcp.js).
+    const proposal = removed
       ? (current.mcpServerIds || []).filter((id) => !ids.includes(id))
-      : [...new Set([...(current.mcpServerIds || []), ...ids])];
+      : current.mcpServerIds || [];
+    const later = removed
+      ? (current.grantedMcpServerIds || []).filter((id) => !ids.includes(id))
+      : [...new Set([...(current.grantedMcpServerIds || []), ...ids])].filter(
+          (id) => !proposal.includes(id),
+        );
     const keys = grantedKeys(removed || added);
     const entry = {
       at: new Date().toISOString(),
@@ -132,7 +137,8 @@ export class MemberGrants {
     };
     const next = this.teams.write(current, {
       grants,
-      ...(servers.length ? { mcpServerIds: servers } : { mcpServerIds: undefined }),
+      mcpServerIds: proposal.length ? proposal : undefined,
+      grantedMcpServerIds: later.length ? later : undefined,
       grantLog: [...(current.grantLog || []), entry].slice(-kept),
     });
     this.record(lead, next, entry);
@@ -263,15 +269,106 @@ export class MemberGrants {
     this.assistants.changed?.();
     return next;
   }
-  /** The workflows tick: expiry and the approval notice, then settles. */
+  /**
+   * Cancels the lead's waiting shell or SSH cards that `match`, like other
+   * cancellations: the chat note now, the Telegram result notice at the next tick
+   * (advance), which then settles them.
+   */
+  cancelPending(leadId, match, diagnostic) {
+    const store = this.workflows?.store;
+    if (!store) return;
+    for (const a of store.list(leadId))
+      if (
+        a.payload.action === "member_grant" &&
+        a.payload.approval &&
+        a.state === "awaiting_approval" &&
+        match(a)
+      )
+        store.patch(a.id, {
+          state: "cancelled",
+          diagnostic,
+          chatNotes: { result: { at: Date.now(), state: "cancelled" } },
+        });
+    this.assistants.changed?.();
+  }
+  /** The lead's shell and SSH setting went off: none of its cards can be approved. */
+  settingOff(leadId) {
+    if (this.teams.policy(leadId).memberShellSsh) return;
+    this.cancelPending(leadId, () => true, "SETTING_OFF");
+  }
+  // Whether a member can still receive a grant.
+  live(member, leadId) {
+    return (
+      !!member &&
+      member.parentAssistantId === leadId &&
+      member.lifetime !== "permanent" &&
+      !member.archivedAt &&
+      !ended.has(member.phase)
+    );
+  }
+  /** A member created a reminder on its lead: a note in the lead's chat and an audit. */
+  reminderCreated(member) {
+    let team;
+    try {
+      team = this.teams.get(member.teamId);
+    } catch {
+      return;
+    }
+    const at = Date.now();
+    this.workflows?.store.reserve({
+      assistantId: team.parentAssistantId,
+      conversationId: team.parentConversationId,
+      attemptId: null,
+      origin: { kind: "member-grant" },
+      key: `member-reminder:${member.id}:${at}:${Math.random()}`,
+      state: "completed",
+      payload: {
+        action: "member_reminder",
+        memberId: member.teamMemberId,
+        memberName: member.name,
+        teamId: member.teamId,
+      },
+      chatNotes: { result: { at, state: "completed" } },
+      settled: true,
+    });
+    try {
+      this.audit?.append({
+        action: "assistant.updated",
+        resourceType: "assistant",
+        resourceId: team.parentAssistantId,
+        source: "system",
+        outcome: "success",
+        details: {
+          kind: "member-reminder",
+          teamId: member.teamId,
+          requestedBy: member.teamMemberId,
+        },
+      });
+    } catch (error) {
+      console.error("Member reminder audit failed:", error?.message);
+    }
+    this.assistants.changed?.();
+  }
+  /** The workflows tick: expiry, a member that ended, the notice, then settles. */
   advance(a) {
     const w = this.workflows;
     if (a.state === "awaiting_approval") {
-      if (a.expiresAt >= Date.now()) return notifyAction(w, a, "approval");
-      a = w.store.patch(a.id, {
-        state: "expired",
-        chatNotes: { result: { at: Date.now(), state: "expired" } },
-      });
+      let member = null;
+      try {
+        member = this.teams.member(a.payload.memberId);
+      } catch {}
+      if (!this.live(member, a.assistantId))
+        a = w.store.patch(a.id, {
+          state: "cancelled",
+          diagnostic: "TEAM_ENDED",
+          chatNotes: { result: { at: Date.now(), state: "cancelled" } },
+        });
+      else if (a.expiresAt >= Date.now()) return notifyAction(w, a, "approval");
+      else
+        a = w.store.patch(a.id, {
+          state: "expired",
+          chatNotes: { result: { at: Date.now(), state: "expired" } },
+        });
     }
     if (terminal.has(a.state)) {
       notifyAction(w, a, "result");

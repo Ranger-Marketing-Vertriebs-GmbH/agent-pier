@@ -110,10 +110,15 @@ export class TeamMcpBindings {
         const lead = new Set(
           this.leadActive(m.parentAssistantId) ? bound[m.parentAssistantId] || [] : [],
         );
+        // A permanent member keeps only what the owner saw in the proposal; servers
+        // the lead granted later (grantedMcpServerIds) end with the task.
         const approved = (m.mcpServerIds || []).filter((id) => lead.has(id));
+        const granted = [
+          ...new Set([...(m.mcpServerIds || []), ...(m.grantedMcpServerIds || [])]),
+        ].filter((id) => lead.has(id));
         const current = bound[a.id] || [];
         if (temporaryMember(a)) {
-          const desired = live ? approved : [];
+          const desired = live ? granted : [];
           if (sameSet(current, desired)) continue;
           servers.setBindings("agent", a.id, desired);
           changed = true;

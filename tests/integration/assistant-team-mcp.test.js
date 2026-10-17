@@ -312,3 +312,34 @@ test("a retried permanent grant leaves stdio servers out once the agent has its 
   f.service.mcp.sync();
   assert.deepEqual(f.bound(a.assistantId), [f.github.id]);
 });
+
+test("servers granted later reach a task member, never a permanent one", async (t) => {
+  const f = setup(t),
+    { team } = await f.propose();
+  await f.service.reconcile();
+  const b = f.memberOf(team, "B");
+  f.service.store.write(f.service.store.member(b.id), {
+    grantedMcpServerIds: [f.github.id],
+  });
+  f.service.mcp.sync();
+  assert.deepEqual(f.bound(b.assistantId), [f.github.id]);
+
+  const other = setup(t),
+    proposed = await other.propose({ allowed: false });
+  const record = other.service.store.get(proposed.team.id);
+  await other.service.decide(
+    record.id,
+    { revision: record.revision, decision: "approve", lifetime: "permanent" },
+    { kind: "owner" },
+  );
+  const a = other.memberOf(proposed.team, "A");
+  other.servers.setBindings("agent", a.assistantId, []);
+  other.service.store.write(other.service.store.member(a.id), {
+    mcpGranted: false,
+    grantedMcpServerIds: [other.github.id],
+    mcpServerIds: [other.files.id],
+  });
+  other.service.mcp.sync();
+  // Only what the owner saw in the proposal.
+  assert.deepEqual(other.bound(a.assistantId), [other.files.id]);
+});

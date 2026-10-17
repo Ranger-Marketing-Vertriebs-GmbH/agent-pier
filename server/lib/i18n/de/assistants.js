@@ -221,6 +221,8 @@ export const assistants = {
     "Die MCP-Serverliste dieses Teams lässt sich gerade nicht lesen. Versuche es später erneut.",
   teamGrantNotHeld:
     "Ein leitender Agent kann einem Teammitglied nur geben, was er selbst hat; Shell und SSH nur mit der Einstellung „Team-Mitglieder dürfen Shell und SSH nutzen“.",
+  memberReminderLimit:
+    "Die Mitglieder dieses Teams haben bereits die höchstmögliche Zahl an Erinnerungen beim leitenden Agenten angelegt.",
   teamGrantMemberEnded:
     "Rechte lassen sich nur einem laufenden auftragsgebundenen Mitglied des eigenen Teams geben.",
   teamMcpServerNotBound:
