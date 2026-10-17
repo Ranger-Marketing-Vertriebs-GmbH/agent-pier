@@ -30,6 +30,10 @@ export function toolsRoutes(services) {
     }
     res.json(list);
   });
+  // Only the managed agent browser can be removed here (chromium-installer.js).
+  router.delete("/tools/:id", async (req, res) =>
+    res.json(await installer.remove(req.params.id)),
+  );
   router.post("/tools/:id/install", async (req, res) =>
     res.status(202).json(installer.start(req.params.id, req.body?.method || "native")),
   );

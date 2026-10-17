@@ -86,12 +86,17 @@ async function setup(page, options = {}) {
           models: [{ id: "router", name: "Router", available: true }],
         },
       });
+    if (path === "/api/assistant-runtime/restart" && method === "POST") {
+      state.restarts = (state.restarts || 0) + 1;
+      return route.fulfill({ status: 202, json: { availability: "starting" } });
+    }
     if (path === "/api/assistant-runtime")
       return route.fulfill({
         json: {
           availability: "ready",
           sync: "current",
-          browser: options.browser || { available: true, name: "Chrome" },
+          browser: (state.installed && options.installedBrowser) ||
+            options.browser || { available: true, name: "Chrome" },
         },
       });
     if (path === "/api/assistant-web-search") {
@@ -289,6 +294,69 @@ for (const [label, use] of [
       await expect(page.getByLabel("Visible browser")).toHaveCount(0);
     });
 
+    test("the agent browser installs with one click and asks to restart", async ({
+      page,
+    }) => {
+      const state = await setup(page, {
+        assistant: { capabilities: { browser: true } },
+        browser: {
+          available: true,
+          name: "Chrome",
+          visible: { available: false, reason: "noApp" },
+          installable: true,
+        },
+        installedBrowser: {
+          available: true,
+          name: "Chrome for Testing",
+          visible: { available: true },
+          managed: true,
+          installable: true,
+          restartNeeded: true,
+        },
+      });
+      let polls = 0;
+      const job = (status, message) => ({
+        tool: "chromium",
+        status,
+        message,
+        installer: "chrome-for-testing",
+      });
+      await page.route(/\/api\/tool/, (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (path === "/api/tools/chromium/install")
+          return route.fulfill({
+            status: 202,
+            json: job("running", "Browser wird entpackt …"),
+          });
+        // Two progress answers, then the finished installation.
+        const done = ++polls > 2;
+        if (done) state.installed = true;
+        return route.fulfill({
+          json: {
+            busy: !done,
+            installations: [
+              done
+                ? job("succeeded", "Browser installiert und geprüft.")
+                : job(
+                    "running",
+                    `Chrome for Testing wird geladen und per SHA-256 geprüft … ${polls * 40} %`,
+                  ),
+            ],
+          },
+        });
+      });
+      await page.goto(baseURL + settingsPath("capabilities"));
+      await expect(page.getByLabel("Visible browser")).toBeDisabled();
+      await page.getByRole("button", { name: /Install browser/ }).click();
+      await expect(
+        page.getByText(/Downloading Chrome for Testing and checking its SHA-256 … \d+ %/),
+      ).toBeVisible();
+      await expect(page.getByLabel("Visible browser")).toBeEnabled({ timeout: 15000 });
+      await page.getByRole("button", { name: /Restart agent service/ }).click();
+      await page.getByRole("button", { name: "Restart", exact: true }).click();
+      await expect.poll(() => state.restarts).toBe(1);
+    });
+
     test("a visible window explains the missing agent browser app", async ({ page }) => {
       await setup(page, {
         assistant: { capabilities: { browser: true } },
@@ -300,7 +368,7 @@ for (const [label, use] of [
       });
       await page.goto(baseURL + settingsPath("capabilities"));
       await expect(page.getByLabel("Visible browser")).toBeDisabled();
-      await expect(page.getByText("Install Brave (brave.com) or Chromium")).toBeVisible();
+      await expect(page.getByText("install Brave or Chromium yourself")).toBeVisible();
       await expect(page.locator(".assistant-shell-chip.browser")).toHaveCount(0);
     });
 

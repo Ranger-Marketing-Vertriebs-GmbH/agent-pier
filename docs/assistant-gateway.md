@@ -1116,11 +1116,50 @@ the Gateway's startup configuration.
 Web content is untrusted data. OpenClaw wraps fetched and browsed content as
 external content, and the switches do not grant any other tool.
 
+### Managed agent browser
+
+**Install browser** in an agent's **Agent browser** settings (shown while no separate
+browser app is there) and the **Chrome for Testing** card on the dashboard install a
+pinned [Chrome for Testing](https://github.com/GoogleChromeLabs/chrome-for-testing)
+build without Homebrew or administrator rights (`server/features/tools/`
+`chromium-installer.js`, `chromium-manifest.js`):
+
+- The version and, per platform (`mac-arm64`, `mac-x64`, `linux64`, `linux-arm64`),
+  the download URL, size and SHA-256 are pinned in `chromium-manifest.js`. Chrome for
+  Testing publishes no checksums, so they were computed from the downloads when the
+  version was pinned. Downloads come only from `storage.googleapis.com` over HTTPS,
+  without redirects; size or hash mismatches fail before anything is unpacked.
+- The archive is unpacked into `<data>/clis/.packages/chromium-<id>`, keeping file
+  modes and the app bundle's relative links; absolute links, links leaving the browser
+  folder, `..` paths and special files are refused. `<data>/clis/chromium` links to
+  the active version and is switched atomically.
+- macOS: AgentPier clears extended attributes (`xattr -cr`), so a quarantine flag
+  never blocks the service. Chrome for Testing is only linker-signed (ad hoc, no sealed
+  resources), so `codesign --verify` refuses even an untouched copy; the pinned
+  SHA-256 is the integrity check, and `--version` must report the pinned version.
+- Linux: `ldd` must resolve every shared library; missing ones are named in the
+  error, for the owner to install with the package manager.
+- Detection compiles the versioned real path, so an install, update or removal
+  changes the browser block. The agent settings then offer **Restart agent service**
+  (`restartNeeded` in `GET /api/assistant-runtime`), with the usual confirmation.
+- The dashboard card shows the installed version, **Update CLI** when the pinned
+  version is newer and **Remove** (`DELETE /api/tools/chromium`). An update keeps the
+  previous version until the next install, so a browser still running from it is not
+  pulled away.
+
+Update path: raising the pinned version in `chromium-manifest.js` ships with an
+AgentPier release. At the next server start an installed managed browser is updated
+in the background (`ToolInstaller.keepChromiumCurrent`), and the installers
+(`--with-agent-browser`, or any installer run on a host that has it) bring it to
+the pinned version as well (`chromium-provisioning.js`). Without a managed browser
+nothing is downloaded.
+
 ### Browser isolation
 
-AgentPier installs no browser. `detectBrowser()` looks in the platform's standard
-locations and prefers a browser app of the agents' own (Brave, then Chromium, then
-Chrome for Testing) over Chrome, Brave, Edge or Chromium in general; the compiled
+On request AgentPier installs its own agent browser (see "Managed agent browser"
+below). `detectBrowser()` prefers that managed build, then looks in the platform's
+standard locations for a browser app of the agents' own (Brave, then Chromium, then
+Chrome for Testing) before Chrome, Brave, Edge or Chromium in general; the compiled
 `browser` block names that one executable for every agent profile, so a profile is
 always opened by the same app. The block:
 

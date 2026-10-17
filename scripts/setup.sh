@@ -17,6 +17,7 @@ Usage: agentpier-install [options]
   --skip-dependencies   Check but do not install Git and tmux
   --dependencies-only   Install missing Git and tmux only
   --with-assistants     Enable assistants and pre-install their runtime
+  --with-agent-browser  Install the managed agent browser (Chrome for Testing)
   --help                Show this help
   --version             Show the installer version
 EOF

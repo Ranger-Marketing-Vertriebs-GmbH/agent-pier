@@ -131,7 +131,12 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
         <WebGroup draft={draft} browser={runtime?.browser} navigate={navigate} />
       )}
       {personal && (
-        <BrowserGroup assistant={assistant} draft={draft} browser={runtime?.browser} />
+        <BrowserGroup
+          assistant={assistant}
+          draft={draft}
+          browser={runtime?.browser}
+          refresh={refresh}
+        />
       )}
       <ShellGroup assistant={assistant} draft={draft} go={go} />
       {shellEligible(assistant) && (

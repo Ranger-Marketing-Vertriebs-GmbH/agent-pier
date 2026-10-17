@@ -6,6 +6,7 @@ export const names = {
   shell: "Shell",
   gh: "GitHub CLI",
   nono: "nono",
+  chromium: "Chrome for Testing",
 };
 // The page a utility sends the user to once it is installed. A utility without an
 // entry has nothing to configure in AgentPier, so it gets no follow-up action.

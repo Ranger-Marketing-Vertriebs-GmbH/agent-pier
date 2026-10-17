@@ -41,6 +41,10 @@ the data directory must be outside the application directory.
 `--dependencies-only` repairs missing prerequisites only.
 `--with-assistants` enables the optional agents and installs their runtime in
 advance (see [Managed assistant runtime](#managed-assistant-runtime)).
+`--with-agent-browser` installs the managed agent browser (a pinned Chrome for
+Testing build, see "Managed agent browser" in [assistant-gateway.md](assistant-gateway.md));
+an installer run keeps an installed one at the pinned version. A failed download never
+fails the installation; the result reports `agentBrowser.status`.
 
 After an interruption, run the same command again. A matching existing setup is
 resumed; an AgentPier version that has already been updated is not downgraded.

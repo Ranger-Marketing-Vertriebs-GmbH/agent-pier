@@ -8,13 +8,14 @@ import { assistantShellCopy } from "../../../lib/i18n/messages/assistant-shell.j
 import { assistantApi } from "../assistant-api.js";
 import { shellEligible } from "../shell-level.js";
 import { isPersonal } from "./agent-settings-fields.js";
+import BrowserInstall from "./BrowserInstall.jsx";
 
 /**
  * The agent's own browser (docs/assistant-gateway.md "Browser isolation"): the
  * visible window, whether it runs and resetting its persistent profile. Shown while
  * the browser switch is on; the window needs a separate agent browser app.
  */
-export default function BrowserGroup({ assistant, draft, browser }) {
+export default function BrowserGroup({ assistant, draft, browser, refresh }) {
   const id = useId();
   const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState("");
@@ -65,6 +66,7 @@ export default function BrowserGroup({ assistant, draft, browser }) {
             onChange={(next) => draft.set("browserVisible", next)}
           />
         )}
+        {!archived && <BrowserInstall browser={browser} refresh={refresh} />}
         {assistant.browserRunning && (
           <ListRow label={copy.running} status={{ tone: "ok", text: copy.runningNow }} />
         )}

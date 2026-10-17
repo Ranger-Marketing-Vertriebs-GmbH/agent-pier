@@ -19,6 +19,13 @@ import { prepareGithubCli } from "./github-cli-installer.js";
 import { toolBinDirectories } from "./tool-paths.js";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
 import { planToolUpdate, updateCommands, updateTool } from "./tool-update.js";
+import {
+  chromiumUnavailable,
+  installChromium,
+  managedChromium,
+  removeChromium,
+} from "./chromium-installer.js";
+import { chromiumManifest } from "./chromium-manifest.js";
 const catalog = {
   codex: {
     name: "Codex",
@@ -47,6 +54,14 @@ const catalog = {
     utility: true,
     documentation: "https://nono.sh/docs/cli/getting_started/installation",
   },
+  // The agents' browser: a pinned Chrome for Testing build (chromium-installer.js).
+  chromium: {
+    name: "Chrome for Testing",
+    packageName: `Chrome for Testing ${chromiumManifest.version}`,
+    installer: "chrome-for-testing",
+    utility: true,
+    documentation: "https://developer.chrome.com/blog/chrome-for-testing",
+  },
 };
 function npmPath() {
   for (const dir of [
@@ -67,7 +82,7 @@ function groupSignal(child, signal) {
     process.kill(-child.pid, signal);
   } catch {}
 }
-function run(command, args, env, cwd, signal, timeout) {
+export function run(command, args, env, cwd, signal, timeout) {
   return new Promise((resolve, reject) => {
     if (signal.aborted)
       return reject(problem(serverMessages.tools.installationAborted, 409));
@@ -150,6 +165,8 @@ export class ToolInstaller {
     arch = process.arch,
     githubFetch = fetch,
     nativeFetch = fetch,
+    chromiumFetch = fetch,
+    manifest = chromiumManifest,
   }) {
     this.dataDir = dataDir;
     this.home = home;
@@ -161,6 +178,9 @@ export class ToolInstaller {
     this.arch = arch;
     this.githubFetch = githubFetch;
     this.nativeFetch = nativeFetch;
+    this.chromiumFetch = chromiumFetch;
+    this.manifest = manifest;
+    this.chromiumReason = chromiumUnavailable(platform, arch, manifest);
     this.detect =
       detect ||
       (() => [
@@ -218,8 +238,56 @@ export class ToolInstaller {
           tool,
           found.find((x) => x.id === tool),
         ),
+        ...(tool === "chromium" ? this.chromiumState() : {}),
       })),
     };
+  }
+  /** The managed browser's row: installed version, pinned version, update, removal. */
+  chromiumState() {
+    const installed = managedChromium(this.root);
+    const reason = this.platformReason || this.chromiumReason;
+    const current = installed?.version === this.manifest.version;
+    return {
+      available: !reason,
+      reason,
+      destination: path.join(this.root, "chromium"),
+      installed: !!installed,
+      installedVersion: installed?.version || null,
+      pinnedVersion: this.manifest.version,
+      updateCommand: `Chrome for Testing ${this.manifest.version}`,
+      updateAvailable: !!installed && !current && !reason,
+      updateReason: installed && current ? serverMessages.tools.chromiumUpToDate : reason,
+      removable: !!installed,
+    };
+  }
+  /**
+   * The update path: an AgentPier update can pin a newer browser; an installed
+   * managed browser follows it in the background at the next server start.
+   */
+  keepChromiumCurrent() {
+    try {
+      if (this.chromiumState().updateAvailable) return this.startUpdate("chromium");
+    } catch {
+      /* Busy or unavailable: the tools list still offers the update. */
+    }
+    return null;
+  }
+  /** Removes the managed browser; only it can be removed here. */
+  async remove(tool) {
+    if (tool !== "chromium") throw problem(serverMessages.common.unknownCliTool);
+    if (this.closed) throw problem(serverMessages.tools.serviceStopping, 503);
+    if (this.active) throw problem(serverMessages.tools.installationAlreadyRunning, 409);
+    await removeChromium(this.root);
+    this.records[tool] = {
+      tool,
+      status: "idle",
+      version: null,
+      message: serverMessages.tools.chromiumRemoved,
+      startedAt: null,
+      finishedAt: new Date().toISOString(),
+    };
+    writePrivate(this.file, this.records);
+    return this.list().installations.find((x) => x.tool === tool);
   }
   updateAvailability(tool, detected) {
     if (!Object.hasOwn(updateCommands, tool)) return {};
@@ -246,6 +314,13 @@ export class ToolInstaller {
     if (this.closed) throw problem(serverMessages.tools.serviceStopping, 503);
     if (this.platformReason) throw problem(this.platformReason, 409);
     if (this.active) throw problem(serverMessages.tools.installationAlreadyRunning, 409);
+    if (tool === "chromium") {
+      const state = this.chromiumState();
+      if (!state.installed) throw problem(serverMessages.tools.chromiumNotInstalled, 409);
+      if (!state.updateAvailable) throw problem(state.updateReason, 409);
+      safeDirectory(this.root);
+      return this.schedule(tool, "native", { chromium: true });
+    }
     const plan = planToolUpdate(
       tool,
       this.home,
@@ -264,9 +339,21 @@ export class ToolInstaller {
       (["gh", "nono"].includes(tool) && method !== "native")
     )
       throw problem(serverMessages.tools.invalidInstallerMethod);
-    const reason = method === "npm" ? this.reason : this.platformReason;
+    const reason =
+      method === "npm"
+        ? this.reason
+        : tool === "chromium"
+          ? this.platformReason || this.chromiumReason
+          : this.platformReason;
     if (reason) throw problem(reason, 409);
     if (this.active) throw problem(serverMessages.tools.installationAlreadyRunning, 409);
+    if (tool === "chromium") {
+      if (method !== "native") throw problem(serverMessages.tools.invalidInstallerMethod);
+      if (managedChromium(this.root))
+        throw problem(serverMessages.tools.alreadyInstalled, 409);
+      safeDirectory(this.root);
+      return this.schedule(tool, method);
+    }
     if (this.detect().find((x) => x.id === tool)?.installed)
       throw problem(serverMessages.tools.alreadyInstalled, 409);
     safeDirectory(this.root);
@@ -325,6 +412,28 @@ export class ToolInstaller {
         DISABLE_AUTOUPDATER: "1",
         OPENCODE_DISABLE_AUTOUPDATE: "true",
       };
+      if (tool === "chromium") {
+        const result = await installChromium({
+          root: this.root,
+          platform: this.platform,
+          arch: this.arch,
+          manifest: this.manifest,
+          fetchImpl: this.chromiumFetch,
+          signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeout)]),
+          run,
+          env,
+          progress: (message) => {
+            job.message = message;
+            writePrivate(this.file, this.records);
+          },
+        });
+        job.version = `Chrome for Testing ${result.version}`;
+        finalStatus = "succeeded";
+        job.message = updatePlan
+          ? serverMessages.tools.chromiumUpdated
+          : serverMessages.tools.chromiumInstalled;
+        return;
+      }
       if (updatePlan) {
         job.version = await updateTool({
           tool,

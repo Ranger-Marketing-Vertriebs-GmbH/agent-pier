@@ -165,6 +165,8 @@ export async function createServices(config) {
   const extensions = new ExtensionsStore({ accounts, home: config.home, sharedProfiles });
   const agency = new AgencyStore({ accounts, sharedProfiles });
   const installer = new ToolInstaller(config);
+  // An AgentPier update may pin a newer agent browser; an installed one follows it.
+  installer.keepChromiumCurrent();
   const plugins = new PluginStore({ accounts, home: config.home, sharedProfiles });
   agentbus = new AgentBus({
     bindings,

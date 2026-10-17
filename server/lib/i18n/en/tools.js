@@ -91,4 +91,23 @@ export const tools = Object.freeze({
   nativeBinaryOutsideHome:
     "The native installer did not create a binary inside the server home.",
   nativeVersionCheckFailed: "The native CLI version check failed.",
+  chromiumPlatformUnavailable:
+    "There is no managed agent browser for this system. Install Brave or Chromium yourself.",
+  chromiumDownloading: (percent) =>
+    `Downloading Chrome for Testing and checking its SHA-256 … ${percent} %`,
+  chromiumUnpacking: "Unpacking the browser …",
+  chromiumChecking: "Checking the browser …",
+  chromiumInstalled:
+    "Browser installed and checked. Restart the agent service so the agents use it.",
+  chromiumUpdated:
+    "Browser updated and checked. Restart the agent service so the agents use it.",
+  chromiumRemoved: "The managed browser was removed.",
+  chromiumNotInstalled: "The managed browser is not installed.",
+  chromiumUpToDate: "The managed browser is already up to date.",
+  chromiumDownloadFailed: "The browser could not be downloaded.",
+  chromiumChecksumMismatch: "The downloaded browser does not match its pinned checksum.",
+  chromiumArchiveInvalid: "The browser archive is invalid.",
+  chromiumMissingLibraries: (libraries) =>
+    `The browser is missing system libraries: ${libraries}. Install them with the package manager and try again.`,
+  chromiumNotStarting: "The installed browser does not start.",
 });

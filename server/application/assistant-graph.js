@@ -1,3 +1,4 @@
+import path from "node:path";
 import { NativeRoutines } from "../features/assistants/native-routines.js";
 import { temporaryMember } from "../features/assistants/team-presentation.js";
 import { TeamService } from "../features/assistants/team-service.js";
@@ -12,6 +13,7 @@ import { TelegramSenders } from "../features/assistant-channels/telegram-senders
 import { stdioAgents } from "../features/assistants/openclaw-config/telegram-senders.js";
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
+import { managedChromium } from "../features/tools/chromium-installer.js";
 import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
 import { webToolsAvailability } from "../features/assistants/openclaw-config/web-tools.js";
 import { readMcpInputs } from "../features/assistants/openclaw-config/mcp-servers.js";
@@ -66,6 +68,9 @@ const overrideStore = (store) =>
 export function constructAssistantGraph(host, created = {}) {
   const { config, providerConnections, audit } = host;
   const { dataDir } = config;
+  // The managed browser AgentPier installs (Chrome for Testing) comes first.
+  const detectAgentBrowser = () =>
+    detectBrowser({ managed: managedChromium(path.join(dataDir, "clis"))?.executable });
   const assistantRuntime = expectWiring(
     new RuntimeSupervisor({
       dataDir,
@@ -278,6 +283,7 @@ export function constructAssistantGraph(host, created = {}) {
     assistants,
     webSearch: assistantWebSearch,
     synchronization: assistantProviderSynchronization,
+    detect: detectAgentBrowser,
   });
   // The owner's advanced OpenClaw settings; a restart change reuses the web tools
   // confirmation and its list of interrupted agents.
@@ -450,7 +456,8 @@ export function connectAssistantServices(graph) {
         mcp: readMcpInputs(mcpServers, { redirectUrl: mcpChanges.redirectUrl() }),
         webTools: {
           search: webSearch.resolve(),
-          browser: detectBrowser(),
+          // The same detection a save compares with (web-tools-changes.js).
+          browser: webToolsChanges.detect(),
           // A runtime installed before the plugins were bundled reports none.
           searchPlugins: installed.searchPlugins || {},
         },

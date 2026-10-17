@@ -99,4 +99,24 @@ export const tools = Object.freeze({
   nativeBinaryOutsideHome:
     "Der native Installer hat keine ausführbare Datei im Server-Home angelegt.",
   nativeVersionCheckFailed: "Die Versionsprüfung des nativen CLI ist fehlgeschlagen.",
+  chromiumPlatformUnavailable:
+    "Für dieses System gibt es keinen verwalteten Agenten-Browser. Installiere Brave oder Chromium selbst.",
+  chromiumDownloading: (percent) =>
+    `Chrome for Testing wird geladen und per SHA-256 geprüft … ${percent} %`,
+  chromiumUnpacking: "Browser wird entpackt …",
+  chromiumChecking: "Browser wird geprüft …",
+  chromiumInstalled:
+    "Browser installiert und geprüft. Starte den Agentendienst neu, damit die Agenten ihn nutzen.",
+  chromiumUpdated:
+    "Browser aktualisiert und geprüft. Starte den Agentendienst neu, damit die Agenten ihn nutzen.",
+  chromiumRemoved: "Der verwaltete Browser wurde entfernt.",
+  chromiumNotInstalled: "Der verwaltete Browser ist nicht installiert.",
+  chromiumUpToDate: "Der verwaltete Browser ist bereits aktuell.",
+  chromiumDownloadFailed: "Der Browser konnte nicht geladen werden.",
+  chromiumChecksumMismatch:
+    "Der geladene Browser stimmt nicht mit der festgelegten Prüfsumme überein.",
+  chromiumArchiveInvalid: "Das Browser-Archiv ist ungültig.",
+  chromiumMissingLibraries: (libraries) =>
+    `Dem Browser fehlen Systembibliotheken: ${libraries}. Installiere sie mit dem Paketmanager und versuche es erneut.`,
+  chromiumNotStarting: "Der installierte Browser startet nicht.",
 });
