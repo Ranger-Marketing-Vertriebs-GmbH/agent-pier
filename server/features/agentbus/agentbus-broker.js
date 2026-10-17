@@ -4,6 +4,7 @@ import { execFile } from "node:child_process";
 import { LocalRpcBroker } from "../../lib/local-rpc-broker.js";
 import { AgentBusAccess } from "./agentbus-access.js";
 import { AgentBusNotices } from "./agentbus-notices.js";
+import { SEND_BUDGET, sendBudgetRefusal } from "./agentbus-send-budget.js";
 import { resolveAgentBusProcess } from "./agentbus-process.js";
 import {
   registerPeer,
@@ -93,6 +94,10 @@ export class AgentBusBroker {
     this.access = new AgentBusAccess(bus);
     this.notices = new AgentBusNotices();
     this.wakes = new Map();
+    // Injectable for tests; send budgets use the stored message timestamps.
+    this.now = Date.now;
+    this.sendBudget = SEND_BUDGET;
+    this.log = (line) => console.warn(line);
     // Keep successful queued hints until their unread batch is fully drained.
     this.codexNotices = new Map();
     this.transport = new LocalRpcBroker({
@@ -323,13 +328,34 @@ export class AgentBusBroker {
           "RECIPIENT_UNAVAILABLE",
           "The recipient changed or stopped. Refresh peers_list before sending.",
         );
-      const message = createMessage({
-        from: self,
-        to: target.key,
-        toName: target.name,
-        text: args.text,
-        replyTo: args.replyTo,
-      });
+      const now = this.now();
+      const refusal = sendBudgetRefusal(
+        queue,
+        {
+          sender: self,
+          recipient: target,
+          replyTo: args.replyTo,
+          now,
+        },
+        this.sendBudget,
+      );
+      if (refusal) {
+        // Identifiers only: message text never reaches the log.
+        this.log(
+          `AgentBus SEND_BUDGET refused (${refusal.limit}): ${self.key} -> ${target.key}`,
+        );
+        throw new PublicError("SEND_BUDGET", refusal.message);
+      }
+      const message = createMessage(
+        {
+          from: self,
+          to: target.key,
+          toName: target.name,
+          text: args.text,
+          replyTo: args.replyTo,
+        },
+        now,
+      );
       queue.enqueue(message);
       this.scheduleWake(ctx, target, self, message);
       return `Gesendet an ${target.name} (id ${message.id}); dauerhaft gespeichert. Ein Hinweis wird separat versucht; nicht erneut senden.`;

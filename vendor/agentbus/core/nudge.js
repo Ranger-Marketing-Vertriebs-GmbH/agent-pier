@@ -8,7 +8,7 @@ export function nudgeText(n, fromName, targetRuntime, messageId) {
   const base = `agentbus: ${n} neue Nachricht(en) von ${fromName} zum Versandzeitpunkt. Ruf ${call} auf`;
   const timing = ' Der Hinweis kann verzögert eintreffen; bereits abgeholte Nachrichten nicht erneut bearbeiten.';
   return targetRuntime === 'claude'
-    ? `${base}; antworte mit peer_send, nicht mit SendMessage.${timing}`
+    ? `${base}; antworte bei Bedarf mit peer_send, nicht mit SendMessage.${timing}`
     : `${base}; antworte bei Bedarf mit peer_send.${timing}`;
 }
 

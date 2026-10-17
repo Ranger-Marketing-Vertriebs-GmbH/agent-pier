@@ -10,7 +10,7 @@ Der kanonische Projektpfad bestimmt die Gruppe: Verschiedene CLI-Profile im selb
 
 Claude erhält ein temporäres Plugin mit MCP und Lifecycle-Hooks. Codex erhält zusätzliche MCP- und Hook-Startoptionen; vorhandene Hook-Vertrauensentscheidungen bleiben wirksam. Falls Codex neue Hooks zur Prüfung meldet, zeigt AgentPier einen Hinweis auf `/hooks`. OpenCode erhält eine temporäre Plugin-Konfiguration. Die globalen Benutzerkonfigurationen bleiben erhalten.
 
-Die Statusseite zeigt nur zugeordnete AgentPier-Sitzungen. Unter **Nachrichten** lassen sich Projekt und Seite auswählen; die URL erhält diese Auswahl. Je Seite erscheinen 20 Nachrichten mit Absender, Empfänger, Zeitpunkt und Status. `In Inbox` bedeutet wartend, `Abgerufen` bedeutet durch die CLI abgerufen, nicht zwingend inhaltlich bearbeitet. Browser-Abfragen verschieben keine Dateien, quittieren keine Nachrichten und wecken keine Agenten. Das native Senden kann hingegen Empfänger wecken und Modellarbeit auslösen.
+Die Statusseite zeigt nur zugeordnete AgentPier-Sitzungen. Unter **Nachrichten** lassen sich Projekt und Seite auswählen; die URL erhält diese Auswahl. Je Seite erscheinen 20 Nachrichten mit Absender, Empfänger, Zeitpunkt und Status. `In Inbox` bedeutet wartend, `Abgerufen` bedeutet durch die CLI abgerufen, nicht zwingend inhaltlich bearbeitet. Browser-Abfragen verschieben keine Dateien, quittieren keine Nachrichten und wecken keine Agenten. Das native Senden kann hingegen Empfänger wecken und Modellarbeit auslösen. Ein Sendebudget begrenzt solche Ketten; Details stehen unter [Send budget](agentbus.md#send-budget).
 
 ## Überprüfung und Korrekturen gegenüber dem Archiv
 

@@ -28,6 +28,12 @@ test(
     const f = await busFixture(t);
     const sender = await f.prepare("durable-sender");
     const target = await f.prepare("durable-target");
+    // This test covers wake mechanics with bursts beyond the per-peer send budget.
+    f.bus.broker.sendBudget = {
+      senderPerMinute: 100,
+      pairPerTenMinutes: 100,
+      replyDepth: 12,
+    };
     hostRegister(f, sender, "sender-native");
     const peer = hostRegister(f, target, "target-native");
     const ctx = f.bus.broker.access.record(target.id);

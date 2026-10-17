@@ -137,6 +137,12 @@ test("inbox batching does not acknowledge messages beyond the response budget", 
   const f = await busFixture(t),
     a = await registered(f, "batch-a"),
     b = await registered(f, "batch-b");
+  // This test covers inbox batching with a burst beyond the per-peer send budget.
+  f.bus.broker.sendBudget = {
+    senderPerMinute: 100,
+    pairPerTenMinutes: 100,
+    replyDepth: 12,
+  };
   const key = text(await call(a, "peers_list")).match(/\(key ([^)]+)\)/)[1];
   for (let i = 0; i < 11; i++) {
     text(
