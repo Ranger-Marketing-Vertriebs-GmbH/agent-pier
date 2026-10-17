@@ -15,7 +15,7 @@ AGENTPIER_CLI_MCP_LOGIN_PROBE=1 AGENTPIER_CLI_CONTRACT_DATA_DIR=<AgentPier data 
   node --test tests/integration/cli-mcp-login-probe.test.js
 ```
 
-Qualified versions: Claude Code 2.1.296, Codex 0.160.1, OpenCode 1.18.35.
+Qualified versions: Claude Code 2.1.296, Codex 0.160.1, OpenCode 1.18.35. The native-entry contract (`cli-mcp-contract.test.js`), timeouts included, also passed with Claude Code 2.1.302; its per-server `timeout` was not checked against 2.1.296.
 
 The temporary HOME (`tests/helpers/cli-contract.js` `isolatedHome()`) also holds
 `CODEX_HOME`, the XDG directories and Claude Code's `CLAUDE_CONFIG_DIR` and
@@ -45,7 +45,7 @@ directory.
 - Claude Code: stdio, HTTP, SSE. A stdio `cwd` is not in its schema (`claude mcp add-json` drops it), so a server with a working directory cannot be bound.
 - Codex: stdio (with `cwd`) and streamable HTTP. There is no SSE form; an SSE endpoint written as `url` is treated as streamable HTTP. SSE servers cannot be bound.
 - OpenCode: stdio (`local`) and `remote`; `remote` reaches SSE servers (it falls back from streamable HTTP to SSE). A `local` entry's `cwd` is honoured: OpenCode starts the command in that directory (the contract compares real paths, since `/tmp` is `/private/tmp` on macOS).
-- Timeouts: Codex reads `startup_timeout_sec` and `tool_timeout_sec` as seconds (floats; `codex mcp list --json` reports them, `null` when unset; `startup_timeout_ms` is an alias AgentPier does not manage). Claude Code's per-server `timeout` is the tool-call limit in milliseconds (values below 1000 are ignored; startup has only the global `MCP_TIMEOUT`); verified with Claude Code 2.1.302. OpenCode's per-server `timeout` (milliseconds, default 5000) bounds connecting and every request, tool calls included.
+- Timeouts: Codex reads `startup_timeout_sec` and `tool_timeout_sec` as seconds (floats; `codex mcp list --json` reports them, `null` when unset; `startup_timeout_ms` is an alias AgentPier does not manage). Claude Code's per-server `timeout` is the tool-call limit in milliseconds (values below 1000 are ignored; startup has only the global `MCP_TIMEOUT`); verified with Claude Code 2.1.302 only. OpenCode's per-server `timeout` (milliseconds, default 5000) bounds connecting and every request, tool calls included.
 - Claude Code rewrites `~/.claude.json` on every start but keeps `mcpServers` entries as written; the TOML and JSONC files keep entries as written. Entry hashes therefore stay stable.
 
 ## Listing and OAuth status

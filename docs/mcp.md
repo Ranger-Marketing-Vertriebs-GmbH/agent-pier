@@ -233,7 +233,8 @@ command is such a runner.
 - **Found in the CLIs.** Entries added to a CLI outside AgentPier are listed with
   **Adopt** and **Adopt all**; they are never changed until adopted. Identical entries
   from several CLIs become one server bound to each; the same name with different
-  content stays separate. Invalid or taken names get a proposal. Adopting replaces the
+  content stays separate (a Codex startup timeout, which the other CLIs cannot hold,
+  does not count; the server keeps it). Invalid or taken names get a proposal. Adopting replaces the
   old entry with AgentPier's only while it is unchanged since it was shown (otherwise
   `409`). Entries with the timeouts AgentPier manages (Codex `startup_timeout_sec` and
   `tool_timeout_sec`, the Claude Code and OpenCode `timeout`) are adoptable and keep

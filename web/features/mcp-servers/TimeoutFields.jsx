@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 import FieldError from "./FieldError.jsx";
-import { timeoutBounds, timeoutFields } from "./mcp-timeouts.js";
+import { timeoutFields } from "./mcp-timeouts.js";
 
 const labels = {
   startupTimeout: () => [copy.startupTimeoutLabel, copy.startupTimeoutHint],
@@ -10,7 +10,9 @@ const labels = {
 
 /**
  * "Advanced: timeouts": the optional startup and tool timeouts of any server. Opens
- * once for stored values or a refusal; afterwards the owner opens and closes it.
+ * for stored values and on a refusal and stays open until the owner closes it. Text
+ * fields: a number field reports "" for what it cannot parse, which would clear a
+ * stored timeout; the server refuses anything that is no whole number instead.
  */
 export default function TimeoutFields({
   formId,
@@ -21,9 +23,18 @@ export default function TimeoutFields({
   errorId,
 }) {
   const refused = timeoutFields.some((field) => errorOf(field));
-  const [shown] = useState(() => timeoutFields.some((field) => values[field]?.trim()));
+  const [open, setOpen] = useState(() =>
+    timeoutFields.some((field) => values[field]?.trim()),
+  );
+  useEffect(() => {
+    if (refused) setOpen(true);
+  }, [refused]);
   return (
-    <details className="mcp-advanced" open={shown || refused || undefined}>
+    <details
+      className="mcp-advanced"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary>{copy.timeoutsTitle}</summary>
       <small className="mcp-hint">{copy.timeoutsHint}</small>
       {timeoutFields.map((field) => {
@@ -35,11 +46,9 @@ export default function TimeoutFields({
             {label}
             <input
               id={id}
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={timeoutBounds[field].min}
-              max={timeoutBounds[field].max}
-              step={1}
+              autoComplete="off"
               value={values[field] ?? ""}
               {...described}
               aria-describedby={[described["aria-describedby"], `${id}-hint`]
