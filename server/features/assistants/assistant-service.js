@@ -121,6 +121,9 @@ export class AssistantService {
   }
   pollReconcile() {
     this.shellChanges.retry().catch(() => {});
+    // Shared files past their 90 days go (at most hourly, agent-share-store.js).
+    if (!this.maintenance && !this.recovering)
+      this.attachments.shared.sweep().catch(() => {});
     queuedDispatch.pollQueued(this);
     const now = this.now();
     if (

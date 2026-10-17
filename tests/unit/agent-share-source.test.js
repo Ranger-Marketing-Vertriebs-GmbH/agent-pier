@@ -107,3 +107,41 @@ test("missing files, folders, special files, empty and oversized files are refus
   execFileSync("mkfifo", [path.join(root, "pipe")]);
   await assert.rejects(readShareSource(roots, "pipe"), { status: 403 });
 });
+
+test("a path in the wrong case is a missing file or the file itself, never a link", async (t) => {
+  const { roots } = workspace(t);
+  // Case-insensitive file systems (macOS by default) find the file; others do not.
+  const read = await readShareSource(roots, "Reports/Summary.TXT").catch((e) => e);
+  if (read instanceof Error) assert.equal(read.status, 404);
+  else assert.equal(read.body.toString(), "Summary\n");
+});
+
+test("a folder swapped for a link while the share is read never yields outside bytes", async (t) => {
+  const { base, root, roots } = workspace(t);
+  fs.mkdirSync(path.join(root, "d"));
+  fs.writeFileSync(path.join(root, "d", "f.txt"), "inside");
+  fs.mkdirSync(path.join(base, "out"));
+  fs.writeFileSync(path.join(base, "out", "f.txt"), "SECRET");
+  fs.symlinkSync(path.join(base, "out"), path.join(root, "d.link"));
+  const { Worker } = await import("node:worker_threads");
+  // Swaps d between the real folder and the link as fast as it can.
+  const worker = new Worker(
+    `const fs = require("node:fs"), path = require("node:path");
+     const { root, ms } = require("node:worker_threads").workerData;
+     const d = path.join(root, "d"), r = path.join(root, "d.real"), l = path.join(root, "d.link");
+     const end = Date.now() + ms;
+     while (Date.now() < end) {
+       fs.renameSync(d, r); fs.renameSync(l, d); fs.renameSync(d, l); fs.renameSync(r, d);
+     }`,
+    { eval: true, workerData: { root, ms: 3000 } },
+  );
+  const done = new Promise((resolve) => worker.once("exit", resolve));
+  const seen = new Set();
+  const end = Date.now() + 2800;
+  while (Date.now() < end) {
+    const result = await readShareSource(roots, "d/f.txt").catch((e) => e);
+    seen.add(result instanceof Error ? result.key : result.body.toString());
+  }
+  await done;
+  assert.equal(seen.has("SECRET"), false, [...seen].join());
+});

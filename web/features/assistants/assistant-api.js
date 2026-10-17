@@ -1,5 +1,10 @@
 import api from "../../lib/api.js";
 export const assistantApi = {
+  deleteSharedFile: (conversationId, fileId) =>
+    api(
+      `/assistant-conversations/${encodeURIComponent(conversationId)}/shared-files/${encodeURIComponent(fileId)}`,
+      "DELETE",
+    ),
   feature: () => api("/assistant-feature"),
   setFeature: (enabled) => api("/assistant-feature", "PUT", { enabled }),
   memory: (id, name) =>

@@ -41,7 +41,18 @@ export class ChannelOutbox {
   // `localized` marks AgentPier-written text whose wording and button labels
   // depend on the channel language; they stay out of the fingerprint so a later
   // language change cannot conflict with an already stored notice.
-  enqueue({ key, source, kind, text, actions = [], teamId, path, localized = false }) {
+  // `caption` is the plain caption of a shared file (kind "file", telegram-file.js).
+  enqueue({
+    key,
+    source,
+    kind,
+    text,
+    actions = [],
+    teamId,
+    path,
+    localized = false,
+    caption,
+  }) {
     textValue(key, 200);
     // Full team assignments or a 65536-character task plus approval metadata.
     textValue(text, ["team-approval", "action-approval"].includes(kind) ? 80000 : 65536);
@@ -79,6 +90,7 @@ export class ChannelOutbox {
       kind,
       teamId,
       text,
+      ...(typeof caption === "string" ? { caption } : {}),
       state: "outbound",
       link,
       parts: telegramParts(text, link),

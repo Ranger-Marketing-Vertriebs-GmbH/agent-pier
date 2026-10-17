@@ -60,6 +60,14 @@ export function assistantAttachmentRoutes({
       res.status(204).end();
     }),
   );
+  // The owner deletes a file an agent shared; every chat showing it says it is gone.
+  router.delete("/assistant-conversations/:id/shared-files/:file", upload, (req, res) =>
+    assistants.admit(async () => {
+      await attachments().shared.remove(req.params.id, req.params.file);
+      assistants.changed?.();
+      res.status(204).end();
+    }),
+  );
   // Reads skip the admission queue (a long apply must not stall thumbnails) but not
   // its gate: no workspace reads while a restore or update may replace them.
   router.get("/assistant-attachments/:file", read, async (req, res) => {

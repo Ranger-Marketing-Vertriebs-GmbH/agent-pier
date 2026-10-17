@@ -33,6 +33,8 @@ const actions = new Set([
   "share_file",
 ]);
 const active = new Set(["pending", "accepted", "running"]);
+// What a routine's own run session (no attempt) may call.
+const routineActions = new Set(["ssh", "share_file"]);
 // What a temporary member reaches through its lead: reminders (created on the lead)
 // and SSH on the lead's grants, each only while it inherits them right now.
 const inheritedAction = (a, action) =>
@@ -112,7 +114,10 @@ export class TeamBridge {
     // A routine's own run session (no attempt) stays current while its routine does.
     if (record.routine) {
       const run = this.routineRun(record);
-      if (record.action !== "ssh" || run?.binding.id !== record.routine.binding.id)
+      if (
+        !routineActions.has(record.action) ||
+        run?.binding.id !== record.routine.binding.id
+      )
         throw assistantProblem("invalid", 403);
       return record;
     }
@@ -163,8 +168,9 @@ export class TeamBridge {
     });
     let bound;
     if (matches.length === 1) bound = { attemptId: matches[0].id };
-    else if (!matches.length && input.action === "ssh") {
-      // Only SSH serves a routine's run: its owner granted the host "incl. routines".
+    else if (!matches.length && routineActions.has(input.action)) {
+      // Only SSH (on hosts granted "incl. routines") and shared files serve a
+      // routine's run.
       const routine = this.routineRun(input);
       if (!routine) throw assistantProblem("invalid", 403);
       bound = { attemptId: null, routine };
