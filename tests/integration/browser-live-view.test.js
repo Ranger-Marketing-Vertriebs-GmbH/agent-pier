@@ -226,6 +226,8 @@ test("the owner takes over: input goes to the agent's tab over CDP, then hands b
     [400, 150, "mousePressed"],
   );
   assert.deepEqual(text.params, { text: "Hallo" });
+  // The agent tried the browser meanwhile, so the hand-back reaches it.
+  live.refused("a");
   ws.send(JSON.stringify({ type: "handBack" }));
   await until(() => last().control.held === false);
   assert.deepEqual(handBacks, [["a", "owner"]]);
