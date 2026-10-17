@@ -135,6 +135,20 @@
     max-height: 160px;
   }
 }
+/* The owner deletes a file an agent shared, after confirming. */
+.agent-shared-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.agent-shared-confirm {
+  margin-top: 6px;
+}
+.agent-shared-confirm p {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
 /* The attach row is a button among the option rows. */
 button.assistant-options-row {
   width: 100%;

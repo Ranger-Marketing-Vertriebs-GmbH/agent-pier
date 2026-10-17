@@ -1,6 +1,7 @@
 import React, { memo, useId, useMemo } from "react";
 import ChatMarkdown from "../../components/ChatMarkdown.jsx";
 import AgentMessageAttachments from "./AgentMessageAttachments.jsx";
+import SharedFileDelete from "./SharedFileDelete.jsx";
 import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 import "./assistant-message-source.css";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
@@ -21,7 +22,8 @@ import "./member-mentions.css";
 // agent's name, and a note when AgentPier refused SSH during the run.
 // A message the history could not load whole (`cut`), or has not loaded whole yet
 // (`partial`), ends with a short note. A file the agent shared (`shared`) shows its
-// caption as the text; one no longer stored (`unavailable`) says so.
+// caption as the text; one no longer stored (`unavailable`) says so, and
+// `removeShared(file)` lets the owner delete it.
 export default memo(function AssistantMessage({
   role,
   name,
@@ -38,6 +40,7 @@ export default memo(function AssistantMessage({
   scheduled = null,
   shared = false,
   unavailable = false,
+  removeShared = null,
 }) {
   const metaId = useId();
   const lead = role === "user" && source === "lead" && typeof sender?.name === "string";
@@ -88,6 +91,11 @@ export default memo(function AssistantMessage({
           <ChatMarkdown {...markdown}>{text}</ChatMarkdown>
         </div>
       )}
+      {shared &&
+        removeShared &&
+        attachments?.map((file) => (
+          <SharedFileDelete key={file.id} file={file} remove={removeShared} />
+        ))}
       {(cut || partial) && (
         <p className="assistant-message-cut">
           {cut ? copy.messageCut : copy.messagePartial}

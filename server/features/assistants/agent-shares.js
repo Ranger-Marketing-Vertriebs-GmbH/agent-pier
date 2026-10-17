@@ -11,6 +11,9 @@ import { MAX_CAPTION_LENGTH, readShareSource, shareRoots } from "./agent-share-s
  * from the owner's Telegram chat (directly, or through the lead's turn a member works
  * for), the file is queued for that chat as well (telegram-file.js); Telegram never
  * sees a file from any other turn.
+ *
+ * A routine's run (no attempt; the bridge admits its run session as for SSH) shares
+ * into the chat its routine commits to, and to the Telegram chat it delivers to.
  */
 export class AgentShares {
   constructor({ assistants, channels = null }) {
@@ -27,13 +30,12 @@ export class AgentShares {
     )
       throw assistantProblem("invalid");
     const a = this.assistants;
-    if (!invocation.attemptId) throw assistantProblem("invalid", 403);
-    const attempt = a.ledger.getAttempt(invocation.attemptId);
-    const request = a.ledger.getRequest(attempt.requestId);
-    const conversation = a.store.getConversation(request.conversationId);
+    // No workspace reads while a restore or update may replace them.
+    if (a.closed || a.maintenance || a.recovering)
+      throw assistantProblem("unavailable", 503);
+    const { conversation, requestId, origin } = this.turn(invocation);
     const agent = a.store.getAssistant(conversation.assistantId);
     if (agent.archivedAt) throw assistantProblem("invalid", 403);
-    const origin = a.teams?.store?.context(request.id) || { kind: "unknown" };
     const source = await readShareSource(
       shareRoots(a.attachments.config?.workspaces, agent),
       input.path,
@@ -42,7 +44,7 @@ export class AgentShares {
     const caption = (input.caption || "").trim();
     const file = await a.attachments.share({
       conversation,
-      requestId: request.id,
+      requestId,
       ...source,
       caption,
       mirror: this.leadChat(origin, agent),
@@ -55,6 +57,30 @@ export class AgentShares {
       file: { name: file.name, type: file.type, size: file.size },
       ...(telegram ? { telegram } : {}),
       note: "The owner sees the file in the chat now; do not repeat its contents unless asked.",
+    };
+  }
+  // The chat, request key and trusted origin of the calling turn.
+  turn(invocation) {
+    const a = this.assistants;
+    if (invocation.routine && !invocation.attemptId) {
+      const { binding, conversation } = invocation.routine;
+      // The run session names the run (agent:<id>:cron:<job>:run:<run id>).
+      const run = /:run:([^:]+)$/i.exec(invocation.sessionKey || "")?.[1];
+      return {
+        conversation: a.store.getConversation(conversation.id),
+        requestId: `routine:${run || binding.id}`,
+        origin: binding.source
+          ? { kind: "telegram", ...binding.source }
+          : { kind: "routine" },
+      };
+    }
+    if (!invocation.attemptId) throw assistantProblem("invalid", 403);
+    const attempt = a.ledger.getAttempt(invocation.attemptId);
+    const request = a.ledger.getRequest(attempt.requestId);
+    return {
+      conversation: a.store.getConversation(request.conversationId),
+      requestId: request.id,
+      origin: a.teams?.store?.context(request.id) || { kind: "unknown" },
     };
   }
   // The lead's chat a member's turn works for, or null.
@@ -105,8 +131,9 @@ export class AgentShares {
         key: `share:${file.id}`,
         source: { ...target, attachmentId: file.id },
         kind: "file",
-        // Shown in the channel's activity list; Telegram gets it as the caption.
+        // Shown in the channel's activity list; Telegram gets only the caption.
         text: caption || file.name,
+        caption,
       });
       return "queued";
     } catch {

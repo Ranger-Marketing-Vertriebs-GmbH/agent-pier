@@ -5,6 +5,12 @@ export const assistantAttachmentsCopy = Object.freeze({
   sent: "Angehängte Dateien",
   shared: "Geteilte Dateien",
   sharedUnavailable: "Diese geteilte Datei ist nicht mehr verfügbar.",
+  deleteLabel: "Löschen",
+  deleteShared: (name) => `${name} löschen`,
+  deleteConfirm: (name) =>
+    `„${name}“ aus AgentPier löschen? Die Datei im Arbeitsbereich des Agenten bleibt.`,
+  deleteYes: "Löschen",
+  deleteNo: "Behalten",
   remove: (name) => `${name} entfernen`,
   open: (name) => `${name} öffnen`,
   download: (name) => `${name} herunterladen`,

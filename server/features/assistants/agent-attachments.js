@@ -14,6 +14,7 @@ import {
   safeFileName,
 } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
+import { SHARED, SharedFiles } from "./agent-share-store.js";
 
 // Files picked in the composer but not sent yet; they expire after a day. A page left
 // without sending may leave its files behind, so a conversation at the cap gives up
@@ -40,9 +41,9 @@ const digest = (body) => createHash("sha256").update(body).digest("hex");
 // Staged files a queued message names (queued-messages.js): never expired or removed.
 const unqueued =
   "id NOT IN (SELECT j.value FROM queued_messages q, json_each(q.attachments) j)";
-// Files an agent shared with the owner (agent-shares.js) carry `share:<request id>` as
-// their request: no delivery or claim ever names one, and no history note strips one.
-const SHARED = "share:";
+// Files an agent shared with the owner (agent-share-store.js) carry `share:<request
+// id>` as their request: no delivery or claim ever names one, and no history note or
+// upload quota counts one.
 const owned = `request_id NOT LIKE '${SHARED}%'`;
 
 /**
@@ -58,6 +59,7 @@ export class AgentAttachments {
     Object.assign(this, { store, models, config, now, hooks });
     this.db = store.db;
     this.queues = new Map();
+    this.shared = new SharedFiles(this);
   }
   transaction(fn) {
     this.db.exec("BEGIN IMMEDIATE");
@@ -182,68 +184,12 @@ export class AgentAttachments {
         this.now(),
       );
   }
-  /**
-   * A file the agent hands the owner from its workspace (agent-shares.js): copied
-   * like an upload into its attachments folder, within the same per-agent quota, and
-   * shown in the chat of the turn that shared it. Images and PDFs keep their type;
-   * any other file is a download. `mirror` (`{ conversationId, from }`) shows a
-   * member's file in its lead's chat as well, from the same copy.
-   */
-  async share({ conversation, requestId, name, body, caption = "", mirror = null }) {
-    if (!Buffer.isBuffer(body) || !body.length) throw assistantProblem("shareEmpty");
-    if (body.length > MAX_SHARE_BYTES) throw assistantProblem("shareTooLarge", 413);
-    return this.serial(conversation.assistantId, async () => {
-      const detected = detectAttachment(body, name);
-      const typed =
-        detected && detected.kind !== "text"
-          ? detected
-          : { type: "application/octet-stream", kind: "file" };
-      const folder = await this.folder(conversation.assistantId);
-      await this.expire(conversation.assistantId, folder.path);
-      await this.assertQuota(conversation.assistantId, folder.path, body.length);
-      const entry = {
-        ...(await this.copy(folder, name, body, typed)),
-        shared: true,
-        ...(caption ? { caption } : {}),
-      };
-      const id = randomUUID();
-      try {
-        this.transaction(() => {
-          this.index(id, conversation, entry, SHARED + requestId);
-          if (mirror)
-            this.index(
-              randomUUID(),
-              { assistantId: conversation.assistantId, id: mirror.conversationId },
-              { ...entry, from: mirror.from },
-              SHARED + requestId,
-            );
-        });
-      } catch (error) {
-        await fs.rm(path.join(folder.path, entry.file), { force: true });
-        throw error;
-      }
-      return publicFile({ id, ...entry });
-    });
+  // Files agents hand the owner (agent-share-store.js).
+  share(input) {
+    return this.shared.share(input);
   }
-  /**
-   * The files agents shared in a conversation, as agent messages at the time each
-   * was shared; a copy that is gone keeps its message, marked `unavailable`.
-   */
   sharedFor(conversationId) {
-    return this.rows(
-      `SELECT * FROM agent_attachments WHERE conversation_id=? AND request_id LIKE '${SHARED}%' ORDER BY created_at, rowid`,
-      conversationId,
-    ).map((file) => ({
-      id: `shared-file:${file.id}`,
-      role: "assistant",
-      text: typeof file.caption === "string" ? file.caption : "",
-      timestamp: file.row.created_at,
-      runId: null,
-      shared: true,
-      attachments: file.gone ? [] : [publicFile(file)],
-      ...(file.gone ? { unavailable: true } : {}),
-      ...(typeof file.from === "string" ? { from: file.from } : {}),
-    }));
+    return this.shared.forConversation(conversationId);
   }
   /**
    * Creates the copy by descriptor. The empty file is created without following a
@@ -328,7 +274,7 @@ export class AgentAttachments {
         (await fs.lstat(path.join(folder, entry.name)).catch(() => null))?.size || 0;
     }
     for (const file of this.rows(
-      "SELECT * FROM agent_attachments WHERE assistant_id=?",
+      `SELECT * FROM agent_attachments WHERE assistant_id=? AND (request_id IS NULL OR ${owned})`,
       assistantId,
     )) {
       if (present.has(file.file) || file.gone) continue;
@@ -464,7 +410,12 @@ export class AgentAttachments {
   // SHA-256, as a regular file with no other hard link. Inode numbers are not used:
   // Linux reuses a freed one at once, and a restore gives every copy a new one.
   async read(assistantId, file) {
-    const folder = await this.folder(assistantId, false);
+    // A shared file is read from the share store, and never once it has expired.
+    if (file.shared && this.shared.expired(file))
+      throw assistantProblem("attachmentNotFound", 404);
+    const folder = file.shared
+      ? await this.shared.folder(assistantId, false)
+      : await this.folder(assistantId, false);
     if (!folder) throw assistantProblem("attachmentNotFound", 404);
     let handle;
     try {
@@ -547,6 +498,7 @@ export class AgentAttachments {
     return this.serial(assistantId, async () => {
       const folder = await this.folder(assistantId, false);
       if (folder) await fs.rm(folder.path, { recursive: true, force: true });
+      await this.shared.purge(assistantId);
       this.db
         .prepare("DELETE FROM agent_attachments WHERE assistant_id=?")
         .run(assistantId);

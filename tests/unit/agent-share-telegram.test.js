@@ -93,7 +93,8 @@ test("a file notice sends its caption, clipped to Telegram's 1024 characters", a
     state: "outbound",
     nextDeliveryAt: 0,
     chatId: "42",
-    text: "x".repeat(1030),
+    text: "report.pdf",
+    caption: "x".repeat(1030),
   };
   await sendTelegramFile({
     client: {

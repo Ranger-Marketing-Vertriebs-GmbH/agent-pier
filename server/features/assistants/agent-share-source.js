@@ -29,12 +29,48 @@ const inside = (root, target) => {
 };
 
 // The path the open descriptor really names, where the system reports it (Linux);
-// null elsewhere, where the checks before and after the open stand in for it.
+// null elsewhere (macOS), where only the ordered checks around the open stand in.
 async function descriptorPath(handle) {
   try {
     return await fs.readlink(`/proc/self/fd/${handle.fd}`);
   } catch {
     return null;
+  }
+}
+
+const notFound = (error) =>
+  ["ENOENT", "ENOTDIR"].includes(error?.code)
+    ? assistantProblem("shareNotFound", 404)
+    : assistantProblem("shareOutside", 403);
+
+// Every directory from the root down to the file's folder, each a real directory
+// (never a link), with its identity. Checked one after another, in order.
+async function walk(root, parts) {
+  const dirs = [];
+  let current = root;
+  for (const part of [null, ...parts]) {
+    if (part !== null) current = path.join(current, part);
+    const stat = await fs.lstat(current, { bigint: true }).catch((error) => {
+      throw notFound(error);
+    });
+    if (stat.isSymbolicLink()) throw assistantProblem("shareOutside", 403);
+    if (!stat.isDirectory()) throw assistantProblem("shareNotFound", 404);
+    dirs.push({ path: current, dev: stat.dev, ino: stat.ino });
+  }
+  return dirs;
+}
+// The same directories are still there, as the same directories.
+async function unchanged(dirs) {
+  for (const dir of dirs) {
+    const stat = await fs.lstat(dir.path, { bigint: true }).catch(() => null);
+    if (
+      !stat ||
+      stat.isSymbolicLink() ||
+      !stat.isDirectory() ||
+      stat.dev !== dir.dev ||
+      stat.ino !== dir.ino
+    )
+      throw assistantProblem("shareOutside", 403);
   }
 }
 
@@ -44,6 +80,13 @@ async function descriptorPath(handle) {
  * symbolic link and the file may have no second hard link, so nothing outside the
  * roots is reachable through the workspace. The bytes are read through the checked
  * descriptor, within MAX_SHARE_BYTES. Returns `{ name, body }`.
+ *
+ * Node cannot open relative to a directory descriptor (no openat), so a folder that
+ * an agent with a shell swaps for a link while this runs is caught by checks around
+ * the open: every folder before it, then after it the folders, the file's own
+ * identity and the folders once more, strictly in this order. On Linux the
+ * descriptor's own path closes the gap; on macOS the checks are best effort, which
+ * is why the copy lives outside the workspace where the agent cannot read it back.
  */
 export async function readShareSource(
   roots,
@@ -73,14 +116,14 @@ export async function readShareSource(
   }
   if (!candidates.length) throw assistantProblem("shareOutside", 403);
   const { real: realRoot, expected } = candidates[0];
-  const resolved = await fs.realpath(expected).catch((error) => {
-    throw error.code === "ENOENT" || error.code === "ENOTDIR"
-      ? assistantProblem("shareNotFound", 404)
-      : assistantProblem("shareOutside", 403);
-  });
+  const parts = inside(realRoot, expected).split(path.sep);
   // A link anywhere on the way (even one back into the workspace) is refused.
-  if (resolved !== expected || !inside(realRoot, resolved))
-    throw assistantProblem("shareOutside", 403);
+  const dirs = await walk(realRoot, parts.slice(0, -1));
+  const leaf = await fs.lstat(expected).catch((error) => {
+    throw notFound(error);
+  });
+  if (leaf.isSymbolicLink()) throw assistantProblem("shareOutside", 403);
+  if (leaf.isDirectory()) throw assistantProblem("shareNotFound", 404);
   let handle;
   try {
     handle = await fs.open(
@@ -88,9 +131,7 @@ export async function readShareSource(
       constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
   } catch (error) {
-    throw error.code === "ENOENT"
-      ? assistantProblem("shareNotFound", 404)
-      : assistantProblem("shareOutside", 403);
+    throw notFound(error);
   }
   try {
     const stat = await handle.stat({ bigint: true });
@@ -98,21 +139,16 @@ export async function readShareSource(
     if (!stat.isFile() || stat.nlink !== 1n) throw assistantProblem("shareOutside", 403);
     if (stat.size > BigInt(maxBytes)) throw assistantProblem("shareTooLarge", 413);
     if (stat.size === 0n) throw assistantProblem("shareEmpty", 400);
-    // The descriptor must still be the file at the checked place: a directory
-    // swapped for a link between the check and the open is caught here.
-    const [named, again, opened] = await Promise.all([
-      fs.lstat(expected, { bigint: true }).catch(() => null),
-      fs.realpath(expected).catch(() => null),
-      descriptorPath(handle),
-    ]);
-    if (
-      !named ||
-      named.dev !== stat.dev ||
-      named.ino !== stat.ino ||
-      again !== expected ||
-      (opened !== null && opened !== expected)
-    )
+    // The descriptor must still be the file at the checked place: a folder swapped
+    // for a link around the open is caught here, one check after another.
+    const opened = await descriptorPath(handle);
+    if (opened !== null && opened !== expected)
       throw assistantProblem("shareOutside", 403);
+    await unchanged(dirs);
+    const named = await fs.lstat(expected, { bigint: true }).catch(() => null);
+    if (!named || named.dev !== stat.dev || named.ino !== stat.ino)
+      throw assistantProblem("shareOutside", 403);
+    await unchanged(dirs);
     const size = Number(stat.size);
     const body = Buffer.alloc(size + 1);
     let read = 0;
