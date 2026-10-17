@@ -8,7 +8,10 @@ import { AssistantAccess } from "../../server/features/assistants/assistant-acce
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
 import { TeamStore } from "../../server/features/assistants/team-store.js";
 import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
-import { mirrorLeadMemory } from "../../server/features/assistants/member-memory.js";
+import {
+  mirrorLeadMemory,
+  mirrorName,
+} from "../../server/features/assistants/member-memory.js";
 import { assistantBootstrap } from "../../server/features/assistants/assistant-bootstrap.js";
 
 const model = { connectionId: "c", modelId: "m" };
@@ -168,12 +171,12 @@ test("the copy of the lead's memory lives apart from the member's own memory", a
   await mirrorLeadMemory(root, f.member, true);
   assert.equal(fs.readFileSync(path.join(mirror, "MEMORY.md"), "utf8"), "Lead facts");
   assert.equal(
-    fs.readFileSync(path.join(mirror, "note-projects--atlas.md"), "utf8"),
+    fs.readFileSync(path.join(mirror, "note-projects~satlas.md"), "utf8"),
     "Atlas notes",
   );
   assert.deepEqual(fs.readdirSync(mirror).sort(), [
     "MEMORY.md",
-    "note-projects--atlas.md",
+    "note-projects~satlas.md",
   ]);
   assert.equal(fs.readFileSync(path.join(own, "MEMORY.md"), "utf8"), "My facts");
   // Whatever lands in the copy is replaced by the lead's again before the next turn.
@@ -246,4 +249,25 @@ test("a planted link in the member's copy is replaced, never written through", a
     fs.readdirSync(path.join(own, "memory")).filter((name) => name.endsWith(".tmp")),
     [],
   );
+});
+
+test("mirror names never collide, and a planted folder in the copy is left alone", async (t) => {
+  assert.notEqual(mirrorName("memory/a--b.md"), mirrorName("memory/a/b.md"));
+  assert.notEqual(mirrorName("memory/a~sb.md"), mirrorName("memory/a/b.md"));
+  const f = fixture(t);
+  const root = path.join(f.dataDir, "workspaces");
+  const lead = path.join(root, f.lead.id),
+    mirror = path.join(root, f.member.id, "memory", "lead");
+  fs.mkdirSync(path.join(lead, "memory", "a"), { recursive: true });
+  fs.mkdirSync(path.join(mirror, "planted", "deep"), { recursive: true });
+  fs.writeFileSync(path.join(mirror, "planted", "deep", "keep.md"), "x");
+  fs.writeFileSync(path.join(lead, "memory", "a--b.md"), "flat");
+  fs.writeFileSync(path.join(lead, "memory", "a", "b.md"), "nested");
+  await mirrorLeadMemory(root, f.member, true);
+  const names = fs.readdirSync(mirror).sort();
+  assert.equal(names.filter((n) => n.startsWith("note-")).length, 2);
+  // Only files are removed; a folder there is not walked or deleted.
+  await mirrorLeadMemory(root, f.member, false);
+  assert.deepEqual(fs.readdirSync(mirror), ["planted"]);
+  assert.ok(fs.existsSync(path.join(mirror, "planted", "deep", "keep.md")));
 });

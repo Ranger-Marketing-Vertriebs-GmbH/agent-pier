@@ -71,10 +71,15 @@ async function listNotes(root) {
 // write guard refuses every write into it (ownMemoryTarget, lead-request-writes.js).
 export const leadMirrorDir = "memory/lead";
 /** The mirror file of one of the lead's memory files (notes flattened, prefixed). */
+// Flattened collision-free: "~" escapes itself ("~~") and every "/" ("~s"), and
+// neither occurs in a note name otherwise (noteName allows letters, digits, _ . -).
 export const mirrorName = (name) =>
   rootNotes.includes(name)
     ? `${leadMirrorDir}/${name}`
-    : `${leadMirrorDir}/note-${name.slice("memory/".length).replaceAll("/", "--")}`;
+    : `${leadMirrorDir}/note-${name
+        .slice("memory/".length)
+        .replaceAll("~", "~~")
+        .replaceAll("/", "~s")}`;
 
 // Whether `dir` (below `own`) is a real directory that resolves where it should.
 async function inside(own, dir) {
@@ -117,8 +122,12 @@ export async function mirrorLeadMemory(workspaces, member, enabled) {
   if (existed && (await inside(own, leadMirrorDir)))
     for (const entry of await fs.readdir(path.join(own, leadMirrorDir))) {
       const name = `${leadMirrorDir}/${entry}`;
-      if (!wanted.has(name))
-        await fs.rm(path.join(own, name), { force: true, recursive: true });
+      if (wanted.has(name)) continue;
+      // The folder is flat: only files and links in it are removed, a planted
+      // folder is left alone and never walked.
+      const stat = await fs.lstat(path.join(own, name)).catch(() => null);
+      if (stat && !stat.isDirectory())
+        await fs.unlink(path.join(own, name)).catch(() => {});
     }
   if (!wanted.size) return;
   if (!(await realDirectory(path.join(own, "memory"))))

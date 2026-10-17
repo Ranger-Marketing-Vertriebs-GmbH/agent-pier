@@ -27,7 +27,7 @@ const memoryGuidance = (member, writable, task, lead) =>
     "## Memory",
     ...(task
       ? [
-          "- Your memory is your own: write what you learn for this work to it. Only your own memory files can be written; nothing else in your workspace.",
+          "- Your memory is your own: write what you learn for this work to `MEMORY.md` and `memory/`, in any turn. Other files in your workspace change only when the owner approved that for a task.",
           ...(lead
             ? [
                 "- `memory/lead/` is a read-only copy of your team lead's memory, refreshed before each turn and found by memory search too. Use it for context, never write there; report what the lead should keep to the lead.",
