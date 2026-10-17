@@ -4,6 +4,23 @@ import { problem } from "../../lib/storage.js";
 const sha = /^[0-9a-f]{40}$/i;
 const MAX_RESPONSE = 64 * 1024;
 
+/** The JSON body, read up to MAX_RESPONSE bytes; a larger or invalid body is refused. */
+async function readJSON(response) {
+  const chunks = [];
+  let size = 0;
+  try {
+    for await (const chunk of response.body ?? []) {
+      size += chunk.length;
+      if (size > MAX_RESPONSE) throw Error("too large");
+      chunks.push(chunk);
+    }
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    await response.body?.cancel().catch(() => {});
+    throw problem(serverMessages.extensions.skillRefLookupFailed, 502);
+  }
+}
+
 /**
  * One unauthenticated GitHub API read: JSON, or null for 404. Redirects (a renamed
  * repository) are followed only within api.github.com.
@@ -38,16 +55,15 @@ async function readApi(path, fetchImpl, signal) {
     }
     if (!response.ok) {
       await response.body?.cancel();
+      // Unauthenticated API calls are limited per address (60 an hour).
+      const limited =
+        response.status === 429 ||
+        (response.status === 403 &&
+          response.headers.get("x-ratelimit-remaining") === "0");
+      if (limited) throw problem(serverMessages.extensions.skillRefRateLimited, 429);
       throw problem(serverMessages.extensions.skillRefLookupFailed, 502);
     }
-    const text = await response.text();
-    if (text.length > MAX_RESPONSE)
-      throw problem(serverMessages.extensions.skillRefLookupFailed, 502);
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw problem(serverMessages.extensions.skillRefLookupFailed, 502);
-    }
+    return readJSON(response);
   }
   throw problem(serverMessages.extensions.skillDownloadRedirectLimit);
 }

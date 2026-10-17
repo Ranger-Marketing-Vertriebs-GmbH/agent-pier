@@ -251,7 +251,7 @@ export async function activate(
   }
   // Skills copied from the package follow the version the server now runs.
   try {
-    service.skills?.sync(serverId);
+    await service.skills?.sync(serverId);
   } catch (error) {
     logFailure("update the skills of an MCP package", error);
   }

@@ -160,3 +160,33 @@ test("a ref lookup never follows a redirect off api.github.com", async (t) => {
     false,
   );
 });
+
+test("a rate-limited or oversized ref lookup names the reason and downloads nothing", async (t) => {
+  const { store, calls } = setup(t);
+  const url = "https://github.com/example/repo/tree/main/skills/demo";
+  for (const limited of [
+    () => new Response("{}", { status: 403, headers: { "x-ratelimit-remaining": "0" } }),
+    () => new Response("{}", { status: 429 }),
+  ]) {
+    store.fetchImpl = async (target, options) => {
+      calls.push({ url: String(target), options });
+      return limited();
+    };
+    await assert.rejects(store.installSkill("local-claude", { url }), {
+      status: 429,
+      message: serverMessages.extensions.skillRefRateLimited,
+    });
+  }
+  store.fetchImpl = async (target) => {
+    calls.push({ url: String(target) });
+    return new Response(`{"pad":"${"x".repeat(70 * 1024)}"}`);
+  };
+  await assert.rejects(store.installSkill("local-claude", { url }), {
+    status: 502,
+    message: serverMessages.extensions.skillRefLookupFailed,
+  });
+  assert.equal(
+    calls.some((call) => call.url.startsWith("https://codeload.github.com/")),
+    false,
+  );
+});

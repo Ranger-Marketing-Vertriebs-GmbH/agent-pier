@@ -65,6 +65,13 @@ export default function McpPackageSkills({ serverId, ready, version }) {
       setNotice(copy.skills.installedNotice);
     } catch (failure) {
       setError(failure.message);
+      // Whatever was installed or changed meanwhile shows; the refusal stays named.
+      try {
+        setData(await assistantApi.mcpPackageSkills(serverId));
+      } catch {
+        /* The refusal above is the message that matters. */
+      }
+      setConfirming(false);
     } finally {
       setBusy(false);
     }
@@ -105,6 +112,12 @@ export default function McpPackageSkills({ serverId, ready, version }) {
                     .join(", "),
                 )}
               </p>
+            )}
+            {skill.document && (
+              <details>
+                <summary>{copy.skills.preview}</summary>
+                <pre className="mcp-package-skill-document">{skill.document}</pre>
+              </details>
             )}
             <details>
               <summary>{copy.files(skill.files.length)}</summary>

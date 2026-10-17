@@ -48,7 +48,11 @@ a branch and a tag (use the commit SHA then), downloads exactly the resolved com
 records it: the skill's row names the repository, the ref and the commit, for example
 "GitHub owner/repo · tag v1.2.0 · commit 0123456789ab". Repository and ZIP links
 without a `tree/<ref>` part download as before and record no commit. A skill does not
-follow later commits of a branch; install it again to update it.
+follow later commits of a branch; install it again to update it. GitHub limits these
+unauthenticated lookups per address (60 an hour); a limited lookup says so, and a
+commit SHA needs no lookup. GitHub serves a commit SHA from the whole fork network of
+a repository, so a `tree/<sha>` link can name a commit that only exists in a fork;
+take SHAs from the repository's own history or releases.
 
 Skills bundled with an MCP server package are offered in the package's panel; see
 [Bundled skills of a package](mcp.md#bundled-skills-of-a-package). Their rows on
