@@ -350,6 +350,13 @@ export class AssistantWorkflows {
    * follows a project to another row (docs/assistant-release-qualification.md): the
    * owner grants the surviving row explicitly. One audit record per changed agent.
    */
+  // Whether a grant or an unstarted approval still names the project.
+  holdsProject(projectId) {
+    return (
+      this.access.holdsProject(projectId) || this.store.unstarted(projectId).length > 0
+    );
+  }
+  // Runs during agent maintenance as well, like an SSH host removal (revokeSsh).
   revokeProject(projectId, toId) {
     const closed = new Map();
     const changed = this.access.revokeProject(projectId, () => {

@@ -38,6 +38,9 @@ function coordinator(f) {
   return rebind;
 }
 
+// The stored policy, without the save's report of dropped projects.
+const stored = ({ removedProjectIds: _removed, ...policy }) => policy;
+
 async function codingProposal(f) {
   return f.workflows.invoke(await f.invocation(), {
     action: "coding_start",
@@ -95,7 +98,7 @@ async function refusesMovedGrant(f, policy, current) {
 
 test("git init before registration blocks an approved coding start against the old identity", async (t) => {
   const f = await workflowFixture(t);
-  const policy = f.workflows.access.save(f.id, f.policy, 0);
+  const policy = stored(f.workflows.access.save(f.id, f.policy, 0));
   const proposal = await codingProposal(f);
   await approve(f, proposal);
   gitInit(f.project.cwd);
@@ -121,7 +124,7 @@ test("git-init rebind moves knowledge without granting assistants the replacemen
     title: "Before",
     content: "Original note",
   });
-  const policy = f.workflows.access.save(f.id, f.policy, 0);
+  const policy = stored(f.workflows.access.save(f.id, f.policy, 0));
   const pending = await codingProposal(f);
   const approved = await codingProposal(f);
   await approve(f, approved);
@@ -163,7 +166,7 @@ test("duplicate merge drops stale assistant grants and blocks already approved w
     title: "Old knowledge",
     content: "ORIGINAL_PROJECT_ONLY",
   });
-  const policy = f.workflows.access.save(f.id, f.policy, 0);
+  const policy = stored(f.workflows.access.save(f.id, f.policy, 0));
   const pending = await codingProposal(f);
   const approved = await codingProposal(f);
   await approve(f, approved);

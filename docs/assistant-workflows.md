@@ -34,9 +34,13 @@ project to the Git identity, the older project leaves every agent's access, its
 proposals that were not started yet fail with "Access or pipeline changed since the
 request. Nothing was started.", and each changed agent is audited as
 `assistant.updated` (`kind: "project-rebind"`). Proposals for other projects stay
-valid. Grant the remaining project again if the agent should keep working on it.
-Saving **Work** drops granted projects that no longer exist, for example from a merge
-made while agents were switched off, and says how many it removed.
+valid; SSH command approvals follow their host's SSH access instead. Grant the
+remaining project again if the agent should keep working on it. A `git init` move
+made while agents were switched off finishes when the agents are back and the project
+is used again. After a merge made while agents were switched off, saving **Work**
+cleans up: it drops granted projects that no longer exist and says how many it removed; both
+`PUT /api/assistants/:id/work` and `PUT /api/assistants/:id/access` list them in
+`removedProjectIds`.
 
 Ask the agent to inspect project knowledge or propose a concrete coding task.
 The workspace tool first discovers the granted project/pipeline IDs. Approval

@@ -67,8 +67,18 @@ export class ProjectRebind {
       this.memory.ownsEntries(fromId) ||
       this.sshManagement.knowsProject(fromId) ||
       this.artifacts.ownsProject(fromId) ||
-      Boolean(this.definitions?.hasVerification(fromId))
+      Boolean(this.definitions?.hasVerification(fromId)) ||
+      this.assistantsHold(fromId)
     );
+  }
+  // An agent feature that was off (or failed) during the move leaves grants behind;
+  // they make the move unfinished, so ensure() and the start-up cleanup rerun it.
+  assistantsHold(fromId) {
+    try {
+      return Boolean(this.assistantWorkflows()?.holdsProject(fromId));
+    } catch {
+      return false;
+    }
   }
   async adopt({ fromId, scope, launch }, previousIds) {
     const recorded = this.memory.reboundTo(fromId);
@@ -143,8 +153,8 @@ export class ProjectRebind {
   }
   /**
    * Agent grants do not follow a project to its new row; the older id leaves them, so
-   * no save names a missing project. Skipped while the agent feature is off; a save
-   * then drops the stale id (assistant-access.js).
+   * no save names a missing project. Skipped while the agent feature is off: a later
+   * resume (remnants) finishes it, and a save drops the stale id (assistant-access.js).
    */
   revokeAssistants(fromId, toId) {
     this.assistantWorkflows()?.revokeProject(fromId, toId);
