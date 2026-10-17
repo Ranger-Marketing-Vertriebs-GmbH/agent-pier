@@ -28,7 +28,15 @@ export const profileKeys = ["name", "instructions", "connectionId", "modelId"];
 export const heartbeatKeys = ["heartbeatEnabled", "interval", "start", "end", "timeZone"];
 export const channelKeys = ["language", "appUrl"];
 export const permissionKeys = ["memoryWrite", "autonomous", "publish"];
-export const accessKeys = ["projectIds", "pipelineIds", "sshAccesses", ...permissionKeys];
+export const accessKeys = [
+  "projectIds",
+  "projectFiles",
+  "pipelineIds",
+  "sshAccesses",
+  ...permissionKeys,
+];
+// Direct folder access per granted project (server assistant-access.js projectFiles).
+export const folderLevels = ["none", "read", "write"];
 export const sshModes = ["approval", "trusted", "routines"];
 export const teamKeys = [
   "teamAutonomous",
@@ -104,6 +112,18 @@ export const staysOnAgentTab = (assistantId, tab, page) => (request) => {
 };
 
 export const sortedIds = (ids) => [...new Set(ids || [])].sort();
+/** Folder levels sorted by project id, so the draft compares stably. */
+export const sortedLevels = (levels) =>
+  Object.fromEntries(
+    Object.entries(levels || {})
+      .filter(([, level]) => level === "read" || level === "write")
+      .sort(([a], [b]) => (a < b ? -1 : 1)),
+  );
+/** `levels` with `projectId` at `level`; "none" (or null) removes it. */
+export const setFolderLevel = (levels, projectId, level) => {
+  const { [projectId]: _old, ...rest } = levels || {};
+  return sortedLevels(level && level !== "none" ? { ...rest, [projectId]: level } : rest);
+};
 export const toggleId = (ids, id, on) =>
   sortedIds(on ? [...ids, id] : ids.filter((value) => value !== id));
 // The server sorts grants by access id the same way (assistant-access.js).
@@ -210,6 +230,7 @@ export function channelPatch({ values, base }) {
 
 export const workServer = (policy, team) => ({
   projectIds: sortedIds(policy?.projectIds),
+  projectFiles: sortedLevels(policy?.projectFiles),
   pipelineIds: sortedIds(policy?.pipelineIds),
   sshAccesses: sortedGrants(policy?.sshAccesses),
   memoryWrite: policy?.memoryWrite === true,
@@ -241,9 +262,12 @@ export function workBody({ values, changed, revisions, withTeam, sshHostIds = nu
       revision: revisions.access,
       ...Object.fromEntries(
         accessKeys
-          .filter((key) => key !== "sshAccesses")
+          .filter((key) => key !== "sshAccesses" && key !== "projectFiles")
           .map((key) => [key, values[key]]),
       ),
+      // Folder levels likewise go only when changed; the server keeps absent ones
+      // for the projects that stay granted.
+      ...(changed.includes("projectFiles") && { projectFiles: values.projectFiles }),
       // Only changed grants are sent (the server keeps absent ones), so an unreadable
       // SSH catalog cannot fail other saves. Grants of removed hosts drop on save; an
       // unreadable catalog drops nothing.

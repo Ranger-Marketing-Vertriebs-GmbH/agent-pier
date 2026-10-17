@@ -36,12 +36,14 @@ import useActionHistory from "./useActionHistory.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import ActionHistory from "./ActionHistory.jsx";
 import GrantSelectionPage from "./GrantSelectionPage.jsx";
+import ProjectGrantPage from "./ProjectGrantPage.jsx";
 import SshGrantPage from "./SshGrantPage.jsx";
 import TeamsGroup from "./TeamsGroup.jsx";
 
 const teamCopy = assistantCopy.team;
 const conflictLabels = {
   projectIds: () => wf.projects,
+  projectFiles: () => wf.folderLegend,
   pipelineIds: () => wf.pipelines,
   sshAccesses: () => sshCopy.row,
   memoryWrite: () => wf.memoryWrite,
@@ -183,12 +185,29 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
         {bar}
       </>
     );
-  if (page === "projects" || page === "pipelines") {
-    const key = page === "projects" ? "projectIds" : "pipelineIds";
+  if (page === "projects")
+    return (
+      <>
+        <ProjectGrantPage
+          items={catalog?.projects ?? null}
+          selected={draft.values.projectIds}
+          levels={draft.values.projectFiles}
+          disabled={!policy || draft.saving}
+          onChange={({ projectIds, projectFiles }) => {
+            draft.set("projectIds", projectIds);
+            draft.set("projectFiles", projectFiles);
+          }}
+          onBack={back}
+        />
+        {bar}
+      </>
+    );
+  if (page === "pipelines") {
+    const key = "pipelineIds";
     return (
       <>
         <GrantSelectionPage
-          title={page === "projects" ? wf.projects : wf.pipelines}
+          title={wf.pipelines}
           items={catalog?.[page] ?? null}
           selected={draft.values[key]}
           disabled={!policy || draft.saving}
@@ -226,6 +245,12 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
         <ListCard labelledBy={accessId}>
           <ListRow
             label={wf.projects}
+            sub={(() => {
+              const folders = Object.keys(values.projectFiles).filter((id) =>
+                values.projectIds.includes(id),
+              ).length;
+              return folders ? wf.folderSummary(folders) : undefined;
+            })()}
             value={
               catalog
                 ? commonCopy.ofCount(

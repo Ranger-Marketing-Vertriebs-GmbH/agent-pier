@@ -49,6 +49,11 @@ export default function GrantedCapabilities({ inherited, member, assistantId, go
           value={shellCopy.levels[inherited.shell] || shellCopy.levels.off}
         />
         <ListRow label={sshCopy.row} value={state(inherited.ssh === true)} />
+        {/* Granted folders; each works at most at the lead's current level. */}
+        <ListRow
+          label={grantCopy.projectFolders}
+          value={Object.keys(member?.grants?.projects || {}).length}
+        />
         {/* Its own memory, always on, beside the copy of the lead's (memory/lead/). */}
         {assistantId && (
           <ListRow

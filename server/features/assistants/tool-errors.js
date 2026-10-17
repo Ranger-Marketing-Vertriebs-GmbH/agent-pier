@@ -52,6 +52,18 @@ const reasons = {
     "Three of your SSH commands already wait for the owner's approval. Wait for decisions before you request more.",
   SSH_REVOKED:
     "The SSH access changed or the turn ended while the command waited or ran; it was stopped. Do not retry without the owner.",
+  PROJECT_NOT_GRANTED:
+    "This project folder is not granted to you. Your instructions list the project folders you may use; ask the owner (or your lead) for access instead of retrying.",
+  PROJECT_READ_ONLY:
+    "You may only read this project folder. Do not retry the change; tell the owner (or your lead) what you wanted to change.",
+  PROJECT_WRITE_UNAVAILABLE:
+    "Project folder changes are unavailable until AgentPier has verified the agent runtime's tool guard. Try again in a minute; tell the owner if it persists.",
+  PROJECT_PATH_REFUSED:
+    "This path is not allowed. Use a path relative to the project folder (or absolute inside it), without '..'; .git internals, links leading out of the folder and AgentPier's own data are never accessible.",
+  PROJECT_FILE_UNSUITABLE:
+    "This file is too large (over 1 MiB), binary, a hard-linked file or not a regular file for this action. Use files_list or files_search, or read a smaller range.",
+  PROJECT_EDIT_NO_MATCH:
+    "oldText must occur exactly once in the file (or set replaceAll). Read the file and copy the exact text, including whitespace.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -75,6 +87,12 @@ const byKey = {
   sshBusy: "SSH_BUSY",
   sshApprovalLimit: "SSH_APPROVAL_LIMIT",
   sshRevoked: "SSH_REVOKED",
+  projectFolderNotGranted: "PROJECT_NOT_GRANTED",
+  projectFolderReadOnly: "PROJECT_READ_ONLY",
+  projectWriteUnavailable: "PROJECT_WRITE_UNAVAILABLE",
+  projectPathRefused: "PROJECT_PATH_REFUSED",
+  projectFileUnsuitable: "PROJECT_FILE_UNSUITABLE",
+  projectEditNoMatch: "PROJECT_EDIT_NO_MATCH",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",
