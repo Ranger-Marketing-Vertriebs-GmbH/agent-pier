@@ -49,7 +49,15 @@ async function setup(page, { memberShellSsh = false } = {}) {
     revision: 1,
     lifetime: "task",
     grants: { webSearch: true, memory: true },
-    grantLog: [{ at: "2026-10-17T10:00:00.000Z", by: "lead", granted: ["browser"] }],
+    grantLog: [
+      {
+        at: "2026-10-17T09:00:00.000Z",
+        by: "lead",
+        edited: ["role", "instructions"],
+        previousInstructions: "Owner text that was replaced.",
+      },
+      { at: "2026-10-17T10:00:00.000Z", by: "lead", granted: ["browser"] },
+    ],
   };
   // The lead's later shell grant for the member, waiting for the owner.
   const grantAction = {
@@ -152,6 +160,16 @@ async function setup(page, { memberShellSsh = false } = {}) {
                   timestamp: Date.now() - 1000,
                   runId: null,
                 },
+                {
+                  id: "member-update:note",
+                  role: "event",
+                  event: "member-update",
+                  memberName: "Scout",
+                  previousName: "Finder",
+                  edited: ["name", "role"],
+                  timestamp: Date.now() - 500,
+                  runId: null,
+                },
               ]
             : [],
         requests: [],
@@ -243,7 +261,7 @@ test("a task member's capabilities show what its lead granted and when", async (
   await expect(
     group.locator(".list-row").filter({ hasText: "Shell access" }),
   ).toContainText("With approval");
-  await expect(group.locator("[data-grant-log] li")).toContainText(
+  await expect(group.locator("[data-grant-log] li").first()).toContainText(
     "the lead agent granted Browser",
   );
 });
@@ -254,4 +272,21 @@ test("the member's chat notes a grant from its lead", async ({ page }) => {
   await expect(page.locator("[data-member-grant]")).toHaveText(
     "Scout was granted Browser by its lead agent",
   );
+});
+
+test("a lead's edit of a member shows in its chat and in its history", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto(baseURL + "/agents/member-0/chats/chat-0");
+  await expect(page.locator("[data-member-update]")).toHaveText(
+    "The lead agent changed Finder's name, role; it is now called Scout",
+  );
+  await page.goto(baseURL + settingsPath("capabilities", undefined, "member-0"));
+  const log = page.locator("[data-grant-log] li").nth(1);
+  await expect(log).toContainText(
+    "the lead agent changed the member's role, instructions",
+  );
+  await log.getByText("Instructions it replaced").click();
+  await expect(log.locator("pre")).toHaveText("Owner text that was replaced.");
 });

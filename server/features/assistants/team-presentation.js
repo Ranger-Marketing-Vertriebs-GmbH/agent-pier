@@ -19,16 +19,30 @@ export function teamStatus(team, members) {
   return members.every((m) => m.phase === "queued") ? "queued" : "running";
 }
 
+// The lead's own section in a member's instructions (member-edits.js).
+export const extraStart = "[Additional instructions from your lead]";
+export const extraEnd = "[End of additional instructions from your lead]";
+export const extraSection = (text) => `\n\n${extraStart}\n${text}\n${extraEnd}`;
+
 export function memberInstructions(snapshot, member) {
-  return `${snapshot.instructions}\n\nRole: ${member.role}\nAssignment: ${member.assignment}`;
+  return `${snapshot.instructions}\n\nRole: ${member.role}\nAssignment: ${member.assignment}${
+    member.extraInstructions ? extraSection(member.extraInstructions) : ""
+  }`;
 }
+
+/**
+ * The instructions the lead last wrote for a member: what it composed at creation,
+ * or what its last edit made of the instructions then (member-edits.js). Anything
+ * else is the owner's own edit.
+ */
+export const leadInstructions = (member) =>
+  member.leadInstructions ?? memberInstructions(member.snapshot, member);
 
 // A temporary member follows its lead's model, so only a permanent member's model can
 // differ from the one it took over (at creation, or when it was kept as permanent).
 export function memberOverrides(member, assistant) {
   if (!member.snapshot) return undefined;
-  const instructions =
-    assistant.instructions !== memberInstructions(member.snapshot, member);
+  const instructions = assistant.instructions !== leadInstructions(member);
   if (temporaryMember(assistant)) return { instructions };
   return {
     model:

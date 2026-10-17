@@ -14,6 +14,13 @@ export const memberGrantCopy = {
     anyShell: "Shell",
     mcpServers: (count) => `MCP-Server: ${count}`,
   },
+  fields: {
+    name: "Namen",
+    role: "Rolle",
+    assignment: "Auftrag",
+    extraInstructions: "zusätzliche Anweisungen",
+    instructions: "Anweisungen",
+  },
   none: "Keine Werkzeuge",
   gets: (labels) => `Erhält: ${labels}`,
   proposalWarning:
@@ -23,8 +30,11 @@ export const memberGrantCopy = {
   memory: "Gedächtnis (schreibgeschützte Kopie)",
   on: "An",
   off: "Aus",
+  previousInstructions: "Ersetzte Anweisungen",
   history: "Änderungen",
   log: {
+    edited: (date, fields) =>
+      `${date}: Der leitende Agent hat beim Mitglied ${fields} geändert`,
     lead: (date, labels) => `${date}: Der leitende Agent hat ${labels} gewährt`,
     revoked: (date, labels) => `${date}: Der leitende Agent hat ${labels} entzogen`,
     ownerRevoked: (date, labels) =>
@@ -32,6 +42,10 @@ export const memberGrantCopy = {
     owner: (date, labels) => `${date}: Du hast ${labels} freigegeben`,
   },
   note: {
+    updated: (member, fields) =>
+      `Der leitende Agent hat bei ${member} ${fields} geändert`,
+    renamed: (previous, member, fields) =>
+      `Der leitende Agent hat bei ${previous} ${fields} geändert; es heißt jetzt ${member}`,
     reminder: (member) =>
       `${member} hat beim leitenden Agenten eine Erinnerung angelegt; sie steht in dessen Erinnerungen`,
     granted: (member, labels) => `${member} hat vom leitenden Agenten ${labels} erhalten`,

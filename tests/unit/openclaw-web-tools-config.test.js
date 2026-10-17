@@ -105,6 +105,7 @@ const nativeAllow = [
   "agentpier_team_cancel",
   "agentpier_team_archive",
   "agentpier_team_grant",
+  "agentpier_team_member_update",
   "memory_search",
   "memory_get",
   "read",

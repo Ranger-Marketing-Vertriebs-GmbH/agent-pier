@@ -207,6 +207,13 @@ start with their own settings.
 
 A lead also talks to its members directly:
 
+- It can **edit** its temporary members while they work or later, as long as it can
+  still reach them: their name, role and assignment, additional instructions, or
+  their whole instructions, even ones you edited yourself. Each change shows as a
+  note in the member's and the lead's chats and in the member's **Capabilities →
+  Granted by the lead agent** history, which also keeps the instructions a change
+  replaced. It takes effect from the member's next turn.
+
 - It can **ask** any of its members a question and **delegate** a task to a permanent
   member. The answer comes back to the lead, and to Telegram when the request came
   from there. The member's chat shows the request as "from <lead>".

@@ -131,6 +131,21 @@ const definitions = {
       memberIds: { type: "array", minItems: 1, maxItems: 8, items: text(100) },
     }),
   },
+  member_update: {
+    description:
+      "Change one of your own task members (working on its task, or finished but still reachable for your questions and tasks; not once archived): its name, role, assignment, an extraInstructions section appended to its instructions (empty removes it), or instructions to replace its whole instructions. Role and assignment replace those lines in its current instructions. Takes effect from the member's next turn. The owner sees every change, with the instructions it replaced.",
+    parameters: schema(
+      {
+        memberId: text(100),
+        name: text(100),
+        role: text(200),
+        assignment: text(8192),
+        extraInstructions: { type: "string", maxLength: 8192 },
+        instructions: text(65536),
+      },
+      ["memberId"],
+    ),
+  },
   grant: {
     description: `Give one of your own task members more tools or access, while it works on its task or after it finished (for your questions and tasks to it; not once archived), or take them back with revoke: true (any time). ${grantRule} Shell and SSH granted here wait for the owner's approval (status approval_requested); everything else applies at once and is shown to the owner in both chats.`,
     parameters: schema(

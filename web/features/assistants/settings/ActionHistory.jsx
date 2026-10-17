@@ -70,6 +70,19 @@ function ActionCard({ action: a, assistantId, busy, act }) {
   if (a.payload.action === "ssh")
     return <SshCard action={a} act={act} assistantId={assistantId} />;
   if (a.payload.action === "exec") return <ExecCard action={a} act={act} />;
+  // A lead's edit of a member, or a member's reminder on its lead: its chat line.
+  if (["member_update", "member_reminder"].includes(a.payload.action))
+    return (
+      <article className="assistant-card assistant-reminder-row">
+        <MemberGrantNote
+          note={{
+            ...a.payload,
+            event:
+              a.payload.action === "member_update" ? "member-update" : "member-reminder",
+          }}
+        />
+      </article>
+    );
   // A lead's grant to a team member: the owner's card while it waits, then its line.
   if (a.payload.action === "member_grant")
     return a.state === "awaiting_approval" ? (

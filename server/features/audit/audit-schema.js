@@ -17,6 +17,13 @@ const memberGrantKeys = new Set([
   "shell",
   "ssh",
 ]);
+const memberEditKeys = new Set([
+  "name",
+  "role",
+  "assignment",
+  "extraInstructions",
+  "instructions",
+]);
 const resources = new Set([
   "assistant",
   "artifact",
@@ -186,6 +193,7 @@ export function auditEvent(input) {
       "project-rebind",
       "member-grant",
       "member-reminder",
+      "member-edit",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -273,6 +281,9 @@ export function auditEvent(input) {
   for (const key of ["requestedBy", "teamId", "leadAssistantId"])
     if (details[key] !== undefined) event.details[key] = auditId(details[key]);
   // A lead's grant to a team member names the kinds it changed, never names.
+  // A lead's edit of its member names the fields it changed, never their text.
+  if (details.kind === "member-edit" && Array.isArray(details.edited))
+    event.details.edited = details.edited.filter((key) => memberEditKeys.has(key));
   if (details.kind === "member-grant") {
     if (["grant", "revoke"].includes(details.change))
       event.details.change = details.change;

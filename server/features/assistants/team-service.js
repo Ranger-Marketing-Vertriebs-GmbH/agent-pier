@@ -9,6 +9,7 @@ import { LeadRequests } from "./lead-requests.js";
 import { publicRequest } from "./lead-request-store.js";
 import { reportText } from "./team-results.js";
 import { MemberGrants } from "./member-grant-requests.js";
+import { MemberEdits } from "./member-edits.js";
 import { mirrorLeadMemory } from "./member-memory.js";
 function exact(input, keys) {
   if (
@@ -107,6 +108,12 @@ export class TeamService {
     this.scheduler = new TeamScheduler({ teams: store, assistants, now, mcp: this.mcp });
     this.requests = new LeadRequests({ teams: store, service: this });
     this.grants = new MemberGrants({
+      teams: store,
+      assistants,
+      audit,
+      onChanged: (member) => this.memberChanged(member),
+    });
+    this.edits = new MemberEdits({
       teams: store,
       assistants,
       audit,
@@ -382,6 +389,11 @@ export class TeamService {
   }
   cancel(inv, input) {
     return this.requests.cancel(inv, input);
+  }
+  // A lead's edit of its own task member (member-edits.js); the bridge action name.
+  member_update(inv, input) {
+    assertWired(this);
+    return this.edits.update(inv, input);
   }
   // A lead's later grant to a running task member (member-grant-requests.js).
   grant(inv, input) {

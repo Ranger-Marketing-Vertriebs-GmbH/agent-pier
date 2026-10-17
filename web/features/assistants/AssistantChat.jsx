@@ -402,7 +402,9 @@ export default function AssistantChat({
                 <CodingRunNote key={m.id} note={m} navigate={navigate} />
               ) : m.event === "ssh-run" ? (
                 <SshRunNote key={m.id} note={m} />
-              ) : ["member-grant", "member-reminder"].includes(m.event) ? (
+              ) : ["member-grant", "member-reminder", "member-update"].includes(
+                  m.event,
+                ) ? (
                 <MemberGrantNote key={m.id} note={m} />
               ) : m.event === "routine-failed" ? (
                 <p
