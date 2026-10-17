@@ -10,12 +10,16 @@ export const MAX_CAPTION_LENGTH = 1024;
 const MAX_PATH_LENGTH = 4096;
 
 /**
- * The folders an agent may share files from: its own workspace. Granted project
- * folders (AGENTPIER-123) join here; every root is checked the same way.
+ * The folders an agent may share files from: its own workspace, or the real root of
+ * a granted project folder (agent-shares.js projectSource); every root is checked the
+ * same way.
  */
-export function shareRoots(workspaces, assistant) {
-  if (!workspaces || typeof assistant?.id !== "string") return [];
-  return [path.join(workspaces, assistant.id)];
+export function shareRoots(workspaces, assistant, projects = []) {
+  const own =
+    workspaces && typeof assistant?.id === "string"
+      ? [path.join(workspaces, assistant.id)]
+      : [];
+  return [...own, ...projects];
 }
 
 const inside = (root, target) => {

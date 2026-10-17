@@ -84,6 +84,19 @@ export class AgentProjectFiles {
       }
     });
   }
+  /**
+   * The folder a file is shared from (agent-shares.js) in a workspace call's context:
+   * reading it is enough. The path is resolved with projectTarget like every read.
+   */
+  shareRoot(ctx, projectId) {
+    textValue(projectId, 100);
+    if (!this.levels(ctx)[projectId])
+      throw assistantProblem("projectFolderNotGranted", 403);
+    return {
+      root: this.w.s.memory.project(projectId).cwd,
+      protectedRoots: this.protectedRoots,
+    };
+  }
   get protectedRoots() {
     return [this.w.s.config?.dataDir].filter(Boolean);
   }

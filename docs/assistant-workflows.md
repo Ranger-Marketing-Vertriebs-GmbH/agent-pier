@@ -72,7 +72,9 @@ larger file is written in parts) and `file_edit` (an exact text that occurs once
 `replaceAll`) with **Read and write**. AgentPier performs every operation
 itself; OpenClaw's own `read`, `write` and `edit` tools stay confined to the
 agent's workspace (`tools.fs.workspaceOnly`), because widening them would also let
-outgoing media read any file on the host.
+outgoing media read any file on the host. With **Read**, `agentpier_share_file` and
+its `projectId` hand the owner a file from the folder in the chat (see
+[files from agents](agents.md#files-from-agents)).
 
 - **Who:** the owner's own turns (in AgentPier or the paired Telegram chat) and a
   task member's team turns, never forwarded content, reminders, check-ins or
