@@ -193,6 +193,11 @@ A lead also talks to its members directly:
   in the message cancel that permission.
 - **Work → Teams → Questions and tasks** lists every request, open ones first, marked
   "may write" or "read-only", with **Cancel** for open ones.
+- Member reports and answers reach the lead whole up to 65,536 characters. A longer
+  one is marked shortened, and the team card or request shows "Shortened" with **Open
+  chat**, where the whole text is. When a team's reports together are too long for the
+  lead's summary request, the longest are shortened for the lead, which is told that
+  the whole reports are in the members' chats.
 
 Check your members' shell levels and MCP servers before you let a lead use them.
 

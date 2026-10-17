@@ -140,7 +140,8 @@ test("follow-ups stay inside the frame limit and end visibly when they cannot go
     memberName: "Scout",
     phase: "completed",
     text: '"\u0001'.repeat(4096),
-    answer: '\\"'.repeat(3000),
+    // A whole stored answer, doubled under JSON escaping.
+    answer: '\\"'.repeat(30000),
   });
   assert.ok(text.length <= followUpMaxChars, String(text.length));
   assert.match(text, /"shortened":true/);

@@ -95,7 +95,14 @@ export default function TeamsGroup({ assistant, focusTeamId, navigate }) {
         <p className="agent-teams-empty">{copy.noTeams}</p>
       )}
       {own.length > 0 && (
-        <MemberRequests assistant={assistant} requests={requests} busy={busy} act={act} />
+        <MemberRequests
+          assistant={assistant}
+          requests={requests}
+          members={members}
+          busy={busy}
+          act={act}
+          navigate={navigate}
+        />
       )}
     </section>
   );

@@ -38,6 +38,43 @@ export async function completeMessage(assistants, conversationId, message) {
   return page;
 }
 
+/**
+ * A text within `limit` code units, cut by code point; `cut` when anything is
+ * missing. OpenClaw cuts by code unit, so a page or single read may end in half a
+ * surrogate pair: that half is dropped.
+ */
+export function boundedText({ text, cut }, limit = historyTextLimit) {
+  let kept = "";
+  for (const point of text) {
+    if (kept.length + point.length > limit) {
+      cut = true;
+      break;
+    }
+    kept += point;
+  }
+  if (cut && /[\uD800-\uDBFF]$/.test(kept)) kept = kept.slice(0, -1);
+  return { text: kept, cut: !!cut };
+}
+
+/**
+ * The reply a run left in a history page, as complete as OpenClaw serves it. Like
+ * OpenClaw's own channel reply (2026.10.3, buildEmbeddedRunPayloads), that is the
+ * run's last assistant message with text; text it wrote before a tool call is
+ * interim commentary, not part of the answer.
+ */
+export async function runReply(assistants, conversationId, messages, attempt) {
+  const message = messages
+    .filter(
+      (m) =>
+        m.role === "assistant" &&
+        !!m.runId &&
+        [attempt.id, attempt.runtimeRunId].includes(m.runId),
+    )
+    .at(-1);
+  if (!message) return { text: "", cut: false };
+  return boundedText(await completeMessage(assistants, conversationId, message));
+}
+
 /** Text plus a closing note, within `limit` code units; the note always fits. */
 export function withNote(text, note, limit = historyTextLimit) {
   const room = limit - note.length - 2;

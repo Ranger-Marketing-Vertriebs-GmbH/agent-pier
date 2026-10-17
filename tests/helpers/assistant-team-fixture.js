@@ -78,16 +78,25 @@ export function teamFixture(t) {
       if (method === "sessions.describe") return { session: {} };
       if (method === "sessions.abort" || method === "sessions.messages.subscribe")
         return {};
-      if (method === "chat.history")
+      if (method === "chat.history") {
+        // As OpenClaw 2026.10.3: each text cut at `maxChars` (8000 by default)
+        // with its marker; a `messageId` read serves that message alone.
+        const cap = input.maxChars ?? 8000;
+        const shown = (text) =>
+          text.length > cap ? `${text.slice(0, cap)}\n...(truncated)...` : text;
         return {
           messages: [...runs]
             .filter(([, r]) => r.key === input.sessionKey && r.status === "ok")
-            .map(([id]) => ({
-              role: "assistant",
-              content: "Result from member",
-              __openclaw: { id, runId: id },
-            })),
+            .flatMap(([id, r]) =>
+              (r.replies || ["Result from member"]).map((text, n) => ({
+                role: "assistant",
+                content: shown(text),
+                __openclaw: { id: n ? `${id}:${n}` : id, runId: id },
+              })),
+            )
+            .filter((m) => !input.messageId || m.__openclaw.id === input.messageId),
         };
+      }
       throw Error(method);
     },
   };
@@ -169,9 +178,10 @@ export function teamFixture(t) {
     loseSend: () => (loseSend = true),
     loadCatalog: (answers) => (loadingCatalog = answers),
     refuseStorage: (answers) => (refusingStorage = answers),
-    complete(id, status = "ok") {
+    // `replies`: the run's assistant texts in order (one default reply otherwise).
+    complete(id, status = "ok", replies) {
       const r = runs.get(id);
-      runs.set(id, { ...r, status });
+      runs.set(id, { ...r, status, ...(replies ? { replies } : {}) });
       assistants.ledger.transition(id, status === "ok" ? "completed" : "failed");
     },
   };

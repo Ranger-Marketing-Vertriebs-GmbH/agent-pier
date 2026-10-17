@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { settingsPath } from "../helpers/agent-settings-page.js";
-import { teamListFixture } from "../helpers/assistant-team-list-fixture.js";
+import { teamListFixture, teamRecords } from "../helpers/assistant-team-list-fixture.js";
 
 // Settings → Work → Teams: every team of the lead with members, status, results and
 // the immediate actions that used to live in the chat's team cards.
@@ -201,4 +201,49 @@ test("switching sides after a team link does not pull the reader back", async ({
     ),
   ).toBe(true);
   await expect(active).toBeInViewport();
+});
+
+test("a shortened report and answer say so and link to the member's chat", async ({
+  page,
+}) => {
+  const { teams } = teamRecords();
+  teams.find((t) => t.id === "research").resultBatch[0].cut = true;
+  await teamListFixture(page, {
+    teams,
+    requests: [
+      {
+        id: "ask-long",
+        kind: "lead-request",
+        revision: 1,
+        type: "question",
+        parentAssistantId: "home",
+        memberId: "researcher",
+        memberAssistantId: "researcher",
+        memberName: "Researcher",
+        leadName: "Home assistant",
+        text: "Compare every vendor in detail.",
+        phase: "completed",
+        createdAt: "2026-10-13T09:00:00.000Z",
+        hasAnswer: true,
+        answerCut: true,
+      },
+    ],
+  });
+  await page.goto(baseURL + "/agents/home/settings?tab=work&team=research");
+  const research = group(page).locator("#assistant-team-research");
+  await research.getByText("Report", { exact: true }).click();
+  await expect(research).toContainText(
+    "Shortened – the whole report is in the member’s chat.",
+  );
+  const chat = "/agents/researcher/chats/researcher-chat";
+  await expect(research.getByRole("link", { name: "Open chat" })).toHaveAttribute(
+    "href",
+    chat,
+  );
+  await page.getByRole("radio", { name: "Finished (1)" }).click();
+  const card = page.locator(".lead-request-card");
+  await card.getByText("Answer", { exact: true }).click();
+  await expect(card).toContainText("Shortened – the whole text is in the member’s chat.");
+  await card.getByRole("link", { name: "Open chat" }).click();
+  await expect(page).toHaveURL(new RegExp(`${chat}$`));
 });

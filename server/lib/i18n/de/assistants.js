@@ -98,6 +98,7 @@ export const assistants = {
     `Team-Ergebnisse für ${objective}. Für die abgeschlossene Zusammenfassung ist kein Text verfügbar. Prüfe die Einzelberichte.`,
   teamReportUnavailable:
     "Kein Textbericht verfügbar. Öffne den Mitglieder-Chat für weitere Details.",
+  teamReportShortened: "Bericht gekürzt – vollständig im Chat des Mitglieds.",
   teamResultStates: {
     completed: "Abgeschlossen",
     failed: "Fehlgeschlagen",

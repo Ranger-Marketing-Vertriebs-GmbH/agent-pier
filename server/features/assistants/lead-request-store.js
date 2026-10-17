@@ -13,7 +13,8 @@ export { ownerQuote } from "./lead-request-proof.js";
 // store as `lead-request` records beside the teams and members they refer to.
 export const requestKind = "lead-request";
 export const requestTerminal = new Set(["completed", "failed", "cancelled"]);
-export const requestLimits = { question: 4000, task: 8192, answer: 6000 };
+// A member's answer is kept up to the history limit (history-text.js), not here.
+export const requestLimits = { question: 4000, task: 8192 };
 // Bounds an injected lead or a member answer that keeps asking cannot exceed: open
 // requests per lead, requests per lead and minute, requests per owner turn, and the
 // owner-proven tasks of a turn that may write.
@@ -329,6 +330,7 @@ export function publicRequest(r, { full = false } = {}) {
     ...(r.startedAt ? { startedAt: r.startedAt } : {}),
     ...(r.finishedAt ? { finishedAt: r.finishedAt } : {}),
     ...(r.answer ? (full ? { answer: r.answer } : { hasAnswer: true }) : {}),
+    ...(r.answerCut ? { answerCut: true } : {}),
     ...(r.diagnostic ? { diagnostic: r.diagnostic } : {}),
     ...(r.delivery ? { delivery: r.delivery } : {}),
     ...(r.resultDiagnostic ? { resultDiagnostic: r.resultDiagnostic } : {}),

@@ -1,6 +1,7 @@
 import { telegramMessages } from "./telegram-messages.js";
 import { sendTelegramParts } from "./telegram-send-parts.js";
 import { transferLeadRequests } from "./telegram-lead-requests.js";
+import { historyTextLimit, runReply, withNote } from "../assistants/history-text.js";
 const teamPath = (team) =>
   `/agents/${encodeURIComponent(team.parentAssistantId)}/teams/${encodeURIComponent(team.id)}`;
 export class TelegramOutbox {
@@ -106,8 +107,11 @@ export class TelegramOutbox {
       this.recordTransfer(`approval:${t.id}`, entry.id);
     }
     if (!this.transferred(`result:${t.id}`)) this.progress(t, source);
-    if (!t.resultAttemptId || this.transferred(`result:${t.id}`)) return;
-    const attempt = a.ledger.getAttempt(t.resultAttemptId);
+    if (this.transferred(`result:${t.id}`)) return;
+    // A synthesis that was refused never runs; the owner gets the reports instead.
+    const unsent = !t.resultAttemptId && t.resultState === "unsent";
+    if (!t.resultAttemptId && !unsent) return;
+    const attempt = unsent ? { state: "failed" } : a.ledger.getAttempt(t.resultAttemptId);
     if (
       !["completed", "failed", "cancelled"].includes(attempt.state) &&
       !attempt.reviewedAt
@@ -116,24 +120,26 @@ export class TelegramOutbox {
     let text;
     if (attempt.state === "completed") {
       const history = await a.history(t.parentConversationId);
-      text = (history.stale ? [] : history.messages)
-        .filter(
-          (m) =>
-            m.role === "assistant" &&
-            [attempt.id, attempt.runtimeRunId].includes(m.runId),
-        )
-        .at(-1)?.text;
+      // The history page cuts long replies; this one is read on its own. Unlike a
+      // direct reply it is one outbox notice, bounded by the outbox's 65536.
+      const reply = history.stale
+        ? { text: "", cut: false }
+        : await runReply(a, t.parentConversationId, history.messages, attempt);
+      text = reply.cut ? withNote(reply.text, msg.telegramReplyIncomplete) : reply.text;
     }
-    if (!text?.trim())
+    if (!text?.trim()) {
       text = [
         attempt.state === "completed"
           ? msg.teamResultNoText(t.objective)
           : msg.teamResultFailed(t.objective),
         ...(t.resultBatch || []).map(
           (m) =>
-            `${m.name} · ${m.role} · ${msg.teamResultStates[m.phase]}\n${m.text || msg.teamReportUnavailable}`,
+            `${m.name} · ${m.role} · ${msg.teamResultStates[m.phase]}\n${m.text || msg.teamReportUnavailable}${m.cut ? `\n${msg.teamReportShortened}` : ""}`,
         ),
       ].join("\n\n");
+      if (text.length > historyTextLimit)
+        text = withNote(text, msg.telegramReplyIncomplete);
+    }
     const entry = outbox.enqueue({
       key: `team-result:${t.id}`,
       source,
@@ -141,7 +147,7 @@ export class TelegramOutbox {
       kind: "team-result",
       path,
       localized: true,
-      text: text.slice(0, 65536),
+      text,
     });
     this.recordTransfer(`result:${t.id}`, entry.id);
   }
