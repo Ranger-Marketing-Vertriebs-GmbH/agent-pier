@@ -61,3 +61,10 @@ test("a Telegram revocation alert carries only its kind, event and agent", () =>
     pushPayload({ kind: "telegram-revocation", eventId: "e1", assistantId: "../x" }),
   );
 });
+
+test("GitHub token notices carry only their kind and event id", () => {
+  assert.deepEqual(
+    pushPayload({ kind: "github-token", eventId: "e1", sessionId: "s1" }),
+    { kind: "github-token", eventId: "e1" },
+  );
+});

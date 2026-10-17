@@ -21,6 +21,7 @@ import ProviderMark from "../../components/ProviderMark.jsx";
 import { routeLabel } from "../provider-connections/route-label.js";
 import ChatView from "../chat/ChatView.jsx";
 import useSessionViewport from "./useSessionViewport.js";
+import SessionGithubStatus from "./SessionGithubStatus.jsx";
 const SessionReloadDialog = lazy(() => import("./SessionReloadDialog.jsx"));
 const PipelineSessionRecovery = lazy(
   () => import("../pipelines/PipelineSessionRecovery.jsx"),
@@ -405,6 +406,9 @@ export default function SessionWorkspace({
           <Icon name="folder" size={13} />
           {session.repositoryName || session.cwd}
         </span>
+        {session.purpose !== "login" && !session.pipeline?.headless && (
+          <SessionGithubStatus session={session} />
+        )}
         <span>{copy.sessionFooterLabel}</span>
       </footer>
     </div>

@@ -55,6 +55,7 @@ self.addEventListener("fetch", (event) => {
 const validId = (value) =>
   typeof value === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 function notificationTarget(data) {
+  if (data.kind === "github-token") return "/settings/github";
   if (validId(data.runId)) return `/pipelines/runs/${encodeURIComponent(data.runId)}`;
   if (validId(data.assistantId))
     return `/agents/${encodeURIComponent(data.assistantId)}/settings`;
@@ -105,6 +106,7 @@ self.addEventListener("push", (event) => {
     ...(validId(payload.sessionId) ? { sessionId: payload.sessionId } : {}),
     ...(validId(payload.runId) ? { runId: payload.runId } : {}),
     ...(validId(payload.assistantId) ? { assistantId: payload.assistantId } : {}),
+    ...(payload.kind === "github-token" ? { kind: payload.kind } : {}),
   };
   event.waitUntil(
     notificationCopy().then((catalog) => {

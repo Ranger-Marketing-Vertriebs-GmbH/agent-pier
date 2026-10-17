@@ -77,6 +77,11 @@ export default function GithubAccessPage() {
             cloning={cloning}
             setModal={setModal}
             label={copy.pageHeadingTitle}
+            checked={(credential) =>
+              setCredentials((items) =>
+                items.map((item) => (item.id === credential.id ? credential : item)),
+              )
+            }
           />
           <p className="field-description github-access-footnote">
             {credentialDialogCopy.multipleProfilesDescription}

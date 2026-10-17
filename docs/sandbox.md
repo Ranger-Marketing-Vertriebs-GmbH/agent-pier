@@ -155,6 +155,14 @@ socket, the SSH tools' and GitHub helper's folders, `<dataDir>/native-sessions`,
 `<dataDir>/requests`, a chat attachment directory, and a managed account's own profile
 directory.
 
+An installed AgentPier starts the GitHub credential helper through the install root's
+`current` link, so a session survives updates (see
+[the helper across updates](github-agents.md#stable-helper)). nono resolves a grant on
+`current` to the release it pointed at when the session started, so the GitHub helper
+also grants read access to the install root's `releases/` directory: after an update,
+the helper's path resolves into the newly active release, which that grant still covers.
+The directory holds only release code and runtimes, never the data directory.
+
 Network access is allowed by default under nono; no grant is needed for provider or
 GitHub egress. An explicitly named sandbox profile keeps its own capabilities in effect
 alongside the grants AgentPier injects.

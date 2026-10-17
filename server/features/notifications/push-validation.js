@@ -62,6 +62,8 @@ export function pushPayload(input) {
       "agent-checkin",
       // An agent's own Telegram bot still runs after the owner revoked it.
       "telegram-revocation",
+      // A saved GitHub token was rejected, expired or expires soon.
+      "github-token",
       "test",
     ].includes(input?.kind)
   )
@@ -72,6 +74,7 @@ export function pushPayload(input) {
   } else if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
   else if (input.kind === "agent-checkin")
     payload.assistantId = pushId(input.assistantId);
-  else if (input.kind !== "test") payload.sessionId = pushId(input.sessionId);
+  else if (input.kind !== "test" && input.kind !== "github-token")
+    payload.sessionId = pushId(input.sessionId);
   return payload;
 }

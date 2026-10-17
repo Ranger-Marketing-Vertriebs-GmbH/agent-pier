@@ -1,13 +1,35 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-import { credentialListCopy as copy } from "../../lib/i18n/messages/repositories.js";
-import React from "react";
+import {
+  credentialListCopy as copy,
+  tokenCheckCopy,
+} from "../../lib/i18n/messages/repositories.js";
+import React, { useState } from "react";
+import api from "../../lib/api.js";
+import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { hostHasPort } from "./hosts.js";
+import TokenCheckStatus from "./TokenCheckStatus.jsx";
 export default function CredentialList({
   credentials,
   cloning = false,
   setModal,
   label,
+  checked = () => {},
 }) {
+  const [checking, setChecking] = useState(null);
+  const [errors, setErrors] = useState({});
+  const check = async (credential) => {
+    setChecking(credential.id);
+    setErrors(({ [credential.id]: _, ...rest }) => rest);
+    try {
+      checked(
+        await api(`/git-credentials/${encodeURIComponent(credential.id)}/check`, "POST"),
+      );
+    } catch (error) {
+      setErrors((items) => ({ ...items, [credential.id]: error.message }));
+    } finally {
+      setChecking(null);
+    }
+  };
   if (!credentials.length)
     return <p className="repository-empty">{copy.repositoryEmpty}</p>;
   return (
@@ -35,13 +57,29 @@ export default function CredentialList({
               className={`github-access-dot ${credential.hasSecret ? "saved" : "missing"}`}
               aria-hidden="true"
             />
-            {credential.hasSecret ? copy.tokenSaved : copy.tokenMissing}
+            <div>
+              {credential.hasSecret ? copy.tokenSaved : copy.tokenMissing}
+              {credential.hasSecret && <TokenCheckStatus check={credential.tokenCheck} />}
+              {errors[credential.id] && <ErrorMessage error={errors[credential.id]} />}
+            </div>
           </div>
           <div role="cell" className="github-access-identity">
             {credential.commitIdentity &&
               `${credential.commitIdentity.name} <${credential.commitIdentity.email}>`}
           </div>
           <div role="cell" className="repository-actions">
+            {credential.hasSecret && (
+              <button
+                className="button secondary compact"
+                disabled={cloning || checking !== null}
+                aria-label={tokenCheckCopy.checkAriaLabel(credential.name)}
+                onClick={() => check(credential)}
+              >
+                {checking === credential.id
+                  ? tokenCheckCopy.checking
+                  : tokenCheckCopy.check}
+              </button>
+            )}
             <button
               className="button secondary compact"
               disabled={cloning}

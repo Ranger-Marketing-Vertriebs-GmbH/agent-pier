@@ -195,6 +195,22 @@
 .session-footer > span:last-child {
   flex-shrink: 0;
 }
+.session-github-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+}
+.session-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.session-github-warning {
+  color: #d8b46a;
+}
 .composer {
   border: 1px solid #414246;
   border-radius: 9px;

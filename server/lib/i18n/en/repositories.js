@@ -30,6 +30,8 @@ export const repositories = Object.freeze({
   cloneRedirectUnsupported:
     "The server redirects the request. Please use the final HTTPS repository URL.",
   profileNotFound: "GitHub profile not found.",
+  profileChanged:
+    "The GitHub profile was changed or removed during the check. Check it again.",
   invalidDefaultAgent: "Invalid default agent selection.",
   invalidSearchText: "Please enter search text with at most 200 characters.",
   invalidOrganization: "Invalid organization.",

@@ -115,7 +115,7 @@
 }
 .github-access-row {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1.5fr 180px;
+  grid-template-columns: 1.5fr 1.4fr 1.2fr 260px;
   align-items: center;
   gap: 20px;
   min-width: 0;
@@ -151,7 +151,7 @@
 }
 .github-access-token {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   font-size: 12px;
   color: #97989c;
@@ -166,6 +166,30 @@
 }
 .github-access-dot.saved {
   background: #86b88e;
+}
+.github-access-dot.warning {
+  background: #d8b46a;
+}
+.github-access-dot.failed {
+  background: #d98080;
+}
+.token-check {
+  margin-top: 8px;
+}
+.token-check-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #cacbcf;
+}
+.token-check-detail {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #97989c;
+  overflow-wrap: anywhere;
+}
+.token-check-sso {
+  color: #d8b46a;
 }
 .github-access-identity {
   font-size: 12px;

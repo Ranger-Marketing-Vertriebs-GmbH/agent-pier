@@ -78,3 +78,51 @@ export const repositoryPickerCopy = {
 export const cloneStoreCopy = {
   notice: (value1) => `„${value1}“ wurde geklont. Du kannst jetzt eine Sitzung starten.`,
 };
+export const tokenCheckCopy = {
+  check: "Prüfen",
+  checking: "Wird geprüft …",
+  checkAriaLabel: (name) => `Token von ${name} prüfen`,
+  notChecked: "Noch nicht geprüft",
+  states: {
+    valid: "Token gültig",
+    expiring: "Token läuft bald ab",
+    expired: "Token abgelaufen",
+    invalid: "Token abgelehnt",
+    error: "Prüfung fehlgeschlagen",
+  },
+  errors: {
+    unauthorized: "GitHub hat den Token abgelehnt. Speichere einen neuen Token.",
+    tokenMissing: "Für dieses Profil ist kein Token gespeichert.",
+    forbidden: "GitHub hat den Zugriff auf den Benutzer-Endpunkt verweigert.",
+    rateLimited: "Das Anfragelimit von GitHub ist erreicht. Versuche es später erneut.",
+    unreachable: "Der GitHub-Host war nicht erreichbar.",
+    unexpected: "GitHub hat unerwartet geantwortet.",
+  },
+  login: (login) => `Angemeldet als ${login}`,
+  tokenTypes: {
+    classic: "Klassischer Token",
+    "fine-grained": "Fine-grained Token",
+    oauth: "OAuth-Token",
+    app: "GitHub-App-Token",
+    unknown: "Token-Typ unbekannt",
+  },
+  scopes: (scopes) => `Scopes: ${scopes}`,
+  noScopes: "Scopes: keine",
+  fineGrainedPermissions: "Berechtigungen werden auf GitHub pro Repository festgelegt.",
+  expires: (date) => `Läuft ab am ${date}`,
+  noExpiry: "Kein Ablaufdatum",
+  ssoRequired: (organization) =>
+    `Die Organisation ${organization} verlangt für diesen Token eine SAML-SSO-Freigabe.`,
+  ssoAuthorize: "Auf GitHub freigeben",
+  checkedAt: (time) => `Geprüft ${time}`,
+};
+export const sessionGithubCopy = {
+  label: "GitHub",
+  none: "Kein GitHub-Profil",
+  profile: (name, host) => `${name} (${host})`,
+  removed: (host) => `${host}: Profil entfernt`,
+  tokenProblem: (host) =>
+    `${host}: Token unter Einstellungen → Zugriff → GitHub-Zugänge prüfen`,
+  sshRemote:
+    "Das Projekt-Remote verwendet SSH. GitHub-Tokens gelten nur für HTTPS; Git nutzt hier deine SSH-Schlüssel.",
+};
