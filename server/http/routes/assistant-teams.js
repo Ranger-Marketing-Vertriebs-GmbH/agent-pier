@@ -32,6 +32,10 @@ export function assistantTeamRoutes({ assistants }) {
   router.post("/assistant-team-proposals/:id/decision", (req, res) =>
     res.json(service().decide(req.params.id, req.body, { kind: "owner", channel: "ui" })),
   );
+  // A member's whole report; team lists carry an excerpt.
+  router.get("/assistant-teams/:id/reports/:memberId", (req, res) =>
+    res.json(service().report(req.params.id, req.params.memberId)),
+  );
   // A lead's question or task for a member: the owner reads or cancels it.
   router.get("/assistant-lead-requests/:id", (req, res) =>
     res.json(service().requestDetail(req.params.id)),

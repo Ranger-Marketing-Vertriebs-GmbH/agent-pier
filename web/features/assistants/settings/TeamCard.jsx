@@ -5,6 +5,7 @@ import { assistantApi } from "../assistant-api.js";
 import { avatarGlyph } from "../avatar-glyph.js";
 import RouteLink from "../RouteLink.jsx";
 import TeamCodingRequests from "../TeamCodingRequests.jsx";
+import TeamReport from "./TeamReport.jsx";
 
 const finished = ["completed", "failed", "cancelled", "declined"];
 // Member phases shown quietly; every other phase is in progress and uses the accent.
@@ -97,11 +98,7 @@ export default function TeamCard({
               </button>
               {report &&
                 (report.text?.trim() ? (
-                  <details className="assistant-team-report">
-                    <summary>{copy.team.report}</summary>
-                    <p>{report.text}</p>
-                    {report.cut && shortened}
-                  </details>
+                  <TeamReport teamId={team.id} report={report} shortened={shortened} />
                 ) : report.cut ? (
                   shortened
                 ) : (

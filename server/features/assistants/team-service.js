@@ -7,6 +7,7 @@ import { assertWired } from "./service-wiring.js";
 import { TeamMcpBindings } from "./team-mcp.js";
 import { LeadRequests } from "./lead-requests.js";
 import { publicRequest } from "./lead-request-store.js";
+import { reportText } from "./team-results.js";
 function exact(input, keys) {
   if (
     !input ||
@@ -277,9 +278,37 @@ export class TeamService {
   }
   status(inv, input) {
     const t = this.owned(inv, input);
+    const { resultBatch, ...team } = this.project(t);
+    // Reports are excerpts here; the whole ones reach the lead in the synthesis turn
+    // and stay in each member's chat.
+    const short = resultBatch?.some((m) => m.truncated || m.cut);
     return {
-      ...this.project(t),
+      ...team,
+      ...(resultBatch
+        ? {
+            resultBatch: resultBatch.map(({ truncated, cut, ...m }) =>
+              truncated || cut ? { ...m, shortened: true } : m,
+            ),
+          }
+        : {}),
+      ...(short
+        ? {
+            note: "Reports marked shortened are excerpts. The whole report is in that member's own chat; the team result turn carries as much of it as fits.",
+          }
+        : {}),
       members: this.store.members(t.id).map((r) => this.project(r)),
+    };
+  }
+  /** One member's whole report of a finished team, for its card. */
+  report(teamId, memberId) {
+    const team = this.store.get(teamId);
+    const entry =
+      team.kind === "team" && team.resultBatch?.find((m) => m.memberId === memberId);
+    if (!entry) throw assistantProblem("notFound", 404);
+    return {
+      memberId,
+      text: reportText(this.store, team, entry),
+      ...(entry.cut ? { cut: true } : {}),
     };
   }
   async stop(id, memberId) {

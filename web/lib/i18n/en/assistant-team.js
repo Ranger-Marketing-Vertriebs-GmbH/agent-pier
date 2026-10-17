@@ -68,6 +68,7 @@ export const assistantTeamCopy = {
     failed: (title) => `Team failed: ${title}`,
     cancelled: (title) => `Team cancelled: ${title}`,
     declined: (title) => `Team proposal declined: ${title}`,
+    unsent: (title) => `Team results could not be passed to the agent: ${title}`,
   },
   awaitingReview: "Waiting for your review",
   reviewTitle: (title) => `Review needed: ${title}`,

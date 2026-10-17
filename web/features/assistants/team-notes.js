@@ -36,6 +36,9 @@ export function teamNotes(teams, { assistantId, conversationId }) {
       const end = time(team.finishedAt) ?? start;
       if (end !== null)
         notes.push({ id: `${team.id}:end`, team, kind: outcome, time: end });
+      // A synthesis that could not be sent leaves the lead's chat without a summary.
+      if (end !== null && team.resultState === "unsent")
+        notes.push({ id: `${team.id}:unsent`, team, kind: "unsent", time: end });
     }
   }
   return notes.sort((a, b) => a.time - b.time);

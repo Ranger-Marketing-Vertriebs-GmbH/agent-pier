@@ -68,6 +68,8 @@ export const assistantTeamCopy = {
     partial: (title) => `Team teilweise abgeschlossen: ${title}`,
     failed: (title) => `Team fehlgeschlagen: ${title}`,
     cancelled: (title) => `Team abgebrochen: ${title}`,
+    unsent: (title) =>
+      `Team-Ergebnisse konnten nicht an den Agenten übergeben werden: ${title}`,
     declined: (title) => `Teamvorschlag abgelehnt: ${title}`,
   },
   awaitingReview: "Wartet auf deine Prüfung",

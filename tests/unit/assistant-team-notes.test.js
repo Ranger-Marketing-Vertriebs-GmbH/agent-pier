@@ -147,3 +147,22 @@ test("the synthesis event folds into the end note it directly follows", () => {
     ["completed", "started", "e2", "reply", "e3", "partial", "coding"],
   );
 });
+
+test("a synthesis that could not be sent leaves a note after the team's end", () => {
+  const notes = teamNotes(
+    [
+      team("unsent", {
+        phase: "completed",
+        status: "completed",
+        finishedAt: iso(30),
+        resultState: "unsent",
+      }),
+    ],
+    where,
+  );
+  assert.deepEqual(kinds(notes), [
+    "unsent:started@10",
+    "unsent:completed@30",
+    "unsent:unsent@30",
+  ]);
+});
