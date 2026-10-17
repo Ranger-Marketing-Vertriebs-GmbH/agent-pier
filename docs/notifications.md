@@ -20,7 +20,8 @@ devices you enable. Both are set up per device under
 Under **App**, **AgentPier as an app** shows whether this page already runs as an
 installed app. Choose **Install app**, or **Install app** / **Add to Home Screen** in
 the browser menu. Offline, the app shows only a public notice; sessions, chats, API
-responses and credentials are not stored for offline use.
+responses and credentials are not stored for offline use. An open page that loses its
+connection keeps showing what it already loaded until the connection is back.
 
 ## Enable notifications on a device
 

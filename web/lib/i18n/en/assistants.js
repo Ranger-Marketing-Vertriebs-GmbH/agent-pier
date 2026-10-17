@@ -235,6 +235,7 @@ export const assistantCopy = {
   title: "Agents",
   chats: "Agent chats",
   agentsGroup: "Agents",
+  sidebarOffline: "Connection lost. Showing the last known agents.",
   feature: {
     title: "Enable agents",
     description:

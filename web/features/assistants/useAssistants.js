@@ -16,6 +16,8 @@ export const idleAssistants = {
   runtime: { availability: "disabled", sync: "stale" },
   error: "",
   connected: true,
+  offline: false,
+  histories: null,
   drafts: sharedDrafts,
   refresh: async () => {},
 };

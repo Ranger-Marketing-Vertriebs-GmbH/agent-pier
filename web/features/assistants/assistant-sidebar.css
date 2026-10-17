@@ -149,3 +149,15 @@
 .assistant-sidebar-permanent {
   padding-top: 2px;
 }
+
+/* Offline: the last known agents stay, marked as not current. */
+.assistant-sidebar-offline {
+  margin: 0 0 6px;
+  padding: 0 10px;
+  color: var(--text-meta);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.assistant-sidebar-stale .activity-dot {
+  opacity: 0.45;
+}
