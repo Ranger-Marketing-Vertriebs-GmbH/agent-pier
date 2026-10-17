@@ -1,6 +1,7 @@
 import { commitIdentity as identityValue } from "./commit-identity.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { shellQuote } from "../../lib/launch-serialization.js";
+import { gitMessageEnvironment } from "../../lib/git-locale.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -91,7 +92,8 @@ function cloneEnvironment(scratch) {
       delete env[key];
   delete env.NODE_OPTIONS;
   delete env.NODE_PATH;
-  return {
+  // runClone classifies failures by their English text.
+  return gitMessageEnvironment({
     ...env,
     HOME: scratch,
     XDG_CONFIG_HOME: scratch,
@@ -103,7 +105,7 @@ function cloneEnvironment(scratch) {
     SSH_ASKPASS: "/usr/bin/false",
     GCM_INTERACTIVE: "Never",
     AGENTPIER_GIT_CREDENTIAL_FILE: path.join(scratch, "credential.json"),
-  };
+  });
 }
 function runClone(args, options, timeoutMs, signal) {
   return new Promise((resolve, reject) => {
