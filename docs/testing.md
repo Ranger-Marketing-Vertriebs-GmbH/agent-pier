@@ -86,6 +86,8 @@ Playwright discovers `tests/browser/*.spec.js`. `npm run test:e2e` starts a disp
 
 `touch-input-size-views.spec.js` and `touch-input-size-forms.spec.js` open the main views, dialogs and forms at 390×844 with touch and fail with a list of every visible text-entry control under 16px (the size below which iOS Safari zooms on focus) or any view that scrolls sideways. Add a step there when a new form or dialog appears.
 
+`assistant-chat-composer-scroll.spec.js` types a wrapping draft into the agent and session chat composers and samples the transcript's distance from its bottom in every painted frame. It turns off CSS scroll anchoring, so Chromium fails like Safari (which has none) when a composer resize leaves the newest lines hidden.
+
 ```sh
 npm run build
 npm run test:e2e

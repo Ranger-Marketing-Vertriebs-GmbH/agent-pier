@@ -109,6 +109,8 @@ export default function AssistantChat({
   const output = useRef(null);
   const stick = useRef(true);
   const scroll = useRef(0);
+  // The transcript height the last resize left; see onScroll.
+  const outputHeight = useRef(0);
   // Only the latest history read applies: an older one answering late, or one of the
   // previous conversation, would bring back a state that is already over.
   const reads = useRef(0);
@@ -217,8 +219,10 @@ export default function AssistantChat({
   useLayoutEffect(() => {
     const element = output.current;
     if (!element) return;
+    outputHeight.current = element.clientHeight;
     const resize = new ResizeObserver(() => {
       if (stick.current) element.scrollTop = element.scrollHeight;
+      outputHeight.current = element.clientHeight;
     });
     resize.observe(element);
     return () => resize.disconnect();
@@ -395,6 +399,9 @@ export default function AssistantChat({
           ref={output}
           onScroll={(event) => {
             const element = event.currentTarget;
+            // Resizing can emit scroll before ResizeObserver runs. It must not
+            // turn off bottom-following as though the user scrolled backwards.
+            if (element.clientHeight !== outputHeight.current) return;
             scroll.current = element.scrollTop;
             stick.current =
               element.scrollHeight - element.scrollTop - element.clientHeight < 80;

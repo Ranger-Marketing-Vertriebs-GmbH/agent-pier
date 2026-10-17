@@ -90,9 +90,15 @@ export default function AssistantComposer({
   useLayoutEffect(() => {
     const element = field.current;
     if (!element) return;
+    // Collapsing the field to measure it briefly grows the transcript. WebKit clamps
+    // its scrollTop then and has no scroll anchoring to undo it, so the newest lines
+    // would stay hidden behind the composer.
+    const transcript = output.current;
+    const top = transcript?.scrollTop;
     element.style.height = "auto";
     element.style.height = `${Math.min(element.scrollHeight, maxHeight)}px`;
-  }, [text]);
+    if (transcript) transcript.scrollTop = stick.current ? transcript.scrollHeight : top;
+  }, [text, output, stick]);
   const closeOptions = useCallback((restoreFocus) => {
     setOptionsOpen(false);
     if (restoreFocus) optionsButton.current?.focus();
