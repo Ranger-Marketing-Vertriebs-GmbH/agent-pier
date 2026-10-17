@@ -425,10 +425,4 @@
   .stage-tile {
     min-width: 0;
   }
-  /* Inputs below 16px make mobile browsers zoom on focus. */
-  .definition-head input,
-  .definition-head textarea,
-  .definition-card .stage-stepper input {
-    font-size: 16px;
-  }
 }

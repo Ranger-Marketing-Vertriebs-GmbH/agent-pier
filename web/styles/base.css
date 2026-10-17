@@ -108,6 +108,28 @@ textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+/* iOS Safari zooms into a focused text-entry control under 16px. On phones and touch
+   screens every such control gets 16px, above any feature rule; desktop keeps its
+   sizes. tests/browser/touch-input-size-*.spec.js guards it. */
+@media (max-width: 700px), (any-pointer: coarse) {
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="range"],
+    [type="color"],
+    [type="file"],
+    [type="hidden"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="image"]
+  ),
+  select,
+  textarea,
+  [contenteditable]:not([contenteditable="false"]) {
+    font-size: 16px !important;
+  }
+}
 h1,
 h2,
 h3,
