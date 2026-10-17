@@ -1,0 +1,27 @@
+/* The project's Agents section: one block per permanent agent. */
+.project-agents {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.project-agents > section > .group-label:first-child {
+  margin-top: 0;
+}
+.project-agent-list {
+  display: grid;
+  gap: 18px;
+}
+.project-agent {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.project-agent-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.project-agent .group-label {
+  margin: 4px 0 0;
+}

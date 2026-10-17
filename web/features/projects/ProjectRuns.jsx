@@ -16,11 +16,18 @@ import useRunStatusCounts from "../pipelines/useRunStatusCounts.js";
 import { pipelineRunRoute, projectsRoute, projectsRoutePath } from "./routes.js";
 import useSettledReplace from "../../lib/useSettledReplace.js";
 
-function RegisterHint({ project, onNavigate, reloadHub }) {
+/** Registers an unregistered folder, then opens `tab` of the new project. */
+export function RegisterHint({
+  project,
+  onNavigate,
+  reloadHub,
+  text = copy.runsUnavailable,
+  tab = "runs",
+}) {
   const action = useAsyncAction();
   return (
     <div className="project-runs">
-      <p className="project-empty">{copy.runsUnavailable}</p>
+      <p className="project-empty">{text}</p>
       <ErrorMessage error={action.error} />
       <button
         type="button"
@@ -30,7 +37,7 @@ function RegisterHint({ project, onNavigate, reloadHub }) {
           action.run(async () => {
             const selected = await api("/memory/projects", "POST", { cwd: project.path });
             reloadHub();
-            onNavigate(projectsRoute({ projectId: selected.id, projectTab: "runs" }));
+            onNavigate(projectsRoute({ projectId: selected.id, projectTab: tab }));
           })
         }
       >

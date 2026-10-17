@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "../../components/Modal.jsx";
 import Icon from "../../components/Icon.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
@@ -7,13 +7,49 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { memoryCopy } from "../../lib/i18n/messages/memory.js";
 import { projectDialogsCopy as copy } from "../../lib/i18n/messages/projects.js";
+import { projectAgentsCopy as agentsCopy } from "../../lib/i18n/messages/project-agents.js";
 import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 import "./project-dialogs.css";
+
+// The access a new project gives an agent: none, the project grant, or the grant
+// with a folder level (server project-agent-access.js).
+const choices = {
+  none: null,
+  coding: { coding: true, folder: "none" },
+  read: { coding: true, folder: "read" },
+  write: { coding: true, folder: "write" },
+};
+const choiceLabels = {
+  none: () => agentsCopy.pickNone,
+  coding: () => agentsCopy.pickCoding,
+  read: () => agentsCopy.pickRead,
+  write: () => agentsCopy.pickWrite,
+};
+const permanent = (a) => !a.archivedAt && (!a.teamMemberId || a.lifetime === "permanent");
+
+// Permanent agents to offer; none while agents are off or unreadable.
+function useAgents() {
+  const [agents, setAgents] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    api("/assistants")
+      .then((data) => alive && setAgents((data.assistants || []).filter(permanent)))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return agents;
+}
 
 export default function AddFolderDialog({ home, close, added }) {
   const action = useAsyncAction();
   const [directory, setDirectory] = useState(home || "");
   const [browse, setBrowse] = useState(false);
+  const agents = useAgents();
+  const [access, setAccess] = useState({});
+  // Set after the project was added while some agent access could not be set.
+  const [partial, setPartial] = useState(null);
   return (
     <Modal
       title={memoryCopy.addProject}
@@ -25,10 +61,21 @@ export default function AddFolderDialog({ home, close, added }) {
         onSubmit={(event) => {
           event.preventDefault();
           action.run(async () => {
+            if (partial) return added(partial.project);
             const project = await api("/memory/projects", "POST", {
               cwd: directory.trim(),
             });
-            added(project);
+            let failed = 0;
+            for (const [agentId, choice] of Object.entries(access)) {
+              if (!choices[choice]) continue;
+              await api(
+                `/assistant-project-access/${encodeURIComponent(project.id)}/${encodeURIComponent(agentId)}`,
+                "PUT",
+                { expected: { coding: false, folder: "none" }, ...choices[choice] },
+              ).catch(() => failed++);
+            }
+            if (failed) setPartial({ project, failed });
+            else added(project);
           });
         }}
       >
@@ -57,7 +104,31 @@ export default function AddFolderDialog({ home, close, added }) {
               </button>
             </div>
           </label>
+          {agents.length > 0 && (
+            <fieldset className="project-agent-pick" disabled={action.busy || !!partial}>
+              <legend>{agentsCopy.pick}</legend>
+              <p className="field-description">{agentsCopy.pickHint}</p>
+              {agents.map((agent) => (
+                <label key={agent.id}>
+                  {agent.name}
+                  <select
+                    value={access[agent.id] || "none"}
+                    onChange={(event) =>
+                      setAccess({ ...access, [agent.id]: event.target.value })
+                    }
+                  >
+                    {Object.keys(choices).map((choice) => (
+                      <option key={choice} value={choice}>
+                        {choiceLabels[choice]()}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </fieldset>
+          )}
           <ErrorMessage error={action.error} />
+          {partial && <ErrorMessage error={agentsCopy.pickFailed(partial.failed)} />}
         </div>
         <div className="dialog-actions">
           <button
@@ -69,7 +140,7 @@ export default function AddFolderDialog({ home, close, added }) {
             {commonCopy.cancel}
           </button>
           <button className="button primary" disabled={action.busy}>
-            {memoryCopy.addProject}
+            {partial ? agentsCopy.done : memoryCopy.addProject}
           </button>
         </div>
       </form>

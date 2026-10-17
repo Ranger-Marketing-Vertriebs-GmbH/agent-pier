@@ -149,7 +149,9 @@ told it was not saved.
   with its path and level. `.git` internals, links leading out of the folder and
   AgentPier's own data stay locked, and every change is recorded in the activity log
   with its path and size, never its content
-  ([folder access](assistant-workflows.md#direct-folder-access)).
+  ([folder access](assistant-workflows.md#direct-folder-access)). The same access can
+  be set from the project: **Projects → <project> → Agents**
+  ([agent access per project](assistant-workflows.md#agent-access-from-the-project)).
 - **SSH accesses:** the hosts from **Settings → Access → SSH accesses** this agent may
   run commands on, each with a mode. **With approval** (the default) shows every
   command in the chat and in the paired Telegram chat with **Allow once** and **Deny**;

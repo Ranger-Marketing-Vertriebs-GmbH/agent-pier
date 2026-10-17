@@ -1,5 +1,5 @@
 const valid = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
-const tabs = ["overview", "knowledge", "agentbus", "runs"];
+const tabs = ["overview", "knowledge", "agentbus", "runs", "agents"];
 const statuses = ["running", "awaiting-human", "completed", "failed", "cancelled"];
 function pageNumber(value) {
   const number = Number(value || 1);

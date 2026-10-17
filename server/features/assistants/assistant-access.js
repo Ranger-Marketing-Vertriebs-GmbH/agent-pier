@@ -210,6 +210,7 @@ export class AssistantAccess {
     const notes = {};
     const next = this.write(id, this.prepare(id, input, revision, notes));
     this.auditSsh(id, before, next, "owner");
+    this.auditProjects(id, before, next);
     this.s.assistants.changed();
     return { ...next, removedProjectIds: notes.removedProjectIds };
   }
@@ -366,6 +367,40 @@ export class AssistantAccess {
       throw error;
     }
     return changed;
+  }
+  /**
+   * One `assistant.updated` record per change of project grants or folder levels,
+   * from the Work tab or the project's Agents section alike: project ids and levels.
+   */
+  auditProjects(id, before, after) {
+    const from = new Set(before?.projectIds || []);
+    const to = new Set(after?.projectIds || []);
+    const added = [...to].filter((p) => !from.has(p)).sort();
+    const removed = [...from].filter((p) => !to.has(p)).sort();
+    const levels = (policy, p) => policy?.projectFiles?.[p] || "none";
+    const folderChanged = [...new Set([...from, ...to])]
+      .sort()
+      .filter((p) => levels(before, p) !== levels(after, p))
+      .map((p) => ({ projectId: p, from: levels(before, p), to: levels(after, p) }));
+    if (!added.length && !removed.length && !folderChanged.length) return;
+    try {
+      this.s.audit?.append({
+        action: "assistant.updated",
+        resourceType: "assistant",
+        resourceId: id,
+        source: "user",
+        outcome: "success",
+        details: {
+          kind: "project-grants",
+          revision: after.revision,
+          added,
+          removed,
+          folderChanged,
+        },
+      });
+    } catch (error) {
+      console.error("Agent project grant audit failed:", error?.message);
+    }
   }
   /** One `assistant.updated` record per grant change: ids and modes, never more. */
   auditSsh(id, before, after, reason) {

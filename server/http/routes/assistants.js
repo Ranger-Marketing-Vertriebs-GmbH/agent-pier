@@ -3,6 +3,7 @@ import { assistantRuntimeUpdateRoutes } from "./assistant-runtime-updates.js";
 import { assistantRoutineRoutes } from "./assistant-routines.js";
 import { assistantTeamRoutes } from "./assistant-teams.js";
 import { assistantWorkRoutes } from "./assistant-work.js";
+import { assistantProjectAccessRoutes } from "./assistant-project-access.js";
 import { assistantCapabilityRoutes } from "./assistant-capabilities.js";
 import { chromiumUnavailable } from "../../features/tools/chromium-installer.js";
 import { assistantChannelRoutes } from "./assistant-channels.js";
@@ -129,6 +130,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantTelegramSenderRoutes(services));
   router.use(assistantTeamRoutes(services));
   router.use(assistantWorkRoutes(services));
+  router.use(assistantProjectAccessRoutes(services));
   router.use(assistantAccountRoutes(services));
   router.use(mcpOAuthRoutes(services));
   router.use("/mcp-servers", mcpServerErrors);

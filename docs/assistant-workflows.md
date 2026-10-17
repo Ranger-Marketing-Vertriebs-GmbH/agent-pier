@@ -114,6 +114,33 @@ member's **Capabilities → Granted by the lead agent** shows the levels it has 
 kept as a permanent agent keeps no folder access its lead granted; grant it yourself
 in its **Work** tab.
 
+## Agent access from the project
+
+**Projects → <project> → Agents** shows the same access from the project's side.
+Every permanent agent that is not archived is listed with **May start coding sessions
+in this project** (the project grant: project memory and coding tasks on the
+pipelines allowed in the agent's **Work** tab) and **Folder access** (**None**,
+**Read**, **Read and write**). A change saves at once through the Work tab's own save
+(`PUT /api/assistant-project-access/<projectId>/<agentId>`, which calls the same
+`saveWork`): the same validation, revision, audit (`kind: "project-grants"` with the
+added and removed projects and changed folder levels, also for Work tab saves) and
+instruction refresh, so both views always agree. Choosing a folder level grants the
+project; removing the grant removes the level.
+
+Only this project's entries change. The request names what the page showed for the
+project (`expected`); if the agent's access to it changed elsewhere since then, the
+page reloads that agent and says so. Unrelated changes, for example the agent's
+pipelines saved in its Work tab meanwhile, are kept. A Work tab draft opened before a
+change from the project gets the usual conflict notice on save.
+
+Team members are not editable here. A read-only list shows the task members that use
+the folder through their lead, at the level they have right now (at most the lead's).
+
+**Add folder** offers the permanent agents with **No access**, **Coding only**,
+**Coding and read folder** or **Coding, read and write folder**; the choice is applied
+right after the project is registered. If an agent's access cannot be set, the project
+is still added and the dialog says to set it in the **Agents** tab.
+
 ### Coding requests from team members
 
 In a team turn, a team member (temporary or permanent) may request a coding
