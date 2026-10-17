@@ -15,18 +15,27 @@ import { BrowserWindowKeeper } from "./browser-window-keeper.js";
 
 export const visibleBrowserLimit = 3;
 export const browserIdleMs = 15 * 60 * 1000;
-// A browser used this recently is still at work and is never stopped for another.
-const busyMs = 60 * 1000;
+// A browser used this recently, or whose agent is at work, or a window the owner has
+// open, is never stopped to make room for another.
+export const browserBusyMs = 5 * 60 * 1000;
 const slotPattern = /^member(-visible)?-\d+$/;
+// Actions that read OpenClaw's state and never launch a browser (OpenClaw 2026.10.3).
+const nonLaunching = new Set(["status", "profiles", "stop", "doctor"]);
+// Gateway states after which its browsers are gone; a reconnect keeps them.
+const gone = new Set(["stopping", "starting", "installing", "failed", "disabled"]);
+// What only a permanent agent (also an archived one) owns: a profile of its own.
+const ownsProfile = (assistant) =>
+  !assistant.teamMemberId || assistant.lifetime === "permanent";
 
 /**
  * The agents' own browsers on the running Gateway (docs/assistant-gateway.md "Browser
  * isolation"). The team plugin's tool guard asks `policy` before every browser call:
  * the answer pins the call to the agent's own profile, or refuses it. It also keeps
- * the limits: at most `limit` visible browsers at once (the least recently used idle
- * one stops for a new one; with none idle the call is refused) and an idle stop
- * after `idleMs`. Temporary team members borrow a member slot whose data is
- * discarded when they end; a promoted member takes its slot's data along.
+ * the limits: at most `limit` visible browsers at once (the least recently used one
+ * that is not busy stops for a new one; with all busy the call is refused) and an
+ * idle stop after `idleMs`. Temporary team members borrow a member slot whose data
+ * is discarded when they end; a promoted member takes its slot's data along.
+ * `busy(assistantId)` says whether the agent has a run in progress.
  */
 export class AgentBrowsers {
   constructor({
@@ -35,17 +44,34 @@ export class AgentBrowsers {
     now = Date.now,
     limit = visibleBrowserLimit,
     idleMs = browserIdleMs,
+    busyMs = browserBusyMs,
     sweepMs = 60 * 1000,
-    keeper = (cdpPort) => new BrowserWindowKeeper(cdpPort),
+    busy = () => false,
+    keeper = (cdpPort, options) => new BrowserWindowKeeper(cdpPort, options),
   }) {
-    Object.assign(this, { store, runtime, now, limit, idleMs, sweepMs, keeper });
-    // Profile name -> { lastUse, headless, keeper }; only browsers AgentPier started.
+    Object.assign(this, {
+      store,
+      runtime,
+      now,
+      limit,
+      idleMs,
+      busyMs,
+      sweepMs,
+      busy,
+      keeper,
+    });
+    // Profile name -> { lastUse, headless, assistantId, keeper }: browsers a
+    // launching call started, until they stop.
     this.running = new Map();
-    // Temporary member id -> slot name.
+    // Temporary member id -> slot name; `releasing` slots are being discarded.
     this.slots = new Map();
+    this.releasing = new Set();
     this.onChange = () => {};
+    this.generation = runtime?.generation;
     runtime?.on?.("status", (state) => {
-      if (state.availability !== "ready") this.forget();
+      if (gone.has(state.availability) || this.runtime.generation !== this.generation)
+        this.forget();
+      this.generation = this.runtime.generation;
     });
   }
   start() {
@@ -87,6 +113,10 @@ export class AgentBrowsers {
       throw assistantProblem("invalid");
     textValue(input.agentId, 4096);
     if ("action" in input && input.action !== undefined) textValue(input.action, 64);
+    // OpenClaw matches actions as given; any spelling of a refused one stays refused.
+    const action = String(input.action ?? "")
+      .trim()
+      .toLowerCase();
     const deny = (reason) => ({ allow: false, reason });
     if (!this.ready()) return deny("unavailable");
     const assistant = this.store
@@ -94,23 +124,29 @@ export class AgentBrowsers {
       .find((a) => a.runtimeAgentId === input.agentId);
     if (!assistant || !personalCapabilities(assistant).browser) return deny("notGranted");
     // Copying cookies from a system browser profile is never an agent's call.
-    if (input.action === "importprofile") return deny("importBlocked");
+    if (action === "importprofile") return deny("importBlocked");
     const name = this.profileOf(assistant);
     if (!name) return deny(inheritsFromLead(assistant) ? "slotsBusy" : "restartNeeded");
     const entry = this.profiles()[name];
-    if (!this.running.has(name) && !entry.headless) {
-      const reason = await this.admitVisible();
-      if (reason) return deny(reason);
-    }
-    if (input.action === "stop") {
+    const current = this.running.get(name);
+    if (action === "stop") {
       this.release(name);
       return { allow: true, profile: name };
     }
-    this.used(name, entry);
+    if (current) current.lastUse = this.now();
+    else if (!nonLaunching.has(action)) {
+      const reserve = () => this.launched(name, entry, assistant.id);
+      if (entry.headless) reserve();
+      else {
+        const victim = await this.roomForVisible(reserve);
+        if (victim === false) return deny("visibleLimit");
+        if (victim) await this.stop(victim);
+      }
+    }
     return { allow: true, profile: name };
   }
   /** The compiled profile `assistant` drives, assigning a member slot when needed. */
-  profileOf(assistant, assign = true) {
+  profileOf(assistant) {
     const profiles = this.profiles();
     if (!inheritsFromLead(assistant)) {
       const name = personalEligible(assistant) && agentProfileName(assistant.id);
@@ -118,7 +154,6 @@ export class AgentBrowsers {
     }
     const held = this.slots.get(assistant.id);
     if (held && profiles[held]) return held;
-    if (!assign) return null;
     let lead = null;
     try {
       lead = this.store.getAssistant(assistant.parentAssistantId);
@@ -127,7 +162,7 @@ export class AgentBrowsers {
     }
     const visible =
       lead?.browserVisible === true && this.runtime.webTools?.visibleBrowser === true;
-    const taken = new Set(this.slots.values());
+    const taken = new Set([...this.slots.values(), ...this.releasing]);
     for (let index = 0; index < memberSlotCount; index++) {
       const name = memberSlotName(visible, index);
       if (profiles[name] && !taken.has(name)) {
@@ -137,26 +172,53 @@ export class AgentBrowsers {
     }
     return null;
   }
-  /** Room for one more visible browser, or the reason there is none. */
-  async admitVisible() {
+  /**
+   * Makes room for one more visible browser and calls `reserve` in the same
+   * synchronous step as the final count, so two calls never pass the limit together.
+   * Returns null, the name of the browser to stop for it (already released), or
+   * false when every visible browser is busy and nothing was reserved.
+   */
+  async roomForVisible(reserve) {
     const visible = [...this.running.entries()].filter(([, e]) => !e.headless);
-    if (visible.length < this.limit) return null;
-    const idle = visible
-      .filter(([, e]) => this.now() - e.lastUse >= busyMs)
-      .sort((a, b) => a[1].lastUse - b[1].lastUse)[0];
-    if (!idle) return "visibleLimit";
-    await this.stop(idle[0]);
-    return null;
+    if (visible.length < this.limit) {
+      reserve();
+      return null;
+    }
+    const idle = [];
+    for (const [name, e] of visible.sort((a, b) => a[1].lastUse - b[1].lastUse)) {
+      if (this.now() - e.lastUse < this.busyMs || this.busy(e.assistantId)) continue;
+      if (await e.keeper?.inUse?.().catch(() => false)) continue;
+      idle.push(name);
+    }
+    // Recounted after the awaits: another call may have taken or freed a place.
+    const now = [...this.running.values()].filter((e) => !e.headless).length;
+    if (now < this.limit) {
+      reserve();
+      return null;
+    }
+    const victim = idle.find((name) => this.running.has(name));
+    if (!victim) return false;
+    this.release(victim);
+    reserve();
+    return victim;
   }
-  used(name, entry) {
+  /** A launching call: the browser runs from now on, watched until it ends. */
+  launched(name, entry, assistantId) {
     const current = this.running.get(name);
     if (current) {
       current.lastUse = this.now();
       return;
     }
-    const keeper = entry.headless ? null : this.keeper(entry.cdpPort);
-    keeper?.start().catch(() => {});
-    this.running.set(name, { lastUse: this.now(), headless: entry.headless, keeper });
+    const record = { lastUse: this.now(), headless: entry.headless, assistantId };
+    record.keeper = this.keeper(entry.cdpPort, {
+      windows: !entry.headless,
+      // A browser that ended (stopped elsewhere, crashed, never came up) is gone.
+      onClose: () => {
+        if (this.running.get(name) === record) this.release(name);
+      },
+    });
+    this.running.set(name, record);
+    record.keeper.start().catch(() => {});
     this.onChange();
   }
   release(name) {
@@ -190,21 +252,38 @@ export class AgentBrowsers {
         /* Removed. */
       }
       if (member && inheritsFromLead(member)) continue;
+      // Held until its data is gone, so no other member gets it meanwhile.
+      this.releasing.add(slot);
       this.slots.delete(memberId);
-      await this.stop(slot);
-      const target =
-        member && personalEligible(member) ? agentProfileName(member.id) : null;
-      // A promoted member keeps its logins; any other end discards them.
-      if (target && !fs.existsSync(this.profileDir(target)))
-        moveProfile(this.profileDir(slot), this.profileDir(target));
-      else removeProfile(this.profileDir(slot));
+      try {
+        await this.stop(slot);
+        const target =
+          member && personalEligible(member) ? agentProfileName(member.id) : null;
+        // A promoted member keeps its logins; any other end discards them.
+        if (target && !fs.existsSync(this.profileDir(target)))
+          moveProfile(this.profileDir(slot), this.profileDir(target));
+        else removeProfile(this.profileDir(slot));
+      } finally {
+        this.releasing.delete(slot);
+      }
     }
     // Slot data no member holds any more, for example after AgentPier restarted.
-    const taken = new Set(this.slots.values());
+    const unheld = (name) =>
+      slotPattern.test(name) &&
+      ![...this.slots.values()].includes(name) &&
+      !this.releasing.has(name) &&
+      !this.running.has(name);
     for (const name of listProfiles(this.browserRoot()))
-      if (slotPattern.test(name) && !taken.has(name) && !this.running.has(name)) {
-        if (this.ready()) await this.stop(name);
-        removeProfile(this.profileDir(name));
+      if (unheld(name)) {
+        this.releasing.add(name);
+        try {
+          if (this.ready()) await this.stop(name);
+          // Checked again: a member may have taken the slot during the stop.
+          this.releasing.delete(name);
+          if (unheld(name)) removeProfile(this.profileDir(name));
+        } finally {
+          this.releasing.delete(name);
+        }
       }
   }
   /** What the agent's settings show. */
@@ -212,7 +291,7 @@ export class AgentBrowsers {
     const assistant = this.store.getAssistant(id);
     const name = inheritsFromLead(assistant)
       ? this.slots.get(assistant.id) || null
-      : personalEligible(assistant)
+      : ownsProfile(assistant)
         ? agentProfileName(assistant.id)
         : null;
     const entry = name && this.profiles()[name];
@@ -220,20 +299,23 @@ export class AgentBrowsers {
       running: !!name && this.running.has(name),
       visible: !!entry && entry.headless === false,
       stored: !!name && fs.existsSync(this.profileDir(name)),
-      resettable: !inheritsFromLead(assistant) && personalEligible(assistant),
+      resettable: !inheritsFromLead(assistant) && ownsProfile(assistant),
     };
   }
   /** Whether the agent's browser runs now, for the agents list. */
   isRunning(id) {
-    for (const [memberId, slot] of this.slots)
-      if (memberId === id) return this.running.has(slot);
+    const slot = this.slots.get(id);
+    if (slot) return this.running.has(slot);
     const name = agentProfileName(id);
     return !!name && this.running.has(name);
   }
-  /** Stops the agent's browser and deletes its profile: logins, cookies, history. */
+  /**
+   * Stops the agent's browser and deletes its profile: logins, cookies, history.
+   * An archived agent keeps its profile (archiving can be undone) and may reset it.
+   */
   async reset(id) {
     const assistant = this.store.getAssistant(id);
-    if (inheritsFromLead(assistant) || !personalEligible(assistant))
+    if (inheritsFromLead(assistant) || !ownsProfile(assistant))
       throw assistantProblem("invalid");
     const name = agentProfileName(assistant.id);
     if (!name) throw assistantProblem("invalid");

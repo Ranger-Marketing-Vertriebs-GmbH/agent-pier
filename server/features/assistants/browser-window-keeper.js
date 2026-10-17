@@ -1,6 +1,8 @@
 /**
- * Keeps a visible agent browser out of the owner's way: it minimizes the windows the
- * browser opens at launch and keeps every page rendering while minimized. A minimized
+ * Watches one agent browser through its CDP port: `onClose` reports when it ends
+ * (a stop, a crash, or no browser within `timeoutMs`). For a visible browser
+ * (`windows`) it also keeps it out of the owner's way: it minimizes the windows a
+ * fresh launch opens and keeps every page rendering while minimized. A minimized
  * Chromium window marks its pages hidden and stops painting them; focus emulation,
  * held by this CDP session, keeps them visible to the page and to OpenClaw's
  * screenshots and actions. Windows opened later (a login popup, a window the owner
@@ -11,20 +13,28 @@ const launchWindowMs = 10000;
 export class BrowserWindowKeeper {
   constructor(
     cdpPort,
-    { now = Date.now, fetch = globalThis.fetch, timeoutMs = 30000 } = {},
+    {
+      now = Date.now,
+      fetch = globalThis.fetch,
+      timeoutMs = 30000,
+      windows = true,
+      onClose = () => {},
+    } = {},
   ) {
-    Object.assign(this, { cdpPort, now, fetch, timeoutMs });
+    Object.assign(this, { cdpPort, now, fetch, timeoutMs, windows, onClose });
     this.closed = false;
     this.attached = new Set();
-    this.windows = new Set();
+    this.known = new Set();
     this.pending = new Map();
     this.id = 0;
   }
   /** Connects once the browser answers; resolves when it is watched or gave up. */
   async start() {
     const deadline = this.now() + this.timeoutMs;
-    let version;
+    let version,
+      polls = 0;
     while (!this.closed && !version && this.now() < deadline) {
+      polls++;
       try {
         const response = await this.fetch(
           `http://127.0.0.1:${this.cdpPort}/json/version`,
@@ -35,10 +45,39 @@ export class BrowserWindowKeeper {
       }
       if (!version) await new Promise((r) => setTimeout(r, 250).unref?.());
     }
-    if (this.closed || !version?.webSocketDebuggerUrl) return false;
-    this.startedAt = this.now();
+    if (this.closed || !version?.webSocketDebuggerUrl) {
+      this.finish();
+      return false;
+    }
+    // Only a browser that came up while we waited is a fresh launch whose windows
+    // are minimized; one already running may hold windows the owner restored.
+    this.launchedAt = polls > 1 ? this.now() : null;
     await this.connect(version.webSocketDebuggerUrl);
-    return true;
+    return !this.closed;
+  }
+  finish() {
+    const first = !this.ended;
+    this.closed = this.ended = true;
+    for (const { reject } of this.pending.values()) reject(Error("closed"));
+    this.pending.clear();
+    try {
+      this.ws?.close();
+    } catch {
+      /* Already closed. */
+    }
+    if (first) this.onClose();
+  }
+  /** Whether the owner has one of the browser's windows open (not minimized). */
+  async inUse() {
+    for (const windowId of this.known) {
+      try {
+        const { bounds } = await this.send("Browser.getWindowBounds", { windowId });
+        if (bounds?.windowState && bounds.windowState !== "minimized") return true;
+      } catch {
+        /* Closed meanwhile. */
+      }
+    }
+    return false;
   }
   connect(url) {
     return new Promise((resolve) => {
@@ -54,11 +93,15 @@ export class BrowserWindowKeeper {
         }
         resolve();
       };
-      ws.onerror = () => resolve();
+      // Node reports a failed connection by an error alone, without close.
+      ws.onerror = () => {
+        this.finish();
+        resolve();
+      };
       ws.onclose = () => {
-        this.closed = true;
         for (const { reject } of this.pending.values()) reject(Error("closed"));
         this.pending.clear();
+        this.finish();
         resolve();
       };
     });
@@ -92,7 +135,13 @@ export class BrowserWindowKeeper {
       this.page(msg.params?.targetInfo).catch(() => {});
   }
   async page(info) {
-    if (!info || info.type !== "page" || this.attached.has(info.targetId)) return;
+    if (
+      !this.windows ||
+      !info ||
+      info.type !== "page" ||
+      this.attached.has(info.targetId)
+    )
+      return;
     this.attached.add(info.targetId);
     try {
       const { sessionId } = await this.send("Target.attachToTarget", {
@@ -103,9 +152,9 @@ export class BrowserWindowKeeper {
       const { windowId } = await this.send("Browser.getWindowForTarget", {
         targetId: info.targetId,
       });
-      if (this.windows.has(windowId)) return;
-      this.windows.add(windowId);
-      if (this.now() - this.startedAt <= launchWindowMs)
+      if (this.known.has(windowId)) return;
+      this.known.add(windowId);
+      if (this.launchedAt !== null && this.now() - this.launchedAt <= launchWindowMs)
         await this.send("Browser.setWindowBounds", {
           windowId,
           bounds: { windowState: "minimized" },
@@ -114,8 +163,9 @@ export class BrowserWindowKeeper {
       /* The page closed meanwhile. */
     }
   }
+  /** Stops watching; `onClose` is not called for a close AgentPier asked for. */
   close() {
-    this.closed = true;
+    this.closed = this.ended = true;
     try {
       this.ws?.close();
     } catch {

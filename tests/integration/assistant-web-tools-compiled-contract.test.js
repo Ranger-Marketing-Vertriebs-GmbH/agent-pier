@@ -211,7 +211,8 @@ test(
       },
     });
     config.nativeReady = () => true;
-    config.writeGuard = () => false;
+    // The browser waits for the plugin's proven tool guard, like guarded writes.
+    config.writeGuard = () => bridge.guardLive();
     config.webToolsAvailable = () => runtime.webTools.availability;
     await config.apply(web.id);
     await config.apply(member.id);
@@ -220,6 +221,13 @@ test(
     await runtime.restart();
     config.client = runtime.client;
     assert.equal(runtime.status().availability, "ready");
+    // The start compiled the browser out; the guard's report brings it back.
+    for (let n = 0; n < 120 && !bridge.guardLive(); n++)
+      await new Promise((r) => setTimeout(r, 250));
+    assert.equal(bridge.guardLive(), true);
+    // A restarted Gateway is applied afresh, as AgentPier does at each start.
+    config.reset();
+    await config.apply(web.id);
 
     // The bundled DuckDuckGo plugin is the default provider and comes from the
     // runtime descriptor.

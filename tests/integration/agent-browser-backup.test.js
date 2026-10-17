@@ -51,7 +51,9 @@ function fixture(t) {
     "GPUCache/data_0",
   ])
     write(`${profile}/${cache}`, cached);
-  // Slots of temporary members and OpenClaw's default profile never go along.
+  // Slots of temporary members, OpenClaw's default profile and the profile of an
+  // agent that no longer exists never go along.
+  write("state/browser/agent-gone/user-data/Default/Preferences", "gone");
   write("state/browser/member-1/user-data/Default/Preferences", "member");
   write("state/browser/openclaw/user-data/Default/Preferences", "default");
   fs.symlinkSync("host-1234", path.join(root, profile, "SingletonLock"));

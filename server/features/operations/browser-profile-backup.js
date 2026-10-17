@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { agentProfileName } from "../assistants/openclaw-config/browser-profiles.js";
 import { sqliteSnapshotFileAsync } from "./snapshot.js";
 import { areaComponent, ensureSpace } from "./backup-components.js";
 
@@ -34,8 +36,36 @@ function isSqlite(file) {
   }
 }
 
-/** Sealed history members for every agent profile below the assistants state folder. */
-export async function captureBrowserProfiles({ dataDir, plan, scratch }) {
+/** The ids of the agents assistants.sqlite holds, archived ones included. */
+export function storedAgentIds(dataDir) {
+  let db;
+  try {
+    db = new DatabaseSync(path.join(dataDir, "assistants", "assistants.sqlite"), {
+      readOnly: true,
+    });
+    return new Set(
+      db
+        .prepare("SELECT id FROM assistants")
+        .all()
+        .map((row) => row.id),
+    );
+  } catch {
+    return new Set();
+  } finally {
+    db?.close();
+  }
+}
+/**
+ * Sealed history members for the profile of every agent that still exists; a
+ * profile left behind by a removed agent is not archived.
+ */
+export async function captureBrowserProfiles({
+  dataDir,
+  plan,
+  scratch,
+  agents = storedAgentIds(dataDir),
+}) {
+  const owned = new Set([...agents].map(agentProfileName).filter(Boolean));
   const root = path.join(dataDir, prefix);
   const component = areaComponent("assistants");
   const result = { files: [], captures: [], omissions: [] };
@@ -99,7 +129,7 @@ export async function captureBrowserProfiles({ dataDir, plan, scratch }) {
   for (const name of profiles) {
     const userData = path.join(root, name, "user-data");
     const stat = fs.lstatSync(userData, { throwIfNoEntry: false });
-    if (/^agent-[a-z0-9-]{1,58}$/.test(name) && stat?.isDirectory())
+    if (/^agent-[a-z0-9-]{1,58}$/.test(name) && owned.has(name) && stat?.isDirectory())
       await visit(userData, `${name}/user-data`);
   }
   if (unreadable) result.omissions.push(browserUnreadableOmission);

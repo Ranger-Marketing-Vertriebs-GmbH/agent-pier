@@ -164,12 +164,14 @@ test("eligible agents get granted web and document tools, temporary members thei
     documents: true,
   };
   const personal = { id: "a", capabilities: caps };
-  assert.deepEqual(profileTools(personal, true, true, false).slice(-4), [
+  assert.deepEqual(profileTools(personal, true, true, true).slice(-4), [
     "web_search",
     "web_fetch",
     "browser",
     "view_image",
   ]);
+  // The browser waits for the proven tool guard.
+  assert.ok(!profileTools(personal, true, true, false).includes("browser"));
   const temporary = { id: "m", teamMemberId: "t", lifetime: "task", capabilities: caps };
   assert.ok(!profileTools(temporary, true, true, false).includes("web_search"));
   const following = {
@@ -181,7 +183,7 @@ test("eligible agents get granted web and document tools, temporary members thei
   assert.ok(memberTools.includes("web_search") && memberTools.includes("view_image"));
   assert.ok(!memberTools.includes("browser"));
   assert.ok(
-    !profileTools(personal, true, true, false, { browser: false }).includes("browser"),
+    !profileTools(personal, true, true, true, { browser: false }).includes("browser"),
   );
   assert.ok(
     !profileTools({ ...personal, archivedAt: "x" }, true, true, false).includes(

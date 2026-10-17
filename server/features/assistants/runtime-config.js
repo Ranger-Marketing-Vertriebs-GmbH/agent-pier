@@ -2,7 +2,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { proxyEnvironment } from "../../lib/proxy-environment.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
-import { guardedTools, memoryTools } from "./native-capabilities.js";
+import { guardGatedTools, memoryTools } from "./native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
@@ -241,9 +241,10 @@ export function compileOpenClawConfig({
     const entries = config.agents.entries || config.agents.list;
     for (const [key, entry] of Object.entries(entries || {})) {
       delete entry.skills;
-      // A fresh Gateway has not proven its write guard yet; no profile keeps writes.
+      // A fresh Gateway has not proven its tool guard yet; no profile keeps writes or
+      // the browser.
       if (Array.isArray(entry.tools?.allow))
-        entry.tools.allow = entry.tools.allow.filter((t) => !guardedTools.includes(t));
+        entry.tools.allow = entry.tools.allow.filter((t) => !guardGatedTools.includes(t));
       const profile = teams.profiles?.find((a) => a.runtimeAgentId === (entry.id || key));
       if (!profile) continue;
       Object.assign(

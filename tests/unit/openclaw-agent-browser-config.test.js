@@ -10,6 +10,11 @@ import {
   webToolsSnapshot,
 } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import {
+  guardGatedTools,
+  profileTools,
+} from "../../server/features/assistants/native-capabilities.js";
+import { WriteGuardReapply } from "../../server/features/assistants/write-guard-reapply.js";
+import {
   agentProfileName,
   browserProfileMap,
 } from "../../server/features/assistants/openclaw-config/browser-profiles.js";
@@ -160,4 +165,23 @@ test("the Gateway gets the owner's display, and nothing when there is none", () 
     runtimeEnvironment(paths, "/node/bin/node", { PATH: "/x" }).DISPLAY,
     undefined,
   );
+});
+
+test("the browser waits for the proven tool guard, like guarded writes", () => {
+  const assistant = agent("a");
+  const tools = (guard) => profileTools(assistant, true, true, guard, { browser: true });
+  assert.equal(tools(false).includes("browser"), false);
+  assert.equal(tools(true).includes("browser"), true);
+  assert.ok(guardGatedTools.includes("browser"));
+  const lead = agent("b", { capabilities: { browser: true, memory: true } });
+  const reapply = new WriteGuardReapply({
+    assistants: {
+      store: {
+        listAssistants: () => [agent("a"), lead, agent("c", { capabilities: {} })],
+      },
+    },
+    live: () => true,
+    generation: () => 1,
+  });
+  assert.deepEqual(reapply.remaining(), ["a", "b"]);
 });

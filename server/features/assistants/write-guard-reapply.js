@@ -1,11 +1,11 @@
-import { memoryEnabled } from "./native-capabilities.js";
+import { memoryEnabled, personalCapabilities } from "./native-capabilities.js";
 
 /**
  * Every Gateway start compiles its agents without write and edit (runtime-config.js)
  * until the team plugin reports its write guard. A chat turn or a settings save
  * re-applies one agent, but a scheduled routine fires inside the Gateway without
  * any apply. So once the guard is live for a generation and the Gateway is ready
- * (whichever comes last), every active memory agent is applied: each apply is the
+ * (whichever comes last), every active memory or browser agent is applied: each apply is the
  * verified hot `config.patch`, never a restart, and is admitted on its own so chat
  * turns interleave. A generation stays open until every agent applied; a pass cut
  * short (guard lost on reconnect, failed apply, refused admission) resumes with the
@@ -43,7 +43,7 @@ export class WriteGuardReapply {
       .filter(
         (a) =>
           !a.archivedAt &&
-          memoryEnabled(a) &&
+          (memoryEnabled(a) || personalCapabilities(a).browser) &&
           !this.blocked(a.id) &&
           !this.applied.has(a.id),
       )

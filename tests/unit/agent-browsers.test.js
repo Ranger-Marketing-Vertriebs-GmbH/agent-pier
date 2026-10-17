@@ -30,7 +30,7 @@ const member = (id, lead) => ({
   inherited: { capabilities: { browser: true }, skills: [], shell: "off", ssh: false },
 });
 
-function fixture(t, profiles, { limit = 3 } = {}) {
+function fixture(t, profiles, { limit = 3, busy = () => false } = {}) {
   const state = fs.mkdtempSync(path.join(os.tmpdir(), "agent-browsers-"));
   t.after(() => fs.rmSync(state, { recursive: true, force: true }));
   let clock = 1_000_000;
@@ -59,11 +59,13 @@ function fixture(t, profiles, { limit = 3 } = {}) {
     store,
     runtime,
     limit,
+    busy,
     now: () => clock,
-    keeper: (cdpPort) => {
-      const keeper = { cdpPort, closed: false };
+    keeper: (cdpPort, options) => {
+      const keeper = { cdpPort, closed: false, open: false, ...options };
       keeper.start = async () => true;
       keeper.close = () => (keeper.closed = true);
+      keeper.inUse = async () => keeper.open;
       keepers.push(keeper);
       return keeper;
     },
@@ -118,12 +120,12 @@ test("at most three visible browsers: the least recently used idle one stops", a
     assert.equal((await f.browsers.policy({ agentId: `ap-${id}` })).allow, true);
     f.tick(1000);
   }
-  // Every browser was used within the last minute: the fourth is refused.
+  // Every browser was used within the last five minutes: the fourth is refused.
   assert.deepEqual(await f.browsers.policy({ agentId: "ap-d" }), {
     allow: false,
     reason: "visibleLimit",
   });
-  f.tick(60_000);
+  f.tick(5 * 60_000);
   await f.browsers.policy({ agentId: "ap-b" });
   assert.equal((await f.browsers.policy({ agentId: "ap-d" })).allow, true);
   assert.deepEqual(f.stops(), ["agent-a"]);
@@ -138,7 +140,11 @@ test("headless browsers do not count against the visible limit", async (t) => {
   const f = fixture(t, [agent("v", { browserVisible: true }), agent("h")], { limit: 1 });
   await f.browsers.policy({ agentId: "ap-v" });
   assert.equal((await f.browsers.policy({ agentId: "ap-h" })).allow, true);
-  assert.equal(f.keepers.length, 1);
+  // Both are watched; only the visible one has its windows managed.
+  assert.deepEqual(
+    f.keepers.map((k) => k.windows),
+    [true, false],
+  );
 });
 
 test("an idle browser stops after fifteen minutes", async (t) => {
@@ -247,7 +253,15 @@ test("a Gateway that leaves ready forgets every browser", async (t) => {
   });
   await browsers.policy({ agentId: "ap-a" });
   assert.equal(browsers.isRunning("a"), true);
+  // A reconnect keeps the Gateway's browsers; a failure or a new start does not.
   listener({ availability: "reconnecting" });
+  listener({ availability: "ready" });
+  assert.equal(browsers.isRunning("a"), true);
+  listener({ availability: "failed" });
+  assert.equal(browsers.isRunning("a"), false);
+  await browsers.policy({ agentId: "ap-a" });
+  f.runtime.generation = 7;
+  listener({ availability: "ready" });
   assert.equal(browsers.isRunning("a"), false);
 });
 
@@ -282,4 +296,103 @@ test("the tool guard pins the profile and fails closed", async () => {
     return { ok: false };
   });
   assert.deepEqual(sent, { agentId: "ap-a" });
+});
+
+test("calls that never launch a browser do not count as running", async (t) => {
+  const f = fixture(t, [agent("a", { browserVisible: true })], { limit: 0 });
+  for (const action of ["status", "profiles", " Status ", "doctor"])
+    assert.equal((await f.browsers.policy({ agentId: "ap-a", action })).allow, true);
+  assert.equal(f.browsers.isRunning("a"), false);
+  assert.equal(f.keepers.length, 0);
+  // Any spelling of a refused action stays refused.
+  assert.equal(
+    (await f.browsers.policy({ agentId: "ap-a", action: " ImportProfile " })).reason,
+    "importBlocked",
+  );
+  assert.equal(
+    (await f.browsers.policy({ agentId: "ap-a", action: "open" })).reason,
+    "visibleLimit",
+  );
+});
+
+test("a browser that ended is released and the next launch watches it again", async (t) => {
+  const f = fixture(t, [agent("a", { browserVisible: true })]);
+  await f.browsers.policy({ agentId: "ap-a", action: "open" });
+  assert.equal(f.browsers.isRunning("a"), true);
+  f.keepers[0].onClose();
+  assert.equal(f.browsers.isRunning("a"), false);
+  await f.browsers.policy({ agentId: "ap-a", action: "navigate" });
+  assert.equal(f.keepers.length, 2);
+  assert.equal(f.browsers.isRunning("a"), true);
+  // A stale close of the old watcher does not touch the new browser.
+  f.keepers[0].onClose();
+  assert.equal(f.browsers.isRunning("a"), true);
+});
+
+test("a working agent or an open window is never stopped for another", async (t) => {
+  const ids = ["a", "b", "c"];
+  const working = new Set(["a"]);
+  const f = fixture(
+    t,
+    [...ids, "d"].map((id) => agent(id, { browserVisible: true })),
+    { limit: 3, busy: (id) => working.has(id) },
+  );
+  for (const id of ids) await f.browsers.policy({ agentId: `ap-${id}`, action: "open" });
+  f.tick(10 * 60_000);
+  f.keepers[1].open = true;
+  // a works, b's window is open: c, the next least recently used, makes room.
+  assert.equal(
+    (await f.browsers.policy({ agentId: "ap-d", action: "open" })).allow,
+    true,
+  );
+  assert.deepEqual(f.stops(), ["agent-c"]);
+});
+
+test("concurrent launches never pass the visible limit", async (t) => {
+  const ids = ["a", "b", "c", "d", "e"];
+  const f = fixture(
+    t,
+    ids.map((id) => agent(id, { browserVisible: true })),
+  );
+  for (const id of ids.slice(0, 3))
+    await f.browsers.policy({ agentId: `ap-${id}`, action: "open" });
+  f.tick(10 * 60_000);
+  const answers = await Promise.all([
+    f.browsers.policy({ agentId: "ap-d", action: "open" }),
+    f.browsers.policy({ agentId: "ap-e", action: "open" }),
+  ]);
+  assert.deepEqual(
+    answers.map((a) => a.allow),
+    [true, true],
+  );
+  assert.equal([...f.browsers.running.values()].filter((e) => !e.headless).length, 3);
+});
+
+test("an archived agent keeps its profile and can reset it", async (t) => {
+  const f = fixture(t, [agent("a")]);
+  f.records.set("a", agent("a", { archivedAt: "2026-10-17T00:00:00Z" }));
+  const dir = path.join(f.state, "browser", "agent-a", "user-data");
+  fs.mkdirSync(dir, { recursive: true });
+  assert.deepEqual(f.browsers.status("a"), {
+    running: false,
+    visible: false,
+    stored: true,
+    resettable: true,
+  });
+  await f.browsers.reset("a");
+  assert.equal(fs.existsSync(path.join(f.state, "browser", "agent-a")), false);
+});
+
+test("a slot being discarded is never handed to another member", async (t) => {
+  const f = fixture(t, [agent("lead"), member("m1", "lead"), member("m2", "lead")]);
+  assert.equal((await f.browsers.policy({ agentId: "ap-m1" })).profile, "member-1");
+  f.records.delete("m1");
+  let release;
+  f.runtime.client.request = () => new Promise((r) => (release = r));
+  const sweeping = f.browsers.sweep();
+  await new Promise((r) => setImmediate(r));
+  // m1's slot is still being discarded: m2 gets another one.
+  assert.equal((await f.browsers.policy({ agentId: "ap-m2" })).profile, "member-2");
+  release();
+  await sweeping;
 });

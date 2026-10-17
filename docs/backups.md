@@ -62,6 +62,20 @@ scrypt-derived key):
   configuration files of its CLI (table below).
 - Provider connection keys, repository credentials and MCP server values.
 
+The agents' own browser profiles (`assistants/state/browser/agent-<id>/user-data`)
+hold their logins and cookies. They are archived only with **Include encrypted
+credentials**, sealed like histories (see "Sealed history"), with or without
+**Include history**, and never with their caches, crash reports or Chromium's
+`Singleton*` links. A database the running browser holds is copied consistently; a
+file it keeps locked is left out and the manifest lists "Agent browser files that
+were in use". Only profiles of agents that still exist (archived ones included) are
+archived; member slots and OpenClaw's default profile never are. Without a
+passphrase the plan and manifest list "Agent browser profiles (only in backups with a
+passphrase, then encrypted)"; every plan with agents lists "Agent browser caches" as
+left out. Backups from before this change archived OpenClaw's default profile
+publicly, caches included: a restore brings the profile back, leaves the caches out
+and reports their number as `cachesLeftOut`.
+
 ## CLI profile allowlists
 
 A managed profile lives in `<data>/profiles/<account>/`; a provider profile keeps its
