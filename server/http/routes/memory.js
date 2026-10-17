@@ -62,14 +62,17 @@ export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates 
   );
   const base = "/memory/projects/:projectId/entries";
   router.get(base, (request, response) => {
-    const { page, q, archived } = request.query;
+    const { page, q, archived, sort } = request.query;
     if (archived !== undefined && archived !== "true" && archived !== "false")
       throw problem(serverMessages.memory.invalidArchiveFilter);
+    if (sort !== undefined && typeof sort !== "string")
+      throw problem(serverMessages.memory.invalidSort);
     response.json(
       memory.list(request.params.projectId, {
         query: q ?? "",
         page: pageValue(page),
         archived: archived === "true",
+        ...(sort === undefined ? {} : { sort }),
       }),
     );
   });

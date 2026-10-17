@@ -64,12 +64,14 @@ export default function ProjectKnowledge({
 }) {
   const query = route.query || "",
     page = route.memoryPage || 1,
-    archived = route.archived === true;
+    archived = route.archived === true,
+    sort = route.memorySort === "newest" ? "newest" : "relevance";
   const state = useProjectMemory({
     projectId: project.memoryId,
     query,
     page,
     archived,
+    sort,
   });
   const action = useAsyncAction();
   const registerAction = useAsyncAction();
@@ -172,6 +174,19 @@ export default function ProjectKnowledge({
           {commonCopy.refresh}
         </button>
       </div>
+      {query && (
+        <div className="project-knowledge-filter">
+          <Segmented
+            label={copy.sortLabel}
+            value={sort}
+            options={[
+              { value: "relevance", label: copy.sortRelevance },
+              { value: "newest", label: copy.sortNewest },
+            ]}
+            onChange={(value) => navigate({ memorySort: value, memoryPage: 1 })}
+          />
+        </div>
+      )}
       <InfoHintText hint={hint}>{copy.tabHint}</InfoHintText>
       {counts.failed && (
         <CountUnavailable

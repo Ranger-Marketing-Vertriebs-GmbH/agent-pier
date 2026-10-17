@@ -1,5 +1,6 @@
 import { failure, record } from "./memory-validation.js";
 import { authorizeCapability } from "./memory-capability.js";
+import { withExcerpts } from "./memory-search.js";
 const string = { type: "string" },
   integer = { type: "integer", minimum: 1 };
 const notice =
@@ -13,7 +14,7 @@ const schema = (properties, required = []) => ({
 export const memoryTools = [
   {
     name: "memory_search",
-    description: `Search concise excerpts from shared project memory before relevant work, then use memory_read for full entries; nothing is automatically injected. ${notice}`,
+    description: `Search concise excerpts from shared project memory before relevant work, then use memory_read for full entries; nothing is automatically injected. Every word must match; results are ranked by relevance, and exact file paths, ticket keys, URLs and code symbols come first. ${notice}`,
     inputSchema: schema({
       query: { ...string, maxLength: 300 },
       page: integer,
@@ -62,16 +63,8 @@ export function callMemoryTool(memory, credential, name, input = {}) {
     tool.inputSchema.required.some((key) => input[key] === undefined)
   )
     throw failure("Invalid memory tool arguments.");
-  if (name === "memory_search") {
-    const result = memory.list(projectId, input);
-    return {
-      ...result,
-      items: result.items.map(({ content, ...item }) => ({
-        ...item,
-        excerpt: Array.from(content).slice(0, 256).join(""),
-      })),
-    };
-  }
+  // Always ranked by relevance when searching, in the order the GUI shows by default.
+  if (name === "memory_search") return withExcerpts(memory.list(projectId, input));
   if (name === "memory_read")
     return memory.read(projectId, input.id, { revision: input.revision });
   if (name === "memory_write") return memory.write(projectId, input, provenance);

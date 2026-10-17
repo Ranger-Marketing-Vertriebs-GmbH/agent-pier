@@ -2,6 +2,7 @@
 export const memory = Object.freeze({
   invalidPage: "Ungültige Memory-Seite.",
   invalidArchiveFilter: "Ungültiger Archivfilter für Memory.",
+  invalidSort: "Ungültige Sortierung für Memory.",
   invalidIdentifier: "Ungültige Memory-Kennung.",
   invalidQuery: "Ungültige Memory-Suchanfrage.",
   invalidTitle: "Ungültiger Memory-Titel.",

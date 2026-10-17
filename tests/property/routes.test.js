@@ -39,6 +39,7 @@ test("generated projects AgentBus links retain the project and pagination indepe
         projectTab: "agentbus",
         query: "",
         archived: false,
+        memorySort: "relevance",
         memoryPage: 1,
         busTab: "messages",
         messagePage: page,
@@ -73,20 +74,22 @@ test("encoded separators, control characters and invalid leading symbols cannot 
   );
 });
 
-test("generated projects knowledge links retain repository scope, Unicode search, archive and page", () => {
+test("generated projects knowledge links retain repository scope, Unicode search, archive, order and page", () => {
   check(
     fc.property(
       publicId,
       fc.string({ unit: "grapheme", maxLength: 30 }),
       fc.boolean(),
+      fc.constantFrom("relevance", "newest"),
       fc.integer({ min: 1, max: 100000 }),
-      (projectId, query, archived, memoryPage) => {
+      (projectId, query, archived, memorySort, memoryPage) => {
         const route = {
           view: "projects",
           projectId,
           projectTab: "knowledge",
           query,
           archived,
+          memorySort,
           memoryPage,
           busTab: "status",
           messagePage: 1,

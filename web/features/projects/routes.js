@@ -16,6 +16,7 @@ export function projectsRoute(fields = {}) {
     projectTab: "overview",
     query: "",
     archived: false,
+    memorySort: "relevance",
     memoryPage: 1,
     busTab: "status",
     messagePage: 1,
@@ -37,6 +38,7 @@ export function readProjectsRoute(pathname, search) {
     ...(tab === "knowledge" && {
       query: (query.get("q") || "").slice(0, 300),
       archived: query.get("archived") === "1",
+      memorySort: query.get("sort") === "newest" ? "newest" : "relevance",
       memoryPage: page,
     }),
     ...(tab === "agentbus" &&
@@ -57,6 +59,7 @@ export function projectsRoutePath(route) {
   if (route.projectTab === "knowledge") {
     if (route.query) query.set("q", route.query);
     if (route.archived) query.set("archived", "1");
+    if (route.memorySort === "newest") query.set("sort", "newest");
     if (route.memoryPage > 1) query.set("page", String(route.memoryPage));
   }
   if (route.projectTab === "agentbus" && route.busTab === "messages") {

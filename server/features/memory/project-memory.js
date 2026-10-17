@@ -17,22 +17,15 @@ import {
   purgeForgotten,
   refuseForgotten,
 } from "./memory-forget.js";
+import { entry, entryColumns, pageSize } from "./memory-rows.js";
+import {
+  fullTextAvailable,
+  indexEntry,
+  prepareSearchIndex,
+  searchEntries,
+} from "./memory-search.js";
 import os from "node:os";
-const pageSize = 20;
-const selection = `SELECT e.id,e.project_id,r.*, (SELECT created_at FROM revisions WHERE entry_id=e.id AND revision=1) AS original_created FROM entries e JOIN revisions r ON r.entry_id=e.id`;
-function entry(row) {
-  return {
-    id: row.id,
-    projectId: row.project_id,
-    title: row.title,
-    content: row.content,
-    revision: row.revision,
-    archived: Boolean(row.archived),
-    createdAt: row.original_created,
-    updatedAt: row.created_at,
-    provenance: JSON.parse(row.provenance),
-  };
-}
+const selection = `SELECT ${entryColumns} FROM entries e JOIN revisions r ON r.entry_id=e.id`;
 function source(value) {
   if (value?.kind === "assistant")
     return {
@@ -58,10 +51,15 @@ function actorOf(author) {
   );
 }
 export class ProjectMemory {
-  constructor({ dataDir, home = os.homedir() }) {
+  /** `fullTextSearch: false` forces the LIKE search used without FTS5 (tests). */
+  constructor({ dataDir, home = os.homedir(), fullTextSearch = true }) {
     Object.assign(this, openDatabase(dataDir));
     this.home = home;
     this.closed = false;
+    this.fullText = prepareSearchIndex(
+      this.db,
+      fullTextSearch && fullTextAvailable(this.db),
+    );
     // Set by the assistant services: redacts approved writes of forgotten entries.
     this.onForget = null;
     // An interrupted or incomplete purge of forgotten entries is retried at start.
@@ -190,30 +188,10 @@ export class ProjectMemory {
         .map((row) => ({ ...row })),
     };
   }
-  list(projectId, { query = "", page = 1, archived = false } = {}) {
+  /** One page of entries, ranked when searching; see searchEntries. */
+  list(projectId, options = {}) {
     this.project(projectId);
-    pageValue(page);
-    textValue(query, serverMessages.memory.invalidQuery, 300, { empty: true });
-    if (typeof archived !== "boolean")
-      throw failure(serverMessages.memory.invalidArchiveFilter);
-    const pattern = query
-      .replaceAll("\\", "\\\\")
-      .replaceAll("%", "\\%")
-      .replaceAll("_", "\\_");
-    const where = `e.project_id=? AND r.revision=e.revision AND r.archived=? AND (r.title LIKE ? ESCAPE '\\' OR r.content LIKE ? ESCAPE '\\')`;
-    const args = [projectId, Number(archived), `%${pattern}%`, `%${pattern}%`];
-    const total = this.db
-      .prepare(
-        `SELECT COUNT(*) AS total FROM entries e JOIN revisions r ON r.entry_id=e.id WHERE ${where}`,
-      )
-      .get(...args).total;
-    const items = this.db
-      .prepare(
-        `${selection} WHERE ${where} ORDER BY r.created_at DESC,e.id LIMIT ? OFFSET ?`,
-      )
-      .all(...args, pageSize, (page - 1) * pageSize)
-      .map(entry);
-    return { projectId, items, page, pageSize, total };
+    return searchEntries(this, projectId, options);
   }
   read(projectId, id, { revision } = {}) {
     this.project(projectId);
@@ -303,6 +281,7 @@ export class ProjectMemory {
         this.db
           .prepare("INSERT INTO requests VALUES (?,?,?,?,?,?)")
           .run(projectId, actor, requestId, hash, entryId, revision);
+      indexEntry(this, entryId);
       return this.read(projectId, entryId);
     });
   }
@@ -344,6 +323,7 @@ export class ProjectMemory {
           JSON.stringify(author),
         );
       this.db.prepare("UPDATE entries SET revision=? WHERE id=?").run(revision, id);
+      indexEntry(this, id);
       return this.read(projectId, id);
     });
   }

@@ -43,6 +43,7 @@ test("projects routes carry tab state and old links map onto them", () => {
     projectTab: "overview",
     query: "",
     archived: false,
+    memorySort: "relevance",
     memoryPage: 1,
     busTab: "status",
     messagePage: 1,
@@ -58,6 +59,15 @@ test("projects routes carry tab state and old links map onto them", () => {
     "/projects/p1?tab=knowledge&q=Build&archived=1&page=2",
   );
   assert.equal(path(read("/memory")), "/projects?tab=knowledge");
+  assert.equal(
+    read("/projects/p1?tab=knowledge&q=Build&sort=newest").memorySort,
+    "newest",
+  );
+  assert.equal(read("/projects/p1?tab=knowledge&sort=oldest").memorySort, "relevance");
+  assert.equal(
+    path(read("/projects/p1?tab=knowledge&q=Build&sort=newest")),
+    "/projects/p1?tab=knowledge&q=Build&sort=newest",
+  );
   assert.equal(path(read("/agentbus")), "/projects?tab=agentbus");
   assert.equal(
     path(read("/agentbus/messages/b1?page=3")),

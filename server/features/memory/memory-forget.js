@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { transaction } from "./memory-database.js";
+import { forgetIndexed } from "./memory-search.js";
 import { failure, identifier, textValue } from "./memory-validation.js";
 
 /**
@@ -36,10 +37,10 @@ export function migrationBackups(root) {
 
 /**
  * Finishes pending forgets. `files`: VACUUM overwrites freed pages and a TRUNCATE
- * checkpoint empties the write-ahead log, so the text leaves the database files (a
- * later full-text index purges its rows here too). `records`: `onForget`, set by the
- * agent services, redacts their copies of forgotten text; without it the marker waits
- * for them to start. Every step runs even when another failed, and each marker flag is
+ * checkpoint empties the write-ahead log, so the text leaves the database files, also
+ * the pages of the search index rows forgetEntry removed. `records`: `onForget`, set
+ * by the agent services, redacts their copies of forgotten text; without it the marker
+ * waits for them to start. Every step runs even when another failed, and each marker flag is
  * cleared only after its step succeeded, so the next start or forget retries.
  * VACUUM runs synchronously on the main thread and rewrites the whole database,
  * which is small; requests wait for it.
@@ -103,12 +104,12 @@ function removeMigrationBackups(root) {
 }
 
 /**
- * Permanently forgets one entry on the owner's request: every revision, the entry row
- * and the write receipts that point at it go in one transaction, which records a
- * content-free tombstone per distinct revision text and a purge marker. The purge
- * itself (purgeForgotten) never fails the request; it reports `purged: false` and is
- * retried. Migration backups are removed only with `removeBackups: true`; operations
- * backup archives are never touched.
+ * Permanently forgets one entry on the owner's request: every revision, the entry row,
+ * its search index row and the write receipts that point at it go in one transaction,
+ * which records a content-free tombstone per distinct revision text and a purge
+ * marker. The purge itself (purgeForgotten) never fails the request; it reports
+ * `purged: false` and is retried. Migration backups are removed only with
+ * `removeBackups: true`; operations backup archives are never touched.
  */
 export function forgetEntry(
   memory,
@@ -145,6 +146,7 @@ export function forgetEntry(
         now,
       );
     db.prepare("DELETE FROM requests WHERE entry_id=?").run(id);
+    forgetIndexed(memory, id);
     db.prepare("DELETE FROM revisions WHERE entry_id=?").run(id);
     db.prepare("DELETE FROM entries WHERE id=?").run(id);
     db.prepare("INSERT OR REPLACE INTO purges VALUES (?,1,1,?)").run(id, now);

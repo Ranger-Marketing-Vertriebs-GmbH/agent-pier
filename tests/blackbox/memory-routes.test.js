@@ -164,6 +164,11 @@ test("memory routes enforce scope, pagination and origins without trusting suppl
   );
   assert.equal((await app.request(base + "?page=-1")).status, 400);
   assert.equal((await app.request(base + "?archived=maybe")).status, 400);
+  assert.equal((await app.request(base + "?q=x&sort=oldest")).status, 400);
+  for (const sort of ["relevance", "newest"]) {
+    const found = await app.request(`${base}?q=project&sort=${sort}`);
+    assert.equal((await found.json()).items[0].id, entry.id);
+  }
   assert.equal(
     (
       await app.request(base, {
