@@ -25,10 +25,11 @@ const headerless = ({ ok, definition, secrets }) =>
  * What two finds must share to be one server. The URL is compared normalised (a
  * trailing slash or letter case of the host does not matter). Claude Code and Codex
  * write an OAuth server without a scope like a remote server without headers, so the
- * two compare equal; a scope or a header keeps them apart.
+ * two compare equal; a scope or a header keeps them apart. Only Codex has a startup
+ * timeout, so it is left out; the tool timeout must match.
  */
 function groupKey(parsed) {
-  const definition = { ...parsed.definition };
+  const { startupTimeoutSec: _startup, ...definition } = parsed.definition;
   if (definition.url) definition.url = mcpUrl(definition.url);
   if (headerless(parsed)) definition.auth = "oauth";
   return contentKey({ definition, secrets: parsed.secrets });
@@ -38,7 +39,8 @@ function groupKey(parsed) {
  * The owner's own entries in all CLIs (`results`: cli → reconciler result) as groups
  * to adopt. The same name with the same content in several CLIs is one group, which
  * becomes one server bound to each of them; anything else stays separate. A merged
- * group adopts as OAuth when any of its entries says so. A name that is invalid or
+ * group adopts as OAuth when any of its entries says so, and with the startup timeout
+ * of its Codex entry. A name that is invalid or
  * already used centrally gets a proposal, assigned in CLI order and clear of the
  * other finds' names. Groups hold values and never leave the server; `publicFind` is
  * what responses show.
@@ -55,8 +57,16 @@ export function groupFinds(results, centralNames) {
       const id = parsed.ok ? `${find.name}\0${groupKey(parsed)}` : `${cli}\0${find.name}`;
       if (!groups.has(id)) groups.set(id, { name: find.name, parsed, members: [] });
       const group = groups.get(id);
+      const startup =
+        group.parsed.definition?.startupTimeoutSec ??
+        parsed.definition?.startupTimeoutSec;
       if (headerless(group.parsed) && parsed.definition?.auth === "oauth")
         group.parsed = parsed;
+      if (group.parsed.ok && startup != null)
+        group.parsed = {
+          ...group.parsed,
+          definition: { ...group.parsed.definition, startupTimeoutSec: startup },
+        };
       group.members.push({ cli, name: find.name, hash: find.hash });
     }
   const taken = new Set(centralNames.map((name) => name.toLowerCase()));

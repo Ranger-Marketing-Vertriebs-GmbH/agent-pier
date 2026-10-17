@@ -128,3 +128,31 @@ test("adopting a hand edit takes the timeouts that CLI can express", (t) => {
   const updated = f.servers.update(server.id, patch);
   assert.deepEqual([updated.startupTimeoutSec, updated.toolTimeoutSec], [30, undefined]);
 });
+
+test("the same server in Codex and the other CLIs is one find with Codex's startup timeout", (t) => {
+  const f = cliMcpFixture(t);
+  const { startup_timeout_sec: _startup, tool_timeout_sec: _tool, ...plain } = reaEntry;
+  f.write("claude", { rea: { type: "stdio", ...plain, timeout: 450000 } });
+  f.write("codex", { rea: reaEntry });
+  f.write("opencode", {
+    rea: {
+      type: "local",
+      command: [plain.command, ...plain.args],
+      environment: {},
+      enabled: true,
+      timeout: 450000,
+    },
+  });
+  const found = groups(f).map(publicFind);
+  assert.equal(found.length, 1);
+  assert.deepEqual(found[0].clis, ["claude", "codex", "opencode"]);
+  assert.deepEqual([found[0].startupTimeoutSec, found[0].toolTimeoutSec], [30, 450]);
+  const { adopted } = adopt(f, { keys: [found[0].key] });
+  const server = f.servers.get(adopted[0].id);
+  assert.deepEqual([server.startupTimeoutSec, server.toolTimeoutSec], [30, 450]);
+  assert.deepEqual(f.entries("codex").rea, reaEntry);
+  // A different tool timeout is another server.
+  f.write("claude", { other: { type: "stdio", ...plain, timeout: 60000 } });
+  f.write("codex", { rea: reaEntry, other: reaEntry });
+  assert.equal(groups(f).filter((group) => group.name === "other").length, 2);
+});

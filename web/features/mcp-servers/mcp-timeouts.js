@@ -1,15 +1,11 @@
 // Optional per-server timeouts in whole seconds; the server checks the bounds
 // (server/features/mcp-servers/mcp-timeouts.js) and names a refused field.
-export const timeoutBounds = {
-  startupTimeout: { min: 1, max: 600 },
-  toolTimeout: { min: 1, max: 3600 },
-};
-export const timeoutFields = Object.keys(timeoutBounds);
 // The request field of each draft field.
 export const timeoutKeys = {
   startupTimeout: "startupTimeoutSec",
   toolTimeout: "toolTimeoutSec",
 };
+export const timeoutFields = Object.keys(timeoutKeys);
 const refusals = {
   "mcpServers.invalidStartupTimeout": "startupTimeout",
   "mcpServers.invalidToolTimeout": "toolTimeout",

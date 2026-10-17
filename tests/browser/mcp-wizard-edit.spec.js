@@ -84,6 +84,34 @@ for (const [label, use] of [
       });
     });
 
+    test("a timeout that is no number is refused at its field and never clears", async ({
+      page,
+    }) => {
+      const state = await wizardSetup(page, { servers: [bound()] });
+      state.refusePut = {
+        status: 400,
+        json: {
+          error:
+            "Bitte als Tool-Timeout ganze Sekunden von 1 bis 3600 angeben oder das Feld leer lassen.",
+          messageKey: "mcpServers.invalidToolTimeout",
+        },
+      };
+      await open(page, "s1", "setup");
+      const view = detail(page);
+      await view.getByText("Advanced: timeouts").click();
+      const tool = view.getByLabel("Tool timeout in seconds (1 to 3600)");
+      await tool.fill("4s");
+      await saveBar(page).getByRole("button", { name: "Save changes" }).click();
+      await expect(view.getByRole("alert")).toHaveText(
+        "Enter a tool timeout of 1 to 3600 whole seconds, or leave the field empty.",
+      );
+      expect(writes(state)[0].body).toEqual({ revision: 1, toolTimeoutSec: "4s" });
+      // Correcting the value keeps the section open.
+      await tool.fill("45");
+      await expect(tool).toBeVisible();
+      await expect(tool).toHaveValue("45");
+    });
+
     test("leaving an edit step with changes asks first", async ({ page }) => {
       await wizardSetup(page, { servers: [bound()] });
       await open(page, "s1");
