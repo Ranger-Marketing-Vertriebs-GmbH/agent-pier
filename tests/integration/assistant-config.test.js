@@ -291,6 +291,7 @@ test("managed profiles apply exact parent/member tools without copying native cr
     "agentpier_team_delegate",
     "agentpier_team_cancel",
     "agentpier_team_archive",
+    "agentpier_team_grant",
   ]);
   assert.deepEqual(effective.agents.entries[member.runtimeAgentId].tools.allow, [
     "session_status",

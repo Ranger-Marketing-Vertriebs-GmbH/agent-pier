@@ -5,9 +5,11 @@ import { mcpServerCopy as mcpCopy } from "../../lib/i18n/messages/mcp-servers.js
 import "../mcp-servers/mcp-servers.css";
 import { assistantApi } from "./assistant-api.js";
 import { avatarGlyph } from "./avatar-glyph.js";
+import { grantsLine, holdsShellSsh } from "./member-grants.js";
+import { memberGrantCopy as grantCopy } from "../../lib/i18n/messages/assistant-member-grants.js";
 
-// A team proposal waiting for the owner: its members, their MCP servers and the
-// decision. Shown in the lead's chat until decided, and in the Work tab's team list.
+// A team proposal waiting for the owner: its members, what the lead grants each
+// (shell and SSH highlighted), their MCP servers and the decision. Shown in the lead's chat until decided, and in the Work tab's team list.
 export default function TeamProposalCard({ team, busy, act }) {
   // An unreadable MCP server list blocks the approval until it can be read.
   const unavailable = team.members.some((m) => m.mcpServersUnavailable);
@@ -42,12 +44,10 @@ export default function TeamProposalCard({ team, busy, act }) {
         </p>
       )}
       <p className="assistant-team-hint">{copy.team.approvalHint}</p>
-      {team.memberShellSsh ? (
+      {team.members.some((m) => holdsShellSsh(m.grants)) && (
         <p className="mcp-team-warning notice" data-member-shell-ssh="">
-          {copy.team.proposalShellSsh}
+          {grantCopy.proposalWarning}
         </p>
-      ) : (
-        <p className="assistant-team-hint">{copy.team.proposalInherits}</p>
       )}
       <ul className="assistant-team-proposal">
         {team.members.map((m, n) => (
@@ -60,6 +60,14 @@ export default function TeamProposalCard({ team, busy, act }) {
                 {m.name} · {m.role}
               </strong>
               <small>{m.assignment}</small>
+              <small
+                className="assistant-team-grants"
+                data-grants=""
+                {...(holdsShellSsh(m.grants) ? { "data-shell-ssh": "" } : {})}
+              >
+                {holdsShellSsh(m.grants) && "⚠ "}
+                {grantsLine(m.grants)}
+              </small>
               {m.mcpServers?.length > 0 && (
                 <small className="mcp-team-servers">
                   {mcpCopy.teamServers}:{" "}

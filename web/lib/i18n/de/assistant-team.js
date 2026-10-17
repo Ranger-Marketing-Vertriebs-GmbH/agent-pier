@@ -22,18 +22,8 @@ export const assistantTeamCopy = {
   restore: "Wiederherstellen",
   autonomous: "Teams ohne erneute Rückfrage erlauben",
   memberShellSsh: "Team-Mitglieder dürfen Shell und SSH nutzen",
-  inheritedTitle: "Vom leitenden Agenten",
-  inheritedHint:
-    "Dieses auftragsgebundene Mitglied nutzt, was sein leitender Agent gerade hat, und folgt jeder Änderung daran. Ändere es beim leitenden Agenten.",
-  inheritedMemory: "Gedächtnis (schreibgeschützte Kopie)",
-  inheritedOn: "An",
-  inheritedOff: "Aus",
   memberShellSshHint:
-    "Auftragsgebundene Mitglieder nutzen immer Webzugriff, Skills, MCP-Server, eine schreibgeschützte Kopie des Gedächtnisses und die Erinnerungen dieses Agenten. Mit dieser Option erhalten sie zusätzlich höchstens seine Shell-Stufe und seine SSH-Freigaben. Sie gilt für Teams, die vorgeschlagen werden, während sie an ist. Mitglieder arbeiten unbeaufsichtigt, und Webinhalte, die sie lesen, können sie lenken.",
-  proposalInherits:
-    "Die Mitglieder nutzen Webzugriff, Skills, MCP-Server, Gedächtnis (nur lesend) und Erinnerungen dieses Agenten, aber keine Shell und kein SSH.",
-  proposalShellSsh:
-    "Die Mitglieder dürfen Shell und SSH nutzen, höchstens mit der Shell-Stufe und den SSH-Freigaben dieses Agenten. Außerdem nutzen sie seinen Webzugriff, seine Skills, MCP-Server, sein Gedächtnis (nur lesend) und seine Erinnerungen.",
+    "Leitende Agenten geben ihren auftragsgebundenen Mitgliedern nur, was sie selbst haben. Mit dieser Option dürfen sie zusätzlich Shell geben, höchstens mit ihrer eigenen Stufe, und SSH auf ihren eigenen Hosts; jede spätere Freigabe bestätigst du. Sie gilt für Teams, die vorgeschlagen werden, während sie an ist. Mitglieder arbeiten unbeaufsichtigt, und Inhalte, die sie lesen, können sie lenken.",
   permissionHint:
     "Standardmäßig fragt der Agent nach. /team oder die Nachrichtenoption erlaubt ein Team für einen Auftrag.",
   maxMembers: "Maximale Teamgröße",

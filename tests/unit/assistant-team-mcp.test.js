@@ -101,9 +101,10 @@ test("the server list is part of the proposal and its fingerprint", (t) => {
   const p = f.teams.propose(
     f.input([f.member("A", ["files", "github", "files"]), f.member("B")]),
   );
+  // Members get the default grants within the lead's (here: none).
   assert.deepEqual(p.members, [
-    { ...f.member("A"), mcpServerIds: [f.files.id, f.github.id] },
-    f.member("B"),
+    { ...f.member("A"), grants: {}, mcpServerIds: [f.files.id, f.github.id] },
+    { ...f.member("B"), grants: {} },
   ]);
   // Replaying the same call returns the proposal; another list is another proposal.
   assert.equal(
@@ -126,7 +127,10 @@ test("a proposal without servers keeps its earlier fingerprint and records", (t)
     .update(JSON.stringify({ objective: "Plan", members }))
     .digest("hex");
   assert.equal(p.fingerprint, legacy);
-  assert.deepEqual(p.members, members);
+  assert.deepEqual(
+    p.members,
+    members.map((m) => ({ ...m, grants: {} })),
+  );
   assert.equal(
     f.teams.propose(f.input(members.map((m) => ({ ...m, mcpServers: [] })))).id,
     p.id,
@@ -151,12 +155,13 @@ test("approval payloads show server names and the stdio marker only", (t) => {
   assert.deepEqual(shown.members, [
     {
       ...f.member("A"),
+      grants: {},
       mcpServers: [
         { name: "github", stdio: false },
         { name: "files", stdio: true },
       ],
     },
-    f.member("B"),
+    { ...f.member("B"), grants: {} },
   ]);
   const text = JSON.stringify(shown);
   for (const hidden of [f.github.id, f.files.id, "example.test", "/abs/files", "secret"])
@@ -167,5 +172,5 @@ test("approval payloads show server names and the stdio marker only", (t) => {
     { name: "github", stdio: false },
   ]);
   // Without a server store the payload shape is unchanged for plain members.
-  assert.deepEqual(publicTeam(p).members[1], f.member("B"));
+  assert.deepEqual(publicTeam(p).members[1], { ...f.member("B"), grants: {} });
 });

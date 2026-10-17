@@ -3,6 +3,7 @@ import { allowAlwaysByAgentPier, execPlan } from "./exec-decisions.js";
 import { actionPath, fenced } from "./action-text.js";
 import { notifySsh } from "./agent-ssh-notifications.js";
 import { commandPreview } from "./agent-ssh-text.js";
+import { grantNotes, notifyMemberGrant } from "./member-grant-notes.js";
 // The Telegram chat bound to an action: its own Telegram origin, or for a team
 // member's request the owner chat recorded when the request was made.
 export function telegramTarget(action) {
@@ -17,6 +18,8 @@ export function notifyAction(w, action, phase) {
   const m = telegramMessages(store.get(target.channelId));
   if (action.payload.action === "exec") return notifyExec(w, action, phase, key, m);
   if (action.payload.action === "ssh") return notifySsh(w, action, phase, key, m, target);
+  if (action.payload.action === "member_grant")
+    return notifyMemberGrant(w, action, phase, key, m, target);
   const detail =
     (action.requestedBy ? `${m.actionRequestedByMember(action.memberName)}\n` : "") +
     (action.payload.action === "coding_start"
@@ -241,6 +244,12 @@ const codingNotes = (a) =>
 export function actionNotes(actions, conversationId) {
   return actions
     .filter((a) => a.conversationId === conversationId && a.chatNotes)
-    .flatMap((a) => (a.payload.action === "ssh" ? sshNotes(a) : codingNotes(a)))
+    .flatMap((a) =>
+      a.payload.action === "ssh"
+        ? sshNotes(a)
+        : a.payload.action === "member_grant"
+          ? grantNotes(a)
+          : codingNotes(a),
+    )
     .sort((x, y) => x.timestamp - y.timestamp);
 }

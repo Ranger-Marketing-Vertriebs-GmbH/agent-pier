@@ -90,9 +90,9 @@ hosts per agent under **Agents → Settings → Work → SSH accesses** and choo
 **With approval**, **Trusted** or **Trusted incl. routines** (see
 [agents](agents.md#work)). Any host can be granted, global or project-owned; the
 project badge only says where the key lives. Temporary team members never hold SSH
-accesses of their own. They use their lead's only while the lead's **Work → Team
-members may use shell and SSH** is on, for teams proposed while it is on (see
-[agents](agents.md)).
+accesses of their own. A lead can grant them SSH on its own accesses only while
+its **Work → Team members may use shell and SSH** is on, for teams proposed while it
+is on; a later SSH grant waits for the owner's approval (see [agents](agents.md)).
 
 The agent's `agentpier_ssh` tool can list its granted hosts and run one command at a
 time; it cannot create, import, scan, test or download keys or hosts. AgentPier runs

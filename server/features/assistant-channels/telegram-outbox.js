@@ -1,4 +1,5 @@
 import { telegramMessages } from "./telegram-messages.js";
+import { grantLabels, holdsShellSsh } from "../assistants/member-grant-notes.js";
 import { sendTelegramParts } from "./telegram-send-parts.js";
 import { transferLeadRequests } from "./telegram-lead-requests.js";
 import { historyTextLimit, runReply, withNote } from "../assistants/history-text.js";
@@ -76,11 +77,16 @@ export class TelegramOutbox {
         localized: true,
         text: [
           msg.teamApproval(t.objective, t.members.length),
-          t.policy?.memberShellSsh ? msg.teamMemberShellSsh : msg.teamMemberNoShellSsh,
+          ...(t.members.some((m) => holdsShellSsh(m.grants))
+            ? [msg.memberGrants.proposalWarning]
+            : []),
           ...t.members.map((m, n) =>
             [
               `${n + 1}. ${m.name} · ${m.role}`,
               m.assignment,
+              grantLabels(m.grants, msg).length
+                ? msg.memberGrants.gets(grantLabels(m.grants, msg).join(", "))
+                : msg.memberGrants.getsNothing,
               ...(this.servers(msg, m.mcpServerIds) || [msg.teamMcpUnavailable]),
             ].join("\n"),
           ),

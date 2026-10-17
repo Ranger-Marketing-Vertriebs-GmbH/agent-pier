@@ -99,10 +99,38 @@ export const assistants = {
   teamResultStates: { completed: "Completed", failed: "Failed", cancelled: "Cancelled" },
   teamApproval: (objective, count) =>
     `Team approval: ${objective}\n${count} members. Approve or decline?`,
-  teamMemberShellSsh:
-    "⚠ Members may use shell and SSH, at most with the lead's shell level and SSH grants. They also use the lead's web access, skills, MCP servers, memory (read-only) and reminders.",
-  teamMemberNoShellSsh:
-    "Members use the lead's web access, skills, MCP servers, memory (read-only) and reminders, but no shell and no SSH.",
+  memberGrants: {
+    labels: {
+      memory: "memory (read-only)",
+      reminders: "reminders",
+      webSearch: "web search",
+      webFetch: "web pages",
+      browser: "browser",
+      documents: "images",
+      allSkills: "all of the lead's skills",
+      skills: (count) => `skills: ${count}`,
+      shell: (level) => `⚠ shell (${level})`,
+      ssh: "⚠ SSH on the lead's hosts",
+      mcpServers: (count) => `MCP servers: ${count}`,
+    },
+    levels: { approval: "with approval", full: "full access" },
+    gets: (labels) => `Gets: ${labels}`,
+    getsNothing: "Gets: no tools",
+    proposalWarning:
+      "⚠ Members marked ⚠ get shell or SSH, at most at the lead's level and on its hosts. They work unattended; content they read can steer them.",
+    approval: (lead, member) =>
+      `Team grant awaiting approval: ${lead} wants to give its member ${member} more access.`,
+    warning:
+      "The member works unattended, and content it reads can steer it into using this access.",
+    approve: "Approve grant",
+    states: {
+      completed: "Grant approved and applied",
+      declined: "Grant declined",
+      expired: "The grant approval expired",
+      failed: "Grant no longer possible; nothing changed",
+      cancelled: "Grant withdrawn",
+    },
+  },
   teamMcpServers: (names) => `MCP servers: ${names}`,
   teamMcpStdio: (name) => `${name} (stdio, local command)`,
   teamMcpUnavailable:
@@ -176,6 +204,10 @@ export const assistants = {
 
   teamMcpServersUnavailable:
     "The MCP server list of this team cannot be read right now. Try again later.",
+  teamGrantNotHeld:
+    "A lead agent can only give a team member what it holds itself; shell and SSH only with the setting “Team members may use shell and SSH”.",
+  teamGrantMemberEnded:
+    "Tools and access can only be granted to a running task-bound member of the agent's own team.",
   teamMcpServerNotBound:
     "A proposed team member names an MCP server that is not bound to the lead agent.",
   attachmentTooLarge: "This file is larger than 10 MB.",

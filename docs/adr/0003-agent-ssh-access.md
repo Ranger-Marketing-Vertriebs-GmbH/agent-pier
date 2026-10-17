@@ -45,22 +45,26 @@ how much supervision applies.
 - Removing a host revokes agent grants first; a crash between the two steps leaves an
   inert grant that every read filters out.
 
-## Amendment 2026-10-17: members may use the lead's grants by an explicit setting
+## Amendment 2026-10-17: a lead may grant its members SSH by an explicit setting
 
-The owner decided that temporary team members inherit their lead's capabilities
-(AGENTPIER-112). SSH stays excluded by default and is the one exception that needs
-an explicit choice:
+The owner decided that lead agents grant their temporary team members tools and
+access within their own capabilities (AGENTPIER-112). SSH stays excluded by default
+and needs an explicit choice:
 
-- A lead's **Work → Team members may use shell and SSH** (off by default) lets its
-  temporary members run `agentpier_ssh` on the lead's grants. A member still holds
-  no grant of its own; every check (`AssistantAccess.sshHolder`) reads the lead's
-  current grants, and the member is a delegated caller, so `approval` hosts ask the
-  owner (also in the lead's chat) and `trusted` hosts run without a card.
+- Only while the lead's **Work → Team members may use shell and SSH** (off by
+  default) is on may the lead grant a temporary member `ssh`, in the team proposal
+  or later. A later SSH grant always waits for the owner's approval (web and
+  Telegram card) and applies only once approved.
+- A member still holds no grant of its own: it runs `agentpier_ssh` on the lead's
+  grants, every check (`AssistantAccess.sshHolder`) reads the lead's current grants,
+  and the member is a delegated caller, so `approval` hosts ask the owner (also in
+  the lead's chat) and `trusted` hosts run without a card.
 - The setting is recorded with each team at its proposal and read live: only teams
-  proposed while it is on can use it, and switching it off, or the lead losing a
-  grant, revokes it for running members. The team approval (web and Telegram) says
-  when members may use shell and SSH; automatically approved teams follow the same
-  setting.
-- Consequence: an unattended member that read untrusted content can run commands
-  on the lead's `trusted` hosts. The setting's hint says so; the residual risk above
-  applies to members as well.
+  proposed while it is on can use it, and switching it off, the lead revoking the
+  grant, or the lead losing its own SSH grants revokes it for running members. The
+  proposal (web and Telegram) marks members granted SSH with a warning;
+  automatically approved teams follow the same grants and setting.
+- Consequence: an unattended lead or member that read untrusted content could be
+  steered into granting or using SSH on the lead's `trusted` hosts. The ceiling, the
+  owner's approval for later grants and the visible grant notes limit this; the
+  residual risk above applies to members as well.

@@ -312,8 +312,11 @@ export class AssistantWorkflows {
         (input.decision !== "review" && action.expiresAt < Date.now())
       )
         throw assistantProblem("conflict", 409);
-      // SSH approvals re-check grant, host and pin themselves (agent-ssh-approvals.js).
+      // SSH approvals re-check grant, host and pin themselves (agent-ssh-approvals.js),
+      // a member's shell or SSH grant its lead's ceiling (member-grant-requests.js).
       if (ssh) return this.project(this.ssh.approvals.decide(action, input.decision));
+      if (action.payload.action === "member_grant")
+        return this.project(this.a.teams.grants.decide(action, input.decision));
       // Project grants do not apply to exec; the Gateway decides the request.
       if (exec) return this.project(await decideExec(this, action, input.decision));
       if (input.decision === "approve")
@@ -434,6 +437,7 @@ export class AssistantWorkflows {
   }
   async advanceAction(a) {
     if (a.payload.action === "ssh") return this.ssh.approvals.advance(a);
+    if (a.payload.action === "member_grant") return this.a.teams?.grants?.advance(a);
     // An exec decision being sent finishes the action itself.
     if (a.payload.action === "exec" && this.exec.deciding.has(a.payload.approvalId))
       return;

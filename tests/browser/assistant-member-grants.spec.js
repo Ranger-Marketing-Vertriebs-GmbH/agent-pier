@@ -48,14 +48,49 @@ async function setup(page, { memberShellSsh = false } = {}) {
     conversationId: "chat-0",
     revision: 1,
     lifetime: "task",
+    grants: { webSearch: true, memory: true },
+    grantLog: [{ at: "2026-10-17T10:00:00.000Z", by: "lead", granted: ["browser"] }],
   };
+  // The lead's later shell grant for the member, waiting for the owner.
+  const grantAction = {
+    id: "grant-1",
+    assistantId: "home",
+    revision: 1,
+    state: "awaiting_approval",
+    createdAt: "2026-10-17T10:00:00.000Z",
+    expiresAt: Date.now() + 3600000,
+    payload: {
+      action: "member_grant",
+      approval: true,
+      memberId: "member-0",
+      memberName: "Scout",
+      teamId: "team",
+      grants: { shell: "approval" },
+    },
+  };
+  const decisions = [];
   const proposal = {
     id: "proposal",
     kind: "team",
     parentAssistantId: "home",
     objective: "Plan a second assignment",
     phase: "awaiting_approval",
-    members: [{ name: "Planner", role: "Plan", assignment: "Plan next step" }],
+    members: [
+      {
+        name: "Planner",
+        role: "Plan",
+        assignment: "Plan next step",
+        grants: { memory: true, webSearch: true, webFetch: true },
+      },
+      {
+        name: "Runner",
+        role: "Run",
+        assignment: "Run the checks",
+        grants: memberShellSsh
+          ? { webSearch: true, shell: "approval" }
+          : { browser: true },
+      },
+    ],
     memberShellSsh,
     revision: 1,
   };
@@ -100,8 +135,35 @@ async function setup(page, { memberShellSsh = false } = {}) {
       };
     else if (p === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
-    else if (p.endsWith("/messages")) body = { messages: [], requests: [], stale: false };
-    else if (p.endsWith("/work") && method === "PUT") {
+    else if (p.endsWith("/messages"))
+      body = {
+        messages:
+          p.includes("member-0") || p.includes("chat-0")
+            ? [
+                {
+                  id: "member-grant:note",
+                  role: "event",
+                  event: "member-grant",
+                  memberName: "Scout",
+                  by: "lead",
+                  granted: ["browser"],
+                  mcpServers: 0,
+                  state: "completed",
+                  timestamp: Date.now() - 1000,
+                  runId: null,
+                },
+              ]
+            : [],
+        requests: [],
+        stale: false,
+      };
+    else if (p === "/api/assistants/home/actions")
+      body = { actions: grantAction.state === "awaiting_approval" ? [grantAction] : [] };
+    else if (p === "/api/assistant-actions/grant-1/decision") {
+      decisions.push(route.request().postDataJSON());
+      grantAction.state = "completed";
+      body = grantAction;
+    } else if (p.endsWith("/work") && method === "PUT") {
       const input = route.request().postDataJSON();
       if (input.team) {
         posted.push(input.team);
@@ -113,7 +175,7 @@ async function setup(page, { memberShellSsh = false } = {}) {
       body = { projects: [], pipelines: [] };
     await route.fulfill({ json: body });
   });
-  return { posted, policy };
+  return { posted, policy, decisions };
 }
 
 test("the Work tab saves whether team members may use shell and SSH", async ({
@@ -129,32 +191,49 @@ test("the Work tab saves whether team members may use shell and SSH", async ({
   await expect(toggle).toBeChecked();
 });
 
-test("the proposal card says what members inherit and warns about shell and SSH", async ({
-  page,
-}) => {
+test("the proposal card lists each member's grants", async ({ page }) => {
   await setup(page);
   await page.goto(baseURL + "/agents/home/chats/parent-chat");
   const card = page.locator("#assistant-team-proposal");
-  await expect(card).toContainText("but no shell and no SSH");
+  const grants = card.locator("[data-grants]");
+  await expect(grants.nth(0)).toHaveText(
+    "Gets: Memory (read only), Web search, Web pages",
+  );
+  await expect(grants.nth(1)).toHaveText("Gets: Browser");
   await expect(card.locator("[data-member-shell-ssh]")).toHaveCount(0);
 });
 
-test("a proposal approved with the setting shows the shell and SSH warning", async ({
-  page,
-}) => {
+test("a member granted shell is highlighted with the warning", async ({ page }) => {
   await setup(page, { memberShellSsh: true });
   await page.goto(baseURL + "/agents/home/chats/parent-chat");
   const card = page.locator("#assistant-team-proposal");
+  await expect(card.locator("[data-shell-ssh]")).toHaveText(
+    "⚠ Gets: Web search, Shell (With approval)",
+  );
   await expect(card.locator("[data-member-shell-ssh]")).toHaveText(
-    "Members may use shell and SSH, at most with this agent's shell level and SSH grants. They also use its web access, skills, MCP servers, memory (read-only) and reminders.",
+    "Members marked with a warning get shell or SSH, at most at this agent's level and on its hosts. They work unattended, and content they read can steer them.",
   );
 });
 
-test("a task member's capabilities show what it uses from its lead", async ({ page }) => {
+test("a later shell grant waits for the owner's approval in the lead's chat", async ({
+  page,
+}) => {
+  const { decisions } = await setup(page, { memberShellSsh: true });
+  await page.goto(baseURL + "/agents/home/chats/parent-chat");
+  const card = page.locator("[data-member-grant-approval]");
+  await expect(card).toContainText("The lead agent wants to give Scout:");
+  await expect(card).toContainText("⚠ Shell (With approval)");
+  await card.getByRole("button", { name: "Approve grant", exact: true }).click();
+  await expect.poll(() => decisions.at(-1)?.decision).toBe("approve");
+});
+
+test("a task member's capabilities show what its lead granted and when", async ({
+  page,
+}) => {
   await setup(page, { memberShellSsh: true });
   await page.goto(baseURL + settingsPath("capabilities", undefined, "member-0"));
-  const group = page.locator("#agent-inherited");
-  await expect(group).toContainText("From the lead agent");
+  const group = page.locator("#agent-granted");
+  await expect(group).toContainText("Granted by the lead agent");
   await expect(
     group.locator(".list-row").filter({ hasText: "Search the web" }),
   ).toContainText("On");
@@ -164,4 +243,15 @@ test("a task member's capabilities show what it uses from its lead", async ({ pa
   await expect(
     group.locator(".list-row").filter({ hasText: "Shell access" }),
   ).toContainText("With approval");
+  await expect(group.locator("[data-grant-log] li")).toContainText(
+    "the lead agent granted Browser",
+  );
+});
+
+test("the member's chat notes a grant from its lead", async ({ page }) => {
+  await setup(page);
+  await page.goto(baseURL + "/agents/member-0/chats/chat-0");
+  await expect(page.locator("[data-member-grant]")).toHaveText(
+    "Scout was granted Browser by its lead agent",
+  );
 });

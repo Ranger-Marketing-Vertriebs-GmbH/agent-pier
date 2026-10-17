@@ -93,11 +93,12 @@ address`; the page receives no request.
   compiles neither, and a per-agent `pdfModel` in `agents.entries.<id>` is rejected
   with `INVALID_REQUEST`; a probe with `agents.defaults.pdfModel` made `pdf`
   appear. The contract asserts that `pdf` stays not offered; a global `pdfModel` is tracked separately.
-- **The lead's temporary member** inherits the lead's web tools (since 2026-10-17,
-  [team member inheritance](assistant-gateway.md#team-member-inheritance-2026-10-17)):
-  its entry holds `web_search`, `web_fetch` and `view_image` (and `browser` with a
-  browser), never team tools, `agentpier_routine`, `write` or `exec`, and its
-  `web_fetch` of the loopback page fails with the same private-network block.
+- **The lead's temporary member** has the default grants (since 2026-10-17,
+  [team member grants](assistant-gateway.md#team-member-grants-2026-10-17)): its
+  entry holds `web_search`, `web_fetch` and `memory_search` within the lead's
+  capabilities, but not `browser`, `view_image` or `agentpier_reminder` (not granted),
+  and never team tools, `agentpier_routine`, `write` or `exec`. Its `web_fetch` of
+  the loopback page fails with the same private-network block.
 - **The member whose lead has no capabilities** gets no capability tool in its
   entry and none offered to the model, whatever its own record says, so its
   `web_fetch` request cannot run.

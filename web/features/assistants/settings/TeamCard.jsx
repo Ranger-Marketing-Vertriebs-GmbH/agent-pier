@@ -3,6 +3,7 @@ import Icon from "../../../components/Icon.jsx";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantApi } from "../assistant-api.js";
 import { avatarGlyph } from "../avatar-glyph.js";
+import { grantsLine, logText } from "../member-grants.js";
 import RouteLink from "../RouteLink.jsx";
 import TeamCodingRequests from "../TeamCodingRequests.jsx";
 import TeamReport from "./TeamReport.jsx";
@@ -93,6 +94,12 @@ export default function TeamCard({
                     </span>
                     {m.assignment ? ` · ${m.assignment}` : ""}
                   </small>
+                  {m.lifetime !== "permanent" && m.grants && (
+                    <small className="assistant-team-grants" data-grants="">
+                      {grantsLine(m.grants, m.mcpServers?.length)}
+                      {m.grantLog?.length ? ` · ${logText(m.grantLog.at(-1))}` : ""}
+                    </small>
+                  )}
                 </span>
                 <Icon name="chevron" size={16} />
               </button>

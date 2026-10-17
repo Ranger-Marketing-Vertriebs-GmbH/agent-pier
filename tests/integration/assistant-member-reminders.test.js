@@ -32,6 +32,8 @@ function setup(t) {
     dataDir: f.dataDir,
   });
   t.after(() => reminders.close());
+  // The lead granted its member reminders (TeamStore answers this in the app).
+  f.store.memberGrants = () => ({ grants: { reminders: true }, shellSsh: false });
   const member = f.store.reserveMember({
     id: "member-1",
     parent: lead,
@@ -79,7 +81,7 @@ test("a task member's reminder is created on its lead and delivered to the lead'
   );
 });
 
-test("a task member only creates reminders, in its lead's turns, while it inherits them", async (t) => {
+test("a task member only creates reminders, in its lead's turns, while it holds them", async (t) => {
   const f = setup(t);
   await assert.rejects(
     async () => f.reminders.invoke(f.turn(f.assigned, "list"), { action: "list" }),
@@ -94,7 +96,7 @@ test("a task member only creates reminders, in its lead's turns, while it inheri
   assert.equal(f.jobs.size, 0);
 });
 
-test("the bridge admits a task member's reminder and SSH calls only while inherited", async (t) => {
+test("the bridge admits a task member's reminder and SSH calls only while granted", async (t) => {
   const f = setup(t);
   const bridge = new TeamBridge({
     assistants: {
@@ -114,7 +116,7 @@ test("the bridge admits a task member's reminder and SSH calls only while inheri
     generation: 1,
   });
   assert.ok(bridge.valid(record("reminder")));
-  // Shell and SSH are not inherited without the lead's setting; routines never.
+  // Shell and SSH were not granted; routines never are.
   assert.throws(() => bridge.valid(record("ssh")), { status: 403 });
   assert.throws(() => bridge.valid(record("routine")), { status: 403 });
   const lead = f.store.getAssistant(f.lead);

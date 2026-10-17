@@ -423,10 +423,11 @@ for (const [language, heading, marker] of [
     ]);
     await f.service.teamOutbox.transfer();
     const { text } = f.service.outbox.pending(f.channel.id)[0];
-    const [, inherits, planner, writer, critic] = text.split("\n\n");
-    assert.match(
-      inherits,
-      language === "de" ? /keine Shell und kein SSH/ : /no shell and no SSH/,
+    const [, planner, writer, critic] = text.split("\n\n");
+    // A lead without capabilities passes none on by default.
+    assert.equal(
+      critic.split("\n").at(-1),
+      language === "de" ? "Erhält: keine Werkzeuge" : "Gets: no tools",
     );
     assert.equal(planner.split("\n").at(-1), `${heading}github`);
     assert.equal(writer.split("\n").at(-1), `${heading}files ${marker}, github`);
@@ -435,18 +436,43 @@ for (const [language, heading, marker] of [
       assert.ok(!text.includes(secret), secret);
   });
 
-for (const [language, warning] of [
-  ["de", /^⚠ Die Mitglieder dürfen Shell und SSH nutzen/],
-  ["en", /^⚠ Members may use shell and SSH/],
+for (const [language, warning, gets] of [
+  [
+    "de",
+    /^⚠ Mit ⚠ markierte Mitglieder erhalten Shell oder SSH/,
+    "Erhält: Websuche, ⚠ Shell (mit Freigabe)",
+  ],
+  [
+    "en",
+    /^⚠ Members marked ⚠ get shell or SSH/,
+    "Gets: web search, ⚠ shell (with approval)",
+  ],
 ])
-  test(`the ${language} approval says when members may use shell and SSH`, async (t) => {
+  test(`the ${language} approval lists each member's grants and warns about shell`, async (t) => {
     const f = setup(t, { language: () => language });
-    const teams = f.assistants.teams.store;
-    teams.savePolicy(f.channel.assistantId, { memberShellSsh: true }, 1);
-    await f.proposal();
+    const lead = f.store.getAssistant(f.channel.assistantId);
+    f.store.updateAssistant(
+      lead.id,
+      {
+        shell: "approval",
+        capabilities: { memory: false, reminders: false, webSearch: true },
+      },
+      lead.revision,
+    );
+    f.assistants.teams.store.savePolicy(lead.id, { memberShellSsh: true }, 1);
+    await f.proposal([
+      {
+        name: "Runner",
+        role: "Run",
+        assignment: "Run the checks",
+        grants: { webSearch: true, shell: "approval" },
+      },
+    ]);
     await f.service.teamOutbox.transfer();
     const { text } = f.service.outbox.pending(f.channel.id)[0];
-    assert.match(text.split("\n\n")[1], warning);
+    const [, warned, runner] = text.split("\n\n");
+    assert.match(warned, warning);
+    assert.equal(runner.split("\n").at(-1), gets);
   });
 
 test("an unreadable server list is shown as unavailable and only declining is offered", async (t) => {

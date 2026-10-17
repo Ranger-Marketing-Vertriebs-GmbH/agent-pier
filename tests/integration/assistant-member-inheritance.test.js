@@ -20,6 +20,8 @@ const everything = {
   browser: true,
   documents: true,
 };
+// Everything a member can get without the owner's shell and SSH setting.
+const granted = { ...everything, skills: true };
 const paths = { workspaces: "/data/workspaces", logs: "/data/logs" };
 const webTools = {
   search: { provider: "duckduckgo", requiresPlugin: true },
@@ -29,12 +31,12 @@ const webTools = {
   },
 };
 
-function fixture(t, { memberShellSsh = false } = {}) {
+function fixture(t, { memberShellSsh = false, grants = granted } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-member-inherit-"));
   const store = new AssistantStore({ dataDir });
-  const teams = new TeamStore({ store });
   const ledger = new RequestLedger(store.db);
   const access = new AssistantAccess({ assistants: { store } });
+  const teams = new TeamStore({ store, sshGranted: (id) => access.hasSshGrants(id) });
   t.after(() => {
     store.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
@@ -60,7 +62,7 @@ function fixture(t, { memberShellSsh = false } = {}) {
     operationId: "tool",
     parentAttemptId: ledger.recordAttempt(request.id).id,
     objective: "Review",
-    members: [{ name: "Scout", role: "Research", assignment: "Look around" }],
+    members: [{ name: "Scout", role: "Research", assignment: "Look around", grants }],
     origin: { kind: "owner" },
   });
   teams.decide(
@@ -99,7 +101,7 @@ function fixture(t, { memberShellSsh = false } = {}) {
   return { store, teams, access, lead, member, compile, dataDir };
 }
 
-test("a task member's compiled entry carries its lead's web tools, skills and read-only memory", (t) => {
+test("a task member's compiled entry carries what its lead granted: web, skills, read-only memory", (t) => {
   const f = fixture(t);
   const config = f.compile();
   const entry = config.agents.entries[f.member.runtimeAgentId];
@@ -119,8 +121,11 @@ test("a task member's compiled entry carries its lead's web tools, skills and re
   assert.equal(f.access.hasSshGrants(f.member.id), false);
 });
 
-test("with the lead's setting the member gets the lead's shell level and SSH grants", (t) => {
-  const f = fixture(t, { memberShellSsh: true });
+test("granted shell and SSH use the lead's level and grants with its setting", (t) => {
+  const f = fixture(t, {
+    memberShellSsh: true,
+    grants: { ...granted, shell: "approval", ssh: true },
+  });
   const entry = f.compile().agents.entries[f.member.runtimeAgentId];
   assert.ok(
     entry.tools.allow.includes("exec") && entry.tools.allow.includes("agentpier_ssh"),

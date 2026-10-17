@@ -8,6 +8,7 @@ import { TeamMcpBindings } from "./team-mcp.js";
 import { LeadRequests } from "./lead-requests.js";
 import { publicRequest } from "./lead-request-store.js";
 import { reportText } from "./team-results.js";
+import { MemberGrants } from "./member-grant-requests.js";
 function exact(input, keys) {
   if (
     !input ||
@@ -47,6 +48,9 @@ export function publicTeam(record, describe = () => []) {
           "attemptId",
           "archivedAt",
           "diagnostic",
+          // What the lead granted, and its later changes (member-grant-requests.js).
+          "grants",
+          "grantLog",
         ]
       : [
           "id",
@@ -91,6 +95,7 @@ export class TeamService {
     store = new TeamStore({
       store: assistants.store,
       servers: () => assistants.mcp?.servers,
+      sshGranted: (id) => !!assistants.workflows?.access.hasSshGrants(id),
     }),
     autoStart = true,
     now,
@@ -100,6 +105,12 @@ export class TeamService {
     this.mcp = new TeamMcpBindings({ teams: store, assistants });
     this.scheduler = new TeamScheduler({ teams: store, assistants, now, mcp: this.mcp });
     this.requests = new LeadRequests({ teams: store, service: this });
+    this.grants = new MemberGrants({
+      teams: store,
+      assistants,
+      audit,
+      onChanged: (member) => this.memberChanged(member),
+    });
     if (autoStart) {
       this.poll = setInterval(() => this.reconcile().catch(() => {}), 1000);
       this.poll.unref();
@@ -361,6 +372,21 @@ export class TeamService {
   }
   cancel(inv, input) {
     return this.requests.cancel(inv, input);
+  }
+  // A lead's later grant to a running task member (member-grant-requests.js).
+  grant(inv, input) {
+    assertWired(this);
+    return this.grants.grant(inv, input);
+  }
+  // A changed grant reaches the member now: its servers at the next tick, its entry
+  // with an apply that waits for admission (and every turn applies first anyway).
+  memberChanged(member) {
+    this.mcp.sync();
+    const a = this.assistants;
+    if (a.runtime?.client?.ready)
+      Promise.resolve()
+        .then(() => a.admit(() => a.config.apply(member.assistantId)))
+        .catch(() => {});
   }
   archive(inv, input) {
     return this.requests.archive(inv, input);

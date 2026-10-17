@@ -8,7 +8,8 @@ import { randomUUID } from "node:crypto";
 import { privateDatabase } from "../../lib/private-database.js";
 import { fencedDatabase } from "./ledger-fence.js";
 import { migrateAssistants } from "./assistant-schema.js";
-import { memberInheritance, personalEligible } from "./native-capabilities.js";
+import { personalEligible } from "./native-capabilities.js";
+import { defaultGrants, memberInheritance } from "./member-grants.js";
 import { validateDefinition, assistantProblem } from "./assistant-validation.js";
 
 // The message cache keeps a conversation's newest messages only. A history page holds
@@ -33,9 +34,10 @@ export function cachedWindow(messages) {
 export const persisted = ({ inherited: _inherited, ...record }) => record;
 export class AssistantStore {
   constructor({ dataDir }) {
-    // Whether a temporary member may use its lead's shell and SSH grants right now;
-    // TeamStore answers it from the team's approval and the lead's live setting.
-    this.memberShellSsh = () => false;
+    // What the lead granted a temporary member, and whether its shell and SSH grants
+    // count right now; TeamStore answers it from the team records and the lead's
+    // live setting. Without an answer a member gets nothing beyond the default.
+    this.memberGrants = () => ({ grants: defaultGrants, shellSsh: false });
     const root = path.join(dataDir, "assistants");
     this.db = fencedDatabase(
       privateDatabase(root, "assistants.sqlite"),
@@ -95,9 +97,9 @@ export class AssistantStore {
   }
   /**
    * Every read carries the model the agent runs on (effectiveModel) and, for a
-   * temporary member, what it inherits from its lead (memberInheritance): runtime
-   * config, capability checks and the agents list all follow a change to the lead
-   * without copying it.
+   * temporary member, what its lead granted it within what the lead holds now
+   * (memberInheritance, member-grants.js): runtime config, capability checks and
+   * the agents list all follow a change to the lead without copying it.
    */
   getAssistant(id) {
     const record = this.storedAssistant(id);
@@ -113,13 +115,16 @@ export class AssistantStore {
   resolved(record, lead) {
     const next = { ...record, model: effectiveModel(record, lead) };
     if (!temporaryMember(record) || record.archivedAt) return next;
-    let shellSsh = false;
+    let granted = { grants: {}, shellSsh: false };
     try {
-      shellSsh = !!lead && this.memberShellSsh(record) === true;
+      granted = this.memberGrants(record);
     } catch {
-      /* An unreadable setting grants nothing. */
+      /* Unreadable grants grant nothing. */
     }
-    return { ...next, inherited: memberInheritance(lead, shellSsh) };
+    return {
+      ...next,
+      inherited: memberInheritance(lead, granted.grants, granted.shellSsh === true),
+    };
   }
   listAssistants() {
     const records = this.db

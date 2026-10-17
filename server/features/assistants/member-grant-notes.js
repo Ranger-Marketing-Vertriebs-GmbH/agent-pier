@@ -1,0 +1,86 @@
+import { actionPath } from "./action-text.js";
+import { grantedKeys } from "./member-grants.js";
+
+/**
+ * What a member gets, as the owner reads it in Telegram: one label per grant (a
+ * named skill list as its count, never MCP server names beyond the count).
+ */
+export function grantLabels(grants = {}, m, servers = 0) {
+  const labels = m.memberGrants.labels;
+  return [
+    ...grantedKeys(grants).map((key) =>
+      key === "shell"
+        ? labels.shell(m.memberGrants.levels[grants.shell] || grants.shell)
+        : key === "skills"
+          ? grants.skills === "all"
+            ? labels.allSkills
+            : labels.skills(grants.skills.length)
+          : labels[key],
+    ),
+    ...(servers ? [labels.mcpServers(servers)] : []),
+  ];
+}
+
+/** Whether a set of grants holds shell or SSH, which the owner sees highlighted. */
+export const holdsShellSsh = (grants = {}) => !!(grants.shell || grants.ssh);
+
+// A lead's shell or SSH grant for a member: the owner decides in Telegram as well.
+export function notifyMemberGrant(w, action, phase, key, m, target) {
+  if (!["approval", "result"].includes(phase)) return;
+  const p = action.payload;
+  let lead = "";
+  try {
+    lead = w.a.store.getAssistant(action.assistantId).name;
+  } catch {}
+  const detail = [
+    m.memberGrants.approval(lead, p.memberName),
+    grantLabels(p.grants, m).join(", "),
+    m.memberGrants.warning,
+  ].join("\n\n");
+  const text =
+    phase === "approval"
+      ? detail
+      : `${m.memberGrants.states[action.state] || m.actionStates.unknown}\n\n${grantLabels(p.grants, m).join(", ")}`;
+  const button = (decision, label) => ({
+    proposalId: action.id,
+    revision: action.revision,
+    decision,
+    label,
+  });
+  w.s.assistantChannels.outbox.enqueue({
+    key,
+    source: { ...target, actionId: action.id },
+    kind: `action-${phase}`,
+    localized: true,
+    text,
+    path: actionPath(action),
+    actions:
+      phase === "approval"
+        ? [button("approve", m.memberGrants.approve), button("decline", m.actionDecline)]
+        : [],
+  });
+}
+
+// The chat note of a grant change or a decided shell or SSH grant.
+export function grantNotes(a) {
+  if (!a.chatNotes?.result) return [];
+  const p = a.payload;
+  return [
+    {
+      id: `member-grant:${a.id}`,
+      role: "event",
+      event: "member-grant",
+      memberName: p.memberName,
+      by: p.approval ? "owner" : p.by,
+      ...(p.approval
+        ? { granted: grantedKeys(p.grants), shell: p.grants.shell || null }
+        : p.revoked
+          ? { revoked: p.revoked }
+          : { granted: p.granted }),
+      mcpServers: p.mcpServers || 0,
+      state: a.chatNotes.result.state,
+      timestamp: a.chatNotes.result.at,
+      runId: null,
+    },
+  ];
+}

@@ -12,7 +12,7 @@ export const assistants = {
     failed: "Aktion fehlgeschlagen; bitte in AgentPier prüfen",
     cancelled: "Auftrag abgebrochen",
     declined: "Aktion abgelehnt",
-    expired: "Freigabe abgelaufen",
+    expired: "Die Freigabe ist abgelaufen",
     unknown: "Ergebnis unklar; bitte in AgentPier prüfen",
     reviewed: "Ergebnis geprüft; Aktion wird nicht wiederholt",
   },
@@ -106,10 +106,38 @@ export const assistants = {
   },
   teamApproval: (objective, count) =>
     `Team-Freigabe: ${objective}\n${count} Mitglieder. Freigeben oder ablehnen?`,
-  teamMemberShellSsh:
-    "⚠ Die Mitglieder dürfen Shell und SSH nutzen, höchstens mit der Shell-Stufe und den SSH-Freigaben des leitenden Agenten. Sie übernehmen außerdem Web, Skills, MCP-Server, Gedächtnis (nur lesend) und Erinnerungen des leitenden Agenten.",
-  teamMemberNoShellSsh:
-    "Die Mitglieder übernehmen Web, Skills, MCP-Server, Gedächtnis (nur lesend) und Erinnerungen des leitenden Agenten, aber keine Shell und kein SSH.",
+  memberGrants: {
+    labels: {
+      memory: "Gedächtnis (nur lesend)",
+      reminders: "Erinnerungen",
+      webSearch: "Websuche",
+      webFetch: "Webseiten",
+      browser: "Browser",
+      documents: "Bilder",
+      allSkills: "alle Skills des leitenden Agenten",
+      skills: (count) => `Skills: ${count}`,
+      shell: (level) => `⚠ Shell (${level})`,
+      ssh: "⚠ SSH auf den Hosts des leitenden Agenten",
+      mcpServers: (count) => `MCP-Server: ${count}`,
+    },
+    levels: { approval: "mit Freigabe", full: "voller Zugriff" },
+    gets: (labels) => `Erhält: ${labels}`,
+    getsNothing: "Erhält: keine Werkzeuge",
+    proposalWarning:
+      "⚠ Mit ⚠ markierte Mitglieder erhalten Shell oder SSH, höchstens mit der Stufe und auf den Hosts des leitenden Agenten. Sie arbeiten unbeaufsichtigt; gelesene Inhalte können sie lenken.",
+    approval: (lead, member) =>
+      `Team-Freigabe wartet: ${lead} möchte seinem Mitglied ${member} mehr Zugriff geben.`,
+    warning:
+      "Das Mitglied arbeitet unbeaufsichtigt, und Inhalte, die es liest, können es zur Nutzung dieses Zugriffs verleiten.",
+    approve: "Freigabe erteilen",
+    states: {
+      completed: "Freigabe erteilt und angewendet",
+      declined: "Freigabe abgelehnt",
+      expired: "Die Rechte-Freigabe ist abgelaufen",
+      failed: "Freigabe nicht mehr möglich; nichts geändert",
+      cancelled: "Freigabe zurückgezogen",
+    },
+  },
   teamMcpServers: (names) => `MCP-Server: ${names}`,
   teamMcpStdio: (name) => `${name} (stdio, lokaler Befehl)`,
   teamMcpUnavailable:
@@ -191,6 +219,10 @@ export const assistants = {
 
   teamMcpServersUnavailable:
     "Die MCP-Serverliste dieses Teams lässt sich gerade nicht lesen. Versuche es später erneut.",
+  teamGrantNotHeld:
+    "Ein leitender Agent kann einem Teammitglied nur geben, was er selbst hat; Shell und SSH nur mit der Einstellung „Team-Mitglieder dürfen Shell und SSH nutzen“.",
+  teamGrantMemberEnded:
+    "Rechte lassen sich nur einem laufenden auftragsgebundenen Mitglied des eigenen Teams geben.",
   teamMcpServerNotBound:
     "Ein vorgeschlagenes Teammitglied nennt einen MCP-Server, der dem leitenden Agenten nicht zugewiesen ist.",
   attachmentTooLarge: "Diese Datei ist größer als 10 MB.",
