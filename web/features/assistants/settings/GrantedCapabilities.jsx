@@ -54,6 +54,11 @@ export default function GrantedCapabilities({ inherited, member, assistantId, go
           label={grantCopy.projectFolders}
           value={folderCounts(inherited.projects)}
         />
+        {/* GitHub through the lead's token profile, at most at the lead's level now. */}
+        <ListRow
+          label={grantCopy.github}
+          value={grantCopy.githubLevels[inherited.github?.level || "none"]}
+        />
         {/* Its own memory, always on, beside the copy of the lead's (memory/lead/). */}
         {assistantId && (
           <ListRow

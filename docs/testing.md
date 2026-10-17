@@ -72,6 +72,20 @@ must retain their conversation, model, permissions and attachment access across 
 reload, then accept a message through the Chat HTTP endpoint without a hook receipt.
 Without the executable variable these cases are reported as skipped.
 
+The GitHub MCP server contract for agents is opt-in as well. It starts the pinned
+`github-mcp-server` with each level's arguments against a fake GitHub Enterprise API
+on loopback (`GITHUB_HOST=http://127.0.0.1:<port>`), lists the tools of both levels,
+calls one with a test token and checks that the token never appears in a result or
+the server's log output:
+
+```sh
+AGENTPIER_GITHUB_MCP_BINARY=/absolute/path/to/github-mcp-server node --test tests/integration/github-mcp-contract.test.js
+AGENTPIER_GITHUB_MCP_CONTRACT=1 node --test tests/integration/github-mcp-contract.test.js
+```
+
+The second form downloads and checks the pinned release into a temporary folder first.
+Without either variable the test is reported as skipped.
+
 The launch matrix exercises actual `AccountStore` commands and generated profile configuration. It does not start Codex, Claude Code or OpenCode, and does not prove that a remote provider accepts a model, endpoint or entitlement. Provider-specific matrices and isolated MCP tests cover those contracts separately.
 
 The platform matrix checks the installation availability policy for macOS/Linux/Windows, ARM64/x64/ia32 and npm presence. It does not execute native binaries on simulated platforms. Run the blackbox suite on real macOS and Linux CI workers; an in-process platform parameter is not cross-platform runtime evidence.

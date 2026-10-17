@@ -263,7 +263,11 @@ export class McpChanges {
       // Servers held back by a deferred logout are left out by readMcpInputs; the
       // logouts drain in the background, outside this lock.
       if (this.oauth && this.servers.deferredLogouts().length) this.oauth.scheduleDrain();
-      const inputs = readMcpInputs(this.servers, { redirectUrl: this.redirectUrl() });
+      // `extraInputs`: the agents' GitHub servers (agent-github.js), wired by the graph.
+      const inputs = readMcpInputs(this.servers, {
+        redirectUrl: this.redirectUrl(),
+        extra: this.extraInputs,
+      });
       if (inputs.unreadable) {
         this.failed({ code: "MCP_STORE_UNREADABLE" });
         return false;

@@ -18,6 +18,7 @@ import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantWorkflowCopy as wf } from "../../../lib/i18n/messages/assistant-workflows.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { assistantSshCopy as sshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
+import { assistantGithubCopy as githubCopy } from "../../../lib/i18n/messages/assistant-github.js";
 import useAssistants from "../useAssistants.js";
 import {
   agentRoute,
@@ -37,6 +38,8 @@ import ConflictNotice from "./ConflictNotice.jsx";
 import ActionHistory from "./ActionHistory.jsx";
 import GrantSelectionPage from "./GrantSelectionPage.jsx";
 import ProjectGrantPage from "./ProjectGrantPage.jsx";
+import GithubGrantPage from "./GithubGrantPage.jsx";
+import { githubChoice } from "./agent-github-fields.js";
 import SshGrantPage from "./SshGrantPage.jsx";
 import TeamsGroup from "./TeamsGroup.jsx";
 
@@ -46,6 +49,7 @@ const conflictLabels = {
   projectFiles: () => wf.folderLegend,
   pipelineIds: () => wf.pipelines,
   sshAccesses: () => sshCopy.row,
+  github: () => githubCopy.row,
   memoryWrite: () => wf.memoryWrite,
   autonomous: () => wf.autonomous,
   publish: () => wf.publish,
@@ -60,6 +64,8 @@ const catalogOf = (list) => ({
   projects: list.projects || [],
   pipelines: list.pipelines || [],
   sshHosts: list.sshHosts ?? null,
+  // Token profiles and the managed MCP server (server agent-github.js).
+  github: list.github ?? { profiles: [], server: null },
 });
 
 /**
@@ -185,6 +191,31 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
         {bar}
       </>
     );
+  if (page === "github")
+    return (
+      <>
+        <GithubGrantPage
+          github={catalog?.github}
+          value={draft.values.github}
+          shell={!!assistant.shell && assistant.shell !== "off"}
+          disabled={!policy || draft.saving}
+          onChange={(next) => draft.set("github", next)}
+          onRetryServer={() =>
+            api("/assistant-github-server/install", "POST", {})
+              .then((server) =>
+                setCatalog((current) => ({
+                  ...current,
+                  github: { ...current.github, server },
+                })),
+              )
+              .catch((e) => setLoadError(e.message))
+          }
+          onBack={back}
+          navigate={navigate}
+        />
+        {bar}
+      </>
+    );
   if (page === "projects")
     return (
       <>
@@ -284,6 +315,21 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
             })()}
             disabled={!catalog}
             {...link("ssh")}
+          />
+          <ListRow
+            label={githubCopy.row}
+            value={(() => {
+              if (!catalog) return unknownValue;
+              const choice = githubChoice(values.github, catalog.github.profiles);
+              return choice.level
+                ? githubCopy.summary(
+                    githubCopy.levels[choice.level],
+                    choice.profile?.name || githubCopy.profileMissing,
+                  )
+                : githubCopy.none;
+            })()}
+            disabled={!catalog}
+            {...link("github")}
           />
           {permissionKeys.map((key) => (
             <ToggleRow

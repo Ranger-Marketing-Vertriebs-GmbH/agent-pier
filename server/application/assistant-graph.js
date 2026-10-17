@@ -126,6 +126,8 @@ export function constructAssistantGraph(host, created = {}) {
       "senderFacing",
       "sshGranted",
       "projectFolders",
+      "github",
+      "githubShellPath",
     ],
   );
   const assistants = (created.assistants = expectWiring(
@@ -280,15 +282,20 @@ export function constructAssistantGraph(host, created = {}) {
     audit,
     notifications: host.notifications,
     // Never throws: an unreadable MCP store binds no agent (its start compiles none).
+    // An agent with GitHub access counts as well (agent-github.js).
     stdioAgents: () => {
+      let agents = new Set();
       try {
-        return stdioAgents({
+        agents = stdioAgents({
           servers: assistantMcpServers.definitions(),
           bindings: assistantMcpServers.bindingsByTarget("agent"),
         });
       } catch {
-        return new Set();
+        /* None from the store. */
       }
+      for (const profile of store.listAssistants())
+        if (assistantWorkflows.github.forAgent(profile)) agents.add(profile.id);
+      return agents;
     },
     // Agents with SSH grants never own a bot for other people (assistant-access.js).
     sshAgents: () => assistantWorkflows.access.sshAgents(),
@@ -433,7 +440,18 @@ export function connectAssistantServices(graph) {
     sshGranted: (assistant) => workflows.access.hasSshGrants(assistant.id),
     // Project folders the agent may use directly, named in its instructions.
     projectFolders: (assistant) => workflows.folders.forAgent(assistant),
+    // Its GitHub access, named in its instructions, and its shell's GitHub folder.
+    github: (assistant) => workflows.github.describe(assistant),
+    githubShellPath: (assistant) => workflows.github.shellPath(assistant),
   });
+  // The agents' GitHub servers compile beside the store's (agent-github.js).
+  const githubInputs = (taken) =>
+    workflows.github.mcpInputs(store.listAssistants(), taken);
+  mcpChanges.extraInputs = githubInputs;
+  // A first install or an update of the managed server reaches the agents at once.
+  if (workflows.s.githubMcp)
+    workflows.s.githubMcp.onReady = () =>
+      assistants.admit(() => workflows.github.refresh()).catch(() => {});
   // A guard report, and leaving maintenance with a live guard, re-applies the agents
   // the Gateway start compiled without write and edit (AGENTPIER-80).
   const guardReapply = new WriteGuardReapply({
@@ -469,7 +487,12 @@ export function connectAssistantServices(graph) {
         // Eligible agents with an SSH grant (assistant-access.js sshAgents).
         sshAgents: workflows.access.sshAgents(),
         // Read at each start; secrets reach only the compiled openclaw.json.
-        mcp: readMcpInputs(mcpServers, { redirectUrl: mcpChanges.redirectUrl() }),
+        mcp: readMcpInputs(mcpServers, {
+          redirectUrl: mcpChanges.redirectUrl(),
+          extra: githubInputs,
+        }),
+        // Each agent's GitHub folder on its shell PATH (agent-github.js shellPaths).
+        githubShell: workflows.github.shellPaths(store.listAssistants()),
         webTools: {
           search: webSearch.resolve(),
           // The same detection a save compares with (web-tools-changes.js).

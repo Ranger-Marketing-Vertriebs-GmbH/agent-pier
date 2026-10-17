@@ -16,6 +16,7 @@ import { ensureDependencies } from "./install-dependencies.mjs";
 import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
 import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
 import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
+import { provisionGithubMcp } from "../server/features/tools/github-mcp-installer.js";
 export async function installRelease(options, dependencies = {}) {
   if (options.resume) return resumeSetup(options, dependencies);
   return installInitialRelease(options, dependencies);
@@ -43,6 +44,7 @@ async function installInitialRelease(
     assistantRuntime,
     toolchains = provisionInstallerToolchains,
     agentBrowser = provisionAgentBrowser,
+    githubMcp = provisionGithubMcp,
   } = {},
 ) {
   if (
@@ -78,6 +80,8 @@ async function installInitialRelease(
   );
   const toolchainResult = await toolchains({ dataDir });
   const browserResult = await agentBrowser({ dataDir, enable: withAgentBrowser });
+  // Keeps an installed GitHub MCP server for agents at the pinned version.
+  const githubMcpResult = await githubMcp({ dataDir });
   const configuredEnv = {
     ...dependencies.env,
     AGENTPIER_INSTALL_ROOT: installRoot,
@@ -107,6 +111,7 @@ async function installInitialRelease(
     ...(assistants ? { assistantRuntime: assistants } : {}),
     toolchains: toolchainResult,
     ...(browserResult ? { agentBrowser: browserResult } : {}),
+    ...(githubMcpResult ? { githubMcp: githubMcpResult } : {}),
   };
 }
 export async function runInstaller(args, dependencies = {}) {

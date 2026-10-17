@@ -33,6 +33,7 @@ export const accessKeys = [
   "projectFiles",
   "pipelineIds",
   "sshAccesses",
+  "github",
   ...permissionKeys,
 ];
 // Direct folder access per granted project (server assistant-access.js projectFiles).
@@ -53,6 +54,7 @@ const pageTabs = {
   projects: "work",
   pipelines: "work",
   ssh: "work",
+  github: "work",
   "telegram-activity": "telegram",
   "telegram-connection": "telegram",
 };
@@ -233,6 +235,10 @@ export const workServer = (policy, team) => ({
   projectFiles: sortedLevels(policy?.projectFiles),
   pipelineIds: sortedIds(policy?.pipelineIds),
   sshAccesses: sortedGrants(policy?.sshAccesses),
+  // GitHub through a token profile (server agent-github.js), or null.
+  github: policy?.github
+    ? { credentialId: policy.github.credentialId, level: policy.github.level }
+    : null,
   memoryWrite: policy?.memoryWrite === true,
   autonomous: policy?.autonomous === true,
   publish: policy?.publish === true,
@@ -262,12 +268,14 @@ export function workBody({ values, changed, revisions, withTeam, sshHostIds = nu
       revision: revisions.access,
       ...Object.fromEntries(
         accessKeys
-          .filter((key) => key !== "sshAccesses" && key !== "projectFiles")
+          .filter((key) => !["sshAccesses", "projectFiles", "github"].includes(key))
           .map((key) => [key, values[key]]),
       ),
       // Folder levels likewise go only when changed; the server keeps absent ones
       // for the projects that stay granted.
       ...(changed.includes("projectFiles") && { projectFiles: values.projectFiles }),
+      // Only when changed: a stored access to a removed profile never fails a save.
+      ...(changed.includes("github") && { github: values.github }),
       // Only changed grants are sent (the server keeps absent ones), so an unreadable
       // SSH catalog cannot fail other saves. Grants of removed hosts drop on save; an
       // unreadable catalog drops nothing.

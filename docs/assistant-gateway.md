@@ -1549,6 +1549,7 @@ member's effective grants instead (see
 | `memory`                                               | A read-only copy of the lead's memory beside the member's own memory (see below)                               |
 | `reminders`                                            | Reminders created on the lead (see below)                                                                      |
 | `shell` (`approval` or `full`), `ssh`                  | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants |
+| `github` (`read` or `write`)                           | The lead's GitHub token profile, at most at the lead's level ([GitHub for agents](#github-for-agents))         |
 
 A member the lead grants nothing explicitly gets `memory`, `webSearch` and
 `webFetch`, as far as the lead has them. Members reserved before grants existed
@@ -1868,6 +1869,79 @@ so a rollback keeps logins; every login logged out since the snapshot is logged 
 again after the rollback, before the Gateway starts (see
 [runtime updates](assistant-runtime-updates.md)). The facts behind this section are
 recorded in the [MCP OAuth qualification](mcp-oauth-qualification.md).
+
+## GitHub for agents
+
+An agent works on GitHub with one of the owner's token profiles from **Settings →
+Access → GitHub connections** (AGENTPIER-129). The Work tab's **GitHub** page chooses the level
+(**No access**, **Read**, **Read and write**) and the profile; the host's **Default
+for agents** is preselected. The access is stored with the agent's access record
+(`github: { credentialId, level }`), audited as `assistant.updated` with
+`kind: "github-access"`, the profile id and both levels (never the token or the
+profile's name), and named in the agent's instructions (profile, host, level and its
+tool prefix). Temporary members cannot hold it; an agent with its own Telegram bot
+for other people is refused it (409), and an agent with GitHub
+access counts like one with a stdio server, so no such bot is compiled for it.
+
+### MCP server
+
+The official [GitHub MCP server](https://github.com/github/github-mcp-server) is
+compiled beside the central list's servers, one stdio server per profile and level,
+named `github_ro_<hash>` or `github_rw_<hash>` (the hash comes from the profile id).
+An agent sees its tools as `<name>__<tool>`.
+
+| Level   | Arguments                                                                       |
+| ------- | ------------------------------------------------------------------------------- |
+| `read`  | `stdio --toolsets repos,issues,pull_requests,actions --read-only`               |
+| `write` | `stdio --toolsets repos,issues,pull_requests --exclude-tools delete_repository` |
+
+`write` leaves out Actions, whose write tools would re-run or cancel workflows, and
+never offers deleting a repository. The server itself also hides tools whose classic
+scopes the token lacks. The token reaches the server only through its environment
+(`GITHUB_PERSONAL_ACCESS_TOKEN`; `GITHUB_HOST` for a GitHub Enterprise host) in the
+compiled `openclaw.json`, like every stdio server's values: never in its arguments,
+the agent's instructions, a response or AgentPier's own state. Because OpenClaw
+starts every compiled stdio server for every session (see
+[stdio servers](#local-commands-stdio)), agents that share a profile and level share
+one server. A store server with the same name wins.
+
+A rotated token, a deleted profile and every access change are patched into a running
+Gateway at once (the compiled signature includes the env values) and the affected
+agents are re-applied; a deleted profile removes the server. A lead's grant change
+converges at the next scheduler tick. Members get the lead's server at the lower of
+both levels.
+
+**Installation.** The server is a managed tool below `<data>/clis`: a pinned release
+(`server/features/tools/github-mcp-manifest.js`, version and per-platform SHA-256 and
+size for macOS and Linux on x64 and arm64), unpacked to `clis/.packages/github-mcp-*`
+and activated through the `clis/github-mcp-server` link after its `--version`
+matches. AgentPier installs it in the background when an agent first gets GitHub
+access; the Work tab shows the state and **Try again** after a failure. An AgentPier
+update that pins a newer version updates an installed server at the next server start
+and through the installer (`setup.sh`, `release-install.mjs`); the previous version
+stays until the next update, so running servers keep their files. Without the server
+the agent has no GitHub tools, and its instructions say so.
+
+**Token scopes.** When a profile's token check records its classic scopes, the page
+warns if `repo` is missing. Fine-grained tokens report no scopes and are not checked;
+their permissions set the limit.
+
+### Shell
+
+An agent with shell and GitHub access gets its own folder
+`<data>/github-sessions/agent-<id>/`, laid out like a session's (`config.yml`,
+`hosts.yml` with the token, `selection.json`), plus `shell-env.sh` and an empty
+`bin/`. `bin/` comes first in the agent's `tools.exec.pathPrepend`; the exec wrapper
+(`exec-shell.js`) sources `shell-env.sh` from the first such entry on `PATH`. It sets
+`GH_CONFIG_DIR` to the folder, unsets `GH_TOKEN`, `GITHUB_TOKEN` and the other
+override variables, and routes git's HTTPS authentication for that host through
+AgentPier's helper alone (`credential.https://<host>.helper`, owner helpers cleared,
+the quit helper after it), plus the profile's commit identity. `shell-env.sh` holds no
+token, so `env` in the agent's shell shows none; `gh` and the helper read it from
+`hosts.yml`. Token rotation and deletion update `hosts.yml` with the sessions' sync. An
+agent without shell or without GitHub access has no folder on its `PATH`, and the
+folder is removed at the next refresh or Gateway start. Like sessions, this separates
+configurations, not operating-system users: a command with shell runs as the owner.
 
 ## Agent shell access (2026-10-12)
 

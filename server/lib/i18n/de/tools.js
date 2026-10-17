@@ -124,4 +124,12 @@ export const tools = Object.freeze({
   chromiumDiskFull: "Nicht genug freier Speicherplatz für den Browser.",
   chromiumInUse:
     "Der verwaltete Browser wird gerade von den Agenten genutzt. Beende den Agentendienst, bevor du ihn entfernst.",
+  githubMcpPlatformUnavailable:
+    "Für dieses System gibt es keinen verwalteten GitHub-MCP-Server.",
+  githubMcpDownloadFailed: "Der GitHub-MCP-Server konnte nicht geladen werden.",
+  githubMcpChecksumMismatch:
+    "Der geladene GitHub-MCP-Server stimmt nicht mit der festgelegten Prüfsumme überein.",
+  githubMcpArchiveInvalid: "Das Archiv des GitHub-MCP-Servers ist ungültig.",
+  githubMcpVersionMismatch:
+    "Der installierte GitHub-MCP-Server meldet nicht die festgelegte Version.",
 });

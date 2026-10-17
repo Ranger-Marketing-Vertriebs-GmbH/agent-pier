@@ -30,6 +30,35 @@ const disabledConfig = "agentpier-disabled";
 const quitHelper =
   "!echo quit=1 # AgentPier helper returned no credential for this host; see docs/github-agents.md";
 
+/**
+ * The temporary git configuration that routes HTTPS authentication for each selected
+ * host, and its gist.<host>, through AgentPier's helper alone: the owner's helpers
+ * for that URL are cleared, ours answers, and the quit helper stops git if ours had no
+ * credential. `location` is githubHelperLocation(), the stable entry point across
+ * updates. With `session`, the helper finds the session folder through its
+ * argument instead of GH_CONFIG_DIR (owner shells and agent shells). Sessions and
+ * agent shells (prepareAgent) share it.
+ */
+export function gitCredentialConfig(selections, location, session = null) {
+  const helper = `!${quote(location.node)} ${quote(location.script)} --git-credential${
+    session ? ` --session ${quote(session)}` : ""
+  }`;
+  // gist.<host> serves the host's gists with the same token; without its own
+  // entries the owner's global helper would answer from the session's gh folder.
+  return selections.flatMap(({ host }) =>
+    [host, `gist.${host}`].flatMap((url) =>
+      ["", helper, quitHelper].map((value) => [
+        `credential.https://${url}.helper`,
+        value,
+      ]),
+    ),
+  );
+}
+// Agent shells (AGENTPIER-129) keep their gh configuration in a session-style folder
+// whose name marks it as an agent's, so the helper, sync() and rotation apply alike.
+export const agentFolderName = (agentId) => `agent-${agentId}`;
+export const agentShellFile = "shell-env.sh";
+
 const tokenKeys = [
   "GH_TOKEN",
   "GITHUB_TOKEN",
@@ -168,18 +197,15 @@ export class GithubCredentials {
       let count = Number(env.GIT_CONFIG_COUNT || 0);
       if (!Number.isSafeInteger(count) || count < 0 || count > 256)
         throw problem(serverMessages.repositories.invalidTemporaryGitConfig);
-      const helper = `!${quote(location.node)} ${quote(location.script)} --git-credential${
-        shell ? ` --session ${quote(folder)}` : ""
-      }`;
-      // gist.<host> serves the host's gists with the same token; without its own
-      // entries the owner's global helper would answer from the session's gh folder.
-      for (const { host } of selections)
-        for (const url of [host, `gist.${host}`])
-          for (const value of ["", helper, quitHelper]) {
-            env[`GIT_CONFIG_KEY_${count}`] = `credential.https://${url}.helper`;
-            env[`GIT_CONFIG_VALUE_${count}`] = value;
-            count++;
-          }
+      for (const [key, value] of gitCredentialConfig(
+        selections,
+        location,
+        shell ? folder : null,
+      )) {
+        env[`GIT_CONFIG_KEY_${count}`] = key;
+        env[`GIT_CONFIG_VALUE_${count}`] = value;
+        count++;
+      }
       const identity = selectedCommitIdentity(this.repositories, canonical, selections);
       if (identity) {
         for (const [key, value] of [
@@ -201,6 +227,78 @@ export class GithubCredentials {
       { access: "allow", path: folder },
       ...location.reads.map((target) => ({ access: "read", path: target })),
     ].reduce((granted, grant) => addGrant(granted, grant), { ...launch, env });
+  }
+  /**
+   * An agent shell's GitHub folder (AGENTPIER-129): the session layout for one
+   * selected profile, plus `bin/`, the marker the exec wrapper finds on the agent's
+   * PATH (exec-shell.js), and `shell-env.sh`, which the wrapper sources. That file
+   * names the folder and the git helper; the token stays in hosts.yml, which only gh
+   * and the helper read. Returns the marker directory, or null for a profile whose
+   * host native gh cannot address (the folder is removed then).
+   */
+  prepareAgent(agentId, credentialId) {
+    const id = agentFolderName(agentId);
+    const folder = this.folder(id);
+    const entry = this.repositories.listCredentials().find((c) => c.id === credentialId);
+    const host = entry && nativeHost(entry.host);
+    if (!host) {
+      this.discardAgent(agentId);
+      return null;
+    }
+    const selections = [{ host, credentialId }];
+    ensureDir(this.directory);
+    ensureDir(folder);
+    ensureDir(path.join(folder, "bin"));
+    writeJsonAtomic(path.join(folder, "config.yml"), { version: 1 });
+    writeJsonAtomic(path.join(folder, "selection.json"), { id, selections });
+    this.write(folder, selections);
+    const config = gitCredentialConfig(selections, this.helperLocation(), folder);
+    const identity = selectedCommitIdentity(this.repositories, folder, selections);
+    if (identity)
+      config.push(["user.name", identity.name], ["user.email", identity.email]);
+    const lines = [
+      "# Written by AgentPier for this agent's shell; it holds no token.",
+      `export GH_CONFIG_DIR=${quote(folder)}`,
+      "export GH_NO_UPDATE_NOTIFIER=1 GH_PROMPT_DISABLED=1 GIT_TERMINAL_PROMPT=0",
+      `unset ${tokenKeys.join(" ")}`,
+      ...config.flatMap(([key, value], index) => [
+        `export GIT_CONFIG_KEY_${index}=${quote(key)}`,
+        `export GIT_CONFIG_VALUE_${index}=${quote(value)}`,
+      ]),
+      `export GIT_CONFIG_COUNT=${config.length}`,
+      ...(identity
+        ? [
+            `export GIT_AUTHOR_NAME=${quote(identity.name)} GIT_COMMITTER_NAME=${quote(identity.name)}`,
+            `export GIT_AUTHOR_EMAIL=${quote(identity.email)} GIT_COMMITTER_EMAIL=${quote(identity.email)}`,
+          ]
+        : []),
+    ];
+    const file = path.join(folder, agentShellFile);
+    const temporary = `${file}.${process.pid}.tmp`;
+    fs.writeFileSync(temporary, `${lines.join("\n")}\n`, { mode: 0o600 });
+    fs.renameSync(temporary, file);
+    return path.join(folder, "bin");
+  }
+  /** Removes an agent shell's GitHub folder; nothing when there is none. */
+  discardAgent(agentId) {
+    const folder = this.folder(agentFolderName(agentId));
+    try {
+      if (fs.lstatSync(folder).isDirectory())
+        fs.rmSync(folder, { recursive: true, force: true });
+    } catch {
+      /* Absent. */
+    }
+  }
+  /** The agent ids that have a GitHub folder now. */
+  agentFolders() {
+    try {
+      return fs
+        .readdirSync(this.directory)
+        .filter((name) => name.startsWith("agent-") && validId(name))
+        .map((name) => name.slice("agent-".length));
+    } catch {
+      return [];
+    }
   }
   disable(folder) {
     // Metadata is no longer trustworthy. First make native gh reject this config,

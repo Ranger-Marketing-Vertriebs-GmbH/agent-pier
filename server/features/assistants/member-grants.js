@@ -7,6 +7,7 @@ import {
   personalSkills,
   shellLevels,
 } from "./native-capabilities.js";
+import { githubLevels, githubRank, memberGithub } from "./agent-github.js";
 
 /**
  * What a lead grants a task-bound member: capability switches (`true`), bundled
@@ -63,7 +64,7 @@ export function memberFolders(granted = {}, held = {}) {
 export function grantInput(value) {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw assistantProblem("invalid");
-  const known = [...grantFlags, "skills", "shell", "ssh", "projects"];
+  const known = [...grantFlags, "skills", "shell", "ssh", "projects", "github"];
   if (Object.keys(value).some((key) => !known.includes(key)))
     throw assistantProblem("invalid");
   const grants = {};
@@ -91,6 +92,12 @@ export function grantInput(value) {
     const projects = projectsInput(value.projects);
     if (Object.keys(projects).length) grants.projects = projects;
   }
+  // GitHub through the lead's token profile (agent-github.js), at most its level.
+  if ("github" in value) {
+    if (![...githubLevels, "none"].includes(value.github))
+      throw assistantProblem("invalid");
+    if (value.github !== "none") grants.github = value.github;
+  }
   return grants;
 }
 
@@ -112,7 +119,7 @@ export function defaultFor(lead) {
 export function assertWithinLead(
   lead,
   grants,
-  { shellSsh = false, ssh = false, projects = {} } = {},
+  { shellSsh = false, ssh = false, projects = {}, github = null } = {},
 ) {
   const refuse = () => {
     throw assistantProblem("teamGrantNotHeld", 409);
@@ -135,13 +142,26 @@ export function assertWithinLead(
       folderRank(level) > folderRank(projects[id])
     )
       refuse();
+  // `github`: the lead's own GitHub access now (agent-github.js held), or null.
+  if (
+    grants.github &&
+    (!githubLevels.includes(github?.level) ||
+      githubRank(grants.github) > githubRank(github.level))
+  )
+    refuse();
 }
 
 /**
  * What a member runs with: each grant within what the lead holds now; shell and SSH
  * only while `shellSsh`. Nothing without an eligible lead.
  */
-export function memberInheritance(lead, grants = {}, shellSsh = false, folders = {}) {
+export function memberInheritance(
+  lead,
+  grants = {},
+  shellSsh = false,
+  folders = {},
+  github = null,
+) {
   const eligible = !!lead && personalEligible(lead);
   const held = eligible ? personalCapabilities(lead) : {};
   const skills = eligible ? personalSkills(lead) : [];
@@ -164,6 +184,8 @@ export function memberInheritance(lead, grants = {}, shellSsh = false, folders =
     ssh: eligible && shellSsh && grants.ssh === true,
     // `folders`: the lead's project folder levels now (assistant-access.js).
     projects: eligible ? memberFolders(grants.projects, folders) : {},
+    // `github`: the lead's GitHub access now; the member uses its profile.
+    github: eligible ? memberGithub(grants.github, github) : null,
   };
 }
 
@@ -177,6 +199,11 @@ export function mergeGrants(current = {}, added = {}) {
   if (added.shell && (!current.shell || rank(added.shell) > rank(current.shell)))
     next.shell = added.shell;
   if (added.ssh) next.ssh = true;
+  if (
+    added.github &&
+    (!current.github || githubRank(added.github) > githubRank(current.github))
+  )
+    next.github = added.github;
   if (added.projects) {
     const projects = { ...current.projects };
     for (const [id, level] of Object.entries(added.projects))
@@ -190,7 +217,8 @@ export function mergeGrants(current = {}, added = {}) {
 /** `current` without `removed`; removing "all" skills (or `true`) removes every one. */
 export function removeGrants(current = {}, removed = {}) {
   const next = { ...current };
-  for (const key of [...grantFlags, "shell", "ssh"]) if (removed[key]) delete next[key];
+  for (const key of [...grantFlags, "shell", "ssh", "github"])
+    if (removed[key]) delete next[key];
   // Revoking a project removes its folder access at any level.
   if (removed.projects && current.projects) {
     const left = Object.fromEntries(
@@ -213,7 +241,9 @@ export function removeGrants(current = {}, removed = {}) {
 
 /** The granted keys, for notes and the audit (skill names, never server names). */
 export const grantedKeys = (grants = {}) =>
-  [...grantFlags, "skills", "shell", "ssh", "projects"].filter((key) => grants[key]);
+  [...grantFlags, "skills", "shell", "ssh", "projects", "github"].filter(
+    (key) => grants[key],
+  );
 
 /** Splits a later grant into what the lead may add itself and what needs the owner. */
 export function splitGrants(grants) {

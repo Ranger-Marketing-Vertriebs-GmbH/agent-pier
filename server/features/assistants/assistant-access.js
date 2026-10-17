@@ -4,6 +4,7 @@ import { requirePipeline } from "../mcp/tool-policy.js";
 import { sshModes } from "./agent-ssh-origin.js";
 import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
 import { projectFileLevels } from "./member-grants.js";
+import { githubAccessInput } from "./agent-github.js";
 // A temporary member uses its lead's SSH grants only while the lead lets its team
 // members use shell and SSH (memberInheritance); it never holds grants of its own.
 export const sshFromLead = (a) => inheritsFromLead(a) && a.inherited.ssh === true;
@@ -67,8 +68,9 @@ export class AssistantAccess {
       .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
       .get(id);
     return row
-      ? { sshAccesses: [], projectFiles: {}, ...JSON.parse(row.body) }
+      ? { sshAccesses: [], projectFiles: {}, github: null, ...JSON.parse(row.body) }
       : {
+          github: null,
           revision: 0,
           projectIds: [],
           projectFiles: {},
@@ -135,6 +137,7 @@ export class AssistantAccess {
       "publish",
       "sshAccesses",
       "projectFiles",
+      "github",
     ]);
     const old = this.get(id);
     if (old.revision !== revision) throw assistantProblem("conflict", 409);
@@ -185,6 +188,9 @@ export class AssistantAccess {
         input.projectFiles === undefined ? old.projectFiles : input.projectFiles,
         projectIds,
       ),
+      // GitHub through a token profile (agent-github.js); absent keeps the stored one.
+      github:
+        input.github === undefined ? old.github : this.githubAccess(id, input.github),
       // Absent keeps the stored grants: the MCP path and older clients never send them.
       sshAccesses:
         input.sshAccesses === undefined
@@ -221,6 +227,7 @@ export class AssistantAccess {
     const next = this.write(id, this.prepare(id, input, revision, notes));
     this.auditSsh(id, before, next, "owner");
     this.auditProjects(id, before, next);
+    this.auditGithub(id, before, next);
     this.s.assistants.changed();
     return {
       ...next,
@@ -249,6 +256,43 @@ export class AssistantAccess {
     if (this.s.assistantTelegramSenders?.connected(id))
       throw assistantProblem("telegramSendersSsh", 409);
     return list.sort(byAccessId);
+  }
+  // A GitHub access for a known profile; an agent with its own bot for other people
+  // never gets one (its server works on GitHub with the owner's token).
+  githubAccess(id, value) {
+    let credentials = [];
+    try {
+      credentials = this.s.repositories?.listCredentials() || [];
+    } catch {
+      /* No profiles readable: only "none" is accepted. */
+    }
+    const access = githubAccessInput(value, credentials);
+    if (access && this.s.assistantTelegramSenders?.connected(id))
+      throw assistantProblem("telegramSendersGithub", 409);
+    return access;
+  }
+  /** One record per GitHub access change: the profile id and levels, never a token. */
+  auditGithub(id, before, after) {
+    const from = before?.github || null,
+      to = after?.github || null;
+    if (from?.credentialId === to?.credentialId && from?.level === to?.level) return;
+    try {
+      this.s.audit?.append({
+        action: "assistant.updated",
+        resourceType: "assistant",
+        resourceId: id,
+        source: "user",
+        outcome: "success",
+        details: {
+          kind: "github-access",
+          githubFrom: from?.level || "none",
+          githubTo: to?.level || "none",
+          ...((to || from) && { credentialId: (to || from).credentialId }),
+        },
+      });
+    } catch (error) {
+      console.error("Agent GitHub access audit failed:", error?.message);
+    }
   }
   // The SSH catalog's hosts, or null while it cannot be read (never "no hosts").
   sshHosts() {
@@ -362,7 +406,12 @@ export class AssistantAccess {
       for (const row of this.db
         .prepare("SELECT assistant_id, body FROM assistant_access")
         .all()) {
-        const before = { sshAccesses: [], projectFiles: {}, ...JSON.parse(row.body) };
+        const before = {
+          sshAccesses: [],
+          projectFiles: {},
+          github: null,
+          ...JSON.parse(row.body),
+        };
         const fields = change(before);
         if (!fields) continue;
         const after = this.write(row.assistant_id, {

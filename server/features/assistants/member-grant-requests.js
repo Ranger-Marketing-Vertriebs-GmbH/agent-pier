@@ -67,6 +67,7 @@ export class MemberGrants {
       shellSsh: this.teams.shellSsh(member.teamId, lead.id),
       ssh: !!this.teams.sshGranted(lead.id),
       projects: this.teams.projectFiles(lead.id),
+      github: this.teams.github(lead.id),
     });
     const ids = leadServerIds(this.teams.servers(), lead.id, servers);
     const { own, owner } = splitGrants(grants);

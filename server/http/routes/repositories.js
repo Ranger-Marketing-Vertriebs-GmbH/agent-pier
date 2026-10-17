@@ -6,6 +6,14 @@ import { remoteTransport, wantsRemotes } from "../../features/repositories/git-r
 export function repositoriesRoutes(services) {
   const { repositories, github, gitRemotes, sessions } = services;
   const router = Router();
+  // A created, rotated or deleted profile reaches the agents using it (agent-github.js);
+  // their shell folders were already updated by github.sync().
+  // Not awaited: the Gateway converges in the background, under admission.
+  const agents = () => {
+    const assistants = services.assistants;
+    const agentGithub = assistants?.workflows?.github;
+    if (agentGithub) assistants.admit(() => agentGithub.refresh()).catch(() => {});
+  };
   router.get("/repositories", async (req, res) => {
     const projects = repositories.listProjects();
     res.json({
@@ -19,11 +27,13 @@ export function repositoriesRoutes(services) {
   router.post("/git-credentials", async (req, res) => {
     const credential = repositories.createCredential(req.body);
     await github.sync();
+    agents();
     res.status(201).json(credential);
   });
   router.patch("/git-credentials/:id", async (req, res) => {
     const credential = repositories.updateCredential(req.params.id, req.body);
     await github.sync();
+    agents();
     res.json(credential);
   });
   // Calls the host's API with the saved token; the response carries only the result.
@@ -42,6 +52,7 @@ export function repositoriesRoutes(services) {
   router.delete("/git-credentials/:id", async (req, res) => {
     repositories.removeCredential(req.params.id);
     await github.sync();
+    agents();
     res.status(204).end();
   });
   router.post("/repositories/clone", async (req, res) =>

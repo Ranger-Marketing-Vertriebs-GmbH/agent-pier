@@ -15,7 +15,10 @@ export const memberGrantCopy = {
     mcpServers: (count) => `MCP-Server: ${count}`,
     projects: (count) => `Projektordner: ${count}`,
     someProjects: "Projektordner",
+    github: (level) => `GitHub (${level})`,
+    someGithub: "GitHub",
   },
+  githubLevels: { read: "lesen", write: "lesen und schreiben", none: "Kein Zugriff" },
   fields: {
     name: "Namen",
     role: "Rolle",
@@ -32,6 +35,7 @@ export const memberGrantCopy = {
   memory: "Gedächtnis des leitenden Agenten (schreibgeschützte Kopie)",
   ownMemory: "Eigenes Gedächtnis",
   projectFolders: "Projektordner",
+  github: "GitHub",
   folderCounts: {
     write: (count) => `${count} lesen und schreiben`,
     read: (count) => `${count} lesen`,

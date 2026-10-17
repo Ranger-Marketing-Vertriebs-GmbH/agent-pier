@@ -255,7 +255,11 @@ export function compileOpenClawConfig({
           nativeReady: true,
           guardProven: false,
           available,
-          pathPrepend: shell?.pathPrepend,
+          // An agent with GitHub access and shell starts with its GitHub folder.
+          pathPrepend: [
+            ...(teams.githubShell?.[profile.id] || []),
+            ...(shell?.pathPrepend || []),
+          ],
           mcpTools: mcpServers.agentTools[profile.runtimeAgentId],
           senderFacing: !!telegramCompiled.accounts[profile.runtimeAgentId],
           ssh: !!teams.sshAgents?.has(profile.id),

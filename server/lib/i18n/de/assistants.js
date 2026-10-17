@@ -120,12 +120,14 @@ export const assistants = {
       ssh: "⚠ SSH auf den Hosts des leitenden Agenten",
       mcpServers: (count) => `MCP-Server: ${count}`,
       projects: (count) => `Projektordner: ${count}`,
+      github: (level) => `GitHub (${level})`,
     },
+    githubLevels: { read: "lesen", write: "lesen und schreiben" },
     levels: { approval: "mit Freigabe", full: "voller Zugriff" },
     gets: (labels) => `Erhält: ${labels}`,
     getsNothing: "Erhält: keine Werkzeuge",
     promoted: (lead, member) =>
-      `${lead} hat sein Team-Mitglied ${member} als dauerhaften Agenten behalten. Es behält seine Web-Werkzeuge, das Lesen von Bildern, Skills, MCP-Server und Erinnerungen, und nur sein eigenes Gedächtnis, nicht das seines leitenden Agenten; Shell und SSH erhält es nicht. Du kannst es in seinen Einstellungen prüfen oder archivieren.`,
+      `${lead} hat sein Team-Mitglied ${member} als dauerhaften Agenten behalten. Es behält seine Web-Werkzeuge, das Lesen von Bildern, Skills, MCP-Server und Erinnerungen, und nur sein eigenes Gedächtnis, nicht das seines leitenden Agenten; Shell, SSH, Projektordner und GitHub erhält es nicht. Du kannst es in seinen Einstellungen prüfen oder archivieren.`,
     proposalWarning:
       "⚠ Mit ⚠ markierte Mitglieder erhalten Shell oder SSH, höchstens mit der Stufe und auf den Hosts des leitenden Agenten. Sie arbeiten unbeaufsichtigt; gelesene Inhalte können sie lenken.",
     approval: (lead, member) =>
@@ -191,6 +193,10 @@ export const assistants = {
     "Diesem Agenten ist ein stdio-MCP-Server zugeordnet, der Befehle auf diesem Rechner ausführt. Entferne ihn, bevor du einen Bot für andere Personen verbindest.",
   telegramSendersSsh:
     "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keine SSH-Zugänge haben. Entferne die SSH-Zugänge oder trenne zuerst den Bot.",
+  telegramSendersGithub:
+    "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen GitHub-Zugriff haben. Entferne den GitHub-Zugriff oder trenne zuerst den Bot.",
+  githubProfileUnavailable:
+    "Dieses GitHub-Tokenprofil gibt es nicht mehr. Wähle unter Einstellungen → Zugriff → GitHub-Zugänge ein anderes.",
   sshNotGranted: "Dieser SSH-Zugang ist dem Agenten nicht zugewiesen.",
   sshHostUnavailable:
     "Dieser SSH-Zugang ist nicht verfügbar: Er wurde entfernt, oder OpenSSH fehlt.",

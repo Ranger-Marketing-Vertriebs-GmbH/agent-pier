@@ -152,6 +152,18 @@ told it was not saved.
   ([folder access](assistant-workflows.md#direct-folder-access)). The same access can
   be set from the project: **Projects → <project> → Agents**
   ([agent access per project](assistant-workflows.md#agent-access-from-the-project)).
+- **GitHub:** **No access**, **Read** or **Read and write** through one of your token
+  profiles from **Settings → Access → GitHub connections** (the host's **Default for agents** is
+  preselected). The agent gets the official GitHub MCP server with that profile:
+  **Read** offers repositories, issues, pull requests and Actions runs read only;
+  **Read and write** also comments on and creates issues and pull requests and changes
+  files, but never deletes a repository. With shell access, `gh` and `git` in the
+  agent's commands use the same profile instead of your own login. The token never
+  reaches the agent, its chat or the browser; a rotated token reaches the agent at
+  once, a deleted profile removes the access. The page warns when a token's known
+  scopes lack `repo`, and AgentPier installs the GitHub MCP server on first use
+  ([GitHub for agents](assistant-gateway.md#github-for-agents)). Each change is
+  recorded in the activity log.
 - **SSH accesses:** the hosts from **Settings → Access → SSH accesses** this agent may
   run commands on, each with a mode. **With approval** (the default) shows every
   command in the chat and in the paired Telegram chat with **Allow once** and **Deny**;
@@ -209,8 +221,9 @@ shows the model the member actually runs on:
 
 The lead decides what each temporary member gets, and can only give what it has
 itself: web search, web pages, browser, images, skills, its MCP servers, a read-only
-copy of its memory, reminders and its project folders (each at most at the lead's own
-**Read** or **Read and write** level). Without a choice of the lead a member gets memory,
+copy of its memory, reminders, its project folders (each at most at the lead's own
+**Read** or **Read and write** level) and its GitHub access (through the lead's token
+profile, at most at the lead's level). Without a choice of the lead a member gets memory,
 web search and web pages; so do members from teams that started before grants
 existed. The team proposal lists what every member gets. While a member works on
 its task, and also after it finished as long as the lead can still ask it questions
@@ -247,7 +260,7 @@ A lead can also keep a useful member as a permanent agent itself. This takes eff
 at once; you see a note in both chats and in the member's history, and a Telegram
 notice if the lead has a paired chat. The new agent keeps what it worked with as its
 own settings (web and image tools, skills, MCP servers, reminders), but never shell,
-SSH or project folder access, which you set yourself. It keeps only its own memory, which it can write;
+SSH, project folder or GitHub access, which you set yourself. It keeps only its own memory, which it can write;
 the copy of the lead's memory is removed. Its name and
 instructions stay, and it stays under its lead. You can archive it at any time.
 

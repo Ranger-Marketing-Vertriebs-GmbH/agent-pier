@@ -172,7 +172,11 @@ export class AssistantConfig {
       ssh,
     ).filter((tool) => !senderFacing || !sessionTools.includes(tool));
     // The owner's login PATH the running Gateway was started with (exec-shell.js).
-    const pathPrepend = this.shellPathPrepend?.() || [];
+    // An agent with GitHub access starts with its GitHub folder (agent-github.js).
+    const pathPrepend = [
+      ...(this.githubShellPath?.(assistant) || []),
+      ...(this.shellPathPrepend?.() || []),
+    ];
     // As agentEntry compiles it; the readback below checks the same value.
     const exec = nativeReady
       ? agentExec(personalShell(assistant), pathPrepend)
@@ -193,6 +197,8 @@ export class AssistantConfig {
       memoryWritable: !!this.writeGuard?.(),
       // Its granted project folders, resolved now (agent-project-files.js).
       projectFolders: (nativeReady && this.projectFolders?.(assistant)) || [],
+      // Its GitHub access: profile, level and the server's tool prefix.
+      github: (nativeReady && this.github?.(assistant)) || null,
     });
     const fingerprint = createHash("sha256")
       .update(

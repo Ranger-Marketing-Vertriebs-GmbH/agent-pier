@@ -44,7 +44,10 @@ advance (see [Managed assistant runtime](#managed-assistant-runtime)).
 `--with-agent-browser` installs the managed agent browser (a pinned Chrome for
 Testing build, see "Managed agent browser" in [assistant-gateway.md](assistant-gateway.md));
 an installer run keeps an installed one at the pinned version. A failed download never
-fails the installation; the result reports `agentBrowser.status`.
+fails the installation; the result reports `agentBrowser.status`. Every installer run
+also brings an installed GitHub MCP server for agents to its pinned version and
+reports `githubMcp.status`; AgentPier installs that server itself when an agent first
+gets GitHub access ([GitHub for agents](assistant-gateway.md#github-for-agents)).
 
 After an interruption, run the same command again. A matching existing setup is
 resumed; an AgentPier version that has already been updated is not downgraded.

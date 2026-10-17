@@ -8,16 +8,29 @@ export function assistantWorkflowRoutes({ assistants }) {
       return assistants.workflows;
     };
   router.get("/assistant-workspace-catalog", (_req, res) =>
-    res.json(service().access.catalog()),
+    res.json({
+      ...service().access.catalog(),
+      // Token profiles (metadata only) and the managed GitHub MCP server's state.
+      github: { profiles: service().github.catalog(), server: service().github.server() },
+    }),
   );
+  // Retries the managed GitHub MCP server's install after a failure.
+  router.post("/assistant-github-server/install", (_req, res) => {
+    service().s.githubMcp?.ensure();
+    res.json(service().github.server());
+  });
   router.get("/assistants/:id/access", (req, res) =>
     res.json(service().access.get(req.params.id)),
   );
   router.put("/assistants/:id/access", (req, res) =>
     assistants.admit(async () => {
       const { revision, ...input } = req.body;
-      const before = service().access.get(req.params.id).sshAccesses.length > 0;
+      const previous = service().access.get(req.params.id);
+      const before = previous.sshAccesses.length > 0;
       const saved = service().access.save(req.params.id, input, revision);
+      // A changed GitHub access reaches the agent, its members and the MCP servers.
+      if (JSON.stringify(previous.github) !== JSON.stringify(saved.github))
+        await service().github.refresh([req.params.id]);
       // Gaining the first or losing the last grant changes the agent's tool list.
       if (before !== saved.sshAccesses.length > 0 && assistants.runtime?.client?.ready)
         await assistants.config.apply(req.params.id).catch(() => {});

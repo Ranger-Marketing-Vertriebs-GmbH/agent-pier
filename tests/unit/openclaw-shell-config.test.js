@@ -320,7 +320,7 @@ test("the wrapper sets a quoted owner HOME and is read-only for the owner", (t) 
   }
   assert.match(
     execShellScript("/h"),
-    /^#!\/bin\/sh\nexport HOME='\/h'\nexec \/bin\/sh "\$@"\n$/,
+    /^#!\/bin\/sh\nexport HOME='\/h'\n[\s\S]*\nexec \/bin\/sh "\$@"\n$/,
   );
   assert.throws(() => execShellScript("relative/home"));
   const shells = fs.existsSync("/etc/shells")

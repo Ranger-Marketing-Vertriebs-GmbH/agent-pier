@@ -27,6 +27,7 @@ import { inspectSetupService } from "./setup-service.mjs";
 import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
 import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
 import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
+import { provisionGithubMcp } from "../server/features/tools/github-mcp-installer.js";
 import { proxyEnvironment, proxyVariables } from "../server/lib/proxy-environment.js";
 const proxyKeys = [...proxyVariables, "NODE_USE_ENV_PROXY"];
 const withoutProxy = (env = {}) =>
@@ -90,6 +91,7 @@ export async function resumeSetup(
     assistantRuntime,
     toolchains = provisionInstallerToolchains,
     agentBrowser = provisionAgentBrowser,
+    githubMcp = provisionGithubMcp,
   } = {},
 ) {
   let inspected = inspectSetup(options);
@@ -215,6 +217,8 @@ export async function resumeSetup(
       dataDir,
       enable: options.withAgentBrowser === true,
     });
+    // Keeps an installed GitHub MCP server for agents at the pinned version.
+    const githubMcpResult = await githubMcp({ dataDir });
     if (options.service) {
       let serviceState = await inspectService(serviceInput);
       if (
@@ -267,6 +271,7 @@ export async function resumeSetup(
       ...(assistants ? { assistantRuntime: assistants } : {}),
       toolchains: toolchainResult,
       ...(browserResult ? { agentBrowser: browserResult } : {}),
+      ...(githubMcpResult ? { githubMcp: githubMcpResult } : {}),
     };
   } finally {
     unlock();
