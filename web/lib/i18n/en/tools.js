@@ -1,4 +1,6 @@
 export const toolInstallerCopy = {
+  externalUpdateNotice: (name, found, required) =>
+    `${name} ${found} is older than the minimum version ${required}. AgentPier did not install this copy and cannot update it: update it with the package manager that installed it (for example Homebrew or npm). Sessions still start.`,
   versionLabel: (version) => `Version ${version}`,
   versionUnknown: "Version unknown",
   updateRequiredBadge: "Update required",

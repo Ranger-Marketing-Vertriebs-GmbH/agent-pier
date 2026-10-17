@@ -1,4 +1,6 @@
 export const toolInstallerCopy = {
+  externalUpdateNotice: (name, found, required) =>
+    `${name} ${found} ist älter als die Mindestversion ${required}. AgentPier hat diese Installation nicht eingerichtet und kann sie nicht aktualisieren: Aktualisiere sie mit dem Paketmanager, über den sie installiert wurde (zum Beispiel Homebrew oder npm). Sitzungen starten trotzdem.`,
   versionLabel: (version) => `Version ${version}`,
   versionUnknown: "Version unbekannt",
   updateRequiredBadge: "Update nötig",

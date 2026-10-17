@@ -18,11 +18,15 @@ function directory(t) {
 }
 function cli(root, name, body) {
   const file = path.join(root, name);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `#!/bin/sh\n${body}\n`, { mode: 0o755 });
   return file;
 }
 
-test("a launch of a CLI below its minimum is refused before anything is prepared", async (t) => {
+// Where the official installers put each CLI, so AgentPier can update it itself.
+const native = { codex: ".local/bin", claude: ".local/bin", opencode: ".opencode/bin" };
+
+test("a launch of a managed CLI below its minimum is refused before anything is prepared", async (t) => {
   const root = directory(t);
   const store = new AccountStore({
     dataDir: path.join(root, "data"),
@@ -30,9 +34,9 @@ test("a launch of a CLI below its minimum is refused before anything is prepared
     versions: createCliVersionProbe(),
   });
   const old = {
-    codex: cli(root, "codex", 'echo "codex-cli 0.100.0"'),
-    claude: cli(root, "claude", 'echo "2.0.1 (Claude Code)"'),
-    opencode: cli(root, "opencode", "echo 1.0.0"),
+    codex: cli(root, `${native.codex}/codex`, 'echo "codex-cli 0.100.0"'),
+    claude: cli(root, `${native.claude}/claude`, 'echo "2.0.1 (Claude Code)"'),
+    opencode: cli(root, `${native.opencode}/opencode`, "echo 1.0.0"),
   };
   for (const tool of ["codex", "claude", "opencode"]) {
     const account = store.create({ name: `Old ${tool}`, tool });
@@ -52,6 +56,50 @@ test("a launch of a CLI below its minimum is refused before anything is prepared
       code: "CLI_UPDATE_REQUIRED",
     });
   }
+});
+
+test("an external CLI below its minimum only warns, since AgentPier cannot update it", async (t) => {
+  const root = directory(t);
+  const store = new AccountStore({
+    dataDir: path.join(root, "data"),
+    home: path.join(root, "home"),
+    versions: createCliVersionProbe(),
+  });
+  // A Homebrew- or npm-style location outside the server home.
+  const old = cli(root, "opt/homebrew/bin/claude", 'echo "2.0.1 (Claude Code)"');
+  const launch = await store.command("local-claude", { claude: old });
+  assert.equal(launch.command, old);
+  assert.equal(launch.cliVersion, "2.0.1");
+});
+
+test("a Claude custom-model launch retries an unreadable version once with a longer timeout", async (t) => {
+  const root = directory(t);
+  const calls = [];
+  const store = new AccountStore({
+    dataDir: path.join(root, "data"),
+    home: root,
+    versions: {
+      read: async (_command, options = {}) => {
+        calls.push(options);
+        return options.refresh ? "2.1.296" : null;
+      },
+    },
+  });
+  const account = store.create({
+    name: "Z.ai",
+    tool: "claude",
+    apiKey: "fixture-key",
+    provider: { id: "zai", modelId: "glm-5.3" },
+  });
+  const launch = await store.command(account.id, { claude: "/opt/claude" });
+  assert.equal(launch.cliVersion, "2.1.296");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].refresh, true);
+  assert.ok(calls[1].timeout >= 10_000);
+  // A native Claude session does not need the version and is not retried.
+  calls.length = 0;
+  await store.command("local-claude", { claude: "/opt/claude" });
+  assert.equal(calls.length, 1);
 });
 
 test("an unreadable version starts the session, a current one is recorded on the launch", async (t) => {
@@ -83,14 +131,19 @@ test("the tool list reports version, minimum and state for each installed coding
       { id: "shell", installed: true, path: "/bin/sh" },
       { id: "gh", installed: false, path: null },
     ],
-    createCliVersionProbe(),
+    {
+      probe: createCliVersionProbe(),
+      wait: true,
+      managed: (tool) => tool.id === "claude",
+    },
   );
   assert.deepEqual(
-    tools.map(({ id, version, minimumVersion, versionStatus }) => ({
+    tools.map(({ id, version, minimumVersion, versionStatus, managedInstall }) => ({
       id,
       version,
       minimumVersion,
       versionStatus,
+      ...(managedInstall !== undefined ? { managedInstall } : {}),
     })),
     [
       {
@@ -98,18 +151,21 @@ test("the tool list reports version, minimum and state for each installed coding
         version: "0.160.1",
         minimumVersion: MINIMUM_CLI_VERSIONS.codex,
         versionStatus: "ok",
+        managedInstall: false,
       },
       {
         id: "claude",
         version: "2.1.100",
         minimumVersion: MINIMUM_CLI_VERSIONS.claude,
         versionStatus: "update-required",
+        managedInstall: true,
       },
       {
         id: "opencode",
         version: null,
         minimumVersion: MINIMUM_CLI_VERSIONS.opencode,
         versionStatus: "unknown",
+        managedInstall: false,
       },
       {
         id: "shell",
@@ -129,7 +185,7 @@ test("the tool list reports version, minimum and state for each installed coding
 
 test("POST /api/sessions answers an outdated CLI with a typed update_required problem", async (t) => {
   const f = await applicationFixture(t);
-  const old = cli(f.root, "old-claude", 'echo "2.1.100 (Claude Code)"');
+  const old = cli(f.home, ".local/bin/claude", 'echo "2.1.100 (Claude Code)"');
   const original = f.application.accounts.command.bind(f.application.accounts);
   f.application.accounts.command = (id, _binaries, login, mode, options) =>
     original(id, { claude: old }, login, mode, options);
@@ -171,4 +227,25 @@ test("a started session records the CLI version it launched with", async (t) => 
   assert.equal(response.status, 201, await response.clone().text());
   const session = await response.json();
   assert.equal((await f.application.sessions.get(session.id)).cliVersion, "0.160.1");
+});
+
+test("a login with an outdated managed CLI is refused with update_required", async (t) => {
+  const f = await applicationFixture(t);
+  const old = cli(f.home, ".local/bin/codex", 'echo "codex-cli 0.100.0"');
+  const account = f.application.accounts.create({ name: "Old login", tool: "codex" });
+  const original = f.application.accounts.command.bind(f.application.accounts);
+  f.application.accounts.command = (id, _binaries, login, mode, options) =>
+    original(id, { codex: old }, login, mode, options);
+  const response = await f.request(`/api/accounts/${account.id}/login`, {
+    method: "POST",
+  });
+  assert.equal(response.status, 409);
+  const body = await response.json();
+  assert.equal(body.code, "CLI_UPDATE_REQUIRED");
+  assert.deepEqual(body.updateRequired, {
+    tool: "codex",
+    found: "0.100.0",
+    required: MINIMUM_CLI_VERSIONS.codex,
+  });
+  assert.deepEqual(await f.application.sessions.list(), []);
 });

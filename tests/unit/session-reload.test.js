@@ -370,3 +370,28 @@ for (const phase of ["now", "when-idle", "prepare-error", "restart-error"]) {
     }
   });
 }
+
+test("an outdated CLI refuses a reload and keeps its update message when idle reload fails later", async () => {
+  const { requireCliVersion } =
+    await import("../../server/features/tools/cli-version.js");
+  const outdated = await requireCliVersion("codex", "/opt/codex", {
+    version: "0.100.0",
+    managed: true,
+  }).catch((error) => error);
+  assert.equal(outdated.code, "CLI_UPDATE_REQUIRED");
+  const f = fixture();
+  f.fail(outdated);
+  await assert.rejects(
+    f.reload.request("session", { mode: "now", requestId: randomUUID() }),
+    { code: "CLI_UPDATE_REQUIRED" },
+  );
+  f.fail(null);
+  f.activity("busy");
+  await f.reload.request("session", { mode: "when-idle", requestId: randomUUID() });
+  f.fail(outdated);
+  f.activity("idle");
+  await f.reload.poll();
+  assert.equal(f.stops, 0);
+  assert.equal(f.session.reload.state, "failed");
+  assert.equal(f.session.reload.error, outdated.message);
+});

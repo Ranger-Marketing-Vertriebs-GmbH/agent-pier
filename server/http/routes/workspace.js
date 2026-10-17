@@ -4,7 +4,7 @@ import { detectUtilities } from "../../features/accounts/account-store.js";
 import { toolBinDirectories } from "../../features/tools/tool-paths.js";
 import { SessionProjects } from "../../features/sessions/session-projects.js";
 import { readSandboxProfiles } from "../../features/nono/nono-profiles.js";
-import { withCliVersions } from "../../features/tools/cli-version.js";
+import { isManagedInstall, withCliVersions } from "../../features/tools/cli-version.js";
 export function workspaceRoutes(services) {
   const {
     config,
@@ -20,7 +20,14 @@ export function workspaceRoutes(services) {
   const projects = new SessionProjects();
   router.get("/state", async (_req, res) =>
     res.json({
-      tools: await withCliVersions(tools()),
+      // Never waits for a probe: a slow --version must not delay the app.
+      tools: await withCliVersions(tools(), {
+        managed: (tool) =>
+          isManagedInstall(tool.id, tool.path, {
+            home: config.home,
+            dataDir: config.dataDir,
+          }),
+      }),
       utilities: detectUtilities(
         { ...process.env, HOME: config.home },
         true,
