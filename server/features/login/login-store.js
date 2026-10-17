@@ -5,7 +5,13 @@ import { readJSON, writePrivate } from "../../lib/storage.js";
 import { loginProblem } from "./login-errors.js";
 const derive = promisify(scrypt);
 const digest = (token) => createHash("sha256").update(token).digest("hex");
-export const sessionDuration = 7 * 24 * 60 * 60 * 1000;
+const day = 24 * 60 * 60 * 1000;
+// Sliding sessions: each renewal grants a fresh idle window, never beyond the absolute cap.
+export const idleDuration = 30 * day;
+export const absoluteDuration = 90 * day;
+const legacyDuration = 7 * day;
+// setTimeout overflows above 2^31-1 ms and would fire at once.
+const maxTimer = 2 ** 31 - 1;
 const hashPassword = (password, salt) =>
   derive(password, salt, 64, { N: 32768, maxmem: 64 * 1024 * 1024 });
 
@@ -24,6 +30,12 @@ export class LoginStore {
           !/^[a-f0-9]{128}$/.test(this.data.user?.hash)))
     )
       throw new Error("Invalid private login state");
+    // Rows from the fixed seven-day lifetime carry only hash and expiry.
+    for (const session of this.data.sessions) {
+      if (!Number.isFinite(session.created))
+        session.created = session.expires - legacyDuration;
+      if (!Number.isFinite(session.lastUsed)) session.lastUsed = session.created;
+    }
     this.watchers = new Map();
     // One attempt window per source address: a LAN flood must not lock out the local owner.
     this.attempts = new Map();
@@ -90,10 +102,18 @@ export class LoginStore {
     this.data.sessions = this.data.sessions.filter(
       (session) => session.expires > this.now(),
     );
-    while (this.data.sessions.length >= 20) this.revokeHash(this.data.sessions[0].hash);
+    while (this.data.sessions.length >= 20)
+      this.revokeHash(
+        this.data.sessions.reduce((oldest, session) =>
+          session.lastUsed < oldest.lastUsed ? session : oldest,
+        ).hash,
+      );
+    const now = this.now();
     this.data.sessions.push({
       hash: digest(token),
-      expires: this.now() + sessionDuration,
+      created: now,
+      lastUsed: now,
+      expires: now + idleDuration,
     });
     this.save();
     return token;
@@ -110,7 +130,21 @@ export class LoginStore {
   require(token) {
     const session = this.session(token);
     if (!session) throw loginProblem("LOGIN_REQUIRED");
+    // In memory only; renewals and later writes persist it for eviction order.
+    session.lastUsed = this.now();
     return session;
+  }
+  // Returns the new cookie lifetime when the expiry moved, otherwise null. Writes happen only
+  // once less than half the idle window remains, so at most about every fifteen days.
+  renew(session) {
+    const now = this.now();
+    if (session.expires - now >= idleDuration / 2) return null;
+    const expires = Math.min(now + idleDuration, session.created + absoluteDuration);
+    if (expires <= session.expires) return null;
+    session.expires = expires;
+    this.save();
+    for (const watcher of this.watchers.get(session.hash) || []) watcher.schedule();
+    return expires - now;
   }
   revoke(token) {
     const session = this.session(token);
@@ -121,19 +155,32 @@ export class LoginStore {
   }
   revokeHash(hash) {
     this.data.sessions = this.data.sessions.filter((session) => session.hash !== hash);
-    for (const close of this.watchers.get(hash) || []) close();
+    for (const watcher of this.watchers.get(hash) || []) {
+      clearTimeout(watcher.timer);
+      watcher.close();
+    }
     this.watchers.delete(hash);
   }
   watch(session, close) {
-    const timer = setTimeout(close, Math.max(0, session.expires - this.now()));
-    timer.unref();
-    const callbacks = this.watchers.get(session.hash) || new Set();
-    callbacks.add(close);
-    this.watchers.set(session.hash, callbacks);
+    const watcher = { close, timer: null };
+    // Renewals reschedule; a long wait re-arms in chunks and rechecks the current expiry.
+    watcher.schedule = () => {
+      clearTimeout(watcher.timer);
+      const remaining = session.expires - this.now();
+      watcher.timer = setTimeout(
+        () => (session.expires > this.now() ? watcher.schedule() : close()),
+        Math.min(maxTimer, Math.max(0, remaining)),
+      );
+      watcher.timer.unref?.();
+    };
+    watcher.schedule();
+    const watchers = this.watchers.get(session.hash) || new Set();
+    watchers.add(watcher);
+    this.watchers.set(session.hash, watchers);
     return () => {
-      clearTimeout(timer);
-      callbacks.delete(close);
-      if (!callbacks.size) this.watchers.delete(session.hash);
+      clearTimeout(watcher.timer);
+      watchers.delete(watcher);
+      if (!watchers.size) this.watchers.delete(session.hash);
     };
   }
 }
