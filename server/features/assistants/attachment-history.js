@@ -52,6 +52,20 @@ export function withAttachments(messages, requests, { attempts, byRequest }) {
   });
 }
 
+/**
+ * Files an agent shared (AgentAttachments.sharedFor) join the page they fall into as
+ * agent messages, like the chat's other notes; the chat shows them at once, even
+ * while the turn that shared them still runs.
+ */
+export function withSharedFiles(messages, shared, { from = -Infinity } = {}) {
+  const own = shared.filter((m) => m.timestamp >= from);
+  if (!own.length) return messages;
+  return [...messages, ...own]
+    .map((m, i) => [m, i])
+    .sort(([x, i], [y, j]) => x.timestamp - y.timestamp || i - j)
+    .map(([m]) => m);
+}
+
 /** Requests carry their files so a turn still in flight shows them too. */
 export function requestsWithAttachments(requests, byRequest) {
   if (!byRequest.size) return requests;

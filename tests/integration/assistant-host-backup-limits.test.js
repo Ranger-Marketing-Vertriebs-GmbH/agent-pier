@@ -102,3 +102,27 @@ test("an unparsable relocatable file is omitted so the archive stays restorable"
     );
   }
 });
+
+test("files agents shared survive a backup and restore whatever their names", async (t) => {
+  const { dataDir, root, temporary } = fixture(t);
+  const agent = "7d1c2a64-6a0e-4c3b-9a43-6a1f2b3c4d5e";
+  // Stored names keep the agent's file name: some look like temporaries or caches.
+  const names = [
+    "20261017-101500-1a2b3c4d-report.pdf",
+    "20261017-101500-1a2b3c4e-build.tmp",
+    "20261017-101500-1a2b3c4f-db.sqlite-wal",
+    "20261017-101500-1a2b3c50-tool.lock",
+    "20261017-101500-1a2b3c51-cache",
+  ];
+  for (const name of names) write(root, `shares/${agent}/${name}`, name);
+  const backup = await new Backup({ dataDir }).create();
+  for (const name of names)
+    assert.ok(paths(backup.file).includes(`assistants/shares/${agent}/${name}`), name);
+  const target = path.join(temporary, "restored");
+  await new Restore({ dataDir }).apply({ archive: backup.file, targetDataDir: target });
+  for (const name of names)
+    assert.equal(
+      fs.readFileSync(path.join(target, "assistants/shares", agent, name), "utf8"),
+      name,
+    );
+});

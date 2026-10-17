@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { actionNotes } from "./assistant-action-notifications.js";
 import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
-import { requestsWithAttachments, withAttachments } from "./attachment-history.js";
+import {
+  requestsWithAttachments,
+  withAttachments,
+  withSharedFiles,
+} from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
 import { withMemoryNotes } from "./memory-notes.js";
 import { historyTextLimit } from "./history-text.js";
@@ -236,18 +240,22 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
   return {
     ...visible,
     requests: requestsWithSources(visible.requests, contexts),
-    messages: withMemoryNotes(
-      withRoutineResults(
-        withRunNotes(
-          service,
-          conversation,
-          withMessageSources(visible.messages, requests, { attempts, contexts }),
-          nextBefore,
+    messages: withSharedFiles(
+      withMemoryNotes(
+        withRoutineResults(
+          withRunNotes(
+            service,
+            conversation,
+            withMessageSources(visible.messages, requests, { attempts, contexts }),
+            nextBefore,
+          ),
+          service.routines?.results.forConversation(id) || [],
+          { from: pageStart(nextBefore, messages) },
         ),
-        service.routines?.results.forConversation(id) || [],
+        service.memoryNotes?.forConversation(id) || [],
         { from: pageStart(nextBefore, messages) },
       ),
-      service.memoryNotes?.forConversation(id) || [],
+      service.attachments?.sharedFor?.(id) || [],
       { from: pageStart(nextBefore, messages) },
     ),
     queued: queuedView(service, id),

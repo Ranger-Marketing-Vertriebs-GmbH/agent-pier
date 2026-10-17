@@ -209,6 +209,8 @@ export function constructAssistantGraph(host, created = {}) {
     assistants,
     speech: assistantSpeech,
   }));
+  // A shared file also reaches the owner's Telegram chat its turn came from.
+  assistants.shares.channels = assistantChannels;
   const assistantMemory = new NativeMemory(assistants, {
     workspaces: assistantRuntime.paths.workspaces,
   });

@@ -116,6 +116,7 @@ const nativeAllow = [
   "agentpier_routine",
   "agentpier_workspace",
   "agentpier_ssh",
+  "agentpier_share_file",
 ];
 const agentAllow = (config, id) => config.agents.entries[id].tools.allow;
 
@@ -297,6 +298,7 @@ test("a temporary team member's own capabilities give it no web tools", () => {
   assert.deepEqual(agentAllow(config, "ap-m1"), [
     "session_status",
     "agentpier_workspace",
+    "agentpier_share_file",
   ]);
   assert.deepEqual(webToolsSections({ profiles: [member], webTools: webTools(), port }), {
     tools: [],

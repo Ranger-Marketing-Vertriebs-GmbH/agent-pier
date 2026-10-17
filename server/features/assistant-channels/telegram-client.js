@@ -24,6 +24,14 @@ export async function boundedBytes(response, limit) {
   }
 }
 export const telegramApiRoot = "https://api.telegram.org";
+// Files go out as multipart uploads, and only through these methods; every other
+// call is JSON. Telegram takes photos up to 10 MB and documents up to 50 MB.
+export const telegramUploads = { sendPhoto: "photo", sendDocument: "document" };
+export const MAX_TELEGRAM_PHOTO_BYTES = 10 * 1024 * 1024;
+export const MAX_TELEGRAM_DOCUMENT_BYTES = 50 * 1024 * 1024;
+export const MAX_TELEGRAM_CAPTION = 1024;
+// Methods that deliver a message: a lost answer leaves the delivery uncertain.
+const delivering = new Set(["sendMessage", ...Object.keys(telegramUploads)]);
 export class TelegramClient {
   // `apiRoot` is a test seam for a local fake Bot API; production uses Telegram's.
   constructor({ token, fetchImpl = fetch, apiRoot = telegramApiRoot }) {
@@ -45,23 +53,46 @@ export class TelegramClient {
       ].includes(method)
     )
       throw channelError("TELEGRAM_METHOD", 400);
+    return this.request(
+      method,
+      { headers: { "Content-Type": "application/json" }, body: JSON.stringify(params) },
+      signal,
+      method === "getUpdates" ? 35000 : 20000,
+    );
+  }
+  /**
+   * Sends one file (`{ name, type, body }`) with sendPhoto or sendDocument as a
+   * multipart upload. `params` are the method's plain fields (chat_id, caption).
+   */
+  async upload(method, params, file, signal) {
+    const field = Object.hasOwn(telegramUploads, method) && telegramUploads[method];
+    const limit =
+      method === "sendPhoto" ? MAX_TELEGRAM_PHOTO_BYTES : MAX_TELEGRAM_DOCUMENT_BYTES;
+    if (!field || !Buffer.isBuffer(file?.body) || file.body.length > limit)
+      throw channelError("TELEGRAM_METHOD", 400);
+    const form = new FormData();
+    for (const [key, value] of Object.entries(params))
+      if (value !== undefined && value !== "") form.append(key, String(value));
+    form.append(field, new Blob([file.body], { type: file.type }), file.name);
+    return this.request(method, { body: form }, signal, 120000);
+  }
+  async request(method, init, signal, timeout) {
     const combined = AbortSignal.any([
-      AbortSignal.timeout(method === "getUpdates" ? 35000 : 20000),
+      AbortSignal.timeout(timeout),
       ...(signal ? [signal] : []),
     ]);
     let response, data;
     try {
       response = await this.fetchImpl(`${this.apiRoot}/bot${this.token}/${method}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
+        ...init,
         signal: combined,
         redirect: "error",
       });
       data = JSON.parse((await boundedBytes(response, 2 * 1024 * 1024)).toString());
     } catch {
       throw channelError(
-        method === "sendMessage" ? "DELIVERY_UNCERTAIN" : "TELEGRAM_UNAVAILABLE",
+        delivering.has(method) ? "DELIVERY_UNCERTAIN" : "TELEGRAM_UNAVAILABLE",
       );
     }
     if (!response.ok || data.ok !== true) {
@@ -82,7 +113,7 @@ export class TelegramClient {
           badRequest: code === 400,
         });
       throw channelError(
-        method === "sendMessage" ? "DELIVERY_UNCERTAIN" : "TELEGRAM_UNAVAILABLE",
+        delivering.has(method) ? "DELIVERY_UNCERTAIN" : "TELEGRAM_UNAVAILABLE",
       );
     }
     return data.result;

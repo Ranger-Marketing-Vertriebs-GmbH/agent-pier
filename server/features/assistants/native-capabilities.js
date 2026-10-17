@@ -56,7 +56,8 @@ export const sessionTools = [
  * (TeamBridge.routineWrite). Left out: reminders and routines (a routine never
  * schedules) and the team and workspace tools (the bridge serves them only in an
  * owner's chat turn). `agentpier_ssh` is in: the bridge admits a routine's run
- * session for SSH only, and only on hosts marked "Trusted incl. routines". `*__*`
+ * session for SSH only on hosts marked "Trusted incl. routines", and for
+ * `agentpier_share_file` into the routine's chat and Telegram. `*__*`
  * stands for the agent's MCP tools (`<server>__<tool>`).
  */
 export const routineTools = [
@@ -65,6 +66,7 @@ export const routineTools = [
   ...Object.values(capabilityTools).flat(),
   ...shellTools,
   "agentpier_ssh",
+  "agentpier_share_file",
   "*__*",
 ];
 export const personalEligible = (assistant) =>
@@ -163,6 +165,8 @@ export function profileTools(
       : []),
     // Temporary members use it only to request coding runs on the parent's grant.
     ...(nativeReady && !assistant.archivedAt ? ["agentpier_workspace"] : []),
+    // Every agent may hand the owner a file from its own workspace (agent-shares.js).
+    ...(nativeReady && !assistant.archivedAt ? ["agentpier_share_file"] : []),
     ...(nativeReady
       ? Object.entries(capabilityTools).flatMap(([key, tools]) =>
           // `available` withholds a tool whose browser or search provider is absent;

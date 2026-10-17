@@ -52,6 +52,17 @@ const reasons = {
     "Three of your SSH commands already wait for the owner's approval. Wait for decisions before you request more.",
   SSH_REVOKED:
     "The SSH access changed or the turn ended while the command waited or ran; it was stopped. Do not retry without the owner.",
+  SHARE_NOT_FOUND:
+    "No regular file exists at this path in your workspace. Give the path relative to your workspace, for example reports/summary.pdf.",
+  SHARE_OUTSIDE:
+    "Only regular files inside your own workspace can be shared, never through a symbolic or hard link. Copy the file into your workspace first.",
+  SHARE_TOO_LARGE:
+    "Shared files are limited to 25 MB. Compress or split the file, or tell the owner where it is.",
+  SHARE_EMPTY: "This file is empty; there is nothing to share.",
+  STORAGE_FULL:
+    "AgentPier's storage for this file is full. Do not retry; tell the owner.",
+  STORAGE_UNSAFE:
+    "AgentPier's storage for shared files is not a plain folder, so nothing can be shared. Do not retry; tell the owner.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -75,6 +86,12 @@ const byKey = {
   sshBusy: "SSH_BUSY",
   sshApprovalLimit: "SSH_APPROVAL_LIMIT",
   sshRevoked: "SSH_REVOKED",
+  shareNotFound: "SHARE_NOT_FOUND",
+  shareOutside: "SHARE_OUTSIDE",
+  shareTooLarge: "SHARE_TOO_LARGE",
+  shareEmpty: "SHARE_EMPTY",
+  attachmentStorageFull: "STORAGE_FULL",
+  attachmentStorageUnsafe: "STORAGE_UNSAFE",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",

@@ -10,6 +10,7 @@ export const assistantChannelCopy = {
   ignored: (privateCount, groupCount) =>
     `Ignorierte Nachrichten: ${privateCount} aus anderen privaten Chats, ${groupCount} aus Gruppen.`,
   teamNotification: "Team-Benachrichtigung",
+  fileNotification: "Vom Agenten geteilte Datei",
   connected: (chatId) => `Mit privatem Chat ${chatId} verbunden`,
   description:
     "Nutze den gemeinsamen Chat dieses Agenten aus deinem privaten Telegram-Chat. Antworten auf Telegram-Nachrichten kommen in Telegram an.",
@@ -56,6 +57,8 @@ export const assistantChannelCopy = {
     reviewed: "Zur Kenntnis genommen",
   },
   diagnostics: {
+    FILE_UNAVAILABLE: "Die geteilte Datei ist in AgentPier nicht mehr verfügbar.",
+    FILE_TOO_LARGE: "Die geteilte Datei ist größer, als Telegram annimmt.",
     CHANNEL_DESTINATION_CHANGED:
       "Die Chat-Verknüpfung hat sich geändert. Prüfe diesen Eingang, bevor es weitergeht.",
     TELEGRAM_CONFLICT:
