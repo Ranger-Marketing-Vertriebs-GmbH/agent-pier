@@ -1,13 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { cleanEnvironment } from "../accounts/account-store.js";
 import { chromiumManifest } from "./chromium-manifest.js";
 import {
   chromiumUnavailable,
   installChromium,
   managedChromium,
 } from "./chromium-installer.js";
-import { run } from "./tool-installer.js";
 
 /**
  * Installer step for `--with-agent-browser` (setup.sh, release-install.mjs): installs
@@ -33,6 +31,11 @@ export async function provisionAgentBrowser(
   const reason = chromiumUnavailable(platform, arch, manifest);
   if (reason) return { status: "unavailable", message: reason };
   try {
+    // Loaded on use: the installer scripts run before AgentPier's dependencies exist.
+    const [{ run }, { cleanEnvironment }] = await Promise.all([
+      import("./tool-installer.js"),
+      import("../accounts/account-store.js"),
+    ]);
     fs.mkdirSync(root, { recursive: true, mode: 0o700 });
     const result = await install({
       root,
