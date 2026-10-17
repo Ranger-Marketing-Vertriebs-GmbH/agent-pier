@@ -13,6 +13,13 @@ const home = {
   capabilities: { browser: true },
   browserRunning: true,
 };
+// A real 1x1 JPEG, so a test sees whether the browser may decode the picture.
+const jpeg = Buffer.from(
+  "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////" +
+    "////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAA" +
+    "AAAAAP/aAAgBAQABPxA=",
+  "base64",
+);
 // One frame as OpenClaw sends it: header length, JSON header, JPEG bytes.
 function frame() {
   const header = Buffer.from(
@@ -20,8 +27,13 @@ function frame() {
   );
   const length = Buffer.alloc(4);
   length.writeUInt32BE(header.length);
-  return Buffer.concat([length, header, Buffer.from([0xff, 0xd8, 0xff, 0xd9])]);
+  return Buffer.concat([length, header, jpeg]);
 }
+// The picture loaded and decoded (the page's CSP allows blob: images).
+const decoded = (picture) =>
+  expect
+    .poll(() => picture.evaluate((img) => img.complete && img.naturalWidth))
+    .toBeGreaterThan(0);
 const tabs = [
   { targetId: "t1", title: "Shop", url: "https://shop.example/" },
   { targetId: "t2", title: "Cart", url: "https://shop.example/cart" },
@@ -119,6 +131,7 @@ for (const [label, use] of [
       ).toBeVisible();
       const picture = page.getByRole("img", { name: "Live view of Home's browser" });
       await expect(picture).toHaveAttribute("src", /^blob:/);
+      await decoded(picture);
       await page.getByLabel("Tab").selectOption("t2");
       await expect
         .poll(() => commands)
@@ -157,6 +170,7 @@ test("the chat header shows a live preview while the browser runs", async ({ pag
   const preview = page.getByRole("link", { name: "Live view of Home's browser" });
   await expect(preview).toBeVisible();
   await expect(preview.locator("img")).toHaveAttribute("src", /^blob:/);
+  await decoded(preview.locator("img"));
   await preview.click();
   await expect(page).toHaveURL(/\/agents\/home\/browser$/);
 });

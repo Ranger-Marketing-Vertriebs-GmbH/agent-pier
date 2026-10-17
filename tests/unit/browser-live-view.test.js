@@ -264,3 +264,27 @@ test("only a full viewer counts as watching", async () => {
   assert.equal(calls.at(-1), false);
   preview.close();
 });
+
+test("a viewer who joins a running stream gets its last frame at once", async () => {
+  const f = fixture();
+  const a = f.viewer();
+  const first = f.live.subscribe("a", a.viewer);
+  await settle();
+  const [ws] = f.gateway.sockets;
+  const frame = Buffer.from([0, 0, 0, 2, 123, 125, 255]);
+  ws.emit("message", frame, true);
+  // A static page repaints never: the screencast sends no further frame.
+  const b = f.viewer(),
+    preview = f.viewer();
+  const second = f.live.subscribe("a", b.viewer);
+  const third = f.live.subscribe("a", preview.viewer, { preview: true });
+  assert.deepEqual(b.frames, [frame]);
+  assert.deepEqual(preview.frames, [frame]);
+  // A dropped upstream forgets it: the next one starts with a fresh frame.
+  ws.emit("close", 1006);
+  await settle();
+  const c = f.viewer();
+  const fourth = f.live.subscribe("a", c.viewer);
+  assert.deepEqual(c.frames, []);
+  for (const subscription of [first, second, third, fourth]) subscription.close();
+});

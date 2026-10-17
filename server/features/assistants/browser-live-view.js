@@ -3,8 +3,9 @@
  * view"). One upstream screencast per agent, shared by every viewer: AgentPier mints
  * a single-use ticket through the Gateway's `browser.request` (POST /screencast on
  * the agent's own profile), opens the ticket's WebSocket on the pinned Gateway
- * connection and hands each frame to the viewers as it arrives. Nothing is stored;
- * frames never reach a log. The upstream closes when the last viewer leaves.
+ * connection and hands each frame to the viewers as it arrives. Only the newest
+ * frame stays in memory, for a viewer who joins; frames never reach a disk or a log.
+ * The upstream closes when the last viewer leaves.
  *
  * Viewers get `state(snapshot)` with `{ status, url, title, targetId, tabs, reason }`
  * and `frame(bytes)` with OpenClaw's binary frame (a four-byte header length, a JSON
@@ -67,6 +68,11 @@ export class BrowserLiveView {
     // Since when a full viewer watches: the idle stop waits for it, but capped.
     if (!preview && stream.watchingSince == null) stream.watchingSince = this.now();
     viewer.state(stream.snapshot());
+    // The screencast sends frames on repaint only: a static page would stay blank.
+    if (stream.frame) {
+      entry.last = this.now();
+      viewer.frame(stream.frame);
+    }
     stream.wake();
     stream.takeover.viewsChanged(stream.holders());
     // Only a full view of a known login session takes over and sends input.
@@ -118,6 +124,8 @@ class LiveStream {
     this.busy = false;
     this.stopped = false;
     this.metrics = null;
+    // The upstream's newest frame, in memory only, for a viewer who joins.
+    this.frame = null;
     this.takeover = new Takeover(this);
   }
   /** The login sessions with a full view open. */
@@ -273,6 +281,7 @@ class LiveStream {
       clearTimeout(opening);
       if (this.upstream !== ws) return;
       this.upstream = null;
+      this.frame = null;
       // 4003: the page's address is blocked; 4004: the tab closed; else retried.
       if (code === 4003) this.set({ status: "blocked", reason: "navigation" });
       else this.set({ status: "connecting" });
@@ -284,6 +293,7 @@ class LiveStream {
     if (binary) {
       if (this.state.status !== "live") this.set({ status: "live", reason: "" });
       this.metrics = frameMetrics(data) || this.metrics;
+      this.frame = data;
       const now = this.live.now();
       for (const entry of this.viewers) {
         if (entry.preview && now - entry.last < this.live.previewMs) continue;
@@ -325,6 +335,7 @@ class LiveStream {
   disconnect() {
     const ws = this.upstream;
     this.upstream = null;
+    this.frame = null;
     try {
       ws?.close();
     } catch {
