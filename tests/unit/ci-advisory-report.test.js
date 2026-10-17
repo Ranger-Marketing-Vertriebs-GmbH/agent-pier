@@ -17,89 +17,16 @@ import {
 const root = path.resolve(import.meta.dirname, "../..");
 const workflowFile = (name) =>
   YAML.parse(fs.readFileSync(path.join(root, ".github/workflows", name), "utf8"));
+import {
+  bot,
+  fakeGitHub,
+  job,
+  options,
+  run,
+  verifyJobs,
+} from "../helpers/ci-advisory-github.js";
+
 const reporter = workflowFile("advisory-report.yml");
-const bot = { login: "github-actions[bot]", type: "Bot" };
-
-let jobId = 1000;
-const job = (name, conclusion = "success") => ({
-  name,
-  conclusion,
-  html_url: `https://github.com/o/r/actions/runs/7/job/${jobId++}`,
-});
-const verifyJobs = (overrides = {}) =>
-  [
-    "select tests",
-    "backend (ubuntu-latest, 24)",
-    "backend (macos-latest, 24)",
-    "browser (chromium) shard 1/4",
-    "browser (chromium)",
-    "browser (webkit) shard 1/5",
-    "browser (webkit)",
-    "native filesystem matrix (ubuntu-latest)",
-  ].map((name) => job(name, overrides[name]));
-const run = (fields = {}) => ({
-  id: 7,
-  run_attempt: 1,
-  name: "Verify",
-  event: "pull_request",
-  conclusion: "failure",
-  head_sha: "a".repeat(40),
-  head_branch: "feat/x",
-  html_url: "https://github.com/o/r/actions/runs/7",
-  run_started_at: "2026-10-17T10:00:00Z",
-  pull_requests: [{ number: 12 }],
-  head_repository: { owner: { login: "o" } },
-  ...fields,
-});
-
-// An in-memory GitHub REST API with the few endpoints the reporter uses.
-function fakeGitHub({ jobs = verifyJobs(), headSha = "a".repeat(40), pulls = [] } = {}) {
-  const comments = [];
-  const calls = [];
-  let nextId = 100;
-  const api = async (method, url, body) => {
-    calls.push(`${method} ${url}`);
-    const route = url.replace(/^\/repos\/o\/r/, "");
-    if (method === "GET" && /^\/actions\/runs\/\d+\/attempts\/\d+\/jobs/.test(route))
-      return { total_count: jobs.length, jobs };
-    if (method === "GET" && /^\/pulls\/\d+$/.test(route))
-      return { number: Number(route.split("/")[2]), head: { sha: headSha } };
-    if (method === "GET" && route.startsWith("/pulls?")) return pulls;
-    if (method === "GET" && /^\/issues\/\d+\/comments/.test(route))
-      return comments.filter((comment) => comment.issue === Number(route.split("/")[2]));
-    if (method === "POST" && /^\/issues\/\d+\/comments$/.test(route)) {
-      const comment = {
-        id: nextId++,
-        issue: Number(route.split("/")[2]),
-        user: bot,
-        body: body.body,
-      };
-      comments.push(comment);
-      return comment;
-    }
-    const id = Number(route.split("/").at(-1));
-    const comment = comments.find((candidate) => candidate.id === id);
-    if (method === "GET" && route.startsWith("/issues/comments/")) return comment;
-    if (method === "PATCH" && route.startsWith("/issues/comments/")) {
-      comment.body = body.body;
-      return comment;
-    }
-    if (method === "DELETE" && route.startsWith("/issues/comments/")) {
-      comments.splice(comments.indexOf(comment), 1);
-      return null;
-    }
-    throw new Error(`unexpected ${method} ${url}`);
-  };
-  return { api, comments, calls };
-}
-const options = (github, workflowRun, extra = {}) => ({
-  api: github.api,
-  repository: "o/r",
-  run: workflowRun,
-  sleep: async () => {},
-  ...extra,
-});
-
 test("only jobs outside the required checks and their inputs are advisory", () => {
   assert.deepEqual(requiredChecks, [
     "backend (ubuntu-latest, 24)",
