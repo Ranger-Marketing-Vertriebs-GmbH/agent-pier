@@ -1,4 +1,4 @@
-import { memoryEnabled, personalCapabilities } from "./native-capabilities.js";
+import { guardNeeded } from "./write-guard-wait.js";
 
 /**
  * Every Gateway start compiles its agents without write and edit (runtime-config.js)
@@ -43,11 +43,18 @@ export class WriteGuardReapply {
       .filter(
         (a) =>
           !a.archivedAt &&
-          (memoryEnabled(a) || personalCapabilities(a).browser) &&
+          guardNeeded(a) &&
           !this.blocked(a.id) &&
           !this.applied.has(a.id),
       )
       .map((a) => a.id);
+  }
+  /**
+   * The guard went away within a generation (a reconnect): applies made until it
+   * reports again lack the guarded tools, so its next report applies every agent.
+   */
+  guardLost() {
+    this.applied.clear();
   }
   /** Called on every guard report and on every readiness (gatewayEvents.ready). */
   request() {

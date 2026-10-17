@@ -1161,7 +1161,10 @@ calling agent's own profile on the Gateway host, whatever profile the model name
 and refuses `importprofile` in any spelling; without an answer the call is refused.
 Like guarded writes, the `browser` tool is offered only once the Gateway's tool guard
 has reported (`guardGatedTools`); a fresh start compiles it out and the guard's report
-brings it back (`write-guard-reapply.js`). AgentPier also keeps the limits:
+brings it back (`write-guard-reapply.js`), also after a reconnect that lost the guard.
+Owner turns of a browser agent wait for the guard like those of a memory agent, and
+the runtime status reports `WRITE_GUARD_PENDING` meanwhile. AgentPier also keeps the
+limits:
 
 - at most three visible agent browsers run at once. A fourth stops the least recently
   used one that is not busy; a browser is busy while it was used in the last five
@@ -1173,7 +1176,8 @@ brings it back (`write-guard-reapply.js`). AgentPier also keeps the limits:
   ended (a stop elsewhere, a crash) no longer counts, and the next launching call
   watches the new one. A Gateway reconnect keeps the tracking; a failure or a new
   start drops it;
-- a browser unused for 15 minutes is stopped (`browser.request` `POST /stop`);
+- a browser unused for 15 minutes is stopped (`browser.request` `POST /stop`), unless
+  the owner has one of its windows open; then it stops after an hour at the latest;
 - a visible browser starts minimized. A small CDP client of AgentPier's on the
   profile's loopback port minimizes the windows a fresh launch opens and keeps
   focus emulation on every page, so minimized pages keep rendering for screenshots,

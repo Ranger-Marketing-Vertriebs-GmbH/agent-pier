@@ -1,4 +1,4 @@
-import React, { useId, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow, { ToggleRow } from "../../../components/ListRow.jsx";
@@ -18,9 +18,22 @@ export default function BrowserGroup({ assistant, draft, browser }) {
   const id = useId();
   const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState("");
-  // An archived agent keeps its profile (archiving can be undone) and may reset it.
+  // An archived agent keeps its profile (archiving can be undone) and may reset it,
+  // as long as a profile is stored.
   const archived = Boolean(assistant?.archivedAt);
+  const [stored, setStored] = useState(false);
+  const agentId = assistant?.id;
+  useEffect(() => {
+    if (!archived || !agentId) return undefined;
+    const controller = new AbortController();
+    assistantApi
+      .browserStatus(agentId, controller.signal)
+      .then((status) => setStored(status?.stored === true))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [archived, agentId]);
   if (!assistant || !isPersonal(assistant)) return null;
+  if (archived && !stored && !result) return null;
   if (!archived && (!shellEligible(assistant) || draft.values.browser !== true))
     return null;
   const window = browser?.visible;
@@ -31,6 +44,7 @@ export default function BrowserGroup({ assistant, draft, browser }) {
     try {
       await assistantApi.browserReset(assistant.id);
       setResult(copy.resetDone);
+      if (archived) setStored(false);
     } catch {
       setResult(copy.resetFailed);
     }
@@ -54,11 +68,13 @@ export default function BrowserGroup({ assistant, draft, browser }) {
         {assistant.browserRunning && (
           <ListRow label={copy.running} status={{ tone: "ok", text: copy.runningNow }} />
         )}
-        <ListRow
-          label={copy.reset}
-          sub={copy.resetDescription}
-          onClick={() => setConfirming(true)}
-        />
+        {(!archived || stored) && (
+          <ListRow
+            label={copy.reset}
+            sub={copy.resetDescription}
+            onClick={() => setConfirming(true)}
+          />
+        )}
       </ListCard>
       {result && (
         <p role="status" className="assistant-notice">

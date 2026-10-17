@@ -298,6 +298,8 @@ export const backupCopy = {
     "Agent browser caches": "Browser-Caches der Agenten",
     "Agent browser files that were in use":
       "Browserdateien der Agenten, die gerade in Benutzung waren",
+    "Agent browser profiles (the agent list could not be read)":
+      "Browserprofile der Agenten (die Agentenliste war nicht lesbar)",
     "sealed-assistant-credentials":
       "Agent-Zugangsdaten (versiegelt; nur auf diesem Host wiederherstellbar, bis Zugangsdaten oder Provider-Zugänge geändert werden)",
     "Assistant runtimes, package caches, update snapshots, TLS and backup keys":

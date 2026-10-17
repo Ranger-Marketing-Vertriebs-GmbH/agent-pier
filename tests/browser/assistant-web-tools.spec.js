@@ -44,6 +44,15 @@ async function setup(page, options = {}) {
         contentType: "text/event-stream",
         body: 'data: {"type":"connected"}\n\n',
       });
+    if (path === "/api/assistants/home/browser" && method === "GET")
+      return route.fulfill({
+        json: {
+          running: false,
+          visible: false,
+          stored: !!options.stored,
+          resettable: true,
+        },
+      });
     if (path === "/api/assistants/home/browser/reset" && method === "POST") {
       state.resets++;
       return route.fulfill({
@@ -256,6 +265,28 @@ for (const [label, use] of [
       await page.getByRole("button", { name: "Delete profile" }).click();
       await expect.poll(() => state.resets).toBe(1);
       await expect(page.getByText("The browser profile was deleted.")).toBeVisible();
+    });
+
+    test("an archived agent offers the reset only for a stored profile", async ({
+      page,
+    }) => {
+      const archived = {
+        capabilities: { browser: true },
+        archivedAt: "2026-10-01T00:00:00Z",
+      };
+      await setup(page, { assistant: archived });
+      await page.goto(baseURL + settingsPath("capabilities"));
+      await expect(page.getByText("Memory & reminders")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /Reset browser profile/ }),
+      ).toHaveCount(0);
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+      const state = await setup(page, { assistant: archived, stored: true });
+      await page.reload();
+      await page.getByRole("button", { name: /Reset browser profile/ }).click();
+      await page.getByRole("button", { name: "Delete profile" }).click();
+      await expect.poll(() => state.resets).toBe(1);
+      await expect(page.getByLabel("Visible browser")).toHaveCount(0);
     });
 
     test("a visible window explains the missing agent browser app", async ({ page }) => {

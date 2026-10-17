@@ -10,6 +10,8 @@
  * only the AgentPier server, the Gateway's owner, connects here.
  */
 const launchWindowMs = 10000;
+// A CDP call that takes longer never holds a limit check or an idle sweep.
+const commandTimeoutMs = 2000;
 export class BrowserWindowKeeper {
   constructor(
     cdpPort,
@@ -106,11 +108,21 @@ export class BrowserWindowKeeper {
       };
     });
   }
-  send(method, params = {}, sessionId) {
+  /** One CDP call; a browser that does not answer within `timeoutMs` fails it. */
+  send(method, params = {}, sessionId, timeoutMs = commandTimeoutMs) {
     if (this.closed || this.ws?.readyState !== 1) return Promise.reject(Error("closed"));
     const id = ++this.id;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(Error("timeout"));
+      }, timeoutMs);
+      timer.unref?.();
+      const done = (fn) => (value) => {
+        clearTimeout(timer);
+        fn(value);
+      };
+      this.pending.set(id, { resolve: done(resolve), reject: done(reject) });
       this.ws.send(
         JSON.stringify({ id, method, params, ...(sessionId && { sessionId }) }),
       );

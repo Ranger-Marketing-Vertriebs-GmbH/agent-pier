@@ -3,11 +3,11 @@ import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import {
   inheritsFromLead,
-  memoryEnabled,
   personalCapabilities,
   writeGuardRuntimes,
 } from "./native-capabilities.js";
 import { toolError } from "./tool-errors.js";
+import { guardNeeded } from "./write-guard-wait.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
 import { flushSessionAgent } from "./memory-flushes.js";
 import { flushWrite, noteRefusal } from "./memory-write-policy.js";
@@ -45,11 +45,11 @@ const leavingReady = new Set([
   "failed",
   "disabled",
 ]);
-// Memory agents on a ready Gateway without a reported write guard stay read-only;
-// the runtime status says so instead of failing silently.
+// Memory and browser agents on a ready Gateway without a reported guard stay
+// read-only and without the browser; the runtime status says so.
 export function runtimeStatus(runtime, assistants, bridge) {
   const state = runtime.status();
-  const needed = assistants.store.listAssistants().some((a) => memoryEnabled(a));
+  const needed = assistants.store.listAssistants().some(guardNeeded);
   return bridge?.guardPending(needed) && !state.diagnostic
     ? { ...state, diagnostic: "WRITE_GUARD_PENDING" }
     : state;
@@ -64,7 +64,11 @@ export class TeamBridge {
     // within a window after it (write-guard-wait.js).
     this.readyAt = previous === "ready" ? now() : null;
     assistants.runtime?.on?.("status", (state) => {
-      if (previous === "ready" && leavingReady.has(state.availability)) this.guard = null;
+      if (previous === "ready" && leavingReady.has(state.availability)) {
+        this.guard = null;
+        // Applies made meanwhile compile without the guarded tools (write-guard-reapply.js).
+        this.onGuardLost?.();
+      }
       if (state.availability === "ready" && previous !== "ready")
         this.readyAt = this.now();
       previous = state.availability;

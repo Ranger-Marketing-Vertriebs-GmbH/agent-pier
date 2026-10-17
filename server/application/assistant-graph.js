@@ -146,21 +146,20 @@ export function constructAssistantGraph(host, created = {}) {
   assistants.browsers = created.browsers = new AgentBrowsers({
     store,
     runtime: assistantRuntime,
-    // An agent with a run in progress keeps its browser when another needs room.
-    busy: (id) => {
-      try {
-        return assistants.ledger
-          .pending()
-          .some(
-            (attempt) =>
-              store.getConversation(
-                assistants.ledger.getRequest(attempt.requestId).conversationId,
-              ).assistantId === id,
+    // An agent with a run in progress keeps its browser when another needs room;
+    // an attempt whose request or chat cannot be read does not count.
+    busy: (id) =>
+      assistants.ledger.pending().some((attempt) => {
+        try {
+          return (
+            store.getConversation(
+              assistants.ledger.getRequest(attempt.requestId).conversationId,
+            ).assistantId === id
           );
-      } catch {
-        return true;
-      }
-    },
+        } catch {
+          return false;
+        }
+      }),
   });
   assistants.browsers.onChange = () => assistants.changed();
   assistants.browsers.start();
@@ -423,6 +422,7 @@ export function connectAssistantServices(graph) {
     blocked: (id) => synchronization.blocked.has(id),
   });
   bridge.onGuard = () => guardReapply.request();
+  bridge.onGuardLost = () => guardReapply.guardLost();
   assistants.gatewayEvents.onReady(() => guardReapply.request());
   // Agents whose model connection is blocked keep no check-in job.
   reminders.heartbeats.blocked = (id) => synchronization.blocked.has(id);

@@ -9,7 +9,11 @@ import { Restore } from "../../server/features/operations/restore.js";
 import { createHash } from "node:crypto";
 import { encodeArchiveV2, loadArchive } from "../helpers/backup-archive.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
+import { CapturePlan } from "../../server/features/operations/capture-plan.js";
 import {
+  browserAgentsUnreadableOmission,
+  captureBrowserProfiles,
+  storedAgentIds,
   browserCachesOmission,
   browserProfilesComponent,
   browserProfilesOmission,
@@ -158,4 +162,18 @@ test("backups from before agent browser profiles restore: profiles back, caches 
   for (const cache of ["Default/GPUCache", "Default/Code Cache", "Default/Cache"])
     assert.equal(fs.existsSync(path.join(restored, cache)), false, cache);
   assert.equal(report.cachesLeftOut, 3);
+});
+
+test("an unreadable agent list leaves every profile out and says so", async (t) => {
+  const { dataDir } = fixture(t);
+  const result = await captureBrowserProfiles({
+    dataDir,
+    plan: new CapturePlan(),
+    scratch: dataDir,
+    agents: null,
+  });
+  assert.deepEqual(result.files, []);
+  assert.deepEqual(result.omissions, [browserAgentsUnreadableOmission]);
+  assert.equal(storedAgentIds(path.join(dataDir, "missing")), null);
+  assert.deepEqual([...storedAgentIds(dataDir)], ["a1"]);
 });
