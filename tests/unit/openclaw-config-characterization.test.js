@@ -78,6 +78,7 @@ test("native teams grant profile tools without guarded writes on a fresh start",
     "agentpier_reminder",
     "agentpier_routine",
     "agentpier_workspace",
+    "agentpier_share_file",
   ]);
   assert.equal(config.agents.entries["ap-a1"].memory.search.enabled, true);
   assert.equal(config.cron.enabled, true);
@@ -152,6 +153,7 @@ test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
     "agentpier_routine",
     "agentpier_workspace",
     "agentpier_ssh",
+    "agentpier_share_file",
   ]);
   assert.equal(config.tools.fs.workspaceOnly, true);
   assert.deepEqual(config.cron, {

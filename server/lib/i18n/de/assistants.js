@@ -241,6 +241,11 @@ export const assistants = {
   attachmentStorageUnsafe:
     "Der Anhang-Ordner im Arbeitsbereich dieses Agenten ist unsicher. Prüfe, ob attachments/ ein normaler Ordner ist.",
   attachmentRateLimited: "Zu viele Anhänge in kurzer Zeit. Warte einen Moment.",
+  shareNotFound: "Unter diesem Pfad liegt im Arbeitsbereich des Agenten keine Datei.",
+  shareOutside:
+    "Agenten können nur normale Dateien aus ihrem eigenen Arbeitsbereich teilen, ohne symbolische oder harte Links.",
+  shareTooLarge: "Geteilte Dateien sind auf 25 MB begrenzt.",
+  shareEmpty: "Diese Datei ist leer.",
   invalid: "Ungültige Agenten-Eingabe.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   conflict: "Die Daten wurden inzwischen geändert. Bitte neu laden.",

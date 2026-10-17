@@ -167,7 +167,8 @@ told it was not saved.
   split between paragraphs or lines (beyond about 64,000 characters or 40 messages
   a closing note says the reply was shortened). **Telegram activity** shows deliveries that
   need a decision. Voice messages are transcribed when a Deepgram key is set under
-  **Accounts → Services for agents → Speech recognition**.
+  **Accounts → Services for agents → Speech recognition**. Files the agent shares in
+  a Telegram turn reach Telegram too ([files from agents](#files-from-agents)).
 - **Acting on its own:** see [check-ins](#routines-reminders-and-check-ins).
 - **Reminders** and **Routines** (with **Allow Telegram reminders** on).
 - **Telegram for other people:** gives the agent its own bot for people you choose,
@@ -340,6 +341,25 @@ workspace so it can read them with its tools. Models that accept images (ChatGPT
 endpoint models that declare it, OpenRouter models whose catalog lists image input)
 also see images directly; the composer says when the agent's model cannot. Attachments
 are part of host backups.
+
+### Files from agents
+
+Every agent, team members included, can hand you a file from its own workspace with
+its `agentpier_share_file` tool, for example a report it wrote or a chart it drew. The
+file appears in the chat at once as the agent's message: images inline (select one to
+open it), every other file as a download chip, with the agent's short caption. It
+stays in the history, also while AgentPier is unreachable. When the turn came from your
+paired Telegram chat, the file goes there too, as a photo or as a document.
+
+- A team member's file appears in its own chat and in its lead's chat, under the
+  member's name; it reaches Telegram when the lead's turn the member works for came
+  from Telegram.
+- Agents share only regular files of at most 25 MB from their own workspace, never
+  through a symbolic or hard link. Shared copies count against the same 512 MB or 1000
+  files per agent as your attachments; when that is full, the agent is told to free
+  space in `attachments/`.
+- If the agent later deletes the copy, the message stays and says the file is no
+  longer available.
 
 ## Security notes
 

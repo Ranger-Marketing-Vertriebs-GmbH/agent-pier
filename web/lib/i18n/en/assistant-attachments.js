@@ -3,6 +3,8 @@ export const assistantAttachmentsCopy = Object.freeze({
   choose: "Choose files or images",
   list: "Attachments",
   sent: "Attached files",
+  shared: "Shared files",
+  sharedUnavailable: "This shared file is no longer available.",
   remove: (name) => `Remove ${name}`,
   open: (name) => `Open ${name}`,
   download: (name) => `Download ${name}`,

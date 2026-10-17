@@ -463,7 +463,7 @@ export default function AssistantChat({
                 <AssistantMessage
                   key={m.id}
                   role={m.role}
-                  name={m.role === "user" ? copy.you : assistant.name}
+                  name={m.role === "user" ? copy.you : m.from || assistant.name}
                   text={m.text}
                   cut={m.cut === true}
                   partial={m.partial === true}
@@ -474,6 +474,8 @@ export default function AssistantChat({
                   forwarded={m.forwarded === true}
                   mentions={mentions}
                   scheduled={m.scheduled || null}
+                  shared={m.shared === true}
+                  unavailable={m.unavailable === true}
                 />
               ),
             )}

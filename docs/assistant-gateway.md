@@ -660,6 +660,9 @@ never inside a tag, entity or surrogate pair. Parts are not numbered.
 API references: [Telegram polling](https://core.telegram.org/bots/api#getupdates),
 [Telegram messages](https://core.telegram.org/bots/api#sendmessage),
 [Telegram files](https://core.telegram.org/bots/api#getfile),
+[Telegram photos](https://core.telegram.org/bots/api#sendphoto) and
+[documents](https://core.telegram.org/bots/api#senddocument) (files agents share,
+see [Files agents share](#files-agents-share-2026-10-17)),
 [Deepgram transcription](https://developers.deepgram.com/reference/speech-to-text/listen-pre-recorded).
 
 ## Visible teams: operation and recovery
@@ -2268,6 +2271,50 @@ server decides by the bytes, never by the name or the browser's type.
   the workspace; `AgentAttachments.purge` removes an agent's folder and index for a
   future deletion path. OpenClaw also stages inline images it receives under
   `media/inbound/` of the workspace, so such an image exists twice.
+
+### Files agents share (2026-10-17)
+
+`agentpier_share_file {path, caption?}` is compiled into every non-archived agent's
+`tools.allow`, team members included; the bridge serves it only in a turn with an
+active attempt (never a routine's run session or a sender bot's session) and routes
+it to `AgentShares` (`agent-shares.js`).
+
+- **Source.** `path` is relative to the agent's workspace or absolute inside it. The
+  roots come from `shareRoots()` (`agent-share-source.js`): today only the agent's own
+  workspace, which must not itself be a link; granted project folders can join there.
+  The resolved path must equal the lexical one under the real root, so no component
+  may be a symbolic link (even one pointing back inside). The file is opened with
+  `O_NOFOLLOW|O_NONBLOCK` and must be a regular, non-empty file of at most 25 MiB
+  with a single hard link; after the open its inode is compared with the checked path
+  (on Linux also the descriptor's own path), and the bytes are read through the
+  descriptor. Refusals return a stable code and an English reason to the model
+  (`SHARE_OUTSIDE`, `SHARE_NOT_FOUND`, `SHARE_TOO_LARGE`, `SHARE_EMPTY`,
+  `STORAGE_FULL`).
+- **Store.** The copy goes into the agent's `attachments/` like an upload
+  (`AgentAttachments.share`), within the same 512 MB / 1000 files. Its type is decided
+  by the bytes: JPEG, PNG, WebP, GIF, HEIC and PDF keep theirs, anything else
+  (text, CSV, office files, archives) is stored as `application/octet-stream` and only
+  ever downloaded. The index row names `share:<request id>` as its request, so no
+  delivery, claim or history note of an owner turn ever picks it up.
+- **History.** `AgentAttachments.sharedFor` adds one agent message per shared file to
+  the history page it falls into (`withSharedFiles`), at the time it was shared, with
+  the caption as text and the file in `attachments`; `shared: true` marks it, and
+  `unavailable: true` replaces the file when the copy is gone. A change event makes
+  the open chat read it at once, also while the turn still runs. The browser's
+  history cache keeps it while AgentPier is unreachable.
+- **Members.** A member's file joins the member's chat. For a lead's question or task
+  (`lead-request`) and a team assignment (`team-member`) a second index row shows the
+  same copy in the lead's chat, with `from` set to the member's name.
+- **Telegram.** When the turn came from the paired owner chat (`telegram` context),
+  or a member works for a lead turn that did (its context's `telegram`), the share is
+  queued as a durable outbox notice of kind `file` for that chat, while the chat and
+  user still match. The worker reads the copy back by its recorded size and SHA-256
+  and uploads it as `multipart/form-data`: `sendPhoto` for JPEG, PNG and WebP up to
+  10 MB, `sendDocument` otherwise (up to 50 MB); a photo Telegram refuses outright is
+  sent once more as a document. The caption is plain text, at most 1,024 characters.
+  `TelegramClient.upload` admits only these two methods; every other method stays
+  JSON-only. A file gone before delivery ends as `FILE_UNAVAILABLE`. Each share writes
+  an `assistant.sent` audit event with `kind: "share"`.
 
 ## Continuous integration
 
