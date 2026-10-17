@@ -66,11 +66,13 @@ export class AssistantActionStore {
       .all(leadId)
       .map((r) => JSON.parse(r.body));
   }
-  // Coding and memory requests for a project that are not started yet.
+  // Coding and memory requests for a project that are not started yet: the actions
+  // whose authority is the project grant. SSH and exec cards name a project too, but
+  // their SSH grant or the Gateway decides them.
   unstarted(projectId) {
     return this.db
       .prepare(
-        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.payload.projectId')=? AND json_extract(body,'$.state') IN ('awaiting_approval','approved') ORDER BY rowid",
+        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.payload.projectId')=? AND json_extract(body,'$.payload.action') IN ('coding_start','memory_write') AND json_extract(body,'$.state') IN ('awaiting_approval','approved') ORDER BY rowid",
       )
       .all(projectId)
       .map((r) => JSON.parse(r.body));

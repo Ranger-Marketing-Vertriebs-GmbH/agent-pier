@@ -2,11 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { workflowFixture } from "../helpers/assistant-workflow-fixture.js";
 import { ProjectRebind } from "../../server/application/project-rebind.js";
 import { saveWork } from "../../server/features/assistants/assistant-work.js";
 
-function coordinator(f) {
+function coordinator(f, assistantWorkflows = () => f.workflows) {
   return new ProjectRebind({
     dataDir: f.dataDir,
     memory: f.memory,
@@ -18,7 +19,7 @@ function coordinator(f) {
     artifacts: { ownsProject: () => false, moveProject: async () => {} },
     sessions: { serial: (fn) => fn() },
     audit: { append() {} },
-    assistantWorkflows: () => f.workflows,
+    assistantWorkflows,
   });
 }
 const audited = (f) => {
@@ -68,6 +69,14 @@ test("merging an older project row drops it from agent access and closes its app
     pipelineId: f.pipeline.id,
     task: "Work on another project.",
   });
+  // An SSH card names its host's project, but its authority is the SSH grant: the
+  // host moves with the merge, so the card stays open.
+  const ssh = f.workflows.store.reserve({
+    assistantId: f.id,
+    key: "ssh-card",
+    state: "awaiting_approval",
+    payload: { action: "ssh", accessId: "host", projectId: f.project.id },
+  });
   const current = await replaceFolder(f);
   const events = audited(f);
   await coordinator(f).mergeDuplicate(f.project.id, f.memory.scopeOf(current.id));
@@ -81,6 +90,7 @@ test("merging an older project row drops it from agent access and closes its app
   assert.equal(closed.state, "failed");
   assert.equal(closed.diagnostic, "GRANT_REVOKED");
   assert.equal(f.workflows.get(kept.id).state, "awaiting_approval");
+  assert.equal(f.workflows.get(ssh.id).state, "awaiting_approval");
   assert.deepEqual(
     events.map((e) => [e.action, e.resourceId, e.projectId, e.details]),
     [
@@ -146,4 +156,45 @@ test("saving agent access with an unknown project drops it and reports it", asyn
     () => f.workflows.access.save(f.id, { ...f.policy, projectIds: ["../x"] }, 3),
     { status: 400 },
   );
+});
+
+test("a git-init rebind that could not reach the agents drops their grant on the next resume", async (t) => {
+  const f = await workflowFixture(t);
+  const policy = f.workflows.access.save(f.id, f.policy, 0);
+  // The agent feature is off while the folder becomes a Git work tree.
+  let workflows = null;
+  const rebind = coordinator(f, () => workflows);
+  f.memory.rebindProject = (input) => rebind.rebind(input);
+  execFileSync("git", ["init", "-q", f.project.cwd], {
+    env: {
+      PATH: process.env.PATH,
+      HOME: f.project.cwd,
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+    },
+  });
+  const current = await f.memory.register(f.project.cwd);
+  assert.equal(f.memory.reboundTo(f.project.id), current.id);
+  assert.equal(rebind.remnants(f.project.id), false);
+  workflows = f.workflows;
+  assert.equal(rebind.remnants(f.project.id), true);
+  await rebind.ensure({ cwd: f.project.cwd, previousIds: [f.project.id] });
+  const after = f.workflows.access.get(f.id);
+  assert.deepEqual(after.projectIds, []);
+  assert.equal(after.revision, policy.revision + 1);
+  assert.equal(rebind.remnants(f.project.id), false);
+});
+
+test("the direct access save reports the projects it dropped", async (t) => {
+  const f = await workflowFixture(t);
+  const missing = "0".repeat(64);
+  const saved = f.workflows.access.save(
+    f.id,
+    { ...f.policy, projectIds: [f.project.id, missing] },
+    0,
+  );
+  assert.deepEqual(saved.projectIds, [f.project.id]);
+  assert.deepEqual(saved.removedProjectIds, [missing]);
+  // Only the policy is stored, never the report.
+  assert.equal(f.workflows.access.get(f.id).removedProjectIds, undefined);
 });

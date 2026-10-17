@@ -171,12 +171,14 @@ export class AssistantAccess {
       .run(id, JSON.stringify(next));
     return next;
   }
+  /** Saves and returns the policy with `removedProjectIds` (never stored). */
   save(id, input, revision) {
     const before = this.get(id);
-    const next = this.write(id, this.prepare(id, input, revision));
+    const notes = {};
+    const next = this.write(id, this.prepare(id, input, revision, notes));
     this.auditSsh(id, before, next, "owner");
     this.s.assistants.changed();
-    return next;
+    return { ...next, removedProjectIds: notes.removedProjectIds };
   }
   // A replaced SSH grant list: catalog hosts with a mode, sorted; an agent with its
   // own bot for other people never gets one (telegram-senders.js).
@@ -266,6 +268,15 @@ export class AssistantAccess {
           projectIds: before.projectIds.filter((id) => id !== projectId),
         },
       during,
+    );
+  }
+  holdsProject(projectId) {
+    return Boolean(
+      this.db
+        .prepare(
+          "SELECT 1 FROM assistant_access WHERE EXISTS (SELECT 1 FROM json_each(body,'$.projectIds') WHERE value=?) LIMIT 1",
+        )
+        .get(projectId),
     );
   }
   // Applies `change` (fields to replace, or false) to every stored policy at once.
