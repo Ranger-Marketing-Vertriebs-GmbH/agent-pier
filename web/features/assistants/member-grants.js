@@ -54,6 +54,16 @@ export const keyLabels = (granted = [], servers = 0, shell = null) =>
 
 export const holdsShellSsh = (grants = {}) => !!(grants.shell || grants.ssh);
 
+/** A member's folder levels as it uses them now: "1 read and write, 2 read". */
+export function folderCounts(projects = {}) {
+  const levels = Object.values(projects || {});
+  const parts = ["write", "read"].flatMap((level) => {
+    const count = levels.filter((value) => value === level).length;
+    return count ? [copy.folderCounts[level](count)] : [];
+  });
+  return parts.length ? parts.join(", ") : copy.folderCounts.none;
+}
+
 /** The grants line of a member: "Gets: …" or "No tools". */
 export const grantsLine = (grants, servers) => {
   const labels = grantLabels(grants, servers);

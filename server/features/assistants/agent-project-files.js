@@ -1,7 +1,7 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
-import { memberFolders } from "./member-grants.js";
 import {
+  appendFile,
   editFile,
   listFolder,
   readFile,
@@ -50,13 +50,13 @@ export class AgentProjectFiles {
       return {};
     }
   }
-  // A task member's folders: its grant within its lead's levels right now.
+  // A task member's folders: its grant within its lead's levels right now, as the
+  // store resolves them on every read (memberInheritance).
   memberLevels(memberId) {
     try {
       const member = this.w.a.teams.store.member(memberId);
       const agent = this.w.a.store.getAssistant(member.assistantId);
-      if (!inheritsFromLead(agent)) return {};
-      return memberFolders(member.grants?.projects, this.held(agent.parentAssistantId));
+      return inheritsFromLead(agent) ? { ...agent.inherited.projects } : {};
     } catch {
       return {};
     }
@@ -87,7 +87,7 @@ export class AgentProjectFiles {
   get protectedRoots() {
     return [this.w.s.config?.dataDir].filter(Boolean);
   }
-  invoke(ctx, input) {
+  async invoke(ctx, input) {
     const projectId = textValue(input.projectId, 100);
     const level = this.levels(ctx)[projectId];
     if (!level) throw assistantProblem("projectFolderNotGranted", 403);
@@ -99,22 +99,25 @@ export class AgentProjectFiles {
         input.action === "files_list"
           ? listFolder(root, at, options)
           : input.action === "file_read"
-            ? readFile(root, at, {
+            ? await readFile(root, at, {
                 ...options,
                 offset: count(input.offset, 1),
                 limit: count(input.limit, 2000),
               })
-            : searchFolder(root, at, textValue(input.query, 300), options);
+            : await searchFolder(root, at, textValue(input.query, 300), options);
       return { projectId, access: level, ...result };
     }
     if (level !== "write") throw assistantProblem("projectFolderReadOnly", 403);
     // Like native writes: only while the running Gateway's tool guard is proven.
     if (!this.w.a.config?.writeGuard?.())
       throw assistantProblem("projectWriteUnavailable", 503);
-    const result =
-      input.action === "file_write"
-        ? writeFile(root, at, textValue(input.content ?? "", 65536, true), options)
-        : editFile(
+    const content = () => textValue(input.content ?? "", 65536, true);
+    const append = input.action === "file_write" && input.append === true;
+    const result = append
+      ? await appendFile(root, at, content(), options)
+      : input.action === "file_write"
+        ? writeFile(root, at, content(), options)
+        : await editFile(
             root,
             at,
             {
@@ -124,7 +127,7 @@ export class AgentProjectFiles {
             },
             options,
           );
-    this.audit(ctx, projectId, input.action, result);
+    this.audit(ctx, projectId, append ? "append" : input.action, result);
     return { projectId, access: level, ...result };
   }
   // One record per change: the agent, project, relative path and size, never content.
@@ -140,7 +143,13 @@ export class AgentProjectFiles {
         details: {
           kind: "project-file",
           fileChange:
-            action === "file_write" ? (result.created ? "create" : "replace") : "edit",
+            action === "file_write"
+              ? result.created
+                ? "create"
+                : "replace"
+              : action === "append"
+                ? "append"
+                : "edit",
           filePath: result.path,
           bytes: result.bytes,
           ...(ctx.requestedBy ? { requestedBy: ctx.requestedBy } : {}),

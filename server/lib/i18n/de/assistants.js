@@ -210,6 +210,9 @@ export const assistants = {
   projectFileUnsuitable:
     "Diese Datei ist zu groß, binär oder keine normale Datei für diese Aktion.",
   projectEditNoMatch: "Der zu ersetzende Text kommt in der Datei nicht genau einmal vor.",
+  projectFileEncoding:
+    "Diese Datei ist kein gültiges UTF-8; sie wird nicht geändert, damit keine Zeichen verloren gehen.",
+  projectWriteTooLarge: "Ein Schreibvorgang darf höchstens 64 KiB umfassen.",
   memberModelFollowsLead:
     "Ein auftragsgebundenes Mitglied nutzt das Modell seines leitenden Agenten. Ändere das Modell dort oder behalte das Mitglied als dauerhaften Agenten.",
   memberRequestNotPermanent:

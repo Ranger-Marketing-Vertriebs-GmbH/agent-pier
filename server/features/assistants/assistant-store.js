@@ -123,8 +123,25 @@ export class AssistantStore {
     }
     return {
       ...next,
-      inherited: memberInheritance(lead, granted.grants, granted.shellSsh === true),
+      inherited: memberInheritance(
+        lead,
+        granted.grants,
+        granted.shellSsh === true,
+        lead ? this.folderLevels(lead.id) : {},
+      ),
     };
+  }
+  // An agent's project folder levels, read from the access row that AssistantAccess
+  // keeps in this database; none when it cannot be read.
+  folderLevels(id) {
+    try {
+      const row = this.db
+        .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
+        .get(id);
+      return (row && JSON.parse(row.body).projectFiles) || {};
+    } catch {
+      return {};
+    }
   }
   listAssistants() {
     const records = this.db

@@ -5,59 +5,88 @@ import { assistantProblem } from "./assistant-validation.js";
 import { projectTarget } from "./project-paths.js";
 import { fold } from "./team-plugin/tool-guard.js";
 
-// What one tool call reads, lists or searches at most; writes come through the
-// bridge, whose request limit (128 KiB) bounds them further.
+// What one tool call reads, lists, searches or writes at most. A write comes through
+// the bridge, whose request limit (128 KiB, JSON-escaped) bounds it further.
 export const fileLimits = {
   readBytes: 1048576,
   readChars: 200000,
   readLines: 2000,
+  // A line range of a larger file: how far one call scans for it.
+  scanBytes: 268435456,
+  sniffBytes: 8192,
   listEntries: 1000,
   searchFiles: 5000,
   searchMatches: 200,
-  // Search reads synchronously; this bounds the time one call holds the server.
+  // Every byte search reads counts, sniffed or in full.
   searchBytes: 33554432,
   lineChars: 300,
+  writeBytes: 65536,
+  // An appended file stays editable and searchable in one piece.
+  appendTotalBytes: 16777216,
 };
 // Never descended into by search: dependencies and the runs' own checkouts.
 const skipped = new Set([".git", "node_modules", ".agentpier-worktrees"].map(fold));
 const unsuitable = () => assistantProblem("projectFileUnsuitable", 400);
 const missing = () => assistantProblem("notFound", 404);
-const { O_RDONLY, O_NOFOLLOW } = fs.constants;
+const strict = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+// O_NONBLOCK: a FIFO or device opens at once and is refused by its type.
+const { O_RDONLY, O_NOFOLLOW, O_NONBLOCK } = fs.constants;
+const readFlags = O_RDONLY | O_NOFOLLOW | O_NONBLOCK;
 
-function openRegular(file) {
-  let fd;
+// A regular file with a single link; a second hard link could be a file outside
+// the folder, a final symbolic link one that does not resolve inside it.
+async function openRegular(file) {
+  let handle;
   try {
-    fd = fs.openSync(file, O_RDONLY | O_NOFOLLOW);
+    handle = await fs.promises.open(file, readFlags);
   } catch (error) {
     if (error.code === "ENOENT" || error.code === "ENOTDIR") throw missing();
-    // ELOOP: the last name is a link that does not resolve inside the folder.
     throw unsuitable();
   }
-  const stat = fs.fstatSync(fd);
-  if (!stat.isFile()) {
-    fs.closeSync(fd);
+  const stat = await handle.stat();
+  if (!stat.isFile() || stat.nlink > 1) {
+    await handle.close();
     throw unsuitable();
   }
-  return { fd, stat };
+  return { handle, stat };
 }
 
-// UTF-8 text of a regular file below the read limit; binary content is refused.
-function readText(file) {
-  const { fd, stat } = openRegular(file);
+async function readAt(handle, position, length) {
+  const buffer = Buffer.alloc(length);
+  let read = 0;
+  while (read < length) {
+    const { bytesRead } = await handle.read(buffer, read, length - read, position + read);
+    if (!bytesRead) break;
+    read += bytesRead;
+  }
+  return buffer.subarray(0, read);
+}
+
+const sniff = (handle, stat) =>
+  readAt(handle, 0, Math.min(fileLimits.sniffBytes, stat.size));
+
+// The bytes of a text file below the read limit: binary content is refused after
+// sniffing its start, before the rest is read.
+async function readBytes(file, limit = fileLimits.readBytes) {
+  const { handle, stat } = await openRegular(file);
   try {
-    if (stat.size > fileLimits.readBytes) throw unsuitable();
-    const buffer = Buffer.alloc(stat.size);
-    let read = 0;
-    while (read < stat.size) {
-      const n = fs.readSync(fd, buffer, read, stat.size - read, read);
-      if (!n) break;
-      read += n;
-    }
-    const bytes = buffer.subarray(0, read);
-    if (bytes.subarray(0, 8192).includes(0)) throw unsuitable();
-    return { text: bytes.toString("utf8"), stat };
+    if (stat.size > limit) throw unsuitable();
+    const head = await sniff(handle, stat);
+    if (head.includes(0)) throw unsuitable();
+    const rest = await readAt(handle, head.length, stat.size - head.length);
+    return Buffer.concat([head, rest]);
   } finally {
-    fs.closeSync(fd);
+    await handle.close();
+  }
+}
+
+// Changing a file needs exact UTF-8: anything else would be rewritten with
+// replacement characters.
+function decodeStrict(bytes) {
+  try {
+    return strict.decode(bytes);
+  } catch {
+    throw assistantProblem("projectFileEncoding", 400);
   }
 }
 
@@ -94,30 +123,99 @@ export function listFolder(root, raw, options) {
   };
 }
 
-/** Text of one file, by 1-based line `offset` and line `limit`. */
-export function readFile(
+// Lines `start` .. `start + limit - 1` of a large file, read in chunks: lines before
+// the range are skipped without being kept, each kept line is capped, and the scan
+// stops at the output or scan limit. The total line count stays unknown.
+async function lineRange(handle, size, start, limit) {
+  const lines = [];
+  let line = 1,
+    chars = 0,
+    current = [],
+    kept = 0,
+    position = 0;
+  const finish = () => {
+    lines.push(Buffer.concat(current).toString("utf8"));
+    chars += lines.at(-1).length + 1;
+    current = [];
+    kept = 0;
+  };
+  while (position < size && position < fileLimits.scanBytes) {
+    const chunk = await readAt(handle, position, Math.min(65536, size - position));
+    if (!chunk.length) break;
+    let from = 0;
+    for (;;) {
+      const newline = chunk.indexOf(10, from);
+      const end = newline === -1 ? chunk.length : newline;
+      if (line >= start && kept < fileLimits.readChars) {
+        const part = chunk.subarray(
+          from,
+          Math.min(end, from + fileLimits.readChars - kept),
+        );
+        current.push(part);
+        kept += part.length;
+      }
+      if (newline === -1) break;
+      if (line >= start) finish();
+      line++;
+      from = newline + 1;
+      if (lines.length >= limit || chars > fileLimits.readChars)
+        return { lines, more: position + from < size };
+    }
+    position += chunk.length;
+  }
+  if (position < size) return { lines, more: true };
+  // The end of the file closes its last (possibly empty) line.
+  if (line >= start) finish();
+  return { lines, more: false };
+}
+
+/**
+ * Text of one file, by 1-based line `offset` and line `limit`. Files up to 1 MiB are
+ * read whole; larger ones by line range (totalLines null). Reading is lenient about
+ * encoding; binary files are refused.
+ */
+export async function readFile(
   root,
   raw,
   { offset = 1, limit = fileLimits.readLines, ...options } = {},
 ) {
   const target = projectTarget(root, raw, options);
   if (!target.exists) throw missing();
-  const { text } = readText(target.real);
-  const lines = text.split("\n");
   const start = Math.max(1, offset);
-  let content = lines
-    .slice(start - 1, start - 1 + Math.min(limit, fileLimits.readLines))
-    .join("\n");
-  const cut = content.length > fileLimits.readChars;
-  if (cut) content = content.slice(0, fileLimits.readChars);
-  const shown = content ? content.split("\n").length : 0;
-  return {
-    path: target.relative,
-    content,
-    offset: start,
-    totalLines: lines.length,
-    truncated: cut || start - 1 + shown < lines.length,
-  };
+  const count = Math.min(limit, fileLimits.readLines);
+  const { handle, stat } = await openRegular(target.real);
+  try {
+    const head = await sniff(handle, stat);
+    if (head.includes(0)) throw unsuitable();
+    if (stat.size > fileLimits.readBytes) {
+      const range = await lineRange(handle, stat.size, start, count);
+      let content = range.lines.join("\n");
+      const cut = content.length > fileLimits.readChars;
+      if (cut) content = content.slice(0, fileLimits.readChars);
+      return {
+        path: target.relative,
+        content,
+        offset: start,
+        totalLines: null,
+        truncated: cut || range.more,
+      };
+    }
+    const rest = await readAt(handle, head.length, stat.size - head.length);
+    const lines = Buffer.concat([head, rest]).toString("utf8").split("\n");
+    let content = lines.slice(start - 1, start - 1 + count).join("\n");
+    const cut = content.length > fileLimits.readChars;
+    if (cut) content = content.slice(0, fileLimits.readChars);
+    const shown = content ? content.split("\n").length : 0;
+    return {
+      path: target.relative,
+      content,
+      offset: start,
+      totalLines: lines.length,
+      truncated: cut || start - 1 + shown < lines.length,
+    };
+  } finally {
+    await handle.close();
+  }
 }
 
 // Creates each missing folder below the real parent one by one, refusing a name
@@ -139,9 +237,16 @@ function ensureFolders(target) {
   return parent;
 }
 
-// Replaces the file through a temporary sibling and a rename: a link at the final
-// name is replaced itself, never followed; an existing file keeps its mode.
-function replaceFile(target, text) {
+/*
+ * Replaces the file through a temporary sibling and a rename; an existing file keeps
+ * its mode. projectTarget already resolved every link that leads somewhere, so an
+ * existing link inside the folder is written at its real target. Only a dangling
+ * link remains at the final name, and the rename replaces that link itself instead
+ * of creating its target. The checks and the write are separate steps: a process
+ * that can already change the folder (for example an agent with shell) could swap a
+ * folder for a link in between; AgentPier does not defend against that.
+ */
+function replaceFile(target, data) {
   let mode = 0o666 & ~process.umask();
   if (target.exists) {
     const stat = fs.lstatSync(target.real);
@@ -156,7 +261,7 @@ function replaceFile(target, text) {
   );
   const fd = fs.openSync(temporary, "wx", mode);
   try {
-    fs.writeFileSync(fd, text);
+    fs.writeFileSync(fd, data);
     fs.fsyncSync(fd);
   } catch (error) {
     fs.closeSync(fd);
@@ -171,11 +276,18 @@ function replaceFile(target, text) {
     fs.rmSync(temporary, { force: true });
     throw error;
   }
-  return Buffer.byteLength(text);
+  return Buffer.byteLength(data);
 }
 
-/** Creates or replaces one file with `content`. */
+function writable(content) {
+  const bytes = Buffer.byteLength(content);
+  if (bytes > fileLimits.writeBytes) throw assistantProblem("projectWriteTooLarge", 400);
+  return bytes;
+}
+
+/** Creates or replaces one file with `content` (at most 64 KiB). */
 export function writeFile(root, raw, content, options = {}) {
+  writable(content);
   const target = projectTarget(root, raw, { ...options, write: true });
   if (!target.relative) throw unsuitable();
   const created = !target.exists;
@@ -183,8 +295,26 @@ export function writeFile(root, raw, content, options = {}) {
   return { path: target.relative, bytes: replaceFile(target, content), created };
 }
 
+/**
+ * Adds `content` (at most 64 KiB) to the end of a UTF-8 file, creating it when
+ * missing; the file stays within the append limit.
+ */
+export async function appendFile(root, raw, content, options = {}) {
+  const bytes = writable(content);
+  const target = projectTarget(root, raw, { ...options, write: true });
+  if (!target.relative) throw unsuitable();
+  let existing = Buffer.alloc(0);
+  if (target.exists) {
+    existing = await readBytes(target.real, fileLimits.appendTotalBytes);
+    decodeStrict(existing);
+  }
+  if (existing.length + bytes > fileLimits.appendTotalBytes) throw unsuitable();
+  const size = replaceFile(target, Buffer.concat([existing, Buffer.from(content)]));
+  return { path: target.relative, bytes, size, created: !target.exists };
+}
+
 /** Replaces `oldText` (exactly once, or every time with `replaceAll`) by `newText`. */
-export function editFile(
+export async function editFile(
   root,
   raw,
   { oldText, newText, replaceAll = false },
@@ -192,7 +322,7 @@ export function editFile(
 ) {
   const target = projectTarget(root, raw, { ...options, write: true });
   if (!target.exists) throw missing();
-  const { text } = readText(target.real);
+  const text = decodeStrict(await readBytes(target.real));
   const count = oldText ? text.split(oldText).length - 1 : 0;
   if (!count || (count > 1 && !replaceAll))
     throw assistantProblem("projectEditNoMatch", 409);
@@ -202,8 +332,31 @@ export function editFile(
   return { path: target.relative, bytes: replaceFile(target, next), replacements: count };
 }
 
+// One file's text for search, or null; every byte read counts toward `scanned`.
+async function searchable(file, scanned) {
+  let opened;
+  try {
+    opened = await openRegular(file);
+  } catch {
+    return null;
+  }
+  const { handle, stat } = opened;
+  try {
+    const head = await sniff(handle, stat);
+    scanned.bytes += head.length;
+    if (head.includes(0) || stat.size > fileLimits.readBytes) return null;
+    const rest = await readAt(handle, head.length, stat.size - head.length);
+    scanned.bytes += rest.length;
+    return Buffer.concat([head, rest]).toString("utf8");
+  } catch {
+    return null;
+  } finally {
+    await handle.close();
+  }
+}
+
 /** Lines containing `query` (literal, case-sensitive) below `raw`, capped. */
-export function searchFolder(root, raw, query, options = {}) {
+export async function searchFolder(root, raw, query, options = {}) {
   const target = projectTarget(root, raw, options);
   if (!target.exists) throw missing();
   const guarded = (options.protectedRoots || []).map((r) => {
@@ -214,15 +367,15 @@ export function searchFolder(root, raw, query, options = {}) {
     }
   });
   const matches = [];
+  const scanned = { bytes: 0 };
   let files = 0,
-    bytes = 0,
     truncated = false;
   const queue = [target.real];
   while (queue.length && !truncated) {
     const folder = queue.shift();
     let entries;
     try {
-      entries = fs.readdirSync(folder, { withFileTypes: true });
+      entries = await fs.promises.readdir(folder, { withFileTypes: true });
     } catch {
       continue;
     }
@@ -235,18 +388,12 @@ export function searchFolder(root, raw, query, options = {}) {
       }
       // Links are never followed: their targets may lie outside the folder.
       if (!entry.isFile()) continue;
-      if (++files > fileLimits.searchFiles || bytes > fileLimits.searchBytes) {
+      if (++files > fileLimits.searchFiles || scanned.bytes > fileLimits.searchBytes) {
         truncated = true;
         break;
       }
-      let text;
-      try {
-        ({ text } = readText(full));
-        bytes += text.length;
-      } catch {
-        continue;
-      }
-      if (!text.includes(query)) continue;
+      const text = await searchable(full, scanned);
+      if (text === null || !text.includes(query)) continue;
       const relative = path.relative(target.root, full).split(path.sep).join("/");
       const lines = text.split("\n");
       for (let i = 0; i < lines.length; i++)
@@ -264,5 +411,5 @@ export function searchFolder(root, raw, query, options = {}) {
       if (truncated) break;
     }
   }
-  return { matches, truncated };
+  return { matches, truncated, scannedBytes: scanned.bytes };
 }

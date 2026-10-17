@@ -61,9 +61,15 @@ const reasons = {
   PROJECT_PATH_REFUSED:
     "This path is not allowed. Use a path relative to the project folder (or absolute inside it), without '..'; .git internals, links leading out of the folder and AgentPier's own data are never accessible.",
   PROJECT_FILE_UNSUITABLE:
-    "This file is too large (over 1 MiB), binary, a hard-linked file or not a regular file for this action. Use files_list or files_search, or read a smaller range.",
+    "This file is binary, hard-linked, not a regular file, too large for this action (edits and search: 1 MiB; appends: 16 MiB in total) or the line range lies too deep (256 MiB). Use files_list, read a line range with file_read, or tell the owner.",
   PROJECT_EDIT_NO_MATCH:
     "oldText must occur exactly once in the file (or set replaceAll). Read the file and copy the exact text, including whitespace.",
+  PROJECT_FILE_ENCODING:
+    "This file is not valid UTF-8 (for example Latin-1), so it is not changed: an edit would replace characters. Read it, and tell the owner if it must change.",
+  PROJECT_WRITE_TOO_LARGE:
+    "One file_write may hold at most 64 KiB (UTF-8 bytes). Write the first part, then add the rest with file_write and append: true in further calls.",
+  REQUEST_TOO_LARGE:
+    "The call was larger than AgentPier accepts (128 KiB). Send the content in smaller parts, for example file_write with append: true.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -93,6 +99,8 @@ const byKey = {
   projectPathRefused: "PROJECT_PATH_REFUSED",
   projectFileUnsuitable: "PROJECT_FILE_UNSUITABLE",
   projectEditNoMatch: "PROJECT_EDIT_NO_MATCH",
+  projectFileEncoding: "PROJECT_FILE_ENCODING",
+  projectWriteTooLarge: "PROJECT_WRITE_TOO_LARGE",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",
@@ -110,7 +118,7 @@ export function toolError(error) {
   const code =
     (error?.key === "invalid" && status === 403 ? "FORBIDDEN" : byKey[error?.key]) ||
     byStatus[status] ||
-    (status === 413 ? "INVALID_INPUT" : "UNAVAILABLE");
+    (status === 413 ? "REQUEST_TOO_LARGE" : "UNAVAILABLE");
   return {
     status: status >= 400 && status < 600 ? status : 503,
     code,

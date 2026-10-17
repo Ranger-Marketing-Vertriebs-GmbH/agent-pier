@@ -127,21 +127,28 @@ test("links may stay inside the folder but never lead out, into .git or the data
   );
 });
 
-test("file operations read, list, search, write and edit inside the root only", (t) => {
+test("file operations read, list, search, write and edit inside the root only", async (t) => {
   const h = host(t);
   const listed = listFolder(h.project, undefined, h.options);
   assert.ok(listed.entries.some((e) => e.name === "src" && e.kind === "directory"));
-  const read = readFile(h.project, "src/index.js", { ...h.options, offset: 2, limit: 1 });
+  const read = await readFile(h.project, "src/index.js", {
+    ...h.options,
+    offset: 2,
+    limit: 1,
+  });
   assert.equal(read.content, "two");
   assert.equal(read.truncated, true);
-  const found = searchFolder(h.project, undefined, "url=", h.options);
+  const found = await searchFolder(h.project, undefined, "url=", h.options);
   // .git and AgentPier's data are never searched.
   assert.deepEqual(found.matches, []);
-  assert.equal(searchFolder(h.project, "src", "three", h.options).matches[0].line, 3);
+  assert.equal(
+    (await searchFolder(h.project, "src", "three", h.options)).matches[0].line,
+    3,
+  );
   const written = writeFile(h.project, "docs/plan.md", "# Plan\n", h.options);
   assert.deepEqual(written, { path: "docs/plan.md", bytes: 7, created: true });
   assert.equal(fs.readFileSync(path.join(h.project, "docs/plan.md"), "utf8"), "# Plan\n");
-  const edited = editFile(
+  const edited = await editFile(
     h.project,
     "docs/plan.md",
     { oldText: "Plan", newText: "Goal" },
@@ -149,7 +156,7 @@ test("file operations read, list, search, write and edit inside the root only", 
   );
   assert.equal(edited.replacements, 1);
   assert.equal(fs.readFileSync(path.join(h.project, "docs/plan.md"), "utf8"), "# Goal\n");
-  assert.throws(
+  await assert.rejects(
     () =>
       editFile(
         h.project,
@@ -166,7 +173,7 @@ test("file operations read, list, search, write and edit inside the root only", 
   );
 });
 
-test("writes replace a final link instead of following it and refuse hard links", (t) => {
+test("writes replace a dangling link instead of following it and refuse hard links", async (t) => {
   const h = host(t);
   const dangling = path.join(h.project, "dangling");
   fs.symlinkSync(path.join(h.base, "created-outside.txt"), dangling);
@@ -179,7 +186,7 @@ test("writes replace a final link instead of following it and refuse hard links"
   });
   assert.equal(fs.readFileSync(path.join(h.base, "secret.txt"), "utf8"), "outside");
   fs.writeFileSync(path.join(h.project, "bin.dat"), Buffer.from([1, 0, 2]));
-  assert.throws(() => readFile(h.project, "bin.dat", h.options), {
+  await assert.rejects(() => readFile(h.project, "bin.dat", h.options), {
     key: "projectFileUnsuitable",
   });
 });

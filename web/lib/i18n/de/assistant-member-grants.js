@@ -32,6 +32,11 @@ export const memberGrantCopy = {
   memory: "Gedächtnis des leitenden Agenten (schreibgeschützte Kopie)",
   ownMemory: "Eigenes Gedächtnis",
   projectFolders: "Projektordner",
+  folderCounts: {
+    write: (count) => `${count} lesen und schreiben`,
+    read: (count) => `${count} lesen`,
+    none: "Keine",
+  },
   ownMemoryHint:
     "Was dieses Mitglied selbst gespeichert hat; immer an. Das Gedächtnis des leitenden Agenten ist eine getrennte, schreibgeschützte Kopie.",
   on: "An",

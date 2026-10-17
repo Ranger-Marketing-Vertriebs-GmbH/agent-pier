@@ -65,8 +65,9 @@ level, and the workspace tool's `catalog` names them as well.
 
 The agent uses the folder through `agentpier_workspace`: `files_list`, `file_read`
 (by line `offset`/`limit`), `files_search` (a literal text) with **Read**, and
-`file_write` (a whole file, at most 64 KiB) and `file_edit` (an exact text that occurs
-once, or `replaceAll`) with **Read and write**. AgentPier performs every operation
+`file_write` (a whole file, at most 64 KiB; with `append: true` added to the end, so a
+larger file is written in parts) and `file_edit` (an exact text that occurs once, or
+`replaceAll`) with **Read and write**. AgentPier performs every operation
 itself; OpenClaw's own `read`, `write` and `edit` tools stay confined to the
 agent's workspace (`tools.fs.workspaceOnly`), because widening them would also let
 outgoing media read any file on the host.
@@ -80,23 +81,36 @@ outgoing media read any file on the host.
   of it, and `.git` (in any spelling, also through a link) is never read or written.
   AgentPier's own data directory is refused even when it lies inside a project.
   Pipeline run checkouts (`.agentpier-worktrees`) can be read but not changed.
-- **Writes:** go to a temporary file beside the target and replace it by rename, so a
-  link at the target name is replaced, never followed; a file with a second hard link
-  is refused. Changes need the running Gateway's proven tool guard (the same
-  condition as native writes) and are refused with `PROJECT_WRITE_UNAVAILABLE` before
-  it reports.
+- **Writes:** go to a temporary file beside the target and replace it by rename. A
+  link inside the folder is resolved first, so the write lands at its real target;
+  only a dangling link is left at the target name, and the rename replaces that link
+  instead of creating whatever it points to. Files with a second hard link, FIFOs and
+  other special files are refused for reading and writing. Edits and appends change
+  only valid UTF-8 files (`PROJECT_FILE_ENCODING` otherwise), so a Latin-1 file is
+  never rewritten with replacement characters; reading stays lenient. Changes need
+  the running Gateway's proven tool guard (the same condition as native writes) and
+  are refused with `PROJECT_WRITE_UNAVAILABLE` before it reports. The path checks and
+  the write are separate steps: a process that can already change the folder, such
+  as an agent with shell, could swap a folder for a link in between. AgentPier does
+  not defend against that race.
 - **Audit:** each change is one `assistant.updated` record (`kind: "project-file"`)
-  with the project, the relative path, `fileChange` (`create`, `replace` or
-  `edit`), the size in bytes and, for a member, its member ID; never the content.
+  with the project, the relative path, `fileChange` (`create`, `replace`, `edit` or
+  `append`), the size in bytes and, for a member, its member ID; never the content.
   The tool call and its result stay in the agent's chat history.
-- **Limits:** reads up to 1 MiB per file and 2,000 lines per call; search skips
-  `.git`, `node_modules` and run checkouts, follows no links and stops after 5,000
-  files or 200 matches.
+- **Limits:** 2,000 lines per read. Files up to 1 MiB are read whole; larger ones by
+  line range (`totalLines` is then unknown), scanning at most 256 MiB per call.
+  Edits work on files up to 1 MiB, appends keep a file at most 16 MiB, and one write
+  carries at most 64 KiB (`PROJECT_WRITE_TOO_LARGE`; a call above the bridge's
+  128 KiB request limit reads `REQUEST_TOO_LARGE`). Search skips `.git`,
+  `node_modules` and run checkouts, follows no links, sniffs the first 8 KiB of every
+  file and skips binaries and files over 1 MiB, and stops after 5,000 files, 32 MiB
+  read or 200 matches.
 
 A lead passes folder access to its task members with `projects` in its grants
 (`{ "<projectId>": "read" | "write" }`), at most at its own level, visibly and without
 your approval like its other grants. What a member uses is resolved on every call:
-when the lead drops to **Read** or loses the project, the member does too. A member
+when the lead drops to **Read** or loses the project, the member does too. The
+member's **Capabilities → Granted by the lead agent** shows the levels it has now. A member
 kept as a permanent agent keeps no folder access its lead granted; grant it yourself
 in its **Work** tab.
 
