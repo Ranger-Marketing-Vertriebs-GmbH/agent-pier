@@ -93,6 +93,10 @@ test("a scripted reply loop stops at the reply depth limit for both peers", asyn
   for (const result of [alpha, beta]) {
     assert.equal(result.refused.code, "SEND_BUDGET");
     assert.match(result.refused.message, /reply chain/);
+    assert.match(
+      result.refused.message,
+      /new thread without replyTo only if the user asked/,
+    );
     assert.match(result.refused.message, /12/);
     assert.match(result.refused.message, refusalHint);
   }
@@ -145,9 +149,13 @@ test("a sender may send six messages per minute across its peers", async (t) => 
   const refused = await b.send("alpha", "gamma", "One more");
   assert.equal(refused.refused.code, "SEND_BUDGET");
   assert.match(refused.refused.message, /6 messages in the last minute/);
-  assert.match(refused.refused.message, refusalHint);
+  assert.match(refused.refused.message, /Wait 60 seconds before sending again/);
+  assert.doesNotMatch(refused.refused.message, refusalHint, "a burst only has to wait");
+  b.clock.now += 20500;
+  const later = await b.send("alpha", "gamma", "Still too early");
+  assert.match(later.refused.message, /Wait 40 seconds before sending again/);
   assert.ok((await b.send("beta", "alpha", "Other senders keep their budget")).id);
-  b.clock.now += 60001;
+  b.clock.now += 39501;
   assert.ok((await b.send("alpha", "gamma", "Next minute")).id, "the minute resets");
 });
 

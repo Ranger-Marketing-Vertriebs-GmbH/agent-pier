@@ -63,6 +63,11 @@ Die Freigabe für weitere Batches und die Befugnis, selbst zu mergen, sind getre
   über `peer_send` nur bei autorisierter Zusammenarbeit. AgentBus startet keine
   Sitzungen; Peers verschiedener Worktree-Verzeichnisse sind nicht automatisch
   erreichbar. Eine zugestellte Nachricht ist noch keine Auftragsannahme.
+  Ein Sendebudget erlaubt je Sitzung sechs Nachrichten pro Minute, zehn an
+  denselben Peer in zehn Minuten und zwölf Nachrichten je `replyTo`-Kette.
+  Verteile größere Auftragsrunden entsprechend; nennt ein `SEND_BUDGET`-Fehler
+  eine Wartezeit, warte so lange und sende erst dann weiter. Bei den anderen
+  Grenzen sende nicht erneut, sondern informiere den Nutzer.
 
 ## 2. Aufträge im ermittelten Ticketsystem vorbereiten
 

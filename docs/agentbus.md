@@ -93,7 +93,13 @@ Sender and pair limits are sliding windows over stored message timestamps and
 reset once older messages leave the window. The chain limit follows `reply_to`
 through stored messages; a new message without `replyTo` starts a new chain. A
 refused send stores nothing, sends no wake and returns a `SEND_BUDGET` error
-that names the exceeded limit and tells the agent not to retry but to tell the
-user or wait for their instruction. AgentPier logs each refusal with the limit
-and both peer keys, never the message text. The limits are not configurable in
-the UI. Wake hints ask every runtime to reply only when needed.
+that names the exceeded limit. A sender refusal states how many seconds remain
+until the oldest send leaves the minute window, so a fan-out can wait and
+continue. Pair and chain refusals tell the agent not to retry but to tell the
+user or wait for their instruction; a chain refusal allows a new thread without
+`replyTo` only if the user asked for further coordination. Sender limits apply
+per peer key: an OpenCode peer key belongs to one native conversation, so
+several conversations in one OpenCode process each have their own budget.
+AgentPier logs each refusal with the limit and both peer keys, never the message
+text. The limits are not configurable in the UI. Wake hints ask every runtime to
+reply only when needed.
