@@ -95,6 +95,7 @@ export async function packageService(t, published = [v1, v2, ...helpers]) {
     dataDir: f.dataDir,
     servers: f.servers,
     changes,
+    extensions: f.extensions,
     registry: registry.url,
     environment: {},
     download: async (url) => {

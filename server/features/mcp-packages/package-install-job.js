@@ -249,6 +249,12 @@ export async function activate(
   } finally {
     service.switching.delete(serverId);
   }
+  // Skills copied from the package follow the version the server now runs.
+  try {
+    service.skills?.sync(serverId);
+  } catch (error) {
+    logFailure("update the skills of an MCP package", error);
+  }
 }
 
 /** Through the normal update path: agents apply live, CLIs reconcile. One retry on 409. */

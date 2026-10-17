@@ -146,8 +146,14 @@ export default function SkillInstallForm({
                 placeholder="https://github.com/owner/repo/tree/main/skill"
                 autoCapitalize="none"
                 spellCheck={false}
+                aria-describedby={`${formId}-ref`}
               />
             </label>
+          )}
+          {source === "url" && (
+            <p id={`${formId}-ref`} className="field-description extension-wide">
+              {copy.githubRefHint}
+            </p>
           )}
           <p className="field-description extension-wide">
             {copy.archiveLimitsDescription}

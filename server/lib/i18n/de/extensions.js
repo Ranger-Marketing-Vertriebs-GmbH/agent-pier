@@ -79,4 +79,12 @@ export const extensions = Object.freeze({
     "Skill-Name: maximal 64 Kleinbuchstaben, Ziffern und Bindestriche. Eine Beschreibung mit maximal 1.024 Zeichen ist erforderlich.",
   skillDownloadTimedOut: "GitHub-Download fehlgeschlagen oder Zeitlimit erreicht.",
   skillDownloadRedirectLimit: "GitHub hat zu viele Weiterleitungen geliefert.",
+  skillRefAmbiguous:
+    "Dieser Name ist im Repository sowohl ein Branch als auch ein Tag. Bitte verwende den Commit-SHA.",
+  skillRefNotFound:
+    "Im Repository gibt es keinen Branch, Tag oder Commit mit diesem Namen.",
+  skillRefLookupFailed: "GitHub konnte den Commit dieses Links nicht bestimmen.",
+  packageSkillNotFound: "Dieses Paket enthält keinen Skill mit diesem Namen.",
+  packageSkillsUnavailable:
+    "Die Skills des Pakets sind erst verfügbar, wenn das Paket installiert ist.",
 });

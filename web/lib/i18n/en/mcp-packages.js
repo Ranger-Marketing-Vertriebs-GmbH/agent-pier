@@ -69,4 +69,19 @@ export const mcpPackageCopy = {
   detachHint:
     "Saving switches this server to the command below and removes its installed package.",
   bindingLocked: "Coding CLIs and agents can be added once the package is installed.",
+  skills: {
+    title: "Bundled skills",
+    hint: "This package ships skills for coding CLIs. AgentPier copies a skill only after you confirm it, updates the copy with the package and removes it with the package.",
+    profileLabel: "Install into CLI profile",
+    install: "Install selected skills",
+    confirmTitle: "Install skills?",
+    confirmText: (skills, profile) => `Install ${skills} into ${profile}?`,
+    untrusted:
+      "Skill content comes from the package author and is not checked. The CLI follows its instructions and may run its scripts. Install only skills you have reviewed.",
+    confirm: "Install",
+    cancel: "Cancel",
+    installedNotice: "Skill installed. Restart the CLI if it does not appear yet.",
+    installedIn: (list) => `Installed in ${list}`,
+    installedAt: (profile, version) => `${profile} (${version})`,
+  },
 };

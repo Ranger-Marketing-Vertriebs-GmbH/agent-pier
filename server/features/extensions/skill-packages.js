@@ -3,8 +3,9 @@ import path from "node:path";
 import { fromBuffer } from "yauzl";
 import { parseDocument } from "yaml";
 import { problem } from "../../lib/storage.js";
+import { resolveGithubRef } from "./github-skill-ref.js";
 export const MAX_UPLOAD = 10 * 1024 * 1024;
-const MAX_EXPANDED = 20 * 1024 * 1024;
+export const MAX_EXPANDED = 20 * 1024 * 1024;
 export const skillName = (value) =>
   typeof value === "string" &&
   value.length <= 64 &&
@@ -136,6 +137,11 @@ export async function unpackSkill(buffer, subpath = "") {
   const files = [...entries]
     .filter(([name]) => name.startsWith(prefix))
     .map(([name, value]) => [name.slice(prefix.length), value.data, value.mode]);
+  assertPortableSkill(files);
+  return { ...skillMetadata(entries.get(candidates[0]).data), files };
+}
+/** A skill carries no plugin, MCP or Git configuration of its own. */
+export function assertPortableSkill(files) {
   for (const [name] of files)
     if (
       name
@@ -145,7 +151,6 @@ export async function unpackSkill(buffer, subpath = "") {
         )
     )
       throw problem(serverMessages.extensions.skillConfigurationForbidden);
-  return { ...skillMetadata(entries.get(candidates[0]).data), files };
 }
 function trustedURL(value) {
   let url;
@@ -171,6 +176,7 @@ function trustedURL(value) {
 export async function downloadSkill(value, fetchImpl, signal) {
   let url = trustedURL(value);
   let subpath = "";
+  let origin = null;
   const parts = url.pathname
     .split("/")
     .filter(Boolean)
@@ -191,8 +197,17 @@ export async function downloadSkill(value, fetchImpl, signal) {
     if (parts.length >= 4 && parts[2] === "tree") {
       subpath = parts.slice(4).join("/");
       if (subpath) archivePath(subpath);
+      // Branches, tags and commit SHAs all download the one commit resolved now.
+      const pinned = await resolveGithubRef(
+        parts[0],
+        parts[1],
+        parts[3],
+        fetchImpl,
+        signal,
+      );
+      origin = { kind: "github", repository: `${parts[0]}/${parts[1]}`, ...pinned };
       url = new URL(
-        `https://codeload.github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/zip/refs/heads/${encodeURIComponent(parts[3])}`,
+        `https://codeload.github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/zip/${pinned.commit}`,
       );
     } else if (parts.length === 2)
       url = new URL(
@@ -245,7 +260,8 @@ export async function downloadSkill(value, fetchImpl, signal) {
         ? error
         : problem(serverMessages.common.githubDownloadInterrupted, 502);
     }
-    return unpackSkill(Buffer.concat(chunks), subpath);
+    const pack = await unpackSkill(Buffer.concat(chunks), subpath);
+    return origin ? { ...pack, origin } : pack;
   }
   throw problem(serverMessages.extensions.skillDownloadRedirectLimit);
 }

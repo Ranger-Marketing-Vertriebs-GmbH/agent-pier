@@ -7,6 +7,7 @@ import { serverText } from "../../lib/server-messages.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import McpPackageConfirmation from "./McpPackageConfirmation.jsx";
 import McpPackageProgramChoice from "./McpPackageProgramChoice.jsx";
+import McpPackageSkills from "./McpPackageSkills.jsx";
 import {
   McpAllowScripts,
   McpConstraints,
@@ -228,6 +229,11 @@ export default function McpPackagePanel({ server, onChanged, listedVersion = "" 
           </div>
         </div>
       )}
+      <McpPackageSkills
+        serverId={server.id}
+        ready={shown === "ready"}
+        version={source.version}
+      />
       {preview && (
         <McpPackageConfirmation
           update

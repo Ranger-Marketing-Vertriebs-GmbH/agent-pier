@@ -120,3 +120,16 @@ export function pythonCommand(dataDir, receipt) {
     throw packageProblem("MCP_PACKAGE_NO_PROGRAM", 502);
   }
 }
+/** The installed npm package folder of `row`'s intact install, else null. */
+export function npmPackageDirectory(dataDir, row) {
+  try {
+    if (!readInstall(dataDir, row.installId, row.lockDigest)) return null;
+    const directory = verifiedInstall(dataDir, row.installId);
+    const packageDir = path.join(directory, "node_modules", ...row.name.split("/"));
+    const stat = fs.lstatSync(packageDir);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) return null;
+    return packageDir;
+  } catch {
+    return null;
+  }
+}

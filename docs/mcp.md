@@ -463,7 +463,7 @@ _Installation missing_ (the files of a ready install are gone or changed).
   files; after a restore the status is _Installation missing_ and **Reinstall**
   recreates the install from the lock.
 - **Cleanup.** Removing a server (or switching it to an own command) deletes its
-  installs. Toolchain versions that no packaged server and no running install uses
+  installs and the bundled skills copied from them. Toolchain versions that no packaged server and no running install uses
   are removed from `toolchains/` in the data directory.
 - **Audit.** A confirmed install (new server or switch to a package), update,
   reinstall and switch back to an own command are recorded on the server as
@@ -473,6 +473,30 @@ _Installation missing_ (the files of a ready install are gone or changed).
   path. They are recorded when the change is accepted, so they do not say whether the
   background install succeeded (its status and log do). Choosing the program after a
   build is recorded as `package.activated` with the same details.
+
+#### Bundled skills of a package
+
+Some npm packages ship skills for the coding CLIs next to the server, for example a
+`skills/<name>/SKILL.md` folder. Once an npm package is _Installed_, the wizard's
+install step and the package panel list them under **Bundled skills**, read from the
+install of the locked tarball: each skill's name, description and files. A folder
+with a link, a nested `node_modules`, plugin, Git or MCP configuration
+(`.claude-plugin`, `.codex-plugin`, `.git`, `.mcp.json`), invalid `SKILL.md`
+metadata or the size limits of an uploaded skill (1,000 files, 20 MiB) is not offered,
+and neither is a skill name the package ships twice. PyPI packages are not searched.
+
+Nothing is copied automatically. Tick the skills, choose the CLI profile in
+**Install into CLI profile** and confirm **Install** after **Install selected skills**;
+the confirmation warns that skill content comes from the package author and is not
+checked. The copy goes into the same profile directory as
+**Extensions → Skills → Install skill** and an existing directory is never overwritten.
+AgentPier owns the copy and ties it to the package version: an update (or reinstall)
+replaces it with the skill of the installed version and removes it when that version
+no longer ships it, and removing the server or switching it to an own command removes
+it. A copy whose folder you replaced or deleted is no longer owned and stays as it is;
+removing the copy on **Extensions → Skills** is always possible. Package code that ran
+as an allowed install script could change the installed files, so review skills of
+such packages especially carefully.
 
 ### MCP directory
 

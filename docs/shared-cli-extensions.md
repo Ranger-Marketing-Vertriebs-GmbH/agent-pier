@@ -35,6 +35,26 @@ remain shared; this is configuration isolation, not an OS security boundary.
 The change ships in ordinary release packages and needs no additional runtime
 installation. Reload or start a session to load changed native plugin configuration.
 
+## Installing skills
+
+**Extensions → Skills → Install skill** installs one skill into the selected CLI
+profile's `skills` directory (shown as **Destination directory**), from an uploaded
+`SKILL.md` or ZIP, or from a public GitHub link. Existing directories are never
+overwritten and no script of the skill runs during installation. A GitHub folder link
+(`https://github.com/<owner>/<repo>/tree/<ref>/<folder>`) may name a branch, a tag or a
+full 40-character commit SHA as `<ref>`. AgentPier resolves a branch or tag through the
+public GitHub API (an annotated tag to the commit it tags), refuses a name that is both
+a branch and a tag (use the commit SHA then), downloads exactly the resolved commit and
+records it: the skill's row names the repository, the ref and the commit, for example
+"GitHub owner/repo · tag v1.2.0 · commit 0123456789ab". Repository and ZIP links
+without a `tree/<ref>` part download as before and record no commit. A skill does not
+follow later commits of a branch; install it again to update it.
+
+Skills bundled with an MCP server package are offered in the package's panel; see
+[Bundled skills of a package](mcp.md#bundled-skills-of-a-package). Their rows on
+**Extensions → Skills** say "From MCP package <name>@<version> · updated and removed
+with it".
+
 ## Bundled skills
 
 AgentPier ships `agentpier-composer` from `server/features/cli-profiles/skills/`.

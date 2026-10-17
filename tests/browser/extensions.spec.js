@@ -261,3 +261,42 @@ for (const mobile of [false, true])
     expect(writes).toEqual([]);
     await expectNoHorizontalOverflow(page);
   });
+test("skill rows name the MCP package or the pinned GitHub commit they came from", async ({
+  page,
+}) => {
+  const { data } = await fixture(page);
+  data.skills.items.push(
+    {
+      id: "from-package",
+      name: "reverse-it",
+      description: "Package fixture",
+      path: "/fixture/.agents/skills/reverse-it",
+      scope: "Benutzer · geteilt",
+      removable: true,
+      package: { name: "rea-agents", version: "1.2.0" },
+    },
+    {
+      id: "from-github",
+      name: "pinned",
+      description: "GitHub fixture",
+      path: "/fixture/.agents/skills/pinned",
+      scope: "Benutzer · geteilt",
+      removable: true,
+      origin: {
+        kind: "github",
+        repository: "example/skills",
+        ref: "v1.2.0",
+        refKind: "tag",
+        commit: "0123456789abcdef0123456789abcdef01234567",
+      },
+    },
+  );
+  await open(page);
+  await openTab(page, "Skills");
+  await expect(extensionRow(page, "reverse-it")).toContainText(
+    "Aus dem MCP-Paket rea-agents@1.2.0 · wird mit ihm aktualisiert und entfernt",
+  );
+  await expect(extensionRow(page, "pinned")).toContainText(
+    "GitHub example/skills · Tag v1.2.0 · Commit 0123456789ab",
+  );
+});
