@@ -170,18 +170,21 @@ export default function DashboardPage({
                     className={`tool-update-button${outdated(t) ? " update-required" : ""}`}
                     onClick={() => setModal({ type: "update", tool: t.id })}
                   >
-                    {toolInstallerCopy.updateCli}
+                    {t.id === "chromium"
+                      ? toolInstallerCopy.updateBrowser
+                      : toolInstallerCopy.updateCli}
                     <Icon name="refresh" size={16} />
                   </button>
                 )}
               {t.installed && t.id === "chromium" && (
                 <button
-                  className="tool-update-button"
+                  className="tool-remove-button"
                   onClick={() =>
                     setModal({ type: "removeTool", item: { tool: t.id, name: t.name } })
                   }
                 >
                   {copy.removeTool}
+                  <Icon name="trash" size={16} />
                 </button>
               )}
             </article>

@@ -73,7 +73,7 @@ test("the managed browser card updates and removes Chrome for Testing", async ({
 }) => {
   const controls = await fixture(page);
   await expect(card(page)).toContainText("155.0.8059.84");
-  await card(page).getByRole("button", { name: "Update CLI" }).click();
+  await card(page).getByRole("button", { name: "Update browser" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Installed: 155.0.8059.84 · Available: 156.0.1.2");
   await dialog.getByRole("button", { name: "Update now" }).click();

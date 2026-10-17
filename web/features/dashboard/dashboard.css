@@ -173,6 +173,10 @@
   color: #a1a2a6;
   overflow-wrap: anywhere;
 }
+/* Removing the agents' browser deletes it: shown as a destructive action. */
+.tool-card > .tool-remove-button {
+  color: var(--error-text);
+}
 .tool-card > .tool-update-button.update-required {
   color: var(--warning);
 }

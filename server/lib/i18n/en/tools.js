@@ -110,4 +110,9 @@ export const tools = Object.freeze({
   chromiumMissingLibraries: (libraries) =>
     `The browser is missing system libraries: ${libraries}. Install them with the package manager and try again.`,
   chromiumNotStarting: "The installed browser does not start.",
+  chromiumSandboxBlocked:
+    "The browser does not start because the system blocks its sandbox (AppArmor restricts unprivileged user namespaces). See docs/linux.md for the AppArmor profile or the system setting.",
+  chromiumDiskFull: "Not enough free disk space for the browser.",
+  chromiumInUse:
+    "The managed browser is in use by the agents. Stop the agent service before removing it.",
 });

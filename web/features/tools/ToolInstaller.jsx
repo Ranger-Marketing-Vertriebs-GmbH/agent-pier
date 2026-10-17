@@ -53,11 +53,17 @@ export default function ToolInstaller({
     update,
   });
   const successAction = update ? close : utility ? configure : launch;
+  // The managed agent browser is no CLI: its update has its own words.
+  const browser = job?.installer === "chrome-for-testing";
   return (
     <div className="tool-installer">
       <div className="form-content tool-install-content">
         <p className="field-description">
-          {update ? copy.updateDescription : copy.serverInstallationDescription}
+          {update
+            ? browser
+              ? copy.browserUpdateDescription
+              : copy.updateDescription
+            : copy.serverInstallationDescription}
         </p>
         {loading && (
           <p className="tool-install-note" role="status">
@@ -146,10 +152,16 @@ export default function ToolInstaller({
               <strong>
                 {update
                   ? running || submitting
-                    ? copy.updating
+                    ? browser
+                      ? copy.browserUpdating
+                      : copy.updating
                     : succeeded
-                      ? copy.updated
-                      : copy.updateReady
+                      ? browser
+                        ? copy.browserUpdated
+                        : copy.updated
+                      : browser
+                        ? copy.browserUpdateReady
+                        : copy.updateReady
                   : reinstall
                     ? copy.reinstallationReady
                     : labels[job.status] || job.status}
@@ -223,7 +235,9 @@ export default function ToolInstaller({
           >
             {update
               ? running || submitting
-                ? copy.updating
+                ? browser
+                  ? copy.browserUpdating
+                  : copy.updating
                 : job?.migrate
                   ? copy.migrateNow
                   : copy.updateNow

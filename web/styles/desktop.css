@@ -91,6 +91,16 @@
     border: 0;
     margin: 0;
   }
+  .tool-card > .tool-remove-button {
+    grid-column: 2 / 4;
+    grid-row: 4;
+    width: 100%;
+    min-height: 36px;
+    margin-top: 6px;
+    padding: 0 8px;
+    font-size: 11px;
+    justify-content: space-between;
+  }
   .tool-card > .tool-update-button {
     grid-column: 2 / 4;
     grid-row: 3;

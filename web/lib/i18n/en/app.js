@@ -10,7 +10,7 @@ export const appDialogsCopy = {
   titleRemove: "Remove session?",
   titleRemoveTool: (name) => `Remove ${name}?`,
   confirmCopyRemoveTool: (name) =>
-    `${name} is deleted from this computer. Agents then use another installed browser once the agent service restarts.`,
+    `${name} is deleted from this computer. Agents then use another installed browser once the agent service restarts. While the agents use it, stop the agent service first.`,
   titleDeleteAccount: "Delete account?",
   buttonLogin: "Open sign-in terminal",
   renamedSessionLabel: "New name",

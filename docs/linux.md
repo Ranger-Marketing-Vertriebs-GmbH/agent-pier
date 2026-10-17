@@ -158,6 +158,27 @@ browser runs headless and the agent settings say so. AgentPier does not install 
 needs the usual Chromium system libraries (for example `libnss3`, `libgbm1`,
 `libasound2`), and the installation names any that `ldd` cannot resolve.
 
+On Ubuntu 23.10 and later, AppArmor restricts unprivileged user namespaces
+(`kernel.apparmor_restrict_unprivileged_userns=1`), which Chrome's sandbox needs
+outside a distribution package; the installation then reports a blocked sandbox.
+AgentPier never switches the sandbox off. Either allow user namespaces for the
+managed browser with an AppArmor profile (as root, `/etc/apparmor.d/agentpier-chrome`,
+then `apparmor_parser -r /etc/apparmor.d/agentpier-chrome`):
+
+```text
+abi <abi/4.0>,
+include <tunables/global>
+
+profile agentpier-chrome "/home/*/.local/share/agentpier/clis/.packages/chromium-*/chrome-linux*/chrome" flags=(unconfined) {
+  userns,
+  include if exists <local/agentpier-chrome>
+}
+```
+
+(adjust the path to the data directory), or lift the restriction for the whole system
+with `sysctl kernel.apparmor_restrict_unprivileged_userns=0` (persisted in
+`/etc/sysctl.d/`), which weakens a hardening for every program. Then install again.
+
 The assistant runtime installer pins Linux arm64 and x64 packages. The deterministic
 native contracts run on Ubuntu in CI (`native-contracts` job), but Linux assistant
 qualification on real hosts, including the systemd `KillMode=process` orphan reclaim,

@@ -165,7 +165,9 @@ export async function createServices(config) {
   const extensions = new ExtensionsStore({ accounts, home: config.home, sharedProfiles });
   const agency = new AgencyStore({ accounts, sharedProfiles });
   const installer = new ToolInstaller(config);
-  // An AgentPier update may pin a newer agent browser; an installed one follows it.
+  // Leftovers of an interrupted install go first; then an AgentPier update that pins
+  // a newer agent browser updates an installed one.
+  installer.sweepChromium();
   installer.keepChromiumCurrent();
   const plugins = new PluginStore({ accounts, home: config.home, sharedProfiles });
   agentbus = new AgentBus({
@@ -344,5 +346,17 @@ export async function createServices(config) {
   };
   // Assistant services stay null until the owner opts in; failures never stop startup.
   services.assistantFeature = createAssistantFeature(services);
+  // The managed agent browser stays while an agent browser runs or the running
+  // Gateway was started with it.
+  installer.chromiumInUse = () => {
+    const assistants = services.assistants;
+    const runtime = assistants?.runtime;
+    const compiled = runtime?.client?.ready && runtime.webTools?.browserExecutable;
+    return (
+      !!assistants?.browsers?.running.size ||
+      (typeof compiled === "string" &&
+        compiled.startsWith(path.join(config.dataDir, "clis") + path.sep))
+    );
+  };
   return services;
 }

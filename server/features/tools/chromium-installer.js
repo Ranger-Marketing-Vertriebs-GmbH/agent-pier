@@ -1,6 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { pipeline } from "node:stream/promises";
@@ -182,7 +183,8 @@ export async function unpackChromium(file, dest, top, signal) {
         let failed = false,
           count = 0,
           expanded = 0;
-        const seen = new Set();
+        const seen = new Set(),
+          links = [];
         const fail = (cause) => {
           if (failed) return;
           failed = true;
@@ -192,7 +194,22 @@ export async function unpackChromium(file, dest, top, signal) {
           );
         };
         zip.on("error", fail);
-        zip.on("end", () => !failed && resolve());
+        // Each link stays inside on its own; a chain of them may not. Once all are
+        // there, every link must resolve to a path inside the browser's folder.
+        zip.on("end", () => {
+          if (failed) return;
+          try {
+            const inside = fs.realpathSync.native(path.join(dest, top));
+            for (const link of links) {
+              const real = fs.realpathSync.native(link);
+              if (real !== inside && !real.startsWith(inside + path.sep))
+                throw bad(serverMessages.tools.unsafeArchivePath);
+            }
+            resolve();
+          } catch (cause) {
+            reject(cause?.status ? cause : bad(serverMessages.tools.unsafeArchivePath));
+          }
+        });
         const read = (entry) =>
           new Promise((done, stop) =>
             zip.openReadStream(entry, (err, stream) => (err ? stop(err) : done(stream))),
@@ -240,6 +257,7 @@ export async function unpackChromium(file, dest, top, signal) {
               )
                 throw bad(serverMessages.tools.unsafeArchivePath);
               await fsp.symlink(link, target);
+              links.push(target);
             } else if (kind === 0o100000 || kind === 0) {
               await pipeline(
                 await read(entry),
@@ -266,7 +284,16 @@ export async function unpackChromium(file, dest, top, signal) {
  * loses any quarantine attribute; on Linux every shared
  * library resolves. Then `--version` must name the pinned version.
  */
-async function checkBrowser({ directory, entry, platform, version, run, env, signal }) {
+async function checkBrowser({
+  directory,
+  entry,
+  platform,
+  version,
+  run,
+  env,
+  signal,
+  userns,
+}) {
   const executable = path.join(directory, entry.executable);
   if (platform === "darwin") {
     const app = path.join(directory, entry.app);
@@ -290,14 +317,60 @@ async function checkBrowser({ directory, entry, platform, version, run, env, sig
     if (missing.length)
       throw bad(serverMessages.tools.chromiumMissingLibraries(missing.join(", ")));
   }
-  let output = "";
-  try {
-    output = await run(executable, ["--version"], env, directory, signal, 120000);
-  } catch {
+  const notStarting = (error) => {
+    if (error?.code === "ENOSPC") throw error;
     throw bad(serverMessages.tools.chromiumNotStarting);
+  };
+  const output = await run(
+    executable,
+    ["--version"],
+    env,
+    directory,
+    signal,
+    120000,
+  ).catch(notStarting);
+  if (!output.includes(version)) notStarting();
+  // A real, short start: --version passes even where Chrome then aborts with "No
+  // usable sandbox". The sandbox is never switched off.
+  const profile = await fsp.mkdtemp(path.join(os.tmpdir(), "agentpier-chromium-check-"));
+  try {
+    const page = await run(
+      executable,
+      [
+        "--headless=new",
+        `--user-data-dir=${profile}`,
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-gpu",
+        "--dump-dom",
+        "about:blank",
+      ],
+      env,
+      directory,
+      signal,
+      60000,
+    );
+    if (!/<html/i.test(page)) throw Error("no page");
+  } catch (error) {
+    if (error?.code === "ENOSPC") throw error;
+    // Ubuntu 23.10 and later restrict unprivileged user namespaces through AppArmor,
+    // which Chrome's sandbox needs outside a package (docs/linux.md).
+    if (platform === "linux" && userns() === "1")
+      throw bad(serverMessages.tools.chromiumSandboxBlocked);
+    throw bad(serverMessages.tools.chromiumNotStarting);
+  } finally {
+    await fsp.rm(profile, { recursive: true, force: true }).catch(() => {});
   }
-  if (!output.includes(version)) throw bad(serverMessages.tools.chromiumNotStarting);
 }
+const appArmorUserns = () => {
+  try {
+    return fs
+      .readFileSync("/proc/sys/kernel/apparmor_restrict_unprivileged_userns", "utf8")
+      .trim();
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Installs or updates the managed browser below `root`: downloads and checks the
@@ -315,6 +388,7 @@ export async function installChromium({
   run,
   env = process.env,
   progress,
+  userns = appArmorUserns,
 }) {
   const key = chromiumPlatform(platform, arch);
   const entry = key && manifest.platforms[key];
@@ -341,6 +415,7 @@ export async function installChromium({
       run,
       env,
       signal,
+      userns,
     });
     await fsp.writeFile(
       path.join(directory, record),
@@ -362,6 +437,10 @@ export async function installChromium({
       version: manifest.version,
       executable: path.join(directory, entry.executable),
     };
+  } catch (error) {
+    if (error?.code === "ENOSPC" || error?.cause?.code === "ENOSPC")
+      throw bad(serverMessages.tools.chromiumDiskFull);
+    throw error;
   } finally {
     if (!published)
       await fsp.rm(directory, { recursive: true, force: true }).catch(() => {});
@@ -369,11 +448,40 @@ export async function installChromium({
   }
 }
 
+// One process prunes at a time: the AgentPier server runs one installation job at a
+// time, and the installer scripts provision before the service starts and hold the
+// setup lock (setup-resume.mjs) while they do; the two never share a data directory
+// concurrently.
 async function prunePackages(packages, keep) {
   const kept = new Set(keep.map((dir) => path.basename(dir)));
   for (const name of await fsp.readdir(packages).catch(() => []))
     if (name.startsWith(packagePrefix) && !kept.has(name))
       await fsp.rm(path.join(packages, name), { recursive: true, force: true });
+}
+
+/**
+ * What an interrupted install left behind, swept at a server start while no job
+ * runs: work folders, stray activation links and version directories that were
+ * never published (no record). Published versions stay.
+ */
+export function sweepChromium(root) {
+  const entries = (directory) => {
+    try {
+      return fs.readdirSync(directory);
+    } catch {
+      return [];
+    }
+  };
+  for (const name of entries(root))
+    if (name.startsWith(".install-") || name.startsWith(".chromium-"))
+      fs.rmSync(path.join(root, name), { recursive: true, force: true });
+  const packages = path.join(root, ".packages");
+  for (const name of entries(packages))
+    if (
+      name.startsWith(packagePrefix) &&
+      !fs.existsSync(path.join(packages, name, record))
+    )
+      fs.rmSync(path.join(packages, name), { recursive: true, force: true });
 }
 
 /** Removes the managed browser: the link and every version directory. */

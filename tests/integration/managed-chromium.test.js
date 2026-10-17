@@ -21,7 +21,10 @@ function archive(version, extra = []) {
   return new Promise((resolve) => {
     const zip = new yazl.ZipFile();
     zip.addBuffer(
-      Buffer.from(`#!/bin/sh\necho "Google Chrome for Testing ${version}"\n`),
+      // Answers --version, and a real headless start with a page dump.
+      Buffer.from(
+        `#!/bin/sh\ncase "$*" in *--dump-dom*) echo "<html><head></head><body></body></html>";; *) echo "Google Chrome for Testing ${version}";; esac\n`,
+      ),
       "chrome-linux64/chrome",
       { mode: 0o100755 },
     );
@@ -152,20 +155,58 @@ test("a download that does not match its pinned checksum is never activated", as
 });
 
 test("archive entries that leave the browser folder are refused", async (t) => {
-  for (const extra of [
-    [["chrome-linux64/escape", "../../outside", 0o120777]],
-    [["chrome-linux64/abs", "/etc/passwd", 0o120777]],
-    [["other/file", "x", 0o100644]],
+  const unsafe = [serverMessages.tools.unsafeArchivePath];
+  for (const [extra, messages = unsafe, patch] of [
+    [[["chrome-linux64/escape", "../../outside", 0o120777]]],
+    [[["chrome-linux64/abs", "/etc/passwd", 0o120777]]],
+    [[["other/file", "x", 0o100644]]],
+    // An entry name with "..": yazl refuses one, so the bytes are patched after.
+    [
+      [["chrome-linux64/XX/evil", "x", 0o100644]],
+      [
+        serverMessages.tools.unsafeArchivePath,
+        serverMessages.tools.chromiumArchiveInvalid,
+      ],
+      (bytes) =>
+        Buffer.from(bytes.toString("latin1").replaceAll("/XX/", "/../"), "latin1"),
+    ],
+    // Two names that one case-insensitive file system would merge.
+    [
+      [
+        ["chrome-linux64/Dup", "a", 0o100644],
+        ["chrome-linux64/dup", "b", 0o100644],
+      ],
+      [serverMessages.tools.duplicateArchivePaths],
+    ],
+    // A link unpacked first never redirects a later file below it.
+    [
+      [
+        ["chrome-linux64/redirect", "lib", 0o120777],
+        ["chrome-linux64/redirect/planted", "x", 0o100644],
+      ],
+    ],
+    // A chain of links, each inside on its own, that leaves the folder together.
+    [
+      [
+        ["chrome-linux64/p/q/f", "x", 0o100644],
+        ["chrome-linux64/p/q/L", "../..", 0o120777],
+        ["chrome-linux64/x", "p/q/L/../../..", 0o120777],
+      ],
+    ],
   ]) {
     const f = await fixture(t);
-    const bytes = await archive("155.0.0.1", extra);
+    let bytes = await archive("155.0.0.1", extra);
+    if (patch) bytes = patch(bytes);
     const manifest = manifestFor("155.0.0.1", bytes);
     f.serve(manifest, bytes);
     const tools = f.installer(manifest);
     tools.start("chromium");
     const job = await f.finish(tools);
     assert.equal(job.status, "failed", JSON.stringify(extra));
-    assert.equal(job.message, serverMessages.tools.unsafeArchivePath);
+    assert.ok(
+      messages.includes(job.message),
+      `${job.message} for ${JSON.stringify(extra)}`,
+    );
     assert.equal(managedChromium(f.root), null);
   }
 });
@@ -243,6 +284,66 @@ test("Linux reports missing shared libraries instead of a browser that cannot st
   assert.equal(managedChromium(f.root), null);
 });
 
+test("a browser that cannot start explains a blocked Linux sandbox", async (t) => {
+  const f = await fixture(t);
+  const bytes = await archive("155.0.0.1");
+  const manifest = manifestFor("155.0.0.1", bytes);
+  f.serve(manifest, bytes);
+  fs.mkdirSync(f.root, { recursive: true });
+  const starts = [];
+  // --version works, a real start aborts like Chrome without a usable sandbox.
+  const run = async (command, args) => {
+    if (command === "ldd") return "";
+    if (!args.includes("--dump-dom")) return "Google Chrome for Testing 155.0.0.1";
+    starts.push(args);
+    throw Error("No usable sandbox!");
+  };
+  const install = (userns) =>
+    installChromium({
+      root: f.root,
+      platform: "linux",
+      arch: "x64",
+      manifest,
+      fetchImpl: (url, options) =>
+        fetch(url.href.replace("https://storage.googleapis.com", f.local), options),
+      run,
+      userns: () => userns,
+    });
+  await assert.rejects(install("1"), {
+    message: serverMessages.tools.chromiumSandboxBlocked,
+  });
+  await assert.rejects(install("0"), {
+    message: serverMessages.tools.chromiumNotStarting,
+  });
+  // A short headless start, never with the sandbox switched off.
+  assert.ok(starts[0].includes("--headless=new"));
+  assert.ok(starts[0].includes("about:blank"));
+  assert.ok(!starts[0].some((arg) => /no-sandbox/.test(arg)));
+  assert.equal(managedChromium(f.root), null);
+});
+
+test("a full disk is named as such", async (t) => {
+  const f = await fixture(t);
+  const bytes = await archive("155.0.0.1");
+  const manifest = manifestFor("155.0.0.1", bytes);
+  f.serve(manifest, bytes);
+  fs.mkdirSync(f.root, { recursive: true });
+  await assert.rejects(
+    installChromium({
+      root: f.root,
+      platform: "linux",
+      arch: "x64",
+      manifest,
+      fetchImpl: (url, options) =>
+        fetch(url.href.replace("https://storage.googleapis.com", f.local), options),
+      run: async () => {
+        throw Object.assign(Error("write failed"), { code: "ENOSPC" });
+      },
+    }),
+    { message: serverMessages.tools.chromiumDiskFull },
+  );
+});
+
 test("a platform without a pinned build is explained, not offered", async (t) => {
   const f = await fixture(t);
   const tools = new ToolInstaller({
@@ -258,4 +359,49 @@ test("a platform without a pinned build is explained, not offered", async (t) =>
   assert.equal(row.available, false);
   assert.equal(row.reason, serverMessages.tools.chromiumPlatformUnavailable);
   assert.throws(() => tools.start("chromium"), { status: 409 });
+});
+
+test("the managed browser is not removed while the agents use it", async (t) => {
+  const f = await fixture(t);
+  const bytes = await archive("155.0.0.1");
+  const manifest = manifestFor("155.0.0.1", bytes);
+  f.serve(manifest, bytes);
+  const tools = f.installer(manifest);
+  tools.start("chromium");
+  await f.finish(tools);
+  let used = true;
+  tools.chromiumInUse = () => used;
+  await assert.rejects(tools.remove("chromium"), {
+    status: 409,
+    message: serverMessages.tools.chromiumInUse,
+  });
+  assert.ok(managedChromium(f.root));
+  used = false;
+  assert.equal((await tools.remove("chromium")).installed, false);
+});
+
+test("a server start sweeps what an interrupted install left behind", async (t) => {
+  const f = await fixture(t);
+  const bytes = await archive("155.0.0.1");
+  const manifest = manifestFor("155.0.0.1", bytes);
+  f.serve(manifest, bytes);
+  const first = f.installer(manifest);
+  first.start("chromium");
+  await f.finish(first);
+  const current = path.basename(managedChromium(f.root).directory);
+  const packages = path.join(f.root, ".packages");
+  // A crash mid-install: its work folder, an unpublished version, a stray link.
+  fs.mkdirSync(path.join(f.root, ".install-crashed"));
+  fs.mkdirSync(path.join(packages, "chromium-unpublished", "chrome-linux64"), {
+    recursive: true,
+  });
+  fs.symlinkSync("missing", path.join(f.root, ".chromium-stray"));
+  // Another tool's version directory is not the browser's to sweep.
+  fs.mkdirSync(path.join(packages, "4d1c6e2a-cli"));
+  const restarted = f.installer(manifest);
+  restarted.sweepChromium();
+  assert.deepEqual(fs.readdirSync(packages).sort(), [current, "4d1c6e2a-cli"].sort());
+  assert.equal(fs.existsSync(path.join(f.root, ".install-crashed")), false);
+  assert.equal(fs.existsSync(path.join(f.root, ".chromium-stray")), false);
+  assert.ok(managedChromium(f.root));
 });

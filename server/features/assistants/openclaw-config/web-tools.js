@@ -146,6 +146,8 @@ export function webToolsSnapshot({ profiles, webTools, port = 0 }) {
         ? browserProfileMap({ profiles, browser: webTools.browser, port })
         : {},
     visibleBrowser: available && webTools.browser.visible?.available === true,
+    // The executable this start compiled (the managed browser may not be removed).
+    browserExecutable: available ? webTools.browser.executablePath : null,
     searchPlugins: webTools?.searchPlugins || {},
     tools: webToolsSections({ profiles, webTools, port: 0 }).tools,
     signature: webToolsSignature({ profiles, webTools }),

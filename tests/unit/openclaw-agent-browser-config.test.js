@@ -141,6 +141,8 @@ test("the start snapshot keeps the profiles with the ports this start uses", () 
   assert.equal(snapshot.browserProfiles["agent-a"].cdpPort, port + 20);
   assert.equal(snapshot.browserProfiles["agent-a"].headless, false);
   assert.equal(snapshot.visibleBrowser, true);
+  // What a removal of the managed browser checks against.
+  assert.equal(snapshot.browserExecutable, brave);
   const none = webToolsSnapshot({
     profiles: [],
     webTools: { browser: visibleApp },
