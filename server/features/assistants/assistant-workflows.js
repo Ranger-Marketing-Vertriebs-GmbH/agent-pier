@@ -2,6 +2,7 @@ import { AssistantAccess, approvalRevision, exact } from "./assistant-access.js"
 import {
   AssistantActionStore,
   actionTerminal as terminal,
+  memoryRedaction,
 } from "./assistant-action-store.js";
 import { AssistantCoding } from "./assistant-coding.js";
 import {
@@ -32,6 +33,18 @@ export class AssistantWorkflows {
     this.coding = new AssistantCoding(this);
     this.exec = new ExecApprovals(this);
     this.ssh = new AgentSsh(this);
+    // Forgetting a memory entry redacts the approved writes that stored it, including
+    // entries forgotten while the agent services were not running.
+    if (services.memory) {
+      this.redactForgotten = () =>
+        this.store.redactMemoryWrites(services.memory.forgottenEntryIds());
+      services.memory.onForget = this.redactForgotten;
+      try {
+        this.redactForgotten();
+      } catch {
+        // Retried at the next forget and the next start.
+      }
+    }
     if (autoStart) this.start();
   }
   /** Starts advancing open actions; the application starts it after recovery. */
@@ -460,7 +473,7 @@ export class AssistantWorkflows {
         a = [403, 404, 409].includes(error.status)
           ? this.revoked(a, error)
           : this.store.patch(a.id, {
-              state: error.status === 400 ? "failed" : "unknown",
+              state: [400, 422].includes(error.status) ? "failed" : "unknown",
             });
       }
     if (a.state === "approved") {
@@ -486,11 +499,15 @@ export class AssistantWorkflows {
           });
         }
       } catch (error) {
+        // 422: the text was forgotten in this project; it is not kept here either.
         a = this.store.patch(a.id, {
+          ...(a.payload.action === "memory_write" && error.status === 422
+            ? memoryRedaction(a.payload)
+            : {}),
           state:
             a.payload.action === "coding_start" && this.coding.receipt(a)
               ? "unknown"
-              : [400, 403, 404, 409].includes(error.status)
+              : [400, 403, 404, 409, 422].includes(error.status)
                 ? "failed"
                 : "unknown",
         });
@@ -579,6 +596,8 @@ export class AssistantWorkflows {
   }
   async close() {
     this.closed = true;
+    if (this.redactForgotten && this.s.memory.onForget === this.redactForgotten)
+      this.s.memory.onForget = null;
     clearInterval(this.timer);
     this.exec.close();
     this.ssh.close();

@@ -57,6 +57,9 @@ export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates 
     if (!project) throw problem(serverMessages.memory.projectFolderExcluded, 422);
     response.status(201).json(project);
   });
+  router.get("/memory/migration-backups", (_request, response) =>
+    response.json({ count: memory.migrationBackupCount() }),
+  );
   const base = "/memory/projects/:projectId/entries";
   router.get(base, (request, response) => {
     const { page, q, archived } = request.query;

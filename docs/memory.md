@@ -35,18 +35,20 @@ Memory is untrusted data. Content may include mistaken statements or hostile ins
 
 ## Forgetting an entry
 
-The owner can permanently forget an entry from the project's **Knowledge** tab: expand the entry, choose **Forget permanently** and confirm the dialog. Agents cannot forget entries; there is no MCP tool for it, only the owner's `DELETE /api/memory/projects/<projectId>/entries/<id>` route with the entry's current `expectedRevision`, an optional `reason` and `removeBackups`. Do not put the secret itself into the reason.
+The owner can permanently forget an entry from the project's **Knowledge** tab: expand the entry, choose **Forget permanently** and confirm the dialog. Agents cannot forget entries; there is no MCP tool for it, only the owner's `DELETE /api/memory/projects/<projectId>/entries/<id>` route with the entry's current `expectedRevision`, an optional `reason` and `removeBackups`. Do not put the secret itself into the reason. The dialog shows how many migration backups exist and offers their removal only when there are some.
 
-In one transaction AgentPier deletes every revision of the entry, its entry row and the write receipts that point at it, so a replayed `memory_write` with an old `requestId` cannot return the forgotten text. For each distinct revision text it records a tombstone with the SHA-256 hash of the normalized title and content (Unicode NFC, surrounding whitespace removed, inner whitespace runs collapsed), the entry ID, the optional reason, the actor and the time. Tombstones contain no title or content. The database runs with `secure_delete`; after the transaction AgentPier vacuums it and truncates the write-ahead log, so the text no longer appears in `memory.sqlite`, `memory.sqlite-wal` or `memory.sqlite-shm`. The audit log records `memory.deleted` with the project and entry IDs only, without title, content or reason.
+In one transaction AgentPier deletes every revision of the entry, its entry row and the write receipts that point at it, so a replayed `memory_write` with an old `requestId` cannot return the forgotten text. For each distinct revision text it records a tombstone with the SHA-256 hash of the normalized title and content (Unicode NFC, surrounding whitespace removed, inner whitespace runs collapsed), the entry ID, the optional reason, the actor and the time. Tombstones contain no title or content. The database runs with `secure_delete`; after the transaction AgentPier vacuums it and truncates the write-ahead log, so the text no longer appears in `memory.sqlite`, `memory.sqlite-wal` or `memory.sqlite-shm`. VACUUM runs synchronously and briefly holds other requests. The same transaction records a purge marker. If a purge step fails (for example VACUUM on a full disk) or another reader keeps the log open, the entry is still forgotten: the route answers `purged: false` with a notice, the dialog says that the files are not fully cleaned yet, and AgentPier retries at the next start and the next forget until every step succeeded.
 
-Afterwards GUI and MCP writes in that project whose title and content match a tombstone are rejected with status `422`. Tombstones follow a project when it is merged, rebound after `git init` or mapped during a restore. Different text, including another entry with the same title, can still be written.
+Approved agent memory writes keep their title and content in the agent action history. Forgetting an entry clears that text in the actions that wrote or updated it, marks them as forgotten, and cancels such writes still waiting for approval. Agent services started later redact entries forgotten while they were off. An approved agent write of forgotten text fails definitively and keeps no copy of the text either. The audit log records `memory.deleted` with the project and entry IDs only, without title, content or reason.
+
+Afterwards GUI and MCP writes in that project whose title and content match a tombstone are rejected with status `422`. Tombstones follow a project when it is merged, rebound after `git init` or mapped during a restore. Different text, including another entry with the same title, can still be written. Forgetting removes only the selected entry: another entry that already holds the identical text stays until it is forgotten itself.
 
 Limits:
 
 - The hash blocks only identical title and content. The same secret inside different text is not detected.
 - Migration backups `memory.sqlite.<label>-<stamp>` next to the database also contain the text. They are deleted only when the owner ticks their separate checkbox in the dialog; otherwise they stay.
-- Existing backup archives under **Settings → Operations → Backups** still contain the content and are never rewritten. Delete or handle them by hand. Restoring an archive made before the entry was forgotten brings the entry back.
-- A deleted file can remain recoverable on the storage device, for example on SSDs or copy-on-write filesystems. Copies outside the memory database, such as agent transcripts or chat history that quoted the entry, are not touched.
+- Existing backup archives under **Settings → Operations → Backups** still contain the content and are never rewritten. Delete or handle them by hand. Restoring an archive made before the entry was forgotten brings the entry back. Restoring a newer archive with project mappings into an older AgentPier release does not remap its tombstones, so they stop blocking in the mapped project.
+- A deleted file can remain recoverable on the storage device, for example on SSDs or copy-on-write filesystems. Copies outside the memory database and the agent action history, such as CLI transcripts, chat history or agent runtime logs that quoted the entry, are not touched. The agent database overwrites the redacted action text with `secure_delete`, but its other leftovers are not vacuumed.
 - A truncation of the write-ahead log can be delayed while another reader holds it open; the next checkpoint empties it.
 
 ## Native launch integration
@@ -101,6 +103,7 @@ node --test tests/integration/memory-store.test.js \
   tests/blackbox/memory-mcp.test.js \
   tests/blackbox/memory-broker.test.js \
   tests/integration/memory-forget.test.js \
+  tests/integration/assistant-memory-forget.test.js \
   tests/integration/memory-broker-lifecycle.test.js \
   tests/integration/memory-discovery.test.js \
   tests/property/memory-content.test.js \

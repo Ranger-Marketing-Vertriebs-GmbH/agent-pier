@@ -286,6 +286,11 @@ test("the owner forgets an entry over HTTP with a content-free audit event", asy
   const base = `/api/memory/projects/${scope.id}/entries`;
   const body = { title: "Leaked key", content: "key fixture-route-secret" };
   const entry = await (await app.request(base, { method: "POST", body })).json();
+  const count = async () =>
+    (await (await app.request("/api/memory/migration-backups")).json()).count;
+  assert.equal(await count(), 0);
+  app.application.memory.backup("fixture");
+  assert.equal(await count(), 1);
   let response = await app.request(`${base}/${entry.id}`, {
     method: "DELETE",
     body: { expectedRevision: 2 },
@@ -301,7 +306,9 @@ test("the owner forgets an entry over HTTP with a content-free audit event", asy
     projectId: scope.id,
     revisions: 1,
     removedBackups: 0,
+    purged: true,
   });
+  assert.equal(await count(), 1);
   assert.equal((await app.request(`${base}/${entry.id}`)).status, 404);
   assert.equal((await app.request(`${base}/${entry.id}?revision=1`)).status, 404);
   response = await app.request(base, { method: "POST", body });

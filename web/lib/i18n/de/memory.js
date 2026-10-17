@@ -25,14 +25,16 @@ export const memoryCopy = {
   forgetAction: "Endgültig vergessen",
   forgetTitle: "Eintrag endgültig vergessen",
   forgetWarning:
-    "Der Eintrag wird mit allen Versionen aus der Wissensdatenbank gelöscht. Das lässt sich nicht rückgängig machen. Derselbe Titel und Inhalt kann in diesem Projekt nicht erneut gespeichert werden.",
+    "Der Eintrag wird mit allen Versionen aus der Wissensdatenbank gelöscht. Das lässt sich nicht rückgängig machen. Derselbe Titel und Inhalt wird in diesem Projekt nicht erneut gespeichert; ein anderer Eintrag, der denselben Text bereits enthält, bleibt bestehen.",
   forgetLimit:
     "Gesperrt wird nur identischer Text: Dasselbe Geheimnis in anderem Text lässt sich weiterhin speichern.",
   forgetArchives:
     "Vorhandene Sicherungsarchive unter Einstellungen → Betrieb → Sicherungen enthalten den Inhalt weiterhin. Lösche oder behandle sie von Hand.",
   forgetReason: "Begründung (optional; nie das Geheimnis selbst eintragen)",
-  forgetRemoveBackups:
-    "Auch die Migrationssicherungen der Wissensdatenbank (memory.sqlite.*) auf diesem Rechner löschen",
+  forgetRemoveBackups: (count) =>
+    `Auch ${count === 1 ? "die Migrationssicherung" : `die ${count} Migrationssicherungen`} der Wissensdatenbank (memory.sqlite.*) auf diesem Rechner löschen`,
+  forgetIncomplete:
+    "Der Eintrag ist vergessen, aber die Dateien der Wissensdatenbank sind noch nicht vollständig bereinigt. AgentPier versucht es beim nächsten Start und beim nächsten Vergessen erneut.",
   historyTitle: "Versionsverlauf",
   version: (revision) => `Version ${revision}`,
   latest: "Aktuellen Stand laden",

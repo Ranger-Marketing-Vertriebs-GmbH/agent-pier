@@ -45,6 +45,7 @@ export function openDatabase(dataDir) {
  CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS project_merges (from_id TEXT PRIMARY KEY, to_id TEXT NOT NULL, created_at TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS tombstones (project_id TEXT NOT NULL, hash TEXT NOT NULL, entry_id TEXT NOT NULL, reason TEXT NOT NULL, actor TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(project_id,hash));
+ CREATE TABLE IF NOT EXISTS purges (entry_id TEXT PRIMARY KEY, remove_backups INTEGER NOT NULL, created_at TEXT NOT NULL);
  CREATE INDEX IF NOT EXISTS entries_by_project ON entries(project_id);
  PRAGMA user_version=1;`);
     for (const suffix of ["-wal", "-shm"])
