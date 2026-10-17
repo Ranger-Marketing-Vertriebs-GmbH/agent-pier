@@ -68,7 +68,26 @@ export function discardSearchIndex(db) {
   }
 }
 
-/** Builds or verifies the index at start; returns whether search uses it. */
+/** Whether an index table left in place still holds rows (or cannot be read). */
+export function searchIndexHoldsText(db) {
+  if (!indexExists(db)) return false;
+  try {
+    return Boolean(
+      db
+        .prepare(
+          `SELECT EXISTS(SELECT 1 FROM ${index}_content) OR EXISTS(SELECT 1 FROM ${index}_data) AS held`,
+        )
+        .get().held,
+    );
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Builds or verifies the index at start; returns whether search uses it. A failed
+ * rebuild discards the old index, so no stale copy of later forgotten text remains.
+ */
 export function prepareSearchIndex(db, enabled) {
   if (!enabled) {
     discardSearchIndex(db);
@@ -88,6 +107,7 @@ export function prepareSearchIndex(db, enabled) {
     console.error(
       `AgentPier could not build the memory search index; search uses LIKE: ${error?.code || error?.name || "unknown error"}`,
     );
+    discardSearchIndex(db);
     return false;
   }
 }
@@ -106,10 +126,11 @@ export function indexEntry(memory, id) {
 /**
  * Removes a forgotten entry from the index inside the forget transaction. Merging all
  * segments drops its terms, also those older revisions left behind, so the following
- * VACUUM leaves none of its text in the shadow tables.
+ * VACUUM leaves none of its text in the shadow tables. Without a usable index any
+ * leftover one is stale and discarded whole; purgeForgotten checks that it is gone.
  */
 export function forgetIndexed(memory, id) {
-  if (!memory.fullText) return;
+  if (!memory.fullText) return discardSearchIndex(memory.db);
   memory.db.prepare(`DELETE FROM ${index} WHERE entry_id=?`).run(id);
   memory.db.exec(`INSERT INTO ${index}(${index}) VALUES('optimize')`);
 }
@@ -119,7 +140,8 @@ const asciiLower = (text) => text.replace(/[A-Z]/g, (letter) => letter.toLowerCa
 
 /**
  * References in the query: file paths, ticket keys, URLs and code symbols, i.e. words
- * with inner punctuation or camel case. Entries containing one exactly rank first.
+ * with inner punctuation or camel case. Entries containing one exactly, between token
+ * boundaries, rank first.
  */
 function references(words) {
   const found = new Set();
@@ -133,6 +155,12 @@ function references(words) {
   }
   return [...found];
 }
+
+// A GLOB for the reference between non-alphanumeric ASCII boundaries: ABC-12 does
+// not match inside ABC-123. The text is padded with spaces to match at its edges.
+const bounded = (ref) =>
+  `*[^a-z0-9]${ref.replace(/[*?[]/g, (special) => `[${special}]`)}[^a-z0-9]*`;
+const verbatim = (column) => `(' '||lower(${column})||' ') GLOB ?`;
 
 // Each word becomes a quoted prefix phrase, so FTS syntax in it stays plain text.
 const phrase = (word) => `"${word.replaceAll('"', '""')}"*`;
@@ -175,9 +203,9 @@ export function searchEntries(
   const refs = ranked ? references(words) : [];
   // Number of references found verbatim (ASCII case folded), ranked first.
   const exact = refs.length
-    ? `(${refs.map(() => "(instr(lower(r.title),?)>0 OR instr(lower(r.content),?)>0)").join("+")}) DESC, `
+    ? `(${refs.map(() => `(${verbatim("r.title")} OR ${verbatim("r.content")})`).join("+")}) DESC, `
     : "";
-  const exactArgs = refs.flatMap((ref) => [ref, ref]);
+  const exactArgs = refs.flatMap((ref) => [bounded(ref), bounded(ref)]);
   const scope = "e.project_id=? AND r.archived=?",
     scopeArgs = [projectId, Number(archived)];
   let from, where, whereArgs, score, scoreArgs, excerpt;
@@ -190,7 +218,8 @@ export function searchEntries(
     scoreArgs = [];
     excerpt = `snippet(${index},3,'','','…',24)`;
   } else {
-    const patterns = words.map(pattern);
+    // Like FTS, punctuation-only words count only when the query has nothing else.
+    const patterns = (terms.length ? terms : words).map(pattern);
     from = joined;
     where = [
       scope,

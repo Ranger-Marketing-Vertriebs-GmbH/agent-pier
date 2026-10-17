@@ -67,14 +67,17 @@ export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates 
       throw problem(serverMessages.memory.invalidArchiveFilter);
     if (sort !== undefined && typeof sort !== "string")
       throw problem(serverMessages.memory.invalidSort);
-    response.json(
-      memory.list(request.params.projectId, {
-        query: q ?? "",
-        page: pageValue(page),
-        archived: archived === "true",
-        ...(sort === undefined ? {} : { sort }),
-      }),
-    );
+    const result = memory.list(request.params.projectId, {
+      query: q ?? "",
+      page: pageValue(page),
+      archived: archived === "true",
+      ...(sort === undefined ? {} : { sort }),
+    });
+    // The GUI shows full entries; search excerpts are for agents.
+    response.json({
+      ...result,
+      items: result.items.map(({ excerpt: _, ...item }) => item),
+    });
   });
   router.post(base, (request, response) =>
     response

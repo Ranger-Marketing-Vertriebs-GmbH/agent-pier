@@ -108,6 +108,32 @@ for (const [mode, options] of modes) {
       assert.equal(f.store.list(f.project.id, { query }).items[0].title, first, query);
   });
 
+  test(`${mode}: an exact reference counts only on token boundaries`, async (t) => {
+    const f = await fixture(t, options);
+    seed(f.store, f.project.id, [
+      ["ABC 12 and server x js", "abc 12, server x js"],
+      ["Longer references", "See ABC-123 and server/x.json, not the short ones."],
+    ]);
+    // The second entry contains both queries as substrings only; the first wins on
+    // its title.
+    for (const query of ["ABC-12", "server/x.js"])
+      assert.deepEqual(
+        titles(f.store.list(f.project.id, { query })),
+        mode === "LIKE fallback"
+          ? ["Longer references"]
+          : ["ABC 12 and server x js", "Longer references"],
+        query,
+      );
+  });
+
+  test(`${mode}: punctuation-only words are ignored next to real words`, async (t) => {
+    const f = await fixture(t, options);
+    seed(f.store, f.project.id, [["Build", "npm run build"]]);
+    assert.equal(f.store.list(f.project.id, { query: "build %" }).total, 1);
+    assert.equal(f.store.list(f.project.id, { query: '" build "' }).total, 1);
+    assert.equal(f.store.list(f.project.id, { query: "%" }).total, 0);
+  });
+
   test(`${mode}: wildcards, quotes and operators are plain text`, async (t) => {
     const f = await fixture(t, options);
     seed(f.store, f.project.id, [

@@ -59,7 +59,8 @@ export function projectsRoutePath(route) {
   if (route.projectTab === "knowledge") {
     if (route.query) query.set("q", route.query);
     if (route.archived) query.set("archived", "1");
-    if (route.memorySort === "newest") query.set("sort", "newest");
+    // The order belongs to a search; without a term entries are in date order.
+    if (route.query && route.memorySort === "newest") query.set("sort", "newest");
     if (route.memoryPage > 1) query.set("page", String(route.memoryPage));
   }
   if (route.projectTab === "agentbus" && route.busTab === "messages") {

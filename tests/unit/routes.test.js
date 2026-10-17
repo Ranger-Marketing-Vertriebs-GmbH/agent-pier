@@ -68,6 +68,11 @@ test("projects routes carry tab state and old links map onto them", () => {
     path(read("/projects/p1?tab=knowledge&q=Build&sort=newest")),
     "/projects/p1?tab=knowledge&q=Build&sort=newest",
   );
+  // The order belongs to a search; clearing the term drops it from the link.
+  assert.equal(
+    path({ ...read("/projects/p1?tab=knowledge&q=Build&sort=newest"), query: "" }),
+    "/projects/p1?tab=knowledge",
+  );
   assert.equal(path(read("/agentbus")), "/projects?tab=agentbus");
   assert.equal(
     path(read("/agentbus/messages/b1?page=3")),
