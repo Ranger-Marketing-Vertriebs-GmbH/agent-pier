@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { withCliVersions } from "../../features/tools/cli-version.js";
+import { isManagedInstall, withCliVersions } from "../../features/tools/cli-version.js";
 
 export function toolsRoutes(services) {
   const { installer } = services;
@@ -9,7 +9,13 @@ export function toolsRoutes(services) {
   );
   router.get("/tool-installations", async (_req, res) => {
     const list = installer.list();
-    const detected = await withCliVersions(installer.detect());
+    const detected = await withCliVersions(installer.detect(), {
+      managed: (tool) =>
+        isManagedInstall(tool.id, tool.path, {
+          home: installer.home,
+          dataDir: installer.dataDir,
+        }),
+    });
     // The installed version beside the job record, whose own `version` is what the
     // last installation or update reported.
     for (const item of list.installations) {
@@ -19,6 +25,7 @@ export function toolsRoutes(services) {
           installedVersion: found.version,
           minimumVersion: found.minimumVersion,
           versionStatus: found.versionStatus,
+          managedInstall: found.managedInstall,
         });
     }
     res.json(list);

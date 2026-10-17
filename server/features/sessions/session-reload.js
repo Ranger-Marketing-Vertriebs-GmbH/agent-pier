@@ -252,9 +252,13 @@ export class SessionReload {
             );
             await this.run(session, plan);
           });
-        } catch {
+        } catch (error) {
           this.pending.delete(id);
-          await this.save(session, { state: "failed", error: failureMessage });
+          // An outdated CLI names its update instead of the generic failure.
+          await this.save(session, {
+            state: "failed",
+            error: error?.code === "CLI_UPDATE_REQUIRED" ? error.message : failureMessage,
+          });
         }
       }
     });

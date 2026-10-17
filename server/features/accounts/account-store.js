@@ -19,7 +19,11 @@ import { launchTarget } from "../providers/launch-description.js";
 import { prepareProviderLaunch } from "../providers/provider-launch.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { withUtf8Locale } from "../../lib/session-locale.js";
-import { cliVersions, requireCliVersion } from "../tools/cli-version.js";
+import {
+  cliVersions,
+  isManagedInstall,
+  requireCliVersion,
+} from "../tools/cli-version.js";
 import {
   privateDirectory,
   writePrivate,
@@ -367,6 +371,27 @@ export class AccountStore {
       ? codexCredentialStoreArgs()
       : [];
   }
+  async cliVersion(account, command, known) {
+    const options = {
+      probe: this.versions,
+      version: known,
+      managed: isManagedInstall(account.tool, command, this),
+    };
+    const status = await requireCliVersion(account.tool, command, options);
+    // Claude custom models refuse an unverified version (claude-provider.js), so a
+    // probe that failed or timed out gets one more, slower attempt first.
+    if (
+      status.version ||
+      known !== undefined ||
+      account.tool !== "claude" ||
+      !account.provider
+    )
+      return status;
+    return requireCliVersion(account.tool, command, {
+      ...options,
+      version: await this.versions.read(command, { refresh: true, timeout: 15_000 }),
+    });
+  }
   /**
    * The launch for a session of this account. It reads the CLI version first and
    * refuses a CLI below its minimum (cli-version.js); `cliVersion` skips that probe.
@@ -423,10 +448,7 @@ export class AccountStore {
     const cli =
       account.tool === "shell"
         ? null
-        : await requireCliVersion(account.tool, command, {
-            probe: this.versions,
-            version: cliVersion,
-          });
+        : await this.cliVersion(account, command, cliVersion);
     const args = login
       ? {
           codex: ["login", "--device-auth"],

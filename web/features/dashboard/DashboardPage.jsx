@@ -112,7 +112,7 @@ export default function DashboardPage({
                 </span>
               </div>
               <h3>{t.name}</h3>
-              {t.installed && t.minimumVersion && (
+              {t.installed && t.minimumVersion && t.versionStatus !== "checking" && (
                 <small className="tool-version">
                   {t.version
                     ? toolInstallerCopy.versionLabel(t.version)

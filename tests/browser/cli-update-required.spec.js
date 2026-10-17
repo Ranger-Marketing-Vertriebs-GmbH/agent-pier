@@ -5,7 +5,7 @@ import { baseURL as base } from "../helpers/browser.js";
 
 test.use({ locale: "en-GB" });
 
-async function fixture(page) {
+async function fixture(page, configure = () => {}) {
   const tools = [
     {
       id: "codex",
@@ -24,6 +24,7 @@ async function fixture(page) {
       version: "2.1.100",
       minimumVersion: "2.1.263",
       versionStatus: "update-required",
+      managedInstall: true,
     },
     {
       id: "opencode",
@@ -35,6 +36,7 @@ async function fixture(page) {
       versionStatus: "ok",
     },
   ];
+  configure(tools);
   const state = {
     tools,
     utilities: [],
@@ -161,4 +163,29 @@ test("an outdated CLI's launch is refused and the dialog offers its update", asy
   await expect(update.getByRole("status").first()).toContainText("CLI updated");
   expect(calls.updates).toBe(1);
   await expect(update).toContainText("Installed: 2.1.296");
+});
+
+test("an outdated CLI that AgentPier did not install only warns and points to its package manager", async ({
+  page,
+}) => {
+  await fixture(page, (tools) =>
+    Object.assign(tools[2], {
+      version: "1.0.0",
+      versionStatus: "update-required",
+      managedInstall: false,
+    }),
+  );
+  await expect(card(page, "OpenCode").locator(".tool-state")).toHaveText(
+    "Update required",
+  );
+  await openNewSession(page);
+  const dialog = page.getByRole("dialog");
+  await page.getByLabel("CLI", { exact: true }).selectOption("opencode");
+  await expect(dialog.locator(".cli-version-notice")).toContainText(
+    "update it with the package manager that installed it",
+  );
+  await expect(dialog.getByRole("button", { name: "Update OpenCode" })).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: "Start session", exact: true }),
+  ).toBeEnabled();
 });

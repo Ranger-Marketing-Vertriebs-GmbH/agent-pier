@@ -8,6 +8,7 @@ import {
   atLeast,
   cliVersionStatus,
   createCliVersionProbe,
+  withCliVersions,
   parseCliVersion,
   requireCliVersion,
 } from "../../server/features/tools/cli-version.js";
@@ -26,6 +27,11 @@ test("CLI version output is parsed for every supported CLI's format", () => {
   assert.equal(parseCliVersion("codex-cli 0.160.1\n"), "0.160.1");
   assert.equal(parseCliVersion("2.1.296 (Claude Code)\n"), "2.1.296");
   assert.equal(parseCliVersion("1.18.35\n"), "1.18.35");
+  assert.equal(parseCliVersion("v1.18.35\n"), "1.18.35");
+  assert.equal(parseCliVersion("opencode v1.18.35"), "1.18.35");
+  // A prerelease of a version counts as that version.
+  assert.equal(parseCliVersion("2.1.263-beta.1"), "2.1.263");
+  assert.equal(parseCliVersion("1.2.3.4"), "1.2.3");
   for (const output of ["", "unknown", "v2", null, undefined, 42])
     assert.equal(parseCliVersion(output), null);
 });
@@ -116,9 +122,10 @@ test("the probe runs the real --version asynchronously and survives broken CLIs"
   assert.ok(Date.now() - started < 5000);
 });
 
-test("a CLI below its minimum is refused with a typed update_required problem", async () => {
+test("a managed CLI below its minimum is refused with a typed update_required problem", async () => {
   const probe = { read: async () => "2.1.100" };
-  await assert.rejects(requireCliVersion("claude", "/opt/claude", { probe }), (error) => {
+  const refused = requireCliVersion("claude", "/opt/claude", { probe, managed: true });
+  await assert.rejects(refused, (error) => {
     assert.equal(error.status, 409);
     assert.equal(error.code, "CLI_UPDATE_REQUIRED");
     assert.deepEqual(error.updateRequired, {
@@ -136,6 +143,15 @@ test("a CLI below its minimum is refused with a typed update_required problem", 
     );
     return true;
   });
+  // AgentPier cannot update an external installation, so it only warns.
+  assert.deepEqual(
+    await requireCliVersion("claude", "/opt/claude", { probe, managed: false }),
+    {
+      version: "2.1.100",
+      minimumVersion: MINIMUM_CLI_VERSIONS.claude,
+      versionStatus: "update-required",
+    },
+  );
 });
 
 test("an unknown version warns without blocking, a current one passes", async () => {
@@ -153,4 +169,73 @@ test("an unknown version warns without blocking, a current one passes", async ()
     "ok",
   );
   assert.equal(cliVersionStatus("opencode", "1.0.0").versionStatus, "update-required");
+});
+
+test("a failed probe is cached for the same binary and retried after it changes", async (t) => {
+  const root = directory(t);
+  const file = path.join(root, "codex");
+  fs.writeFileSync(file, "#!/bin/sh\nexit 3\n", { mode: 0o755 });
+  fs.utimesSync(file, 1_700_000_000, 1_700_000_000);
+  let calls = 0;
+  const probe = createCliVersionProbe({
+    run: async () => {
+      calls++;
+      return fs.readFileSync(file, "utf8").includes("echo") ? "codex-cli 0.160.1" : null;
+    },
+  });
+  assert.equal(await probe.read(file), null);
+  assert.equal(await probe.read(file), null);
+  assert.equal(calls, 1);
+  // An explicit retry runs it again even though the failure is cached.
+  assert.equal(await probe.read(file, { refresh: true, timeout: 50 }), null);
+  assert.equal(calls, 2);
+  cli(file, "codex-cli 0.160.1");
+  assert.equal(await probe.read(file), "0.160.1");
+  assert.equal(calls, 3);
+});
+
+test("concurrent probes of one binary share a single --version run", async (t) => {
+  const root = directory(t);
+  const file = path.join(root, "claude");
+  cli(file, "2.1.296");
+  let calls = 0,
+    finish;
+  const probe = createCliVersionProbe({
+    run: () => {
+      calls++;
+      return new Promise((resolve) => {
+        finish = () => resolve("2.1.296");
+      });
+    },
+  });
+  const first = probe.read(file),
+    second = probe.read(file);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  finish();
+  assert.deepEqual(await Promise.all([first, second]), ["2.1.296", "2.1.296"]);
+  assert.equal(calls, 1);
+});
+
+test("the tool list never waits for a probe in flight", async (t) => {
+  const root = directory(t);
+  const file = path.join(root, "codex");
+  cli(file, "codex-cli 0.160.1");
+  let finish;
+  const probe = createCliVersionProbe({
+    run: () =>
+      new Promise((resolve) => {
+        finish = () => resolve("codex-cli 0.160.1");
+      }),
+  });
+  const tool = { id: "codex", installed: true, path: file };
+  const started = Date.now();
+  const [checking] = await withCliVersions([tool], { probe });
+  assert.ok(Date.now() - started < 1000);
+  assert.equal(checking.versionStatus, "checking");
+  assert.equal(checking.version, null);
+  finish();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const [known] = await withCliVersions([tool], { probe });
+  assert.equal(known.versionStatus, "ok");
+  assert.equal(known.version, "0.160.1");
 });
