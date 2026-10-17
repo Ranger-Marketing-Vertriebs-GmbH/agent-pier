@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { channelFixture, telegramMessage } from "../helpers/assistant-channel-fixture.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
+import { saveText } from "../../server/features/assistants/team-texts.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 function setup(t, options) {
   const f = channelFixture(t, options);
@@ -529,7 +530,7 @@ test("a refused synthesis still sends the members' reports to Telegram", async (
   teams.write(teams.get(p.id), {
     phase: "completed",
     resultState: "unsent",
-    resultDiagnostic: "RESULT_REFUSED",
+    resultDiagnostic: "RESULT_UNSENDABLE",
     resultBatch: [
       { name: "Planner", role: "Plan", phase: "completed", text: "The plan", cut: true },
     ],
@@ -540,4 +541,30 @@ test("a refused synthesis still sends the members' reports to Telegram", async (
     .find((e) => e.kind === "team-result");
   assert.ok(notice.text.includes("The plan"));
   assert.ok(notice.text.includes("Bericht gekürzt"));
+});
+
+test("the Telegram fallback reads each whole report, or marks one whose row is gone", async (t) => {
+  const f = setup(t),
+    p = await f.proposal();
+  const teams = f.assistants.teams.store;
+  const whole = `The plan: ${"step, ".repeat(600)}done.`;
+  saveText(teams.db, p.id, "planner", whole);
+  teams.write(teams.get(p.id), {
+    phase: "completed",
+    resultState: "unsent",
+    resultDiagnostic: "RESULT_UNSENDABLE",
+    resultBatch: [
+      { memberId: "planner", name: "Planner", role: "Plan", phase: "completed" },
+      { memberId: "writer", name: "Writer", role: "Write", phase: "completed" },
+    ].map((m) => ({ ...m, text: "Excerpt", truncated: true })),
+  });
+  await f.service.teamOutbox.transfer();
+  const notice = f.service.outbox
+    .pending(f.channel.id)
+    .find((e) => e.kind === "team-result");
+  assert.ok(notice.text.includes(whole));
+  // Only the writer's excerpt is left: it is marked shortened.
+  assert.ok(
+    notice.text.endsWith("Excerpt\nBericht gekürzt – vollständig im Chat des Mitglieds."),
+  );
 });

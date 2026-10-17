@@ -133,10 +133,12 @@ export class TelegramOutbox {
         attempt.state === "completed"
           ? msg.teamResultNoText(t.objective)
           : msg.teamResultFailed(t.objective),
-        ...(t.resultBatch || []).map(
-          (m) =>
-            `${m.name} · ${m.role} · ${msg.teamResultStates[m.phase]}\n${reportText(a.teams.store, t, m) || msg.teamReportUnavailable}${m.cut ? `\n${msg.teamReportShortened}` : ""}`,
-        ),
+        ...(t.resultBatch || []).map((m) => {
+          const report = reportText(a.teams.store, t, m);
+          // Cut, or truncated with its whole row missing: the rest is in the member's chat.
+          const short = m.cut || (m.truncated && report === m.text);
+          return `${m.name} · ${m.role} · ${msg.teamResultStates[m.phase]}\n${report || msg.teamReportUnavailable}${short ? `\n${msg.teamReportShortened}` : ""}`;
+        }),
       ].join("\n\n");
       if (text.length > historyTextLimit)
         text = withNote(text, msg.telegramReplyIncomplete);

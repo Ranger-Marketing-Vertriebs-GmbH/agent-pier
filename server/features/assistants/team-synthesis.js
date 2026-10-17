@@ -3,6 +3,8 @@ import { excerpt } from "./team-texts.js";
 // 65536-character text limit (textValue in assistant-validation.js), JSON escaping
 // included.
 export const synthesisMaxChars = 60000;
+// Below this many code points a report says little; coding runs are shortened first.
+const minReportPoints = 1000;
 const pendingLine = (batch) => {
   const runs = batch.flatMap((m) =>
     (m.codingRuns || [])
@@ -32,17 +34,17 @@ const runsAt = (runs, level) =>
 export function synthesisPrompt(team, reports = team.resultBatch.map((m) => m.text)) {
   const texts = reports.map((t) => Array.from(t || ""));
   const build = (cap, level) => {
-    const batch = team.resultBatch.map(
-      ({ cut, truncated: _truncated, codingRuns, ...m }, i) => {
-        const over = texts[i].length > cap;
-        return {
-          ...m,
-          text: (over ? texts[i].slice(0, cap) : texts[i]).join(""),
-          ...(cut || over ? { shortened: true } : {}),
-          ...(codingRuns ? runsAt(codingRuns, level) : {}),
-        };
-      },
-    );
+    const batch = team.resultBatch.map(({ cut, truncated, codingRuns, ...m }, i) => {
+      const over = texts[i].length > cap;
+      // A truncated record whose whole report row is missing has only its excerpt.
+      const excerptOnly = truncated && reports[i] === m.text;
+      return {
+        ...m,
+        text: (over ? texts[i].slice(0, cap) : texts[i]).join(""),
+        ...(cut || over || excerptOnly ? { shortened: true } : {}),
+        ...(codingRuns ? runsAt(codingRuns, level) : {}),
+      };
+    });
     const note = batch.some((m) => m.shortened)
       ? " Reports marked shortened are incomplete here; the member's whole report is in that member's own chat, so say so instead of guessing what is missing."
       : "";
@@ -58,9 +60,12 @@ export function synthesisPrompt(team, reports = team.resultBatch.map((m) => m.te
   const longest = Math.max(0, ...texts.map((t) => t.length));
   const whole = build(longest, 0);
   if (whole.length <= synthesisMaxChars) return whole;
-  // The first level whose runs leave room, then the largest common length there.
-  // Counts with empty reports always fit: eight members and a 4096-character goal.
-  const level = [0, 1].find((l) => build(0, l).length <= synthesisMaxChars) ?? 2;
+  // The first level whose runs leave each report a useful length, else the first
+  // whose runs leave room at all; then the largest common length there. Counts with
+  // empty reports always fit: eight members and a 4096-character goal.
+  const useful = Math.min(minReportPoints, longest);
+  const fits = (cap) => (l) => build(cap, l).length <= synthesisMaxChars;
+  const level = [0, 1, 2].find(fits(useful)) ?? [0, 1].find(fits(0)) ?? 2;
   let low = 0,
     high = longest;
   while (low < high) {

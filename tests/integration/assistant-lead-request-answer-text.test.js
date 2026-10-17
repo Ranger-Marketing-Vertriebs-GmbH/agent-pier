@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ask, lead } from "../helpers/lead-request-service-fixture.js";
+import { ask, lead, until } from "../helpers/lead-request-service-fixture.js";
 import { followUp } from "../../server/features/assistants/lead-request-text.js";
 
 // Longer than OpenClaw's 8000-character history page and the old 6000 cap.
@@ -65,4 +65,19 @@ test("pruning a request drops its whole answer too", async (t) => {
   f.service.store.write(f.service.requests.store.get(r.id), { settled: true });
   f.service.requests.store.prune(Date.now() + 40 * 86400000);
   assert.equal(texts(), 0);
+});
+
+test("an answer within the wait returns whole as the ask tool's result", async (t) => {
+  const f = await lead(t);
+  const answer = long("Answer");
+  const pending = ask(f, f.temporary, f.turn());
+  const r = await until(
+    () => f.requests().find((x) => x.phase === "running"),
+    "dispatch",
+  );
+  f.complete(r.attemptId, "ok", [answer]);
+  await f.service.reconcile();
+  const result = await pending;
+  assert.equal(result.status, "answered");
+  assert.equal(result.answer, answer);
 });
