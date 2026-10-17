@@ -30,11 +30,17 @@ export const assistantBrowserCopy = {
     unavailable: "Die Live-Ansicht ist gerade nicht verfügbar.",
   },
   liveReason: {
+    noSlot:
+      "Dieses Teammitglied hat noch keinen Browser. Er entsteht, sobald es ihn nutzt.",
     service: "Der Agentendienst ist nicht bereit.",
     noProfile:
       "Für diesen Agenten gibt es kein Browserprofil. Schalte „Einen Browser nutzen“ ein und starte den Agentendienst neu.",
     request: "Der Browser antwortet gerade nicht. Es wird erneut versucht.",
   },
+  liveNotConnected:
+    "Die Live-Ansicht ist gerade nicht verbunden. Bitte gleich noch einmal versuchen.",
+  liveEnded:
+    "Die Live-Ansicht wurde beendet. Lade die Seite neu, wenn du angemeldet bist.",
   liveStart: "Browser starten",
   liveTab: "Tab",
   liveFollow: "Dem Agenten folgen",

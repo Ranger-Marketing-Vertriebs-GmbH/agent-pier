@@ -188,6 +188,12 @@ export class GatewayClient extends EventEmitter {
     if (typeof wsPath !== "string" || !wsPath.startsWith("/") || wsPath.startsWith("//"))
       throw gatewayError("RPC_FAILED");
     const url = new URL(wsPath, this.url);
+    // A path like "/\\evil" would resolve to another host; it stays on the Gateway.
+    if (
+      url.host !== new URL(this.url).host ||
+      url.protocol !== new URL(this.url).protocol
+    )
+      throw gatewayError("RPC_FAILED");
     return pinnedSocket(url.href, this.certPath, { connected: false, secured: false });
   }
   supports(method) {

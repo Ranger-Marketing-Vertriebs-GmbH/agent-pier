@@ -174,16 +174,31 @@ export class AgentBrowsers {
     const entry = name && this.profiles()[name];
     return entry ? { name, entry } : null;
   }
+  /** Why the owner cannot watch agent `id`: a member without a slot yet, or none. */
+  viewReason(id) {
+    const assistant = this.store.getAssistant(id);
+    return inheritsFromLead(assistant) && personalCapabilities(assistant).browser
+      ? "noSlot"
+      : "noProfile";
+  }
   /**
-   * A browser the owner watches is in use: it stays tracked (so a visible one keeps
-   * rendering while minimized) and is not stopped as idle.
+   * A running browser someone watches stays tracked, so a visible one keeps
+   * rendering while minimized; an untracked one (after an AgentPier restart) is
+   * tracked again within the visible limit. Only a `full` viewer, watching since
+   * `since`, keeps it from the idle stop, and at most `idleCapMs` long: a chat's
+   * preview never does.
    */
-  watched(id) {
+  watched(id, { full = false, since = this.now() } = {}) {
     const view = this.viewProfile(id);
     if (!view) return;
     const current = this.running.get(view.name);
-    if (current) current.lastUse = this.now();
-    else this.launched(view.name, view.entry, id);
+    if (current) {
+      if (full && this.now() - since < this.idleCapMs) current.lastUse = this.now();
+      return;
+    }
+    const visible = [...this.running.values()].filter((e) => !e.headless).length;
+    if (view.entry.headless || visible < this.limit)
+      this.launched(view.name, view.entry, id);
   }
   /** The owner starts the agent's browser from its live view, within the limits. */
   async ownerStart(id) {

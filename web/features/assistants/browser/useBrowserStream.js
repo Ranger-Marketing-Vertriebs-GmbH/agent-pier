@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { decodeFrame, streamAddress } from "./browser-frames.js";
+import { assistantBrowserCopy as copy } from "../../../lib/i18n/messages/assistant-browser.js";
 
 const idle = { status: "connecting", url: "", title: "", targetId: null, tabs: [] };
 
@@ -14,6 +15,9 @@ export default function useBrowserStream(id, { preview = false, enabled = true }
   const [error, setError] = useState("");
   const socket = useRef(null);
   useEffect(() => {
+    // Another agent's view starts from nothing, never with the last one's picture.
+    setState(idle);
+    setError("");
     if (!enabled || !id) return undefined;
     let alive = true,
       retry,
@@ -41,9 +45,15 @@ export default function useBrowserStream(id, { preview = false, enabled = true }
         current = next;
         setImage(next);
       };
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         if (socket.current === ws) socket.current = null;
-        if (alive) retry = setTimeout(connect, 2000);
+        // 1008: the login ended or the request was refused; reconnecting cannot help.
+        if (event.code === 1008) {
+          alive = false;
+          setError(copy.liveEnded);
+          return;
+        }
+        if (alive) retry = setTimeout(connect, event.code === 1013 ? 10000 : 2000);
       };
     };
     connect();
@@ -57,9 +67,12 @@ export default function useBrowserStream(id, { preview = false, enabled = true }
     };
   }, [id, preview, enabled]);
   const send = useCallback((command) => {
+    if (socket.current?.readyState !== WebSocket.OPEN) {
+      setError(copy.liveNotConnected);
+      return;
+    }
     setError("");
-    if (socket.current?.readyState === WebSocket.OPEN)
-      socket.current.send(JSON.stringify(command));
+    socket.current.send(JSON.stringify(command));
   }, []);
   return {
     state,

@@ -1298,8 +1298,16 @@ later takeover can send input the same way.
   agent opens or closes one; the owner can pick a tab and **Follow the agent** again.
 - A stopped browser shows **Start browser**, which launches the agent's profile
   within the visible-browser limit (`AgentBrowsers.ownerStart`). A watched browser
-  stays tracked and is not stopped as idle, and the window keeper's focus emulation
-  keeps a minimized window delivering frames.
+  stays tracked, so the window keeper's focus emulation keeps a minimized window
+  delivering frames; an untracked running one (after an AgentPier restart) is tracked
+  again within the visible limit. Only the full live view keeps a browser from the
+  idle stop, for at most an hour; the chat header's preview never does, so an open
+  chat cannot keep a browser running or block another agent's.
+- At most eight viewers watch one agent's browser (close code 1013 beyond). An
+  upstream socket that does not open within ten seconds is retried; a refresh asked
+  for during another (a tab pick) runs right after it. The status line of a refused
+  upgrade names its status (401 Unauthorized, 403 Forbidden). A login that ends
+  closes the view with 1008, and the page then stops reconnecting.
 - The web app connects to `/api/assistants/<id>/browser-stream` behind the login
   and the origin check of the chat stream. The server sends JSON state messages and
   forwards OpenClaw's binary frames unchanged (a four-byte header length, a JSON
