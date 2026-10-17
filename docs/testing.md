@@ -124,6 +124,12 @@ CI runs in three tiers.
 
 A new pull-request revision cancels the obsolete Verify run for that same PR. The assistant runtime workflow runs its Linux jobs on pull requests that touch its paths; its macOS jobs run after the merge, nightly and before a release. `Assistant runtime (queue)` gates the merge queue for assistant paths. The Secrets workflow still scans branch pushes.
 
+### Red advisory checks
+
+Advisory jobs do not block a merge, but `release.yml` builds no package unless the full suite passed, so a red advisory job must be fixed before the next release. The advisory jobs are every job of `Verify`, `Assistant runtime` and `Assistant runtime (queue)` other than the required checks and the jobs that feed them (`select tests`, the Chromium shards): today `backend (macos-latest, 24)`, `browser (webkit)` and its shards, the native filesystem matrix, the assistant runtime fresh installs and native contracts, and `Assistant runtime (queue)`. Node 22 runs only in `full.yml`.
+
+The `Advisory report` workflow (`.github/workflows/advisory-report.yml`, `scripts/ci-advisory-report.mjs`) runs when one of those workflows completes for a pull request or a merge group. It reads the run's job results through the API and keeps one comment on the pull request, found by a hidden marker: one section per workflow and event (pull request or merge queue) with the commit, a link to the run and a link to each failed advisory job, headed “fix before the next release”. Later runs update the comment instead of adding new ones; once every section is green it says that all advisory checks are green again. A pull request whose advisory jobs never failed gets no comment. A merge-group run reports on the pull request named in its `gh-readonly-queue/main/pr-<number>-<sha>` ref, also after that pull request has merged. Runs that were cancelled, belong to an older revision than the pull request's head, or are older than the result already shown are ignored. Each report also writes a job summary. The reporter runs from the default branch, never checks out the pull request's code and is the only job with `pull-requests: write`; it creates no issue.
+
 ### Affected-test selection
 
 `scripts/affected-tests.mjs` chooses the tests a change can affect, for fast pull-request feedback; the merge queue, nightly and release runs still run everything.

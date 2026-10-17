@@ -1,0 +1,36 @@
+name: Advisory report
+# Comments on the pull request when an advisory job (not a required check) of a
+# pull request or merge-queue run failed, and updates that one comment when they
+# pass again (AGENTPIER-105, docs/testing.md). It runs from the default branch
+# after the watched workflow completed, never checks out or runs the pull
+# request's code, downloads no artifact and reads job results through the API
+# only. Unlike a job inside those workflows it also reaches fork pull requests,
+# and needs no write permission from full.yml, which calls Assistant runtime.
+on:
+  workflow_run:
+    workflows: [Verify, Assistant runtime, Assistant runtime (queue)]
+    types: [completed]
+permissions: {}
+jobs:
+  report:
+    name: advisory report
+    if: >-
+      github.event.workflow_run.event == 'pull_request' ||
+      github.event.workflow_run.event == 'merge_group'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+      - name: Comment on red or recovered advisory jobs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ci-advisory-report.mjs

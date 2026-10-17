@@ -31,7 +31,9 @@ rate limit. Stable checks do not require the release-list API.
    version-bump and tag process. The resulting stable release is offered in both
    channels and supersedes the RCs. Do not rename an RC tag or overwrite its assets.
 
-A manual workflow dispatch only builds artifacts; publishing requires the tag push.
+Release candidates are built only from commits on `main`; there are no RC builds from
+pull request heads. A manual workflow dispatch only builds artifacts; publishing
+requires the tag push.
 Existing installations first need a stable release containing the channel selector.
 
 ## Data schema rule for release candidates
