@@ -15,6 +15,7 @@ export { ensureDependencies } from "./install-dependencies.mjs";
 import { ensureDependencies } from "./install-dependencies.mjs";
 import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
 import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
+import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
 export async function installRelease(options, dependencies = {}) {
   if (options.resume) return resumeSetup(options, dependencies);
   return installInitialRelease(options, dependencies);
@@ -29,6 +30,7 @@ async function installInitialRelease(
     installDependencies = true,
     service = false,
     withAssistants = false,
+    withAgentBrowser = false,
   },
   {
     run,
@@ -40,6 +42,7 @@ async function installInitialRelease(
     home = os.homedir(),
     assistantRuntime,
     toolchains = provisionInstallerToolchains,
+    agentBrowser = provisionAgentBrowser,
   } = {},
 ) {
   if (
@@ -74,6 +77,7 @@ async function installInitialRelease(
     { assistantRuntime },
   );
   const toolchainResult = await toolchains({ dataDir });
+  const browserResult = await agentBrowser({ dataDir, enable: withAgentBrowser });
   const configuredEnv = {
     ...dependencies.env,
     AGENTPIER_INSTALL_ROOT: installRoot,
@@ -102,6 +106,7 @@ async function installInitialRelease(
     serviceInstalled: service,
     ...(assistants ? { assistantRuntime: assistants } : {}),
     toolchains: toolchainResult,
+    ...(browserResult ? { agentBrowser: browserResult } : {}),
   };
 }
 export async function runInstaller(args, dependencies = {}) {
@@ -116,6 +121,7 @@ export async function runInstaller(args, dependencies = {}) {
         "--skip-dependencies",
         "--dependencies-only",
         "--with-assistants",
+        "--with-agent-browser",
       ].includes(key)
     )
       options[key] = true;
@@ -163,6 +169,7 @@ export async function runInstaller(args, dependencies = {}) {
       service: options["--service"] === true,
       installDependencies: options["--skip-dependencies"] !== true,
       withAssistants: options["--with-assistants"] === true,
+      withAgentBrowser: options["--with-agent-browser"] === true,
     },
     dependencies,
   );

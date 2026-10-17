@@ -58,13 +58,16 @@ export default function AppDialogs({
         </Modal>
       )}
       {modal &&
-        ["rename", "stop", "remove", "deleteAccount", "login"].includes(modal.type) && (
+        ["rename", "stop", "remove", "removeTool", "deleteAccount", "login"].includes(
+          modal.type,
+        ) && (
           <Modal
             title={
               {
                 rename: commonCopy.renameSession,
                 stop: copy.titleStop,
                 remove: copy.titleRemove,
+                removeTool: copy.titleRemoveTool(modal.item.name),
                 deleteAccount: copy.titleDeleteAccount,
                 login: commonCopy.signInTitle(names[modal.item.tool]),
               }[modal.type]
@@ -73,12 +76,15 @@ export default function AppDialogs({
           >
             <AsyncForm
               close={close}
-              danger={["stop", "remove", "deleteAccount"].includes(modal.type)}
+              danger={["stop", "remove", "removeTool", "deleteAccount"].includes(
+                modal.type,
+              )}
               button={
                 {
                   rename: commonCopy.save,
                   stop: commonCopy.stopNow,
                   remove: commonCopy.removeNow,
+                  removeTool: commonCopy.removeNow,
                   deleteAccount: commonCopy.deleteAccount,
                   login: copy.buttonLogin,
                 }[modal.type]
@@ -100,6 +106,8 @@ export default function AppDialogs({
                   forgetCachedChat(item.id);
                   select(null);
                 }
+                if (modal.type === "removeTool")
+                  await api(`/tools/${encodeURIComponent(item.tool)}`, "DELETE");
                 if (modal.type === "deleteAccount")
                   await api(`/accounts/${item.id}`, "DELETE");
                 await refresh();
@@ -123,6 +131,7 @@ export default function AppDialogs({
                     {
                       stop: copy.confirmCopyStop(modal.item.name),
                       remove: copy.confirmCopyRemove(modal.item.name),
+                      removeTool: copy.confirmCopyRemoveTool(modal.item.name),
                       deleteAccount: copy.confirmCopyDeleteAccount(
                         modal.item.name,
                         modal.item.tool === "claude" ? copy.keychainRetention : "",

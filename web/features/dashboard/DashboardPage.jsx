@@ -112,15 +112,17 @@ export default function DashboardPage({
                 </span>
               </div>
               <h3>{t.name}</h3>
-              {t.installed && t.minimumVersion && t.versionStatus !== "checking" && (
-                <small className="tool-version">
-                  {t.version
-                    ? toolInstallerCopy.versionLabel(t.version)
-                    : toolInstallerCopy.versionUnknown}
-                  {outdated(t) &&
-                    ` · ${toolInstallerCopy.minimumVersion(t.minimumVersion)}`}
-                </small>
-              )}
+              {t.installed &&
+                (t.minimumVersion || t.id === "chromium") &&
+                t.versionStatus !== "checking" && (
+                  <small className="tool-version">
+                    {t.version
+                      ? toolInstallerCopy.versionLabel(t.version)
+                      : toolInstallerCopy.versionUnknown}
+                    {outdated(t) &&
+                      ` · ${toolInstallerCopy.minimumVersion(t.minimumVersion)}`}
+                  </small>
+                )}
               <p>
                 {
                   {
@@ -130,6 +132,7 @@ export default function DashboardPage({
                     shell: copy.toolGridShell,
                     gh: copy.toolGridGh,
                     nono: copy.toolGridNono,
+                    chromium: copy.toolGridChromium,
                   }[t.id]
                 }
               </p>
@@ -160,13 +163,25 @@ export default function DashboardPage({
                   <Icon name="arrow" size={16} />
                 </button>
               )}
-              {t.installed && ["codex", "claude", "opencode", "nono"].includes(t.id) && (
+              {t.installed &&
+                (["codex", "claude", "opencode", "nono"].includes(t.id) ||
+                  (t.id === "chromium" && t.updateAvailable)) && (
+                  <button
+                    className={`tool-update-button${outdated(t) ? " update-required" : ""}`}
+                    onClick={() => setModal({ type: "update", tool: t.id })}
+                  >
+                    {toolInstallerCopy.updateCli}
+                    <Icon name="refresh" size={16} />
+                  </button>
+                )}
+              {t.installed && t.id === "chromium" && (
                 <button
-                  className={`tool-update-button${outdated(t) ? " update-required" : ""}`}
-                  onClick={() => setModal({ type: "update", tool: t.id })}
+                  className="tool-update-button"
+                  onClick={() =>
+                    setModal({ type: "removeTool", item: { tool: t.id, name: t.name } })
+                  }
                 >
-                  {toolInstallerCopy.updateCli}
-                  <Icon name="refresh" size={16} />
+                  {copy.removeTool}
                 </button>
               )}
             </article>

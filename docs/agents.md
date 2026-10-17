@@ -67,7 +67,9 @@ member also shows whether its model changed since it took it over from the lead.
   regular, minimized window instead of a headless one, so shop and product pages that
   block headless browsers work; open the window from the Dock or the window list to
   sign in. It needs a browser app of the agents' own, Brave, Chromium or Chrome for
-  Testing, never the owner's Chrome, and on Linux a display. At most three visible
+  Testing, never the owner's Chrome, and on Linux a display. Without one,
+  **Install browser** installs a managed Chrome for Testing with progress, then offers
+  **Restart agent service**. At most three visible
   browsers run at once, and a browser idle for 15 minutes stops. **Reset browser
   profile** deletes the agent's sign-ins and cookies, also for an archived agent. The chat header shows
   **Browser running** while it runs. Temporary team members get a browser profile

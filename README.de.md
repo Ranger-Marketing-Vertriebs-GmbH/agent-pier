@@ -49,7 +49,8 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - Node.js 22.13 oder neuer (in Release-Paketen enthalten), Git und tmux.
 - Optional: Tailscale für den Fernzugriff und ein Chromium-basierter Browser für das
   Browser-Werkzeug der Agenten (Brave oder Chromium für sichtbare Browserfenster der
-  Agenten).
+  Agenten; AgentPier kann dafür mit einem Klick ein verwaltetes Chrome for Testing
+  installieren).
 - Mindestens eine Coding-CLI oder ein Modell-Provider. Provider-Accounts und ihre
   Kosten liegen bei dir.
 

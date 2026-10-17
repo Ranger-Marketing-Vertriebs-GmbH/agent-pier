@@ -1,7 +1,9 @@
+import path from "node:path";
 import { Router } from "express";
 import { listDirectories, createDirectory } from "../../lib/directories.js";
 import { detectUtilities } from "../../features/accounts/account-store.js";
 import { toolBinDirectories } from "../../features/tools/tool-paths.js";
+import { chromiumUtility } from "../../features/tools/chromium-installer.js";
 import { SessionProjects } from "../../features/sessions/session-projects.js";
 import { readSandboxProfiles } from "../../features/nono/nono-profiles.js";
 import { isManagedInstall, withCliVersions } from "../../features/tools/cli-version.js";
@@ -28,11 +30,15 @@ export function workspaceRoutes(services) {
             dataDir: config.dataDir,
           }),
       }),
-      utilities: detectUtilities(
-        { ...process.env, HOME: config.home },
-        true,
-        toolBinDirectories(config.dataDir),
-      ),
+      utilities: [
+        ...detectUtilities(
+          { ...process.env, HOME: config.home },
+          true,
+          toolBinDirectories(config.dataDir),
+        ),
+        // The managed agent browser, which only AgentPier installs.
+        ...(config.dataDir ? [chromiumUtility(path.join(config.dataDir, "clis"))] : []),
+      ],
       accounts: accounts.list(),
       sharedCliExtensions: true,
       providerConnections: services.providerConnections.list(),

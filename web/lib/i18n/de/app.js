@@ -9,6 +9,9 @@ export const appDialogsCopy = {
     " Vom CLI verwaltete Schlüsselbund-Einträge können erhalten bleiben.",
   titleStop: "Sitzung stoppen?",
   titleRemove: "Sitzung entfernen?",
+  titleRemoveTool: (name) => `${name} entfernen?`,
+  confirmCopyRemoveTool: (name) =>
+    `${name} wird von diesem Rechner gelöscht. Agenten nutzen danach einen anderen installierten Browser, sobald der Agentendienst neu startet.`,
   titleDeleteAccount: "Account löschen?",
   buttonLogin: "Anmeldeterminal öffnen",
   renamedSessionLabel: "Neuer Name",

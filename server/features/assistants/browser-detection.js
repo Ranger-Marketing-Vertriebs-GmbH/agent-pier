@@ -63,17 +63,29 @@ export function detectBrowser({
   exists = fs.existsSync,
   home = os.homedir(),
   env = process.env,
+  // The managed Chrome for Testing AgentPier installed (chromium-installer.js); it
+  // comes first, being the agents' own app by construction.
+  managed = null,
 } = {}) {
   const first = (list) =>
     (list[platform]?.(home) || []).find(([, executablePath]) => exists(executablePath));
-  const agent = first(agentCandidates);
+  const agent =
+    managed && exists(managed)
+      ? ["Chrome for Testing", managed, true]
+      : first(agentCandidates);
   const any = agent || first(candidates);
   if (!any) return { available: false, visible: { available: false, reason: "noApp" } };
-  const [name, executablePath] = any;
+  const [name, executablePath, isManaged] = any;
   const visible = !agent
     ? { available: false, reason: "noApp" }
     : hasDisplay(platform, env)
       ? { available: true }
       : { available: false, reason: "noDisplay" };
-  return { available: true, name, executablePath, visible };
+  return {
+    available: true,
+    name,
+    executablePath,
+    visible,
+    ...(isManaged && { managed: true }),
+  };
 }

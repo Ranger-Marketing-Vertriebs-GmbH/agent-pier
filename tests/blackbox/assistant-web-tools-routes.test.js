@@ -120,7 +120,13 @@ test("the runtime status reports whether a browser is available, without paths",
       assistants: { store: { listAssistants: () => [] } },
       assistantWebTools: { detect },
     });
-    return (await request("GET", "/assistant-runtime")).json();
+    const { browser } = await (await request("GET", "/assistant-runtime")).json();
+    // Whether AgentPier can install its own browser here, and no Gateway to restart.
+    const { installable, managed, restartNeeded, ...rest } = browser;
+    assert.equal(typeof installable, "boolean");
+    assert.equal(managed, false);
+    assert.equal(restartNeeded, false);
+    return { browser: rest };
   };
   const found = await get(() => ({
     available: true,

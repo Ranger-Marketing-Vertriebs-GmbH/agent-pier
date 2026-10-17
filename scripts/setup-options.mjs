@@ -20,6 +20,7 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
         "--skip-dependencies",
         "--dependencies-only",
         "--with-assistants",
+        "--with-agent-browser",
       ].includes(option)
     ) {
       present.add(option);
@@ -78,6 +79,7 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
     installDependencies: !present.has("--skip-dependencies"),
     dependenciesOnly: present.has("--dependencies-only"),
     ...(present.has("--with-assistants") ? { withAssistants: true } : {}),
+    ...(present.has("--with-agent-browser") ? { withAgentBrowser: true } : {}),
     resume: true,
   };
 }
@@ -102,6 +104,7 @@ export function installerArguments(options, version) {
   if (options.service) args.push("--service");
   if (!options.installDependencies) args.push("--skip-dependencies");
   if (options.withAssistants) args.push("--with-assistants");
+  if (options.withAgentBrowser) args.push("--with-agent-browser");
   return args;
 }
 

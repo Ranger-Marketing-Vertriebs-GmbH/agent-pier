@@ -17,6 +17,8 @@ export const dashboardPageCopy = {
   toolGridShell: "Dein Terminal für Befehle und lokale Werkzeuge.",
   toolGridGh: "GitHub-Zugänge für deine Agenten und Projekte.",
   toolGridNono: "Sandbox für Sitzungen, die nur das Nötigste dürfen.",
+  toolGridChromium: "Eigener Browser der Agenten, getrennt von deinem Chrome.",
+  removeTool: "Entfernen",
   githubCredentials: "GitHub-Zugänge",
   shellUnavailable: "Shell nicht verfügbar",
   workspaceLoading: "Dein Workspace wird geladen …",

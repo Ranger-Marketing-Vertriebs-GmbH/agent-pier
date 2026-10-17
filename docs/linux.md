@@ -154,6 +154,9 @@ the Gateway when its own environment has them; a systemd user service gets them 
 when the desktop session imported them into the user manager
 (`systemctl --user import-environment DISPLAY WAYLAND_DISPLAY`). Without a display the
 browser runs headless and the agent settings say so. AgentPier does not install Xvfb.
+**Install browser** installs a managed Chrome for Testing build (x64 and arm64); it
+needs the usual Chromium system libraries (for example `libnss3`, `libgbm1`,
+`libasound2`), and the installation names any that `ldd` cannot resolve.
 
 The assistant runtime installer pins Linux arm64 and x64 packages. The deterministic
 native contracts run on Ubuntu in CI (`native-contracts` job), but Linux assistant

@@ -26,6 +26,7 @@ import {
 import { inspectSetupService } from "./setup-service.mjs";
 import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
 import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
+import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
 import { proxyEnvironment, proxyVariables } from "../server/lib/proxy-environment.js";
 const proxyKeys = [...proxyVariables, "NODE_USE_ENV_PROXY"];
 const withoutProxy = (env = {}) =>
@@ -88,6 +89,7 @@ export async function resumeSetup(
     afterPhase = async () => {},
     assistantRuntime,
     toolchains = provisionInstallerToolchains,
+    agentBrowser = provisionAgentBrowser,
   } = {},
 ) {
   let inspected = inspectSetup(options);
@@ -208,6 +210,11 @@ export async function resumeSetup(
       { assistantRuntime },
     );
     const toolchainResult = await toolchains({ dataDir });
+    // Installs the managed agent browser on request and keeps an installed one current.
+    const browserResult = await agentBrowser({
+      dataDir,
+      enable: options.withAgentBrowser === true,
+    });
     if (options.service) {
       let serviceState = await inspectService(serviceInput);
       if (
@@ -259,6 +266,7 @@ export async function resumeSetup(
       ...(options.service ? { url: "http://127.0.0.1:4380" } : {}),
       ...(assistants ? { assistantRuntime: assistants } : {}),
       toolchains: toolchainResult,
+      ...(browserResult ? { agentBrowser: browserResult } : {}),
     };
   } finally {
     unlock();

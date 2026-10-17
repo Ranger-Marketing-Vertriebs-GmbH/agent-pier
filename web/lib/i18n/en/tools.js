@@ -6,6 +6,10 @@ export const toolInstallerCopy = {
   updateRequiredBadge: "Update required",
   minimumVersion: (required) => `Requires ${required} or later`,
   installedVersion: (version) => `Installed: ${version}`,
+  pinnedVersion: (version) => `Available: ${version}`,
+  chromeForTesting: "Google's Chrome for Testing, version pinned in AgentPier",
+  chromiumInstallationDescription:
+    "AgentPier downloads the browser itself, checks its size and SHA-256 and keeps it in its own folder. No Homebrew, no administrator rights.",
   updateRequiredNotice: (name, found, required) =>
     `${name} ${found} is older than the minimum version ${required}. Update the CLI to start a session.`,
   versionUnknownNotice: (name) =>

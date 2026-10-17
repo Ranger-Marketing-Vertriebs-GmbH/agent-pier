@@ -71,6 +71,12 @@ export default function ToolInstaller({
                 <p>
                   <code>{job.updateCommand}</code>
                 </p>
+                {job.installer === "chrome-for-testing" && (
+                  <p className="tool-install-note">
+                    {job.installedVersion && copy.installedVersion(job.installedVersion)}
+                    {job.pinnedVersion && ` · ${copy.pinnedVersion(job.pinnedVersion)}`}
+                  </p>
+                )}
                 {job.minimumVersion && (
                   <p
                     className={
@@ -101,9 +107,11 @@ export default function ToolInstaller({
                     <dt>
                       {job.installer === "native-script"
                         ? copy.nativeInstaller
-                        : job.installer === "github-release"
-                          ? commonCopy.officialGithubRelease
-                          : commonCopy.officialNpmPackage}
+                        : job.installer === "chrome-for-testing"
+                          ? copy.chromeForTesting
+                          : job.installer === "github-release"
+                            ? commonCopy.officialGithubRelease
+                            : commonCopy.officialNpmPackage}
                     </dt>
                     <dd>
                       <code>
@@ -123,7 +131,9 @@ export default function ToolInstaller({
                 <p className="tool-install-note">
                   {job.installer === "native-script"
                     ? copy.nativeInstallationDescription
-                    : copy.isolatedInstallationDescription}
+                    : job.installer === "chrome-for-testing"
+                      ? copy.chromiumInstallationDescription
+                      : copy.isolatedInstallationDescription}
                 </p>
                 {job.reason && <p className="tool-install-reason">{job.reason}</p>}
               </>

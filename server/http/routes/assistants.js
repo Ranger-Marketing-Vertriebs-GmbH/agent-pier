@@ -4,6 +4,7 @@ import { assistantRoutineRoutes } from "./assistant-routines.js";
 import { assistantTeamRoutes } from "./assistant-teams.js";
 import { assistantWorkRoutes } from "./assistant-work.js";
 import { assistantCapabilityRoutes } from "./assistant-capabilities.js";
+import { chromiumUnavailable } from "../../features/tools/chromium-installer.js";
 import { assistantChannelRoutes } from "./assistant-channels.js";
 import { assistantWebSearchRoutes } from "./assistant-web-search.js";
 import { assistantAdvancedSettingsRoutes } from "./assistant-advanced-settings.js";
@@ -73,17 +74,37 @@ export function assistantRoutes(services) {
   return router;
 }
 function browserStatus(webTools) {
+  // Whether AgentPier can install its own agent browser on this host.
+  const installable = !chromiumUnavailable(process.platform, process.arch);
   try {
-    const { available, name, visible } = webTools?.detect() || {};
+    const { available, name, visible, managed } = webTools?.detect() || {};
     // Whether agents may get a visible window, and why not ("noApp", "noDisplay").
     const window = visible?.available
       ? { available: true }
       : { available: false, reason: visible?.reason || "noApp" };
-    return available
-      ? { available: true, name, visible: window }
-      : { available: false, visible: window };
+    // A browser installed (or removed) since the running Gateway started needs a
+    // restart before agents drive it.
+    let restartNeeded = false;
+    try {
+      restartNeeded = !!webTools?.differs?.();
+    } catch {
+      /* No running Gateway to compare with. */
+    }
+    return {
+      ...(available ? { available: true, name } : { available: false }),
+      visible: window,
+      managed: !!managed,
+      installable,
+      restartNeeded,
+    };
   } catch {
-    return { available: false, visible: { available: false, reason: "noApp" } };
+    return {
+      available: false,
+      visible: { available: false, reason: "noApp" },
+      managed: false,
+      installable,
+      restartNeeded: false,
+    };
   }
 }
 function activeAssistantRoutes(services) {

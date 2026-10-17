@@ -4,13 +4,21 @@ export const assistantBrowserCopy = {
   visibleDescription:
     "Opens a regular, minimized browser window instead of an invisible one. Many shops and product pages block invisible browsers. To sign in, open the window from the Dock or the window list.",
   noApp:
-    "Visible windows need a browser app of the agent's own, not your Chrome. Install Brave (brave.com) or Chromium, then restart the agent service.",
+    "Visible windows need a browser app of the agent's own, not your Chrome. Install it here with “Install browser”, or install Brave or Chromium yourself, then restart the agent service.",
   noDisplay:
     "This computer has no display (DISPLAY or WAYLAND_DISPLAY is missing), so the browser runs invisibly.",
   profile:
     "The browser keeps its sign-ins and cookies in a profile of this agent's own, apart from your browser profiles.",
   running: "Browser running",
   runningNow: "Now",
+  install: "Install browser",
+  installDescription:
+    "Downloads Google's Chrome for Testing into AgentPier's own folder, checksum-verified. No Homebrew, no administrator rights.",
+  restart: "Restart agent service",
+  restartTitle: "Restart the agent service?",
+  restartDescription:
+    "A newly installed or removed browser applies only after the agent service restarts. Running work is not interrupted: while an agent is busy, the restart is refused.",
+  restartConfirm: "Restart",
   reset: "Reset browser profile",
   resetDescription:
     "Stops the agent's browser and deletes its profile with every sign-in, cookie and its history.",

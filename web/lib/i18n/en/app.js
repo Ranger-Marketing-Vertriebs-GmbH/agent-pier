@@ -8,6 +8,9 @@ export const appDialogsCopy = {
   keychainRetention: " CLI-managed keychain entries may be retained.",
   titleStop: "Stop session?",
   titleRemove: "Remove session?",
+  titleRemoveTool: (name) => `Remove ${name}?`,
+  confirmCopyRemoveTool: (name) =>
+    `${name} is deleted from this computer. Agents then use another installed browser once the agent service restarts.`,
   titleDeleteAccount: "Delete account?",
   buttonLogin: "Open sign-in terminal",
   renamedSessionLabel: "New name",
