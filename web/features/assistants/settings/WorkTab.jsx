@@ -24,6 +24,7 @@ import {
   grantCount,
   invalidTeamKeys,
   permissionKeys,
+  removedProjectCount,
   sshSummary,
   teamLimits,
   toggleId,
@@ -70,7 +71,8 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
     teamId = useId();
   const [policy, setPolicy] = useState(null),
     [catalog, setCatalog] = useState(null),
-    [loadError, setLoadError] = useState("");
+    [loadError, setLoadError] = useState(""),
+    [removedProjects, setRemovedProjects] = useState(0);
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -121,7 +123,10 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
   const label = settingsCopy.tabs.work;
   const sshHostIds = catalog?.sshHosts ? catalog.sshHosts.map((h) => h.id) : null;
   const steps = [workStep({ assistantId: assistant.id, label, withTeam, sshHostIds })];
+  // A granted project that no longer exists (an older row merged away) is dropped by
+  // the server on save; the owner learns how many.
   const after = async (result) => {
+    setRemovedProjects(removedProjectCount(result));
     if (result.status === "saved") {
       if (result.results.work?.access) setPolicy(result.results.work.access);
       await refresh();
@@ -212,6 +217,11 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
           {wf.title}
         </GroupLabel>
         <ErrorMessage error={loadError} />
+        {removedProjects > 0 && (
+          <p role="status" className="assistant-notice">
+            {wf.removedProjects(removedProjects)}
+          </p>
+        )}
         <ListCard labelledBy={accessId}>
           <ListRow
             label={wf.projects}

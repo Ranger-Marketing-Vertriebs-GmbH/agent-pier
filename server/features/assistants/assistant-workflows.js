@@ -344,6 +344,42 @@ export class AssistantWorkflows {
     this.a.changed();
     return next;
   }
+  /**
+   * A project row that was merged into or rebound to `toId` leaves every agent's
+   * grants, and its approvals that have not started fail closed. Agent access never
+   * follows a project to another row (docs/assistant-release-qualification.md): the
+   * owner grants the surviving row explicitly. One audit record per changed agent.
+   */
+  revokeProject(projectId, toId) {
+    const closed = new Map();
+    const changed = this.access.revokeProject(projectId, () => {
+      for (const a of this.store.unstarted(projectId)) {
+        this.store.patch(a.id, { state: "failed", diagnostic: "GRANT_REVOKED" });
+        closed.set(a.assistantId, (closed.get(a.assistantId) || 0) + 1);
+      }
+    });
+    const revisions = new Map(changed.map((c) => [c.id, c.after.revision]));
+    for (const id of new Set([...revisions.keys(), ...closed.keys()]))
+      try {
+        this.s.audit?.append({
+          action: "assistant.updated",
+          resourceType: "assistant",
+          resourceId: id,
+          projectId: toId,
+          source: "system",
+          outcome: "success",
+          details: {
+            kind: "project-rebind",
+            fromProjectId: projectId,
+            ...(revisions.has(id) ? { revision: revisions.get(id) } : {}),
+            count: closed.get(id) || 0,
+          },
+        });
+      } catch (error) {
+        console.error("Agent project grant audit failed:", error?.message);
+      }
+    if (changed.length || closed.size) this.a.changed();
+  }
   // Stopping a team (or one member) withdraws its pending member requests, so
   // they can no longer be approved; each withdrawal is audited.
   withdrawTeam(teamId, memberId, origin) {

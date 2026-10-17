@@ -66,6 +66,15 @@ export class AssistantActionStore {
       .all(leadId)
       .map((r) => JSON.parse(r.body));
   }
+  // Coding and memory requests for a project that are not started yet.
+  unstarted(projectId) {
+    return this.db
+      .prepare(
+        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.payload.projectId')=? AND json_extract(body,'$.state') IN ('awaiting_approval','approved') ORDER BY rowid",
+      )
+      .all(projectId)
+      .map((r) => JSON.parse(r.body));
+  }
   get(id) {
     const r = this.db.prepare("SELECT body FROM assistant_actions WHERE id=?").get(id);
     if (!r) throw assistantProblem("notFound", 404);

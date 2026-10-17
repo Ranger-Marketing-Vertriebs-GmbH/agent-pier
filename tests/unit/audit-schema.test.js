@@ -79,6 +79,37 @@ test("assistant shell events keep levels, pending and the entry id only", () => 
   assert.throws(() => event({ entryId: "../x" }));
 });
 
+test("agent grant changes after a project merge keep the older project id", () => {
+  const event = (details) =>
+    auditEvent({
+      action: "assistant.updated",
+      resourceType: "assistant",
+      resourceId: "agent-1",
+      projectId: "b".repeat(64),
+      source: "system",
+      outcome: "success",
+      details,
+    });
+  const older = "a".repeat(64);
+  const kept = event({
+    kind: "project-rebind",
+    fromProjectId: older,
+    revision: 3,
+    count: 1,
+  });
+  assert.equal(kept.projectId, "b".repeat(64));
+  assert.deepEqual(kept.details, {
+    kind: "project-rebind",
+    fromProjectId: older,
+    revision: 3,
+    count: 1,
+  });
+  // Other agent events never carry it.
+  assert.deepEqual(event({ kind: "shell", fromProjectId: older }).details, {
+    kind: "shell",
+  });
+});
+
 test("assistant proactivity events keep the changed names and flags, never a schedule", () => {
   const event = (details) =>
     auditEvent({

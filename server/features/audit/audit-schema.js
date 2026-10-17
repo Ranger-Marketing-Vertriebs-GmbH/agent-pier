@@ -145,8 +145,13 @@ export function auditEvent(input) {
   if (input.source === "mcp" || input.resourceType === "mcp")
     for (const key of ["grantId", "clientId"])
       if (details[key] !== undefined) event.details[key] = auditId(details[key]);
-  // A project merge names the older project it moved into the audited one.
-  if (input.resourceType === "project" && details.fromProjectId !== undefined)
+  // A project merge names the older project it moved into the audited one; an agent
+  // whose grants lost that older project names it too (assistant-workflows.js).
+  if (
+    (input.resourceType === "project" ||
+      (input.resourceType === "assistant" && details.kind === "project-rebind")) &&
+    details.fromProjectId !== undefined
+  )
     event.details.fromProjectId = auditId(details.fromProjectId);
   if (["codex", "claude", "opencode", "shell", "gh"].includes(details.tool))
     event.details.tool = details.tool;
@@ -165,6 +170,7 @@ export function auditEvent(input) {
       "telegram",
       "ssh",
       "ssh-grants",
+      "project-rebind",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;

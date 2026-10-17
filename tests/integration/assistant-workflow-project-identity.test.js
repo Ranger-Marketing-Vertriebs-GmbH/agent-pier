@@ -32,6 +32,7 @@ function coordinator(f) {
     artifacts: { ownsProject: () => false, moveProject: async () => {} },
     sessions: { serial: (fn) => fn() },
     audit: { append() {} },
+    assistantWorkflows: () => f.workflows,
   });
   f.memory.rebindProject = (input) => rebind.rebind(input);
   return rebind;
@@ -55,15 +56,20 @@ async function approve(f, proposal) {
 }
 
 async function refusesMovedGrant(f, policy, current) {
+  // The older id leaves the grants; the replacement row is never granted instead.
   assert.deepEqual(
     f.workflows.access.get(f.id),
-    policy,
-    "migration cannot rewrite grants",
+    {
+      ...policy,
+      projectIds: policy.projectIds.filter((id) => id !== f.project.id),
+      revision: policy.revision + 1,
+    },
+    "migration cannot move grants",
   );
   assert.equal(f.memory.reboundTo(f.project.id), current.id);
   assert.throws(() => f.memory.project(f.project.id), { status: 404 });
   for (const [projectId, status] of [
-    [f.project.id, 404],
+    [f.project.id, 403],
     [current.id, 403],
   ]) {
     await assert.rejects(
@@ -124,9 +130,9 @@ test("git-init rebind moves knowledge without granting assistants the replacemen
   assert.equal(current.kind, "git");
   assert.equal(f.memory.read(current.id, note.id).content, "Original note");
   await refusesMovedGrant(f, policy, current);
-  await assert.rejects(approve(f, pending), { status: 404 });
-  // The refused approval closes the proposal instead of leaving it pending.
+  // The rebind closed the proposal instead of leaving it pending.
   assert.equal(f.workflows.get(pending.id).diagnostic, "GRANT_REVOKED");
+  await assert.rejects(approve(f, pending), { status: 409 });
   await f.workflows.tick();
   assert.equal(f.workflows.get(approved.id).state, "failed");
   assert.equal(f.starts.length, 0);
@@ -136,7 +142,7 @@ test("git-init rebind moves knowledge without granting assistants the replacemen
   f.workflows.access.save(
     f.id,
     { ...f.policy, projectIds: [current.id] },
-    policy.revision,
+    f.workflows.access.get(f.id).revision,
   );
   const read = await f.workflows.invoke(await f.invocation(), {
     action: "memory_read",
@@ -150,7 +156,7 @@ test("git-init rebind moves knowledge without granting assistants the replacemen
   assert.equal(f.starts.length, 0);
 });
 
-test("duplicate merge preserves stale assistant grants and blocks already approved work", async (t) => {
+test("duplicate merge drops stale assistant grants and blocks already approved work", async (t) => {
   const f = await workflowFixture(t);
   const rebind = coordinator(f);
   const oldNote = f.memory.write(f.project.id, {
@@ -189,7 +195,8 @@ test("duplicate merge preserves stale assistant grants and blocks already approv
   assert.equal(f.memory.pendingMerge(f.project.id), null);
   assert.equal(f.memory.read(current.id, oldNote.id).content, "ORIGINAL_PROJECT_ONLY");
   await refusesMovedGrant(f, policy, current);
-  await assert.rejects(approve(f, pending), { status: 404 });
+  assert.equal(f.workflows.get(pending.id).diagnostic, "GRANT_REVOKED");
+  await assert.rejects(approve(f, pending), { status: 409 });
   await assert.rejects(
     f.workflows.invoke(await f.invocation(), {
       action: "memory_read",

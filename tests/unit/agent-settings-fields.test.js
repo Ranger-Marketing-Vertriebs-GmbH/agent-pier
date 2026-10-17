@@ -14,6 +14,7 @@ import {
   pendingCount,
   profilePatch,
   profileServer,
+  removedProjectCount,
   resolveAgentLocation,
   staysOnAgentTab,
   telegramServer,
@@ -314,6 +315,14 @@ test("counts never invent numbers", () => {
   assert.equal(pendingCount([{ state: "awaiting_approval" }, { state: "running" }]), 1);
   assert.deepEqual(toggleId(["b"], "a", true), ["a", "b"]);
   assert.deepEqual(toggleId(["a", "b"], "a", false), ["b"]);
+});
+
+test("a saved Work draft reports the projects the server dropped", () => {
+  const saved = (work) => ({ status: "saved", results: { work } });
+  assert.equal(removedProjectCount(saved({ removedProjectIds: ["gone", "old"] })), 2);
+  assert.equal(removedProjectCount(saved({ removedProjectIds: [] })), 0);
+  assert.equal(removedProjectCount(saved(undefined)), 0);
+  assert.equal(removedProjectCount({ status: "conflict" }), 0);
 });
 
 test("Telegram activity keeps entries that need a decision ahead of the recent ones", () => {
