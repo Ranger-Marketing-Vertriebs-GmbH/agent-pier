@@ -217,6 +217,7 @@ export async function createServices(config) {
       dataDir: config.dataDir,
       servers: mcpServers,
       changes: mcpServerChanges,
+      extensions,
     });
   const cliMcp =
     mcpServers &&

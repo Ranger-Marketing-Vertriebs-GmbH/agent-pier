@@ -94,3 +94,29 @@ label.mcp-check input[type="checkbox"] {
   min-width: 0;
   box-sizing: border-box;
 }
+.mcp-package-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.mcp-package-skills h4 {
+  margin: 0;
+}
+.mcp-package-skill-list,
+.mcp-package-skill-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+.mcp-package-skill-list > li p {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.mcp-package-skill-files code {
+  overflow-wrap: anywhere;
+}

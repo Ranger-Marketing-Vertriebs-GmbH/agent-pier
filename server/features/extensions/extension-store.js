@@ -17,6 +17,21 @@ const skillScope = (scopeKey) => ({
   scope: serverMessages.extensions[scopeKey],
   scopeKey,
 });
+/** Where an installed skill came from: a pinned GitHub ref or an MCP package. */
+const origins = (item) => ({
+  ...(item?.origin ? { origin: item.origin } : {}),
+  ...(item?.package
+    ? { package: { name: item.package.name, version: item.package.version } }
+    : {}),
+});
+function writeFiles(target, files) {
+  for (const [relative, buffer, mode = 0o600] of files) {
+    const file = path.join(target, relative);
+    safePath(file, target);
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(file, buffer, { mode, flag: "wx" });
+  }
+}
 export class ExtensionsStore {
   constructor({
     accounts,
@@ -192,6 +207,7 @@ export class ExtensionsStore {
             scope: source.scope,
             scopeKey: source.scopeKey,
             removable: !source.readOnly && !stat.isSymbolicLink() && Boolean(installed),
+            ...origins(installed),
           });
           return;
         }
@@ -229,7 +245,18 @@ export class ExtensionsStore {
   async installSkill(id, input = {}) {
     this.sharedProfiles?.migrate(id);
     if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
-    const locations = this.locations(id);
+    this.locations(id);
+    const pack = await this.readPack(input);
+    if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
+    return this.writeSkill(id, pack, pack.origin ? { origin: pack.origin } : {});
+  }
+  /** A skill bundled with an MCP package; `owner` ties it to the package version. */
+  installPackageSkill(id, pack, owner) {
+    this.sharedProfiles?.migrate(id);
+    if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
+    return this.writeSkill(id, pack, { package: owner });
+  }
+  async readPack(input) {
     let pack;
     if (input.url !== undefined) {
       if (input.contentBase64 !== undefined)
@@ -262,7 +289,11 @@ export class ExtensionsStore {
         pack = await unpackSkill(buffer);
       else throw problem(serverMessages.extensions.skillFileTypeRequired);
     }
-    if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
+    return pack;
+  }
+  /** Writes `pack` into a new folder of the profile and records it with `extra`. */
+  writeSkill(id, pack, extra) {
+    const locations = this.locations(id);
     // Account may have been deleted while an archive was downloaded.
     this.accounts.get(id);
     const target = path.join(locations.target.path, pack.name);
@@ -277,12 +308,7 @@ export class ExtensionsStore {
     }
     const identity = fs.lstatSync(target);
     try {
-      for (const [relative, buffer, mode = 0o600] of pack.files) {
-        const file = path.join(target, relative);
-        safePath(file, target);
-        fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-        fs.writeFileSync(file, buffer, { mode, flag: "wx" });
-      }
+      writeFiles(target, pack.files);
       const item = {
         id: randomUUID(),
         accountId: id,
@@ -291,6 +317,7 @@ export class ExtensionsStore {
         path: target,
         dev: identity.dev,
         ino: identity.ino,
+        ...extra,
       };
       writePrivate(this.file, [...this.installed(), item]);
       return {
@@ -301,6 +328,7 @@ export class ExtensionsStore {
         scope: locations.target.scope,
         scopeKey: locations.target.scopeKey,
         removable: true,
+        ...origins(item),
       };
     } catch (error) {
       try {
@@ -318,7 +346,8 @@ export class ExtensionsStore {
       throw problem(serverMessages.extensions.skillSaveFailed);
     }
   }
-  removeSkill(id, skillId) {
+  /** The record of a skill installed here whose folder is still the one written. */
+  ownedSkill(id, skillId) {
     const locations = this.locations(id);
     const records = this.installed();
     const item = records.find((item) => item.id === skillId);
@@ -337,6 +366,68 @@ export class ExtensionsStore {
       stat.ino !== item.ino
     )
       throw problem(serverMessages.extensions.skillDirectoryReplaced, 409);
+    return { item, records };
+  }
+  /**
+   * Replaces the files of an installed skill with `pack` (same name) in one rename:
+   * a package update brings its bundled skill along. `extra` updates the record.
+   */
+  replaceSkill(id, skillId, pack, extra) {
+    const { item, records } = this.ownedSkill(id, skillId);
+    if (pack.name !== item.name)
+      throw problem(serverMessages.extensions.skillDirectoryReplaced, 409);
+    const parent = path.dirname(item.path);
+    const staging = path.join(parent, `.${item.name}-${randomUUID()}`);
+    const old = `${staging}-old`;
+    fs.mkdirSync(staging, { mode: 0o700 });
+    try {
+      writeFiles(staging, pack.files);
+      fs.renameSync(item.path, old);
+      fs.renameSync(staging, item.path);
+    } catch (error) {
+      if (!fs.existsSync(item.path) && fs.existsSync(old)) fs.renameSync(old, item.path);
+      fs.rmSync(staging, { recursive: true, force: true });
+      throw error.status ? error : problem(serverMessages.extensions.skillSaveFailed);
+    }
+    fs.rmSync(old, { recursive: true, force: true });
+    const identity = fs.lstatSync(item.path);
+    const next = {
+      ...item,
+      description: pack.description,
+      dev: identity.dev,
+      ino: identity.ino,
+      ...extra,
+    };
+    writePrivate(
+      this.file,
+      records.map((record) => (record.id === skillId ? next : record)),
+    );
+    return next;
+  }
+  /** Drops the record only: the folder is no longer the one written and stays. */
+  forgetSkill(skillId) {
+    writePrivate(
+      this.file,
+      this.installed().filter((record) => record.id !== skillId),
+    );
+  }
+  /** The profiles a skill can be installed into: one per CLI when profiles share. */
+  skillProfiles() {
+    const profiles = new Map();
+    for (const account of this.accounts.list()) {
+      if (account.tool === "shell") continue;
+      let id = account.id;
+      try {
+        if (this.sharedProfiles) id = this.sharedProfiles.resolve(id);
+      } catch {
+        continue;
+      }
+      if (!profiles.has(id)) profiles.set(id, { id, tool: account.tool });
+    }
+    return [...profiles.values()];
+  }
+  removeSkill(id, skillId) {
+    const { item, records } = this.ownedSkill(id, skillId);
     fs.rmSync(item.path, { recursive: true });
     writePrivate(
       this.file,

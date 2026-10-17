@@ -48,6 +48,12 @@ export const profileExtensionsCopy = {
   noSkills: "No skills found in the known profile directories.",
   skillVisibilityNotice: (scope) =>
     `${scope}. Known user and profile folders are shown; project- and plugin-specific skills are not fully covered. Only skills installed here can be removed.`,
+  packageOrigin: (name, version) =>
+    `From MCP package ${name}@${version} · updated and removed with it`,
+  githubOrigin: (repository, kind, ref, commit) =>
+    kind === "commit"
+      ? `GitHub ${repository} · commit ${commit.slice(0, 12)}`
+      : `GitHub ${repository} · ${kind === "tag" ? "tag" : "branch"} ${ref} · commit ${commit.slice(0, 12)}`,
   skillScopes: {
     sharedUserSkillScope: "User · shared by Codex and compatible CLIs",
     codexProfileSkillScope: "Codex profile · existing skills",
@@ -68,6 +74,8 @@ export const skillInstallFormCopy = {
   extensionFieldsDescription:
     "Drop a ZIP with SKILL.md and supporting files, or a single SKILL.md here.",
   extensionWide: "Public GitHub link",
+  githubRefHint:
+    "A folder link may name a branch, a tag or a full commit SHA after /tree/. AgentPier installs and records the commit it points to now.",
   archiveLimitsDescription:
     "One skill per package · up to 10 MiB ZIP, 20 MiB extracted. Existing directories are not overwritten. Installation scripts are not executed.",
   installingSkill: "Installing skill …",

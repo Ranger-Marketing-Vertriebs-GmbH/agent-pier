@@ -41,6 +41,11 @@ export const packagesOf = (services) => {
   return services.mcpPackages;
 };
 
+const skillsOf = (packages) => {
+  if (!packages.skills) throw assistantProblem("unavailable", 503);
+  return packages.skills;
+};
+
 /**
  * `PUT /mcp-servers/:id` with `source`: `null` detaches a packaged server to the own
  * command in the body; an object switches an own-command server to a package (D1).
@@ -153,5 +158,17 @@ export function mcpPackageRoutes(services, { auditMcp }) {
     );
     res.status(202).json({ job });
   });
+  // Skills the installed package bundles; copying one needs the owner's confirmation.
+  router.get("/mcp-servers/:id/package/skills", (req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.json(skillsOf(packages()).list(req.params.id));
+  });
+  router.post("/mcp-servers/:id/package/skills", (req, res) =>
+    res
+      .status(201)
+      .json(
+        skillsOf(packages()).install(req.params.id, record(req.body) ? req.body : {}),
+      ),
+  );
   return router;
 }

@@ -10,6 +10,7 @@ import { lockDiff } from "./lock-check.js";
 import { npmAdapter } from "./npm-adapter.js";
 import { packageCode, packageProblem } from "./package-errors.js";
 import { packageConstraints, packageName, packageRef } from "./package-spec.js";
+import { PackageSkills } from "./package-skills.js";
 import { packageRoot, pruneInstalls, readInstall } from "./package-store.js";
 import {
   installError,
@@ -49,6 +50,7 @@ export class McpPackages {
     pypi = pypiIndexRegistry,
     adapters = { npm: npmAdapter, pypi: pythonAdapter },
     previewConcurrency = 2,
+    extensions,
   }) {
     Object.assign(this, {
       dataDir,
@@ -65,6 +67,8 @@ export class McpPackages {
     });
     this.adapters = adapters;
     this.previewConcurrency = previewConcurrency;
+    // Skills the packages bundle, copied into CLI profiles on request (owner-confirmed).
+    this.skills = extensions ? new PackageSkills(this, extensions) : null;
     // Registry name → index URL its adapter talks to.
     this.registries = { npm: this.registry, pypi };
     this.resolving = 0;
@@ -84,6 +88,7 @@ export class McpPackages {
     // (the route's own cancel() stays as an idempotent no-op).
     servers.onRemoved = (id) => {
       this.cancel(id).catch(() => {});
+      this.removeSkills(id);
     };
     this.records.orphaned = (id) =>
       this.claiming === 0 && this.jobs.get(id)?.state !== "running";
@@ -391,6 +396,7 @@ export class McpPackages {
     } finally {
       this.detaching.delete(id);
     }
+    if (!this.isPackaged(id)) this.removeSkills(id);
     // Not awaited: toolchain pruning can queue behind a running toolchain install.
     this.prune();
   }
@@ -457,6 +463,14 @@ export class McpPackages {
   chooseProgram(id, wanted) {
     return chooseInstalledProgram(this, id, wanted);
   }
+  /** The skills the package of `id` installed go with it; never throws. */
+  removeSkills(id) {
+    try {
+      this.skills?.remove(id);
+    } catch (error) {
+      logFailure("remove the skills of an MCP package", error);
+    }
+  }
   status(id) {
     const source = this.servers.get(id).source ?? null;
     const job = this.jobs.get(id);
@@ -498,6 +512,11 @@ export class McpPackages {
         } catch (error) {
           logFailure("record an interrupted MCP package install", error);
         }
+    try {
+      this.skills?.prune(new Set(this.records.all().map((row) => row.serverId)));
+    } catch (error) {
+      logFailure("remove the skills of removed MCP packages", error);
+    }
     // An install deleted while AgentPier was stopped (or a restore) is missing: the CLIs
     // drop its entry now instead of starting a deleted program until a reinstall. Agents
     // in maintenance refuse changes; the next change or CLI session reconciles then.

@@ -7,6 +7,7 @@ import { itemRoute } from "../../accounts/accounts-items.js";
 import { assistantApi } from "../../assistants/assistant-api.js";
 import McpPackageConfirmation from "../McpPackageConfirmation.jsx";
 import McpPackageProgramChoice from "../McpPackageProgramChoice.jsx";
+import McpPackageSkills from "../McpPackageSkills.jsx";
 import { savedNotice } from "../mcp-notices.js";
 import { secretCount, storedCount } from "./setting-hints.js";
 import { previewNewPackage, refusedField, saveNewServer } from "./wizard-save.js";
@@ -89,6 +90,11 @@ function Progress({ server, packageStatus, dependencyCount, navigate }) {
         </div>
       )}
       {shown === "installing" && <p className="mcp-hint">{copy.install.background}</p>}
+      <McpPackageSkills
+        serverId={server.id}
+        ready={shown === "ready"}
+        version={status?.source?.version}
+      />
     </>
   );
 }

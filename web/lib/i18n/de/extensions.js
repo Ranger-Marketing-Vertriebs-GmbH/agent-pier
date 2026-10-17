@@ -48,6 +48,12 @@ export const profileExtensionsCopy = {
   noSkills: "In den bekannten Profilordnern wurden keine Skills gefunden.",
   skillVisibilityNotice: (scope) =>
     `${scope}. Angezeigt werden bekannte Benutzer- und Profilordner; projekt- und pluginabhängige Skills sind nicht vollständig erfasst. Entfernen ist nur für hier installierte Skills möglich.`,
+  packageOrigin: (name, version) =>
+    `Aus dem MCP-Paket ${name}@${version} · wird mit ihm aktualisiert und entfernt`,
+  githubOrigin: (repository, kind, ref, commit) =>
+    kind === "commit"
+      ? `GitHub ${repository} · Commit ${commit.slice(0, 12)}`
+      : `GitHub ${repository} · ${kind === "tag" ? "Tag" : "Branch"} ${ref} · Commit ${commit.slice(0, 12)}`,
   skillScopes: {
     sharedUserSkillScope: "Benutzer · von Codex und kompatiblen CLIs geteilt",
     codexProfileSkillScope: "Codex-Profil · vorhandene Skills",
@@ -69,6 +75,8 @@ export const skillInstallFormCopy = {
   extensionFieldsDescription:
     "ZIP mit SKILL.md und Begleitdateien oder einzelne SKILL.md hier ablegen.",
   extensionWide: "Öffentlicher GitHub-Link",
+  githubRefHint:
+    "Ein Ordnerlink kann nach /tree/ einen Branch, einen Tag oder einen vollständigen Commit-SHA nennen. AgentPier installiert den Commit, auf den er jetzt zeigt, und merkt ihn sich.",
   archiveLimitsDescription:
     "Ein Skill pro Paket · maximal 10 MiB ZIP, 20 MiB entpackt. Bestehende Ordner werden nicht überschrieben. Installationsskripte werden nicht ausgeführt.",
   installingSkill: "Skill wird installiert …",

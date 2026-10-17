@@ -157,12 +157,12 @@ test("GitHub tree downloads use trusted archive endpoint without ambient authent
     },
   });
   const installed = await store.installSkill("local-opencode", {
-    url: "https://github.com/example/repo/tree/main/skills/demo",
+    url: `https://github.com/example/repo/tree/${"a".repeat(40)}/skills/demo`,
   });
   assert.equal(installed.name, "demo-skill");
   assert.equal(
     calls[0].url,
-    "https://codeload.github.com/example/repo/zip/refs/heads/main",
+    `https://codeload.github.com/example/repo/zip/${"a".repeat(40)}`,
   );
   assert.equal(calls[0].options.redirect, "manual");
   assert.equal(calls[0].options.headers.Authorization, undefined);

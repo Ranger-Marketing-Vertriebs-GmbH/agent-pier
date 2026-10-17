@@ -126,6 +126,9 @@ export async function packageSetup(page, options = {}) {
           error: null,
         },
       });
+    // The bundled skills of a ready package; none unless a test sets them.
+    if (path.endsWith("/package/skills") && request.method() === "GET")
+      return route.fulfill({ json: state.packageSkills ?? { skills: [], profiles: [] } });
     const reply = await state.reply?.({ path, method: request.method(), body });
     if (reply) return route.fulfill(reply);
     return false;

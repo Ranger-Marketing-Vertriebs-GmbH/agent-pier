@@ -46,6 +46,15 @@ export default function SkillsTab({ ext, account, request, hideError }) {
                   lines={[
                     skill.description,
                     `${skillScopeLabel(skill)} · ${skill.removable ? hub.installedHere : hub.readOnly}`,
+                    skill.package &&
+                      copy.packageOrigin(skill.package.name, skill.package.version),
+                    skill.origin?.commit &&
+                      copy.githubOrigin(
+                        skill.origin.repository,
+                        skill.origin.refKind,
+                        skill.origin.ref,
+                        skill.origin.commit,
+                      ),
                     <code key="path" className="extension-path">
                       {skill.path}
                     </code>,
