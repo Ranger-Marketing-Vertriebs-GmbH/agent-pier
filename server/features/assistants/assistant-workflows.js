@@ -18,6 +18,7 @@ import { permanentReasons } from "./native-routines.js";
 import { ExecApprovals, execDecisions } from "./exec-approvals.js";
 import { allowAlwaysByAgentPier, decideExec, execPlan } from "./exec-decisions.js";
 import { AgentSsh } from "./agent-ssh.js";
+import { withExcerpts } from "../memory/memory-search.js";
 import { sshDecisions } from "./agent-ssh-approvals.js";
 import { sshTelegramApprovable } from "./agent-ssh-notifications.js";
 const maxEventRetryMs = 300000;
@@ -171,17 +172,12 @@ export class AssistantWorkflows {
       if (input.action === "actions") return this.list(ctx.assistantId);
       const p = this.access.authorize(ctx.assistantId, input.projectId, input.pipelineId);
       if (input.action === "memory_search") {
-        const result = this.s.memory.list(input.projectId, {
-          query: input.query || "",
-          page: input.page || 1,
-        });
-        return {
-          ...result,
-          items: result.items.map(({ content, ...item }) => ({
-            ...item,
-            excerpt: Array.from(content).slice(0, 256).join(""),
-          })),
-        };
+        return withExcerpts(
+          this.s.memory.list(input.projectId, {
+            query: input.query || "",
+            page: input.page || 1,
+          }),
+        );
       }
       if (input.action === "memory_read")
         return this.s.memory.read(input.projectId, input.id);

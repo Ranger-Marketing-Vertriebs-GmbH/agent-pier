@@ -188,6 +188,37 @@ test("forget purges the content bytes from the database files", async (t) => {
   assert.throws(() => reopened.read(f.project.id, entry.id), { status: 404 });
 });
 
+test("forget purges the entry from the full-text index and its shadow tables", async (t) => {
+  const f = await fixture(t);
+  assert.equal(f.store.fullText, true);
+  // One token with no prefix shared with others, so the index segments hold it whole.
+  const token = "zqxjfixturetoken";
+  const first = f.store.write(f.project.id, { title: "Index", content: `${token}one` });
+  f.store.write(f.project.id, {
+    id: first.id,
+    title: "Index",
+    content: `${token}two`,
+    expectedRevision: 1,
+  });
+  f.store.write(f.project.id, { title: "Other", content: "unrelated words" });
+  const segments = () =>
+    f.store.db
+      .prepare("SELECT block FROM memory_search_data")
+      .all()
+      .some((row) => Buffer.from(row.block).includes(Buffer.from(token)));
+  assert.equal(segments(), true);
+  assert.equal(f.store.list(f.project.id, { query: `${token}two` }).total, 1);
+  f.store.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+  assert.equal(stored(f.store, token), true);
+  f.store.forget(f.project.id, first.id, { expectedRevision: 2 });
+  assert.equal(segments(), false);
+  assert.equal(f.store.db.prepare("SELECT COUNT(*) AS n FROM memory_search").get().n, 1);
+  assert.equal(stored(f.store, token), false);
+  assert.equal(f.store.list(f.project.id, { query: "unrelated" }).total, 1);
+  f.store.close();
+  assert.equal(stored(f.open(), token), false);
+});
+
 test("forget removes migration backups only on the owner's confirmation", async (t) => {
   const f = await fixture(t);
   const entry = secretEntry(f.store, f.project.id, "fixture-secret-f");

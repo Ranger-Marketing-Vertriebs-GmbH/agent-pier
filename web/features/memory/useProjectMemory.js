@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
 import api from "../../lib/api.js";
 
-export default function useProjectMemory({ projectId, query, page, archived }) {
-  const requestKey = JSON.stringify([projectId, query, page, archived]);
+// With a search term results come by relevance unless `sort` is "newest"; without
+// one they always come newest first.
+export default function useProjectMemory({
+  projectId,
+  query,
+  page,
+  archived,
+  sort = "relevance",
+}) {
+  const order = query ? sort : "newest";
+  const requestKey = JSON.stringify([projectId, query, page, archived, order]);
   const [projects, setProjects] = useState([]),
     [data, setData] = useState(null),
     [error, setError] = useState(""),
@@ -32,6 +41,7 @@ export default function useProjectMemory({ projectId, query, page, archived }) {
       q: query,
       page: String(page),
       archived: String(archived),
+      ...(query && { sort: order }),
     });
     api(
       `/memory/projects/${encodeURIComponent(projectId)}/entries?${search}`,
@@ -50,7 +60,7 @@ export default function useProjectMemory({ projectId, query, page, archived }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [projectId, query, page, archived, refreshVersion, requestKey]);
+  }, [projectId, query, page, archived, order, refreshVersion, requestKey]);
   return {
     projects,
     data: data?.key === requestKey ? data.result : null,

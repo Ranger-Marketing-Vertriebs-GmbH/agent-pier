@@ -9,6 +9,7 @@ import { digest, folder, readFile, readJson } from "./files.js";
 import { CapturePlan } from "./capture-plan.js";
 import { areaComponent } from "./backup-components.js";
 import { problem } from "../../lib/storage.js";
+import { discardSearchIndex } from "../memory/memory-search.js";
 import {
   mcpServersPresent,
   mcpStoreMember,
@@ -62,7 +63,11 @@ export function sqliteSnapshotFile(
     if (withoutCapabilities || sanitize) {
       const copy = new DatabaseSync(target);
       try {
-        if (withoutCapabilities) copy.exec("DELETE FROM capabilities");
+        if (withoutCapabilities) {
+          copy.exec("DELETE FROM capabilities");
+          // The search index is derived; the restored store rebuilds it at start.
+          discardSearchIndex(copy);
+        }
         sanitize?.(copy);
         // Vacuuming rewrites the file, so removed values survive in no free page.
         copy.exec("VACUUM");
