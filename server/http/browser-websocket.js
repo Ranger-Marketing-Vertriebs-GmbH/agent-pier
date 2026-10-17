@@ -134,7 +134,8 @@ export function attachBrowserWebSocket(server, { live, login, effective }) {
         if (command?.type === "select") subscription.select(command.targetId);
         else if (command?.type === "follow") subscription.follow();
         else if (command?.type === "start") await subscription.start();
-        else if (command?.type === "take") subscription.take();
+        else if (command?.type === "take")
+          subscription.take({ move: command.move === true });
         else if (command?.type === "handBack") subscription.handBack();
         else ws.close(1008);
       } catch (error) {

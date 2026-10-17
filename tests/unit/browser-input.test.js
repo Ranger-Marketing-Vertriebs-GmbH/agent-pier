@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  CdpInput,
   inputCalls,
   keyEvent,
   toViewport,
@@ -95,7 +96,14 @@ test("keys become CDP key events: characters with text, shortcuts and special ke
     modifiers: 0,
   });
   assert.equal(enter.windowsVirtualKeyCode, 13);
+  // With text it must be keyDown: Chromium ignores the text of a rawKeyDown.
+  assert.equal(enter.type, "keyDown");
   assert.equal(enter.text, "\r");
+  for (const event of [
+    enter,
+    keyEvent({ action: "down", key: "a", code: "KeyA", modifiers: 0 }),
+  ])
+    assert.ok(event.type === "keyDown" || !event.text);
   assert.equal(
     keyEvent({
       action: "down",
@@ -156,4 +164,28 @@ test("commands become the CDP calls for the shown tab", () => {
     [["Input.insertText", { text: "Grüße 日本" }]],
   );
   assert.deepEqual(inputCalls(click, null), []);
+});
+
+test("the CDP channel connects only to its own loopback browser endpoint", async () => {
+  const answer = (webSocketDebuggerUrl) => async () => ({
+    json: async () => ({ webSocketDebuggerUrl }),
+  });
+  for (const url of [
+    "ws://evil.example:4321/devtools/browser/x",
+    "ws://127.0.0.1:9999/devtools/browser/x",
+    "ws://127.0.0.1:4321/devtools/page/x",
+    "wss://127.0.0.1:4321/devtools/browser/x",
+  ])
+    await assert.rejects(new CdpInput(4321, { fetch: answer(url) }).connect(), {
+      message: "cdp endpoint",
+    });
+  // Handed back: nothing queued or new is sent any more.
+  const channel = new CdpInput(4321, {
+    fetch: answer("ws://127.0.0.1:4321/devtools/browser/x"),
+  });
+  channel.close();
+  await assert.rejects(channel.dispatch("T", [["Input.insertText", { text: "x" }]]), {
+    message: "closed",
+  });
+  await assert.rejects(channel.connect(), { message: "closed" });
 });

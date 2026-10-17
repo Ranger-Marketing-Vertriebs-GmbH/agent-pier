@@ -286,8 +286,4 @@ export const assistants = {
     "Für diesen Agenten gibt es gerade kein Browserprofil. Starte den Agentendienst neu oder versuche es später.",
   browserVisibleLimit:
     "Es laufen bereits drei sichtbare Agenten-Browser. Warte, bis einer frei ist, und versuche es erneut.",
-  browserHandedBack:
-    "Ich habe dir den Browser zurückgegeben. Mach dort weiter, wo du aufgehört hast.",
-  browserHandBackTimeout:
-    "Der Browser ist wieder bei dir (ich habe ihn eine Weile nicht benutzt). Mach dort weiter, wo du aufgehört hast.",
 };

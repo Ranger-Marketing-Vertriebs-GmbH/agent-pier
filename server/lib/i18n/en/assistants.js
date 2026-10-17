@@ -265,7 +265,4 @@ export const assistants = {
     "There is no browser profile for this agent right now. Restart the agent service or try again later.",
   browserVisibleLimit:
     "Three visible agent browsers are already running. Wait until one is free and try again.",
-  browserHandedBack: "I handed the browser back to you. Continue where you left off.",
-  browserHandBackTimeout:
-    "The browser is back with you (I had not used it for a while). Continue where you left off.",
 };

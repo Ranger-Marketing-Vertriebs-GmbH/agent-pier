@@ -26,6 +26,8 @@ export class Takeover {
     this.timer = null;
     this.grace = null;
     this.channel = null;
+    // Whether the agent tried the browser during this lease and was refused.
+    this.refused = false;
   }
   snapshot() {
     return this.holder
@@ -36,8 +38,15 @@ export class Takeover {
         }
       : null;
   }
-  take(holder) {
-    if (this.holder && this.holder !== holder) throw problem("LEASE_HELD");
+  /** Takes the lease; `move` takes it from the owner's other device. */
+  take(holder, { move = false } = {}) {
+    if (this.holder && this.holder !== holder && !move) throw problem("LEASE_HELD");
+    if (this.holder !== holder) {
+      // The other device's input channel stops here.
+      this.channel?.close();
+      this.channel = null;
+    }
+    if (!this.holder) this.refused = false;
     this.holder = holder;
     this.touch();
     clearTimeout(this.grace);
@@ -79,8 +88,10 @@ export class Takeover {
     this.channel?.close();
     this.channel = null;
     this.stream.set({});
-    // A shutdown is no hand-back the agent should act on.
-    if (reason !== "stopped") this.live.onHandBack?.(this.stream.id, reason);
+    // The agent hears about it only when it was kept waiting; a shutdown never.
+    const waited = this.refused;
+    this.refused = false;
+    if (waited && reason !== "stopped") this.live.onHandBack?.(this.stream.id, reason);
     if (!this.stream.viewers.size && reason !== "stopped") this.live.drop(this.stream);
   }
   /** The holder's views all closed: the lease waits `graceMs` for one to return. */
@@ -103,8 +114,11 @@ export class Takeover {
     const targetId = this.stream.state.targetId;
     const port = this.live.browsers.viewProfile(this.stream.id)?.entry?.cdpPort;
     if (!targetId || !port) throw problem("NO_TARGET");
-    if (!this.channel || this.channel.cdpPort !== port)
+    if (!this.channel || this.channel.cdpPort !== port) {
+      // A relaunched browser on another port: the old socket closes.
+      this.channel?.close();
       this.channel = this.live.cdpInput(port);
+    }
     await this.channel.dispatch(targetId, inputCalls(valid, this.stream.metrics));
   }
   stop() {

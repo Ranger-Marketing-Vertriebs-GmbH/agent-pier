@@ -131,8 +131,14 @@ export function keyEvent({ action, key, code, text, modifiers }) {
   const keyCode =
     virtualKeys[key] ??
     (single && /[a-z0-9]/i.test(key) ? key.toUpperCase().charCodeAt(0) : 0);
-  // A character goes in with its text, unless a shortcut modifier (Ctrl, Meta) is held.
-  const typed = action === "down" && (text || (single && !(modifiers & 6) ? key : ""));
+  // A character goes in with its text, unless a shortcut modifier (Ctrl, Meta) is
+  // held; Enter carries "\r". An event with text must be keyDown: Chromium ignores
+  // the text of a rawKeyDown, so Enter would neither submit nor break a line.
+  const typed =
+    action === "down" &&
+    (key === "Enter" && !(modifiers & 6)
+      ? "\r"
+      : text || (single && !(modifiers & 6) ? key : ""));
   return {
     type: action === "up" ? "keyUp" : typed ? "keyDown" : "rawKeyDown",
     key,
@@ -140,7 +146,6 @@ export function keyEvent({ action, key, code, text, modifiers }) {
     modifiers,
     windowsVirtualKeyCode: keyCode,
     ...(typed ? { text: typed, unmodifiedText: typed } : {}),
-    ...(key === "Enter" && action === "down" ? { text: "\r" } : {}),
   };
 }
 
@@ -185,6 +190,7 @@ export function inputCalls(command, metrics) {
 export class CdpInput {
   constructor(cdpPort, { fetch = globalThis.fetch, timeoutMs = 2000 } = {}) {
     Object.assign(this, { cdpPort, fetch, timeoutMs });
+    this.closed = false;
     this.pending = new Map();
     this.id = 0;
     this.ws = null;
@@ -192,14 +198,43 @@ export class CdpInput {
     this.targetId = null;
   }
   async connect() {
+    if (this.closed) throw Error("closed");
     if (this.ws?.readyState === 1) return;
-    const response = await this.fetch(`http://127.0.0.1:${this.cdpPort}/json/version`);
+    const response = await this.fetch(`http://127.0.0.1:${this.cdpPort}/json/version`, {
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
     const { webSocketDebuggerUrl } = await response.json();
+    // Only the browser endpoint on this very loopback port is ever connected.
+    const url = new URL(String(webSocketDebuggerUrl));
+    if (
+      url.protocol !== "ws:" ||
+      url.hostname !== "127.0.0.1" ||
+      url.port !== String(this.cdpPort) ||
+      !url.pathname.startsWith("/devtools/browser/") ||
+      url.username ||
+      url.password
+    )
+      throw Error("cdp endpoint");
+    if (this.closed) throw Error("closed");
     await new Promise((resolve, reject) => {
-      const ws = new WebSocket(webSocketDebuggerUrl);
+      const ws = new WebSocket(url.href);
       this.ws = ws;
-      ws.onopen = resolve;
-      ws.onerror = () => reject(Error("cdp"));
+      const opening = setTimeout(() => {
+        reject(Error("cdp timeout"));
+        ws.close();
+      }, this.timeoutMs);
+      ws.onopen = () => {
+        clearTimeout(opening);
+        if (this.closed) {
+          ws.close();
+          return reject(Error("closed"));
+        }
+        resolve();
+      };
+      ws.onerror = () => {
+        clearTimeout(opening);
+        reject(Error("cdp"));
+      };
       ws.onclose = () => {
         if (this.ws === ws) this.ws = null;
         this.sessionId = null;
@@ -245,6 +280,7 @@ export class CdpInput {
    * go out one after another, in the order the owner made them.
    */
   dispatch(targetId, calls) {
+    if (this.closed) return Promise.reject(Error("closed"));
     const next = (this.queue || Promise.resolve())
       .catch(() => {})
       .then(() => this.dispatchNow(targetId, calls));
@@ -252,6 +288,8 @@ export class CdpInput {
     return next;
   }
   async dispatchNow(targetId, calls) {
+    // Nothing queued reaches the page once the owner handed the browser back.
+    if (this.closed) throw Error("closed");
     if (!calls.length) return;
     await this.connect();
     if (this.targetId !== targetId || !this.sessionId) {
@@ -271,6 +309,7 @@ export class CdpInput {
     for (const [method, params] of calls) await this.send(method, params, this.sessionId);
   }
   close() {
+    this.closed = true;
     try {
       this.ws?.close();
     } catch {

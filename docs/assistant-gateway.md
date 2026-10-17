@@ -1325,17 +1325,23 @@ which opens the live view taking control) lets the owner use the agent's browser
 sign in, solve a check or search, and **Hand back** returns it.
 
 - One login session of the owner holds the lease per agent (`browser-takeover.js`).
-  Other devices see "You are controlling this browser on another device"; other tabs
-  of the same session share it. A chat preview never takes over or sends input.
+  Other devices see "You are controlling this browser on another device" and can
+  **Take over here**, which moves the lease; other tabs of the same session share it.
+  A chat preview never takes over or sends input. Opened with `?takeover=1`, the
+  live view takes over once the picture is live and then drops the parameter.
 - While the owner holds it, the tool guard refuses the agent's browser calls with
   "The owner is using this browser right now … Wait until the owner hands it back"
   (`ownerControl`). A call that was already running finishes; it may overlap the
   owner's first input.
 - The lease ends on **Hand back**, after ten minutes without owner input (a warning
-  a minute before), or 30 seconds after the session's last full view closed. Except
-  at a shutdown, the end queues a note in the agent's most recent chat ("I handed the
-  browser back to you. Continue where you left off."), delivered once the agent is
-  idle; a message the owner queued there already is kept and no note is added.
+  a minute before), 30 seconds after the session's last full view closed, or when
+  the browser stops. If the agent was refused during the lease, the end (except at a
+  shutdown) queues a note in the agent's most recent chat, in English like the
+  refusal: "The owner has handed the browser back to you. Continue the browser task
+  where you left off." It is delivered once the agent is idle; a message the owner
+  queued there already is kept and no note is added. A lease the agent never
+  noticed wakes no chat. The takeover bar with **Hand back** stays visible whatever
+  the picture's state.
 - Input travels on the live-view socket as `pointer` (move/down/up with button,
   buttons and click count; a drag is down, moves with the button held, up),
   `wheel`, `key` (down/up with key, code and modifiers), `text` and `paste`
@@ -1345,11 +1351,19 @@ sign in, solve a check or search, and **Hand back** returns it.
   coordinates as CDP's mouse events expect, so no scroll offset is added. Commands
   are validated, limited to 120 a second with bursts of 240 per socket, and sent in
   order as raw CDP `Input.*` events to the shown tab on the agent's own loopback
-  CDP port (`CdpInput`).
+  CDP port (`CdpInput`). That channel connects only to
+  `ws://127.0.0.1:<port>/devtools/browser/…` with time limits on the lookup and
+  the socket, and once the lease ends (or moves) nothing queued is sent any more.
+- Keys with text go as `keyDown` events: Chromium ignores the text of a
+  `rawKeyDown`, so Enter (`"\r"`) submits a form and breaks a line only that way.
 - A hidden text field takes the keyboard, so phones show their on-screen keyboard,
   IME composition arrives as finished text, and characters go in as inserted text;
   Enter, Backspace, Tab, Escape, Delete, arrows and page keys, and Ctrl/Cmd
-  shortcuts, go as key events. A tap is a click; pinch zoom is off on the picture.
+  shortcuts, go as key events. A phone keyboard's Backspace and Enter arrive as
+  `beforeinput` (Android reports key 229) and are sent as keys as well. A tap is a
+  click and a one-finger drag scrolls (as wheel events); pinch zoom is off on the
+  picture. Shift+Escape leaves the browser and focuses **Hand back**; every other key
+  goes to the page.
 - While the owner holds the browser, a tab it opens (an OAuth popup) is shown at once.
 - Not in the picture: the browser's own windows (file pickers, HTTP sign-in dialogs,
   permission prompts) and open drop-down lists, which Chromium draws outside the
