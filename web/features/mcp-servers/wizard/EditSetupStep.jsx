@@ -10,13 +10,17 @@ import McpAuthFields from "../McpAuthFields.jsx";
 import McpPackageFields from "../McpPackageFields.jsx";
 import NameField from "../NameField.jsx";
 import SourceField from "../SourceField.jsx";
+import TimeoutFields from "../TimeoutFields.jsx";
 import { fieldErrors } from "../field-errors.js";
 import McpServerConfirmations from "./McpServerConfirmations.jsx";
 import useMcpServerForm from "./useMcpServerForm.js";
 import "../mcp-servers.css";
 import "./mcp-wizard.css";
 
-/** Edit "Source and name": name, address and sign-in, or command and package source. */
+/**
+ * Edit "Source and name": name, address and sign-in, or command and package source,
+ * and the advanced timeouts of either.
+ */
 export default function EditSetupStep(props) {
   const {
     server,
@@ -106,6 +110,14 @@ export default function EditSetupStep(props) {
               <McpAuthFields draft={values} server={server} set={set} />
             </>
           )}
+          <TimeoutFields
+            formId={formId}
+            values={values}
+            set={set}
+            errorOf={errorOf}
+            describe={describe}
+            errorId={errorId}
+          />
           <CliDropNotes values={values} server={server} />
         </fieldset>
       </form>

@@ -6,6 +6,7 @@ import useAccountDraft from "../../accounts/useAccountDraft.js";
 import { savedNotice } from "../mcp-notices.js";
 import { refusalField } from "../mcp-package-labels.js";
 import { mcpServerStep, mcpServerValues } from "../mcp-server-save.js";
+import { timeoutRefusal } from "../mcp-timeouts.js";
 
 const valueReference = (error) => error?.code === "MCP_SERVER_VALUE_REFERENCE";
 const nameRefusal = (error) =>
@@ -63,7 +64,7 @@ export default function useMcpServerForm({ entry, data, notifyMcp, navigate }) {
   useEffect(() => {
     const failure = draft.outcome?.error;
     // The registry is read when the refusal arrives.
-    const field = refusalField(failure, draft.values.registry);
+    const field = refusalField(failure, draft.values.registry) ?? timeoutRefusal(failure);
     if (field || nameRefusal(failure)) {
       consumed.current = draft.outcome;
       setFieldError({ field: field || "name", text: failure.message });

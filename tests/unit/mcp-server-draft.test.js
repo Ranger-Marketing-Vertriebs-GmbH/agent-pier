@@ -239,3 +239,36 @@ test("a switch to a package that has not installed yet keeps the own command", (
   assert.equal(draftFrom(packaged("ready")).command, "");
   assert.equal(draftFrom(packaged("missing")).command, "");
 });
+
+test("timeouts are sent as whole seconds on create and only when changed on edit", () => {
+  const draft = { ...draftFrom(null), name: "docs", url: "https://x.test/mcp" };
+  assert.deepEqual([draft.startupTimeout, draft.toolTimeout], ["", ""]);
+  assert.equal(Object.hasOwn(requestBody(draft), "toolTimeoutSec"), false);
+  assert.deepEqual(
+    requestBody({ ...draft, startupTimeout: " 30 ", toolTimeout: "450" }),
+    {
+      name: "docs",
+      transport: "http",
+      url: "https://x.test/mcp",
+      startupTimeoutSec: 30,
+      toolTimeoutSec: 450,
+    },
+  );
+  const server = { ...http, startupTimeoutSec: 30, toolTimeoutSec: 450 };
+  const stored = draftFrom(server);
+  assert.deepEqual([stored.startupTimeout, stored.toolTimeout], ["30", "450"]);
+  assert.deepEqual(requestBody(stored, server), { revision: 4 });
+  assert.deepEqual(
+    requestBody({ ...stored, toolTimeout: "", startupTimeout: "60" }, server),
+    {
+      revision: 4,
+      startupTimeoutSec: 60,
+      toolTimeoutSec: null,
+    },
+  );
+  // A value that is no whole number goes as typed: the server refuses it at its field.
+  assert.equal(
+    requestBody({ ...stored, toolTimeout: "1.5" }, server).toolTimeoutSec,
+    "1.5",
+  );
+});

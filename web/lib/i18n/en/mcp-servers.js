@@ -32,6 +32,14 @@ export const mcpServerCopy = {
   argsLabel: "Arguments (one per line)",
   cwdLabel: "Working directory (optional, absolute path)",
   referenceNames: (names) => `Affected: ${names}`,
+  timeoutsTitle: "Advanced: timeouts",
+  timeoutsHint: "Leave a field empty to keep the coding CLI's default.",
+  startupTimeoutLabel: "Startup timeout in seconds (1 to 600)",
+  startupTimeoutHint:
+    "How long Codex waits for the server to start. Only Codex has this setting.",
+  toolTimeoutLabel: "Tool timeout in seconds (1 to 3600)",
+  toolTimeoutHint:
+    "How long one tool call may run in Codex, Claude Code and OpenCode. OpenCode also waits this long to connect.",
   headersLabel: "Headers",
   envLabel: "Environment variables",
   headerNames: "Headers",

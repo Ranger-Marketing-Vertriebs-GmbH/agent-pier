@@ -6,6 +6,10 @@ export const mcpServers = Object.freeze({
   invalidTransport: "Choose HTTP, SSE or stdio as the connection.",
   transportLocked: "A server's connection type cannot be changed.",
   invalidCwd: "Enter an absolute working directory.",
+  invalidStartupTimeout:
+    "Enter a startup timeout of 1 to 600 whole seconds, or leave the field empty.",
+  invalidToolTimeout:
+    "Enter a tool timeout of 1 to 3600 whole seconds, or leave the field empty.",
   commandNotFound:
     "The command was not found or is not executable. Enter an installed command or an absolute path.",
   invalidTarget: "This target does not support MCP servers.",

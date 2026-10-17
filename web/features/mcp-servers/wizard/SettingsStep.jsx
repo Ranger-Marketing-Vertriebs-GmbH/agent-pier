@@ -1,6 +1,7 @@
 import React, { useId, useState } from "react";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import FieldError from "../FieldError.jsx";
+import TimeoutFields from "../TimeoutFields.jsx";
 import { fieldErrors } from "../field-errors.js";
 import SettingRow from "./SettingRow.jsx";
 import { settingHints, settingProblem } from "./setting-hints.js";
@@ -79,7 +80,10 @@ function Arguments({ draft, set, errorOf, describe, errorId, tried }) {
   );
 }
 
-/** "Settings for <name>": env rows for a local server, header rows for a remote one. */
+/**
+ * "Settings for <name>": env rows for a local server, header rows for a remote one,
+ * and the advanced timeouts of either.
+ */
 export default function SettingsStep({ state, dispatch, go, headingRef }) {
   const formId = useId();
   const { draft, path, fieldError } = state;
@@ -174,6 +178,14 @@ export default function SettingsStep({ state, dispatch, go, headingRef }) {
           tried={tried}
         />
       )}
+      <TimeoutFields
+        formId={formId}
+        values={draft}
+        set={set}
+        errorOf={errorOf}
+        describe={describe}
+        errorId={errorId}
+      />
     </WizardStep>
   );
 }

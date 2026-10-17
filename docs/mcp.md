@@ -235,9 +235,11 @@ command is such a runner.
   from several CLIs become one server bound to each; the same name with different
   content stays separate. Invalid or taken names get a proposal. Adopting replaces the
   old entry with AgentPier's only while it is unchanged since it was shown (otherwise
-  `409`). Entries using settings AgentPier does not manage (for example Codex
-  `startup_timeout_sec`, `env_vars`, `bearer_token_env_var` or a disabled entry) stay
-  in the CLI. So do entries whose values refer to the CLI's environment or files
+  `409`). Entries with the timeouts AgentPier manages (Codex `startup_timeout_sec` and
+  `tool_timeout_sec`, the Claude Code and OpenCode `timeout`) are adoptable and keep
+  their values; see **Timeouts**. Entries using settings AgentPier does not manage (for
+  example Codex `startup_timeout_ms`, `env_vars`, `bearer_token_env_var`, a timeout
+  outside the bounds or not in whole seconds, or a disabled entry) stay in the CLI. So do entries whose values refer to the CLI's environment or files
   (Claude Code `${…}` with any name, `${VAR:-default}` included; OpenCode `{env:VAR}`
   or `{file:path}`) instead of holding them: another CLI or an agent would get the
   reference literally.
@@ -248,7 +250,22 @@ command is such a runner.
   _env-references_ (`MCP_CLI_FIND_ENV_REFERENCES` from the adoption service).
   **Adopt the change** for a hand edit that adds a reference is refused with
   `409 MCP_CLI_CHANGE_ENV_REFERENCES`. A field the CLI cannot express keeps the
-  server's value: adopting a Claude Code edit keeps the OAuth scope.
+  server's value: adopting a Claude Code edit keeps the OAuth scope, and a Claude Code
+  or OpenCode edit keeps the startup timeout.
+- **Timeouts.** **Advanced: timeouts** (wizard **Settings** step, and **Source and
+  name** of a saved server) holds an optional startup timeout (1 to 600 seconds) and an
+  optional tool timeout (1 to 3600 seconds) for any server; empty fields keep each
+  CLI's default. The API takes `startupTimeoutSec` and `toolTimeoutSec` (whole seconds,
+  `null` clears) and refuses other values with `400` (`mcpServers.invalidStartupTimeout`,
+  `mcpServers.invalidToolTimeout`). Ten minutes of startup cover a first package
+  download; an hour per tool call covers long analyses such as decompiler runs without
+  letting a hung server hold a turn indefinitely. Codex gets both as
+  `startup_timeout_sec` and `tool_timeout_sec` in `[mcp_servers.<name>]`. Claude Code
+  and OpenCode have no per-server startup timeout (Claude Code only the global
+  `MCP_TIMEOUT`), so the startup timeout is Codex-only; the tool timeout goes to their
+  per-server `timeout` in milliseconds. OpenCode applies that one value to connecting
+  and every request, so it waits as long to connect. Agents (OpenClaw) do not receive
+  the timeouts.
 - **Literal values.** AgentPier stores what the owner enters literally. Creating or
   updating a server with a reference in a header or environment value, the URL, the
   command, its arguments or the working directory is refused with

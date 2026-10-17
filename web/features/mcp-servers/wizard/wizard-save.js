@@ -1,6 +1,7 @@
 import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
 import { mcpWizardCopy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import { refusalField } from "../mcp-package-labels.js";
+import { timeoutRefusal } from "../mcp-timeouts.js";
 import { mcpServerStep, PACKAGE_INSTALL_REQUIRED } from "../mcp-server-save.js";
 import { saveValues } from "./wizard-state.js";
 
@@ -25,7 +26,7 @@ export function refusedField(error, registry) {
         ? `${error.message} ${mcpServerCopy.referenceNames(error.names.join(", "))}`
         : error.message,
     };
-  const field = fieldsByKey[error?.messageKey];
+  const field = fieldsByKey[error?.messageKey] ?? timeoutRefusal(error);
   return field ? { field, text: error.message } : null;
 }
 
