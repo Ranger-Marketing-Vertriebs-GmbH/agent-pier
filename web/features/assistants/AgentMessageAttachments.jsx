@@ -16,12 +16,16 @@ const source = (id) => `/api/assistant-attachments/${encodeURIComponent(id)}`;
 // HEIC stays a download: most browsers cannot show it.
 const shown = (file) => file.kind === "image" && file.type !== "image/heic";
 
-// The owner's files in a sent message: thumbnails that open the image, and chips
-// that download the file. Both are served through the signed-in route by id.
-export default function AgentMessageAttachments({ files }) {
+// The owner's files in a sent message, or the files an agent shared (`shared`):
+// thumbnails that open the image, and chips that download the file. Both are served
+// through the signed-in route by id.
+export default function AgentMessageAttachments({ files, shared = false }) {
   if (!files?.length) return null;
   return (
-    <ul className="agent-message-attachments" aria-label={copy.sent}>
+    <ul
+      className="agent-message-attachments"
+      aria-label={shared ? copy.shared : copy.sent}
+    >
       {files.map((file) =>
         shown(file) ? (
           <li key={file.id} className="agent-message-image">

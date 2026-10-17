@@ -46,6 +46,7 @@ export const nativeTools = [
   "agentpier_routine",
   "agentpier_workspace",
   "agentpier_ssh",
+  "agentpier_share_file",
 ];
 
 function freshDefaults(paths) {

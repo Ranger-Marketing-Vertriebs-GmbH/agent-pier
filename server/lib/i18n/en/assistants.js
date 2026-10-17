@@ -237,6 +237,11 @@ export const assistants = {
   attachmentStorageUnsafe:
     "The attachment folder in this agent's workspace is unsafe. Check that attachments/ is a normal folder.",
   attachmentRateLimited: "Too many attachments in a short time. Wait a moment.",
+  shareNotFound: "There is no file at this path in the agent's workspace.",
+  shareOutside:
+    "Agents can only share regular files from their own workspace, without symbolic or hard links.",
+  shareTooLarge: "Shared files are limited to 25 MB.",
+  shareEmpty: "This file is empty.",
   invalid: "Invalid agent input.",
   notFound: "Agent or conversation not found.",
   conflict: "The data has changed. Please reload.",

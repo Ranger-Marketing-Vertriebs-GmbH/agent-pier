@@ -11,10 +11,27 @@ const closer = (server) => () =>
   });
 const now = () => Math.floor(Date.now() / 1000);
 
+// A multipart upload's fields; a file field becomes { name, type, bytes }.
+async function multipart(body, type) {
+  const form = await new Response(body, { headers: { "content-type": type } }).formData();
+  const fields = {};
+  for (const [key, value] of form)
+    fields[key] =
+      typeof value === "string"
+        ? value
+        : {
+            name: value.name,
+            type: value.type,
+            bytes: Buffer.from(await value.arrayBuffer()),
+          };
+  return fields;
+}
+
 /**
  * A loopback Telegram Bot API for the bots in `bots` (token → { id, username }):
- * long-polled updates per token, recorded calls and voice files. Never reaches
- * Telegram; OpenClaw talks to it through `channels.telegram.apiRoot`.
+ * long-polled updates per token, recorded calls (multipart uploads too) and voice
+ * files. Never reaches Telegram; OpenClaw talks to it through
+ * `channels.telegram.apiRoot`.
  */
 export async function fakeBotApi(bots) {
   const calls = [];
@@ -26,8 +43,10 @@ export async function fakeBotApi(bots) {
   const conflicted = new Set();
   let sequence = 1000;
   const server = http.createServer(async (req, res) => {
-    let body = "";
-    for await (const part of req) body += part;
+    const chunks = [];
+    for await (const part of req) chunks.push(part);
+    const raw = Buffer.concat(chunks);
+    const body = raw.toString();
     const url = new URL(req.url, "http://fake");
     const file = url.pathname.match(/^\/file\/bot([^/]+)\/(.+)$/);
     if (file) {
@@ -42,8 +61,10 @@ export async function fakeBotApi(bots) {
     const [, token, method] = match;
     let params = {};
     try {
-      if ((req.headers["content-type"] || "").includes("json"))
-        params = JSON.parse(body || "{}");
+      const type = req.headers["content-type"] || "";
+      if (type.includes("json")) params = JSON.parse(body || "{}");
+      else if (type.startsWith("multipart/form-data"))
+        params = await multipart(raw, type);
       else params = Object.fromEntries(new URLSearchParams(body));
     } catch {
       params = {};
@@ -114,6 +135,19 @@ export async function fakeBotApi(bots) {
           file_path: path,
         });
       }
+      case "sendPhoto":
+      case "sendDocument":
+        // Photos above Telegram's 10 MB or with a `refuse` caption are refused.
+        if (
+          method === "sendPhoto" &&
+          (params.photo?.bytes.length > 10 * 1024 * 1024 || params.caption === "refuse")
+        ) {
+          res.writeHead(400, { "content-type": "application/json" });
+          return res.end(
+            JSON.stringify({ ok: false, error_code: 400, description: "PHOTO_INVALID" }),
+          );
+        }
+        return reply({ message_id: ++sequence, date: now(), chat: chat(params.chat_id) });
       case "sendMessage":
       case "editMessageText":
         return reply({
@@ -173,6 +207,14 @@ export async function fakeBotApi(bots) {
         (c) =>
           c.token === token &&
           c.method === "sendMessage" &&
+          String(c.params.chat_id) === String(chatId),
+      ),
+    /** sendPhoto and sendDocument uploads to `chatId`. */
+    files: (token, chatId) =>
+      calls.filter(
+        (c) =>
+          c.token === token &&
+          ["sendPhoto", "sendDocument"].includes(c.method) &&
           String(c.params.chat_id) === String(chatId),
       ),
     polls: (token) =>

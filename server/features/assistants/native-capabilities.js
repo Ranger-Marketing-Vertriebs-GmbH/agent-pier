@@ -163,6 +163,8 @@ export function profileTools(
       : []),
     // Temporary members use it only to request coding runs on the parent's grant.
     ...(nativeReady && !assistant.archivedAt ? ["agentpier_workspace"] : []),
+    // Every agent may hand the owner a file from its own workspace (agent-shares.js).
+    ...(nativeReady && !assistant.archivedAt ? ["agentpier_share_file"] : []),
     ...(nativeReady
       ? Object.entries(capabilityTools).flatMap(([key, tools]) =>
           // `available` withholds a tool whose browser or search provider is absent;

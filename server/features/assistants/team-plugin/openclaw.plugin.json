@@ -20,7 +20,8 @@
       "agentpier_reminder",
       "agentpier_routine",
       "agentpier_workspace",
-      "agentpier_ssh"
+      "agentpier_ssh",
+      "agentpier_share_file"
     ]
   },
   "configSchema": {

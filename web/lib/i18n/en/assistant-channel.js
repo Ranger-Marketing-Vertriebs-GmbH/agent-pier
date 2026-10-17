@@ -10,6 +10,7 @@ export const assistantChannelCopy = {
   ignored: (privateCount, groupCount) =>
     `Ignored messages: ${privateCount} from other private chats, ${groupCount} from groups.`,
   teamNotification: "Team notification",
+  fileNotification: "File shared by the agent",
   connected: (chatId) => `Connected to private chat ${chatId}`,
   description:
     "Use this agent’s shared chat from your private Telegram conversation. Replies to Telegram messages return to Telegram.",
@@ -56,6 +57,8 @@ export const assistantChannelCopy = {
     reviewed: "Reviewed",
   },
   diagnostics: {
+    FILE_UNAVAILABLE: "The shared file is no longer available in AgentPier.",
+    FILE_TOO_LARGE: "The shared file is larger than Telegram accepts.",
     CHANNEL_DESTINATION_CHANGED:
       "The chat binding changed. Review this input before continuing.",
     TELEGRAM_CONFLICT: "Another service is polling this bot. Stop it before resuming.",
