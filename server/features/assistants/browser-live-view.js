@@ -45,6 +45,11 @@ export class BrowserLiveView {
   controlled(id) {
     return !!this.streams.get(id)?.takeover.holder;
   }
+  /** The agent was refused during the owner's lease: it gets the hand-back note. */
+  refused(id) {
+    const takeover = this.streams.get(id)?.takeover;
+    if (takeover?.holder) takeover.refused = true;
+  }
   /**
    * Adds a viewer of agent `id`. `preview` viewers get at most one frame per
    * `previewMs`. Returns `{ close, select(targetId), follow(), start() }`.
@@ -83,7 +88,7 @@ export class BrowserLiveView {
       select: (targetId) => stream.select(targetId),
       follow: () => stream.select(null),
       start: () => stream.start(),
-      take: () => stream.takeover.take(owner()),
+      take: ({ move = false } = {}) => stream.takeover.take(owner(), { move }),
       handBack: () => stream.takeover.handBack(owner()),
       input: (command) => stream.takeover.input(owner(), command),
     };
@@ -184,6 +189,8 @@ class LiveStream {
       const status = await this.request("GET", "/");
       if (!status?.running) {
         this.disconnect();
+        // A stopped browser cannot be held; the agent may start it again.
+        this.takeover.release("browserStopped");
         return this.set({ status: "stopped", tabs: [], url: "", title: "", reason: "" });
       }
       // Watching keeps it tracked (a visible browser keeps rendering minimized);

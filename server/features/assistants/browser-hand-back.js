@@ -1,25 +1,33 @@
-import { serverMessages } from "../../lib/i18n/de.js";
-
 /**
  * Tells the agent its browser is back (browser-takeover.js): a queued owner message
  * in the agent's most recent chat, delivered once the agent is idle, so a run that
- * stopped at a sign-in or check continues. A message the owner queued there already
- * is never replaced; the agent's next browser call works in any case.
+ * stopped while the owner held the browser continues. Sent only when the agent was
+ * refused during the lease (never to wake an old chat), and never over a message
+ * the owner queued there. In English, like the tool guard's refusals the agent read.
  */
+export const handBackNotes = {
+  owner:
+    "The owner has handed the browser back to you. Continue the browser task where you left off.",
+  timeout:
+    "The browser is back with you: the owner has not used it for a while. Continue the browser task where you left off.",
+};
+
 export function noteBrowserHandBack(assistants, id, reason) {
-  try {
-    const latest = assistants.ledger.latestByConversation();
-    let conversation = null;
-    for (const row of latest) {
-      const candidate = assistants.store.getConversation(row.conversation_id);
+  let conversation = null;
+  for (const row of assistants.ledger.latestByConversation()) {
+    try {
+      const candidate = assistants.store.getConversation(row.conversationId);
       if (candidate.assistantId === id && !candidate.archivedAt) conversation = candidate;
+    } catch {
+      /* A conversation that went away meanwhile. */
     }
-    if (!conversation || assistants.queued?.get(conversation.id)) return null;
-    const text =
-      reason === "timeout"
-        ? serverMessages.assistants.browserHandBackTimeout
-        : serverMessages.assistants.browserHandedBack;
-    return assistants.queue(conversation.id, { text });
+  }
+  if (!conversation) return null;
+  try {
+    if (assistants.queued?.get(conversation.id)) return null;
+    return assistants.queue(conversation.id, {
+      text: reason === "timeout" ? handBackNotes.timeout : handBackNotes.owner,
+    });
   } catch {
     return null;
   }

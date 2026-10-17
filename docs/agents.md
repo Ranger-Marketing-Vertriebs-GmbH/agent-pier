@@ -74,8 +74,9 @@ member also shows whether its model changed since it took it over from the lead.
   window is minimized, with its address and tabs; pick a tab or follow the agent, and
   start a stopped browser there. Only the owner sees it, and no pictures are stored. **Take over** there
   (or beside the chat preview) to sign in or solve a check yourself: the agent waits,
-  and **Hand back** (or ten minutes without input) gives it back with a note in the
-  chat so the agent continues. At most three visible
+  and **Hand back** (or ten minutes without input) gives it back; if the agent tried
+  the browser meanwhile, a note in the chat lets it continue. Shift+Escape leaves the
+  browser's keyboard; **Take over here** moves control from another device. At most three visible
   browsers run at once, and a browser idle for 15 minutes stops. **Reset browser
   profile** deletes the agent's sign-ins and cookies, also for an archived agent. The chat header shows
   **Browser running** while it runs. Temporary team members get a browser profile

@@ -130,7 +130,10 @@ export class AgentBrowsers {
     // Copying cookies from a system browser profile is never an agent's call.
     if (action === "importprofile") return deny("importBlocked");
     // The owner holds the browser (browser-takeover.js): the agent waits for it.
-    if (this.controlled?.(assistant.id)) return deny("ownerControl");
+    if (this.controlled?.(assistant.id)) {
+      this.ownerControlRefused?.(assistant.id);
+      return deny("ownerControl");
+    }
     const name = this.profileOf(assistant);
     if (!name) return deny(inheritsFromLead(assistant) ? "slotsBusy" : "restartNeeded");
     const entry = this.profiles()[name];

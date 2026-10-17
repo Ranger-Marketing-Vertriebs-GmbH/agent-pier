@@ -27,7 +27,7 @@ const tabs = [
   { targetId: "t2", title: "Cart", url: "https://shop.example/cart" },
 ];
 
-async function setup(page, { status = "live", refuse = false } = {}) {
+async function setup(page, { status = "live", refuse = false, control } = {}) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.route(/\/api\/assistant/, async (route) => {
@@ -94,18 +94,7 @@ async function setup(page, { status = "live", refuse = false } = {}) {
       if (command.type === "take") state({ held: true, mine: true, warning: false });
       if (command.type === "handBack") state({ held: false, mine: false });
     });
-    ws.send(
-      JSON.stringify({
-        type: "state",
-        state: {
-          status,
-          url: "https://shop.example/",
-          title: "Shop",
-          targetId: "t1",
-          tabs,
-        },
-      }),
-    );
+    state(control || { held: false, mine: false });
     if (status === "live") ws.send(frame());
     if (refuse) ws.close({ code: 1008 });
   });
@@ -226,6 +215,45 @@ for (const [label, use] of [
           ),
         )
         .toBe(true);
+      // Shift+Escape leaves the browser for the takeover bar.
+      await page.keyboard.press("Shift+Escape");
+      await expect(page.getByRole("button", { name: "Hand back" })).toBeFocused();
+      expect(commands.some((c) => c.type === "key" && c.key === "Escape")).toBe(false);
+      if (label === "phone") {
+        // A one-finger drag scrolls the page; it never clicks.
+        const pointer = (type, y) =>
+          picture.dispatchEvent(type, {
+            pointerType: "touch",
+            pointerId: 7,
+            isPrimary: true,
+            clientX: box.x + box.width / 2,
+            clientY: box.y + y,
+            bubbles: true,
+          });
+        const downs = commands.filter((c) => c.type === "pointer").length;
+        await pointer("pointerdown", 200);
+        await pointer("pointermove", 150);
+        await pointer("pointermove", 100);
+        await pointer("pointerup", 100);
+        await expect
+          .poll(() => commands.filter((c) => c.type === "wheel").length)
+          .toBeGreaterThan(0);
+        expect(commands.find((c) => c.type === "wheel").deltaY).toBeGreaterThan(0);
+        expect(commands.filter((c) => c.type === "pointer").length).toBe(downs);
+        // An Android keyboard's Backspace arrives as beforeinput, not as a key.
+        await page.getByLabel("Keyboard input for the agent browser").evaluate((field) =>
+          field.dispatchEvent(
+            new InputEvent("beforeinput", {
+              inputType: "deleteContentBackward",
+              bubbles: true,
+              cancelable: true,
+            }),
+          ),
+        );
+        await expect
+          .poll(() => commands.some((c) => c.type === "key" && c.key === "Backspace"))
+          .toBe(true);
+      }
       await page.getByRole("button", { name: "Hand back" }).click();
       await expect.poll(() => commands.at(-1)).toEqual({ type: "handBack" });
       await expect(
@@ -241,7 +269,20 @@ test("the chat preview's Take over opens the live view taking control", async ({
   const commands = await setup(page);
   await page.goto(baseURL + "/agents/home/chats/c1");
   await page.getByRole("link", { name: "Take over" }).click();
-  await expect(page).toHaveURL(/\/agents\/home\/browser\?takeover=1$/);
   await expect.poll(() => commands.some((c) => c.type === "take")).toBe(true);
   await expect(page.getByText("You control the browser.")).toBeVisible();
+  // Taken over: the address drops ?takeover=1, so a reload only watches.
+  await expect(page).toHaveURL(/\/agents\/home\/browser$/);
+});
+
+test("the owner's other device holds control: take over here moves it", async ({
+  page,
+}) => {
+  const commands = await setup(page, { control: { held: true, mine: false } });
+  await page.goto(baseURL + "/agents/home/browser");
+  await expect(
+    page.getByText("You are controlling this browser on another device."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Take over here" }).click();
+  await expect.poll(() => commands.at(-1)).toEqual({ type: "take", move: true });
 });

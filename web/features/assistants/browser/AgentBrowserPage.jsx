@@ -24,12 +24,22 @@ export default function AgentBrowserPage({
   const status = state.status;
   const control = state.control || { held: false, mine: false };
   const asked = useRef(false);
+  const handBackButton = useRef(null);
   useEffect(() => {
     if (takeover && !asked.current && status === "live" && !control.held) {
       asked.current = true;
       take();
     }
   }, [takeover, status, control.held, take]);
+  // Taken over from ?takeover=1: the address drops it, so a reload only watches.
+  useEffect(() => {
+    if (takeover && control.mine)
+      navigate(
+        { view: "agents", assistantId: assistant.id, agentBrowser: true },
+        true,
+        true,
+      );
+  }, [takeover, control.mine, navigate, assistant.id]);
   const reason = status === "unavailable" && copy.liveReason[state.reason];
   return (
     <section className="assistant-detail agent-browser-page">
@@ -69,7 +79,7 @@ export default function AgentBrowserPage({
             </button>
           )}
         </div>
-        {status === "live" && (
+        {(status === "live" || control.mine) && (
           <div className={`agent-browser-takeover${control.warning ? " warning" : ""}`}>
             <p role="status">
               {control.mine
@@ -81,15 +91,27 @@ export default function AgentBrowserPage({
                   : copy.liveTakeOverHint}
             </p>
             {control.mine ? (
-              <button type="button" className="button primary" onClick={handBack}>
+              <button
+                type="button"
+                className="button primary"
+                ref={handBackButton}
+                onClick={handBack}
+              >
                 {copy.liveHandBack}
               </button>
+            ) : control.held ? (
+              // The owner's other device holds it: move control here.
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => take({ move: true })}
+              >
+                {copy.liveTakeOverHere}
+              </button>
             ) : (
-              !control.held && (
-                <button type="button" className="button primary" onClick={take}>
-                  {copy.liveTakeOver}
-                </button>
-              )
+              <button type="button" className="button primary" onClick={() => take()}>
+                {copy.liveTakeOver}
+              </button>
             )}
           </div>
         )}
@@ -112,6 +134,8 @@ export default function AgentBrowserPage({
               alt={copy.livePreview(assistant.name)}
               controlling={control.mine}
               input={input}
+              keyboardLabel={copy.liveKeyboard}
+              onEscape={() => handBackButton.current?.focus()}
             />
           ) : (
             <p className="agent-browser-empty">
@@ -124,7 +148,11 @@ export default function AgentBrowserPage({
             {error}
           </p>
         )}
-        {control.mine && <p className="assistant-note">{copy.liveDialogs}</p>}
+        {control.mine && (
+          <p className="assistant-note">
+            {copy.liveDialogs} {copy.liveEscape}
+          </p>
+        )}
         <p className="assistant-note">{copy.livePrivacy}</p>
       </div>
     </section>

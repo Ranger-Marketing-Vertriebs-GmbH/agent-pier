@@ -177,6 +177,7 @@ export function constructAssistantGraph(host, created = {}) {
     onHandBack: (id, reason) => noteBrowserHandBack(assistants, id, reason),
   });
   assistants.browsers.controlled = (id) => assistants.liveView.controlled(id);
+  assistants.browsers.ownerControlRefused = (id) => assistants.liveView.refused(id);
   assistants.browsers.start();
   // A background model list read publishes its result like any other change.
   assistantModelAccounts.catalog.onChange = () => assistants.changed();
