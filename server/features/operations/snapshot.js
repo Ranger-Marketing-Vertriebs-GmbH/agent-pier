@@ -230,9 +230,12 @@ export function capture({
         db.close();
       }
     }
-    if (includeHistory) {
+    // Histories are sealed with a key from the capsule (history-seal.js), so they
+    // need a passphrase; without one they are left out.
+    if (includeHistory && withCredentials) {
+      const history = [];
       const agentbus = areaComponent("agentbus");
-      files.push(
+      history.push(
         ...plan.tree(
           path.join(dataDir, "imported-history/agentbus"),
           "imported-history/agentbus",
@@ -252,16 +255,9 @@ export function capture({
             path.join(sessionRoot, name),
             areaComponent("sessions"),
           );
-          if (!member) continue;
-          files.push(member);
-          captures.push({
-            component: `sessions/${name}`,
-            bytes: member.bytes?.length ?? member.size,
-            finishedAt: new Date().toISOString(),
-            consistency: "captured-file-prefix",
-          });
+          if (member) history.push(member);
         }
-      files.push(
+      history.push(
         ...plan.tree(path.join(dataDir, "chat"), "chat", areaComponent("chat"), notChat),
       );
       const busRoot = path.join(dataDir, "agentbus/projects");
@@ -269,10 +265,18 @@ export function capture({
         for (const project of fs.readdirSync(busRoot).sort()) {
           if (!/^[a-f0-9]{64}$/.test(project)) continue;
           const inbox = path.join(busRoot, project, "inbox");
-          files.push(
+          history.push(
             ...plan.tree(inbox, `imported-history/agentbus/${project}/inbox`, agentbus),
           );
         }
+      files.push(...history.map((member) => ({ ...member, history: true })));
+      // The public manifest does not name sealed history files.
+      if (history.length)
+        captures.push({
+          component: "agentpier-histories",
+          finishedAt: new Date().toISOString(),
+          consistency: "captured-file-prefix",
+        });
     }
     if (withCredentials) {
       const secrets = new CapturePlan({ inlineBudget: Infinity });

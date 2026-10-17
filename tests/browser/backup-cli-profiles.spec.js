@@ -8,16 +8,23 @@ test.use({ locale: "en-GB" });
 // AGENTPIER_SCREENSHOTS=<folder> also saves the reviewed scope for a pull request.
 const screenshots = process.env.AGENTPIER_SCREENSHOTS;
 
-test("the backup scope names what CLI profiles contribute and what never leaves", async ({
+test("the backup scope names what is encrypted and what never leaves", async ({
   page,
 }) => {
   const state = await operationsFixture(page);
-  state.planComponents = ["cli-histories", "encrypted-managed-profiles"];
+  // The fixture plan always lists the chat history.
+  state.planComponents = [
+    "terminal",
+    "agentbus-history",
+    "cli-histories",
+    "encrypted-managed-profiles",
+  ];
   state.planOmissions = [
     "CLI caches, logs, telemetry and files outside the profile allowlists",
     "Platform-specific installed tool binaries and caches",
-    "CLI histories are only backed up in backups with a passphrase, and then encrypted",
   ];
+  const note =
+    "Without a passphrase, histories are left out of this backup. To back them up encrypted, also choose “Include encrypted credentials” and set a passphrase.";
   for (const viewport of [
     { name: "desktop", width: 1440, height: 1000 },
     { name: "phone", width: 390, height: 844 },
@@ -25,21 +32,33 @@ test("the backup scope names what CLI profiles contribute and what never leaves"
     await page.setViewportSize(viewport);
     await page.goto(baseURL + "/settings/backups");
     await page.getByRole("button", { name: "Prepare backup", exact: true }).click();
-    await page.getByLabel("Include encrypted credentials", { exact: true }).check();
     const dialog = page.getByRole("dialog", { name: "Prepare backup" });
     await expect(
-      dialog.getByText("CLI histories are only backed up in backups with a passphrase", {
+      dialog.getByText("They are only backed up in backups with a passphrase", {
         exact: false,
       }),
     ).toBeVisible();
+    // Without a passphrase, the dialog says that histories are left out and how
+    // to back them up encrypted.
+    await expect(dialog.getByText(note, { exact: true })).toBeVisible();
+    await page.getByLabel("Include encrypted credentials", { exact: true }).check();
+    await expect(dialog.getByText(note, { exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Review backup scope", exact: true }).click();
     for (const text of [
       "CLI histories (encrypted): Codex sessions and generated images, Claude Code projects, to-dos and file history, OpenCode sessions",
       "Logins, settings, instructions, skills and agents of managed CLI profiles (encrypted)",
+      "Chat history (encrypted)",
+      "Terminal captures (encrypted)",
+      "AgentBus history (encrypted)",
       "CLI caches, logs, telemetry and files outside the profile allowlists",
-      "CLI histories are only backed up in backups with a passphrase, and then encrypted",
     ])
       await expect(dialog.getByText(text, { exact: true })).toBeVisible();
+    // With credentials and a passphrase, no history is listed as left out.
+    await expect(
+      dialog
+        .locator(".operations-list li")
+        .filter({ hasText: /histories \(set a passphrase/ }),
+    ).toHaveCount(0);
     await expect(dialog.getByText("cli-histories")).toHaveCount(0);
     if (screenshots)
       await page.screenshot({

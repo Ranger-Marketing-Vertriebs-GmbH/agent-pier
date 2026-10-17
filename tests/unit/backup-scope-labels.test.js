@@ -25,6 +25,11 @@ test("every backup scope entry has a German and an English label", (t) => {
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   // Backups from before AGENTPIER-42 declare the MCP server store as left out.
   const legacy = "MCP servers for agents (definitions, values and bindings)";
+  // Backups from before AGENTPIER-56 named only the CLI histories as left out.
+  const legacyHistory = [
+    "CLI conversation histories",
+    "CLI histories are only backed up in backups with a passphrase, and then encrypted",
+  ];
   new McpServerStore({ dataDir, pathEnv: "/fake/bin" }).close();
   const backup = new Backup({ dataDir });
   const keys = new Set([
@@ -33,6 +38,7 @@ test("every backup scope entry has a German and an English label", (t) => {
     removedOmission,
     changedOmission,
     legacy,
+    ...legacyHistory,
   ]);
   for (const withCredentials of [false, true])
     for (const includeHistory of [false, true]) {

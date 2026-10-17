@@ -74,7 +74,9 @@ export const operationsCopy = {
   includeHistory: "Verläufe einschließen",
   withCredentials: "Zugangsdaten verschlüsselt einschließen",
   backupPrivacy:
-    "AgentPier-Verläufe können private Aufgabeninhalte enthalten und werden nicht verschlüsselt. CLI-Verläufe werden nur in Backups mit Passphrase und verschlüsselt gesichert. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
+    "Verläufe (Terminal-Aufnahmen, Chats und AgentBus-Nachrichten von AgentPier sowie CLI-Verläufe) können private Aufgabeninhalte enthalten. Sie werden nur in Backups mit Passphrase und verschlüsselt gesichert. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
+  historyNeedsPassphrase:
+    "Ohne Passphrase bleiben Verläufe in dieser Sicherung außen vor. Um sie verschlüsselt zu sichern, wähle auch „Zugangsdaten verschlüsselt einschließen“ und setze eine Passphrase.",
   passphrase: "Passphrase",
   plan: "Sicherungsumfang prüfen",
   create: "Sicherung erstellen",
@@ -275,9 +277,9 @@ export const backupCopy = {
     memory: "Projektwissen",
     "pipeline-history": "Pipeline-Verlauf",
     audit: "Aktivitätsprotokoll",
-    chat: "Chat-Verläufe",
-    terminal: "Terminal-Aufnahmen",
-    "agentbus-history": "AgentBus-Verlauf",
+    chat: "Chat-Verläufe (verschlüsselt)",
+    terminal: "Terminal-Aufnahmen (verschlüsselt)",
+    "agentbus-history": "AgentBus-Verlauf (verschlüsselt)",
     assistants: "Agenten, ihre Chats, Kanäle und Arbeitsbereiche",
     "sealed-assistant-credentials":
       "Agent-Zugangsdaten (versiegelt; nur auf diesem Host wiederherstellbar, bis Zugangsdaten oder Provider-Zugänge geändert werden)",
@@ -309,6 +311,10 @@ export const backupCopy = {
       "CLI-Verläufe (verschlüsselt): Codex-Sitzungen und erzeugte Bilder, Claude-Code-Projekte, -Aufgaben und -Dateiversionen, OpenCode-Sitzungen",
     "CLI caches, logs, telemetry and files outside the profile allowlists":
       "CLI-Caches, -Protokolle, -Telemetrie und alle Dateien außerhalb der Profil-Positivlisten",
+    "AgentPier and CLI histories": "AgentPier- und CLI-Verläufe",
+    "AgentPier and CLI histories are only backed up in backups with a passphrase, and then encrypted":
+      "AgentPier- und CLI-Verläufe (setze eine Passphrase, um sie verschlüsselt zu sichern)",
+    // Older backups named only the CLI histories.
     "CLI conversation histories": "CLI-Verläufe",
     "Linked, shared or foreign files in CLI profiles":
       "Verknüpfte, geteilte oder fremde Dateien in CLI-Profilen",

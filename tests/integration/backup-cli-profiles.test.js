@@ -75,7 +75,7 @@ test("CLI profiles are captured by allowlist; their history only with a passphra
       for (const value of [...secretValues, "sentinel", historyMarker])
         assert.equal(text.includes(value), false, `${label}: ${value}`);
       assert.equal(
-        created.manifest.omissions.includes("CLI conversation histories"),
+        created.manifest.omissions.includes(profileOmissions.history),
         !includeHistory,
       );
       assert.equal(

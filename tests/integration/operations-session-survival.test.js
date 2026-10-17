@@ -88,7 +88,12 @@ test("a live native session and old release helper survive backup, activation an
   const pid = Number(
     await eventually(() => fs.readFile(ready, "utf8").catch(() => null)),
   );
-  const backup = await new Backup({ dataDir }).create();
+  // Session history is only backed up sealed, with a passphrase.
+  const passphrase = "session history fixture passphrase";
+  const backup = await new Backup({ dataDir }).create({
+    withCredentials: true,
+    passphrase,
+  });
   const restart = async () => {
     await manager.close();
     manager = new SessionManager({ dataDir });
@@ -113,7 +118,11 @@ test("a live native session and old release helper survive backup, activation an
   assert.equal((await manager.get("fixture")).status, "running");
   process.kill(pid, 0);
   const target = path.join(root, "restored");
-  await new Restore({ dataDir }).apply({ archive: backup.file, targetDataDir: target });
+  await new Restore({ dataDir }).apply({
+    archive: backup.file,
+    targetDataDir: target,
+    passphrase,
+  });
   restored = await createApplication({ dataDir: target, home: root, port: 0 });
   const sessions = await restored.sessions.list();
   assert.equal(sessions.length, 1);

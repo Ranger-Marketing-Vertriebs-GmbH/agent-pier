@@ -106,6 +106,11 @@ test("crafted seal records never write outside the stage", async (t) => {
     absolute: ["/tmp/agentpier-escaped.txt"],
     notHistory: ["profiles/a/codex/auth.json"],
     applicationData: ["accounts.json"],
+    // AgentPier's own histories are sealed too, but stay inside their folders.
+    ownHistoryTraversal: [
+      `imported-history/agentbus/${"a".repeat(64)}/inbox/../../../../../out/x`,
+    ],
+    sessionLaunch: ["sessions/s.launch.json"],
     duplicate: ["profiles/a/codex/sessions/x.jsonl", "profiles/a/codex/sessions/x.jsonl"],
   };
   for (const [name, history] of Object.entries(cases)) {

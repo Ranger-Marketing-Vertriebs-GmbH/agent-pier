@@ -23,6 +23,7 @@ import {
   forgetAssistantBackup,
 } from "./assistant-backup.js";
 
+export const historyOmission = profileOmissions.unsealed;
 export const mcpLoginOmission = "MCP server OAuth logins";
 export const mcpValueOmission =
   "MCP server header and environment values and address tokens";
@@ -56,8 +57,10 @@ export class Backup {
         "memory",
         "pipeline-history",
         "audit",
-        ...(options.includeHistory ? ["chat", "terminal", "agentbus-history"] : []),
-        ...(options.includeHistory && options.withCredentials ? ["cli-histories"] : []),
+        // Histories are archived only sealed, in backups with a passphrase.
+        ...(options.includeHistory && options.withCredentials
+          ? ["chat", "terminal", "agentbus-history", "cli-histories"]
+          : []),
         ...(assistants ? ["assistants"] : []),
         ...(mcpServers ? ["mcp-servers"] : []),
         ...(options.withCredentials
@@ -141,10 +144,10 @@ export class Backup {
         plan: members,
         scratch,
       });
-      // CLI history is sealed under a key that travels in the capsule.
+      // History is sealed under a key that travels in the capsule.
       const history = sealHistory(
         id,
-        profiles.files.filter((member) => member.history),
+        [...snapshot.files, ...profiles.files].filter((member) => member.history),
       );
       try {
         return await this.write(
@@ -153,7 +156,7 @@ export class Backup {
           plan,
           {
             files: [
-              ...snapshot.files,
+              ...snapshot.files.filter((member) => !member.history),
               ...profiles.files.filter((member) => !member.history),
               ...history.members,
             ],
