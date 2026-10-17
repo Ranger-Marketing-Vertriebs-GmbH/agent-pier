@@ -1236,8 +1236,13 @@ for other people.
 own task members as a permanent agent, directly and through the same path as the
 owner's **Keep as permanent agent** (`TeamStore.promoteByLead`, the model is frozen
 and the instructions are flagged for the owner's review as there). The member must
-be reachable (`reachableMember`) and between turns (`BUSY` while a turn runs); it
-need not have finished its task. Unlike the owner's promotion:
+be reachable (`reachableMember`) and between turns (`active` while a turn runs);
+it need not have finished its task. The promotion runs under admission, so no
+turn's apply mirrors the lead's memory meanwhile; the flip, the member's history
+entry and the agent's new settings are written in one transaction, then its
+servers are bound, a pending shell or SSH card for it is cancelled
+(`MEMBER_PROMOTED`), and its profile and check-ins are applied. Unlike the owner's
+promotion:
 
 - What the member ran with becomes its own settings, independent of the lead from
   then on: its effective capabilities (web, images, memory, reminders) and skills,
@@ -1245,7 +1250,9 @@ need not have finished its task. Unlike the owner's promotion:
   moment, recorded as granted so the team never adds to them again.
 - Shell and SSH are never carried over: its shell level is Off and it holds no SSH
   grants; the owner sets them.
-- Its memory becomes its own and starts empty: the lead's copy is removed first.
+- It keeps only its own memory (memory on, read and write): the copy of the lead's
+  memory is removed (owner's decision: a promoted agent is a specialist, steered by
+  the lead and reachable by the owner directly, with its own knowledge).
 - Name and instructions stay, including the lead's edits; it stays the lead's
   member in the sidebar.
 
@@ -1301,9 +1308,10 @@ while the member works, and it can only grant what it holds itself. What a membe
 runs with is resolved on every read of the member (`AssistantStore.getAssistant`,
 `memberInheritance` in `member-grants.js`): each grant within what the lead holds
 right now. Nothing is copied into the member's record, so the owner's **Keep as
-permanent agent** keeps none of it: promotion removes the lead's memory copy from
-the member's workspace first, and only the MCP servers named in the proposal the
-owner saw stay bound, never servers granted later. A lead's own promotion keeps the
+permanent agent** keeps none of its grants: only the MCP servers named in the proposal the
+owner saw stay bound, never servers granted later. The copy of the lead's memory is
+removed and memory is on for its own memory, and a pending shell or SSH card for it
+is cancelled. A lead's own promotion keeps the
 member's effective grants instead (see
 [lead promotions](#lead-promotions-of-team-members-2026-10-17)).
 

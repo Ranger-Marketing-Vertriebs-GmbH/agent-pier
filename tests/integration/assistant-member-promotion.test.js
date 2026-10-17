@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { memberGrantFixture } from "../helpers/member-grant-fixture.js";
+import { teamFixture } from "../helpers/assistant-team-fixture.js";
 import { MemberPromotions } from "../../server/features/assistants/member-promotion.js";
 import { actionNotes } from "../../server/features/assistants/assistant-action-notifications.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
@@ -83,7 +84,7 @@ test("a lead promotes its member: grants become its own settings, visibly", asyn
   });
   assert.deepEqual(personalSkills(promoted), ["weather"]);
   assert.equal(personalShell(promoted), "off");
-  // Its own, empty memory: the lead's copy is gone.
+  // Only its own memory stays: the copy of the lead's memory is gone.
   assert.equal(fs.existsSync(path.join(own, "MEMORY.md")), false);
   // The member's effective servers within the lead's ceiling, now its own.
   assert.deepEqual(f.bound[agent.id], ["s-git"]);
@@ -188,4 +189,52 @@ test("a member cannot promote itself", async (t) => {
       }),
     { status: 403 },
   );
+});
+
+test("promotion withdraws the member's pending shell card", async (t) => {
+  const f = await setup(t, { memberShellSsh: true });
+  await f.call({ grants: { shell: "approval" } });
+  const card = f.workflows.store
+    .list(f.channel.assistantId)
+    .find((a) => a.payload.approval && a.state === "awaiting_approval");
+  f.teams.write(f.teams.member(f.member.id), { phase: "completed" });
+  await f.promote();
+  const cancelled = f.workflows.store.get(card.id);
+  assert.equal(cancelled.state, "cancelled");
+  assert.equal(cancelled.diagnostic, "MEMBER_PROMOTED");
+});
+
+test("the team service promotes under admission, once, also when called twice at once", async (t) => {
+  const f = teamFixture(t);
+  const { team, chat } = await f.proposal({ count: 1 });
+  await f.service.reconcile();
+  const member = f.service.store.members(team.id)[0];
+  f.complete(f.service.store.member(member.id).attemptId);
+  await f.service.reconcile();
+  const memberChat = f.service.store.member(member.id).conversationId;
+  assert.ok(memberChat);
+  const inv = () => {
+    const request = f.assistants.ledger.accept(chat.id, {
+      clientRequestId: randomUUID(),
+      text: "Keep it",
+    });
+    const attempt = f.assistants.ledger.recordAttempt(request.id);
+    return { attemptId: attempt.id, toolCallId: randomUUID(), assertCurrent() {} };
+  };
+  const results = await Promise.allSettled([
+    f.service.promote(inv(), { memberId: member.id }),
+    f.service.promote(inv(), { memberId: member.id }),
+  ]);
+  assert.deepEqual(results.map((r) => r.status).sort(), ["fulfilled", "rejected"]);
+  assert.equal(
+    results.find((r) => r.status === "rejected").reason.key,
+    "teamGrantMemberEnded",
+  );
+  const agent = f.store.getAssistant(member.assistantId);
+  assert.equal(agent.lifetime, "permanent");
+  assert.equal(agent.capabilities.memory, true);
+  assert.equal(agent.shell, "off");
+  await assert.rejects(f.service.promote(inv(), { memberId: member.id }), {
+    key: "teamGrantMemberEnded",
+  });
 });

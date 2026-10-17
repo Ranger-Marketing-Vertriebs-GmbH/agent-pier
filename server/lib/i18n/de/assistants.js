@@ -124,7 +124,7 @@ export const assistants = {
     gets: (labels) => `Erhält: ${labels}`,
     getsNothing: "Erhält: keine Werkzeuge",
     promoted: (lead, member) =>
-      `${lead} hat sein Team-Mitglied ${member} als dauerhaften Agenten behalten. Es behält seine Web-Werkzeuge, Skills, MCP-Server und Erinnerungen, ohne Shell und SSH. Du kannst es in seinen Einstellungen prüfen oder archivieren.`,
+      `${lead} hat sein Team-Mitglied ${member} als dauerhaften Agenten behalten. Es behält seine Web-Werkzeuge, das Lesen von Bildern, Skills, MCP-Server und Erinnerungen, und nur sein eigenes Gedächtnis, nicht das seines leitenden Agenten; Shell und SSH erhält es nicht. Du kannst es in seinen Einstellungen prüfen oder archivieren.`,
     proposalWarning:
       "⚠ Mit ⚠ markierte Mitglieder erhalten Shell oder SSH, höchstens mit der Stufe und auf den Hosts des leitenden Agenten. Sie arbeiten unbeaufsichtigt; gelesene Inhalte können sie lenken.",
     approval: (lead, member) =>

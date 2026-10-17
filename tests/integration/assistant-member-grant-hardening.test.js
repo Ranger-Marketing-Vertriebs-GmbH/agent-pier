@@ -11,6 +11,7 @@ import { mirrorLeadMemory } from "../../server/features/assistants/member-memory
 import {
   personalCapabilities,
   personalShell,
+  profileTools,
 } from "../../server/features/assistants/native-capabilities.js";
 
 const pending = (f) =>
@@ -203,26 +204,39 @@ test("a member's reminders are capped per team and noted in the lead's chat", as
   assert.ok(!JSON.stringify(audit).includes("Look"));
 });
 
-test("promotion removes the lead's memory copy from the member's workspace", async (t) => {
+test("the owner's promotion removes the lead's memory copy; memory is its own", async (t) => {
   const f = teamFixture(t);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "member-promote-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   f.assistants.config.workspaces = root;
-  const { team } = await f.proposal({ count: 1 });
+  const parent = f.store.createAssistant({
+    name: "Parent",
+    instructions: "Original",
+    model: { connectionId: "c", modelId: "m" },
+    capabilities: { memory: true, reminders: false },
+  });
+  const { team } = await f.proposal({ count: 1, parent });
   await f.service.reconcile();
   let member = f.service.store.members(team.id)[0];
   const agent = f.store.getAssistant(member.assistantId);
-  fs.mkdirSync(path.join(root, agent.id), { recursive: true });
-  fs.mkdirSync(path.join(root, agent.parentAssistantId), { recursive: true });
-  fs.writeFileSync(path.join(root, agent.parentAssistantId, "MEMORY.md"), "Lead facts");
+  const own = path.join(root, agent.id),
+    lead = path.join(root, parent.id);
+  fs.mkdirSync(own, { recursive: true });
+  fs.mkdirSync(lead, { recursive: true });
+  fs.writeFileSync(path.join(lead, "MEMORY.md"), "Lead facts");
   await mirrorLeadMemory(root, agent, true);
-  assert.ok(fs.existsSync(path.join(root, agent.id, "MEMORY.md")));
+  assert.ok(fs.existsSync(path.join(own, "MEMORY.md")));
   f.complete(f.service.store.member(member.id).attemptId);
   await f.service.reconcile();
   member = f.service.store.member(member.id);
-  assert.equal(member.phase, "completed");
   await f.service.lifecycle("promote", member.id, member.revision);
-  assert.equal(fs.existsSync(path.join(root, agent.id, "MEMORY.md")), false);
+  assert.equal(fs.existsSync(path.join(own, "MEMORY.md")), false);
+  const promoted = f.store.getAssistant(agent.id);
+  assert.equal(promoted.capabilities.memory, true);
+  // Its own from now on: readable and writable.
+  const tools = profileTools(promoted, true, true, true);
+  assert.ok(tools.includes("write") && tools.includes("edit"));
+  assert.equal("inherited" in promoted, false);
 });
 
 test("a task member's shell request is never allowed always", async (t) => {
