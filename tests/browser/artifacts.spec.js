@@ -330,3 +330,26 @@ for (const language of ["en", "de"]) {
     await expect(row(page, "Settings QA report")).toBeVisible();
   });
 }
+
+// WebKit can drop the media query change event at a breakpoint (AGENTPIER-50);
+// suppressing it here must not keep the phone list on a wide window.
+test("a wide window preselects an artifact even when the change event is lost", async ({
+  page,
+  context,
+}) => {
+  await page.addInitScript(() => {
+    const add = MediaQueryList.prototype.addEventListener;
+    MediaQueryList.prototype.addEventListener = function (type, ...rest) {
+      if (type !== "change") add.call(this, type, ...rest);
+    };
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await start(page, context, "en");
+  await page.goto(`${base}/artifacts`);
+  await expect(row(page, "Settings QA report")).toBeVisible();
+  await expect(page.locator(".artifact-detail")).toHaveCount(0);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(
+    page.locator(".artifact-detail").getByRole("heading", { name: "Settings QA report" }),
+  ).toBeVisible();
+});
