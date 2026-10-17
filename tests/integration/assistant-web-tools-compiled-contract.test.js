@@ -95,8 +95,10 @@ test(
       model: fixture,
       capabilities: everything,
     });
-    // A temporary team member runs with its lead's capabilities, never with its own:
-    // `member` follows Web, `isolated` has all of them recorded under a lead without any.
+    // A temporary team member runs with what its lead granted within the lead's own
+    // capabilities, never with its own: `member` has the default grants (memory, web
+    // search, web pages) under Web, `isolated` has everything recorded under a lead
+    // without any.
     const plain = store.createAssistant({
       name: "Plain",
       instructions: "Use the tool.",
@@ -264,11 +266,19 @@ test(
     assert.equal(granted.includes("browser"), browser.available);
     const inherited = entry(member).tools.allow;
     t.diagnostic(`member allow=${JSON.stringify(inherited)}`);
-    for (const name of ["web_search", "web_fetch", "view_image"])
+    for (const name of ["web_search", "web_fetch", "memory_search"])
       assert.ok(inherited.includes(name), `member ${name}`);
-    assert.equal(inherited.includes("browser"), browser.available);
-    // Team tools, routines, memory writes and shell stay with the lead.
-    for (const name of ["agentpier_team_propose", "agentpier_routine", "write", "exec"])
+    // Not granted by default; team tools, routines, memory writes and shell stay
+    // with the lead.
+    for (const name of [
+      "browser",
+      "view_image",
+      "agentpier_reminder",
+      "agentpier_team_propose",
+      "agentpier_routine",
+      "write",
+      "exec",
+    ])
       assert.ok(!inherited.includes(name), `member ${name}`);
     const withheld = entry(isolated).tools.allow;
     t.diagnostic(`isolated allow=${JSON.stringify(withheld)}`);
@@ -323,7 +333,7 @@ test(
     assert.match(fetched.result, /Blocked hostname or private\/internal\/special-use IP/);
     assert.equal(page.hits, 0);
 
-    // The lead's member is offered the lead's web tools under the same private
+    // The lead's member is offered its granted web tools under the same private
     // network block.
     const followed = await turn(
       member,

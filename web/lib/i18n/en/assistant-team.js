@@ -22,18 +22,8 @@ export const assistantTeamCopy = {
   restore: "Restore",
   autonomous: "Allow teams without asking each time",
   memberShellSsh: "Team members may use shell and SSH",
-  inheritedTitle: "From the lead agent",
-  inheritedHint:
-    "This task member uses what its lead agent has right now and follows every change to it. Change these on the lead agent.",
-  inheritedMemory: "Memory (read-only copy)",
-  inheritedOn: "On",
-  inheritedOff: "Off",
   memberShellSshHint:
-    "Task members always use this agent's web access, skills, MCP servers, a read-only copy of its memory and its reminders. With this option they also get at most its shell level and its SSH grants. It applies to teams proposed while it is on. Members act unattended, and web content they read can steer them.",
-  proposalInherits:
-    "Members use this agent's web access, skills, MCP servers, memory (read-only) and reminders, but no shell and no SSH.",
-  proposalShellSsh:
-    "Members may use shell and SSH, at most with this agent's shell level and SSH grants. They also use its web access, skills, MCP servers, memory (read-only) and reminders.",
+    "Lead agents grant their task members only what they have themselves. With this option they may also grant shell, at most at their own level, and SSH on their own hosts; you approve every later grant. It applies to teams proposed while it is on. Members act unattended, and content they read can steer them.",
   permissionHint:
     "The agent asks by default. Use /team or the message option to allow one team for an assignment.",
   maxMembers: "Maximum team size",

@@ -29,6 +29,7 @@ export const delegationTools = [
   "agentpier_team_delegate",
   "agentpier_team_cancel",
   "agentpier_team_archive",
+  "agentpier_team_grant",
 ];
 export const shellLevels = ["off", "approval", "full"];
 export const shellTools = ["exec", "process"];
@@ -65,30 +66,16 @@ export const personalEligible = (assistant) =>
   !assistant.archivedAt &&
   (!assistant.teamMemberId || assistant.lifetime === "permanent");
 /**
- * A temporary member that runs with what its lead holds right now. The store
- * resolves `inherited` on every read (memberInheritance) and never stores it, so a
- * change to the lead reaches the member's next apply without copying anything.
+ * A temporary member that runs with what its lead granted it, within what the lead
+ * holds right now. The store resolves `inherited` on every read (memberInheritance
+ * in member-grants.js) and never stores it, so a change to the lead reaches the
+ * member's next apply without copying anything.
  */
 export const inheritsFromLead = (assistant) =>
   !!assistant.teamMemberId &&
   assistant.lifetime !== "permanent" &&
   !assistant.archivedAt &&
   !!assistant.inherited;
-/**
- * What a temporary member of `lead` inherits: the lead's capabilities and skills, and
- * its shell level and SSH grants only while `shellSsh` (the lead's "Team members may
- * use shell and SSH", approved with the team and still on). Nothing without an
- * eligible lead.
- */
-export function memberInheritance(lead, shellSsh = false) {
-  const eligible = !!lead && personalEligible(lead);
-  return {
-    capabilities: eligible ? personalCapabilities(lead) : ownCapabilities({}),
-    skills: eligible ? personalSkills(lead) : [],
-    shell: eligible && shellSsh ? personalShell(lead) : "off",
-    ssh: eligible && shellSsh,
-  };
-}
 /** The effective shell level; ineligible or unset profiles have none. */
 export function personalShell(assistant) {
   if (inheritsFromLead(assistant))

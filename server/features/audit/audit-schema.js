@@ -6,6 +6,17 @@ import {
 } from "../assistants/openclaw-config/advanced-settings.js";
 import { MCP_SERVER_ORIGINS } from "../mcp-servers/server-origins.js";
 import { sshAuditDetails } from "./audit-ssh-details.js";
+const memberGrantKeys = new Set([
+  "memory",
+  "reminders",
+  "webSearch",
+  "webFetch",
+  "browser",
+  "documents",
+  "skills",
+  "shell",
+  "ssh",
+]);
 const resources = new Set([
   "assistant",
   "artifact",
@@ -173,6 +184,7 @@ export function auditEvent(input) {
       "ssh",
       "ssh-grants",
       "project-rebind",
+      "member-grant",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -257,8 +269,15 @@ export function auditEvent(input) {
   // Brokered CLI logins name the managed account they logged in.
   if (input.resourceType === "mcp" && details.accountId !== undefined)
     event.details.accountId = auditId(details.accountId);
-  for (const key of ["requestedBy", "teamId"])
+  for (const key of ["requestedBy", "teamId", "leadAssistantId"])
     if (details[key] !== undefined) event.details[key] = auditId(details[key]);
+  // A lead's grant to a team member names the kinds it changed, never names.
+  if (details.kind === "member-grant") {
+    if (["grant", "revoke"].includes(details.change))
+      event.details.change = details.change;
+    if (Array.isArray(details.grants))
+      event.details.grants = details.grants.filter((key) => memberGrantKeys.has(key));
+  }
   // MCP server changes name the transport, the fields a change sent and whether the
   // owner confirmed a stdio command; never a value.
   if (

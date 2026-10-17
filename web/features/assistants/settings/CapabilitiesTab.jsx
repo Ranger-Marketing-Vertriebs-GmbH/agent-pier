@@ -17,7 +17,7 @@ import ConflictNotice from "./ConflictNotice.jsx";
 import ConfirmationSheet from "./ConfirmationSheet.jsx";
 import { MemoryGroup, ShellGroup, WebGroup } from "./CapabilityGroups.jsx";
 import McpGroup from "./McpGroup.jsx";
-import InheritedCapabilities from "./InheritedCapabilities.jsx";
+import GrantedCapabilities from "./GrantedCapabilities.jsx";
 import MemoryPage from "./MemoryPage.jsx";
 import AllowlistPage from "./AllowlistPage.jsx";
 import SkillsGroup from "./SkillsGroup.jsx";
@@ -116,7 +116,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
     <>
       <ConflictNotice draft={draft} labels={conflictLabels} />
       {!personal && assistant.inherited && (
-        <InheritedCapabilities inherited={assistant.inherited} />
+        <GrantedCapabilities inherited={assistant.inherited} member={member} />
       )}
       {personal && <MemoryGroup assistant={assistant} draft={draft} go={go} />}
       {personal && (

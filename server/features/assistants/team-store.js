@@ -9,6 +9,12 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { RequestLedger } from "./request-ledger.js";
 import { persisted } from "./assistant-store.js";
 import { leadServerIds, memberServerNames } from "./team-mcp.js";
+import {
+  assertWithinLead,
+  defaultFor,
+  defaultGrants,
+  grantInput,
+} from "./member-grants.js";
 import { ownerTeamQuote, parseOwnerText } from "./lead-request-proof.js";
 const terminal = new Set(["completed", "failed", "cancelled", "declined"]);
 // The quote must prove a team request, not merely an owner turn: at least three
@@ -22,19 +28,20 @@ const teamCommand = /^\/team\s+\S/;
 const fingerprint = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export class TeamStore {
-  constructor({ store, servers = () => null }) {
+  constructor({ store, servers = () => null, sshGranted = () => false }) {
     this.store = store;
+    // Whether an agent holds an SSH grant (AssistantAccess.hasSshGrants).
+    this.sshGranted = sshGranted;
     // The central MCP server store, looked up when a proposal names servers.
     this.servers = servers;
     this.db = store.db;
     this.ledger = new RequestLedger(this.db);
     migrateTeams(this.db);
-    // A temporary member gets its lead's shell and SSH only while the team was
-    // approved with "Team members may use shell and SSH" and the lead still has it
-    // on: a setting switched on later never widens an approved team.
-    store.memberShellSsh = (member) =>
-      !!this.find(member.teamId)?.policy?.memberShellSsh &&
-      !!this.find(`policy:${member.parentAssistantId}`)?.memberShellSsh;
+    store.memberGrants = (member) => ({
+      // Members reserved before grants existed get the default.
+      grants: this.find(member.teamMemberId)?.grants ?? defaultGrants,
+      shellSsh: this.shellSsh(member.teamId, member.parentAssistantId),
+    });
   }
   transaction(fn) {
     this.db.exec("BEGIN IMMEDIATE");
@@ -106,6 +113,17 @@ export class TeamStore {
     )
       throw assistantProblem("conflict", 409);
     return next;
+  }
+  /**
+   * Whether a team's members may use shell and SSH right now: the team was proposed
+   * while the lead's "Team members may use shell and SSH" was on and it still is, so
+   * a setting switched on later never widens a team.
+   */
+  shellSsh(teamId, leadId) {
+    return (
+      !!this.find(teamId)?.policy?.memberShellSsh &&
+      !!this.find(`policy:${leadId}`)?.memberShellSsh
+    );
   }
   policy(id) {
     this.store.getAssistant(id);
@@ -202,7 +220,7 @@ export class TeamStore {
       ownerRequestQuote = undefined;
     if (!Array.isArray(members) || !members.length || members.length > 8)
       throw assistantProblem("invalid");
-    const memberKeys = ["name", "role", "assignment", "mcpServers"];
+    const memberKeys = ["name", "role", "assignment", "mcpServers", "grants"];
     const drafts = members.map((m) => {
       if (!m || Object.keys(m).some((k) => !memberKeys.includes(k)))
         throw assistantProblem("invalid");
@@ -211,8 +229,10 @@ export class TeamStore {
         name: textValue(m.name, 100),
         role: textValue(m.role, 200),
         assignment: textValue(m.assignment, 8192),
-        // Server names belong to the fingerprint: another list is another proposal.
+        // Server names and grants belong to the fingerprint: other ones are another
+        // proposal.
         ...(servers.length ? { mcpServers: servers } : {}),
+        ...(m.grants !== undefined ? { grants: grantInput(m.grants) } : {}),
       };
     });
     return this.transaction(() => {
@@ -233,10 +253,21 @@ export class TeamStore {
       if (parent.teamMemberId || parent.archivedAt) throw assistantProblem("active", 409);
       const policy = this.policy(parent.id);
       if (members.length > policy.maxMembers) throw assistantProblem("invalid");
-      // A lead passes on only servers bound to itself, resolved now by name.
-      const stored = drafts.map(({ mcpServers = [], ...draft }) => {
+      // A lead passes on only servers bound to itself, resolved now by name, and
+      // only what it holds itself; without grants a member gets the default.
+      const shellSsh = policy.memberShellSsh === true;
+      const stored = drafts.map(({ mcpServers = [], grants, ...draft }) => {
         const ids = leadServerIds(this.servers(), parent.id, mcpServers);
-        return ids.length ? { ...draft, mcpServerIds: ids } : draft;
+        if (grants)
+          assertWithinLead(parent, grants, {
+            shellSsh,
+            ssh: !!this.sshGranted(parent.id),
+          });
+        return {
+          ...draft,
+          grants: grants ?? defaultFor(parent),
+          ...(ids.length ? { mcpServerIds: ids } : {}),
+        };
       });
       if (this.list(parent.id).some((t) => !terminal.has(t.phase)))
         throw assistantProblem("active", 409);

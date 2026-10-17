@@ -513,7 +513,7 @@ export class NativeReminders {
    * A temporary member's reminder belongs to its lead: it is created on the lead,
    * listed in the lead's settings and delivered to the lead's paired chat, so it never
    * fires from an agent that has ended. A member can only create one, in a turn its
-   * lead gave it, while it inherits reminders; listing, pausing and removing stay
+   * lead gave it, while it holds reminders; listing, pausing and removing stay
    * with the owner and the lead.
    */
   memberCreate(member, invocation, input, origin) {

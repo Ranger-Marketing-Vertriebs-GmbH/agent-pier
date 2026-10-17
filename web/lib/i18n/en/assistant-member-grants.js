@@ -1,0 +1,47 @@
+export const memberGrantCopy = {
+  labels: {
+    memory: "Memory (read only)",
+    reminders: "Reminders",
+    webSearch: "Web search",
+    webFetch: "Web pages",
+    browser: "Browser",
+    documents: "Images",
+    allSkills: "All skills",
+    skills: (count) => `Skills: ${count}`,
+    shell: (level) => `Shell (${level})`,
+    ssh: "SSH",
+    someSkills: "Skills",
+    anyShell: "Shell",
+    mcpServers: (count) => `MCP servers: ${count}`,
+  },
+  none: "No tools",
+  gets: (labels) => `Gets: ${labels}`,
+  proposalWarning:
+    "Members marked with a warning get shell or SSH, at most at this agent's level and on its hosts. They work unattended, and content they read can steer them.",
+  title: "Granted by the lead agent",
+  hint: "The lead agent decides what this task member gets, within what it has itself; shell and SSH need your approval. If the lead loses something, the member loses it too.",
+  memory: "Memory (read-only copy)",
+  on: "On",
+  off: "Off",
+  history: "Changes",
+  log: {
+    lead: (date, labels) => `${date}: the lead agent granted ${labels}`,
+    revoked: (date, labels) => `${date}: the lead agent took back ${labels}`,
+    owner: (date, labels) => `${date}: you approved ${labels}`,
+  },
+  note: {
+    granted: (member, labels) => `${member} was granted ${labels} by its lead agent`,
+    revoked: (member, labels) => `The lead agent took back ${labels} from ${member}`,
+    completed: (member, labels) => `You approved ${labels} for ${member}`,
+    declined: (member, labels) => `You declined ${labels} for ${member}`,
+    expired: (member, labels) => `The approval of ${labels} for ${member} expired`,
+    failed: (member, labels) =>
+      `${labels} for ${member} could no longer be granted; nothing changed`,
+    cancelled: (member, labels) => `The lead agent withdrew ${labels} for ${member}`,
+  },
+  approvalTitle: "Shell or SSH for a team member",
+  approvalText: (member) => `The lead agent wants to give ${member}:`,
+  approvalWarning:
+    "The member works unattended, and content it reads can steer it into using this access.",
+  approve: "Approve grant",
+};

@@ -50,11 +50,11 @@ export function describeServers(servers, ids) {
 
 /**
  * MCP bindings of team members, derived from the team records. A temporary member
- * holds every server its lead holds right now, and only while it runs; once it ends
- * (or never ran) it holds none. The servers a proposal names stay informational for
- * temporary members. A member approved as permanent receives its named servers once
- * and is managed by the owner afterwards. `sync` is idempotent, so every path that
- * ends a member, and every start, converges on it.
+ * holds exactly the servers its lead granted it (in the proposal or later,
+ * `mcpServerIds`) that the lead still holds, and only while it runs; once it ends
+ * (or never ran) it holds none. A member approved as permanent receives its servers
+ * once and is managed by the owner afterwards. `sync` is idempotent, so every path
+ * that ends a member, every grant, and every start, converges on it.
  */
 export class TeamMcpBindings {
   constructor({ teams, assistants }) {
@@ -113,7 +113,7 @@ export class TeamMcpBindings {
         const approved = (m.mcpServerIds || []).filter((id) => lead.has(id));
         const current = bound[a.id] || [];
         if (temporaryMember(a)) {
-          const desired = live ? [...lead] : [];
+          const desired = live ? approved : [];
           if (sameSet(current, desired)) continue;
           servers.setBindings("agent", a.id, desired);
           changed = true;

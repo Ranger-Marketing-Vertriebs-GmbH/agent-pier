@@ -3,9 +3,11 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantWorkflowCopy as copy } from "../../lib/i18n/messages/assistant-workflows.js";
 import ExecApprovalCard from "./ExecApprovalCard.jsx";
 import SshApprovalCard from "./SshApprovalCard.jsx";
+import MemberGrantApprovalCard from "./MemberGrantApprovalCard.jsx";
 
 const isExec = (a) => a.payload.action === "exec";
 const isSsh = (a) => a.payload.action === "ssh";
+const isGrant = (a) => a.payload.action === "member_grant";
 
 // The agent's own pending actions as cards in the transcript (handoff 2c). The chat
 // loads them once (useAssistantActions) and also counts them in the approval strip.
@@ -27,7 +29,7 @@ export default function AssistantActionApprovals({
   if (!actions.length && !error) return null;
   // Shell and SSH commands have their own cards; they decide through
   // `decide(id, decision)`. An SSH card stays while its allowed command runs.
-  const others = actions.filter((a) => !isExec(a) && !isSsh(a));
+  const others = actions.filter((a) => !isExec(a) && !isSsh(a) && !isGrant(a));
   return (
     <section className="assistant-action-approvals" aria-label={copy.pendingApprovals}>
       <h3 className="sr-only">{copy.pendingApprovals}</h3>
@@ -42,6 +44,9 @@ export default function AssistantActionApprovals({
           viewerId={assistantId}
           decide={(_, d) => decide(a, d)}
         />
+      ))}
+      {actions.filter(isGrant).map((a) => (
+        <MemberGrantApprovalCard key={a.id} action={a} busy={busy} choose={choose} />
       ))}
       {others.map((a) => (
         <article className="assistant-approval-card" data-pending="" key={a.id}>

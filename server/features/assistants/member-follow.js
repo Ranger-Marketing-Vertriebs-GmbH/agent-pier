@@ -5,7 +5,7 @@ const live = new Set(["ready", "admitting", "running", "stopping"]);
 
 /**
  * Re-applies the running temporary members of `leadId` once the lead's entry changed
- * (or its member shell and SSH setting), so they lose or gain an inherited capability
+ * (or its member shell and SSH setting), so they lose or regain a granted capability
  * now rather than at their next turn. Each apply waits for admission and its failure
  * only leaves the member to its next turn's apply, which compiles the same values.
  */

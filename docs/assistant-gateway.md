@@ -720,12 +720,12 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.10.3 and its qualified rollback predecessors 2026.9.9 and 2026.9.8. Eligible parents receive the eight managed team tools (propose, status,
-stop, and the [member tools](#lead-questions-and-tasks-for-members)) and
+to OpenClaw 2026.10.3 and its qualified rollback predecessors 2026.9.9 and 2026.9.8. Eligible parents receive the nine managed team tools (propose, status,
+stop, grant ([team member grants](#team-member-grants-2026-10-17)) and the [member tools](#lead-questions-and-tasks-for-members)) and
 `session_status`; members receive only `session_status`. Direct native spawning
 and alternative session mutation tools are not offered; `exec` and `process` only
 under [agent shell access](#agent-shell-access-2026-10-12), which temporary members
-get only through their lead's [explicit setting](#team-member-inheritance-2026-10-17). The private loopback
+get only through their lead's [explicit setting](#team-member-grants-2026-10-17). The private loopback
 bridge binds 30-second prepare/commit tickets to the exact active attempt and
 runtime generation. Credentials are never part of public team projections.
 
@@ -904,9 +904,9 @@ describes the full behaviour. For operation:
 ## Managed native memory and reminders (2026-10-08)
 
 Agent settings now expose independent memory and Telegram reminder capabilities.
-Existing definitions default to both disabled. Task-scoped team members follow
-their lead: a read-only copy of its memory and reminders created on it (see
-[Team member inheritance](#team-member-inheritance-2026-10-17)); promoted permanent
+Existing definitions default to both disabled. Task-scoped team members get what
+their lead grants them: a read-only copy of its memory and reminders created on it (see
+[Team member grants](#team-member-grants-2026-10-17)); promoted permanent
 members can opt in with their own settings and channel.
 OpenClaw owns memory files, indexing, schedules, execution and run history.
 AgentPier owns capability configuration, UI, original destination bindings and the
@@ -1100,7 +1100,7 @@ For the later merged branch, see the [release qualification](assistant-release-q
 Agent settings group four more switches under **Web & documents**. All default to
 off. Like memory and reminders, they are set only on permanent agents; archived
 agents do not count. Task-scoped team members have no switches of their own and use
-their lead's live (see [Team member inheritance](#team-member-inheritance-2026-10-17)).
+what their lead grants them (see [Team member grants](#team-member-grants-2026-10-17)).
 The tools exist only in team mode (native teams), where AgentPier compiles them into
 the Gateway's startup configuration.
 
@@ -1218,8 +1218,8 @@ key that Perplexity uses, take effect at the next Gateway start.
 `agentpier_ssh` (actions `hosts`, `execute`) is compiled into an agent's `tools.allow`
 only while the agent holds an SSH grant, and it is part of `routineTools`. The bridge
 admits `action: "ssh"` for owner and permanent-member turns like the other personal
-tools, for a temporary member only while it uses its lead's grants
-([Team member inheritance](#team-member-inheritance-2026-10-17)), and, as the only action, for a routine's run session without an attempt
+tools, for a temporary member only while it was granted SSH on its lead's grants
+([Team member grants](#team-member-grants-2026-10-17)), and, as the only action, for a routine's run session without an attempt
 (`TeamBridge.routineRun`, a bound, enabled routine with routines on). The plugin's
 call budget for `ssh` is 245 seconds: a 110-second approval hold plus a 120-second
 command. Forwarded, member-result, reminder, check-in and unknown turns are refused
@@ -1228,66 +1228,91 @@ with `SSH_ORIGIN_REFUSED`; a routine may run only on `routines` hosts
 that keeps the original turn's origin class. Agents with SSH grants never own a bot
 for other people.
 
-## Team member inheritance (2026-10-17)
+## Team member grants (2026-10-17)
 
-Task-bound (temporary) team members have no capability settings of their own. They
-work with what their lead agent holds right now, resolved on every read of the
-member (`AssistantStore.getAssistant`, `memberInheritance` in
-`native-capabilities.js`), like the lead's model. Nothing is copied into the
-member's record, so keeping a member as a permanent agent keeps none of it.
+Task-bound (temporary) team members have no capability settings of their own. Their
+lead agent decides per member what it gets, when it proposes the team and later
+while the member works, and it can only grant what it holds itself. What a member
+runs with is resolved on every read of the member (`AssistantStore.getAssistant`,
+`memberInheritance` in `member-grants.js`): each grant within what the lead holds
+right now. Nothing is copied into the member's record, so keeping a member as a
+permanent agent keeps none of it.
 
-| Inherited from the lead                | How a temporary member uses it                                                |
-| -------------------------------------- | ----------------------------------------------------------------------------- |
-| Web search, web pages, browser, images | The lead's switches, with the same global network and browser safety          |
-| Skills                                 | The lead's selection                                                          |
-| MCP servers                            | Every server bound to the lead, while the member runs ([bindings](#bindings)) |
-| Memory                                 | A read-only copy of the lead's memory (see below)                             |
-| Reminders                              | Created on the lead (see below)                                               |
-| Shell and SSH                          | Only with the lead's **Team members may use shell and SSH**                   |
+| Grant (proposal `grants`, tool `agentpier_team_grant`) | How a temporary member uses it                                                                                 |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `webSearch`, `webFetch`, `browser`, `documents`        | The lead's web and image tools, with the same global network and browser safety                                |
+| `skills` (`true` for all of the lead's, or names)      | Those of the lead's skills                                                                                     |
+| `mcpServers` (names of servers bound to the lead)      | Those servers, while the member runs ([bindings](#bindings))                                                   |
+| `memory`                                               | A read-only copy of the lead's memory (see below)                                                              |
+| `reminders`                                            | Reminders created on the lead (see below)                                                                      |
+| `shell` (`approval` or `full`), `ssh`                  | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants |
 
-Team and delegation tools, routines and memory writes stay with the lead.
+A member the lead grants nothing explicitly gets `memory`, `webSearch` and
+`webFetch`, as far as the lead has them. Team and delegation tools, routines and
+memory writes stay with the lead.
 
-- **Live.** Every apply of a member compiles what the lead holds at that moment,
-  and every member turn applies first. When the lead's entry changes (a capability,
-  a skill, its shell level or its first or last SSH grant) or the lead's team
+- **Ceiling.** The proposal (`TeamStore.propose`) and every later grant refuse a
+  grant the lead does not hold now (`TEAM_GRANT_NOT_HELD`): a capability or skill it
+  lacks, a server not bound to it (`MCP_SERVER_NOT_BOUND`), a shell level above its
+  own, or shell and SSH without the setting or without the lead's own shell or SSH
+  grants. The grants belong to the proposal's fingerprint and are stored on the
+  member's team record.
+- **Live.** Every apply of a member compiles its grants within what the lead holds at
+  that moment, and every member turn applies first. When the lead's entry changes (a
+  capability, a skill, its shell level or its first or last SSH grant) or its team
   settings are saved, AgentPier also re-applies the lead's running members at once
-  (`member-follow.js`). Bridge calls (reminders, SSH) and exec approvals check the
-  current state on every call.
+  (`member-follow.js`). A capability the lead loses is gone for its members; one it
+  regains comes back only where it was granted. Bridge calls (reminders, SSH) and
+  exec approvals check the current state on every call.
+- **Later grants.** `agentpier_team_grant` (lead-only) gives a running task member of
+  the lead's own team more within the same ceiling, or takes grants back with
+  `revoke: true` at any time (`member-grant-requests.js`). Capabilities, skills and
+  MCP servers apply at once without the owner, but visibly: the member's record keeps
+  a log (shown on the team card and in the member's **Capabilities → Granted by the
+  lead agent**), the member's and the lead's chats get a note, and the audit records
+  `assistant.updated` with `kind: "member-grant"`, the changed kinds and a server
+  count, never names or content. Shell and SSH granted later always become an owner
+  approval (an action card in the lead's chat and its paired Telegram chat, the
+  Work tab's **Actions** list) and apply only once approved, after the ceiling is
+  checked again. Revoking shell or SSH withdraws such a pending card.
 - **Memory.** Before each member turn, AgentPier replaces the member's `MEMORY.md`,
   `USER.md` and `memory/` notes with the lead's current ones (`member-memory.js`;
   same name, depth, count and size bounds as the memory panel, no links) and
-  removes them once the member no longer inherits memory. The member gets
+  removes them once the member no longer holds memory. The member gets
   `memory_search`, `memory_get` and `read`, never `write` or `edit`, and its
   instructions say that it cannot save anything and should report what is worth
   keeping to its lead. The member never reaches the lead's own files, and whatever
   lands in its copy is replaced at its next turn.
-- **Reminders.** A temporary member gets `agentpier_reminder` (never
+- **Reminders.** A member granted reminders gets `agentpier_reminder` (never
   `agentpier_routine`) and may only create a reminder, in a turn its lead gave it
   (`team-member` or `lead-request`). The reminder is created on the lead: it is
   listed in the lead's settings, runs as the lead's job and is delivered to the
   lead's paired Telegram chat, so it never fires from an agent that has ended and
-  the owner can pause or remove it there. Listing, pausing and removing stay with
-  the owner and the lead.
+  the owner can pause or remove it there.
 - **Shell and SSH.** The lead's **Work → Team → Team members may use shell and
-  SSH** is off by default. With it on, a temporary member gets at most the lead's
-  shell level (its own allowlist stays empty, so with approval every command asks)
-  and runs `agentpier_ssh` on the lead's grants, as a delegated caller: the host's
-  mode decides as for a permanent member's delegated turn, and approvals also ask
-  in the lead's chat. The setting is recorded with each team when it is proposed
-  and also read live: a team proposed while it was off never gets shell or SSH,
-  and switching it off revokes both for running members. The approval card (web
-  and Telegram) says whether members may use shell and SSH; teams approved
-  automatically follow the same setting.
+  SSH** is off by default. It is recorded with each team when it is proposed and
+  also read live: a team proposed while it was off never gets shell or SSH, and
+  switching it off revokes both for running members. A member granted shell runs at
+  most at the lead's level (its own allowlist stays empty, so with approval every
+  command asks); a member granted SSH runs `agentpier_ssh` on the lead's grants as a
+  delegated caller (`AssistantAccess.sshHolder`): the host's mode decides as for a
+  permanent member's delegated turn, and approvals also ask in the lead's chat.
+- **Approval card.** The proposal (web and Telegram) lists every member's grants and
+  marks members with shell or SSH with a warning. Teams approved automatically follow
+  the same grants and the same setting.
 
-**Security trade-offs.** Members act unattended, and everything they read from the
-web, documents, MCP servers or remote output is untrusted data that can try to
-steer them. With inheritance, a prompt injection that reaches a member can use
-every tool the member inherits: web requests (still under the private-network
-block), the lead's MCP servers including stdio ones, reminders to the owner's chat
-and, only with the setting on, shell and SSH on the lead's grants. The member cannot
-change the lead's memory, start teams or schedule routines. Keep the shell and SSH
-setting off unless the lead's work needs it, and prefer `approval` modes for its
-shell level and SSH hosts.
+**Security trade-offs.** Leads and members act unattended. Everything they read
+from the web, documents, MCP servers or remote output is untrusted data that can try
+to steer them. A prompt injection that reaches a lead can make it grant its members
+more, and one that reaches a member can use every tool the member holds: web
+requests (still under the private-network block), its granted MCP servers including
+stdio ones, reminders to the owner's chat and, only with the setting on, shell and
+SSH on the lead's grants. The mitigations are the ceiling (a lead never grants more
+than it holds), visibility (notes in both chats, the team card, the member's
+Capabilities tab and the audit) and the owner's approval for every shell or SSH
+grant after the proposal. A member cannot change the lead's memory, start teams or
+schedule routines. Keep the shell and SSH setting off unless the lead's work needs
+it, and prefer `approval` modes for its shell level and SSH hosts.
 
 ## MCP servers for agents (2026-10-11)
 
@@ -1349,23 +1374,23 @@ owner's `HOME` or a `TMPDIR` does not find them.
 - **Personal agents and permanent team members** are bound by the owner in the
   agent's settings (**MCP servers**). Archived agents get no servers.
 - **Temporary team members** cannot be bound directly; the agent update refuses it.
-  Since 2026-10-17 they hold every server bound to their lead, and only while they
-  run. The lead's proposal tool still accepts optional `mcpServers` per member
-  (names of servers bound to the lead, at most 16; any other name rejects the whole
-  proposal with `MCP_SERVER_NOT_BOUND`), but for temporary members the list is
-  informational. The approval (in the web UI and on Telegram) shows the named
-  servers with a stdio marker, never addresses, commands or values.
-- A running temporary member follows its lead's bindings: a server the lead gains
-  or loses reaches the member at the next scheduler tick, and the member's bindings
-  go when it ends or is stopped. Every Gateway start runs the same reconciliation
-  first.
+  They get servers only through their lead's grants: optional `mcpServers` per
+  member in the proposal, or later with `agentpier_team_grant` (names of servers
+  bound to the lead, at most 16; any other name rejects the call with
+  `MCP_SERVER_NOT_BOUND`). The approval (in the web UI and on Telegram) shows each
+  member's servers by name with a stdio marker, never addresses, commands or values.
+- A granted temporary member holds exactly its granted servers that its lead still
+  holds, and only while it runs. When it ends, is stopped, the lead revokes a
+  server or loses it, the binding goes at the next scheduler tick; every Gateway
+  start runs the same reconciliation first.
 - A member approved as permanent receives its named servers once; the owner manages
   them afterwards.
 
 **Owner decision: automatic teams.** A team that is approved automatically (by a
-task authorization, `/team`, or a standing autonomous policy) gives its temporary
-members all of the lead's servers, including stdio servers, without a per-server
-approval. The members can only use servers the lead already holds. By enabling
+task authorization, `/team`, or a standing autonomous policy) passes the servers
+its lead grants to the members, including stdio servers, without a per-server
+approval, and so do later grants. The members can only receive servers the lead
+already holds. By enabling
 automatic teams the owner accepts this.
 
 ### Compilation and live changes
@@ -1539,9 +1564,9 @@ its own `tools.allow`, because a global `deny` alone still offers the tool.
 
 - **Temporary (task-bound) team members have no shell level of their own.** The
   agent update refuses any level other than Off with 400, the compiler ignores a
-  stored level, and the allowlist routes refuse them. They use their lead's level
-  only while the lead's **Team members may use shell and SSH** is on (see
-  [Team member inheritance](#team-member-inheritance-2026-10-17)). Archived agents
+  stored level, and the allowlist routes refuse them. They get at most their lead's
+  level only when granted while the lead's **Team members may use shell and SSH** is on (see
+  [Team member grants](#team-member-grants-2026-10-17)). Archived agents
   have none.
 - **Confirmation.** Raising the level needs the owner's confirmation of the
   warning (`confirmShell`); raising it to Full access needs a second one

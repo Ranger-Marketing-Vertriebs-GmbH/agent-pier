@@ -68,7 +68,7 @@ async function listNotes(root) {
 /**
  * Keeps a temporary member's memory a read-only copy of its lead's: before each of
  * the member's turns its MEMORY.md, USER.md and memory/ notes are replaced by the
- * lead's current ones, and removed once the member no longer inherits memory
+ * lead's current ones, and removed once the member no longer holds memory
  * (`enabled` false). The member has no write or edit tool, and the copy is
  * rewritten every turn, so nothing a member does reaches the lead's memory. A
  * workspace that does not exist yet (the member was never created) is left alone.

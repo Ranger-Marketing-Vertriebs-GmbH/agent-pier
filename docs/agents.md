@@ -134,7 +134,7 @@ told it was not saved.
   Every command is listed under **Actions and coding tasks** and recorded in the
   activity log by its fingerprint, never its text. Agents cannot add hosts or keys.
 - **Team:** **Allow teams without asking each time**, **Team members may use shell
-  and SSH** (off by default, see [teams](#teams-asks-and-tasks) below), **Maximum team size** and
+  and SSH** (off by default; see [teams](#teams-asks-and-tasks) below), **Maximum team size** and
   **Member time limit (minutes)**.
 - **Teams:** the agent's active and archived teams and, below them, **Questions and
   tasks** it sent to its members.
@@ -177,19 +177,25 @@ shows the model the member actually runs on:
   agent** takes over the lead's model of that moment; later changes to the lead do not
   affect it. Change it in the member's Profile.
 
-Temporary members also work with the lead's current capabilities, and follow every
-change to the lead the same way: its web and image tools, its skills, all MCP
-servers bound to it, a read-only copy of its memory, and reminders. A reminder a
-member sets is created on the lead, listed in the lead's settings and sent to the
-lead's Telegram chat. Members never get the team tools or routines and cannot save
-to memory. The member's **Capabilities** tab shows what it uses under **From the
-lead agent**. Shell and SSH are off for members unless you switch on **Team members
-may use shell and SSH** in the lead's **Work** tab: then members of teams proposed
-from then on get at most the lead's shell level and use the lead's SSH accesses.
-The team proposal says whether members may use shell and SSH. Members work
-unattended, and web pages or tool output they read can try to steer them, so keep
-that switch off unless the work needs it. Kept as permanent agents, members keep
-none of this and start with their own settings.
+The lead decides what each temporary member gets, and can only give what it has
+itself: web search, web pages, browser, images, skills, its MCP servers, a read-only
+copy of its memory and reminders. Without a choice of the lead a member gets memory,
+web search and web pages. The team proposal lists what every member gets. While a
+member works, the lead can grant it more or take grants back; each change shows on
+the team card, as a note in the member's chat and the lead's chat, and in the
+member's **Capabilities → Granted by the lead agent**, and it is recorded in the
+activity log. Grants follow the lead: if it loses a capability, its members lose it
+too. A reminder a member sets is created on the lead, listed in the lead's settings
+and sent to the lead's Telegram chat. Members never get the team tools or routines
+and cannot save to memory.
+
+Shell and SSH need **Team members may use shell and SSH** in the lead's **Work** tab.
+With it on, the lead may grant members of teams proposed from then on at most its
+own shell level and its SSH accesses; the proposal marks those members with a
+warning, and a shell or SSH grant the lead makes later always asks you for approval
+in the lead's chat and in Telegram. Switching the setting off takes shell and SSH
+away from running members. Kept as permanent agents, members keep none of their
+grants and start with their own settings.
 
 A lead also talks to its members directly:
 
@@ -284,10 +290,11 @@ are part of host backups.
   remote MCP servers.
 - A lead's questions and tasks run without approval and use its members'
   capabilities.
-- Temporary team members work unattended with the lead's web tools, skills, MCP
-  servers and reminders. Content they read can steer them into using any of these;
-  with **Team members may use shell and SSH** on, that includes the lead's shell level
-  and SSH accesses.
+- Leads and their temporary members work unattended. Content they read can steer a
+  lead into granting its members more (never more than it has itself) and a member
+  into using what it was granted; with **Team members may use shell and SSH** on,
+  that can include the lead's shell level and SSH accesses. Every grant is shown in
+  the chats and on the team card, and later shell or SSH grants wait for you.
 - Web pages can contain instructions meant to mislead an agent; switch on web tools
   only for agents whose other tools you would trust with that.
 - **SSH accesses** set to **Trusted** run commands without asking. Commands the agent

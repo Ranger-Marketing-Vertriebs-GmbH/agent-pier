@@ -9,6 +9,9 @@ import SshApprovalCard from "../SshApprovalCard.jsx";
 import SshCommandText from "../SshCommandText.jsx";
 import { sshHistoryText } from "../ssh-run-note.js";
 import SubpageHeader from "./SubpageHeader.jsx";
+import MemberGrantApprovalCard from "../MemberGrantApprovalCard.jsx";
+import MemberGrantNote from "../MemberGrantNote.jsx";
+import { grantNote } from "../member-grants.js";
 
 const decide = (action, decision) =>
   api(`/assistant-actions/${encodeURIComponent(action.id)}/decision`, "POST", {
@@ -67,6 +70,19 @@ function ActionCard({ action: a, assistantId, busy, act }) {
   if (a.payload.action === "ssh")
     return <SshCard action={a} act={act} assistantId={assistantId} />;
   if (a.payload.action === "exec") return <ExecCard action={a} act={act} />;
+  // A lead's grant to a team member: the owner's card while it waits, then its line.
+  if (a.payload.action === "member_grant")
+    return a.state === "awaiting_approval" ? (
+      <MemberGrantApprovalCard
+        action={a}
+        busy={busy}
+        choose={(action, decision) => act(() => decide(action, decision))}
+      />
+    ) : (
+      <article className="assistant-card assistant-reminder-row">
+        <MemberGrantNote note={grantNote(a)} />
+      </article>
+    );
   return (
     <article className="assistant-card assistant-reminder-row">
       <h3>{a.payload.action === "coding_start" ? copy.coding : copy.memory}</h3>

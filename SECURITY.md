@@ -36,8 +36,9 @@ source builds run only after the owner allows them for that package (a PyPI buil
 already runs its code while the package is checked). An agent's own Telegram bot
 accepts messages from the people the owner allows. A lead agent's questions and
 tasks run on its members without approval, with each member's own capabilities;
-temporary team members work unattended with their lead's capabilities, and with its
-shell level and SSH accesses only when the lead allows that explicitly. See
+a lead grants its temporary team members tools and access only within its own
+capabilities, shell and SSH only when the owner allows that explicitly, and later
+shell or SSH grants wait for the owner's approval. See
 [agents](docs/agents.md#security-notes).
 
 Complete initial user setup before sharing permitted network access. Use the

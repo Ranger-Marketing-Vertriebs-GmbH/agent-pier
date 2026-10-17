@@ -21,6 +21,7 @@ const actions = new Set([
   "delegate",
   "cancel",
   "archive",
+  "grant",
   "reminder",
   "routine",
   "workspace",
