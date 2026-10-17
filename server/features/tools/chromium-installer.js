@@ -5,7 +5,6 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { open as openZip } from "yauzl";
 import { problem } from "../../lib/storage.js";
 import { chromiumManifest, chromiumPlatform } from "./chromium-manifest.js";
 
@@ -171,7 +170,9 @@ async function realParents(dest, relative) {
 }
 
 /** Unpacks the archive into `dest`, keeping modes and the app bundle's links. */
-export function unpackChromium(file, dest, top, signal) {
+export async function unpackChromium(file, dest, top, signal) {
+  // Loaded on use: the installer scripts import this module before dependencies exist.
+  const { open: openZip } = await import("yauzl");
   return new Promise((resolve, reject) => {
     openZip(
       file,
