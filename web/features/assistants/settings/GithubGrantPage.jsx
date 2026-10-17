@@ -111,6 +111,7 @@ export default function GithubGrantPage({
                 <p className="ssh-grant-warning">{copy.writeWarning}</p>
               )}
               {shell && <p className="assistant-note">{copy.shellNote}</p>}
+              <p className="assistant-note">{copy.memoryNote}</p>
               <GithubServerState server={server} onRetry={onRetryServer} />
             </>
           )}

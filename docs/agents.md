@@ -156,11 +156,14 @@ told it was not saved.
   profiles from **Settings → Access → GitHub connections** (the host's **Default for agents** is
   preselected). The agent gets the official GitHub MCP server with that profile:
   **Read** offers repositories, issues, pull requests and Actions runs read only;
-  **Read and write** also comments on and creates issues and pull requests and changes
-  files, but never deletes a repository. With shell access, `gh` and `git` in the
+  **Read and write** also comments on and creates issues and pull requests, merges
+  pull requests, pushes, changes and deletes files, but never creates, forks or
+  deletes a repository or starts a workflow. With shell access, `gh` and `git` in the
   agent's commands use the same profile instead of your own login. The token never
-  reaches the agent, its chat or the browser; a rotated token reaches the agent at
-  once, a deleted profile removes the access. The page warns when a token's known
+  appears in the agent's instructions, files, chat or the browser (with shell access
+  the agent runs as you and could read it like you can); a rotated token reaches the
+  agent at once, a deleted profile removes the access. Each profile and level runs
+  its own GitHub MCP server for every agent session, about 45 MB of memory each. The page warns when a token's known
   scopes lack `repo`, and AgentPier installs the GitHub MCP server on first use
   ([GitHub for agents](assistant-gateway.md#github-for-agents)). Each change is
   recorded in the activity log.

@@ -111,10 +111,24 @@ test(
     assert.match(call.auth, new RegExp(`${token}$`));
     const write = mcpClient(t, command, "write", github.url);
     const writeTools = await write.start();
-    for (const name of ["create_pull_request", "issue_write", "create_or_update_file"])
+    for (const name of [
+      "create_pull_request",
+      "issue_write",
+      "create_or_update_file",
+      "merge_pull_request",
+      "delete_file",
+      "push_files",
+      "actions_list",
+      "actions_get",
+    ])
       assert.ok(writeTools.includes(name), name);
-    assert.ok(!writeTools.includes("delete_repository"));
-    assert.ok(!writeTools.some((name) => name.startsWith("actions_")));
+    for (const name of [
+      "delete_repository",
+      "create_repository",
+      "fork_repository",
+      "actions_run_trigger",
+    ])
+      assert.ok(!writeTools.includes(name), name);
     // The token never shows up in a tool result or the server's log output.
     assert.doesNotMatch(JSON.stringify(result), new RegExp(token));
     assert.doesNotMatch(read.stderr() + write.stderr(), new RegExp(token));

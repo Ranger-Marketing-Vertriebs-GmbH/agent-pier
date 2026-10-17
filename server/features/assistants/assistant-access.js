@@ -127,6 +127,10 @@ export class AssistantAccess {
    * the owner's save.
    */
   prepare(id, input, revision, notes = {}) {
+    // A task member's GitHub access comes only from its lead (a `github` grant).
+    const agent = this.s.assistants.store.getAssistant(id);
+    if (input?.github && agent.teamMemberId && agent.lifetime !== "permanent")
+      throw assistantProblem("githubFromLead", 409);
     this.eligible(id);
     if (this.s.assistants.maintenance) throw assistantProblem("active", 409);
     exact(input, [

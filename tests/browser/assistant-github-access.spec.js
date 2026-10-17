@@ -99,7 +99,9 @@ test("English Work tab grants GitHub with the default profile, warns on missing 
   await page.goto(baseURL + settingsPath("work"));
   await expect(page.getByRole("link", { name: /^GitHub\s*No access/ })).toBeVisible();
   await page.getByRole("link", { name: /^GitHub/ }).click();
-  await expect(page.getByText(/The token itself never reaches the agent/)).toBeVisible();
+  await expect(
+    page.getByText(/The token never appears in its instructions or files/),
+  ).toBeVisible();
   await expect(page.getByLabel("No access", { exact: true })).toBeChecked();
   // Choosing a level prefills the host's default profile for agents.
   await page.getByLabel("Read", { exact: true }).check();
@@ -113,7 +115,10 @@ test("English Work tab grants GitHub with the default profile, warns on missing 
   await page.getByRole("radio", { name: "Company", exact: true }).check();
   await expect(page.locator("[data-github-scopes]")).toHaveCount(0);
   await page.getByLabel("Read and write", { exact: true }).check();
-  await expect(page.getByText(/push changes in your name/)).toBeVisible();
+  await expect(
+    page.getByText(/merge pull requests, push changes and delete files/),
+  ).toBeVisible();
+  await expect(page.getByText(/about 45 MB of memory each/)).toBeVisible();
   // A failed install of the MCP server can be retried here.
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(

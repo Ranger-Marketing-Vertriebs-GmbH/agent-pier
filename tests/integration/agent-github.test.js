@@ -284,6 +284,36 @@ test("a lead passes GitHub to a member within its own live level", async (t) => 
   assert.equal(f.compiled().agentTools[f.agent().runtimeAgentId], undefined);
 });
 
+test("a temporary member cannot hold GitHub access of its own", async (t) => {
+  const f = await team(t, { github: "read" });
+  assert.throws(
+    () =>
+      f.workflows.access.save(
+        f.member.assistantId,
+        { ...f.policy, github: { credentialId: f.work.id, level: "read" } },
+        0,
+      ),
+    { status: 409, key: "githubFromLead" },
+  );
+});
+
+test("a GitHub Enterprise profile names its host for gh in the agent's shell", async (t) => {
+  const f = await setup(t);
+  f.setShell("full");
+  f.save({ credentialId: f.ghe.id, level: "read" });
+  const [marker] = f.workflows.github.shellPath(f.store.getAssistant(f.id));
+  const env = fs.readFileSync(path.join(path.dirname(marker), "shell-env.sh"), "utf8");
+  assert.match(env, /^export GH_HOST='ghe\.example\.com'$/m);
+  // Without writing anything, the same directories serve the approval analysis.
+  assert.deepEqual(f.workflows.github.shellDirs(f.store.getAssistant(f.id)), [marker]);
+  f.save({ credentialId: f.work.id, level: "read" });
+  f.workflows.github.shellPath(f.store.getAssistant(f.id));
+  assert.doesNotMatch(
+    fs.readFileSync(path.join(path.dirname(marker), "shell-env.sh"), "utf8"),
+    /GH_HOST=/,
+  );
+});
+
 test("a proposal may not grant GitHub above the lead's level", async (t) => {
   const f = await setup(t);
   f.save({ credentialId: f.work.id, level: "read" });

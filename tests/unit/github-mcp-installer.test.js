@@ -9,6 +9,7 @@ import {
   installGithubMcp,
   managedGithubMcp,
   provisionGithubMcp,
+  pruneGithubMcpPackages,
   unpackGithubMcp,
 } from "../../server/features/tools/github-mcp-installer.js";
 import { githubMcpManifest } from "../../server/features/tools/github-mcp-manifest.js";
@@ -222,4 +223,19 @@ test("the running service installs on first use and reports its state", async (t
   const unsupported = new GithubMcpTool({ dataDir, platform: "win32", arch: "x64" });
   assert.equal(unsupported.state().available, false);
   assert.equal(unsupported.ensure(), null);
+});
+
+test("pruning keeps whatever the activation link points to at that moment", async (t) => {
+  const dir = root(t);
+  const packages = path.join(dir, ".packages");
+  for (const name of ["github-mcp-a", "github-mcp-b", "github-mcp-c", "chromium-x"])
+    fs.mkdirSync(path.join(packages, name), { recursive: true });
+  // Another install switched the link meanwhile: its target survives the prune.
+  fs.symlinkSync(".packages/github-mcp-c", path.join(dir, "github-mcp-server"), "dir");
+  await pruneGithubMcpPackages(dir, [path.join(packages, "github-mcp-a")]);
+  assert.deepEqual(fs.readdirSync(packages).sort(), [
+    "chromium-x",
+    "github-mcp-a",
+    "github-mcp-c",
+  ]);
 });

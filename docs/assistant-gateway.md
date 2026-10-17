@@ -1879,7 +1879,8 @@ for agents** is preselected. The access is stored with the agent's access record
 (`github: { credentialId, level }`), audited as `assistant.updated` with
 `kind: "github-access"`, the profile id and both levels (never the token or the
 profile's name), and named in the agent's instructions (profile, host, level and its
-tool prefix). Temporary members cannot hold it; an agent with its own Telegram bot
+tool prefix). Temporary members cannot hold one of their own (409; they get it from
+their lead's `github` grant); an agent with its own Telegram bot
 for other people is refused it (409), and an agent with GitHub
 access counts like one with a stdio server, so no such bot is compiled for it.
 
@@ -1890,20 +1891,26 @@ compiled beside the central list's servers, one stdio server per profile and lev
 named `github_ro_<hash>` or `github_rw_<hash>` (the hash comes from the profile id).
 An agent sees its tools as `<name>__<tool>`.
 
-| Level   | Arguments                                                                       |
-| ------- | ------------------------------------------------------------------------------- |
-| `read`  | `stdio --toolsets repos,issues,pull_requests,actions --read-only`               |
-| `write` | `stdio --toolsets repos,issues,pull_requests --exclude-tools delete_repository` |
+| Level   | Arguments (toolsets `repos,issues,pull_requests,actions` for both)                                           |
+| ------- | ------------------------------------------------------------------------------------------------------------ |
+| `read`  | `stdio --toolsets … --read-only`                                                                             |
+| `write` | `stdio --toolsets … --exclude-tools actions_run_trigger,create_repository,fork_repository,delete_repository` |
 
-`write` leaves out Actions, whose write tools would re-run or cancel workflows, and
-never offers deleting a repository. The server itself also hides tools whose classic
+`write` adds issue and pull request writes and repository contents, including
+merging pull requests (`merge_pull_request`), pushing (`push_files`) and deleting
+files (`delete_file`). It keeps Actions readable for CI status but never triggers,
+re-runs or cancels a workflow (`actions_run_trigger`), and never creates, forks or
+deletes a repository. The tool names were checked against the pinned 2.0.2 release. The server itself also hides tools whose classic
 scopes the token lacks. The token reaches the server only through its environment
 (`GITHUB_PERSONAL_ACCESS_TOKEN`; `GITHUB_HOST` for a GitHub Enterprise host) in the
 compiled `openclaw.json`, like every stdio server's values: never in its arguments,
 the agent's instructions, a response or AgentPier's own state. Because OpenClaw
 starts every compiled stdio server for every session (see
 [stdio servers](#local-commands-stdio)), agents that share a profile and level share
-one server. A store server with the same name wins.
+one server. Each distinct profile and level still costs one server process per OpenClaw
+session, about 45 MB of memory each; read and write stay separate servers because the
+server-side `--read-only` is the stronger limit. A store server with the same name
+wins.
 
 A rotated token, a deleted profile and every access change are patched into a running
 Gateway at once (the compiled signature includes the env values) and the affected
@@ -1936,11 +1943,15 @@ An agent with shell and GitHub access gets its own folder
 `GH_CONFIG_DIR` to the folder, unsets `GH_TOKEN`, `GITHUB_TOKEN` and the other
 override variables, and routes git's HTTPS authentication for that host through
 AgentPier's helper alone (`credential.https://<host>.helper`, owner helpers cleared,
-the quit helper after it), plus the profile's commit identity. `shell-env.sh` holds no
+the quit helper after it), plus the profile's commit identity and, for a GitHub
+Enterprise profile, `GH_HOST`. The same directories (the marker and the managed
+`gh`) also feed the approval analysis, so **Always allow** resolves `gh` as it runs. `shell-env.sh` holds no
 token, so `env` in the agent's shell shows none; `gh` and the helper read it from
 `hosts.yml`. Token rotation and deletion update `hosts.yml` with the sessions' sync. An
 agent without shell or without GitHub access has no folder on its `PATH`, and the
-folder is removed at the next refresh or Gateway start. Like sessions, this separates
+folder is removed at the next refresh or Gateway start. The token never appears in the
+agent's instructions or files, but with shell access the agent runs as the owner and
+can read it like the owner can. Like sessions, this separates
 configurations, not operating-system users: a command with shell runs as the owner.
 
 ## Agent shell access (2026-10-12)

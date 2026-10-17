@@ -261,6 +261,8 @@ export class GithubCredentials {
       `export GH_CONFIG_DIR=${quote(folder)}`,
       "export GH_NO_UPDATE_NOTIFIER=1 GH_PROMPT_DISABLED=1 GIT_TERMINAL_PROMPT=0",
       `unset ${tokenKeys.join(" ")}`,
+      // gh defaults to github.com; an Enterprise profile names its host.
+      ...(host === "github.com" ? [] : [`export GH_HOST=${quote(host)}`]),
       ...config.flatMap(([key, value], index) => [
         `export GIT_CONFIG_KEY_${index}=${quote(key)}`,
         `export GIT_CONFIG_VALUE_${index}=${quote(value)}`,
@@ -277,7 +279,11 @@ export class GithubCredentials {
     const temporary = `${file}.${process.pid}.tmp`;
     fs.writeFileSync(temporary, `${lines.join("\n")}\n`, { mode: 0o600 });
     fs.renameSync(temporary, file);
-    return path.join(folder, "bin");
+    return this.agentMarker(agentId);
+  }
+  /** The PATH marker of an agent shell's GitHub folder (it may not exist). */
+  agentMarker(agentId) {
+    return path.join(this.folder(agentFolderName(agentId)), "bin");
   }
   /** Removes an agent shell's GitHub folder; nothing when there is none. */
   discardAgent(agentId) {

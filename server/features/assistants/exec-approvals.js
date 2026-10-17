@@ -146,7 +146,7 @@ export class ExecApprovals {
       return null;
     }
   }
-  payload(id, request, expiresAt) {
+  payload(id, request, expiresAt, assistant = null) {
     const allowed = Array.isArray(request.allowedDecisions)
       ? execDecisions.filter((d) => request.allowedDecisions.includes(d))
       : execDecisions;
@@ -175,7 +175,12 @@ export class ExecApprovals {
         String(request.command).length > payload.command.length
           ? { kind: "once", reason: "complex" }
           : allowAlwaysPlan(payload, {
-              pathDirs: this.w.a.runtime?.shell?.pathPrepend || [],
+              // The agent's exec PATH: its GitHub directories (the managed gh)
+              // first, as compiled (agent-github.js), then the owner's.
+              pathDirs: [
+                ...((assistant && this.w.github?.shellDirs(assistant)) || []),
+                ...(this.w.a.runtime?.shell?.pathPrepend || []),
+              ],
             });
     return payload;
   }
@@ -193,11 +198,12 @@ export class ExecApprovals {
         ? p.expiresAtMs
         : this.now() + defaultExpiryMs;
       // A task member's request offers no "Always allow" (exec-decisions.js).
-      const member = temporaryMember(this.w.a.store.getAssistant(owner.assistantId));
+      const agent = this.w.a.store.getAssistant(owner.assistantId);
+      const member = temporaryMember(agent);
       action = store.reserve({
         ...owner,
         payload: {
-          ...this.payload(id, p.request, expiresAt),
+          ...this.payload(id, p.request, expiresAt, agent),
           ...(member ? { onceOnly: true } : {}),
         },
         key,
