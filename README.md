@@ -21,8 +21,8 @@ and agents that work as a team.
 - **Pipelines with review:** reusable profiles, isolated Git worktrees, bounded
   review loops, checks and human approval ([pipelines](docs/pipelines.md)).
 - **Agents and teams:** persistent agents whose leads ask and delegate to their
-  members, with @-mentions, Telegram, skills, routines, check-ins and attachments
-  ([agents](docs/agents.md)).
+  members, with @-mentions, Telegram, skills, routines, check-ins, attachments and
+  read or read-and-write access to project folders ([agents](docs/agents.md)).
 - **Central MCP servers:** add a server once and bind it to agents and to your coding
   CLIs, with OAuth sign-in from AgentPier ([MCP](docs/mcp.md)).
 - **Accounts hub:** native CLI accounts, provider connections, ChatGPT for agents and

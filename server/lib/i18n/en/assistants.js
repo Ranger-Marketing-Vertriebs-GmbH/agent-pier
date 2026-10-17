@@ -112,6 +112,7 @@ export const assistants = {
       shell: (level) => `⚠ shell (${level})`,
       ssh: "⚠ SSH on the lead's hosts",
       mcpServers: (count) => `MCP servers: ${count}`,
+      projects: (count) => `project folders: ${count}`,
     },
     levels: { approval: "with approval", full: "full access" },
     gets: (labels) => `Gets: ${labels}`,
@@ -188,6 +189,18 @@ export const assistants = {
   sshBusy: "An SSH command is already running for this agent.",
   sshApprovalLimit: "Three SSH commands of this agent already wait for your approval.",
   sshRevoked: "The SSH access changed; the command was stopped.",
+  projectFolderNotGranted: "This project folder is not granted to the agent.",
+  projectFolderReadOnly: "The agent may only read this project folder.",
+  projectWriteUnavailable:
+    "Changes in project folders are possible only once the agent runtime's tool guard is confirmed.",
+  projectPathRefused:
+    "This path is not allowed: it must stay inside the project folder; .git, links leading out and AgentPier's own data are locked.",
+  projectFileUnsuitable:
+    "This file is too large, binary or not a regular file for this action.",
+  projectEditNoMatch: "The text to replace does not occur exactly once in the file.",
+  projectFileEncoding:
+    "This file is not valid UTF-8; it is not changed so that no characters are lost.",
+  projectWriteTooLarge: "One write may hold at most 64 KiB.",
   memberModelFollowsLead:
     "A task-bound member uses its lead's model. Change the model there or keep the member as a permanent agent.",
   memberRequestNotPermanent: "Tasks can only be delegated to permanent members.",

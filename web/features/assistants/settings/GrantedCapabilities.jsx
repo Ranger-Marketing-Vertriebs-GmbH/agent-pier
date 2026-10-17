@@ -7,7 +7,7 @@ import { memberGrantCopy as grantCopy } from "../../../lib/i18n/messages/assista
 import { assistantShellCopy as shellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { assistantSkillsCopy as skillsCopy } from "../../../lib/i18n/messages/assistant-skills.js";
 import { assistantSshCopy as sshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
-import { logText } from "../member-grants.js";
+import { folderCounts, logText } from "../member-grants.js";
 import { routePath } from "../../../app/routes.js";
 import { agentRoute } from "./agent-settings-fields.js";
 import ReplacedInstructions from "./ReplacedInstructions.jsx";
@@ -49,6 +49,11 @@ export default function GrantedCapabilities({ inherited, member, assistantId, go
           value={shellCopy.levels[inherited.shell] || shellCopy.levels.off}
         />
         <ListRow label={sshCopy.row} value={state(inherited.ssh === true)} />
+        {/* Granted folders at the level the member uses now, capped by the lead. */}
+        <ListRow
+          label={grantCopy.projectFolders}
+          value={folderCounts(inherited.projects)}
+        />
         {/* Its own memory, always on, beside the copy of the lead's (memory/lead/). */}
         {assistantId && (
           <ListRow

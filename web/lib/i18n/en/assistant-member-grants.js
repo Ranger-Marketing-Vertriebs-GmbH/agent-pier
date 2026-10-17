@@ -13,6 +13,8 @@ export const memberGrantCopy = {
     someSkills: "Skills",
     anyShell: "Shell",
     mcpServers: (count) => `MCP servers: ${count}`,
+    projects: (count) => `Project folders: ${count}`,
+    someProjects: "Project folders",
   },
   fields: {
     name: "name",
@@ -29,6 +31,12 @@ export const memberGrantCopy = {
   hint: "The lead agent decides what this task member gets, within what it has itself; shell and SSH need your approval. If the lead loses something, the member loses it too.",
   memory: "Lead's memory (read-only copy)",
   ownMemory: "Own memory",
+  projectFolders: "Project folders",
+  folderCounts: {
+    write: (count) => `${count} read and write`,
+    read: (count) => `${count} read`,
+    none: "None",
+  },
   ownMemoryHint:
     "What this member saved itself; always on. The lead's memory is a separate read-only copy.",
   on: "On",

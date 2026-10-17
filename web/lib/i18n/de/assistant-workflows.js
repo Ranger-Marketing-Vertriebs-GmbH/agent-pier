@@ -3,6 +3,24 @@ export const assistantWorkflowCopy = {
   hint: "Wähle die Projekte und Pipelines, die dieser Agent verwenden darf. Projektwissen bleibt von persönlichen Notizen getrennt.",
   projects: "Freigegebene Projekte",
   pipelines: "Freigegebene Pipelines",
+  projectsIntro:
+    "Freigegebene Projekte stehen für Projektwissen und Coding-Aufträge bereit. Direkter Ordnerzugriff lässt den Agenten zusätzlich Dateien im Projektordner lesen oder lesen und ändern.",
+  folderLegend: "Direkter Ordnerzugriff",
+  folderLevels: {
+    none: "Keiner",
+    read: "Lesen",
+    write: "Lesen und schreiben",
+  },
+  folderHints: {
+    none: "Nur Projektwissen und Coding-Aufträge.",
+    read: "Listet, liest und durchsucht Dateien im Ordner.",
+    write:
+      "Legt außerdem Dateien an und ändert sie. Jede Änderung wird mit Pfad und Größe protokolliert; .git bleibt gesperrt.",
+  },
+  folderWarning:
+    "Der Agent ändert Dateien direkt, ohne Freigabe pro Änderung. Gelesene Inhalte können ihn steuern; prüfe Änderungen mit der Versionsverwaltung.",
+  folderSummary: (count) =>
+    count === 1 ? "1 mit Ordnerzugriff" : `${count} mit Ordnerzugriff`,
   noResources:
     "Noch keine Einträge vorhanden. Richte zuerst Projekte und Pipelines in AgentPier ein.",
   memoryWrite: "Vorschläge zum Ändern von Projektwissen erlauben",

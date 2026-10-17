@@ -15,7 +15,9 @@ export function grantLabels(grants = {}, m, servers = 0) {
           ? grants.skills === "all"
             ? labels.allSkills
             : labels.skills(grants.skills.length)
-          : labels[key],
+          : key === "projects"
+            ? labels.projects(Object.keys(grants.projects).length)
+            : labels[key],
     ),
     ...(servers ? [labels.mcpServers(servers)] : []),
   ];

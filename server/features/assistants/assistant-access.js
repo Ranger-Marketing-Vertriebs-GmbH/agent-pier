@@ -3,6 +3,7 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { requirePipeline } from "../mcp/tool-policy.js";
 import { sshModes } from "./agent-ssh-origin.js";
 import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
+import { projectFileLevels } from "./member-grants.js";
 // A temporary member uses its lead's SSH grants only while the lead lets its team
 // members use shell and SSH (memberInheritance); it never holds grants of its own.
 export const sshFromLead = (a) => inheritsFromLead(a) && a.inherited.ssh === true;
@@ -18,6 +19,25 @@ export const digest = (value) =>
  * approvals; older records without the field use `revision`.
  */
 export const approvalRevision = (policy) => policy.approvalRevision ?? policy.revision;
+/**
+ * Folder levels ("read" or "write") of granted projects, sorted by project id; a
+ * level for a project outside `projectIds` is dropped, a malformed one refused.
+ */
+export function folderLevels(value = {}, projectIds = []) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw assistantProblem("invalid");
+  const entries = Object.entries(value);
+  if (
+    entries.length > 100 ||
+    entries.some(([, level]) => !projectFileLevels.includes(level))
+  )
+    throw assistantProblem("invalid");
+  return Object.fromEntries(
+    entries
+      .filter(([id]) => projectIds.includes(id))
+      .sort(([a], [b]) => (a < b ? -1 : 1)),
+  );
+}
 export function exact(input, keys) {
   if (
     !input ||
@@ -47,10 +67,11 @@ export class AssistantAccess {
       .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
       .get(id);
     return row
-      ? { sshAccesses: [], ...JSON.parse(row.body) }
+      ? { sshAccesses: [], projectFiles: {}, ...JSON.parse(row.body) }
       : {
           revision: 0,
           projectIds: [],
+          projectFiles: {},
           pipelineIds: [],
           memoryWrite: false,
           autonomous: false,
@@ -70,9 +91,11 @@ export class AssistantAccess {
     return { pipeline, profiles, hash: digest({ pipeline, profiles }) };
   }
   catalog() {
+    // The folder path is for the owner's Work tab; agents see it only for granted
+    // folders (AssistantWorkflows catalog).
     const projects = this.s.memory
       .projects()
-      .projects.map(({ id, name }) => ({ id, name }));
+      .projects.map(({ id, name, cwd }) => ({ id, name, path: cwd }));
     const names = new Map(projects.map((p) => [p.id, p.name]));
     const hosts = this.sshHosts();
     return {
@@ -111,6 +134,7 @@ export class AssistantAccess {
       "autonomous",
       "publish",
       "sshAccesses",
+      "projectFiles",
     ]);
     const old = this.get(id);
     if (old.revision !== revision) throw assistantProblem("conflict", 409);
@@ -145,6 +169,12 @@ export class AssistantAccess {
     return {
       ...input,
       projectIds,
+      // Folder access per granted project; absent keeps the stored levels, and a
+      // project no longer granted takes its level with it.
+      projectFiles: folderLevels(
+        input.projectFiles === undefined ? old.projectFiles : input.projectFiles,
+        projectIds,
+      ),
       // Absent keeps the stored grants: the MCP path and older clients never send them.
       sshAccesses:
         input.sshAccesses === undefined
@@ -293,6 +323,10 @@ export class AssistantAccess {
       (before) =>
         before.projectIds.includes(projectId) && {
           projectIds: before.projectIds.filter((id) => id !== projectId),
+          projectFiles: folderLevels(
+            before.projectFiles,
+            before.projectIds.filter((id) => id !== projectId),
+          ),
         },
       during,
     );
@@ -314,7 +348,7 @@ export class AssistantAccess {
       for (const row of this.db
         .prepare("SELECT assistant_id, body FROM assistant_access")
         .all()) {
-        const before = { sshAccesses: [], ...JSON.parse(row.body) };
+        const before = { sshAccesses: [], projectFiles: {}, ...JSON.parse(row.body) };
         const fields = change(before);
         if (!fields) continue;
         const after = this.write(row.assistant_id, {

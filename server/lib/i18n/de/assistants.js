@@ -119,6 +119,7 @@ export const assistants = {
       shell: (level) => `⚠ Shell (${level})`,
       ssh: "⚠ SSH auf den Hosts des leitenden Agenten",
       mcpServers: (count) => `MCP-Server: ${count}`,
+      projects: (count) => `Projektordner: ${count}`,
     },
     levels: { approval: "mit Freigabe", full: "voller Zugriff" },
     gets: (labels) => `Erhält: ${labels}`,
@@ -200,6 +201,18 @@ export const assistants = {
   sshApprovalLimit:
     "Für diesen Agenten warten bereits drei SSH-Befehle auf deine Freigabe.",
   sshRevoked: "Der SSH-Zugang hat sich geändert; der Befehl wurde gestoppt.",
+  projectFolderNotGranted: "Dieser Projektordner ist dem Agenten nicht freigegeben.",
+  projectFolderReadOnly: "Der Agent darf diesen Projektordner nur lesen.",
+  projectWriteUnavailable:
+    "Änderungen in Projektordnern sind erst möglich, wenn der Werkzeugschutz der Agenten-Laufzeit bestätigt ist.",
+  projectPathRefused:
+    "Dieser Pfad ist nicht erlaubt: Er muss im Projektordner bleiben; .git, Links nach außen und AgentPiers eigene Daten sind gesperrt.",
+  projectFileUnsuitable:
+    "Diese Datei ist zu groß, binär oder keine normale Datei für diese Aktion.",
+  projectEditNoMatch: "Der zu ersetzende Text kommt in der Datei nicht genau einmal vor.",
+  projectFileEncoding:
+    "Diese Datei ist kein gültiges UTF-8; sie wird nicht geändert, damit keine Zeichen verloren gehen.",
+  projectWriteTooLarge: "Ein Schreibvorgang darf höchstens 64 KiB umfassen.",
   memberModelFollowsLead:
     "Ein auftragsgebundenes Mitglied nutzt das Modell seines leitenden Agenten. Ändere das Modell dort oder behalte das Mitglied als dauerhaften Agenten.",
   memberRequestNotPermanent:

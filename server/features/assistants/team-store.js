@@ -29,10 +29,17 @@ const teamCommand = /^\/team\s+\S/;
 const fingerprint = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export class TeamStore {
-  constructor({ store, servers = () => null, sshGranted = () => false }) {
+  constructor({
+    store,
+    servers = () => null,
+    sshGranted = () => false,
+    projectFiles = () => ({}),
+  }) {
     this.store = store;
     // Whether an agent holds an SSH grant (AssistantAccess.hasSshGrants).
     this.sshGranted = sshGranted;
+    // An agent's project folder levels (AssistantAccess projectFiles), read live.
+    this.projectFiles = projectFiles;
     // The central MCP server store, looked up when a proposal names servers.
     this.servers = servers;
     this.db = store.db;
@@ -286,6 +293,7 @@ export class TeamStore {
           assertWithinLead(parent, grants, {
             shellSsh,
             ssh: !!this.sshGranted(parent.id),
+            projects: this.projectFiles(parent.id),
           });
         return {
           ...draft,

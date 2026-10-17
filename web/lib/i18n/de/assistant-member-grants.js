@@ -13,6 +13,8 @@ export const memberGrantCopy = {
     someSkills: "Skills",
     anyShell: "Shell",
     mcpServers: (count) => `MCP-Server: ${count}`,
+    projects: (count) => `Projektordner: ${count}`,
+    someProjects: "Projektordner",
   },
   fields: {
     name: "Namen",
@@ -29,6 +31,12 @@ export const memberGrantCopy = {
   hint: "Der leitende Agent entscheidet, was dieses auftragsgebundene Mitglied erhält, im Rahmen dessen, was er selbst hat; Shell und SSH brauchen deine Freigabe. Verliert der leitende Agent etwas, verliert es auch das Mitglied.",
   memory: "Gedächtnis des leitenden Agenten (schreibgeschützte Kopie)",
   ownMemory: "Eigenes Gedächtnis",
+  projectFolders: "Projektordner",
+  folderCounts: {
+    write: (count) => `${count} lesen und schreiben`,
+    read: (count) => `${count} lesen`,
+    none: "Keine",
+  },
   ownMemoryHint:
     "Was dieses Mitglied selbst gespeichert hat; immer an. Das Gedächtnis des leitenden Agenten ist eine getrennte, schreibgeschützte Kopie.",
   on: "An",
