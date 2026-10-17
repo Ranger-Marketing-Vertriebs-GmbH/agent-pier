@@ -720,7 +720,7 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.10.3 and its qualified rollback predecessors 2026.9.9 and 2026.9.8. Eligible parents receive the nine managed team tools (propose, status,
+to OpenClaw 2026.10.3 and its qualified rollback predecessors 2026.9.9 and 2026.9.8. Eligible parents receive the ten managed team tools (propose, status,
 stop, grant ([team member grants](#team-member-grants-2026-10-17)) and the [member tools](#lead-questions-and-tasks-for-members)) and
 `session_status`; members receive only `session_status`. Direct native spawning
 and alternative session mutation tools are not offered; `exec` and `process` only
@@ -779,7 +779,8 @@ A lead reaches its own members without the owner relaying anything
   them (temporary or permanent, running or finished); `agentpier_team_delegate`
   hands a task to a permanent member (one open task per member);
   `agentpier_team_cancel` cancels an open one; `agentpier_team_archive` archives the
-  lead's finished temporary members without asking. Members never get these tools,
+  lead's finished temporary members without asking; `agentpier_team_member_update`
+  edits a temporary member (see below). Members never get these tools,
   and the bridge refuses them to member turns, so there are no chains.
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
@@ -1227,6 +1228,33 @@ with `SSH_ORIGIN_REFUSED`; a routine may run only on `routines` hosts
 (`SSH_ROUTINE_NOT_TRUSTED`). Late approvals return as an `ssh-result` follow-up turn
 that keeps the original turn's origin class. Agents with SSH grants never own a bot
 for other people.
+
+## Lead edits of team members (2026-10-17)
+
+`agentpier_team_member_update` (lead-only, `member-edits.js`) changes one of the
+lead's own temporary members that works on its task or is finished but still
+reachable (not archived, not kept as permanent, with a chat; `reachableMember` in
+`member-reach.js`, the same rule as later grants):
+
+- `name` (as for any agent, at most 100 characters), `role` (200) and `assignment`
+  (8192) update the member's record, which the sidebar, the team card and the
+  Telegram texts show. Role and assignment replace the `Role:` and `Assignment:`
+  lines in the member's current instructions, or are appended when the owner's edit
+  removed them.
+- `extraInstructions` (8192) puts the lead's own delimited section at the end of
+  the instructions, replacing an earlier one; an empty value removes it.
+- `instructions` (65536) replaces the member's whole instructions, whatever the
+  owner wrote before (owner's decision: the lead may rewrite them completely, since
+  earlier text could interfere). It cannot be combined with `extraInstructions`.
+
+Owner edits never block the lead. Every result is recorded as the lead's
+(`leadInstructions` on the member's team record), so the member's settings show an
+instructions override only for owner edits made after it. Each change is visible:
+an entry in the member's log (team card and **Capabilities → Granted by the lead
+agent**, with the replaced instructions text for the owner to read), a note in the
+member's and the lead's chats, and an audit record (`assistant.updated`, `kind:
+"member-edit"`) that names the changed fields only. The member's new revision
+applies from its next turn; a running member is re-applied at once.
 
 ## Team member grants (2026-10-17)
 

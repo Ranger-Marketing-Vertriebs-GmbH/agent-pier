@@ -14,6 +14,13 @@ export const memberGrantCopy = {
     anyShell: "Shell",
     mcpServers: (count) => `MCP servers: ${count}`,
   },
+  fields: {
+    name: "name",
+    role: "role",
+    assignment: "assignment",
+    extraInstructions: "additional instructions",
+    instructions: "instructions",
+  },
   none: "No tools",
   gets: (labels) => `Gets: ${labels}`,
   proposalWarning:
@@ -23,8 +30,10 @@ export const memberGrantCopy = {
   memory: "Memory (read-only copy)",
   on: "On",
   off: "Off",
+  previousInstructions: "Instructions it replaced",
   history: "Changes",
   log: {
+    edited: (date, fields) => `${date}: the lead agent changed the member's ${fields}`,
     lead: (date, labels) => `${date}: the lead agent granted ${labels}`,
     revoked: (date, labels) => `${date}: the lead agent took back ${labels}`,
     ownerRevoked: (date, labels) =>
@@ -32,6 +41,9 @@ export const memberGrantCopy = {
     owner: (date, labels) => `${date}: you approved ${labels}`,
   },
   note: {
+    updated: (member, fields) => `The lead agent changed ${member}'s ${fields}`,
+    renamed: (previous, member, fields) =>
+      `The lead agent changed ${previous}'s ${fields}; it is now called ${member}`,
     reminder: (member) =>
       `${member} set a reminder on the lead agent; it is listed in its reminders`,
     granted: (member, labels) => `${member} was granted ${labels} by its lead agent`,

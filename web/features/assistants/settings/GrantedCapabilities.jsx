@@ -52,7 +52,15 @@ export default function GrantedCapabilities({ inherited, member }) {
           <h3 className="agent-granted-history">{grantCopy.history}</h3>
           <ul className="agent-granted-log" data-grant-log="">
             {[...log].reverse().map((entry, n) => (
-              <li key={n}>{logText(entry)}</li>
+              <li key={n}>
+                {logText(entry)}
+                {entry.previousInstructions && (
+                  <details className="agent-granted-previous">
+                    <summary>{grantCopy.previousInstructions}</summary>
+                    <pre>{entry.previousInstructions}</pre>
+                  </details>
+                )}
+              </li>
             ))}
           </ul>
         </>

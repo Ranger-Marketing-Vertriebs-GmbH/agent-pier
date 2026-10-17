@@ -56,8 +56,13 @@ export const grantsLine = (grants, servers) => {
 };
 
 /** One change in a member's grant log, dated as the viewer reads dates. */
+/** The changed fields of a lead's member edit, as words ("name, role"). */
+export const fieldLabels = (fields = []) =>
+  fields.map((key) => copy.fields[key] || key).join(", ");
+
 export function logText(entry) {
   const date = new Date(entry.at).toLocaleString();
+  if (entry.edited) return copy.log.edited(date, fieldLabels(entry.edited));
   const labels = keyLabels(entry.revoked || entry.granted, entry.mcpServers);
   if (entry.revoked)
     return entry.by === "owner"
