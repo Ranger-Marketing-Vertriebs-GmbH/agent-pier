@@ -1,5 +1,5 @@
 import express from "express";
-import { sessionDuration } from "../features/login/login-store.js";
+import { idleDuration } from "../features/login/login-store.js";
 import { loginErrors } from "../features/login/login-errors.js";
 import { loginMessages as copy } from "../lib/i18n/de/login.js";
 const cookieName = "agentpier_session";
@@ -47,7 +47,7 @@ export function loginRoutes(login, effective) {
   const cookie = (req, res, token) =>
     res.cookie(cookieName, token, {
       ...cookieOptions(req, effective()),
-      maxAge: token ? sessionDuration : 0,
+      maxAge: token ? idleDuration : 0,
     });
   router.get("/status", (req, res) => res.json(status(req)));
   router.post("/setup", async (req, res) => {
@@ -97,7 +97,12 @@ export function requireLogin(login, effective) {
       directLocalRequest(req, effective())
     )
       return next();
-    const session = login.require(sessionToken(req));
+    const token = sessionToken(req);
+    const session = login.require(token);
+    // WebSocket upgrades cannot set cookies; the next page request carries the renewal.
+    const maxAge = login.renew(session);
+    if (maxAge)
+      res.cookie(cookieName, token, { ...cookieOptions(req, effective()), maxAge });
     const cleanup = login.watch(session, () => res.destroy());
     res.once("close", cleanup);
     next();

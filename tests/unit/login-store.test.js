@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { LoginStore, sessionDuration } from "../../server/features/login/login-store.js";
+import { LoginStore, idleDuration } from "../../server/features/login/login-store.js";
 function fixture(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-login-store-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -30,7 +30,7 @@ test("expired and revoked tokens fail after restart and cookie strings cannot be
   ])
     assert.equal(f.store.session(invalid), null);
   assert.ok(new LoginStore(f.options).session(token));
-  f.advance(sessionDuration);
+  f.advance(idleDuration);
   assert.equal(f.store.session(token), null);
   assert.equal(new LoginStore(f.options).session(token), null);
   const next = await f.store.login(credentials);
@@ -58,7 +58,7 @@ test("corrupt login state never reopens first user setup", async (t) => {
 test("active consumers are disconnected at absolute session expiry", async (t) => {
   const f = fixture(t);
   const token = await f.store.setup(credentials);
-  f.advance(sessionDuration - 15);
+  f.advance(idleDuration - 15);
   t.mock.timers.enable({ apis: ["setTimeout"] });
   let closed = 0;
   const cleanup = f.store.watch(f.store.require(token), () => closed++);
