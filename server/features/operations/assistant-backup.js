@@ -66,6 +66,9 @@ const excludedFiles = new Set([
 // Caches of the Gateway's own trees, in any spelling (Chromium's "Cache", "Code
 // Cache", "GPUCache"); workspaces belong to the user and stay complete.
 const volatileTree = /(^|\/)([^/]*cache|node_modules)(\/|$)/i;
+// What builds before the agent browser profiles excluded; restores stay accepting
+// everything they archived (restorable below).
+const legacyVolatileTree = /(^|\/)(cache|node_modules)(\/|$)/;
 // The agents' browser profiles go only sealed (browser-profile-backup.js).
 const browserTree = /^state\/browser(\/|$)/;
 const volatile = /-(wal|shm|journal)$|\.lock$|\.tmp$/;
@@ -84,16 +87,30 @@ const omitted = (omission) => ({
   manifest: null,
 });
 
-const included = (relative) => {
+/** What a restore accepts: everything any host backup has archived publicly. */
+const restorable = (relative) => {
   const [top] = relative.split("/");
   return (
     !excludedFolders.has(top) &&
     !excludedFiles.has(relative) &&
     !volatile.test(relative) &&
-    !browserTree.test(relative) &&
-    (top === "workspaces" || !volatileTree.test(relative))
+    (top === "workspaces" || !legacyVolatileTree.test(relative))
   );
 };
+/** What a capture archives publicly: never browser profiles, never caches. */
+const included = (relative) =>
+  restorable(relative) &&
+  !browserTree.test(relative) &&
+  (relative.split("/")[0] === "workspaces" || !volatileTree.test(relative));
+/**
+ * A cache an older backup archived publicly (Chromium's "Cache", "GPUCache"); a
+ * restore accepts it and leaves it out.
+ */
+export function isLegacyAssistantCache(name) {
+  if (!isAssistantMember(name)) return false;
+  const relative = name.slice(prefix.length + 1);
+  return !relative.startsWith("workspaces/") && volatileTree.test(relative);
+}
 /** True for an archive member path a host backup may restore into assistants/. */
 export function isAssistantMember(name) {
   if (typeof name !== "string" || !name.startsWith(`${prefix}/`)) return false;
@@ -103,7 +120,7 @@ export function isAssistantMember(name) {
     return false;
   }
   const relative = name.slice(prefix.length + 1);
-  return included(
+  return restorable(
     relative.endsWith(sealedSuffix) ? relative.slice(0, -sealedSuffix.length) : relative,
   );
 }

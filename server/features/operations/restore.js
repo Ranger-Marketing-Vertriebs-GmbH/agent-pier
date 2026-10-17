@@ -17,6 +17,7 @@ import { mcpStoreMember, restoreMcpServers } from "./mcp-server-backup.js";
 import { AuditStore } from "../audit/audit-store.js";
 import {
   isAssistantMember,
+  isLegacyAssistantCache,
   restoreAssistants,
   validateAssistantManifest,
 } from "./assistant-backup.js";
@@ -175,6 +176,7 @@ async function stageArchive(archive, directory, { passphrase, inspect = false })
       .map((entry) => entry.component),
   );
   const leftOut = [];
+  let cachesLeftOut = 0;
   let secrets = null,
     seals = null;
   await readArchive(archive, {
@@ -220,6 +222,11 @@ async function stageArchive(archive, directory, { passphrase, inspect = false })
       if (!allowed(member.path, false, 2))
         throw problem(serverMessages.backups.unexpectedComponent);
       if (inspect && !inspected(member.path)) return null;
+      // Older backups archived browser caches; they are never restored.
+      if (isLegacyAssistantCache(member.path)) {
+        cachesLeftOut++;
+        return null;
+      }
       if (changed.has(member.path) && !lineBased.test(member.path)) {
         leftOut.push(member.path);
         return null;
@@ -230,7 +237,7 @@ async function stageArchive(archive, directory, { passphrase, inspect = false })
   validateAssistantManifest(header.manifest.assistants, publicPaths, (name) =>
     fs.readFileSync(path.join(directory, name), "utf8"),
   );
-  return { manifest: header.manifest, secrets, version: 2, leftOut };
+  return { manifest: header.manifest, secrets, version: 2, leftOut, cachesLeftOut };
 }
 /** The checks an inspection runs on staged application data. */
 function verifyStaged(directory) {
@@ -383,6 +390,7 @@ export class Restore {
         ...counts,
         omissions: manifest.omissions,
         ...(staged.leftOut.length ? { changedFilesLeftOut: staged.leftOut } : {}),
+        ...(staged.cachesLeftOut ? { cachesLeftOut: staged.cachesLeftOut } : {}),
       };
       fs.writeFileSync(
         path.join(stage, "restore-report.json"),

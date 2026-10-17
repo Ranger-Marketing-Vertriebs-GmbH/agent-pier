@@ -6,7 +6,8 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
-import { loadArchive } from "../helpers/backup-archive.js";
+import { createHash } from "node:crypto";
+import { encodeArchiveV2, loadArchive } from "../helpers/backup-archive.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import {
   browserCachesOmission,
@@ -114,4 +115,45 @@ test("with a passphrase agent profiles are sealed and restore without caches", a
     assert.equal(fs.existsSync(path.join(restored, cache)), false, cache);
   const browser = path.join(target, "assistants/state/browser");
   assert.deepEqual(fs.readdirSync(browser), ["agent-a1"]);
+});
+
+test("backups from before agent browser profiles restore: profiles back, caches skipped", async (t) => {
+  const { dataDir } = fixture(t);
+  const archive = loadArchive((await new Backup({ dataDir }).create()).file);
+  // Earlier builds archived OpenClaw's default profile publicly, caches included.
+  const add = (name, text) => {
+    const content = Buffer.from(text);
+    archive.files.push({
+      path: name,
+      mode: 0o600,
+      content: content.toString("base64"),
+      sha256: createHash("sha256").update(content).digest("hex"),
+    });
+  };
+  const legacy = "assistants/state/browser/openclaw/user-data";
+  add(`${legacy}/Default/Preferences`, "legacy preferences");
+  add(`${legacy}/Default/Cookies`, "legacy cookies");
+  add(`${legacy}/Default/GPUCache/data_0`, cached);
+  add(`${legacy}/Default/Code Cache/js/index`, cached);
+  add(`${legacy}/Default/Cache/Cache_Data/f_0001`, cached);
+  const older = path.join(path.dirname(dataDir), "older.apbackup");
+  fs.writeFileSync(older, encodeArchiveV2(archive));
+  await new Restore({ dataDir }).inspect({ archive: older });
+  const target = path.join(path.dirname(dataDir), "older-restored");
+  const report = await new Restore({ dataDir }).apply({
+    archive: older,
+    targetDataDir: target,
+  });
+  const restored = path.join(target, legacy);
+  assert.equal(
+    fs.readFileSync(path.join(restored, "Default/Preferences"), "utf8"),
+    "legacy preferences",
+  );
+  assert.equal(
+    fs.readFileSync(path.join(restored, "Default/Cookies"), "utf8"),
+    "legacy cookies",
+  );
+  for (const cache of ["Default/GPUCache", "Default/Code Cache", "Default/Cache"])
+    assert.equal(fs.existsSync(path.join(restored, cache)), false, cache);
+  assert.equal(report.cachesLeftOut, 3);
 });
