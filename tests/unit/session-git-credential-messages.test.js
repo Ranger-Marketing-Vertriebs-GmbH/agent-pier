@@ -56,7 +56,7 @@ test("each helper failure names its cause and the fix", (t) => {
   );
   assert.match(
     problem(request("github.com"), env),
-    /profile for github\.com was removed.*Settings → Access → GitHub/,
+    /profile for github\.com was removed.*Settings → Access → GitHub connections, then reload the session/,
   );
   fs.rmSync(folder, { recursive: true });
   assert.match(problem(request("github.com"), env), /session folder.*is missing/);

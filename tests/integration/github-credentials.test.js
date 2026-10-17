@@ -140,7 +140,7 @@ test("rotation, revocation and restart synchronize saved selections without reta
   await credentials.discard("rotate");
   assert.equal(fs.existsSync(prepared.env.GH_CONFIG_DIR), false);
 });
-test("login sessions skip, shells get the session folder; unsupported native hosts skipped; symlink directories and secrets fail closed", async (t) => {
+test("login sessions skip, shells keep the owner's gh config; unsupported native hosts skipped; symlink directories and secrets fail closed", async (t) => {
   const { root, repositories, credentials } = setup(t);
   repositories.createCredential({
     name: "Port",
@@ -168,9 +168,15 @@ test("login sessions skip, shells get the session folder; unsupported native hos
     cwd: root,
     launch,
   });
-  assert.equal(shell.env.GH_CONFIG_DIR, credentials.folder("shell"));
-  assert.equal(shell.env.GH_TOKEN, undefined);
-  assert.match(shell.env.GIT_CONFIG_VALUE_2, /--git-credential$/);
+  // gh in a shell keeps the owner's own login; git gets the per-host helper.
+  assert.equal(shell.env.GH_CONFIG_DIR, undefined);
+  assert.equal(shell.env.GH_TOKEN, "ambient");
+  assert.equal(shell.env.PATH, launch.env.PATH);
+  assert.ok(
+    shell.env.GIT_CONFIG_VALUE_2.endsWith(
+      `--git-credential --session ${"'" + credentials.folder("shell") + "'"}`,
+    ),
+  );
   const prepared = await credentials.prepare({
     id: "valid",
     account: { tool: "opencode" },

@@ -30,6 +30,7 @@ export class GithubTokenMonitor {
     });
     this.pending = null;
     this.closed = false;
+    this.controller = new AbortController();
   }
   start() {
     if (this.closed || this.timer) return;
@@ -55,11 +56,14 @@ export class GithubTokenMonitor {
       if (Number.isFinite(last) && this.now() - last < this.maxAgeMs) continue;
       let checked;
       try {
-        checked = await this.repositories.checkCredential(credential.id);
+        checked = await this.repositories.checkCredential(credential.id, {
+          signal: this.controller.signal,
+        });
       } catch (error) {
-        this.onError(error);
+        if (!this.closed) this.onError(error);
         continue;
       }
+      if (this.closed) return;
       const state = checked?.tokenCheck?.state;
       if (!attentionStates.has(state) || credential.tokenCheck?.state === state) continue;
       // One notice per profile and state change; a repeated run reuses the event id.
@@ -76,6 +80,13 @@ export class GithubTokenMonitor {
     this.closed = true;
     clearTimeout(this.timer);
     clearInterval(this.timer);
-    await this.pending?.catch(() => {});
+    this.controller.abort();
+    // An aborted check settles at once; never let shutdown wait on GitHub.
+    let timer;
+    await Promise.race([
+      this.pending?.catch(() => {}),
+      new Promise((resolve) => (timer = setTimeout(resolve, 1000))),
+    ]);
+    clearTimeout(timer);
   }
 }

@@ -120,7 +120,8 @@ export function credentialLookup(input, env = process.env, operation = "get") {
   )
     return failed(
       `the GitHub profile for ${host} was removed, moved to another host or has no token`,
-      `save a token for ${host} in ${settings}; running sessions pick it up automatically`,
+      // A new profile has a new id that a running session never selected.
+      `save a token for ${host} in ${settings}, then ${reload}`,
     );
   return { output: `username=x-access-token\npassword=${token}\n\n`, problem: null };
 }
@@ -135,7 +136,16 @@ export async function runGitCredentialCommand() {
     input += chunk;
     if (input.length > maxCredentialRequestLength) break;
   }
-  const { output, problem } = credentialLookup(input, process.env, process.argv[3]);
+  // Shells name their session folder as an argument and keep the owner's own
+  // GH_CONFIG_DIR: `--git-credential --session <folder> <operation>`.
+  const [flag, folder, operation] = process.argv.slice(3);
+  const session = flag === "--session";
+  const env = session ? { ...process.env, GH_CONFIG_DIR: folder } : process.env;
+  const { output, problem } = credentialLookup(
+    input,
+    env,
+    session ? operation : process.argv[3],
+  );
   if (problem) process.stderr.write(`${problem}\n`);
   process.stdout.write(output);
 }
