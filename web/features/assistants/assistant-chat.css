@@ -495,9 +495,6 @@
     gap: 8px;
     padding: 10px 8px 8px 14px;
   }
-  .assistant-composer textarea {
-    font-size: 16px;
-  }
   .assistant-composer-row {
     gap: 8px;
   }

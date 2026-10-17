@@ -34,6 +34,14 @@ bottom padding and the save bar add `var(--safe-area-inset-bottom)` (from
 it carries that inset, the scroller drops its own, and the last card keeps a gap above
 the bar (`tests/browser/settings-bottom-spacing.spec.js`).
 
+Text-entry controls (inputs other than checkbox, radio, range, color and file, selects,
+textareas and `contenteditable`) are at least 16px on phones and touch screens, because
+iOS Safari zooms into a smaller focused field. One rule in `web/styles/base.css` sets
+them to 16px there and overrides feature sizes, so feature styles need no per-form
+override; desktop keeps its compact sizes. Never disable zoom in the viewport meta.
+`tests/browser/touch-input-size-views.spec.js` and `touch-input-size-forms.spec.js`
+walk the views and forms at 390px and fail on any visible smaller control.
+
 Warnings, the selected shell level's hint, the stdio warning and all error and conflict
 notices stay visible; other explanations move behind ⓘ verbatim.
 

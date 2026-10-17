@@ -42,10 +42,6 @@
   .mobile-session-workspace .terminal-pane {
     overflow: hidden;
   }
-  .mobile-session-workspace .xterm-helper-textarea,
-  .mobile-session-workspace .chat-composer textarea {
-    font-size: 16px;
-  }
   .mobile-session-workspace .xterm-viewport {
     overscroll-behavior: contain;
   }

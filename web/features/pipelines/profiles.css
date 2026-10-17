@@ -226,11 +226,4 @@
   .profile-card .pipeline-parameter > label:not(.pipeline-check) {
     grid-column: 1 / -1;
   }
-  /* Inputs below 16px make mobile browsers zoom on focus. */
-  .profile-card label > input:not([type="checkbox"]),
-  .profile-card label > textarea,
-  .verification-step > input,
-  .verification-register input {
-    font-size: 16px;
-  }
 }

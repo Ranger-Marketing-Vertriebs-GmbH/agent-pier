@@ -84,6 +84,8 @@ Playwright discovers `tests/browser/*.spec.js`. `npm run test:e2e` starts a disp
 
 `terminal-viewport.spec.js` simulates mobile visual-viewport height and offset changes in Chromium and WebKit, verifies terminal row resizing and toolbar visibility, and checks cleanup when switching views or returning to desktop. `terminal-touch-scroll.spec.js` also covers native Chromium swipes and pinch zoom. These fixtures do not open a real device keyboard; use a phone to confirm browser-specific keyboard animation and focus behavior.
 
+`touch-input-size-views.spec.js` and `touch-input-size-forms.spec.js` open the main views, dialogs and forms at 390×844 with touch and fail with a list of every visible text-entry control under 16px (the size below which iOS Safari zooms on focus) or any view that scrolls sideways. Add a step there when a new form or dialog appears.
+
 ```sh
 npm run build
 npm run test:e2e

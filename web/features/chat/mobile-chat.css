@@ -107,7 +107,6 @@
     max-height: 144px;
     padding: 6px 8px;
     resize: none;
-    font-size: 16px;
     border-radius: 12px;
   }
   .mobile-chat-workspace .chat-composer textarea:focus-visible {
