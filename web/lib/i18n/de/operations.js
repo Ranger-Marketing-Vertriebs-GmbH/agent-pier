@@ -250,6 +250,16 @@ export const diagnosticCopy = {
   account: "Account-Profil",
   project: "Projektverzeichnis",
   adapterSession: "Adapter-Sitzung",
+  remedies: {
+    platform: "Nutze einen unterstützten macOS- oder Linux-Rechner.",
+    pty: "Installiere die Abhängigkeiten für diese Node-Laufzeit und Plattform neu.",
+    tool: "Installiere das Werkzeug oder korrigiere den PATH des Dienstes.",
+    project:
+      "Stelle den Projekt-Checkout auf diesem Rechner wieder her oder ordne ihn zu.",
+    adapterReload: "Lade die Sitzung neu, um den Protokolladapter neu zu starten.",
+    adapterRestartFailed:
+      "Lade die Sitzung neu, um den Protokolladapter neu zu starten. Schlägt das erneut fehl, teste die Verbindung und prüfe ihre Adresse.",
+  },
   checks: {
     platform: "Betriebssystem",
     node: "Node.js-Laufzeit",

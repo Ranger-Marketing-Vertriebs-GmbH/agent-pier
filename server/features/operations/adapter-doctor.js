@@ -126,6 +126,7 @@ export function adapterCheck(session, snapshot) {
       status: "fail",
       summary: `${head}: the protocol adapter stopped after ${count(supervisor.restarts)} restart(s) (${supervisor.lastReason ?? "exited"}) at ${at}; every request of the CLI now gets HTTP 503.`,
       remedy: RELOAD,
+      remedyId: "adapterReload",
       details: details(snapshot),
     };
   if (snapshot.supervisor?.startFailed)
@@ -134,6 +135,7 @@ export function adapterCheck(session, snapshot) {
       status: "fail",
       summary: `${head}: the protocol adapter failed to start (${supervisor.startFailed ?? "unknown"}) at ${at}.`,
       remedy: `${RELOAD} If it fails again, test the connection and check its address.`,
+      remedyId: "adapterRestartFailed",
       details: details(snapshot),
     };
   const requests = count(snapshot.requests);

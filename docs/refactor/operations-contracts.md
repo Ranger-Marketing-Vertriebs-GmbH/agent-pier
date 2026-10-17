@@ -5,7 +5,7 @@ All endpoints below have `/api/operations` prefix and use existing owner authori
 ## Diagnostics
 
 - GET `/doctor` → `{report:null|{version,generatedAt,checks}}`.
-- POST `/doctor` with `{scope:'host'|'project',projectId?,deep?:boolean}` → `{report}`. Each check has `{id,status,summary,remedy?,details?}` and status `ok|warn|fail|skip`. Report text is English diagnostic evidence; UI translates stable check/status labels.
+- POST `/doctor` with `{scope:'host'|'project',projectId?,deep?:boolean}` → `{report}`. Each check has `{id,status,summary,remedy?,remedyId?,details?}` and status `ok|warn|fail|skip`; `remedy` and `remedyId` appear only on `warn` and `fail`. Report text is English diagnostic evidence; UI translates stable check/status labels and remedies by `remedyId`.
 
 ## Backups
 

@@ -6,3 +6,10 @@ export function checkLabel(id) {
   if (id.startsWith("adapter-session.")) return `${copy.adapterSession}: ${id.slice(16)}`;
   return id;
 }
+// A remedy is shown only for checks that need action, translated by its stable id.
+export function remedyText(check) {
+  if (check.status !== "warn" && check.status !== "fail") return null;
+  if (check.remedyId && copy.remedies[check.remedyId])
+    return copy.remedies[check.remedyId];
+  return typeof check.remedy === "string" && check.remedy ? check.remedy : null;
+}

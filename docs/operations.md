@@ -96,6 +96,8 @@ node scripts/operations.mjs release-activate --staged-id STAGED_ID
 node scripts/operations.mjs release-rollback --version 1.0.0
 ```
 
+`doctor` prints the report as JSON and exits nonzero when a check fails. Each check has an `id`, a `status` (`ok`, `warn`, `fail` or `skip`) and an English `summary` as diagnostic evidence. Only checks that warn or fail carry a `remedy` (English text) and a stable `remedyId`; Settings → Operations → Diagnostics shows the translated remedy under “Suggested fix”.
+
 Passphrase-stdin consumes one bounded line; supply it through a password manager or private stdin, not a literal secret in shell history. CLI operation failures exit nonzero. The API schema and UI job semantics are in [operations-contracts.md](refactor/operations-contracts.md).
 
 Initial installation with `--service` waits for the installed version at `/api/health`. If health fails, the installer reports failure and preserves the selected release and data directory for inspection; service registration alone is not reported as a healthy installation.
