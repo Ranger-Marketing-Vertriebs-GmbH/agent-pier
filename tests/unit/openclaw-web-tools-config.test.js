@@ -229,7 +229,7 @@ test("an unavailable provider keeps web_search out of every tool list", () => {
     assert.deepEqual(config.plugins.load.paths, ["/private/plugin"]);
     // The other capabilities still apply.
     assert.ok(config.tools.allow.includes("web_fetch"));
-    assert.ok(agentAllow(config, "ap-a1").includes("browser"));
+    assert.ok(config.tools.allow.includes("browser"));
   }
   assert.deepEqual(webToolsAvailability(webTools({ searchPlugins: {} })), {
     browser: true,
@@ -268,7 +268,8 @@ test("the browser block uses only the isolated profile without JavaScript evalua
     "browser",
   ]);
   assert.equal(config.tools.web, undefined);
-  assert.ok(agentAllow(config, "ap-a1").includes("browser"));
+  // The agent gets the browser once the tool guard reported (write-guard-reapply.js).
+  assert.ok(!agentAllow(config, "ap-a1").includes("browser"));
 });
 
 test("a missing browser withholds the tool even when an agent has the capability", () => {

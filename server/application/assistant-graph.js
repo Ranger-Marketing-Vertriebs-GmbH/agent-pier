@@ -146,6 +146,21 @@ export function constructAssistantGraph(host, created = {}) {
   assistants.browsers = created.browsers = new AgentBrowsers({
     store,
     runtime: assistantRuntime,
+    // An agent with a run in progress keeps its browser when another needs room.
+    busy: (id) => {
+      try {
+        return assistants.ledger
+          .pending()
+          .some(
+            (attempt) =>
+              store.getConversation(
+                assistants.ledger.getRequest(attempt.requestId).conversationId,
+              ).assistantId === id,
+          );
+      } catch {
+        return true;
+      }
+    },
   });
   assistants.browsers.onChange = () => assistants.changed();
   assistants.browsers.start();

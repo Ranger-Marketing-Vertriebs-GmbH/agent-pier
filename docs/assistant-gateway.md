@@ -1158,15 +1158,24 @@ always opened by the same app. The block:
 The team plugin's `before_tool_call` guard asks AgentPier (`/browser-policy`, in
 `agent-browsers.js`) before every browser call. The answer pins the call to the
 calling agent's own profile on the Gateway host, whatever profile the model named,
-and refuses `importprofile`; without an answer the call is refused. AgentPier also
-keeps the limits:
+and refuses `importprofile` in any spelling; without an answer the call is refused.
+Like guarded writes, the `browser` tool is offered only once the Gateway's tool guard
+has reported (`guardGatedTools`); a fresh start compiles it out and the guard's report
+brings it back (`write-guard-reapply.js`). AgentPier also keeps the limits:
 
 - at most three visible agent browsers run at once. A fourth stops the least recently
-  used one that has been idle for a minute; with all three in use the call is refused
-  with a message the agent passes on;
+  used one that is not busy; a browser is busy while it was used in the last five
+  minutes, while its agent has a run in progress, or while the owner has one of its
+  windows open. With all three busy the call is refused with a message the agent
+  passes on. Only calls that can launch a browser count: `status`, `profiles`,
+  `doctor` and `stop` never start one;
+- AgentPier watches each browser it saw launched on its CDP port. A browser that
+  ended (a stop elsewhere, a crash) no longer counts, and the next launching call
+  watches the new one. A Gateway reconnect keeps the tracking; a failure or a new
+  start drops it;
 - a browser unused for 15 minutes is stopped (`browser.request` `POST /stop`);
 - a visible browser starts minimized. A small CDP client of AgentPier's on the
-  profile's loopback port minimizes the windows the browser opens at launch and keeps
+  profile's loopback port minimizes the windows a fresh launch opens and keeps
   focus emulation on every page, so minimized pages keep rendering for screenshots,
   clicks and typing. Windows opened later, such as a login popup or a window the owner
   restored from the Dock, are left alone. The CDP port is loopback-only and
@@ -1175,12 +1184,16 @@ keeps the limits:
 Switching the browser on for another agent, or switching a window on or off, changes
 the compiled profiles and restarts the agent service after the owner confirms, like
 other web tool changes. **Reset browser profile** stops the agent's browser and
-deletes its profile. While an agent's browser runs, its chat header shows
+deletes its profile. An archived agent keeps its profile, since archiving can be
+undone, and can still reset it. While an agent's browser runs, its chat header shows
 **Browser running**.
 
 Logged-in profiles widen what a misled agent can do: a page can try to make it act on
 the accounts the owner signed in to. The browser stays an opt-in per agent; sign in
-only where the agent needs it, and reset the profile to sign it out everywhere.
+only where the agent needs it, and reset the profile to sign it out everywhere. The
+guard covers the browser tool only: an agent with shell access runs as the owner and
+can reach every agent's unauthenticated loopback CDP port and read the profile files,
+whose cookies are encrypted only with Chromium's fixed mock key.
 
 The `browser`, `mcp`, `secrets`, `env`, `plugins` and `tools` paths are locked
 against configuration overrides; the compiler rewrites the browser block on each

@@ -19,6 +19,9 @@ export const memoryTools = ["memory_search", "memory_get", "read", "write", "edi
 // Writes reach the workspace only through the plugin's before_tool_call guard, which
 // is verified live on these runtimes; elsewhere memory stays read-only.
 export const guardedTools = ["write", "edit"];
+// Tools offered only while the plugin's tool guard is proven: the guarded writes and
+// the browser, whose calls the guard pins to the agent's own profile.
+export const guardGatedTools = [...guardedTools, "browser"];
 export const writeGuardRuntimes = ["2026.9.8", "2026.9.9", "2026.10.3"];
 export const delegationTools = [
   "agentpier_team_propose",
@@ -162,8 +165,13 @@ export function profileTools(
     ...(nativeReady && !assistant.archivedAt ? ["agentpier_workspace"] : []),
     ...(nativeReady
       ? Object.entries(capabilityTools).flatMap(([key, tools]) =>
-          // `available` withholds a tool whose browser or search provider is absent.
-          capabilities[key] && available[key] !== false ? tools : [],
+          // `available` withholds a tool whose browser or search provider is absent;
+          // the browser also waits for the proven tool guard.
+          capabilities[key] &&
+          available[key] !== false &&
+          (key !== "browser" || writeGuard)
+            ? tools
+            : [],
         )
       : []),
     // Paired with the entry's tools.exec override (openclaw-config/shell.js).
