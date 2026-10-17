@@ -262,6 +262,7 @@ test(
     assert.deepEqual(
       [...runTools].sort(),
       [
+        "agentpier_share_file",
         "apply_patch",
         "edit",
         "memory_get",
@@ -386,7 +387,11 @@ test(
     assert.equal(await conversationMessage(service, conversation.id, shown.id), digest);
     const narrowed = offered(model.requests.slice(offset).find(isRoutine));
     t.diagnostic(`routine tools without memory=${JSON.stringify(narrowed)}`);
-    assert.deepEqual([...narrowed].sort(), ["session_status", "web_fetch"]);
+    assert.deepEqual([...narrowed].sort(), [
+      "agentpier_share_file",
+      "session_status",
+      "web_fetch",
+    ]);
 
     const runs = await routines.runs(id, routine.id);
     assert.equal(runs.entries.filter((r) => r.status === "ok").length, 2);
