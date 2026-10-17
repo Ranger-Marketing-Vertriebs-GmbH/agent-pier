@@ -497,3 +497,32 @@ test("native chat selects the code block text when copying fails", async ({ page
     'const mode = mobile ? "reader" : "terminal";',
   );
 });
+// WebKit can drop the media query change event at a breakpoint (AGENTPIER-50, -61).
+// The task list must still follow the layout, and later resizes that stay on one
+// side of the breakpoint must keep the reader's own open/closed choice.
+test("tasks follow the breakpoint without its change event and keep the reader's choice", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const add = MediaQueryList.prototype.addEventListener;
+    MediaQueryList.prototype.addEventListener = function (type, ...rest) {
+      if (type !== "change") add.call(this, type, ...rest);
+    };
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page);
+  await page.goto(base + "/sessions/chat-demo/chat");
+  await expect(page.getByLabel("Chatverlauf")).toContainText("Chatansicht");
+  await expect(page.getByLabel("Aufgabenliste")).toBeHidden();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const panel = page.getByRole("complementary", { name: "Aufgabenliste" });
+  await expect(panel).toBeVisible();
+  await page.getByRole("button", { name: "Aufgaben ausblenden", exact: true }).click();
+  await expect(panel).toBeHidden();
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+  await expect(page.getByLabel("Aufgabenliste")).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Aufgaben einblenden", exact: true }),
+  ).toBeVisible();
+});

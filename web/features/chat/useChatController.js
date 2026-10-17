@@ -9,6 +9,7 @@ import { deliveryScope } from "./chat-draft.js";
 import { restoreScrollAnchor, scrollAnchor } from "./chat-scroll-anchor.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { chatAttachmentCopy as attachmentCopy } from "../../lib/i18n/messages/chat.js";
+import useMediaQuery from "../../lib/useMediaQuery.js";
 export default function useChatController({ active, session, request, onConnection }) {
   const [error, setError] = useState(""),
     [sent, setSent] = useState(false),
@@ -27,12 +28,15 @@ export default function useChatController({ active, session, request, onConnecti
     setAttachments: delivery.setAttachments,
   });
   const { attachments, uploading } = attachmentState;
-  const [tasksOpen, setTasksOpen] = useState(
-    () => !window.matchMedia("(max-width: 900px)").matches,
-  );
-  const [compactTasks, setCompactTasks] = useState(
-    () => window.matchMedia("(max-width: 900px)").matches,
-  );
+  const compactTasks = useMediaQuery("(max-width: 900px)");
+  const [tasksOpen, setTasksOpen] = useState(!compactTasks);
+  // Crossing the breakpoint opens or closes the list to match the layout. A re-read
+  // that finds the same side (a resize, a resubscribe) keeps the reader's choice.
+  const [tasksLayout, setTasksLayout] = useState(compactTasks);
+  if (tasksLayout !== compactTasks) {
+    setTasksLayout(compactTasks);
+    setTasksOpen(!compactTasks);
+  }
   const taskTrigger = useRef(null),
     taskOpener = useRef(null),
     taskId = useId();
@@ -51,15 +55,6 @@ export default function useChatController({ active, session, request, onConnecti
     if (tasksOpen) closeTasks();
     else openTasks(event);
   };
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 900px)");
-    const update = () => {
-      setCompactTasks(media.matches);
-      setTasksOpen(!media.matches);
-    };
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
   // Synchronous guard: a double Enter must not start a second send before state updates.
   const submitting = useRef(false);
   const output = useRef(null),
