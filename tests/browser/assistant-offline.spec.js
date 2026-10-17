@@ -61,7 +61,12 @@ async function offlineFixture(page) {
       json: { messages: histories[id] || [], requests: [], stale: false },
     });
   });
-  const network = { offline: false };
+  const network = { offline: false, authenticated: true };
+  await page.route("**/auth/status", (route) =>
+    route.fulfill({
+      json: { configured: true, authenticated: network.authenticated, canSetup: false },
+    }),
+  );
   await page.route("**/api/**", (route) =>
     network.offline ? route.abort("internetdisconnected") : route.fallback(),
   );
@@ -189,4 +194,18 @@ test("a refused event stream is opened again and refreshes the agents", async ({
   names.push("Home planner");
   await expect(row(page, "Home planner")).toBeVisible({ timeout: 10000 });
   expect(streams).toBeGreaterThan(1);
+});
+
+test("a logout forgets the agent drafts", async ({ page }) => {
+  const { network } = await offlineFixture(page);
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  await expect(page.getByText("We can plan dinner together.")).toBeVisible();
+  await page.getByLabel("Message", { exact: true }).fill("Private draft");
+  network.authenticated = false;
+  await page.evaluate(() => window.dispatchEvent(new Event("agentpier-login-required")));
+  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+  network.authenticated = true;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.getByText("We can plan dinner together.")).toBeVisible();
+  await expect(page.getByLabel("Message", { exact: true })).toHaveValue("");
 });

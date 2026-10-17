@@ -50,3 +50,11 @@ test("other attachments give the same text a new delivery key", () => {
   assert.equal(drafts.get("chat"), "Look at this");
   assert.notEqual(drafts.delivery("chat").clientRequestId, first.clientRequestId);
 });
+test("a logout forgets every chat's draft", () => {
+  const drafts = new AssistantDrafts();
+  drafts.set("one", "Dinner");
+  drafts.allowTeam("two", true);
+  drafts.clearAll();
+  assert.equal(drafts.get("one"), "");
+  assert.equal(drafts.teamAllowed("two"), false);
+});

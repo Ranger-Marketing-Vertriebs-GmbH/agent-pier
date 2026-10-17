@@ -37,4 +37,8 @@ export class AssistantDrafts {
   clear(id) {
     this.values.delete(id);
   }
+  // A logout or another user: no chat keeps the previous text.
+  clearAll() {
+    this.values.clear();
+  }
 }
