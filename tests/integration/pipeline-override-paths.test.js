@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import os from "node:os";
@@ -6,6 +6,11 @@ import fs from "node:fs";
 import { fixture } from "../helpers/pipeline-engine.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { availableActions } from "../../server/features/pipelines/pipeline-actions.js";
+
+const noRemoteDirs = [];
+after(() =>
+  noRemoteDirs.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })),
+);
 
 function verifier() {
   const jobs = new Map(),
@@ -284,5 +289,9 @@ test("a cwd outside a repository leaves the start to the usual preparation error
   assert.equal(await manager.hasRemote(path.join(f0(), "missing")), true);
 });
 function f0() {
-  return fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "agentpier-noremote-"));
+  const dir = fs.mkdtempSync(
+    path.join(fs.realpathSync(os.tmpdir()), "agentpier-noremote-"),
+  );
+  noRemoteDirs.push(dir);
+  return dir;
 }

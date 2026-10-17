@@ -58,12 +58,13 @@ test("a crashed adapter is restarted on the same port with the same token", asyn
 
 test("the restart budget is bounded; give-up keeps the port and the last counters", async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-budget-"));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const diagnosticsPath = path.join(dir, "s.adapter.json");
   const adapter = await startAdapter(validAdapterConfig({ diagnosticsPath }), {
     restart: { max: 3, windowMs: 60_000, delayMs: 50 },
   });
   t.after(() => adapter.stop());
+  // After hooks run in order; remove the folder only once the adapter stopped writing.
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   // One counted request so the first adapter writes a snapshot.
   assert.equal(
     (await fetch(`${adapter.url}/v1/messages`, { method: "POST" })).status,
@@ -106,12 +107,13 @@ test("the restart budget is bounded; give-up keeps the port and the last counter
 
 test("a restarted adapter continues the previous adapter's counters", async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-adapter-continue-"));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const diagnosticsPath = path.join(dir, "s.adapter.json");
   const adapter = await startAdapter(validAdapterConfig({ diagnosticsPath }), {
     restart: { delayMs: 50 },
   });
   t.after(() => adapter.stop());
+  // After hooks run in order; remove the folder only once the adapter stopped writing.
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const unauthorized = () => fetch(`${adapter.url}/v1/messages`, { method: "POST" });
   assert.equal((await unauthorized()).status, 401);
   await until(() => readRecord(diagnosticsPath)?.unauthorized === 1);

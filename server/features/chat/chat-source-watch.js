@@ -2,7 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 /** Observe native storage writes without attaching a TUI or reading conversations. */
-export function watchChatSources({ session, accounts, dataDir, home }, changed) {
+export function watchChatSources(
+  { session, accounts, dataDir, home, settleMs = 500 },
+  changed,
+) {
   const watchers = [];
   const env = accounts.environment(session.accountId);
   const add = (directory, accepts, recursive = false) => {
@@ -38,5 +41,12 @@ export function watchChatSources({ session, accounts, dataDir, home }, changed) 
       true,
     );
   }
-  return () => watchers.forEach((watcher) => watcher.close());
+  // Recursive watchers (FSEvents) arm asynchronously; a write right after subscribing
+  // would otherwise wait for the recovery timer. One re-check closes that gap.
+  const settle = setTimeout(changed, settleMs);
+  settle.unref();
+  return () => {
+    clearTimeout(settle);
+    watchers.forEach((watcher) => watcher.close());
+  };
 }

@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -7,8 +7,12 @@ import { DatabaseSync } from "node:sqlite";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 
 const exists = (file) => file === "/fake/bin/npx";
+const dataDirs = [];
+after(() => dataDirs.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
 function dir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "mcp-oauth-"));
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-oauth-"));
+  dataDirs.push(dataDir);
+  return dataDir;
 }
 const store = (dataDir = dir()) =>
   new McpServerStore({ dataDir, pathEnv: "/fake/bin", exists });

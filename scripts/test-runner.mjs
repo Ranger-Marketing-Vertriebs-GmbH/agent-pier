@@ -32,29 +32,44 @@ export function runTestFiles({
   );
   const run = (selected) => {
     fs.rmSync(events, { force: true });
-    const child = spawnSync(
-      process.execPath,
-      [
-        "--import",
-        path.join(root, "tests/helpers/tmux-reaper.js"),
-        "--test",
-        ...(recording
-          ? [
-              "--test-reporter=spec",
-              "--test-reporter-destination=stdout",
-              `--test-reporter=${path.join(root, "scripts/test-failures-reporter.mjs")}`,
-              `--test-reporter-destination=${events}`,
-            ]
-          : []),
-        // Since Node 24 a file whose timed-out test leaves a handle open (a timer,
-        // a socket) never exits, and the runner waits for it forever. Exiting once
-        // the file's tests are done makes the per-test timeout end the file.
-        ...(testTimeout ? [`--test-timeout=${testTimeout}`, "--test-force-exit"] : []),
-        ...nodeArgs,
-        ...selected,
-      ],
-      { cwd: root, stdio: "inherit" },
-    );
+    const temporary = runTemporaryFolder();
+    let child;
+    try {
+      child = spawnSync(
+        process.execPath,
+        [
+          "--import",
+          path.join(root, "tests/helpers/tmux-reaper.js"),
+          "--test",
+          ...(recording
+            ? [
+                "--test-reporter=spec",
+                "--test-reporter-destination=stdout",
+                `--test-reporter=${path.join(root, "scripts/test-failures-reporter.mjs")}`,
+                `--test-reporter-destination=${events}`,
+              ]
+            : []),
+          // Since Node 24 a file whose timed-out test leaves a handle open (a timer,
+          // a socket) never exits, and the runner waits for it forever. Exiting once
+          // the file's tests are done makes the per-test timeout end the file.
+          ...(testTimeout ? [`--test-timeout=${testTimeout}`, "--test-force-exit"] : []),
+          ...nodeArgs,
+          ...selected,
+        ],
+        {
+          cwd: root,
+          stdio: "inherit",
+          env: {
+            ...process.env,
+            TMPDIR: temporary,
+            AGENTPIER_TEST_SHARED_TMPDIR:
+              process.env.AGENTPIER_TEST_SHARED_TMPDIR || os.tmpdir(),
+          },
+        },
+      );
+    } finally {
+      fs.rmSync(temporary, { recursive: true, force: true, maxRetries: 3 });
+    }
     if (child.error) throw child.error;
     const lines = fs.existsSync(events) ? fs.readFileSync(events, "utf8") : "";
     fs.rmSync(events, { force: true });
@@ -84,6 +99,18 @@ export function runTestFiles({
     for (const name of skipped) console.log(`SKIPPED (not allowed here): ${name}`);
     return 1;
   }
+}
+
+/**
+ * Test files get a private temp folder per run, removed afterwards, so leaked fixtures
+ * never pile up in the shared temp folder (whose size slows any test that lists it).
+ * It lives directly under /tmp: Unix socket paths built inside it must stay below the
+ * 104-byte limit on macOS, where the default $TMPDIR is already 49 bytes long.
+ * Caches meant to outlive a run use AGENTPIER_TEST_SHARED_TMPDIR instead.
+ */
+function runTemporaryFolder() {
+  const base = fs.existsSync("/tmp") ? "/tmp" : os.tmpdir();
+  return fs.mkdtempSync(path.join(base, "ap-"));
 }
 
 function report(label, result) {

@@ -26,6 +26,8 @@ async function until(predicate, message) {
 
 async function fixture(t) {
   const f = await applicationFixture(t);
+  // Tests here count reads and invalidations; the startup re-check has its own unit test.
+  f.application.chatStreams.settleMs = 600000;
   f.application.accounts.environment = () => ({ HOME: f.home });
   f.application.sessions.get = async (id) => {
     assert.equal(id, sessionId);
@@ -216,7 +218,13 @@ test(
     const changed = structuredClone(initial);
     changed.messages[0].text = "Update from native file";
     const offset = client.frames.length;
-    await fs.writeFile(transcript, JSON.stringify(changed));
+    // A native CLI keeps writing; repeat identical writes until the watcher reports one.
+    const synced = () =>
+      client.frames.slice(offset).some((frame) => frame.type === "sync");
+    for (let write = 0; write < 20 && !synced(); write++) {
+      await fs.writeFile(transcript, JSON.stringify(changed));
+      await delay(200);
+    }
     const next = await client.next("sync", offset);
     assert.equal(next.sequence, first.sequence + 1);
     assert.equal(next.data.sync.mode, "delta");

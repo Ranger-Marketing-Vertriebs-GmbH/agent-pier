@@ -13,7 +13,11 @@ import { ensureToolchain } from "../../server/features/mcp-packages/toolchains.j
 const executeFile = promisify(execFile);
 
 /** One real managed toolchain (uv + CPython) per machine, outside the test data dirs. */
-export const sharedToolchains = path.join(os.tmpdir(), "agentpier-test-toolchains");
+// Downloaded once and kept across test runs, outside the runner's per-run temp folder.
+export const sharedToolchains = path.join(
+  process.env.AGENTPIER_TEST_SHARED_TMPDIR || os.tmpdir(),
+  "agentpier-test-toolchains",
+);
 export const sharedPython = () =>
   ensureToolchain("python", { dataDir: sharedToolchains });
 

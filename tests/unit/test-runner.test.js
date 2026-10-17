@@ -148,3 +148,21 @@ test("the files runner does not retry files under a --never-retry prefix", (t) =
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.doesNotMatch(result.stdout, /FLAKY/);
 });
+
+test("each run gets a short private temp folder that is removed afterwards", (t) => {
+  const root = runnerRoot(t, {
+    "tmp.test.js":
+      'import fs from "node:fs";\nimport os from "node:os";\nimport path from "node:path";\n' +
+      'test("tmp", () => {\n' +
+      '  fs.writeFileSync(path.join(os.tmpdir(), "left-behind"), "");\n' +
+      '  fs.writeFileSync("seen.json", JSON.stringify({ tmp: os.tmpdir(), shared: process.env.AGENTPIER_TEST_SHARED_TMPDIR }));\n' +
+      "});\n",
+  });
+  const result = runFiles(root, ["tmp.test.js"]);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const seen = JSON.parse(fs.readFileSync(path.join(root, "seen.json"), "utf8"));
+  assert.notEqual(seen.tmp, os.tmpdir());
+  assert.match(seen.tmp, /^\/tmp\/ap-[A-Za-z0-9]{6}$/);
+  assert.equal(seen.shared, process.env.AGENTPIER_TEST_SHARED_TMPDIR || os.tmpdir());
+  assert.equal(fs.existsSync(seen.tmp), false, "the run folder is removed");
+});

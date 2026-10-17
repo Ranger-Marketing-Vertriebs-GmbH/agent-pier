@@ -64,11 +64,26 @@ test("the lookup walks absolute paths through listed directory entries", (t) => 
   fs.writeFileSync(tool, "#!/bin/sh\n", { mode: 0o755 });
   fs.writeFileSync(path.join(dir, "data"), "x", { mode: 0o644 });
   fs.mkdirSync(path.join(dir, "sub"));
-  assert.equal(findCommand(tool), tool);
-  assert.equal(findCommand(`  ${dir}//./tool `), `${dir}//./tool`);
-  assert.equal(findCommand(`${dir}/sub/../tool`), null);
+  // The shared temp folder can hold millions of entries; above the fixture each listing
+  // shows only the next path segment, so the walk reads the real disk inside it only.
+  const above = new Map();
+  for (let child = dir; path.dirname(child) !== child; child = path.dirname(child))
+    above.set(path.dirname(child), path.basename(child));
+  const options = {
+    list: (current) => {
+      if (above.has(current)) return [above.get(current)];
+      try {
+        return fs.readdirSync(current);
+      } catch {
+        return [];
+      }
+    },
+  };
+  assert.equal(findCommand(tool, options), tool);
+  assert.equal(findCommand(`  ${dir}//./tool `, options), `${dir}//./tool`);
+  assert.equal(findCommand(`${dir}/sub/../tool`, options), null);
   for (const missing of ["data", "sub", "nope", "tool/x"])
-    assert.equal(findCommand(path.join(dir, missing)), null, missing);
+    assert.equal(findCommand(path.join(dir, missing), options), null, missing);
 });
 
 test("the absolute lookup checks only paths built from listed names", () => {
