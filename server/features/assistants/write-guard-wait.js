@@ -1,4 +1,4 @@
-import { personalCapabilities } from "./native-capabilities.js";
+import { memoryEnabled } from "./native-capabilities.js";
 import { textValue, validateSendInput } from "./assistant-validation.js";
 // After a Gateway (re)start the agents run without write and edit until the team
 // plugin reports its write guard (WRITE_GUARD_PENDING, team-bridge.js). An owner
@@ -17,9 +17,7 @@ export function writeGuardWiring({ bridge, nativeReady }) {
   return {
     // A memory agent on a ready Gateway whose guard has not reported.
     writeGuardPending: (assistant) =>
-      !!nativeReady() &&
-      personalCapabilities(assistant).memory &&
-      bridge.guardPending(true),
+      !!nativeReady() && memoryEnabled(assistant) && bridge.guardPending(true),
     // The end of the current readiness's wait window (0: no ready Gateway yet).
     writeGuardDeadline: () =>
       bridge.readyAt == null ? 0 : bridge.readyAt + writeGuardWindowMs,

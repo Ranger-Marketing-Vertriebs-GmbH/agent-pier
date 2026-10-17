@@ -1,9 +1,9 @@
 import {
-  sessionTools,
-  personalCapabilities,
+  memoryEnabled,
   personalShell,
   personalSkills,
   profileTools,
+  sessionTools,
 } from "../native-capabilities.js";
 import { agentExec } from "./shell.js";
 
@@ -64,7 +64,7 @@ export function agentEntry(
   if (memoryManaged)
     next.memory = {
       search: {
-        enabled: !!nativeReady && personalCapabilities(assistant).memory,
+        enabled: !!nativeReady && memoryEnabled(assistant),
         rememberAcrossConversations: false,
       },
     };

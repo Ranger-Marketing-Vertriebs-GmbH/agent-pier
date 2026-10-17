@@ -56,3 +56,56 @@ export function memoryTarget(root, runtimeAgentId, target) {
     return true;
   }
 }
+
+// Whether a workspace-relative path lies in the copy of the lead's memory.
+const inLeadMirror = (relative) => {
+  const parts = relative.split("/").map(fold);
+  return parts[0] === "memory" && parts[1] === "lead";
+};
+/**
+ * Whether a temporary member's write lands in its own memory: every spelling the
+ * write guard repairs, resolved on disk through links, stays inside the member's own
+ * workspace, in MEMORY.md or below memory/, and never in the copy of its lead's
+ * memory (memory/lead/, member-memory.js). Anything that cannot be shown is refused.
+ */
+export function ownMemoryTarget(root, runtimeAgentId, target) {
+  const forms = repairs(String(target)).map((form) =>
+    path.posix.normalize(form.replaceAll("\\", "/")).replace(/^(\.\/)+/, ""),
+  );
+  const id = workspaceId(runtimeAgentId);
+  if (
+    !root ||
+    !id ||
+    !forms.length ||
+    forms.some(
+      (form) =>
+        form === ".." || form.startsWith("../") || !isMemory(form) || inLeadMirror(form),
+    )
+  )
+    return false;
+  try {
+    const own = path.join(root, id);
+    if (!fs.existsSync(own)) return false;
+    const real = fs.realpathSync(own);
+    return forms.every((form) => {
+      let probe = path.join(own, form);
+      const rest = [];
+      while (!present(probe) && probe !== own) {
+        rest.unshift(path.basename(probe));
+        probe = path.dirname(probe);
+      }
+      // A link anywhere on the way may point elsewhere: never followed for a write.
+      if (fs.lstatSync(probe).isSymbolicLink()) return false;
+      const landed = path.join(fs.realpathSync(probe), ...rest);
+      const relative = path.relative(real, landed).split(path.sep).join("/");
+      return (
+        !!relative &&
+        !relative.startsWith("..") &&
+        isMemory(relative) &&
+        !inLeadMirror(relative)
+      );
+    });
+  } catch {
+    return false;
+  }
+}

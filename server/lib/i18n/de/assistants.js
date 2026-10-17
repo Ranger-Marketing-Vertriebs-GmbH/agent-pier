@@ -108,7 +108,7 @@ export const assistants = {
     `Team-Freigabe: ${objective}\n${count} Mitglieder. Freigeben oder ablehnen?`,
   memberGrants: {
     labels: {
-      memory: "Gedächtnis (nur lesend)",
+      memory: "Gedächtnis des leitenden Agenten (nur lesend)",
       reminders: "Erinnerungen",
       webSearch: "Websuche",
       webFetch: "Webseiten",

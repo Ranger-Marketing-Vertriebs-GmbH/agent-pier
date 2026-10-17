@@ -66,34 +66,73 @@ async function listNotes(root) {
   return names;
 }
 
+// Where a member keeps the copy of its lead's memory: one flat folder under its own
+// memory/, so memory search finds it, apart from the member's own notes, and the
+// write guard refuses every write into it (ownMemoryTarget, lead-request-writes.js).
+export const leadMirrorDir = "memory/lead";
+/** The mirror file of one of the lead's memory files (notes flattened, prefixed). */
+export const mirrorName = (name) =>
+  rootNotes.includes(name)
+    ? `${leadMirrorDir}/${name}`
+    : `${leadMirrorDir}/note-${name.slice("memory/".length).replaceAll("/", "--")}`;
+
+// Whether `dir` (below `own`) is a real directory that resolves where it should.
+async function inside(own, dir) {
+  try {
+    const real = await fs.realpath(path.join(own, dir));
+    return (
+      (await realDirectory(path.join(own, dir))) &&
+      real === path.join(await fs.realpath(own), dir)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Keeps a temporary member's memory a read-only copy of its lead's: before each of
- * the member's turns its MEMORY.md, USER.md and memory/ notes are replaced by the
- * lead's current ones, and removed once the member no longer holds memory
- * (`enabled` false). The member has no write or edit tool, and the copy is
- * rewritten every turn, so nothing a member does reaches the lead's memory. A
- * workspace that does not exist yet (the member was never created) is left alone.
+ * Keeps the copy of the lead's memory in a temporary member's workspace current:
+ * before each of the member's turns `memory/lead/` holds the lead's MEMORY.md,
+ * USER.md and memory/ notes as they are now, and nothing else; it is emptied once
+ * the member no longer holds the lead's memory (`enabled` false) and on promotion.
+ * The member's own memory (its MEMORY.md and the rest of memory/) is never touched.
+ * Copies from before this layout (the member's own root files identical to the
+ * lead's) are removed once, when the folder is first created. A workspace that does
+ * not exist yet (the member was never created) is left alone.
  */
 export async function mirrorLeadMemory(workspaces, member, enabled) {
   if (!workspaces || !member?.parentAssistantId) return;
   const own = path.join(workspaces, member.id),
     lead = path.join(workspaces, member.parentAssistantId);
   if (!(await realDirectory(own))) return;
-  const wanted = new Map();
+  const wanted = new Map(),
+    legacy = new Map();
   if (enabled)
     for (const name of await listNotes(lead)) {
       const content = await readNote(lead, name);
-      if (content !== null) wanted.set(name, content);
+      if (content === null) continue;
+      wanted.set(mirrorName(name), content);
+      legacy.set(name, content);
     }
-  for (const name of await listNotes(own))
-    if (!wanted.has(name)) await fs.rm(path.join(own, name), { force: true });
+  const existed = await realDirectory(path.join(own, leadMirrorDir));
+  if (existed && (await inside(own, leadMirrorDir)))
+    for (const entry of await fs.readdir(path.join(own, leadMirrorDir))) {
+      const name = `${leadMirrorDir}/${entry}`;
+      if (!wanted.has(name))
+        await fs.rm(path.join(own, name), { force: true, recursive: true });
+    }
+  if (!wanted.size) return;
+  if (!(await realDirectory(path.join(own, "memory"))))
+    await fs.mkdir(path.join(own, "memory"), { recursive: true }).catch(() => {});
+  await fs.mkdir(path.join(own, leadMirrorDir), { recursive: true }).catch(() => {});
+  // Every folder on the way must be a real directory inside the member's workspace.
+  if (!(await inside(own, "memory")) || !(await inside(own, leadMirrorDir))) return;
+  if (!existed)
+    for (const [name, content] of legacy)
+      if ((await readNote(own, name)) === content)
+        await fs.rm(path.join(own, name), { force: true });
+  const real = path.join(await fs.realpath(own), leadMirrorDir);
   for (const [name, content] of wanted) {
     if ((await readNote(own, name)) === content) continue;
-    const dir = path.dirname(path.join(own, name));
-    // Every folder on the way must be a real directory inside the member's workspace.
-    await fs.mkdir(dir, { recursive: true });
-    const real = await fs.realpath(dir);
-    if (real !== path.join(await fs.realpath(own), path.dirname(name))) continue;
     const target = path.join(real, path.basename(name));
     // A fresh name that must not exist yet ("wx", O_EXCL), so nothing planted under
     // it is followed or overwritten; a link in the target's place is removed first,

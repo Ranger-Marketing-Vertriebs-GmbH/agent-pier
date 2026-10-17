@@ -3,6 +3,7 @@ import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import {
   inheritsFromLead,
+  memoryEnabled,
   personalCapabilities,
   writeGuardRuntimes,
 } from "./native-capabilities.js";
@@ -10,7 +11,7 @@ import { toolError } from "./tool-errors.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
 import { flushSessionAgent } from "./memory-flushes.js";
 import { flushWrite, noteRefusal } from "./memory-write-policy.js";
-import { isMemory } from "./lead-request-writes.js";
+import { isMemory, ownMemoryTarget } from "./lead-request-writes.js";
 const actions = new Set([
   "propose",
   "status",
@@ -48,9 +49,7 @@ const leavingReady = new Set([
 // the runtime status says so instead of failing silently.
 export function runtimeStatus(runtime, assistants, bridge) {
   const state = runtime.status();
-  const needed = assistants.store
-    .listAssistants()
-    .some((a) => personalCapabilities(a).memory);
+  const needed = assistants.store.listAssistants().some((a) => memoryEnabled(a));
   return bridge?.guardPending(needed) && !state.diagnostic
     ? { ...state, diagnostic: "WRITE_GUARD_PENDING" }
     : state;
@@ -247,6 +246,14 @@ export class TeamBridge {
     return (
       current &&
       (this.ownerOrigin(origin) ||
+        // A task member writes its own memory in any turn it works, never the copy
+        // of its lead's memory or anything else (member-memory.js).
+        (inheritsFromLead(parent) &&
+          ownMemoryTarget(
+            this.assistants.runtime?.paths?.workspaces,
+            input.agentId,
+            input.path,
+          )) ||
         // A task the owner asked for or approved, in exactly its own member turn.
         (origin?.kind === "lead-request" &&
           !!this.teams.requests?.mayWrite(

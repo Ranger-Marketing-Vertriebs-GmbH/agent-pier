@@ -189,8 +189,14 @@ the team card, as a note in the member's chat and the lead's chat, and in the
 member's **Capabilities → Granted by the lead agent**, and it is recorded in the
 activity log. Grants follow the lead: if it loses a capability, its members lose it
 too. A reminder a member sets is created on the lead, listed in the lead's settings
-and sent to the lead's Telegram chat. Members never get the team tools or routines
-and cannot save to memory.
+and sent to the lead's Telegram chat. Members never get the team tools or routines.
+
+Every temporary member has its own memory that it can write, always on. The lead's
+memory grant adds a read-only copy of the lead's memory beside it (in the member's
+`memory/lead/` folder); the member can search both but never writes the lead's. You
+can read a member's own memory under **Capabilities → Own memory** in its settings.
+When a member is kept as a permanent agent, its own memory stays and the copy of the
+lead's is removed.
 
 Shell and SSH need **Team members may use shell and SSH** in the lead's **Work** tab.
 With it on, the lead may grant members of teams proposed from then on at most its

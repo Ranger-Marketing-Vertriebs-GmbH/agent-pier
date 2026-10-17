@@ -54,8 +54,13 @@ export const visibleAgentTabs = (assistant) =>
 /** Whether the agent has this subpage; Telegram subpages also need a channel (tab). */
 export function agentPageAllowed(assistant, page) {
   if (!page) return true;
-  if (!pageTabs[page] || !isPersonal(assistant)) return false;
-  if (page === "memory") return assistant.capabilities?.memory === true;
+  if (!pageTabs[page]) return false;
+  // A task member's own memory is always on; the owner can read it (AGENTPIER-119).
+  if (page === "memory")
+    return isPersonal(assistant)
+      ? assistant.capabilities?.memory === true
+      : !!assistant.inherited && !assistant.archivedAt;
+  if (!isPersonal(assistant)) return false;
   if (page === "allowlist" || page === "skills") return shellEligible(assistant);
   return true;
 }

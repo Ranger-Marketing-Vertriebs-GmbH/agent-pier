@@ -1,6 +1,6 @@
 export const memberGrantCopy = {
   labels: {
-    memory: "Memory (read only)",
+    memory: "Lead's memory (read only)",
     reminders: "Reminders",
     webSearch: "Web search",
     webFetch: "Web pages",
@@ -27,7 +27,10 @@ export const memberGrantCopy = {
     "Members marked with a warning get shell or SSH, at most at this agent's level and on its hosts. They work unattended, and content they read can steer them.",
   title: "Granted by the lead agent",
   hint: "The lead agent decides what this task member gets, within what it has itself; shell and SSH need your approval. If the lead loses something, the member loses it too.",
-  memory: "Memory (read-only copy)",
+  memory: "Lead's memory (read-only copy)",
+  ownMemory: "Own memory",
+  ownMemoryHint:
+    "What this member saved itself; always on. The lead's memory is a separate read-only copy.",
   on: "On",
   off: "Off",
   previousInstructions: "Instructions it replaced",

@@ -1,6 +1,6 @@
 export const memberGrantCopy = {
   labels: {
-    memory: "Gedächtnis (nur lesend)",
+    memory: "Gedächtnis des leitenden Agenten (nur lesend)",
     reminders: "Erinnerungen",
     webSearch: "Websuche",
     webFetch: "Webseiten",
@@ -27,7 +27,10 @@ export const memberGrantCopy = {
     "Mit einer Warnung markierte Mitglieder erhalten Shell oder SSH, höchstens mit der Stufe und auf den Hosts dieses Agenten. Sie arbeiten unbeaufsichtigt, und Inhalte, die sie lesen, können sie lenken.",
   title: "Vom leitenden Agenten gewährt",
   hint: "Der leitende Agent entscheidet, was dieses auftragsgebundene Mitglied erhält, im Rahmen dessen, was er selbst hat; Shell und SSH brauchen deine Freigabe. Verliert der leitende Agent etwas, verliert es auch das Mitglied.",
-  memory: "Gedächtnis (schreibgeschützte Kopie)",
+  memory: "Gedächtnis des leitenden Agenten (schreibgeschützte Kopie)",
+  ownMemory: "Eigenes Gedächtnis",
+  ownMemoryHint:
+    "Was dieses Mitglied selbst gespeichert hat; immer an. Das Gedächtnis des leitenden Agenten ist eine getrennte, schreibgeschützte Kopie.",
   on: "An",
   off: "Aus",
   previousInstructions: "Ersetzte Anweisungen",

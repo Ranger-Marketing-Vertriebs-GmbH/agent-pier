@@ -3,6 +3,7 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import {
   inheritsFromLead,
+  memoryEnabled,
   personalCapabilities,
   personalShell,
   personalSkills,
@@ -385,7 +386,7 @@ export class AssistantConfig {
       if (
         this.nativeReady &&
         (entry || legacy)?.memory?.search?.enabled !==
-          (nativeReady && capabilities.memory)
+          (nativeReady && memoryEnabled(assistant))
       )
         throw assistantProblem("conflict", 409);
       if (

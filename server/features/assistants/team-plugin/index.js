@@ -42,7 +42,7 @@ const grantsSchema = {
   additionalProperties: false,
 };
 const grantRule =
-  "Each task member gets only what you grant it, and only what you hold yourself: webSearch, webFetch, browser, documents (images), memory (a read-only copy of yours), reminders (created on you), skills (true for all of yours, or names), mcpServers (names of MCP servers bound to you, the prefix before __ in your MCP tool names, at most 16), and shell (at most your own level) or ssh (your SSH hosts) only when the owner allows team members shell and SSH. Without grants a member gets memory, webSearch and webFetch as far as you have them. Grant only what the assignment needs; the owner sees every grant. Anything else rejects the call.";
+  "Each task member gets only what you grant it, and only what you hold yourself: webSearch, webFetch, browser, documents (images), memory (a read-only copy of yours; every member also has its own writable memory), reminders (created on you), skills (true for all of yours, or names), mcpServers (names of MCP servers bound to you, the prefix before __ in your MCP tool names, at most 16), and shell (at most your own level) or ssh (your SSH hosts) only when the owner allows team members shell and SSH. Without grants a member gets memory, webSearch and webFetch as far as you have them. Grant only what the assignment needs; the owner sees every grant. Anything else rejects the call.";
 const definitions = {
   ...workflowDefinitions,
   ...sshDefinition,

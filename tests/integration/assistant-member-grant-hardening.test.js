@@ -225,12 +225,15 @@ test("the owner's promotion removes the lead's memory copy; memory is its own", 
   fs.mkdirSync(lead, { recursive: true });
   fs.writeFileSync(path.join(lead, "MEMORY.md"), "Lead facts");
   await mirrorLeadMemory(root, agent, true);
-  assert.ok(fs.existsSync(path.join(own, "MEMORY.md")));
+  assert.ok(fs.existsSync(path.join(own, "memory", "lead", "MEMORY.md")));
+  fs.writeFileSync(path.join(own, "memory", "mine.md"), "My note");
   f.complete(f.service.store.member(member.id).attemptId);
   await f.service.reconcile();
   member = f.service.store.member(member.id);
   await f.service.lifecycle("promote", member.id, member.revision);
-  assert.equal(fs.existsSync(path.join(own, "MEMORY.md")), false);
+  assert.deepEqual(fs.readdirSync(path.join(own, "memory", "lead")), []);
+  // Its own memory carries over as it is.
+  assert.equal(fs.readFileSync(path.join(own, "memory", "mine.md"), "utf8"), "My note");
   const promoted = f.store.getAssistant(agent.id);
   assert.equal(promoted.capabilities.memory, true);
   // Its own from now on: readable and writable.
