@@ -38,6 +38,7 @@ import { leadMembers } from "./useMemberMention.js";
 import { streamInHistory } from "./stream-reply.js";
 import { compactionNoteText } from "./compaction-note.js";
 import { takeBack } from "./queued-message.js";
+import { connectionLost } from "./agent-offline.js";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
 const sameTurnText = (a, b) => turnText(a) === turnText(b);
@@ -61,6 +62,8 @@ export default function AssistantChat({
   const {
     drafts,
     connected,
+    offline: serviceOffline,
+    histories,
     runtime,
     assistants = [],
     members = [],
@@ -76,7 +79,13 @@ export default function AssistantChat({
     drafts.teamAllowed(conversationId),
   );
   const [text, setText] = useState(() => drafts.get(conversationId));
-  const [history, setHistory] = useState({ messages: [], requests: [], stale: false });
+  // A chat opened again starts from its last read, which stays while offline.
+  const [history, setHistory] = useState(
+    () => histories?.get(conversationId) || { messages: [], requests: [], stale: false },
+  );
+  // The history read failed for want of a connection.
+  const [unreachable, setUnreachable] = useState(false);
+  const offline = serviceOffline || unreachable;
   // The streamed reply so far, with its run: { runId, text } or null.
   const [delta, setDelta] = useState(null);
   const [error, setError] = useState("");
@@ -114,6 +123,8 @@ export default function AssistantChat({
         baseline.current =
           next.messages.findLast((m) => m.role === "assistant")?.id ?? null;
       setHistory(next);
+      histories?.set(conversationId, next);
+      setUnreachable(false);
       if (
         next.requests?.every((r) =>
           ["completed", "failed", "cancelled"].includes(r.state),
@@ -122,13 +133,22 @@ export default function AssistantChat({
         setDelta(null);
       else setDelta((d) => (streamInHistory(d, next) ? null : d));
     } catch (e) {
-      if (read === reads.current) setError(e.message);
+      if (read !== reads.current) return;
+      // Offline the hint says it; the last known messages stay.
+      if (connectionLost(e)) setUnreachable(true);
+      else setError(e.message);
     }
-  }, [conversationId]);
+  }, [conversationId, histories]);
   useEffect(() => {
     baseline.current = undefined;
     refresh();
   }, [refresh]);
+  // AgentPier answers again: read the history now, even before the event stream is back.
+  const wasOffline = useRef(serviceOffline);
+  useEffect(() => {
+    if (wasOffline.current && !serviceOffline) refresh();
+    wasOffline.current = serviceOffline;
+  }, [serviceOffline, refresh]);
   useAssistantEvents((event) => {
     if (event.type === "delta" && event.conversationId === conversationId)
       setDelta({ runId: event.runId, text: event.text });
@@ -155,6 +175,7 @@ export default function AssistantChat({
     !history.queued &&
     !memberBusy &&
     !assistant.archivedAt &&
+    !offline &&
     runtime.availability === "ready",
   );
   // A lead's members, for @mentions in its composer and as chips in its messages.
@@ -244,11 +265,11 @@ export default function AssistantChat({
   // The message queued while the agent works, kept by the server for every tab.
   const queued = history.queued || null;
   const available =
-    !memberBusy && !assistant.archivedAt && runtime.availability === "ready";
+    !memberBusy && !assistant.archivedAt && !offline && runtime.availability === "ready";
   // While the agent works, or a queued message still waits, Enter and "Send when
   // done" queue the message, after the waiting one: only Stop stops a turn.
   async function queue(ids) {
-    if (assistant.archivedAt || (!text.trim() && !ids.length)) return false;
+    if (assistant.archivedAt || offline || (!text.trim() && !ids.length)) return false;
     const append = appending.current;
     if (append.busy) return false;
     setError("");
@@ -354,7 +375,7 @@ export default function AssistantChat({
         data-drop-hint={assistantAttachmentsCopy.drop}
       >
         <ErrorMessage error={error} />
-        {!connected && (
+        {(!connected || offline) && (
           <p role="status" className="assistant-notice">
             {copy.disconnected}
           </p>

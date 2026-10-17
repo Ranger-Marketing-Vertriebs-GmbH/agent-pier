@@ -300,6 +300,17 @@ a host that was stopped or restored) is not sent anymore and says so; a long tur
 expires it. Its files stay with it until it is sent or taken back, also while it is
 failed or expired: **Edit** returns them to the composer.
 
+## When the connection is lost
+
+While AgentPier cannot be reached, the sidebar keeps the last known agents, their team
+members and teams, and says "Connection lost. Showing the last known agents." An agent
+chat you opened before shows its last loaded messages with "Connection interrupted.
+Your draft is preserved; history will refresh when connected." Sending stays off until
+the connection is back; the typed text stays in the composer. When AgentPier answers
+again, the list and the open chat refresh by themselves, also after a restart that
+first refused the event stream. All of this lives only in the open page: a reload or a
+logout starts empty, and nothing is stored on the device.
+
 ## Attachments
 
 Choose **+ → Attach file or image**, paste or drag files into the agent chat, also in

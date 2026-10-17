@@ -38,8 +38,12 @@ export default function AssistantSidebar({ navigate, route }) {
     models = [],
     runtime,
     activity = {},
+    connected,
+    offline,
     refresh,
   } = useAssistants();
+  // Without a connection the rows show the last known state until it is back.
+  const stale = offline || !connected;
   const [opening, setOpening] = useState(null),
     [error, setError] = useState(""),
     [expanded, setExpanded] = useState(readExpanded);
@@ -215,7 +219,12 @@ export default function AssistantSidebar({ navigate, route }) {
       activeKey={route.assistantId}
     >
       <ErrorMessage error={error} />
-      <div className="session-list">
+      {stale && (
+        <p role="status" className="assistant-sidebar-offline">
+          {copy.sidebarOffline}
+        </p>
+      )}
+      <div className={`session-list${stale ? " assistant-sidebar-stale" : ""}`}>
         {roots.map((parent) => {
           const groups = new Map();
           for (const child of visible.filter(

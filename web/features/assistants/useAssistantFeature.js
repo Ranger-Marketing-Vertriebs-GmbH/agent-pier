@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { assistantApi } from "./assistant-api.js";
+import { featureAfterFailure } from "./agent-offline.js";
 // A client-side code (the server never sends it) for "the switch could not be read".
 export const FEATURE_CHECK_FAILED = "FEATURE_CHECK_FAILED";
 // One shared opt-in state: the shell, sidebar, accounts and settings all follow it,
@@ -29,8 +30,9 @@ function check() {
       });
     })
     .catch(() => {
-      // Unknown is not off: report it, keep the app usable and try again with backoff.
-      publish({ enabled: false, error: FEATURE_CHECK_FAILED, loading: false });
+      // Unknown is not off: report it, keep the app (and agents known to be on) usable
+      // and try again with backoff.
+      publish(featureAfterFailure(state, FEATURE_CHECK_FAILED));
       timer = setTimeout(check, Math.min(1000 * 2 ** attempts++, 30000));
     })
     .finally(() => {
@@ -42,6 +44,7 @@ function start() {
   started = true;
   check();
   window.addEventListener("focus", retry);
+  window.addEventListener("online", retry);
 }
 function retry() {
   if (state.error === FEATURE_CHECK_FAILED) check();

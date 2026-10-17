@@ -243,6 +243,8 @@ export const assistantCopy = {
   title: "Agenten",
   chats: "Agenten-Chats",
   agentsGroup: "Agenten",
+  sidebarOffline:
+    "Verbindung unterbrochen. Angezeigt werden die zuletzt bekannten Agenten.",
   feature: {
     title: "Agenten aktivieren",
     description:
