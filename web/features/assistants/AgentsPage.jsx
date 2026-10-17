@@ -86,6 +86,7 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
       <AgentBrowserPage
         key={assistant.id}
         assistant={assistant}
+        takeover={route.takeover === true}
         navigate={navigate}
         onBack={() => back(assistant)}
         openNavigation={openNavigation}

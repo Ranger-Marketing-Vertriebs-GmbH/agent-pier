@@ -16,6 +16,7 @@ import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { managedChromium } from "../features/tools/chromium-installer.js";
 import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
 import { BrowserLiveView } from "../features/assistants/browser-live-view.js";
+import { noteBrowserHandBack } from "../features/assistants/browser-hand-back.js";
 import { webToolsAvailability } from "../features/assistants/openclaw-config/web-tools.js";
 import { readMcpInputs } from "../features/assistants/openclaw-config/mcp-servers.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
@@ -172,7 +173,10 @@ export function constructAssistantGraph(host, created = {}) {
   assistants.liveView = new BrowserLiveView({
     browsers: assistants.browsers,
     runtime: assistantRuntime,
+    // The agent continues once the owner hands its browser back.
+    onHandBack: (id, reason) => noteBrowserHandBack(assistants, id, reason),
   });
+  assistants.browsers.controlled = (id) => assistants.liveView.controlled(id);
   assistants.browsers.start();
   // A background model list read publishes its result like any other change.
   assistantModelAccounts.catalog.onChange = () => assistants.changed();

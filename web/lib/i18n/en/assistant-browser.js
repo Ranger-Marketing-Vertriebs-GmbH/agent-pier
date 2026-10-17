@@ -39,6 +39,20 @@ export const assistantBrowserCopy = {
   liveNotConnected:
     "The live view is not connected right now. Please try again in a moment.",
   liveEnded: "The live view ended. Reload the page once you are signed in.",
+  liveTakeOver: "Take over",
+  liveHandBack: "Hand back",
+  liveTakeOverHint:
+    "Take over the browser to sign in or solve a check. The agent waits meanwhile.",
+  liveControlMine: "You control the browser. The agent waits until you hand it back.",
+  liveControlOther: "You are controlling this browser on another device.",
+  liveControlWarning: "Without input the browser goes back to the agent in a minute.",
+  liveDialogs:
+    "The browser's own windows (file pickers, sign-in dialogs, permissions, open drop-down lists) do not appear here. Use the arrow keys for drop-down lists.",
+  liveErrors: {
+    LEASE_HELD: "The browser is being controlled on another device.",
+    NOT_HOLDER: "You no longer control the browser. Take it over again.",
+    VIEW_ONLY: "This view cannot control the browser.",
+  },
   liveStart: "Start browser",
   liveTab: "Tab",
   liveFollow: "Follow the agent",

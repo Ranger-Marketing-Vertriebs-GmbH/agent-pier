@@ -1318,6 +1318,44 @@ later takeover can send input the same way.
 - Frames are never stored or logged; the browser keeps only the newest as an object
   URL while the view is open.
 
+### Takeover
+
+**Take over** in the live view (or **Take over** beside the chat header's preview,
+which opens the live view taking control) lets the owner use the agent's browser to
+sign in, solve a check or search, and **Hand back** returns it.
+
+- One login session of the owner holds the lease per agent (`browser-takeover.js`).
+  Other devices see "You are controlling this browser on another device"; other tabs
+  of the same session share it. A chat preview never takes over or sends input.
+- While the owner holds it, the tool guard refuses the agent's browser calls with
+  "The owner is using this browser right now … Wait until the owner hands it back"
+  (`ownerControl`). A call that was already running finishes; it may overlap the
+  owner's first input.
+- The lease ends on **Hand back**, after ten minutes without owner input (a warning
+  a minute before), or 30 seconds after the session's last full view closed. Except
+  at a shutdown, the end queues a note in the agent's most recent chat ("I handed the
+  browser back to you. Continue where you left off."), delivered once the agent is
+  idle; a message the owner queued there already is kept and no note is added.
+- Input travels on the live-view socket as `pointer` (move/down/up with button,
+  buttons and click count; a drag is down, moves with the button held, up),
+  `wheel`, `key` (down/up with key, code and modifiers), `text` and `paste`
+  (text from the owner's paste event; AgentPier never reads the clipboard). Pointer
+  positions are fractions of the shown picture; `browser-input.js` maps them to the
+  page with the latest frame's `cssWidth`/`cssHeight`, which are viewport
+  coordinates as CDP's mouse events expect, so no scroll offset is added. Commands
+  are validated, limited to 120 a second with bursts of 240 per socket, and sent in
+  order as raw CDP `Input.*` events to the shown tab on the agent's own loopback
+  CDP port (`CdpInput`).
+- A hidden text field takes the keyboard, so phones show their on-screen keyboard,
+  IME composition arrives as finished text, and characters go in as inserted text;
+  Enter, Backspace, Tab, Escape, Delete, arrows and page keys, and Ctrl/Cmd
+  shortcuts, go as key events. A tap is a click; pinch zoom is off on the picture.
+- While the owner holds the browser, a tab it opens (an OAuth popup) is shown at once.
+- Not in the picture: the browser's own windows (file pickers, HTTP sign-in dialogs,
+  permission prompts) and open drop-down lists, which Chromium draws outside the
+  page. A focused drop-down list follows the arrow keys and Enter. HTML drag and drop
+  between elements is not supported; drags that follow the mouse (sliders) work.
+
 ### Search provider
 
 **Accounts → Services for agents → Web search** selects one provider for all agents:

@@ -442,6 +442,46 @@ test(
           });
           for (let n = 0; n < 300 && !frames.length; n++)
             await new Promise((r) => setTimeout(r, 50));
+          // The owner's takeover: input reaches the tab over the profile's real CDP
+          // port, and the agent's browser calls wait meanwhile.
+          const owner = live.subscribe(
+            web.id,
+            { state() {}, frame() {}, end() {} },
+            { holder: "contract-owner" },
+          );
+          owner.take();
+          browsers.controlled = (id) => live.controlled(id);
+          for (const command of [
+            {
+              type: "pointer",
+              action: "down",
+              x: 0.5,
+              y: 0.5,
+              button: "left",
+              buttons: 1,
+              clickCount: 1,
+            },
+            {
+              type: "pointer",
+              action: "up",
+              x: 0.5,
+              y: 0.5,
+              button: "left",
+              buttons: 0,
+              clickCount: 1,
+            },
+            { type: "text", text: "contract" },
+            { type: "key", action: "down", key: "Enter", code: "Enter" },
+          ])
+            await owner.input(command);
+          const { result: waiting } = await call(
+            { action: "status" },
+            "while-controlled",
+          );
+          assert.match(waiting, /The owner is using this browser right now/);
+          assert.equal(owner.handBack(), true);
+          browsers.controlled = undefined;
+          owner.close();
           view.close();
           live.close();
           st.diagnostic(`live states=${JSON.stringify(states.map((s) => s.status))}`);
