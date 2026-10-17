@@ -108,3 +108,58 @@
     height: 36px;
   }
 }
+.agent-browser-control {
+  position: relative;
+  width: 100%;
+}
+.agent-browser-control img {
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+/* Takes the keyboard (and a phone's on-screen keyboard) without being seen. */
+.agent-browser-keyboard {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  resize: none;
+  border: 0;
+  padding: 0;
+  font-size: 16px;
+}
+.agent-browser-takeover {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: 10px;
+  background: var(--accent-faint);
+}
+.agent-browser-takeover p {
+  margin: 0;
+  flex: 1 1 200px;
+}
+.agent-browser-takeover.warning {
+  border-color: var(--warning);
+}
+.agent-browser-preview-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.agent-browser-preview-takeover {
+  font-size: 11px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .agent-browser-preview-takeover {
+    display: none;
+  }
+}

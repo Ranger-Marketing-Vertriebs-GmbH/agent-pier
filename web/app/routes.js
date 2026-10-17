@@ -68,7 +68,13 @@ export function readRoute(location) {
         : agent[4]
           ? { teamId: agent[4] }
           : agent[2] === "browser"
-            ? { agentBrowser: true }
+            ? {
+                agentBrowser: true,
+                // The chat preview's "Take over" opens the view taking over.
+                ...(new URLSearchParams(location.search).get("takeover") === "1"
+                  ? { takeover: true }
+                  : {}),
+              }
             : { agentSettings: true, ...readAgentSettingsQuery(location.search) }),
     };
   if (pathname === "/accounts")
@@ -240,7 +246,7 @@ function basePath(route) {
       : route.teamId
         ? `/agents/${encodeURIComponent(route.assistantId)}/teams/${encodeURIComponent(route.teamId)}`
         : route.assistantId && route.agentBrowser
-          ? `/agents/${encodeURIComponent(route.assistantId)}/browser`
+          ? `/agents/${encodeURIComponent(route.assistantId)}/browser${route.takeover ? "?takeover=1" : ""}`
           : route.assistantId
             ? `/agents/${encodeURIComponent(route.assistantId)}/settings${agentSettingsQuery(route)}`
             : route.creating

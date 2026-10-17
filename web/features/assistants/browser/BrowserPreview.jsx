@@ -4,23 +4,39 @@ import { assistantBrowserCopy as copy } from "../../../lib/i18n/messages/assista
 import useBrowserStream from "./useBrowserStream.js";
 import "./agent-browser.css";
 
-/** A small live picture of the agent's running browser; opens the full view. */
+const plainClick = (event) =>
+  !(event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0);
+
+/**
+ * A small live picture of the agent's running browser that opens the full view, and
+ * "Take over", which opens it taking control (for a sign-in or a check).
+ */
 export default function BrowserPreview({ assistant, navigate }) {
   const { image } = useBrowserStream(assistant.id, { preview: true });
   const route = { view: "agents", assistantId: assistant.id, agentBrowser: true };
+  const takeover = { ...route, takeover: true };
+  const open = (target) => (event) => {
+    if (!plainClick(event)) return;
+    event.preventDefault();
+    navigate(target);
+  };
   return (
-    <a
-      className="agent-browser-preview"
-      href={routePath(route)}
-      aria-label={copy.livePreview(assistant.name)}
-      onClick={(event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0)
-          return;
-        event.preventDefault();
-        navigate(route);
-      }}
-    >
-      {image ? <img src={image} alt="" /> : <span>{copy.running}</span>}
-    </a>
+    <span className="agent-browser-preview-group">
+      <a
+        className="agent-browser-preview"
+        href={routePath(route)}
+        aria-label={copy.livePreview(assistant.name)}
+        onClick={open(route)}
+      >
+        {image ? <img src={image} alt="" /> : <span>{copy.running}</span>}
+      </a>
+      <a
+        className="agent-browser-preview-takeover"
+        href={routePath(takeover)}
+        onClick={open(takeover)}
+      >
+        {copy.liveTakeOver}
+      </a>
+    </span>
   );
 }

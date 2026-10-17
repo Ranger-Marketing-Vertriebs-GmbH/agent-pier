@@ -127,3 +127,107 @@ test("the owner watches an agent's browser through the authenticated stream", as
   await new Promise((r) => ws.on("close", r));
   await until(() => live.streams.size === 0);
 });
+
+// A stand-in for the agent browser's CDP port: /json/version and a browser socket
+// that attaches to tabs and records every Input event.
+async function fakeCdp(t) {
+  const events = [];
+  const server = http.createServer((req, res) => {
+    if (req.url !== "/json/version") return res.writeHead(404).end();
+    res.writeHead(200, { "content-type": "application/json" }).end(
+      JSON.stringify({
+        webSocketDebuggerUrl: `ws://127.0.0.1:${server.address().port}/devtools/browser/x`,
+      }),
+    );
+  });
+  const wss = new WebSocketServer({ server });
+  wss.on("connection", (ws) =>
+    ws.on("message", (raw) => {
+      const message = JSON.parse(String(raw));
+      events.push(message);
+      const result =
+        message.method === "Target.attachToTarget" ? { sessionId: "S1" } : {};
+      ws.send(JSON.stringify({ id: message.id, result }));
+    }),
+  );
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  t.after(async () => {
+    for (const ws of wss.clients) ws.terminate();
+    await new Promise((r) => server.close(r));
+  });
+  return { port: server.address().port, events };
+}
+
+test("the owner takes over: input goes to the agent's tab over CDP, then hands back", async (t) => {
+  const gateway = await fakeGateway(t);
+  const cdp = await fakeCdp(t);
+  const f = await applicationFixture(t);
+  const handBacks = [];
+  const live = new BrowserLiveView({
+    browsers: {
+      viewProfile: () => ({
+        name: "agent-a",
+        entry: { headless: false, cdpPort: cdp.port },
+      }),
+      viewReason: () => "noProfile",
+      watched: () => {},
+      ownerStart: async () => {},
+    },
+    runtime: { client: gateway.client },
+    pollMs: 60_000,
+    retryMs: 50,
+    onHandBack: (id, reason) => handBacks.push([id, reason]),
+  });
+  t.after(() => live.close());
+  f.application.assistants = { liveView: live, close: async () => {} };
+  const ws = new WebSocket(
+    `${f.url.replace("http:", "ws:")}/api/assistants/a/browser-stream`,
+    {
+      origin: f.url,
+      headers: { cookie: f.cookie },
+    },
+  );
+  const states = [];
+  ws.on("message", (data, binary) => !binary && states.push(JSON.parse(String(data))));
+  await new Promise((r) => ws.on("open", r));
+  const until = async (check) => {
+    for (let n = 0; n < 200 && !check(); n++) await new Promise((r) => setTimeout(r, 10));
+    assert.ok(check());
+  };
+  const last = () => states.filter((m) => m.type === "state").at(-1)?.state;
+  await until(() => last()?.status === "live");
+  assert.deepEqual(last().control, { held: false, mine: false });
+  ws.send(JSON.stringify({ type: "take" }));
+  await until(() => last().control.mine === true);
+  // The holder hash never reaches the page.
+  assert.equal(last().control.holder, undefined);
+  ws.send(
+    JSON.stringify({
+      type: "pointer",
+      action: "down",
+      x: 0.5,
+      y: 0.25,
+      button: "left",
+      buttons: 1,
+      clickCount: 1,
+    }),
+  );
+  ws.send(JSON.stringify({ type: "text", text: "Hallo" }));
+  await until(
+    () => cdp.events.filter((e) => e.method?.startsWith("Input.")).length === 2,
+  );
+  const attach = cdp.events.find((e) => e.method === "Target.attachToTarget");
+  assert.deepEqual(attach.params, { targetId: "t1", flatten: true });
+  const [mouse, text] = cdp.events.filter((e) => e.method?.startsWith("Input."));
+  assert.equal(mouse.sessionId, "S1");
+  // 800 × 600 from the frame header: half the width, a quarter of the height.
+  assert.deepEqual(
+    [mouse.params.x, mouse.params.y, mouse.params.type],
+    [400, 150, "mousePressed"],
+  );
+  assert.deepEqual(text.params, { text: "Hallo" });
+  ws.send(JSON.stringify({ type: "handBack" }));
+  await until(() => last().control.held === false);
+  assert.deepEqual(handBacks, [["a", "owner"]]);
+  ws.close();
+});

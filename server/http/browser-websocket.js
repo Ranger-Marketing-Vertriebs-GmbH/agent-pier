@@ -2,10 +2,30 @@ import http from "node:http";
 import { sessionToken } from "./login.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
+import { createHash } from "node:crypto";
 
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
 // Frames are dropped, never queued, for a viewer that cannot keep up.
 const backlog = 4 * 1024 * 1024;
+// Owner input: a burst for a fast drag or paste, then this many messages a second.
+const inputBurst = 240,
+  inputRate = 120;
+const inputTypes = new Set(["pointer", "wheel", "key", "text", "paste"]);
+/** The viewer's view of the shared state: whether this login session holds control. */
+export function personalState(state, holder) {
+  const { control, ...rest } = state;
+  return {
+    ...rest,
+    control: control
+      ? {
+          held: true,
+          mine: control.holder === holder,
+          warning: control.warning,
+          expiresAt: control.expiresAt,
+        }
+      : { held: false, mine: false },
+  };
+}
 
 /**
  * The owner's live view of an agent's browser (browser-live-view.js):
@@ -15,7 +35,8 @@ const backlog = 4 * 1024 * 1024;
  * travel the same way.
  */
 export function attachBrowserWebSocket(server, { live, login, effective }) {
-  const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
+  // A paste of up to 4000 characters fits, encoded.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 16384 });
   const upgrade = (req, socket, head) => {
     const url = new URL(req.url, "http://localhost");
     const match = url.pathname.match(
@@ -51,6 +72,18 @@ export function attachBrowserWebSocket(server, { live, login, effective }) {
   wss.once("close", () => server.off("upgrade", upgrade));
   wss.on("connection", (ws, { id, token, auth, view, preview }) => {
     let alive = true;
+    // The login session holds a takeover lease; never the token itself.
+    const holder = createHash("sha256").update(`browser-holder\0${token}`).digest("hex");
+    let tokens = inputBurst,
+      refilled = Date.now();
+    const allowInput = () => {
+      const now = Date.now();
+      tokens = Math.min(inputBurst, tokens + ((now - refilled) / 1000) * inputRate);
+      refilled = now;
+      if (tokens < 1) return false;
+      tokens -= 1;
+      return true;
+    };
     const open = () => ws.readyState === WebSocket.OPEN;
     const send = (message) => open() && ws.send(JSON.stringify(message));
     let subscription;
@@ -58,14 +91,14 @@ export function attachBrowserWebSocket(server, { live, login, effective }) {
       subscription = view.subscribe(
         id,
         {
-          state: (state) => send({ type: "state", state }),
+          state: (state) => send({ type: "state", state: personalState(state, holder) }),
           frame: (bytes) => {
             if (open() && ws.bufferedAmount < backlog) ws.send(bytes, { binary: true });
           },
           // The live view shut down (AgentPier stopping or the agent feature off).
           end: () => ws.close(1001),
         },
-        { preview },
+        { preview, holder },
       );
     } catch (error) {
       // Too many viewers of this agent: try again later.
@@ -90,12 +123,22 @@ export function attachBrowserWebSocket(server, { live, login, effective }) {
         return ws.close(1008);
       }
       try {
+        if (inputTypes.has(command?.type)) {
+          // Too fast: dropped, like a frame a slow viewer misses.
+          if (!allowInput()) return;
+          return await subscription.input(command).catch((error) => {
+            if (["NOT_HOLDER", "VIEW_ONLY"].includes(error.code))
+              send({ type: "error", code: error.code });
+          });
+        }
         if (command?.type === "select") subscription.select(command.targetId);
         else if (command?.type === "follow") subscription.follow();
         else if (command?.type === "start") await subscription.start();
+        else if (command?.type === "take") subscription.take();
+        else if (command?.type === "handBack") subscription.handBack();
         else ws.close(1008);
       } catch (error) {
-        send({ type: "error", message: error.message, key: error.key });
+        send({ type: "error", code: error.code, message: error.message, key: error.key });
       }
     });
     ws.on("close", () => {

@@ -11,6 +11,14 @@
  * header and the JPEG). `status` is "connecting", "live", "stopped" (no browser
  * runs), "blocked" (the page's address is not allowed) or "unavailable".
  */
+import {
+  Takeover,
+  defaultCdpInput,
+  graceMs,
+  leaseMs,
+  warnMs,
+} from "./browser-takeover.js";
+
 const screencastOptions = { maxWidth: 1280, maxHeight: 1280, quality: 60 };
 // Viewers of one agent's browser at once (several tabs and devices of the owner).
 export const maxViewers = 8;
@@ -26,15 +34,22 @@ export class BrowserLiveView {
     previewMs = 1000,
     now = Date.now,
     openMs = openTimeoutMs,
+    cdpInput = defaultCdpInput,
+    onHandBack,
   }) {
     Object.assign(this, { browsers, runtime, pollMs, retryMs, previewMs, now, openMs });
+    Object.assign(this, { cdpInput, onHandBack, leaseMs, warnMs, graceMs });
     this.streams = new Map();
+  }
+  /** Whether the owner holds agent `id`'s browser (the tool guard waits then). */
+  controlled(id) {
+    return !!this.streams.get(id)?.takeover.holder;
   }
   /**
    * Adds a viewer of agent `id`. `preview` viewers get at most one frame per
    * `previewMs`. Returns `{ close, select(targetId), follow(), start() }`.
    */
-  subscribe(id, viewer, { preview = false } = {}) {
+  subscribe(id, viewer, { preview = false, holder = null } = {}) {
     let stream = this.streams.get(id);
     if (!stream) {
       stream = new LiveStream(this, id);
@@ -42,27 +57,40 @@ export class BrowserLiveView {
     }
     if (stream.viewers.size >= maxViewers)
       throw Object.assign(Error("Too many live viewers"), { code: "LIVE_VIEWERS" });
-    const entry = { viewer, preview, last: -Infinity };
+    const entry = { viewer, preview, holder, last: -Infinity };
     stream.viewers.add(entry);
     // Since when a full viewer watches: the idle stop waits for it, but capped.
     if (!preview && stream.watchingSince == null) stream.watchingSince = this.now();
     viewer.state(stream.snapshot());
     stream.wake();
+    stream.takeover.viewsChanged(stream.holders());
+    // Only a full view of a known login session takes over and sends input.
+    const owner = () => {
+      if (preview || !holder)
+        throw Object.assign(Error("view only"), { code: "VIEW_ONLY" });
+      return holder;
+    };
     return {
       close: () => {
         stream.viewers.delete(entry);
+        stream.takeover.viewsChanged(stream.holders());
         if (![...stream.viewers].some((other) => !other.preview))
           stream.watchingSince = null;
-        if (!stream.viewers.size) {
-          stream.stop();
-          if (this.streams.get(id) === stream) this.streams.delete(id);
-        }
+        // A held lease keeps the stream for its grace; its release ends it then.
+        if (!stream.viewers.size && !stream.takeover.holder) this.drop(stream);
       },
       // The owner picks a tab; it stays until the owner follows the agent again.
       select: (targetId) => stream.select(targetId),
       follow: () => stream.select(null),
       start: () => stream.start(),
+      take: () => stream.takeover.take(owner()),
+      handBack: () => stream.takeover.handBack(owner()),
+      input: (command) => stream.takeover.input(owner(), command),
     };
+  }
+  drop(stream) {
+    stream.stop();
+    if (this.streams.get(stream.id) === stream) this.streams.delete(stream.id);
   }
   /** Ends every stream and tells its viewers, whose sockets then close. */
   close() {
@@ -84,15 +112,32 @@ class LiveStream {
     this.timer = null;
     this.busy = false;
     this.stopped = false;
+    this.metrics = null;
+    this.takeover = new Takeover(this);
+  }
+  /** The login sessions with a full view open. */
+  holders() {
+    return new Set(
+      [...this.viewers]
+        .filter((entry) => !entry.preview && entry.holder)
+        .map((e) => e.holder),
+    );
   }
   snapshot() {
-    return { ...this.state, tabs: [...this.state.tabs], pinned: !!this.pinned };
+    return {
+      ...this.state,
+      tabs: [...this.state.tabs],
+      pinned: !!this.pinned,
+      control: this.takeover.snapshot(),
+    };
   }
+  /** Applies `patch` and sends the snapshot when it differs from the last sent. */
   set(patch) {
-    const before = JSON.stringify(this.snapshot());
     Object.assign(this.state, patch);
-    if (JSON.stringify(this.snapshot()) === before) return;
     const snapshot = this.snapshot();
+    const text = JSON.stringify(snapshot);
+    if (text === this.sent) return;
+    this.sent = text;
     for (const { viewer } of this.viewers) viewer.state(snapshot);
   }
   request(method, path, body) {
@@ -151,14 +196,19 @@ class LiveStream {
       const tabs = (Array.isArray(listed?.tabs) ? listed.tabs : [])
         .filter((tab) => !tab.type || tab.type === "page")
         .map((tab) => ({
-          targetId: String(tab.suggestedTargetId || tab.targetId || ""),
+          // The raw CDP target: the ticket and the owner's input both address it.
+          targetId: String(tab.targetId || tab.suggestedTargetId || ""),
           title: String(tab.title || "").slice(0, 200),
           url: String(tab.url || "").slice(0, 2048),
         }))
         .filter((tab) => tab.targetId);
       const known = new Set(this.state.tabs.map((tab) => tab.targetId));
-      const opened =
-        tabs.some((tab) => !known.has(tab.targetId)) && this.state.tabs.length;
+      const added = this.state.tabs.length
+        ? tabs.filter((tab) => !known.has(tab.targetId))
+        : [];
+      const opened = added.length > 0;
+      // While the owner holds the browser, a tab it opens (a login popup) is shown.
+      if (opened && this.takeover.holder) this.pinned = added.at(-1).targetId;
       this.set({ tabs });
       if (this.pinned && !tabs.some((tab) => tab.targetId === this.pinned))
         this.pinned = null;
@@ -226,6 +276,7 @@ class LiveStream {
     if (this.upstream !== ws) return;
     if (binary) {
       if (this.state.status !== "live") this.set({ status: "live", reason: "" });
+      this.metrics = frameMetrics(data) || this.metrics;
       const now = this.live.now();
       for (const entry of this.viewers) {
         if (entry.preview && now - entry.last < this.live.previewMs) continue;
@@ -277,5 +328,21 @@ class LiveStream {
     this.stopped = true;
     clearTimeout(this.timer);
     this.disconnect();
+    this.takeover.stop();
+  }
+}
+
+/** The layout viewport of a frame, from its JSON header (cssWidth, cssHeight). */
+function frameMetrics(data) {
+  try {
+    const bytes = Buffer.isBuffer(data) ? data : Buffer.from(data);
+    const length = bytes.readUInt32BE(0);
+    if (length > 65536 || length + 4 > bytes.length) return null;
+    const header = JSON.parse(bytes.subarray(4, 4 + length).toString("utf8"));
+    return header.cssWidth > 0 && header.cssHeight > 0
+      ? { cssWidth: header.cssWidth, cssHeight: header.cssHeight }
+      : null;
+  } catch {
+    return null;
   }
 }

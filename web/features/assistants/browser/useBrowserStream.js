@@ -2,7 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { decodeFrame, streamAddress } from "./browser-frames.js";
 import { assistantBrowserCopy as copy } from "../../../lib/i18n/messages/assistant-browser.js";
 
-const idle = { status: "connecting", url: "", title: "", targetId: null, tabs: [] };
+const idle = {
+  status: "connecting",
+  url: "",
+  title: "",
+  targetId: null,
+  tabs: [],
+  control: { held: false, mine: false },
+};
 
 /**
  * The live view of agent `id`'s browser: the server's state, the latest frame as an
@@ -35,7 +42,8 @@ export default function useBrowserStream(id, { preview = false, enabled = true }
             return;
           }
           if (message.type === "state") setState({ ...idle, ...message.state });
-          if (message.type === "error") setError(message.message || "");
+          if (message.type === "error")
+            setError(copy.liveErrors[message.code] || message.message || "");
           return;
         }
         const frame = decodeFrame(event.data);
@@ -74,6 +82,11 @@ export default function useBrowserStream(id, { preview = false, enabled = true }
     setError("");
     socket.current.send(JSON.stringify(command));
   }, []);
+  // Owner input while holding control: never an error notice per event.
+  const input = useCallback((command) => {
+    if (socket.current?.readyState === WebSocket.OPEN)
+      socket.current.send(JSON.stringify(command));
+  }, []);
   return {
     state,
     image,
@@ -81,5 +94,8 @@ export default function useBrowserStream(id, { preview = false, enabled = true }
     select: (targetId) => send({ type: "select", targetId }),
     follow: () => send({ type: "follow" }),
     start: () => send({ type: "start" }),
+    take: () => send({ type: "take" }),
+    handBack: () => send({ type: "handBack" }),
+    input,
   };
 }

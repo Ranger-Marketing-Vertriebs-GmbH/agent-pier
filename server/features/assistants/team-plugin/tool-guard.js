@@ -141,6 +141,8 @@ export const browserRefusals = {
   restartNeeded:
     "This agent's browser profile is not set up yet; the owner must restart the agent service.",
   slotsBusy: "All browser profiles for team members are in use. Try again later.",
+  ownerControl:
+    "The owner is using this browser right now (for example to sign in or solve a check). Wait until the owner hands it back; you will get a message then. Do not retry the browser meanwhile.",
   visibleLimit:
     "Three visible agent browsers are already in use. Try again in a minute or ask the owner.",
 };

@@ -41,6 +41,21 @@ export const assistantBrowserCopy = {
     "Die Live-Ansicht ist gerade nicht verbunden. Bitte gleich noch einmal versuchen.",
   liveEnded:
     "Die Live-Ansicht wurde beendet. Lade die Seite neu, wenn du angemeldet bist.",
+  liveTakeOver: "Übernehmen",
+  liveHandBack: "Zurückgeben",
+  liveTakeOverHint:
+    "Übernimm den Browser, um dich anzumelden oder eine Prüfung zu lösen. Der Agent wartet so lange.",
+  liveControlMine: "Du steuerst den Browser. Der Agent wartet, bis du ihn zurückgibst.",
+  liveControlOther: "Du steuerst diesen Browser gerade auf einem anderen Gerät.",
+  liveControlWarning:
+    "Ohne Eingabe geht der Browser in einer Minute an den Agenten zurück.",
+  liveDialogs:
+    "Fenster des Browsers selbst (Dateiauswahl, Anmeldedialoge, Berechtigungen, aufgeklappte Auswahllisten) erscheinen hier nicht. Auswahllisten bedienst du mit den Pfeiltasten.",
+  liveErrors: {
+    LEASE_HELD: "Der Browser wird gerade auf einem anderen Gerät gesteuert.",
+    NOT_HOLDER: "Du steuerst den Browser nicht mehr. Übernimm ihn erneut.",
+    VIEW_ONLY: "Diese Ansicht kann den Browser nicht steuern.",
+  },
   liveStart: "Browser starten",
   liveTab: "Tab",
   liveFollow: "Dem Agenten folgen",
