@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { leadRequestCopy as copy } from "../../lib/i18n/messages/lead-requests.js";
 import { assistantApi } from "./assistant-api.js";
+import RouteLink from "./RouteLink.jsx";
 
 const open = new Set(["queued", "dispatching", "running", "uncertain"]);
 /** The state label; a finished question reads "Answered", a finished task "Done". */
@@ -12,9 +13,16 @@ export const requestState = (r) =>
 /**
  * A lead's question or task for one of its members in Settings → Work → Teams. A
  * task says whether it may change files; an open request can be cancelled. Lists
- * carry a summary; the whole text and answer load on demand.
+ * carry a summary; the whole text and answer load on demand. An answer stored
+ * incomplete links to the member's chat (`memberChat`, a route) where it is whole.
  */
-export default function LeadRequestCard({ request: summary, busy, act }) {
+export default function LeadRequestCard({
+  request: summary,
+  busy,
+  act,
+  memberChat,
+  navigate,
+}) {
   const [detail, setDetail] = useState(null);
   // The loaded detail is the whole request, never truncated.
   const r =
@@ -64,6 +72,19 @@ export default function LeadRequestCard({ request: summary, busy, act }) {
         >
           <summary>{r.type === "task" ? copy.result : copy.answer}</summary>
           {r.answer && <p>{r.answer}</p>}
+          {r.answerCut && (
+            <p className="assistant-note">
+              {copy.answerShortened}
+              {memberChat && navigate && (
+                <>
+                  {" "}
+                  <RouteLink route={memberChat} navigate={navigate}>
+                    {copy.openMemberChat}
+                  </RouteLink>
+                </>
+              )}
+            </p>
+          )}
         </details>
       )}
       {r.delivery === "failed" && <p className="assistant-note">{copy.followUpFailed}</p>}

@@ -469,3 +469,75 @@ test("an unreadable server list is shown as unavailable and only declining is of
   assert.equal(shown.mcpServersUnavailable, true);
   assert.equal(shown.mcpServers, undefined);
 });
+test("a long team synthesis is read whole on Telegram, or ends with the incomplete note", async (t) => {
+  // The fixture channel speaks German.
+  for (const [alone, expected] of [
+    [(text) => text, (text) => text],
+    [
+      () => "[chat.history omitted: message too large]",
+      (text) =>
+        `${text.slice(0, 8000).trimEnd()}\n\nAntwort gekürzt – der Rest konnte nicht gesendet werden.`,
+    ],
+  ]) {
+    const f = setup(t),
+      p = await f.proposal();
+    const teams = f.assistants.teams.store;
+    f.assistants.ledger.transition(p.parentAttemptId, "completed");
+    const result = await f.assistants.send(
+      p.parentConversationId,
+      { clientRequestId: `team-result:${p.id}`, text: "Synthesis" },
+      { kind: "team-result" },
+    );
+    f.assistants.ledger.transition(result.attempt.id, "completed");
+    teams.write(teams.get(p.id), {
+      phase: "completed",
+      resultState: "completed",
+      resultAttemptId: result.attempt.id,
+      resultBatch: [],
+    });
+    // Longer than the history page serves; its own read is still due.
+    const full = `Team result: ${"the plan, in detail. ".repeat(600)}`;
+    f.assistants.history = async () => ({
+      stale: false,
+      messages: [
+        {
+          id: "synthesis-1",
+          role: "assistant",
+          runId: result.attempt.id,
+          text: full.slice(0, 8000),
+          partial: true,
+        },
+      ],
+    });
+    const asked = [];
+    f.assistants.message = async (conversationId, messageId) => {
+      asked.push([conversationId, messageId]);
+      return alone(full);
+    };
+    await f.service.teamOutbox.transfer();
+    const notice = f.service.outbox
+      .pending(f.channel.id)
+      .find((e) => e.kind === "team-result");
+    assert.deepEqual(asked, [[p.parentConversationId, "synthesis-1"]]);
+    assert.equal(notice.text, expected(full));
+  }
+});
+test("a refused synthesis still sends the members' reports to Telegram", async (t) => {
+  const f = setup(t),
+    p = await f.proposal();
+  const teams = f.assistants.teams.store;
+  teams.write(teams.get(p.id), {
+    phase: "completed",
+    resultState: "unsent",
+    resultDiagnostic: "RESULT_REFUSED",
+    resultBatch: [
+      { name: "Planner", role: "Plan", phase: "completed", text: "The plan", cut: true },
+    ],
+  });
+  await f.service.teamOutbox.transfer();
+  const notice = f.service.outbox
+    .pending(f.channel.id)
+    .find((e) => e.kind === "team-result");
+  assert.ok(notice.text.includes("The plan"));
+  assert.ok(notice.text.includes("Bericht gekürzt"));
+});

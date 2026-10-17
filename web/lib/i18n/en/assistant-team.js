@@ -86,6 +86,9 @@ export const assistantTeamCopy = {
   showInChat: "Show in chat",
   report: "Report",
   noReport: "No written report",
+  // A report stored incomplete beyond the history limit.
+  reportShortened: "Shortened – the whole report is in the member’s chat.",
+  openMemberChat: "Open chat",
   results: {
     queued: "Results waiting to be summarized",
     pending: "Results are being summarized in the chat",
@@ -98,6 +101,7 @@ export const assistantTeamCopy = {
     uncertain: "Summary outcome unknown",
     reviewed: "Summary outcome reviewed",
     skipped: "No summary",
+    unsent: "The results could not be passed to the agent. Read the reports here.",
   },
   inherited: (name, revision) => `Created by ${name} · inherited revision ${revision}`,
 };

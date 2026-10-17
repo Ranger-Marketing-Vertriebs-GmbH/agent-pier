@@ -95,6 +95,7 @@ export const assistants = {
     `Team results for ${objective}. No text is available for the completed synthesis. Review the individual reports.`,
   teamReportUnavailable:
     "No textual report is available. Open the member chat for further details.",
+  teamReportShortened: "Report shortened – the whole report is in the member’s chat.",
   teamResultStates: { completed: "Completed", failed: "Failed", cancelled: "Cancelled" },
   teamApproval: (objective, count) =>
     `Team approval: ${objective}\n${count} members. Approve or decline?`,

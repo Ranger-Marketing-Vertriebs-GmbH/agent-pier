@@ -10,13 +10,27 @@ const finished = new Set(["completed", "failed", "cancelled", "declined"]);
  * Settings → Work → Teams: the questions and tasks a lead sent its members, grouped
  * by member, open ones first and newest first within each side.
  */
-export default function MemberRequests({ assistant, requests, busy, act }) {
+export default function MemberRequests({
+  assistant,
+  requests,
+  members = [],
+  busy,
+  act,
+  navigate,
+}) {
   const labelId = useId();
   const own = requests.filter((r) => r.parentAssistantId === assistant.id);
   const done = own.filter((r) => finished.has(r.phase));
   const open = own.filter((r) => !finished.has(r.phase));
   const [view, setView] = useState("open");
   const shown = [...(view === "open" ? open : done)].reverse();
+  // The member's chat, where its whole answer is.
+  const memberChat = (r) => {
+    const m = members.find((x) => x.id === r.memberId);
+    return m?.conversationId
+      ? { view: "agents", assistantId: m.assistantId, conversationId: m.conversationId }
+      : null;
+  };
   const byMember = new Map();
   for (const r of shown) {
     if (!byMember.has(r.memberId)) byMember.set(r.memberId, []);
@@ -48,7 +62,14 @@ export default function MemberRequests({ assistant, requests, busy, act }) {
             >
               <h4>{list[0].memberName}</h4>
               {list.map((r) => (
-                <LeadRequestCard key={r.id} request={r} busy={busy} act={act} />
+                <LeadRequestCard
+                  key={r.id}
+                  request={r}
+                  busy={busy}
+                  act={act}
+                  memberChat={memberChat(r)}
+                  navigate={navigate}
+                />
               ))}
             </div>
           ))}

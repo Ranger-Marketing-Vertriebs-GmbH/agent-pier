@@ -1,5 +1,10 @@
 import { telegramMessages } from "./telegram-messages.js";
-import { completeMessage, withNote } from "../assistants/history-text.js";
+import {
+  boundedText,
+  completeMessage,
+  historyTextLimit,
+  withNote,
+} from "../assistants/history-text.js";
 // A lead's questions and tasks for its members that came from the owner's Telegram
 // chat: the lead's follow-up turn with the member's answer or result goes back
 // there once it completes.
@@ -61,13 +66,17 @@ async function transferRequest(outbox, r) {
       .at(-1);
     // The history page cuts long replies; this one is read on its own. Unlike a
     // direct reply it is one outbox notice, bounded by the outbox's 65536.
-    const reply = await completeMessage(a, r.parentConversationId, message);
+    const reply = boundedText(await completeMessage(a, r.parentConversationId, message));
     text = reply.cut ? withNote(reply.text, msg.telegramReplyIncomplete) : reply.text;
   }
-  if (!text?.trim())
+  if (!text?.trim()) {
     text = [msg.memberRequestNoReply(r.memberName), r.answer || ""]
       .filter(Boolean)
       .join("\n\n");
+    // A member's answer may itself fill the history limit.
+    if (r.answerCut || text.length > historyTextLimit)
+      text = withNote(text, msg.telegramReplyIncomplete);
+  }
   const key = `lead-request-result:${r.id}`;
   const entry =
     queue.all(source.channelId).find((e) => e.key === key) ||
@@ -77,7 +86,7 @@ async function transferRequest(outbox, r) {
       kind: "lead-request-result",
       path: requestPath(r),
       localized: true,
-      text: text.slice(0, 65536),
+      text,
     });
   outbox.recordTransfer(`request-result:${r.id}`, entry.id);
 }

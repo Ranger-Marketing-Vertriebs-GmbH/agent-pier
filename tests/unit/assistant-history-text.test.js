@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  boundedText,
   completeMessage,
   historyText,
   withNote,
@@ -114,4 +115,20 @@ test("a committed routine result is badged even when the history page cut it", (
     withRoutineResults(messages, results).map((m) => m.scheduled?.name ?? null),
     ["Digest", null, null],
   );
+});
+
+test("a bounded text is cut by code point and never keeps half an emoji", () => {
+  assert.deepEqual(boundedText({ text: "ab😀", cut: false }, 3), {
+    text: "ab",
+    cut: true,
+  });
+  assert.deepEqual(boundedText({ text: "ab😀", cut: false }, 4), {
+    text: "ab😀",
+    cut: false,
+  });
+  // OpenClaw cut by code unit: the dangling high surrogate is dropped.
+  assert.deepEqual(boundedText({ text: "ab\uD83D", cut: true }), {
+    text: "ab",
+    cut: true,
+  });
 });

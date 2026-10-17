@@ -22,6 +22,9 @@ export const leadRequestCopy = {
   mayWrite: "may write",
   readOnly: "read-only",
   showAll: "Show all",
+  // An answer stored incomplete beyond the history limit.
+  answerShortened: "Shortened – the whole text is in the member’s chat.",
+  openMemberChat: "Open chat",
   followUpFailed: "The result could not be passed back to the agent. Read it here.",
   cancel: "Cancel",
   listTitle: "Questions and tasks",

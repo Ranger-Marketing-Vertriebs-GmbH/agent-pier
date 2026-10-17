@@ -733,8 +733,22 @@ Results form one durable batch and one parent synthesis request per team. A busy
 parent delays synthesis. Unknown synthesis is not resent. A terminal member without an exact-run textual
 report still completes its batch with `reportAvailable: false`; unavailable or
 paginated history does not turn terminal work back into running work. The member
-chat retains any later history. A completed synthesis without available text sends
-an explicit fallback with attributed individual reports. Telegram approvals and
+chat retains any later history. A member's report is its run's last assistant
+message with text (as OpenClaw's own channel reply; text written before a tool call
+is commentary), read on its own when the history page cut it and kept whole up to
+65,536 characters. Beyond that, or when OpenClaw serves it only as "message too
+large", the batch entry is cut by code point and marked `cut`, and the team card
+says "Shortened" with a link to the member's chat. The synthesis request stays
+below 60,000 characters (the request limit is 65,536), JSON escaping included:
+when the reports do not fit, the longest are shortened first to one common length,
+and every shortened or cut entry carries `shortened: true` with the instruction
+that the whole report is in that member's chat. A synthesis the parent refuses
+(`400`) is not retried: the team shows "The results could not be passed to the
+agent" (`resultState: unsent`, `RESULT_REFUSED`), the server logs it, and a
+Telegram origin receives the individual reports instead. A completed synthesis without available text sends
+an explicit fallback with attributed individual reports. A Telegram team result
+is read whole like a direct reply; one that stays incomplete, or a fallback over
+65,536 characters, ends with "Reply shortened – the rest could not be sent." Telegram approvals and
 late results use a separate durable outbox tied to the original channel/chat/user.
 Telegram approval includes the full objective, names, roles and assignments. Long
 proposals use ordered chunks, with buttons attached only to the last chunk after all
@@ -833,9 +847,15 @@ A lead reaches its own members without the owner relaying anything
   requests the team plugin contract holds an ask for 115 seconds against the
   pinned Gateway. An answer that misses the wait, or whose response could not be
   written to the caller, a task result or a failure reaches the lead as a hidden
-  follow-up turn (at most 16000 characters) once its chat is idle, and from there
+  follow-up turn (at most 60,000 characters) once its chat is idle, and from there
   the paired Telegram chat when the request came from Telegram. Follow-ups that
   keep failing end as `FOLLOW_UP_FAILED`, shown on the request.
+- **Answers.** The member's answer or result is its run's last reply, kept whole
+  up to 65,536 characters. A longer one is cut by code point and stored with
+  `answerCut`; the ask tool result and the follow-up then carry `shortened: true`
+  and tell the lead that the whole text is in the member's chat, as does a
+  follow-up shortened to fit its own limit. The request in **Work → Teams** shows
+  "Shortened" with a link to that chat.
 - **Tool calls and scheduled runs.** Plugin tools receive the session key but no
   run id (OpenClaw 2026.9.8 and 2026.9.9 tool context), so the bridge binds a call to the
   session's single active AgentPier attempt. Native runs never reach these tools,

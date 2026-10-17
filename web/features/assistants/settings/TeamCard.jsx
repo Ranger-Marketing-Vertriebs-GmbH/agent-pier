@@ -58,20 +58,28 @@ export default function TeamCard({
       <ul className="assistant-team-members">
         {members.map((m) => {
           const report = reports.get(m.id);
+          const chat = {
+            view: "agents",
+            assistantId: m.assistantId,
+            ...(m.conversationId
+              ? { conversationId: m.conversationId }
+              : { agentSettings: true }),
+          };
+          // Stored incomplete: the whole report is in the member's chat.
+          const shortened = (
+            <p className="assistant-note">
+              {copy.team.reportShortened}{" "}
+              <RouteLink route={chat} navigate={navigate}>
+                {copy.team.openMemberChat}
+              </RouteLink>
+            </p>
+          );
           return (
             <li key={m.id}>
               <button
                 type="button"
                 className="assistant-team-member"
-                onClick={() =>
-                  navigate({
-                    view: "agents",
-                    assistantId: m.assistantId,
-                    ...(m.conversationId
-                      ? { conversationId: m.conversationId }
-                      : { agentSettings: true }),
-                  })
-                }
+                onClick={() => navigate(chat)}
               >
                 <span className="assistant-avatar" aria-hidden="true">
                   {avatarGlyph(m.name)}
@@ -92,7 +100,10 @@ export default function TeamCard({
                   <details className="assistant-team-report">
                     <summary>{copy.team.report}</summary>
                     <p>{report.text}</p>
+                    {report.cut && shortened}
                   </details>
+                ) : report.cut ? (
+                  shortened
                 ) : (
                   <p className="assistant-team-report-missing">{copy.team.noReport}</p>
                 ))}
