@@ -37,6 +37,7 @@ import { ToolInstaller } from "../features/tools/tool-installer.js";
 import { PluginStore } from "../features/plugins/plugin-store.js";
 import { NativeSessionBinding } from "../features/sessions/native-session-binding.js";
 import { GithubCredentials } from "../features/repositories/github-credentials.js";
+import { GithubMcpTool } from "../features/tools/github-mcp-tool.js";
 import { SessionActivity } from "../features/sessions/session-activity.js";
 import { AgentBus } from "../features/agentbus/agent-bus.js";
 import { Preferences } from "../features/settings/preferences.js";
@@ -169,6 +170,9 @@ export async function createServices(config) {
   // a newer agent browser updates an installed one.
   installer.sweepChromium();
   installer.keepChromiumCurrent();
+  // The agents' GitHub MCP server follows its pinned version the same way.
+  const githubMcp = new GithubMcpTool({ dataDir: config.dataDir });
+  githubMcp.keepCurrent();
   const plugins = new PluginStore({ accounts, home: config.home, sharedProfiles });
   agentbus = new AgentBus({
     bindings,
@@ -324,6 +328,7 @@ export async function createServices(config) {
     chatEvents,
     chatStreams,
     github,
+    githubMcp,
     activity,
     models,
     chatImages,

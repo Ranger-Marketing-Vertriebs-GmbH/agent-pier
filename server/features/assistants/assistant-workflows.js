@@ -22,6 +22,7 @@ import { withExcerpts } from "../memory/memory-search.js";
 import { sshDecisions } from "./agent-ssh-approvals.js";
 import { sshTelegramApprovable } from "./agent-ssh-notifications.js";
 import { AgentProjectFiles, fileActions } from "./agent-project-files.js";
+import { AgentGithub } from "./agent-github.js";
 import { workflowDefinitions } from "./team-plugin/workflow-tools.js";
 const workspaceKeys = Object.keys(workflowDefinitions.workspace.parameters.properties);
 const maxEventRetryMs = 300000;
@@ -39,6 +40,7 @@ export class AssistantWorkflows {
     this.ssh = new AgentSsh(this);
     this.forget = new AssistantMemoryForget(this);
     this.folders = new AgentProjectFiles(this);
+    this.github = new AgentGithub(this);
     if (autoStart) this.start();
   }
   /** Starts advancing open actions; the application starts it after recovery. */

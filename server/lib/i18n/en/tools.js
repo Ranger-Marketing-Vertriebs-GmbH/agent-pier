@@ -115,4 +115,11 @@ export const tools = Object.freeze({
   chromiumDiskFull: "Not enough free disk space for the browser.",
   chromiumInUse:
     "The managed browser is in use by the agents. Stop the agent service before removing it.",
+  githubMcpPlatformUnavailable: "There is no managed GitHub MCP server for this system.",
+  githubMcpDownloadFailed: "The GitHub MCP server could not be downloaded.",
+  githubMcpChecksumMismatch:
+    "The downloaded GitHub MCP server does not match its pinned checksum.",
+  githubMcpArchiveInvalid: "The GitHub MCP server archive is invalid.",
+  githubMcpVersionMismatch:
+    "The installed GitHub MCP server does not report the pinned version.",
 });

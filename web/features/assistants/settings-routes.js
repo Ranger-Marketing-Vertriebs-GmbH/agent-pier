@@ -9,6 +9,7 @@ export const agentPages = {
   projects: "work",
   pipelines: "work",
   ssh: "work",
+  github: "work",
   "telegram-activity": "telegram",
   "telegram-connection": "telegram",
 };

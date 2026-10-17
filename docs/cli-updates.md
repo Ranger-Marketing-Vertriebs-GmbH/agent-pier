@@ -21,6 +21,12 @@ installed managed browser is also updated in the background at the first server 
 after an AgentPier update (see "Managed agent browser" in
 [assistant-gateway.md](assistant-gateway.md)).
 
+The agents' GitHub MCP server is managed the same way but has no card: AgentPier
+installs its pinned release (checked by SHA-256) when an agent first gets GitHub
+access, and an installed one follows a newer pinned version at the first server start
+after an AgentPier update and on every installer run (see
+[GitHub for agents](assistant-gateway.md#github-for-agents)).
+
 UI updates are available for native installations in the server home and AgentPier-owned npm installations. Installations managed externally through Homebrew, npm or another package manager must be updated through that manager or migrated manually. GitHub CLI and the system shell are outside this update action.
 
 ## Minimum CLI versions

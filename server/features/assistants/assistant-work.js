@@ -13,7 +13,8 @@ function part(value) {
  * Saves an agent's workflow access and team policy as one change: both revisions are
  * preconditions and both rows are written in one transaction of the agent database,
  * so a refused part leaves the other unchanged. `sshToolChanged` tells the route
- * that the agent gained its first or lost its last SSH grant; `removedProjectIds`
+ * that the agent gained its first or lost its last SSH grant, `githubChanged` that its
+ * GitHub access changed (agent-github.js refresh); `removedProjectIds`
  * names granted projects that no longer exist and were dropped.
  */
 export function saveWork({ assistants, access, teams }, id, body) {
@@ -37,10 +38,19 @@ export function saveWork({ assistants, access, teams }, id, body) {
   if (before) {
     access.auditSsh(id, before, result.access, "owner");
     access.auditProjects(id, before, result.access);
+    access.auditGithub?.(id, before, result.access);
   }
   assistants.changed();
   // Gaining the first or losing the last grant changes the agent's tool list.
   const sshToolChanged =
     !!before && before.sshAccesses.length > 0 !== result.access.sshAccesses.length > 0;
-  return { ...result, sshToolChanged, removedProjectIds: notes.removedProjectIds };
+  // A changed GitHub access reaches the agent, its members and the MCP servers.
+  const githubChanged =
+    !!before && JSON.stringify(before.github) !== JSON.stringify(result.access.github);
+  return {
+    ...result,
+    sshToolChanged,
+    githubChanged,
+    removedProjectIds: notes.removedProjectIds,
+  };
 }

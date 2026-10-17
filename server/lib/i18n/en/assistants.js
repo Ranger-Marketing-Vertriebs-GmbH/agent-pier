@@ -113,12 +113,14 @@ export const assistants = {
       ssh: "⚠ SSH on the lead's hosts",
       mcpServers: (count) => `MCP servers: ${count}`,
       projects: (count) => `project folders: ${count}`,
+      github: (level) => `GitHub (${level})`,
     },
+    githubLevels: { read: "read", write: "read and write" },
     levels: { approval: "with approval", full: "full access" },
     gets: (labels) => `Gets: ${labels}`,
     getsNothing: "Gets: no tools",
     promoted: (lead, member) =>
-      `${lead} kept its team member ${member} as a permanent agent. It keeps its web tools, image reading, skills, MCP servers and reminders, and only its own memory, without its lead's; it gets no shell or SSH. You can review or archive it in its settings.`,
+      `${lead} kept its team member ${member} as a permanent agent. It keeps its web tools, image reading, skills, MCP servers and reminders, and only its own memory, without its lead's; it gets no shell, SSH, project folder or GitHub access. You can review or archive it in its settings.`,
     proposalWarning:
       "⚠ Members marked ⚠ get shell or SSH, at most at the lead's level and on its hosts. They work unattended; content they read can steer them.",
     approval: (lead, member) =>
@@ -180,6 +182,10 @@ export const assistants = {
     "This agent has a stdio MCP server, which runs commands on this computer. Remove it before you connect a bot for other people.",
   telegramSendersSsh:
     "An agent with its own Telegram bot for other people must not have SSH accesses. Remove the SSH accesses or disconnect the bot first.",
+  telegramSendersGithub:
+    "An agent with its own Telegram bot for other people cannot have GitHub access. Remove the GitHub access or disconnect the bot first.",
+  githubProfileUnavailable:
+    "This GitHub token profile no longer exists. Choose another one under Settings → Access → GitHub connections.",
   sshNotGranted: "This SSH access is not granted to the agent.",
   sshHostUnavailable:
     "This SSH access is unavailable: it was removed, or OpenSSH is missing.",

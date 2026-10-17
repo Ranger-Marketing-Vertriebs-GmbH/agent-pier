@@ -157,6 +157,9 @@ export class TeamMcpBindings {
    */
   async refresh() {
     this.sync();
+    // A lead's GitHub grant or access changed who uses which GitHub server.
+    const github = this.assistants.workflows?.github;
+    if (github?.changed()) await github.refresh().catch(() => {});
     const mcp = this.assistants.mcp;
     if (!mcp) return;
     if (this.dirty) {

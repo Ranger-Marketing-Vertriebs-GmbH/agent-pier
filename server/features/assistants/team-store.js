@@ -34,12 +34,15 @@ export class TeamStore {
     servers = () => null,
     sshGranted = () => false,
     projectFiles = () => ({}),
+    github = () => null,
   }) {
     this.store = store;
     // Whether an agent holds an SSH grant (AssistantAccess.hasSshGrants).
     this.sshGranted = sshGranted;
     // An agent's project folder levels (AssistantAccess projectFiles), read live.
     this.projectFiles = projectFiles;
+    // An agent's own GitHub access (agent-github.js held), read live.
+    this.github = github;
     // The central MCP server store, looked up when a proposal names servers.
     this.servers = servers;
     this.db = store.db;
@@ -294,6 +297,7 @@ export class TeamStore {
             shellSsh,
             ssh: !!this.sshGranted(parent.id),
             projects: this.projectFiles(parent.id),
+            github: this.github(parent.id),
           });
         return {
           ...draft,

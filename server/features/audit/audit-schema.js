@@ -17,6 +17,7 @@ const memberGrantKeys = new Set([
   "shell",
   "ssh",
   "projects",
+  "github",
 ]);
 const memberEditKeys = new Set([
   "name",
@@ -199,6 +200,7 @@ export function auditEvent(input) {
       "project-file",
       "project-grants",
       "share",
+      "github-access",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -345,6 +347,15 @@ export function auditEvent(input) {
     /^\d{1,4}\.\d{1,4}\.\d{1,4}(?:-[a-z0-9.-]{1,40})?$/.test(details.version)
   )
     event.details.version = details.version;
+  // An agent's GitHub access (agent-github.js): the profile id and the levels, never
+  // a token or the profile's name.
+  if (details.kind === "github-access") {
+    for (const key of ["githubFrom", "githubTo"])
+      if (["none", "read", "write"].includes(details[key]))
+        event.details[key] = details[key];
+    if (details.credentialId !== undefined)
+      event.details.credentialId = auditId(details.credentialId);
+  }
   // An agent's change in a project folder: the relative path and size, never content.
   if (details.kind === "project-file") {
     if (["create", "replace", "edit", "append"].includes(details.fileChange))

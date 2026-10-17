@@ -100,6 +100,7 @@ export class TeamService {
       servers: () => assistants.mcp?.servers,
       sshGranted: (id) => !!assistants.workflows?.access.hasSshGrants(id),
       projectFiles: (id) => assistants.workflows?.folders.held(id) || {},
+      github: (id) => assistants.workflows?.github.held(id) || null,
     }),
     autoStart = true,
     now,

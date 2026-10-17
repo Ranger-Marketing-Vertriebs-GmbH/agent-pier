@@ -128,19 +128,24 @@ export class AssistantStore {
         granted.grants,
         granted.shellSsh === true,
         lead ? this.folderLevels(lead.id) : {},
+        lead ? this.accessField(lead.id, "github") : null,
       ),
     };
   }
   // An agent's project folder levels, read from the access row that AssistantAccess
   // keeps in this database; none when it cannot be read.
   folderLevels(id) {
+    return this.accessField(id, "projectFiles") || {};
+  }
+  // One field of that access row (its GitHub access, agent-github.js), or null.
+  accessField(id, key) {
     try {
       const row = this.db
         .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
         .get(id);
-      return (row && JSON.parse(row.body).projectFiles) || {};
+      return (row && JSON.parse(row.body)[key]) || null;
     } catch {
-      return {};
+      return null;
     }
   }
   listAssistants() {

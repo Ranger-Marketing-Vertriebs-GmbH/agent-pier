@@ -17,7 +17,9 @@ export function grantLabels(grants = {}, m, servers = 0) {
             : labels.skills(grants.skills.length)
           : key === "projects"
             ? labels.projects(Object.keys(grants.projects).length)
-            : labels[key],
+            : key === "github"
+              ? labels.github(m.memberGrants.githubLevels[grants.github])
+              : labels[key],
     ),
     ...(servers ? [labels.mcpServers(servers)] : []),
   ];

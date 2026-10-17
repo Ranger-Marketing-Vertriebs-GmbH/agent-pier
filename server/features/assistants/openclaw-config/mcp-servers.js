@@ -79,8 +79,25 @@ function oauthServerConfig(server, redirectUrl) {
  * - `secrets`: `{ [serverId]: { headers, env } | null }` for bound servers.
  * - `redirectUrl`: the OAuth redirect URL (oauthRedirect), read by the caller at
  *   each call so a changed origin reaches the next start or live apply.
+ * `extra(names)` adds servers AgentPier manages itself in the same shape (the agents'
+ * GitHub servers, agent-github.js mcpInputs); `names` are the store's, which win.
  */
-export function readMcpInputs(store, { redirectUrl = null } = {}) {
+export function readMcpInputs(store, { redirectUrl = null, extra = null } = {}) {
+  const inputs = readStoreInputs(store, redirectUrl);
+  if (!extra || inputs.unreadable) return inputs;
+  try {
+    const more = extra(new Set(inputs.servers.map((server) => server.name)));
+    inputs.servers.push(...more.servers);
+    Object.assign(inputs.secrets, more.secrets);
+    for (const [id, ids] of Object.entries(more.bindings))
+      inputs.bindings[id] = [...(inputs.bindings[id] || []), ...ids];
+  } catch {
+    // Managed servers that cannot be read are left out, like an unreadable value.
+  }
+  return inputs;
+}
+
+function readStoreInputs(store, redirectUrl) {
   const inputs = {
     servers: [],
     bindings: {},

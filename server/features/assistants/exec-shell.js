@@ -20,11 +20,41 @@ export const standardPathDirectories = [
 /** A POSIX single-quoted word: safe for quotes, `$`, backticks and newlines. */
 export const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
 
-/** The wrapper's content: sets the owner's HOME, then execs /bin/sh unchanged. */
+// An agent with GitHub access and shell has its own folder on its PATH
+// (tools.exec.pathPrepend, agent-github.js): the first PATH entry that names such a
+// folder's bin/ makes the wrapper source the folder's shell-env.sh, so gh and git in
+// that agent's commands use its token profile, never the owner's login
+// (github-credentials.js prepareAgent). Exec children cannot override PATH (fact d).
+const githubShellLines = [
+  "agentpier_ifs=$IFS",
+  "IFS=:",
+  "set -f",
+  "for agentpier_dir in $PATH; do",
+  "  case $agentpier_dir in",
+  "    */github-sessions/agent-*/bin)",
+  '      if [ -f "${agentpier_dir%/bin}/shell-env.sh" ]; then . "${agentpier_dir%/bin}/shell-env.sh"; fi',
+  "      break ;;",
+  "  esac",
+  "done",
+  "set +f",
+  "IFS=$agentpier_ifs",
+  "unset agentpier_ifs agentpier_dir",
+];
+
+/**
+ * The wrapper's content: sets the owner's HOME and an agent's GitHub environment,
+ * then execs /bin/sh unchanged.
+ */
 export function execShellScript(home) {
   if (!path.isAbsolute(home) || home.includes("\0"))
     throw Error("The owner's home directory must be an absolute path.");
-  return `#!/bin/sh\nexport HOME=${shellQuote(home)}\nexec /bin/sh "$@"\n`;
+  return [
+    "#!/bin/sh",
+    `export HOME=${shellQuote(home)}`,
+    ...githubShellLines,
+    'exec /bin/sh "$@"',
+    "",
+  ].join("\n");
 }
 
 /**

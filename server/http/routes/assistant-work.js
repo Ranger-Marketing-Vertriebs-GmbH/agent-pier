@@ -11,7 +11,7 @@ export function assistantWorkRoutes({ assistants }) {
     assistants.admit(async () => {
       if (!assistants.workflows || !assistants.teams)
         throw assistantProblem("unavailable", 503);
-      const { sshToolChanged, ...saved } = saveWork(
+      const { sshToolChanged, githubChanged, ...saved } = saveWork(
         {
           assistants,
           access: assistants.workflows.access,
@@ -23,6 +23,7 @@ export function assistantWorkRoutes({ assistants }) {
       // The next turn applies it anyway; a ready Gateway gets it now.
       if (sshToolChanged && assistants.runtime?.client?.ready)
         await assistants.config.apply(req.params.id).catch(() => {});
+      if (githubChanged) await assistants.workflows.github.refresh([req.params.id]);
       // Running members follow the shell and SSH setting at once.
       if (req.body.team) {
         // Switched off, the setting also cancels pending shell and SSH cards.
