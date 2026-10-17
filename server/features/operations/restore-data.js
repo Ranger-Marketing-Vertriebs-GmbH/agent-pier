@@ -62,9 +62,13 @@ export async function mapProjects(directory, projectMap = {}) {
       db.exec("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE");
       try {
         db.exec("DELETE FROM capabilities");
+        // Backups made before forgetting existed have no tombstones table.
+        const tables = ["entries", "requests"];
+        if (db.prepare("SELECT 1 FROM sqlite_master WHERE name='tombstones'").get())
+          tables.push("tombstones");
         for (const m of mappings) {
           const temporary = `import-${m.from}`;
-          for (const table of ["entries", "requests"])
+          for (const table of tables)
             db.prepare(`UPDATE ${table} SET project_id=? WHERE project_id=?`).run(
               temporary,
               m.from,
@@ -73,7 +77,7 @@ export async function mapProjects(directory, projectMap = {}) {
         }
         for (const m of mappings) {
           const temporary = `import-${m.from}`;
-          for (const table of ["entries", "requests"])
+          for (const table of tables)
             db.prepare(`UPDATE ${table} SET project_id=? WHERE project_id=?`).run(
               m.to,
               temporary,

@@ -21,6 +21,18 @@ export const memoryCopy = {
   restore: (title) => `Wiederherstellen: ${title}`,
   edit: (title) => `Bearbeiten: ${title}`,
   history: (title) => `Versionen: ${title}`,
+  forget: (title) => `Endgültig vergessen: ${title}`,
+  forgetAction: "Endgültig vergessen",
+  forgetTitle: "Eintrag endgültig vergessen",
+  forgetWarning:
+    "Der Eintrag wird mit allen Versionen aus der Wissensdatenbank gelöscht. Das lässt sich nicht rückgängig machen. Derselbe Titel und Inhalt kann in diesem Projekt nicht erneut gespeichert werden.",
+  forgetLimit:
+    "Gesperrt wird nur identischer Text: Dasselbe Geheimnis in anderem Text lässt sich weiterhin speichern.",
+  forgetArchives:
+    "Vorhandene Sicherungsarchive unter Einstellungen → Betrieb → Sicherungen enthalten den Inhalt weiterhin. Lösche oder behandle sie von Hand.",
+  forgetReason: "Begründung (optional; nie das Geheimnis selbst eintragen)",
+  forgetRemoveBackups:
+    "Auch die Migrationssicherungen der Wissensdatenbank (memory.sqlite.*) auf diesem Rechner löschen",
   historyTitle: "Versionsverlauf",
   version: (revision) => `Version ${revision}`,
   latest: "Aktuellen Stand laden",

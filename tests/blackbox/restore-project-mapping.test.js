@@ -19,6 +19,9 @@ test("restore rejects colliding mappings and opens Unicode project memory with u
     title: "Portable knowledge",
     content: "Keep this fact",
   });
+  const leaked = { title: "Leaked", content: "fixture-restore-secret" };
+  const forgotten = f.application.memory.write(first.id, leaked);
+  f.application.memory.forget(first.id, forgotten.id, { expectedRevision: 1 });
   const definitions = f.application.pipelineDefinitions;
   const profile = definitions
     .listProfiles()
@@ -65,6 +68,8 @@ test("restore rejects colliding mappings and opens Unicode project memory with u
     assert.deepEqual(restored.pipelineDefinitions.getProfile(profile.id), profile);
     assert.deepEqual(restored.pipelineDefinitions.getVerification(moved.id).steps, steps);
     assert.equal((await restored.sessions.list()).length, 0);
+    // The tombstone follows the mapped project.
+    assert.throws(() => restored.memory.write(moved.id, leaked), { status: 422 });
     assert.equal(f.application.memory.list(first.id).items[0].content, "Keep this fact");
   } finally {
     await restored.close();

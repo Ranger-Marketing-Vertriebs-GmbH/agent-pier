@@ -11,6 +11,7 @@ import {
 import { projectScope } from "./project-scope.js";
 import { classifyProjectFolder, runWorktreeRoot } from "./project-folders.js";
 import { gitInitRebind } from "./project-rebind.js";
+import { forgetEntry, refuseForgotten } from "./memory-forget.js";
 import os from "node:os";
 const pageSize = 20;
 const selection = `SELECT e.id,e.project_id,r.*, (SELECT created_at FROM revisions WHERE entry_id=e.id AND revision=1) AS original_created FROM entries e JOIN revisions r ON r.entry_id=e.id`;
@@ -43,6 +44,13 @@ function source(value) {
       tool: value.tool,
     };
   throw failure(serverMessages.memory.invalidProvenance);
+}
+/** The request-receipt and tombstone actor of an author. */
+function actorOf(author) {
+  return (
+    author.sessionId ||
+    (author.kind === "assistant" ? `assistant:${author.assistantId}` : "user")
+  );
 }
 export class ProjectMemory {
   constructor({ dataDir, home = os.homedir() }) {
@@ -243,12 +251,11 @@ export class ProjectMemory {
     if (!id && expected !== undefined)
       throw failure(serverMessages.memory.newEntryRevision);
     const requestId = input.requestId === undefined ? null : identifier(input.requestId);
+    refuseForgotten(this.db, projectId, title, content);
     const hash = createHash("sha256")
       .update(JSON.stringify({ id, title, content, expected }))
       .digest("hex");
-    const actor =
-      author.sessionId ||
-      (author.kind === "assistant" ? `assistant:${author.assistantId}` : "user");
+    const actor = actorOf(author);
     return transaction(this.db, () => {
       if (requestId) {
         const prior = this.db
@@ -331,6 +338,10 @@ export class ProjectMemory {
       return this.read(projectId, id);
     });
   }
+  /** Permanently removes an entry and its history; see forgetEntry. Owner only. */
+  forget(projectId, id, options = {}, provenance = { kind: "user" }) {
+    return forgetEntry(this, projectId, id, options, actorOf(source(provenance)));
+  }
   reboundTo(fromId) {
     return (
       this.db.prepare("SELECT to_id FROM project_rebinds WHERE from_id=?").get(fromId)
@@ -380,6 +391,10 @@ export class ProjectMemory {
       .prepare("UPDATE OR IGNORE requests SET project_id=? WHERE project_id=?")
       .run(scope.id, fromId);
     this.db.prepare("DELETE FROM requests WHERE project_id=?").run(fromId);
+    this.db
+      .prepare("UPDATE OR IGNORE tombstones SET project_id=? WHERE project_id=?")
+      .run(scope.id, fromId);
+    this.db.prepare("DELETE FROM tombstones WHERE project_id=?").run(fromId);
     this.db.prepare("DELETE FROM projects WHERE id=?").run(fromId);
   }
   /**

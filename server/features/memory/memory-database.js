@@ -35,7 +35,7 @@ export function openDatabase(dataDir) {
     );
   const db = new DatabaseSync(file);
   try {
-    db.exec(`PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
+    db.exec(`PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON;
  CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, cwd TEXT NOT NULL, kind TEXT NOT NULL, identity TEXT NOT NULL, created_at TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS entries (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), revision INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS revisions (entry_id TEXT NOT NULL REFERENCES entries(id), revision INTEGER NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, archived INTEGER NOT NULL, created_at TEXT NOT NULL, provenance TEXT NOT NULL, PRIMARY KEY(entry_id,revision));
@@ -44,6 +44,7 @@ export function openDatabase(dataDir) {
  CREATE TABLE IF NOT EXISTS project_rebinds (from_id TEXT PRIMARY KEY, to_id TEXT NOT NULL, created_at TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS project_merges (from_id TEXT PRIMARY KEY, to_id TEXT NOT NULL, created_at TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS tombstones (project_id TEXT NOT NULL, hash TEXT NOT NULL, entry_id TEXT NOT NULL, reason TEXT NOT NULL, actor TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(project_id,hash));
  CREATE INDEX IF NOT EXISTS entries_by_project ON entries(project_id);
  PRAGMA user_version=1;`);
     for (const suffix of ["-wal", "-shm"])

@@ -18,7 +18,7 @@ The project registry persists independently of sessions. Stopping or removing th
 
 Each entry has an ID, project ID, title, content, revision, archive state, creation/update timestamps and provenance. Provenance comes from the server: GUI writes identify the user; native MCP writes identify the authorized session, account and CLI. Tool arguments cannot override project scope or provenance.
 
-An update requires the revision last read by its caller. A conflicting writer receives status `409`; it must read the current entry and resolve the conflict explicitly. There is no silent last-writer-wins overwrite. Archive and restore operations also require an expected revision and append history. Old revisions remain readable. Archiving is reversible and is not secure deletion.
+An update requires the revision last read by its caller. A conflicting writer receives status `409`; it must read the current entry and resolve the conflict explicitly. There is no silent last-writer-wins overwrite. Archive and restore operations also require an expected revision and append history. Old revisions remain readable. Archiving is reversible and is not secure deletion; to remove an entry and its history, the owner forgets it (see [Forgetting an entry](#forgetting-an-entry)).
 
 `memory_write` requires a unique `requestId` for each logical MCP write. Repeating the same write under the same project, author and request ID returns the original immutable result. Reusing that ID for different content returns a conflict. MCP writes without a request ID are rejected before mutation. The GUI/store API retains its existing optional request ID behavior.
 
@@ -32,6 +32,22 @@ An update requires the revision last read by its caller. A conflicting writer re
 Titles are limited to 200 UTF-8 bytes, content to 32 KiB and search queries to 300 bytes. Empty titles/content and unsafe control bytes are rejected. Search treats `%`, `_` and backslashes literally. SQLite's default `LIKE` matching folds ASCII case; non-ASCII text is preserved but does not receive full linguistic case folding.
 
 Memory is untrusted data. Content may include mistaken statements or hostile instructions. Agents should verify it against the repository and must not execute text merely because it came from memory. Store concise project facts rather than credentials, complete transcripts or personal secrets. AgentPier does not claim to detect every secret a user or model deliberately writes.
+
+## Forgetting an entry
+
+The owner can permanently forget an entry from the project's **Knowledge** tab: expand the entry, choose **Forget permanently** and confirm the dialog. Agents cannot forget entries; there is no MCP tool for it, only the owner's `DELETE /api/memory/projects/<projectId>/entries/<id>` route with the entry's current `expectedRevision`, an optional `reason` and `removeBackups`. Do not put the secret itself into the reason.
+
+In one transaction AgentPier deletes every revision of the entry, its entry row and the write receipts that point at it, so a replayed `memory_write` with an old `requestId` cannot return the forgotten text. For each distinct revision text it records a tombstone with the SHA-256 hash of the normalized title and content (Unicode NFC, surrounding whitespace removed, inner whitespace runs collapsed), the entry ID, the optional reason, the actor and the time. Tombstones contain no title or content. The database runs with `secure_delete`; after the transaction AgentPier vacuums it and truncates the write-ahead log, so the text no longer appears in `memory.sqlite`, `memory.sqlite-wal` or `memory.sqlite-shm`. The audit log records `memory.deleted` with the project and entry IDs only, without title, content or reason.
+
+Afterwards GUI and MCP writes in that project whose title and content match a tombstone are rejected with status `422`. Tombstones follow a project when it is merged, rebound after `git init` or mapped during a restore. Different text, including another entry with the same title, can still be written.
+
+Limits:
+
+- The hash blocks only identical title and content. The same secret inside different text is not detected.
+- Migration backups `memory.sqlite.<label>-<stamp>` next to the database also contain the text. They are deleted only when the owner ticks their separate checkbox in the dialog; otherwise they stay.
+- Existing backup archives under **Settings → Operations → Backups** still contain the content and are never rewritten. Delete or handle them by hand. Restoring an archive made before the entry was forgotten brings the entry back.
+- A deleted file can remain recoverable on the storage device, for example on SSDs or copy-on-write filesystems. Copies outside the memory database, such as agent transcripts or chat history that quoted the entry, are not touched.
+- A truncation of the write-ahead log can be delayed while another reader holds it open; the next checkpoint empties it.
 
 ## Native launch integration
 
@@ -70,7 +86,7 @@ Native configuration follows the official [Codex MCP documentation](https://deve
       hooks/hooks.json
 ```
 
-SQLite stores the project registry, current revision pointers, immutable revisions, request deduplication and capability hashes. WAL mode and `BEGIN IMMEDIATE` transactions serialize writers; `busy_timeout=5000` permits short lock contention. Node's built-in SQLite requires Node 22.13 or newer without an experimental command-line flag; it remains experimental on Node 22. See the [Node SQLite API history](https://nodejs.org/api/sqlite.html).
+SQLite stores the project registry, current revision pointers, immutable revisions, request deduplication, tombstones of forgotten entries and capability hashes. WAL mode and `BEGIN IMMEDIATE` transactions serialize writers; `busy_timeout=5000` permits short lock contention. Node's built-in SQLite requires Node 22.13 or newer without an experimental command-line flag; it remains experimental on Node 22. See the [Node SQLite API history](https://nodejs.org/api/sqlite.html).
 
 Directories are private (`0700`); database files and capabilities are private (`0600`). Memory paths reject symlinks, foreign owners and hard-linked database/capability files. Capability tokens appear only in private files; they are not returned as session metadata, tool output or CLI arguments. Every broker request presents the session ID and secret; the server validates their active database hash and derives project/provenance from that record. Guessing a session ID is insufficient. Reissuing a capability invalidates clients holding the old secret. Failed launches, explicit session stops and session removal revoke access and remove generated session files while retaining project knowledge. Existing session state reads also revoke access when they observe a natural exit; no additional terminal polling is introduced. Running sessions retain their capability across a web-only restart.
 
@@ -84,10 +100,11 @@ Back up the database consistently with SQLite tooling, or stop AgentPier and any
 node --test tests/integration/memory-store.test.js \
   tests/blackbox/memory-mcp.test.js \
   tests/blackbox/memory-broker.test.js \
+  tests/integration/memory-forget.test.js \
   tests/integration/memory-broker-lifecycle.test.js \
   tests/integration/memory-discovery.test.js \
   tests/property/memory-content.test.js \
   tests/matrix/memory-launch.test.js
 ```
 
-The tests use temporary Git repositories/worktrees/submodules, local SQLite connections and real fixture MCP subprocesses. They prove relay operation under Node filesystem restrictions that deny SQLite access, and cover failed broker startup, broker restart, credential renewal, discovery hooks, shared three-CLI access, independent projects, conflicting writers, immutable history, archive/restore, idempotent writes, restart persistence, capability revocation, oversized transport input, native config preservation and filesystem boundaries. Generated Unicode revisions use the seeded replay/shrinking helper documented in [testing.md](testing.md). They do not start a coding model or alter a real CLI profile.
+The tests use temporary Git repositories/worktrees/submodules, local SQLite connections and real fixture MCP subprocesses. They prove relay operation under Node filesystem restrictions that deny SQLite access, and cover failed broker startup, broker restart, credential renewal, discovery hooks, shared three-CLI access, independent projects, conflicting writers, immutable history, archive/restore, forgetting with a byte search of the database files, idempotent writes, restart persistence, capability revocation, oversized transport input, native config preservation and filesystem boundaries. Generated Unicode revisions use the seeded replay/shrinking helper documented in [testing.md](testing.md). They do not start a coding model or alter a real CLI profile.

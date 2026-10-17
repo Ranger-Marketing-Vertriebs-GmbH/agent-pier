@@ -61,3 +61,18 @@
     justify-content: flex-start;
   }
 }
+.memory-forget p {
+  font-size: 13px;
+  line-height: 1.65;
+}
+.memory-forget-title {
+  overflow-wrap: anywhere;
+}
+.memory-forget-archives {
+  color: var(--warning);
+}
+.memory-editor .memory-forget-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}

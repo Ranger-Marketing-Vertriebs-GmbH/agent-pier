@@ -11,6 +11,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { memoryCopy as copy } from "../../lib/i18n/messages/memory.js";
 import MemoryEditor from "../memory/MemoryEditor.jsx";
 import MemoryHistory from "../memory/MemoryHistory.jsx";
+import MemoryForget from "../memory/MemoryForget.jsx";
 import useProjectMemory from "../memory/useProjectMemory.js";
 import { memoryPaging, memoryPageCount } from "../memory/memory-presentation.js";
 import CountUnavailable from "./CountUnavailable.jsx";
@@ -75,6 +76,7 @@ export default function ProjectKnowledge({
   const [search, setSearch] = useState(query);
   const [editor, setEditor] = useState(null);
   const [history, setHistory] = useState(null);
+  const [forgetting, setForgetting] = useState(null);
   const [expanded, setExpanded] = useState("");
   const [countVersion, setCountVersion] = useState(0);
   const counts = useEntryCounts(project.memoryId, countVersion);
@@ -215,6 +217,7 @@ export default function ProjectKnowledge({
               onEdit={() => setEditor({ entry })}
               onHistory={() => setHistory(entry)}
               onArchive={() => changeArchive(entry)}
+              onForget={() => setForgetting(entry)}
             />
           ))}
         </ListCard>
@@ -233,6 +236,14 @@ export default function ProjectKnowledge({
           entry={editor.entry}
           close={() => setEditor(null)}
           saved={bump}
+        />
+      )}
+      {forgetting && (
+        <MemoryForget
+          projectId={project.memoryId}
+          entry={forgetting}
+          close={() => setForgetting(null)}
+          forgotten={bump}
         />
       )}
       {history && (

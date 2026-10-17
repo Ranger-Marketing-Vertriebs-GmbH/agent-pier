@@ -21,6 +21,18 @@ export const memoryCopy = {
   restore: (title) => `Restore: ${title}`,
   edit: (title) => `Edit: ${title}`,
   history: (title) => `Versions: ${title}`,
+  forget: (title) => `Forget permanently: ${title}`,
+  forgetAction: "Forget permanently",
+  forgetTitle: "Forget entry permanently",
+  forgetWarning:
+    "This deletes the entry and all of its versions from the knowledge database. It cannot be undone. The same title and content can no longer be stored in this project.",
+  forgetLimit:
+    "Only identical text is blocked: the same secret inside different text can still be written.",
+  forgetArchives:
+    "Existing backup archives under Settings → Operations → Backups still contain the content. Delete or handle them by hand.",
+  forgetReason: "Reason (optional; never enter the secret itself)",
+  forgetRemoveBackups:
+    "Also delete the knowledge database migration backups (memory.sqlite.*) on this computer",
   historyTitle: "Version history",
   version: (revision) => `Version ${revision}`,
   latest: "Load current version",
