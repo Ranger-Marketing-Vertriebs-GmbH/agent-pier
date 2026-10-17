@@ -2,11 +2,14 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { writeFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
+import { withUtf8Locale } from "../../lib/session-locale.js";
 export const safeEnvironment = () =>
-  Object.fromEntries(
-    ["PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TMPDIR"]
-      .filter((key) => process.env[key])
-      .map((key) => [key, process.env[key]]),
+  withUtf8Locale(
+    Object.fromEntries(
+      ["PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR"]
+        .filter((key) => process.env[key])
+        .map((key) => [key, process.env[key]]),
+    ),
   );
 
 export function execute(command, args, { input, env = safeEnvironment(), cwd } = {}) {
