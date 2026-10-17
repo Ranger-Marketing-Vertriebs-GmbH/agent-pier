@@ -188,10 +188,13 @@ export class SharedFiles {
         .filter((f) => !f.gone)
         .map((f) => f.row.assistant_id),
     );
+    // One agent's unsafe folder keeps only its own copies; the others still go.
     for (const owner of owners)
-      await this.a.serial(`share:${owner}`, async () =>
-        this.retain(owner, await this.folder(owner, false)),
-      );
+      await this.a
+        .serial(`share:${owner}`, async () =>
+          this.retain(owner, await this.folder(owner, false)),
+        )
+        .catch(() => {});
   }
   /** Removes an agent's shared copies; see AgentAttachments.purge. */
   async purge(assistantId) {
