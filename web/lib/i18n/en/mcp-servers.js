@@ -80,8 +80,10 @@ export const mcpServerCopy = {
   agentSaved: "MCP servers saved.",
   pendingNotice: "Saved — will be applied to running agents shortly.",
   temporaryTitle: "MCP servers",
-  temporaryNote: "Granted by the lead agent's team proposal. Read only.",
-  temporaryNone: "The lead agent granted no MCP servers.",
+  temporaryNote:
+    "Named in the lead agent's team proposal. While it works, a task member uses every MCP server bound to the lead agent. Read only.",
+  temporaryNone:
+    "The proposal named no MCP servers; the member still uses the lead agent's.",
   teamServers: "MCP servers",
   teamServersNote: "Granted from the lead agent's servers.",
   teamStdioWarning:

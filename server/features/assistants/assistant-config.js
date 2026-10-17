@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import {
+  inheritsFromLead,
   personalCapabilities,
   personalShell,
   personalSkills,
@@ -11,6 +12,7 @@ import {
 import { assistantProblem } from "./assistant-validation.js";
 import { assertWired } from "./service-wiring.js";
 import { assistantBootstrap } from "./assistant-bootstrap.js";
+import { mirrorLeadMemory } from "./member-memory.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { patchConfig } from "./openclaw-config/live-patch.js";
@@ -134,6 +136,12 @@ export class AssistantConfig {
       if (!intact(await read())) throw assistantProblem("conflict", 409);
     }
   }
+  // A temporary member's memory is a read-only copy of its lead's, refreshed before
+  // each turn; a failed copy leaves the previous one (member-memory.js).
+  async mirrorMemory(assistant, enabled) {
+    if (inheritsFromLead(assistant))
+      await mirrorLeadMemory(this.workspaces, assistant, enabled).catch(() => {});
+  }
   apply(id) {
     const task = this.queue.catch(() => {}).then(() => this.applyOnce(id));
     this.queue = task;
@@ -209,6 +217,7 @@ export class AssistantConfig {
         this.applied.get(id) === fingerprint &&
         assistant.effectiveRevision === assistant.revision
       ) {
+        await this.mirrorMemory(assistant, nativeReady && capabilities.memory);
         await this.verifyBootstrap(assistant, bootstrap);
         this.onApplied?.(id);
         return {
@@ -236,6 +245,7 @@ export class AssistantConfig {
       }
       // Profile creation commits before the Gateway's runtime roster reloads.
       await waitForAgentInRoster(this.client, assistant.runtimeAgentId, this.roster);
+      await this.mirrorMemory(assistant, nativeReady && capabilities.memory);
       // The Gateway's own view decides as well: a name it resolves to any other
       // source than the bundled skill is never compiled.
       if (skills.length) {
@@ -399,7 +409,9 @@ export class AssistantConfig {
       if (gatewayDropped) this.applied.delete(id);
       else this.applied.set(id, fingerprint);
       this.compiledSkills.set(id, skills);
-      // The Gateway now runs the stored profile, its shell level included.
+      // The Gateway now runs the stored profile, its shell level included; a lead's
+      // running members follow what changed (member-follow.js).
+      this.onReapplied?.(id);
       this.onApplied?.(id);
       return {
         revision: assistant.revision,

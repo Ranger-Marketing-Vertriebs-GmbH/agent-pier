@@ -76,6 +76,7 @@ export class TelegramOutbox {
         localized: true,
         text: [
           msg.teamApproval(t.objective, t.members.length),
+          t.policy?.memberShellSsh ? msg.teamMemberShellSsh : msg.teamMemberNoShellSsh,
           ...t.members.map((m, n) =>
             [
               `${n + 1}. ${m.name} · ${m.role}`,

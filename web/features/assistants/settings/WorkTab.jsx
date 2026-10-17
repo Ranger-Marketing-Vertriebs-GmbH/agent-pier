@@ -48,6 +48,7 @@ const conflictLabels = {
   autonomous: () => wf.autonomous,
   publish: () => wf.publish,
   teamAutonomous: () => teamCopy.autonomous,
+  memberShellSsh: () => teamCopy.memberShellSsh,
   maxMembers: () => teamCopy.maxMembers,
   runTimeoutMinutes: () => teamCopy.timeout,
 };
@@ -279,7 +280,7 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
         <section id="agent-team" aria-labelledby={teamId}>
           <GroupLabel
             id={teamId}
-            hint={`${teamCopy.permissionHint} ${teamCopy.concurrentHint}`}
+            hint={`${teamCopy.permissionHint} ${teamCopy.concurrentHint} ${teamCopy.memberShellSshHint}`}
           >
             {settingsCopy.teamGroup}
           </GroupLabel>
@@ -289,6 +290,12 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
               checked={values.teamAutonomous}
               disabled={!teamReady || draft.saving}
               onChange={(on) => draft.set("teamAutonomous", on)}
+            />
+            <ToggleRow
+              label={teamCopy.memberShellSsh}
+              checked={values.memberShellSsh}
+              disabled={!teamReady || draft.saving}
+              onChange={(on) => draft.set("memberShellSsh", on)}
             />
             {["maxMembers", "runTimeoutMinutes"].map((key) => (
               <NumberRow

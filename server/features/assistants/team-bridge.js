@@ -1,7 +1,11 @@
 import http from "node:http";
 import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
-import { personalCapabilities, writeGuardRuntimes } from "./native-capabilities.js";
+import {
+  inheritsFromLead,
+  personalCapabilities,
+  writeGuardRuntimes,
+} from "./native-capabilities.js";
 import { toolError } from "./tool-errors.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
 import { flushSessionAgent } from "./memory-flushes.js";
@@ -23,6 +27,12 @@ const actions = new Set([
   "ssh",
 ]);
 const active = new Set(["pending", "accepted", "running"]);
+// What a temporary member reaches through its lead: reminders (created on the lead)
+// and SSH on the lead's grants, each only while it inherits them right now.
+const inheritedAction = (a, action) =>
+  inheritsFromLead(a) &&
+  ((action === "reminder" && personalCapabilities(a).reminders) ||
+    (action === "ssh" && a.inherited.ssh === true));
 const leavingReady = new Set([
   "reconnecting",
   "stopping",
@@ -108,12 +118,14 @@ export class TeamBridge {
       c.runtimeSessionKey !== record.sessionKey ||
       parent.runtimeAgentId !== record.agentId ||
       // Members reach the workspace bridge (temporary ones only for coding
-      // requests, enforced there); personal tools stay with permanent members.
+      // requests, enforced there); personal tools stay with permanent members,
+      // apart from what a temporary member inherits from its lead (inheritedAction).
       (parent.teamMemberId &&
         !(
           record.action === "workspace" ||
           (["reminder", "routine", "ssh"].includes(record.action) &&
-            parent.lifetime === "permanent")
+            parent.lifetime === "permanent") ||
+          inheritedAction(parent, record.action)
         )) ||
       parent.archivedAt
     )

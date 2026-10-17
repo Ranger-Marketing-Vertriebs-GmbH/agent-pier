@@ -42,6 +42,13 @@ export default function TeamProposalCard({ team, busy, act }) {
         </p>
       )}
       <p className="assistant-team-hint">{copy.team.approvalHint}</p>
+      {team.memberShellSsh ? (
+        <p className="mcp-team-warning notice" data-member-shell-ssh="">
+          {copy.team.proposalShellSsh}
+        </p>
+      ) : (
+        <p className="assistant-team-hint">{copy.team.proposalInherits}</p>
+      )}
       <ul className="assistant-team-proposal">
         {team.members.map((m, n) => (
           <li key={n}>

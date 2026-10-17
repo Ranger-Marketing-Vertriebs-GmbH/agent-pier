@@ -69,8 +69,9 @@ member also shows whether its model changed since it took it over from the lead.
   **Deny**. A permanent team member asks in its own chat; when its lead asked or
   delegated the turn, the request also appears in the lead's chat, and deciding in
   either chat settles it in both. **Always allowed commands** lists what you allowed
-  permanently; delete an entry and the agent asks again. Temporary team members never
-  get shell access.
+  permanently; delete an entry and the agent asks again. Temporary team members get
+  shell access only through their lead's **Team members may use shell and SSH**
+  (see below).
 - **Skills:** **Bundled skills** lists the skills that ship with OpenClaw. A skill
   teaches the agent a tool, mostly a command-line program such as `gh`. Switch on the
   ones this agent may use; each one shows whether it is ready or what it is missing,
@@ -132,7 +133,8 @@ told it was not saved.
   **Trusted incl. routines** also runs in the agent's routines.
   Every command is listed under **Actions and coding tasks** and recorded in the
   activity log by its fingerprint, never its text. Agents cannot add hosts or keys.
-- **Team:** **Allow teams without asking each time**, **Maximum team size** and
+- **Team:** **Allow teams without asking each time**, **Team members may use shell
+  and SSH** (off by default, see [teams](#teams-asks-and-tasks) below), **Maximum team size** and
   **Member time limit (minutes)**.
 - **Teams:** the agent's active and archived teams and, below them, **Questions and
   tasks** it sent to its members.
@@ -174,6 +176,20 @@ shows the model the member actually runs on:
 - **Permanent members** have their own model. A member kept with **Keep as permanent
   agent** takes over the lead's model of that moment; later changes to the lead do not
   affect it. Change it in the member's Profile.
+
+Temporary members also work with the lead's current capabilities, and follow every
+change to the lead the same way: its web and image tools, its skills, all MCP
+servers bound to it, a read-only copy of its memory, and reminders. A reminder a
+member sets is created on the lead, listed in the lead's settings and sent to the
+lead's Telegram chat. Members never get the team tools or routines and cannot save
+to memory. The member's **Capabilities** tab shows what it uses under **From the
+lead agent**. Shell and SSH are off for members unless you switch on **Team members
+may use shell and SSH** in the lead's **Work** tab: then members of teams proposed
+from then on get at most the lead's shell level and use the lead's SSH accesses.
+The team proposal says whether members may use shell and SSH. Members work
+unattended, and web pages or tool output they read can try to steer them, so keep
+that switch off unless the work needs it. Kept as permanent agents, members keep
+none of this and start with their own settings.
 
 A lead also talks to its members directly:
 
@@ -268,6 +284,10 @@ are part of host backups.
   remote MCP servers.
 - A lead's questions and tasks run without approval and use its members'
   capabilities.
+- Temporary team members work unattended with the lead's web tools, skills, MCP
+  servers and reminders. Content they read can steer them into using any of these;
+  with **Team members may use shell and SSH** on, that includes the lead's shell level
+  and SSH accesses.
 - Web pages can contain instructions meant to mislead an agent; switch on web tools
   only for agents whose other tools you would trust with that.
 - **SSH accesses** set to **Trusted** run commands without asking. Commands the agent

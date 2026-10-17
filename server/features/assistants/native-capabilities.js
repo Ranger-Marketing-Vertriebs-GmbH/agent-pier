@@ -64,35 +64,75 @@ export const routineTools = [
 export const personalEligible = (assistant) =>
   !assistant.archivedAt &&
   (!assistant.teamMemberId || assistant.lifetime === "permanent");
+/**
+ * A temporary member that runs with what its lead holds right now. The store
+ * resolves `inherited` on every read (memberInheritance) and never stores it, so a
+ * change to the lead reaches the member's next apply without copying anything.
+ */
+export const inheritsFromLead = (assistant) =>
+  !!assistant.teamMemberId &&
+  assistant.lifetime !== "permanent" &&
+  !assistant.archivedAt &&
+  !!assistant.inherited;
+/**
+ * What a temporary member of `lead` inherits: the lead's capabilities and skills, and
+ * its shell level and SSH grants only while `shellSsh` (the lead's "Team members may
+ * use shell and SSH", approved with the team and still on). Nothing without an
+ * eligible lead.
+ */
+export function memberInheritance(lead, shellSsh = false) {
+  const eligible = !!lead && personalEligible(lead);
+  return {
+    capabilities: eligible ? personalCapabilities(lead) : ownCapabilities({}),
+    skills: eligible ? personalSkills(lead) : [],
+    shell: eligible && shellSsh ? personalShell(lead) : "off",
+    ssh: eligible && shellSsh,
+  };
+}
 /** The effective shell level; ineligible or unset profiles have none. */
 export function personalShell(assistant) {
+  if (inheritsFromLead(assistant))
+    return shellLevels.includes(assistant.inherited.shell)
+      ? assistant.inherited.shell
+      : "off";
   return personalEligible(assistant) && shellLevels.includes(assistant.shell)
     ? assistant.shell
     : "off";
 }
 /**
  * The bundled skills compiled for an agent (agent-skills.js): sorted, without
- * duplicates; none for temporary members and archived agents.
+ * duplicates; a temporary member's are its lead's, an archived agent has none.
  */
 export function personalSkills(assistant) {
-  if (!personalEligible(assistant) || !Array.isArray(assistant.skills)) return [];
-  return [...new Set(assistant.skills.filter((name) => typeof name === "string"))].sort();
+  const source = inheritsFromLead(assistant)
+    ? assistant.inherited
+    : personalEligible(assistant) && assistant;
+  if (!source || !Array.isArray(source.skills)) return [];
+  return [...new Set(source.skills.filter((name) => typeof name === "string"))].sort();
 }
-export function personalCapabilities(assistant) {
-  const eligible = personalEligible(assistant);
-  return Object.fromEntries(
+const ownCapabilities = (assistant, eligible = false) =>
+  Object.fromEntries(
     capabilityKeys.map((key) => [
       key,
       eligible && assistant.capabilities?.[key] === true,
     ]),
   );
+export function personalCapabilities(assistant) {
+  if (inheritsFromLead(assistant))
+    return ownCapabilities({ capabilities: assistant.inherited.capabilities }, true);
+  return ownCapabilities(assistant, personalEligible(assistant));
 }
-/** The capabilities at least one eligible profile has switched on. */
+/**
+ * The capabilities at least one eligible profile has switched on. Temporary members
+ * only ever hold a subset of their lead's, so they never widen the set.
+ */
 export function usedCapabilities(profiles = []) {
   const used = new Set();
-  for (const profile of profiles)
+  for (const profile of profiles) {
+    if (inheritsFromLead(profile)) continue;
     for (const [key, on] of Object.entries(personalCapabilities(profile)))
       if (on) used.add(key);
+  }
   return used;
 }
 export function profileTools(
@@ -107,16 +147,21 @@ export function profileTools(
   ssh = false,
 ) {
   const capabilities = personalCapabilities(assistant);
+  // A temporary member reads its lead's memory but never writes it, and gets no
+  // routines (standing jobs with tools that would outlive the team).
+  const member = inheritsFromLead(assistant);
   return [
     "session_status",
     ...(teamsReady && !assistant.teamMemberId && !assistant.archivedAt
       ? delegationTools
       : []),
     ...(nativeReady && capabilities.memory
-      ? memoryTools.filter((tool) => writeGuard || !guardedTools.includes(tool))
+      ? memoryTools.filter(
+          (tool) => (writeGuard && !member) || !guardedTools.includes(tool),
+        )
       : []),
     ...(nativeReady && capabilities.reminders
-      ? ["agentpier_reminder", "agentpier_routine"]
+      ? ["agentpier_reminder", ...(member ? [] : ["agentpier_routine"])]
       : []),
     // Temporary members use it only to request coding runs on the parent's grant.
     ...(nativeReady && !assistant.archivedAt ? ["agentpier_workspace"] : []),
@@ -129,6 +174,10 @@ export function profileTools(
     // Paired with the entry's tools.exec override (openclaw-config/shell.js).
     ...(nativeReady && personalShell(assistant) !== "off" ? shellTools : []),
     ...(nativeReady && !assistant.archivedAt ? mcpTools : []),
-    ...(nativeReady && ssh && personalEligible(assistant) ? ["agentpier_ssh"] : []),
+    ...(nativeReady &&
+    ssh &&
+    (personalEligible(assistant) || (member && assistant.inherited.ssh))
+      ? ["agentpier_ssh"]
+      : []),
   ];
 }

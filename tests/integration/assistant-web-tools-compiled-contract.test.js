@@ -95,19 +95,28 @@ test(
       model: fixture,
       capabilities: everything,
     });
-    // A temporary team member never gets a capability, even with all of them recorded.
-    const reserved = store.reserveMember({
-      id: "member-1",
-      parent: web.id,
-      assignment: { name: "Member", role: "Review", assignment: "Review" },
-      snapshot: { instructions: "Use the tool.", model: fixture },
-      teamId: "team-1",
-      lifetime: "temporary",
+    // A temporary team member runs with its lead's capabilities, never with its own:
+    // `member` follows Web, `isolated` has all of them recorded under a lead without any.
+    const plain = store.createAssistant({
+      name: "Plain",
+      instructions: "Use the tool.",
+      model: fixture,
     });
+    const reserve = (id, parent) =>
+      store.reserveMember({
+        id,
+        parent,
+        assignment: { name: "Member", role: "Review", assignment: "Review" },
+        snapshot: { instructions: "Use the tool.", model: fixture },
+        teamId: `team-${id}`,
+        lifetime: "temporary",
+      });
+    const member = store.getAssistant(reserve("member-1", web.id).id);
+    const reserved = reserve("member-2", plain.id);
     store.db
       .prepare("UPDATE assistants SET body=? WHERE id=?")
       .run(JSON.stringify({ ...reserved, capabilities: everything }), reserved.id);
-    const member = store.getAssistant(reserved.id);
+    const isolated = store.getAssistant(reserved.id);
 
     let selected;
     const runtime = new RuntimeSupervisor({
@@ -194,6 +203,7 @@ test(
     config.webToolsAvailable = () => runtime.webTools.availability;
     await config.apply(web.id);
     await config.apply(member.id);
+    await config.apply(isolated.id);
     // Restart: the per-agent entries now come from the startup compile as well.
     await runtime.restart();
     config.client = runtime.client;
@@ -252,10 +262,18 @@ test(
       assert.ok(granted.includes(name), name);
     assert.equal(granted.includes("pdf"), false);
     assert.equal(granted.includes("browser"), browser.available);
-    const withheld = entry(member).tools.allow;
-    t.diagnostic(`member allow=${JSON.stringify(withheld)}`);
+    const inherited = entry(member).tools.allow;
+    t.diagnostic(`member allow=${JSON.stringify(inherited)}`);
+    for (const name of ["web_search", "web_fetch", "view_image"])
+      assert.ok(inherited.includes(name), `member ${name}`);
+    assert.equal(inherited.includes("browser"), browser.available);
+    // Team tools, routines, memory writes and shell stay with the lead.
+    for (const name of ["agentpier_team_propose", "agentpier_routine", "write", "exec"])
+      assert.ok(!inherited.includes(name), `member ${name}`);
+    const withheld = entry(isolated).tools.allow;
+    t.diagnostic(`isolated allow=${JSON.stringify(withheld)}`);
     for (const name of Object.values(capabilityTools).flat())
-      assert.ok(!withheld.includes(name), `member ${name}`);
+      assert.ok(!withheld.includes(name), `isolated ${name}`);
 
     // One turn of `agent` on the deterministic model; returns what it was offered
     // and the tool result OpenClaw sent back.
@@ -305,16 +323,31 @@ test(
     assert.match(fetched.result, /Blocked hostname or private\/internal\/special-use IP/);
     assert.equal(page.hits, 0);
 
-    // The temporary member is offered none of the capability tools, and its own
-    // web_fetch request cannot run.
-    const denied = await turn(
+    // The lead's member is offered the lead's web tools under the same private
+    // network block.
+    const followed = await turn(
       member,
       { name: "web_fetch", arguments: { url: local } },
       "member-fetch",
     );
-    t.diagnostic(`member offered=${JSON.stringify(denied.offered)}`);
+    t.diagnostic(`member offered=${JSON.stringify(followed.offered)}`);
+    assert.ok(followed.offered.includes("web_fetch"));
+    assert.match(
+      followed.result,
+      /Blocked hostname or private\/internal\/special-use IP/,
+    );
+    assert.equal(page.hits, 0);
+
+    // A member whose lead has none is offered none of the capability tools, and its
+    // own web_fetch request cannot run.
+    const denied = await turn(
+      isolated,
+      { name: "web_fetch", arguments: { url: local } },
+      "isolated-fetch",
+    );
+    t.diagnostic(`isolated offered=${JSON.stringify(denied.offered)}`);
     for (const name of Object.values(capabilityTools).flat())
-      assert.ok(!denied.offered.includes(name), `member offered ${name}`);
+      assert.ok(!denied.offered.includes(name), `isolated offered ${name}`);
     assert.equal(page.hits, 0);
 
     await t.test(

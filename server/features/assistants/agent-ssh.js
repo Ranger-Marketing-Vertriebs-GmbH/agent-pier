@@ -4,7 +4,7 @@ import { privateDirectory } from "../../lib/storage.js";
 import { acquireExecutionLock } from "../ssh/ssh-execution-lock.js";
 import { runSshCommand } from "../ssh/ssh-run.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { exact } from "./assistant-access.js";
+import { exact, sshFromLead } from "./assistant-access.js";
 import { permits, sshOrigin } from "./agent-ssh-origin.js";
 import { commandDigest, commandPreview } from "./agent-ssh-text.js";
 import { SshApprovals } from "./agent-ssh-approvals.js";
@@ -124,7 +124,8 @@ export class AgentSsh {
     return sshOrigin({
       context: caller.origin,
       routine: caller.routine,
-      permanentMember: !!a.teamMemberId && a.lifetime === "permanent",
+      // A temporary member using its lead's grants is delegated like a permanent one.
+      permanentMember: !!a.teamMemberId && (a.lifetime === "permanent" || sshFromLead(a)),
       inherited,
     }).class;
   }
@@ -141,7 +142,7 @@ export class AgentSsh {
   }
   hosts(inv) {
     const caller = this.caller(inv);
-    const id = this.w.access.eligible(caller.assistant.id).id;
+    const id = this.w.access.sshHolder(caller.assistant.id).id;
     const cls = this.classify(caller);
     const listed = this.w.access.sshHosts();
     if (!listed) throw this.problem("sshHostUnavailable");
@@ -173,7 +174,7 @@ export class AgentSsh {
   async execute(inv, input) {
     if (this.w.a.maintenance) throw assistantProblem("active", 409);
     const caller = this.caller(inv);
-    this.w.access.eligible(caller.assistant.id);
+    this.w.access.sshHolder(caller.assistant.id);
     const cls = this.classify(caller);
     if (cls === "refused") throw this.refuse(caller, cls, input, "sshOriginRefused");
     const grant = this.w.access.sshGrant(caller.assistant.id, input.accessId);
@@ -301,7 +302,7 @@ export class AgentSsh {
   stillAuthorized({ assistantId, accessId, revision, authorizedBy, cls, inv }) {
     try {
       inv?.assertCurrent();
-      this.w.access.eligible(assistantId);
+      this.w.access.sshHolder(assistantId);
       if (this.catalog.revision(accessId) !== revision) return false;
       const grant = this.w.access.sshGrant(assistantId, accessId);
       if (!grant) return false;

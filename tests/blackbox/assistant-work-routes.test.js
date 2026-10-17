@@ -45,6 +45,7 @@ test("an agent's work settings save together or not at all", async (t) => {
     autonomous: true,
     maxMembers: 3,
     runTimeoutMinutes: 15,
+    memberShellSsh: false,
   });
 
   // A stale revision on either part leaves both rows as they are.

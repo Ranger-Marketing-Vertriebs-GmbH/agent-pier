@@ -1,6 +1,6 @@
 import { ReminderBindings } from "./reminder-bindings.js";
 import { ReminderWebhook } from "./reminder-webhook.js";
-import { personalCapabilities } from "./native-capabilities.js";
+import { inheritsFromLead, personalCapabilities } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import { cronResultText } from "./cron-result-text.js";
@@ -476,6 +476,9 @@ export class NativeReminders {
     );
     const conversation = this.assistants.store.getConversation(request.conversationId);
     const origin = this.assistants.teams.store.context(request.id);
+    const caller = this.assistants.store.getAssistant(conversation.assistantId);
+    if (inheritsFromLead(caller))
+      return this.memberCreate(caller, invocation, input, origin);
     if (!["owner", "telegram"].includes(origin.kind) || origin.forwarded)
       throw assistantProblem("invalid", 403);
     this.agent(conversation.assistantId, true);
@@ -505,5 +508,32 @@ export class NativeReminders {
         invocation.assertCurrent,
       );
     throw assistantProblem("invalid");
+  }
+  /**
+   * A temporary member's reminder belongs to its lead: it is created on the lead,
+   * listed in the lead's settings and delivered to the lead's paired chat, so it never
+   * fires from an agent that has ended. A member can only create one, in a turn its
+   * lead gave it, while it inherits reminders; listing, pausing and removing stay
+   * with the owner and the lead.
+   */
+  memberCreate(member, invocation, input, origin) {
+    if (
+      this.kind !== "reminder" ||
+      !["team-member", "lead-request"].includes(origin.kind) ||
+      input.action !== "create" ||
+      !personalCapabilities(member).reminders
+    )
+      throw assistantProblem("invalid", 403);
+    return this.create(
+      member.parentAssistantId,
+      {
+        clientRequestId: `${invocation.attemptId}:${invocation.toolCallId}`,
+        name: input.name,
+        message: input.message,
+        schedule: input.schedule,
+      },
+      null,
+      invocation.assertCurrent,
+    );
   }
 }

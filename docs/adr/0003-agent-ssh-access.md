@@ -31,7 +31,8 @@ how much supervision applies.
   and length, never its text or output. The text stays in the approval and in the
   agent's transcript.
 - **Only permanent agents.** Temporary members never hold grants; grants are never
-  inherited from a lead; bots for other people refuse agents with grants.
+  inherited from a lead; bots for other people refuse agents with grants. (Amended
+  2026-10-17, see below.)
 
 ## Consequences
 
@@ -43,3 +44,23 @@ how much supervision applies.
   shell can still read `<data>/ssh/identities`.
 - Removing a host revokes agent grants first; a crash between the two steps leaves an
   inert grant that every read filters out.
+
+## Amendment 2026-10-17: members may use the lead's grants by an explicit setting
+
+The owner decided that temporary team members inherit their lead's capabilities
+(AGENTPIER-112). SSH stays excluded by default and is the one exception that needs
+an explicit choice:
+
+- A lead's **Work → Team members may use shell and SSH** (off by default) lets its
+  temporary members run `agentpier_ssh` on the lead's grants. A member still holds
+  no grant of its own; every check (`AssistantAccess.sshHolder`) reads the lead's
+  current grants, and the member is a delegated caller, so `approval` hosts ask the
+  owner (also in the lead's chat) and `trusted` hosts run without a card.
+- The setting is recorded with each team at its proposal and read live: only teams
+  proposed while it is on can use it, and switching it off, or the lead losing a
+  grant, revokes it for running members. The team approval (web and Telegram) says
+  when members may use shell and SSH; automatically approved teams follow the same
+  setting.
+- Consequence: an unattended member that read untrusted content can run commands
+  on the lead's `trusted` hosts. The setting's hint says so; the residual risk above
+  applies to members as well.

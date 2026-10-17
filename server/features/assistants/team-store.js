@@ -7,6 +7,7 @@ import {
 } from "./team-policy.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { RequestLedger } from "./request-ledger.js";
+import { persisted } from "./assistant-store.js";
 import { leadServerIds, memberServerNames } from "./team-mcp.js";
 import { ownerTeamQuote, parseOwnerText } from "./lead-request-proof.js";
 const terminal = new Set(["completed", "failed", "cancelled", "declined"]);
@@ -28,6 +29,12 @@ export class TeamStore {
     this.db = store.db;
     this.ledger = new RequestLedger(this.db);
     migrateTeams(this.db);
+    // A temporary member gets its lead's shell and SSH only while the team was
+    // approved with "Team members may use shell and SSH" and the lead still has it
+    // on: a setting switched on later never widens an approved team.
+    store.memberShellSsh = (member) =>
+      !!this.find(member.teamId)?.policy?.memberShellSsh &&
+      !!this.find(`policy:${member.parentAssistantId}`)?.memberShellSsh;
   }
   transaction(fn) {
     this.db.exec("BEGIN IMMEDIATE");
@@ -109,6 +116,7 @@ export class TeamStore {
           autonomous: p.autonomous,
           maxMembers: p.maxMembers,
           runTimeoutMinutes: p.runTimeoutMinutes,
+          memberShellSsh: p.memberShellSsh === true,
         }
       : { ...defaultTeamPolicy };
   }
@@ -412,7 +420,7 @@ export class TeamStore {
         if (value.kind === "team") this.write(member, { ...patch, ...frozen(member) });
         // Read with the model it runs on: a temporary member's is its lead's, which
         // the stored record keeps once the member is permanent.
-        const a = this.store.getAssistant(member.assistantId);
+        const a = persisted(this.store.getAssistant(member.assistantId));
         const updated = {
           ...a,
           ...("lifetime" in patch ? { lifetime: patch.lifetime } : {}),

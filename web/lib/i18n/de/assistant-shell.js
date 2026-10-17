@@ -15,7 +15,8 @@ export const assistantShellCopy = {
     "Ohne Shell-Zugriff funktionieren Skills und Werkzeuge nicht, die Kommandozeilenprogramme brauchen, zum Beispiel gh, git oder Mail-Programme.",
   warning:
     "Mit Shell-Zugriff arbeitet der Agent als dein Benutzerkonto: mit deinen Anmeldungen, deinen Dateien und deinen Schlüsseln, und er kann AgentPiers eigene Daten lesen. Der Schreibschutz für Teams gilt nicht für Shell-Befehle.",
-  temporary: "Auftragsgebundene Teammitglieder bekommen nie Shell-Zugriff.",
+  temporary:
+    "Auftragsgebundene Teammitglieder bekommen Shell-Zugriff nur, wenn ihr leitender Agent es unter Arbeit erlaubt, und höchstens mit seiner Stufe.",
   archived: "Archivierte Agenten haben keinen Shell-Zugriff.",
   pending: "Die neue Shell-Stufe gilt, sobald der Agentendienst wieder läuft.",
   badge: {

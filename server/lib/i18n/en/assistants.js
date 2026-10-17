@@ -99,6 +99,10 @@ export const assistants = {
   teamResultStates: { completed: "Completed", failed: "Failed", cancelled: "Cancelled" },
   teamApproval: (objective, count) =>
     `Team approval: ${objective}\n${count} members. Approve or decline?`,
+  teamMemberShellSsh:
+    "⚠ Members may use shell and SSH, at most with the lead's shell level and SSH grants. They also use the lead's web access, skills, MCP servers, memory (read-only) and reminders.",
+  teamMemberNoShellSsh:
+    "Members use the lead's web access, skills, MCP servers, memory (read-only) and reminders, but no shell and no SSH.",
   teamMcpServers: (names) => `MCP servers: ${names}`,
   teamMcpStdio: (name) => `${name} (stdio, local command)`,
   teamMcpUnavailable:

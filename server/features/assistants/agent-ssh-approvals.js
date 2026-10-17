@@ -141,7 +141,7 @@ export class SshApprovals {
   /** Why an approval may no longer run, or null; the whole policy revision is not. */
   stale(a) {
     try {
-      this.w.access.eligible(a.assistantId);
+      this.w.access.sshHolder(a.assistantId);
     } catch {
       return "ACCESS_CHANGED";
     }
@@ -218,7 +218,7 @@ export class SshApprovals {
     if (a.state === "awaiting_approval") {
       let eligible = true;
       try {
-        this.w.access.eligible(a.assistantId);
+        this.w.access.sshHolder(a.assistantId);
       } catch {
         eligible = false;
       }

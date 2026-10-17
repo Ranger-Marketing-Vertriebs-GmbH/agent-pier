@@ -40,13 +40,22 @@ const personal = {
   runtimeAgentId: "ap-a1",
   capabilities: allCapabilities,
 };
-// A temporary team member: its capabilities never apply.
+// A temporary team member: its own capabilities never apply.
 const member = {
   id: "m1",
   runtimeAgentId: "ap-m1",
   teamMemberId: "t1",
   lifetime: "temporary",
   capabilities: allCapabilities,
+};
+// A temporary member of `personal` as the store resolves it: its lead's capabilities.
+const follower = {
+  id: "m2",
+  runtimeAgentId: "ap-m2",
+  teamMemberId: "t2",
+  lifetime: "task",
+  parentAssistantId: "a1",
+  inherited: { capabilities: allCapabilities, skills: [], shell: "off", ssh: false },
 };
 const plain = {
   id: "a2",
@@ -271,7 +280,7 @@ test("a missing browser withholds the tool even when an agent has the capability
   assert.ok(!agentAllow(unknown, "ap-a1").includes("browser"));
 });
 
-test("a temporary team member with capabilities gets no web tools", () => {
+test("a temporary team member's own capabilities give it no web tools", () => {
   const config = compile([member], webTools());
   assert.deepEqual(config.tools.allow, nativeAllow);
   assert.deepEqual(config.browser, { enabled: false });
@@ -286,6 +295,24 @@ test("a temporary team member with capabilities gets no web tools", () => {
     browser: undefined,
     plugins: { allow: [], paths: [], entries: {} },
   });
+});
+
+test("a temporary member uses its lead's web tools without widening the global sections", () => {
+  const tools = webTools();
+  const config = compile([personal, follower], tools);
+  assert.deepEqual(
+    agentAllow(config, "ap-m2"),
+    agentAllow(config, "ap-a1").filter(
+      (tool) =>
+        !tool.startsWith("agentpier_team_") &&
+        !["write", "edit", "agentpier_routine"].includes(tool),
+    ),
+  );
+  assert.deepEqual(
+    webToolsSections({ profiles: [personal, follower], webTools: tools, port }),
+    webToolsSections({ profiles: [personal], webTools: tools, port }),
+  );
+  assert.deepEqual([...usedCapabilities([follower])], []);
 });
 
 test("the search key appears only in the provider's plugin entry", () => {
@@ -363,4 +390,6 @@ test("the running state signs the global sections without keeping the key", () =
   assert.notEqual(sign([plain], brave("k-one")), snapshot.signature);
   // Agents without web tools and temporary members leave it as it is.
   assert.equal(sign([personal, plain, member], brave("k-one")), snapshot.signature);
+  // A lead's temporary member follows the lead and leaves it as well.
+  assert.equal(sign([personal, follower], brave("k-one")), snapshot.signature);
 });

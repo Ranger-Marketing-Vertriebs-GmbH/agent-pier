@@ -88,6 +88,7 @@ test("a team policy changed elsewhere is overwritten with its newer revision", a
   expect(state.work[1].team).toEqual({
     revision: 5,
     autonomous: false,
+    memberShellSsh: false,
     maxMembers: 6,
     runTimeoutMinutes: 40,
   });

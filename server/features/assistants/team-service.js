@@ -75,6 +75,10 @@ export function publicTeam(record, describe = () => []) {
         ? { members: record.members.map((m) => publicDraft(m, describe)) }
         : {}),
     inheritedRevision: record.snapshot?.parentRevision,
+    // Task members of this team may use the lead's shell and SSH (Work tab setting).
+    ...(record.kind === "team"
+      ? { memberShellSsh: record.policy?.memberShellSsh === true }
+      : {}),
     // The owner's own words that started this team, shown beside it.
     ...(record.authorization?.source === "ownerRequest"
       ? { ownerRequestQuote: record.authorization.ownerRequestQuote }
