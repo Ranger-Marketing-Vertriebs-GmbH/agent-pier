@@ -131,6 +131,11 @@ const definitions = {
       memberIds: { type: "array", minItems: 1, maxItems: 8, items: text(100) },
     }),
   },
+  promote: {
+    description:
+      "Keep one of your own task members as a permanent agent when it proved useful (working on its task between turns, or finished but still reachable; not once archived). It takes effect at once and the owner is told. What it ran with becomes its own settings, independent of you from then on: web and image tools, skills, MCP servers and reminders, as far as you hold them now. Shell and SSH are not carried over. Its memory starts empty. Name and instructions stay; it stays your member.",
+    parameters: schema({ memberId: text(100) }),
+  },
   member_update: {
     description:
       "Change one of your own task members (working on its task, or finished but still reachable for your questions and tasks; not once archived): its name, role, assignment, an extraInstructions section appended to its instructions (empty removes it), or instructions to replace its whole instructions. Role and assignment replace those lines in its current instructions. Takes effect from the member's next turn. The owner sees every change, with the instructions it replaced.",

@@ -62,6 +62,7 @@ export const fieldLabels = (fields = []) =>
 /** One change in a member's grant log, dated as the viewer reads dates. */
 export function logText(entry) {
   const date = new Date(entry.at).toLocaleString();
+  if (entry.promoted) return copy.log.promoted(date);
   if (entry.edited) return copy.log.edited(date, fieldLabels(entry.edited));
   const labels = keyLabels(entry.revoked || entry.granted, entry.mcpServers);
   if (entry.revoked)

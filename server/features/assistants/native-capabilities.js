@@ -31,6 +31,7 @@ export const delegationTools = [
   "agentpier_team_archive",
   "agentpier_team_grant",
   "agentpier_team_member_update",
+  "agentpier_team_promote",
 ];
 export const shellLevels = ["off", "approval", "full"];
 export const shellTools = ["exec", "process"];

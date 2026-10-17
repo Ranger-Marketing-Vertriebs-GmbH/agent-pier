@@ -71,14 +71,13 @@ function ActionCard({ action: a, assistantId, busy, act }) {
     return <SshCard action={a} act={act} assistantId={assistantId} />;
   if (a.payload.action === "exec") return <ExecCard action={a} act={act} />;
   // A lead's edit of a member, or a member's reminder on its lead: its chat line.
-  if (["member_update", "member_reminder"].includes(a.payload.action))
+  if (["member_update", "member_reminder", "member_promote"].includes(a.payload.action))
     return (
       <article className="assistant-card assistant-reminder-row">
         <MemberGrantNote
           note={{
             ...a.payload,
-            event:
-              a.payload.action === "member_update" ? "member-update" : "member-reminder",
+            event: a.payload.action.replace("_", "-"),
           }}
         />
       </article>

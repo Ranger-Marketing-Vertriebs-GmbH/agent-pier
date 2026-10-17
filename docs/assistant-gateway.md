@@ -720,7 +720,7 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.10.3 and its qualified rollback predecessors 2026.9.9 and 2026.9.8. Eligible parents receive the ten managed team tools (propose, status,
+to OpenClaw 2026.10.3 and its qualified rollback predecessors 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
 stop, grant ([team member grants](#team-member-grants-2026-10-17)) and the [member tools](#lead-questions-and-tasks-for-members)) and
 `session_status`; members receive only `session_status`. Direct native spawning
 and alternative session mutation tools are not offered; `exec` and `process` only
@@ -780,7 +780,8 @@ A lead reaches its own members without the owner relaying anything
   hands a task to a permanent member (one open task per member);
   `agentpier_team_cancel` cancels an open one; `agentpier_team_archive` archives the
   lead's finished temporary members without asking; `agentpier_team_member_update`
-  edits a temporary member (see below). Members never get these tools,
+  edits a temporary member and `agentpier_team_promote` keeps one as a permanent
+  agent (see below). Members never get these tools,
   and the bridge refuses them to member turns, so there are no chains.
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
@@ -1229,6 +1230,30 @@ with `SSH_ORIGIN_REFUSED`; a routine may run only on `routines` hosts
 that keeps the original turn's origin class. Agents with SSH grants never own a bot
 for other people.
 
+## Lead promotions of team members (2026-10-17)
+
+`agentpier_team_promote` (lead-only, `member-promotion.js`) keeps one of the lead's
+own task members as a permanent agent, directly and through the same path as the
+owner's **Keep as permanent agent** (`TeamStore.promoteByLead`, the model is frozen
+and the instructions are flagged for the owner's review as there). The member must
+be reachable (`reachableMember`) and between turns (`BUSY` while a turn runs); it
+need not have finished its task. Unlike the owner's promotion:
+
+- What the member ran with becomes its own settings, independent of the lead from
+  then on: its effective capabilities (web, images, memory, reminders) and skills,
+  and its MCP servers (proposal and later grants) within the lead's bindings at that
+  moment, recorded as granted so the team never adds to them again.
+- Shell and SSH are never carried over: its shell level is Off and it holds no SSH
+  grants; the owner sets them.
+- Its memory becomes its own and starts empty: the lead's copy is removed first.
+- Name and instructions stay, including the lead's edits; it stays the lead's
+  member in the sidebar.
+
+It is visible like every lead change: an entry in the member's history, a note in
+the member's and the lead's chats, an audit record (`kind: "member-promote"`) and a
+notice in the lead's paired Telegram chat that links to the agent's settings. The
+owner can archive the agent at any time.
+
 ## Lead edits of team members (2026-10-17)
 
 `agentpier_team_member_update` (lead-only, `member-edits.js`) changes one of the
@@ -1275,10 +1300,12 @@ lead agent decides per member what it gets, when it proposes the team and later
 while the member works, and it can only grant what it holds itself. What a member
 runs with is resolved on every read of the member (`AssistantStore.getAssistant`,
 `memberInheritance` in `member-grants.js`): each grant within what the lead holds
-right now. Nothing is copied into the member's record, so keeping a member as a
-permanent agent keeps none of it: promotion removes the lead's memory copy from the
-member's workspace first, and only the MCP servers named in the proposal the owner
-saw stay bound, never servers granted later.
+right now. Nothing is copied into the member's record, so the owner's **Keep as
+permanent agent** keeps none of it: promotion removes the lead's memory copy from
+the member's workspace first, and only the MCP servers named in the proposal the
+owner saw stay bound, never servers granted later. A lead's own promotion keeps the
+member's effective grants instead (see
+[lead promotions](#lead-promotions-of-team-members-2026-10-17)).
 
 | Grant (proposal `grants`, tool `agentpier_team_grant`) | How a temporary member uses it                                                                                 |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |

@@ -430,6 +430,15 @@ export class TeamStore {
     if (current.phase !== expected) throw assistantProblem("conflict", 409);
     return this.write(current, patch);
   }
+  turnInFlight(m) {
+    return this.ledger
+      .pending()
+      .some(
+        (a) =>
+          this.store.getConversation(this.ledger.getRequest(a.requestId).conversationId)
+            .assistantId === m.assistantId,
+      );
+  }
   activeMember(m) {
     return (
       !terminal.has(m.phase) ||
@@ -442,20 +451,24 @@ export class TeamStore {
         )
     );
   }
-  assertLifecycle(id, revision) {
+  // `turnOnly`: a lead's promotion waits only for a turn in flight, not for the end
+  // of the member's task (member-promotion.js).
+  assertLifecycle(id, revision, { turnOnly = false } = {}) {
     const value = this.get(id);
     if (value.revision !== revision) throw assistantProblem("conflict", 409);
     if (
       value.kind === "member"
-        ? this.activeMember(value)
+        ? turnOnly
+          ? this.turnInFlight(value)
+          : this.activeMember(value)
         : !terminal.has(value.phase) || this.members(id).some((m) => this.activeMember(m))
     )
       throw assistantProblem("active", 409);
     return value;
   }
-  lifecycle(id, revision, patch, check) {
+  lifecycle(id, revision, patch, check, options) {
     return this.transaction(() => {
-      const value = this.assertLifecycle(id, revision);
+      const value = this.assertLifecycle(id, revision, options);
       // A caller's own conditions, re-checked in the same transaction.
       check?.(value);
       // A kept member runs on its lead's model of this moment from now on, and a later
@@ -500,6 +513,13 @@ export class TeamStore {
   promote(id, revision) {
     this.member(id);
     return this.lifecycle(id, revision, { lifetime: "permanent" });
+  }
+  /** A lead keeps its own member as a permanent agent (member-promotion.js). */
+  promoteByLead(id, revision, check) {
+    this.member(id);
+    return this.lifecycle(id, revision, { lifetime: "permanent" }, check, {
+      turnOnly: true,
+    });
   }
   archive(id, revision, check) {
     return this.lifecycle(id, revision, { archivedAt: new Date().toISOString() }, check);

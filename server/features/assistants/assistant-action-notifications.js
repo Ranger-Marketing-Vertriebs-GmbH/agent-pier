@@ -247,7 +247,9 @@ export function actionNotes(actions, conversationId) {
     .flatMap((a) =>
       a.payload.action === "ssh"
         ? sshNotes(a)
-        : ["member_grant", "member_reminder", "member_update"].includes(a.payload.action)
+        : ["member_grant", "member_reminder", "member_update", "member_promote"].includes(
+              a.payload.action,
+            )
           ? grantNotes(a)
           : codingNotes(a),
     )

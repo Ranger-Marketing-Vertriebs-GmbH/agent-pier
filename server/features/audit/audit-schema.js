@@ -194,6 +194,7 @@ export function auditEvent(input) {
       "member-grant",
       "member-reminder",
       "member-edit",
+      "member-promote",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;

@@ -201,9 +201,16 @@ you for approval in the lead's chat and in Telegram. A member's shell request ne
 offers **Always allow**. Switching the setting off takes shell and SSH away from
 running members and cancels waiting requests for good; switching it on again
 restores nothing. The members of one team set at most five reminders on the lead,
-and each one is noted in the lead's chat. Kept as permanent agents, members keep
-only the MCP servers you saw in the proposal, lose the copy of the lead's memory and
-start with their own settings.
+and each one is noted in the lead's chat. Kept as permanent agents with **Keep as
+permanent agent**, members keep only the MCP servers you saw in the proposal, lose
+the copy of the lead's memory and start with their own settings.
+
+A lead can also keep a useful member as a permanent agent itself. This takes effect
+at once; you see a note in both chats and in the member's history, and a Telegram
+notice if the lead has a paired chat. The new agent keeps what it worked with as its
+own settings (web and image tools, skills, MCP servers, reminders), but never shell
+or SSH, which you set yourself. Its memory starts empty, its name and instructions
+stay, and it stays under its lead. You can archive it at any time.
 
 A lead also talks to its members directly:
 
