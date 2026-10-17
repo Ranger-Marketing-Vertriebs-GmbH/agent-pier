@@ -114,12 +114,8 @@ export class TeamService {
       audit,
       onChanged: (member) => this.memberChanged(member),
     });
-    this.promotions = new MemberPromotions({
-      teams: store,
-      assistants,
-      audit,
-      onChanged: (member) => this.memberChanged(member),
-    });
+    // The promotion applies the agent itself, under the same admission.
+    this.promotions = new MemberPromotions({ teams: store, assistants, audit });
     this.edits = new MemberEdits({
       teams: store,
       assistants,
@@ -208,15 +204,24 @@ export class TeamService {
         for (const member of members)
           if (!member.archivedAt && member.lifetime === "permanent")
             await this.assistants.reminders?.disable(member.assistantId);
-      // A task member kept as a permanent agent keeps none of its lead's memory copy.
+      // A task member kept as a permanent agent keeps only its own memory (on, read
+      // and write); the copy of its lead's memory goes (as in a lead's promotion).
       if (action === "promote")
         for (const member of members)
-          if (member.lifetime !== "permanent")
+          if (member.lifetime !== "permanent") {
+            const agent = this.assistants.store.getAssistant(member.assistantId);
             await mirrorLeadMemory(
               this.assistants.config?.workspaces,
-              this.assistants.store.getAssistant(member.assistantId),
+              agent,
               false,
             ).catch(() => {});
+            // A pending shell or SSH card for it can no longer be approved.
+            this.grants.cancelPending(
+              member.parentAssistantId,
+              (a) => a.payload.memberId === member.id,
+              "MEMBER_PROMOTED",
+            );
+          }
       const result =
         action === "archive"
           ? this.store.archive(id, revision, check)
@@ -398,11 +403,22 @@ export class TeamService {
     return this.requests.cancel(inv, input);
   }
   // A lead keeps its own task member as a permanent agent (member-promotion.js).
-  async promote(inv, input) {
+  // Under admission like the owner's promotion: no turn's apply mirrors the lead's
+  // memory over the agent's own while it is converted.
+  promote(inv, input) {
     assertWired(this);
-    const result = await this.promotions.promote(inv, input);
-    await this.applyMcp();
-    return result;
+    return this.assistants.admit(async () => {
+      const result = await this.promotions.promote(inv, input);
+      await this.applyMcp();
+      if (this.assistants.runtime.client?.ready) {
+        await this.assistants.config.apply(result.assistantId).catch(() => {});
+        await this.assistants.reminders?.heartbeats
+          ?.sync(result.assistantId)
+          .catch(() => {});
+      }
+      this.assistants.changed();
+      return result;
+    });
   }
   // A lead's edit of its own task member (member-edits.js); the bridge action name.
   member_update(inv, input) {

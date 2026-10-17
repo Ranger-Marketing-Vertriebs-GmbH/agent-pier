@@ -13,13 +13,15 @@ const kept = 50;
  * (TeamStore.lifecycle). Unlike the owner's promotion, what the member ran with
  * becomes its own settings, independent of the lead from then on: its effective
  * capabilities, skills and MCP servers (its grants within what the lead holds at this
- * moment). Shell and SSH are never carried over; the owner sets them. Its memory
- * becomes its own and empty: the lead's copy is removed first. Name and instructions
+ * moment). Shell and SSH are never carried over; the owner sets them. It keeps only
+ * its own memory, readable and writable: the copy of the lead's memory is removed,
+ * as a specialist it builds its own knowledge. Name and instructions
  * stay. Visible: the member's history, a note in both chats, an audit record and a
  * notice in the lead's paired Telegram chat. The owner can archive it at any time.
  */
 export class MemberPromotions {
   constructor({ teams, assistants, audit = null, onChanged = () => {} }) {
+    // `onChanged` follows a promotion; TeamService.promote applies it itself.
     Object.assign(this, { teams, assistants, audit, onChanged });
   }
   async promote(inv, input) {
@@ -45,27 +47,31 @@ export class MemberPromotions {
     const agent = a.store.getAssistant(member.assistantId);
     const effective = agent.inherited;
     const servers = this.effectiveServers(member, lead.id);
-    // Its own, empty memory: the copy of the lead's memory goes first.
+    // Only its own memory stays (owner's decision): the copy of the lead's goes.
     await mirrorLeadMemory(a.config?.workspaces, agent, false);
-    const promoted = this.teams.promoteByLead(member.id, member.revision);
-    const current = a.store.getAssistant(agent.id);
-    a.store.updateAssistant(
-      agent.id,
-      {
-        capabilities: { ...effective.capabilities },
+    const entry = { at: new Date().toISOString(), by: "lead", promoted: true };
+    // The flip, the history entry and the agent's own settings in one transaction.
+    const next = this.teams.promoteByLead(member.id, member.revision, {
+      memberPatch: {
+        // Its servers are its own now; the team's grant never adds to them again.
+        mcpGranted: true,
+        grantLog: [...(member.grantLog || []), entry].slice(-kept),
+      },
+      settings: {
+        // Its own memory, readable and writable like any agent's.
+        capabilities: { ...effective.capabilities, memory: true },
         skills: [...effective.skills],
         shell: "off",
       },
-      current.revision,
-    );
+    });
     const store = this.teams.servers();
     if (store) store.setBindings("agent", agent.id, servers);
-    const entry = { at: new Date().toISOString(), by: "lead", promoted: true };
-    const next = this.teams.write(this.teams.member(promoted.id), {
-      // Its servers are its own now; the team's grant never adds to them again.
-      mcpGranted: true,
-      grantLog: [...(member.grantLog || []), entry].slice(-kept),
-    });
+    // A pending shell or SSH card for it can no longer be approved.
+    a.teams?.grants?.cancelPending(
+      lead.id,
+      (card) => card.payload.memberId === member.id,
+      "MEMBER_PROMOTED",
+    );
     this.record(lead, next);
     this.note(lead, next, conversation, inv);
     this.notify(lead, next);

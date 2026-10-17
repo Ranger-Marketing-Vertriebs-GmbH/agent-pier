@@ -501,6 +501,8 @@ export class TeamStore {
             ? { instructionsSource: "model" }
             : {}),
           ...("archivedAt" in patch ? { archivedAt: patch.archivedAt } : {}),
+          // A promotion's own settings, written in the same transaction.
+          ...(options?.assistantPatch?.(a) || {}),
           revision: a.revision + 1,
         };
         this.db
@@ -510,15 +512,25 @@ export class TeamStore {
       return next;
     });
   }
+  // A promoted task member keeps its own memory, readable and writable.
   promote(id, revision) {
-    this.member(id);
-    return this.lifecycle(id, revision, { lifetime: "permanent" });
+    const m = this.member(id);
+    return this.lifecycle(id, revision, { lifetime: "permanent" }, null, {
+      assistantPatch: (a) =>
+        m.lifetime === "permanent"
+          ? {}
+          : { capabilities: { ...(a.capabilities || {}), memory: true } },
+    });
   }
-  /** A lead keeps its own member as a permanent agent (member-promotion.js). */
-  promoteByLead(id, revision, check) {
+  /**
+   * A lead keeps its own member as a permanent agent (member-promotion.js): the
+   * flip, the member's record and its new own settings in one transaction.
+   */
+  promoteByLead(id, revision, { memberPatch = {}, settings = {} } = {}) {
     this.member(id);
-    return this.lifecycle(id, revision, { lifetime: "permanent" }, check, {
+    return this.lifecycle(id, revision, { lifetime: "permanent", ...memberPatch }, null, {
       turnOnly: true,
+      assistantPatch: () => settings,
     });
   }
   archive(id, revision, check) {

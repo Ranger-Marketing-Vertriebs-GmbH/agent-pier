@@ -211,11 +211,12 @@ test("inheritance is resolved on read and never stored", (t) => {
   const stored = f.store.storedAssistant(agent.id);
   assert.equal("inherited" in stored, false);
   assert.equal(stored.capabilities, undefined);
-  // Keeping the member as a permanent agent keeps none of the lead's capabilities.
+  // Keeping the member as a permanent agent keeps none of the lead's capabilities;
+  // only its own memory, which is on.
   const done = f.teams.setPhase(f.member.id, "queued", { phase: "completed" });
   f.teams.promote(f.member.id, done.revision);
   assert.equal("inherited" in f.store.storedAssistant(agent.id), false);
-  assert.deepEqual(personalCapabilities(f.agent()), OFF);
+  assert.deepEqual(personalCapabilities(f.agent()), { ...OFF, memory: true });
   assert.equal(personalShell(f.agent()), "off");
 });
 
