@@ -27,6 +27,9 @@ const failedConclusions = new Set([
 const events = { pull_request: "pull request", merge_group: "merge queue" };
 const queueRef = /^gh-readonly-queue\/[^/]+(?:\/[^/]+)*\/pr-(\d+)-[0-9a-f]{40}$/;
 const verifyAttempts = 3;
+// GitHub rejects comments above 65,536 characters; stay well below.
+const bodyBudget = 60_000;
+const shownJobs = 30;
 
 export const isAdvisoryJob = (name) =>
   !requiredChecks.includes(name) && !requiredInputs.some((pattern) => pattern.test(name));
@@ -34,7 +37,11 @@ export const isAdvisoryJob = (name) =>
 export const failedAdvisoryJobs = (jobs) =>
   jobs
     .filter((job) => isAdvisoryJob(job.name) && failedConclusions.has(job.conclusion))
-    .map(({ name, conclusion, html_url: url }) => ({ name, conclusion, url }));
+    .map(({ name, conclusion, html_url: url }) => ({
+      name: plain(name),
+      conclusion: plain(conclusion),
+      url: link(url),
+    }));
 
 export function pullRequestNumbers(run) {
   const listed = (run.pull_requests || []).map((pull) => pull.number);
@@ -45,8 +52,10 @@ export function pullRequestNumbers(run) {
 
 // Job and workflow names come from the run, which a fork's workflow file can
 // name: strip everything that could leave the code span or mention someone.
+// Format characters (bidi overrides, zero-width) go too.
 const plain = (text) =>
   String(text ?? "")
+    .replace(/\p{Cf}/gu, "")
     .replace(/[`<>[\]\\|@\r\n]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -66,23 +75,70 @@ export function readState(body) {
   }
 }
 
-function renderSection(entry) {
-  const head = `**${plain(entry.workflow)}** (${events[entry.event] || plain(entry.event)}) · \`${plain(entry.sha).slice(0, 7)}\` · ${linked("run", entry.runUrl)}`;
-  if (!entry.failed?.length) return `${head}: all advisory jobs passed.`;
+const short = (sha) => `\`${plain(sha).slice(0, 7)}\``;
+const failures = (entry) => (entry.failed?.length || 0) + (Number(entry.more) || 0);
+const where = (entry) =>
+  entry.event === "merge_group" && Number.isInteger(entry.pullRequest)
+    ? `merge group containing #${entry.pullRequest}`
+    : events[entry.event] || plain(entry.event);
+
+// A red section counts until it is superseded: a pull request section by a newer
+// head revision (a path-filtered workflow may never run again for it), or by a
+// later green merge queue run of the same workflow, which runs the same jobs.
+export function sectionStatus(entry, state, head) {
+  if (!failures(entry)) return "green";
+  if (entry.event !== "pull_request") return "red";
+  if (head && entry.sha !== head) return "older";
+  const queue = state[`${entry.workflow}/merge_group`];
+  if (queue && !failures(queue) && queue.startedAt > entry.startedAt) return "cleared";
+  return "red";
+}
+
+function renderSection(entry, status = "red", head = null) {
+  const title = `**${plain(entry.workflow)}** (${where(entry)}) · ${short(entry.sha)} · ${linked("run", entry.runUrl)}`;
+  const count = failures(entry);
+  if (status === "green") return `${title}: all advisory jobs passed.`;
+  if (status === "older")
+    return `${title}: ${count} advisory job(s) failed on an older revision, superseded by ${short(head)}; not counted.`;
+  if (status === "cleared")
+    return `${title}: ${count} advisory job(s) failed here; the merge queue passed them since.`;
   return [
-    head,
+    title,
     ...entry.failed.map(
       (job) =>
         `- ${linked(`\`${plain(job.name)}\``, job.url)} (${plain(job.conclusion)})`,
     ),
+    ...(entry.more ? [`- and ${entry.more} more`] : []),
   ].join("\n");
 }
 
-export function renderComment(state) {
-  const entries = Object.keys(state)
-    .sort()
-    .map((key) => state[key]);
-  const red = entries.some((entry) => entry.failed?.length);
+// At most `limit` failed jobs per section, in the comment and in its state, with
+// names already shortened.
+const clip = (state, limit) =>
+  Object.fromEntries(
+    Object.entries(state).map(([key, entry]) => {
+      const failed = entry.failed || [];
+      const more = (Number(entry.more) || 0) + Math.max(0, failed.length - limit);
+      const shown = failed.slice(0, limit).map((job) => ({
+        name: plain(job.name),
+        conclusion: plain(job.conclusion),
+        url: link(job.url),
+      }));
+      return [key, { ...entry, failed: shown, ...(more ? { more } : {}) }];
+    }),
+  );
+
+export function renderComment(state, { head = null } = {}) {
+  for (const limit of [shownJobs, 10, 3, 0]) {
+    const body = renderBody(clip(state, limit), head);
+    if (body.length < bodyBudget || limit === 0) return body;
+  }
+}
+
+function renderBody(state, head) {
+  const keys = Object.keys(state).sort();
+  const statuses = keys.map((key) => sectionStatus(state[key], state, head));
+  const red = statuses.includes("red");
   const encoded = Buffer.from(JSON.stringify(state)).toString("base64");
   return [
     marker,
@@ -95,7 +151,9 @@ export function renderComment(state) {
       ? "These checks do not block the merge, but a release needs the full suite green. This comment is updated by later runs."
       : "Every advisory job that was red on this pull request has passed since.",
     "",
-    entries.map(renderSection).join("\n\n"),
+    keys
+      .map((key, index) => renderSection(state[key], statuses[index], head))
+      .join("\n\n"),
     "",
   ].join("\n");
 }
@@ -104,9 +162,9 @@ export function renderSummary(entry, pullRequests) {
   const target = pullRequests.length
     ? `Reported on ${pullRequests.map((number) => `#${number}`).join(", ")}.`
     : "No open pull request to report on.";
-  const result = entry.failed.length
+  const result = failures(entry)
     ? `Advisory jobs failed; fix before the next release.\n\n${renderSection(entry)}`
-    : `All advisory jobs passed. ${renderSection(entry)}`;
+    : `All advisory jobs passed. ${renderSection(entry, "green")}`;
   return `## Advisory checks\n\n${result}\n\n${target}\n`;
 }
 
@@ -154,24 +212,39 @@ async function ownComments(api, repo, number) {
   return { own, state };
 }
 
-async function upsert({ api, repo, number, key, entry, sleep }) {
-  for (let attempt = 1; attempt <= verifyAttempts; attempt++) {
+// Read, merge, write, then read again after a pause: a concurrent reporter may
+// have written in between. The last attempt's write is checked as well; a
+// result that still did not stick is reported as unverified, not as an error.
+async function upsert({ api, repo, number, key, entry, head, sleep }) {
+  const wanted = clip({ [key]: entry }, shownJobs)[key];
+  for (let attempt = 1; ; attempt++) {
     const { own, state } = await ownComments(api, repo, number);
     const current = state[key];
-    if (current && current.startedAt > entry.startedAt) return "newer result kept";
-    if (!own.length && !entry.failed.length) return "nothing to report";
-    const synced = own.length === 1 && JSON.stringify(current) === JSON.stringify(entry);
-    if (synced) return attempt === 1 ? "unchanged" : "updated";
-    const body = renderComment({ ...state, [key]: entry });
+    const newer = current && current.startedAt > entry.startedAt;
+    if (!own.length && !failures(entry)) return "nothing to report";
+    const merged = newer ? state : { ...state, [key]: wanted };
+    const body = renderComment(merged, { head });
+    const synced = own.length === 1 && own[0].body === body;
+    if (synced)
+      return attempt === 1 ? (newer ? "newer result kept" : "unchanged") : "updated";
+    if (attempt > verifyAttempts) return "unverified";
     const [keep, ...extra] = own;
-    if (keep) await api("PATCH", `/repos/${repo}/issues/comments/${keep.id}`, { body });
-    else await api("POST", `/repos/${repo}/issues/${number}/comments`, { body });
+    try {
+      if (keep) await api("PATCH", `/repos/${repo}/issues/comments/${keep.id}`, { body });
+      else await api("POST", `/repos/${repo}/issues/${number}/comments`, { body });
+    } catch (error) {
+      // Deleted by a concurrent reporter between read and write: recreate.
+      if (error.status !== 404) throw error;
+      continue;
+    }
     for (const comment of extra)
-      await api("DELETE", `/repos/${repo}/issues/comments/${comment.id}`);
-    // Let a concurrent reporter finish its write, then check that ours survived.
+      await api("DELETE", `/repos/${repo}/issues/comments/${comment.id}`).catch(
+        (error) => {
+          if (error.status !== 404) throw error; // Already deleted elsewhere.
+        },
+      );
     await sleep(2000 + Math.floor(Math.random() * 3000));
   }
-  return "updated";
 }
 
 export async function report({ api, repository, run, sleep = defaultSleep }) {
@@ -190,15 +263,25 @@ export async function report({ api, repository, run, sleep = defaultSleep }) {
     startedAt: run.run_started_at || run.created_at,
     failed: failedAdvisoryJobs(jobs),
   };
+  const [queued] = run.event === "merge_group" ? pullRequestNumbers(run) : [];
+  if (queued) entry.pullRequest = queued;
   const key = `${run.name}/${run.event}`;
   const pullRequests = [];
   const outcomes = {};
   for (const number of await findPullRequests(api, repository, run)) {
-    if (run.event === "pull_request") {
-      const pull = await api("GET", `/repos/${repository}/pulls/${number}`);
-      if (pull.head?.sha !== run.head_sha) continue; // A newer revision runs.
-    }
-    outcomes[number] = await upsert({ api, repo: repository, number, key, entry, sleep });
+    const pull = await api("GET", `/repos/${repository}/pulls/${number}`);
+    const head = pull.head?.sha || null;
+    // A newer revision runs its own checks.
+    if (run.event === "pull_request" && head !== run.head_sha) continue;
+    outcomes[number] = await upsert({
+      api,
+      repo: repository,
+      number,
+      key,
+      entry,
+      head,
+      sleep,
+    });
     pullRequests.push(number);
   }
   return { entry, pullRequests, outcomes, summary: renderSummary(entry, pullRequests) };
@@ -223,8 +306,9 @@ export function githubApi({
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!response.ok)
-      throw new Error(
-        `${method} ${url}: HTTP ${response.status} ${await response.text()}`,
+      throw Object.assign(
+        new Error(`${method} ${url}: HTTP ${response.status} ${await response.text()}`),
+        { status: response.status },
       );
     return response.status === 204 ? null : response.json();
   };
