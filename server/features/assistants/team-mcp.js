@@ -3,6 +3,7 @@ import { temporaryMember } from "./team-presentation.js";
 
 export const maxMemberServers = 16;
 const ended = new Set(["completed", "failed", "cancelled"]);
+const requestEnded = ended;
 const sameSet = (a, b) => a.length === b.length && a.every((id) => b.includes(id));
 
 /** The server names a proposed member asks for; shape only, duplicates dropped. */
@@ -100,12 +101,21 @@ export class TeamMcpBindings {
     } catch {
       return false;
     }
+    // Finished members their lead re-engages with an open question or task
+    // (lead-requests.js) work again, with their granted servers.
+    const engaged = new Set(
+      this.teams
+        .rows("lead-request")
+        .filter((r) => !requestEnded.has(r.phase))
+        .map((r) => r.memberId),
+    );
     for (const m of all)
       try {
+        const working = !ended.has(m.phase) || engaged.has(m.id);
         // Ended members without bindings have nothing left to converge.
-        if (ended.has(m.phase) && !bound[m.assistantId]?.length) continue;
+        if (!working && !bound[m.assistantId]?.length) continue;
         const a = this.assistants.store.getAssistant(m.assistantId);
-        const live = !ended.has(m.phase) && !a.archivedAt;
+        const live = working && !a.archivedAt && !m.archivedAt;
         // An archived lead holds no servers for its members.
         const lead = new Set(
           this.leadActive(m.parentAssistantId) ? bound[m.parentAssistantId] || [] : [],

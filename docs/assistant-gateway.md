@@ -1244,15 +1244,14 @@ saw stay bound, never servers granted later.
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
 | `webSearch`, `webFetch`, `browser`, `documents`        | The lead's web and image tools, with the same global network and browser safety                                |
 | `skills` (`true` for all of the lead's, or names)      | Those of the lead's skills                                                                                     |
-| `mcpServers` (names of servers bound to the lead)      | Those servers, while the member runs ([bindings](#bindings))                                                   |
+| `mcpServers` (names of servers bound to the lead)      | Those servers, while the member works ([bindings](#bindings))                                                  |
 | `memory`                                               | A read-only copy of the lead's memory (see below)                                                              |
 | `reminders`                                            | Reminders created on the lead (see below)                                                                      |
 | `shell` (`approval` or `full`), `ssh`                  | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants |
 
 A member the lead grants nothing explicitly gets `memory`, `webSearch` and
 `webFetch`, as far as the lead has them. Members reserved before grants existed
-get nothing, because the owner never saw grants for them; a new proposal gives
-their successors grants. Team and delegation tools, routines and memory writes stay
+get the same default within the lead's ceiling, and the lead may grant them more. Team and delegation tools, routines and memory writes stay
 with the lead.
 
 - **Ceiling.** The proposal (`TeamStore.propose`) and every later grant refuse a
@@ -1268,8 +1267,11 @@ with the lead.
   (`member-follow.js`). A capability the lead loses is gone for its members; one it
   regains comes back only where it was granted. Bridge calls (reminders, SSH) and
   exec approvals check the current state on every call.
-- **Later grants.** `agentpier_team_grant` (lead-only) gives a running task member of
-  the lead's own team more within the same ceiling, or takes grants back with
+- **Later grants.** `agentpier_team_grant` (lead-only) gives a task member of the
+  lead's own team more within the same ceiling: one that works on its task, or a
+  finished one the lead can still reach with questions and tasks (not archived, not
+  kept as permanent, with a chat). Every turn the member runs applies its grants
+  first, the turns of its lead's questions and tasks included. The lead takes grants back with
   `revoke: true` at any time (`member-grant-requests.js`). Capabilities, skills and
   MCP servers apply at once without the owner, but visibly (servers granted later
   are kept apart, `grantedMcpServerIds`, and end with the task): the member's record keeps
@@ -1396,8 +1398,11 @@ owner's `HOME` or a `TMPDIR` does not find them.
   `MCP_SERVER_NOT_BOUND`). The approval (in the web UI and on Telegram) shows each
   member's servers by name with a stdio marker, never addresses, commands or values.
 - A granted temporary member holds exactly its granted servers that its lead still
-  holds, and only while it runs. When it ends, is stopped, the lead revokes a
-  server or loses it, the binding goes at the next scheduler tick; every Gateway
+  holds, and only while it works: on its task, or on an open question or task of
+  its lead after the task finished (bound when that request is dispatched, patched
+  into the Gateway at the next scheduler tick). When it ends, is stopped, the
+  request finishes, the lead revokes a server or loses it, the binding goes at the
+  next scheduler tick; every Gateway
   start runs the same reconciliation first.
 - A member approved as permanent receives its named servers once; the owner manages
   them afterwards.

@@ -381,6 +381,10 @@ export class LeadRequests {
         return r;
     }
     r = this.teams.write(r, { phase: "dispatching" });
+    // A finished task member works again: its granted MCP servers are bound now and
+    // reach the Gateway with the scheduler's next patch (team-mcp.js), never waited for here,
+    // because a lead's turn may hold the admission lock while it asks.
+    if (ended.has(member.phase)) this.service.mcp?.sync();
     try {
       const sent = await a.send(
         member.conversationId,

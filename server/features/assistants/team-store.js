@@ -12,6 +12,7 @@ import { leadServerIds, memberServerNames } from "./team-mcp.js";
 import {
   assertWithinLead,
   defaultFor,
+  defaultGrants,
   grantInput,
   removeGrants,
 } from "./member-grants.js";
@@ -39,8 +40,8 @@ export class TeamStore {
     migrateTeams(this.db);
     store.memberGrants = (member) => ({
       // Members reserved before grants existed get the default.
-      // Members reserved before grants existed get none: the owner never saw any.
-      grants: this.find(member.teamMemberId)?.grants ?? {},
+      // Members reserved before grants existed get the default (within the lead).
+      grants: this.find(member.teamMemberId)?.grants ?? defaultGrants,
       shellSsh: this.shellSsh(member.teamId, member.parentAssistantId),
     });
   }

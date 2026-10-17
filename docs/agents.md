@@ -180,8 +180,11 @@ shows the model the member actually runs on:
 The lead decides what each temporary member gets, and can only give what it has
 itself: web search, web pages, browser, images, skills, its MCP servers, a read-only
 copy of its memory and reminders. Without a choice of the lead a member gets memory,
-web search and web pages. The team proposal lists what every member gets. While a
-member works, the lead can grant it more or take grants back; each change shows on
+web search and web pages; so do members from teams that started before grants
+existed. The team proposal lists what every member gets. While a member works on
+its task, and also after it finished as long as the lead can still ask it questions
+or give it tasks (it is not archived or kept as a permanent agent), the lead can
+grant it more or take grants back; each change shows on
 the team card, as a note in the member's chat and the lead's chat, and in the
 member's **Capabilities → Granted by the lead agent**, and it is recorded in the
 activity log. Grants follow the lead: if it loses a capability, its members lose it

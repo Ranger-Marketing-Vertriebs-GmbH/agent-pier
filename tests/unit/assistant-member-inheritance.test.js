@@ -322,8 +322,9 @@ test("a proposal granting shell or SSH always waits for the owner", (t) => {
   }
 });
 
-test("members reserved before grants existed get no grants at all", (t) => {
-  const f = fixture(t);
+test("members reserved before grants existed get the default grants", (t) => {
+  const f = fixture(t, { caps: { ...OFF, webSearch: true, browser: true } });
   f.teams.write(f.teams.member(f.member.id), { grants: undefined });
-  assert.deepEqual(personalCapabilities(f.agent()), OFF);
+  // Within the lead: it has no memory or web pages, and browser is no default.
+  assert.deepEqual(personalCapabilities(f.agent()), { ...OFF, webSearch: true });
 });
