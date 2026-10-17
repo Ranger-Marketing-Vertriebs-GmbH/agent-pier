@@ -27,7 +27,7 @@ const tabs = [
   { targetId: "t2", title: "Cart", url: "https://shop.example/cart" },
 ];
 
-async function setup(page, { status = "live" } = {}) {
+async function setup(page, { status = "live", refuse = false } = {}) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.route(/\/api\/assistant/, async (route) => {
@@ -70,7 +70,9 @@ async function setup(page, { status = "live" } = {}) {
     return route.fulfill({ json: {} });
   });
   const commands = [];
+  commands.connects = 0;
   await page.routeWebSocket("**/api/assistants/home/browser-stream*", (ws) => {
+    commands.connects++;
     ws.onMessage((message) => commands.push(JSON.parse(message)));
     ws.send(
       JSON.stringify({
@@ -85,6 +87,7 @@ async function setup(page, { status = "live" } = {}) {
       }),
     );
     if (status === "live") ws.send(frame());
+    if (refuse) ws.close({ code: 1008 });
   });
   return commands;
 }
@@ -147,4 +150,12 @@ test("the chat header shows a live preview while the browser runs", async ({ pag
   await expect(preview.locator("img")).toHaveAttribute("src", /^blob:/);
   await preview.click();
   await expect(page).toHaveURL(/\/agents\/home\/browser$/);
+});
+
+test("a live view the server ended says so and does not reconnect", async ({ page }) => {
+  const commands = await setup(page, { refuse: true });
+  await page.goto(baseURL + "/agents/home/browser");
+  await expect(page.getByText("The live view ended.")).toBeVisible();
+  await page.waitForTimeout(2500);
+  expect(commands.connects).toBe(1);
 });

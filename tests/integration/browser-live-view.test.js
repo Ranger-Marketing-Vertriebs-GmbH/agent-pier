@@ -86,7 +86,11 @@ test("the owner watches an agent's browser through the authenticated stream", as
   ]) {
     const refused = new WebSocket(address, options);
     const status = await new Promise((resolve) => {
-      refused.on("unexpected-response", (_req, res) => resolve(res.statusCode));
+      refused.on("unexpected-response", (_req, res) => {
+        // The status line names the status itself, not always "Forbidden".
+        assert.equal(res.statusMessage, http.STATUS_CODES[res.statusCode]);
+        resolve(res.statusCode);
+      });
       refused.on("open", () => resolve("open"));
       refused.on("error", () => {});
     });

@@ -205,3 +205,62 @@ test("without a ready agent service or profile the view is unavailable", async (
   assert.equal(a.last().reason, "service");
   subscription.close();
 });
+
+test("at most eight viewers per agent; closing the view ends them all", async () => {
+  const f = fixture();
+  const ended = [];
+  const subscriptions = [];
+  for (let n = 0; n < 8; n++) {
+    const seen = f.viewer();
+    seen.viewer.end = () => ended.push(n);
+    subscriptions.push(f.live.subscribe("a", seen.viewer));
+  }
+  assert.throws(() => f.live.subscribe("a", f.viewer().viewer), { code: "LIVE_VIEWERS" });
+  await settle();
+  f.live.close();
+  assert.equal(ended.length, 8);
+  assert.equal(f.gateway.sockets[0].closed, true);
+});
+
+test("a tab pick during a running refresh is not lost", async () => {
+  const f = fixture({
+    tabs: [
+      { targetId: "t1", title: "One", url: "https://a.example/" },
+      { targetId: "t2", title: "Two", url: "https://b.example/" },
+    ],
+  });
+  const a = f.viewer();
+  const subscription = f.live.subscribe("a", a.viewer);
+  // Picked before the first refresh finished.
+  subscription.select("t1");
+  await settle();
+  assert.equal(f.gateway.tickets.at(-1).targetId, "t1");
+  subscription.close();
+});
+
+test("an upstream socket that never opens is given up and retried", async () => {
+  const f = fixture();
+  f.live.openMs = 5;
+  const subscription = f.live.subscribe("a", f.viewer().viewer);
+  await settle();
+  await settle();
+  assert.ok(f.gateway.sockets.length >= 2);
+  assert.equal(f.gateway.sockets[0].closed, true);
+  subscription.close();
+});
+
+test("only a full viewer counts as watching", async () => {
+  const f = fixture();
+  const calls = [];
+  f.live.browsers.watched = (id, options) => calls.push(options.full);
+  const preview = f.live.subscribe("a", f.viewer().viewer, { preview: true });
+  await settle();
+  const full = f.live.subscribe("a", f.viewer().viewer);
+  await settle();
+  full.close();
+  f.live.streams.get("a").wake();
+  await settle();
+  assert.deepEqual([...new Set(calls)], [false, true]);
+  assert.equal(calls.at(-1), false);
+  preview.close();
+});

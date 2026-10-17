@@ -1,3 +1,4 @@
+import http from "node:http";
 import { sessionToken } from "./login.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
@@ -40,8 +41,9 @@ export function attachBrowserWebSocket(server, { live, login, effective }) {
         }),
       );
     } catch (error) {
+      const status = error.status || 403;
       socket.end(
-        `HTTP/1.1 ${error.status || 403} Forbidden\r\nConnection: close\r\n\r\n`,
+        `HTTP/1.1 ${status} ${http.STATUS_CODES[status] || "Forbidden"}\r\nConnection: close\r\n\r\n`,
       );
     }
   };
@@ -60,11 +62,14 @@ export function attachBrowserWebSocket(server, { live, login, effective }) {
           frame: (bytes) => {
             if (open() && ws.bufferedAmount < backlog) ws.send(bytes, { binary: true });
           },
+          // The live view shut down (AgentPier stopping or the agent feature off).
+          end: () => ws.close(1001),
         },
         { preview },
       );
-    } catch {
-      return ws.close(1008);
+    } catch (error) {
+      // Too many viewers of this agent: try again later.
+      return ws.close(error?.code === "LIVE_VIEWERS" ? 1013 : 1008);
     }
     const cleanupLogin = login.watch(auth, () => ws.close(1008));
     const ping = setInterval(() => {

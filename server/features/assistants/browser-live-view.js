@@ -12,6 +12,10 @@
  * runs), "blocked" (the page's address is not allowed) or "unavailable".
  */
 const screencastOptions = { maxWidth: 1280, maxHeight: 1280, quality: 60 };
+// Viewers of one agent's browser at once (several tabs and devices of the owner).
+export const maxViewers = 8;
+// An upstream socket that has not opened by then is given up and retried.
+const openTimeoutMs = 10000;
 
 export class BrowserLiveView {
   constructor({
@@ -21,8 +25,9 @@ export class BrowserLiveView {
     retryMs = 2000,
     previewMs = 1000,
     now = Date.now,
+    openMs = openTimeoutMs,
   }) {
-    Object.assign(this, { browsers, runtime, pollMs, retryMs, previewMs, now });
+    Object.assign(this, { browsers, runtime, pollMs, retryMs, previewMs, now, openMs });
     this.streams = new Map();
   }
   /**
@@ -35,13 +40,19 @@ export class BrowserLiveView {
       stream = new LiveStream(this, id);
       this.streams.set(id, stream);
     }
+    if (stream.viewers.size >= maxViewers)
+      throw Object.assign(Error("Too many live viewers"), { code: "LIVE_VIEWERS" });
     const entry = { viewer, preview, last: -Infinity };
     stream.viewers.add(entry);
+    // Since when a full viewer watches: the idle stop waits for it, but capped.
+    if (!preview && stream.watchingSince == null) stream.watchingSince = this.now();
     viewer.state(stream.snapshot());
     stream.wake();
     return {
       close: () => {
         stream.viewers.delete(entry);
+        if (![...stream.viewers].some((other) => !other.preview))
+          stream.watchingSince = null;
         if (!stream.viewers.size) {
           stream.stop();
           if (this.streams.get(id) === stream) this.streams.delete(id);
@@ -53,8 +64,12 @@ export class BrowserLiveView {
       start: () => stream.start(),
     };
   }
+  /** Ends every stream and tells its viewers, whose sockets then close. */
   close() {
-    for (const stream of this.streams.values()) stream.stop();
+    for (const stream of this.streams.values()) {
+      stream.stop();
+      for (const { viewer } of stream.viewers) viewer.end?.();
+    }
     this.streams.clear();
   }
 }
@@ -101,8 +116,14 @@ class LiveStream {
     this.timer.unref?.();
   }
   async refresh() {
-    if (this.busy || this.stopped) return;
+    if (this.stopped) return;
+    // A refresh asked for meanwhile (a tab pick) runs once this one is done.
+    if (this.busy) {
+      this.again = true;
+      return;
+    }
     this.busy = true;
+    this.again = false;
     try {
       const client = this.live.runtime?.client;
       const view = client?.ready ? this.live.browsers.viewProfile(this.id) : null;
@@ -111,7 +132,7 @@ class LiveStream {
         return this.set({
           status: "unavailable",
           tabs: [],
-          reason: client?.ready ? "noProfile" : "service",
+          reason: client?.ready ? this.live.browsers.viewReason(this.id) : "service",
         });
       }
       this.profile = view.name;
@@ -120,8 +141,12 @@ class LiveStream {
         this.disconnect();
         return this.set({ status: "stopped", tabs: [], url: "", title: "", reason: "" });
       }
-      // Watching keeps it tracked: a visible browser keeps rendering minimized.
-      this.live.browsers.watched(this.id);
+      // Watching keeps it tracked (a visible browser keeps rendering minimized);
+      // only a full viewer keeps it from the idle stop, a chat's preview never.
+      this.live.browsers.watched(this.id, {
+        full: this.watchingSince != null,
+        since: this.watchingSince ?? this.live.now(),
+      });
       const listed = await this.request("GET", "/tabs");
       const tabs = (Array.isArray(listed?.tabs) ? listed.tabs : [])
         .filter((tab) => !tab.type || tab.type === "page")
@@ -155,6 +180,7 @@ class LiveStream {
     } finally {
       this.busy = false;
     }
+    if (this.again) await this.refresh();
   }
   async connect(targetId) {
     this.disconnect();
@@ -172,9 +198,22 @@ class LiveStream {
       url: ticket.url || "",
       reason: "",
     });
-    ws.on("message", (data, binary) => this.message(ws, data, binary));
+    let opened = false;
+    const opening = setTimeout(() => {
+      if (!opened && this.upstream === ws) {
+        this.disconnect();
+        this.schedule(this.live.retryMs);
+      }
+    }, this.live.openMs);
+    opening.unref?.();
+    ws.on("open", () => (opened = true));
+    ws.on("message", (data, binary) => {
+      opened = true;
+      this.message(ws, data, binary);
+    });
     ws.on("error", () => {});
     ws.on("close", (code) => {
+      clearTimeout(opening);
       if (this.upstream !== ws) return;
       this.upstream = null;
       // 4003: the page's address is blocked; 4004: the tab closed; else retried.

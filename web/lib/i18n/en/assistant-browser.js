@@ -30,11 +30,15 @@ export const assistantBrowserCopy = {
     unavailable: "The live view is not available right now.",
   },
   liveReason: {
+    noSlot: "This team member has no browser yet. It gets one as soon as it uses it.",
     service: "The agent service is not ready.",
     noProfile:
       "This agent has no browser profile. Switch on “Use a browser” and restart the agent service.",
     request: "The browser is not answering. Trying again.",
   },
+  liveNotConnected:
+    "The live view is not connected right now. Please try again in a moment.",
+  liveEnded: "The live view ended. Reload the page once you are signed in.",
   liveStart: "Start browser",
   liveTab: "Tab",
   liveFollow: "Follow the agent",
