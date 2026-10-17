@@ -161,3 +161,34 @@ test("a routine's run shares into its chat and the Telegram chat it delivers to"
     /FORBIDDEN/,
   );
 });
+
+test("one agent's unsafe share folder never stops the sweep for the others", async (t) => {
+  const f = await shareFixture(t);
+  f.service.attachments.shared.limits = { bytes: 1024, files: 10, ttl: 1000 * 60 };
+  let clock = Date.now();
+  f.service.attachments.now = () => clock;
+  const other = f.store.createAssistant({
+    name: "Other",
+    model: { connectionId: "c", modelId: "vision" },
+  });
+  const otherChat = f.store.saveConversation({
+    assistantId: other.id,
+    runtimeSessionKey: "other",
+  });
+  for (const [agent, chat] of [
+    [f.agent, f.chat],
+    [other, otherChat],
+  ]) {
+    f.file(agent, "old.txt", "old");
+    await f.turn(chat, `old-${agent.id}`);
+    await run(f.tool(agent, chat), { path: "old.txt" });
+  }
+  // The first agent's folder is swapped for a link: its sweep refuses.
+  const first = path.join(f.shares, f.agent.id);
+  fs.renameSync(first, `${first}.moved`);
+  fs.symlinkSync(`${first}.moved`, first);
+  clock += 1000 * 120;
+  await f.service.attachments.shared.sweep();
+  assert.deepEqual(fs.readdirSync(path.join(f.shares, other.id)), []);
+  assert.equal(fs.readdirSync(`${first}.moved`).length, 1);
+});

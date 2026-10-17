@@ -87,9 +87,13 @@ const omitted = (omission) => ({
   manifest: null,
 });
 
+// Copies of files agents shared (agent-share-store.js) keep the agent's file name, so
+// one may look like a temporary or a cache; each is a stored file all the same.
+const shared = (relative) => /^shares\/[^/]+\/[^/]+$/.test(relative);
 /** What a restore accepts: everything any host backup has archived publicly. */
 const restorable = (relative) => {
   const [top] = relative.split("/");
+  if (shared(relative)) return true;
   return (
     !excludedFolders.has(top) &&
     !excludedFiles.has(relative) &&
@@ -101,7 +105,9 @@ const restorable = (relative) => {
 const included = (relative) =>
   restorable(relative) &&
   !browserTree.test(relative) &&
-  (relative.split("/")[0] === "workspaces" || !volatileTree.test(relative));
+  (relative.split("/")[0] === "workspaces" ||
+    shared(relative) ||
+    !volatileTree.test(relative));
 /**
  * A cache an older backup archived publicly (Chromium's "Cache", "GPUCache"); a
  * restore accepts it and leaves it out.
@@ -109,7 +115,11 @@ const included = (relative) =>
 export function isLegacyAssistantCache(name) {
   if (!isAssistantMember(name)) return false;
   const relative = name.slice(prefix.length + 1);
-  return !relative.startsWith("workspaces/") && volatileTree.test(relative);
+  return (
+    !relative.startsWith("workspaces/") &&
+    !shared(relative) &&
+    volatileTree.test(relative)
+  );
 }
 /** True for an archive member path a host backup may restore into assistants/. */
 export function isAssistantMember(name) {
