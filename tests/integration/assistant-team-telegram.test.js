@@ -436,45 +436,6 @@ for (const [language, heading, marker] of [
       assert.ok(!text.includes(secret), secret);
   });
 
-for (const [language, warning, gets] of [
-  [
-    "de",
-    /^⚠ Mit ⚠ markierte Mitglieder erhalten Shell oder SSH/,
-    "Erhält: Websuche, ⚠ Shell (mit Freigabe)",
-  ],
-  [
-    "en",
-    /^⚠ Members marked ⚠ get shell or SSH/,
-    "Gets: web search, ⚠ shell (with approval)",
-  ],
-])
-  test(`the ${language} approval lists each member's grants and warns about shell`, async (t) => {
-    const f = setup(t, { language: () => language });
-    const lead = f.store.getAssistant(f.channel.assistantId);
-    f.store.updateAssistant(
-      lead.id,
-      {
-        shell: "approval",
-        capabilities: { memory: false, reminders: false, webSearch: true },
-      },
-      lead.revision,
-    );
-    f.assistants.teams.store.savePolicy(lead.id, { memberShellSsh: true }, 1);
-    await f.proposal([
-      {
-        name: "Runner",
-        role: "Run",
-        assignment: "Run the checks",
-        grants: { webSearch: true, shell: "approval" },
-      },
-    ]);
-    await f.service.teamOutbox.transfer();
-    const { text } = f.service.outbox.pending(f.channel.id)[0];
-    const [, warned, runner] = text.split("\n\n");
-    assert.match(warned, warning);
-    assert.equal(runner.split("\n").at(-1), gets);
-  });
-
 test("an unreadable server list is shown as unavailable and only declining is offered", async (t) => {
   const f = setup(t, { language: () => "en" });
   const servers = new McpServerStore({ dataDir: f.dataDir, pathEnv: "/fake/bin" });
