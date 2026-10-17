@@ -73,9 +73,14 @@ test("ticked web tools survive a reload and reach the compiled agent tools", asy
   const reloaded = f.service.list().assistants.find((a) => a.id === agent.id);
   assert.deepEqual(reloaded.capabilities, capabilities);
   assert.equal(reloaded.heartbeatChannel, false);
-  // The live entry of the running Gateway grants them.
+  // The live entry of the running Gateway grants them; the browser waits for the
+  // proven tool guard, which this fixture never reports.
   for (const tool of webTools)
-    assert.ok(f.live(agent).tools.allow.includes(tool), `${tool} applied live`);
+    assert.equal(
+      f.live(agent).tools.allow.includes(tool),
+      tool !== "browser",
+      `${tool} applied live`,
+    );
   // A Gateway start compiles the global sections the tools need (OpenClaw 2026.9.8).
   const compiled = compileOpenClawConfig({
     existing: {
@@ -99,8 +104,10 @@ test("ticked web tools survive a reload and reach the compiled agent tools", asy
   });
   for (const tool of webTools) {
     assert.ok(compiled.tools.allow.includes(tool), `${tool} allowed globally`);
-    assert.ok(
+    // A start withholds the browser until the tool guard reports.
+    assert.equal(
       compiled.agents.entries[agent.runtimeAgentId].tools.allow.includes(tool),
+      tool !== "browser",
       `${tool} allowed for the agent`,
     );
   }
