@@ -76,3 +76,24 @@ compatible. Opening a project imports valid `inbox/<peer>/pending` and `done`
 records into SQLite; invalid records remain in place for diagnostics. Legacy
 Node/Bun interoperability tests remain as migration coverage, but the current
 OpenCode adapter does not open SQLite.
+
+## Send budget
+
+Every send wakes its recipient, so two idle sessions could otherwise reply to each
+other indefinitely. Before storing a message, `peer_send` checks a per-project
+budget against the queue database:
+
+| Limit                                                    | Default |
+| -------------------------------------------------------- | ------- |
+| Sends per sender in the last minute                      | 6       |
+| Sends from one sender to one peer in the last 10 minutes | 10      |
+| Messages in one `replyTo` chain                          | 12      |
+
+Sender and pair limits are sliding windows over stored message timestamps and
+reset once older messages leave the window. The chain limit follows `reply_to`
+through stored messages; a new message without `replyTo` starts a new chain. A
+refused send stores nothing, sends no wake and returns a `SEND_BUDGET` error
+that names the exceeded limit and tells the agent not to retry but to tell the
+user or wait for their instruction. AgentPier logs each refusal with the limit
+and both peer keys, never the message text. The limits are not configurable in
+the UI. Wake hints ask every runtime to reply only when needed.

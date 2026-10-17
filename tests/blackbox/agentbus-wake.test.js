@@ -241,6 +241,12 @@ test("Codex coalesces unread notices, cancels stale wakes and retries failed wak
   const f = await busFixture(t);
   const sender = await f.prepare("batch-sender", "opencode");
   const recipient = await f.prepare("batch-recipient", "codex");
+  // This test covers wake mechanics with bursts beyond the per-peer send budget.
+  f.bus.broker.sendBudget = {
+    senderPerMinute: 100,
+    pairPerTenMinutes: 100,
+    replyDepth: 12,
+  };
   hostRegister(f, sender, "native-sender");
   const target = hostRegister(f, recipient, "native-recipient");
   const ctx = f.bus.broker.access.record(recipient.id);

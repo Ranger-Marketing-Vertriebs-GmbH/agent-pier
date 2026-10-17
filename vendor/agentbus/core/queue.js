@@ -173,6 +173,8 @@ export function openQueue(home) {
     );
     CREATE INDEX IF NOT EXISTS messages_recipient_status
       ON messages (recipient, status, ts, id);
+    CREATE INDEX IF NOT EXISTS messages_sender_ts
+      ON messages (from_runtime, from_session, ts);
   `);
   importLegacy(db, home);
 
@@ -263,6 +265,37 @@ export function openQueue(home) {
         db.exec("ROLLBACK");
         throw error;
       }
+    },
+
+    // Counts messages a sender stored since a timestamp, optionally to one recipient.
+    sentSince({ runtime, session, recipient, since }) {
+      const pair = recipient === undefined ? "" : " AND recipient=?";
+      const params = [String(runtime), String(session), since];
+      if (recipient !== undefined) params.splice(2, 0, recipient);
+      return Number(
+        db
+          .prepare(
+            `SELECT COUNT(*) AS count FROM messages WHERE from_runtime=? AND from_session=?${pair} AND ts>?`,
+          )
+          .get(...params).count,
+      );
+    },
+
+    // Length of the stored reply chain ending at id, following reply_to up to max.
+    replyDepth(id, max) {
+      if (typeof id !== "string" || !idPattern.test(id)) return 0;
+      if (!Number.isSafeInteger(max) || max < 1) throw new Error("agentbus: invalid depth limit");
+      const row = db
+        .prepare(
+          `WITH RECURSIVE chain(id, reply_to, depth) AS (
+             SELECT id, reply_to, 1 FROM messages WHERE id=?
+             UNION ALL
+             SELECT m.id, m.reply_to, chain.depth + 1 FROM messages m
+               JOIN chain ON m.id = chain.reply_to WHERE chain.depth < ?
+           ) SELECT MAX(depth) AS depth FROM chain`,
+        )
+        .get(id, max);
+      return Number(row?.depth ?? 0);
     },
 
     messageStatus(recipient, id) {

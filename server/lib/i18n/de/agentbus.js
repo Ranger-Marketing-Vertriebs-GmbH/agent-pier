@@ -12,4 +12,10 @@ export const agentbus = Object.freeze({
   projectNotFound: "AgentBus-Projekt nicht gefunden.",
   historyScanLimit:
     "Die Ansicht ist auf 5.000 geprüfte Dateien begrenzt; weitere Nachrichten können vorhanden sein.",
+  sendBudgetSender: (limit) =>
+    `SEND_BUDGET: Diese Sitzung hat in der letzten Minute bereits ${limit} Nachrichten gesendet. Nicht erneut versuchen; informiere den Nutzer oder warte auf seine Anweisung.`,
+  sendBudgetPair: (limit, name) =>
+    `SEND_BUDGET: An ${name} wurden in den letzten 10 Minuten bereits ${limit} Nachrichten gesendet. Nicht erneut versuchen; informiere den Nutzer oder warte auf seine Anweisung.`,
+  sendBudgetDepth: (limit) =>
+    `SEND_BUDGET: Diese Antwortkette hat bereits ${limit} Nachrichten erreicht. Nicht erneut versuchen; informiere den Nutzer oder warte auf seine Anweisung.`,
 });
