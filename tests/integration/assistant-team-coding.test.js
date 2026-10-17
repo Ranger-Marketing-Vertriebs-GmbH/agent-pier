@@ -357,6 +357,7 @@ test("members keep no reminder or routine tools; their memory is their own", asy
     "write",
     "edit",
     "agentpier_workspace",
+    "agentpier_share_file",
   ]);
   const bridge = new TeamBridge({ assistants: f.assistants, teams: {} });
   await bridge.start();

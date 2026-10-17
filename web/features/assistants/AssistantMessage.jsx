@@ -1,6 +1,7 @@
 import React, { memo, useId, useMemo } from "react";
 import ChatMarkdown from "../../components/ChatMarkdown.jsx";
 import AgentMessageAttachments from "./AgentMessageAttachments.jsx";
+import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 import "./assistant-message-source.css";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
@@ -19,7 +20,8 @@ import "./member-mentions.css";
 // A routine's result (`scheduled`: `{ name, notes? }`) carries a badge beside the
 // agent's name, and a note when AgentPier refused SSH during the run.
 // A message the history could not load whole (`cut`), or has not loaded whole yet
-// (`partial`), ends with a short note.
+// (`partial`), ends with a short note. A file the agent shared (`shared`) shows its
+// caption as the text; one no longer stored (`unavailable`) says so.
 export default memo(function AssistantMessage({
   role,
   name,
@@ -34,6 +36,8 @@ export default memo(function AssistantMessage({
   mentions = null,
   forwarded = false,
   scheduled = null,
+  shared = false,
+  unavailable = false,
 }) {
   const metaId = useId();
   const lead = role === "user" && source === "lead" && typeof sender?.name === "string";
@@ -75,8 +79,11 @@ export default memo(function AssistantMessage({
           {lead ? sender.name : name}
         </strong>
       )}
-      <AgentMessageAttachments files={attachments} />
-      {(text || !attachments?.length) && (
+      <AgentMessageAttachments files={attachments} shared={shared} />
+      {unavailable && (
+        <p className="assistant-note">{assistantAttachmentsCopy.sharedUnavailable}</p>
+      )}
+      {(text || (!attachments?.length && !unavailable)) && (
         <div className="message-content">
           <ChatMarkdown {...markdown}>{text}</ChatMarkdown>
         </div>

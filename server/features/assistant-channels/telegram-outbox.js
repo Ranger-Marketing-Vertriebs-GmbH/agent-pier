@@ -1,6 +1,7 @@
 import { telegramMessages } from "./telegram-messages.js";
 import { grantLabels, holdsShellSsh } from "../assistants/member-grant-notes.js";
 import { sendTelegramParts } from "./telegram-send-parts.js";
+import { sendTelegramFile } from "./telegram-file.js";
 import { transferLeadRequests } from "./telegram-lead-requests.js";
 import { historyTextLimit, runReply, withNote } from "../assistants/history-text.js";
 import { reportText } from "../assistants/team-results.js";
@@ -279,7 +280,12 @@ export class TelegramOutbox {
         return;
       }
     }
-    await sendTelegramParts({
+    if (entry.kind === "file") return this.file(entry, token, signal);
+    await sendTelegramParts(this.delivery(entry, token, signal));
+  }
+  delivery(entry, token, signal) {
+    const c = this.service;
+    return {
       client: c.clientFactory(token),
       entry,
       signal,
@@ -288,6 +294,24 @@ export class TelegramOutbox {
         return c.outbox.transition(entry.id, current.state, patch);
       },
       changed: () => c.assistants.changed(),
-    });
+    };
+  }
+  // A file an agent shared (agent-shares.js), from the copy AgentPier still holds.
+  async file(entry, token, signal) {
+    const c = this.service;
+    if (entry.nextDeliveryAt > Date.now()) return;
+    let file;
+    try {
+      file = await c.assistants.attachments.content(entry.source.attachmentId);
+    } catch {
+      c.outbox.transition(entry.id, entry.state, {
+        state: "delivery_failed",
+        diagnostic: "FILE_UNAVAILABLE",
+      });
+      c.assistants.changed();
+      return;
+    }
+    if (signal.aborted) return;
+    await sendTelegramFile({ ...this.delivery(entry, token, signal), file });
   }
 }

@@ -1,6 +1,7 @@
 import { assistantProblem, validateDefinition } from "./assistant-validation.js";
 import { sendTurn } from "./conversation-turns.js";
 import { AgentAttachments } from "./agent-attachments.js";
+import { AgentShares } from "./agent-shares.js";
 import { createGatewaySession } from "./session-create.js";
 import { RequestLedger } from "./request-ledger.js";
 import { QueuedMessages } from "./queued-messages.js";
@@ -56,6 +57,8 @@ export class AssistantService {
     this.ledger = new RequestLedger(store.db);
     this.queued = new QueuedMessages(store.db, now);
     this.attachments = new AgentAttachments({ store, models, config });
+    // Files agents hand the owner; the graph adds the Telegram channels.
+    this.shares = new AgentShares({ assistants: this });
     this.markOutstandingUnknown();
     this.events = new AssistantEvents();
     this.chatStreams = new ChatStreams();

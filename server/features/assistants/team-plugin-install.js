@@ -9,6 +9,7 @@ const files = [
   "index.js",
   "workflow-tools.js",
   "ssh-tool.js",
+  "share-tool.js",
   "tool-guard.js",
   "patch-paths.js",
   "openclaw.plugin.json",

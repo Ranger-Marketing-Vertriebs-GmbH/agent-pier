@@ -70,6 +70,17 @@ const reasons = {
     "One file_write may hold at most 64 KiB (UTF-8 bytes). Write the first part, then add the rest with file_write and append: true in further calls.",
   REQUEST_TOO_LARGE:
     "The call was larger than AgentPier accepts (128 KiB). Send the content in smaller parts, for example file_write with append: true.",
+  SHARE_NOT_FOUND:
+    "No regular file exists at this path in your workspace. Give the path relative to your workspace, for example reports/summary.pdf.",
+  SHARE_OUTSIDE:
+    "Only regular files inside your own workspace can be shared, never through a symbolic or hard link. Copy the file into your workspace first.",
+  SHARE_TOO_LARGE:
+    "Shared files are limited to 25 MB. Compress or split the file, or tell the owner where it is.",
+  SHARE_EMPTY: "This file is empty; there is nothing to share.",
+  STORAGE_FULL:
+    "Your attachment storage is full (512 MB or 1000 files in attachments/). Delete files you no longer need from attachments/ in your workspace, then try again, and tell the owner.",
+  STORAGE_UNSAFE:
+    "attachments/ in your workspace is not a plain folder, so nothing can be shared. Do not retry; tell the owner.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -101,6 +112,12 @@ const byKey = {
   projectEditNoMatch: "PROJECT_EDIT_NO_MATCH",
   projectFileEncoding: "PROJECT_FILE_ENCODING",
   projectWriteTooLarge: "PROJECT_WRITE_TOO_LARGE",
+  shareNotFound: "SHARE_NOT_FOUND",
+  shareOutside: "SHARE_OUTSIDE",
+  shareTooLarge: "SHARE_TOO_LARGE",
+  shareEmpty: "SHARE_EMPTY",
+  attachmentStorageFull: "STORAGE_FULL",
+  attachmentStorageUnsafe: "STORAGE_UNSAFE",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",

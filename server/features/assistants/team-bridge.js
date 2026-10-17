@@ -29,6 +29,8 @@ const actions = new Set([
   "routine",
   "workspace",
   "ssh",
+  // Every agent, members too, hands the owner files (agent-shares.js).
+  "share_file",
 ]);
 const active = new Set(["pending", "accepted", "running"]);
 // What a temporary member reaches through its lead: reminders (created on the lead)
@@ -129,6 +131,7 @@ export class TeamBridge {
       (parent.teamMemberId &&
         !(
           record.action === "workspace" ||
+          record.action === "share_file" ||
           (["reminder", "routine", "ssh"].includes(record.action) &&
             parent.lifetime === "permanent") ||
           inheritedAction(parent, record.action)
@@ -352,6 +355,8 @@ export class TeamBridge {
         return this.assistants.workflows.ssh.invoke(invocation, input);
       if (action === "workspace")
         return this.assistants.workflows.invoke(invocation, input);
+      if (action === "share_file")
+        return this.assistants.shares.invoke(invocation, input);
       if (action === "routine") return this.assistants.routines.invoke(invocation, input);
       return action === "reminder"
         ? this.assistants.reminders.invoke(invocation, input)

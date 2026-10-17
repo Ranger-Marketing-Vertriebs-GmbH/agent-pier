@@ -198,6 +198,7 @@ export function auditEvent(input) {
       "member-promote",
       "project-file",
       "project-grants",
+      "share",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;

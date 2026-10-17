@@ -1,6 +1,7 @@
 import { workflowDefinitions } from "./workflow-tools.js";
 import { registerToolGuard } from "./tool-guard.js";
 import { sshDefinition, sshTimeoutMs } from "./ssh-tool.js";
+import { shareDefinition } from "./share-tool.js";
 const text = (maxLength) => ({ type: "string", minLength: 1, maxLength });
 const schema = (properties, required = Object.keys(properties)) => ({
   type: "object",
@@ -12,9 +13,10 @@ const unavailable = "AgentPier operation unavailable; inspect its state before r
 // AgentPier holds an ask for up to 110 seconds (lead-requests.js askWaitMs) and an
 // SSH approval for 110 seconds plus a command of up to 120; every other call answers
 // at once.
-export const toolTimeouts = { ask: 125000, ssh: sshTimeoutMs };
+// A shared file (up to 25 MB) is read and copied before the call answers.
+export const toolTimeouts = { ask: 125000, ssh: sshTimeoutMs, share_file: 30000 };
 // AgentPier's own tools; the team tools carry the agentpier_team_ prefix.
-const ownTools = ["reminder", "routine", "workspace", "ssh"];
+const ownTools = ["reminder", "routine", "workspace", "ssh", "share_file"];
 const toolName = (action) =>
   ownTools.includes(action) ? `agentpier_${action}` : `agentpier_team_${action}`;
 const owner = {
@@ -51,6 +53,7 @@ const grantRule =
 const definitions = {
   ...workflowDefinitions,
   ...sshDefinition,
+  ...shareDefinition,
   reminder: {
     description:
       "Manage your user's Telegram reminders using OpenClaw's native scheduler. Actions: create, list, update (pause/resume), remove. Create requires name, reminder message and schedule: {kind:'at',at:ISO timestamp with a UTC offset or Z, e.g. 2026-10-09T09:00:00+02:00; times without an offset and date-only values are rejected} or {kind:'cron',expr:five-field cron,tz:IANA timezone}. Use session_status for the current date/time when needed. Ask when timing is ambiguous. The destination is bound by AgentPier; never supply a recipient. Updates require the revision returned by list. Scheduled reminders have no tools and cannot create teams or take other actions.",

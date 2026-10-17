@@ -3,6 +3,8 @@ export const assistantAttachmentsCopy = Object.freeze({
   choose: "Dateien oder Bilder auswählen",
   list: "Anhänge",
   sent: "Angehängte Dateien",
+  shared: "Geteilte Dateien",
+  sharedUnavailable: "Diese geteilte Datei ist nicht mehr verfügbar.",
   remove: (name) => `${name} entfernen`,
   open: (name) => `${name} öffnen`,
   download: (name) => `${name} herunterladen`,
