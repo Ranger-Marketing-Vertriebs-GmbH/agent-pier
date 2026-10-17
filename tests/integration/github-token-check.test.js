@@ -191,3 +191,30 @@ test("the daily check marks bad tokens, notifies once per change and skips recen
   await monitor.run();
   assert.equal(notices.length, 1, "an unchanged bad state is not announced again");
 });
+
+test("closing the monitor aborts a token check that is still waiting for GitHub", async (t) => {
+  let aborted = false;
+  const repositories = store(
+    t,
+    (url, { signal }) =>
+      new Promise((resolve, reject) =>
+        signal.addEventListener("abort", () => {
+          aborted = true;
+          reject(signal.reason);
+        }),
+      ),
+  );
+  repositories.createCredential({
+    name: "Slow",
+    host: "https://ghe.test",
+    token: "ghp_x",
+  });
+  const monitor = new GithubTokenMonitor({ repositories, notifications: null });
+  const running = monitor.run();
+  await new Promise((resolve) => setImmediate(resolve));
+  const started = Date.now();
+  await monitor.close();
+  assert.ok(Date.now() - started < 2000, "close must not wait for GitHub");
+  assert.equal(aborted, true);
+  await running;
+});

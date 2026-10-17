@@ -183,6 +183,8 @@ export class RepositoryStore {
     this.activeClones = new Map();
     this.discoveryCache = new Map();
     this.activeDiscoveries = new Map();
+    // Aborts token checks still waiting for GitHub when the server stops.
+    this.checks = new AbortController();
     this.fetchImpl = fetchImpl;
     this.file = path.join(this.dataDir, "repositories.json");
     this.secretDir = privateDirectory(path.join(this.dataDir, "repository-secrets"));
@@ -296,7 +298,7 @@ export class RepositoryStore {
     this.save();
   }
   /** Checks the saved token against the host's API and keeps the result, never the token. */
-  async checkCredential(id) {
+  async checkCredential(id, { signal } = {}) {
     if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
     const credential = this.credential(id);
     const secret = readJSON(this.secretFile(credential.id), null);
@@ -306,6 +308,9 @@ export class RepositoryStore {
             host: credential.host,
             token: secret.token,
             fetchImpl: this.fetchImpl,
+            signal: signal
+              ? AbortSignal.any([this.checks.signal, signal])
+              : this.checks.signal,
             repositories: remoteRepositories(
               credential.host,
               this.projects
@@ -318,6 +323,8 @@ export class RepositoryStore {
             error: "tokenMissing",
             checkedAt: new Date().toISOString(),
           };
+    // A stopping server or monitor keeps the previous result.
+    if (this.closed || signal?.aborted) return null;
     // The profile or its token may have changed while GitHub answered.
     const current = this.credentials.find((item) => item.id === id);
     if (
@@ -397,6 +404,7 @@ export class RepositoryStore {
   }
   async close() {
     this.closed = true;
+    this.checks.abort();
     const pending = [...this.activeClones.keys(), ...this.activeDiscoveries.keys()];
     for (const controller of this.activeDiscoveries.values()) controller.abort();
     this.discoveryCache.clear();

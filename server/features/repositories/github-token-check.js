@@ -75,6 +75,7 @@ export async function checkGithubToken({
   fetchImpl = globalThis.fetch,
   now = Date.now,
   timeoutMs = 15000,
+  signal,
 }) {
   const checkedAt = new Date(now()).toISOString();
   const base = githubApiBase(host);
@@ -87,7 +88,9 @@ export async function checkGithubToken({
         "X-GitHub-Api-Version": "2022-11-28",
       },
       redirect: "error",
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: signal
+        ? AbortSignal.any([AbortSignal.timeout(timeoutMs), signal])
+        : AbortSignal.timeout(timeoutMs),
     });
   let response;
   try {
@@ -152,6 +155,7 @@ export async function checkGithubToken({
         });
     } catch {
       /* A failed probe proves nothing about SSO. */
+      if (signal?.aborted) break;
     }
   }
   const expiring = expiresAt && Date.parse(expiresAt) - now() <= expiringWithinMs;

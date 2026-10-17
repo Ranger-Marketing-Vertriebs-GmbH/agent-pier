@@ -121,8 +121,7 @@ export class GithubCredentials {
     writeJsonAtomic(path.join(folder, "hosts.yml"), hosts);
   }
   async prepare({ id, account, cwd, launch, purpose, replace = false } = {}) {
-    // A shell gets the same access as a coding CLI: the owner runs gh and git
-    // there for the agent's work. Login sessions only sign a CLI in.
+    // Login sessions only sign a CLI in.
     if (
       purpose === "login" ||
       !["claude", "codex", "opencode", "shell"].includes(account?.tool)
@@ -130,6 +129,11 @@ export class GithubCredentials {
       return launch;
     const canonical = fs.realpathSync(cwd);
     const selections = this.selections(canonical);
+    // A shell is the owner's own terminal: gh keeps the owner's login and git keeps
+    // the owner's helpers, except for hosts with a selected profile, whose helper
+    // finds the session folder through its argument instead of GH_CONFIG_DIR.
+    const shell = account.tool === "shell";
+    if (shell && !selections.length) return launch;
     const folder = this.folder(id);
     ensureDir(this.directory);
     if (fs.existsSync(folder) && !replace)
@@ -137,21 +141,23 @@ export class GithubCredentials {
     if (replace) fs.rmSync(folder, { recursive: true, force: true });
     ensureDir(folder);
     const env = { ...launch.env };
-    for (const key of tokenKeys) delete env[key];
-    // Always the session folder, even without a selected connection: an empty
-    // hosts.yml keeps native gh logged out instead of using the owner's login.
-    env.GH_CONFIG_DIR = folder;
-    env.PATH = [
-      ...(env.PATH || "").split(path.delimiter),
-      path.join(this.dataDir, "clis/gh/bin"),
-    ]
-      .filter((value, index, items) => value && items.indexOf(value) === index)
-      .join(path.delimiter);
+    if (!shell) {
+      for (const key of tokenKeys) delete env[key];
+      // Always the session folder, even without a selected connection: an empty
+      // hosts.yml keeps native gh logged out instead of using the owner's login.
+      env.GH_CONFIG_DIR = folder;
+      env.PATH = [
+        ...(env.PATH || "").split(path.delimiter),
+        path.join(this.dataDir, "clis/gh/bin"),
+      ]
+        .filter((value, index, items) => value && items.indexOf(value) === index)
+        .join(path.delimiter);
+    }
     // Native schema version prevents automatic migration and username API calls.
     writeJsonAtomic(path.join(folder, "config.yml"), { version: 1 });
     writeJsonAtomic(path.join(folder, "selection.json"), { id, selections });
     this.write(folder, selections);
-    const gh = this.resolveGh(env);
+    const gh = !shell && this.resolveGh(env);
     if (gh) {
       env.PATH = [path.dirname(gh), ...(env.PATH || "").split(path.delimiter)]
         .filter((value, index, items) => value && items.indexOf(value) === index)
@@ -162,7 +168,9 @@ export class GithubCredentials {
       let count = Number(env.GIT_CONFIG_COUNT || 0);
       if (!Number.isSafeInteger(count) || count < 0 || count > 256)
         throw problem(serverMessages.repositories.invalidTemporaryGitConfig);
-      const helper = `!${quote(location.node)} ${quote(location.script)} --git-credential`;
+      const helper = `!${quote(location.node)} ${quote(location.script)} --git-credential${
+        shell ? ` --session ${quote(folder)}` : ""
+      }`;
       // gist.<host> serves the host's gists with the same token; without its own
       // entries the owner's global helper would answer from the session's gh folder.
       for (const { host } of selections)

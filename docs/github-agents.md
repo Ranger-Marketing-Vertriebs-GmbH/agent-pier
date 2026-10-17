@@ -8,9 +8,13 @@ Under **Settings → Access → GitHub connections** each token is saved with it
 
 ## Selection at session start
 
-New Codex, Claude Code and OpenCode sessions and shell sessions receive the default connection of every supported host. When the working directory lies in a project cloned with AgentPier, the connection chosen at clone time wins for the repository's original host. With nested projects the nearest project applies. A token profile that has since moved to another host does not override a different host's assignment. Login sessions only sign a CLI in and receive no GitHub access.
+New Codex, Claude Code and OpenCode sessions receive the default connection of every supported host. When the working directory lies in a project cloned with AgentPier, the connection chosen at clone time wins for the repository's original host. With nested projects the nearest project applies. A token profile that has since moved to another host does not override a different host's assignment. Login sessions only sign a CLI in and receive no GitHub access.
 
-The selected profile IDs stay with the session. A changed default applies to new sessions; token rotation and deletion also update the configuration of sessions that already run. A deleted profile, or one moved to another host, is disabled there: AgentPier writes a fixed invalid placeholder for that host so that `gh` cannot silently fall back to another login from the system keychain, and the git credential helper answers with an explanation instead of a token (see [Helper messages](#helper-messages)).
+<a id="shell-sessions"></a>
+
+Shell sessions are the owner's own terminal and change less. `gh`, `GH_CONFIG_DIR` and token variables such as `GH_TOKEN` stay as the owner set them, so `gh` in a shell keeps the owner's own login. Only git gets the AgentPier helper, and only for the hosts with a selected profile (and their gist hosts); it finds the session's files through a `--session <folder>` argument instead of `GH_CONFIG_DIR`. Every other host keeps the owner's own git helpers, `gh auth git-credential` included. A shell without a selected profile gets no changes at all.
+
+The selected profile IDs stay with the session. A changed default applies to new sessions; token rotation and deletion also update the configuration of sessions that already run. A deleted profile, or one moved to another host, is disabled there: AgentPier writes a fixed invalid placeholder for that host so that `gh` cannot silently fall back to another login from the system keychain, and the git credential helper answers with an explanation instead of a token (see [Helper messages](#helper-messages)). A profile added afterwards has a new ID, so a running session uses it only after a reload.
 
 Without a selected connection — no default for agents and no project assignment — `GH_CONFIG_DIR` still points to the session configuration with an empty `hosts.yml`: `gh` is signed out in the session and does not use the owner's own login. git then gets no AgentPier helper and keeps asking the owner's own helpers for every host.
 
@@ -19,6 +23,8 @@ Without a selected connection — no default for agents and no project assignmen
 ### The helper across updates
 
 git starts the helper through the `GIT_CONFIG_*` values a session received at its start, and a running process keeps those values. An installed AgentPier therefore starts the helper through the install root's `current` link, for example `~/.local/share/agentpier-app/current/bin/node ~/.local/share/agentpier-app/current/server/github-credentials.js --git-credential`. Every update moves `current` to the release it activates, and release cleanup never removes the active release, so the helper and its Node runtime always come from the active release; the session files it reads keep their format across releases. A source checkout keeps its own Node and repository paths, because no update replaces them.
+
+Rolling back to a release from before this change keeps running sessions working, but sessions started under that release again name their own release directory and get no `gist.<host>` helper entries; `gist.<host>` then falls back to the owner's own git helpers.
 
 Sessions started by an earlier release still name their own release directory. While such a session runs, its terminal launcher runs from that release, so release cleanup lists the release as in use and keeps it. Reloading the session — also the reload that moves sessions off an old release before cleanup — switches it to the stable path. If such a release is removed anyway, git stops with `told us to quit` for that host; reload the session.
 
@@ -66,7 +72,7 @@ When the helper has no token for a request, it writes one line to git's error ou
 | the session folder is missing, or its `selection.json` is unreadable        | reload the session                                                             |
 | no GitHub profile is selected for the host in this session                  | mark a profile as default for agents or assign one to the project, then reload |
 | the session's `hosts.yml` cannot be read                                    | reload the session                                                             |
-| the profile for the host was removed, moved to another host or has no token | save a token for the host; running sessions pick it up automatically           |
+| the profile for the host was removed, moved to another host or has no token | save a token for the host, then reload the session                             |
 
 git never prompts for a user name in these cases.
 
