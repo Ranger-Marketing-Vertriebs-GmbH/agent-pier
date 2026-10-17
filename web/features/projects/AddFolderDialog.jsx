@@ -53,7 +53,8 @@ export default function AddFolderDialog({ home, close, added }) {
   return (
     <Modal
       title={memoryCopy.addProject}
-      close={close}
+      // After a partial failure the project exists: leaving always opens it.
+      close={partial ? () => added(partial.project) : close}
       closeDisabled={action.busy}
       className="project-dialog"
     >
@@ -65,14 +66,29 @@ export default function AddFolderDialog({ home, close, added }) {
             const project = await api("/memory/projects", "POST", {
               cwd: directory.trim(),
             });
-            let failed = 0;
+            const base = `/assistant-project-access/${encodeURIComponent(project.id)}`;
+            let failed = 0,
+              current = null;
             for (const [agentId, choice] of Object.entries(access)) {
-              if (!choices[choice]) continue;
-              await api(
-                `/assistant-project-access/${encodeURIComponent(project.id)}/${encodeURIComponent(agentId)}`,
-                "PUT",
-                { expected: { coding: false, folder: "none" }, ...choices[choice] },
-              ).catch(() => failed++);
+              const wanted = choices[choice];
+              if (!wanted) continue;
+              try {
+                await api(`${base}/${encodeURIComponent(agentId)}`, "PUT", {
+                  expected: { coding: false, folder: "none" },
+                  ...wanted,
+                });
+              } catch (error) {
+                // A folder registered before keeps its agents' access: no failure
+                // when the agent already holds exactly what was chosen.
+                if (error.status === 409) current ??= await api(base).catch(() => ({}));
+                const held = current?.agents?.find((a) => a.id === agentId);
+                if (
+                  !held ||
+                  held.coding !== wanted.coding ||
+                  held.folder !== wanted.folder
+                )
+                  failed++;
+              }
             }
             if (failed) setPartial({ project, failed });
             else added(project);
@@ -135,7 +151,7 @@ export default function AddFolderDialog({ home, close, added }) {
             type="button"
             className="button secondary"
             disabled={action.busy}
-            onClick={close}
+            onClick={partial ? () => added(partial.project) : close}
           >
             {commonCopy.cancel}
           </button>

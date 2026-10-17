@@ -38,7 +38,10 @@ function agentAccess({ conflictOnce = false } = {}) {
       if (state.conflict) {
         state.conflict = false;
         state.home = { coding: true, folder: "read" };
-        await route.fulfill({ status: 409, json: { error: "Changed" } });
+        await route.fulfill({
+          status: 409,
+          json: { error: "Changed", messageKey: "assistants.conflict" },
+        });
         return true;
       }
       state.home = body.coding

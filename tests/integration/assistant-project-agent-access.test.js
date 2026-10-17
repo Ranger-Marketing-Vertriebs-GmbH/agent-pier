@@ -199,3 +199,43 @@ test("the HTTP routes read and change one agent's project access", async (t) => 
   );
   assert.equal((await fetch(`${url.replace(f.project.id, "missing")}`)).status, 404);
 });
+
+test("a deleted pipeline in the agent's grants is dropped instead of blocking the save", async (t) => {
+  const f = await setup(t);
+  f.workflows.access.save(f.other.id, { ...f.policy, projectIds: [] }, 0);
+  // The pipeline is deleted afterwards (pipeline-definitions.js removePipeline).
+  f.workflows.s.pipelineDefinitions.listPipelines = () => [];
+  f.workflows.s.pipelineDefinitions.getPipeline = () => {
+    throw Object.assign(Error("missing"), { status: 400 });
+  };
+  const saved = f.set(f.other.id, { expected: none, coding: true, folder: "read" });
+  assert.equal(saved.folder, "read");
+  assert.deepEqual(f.workflows.access.get(f.other.id).pipelineIds, []);
+  // The Work tab's own save drops a stored one the same way, while a pipeline
+  // newly chosen that does not exist is still refused.
+  f.workflows.access.save(f.id, { ...f.policy, pipelineIds: [] }, 0);
+  assert.throws(() => f.workflows.access.save(f.id, f.policy, 1), { status: 400 });
+  const stored = await setup(t);
+  stored.workflows.access.save(stored.id, stored.policy, 0);
+  stored.workflows.s.pipelineDefinitions.listPipelines = () => [];
+  assert.deepEqual(
+    stored.workflows.access.save(stored.id, stored.policy, 1).pipelineIds,
+    [],
+  );
+});
+
+test("every save from the project writes exactly one project audit record", async (t) => {
+  const f = await setup(t);
+  f.set(f.other.id, { expected: none, coding: true, folder: "write" });
+  f.set(f.other.id, {
+    expected: { coding: true, folder: "write" },
+    coding: false,
+    folder: "none",
+  });
+  const records = f.audits.filter((e) => e.details?.kind === "project-grants");
+  assert.equal(records.length, 2);
+  assert.deepEqual(records[1].details.removed, [f.project.id]);
+  assert.deepEqual(records[1].details.folderChanged, [
+    { projectId: f.project.id, from: "write", to: "none" },
+  ]);
+});
