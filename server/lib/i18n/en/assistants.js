@@ -198,6 +198,9 @@ export const assistants = {
   projectFileUnsuitable:
     "This file is too large, binary or not a regular file for this action.",
   projectEditNoMatch: "The text to replace does not occur exactly once in the file.",
+  projectFileEncoding:
+    "This file is not valid UTF-8; it is not changed so that no characters are lost.",
+  projectWriteTooLarge: "One write may hold at most 64 KiB.",
   memberModelFollowsLead:
     "A task-bound member uses its lead's model. Change the model there or keep the member as a permanent agent.",
   memberRequestNotPermanent: "Tasks can only be delegated to permanent members.",

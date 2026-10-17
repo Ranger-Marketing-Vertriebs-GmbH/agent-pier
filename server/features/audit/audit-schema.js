@@ -345,7 +345,7 @@ export function auditEvent(input) {
     event.details.version = details.version;
   // An agent's change in a project folder: the relative path and size, never content.
   if (details.kind === "project-file") {
-    if (["create", "replace", "edit"].includes(details.fileChange))
+    if (["create", "replace", "edit", "append"].includes(details.fileChange))
       event.details.fileChange = details.fileChange;
     if (
       typeof details.filePath === "string" &&

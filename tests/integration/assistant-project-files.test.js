@@ -302,3 +302,42 @@ test("a promoted member keeps no folder access its lead granted", async (t) => {
   assert.deepEqual(f.workflows.folders.forAgent(agent), []);
   assert.deepEqual(f.workflows.folders.levels({ requestedBy: member.id }), {});
 });
+
+test("appends through the workspace tool are checked and audited as appends", async (t) => {
+  const f = await setup(t);
+  f.grant({ [f.folderProject.id]: "write" });
+  const first = await f.call({
+    action: "file_write",
+    path: "log.md",
+    content: "one\n",
+    append: true,
+  });
+  assert.equal(first.created, true);
+  await f.call({ action: "file_write", path: "log.md", content: "two\n", append: true });
+  assert.equal(fs.readFileSync(path.join(f.folder, "log.md"), "utf8"), "one\ntwo\n");
+  const changes = f.audits
+    .filter((e) => e.details?.kind === "project-file")
+    .map((e) => [e.details.fileChange, e.details.bytes]);
+  assert.deepEqual(changes, [
+    ["append", 4],
+    ["append", 4],
+  ]);
+  f.grant({ [f.folderProject.id]: "read" });
+  await assert.rejects(
+    f.call({ action: "file_write", path: "log.md", content: "x", append: true }),
+    code("PROJECT_READ_ONLY"),
+  );
+});
+
+test("a member's record shows its folder levels as capped by the lead right now", async (t) => {
+  const f = await team(t, {});
+  f.teams.write(f.teams.member(f.member.id), {
+    grants: { projects: { [f.folderProject.id]: "write" } },
+  });
+  const levels = () => f.store.getAssistant(f.member.assistantId).inherited.projects;
+  assert.deepEqual(levels(), { [f.folderProject.id]: "write" });
+  f.grant({ [f.folderProject.id]: "read" });
+  assert.deepEqual(levels(), { [f.folderProject.id]: "read" });
+  f.grant({});
+  assert.deepEqual(levels(), {});
+});

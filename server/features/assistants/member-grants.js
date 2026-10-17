@@ -141,7 +141,7 @@ export function assertWithinLead(
  * What a member runs with: each grant within what the lead holds now; shell and SSH
  * only while `shellSsh`. Nothing without an eligible lead.
  */
-export function memberInheritance(lead, grants = {}, shellSsh = false) {
+export function memberInheritance(lead, grants = {}, shellSsh = false, folders = {}) {
   const eligible = !!lead && personalEligible(lead);
   const held = eligible ? personalCapabilities(lead) : {};
   const skills = eligible ? personalSkills(lead) : [];
@@ -162,6 +162,8 @@ export function memberInheritance(lead, grants = {}, shellSsh = false) {
           : [],
     shell,
     ssh: eligible && shellSsh && grants.ssh === true,
+    // `folders`: the lead's project folder levels now (assistant-access.js).
+    projects: eligible ? memberFolders(grants.projects, folders) : {},
   };
 }
 
