@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { authorizeRequest, appDocumentPath } from "../../server/http/security.js";
+import {
+  authorizeRequest,
+  appDocumentPath,
+  securityHeaders,
+} from "../../server/http/security.js";
 const config = {
   port: 4380,
   remoteUrl: "https://host.example.ts.net:8443",
@@ -315,4 +319,29 @@ test("the provider's redirect to the MCP OAuth callback is a navigation on both 
     { ...remote, headers: { ...remote.headers, "tailscale-user-login": "other@x.com" } },
   ];
   for (const req of denied) assert.throws(() => authorizeRequest(req, config), req.url);
+});
+
+function policyFor(path) {
+  const headers = {};
+  securityHeaders(
+    { path },
+    { setHeader: (name, value) => (headers[name] = value) },
+    () => {},
+  );
+  const policy = headers["Content-Security-Policy"];
+  return Object.fromEntries(
+    policy.split(";").map((part) => {
+      const [name, ...sources] = part.trim().split(/\s+/);
+      return [name, sources];
+    }),
+  );
+}
+
+test("the app may show blob: images (the browser live view), artifacts may not", () => {
+  assert.deepEqual(policyFor("/agents/home/browser")["img-src"], [
+    "'self'",
+    "data:",
+    "blob:",
+  ]);
+  assert.deepEqual(policyFor("/artifacts/view/abc")["img-src"], ["'self'", "data:"]);
 });

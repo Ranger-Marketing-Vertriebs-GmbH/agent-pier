@@ -128,7 +128,7 @@ export default function useAgentAttachments(conversationId) {
       queue.current = queue.current.then(async () => {
         if (!current.current.some((entry) => entry.key === item.key)) return;
         const file = await preparedFile(original);
-        // A data URL: the app's content policy allows no blob: images.
+        // A data URL: the preview outlives the upload, and needs no revoking.
         if (item.image && /^image\/(?:jpeg|png|webp|gif)$/.test(file.type))
           patch(item.key, {
             previewUrl: await fileDataUrl(file).catch(() => undefined),

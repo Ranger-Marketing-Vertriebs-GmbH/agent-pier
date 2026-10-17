@@ -1322,8 +1322,13 @@ later takeover can send input the same way.
   (`?preview=1`). A viewer that cannot keep up loses frames instead of queuing them.
   Viewers send `select`, `follow` and `start`; anything else, and any binary
   message, closes the socket.
-- Frames are never stored or logged; the browser keeps only the newest as an object
-  URL while the view is open.
+- Frames are never stored on disk or logged. The server keeps each stream's newest
+  frame in memory and sends it to a viewer who joins, because the screencast sends a
+  frame only when the page repaints (and once when it starts); a dropped upstream
+  forgets it. The browser keeps only the newest as an object URL while the view is
+  open, so the app's Content-Security-Policy allows `blob:` images
+  (`img-src 'self' data: blob:` in `server/http/security.js`); without it every
+  browser refuses the picture. The artifact viewer's policy stays without `blob:`.
 
 ### Takeover
 
