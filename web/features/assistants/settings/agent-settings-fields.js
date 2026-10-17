@@ -17,7 +17,13 @@ export const webCapabilityKeys = capabilityKeys.slice(2);
 export const capabilityDefaults = Object.fromEntries(
   capabilityKeys.map((key) => [key, false]),
 );
-export const capabilityFormKeys = [...capabilityKeys, "shell", "mcpServers", "skills"];
+export const capabilityFormKeys = [
+  ...capabilityKeys,
+  "browserVisible",
+  "shell",
+  "mcpServers",
+  "skills",
+];
 export const profileKeys = ["name", "instructions", "connectionId", "modelId"];
 export const heartbeatKeys = ["heartbeatEnabled", "interval", "start", "end", "timeZone"];
 export const channelKeys = ["language", "appUrl"];
@@ -140,6 +146,7 @@ export const profilePatch = (values, { followsLead = false } = {}) => ({
 
 export const capabilityServer = (assistant) => ({
   ...pick(assistant?.capabilities, capabilityKeys),
+  browserVisible: assistant?.browserVisible === true,
   shell: shellLevel(assistant),
   mcpServers: sortedIds(assistant?.mcpServers),
   skills: sortedIds(assistant?.skills),
@@ -155,6 +162,9 @@ export function capabilityPatch({ values, base, assistant }) {
       ...assistant.capabilities,
       ...pick(values, capabilityKeys),
     };
+  // The visible window belongs to the agent's own browser profile.
+  if (shellEligible(assistant) && changed("browserVisible"))
+    patch.browserVisible = values.browserVisible;
   // Only a changed level is sent: the server asks to confirm a raise.
   if (shellEligible(assistant) && changed("shell")) patch.shell = values.shell;
   if (changed("mcpServers")) patch.mcpServers = values.mcpServers;

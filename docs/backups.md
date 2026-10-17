@@ -14,8 +14,10 @@ Always, as public (unencrypted) members:
   the port from `config.json`.
 - Project memory and pipeline history as consistent SQLite snapshots (memory without
   capabilities), the audit log, pinned artifacts, the sanitized MCP server store.
-- Agent data under `assistants/` without runtimes, package caches, update snapshots,
-  TLS material and backup keys (see `docs/assistant-gateway.md`).
+- Agent data under `assistants/` without runtimes, package caches (in any spelling,
+  such as Chromium's `Cache`, `Code Cache` and `GPUCache`), update snapshots, TLS
+  material, backup keys and the agents' browser profiles (see
+  `docs/assistant-gateway.md`).
 - Agent chat attachments: the owner's uploaded files in each agent's
   `workspaces/<agent>/attachments/` (up to 512 MB per agent; photos and documents
   may be private) together with their index in `assistants.sqlite`, so a restore
@@ -116,8 +118,10 @@ manifest, members }`. `manifest` holds `schemaVersion` 2, `applicationVersion`,
 
 ### Sealed history
 
-AgentPier's own histories and CLI histories are sealed the same way, in one
-sequence of `sealed/<n>` entries under one key.
+AgentPier's own histories, CLI histories and the agents' browser profiles are
+sealed the same way, in one sequence of `sealed/<n>` entries under one key. A backup
+with browser profiles has a version 2 seal record even without history, so
+AgentPier 2.0 to 2.2 cannot restore it.
 
 The seal record (`history-seal.json`) has version 2 since AgentPier's own
 histories are sealed. Version 1 records (AgentPier 2.0 to 2.2) may only name CLI

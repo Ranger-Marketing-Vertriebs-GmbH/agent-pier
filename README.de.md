@@ -48,7 +48,8 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - macOS 14 oder neuer (Apple Silicon oder Intel) oder Linux auf x64 oder arm64.
 - Node.js 22.13 oder neuer (in Release-Paketen enthalten), Git und tmux.
 - Optional: Tailscale für den Fernzugriff und ein Chromium-basierter Browser für das
-  Browser-Werkzeug der Agenten.
+  Browser-Werkzeug der Agenten (Brave oder Chromium für sichtbare Browserfenster der
+  Agenten).
 - Mindestens eine Coding-CLI oder ein Modell-Provider. Provider-Accounts und ihre
   Kosten liegen bei dir.
 

@@ -61,7 +61,7 @@ export const assistantCopy = {
     webSearchDescription: "Looks things up with the web search provider set in Accounts.",
     webFetchDescription: "Opens a web address and reads the page text.",
     browserDescription:
-      "Drives a separate browser profile to use pages that need clicking or signing in.",
+      "Drives a persistent browser profile of its own for pages that need clicking or signing in.",
     documentsDescription:
       "Looks at images in its workspace. Needs a model that accepts images.",
     browserUnavailable:

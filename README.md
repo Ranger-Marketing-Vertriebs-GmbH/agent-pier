@@ -41,7 +41,7 @@ and agents that work as a team.
 - macOS 14 or later (Apple Silicon or Intel), or Linux on x64 or arm64.
 - Node.js 22.13 or later (bundled in release packages), Git and tmux.
 - Optional: Tailscale for remote access, and a Chromium-based browser for the agents'
-  browser tool.
+  browser tool (Brave or Chromium for visible agent browser windows).
 - At least one coding CLI or model provider. Provider accounts and their costs are
   your own.
 

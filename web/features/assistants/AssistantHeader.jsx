@@ -6,6 +6,7 @@ import useAssistants from "./useAssistants.js";
 import { avatarGlyph } from "./avatar-glyph.js";
 import { activityFor, headerStatus } from "./assistant-status.js";
 import { assistantShellCopy } from "../../lib/i18n/messages/assistant-shell.js";
+import { assistantBrowserCopy } from "../../lib/i18n/messages/assistant-browser.js";
 import { shellLevel } from "./shell-level.js";
 import "./assistant-shell.css";
 
@@ -75,6 +76,11 @@ export default function AssistantHeader({
                 title={assistantShellCopy.badgeLabel(assistantShellCopy.levels[shell])}
               >
                 {assistantShellCopy.badge[shell]}
+              </span>
+            )}
+            {assistant.browserRunning && (
+              <span className="assistant-shell-chip browser" role="status">
+                {assistantBrowserCopy.running}
               </span>
             )}
           </div>

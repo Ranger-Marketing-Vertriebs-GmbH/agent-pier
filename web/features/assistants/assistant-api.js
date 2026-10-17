@@ -164,6 +164,8 @@ export const assistantApi = {
     api(`/assistant-attempts/${encodeURIComponent(id)}/recover`, "POST", {
       acknowledgeUnknownOutcome: true,
     }),
+  browserReset: (id) =>
+    api(`/assistants/${encodeURIComponent(id)}/browser/reset`, "POST", {}),
   shellAllowlist: (id) => api(`/assistants/${encodeURIComponent(id)}/shell-allowlist`),
   skills: (id) => api(`/assistants/${encodeURIComponent(id)}/skills`),
   removeShellAllowlistEntry: (id, entry) =>

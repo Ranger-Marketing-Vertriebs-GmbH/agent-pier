@@ -15,8 +15,10 @@ import { capabilityStep } from "./agent-settings-steps.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import ConfirmationSheet from "./ConfirmationSheet.jsx";
+import { assistantBrowserCopy } from "../../../lib/i18n/messages/assistant-browser.js";
 import { MemoryGroup, ShellGroup, WebGroup } from "./CapabilityGroups.jsx";
 import McpGroup from "./McpGroup.jsx";
+import BrowserGroup from "./BrowserGroup.jsx";
 import GrantedCapabilities from "./GrantedCapabilities.jsx";
 import MemoryPage from "./MemoryPage.jsx";
 import AllowlistPage from "./AllowlistPage.jsx";
@@ -31,6 +33,7 @@ const conflictLabels = {
   webSearch: () => copy.personal.enableWebSearch,
   webFetch: () => copy.personal.enableWebFetch,
   browser: () => copy.personal.enableBrowser,
+  browserVisible: () => assistantBrowserCopy.visible,
   documents: () => copy.personal.enableDocuments,
   shell: () => assistantShellCopy.title,
   mcpServers: () => mcpServerCopy.agentTitle,
@@ -126,6 +129,9 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       {personal && <MemoryGroup assistant={assistant} draft={draft} go={go} />}
       {personal && (
         <WebGroup draft={draft} browser={runtime?.browser} navigate={navigate} />
+      )}
+      {personal && (
+        <BrowserGroup assistant={assistant} draft={draft} browser={runtime?.browser} />
       )}
       <ShellGroup assistant={assistant} draft={draft} go={go} />
       {shellEligible(assistant) && (

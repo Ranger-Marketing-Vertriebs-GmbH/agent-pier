@@ -54,20 +54,28 @@ test("snap Chromium is never chosen as the browser", () => {
   for (const snap of ["/snap/bin/chromium", "/usr/bin/chromium-browser"])
     assert.deepEqual(
       detectBrowser({ platform: "linux", exists: (p) => p === snap, home: "/home/x" }),
-      { available: false },
+      { available: false, visible: { available: false, reason: "noApp" } },
     );
 });
 
-test("the Gateway port leaves room for both CDP ports", async () => {
-  const drawn = [65530, 65523, 65522, 40000];
-  assert.equal(await freePort({ draw: async () => drawn.shift() }), 65522);
-  assert.equal(maxGatewayPort + 13, 65535);
+test("the Gateway port leaves room for every CDP port", async () => {
+  const drawn = [65530, 65426, 65425, 40000];
+  assert.equal(await freePort({ draw: async () => drawn.shift() }), 65425);
+  assert.equal(maxGatewayPort + 110, 65535);
+  const profiles = Array.from({ length: 120 }, (_, n) => ({
+    id: `a${String(n).padStart(3, "0")}`,
+    capabilities: { browser: true },
+  }));
   const sections = webToolsSections({
-    profiles: [{ id: "a", capabilities: { browser: true } }],
+    profiles,
     webTools: { browser: { available: true, executablePath: "/b" } },
     port: maxGatewayPort,
   });
-  assert.equal(sections.browser.profiles.chrome.cdpPort, 65535);
+  const ports = Object.values(sections.browser.profiles).map((p) => p.cdpPort);
+  assert.equal(Math.max(...ports), 65535);
+  assert.equal(new Set(ports).size, ports.length);
+  // Member slots keep their ports; agents beyond the range get no profile.
+  assert.equal(ports.length, 2 + 3 + 91);
 });
 
 test("leftover mcp, secrets and env blocks are removed from an existing configuration", (t) => {

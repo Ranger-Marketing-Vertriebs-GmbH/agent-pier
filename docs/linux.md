@@ -147,6 +147,14 @@ Provisioning is shared with macOS and described in [installation](installation.m
 There is no additional systemd service: AgentPier owns the foreground Gateway.
 Unsupported platforms fail before downloading. Apple Reminders remains a macOS integration.
 
+A visible agent browser (**Visible browser**, see
+[Browser isolation](assistant-gateway.md#browser-isolation)) needs Brave or Chromium
+and a display. AgentPier passes `DISPLAY`, `WAYLAND_DISPLAY` and `XDG_RUNTIME_DIR` to
+the Gateway when its own environment has them; a systemd user service gets them only
+when the desktop session imported them into the user manager
+(`systemctl --user import-environment DISPLAY WAYLAND_DISPLAY`). Without a display the
+browser runs headless and the agent settings say so. AgentPier does not install Xvfb.
+
 The assistant runtime installer pins Linux arm64 and x64 packages. The deterministic
 native contracts run on Ubuntu in CI (`native-contracts` job), but Linux assistant
 qualification on real hosts, including the systemd `KillMode=process` orphan reclaim,

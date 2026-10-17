@@ -246,9 +246,14 @@ test("the browser block uses only the isolated profile without JavaScript evalua
     allowSystemProfileImport: false,
     headless: true,
     executablePath: chrome,
+    extraArgs: ["--use-mock-keychain"],
     profiles: {
       user: { driver: "openclaw", cdpPort: port + 12 },
       chrome: { driver: "openclaw", cdpPort: port + 13 },
+      "member-1": { driver: "openclaw", cdpPort: port + 14, headless: true },
+      "member-2": { driver: "openclaw", cdpPort: port + 15, headless: true },
+      "member-3": { driver: "openclaw", cdpPort: port + 16, headless: true },
+      "agent-a1": { driver: "openclaw", cdpPort: port + 20, headless: true },
     },
   });
   // The default policy blocks private targets; an explicit false breaks navigation.

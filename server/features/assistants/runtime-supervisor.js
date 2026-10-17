@@ -16,6 +16,7 @@ import { reclaimOwner, recordOwner } from "./gateway-ownership.js";
 import { processIdentity } from "../../lib/process-identity.js";
 import { assertWired } from "./service-wiring.js";
 import { webToolsSnapshot } from "./openclaw-config/web-tools.js";
+import { lastCdpOffset } from "./openclaw-config/browser-profiles.js";
 import {
   ownerShellEnvironment,
   resolveShellOwner,
@@ -40,8 +41,9 @@ const terminal = new Set([
   "RUNTIME_LOCK_MISSING",
 ]);
 
-// The browser's CDP ports sit at the Gateway port + 12 and + 13 (web-tools.js).
-export const maxGatewayPort = 65535 - 13;
+// The browsers' CDP ports sit at the Gateway port + 12 up to + 110 (web-tools.js,
+// browser-profiles.js).
+export const maxGatewayPort = 65535 - lastCdpOffset;
 export async function freePort({ draw = drawPort } = {}) {
   for (;;) {
     const port = await draw();
@@ -193,7 +195,7 @@ export class RuntimeSupervisor extends EventEmitter {
     this.webTools = null;
     const webTools =
       teams?.webTools &&
-      webToolsSnapshot({ profiles: teams.profiles, webTools: teams.webTools });
+      webToolsSnapshot({ profiles: teams.profiles, webTools: teams.webTools, port });
     // The owner's environment for exec children, computed once per start. The
     // wrapper is set Gateway-wide even while no agent has shell: only agents with
     // shell are offered exec, and an agent switched on later (a hot change) then

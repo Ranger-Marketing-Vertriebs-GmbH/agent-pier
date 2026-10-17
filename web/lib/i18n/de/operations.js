@@ -281,6 +281,13 @@ export const backupCopy = {
     terminal: "Terminal-Aufnahmen (verschlüsselt)",
     "agentbus-history": "AgentBus-Verlauf (verschlüsselt)",
     assistants: "Agenten, ihre Chats, Kanäle und Arbeitsbereiche",
+    "sealed-agent-browser-profiles":
+      "Browserprofile der Agenten mit Anmeldungen und Cookies (verschlüsselt, ohne Caches)",
+    "Agent browser profiles (only in backups with a passphrase, then encrypted)":
+      "Browserprofile der Agenten (nur in Sicherungen mit Passphrase, dann verschlüsselt)",
+    "Agent browser caches": "Browser-Caches der Agenten",
+    "Agent browser files that were in use":
+      "Browserdateien der Agenten, die gerade in Benutzung waren",
     "sealed-assistant-credentials":
       "Agent-Zugangsdaten (versiegelt; nur auf diesem Host wiederherstellbar, bis Zugangsdaten oder Provider-Zugänge geändert werden)",
     "Assistant runtimes, package caches, update snapshots, TLS and backup keys":

@@ -74,10 +74,16 @@ export function assistantRoutes(services) {
 }
 function browserStatus(webTools) {
   try {
-    const { available, name } = webTools?.detect() || {};
-    return available ? { available: true, name } : { available: false };
+    const { available, name, visible } = webTools?.detect() || {};
+    // Whether agents may get a visible window, and why not ("noApp", "noDisplay").
+    const window = visible?.available
+      ? { available: true }
+      : { available: false, reason: visible?.reason || "noApp" };
+    return available
+      ? { available: true, name, visible: window }
+      : { available: false, visible: window };
   } catch {
-    return { available: false };
+    return { available: false, visible: { available: false, reason: "noApp" } };
   }
 }
 function activeAssistantRoutes(services) {
