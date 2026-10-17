@@ -18,6 +18,7 @@ import {
 import { launchTarget } from "../providers/launch-description.js";
 import { prepareProviderLaunch } from "../providers/provider-launch.js";
 import { addGrant } from "../nono/sandbox-grants.js";
+import { withUtf8Locale } from "../../lib/session-locale.js";
 import {
   privateDirectory,
   writePrivate,
@@ -96,7 +97,7 @@ export function cleanEnvironment(source = process.env) {
     "no_proxy",
   ])
     if (typeof source[key] === "string") env[key] = source[key];
-  return { ...env, TERM: "xterm-256color", COLORTERM: "truecolor" };
+  return { ...withUtf8Locale(env), TERM: "xterm-256color", COLORTERM: "truecolor" };
 }
 function detectExecutables(tools, env, common, additionalDirectories) {
   const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
