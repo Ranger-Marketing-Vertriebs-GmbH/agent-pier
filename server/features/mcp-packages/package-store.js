@@ -125,9 +125,13 @@ export function npmPackageDirectory(dataDir, row) {
   try {
     if (!readInstall(dataDir, row.installId, row.lockDigest)) return null;
     const directory = verifiedInstall(dataDir, row.installId);
-    const packageDir = path.join(directory, "node_modules", ...row.name.split("/"));
-    const stat = fs.lstatSync(packageDir);
-    if (!stat.isDirectory() || stat.isSymbolicLink()) return null;
+    // Every step (node_modules, an @scope, the package) is a real folder, no link.
+    let packageDir = directory;
+    for (const part of ["node_modules", ...row.name.split("/")]) {
+      packageDir = path.join(packageDir, part);
+      const stat = fs.lstatSync(packageDir);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) return null;
+    }
     return packageDir;
   } catch {
     return null;

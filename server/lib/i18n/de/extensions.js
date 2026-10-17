@@ -83,7 +83,11 @@ export const extensions = Object.freeze({
     "Dieser Name ist im Repository sowohl ein Branch als auch ein Tag. Bitte verwende den Commit-SHA.",
   skillRefNotFound:
     "Im Repository gibt es keinen Branch, Tag oder Commit mit diesem Namen.",
+  skillRefRateLimited:
+    "GitHub begrenzt gerade die Abfragen von diesem Rechner. Bitte später erneut versuchen oder den Commit-SHA verwenden.",
   skillRefLookupFailed: "GitHub konnte den Commit dieses Links nicht bestimmen.",
+  packageSkillUnreadable:
+    "Die Dateien dieses Skills ließen sich nicht lesen oder haben sich geändert. Bitte die Liste neu laden.",
   packageSkillNotFound: "Dieses Paket enthält keinen Skill mit diesem Namen.",
   packageSkillsUnavailable:
     "Die Skills des Pakets sind erst verfügbar, wenn das Paket installiert ist.",

@@ -120,3 +120,14 @@ label.mcp-check input[type="checkbox"] {
 .mcp-package-skill-files code {
   overflow-wrap: anywhere;
 }
+.mcp-package-skill-document {
+  max-height: 320px;
+  margin: 6px 0 0;
+  padding: 8px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.85em;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}

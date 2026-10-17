@@ -479,24 +479,32 @@ _Installation missing_ (the files of a ready install are gone or changed).
 Some npm packages ship skills for the coding CLIs next to the server, for example a
 `skills/<name>/SKILL.md` folder. Once an npm package is _Installed_, the wizard's
 install step and the package panel list them under **Bundled skills**, read from the
-install of the locked tarball: each skill's name, description and files. A folder
-with a link, a nested `node_modules`, plugin, Git or MCP configuration
+install of the locked tarball: each skill's name, description and files, and
+**Show SKILL.md** shows the skill's instructions as plain text for review. The
+listing reads only names, sizes and `SKILL.md`; the other files are read when a skill
+is installed. A folder with a link or a hard-linked file, a nested `node_modules`, plugin, Git or MCP configuration
 (`.claude-plugin`, `.codex-plugin`, `.git`, `.mcp.json`), invalid `SKILL.md`
 metadata or the size limits of an uploaded skill (1,000 files, 20 MiB) is not offered,
-and neither is a skill name the package ships twice. PyPI packages are not searched.
+and neither is a skill name the package ships twice; all skills of one package
+together are limited to 100 MiB and 5,000 files. PyPI packages are not searched.
 
 Nothing is copied automatically. Tick the skills, choose the CLI profile in
 **Install into CLI profile** and confirm **Install** after **Install selected skills**;
 the confirmation warns that skill content comes from the package author and is not
 checked. The copy goes into the same profile directory as
-**Extensions → Skills → Install skill** and an existing directory is never overwritten.
+**Extensions → Skills → Install skill** and an existing directory is never overwritten:
+if one of the chosen skills' folders exists, none of them is copied. Installing a skill
+this package already installed in that profile again changes nothing.
 AgentPier owns the copy and ties it to the package version: an update (or reinstall)
 replaces it with the skill of the installed version and removes it when that version
 no longer ships it, and removing the server or switching it to an own command removes
-it. A copy whose folder you replaced or deleted is no longer owned and stays as it is;
-removing the copy on **Extensions → Skills** is always possible. Package code that ran
-as an allowed install script could change the installed files, so review skills of
-such packages especially carefully.
+it. AgentPier records a digest of every file it wrote (path, permissions, SHA-256) and
+replaces or removes a copy only while it is still exactly that: a copy you edited,
+extended, replaced or deleted is no longer owned, keeps your changes and then shows as
+your own skill on **Extensions → Skills**. The package's own code runs with your
+user's rights (as an allowed install script, and as the server itself at any time),
+so it can change the installed skill files before they are copied; review skills
+before you install them, especially those of packages you trust less.
 
 ### MCP directory
 

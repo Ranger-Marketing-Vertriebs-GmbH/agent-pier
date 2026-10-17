@@ -3,57 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  createPackaged,
-  packageService,
-  preview,
-  v1,
-} from "../helpers/mcp-packages-service.js";
+import { installed, skill, skillDir, update } from "../helpers/mcp-package-skills.js";
 import { bundledSkills } from "../../server/features/mcp-packages/package-skill-scan.js";
 
-const skill = (description, extra = "") =>
-  `---\nname: reverse-it\ndescription: ${description}\n---\n# Steps\n${extra}`;
-const helper = { name: "helper", version: "1.0.0", files: { "i.js": "" } };
-// Like REA (npm rea-agents): the server package ships a skill folder beside its code.
-const withSkill = {
-  ...v1,
-  files: {
-    "index.js": "",
-    "skills/reverse-it/SKILL.md": skill("Reverse engineer a program."),
-    "skills/reverse-it/guide.md": "Read the binary first.",
-    // Not offered: a skill carrying MCP configuration, and invalid metadata.
-    "skills/sneaky/SKILL.md": skill("Sneaky.").replace("reverse-it", "sneaky"),
-    "skills/sneaky/.mcp.json": "{}",
-    "skills/broken/SKILL.md": "no frontmatter",
-  },
-  dependencies: { helper: "1.0.0" },
-};
-const v2 = {
-  ...withSkill,
-  version: "2.0.0",
-  files: {
-    "index.js": "",
-    "skills/reverse-it/SKILL.md": skill("Reverse engineer, version two."),
-  },
-};
-const v3 = { ...withSkill, version: "3.0.0", files: { "index.js": "" } };
-const target = (s) => path.join(s.home, ".claude", "skills", "reverse-it");
-
-async function installed(t) {
-  const s = await packageService(t, [withSkill, v2, v3, helper]);
-  const { server } = await createPackaged(s);
-  await s.packages.jobs.idle();
-  return { s, server };
-}
-const update = async (s, id, version) => {
-  const next = await preview(s, version, { serverId: id });
-  await s.packages.updatePackage(id, { version, previewId: next.previewId });
-  await s.packages.jobs.idle();
-};
+const target = (s) => skillDir(s);
 
 test("an installed package offers its valid bundled skills and installs only on confirmation", async (t) => {
   const { s, server } = await installed(t);
-  const offered = s.packages.skills.list(server.id);
+  const offered = await s.packages.skills.list(server.id);
   assert.equal(offered.version, "1.0.0");
   assert.deepEqual(
     offered.skills.map(({ name, description, files, installed }) => ({
@@ -69,30 +26,36 @@ test("an installed package offers its valid bundled skills and installs only on 
         files: ["SKILL.md", "guide.md"],
         installed: [],
       },
+      {
+        name: "second",
+        description: "A second skill.",
+        files: ["SKILL.md"],
+        installed: [],
+      },
     ],
   );
+  // The SKILL.md text is shown for review before anything is copied.
+  assert.match(offered.skills[0].document, /# Steps/);
   assert.ok(offered.profiles.some((profile) => profile.id === "local-claude"));
   // The listing names no host path.
   assert.equal(JSON.stringify(offered).includes(s.root), false);
-  assert.throws(
-    () =>
-      s.packages.skills.install(server.id, {
-        profileId: "local-claude",
-        names: ["reverse-it"],
-      }),
+  await assert.rejects(
+    s.packages.skills.install(server.id, {
+      profileId: "local-claude",
+      names: ["reverse-it"],
+    }),
     { code: "MCP_PACKAGE_CONFIRMATION_REQUIRED" },
   );
   assert.equal(fs.existsSync(target(s)), false);
-  assert.throws(
-    () =>
-      s.packages.skills.install(server.id, {
-        profileId: "local-claude",
-        names: ["sneaky"],
-        confirmInstall: true,
-      }),
+  await assert.rejects(
+    s.packages.skills.install(server.id, {
+      profileId: "local-claude",
+      names: ["sneaky"],
+      confirmInstall: true,
+    }),
     { status: 404 },
   );
-  s.packages.skills.install(server.id, {
+  await s.packages.skills.install(server.id, {
     profileId: "local-claude",
     names: ["reverse-it"],
     confirmInstall: true,
@@ -107,14 +70,16 @@ test("an installed package offers its valid bundled skills and installs only on 
   assert.deepEqual(row.package, { name: "server-x", version: "1.0.0" });
   assert.equal(row.removable, true);
   assert.deepEqual(
-    s.packages.skills.list(server.id).skills[0].installed.map((entry) => entry.profileId),
+    (await s.packages.skills.list(server.id)).skills[0].installed.map(
+      (entry) => entry.profileId,
+    ),
     ["local-claude"],
   );
 });
 
 test("a package update brings its skill along and a version without it removes it", async (t) => {
   const { s, server } = await installed(t);
-  s.packages.skills.install(server.id, {
+  await s.packages.skills.install(server.id, {
     profileId: "local-claude",
     names: ["reverse-it"],
     confirmInstall: true,
@@ -138,7 +103,7 @@ test("a package update brings its skill along and a version without it removes i
 
 test("removing the package or its server removes the skills it installed", async (t) => {
   const { s, server } = await installed(t);
-  s.packages.skills.install(server.id, {
+  await s.packages.skills.install(server.id, {
     profileId: "local-claude",
     names: ["reverse-it"],
     confirmInstall: true,
@@ -158,7 +123,7 @@ test("removing the package or its server removes the skills it installed", async
 
 test("a skill folder the owner replaced is never overwritten by an update", async (t) => {
   const { s, server } = await installed(t);
-  s.packages.skills.install(server.id, {
+  await s.packages.skills.install(server.id, {
     profileId: "local-claude",
     names: ["reverse-it"],
     confirmInstall: true,
@@ -174,7 +139,7 @@ test("a skill folder the owner replaced is never overwritten by an update", asyn
 
 test("switching the server to an own command removes the package's skills", async (t) => {
   const { s, server } = await installed(t);
-  s.packages.skills.install(server.id, {
+  await s.packages.skills.install(server.id, {
     profileId: "local-claude",
     names: ["reverse-it"],
     confirmInstall: true,
@@ -191,7 +156,7 @@ test("switching the server to an own command removes the package's skills", asyn
   assert.deepEqual(s.extensions.installed(), []);
 });
 
-test("bundled skills never follow links or include nested packages", (t) => {
+test("bundled skills never follow links or include nested packages", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-package-skills-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const write = (file, body) => {
@@ -208,7 +173,7 @@ test("bundled skills never follow links or include nested packages", (t) => {
   write("docs/plain/SKILL.md", skill("Plain.").replace("reverse-it", "plain"));
   fs.symlinkSync(path.join(root, "docs"), path.join(root, "loop"));
   assert.deepEqual(
-    bundledSkills(root).map((found) => found.name),
+    (await bundledSkills(root)).map((found) => found.name),
     ["plain"],
   );
 });

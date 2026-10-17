@@ -73,6 +73,7 @@ export const mcpPackageCopy = {
     title: "Bundled skills",
     hint: "This package ships skills for coding CLIs. AgentPier copies a skill only after you confirm it, updates the copy with the package and removes it with the package.",
     profileLabel: "Install into CLI profile",
+    preview: "Show SKILL.md",
     install: "Install selected skills",
     confirmTitle: "Install skills?",
     confirmText: (skills, profile) => `Install ${skills} into ${profile}?`,

@@ -76,7 +76,11 @@ export const extensions = Object.freeze({
   skillRefAmbiguous:
     "This name is both a branch and a tag in the repository. Please use the commit SHA.",
   skillRefNotFound: "The repository has no branch, tag or commit with this name.",
+  skillRefRateLimited:
+    "GitHub is limiting requests from this machine right now. Please try again later or use the commit SHA.",
   skillRefLookupFailed: "GitHub could not determine the commit of this link.",
+  packageSkillUnreadable:
+    "The files of this skill could not be read or have changed. Please reload the list.",
   packageSkillNotFound: "This package contains no skill with this name.",
   packageSkillsUnavailable:
     "The package skills are available once the package is installed.",

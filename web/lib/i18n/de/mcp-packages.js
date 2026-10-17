@@ -75,6 +75,7 @@ export const mcpPackageCopy = {
     title: "Mitgelieferte Skills",
     hint: "Dieses Paket liefert Skills für Coding-CLIs mit. AgentPier kopiert einen Skill erst nach deiner Bestätigung, aktualisiert die Kopie mit dem Paket und entfernt sie mit dem Paket.",
     profileLabel: "In CLI-Profil installieren",
+    preview: "SKILL.md anzeigen",
     install: "Ausgewählte Skills installieren",
     confirmTitle: "Skills installieren?",
     confirmText: (skills, profile) => `${skills} in ${profile} installieren?`,

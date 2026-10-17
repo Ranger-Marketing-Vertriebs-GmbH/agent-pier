@@ -12,6 +12,7 @@ import {
   downloadSkill,
 } from "./skill-packages.js";
 import { record, publicMcp, safePath, readConfig } from "./mcp-config.js";
+import { skillDigest } from "./skill-digest.js";
 // The stable scopeKey lets browsers translate the scope; scope keeps the German label.
 const skillScope = (scopeKey) => ({
   scope: serverMessages.extensions[scopeKey],
@@ -291,13 +292,19 @@ export class ExtensionsStore {
     }
     return pack;
   }
+  /** The folder a skill named `name` is installed into for profile `id`. */
+  skillTarget(id, name) {
+    const locations = this.locations(id);
+    const target = path.join(locations.target.path, name);
+    safePath(target, locations.target.boundary);
+    return target;
+  }
   /** Writes `pack` into a new folder of the profile and records it with `extra`. */
   writeSkill(id, pack, extra) {
     const locations = this.locations(id);
     // Account may have been deleted while an archive was downloaded.
     this.accounts.get(id);
-    const target = path.join(locations.target.path, pack.name);
-    safePath(target, locations.target.boundary);
+    const target = this.skillTarget(id, pack.name);
     fs.mkdirSync(locations.target.path, { recursive: true, mode: 0o700 });
     try {
       fs.mkdirSync(target, { mode: 0o700 });
@@ -317,6 +324,7 @@ export class ExtensionsStore {
         path: target,
         dev: identity.dev,
         ino: identity.ino,
+        digest: skillDigest(target),
         ...extra,
       };
       writePrivate(this.file, [...this.installed(), item]);
@@ -346,8 +354,11 @@ export class ExtensionsStore {
       throw problem(serverMessages.extensions.skillSaveFailed);
     }
   }
-  /** The record of a skill installed here whose folder is still the one written. */
-  ownedSkill(id, skillId) {
+  /**
+   * The record of a skill installed here whose folder is still the one written; with
+   * `verify` also its content (folder identity alone survives edits and inode reuse).
+   */
+  ownedSkill(id, skillId, { verify = false } = {}) {
     const locations = this.locations(id);
     const records = this.installed();
     const item = records.find((item) => item.id === skillId);
@@ -363,7 +374,8 @@ export class ExtensionsStore {
       !stat.isDirectory() ||
       stat.isSymbolicLink() ||
       stat.dev !== item.dev ||
-      stat.ino !== item.ino
+      stat.ino !== item.ino ||
+      (verify && (!item.digest || skillDigest(item.path) !== item.digest))
     )
       throw problem(serverMessages.extensions.skillDirectoryReplaced, 409);
     return { item, records };
@@ -371,9 +383,10 @@ export class ExtensionsStore {
   /**
    * Replaces the files of an installed skill with `pack` (same name) in one rename:
    * a package update brings its bundled skill along. `extra` updates the record.
+   * Only a copy that is still exactly what AgentPier wrote is replaced.
    */
   replaceSkill(id, skillId, pack, extra) {
-    const { item, records } = this.ownedSkill(id, skillId);
+    const { item, records } = this.ownedSkill(id, skillId, { verify: true });
     if (pack.name !== item.name)
       throw problem(serverMessages.extensions.skillDirectoryReplaced, 409);
     const parent = path.dirname(item.path);
@@ -389,19 +402,25 @@ export class ExtensionsStore {
       fs.rmSync(staging, { recursive: true, force: true });
       throw error.status ? error : problem(serverMessages.extensions.skillSaveFailed);
     }
-    fs.rmSync(old, { recursive: true, force: true });
     const identity = fs.lstatSync(item.path);
     const next = {
       ...item,
       description: pack.description,
       dev: identity.dev,
       ino: identity.ino,
+      digest: skillDigest(item.path),
       ...extra,
     };
+    // Recorded before the old copy goes, which is only a best-effort cleanup.
     writePrivate(
       this.file,
       records.map((record) => (record.id === skillId ? next : record)),
     );
+    try {
+      fs.rmSync(old, { recursive: true, force: true });
+    } catch {
+      /* A leftover hidden folder is harmless; the next swap uses another name. */
+    }
     return next;
   }
   /** Drops the record only: the folder is no longer the one written and stays. */
@@ -426,8 +445,9 @@ export class ExtensionsStore {
     }
     return [...profiles.values()];
   }
-  removeSkill(id, skillId) {
-    const { item, records } = this.ownedSkill(id, skillId);
+  /** `verify`: AgentPier removes on its own, so only an unchanged copy (see ownedSkill). */
+  removeSkill(id, skillId, { verify = false } = {}) {
+    const { item, records } = this.ownedSkill(id, skillId, { verify });
     fs.rmSync(item.path, { recursive: true });
     writePrivate(
       this.file,

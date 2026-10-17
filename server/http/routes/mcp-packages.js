@@ -159,15 +159,18 @@ export function mcpPackageRoutes(services, { auditMcp }) {
     res.status(202).json({ job });
   });
   // Skills the installed package bundles; copying one needs the owner's confirmation.
-  router.get("/mcp-servers/:id/package/skills", (req, res) => {
+  router.get("/mcp-servers/:id/package/skills", async (req, res) => {
     res.set("Cache-Control", "no-store");
-    res.json(skillsOf(packages()).list(req.params.id));
+    res.json(await skillsOf(packages()).list(req.params.id));
   });
-  router.post("/mcp-servers/:id/package/skills", (req, res) =>
+  router.post("/mcp-servers/:id/package/skills", async (req, res) =>
     res
       .status(201)
       .json(
-        skillsOf(packages()).install(req.params.id, record(req.body) ? req.body : {}),
+        await skillsOf(packages()).install(
+          req.params.id,
+          record(req.body) ? req.body : {},
+        ),
       ),
   );
   return router;
