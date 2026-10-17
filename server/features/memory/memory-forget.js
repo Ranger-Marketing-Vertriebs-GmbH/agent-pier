@@ -26,7 +26,7 @@ export function refuseForgotten(db, projectId, title, content) {
 }
 
 /** Migration backups `memory.sqlite.<label>-<stamp>` next to the database. */
-function migrationBackups(root) {
+export function migrationBackups(root) {
   return fs
     .readdirSync(root)
     .filter((name) => name.startsWith("memory.sqlite."))
@@ -35,20 +35,56 @@ function migrationBackups(root) {
 }
 
 /**
- * Overwrites freed pages and the write-ahead log, so the forgotten text leaves the
- * database files. A later full-text index purges its rows in `forgetEntry` before
- * this runs. A reader holding the log open can keep a truncation from finishing.
+ * Overwrites freed pages and empties the write-ahead log, so forgotten text leaves
+ * the database files, then removes migration backups if a pending purge asked for it
+ * and lets `onForget` (the assistant action redaction) run. A later full-text index
+ * purges its rows here too. Every step runs even when an earlier one failed; the
+ * `purges` markers stay until all of them succeeded, so the next start or forget
+ * retries. VACUUM runs synchronously on the main thread and rewrites the whole
+ * database, which is small; requests wait for it.
  */
-function purgeStorage(db) {
-  db.exec("VACUUM");
-  db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+export function purgeForgotten(memory) {
+  const { db } = memory;
+  const pending = db.prepare("SELECT entry_id,remove_backups FROM purges").all();
+  if (!pending.length) return { purged: true, removedBackups: 0 };
+  let purged = true,
+    removedBackups = 0;
+  const attempt = (step) => {
+    try {
+      if (step() === false) purged = false;
+    } catch {
+      purged = false;
+    }
+  };
+  attempt(() => memory.onForget?.());
+  attempt(() => db.exec("VACUUM"));
+  if (pending.some((row) => row.remove_backups))
+    for (const file of migrationBackups(memory.root))
+      attempt(() => {
+        fs.rmSync(file);
+        removedBackups += 1;
+      });
+  const checkpoint = () => {
+    const { busy, log } = db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
+    return busy === 0 && log === 0;
+  };
+  attempt(checkpoint);
+  if (purged) {
+    // Clearing the markers writes no content; truncate the log once more after it.
+    const clear = db.prepare("DELETE FROM purges WHERE entry_id=?");
+    for (const row of pending) clear.run(row.entry_id);
+    attempt(checkpoint);
+  }
+  return { purged, removedBackups };
 }
 
 /**
  * Permanently forgets one entry on the owner's request: every revision, the entry row
  * and the write receipts that point at it go in one transaction, which records a
- * content-free tombstone per distinct revision text. Migration backups are removed
- * only with `removeBackups: true`; operations backup archives are never touched.
+ * content-free tombstone per distinct revision text and a purge marker. The purge
+ * itself (purgeForgotten) never fails the request; it reports `purged: false` and is
+ * retried. Migration backups are removed only with `removeBackups: true`; operations
+ * backup archives are never touched.
  */
 export function forgetEntry(
   memory,
@@ -87,14 +123,20 @@ export function forgetEntry(
     db.prepare("DELETE FROM requests WHERE entry_id=?").run(id);
     db.prepare("DELETE FROM revisions WHERE entry_id=?").run(id);
     db.prepare("DELETE FROM entries WHERE id=?").run(id);
+    db.prepare("INSERT OR REPLACE INTO purges VALUES (?,?,?)").run(
+      id,
+      Number(removeBackups),
+      now,
+    );
     return rows.length;
   });
-  purgeStorage(db);
-  let removedBackups = 0;
-  if (removeBackups)
-    for (const file of migrationBackups(memory.root)) {
-      fs.rmSync(file);
-      removedBackups += 1;
-    }
-  return { id, projectId, revisions, removedBackups };
+  const { purged, removedBackups } = purgeForgotten(memory);
+  return {
+    id,
+    projectId,
+    revisions,
+    removedBackups,
+    purged,
+    ...(purged ? {} : { notice: serverMessages.memory.purgePending }),
+  };
 }

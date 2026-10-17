@@ -25,14 +25,16 @@ export const memoryCopy = {
   forgetAction: "Forget permanently",
   forgetTitle: "Forget entry permanently",
   forgetWarning:
-    "This deletes the entry and all of its versions from the knowledge database. It cannot be undone. The same title and content can no longer be stored in this project.",
+    "This deletes the entry and all of its versions from the knowledge database. It cannot be undone. Storing the identical title and content again in this project is refused; another entry that already holds the same text is not removed.",
   forgetLimit:
     "Only identical text is blocked: the same secret inside different text can still be written.",
   forgetArchives:
     "Existing backup archives under Settings → Operations → Backups still contain the content. Delete or handle them by hand.",
   forgetReason: "Reason (optional; never enter the secret itself)",
-  forgetRemoveBackups:
-    "Also delete the knowledge database migration backups (memory.sqlite.*) on this computer",
+  forgetRemoveBackups: (count) =>
+    `Also delete the ${count === 1 ? "migration backup" : `${count} migration backups`} of the knowledge database (memory.sqlite.*) on this computer`,
+  forgetIncomplete:
+    "The entry is forgotten, but the knowledge database files are not fully cleaned yet. AgentPier retries at the next start and the next time you forget an entry.",
   historyTitle: "Version history",
   version: (revision) => `Version ${revision}`,
   latest: "Load current version",

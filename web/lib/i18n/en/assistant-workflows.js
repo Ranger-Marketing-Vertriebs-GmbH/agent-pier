@@ -36,6 +36,8 @@ export const assistantWorkflowCopy = {
   pendingApprovals: "Waiting for your approval",
   teamRequests: "Coding requests from the team",
   diagnostics: {
+    MEMORY_FORGOTTEN:
+      "The text was removed because it was permanently forgotten from project memory.",
     GRANT_REVOKED: "Access or pipeline changed since the request. Nothing was started.",
     TEAM_STOPPED: "Withdrawn because the team was stopped.",
   },

@@ -36,6 +36,8 @@ export const assistantWorkflowCopy = {
   pendingApprovals: "Wartet auf deine Freigabe",
   teamRequests: "Coding-Anfragen aus dem Team",
   diagnostics: {
+    MEMORY_FORGOTTEN:
+      "Der Text wurde entfernt, weil er endgültig aus dem Projektwissen vergessen wurde.",
     GRANT_REVOKED:
       "Projektzugriff oder Pipeline haben sich seit der Anfrage geändert. Es wurde nichts gestartet.",
     TEAM_STOPPED: "Zurückgezogen, weil das Team gestoppt wurde.",

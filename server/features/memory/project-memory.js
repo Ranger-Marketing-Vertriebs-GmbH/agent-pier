@@ -11,7 +11,12 @@ import {
 import { projectScope } from "./project-scope.js";
 import { classifyProjectFolder, runWorktreeRoot } from "./project-folders.js";
 import { gitInitRebind } from "./project-rebind.js";
-import { forgetEntry, refuseForgotten } from "./memory-forget.js";
+import {
+  forgetEntry,
+  migrationBackups,
+  purgeForgotten,
+  refuseForgotten,
+} from "./memory-forget.js";
 import os from "node:os";
 const pageSize = 20;
 const selection = `SELECT e.id,e.project_id,r.*, (SELECT created_at FROM revisions WHERE entry_id=e.id AND revision=1) AS original_created FROM entries e JOIN revisions r ON r.entry_id=e.id`;
@@ -57,6 +62,10 @@ export class ProjectMemory {
     Object.assign(this, openDatabase(dataDir));
     this.home = home;
     this.closed = false;
+    // Set by the assistant services: redacts approved writes of forgotten entries.
+    this.onForget = null;
+    // An interrupted or incomplete purge of forgotten entries is retried at start.
+    purgeForgotten(this);
   }
   gitProjectAt(cwd) {
     return Boolean(
@@ -251,12 +260,12 @@ export class ProjectMemory {
     if (!id && expected !== undefined)
       throw failure(serverMessages.memory.newEntryRevision);
     const requestId = input.requestId === undefined ? null : identifier(input.requestId);
-    refuseForgotten(this.db, projectId, title, content);
     const hash = createHash("sha256")
       .update(JSON.stringify({ id, title, content, expected }))
       .digest("hex");
     const actor = actorOf(author);
     return transaction(this.db, () => {
+      refuseForgotten(this.db, projectId, title, content);
       if (requestId) {
         const prior = this.db
           .prepare(
@@ -341,6 +350,17 @@ export class ProjectMemory {
   /** Permanently removes an entry and its history; see forgetEntry. Owner only. */
   forget(projectId, id, options = {}, provenance = { kind: "user" }) {
     return forgetEntry(this, projectId, id, options, actorOf(source(provenance)));
+  }
+  /** How many migration backups lie next to the database; forget can remove them. */
+  migrationBackupCount() {
+    return migrationBackups(this.root).length;
+  }
+  /** IDs of every entry an owner forgot, for redacting copies held elsewhere. */
+  forgottenEntryIds() {
+    return this.db
+      .prepare("SELECT DISTINCT entry_id FROM tombstones")
+      .all()
+      .map((row) => row.entry_id);
   }
   reboundTo(fromId) {
     return (

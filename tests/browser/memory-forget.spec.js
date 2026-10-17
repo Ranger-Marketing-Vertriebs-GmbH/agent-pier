@@ -4,7 +4,7 @@ import { baseURL } from "../helpers/browser.js";
 
 test.use({ locale: "en-GB" });
 
-async function fixture(page) {
+async function fixture(page, { backups = 2, purged = true } = {}) {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   const project = {
     id: "project-one",
@@ -39,9 +39,16 @@ async function fixture(page) {
     else if (url.pathname === "/api/pipeline-runs")
       data = { runs: [], total: 0, page: 1, pageSize: 20 };
     else if (url.pathname === "/api/memory/projects") data = { projects: [project] };
+    else if (url.pathname === "/api/memory/migration-backups") data = { count: backups };
     else if (url.pathname.endsWith("/entries/note-one") && method === "DELETE") {
       deletes.push(request.postDataJSON());
-      data = { id: entry.id, projectId: project.id, revisions: 2, removedBackups: 1 };
+      data = {
+        id: entry.id,
+        projectId: project.id,
+        revisions: 2,
+        removedBackups: backups,
+        purged,
+      };
     } else if (url.pathname.endsWith("/entries")) {
       const visible = !deletes.length && url.searchParams.get("archived") !== "true";
       data = {
@@ -70,14 +77,19 @@ test("the owner forgets a knowledge entry after a warning about backup archives"
   ).toBeVisible();
   await expect(dialog).toContainText("Existing backup archives");
   await expect(dialog).toContainText("Only identical text is blocked");
-  const backups = dialog.getByRole("checkbox", { name: /migration backups/ });
+  const backups = dialog.getByRole("checkbox", { name: /the 2 migration backups/ });
   await expect(backups).not.toBeChecked();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).not.toBeVisible();
   expect(state.deletes).toEqual([]);
 
   await page.getByRole("button", { name: "Forget permanently: Deploy token" }).click();
-  await dialog.getByRole("textbox", { name: /Reason/ }).fill("Leaked");
+  const reason = dialog.getByRole("textbox", { name: /Reason/ });
+  await reason.fill("Leaked");
+  // Enter in the reason field never forgets; only the explicit button does.
+  await reason.press("Enter");
+  await expect(dialog).toBeVisible();
+  expect(state.deletes).toEqual([]);
   await backups.check();
   await dialog.getByRole("button", { name: "Forget permanently", exact: true }).click();
   await expect(dialog).not.toBeVisible();
@@ -85,4 +97,24 @@ test("the owner forgets a knowledge entry after a warning about backup archives"
   expect(state.deletes).toEqual([
     { expectedRevision: 2, reason: "Leaked", removeBackups: true },
   ]);
+});
+
+test("without migration backups the dialog hides their box and reports an unfinished purge", async ({
+  page,
+}) => {
+  const state = await fixture(page, { backups: 0, purged: false });
+  await page.goto(baseURL + "/projects/project-one?tab=knowledge");
+  await page.getByRole("button", { name: "Deploy token", exact: true }).click();
+  await page.getByRole("button", { name: "Forget permanently: Deploy token" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Existing backup archives");
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Forget permanently", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("not fully cleaned yet");
+  expect(state.deletes).toEqual([
+    { expectedRevision: 2, reason: "", removeBackups: false },
+  ]);
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByText("No entries yet.")).toBeVisible();
 });

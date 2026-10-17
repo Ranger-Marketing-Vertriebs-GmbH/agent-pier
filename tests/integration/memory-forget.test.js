@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { execFileSync } from "node:child_process";
+import { DatabaseSync } from "node:sqlite";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 
@@ -70,6 +72,7 @@ test("forget removes every revision, the entry and its write receipts", async (t
     projectId: f.project.id,
     revisions: 3,
     removedBackups: 0,
+    purged: true,
   });
   for (const read of [
     () => f.store.read(f.project.id, entry.id),
@@ -167,6 +170,10 @@ test("forget purges the content bytes from the database files", async (t) => {
   const f = await fixture(t);
   const entry = secretEntry(f.store, f.project.id, "fixture-secret-e");
   const backup = f.store.backup("fixture");
+  // Text already checkpointed into the main file must leave it too.
+  f.store.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+  const main = path.join(f.store.root, "memory.sqlite");
+  assert.equal(fs.readFileSync(main).includes(Buffer.from("fixture-secret-e")), true);
   assert.equal(stored(f.store, "fixture-secret-e"), true);
   f.store.forget(f.project.id, entry.id, { expectedRevision: 3 });
   // Without the owner's confirmation the migration backup stays and still holds it.
@@ -202,4 +209,69 @@ test("forget removes migration backups only on the owner's confirmation", async 
       }),
     { status: 400 },
   );
+});
+
+test("tombstones follow a plain project adopted after git init", async (t) => {
+  const f = await fixture(t);
+  const entry = secretEntry(f.store, f.project.id, "fixture-secret-g");
+  f.store.forget(f.project.id, entry.id, { expectedRevision: 3 });
+  execFileSync("git", ["init", "-q", f.project.cwd]);
+  const adopted = await f.store.register(f.project.cwd);
+  assert.notEqual(adopted.id, f.project.id);
+  assert.equal(f.store.reboundTo(f.project.id), adopted.id);
+  assert.throws(
+    () =>
+      f.store.write(adopted.id, {
+        title: "Deploy token",
+        content: "token fixture-secret-g-v1",
+      }),
+    { status: 422 },
+  );
+});
+
+test("a failed VACUUM still answers, reports the purge and retries it later", async (t) => {
+  const f = await fixture(t);
+  const entry = secretEntry(f.store, f.project.id, "fixture-secret-h");
+  const backup = f.store.backup("fixture");
+  const exec = f.store.db.exec.bind(f.store.db);
+  f.store.db.exec = (sql) => {
+    if (sql === "VACUUM") throw new Error("database or disk is full");
+    return exec(sql);
+  };
+  const result = f.store.forget(f.project.id, entry.id, {
+    expectedRevision: 3,
+    removeBackups: true,
+  });
+  assert.equal(result.purged, false);
+  assert.equal(result.notice, serverMessages.memory.purgePending);
+  // The remaining steps still ran: the backup is gone and the entry stays forgotten.
+  assert.equal(result.removedBackups, 1);
+  assert.equal(fs.existsSync(backup), false);
+  assert.throws(() => f.store.read(f.project.id, entry.id), { status: 404 });
+  assert.equal(f.store.db.prepare("SELECT COUNT(*) AS n FROM purges").get().n, 1);
+  delete f.store.db.exec;
+  f.store.close();
+  // The next start retries the purge and clears its marker.
+  const reopened = f.open();
+  assert.equal(stored(reopened, "fixture-secret-h"), false);
+  assert.equal(reopened.db.prepare("SELECT COUNT(*) AS n FROM purges").get().n, 0);
+});
+
+test("a reader holding the log open delays the purge until the next forget", async (t) => {
+  const f = await fixture(t);
+  const entry = secretEntry(f.store, f.project.id, "fixture-secret-i");
+  const later = f.store.write(f.project.id, { title: "Later", content: "unrelated" });
+  f.store.db.exec("PRAGMA busy_timeout=50");
+  const reader = new DatabaseSync(path.join(f.store.root, "memory.sqlite"));
+  t.after(() => reader.isOpen && reader.close());
+  reader.exec("BEGIN");
+  reader.prepare("SELECT COUNT(*) FROM revisions").get();
+  const result = f.store.forget(f.project.id, entry.id, { expectedRevision: 3 });
+  assert.equal(result.purged, false);
+  reader.exec("COMMIT");
+  reader.close();
+  const next = f.store.forget(f.project.id, later.id, { expectedRevision: 1 });
+  assert.equal(next.purged, true);
+  assert.equal(stored(f.store, "fixture-secret-i"), false);
+  assert.equal(f.store.db.prepare("SELECT COUNT(*) AS n FROM purges").get().n, 0);
 });

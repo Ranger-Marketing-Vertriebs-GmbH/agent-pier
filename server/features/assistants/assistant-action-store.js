@@ -9,6 +9,13 @@ export const actionTerminal = new Set([
   "expired",
   "reviewed",
 ]);
+/** The patch that removes a memory write's title and content. */
+export function memoryRedaction(payload) {
+  return {
+    payload: { ...payload, title: "", content: "" },
+    diagnostic: "MEMORY_FORGOTTEN",
+  };
+}
 export class AssistantActionStore {
   constructor(db) {
     this.db = db;
@@ -124,6 +131,37 @@ export class AssistantActionStore {
       .prepare("UPDATE assistant_actions SET body=? WHERE id=?")
       .run(JSON.stringify(next), id);
     return next;
+  }
+  /**
+   * Clears title and content of agent memory writes that stored an entry an owner
+   * forgot (memory-forget.js), with secure_delete so the old text is overwritten. A
+   * write still waiting for approval is cancelled.
+   */
+  redactMemoryWrites(entryIds) {
+    const forgotten = new Set(entryIds);
+    if (!forgotten.size) return;
+    const rows = this.db
+      .prepare(
+        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.payload.action')='memory_write' AND json_extract(body,'$.diagnostic') IS NOT 'MEMORY_FORGOTTEN'",
+      )
+      .all()
+      .map((r) => JSON.parse(r.body))
+      .filter((a) => forgotten.has(a.result?.id) || forgotten.has(a.payload.id));
+    if (!rows.length) return;
+    const previous = this.db.prepare("PRAGMA secure_delete").get().secure_delete;
+    this.db.exec("PRAGMA secure_delete=ON");
+    try {
+      for (const a of rows)
+        this.patch(a.id, {
+          ...memoryRedaction(a.payload),
+          ...(["awaiting_approval", "approved"].includes(a.state)
+            ? { state: "cancelled" }
+            : {}),
+        });
+      this.db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
+    } finally {
+      this.db.exec(`PRAGMA secure_delete=${previous ? "ON" : "OFF"}`);
+    }
   }
   // Trusted SSH runs keep only their newest rows per agent; the audit keeps the rest.
   pruneTrustedSsh(assistantId, keep) {
