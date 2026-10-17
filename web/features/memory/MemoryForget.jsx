@@ -14,7 +14,7 @@ export default function MemoryForget({ projectId, entry, close, forgotten }) {
   const [reason, setReason] = useState("");
   const [removeBackups, setRemoveBackups] = useState(false);
   const [backups, setBackups] = useState(0);
-  const [incomplete, setIncomplete] = useState(false);
+  const [incomplete, setIncomplete] = useState(null);
   const action = useAsyncAction();
   useEffect(() => {
     const controller = new AbortController();
@@ -38,16 +38,21 @@ export default function MemoryForget({ projectId, entry, close, forgotten }) {
         },
       );
       forgotten();
-      if (result.purged === false) setIncomplete(true);
+      if (result.purged === false || result.redacted === false)
+        setIncomplete({
+          files: result.purged === false,
+          records: result.redacted === false,
+        });
       else close();
     });
   if (incomplete)
     return (
       <Modal title={copy.forgetTitle} close={close}>
         <div className="memory-editor memory-forget">
-          <p role="status" className="memory-forget-archives">
-            {copy.forgetIncomplete}
-          </p>
+          <div role="status" className="memory-forget-archives">
+            {incomplete.files && <p>{copy.forgetIncomplete}</p>}
+            {incomplete.records && <p>{copy.forgetRecordsIncomplete}</p>}
+          </div>
           <div className="memory-actions">
             <button type="button" className="button primary" onClick={close}>
               {commonCopy.close}

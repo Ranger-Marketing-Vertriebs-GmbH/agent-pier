@@ -351,6 +351,10 @@ export class ProjectMemory {
   forget(projectId, id, options = {}, provenance = { kind: "user" }) {
     return forgetEntry(this, projectId, id, options, actorOf(source(provenance)));
   }
+  /** Retries unfinished purges of forgotten entries; see purgeForgotten. */
+  retryPurge() {
+    return purgeForgotten(this);
+  }
   /** How many migration backups lie next to the database; forget can remove them. */
   migrationBackupCount() {
     return migrationBackups(this.root).length;

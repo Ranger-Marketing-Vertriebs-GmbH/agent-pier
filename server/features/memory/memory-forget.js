@@ -35,47 +35,71 @@ export function migrationBackups(root) {
 }
 
 /**
- * Overwrites freed pages and empties the write-ahead log, so forgotten text leaves
- * the database files, then removes migration backups if a pending purge asked for it
- * and lets `onForget` (the assistant action redaction) run. A later full-text index
- * purges its rows here too. Every step runs even when an earlier one failed; the
- * `purges` markers stay until all of them succeeded, so the next start or forget
- * retries. VACUUM runs synchronously on the main thread and rewrites the whole
- * database, which is small; requests wait for it.
+ * Finishes pending forgets. `files`: VACUUM overwrites freed pages and a TRUNCATE
+ * checkpoint empties the write-ahead log, so the text leaves the database files (a
+ * later full-text index purges its rows here too). `records`: `onForget`, set by the
+ * agent services, redacts their copies of forgotten text; without it the marker waits
+ * for them to start. Every step runs even when another failed, and each marker flag is
+ * cleared only after its step succeeded, so the next start or forget retries.
+ * VACUUM runs synchronously on the main thread and rewrites the whole database,
+ * which is small; requests wait for it.
  */
 export function purgeForgotten(memory) {
   const { db } = memory;
-  const pending = db.prepare("SELECT entry_id,remove_backups FROM purges").all();
-  if (!pending.length) return { purged: true, removedBackups: 0 };
-  let purged = true,
-    removedBackups = 0;
-  const attempt = (step) => {
+  const pending = db.prepare("SELECT entry_id,files,records FROM purges").all();
+  let purged = !pending.some((row) => row.files),
+    redacted = !pending.some((row) => row.records);
+  if (!purged) {
+    const checkpoint = () => {
+      const { busy, log } = db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
+      return busy === 0 && log === 0;
+    };
     try {
-      if (step() === false) purged = false;
+      db.exec("VACUUM");
+      purged = true;
     } catch {
       purged = false;
     }
-  };
-  attempt(() => memory.onForget?.());
-  attempt(() => db.exec("VACUUM"));
-  if (pending.some((row) => row.remove_backups))
-    for (const file of migrationBackups(memory.root))
-      attempt(() => {
-        fs.rmSync(file);
-        removedBackups += 1;
-      });
-  const checkpoint = () => {
-    const { busy, log } = db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
-    return busy === 0 && log === 0;
-  };
-  attempt(checkpoint);
-  if (purged) {
-    // Clearing the markers writes no content; truncate the log once more after it.
-    const clear = db.prepare("DELETE FROM purges WHERE entry_id=?");
-    for (const row of pending) clear.run(row.entry_id);
-    attempt(checkpoint);
+    try {
+      purged = checkpoint() && purged;
+    } catch {
+      purged = false;
+    }
+    if (purged) db.exec("UPDATE purges SET files=0");
   }
-  return { purged, removedBackups };
+  if (!redacted && memory.onForget)
+    try {
+      memory.onForget();
+      db.exec("UPDATE purges SET records=0");
+      redacted = true;
+    } catch (error) {
+      // Only the error's code or name: its message could quote the text.
+      console.error(
+        `AgentPier could not redact agent records of a forgotten memory entry; it retries: ${error?.code || error?.name || "unknown error"}`,
+      );
+    }
+  db.exec("DELETE FROM purges WHERE files=0 AND records=0");
+  // Clearing the markers writes no content; empty the log once more after it.
+  if (purged)
+    try {
+      db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
+    } catch {
+      // The text is already gone from the log; only marker updates remain in it.
+    }
+  return { purged, redacted: redacted || !memory.onForget };
+}
+
+/** Deletes the migration backups on the owner's confirmation; best effort. */
+function removeMigrationBackups(root) {
+  let removed = 0;
+  for (const file of migrationBackups(root))
+    try {
+      fs.rmSync(file);
+      removed += 1;
+    } catch {
+      // Reported through the count; the owner sees the remaining backups.
+    }
+  return removed;
 }
 
 /**
@@ -123,20 +147,24 @@ export function forgetEntry(
     db.prepare("DELETE FROM requests WHERE entry_id=?").run(id);
     db.prepare("DELETE FROM revisions WHERE entry_id=?").run(id);
     db.prepare("DELETE FROM entries WHERE id=?").run(id);
-    db.prepare("INSERT OR REPLACE INTO purges VALUES (?,?,?)").run(
-      id,
-      Number(removeBackups),
-      now,
-    );
+    db.prepare("INSERT OR REPLACE INTO purges VALUES (?,1,1,?)").run(id, now);
     return rows.length;
   });
-  const { purged, removedBackups } = purgeForgotten(memory);
+  // Backups made after the transaction cannot hold the text, so only this call
+  // removes them; a retried purge never deletes backups.
+  const removedBackups = removeBackups ? removeMigrationBackups(memory.root) : 0;
+  const { purged, redacted } = purgeForgotten(memory);
+  const notices = [
+    ...(purged ? [] : [serverMessages.memory.purgePending]),
+    ...(redacted ? [] : [serverMessages.memory.recordsPending]),
+  ];
   return {
     id,
     projectId,
     revisions,
     removedBackups,
     purged,
-    ...(purged ? {} : { notice: serverMessages.memory.purgePending }),
+    redacted,
+    ...(notices.length ? { notice: notices.join(" ") } : {}),
   };
 }

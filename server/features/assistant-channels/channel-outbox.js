@@ -97,6 +97,36 @@ export class ChannelOutbox {
       .run(entry.id, key, source.channelId, entry.state, JSON.stringify(entry));
     return entry;
   }
+  /**
+   * Clears the text of notices about the given actions, with secure_delete; ones not
+   * delivered yet are never sent. Text already delivered stays in Telegram.
+   */
+  redactActions(actionIds) {
+    const ids = new Set(actionIds);
+    const rows = this.all().filter(
+      (e) => ids.has(e.source?.actionId) && (e.text || e.parts?.length),
+    );
+    if (!rows.length) return;
+    const previous = this.db.prepare("PRAGMA secure_delete").get().secure_delete;
+    this.db.exec("PRAGMA secure_delete=ON");
+    try {
+      for (const e of rows) {
+        const next = {
+          ...e,
+          text: "",
+          parts: [],
+          diagnostic: "MEMORY_FORGOTTEN",
+          state: terminal.has(e.state) ? e.state : "reviewed",
+        };
+        this.db
+          .prepare("UPDATE channel_outbox SET state=?,body=? WHERE id=?")
+          .run(next.state, JSON.stringify(next), e.id);
+      }
+      this.db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
+    } finally {
+      this.db.exec(`PRAGMA secure_delete=${previous ? "ON" : "OFF"}`);
+    }
+  }
   transition(id, expected, patch) {
     const e = this.get(id);
     if (e.state !== expected) throw assistantProblem("conflict", 409);
