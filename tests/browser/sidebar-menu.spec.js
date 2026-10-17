@@ -182,3 +182,24 @@ test("the sidebar head follows the handoff measurements", async ({ page }) => {
   expect(plus.x - button.x).toBe(13);
   expect(button.height).toBe(43);
 });
+
+// WebKit can drop a media query "change" event when the viewport crosses the phone
+// breakpoint, which left the sidebar inert on desktop and every click on it landing
+// on the app behind (AGENTPIER-50). Suppressing the event here reproduces that loss.
+test("the sidebar stays usable when the phone breakpoint change event is lost", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const add = MediaQueryList.prototype.addEventListener;
+    MediaQueryList.prototype.addEventListener = function (type, ...rest) {
+      if (type !== "change") add.call(this, type, ...rest);
+    };
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(baseURL);
+  await expect(page.locator(".sidebar")).toHaveAttribute("inert", "");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.locator(".sidebar")).not.toHaveAttribute("inert");
+  await trigger(page).click();
+  await expect(popover(page)).toBeVisible();
+});
