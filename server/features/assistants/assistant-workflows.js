@@ -2,8 +2,8 @@ import { AssistantAccess, approvalRevision, exact } from "./assistant-access.js"
 import {
   AssistantActionStore,
   actionTerminal as terminal,
-  memoryRedaction,
 } from "./assistant-action-store.js";
+import { AssistantMemoryForget } from "./assistant-memory-forget.js";
 import { AssistantCoding } from "./assistant-coding.js";
 import {
   noteCodingRun,
@@ -33,22 +33,8 @@ export class AssistantWorkflows {
     this.coding = new AssistantCoding(this);
     this.exec = new ExecApprovals(this);
     this.ssh = new AgentSsh(this);
-    // Forgetting a memory entry redacts the approved writes that stored it, including
-    // entries forgotten while the agent services were not running.
-    if (services.memory) {
-      this.redactForgotten = () =>
-        this.redactNotices(
-          this.store.redactMemoryWrites(services.memory.forgottenEntryIds()),
-        );
-      services.memory.onForget = this.redactForgotten;
-      // Logs a failure itself and keeps the marker for the next start or forget.
-      services.memory.retryPurge?.();
-    }
+    this.forget = new AssistantMemoryForget(this);
     if (autoStart) this.start();
-  }
-  /** Clears channel notices that quoted forgotten memory text. */
-  redactNotices(actionIds) {
-    if (actionIds.length) this.s.assistantChannels?.outbox?.redactActions(actionIds);
   }
   /** Starts advancing open actions; the application starts it after recovery. */
   start() {
@@ -502,11 +488,8 @@ export class AssistantWorkflows {
           });
         }
       } catch (error) {
-        // 422: the text was forgotten in this project; it is not kept here either.
         a = this.store.patch(a.id, {
-          ...(a.payload.action === "memory_write" && error.status === 422
-            ? memoryRedaction(a.payload)
-            : {}),
+          ...this.forget.refusal(a, error),
           state:
             a.payload.action === "coding_start" && this.coding.receipt(a)
               ? "unknown"
@@ -514,12 +497,7 @@ export class AssistantWorkflows {
                 ? "failed"
                 : "unknown",
         });
-        if (a.diagnostic === "MEMORY_FORGOTTEN")
-          try {
-            this.redactNotices([a.id]);
-          } catch {
-            // The next forget or start redacts it with every other copy.
-          }
+        this.forget.refused(a);
       }
     }
     if (a.state === "unknown") {
@@ -605,8 +583,7 @@ export class AssistantWorkflows {
   }
   async close() {
     this.closed = true;
-    if (this.redactForgotten && this.s.memory.onForget === this.redactForgotten)
-      this.s.memory.onForget = null;
+    this.forget.close();
     clearInterval(this.timer);
     this.exec.close();
     this.ssh.close();
