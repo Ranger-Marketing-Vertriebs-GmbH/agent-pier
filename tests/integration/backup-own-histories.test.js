@@ -74,6 +74,8 @@ test("AgentPier's own histories are sealed with the passphrase and restore intac
   // The public manifest does not name the sealed session files either.
   assert.equal(JSON.stringify(header.manifest).includes("sessions/"), false);
   assert.equal(made.manifest.omissions.includes(historyOmission), false);
+  assert.equal(made.manifest.includeHistory, true);
+  assert.equal(made.backup.includeHistory, true);
   // Inspection without a passphrase still works and reads no history.
   const restore = new Restore({ dataDir });
   const inspected = await restore.inspect({ archive: made.file });
@@ -125,7 +127,10 @@ test("a backup without a passphrase leaves AgentPier's histories out and says so
     [],
   );
   assert.ok(made.manifest.omissions.includes(historyOmission));
-  assert.equal(made.manifest.includeHistory, true);
+  // The backup records the history it holds, not the history asked for.
+  assert.equal(made.manifest.includeHistory, false);
+  assert.equal(made.backup.includeHistory, false);
+  assert.equal(backup.list()[0].includeHistory, false);
   assert.ok(fs.existsSync(path.join(dataDir, "sessions/s1.json")));
 });
 

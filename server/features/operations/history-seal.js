@@ -16,9 +16,11 @@ const cleanPath = (name) => {
 // AgentPier's own histories: terminal captures, chats and AgentBus messages.
 const ownHistory =
   /^(sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
+/** Whether `name` is one of AgentPier's own history files. */
+export const isOwnHistoryPath = (name) => ownHistory.test(name);
 /** Whether `name` is a history file, which backups archive only sealed. */
 export const isHistoryPath = (name) =>
-  ownHistory.test(name) || profileMemberKind(name) === "history";
+  isOwnHistoryPath(name) || profileMemberKind(name) === "history";
 
 /**
  * Histories, AgentPier's own and the CLIs', are archived only in backups with a
@@ -34,6 +36,12 @@ export const isHistoryPath = (name) =>
  * dropped at the end or attached to another file.
  */
 export const SEAL_MEMBER = "history-seal.json";
+/**
+ * Record version 1 (AgentPier 2.0 to 2.2) sealed CLI histories only; AgentPier's
+ * own histories were public members then. Version 2 seals both, and no public
+ * history may stand beside it.
+ */
+export const SEAL_VERSION = 2;
 export const CHUNK = 1024 * 1024;
 const TAG = 16;
 const failed = () => problem(serverMessages.backups.historyAuthenticationFailed);
@@ -63,7 +71,7 @@ export function sealHistory(id, members) {
     seal: { key, id, entry, path: member.path },
   }));
   const record = fileMember(SEAL_MEMBER, {
-    version: 1,
+    version: SEAL_VERSION,
     cipher: "aes-256-gcm",
     chunk: CHUNK,
     id,
@@ -160,7 +168,10 @@ export class Unsealer {
   }
 }
 
-/** The seal record from decrypted capsule members, or null; validated. */
+/**
+ * The seal record from decrypted capsule members as `{ version, seals }` (seals by
+ * entry name), or null; validated.
+ */
 export function sealRecord(secrets) {
   const member = secrets.find((entry) => entry.path === SEAL_MEMBER);
   if (!member) return null;
@@ -170,11 +181,14 @@ export function sealRecord(secrets) {
   } catch {
     throw failed();
   }
+  // A newer AgentPier wrote it: say so rather than call it damaged.
+  if (Number.isSafeInteger(value?.version) && value.version > SEAL_VERSION)
+    throw problem(serverMessages.backups.unsupportedHistorySeal, 409);
   const key = Buffer.from(value?.key || "", "base64");
   if (
     !value ||
     Object.keys(value).sort().join() !== "chunk,cipher,id,key,members,version" ||
-    value.version !== 1 ||
+    ![1, SEAL_VERSION].includes(value.version) ||
     value.cipher !== "aes-256-gcm" ||
     value.chunk !== CHUNK ||
     typeof value.id !== "string" ||
@@ -185,7 +199,8 @@ export function sealRecord(secrets) {
   const byName = new Map(),
     paths = new Set();
   for (const [entry, item] of value.members.entries()) {
-    // Each entry restores to a history path, and to no other entry's path.
+    // Each entry restores to a history path (version 1: a CLI history path),
+    // and to no other entry's path.
     // Paths that differ only in case or normalization are distinct, as public
     // members are: a file system that ignores the difference refuses the second
     // file when it is written (caseConflict).
@@ -194,12 +209,14 @@ export function sealRecord(secrets) {
       Object.keys(item).sort().join() !== "name,path" ||
       item.name !== `sealed/${entry}` ||
       !cleanPath(item.path) ||
-      !isHistoryPath(item.path) ||
+      !(value.version === 1
+        ? profileMemberKind(item.path) === "history"
+        : isHistoryPath(item.path)) ||
       paths.has(item.path)
     )
       throw failed();
     paths.add(item.path);
     byName.set(item.name, { key, id: value.id, entry, path: item.path });
   }
-  return byName;
+  return { version: value.version, seals: byName };
 }

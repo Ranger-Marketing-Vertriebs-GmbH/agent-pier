@@ -25,7 +25,13 @@ import { isLoginFile, profileMemberKind } from "./profile-allowlist.js";
 import { remapClaudeProjects } from "./profile-history.js";
 import { inspected } from "./inspection.js";
 import { RestoreUploads } from "./restore-upload.js";
-import { isHistoryPath, SEAL_MEMBER, sealRecord, Unsealer } from "./history-seal.js";
+import {
+  isHistoryPath,
+  isOwnHistoryPath,
+  SEAL_MEMBER,
+  sealRecord,
+  Unsealer,
+} from "./history-seal.js";
 import { claim } from "./work-claims.js";
 import { stagePath } from "./stage-path.js";
 
@@ -180,11 +186,15 @@ async function stageArchive(archive, directory, { passphrase, inspect = false })
           collect: async (sealed) => {
             if (!decrypt) return;
             const opened = await capsule(sealed, passphrase);
-            seals = sealRecord(opened) || new Map();
+            const record = sealRecord(opened);
+            seals = record?.seals || new Map();
             const histories = [...seals.values()].map((seal) => seal.path);
             for (const name of histories)
               if (!isHistoryPath(name))
                 throw problem(serverMessages.backups.unexpectedComponent);
+            // Backups that seal AgentPier's own histories hold none in public.
+            if (record && record.version > 1 && publicPaths.some(isOwnHistoryPath))
+              throw problem(serverMessages.backups.unexpectedComponent);
             secrets = checkSecrets(
               opened.filter((entry) => entry.path !== SEAL_MEMBER),
               [...publicPaths, ...histories],

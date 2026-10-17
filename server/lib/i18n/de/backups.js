@@ -62,7 +62,9 @@ export const backups = Object.freeze({
     "Der Abschnitt passt nicht an das Ende des bisherigen Uploads. Der Upload wird an der richtigen Stelle fortgesetzt.",
   uploadIncomplete: "Der Upload ist noch nicht vollständig.",
   historyAuthenticationFailed:
-    "Ein verschlüsselter CLI-Verlauf der Sicherung ist beschädigt oder wurde verändert. Es wurde nichts wiederhergestellt.",
+    "Ein verschlüsselter Verlauf der Sicherung ist beschädigt oder wurde verändert. Es wurde nichts wiederhergestellt.",
+  unsupportedHistorySeal:
+    "Die verschlüsselten Verläufe dieser Sicherung stammen von einer neueren AgentPier-Version. Aktualisiere AgentPier, um sie wiederherzustellen. Es wurde nichts wiederhergestellt.",
   memberMismatch: "Die Einträge des Archivs passen nicht zu seinem Manifest.",
   insufficientSpace: (required, available) =>
     `Nicht genug freier Speicherplatz: benötigt ${required}, verfügbar ${available}.`,

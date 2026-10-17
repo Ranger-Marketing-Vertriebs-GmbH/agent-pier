@@ -34,9 +34,21 @@ test("the backup scope names what is encrypted and what never leaves", async ({
     await page.getByRole("button", { name: "Prepare backup", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Prepare backup" });
     await expect(
-      dialog.getByText("They are only backed up in backups with a passphrase", {
-        exact: false,
-      }),
+      dialog.getByText(
+        "they are only backed up encrypted, in backups with a passphrase",
+        {
+          exact: false,
+        },
+      ),
+    ).toBeVisible();
+    // What stays unencrypted is named as well.
+    await expect(
+      dialog.getByText(
+        "pipeline history and artifacts (unpinned ones only with history)",
+        {
+          exact: false,
+        },
+      ),
     ).toBeVisible();
     // Without a passphrase, the dialog says that histories are left out and how
     // to back them up encrypted.
