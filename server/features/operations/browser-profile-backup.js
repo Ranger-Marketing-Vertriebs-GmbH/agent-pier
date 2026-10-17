@@ -15,6 +15,8 @@ export const browserProfilesOmission =
   "Agent browser profiles (only in backups with a passphrase, then encrypted)";
 export const browserCachesOmission = "Agent browser caches";
 export const browserUnreadableOmission = "Agent browser files that were in use";
+export const browserAgentsUnreadableOmission =
+  "Agent browser profiles (the agent list could not be read)";
 export const browserProfilesComponent = "sealed-agent-browser-profiles";
 const prefix = "assistants/state/browser";
 const browserPath = /^assistants\/state\/browser\/agent-[a-z0-9-]{1,58}\/user-data\/.+$/;
@@ -36,7 +38,7 @@ function isSqlite(file) {
   }
 }
 
-/** The ids of the agents assistants.sqlite holds, archived ones included. */
+/** The ids of the agents assistants.sqlite holds, archived ones included; null when unreadable. */
 export function storedAgentIds(dataDir) {
   let db;
   try {
@@ -50,7 +52,7 @@ export function storedAgentIds(dataDir) {
         .map((row) => row.id),
     );
   } catch {
-    return new Set();
+    return null;
   } finally {
     db?.close();
   }
@@ -65,6 +67,9 @@ export async function captureBrowserProfiles({
   scratch,
   agents = storedAgentIds(dataDir),
 }) {
+  // Without the agent list no profile can be attributed: all are left out, visibly.
+  if (!agents)
+    return { files: [], captures: [], omissions: [browserAgentsUnreadableOmission] };
   const owned = new Set([...agents].map(agentProfileName).filter(Boolean));
   const root = path.join(dataDir, prefix);
   const component = areaComponent("assistants");

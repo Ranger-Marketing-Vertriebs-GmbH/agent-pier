@@ -1,4 +1,4 @@
-import { memoryEnabled } from "./native-capabilities.js";
+import { memoryEnabled, personalCapabilities } from "./native-capabilities.js";
 import { textValue, validateSendInput } from "./assistant-validation.js";
 // After a Gateway (re)start the agents run without write and edit until the team
 // plugin reports its write guard (WRITE_GUARD_PENDING, team-bridge.js). An owner
@@ -9,15 +9,21 @@ import { textValue, validateSendInput } from "./assistant-validation.js";
 // reports does not hold turns any longer; they run read-only and say so.
 export const writeGuardWindowMs = 20000;
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Agents whose tools wait for the guard: memory writes (memoryEnabled, members' own
+ * memory included) and the browser.
+ */
+export const guardNeeded = (assistant) =>
+  memoryEnabled(assistant) || personalCapabilities(assistant).browser;
 const ownTurn = (context) =>
   ["owner", "telegram"].includes(context?.kind) && !context.forwarded;
 
 /** AssistantConfig's view of the guard (assistant-graph.js wires it). */
 export function writeGuardWiring({ bridge, nativeReady }) {
   return {
-    // A memory agent on a ready Gateway whose guard has not reported.
+    // A memory or browser agent on a ready Gateway whose guard has not reported.
     writeGuardPending: (assistant) =>
-      !!nativeReady() && memoryEnabled(assistant) && bridge.guardPending(true),
+      !!nativeReady() && guardNeeded(assistant) && bridge.guardPending(true),
     // The end of the current readiness's wait window (0: no ready Gateway yet).
     writeGuardDeadline: () =>
       bridge.readyAt == null ? 0 : bridge.readyAt + writeGuardWindowMs,

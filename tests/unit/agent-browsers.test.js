@@ -396,3 +396,33 @@ test("a slot being discarded is never handed to another member", async (t) => {
   release();
   await sweeping;
 });
+
+test("an idle browser whose window the owner has open keeps running, up to a cap", async (t) => {
+  const f = fixture(t, [agent("a", { browserVisible: true })]);
+  await f.browsers.policy({ agentId: "ap-a", action: "open" });
+  f.keepers[0].open = true;
+  f.tick(20 * 60_000);
+  await f.browsers.sweep();
+  assert.equal(f.browsers.isRunning("a"), true);
+  f.tick(60 * 60_000);
+  await f.browsers.sweep();
+  assert.equal(f.browsers.isRunning("a"), false);
+  assert.deepEqual(f.stops(), ["agent-a"]);
+});
+
+test("two first calls for the same profile at the limit evict nothing extra", async (t) => {
+  const ids = ["a", "b", "c", "d"];
+  const f = fixture(
+    t,
+    ids.map((id) => agent(id, { browserVisible: true })),
+  );
+  for (const id of ids.slice(0, 3))
+    await f.browsers.policy({ agentId: `ap-${id}`, action: "open" });
+  f.tick(10 * 60_000);
+  await Promise.all([
+    f.browsers.policy({ agentId: "ap-d", action: "open" }),
+    f.browsers.policy({ agentId: "ap-d", action: "navigate" }),
+  ]);
+  assert.equal(f.stops().length, 1);
+  assert.equal([...f.browsers.running.values()].filter((e) => !e.headless).length, 3);
+});

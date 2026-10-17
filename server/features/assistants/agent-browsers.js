@@ -15,6 +15,8 @@ import { BrowserWindowKeeper } from "./browser-window-keeper.js";
 
 export const visibleBrowserLimit = 3;
 export const browserIdleMs = 15 * 60 * 1000;
+// The longest an idle browser stays for a window the owner keeps open.
+export const browserIdleCapMs = 60 * 60 * 1000;
 // A browser used this recently, or whose agent is at work, or a window the owner has
 // open, is never stopped to make room for another.
 export const browserBusyMs = 5 * 60 * 1000;
@@ -44,6 +46,7 @@ export class AgentBrowsers {
     now = Date.now,
     limit = visibleBrowserLimit,
     idleMs = browserIdleMs,
+    idleCapMs = browserIdleCapMs,
     busyMs = browserBusyMs,
     sweepMs = 60 * 1000,
     busy = () => false,
@@ -55,6 +58,7 @@ export class AgentBrowsers {
       now,
       limit,
       idleMs,
+      idleCapMs,
       busyMs,
       sweepMs,
       busy,
@@ -138,7 +142,7 @@ export class AgentBrowsers {
       const reserve = () => this.launched(name, entry, assistant.id);
       if (entry.headless) reserve();
       else {
-        const victim = await this.roomForVisible(reserve);
+        const victim = await this.roomForVisible(reserve, name);
         if (victim === false) return deny("visibleLimit");
         if (victim) await this.stop(victim);
       }
@@ -178,7 +182,7 @@ export class AgentBrowsers {
    * Returns null, the name of the browser to stop for it (already released), or
    * false when every visible browser is busy and nothing was reserved.
    */
-  async roomForVisible(reserve) {
+  async roomForVisible(reserve, name) {
     const visible = [...this.running.entries()].filter(([, e]) => !e.headless);
     if (visible.length < this.limit) {
       reserve();
@@ -190,7 +194,12 @@ export class AgentBrowsers {
       if (await e.keeper?.inUse?.().catch(() => false)) continue;
       idle.push(name);
     }
-    // Recounted after the awaits: another call may have taken or freed a place.
+    // Recounted after the awaits: another call may have taken or freed a place, or
+    // launched this very profile already.
+    if (this.running.has(name)) {
+      reserve();
+      return null;
+    }
     const now = [...this.running.values()].filter((e) => !e.headless).length;
     if (now < this.limit) {
       reserve();
@@ -242,8 +251,14 @@ export class AgentBrowsers {
   }
   /** Idle stops, and the slots of members that ended. */
   async sweep() {
-    for (const [name, entry] of [...this.running])
-      if (this.now() - entry.lastUse >= this.idleMs) await this.stop(name);
+    for (const [name, entry] of [...this.running]) {
+      const idle = this.now() - entry.lastUse;
+      if (idle < this.idleMs) continue;
+      // A window the owner has open keeps its browser, at most `idleCapMs` long.
+      if (idle < this.idleCapMs && (await entry.keeper?.inUse?.().catch(() => false)))
+        continue;
+      if (this.running.get(name) === entry) await this.stop(name);
+    }
     for (const [memberId, slot] of [...this.slots]) {
       let member = null;
       try {

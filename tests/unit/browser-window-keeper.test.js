@@ -38,3 +38,15 @@ test("a browser already running is watched without minimizing its windows", asyn
   assert.equal(await asked.start(), false);
   assert.equal(closed, 1);
 });
+
+test("a CDP call the browser never answers fails within its timeout", async () => {
+  const keeper = new BrowserWindowKeeper(1);
+  const sent = [];
+  keeper.ws = { readyState: 1, send: (data) => sent.push(JSON.parse(data)) };
+  keeper.known.add(7);
+  const started = Date.now();
+  assert.equal(await keeper.inUse(), false);
+  assert.ok(Date.now() - started < 5000);
+  assert.equal(sent[0].method, "Browser.getWindowBounds");
+  assert.equal(keeper.pending.size, 0);
+});
