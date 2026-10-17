@@ -367,9 +367,11 @@ chat the routine writes to and in its Telegram chat.
 - A team member's file appears in its own chat and in its lead's chat, under the
   member's name; it reaches Telegram when the lead's turn the member works for came
   from Telegram.
-- Agents share only regular files of at most 25 MB from their own workspace, never
-  through a symbolic or hard link. AgentPier keeps its own copy outside the workspace,
-  so the agent cannot change or remove it.
+- Agents share only regular files of at most 25 MB from their own workspace, or from a
+  project folder you granted them (reading it is enough; in your own turns and a team
+  member's team turns), never through a symbolic or hard link and never from `.git`
+  or AgentPier's own data. AgentPier keeps its own copy outside the workspace, so the
+  agent cannot change or remove it.
 - Shared copies have their own storage beside your attachments: 1 GB or 2000 files per
   agent, each kept for 90 days. When it is full, the oldest copies go first. **Delete**
   under a shared file removes AgentPier's copy from every chat that shows it; the

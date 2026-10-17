@@ -1,5 +1,6 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { MAX_CAPTION_LENGTH, readShareSource, shareRoots } from "./agent-share-source.js";
+import { projectTarget } from "./project-paths.js";
 
 /**
  * agentpier_share_file: an agent hands the owner a file from its own workspace.
@@ -14,6 +15,11 @@ import { MAX_CAPTION_LENGTH, readShareSource, shareRoots } from "./agent-share-s
  *
  * A routine's run (no attempt; the bridge admits its run session as for SSH) shares
  * into the chat its routine commits to, and to the Telegram chat it delivers to.
+ *
+ * With `projectId` the file comes from a granted project folder (AGENTPIER-123)
+ * instead of the workspace, in the turns that may use project folders (the owner's
+ * own, a task member's team turns): read access is enough, and the path is resolved
+ * like every folder read (project-paths.js: never .git, never AgentPier's data).
  */
 export class AgentShares {
   constructor({ assistants, channels = null }) {
@@ -23,8 +29,9 @@ export class AgentShares {
     if (
       !input ||
       typeof input !== "object" ||
-      Object.keys(input).some((key) => !["path", "caption"].includes(key)) ||
+      Object.keys(input).some((key) => !["path", "caption", "projectId"].includes(key)) ||
       typeof input.path !== "string" ||
+      ("projectId" in input && typeof input.projectId !== "string") ||
       ("caption" in input &&
         (typeof input.caption !== "string" || input.caption.length > MAX_CAPTION_LENGTH))
     )
@@ -36,10 +43,12 @@ export class AgentShares {
     const { conversation, requestId, origin } = this.turn(invocation);
     const agent = a.store.getAssistant(conversation.assistantId);
     if (agent.archivedAt) throw assistantProblem("invalid", 403);
-    const source = await readShareSource(
-      shareRoots(a.attachments.config?.workspaces, agent),
-      input.path,
-    );
+    const source = input.projectId
+      ? await this.projectSource(invocation, input.projectId, input.path)
+      : await readShareSource(
+          shareRoots(a.attachments.config?.workspaces, agent),
+          input.path,
+        );
     invocation.assertCurrent();
     const caption = (input.caption || "").trim();
     const file = await a.attachments.share({
@@ -50,7 +59,7 @@ export class AgentShares {
       mirror: this.leadChat(origin, agent),
     });
     const telegram = this.telegram(origin, file, caption);
-    this.audit(agent, origin, telegram);
+    this.audit(agent, origin, telegram, input.projectId);
     a.changed?.();
     return {
       status: "shared",
@@ -58,6 +67,17 @@ export class AgentShares {
       ...(telegram ? { telegram } : {}),
       note: "The owner sees the file in the chat now; do not repeat its contents unless asked.",
     };
+  }
+  // A file in a granted project folder, resolved inside it, then read like any share.
+  async projectSource(invocation, projectId, requested) {
+    const workflows = this.assistants.workflows;
+    if (!workflows?.folders || !invocation.attemptId)
+      throw assistantProblem("projectFolderNotGranted", 403);
+    const ctx = workflows.context(invocation);
+    const { root, protectedRoots } = workflows.folders.shareRoot(ctx, projectId);
+    const target = projectTarget(root, requested, { protectedRoots });
+    if (!target.exists) throw assistantProblem("shareNotFound", 404);
+    return readShareSource(shareRoots(null, null, [target.root]), target.relative);
   }
   // The chat, request key and trusted origin of the calling turn.
   turn(invocation) {
@@ -140,12 +160,13 @@ export class AgentShares {
       return "unavailable";
     }
   }
-  audit(agent, origin, telegram) {
+  audit(agent, origin, telegram, projectId) {
     try {
       this.assistants.audit?.append({
         action: "assistant.sent",
         resourceType: "assistant",
         resourceId: agent.id,
+        ...(projectId ? { projectId } : {}),
         source: "system",
         outcome: "success",
         details: {

@@ -2293,9 +2293,15 @@ for SSH), never in a sender bot's session, and routes it to `AgentShares`
 (`agent-shares.js`). While AgentPier is in maintenance or recovering it refuses.
 
 - **Source.** `path` is relative to the agent's workspace or absolute inside it. The
-  roots come from `shareRoots()` (`agent-share-source.js`): today only the agent's own
-  workspace, which must not itself be a link; granted project folders can join there.
-  The resolved path must equal the lexical one under the real root, so no component
+  roots come from `shareRoots()` (`agent-share-source.js`): the agent's own
+  workspace, which must not itself be a link. With `projectId` the root is a granted
+  project folder instead (AGENTPIER-123): only in the turns that may use project
+  folders (`AssistantWorkflows.context`: the owner's own, a task member's team
+  turns, never a routine), read access suffices
+  (`AgentProjectFiles.shareRoot`), the path is first resolved with `projectTarget`
+  (never `.git`, links out of the folder or AgentPier's data directory; links that
+  stay inside it are resolved, as for folder reads), and the audit event names the
+  project. Below the root no component
   may be a symbolic link (even one pointing back inside). Every folder on the way is
   checked with `lstat` (a real directory, its identity recorded), then the file is
   opened with `O_NOFOLLOW|O_NONBLOCK` and must be a regular, non-empty file of at most
