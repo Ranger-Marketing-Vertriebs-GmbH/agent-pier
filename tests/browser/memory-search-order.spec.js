@@ -71,6 +71,11 @@ test("searching sorts by relevance by default and can switch to newest first", a
   await expect(titles(page)).toContainText(["Release notes", "Build command"]);
   await page.reload();
   await expect(page.getByRole("radio", { name: "Newest first" })).toBeChecked();
+  // Clearing the term drops the order with it.
+  await page.getByRole("textbox", { name: "Search knowledge" }).fill("");
+  await page.getByRole("button", { name: "Search knowledge" }).click();
+  await expect(page).toHaveURL(`${baseURL}/projects/project-one?tab=knowledge`);
+  await expect(page.getByRole("radio", { name: "Newest first" })).toHaveCount(0);
   expect(searches).toContain("relevance");
   expect(searches.at(-1)).toBe("newest");
 });

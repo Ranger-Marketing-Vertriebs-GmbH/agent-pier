@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
+import { prepareSearchIndex } from "../../server/features/memory/memory-search.js";
 
 async function fixture(t) {
   const root = fs.realpathSync(
@@ -315,6 +316,52 @@ test("a reader holding the log open delays the purge until the next forget", asy
   const next = f.store.forget(f.project.id, later.id, { expectedRevision: 1 });
   assert.equal(next.purged, true);
   assert.equal(stored(f.store, "fixture-secret-i"), false);
+  assert.equal(
+    f.store.db.prepare("SELECT COUNT(*) AS n FROM purges WHERE files=1").get().n,
+    0,
+  );
+});
+
+test("forget after a failed index rebuild leaves no text in the stale index", async (t) => {
+  const f = await fixture(t);
+  const token = "qqzzleakedsecret";
+  const entry = f.store.write(f.project.id, { title: "x", content: token });
+  const other = f.store.write(f.project.id, { title: "y", content: "other" });
+  f.store.db.prepare("DELETE FROM memory_search WHERE entry_id=?").run(other.id);
+  // The next rebuild fails (for example on a full disk) and search falls back to LIKE.
+  const exec = f.store.db.exec.bind(f.store.db);
+  f.store.db.exec = (sql) => {
+    if (/CREATE VIRTUAL TABLE memory_search/.test(sql)) throw new Error("disk full");
+    return exec(sql);
+  };
+  f.store.fullText = prepareSearchIndex(f.store.db, true);
+  delete f.store.db.exec;
+  assert.equal(f.store.fullText, false);
+  assert.equal(f.store.list(f.project.id, { query: "other" }).total, 1);
+  assert.equal(
+    f.store.forget(f.project.id, entry.id, { expectedRevision: 1 }).purged,
+    true,
+  );
+  assert.equal(stored(f.store, token), false);
+});
+
+test("forget reports the purge as pending while the stale index cannot be cleaned", async (t) => {
+  const f = await fixture(t);
+  const token = "qqzzstaleindexsecret";
+  const entry = f.store.write(f.project.id, { title: "x", content: token });
+  f.store.fullText = false; // as after a failed rebuild that also could not drop it
+  const exec = f.store.db.exec.bind(f.store.db);
+  f.store.db.exec = (sql) => {
+    if (/memory_search/.test(sql)) throw new Error("no such module: fts5");
+    return exec(sql);
+  };
+  const result = f.store.forget(f.project.id, entry.id, { expectedRevision: 1 });
+  assert.equal(result.purged, false);
+  assert.equal(result.notice, serverMessages.memory.purgePending);
+  assert.equal(stored(f.store, token), true);
+  delete f.store.db.exec;
+  assert.equal(f.store.retryPurge().purged, true);
+  assert.equal(stored(f.store, token), false);
   assert.equal(
     f.store.db.prepare("SELECT COUNT(*) AS n FROM purges WHERE files=1").get().n,
     0,

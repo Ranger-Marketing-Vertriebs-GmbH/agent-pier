@@ -89,7 +89,8 @@ test("generated projects knowledge links retain repository scope, Unicode search
           projectTab: "knowledge",
           query,
           archived,
-          memorySort,
+          // Without a search term the link carries no order.
+          memorySort: query ? memorySort : "relevance",
           memoryPage,
           busTab: "status",
           messagePage: 1,

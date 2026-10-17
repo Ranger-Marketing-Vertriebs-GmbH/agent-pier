@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { transaction } from "./memory-database.js";
-import { forgetIndexed } from "./memory-search.js";
+import {
+  discardSearchIndex,
+  forgetIndexed,
+  searchIndexHoldsText,
+} from "./memory-search.js";
 import { failure, identifier, textValue } from "./memory-validation.js";
 
 /**
@@ -51,6 +55,8 @@ export function purgeForgotten(memory) {
   let purged = !pending.some((row) => row.files),
     redacted = !pending.some((row) => row.records);
   if (!purged) {
+    // Without a usable index a leftover one is stale: it must go before VACUUM.
+    if (!memory.fullText) discardSearchIndex(db);
     const checkpoint = () => {
       const { busy, log } = db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
       return busy === 0 && log === 0;
@@ -66,6 +72,7 @@ export function purgeForgotten(memory) {
     } catch {
       purged = false;
     }
+    if (!memory.fullText && searchIndexHoldsText(db)) purged = false;
     if (purged) db.exec("UPDATE purges SET files=0");
   }
   if (!redacted && memory.onForget)

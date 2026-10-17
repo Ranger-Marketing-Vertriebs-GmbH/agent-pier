@@ -141,7 +141,12 @@ export default function ProjectKnowledge({
         className="project-knowledge-search"
         onSubmit={(event) => {
           event.preventDefault();
-          navigate({ query: search, memoryPage: 1 });
+          // Clearing the term also drops the order chosen for the last search.
+          navigate({
+            query: search,
+            memoryPage: 1,
+            ...(!search && { memorySort: "relevance" }),
+          });
         }}
       >
         <input
