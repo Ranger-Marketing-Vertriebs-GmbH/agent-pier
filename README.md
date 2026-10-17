@@ -111,8 +111,9 @@ below its minimum version until it is updated. A source checkout updates with `g
 > - Sign in again once to OAuth MCP servers used from managed Codex accounts.
 > - Lead agents now ask and instruct their members without an approval prompt.
 > - Settings moved into the Workspace, Access and Operations tabs; old links still work.
-> - Backups copy CLI profiles by allowlist, include CLI histories only with a
->   passphrase, and restored hook scripts need `chmod +x` again.
+> - Backups copy CLI profiles by allowlist, include histories (AgentPier's sessions,
+>   chats and AgentBus messages, and CLI histories) only encrypted with a passphrase,
+>   and restored hook scripts need `chmod +x` again.
 >
 > Details: [Upgrading from 1.x](docs/installation.md#upgrading-from-1x).
 

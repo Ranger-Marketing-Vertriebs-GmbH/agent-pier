@@ -74,7 +74,7 @@ export const operationsCopy = {
   includeHistory: "Include history",
   withCredentials: "Include encrypted credentials",
   backupPrivacy:
-    "Histories (AgentPier terminal captures, chats and AgentBus messages, and CLI histories) may contain private task content. They are only backed up in backups with a passphrase, and then encrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. External local CLI profiles, keychains and repository working directories stay out.",
+    "Session, chat and AgentBus histories and CLI histories may contain private task content; they are only backed up encrypted, in backups with a passphrase. Agent chats, channels, workspaces and attachments, pipeline history and artifacts (unpinned ones only with history) are always backed up unencrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. External local CLI profiles, keychains and repository working directories stay out.",
   historyNeedsPassphrase:
     "Without a passphrase, histories are left out of this backup. To back them up encrypted, also choose “Include encrypted credentials” and set a passphrase.",
   passphrase: "Passphrase",

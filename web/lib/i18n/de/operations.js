@@ -74,7 +74,7 @@ export const operationsCopy = {
   includeHistory: "Verläufe einschließen",
   withCredentials: "Zugangsdaten verschlüsselt einschließen",
   backupPrivacy:
-    "Verläufe (Terminal-Aufnahmen, Chats und AgentBus-Nachrichten von AgentPier sowie CLI-Verläufe) können private Aufgabeninhalte enthalten. Sie werden nur in Backups mit Passphrase und verschlüsselt gesichert. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
+    "Sitzungs-, Chat- und AgentBus-Verläufe sowie CLI-Verläufe können private Aufgabeninhalte enthalten; sie werden nur verschlüsselt in Backups mit Passphrase gesichert. Chats, Kanäle, Arbeitsbereiche und Anhänge der Agenten, Pipeline-Verlauf und Artefakte (nicht angeheftete nur mit Verläufen) werden immer unverschlüsselt gesichert. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
   historyNeedsPassphrase:
     "Ohne Passphrase bleiben Verläufe in dieser Sicherung außen vor. Um sie verschlüsselt zu sichern, wähle auch „Zugangsdaten verschlüsselt einschließen“ und setze eine Passphrase.",
   passphrase: "Passphrase",

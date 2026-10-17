@@ -3,7 +3,8 @@
 Settings → Operations → Backups creates a host backup of the data directory and restores one into
 a new, separate data directory. The running instance never switches its data
 directory. `node scripts/operations.mjs backup|inspect|restore` offers the same
-operations on the command line.
+operations on the command line; `backup` without `--with-credentials` (and a
+passphrase on stdin) leaves out all histories.
 
 ## What a backup holds
 
@@ -20,6 +21,11 @@ Always, as public (unencrypted) members:
   may be private) together with their index in `assistants.sqlite`, so a restore
   brings back both. They are public members like the rest of the workspaces; leave
   agents' attachment folders out of a backup only by deleting the files first.
+- With **Include history**, unpinned artifacts as well, with or without a
+  passphrase.
+
+So agent chats, channels, workspaces and attachments, pipeline history and artifacts
+are never encrypted; only the histories below are.
 
 With **Include history** and **Include encrypted credentials** together, the
 histories, always encrypted (see "Sealed history"):
@@ -36,7 +42,10 @@ Histories hold task content and tool output verbatim, and Claude Code's
 text. Without a passphrase, histories are left out: the backup dialog says so and
 how to back them up encrypted, and the plan and manifest list "AgentPier and CLI
 histories are only backed up in backups with a passphrase, and then encrypted".
-Without **Include history**, they list "AgentPier and CLI histories".
+Without **Include history**, they list "AgentPier and CLI histories". The
+manifest's and the backup list's `includeHistory` says whether the backup holds
+history, so it is false for a backup without a passphrase; in earlier backups it
+recorded the choice, which then also meant public AgentPier history.
 
 Earlier backups archived AgentPier's own histories as public
 members whenever history was included; restore still accepts them, in version 1
@@ -109,6 +118,16 @@ manifest, members }`. `manifest` holds `schemaVersion` 2, `applicationVersion`,
 
 AgentPier's own histories and CLI histories are sealed the same way, in one
 sequence of `sealed/<n>` entries under one key.
+
+The seal record (`history-seal.json`) has version 2 since AgentPier's own
+histories are sealed. Version 1 records (AgentPier 2.0 to 2.2) may only name CLI
+history paths and may stand beside public AgentPier history; beside a version 2
+record, a public `sessions/`, `chat/` or `imported-history/` member fails the
+restore. A record version newer than the reader knows is reported as written by a
+newer AgentPier version. AgentPier 2.0 to 2.2 know only version 1 and report a
+backup with a version 2 record as damaged or altered ("An encrypted CLI history in
+the backup is damaged or was altered"); it needs a current AgentPier to restore.
+Backups without history have no seal record and stay restorable there.
 
 A backup with history draws a random 256-bit key. The capsule holds, as
 `history-seal.json`, that key, the backup id and which `sealed/<n>` entry is which

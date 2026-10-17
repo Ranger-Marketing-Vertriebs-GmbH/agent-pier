@@ -182,12 +182,15 @@ export class Backup {
   }
   async write(id, options, plan, snapshot, assistants) {
     const createdAt = new Date().toISOString();
+    // The history the backup holds: histories are archived only sealed. Older
+    // backups recorded the choice, when it also meant public AgentPier history.
+    const includeHistory = options.includeHistory && options.withCredentials;
     const manifest = {
       schemaVersion: SCHEMA_VERSION,
       applicationVersion: applicationVersion(),
       createdAt,
       withCredentials: options.withCredentials,
-      includeHistory: options.includeHistory,
+      includeHistory,
       consistency: plan.consistency,
       omissions: [
         ...new Set([
@@ -237,7 +240,7 @@ export class Backup {
       createdAt,
       bytes: written.bytes,
       withCredentials: options.withCredentials,
-      includeHistory: options.includeHistory,
+      includeHistory,
     };
     atomic(path.join(this.directory, `${id}.json`), backup);
     this.audit?.append({

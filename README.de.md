@@ -128,8 +128,9 @@ Mindestversion startet erst nach dem Update wieder Sitzungen. Ein Quellcode-Chec
 >   Freigabe-Rückfrage.
 > - Die Einstellungen liegen jetzt in den Tabs Arbeitsbereich, Zugriff und Betrieb;
 >   alte Links funktionieren weiter.
-> - Sicherungen kopieren CLI-Profile nach Allowlist, enthalten CLI-Verläufe nur mit
->   Passphrase, und wiederhergestellte Hook-Skripte brauchen erneut `chmod +x`.
+> - Sicherungen kopieren CLI-Profile nach Allowlist, enthalten Verläufe (Sitzungen,
+>   Chats und AgentBus-Nachrichten von AgentPier sowie CLI-Verläufe) nur verschlüsselt
+>   mit Passphrase, und wiederhergestellte Hook-Skripte brauchen erneut `chmod +x`.
 >
 > Details: [Upgrading from 1.x](docs/installation.md#upgrading-from-1x).
 

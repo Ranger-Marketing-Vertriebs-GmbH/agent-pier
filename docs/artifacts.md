@@ -131,7 +131,9 @@ blocks network connections, nested frames, workers, forms and external assets.
 Artifact scripts cannot access the parent application's cookies or storage.
 
 Logical backups include pinned artifacts even without session history. With
-history enabled they include unpinned artifacts too. Only committed generations
+history enabled they include unpinned artifacts too, also without a passphrase.
+Artifacts are always unencrypted backup members; only session, chat, AgentBus and
+CLI histories are encrypted (see [backups.md](backups.md#what-a-backup-holds)). Only committed generations
 are copied. Restores validate artifact metadata and content and apply project ID
 mappings; pinned results remain available even when the original session is gone.
 Artifact files stream into the backup archive without a size or count limit

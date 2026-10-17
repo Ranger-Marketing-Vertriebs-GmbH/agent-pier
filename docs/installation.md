@@ -217,8 +217,11 @@ back to:
   from **Extensions** to **Accounts → MCP servers**. Navigation and **Sign out** are
   in the sidebar **Menu**. Old links and bookmarks still open the right page.
 - **Backups capture less of the CLI profiles.** Profiles are copied by
-  [allowlist](backups.md#cli-profile-allowlists), CLI conversation histories only
-  into backups with a passphrase, and restored hook scripts need `chmod +x` again.
+  [allowlist](backups.md#cli-profile-allowlists), histories (AgentPier's sessions,
+  chats and AgentBus messages, and CLI conversation histories) only encrypted into
+  backups with a passphrase, and restored hook scripts need `chmod +x` again.
+  `node scripts/operations.mjs backup` without `--with-credentials` leaves out all
+  histories.
 - **Removed HTTP routes.** `POST /api/accounts/:id/extensions/mcp` and
   `DELETE /api/accounts/:id/extensions/mcp/:name` are gone; scripts use
   `/api/mcp-servers` instead.
