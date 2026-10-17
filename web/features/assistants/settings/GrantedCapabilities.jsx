@@ -8,6 +8,7 @@ import { assistantShellCopy as shellCopy } from "../../../lib/i18n/messages/assi
 import { assistantSkillsCopy as skillsCopy } from "../../../lib/i18n/messages/assistant-skills.js";
 import { assistantSshCopy as sshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
 import { logText } from "../member-grants.js";
+import ReplacedInstructions from "./ReplacedInstructions.jsx";
 
 const capabilityLabels = {
   webSearch: () => copy.personal.enableWebSearch,
@@ -54,11 +55,8 @@ export default function GrantedCapabilities({ inherited, member }) {
             {[...log].reverse().map((entry, n) => (
               <li key={n}>
                 {logText(entry)}
-                {entry.previousInstructions && (
-                  <details className="agent-granted-previous">
-                    <summary>{grantCopy.previousInstructions}</summary>
-                    <pre>{entry.previousInstructions}</pre>
-                  </details>
+                {entry.replaced && (
+                  <ReplacedInstructions memberId={member.id} entryId={entry.replaced} />
                 )}
               </li>
             ))}
