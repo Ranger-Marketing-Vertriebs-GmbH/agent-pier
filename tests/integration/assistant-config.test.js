@@ -357,9 +357,10 @@ test("a live apply withholds web tools the started Gateway could not serve", asy
     teamReady: () => true,
     models: { resolve: () => ({ modelRef: "c/m", release() {} }) },
   });
+  let guard = false;
   Object.assign(config, {
     nativeReady: () => true,
-    writeGuard: () => false,
+    writeGuard: () => guard,
     webToolsAvailable: () => available,
   });
   await config.apply(assistant.id);
@@ -370,6 +371,10 @@ test("a live apply withholds web tools the started Gateway could not serve", asy
   available = { browser: true, webSearch: true };
   await config.apply(assistant.id);
   assert.ok(tools().includes("web_search"));
+  // The browser also waits for the proven tool guard.
+  assert.ok(!tools().includes("browser"));
+  guard = true;
+  await config.apply(assistant.id);
   assert.ok(tools().includes("browser"));
 });
 

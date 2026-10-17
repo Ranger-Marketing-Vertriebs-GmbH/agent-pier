@@ -108,8 +108,10 @@ test("a task member's compiled entry carries what its lead granted: web, skills,
   const f = fixture(t);
   const config = f.compile();
   const entry = config.agents.entries[f.member.runtimeAgentId];
-  for (const tool of ["web_search", "web_fetch", "browser", "view_image", "read"])
+  for (const tool of ["web_search", "web_fetch", "view_image", "read"])
     assert.ok(entry.tools.allow.includes(tool), tool);
+  // The start withholds the browser until the tool guard reports, like writes.
+  assert.ok(!entry.tools.allow.includes("browser"));
   assert.ok(entry.tools.allow.includes("agentpier_reminder"));
   for (const tool of ["write", "edit", "agentpier_routine", "exec", "agentpier_ssh"])
     assert.ok(!entry.tools.allow.includes(tool), tool);
