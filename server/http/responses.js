@@ -48,10 +48,15 @@ export function registerResponses(app) {
           : error.message || serverMessages.http.requestFailed;
     res.status(status).json({
       ...(error.code === "MEMORY_DISCOVERY_CONFIG" ||
+      error.code === "CLI_UPDATE_REQUIRED" ||
       /^(?:SSH|ARTIFACT|PIPELINE|MCP_CLI|MCP_PACKAGE|MCP_DIRECTORY)_[A-Z_]+$/.test(
         error.code || "",
       )
         ? { code: error.code }
+        : {}),
+      // Which CLI is too old, its version and the minimum (cli-version.js).
+      ...(error.code === "CLI_UPDATE_REQUIRED" && error.updateRequired
+        ? { updateRequired: error.updateRequired }
         : {}),
       error: message,
       ...messageIdentity(message),

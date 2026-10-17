@@ -1,4 +1,13 @@
 export const toolInstallerCopy = {
+  versionLabel: (version) => `Version ${version}`,
+  versionUnknown: "Version unknown",
+  updateRequiredBadge: "Update required",
+  minimumVersion: (required) => `Requires ${required} or later`,
+  installedVersion: (version) => `Installed: ${version}`,
+  updateRequiredNotice: (name, found, required) =>
+    `${name} ${found} is older than the minimum version ${required}. Update the CLI to start a session.`,
+  versionUnknownNotice: (name) =>
+    `AgentPier could not read the ${name} version. The session starts anyway; if something does not work, update the CLI.`,
   updateCli: "Update CLI",
   updateTitle: (name) => `Update ${name}`,
   updateDescription:

@@ -151,7 +151,8 @@ plus optional warnings. Paid endpoints may charge for the few tokens used.
 
 Model changes inside a running endpoint session require a reload.
 
-**Launch.** Claude Code needs 2.1.193 or later for custom model contexts; AgentPier sets
+**Launch.** Claude Code needs 2.1.193 or later for custom model contexts (AgentPier
+starts no release older than its general [minimum](cli-updates.md#minimum-cli-versions)); AgentPier sets
 `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` for endpoint launches. Codex receives a
 provider named after the connection. Keys reach the CLI only through the child
 environment.

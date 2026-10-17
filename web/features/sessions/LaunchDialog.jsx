@@ -6,6 +6,7 @@ import LaunchMcpChoices from "../mcp/LaunchMcpChoices.jsx";
 import LaunchSshChoices from "../ssh/LaunchSshChoices.jsx";
 import useLaunchAccess from "./useLaunchAccess.js";
 import LaunchAccessFields from "./LaunchAccessFields.jsx";
+import CliVersionNotice from "../tools/CliVersionNotice.jsx";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { launchDialogCopy as copy } from "../../lib/i18n/messages/sessions.js";
@@ -38,6 +39,7 @@ export default function LaunchDialog({
   initialProfile,
   close,
   created,
+  update,
 }) {
   const viewport = useLaunchViewport();
   const access = useLaunchAccess(
@@ -103,7 +105,8 @@ export default function LaunchDialog({
     ),
     [busEnabled, setBusEnabled] = useState(true),
     [agentpierTools, setAgentpierTools] = useState(true),
-    [sshAccessIds, setSshAccessIds] = useState([]);
+    [sshAccessIds, setSshAccessIds] = useState([]),
+    [refused, setRefused] = useState(null);
   const selectedTool = access.tool;
   const coding = selectedTool !== "shell";
   const modeDescription =
@@ -151,29 +154,35 @@ export default function LaunchDialog({
                 agentpierTools: coding ? agentpierTools : false,
                 ...(access.nonoProfile ? { nonoProfile: access.nonoProfile } : {}),
               };
-              const result = profile
-                ? await api(`/pipeline-profiles/${profile.id}/launch`, "POST", {
-                    name: body.name,
-                    cwd,
-                    params,
-                    access: {
-                      ...access.body,
-                      ...(access.connection
-                        ? {
-                            accountId: profileCli
-                              ? profile.config.accountId
-                              : access.accounts.find(
-                                  (item) => !item.internal && !item.provider,
-                                )?.id,
-                          }
-                        : {}),
-                    },
-                    ...(launchMode !== "profile" ? { launchMode } : {}),
-                    agentbus: body.agentbus,
-                    agentpierTools: body.agentpierTools,
-                    sshAccessIds,
-                  })
-                : await api("/sessions", "POST", body);
+              const result = await (
+                profile
+                  ? api(`/pipeline-profiles/${profile.id}/launch`, "POST", {
+                      name: body.name,
+                      cwd,
+                      params,
+                      access: {
+                        ...access.body,
+                        ...(access.connection
+                          ? {
+                              accountId: profileCli
+                                ? profile.config.accountId
+                                : access.accounts.find(
+                                    (item) => !item.internal && !item.provider,
+                                  )?.id,
+                            }
+                          : {}),
+                      },
+                      ...(launchMode !== "profile" ? { launchMode } : {}),
+                      agentbus: body.agentbus,
+                      agentpierTools: body.agentpierTools,
+                      sshAccessIds,
+                    })
+                  : api("/sessions", "POST", body)
+              ).catch((error) => {
+                // An outdated CLI keeps the dialog open with its update action.
+                if (error.updateRequired) setRefused(error.updateRequired);
+                throw error;
+              });
               if (!profile && coding) rememberLaunchMode(access.tool, launchMode);
               await created(result.session || result);
             }}
@@ -213,6 +222,11 @@ export default function LaunchDialog({
                     }}
                   />
                 </label>
+                <CliVersionNotice
+                  tool={state.tools.find((item) => item.id === access.tool)}
+                  refused={refused}
+                  update={update}
+                />
                 <label>
                   {commonCopy.workingDirectory}
                   <div className="input-action">

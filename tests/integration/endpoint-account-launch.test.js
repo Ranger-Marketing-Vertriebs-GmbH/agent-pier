@@ -56,7 +56,7 @@ function setup(t, { apiKey } = {}) {
 }
 
 for (const tool of ["claude", "codex", "opencode"])
-  test(`${tool} endpoint account launches through the account store`, (t) => {
+  test(`${tool} endpoint account launches through the account store`, async (t) => {
     const { accounts, connection, executable, resolve } = setup(t, {
       apiKey: "endpoint-private-key",
     });
@@ -65,7 +65,7 @@ for (const tool of ["claude", "codex", "opencode"])
       accounts.endpointFor(account),
       accounts.providerConnections.record(connection.id).endpoint,
     );
-    const launch = accounts.command(account.id, { [tool]: executable });
+    const launch = await accounts.command(account.id, { [tool]: executable });
     assert.equal(launch.provider.modelChangeRequiresRestart, true);
     assert.equal(launch.provider.assumedContextTokens, 32768);
     assert.equal(JSON.stringify(launch.args).includes("endpoint-private-key"), false);
@@ -83,7 +83,7 @@ for (const tool of ["claude", "codex", "opencode"])
       );
       assert.equal(config.model_providers["agentpier-endpoint"].name, "GPU box");
     }
-    const switched = accounts.command(
+    const switched = await accounts.command(
       account.id,
       { [tool]: executable },
       false,
@@ -92,8 +92,8 @@ for (const tool of ["claude", "codex", "opencode"])
     );
     assert.equal(switched.provider.modelId, "llama");
     assert.equal(switched.provider.assumedContextTokens, 65536);
-    assert.throws(
-      () =>
+    await assert.rejects(
+      async () =>
         accounts.command(account.id, { [tool]: executable }, false, "default", {
           modelId: "unknown",
         }),
@@ -101,19 +101,19 @@ for (const tool of ["claude", "codex", "opencode"])
     );
   });
 
-test("endpoint environment survives a removed connection; launch refuses it", (t) => {
+test("endpoint environment survives a removed connection; launch refuses it", async (t) => {
   const { accounts, connections, connection, executable, resolve } = setup(t);
   const account = resolve("claude");
   connections.remove(connection.id);
   const env = accounts.environment(account.id);
   assert.ok(env.CLAUDE_CONFIG_DIR);
   assert.equal(env.ANTHROPIC_BASE_URL, undefined);
-  assert.throws(() => accounts.command(account.id, { claude: executable }), {
+  await assert.rejects(async () => accounts.command(account.id, { claude: executable }), {
     status: 404,
   });
 });
 
-test("endpointFor ignores catalog accounts and rejects endpoint accounts without a connection", (t) => {
+test("endpointFor ignores catalog accounts and rejects endpoint accounts without a connection", async (t) => {
   const { accounts } = setup(t);
   assert.equal(
     accounts.endpointFor({ provider: { id: "zai", modelId: "x" } }),
@@ -126,7 +126,7 @@ test("endpointFor ignores catalog accounts and rejects endpoint accounts without
   );
 });
 
-test("legacy per-account profiles still reject the endpoint provider", (t) => {
+test("legacy per-account profiles still reject the endpoint provider", async (t) => {
   const { accounts } = setup(t);
   assert.throws(
     () =>

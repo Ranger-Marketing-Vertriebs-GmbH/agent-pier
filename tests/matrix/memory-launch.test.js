@@ -36,11 +36,11 @@ for (const tool of ["codex", "claude", "opencode"])
           launchMode !== "default" &&
           launchMode !== (tool === "codex" ? "yolo" : "auto")
         ) {
-          assert.throws(command, { status: 400 });
+          await assert.rejects(command, { status: 400 });
           assert.equal(integration.memory.projects().projects.length, 0);
           return;
         }
-        const original = command();
+        const original = await command();
         const before = structuredClone(original);
         const prepared = await integration.prepare({
           id: "matrix-session",

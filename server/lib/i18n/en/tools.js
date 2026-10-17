@@ -1,5 +1,7 @@
 /** English product copy, addressed through the same semantic keys as the German catalog. */
 export const tools = Object.freeze({
+  cliUpdateRequired: (name, found, required) =>
+    `${name} version ${found} is installed, but AgentPier needs ${required} or later. Update the CLI, then start the session again.`,
   nativeUpdateRequired:
     "Updates require a native installation or an npm installation managed by AgentPier.",
   installationChanged: "The CLI installation changed during the update.",

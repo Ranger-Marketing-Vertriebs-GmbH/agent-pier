@@ -63,7 +63,7 @@ async function exitDiagnostics(manager, id, marker) {
     screen: screen.slice(-4096),
   });
 }
-test("shell detection prefers a valid user zsh/bash and safely falls back from arbitrary commands", (t) => {
+test("shell detection prefers a valid user zsh/bash and safely falls back from arbitrary commands", async (t) => {
   const { root } = fixture(t);
   const preferred = path.join(root, "zsh");
   fs.writeFileSync(preferred, "#!/bin/sh\n", { mode: 0o700 });
@@ -128,7 +128,7 @@ test("portable shell selection falls back through zsh, bash and POSIX sh without
     "/bin/bash",
   );
 });
-test("shell uses a fixed local account with login-shell args and no coding credentials or profile paths", (t) => {
+test("shell uses a fixed local account with login-shell args and no coding credentials or profile paths", async (t) => {
   const { store } = fixture(t);
   const shell = detectTools().find((tool) => tool.id === "shell");
   const account = store.get("local-shell");
@@ -139,18 +139,21 @@ test("shell uses a fixed local account with login-shell args and no coding crede
     status: 400,
   });
   assert.throws(() => store.remove("local-shell"), { status: 400 });
-  assert.throws(() => store.command("local-shell", { shell: shell.path }, true), {
-    status: 400,
-  });
-  assert.throws(
-    () => store.command("local-shell", { shell: shell.path }, false, "auto"),
+  await assert.rejects(
+    async () => store.command("local-shell", { shell: shell.path }, true),
+    {
+      status: 400,
+    },
+  );
+  await assert.rejects(
+    async () => store.command("local-shell", { shell: shell.path }, false, "auto"),
     { status: 400 },
   );
   const old = process.env.OPENAI_API_KEY;
   process.env.OPENAI_API_KEY = "fake-parent-secret";
   let launch;
   try {
-    launch = store.command("local-shell", { shell: shell.path });
+    launch = await store.command("local-shell", { shell: shell.path });
   } finally {
     if (old === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = old;
@@ -168,7 +171,7 @@ test("shell uses a fixed local account with login-shell args and no coding crede
     "AGENTBUS_HOME",
   ])
     assert.equal(launch.env[key], undefined);
-  assert.throws(() => store.command("local-shell", {}), { status: 409 });
+  await assert.rejects(async () => store.command("local-shell", {}), { status: 409 });
 });
 test("isolated native and POSIX login shells support Unicode input, replay and restart without coding control", async (t) => {
   const { root, home, store } = fixture(t);
@@ -187,7 +190,7 @@ test("isolated native and POSIX login shells support Unicode input, replay and r
     );
     fs.rmSync(path.dirname(manager.socketPath), { recursive: true, force: true });
   });
-  const launch = store.command("local-shell", { shell: binary });
+  const launch = await store.command("local-shell", { shell: binary });
   const options = {
     id: "plain-shell",
     name: "Shell fixture",
@@ -258,7 +261,7 @@ test("isolated native and POSIX login shells support Unicode input, replay and r
   const fallback = await resumed.create({
     ...options,
     id: "posix-shell",
-    ...store.command("local-shell", { shell: posix }),
+    ...(await store.command("local-shell", { shell: posix })),
   });
   const posixExitMarker = path.join(root, "posix-shell-exit-requested");
   await resumed.input(

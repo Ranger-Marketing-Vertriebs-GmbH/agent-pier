@@ -140,7 +140,7 @@ export function createSessionLifecycle(services) {
         .map((t) => [t.id, t.path]),
     );
     await accounts.verifyEndpointTarget(account.id);
-    let launch = accounts.command(account.id, binaries, login, body.launchMode, {
+    let launch = await accounts.command(account.id, binaries, login, body.launchMode, {
       modelId: trusted.modelId ?? nativeModelId,
     });
     if ((await sessions.list()).filter((s) => s.status === "running").length >= 30)

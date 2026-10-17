@@ -33,8 +33,8 @@ async function fixture(t, fail = false) {
   const version = path.join(f.root, "version-fixture");
   await fs.writeFile(version, "#!/bin/sh\nprintf '2.2.0\\n'\n", { mode: 0o755 });
   const command = f.application.accounts.command.bind(f.application.accounts);
-  f.application.accounts.command = (id, _binaries, login, mode, options) => {
-    const launch = command(id, { claude: version }, login, mode, options);
+  f.application.accounts.command = async (id, _binaries, login, mode, options) => {
+    const launch = await command(id, { claude: version }, login, mode, options);
     assert.equal(launch.env.ANTHROPIC_AUTH_TOKEN, secret);
     return { ...launch, command: "/bin/sh", args: ["-c", "sleep 30"] };
   };

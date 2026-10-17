@@ -100,7 +100,8 @@ to end its CLI process.
 Installed versions update under **Settings → Operations → Updates**, on the
 **Stable** or **Preview** channel ([release channels](docs/release-channels.md)). A
 failed start returns to the previous version. Coding CLIs update from the overview
-([CLI updates](docs/cli-updates.md)). A source checkout updates with `git pull`,
+([CLI updates](docs/cli-updates.md)); a CLI older than its minimum version cannot start
+sessions until it is updated. A source checkout updates with `git pull`,
 `npm ci` and `npm run build` ([updating](docs/installation.md#6-updating)).
 
 > **Upgrading from 1.x**

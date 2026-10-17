@@ -1,12 +1,10 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { atLeast, isCliVersion } from "../tools/cli-version.js";
 
-function atLeast(version, [major, minor, patch]) {
-  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version || "");
-  if (!match) return false;
-  const [a, b, c] = match.slice(1).map(Number);
-  return a !== major ? a > major : b !== minor ? b > minor : c >= patch;
-}
+// Claude Code releases that custom model contexts and custom auth headers need.
+const CUSTOM_CONTEXT_VERSION = "2.1.193";
+const CUSTOM_HEADER_VERSION = "2.1.227";
 
 export function configureClaudeProvider(
   launch,
@@ -28,11 +26,11 @@ export function configureClaudeProvider(
       assumedContextTokens = 1000000;
     }
   } else {
-    if (!/^\d+\.\d+\.\d+/.test(cliVersion || ""))
+    if (!isCliVersion(cliVersion))
       throw problem(serverMessages.providers.claudeVersionUnverified, 409);
-    if (!atLeast(cliVersion, [2, 1, 193]))
+    if (!atLeast(cliVersion, CUSTOM_CONTEXT_VERSION))
       throw problem(serverMessages.providers.claudeVersionTooOld, 409);
-    if (customHeader && !atLeast(cliVersion, [2, 1, 227]))
+    if (customHeader && !atLeast(cliVersion, CUSTOM_HEADER_VERSION))
       throw problem(serverMessages.providers.endpointClaudeCustomHeaderVersion, 409);
     if (!window) throw problem(serverMessages.providers.contextLimitUnverified, 409);
     env.CLAUDE_CODE_MAX_CONTEXT_TOKENS = String(window);

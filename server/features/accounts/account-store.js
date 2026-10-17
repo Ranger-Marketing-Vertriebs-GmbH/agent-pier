@@ -19,6 +19,7 @@ import { launchTarget } from "../providers/launch-description.js";
 import { prepareProviderLaunch } from "../providers/provider-launch.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { withUtf8Locale } from "../../lib/session-locale.js";
+import { cliVersions, requireCliVersion } from "../tools/cli-version.js";
 import {
   privateDirectory,
   writePrivate,
@@ -164,8 +165,10 @@ export class AccountStore {
     providerCatalog,
     providerConnections,
     uid = () => process.getuid?.(),
+    versions = cliVersions,
   }) {
     this.uid = uid;
+    this.versions = versions;
     this.dataDir = privateDirectory(path.resolve(dataDir));
     this.home = home;
     this.file = path.join(dataDir, "accounts.json");
@@ -364,7 +367,17 @@ export class AccountStore {
       ? codexCredentialStoreArgs()
       : [];
   }
-  command(id, executables, login = false, launchMode = "default", { modelId } = {}) {
+  /**
+   * The launch for a session of this account. It reads the CLI version first and
+   * refuses a CLI below its minimum (cli-version.js); `cliVersion` skips that probe.
+   */
+  async command(
+    id,
+    executables,
+    login = false,
+    launchMode = "default",
+    { modelId, cliVersion } = {},
+  ) {
     let account = this.get(id);
     const endpoint = this.endpointFor(account);
     if (modelId) {
@@ -407,6 +420,13 @@ export class AccountStore {
       throw problem(serverMessages.accounts.cliNotInstalled(account.tool), 409);
     if (account.tool === "shell" && !shellExecutable(command))
       throw problem(serverMessages.accounts.supportedShellUnavailable, 409);
+    const cli =
+      account.tool === "shell"
+        ? null
+        : await requireCliVersion(account.tool, command, {
+            probe: this.versions,
+            version: cliVersion,
+          });
     const args = login
       ? {
           codex: ["login", "--device-auth"],
@@ -422,6 +442,7 @@ export class AccountStore {
         ...(account.tool === "shell" ? { SHELL: command } : {}),
       },
       launchMode,
+      ...(cli?.version ? { cliVersion: cli.version } : {}),
     };
     // A CLI AgentPier installed itself is a script inside its own package
     // directory, so granting the executable alone leaves its imports denied.
@@ -453,6 +474,7 @@ export class AccountStore {
     return prepareProviderLaunch(account, this.secret(account), launch, {
       root,
       catalog: this.providerCatalog,
+      cliVersion: cli?.version ?? null,
       endpoint,
       connectionName: endpoint
         ? this.providerConnections.record(account.internal.connectionId).name

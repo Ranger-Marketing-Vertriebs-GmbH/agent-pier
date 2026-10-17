@@ -145,6 +145,8 @@ export async function buildSessionLaunch(manager, options) {
       : {}),
   };
   if (options.nativeModelId) session.nativeModelId = options.nativeModelId;
+  // The CLI release the session started with, for diagnosing parser or flag changes.
+  if (typeof options.cliVersion === "string") session.cliVersion = options.cliVersion;
   // A task profile's effective permission arguments; a reload reuses exactly these.
   if (options.permissionArgs?.length) {
     if (

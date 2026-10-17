@@ -185,3 +185,39 @@ test("unknown Claude versions request a retry instead of claiming the CLI is out
     );
   }
 });
+
+test("Claude custom-model checks use the shared version helper and keep their messages", (t) => {
+  assert.throws(
+    () => launch(t, "claude", "zai", { cliVersion: "2.1.192" }),
+    (error) =>
+      error.status === 409 &&
+      error.message === serverMessages.providers.claudeVersionTooOld,
+  );
+  assert.equal(
+    launch(t, "claude", "zai", { cliVersion: "2.1.193" }).env
+      .CLAUDE_CODE_MAX_CONTEXT_TOKENS !== undefined,
+    true,
+  );
+  // A launch without a probed version is unverified; the launch path never runs
+  // the CLI itself (accounts.command probes it asynchronously beforehand).
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-provider-launch-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.throws(
+    () =>
+      prepareProviderLaunch(
+        { kind: "managed", tool: "claude", provider: { id: "zai", modelId: "glm-5.3" } },
+        { apiKey: "fixture-key-only" },
+        { command: "/nonexistent/claude", args: [], env: { PATH: "/bin", HOME: root } },
+        { root, catalog },
+      ),
+    { message: serverMessages.providers.claudeVersionUnverified },
+  );
+  for (const file of ["provider-launch.js", "claude-provider.js"])
+    assert.doesNotMatch(
+      fs.readFileSync(
+        new URL(`../../server/features/providers/${file}`, import.meta.url),
+        "utf8",
+      ),
+      /spawnSync|execSync|execFileSync/,
+    );
+});

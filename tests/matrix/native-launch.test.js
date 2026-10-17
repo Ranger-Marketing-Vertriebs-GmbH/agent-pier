@@ -41,7 +41,7 @@ for (const tool of Object.keys(nativeArguments)) {
   for (const kind of ["local", "managed"]) {
     for (const mode of ["default", "auto", "yolo", "bypass"]) {
       for (const login of [false, true]) {
-        test(`native launch: ${tool} / ${kind} / ${mode} / ${login ? "login" : "work"}`, (t) => {
+        test(`native launch: ${tool} / ${kind} / ${mode} / ${login ? "login" : "work"}`, async (t) => {
           const { root, accounts } = accountsFixture(t);
           const account =
             kind === "local"
@@ -54,10 +54,13 @@ for (const tool of Object.keys(nativeArguments)) {
             Object.hasOwn(nativeArguments[tool], mode) &&
             (!login || (kind === "managed" && mode === "default"));
           if (!supported) {
-            assert.throws(run, (error) => error.status === 400 || error.status === 409);
+            await assert.rejects(
+              run,
+              (error) => error.status === 400 || error.status === 409,
+            );
             return;
           }
-          const launch = run();
+          const launch = await run();
           assert.equal(launch.command, executable);
           // Managed Codex launches also pin both credential stores to their profile.
           assert.deepEqual(launch.args, [
@@ -95,14 +98,14 @@ for (const tool of Object.keys(nativeArguments)) {
 }
 
 for (const tool of Object.keys(nativeArguments)) {
-  test(`API-key ${tool} profile keeps secrets private and rejects browser login`, (t) => {
+  test(`API-key ${tool} profile keeps secrets private and rejects browser login`, async (t) => {
     const { root, accounts } = accountsFixture(t);
     const account = accounts.create({
       name: "Secret fixture",
       tool,
       apiKey: "fixture-native-key",
     });
-    const launch = accounts.command(account.id, {
+    const launch = await accounts.command(account.id, {
       [tool]: path.join(root, tool),
     });
     assert.equal(
@@ -110,8 +113,8 @@ for (const tool of Object.keys(nativeArguments)) {
       "fixture-native-key",
     );
     assert.equal(JSON.stringify(accounts.list()).includes("fixture-native-key"), false);
-    assert.throws(
-      () => accounts.command(account.id, { [tool]: path.join(root, tool) }, true),
+    await assert.rejects(
+      async () => accounts.command(account.id, { [tool]: path.join(root, tool) }, true),
       { status: 409 },
     );
     if (tool === "codex") {
@@ -130,9 +133,9 @@ for (const tool of Object.keys(nativeArguments)) {
   });
 }
 
-test("Shell is local, starts a login shell and never receives coding-agent secrets", (t) => {
+test("Shell is local, starts a login shell and never receives coding-agent secrets", async (t) => {
   const { accounts } = accountsFixture(t);
-  const launch = accounts.command("local-shell", { shell: "/bin/sh" });
+  const launch = await accounts.command("local-shell", { shell: "/bin/sh" });
   assert.deepEqual(launch.args, ["-l"]);
   assert.equal(launch.env.SHELL, "/bin/sh");
   for (const key of [
@@ -143,16 +146,18 @@ test("Shell is local, starts a login shell and never receives coding-agent secre
   ])
     assert.equal(launch.env[key], undefined);
   for (const mode of ["auto", "yolo", "bypass"])
-    assert.throws(() =>
+    await assert.rejects(async () =>
       accounts.command("local-shell", { shell: "/bin/sh" }, false, mode),
     );
-  assert.throws(() => accounts.command("local-shell", { shell: "/bin/sh" }, true));
+  await assert.rejects(async () =>
+    accounts.command("local-shell", { shell: "/bin/sh" }, true),
+  );
 });
 
 for (const platform of ["darwin", "linux", "win32"]) {
   for (const arch of ["arm64", "x64", "ia32"]) {
     for (const npm of [true, false]) {
-      test(`installer availability: ${platform} / ${arch} / npm ${npm ? "present" : "absent"}`, (t) => {
+      test(`installer availability: ${platform} / ${arch} / npm ${npm ? "present" : "absent"}`, async (t) => {
         const { root } = accountsFixture(t);
         const installer = new ToolInstaller({
           dataDir: root,

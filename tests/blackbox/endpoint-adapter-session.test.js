@@ -67,8 +67,8 @@ async function useFakeCli(f, out, cliMode = "call", extraEnv = {}) {
   const version = path.join(f.root, "version-fixture");
   await fs.writeFile(version, "#!/bin/sh\nprintf '2.1.291\\n'\n", { mode: 0o755 });
   const original = f.application.accounts.command.bind(f.application.accounts);
-  f.application.accounts.command = (id, _binaries, login, mode, options) => {
-    const prepared = original(id, { claude: version }, login, mode, options);
+  f.application.accounts.command = async (id, _binaries, login, mode, options) => {
+    const prepared = await original(id, { claude: version }, login, mode, options);
     assert.ok(prepared.adapter, "adapter block prepared");
     return {
       ...prepared,
