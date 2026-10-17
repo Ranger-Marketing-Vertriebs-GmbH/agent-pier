@@ -271,6 +271,8 @@ export async function createServices(config) {
     artifacts,
     sessions,
     audit,
+    // Null while the agent feature is off or not constructed yet.
+    assistantWorkflows: () => services.assistantWorkflows ?? null,
   });
   sshManagement.rebindProject = (input) => projectRebind.rebind(input);
   memory.rebindProject = (input) => projectRebind.rebind(input);

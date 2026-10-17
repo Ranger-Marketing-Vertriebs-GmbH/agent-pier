@@ -13,7 +13,8 @@ function part(value) {
  * Saves an agent's workflow access and team policy as one change: both revisions are
  * preconditions and both rows are written in one transaction of the agent database,
  * so a refused part leaves the other unchanged. `sshToolChanged` tells the route
- * that the agent gained its first or lost its last SSH grant.
+ * that the agent gained its first or lost its last SSH grant; `removedProjectIds`
+ * names granted projects that no longer exist and were dropped.
  */
 export function saveWork({ assistants, access, teams }, id, body) {
   exact(body, ["access", "team"]);
@@ -22,9 +23,10 @@ export function saveWork({ assistants, access, teams }, id, body) {
   const accessPart = body.access ? part(body.access) : null;
   const teamPart = body.team ? part(body.team) : null;
   const before = accessPart ? access.get(id) : null;
+  const notes = { removedProjectIds: [] };
   const result = teams.transaction(() => {
     const next = accessPart
-      ? access.prepare(id, accessPart.input, accessPart.revision)
+      ? access.prepare(id, accessPart.input, accessPart.revision, notes)
       : null;
     const team = teamPart
       ? teams.writePolicy(id, teamPart.input, teamPart.revision)
@@ -37,5 +39,5 @@ export function saveWork({ assistants, access, teams }, id, body) {
   // Gaining the first or losing the last grant changes the agent's tool list.
   const sshToolChanged =
     !!before && before.sshAccesses.length > 0 !== result.access.sshAccesses.length > 0;
-  return { ...result, sshToolChanged };
+  return { ...result, sshToolChanged, removedProjectIds: notes.removedProjectIds };
 }

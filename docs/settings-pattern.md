@@ -202,7 +202,8 @@ the same `item` and `step`) and saves with the usual save bar.
 ## Server summaries
 
 - `PUT /api/assistants/:id/work` — `{ access?: { revision, projectIds, pipelineIds, memoryWrite, autonomous, publish }, team?: { revision, autonomous, maxMembers, runTimeoutMinutes } }`
-  → `{ access, team }`; one transaction, both revisions are preconditions.
+  → `{ access, team, removedProjectIds }`; one transaction, both revisions are preconditions.
+  Granted projects that no longer exist are dropped and listed in `removedProjectIds`.
 - `GET /api/settings/summary` — `{ access: { mcp, remote, ssh, github }, operations: { diagnostics, backups, updates } }`;
   local state only, every part `null` when unknown. `remote` is
   `{ tailscale, network, restartRequired }` (a saved network change not yet running).

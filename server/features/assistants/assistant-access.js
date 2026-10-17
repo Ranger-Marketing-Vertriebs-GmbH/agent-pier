@@ -92,8 +92,13 @@ export class AssistantAccess {
         })),
     };
   }
-  /** Validates a policy change against `revision`; returns the record, writes nothing. */
-  prepare(id, input, revision) {
+  /**
+   * Validates a policy change against `revision`; returns the record, writes nothing.
+   * Projects that no longer exist (an older row merged away) are dropped instead of
+   * refused and listed in `notes.removedProjectIds`, so a stale grant never blocks
+   * the owner's save.
+   */
+  prepare(id, input, revision, notes = {}) {
     this.eligible(id);
     if (this.s.assistants.maintenance) throw assistantProblem("active", 409);
     exact(input, [
@@ -117,7 +122,10 @@ export class AssistantAccess {
     }
     for (const key of ["memoryWrite", "autonomous", "publish"])
       if (typeof input[key] !== "boolean") throw assistantProblem("invalid");
-    for (const project of input.projectIds) this.s.memory.project(project);
+    const projectIds = [];
+    notes.removedProjectIds = [];
+    for (const project of input.projectIds)
+      (this.knownProject(project) ? projectIds : notes.removedProjectIds).push(project);
     const definitions = {},
       accountIds = new Set(),
       connectionIds = new Set();
@@ -133,6 +141,7 @@ export class AssistantAccess {
     }
     return {
       ...input,
+      projectIds,
       // Absent keeps the stored grants: the MCP path and older clients never send them.
       sshAccesses:
         input.sshAccesses === undefined
@@ -144,6 +153,15 @@ export class AssistantAccess {
       connectionIds: [...connectionIds],
       definitions,
     };
+  }
+  knownProject(projectId) {
+    try {
+      this.s.memory.project(projectId);
+      return true;
+    } catch (error) {
+      if (error.status === 404) return false;
+      throw error;
+    }
   }
   write(id, next) {
     this.db
@@ -225,6 +243,33 @@ export class AssistantAccess {
    * `during` (cancelling its open approvals); returns the agents whose grants changed.
    */
   revokeSsh(accessId, during = () => {}) {
+    const changed = this.revokeEach(
+      (before) =>
+        before.sshAccesses.some((g) => g.accessId === accessId) && {
+          sshAccesses: before.sshAccesses.filter((g) => g.accessId !== accessId),
+        },
+      during,
+    );
+    for (const c of changed) this.auditSsh(c.id, c.before, c.after, "host-removed");
+    if (changed.length) this.s.assistants.changed();
+    return changed.map((c) => c.id);
+  }
+  /**
+   * Removes one project from every agent's grants in one transaction, together with
+   * `during`; returns the changed policies. Like an SSH host removal it keeps the
+   * approval revision, so approvals for other projects stay valid.
+   */
+  revokeProject(projectId, during = () => {}) {
+    return this.revokeEach(
+      (before) =>
+        before.projectIds.includes(projectId) && {
+          projectIds: before.projectIds.filter((id) => id !== projectId),
+        },
+      during,
+    );
+  }
+  // Applies `change` (fields to replace, or false) to every stored policy at once.
+  revokeEach(change, during) {
     const changed = [];
     this.db.exec("BEGIN IMMEDIATE");
     try {
@@ -232,10 +277,11 @@ export class AssistantAccess {
         .prepare("SELECT assistant_id, body FROM assistant_access")
         .all()) {
         const before = { sshAccesses: [], ...JSON.parse(row.body) };
-        if (!before.sshAccesses.some((g) => g.accessId === accessId)) continue;
+        const fields = change(before);
+        if (!fields) continue;
         const after = this.write(row.assistant_id, {
           ...before,
-          sshAccesses: before.sshAccesses.filter((g) => g.accessId !== accessId),
+          ...fields,
           revision: before.revision + 1,
           approvalRevision: approvalRevision(before),
         });
@@ -247,9 +293,7 @@ export class AssistantAccess {
       this.db.exec("ROLLBACK");
       throw error;
     }
-    for (const c of changed) this.auditSsh(c.id, c.before, c.after, "host-removed");
-    if (changed.length) this.s.assistants.changed();
-    return changed.map((c) => c.id);
+    return changed;
   }
   /** One `assistant.updated` record per grant change: ids and modes, never more. */
   auditSsh(id, before, after, reason) {

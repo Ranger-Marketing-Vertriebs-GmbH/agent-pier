@@ -242,6 +242,9 @@ export function workBody({ values, changed, revisions, withTeam, sshHostIds = nu
   return body;
 }
 
+/** Granted projects a saved Work draft dropped because they no longer exist. */
+export const removedProjectCount = (result) =>
+  result?.status === "saved" ? result.results.work?.removedProjectIds?.length || 0 : 0;
 export const grantCount = (ids, items) =>
   items.filter((item) => ids.includes(item.id)).length;
 export const pendingCount = (actions) =>

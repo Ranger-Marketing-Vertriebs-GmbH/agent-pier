@@ -10,7 +10,7 @@ For Git projects, the scope hashes the canonical Git common-directory path toget
 
 For a non-Git project, the selected canonical working directory is its root. No parent-directory inference is performed for non-Git projects. Launch from the same root to share memory. Git discovery is read-only, bounded to three seconds, and does not change native configuration or bypass Git ownership checks.
 
-Running `git init` in a non-Git project root keeps the project. See [Git initialization in a session folder](ssh-access.md#git-initialization-in-a-session-folder) for the rebind rule. Its entries, request receipts and session capabilities move to the Git identity, along with its pipeline verification steps. The move is recorded, so session and OAuth grants that named the old project follow it.
+Running `git init` in a non-Git project root keeps the project. See [Git initialization in a session folder](ssh-access.md#git-initialization-in-a-session-folder) for the rebind rule. Its entries, request receipts and session capabilities move to the Git identity, along with its pipeline verification steps. The move is recorded, so session and OAuth grants that named the old project follow it. Agent project access does not follow; see [agent workflows](assistant-workflows.md#project-access-and-actions).
 
 The project registry persists independently of sessions. Stopping or removing the last session does not delete its project or knowledge. If its registered checkout has been removed or now belongs to another project, registering a valid checkout of the same repository repairs the stored path while preserving entries and revisions. A still-valid registered checkout is retained.
 

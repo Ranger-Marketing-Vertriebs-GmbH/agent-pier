@@ -28,6 +28,16 @@ Saving captures pipeline/profile definitions and their account references. After
 changing a pipeline or profile, save project access again. A changed access
 revision invalidates pending proposals; ask the agent for a new proposal.
 
+Project access never follows a project to another entry. When you merge an older
+project entry (**Projects → Merge older entry**) or a folder's `git init` moves its
+project to the Git identity, the older project leaves every agent's access, its
+proposals that were not started yet fail with "Access or pipeline changed since the
+request. Nothing was started.", and each changed agent is audited as
+`assistant.updated` (`kind: "project-rebind"`). Proposals for other projects stay
+valid. Grant the remaining project again if the agent should keep working on it.
+Saving **Work** drops granted projects that no longer exist, for example from a merge
+made while agents were switched off, and says how many it removed.
+
 Ask the agent to inspect project knowledge or propose a concrete coding task.
 The workspace tool first discovers the granted project/pipeline IDs. Approval
 shows the project, pipeline, exact task and optional base branch, or the exact

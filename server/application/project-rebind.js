@@ -7,13 +7,30 @@ import { gitInitRebind, sameFolder } from "../features/memory/project-rebind.js"
  * own Git work tree. The plain-directory project moves to the Git identity: memory
  * entries and session capabilities, SSH keys, hosts and receipts, artifact records,
  * pipeline verification steps, and the SSH project binding of every session launched
- * in that folder. The Git identity must not own memory or SSH access of its own (for
+ * in that folder. Agent grants and unstarted approvals of the older project are dropped,
+ * never moved. The Git identity must not own memory or SSH access of its own (for
  * example after an older `.git` was restored), so no session ever gains another
  * project's resources. Every step is idempotent, so an interrupted move resumes.
  */
 export class ProjectRebind {
-  constructor({ dataDir, memory, sshManagement, artifacts, sessions, audit }) {
-    Object.assign(this, { dataDir, memory, sshManagement, artifacts, sessions, audit });
+  constructor({
+    dataDir,
+    memory,
+    sshManagement,
+    artifacts,
+    sessions,
+    audit,
+    assistantWorkflows = () => null,
+  }) {
+    Object.assign(this, {
+      dataDir,
+      memory,
+      sshManagement,
+      artifacts,
+      sessions,
+      audit,
+      assistantWorkflows,
+    });
     this.queue = Promise.resolve();
     this.incomplete = new Set();
     this.sessionWaitMs = 2000;
@@ -79,6 +96,7 @@ export class ProjectRebind {
     await this.sshManagement.adoptProject(fromId, scope);
     await this.artifacts.moveProject(fromId, scope.id);
     this.definitions?.moveVerification(fromId, scope.id);
+    this.revokeAssistants(fromId, scope.id);
     if (await this.rebindSessions(fromId, scope, launch)) this.incomplete.delete(fromId);
     return scope;
   }
@@ -86,7 +104,7 @@ export class ProjectRebind {
    * Merges an older project row of a folder into its current project on the owner's
    * explicit request: memory, session capabilities, SSH access, artifacts,
    * verification and the bindings of every session that held the older project move,
-   * and the rebind is recorded and audited once. `check` runs first inside the queue
+   * agent grants of the older project are dropped, and the rebind is recorded and audited once. `check` runs first inside the queue
    * and throws when the merge is stale or unsafe, so concurrent merges and resumes
    * see each other's results. The merge stays pending in memory until every step is
    * done; a repeated call (or the start-up resume) finishes it. A recorded rebind
@@ -115,12 +133,21 @@ export class ProjectRebind {
       await this.sshManagement.adoptProject(fromId, scope);
       await this.artifacts.moveProject(fromId, scope.id);
       this.definitions?.moveVerification(fromId, scope.id);
+      this.revokeAssistants(fromId, scope.id);
       if (await this.rebindSessions(fromId, scope, null)) {
         this.incomplete.delete(fromId);
         this.memory.finishMerge(fromId);
       }
       return scope;
     });
+  }
+  /**
+   * Agent grants do not follow a project to its new row; the older id leaves them, so
+   * no save names a missing project. Skipped while the agent feature is off; a save
+   * then drops the stale id (assistant-access.js).
+   */
+  revokeAssistants(fromId, toId) {
+    this.assistantWorkflows()?.revokeProject(fromId, toId);
   }
   /** Returns false when a busy session was skipped; a later call retries it. */
   async rebindSessions(fromId, scope, launch) {

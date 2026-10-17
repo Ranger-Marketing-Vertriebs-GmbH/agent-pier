@@ -283,3 +283,81 @@ test("pending coding approvals of the agent are decided in the chat", async ({
     .toEqual([["own", { revision: 1, decision: "decline" }]]);
   await expect(approvals.getByText("Task own", { exact: true })).toHaveCount(0);
 });
+test("saving Work drops a granted project that no longer exists and says so", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  // An older project row was merged away while this grant still named it.
+  let policy = {
+    revision: 3,
+    projectIds: ["gone", "project"],
+    pipelineIds: [],
+    memoryWrite: false,
+    autonomous: false,
+    publish: false,
+  };
+  let sent;
+  await page.route(/\/api\/assistant/, async (route) => {
+    if (await fulfillEnabledAssistantFeature(route)) return;
+    const p = new URL(route.request().url()).pathname,
+      method = route.request().method();
+    let body = {};
+    if (p === "/api/assistants")
+      body = {
+        assistants: [
+          {
+            id: "home",
+            name: "Home",
+            instructions: "Help",
+            model: { connectionId: "router", modelId: "model" },
+            revision: 1,
+            effectiveRevision: 1,
+          },
+        ],
+        conversations: [],
+        policies: {
+          home: { revision: 0, autonomous: false, maxMembers: 4, runTimeoutMinutes: 10 },
+        },
+        models: [{ id: "router", name: "Router", available: true }],
+      };
+    else if (p === "/api/assistant-runtime")
+      body = { availability: "ready", sync: "current" };
+    else if (p === "/api/assistant-workspace-catalog")
+      body = { projects: [{ id: "project", name: "Demo project" }], pipelines: [] };
+    else if (p.endsWith("/work") && method === "PUT") {
+      sent = route.request().postDataJSON();
+      const { revision, ...input } = sent.access;
+      const projectIds = input.projectIds.filter((id) => id !== "gone");
+      policy = { ...input, projectIds, revision: revision + 1 };
+      body = {
+        access: policy,
+        team: { revision: 0, autonomous: false, maxMembers: 4, runTimeoutMinutes: 10 },
+        removedProjectIds: input.projectIds.filter((id) => id === "gone"),
+      };
+    } else if (p.endsWith("/access")) body = policy;
+    else if (p.endsWith("/actions")) body = { actions: [] };
+    else if (p.endsWith("/shell-allowlist")) body = { entries: [] };
+    else if (p === "/api/assistant-events")
+      return route.fulfill({
+        contentType: "text/event-stream",
+        body: 'data: {"type":"connected"}\n\n',
+      });
+    else return route.fallback();
+    await route.fulfill({ json: body });
+  });
+  await page.goto(baseURL + settingsPath("work"));
+  await expect(page.getByRole("link", { name: /^Allowed projects/ })).toContainText(
+    "1 of 1",
+  );
+  await page.getByLabel("Allow proposals to update project memory").check();
+  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    page.getByText(
+      "1 allowed project no longer exists and was removed from this agent's access.",
+    ),
+  ).toBeVisible();
+  expect(sent.access.projectIds).toEqual(["gone", "project"]);
+  expect(policy.projectIds).toEqual(["project"]);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});

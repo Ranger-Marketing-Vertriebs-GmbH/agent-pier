@@ -10,6 +10,10 @@ export const assistantWorkflowCopy = {
   publish: "Allow selected pipelines to publish pull requests",
   policyHint:
     "Memory changes always require approval. Coding tasks require approval unless enabled above. Saving records the selected pipeline and account configuration; save again after changing a pipeline. Human pipeline gates remain in place.",
+  removedProjects: (count) =>
+    count === 1
+      ? "1 allowed project no longer exists and was removed from this agent's access."
+      : `${count} allowed projects no longer exist and were removed from this agent's access.`,
   actions: "Actions and coding tasks",
   noActions:
     "No actions yet. Ask this agent in chat to inspect project memory or propose a coding task.",
