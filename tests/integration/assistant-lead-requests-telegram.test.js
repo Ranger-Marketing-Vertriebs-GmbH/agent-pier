@@ -155,3 +155,30 @@ test("a long relayed answer is read whole, or relayed as far as it goes with a n
     assert.equal(notice.text, expected(full));
   }
 });
+
+test("a relay without text sends the member's whole answer, not its excerpt", async (t) => {
+  const f = await telegramLead(t, "Please ask Member 0 what the budget is");
+  const teams = f.assistants.teams;
+  teams.requests.waitMs = 0;
+  const result = await teams.ask(
+    { attemptId: f.entry.attemptId, toolCallId: "ask", assertCurrent() {} },
+    { memberId: f.member.id, question: "What is the budget?" },
+  );
+  const r = teams.requests.store.get(result.requestId);
+  const answer = `The budget: ${"line item, ".repeat(400)}total.`;
+  f.replies.set(f.member.conversationId, [
+    { role: "assistant", runId: r.attemptId, text: answer },
+  ]);
+  f.assistants.ledger.transition(r.attemptId, "completed");
+  f.assistants.ledger.transition(f.entry.attemptId, "completed");
+  await teams.requests.advance();
+  const delivered = teams.requests.store.get(r.id);
+  assert.equal(delivered.answerTruncated, true);
+  // The lead's relay turn left no text.
+  f.assistants.ledger.transition(delivered.resultAttemptId, "completed");
+  await f.service.teamOutbox.transfer();
+  const notice = f.service.outbox
+    .all(f.channel.id)
+    .find((e) => e.kind === "lead-request-result");
+  assert.ok(notice.text.endsWith(answer));
+});

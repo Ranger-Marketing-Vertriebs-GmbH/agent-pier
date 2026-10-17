@@ -97,7 +97,7 @@ export default function TeamCard({
                 <Icon name="chevron" size={16} />
               </button>
               {report &&
-                (report.text?.trim() ? (
+                (report.reportAvailable || report.text?.trim() ? (
                   <TeamReport teamId={team.id} report={report} shortened={shortened} />
                 ) : report.cut ? (
                   shortened

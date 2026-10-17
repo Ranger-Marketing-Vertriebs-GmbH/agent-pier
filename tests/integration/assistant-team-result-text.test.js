@@ -164,3 +164,35 @@ test("the lead's status tool gets excerpts marked shortened", async (t) => {
   assert.ok(status.resultBatch[0].text.length <= 2000);
   assert.match(status.note, /whole report is in that member's own chat/);
 });
+
+test("coding runs are shortened before reports drop below a useful length", () => {
+  const resultBatch = Array.from({ length: 8 }, (_, n) => ({
+    memberId: `m${n}`,
+    name: `Member ${n}`,
+    role: "Build",
+    phase: "completed",
+    reportAvailable: true,
+    text: "r".repeat(20000),
+    codingRuns: Array.from({ length: 11 }, (_, k) => ({
+      actionId: `a${n}-${k}`,
+      state: "completed",
+      project: "Shop",
+      pipeline: "Build",
+      task: "t".repeat(500),
+    })),
+  }));
+  const text = synthesisPrompt({ objective: "Build", resultBatch });
+  assert.ok(text.length <= synthesisMaxChars);
+  const sent = JSON.parse(text.slice(text.indexOf("\n[") + 1));
+  assert.equal(sent[0].codingRuns[0].task.length, 100);
+  assert.ok(sent.every((m) => m.text.length >= 1000));
+});
+
+test("a truncated report whose whole row is missing is marked shortened", () => {
+  const text = synthesisPrompt({
+    objective: "Review",
+    resultBatch: [{ memberId: "m0", name: "M", text: "Excerpt", truncated: true }],
+  });
+  assert.match(text, /"shortened":true/);
+  assert.match(text, /whole report is in that member's own chat/);
+});

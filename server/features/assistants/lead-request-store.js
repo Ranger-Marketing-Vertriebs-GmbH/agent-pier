@@ -74,15 +74,18 @@ export class LeadRequestStore {
       "DELETE FROM assistant_team_records WHERE id=? AND kind=?",
     );
     let removed = 0;
-    for (const list of byLead.values())
-      list.forEach((r, n) => {
-        const at = Date.parse(r.finishedAt || r.createdAt);
-        if (n < list.length - retention.perLead || !(at >= cutoff)) {
-          const gone = remove.run(r.id, requestKind).changes;
-          if (gone) dropTexts(this.teams.db, r.id);
-          removed += gone;
-        }
-      });
+    // A request and its whole answer go together.
+    this.teams.transaction(() => {
+      for (const list of byLead.values())
+        list.forEach((r, n) => {
+          const at = Date.parse(r.finishedAt || r.createdAt);
+          if (n < list.length - retention.perLead || !(at >= cutoff)) {
+            const gone = remove.run(r.id, requestKind).changes;
+            if (gone) dropTexts(this.teams.db, r.id);
+            removed += gone;
+          }
+        });
+    });
     return removed;
   }
   /** The member's whole answer: its own row, or the record's text of older ones. */
