@@ -102,12 +102,16 @@ address`; the page receives no request.
 - **The member whose lead has no capabilities** gets no capability tool in its
   entry and none offered to the model, whatever its own record says, so its
   `web_fetch` request cannot run.
-- **Browser:** `status` reports the `openclaw` profile and driver with the detected
-  executable. `profiles` lists `chrome`, `openclaw` and `user`, all with driver
-  `openclaw`. `importprofile` answers `system profile import is disabled`. `open` on
-  the loopback page answers `browser navigation blocked by policy`. `start` launches
-  Chrome, whose `userDataDir` lies inside the test's data directory, and `stop` ends
-  it.
+- **Browser:** `status` reports the agent's own `agent-<id>` profile and driver with
+  the detected executable, also when the model names `openclaw`: the team plugin's
+  tool guard pins every call to the agent's profile (AgentPier 2026-10-17, see
+  "Browser isolation" in `docs/assistant-gateway.md`). `profiles` lists
+  `agent-<id>`, `chrome`, `member-1` to `member-3`, `openclaw` and `user`, all
+  with driver `openclaw`. `importprofile` is refused by the guard ("Importing a
+  system browser profile is not allowed"). `open` on the loopback page answers
+  `browser navigation blocked by policy`. `start` launches Chrome, whose
+  `userDataDir` lies inside the test's data directory below `agent-<id>`, and
+  `stop` ends it.
 
 This contract replaced an earlier hand-patched web tools test in the native
 interfaces contract. Its additional findings (the
@@ -248,9 +252,13 @@ browser: {
   allowSystemProfileImport: false,
   headless: true,
   executablePath: "<detected Chromium-based browser>",
+  extraArgs: ["--use-mock-keychain"],
   profiles: {
     user: { driver: "openclaw", cdpPort: gatewayPort + 12 },
     chrome: { driver: "openclaw", cdpPort: gatewayPort + 13 },
+    // Since 2026-10-17: member slots from + 14, one profile per agent from + 20.
+    "member-1": { driver: "openclaw", cdpPort: gatewayPort + 14, headless: true },
+    "agent-<id>": { driver: "openclaw", cdpPort: gatewayPort + 20, headless: true },
   },
   // ssrfPolicy: omit, or only allowedHostnames/blockedHostnames
 }
@@ -270,8 +278,9 @@ Findings:
   contract asserts that every listed profile has `driver: "openclaw"`.
 - **`allowSystemProfileImport: false`.** The tool exposes `action: "importprofile"`,
   which copies cookies from a macOS Chrome-family system profile. With the flag set
-  to `false`, the tool answers `system profile import is disabled`, as the contract
-  asserts.
+  to `false`, the tool answers `system profile import is disabled`. Since 2026-10-17
+  AgentPier's tool guard refuses the action before OpenClaw sees it, as the contract
+  asserts; the flag stays as a second line.
 - **`ssrfPolicy`.** The default (no `ssrfPolicy`) already blocks `127.0.0.1`,
   `localhost` and `10.0.0.0/8` with `browser navigation blocked by policy`, which the
   compiled contract asserts. Do not

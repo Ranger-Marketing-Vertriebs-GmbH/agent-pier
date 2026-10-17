@@ -63,8 +63,11 @@ const excludedFiles = new Set([
   "update.json",
   "runtime-maintenance.json",
 ]);
-// Caches of the Gateway's own trees; workspaces belong to the user and stay complete.
-const volatileTree = /(^|\/)(cache|node_modules)(\/|$)/;
+// Caches of the Gateway's own trees, in any spelling (Chromium's "Cache", "Code
+// Cache", "GPUCache"); workspaces belong to the user and stay complete.
+const volatileTree = /(^|\/)([^/]*cache|node_modules)(\/|$)/i;
+// The agents' browser profiles go only sealed (browser-profile-backup.js).
+const browserTree = /^state\/browser(\/|$)/;
 const volatile = /-(wal|shm|journal)$|\.lock$|\.tmp$/;
 const sqliteHeader = Buffer.from("SQLite format 3\0");
 export const assistantOmissions = [
@@ -87,6 +90,7 @@ const included = (relative) => {
     !excludedFolders.has(top) &&
     !excludedFiles.has(relative) &&
     !volatile.test(relative) &&
+    !browserTree.test(relative) &&
     (top === "workspaces" || !volatileTree.test(relative))
   );
 };

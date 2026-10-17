@@ -127,9 +127,11 @@ test("the runtime status reports whether a browser is available, without paths",
     name: "Chrome",
     executablePath: "/Applications/Secret/Chrome",
   }));
-  assert.deepEqual(found.browser, { available: true, name: "Chrome" });
+  const noApp = { available: false, reason: "noApp" };
+  assert.deepEqual(found.browser, { available: true, name: "Chrome", visible: noApp });
   assert.deepEqual((await get(() => ({ available: false }))).browser, {
     available: false,
+    visible: noApp,
   });
   assert.deepEqual(
     (
@@ -137,6 +139,48 @@ test("the runtime status reports whether a browser is available, without paths",
         throw new Error("boom");
       })
     ).browser,
-    { available: false },
+    { available: false, visible: noApp },
   );
+  // A visible window is reported with its reason, never with a path.
+  const brave = await get(() => ({
+    available: true,
+    name: "Brave",
+    executablePath: "/Applications/Secret/Brave",
+    visible: { available: true },
+  }));
+  assert.deepEqual(brave.browser, {
+    available: true,
+    name: "Brave",
+    visible: { available: true },
+  });
+  const headless = await get(() => ({
+    available: true,
+    name: "Brave",
+    visible: { available: false, reason: "noDisplay" },
+  }));
+  assert.deepEqual(headless.browser.visible, { available: false, reason: "noDisplay" });
+});
+
+test("the agent browser routes report its state and reset its profile", async (t) => {
+  const calls = [];
+  const browsers = {
+    status: (id) => (calls.push(["status", id]), { running: true, stored: true }),
+    reset: async (id) => (calls.push(["reset", id]), { running: false, stored: false }),
+  };
+  const request = await serve(t, {
+    assistantRuntime: { status: () => ({ availability: "ready", sync: "current" }) },
+    assistants: { store: { listAssistants: () => [] }, browsers },
+  });
+  assert.deepEqual(await (await request("GET", "/assistants/a1/browser")).json(), {
+    running: true,
+    stored: true,
+  });
+  assert.deepEqual(
+    await (await request("POST", "/assistants/a1/browser/reset", {})).json(),
+    { running: false, stored: false },
+  );
+  assert.deepEqual(calls, [
+    ["status", "a1"],
+    ["reset", "a1"],
+  ]);
 });

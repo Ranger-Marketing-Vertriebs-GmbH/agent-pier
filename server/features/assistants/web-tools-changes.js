@@ -38,9 +38,10 @@ export class WebToolsChanges {
   /** The profiles once `patch` is saved for `id`, as the store merges capabilities. */
   profilesWith(id, patch) {
     return this.assistants.store.listAssistants().map((profile) =>
-      profile.id === id && patch.capabilities
+      profile.id === id && (patch.capabilities || "browserVisible" in patch)
         ? {
             ...profile,
+            ...("browserVisible" in patch && { browserVisible: patch.browserVisible }),
             capabilities: { ...profile.capabilities, ...patch.capabilities },
           }
         : profile,

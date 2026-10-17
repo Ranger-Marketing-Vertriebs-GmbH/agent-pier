@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { capabilityTools, usedCapabilities } from "../native-capabilities.js";
+import { browserProfileMap } from "./browser-profiles.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-web-tools-qualification.md.
 
@@ -61,6 +62,16 @@ export function webToolsSections({ profiles, webTools, port }) {
   if (active("browser")) {
     // An explicit root block activates the bundled plugin; listing it is explicit.
     sections.plugins.allow.push("browser");
+    // Every agent drives a persistent profile of its own (browser-profiles.js); the
+    // tool guard pins each call to it, so the default profile is never used.
+    const own = Object.fromEntries(
+      Object.entries(
+        browserProfileMap({ profiles, browser: webTools.browser, port }),
+      ).map(([name, { cdpPort, headless }]) => [
+        name,
+        { driver: "openclaw", cdpPort, headless },
+      ]),
+    );
     sections.browser = {
       enabled: true,
       defaultProfile: "openclaw",
@@ -69,12 +80,17 @@ export function webToolsSections({ profiles, webTools, port }) {
       allowSystemProfileImport: false,
       headless: true,
       executablePath: webTools.browser.executablePath,
+      // OpenClaw uses the macOS keychain for a new profile it launches visibly, which
+      // can prompt the owner; the mock keychain never does (ignored elsewhere).
+      // extraArgs is global, so every profile keeps the same cookie protection.
+      extraArgs: ["--use-mock-keychain"],
       // The plugin adds implicit "user" (the signed-in Chrome) and "chrome"
       // (extension) profiles unless defined; both become isolated managed profiles.
       // CDP ports follow OpenClaw's range: first CDP port = gateway port + 11.
       profiles: {
         user: { driver: "openclaw", cdpPort: port + 12 },
         chrome: { driver: "openclaw", cdpPort: port + 13 },
+        ...own,
       },
       // No ssrfPolicy: the default blocks private targets, while an explicit
       // dangerouslyAllowPrivateNetwork: false makes every navigation fail.
@@ -120,9 +136,16 @@ export function webToolsSignature({ profiles, webTools }) {
  * the global `tools.allow` (live MCP applies rewrite that list) and the signature of
  * the compiled sections. It never holds the search key.
  */
-export function webToolsSnapshot({ profiles, webTools }) {
+export function webToolsSnapshot({ profiles, webTools, port = 0 }) {
+  const available = webToolsAvailability(webTools).browser;
   return {
     availability: webToolsAvailability(webTools),
+    // The agents' browser profiles this start compiled, with their CDP ports.
+    browserProfiles:
+      available && usedCapabilities(profiles).has("browser")
+        ? browserProfileMap({ profiles, browser: webTools.browser, port })
+        : {},
+    visibleBrowser: available && webTools.browser.visible?.available === true,
     searchPlugins: webTools?.searchPlugins || {},
     tools: webToolsSections({ profiles, webTools, port: 0 }).tools,
     signature: webToolsSignature({ profiles, webTools }),

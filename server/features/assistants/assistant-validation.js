@@ -53,6 +53,7 @@ export function validateDefinition(input, partial = false) {
           "model",
           "capabilities",
           "shell",
+          "browserVisible",
           "skills",
           "heartbeat",
           "confirmInstructions",
@@ -66,6 +67,10 @@ export function validateDefinition(input, partial = false) {
   if ("shell" in input) {
     if (!shellLevels.includes(input.shell)) throw assistantProblem("invalid");
     result.shell = input.shell;
+  }
+  if ("browserVisible" in input) {
+    if (typeof input.browserVisible !== "boolean") throw assistantProblem("invalid");
+    result.browserVisible = input.browserVisible;
   }
   if ("skills" in input) result.skills = validateSkills(input.skills);
   if ("heartbeat" in input) result.heartbeat = validateHeartbeat(input.heartbeat);

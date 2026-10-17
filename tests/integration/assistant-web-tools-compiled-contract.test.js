@@ -16,6 +16,7 @@ import { provisionTeamPlugin } from "../../server/features/assistants/team-plugi
 import { capabilityTools } from "../../server/features/assistants/native-capabilities.js";
 import { defaultGrants } from "../../server/features/assistants/member-grants.js";
 import { webToolsSections } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs: its data
@@ -151,13 +152,16 @@ test(
         if (config.browser.enabled) config.browser.noSandbox = true;
         fs.writeFileSync(runtime.paths.config, JSON.stringify(config));
       };
+    // The tool guard pins every browser call to the agent's own profile.
+    const browsers = new AgentBrowsers({ store, runtime });
     const bridge = new TeamBridge({
-      assistants: { store, ledger, runtime },
+      assistants: { store, ledger, runtime, browsers },
       generation: () => runtime.generation,
       teams: { store: { context: () => ({ kind: "owner" }) } },
     });
     t.after(async () => {
       try {
+        browsers.close();
         await runtime.close();
         await bridge.close();
         await model.close();
@@ -367,32 +371,39 @@ test(
     assert.equal(page.hits, 0);
 
     await t.test(
-      "the browser runs only openclaw profiles inside the data dir",
+      "the browser runs only the agent's own profile inside the data dir",
       async (st) => {
         if (!browser.available) return st.skip("no Chromium-based browser installed");
         const call = (args, label) =>
           turn(web, { name: "browser", arguments: args }, label);
         const { result: status } = await call({ action: "status" }, "browser-status");
         const state = JSON.parse(status);
-        assert.equal(state.profile, "openclaw");
+        const own = `agent-${web.id}`;
+        assert.equal(state.profile, own);
         assert.equal(state.driver, "openclaw");
         assert.equal(state.executablePath, browser.executablePath);
         const { result: listedProfiles } = await call({ action: "profiles" }, "profiles");
         const { profiles } = JSON.parse(listedProfiles);
         assert.deepEqual(profiles.map((p) => p.name).sort(), [
+          own,
           "chrome",
+          "member-1",
+          "member-2",
+          "member-3",
           "openclaw",
           "user",
         ]);
+        // The model naming another profile still drives the agent's own.
+        const { result: other } = await call(
+          { action: "status", profile: "openclaw" },
+          "other-profile",
+        );
+        assert.equal(JSON.parse(other).profile, own);
         for (const profile of profiles)
           assert.equal(profile.driver, "openclaw", profile.name);
         const { result: imported } = await call({ action: "importprofile" }, "import");
-        // macOS refuses through allowSystemProfileImport: false; Linux has no system
-        // profile import in this OpenClaw release and refuses it outright.
-        assert.match(
-          imported,
-          /system profile import is (disabled|only supported on macOS)/,
-        );
+        // AgentPier's tool guard refuses it before OpenClaw sees it.
+        assert.match(imported, /Importing a system browser profile is not allowed/);
         const { result: blocked } = await call({ action: "open", url: local }, "blocked");
         assert.match(blocked, /browser navigation blocked by policy/);
         assert.equal(page.hits, 0);
@@ -405,6 +416,7 @@ test(
             fs.realpathSync(userDataDir).startsWith(fs.realpathSync(dataDir) + path.sep),
             userDataDir,
           );
+          assert.equal(path.basename(path.dirname(userDataDir)), own);
         } finally {
           const { result: stopped } = await call({ action: "stop" }, "stop");
           assert.equal(JSON.parse(stopped).running, false);

@@ -148,6 +148,11 @@ export class AssistantStore {
       if (fields.shell !== "off") throw assistantProblem("invalid");
       delete fields.shell;
     }
+    // Likewise the visible browser window: only eligible agents have a profile.
+    if ("browserVisible" in fields && !personalEligible(current)) {
+      if (fields.browserVisible) throw assistantProblem("invalid");
+      delete fields.browserVisible;
+    }
     // Likewise skills: an ineligible profile may only restate an empty list.
     if ("skills" in fields && !personalEligible(current)) {
       if (fields.skills.length) throw assistantProblem("invalid");

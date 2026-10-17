@@ -22,6 +22,12 @@ import {
   captureAssistants,
   forgetAssistantBackup,
 } from "./assistant-backup.js";
+import {
+  browserCachesOmission,
+  browserProfilesComponent,
+  browserProfilesOmission,
+  captureBrowserProfiles,
+} from "./browser-profile-backup.js";
 
 export const historyOmission = profileOmissions.unsealed;
 export const mcpLoginOmission = "MCP server OAuth logins";
@@ -68,7 +74,9 @@ export class Backup {
               "encrypted-managed-profiles",
               "encrypted-repository-credentials",
               "encrypted-provider-credentials",
-              ...(assistants ? ["sealed-assistant-credentials"] : []),
+              ...(assistants
+                ? ["sealed-assistant-credentials", browserProfilesComponent]
+                : []),
               ...(mcpServers ? ["encrypted-mcp-server-values"] : []),
             ]
           : []),
@@ -82,6 +90,8 @@ export class Backup {
             ? [profileOmissions.unsealed]
             : []),
         ...(assistants ? assistantOmissions : []),
+        ...(assistants ? [browserCachesOmission] : []),
+        ...(assistants && !options.withCredentials ? [browserProfilesOmission] : []),
         ...(mcpServers ? [mcpLoginOmission] : []),
         ...(mcpServers && !options.withCredentials ? [mcpValueOmission] : []),
         ...(!options.withCredentials
@@ -144,10 +154,21 @@ export class Backup {
         plan: members,
         scratch,
       });
+      // The agents' browser logins travel only sealed, like histories.
+      const browser =
+        options.withCredentials && assistants?.manifest
+          ? await captureBrowserProfiles({
+              dataDir: this.dataDir,
+              plan: members,
+              scratch,
+            })
+          : { files: [], omissions: [] };
       // History is sealed under a key that travels in the capsule.
       const history = sealHistory(
         id,
-        [...snapshot.files, ...profiles.files].filter((member) => member.history),
+        [...snapshot.files, ...profiles.files, ...browser.files].filter(
+          (member) => member.history,
+        ),
       );
       try {
         return await this.write(
@@ -166,7 +187,11 @@ export class Backup {
               ...(history.members.length ? [history.record] : []),
             ],
             captures: [...snapshot.captures, ...profiles.captures],
-            omissions: [...snapshot.omissions, ...profiles.omissions],
+            omissions: [
+              ...snapshot.omissions,
+              ...profiles.omissions,
+              ...browser.omissions,
+            ],
           },
           assistants,
         );

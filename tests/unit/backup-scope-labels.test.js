@@ -9,6 +9,7 @@ import {
   mcpValueOmission,
 } from "../../server/features/operations/backup.js";
 import { assistantOmissions } from "../../server/features/operations/assistant-backup.js";
+import { browserUnreadableOmission } from "../../server/features/operations/browser-profile-backup.js";
 import { profileOmissions } from "../../server/features/operations/profile-capture.js";
 import {
   changedOmission,
@@ -34,6 +35,7 @@ test("every backup scope entry has a German and an English label", (t) => {
   const backup = new Backup({ dataDir });
   const keys = new Set([
     ...assistantOmissions,
+    browserUnreadableOmission,
     ...Object.values(profileOmissions),
     removedOmission,
     changedOmission,

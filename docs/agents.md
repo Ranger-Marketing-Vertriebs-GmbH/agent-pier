@@ -59,10 +59,20 @@ member also shows whether its model changed since it took it over from the lead.
   between conversations; **Memory** opens and searches them. **Allow Telegram
   reminders** lets it send reminders and run routines through Telegram.
 - **Web & documents:** **Search the web**, **Read web pages**, **Use a browser** (a
-  separate browser profile; needs Chrome, Brave, Edge or Chromium on the host) and
-  **Read images**. The search provider is set once under
+  persistent browser profile of the agent's own; needs Chrome, Brave, Edge or
+  Chromium on the host) and **Read images**. The search provider is set once under
   **Accounts → Services for agents → Web search** (DuckDuckGo, Brave Search or
   Perplexity through OpenRouter).
+- **Agent browser** (while **Use a browser** is on): **Visible browser** opens a
+  regular, minimized window instead of a headless one, so shop and product pages that
+  block headless browsers work; open the window from the Dock or the window list to
+  sign in. It needs a browser app of the agents' own, Brave, Chromium or Chrome for
+  Testing, never the owner's Chrome, and on Linux a display. At most three visible
+  browsers run at once, and a browser idle for 15 minutes stops. **Reset browser
+  profile** deletes the agent's sign-ins and cookies. The chat header shows
+  **Browser running** while it runs. Temporary team members get a browser profile
+  that is discarded when they end. See "Browser isolation" in
+  `docs/assistant-gateway.md`.
 - **Shell access:** **Off**, **With approval** or **Full access**. With approval, the
   agent asks before every command that is not always allowed; the request appears in
   the chat and in the paired Telegram chat with **Allow once**, **Always allow** and

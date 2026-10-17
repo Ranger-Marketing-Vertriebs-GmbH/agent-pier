@@ -1118,22 +1118,69 @@ external content, and the switches do not grant any other tool.
 
 ### Browser isolation
 
-AgentPier installs no browser. `detectBrowser()` looks for Chrome, Brave, Edge or
-Chromium in the platform's standard locations, and the compiled `browser` block
-names that executable. The block:
+AgentPier installs no browser. `detectBrowser()` looks in the platform's standard
+locations and prefers a browser app of the agents' own (Brave, then Chromium, then
+Chrome for Testing) over Chrome, Brave, Edge or Chromium in general; the compiled
+`browser` block names that one executable for every agent profile, so a profile is
+always opened by the same app. The block:
 
 - uses only OpenClaw-managed profiles (`driver: "openclaw"`). OpenClaw's implicit
   `user` profile (which attaches to the signed-in system browser) and `chrome`
   profile (extension relay) are redefined as managed profiles on their own CDP
   ports, so no profile name reaches the owner's browser;
-- keeps the profile data in the Gateway's state directory below the AgentPier data
-  directory, never in the owner's browser profile;
+- gives every permanent agent with **Use a browser** a persistent profile of its own,
+  `agent-<id>`, with its own CDP port from Gateway port + 20. Logins and cookies
+  survive restarts. Temporary team members borrow one of three member slots
+  (`member-1` to `member-3`, or `member-visible-1` to `-3` when their lead's
+  window is visible); AgentPier discards a slot's data when the member ends, and a
+  promoted member takes it along as its own `agent-<id>` profile. Slot data no member
+  holds (for example after AgentPier restarted) is discarded too;
+- keeps the profile data in the Gateway's state directory
+  (`assistants/state/browser/<profile>/user-data`), never in the owner's browser
+  profile;
 - sets `allowSystemProfileImport: false`, so the agent cannot copy cookies from a
   system browser profile, and `evaluateEnabled: false`;
-- runs `headless`, so no window appears;
+- runs every profile `headless` unless the owner switches on **Visible browser** for
+  the agent (**Agents → agent → Capabilities → Agent browser**). A visible window needs
+  the separate agent app and a display; with only the owner's Chrome, or on Linux
+  without `DISPLAY`/`WAYLAND_DISPLAY`, the profile stays headless and the setting
+  says why. AgentPier passes `DISPLAY`, `WAYLAND_DISPLAY` and `XDG_RUNTIME_DIR` to
+  the Gateway when they are set; it provisions no Xvfb;
+- passes `--use-mock-keychain` through the global `extraArgs`. OpenClaw otherwise
+  uses the macOS keychain for a new profile it launches visibly, which can prompt the
+  owner from the service context. The cookies of every profile are then encrypted with
+  Chromium's fixed mock key, as they already were for OpenClaw's headless profiles,
+  so the profile folders count as credentials (see backups below);
 - sets no `ssrfPolicy`: OpenClaw's default already blocks loopback and private
   networks, while an explicit `dangerouslyAllowPrivateNetwork: false` would make every
   navigation fail. `browser.noSandbox` is never set.
+
+The team plugin's `before_tool_call` guard asks AgentPier (`/browser-policy`, in
+`agent-browsers.js`) before every browser call. The answer pins the call to the
+calling agent's own profile on the Gateway host, whatever profile the model named,
+and refuses `importprofile`; without an answer the call is refused. AgentPier also
+keeps the limits:
+
+- at most three visible agent browsers run at once. A fourth stops the least recently
+  used one that has been idle for a minute; with all three in use the call is refused
+  with a message the agent passes on;
+- a browser unused for 15 minutes is stopped (`browser.request` `POST /stop`);
+- a visible browser starts minimized. A small CDP client of AgentPier's on the
+  profile's loopback port minimizes the windows the browser opens at launch and keeps
+  focus emulation on every page, so minimized pages keep rendering for screenshots,
+  clicks and typing. Windows opened later, such as a login popup or a window the owner
+  restored from the Dock, are left alone. The CDP port is loopback-only and
+  unauthenticated, like OpenClaw's own.
+
+Switching the browser on for another agent, or switching a window on or off, changes
+the compiled profiles and restarts the agent service after the owner confirms, like
+other web tool changes. **Reset browser profile** stops the agent's browser and
+deletes its profile. While an agent's browser runs, its chat header shows
+**Browser running**.
+
+Logged-in profiles widen what a misled agent can do: a page can try to make it act on
+the accounts the owner signed in to. The browser stays an opt-in per agent; sign in
+only where the agent needs it, and reset the profile to sign it out everywhere.
 
 The `browser`, `mcp`, `secrets`, `env`, `plugins` and `tools` paths are locked
 against configuration overrides; the compiler rewrites the browser block on each

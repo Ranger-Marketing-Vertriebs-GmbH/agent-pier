@@ -65,7 +65,7 @@ export const assistantCopy = {
     webSearchDescription: "Recherchiert mit dem in den Zugängen gewählten Suchanbieter.",
     webFetchDescription: "Öffnet eine Webadresse und liest den Text der Seite.",
     browserDescription:
-      "Steuert ein eigenes Browserprofil für Seiten, die Klicken oder Anmelden erfordern.",
+      "Steuert ein eigenes, dauerhaftes Browserprofil für Seiten, die Klicken oder Anmelden erfordern.",
     documentsDescription:
       "Betrachtet Bilder in seinem Arbeitsordner. Braucht ein Modell, das Bilder annimmt.",
     browserUnavailable:

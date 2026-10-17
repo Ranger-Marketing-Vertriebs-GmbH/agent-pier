@@ -12,6 +12,7 @@ import { TelegramSenders } from "../features/assistant-channels/telegram-senders
 import { stdioAgents } from "../features/assistants/openclaw-config/telegram-senders.js";
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
+import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
 import { webToolsAvailability } from "../features/assistants/openclaw-config/web-tools.js";
 import { readMcpInputs } from "../features/assistants/openclaw-config/mcp-servers.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
@@ -141,6 +142,13 @@ export function constructAssistantGraph(host, created = {}) {
       "telegramSenders",
     ],
   ));
+  // The agents' own browsers: profile pinning, the visible limit and idle stops.
+  assistants.browsers = created.browsers = new AgentBrowsers({
+    store,
+    runtime: assistantRuntime,
+  });
+  assistants.browsers.onChange = () => assistants.changed();
+  assistants.browsers.start();
   // A background model list read publishes its result like any other change.
   assistantModelAccounts.catalog.onChange = () => assistants.changed();
   // Initial state, not a reference: an interrupted update or maintenance persists.

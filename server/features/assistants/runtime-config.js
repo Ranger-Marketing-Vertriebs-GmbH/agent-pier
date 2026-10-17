@@ -400,6 +400,17 @@ export function runtimeEnvironment(
     OPENCLAW_NO_AUTO_UPDATE: "1",
     DO_NOT_TRACK: "1",
     ...(shell && { SHELL: shell }),
+    // A visible agent browser opens on the owner's display; without one OpenClaw
+    // launches it headless (browser-detection.js hasDisplay).
+    ...displayEnvironment(parent),
   };
 }
+const displayVariables = ["DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR"];
+/** The display variables of `parent` that are set, for the Gateway's browsers. */
+export const displayEnvironment = (parent = process.env) =>
+  Object.fromEntries(
+    displayVariables
+      .filter((name) => typeof parent[name] === "string" && parent[name])
+      .map((name) => [name, parent[name]]),
+  );
 export { proxyEnvironment, proxyVariables } from "../../lib/proxy-environment.js";

@@ -1,6 +1,17 @@
 import { Router } from "express";
-export function assistantCapabilityRoutes({ assistantMemory, assistantReminders }) {
+export function assistantCapabilityRoutes({
+  assistants,
+  assistantMemory,
+  assistantReminders,
+}) {
   const router = Router();
+  // The agent's own browser: whether it runs, and deleting its profile.
+  router.get("/assistants/:id/browser", (req, res) =>
+    res.json(assistants.browsers.status(req.params.id)),
+  );
+  router.post("/assistants/:id/browser/reset", async (req, res) =>
+    res.json(await assistants.browsers.reset(req.params.id)),
+  );
   router.get("/assistants/:id/memory", async (req, res) =>
     res.json(await assistantMemory.read(req.params.id, req.query.name || "MEMORY.md")),
   );

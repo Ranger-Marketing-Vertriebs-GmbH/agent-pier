@@ -4,6 +4,7 @@ import { problem } from "../../lib/storage.js";
 import { fileMember } from "./snapshot.js";
 import { relativeName } from "./files.js";
 import { profileMemberKind } from "./profile-allowlist.js";
+import { isBrowserProfilePath } from "./browser-profile-backup.js";
 
 const cleanPath = (name) => {
   try {
@@ -18,9 +19,14 @@ const ownHistory =
   /^(sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
 /** Whether `name` is one of AgentPier's own history files. */
 export const isOwnHistoryPath = (name) => ownHistory.test(name);
-/** Whether `name` is a history file, which backups archive only sealed. */
+/**
+ * Whether `name` is a history file, which backups archive only sealed; an agent's
+ * browser profile is sealed the same way.
+ */
 export const isHistoryPath = (name) =>
-  isOwnHistoryPath(name) || profileMemberKind(name) === "history";
+  isOwnHistoryPath(name) ||
+  profileMemberKind(name) === "history" ||
+  isBrowserProfilePath(name);
 
 /**
  * Histories, AgentPier's own and the CLIs', are archived only in backups with a

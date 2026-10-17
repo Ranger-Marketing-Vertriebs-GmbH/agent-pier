@@ -236,6 +236,12 @@ export class TeamBridge {
     if (!allow && isMemory(input.path)) noteRefusal(this, input);
     return { allow };
   }
+  // Every browser call drives the calling agent's own profile (agent-browsers.js).
+  browserPolicy(input) {
+    if (this.closed || !this.assistants.browsers)
+      return { allow: false, reason: "unavailable" };
+    return this.assistants.browsers.policy(input);
+  }
   writeAllowed(input) {
     if (flushSessionAgent(input.sessionKey)) return flushWrite(this, input);
     const matches = this.bound(input.sessionKey);
@@ -366,7 +372,9 @@ export class TeamBridge {
         throw assistantProblem("invalid", 401);
       if (
         req.method !== "POST" ||
-        !["/prepare", "/invoke", "/tool-policy", "/guard"].includes(req.url)
+        !["/prepare", "/invoke", "/tool-policy", "/browser-policy", "/guard"].includes(
+          req.url,
+        )
       )
         throw assistantProblem("invalid", 404);
       let size = 0;
@@ -393,9 +401,11 @@ export class TeamBridge {
         ? this.prepare(input)
         : req.url === "/tool-policy"
           ? this.toolPolicy(input)
-          : req.url === "/guard"
-            ? this.registerGuard(input)
-            : this.invoke(input));
+          : req.url === "/browser-policy"
+            ? this.browserPolicy(input)
+            : req.url === "/guard"
+              ? this.registerGuard(input)
+              : this.invoke(input));
       if (req.url === "/invoke") invocation = this.tickets.get(input.ticket)?.invocation;
       if (lost) invocation?.undelivered?.();
       res.writeHead(200, {

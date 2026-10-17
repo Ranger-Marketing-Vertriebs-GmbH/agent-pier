@@ -233,6 +233,8 @@ export class AssistantService {
   /** The profile with its bound MCP server ids, for agents the owner binds. */
   withMcp(profile) {
     const decorated = this.withCheckInChat(this.shellChanges.decorate(profile));
+    // The badge while the agent's own browser runs (agent-browsers.js).
+    if (this.browsers?.isRunning(profile.id)) decorated.browserRunning = true;
     return this.mcp ? this.mcp.decorate(decorated) : decorated;
   }
   /**
@@ -320,8 +322,9 @@ export class AssistantService {
       // Only bundled skills the running Gateway reports, refused before any change.
       if (patch.skills) await this.skills.check(current, changes.skills);
       // Without the owner's confirmation nothing changes, not even reminders.
+      // The browser profiles, and whether each opens a window, are global sections too.
       const restart =
-        !!patch.capabilities &&
+        (!!patch.capabilities || "browserVisible" in patch) &&
         !!this.webTools?.differs({ profiles: this.webTools.profilesWith(id, patch) });
       const disableReminders =
         !!current.capabilities?.reminders && patch.capabilities?.reminders === false;
@@ -566,6 +569,7 @@ export class AssistantService {
     this.closed = true;
     clearInterval(this.poll);
     clearTimeout(this.skills.timer);
+    this.browsers?.close();
     this.unsubscribe?.();
     this.chatStreams.clear();
     this.gatewayEvents.unsubscribe?.();

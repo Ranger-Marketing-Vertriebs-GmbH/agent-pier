@@ -150,10 +150,16 @@ test("capability drafts flatten switches and send only what changed", () => {
     webFetch: false,
     browser: false,
     documents: false,
+    browserVisible: false,
     shell: "off",
     mcpServers: ["a", "b"],
     skills: [],
   });
+  // The visible browser window is sent on its own, and never for a member.
+  assert.deepEqual(
+    capabilityPatch({ values: { ...base, browserVisible: true }, base, assistant }),
+    { browserVisible: true },
+  );
   assert.deepEqual(
     capabilityPatch({ values: { ...base, webFetch: true }, base, assistant }),
     {
@@ -187,7 +193,7 @@ test("capability drafts flatten switches and send only what changed", () => {
   const member = agent({ teamMemberId: "m", lifetime: "task" });
   assert.deepEqual(
     capabilityPatch({
-      values: { ...base, shell: "full", skills: ["github"] },
+      values: { ...base, shell: "full", skills: ["github"], browserVisible: true },
       base,
       assistant: member,
     }),

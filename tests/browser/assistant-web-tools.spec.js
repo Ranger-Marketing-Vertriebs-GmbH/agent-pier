@@ -19,7 +19,9 @@ async function setup(page, options = {}) {
   const controls = await fixture(page);
   controls.state.providerConnections = options.connections || [];
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const agent = { ...home, ...options.assistant };
   const state = {
+    resets: 0,
     patches: [],
     creates: [],
     puts: [],
@@ -42,6 +44,12 @@ async function setup(page, options = {}) {
         contentType: "text/event-stream",
         body: 'data: {"type":"connected"}\n\n',
       });
+    if (path === "/api/assistants/home/browser/reset" && method === "POST") {
+      state.resets++;
+      return route.fulfill({
+        json: { running: false, visible: false, stored: false, resettable: true },
+      });
+    }
     if (path === "/api/assistants/home" && method === "PATCH") {
       const body = request.postDataJSON();
       state.patches.push(body);
@@ -55,7 +63,7 @@ async function setup(page, options = {}) {
             affected,
           },
         });
-      return route.fulfill({ json: { ...home, revision: 2 } });
+      return route.fulfill({ json: { ...agent, ...body, revision: 2 } });
     }
     if (path === "/api/assistants" && method === "POST") {
       state.creates.push(request.postDataJSON());
@@ -64,7 +72,7 @@ async function setup(page, options = {}) {
     if (path === "/api/assistants")
       return route.fulfill({
         json: {
-          assistants: [home],
+          assistants: [agent],
           conversations: [],
           models: [{ id: "router", name: "Router", available: true }],
         },
@@ -223,6 +231,46 @@ for (const [label, use] of [
       await expect(browser).toBeDisabled();
       await expect(page.getByText("No supported browser found")).toBeVisible();
       await expect(page.getByLabel("Read web pages")).toBeEnabled();
+    });
+
+    test("the agent's browser gets a visible window, a running badge and a reset", async ({
+      page,
+    }) => {
+      const state = await setup(page, {
+        assistant: { capabilities: { browser: true }, browserRunning: true },
+        browser: { available: true, name: "Brave", visible: { available: true } },
+      });
+      await page.goto(baseURL + settingsPath("capabilities"));
+      await expect(page.getByText("Agent browser", { exact: true })).toBeVisible();
+      await expect(page.locator(".assistant-shell-chip.browser")).toHaveText(
+        "Browser running",
+      );
+      const visible = page.getByLabel("Visible browser");
+      await expect(visible).toBeEnabled();
+      await visible.check();
+      await save(page).click();
+      await expect.poll(() => state.patches.length).toBe(1);
+      expect(state.patches[0]).toMatchObject({ browserVisible: true });
+      expect(state.patches[0].capabilities).toBeUndefined();
+      await page.getByRole("button", { name: /Reset browser profile/ }).click();
+      await page.getByRole("button", { name: "Delete profile" }).click();
+      await expect.poll(() => state.resets).toBe(1);
+      await expect(page.getByText("The browser profile was deleted.")).toBeVisible();
+    });
+
+    test("a visible window explains the missing agent browser app", async ({ page }) => {
+      await setup(page, {
+        assistant: { capabilities: { browser: true } },
+        browser: {
+          available: true,
+          name: "Chrome",
+          visible: { available: false, reason: "noApp" },
+        },
+      });
+      await page.goto(baseURL + settingsPath("capabilities"));
+      await expect(page.getByLabel("Visible browser")).toBeDisabled();
+      await expect(page.getByText("Install Brave (brave.com) or Chromium")).toBeVisible();
+      await expect(page.locator(".assistant-shell-chip.browser")).toHaveCount(0);
     });
 
     test("web search is explained while the provider is not configured", async ({

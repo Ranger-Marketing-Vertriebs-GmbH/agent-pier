@@ -133,6 +133,37 @@ export function classifyWrite(params, { roots = [], agentId } = {}) {
     }
   return { path: targets[0] };
 }
+// Why AgentPier refused a browser call (agent-browsers.js policy), for the model.
+export const browserRefusals = {
+  unavailable: "The browser is not available right now. Try again later.",
+  notGranted: "This agent may not use a browser.",
+  importBlocked: "Importing a system browser profile is not allowed.",
+  restartNeeded:
+    "This agent's browser profile is not set up yet; the owner must restart the agent service.",
+  slotsBusy: "All browser profiles for team members are in use. Try again later.",
+  visibleLimit:
+    "Three visible agent browsers are already in use. Try again in a minute or ask the owner.",
+};
+/**
+ * Pins every browser call to the calling agent's own profile on the Gateway host;
+ * AgentPier refuses it, with a reason, otherwise. Fails closed.
+ */
+export async function browserCall(event, ctx, bridge) {
+  const action =
+    typeof event?.params?.action === "string" ? event.params.action : undefined;
+  const response = await bridge(
+    "/browser-policy",
+    { agentId: ctx?.agentId, ...(action && { action }) },
+    ctx?.abortSignal,
+  ).catch(() => null);
+  const policy = response?.ok ? await response.json().catch(() => null) : null;
+  if (policy?.allow !== true || typeof policy.profile !== "string")
+    return {
+      block: true,
+      blockReason: browserRefusals[policy?.reason] || browserRefusals.unavailable,
+    };
+  return { params: { ...event.params, profile: policy.profile, target: "host" } };
+}
 export function registerToolGuard(api) {
   const configured = api.pluginConfig?.workspaces;
   const roots =
@@ -193,6 +224,10 @@ export function registerToolGuard(api) {
     },
     { matcher: writeTools, priority: 1000 },
   );
+  api.on("before_tool_call", (event, ctx) => browserCall(event, ctx, bridge), {
+    matcher: ["browser"],
+    priority: 1000,
+  });
   // Only after the hook is registered, and only from the active Gateway runtime
   // registry: discovery loads never carry the hooks agent runs use.
   if (api.registrationMode !== "full") return null;
