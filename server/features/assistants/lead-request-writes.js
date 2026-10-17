@@ -57,6 +57,14 @@ export function memoryTarget(root, runtimeAgentId, target) {
   }
 }
 
+// MEMORY.md itself or a Markdown file below memory/, nothing else.
+const memoryFile = (relative) => {
+  const parts = relative.split("/");
+  if (parts.length === 1) return fold(parts[0]) === "memory.md";
+  return (
+    fold(parts[0]) === "memory" && parts.every(Boolean) && /\.md$/i.test(parts.at(-1))
+  );
+};
 // Whether a workspace-relative path lies in the copy of the lead's memory.
 const inLeadMirror = (relative) => {
   const parts = relative.split("/").map(fold);
@@ -79,7 +87,10 @@ export function ownMemoryTarget(root, runtimeAgentId, target) {
     !forms.length ||
     forms.some(
       (form) =>
-        form === ".." || form.startsWith("../") || !isMemory(form) || inLeadMirror(form),
+        form === ".." ||
+        form.startsWith("../") ||
+        !memoryFile(form) ||
+        inLeadMirror(form),
     )
   )
     return false;
@@ -101,7 +112,7 @@ export function ownMemoryTarget(root, runtimeAgentId, target) {
       return (
         !!relative &&
         !relative.startsWith("..") &&
-        isMemory(relative) &&
+        memoryFile(relative) &&
         !inLeadMirror(relative)
       );
     });

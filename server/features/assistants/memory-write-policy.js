@@ -4,6 +4,7 @@ import {
   flushSessionAgent,
   flushTarget,
 } from "./memory-flushes.js";
+import { inheritsFromLead } from "./native-capabilities.js";
 
 const ownerOrigin = (origin) =>
   ["owner", "telegram"].includes(origin?.kind) && !origin.forwarded;
@@ -40,7 +41,8 @@ function sources(bridge, input) {
         allow:
           current &&
           [attempt.id, attempt.runtimeRunId].includes(flush.runId) &&
-          ownerOrigin(origin),
+          // A task member's own memory takes its flush in any of its turns.
+          (ownerOrigin(origin) || inheritsFromLead(parent)),
       },
     ];
   });

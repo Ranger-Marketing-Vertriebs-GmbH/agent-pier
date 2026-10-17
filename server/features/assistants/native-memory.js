@@ -4,6 +4,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { memoryEnabled } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
+import { leadMirrorDir } from "./member-memory.js";
 const names = new Set(["MEMORY.md", "USER.md"]);
 const projectFile = (file, name) => ({
   name,
@@ -60,6 +61,8 @@ export class NativeMemory {
         if (files.length >= maxNotes) return;
         const name = `${dir}/${entry.name}`;
         // Symbolic links are skipped: a note never leaves the agent's workspace.
+        // A task member's copy of its lead's memory is not its own (member-memory.js).
+        if (name === leadMirrorDir) continue;
         if (entry.isDirectory() && depth < 3) await walk(name, depth + 1);
         else if (entry.isFile() && noteName.test(name)) {
           const stat = await fs.lstat(path.join(root, name));

@@ -46,6 +46,9 @@ test("a member writes its own memory, never the copy of its lead's or anything e
     "memory/../memory/lead/x.md",
     "notes.txt",
     "src/app.js",
+    "memory",
+    "MEMORY.md/x.md",
+    "memory/notes.txt",
     "../other/MEMORY.md",
   ])
     assert.equal(f.write(target), false, target);
@@ -82,4 +85,17 @@ test("the owner can read a member's own memory in its settings", async (t) => {
   );
   const note = await memory.readNote(f.agent.id, "memory/2026-10-17.md");
   assert.equal(note.content, "Found the bug");
+});
+
+test("the owner's view of a member's own memory leaves the lead's copy out", async (t) => {
+  const f = await setup(t);
+  const own = path.join(f.workspaces, f.agent.id);
+  fs.writeFileSync(path.join(own, "memory", "lead", "MEMORY.md"), "Lead facts");
+  fs.writeFileSync(path.join(own, "memory", "mine.md"), "Mine");
+  const memory = new NativeMemory(f.assistants, { workspaces: f.workspaces });
+  const { files } = await memory.listNotes(f.agent.id);
+  assert.deepEqual(
+    files.map((file) => file.name),
+    ["memory/mine.md"],
+  );
 });
