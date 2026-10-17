@@ -343,3 +343,27 @@ test("servers granted later reach a task member, never a permanent one", async (
   // Only what the owner saw in the proposal.
   assert.deepEqual(other.bound(a.assistantId), [other.files.id]);
 });
+
+test("a finished member holds its servers again while its lead re-engages it", async (t) => {
+  const f = setup(t),
+    { team } = await f.propose();
+  await f.service.reconcile();
+  const a = f.memberOf(team, "A");
+  f.service.store.write(f.service.store.member(a.id), { phase: "completed" });
+  f.service.mcp.sync();
+  assert.deepEqual(f.bound(a.assistantId), []);
+  // An open question or task of the lead for this member (lead-requests.js).
+  const request = f.service.store.insert({
+    id: "request-1",
+    kind: "lead-request",
+    revision: 1,
+    parentAssistantId: f.lead.id,
+    memberId: a.id,
+    phase: "running",
+  });
+  f.service.mcp.sync();
+  assert.deepEqual(f.bound(a.assistantId), [f.files.id, f.github.id]);
+  f.service.store.write(request, { phase: "completed" });
+  f.service.mcp.sync();
+  assert.deepEqual(f.bound(a.assistantId), []);
+});

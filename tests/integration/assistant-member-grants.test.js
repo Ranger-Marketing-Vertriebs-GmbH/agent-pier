@@ -37,7 +37,7 @@ test("a lead grants a running member more within its own capabilities, visibly",
   }
 });
 
-test("a grant beyond the lead, or for a member that ended, is refused", async (t) => {
+test("a grant beyond the lead, or for an archived member, is refused", async (t) => {
   const f = await setup(t);
   await assert.rejects(f.call({ grants: { skills: ["himalaya"] } }), {
     key: "teamGrantNotHeld",
@@ -48,7 +48,10 @@ test("a grant beyond the lead, or for a member that ended, is refused", async (t
   await assert.rejects(f.call({ mcpServers: ["github"] }), {
     key: "teamMcpServerNotBound",
   });
-  f.teams.write(f.teams.member(f.member.id), { phase: "completed" });
+  f.teams.write(f.teams.member(f.member.id), {
+    phase: "completed",
+    archivedAt: "2026-10-17",
+  });
   await assert.rejects(f.call({ grants: { browser: true } }), {
     key: "teamGrantMemberEnded",
   });

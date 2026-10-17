@@ -132,7 +132,7 @@ const definitions = {
     }),
   },
   grant: {
-    description: `Give one of your own running task members more tools or access for its assignment, or take them back with revoke: true (any time). ${grantRule} Shell and SSH granted here wait for the owner's approval (status approval_requested); everything else applies at once and is shown to the owner in both chats.`,
+    description: `Give one of your own task members more tools or access, while it works on its task or after it finished (for your questions and tasks to it; not once archived), or take them back with revoke: true (any time). ${grantRule} Shell and SSH granted here wait for the owner's approval (status approval_requested); everything else applies at once and is shown to the owner in both chats.`,
     parameters: schema(
       {
         memberId: text(100),

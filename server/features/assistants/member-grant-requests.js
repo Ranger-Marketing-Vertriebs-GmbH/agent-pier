@@ -49,13 +49,7 @@ export class MemberGrants {
     } catch {
       throw assistantProblem("teamGrantMemberEnded", 409);
     }
-    if (
-      member.parentAssistantId !== lead.id ||
-      member.lifetime === "permanent" ||
-      member.archivedAt ||
-      ended.has(member.phase)
-    )
-      throw assistantProblem("teamGrantMemberEnded", 409);
+    if (!this.live(member, lead.id)) throw assistantProblem("teamGrantMemberEnded", 409);
     return { attempt, request, conversation, lead, member };
   }
   async grant(inv, input) {
@@ -243,12 +237,7 @@ export class MemberGrants {
     try {
       lead = this.assistants.store.getAssistant(action.assistantId);
       member = this.teams.member(action.payload.memberId);
-      if (
-        member.parentAssistantId !== lead.id ||
-        member.lifetime === "permanent" ||
-        member.archivedAt ||
-        ended.has(member.phase)
-      )
+      if (!this.live(member, lead.id))
         throw assistantProblem("teamGrantMemberEnded", 409);
       // The ceiling as it is now: the setting or the lead's own access may have gone.
       assertWithinLead(lead, action.payload.grants, {
@@ -296,14 +285,18 @@ export class MemberGrants {
     if (this.teams.policy(leadId).memberShellSsh) return;
     this.cancelPending(leadId, () => true, "SETTING_OFF");
   }
-  // Whether a member can still receive a grant.
+  /**
+   * Whether a member can still receive a grant: the lead's own task member, not
+   * archived or kept as permanent, and either working on its task or finished with
+   * a chat its lead can still reach with questions and tasks (lead-requests.js).
+   */
   live(member, leadId) {
     return (
       !!member &&
       member.parentAssistantId === leadId &&
       member.lifetime !== "permanent" &&
       !member.archivedAt &&
-      !ended.has(member.phase)
+      (!ended.has(member.phase) || !!member.conversationId)
     );
   }
   /** A member created a reminder on its lead: a note in the lead's chat and an audit. */

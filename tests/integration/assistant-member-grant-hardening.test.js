@@ -21,7 +21,7 @@ const owner = { kind: "owner", channel: "ui" };
 const decide = (f, a, decision = "approve") =>
   f.workflows.decide(a.id, { revision: a.revision, decision }, owner);
 
-test("a shell grant approved after the setting went off or the team ended fails closed", async (t) => {
+test("a shell grant approved after the setting went off or the member was archived fails closed", async (t) => {
   for (const end of ["setting", "team"]) {
     const f = await memberGrantFixture(t, { memberShellSsh: true });
     await f.call({ grants: { shell: "approval" } });
@@ -30,7 +30,12 @@ test("a shell grant approved after the setting went off or the team ended fails 
       // Written without the service hook, so the card still waits.
       const policy = f.teams.policy(f.id);
       f.teams.writePolicy(f.id, { memberShellSsh: false }, policy.revision);
-    } else f.teams.write(f.teams.member(f.member.id), { phase: "completed" });
+    } else
+      // Finished members stay addressable; an archived one can no longer be granted.
+      f.teams.write(f.teams.member(f.member.id), {
+        phase: "completed",
+        archivedAt: "2026-10-17",
+      });
     const decided = await decide(f, f.workflows.store.get(card.id));
     assert.equal(decided.state, "failed", end);
     assert.equal(f.workflows.store.get(card.id).diagnostic, "GRANT_REVOKED");
@@ -61,7 +66,7 @@ test("switching the setting off latches: grants and cards go, switching on resto
   assert.equal(f.agent().inherited.ssh, false);
 });
 
-test("revoking shell cancels the pending card with a notice, and an ended member's card is withdrawn", async (t) => {
+test("revoking shell cancels the pending card with a notice, and an archived member's card is withdrawn", async (t) => {
   const f = await memberGrantFixture(t, { memberShellSsh: true });
   await f.call({ grants: { shell: "approval" } });
   const [first] = pending(f);
@@ -74,7 +79,10 @@ test("revoking shell cancels the pending card with a notice, and an ended member
   assert.equal(f.workflows.store.get(first.id).settled, true);
   await f.call({ grants: { ssh: true } });
   const second = pending(f).find((a) => a.id !== first.id);
-  f.teams.write(f.teams.member(f.member.id), { phase: "completed" });
+  f.teams.write(f.teams.member(f.member.id), {
+    phase: "completed",
+    archivedAt: "2026-10-17",
+  });
   await f.workflows.tick();
   assert.equal(f.workflows.store.get(second.id).state, "cancelled");
 });
@@ -129,11 +137,15 @@ test("a lead cannot grant another lead's member, and a member cannot call grant"
   );
 });
 
-test("members reserved before grants existed get nothing", async (t) => {
+test("members reserved before grants existed get the default within the lead", async (t) => {
   const f = await memberGrantFixture(t);
   const record = f.teams.member(f.member.id);
   f.teams.write(record, { grants: undefined });
-  assert.deepEqual(Object.values(personalCapabilities(f.agent())).filter(Boolean), []);
+  const caps = personalCapabilities(f.agent());
+  assert.deepEqual(
+    Object.keys(caps).filter((key) => caps[key]),
+    ["memory", "webSearch", "webFetch"],
+  );
 });
 
 test("a member's reminders are capped per team and noted in the lead's chat", async (t) => {
