@@ -55,7 +55,7 @@ export function readRoute(location) {
       ? { view: "agents", creating: true }
       : { view: "agents" };
   const agent =
-    /^\/agents\/([A-Za-z0-9_-]+)\/(settings|chats\/([A-Za-z0-9_-]+)|teams\/([A-Za-z0-9_-]+))$/.exec(
+    /^\/agents\/([A-Za-z0-9_-]+)\/(settings|browser|chats\/([A-Za-z0-9_-]+)|teams\/([A-Za-z0-9_-]+))$/.exec(
       pathname,
     );
   const child = agent?.[3] || agent?.[4];
@@ -67,7 +67,9 @@ export function readRoute(location) {
         ? { conversationId: agent[3] }
         : agent[4]
           ? { teamId: agent[4] }
-          : { agentSettings: true, ...readAgentSettingsQuery(location.search) }),
+          : agent[2] === "browser"
+            ? { agentBrowser: true }
+            : { agentSettings: true, ...readAgentSettingsQuery(location.search) }),
     };
   if (pathname === "/accounts")
     return {
@@ -237,11 +239,13 @@ function basePath(route) {
       ? `/agents/${encodeURIComponent(route.assistantId)}/chats/${encodeURIComponent(route.conversationId)}`
       : route.teamId
         ? `/agents/${encodeURIComponent(route.assistantId)}/teams/${encodeURIComponent(route.teamId)}`
-        : route.assistantId
-          ? `/agents/${encodeURIComponent(route.assistantId)}/settings${agentSettingsQuery(route)}`
-          : route.creating
-            ? "/agents?new=1"
-            : "/agents";
+        : route.assistantId && route.agentBrowser
+          ? `/agents/${encodeURIComponent(route.assistantId)}/browser`
+          : route.assistantId
+            ? `/agents/${encodeURIComponent(route.assistantId)}/settings${agentSettingsQuery(route)}`
+            : route.creating
+              ? "/agents?new=1"
+              : "/agents";
   if (route.view === "settings") return settingsRoutePath(route);
   if (route.view === "pipelines") return pipelineRoutePath(route);
   if (route.view === "projects") return projectsRoutePath(route);

@@ -17,6 +17,7 @@ import { capabilityTools } from "../../server/features/assistants/native-capabil
 import { defaultGrants } from "../../server/features/assistants/member-grants.js";
 import { webToolsSections } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
+import { BrowserLiveView } from "../../server/features/assistants/browser-live-view.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs: its data
@@ -425,6 +426,34 @@ test(
             userDataDir,
           );
           assert.equal(path.basename(path.dirname(userDataDir)), own);
+          // The owner's live view: a screencast ticket on the agent's own profile,
+          // opened on the pinned Gateway connection, delivers frames.
+          const live = new BrowserLiveView({
+            browsers,
+            runtime,
+            pollMs: 60000,
+            retryMs: 500,
+          });
+          const frames = [],
+            states = [];
+          const view = live.subscribe(web.id, {
+            state: (state) => states.push(state),
+            frame: (bytes) => frames.push(Buffer.from(bytes)),
+          });
+          for (let n = 0; n < 300 && !frames.length; n++)
+            await new Promise((r) => setTimeout(r, 50));
+          view.close();
+          live.close();
+          st.diagnostic(`live states=${JSON.stringify(states.map((s) => s.status))}`);
+          assert.ok(frames.length, "a live frame");
+          const headerLength = frames[0].readUInt32BE(0);
+          const header = JSON.parse(frames[0].subarray(4, 4 + headerLength).toString());
+          assert.equal(typeof header.cssWidth, "number");
+          assert.deepEqual(
+            [...frames[0].subarray(4 + headerLength, 6 + headerLength)],
+            [0xff, 0xd8],
+          );
+          assert.equal(states.at(-1).status, "live");
         } finally {
           const { result: stopped } = await call({ action: "stop" }, "stop");
           assert.equal(JSON.parse(stopped).running, false);

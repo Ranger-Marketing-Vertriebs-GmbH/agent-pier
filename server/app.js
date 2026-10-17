@@ -65,6 +65,7 @@ import { registerResponses } from "./http/responses.js";
 import { buildHeader, buildIdentity } from "./http/build-identity.js";
 import { attachTerminalWebSocket } from "./http/terminal-websocket.js";
 import { attachChatWebSocket } from "./http/chat-websocket.js";
+import { attachBrowserWebSocket } from "./http/browser-websocket.js";
 import { workspaceRoutes } from "./http/routes/workspace.js";
 import { accountsRoutes } from "./http/routes/accounts.js";
 import { sessionsRoutes } from "./http/routes/sessions.js";
@@ -289,6 +290,12 @@ export async function createApplication(config) {
     effective,
   });
   services.chatWss = chatWss;
+  // The owner's live view of the agents' browsers, while the agent feature runs.
+  services.browserWss = attachBrowserWebSocket(server, {
+    live: () => services.assistants?.liveView || null,
+    login: services.login,
+    effective,
+  });
   // Returning the services object itself keeps test seams such as restartService writable.
   return Object.assign(services, {
     app,

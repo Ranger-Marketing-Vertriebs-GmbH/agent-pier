@@ -569,6 +569,7 @@ export class AssistantService {
     this.closed = true;
     clearInterval(this.poll);
     clearTimeout(this.skills.timer);
+    this.liveView?.close();
     this.browsers?.close();
     this.unsubscribe?.();
     this.chatStreams.clear();

@@ -180,6 +180,16 @@ export class GatewayClient extends EventEmitter {
       });
     });
   }
+  /**
+   * A further WebSocket to this Gateway, pinned like the RPC connection, for a
+   * single-use path such as a browser screencast ticket's `wsPath`.
+   */
+  openStream(wsPath) {
+    if (typeof wsPath !== "string" || !wsPath.startsWith("/") || wsPath.startsWith("//"))
+      throw gatewayError("RPC_FAILED");
+    const url = new URL(wsPath, this.url);
+    return pinnedSocket(url.href, this.certPath, { connected: false, secured: false });
+  }
   supports(method) {
     return !!this.features?.methods.has(method);
   }

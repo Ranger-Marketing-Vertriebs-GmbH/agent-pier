@@ -282,4 +282,8 @@ export const assistants = {
     "Zu viele Aktualisierungen der Modellliste. Bitte versuche es in einer Minute erneut.",
   allowlistEntryNotFound:
     "Dieser Eintrag steht nicht mehr in der Liste erlaubter Befehle. Bitte neu laden.",
+  browserUnavailable:
+    "Für diesen Agenten gibt es gerade kein Browserprofil. Starte den Agentendienst neu oder versuche es später.",
+  browserVisibleLimit:
+    "Es laufen bereits drei sichtbare Agenten-Browser. Warte, bis einer frei ist, und versuche es erneut.",
 };

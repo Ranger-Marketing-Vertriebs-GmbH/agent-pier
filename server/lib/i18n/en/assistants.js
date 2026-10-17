@@ -261,4 +261,8 @@ export const assistants = {
   modelsRateLimited: "Too many model list refreshes. Please try again in a minute.",
   allowlistEntryNotFound:
     "This entry is no longer on the list of allowed commands. Please reload.",
+  browserUnavailable:
+    "There is no browser profile for this agent right now. Restart the agent service or try again later.",
+  browserVisibleLimit:
+    "Three visible agent browsers are already running. Wait until one is free and try again.",
 };

@@ -1,0 +1,110 @@
+.agent-browser-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.agent-browser-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  min-height: 0;
+  overflow: auto;
+}
+.agent-browser-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.agent-browser-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.agent-browser-status i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted, #8a8b90);
+}
+.agent-browser-status.live i {
+  background: var(--success, #3fb27f);
+}
+.agent-browser-status.blocked i,
+.agent-browser-status.unavailable i {
+  background: var(--warning);
+}
+.agent-browser-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.agent-browser-tabs select {
+  min-width: 0;
+  max-width: 60vw;
+}
+.agent-browser-url {
+  margin: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+.agent-browser-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  border: 1px solid var(--line, #2c2d31);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+}
+.agent-browser-screen img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.agent-browser-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  color: #c9cacd;
+}
+.agent-browser-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 72px;
+  height: 44px;
+  border: 1px solid var(--accent-line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+  color: var(--accent);
+  font-size: 10px;
+  text-decoration: none;
+}
+.agent-browser-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+@media (max-width: 700px) {
+  .agent-browser-body {
+    padding: 12px;
+  }
+  .agent-browser-preview {
+    width: 56px;
+    height: 36px;
+  }
+}

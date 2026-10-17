@@ -139,15 +139,67 @@ export class AgentBrowsers {
     }
     if (current) current.lastUse = this.now();
     else if (!nonLaunching.has(action)) {
-      const reserve = () => this.launched(name, entry, assistant.id);
-      if (entry.headless) reserve();
-      else {
-        const victim = await this.roomForVisible(reserve, name);
-        if (victim === false) return deny("visibleLimit");
-        if (victim) await this.stop(victim);
-      }
+      const reason = await this.admit(name, entry, assistant.id);
+      if (reason) return deny(reason);
     }
     return { allow: true, profile: name };
+  }
+  /** Room and tracking for a browser about to launch; a refusal's reason or null. */
+  async admit(name, entry, assistantId) {
+    const current = this.running.get(name);
+    if (current) {
+      current.lastUse = this.now();
+      return null;
+    }
+    const reserve = () => this.launched(name, entry, assistantId);
+    if (entry.headless) {
+      reserve();
+      return null;
+    }
+    const victim = await this.roomForVisible(reserve, name);
+    if (victim === false) return "visibleLimit";
+    if (victim) await this.stop(victim);
+    return null;
+  }
+  /**
+   * The profile the owner watches for agent `id` (browser-live-view.js), without
+   * assigning a member slot: `{ name, entry }` or null.
+   */
+  viewProfile(id) {
+    const assistant = this.store.getAssistant(id);
+    if (!personalCapabilities(assistant).browser) return null;
+    const name = inheritsFromLead(assistant)
+      ? this.slots.get(assistant.id)
+      : personalEligible(assistant) && agentProfileName(assistant.id);
+    const entry = name && this.profiles()[name];
+    return entry ? { name, entry } : null;
+  }
+  /**
+   * A browser the owner watches is in use: it stays tracked (so a visible one keeps
+   * rendering while minimized) and is not stopped as idle.
+   */
+  watched(id) {
+    const view = this.viewProfile(id);
+    if (!view) return;
+    const current = this.running.get(view.name);
+    if (current) current.lastUse = this.now();
+    else this.launched(view.name, view.entry, id);
+  }
+  /** The owner starts the agent's browser from its live view, within the limits. */
+  async ownerStart(id) {
+    if (!this.ready()) throw assistantProblem("unavailable", 409);
+    const assistant = this.store.getAssistant(id);
+    if (!personalCapabilities(assistant).browser) throw assistantProblem("invalid");
+    const name = this.profileOf(assistant);
+    if (!name) throw assistantProblem("browserUnavailable", 409);
+    const reason = await this.admit(name, this.profiles()[name], id);
+    if (reason) throw assistantProblem("browserVisibleLimit", 409);
+    await this.runtime.client.request("browser.request", {
+      method: "POST",
+      path: "/start",
+      query: { profile: name },
+    });
+    return { profile: name };
   }
   /** The compiled profile `assistant` drives, assigning a member slot when needed. */
   profileOf(assistant) {

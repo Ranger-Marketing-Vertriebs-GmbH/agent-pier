@@ -1277,6 +1277,39 @@ saved value applies at its next start. Each stored change is audited as
 that setting's own type. A change undone because the confirmed restart failed is
 audited as `setting.rolled-back` with outcome `failure`.
 
+### Live view
+
+The owner watches an agent's own browser at `/agents/<id>/browser` (**Open live view**
+in the agent browser settings, or the live preview in the chat header while the
+browser runs). It is view only for now; the transport carries owner commands, so a
+later takeover can send input the same way.
+
+- `browser-live-view.js` keeps one upstream screencast per agent, shared by every
+  viewer. It asks the Gateway through `browser.request` for `GET /` (does the
+  profile's browser run), `GET /tabs` and `POST /screencast` on the agent's own
+  profile, and opens the ticket's `wsPath` on a second WebSocket pinned like the RPC
+  connection (`GatewayClient.openStream`). The upstream closes when the last viewer
+  leaves.
+- The ticket is single-use and valid for 60 seconds; every connection mints a fresh
+  one. Close code 4004 (tab closed) reconnects at once to the browser's selected tab,
+  4003 (address blocked by the navigation policy) shows "This page may not be
+  shown", other closes retry after two seconds.
+- Without a pick the view follows the browser's selected tab and switches when the
+  agent opens or closes one; the owner can pick a tab and **Follow the agent** again.
+- A stopped browser shows **Start browser**, which launches the agent's profile
+  within the visible-browser limit (`AgentBrowsers.ownerStart`). A watched browser
+  stays tracked and is not stopped as idle, and the window keeper's focus emulation
+  keeps a minimized window delivering frames.
+- The web app connects to `/api/assistants/<id>/browser-stream` behind the login
+  and the origin check of the chat stream. The server sends JSON state messages and
+  forwards OpenClaw's binary frames unchanged (a four-byte header length, a JSON
+  header, the JPEG); the chat header's preview asks for one frame a second
+  (`?preview=1`). A viewer that cannot keep up loses frames instead of queuing them.
+  Viewers send `select`, `follow` and `start`; anything else, and any binary
+  message, closes the socket.
+- Frames are never stored or logged; the browser keeps only the newest as an object
+  URL while the view is open.
+
 ### Search provider
 
 **Accounts → Services for agents → Web search** selects one provider for all agents:
