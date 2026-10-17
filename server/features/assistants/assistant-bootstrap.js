@@ -12,16 +12,27 @@ const quoted = (value) =>
 const shareable = (value) =>
   typeof value === "string" && !/[^\s@]+@[^\s@]+/.test(value) ? value : undefined;
 
-import { inheritsFromLead, personalCapabilities } from "./native-capabilities.js";
+import {
+  inheritsFromLead,
+  memoryEnabled,
+  personalCapabilities,
+} from "./native-capabilities.js";
 
 // OpenClaw's own memory routine never reaches the workspace (skipBootstrap), so an
 // agent with memory learns here that only a file write persists anything.
-const memoryGuidance = (member, writable, inherited) =>
+// A task member (`task`) has its own memory and, when its lead granted it (`lead`),
+// a read-only copy of the lead's memory in memory/lead/ (member-memory.js).
+const memoryGuidance = (member, writable, task, lead) =>
   [
     "## Memory",
-    ...(inherited
+    ...(task
       ? [
-          "- Your memory is a read-only copy of your team lead's memory, refreshed before each turn. Use it for context; you cannot save anything. Report what is worth keeping to your lead instead.",
+          "- Your memory is your own: write what you learn for this work to it. Only your own memory files can be written; nothing else in your workspace.",
+          ...(lead
+            ? [
+                "- `memory/lead/` is a read-only copy of your team lead's memory, refreshed before each turn and found by memory search too. Use it for context, never write there; report what the lead should keep to the lead.",
+              ]
+            : []),
         ]
       : []),
     ...(writable
@@ -33,7 +44,7 @@ const memoryGuidance = (member, writable, inherited) =>
     "- Write durable facts, decisions and plans to `MEMORY.md` (curated, keep it tidy) and day-to-day notes to `memory/YYYY-MM-DD.md` with the write or edit tool.",
     "- Write as soon as the user shares something worth keeping, not later in the conversation.",
     '- Never say "saved", "noted" or "I\'ll remember" unless a write succeeded in this turn. If a write is refused or fails, say plainly that it was not saved.',
-    ...(member && !inherited
+    ...(member && !task
       ? [
           "- When your team lead asks or delegates something to you, memory is read-only in that turn: do not try to write it, and tell the lead it was not saved.",
         ]
@@ -59,9 +70,14 @@ export function assistantBootstrap(
     ...(identity ? [identity] : []),
     "- Internal identifiers (agent, session, provider or connection IDs) and operator or command-line instructions (for example `openclaw …` commands) are for AgentPier only. The user cannot run them: never suggest such commands or repeat such identifiers. When a tool reports an internal maintenance step, tell the user that the feature is temporarily unavailable instead.",
   ].join("\n");
-  const inherited = inheritsFromLead(assistant);
-  const sections = personalCapabilities(assistant).memory
-    ? `${managed}\n\n${memoryGuidance(!!assistant.teamMemberId, memoryWritable && !inherited, inherited)}`
+  const task = inheritsFromLead(assistant);
+  const sections = memoryEnabled(assistant)
+    ? `${managed}\n\n${memoryGuidance(
+        !!assistant.teamMemberId,
+        memoryWritable,
+        task,
+        task && personalCapabilities(assistant).memory,
+      )}`
     : managed;
   const instructions = String(assistant.instructions || "").trimEnd();
   return instructions ? `${instructions}\n\n${sections}\n` : `${sections}\n`;

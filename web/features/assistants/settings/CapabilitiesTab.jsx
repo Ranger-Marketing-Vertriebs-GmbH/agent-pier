@@ -116,7 +116,12 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
     <>
       <ConflictNotice draft={draft} labels={conflictLabels} />
       {!personal && assistant.inherited && (
-        <GrantedCapabilities inherited={assistant.inherited} member={member} />
+        <GrantedCapabilities
+          inherited={assistant.inherited}
+          member={member}
+          assistantId={assistant.id}
+          go={go}
+        />
       )}
       {personal && <MemoryGroup assistant={assistant} draft={draft} go={go} />}
       {personal && (

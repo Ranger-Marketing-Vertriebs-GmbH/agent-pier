@@ -186,6 +186,19 @@ async function setup(page, { memberShellSsh = false } = {}) {
         requests: [],
         stale: false,
       };
+    else if (p === "/api/assistants/member-0/memory/files")
+      body = {
+        files: [
+          { name: "memory/2026-10-17.md", size: 13, modifiedAt: "2026-10-17T10:00:00Z" },
+        ],
+      };
+    else if (p === "/api/assistants/member-0/memory")
+      body = {
+        name: "MEMORY.md",
+        content: "Scout's own facts",
+        missing: false,
+        hash: null,
+      };
     else if (p === "/api/assistants/home/actions")
       body = { actions: grantAction.state === "awaiting_approval" ? [grantAction] : [] };
     else if (p === "/api/assistant-actions/grant-1/decision") {
@@ -226,7 +239,7 @@ test("the proposal card lists each member's grants", async ({ page }) => {
   const card = page.locator("#assistant-team-proposal");
   const grants = card.locator("[data-grants]");
   await expect(grants.nth(0)).toHaveText(
-    "Gets: Memory (read only), Web search, Web pages",
+    "Gets: Lead's memory (read only), Web search, Web pages",
   );
   await expect(grants.nth(1)).toHaveText("Gets: Browser");
   await expect(card.locator("[data-member-shell-ssh]")).toHaveCount(0);
@@ -308,4 +321,13 @@ test("a lead's promotion of a member shows in its chat", async ({ page }) => {
   await expect(page.locator("[data-member-promote]")).toHaveText(
     "The lead agent kept Scout as a permanent agent",
   );
+});
+
+test("the owner opens a task member's own memory from its capabilities", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto(baseURL + settingsPath("capabilities", undefined, "member-0"));
+  await page.locator("#agent-granted").getByText("Own memory", { exact: true }).click();
+  await expect(page.getByText("memory/2026-10-17.md").first()).toBeAttached();
 });

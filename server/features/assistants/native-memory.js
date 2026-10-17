@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { personalCapabilities } from "./native-capabilities.js";
+import { memoryEnabled } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 const names = new Set(["MEMORY.md", "USER.md"]);
 const projectFile = (file, name) => ({
@@ -30,7 +30,7 @@ export class NativeMemory {
   }
   root(id) {
     const agent = this.assistants.store.getAssistant(id);
-    if (!personalCapabilities(agent).memory) throw assistantProblem("invalid", 403);
+    if (!memoryEnabled(agent)) throw assistantProblem("invalid", 403);
     const workspaces = this.workspaces ?? this.assistants.config?.workspaces;
     if (!workspaces) throw assistantProblem("unavailable", 503);
     return path.join(workspaces, agent.id);
@@ -105,7 +105,7 @@ export class NativeMemory {
   async prepare(id) {
     const a = this.assistants;
     const agent = a.store.getAssistant(id);
-    if (!personalCapabilities(agent).memory) throw assistantProblem("invalid", 403);
+    if (!memoryEnabled(agent)) throw assistantProblem("invalid", 403);
     a.requireReady();
     await a.config.apply(id);
     return agent;

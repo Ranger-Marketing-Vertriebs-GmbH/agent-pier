@@ -344,11 +344,20 @@ test("unexpected authorization errors on a tick never leave an action re-authori
   assert.equal(f.starts.length, 0);
 });
 
-test("members keep no memory-write, reminder or routine tools", async (t) => {
+test("members keep no reminder or routine tools; their memory is their own", async (t) => {
   const f = await setup(t);
   const member = f.store.getAssistant(f.member.assistantId);
   const tools = profileTools(member, true, true, true);
-  assert.deepEqual(tools, ["session_status", "agentpier_workspace"]);
+  // Their own memory (writes reach only its files, team-bridge.js writeAllowed).
+  assert.deepEqual(tools, [
+    "session_status",
+    "memory_search",
+    "memory_get",
+    "read",
+    "write",
+    "edit",
+    "agentpier_workspace",
+  ]);
   const bridge = new TeamBridge({ assistants: f.assistants, teams: {} });
   await bridge.start();
   t.after(() => bridge.close());

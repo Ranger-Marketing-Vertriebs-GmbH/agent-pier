@@ -1,4 +1,4 @@
-import { personalCapabilities } from "./native-capabilities.js";
+import { memoryEnabled } from "./native-capabilities.js";
 
 /**
  * Every Gateway start compiles its agents without write and edit (runtime-config.js)
@@ -43,7 +43,7 @@ export class WriteGuardReapply {
       .filter(
         (a) =>
           !a.archivedAt &&
-          personalCapabilities(a).memory &&
+          memoryEnabled(a) &&
           !this.blocked(a.id) &&
           !this.applied.has(a.id),
       )

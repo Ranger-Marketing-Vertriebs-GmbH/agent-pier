@@ -151,45 +151,56 @@ test("without the setting a member's SSH calls find no holder", (t) => {
   assert.equal(f.access.sshGrant(f.member.id, "host-1"), null);
 });
 
-test("a member's memory is a read-only copy of its lead's, refreshed and removed", async (t) => {
+test("the copy of the lead's memory lives apart from the member's own memory", async (t) => {
   const f = fixture(t);
   const root = path.join(f.dataDir, "workspaces");
   const lead = path.join(root, f.lead.id),
-    own = path.join(root, f.member.id);
+    own = path.join(root, f.member.id),
+    mirror = path.join(own, "memory", "lead");
   fs.mkdirSync(path.join(lead, "memory", "projects"), { recursive: true });
-  fs.mkdirSync(own, { recursive: true });
+  fs.mkdirSync(path.join(own, "memory"), { recursive: true });
   fs.writeFileSync(path.join(lead, "MEMORY.md"), "Lead facts");
   fs.writeFileSync(path.join(lead, "memory", "projects", "atlas.md"), "Atlas notes");
   fs.writeFileSync(path.join(lead, "memory", "secret.txt"), "not a note");
+  // The member's own memory.
+  fs.writeFileSync(path.join(own, "MEMORY.md"), "My facts");
+  fs.writeFileSync(path.join(own, "memory", "2026-10-17.md"), "My day");
   await mirrorLeadMemory(root, f.member, true);
-  assert.equal(fs.readFileSync(path.join(own, "MEMORY.md"), "utf8"), "Lead facts");
+  assert.equal(fs.readFileSync(path.join(mirror, "MEMORY.md"), "utf8"), "Lead facts");
   assert.equal(
-    fs.readFileSync(path.join(own, "memory", "projects", "atlas.md"), "utf8"),
+    fs.readFileSync(path.join(mirror, "note-projects--atlas.md"), "utf8"),
     "Atlas notes",
   );
-  assert.equal(fs.existsSync(path.join(own, "memory", "secret.txt")), false);
+  assert.deepEqual(fs.readdirSync(mirror).sort(), [
+    "MEMORY.md",
+    "note-projects--atlas.md",
+  ]);
+  assert.equal(fs.readFileSync(path.join(own, "MEMORY.md"), "utf8"), "My facts");
   // Whatever lands in the copy is replaced by the lead's again before the next turn.
-  fs.writeFileSync(path.join(own, "MEMORY.md"), "Injected");
-  fs.writeFileSync(path.join(own, "memory", "planted.md"), "Planted");
+  fs.writeFileSync(path.join(mirror, "MEMORY.md"), "Injected");
+  fs.writeFileSync(path.join(mirror, "planted.md"), "Planted");
   await mirrorLeadMemory(root, f.member, true);
-  assert.equal(fs.readFileSync(path.join(own, "MEMORY.md"), "utf8"), "Lead facts");
-  assert.equal(fs.existsSync(path.join(own, "memory", "planted.md")), false);
+  assert.equal(fs.readFileSync(path.join(mirror, "MEMORY.md"), "utf8"), "Lead facts");
+  assert.equal(fs.existsSync(path.join(mirror, "planted.md")), false);
   assert.equal(fs.readFileSync(path.join(lead, "MEMORY.md"), "utf8"), "Lead facts");
-  // Once the member no longer inherits memory, the copy is gone.
+  // Without the lead's memory grant (and on promotion) the copy goes, its own stays.
   await mirrorLeadMemory(root, f.member, false);
-  assert.equal(fs.existsSync(path.join(own, "MEMORY.md")), false);
-  assert.equal(fs.existsSync(path.join(own, "memory", "projects", "atlas.md")), false);
-  assert.match(
-    assistantBootstrap(f.member, {}, { memoryWritable: true }),
-    /read-only copy of your team lead's memory/,
+  assert.deepEqual(fs.readdirSync(mirror), []);
+  assert.equal(fs.readFileSync(path.join(own, "MEMORY.md"), "utf8"), "My facts");
+  assert.equal(
+    fs.readFileSync(path.join(own, "memory", "2026-10-17.md"), "utf8"),
+    "My day",
   );
+  const guidance = assistantBootstrap(f.member, {}, { memoryWritable: true });
+  assert.match(guidance, /Your memory is your own/);
   assert.match(
-    assistantBootstrap(f.member, {}, { memoryWritable: true }),
-    /Memory is read-only right now/,
+    guidance,
+    /`memory\/lead\/` is a read-only copy of your team lead's memory/,
   );
+  assert.doesNotMatch(guidance, /Memory is read-only right now/);
 });
 
-test("a planted link in the member's copy is replaced, never written through", async (t) => {
+test("copies from the earlier layout are removed once", async (t) => {
   const f = fixture(t);
   const root = path.join(f.dataDir, "workspaces");
   const lead = path.join(root, f.lead.id),
@@ -197,22 +208,42 @@ test("a planted link in the member's copy is replaced, never written through", a
   fs.mkdirSync(lead, { recursive: true });
   fs.mkdirSync(own, { recursive: true });
   fs.writeFileSync(path.join(lead, "MEMORY.md"), "Lead facts");
+  fs.writeFileSync(path.join(lead, "USER.md"), "Owner prefs");
+  // The old mirror wrote the lead's files into the member's own places.
+  fs.writeFileSync(path.join(own, "MEMORY.md"), "Lead facts");
+  fs.writeFileSync(path.join(own, "USER.md"), "Changed since");
+  await mirrorLeadMemory(root, f.member, true);
+  assert.equal(fs.existsSync(path.join(own, "MEMORY.md")), false);
+  // Not identical: it may be the member's, so it stays.
+  assert.equal(fs.readFileSync(path.join(own, "USER.md"), "utf8"), "Changed since");
+});
+
+test("a planted link in the member's copy is replaced, never written through", async (t) => {
+  const f = fixture(t);
+  const root = path.join(f.dataDir, "workspaces");
+  const lead = path.join(root, f.lead.id),
+    own = path.join(root, f.member.id),
+    mirror = path.join(own, "memory", "lead");
+  fs.mkdirSync(lead, { recursive: true });
+  fs.mkdirSync(mirror, { recursive: true });
+  fs.writeFileSync(path.join(lead, "MEMORY.md"), "Lead facts");
   const outside = path.join(f.dataDir, "outside.md");
   fs.writeFileSync(outside, "Untouched");
-  fs.symlinkSync(outside, path.join(own, "MEMORY.md"));
-  // A link where a guessable temporary name would be is never followed either.
-  const guessed = path.join(f.dataDir, "guessed.md");
-  fs.writeFileSync(guessed, "Untouched");
-  fs.symlinkSync(guessed, path.join(own, `MEMORY.md.${process.pid}.tmp`));
+  fs.symlinkSync(outside, path.join(mirror, "MEMORY.md"));
   await mirrorLeadMemory(root, f.member, true);
   assert.equal(fs.readFileSync(outside, "utf8"), "Untouched");
-  assert.equal(fs.readFileSync(guessed, "utf8"), "Untouched");
-  const copy = path.join(own, "MEMORY.md");
+  const copy = path.join(mirror, "MEMORY.md");
   assert.equal(fs.lstatSync(copy).isSymbolicLink(), false);
   assert.equal(fs.readFileSync(copy, "utf8"), "Lead facts");
-  // No temporary file is left behind.
+  // A linked mirror folder is never written through either.
+  fs.rmSync(mirror, { recursive: true });
+  const elsewhere = path.join(f.dataDir, "elsewhere");
+  fs.mkdirSync(elsewhere);
+  fs.symlinkSync(elsewhere, mirror);
+  await mirrorLeadMemory(root, f.member, true);
+  assert.deepEqual(fs.readdirSync(elsewhere), []);
   assert.deepEqual(
-    fs.readdirSync(own).filter((name) => name.startsWith(".") && name.endsWith(".tmp")),
+    fs.readdirSync(path.join(own, "memory")).filter((name) => name.endsWith(".tmp")),
     [],
   );
 });

@@ -101,7 +101,7 @@ export const assistants = {
     `Team approval: ${objective}\n${count} members. Approve or decline?`,
   memberGrants: {
     labels: {
-      memory: "memory (read-only)",
+      memory: "lead's memory (read-only)",
       reminders: "reminders",
       webSearch: "web search",
       webFetch: "web pages",

@@ -78,6 +78,13 @@ export const inheritsFromLead = (assistant) =>
   assistant.lifetime !== "permanent" &&
   !assistant.archivedAt &&
   !!assistant.inherited;
+/**
+ * Whether an agent has native memory: its own setting, or for a temporary member
+ * always (its own writable memory; the lead's memory grant only adds the read-only
+ * copy of the lead's, member-memory.js).
+ */
+export const memoryEnabled = (assistant) =>
+  personalCapabilities(assistant).memory || inheritsFromLead(assistant);
 /** The effective shell level; ineligible or unset profiles have none. */
 export function personalShell(assistant) {
   if (inheritsFromLead(assistant))
@@ -136,18 +143,17 @@ export function profileTools(
   ssh = false,
 ) {
   const capabilities = personalCapabilities(assistant);
-  // A temporary member reads its lead's memory but never writes it, and gets no
-  // routines (standing jobs with tools that would outlive the team).
+  // A temporary member has its own memory beside the read-only copy of its lead's,
+  // and gets no routines (standing jobs with tools that would outlive the team).
   const member = inheritsFromLead(assistant);
   return [
     "session_status",
     ...(teamsReady && !assistant.teamMemberId && !assistant.archivedAt
       ? delegationTools
       : []),
-    ...(nativeReady && capabilities.memory
-      ? memoryTools.filter(
-          (tool) => (writeGuard && !member) || !guardedTools.includes(tool),
-        )
+    // A member writes only its own memory: the bridge refuses everything else.
+    ...(nativeReady && (capabilities.memory || member)
+      ? memoryTools.filter((tool) => writeGuard || !guardedTools.includes(tool))
       : []),
     ...(nativeReady && capabilities.reminders
       ? ["agentpier_reminder", ...(member ? [] : ["agentpier_routine"])]

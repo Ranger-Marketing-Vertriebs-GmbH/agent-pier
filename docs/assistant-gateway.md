@@ -1250,7 +1250,8 @@ promotion:
   moment, recorded as granted so the team never adds to them again.
 - Shell and SSH are never carried over: its shell level is Off and it holds no SSH
   grants; the owner sets them.
-- It keeps only its own memory (memory on, read and write): the copy of the lead's
+- It keeps only its own memory (memory on, read and write; what it saved as a
+  member carries over as it is): the copy of the lead's
   memory is removed (owner's decision: a promoted agent is a specialist, steered by
   the lead and reachable by the owner directly, with its own knowledge).
 - Name and instructions stay, including the lead's edits; it stays the lead's
@@ -1320,7 +1321,7 @@ member's effective grants instead (see
 | `webSearch`, `webFetch`, `browser`, `documents`        | The lead's web and image tools, with the same global network and browser safety                                |
 | `skills` (`true` for all of the lead's, or names)      | Those of the lead's skills                                                                                     |
 | `mcpServers` (names of servers bound to the lead)      | Those servers, while the member works ([bindings](#bindings))                                                  |
-| `memory`                                               | A read-only copy of the lead's memory (see below)                                                              |
+| `memory`                                               | A read-only copy of the lead's memory beside the member's own memory (see below)                               |
 | `reminders`                                            | Reminders created on the lead (see below)                                                                      |
 | `shell` (`approval` or `full`), `ssh`                  | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants |
 
@@ -1360,16 +1361,23 @@ with the lead.
   (`GRANT_REVOKED`). Revoking shell or SSH, the member ending, or the setting going
   off cancels such a pending card like other cancellations: a note in the lead's
   chat now and the result notice in Telegram at the next tick.
-- **Memory.** Before each member turn, AgentPier replaces the member's `MEMORY.md`,
-  `USER.md` and `memory/` notes with the lead's current ones (`member-memory.js`;
-  same name, depth, count and size bounds as the memory panel, no links; each file
-  is written to a fresh temporary name with `O_EXCL` and renamed over the target, a
-  planted link in its place is removed rather than followed) and
-  removes them once the member no longer holds memory. The member gets
-  `memory_search`, `memory_get` and `read`, never `write` or `edit`, and its
-  instructions say that it cannot save anything and should report what is worth
-  keeping to its lead. The member never reaches the lead's own files, and whatever
-  lands in its copy is replaced at its next turn.
+- **Memory (2026-10-17, AGENTPIER-119).** Every temporary member has its own
+  native memory, always on: its `MEMORY.md` and `memory/` notes in its workspace,
+  with `memory_search`, `memory_get`, `read`, `write` and `edit` (writes once the
+  write guard reports). The bridge admits a member's write in any of its turns only
+  when every spelling of the target, resolved on disk without following links,
+  stays in its own workspace, in `MEMORY.md` or below `memory/`, and outside
+  `memory/lead/` (`ownMemoryTarget` in `lead-request-writes.js`); anything else is
+  refused. The lead's `memory` grant adds a read-only copy of the lead's memory in
+  `memory/lead/` (`member-memory.js`): before each member turn AgentPier writes the
+  lead's `MEMORY.md`, `USER.md` and `memory/` notes there flat (`note-a--b.md`; same
+  name, count and size bounds as the memory panel, no links; each file goes to a
+  fresh `O_EXCL` temporary name and is renamed over the target, a planted link is
+  removed rather than followed, and a linked folder is never written through) and
+  empties the folder once the grant goes. Memory search finds both, and the
+  member's instructions say which is which. Copies from the earlier layout (the
+  member's own root files identical to the lead's) are removed once. The owner
+  reads a member's own memory in its **Capabilities → Own memory**.
 - **Reminders.** A member granted reminders gets `agentpier_reminder` (never
   `agentpier_routine`) and may only create a reminder, in a turn its lead gave it
   (`team-member` or `lead-request`). The reminder is created on the lead: it is

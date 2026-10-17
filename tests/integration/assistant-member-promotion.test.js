@@ -68,7 +68,10 @@ test("a lead promotes its member: grants become its own settings, visibly", asyn
     lead = path.join(f.workspaces, f.id);
   fs.mkdirSync(own, { recursive: true });
   fs.mkdirSync(lead, { recursive: true });
-  fs.writeFileSync(path.join(own, "MEMORY.md"), "Lead facts");
+  // Its own memory and the copy of the lead's in memory/lead/.
+  fs.mkdirSync(path.join(own, "memory", "lead"), { recursive: true });
+  fs.writeFileSync(path.join(own, "MEMORY.md"), "My facts");
+  fs.writeFileSync(path.join(own, "memory", "lead", "MEMORY.md"), "Lead facts");
   const result = await f.promote();
   assert.equal(result.status, "promoted");
   const promoted = f.agent();
@@ -85,7 +88,8 @@ test("a lead promotes its member: grants become its own settings, visibly", asyn
   assert.deepEqual(personalSkills(promoted), ["weather"]);
   assert.equal(personalShell(promoted), "off");
   // Only its own memory stays: the copy of the lead's memory is gone.
-  assert.equal(fs.existsSync(path.join(own, "MEMORY.md")), false);
+  assert.deepEqual(fs.readdirSync(path.join(own, "memory", "lead")), []);
+  assert.equal(fs.readFileSync(path.join(own, "MEMORY.md"), "utf8"), "My facts");
   // The member's effective servers within the lead's ceiling, now its own.
   assert.deepEqual(f.bound[agent.id], ["s-git"]);
   assert.equal(f.teams.member(f.member.id).mcpGranted, true);

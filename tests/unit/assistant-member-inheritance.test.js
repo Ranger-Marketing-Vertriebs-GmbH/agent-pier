@@ -96,12 +96,19 @@ test("a member the lead grants nothing reads memory and searches and reads the w
   assert.deepEqual(personalSkills(agent), []);
   assert.equal(personalShell(agent), "off");
   const tools = profileTools(agent, true, true, true, {}, [], true);
-  for (const tool of ["web_search", "web_fetch", "memory_search", "memory_get", "read"])
+  // Its own memory is writable (the bridge refuses the copy of the lead's).
+  for (const tool of [
+    "web_search",
+    "web_fetch",
+    "memory_search",
+    "memory_get",
+    "read",
+    "write",
+    "edit",
+  ])
     assert.ok(tools.includes(tool), tool);
   for (const tool of [
     "browser",
-    "write",
-    "edit",
     "agentpier_reminder",
     "agentpier_routine",
     "agentpier_team_propose",

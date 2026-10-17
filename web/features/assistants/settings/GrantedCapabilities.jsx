@@ -8,6 +8,8 @@ import { assistantShellCopy as shellCopy } from "../../../lib/i18n/messages/assi
 import { assistantSkillsCopy as skillsCopy } from "../../../lib/i18n/messages/assistant-skills.js";
 import { assistantSshCopy as sshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
 import { logText } from "../member-grants.js";
+import { routePath } from "../../../app/routes.js";
+import { agentRoute } from "./agent-settings-fields.js";
 import ReplacedInstructions from "./ReplacedInstructions.jsx";
 
 const capabilityLabels = {
@@ -24,7 +26,7 @@ const capabilityLabels = {
  * right now (the server resolves `inherited` on every read), and the lead's later
  * grant changes with who made them and when. Read only here.
  */
-export default function GrantedCapabilities({ inherited, member }) {
+export default function GrantedCapabilities({ inherited, member, assistantId, go }) {
   const id = useId();
   const state = (on) => (on ? grantCopy.on : grantCopy.off);
   const log = member?.grantLog || [];
@@ -47,6 +49,15 @@ export default function GrantedCapabilities({ inherited, member }) {
           value={shellCopy.levels[inherited.shell] || shellCopy.levels.off}
         />
         <ListRow label={sshCopy.row} value={state(inherited.ssh === true)} />
+        {/* Its own memory, always on, beside the copy of the lead's (memory/lead/). */}
+        {assistantId && (
+          <ListRow
+            label={grantCopy.ownMemory}
+            sub={grantCopy.ownMemoryHint}
+            href={routePath(agentRoute(assistantId, "capabilities", "memory"))}
+            onClick={() => go("capabilities", "memory")}
+          />
+        )}
       </ListCard>
       {log.length > 0 && (
         <>
