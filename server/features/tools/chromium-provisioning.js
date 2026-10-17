@@ -33,7 +33,7 @@ export async function provisionAgentBrowser(
   try {
     // Loaded on use: the installer scripts run before AgentPier's dependencies exist.
     const [{ run }, { cleanEnvironment }] = await Promise.all([
-      import("./tool-installer.js"),
+      import("./tool-run.js"),
       import("../accounts/account-store.js"),
     ]);
     fs.mkdirSync(root, { recursive: true, mode: 0o700 });

@@ -15,7 +15,8 @@ Updates run with the AgentPier server user's home, using the native executable r
 For older npm installations managed by AgentPier, the action is **Migrate & update**. AgentPier runs the official installer, checks the resulting version, then switches its owned activation link to the native CLI. A failed installation leaves the old activation in place. Old npm package directories remain available to running processes and are not automatically deleted. No global npm uninstall or removal of account profiles is performed.
 
 The **Chrome for Testing** card is the agents' managed browser, not a CLI: **Update
-CLI** appears when AgentPier pins a newer build, and **Remove** deletes it. An
+browser** appears when AgentPier pins a newer build, and **Remove** deletes it (not
+while the agent service uses it). An
 installed managed browser is also updated in the background at the first server start
 after an AgentPier update (see "Managed agent browser" in
 [assistant-gateway.md](assistant-gateway.md)).

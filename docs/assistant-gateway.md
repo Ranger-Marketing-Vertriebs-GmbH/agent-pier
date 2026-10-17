@@ -1130,20 +1130,34 @@ build without Homebrew or administrator rights (`server/features/tools/`
   version was pinned. Downloads come only from `storage.googleapis.com` over HTTPS,
   without redirects; size or hash mismatches fail before anything is unpacked.
 - The archive is unpacked into `<data>/clis/.packages/chromium-<id>`, keeping file
-  modes and the app bundle's relative links; absolute links, links leaving the browser
-  folder, `..` paths and special files are refused. `<data>/clis/chromium` links to
+  modes and the app bundle's relative links. `..` entry names, names that differ only
+  in case, special files, absolute links and links leaving the browser folder are
+  refused; no entry is written through a link unpacked before it; and once all are
+  unpacked, every link must resolve (`realpath`) inside the browser folder, so a chain
+  of links that leaves it together is refused as well. `<data>/clis/chromium` links to
   the active version and is switched atomically.
 - macOS: AgentPier clears extended attributes (`xattr -cr`), so a quarantine flag
   never blocks the service. Chrome for Testing is only linker-signed (ad hoc, no sealed
   resources), so `codesign --verify` refuses even an untouched copy; the pinned
-  SHA-256 is the integrity check, and `--version` must report the pinned version.
+  SHA-256 is the integrity check.
+- Every platform: `--version` must report the pinned version, and a short real start
+  (`--headless=new --dump-dom about:blank` with a temporary profile, the sandbox on)
+  must render a page. The sandbox is never switched off.
 - Linux: `ldd` must resolve every shared library; missing ones are named in the
-  error, for the owner to install with the package manager.
+  error, for the owner to install with the package manager. Where the start fails and
+  `kernel.apparmor_restrict_unprivileged_userns` is 1 (Ubuntu 23.10 and later), the
+  error says the sandbox is blocked and points to [linux.md](linux.md).
+- A full disk is reported as such. A server start sweeps an interrupted install's
+  work folders and never-published version directories while no job runs; one
+  process prunes at a time (the server runs one job, the installers hold the setup
+  lock before the service starts).
 - Detection compiles the versioned real path, so an install, update or removal
   changes the browser block. The agent settings then offer **Restart agent service**
   (`restartNeeded` in `GET /api/assistant-runtime`), with the usual confirmation.
-- The dashboard card shows the installed version, **Update CLI** when the pinned
-  version is newer and **Remove** (`DELETE /api/tools/chromium`). An update keeps the
+- The dashboard card shows the installed version, **Update browser** when the
+  pinned version is newer and **Remove** (`DELETE /api/tools/chromium`). Removal is
+  refused (409) while an agent browser runs or the running agent service was started
+  with the managed browser; stop the agent service first. An update keeps the
   previous version until the next install, so a browser still running from it is not
   pulled away.
 

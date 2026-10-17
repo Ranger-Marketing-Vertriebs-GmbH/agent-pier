@@ -11,7 +11,7 @@ export const appDialogsCopy = {
   titleRemove: "Sitzung entfernen?",
   titleRemoveTool: (name) => `${name} entfernen?`,
   confirmCopyRemoveTool: (name) =>
-    `${name} wird von diesem Rechner gelöscht. Agenten nutzen danach einen anderen installierten Browser, sobald der Agentendienst neu startet.`,
+    `${name} wird von diesem Rechner gelöscht. Agenten nutzen danach einen anderen installierten Browser, sobald der Agentendienst neu startet. Solange die Agenten ihn nutzen, beende zuerst den Agentendienst.`,
   titleDeleteAccount: "Account löschen?",
   buttonLogin: "Anmeldeterminal öffnen",
   renamedSessionLabel: "Neuer Name",

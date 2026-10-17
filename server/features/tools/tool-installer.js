@@ -7,7 +7,6 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { stripVTControlCharacters } from "node:util";
 import {
@@ -19,11 +18,14 @@ import { prepareGithubCli } from "./github-cli-installer.js";
 import { toolBinDirectories } from "./tool-paths.js";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
 import { planToolUpdate, updateCommands, updateTool } from "./tool-update.js";
+import { run } from "./tool-run.js";
+export { run };
 import {
   chromiumUnavailable,
   installChromium,
   managedChromium,
   removeChromium,
+  sweepChromium,
 } from "./chromium-installer.js";
 import { chromiumManifest } from "./chromium-manifest.js";
 const catalog = {
@@ -76,73 +78,6 @@ function npmPath() {
     } catch {}
   }
   return null;
-}
-function groupSignal(child, signal) {
-  try {
-    process.kill(-child.pid, signal);
-  } catch {}
-}
-export function run(command, args, env, cwd, signal, timeout) {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted)
-      return reject(problem(serverMessages.tools.installationAborted, 409));
-    const child = spawn(command, args, {
-      cwd,
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: true,
-    });
-    let output = "",
-      reason = null,
-      killTimer;
-    const capture = (data) => {
-      output = (output + data).slice(-16384);
-    };
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", capture);
-    child.stderr.on("data", capture);
-    const stop = (message) => {
-      if (reason) return;
-      reason = message;
-      groupSignal(child, "SIGTERM");
-      killTimer = setTimeout(() => groupSignal(child, "SIGKILL"), 500);
-    };
-    const abort = () => stop(serverMessages.tools.installationShutdown);
-    signal.addEventListener("abort", abort, { once: true });
-    const timer = setTimeout(
-      () => stop(serverMessages.tools.installationTimeout),
-      timeout,
-    );
-    const finish = () => {
-      clearTimeout(timer);
-      clearTimeout(killTimer);
-      signal.removeEventListener("abort", abort);
-      groupSignal(child, "SIGKILL");
-    };
-    child.on("error", () => {
-      finish();
-      reject(problem(serverMessages.tools.installerUnavailable, 409));
-    });
-    child.on("close", (code) => {
-      finish();
-      if (reason) return reject(problem(reason, 409));
-      if (code !== 0) {
-        const hint = output.match(
-          /\b(EACCES|ENOSPC|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|CERT_HAS_EXPIRED|UNABLE_TO_VERIFY_LEAF_SIGNATURE|EBADENGINE)\b/,
-        )?.[1];
-        return reject(
-          problem(
-            hint
-              ? serverMessages.tools.installationExitFailureWithHint(code, hint)
-              : serverMessages.tools.installationExitFailure(code),
-            409,
-          ),
-        );
-      }
-      resolve(output);
-    });
-  });
 }
 function safeDirectory(directory) {
   try {
@@ -264,6 +199,15 @@ export class ToolInstaller {
    * The update path: an AgentPier update can pin a newer browser; an installed
    * managed browser follows it in the background at the next server start.
    */
+  /** Sweeps an interrupted install's leftovers; only while no job runs. */
+  sweepChromium() {
+    if (this.active) return;
+    try {
+      sweepChromium(this.root);
+    } catch {
+      /* Retried at the next start. */
+    }
+  }
   keepChromiumCurrent() {
     try {
       if (this.chromiumState().updateAvailable) return this.startUpdate("chromium");
@@ -277,6 +221,8 @@ export class ToolInstaller {
     if (tool !== "chromium") throw problem(serverMessages.common.unknownCliTool);
     if (this.closed) throw problem(serverMessages.tools.serviceStopping, 503);
     if (this.active) throw problem(serverMessages.tools.installationAlreadyRunning, 409);
+    // Wired by services.js: an agent browser runs, or the Gateway compiled this path.
+    if (this.chromiumInUse?.()) throw problem(serverMessages.tools.chromiumInUse, 409);
     await removeChromium(this.root);
     this.records[tool] = {
       tool,

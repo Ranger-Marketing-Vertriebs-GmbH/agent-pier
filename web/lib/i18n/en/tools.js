@@ -15,6 +15,12 @@ export const toolInstallerCopy = {
   versionUnknownNotice: (name) =>
     `AgentPier could not read the ${name} version. The session starts anyway; if something does not work, update the CLI.`,
   updateCli: "Update CLI",
+  updateBrowser: "Update browser",
+  browserUpdateDescription:
+    "Downloads the newer agent browser version pinned in AgentPier. Running agent browsers keep the previous version until the agent service restarts.",
+  browserUpdating: "Updating the browser …",
+  browserUpdated: "Browser updated",
+  browserUpdateReady: "Browser update",
   updateTitle: (name) => `Update ${name}`,
   updateDescription:
     "Updates the CLI on the AgentPier server. Running sessions continue; new or reloaded sessions use the updated version.",
