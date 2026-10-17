@@ -80,8 +80,14 @@ test("per-host credentials select defaults and nearest cloned project without ex
   ])
     assert.equal(result.env[key], undefined);
   assert.equal(result.env.GIT_CONFIG_VALUE_0, "false");
-  // Per host: reset the helper list, AgentPier's helper, then the quit fallback.
-  assert.equal(result.env.GIT_CONFIG_COUNT, "7");
+  // Per host and its gist host: reset the helper list, AgentPier's helper, then
+  // the quit fallback.
+  assert.equal(result.env.GIT_CONFIG_COUNT, "13");
+  for (const index of [4, 5, 6])
+    assert.equal(
+      result.env[`GIT_CONFIG_KEY_${index}`],
+      "credential.https://gist.github.com.helper",
+    );
   for (const index of [1, 2, 3])
     assert.match(
       result.env[`GIT_CONFIG_KEY_${index}`],
@@ -134,7 +140,7 @@ test("rotation, revocation and restart synchronize saved selections without reta
   await credentials.discard("rotate");
   assert.equal(fs.existsSync(prepared.env.GH_CONFIG_DIR), false);
 });
-test("Shell/login skip; unsupported native hosts skipped; symlink directories and secrets fail closed", async (t) => {
+test("login sessions skip, shells get the session folder; unsupported native hosts skipped; symlink directories and secrets fail closed", async (t) => {
   const { root, repositories, credentials } = setup(t);
   repositories.createCredential({
     name: "Port",
@@ -146,14 +152,25 @@ test("Shell/login skip; unsupported native hosts skipped; symlink directories an
     host: "github.com",
     token: "secret",
   });
-  for (const options of [
-    { account: { tool: "shell" } },
-    { account: { tool: "codex" }, purpose: "login" },
-  ])
-    assert.deepEqual(
-      await credentials.prepare({ id: "skip", cwd: root, launch, ...options }),
+  assert.deepEqual(
+    await credentials.prepare({
+      id: "skip",
+      cwd: root,
       launch,
-    );
+      account: { tool: "codex" },
+      purpose: "login",
+    }),
+    launch,
+  );
+  const shell = await credentials.prepare({
+    id: "shell",
+    account: { tool: "shell" },
+    cwd: root,
+    launch,
+  });
+  assert.equal(shell.env.GH_CONFIG_DIR, credentials.folder("shell"));
+  assert.equal(shell.env.GH_TOKEN, undefined);
+  assert.match(shell.env.GIT_CONFIG_VALUE_2, /--git-credential$/);
   const prepared = await credentials.prepare({
     id: "valid",
     account: { tool: "opencode" },

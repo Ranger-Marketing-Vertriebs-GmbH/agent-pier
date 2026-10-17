@@ -95,3 +95,21 @@ export class GitRemotes {
 export function wantsRemotes(request) {
   return request.query?.remotes === "1";
 }
+
+/**
+ * Transport and host of a public remote. Session tokens reach git only over HTTPS;
+ * an SSH remote authenticates with the owner's SSH keys instead.
+ */
+export function remoteTransport(remote) {
+  const value = String(remote || "").trim();
+  if (!value) return null;
+  const url = /^([a-z][a-z0-9+.-]*):\/\/(?:[^/@]*@)?([^/:?#]+)/i.exec(value);
+  if (url) {
+    const scheme = url[1].toLowerCase();
+    const protocol = scheme === "https" ? "https" : /ssh/.test(scheme) ? "ssh" : "other";
+    return { protocol, host: url[2].toLowerCase() };
+  }
+  const scp = /^(?:[^@/]+@)?([^/:]+):(?!\/\/)/.exec(value);
+  if (scp) return { protocol: "ssh", host: scp[1].toLowerCase() };
+  return { protocol: "other", host: null };
+}

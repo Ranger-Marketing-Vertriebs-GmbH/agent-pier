@@ -43,16 +43,17 @@ again on that device.
 
 ## What notifies you
 
-| Notification                 | When                                                                                     |
-| ---------------------------- | ---------------------------------------------------------------------------------------- |
-| Approval required            | A session waits for your decision                                                        |
-| Question                     | A session waits for your answer                                                          |
-| Response ready               | A session finished its reply                                                             |
-| Session ended                | A session stopped                                                                        |
-| Pipeline waiting             | A pipeline waits at a human gate                                                         |
-| Pipeline ended               | A pipeline run finished                                                                  |
-| Agent check-in               | An agent [checked in](agents.md#routines-reminders-and-check-ins) with something for you |
-| Telegram access still active | A Telegram bot or person you removed could not be stopped; restart the agent service     |
+| Notification                 | When                                                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Approval required            | A session waits for your decision                                                                                               |
+| Question                     | A session waits for your answer                                                                                                 |
+| Response ready               | A session finished its reply                                                                                                    |
+| Session ended                | A session stopped                                                                                                               |
+| Pipeline waiting             | A pipeline waits at a human gate                                                                                                |
+| Pipeline ended               | A pipeline run finished                                                                                                         |
+| Agent check-in               | An agent [checked in](agents.md#routines-reminders-and-check-ins) with something for you                                        |
+| Telegram access still active | A Telegram bot or person you removed could not be stopped; restart the agent service                                            |
+| Check GitHub token           | The [daily token check](github-agents.md#token-check) found a saved GitHub token invalid, expired or expiring within seven days |
 
 Notifications carry only the event type. Tasks, commands and chat content stay on the
 host. Opening a notification opens the matching view; it never approves anything.

@@ -23,3 +23,8 @@ export const repositoryPickerCopy = localizedCopy(
   en.repositoryPickerCopy,
 );
 export const cloneStoreCopy = localizedCopy(de.cloneStoreCopy, en.cloneStoreCopy);
+export const tokenCheckCopy = localizedCopy(de.tokenCheckCopy, en.tokenCheckCopy);
+export const sessionGithubCopy = localizedCopy(
+  de.sessionGithubCopy,
+  en.sessionGithubCopy,
+);

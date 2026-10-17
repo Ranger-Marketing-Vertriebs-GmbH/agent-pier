@@ -32,6 +32,10 @@ self.agentPierNotificationCopyEn = {
     title: "AgentPier: Telegram access still active",
     body: "A bot or person you removed could not be stopped. Restart the agent service.",
   },
+  "github-token": {
+    title: "AgentPier: Check GitHub token",
+    body: "A saved GitHub token is invalid, expired or expires soon.",
+  },
   test: {
     title: "AgentPier: Test notification",
     body: "Notifications are reaching this device.",

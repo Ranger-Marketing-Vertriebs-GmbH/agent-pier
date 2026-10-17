@@ -4,9 +4,9 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { shellQuote as quote } from "../../lib/launch-serialization.js";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import * as toolDetection from "../accounts/account-store.js";
 import { addGrant } from "../nono/sandbox-grants.js";
+import { githubHelperLocation } from "./github-helper-location.js";
 import { problem } from "../../lib/storage.js";
 import {
   ensureDir,
@@ -21,8 +21,6 @@ import {
   validId,
 } from "./session-git-credential.js";
 export { gitCredential, runGitCredentialCommand };
-// git starts the helper through this stable, dependency-light entry point.
-const helperPath = fileURLToPath(new URL("../../github-credentials.js", import.meta.url));
 const disabledConfig = "agentpier-disabled";
 // Runs after our helper for each selected host. git consults it only when ours
 // returned no credential (revoked token, unreadable session files, helper failure)
@@ -42,10 +40,11 @@ const tokenKeys = [
   "GH_DEBUG",
 ];
 export class GithubCredentials {
-  constructor({ dataDir, repositories, resolveGh } = {}) {
+  constructor({ dataDir, repositories, resolveGh, helperLocation } = {}) {
     this.dataDir = fs.realpathSync(dataDir);
     this.directory = path.join(this.dataDir, "github-sessions");
     this.repositories = repositories;
+    this.helperLocation = helperLocation || (() => githubHelperLocation());
     this.resolveGh =
       resolveGh ||
       ((env) =>
@@ -122,7 +121,12 @@ export class GithubCredentials {
     writeJsonAtomic(path.join(folder, "hosts.yml"), hosts);
   }
   async prepare({ id, account, cwd, launch, purpose, replace = false } = {}) {
-    if (purpose === "login" || !["claude", "codex", "opencode"].includes(account?.tool))
+    // A shell gets the same access as a coding CLI: the owner runs gh and git
+    // there for the agent's work. Login sessions only sign a CLI in.
+    if (
+      purpose === "login" ||
+      !["claude", "codex", "opencode", "shell"].includes(account?.tool)
+    )
       return launch;
     const canonical = fs.realpathSync(cwd);
     const selections = this.selections(canonical);
@@ -153,17 +157,21 @@ export class GithubCredentials {
         .filter((value, index, items) => value && items.indexOf(value) === index)
         .join(path.delimiter);
     }
+    const location = this.helperLocation();
     {
       let count = Number(env.GIT_CONFIG_COUNT || 0);
       if (!Number.isSafeInteger(count) || count < 0 || count > 256)
         throw problem(serverMessages.repositories.invalidTemporaryGitConfig);
-      const helper = `!${quote(process.execPath)} ${quote(helperPath)} --git-credential`;
+      const helper = `!${quote(location.node)} ${quote(location.script)} --git-credential`;
+      // gist.<host> serves the host's gists with the same token; without its own
+      // entries the owner's global helper would answer from the session's gh folder.
       for (const { host } of selections)
-        for (const value of ["", helper, quitHelper]) {
-          env[`GIT_CONFIG_KEY_${count}`] = `credential.https://${host}.helper`;
-          env[`GIT_CONFIG_VALUE_${count}`] = value;
-          count++;
-        }
+        for (const url of [host, `gist.${host}`])
+          for (const value of ["", helper, quitHelper]) {
+            env[`GIT_CONFIG_KEY_${count}`] = `credential.https://${url}.helper`;
+            env[`GIT_CONFIG_VALUE_${count}`] = value;
+            count++;
+          }
       const identity = selectedCommitIdentity(this.repositories, canonical, selections);
       if (identity) {
         for (const [key, value] of [
@@ -183,8 +191,7 @@ export class GithubCredentials {
     // session folder holding config.yml, selection.json and hosts.yml.
     return [
       { access: "allow", path: folder },
-      { access: "read", path: process.execPath },
-      { access: "read", path: helperPath },
+      ...location.reads.map((target) => ({ access: "read", path: target })),
     ].reduce((granted, grant) => addGrant(granted, grant), { ...launch, env });
   }
   disable(folder) {
@@ -246,6 +253,30 @@ export class GithubCredentials {
       }
     }
     if (failed) throw problem(serverMessages.repositories.sessionConfigUpdateFailed, 409);
+  }
+
+  /** The session's selected profiles with their last token check, without tokens. */
+  status(id) {
+    let record = null;
+    try {
+      record = readJson(path.join(this.folder(id), "selection.json"));
+    } catch {}
+    if (record?.id !== id || !Array.isArray(record.selections))
+      return { configured: false, hosts: [] };
+    const entries = this.repositories.listCredentials();
+    return {
+      configured: true,
+      hosts: record.selections.slice(0, 100).map(({ host, credentialId }) => {
+        const entry = entries.find(
+          (item) => item.id === credentialId && nativeHost(item.host) === host,
+        );
+        return {
+          host,
+          ...(entry ? { credentialId, name: entry.name } : {}),
+          tokenState: entry ? entry.tokenCheck?.state || null : "removed",
+        };
+      }),
+    };
   }
 
   async discard(id) {

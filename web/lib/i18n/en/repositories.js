@@ -76,3 +76,51 @@ export const repositoryPickerCopy = {
 export const cloneStoreCopy = {
   notice: (value1) => `“${value1}” was cloned. You can now start a session.`,
 };
+export const tokenCheckCopy = {
+  check: "Check",
+  checking: "Checking …",
+  checkAriaLabel: (name) => `Check token of ${name}`,
+  notChecked: "Not checked yet",
+  states: {
+    valid: "Token valid",
+    expiring: "Token expires soon",
+    expired: "Token expired",
+    invalid: "Token rejected",
+    error: "Check failed",
+  },
+  errors: {
+    unauthorized: "GitHub rejected the token. Save a new token.",
+    tokenMissing: "No token is saved for this profile.",
+    forbidden: "GitHub denied access to the user endpoint.",
+    rateLimited: "GitHub's rate limit was reached. Try again later.",
+    unreachable: "The GitHub host could not be reached.",
+    unexpected: "GitHub returned an unexpected answer.",
+  },
+  login: (login) => `Signed in as ${login}`,
+  tokenTypes: {
+    classic: "Classic token",
+    "fine-grained": "Fine-grained token",
+    oauth: "OAuth token",
+    app: "GitHub App token",
+    unknown: "Token type unknown",
+  },
+  scopes: (scopes) => `Scopes: ${scopes}`,
+  noScopes: "Scopes: none",
+  fineGrainedPermissions: "Permissions are set per repository on GitHub.",
+  expires: (date) => `Expires ${date}`,
+  noExpiry: "No expiry date",
+  ssoRequired: (organization) =>
+    `Organization ${organization} requires SAML SSO authorization for this token.`,
+  ssoAuthorize: "Authorize on GitHub",
+  checkedAt: (time) => `Checked ${time}`,
+};
+export const sessionGithubCopy = {
+  label: "GitHub",
+  none: "No GitHub profile",
+  profile: (name, host) => `${name} (${host})`,
+  removed: (host) => `${host}: profile removed`,
+  tokenProblem: (host) =>
+    `${host}: token needs attention in Settings → Access → GitHub connections`,
+  sshRemote:
+    "The project remote uses SSH. GitHub tokens apply to HTTPS only; git uses your SSH keys here.",
+};

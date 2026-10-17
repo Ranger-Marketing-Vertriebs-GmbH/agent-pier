@@ -94,6 +94,8 @@ export async function fixture(page) {
             : {}),
         });
       result = credential || {};
+    } else if (/^\/api\/sessions\/[^/]+\/github$/.test(path)) {
+      result = state.github || { configured: true, hosts: [], remote: null };
     } else if (path === "/api/repositories/clone") {
       result = {
         id: "project",

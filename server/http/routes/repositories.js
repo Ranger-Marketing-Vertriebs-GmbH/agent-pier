@@ -1,8 +1,10 @@
 import { Router } from "express";
-import { wantsRemotes } from "../../features/repositories/git-remote.js";
+import { serverMessages } from "../../lib/i18n/de.js";
+import { problem } from "../../lib/storage.js";
+import { remoteTransport, wantsRemotes } from "../../features/repositories/git-remote.js";
 
 export function repositoriesRoutes(services) {
-  const { repositories, github, gitRemotes } = services;
+  const { repositories, github, gitRemotes, sessions } = services;
   const router = Router();
   router.get("/repositories", async (req, res) => {
     const projects = repositories.listProjects();
@@ -23,6 +25,19 @@ export function repositoriesRoutes(services) {
     const credential = repositories.updateCredential(req.params.id, req.body);
     await github.sync();
     res.json(credential);
+  });
+  // Calls the host's API with the saved token; the response carries only the result.
+  router.post("/git-credentials/:id/check", async (req, res) => {
+    const credential = await repositories.checkCredential(req.params.id);
+    if (!credential) throw problem(serverMessages.repositories.profileChanged, 409);
+    res.json(credential);
+  });
+  router.get("/sessions/:id/github", async (req, res) => {
+    const session = await sessions.get(req.params.id);
+    const remote = gitRemotes
+      ? remoteTransport(await gitRemotes.read(session.cwd))
+      : null;
+    res.json({ ...github.status(session.id), remote });
   });
   router.delete("/git-credentials/:id", async (req, res) => {
     repositories.removeCredential(req.params.id);

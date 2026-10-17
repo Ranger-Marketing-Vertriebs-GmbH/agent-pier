@@ -70,6 +70,7 @@ import { workspaceRoutes } from "./http/routes/workspace.js";
 import { accountsRoutes } from "./http/routes/accounts.js";
 import { sessionsRoutes } from "./http/routes/sessions.js";
 import { repositoriesRoutes } from "./http/routes/repositories.js";
+import { GithubTokenMonitor } from "./features/repositories/github-token-monitor.js";
 import { extensionsRoutes } from "./http/routes/extensions.js";
 import { pluginsRoutes } from "./http/routes/plugins.js";
 import { chatRoutes } from "./http/routes/chat.js";
@@ -155,6 +156,15 @@ export async function createApplication(config) {
   });
   server.once("listening", () => services.releaseMigration.resumeAfterActivation());
   server.once("listening", () => services.mcpAccess.initialize());
+  services.githubTokenMonitor = new GithubTokenMonitor({
+    repositories: services.repositories,
+    notifications: services.notifications,
+    onError: (error) =>
+      console.error(
+        `AgentPier could not check a GitHub token: ${error?.code || "unknown error"}`,
+      ),
+  });
+  server.once("listening", () => services.githubTokenMonitor.start());
   server.once("listening", () =>
     stageToolchainsInBackground({ dataDir: config.dataDir }),
   );

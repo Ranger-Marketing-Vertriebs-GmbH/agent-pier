@@ -12,6 +12,7 @@ import {
   discoverAccessibleRepositories,
   validRepositoryComponent,
 } from "./repository-discovery.js";
+import { checkGithubToken, remoteRepositories } from "./github-token-check.js";
 import {
   privateDirectory,
   writePrivate,
@@ -277,6 +278,8 @@ export class RepositoryStore {
         ? item.agentDefault
         : !this.credentials.some((entry) => entry.id !== id && entry.host === host));
     if (token) writePrivate(this.secretFile(item.id), { token });
+    // A check describes one token on one host; a new token or host needs a new one.
+    if (token || host !== item.host) delete item.tokenCheck;
     Object.assign(item, { name, host });
     if (identity) item.commitIdentity = identity;
     else if (identity === null) delete item.commitIdentity;
@@ -291,6 +294,41 @@ export class RepositoryStore {
     this.credentials = this.credentials.filter((entry) => entry.id !== item.id);
     this.materializeDefaults();
     this.save();
+  }
+  /** Checks the saved token against the host's API and keeps the result, never the token. */
+  async checkCredential(id) {
+    if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
+    const credential = this.credential(id);
+    const secret = readJSON(this.secretFile(credential.id), null);
+    const result =
+      typeof secret?.token === "string" && secret.token
+        ? await checkGithubToken({
+            host: credential.host,
+            token: secret.token,
+            fetchImpl: this.fetchImpl,
+            repositories: remoteRepositories(
+              credential.host,
+              this.projects
+                .filter((project) => project.credentialId === credential.id)
+                .map((project) => project.url),
+            ),
+          })
+        : {
+            state: "invalid",
+            error: "tokenMissing",
+            checkedAt: new Date().toISOString(),
+          };
+    // The profile or its token may have changed while GitHub answered.
+    const current = this.credentials.find((item) => item.id === id);
+    if (
+      !current ||
+      current.host !== credential.host ||
+      readJSON(this.secretFile(id), null)?.token !== secret?.token
+    )
+      return null;
+    current.tokenCheck = result;
+    this.save();
+    return this.listCredentials().find((item) => item.id === id);
   }
   async discover({ credentialId, query = "", organization = "", page = "1" } = {}) {
     if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
