@@ -185,6 +185,7 @@ export function auditEvent(input) {
       "ssh-grants",
       "project-rebind",
       "member-grant",
+      "member-reminder",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;

@@ -24,7 +24,11 @@ export function assistantWorkRoutes({ assistants }) {
       if (sshToolChanged && assistants.runtime?.client?.ready)
         await assistants.config.apply(req.params.id).catch(() => {});
       // Running members follow the shell and SSH setting at once.
-      if (req.body.team) followLead(assistants, req.params.id);
+      if (req.body.team) {
+        // Switched off, the setting also cancels pending shell and SSH cards.
+        assistants.teams.grants?.settingOff(req.params.id);
+        followLead(assistants, req.params.id);
+      }
       res.json(saved);
     }),
   );

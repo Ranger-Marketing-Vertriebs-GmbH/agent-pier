@@ -136,15 +136,18 @@ export default function ExecApprovalCard({ action, decide }) {
           >
             {copy.allowOnce}
           </button>
-          <button
-            type="button"
-            className="button secondary"
-            disabled={busy}
-            aria-describedby={once ? noteId : undefined}
-            onClick={() => (paths.length ? setConfirming(true) : send("allow-always"))}
-          >
-            {copy.allowAlways}
-          </button>
+          {/* A task member's shell is granted for one task: never "Always allow". */}
+          {!payload.onceOnly && (
+            <button
+              type="button"
+              className="button secondary"
+              disabled={busy}
+              aria-describedby={once ? noteId : undefined}
+              onClick={() => (paths.length ? setConfirming(true) : send("allow-always"))}
+            >
+              {copy.allowAlways}
+            </button>
+          )}
           <button
             type="button"
             className="button secondary"

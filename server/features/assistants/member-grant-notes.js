@@ -61,10 +61,22 @@ export function notifyMemberGrant(w, action, phase, key, m, target) {
   });
 }
 
-// The chat note of a grant change or a decided shell or SSH grant.
+// The chat note of a grant change or a decided shell or SSH grant, or of a reminder
+// a member created on its lead (never its text).
 export function grantNotes(a) {
   if (!a.chatNotes?.result) return [];
   const p = a.payload;
+  if (p.action === "member_reminder")
+    return [
+      {
+        id: `member-reminder:${a.id}`,
+        role: "event",
+        event: "member-reminder",
+        memberName: p.memberName,
+        timestamp: a.chatNotes.result.at,
+        runId: null,
+      },
+    ];
   return [
     {
       id: `member-grant:${a.id}`,

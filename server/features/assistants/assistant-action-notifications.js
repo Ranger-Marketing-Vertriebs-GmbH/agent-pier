@@ -151,7 +151,7 @@ function notifyExec(w, action, phase, key, m) {
       phase === "approval"
         ? [
             button("allow-once", m.execAllowOnce),
-            button("allow-always", m.execAllowAlways),
+            ...(p.onceOnly ? [] : [button("allow-always", m.execAllowAlways)]),
             button("deny", m.execDeny),
           ]
         : [],
@@ -247,7 +247,7 @@ export function actionNotes(actions, conversationId) {
     .flatMap((a) =>
       a.payload.action === "ssh"
         ? sshNotes(a)
-        : a.payload.action === "member_grant"
+        : ["member_grant", "member_reminder"].includes(a.payload.action)
           ? grantNotes(a)
           : codingNotes(a),
     )

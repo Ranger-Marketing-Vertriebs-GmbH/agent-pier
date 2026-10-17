@@ -9,6 +9,7 @@ import { LeadRequests } from "./lead-requests.js";
 import { publicRequest } from "./lead-request-store.js";
 import { reportText } from "./team-results.js";
 import { MemberGrants } from "./member-grant-requests.js";
+import { mirrorLeadMemory } from "./member-memory.js";
 function exact(input, keys) {
   if (
     !input ||
@@ -193,6 +194,15 @@ export class TeamService {
         for (const member of members)
           if (!member.archivedAt && member.lifetime === "permanent")
             await this.assistants.reminders?.disable(member.assistantId);
+      // A task member kept as a permanent agent keeps none of its lead's memory copy.
+      if (action === "promote")
+        for (const member of members)
+          if (member.lifetime !== "permanent")
+            await mirrorLeadMemory(
+              this.assistants.config?.workspaces,
+              this.assistants.store.getAssistant(member.assistantId),
+              false,
+            ).catch(() => {});
       const result =
         action === "archive"
           ? this.store.archive(id, revision, check)

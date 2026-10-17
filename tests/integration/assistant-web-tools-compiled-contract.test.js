@@ -14,6 +14,7 @@ import { detectBrowser } from "../../server/features/assistants/browser-detectio
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { capabilityTools } from "../../server/features/assistants/native-capabilities.js";
+import { defaultGrants } from "../../server/features/assistants/member-grants.js";
 import { webToolsSections } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 
@@ -113,6 +114,11 @@ test(
         teamId: `team-${id}`,
         lifetime: "temporary",
       });
+    // TeamStore answers this in the app: the default grants for `member` only.
+    store.memberGrants = (m) => ({
+      grants: m.id === "member-1" ? defaultGrants : {},
+      shellSsh: false,
+    });
     const member = store.getAssistant(reserve("member-1", web.id).id);
     const reserved = reserve("member-2", plain.id);
     store.db

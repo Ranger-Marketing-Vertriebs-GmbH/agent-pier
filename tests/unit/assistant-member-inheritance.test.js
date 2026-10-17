@@ -274,3 +274,56 @@ test("a lead's change re-applies only its running task members", async (t) => {
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(applied, [f.member.assistantId]);
 });
+
+test("a proposal granting shell or SSH always waits for the owner", (t) => {
+  for (const kind of ["task", "standing"]) {
+    const f = fixture(t, { memberShellSsh: true, ssh: true });
+    const policy = f.teams.policy(f.lead.id);
+    f.teams.savePolicy(f.lead.id, { autonomous: kind === "standing" }, policy.revision);
+    const chat = f.store.saveConversation({
+      assistantId: f.lead.id,
+      runtimeSessionKey: `agent:lead:${kind}`,
+    });
+    const ledger = new RequestLedger(f.store.db);
+    // A fresh owner turn per proposal: a task authorization covers one team.
+    const turn = () => {
+      const request = ledger.accept(chat.id, {
+        clientRequestId: `${kind}-${Math.random()}`,
+        text: "/team go",
+      });
+      f.teams.recordContext(request.id, { kind: "owner", teamAllowed: kind === "task" });
+      return ledger.recordAttempt(request.id);
+    };
+    // The fixture's team is still active; a new one waits for it to finish.
+    f.teams.write(f.teams.member(f.member.id), { phase: "completed" });
+    f.teams.write(f.teams.get(f.team.id), { phase: "completed" });
+    const plain = f.teams.propose({
+      operationId: `${kind}-plain`,
+      parentAttemptId: turn().id,
+      objective: "Plain",
+      members: [{ name: "A", role: "R", assignment: "A" }],
+      origin: { kind: "owner" },
+    });
+    assert.equal(plain.phase, "approved", kind);
+    assert.equal(plain.authorization.kind, kind);
+    f.teams.write(plain, { phase: "declined" });
+    for (const grants of [{ shell: "approval" }, { ssh: true }]) {
+      const proposal = f.teams.propose({
+        operationId: `${kind}-${Object.keys(grants)[0]}`,
+        parentAttemptId: turn().id,
+        objective: "Shell",
+        members: [{ name: "B", role: "R", assignment: "B", grants }],
+        origin: { kind: "owner" },
+      });
+      assert.equal(proposal.phase, "awaiting_approval", `${kind} ${Object.keys(grants)}`);
+      assert.equal(proposal.authorization, null);
+      f.teams.write(proposal, { phase: "declined" });
+    }
+  }
+});
+
+test("members reserved before grants existed get no grants at all", (t) => {
+  const f = fixture(t);
+  f.teams.write(f.teams.member(f.member.id), { grants: undefined });
+  assert.deepEqual(personalCapabilities(f.agent()), OFF);
+});

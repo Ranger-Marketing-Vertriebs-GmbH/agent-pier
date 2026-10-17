@@ -192,10 +192,15 @@ and cannot save to memory.
 Shell and SSH need **Team members may use shell and SSH** in the lead's **Work** tab.
 With it on, the lead may grant members of teams proposed from then on at most its
 own shell level and its SSH accesses; the proposal marks those members with a
-warning, and a shell or SSH grant the lead makes later always asks you for approval
-in the lead's chat and in Telegram. Switching the setting off takes shell and SSH
-away from running members. Kept as permanent agents, members keep none of their
-grants and start with their own settings.
+warning, and such a proposal always waits for your approval, even when teams are
+otherwise allowed without asking. A shell or SSH grant the lead makes later asks
+you for approval in the lead's chat and in Telegram. A member's shell request never
+offers **Always allow**. Switching the setting off takes shell and SSH away from
+running members and cancels waiting requests for good; switching it on again
+restores nothing. The members of one team set at most five reminders on the lead,
+and each one is noted in the lead's chat. Kept as permanent agents, members keep
+only the MCP servers you saw in the proposal, lose the copy of the lead's memory and
+start with their own settings.
 
 A lead also talks to its members directly:
 

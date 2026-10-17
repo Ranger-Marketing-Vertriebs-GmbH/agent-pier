@@ -27,9 +27,13 @@ export const memberGrantCopy = {
   log: {
     lead: (date, labels) => `${date}: the lead agent granted ${labels}`,
     revoked: (date, labels) => `${date}: the lead agent took back ${labels}`,
+    ownerRevoked: (date, labels) =>
+      `${date}: switching off shell and SSH for team members took back ${labels}`,
     owner: (date, labels) => `${date}: you approved ${labels}`,
   },
   note: {
+    reminder: (member) =>
+      `${member} set a reminder on the lead agent; it is listed in its reminders`,
     granted: (member, labels) => `${member} was granted ${labels} by its lead agent`,
     revoked: (member, labels) => `The lead agent took back ${labels} from ${member}`,
     completed: (member, labels) => `You approved ${labels} for ${member}`,

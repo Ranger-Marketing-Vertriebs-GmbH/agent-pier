@@ -21,6 +21,7 @@ export function assistantTeamRoutes({ assistants }) {
     const { revision, ...input } = req.body;
     const result = service().store.savePolicy(req.params.id, input, revision);
     assistants.changed();
+    service().grants?.settingOff(req.params.id);
     followLead(assistants, req.params.id);
     res.json(result);
   });

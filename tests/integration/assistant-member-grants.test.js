@@ -1,9 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
-import { workflowFixture } from "../helpers/assistant-workflow-fixture.js";
-import { TeamStore } from "../../server/features/assistants/team-store.js";
-import { MemberGrants } from "../../server/features/assistants/member-grant-requests.js";
+import { memberGrantFixture } from "../helpers/member-grant-fixture.js";
 import { actionNotes } from "../../server/features/assistants/assistant-action-notifications.js";
 import {
   personalCapabilities,
@@ -11,61 +8,7 @@ import {
   personalSkills,
 } from "../../server/features/assistants/native-capabilities.js";
 
-const caps = {
-  memory: true,
-  reminders: true,
-  webSearch: true,
-  webFetch: true,
-  browser: true,
-  documents: true,
-};
-
-// A lead with every capability, Telegram paired, and one running task member.
-async function setup(t, { memberShellSsh = false } = {}) {
-  const f = await workflowFixture(t);
-  const lead = f.store.getAssistant(f.id);
-  f.store.updateAssistant(
-    f.id,
-    { capabilities: caps, shell: "approval", skills: ["weather"] },
-    lead.revision,
-  );
-  const teams = new TeamStore({ store: f.store, sshGranted: () => true });
-  if (memberShellSsh) teams.savePolicy(f.id, { memberShellSsh: true }, 1);
-  const audits = [];
-  f.services.audit.append = (event) => audits.push(event);
-  const synced = [];
-  const grants = new MemberGrants({
-    teams,
-    assistants: f.assistants,
-    audit: f.services.audit,
-    onChanged: (member) => synced.push(member.id),
-  });
-  f.assistants.teams = { store: teams, grants };
-  const request = f.assistants.ledger.accept(f.channel.conversationId, {
-    clientRequestId: "team",
-    text: "Build a team",
-  });
-  teams.recordContext(request.id, { kind: "owner", teamAllowed: true });
-  const attempt = f.assistants.ledger.recordAttempt(request.id);
-  const proposed = teams.propose({
-    operationId: "team-call",
-    parentAttemptId: attempt.id,
-    objective: "Research",
-    members: [{ name: "Scout", role: "Research", assignment: "Look around" }],
-  });
-  teams.reserve(proposed.id);
-  let member = teams.members(proposed.id)[0];
-  const memberChat = f.store.saveConversation({
-    assistantId: member.assistantId,
-    runtimeSessionKey: "member-session",
-  });
-  member = teams.write(member, { conversationId: memberChat.id, phase: "running" });
-  // A tool call of the lead in an owner turn.
-  const call = async (input) =>
-    grants.grant(await f.invocation(randomUUID()), { memberId: member.id, ...input });
-  const agent = () => f.store.getAssistant(member.assistantId);
-  return { ...f, teams, grants, member, memberChat, call, agent, audits, synced };
-}
+const setup = memberGrantFixture;
 
 test("a lead grants a running member more within its own capabilities, visibly", async (t) => {
   const f = await setup(t);

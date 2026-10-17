@@ -188,3 +188,31 @@ test("a member's memory is a read-only copy of its lead's, refreshed and removed
     /Memory is read-only right now/,
   );
 });
+
+test("a planted link in the member's copy is replaced, never written through", async (t) => {
+  const f = fixture(t);
+  const root = path.join(f.dataDir, "workspaces");
+  const lead = path.join(root, f.lead.id),
+    own = path.join(root, f.member.id);
+  fs.mkdirSync(lead, { recursive: true });
+  fs.mkdirSync(own, { recursive: true });
+  fs.writeFileSync(path.join(lead, "MEMORY.md"), "Lead facts");
+  const outside = path.join(f.dataDir, "outside.md");
+  fs.writeFileSync(outside, "Untouched");
+  fs.symlinkSync(outside, path.join(own, "MEMORY.md"));
+  // A link where a guessable temporary name would be is never followed either.
+  const guessed = path.join(f.dataDir, "guessed.md");
+  fs.writeFileSync(guessed, "Untouched");
+  fs.symlinkSync(guessed, path.join(own, `MEMORY.md.${process.pid}.tmp`));
+  await mirrorLeadMemory(root, f.member, true);
+  assert.equal(fs.readFileSync(outside, "utf8"), "Untouched");
+  assert.equal(fs.readFileSync(guessed, "utf8"), "Untouched");
+  const copy = path.join(own, "MEMORY.md");
+  assert.equal(fs.lstatSync(copy).isSymbolicLink(), false);
+  assert.equal(fs.readFileSync(copy, "utf8"), "Lead facts");
+  // No temporary file is left behind.
+  assert.deepEqual(
+    fs.readdirSync(own).filter((name) => name.startsWith(".") && name.endsWith(".tmp")),
+    [],
+  );
+});

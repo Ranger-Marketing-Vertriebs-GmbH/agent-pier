@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { personalShell } from "./native-capabilities.js";
+import { temporaryMember } from "./team-presentation.js";
 
 // The owner's decision on an exec approval goes to the Gateway exactly once, for
 // the approval id the action was created from. OpenClaw withholds allow-always for
@@ -95,6 +96,13 @@ export async function decideExec(w, action, decision, log = (l) => console.warn(
     personalShell(w.a.store.getAssistant(action.assistantId)) === "off"
   )
     throw assistantProblem("conflict", 409);
+  // A task member never gets a lasting allowlist entry: its shell is its lead's,
+  // granted for one task, and "Always allow" would outlive it (and a promotion).
+  if (
+    decision === "allow-always" &&
+    temporaryMember(w.a.store.getAssistant(action.assistantId))
+  )
+    throw assistantProblem("invalid");
   const { approvalId } = action.payload;
   const fallback = decision === "allow-always" && allowAlwaysByAgentPier(action.payload);
   const sent = fallback ? "allow-once" : decision;
