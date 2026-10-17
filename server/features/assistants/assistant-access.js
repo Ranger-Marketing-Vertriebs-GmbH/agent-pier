@@ -156,7 +156,16 @@ export class AssistantAccess {
     const definitions = {},
       accountIds = new Set(),
       connectionIds = new Set();
-    for (const pipelineId of input.pipelineIds) {
+    // A pipeline deleted since it was granted leaves the grant instead of blocking
+    // every later save (`notes.removedPipelineIds`), as a merged project does. A
+    // pipeline newly chosen that does not exist is still refused (404).
+    const pipelines = new Set(
+      this.s.pipelineDefinitions.listPipelines().map((pipeline) => pipeline.id),
+    );
+    const gone = (p) => !pipelines.has(p) && old.pipelineIds.includes(p);
+    const pipelineIds = input.pipelineIds.filter((p) => !gone(p));
+    notes.removedPipelineIds = input.pipelineIds.filter(gone);
+    for (const pipelineId of pipelineIds) {
       const def = this.definition(pipelineId);
       definitions[pipelineId] = def.hash;
       for (const p of def.profiles) {
@@ -169,6 +178,7 @@ export class AssistantAccess {
     return {
       ...input,
       projectIds,
+      pipelineIds,
       // Folder access per granted project; absent keeps the stored levels, and a
       // project no longer granted takes its level with it.
       projectFiles: folderLevels(
@@ -212,7 +222,10 @@ export class AssistantAccess {
     this.auditSsh(id, before, next, "owner");
     this.auditProjects(id, before, next);
     this.s.assistants.changed();
-    return { ...next, removedProjectIds: notes.removedProjectIds };
+    return {
+      ...next,
+      removedProjectIds: notes.removedProjectIds,
+    };
   }
   // A replaced SSH grant list: catalog hosts with a mode, sorted; an agent with its
   // own bot for other people never gets one (telegram-senders.js).

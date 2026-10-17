@@ -40,7 +40,9 @@ made while agents were switched off finishes when the agents are back and the pr
 is used again. After a merge made while agents were switched off, saving **Work**
 cleans up: it drops granted projects that no longer exist and says how many it removed; both
 `PUT /api/assistants/:id/work` and `PUT /api/assistants/:id/access` list them in
-`removedProjectIds`.
+`removedProjectIds`. A granted pipeline that was deleted later likewise leaves the grant
+with the next save, from **Work** or from the project, instead of blocking it; a
+pipeline newly selected that does not exist is still refused.
 
 Ask the agent to inspect project knowledge or propose a concrete coding task.
 The workspace tool first discovers the granted project/pipeline IDs. Approval

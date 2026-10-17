@@ -10,6 +10,10 @@ import { RegisterHint } from "./ProjectRuns.jsx";
 import "./project-agents.css";
 
 const levels = ["none", "read", "write"];
+// Only the server's own conflict means "changed elsewhere"; other 409s (agents busy
+// in maintenance) are ordinary errors.
+export const isConflict = (e) =>
+  e?.status === 409 && e.messageKey === "assistants.conflict";
 const path = (projectId) => `/assistant-project-access/${encodeURIComponent(projectId)}`;
 
 // One permanent agent: the project grant and its folder level, saved at once through
@@ -32,7 +36,7 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
       );
       onSaved({ ...agent, ...saved });
     } catch (e) {
-      if (e.status === 409) onConflict(agent.id);
+      if (isConflict(e)) onConflict(agent.id);
       else setError(e.message);
     } finally {
       setPending(null);
@@ -79,6 +83,10 @@ export default function ProjectAgents({ project, onNavigate, reloadHub }) {
   const id = project.memoryId;
   const list = useResource(id ? path(id) : null);
   const [conflict, setConflict] = useState("");
+  // Saved answers per agent, shown over the loaded list while they are at least as
+  // new (by revision): answers arriving in any order never undo another agent, and
+  // the list itself is never replaced, so a refresh always lands.
+  const [saved, setSaved] = useState({});
   const titleId = useId(),
     membersId = useId();
   if (!id)
@@ -92,13 +100,16 @@ export default function ProjectAgents({ project, onNavigate, reloadHub }) {
       />
     );
   const data = list.data;
-  const agents = data?.agents || [],
+  const agents = (data?.agents || []).map((a) =>
+      saved[a.id] && saved[a.id].revision >= a.revision ? saved[a.id] : a,
+    ),
     members = data?.members || [];
-  const replace = (agent) =>
-    list.update({
-      ...data,
-      agents: agents.map((a) => (a.id === agent.id ? agent : a)),
-    });
+  const remember = (agent) =>
+    setSaved((current) =>
+      current[agent.id]?.revision > agent.revision
+        ? current
+        : { ...current, [agent.id]: agent },
+    );
   return (
     <div className="project-agents">
       <section aria-labelledby={titleId}>
@@ -120,7 +131,7 @@ export default function ProjectAgents({ project, onNavigate, reloadHub }) {
               agent={agent}
               onSaved={(next) => {
                 setConflict("");
-                replace(next);
+                remember(next);
               }}
               onConflict={(agentId) => {
                 setConflict(agentId);
