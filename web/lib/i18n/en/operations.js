@@ -243,6 +243,15 @@ export const diagnosticCopy = {
   account: "Account profile",
   project: "Project directory",
   adapterSession: "Adapter session",
+  remedies: {
+    platform: "Use a supported macOS or Linux host.",
+    pty: "Reinstall dependencies for this Node runtime and platform.",
+    tool: "Install the tool or correct the service PATH.",
+    project: "Restore or map the project checkout on this host.",
+    adapterReload: "Reload the session to restart the protocol adapter.",
+    adapterRestartFailed:
+      "Reload the session to restart the protocol adapter. If it fails again, test the connection and check its address.",
+  },
   checks: {
     platform: "Operating system",
     node: "Node.js runtime",

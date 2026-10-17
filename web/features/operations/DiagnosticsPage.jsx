@@ -1,4 +1,4 @@
-import { checkLabel } from "./diagnostic-labels.js";
+import { checkLabel, remedyText } from "./diagnostic-labels.js";
 import React, { useState } from "react";
 import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
@@ -96,14 +96,10 @@ export default function DiagnosticsPage() {
                 <span>{copy.checkStatuses[check.status] || copy.unknown}</span>
               </header>
               <p>{check.summary}</p>
-              {check.remedy && (
+              {remedyText(check) && (
                 <>
                   <h2>{copy.remedy}</h2>
-                  <pre>
-                    {typeof check.remedy === "string"
-                      ? check.remedy
-                      : JSON.stringify(check.remedy, null, 2)}
-                  </pre>
+                  <p>{remedyText(check)}</p>
                 </>
               )}
               {check.details && (

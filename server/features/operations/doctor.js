@@ -14,6 +14,15 @@ import { validateEndpoint } from "../providers/endpoint-config.js";
 import { toolRoutes } from "../providers/endpoint-routing.js";
 import { adapterSessionChecks } from "./adapter-doctor.js";
 const execute = promisify(execFile);
+// English remedy text for CLI and API readers; the UI translates the stable remedy id.
+const REMEDIES = {
+  platform: "Use a supported macOS or Linux host.",
+  pty: "Reinstall dependencies for this Node runtime and platform.",
+  tool: "Install the tool or correct the service PATH.",
+  project: "Restore or map the project checkout on this host.",
+};
+// A remedy only belongs to a check that needs action.
+const needsRemedy = (status) => status === "warn" || status === "fail";
 export async function inertCommand(command, args) {
   try {
     const result = await execute(command, args, {
@@ -46,19 +55,21 @@ export class Doctor {
     )
       throw problem(serverMessages.operations.invalidDiagnosticScope);
     const checks = [],
-      add = (id, status, summary, remedy, details) =>
+      push = ({ id, status, summary, remedy, remedyId, details }) =>
         checks.push({
           id,
           status,
           summary,
-          ...(remedy ? { remedy } : {}),
+          ...(remedy && needsRemedy(status) ? { remedy, remedyId } : {}),
           ...(details ? { details } : {}),
-        });
+        }),
+      add = (id, status, summary, remedyId, details) =>
+        push({ id, status, summary, remedy: REMEDIES[remedyId], remedyId, details });
     add(
       "platform",
       ["darwin", "linux"].includes(this.platform) ? "ok" : "fail",
       `${this.platform}/${process.arch}`,
-      "Use a supported macOS or Linux host.",
+      "platform",
     );
     const node = process.versions.node.split(".").map(Number);
     add(
@@ -70,12 +81,7 @@ export class Doctor {
       await this.ptyCheck();
       add("pty", "ok", "Native terminal module loads.");
     } catch {
-      add(
-        "pty",
-        "fail",
-        "Native terminal module is unavailable.",
-        "Reinstall dependencies for this Node runtime and platform.",
-      );
+      add("pty", "fail", "Native terminal module is unavailable.", "pty");
     }
     const tools = detectTools(
       { PATH: process.env.PATH, HOME: this.home },
@@ -100,7 +106,7 @@ export class Doctor {
         result.code === 0
           ? `Detected version ${version || "unknown"}.`
           : "Executable is unavailable.",
-        result.code ? "Install the tool or correct the service PATH." : undefined,
+        "tool",
       );
     }
     add(
@@ -238,8 +244,7 @@ export class Doctor {
         "Provider key presence checked; validity and entitlement were not tested.",
       );
     }
-    for (const check of adapterSessionChecks(this.dataDir))
-      add(check.id, check.status, check.summary, check.remedy, check.details);
+    for (const check of adapterSessionChecks(this.dataDir)) push(check);
     const projects =
       readJson(path.join(this.dataDir, "repositories.json"), { projects: [] }).projects ||
       [];
@@ -252,7 +257,7 @@ export class Doctor {
         fs.existsSync(project.path)
           ? "Project directory exists."
           : "Project directory is missing.",
-        "Restore or map the project checkout on this host.",
+        "project",
       );
     return {
       version: applicationVersion(),
