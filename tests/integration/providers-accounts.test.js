@@ -12,7 +12,7 @@ function setup(t) {
 }
 const provider = { id: "openrouter", modelId: "anthropic/claude-sonnet-4.6" };
 
-test("managed provider selection survives restart without exposing its key", (t) => {
+test("managed provider selection survives restart without exposing its key", async (t) => {
   const { dataDir, store } = setup(t);
   const account = store.create({
     name: "Router",
@@ -27,7 +27,7 @@ test("managed provider selection survives restart without exposing its key", (t)
   assert.equal(store.environment(account.id).OPENAI_API_KEY, undefined);
 });
 
-test("provider validation rejects UI-supplied context and unknown model IDs before storing an account", (t) => {
+test("provider validation rejects UI-supplied context and unknown model IDs before storing an account", async (t) => {
   const { store } = setup(t);
   for (const invalid of [
     { ...provider, contextTokens: 99999999 },
@@ -41,7 +41,7 @@ test("provider validation rejects UI-supplied context and unknown model IDs befo
   assert.equal(store.list().filter((account) => account.kind === "managed").length, 0);
 });
 
-test("key removal disables gateway launch and rotation restores it", (t) => {
+test("key removal disables gateway launch and rotation restores it", async (t) => {
   const { store } = setup(t);
   const account = store.create({
     name: "Router",
@@ -52,26 +52,29 @@ test("key removal disables gateway launch and rotation restores it", (t) => {
   store.update(account.id, { name: "Router", removeApiKey: true });
   assert.equal(store.get(account.id).hasSecret, false);
   assert.equal(store.environment(account.id).OPENROUTER_API_KEY, undefined);
-  assert.throws(() => store.command(account.id, { opencode: "/bin/echo" }), {
+  await assert.rejects(async () => store.command(account.id, { opencode: "/bin/echo" }), {
     status: 409,
   });
   store.update(account.id, { name: "Router", apiKey: "new-key" });
   assert.equal(
-    store.command(account.id, { opencode: "/bin/echo" }).env.OPENROUTER_API_KEY,
+    (await store.command(account.id, { opencode: "/bin/echo" })).env.OPENROUTER_API_KEY,
     "new-key",
   );
   assert.equal(JSON.stringify(store.get(account.id)).includes("new-key"), false);
 });
 
-test("gateway profiles cannot enter OAuth even after their key is removed", (t) => {
+test("gateway profiles cannot enter OAuth even after their key is removed", async (t) => {
   const { store } = setup(t);
   const account = store.create({ name: "Router", tool: "claude", provider });
-  assert.throws(() => store.command(account.id, { claude: "/bin/echo" }, true), {
-    status: 409,
-  });
+  await assert.rejects(
+    async () => store.command(account.id, { claude: "/bin/echo" }, true),
+    {
+      status: 409,
+    },
+  );
 });
 
-test("switching providers cannot forward the previous provider's key", (t) => {
+test("switching providers cannot forward the previous provider's key", async (t) => {
   const { store } = setup(t);
   const account = store.create({
     name: "Router",
@@ -97,7 +100,7 @@ test("switching providers cannot forward the previous provider's key", (t) => {
   assert.equal(store.environment(account.id).OPENROUTER_API_KEY, undefined);
 });
 
-test("gateway settings use a separate namespace from a previous native login", (t) => {
+test("gateway settings use a separate namespace from a previous native login", async (t) => {
   const { store } = setup(t);
   const account = store.create({ name: "Claude", tool: "claude" });
   const native = store.environment(account.id).CLAUDE_CONFIG_DIR;
@@ -116,7 +119,7 @@ test("gateway settings use a separate namespace from a previous native login", (
   );
 });
 
-test("switching Codex to a gateway preserves its isolated native OAuth login", (t) => {
+test("switching Codex to a gateway preserves its isolated native OAuth login", async (t) => {
   const { store } = setup(t);
   const account = store.create({ name: "Codex", tool: "codex" });
   const original = store.environment(account.id).CODEX_HOME;
@@ -133,7 +136,7 @@ test("switching Codex to a gateway preserves its isolated native OAuth login", (
   assert.notEqual(store.environment(account.id).CODEX_HOME, original);
 });
 
-test("removing a native Codex API key clears both private copies", (t) => {
+test("removing a native Codex API key clears both private copies", async (t) => {
   const { store } = setup(t);
   const account = store.create({
     name: "Codex",

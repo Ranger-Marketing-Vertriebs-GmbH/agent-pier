@@ -9,7 +9,7 @@ import { ProviderCatalog } from "../../server/features/providers/provider-catalo
 import { AccountStore } from "../../server/features/accounts/account-store.js";
 for (const providerId of ["openrouter", "zai", "zai-coding-plan"])
   for (const tool of ["codex", "claude", "opencode"])
-    test(`${providerId} central connection resolves ${tool} native configuration and verified model context`, (t) => {
+    test(`${providerId} central connection resolves ${tool} native configuration and verified model context`, async (t) => {
       const dataDir = fs.realpathSync(
         fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-connection-launch-")),
       );
@@ -38,12 +38,12 @@ for (const providerId of ["openrouter", "zai", "zai-coding-plan"])
       const { account } = access.resolve(body);
       const executable = path.join(dataDir, "version-fixture");
       fs.writeFileSync(executable, "#!/bin/sh\nprintf '2.2.0\\n'\n", { mode: 0o755 });
-      const launch = accounts.command(account.id, { [tool]: executable });
+      const launch = await accounts.command(account.id, { [tool]: executable });
       assert.equal(launch.provider.modelId, model.modelId);
       assert.equal(launch.provider.contextTokens, model.contextTokens);
       assert.equal(JSON.stringify(launch.args).includes("matrix-private-key"), false);
       assert.equal(JSON.stringify(launch.provider).includes("matrix-private-key"), false);
-      const native = accounts.command(`local-${tool}`, { [tool]: executable });
+      const native = await accounts.command(`local-${tool}`, { [tool]: executable });
       assert.deepEqual(native.args, []);
       assert.equal(native.env.OPENROUTER_API_KEY, undefined);
       assert.equal(native.env.ZAI_API_KEY, undefined);

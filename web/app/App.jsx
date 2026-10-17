@@ -105,6 +105,7 @@ function Application() {
       type: "launch",
       tool,
     });
+  const update = (tool) => setModal({ type: "update", tool });
   const newItems = useNewMenuItems({ launch, navigate });
   const availableTools = [...state.tools, ...(state.utilities || [])];
   const installed = state.tools.filter((t) => t.installed).length;
@@ -347,6 +348,7 @@ function Application() {
           created,
           refresh,
           launch,
+          update,
           page,
           select,
         }}

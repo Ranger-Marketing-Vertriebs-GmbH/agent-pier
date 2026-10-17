@@ -16,6 +16,7 @@ export default function AppDialogs({
   created,
   refresh,
   launch,
+  update,
   page,
   select,
 }) {
@@ -30,6 +31,7 @@ export default function AppDialogs({
           initialProfile={modal.profile}
           close={close}
           created={created}
+          update={update}
         />
       )}
       {["install", "update"].includes(modal?.type) && (

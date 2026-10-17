@@ -11,8 +11,8 @@ async function fixture(t) {
   assert.equal(created.status, 201);
   const account = await created.json();
   const command = f.application.accounts.command.bind(f.application.accounts);
-  f.application.accounts.command = (id, _bins, login, mode, options) => ({
-    ...command(id, { codex: "/bin/sh" }, login, mode, options),
+  f.application.accounts.command = async (id, _bins, login, mode, options) => ({
+    ...(await command(id, { codex: "/bin/sh" }, login, mode, options)),
     command: "/bin/sh",
     args: ["-c", "sleep 30"],
   });

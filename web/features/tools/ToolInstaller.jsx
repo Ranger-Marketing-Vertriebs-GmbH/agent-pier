@@ -71,6 +71,21 @@ export default function ToolInstaller({
                 <p>
                   <code>{job.updateCommand}</code>
                 </p>
+                {job.minimumVersion && (
+                  <p
+                    className={
+                      job.versionStatus === "update-required"
+                        ? "tool-install-reason"
+                        : "tool-install-note"
+                    }
+                  >
+                    {job.installedVersion
+                      ? copy.installedVersion(job.installedVersion)
+                      : copy.versionUnknown}
+                    {job.versionStatus === "update-required" &&
+                      ` · ${copy.minimumVersion(job.minimumVersion)}`}
+                  </p>
+                )}
                 {job.migrate && (
                   <p className="tool-install-note">{copy.migrationDescription}</p>
                 )}

@@ -16,8 +16,8 @@ test("central access crosses the real HTTP lifecycle without exposing keys and r
   const executable = path.join(f.root, "version-fixture");
   await fs.writeFile(executable, "#!/bin/sh\nprintf '2.2.0\\n'\n", { mode: 0o755 });
   const original = f.application.accounts.command.bind(f.application.accounts);
-  f.application.accounts.command = (id, _binaries, login, mode, options) => {
-    const prepared = original(id, { claude: executable }, login, mode, options);
+  f.application.accounts.command = async (id, _binaries, login, mode, options) => {
+    const prepared = await original(id, { claude: executable }, login, mode, options);
     assert.equal(prepared.env.ANTHROPIC_AUTH_TOKEN, secret);
     return { ...prepared, command: "/bin/sh", args: ["-c", "sleep 30"] };
   };

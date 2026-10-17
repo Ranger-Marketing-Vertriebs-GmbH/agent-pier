@@ -12,8 +12,8 @@ import { attachmentDirectory } from "../../server/features/chat/chat-attachments
 // and --session-id onto the returned launch object.
 function stubClaudeExecutable(f, script = "true") {
   const original = f.application.accounts.command.bind(f.application.accounts);
-  f.application.accounts.command = (id, _binaries, login, mode, options) => ({
-    ...original(id, { claude: "/bin/sh" }, login, mode, options),
+  f.application.accounts.command = async (id, _binaries, login, mode, options) => ({
+    ...(await original(id, { claude: "/bin/sh" }, login, mode, options)),
     command: "/bin/sh",
     args: ["-c", script],
   });
@@ -39,8 +39,8 @@ test("a launched claude session records its attachment directory and passes --ad
     'import fs from "node:fs"; fs.writeFileSync(process.env.ARGUMENT_CAPTURE, JSON.stringify(process.argv.slice(2)));',
   );
   const original = f.application.accounts.command.bind(f.application.accounts);
-  f.application.accounts.command = (id, _binaries, login, mode, options) => {
-    const launch = original(id, { claude: process.execPath }, login, mode, options);
+  f.application.accounts.command = async (id, _binaries, login, mode, options) => {
+    const launch = await original(id, { claude: process.execPath }, login, mode, options);
     return {
       ...launch,
       command: process.execPath,

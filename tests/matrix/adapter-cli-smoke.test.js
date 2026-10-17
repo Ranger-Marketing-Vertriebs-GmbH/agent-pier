@@ -13,6 +13,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { ProviderCatalog } from "../../server/features/providers/provider-catalog.js";
+import { parseCliVersion } from "../../server/features/tools/cli-version.js";
 import { prepareProviderLaunch } from "../../server/features/providers/provider-launch.js";
 import { validateEndpoint } from "../../server/features/providers/endpoint-config.js";
 import {
@@ -147,6 +148,8 @@ function prepare(tool, up, source, { root }, args) {
     {
       root,
       catalog: new ProviderCatalog(),
+      // accounts.command probes this on a real launch.
+      cliVersion: parseCliVersion(CLIS[tool].version),
       endpoint: endpointFor(up, tool, source),
       connectionName: "Smoke",
     },

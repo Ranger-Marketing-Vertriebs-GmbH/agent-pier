@@ -65,7 +65,7 @@ test("central credentials are redacted, rotated and removed without provider ide
   assert.deepEqual(connections.list(), []);
   assert.throws(() => connections.get(connection.id), { status: 404 });
 });
-test("untrusted connection identifiers cannot read or mutate neighboring credential files", (t) => {
+test("untrusted connection identifiers cannot read or mutate neighboring credential files", async (t) => {
   const { dataDir, connections } = fixture(t);
   const connection = connections.create({
     name: "Canonical",
@@ -151,14 +151,17 @@ test("generated profiles reuse central keys and retain exact history roots after
     assert.equal(env.CODEX_HOME || env.CLAUDE_CONFIG_DIR || env.XDG_CONFIG_HOME, root);
     assert.equal(env.OPENROUTER_API_KEY, undefined);
     assert.equal(env.ANTHROPIC_AUTH_TOKEN, undefined);
-    assert.throws(() => restarted.command(account.id, { [account.tool]: "/bin/echo" }), {
-      status: 409,
-    });
+    await assert.rejects(
+      async () => restarted.command(account.id, { [account.tool]: "/bin/echo" }),
+      {
+        status: 409,
+      },
+    );
   }
   assert.equal(accounts.environment("local-codex").CODEX_HOME, undefined);
   assert.equal(fs.existsSync(path.join(dataDir, ".codex")), false);
 });
-test("native account ownership and central provider entitlement are validated before profile creation", (t) => {
+test("native account ownership and central provider entitlement are validated before profile creation", async (t) => {
   const { connections, accounts, access, providerCatalog } = fixture(t);
   const native = accounts.create({ name: "Native Claude", tool: "claude" });
   assert.equal(

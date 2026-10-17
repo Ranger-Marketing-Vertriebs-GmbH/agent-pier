@@ -11,7 +11,7 @@ const exec = promisify(execFile);
 // keeps the process alive without further output.
 const lingeringCli = (pidFile, complete = true) => `#!${process.execPath}
 const fs=require('node:fs'),path=require('node:path');
-const args=process.argv.slice(2);if(args.includes('--version')){console.log('1.0.0');process.exit(0)}
+const args=process.argv.slice(2);if(args.includes('--version')){console.log('1.18.35');process.exit(0)}
 let prompt='';process.stdin.on('data',c=>prompt+=c);process.stdin.on('end',()=>{
  const match=prompt.match(/\\.pipeline\\/turns\\/[A-Za-z0-9-]+\\/verdict\\.json/);
  const sessionID='ses_lingering';

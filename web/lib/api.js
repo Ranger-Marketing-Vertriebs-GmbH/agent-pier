@@ -27,6 +27,9 @@ export async function apiError(response) {
     error.names = data.names.filter((item) => typeof item === "string");
   // Agents affected by a connection change, named in its confirmation.
   if (data.affected && typeof data.affected === "object") error.affected = data.affected;
+  // The outdated CLI behind a refused launch: { tool, found, required }.
+  if (data.updateRequired && typeof data.updateRequired === "object")
+    error.updateRequired = data.updateRequired;
   // Confirmations the server still needs, such as raising an agent's shell level.
   if (Array.isArray(data.required))
     error.required = data.required.filter((item) => typeof item === "string");

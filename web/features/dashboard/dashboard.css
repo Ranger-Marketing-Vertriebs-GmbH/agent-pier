@@ -160,6 +160,22 @@
 .tool-state.available i {
   background: #f49a58;
 }
+.tool-state.update-required {
+  color: var(--warning);
+}
+.tool-state.update-required i {
+  background: var(--warning);
+}
+.tool-card .tool-version {
+  display: block;
+  margin: -4px 0 8px;
+  font-size: 10px;
+  color: #a1a2a6;
+  overflow-wrap: anywhere;
+}
+.tool-card > .tool-update-button.update-required {
+  color: var(--warning);
+}
 .tool-card h3 {
   font:
     650 15px "Manrope",

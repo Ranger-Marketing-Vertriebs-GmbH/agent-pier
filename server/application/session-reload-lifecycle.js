@@ -58,7 +58,7 @@ export function createReloadLifecycle(services) {
         .map((tool) => [tool.id, tool.path]),
     );
     await accounts.verifyEndpointTarget(account.id);
-    let launch = accounts.command(account.id, binaries, false, session.launchMode, {
+    let launch = await accounts.command(account.id, binaries, false, session.launchMode, {
       modelId,
     });
     // A task profile session keeps the permission settings it was launched with;

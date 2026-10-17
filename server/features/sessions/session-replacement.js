@@ -67,6 +67,7 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
     // down, then refuses its late final write instead of recreating the file.
     if (adapter) session.adapterGeneration = adapter.generation;
     else delete session.adapterGeneration;
+    if (typeof launch.cliVersion === "string") session.cliVersion = launch.cliVersion;
     // The route may differ from the first launch (connection edited since).
     if (session.provider)
       session.provider = reloadedProvider(session.provider, launch.provider);

@@ -78,7 +78,7 @@ async function chain({ agentbus, memory, cwd }, account, launch) {
 test("an upstream grant survives every adapter hop", async (t) => {
   const context = fixture(t);
   const account = context.accounts.get("local-codex");
-  const original = context.accounts.command(
+  const original = await context.accounts.command(
     account.id,
     { codex: path.join(context.root, "inert-cli") },
     false,
@@ -126,7 +126,7 @@ test("an upstream grant survives every adapter hop", async (t) => {
 test("the composed nono launch never exposes the default data directory through the installation grant", async (t) => {
   const context = fixture(t);
   const account = context.accounts.get("local-codex");
-  const original = context.accounts.command(
+  const original = await context.accounts.command(
     account.id,
     { codex: path.join(context.root, "inert-cli") },
     false,
@@ -164,7 +164,7 @@ test("the composed nono launch never exposes the default data directory through 
 test("declaring grants leaves command, args and env untouched", async (t) => {
   const context = fixture(t);
   const account = context.accounts.get("local-codex");
-  const original = context.accounts.command(
+  const original = await context.accounts.command(
     account.id,
     { codex: path.join(context.root, "inert-cli") },
     false,
@@ -203,7 +203,7 @@ test("a managed account grants its own profile directory, not the whole data dir
   const context = fixture(t);
   const account = context.accounts.create({ name: "Grant chain managed", tool: "codex" });
   const profileRoot = context.accounts.profile(account.id);
-  const original = context.accounts.command(
+  const original = await context.accounts.command(
     account.id,
     { codex: path.join(context.root, "inert-cli") },
     false,
@@ -225,10 +225,10 @@ test("a managed account grants its own profile directory, not the whole data dir
   );
 });
 
-test("a local account declares no managed-profile grant", (t) => {
+test("a local account declares no managed-profile grant", async (t) => {
   const context = fixture(t);
   const account = context.accounts.get("local-codex");
-  const original = context.accounts.command(
+  const original = await context.accounts.command(
     account.id,
     { codex: path.join(context.root, "inert-cli") },
     false,
@@ -286,7 +286,7 @@ test("the Codex request wrapper keeps the executable it replaces granted", async
   assert.ok(covers(granted.sandboxGrants, command));
 });
 
-test("a CLI AgentPier installed grants its package directory, not only its script", (t) => {
+test("a CLI AgentPier installed grants its package directory, not only its script", async (t) => {
   const context = fixture(t);
   const dataDir = path.join(context.root, "data");
   const clis = path.join(dataDir, "clis");
@@ -297,7 +297,7 @@ test("a CLI AgentPier installed grants its package directory, not only its scrip
   // The installer publishes the version directory and activates it through this
   // relative symlink, which is what the launch PATH resolves through.
   fs.symlinkSync(path.join(".packages", "installed"), path.join(clis, "codex"), "dir");
-  const launch = context.accounts.command(
+  const launch = await context.accounts.command(
     "local-codex",
     { codex: path.join(clis, "codex", "bin", "codex") },
     false,
@@ -313,12 +313,12 @@ test("a CLI AgentPier installed grants its package directory, not only its scrip
   );
 });
 
-test("a CLI installed outside AgentPier declares no installation grant", (t) => {
+test("a CLI installed outside AgentPier declares no installation grant", async (t) => {
   const context = fixture(t);
   const command = path.join(context.root, "inert-cli");
   fs.writeFileSync(command, "#!/bin/sh\n");
   assert.equal(
-    context.accounts.command("local-codex", { codex: command }, false, "default")
+    (await context.accounts.command("local-codex", { codex: command }, false, "default"))
       .sandboxGrants,
     undefined,
   );

@@ -5,6 +5,7 @@ import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 import { utilityPages } from "../../lib/providers.js";
+const outdated = (tool) => tool.versionStatus === "update-required";
 export default function DashboardPage({
   state,
   installedToolCount,
@@ -99,12 +100,27 @@ export default function DashboardPage({
             >
               <div className="tool-card-top">
                 <ProviderMark tool={t.id} />
-                <span className={`tool-state ${t.installed ? "available" : ""}`}>
+                <span
+                  className={`tool-state ${t.installed ? "available" : ""} ${outdated(t) ? "update-required" : ""}`}
+                >
                   <i />
-                  {t.installed ? commonCopy.ready : commonCopy.notInstalled}
+                  {outdated(t)
+                    ? toolInstallerCopy.updateRequiredBadge
+                    : t.installed
+                      ? commonCopy.ready
+                      : commonCopy.notInstalled}
                 </span>
               </div>
               <h3>{t.name}</h3>
+              {t.installed && t.minimumVersion && (
+                <small className="tool-version">
+                  {t.version
+                    ? toolInstallerCopy.versionLabel(t.version)
+                    : toolInstallerCopy.versionUnknown}
+                  {outdated(t) &&
+                    ` · ${toolInstallerCopy.minimumVersion(t.minimumVersion)}`}
+                </small>
+              )}
               <p>
                 {
                   {
@@ -146,7 +162,7 @@ export default function DashboardPage({
               )}
               {t.installed && ["codex", "claude", "opencode", "nono"].includes(t.id) && (
                 <button
-                  className="tool-update-button"
+                  className={`tool-update-button${outdated(t) ? " update-required" : ""}`}
                   onClick={() => setModal({ type: "update", tool: t.id })}
                 >
                   {toolInstallerCopy.updateCli}

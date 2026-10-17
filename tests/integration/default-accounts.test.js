@@ -40,7 +40,9 @@ test("default accounts persist per CLI and retain managed credential isolation",
       `local-${tool}`,
     );
   }
-  const launch = f.application.accounts.command(codex.id, { codex: process.execPath });
+  const launch = await f.application.accounts.command(codex.id, {
+    codex: process.execPath,
+  });
   assert.equal(
     launch.env.CODEX_HOME,
     path.join(f.dataDir, "profiles", codex.id, "codex"),

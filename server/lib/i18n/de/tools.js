@@ -1,5 +1,7 @@
 /** Existing German product copy, addressed through English semantic keys. */
 export const tools = Object.freeze({
+  cliUpdateRequired: (name, found, required) =>
+    `${name} ist in Version ${found} installiert, AgentPier benötigt aber ${required} oder neuer. Bitte das CLI aktualisieren und die Sitzung erneut starten.`,
   nativeUpdateRequired:
     "Für Updates ist eine native oder von AgentPier verwaltete npm-Installation erforderlich.",
   installationChanged: "Die CLI-Installation wurde während des Updates geändert.",

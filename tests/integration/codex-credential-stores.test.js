@@ -35,7 +35,7 @@ function assertPinnedArgs(args) {
     assert.ok(args.includes(`${key}="${value}"`), `${key} override missing`);
 }
 
-test("a new managed Codex account seeds both file credential stores", (t) => {
+test("a new managed Codex account seeds both file credential stores", async (t) => {
   const { accounts } = fixture(t);
   const account = accounts.create({ name: "Managed", tool: "codex" });
   assertPinned(configFile(accounts.environment(account.id)));
@@ -53,15 +53,18 @@ for (const [mode, login, expected] of [
   ["yolo", false, ["--yolo", ...OVERRIDES]],
   ["default", true, ["login", "--device-auth", ...OVERRIDES]],
 ])
-  test(`a managed Codex ${login ? "login" : mode} launch overrides both stores on the command line`, (t) => {
+  test(`a managed Codex ${login ? "login" : mode} launch overrides both stores on the command line`, async (t) => {
     // A trusted project's .codex/config.toml outranks CODEX_HOME but not `-c`.
     const { accounts, codex } = fixture(t);
     const account = accounts.create({ name: "Argv", tool: "codex" });
-    assert.deepEqual(accounts.command(account.id, { codex }, login, mode).args, expected);
+    assert.deepEqual(
+      (await accounts.command(account.id, { codex }, login, mode)).args,
+      expected,
+    );
     assert.deepEqual(accounts.codexCredentialArgs(account.id), OVERRIDES);
   });
 
-test("only managed Codex accounts receive credential store overrides", (t) => {
+test("only managed Codex accounts receive credential store overrides", async (t) => {
   const { accounts } = fixture(t);
   const claude = accounts.create({ name: "Claude", tool: "claude" });
   assert.deepEqual(accounts.codexCredentialArgs("local-codex"), []);
@@ -69,7 +72,7 @@ test("only managed Codex accounts receive credential store overrides", (t) => {
 });
 
 for (const login of [false, true])
-  test(`a managed Codex ${login ? "login" : "work"} launch repairs a missing MCP OAuth pin and keeps the rest`, (t) => {
+  test(`a managed Codex ${login ? "login" : "work"} launch repairs a missing MCP OAuth pin and keeps the rest`, async (t) => {
     const { accounts, codex } = fixture(t);
     const account = accounts.create({ name: "Legacy", tool: "codex" });
     const file = configFile(accounts.environment(account.id));
@@ -83,7 +86,7 @@ for (const login of [false, true])
       "",
     ].join("\n");
     fs.writeFileSync(file, legacy, { mode: 0o644 });
-    const launch = accounts.command(account.id, { codex }, login);
+    const launch = await accounts.command(account.id, { codex }, login);
     assert.equal(launch.env.CODEX_HOME, path.dirname(file));
     const repaired = fs.readFileSync(file, "utf8");
     const config = assertPinned(file);
@@ -93,12 +96,12 @@ for (const login of [false, true])
     // The repair writes a private file regardless of the previous mode.
     assert.equal(fs.statSync(file).mode & 0o777, 0o600);
     const unchanged = fs.statSync(file).mtimeMs;
-    accounts.command(account.id, { codex }, login);
+    await accounts.command(account.id, { codex }, login);
     assert.equal(fs.readFileSync(file, "utf8"), repaired);
     assert.equal(fs.statSync(file).mtimeMs, unchanged);
   });
 
-test("the repair replaces only keychain values and keeps comments and CRLF endings", (t) => {
+test("the repair replaces only keychain values and keeps comments and CRLF endings", async (t) => {
   const { accounts, codex } = fixture(t);
   const account = accounts.create({ name: "Keychain", tool: "codex" });
   const file = configFile(accounts.environment(account.id));
@@ -111,44 +114,44 @@ test("the repair replaces only keychain values and keeps comments and CRLF endin
     "",
   ].join("\r\n");
   fs.writeFileSync(file, before);
-  accounts.command(account.id, { codex }, false, "yolo");
+  await accounts.command(account.id, { codex }, false, "yolo");
   assert.equal(
     fs.readFileSync(file, "utf8"),
     before.replace('"keyring" # team', '"file" # team').replace("'auto'", '"file"'),
   );
   assertPinned(file);
   fs.writeFileSync(file, 'model = "x"\r\n');
-  accounts.command(account.id, { codex });
+  await accounts.command(account.id, { codex });
   assert.equal(
     fs.readFileSync(file, "utf8"),
     'cli_auth_credentials_store = "file"\r\nmcp_oauth_credentials_store = "file"\r\nmodel = "x"\r\n',
   );
   fs.rmSync(file);
-  accounts.command(account.id, { codex });
+  await accounts.command(account.id, { codex });
   assertPinned(file);
 });
 
-test("a layout the targeted edit cannot address falls back to a structured rewrite", (t) => {
+test("a layout the targeted edit cannot address falls back to a structured rewrite", async (t) => {
   const { accounts, codex } = fixture(t);
   const account = accounts.create({ name: "Bom", tool: "codex" });
   const file = configFile(accounts.environment(account.id));
   fs.writeFileSync(file, '\ufeffmodel = "bom"\n[mcp_servers.docs]\nurl = "https://x"\n');
-  accounts.command(account.id, { codex });
+  await accounts.command(account.id, { codex });
   const config = assertPinned(file);
   assert.equal(config.model, "bom");
   assert.equal(config.mcp_servers.docs.url, "https://x");
 });
 
-test("a managed Codex launch leaves an unparseable config to Codex itself", (t) => {
+test("a managed Codex launch leaves an unparseable config to Codex itself", async (t) => {
   const { accounts, codex } = fixture(t);
   const account = accounts.create({ name: "Broken", tool: "codex" });
   const file = configFile(accounts.environment(account.id));
   fs.writeFileSync(file, "this is = = not toml\n");
-  accounts.command(account.id, { codex });
+  await accounts.command(account.id, { codex });
   assert.equal(fs.readFileSync(file, "utf8"), "this is = = not toml\n");
 });
 
-test("the repair refuses linked configs and reports unreadable ones", (t) => {
+test("the repair refuses linked configs and reports unreadable ones", async (t) => {
   const { root, accounts, codex } = fixture(t);
   const account = accounts.create({ name: "Linked", tool: "codex" });
   const file = configFile(accounts.environment(account.id));
@@ -156,24 +159,26 @@ test("the repair refuses linked configs and reports unreadable ones", (t) => {
   fs.writeFileSync(target, 'model = "outside"\n');
   fs.rmSync(file);
   fs.symlinkSync(target, file);
-  assert.throws(() => accounts.command(account.id, { codex }), { status: 409 });
+  await assert.rejects(async () => accounts.command(account.id, { codex }), {
+    status: 409,
+  });
   assert.equal(fs.readFileSync(target, "utf8"), 'model = "outside"\n');
   assert.ok(fs.lstatSync(file).isSymbolicLink());
   fs.rmSync(file);
   fs.writeFileSync(file, 'model = "x"\n', { mode: 0o000 });
   if (process.getuid?.() !== 0)
-    assert.throws(() => accounts.command(account.id, { codex }), {
+    await assert.rejects(async () => accounts.command(account.id, { codex }), {
       status: 409,
       message: /Codex-Konfiguration/,
     });
 });
 
-test("the owner's local Codex profile is never pinned", (t) => {
+test("the owner's local Codex profile is never pinned", async (t) => {
   const { root, accounts, codex } = fixture(t);
   const home = path.join(root, ".codex");
   fs.mkdirSync(home);
   fs.writeFileSync(path.join(home, "config.toml"), 'model = "owner"\n');
-  const launch = accounts.command("local-codex", { codex });
+  const launch = await accounts.command("local-codex", { codex });
   assert.equal(launch.env.CODEX_HOME, undefined);
   assert.equal(
     fs.readFileSync(path.join(home, "config.toml"), "utf8"),
@@ -199,13 +204,13 @@ for (const provider of [
   { id: "openrouter", modelId: "anthropic/claude-sonnet-4.6" },
   { id: "zai", modelId: "glm-5.3", responsesAccess: true },
 ])
-  test(`a Codex ${provider.id} launch pins both file credential stores`, (t) => {
+  test(`a Codex ${provider.id} launch pins both file credential stores`, async (t) => {
     const result = providerLaunch(t, provider);
     assertPinned(configFile(result.env));
     assertPinnedArgs(result.args);
   });
 
-test("a Codex endpoint launch pins both file credential stores", (t) => {
+test("a Codex endpoint launch pins both file credential stores", async (t) => {
   const endpoint = validateEndpoint({
     preset: "custom",
     openaiBaseUrl: "https://llm.example/v1",

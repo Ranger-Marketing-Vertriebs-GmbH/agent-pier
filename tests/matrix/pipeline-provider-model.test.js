@@ -11,7 +11,7 @@ for (const [tool, mode] of [
   ["claude", "acceptEdits"],
   ["opencode", "auto"],
 ])
-  test(`${tool} profile model overrides use verified gateway context without mutating the account or exposing keys`, (t) => {
+  test(`${tool} profile model overrides use verified gateway context without mutating the account or exposing keys`, async (t) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-profile-model-"));
     t.after(() => fs.rmSync(root, { recursive: true, force: true }));
     const cli = path.join(root, "version-fixture");
@@ -24,7 +24,7 @@ for (const [tool, mode] of [
       apiKey: "fixture-secret",
       provider,
     });
-    const launch = accounts.command(account.id, { [tool]: cli }, false, "default", {
+    const launch = await accounts.command(account.id, { [tool]: cli }, false, "default", {
       modelId: "z-ai/glm-5.3",
     });
     const native = nativeCommand({
@@ -47,16 +47,16 @@ for (const [tool, mode] of [
         ].limit.context,
         1048576,
       );
-    assert.throws(
-      () =>
+    await assert.rejects(
+      async () =>
         accounts.command(account.id, { [tool]: cli }, false, "default", {
           modelId: "nonexistent-model",
         }),
       /model/i,
     );
     accounts.update(account.id, { name: "Profile", removeApiKey: true });
-    assert.throws(
-      () =>
+    await assert.rejects(
+      async () =>
         accounts.command(account.id, { [tool]: cli }, false, "default", {
           modelId: "z-ai/glm-5.3",
         }),

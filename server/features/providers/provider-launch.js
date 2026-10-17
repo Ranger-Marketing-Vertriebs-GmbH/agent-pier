@@ -1,6 +1,5 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
 import { tomlValue } from "../../lib/launch-serialization.js";
 import { launchDescription } from "./launch-description.js";
@@ -14,16 +13,6 @@ import {
   withLoopbackNoProxy,
 } from "./adapter-launch.js";
 import { endpointCodexLaunch, endpointOpenCodeLaunch } from "./endpoint-launch.js";
-
-export function readCliVersion(command) {
-  const result = spawnSync(command, ["--version"], {
-    encoding: "utf8",
-    timeout: 2000,
-    maxBuffer: 32768,
-    env: { PATH: process.env.PATH || "/usr/bin:/bin" },
-  });
-  return result.status === 0 ? /\d+\.\d+\.\d+/.exec(result.stdout)?.[0] || null : null;
-}
 
 export function prepareProviderLaunch(
   account,
@@ -78,7 +67,8 @@ export function prepareProviderLaunch(
     return configureClaudeProvider(
       result,
       metadata,
-      cliVersion ?? readCliVersion(launch.command),
+      // Probed asynchronously by the caller (accounts.command); never read here.
+      cliVersion ?? null,
       {
         forceCustom: endpointKind,
         customHeader:

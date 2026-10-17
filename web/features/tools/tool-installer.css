@@ -108,3 +108,23 @@
     padding: 12px;
   }
 }
+.cli-version-notice {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 11px 13px;
+  border: 1px solid #3c3d41;
+  border-radius: 9px;
+  background: #222327;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #acadb1;
+  overflow-wrap: anywhere;
+}
+.cli-version-notice p {
+  margin: 0;
+}
+.cli-version-notice.update-required {
+  border-color: #5a4a2c;
+  color: #e7d5a8;
+}
