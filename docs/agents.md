@@ -309,7 +309,8 @@ Your draft is preserved; history will refresh when connected." Sending stays off
 the connection is back; the typed text stays in the composer. When AgentPier answers
 again, the list and the open chat refresh by themselves, also after a restart that
 first refused the event stream. All of this lives only in the open page: a reload or a
-logout starts empty, and nothing is stored on the device.
+logout starts empty, and nothing is stored on the device. A logout, or another user
+signing in, also forgets unsent agent drafts.
 
 ## Attachments
 
