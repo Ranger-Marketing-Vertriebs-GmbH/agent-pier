@@ -14,13 +14,18 @@ import { mcpEligible } from "./openclaw-config/mcp-servers.js";
 // on, gh and git using the same profile (github-credentials.js prepareAgent).
 export const githubLevels = ["read", "write"];
 export const githubRank = (level) => githubLevels.indexOf(level);
-// Toolsets per level. "read" runs the server read-only with Actions for build status;
-// "read and write" adds issue, pull request and repository content writes, without
-// Actions (it would also re-run or cancel workflows) and never deletes a repository.
-const toolsets = {
-  read: ["repos", "issues", "pull_requests", "actions"],
-  write: ["repos", "issues", "pull_requests"],
-};
+// Both levels see repositories, issues, pull requests and Actions (CI status). "read"
+// runs the server read-only. "read and write" adds issue, pull request and content
+// writes, including merging pull requests and deleting files, but never triggers,
+// re-runs or cancels workflows and never creates, forks or deletes a repository
+// (tool names checked against the pinned 2.0.2 release).
+const toolsets = ["repos", "issues", "pull_requests", "actions"];
+const excludedWrites = [
+  "actions_run_trigger",
+  "create_repository",
+  "fork_repository",
+  "delete_repository",
+];
 // Classic token scopes the tools need; a fine-grained token reports none and is not
 // checked (its permissions cannot be read from the token).
 export const requiredScopes = { read: ["repo"], write: ["repo"] };
@@ -31,8 +36,10 @@ export function githubServerArgs(level) {
   return [
     "stdio",
     "--toolsets",
-    toolsets[level].join(","),
-    ...(level === "read" ? ["--read-only"] : ["--exclude-tools", "delete_repository"]),
+    toolsets.join(","),
+    ...(level === "read"
+      ? ["--read-only"]
+      : ["--exclude-tools", excludedWrites.join(",")]),
   ];
 }
 
@@ -229,6 +236,23 @@ export class AgentGithub {
       if (!marker) return [];
       const gh = path.join(github.dataDir, "clis", "gh", "bin");
       return [marker, ...(fs.existsSync(gh) ? [gh] : [])];
+    } catch {
+      return [];
+    }
+  }
+  /**
+   * The same directories without preparing anything, for the approval analysis
+   * (exec-approvals.js): only those that exist now. Never throws.
+   */
+  shellDirs(assistant) {
+    const github = this.w.s.github;
+    const access = personalShell(assistant) !== "off" && this.forAgent(assistant);
+    if (!github?.agentMarker || !access) return [];
+    try {
+      return [
+        github.agentMarker(assistant.id),
+        path.join(github.dataDir, "clis", "gh", "bin"),
+      ].filter((dir) => fs.existsSync(dir));
     } catch {
       return [];
     }

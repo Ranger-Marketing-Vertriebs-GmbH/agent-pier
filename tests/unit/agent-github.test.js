@@ -43,10 +43,14 @@ test("each level runs the GitHub MCP server with its own toolsets", () => {
   assert.deepEqual(write.slice(0, 3), [
     "stdio",
     "--toolsets",
-    "repos,issues,pull_requests",
+    "repos,issues,pull_requests,actions",
   ]);
-  // Deleting a repository is never offered, and Actions writes stay out.
-  assert.deepEqual(write.slice(3), ["--exclude-tools", "delete_repository"]);
+  // Actions stay readable (CI status) but never triggered; no repository is created,
+  // forked or deleted.
+  assert.deepEqual(write.slice(3), [
+    "--exclude-tools",
+    "actions_run_trigger,create_repository,fork_repository,delete_repository",
+  ]);
   assert.throws(() => githubServerArgs("admin"));
 });
 

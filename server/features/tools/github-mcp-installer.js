@@ -146,8 +146,22 @@ export async function unpackGithubMcp(buffer) {
   return files;
 }
 
-async function prunePackages(packages, keep) {
-  const kept = new Set(keep.map((dir) => path.basename(dir)));
+/**
+ * Removes version directories below `<root>/.packages` except `keep` and the one the
+ * activation link points to now, read at prune time: a concurrent install (the server
+ * and an installer script) that switched the link meanwhile keeps its version.
+ */
+export async function pruneGithubMcpPackages(root, keep) {
+  const packages = path.join(root, ".packages");
+  let active = null;
+  try {
+    active = await fsp.realpath(githubMcpActivation(root));
+  } catch {
+    /* No link: nothing extra to keep. */
+  }
+  const kept = new Set(
+    [...keep, active].filter(Boolean).map((dir) => path.basename(dir)),
+  );
   for (const name of await fsp.readdir(packages).catch(() => []))
     if (name.startsWith(packagePrefix) && !kept.has(name))
       await fsp.rm(path.join(packages, name), { recursive: true, force: true });
@@ -210,7 +224,7 @@ export async function installGithubMcp({
     await fsp.rename(link, githubMcpActivation(root));
     published = true;
     // The previous version stays until the next update: a running server uses it.
-    await prunePackages(packages, [directory, previous].filter(Boolean));
+    await pruneGithubMcpPackages(root, [directory, previous].filter(Boolean));
     return { version: manifest.version, executable: path.join(directory, binary) };
   } finally {
     if (!published)

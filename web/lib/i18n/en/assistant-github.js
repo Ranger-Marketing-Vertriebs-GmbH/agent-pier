@@ -2,7 +2,7 @@ export const assistantGithubCopy = {
   row: "GitHub",
   title: "GitHub",
   intro:
-    "The agent works on GitHub with one of your token profiles: through the official GitHub MCP server and, with shell access, with gh and git. The token itself never reaches the agent.",
+    "The agent works on GitHub with one of your token profiles: through the official GitHub MCP server and, with shell access, with gh and git. The token never appears in its instructions or files; with shell access it can read it like you can.",
   none: "No access",
   profileLegend: "Token profile",
   levelLegend: "Access",
@@ -10,7 +10,7 @@ export const assistantGithubCopy = {
   levelHints: {
     read: "Repositories, issues, pull requests and Actions runs, read only.",
     write:
-      "Also comments on and creates issues and pull requests and changes files. Deleting repositories stays off.",
+      "Also comments on and creates issues and pull requests, merges pull requests, pushes, changes and deletes files. Creating, forking and deleting repositories and starting workflows stay off.",
   },
   summary: (level, profile) => `${level} · ${profile}`,
   agentDefault: "Default for agents",
@@ -21,7 +21,9 @@ export const assistantGithubCopy = {
   shellNote:
     "With shell access, gh and git in this agent's commands use this profile instead of your own login.",
   writeWarning:
-    "The agent can comment, open pull requests and push changes in your name without an approval per change. Content it reads on GitHub can steer it.",
+    "The agent can comment, open and merge pull requests, push changes and delete files in your name without an approval per change. Content it reads on GitHub can steer it.",
+  memoryNote:
+    "Each profile and level runs its own GitHub MCP server, started for every agent session (about 45 MB of memory each).",
   server: {
     installing: "The GitHub MCP server is being installed …",
     failed: "The GitHub MCP server could not be installed.",
