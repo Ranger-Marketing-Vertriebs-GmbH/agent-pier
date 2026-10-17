@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
 import { reachableMember } from "./member-reach.js";
 import { extraEnd, extraSection, extraStart } from "./team-presentation.js";
+import { dropText, readText, saveText } from "./team-texts.js";
 
 // The fields a lead may change, in the order notes and the audit name them.
 export const editFields = [
@@ -19,40 +21,84 @@ const limits = {
   instructions: 65536,
 };
 const kept = 50;
+// Replaced instructions the owner can still read in full; older entries keep none.
+const keptTexts = 5;
+const textName = (id) => `replaced:${id}`;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const section = new RegExp(
   `\\n*${escape(extraStart)}\\n[\\s\\S]*?\\n${escape(extraEnd)}`,
 );
+const block = ({ role, assignment }) => `Role: ${role}\nAssignment: ${assignment}`;
 
-/** `text` with the line `label: old` (or any `label:` line) replaced, else appended. */
-function setLine(text, label, old, value) {
-  const line = `${label}: ${value}`;
-  if (old !== undefined && text.includes(`${label}: ${old}`))
-    return text.replace(`${label}: ${old}`, () => line);
-  const any = new RegExp(`^${label}: .*$`, "m");
-  if (any.test(text)) return text.replace(any, () => line);
-  // A missing Assignment line follows the Role line, as the lead first wrote them.
-  const role = /^Role: .*$/m;
-  if (label === "Assignment" && role.test(text))
-    return text.replace(role, (match) => `${match}\n${line}`);
-  return `${text.trimEnd()}\n\n${line}`;
+/**
+ * `text` with the lead's composed Role and Assignment block replaced by `next`. The
+ * old block (`old`, whole, so a multi-line assignment too) counts only where it
+ * starts a line and ends the text or a paragraph; the last such occurrence before the
+ * lead's own section is the composed one, as the lead's snapshot comes first. Without
+ * one (the owner rewrote it) a fresh block goes before that section, edits nothing.
+ */
+function setBlock(text, old, next) {
+  const extraAt = text.lastIndexOf(`\n\n${extraStart}\n`);
+  const head = extraAt < 0 ? text : text.slice(0, extraAt),
+    tail = extraAt < 0 ? "" : text.slice(extraAt);
+  const find = old.role === undefined ? "" : block(old);
+  for (let at = find ? head.lastIndexOf(find) : -1; at >= 0;) {
+    const end = at + find.length;
+    if (
+      (at === 0 || head[at - 1] === "\n") &&
+      (end === head.length || head.startsWith("\n\n", end))
+    )
+      return `${head.slice(0, at)}${block(next)}${head.slice(end)}${tail}`;
+    at = at ? head.lastIndexOf(find, at - 1) : -1;
+  }
+  const before = head.trimEnd();
+  return `${before ? `${before}\n\n` : ""}${block(next)}${tail}`;
 }
 
 /**
- * The member's current instructions with the lead's change applied: the Role and
- * Assignment lines replaced (or appended) and the lead's own delimited section
- * replaced (or appended, or removed when empty). Everything else, the lead's
- * snapshot and any text the owner wrote, stays as it is.
+ * The member's current instructions with the lead's change applied: the composed
+ * Role and Assignment block replaced (or a fresh one added) and the lead's own
+ * delimited section replaced (or appended, or removed when empty). Everything else,
+ * the lead's snapshot and any text the owner wrote, stays as it is.
  */
 export function editedInstructions(current, member, changes) {
   let text = current;
   const extra = "extraInstructions" in changes;
   if (extra) text = text.replace(section, "");
-  if ("role" in changes) text = setLine(text, "Role", member.role, changes.role);
-  if ("assignment" in changes)
-    text = setLine(text, "Assignment", member.assignment, changes.assignment);
+  if ("role" in changes || "assignment" in changes)
+    text = setBlock(text, member, {
+      role: changes.role ?? member.role,
+      assignment: changes.assignment ?? member.assignment,
+    });
   if (extra && changes.extraInstructions) text += extraSection(changes.extraInstructions);
   return text;
+}
+
+/** The whole instructions a lead's edit replaced, for the owner's member history. */
+export function replacedInstructions(teams, memberId, entryId) {
+  const member = teams.member(memberId);
+  const text =
+    member.grantLog?.some((entry) => entry.replaced === entryId) &&
+    readText(teams.db, member.id, textName(entryId));
+  if (typeof text !== "string") throw assistantProblem("notFound", 404);
+  return { text };
+}
+
+/** The log with `entry` added; replaced texts beyond the last few are dropped. */
+function nextLog(teams, member, entry) {
+  const log = [...(member.grantLog || []), entry].slice(-kept);
+  const keep = new Set(
+    log
+      .filter((e) => e.replaced)
+      .slice(-keptTexts)
+      .map((e) => e.replaced),
+  );
+  for (const old of member.grantLog || [])
+    if (old.replaced && !keep.has(old.replaced))
+      dropText(teams.db, member.id, textName(old.replaced));
+  return log.map(({ replaced, ...e }) =>
+    replaced && keep.has(replaced) ? { ...e, replaced } : e,
+  );
 }
 
 /**
@@ -61,9 +107,10 @@ export function editedInstructions(current, member, changes) {
  * instructions in place; `instructions` replaces them whole, whatever the owner
  * wrote before (owner's decision: the lead may rewrite them completely). Owner edits
  * never block the lead. The result is recorded as the lead's (`leadInstructions`),
- * so only later owner edits count as overrides, and the log keeps the replaced text
- * for the owner to read. Every
- * change is visible: the member's log (team card), a note in both chats and an audit
+ * so only later owner edits count as overrides. The replaced text of the last few
+ * edits stays readable for the owner alone (replacedInstructions), in a text row of
+ * its own beside the member record, never in what the lead sees. Every change is
+ * visible: the member's log (team card), a note in both chats and an audit
  * that names the fields only. The member's next turn applies the new revision.
  */
 export class MemberEdits {
@@ -106,36 +153,42 @@ export class MemberEdits {
       throw assistantProblem("teamGrantMemberEnded", 409);
     const agent = a.store.getAssistant(member.assistantId);
     const current = { ...member, name: agent.name, instructions: agent.instructions };
+    // A field the lead restates counts when its text is gone from the instructions
+    // (the owner removed it), so restating restores it.
     const changed = editFields.filter(
-      (key) => key in changes && changes[key] !== (current[key] ?? ""),
+      (key) =>
+        key in changes &&
+        (changes[key] !== (current[key] ?? "") ||
+          (["role", "assignment", "extraInstructions"].includes(key) &&
+            editedInstructions(agent.instructions, member, { [key]: changes[key] }) !==
+              agent.instructions)),
     );
     if (!changed.length) return { status: "unchanged", memberId: member.id, changed };
     const instructions =
       "instructions" in changes
         ? changes.instructions
         : editedInstructions(agent.instructions, member, changes);
-    const saved = a.store.updateAssistant(
-      agent.id,
-      {
-        ...(changes.name !== undefined ? { name: changes.name } : {}),
-        ...(instructions !== agent.instructions ? { instructions } : {}),
-      },
-      agent.revision,
-    );
-    const entry = {
-      at: new Date().toISOString(),
-      by: "lead",
-      edited: changed,
-      // What the change replaced, for the owner to read in the member's history.
-      ...(instructions !== agent.instructions
-        ? { previousInstructions: agent.instructions }
-        : {}),
-    };
-    const stored = changed.filter((key) => key !== "instructions");
-    const next = this.teams.write(member, {
-      ...Object.fromEntries(stored.map((key) => [key, changes[key] || undefined])),
-      leadInstructions: saved.instructions,
-      grantLog: [...(member.grantLog || []), entry].slice(-kept),
+    const next = this.teams.transaction(() => {
+      const saved = a.store.updateAssistant(
+        agent.id,
+        {
+          ...(changes.name !== undefined ? { name: changes.name } : {}),
+          ...(instructions !== agent.instructions ? { instructions } : {}),
+        },
+        agent.revision,
+      );
+      const entry = { at: new Date().toISOString(), by: "lead", edited: changed };
+      // What the change replaced, for the owner alone (replacedInstructions).
+      if (instructions !== agent.instructions) {
+        entry.replaced = randomUUID();
+        saveText(this.teams.db, member.id, textName(entry.replaced), agent.instructions);
+      }
+      const stored = changed.filter((key) => key !== "instructions");
+      return this.teams.write(member, {
+        ...Object.fromEntries(stored.map((key) => [key, changes[key] || undefined])),
+        leadInstructions: saved.instructions,
+        grantLog: nextLog(this.teams, member, entry),
+      });
     });
     this.record(lead, next, changed);
     this.note(lead, next, conversation, inv, { changed, previousName: member.name });

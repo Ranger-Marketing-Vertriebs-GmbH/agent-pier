@@ -1238,11 +1238,15 @@ reachable (not archived, not kept as permanent, with a chat; `reachableMember` i
 
 - `name` (as for any agent, at most 100 characters), `role` (200) and `assignment`
   (8192) update the member's record, which the sidebar, the team card and the
-  Telegram texts show. Role and assignment replace the `Role:` and `Assignment:`
-  lines in the member's current instructions, or are appended when the owner's edit
-  removed them.
+  Telegram texts show. Role and assignment replace the composed `Role:` and
+  `Assignment:` block in the member's current instructions: the whole block (a
+  multi-line assignment too), only where it starts a line and ends a paragraph, and
+  the last such block before the lead's own section, so matching text in the
+  lead's snapshot stays. When the owner changed or removed that block, a fresh one
+  is added before the lead's section instead of editing anything.
 - `extraInstructions` (8192) puts the lead's own delimited section at the end of
-  the instructions, replacing an earlier one; an empty value removes it.
+  the instructions, replacing an earlier one; an empty value removes it. Restating a value whose text
+  the owner removed from the instructions restores it.
 - `instructions` (65536) replaces the member's whole instructions, whatever the
   owner wrote before (owner's decision: the lead may rewrite them completely, since
   earlier text could interfere). It cannot be combined with `extraInstructions`.
@@ -1251,10 +1255,18 @@ Owner edits never block the lead. Every result is recorded as the lead's
 (`leadInstructions` on the member's team record), so the member's settings show an
 instructions override only for owner edits made after it. Each change is visible:
 an entry in the member's log (team card and **Capabilities → Granted by the lead
-agent**, with the replaced instructions text for the owner to read), a note in the
+agent**), a note in the
 member's and the lead's chats, and an audit record (`assistant.updated`, `kind:
 "member-edit"`) that names the changed fields only. The member's new revision
-applies from its next turn; a running member is re-applied at once.
+applies from its next turn; a running member is re-applied at once. The member's
+profile and its team record change in one transaction.
+
+The instructions an edit replaced are for the owner only. They live in a text row of
+their own beside the member's record (`team-texts.js`), never in team lists or in
+what the lead's tools return; the log entry names the row (`replaced`), and the
+history loads the text on opening from
+`GET /api/assistant-team-members/:id/replaced/:entryId`. Only the last five edits
+keep their replaced text; older entries keep the changed field names only.
 
 ## Team member grants (2026-10-17)
 

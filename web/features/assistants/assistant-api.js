@@ -52,6 +52,10 @@ export const assistantApi = {
     api(
       `/assistant-teams/${encodeURIComponent(teamId)}/reports/${encodeURIComponent(memberId)}`,
     ),
+  replacedInstructions: (memberId, entryId) =>
+    api(
+      `/assistant-team-members/${encodeURIComponent(memberId)}/replaced/${encodeURIComponent(entryId)}`,
+    ),
   leadRequest: (id) => api(`/assistant-lead-requests/${encodeURIComponent(id)}`),
   cancelLeadRequest: (id) =>
     api(`/assistant-lead-requests/${encodeURIComponent(id)}/cancel`, "POST", {}),

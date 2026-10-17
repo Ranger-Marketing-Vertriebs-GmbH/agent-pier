@@ -54,7 +54,7 @@ async function setup(page, { memberShellSsh = false } = {}) {
         at: "2026-10-17T09:00:00.000Z",
         by: "lead",
         edited: ["role", "instructions"],
-        previousInstructions: "Owner text that was replaced.",
+        replaced: "entry-1",
       },
       { at: "2026-10-17T10:00:00.000Z", by: "lead", granted: ["browser"] },
     ],
@@ -143,6 +143,9 @@ async function setup(page, { memberShellSsh = false } = {}) {
       };
     else if (p === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
+    // The replaced text loads only when the owner opens the history entry.
+    else if (p === "/api/assistant-team-members/member-0/replaced/entry-1")
+      body = { text: "Owner text that was replaced." };
     else if (p.endsWith("/messages"))
       body = {
         messages:

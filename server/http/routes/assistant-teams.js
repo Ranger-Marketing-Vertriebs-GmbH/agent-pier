@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { followLead } from "../../features/assistants/member-follow.js";
+import { replacedInstructions } from "../../features/assistants/member-edits.js";
 export function assistantTeamRoutes({ assistants }) {
   const router = Router();
   const service = () => {
@@ -38,6 +39,10 @@ export function assistantTeamRoutes({ assistants }) {
   // A member's whole report; team lists carry an excerpt.
   router.get("/assistant-teams/:id/reports/:memberId", (req, res) =>
     res.json(service().report(req.params.id, req.params.memberId)),
+  );
+  // The instructions a lead's edit replaced, for the owner only: never in team lists.
+  router.get("/assistant-team-members/:id/replaced/:entryId", (req, res) =>
+    res.json(replacedInstructions(service().store, req.params.id, req.params.entryId)),
   );
   // A lead's question or task for a member: the owner reads or cancels it.
   router.get("/assistant-lead-requests/:id", (req, res) =>

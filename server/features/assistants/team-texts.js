@@ -39,3 +39,9 @@ export function dropTexts(db, owner) {
     .prepare("DELETE FROM assistant_team_records WHERE kind='text' AND parent_id=?")
     .run(owner).changes;
 }
+
+export function dropText(db, owner, name) {
+  db.prepare("DELETE FROM assistant_team_records WHERE id=? AND kind='text'").run(
+    rowId(owner, name),
+  );
+}
