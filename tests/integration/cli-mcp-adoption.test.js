@@ -125,7 +125,7 @@ test("adopt all reports an entry whose command is not on PATH and adopts the res
 test("an entry with settings AgentPier does not manage cannot be adopted", (t) => {
   const f = cliMcpFixture(t);
   f.write("codex", {
-    slow: { url: "https://x.example.test/mcp", startup_timeout_sec: 30 },
+    slow: { url: "https://x.example.test/mcp", bearer_token_env_var: "TOKEN" },
   });
   const [find] = groups(f).map(publicFind);
   assert.deepEqual([find.adoptable, find.reason], [false, "unsupported-fields"]);

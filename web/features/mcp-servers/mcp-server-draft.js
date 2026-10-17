@@ -1,4 +1,6 @@
 // Form state for one MCP server and the request bodies built from it.
+import { timeoutFields, timeoutKeys, timeoutText, timeoutValue } from "./mcp-timeouts.js";
+
 let counter = 0;
 const nextKey = () => `row-${++counter}`;
 const lines = (text) => text.split("\n").filter((line) => line !== "");
@@ -49,7 +51,20 @@ export function draftFrom(server) {
     packageVersion: server?.source?.version || "",
     allowScripts: server?.source?.allowScripts === true,
     packageConstraints: (server?.source?.constraints || []).join("\n"),
+    startupTimeout: timeoutText(server?.startupTimeoutSec),
+    toolTimeout: timeoutText(server?.toolTimeoutSec),
   };
+}
+
+/** The timeouts of a create body (set ones only) or an edit (changed ones only). */
+function timeoutBody(draft, original) {
+  const body = {};
+  for (const field of timeoutFields) {
+    const value = timeoutValue(draft[field]);
+    if (original ? value !== timeoutValue(original[field]) : value !== null)
+      body[timeoutKeys[field]] = value;
+  }
+  return body;
 }
 
 /** The fields "Keep package" restores: the package source and the stored owner args. */
@@ -114,6 +129,7 @@ export function requestBody(draft, server) {
           }
         : { url: draft.url.trim() }),
       ...(oauth ? { auth: "oauth", ...(scope ? { oauthScope: scope } : {}) } : {}),
+      ...timeoutBody(draft, null),
       ...(Object.keys(secrets).length ? { [secretKey]: secrets } : {}),
     };
   const original = draftFrom(server);
@@ -143,6 +159,7 @@ export function requestBody(draft, server) {
             ? { oauthScope: scope }
             : {}),
         }),
+    ...timeoutBody(draft, original),
     ...(Object.keys(secrets).length ? { [secretKey]: secrets } : {}),
   };
 }

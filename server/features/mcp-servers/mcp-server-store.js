@@ -19,6 +19,7 @@ import {
   target,
   targetKinds,
 } from "./mcp-server-fields.js";
+import { inputTimeouts, publicTimeouts, rowTimeouts } from "./mcp-timeouts.js";
 import { changedValues, requireLiteralValues } from "./value-references.js";
 export { publicUrl } from "./mcp-server-fields.js";
 
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS servers(
   settings TEXT NOT NULL DEFAULT '{}', revision INTEGER NOT NULL,
   auth TEXT NOT NULL DEFAULT 'headers', oauth_scope TEXT,
   oauth_connected INTEGER NOT NULL DEFAULT 0, oauth_login_redirect TEXT,
-  directory_origin TEXT);
+  directory_origin TEXT, startup_timeout_sec INTEGER, tool_timeout_sec INTEGER);
 CREATE TABLE IF NOT EXISTS server_secrets(
   server_id TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
   kind TEXT NOT NULL CHECK(kind IN ('header','env')), name TEXT NOT NULL, value TEXT NOT NULL,
@@ -46,6 +47,16 @@ CREATE TABLE IF NOT EXISTS oauth_logouts(
 CREATE TABLE IF NOT EXISTS oauth_logout_history(
   name TEXT NOT NULL, url TEXT NOT NULL, transport TEXT NOT NULL, at INTEGER NOT NULL,
   PRIMARY KEY(name, url));`;
+// Columns added after the first release, in order; older databases get them on open.
+const addedColumns = [
+  ["auth", "TEXT NOT NULL DEFAULT 'headers'"],
+  ["oauth_scope", "TEXT"],
+  ["oauth_connected", "INTEGER NOT NULL DEFAULT 0"],
+  ["oauth_login_redirect", "TEXT"],
+  ["directory_origin", "TEXT"],
+  ["startup_timeout_sec", "INTEGER"],
+  ["tool_timeout_sec", "INTEGER"],
+];
 // Logouts remembered for a rollback to an earlier update snapshot.
 const logoutHistoryLimit = 500;
 
@@ -56,20 +67,12 @@ export class McpServerStore {
     this.db = privateDatabase(path.join(dataDir, "mcp-servers"), "servers.sqlite");
     this.db.exec("PRAGMA foreign_keys=ON");
     this.db.exec(schema);
-    // Databases from before OAuth lack the columns; their servers read as headers.
+    // Databases from before OAuth lack its columns; their servers read as headers.
+    // Those from before timeouts read as none.
     const columns = this.db.prepare("PRAGMA table_info(servers)").all();
-    if (!columns.some((c) => c.name === "auth"))
-      this.db.exec("ALTER TABLE servers ADD COLUMN auth TEXT NOT NULL DEFAULT 'headers'");
-    if (!columns.some((c) => c.name === "oauth_scope"))
-      this.db.exec("ALTER TABLE servers ADD COLUMN oauth_scope TEXT");
-    if (!columns.some((c) => c.name === "oauth_connected"))
-      this.db.exec(
-        "ALTER TABLE servers ADD COLUMN oauth_connected INTEGER NOT NULL DEFAULT 0",
-      );
-    if (!columns.some((c) => c.name === "oauth_login_redirect"))
-      this.db.exec("ALTER TABLE servers ADD COLUMN oauth_login_redirect TEXT");
-    if (!columns.some((c) => c.name === "directory_origin"))
-      this.db.exec("ALTER TABLE servers ADD COLUMN directory_origin TEXT");
+    for (const [name, type] of addedColumns)
+      if (!columns.some((c) => c.name === name))
+        this.db.exec(`ALTER TABLE servers ADD COLUMN ${name} ${type}`);
     // Which native CLI entries AgentPier wrote (cli-reconciler.js).
     this.cliEntries = new CliEntryStore(this.db);
     this.packages = new PackageRecords(this.db, dataDir);
@@ -110,6 +113,7 @@ export class McpServerStore {
       ...(row.cwd ? { cwd: row.cwd } : {}),
       auth: row.auth ?? "headers",
       ...(row.oauth_scope ? { oauthScope: row.oauth_scope } : {}),
+      ...publicTimeouts(rowTimeouts(row)),
       headerNames: this.names(row.id, "header"),
       envNames: this.names(row.id, "env"),
       revision: row.revision,
@@ -158,6 +162,7 @@ export class McpServerStore {
           cwd: row.cwd,
           auth: row.auth ?? "headers",
           oauthScope: row.oauth_scope ?? null,
+          ...rowTimeouts(row),
           ...this.packages.definitionFields(row.id, packages, row.command),
         };
       });
@@ -204,6 +209,7 @@ export class McpServerStore {
         args: cleanArgs(input.args),
         cwd: cleanCwd(input.cwd),
         ...cleanAuth(input),
+        ...inputTimeouts(input),
       };
     }
     if (input.command !== undefined || input.args?.length || input.cwd) throw invalid();
@@ -215,6 +221,7 @@ export class McpServerStore {
       args: [],
       cwd: null,
       ...cleanAuth(input),
+      ...inputTimeouts(input),
     };
   }
   /**
@@ -303,6 +310,8 @@ export class McpServerStore {
           fields.cwd,
           fields.auth,
           fields.oauthScope,
+          fields.startupTimeoutSec,
+          fields.toolTimeoutSec,
           revision,
           id,
         );
@@ -328,7 +337,7 @@ export class McpServerStore {
     const id = randomUUID();
     this.transaction(() => {
       this.insertOrUpdate(
-        "INSERT INTO servers(name,transport,url,command,args,cwd,auth,oauth_scope,revision,id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO servers(name,transport,url,command,args,cwd,auth,oauth_scope,startup_timeout_sec,tool_timeout_sec,revision,id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         fields,
         id,
         1,
@@ -370,6 +379,7 @@ export class McpServerStore {
       ...(row.transport === "stdio"
         ? {}
         : { auth: row.auth ?? "headers", oauthScope: row.oauth_scope ?? undefined }),
+      ...rowTimeouts(row),
       ...patch,
     };
     // The stored absolute command is only re-resolved when the owner changes it.
@@ -463,7 +473,7 @@ export class McpServerStore {
       const row = this.row(id);
       const fields = this.patched(row, revision, patch);
       this.insertOrUpdate(
-        "UPDATE servers SET name=?,transport=?,url=?,command=?,args=?,cwd=?,auth=?,oauth_scope=?,revision=? WHERE id=?",
+        "UPDATE servers SET name=?,transport=?,url=?,command=?,args=?,cwd=?,auth=?,oauth_scope=?,startup_timeout_sec=?,tool_timeout_sec=?,revision=? WHERE id=?",
         fields,
         id,
         revision + 1,

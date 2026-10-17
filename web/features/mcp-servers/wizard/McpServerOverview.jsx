@@ -79,6 +79,14 @@ export default function McpServerOverview({
     ...(server.clis || []).map((cli) => names[cli]),
     ...(server.users?.agents ?? []),
   ];
+  // Only set timeouts are named; empty means the coding CLI's default.
+  const timeouts = [
+    server.startupTimeoutSec &&
+      copy.overview.startupTimeoutLine(server.startupTimeoutSec),
+    server.toolTimeoutSec && copy.overview.toolTimeoutLine(server.toolTimeoutSec),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const where = server.source
     ? copy.overview.packageLine(server.source.name, server.source.version)
     : (server.command ?? server.url ?? "");
@@ -120,6 +128,7 @@ export default function McpServerOverview({
           lines={[
             server.name,
             `${mcpServerCopy.transports[server.transport]} · ${where}`,
+            ...(timeouts ? [timeouts] : []),
           ]}
           onChange={() => open("setup")}
         />

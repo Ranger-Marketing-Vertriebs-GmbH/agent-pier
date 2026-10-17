@@ -76,6 +76,8 @@ const changeFields = new Set([
   "command",
   "args",
   "cwd",
+  "startupTimeoutSec",
+  "toolTimeoutSec",
   "env",
   "headers",
   "mcpServers",

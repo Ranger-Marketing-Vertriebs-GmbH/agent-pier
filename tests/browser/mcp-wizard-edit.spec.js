@@ -58,6 +58,32 @@ for (const [label, use] of [
       ]);
     });
 
+    test("set-up saves the advanced timeouts and the overview names them", async ({
+      page,
+    }) => {
+      const state = await wizardSetup(page, {
+        servers: [bound({ toolTimeoutSec: 450 })],
+      });
+      await open(page, "s1");
+      await expect(
+        detail(page).getByRole("region", { name: "Source and name" }),
+      ).toContainText("Tool timeout 450 s");
+      await open(page, "s1", "setup");
+      const view = detail(page);
+      // Opens for a stored value; the startup timeout is named Codex-only.
+      await expect(view.getByText("Only Codex has this setting.")).toBeVisible();
+      await view.getByLabel("Startup timeout in seconds (1 to 600)").fill("30");
+      await view.getByLabel("Tool timeout in seconds (1 to 3600)").fill("");
+      await fits(page);
+      await saveBar(page).getByRole("button", { name: "Save changes" }).click();
+      await expect(page).toHaveURL(/item=s1$/);
+      expect(writes(state)[0].body).toEqual({
+        revision: 1,
+        startupTimeoutSec: 30,
+        toolTimeoutSec: null,
+      });
+    });
+
     test("leaving an edit step with changes asks first", async ({ page }) => {
       await wizardSetup(page, { servers: [bound()] });
       await open(page, "s1");

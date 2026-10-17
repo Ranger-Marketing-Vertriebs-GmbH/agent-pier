@@ -211,6 +211,8 @@ export const mcpWizardCopy = {
     change: "Change",
     changeNamed: (title) => `Change: ${title}`,
     packageLine: (name, version) => `Package ${name}@${version}`,
+    startupTimeoutLine: (seconds) => `Startup timeout ${seconds} s`,
+    toolTimeoutLine: (seconds) => `Tool timeout ${seconds} s`,
     noSettings: "No settings",
     nobody: "Nobody yet",
   },

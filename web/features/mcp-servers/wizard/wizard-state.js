@@ -40,6 +40,8 @@ const fieldSteps = {
   headers: "settings",
   args: "settings",
   cwd: "settings",
+  startupTimeout: "settings",
+  toolTimeout: "settings",
 };
 
 // Entries that add their own step between Source and the path's set-up step.

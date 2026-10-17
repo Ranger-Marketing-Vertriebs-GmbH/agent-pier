@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
 import { ENV_REFERENCES, adoptFailure } from "./cli-status.js";
+import { publicTimeouts, timeoutFields } from "./mcp-timeouts.js";
 
 const messages = serverMessages.mcpServers;
 // Only a stable error code is logged, never a message, path or value.
@@ -12,6 +13,7 @@ const codeOf = (error) =>
 
 /** The store input that creates a server named `name` from a parsed native entry. */
 export function adoptInput(name, { definition, secrets }) {
+  const timeouts = publicTimeouts(definition);
   if (definition.transport === "stdio")
     return {
       name,
@@ -20,11 +22,13 @@ export function adoptInput(name, { definition, secrets }) {
       args: definition.args,
       ...(definition.cwd ? { cwd: definition.cwd } : {}),
       env: secrets.env,
+      ...timeouts,
     };
   return {
     name,
     transport: definition.transport,
     url: definition.url,
+    ...timeouts,
     ...(definition.auth === "oauth"
       ? {
           auth: "oauth",
@@ -126,8 +130,8 @@ export function changeRefusal(parsed) {
  * `cli`. OpenCode's `remote` cannot tell SSE from HTTP, and Claude Code and Codex
  * write an OAuth server like a header server without headers: both keep the server's
  * own kind. A field the CLI cannot express keeps the server's value: Claude Code's
- * native form has no OAuth scope. A different connection type or settings AgentPier
- * does not manage: 409.
+ * native form has no OAuth scope, Claude Code's and OpenCode's no startup timeout. A
+ * different connection type or settings AgentPier does not manage: 409.
  */
 export function patchFromNative(server, cli, parsed) {
   if (!parsed?.ok) throw changeRefusal(parsed);
@@ -137,6 +141,13 @@ export function patchFromNative(server, cli, parsed) {
       ? "sse"
       : definition.transport;
   if (transport !== server.transport) throw problem(messages.cliChangeNotAdoptable, 409);
+  // Only the timeouts the CLI can express and the edit changed.
+  const expressed = cli === "codex" ? timeoutFields : ["toolTimeoutSec"];
+  const timeouts = Object.fromEntries(
+    expressed
+      .filter((field) => (definition[field] ?? null) !== (server[field] ?? null))
+      .map((field) => [field, definition[field] ?? null]),
+  );
   const replace = (names, values) => ({
     ...Object.fromEntries(
       names.filter((name) => !Object.hasOwn(values, name)).map((name) => [name, null]),
@@ -150,6 +161,7 @@ export function patchFromNative(server, cli, parsed) {
       args: definition.args,
       cwd: definition.cwd ?? "",
       env: replace(server.envNames, secrets.env),
+      ...timeouts,
     };
   const auth =
     definition.auth === "headers" &&
@@ -169,5 +181,6 @@ export function patchFromNative(server, cli, parsed) {
               : definition.oauthScope) ?? "",
         }
       : { headers: replace(server.headerNames, secrets.headers) }),
+    ...timeouts,
   };
 }

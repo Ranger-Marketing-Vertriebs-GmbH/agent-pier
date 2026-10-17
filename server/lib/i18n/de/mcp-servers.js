@@ -5,6 +5,10 @@ export const mcpServers = {
   invalidTransport: "Bitte HTTP, SSE oder stdio als Verbindung wählen.",
   transportLocked: "Die Verbindungsart eines Servers lässt sich nicht ändern.",
   invalidCwd: "Bitte ein absolutes Arbeitsverzeichnis angeben.",
+  invalidStartupTimeout:
+    "Bitte als Start-Timeout ganze Sekunden von 1 bis 600 angeben oder das Feld leer lassen.",
+  invalidToolTimeout:
+    "Bitte als Tool-Timeout ganze Sekunden von 1 bis 3600 angeben oder das Feld leer lassen.",
   commandNotFound:
     "Der Befehl wurde nicht gefunden oder ist nicht ausführbar. Bitte einen installierten Befehl oder einen absoluten Pfad angeben.",
   invalidTarget: "Dieses Ziel unterstützt keine MCP-Server.",

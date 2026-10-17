@@ -72,11 +72,11 @@ test("identical content from different CLIs has one content key", () => {
 
 test("entries AgentPier cannot represent are not adoptable, by reason", () => {
   assert.deepEqual(
-    centralFromNative("codex", { url: "https://x.test/mcp", startup_timeout_sec: 5 }),
+    centralFromNative("codex", { url: "https://x.test/mcp", bearer_token_env_var: "T" }),
     {
       ok: false,
       reason: "unsupported-fields",
-      keys: ["startup_timeout_sec"],
+      keys: ["bearer_token_env_var"],
     },
   );
   assert.equal(

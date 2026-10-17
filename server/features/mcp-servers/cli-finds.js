@@ -3,6 +3,7 @@ import { mcpUrl } from "../extensions/mcp-config.js";
 import { namePattern } from "./command-resolution.js";
 import { centralFromNative, clis, contentKey, proposeName } from "./cli-native.js";
 import { reasonIdentity } from "./cli-status.js";
+import { publicTimeouts } from "./mcp-timeouts.js";
 import { publicUrl } from "./mcp-server-store.js";
 
 const resolved = (resolve, { command }) => {
@@ -106,5 +107,6 @@ export function publicFind(group, { resolve = null } = {}) {
       : {}),
     headerNames: Object.keys(secrets.headers).sort(),
     envNames: Object.keys(secrets.env).sort(),
+    ...publicTimeouts(definition),
   };
 }

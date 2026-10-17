@@ -4,6 +4,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { mcpUrl, nativeMcp, record, values } from "../extensions/mcp-config.js";
 import { namePattern } from "./command-resolution.js";
+import { nativeTimeoutKeys, nativeTimeouts, timeoutsFromNative } from "./mcp-timeouts.js";
 import { hasReference, referenceNames } from "./value-references.js";
 
 /** The coding CLIs a central server can be bound to: the `cli` binding target ids. */
@@ -77,7 +78,10 @@ const wellFormed = (value) =>
  * only this entry, never the whole file.
  */
 export function cliEntry(cli, definition, secrets) {
-  const entry = nativeMcp(cli, cliInput(definition, secrets));
+  const entry = {
+    ...nativeMcp(cli, cliInput(definition, secrets)),
+    ...nativeTimeouts(cli, definition),
+  };
   if (!wellFormed(entry)) throw new Error("MCP entry has no UTF-8 form");
   return entry;
 }
@@ -99,6 +103,9 @@ export const entryHash = (entry) =>
   createHash("sha256").update(canonicalJson(entry)).digest("hex");
 
 const extra = (entry, keys) => Object.keys(entry).filter((key) => !keys.includes(key));
+/** Like `extra`, with the CLI's timeout keys allowed (read by `parse`). */
+const extraOf = (cli) => (entry, keys) =>
+  extra(entry, [...keys, ...nativeTimeoutKeys(cli)]);
 const strings = (list) =>
   Array.isArray(list) && list.every((item) => typeof item === "string");
 const unsupported = (keys) => ({ ok: false, reason: "unsupported-fields", keys });
@@ -143,6 +150,7 @@ function remote(transport, url, headers, oauthScope) {
   };
 }
 function fromClaude(entry) {
+  const extra = extraOf("claude");
   const type = entry.type ?? (entry.command !== undefined ? "stdio" : undefined);
   if (type === "stdio") {
     const keys = extra(entry, ["type", "command", "args", "env"]);
@@ -157,6 +165,7 @@ function fromClaude(entry) {
   return unsupported(["type"]);
 }
 function fromCodex(entry) {
+  const extra = extraOf("codex");
   if (entry.enabled === false) return unsupported(["enabled"]);
   if (entry.command !== undefined) {
     const keys = extra(entry, ["command", "args", "env", "cwd", "enabled"]);
@@ -172,6 +181,7 @@ function fromCodex(entry) {
   return remote("http", entry.url, {}, entry.scopes.join(" "));
 }
 function fromOpenCode(entry) {
+  const extra = extraOf("opencode");
   if (entry.enabled === false) return unsupported(["enabled"]);
   if (entry.type === "local") {
     const keys = extra(entry, ["type", "command", "environment", "cwd", "enabled"]);
@@ -207,15 +217,23 @@ function references({ definition, secrets }) {
 }
 
 function parse(cli, entry) {
-  if (cli === "claude") return fromClaude(entry);
-  if (cli === "codex") return fromCodex(entry);
-  return fromOpenCode(entry);
+  const parsed =
+    cli === "claude"
+      ? fromClaude(entry)
+      : cli === "codex"
+        ? fromCodex(entry)
+        : fromOpenCode(entry);
+  if (!parsed.ok) return parsed;
+  const timeouts = timeoutsFromNative(cli, entry);
+  if (timeouts.key) return unsupported([timeouts.key]);
+  Object.assign(parsed.definition, timeouts.values);
+  return parsed;
 }
 
 /**
  * A native entry as central fields, `{ ok, definition, secrets }`, or `{ ok: false,
  * reason }` when AgentPier could not take it over without losing something: settings
- * it does not manage, a disabled entry, malformed values, or references to the CLI's
+ * it does not manage (a timeout outside the bounds of mcp-timeouts.js included), a disabled entry, malformed values, or references to the CLI's
  * environment (`env-references`, with the `names` that use them). OpenCode's `remote`
  * reads as HTTP; it cannot tell SSE apart.
  */

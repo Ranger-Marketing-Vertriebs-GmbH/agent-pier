@@ -76,6 +76,46 @@ export const cases = [
     unsupported: { codex: "transport" },
   },
   {
+    // Codex takes both timeouts in seconds; Claude Code and OpenCode only a per-server
+    // request timeout in milliseconds, which carries the tool timeout.
+    id: "stdio-timeouts",
+    central: { ...stdio(), startupTimeoutSec: 30, toolTimeoutSec: 450 },
+    secrets: none,
+    native: {
+      claude: { type: "stdio", command, args: ["--flag"], env: {}, timeout: 450000 },
+      codex: {
+        command,
+        args: ["--flag"],
+        env: {},
+        startup_timeout_sec: 30,
+        tool_timeout_sec: 450,
+      },
+      opencode: {
+        type: "local",
+        command: [command, "--flag"],
+        environment: {},
+        enabled: true,
+        timeout: 450000,
+      },
+    },
+  },
+  {
+    id: "http-timeouts",
+    central: { ...remote("http"), toolTimeoutSec: 3600 },
+    secrets: header,
+    native: {
+      claude: { type: "http", url, headers: header.headers, timeout: 3600000 },
+      codex: { url, http_headers: header.headers, tool_timeout_sec: 3600 },
+      opencode: {
+        type: "remote",
+        url,
+        headers: header.headers,
+        enabled: true,
+        timeout: 3600000,
+      },
+    },
+  },
+  {
     id: "http-oauth",
     central: remote("http", "oauth", "read write"),
     secrets: none,

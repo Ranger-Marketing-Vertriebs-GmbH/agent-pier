@@ -37,6 +37,8 @@ const knownColumns = {
     "oauth_connected",
     "oauth_login_redirect",
     "directory_origin",
+    "startup_timeout_sec",
+    "tool_timeout_sec",
   ],
   server_secrets: ["server_id", "kind", "name", "value"],
   bindings: ["server_id", "target_kind", "target_id"],

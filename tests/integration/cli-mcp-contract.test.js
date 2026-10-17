@@ -131,6 +131,21 @@ test(
     ]);
     assert.equal(byName["ap-sse-as-http"].transport.type, "streamable_http");
     assert.equal(byName["ap-http-oauth"].auth_status, codexAuthStatus.loggedOut);
+    // Codex reads both timeouts in seconds (as floats) from the entry.
+    assert.deepEqual(
+      [
+        byName["ap-stdio-timeouts"].startup_timeout_sec,
+        byName["ap-stdio-timeouts"].tool_timeout_sec,
+      ],
+      [30, 450],
+    );
+    assert.deepEqual(
+      [
+        byName["ap-http-timeouts"].startup_timeout_sec,
+        byName["ap-http-timeouts"].tool_timeout_sec,
+      ],
+      [null, 3600],
+    );
     // smol-toml parses tables into null-prototype objects; compare plain values.
     const written = parseToml(fs.readFileSync(file, "utf8")).mcp_servers;
     assert.deepEqual(JSON.parse(JSON.stringify(written)), entries);

@@ -130,6 +130,43 @@ for (const [label, use] of [
       ]);
     });
 
+    test("timeouts are set under Advanced on Settings; a refused one returns there", async ({
+      page,
+    }) => {
+      const state = await wizardSetup(page);
+      state.refuseCreate = {
+        status: 400,
+        json: {
+          error:
+            "Bitte als Tool-Timeout ganze Sekunden von 1 bis 3600 angeben oder das Feld leer lassen.",
+          messageKey: "mcpServers.invalidToolTimeout",
+        },
+      };
+      const wizard = await openWizard(page);
+      await chooseSource(wizard, "Server on the internet");
+      await wizard.getByLabel("Name", { exact: true }).fill("rea");
+      await wizard
+        .getByLabel("Address", { exact: true })
+        .fill("https://mcp.example.test/mcp");
+      await primary(wizard).click();
+      await wizard.getByText("Advanced: timeouts").click();
+      await wizard.getByLabel("Startup timeout in seconds (1 to 600)").fill("30");
+      await wizard.getByLabel("Tool timeout in seconds (1 to 3600)").fill("450");
+      await fits(page);
+      await primary(wizard).click();
+      await wizard.getByRole("button", { name: "Save server" }).click();
+      await expect(page).toHaveURL(/step=settings/);
+      expect(writes(state).at(-1).body).toMatchObject({
+        startupTimeoutSec: 30,
+        toolTimeoutSec: 450,
+      });
+      const tool = wizard.getByLabel("Tool timeout in seconds (1 to 3600)");
+      await expect(tool).toHaveAttribute("aria-invalid", "true");
+      await expect(wizard.getByRole("alert")).toHaveText(
+        "Enter a tool timeout of 1 to 3600 whole seconds, or leave the field empty.",
+      );
+    });
+
     test("a taken name returns to set-up with the message at the name", async ({
       page,
     }) => {
