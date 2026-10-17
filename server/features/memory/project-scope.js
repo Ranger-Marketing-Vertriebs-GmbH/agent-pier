@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { failure } from "./memory-validation.js";
+import { gitMessageEnvironment } from "../../lib/git-locale.js";
 const execute = promisify(execFile);
 export async function projectScope(cwd) {
   if (typeof cwd !== "string" || !path.isAbsolute(cwd) || /[\x00-\x1f]/.test(cwd))
@@ -20,12 +21,12 @@ export async function projectScope(cwd) {
     kind = "directory",
     root = canonical;
   try {
-    const env = {
+    const env = gitMessageEnvironment({
       PATH: process.env.PATH,
       HOME: canonical,
       GIT_CONFIG_NOSYSTEM: "1",
       GIT_CONFIG_GLOBAL: "/dev/null",
-    };
+    });
     const result = await execute(
       "git",
       [
