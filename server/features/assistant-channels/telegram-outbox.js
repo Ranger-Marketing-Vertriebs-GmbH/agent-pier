@@ -2,6 +2,7 @@ import { telegramMessages } from "./telegram-messages.js";
 import { sendTelegramParts } from "./telegram-send-parts.js";
 import { transferLeadRequests } from "./telegram-lead-requests.js";
 import { historyTextLimit, runReply, withNote } from "../assistants/history-text.js";
+import { reportText } from "../assistants/team-results.js";
 const teamPath = (team) =>
   `/agents/${encodeURIComponent(team.parentAssistantId)}/teams/${encodeURIComponent(team.id)}`;
 export class TelegramOutbox {
@@ -134,7 +135,7 @@ export class TelegramOutbox {
           : msg.teamResultFailed(t.objective),
         ...(t.resultBatch || []).map(
           (m) =>
-            `${m.name} · ${m.role} · ${msg.teamResultStates[m.phase]}\n${m.text || msg.teamReportUnavailable}${m.cut ? `\n${msg.teamReportShortened}` : ""}`,
+            `${m.name} · ${m.role} · ${msg.teamResultStates[m.phase]}\n${reportText(a.teams.store, t, m) || msg.teamReportUnavailable}${m.cut ? `\n${msg.teamReportShortened}` : ""}`,
         ),
       ].join("\n\n");
       if (text.length > historyTextLimit)

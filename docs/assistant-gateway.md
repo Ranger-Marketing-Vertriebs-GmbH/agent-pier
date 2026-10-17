@@ -738,14 +738,23 @@ message with text (as OpenClaw's own channel reply; text written before a tool c
 is commentary), read on its own when the history page cut it and kept whole up to
 65,536 characters. Beyond that, or when OpenClaw serves it only as "message too
 large", the batch entry is cut by code point and marked `cut`, and the team card
-says "Shortened" with a link to the member's chat. The synthesis request stays
+says "Shortened" with a link to the member's chat. The team record keeps only the
+first 2,000 code points of each report (`truncated` when longer); the whole report
+lives in its own `text` row of the team store, so the team list, the scheduler pass
+and the Telegram scan stay small. The card loads the whole report from
+`GET /api/assistant-teams/:id/reports/:memberId` when it is opened, and the lead's
+`agentpier_team_status` tool returns the excerpts marked `shortened: true` with a
+note that the whole report is in the member's chat. The synthesis request stays
 below 60,000 characters (the request limit is 65,536), JSON escaping included:
 when the reports do not fit, the longest are shortened first to one common length,
-and every shortened or cut entry carries `shortened: true` with the instruction
-that the whole report is in that member's chat. A synthesis the parent refuses
-(`400`) is not retried: the team shows "The results could not be passed to the
-agent" (`resultState: unsent`, `RESULT_REFUSED`), the server logs it, and a
-Telegram origin receives the individual reports instead. A completed synthesis without available text sends
+then the members' coding runs (tasks shortened, then only counted); every shortened
+or cut entry carries `shortened: true` with the instruction that the whole report
+is in that member's chat. A failed send is retried like any other admission
+failure. Only a synthesis text that send's own validation rejects ends without a
+retry: the team shows "The results could not be passed to the agent"
+(`resultState: unsent`, `RESULT_UNSENDABLE`), the lead's chat gets a note after the
+team's end, the server logs it, and a Telegram origin receives the individual
+reports instead. A completed synthesis without available text sends
 an explicit fallback with attributed individual reports. A Telegram team result
 is read whole like a direct reply; one that stays incomplete, or a fallback over
 65,536 characters, ends with "Reply shortened – the rest could not be sent." Telegram approvals and
@@ -851,8 +860,10 @@ A lead reaches its own members without the owner relaying anything
   the paired Telegram chat when the request came from Telegram. Follow-ups that
   keep failing end as `FOLLOW_UP_FAILED`, shown on the request.
 - **Answers.** The member's answer or result is its run's last reply, kept whole
-  up to 65,536 characters. A longer one is cut by code point and stored with
-  `answerCut`; the ask tool result and the follow-up then carry `shortened: true`
+  up to 65,536 characters; the request record keeps its first 2,000 code points
+  (`answerTruncated`) and the whole answer has its own `text` row, pruned with the
+  request. A longer one is cut by code point and stored with `answerCut`, also when
+  OpenClaw serves it only as "message too large" (no `NO_TEXT` then); the ask tool result and the follow-up then carry `shortened: true`
   and tell the lead that the whole text is in the member's chat, as does a
   follow-up shortened to fit its own limit. The request in **Work → Teams** shows
   "Shortened" with a link to that chat.

@@ -70,9 +70,8 @@ async function transferRequest(outbox, r) {
     text = reply.cut ? withNote(reply.text, msg.telegramReplyIncomplete) : reply.text;
   }
   if (!text?.trim()) {
-    text = [msg.memberRequestNoReply(r.memberName), r.answer || ""]
-      .filter(Boolean)
-      .join("\n\n");
+    const answer = a.teams.requests.store.answer(r);
+    text = [msg.memberRequestNoReply(r.memberName), answer].filter(Boolean).join("\n\n");
     // A member's answer may itself fill the history limit.
     if (r.answerCut || text.length > historyTextLimit)
       text = withNote(text, msg.telegramReplyIncomplete);

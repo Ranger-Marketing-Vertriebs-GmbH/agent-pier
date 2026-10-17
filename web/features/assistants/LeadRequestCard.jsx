@@ -65,7 +65,7 @@ export default function LeadRequestCard({
       {r.ownerRequestQuote && (
         <p className="assistant-note">{copy.because(r.ownerRequestQuote)}</p>
       )}
-      {(r.hasAnswer || r.answer) && (
+      {(r.hasAnswer || r.answer || r.answerCut) && (
         <details
           className="assistant-team-report"
           onToggle={(event) => event.currentTarget.open && load()}

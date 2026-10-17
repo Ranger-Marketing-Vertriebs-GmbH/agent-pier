@@ -48,6 +48,10 @@ export const assistantApi = {
     ),
   decideTeam: (id, input) =>
     api(`/assistant-team-proposals/${encodeURIComponent(id)}/decision`, "POST", input),
+  teamReport: (teamId, memberId) =>
+    api(
+      `/assistant-teams/${encodeURIComponent(teamId)}/reports/${encodeURIComponent(memberId)}`,
+    ),
   leadRequest: (id) => api(`/assistant-lead-requests/${encodeURIComponent(id)}`),
   cancelLeadRequest: (id) =>
     api(`/assistant-lead-requests/${encodeURIComponent(id)}/cancel`, "POST", {}),

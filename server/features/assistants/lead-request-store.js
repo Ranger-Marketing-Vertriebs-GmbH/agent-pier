@@ -1,5 +1,6 @@
 import { randomUUID, createHash } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
+import { dropTexts, readText } from "./team-texts.js";
 import {
   intent,
   namesMember,
@@ -76,10 +77,19 @@ export class LeadRequestStore {
     for (const list of byLead.values())
       list.forEach((r, n) => {
         const at = Date.parse(r.finishedAt || r.createdAt);
-        if (n < list.length - retention.perLead || !(at >= cutoff))
-          removed += remove.run(r.id, requestKind).changes;
+        if (n < list.length - retention.perLead || !(at >= cutoff)) {
+          const gone = remove.run(r.id, requestKind).changes;
+          if (gone) dropTexts(this.teams.db, r.id);
+          removed += gone;
+        }
       });
     return removed;
+  }
+  /** The member's whole answer: its own row, or the record's text of older ones. */
+  answer(r) {
+    return (
+      (r.answerTruncated && readText(this.teams.db, r.id, "answer")) || r.answer || ""
+    );
   }
   get(id) {
     const r = this.teams.get(id);

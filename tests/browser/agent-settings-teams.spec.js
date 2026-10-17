@@ -207,7 +207,12 @@ test("a shortened report and answer say so and link to the member's chat", async
   page,
 }) => {
   const { teams } = teamRecords();
-  teams.find((t) => t.id === "research").resultBatch[0].cut = true;
+  // The list carries an excerpt; the card loads the whole report when opened.
+  Object.assign(teams.find((t) => t.id === "research").resultBatch[0], {
+    text: "Vendor B is",
+    truncated: true,
+    cut: true,
+  });
   await teamListFixture(page, {
     teams,
     requests: [
@@ -224,14 +229,20 @@ test("a shortened report and answer say so and link to the member's chat", async
         text: "Compare every vendor in detail.",
         phase: "completed",
         createdAt: "2026-10-13T09:00:00.000Z",
-        hasAnswer: true,
+        // Too large for OpenClaw to serve: no text at all, still not missing.
         answerCut: true,
       },
     ],
   });
+  await page.route(/\/api\/assistant-teams\/research\/reports\/researcher$/, (route) =>
+    route.fulfill({
+      json: { memberId: "researcher", text: "Vendor B is cheapest.", cut: true },
+    }),
+  );
   await page.goto(baseURL + "/agents/home/settings?tab=work&team=research");
   const research = group(page).locator("#assistant-team-research");
   await research.getByText("Report", { exact: true }).click();
+  await expect(research).toContainText("Vendor B is cheapest.");
   await expect(research).toContainText(
     "Shortened – the whole report is in the member’s chat.",
   );

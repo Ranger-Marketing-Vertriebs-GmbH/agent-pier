@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { teamFixture } from "../helpers/assistant-team-fixture.js";
-import { ask, lead } from "../helpers/lead-request-service-fixture.js";
-import { followUp } from "../../server/features/assistants/lead-request-text.js";
 import {
   synthesisMaxChars,
   synthesisPrompt,
@@ -31,9 +29,17 @@ test("a 10,000-character member report reaches the result batch and the lead's p
   const report = long("Report");
   assert.ok(report.length > 10000);
   const { f, team, attempt, chat } = await finishedTeam(t, [[report]]);
-  const [entry] = f.service.store.get(team.id).resultBatch;
-  assert.equal(entry.text, report);
+  // The record keeps an excerpt; the whole report has its own row.
+  const stored = f.service.store.get(team.id);
+  const [entry] = stored.resultBatch;
+  assert.equal(entry.text, Array.from(report).slice(0, 2000).join(""));
+  assert.equal(entry.truncated, true);
   assert.equal(entry.cut, undefined);
+  assert.deepEqual(f.service.report(team.id, entry.memberId), {
+    memberId: entry.memberId,
+    text: report,
+  });
+  assert.ok(JSON.stringify(f.service.list().teams).length < 4000);
   f.assistants.ledger.transition(attempt.id, "completed");
   await f.service.reconcile();
   await f.service.reconcile();
@@ -54,7 +60,7 @@ test("a report beyond the history limit is cut by code point and marked", async 
   const report = `${"a".repeat(65535)}😀 and more`;
   const { f, team, attempt, chat } = await finishedTeam(t, [[report]]);
   const [entry] = f.service.store.get(team.id).resultBatch;
-  assert.equal(entry.text, "a".repeat(65535));
+  assert.equal(f.service.report(team.id, entry.memberId).text, "a".repeat(65535));
   assert.equal(entry.cut, true);
   f.assistants.ledger.transition(attempt.id, "completed");
   await f.service.reconcile();
@@ -89,55 +95,72 @@ test("eight long reports fit the lead's prompt, the longest shortened first", ()
   assert.match(text, /whole report is in that member's own chat/);
 });
 
-test("a refused synthesis ends visibly instead of retrying silently", async (t) => {
+test("a provider refusal of the synthesis is retried, not given up", async (t) => {
   const { f, team, attempt } = await finishedTeam(t, [["Report"]]);
+  f.assistants.ledger.transition(attempt.id, "completed");
+  const send = f.assistants.send.bind(f.assistants);
+  let sends = 0;
+  f.assistants.send = async (...args) => {
+    // As a model account that cannot sign in right now (assistantProblem's 400).
+    if (++sends === 1) throw Object.assign(Error("provider"), { status: 400 });
+    return send(...args);
+  };
+  await f.service.reconcile();
+  assert.equal(f.service.store.get(team.id).resultState, "queued");
+  await f.service.reconcile();
+  assert.equal(sends, 2);
+  assert.ok(f.service.store.get(team.id).resultAttemptId);
+});
+
+test("a synthesis that send would refuse ends visibly instead of looping", async (t) => {
+  const { f, team, attempt } = await finishedTeam(t, [["Report"]]);
+  // JSON escapes a report's NUL; only text outside the batch can still carry one.
+  f.service.store.write(f.service.store.get(team.id), { objective: "Plan \0" });
   f.assistants.ledger.transition(attempt.id, "completed");
   const warnings = [];
   t.mock.method(console, "warn", (line) => warnings.push(line));
   let sends = 0;
-  f.assistants.send = async () => {
-    sends++;
-    throw Object.assign(Error("invalid"), { status: 400, key: "invalid" });
-  };
+  f.assistants.send = async () => sends++;
   await f.service.reconcile();
   await f.service.reconcile();
-  assert.equal(sends, 1);
+  assert.equal(sends, 0);
   const stored = f.service.store.get(team.id);
   assert.equal(stored.resultState, "unsent");
-  assert.equal(stored.resultDiagnostic, "RESULT_REFUSED");
+  assert.equal(stored.resultDiagnostic, "RESULT_UNSENDABLE");
   assert.ok(warnings.some((w) => w.includes(team.id)));
 });
 
-test("a 10,000-character member answer is stored whole and reaches the lead whole", async (t) => {
-  const f = await lead(t);
-  f.service.requests.waitMs = 0;
-  const inv = f.turn();
-  await ask(f, f.temporary, inv);
-  const r = f.requests()[0];
-  const answer = long("Answer");
-  f.complete(r.attemptId, "ok", [answer]);
-  await f.service.reconcile();
-  const stored = f.service.requests.store.get(r.id);
-  assert.equal(stored.answer, answer);
-  assert.equal(stored.answerCut, undefined);
-  f.idle();
-  await f.service.reconcile();
-  const delivered = f.assistants.ledger
-    .requests(f.chat.id)
-    .find((x) => x.clientRequestId === `lead-request-result:${r.id}`);
-  assert.ok(delivered.text.includes(JSON.stringify(answer)));
-  assert.ok(!delivered.text.includes('"shortened"'));
+test("many coding runs are shortened too, so the synthesis always fits", () => {
+  const run = (n) => ({
+    actionId: `a${n}`,
+    state: "awaiting_approval",
+    project: "Shop",
+    pipeline: "Build",
+    task: "t".repeat(500),
+    pending: true,
+  });
+  const resultBatch = Array.from({ length: 8 }, (_, n) => ({
+    memberId: `m${n}`,
+    name: `Member ${n}`,
+    role: "Build",
+    phase: "completed",
+    reportAvailable: true,
+    text: "r".repeat(20000),
+    codingRuns: Array.from({ length: n < 4 ? 60 : 100 }, (_, k) => run(n * 100 + k)),
+  }));
+  const text = synthesisPrompt({ objective: "o".repeat(4096), resultBatch });
+  assert.ok(text.length <= synthesisMaxChars, String(text.length));
+  assert.match(text, /"codingRunCount":100/);
+  assert.match(text, /Still pending: 640 coding runs/);
 });
 
-test("a stored cut answer is announced as shortened to the lead", () => {
-  const text = followUp({
-    type: "question",
-    memberName: "Member 0",
-    phase: "completed",
-    text: "What is the budget?",
-    answer: "The budget is",
-    answerCut: true,
-  });
-  assert.match(text, /"shortened":true/);
-  assert.match(text, /whole text is in the member's own chat/);
+test("the lead's status tool gets excerpts marked shortened", async (t) => {
+  const report = long("Report");
+  const { f, team, attempt } = await finishedTeam(t, [[report]]);
+  const inv = { attemptId: attempt.id, toolCallId: "status", assertCurrent() {} };
+  const status = f.service.status(inv, { teamId: team.id });
+  assert.equal(status.resultBatch[0].shortened, true);
+  assert.equal(status.resultBatch[0].truncated, undefined);
+  assert.ok(status.resultBatch[0].text.length <= 2000);
+  assert.match(status.note, /whole report is in that member's own chat/);
 });
