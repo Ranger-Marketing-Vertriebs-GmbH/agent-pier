@@ -13,7 +13,6 @@ import { Restore } from "../../server/features/operations/restore.js";
 import { loadArchive } from "../helpers/backup-archive.js";
 import { decryptCredentials } from "../../server/features/operations/archive.js";
 import { DatabaseSync } from "node:sqlite";
-import { ImportedHistory } from "../../server/features/operations/imported-history.js";
 test("default restore preserves audit and execution history but removes credentials, capabilities and recovery effects", async (t) => {
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-restore-policy-")),
@@ -121,19 +120,10 @@ test("default restore preserves audit and execution history but removes credenti
   assert.equal(run.pendingTurn, undefined);
   assert.equal(run.imported.historyOnly, true);
   await assert.rejects(fs.stat(path.join(target, "agentbus")), { code: "ENOENT" });
-  assert.ok(
-    await fs.stat(
-      path.join(
-        target,
-        "imported-history/agentbus",
-        "a".repeat(64),
-        "inbox/codex-x/pending/message.json",
-      ),
-    ),
-  );
-  const history = new ImportedHistory(target);
-  assert.equal(history.projects()[0].historyOnly, true);
-  assert.equal(history.messages("a".repeat(64)).items[0].text, "historical message");
+  // Without a passphrase, AgentBus history is left out (it is only archived sealed).
+  await assert.rejects(fs.stat(path.join(target, "imported-history")), {
+    code: "ENOENT",
+  });
   for (const store of [restoredRuns, restoredAudit, restoredMemory, runs, audit, memory])
     store.close();
 });
@@ -192,9 +182,13 @@ test("linked files never carry outside content into a backup", async (t) => {
   // Elsewhere it fails the backup and names the component.
   await fs.mkdir(path.join(dataDir, "chat"));
   await fs.symlink(path.join(root, "outside"), path.join(dataDir, "chat/linked.json"));
-  await assert.rejects(new Backup({ dataDir }).create(), {
-    message: serverMessages.backups.linked.chat,
-  });
+  await assert.rejects(
+    new Backup({ dataDir }).create({
+      withCredentials: true,
+      passphrase: "long fixture passphrase",
+    }),
+    { message: serverMessages.backups.linked.chat },
+  );
   assert.equal(await fs.readFile(path.join(root, "outside"), "utf8"), "not a credential");
 });
 

@@ -63,6 +63,11 @@ export default function BackupForm({ close, started }) {
             {copy.withCredentials}
           </label>
           <p className="field-description">{copy.backupPrivacy}</p>
+          {includeHistory && !withCredentials && (
+            <p className="field-description" role="note">
+              {copy.historyNeedsPassphrase}
+            </p>
+          )}
           {plan && (
             <>
               <h3>{copy.components}</h3>

@@ -29,10 +29,16 @@ test("deleting restored history preserves source attachments and removes stale g
       attachments: { directory },
     }),
   );
-  const backup = await new Backup({ dataDir: source, home: root }).create();
+  // Session history is only backed up sealed, with a passphrase.
+  const passphrase = "session history fixture passphrase";
+  const backup = await new Backup({ dataDir: source, home: root }).create({
+    withCredentials: true,
+    passphrase,
+  });
   await new Restore({ dataDir: source }).apply({
     archive: backup.file,
     targetDataDir: target,
+    passphrase,
   });
   const file = path.join(target, "sessions/session.json");
   const restored = JSON.parse(await fs.readFile(file));

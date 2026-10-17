@@ -25,13 +25,14 @@ import { isLoginFile, profileMemberKind } from "./profile-allowlist.js";
 import { remapClaudeProjects } from "./profile-history.js";
 import { inspected } from "./inspection.js";
 import { RestoreUploads } from "./restore-upload.js";
-import { SEAL_MEMBER, sealRecord, Unsealer } from "./history-seal.js";
+import { isHistoryPath, SEAL_MEMBER, sealRecord, Unsealer } from "./history-seal.js";
 import { claim } from "./work-claims.js";
 import { stagePath } from "./stage-path.js";
 
 // Histories read line by line: an archived prefix of them stays valid.
 const lineBased = /\.(?:jsonl|screen)$/;
 
+// Older backups archived AgentPier's own histories as public members.
 const publicPath =
   /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|mcp-servers\/servers\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
 const secretPath =
@@ -182,7 +183,7 @@ async function stageArchive(archive, directory, { passphrase, inspect = false })
             seals = sealRecord(opened) || new Map();
             const histories = [...seals.values()].map((seal) => seal.path);
             for (const name of histories)
-              if (profileMemberKind(name) !== "history")
+              if (!isHistoryPath(name))
                 throw problem(serverMessages.backups.unexpectedComponent);
             secrets = checkSecrets(
               opened.filter((entry) => entry.path !== SEAL_MEMBER),

@@ -74,7 +74,9 @@ export const operationsCopy = {
   includeHistory: "Include history",
   withCredentials: "Include encrypted credentials",
   backupPrivacy:
-    "AgentPier history may contain private task content and is not encrypted. CLI histories are only backed up in backups with a passphrase, and then encrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. External local CLI profiles, keychains and repository working directories stay out.",
+    "Histories (AgentPier terminal captures, chats and AgentBus messages, and CLI histories) may contain private task content. They are only backed up in backups with a passphrase, and then encrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. External local CLI profiles, keychains and repository working directories stay out.",
+  historyNeedsPassphrase:
+    "Without a passphrase, histories are left out of this backup. To back them up encrypted, also choose “Include encrypted credentials” and set a passphrase.",
   passphrase: "Passphrase",
   plan: "Review backup scope",
   create: "Create backup",
@@ -268,9 +270,9 @@ export const backupCopy = {
     memory: "Project knowledge",
     "pipeline-history": "Pipeline history",
     audit: "Activity log",
-    chat: "Chat history",
-    terminal: "Terminal captures",
-    "agentbus-history": "AgentBus history",
+    chat: "Chat history (encrypted)",
+    terminal: "Terminal captures (encrypted)",
+    "agentbus-history": "AgentBus history (encrypted)",
     assistants: "Agents, their chats, channels and workspaces",
     "sealed-assistant-credentials":
       "Agent credentials (sealed; restorable only on this host until any credential or provider connection changes)",
@@ -302,6 +304,10 @@ export const backupCopy = {
       "CLI histories (encrypted): Codex sessions and generated images, Claude Code projects, to-dos and file history, OpenCode sessions",
     "CLI caches, logs, telemetry and files outside the profile allowlists":
       "CLI caches, logs, telemetry and files outside the profile allowlists",
+    "AgentPier and CLI histories": "AgentPier and CLI histories",
+    "AgentPier and CLI histories are only backed up in backups with a passphrase, and then encrypted":
+      "AgentPier and CLI histories (set a passphrase to back them up encrypted)",
+    // Older backups named only the CLI histories.
     "CLI conversation histories": "CLI conversation histories",
     "Linked, shared or foreign files in CLI profiles":
       "Linked, shared or foreign files in CLI profiles",

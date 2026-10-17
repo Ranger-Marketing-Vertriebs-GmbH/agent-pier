@@ -13,8 +13,16 @@ const cleanPath = (name) => {
   }
 };
 
+// AgentPier's own histories: terminal captures, chats and AgentBus messages.
+const ownHistory =
+  /^(sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
+/** Whether `name` is a history file, which backups archive only sealed. */
+export const isHistoryPath = (name) =>
+  ownHistory.test(name) || profileMemberKind(name) === "history";
+
 /**
- * CLI histories are archived only in backups with a passphrase, and then sealed
+ * Histories, AgentPier's own and the CLIs', are archived only in backups with a
+ * passphrase, and then sealed
  * (docs/backups.md): AES-256-GCM over fixed-size chunks with a key random per
  * backup. The key, the backup id and which entry holds which history file live in
  * the passphrase capsule (`SEAL_MEMBER`); the archive shows only opaque entry names
@@ -177,7 +185,7 @@ export function sealRecord(secrets) {
   const byName = new Map(),
     paths = new Set();
   for (const [entry, item] of value.members.entries()) {
-    // Each entry restores to a CLI history path, and to no other entry's path.
+    // Each entry restores to a history path, and to no other entry's path.
     // Paths that differ only in case or normalization are distinct, as public
     // members are: a file system that ignores the difference refuses the second
     // file when it is written (caseConflict).
@@ -186,7 +194,7 @@ export function sealRecord(secrets) {
       Object.keys(item).sort().join() !== "name,path" ||
       item.name !== `sealed/${entry}` ||
       !cleanPath(item.path) ||
-      profileMemberKind(item.path) !== "history" ||
+      !isHistoryPath(item.path) ||
       paths.has(item.path)
     )
       throw failed();

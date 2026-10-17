@@ -21,19 +21,28 @@ Always, as public (unencrypted) members:
   brings back both. They are public members like the rest of the workspaces; leave
   agents' attachment folders out of a backup only by deleting the files first.
 
-With **Include history**, also public: AgentPier session records and terminal
-captures, chat histories and AgentBus history. This history can contain private task
-content; it is not encrypted. Only chat files a restore accepts are captured; a
-temporary file that a crashed writer left in `chat/` or in a credential folder is
-left out.
+With **Include history** and **Include encrypted credentials** together, the
+histories, always encrypted (see "Sealed history"):
 
-With **Include history** and **Include encrypted credentials** together, each
-managed CLI profile's conversation history (table below), always encrypted (see
-"Sealed CLI history"). Without a passphrase, CLI histories are left out and the plan
-and manifest say so ("CLI histories are only backed up in backups with a
-passphrase, and then encrypted"). Transcripts hold tool output verbatim and Claude
-Code's `file-history/` holds copies of edited files, so they are never archived in
-plain text.
+- AgentPier's own: session records and terminal captures (`sessions/`), chat
+  histories (`chat/`), AgentBus inbox history and earlier imported AgentBus history
+  (`imported-history/agentbus/`). Only chat files a restore accepts are captured; a
+  temporary file that a crashed writer left in `chat/` or in a credential folder is
+  left out.
+- Each managed CLI profile's conversation history (table below).
+
+Histories hold task content and tool output verbatim, and Claude Code's
+`file-history/` holds copies of edited files, so they are never archived in plain
+text. Without a passphrase, histories are left out: the backup dialog says so and
+how to back them up encrypted, and the plan and manifest list "AgentPier and CLI
+histories are only backed up in backups with a passphrase, and then encrypted".
+Without **Include history**, they list "AgentPier and CLI histories".
+
+Earlier backups archived AgentPier's own histories as public
+members whenever history was included; restore still accepts them, in version 1
+and version 2 archives. Their manifests name "CLI conversation histories" and "CLI
+histories are only backed up in backups with a passphrase, and then encrypted"
+instead.
 
 With **Include encrypted credentials**, sealed in the passphrase capsule (AES-256-GCM,
 scrypt-derived key):
@@ -91,16 +100,22 @@ manifest, members }`. `manifest` holds `schemaVersion` 2, `applicationVersion`,
    `public`, `credentials` or `sealed`.
 2. `credentials.json` when the backup has credentials: the sealed capsule, always the
    first member.
-3. Every public member as a regular file entry, and every sealed CLI history file as
-   an entry named `sealed/<n>`.
+3. Every public member as a regular file entry, and every sealed history file as an
+   entry named `sealed/<n>`.
 
-### Sealed CLI history
+<a id="sealed-cli-history"></a>
 
-A backup with CLI history draws a random 256-bit key. The capsule holds, as
+### Sealed history
+
+AgentPier's own histories and CLI histories are sealed the same way, in one
+sequence of `sealed/<n>` entries under one key.
+
+A backup with history draws a random 256-bit key. The capsule holds, as
 `history-seal.json`, that key, the backup id and which `sealed/<n>` entry is which
 history file; the archive itself shows neither the history's paths nor its content,
 only ciphertext sizes (plaintext plus 16 bytes per MiB) and ciphertext hashes.
-Database captures of sealed history are listed only as `cli-history-database`.
+Database captures of sealed history are listed only as `cli-history-database`, and
+AgentPier's own history captures as one `agentpier-histories` entry.
 
 Each file is split into 1 MiB chunks, each encrypted with AES-256-GCM. The nonce is
 the entry number and the chunk index; the additional data binds the backup id, the
@@ -122,7 +137,8 @@ when the backup ends, and after a crash at the next server start.
 Every file a restore writes, whatever kind of member it comes from, is checked by
 one guard: its path must be a clean relative path that resolves inside the real
 path of the hidden stage, with no link or file on the way. Sealed history paths
-from the capsule must also be CLI history paths, each at most once.
+from the capsule must also be history paths (AgentPier's session, chat and
+AgentBus history files, or CLI history paths), each at most once.
 
 The header is a separate, uncompressed (stored) gzip member. It is written with
 placeholder hashes first and rewritten in place once all members are streamed. Its
@@ -131,8 +147,8 @@ that are dropped and sizes that change while streaming, so the rewrite never mov
 data. A multi-member gzip file is still an ordinary `.tar.gz` for standard tools.
 
 Members an inspection validates (application data, databases, artifacts, agent
-configuration) come right after the capsule; histories, sealed CLI history and
-other agent files follow.
+configuration) come right after the capsule; sealed history and other agent files
+follow.
 
 Entries are ustar regular files with mode 0600. A name longer than 100 bytes or
 outside printable ASCII is carried in a PAX `path` record; sizes of 8 GiB and more

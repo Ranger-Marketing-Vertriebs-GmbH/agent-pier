@@ -18,10 +18,12 @@ const PROFILE_CREDENTIAL_LIMIT = 64 * 1024 * 1024;
 const CREDENTIAL_LIMIT = 160 * 1024 * 1024;
 export const profileOmissions = Object.freeze({
   unlisted: "CLI caches, logs, telemetry and files outside the profile allowlists",
-  history: "CLI conversation histories",
-  // History chosen, but no passphrase: CLI histories are only archived sealed.
+  // Older backups name "CLI conversation histories" and "CLI histories are only
+  // backed up in backups with a passphrase, and then encrypted" instead.
+  history: "AgentPier and CLI histories",
+  // History chosen, but no passphrase: histories are only archived sealed.
   unsealed:
-    "CLI histories are only backed up in backups with a passphrase, and then encrypted",
+    "AgentPier and CLI histories are only backed up in backups with a passphrase, and then encrypted",
   linked: "Linked, shared or foreign files in CLI profiles",
 });
 const segment = /^[A-Za-z0-9_-]+$/;
