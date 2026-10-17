@@ -13,6 +13,7 @@ export default function ProjectKnowledgeEntry({
   onEdit,
   onHistory,
   onArchive,
+  onForget,
 }) {
   const bodyId = `project-knowledge-body-${entry.id}`;
   const stopAnd = (run) => (event) => {
@@ -72,6 +73,15 @@ export default function ProjectKnowledgeEntry({
             onClick={stopAnd(onArchive)}
           >
             {entry.archived ? copy.active : copy.archived}
+          </button>
+          <button
+            type="button"
+            className="button danger compact"
+            aria-label={copy.forget(entry.title)}
+            disabled={busy}
+            onClick={stopAnd(onForget)}
+          >
+            {copy.forgetAction}
           </button>
         </div>
       )}

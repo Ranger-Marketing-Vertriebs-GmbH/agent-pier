@@ -18,6 +18,9 @@ export const memory = Object.freeze({
   expectedRevisionRequired: "An expected revision is required.",
   newEntryRevision: "New memory entries cannot have an expected revision.",
   requestIdUsed: "Memory request identifier was already used.",
+  forgottenContent:
+    "This title and content were permanently forgotten in this project and cannot be stored again.",
+  invalidForgetReason: "Invalid reason for forgetting (500 bytes at most).",
   changed: "Memory changed. Reload before saving.",
   archiveStateRequired: "An expected revision and valid archive state are required.",
   invalidProjectDirectory: "Invalid memory project directory.",

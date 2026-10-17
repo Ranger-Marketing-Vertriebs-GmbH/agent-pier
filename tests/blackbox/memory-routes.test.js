@@ -279,3 +279,40 @@ test("invalid Memory discovery config returns a stable browser error and revokes
     0,
   );
 });
+
+test("the owner forgets an entry over HTTP with a content-free audit event", async (t) => {
+  const app = await applicationFixture(t);
+  const scope = await project(app, "project");
+  const base = `/api/memory/projects/${scope.id}/entries`;
+  const body = { title: "Leaked key", content: "key fixture-route-secret" };
+  const entry = await (await app.request(base, { method: "POST", body })).json();
+  let response = await app.request(`${base}/${entry.id}`, {
+    method: "DELETE",
+    body: { expectedRevision: 2 },
+  });
+  assert.equal(response.status, 409);
+  response = await app.request(`${base}/${entry.id}`, {
+    method: "DELETE",
+    body: { expectedRevision: 1, reason: "Rotated", removeBackups: false },
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    id: entry.id,
+    projectId: scope.id,
+    revisions: 1,
+    removedBackups: 0,
+  });
+  assert.equal((await app.request(`${base}/${entry.id}`)).status, 404);
+  assert.equal((await app.request(`${base}/${entry.id}?revision=1`)).status, 404);
+  response = await app.request(base, { method: "POST", body });
+  assert.equal(response.status, 422);
+  const audit = await (await app.request("/api/audit")).json();
+  const forgotten = audit.events.find(
+    (event) => event.action === "memory.deleted" && event.outcome === "success",
+  );
+  assert.equal(forgotten.resourceId, entry.id);
+  assert.equal(forgotten.projectId, scope.id);
+  const recorded = JSON.stringify(audit);
+  assert.equal(recorded.includes("fixture-route-secret"), false);
+  assert.equal(recorded.includes("Rotated"), false);
+});

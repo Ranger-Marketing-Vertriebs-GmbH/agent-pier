@@ -97,6 +97,21 @@ export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates 
       ),
     ),
   );
+  // Owner-only through the GUI: agents have no MCP tool to forget entries.
+  router.delete(base + "/:id", (request, response) =>
+    response.json(
+      memory.forget(
+        request.params.projectId,
+        request.params.id,
+        {
+          expectedRevision: request.body?.expectedRevision,
+          reason: request.body?.reason,
+          removeBackups: request.body?.removeBackups,
+        },
+        { kind: "user" },
+      ),
+    ),
+  );
   router.get(base + "/:id/revisions", (request, response) =>
     response.json(
       memory.revisions(request.params.projectId, request.params.id, {
