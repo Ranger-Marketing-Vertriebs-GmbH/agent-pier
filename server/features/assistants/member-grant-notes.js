@@ -66,6 +66,17 @@ export function notifyMemberGrant(w, action, phase, key, m, target) {
 export function grantNotes(a) {
   if (!a.chatNotes?.result) return [];
   const p = a.payload;
+  if (p.action === "member_promote")
+    return [
+      {
+        id: `member-promote:${a.id}`,
+        role: "event",
+        event: "member-promote",
+        memberName: p.memberName,
+        timestamp: a.chatNotes.result.at,
+        runId: null,
+      },
+    ];
   if (p.action === "member_update")
     return [
       {

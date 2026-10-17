@@ -5,6 +5,12 @@ import { fieldLabels, keyLabels } from "./member-grants.js";
 // A lead's grant to a team member, or the owner's decision on one, as a quiet line in
 // the member's and the lead's chats (server member-grant-notes.js grantNotes).
 export default function MemberGrantNote({ note }) {
+  if (note.event === "member-promote")
+    return (
+      <p className="assistant-note assistant-event" data-member-promote="">
+        {copy.note.promoted(note.memberName)}
+      </p>
+    );
   if (note.event === "member-update") {
     const fields = fieldLabels(note.edited);
     return (

@@ -164,6 +164,14 @@ async function setup(page, { memberShellSsh = false } = {}) {
                   runId: null,
                 },
                 {
+                  id: "member-promote:note",
+                  role: "event",
+                  event: "member-promote",
+                  memberName: "Scout",
+                  timestamp: Date.now() - 200,
+                  runId: null,
+                },
+                {
                   id: "member-update:note",
                   role: "event",
                   event: "member-update",
@@ -292,4 +300,12 @@ test("a lead's edit of a member shows in its chat and in its history", async ({
   );
   await log.getByText("Instructions it replaced").click();
   await expect(log.locator("pre")).toHaveText("Owner text that was replaced.");
+});
+
+test("a lead's promotion of a member shows in its chat", async ({ page }) => {
+  await setup(page);
+  await page.goto(baseURL + "/agents/member-0/chats/chat-0");
+  await expect(page.locator("[data-member-promote]")).toHaveText(
+    "The lead agent kept Scout as a permanent agent",
+  );
 });

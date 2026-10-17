@@ -33,6 +33,8 @@ export const memberGrantCopy = {
   previousInstructions: "Ersetzte Anweisungen",
   history: "Änderungen",
   log: {
+    promoted: (date) =>
+      `${date}: Der leitende Agent hat das Mitglied als dauerhaften Agenten behalten`,
     edited: (date, fields) =>
       `${date}: Der leitende Agent hat beim Mitglied ${fields} geändert`,
     lead: (date, labels) => `${date}: Der leitende Agent hat ${labels} gewährt`,
@@ -42,6 +44,8 @@ export const memberGrantCopy = {
     owner: (date, labels) => `${date}: Du hast ${labels} freigegeben`,
   },
   note: {
+    promoted: (member) =>
+      `Der leitende Agent hat ${member} als dauerhaften Agenten behalten`,
     updated: (member, fields) =>
       `Der leitende Agent hat bei ${member} ${fields} geändert`,
     renamed: (previous, member, fields) =>

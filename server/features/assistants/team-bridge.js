@@ -23,6 +23,7 @@ const actions = new Set([
   "archive",
   "grant",
   "member_update",
+  "promote",
   "reminder",
   "routine",
   "workspace",

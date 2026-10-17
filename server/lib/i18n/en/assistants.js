@@ -116,6 +116,8 @@ export const assistants = {
     levels: { approval: "with approval", full: "full access" },
     gets: (labels) => `Gets: ${labels}`,
     getsNothing: "Gets: no tools",
+    promoted: (lead, member) =>
+      `${lead} kept its team member ${member} as a permanent agent. It keeps its web tools, skills, MCP servers and reminders, without shell or SSH. You can review or archive it in its settings.`,
     proposalWarning:
       "⚠ Members marked ⚠ get shell or SSH, at most at the lead's level and on its hosts. They work unattended; content they read can steer them.",
     approval: (lead, member) =>

@@ -33,6 +33,7 @@ export const memberGrantCopy = {
   previousInstructions: "Instructions it replaced",
   history: "Changes",
   log: {
+    promoted: (date) => `${date}: the lead agent kept the member as a permanent agent`,
     edited: (date, fields) => `${date}: the lead agent changed the member's ${fields}`,
     lead: (date, labels) => `${date}: the lead agent granted ${labels}`,
     revoked: (date, labels) => `${date}: the lead agent took back ${labels}`,
@@ -41,6 +42,7 @@ export const memberGrantCopy = {
     owner: (date, labels) => `${date}: you approved ${labels}`,
   },
   note: {
+    promoted: (member) => `The lead agent kept ${member} as a permanent agent`,
     updated: (member, fields) => `The lead agent changed ${member}'s ${fields}`,
     renamed: (previous, member, fields) =>
       `The lead agent changed ${previous}'s ${fields}; it is now called ${member}`,
