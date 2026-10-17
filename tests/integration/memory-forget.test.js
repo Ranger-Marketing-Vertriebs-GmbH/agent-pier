@@ -73,6 +73,7 @@ test("forget removes every revision, the entry and its write receipts", async (t
     revisions: 3,
     removedBackups: 0,
     purged: true,
+    redacted: true,
   });
   for (const read of [
     () => f.store.read(f.project.id, entry.id),
@@ -248,13 +249,23 @@ test("a failed VACUUM still answers, reports the purge and retries it later", as
   assert.equal(result.removedBackups, 1);
   assert.equal(fs.existsSync(backup), false);
   assert.throws(() => f.store.read(f.project.id, entry.id), { status: 404 });
-  assert.equal(f.store.db.prepare("SELECT COUNT(*) AS n FROM purges").get().n, 1);
+  assert.equal(
+    f.store.db.prepare("SELECT COUNT(*) AS n FROM purges WHERE files=1").get().n,
+    1,
+  );
   delete f.store.db.exec;
+  // A backup made after the forget holds no forgotten text; the retry keeps it.
+  const later = f.store.backup("later");
   f.store.close();
   // The next start retries the purge and clears its marker.
   const reopened = f.open();
+  assert.equal(fs.existsSync(later), true);
+  fs.rmSync(later);
   assert.equal(stored(reopened, "fixture-secret-h"), false);
-  assert.equal(reopened.db.prepare("SELECT COUNT(*) AS n FROM purges").get().n, 0);
+  assert.equal(
+    reopened.db.prepare("SELECT COUNT(*) AS n FROM purges WHERE files=1").get().n,
+    0,
+  );
 });
 
 test("a reader holding the log open delays the purge until the next forget", async (t) => {
@@ -273,5 +284,8 @@ test("a reader holding the log open delays the purge until the next forget", asy
   const next = f.store.forget(f.project.id, later.id, { expectedRevision: 1 });
   assert.equal(next.purged, true);
   assert.equal(stored(f.store, "fixture-secret-i"), false);
-  assert.equal(f.store.db.prepare("SELECT COUNT(*) AS n FROM purges").get().n, 0);
+  assert.equal(
+    f.store.db.prepare("SELECT COUNT(*) AS n FROM purges WHERE files=1").get().n,
+    0,
+  );
 });

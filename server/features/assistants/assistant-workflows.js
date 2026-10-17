@@ -37,15 +37,18 @@ export class AssistantWorkflows {
     // entries forgotten while the agent services were not running.
     if (services.memory) {
       this.redactForgotten = () =>
-        this.store.redactMemoryWrites(services.memory.forgottenEntryIds());
+        this.redactNotices(
+          this.store.redactMemoryWrites(services.memory.forgottenEntryIds()),
+        );
       services.memory.onForget = this.redactForgotten;
-      try {
-        this.redactForgotten();
-      } catch {
-        // Retried at the next forget and the next start.
-      }
+      // Logs a failure itself and keeps the marker for the next start or forget.
+      services.memory.retryPurge?.();
     }
     if (autoStart) this.start();
+  }
+  /** Clears channel notices that quoted forgotten memory text. */
+  redactNotices(actionIds) {
+    if (actionIds.length) this.s.assistantChannels?.outbox?.redactActions(actionIds);
   }
   /** Starts advancing open actions; the application starts it after recovery. */
   start() {
@@ -511,6 +514,12 @@ export class AssistantWorkflows {
                 ? "failed"
                 : "unknown",
         });
+        if (a.diagnostic === "MEMORY_FORGOTTEN")
+          try {
+            this.redactNotices([a.id]);
+          } catch {
+            // The next forget or start redacts it with every other copy.
+          }
       }
     }
     if (a.state === "unknown") {

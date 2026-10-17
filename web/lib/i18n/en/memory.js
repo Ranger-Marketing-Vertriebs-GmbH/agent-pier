@@ -35,6 +35,8 @@ export const memoryCopy = {
     `Also delete the ${count === 1 ? "migration backup" : `${count} migration backups`} of the knowledge database (memory.sqlite.*) on this computer`,
   forgetIncomplete:
     "The entry is forgotten, but the knowledge database files are not fully cleaned yet. AgentPier retries at the next start and the next time you forget an entry.",
+  forgetRecordsIncomplete:
+    "Agent action records still contain the text. AgentPier retries removing it at the next start and the next time you forget an entry.",
   historyTitle: "Version history",
   version: (revision) => `Version ${revision}`,
   latest: "Load current version",

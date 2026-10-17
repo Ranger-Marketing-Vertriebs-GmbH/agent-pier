@@ -35,6 +35,8 @@ export const memoryCopy = {
     `Auch ${count === 1 ? "die Migrationssicherung" : `die ${count} Migrationssicherungen`} der Wissensdatenbank (memory.sqlite.*) auf diesem Rechner löschen`,
   forgetIncomplete:
     "Der Eintrag ist vergessen, aber die Dateien der Wissensdatenbank sind noch nicht vollständig bereinigt. AgentPier versucht es beim nächsten Start und beim nächsten Vergessen erneut.",
+  forgetRecordsIncomplete:
+    "Agenten-Aufzeichnungen enthalten den Text noch. AgentPier versucht ihn beim nächsten Start und beim nächsten Vergessen erneut zu entfernen.",
   historyTitle: "Versionsverlauf",
   version: (revision) => `Version ${revision}`,
   latest: "Aktuellen Stand laden",

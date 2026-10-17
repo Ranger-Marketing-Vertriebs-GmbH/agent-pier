@@ -21,6 +21,8 @@ export const memory = Object.freeze({
   forgottenContent:
     "Dieser Titel und Inhalt wurden in diesem Projekt endgültig vergessen und können nicht erneut gespeichert werden.",
   invalidForgetReason: "Ungültige Begründung zum Vergessen (höchstens 500 Bytes).",
+  recordsPending:
+    "Agenten-Aufzeichnungen enthalten den Text noch. AgentPier entfernt ihn beim nächsten Start und beim nächsten Vergessen erneut.",
   purgePending:
     "Der Eintrag ist vergessen, aber die Memory-Dateien sind noch nicht vollständig bereinigt. AgentPier versucht es beim nächsten Start und beim nächsten Vergessen erneut.",
   changed: "Memory wurde geändert. Bitte vor dem Speichern neu laden.",

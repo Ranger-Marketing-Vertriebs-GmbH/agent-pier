@@ -307,6 +307,7 @@ test("the owner forgets an entry over HTTP with a content-free audit event", asy
     revisions: 1,
     removedBackups: 0,
     purged: true,
+    redacted: true,
   });
   assert.equal(await count(), 1);
   assert.equal((await app.request(`${base}/${entry.id}`)).status, 404);

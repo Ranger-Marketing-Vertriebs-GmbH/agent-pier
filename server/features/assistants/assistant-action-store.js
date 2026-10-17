@@ -135,19 +135,27 @@ export class AssistantActionStore {
   /**
    * Clears title and content of agent memory writes that stored an entry an owner
    * forgot (memory-forget.js), with secure_delete so the old text is overwritten. A
-   * write still waiting for approval is cancelled.
+   * write still waiting for approval is cancelled. Returns the IDs of every memory
+   * write that held forgotten text, already redacted ones included, so their channel
+   * notices can be redacted as well.
    */
   redactMemoryWrites(entryIds) {
     const forgotten = new Set(entryIds);
-    if (!forgotten.size) return;
-    const rows = this.db
+    const held = this.db
       .prepare(
-        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.payload.action')='memory_write' AND json_extract(body,'$.diagnostic') IS NOT 'MEMORY_FORGOTTEN'",
+        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.payload.action')='memory_write'",
       )
       .all()
       .map((r) => JSON.parse(r.body))
-      .filter((a) => forgotten.has(a.result?.id) || forgotten.has(a.payload.id));
-    if (!rows.length) return;
+      .filter(
+        (a) =>
+          a.diagnostic === "MEMORY_FORGOTTEN" ||
+          forgotten.has(a.result?.id) ||
+          forgotten.has(a.payload.id),
+      );
+    const rows = held.filter((a) => a.diagnostic !== "MEMORY_FORGOTTEN");
+    const ids = held.map((a) => a.id);
+    if (!rows.length) return ids;
     const previous = this.db.prepare("PRAGMA secure_delete").get().secure_delete;
     this.db.exec("PRAGMA secure_delete=ON");
     try {
@@ -162,6 +170,7 @@ export class AssistantActionStore {
     } finally {
       this.db.exec(`PRAGMA secure_delete=${previous ? "ON" : "OFF"}`);
     }
+    return ids;
   }
   // Trusted SSH runs keep only their newest rows per agent; the audit keeps the rest.
   pruneTrustedSsh(assistantId, keep) {
