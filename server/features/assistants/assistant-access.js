@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { requirePipeline } from "../mcp/tool-policy.js";
 import { sshModes } from "./agent-ssh-origin.js";
-import { personalEligible } from "./native-capabilities.js";
+import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
+// A temporary member uses its lead's SSH grants only while the lead lets its team
+// members use shell and SSH (memberInheritance); it never holds grants of its own.
+export const sshFromLead = (a) => inheritsFromLead(a) && a.inherited.ssh === true;
 // The session grant limit (ssh-sessions.js) also bounds an agent's SSH hosts.
 const maxSshAccesses = 30;
 const byAccessId = (a, b) =>
@@ -213,29 +216,53 @@ export class AssistantAccess {
       return null;
     }
   }
+  /**
+   * The agent whose SSH grants apply to `id`: itself when eligible, or a temporary
+   * member's lead while the lead shares shell and SSH with its members. Refuses
+   * everyone else, so every SSH check reads live whose grants count.
+   */
+  sshHolder(id) {
+    const a = this.s.assistants.store.getAssistant(id);
+    return sshFromLead(a) ? this.eligible(a.parentAssistantId) : this.eligible(id);
+  }
+  /** `id`'s usable grant for `accessId` (see sshHolder), or null. */
   sshGrant(id, accessId) {
-    return this.get(id).sshAccesses.find((g) => g.accessId === accessId) || null;
+    let holder;
+    try {
+      holder = this.sshHolder(id).id;
+    } catch {
+      return null;
+    }
+    return this.get(holder).sshAccesses.find((g) => g.accessId === accessId) || null;
   }
   hasSshGrants(id) {
     try {
+      const a = this.s.assistants.store.getAssistant(id);
+      const holder = sshFromLead(a) ? a.parentAssistantId : personalEligible(a) && id;
       return (
-        personalEligible(this.s.assistants.store.getAssistant(id)) &&
-        this.get(id).sshAccesses.length > 0
+        !!holder &&
+        personalEligible(this.s.assistants.store.getAssistant(holder)) &&
+        this.get(holder).sshAccesses.length > 0
       );
     } catch {
       return false;
     }
   }
-  /** Eligible agents with at least one SSH grant; never throws (compiles use it). */
+  /**
+   * Eligible agents with at least one SSH grant, and the temporary members using
+   * their lead's; never throws (compiles use it).
+   */
   sshAgents() {
     try {
-      return new Set(
-        this.db
-          .prepare("SELECT assistant_id FROM assistant_access")
-          .all()
-          .map((r) => r.assistant_id)
-          .filter((id) => this.hasSshGrants(id)),
-      );
+      const own = this.db
+        .prepare("SELECT assistant_id FROM assistant_access")
+        .all()
+        .map((r) => r.assistant_id);
+      const members = this.s.assistants.store
+        .listAssistants()
+        .filter(sshFromLead)
+        .map((a) => a.id);
+      return new Set([...own, ...members].filter((id) => this.hasSshGrants(id)));
     } catch {
       return new Set();
     }

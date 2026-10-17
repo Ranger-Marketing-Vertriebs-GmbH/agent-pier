@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
+import { followLead } from "../../features/assistants/member-follow.js";
 export function assistantTeamRoutes({ assistants }) {
   const router = Router();
   const service = () => {
@@ -20,6 +21,7 @@ export function assistantTeamRoutes({ assistants }) {
     const { revision, ...input } = req.body;
     const result = service().store.savePolicy(req.params.id, input, revision);
     assistants.changed();
+    followLead(assistants, req.params.id);
     res.json(result);
   });
   router.put("/assistant-team-settings", (req, res) => {

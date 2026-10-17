@@ -20,7 +20,7 @@ const OFF = {
   browser: false,
   documents: false,
 };
-test("personal capabilities are opt-in and never inherited by task members", () => {
+test("personal capabilities are opt-in; a task member's own settings never count", () => {
   assert.deepEqual(personalCapabilities({}), OFF);
   const parent = { capabilities: { memory: true, reminders: true } };
   assert.deepEqual(personalCapabilities(parent), {
@@ -33,6 +33,12 @@ test("personal capabilities are opt-in and never inherited by task members", () 
     OFF,
   );
   assert.deepEqual(personalCapabilities({ ...parent, archivedAt: "today" }), OFF);
+  // A task member runs with what the store resolved from its lead (memberInheritance).
+  const inherited = { capabilities: { ...OFF, memory: true }, skills: [], shell: "off" };
+  assert.deepEqual(
+    personalCapabilities({ teamMemberId: "member", lifetime: "task", inherited }),
+    { ...OFF, memory: true },
+  );
   const tools = profileTools(parent, false, true, true);
   assert.ok(tools.includes("memory_search") && tools.includes("write"));
   // Without a live write guard in the Gateway, memory stays read-only.
@@ -148,7 +154,7 @@ test("new capabilities default to off and are validated as booleans", () => {
   );
 });
 
-test("eligible agents get granted web and document tools, temporary members none", () => {
+test("eligible agents get granted web and document tools, temporary members their lead's", () => {
   const caps = {
     memory: false,
     reminders: false,
@@ -166,6 +172,14 @@ test("eligible agents get granted web and document tools, temporary members none
   ]);
   const temporary = { id: "m", teamMemberId: "t", lifetime: "task", capabilities: caps };
   assert.ok(!profileTools(temporary, true, true, false).includes("web_search"));
+  const following = {
+    ...temporary,
+    capabilities: undefined,
+    inherited: { capabilities: { ...caps, browser: false }, skills: [], shell: "off" },
+  };
+  const memberTools = profileTools(following, true, true, false);
+  assert.ok(memberTools.includes("web_search") && memberTools.includes("view_image"));
+  assert.ok(!memberTools.includes("browser"));
   assert.ok(
     !profileTools(personal, true, true, false, { browser: false }).includes("browser"),
   );

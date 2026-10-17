@@ -106,6 +106,10 @@ export const assistants = {
   },
   teamApproval: (objective, count) =>
     `Team-Freigabe: ${objective}\n${count} Mitglieder. Freigeben oder ablehnen?`,
+  teamMemberShellSsh:
+    "⚠ Die Mitglieder dürfen Shell und SSH nutzen, höchstens mit der Shell-Stufe und den SSH-Freigaben des leitenden Agenten. Sie übernehmen außerdem Web, Skills, MCP-Server, Gedächtnis (nur lesend) und Erinnerungen des leitenden Agenten.",
+  teamMemberNoShellSsh:
+    "Die Mitglieder übernehmen Web, Skills, MCP-Server, Gedächtnis (nur lesend) und Erinnerungen des leitenden Agenten, aber keine Shell und kein SSH.",
   teamMcpServers: (names) => `MCP-Server: ${names}`,
   teamMcpStdio: (name) => `${name} (stdio, lokaler Befehl)`,
   teamMcpUnavailable:

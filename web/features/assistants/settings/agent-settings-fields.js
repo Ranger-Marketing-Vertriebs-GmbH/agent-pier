@@ -24,7 +24,12 @@ export const channelKeys = ["language", "appUrl"];
 export const permissionKeys = ["memoryWrite", "autonomous", "publish"];
 export const accessKeys = ["projectIds", "pipelineIds", "sshAccesses", ...permissionKeys];
 export const sshModes = ["approval", "trusted", "routines"];
-export const teamKeys = ["teamAutonomous", "maxMembers", "runTimeoutMinutes"];
+export const teamKeys = [
+  "teamAutonomous",
+  "memberShellSsh",
+  "maxMembers",
+  "runTimeoutMinutes",
+];
 
 const pageTabs = {
   memory: "capabilities",
@@ -196,6 +201,7 @@ export const workServer = (policy, team) => ({
   autonomous: policy?.autonomous === true,
   publish: policy?.publish === true,
   teamAutonomous: team?.autonomous === true,
+  memberShellSsh: team?.memberShellSsh === true,
   maxMembers: team?.maxMembers ?? "",
   runTimeoutMinutes: team?.runTimeoutMinutes ?? "",
 });
@@ -236,6 +242,7 @@ export function workBody({ values, changed, revisions, withTeam, sshHostIds = nu
     body.team = {
       revision: revisions.team,
       autonomous: values.teamAutonomous,
+      memberShellSsh: values.memberShellSsh,
       maxMembers: values.maxMembers,
       runTimeoutMinutes: values.runTimeoutMinutes,
     };

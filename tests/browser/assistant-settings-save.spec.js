@@ -105,7 +105,7 @@ test("a task-bound member sees granted MCP servers read-only and the shell reaso
   });
   await page.goto(baseURL + settingsPath("capabilities"));
   await expect(page.locator("#agent-shell")).toContainText(
-    "Task-bound team members never get shell access.",
+    "Task-bound team members get shell access only when their lead agent allows it under Work, and at most at the lead's level.",
   );
   await expect(page.getByRole("switch", { name: "Remember information" })).toHaveCount(0);
   await expect(saveBar(page)).toHaveCount(0);
@@ -143,14 +143,26 @@ test("the Work tab saves grants and team policy in one request, then only what c
       autonomous: false,
       publish: false,
     },
-    team: { revision: 1, autonomous: false, maxMembers: 6, runTimeoutMinutes: 30 },
+    team: {
+      revision: 1,
+      autonomous: false,
+      memberShellSsh: false,
+      maxMembers: 6,
+      runTimeoutMinutes: 30,
+    },
   });
   await expect(saveBar(page)).toHaveCount(0);
   await page.getByRole("spinbutton", { name: "Member time limit (minutes)" }).fill("45");
   await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => state.work.length).toBe(2);
   expect(state.work[1]).toEqual({
-    team: { revision: 2, autonomous: false, maxMembers: 6, runTimeoutMinutes: 45 },
+    team: {
+      revision: 2,
+      autonomous: false,
+      memberShellSsh: false,
+      maxMembers: 6,
+      runTimeoutMinutes: 45,
+    },
   });
 });
 

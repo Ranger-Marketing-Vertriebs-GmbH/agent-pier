@@ -423,12 +423,30 @@ for (const [language, heading, marker] of [
     ]);
     await f.service.teamOutbox.transfer();
     const { text } = f.service.outbox.pending(f.channel.id)[0];
-    const [, planner, writer, critic] = text.split("\n\n");
+    const [, inherits, planner, writer, critic] = text.split("\n\n");
+    assert.match(
+      inherits,
+      language === "de" ? /keine Shell und kein SSH/ : /no shell and no SSH/,
+    );
     assert.equal(planner.split("\n").at(-1), `${heading}github`);
     assert.equal(writer.split("\n").at(-1), `${heading}files ${marker}, github`);
     assert.ok(!critic.includes(heading.trim()));
     for (const secret of ["secret", "mcp.example.test", "/abs/files", "/private/data"])
       assert.ok(!text.includes(secret), secret);
+  });
+
+for (const [language, warning] of [
+  ["de", /^⚠ Die Mitglieder dürfen Shell und SSH nutzen/],
+  ["en", /^⚠ Members may use shell and SSH/],
+])
+  test(`the ${language} approval says when members may use shell and SSH`, async (t) => {
+    const f = setup(t, { language: () => language });
+    const teams = f.assistants.teams.store;
+    teams.savePolicy(f.channel.assistantId, { memberShellSsh: true }, 1);
+    await f.proposal();
+    await f.service.teamOutbox.transfer();
+    const { text } = f.service.outbox.pending(f.channel.id)[0];
+    assert.match(text.split("\n\n")[1], warning);
   });
 
 test("an unreadable server list is shown as unavailable and only declining is offered", async (t) => {

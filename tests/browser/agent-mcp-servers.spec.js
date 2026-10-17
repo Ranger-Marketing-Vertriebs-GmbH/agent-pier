@@ -520,7 +520,7 @@ for (const [label, use] of [
       await setup(page);
       await page.goto(baseURL + settingsPath("capabilities", undefined, "temp-agent"));
       const panel = page.getByRole("region", { name: "MCP servers" });
-      await expect(panel).toContainText("Granted by the lead agent's team proposal");
+      await expect(panel).toContainText("Named in the lead agent's team proposal");
       await expect(panel).toContainText("docs");
       await expect(panel).toContainText("local");
       await expect(panel).toContainText("stdio, local command");

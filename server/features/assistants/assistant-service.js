@@ -19,6 +19,7 @@ import { assertWired } from "./service-wiring.js";
 import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js";
 import { ExecAllowlist } from "./exec-allowlist.js";
 import { AgentSkills } from "./agent-skills.js";
+import { followLead } from "./member-follow.js";
 import { assistantActivity } from "./assistant-activity.js";
 import { temporaryMember } from "./team-presentation.js";
 import { ChatStreams } from "./chat-stream.js";
@@ -48,6 +49,7 @@ export class AssistantService {
     this.sessionCreate = sessionCreate;
     this.shellChanges = new ShellChanges(this, { now });
     config.onApplied = (id) => this.shellChanges.applied(id);
+    config.onReapplied = (id) => followLead(this, id);
     this.allowlist = new ExecAllowlist(this);
     this.skills = new AgentSkills({ store, runtime });
     this.sessionFailures = new Map();

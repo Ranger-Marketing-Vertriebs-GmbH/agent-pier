@@ -4,6 +4,8 @@ export const defaultTeamPolicy = {
   autonomous: false,
   maxMembers: 4,
   runTimeoutMinutes: 10,
+  // Temporary members may use the lead's shell level and SSH grants (off by default).
+  memberShellSsh: false,
 };
 export function normalizeTeamPolicy(input, current = defaultTeamPolicy) {
   if (
@@ -11,13 +13,15 @@ export function normalizeTeamPolicy(input, current = defaultTeamPolicy) {
     typeof input !== "object" ||
     Array.isArray(input) ||
     Object.keys(input).some(
-      (k) => !["autonomous", "maxMembers", "runTimeoutMinutes"].includes(k),
+      (k) =>
+        !["autonomous", "maxMembers", "runTimeoutMinutes", "memberShellSsh"].includes(k),
     )
   )
     throw assistantProblem("invalid");
   const result = { ...current, ...input };
   if (
     typeof result.autonomous !== "boolean" ||
+    typeof result.memberShellSsh !== "boolean" ||
     !Number.isInteger(result.maxMembers) ||
     result.maxMembers < 1 ||
     result.maxMembers > 8 ||

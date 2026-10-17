@@ -80,8 +80,10 @@ export const mcpServerCopy = {
   agentSaved: "MCP-Server gespeichert.",
   pendingNotice: "Gespeichert — wird in Kürze auf laufende Agenten angewendet.",
   temporaryTitle: "MCP-Server",
-  temporaryNote: "Vom Teamvorschlag des leitenden Agenten gewährt. Nur lesbar.",
-  temporaryNone: "Der leitende Agent hat keine MCP-Server gewährt.",
+  temporaryNote:
+    "Im Teamvorschlag des leitenden Agenten genannt. Während es arbeitet, nutzt ein auftragsgebundenes Mitglied alle MCP-Server des leitenden Agenten. Nur lesbar.",
+  temporaryNone:
+    "Der Vorschlag nennt keine MCP-Server; das Mitglied nutzt trotzdem die des leitenden Agenten.",
   teamServers: "MCP-Server",
   teamServersNote: "Aus den Servern des leitenden Agenten gewährt.",
   teamStdioWarning:

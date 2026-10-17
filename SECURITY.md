@@ -35,7 +35,9 @@ or PyPI package runs the package's program with the same rights, and install scr
 source builds run only after the owner allows them for that package (a PyPI build
 already runs its code while the package is checked). An agent's own Telegram bot
 accepts messages from the people the owner allows. A lead agent's questions and
-tasks run on its members without approval, with each member's own capabilities. See
+tasks run on its members without approval, with each member's own capabilities;
+temporary team members work unattended with their lead's capabilities, and with its
+shell level and SSH accesses only when the lead allows that explicitly. See
 [agents](docs/agents.md#security-notes).
 
 Complete initial user setup before sharing permitted network access. Use the

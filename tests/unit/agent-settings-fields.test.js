@@ -262,6 +262,7 @@ test("work drafts send only the half that changed, each with its revision", () =
     autonomous: false,
     publish: false,
     teamAutonomous: false,
+    memberShellSsh: false,
     maxMembers: 4,
     runTimeoutMinutes: 30,
   });
@@ -273,7 +274,25 @@ test("work drafts send only the half that changed, each with its revision", () =
       revisions,
       withTeam: true,
     }),
-    { team: { revision: 7, autonomous: false, maxMembers: 6, runTimeoutMinutes: 30 } },
+    {
+      team: {
+        revision: 7,
+        autonomous: false,
+        memberShellSsh: false,
+        maxMembers: 6,
+        runTimeoutMinutes: 30,
+      },
+    },
+  );
+  // The member shell and SSH setting is part of the team half.
+  assert.deepEqual(
+    workBody({
+      values: { ...base, memberShellSsh: true },
+      changed: ["memberShellSsh"],
+      revisions,
+      withTeam: true,
+    }).team.memberShellSsh,
+    true,
   );
   assert.deepEqual(
     workBody({

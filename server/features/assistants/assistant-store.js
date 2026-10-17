@@ -1,10 +1,14 @@
 import path from "node:path";
-import { effectiveModel, memberInstructions } from "./team-presentation.js";
+import {
+  effectiveModel,
+  memberInstructions,
+  temporaryMember,
+} from "./team-presentation.js";
 import { randomUUID } from "node:crypto";
 import { privateDatabase } from "../../lib/private-database.js";
 import { fencedDatabase } from "./ledger-fence.js";
 import { migrateAssistants } from "./assistant-schema.js";
-import { personalEligible } from "./native-capabilities.js";
+import { memberInheritance, personalEligible } from "./native-capabilities.js";
 import { validateDefinition, assistantProblem } from "./assistant-validation.js";
 
 // The message cache keeps a conversation's newest messages only. A history page holds
@@ -25,8 +29,13 @@ export function cachedWindow(messages) {
     total -= textLength(kept[start++]);
   return start ? kept.slice(start) : kept;
 }
+// A read resolves `inherited` (memberInheritance); writes never persist it.
+export const persisted = ({ inherited: _inherited, ...record }) => record;
 export class AssistantStore {
   constructor({ dataDir }) {
+    // Whether a temporary member may use its lead's shell and SSH grants right now;
+    // TeamStore answers it from the team's approval and the lead's live setting.
+    this.memberShellSsh = () => false;
     const root = path.join(dataDir, "assistants");
     this.db = fencedDatabase(
       privateDatabase(root, "assistants.sqlite"),
@@ -85,9 +94,10 @@ export class AssistantStore {
     return JSON.parse(row.body);
   }
   /**
-   * Every read carries the model the agent runs on (effectiveModel): a temporary
-   * member's is its lead's current one, so runtime config, capability checks and
-   * the agents list all follow a change to the lead without copying it.
+   * Every read carries the model the agent runs on (effectiveModel) and, for a
+   * temporary member, what it inherits from its lead (memberInheritance): runtime
+   * config, capability checks and the agents list all follow a change to the lead
+   * without copying it.
    */
   getAssistant(id) {
     const record = this.storedAssistant(id);
@@ -96,9 +106,20 @@ export class AssistantStore {
     try {
       lead = this.storedAssistant(record.parentAssistantId);
     } catch {
-      /* No readable lead: the member keeps its own model. */
+      /* No readable lead: the member keeps its own model and inherits nothing. */
     }
-    return { ...record, model: effectiveModel(record, lead) };
+    return this.resolved(record, lead);
+  }
+  resolved(record, lead) {
+    const next = { ...record, model: effectiveModel(record, lead) };
+    if (!temporaryMember(record) || record.archivedAt) return next;
+    let shellSsh = false;
+    try {
+      shellSsh = !!lead && this.memberShellSsh(record) === true;
+    } catch {
+      /* An unreadable setting grants nothing. */
+    }
+    return { ...next, inherited: memberInheritance(lead, shellSsh) };
   }
   listAssistants() {
     const records = this.db
@@ -107,9 +128,7 @@ export class AssistantStore {
       .map((r) => JSON.parse(r.body));
     const byId = new Map(records.map((r) => [r.id, r]));
     return records.map((r) =>
-      r.teamMemberId
-        ? { ...r, model: effectiveModel(r, byId.get(r.parentAssistantId)) }
-        : r,
+      r.teamMemberId ? this.resolved(r, byId.get(r.parentAssistantId)) : r,
     );
   }
   updateAssistant(id, patch, revision) {
@@ -129,7 +148,7 @@ export class AssistantStore {
       if (fields.skills.length) throw assistantProblem("invalid");
       delete fields.skills;
     }
-    const result = { ...current, ...fields, revision: revision + 1 };
+    const result = { ...persisted(current), ...fields, revision: revision + 1 };
     // Older clients send only the original keys; keep stored newer capabilities.
     if (fields.capabilities)
       result.capabilities = { ...current.capabilities, ...fields.capabilities };
@@ -154,7 +173,7 @@ export class AssistantStore {
     current.effectiveRevision = revision;
     this.db
       .prepare("UPDATE assistants SET body=? WHERE id=? AND revision=?")
-      .run(JSON.stringify(current), id, revision);
+      .run(JSON.stringify(persisted(current)), id, revision);
     return current;
   }
   saveConversation(input) {

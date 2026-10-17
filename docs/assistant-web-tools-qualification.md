@@ -73,8 +73,8 @@ plugin, and `AssistantConfig.apply` for the agent entries. After the entries are
 applied, the Gateway restarts so that they also come from the startup compile.
 
 - **One agent with every capability** (memory, reminders, web search, web fetch,
-  browser, documents) and **one temporary team member** with every capability
-  recorded.
+  browser, documents), **one temporary team member of it**, and a second temporary
+  member with every capability recorded under a lead without any.
 - **The Gateway accepts the compiled startup configuration** under the restrictive
   team allow list: `plugins.allow` is exactly
   `["agentpier-teams", "memory-core", "duckduckgo", "browser"]`,
@@ -93,9 +93,14 @@ address`; the page receives no request.
   compiles neither, and a per-agent `pdfModel` in `agents.entries.<id>` is rejected
   with `INVALID_REQUEST`; a probe with `agents.defaults.pdfModel` made `pdf`
   appear. The contract asserts that `pdf` stays not offered; a global `pdfModel` is tracked separately.
-- **The temporary member** gets only `session_status` and `agentpier_workspace`: no
-  capability tool in its entry and none offered to the model, so its `web_fetch`
-  request cannot run.
+- **The lead's temporary member** inherits the lead's web tools (since 2026-10-17,
+  [team member inheritance](assistant-gateway.md#team-member-inheritance-2026-10-17)):
+  its entry holds `web_search`, `web_fetch` and `view_image` (and `browser` with a
+  browser), never team tools, `agentpier_routine`, `write` or `exec`, and its
+  `web_fetch` of the loopback page fails with the same private-network block.
+- **The member whose lead has no capabilities** gets no capability tool in its
+  entry and none offered to the model, whatever its own record says, so its
+  `web_fetch` request cannot run.
 - **Browser:** `status` reports the `openclaw` profile and driver with the detected
   executable. `profiles` lists `chrome`, `openclaw` and `user`, all with driver
   `openclaw`. `importprofile` answers `system profile import is disabled`. `open` on

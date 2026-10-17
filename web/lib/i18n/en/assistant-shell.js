@@ -15,7 +15,8 @@ export const assistantShellCopy = {
     "Without shell access, skills and tools that need command-line programs do not work, for example gh, git or mail programs.",
   warning:
     "With shell access the agent works as your user account: with your logins, your files and your keys, and it can read AgentPier's own data. The team write guard does not cover shell commands.",
-  temporary: "Task-bound team members never get shell access.",
+  temporary:
+    "Task-bound team members get shell access only when their lead agent allows it under Work, and at most at the lead's level.",
   archived: "Archived agents have no shell access.",
   pending: "The new shell level applies as soon as the agent service is back.",
   badge: {

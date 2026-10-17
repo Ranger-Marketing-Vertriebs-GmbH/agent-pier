@@ -11,13 +11,16 @@ test("team limits accept all members but reject invalid capacity and hidden gran
     autonomous: false,
     maxMembers: 4,
     runTimeoutMinutes: 10,
+    memberShellSsh: false,
   });
+  assert.equal(normalizeTeamPolicy({ memberShellSsh: true }).memberShellSsh, true);
   for (const input of [
     { maxMembers: 0 },
     { maxMembers: 9 },
     { runTimeoutMinutes: 0 },
     { runTimeoutMinutes: 61 },
     { autonomous: "yes" },
+    { memberShellSsh: "yes" },
     { grants: ["all"] },
   ])
     assert.throws(() => normalizeTeamPolicy(input), { status: 400 });

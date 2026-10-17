@@ -73,14 +73,15 @@ function setup(t) {
   };
 }
 
-test("approved members get exactly their servers, applied before provisioning", async (t) => {
+test("task members get every server of their lead, applied before provisioning", async (t) => {
   const f = setup(t),
     { team } = await f.propose();
   const a = f.memberOf(team, "A"),
     b = f.memberOf(team, "B");
-  // Saved with the reservation; nothing is applied outside the admission lock.
+  // Saved with the reservation; nothing is applied outside the admission lock. The
+  // names a proposal lists are informational: B, which names none, gets them too.
   assert.deepEqual(f.bound(a.assistantId), [f.files.id, f.github.id]);
-  assert.deepEqual(f.bound(b.assistantId), []);
+  assert.deepEqual(f.bound(b.assistantId), [f.files.id, f.github.id]);
   assert.deepEqual(f.log, []);
   await f.service.reconcile();
   assert.equal(f.log[0], "mcp");
@@ -92,9 +93,10 @@ test("approved members get exactly their servers, applied before provisioning", 
   const runtimeId = (id) => f.store.getAssistant(id).runtimeAgentId;
   assert.deepEqual(
     Object.keys(tools).sort(),
-    [runtimeId(f.lead.id), runtimeId(a.id)].sort(),
+    [runtimeId(f.lead.id), runtimeId(a.id), runtimeId(b.id)].sort(),
   );
   assert.deepEqual(tools[runtimeId(a.id)], ["files__*", "github__*"]);
+  assert.deepEqual(tools[runtimeId(b.id)], ["files__*", "github__*"]);
   // A settled store applies nothing further.
   await f.service.reconcile();
   assert.equal(f.log.filter((e) => e === "mcp").length, 1);
@@ -150,6 +152,24 @@ test("a server the lead loses is taken from its running members", async (t) => {
   f.servers.setBindings("agent", f.lead.id, [f.github.id]);
   await f.service.reconcile();
   assert.deepEqual(f.bound(a.assistantId), [f.github.id]);
+});
+
+test("a server the lead gains reaches its running members", async (t) => {
+  const f = setup(t),
+    { team } = await f.propose();
+  await f.service.reconcile();
+  const b = f.memberOf(team, "B");
+  const docs = f.servers.create({
+    name: "docs",
+    transport: "http",
+    url: "https://docs.example.test/mcp",
+  });
+  f.servers.setBindings("agent", f.lead.id, [f.github.id, f.files.id, docs.id]);
+  await f.service.reconcile();
+  assert.deepEqual(
+    [...f.bound(b.assistantId)].sort(),
+    [f.github.id, f.files.id, docs.id].sort(),
+  );
 });
 
 test("members approved as permanent keep their servers for the owner to manage", async (t) => {
