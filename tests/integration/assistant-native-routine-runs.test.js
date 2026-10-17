@@ -68,6 +68,8 @@ test("a routine run gets exactly the agent's chat tools minus scheduling, team a
     "read",
     "write",
     "edit",
+    // A routine run hands its owner files too (agent-shares.js).
+    "agentpier_share_file",
     "web_search",
     "web_fetch",
     "browser",
@@ -78,7 +80,14 @@ test("a routine run gets exactly the agent's chat tools minus scheduling, team a
   ]);
   assert.deepEqual(
     effective({ capabilities: { ...everything, webSearch: false, memory: false } }),
-    ["session_status", "web_fetch", "browser", "view_image", "github__*"],
+    [
+      "session_status",
+      "agentpier_share_file",
+      "web_fetch",
+      "browser",
+      "view_image",
+      "github__*",
+    ],
   );
   assert.equal(matches("github__create_issue"), true);
   // Writes follow the proven guard exactly as in chat.

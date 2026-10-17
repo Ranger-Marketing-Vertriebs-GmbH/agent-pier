@@ -23,6 +23,8 @@ Always, as public (unencrypted) members:
   may be private) together with their index in `assistants.sqlite`, so a restore
   brings back both. They are public members like the rest of the workspaces; leave
   agents' attachment folders out of a backup only by deleting the files first.
+- Files agents shared with you: AgentPier's copies in `shares/<agent>/` (up to 1 GB
+  per agent, each kept for 90 days) with the same index, as public members too.
 - With **Include history**, unpinned artifacts as well, with or without a
   passphrase.
 

@@ -103,10 +103,24 @@ async function sharedFixture(page) {
       body: id === "csv" ? csv : "# Notes\n",
     });
   });
+  // The owner's delete: the file's message then says it is gone.
+  const deleted = [];
+  await page.route(/\/api\/assistant-conversations\/[^/]+\/shared-files\//, (route) => {
+    const [, , , conversation, , file] = new URL(route.request().url()).pathname.split(
+      "/",
+    );
+    deleted.push([route.request().method(), conversation, file]);
+    histories[conversation] = histories[conversation].map((m) =>
+      m.attachments?.some((x) => x.id === file)
+        ? { ...m, attachments: [], unavailable: true }
+        : m,
+    );
+    return route.fulfill({ status: 204, body: "" });
+  });
   await page.route("**/api/**", (route) =>
     network.offline ? route.abort("internetdisconnected") : route.fallback(),
   );
-  return { state, histories, network };
+  return { state, histories, network, deleted };
 }
 
 test("files the agent shares appear in the open chat, download, and stay while offline", async ({
@@ -178,4 +192,23 @@ test("a shared file no longer stored says so", async ({ page }) => {
   await expect(
     page.getByRole("log").getByText("This shared file is no longer available."),
   ).toBeVisible();
+});
+
+test("the owner deletes a shared file after confirming", async ({ page }) => {
+  const { histories, deleted } = await sharedFixture(page);
+  histories.dinner = [...turn, image, reply];
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  const log = page.getByRole("log");
+  await log.getByRole("button", { name: "Delete chart.png" }).click();
+  const confirm = log.getByRole("group", { name: "Delete chart.png" });
+  await expect(confirm).toContainText(
+    'Delete "chart.png" from AgentPier? The file in the agent\'s workspace stays.',
+  );
+  await confirm.getByRole("button", { name: "Keep" }).click();
+  expect(deleted).toEqual([]);
+  await log.getByRole("button", { name: "Delete chart.png" }).click();
+  await log.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(log.getByText("This shared file is no longer available.")).toBeVisible();
+  expect(deleted).toEqual([["DELETE", "dinner", "img"]]);
+  await expect(log.getByRole("img", { name: "chart.png" })).toHaveCount(0);
 });

@@ -34,7 +34,7 @@ export async function sendTelegramFile({ client, entry, file, save, signal, chan
     changed();
     return;
   }
-  const caption = Array.from(entry.text === file.name ? "" : entry.text || "")
+  const caption = Array.from(typeof entry.caption === "string" ? entry.caption : "")
     .slice(0, MAX_TELEGRAM_CAPTION)
     .join("");
   const send = () =>

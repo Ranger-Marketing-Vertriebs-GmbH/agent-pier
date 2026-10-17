@@ -2275,27 +2275,40 @@ server decides by the bytes, never by the name or the browser's type.
 ### Files agents share (2026-10-17)
 
 `agentpier_share_file {path, caption?}` is compiled into every non-archived agent's
-`tools.allow`, team members included; the bridge serves it only in a turn with an
-active attempt (never a routine's run session or a sender bot's session) and routes
-it to `AgentShares` (`agent-shares.js`).
+`tools.allow`, team members included, and into a routine's `toolsAllow`. The bridge
+serves it in a turn with an active attempt and in a bound routine's run session (as
+for SSH), never in a sender bot's session, and routes it to `AgentShares`
+(`agent-shares.js`). While AgentPier is in maintenance or recovering it refuses.
 
 - **Source.** `path` is relative to the agent's workspace or absolute inside it. The
   roots come from `shareRoots()` (`agent-share-source.js`): today only the agent's own
   workspace, which must not itself be a link; granted project folders can join there.
   The resolved path must equal the lexical one under the real root, so no component
-  may be a symbolic link (even one pointing back inside). The file is opened with
-  `O_NOFOLLOW|O_NONBLOCK` and must be a regular, non-empty file of at most 25 MiB
-  with a single hard link; after the open its inode is compared with the checked path
-  (on Linux also the descriptor's own path), and the bytes are read through the
-  descriptor. Refusals return a stable code and an English reason to the model
-  (`SHARE_OUTSIDE`, `SHARE_NOT_FOUND`, `SHARE_TOO_LARGE`, `SHARE_EMPTY`,
-  `STORAGE_FULL`).
-- **Store.** The copy goes into the agent's `attachments/` like an upload
-  (`AgentAttachments.share`), within the same 512 MB / 1000 files. Its type is decided
-  by the bytes: JPEG, PNG, WebP, GIF, HEIC and PDF keep theirs, anything else
-  (text, CSV, office files, archives) is stored as `application/octet-stream` and only
-  ever downloaded. The index row names `share:<request id>` as its request, so no
-  delivery, claim or history note of an owner turn ever picks it up.
+  may be a symbolic link (even one pointing back inside). Every folder on the way is
+  checked with `lstat` (a real directory, its identity recorded), then the file is
+  opened with `O_NOFOLLOW|O_NONBLOCK` and must be a regular, non-empty file of at most
+  25 MiB with a single hard link. After the open, strictly in order, the folders are
+  checked again, the file's own identity is compared with the descriptor, and the
+  folders once more; the bytes are read through the descriptor. On Linux the
+  descriptor's own path (`/proc/self/fd`) closes the gap. Node offers no `openat`,
+  so on macOS an agent with a shell that swaps a folder for a link fast enough can in
+  principle win the race: the checks there are best effort, and the copy lives where
+  the agent cannot read it back (below). A path in the wrong case is a missing file. Refusals return a stable code and an English reason to the model
+  (`SHARE_OUTSIDE`, `SHARE_NOT_FOUND`, `SHARE_TOO_LARGE`, `SHARE_EMPTY`).
+- **Store.** The copy goes outside every workspace, into
+  `<data>/assistants/shares/<agent id>/` (mode 0700; `SharedFiles`,
+  `agent-share-store.js`), written by descriptor like an upload. Shares have their own
+  budget per agent, 1 GiB or 2000 files, separate from the owner's uploads; a copy
+  expires after 90 days (no longer served, removed by an hourly sweep), and a full
+  store gives up its oldest copies. Its type is decided by the bytes: JPEG, PNG, WebP,
+  GIF, HEIC and PDF keep theirs, anything else (text, CSV, office files, archives) is
+  stored as `application/octet-stream` and only ever downloaded. The index row in
+  `agent_attachments` names `share:<request id>` (`share:routine:<run id>` for a
+  routine) as its request, so no delivery, claim, history note or upload quota of an
+  owner turn ever picks it up. The owner deletes a copy with
+  `DELETE /api/assistant-conversations/:id/shared-files/:file` from a chat that shows
+  it; every message showing it is then marked gone. Copies and index are part of host
+  backups.
 - **History.** `AgentAttachments.sharedFor` adds one agent message per shared file to
   the history page it falls into (`withSharedFiles`), at the time it was shared, with
   the caption as text and the file in `attachments`; `shared: true` marks it, and
@@ -2313,8 +2326,10 @@ it to `AgentShares` (`agent-shares.js`).
   10 MB, `sendDocument` otherwise (up to 50 MB); a photo Telegram refuses outright is
   sent once more as a document. The caption is plain text, at most 1,024 characters.
   `TelegramClient.upload` admits only these two methods; every other method stays
-  JSON-only. A file gone before delivery ends as `FILE_UNAVAILABLE`. Each share writes
-  an `assistant.sent` audit event with `kind: "share"`.
+  JSON-only. The caption is stored with the outbox entry, apart from the text the
+  activity list shows. A file gone before delivery ends as `FILE_UNAVAILABLE`. A
+  routine's run sends to the chat its routine delivers to. Each share writes an
+  `assistant.sent` audit event with `kind: "share"`.
 
 ## Continuous integration
 

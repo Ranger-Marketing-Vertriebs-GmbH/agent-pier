@@ -117,7 +117,7 @@ Each SSH invocation captures one endpoint, username, identity and pin revision w
 
 Agents reach SSH through the `agentpier_ssh` tool of the `agentpier-teams` plugin, not the session MCP server. The loopback team bridge binds the call to the agent's ledger attempt (or, without one, to a bound routine's run session) and hands it to `AgentSsh` (`server/features/assistants/agent-ssh.js`), which runs the command in the AgentPier process through `SshAccessStore.connection()` and `ssh-run.js`. Grants live in `assistant_access.body.sshAccesses`; approvals and trusted runs are `assistant_actions` rows; `SshManagement.removeHost` revokes agent grants before the catalog changes.
 
-Agents hand the owner files through the same plugin's `agentpier_share_file` tool: the bridge binds it to the ledger attempt and hands it to `AgentShares` (`server/features/assistants/agent-shares.js`), which reads the file from the agent's workspace (`agent-share-source.js`), stores the copy in the agent's attachment store and, for a Telegram turn, queues a `file` notice in the channel outbox. See [Files agents share](assistant-gateway.md#files-agents-share-2026-10-17).
+Agents hand the owner files through the same plugin's `agentpier_share_file` tool: the bridge binds it to the ledger attempt and hands it to `AgentShares` (`server/features/assistants/agent-shares.js`), which reads the file from the agent's workspace (`agent-share-source.js`), stores the copy outside the workspace (`agent-share-store.js`) and, for a Telegram turn, queues a `file` notice in the channel outbox. See [Files agents share](assistant-gateway.md#files-agents-share-2026-10-17).
 
 ## Agents (managed OpenClaw)
 

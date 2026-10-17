@@ -60,9 +60,9 @@ const reasons = {
     "Shared files are limited to 25 MB. Compress or split the file, or tell the owner where it is.",
   SHARE_EMPTY: "This file is empty; there is nothing to share.",
   STORAGE_FULL:
-    "Your attachment storage is full (512 MB or 1000 files in attachments/). Delete files you no longer need from attachments/ in your workspace, then try again, and tell the owner.",
+    "AgentPier's storage for this file is full. Do not retry; tell the owner.",
   STORAGE_UNSAFE:
-    "attachments/ in your workspace is not a plain folder, so nothing can be shared. Do not retry; tell the owner.",
+    "AgentPier's storage for shared files is not a plain folder, so nothing can be shared. Do not retry; tell the owner.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {

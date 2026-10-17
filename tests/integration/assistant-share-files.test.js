@@ -1,162 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { EventEmitter } from "node:events";
-import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
-import { AssistantService } from "../../server/features/assistants/assistant-service.js";
-import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
-import { ChannelService } from "../../server/features/assistant-channels/channel-service.js";
-import { TelegramClient } from "../../server/features/assistant-channels/telegram-client.js";
-import { SpeechConnections } from "../../server/features/speech/speech-connections.js";
-import plugin from "../../server/features/assistants/team-plugin/index.js";
-import { fakeBotApi } from "../helpers/assistant-telegram-fakes.js";
-
-const png = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64",
-);
-const token = "123456:abcdefghijklmnopqrstuv";
-
-async function setup(t) {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-share-files-"));
-  const workspaces = path.join(dataDir, "workspaces");
-  fs.mkdirSync(workspaces);
-  const store = new AssistantStore({ dataDir });
-  let history = [];
-  const client = new EventEmitter();
-  client.ready = true;
-  client.subscribe = (f) => {
-    client.on("event", f);
-    return () => client.off("event", f);
-  };
-  client.call = async (method, params) => {
-    if (method === "sessions.send") return { runId: params.idempotencyKey };
-    if (method === "chat.history") return { messages: history, hasMore: false };
-    if (method === "sessions.messages.subscribe") return {};
-    if (method === "agent.wait") return { status: "timeout" };
-    if (method === "sessions.describe") return { session: {} };
-    assert.fail(method);
-  };
-  const runtime = new EventEmitter();
-  runtime.client = client;
-  runtime.close = async () => {};
-  runtime.setState = () => {};
-  runtime.status = () => ({ availability: "ready" });
-  const service = new AssistantService({
-    store,
-    runtime,
-    models: {
-      listCapabilities: () => [],
-      resolve: () => ({ release() {} }),
-      imageInput: () => true,
-    },
-    config: { apply: async () => {}, reset() {}, workspaces },
-  });
-  // The trusted turn contexts TeamStore records in the app.
-  const contexts = new Map();
-  service.teams = {
-    assertMemberTurn() {},
-    close() {},
-    store: {
-      context: (id) => contexts.get(id) || { kind: "unknown" },
-      recordContext: (id, context) => contexts.set(id, context),
-      transaction: (fn) => service.attachments.transaction(fn),
-    },
-  };
-  const audit = [];
-  service.audit = { append: (event) => audit.push(event) };
-  const api = await fakeBotApi({ [token]: { id: 123456, username: "fixture_bot" } });
-  const channels = new ChannelService({
-    dataDir,
-    assistants: service,
-    speech: new SpeechConnections({ dataDir }),
-    clientFactory: (secret) => new TelegramClient({ token: secret, apiRoot: api.url }),
-  });
-  service.shares.channels = channels;
-  const bridge = new TeamBridge({ assistants: service, teams: service.teams });
-  const connection = await bridge.start();
-  t.after(async () => {
-    await bridge.close();
-    await channels.close();
-    await service.close();
-    await api.close();
-    fs.rmSync(dataDir, { recursive: true, force: true });
-  });
-  const agent = store.createAssistant({
-    name: "Lead",
-    model: { connectionId: "c", modelId: "vision" },
-  });
-  const chat = store.saveConversation({
-    assistantId: agent.id,
-    runtimeSessionKey: "lead",
-  });
-  const created = channels.store.create({
-    assistantId: agent.id,
-    conversationId: chat.id,
-    botId: 123456,
-    username: "fixture_bot",
-    token,
-    language: "en",
-  });
-  const pair = channels.store.pairing(created.id, created.revision);
-  channels.store.acceptPair(created.id, {
-    chat: { id: 42, type: "private" },
-    from: { id: 42, is_bot: false },
-    text: `/start ${pair.code}`,
-  });
-  const channel = channels.store.get(created.id);
-  // The installed plugin's tool, talking to the bridge over HTTP.
-  const tools = [];
-  plugin.register({
-    pluginConfig: connection,
-    registerTool: (factory, options) => tools.push({ factory, options }),
-    on() {},
-  });
-  const tool = (profile, conversation) =>
-    tools
-      .find((entry) => entry.options.name === "agentpier_share_file")
-      .factory.create({
-        agentId: profile.runtimeAgentId,
-        sessionKey: conversation.runtimeSessionKey,
-        assertInvocationCurrent() {},
-      });
-  const file = (profile, name, body) => {
-    const target = path.join(workspaces, profile.id, name);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, body);
-  };
-  const turn = async (conversation, key, context = { kind: "owner" }) => {
-    const sent = await service.send(
-      conversation.id,
-      { clientRequestId: key, text: "Send me the chart" },
-      context,
-    );
-    return sent.attempt;
-  };
-  const deliver = () =>
-    channels.teamOutbox.process(channel.id, new AbortController().signal);
-  return {
-    service,
-    store,
-    channels,
-    channel,
-    api,
-    audit,
-    agent,
-    chat,
-    tool,
-    file,
-    turn,
-    deliver,
-    workspaces,
-    setHistory: (h) => (history = h),
-  };
-}
-
-const run = async (tool, input) =>
-  JSON.parse((await tool.execute(`call-${Math.random()}`, input)).content[0].text);
+import {
+  png,
+  run,
+  shareFixture as setup,
+  token,
+} from "../helpers/agent-share-fixture.js";
 
 test("a shared file reaches the chat history as the agent's message, never Telegram for a web turn", async (t) => {
   const f = await setup(t);
@@ -206,6 +57,13 @@ test("a shared file reaches the chat history as the agent's message, never Teleg
   assert.equal(page.messages[0].attachments, undefined);
   assert.equal(page.requests[0].attachments, undefined);
   assert.equal(JSON.stringify(page).includes(f.workspaces), false);
+  // The copies live outside the workspace, where the agent cannot reach them.
+  const stored = fs.readdirSync(path.join(f.shares, f.agent.id));
+  assert.equal(stored.length, 2);
+  assert.ok(stored.some((name) => name.endsWith("-chart.png")));
+  const mode = fs.statSync(path.join(f.shares, f.agent.id)).mode & 0o777;
+  assert.equal(mode, 0o700);
+  assert.equal(fs.existsSync(path.join(f.workspaces, f.agent.id, "attachments")), false);
   // The owner's route serves the image inline and the CSV only as a download.
   const content = await f.service.attachments.content(image.attachments[0].id);
   assert.equal(content.inline, true);
@@ -243,7 +101,8 @@ test("a Telegram turn's shares go to the paired chat as multipart photo and docu
     caption: "Look",
   });
   assert.equal(photo.telegram, "queued");
-  await run(f.tool(f.agent, f.chat), { path: "report.pdf" });
+  // A caption that happens to equal the file name is still the caption.
+  await run(f.tool(f.agent, f.chat), { path: "report.pdf", caption: "report.pdf" });
   await f.deliver();
   await f.deliver();
   const [first, second] = f.api.files(token, 42);
@@ -252,7 +111,7 @@ test("a Telegram turn's shares go to the paired chat as multipart photo and docu
   assert.equal(first.params.photo.name, "chart.png");
   assert.deepEqual(first.params.photo.bytes, png);
   assert.equal(second.method, "sendDocument");
-  assert.equal(second.params.caption, undefined);
+  assert.equal(second.params.caption, "report.pdf");
   assert.equal(second.params.document.name, "report.pdf");
   assert.equal(second.params.document.bytes.toString(), "%PDF-1.7\n");
   const sent = f.channels.outbox.all(f.channel.id).filter((e) => e.kind === "file");
@@ -283,7 +142,7 @@ test("a refused photo goes out as a document, and a file gone from storage is no
     ["sendPhoto", "sendDocument"],
   );
   await run(f.tool(f.agent, f.chat), { path: "gone.png" });
-  const folder = path.join(f.workspaces, f.agent.id, "attachments");
+  const folder = path.join(f.shares, f.agent.id);
   for (const name of fs.readdirSync(folder))
     if (name.endsWith("gone.png")) fs.rmSync(path.join(folder, name));
   await f.deliver();
@@ -295,7 +154,7 @@ test("a refused photo goes out as a document, and a file gone from storage is no
   );
 });
 
-test("the agent learns why a share was refused, and a full store says so", async (t) => {
+test("the agent learns why a share was refused; full owner uploads never block a share", async (t) => {
   const f = await setup(t);
   await f.turn(f.chat, "refusals");
   const tool = f.tool(f.agent, f.chat);
@@ -312,19 +171,20 @@ test("the agent learns why a share was refused, and a full store says so", async
   f.file(f.agent, "big.bin", Buffer.alloc(25 * 1024 * 1024 + 1));
   await assert.rejects(run(tool, { path: "big.bin" }), /^Error: SHARE_TOO_LARGE: /);
   fs.rmSync(path.join(f.workspaces, f.agent.id, "big.bin"));
-  // The per-agent quota counts what attachments/ holds.
+  // A case the file system does not match is a missing file, never a link.
+  f.file(f.agent, "Notes/Plan.md", "plan");
+  const cased = await run(tool, { path: "notes/plan.md" }).catch((e) => e);
+  if (cased instanceof Error) assert.match(String(cased), /^Error: SHARE_NOT_FOUND: /);
+  // Shares have their own store: a full attachments/ quota does not stop them.
   const folder = path.join(f.workspaces, f.agent.id, "attachments");
   fs.mkdirSync(folder, { recursive: true });
   for (let n = 0; n < 1000; n++) fs.writeFileSync(path.join(folder, `old-${n}.txt`), "x");
   f.file(f.agent, "note.txt", "hello");
-  await assert.rejects(
-    run(tool, { path: "note.txt" }),
-    /^Error: STORAGE_FULL: .*attachments\//,
-  );
-  assert.equal(
-    (await f.service.history(f.chat.id)).messages.some((m) => m.shared),
-    false,
-  );
+  assert.equal((await run(tool, { path: "note.txt" })).status, "shared");
+  // No share is offered while a restore or update may replace the workspace.
+  f.service.maintenance = true;
+  await assert.rejects(run(tool, { path: "note.txt" }), /unavailable/);
+  f.service.maintenance = false;
 });
 
 test("a member's share joins its own chat and its lead's, attributed to the member", async (t) => {
@@ -364,7 +224,7 @@ test("a member's share joins its own chat and its lead's, attributed to the memb
   assert.equal(own.from, undefined);
   assert.equal(lead.from, "Scout");
   assert.equal(lead.attachments[0].name, "findings.md");
-  // Both chats show the one copy in the member's workspace.
+  // Both chats show the one stored copy of the member's file.
   const body = await f.service.attachments.content(lead.attachments[0].id);
   assert.equal(body.body.toString(), "# Findings\n");
   await f.deliver();

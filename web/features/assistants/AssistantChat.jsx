@@ -143,6 +143,13 @@ export default function AssistantChat({
     baseline.current = undefined;
     refresh();
   }, [refresh]);
+  const removeShared = useCallback(
+    async (file) => {
+      await assistantApi.deleteSharedFile(conversationId, file.id);
+      await refresh();
+    },
+    [conversationId, refresh],
+  );
   // AgentPier answers again: read the history now, even before the event stream is back.
   const wasOffline = useRef(serviceOffline);
   useEffect(() => {
@@ -476,6 +483,7 @@ export default function AssistantChat({
                   scheduled={m.scheduled || null}
                   shared={m.shared === true}
                   unavailable={m.unavailable === true}
+                  removeShared={offline ? null : removeShared}
                 />
               ),
             )}

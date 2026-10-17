@@ -349,17 +349,21 @@ its `agentpier_share_file` tool, for example a report it wrote or a chart it dre
 file appears in the chat at once as the agent's message: images inline (select one to
 open it), every other file as a download chip, with the agent's short caption. It
 stays in the history, also while AgentPier is unreachable. When the turn came from your
-paired Telegram chat, the file goes there too, as a photo or as a document.
+paired Telegram chat, the file goes there too, as a photo or as a document. A
+routine's run can share files as well, for example a weekly report: they appear in the
+chat the routine writes to and in its Telegram chat.
 
 - A team member's file appears in its own chat and in its lead's chat, under the
   member's name; it reaches Telegram when the lead's turn the member works for came
   from Telegram.
 - Agents share only regular files of at most 25 MB from their own workspace, never
-  through a symbolic or hard link. Shared copies count against the same 512 MB or 1000
-  files per agent as your attachments; when that is full, the agent is told to free
-  space in `attachments/`.
-- If the agent later deletes the copy, the message stays and says the file is no
-  longer available.
+  through a symbolic or hard link. AgentPier keeps its own copy outside the workspace,
+  so the agent cannot change or remove it.
+- Shared copies have their own storage beside your attachments: 1 GB or 2000 files per
+  agent, each kept for 90 days. When it is full, the oldest copies go first. **Delete**
+  under a shared file removes AgentPier's copy from every chat that shows it; the
+  agent's own file stays in its workspace. A copy that is gone leaves its message with
+  a note that the file is no longer available.
 
 ## Security notes
 
