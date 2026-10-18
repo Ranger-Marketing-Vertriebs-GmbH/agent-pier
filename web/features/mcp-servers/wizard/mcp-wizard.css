@@ -116,7 +116,7 @@
   background: var(--accent-faint);
 }
 .mcp-wizard-card:has(input:focus-visible) {
-  outline: 2px solid var(--accent-focus);
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
 .mcp-wizard-card input[type="radio"] {

@@ -36,7 +36,7 @@
   background: #0c0d11;
 }
 .tool-diff-scroll:focus-visible {
-  outline: 2px solid #ffcda4;
+  outline: var(--focus-ring);
   outline-offset: -2px;
 }
 .tool-diff-lines {

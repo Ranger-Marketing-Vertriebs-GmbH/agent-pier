@@ -54,7 +54,7 @@
 }
 .model-control button:focus-visible,
 .model-search input:focus-visible {
-  outline: 2px solid #f49a58;
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
 .model-working {

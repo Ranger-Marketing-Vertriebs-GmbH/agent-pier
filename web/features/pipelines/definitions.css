@@ -182,7 +182,7 @@
 .stage-tile:focus-visible,
 .stage-add:focus-visible,
 .definition-mode:focus-visible {
-  outline: 1px solid #f49a58;
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
 .stage-tile-number {
@@ -331,7 +331,7 @@
   line-height: 1;
 }
 .stage-checks input:focus-visible {
-  outline: 1px solid #f49a58;
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
 .stage-loop {

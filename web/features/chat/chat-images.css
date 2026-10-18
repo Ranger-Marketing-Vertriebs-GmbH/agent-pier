@@ -32,7 +32,7 @@
   height: auto;
 }
 .chat-image-open:focus-visible {
-  outline: 2px solid #f49a58;
+  outline: var(--focus-ring);
   outline-offset: -3px;
 }
 .chat-image-open img {
