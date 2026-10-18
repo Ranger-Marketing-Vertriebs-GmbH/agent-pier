@@ -83,6 +83,15 @@ test("answering inline uses each source's own endpoint and the item leaves the l
   ).toBeVisible();
 });
 
+test("a team proposal with agents switched off does not wait forever", async ({
+  page,
+}) => {
+  await inboxFixture(page, { agents: false });
+  await page.goto(baseURL + "/inbox/team/proposal-one");
+  await expect(page.getByRole("heading", { name: "Wartet nicht mehr" })).toBeVisible();
+  await expect(page.getByText("Eingang wird geladen …")).toHaveCount(0);
+});
+
 test("a stale address says the item no longer waits", async ({ page }) => {
   await inboxFixture(page);
   await page.goto(baseURL + "/inbox/question/answered-elsewhere");

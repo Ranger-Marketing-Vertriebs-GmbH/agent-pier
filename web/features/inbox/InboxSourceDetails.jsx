@@ -11,6 +11,7 @@ import AssistantActionApprovals from "../assistants/AssistantActionApprovals.jsx
 import TeamCodingRequests from "../assistants/TeamCodingRequests.jsx";
 import TeamProposalCard from "../assistants/TeamProposalCard.jsx";
 import useAssistants from "../assistants/useAssistants.js";
+import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import useTeamActions from "../assistants/useTeamActions.js";
 import InboxStale from "./InboxStale.jsx";
 
@@ -133,8 +134,12 @@ export function InboxActionDetail({ item, done }) {
 
 /** A lead agent's team proposal, as in the lead's chat. */
 export function InboxTeamDetail({ item, done }) {
-  const { teams } = useAssistants();
+  const { enabled, loading: switching } = useAssistantFeature();
+  const { teams, error: loadError, offline } = useAssistants();
   const { busy, error, act } = useTeamActions();
+  // Agents switched off, or their list cannot be read: the proposal cannot be shown.
+  if ((!enabled && !switching) || (!teams && (loadError || offline)))
+    return <InboxStale type={item.type} id={item.id} />;
   if (!teams) return loading;
   const team = teams.find((t) => t.id === item.id);
   if (!team || team.phase !== "awaiting_approval")
