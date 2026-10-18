@@ -60,8 +60,13 @@ export default function useDictation({ text, onText, onFinished }) {
   // { kind: "status" | "error" | "ended", code, maxSeconds }
   const [notice, setNotice] = useState(null);
   const current = useRef({});
-  const latest = useRef({ text, onText, onFinished });
-  latest.current = { text, onText, onFinished };
+  const latest = useRef({ onText, onFinished });
+  latest.current = { onText, onFinished };
+  // The field as the dictation last wrote it, ahead of the parent's re-render: a
+  // transcript arriving before it must not read the older text as an owner edit.
+  const field = useRef(text);
+  const seen = useRef(text);
+  if (seen.current !== text) field.current = seen.current = text;
   const release = useCallback(() => {
     const run = current.current;
     current.current = {};
@@ -74,6 +79,7 @@ export default function useDictation({ text, onText, onFinished }) {
   }, []);
   const write = (draft) => {
     current.current.draft = draft;
+    field.current = draft.written;
     latest.current.onText(draft.written);
   };
   const finish = useCallback(
@@ -82,17 +88,28 @@ export default function useDictation({ text, onText, onFinished }) {
       setPhase("idle");
       setNotice(result);
       if (!run.draft) return;
-      const settled = settleDraft(run.draft, latest.current.text);
-      if (settled !== run.draft) latest.current.onText(settled.written);
+      const settled = settleDraft(run.draft, field.current);
+      if (settled !== run.draft) {
+        field.current = settled.written;
+        latest.current.onText(settled.written);
+      }
       if (result.kind === "ended" && result.code === "stopped" && dictated(settled))
         latest.current.onFinished?.(draftText(settled));
     },
     [release],
   );
+  // Called straight from the tap: Safari only lets an AudioContext created and
+  // resumed within the user gesture produce sound, so it exists before any await.
   const start = useCallback(async () => {
     if (current.current.run) return;
-    const run = { run: true, queue: [], draft: startDraft(latest.current.text) };
+    const run = { run: true, queue: [], draft: startDraft(field.current) };
     current.current = run;
+    try {
+      run.context = new AudioContext();
+    } catch {
+      return finish({ kind: "error", code: "failed" });
+    }
+    const resumed = run.context.resume().catch(() => {});
     setPhase("connecting");
     setNotice({ kind: "status", code: "connecting" });
     const alive = () => current.current === run;
@@ -101,7 +118,8 @@ export default function useDictation({ text, onText, onFinished }) {
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
       });
       if (!alive()) return run.media.getTracks().forEach((track) => track.stop());
-      run.context = new AudioContext();
+      await resumed;
+      // The worklet resamples whatever rate the device runs at (44.1 or 48 kHz).
       await run.context.audioWorklet.addModule(workletUrl);
       if (!alive()) return;
       run.node = new AudioWorkletNode(run.context, "agentpier-pcm");
@@ -137,7 +155,7 @@ export default function useDictation({ text, onText, onFinished }) {
         setPhase((value) => (value === "connecting" ? "recording" : value));
         setNotice({ kind: "status", code: "recording" });
       } else if (message.type === "transcript")
-        write(applyTranscript(current.current.draft, latest.current.text, message));
+        write(applyTranscript(current.current.draft, field.current, message));
       else if (message.type === "ended")
         finish({ kind: "ended", code: message.reason, maxSeconds: run.maxSeconds });
       else if (message.type === "error") finish({ kind: "error", code: message.code });

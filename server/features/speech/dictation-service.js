@@ -14,6 +14,8 @@ export const dictationLimits = Object.freeze({
   idleMs: 8000,
   // Audio the browser sends before Deepgram accepted the stream: about four seconds.
   maxPendingBytes: 4 * bytesPerSecond,
+  // Audio waiting in the Deepgram socket (about 30 seconds): more means it stalled.
+  maxUpstreamBuffer: 1024 * 1024,
   // Starts per login session within the window, and dictations open at once.
   starts: 20,
   windowMs: 10 * 60 * 1000,
@@ -22,14 +24,19 @@ export const dictationLimits = Object.freeze({
   finishMs: 5000,
 });
 const defaultConnect = (url, headers) =>
-  new WebSocket(url, { headers, handshakeTimeout: 10000, maxPayload: 1 << 20 });
+  new WebSocket(url, {
+    headers,
+    handshakeTimeout: 10000,
+    maxPayload: 1 << 20,
+    perMessageDeflate: false,
+  });
 
 /**
  * Live dictation for the owner's composers: the browser streams PCM through
  * AgentPier, which opens Deepgram's live socket with the stored key (the key never
  * reaches the browser) and relays interim and final transcripts back. Audio is only
- * forwarded, never stored, and each sent buffer is zeroed; the audit records only
- * that dictation was used and for how long.
+ * forwarded, never stored, and each sent buffer is zeroed (best effort); the audit
+ * records only that dictation was used and for how long.
  */
 export class DictationService {
   constructor({
@@ -153,7 +160,9 @@ class Dictation {
   opened() {
     if (this.state !== "connecting") return;
     this.state = "recording";
-    for (const chunk of this.pending) this.forward(chunk);
+    for (const chunk of this.pending)
+      if (this.state === "recording") this.forward(chunk);
+      else chunk.fill(0);
     this.pending = [];
     this.pendingBytes = 0;
     this.client.send({ type: "ready", maxSeconds: this.limits.maxSeconds });
@@ -164,6 +173,11 @@ class Dictation {
     this.idleTimer.unref?.();
   }
   forward(chunk) {
+    if (this.upstream.bufferedAmount > this.limits.maxUpstreamBuffer) {
+      chunk.fill(0);
+      return this.fail("slow");
+    }
+    // Best effort: ws may still hold a masked copy until the frame is written.
     this.upstream.send(chunk, () => chunk.fill(0));
   }
   /** One frame of 16 kHz mono PCM from the browser. */

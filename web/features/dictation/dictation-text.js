@@ -12,13 +12,21 @@ export function startDraft(text) {
 /** The field's text for `draft`. */
 export const draftText = (draft) => join(join(draft.base, draft.finals), draft.interim);
 
+function rebase(draft, current) {
+  let text = current;
+  if (draft.interim && current.endsWith(draft.interim)) {
+    text = current.slice(0, -draft.interim.length);
+    // Only the space join() put before it; a line break stays.
+    if (text.endsWith(" ")) text = text.slice(0, -1);
+  }
+  return { base: text, finals: "", interim: "", written: current };
+}
+
 /** Applies one `{final, text}` transcript to the composer's `current` text. */
 export function applyTranscript(draft, current, { final, text }) {
-  // The owner typed meanwhile: keep their text and continue after it.
-  const base =
-    current === draft.written
-      ? draft
-      : { base: current, finals: "", interim: "", written: current };
+  // The owner typed meanwhile: keep their text and continue after it. An interim
+  // phrase still at its end is the dictation's own and gets replaced, not repeated.
+  const base = current === draft.written ? draft : rebase(draft, current);
   const next = final
     ? { ...base, finals: join(base.finals, text), interim: "" }
     : { ...base, interim: text };

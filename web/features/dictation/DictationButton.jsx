@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import { dictationCopy as copy } from "../../lib/i18n/messages/dictation.js";
 import useDictation, { browserReason, useDictationStatus } from "./useDictation.js";
@@ -27,6 +27,7 @@ export default function DictationButton({ text, onText, disabled = false }) {
   const status = useDictationStatus();
   const button = useRef(null);
   const hintId = useId();
+  const hintBox = useRef(null);
   const [hintOpen, setHintOpen] = useState(false);
   const [submitText, setSubmitText] = useState(null);
   const dictation = useDictation({
@@ -53,6 +54,18 @@ export default function DictationButton({ text, onText, disabled = false }) {
     setHintOpen(false);
     dismiss();
   };
+  // The hint opens above the button; on a phone it shifts to stay on screen.
+  useLayoutEffect(() => {
+    const element = hintBox.current;
+    if (!element) return;
+    element.style.translate = "";
+    const box = element.getBoundingClientRect();
+    const margin = 16;
+    const right = document.documentElement.clientWidth - margin;
+    const shift =
+      box.left < margin ? margin - box.left : box.right > right ? right - box.right : 0;
+    if (shift) element.style.translate = `${Math.round(shift)}px 0`;
+  }, [hint]);
   const label = active ? copy.stop : reason ? copy.unavailable : copy.start;
   return (
     <span
@@ -80,7 +93,7 @@ export default function DictationButton({ text, onText, disabled = false }) {
         <Icon name={active ? "stop" : "mic"} size={active ? 13 : 18} fill={active} />
       </button>
       {hint && (
-        <span className="dictation-hint" id={hintId}>
+        <span ref={hintBox} className="dictation-hint" id={hintId}>
           <span>{hint}</span>
           {hintOpen && ["notConfigured", "unknown"].includes(reason) && (
             <a href={setupHref}>{copy.setup}</a>

@@ -2023,6 +2023,7 @@
   "dictation:dictationCopy.errors.quota": "de:ad69e75cd1c6 en:a5944e05f379",
   "dictation:dictationCopy.errors.rateLimited": "de:b7470169f105 en:bf7151192cae",
   "dictation:dictationCopy.errors.rejected": "de:54bde7f783ea en:ca91008857c4",
+  "dictation:dictationCopy.errors.slow": "de:1b707c18aaa0 en:4606d201478a",
   "dictation:dictationCopy.errors.upstreamBusy": "de:613bf0269d12 en:3870fb4056fd",
   "dictation:dictationCopy.finishing": "de:d2d3abc40117 en:e71ffda510fa",
   "dictation:dictationCopy.reasons.agentsOff": "de:f0e91dc58f5c en:9bda6b2f8c33",
