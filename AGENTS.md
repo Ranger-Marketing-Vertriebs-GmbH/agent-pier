@@ -29,7 +29,7 @@ Use JavaScript ES modules and JSX for React. Prettier enforces two-space indenta
 
 Follow existing names: `AccountsPage.jsx`, `useAccountAuthStatus.js`, and `account-store.js`. Keep feature logic together. Source and test files checked by `check:structure` must not exceed 600 lines.
 
-Every UI text change must maintain German and English translations in the same change, with matching keys and interpolation arguments. Use reactive exports from `web/lib/i18n/messages/`; do not hardcode product copy. Run the catalog parity tests and exercise changed UI in English. Translate new browser-visible application messages through stable identifiers; native CLI output and diagnostic evidence keep their original language.
+Every UI text change must maintain German and English translations in the same change, with matching keys and interpolation arguments. Use reactive exports from `web/lib/i18n/messages/`; do not hardcode product copy. Run the catalog parity tests and exercise changed UI in English. The translation-lock test fails when German text changes but its English text does not; after reviewing the English text, run `npm run i18n:confirm` and commit the updated `translation-lock.json` files. Whitespace-only edits, new keys and edits to both languages pass without it. Translate new browser-visible application messages through stable identifiers; native CLI output and diagnostic evidence keep their original language.
 
 ## Testing Guidelines
 

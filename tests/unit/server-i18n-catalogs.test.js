@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
+import { placeholderArgs } from "../../scripts/i18n-translation-lock.mjs";
 import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 import {
   createMessageIndex,
@@ -16,7 +17,7 @@ function compare(german, english, path) {
   assert.equal(typeof english, typeof german, path);
   if (typeof german === "function") {
     assert.equal(english.length, german.length, `${path} arguments`);
-    const args = Array.from({ length: german.length }, (_, i) => `__ARG_${i}__`);
+    const args = placeholderArgs(german.length);
     const expected = german(...args);
     const actual = english(...args);
     assert.equal(typeof actual, "string", path);
