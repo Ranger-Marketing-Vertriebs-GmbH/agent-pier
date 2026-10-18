@@ -15,3 +15,8 @@ export const imageViewerCopy = {
   share: "Teilen",
   missing: "Bild nicht mehr verfügbar.",
 };
+export const fileLinkCopy = {
+  failed: "Die Datei konnte nicht gesichert werden.",
+  title: "Datei sichern",
+  tap: "Tippen zum Sichern",
+};

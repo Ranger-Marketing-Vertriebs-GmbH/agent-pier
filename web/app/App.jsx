@@ -10,6 +10,7 @@ import ErrorMessage from "../components/ErrorMessage.jsx";
 import Icon from "../components/Icon.jsx";
 import Sidebar from "./Sidebar.jsx";
 import AppDialogs from "./AppDialogs.jsx";
+import SavePrompt from "../components/SavePrompt.jsx";
 import { defaultSessionMode } from "./routes.js";
 import { CrossLinkOrigin } from "./cross-link.js";
 import DashboardPage from "../features/dashboard/DashboardPage.jsx";
@@ -353,6 +354,8 @@ function Application() {
           </Suspense>
         </CrossLinkOrigin.Provider>
       </main>
+      {/* A share sheet that needs one more tap in a home-screen app (FileLink). */}
+      <SavePrompt />
       <AppDialogs
         {...{
           modal,

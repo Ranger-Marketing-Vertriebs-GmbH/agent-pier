@@ -15,3 +15,8 @@ export const imageViewerCopy = {
   share: "Share",
   missing: "Image no longer available.",
 };
+export const fileLinkCopy = {
+  failed: "The file could not be saved.",
+  title: "Save file",
+  tap: "Tap to save",
+};
