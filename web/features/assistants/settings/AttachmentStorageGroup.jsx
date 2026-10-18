@@ -13,13 +13,16 @@ const valid = (usage) =>
   [usage?.files, usage?.bytes, usage?.maxFiles, usage?.maxBytes].every(Number.isFinite)
     ? usage
     : null;
+// A folder the agent replaced (a link, a file) holds nothing; clearing restores it.
 const usageText = (usage) =>
-  copy.storageUsage(
-    fileSize(usage.bytes),
-    fileSize(usage.maxBytes),
-    `${formatNumber(usage.files)}${usage.capped ? "+" : ""}`,
-    formatNumber(usage.maxFiles),
-  );
+  usage.unsafe
+    ? copy.storageReplaced
+    : copy.storageUsage(
+        fileSize(usage.bytes),
+        fileSize(usage.maxBytes),
+        `${formatNumber(usage.files)}${usage.capped ? "+" : ""}`,
+        formatNumber(usage.maxFiles),
+      );
 
 /**
  * The agent's attachments folder (docs/agents.md "Attachments"): how much of its
@@ -73,7 +76,7 @@ export default function AttachmentStorageGroup({ assistant }) {
         <ListRow
           label={copy.storageClear}
           sub={copy.storageClearDescription}
-          disabled={busy || !usage || usage.files === 0}
+          disabled={busy || !usage || (usage.files === 0 && !usage.unsafe)}
           onClick={() => setConfirming(true)}
         />
       </ListCard>

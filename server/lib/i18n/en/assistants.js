@@ -247,7 +247,7 @@ export const assistants = {
   attachmentStorageFull:
     "This agent's attachment folder is full. Ask the agent to delete older files in attachments/, or clear them under the agent's Profile > Chat attachments.",
   attachmentStorageUnsafe:
-    "The attachment folder in this agent's workspace is unsafe. Check that attachments/ is a normal folder.",
+    "The attachment folder in this agent's workspace is unsafe. Check that attachments/ is a normal folder, or clear it under the agent's Profile > Chat attachments.",
   attachmentRateLimited: "Too many attachments in a short time. Wait a moment.",
   shareNotFound: "There is no file at this path in the agent's workspace.",
   shareOutside:

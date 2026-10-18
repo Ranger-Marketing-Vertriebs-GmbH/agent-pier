@@ -2454,12 +2454,20 @@ type.
   store and stay. The clear is audited as `assistant.updated` with kind
   `attachment-clear`, the entry count and the bytes, never file names. Profile >
   Chat attachments in the agent settings offers it after a confirmation.
+- **Replaced folder.** An agent that puts a link, a file or anything else that is not
+  a directory in place of `attachments/` blocks every upload. When the agent's own
+  workspace is still a real directory at its real place, usage reports `unsafe: true`
+  with 0 files and 0 bytes (the settings explain it), and clearing removes that entry
+  itself; the next upload creates the folder again. Any other unsafe storage, such
+  as a linked workspace, stays refused.
 - **Removal by verified folder.** Clearing and `purge` never delete through a path
   alone. The checked folder (device and inode from the folder check) is first renamed
   into `<assistants>/attachment-trash/`, a private directory outside every workspace;
   rename moves the name itself, never a link's target. Only if the moved entry is still
   that directory is it removed there, out of the agent's reach, where entries are
-  unlinked and never followed. A link or another directory swapped in since the check
+  unlinked and never followed. A non-directory in the folder's place is unlinked in
+  the trash, never what it points to; one that turned into a directory since the check
+  is put back. A link or another directory swapped in since the check
   is renamed back untouched and the request fails with `attachmentStorageUnsafe`.
   The share store's `purge` uses the same removal. The trash is runtime-only and
   never part of a backup, sealed or not.

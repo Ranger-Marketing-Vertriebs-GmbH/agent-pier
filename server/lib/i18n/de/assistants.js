@@ -266,7 +266,7 @@ export const assistants = {
   attachmentStorageFull:
     "Der Anhang-Ordner dieses Agenten ist voll. Bitte den Agenten, ältere Dateien in attachments/ zu löschen, oder leere sie im Profil des Agenten unter Chat-Anhänge.",
   attachmentStorageUnsafe:
-    "Der Anhang-Ordner im Arbeitsbereich dieses Agenten ist unsicher. Prüfe, ob attachments/ ein normaler Ordner ist.",
+    "Der Anhang-Ordner im Arbeitsbereich dieses Agenten ist unsicher. Prüfe, ob attachments/ ein normaler Ordner ist, oder leere ihn im Profil des Agenten unter Chat-Anhänge.",
   attachmentRateLimited: "Zu viele Anhänge in kurzer Zeit. Warte einen Moment.",
   shareNotFound: "Unter diesem Pfad liegt im Arbeitsbereich des Agenten keine Datei.",
   shareOutside:
