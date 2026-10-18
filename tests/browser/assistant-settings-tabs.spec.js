@@ -316,7 +316,8 @@ test("creating an agent opens its settings without asking", async ({ page }) => 
   await expect(create).toBeVisible();
   await page.getByLabel("Name", { exact: true }).fill("Fresh");
   await agentTab(page, "Capabilities").click();
-  await expect(page.getByText("Available after saving the agent")).toHaveCount(5);
+  // The five web switches (Create images too) and scheduled check-ins.
+  await expect(page.getByText("Available after saving the agent")).toHaveCount(6);
   await page.getByRole("switch", { name: "Remember information" }).check();
   await create.click();
   await expect(page).toHaveURL(/\/agents\/fresh\/settings$/);
