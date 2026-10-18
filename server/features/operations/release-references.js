@@ -4,12 +4,24 @@ const launcher = new RegExp(
   "i",
 );
 const columns = /^\s*(\d+)\s+(\d+)\s+(.*)$/;
-// What the owner sees of an orphaned process: its executable and first argument (a
-// script, or a flag such as -e), never the rest. Arguments may hold tokens.
-const shown = (command) => {
-  const words = command.trim().split(/\s+/);
-  const text = words.length > 1 && !words[0].startsWith("/") ? words.slice(1) : words;
-  return text.slice(0, 2).join(" ").slice(0, 200);
+// What the owner sees of an orphaned process: the release's node and its first
+// argument (a script, or a flag such as -e), never the rest: arguments may hold
+// tokens. The last `<release>/bin/node` is the executable; an earlier one is the
+// comm column, which macOS truncates (an install root may contain spaces).
+const shown = (command, prefixes) => {
+  let start = -1,
+    end = -1;
+  for (const prefix of prefixes) {
+    const node = `${prefix}bin/node`;
+    for (let at = command.indexOf(node); at !== -1; at = command.indexOf(node, at + 1)) {
+      const after = at + node.length;
+      if (after === command.length || /\s/.test(command[after]))
+        if (at > start) [start, end] = [at, after];
+    }
+  }
+  if (start === -1) return "";
+  const next = /^\s+(\S+)/.exec(command.slice(end));
+  return (command.slice(start, end) + (next ? ` ${next[1]}` : "")).slice(0, 300);
 };
 const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -78,7 +90,7 @@ export function releaseSessionReferences(output, releasePaths) {
       result.helpers += 1;
       result.helperReferences.push({ reference: rest[0] || "bin/node" });
     } else if (!rest.length && pid !== null && orphan(pid))
-      result.orphaned.push({ pid: Number(pid), command: shown(command) });
+      result.orphaned.push({ pid: Number(pid), command: shown(command, prefixes) });
     else if (!rest.length) result.nodeOnly += 1;
     else result.unidentified.push({ reference: rest[0] });
   }

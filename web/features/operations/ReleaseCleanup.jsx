@@ -66,7 +66,12 @@ export default function ReleaseCleanup({ busy, job, navigate }) {
           )}
           <ReleaseOrphans
             version={item.version}
-            processes={item.orphanedProcesses}
+            // Only an old version's orphans can be stopped here.
+            processes={
+              ["newer", "unsafe"].includes(item.deleteReason)
+                ? []
+                : item.orphanedProcesses
+            }
             busy={busy}
             onStopped={refresh}
           />

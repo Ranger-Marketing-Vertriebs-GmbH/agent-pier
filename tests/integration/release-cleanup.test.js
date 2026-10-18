@@ -363,6 +363,16 @@ test("an orphaned process that only runs a version's node never pins it", async 
   assert.equal(orphanOnly.canDelete, true);
   assert.equal(orphanOnly.deleteReason, null);
   assert.equal(orphanOnly.orphanedProcesses.length, 1);
+  // Orphans of the active or a newer version are never stopped from here.
+  for (const version of ["1.2.0", "1.3.0"]) {
+    const dir = `${r.installRoot}/releases/${version}`;
+    r.processes = () => `  702     1 node ${dir}/bin/node -e x`;
+    const listed = r.cleanupStatus().versions.find((v) => v.version === version);
+    assert.deepEqual(listed.orphanedProcesses, [
+      { pid: 702, command: `${dir}/bin/node -e` },
+    ]);
+    await assert.rejects(r.stopOrphans(version, [702]), { status: 400 });
+  }
   // An AgentPier entry point keeps the version even when orphaned.
   r.processes = () => `  701     1 node ${old}/bin/node ${old}/server/index.js`;
   assert.equal(

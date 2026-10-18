@@ -167,3 +167,18 @@ test("an adapter process below a session launcher is a helper of that session", 
   assert.deepEqual(result.helperReferences, [{ reference: "server/adapter-process.js" }]);
   assert.deepEqual(result.unidentified, []);
 });
+
+test("an orphan shows the release's node and first argument behind a truncated macOS comm", () => {
+  const spaced = "/Users/me/Application Support/agentpier/releases/1.0.0";
+  const output = [
+    // macOS truncates a non-final comm column even with -ww.
+    `  700     1 /Users/me/Applic ${spaced}/bin/node -e setInterval(()=>{},1000) --token SECRET`,
+    `  701     1 ${spaced}/bin/node ${spaced}/bin/node /Users/me/tool.js --key SECRET`,
+  ].join("\n");
+  const { orphaned } = releaseSessionReferences(output, [spaced]);
+  assert.deepEqual(orphaned, [
+    { pid: 700, command: `${spaced}/bin/node -e` },
+    { pid: 701, command: `${spaced}/bin/node /Users/me/tool.js` },
+  ]);
+  assert.ok(!JSON.stringify(orphaned).includes("SECRET"));
+});
