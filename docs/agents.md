@@ -159,8 +159,8 @@ told it was not saved.
   preselected). The agent gets the official GitHub MCP server with that profile:
   **Read** offers repositories, issues, pull requests and Actions runs read only;
   **Read and write** also comments on and creates issues and pull requests, merges
-  pull requests, pushes, changes and deletes files, but never creates, forks or
-  deletes a repository or starts a workflow. With shell access, `gh` and `git` in the
+  pull requests, pushes, changes and deletes files, runs workflows and creates, forks
+  and deletes repositories, all without an approval per change. With shell access, `gh` and `git` in the
   agent's commands use the same profile instead of your own login. The token never
   appears in the agent's instructions, files, chat or the browser (with shell access
   the agent runs as you and could read it like you can); a rotated token reaches the
@@ -395,8 +395,8 @@ paired Telegram chat, the file goes there too, as a photo or as a document. A
 routine's run can share files as well, for example a weekly report: they appear in the
 chat the routine writes to and in its Telegram chat. Images an agent creates with
 **Create images** arrive the same way on their own, a moment after its reply, without
-the agent sharing them. An agent creates at most 30 images a day, uses reference images from
-the web only when it may also read web pages, and with several ChatGPT accounts any
+the agent sharing them. There is no daily limit on created images; an agent uses reference
+images from the web only when it may also read web pages, and with several ChatGPT accounts any
 signed-in one may be used for images.
 
 - A team member's file appears in its own chat and in its lead's chat, under the

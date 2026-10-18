@@ -73,7 +73,7 @@ const githubGuidance = (github) =>
     "## GitHub",
     `- You have ${github.level === "write" ? "read and write" : "read-only"} GitHub access on ${github.host} through the token profile ${quoted(github.profile)} the owner chose for you.`,
     github.server
-      ? `- Use the GitHub tools named ${github.server}__* (repositories, issues, pull requests, Actions runs${github.level === "write" ? ", file contents" : ""}).${github.level === "write" ? " You can merge pull requests and delete files; you cannot create, fork or delete repositories or start workflows." : " They cannot change anything."}`
+      ? `- Use the GitHub tools named ${github.server}__* (repositories, issues, pull requests, Actions runs${github.level === "write" ? ", file contents" : ""}).${github.level === "write" ? " You can merge pull requests, push, delete files, start workflows and create, fork and delete repositories: confirm with the owner before anything destructive." : " They cannot change anything."}`
       : "- The GitHub tools are being installed and are not available yet.",
     ...(github.shell
       ? [

@@ -136,6 +136,7 @@ test("an agent's access compiles its server with the token in env only", async (
     GITHUB_HOST: "https://ghe.example.com",
   });
   assert.ok(!enterprise.args.includes("--read-only"));
+  assert.ok(!enterprise.args.includes("--exclude-tools"));
   // Removing the access removes the server; an unknown profile is refused.
   f.save(null);
   assert.deepEqual(f.compiled().servers, {});

@@ -38,18 +38,11 @@ test("each level runs the GitHub MCP server with its own toolsets", () => {
     "repos,issues,pull_requests,actions",
     "--read-only",
   ]);
-  const write = githubServerArgs("write");
-  assert.ok(!write.includes("--read-only"));
-  assert.deepEqual(write.slice(0, 3), [
+  // Read and write gets every tool of its toolsets: no exclusions (AGENTPIER-134).
+  assert.deepEqual(githubServerArgs("write"), [
     "stdio",
     "--toolsets",
     "repos,issues,pull_requests,actions",
-  ]);
-  // Actions stay readable (CI status) but never triggered; no repository is created,
-  // forked or deleted.
-  assert.deepEqual(write.slice(3), [
-    "--exclude-tools",
-    "actions_run_trigger,create_repository,fork_repository,delete_repository",
   ]);
   assert.throws(() => githubServerArgs("admin"));
 });
@@ -210,6 +203,24 @@ test("compiled servers carry the token only in their environment", () => {
   assert.match(instructions, /read-only/);
   assert.match(instructions, /gh and git use the same profile/);
   assert.doesNotMatch(instructions, new RegExp(token));
+  // Read and write names everything it can do, deleting repositories included.
+  const write = assistantBootstrap(
+    { id: "a1", instructions: "" },
+    {},
+    {
+      github: {
+        profile: "Work",
+        host: "https://github.com",
+        level: "write",
+        server: server.name,
+        shell: false,
+      },
+    },
+  );
+  assert.match(write, /read and write/);
+  assert.match(write, /start workflows/);
+  assert.match(write, /create, fork and delete repositories/);
+  assert.doesNotMatch(write, /you cannot/);
 });
 
 test("missing scopes are named only when the token's scopes are known", () => {

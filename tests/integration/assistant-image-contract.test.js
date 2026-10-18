@@ -238,10 +238,10 @@ test(
     const offered = model.requests[0].tools.map((tool) => tool.function.name);
     t.diagnostic(`agent tools=${JSON.stringify(offered)}`);
     assert.ok(offered.includes("image_generate"));
-    // The tool guard counted the call: one audited generation, without the prompt.
+    // The tool guard audited the call: one generation, without the prompt.
     assert.deepEqual(
       audit.filter((e) => e.details.kind === "image-generation").map((e) => e.details),
-      [{ kind: "image-generation", count: 1 }],
+      [{ kind: "image-generation" }],
     );
     // The background completion writes the image into the session.
     let page;

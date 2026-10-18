@@ -10,7 +10,7 @@ export const assistantGithubCopy = {
   levelHints: {
     read: "Repositories, Issues, Pull Requests und Actions-Läufe, nur lesend.",
     write:
-      "Kommentiert und erstellt außerdem Issues und Pull Requests, führt Pull Requests zusammen, pusht, ändert und löscht Dateien. Repositories anlegen, forken und löschen sowie Workflows starten bleibt aus.",
+      "Kommentiert und erstellt außerdem Issues und Pull Requests, führt Pull Requests zusammen, pusht, ändert und löscht Dateien, startet Workflows und legt Repositories an, forkt und löscht sie.",
   },
   summary: (level, profile) => `${level} · ${profile}`,
   agentDefault: "Standard für Agenten",
@@ -21,7 +21,7 @@ export const assistantGithubCopy = {
   shellNote:
     "Mit Shell-Zugriff nutzen gh und git in den Befehlen dieses Agenten dieses Profil statt deiner eigenen Anmeldung.",
   writeWarning:
-    "Der Agent kann in deinem Namen kommentieren, Pull Requests öffnen und zusammenführen, Änderungen pushen und Dateien löschen, ohne Freigabe pro Änderung. Inhalte, die er auf GitHub liest, können ihn steuern.",
+    "Der Agent kann in deinem Namen kommentieren, Pull Requests öffnen und zusammenführen, Änderungen pushen, Dateien löschen, Workflows starten sowie Repositories anlegen, forken und löschen, ohne Freigabe pro Änderung. Ein gelöschtes Repository lässt sich nicht immer wiederherstellen. Inhalte, die er auf GitHub liest, können ihn steuern.",
   memoryNote:
     "Jedes Profil mit jeder Stufe läuft als eigener GitHub-MCP-Server, der für jede Agentensitzung startet (je etwa 45 MB Arbeitsspeicher).",
   server: {

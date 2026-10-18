@@ -15,31 +15,23 @@ import { mcpEligible } from "./openclaw-config/mcp-servers.js";
 export const githubLevels = ["read", "write"];
 export const githubRank = (level) => githubLevels.indexOf(level);
 // Both levels see repositories, issues, pull requests and Actions (CI status). "read"
-// runs the server read-only. "read and write" adds issue, pull request and content
-// writes, including merging pull requests and deleting files, but never triggers,
-// re-runs or cancels workflows and never creates, forks or deletes a repository
-// (tool names checked against the pinned 2.0.2 release).
+// runs the server read-only. "read and write" gets every tool of these toolsets, with
+// no exclusions (AGENTPIER-134): it merges pull requests, pushes, deletes files, runs
+// workflows and creates, forks and deletes repositories (checked against the pinned
+// 2.0.2 release).
 const toolsets = ["repos", "issues", "pull_requests", "actions"];
-const excludedWrites = [
-  "actions_run_trigger",
-  "create_repository",
-  "fork_repository",
-  "delete_repository",
-];
 // Classic token scopes the tools need; a fine-grained token reports none and is not
 // checked (its permissions cannot be read from the token).
 export const requiredScopes = { read: ["repo"], write: ["repo"] };
 
-/** The server's arguments for a level: stdio, its toolsets and the write limits. */
+/** The server's arguments for a level: stdio, its toolsets and, to read, read-only. */
 export function githubServerArgs(level) {
   if (!githubLevels.includes(level)) throw Error(`Unknown GitHub level: ${level}`);
   return [
     "stdio",
     "--toolsets",
     toolsets.join(","),
-    ...(level === "read"
-      ? ["--read-only"]
-      : ["--exclude-tools", excludedWrites.join(",")]),
+    ...(level === "read" ? ["--read-only"] : []),
   ];
 }
 

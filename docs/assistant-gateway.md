@@ -1160,10 +1160,10 @@ proven, and every call passes its `before_tool_call` hook (`imageCall` in
   needs **Read web pages** as well, since OpenClaw fetches web references itself and
   the tool would otherwise carry data out; local references come from the workspace
   and OpenClaw's shared media folder (`tools.fs.workspaceOnly`);
-- each generation counts against the agent's limit of 30 per UTC day
-  (`DAILY_IMAGE_LIMIT`; status and list reads do not count) and writes an
-  `assistant.executed` audit event with `kind: "image-generation"` and the day's count,
-  never the prompt. Refusals reach the model with a reason it can act on.
+- there is no daily limit: each generation (status and list reads aside) writes an
+  `assistant.executed` audit event with `kind: "image-generation"`, never the prompt.
+  Databases from earlier versions keep their unused `assistant_image_usage` table.
+  Refusals reach the model with a reason it can act on.
 
 `image_generate` runs in the background: its completion turn writes an assistant
 message whose content carries `{ type: "image", artifactId:
@@ -1959,17 +1959,22 @@ compiled beside the central list's servers, one stdio server per profile and lev
 named `github_ro_<hash>` or `github_rw_<hash>` (the hash comes from the profile id).
 An agent sees its tools as `<name>__<tool>`.
 
-| Level   | Arguments (toolsets `repos,issues,pull_requests,actions` for both)                                           |
-| ------- | ------------------------------------------------------------------------------------------------------------ |
-| `read`  | `stdio --toolsets … --read-only`                                                                             |
-| `write` | `stdio --toolsets … --exclude-tools actions_run_trigger,create_repository,fork_repository,delete_repository` |
+| Level   | Arguments (toolsets `repos,issues,pull_requests,actions` for both) |
+| ------- | ------------------------------------------------------------------ |
+| `read`  | `stdio --toolsets … --read-only`                                   |
+| `write` | `stdio --toolsets …`                                               |
 
-`write` adds issue and pull request writes and repository contents, including
-merging pull requests (`merge_pull_request`), pushing (`push_files`) and deleting
-files (`delete_file`). It keeps Actions readable for CI status but never triggers,
-re-runs or cancels a workflow (`actions_run_trigger`), and never creates, forks or
-deletes a repository. The tool names were checked against the pinned 2.0.2 release. The server itself also hides tools whose classic
-scopes the token lacks. The token reaches the server only through its environment
+`write` gets every tool of these toolsets, with no exclusions: issue and pull request
+writes and repository contents, including merging pull requests
+(`merge_pull_request`), pushing (`push_files`) and deleting files (`delete_file`);
+it triggers, re-runs and cancels workflows (`actions_run_trigger`) and creates, forks
+and deletes repositories (`create_repository`, `fork_repository`,
+`delete_repository`). The tool names were checked against the pinned 2.0.2 release.
+The server itself hides tools whose classic scopes the token lacks (for example
+`delete_repo` for deleting a repository), and 2.0.2 offers `delete_repository` only
+when a request-state key (`GITHUB_MCP_SERVER_MRTR_STATE_KEY`) protects its
+confirmation round trip, which AgentPier does not configure: an agent with shell
+access can still delete a repository with `gh repo delete` when the token allows it. The token reaches the server only through its environment
 (`GITHUB_PERSONAL_ACCESS_TOKEN`; `GITHUB_HOST` for a GitHub Enterprise host) in the
 compiled `openclaw.json`, like every stdio server's values: never in its arguments,
 the agent's instructions, a response or AgentPier's own state. Because OpenClaw

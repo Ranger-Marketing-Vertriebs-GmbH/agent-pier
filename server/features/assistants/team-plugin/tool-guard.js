@@ -176,8 +176,6 @@ export const imageRefusals = {
     "Give reference images as paths to files in your workspace, or as a list of such paths.",
   remote:
     "Reference images from web addresses need the 'Read web pages' capability. Use a file in your workspace instead.",
-  limit:
-    "This agent reached its daily limit of 30 generated images. Do not retry today; tell the owner.",
 };
 const imageModel = /^openai\/gpt-image-[A-Za-z0-9._-]+$/;
 // Any scheme but inline data reaches beyond the workspace (OpenClaw fetches http(s)
@@ -186,8 +184,8 @@ const remoteReference = (value) =>
   /^[a-z][a-z0-9+.-]*:/i.test(value.trim()) && !/^data:/i.test(value.trim());
 /**
  * Lets an image_generate call through only for an agent that may create images now,
- * within its daily limit and with the OpenAI model; a reference from the web needs
- * the agent's web reading as well, or the tool would carry data out. Fails closed.
+ * with the OpenAI model; a reference from the web needs the agent's web reading as
+ * well, or the tool would carry data out. Fails closed.
  */
 export async function imageCall(event, ctx, bridge) {
   const params = event?.params || {};

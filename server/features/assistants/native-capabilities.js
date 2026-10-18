@@ -31,7 +31,7 @@ export const memoryTools = ["memory_search", "memory_get", "read", "write", "edi
 export const guardedTools = ["write", "edit"];
 // Tools offered only while the plugin's tool guard is proven: the guarded writes, the
 // browser, whose calls the guard pins to the agent's own profile, and image creation,
-// whose calls it checks and counts (image-policy.js).
+// whose calls it checks and audits (image-policy.js).
 export const guardGatedTools = [...guardedTools, "browser", "image_generate"];
 const guardGatedCapabilities = ["browser", "createImages"];
 export const writeGuardRuntimes = ["2026.9.8", "2026.9.9", "2026.10.3"];
