@@ -12,22 +12,22 @@
   flex-shrink: 0;
 }
 .status-chip-ok .status-chip-mark {
-  background: #86b88e;
+  background: var(--status-ok);
 }
 .status-chip-error .status-chip-mark {
-  background: #e5796b;
+  background: var(--status-error);
 }
 .status-chip-neutral .status-chip-mark {
-  background: #737478;
+  background: var(--status-idle);
 }
 .status-chip-pending .status-chip-mark {
   background: #55565a;
 }
 .status-chip-running .status-chip-mark {
-  background: #f49a58;
+  background: var(--status-working);
 }
 .status-chip-waiting .status-chip-mark {
-  background: #ffc99d;
+  background: var(--status-waiting);
 }
 .status-chip-decision {
   padding: 4px 9px;

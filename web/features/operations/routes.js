@@ -11,13 +11,15 @@ export const sections = new Set([
   "remote",
   "ssh",
   "github",
+  // The component gallery, below the Development group of the operations tab.
+  "components",
 ]);
 export const settingsTabs = ["workspace", "access", "operations"];
 // The settings sections each tab lists; "general" is also the root of every tab.
 export const settingsSectionGroups = {
   workspace: ["general", "notifications", "assistants"],
   access: ["mcp", "remote", "ssh", "github"],
-  operations: ["diagnostics", "backups", "updates", "audit"],
+  operations: ["diagnostics", "backups", "updates", "audit", "components"],
 };
 export const settingsTabOf = (section) =>
   settingsTabs.find((tab) => settingsSectionGroups[tab].includes(section)) || "workspace";

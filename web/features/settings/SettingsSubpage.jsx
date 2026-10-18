@@ -5,6 +5,7 @@ import { SubpageFrame } from "./SettingsFrame.jsx";
 
 // Each section keeps its current content; only the frame around it is new.
 const UpdatesPage = lazy(() => import("../operations/UpdatesPage.jsx"));
+const ComponentGallery = lazy(() => import("../gallery/ComponentGallery.jsx"));
 const pages = {
   mcp: lazy(() => import("../mcp/McpSettings.jsx")),
   remote: lazy(() => import("../remote/RemoteSettings.jsx")),
@@ -25,16 +26,22 @@ export default function SettingsSubpage({ section, route, state, frame }) {
   if (section === "assistants") return <AgentServiceRoute frame={frame} />;
   if (section === "assistants-advanced")
     return <AgentServiceRoute frame={frame} advanced />;
+  // Pages that draw their own frame (title, save bar) wait inside an empty one.
+  const fallback = (
+    <SubpageFrame frame={frame}>
+      <p role="status">{operationsCopy.loading}</p>
+    </SubpageFrame>
+  );
   if (section === "updates")
     return (
-      <Suspense
-        fallback={
-          <SubpageFrame frame={frame}>
-            <p role="status">{operationsCopy.loading}</p>
-          </SubpageFrame>
-        }
-      >
+      <Suspense fallback={fallback}>
         <UpdatesPage route={route} navigate={frame.navigate} frame={frame} />
+      </Suspense>
+    );
+  if (section === "components")
+    return (
+      <Suspense fallback={fallback}>
+        <ComponentGallery frame={frame} />
       </Suspense>
     );
   const Page = pages[section];

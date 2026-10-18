@@ -65,7 +65,41 @@ test("redesign tokens exist with the handoff values", async () => {
     "--switch-knob": "#fff",
     "--on-accent": "#242529",
   };
-  const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Semantic tokens reference palette tokens; compare the value they resolve to.
+  const declared = new Map(
+    [...css.matchAll(/(--[\w-]+):\s*([^;]+);/g)].map(([, name, value]) => [
+      name,
+      value.trim(),
+    ]),
+  );
+  const resolve = (value, depth = 0) =>
+    depth > 5
+      ? value
+      : value.replace(/var\((--[\w-]+)\)/g, (match, name) =>
+          declared.has(name) ? resolve(declared.get(name), depth + 1) : match,
+        );
   for (const [name, value] of Object.entries(expected))
-    assert.match(css, new RegExp(`${escape(name)}:\\s*${escape(value)};`), name);
+    assert.equal(resolve(declared.get(name) ?? ""), value, name);
+});
+
+test("semantic colour tokens reference the palette instead of repeating hex values", async () => {
+  const css = await readFile(new URL("styles/base.css", web), "utf8");
+  const palette = /^--(neutral|warm|orange|green|amber|red)-\d+$/;
+  const solid = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+  for (const [, name, value] of css.matchAll(/(--[\w-]+):\s*([^;]+);/g))
+    if (solid.test(value.trim()))
+      assert.match(name, palette, `${name} repeats ${value.trim()}`);
+  for (const name of [
+    "--status-working",
+    "--status-waiting",
+    "--status-ok",
+    "--status-error",
+    "--status-idle",
+    "--focus-ring",
+    "--safe-area-inset-top",
+    "--safe-area-inset-right",
+    "--safe-area-inset-bottom",
+    "--safe-area-inset-left",
+  ])
+    assert.match(css, new RegExp(`${name}:`), name);
 });
