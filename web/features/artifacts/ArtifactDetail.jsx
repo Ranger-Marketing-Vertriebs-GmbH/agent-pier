@@ -230,7 +230,7 @@ export default function ArtifactDetail({
         </ListCard>
         {!confirm && <ErrorMessage error={error} />}
       </section>
-      <ArtifactFacts item={item} writeClipboard={writeClipboard} />
+      <ArtifactFacts item={item} copyText={writeClipboard} />
       <ListCard label={copy.deleteRow} className="artifact-danger-card">
         <ListRow
           icon={<Icon name="trash" size={16} />}

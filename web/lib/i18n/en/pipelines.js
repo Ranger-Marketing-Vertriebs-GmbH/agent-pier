@@ -96,7 +96,7 @@ export const pipelineCopy = {
   confirmTitles: {
     delete: (run) => `Delete run “${run}”?`,
     "delete-local": (run) => `Remove the worktree of “${run}”?`,
-    abort: (run) => `Cancel run “${run}”?`,
+    abort: (run) => `Stop run “${run}”?`,
     override: (run) => `Override the current stage of “${run}”?`,
     "create-pr": (run) => `Create or update the pull request of “${run}”?`,
     definition: (name) => `Delete pipeline “${name}”?`,
@@ -105,7 +105,7 @@ export const pipelineCopy = {
   },
   confirmLabels: {
     delete: "Delete now",
-    abort: "Cancel now",
+    abort: "Stop now",
     override: "Override now",
     "create-pr": "Create now",
     definition: "Delete now",
@@ -258,7 +258,7 @@ export const pipelineCopy = {
     retry: "Restart stage",
     "wait-for-reset": "Wait for reset",
     "resume-now": "Resume now",
-    abort: "Cancel run",
+    abort: "Stop run",
     "create-pr": "Create / update pull request",
     delete: "Delete run",
   },
