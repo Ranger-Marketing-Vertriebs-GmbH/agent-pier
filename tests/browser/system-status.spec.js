@@ -147,3 +147,16 @@ test("the start page polls the status only while it is visible", async ({ page }
   await page.waitForTimeout(6000);
   expect(calls.summary).toBe(hidden);
 });
+
+test("an unknown disk share shows a dash, not a full bar", async ({ page }) => {
+  const unknown = { totalBytes: 0, freeBytes: 0, usedBytes: 0, freePercent: null };
+  await page.route("**/api/system-status", (route) =>
+    route.fulfill({ json: { ...summary(), disk: unknown } }),
+  );
+  await page.goto("/");
+  const row = page.getByRole("button", { name: /System status/ });
+  await expect(row).toContainText("Disk–");
+  const bar = row.locator(".system-meter-bar i").first();
+  expect(await bar.evaluate((node) => node.style.width)).toBe("0%");
+  await expect(row.locator("div")).toHaveCount(0);
+});

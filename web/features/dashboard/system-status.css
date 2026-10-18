@@ -72,6 +72,7 @@
   white-space: nowrap;
 }
 .system-meter-bar {
+  display: block;
   height: 5px;
   border-radius: 3px;
   background: #2c2d31;
