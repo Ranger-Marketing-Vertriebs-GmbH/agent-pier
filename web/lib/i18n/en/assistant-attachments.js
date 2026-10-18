@@ -14,6 +14,7 @@ export const assistantAttachmentsCopy = Object.freeze({
   remove: (name) => `Remove ${name}`,
   open: (name) => `Open ${name}`,
   download: (name) => `Download ${name}`,
+  audio: (name) => `Audio: ${name}`,
   uploading: "Uploading …",
   uploadingProgress: (percent) => `Uploading … ${percent} %`,
   video: (name) => `Video ${name}`,

@@ -138,6 +138,15 @@
   gap: 4px;
   max-width: min(360px, 100%);
 }
+.agent-message-audio {
+  display: grid;
+  gap: 4px;
+  width: min(360px, 100%);
+}
+.agent-message-audio audio {
+  display: block;
+  width: 100%;
+}
 .agent-message-video video {
   display: block;
   width: 100%;

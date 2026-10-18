@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import FileLink from "../../components/FileLink.jsx";
 import { FileJobIssue, isFileJobActive } from "./FileJobs.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
@@ -119,9 +120,9 @@ export default function FileProperties({
           <div className="file-preview-primary-actions">
             <div ref={actionTarget} />
             {downloadHref && (
-              <a className="button secondary compact" href={downloadHref} download>
+              <FileLink className="button secondary compact" href={downloadHref}>
                 {copy.downloadFile}
-              </a>
+              </FileLink>
             )}
           </div>
           <details className="file-details" key={selectedPath}>

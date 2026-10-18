@@ -14,7 +14,7 @@ import {
   safeFileName,
 } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
-import { SHARED, SharedFiles } from "./agent-share-store.js";
+import { SHARED, SharedFiles, playable } from "./agent-share-store.js";
 import { VideoUploads } from "./agent-video-uploads.js";
 import { MAX_VIDEO_BYTES, videoExtensions } from "./agent-video-types.js";
 import {
@@ -520,6 +520,8 @@ export class AgentAttachments {
     const [file] = this.rows("SELECT * FROM agent_attachments WHERE id=?", String(id));
     if (file?.kind === "video" && !file.shared)
       return this.videos.open(file.row.assistant_id, file);
+    // Shared videos and audio play inline from the share store (agent-share-store.js).
+    if (file?.shared && playable(file)) return this.shared.openMedia(file);
     return this.content(id);
   }
   // Whether the agent's model takes images: the fact its compiled provider declares.

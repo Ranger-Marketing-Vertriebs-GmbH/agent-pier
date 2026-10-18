@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import ImageViewer from "../../components/ImageViewer.jsx";
+import FileLink from "../../components/FileLink.jsx";
 import "./agent-attachments.css";
 import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assistant-attachments.js";
 import { formatNumber } from "../../lib/i18n/index.js";
@@ -26,9 +27,10 @@ export function videoDuration(seconds) {
   return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
-// A sent video plays inline from the signed-in route, a range at a time. No poster
-// is extracted on the server; the media fragment makes Safari, which preloads no
-// frame on its own, show the first one.
+// A video (sent by the owner or shared by the agent) plays inline from the signed-in
+// route, a range at a time; iOS full screen keeps its own Done button. No poster is
+// extracted on the server; the media fragment makes Safari, which preloads no frame
+// on its own, show the first one.
 function VideoAttachment({ file }) {
   const details = [videoDuration(file.video?.duration), fileSize(file.size)]
     .filter(Boolean)
@@ -42,15 +44,37 @@ function VideoAttachment({ file }) {
         src={`${source(file.id)}#t=0.001`}
         aria-label={copy.video(file.name)}
       />
-      <a
+      <FileLink
         className="agent-attachment-text"
         href={source(file.id)}
-        download={file.name}
+        name={file.name}
         aria-label={copy.download(file.name)}
       >
         <span className="agent-attachment-name">{file.name}</span>
         <span className="agent-attachment-meta">{details}</span>
-      </a>
+      </FileLink>
+    </li>
+  );
+}
+// Audio an agent shared plays inline with the browser's own controls.
+function AudioAttachment({ file }) {
+  return (
+    <li className="agent-message-audio">
+      <audio
+        controls
+        preload="metadata"
+        src={source(file.id)}
+        aria-label={copy.audio(file.name)}
+      />
+      <FileLink
+        className="agent-attachment-text"
+        href={source(file.id)}
+        name={file.name}
+        aria-label={copy.download(file.name)}
+      >
+        <span className="agent-attachment-name">{file.name}</span>
+        <span className="agent-attachment-meta">{fileSize(file.size)}</span>
+      </FileLink>
     </li>
   );
 }
@@ -74,8 +98,8 @@ function UnavailableAttachment({ file }) {
 }
 
 // The owner's files in a sent message, or the files an agent shared (`shared`):
-// thumbnails that open the image in the in-app viewer, and chips that download the
-// file. Nothing navigates away: a home-screen app (iOS) has no way back. Both are
+// thumbnails that open the image in the in-app viewer, videos and audio that play
+// inline, and chips that save the file. Nothing navigates away: a home-screen app (iOS) has no way back. Both are
 // served through the signed-in route by id.
 export default function AgentMessageAttachments({ files, shared = false }) {
   const [open, setOpen] = useState(null);
@@ -89,8 +113,10 @@ export default function AgentMessageAttachments({ files, shared = false }) {
         {files.map((file) =>
           file.unavailable ? (
             <UnavailableAttachment key={file.id} file={file} />
-          ) : file.kind === "video" && !shared ? (
+          ) : file.kind === "video" ? (
             <VideoAttachment key={file.id} file={file} />
+          ) : file.kind === "audio" ? (
+            <AudioAttachment key={file.id} file={file} />
           ) : shown(file) ? (
             <li key={file.id} className="agent-message-image">
               <button
@@ -107,15 +133,15 @@ export default function AgentMessageAttachments({ files, shared = false }) {
               <span className="agent-attachment-icon" aria-hidden="true">
                 <Icon name="file" size={16} />
               </span>
-              <a
+              <FileLink
                 className="agent-attachment-text"
                 href={source(file.id)}
-                download={file.name}
+                name={file.name}
                 aria-label={copy.download(file.name)}
               >
                 <span className="agent-attachment-name">{file.name}</span>
                 <span className="agent-attachment-meta">{fileSize(file.size)}</span>
-              </a>
+              </FileLink>
             </li>
           ),
         )}

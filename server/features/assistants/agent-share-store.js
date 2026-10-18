@@ -5,6 +5,10 @@ import { assistantProblem } from "./assistant-validation.js";
 import { detectAttachment, safeFileName } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { removeChecked, trashFor } from "./agent-attachment-storage.js";
+import { VIDEO_HEAD_BYTES, videoType } from "./agent-video-types.js";
+import { audioType } from "./agent-audio-types.js";
+import { hashFile, identity, reader } from "./agent-video-uploads.js";
+import { constants } from "node:fs";
 
 // Files agents shared with the owner, per agent: their own budget beside the owner's
 // uploads. Copies expire after 90 days; a full store gives up its oldest ones, whose
@@ -27,8 +31,28 @@ const ignoreExisting = (error) => {
  * or delete them; the owner's signed-in route serves them by id like uploads. The
  * index shares the attachments table, so backups and the route need nothing new.
  */
+// Videos and audio play inline (served a range at a time); images and PDFs keep their
+// type; anything else is a download.
+const mediaType = (body) => {
+  const head = body.subarray(0, VIDEO_HEAD_BYTES);
+  const video = videoType(head);
+  if (video) return { type: video, kind: "video" };
+  const audio = audioType(head);
+  return audio ? { type: audio, kind: "audio" } : null;
+};
+const fileType = (body, name) => {
+  const detected = detectAttachment(body, name);
+  return detected && detected.kind !== "text"
+    ? detected
+    : { type: "application/octet-stream", kind: "file" };
+};
+const MAX_VERIFIED = 256;
+export const playable = (file) => ["video", "audio"].includes(file?.kind);
+
 export class SharedFiles {
   constructor(attachments) {
+    // Copies proven once by their bytes; Range requests then reuse the proof.
+    this.verified = new Map();
     this.a = attachments;
     this.swept = 0;
     // A test seam; the app keeps the defaults.
@@ -134,11 +158,7 @@ export class SharedFiles {
       if (known) return publicFile(known);
       const now = this.a.now();
       const when = Number.isFinite(at) && at <= now && at > now - 86400000 ? at : now;
-      const detected = detectAttachment(body, name);
-      const typed =
-        detected && detected.kind !== "text"
-          ? detected
-          : { type: "application/octet-stream", kind: "file" };
+      const typed = mediaType(body) || fileType(body, name);
       const folder = await this.folder(owner);
       await this.retain(owner, folder, body.length);
       const entry = {
@@ -253,6 +273,56 @@ export class SharedFiles {
           this.retain(owner, await this.folder(owner, false)),
         )
         .catch(() => {});
+  }
+  /**
+   * A shared video or audio file opened for range reads: the copy must still be the
+   * bytes recorded (size and SHA-256, checked once per file identity) and of its type.
+   */
+  async openMedia(file) {
+    if (this.expired(file) || file.gone)
+      throw assistantProblem("attachmentNotFound", 404);
+    const folder = await this.folder(file.row.assistant_id, false);
+    if (!folder) throw assistantProblem("attachmentNotFound", 404);
+    let handle;
+    try {
+      handle = await fs.open(
+        path.join(folder.path, file.file),
+        constants.O_RDONLY | constants.O_NOFOLLOW,
+      );
+      const stat = await handle.stat({ bigint: true });
+      if (
+        !stat.isFile() ||
+        stat.nlink !== 1n ||
+        typeof file.sha256 !== "string" ||
+        stat.size !== BigInt(file.size) ||
+        file.size > MAX_SHARE_BYTES
+      )
+        throw Error("file");
+      const key = identity(stat);
+      if (this.verified.get(file.id) !== key) {
+        const typed = mediaType(await reader(handle)(0, VIDEO_HEAD_BYTES));
+        if (
+          typed?.type !== file.type ||
+          (await hashFile(handle, file.size)) !== file.sha256
+        )
+          throw Error("file");
+        this.verified.delete(file.id);
+        this.verified.set(file.id, key);
+        if (this.verified.size > MAX_VERIFIED)
+          this.verified.delete(this.verified.keys().next().value);
+      }
+      return {
+        name: file.name,
+        type: file.type,
+        kind: file.kind,
+        inline: true,
+        size: file.size,
+        handle,
+      };
+    } catch {
+      await handle?.close();
+      throw assistantProblem("attachmentNotFound", 404);
+    }
   }
   /** Removes an agent's shared copies; see AgentAttachments.purge. */
   async purge(assistantId) {

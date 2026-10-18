@@ -1,4 +1,5 @@
 import ImportedAgentBusHistory from "./ImportedAgentBusHistory.jsx";
+import FileLink from "../../components/FileLink.jsx";
 import React, { useState } from "react";
 import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
@@ -50,13 +51,12 @@ export default function BackupsPage({ route, navigate }) {
               .join(" · ")}
           </p>
           <div className="operations-actions">
-            <a
+            <FileLink
               className="button secondary"
               href={`/api/operations/backups/${encodeURIComponent(backup.id)}/download`}
-              download
             >
               {copy.download}
-            </a>
+            </FileLink>
             <button className="button secondary" onClick={() => setRemoving(backup.id)}>
               {copy.remove}
             </button>

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { imageViewerCopy as copy } from "../lib/i18n/messages/components.js";
 import { observeBuild } from "../lib/build-check.js";
+import FileLink from "./FileLink.jsx";
 import "./image-viewer.css";
 
 const distance = (points) => {
@@ -93,9 +94,9 @@ export default function ImageViewer({ src, alt, title, name, close, opener = nul
     >
       <header className="image-viewer-bar">
         <span className="image-viewer-title">{title}</span>
-        <a className="image-viewer-action" href={src} download={name}>
+        <FileLink className="image-viewer-action" href={src} name={name}>
           {copy.download}
-        </a>
+        </FileLink>
         {canShare && (
           <button type="button" className="image-viewer-action" onClick={share}>
             {copy.share}
