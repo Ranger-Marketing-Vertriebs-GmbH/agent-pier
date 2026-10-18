@@ -53,6 +53,8 @@ test("Claude native activity drives English session and chat indicators through 
       return route.fulfill({
         json: { currentModel: null, picker: null, pending: false },
       });
+    if (/\/sessions\/[^/]+\/github$/.test(path))
+      return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
     throw new Error(`Unexpected Claude activity request: ${path}`);
   });
   await page.goto("/sessions/claude-activity/chat");

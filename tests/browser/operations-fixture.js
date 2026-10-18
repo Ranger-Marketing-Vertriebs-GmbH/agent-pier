@@ -175,6 +175,8 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
       result = { restarting: true, instanceId: "one" };
     } else if (path === "/settings/summary") result = state.summary;
     else if (path === "/health") result = state.health;
+    else if (/\/sessions\/[^/]+\/github$/.test(path))
+      result = { configured: true, hosts: [], remote: null };
     else throw Error(`Unexpected operations fixture request ${method} ${path}`);
     await route.fulfill({ json: result });
   });

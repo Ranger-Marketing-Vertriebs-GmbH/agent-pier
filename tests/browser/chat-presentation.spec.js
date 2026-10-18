@@ -56,6 +56,8 @@ async function fixture(
       return route.fulfill({
         json: { currentModel: null, picker: null, pending: false },
       });
+    if (/\/sessions\/[^/]+\/github$/.test(path))
+      return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
     throw new Error(`Unexpected presentation fixture request: ${path}`);
   });
   await page.goto(baseURL + "/sessions/presentation/chat");

@@ -389,6 +389,8 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({
         json: { deliveryId: body.deliveryId, status: "handed-off" },
       });
+    if (/\/sessions\/[^/]+\/github$/.test(path))
+      return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
     throw new Error(`Unexpected provider fixture request: ${method} ${path}`);
   });
   await page.routeWebSocket("**/terminal", (socket) =>
