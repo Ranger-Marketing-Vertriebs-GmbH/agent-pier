@@ -1,4 +1,5 @@
 import path from "node:path";
+import { translationLock } from "./catalogs.mjs";
 
 // Browser specs drive the built application and rarely import the code they
 // cover, so a change reaches them through its feature name instead. A feature
@@ -85,6 +86,8 @@ export function specsForFeature(feature, specs) {
 // { all: true } when the path is shared by every page, otherwise the specs its
 // feature name selects (possibly none), or null when it names no feature.
 export function browserSpecsFor(file, specs) {
+  // The translation locks are test data; no page reads them.
+  if (translationLock.test(file)) return null;
   const feature = featureOf(file);
   const matched = feature ? specsForFeature(feature, specs) : [];
   // A message catalog of a feature with specs selects those; a catalog of shared

@@ -142,6 +142,49 @@ test("a server catalog change selects readers of its namespace, not every import
   assert.equal(hub.mode, "all");
 });
 
+test("a web catalog or translation lock change selects the catalog-wide i18n tests", () => {
+  const files = {
+    "web/lib/i18n/de/alpha.js": "export const alphaCopy = { hi: 'Hallo' };\n",
+    "web/lib/i18n/en/alpha.js": "export const alphaCopy = { hi: 'Hello' };\n",
+    "web/lib/i18n/messages/alpha.js":
+      'import "../de/alpha.js";\nimport "../en/alpha.js";\n',
+    "web/lib/i18n/translation-lock.json": "{}\n",
+    "server/lib/i18n/translation-lock.json": "{}\n",
+    "tests/unit/alpha.test.js": 'import "../../web/lib/i18n/messages/alpha.js";\n',
+    "tests/unit/other.test.js": "export {};\n",
+    "tests/unit/plugin-messages.test.js": "export {};\n",
+    "tests/unit/i18n-catalogs.test.js": "await readdir(base);\n",
+    "tests/unit/i18n-translation-lock.test.js": "await loadCatalogs(kind);\n",
+    "tests/unit/server-i18n-catalogs.test.js": "await readdir(base);\n",
+    "tests/browser/alpha.spec.js": "export {};\n",
+    "tests/browser/beta.spec.js": "export {};\n",
+  };
+  const source = { files: Object.keys(files), read: (file) => files[file] ?? null };
+  const wide = [
+    "tests/unit/i18n-catalogs.test.js",
+    "tests/unit/i18n-translation-lock.test.js",
+    "tests/unit/server-i18n-catalogs.test.js",
+  ];
+  const run = (changed) => selectAffected({ changed: [changed], source, threshold: 1 });
+  assert.deepEqual(run("web/lib/i18n/de/alpha.js").node, [
+    "tests/unit/alpha.test.js",
+    ...wide,
+  ]);
+  assert.deepEqual(run("web/lib/i18n/en/alpha.js").node, [
+    "tests/unit/alpha.test.js",
+    ...wide,
+  ]);
+  for (const lock of [
+    "web/lib/i18n/translation-lock.json",
+    "server/lib/i18n/translation-lock.json",
+  ]) {
+    const result = run(lock);
+    assert.deepEqual(result.node, wide, lock);
+    assert.deepEqual(result.browser, [], lock);
+    assert.equal(result.mode, "selected", lock);
+  }
+});
+
 test("changed files come from the merge base, list renames as both paths, and never guess", (t) => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-affected-"));
   t.after(() => fs.rmSync(repo, { recursive: true, force: true }));
