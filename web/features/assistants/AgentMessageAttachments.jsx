@@ -99,8 +99,8 @@ function UnavailableAttachment({ file }) {
 
 // The owner's files in a sent message, or the files an agent shared (`shared`):
 // thumbnails that open the image in the in-app viewer, videos and audio that play
-// inline, and chips that save the file. Nothing navigates away: a home-screen app (iOS) has no way back. Both are
-// served through the signed-in route by id.
+// inline, and chips that save the file. Nothing navigates away: a home-screen app
+// (iOS) has no way back. All are served through the signed-in route by id.
 export default function AgentMessageAttachments({ files, shared = false }) {
   const [open, setOpen] = useState(null);
   if (!files?.length) return null;

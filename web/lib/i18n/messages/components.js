@@ -4,3 +4,4 @@ import { localizedCopy } from "../index.js";
 export const paginationCopy = localizedCopy(de.paginationCopy, en.paginationCopy);
 export const apiCopy = localizedCopy(de.apiCopy, en.apiCopy);
 export const imageViewerCopy = localizedCopy(de.imageViewerCopy, en.imageViewerCopy);
+export const fileLinkCopy = localizedCopy(de.fileLinkCopy, en.fileLinkCopy);

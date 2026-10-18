@@ -1,0 +1,11 @@
+/* A save that failed in the home-screen app (FileLink.jsx). */
+.file-link-error {
+  display: block;
+  color: var(--error-text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.file-link-name {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

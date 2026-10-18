@@ -1,20 +1,10 @@
 import { apiError } from "../../lib/api.js";
 import { saveBlob } from "../../lib/standalone.js";
+import { downloadName } from "../../lib/download-name.js";
 import { observeBuild } from "../../lib/build-check.js";
 
-/** The file name a download response names (RFC 5987 first), or `fallback`. */
-export function downloadName(header, fallback) {
-  const value = String(header || "");
-  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(value);
-  if (encoded)
-    try {
-      return decodeURIComponent(encoded[1].trim());
-    } catch {
-      // A malformed name falls back to the plain one.
-    }
-  const plain = /filename="([^"]*)"/i.exec(value);
-  return plain?.[1] || fallback;
-}
+// One Content-Disposition parser for every download (lib/download-name.js).
+export { downloadName };
 
 /**
  * Saves the artifact through a blob link, so an installed home-screen app never

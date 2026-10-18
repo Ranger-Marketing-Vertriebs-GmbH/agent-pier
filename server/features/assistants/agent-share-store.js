@@ -53,6 +53,7 @@ export class SharedFiles {
   constructor(attachments) {
     // Copies proven once by their bytes; Range requests then reuse the proof.
     this.verified = new Map();
+    this.checking = new Map();
     this.a = attachments;
     this.swept = 0;
     // A test seam; the app keeps the defaults.
@@ -300,12 +301,20 @@ export class SharedFiles {
         throw Error("file");
       const key = identity(stat);
       if (this.verified.get(file.id) !== key) {
-        const typed = mediaType(await reader(handle)(0, VIDEO_HEAD_BYTES));
-        if (
-          typed?.type !== file.type ||
-          (await hashFile(handle, file.size)) !== file.sha256
-        )
-          throw Error("file");
+        // Safari asks for many ranges at once: one check per file identity runs.
+        const check = `${file.id}|${key}`;
+        if (!this.checking.has(check))
+          this.checking.set(
+            check,
+            (async () => {
+              const typed = mediaType(await reader(handle)(0, VIDEO_HEAD_BYTES));
+              return (
+                typed?.type === file.type &&
+                (await hashFile(handle, file.size)) === file.sha256
+              );
+            })().finally(() => this.checking.delete(check)),
+          );
+        if (!(await this.checking.get(check))) throw Error("file");
         this.verified.delete(file.id);
         this.verified.set(file.id, key);
         if (this.verified.size > MAX_VERIFIED)
