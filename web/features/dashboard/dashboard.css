@@ -148,23 +148,14 @@
   color: #929397;
   white-space: nowrap;
 }
-.tool-state i {
-  width: 4px;
-  height: 4px;
-  background: #7a7b7f;
-  border-radius: 100%;
+.tool-state .status-dot {
+  --status-dot-size: 5px;
 }
 .tool-state.available {
   color: #bdbec2;
 }
-.tool-state.available i {
-  background: #f49a58;
-}
 .tool-state.update-required {
   color: var(--warning);
-}
-.tool-state.update-required i {
-  background: var(--warning);
 }
 .tool-card .tool-version {
   display: block;

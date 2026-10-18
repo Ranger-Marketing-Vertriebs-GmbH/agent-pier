@@ -106,7 +106,7 @@
 .key-field-saved {
   flex: 1;
   font-size: 13px;
-  color: #9fd3a8;
+  color: var(--success);
 }
 .accounts-confirmation,
 .accounts-detail .assistant-restart-confirmation {
@@ -155,7 +155,7 @@
 }
 .accounts-detail-danger .danger-text {
   border-color: #754b42;
-  color: #e7a3a3;
+  color: var(--error-text);
 }
 
 .accounts-actions-row {

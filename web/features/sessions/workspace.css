@@ -91,21 +91,11 @@
   font-size: var(--font-size-xs);
   color: #999a9e;
 }
-.connection i {
-  width: 5px;
-  height: 5px;
-  background: #bda475;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.connection.connected i {
-  background: #f49a58;
+.connection .status-dot {
+  --status-dot-size: 5px;
 }
 .connection.disconnected {
   color: #d1b385;
-}
-.connection.ended i {
-  background: #898a8e;
 }
 .terminal-shell {
   position: relative;

@@ -60,11 +60,7 @@
   white-space: nowrap;
 }
 .assistant-header-dot {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-meta);
+  --status-dot-size: 6px;
 }
 .assistant-header-label {
   flex: none;
@@ -74,28 +70,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.assistant-header-status.ready .assistant-header-dot {
-  background: var(--success);
-}
 .assistant-header-status.ready .assistant-header-label {
   color: var(--success-muted);
 }
 .assistant-header-status:is(.working, .waiting, .attention) .assistant-header-label {
   color: var(--accent-text);
-}
-.assistant-header-status.working .assistant-header-dot {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.assistant-header-status.waiting .assistant-header-dot {
-  width: 8px;
-  height: 8px;
-  border: 2px solid var(--accent-text);
-  background: transparent;
-}
-.assistant-header-status.attention .assistant-header-dot {
-  border: 1px dashed var(--accent-text);
-  background: transparent;
 }
 .assistant-header-status.missing .assistant-header-dot {
   display: none;
@@ -242,11 +221,7 @@
   color: var(--accent-text);
 }
 .assistant-run-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  --status-dot-size: 6px;
 }
 .assistant-transcript .assistant-event {
   margin: 0;

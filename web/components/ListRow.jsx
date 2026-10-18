@@ -1,5 +1,6 @@
 import React, { useId } from "react";
 import Icon from "./Icon.jsx";
+import StatusDot from "./StatusDot.jsx";
 import { InfoHintButton, InfoHintText, useInfoHint } from "./InfoHint.jsx";
 import { isPlainClick } from "./link-click.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
@@ -26,7 +27,7 @@ function Trailing({ value, status }) {
   if (status)
     return (
       <span className={`list-row-status ${status.tone}`}>
-        {status.tone !== "warn" && <span className="dot" aria-hidden="true" />}
+        {status.tone !== "warn" && <StatusDot tone={status.tone} className="dot" />}
         {status.text}
       </span>
     );

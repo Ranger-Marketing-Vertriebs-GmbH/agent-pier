@@ -1,4 +1,6 @@
 import React from "react";
+import StatusDot from "../../components/StatusDot.jsx";
+import { chipTone } from "../../components/status-tones.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { serverText } from "../../lib/server-messages.js";
@@ -64,7 +66,7 @@ function StageAttempts({ run, node }) {
               : "pending";
           return (
             <li key={entry.id || index}>
-              <span className={`run-dot tone-${tone}`} aria-hidden="true" />
+              <StatusDot tone={chipTone(tone)} className="run-dot" />
               <strong>{copy.attemptNumber(index + 1)}</strong>
               <span>{attemptKindLabel(entry.kind)}</span>
               <span>
@@ -104,10 +106,7 @@ export default function StageDetail({ run, node, index, navigate, refresh, gate 
           <div className="run-stage-title">
             <h3 id={`run-stage-${node.id}`}>{stageName(node)}</h3>
             <span className="run-stage-state">
-              <span
-                className={`run-dot tone-${stageTone(run, node)}`}
-                aria-hidden="true"
-              />
+              <StatusDot tone={chipTone(stageTone(run, node))} className="run-dot" />
               <span className="pipeline-run-status">{stageStatus(run, node)}</span>
             </span>
           </div>
@@ -127,7 +126,7 @@ export default function StageDetail({ run, node, index, navigate, refresh, gate 
       ) : (
         node.gateDecision && (
           <p className="run-gate-confirmation">
-            <span className="run-dot tone-ok" aria-hidden="true" />
+            <StatusDot tone="ok" className="run-dot" />
             {gateDecisionLabel(node.gateDecision)}
           </p>
         )
