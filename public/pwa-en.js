@@ -12,6 +12,10 @@ self.agentPierNotificationCopyEn = {
     title: "AgentPier: Response ready",
     body: "Open AgentPier to see the latest progress.",
   },
+  "session-waiting": {
+    title: "AgentPier: Session waiting",
+    body: "A session is waiting for you in the terminal.",
+  },
   "session-ended": {
     title: "AgentPier: Session ended",
     body: "Open AgentPier to see the status.",

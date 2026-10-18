@@ -144,7 +144,11 @@ export async function createServices(config) {
     repositories,
   });
   await github.sync();
-  const activity = new SessionActivity({ sessions });
+  const activity = new SessionActivity({
+    sessions,
+    hooks: (session) => bindings.activity(session),
+    pending: (id) => requests?.hasPending(id),
+  });
   const models = new ModelController({ sessions });
   const chatAttachments = new ChatAttachments({ dataDir: config.dataDir, sessions });
   const chatImages = new ChatImages({

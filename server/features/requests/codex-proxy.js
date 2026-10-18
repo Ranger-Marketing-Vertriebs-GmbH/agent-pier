@@ -3,9 +3,16 @@ import readline from "node:readline";
 import { randomBytes, randomUUID } from "node:crypto";
 import { observeHookTrust } from "./codex-hook-trust.js";
 import { codexRequest } from "./codex-protocol.js";
+import { codexActivityTracker } from "./codex-activity.js";
 
 /** One real TUI connection and one stdio app-server. Both UIs race at this sole native owner. */
-export async function createCodexProxy({ input, output, channel }) {
+export async function createCodexProxy({
+  input,
+  output,
+  channel,
+  onActivity = () => {},
+}) {
+  const activity = codexActivityTracker(onActivity);
   const capability = randomBytes(32).toString("hex");
   const server = new WebSocketServer({
     host: "127.0.0.1",
@@ -74,6 +81,7 @@ export async function createCodexProxy({ input, output, channel }) {
   lines.on("line", (line) => {
     try {
       const message = JSON.parse(line);
+      if (message.id === undefined) activity(message);
       if (tui?.readyState === WebSocket.OPEN) {
         try {
           hooks.incoming(message);

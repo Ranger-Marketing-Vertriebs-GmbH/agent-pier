@@ -21,11 +21,18 @@ import { pidStart } from "../../../vendor/agentbus/core/proc.js";
 import { findRuntimePid } from "../../../vendor/agentbus/hooks/register.js";
 import { resolveCodexProcess } from "./native-session-process.js";
 import { addGrant } from "../nono/sandbox-grants.js";
+import {
+  claudeHookActivity,
+  readNativeActivity,
+  recordNativeActivity,
+} from "./native-session-activity.js";
 
 const modulePath = fileURLToPath(import.meta.url);
 const validId = (id) =>
   typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
 
+const activityPath = (file) =>
+  receiptPath(file).replace(/\.receipt\.json$/, ".activity.json");
 function receiptPath(file) {
   if (
     typeof file !== "string" ||
@@ -122,6 +129,7 @@ export class NativeSessionBinding {
     if (replace) {
       this.processCache.clear();
       fs.rmSync(receiptPath(file), { force: true });
+      fs.rmSync(activityPath(file), { force: true });
     }
     const token = randomBytes(24).toString("hex");
     const env = {
@@ -177,6 +185,28 @@ export class NativeSessionBinding {
         hooks: { SessionStart: [hook], UserPromptSubmit: [hook] },
       });
       args.push("--plugin-dir", directory);
+      // Activity hooks live in their own plugin: a Claude Code release that rejects
+      // a newer event must not lose the identity hooks above.
+      const activity = path.join(this.directory, `${id}.claude-activity`);
+      ensureDir(path.join(activity, ".claude-plugin"));
+      ensureDir(path.join(activity, "hooks"));
+      writeJsonAtomic(path.join(activity, ".claude-plugin/plugin.json"), {
+        name: "agentpier-activity",
+        version: "1.0.0",
+        description: "Native session activity for AgentPier",
+      });
+      const observe = { hooks: [{ ...hook.hooks[0], async: true }] };
+      writeJsonAtomic(path.join(activity, "hooks/hooks.json"), {
+        hooks: {
+          Stop: [observe],
+          StopFailure: [observe],
+          PermissionRequest: [observe],
+          PreToolUse: [{ matcher: "AskUserQuestion", ...observe }],
+          Elicitation: [observe],
+          SessionEnd: [observe],
+        },
+      });
+      args.push("--plugin-dir", activity);
     }
     if (account.tool === "opencode") {
       if (env.OPENCODE_TUI_CONFIG)
@@ -253,6 +283,11 @@ export class NativeSessionBinding {
         }
       : null;
   }
+  /** What the CLI last reported about its own activity in this launch. */
+  activity(session) {
+    if (!session?.nativeBinding?.enabled) return null;
+    return readNativeActivity(this.directory, session);
+  }
   verifiedReceipt(session) {
     try {
       const file = this.file(session.id);
@@ -289,24 +324,55 @@ export class NativeSessionBinding {
       const file = this.file(id);
       fs.rmSync(file, { force: true });
       fs.rmSync(receiptPath(file), { force: true });
-      fs.rmSync(path.join(this.directory, `${id}.claude`), {
-        recursive: true,
-        force: true,
-      });
+      fs.rmSync(activityPath(file), { force: true });
+      for (const plugin of [`${id}.claude`, `${id}.claude-activity`])
+        fs.rmSync(path.join(this.directory, plugin), { recursive: true, force: true });
       fs.rmSync(path.join(this.directory, `${id}.tui.json`), { force: true });
     } catch {}
   }
 }
-export async function runNativeSessionHook() {
+// These Claude Code events only report activity; they carry no new identity.
+const activityOnly = new Set([
+  "Stop",
+  "StopFailure",
+  "PermissionRequest",
+  "PreToolUse",
+  "Elicitation",
+  "SessionEnd",
+]);
+export async function runNativeSessionHook({
+  env = process.env,
+  input = process.stdin,
+} = {}) {
+  const at = Date.now();
+  const warn = (error) =>
+    process.stderr.write(`agentpier-reader: ${String(error.message).slice(0, 240)}\n`);
+  let payload;
   try {
     let text = "";
-    for await (const chunk of process.stdin) {
+    for await (const chunk of input) {
       text += chunk;
       if (text.length > 1024 * 1024) throw Error("Native hook payload is too large");
     }
-    recordNativeSession(text.trim() ? JSON.parse(text) : {});
+    payload = text.trim() ? JSON.parse(text) : {};
   } catch (error) {
-    process.stderr.write(`agentpier-reader: ${String(error.message).slice(0, 240)}\n`);
+    return warn(error);
+  }
+  if (!activityOnly.has(payload?.hook_event_name))
+    try {
+      recordNativeSession(payload, env);
+    } catch (error) {
+      warn(error);
+    }
+  try {
+    // Codex reports its turns through the app-server proxy instead.
+    const activity =
+      readJson(env.AGENTPIER_NATIVE_BINDING_FILE).tool === "claude"
+        ? claudeHookActivity(payload)
+        : null;
+    if (activity) recordNativeActivity({ ...activity, at }, env);
+  } catch (error) {
+    warn(error);
   }
 }
 

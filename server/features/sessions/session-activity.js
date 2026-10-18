@@ -1,7 +1,9 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { promisify, stripVTControlCharacters } from "node:util";
 import { parseModelPicker } from "../models/model-parser.js";
+import { hookQuietMs, hookStaleMs, mergeActivity } from "./session-activity-merge.js";
 const execute = promisify(execFile);
 const labels = {
   working: serverMessages.sessions.activityWorking,
@@ -138,8 +140,15 @@ export class SessionActivity {
     concurrency = 3,
     now = Date.now,
     staleMs = 10000,
+    // The CLI's own report (hooks, app-server, plugin) and AgentPier's open requests.
+    hooks = () => null,
+    pending = () => false,
+    quietMs = hookQuietMs,
+    hookStaleMs: reportStaleMs = hookStaleMs,
   } = {}) {
     this.sessions = sessions;
+    Object.assign(this, { hooks, pending, quietMs, reportStaleMs });
+    this.screens = new Map();
     this.cacheMs = cacheMs;
     this.now = now;
     this.staleMs = staleMs;
@@ -217,7 +226,9 @@ export class SessionActivity {
     entry.promise = this.slot(async () => {
       let parsed;
       try {
-        parsed = parseSessionActivity(session.tool, await this.screen(session));
+        const raw = await this.screen(session);
+        this.screenChanged(session.id, raw);
+        parsed = parseSessionActivity(session.tool, raw);
       } catch {
         parsed = result("unknown");
       }
@@ -239,10 +250,25 @@ export class SessionActivity {
         )
           state = "unknown";
       } else this.observations.delete(key);
+      let hook = null,
+        pending = false;
+      try {
+        hook = await this.hooks(session);
+        pending = !!(await this.pending(session.id));
+      } catch {}
+      const merged = mergeActivity({
+        pane: state,
+        hook,
+        pending,
+        now: time,
+        paneChangedAt: this.screens.get(session.id)?.changedAt,
+        quietMs: this.quietMs,
+        staleMs: this.reportStaleMs,
+      });
       entry.pending = false;
       entry.time = time;
-      return result(state, {
-        source: "native-terminal",
+      return result(merged.state, {
+        ...merged,
         observedAt: new Date(time).toISOString(),
       });
     });
@@ -259,8 +285,16 @@ export class SessionActivity {
       })),
     );
   }
+  /** Remember when the screen last changed; a working CLI keeps animating it. */
+  screenChanged(id, raw) {
+    const digest = createHash("sha1").update(String(raw)).digest("hex");
+    const previous = this.screens.get(id);
+    if (previous?.digest !== digest)
+      this.screens.set(id, { digest, changedAt: this.now() });
+  }
   remove(id) {
     this.cache.delete(id);
+    this.screens.delete(id);
     for (const key of this.observations.keys())
       if (JSON.parse(key)[0] === id) this.observations.delete(key);
   }
