@@ -81,6 +81,8 @@ Kein `tailscale serve reset` verwenden, wenn andere Freigaben bestehen. Anmelded
 
 > WARNUNG: Netzwerkzugriff ohne TLS. Passwort und Inhalte gehen unverschlüsselt durchs Netz. Keine Push-Benachrichtigungen und keine PWA-Installation. Nur in vertrauenswürdigen Netzen verwenden und keine Portweiterleitung ins Internet einrichten. Auch über IPv6 oder eine öffentliche Adresse darf der Port nicht aus dem Internet erreichbar sein; im Zweifel die Firewall des Rechners prüfen.
 
+Ohne HTTPS gibt der Browser auch das Mikrofon nicht frei: Das Diktat in den Chats ist im Netzwerkmodus nicht verfügbar, der Mikrofonknopf erklärt das. Über Tailscale Serve (HTTPS) oder auf localhost funktioniert es.
+
 Dieser Warntext erscheint sowohl in der Bestätigung auf der Einstellungsseite als auch beim Einschalten über das Skript. Er lässt sich nicht abschalten, solange der Netzwerkmodus aktiv ist.
 
 ### Einschalten über die Einstellungen

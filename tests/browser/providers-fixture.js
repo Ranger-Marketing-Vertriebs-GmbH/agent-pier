@@ -365,6 +365,11 @@ export async function fixture(page, { account, session } = {}) {
       state.accounts = [next];
       return route.fulfill({ json: next });
     }
+    // The composers ask once whether they can offer dictation (dictation.spec.js).
+    if (path === "/api/dictation")
+      return route.fulfill({
+        json: { available: false, reason: "notConfigured", autoSend: false },
+      });
     if (path.endsWith("/chat"))
       return route.fulfill({ json: { availability: "ready", messages: [], tasks: [] } });
     if (path.endsWith("/models/cancel")) {

@@ -12,6 +12,7 @@ import { ACCEPT } from "./agent-attachment-upload.js";
 import { assistantAttachmentsCopy as attachCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 import MemberMentionMenu from "./MemberMentionMenu.jsx";
 import useMemberMention from "./useMemberMention.js";
+import DictationButton from "../dictation/DictationButton.jsx";
 
 const maxHeight = 6 * 22;
 const optionsId = "assistant-composer-options";
@@ -107,6 +108,8 @@ export default function AssistantComposer({
     setTeamAllowed(value);
     drafts.allowTeam(conversationId, value);
   };
+  // Keyed by chat: switching chats ends a running dictation.
+  const mic = <DictationButton key={conversationId} text={text} onText={change} />;
   const queueing = active || Boolean(queued);
   const canQueue = Boolean(queueing && (text.trim() || ready) && !attachments.blocked);
   const later = canQueue && (
@@ -241,6 +244,7 @@ export default function AssistantComposer({
         />
         {member ? (
           <>
+            {mic}
             {later}
             {submit}
           </>
@@ -258,6 +262,7 @@ export default function AssistantComposer({
               </button>
             )}
             {!mobile && <span className="assistant-composer-hint">{hint}</span>}
+            {mic}
             {later}
             {submit}
           </div>

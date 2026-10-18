@@ -192,7 +192,7 @@ export const assistantCopy = {
   speech: {
     title: "Spracherkennung",
     description:
-      "Ein zentraler Deepgram-Zugang für Sprachnachrichten deiner Agenten. Audio wird zur Transkription an Deepgram gesendet.",
+      "Ein zentraler Deepgram-Zugang für Sprachnachrichten deiner Agenten und das Diktat in den Chats. Audio wird zur Transkription an Deepgram gesendet.",
     saved: "Schlüssel gespeichert",
     missing: "Kein Schlüssel eingerichtet",
     key: "Deepgram-API-Schlüssel",
@@ -203,6 +203,9 @@ export const assistantCopy = {
     english: "Englisch",
     save: "Spracheinstellungen speichern",
     remove: "Sprachschlüssel entfernen",
+    dictationSend: "Diktierte Nachrichten sofort senden",
+    dictationSendHint:
+      "Aus: Der diktierte Text bleibt im Nachrichtenfeld, damit du ihn vor dem Senden bearbeiten kannst.",
   },
   channel: assistantChannelCopy,
   accountsTitle: "ChatGPT für Agenten",

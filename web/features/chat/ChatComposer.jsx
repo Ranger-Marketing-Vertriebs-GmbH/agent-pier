@@ -5,6 +5,7 @@ import React, { useEffect, useLayoutEffect, useRef } from "react";
 import SlashCompletion from "./SlashCompletion.jsx";
 import useSlashCompletion from "./useSlashCompletion.js";
 import ChatAttachments from "./ChatAttachments.jsx";
+import DictationButton from "../dictation/DictationButton.jsx";
 import { enterKeyHint, sendHint, shouldSubmitOnEnter } from "./enter-submit.js";
 export default function ChatComposer({
   submit,
@@ -128,6 +129,20 @@ export default function ChatComposer({
               ? copy.messageSent
               : sendHint(touchInput)}
         </span>
+        <DictationButton
+          text={text}
+          onText={(value) => {
+            setText(value);
+            setSent(false);
+          }}
+          disabled={
+            locked ||
+            modelPending ||
+            session.pipeline?.headless ||
+            session.status !== "running" ||
+            session.purpose === "login"
+          }
+        />
         <button
           ref={sendButton}
           className="button primary chat-send"

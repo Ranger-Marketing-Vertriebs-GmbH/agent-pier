@@ -186,7 +186,7 @@ export const assistantCopy = {
   speech: {
     title: "Speech recognition",
     description:
-      "Use one central Deepgram connection for agent voice messages. Audio is sent to Deepgram for transcription.",
+      "Use one central Deepgram connection for agent voice messages and dictation in the chats. Audio is sent to Deepgram for transcription.",
     saved: "Key saved",
     missing: "No key configured",
     key: "Deepgram API key",
@@ -197,6 +197,9 @@ export const assistantCopy = {
     english: "English",
     save: "Save speech settings",
     remove: "Remove speech key",
+    dictationSend: "Send dictated messages right away",
+    dictationSendHint:
+      "Off: the dictated text stays in the message field so you can edit it before sending.",
   },
   channel: assistantChannelCopy,
   accountsTitle: "ChatGPT for agents",

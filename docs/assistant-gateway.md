@@ -561,6 +561,37 @@ use Ogg, with a 10 MiB / ten-minute cap. Downloaded bytes are bounded during rea
 kept transiently in memory and cleared after use; no audio files are retained.
 There are at most four active processing workers and eight long polls per process.
 
+### Live dictation in the chats
+
+The same Deepgram connection powers the microphone in both chat composers: the agent
+chat and the chat view of a coding session (Claude Code, Codex, OpenCode). Tap the
+microphone, speak, and the words appear live in AgentPier's message field, where
+interim results are replaced by final ones; tap again to stop. The text stays in the
+field for editing; **Send dictated messages right away** in the speech settings sends
+it once the dictation ends (off by default). The session chat fills AgentPier's
+composer, never the CLI's own input line.
+
+The browser records with an audio worklet and streams 16 kHz mono PCM, so Chrome,
+Safari and Firefox send the same format. It goes over `/api/dictation/stream`, a
+WebSocket behind the login and the origin check like the chat stream. AgentPier opens
+Deepgram's live endpoint with the stored key in the `Authorization` header (the
+key never reaches the browser and is held only for the handshake, so the speech
+settings stay editable) and relays interim and final transcripts. Model and language
+come from the speech settings; **Detect automatically** streams as Nova-3's
+`multi`, because live streaming cannot detect the language. Audio is forwarded, never
+stored, and each forwarded buffer is zeroed. Neither audio nor text reaches logs or the
+audit, which records `speech.completed` with the dictation's length in seconds.
+
+Limits: five minutes per dictation, eight seconds without audio, one dictation per
+login session (a newer one replaces it), at most four at once, and 20 starts per login
+session in ten minutes. Hiding the page (a locked phone, another app) stops it. Without
+a key, with agents turned off, or over plain HTTP from another device (microphone
+access needs HTTPS or localhost, for example through Tailscale Serve) the microphone
+stays visible but explains why it is unavailable. An opt-in contract test runs against
+the real endpoint only with a key of its own in `AGENTPIER_DEEPGRAM_TEST_KEY`.
+
+### Telegram feedback
+
 Newly accepted inputs receive one best-effort 👀 reaction. During transcription and
 response processing, a separate worker refreshes Telegram's typing indicator every
 four seconds. Feedback is limited to the paired source chat/user. Typing refreshes stop for blocked

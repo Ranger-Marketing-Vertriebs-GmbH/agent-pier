@@ -20,6 +20,7 @@ export default function Icon({ name, size = 18, fill = false, ...props }) {
     menu: "M4 6h16M4 12h16M4 18h16",
     edit: "m16 3 5 5-12 12-6 1 1-6Z",
     stop: "M6 6h12v12H6Z",
+    mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 9a7 7 0 0 0 14 0m-7 7v3",
     trash: "M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7",
     link: "m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",
     chevron: "m9 5 7 7-7 7",

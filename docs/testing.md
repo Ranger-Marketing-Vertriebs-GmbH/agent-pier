@@ -97,6 +97,15 @@ AGENTPIER_GITHUB_MCP_CONTRACT=1 node --test tests/integration/github-mcp-contrac
 The second form downloads and checks the pinned release into a temporary folder first.
 Without either variable the test is reported as skipped.
 
+The Deepgram live dictation contract is opt-in too. It streams a second of a quiet tone
+through `DictationService` to Deepgram's real live endpoint and expects a clean
+close after `CloseStream`. It uses only a key of its own, never a key stored in
+AgentPier, and is reported as skipped without one:
+
+```sh
+AGENTPIER_DEEPGRAM_TEST_KEY=... node --test tests/integration/dictation-deepgram-live.test.js
+```
+
 The launch matrix exercises actual `AccountStore` commands and generated profile configuration. It does not start Codex, Claude Code or OpenCode, and does not prove that a remote provider accepts a model, endpoint or entitlement. Provider-specific matrices and isolated MCP tests cover those contracts separately.
 
 The platform matrix checks the installation availability policy for macOS/Linux/Windows, ARM64/x64/ia32 and npm presence. It does not execute native binaries on simulated platforms. Run the blackbox suite on real macOS and Linux CI workers; an in-process platform parameter is not cross-platform runtime evidence.

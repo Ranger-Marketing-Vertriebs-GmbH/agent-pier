@@ -325,6 +325,15 @@ All three need a paired Telegram chat and live in the agent's **Telegram** tab.
   hours, and write only when something needs your attention. It needs **Remember
   information**. Each check-in costs a model run.
 
+## Dictation
+
+The microphone next to the send button dictates into the message field: tap it, speak,
+and the words appear live; tap again to stop. The text stays in the field for editing
+unless **Send dictated messages right away** is on under **Accounts → Services for
+agents → Speech recognition**. Dictation uses that Deepgram key and needs HTTPS or
+localhost for microphone access; the coding session chat offers the same microphone.
+Details and limits: [live dictation](assistant-gateway.md#live-dictation-in-the-chats).
+
 ## Messages while the agent works
 
 While the agent works on a message, **Stop** replaces the send button and is the only

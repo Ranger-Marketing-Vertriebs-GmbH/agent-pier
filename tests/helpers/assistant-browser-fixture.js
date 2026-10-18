@@ -14,6 +14,13 @@ export async function fulfillDormantAssistantRequest(route) {
     await route.fulfill({ json: { finds: [], problems: [] } });
     return true;
   }
+  // Dormant agents bring no speech connection: the composers' microphone explains it.
+  if (path === "/api/dictation") {
+    await route.fulfill({
+      json: { available: false, reason: "agentsOff", autoSend: false },
+    });
+    return true;
+  }
   if (path !== "/api/assistant-feature") return false;
   await route.fulfill({ json: { enabled: false, error: null } });
   return true;
