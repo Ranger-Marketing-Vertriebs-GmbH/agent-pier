@@ -249,7 +249,7 @@ export class TeamBridge {
     if (!allow && isMemory(input.path)) noteRefusal(this, input);
     return { allow };
   }
-  // Every image_generate call is checked and counted (image-policy.js).
+  // Every image_generate call is checked and audited (image-policy.js).
   imagePolicy(input) {
     if (this.closed || !this.assistants.imagePolicy)
       return { allow: false, reason: "unavailable" };

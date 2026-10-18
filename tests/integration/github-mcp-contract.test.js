@@ -120,15 +120,15 @@ test(
       "push_files",
       "actions_list",
       "actions_get",
-    ])
-      assert.ok(writeTools.includes(name), name);
-    for (const name of [
-      "delete_repository",
+      // Nothing is excluded at this level (AGENTPIER-134).
+      "actions_run_trigger",
       "create_repository",
       "fork_repository",
-      "actions_run_trigger",
     ])
-      assert.ok(!writeTools.includes(name), name);
+      assert.ok(writeTools.includes(name), name);
+    // The server itself withholds delete_repository while no request-state key
+    // (GITHUB_MCP_SERVER_MRTR_STATE_KEY) protects its confirmation round trip.
+    assert.ok(!writeTools.includes("delete_repository"));
     // The token never shows up in a tool result or the server's log output.
     assert.doesNotMatch(JSON.stringify(result), new RegExp(token));
     assert.doesNotMatch(read.stderr() + write.stderr(), new RegExp(token));

@@ -10,7 +10,7 @@ export const assistantGithubCopy = {
   levelHints: {
     read: "Repositories, issues, pull requests and Actions runs, read only.",
     write:
-      "Also comments on and creates issues and pull requests, merges pull requests, pushes, changes and deletes files. Creating, forking and deleting repositories and starting workflows stay off.",
+      "Also comments on and creates issues and pull requests, merges pull requests, pushes, changes and deletes files, runs workflows and creates, forks and deletes repositories.",
   },
   summary: (level, profile) => `${level} · ${profile}`,
   agentDefault: "Default for agents",
@@ -21,7 +21,7 @@ export const assistantGithubCopy = {
   shellNote:
     "With shell access, gh and git in this agent's commands use this profile instead of your own login.",
   writeWarning:
-    "The agent can comment, open and merge pull requests, push changes and delete files in your name without an approval per change. Content it reads on GitHub can steer it.",
+    "The agent can comment, open and merge pull requests, push changes, delete files, run workflows and create, fork and delete repositories in your name without an approval per change. A deleted repository cannot always be restored. Content it reads on GitHub can steer it.",
   memoryNote:
     "Each profile and level runs its own GitHub MCP server, started for every agent session (about 45 MB of memory each).",
   server: {

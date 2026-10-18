@@ -116,7 +116,7 @@ test("English Work tab grants GitHub with the default profile, warns on missing 
   await expect(page.locator("[data-github-scopes]")).toHaveCount(0);
   await page.getByLabel("Read and write", { exact: true }).check();
   await expect(
-    page.getByText(/merge pull requests, push changes and delete files/),
+    page.getByText(/run workflows and create, fork and delete repositories in your name/),
   ).toBeVisible();
   await expect(page.getByText(/about 45 MB of memory each/)).toBeVisible();
   // A failed install of the MCP server can be retried here.

@@ -8,10 +8,7 @@ import {
   imageRefusals,
 } from "../../server/features/assistants/team-plugin/tool-guard.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
-import {
-  ImagePolicy,
-  DAILY_IMAGE_LIMIT,
-} from "../../server/features/assistants/image-policy.js";
+import { ImagePolicy } from "../../server/features/assistants/image-policy.js";
 
 // A bridge that answers like AgentPier and records what the hook asked.
 function bridge(answer = { allow: true }) {
@@ -87,7 +84,7 @@ test("only OpenAI image models, well-formed references and a reachable AgentPier
   assert.equal(allowed.asked.at(-1).body.action, "status");
 });
 
-function policy(t, capabilities, now = () => Date.parse("2026-10-18T10:00:00Z")) {
+function policy(t, capabilities) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "image-policy-"));
   const store = new AssistantStore({ dataDir });
   t.after(() => {
@@ -106,7 +103,6 @@ function policy(t, capabilities, now = () => Date.parse("2026-10-18T10:00:00Z"))
   const audit = [];
   const images = new ImagePolicy({
     assistants: { store, audit: { append: (event) => audit.push(event) } },
-    now,
   });
   const ask = (input = {}) =>
     images.check({
@@ -119,20 +115,15 @@ function policy(t, capabilities, now = () => Date.parse("2026-10-18T10:00:00Z"))
   return { images, ask, audit, agent, store };
 }
 
-test("each generation counts against the agent's daily limit and is audited without its prompt", (t) => {
-  let day = Date.parse("2026-10-18T10:00:00Z");
-  const f = policy(t, { createImages: true }, () => day);
-  assert.equal(DAILY_IMAGE_LIMIT, 30);
-  for (let n = 0; n < DAILY_IMAGE_LIMIT; n++) assert.deepEqual(f.ask(), { allow: true });
-  assert.deepEqual(f.ask(), { allow: false, reason: "limit" });
-  // Status reads never count.
+test("generations have no daily limit and each is audited without its prompt", (t) => {
+  const f = policy(t, { createImages: true });
+  for (let n = 0; n < 40; n++) assert.deepEqual(f.ask(), { allow: true });
+  // Status reads are not audited as generations.
   assert.deepEqual(f.ask({ action: "status" }), { allow: true });
-  assert.equal(f.audit.length, DAILY_IMAGE_LIMIT);
-  assert.deepEqual(f.audit.at(-1).details, { kind: "image-generation", count: 30 });
+  assert.equal(f.audit.length, 40);
+  assert.deepEqual(f.audit.at(-1).details, { kind: "image-generation" });
   assert.equal(JSON.stringify(f.audit).includes("prompt"), false);
-  // A new day starts again.
-  day += 24 * 3600 * 1000;
-  assert.deepEqual(f.ask(), { allow: true });
+  assert.equal("limit" in imageRefusals, false);
 });
 
 test("the capability, web reading for remote references and a known agent are required", (t) => {
