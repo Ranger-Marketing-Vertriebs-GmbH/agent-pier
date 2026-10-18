@@ -59,9 +59,15 @@ export async function removeChecked(folder, trash, owner) {
     throw unsafe();
   }
   const moved = await fs.lstat(aside, { bigint: true }).catch(() => null);
-  if (moved && !moved.isDirectory() && folder.directory === false) {
-    await fs.unlink(aside);
-    return true;
+  // A checked non-directory is only ever unlinked: a directory in its place is put
+  // back, even with the same inode number (Linux reuses a freed one at once).
+  if (folder.directory === false) {
+    if (moved && !moved.isDirectory()) {
+      await fs.unlink(aside);
+      return true;
+    }
+    await fs.rename(aside, folder.path).catch(() => {});
+    throw unsafe();
   }
   if (!moved?.isDirectory() || moved.dev !== folder.dev || moved.ino !== folder.ino) {
     await fs.rename(aside, folder.path).catch(() => {});
