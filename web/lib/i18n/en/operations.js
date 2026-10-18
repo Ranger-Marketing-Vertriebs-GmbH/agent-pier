@@ -38,6 +38,8 @@ export const operationsCopy = {
     restore: "Restore the backup to a new directory?",
     activate: (version) => `Activate version ${version}?`,
     rollback: (version) => `Roll back to version ${version}?`,
+    orphans: (version, count) =>
+      `Stop ${count} orphaned process(es) of version ${version}?`,
   },
   confirmLabels: {
     deleteBackup: "Delete now",
@@ -47,6 +49,7 @@ export const operationsCopy = {
     restore: "Restore now",
     activate: "Activate now",
     rollback: "Roll back now",
+    orphans: "Stop now",
   },
   unknown: "Unknown",
   details: "Details",
@@ -195,8 +198,7 @@ export const operationsCopy = {
   orphanedHelp:
     "These processes only run this version's Node, without an AgentPier script, and have no parent process left. They do not block deleting the version; usually they are left-over tests or scripts.",
   orphanedStop: "Stop processes",
-  orphanedConfirm: (version, count) =>
-    `Stop ${count} orphaned process(es) of version ${version}? Unsaved work in them is lost.`,
+  orphanedConsequence: "Unsaved work in them is lost.",
   orphanedStopped: (count) => `${count} process(es) stopped.`,
   migrateSessions: "Show sessions",
   migrateLoading: "Loading sessions …",

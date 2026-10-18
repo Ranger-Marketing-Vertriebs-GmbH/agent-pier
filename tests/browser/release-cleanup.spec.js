@@ -323,10 +323,17 @@ for (const locale of ["de-DE", "en-GB"]) {
         .click();
       expect(stops).toHaveLength(0);
       await page.getByRole("button", { name: stop, exact: true }).click();
-      await page
-        .getByRole("dialog")
-        .getByRole("button", { name: en ? "Confirm" : "Bestätigen", exact: true })
-        .click();
+      const dialog = page.getByRole("dialog", {
+        name: en
+          ? "Stop 1 orphaned process(es) of version 0.9.0?"
+          : "1 verwaiste(n) Prozess(e) der Version 0.9.0 beenden?",
+      });
+      const confirm = dialog.getByRole("button", {
+        name: en ? "Stop now" : "Jetzt beenden",
+        exact: true,
+      });
+      await expect(confirm).toHaveClass(/\bdanger\b/);
+      await confirm.click();
       await expect(page.getByRole("button", { name: stop, exact: true })).toHaveCount(0);
       expect(stops).toEqual([{ pids: [4242] }]);
     });
