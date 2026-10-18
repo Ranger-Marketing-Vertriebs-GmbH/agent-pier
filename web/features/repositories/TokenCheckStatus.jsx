@@ -1,14 +1,15 @@
 import { tokenCheckCopy as copy } from "../../lib/i18n/messages/repositories.js";
+import StatusDot from "../../components/StatusDot.jsx";
 import { formatTimestamp, locale } from "../../lib/i18n/index.js";
 import React from "react";
 
 const date = (value) =>
   new Date(value).toLocaleDateString(locale, { dateStyle: "medium" });
 const tone = {
-  valid: "saved",
+  valid: "ok",
   expiring: "warning",
-  expired: "failed",
-  invalid: "failed",
+  expired: "error",
+  invalid: "error",
 };
 
 /** The last token check of one profile: what GitHub reported, never the token. */
@@ -30,10 +31,7 @@ export default function TokenCheckStatus({ check }) {
   return (
     <div className="token-check" data-state={check.state}>
       <p className="token-check-state">
-        <span
-          className={`github-access-dot ${tone[check.state] || "failed"}`}
-          aria-hidden="true"
-        />
+        <StatusDot tone={tone[check.state] || "error"} className="github-access-dot" />
         {label}
       </p>
       {details.map((detail) => (

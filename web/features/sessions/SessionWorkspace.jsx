@@ -22,6 +22,10 @@ import { routeLabel } from "../provider-connections/route-label.js";
 import ChatView from "../chat/ChatView.jsx";
 import useSessionViewport from "./useSessionViewport.js";
 import SessionGithubStatus from "./SessionGithubStatus.jsx";
+import StatusDot from "../../components/StatusDot.jsx";
+
+// The terminal connection as a status dot: connected is ok, not the accent.
+const connectionTones = { connecting: "waiting", connected: "ok", disconnected: "error" };
 const SessionReloadDialog = lazy(() => import("./SessionReloadDialog.jsx"));
 const PipelineSessionRecovery = lazy(
   () => import("../pipelines/PipelineSessionRecovery.jsx"),
@@ -286,7 +290,7 @@ export default function SessionWorkspace({
         </div>
         {mode !== "files" && (
           <span className={`connection ${connection}`} role="status">
-            <i />
+            <StatusDot tone={connectionTones[connection] ?? "idle"} />
             {
               {
                 connecting: commonCopy.connecting,

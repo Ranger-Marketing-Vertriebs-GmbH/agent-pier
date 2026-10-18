@@ -198,29 +198,25 @@
   border-radius: 4px;
 }
 .tone-ok {
-  color: #86b88e;
+  color: var(--status-ok);
 }
 .tone-error {
-  color: #e5796b;
+  color: var(--status-error);
 }
 .tone-neutral {
-  color: #737478;
+  color: var(--status-idle);
 }
 .tone-pending {
   color: #55565a;
 }
 .tone-running {
-  color: #f49a58;
+  color: var(--status-working);
 }
 .tone-waiting {
-  color: #ffc99d;
+  color: var(--status-waiting);
 }
 .run-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
+  --status-dot-size: 6px;
 }
 .run-stage-detail {
   background: #18191d;

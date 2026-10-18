@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import StatusDot from "../../components/StatusDot.jsx";
+import { activityTone } from "../../components/status-tones.js";
 import { chatObservabilityCopy as copy } from "../../lib/i18n/messages/chat-observability.js";
 import { sessionActivity } from "../sessions/sessionPresentation.js";
 import { subagentHeading } from "./subagent-presentation.js";
@@ -16,14 +18,14 @@ export default function ChatObservability({
   return (
     <div className={`chat-observability${expanded ? " expanded" : ""}`}>
       <span className="chat-activity" role="status" aria-label={copy.activity}>
-        <span
-          className={
-            activity.state === "working"
-              ? "chat-working-spinner"
-              : `activity-dot ${activity.state}`
-          }
-          aria-hidden="true"
-        />
+        {activity.state === "working" ? (
+          <span className="chat-working-spinner" aria-hidden="true" />
+        ) : (
+          <StatusDot
+            tone={activityTone(activity.state)}
+            className={`activity-dot ${activity.state}`}
+          />
+        )}
         {activity.label}
       </span>
       <button

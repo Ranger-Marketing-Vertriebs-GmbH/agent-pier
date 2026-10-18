@@ -128,6 +128,15 @@ test("dashboard shows each CLI's version and which one is below its minimum", as
     "Version 1.18.35",
   );
   await expect(card(page, "OpenCode").locator(".tool-state")).toHaveText("Ready");
+  // Ready is the ok status (green), never the accent; an outdated CLI is a warning.
+  await expect(card(page, "OpenCode").locator(".tool-state .status-dot")).toHaveCSS(
+    "background-color",
+    "rgb(134, 184, 142)",
+  );
+  await expect(claude.locator(".tool-state .status-dot")).toHaveCSS(
+    "background-color",
+    "rgb(232, 183, 101)",
+  );
   await expect(card(page, "Codex").locator(".tool-version")).toHaveText(
     "Version unknown",
   );

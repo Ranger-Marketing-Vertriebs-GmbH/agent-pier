@@ -53,31 +53,25 @@
 .run-status-filters button[aria-pressed="true"] .run-status-count {
   color: #d9b597;
 }
-.run-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--run-status-colour, #737478);
-}
 .run-status-running,
 .run-table-status-running {
-  --run-status-colour: #f49a58;
+  --run-status-colour: var(--status-working);
 }
 .run-status-awaiting-human,
 .run-table-status-awaiting-human {
-  --run-status-colour: #ffc99d;
+  --run-status-colour: var(--status-waiting);
 }
 .run-status-completed,
 .run-table-status-completed {
-  --run-status-colour: #86b88e;
+  --run-status-colour: var(--status-ok);
 }
 .run-status-failed,
 .run-table-status-failed {
-  --run-status-colour: #e5796b;
+  --run-status-colour: var(--status-error);
 }
 .run-status-cancelled,
 .run-table-status-cancelled {
-  --run-status-colour: #737478;
+  --run-status-colour: var(--status-idle);
 }
 .run-table {
   --run-table-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.4fr)
@@ -191,7 +185,7 @@
 .run-table-bar > span {
   display: block;
   height: 100%;
-  background: var(--run-status-colour, #737478);
+  background: var(--run-status-colour, var(--status-idle));
 }
 .run-table-status {
   justify-self: start;

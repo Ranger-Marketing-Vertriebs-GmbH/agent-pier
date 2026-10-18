@@ -1,0 +1,45 @@
+/* StatusDot: the only status dot style; colours come from the --status-* tokens. */
+.status-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: var(--status-dot-size, 7px);
+  height: var(--status-dot-size, 7px);
+  border-radius: 50%;
+  background: var(--status-idle);
+}
+.status-dot-working {
+  background: var(--status-working);
+}
+.status-dot-waiting {
+  background: var(--status-waiting);
+}
+.status-dot-ok {
+  background: var(--status-ok);
+}
+.status-dot-error {
+  background: var(--status-error);
+}
+.status-dot-warning {
+  background: var(--warning);
+}
+.status-dot-pending {
+  opacity: 0.6;
+}
+.status-dot-unknown {
+  background: transparent;
+  border: 1px dashed var(--status-idle);
+}
+.status-dot.pulse {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  animation: status-dot-pulse 1.6s ease-in-out infinite;
+}
+@keyframes status-dot-pulse {
+  50% {
+    box-shadow: 0 0 0 5px var(--accent-faint);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-dot.pulse {
+    animation: none;
+  }
+}

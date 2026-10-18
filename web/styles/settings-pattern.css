@@ -102,22 +102,11 @@ label.list-row-main {
   font-size: 13px;
   white-space: nowrap;
 }
-.list-row-status .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
 .list-row-status.ok {
-  color: #9fd3a8;
-}
-.list-row-status.ok .dot {
-  background: #5fbf75;
+  color: var(--success);
 }
 .list-row-status.error {
-  color: #e7a3a3;
-}
-.list-row-status.error .dot {
-  background: #d66a6a;
+  color: var(--error-text);
 }
 .list-row-status.warn,
 .list-row-pill {
@@ -343,7 +332,7 @@ button.reference-row {
   color: #92949d;
 }
 .save-bar-note.error {
-  color: #e7a3a3;
+  color: var(--error-text);
 }
 .save-bar-note.warning {
   color: #ffc99d;

@@ -4,6 +4,7 @@ import React from "react";
 import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
+import StatusDot from "../../components/StatusDot.jsx";
 import { utilityPages } from "../../lib/providers.js";
 const outdated = (tool) => tool.versionStatus === "update-required";
 export default function DashboardPage({
@@ -22,7 +23,7 @@ export default function DashboardPage({
       <div className="page-topline">
         <span>{copy.pageToplineLabel}</span>
         <span className="subtle">
-          <span className="status-dot running" />
+          <StatusDot tone="ok" />
           {installedToolCount}
           {copy.subtle}
         </span>
@@ -82,7 +83,7 @@ export default function DashboardPage({
             </strong>
           </div>
           <p>
-            <span className="status-dot running" />
+            <StatusDot tone={error ? "error" : "ok"} />
             {error ? commonCopy.serviceUnavailable : copy.workspaceSnapshotDescription}
           </p>
         </div>
@@ -103,7 +104,9 @@ export default function DashboardPage({
                 <span
                   className={`tool-state ${t.installed ? "available" : ""} ${outdated(t) ? "update-required" : ""}`}
                 >
-                  <i />
+                  <StatusDot
+                    tone={outdated(t) ? "warning" : t.installed ? "ok" : "idle"}
+                  />
                   {outdated(t)
                     ? toolInstallerCopy.updateRequiredBadge
                     : t.installed

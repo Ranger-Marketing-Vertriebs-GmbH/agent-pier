@@ -63,7 +63,7 @@ dialog > :last-child > .dialog-actions:last-child {
   color: var(--muted);
 }
 .dialog-actions-note.error {
-  color: #e7a3a3;
+  color: var(--error-text);
 }
 
 /* Selects in dialogs look like the text inputs beside them: same height, padding,
@@ -150,7 +150,7 @@ dialog.file-action-dialog > .file-action-buttons:last-child {
   transform: translateY(-1px);
 }
 .dialog-status-ok::before {
-  background: #86b88e;
+  background: var(--status-ok);
 }
 .dialog-status-pending::before {
   background: #f49a58;
@@ -162,7 +162,7 @@ dialog.file-action-dialog > .file-action-buttons:last-child {
   border-color: #5a3532;
 }
 .dialog-status-error::before {
-  background: #e5796b;
+  background: var(--status-error);
 }
 .dialog-status-action {
   display: flex;
@@ -329,7 +329,7 @@ label.check-row:has(input:disabled) .check-row-text {
 }
 .permission-list svg {
   flex: none;
-  color: #86b88e;
+  color: var(--status-ok);
 }
 .dialog-section-label {
   margin-bottom: -8px;
