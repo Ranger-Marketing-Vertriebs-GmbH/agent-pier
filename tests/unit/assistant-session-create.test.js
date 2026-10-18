@@ -180,3 +180,21 @@ test("opening a conversation reports a catalog that stays unavailable", async (t
     [],
   );
 });
+
+test("scheduled work opens the main chat of a member that is busy with its team", async (t) => {
+  const c = clock(),
+    g = loadingGateway(c),
+    { s, a } = service(t, g, c);
+  // A permanent member in an active team task: an owner turn has to wait.
+  s.teams = {
+    close: async () => {},
+    assertMemberTurn() {
+      throw Object.assign(Error("active"), { status: 409 });
+    },
+  };
+  await assert.rejects(s.openConversation(a.id), { status: 409 });
+  // A reminder, routine or check-in only needs the session to deliver into.
+  const conversation = await s.mainConversation(a.id, { turn: false });
+  assert.equal(conversation.runtimeSessionKey, `agent:${a.runtimeAgentId}:main`);
+  assert.equal((await s.openConversation(a.id).catch(() => null))?.id, conversation.id);
+});

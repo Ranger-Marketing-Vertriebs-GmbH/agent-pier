@@ -293,48 +293,53 @@ test("a member's image joins its lead's chat and the lead's Telegram chat", asyn
   );
 });
 
-test("a routine's run session copies into its chat and its Telegram chat", async (t) => {
-  const f = await setup(t);
-  const agent = f.store.getAssistant(f.agent.id);
-  const session = `agent:${agent.runtimeAgentId}:cron:job-1:run:run-7`;
-  f.service.routines = {
-    runOrigin: (profile, key) =>
-      profile.id === agent.id && key === session
-        ? {
-            binding: {
-              id: "b1",
-              source: {
-                channelId: f.channel.id,
-                chatId: f.channel.chatId,
-                userId: f.channel.userId,
-              },
-            },
-            conversation: f.chat,
-          }
-        : null,
-    results: { forConversation: () => [] },
-  };
-  f.setHistory(imageTurn("routine-run", Date.now() - 5000));
-  f.service.generatedImages.observeRun({
-    event: "chat",
-    payload: { sessionKey: session, state: "final", runId: "run-7" },
+for (const shape of ["telegram", "legacy", "off"])
+  test(`a routine's run session copies into its chat, and Telegram when it delivers there (${shape})`, async (t) => {
+    const f = await setup(t);
+    const target = {
+      channelId: f.channel.id,
+      chatId: f.channel.chatId,
+      userId: f.channel.userId,
+    };
+    // As stored now (Telegram on, off) and before chat delivery (legacy).
+    const binding = {
+      telegram: { id: "b1", source: { assistantId: f.agent.id }, telegram: target },
+      legacy: { id: "b1", source: target },
+      off: { id: "b1", source: target, telegram: null },
+    }[shape];
+    const agent = f.store.getAssistant(f.agent.id);
+    const session = `agent:${agent.runtimeAgentId}:cron:job-1:run:run-7`;
+    f.service.routines = {
+      runOrigin: (profile, key) =>
+        profile.id === agent.id && key === session
+          ? { binding, conversation: f.chat }
+          : null,
+      results: { forConversation: () => [] },
+    };
+    f.setHistory(imageTurn("routine-run", Date.now() - 5000));
+    f.service.generatedImages.observeRun({
+      event: "chat",
+      payload: { sessionKey: session, state: "final", runId: "run-7" },
+    });
+    const [image] = await until(async () => {
+      const found = await shared(f);
+      return found.length ? found : null;
+    });
+    assert.equal(image.attachments[0].kind, "image");
+    assert.equal(f.calls[0].sessionKey, session);
+    await f.deliver();
+    assert.deepEqual(
+      f.api.files(token, 42).map((c) => c.method),
+      shape === "off" ? [] : ["sendPhoto"],
+    );
+    // Any other session is left alone.
+    f.service.generatedImages.observeRun({
+      event: "chat",
+      payload: { sessionKey: "agent:ap-other:cron:x", state: "final" },
+    });
+    await delay(30);
+    assert.equal(f.calls.length, 1);
   });
-  const [image] = await until(async () => {
-    const found = await shared(f);
-    return found.length ? found : null;
-  });
-  assert.equal(image.attachments[0].kind, "image");
-  assert.equal(f.calls[0].sessionKey, session);
-  await f.deliver();
-  assert.equal(f.api.files(token, 42)[0].method, "sendPhoto");
-  // Any other session is left alone.
-  f.service.generatedImages.observeRun({
-    event: "chat",
-    payload: { sessionKey: "agent:ap-other:cron:x", state: "final" },
-  });
-  await delay(30);
-  assert.equal(f.calls.length, 1);
-});
 
 test("nothing is copied while AgentPier is in maintenance", async (t) => {
   const f = await setup(t);

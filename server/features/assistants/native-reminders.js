@@ -9,6 +9,7 @@ import {
   deliverableChannel,
   mainConversation,
   pairedChannel,
+  sameTelegram,
   telegramOf,
   telegramTarget,
 } from "./routine-targets.js";
@@ -142,7 +143,10 @@ export class NativeReminders {
   }
   /** The main chat, opened first when the agent has none yet. Callers hold admission. */
   async openMain(id) {
-    return this.mainConversation(id) || (await this.assistants.mainConversation(id));
+    return (
+      this.mainConversation(id) ||
+      (await this.assistants.mainConversation(id, { turn: false }))
+    );
   }
   /** The conversation a binding's results go to: its agent's main chat. */
   conversation(binding) {
@@ -394,10 +398,10 @@ export class NativeReminders {
       };
     });
   }
-  /** Telegram outbox entries: only while the binding still delivers there. */
+  /** Telegram outbox entries: only while the binding still delivers to that chat. */
   acceptsDelivery(entry) {
     const binding = this.bindings.get(entry.source.reminderBindingId);
-    return !!telegramOf(binding) && this.accepts(binding);
+    return sameTelegram(binding, entry) && this.accepts(binding);
   }
   accepts(binding) {
     return (

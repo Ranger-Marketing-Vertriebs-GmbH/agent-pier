@@ -105,62 +105,79 @@ test("the owner deletes a shared file from either chat it shows in", async (t) =
   assert.ok(fs.existsSync(path.join(f.workspaces, member.id, "findings.md")));
 });
 
-test("a routine's run shares into its chat and the Telegram chat it delivers to", async (t) => {
-  const f = await shareFixture(t);
-  const agent = f.store.getAssistant(f.agent.id);
-  f.store.updateAssistant(
-    agent.id,
-    { capabilities: { memory: false, reminders: true } },
-    agent.revision,
-  );
-  const runKey = `agent:${agent.runtimeAgentId}:cron:job-1:run:run-7`;
-  const binding = {
+// A routine binding as stored now (Telegram on, off) and before chat delivery.
+const routineBindings = (channel) => ({
+  telegram: {
     id: "binding-1",
-    source: {
-      channelId: f.channel.id,
-      chatId: f.channel.chatId,
-      userId: f.channel.userId,
-    },
-  };
-  f.service.routines = {
-    runOrigin: (profile, sessionKey) =>
-      profile.id === agent.id && sessionKey === runKey
-        ? { binding, conversation: f.chat }
-        : null,
-    results: { forConversation: () => [] },
-  };
-  f.file(f.agent, "weekly.png", png);
-  const tools = [];
-  plugin.register({
-    pluginConfig: f.connection,
-    registerTool: (factory, options) => tools.push({ factory, options }),
-    on() {},
-  });
-  const create = (sessionKey) =>
-    tools
-      .find((entry) => entry.options.name === "agentpier_share_file")
-      .factory.create({
-        agentId: agent.runtimeAgentId,
-        sessionKey,
-        assertInvocationCurrent() {},
-      });
-  const result = await run(create(runKey), { path: "weekly.png", caption: "Weekly" });
-  assert.equal(result.telegram, "queued");
-  const [message] = await shared(f);
-  assert.equal(message.text, "Weekly");
-  const row = f.service.attachments.db
-    .prepare("SELECT request_id FROM agent_attachments")
-    .get();
-  assert.equal(row.request_id, "share:routine:run-7");
-  await f.deliver();
-  const [upload] = f.api.files(token, 42);
-  assert.deepEqual([upload.method, upload.params.caption], ["sendPhoto", "Weekly"]);
-  // Any other session without a turn shares nothing.
-  await assert.rejects(
-    run(create(`agent:${agent.runtimeAgentId}:cron:job-2`), { path: "weekly.png" }),
-    /FORBIDDEN/,
-  );
+    source: { assistantId: channel.assistantId },
+    telegram: { channelId: channel.id, chatId: channel.chatId, userId: channel.userId },
+  },
+  legacy: {
+    id: "binding-1",
+    source: { channelId: channel.id, chatId: channel.chatId, userId: channel.userId },
+  },
+  off: {
+    id: "binding-1",
+    source: { channelId: channel.id, chatId: channel.chatId, userId: channel.userId },
+    telegram: null,
+  },
 });
+
+for (const shape of ["telegram", "legacy", "off"])
+  test(`a routine's run shares into its chat and Telegram only when it delivers there (${shape})`, async (t) => {
+    const f = await shareFixture(t);
+    const agent = f.store.getAssistant(f.agent.id);
+    f.store.updateAssistant(
+      agent.id,
+      { capabilities: { memory: false, reminders: true } },
+      agent.revision,
+    );
+    const runKey = `agent:${agent.runtimeAgentId}:cron:job-1:run:run-7`;
+    const binding = routineBindings(f.channel)[shape];
+    f.service.routines = {
+      runOrigin: (profile, sessionKey) =>
+        profile.id === agent.id && sessionKey === runKey
+          ? { binding, conversation: f.chat }
+          : null,
+      results: { forConversation: () => [] },
+    };
+    f.file(f.agent, "weekly.png", png);
+    const tools = [];
+    plugin.register({
+      pluginConfig: f.connection,
+      registerTool: (factory, options) => tools.push({ factory, options }),
+      on() {},
+    });
+    const create = (sessionKey) =>
+      tools
+        .find((entry) => entry.options.name === "agentpier_share_file")
+        .factory.create({
+          agentId: agent.runtimeAgentId,
+          sessionKey,
+          assertInvocationCurrent() {},
+        });
+    const result = await run(create(runKey), { path: "weekly.png", caption: "Weekly" });
+    assert.equal(result.telegram, shape === "off" ? undefined : "queued");
+    const [message] = await shared(f);
+    assert.equal(message.text, "Weekly");
+    const row = f.service.attachments.db
+      .prepare("SELECT request_id FROM agent_attachments")
+      .get();
+    assert.equal(row.request_id, "share:routine:run-7");
+    await f.deliver();
+    const uploads = f.api.files(token, 42);
+    if (shape === "off") assert.deepEqual(uploads, []);
+    else
+      assert.deepEqual(
+        [uploads[0].method, uploads[0].params.caption],
+        ["sendPhoto", "Weekly"],
+      );
+    // Any other session without a turn shares nothing.
+    await assert.rejects(
+      run(create(`agent:${agent.runtimeAgentId}:cron:job-2`), { path: "weekly.png" }),
+      /FORBIDDEN/,
+    );
+  });
 
 test("one agent's unsafe share folder never stops the sweep for the others", async (t) => {
   const f = await shareFixture(t);

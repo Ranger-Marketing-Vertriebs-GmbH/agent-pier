@@ -318,7 +318,9 @@ Telegram chat, **Also send to Telegram** sends a reminder, routine or the check-
 there too; it is a switch per reminder and routine (also when creating one) and one
 for all check-ins. Unpairing Telegram only stops that extra delivery; everything keeps
 running in the chat. Reminders and routines created before this kept their Telegram
-delivery.
+delivery. An agent whose check-ins were switched on but which had no paired Telegram
+chat (so it never checked in) starts checking in after the update, in its chat with a
+push notification; switch **Check in on its own** off if you do not want that.
 
 - **Reminders** send a one-time or daily text, shown in the chat marked
   "Scheduled · <name>". You can also ask for one in the chat; one asked for in
