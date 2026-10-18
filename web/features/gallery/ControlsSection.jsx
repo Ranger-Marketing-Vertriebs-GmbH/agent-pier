@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import CheckRow from "../../components/CheckRow.jsx";
+import Checkbox from "../../components/Checkbox.jsx";
+import Switch from "../../components/Switch.jsx";
 import ListCard from "../../components/ListCard.jsx";
 import {
   CheckboxRow,
@@ -20,6 +22,8 @@ export default function ControlsSection() {
   const [radio, setRadio] = useState("a");
   const [checkbox, setCheckbox] = useState(true);
   const [check, setCheck] = useState(false);
+  const [on, setOn] = useState(true);
+  const [box, setBox] = useState(false);
   return (
     <GallerySection id="controls">
       <Specimen label="ToggleRow · NumberRow · SelectRow · RadioRow · CheckboxRow" wide>
@@ -70,6 +74,19 @@ export default function ControlsSection() {
             onChange={setCheckbox}
           />
         </ListCard>
+      </Specimen>
+      <Specimen label="Switch" wide>
+        <Switch label={s.switchLabel} checked={on} onChange={setOn} />
+        <Switch
+          label={copy.variants.disabled}
+          checked={false}
+          onChange={setOn}
+          disabled
+        />
+      </Specimen>
+      <Specimen label="Checkbox" wide>
+        <Checkbox label={s.checkboxLabel} checked={box} onChange={setBox} />
+        <Checkbox label={copy.variants.disabled} checked onChange={setBox} disabled />
       </Specimen>
       <Specimen label="CheckRow" wide>
         <CheckRow

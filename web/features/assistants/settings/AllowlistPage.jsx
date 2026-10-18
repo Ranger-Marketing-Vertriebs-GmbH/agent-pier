@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow from "../../../components/ListRow.jsx";
@@ -48,7 +49,8 @@ export default function AllowlistPage({ assistant, onBack }) {
   const assistantId = assistant.id;
   const [entries, setEntries] = useState(null),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState("");
+    [busy, setBusy] = useState(""),
+    [removing, setRemoving] = useState(null);
   const load = useCallback(async () => {
     try {
       const result = await assistantApi.shellAllowlist(assistantId);
@@ -96,11 +98,24 @@ export default function AllowlistPage({ assistant, onBack }) {
               label={<code>{entryName(entry)}</code>}
               sub={<EntryDetails entry={entry} />}
               disabled={Boolean(busy)}
-              onDelete={() => remove(entry)}
+              onDelete={() => setRemoving(entry)}
               deleteLabel={copy.removeLabel(entryName(entry))}
             />
           ))}
         </ListCard>
+      )}
+      {removing && (
+        <ConfirmDialog
+          destructive
+          title={copy.removeTitle(entryName(removing))}
+          body={copy.removeBody}
+          confirmLabel={copy.removeNow}
+          onCancel={() => setRemoving(null)}
+          onConfirm={() => {
+            setRemoving(null);
+            return remove(removing);
+          }}
+        />
       )}
     </section>
   );

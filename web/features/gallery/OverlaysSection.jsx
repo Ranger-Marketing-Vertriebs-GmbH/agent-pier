@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AsyncForm from "../../components/AsyncForm.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ImageViewer from "../../components/ImageViewer.jsx";
 import Modal from "../../components/Modal.jsx";
 import Sheet from "../../components/Sheet.jsx";
@@ -79,6 +80,27 @@ function Overlay({ open, close }) {
         </AsyncForm>
       </Modal>
     );
+  if (open === "confirmDelete")
+    return (
+      <ConfirmDialog
+        destructive
+        title={s().confirmDeleteTitle}
+        body={s().confirmDeleteBody}
+        confirmLabel={s().deleteNow}
+        onCancel={close}
+        onConfirm={close}
+      />
+    );
+  if (open === "confirmOther")
+    return (
+      <ConfirmDialog
+        title={s().confirmOtherTitle}
+        body={s().confirmOtherBody}
+        confirmLabel={s().activateNow}
+        onCancel={close}
+        onConfirm={close}
+      />
+    );
   if (open === "sidePanel")
     return (
       <SidePanel title={s().sidePanel} subtitle={s().sub} close={close}>
@@ -109,6 +131,10 @@ export default function OverlaysSection() {
   );
   return (
     <GallerySection id="overlays">
+      <Specimen label="ConfirmDialog" wide>
+        {opener("confirmDelete", s().confirmDelete)}
+        {opener("confirmOther", s().confirmOther)}
+      </Specimen>
       <Specimen label="Modal · AsyncForm · SidePanel · ImageViewer" wide>
         {opener("modal", s().modal)}
         {opener("modalFooter", s().modalFooter)}

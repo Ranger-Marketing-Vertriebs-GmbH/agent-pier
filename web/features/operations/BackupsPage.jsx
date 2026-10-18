@@ -10,7 +10,7 @@ import { backupSize } from "./backup-size.js";
 import OperationJob from "./OperationJob.jsx";
 import BackupForm from "./BackupForm.jsx";
 import RestoreForm from "./RestoreForm.jsx";
-import ConfirmOperation from "./ConfirmOperation.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 export default function BackupsPage({ route, navigate }) {
@@ -74,10 +74,17 @@ export default function BackupsPage({ route, navigate }) {
         <RestoreForm close={() => setDialog("")} started={started} />
       )}{" "}
       {removing && (
-        <ConfirmOperation
-          description={copy.deleteBackup}
-          close={() => setRemoving(null)}
-          action={async () => {
+        <ConfirmDialog
+          destructive
+          title={copy.confirmTitles.deleteBackup(
+            formatTimestamp(
+              resource.data?.backups?.find((backup) => backup.id === removing)?.createdAt,
+            ),
+          )}
+          body={copy.deleteBackup}
+          confirmLabel={copy.confirmLabels.deleteBackup}
+          onCancel={() => setRemoving(null)}
+          onConfirm={async () => {
             await api(`/operations/backups/${encodeURIComponent(removing)}`, "DELETE");
             setRemoving(null);
             resource.refresh();

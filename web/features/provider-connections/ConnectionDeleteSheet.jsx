@@ -1,8 +1,6 @@
 import React, { useState } from "react";
-import ErrorMessage from "../../components/ErrorMessage.jsx";
-import Sheet from "../../components/Sheet.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import api from "../../lib/api.js";
-import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
 import AffectedAgents from "./AffectedAgents.jsx";
 import { restartRequired } from "./restart-confirmation.js";
@@ -39,31 +37,20 @@ export default function ConnectionDeleteSheet({ connection, open, onClose, onDel
     await onDeleted();
     return undefined;
   }
+  if (!open) return null;
   return (
-    <Sheet open={open} title={copy.delete} onCancel={close}>
-      <p className="sheet-body">
-        {copy.deleteConfirm(connection.name, connection.hasSecret === true)}
-      </p>
-      {confirmRestart && (
-        <p className="sheet-body" role="status">
-          {copy.restartRequired}
-        </p>
-      )}
+    <ConfirmDialog
+      destructive
+      title={copy.deleteTitle(connection.name)}
+      body={copy.deleteConfirm(connection.name, connection.hasSecret === true)}
+      confirmLabel={confirmRestart ? copy.deleteAndRestart : copy.deleteNow}
+      busy={busy}
+      error={error}
+      onCancel={close}
+      onConfirm={remove}
+    >
+      {confirmRestart && <p role="status">{copy.restartRequired}</p>}
       {confirmRestart && <AffectedAgents affected={affected} />}
-      <ErrorMessage error={error} />
-      <div className="sheet-actions">
-        <button type="button" className="button danger" disabled={busy} onClick={remove}>
-          {confirmRestart ? copy.deleteAndRestart : copy.delete}
-        </button>
-        <button
-          type="button"
-          className="button secondary"
-          disabled={busy}
-          onClick={close}
-        >
-          {commonCopy.cancel}
-        </button>
-      </div>
-    </Sheet>
+    </ConfirmDialog>
   );
 }

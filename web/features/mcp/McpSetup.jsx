@@ -1,28 +1,23 @@
-import React, { useState } from "react";
+import React from "react";
+import CopyButton from "../../components/CopyButton.jsx";
 import { mcpCopy as copy } from "../../lib/i18n/messages/mcp.js";
 import { clients, mcpEndpoint, setupSteps } from "./setup.js";
 function CopyBlock({ label, value, button = copy.copy(label) }) {
-  const [status, setStatus] = useState("");
-  const copyValue = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setStatus(copy.copied);
-    } catch {
-      setStatus(copy.copyFailed);
-    }
-  };
   return (
     <div className="mcp-command">
       <header>
         <strong>{label}</strong>
-        <button className="button" onClick={copyValue} aria-label={button}>
-          {button}
-        </button>
+        <CopyButton
+          text={value}
+          label={button}
+          className="button"
+          copiedLabel={copy.copied}
+          failedLabel={copy.copyFailed}
+        />
       </header>
       <pre tabIndex={0}>
         <code>{value}</code>
       </pre>
-      {status && <p role="status">{status}</p>}
     </div>
   );
 }

@@ -53,7 +53,9 @@ test("unsaved verification steps ask before another project opens", async ({ pag
   await openPipelines(page, "verification/project-one");
   await page.getByRole("button", { name: "Prüfschritt hinzufügen", exact: true }).click();
   await page.getByLabel("Prüfschritt 1: Name", { exact: true }).fill("Tests");
-  const confirm = page.getByRole("dialog", { name: "Aktion bestätigen" });
+  const confirm = page.getByRole("dialog", {
+    name: "Ungespeicherte Änderungen verwerfen?",
+  });
   await projectItem(page, "Zweites").click();
   await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
   await expect(page).toHaveURL(/\/verification\/project-one$/);

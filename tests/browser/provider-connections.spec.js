@@ -233,7 +233,7 @@ test("central connection rotation removal and deletion preserve one immutable pr
   await expect(page.getByRole("dialog")).not.toContainText("Key");
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Zugang löschen", exact: true })
+    .getByRole("button", { name: "Jetzt löschen", exact: true })
     .click();
   await expect(accountRow(page, "Shared Z.ai")).toHaveCount(0);
 });

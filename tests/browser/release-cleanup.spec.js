@@ -48,7 +48,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       await page.getByRole("button", { name: `${label}: 0.7.0`, exact: true }).click();
       await page
         .getByRole("dialog")
-        .getByRole("button", { name: en ? "Confirm" : "Bestätigen", exact: true })
+        .getByRole("button", { name: en ? "Delete now" : "Jetzt löschen", exact: true })
         .click();
       await expect(
         page.getByRole("button", { name: `${label}: 0.7.0`, exact: true }),
@@ -68,7 +68,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(page.getByRole("dialog")).not.toContainText("0.9.0");
       await page
         .getByRole("dialog")
-        .getByRole("button", { name: en ? "Confirm" : "Bestätigen", exact: true })
+        .getByRole("button", { name: en ? "Delete now" : "Jetzt löschen", exact: true })
         .click();
       await expect(
         page.getByRole("button", { name: `${label}: 0.8.0`, exact: true }),
@@ -196,7 +196,10 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(page.getByRole("dialog")).toContainText("0.9.0");
       await page
         .getByRole("dialog")
-        .getByRole("button", { name: en ? "Confirm" : "Bestätigen", exact: true })
+        .getByRole("button", {
+          name: en ? "Migrate and delete" : "Umziehen und löschen",
+          exact: true,
+        })
         .click();
       expect(migrations).toEqual([{}]);
       const cancel = page.getByRole("button", {

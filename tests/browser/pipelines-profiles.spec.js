@@ -126,14 +126,14 @@ test("disabled profiles cannot launch and rejected deletion preserves the profil
   state.fail = "/pipeline-profiles/profile-one";
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Entfernen", exact: true })
+    .getByRole("button", { name: "Jetzt löschen", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toContainText("Fixture conflict");
   expect(state.profiles).toHaveLength(1);
   state.fail = "";
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Entfernen", exact: true })
+    .getByRole("button", { name: "Jetzt löschen", exact: true })
     .click();
   await expect(
     page.getByText("Noch keine Aufgabenprofile.", { exact: true }),
@@ -322,7 +322,9 @@ test("unsaved profile drafts ask before another profile, a new one or a copy ope
   await openPipelines(page, "profiles/profile-one");
   const name = page.getByRole("textbox", { name: "Profilname", exact: true });
   await name.fill("Geänderter Planer");
-  const confirm = page.getByRole("dialog", { name: "Aktion bestätigen" });
+  const confirm = page.getByRole("dialog", {
+    name: "Ungespeicherte Änderungen verwerfen?",
+  });
   await page.getByRole("button", { name: "Bearbeiten: Prüfer", exact: true }).click();
   await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
   await expect(page).toHaveURL(/\/profiles\/profile-one$/);
@@ -377,7 +379,7 @@ test("mobile profiles show the list first and the editor without overflow", asyn
   await page.getByRole("textbox", { name: "Profilname", exact: true }).fill("Neu");
   await page.getByRole("button", { name: "Alle Profile", exact: true }).click();
   await page
-    .getByRole("dialog", { name: "Aktion bestätigen" })
+    .getByRole("dialog", { name: "Ungespeicherte Änderungen verwerfen?" })
     .getByRole("button", { name: "Verwerfen", exact: true })
     .click();
   await expect(item).toBeVisible();
@@ -425,7 +427,9 @@ test("refreshing the profile list asks before discarding an unsaved draft", asyn
   await expect(page.getByRole("alert")).toContainText("Fixture conflict");
   state.fail = "";
   state.profiles[0] = { ...state.profiles[0], name: "Server-Planer", revision: 5 };
-  const confirm = page.getByRole("dialog", { name: "Aktion bestätigen" });
+  const confirm = page.getByRole("dialog", {
+    name: "Ungespeicherte Änderungen verwerfen?",
+  });
   await page.getByRole("button", { name: "Aktualisieren", exact: true }).click();
   await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
   await expect(name).toHaveValue("Entwurf");
@@ -445,7 +449,9 @@ test("starting a session from an unsaved draft asks before discarding it", async
     name: "Session mit Profil starten",
     exact: true,
   });
-  const confirm = page.getByRole("dialog", { name: "Aktion bestätigen" });
+  const confirm = page.getByRole("dialog", {
+    name: "Ungespeicherte Änderungen verwerfen?",
+  });
   const launch = page.getByRole("dialog", { name: "Neue Session", exact: true });
   await start.click();
   await expect(confirm).toBeVisible();

@@ -223,6 +223,10 @@ for (const [label, use] of [
       await allowlist(page)
         .getByRole("button", { name: "Delete entry /usr/bin/git" })
         .click();
+      await page
+        .getByRole("dialog", { name: "Delete the entry /usr/bin/git?" })
+        .getByRole("button", { name: "Delete now" })
+        .click();
       await expect(list).toHaveCount(2);
       expect(state.deletes).toEqual(["e2"]);
       if (label === "phone") await fitsPhone(page);
@@ -483,6 +487,20 @@ for (const [label, use] of [
       await allowlist(page)
         .getByRole("button", { name: "Delete entry /usr/bin/git" })
         .click();
+      // Deleting asks first; Cancel keeps the entry without a request.
+      const confirm = page.getByRole("dialog", {
+        name: "Delete the entry /usr/bin/git?",
+      });
+      await expect(confirm.getByRole("button", { name: "Delete now" })).toHaveClass(
+        /danger/,
+      );
+      await confirm.getByRole("button", { name: "Cancel" }).click();
+      await expect(confirm).toHaveCount(0);
+      expect(state.deletes).toEqual([]);
+      await allowlist(page)
+        .getByRole("button", { name: "Delete entry /usr/bin/git" })
+        .click();
+      await confirm.getByRole("button", { name: "Delete now" }).click();
       await expect(allowlist(page).getByRole("alert")).toHaveText(
         "The agent service is not ready.",
       );

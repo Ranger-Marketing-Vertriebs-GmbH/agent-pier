@@ -81,7 +81,7 @@ test("mobile archive inspection restores only into the specified fresh target wi
     .click();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Bestätigen", exact: true })
+    .getByRole("button", { name: "Jetzt wiederherstellen", exact: true })
     .click();
   await expect(page).toHaveURL(/job=job-restore/);
   await expect(page.getByText("/fixture/restored", { exact: true })).toBeVisible();
@@ -126,11 +126,13 @@ test("restore without a project mapping explains what is missing instead of doin
     "Gib für jedes Projekt ein Verzeichnis an: Imported project",
   );
   await expect(page.getByLabel("Imported project", { exact: true })).toBeFocused();
-  await expect(page.getByRole("button", { name: "Bestätigen" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Jetzt wiederherstellen" })).toHaveCount(
+    0,
+  );
   await page.getByLabel("Imported project", { exact: true }).fill("/fixture/project");
   await restore.click();
   await expect(
-    page.getByRole("button", { name: "Bestätigen", exact: true }),
+    page.getByRole("button", { name: "Jetzt wiederherstellen", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
   expect(state.calls.some((call) => call.path === "/operations/restore")).toBe(false);
@@ -148,7 +150,7 @@ test("release flow stages the checked version then confirms activation without r
     .click();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Bestätigen", exact: true })
+    .getByRole("button", { name: "Jetzt aktivieren", exact: true })
     .click();
   await expect(
     page.getByText("Aktivierung und Zustandsprüfung bestätigt", { exact: true }),
@@ -184,7 +186,7 @@ test("running update jobs prevent duplicate mutations and a failed activation ne
   state.jobStatus = "failed";
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Bestätigen", exact: true })
+    .getByRole("button", { name: "Jetzt aktivieren", exact: true })
     .click();
   await expect(
     page.getByRole("region", { name: "Vorgang", exact: true }).getByRole("status"),

@@ -8,6 +8,7 @@ import { operation, transferOperation, references, bytes } from "./file-action-u
 import "./file-actions.css";
 import FileArchiveDialog, { archiveActions, canExtract } from "./FileArchiveDialog.jsx";
 import FileActionMenu from "./FileActionMenu.jsx";
+import { writeClipboard } from "../../lib/clipboard.js";
 
 export default function FileActions({
   scope,
@@ -92,17 +93,10 @@ export default function FileActions({
     if (kind === "path") {
       replaceDialog(null);
       const paths = items.map((item) => item.path).join("\n");
-      Promise.resolve()
-        .then(() => navigator.clipboard.writeText(paths))
-        .then(() => {
-          if (alive.current) setFeedback("path");
-        })
-        .catch(() => {
-          if (alive.current) setFeedback("copyFailed");
-        })
-        .finally(() =>
-          requestAnimationFrame(() => alive.current && extra.restoreFocus?.()),
-        );
+      writeClipboard(paths).then((copied) => {
+        if (alive.current) setFeedback(copied ? "path" : "copyFailed");
+        requestAnimationFrame(() => alive.current && extra.restoreFocus?.());
+      });
       return;
     }
     if (kind === "paste") {

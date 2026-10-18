@@ -305,35 +305,6 @@
   font-size: 12px;
   font-weight: 400;
 }
-.definition-card .stage-checks input {
-  appearance: none;
-  box-sizing: border-box;
-  flex: none;
-  padding: 0;
-  display: inline-grid;
-  place-content: center;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  border: 1px solid #55565a;
-  border-radius: 4px;
-  background: transparent;
-}
-.definition-card .stage-checks input:checked {
-  border-color: #f49a58;
-  background: #f49a58;
-}
-.definition-card .stage-checks input:checked::after {
-  content: "✓";
-  color: #242529;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-}
-.stage-checks input:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 2px;
-}
 .stage-loop {
   display: flex;
   flex-wrap: wrap;

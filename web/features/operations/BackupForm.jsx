@@ -4,6 +4,7 @@ import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import Checkbox from "../../components/Checkbox.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 export default function BackupForm({ close, started }) {
@@ -41,28 +42,22 @@ export default function BackupForm({ close, started }) {
         }}
       >
         <fieldset disabled={action.busy}>
-          <label className="operations-check">
-            <input
-              type="checkbox"
-              checked={includeHistory}
-              onChange={(event) => {
-                setHistory(event.target.checked);
-                setPlan(null);
-              }}
-            />
-            {copy.includeHistory}
-          </label>
-          <label className="operations-check">
-            <input
-              type="checkbox"
-              checked={withCredentials}
-              onChange={(event) => {
-                setCredentials(event.target.checked);
-                setPlan(null);
-              }}
-            />
-            {copy.withCredentials}
-          </label>
+          <Checkbox
+            label={copy.includeHistory}
+            checked={includeHistory}
+            onChange={(checked) => {
+              setHistory(checked);
+              setPlan(null);
+            }}
+          />
+          <Checkbox
+            label={copy.withCredentials}
+            checked={withCredentials}
+            onChange={(checked) => {
+              setCredentials(checked);
+              setPlan(null);
+            }}
+          />
           <p className="field-description">{copy.backupPrivacy}</p>
           {includeHistory && !withCredentials && (
             <p className="field-description" role="note">

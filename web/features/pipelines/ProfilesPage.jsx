@@ -9,7 +9,7 @@ import useMobileLayout from "../../lib/useMobileLayout.js";
 import useSettledReplace from "../../lib/useSettledReplace.js";
 import ProfileEditor from "./ProfileEditor.jsx";
 import ProfileList, { profileGroups } from "./ProfileList.jsx";
-import ConfirmAction from "./ConfirmAction.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import useDraftGuard from "./useDraftGuard.jsx";
 import { pipelineRoutePath } from "./routes.js";
 import "./definitions.css";
@@ -155,11 +155,13 @@ export default function ProfilesPage({
         </div>
       </div>
       {removing && (
-        <ConfirmAction
-          description={copy.deleteProfile}
-          label={commonCopy.remove}
-          close={() => setRemoving(null)}
-          action={async () => {
+        <ConfirmDialog
+          destructive
+          title={copy.confirmTitles.profile(removing.name)}
+          body={copy.deleteProfile}
+          confirmLabel={copy.confirmLabels.profile}
+          onCancel={() => setRemoving(null)}
+          onConfirm={async () => {
             await api(`/pipeline-profiles/${removing.id}`, "DELETE");
             setRemoving(null);
             resource.update({

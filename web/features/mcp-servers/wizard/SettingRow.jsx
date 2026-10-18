@@ -1,6 +1,7 @@
 import React, { useId, useState } from "react";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import FieldError from "../FieldError.jsx";
+import Switch from "../../../components/Switch.jsx";
 import { isSecretName, isWriteSwitch } from "./setting-hints.js";
 
 /**
@@ -60,19 +61,12 @@ export default function SettingRow({ row, hint = {}, problem, onChange, onRemove
           ))}
         </select>
       ) : hint.format === "boolean" ? (
-        <label className="mcp-check">
-          <input
-            type="checkbox"
-            role="switch"
-            className="switch"
-            checked={row.value === "true"}
-            {...invalid}
-            onChange={(event) =>
-              onChange({ value: event.target.checked ? "true" : "false" })
-            }
-          />
-          <span>{copy.settings.value}</span>
-        </label>
+        <Switch
+          label={copy.settings.value}
+          checked={row.value === "true"}
+          {...invalid}
+          onChange={(checked) => onChange({ value: checked ? "true" : "false" })}
+        />
       ) : (
         <div className="mcp-setting-value">
           <input

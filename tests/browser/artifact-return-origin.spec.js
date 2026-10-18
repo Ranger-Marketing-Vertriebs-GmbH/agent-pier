@@ -174,17 +174,22 @@ test("external OSC 8 destinations remain visible for confirmation before opening
   await context.route(url, (route) => route.fulfill({ body: "External report" }));
   await page.goto(`${baseURL}/sessions/origin/terminal`);
   const click = await terminalLink(page, "Open report");
-  const dialogs = [];
-  page.once("dialog", async (dialog) => {
-    dialogs.push({ type: dialog.type(), message: dialog.message() });
-    await dialog.dismiss();
+  // The app's confirmation dialog, not the browser's, shows the hidden destination.
+  const confirm = page.getByRole("dialog", {
+    name: "Open this link in a new tab?",
   });
   await click();
-  expect(dialogs).toEqual([{ type: "confirm", message: expect.stringContaining(url) }]);
+  await expect(confirm).toContainText(url);
+  await confirm.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(confirm).toHaveCount(0);
   expect(context.pages()).toHaveLength(1);
-  page.once("dialog", (dialog) => dialog.accept());
+  // A fresh terminal, since xterm keeps the covered link inactive until it repaints.
+  await page.reload();
+  await (
+    await terminalLink(page, "Open report")
+  )();
   const opened = page.waitForEvent("popup");
-  await click();
+  await confirm.getByRole("button", { name: "Open link", exact: true }).click();
   const popup = await opened;
   await expect(popup).toHaveURL(url);
   expect(await popup.evaluate(() => window.opener === null)).toBe(true);

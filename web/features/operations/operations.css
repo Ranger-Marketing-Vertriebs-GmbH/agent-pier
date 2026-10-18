@@ -73,16 +73,6 @@
   flex: 1;
   min-width: 160px;
 }
-.operations-check {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 9px;
-}
-.operations-check input {
-  width: auto;
-  accent-color: var(--accent);
-}
 .operations-card details {
   margin-top: 12px;
 }

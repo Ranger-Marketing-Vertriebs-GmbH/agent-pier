@@ -4,6 +4,7 @@ import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import Switch from "../../components/Switch.jsx";
 import { remoteCopy as copy } from "../../lib/i18n/messages/remote.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./remote.css";
@@ -81,17 +82,12 @@ export default function RemoteSettings() {
       <article className="settings-card">
         <h2>{copy.network}</h2>
         <p>{copy.networkDescription}</p>
-        <label className="switch-row">
-          <input
-            type="checkbox"
-            role="switch"
-            aria-label={copy.networkSwitch}
-            checked={draft.enabled}
-            onChange={toggle}
-            disabled={action.busy}
-          />
-          {copy.networkSwitch}
-        </label>
+        <Switch
+          label={copy.networkSwitch}
+          checked={draft.enabled}
+          onChange={toggle}
+          disabled={action.busy}
+        />
         {network.running.enabled && <p role="status">{copy.activeWarning}</p>}
         {locked && <p role="status">{copy.locked}</p>}
         {!locked && (
