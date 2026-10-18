@@ -1,11 +1,16 @@
 import { historyText } from "./history-text.js";
-// What the agent's chat shows of its routines: a delivered result (badged with the
-// routine's name) or a failed run (a quiet line). OpenClaw commits a delivered
-// result into the conversation itself; this record only names it. A result that
-// could not be committed is kept here with its text, so it still shows.
+// What the agent's chat shows of its routines, reminders and check-ins (`kind`;
+// none for a routine): a delivered result (badged with the routine's name, or as a
+// check-in) or a failed run (a quiet line). OpenClaw commits a routine's or
+// check-in's result into the conversation itself; this record only names it. A
+// result that was not committed (every reminder) is kept here with its text.
 const kept = 200;
 // A result's badge: the routine's name and what AgentPier noted on the run.
-const scheduled = (r) => ({ name: r.name, ...(r.notes ? { notes: r.notes } : {}) });
+const scheduled = (r) => ({
+  name: r.name,
+  ...(r.kind ? { kind: r.kind } : {}),
+  ...(r.notes ? { notes: r.notes } : {}),
+});
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trim();
 
 export class RoutineResults {
@@ -77,6 +82,7 @@ export function withRoutineResults(messages, results, { from = -Infinity } = {})
             role: "event",
             event: "routine-failed",
             name: r.name,
+            ...(r.kind ? { kind: r.kind } : {}),
             timestamp: r.at,
             runId: null,
             ...(r.notes ? { notes: r.notes } : {}),

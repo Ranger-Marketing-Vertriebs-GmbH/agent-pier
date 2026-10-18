@@ -70,17 +70,20 @@ async function setup(page) {
 }
 test("English routines create a daily prompt, pause and remove it", async ({ page }) => {
   const state = await setup(page);
-  await page.goto(baseURL + settingsPath("telegram"));
+  await page.goto(baseURL + settingsPath("routines"));
   const panel = page.getByRole("region", { name: "Routines" });
   await panel.getByRole("button", { name: "+ Routine" }).click();
   await panel.getByLabel("Routine name").fill("Meal plan");
   await panel.getByLabel("Task prompt").fill("Make a vegetarian meal plan.");
   await panel.getByLabel("Routine time", { exact: true }).fill("18:30");
   await panel.getByLabel("Routine timezone").fill("Europe/Berlin");
+  // The paired chat is an optional extra; the result always reaches the agent's chat.
+  await panel.getByRole("switch", { name: "Also send to Telegram" }).check();
   await panel.getByRole("button", { name: "Create routine" }).click();
   await expect
     .poll(() => state.created?.trigger)
     .toEqual({ kind: "cron", expr: "30 18 * * *", tz: "Europe/Berlin" });
+  expect(state.created.telegram).toBe(true);
   await expect(panel.getByText("Daily at 18:30 (Europe/Berlin)")).toBeVisible();
   await panel.getByRole("button", { name: /^Meal plan/ }).click();
   await panel.getByRole("button", { name: "Pause routine" }).click();
@@ -92,7 +95,7 @@ test("event routines distinguish manual and coding events and show unknown deliv
   page,
 }) => {
   const state = await setup(page);
-  await page.goto(baseURL + settingsPath("telegram"));
+  await page.goto(baseURL + settingsPath("routines"));
   const panel = page.getByRole("region", { name: "Routines" });
   await panel.getByRole("button", { name: "+ Routine" }).click();
   await panel.getByLabel("Routine name").fill("Review summary");
@@ -103,6 +106,7 @@ test("event routines distinguish manual and coding events and show unknown deliv
   await expect
     .poll(() => state.created?.trigger)
     .toEqual({ kind: "event", eventKind: "coding.completed" });
+  expect(state.created).not.toHaveProperty("telegram");
   await panel.getByRole("button", { name: /^Review summary/ }).click();
   await panel.getByRole("button", { name: "Run once" }).click();
   await expect(

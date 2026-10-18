@@ -58,7 +58,7 @@ const definitions = {
   ...shareDefinition,
   reminder: {
     description:
-      "Manage your user's Telegram reminders using OpenClaw's native scheduler. Actions: create, list, update (pause/resume), remove. Create requires name, reminder message and schedule: {kind:'at',at:ISO timestamp with a UTC offset or Z, e.g. 2026-10-09T09:00:00+02:00; times without an offset and date-only values are rejected} or {kind:'cron',expr:five-field cron,tz:IANA timezone}. Use session_status for the current date/time when needed. Ask when timing is ambiguous. The destination is bound by AgentPier; never supply a recipient. Updates require the revision returned by list. Scheduled reminders have no tools and cannot create teams or take other actions.",
+      "Manage your user's reminders using OpenClaw's native scheduler. A reminder appears in your main chat with a push notification, and also in Telegram when asked from there. Actions: create, list, update (pause/resume), remove. Create requires name, reminder message and schedule: {kind:'at',at:ISO timestamp with a UTC offset or Z, e.g. 2026-10-09T09:00:00+02:00; times without an offset and date-only values are rejected} or {kind:'cron',expr:five-field cron,tz:IANA timezone}. Use session_status for the current date/time when needed. Ask when timing is ambiguous. The destination is bound by AgentPier; never supply a recipient. Updates require the revision returned by list. Scheduled reminders have no tools and cannot create teams or take other actions.",
     parameters: schema(
       {
         action: { type: "string", enum: ["create", "list", "update", "remove"] },

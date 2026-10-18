@@ -3,17 +3,19 @@ import assert from "node:assert/strict";
 import * as de from "../../web/lib/i18n/de/assistant-settings.js";
 import * as en from "../../web/lib/i18n/en/assistant-settings.js";
 
-test("agent settings name the four tabs and the create action in both languages", () => {
+test("agent settings name the five tabs and the create action in both languages", () => {
   assert.deepEqual(Object.values(de.assistantSettingsCopy.tabs), [
     "Profil",
     "Fähigkeiten",
     "Arbeit",
+    "Routinen & Check-ins",
     "Telegram",
   ]);
   assert.deepEqual(Object.values(en.assistantSettingsCopy.tabs), [
     "Profile",
     "Capabilities",
     "Work",
+    "Routines & check-ins",
     "Telegram",
   ]);
   assert.equal(de.assistantSettingsCopy.createAgent, "Agent anlegen");

@@ -156,7 +156,7 @@ test("a routine follows its chat's conversation to a new native session", async 
 
 test("delivered results are badged in the chat, uncommitted ones and failures are kept", async (t) => {
   const f = routineFixture(t);
-  const routine = await f.routines.create(f.id, f.input);
+  const routine = await f.routines.create(f.id, { ...f.input, telegram: true });
   const jobId = f.reminders.bindings.get(routine.id).nativeId;
   const complete = (runAtMs, event) =>
     f.reminders.complete(routine.id, { jobId, runAtMs, ...event });
@@ -270,7 +270,7 @@ test("a routine run's exec approval is shown in its chat and offered in its Tele
     { shell: "approval" },
     f.store.getAssistant(f.id).revision,
   );
-  const routine = await f.routines.create(f.id, f.input);
+  const routine = await f.routines.create(f.id, { ...f.input, telegram: true });
   const binding = f.reminders.bindings.get(routine.id);
   const agent = f.store.getAssistant(f.id);
   f.assistants.routines = f.routines;

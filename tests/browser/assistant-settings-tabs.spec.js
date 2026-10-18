@@ -235,14 +235,29 @@ test("waiting approvals lead to the full action history", async ({ page }) => {
   await expect(history.getByRole("button", { name: "Approve action" })).toBeVisible();
 });
 
-test("without Telegram the check-in group waits for a connection", async ({ page }) => {
-  await setup(page, { assistant: { capabilities: { memory: true, reminders: false } } });
+test("without Telegram check-ins are offered on their own tab", async ({ page }) => {
+  const state = await setup(page, {
+    assistant: { capabilities: { memory: true, reminders: false } },
+  });
   await page.goto(baseURL + settingsPath("telegram"));
   await expect(page.getByLabel("Telegram bot token")).toBeVisible();
-  await expect(page.getByRole("switch", { name: "Check in on its own" })).toBeDisabled();
-  await expect(page.getByRole("region", { name: "Acting on its own" })).toContainText(
-    "Needs a paired Telegram chat for this agent.",
+  await expect(page.getByRole("switch", { name: "Check in on its own" })).toHaveCount(0);
+  await agentTab(page, "Routines & check-ins").click();
+  await expect(page).toHaveURL(/tab=routines$/);
+  const checkIn = page.getByRole("switch", { name: "Check in on its own" });
+  await expect(checkIn).toBeEnabled();
+  await checkIn.check();
+  // Without a paired chat there is no Telegram extra to choose.
+  await expect(page.getByRole("switch", { name: "Also send to Telegram" })).toHaveCount(
+    0,
   );
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect(saveBar(page)).toHaveCount(0);
+  expect(state.updates.at(-1).heartbeat).toMatchObject({ enabled: true, telegram: true });
+  await expect(page.getByRole("region", { name: "Reminders" })).toHaveCount(0);
+  await expect(
+    page.getByText("Reminders and routines are off for this agent."),
+  ).toBeVisible();
 });
 
 test("Telegram activity and connection details open as subpages", async ({ page }) => {
@@ -268,7 +283,7 @@ test("Telegram activity and connection details open as subpages", async ({ page 
   await expect(panel.getByLabel("Replace bot token")).toBeVisible();
 });
 
-test("reminders open their details in place and wait for Telegram before creating", async ({
+test("reminders open their details in place and are created without Telegram", async ({
   page,
 }) => {
   await setup(page, {
@@ -285,21 +300,70 @@ test("reminders open their details in place and wait for Telegram before creatin
       },
     ],
   });
-  await page.goto(baseURL + settingsPath("telegram"));
+  await page.goto(baseURL + settingsPath("routines"));
   const reminders = page.getByRole("region", { name: "Reminders" });
-  await expect(
-    reminders.getByRole("button", { name: "+ Create reminder" }),
-  ).toBeDisabled();
-  await expect(reminders).toContainText("Receive one-time or daily reminders");
+  const add = reminders.getByRole("button", { name: "+ Create reminder" });
+  await expect(add).toBeEnabled();
+  await expect(reminders).toContainText("in this agent’s chat with a push notification");
   const row = reminders.getByRole("button", { name: /^Water/ });
   await expect(row).toHaveAttribute("aria-expanded", "false");
   await row.click();
   await expect(row).toHaveAttribute("aria-expanded", "true");
   await expect(reminders.getByRole("button", { name: "Pause reminder" })).toBeEnabled();
   await expect(reminders.getByRole("button", { name: "Remove reminder" })).toBeEnabled();
+  await expect(
+    reminders.getByRole("switch", { name: "Also send to Telegram" }),
+  ).toHaveCount(0);
+  await add.click();
+  await expect(reminders.getByLabel("Reminder name")).toBeVisible();
   await expect(page.getByRole("region", { name: "Routines" })).toContainText(
     "No routines yet.",
   );
+});
+
+test("with a paired chat each reminder and routine can also go to Telegram", async ({
+  page,
+}) => {
+  const state = await setup(page, {
+    assistant: { capabilities: { memory: false, reminders: true } },
+    channel: connectedChannel(),
+    reminders: [{ id: "r1", name: "Water", status: "ready", enabled: true, revision: 4 }],
+    routines: [
+      {
+        id: "p1",
+        name: "Digest",
+        prompt: "News",
+        status: "ready",
+        enabled: true,
+        revision: 2,
+        telegram: true,
+        trigger: { kind: "event", eventKind: "manual" },
+      },
+    ],
+  });
+  await page.goto(baseURL + settingsPath("routines"));
+  const reminders = page.getByRole("region", { name: "Reminders" });
+  await reminders.getByRole("button", { name: /^Water/ }).click();
+  // Applied at once: the switch follows the saved reminder.
+  const reminderTelegram = reminders.getByRole("switch", {
+    name: "Also send to Telegram",
+  });
+  await reminderTelegram.click();
+  await expect(reminderTelegram).toBeChecked();
+  await expect
+    .poll(() => state.itemPatches)
+    .toEqual([["reminders", "r1", { telegram: true, revision: 4 }]]);
+  const routines = page.getByRole("region", { name: "Routines" });
+  await expect(routines.getByRole("button", { name: /^Digest/ })).toContainText(
+    "Also sent to Telegram",
+  );
+  await routines.getByRole("button", { name: /^Digest/ }).click();
+  const routineTelegram = routines.getByRole("switch", { name: "Also send to Telegram" });
+  await routineTelegram.click();
+  await expect(routineTelegram).not.toBeChecked();
+  await expect
+    .poll(() => state.itemPatches.at(-1))
+    .toEqual(["routines", "p1", { telegram: false, revision: 2 }]);
 });
 
 test("creating an agent opens its settings without asking", async ({ page }) => {

@@ -6,7 +6,7 @@ import { routineFixture as setup } from "../helpers/native-routines-fixture.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 test("scheduled routines run saved prompts with the agent's tools in its chat and stay distinct from reminders", async (t) => {
   const f = setup(t),
-    routine = await f.routines.create(f.id, f.input);
+    routine = await f.routines.create(f.id, { ...f.input, telegram: true });
   const job = [...f.jobs.values()][0];
   assert.ok(job.payload.message.endsWith(`\n\n${f.input.prompt}`));
   assert.match(job.payload.message, /not a message from the owner/);
@@ -24,7 +24,10 @@ test("scheduled routines run saved prompts with the agent's tools in its chat an
   assert.equal((await f.reminders.list(f.id)).reminders.length, 0);
   assert.equal((await f.routines.list(f.id)).routines.length, 1);
   await assert.rejects(f.reminders.remove(f.id, routine.id), { status: 404 });
-  assert.equal((await f.routines.create(f.id, f.input)).id, routine.id);
+  assert.equal(
+    (await f.routines.create(f.id, { ...f.input, telegram: true })).id,
+    routine.id,
+  );
   assert.equal(f.jobs.size, 1);
   await f.reminders.complete(routine.id, {
     jobId: job.id,

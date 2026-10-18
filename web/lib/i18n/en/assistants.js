@@ -85,7 +85,7 @@ export const assistantCopy = {
     restartCancel: "Cancel",
     capabilities: "Personal assistance",
     enableMemory: "Remember information",
-    enableReminders: "Allow Telegram reminders",
+    enableReminders: "Allow reminders and routines",
     capabilityHint:
       "Each agent has its own notes. Turning reminders off pauses its schedules.",
     memory: "Memory",
@@ -108,7 +108,7 @@ export const assistantCopy = {
     noResults: "No matching notes found.",
     reminders: "Reminders",
     remindersHint:
-      "Receive one-time or daily reminders in this agent’s paired Telegram chat. You can also ask for reminders in chat.",
+      "Receive one-time or daily reminders in this agent’s chat with a push notification. You can also ask for reminders in chat.",
     reminderName: "Reminder name",
     reminderText: "Reminder text",
     repeat: "Repeat",

@@ -193,7 +193,8 @@ Failure to inspect one action does not prevent independent actions progressing.
 
 ## Native routines and events
 
-Enable Telegram reminders and pair a private chat for that agent. In its settings,
+Enable **Allow reminders and routines** for that agent; no Telegram chat is needed.
+Under **Routines & check-ins** in its settings (or by asking the agent in its chat),
 create a routine with a name, saved prompt and one of these triggers:
 
 - A single timestamp, entered in the browser's local timezone.
@@ -205,7 +206,8 @@ configured model to answer its saved prompt each time, with the agent's own chat
 tools: memory search, reading and writing its own workspace files, web
 search/fetch, browser and image reading, shell and MCP servers, as far as the agent
 has them switched on. Shell approvals work as in chat: an approval requested by a
-routine run appears in the agent's chat and in the routine's Telegram chat.
+routine run appears in the agent's chat and, when the routine also sends to Telegram,
+in its Telegram chat.
 
 A routine is standing work its owner configured, so the write guard admits a
 routine run as its own origin (`TeamBridge.routineWrite`): only the run session of
@@ -218,7 +220,7 @@ routine's agent regains `write` and `edit` after the write guard is reported and
 the Gateway is ready, without a chat turn (see the write guard handshake in
 [the Gateway guide](assistant-gateway.md#security-boundaries)).
 
-Accepted risk: a routine run reads the paired conversation's recent turns
+Accepted risk: a routine run reads the main chat's recent turns
 (OpenClaw prepends up to ten short user and assistant lines as "Recent
 conversation"), and those may include forwarded Telegram text, member results or
 answers built from web content. A run with write or shell rights may therefore act
@@ -237,11 +239,13 @@ OpenClaw intersects it with the agent's `tools.allow`, so capability, shell and 
 changes apply to routines without rewriting their jobs.
 
 Each run has full context (`lightContext: false`, 300 s timeout) and runs detached
-from the conversation of the paired Telegram chat (`sessionTarget: "current"`, as
-check-ins do), so it never interrupts a running turn. OpenClaw commits the result
-into that conversation once no turn runs there: the AgentPier chat shows it with a
-"Scheduled · <routine>" badge and a later turn can refer to it. The result also goes
-to Telegram, split into several messages when it is long. OpenClaw's completion
+from the agent's main chat (its one AgentPier conversation, which a paired Telegram
+chat also writes into; `sessionTarget: "current"`, as check-ins do), so it never
+interrupts a running turn. OpenClaw commits the result into that conversation once no
+turn runs there: the AgentPier chat shows it with a "Scheduled · <routine>" badge, a
+later turn can refer to it, and an `agent-routine` push notice opens the chat. With
+**Also send to Telegram** on, the result also goes to the paired Telegram chat, split
+into several messages when it is long. OpenClaw's completion
 webhook carries at most 2,000 characters of the result (its run `summary`, cut with
 "…"); for a cut summary AgentPier reads the whole reply from the job's session
 (`chat.history` on `agent:<agent>:cron:<job>`, accepted only while that session is
@@ -252,15 +256,18 @@ a longer result whole like any other long message (see the agent chat history in
 failed run shows as a quiet line in the chat; a result that OpenClaw
 could not commit is still shown there from AgentPier's own record. On every Gateway
 start AgentPier migrates existing routine jobs to these settings in place
-(`NativeRoutines.reconcile`); reminders keep their tool-less isolated jobs.
+(`NativeRoutines.reconcile`), including jobs that ran isolated because their agent
+had no conversation then; reminders keep their tool-less isolated jobs. A routine
+whose agent has no main chat yet opens one when it is created. Unpairing Telegram
+never pauses or retires a routine.
 
 A completion event triggers the saved prompt; it does not automatically insert
 repository content or the coding result. Include only context appropriate for
 that routine in the saved prompt.
 
 OpenClaw owns schedules, execution and native run history. AgentPier stores the
-original delivery binding and event receipts, and uses its existing Telegram
-outbox. Event routines are disabled native jobs triggered explicitly with
+delivery binding (main chat and optional Telegram chat) and event receipts, and uses
+its existing Telegram outbox for the Telegram extra. Event routines are disabled native jobs triggered explicitly with
 `cron.run`; enabling an event binding never enables a periodic native schedule.
 Repeated event IDs do not rerun a job. An uncertain event acknowledgement is not
 automatically replayed. Manual event delivery accepts a stable caller event ID.
@@ -268,7 +275,8 @@ automatically replayed. Manual event delivery accepts a stable caller event ID.
 Pausing/removing or disabling reminders prevents new bound delivery. Re-enabling
 the capability does not silently resume paused routines. Native history and
 Telegram acknowledgement are separate: a successful model run does not guarantee
-Telegram delivery. The model connection and host must be available.
+Telegram delivery, while the chat record and push notice follow the accepted
+completion. The model connection and host must be available.
 
 ## Operations and qualification boundaries
 

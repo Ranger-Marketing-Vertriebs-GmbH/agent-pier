@@ -1,7 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
-import { NativeReminders, exact, schedule } from "./native-reminders.js";
+import { NativeReminders, exact, schedule, updateInput } from "./native-reminders.js";
 import { RoutineEvents } from "./routine-events.js";
-import { RoutineResults } from "./routine-results.js";
 import { routineTools } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 export const permanentReasons = {
@@ -28,10 +27,11 @@ const current = (job, want) =>
 /**
  * Routines: one native cron job per saved prompt. A run has the agent's own chat
  * tools (routineTools, intersected by OpenClaw with the agent's tools.allow) and
- * full context. It runs detached from the paired chat's conversation, so a live
- * turn is never disturbed, and OpenClaw commits its result into that conversation
- * once no turn runs there: the chat shows it and a later turn can refer to it. The
- * completion webhook sends it to Telegram and records it for the chat's badge.
+ * full context. It runs detached from the agent's main chat, so a live turn is
+ * never disturbed, and OpenClaw commits its result into that conversation once no
+ * turn runs there: the chat shows it and a later turn can refer to it. The
+ * completion webhook records it for the chat's badge, sends a push notice and, when
+ * the routine has Telegram switched on, sends it to the paired chat too.
  */
 export class NativeRoutines extends NativeReminders {
   constructor({ reminders }) {
@@ -42,14 +42,17 @@ export class NativeRoutines extends NativeReminders {
     });
     this.kind = "routine";
     this.receipts = new RoutineEvents(this.assistants.store.db);
-    this.results = new RoutineResults(this.assistants.store.db);
-    // Refusals during a run, by native job id (note → when), until its completion
-    // records them. Memory only: the tool error already reached the model.
-    this.refusals = new Map();
     reminders.routines = this;
   }
   values(input, old) {
-    exact(input, ["clientRequestId", "name", "prompt", "trigger", "channelId"]);
+    exact(input, [
+      "clientRequestId",
+      "name",
+      "prompt",
+      "trigger",
+      "channelId",
+      "telegram",
+    ]);
     textValue(input.prompt, 8192);
     let trigger;
     if (input.trigger?.kind === "event") {
@@ -77,25 +80,13 @@ export class NativeRoutines extends NativeReminders {
       values.prompt,
     ].join("\n");
   }
-  /** The paired chat's conversation, which a run reads and commits into. */
-  conversation(binding) {
-    try {
-      const { conversationId } = this.channels.store.get(binding.source.channelId);
-      const conversation = this.assistants.store.getConversation(conversationId);
-      if (conversation.assistantId !== binding.assistantId || conversation.archivedAt)
-        return null;
-      return conversation;
-    } catch {
-      return null;
-    }
-  }
+  /** A run reads the agent's main chat and commits into it (create opens it). */
   run(binding, values, to) {
     const sessionKey = this.conversation(binding)?.runtimeSessionKey;
+    if (!sessionKey) throw assistantProblem("unavailable", 503);
     return {
-      // Without a conversation the run stays isolated and reaches only Telegram.
-      ...(sessionKey
-        ? { sessionTarget: "current", sessionKey }
-        : { sessionTarget: "isolated" }),
+      sessionTarget: "current",
+      sessionKey,
       payload: {
         kind: "agentTurn",
         message: this.payload(values),
@@ -105,9 +96,7 @@ export class NativeRoutines extends NativeReminders {
       },
       // Announce is the commit into the conversation (no channels are configured);
       // the completion webhook hands the result to AgentPier.
-      delivery: sessionKey
-        ? { mode: "announce", completionDestination: { mode: "webhook", to } }
-        : { mode: "webhook", to },
+      delivery: { mode: "announce", completionDestination: { mode: "webhook", to } },
     };
   }
   nativeEnabled(values) {
@@ -136,9 +125,8 @@ export class NativeRoutines extends NativeReminders {
   update(id, bindingId, input, assertCurrent = () => {}) {
     return this.assistants.admit(async () => {
       assertCurrent();
-      exact(input, ["enabled", "revision"]);
-      if (typeof input.enabled !== "boolean") throw assistantProblem("invalid");
-      const agent = this.agent(id, input.enabled),
+      updateInput(input);
+      const agent = this.agent(id, input.enabled === true),
         binding = this.owned(id, bindingId);
       if (["removed", "revoked"].includes(binding.state))
         throw assistantProblem("notFound", 404);
@@ -146,12 +134,13 @@ export class NativeRoutines extends NativeReminders {
         throw assistantProblem("conflict", 409);
       const job = this.find(binding, await this.jobs(agent));
       if (!job) throw assistantProblem("unavailable", 503);
-      if (input.enabled)
-        this.source(id, binding.source.channelId, {
-          kind: "telegram",
-          ...binding.source,
-        });
       assertCurrent();
+      if (input.telegram !== undefined) this.setTelegram(binding, input.telegram);
+      if (input.enabled === undefined) {
+        this.bindings.patch(bindingId, { routineRevision: input.revision + 1 });
+        this.assistants.changed();
+        return this.project(binding, job);
+      }
       // Pausing revokes delivery before the RPC, including on an uncertain response.
       if (!input.enabled) this.bindings.patch(bindingId, { routineEnabled: false });
       this.bindings.patch(bindingId, { routineUpdateUnknown: true });
@@ -182,7 +171,6 @@ export class NativeRoutines extends NativeReminders {
       const old = this.receipts.get(bindingId, input.eventId);
       if (old) return old;
       if (binding.routineEnabled === false) throw assistantProblem("active", 409);
-      this.source(id, binding.source.channelId, { kind: "telegram", ...binding.source });
       const job = this.find(binding, await this.jobs(agent));
       // A listed scheduler without this job will not grow it back; retrying is futile.
       if (!job) throw assistantProblem("notFound", 404);
@@ -283,8 +271,9 @@ export class NativeRoutines extends NativeReminders {
   }
   /**
    * Brings the agent's routine jobs to the current run settings: jobs created
-   * before tools and the chat commit (or before a re-pairing) are updated in place.
-   * Callers hold admission; a job that is not listed is left to its binding.
+   * before tools and the chat commit, or before the main chat changed, are updated
+   * in place (each binding keeps its target). Callers hold admission; a job that is
+   * not listed is left to its binding.
    */
   async sync(id) {
     const routines = this.bindings
@@ -293,8 +282,15 @@ export class NativeRoutines extends NativeReminders {
     if (!routines.length) return;
     const jobs = await this.jobs(this.agent(id));
     const connection = await this.start();
+    const conversation = await this.openMain(id);
+    const target = {
+      conversationId: conversation.id,
+      sessionKey: conversation.runtimeSessionKey,
+    };
     let changed = false;
     for (const binding of routines) {
+      if (!isDeepStrictEqual(binding.target, target))
+        this.bindings.patch(binding.id, { target });
       const job = this.find(binding, jobs);
       if (!job) continue;
       const want = this.run(
@@ -311,7 +307,7 @@ export class NativeRoutines extends NativeReminders {
     }
     if (changed) this.assistants.changed();
   }
-  /** One agent outside any admission, after its paired chat changed. */
+  /** One agent outside any admission, after its chats changed; never retires a job. */
   resync(id) {
     return this.assistants.admit(async () => {
       if (this.assistants.runtime.client?.ready) await this.sync(id);
@@ -326,34 +322,6 @@ export class NativeRoutines extends NativeReminders {
         if (!this.bindings.list(agent.id).some((b) => b.kind === "routine")) continue;
         await this.sync(agent.id).catch(() => {});
       }
-    });
-  }
-  /** Records an accepted completion for the paired chat's conversation. */
-  completed(binding, event, text = event.summary) {
-    const conversation = this.conversation(binding);
-    if (!conversation) return;
-    const ok = event.status === "ok";
-    const key = String(event.jobId || "").toLowerCase();
-    // A run that completed without a record (silent, paused) leaves its notes here;
-    // only notes from this run's start on belong to it.
-    const notes = [...(this.refusals.get(key) || [])]
-      .filter(([, at]) => at >= event.runAtMs)
-      .map(([note]) => note);
-    this.refusals.delete(key);
-    this.results.record({
-      id: `${event.jobId}:${event.runAtMs}`,
-      conversationId: conversation.id,
-      bindingId: binding.id,
-      name: binding.definition?.name || "",
-      runAtMs: event.runAtMs,
-      at: Date.now(),
-      status: ok ? "ok" : "error",
-      // Committed: OpenClaw wrote it into the conversation, whose history shows it.
-      ...(ok && {
-        text: text.trim(),
-        committed: event.deliveryStatus === "delivered",
-      }),
-      ...(notes.length ? { notes } : {}),
     });
   }
   /** A run session's refusal (agent-ssh.js), shown with that run's result. */

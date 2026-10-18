@@ -16,23 +16,13 @@ const heartbeat = {
 };
 const revision = (f, id) => f.store.getAssistant(id).revision;
 
-/** Check-ins as NativeHeartbeats answers them: only `paired` agents have a chat. */
-function withChats(f, paired = []) {
+/** Check-ins as NativeHeartbeats converges them; they need no Telegram chat. */
+function withChats(f) {
   const synced = [];
   f.service.reminders = {
     disable: async () => {},
     close: async () => {},
-    heartbeats: {
-      channel: (id) => (paired.includes(id) ? { assistantId: id, chatId: "1" } : null),
-      requireChannel(id) {
-        if (!paired.includes(id))
-          throw Object.assign(Error("unpaired"), {
-            status: 409,
-            key: "heartbeatChannelRequired",
-          });
-      },
-      sync: async (id) => synced.push(id),
-    },
+    heartbeats: { sync: async (id) => synced.push(id) },
   };
   return synced;
 }
@@ -47,32 +37,15 @@ function ownerAgent(f) {
   );
 }
 
-test("the agents list says whether check-ins have the paired chat they need", async (t) => {
-  const f = shellService(t);
-  const [home, other] = f.agents;
-  withChats(f, [other.id]);
-  const listed = Object.fromEntries(
-    f.service.list().assistants.map((a) => [a.id, a.heartbeatChannel]),
-  );
-  assert.equal(listed[home.id], false);
-  assert.equal(listed[other.id], true);
-  // A saved profile carries the same answer, so the editor never offers what the
-  // save would refuse.
-  const saved = await f.service.update(home.id, { name: "Home 2" }, revision(f, home.id));
-  assert.equal(saved.heartbeatChannel, false);
-});
-
 test("ticked web tools survive a reload and reach the compiled agent tools", async (t) => {
   const f = shellService(t, ["News Agent"]);
   withChats(f);
   const agent = ownerAgent(f);
   const capabilities = { memory: true, reminders: true, ...web };
-  // What the editor sends once check-ins are not offered without a chat.
   await f.service.update(agent.id, { capabilities }, revision(f, agent.id));
   // A reload reads the stored profile: every choice is still there.
   const reloaded = f.service.list().assistants.find((a) => a.id === agent.id);
   assert.deepEqual(reloaded.capabilities, capabilities);
-  assert.equal(reloaded.heartbeatChannel, false);
   // The live entry of the running Gateway grants them; the browser waits for the
   // proven tool guard, which this fixture never reports.
   for (const tool of webTools)
@@ -117,20 +90,15 @@ test("ticked web tools survive a reload and reach the compiled agent tools", asy
   assert.ok(compiled.plugins.allow.includes("browser"));
 });
 
-test("check-ins without a chat refuse the save with the reason and store nothing", async (t) => {
+test("check-ins without a Telegram chat save together with the other choices", async (t) => {
   const f = shellService(t, ["News Agent"]);
-  withChats(f);
+  const synced = withChats(f);
   const agent = ownerAgent(f);
-  await assert.rejects(
-    f.service.update(
-      agent.id,
-      { capabilities: { memory: true, reminders: true, ...web }, heartbeat },
-      revision(f, agent.id),
-    ),
-    (error) => error.status === 409 && error.key === "heartbeatChannelRequired",
-  );
-  assert.deepEqual(f.store.getAssistant(agent.id).capabilities, {
-    memory: true,
-    reminders: true,
-  });
+  const capabilities = { memory: true, reminders: true, ...web };
+  await f.service.update(agent.id, { capabilities, heartbeat }, revision(f, agent.id));
+  const saved = f.store.getAssistant(agent.id);
+  assert.deepEqual(saved.capabilities, capabilities);
+  assert.deepEqual(saved.heartbeat, heartbeat);
+  assert.equal("heartbeatChannel" in f.service.list().assistants[0], false);
+  assert.deepEqual(synced, [agent.id]);
 });

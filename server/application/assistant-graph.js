@@ -224,6 +224,8 @@ export function constructAssistantGraph(host, created = {}) {
     assistants,
     channels: assistantChannels,
     dataDir,
+    // Each routine or reminder result sends an `agent-routine` push notice.
+    notifications: host.notifications,
   });
   const assistantRoutines = new NativeRoutines({ reminders: assistantReminders });
   // Reached as assistantReminders.heartbeats: it shares the reminder webhook.

@@ -66,6 +66,8 @@ export async function setupAssistantSettings(page, options = {}) {
     work: [],
     actions: options.actions || [],
     channelPatches: [],
+    // PATCH bodies of reminders and routines (pause, resume, Telegram).
+    itemPatches: [],
   };
   if (options.mcpServers)
     await page.route("**/api/mcp-servers", (route) =>
@@ -140,6 +142,16 @@ export async function setupAssistantSettings(page, options = {}) {
       if (state.actionDelay) await new Promise((r) => setTimeout(r, state.actionDelay));
       state.inflight.actions -= 1;
       return route.fulfill({ json: { actions: state.actions } });
+    }
+    const item = /^\/api\/assistants\/home\/(reminders|routines)\/([^/]+)$/.exec(path);
+    if (item && method === "PATCH") {
+      const body = route.request().postDataJSON();
+      state.itemPatches.push([item[1], item[2], body]);
+      const list = state[item[1]];
+      const index = list.findIndex((entry) => entry.id === item[2]);
+      const { revision: _revision, ...change } = body;
+      list[index] = { ...list[index], ...change, revision: list[index].revision + 1 };
+      return route.fulfill({ json: list[index] });
     }
     if (path === "/api/assistants/home/reminders")
       return route.fulfill({ json: { reminders: state.reminders } });

@@ -1089,19 +1089,43 @@ was compacted and the plan was gone. Four rules close that gap:
 
 ### Reminders
 
-Enable **Allow Telegram reminders** and pair that agent's Telegram channel. Request
-a reminder in chat or create a one-time/daily reminder in its settings. One-time
+Enable **Allow reminders and routines**; no Telegram chat is needed. Request a
+reminder in chat or create a one-time/daily reminder under **Routines & check-ins** in
+its settings. One-time
 form values use the browser's displayed local timezone; daily schedules carry an
 explicit IANA timezone. Native OpenClaw handles scheduling and timezone calculation.
-The UI lists native state, next execution, run history and separate Telegram
-outbox delivery status, with pause/resume and remove controls.
+The UI lists native state, next execution, run history and, for a reminder that also
+goes to Telegram, separate Telegram outbox delivery status, with pause/resume, remove
+and **Also send to Telegram** controls.
+
+Every reminder, routine and check-in delivers to the agent's main chat: its one
+AgentPier conversation (`channel: "agentpier"`, the one `openConversation` returns
+and creates on first use, `server/features/assistants/routine-targets.js`). A
+Telegram pairing writes into that same conversation, so a paired agent's main chat is
+its Telegram conversation. Creating a reminder or routine opens the main chat when the
+agent has none yet; the binding stores it as `target` (`conversationId`,
+`sessionKey`). A reminder runs isolated and tool-less; its text is recorded for the
+chat (`assistant_routine_results`, kind `reminder`), which shows it marked
+"Scheduled · <name>", and a failed run as a quiet line. Every recorded result also
+sends an `agent-routine` push notice that names only the agent and the conversation
+it opens (`/agents/<id>/chats/<conversationId>`); a replayed completion sends none.
+
+Telegram is an optional extra per binding (`telegram`: the paired chat's
+`channelId`, `chatId` and `userId`, or `null`). It is on by default only for one
+asked for from Telegram (and for a task member's reminder when its lead has a paired
+chat); the settings and `PATCH` with `{ telegram, revision }` switch it, and
+switching it on needs a paired chat (`reminderChannelRequired`, 409). The Telegram
+outbox is used only while it is on and that chat is still paired and enabled;
+switching it off also holds back queued Telegram output. Unpairing never pauses or
+removes a reminder or routine. Bindings stored before chat delivery kept their chat in
+`source` and keep delivering there (`telegramOf`).
 
 The `agentpier_reminder` tool is a thin authorized adapter to native
 `cron.add/list/update/remove`; it does not implement scheduling. Chat mutations
-require a current owner/Telegram turn. Creation keys bind the attempt and tool call;
+require a current owner/Telegram turn, in the web chat as well as in Telegram. Creation keys bind the attempt and tool call;
 the UI retains its creation key across retries of an unchanged form. Source bindings
-store an agent, original paired destination and operation identity, not the schedule
-or reminder text. Native jobs use a stable `declarationKey`; the pinned Gateway
+store an agent, its target chat, an optional Telegram destination and operation
+identity. Native jobs use a stable `declarationKey`; the pinned Gateway
 returns declaration-based creation as `{ created, job, deliveryPreview }`.
 
 Preparation failures can retry before submission. After uncertain submission,
@@ -2349,14 +2373,14 @@ agent's notes are what it checks against. The settings disable the switch withou
 memory, and switching memory off switches check-ins off in the same save. A save
 that sends check-ins switched on without memory is refused; a client that does not
 send them (an older one) may still switch memory off, and the stored flag then has
-no effect: the agent keeps no job. They also need a paired, enabled Telegram chat
-(`heartbeatChannelRequired`, 409); a new agent switches check-ins on after saving.
+no effect: the agent keeps no job. They need no Telegram chat; a new agent switches check-ins on after saving.
 
 It is not OpenClaw's native heartbeat, which stays at `agents.defaults.heartbeat.every:
 "0m"`: that one delivers through OpenClaw channels, which AgentPier leaves empty. Each
 opted-in agent instead gets one native cron job
-(`server/features/assistants/native-heartbeats.js`) bound to the conversation its
-Telegram chat is paired with (the session `openConversation` created):
+(`server/features/assistants/native-heartbeats.js`) bound to the agent's main chat
+(the session `openConversation` created, which a Telegram pairing also uses; the
+sync opens it when the agent has none yet):
 
 - `sessionTarget: "current"` with that conversation's `sessionKey`: a detached run
   that reads the conversation's recent tail and the agent's instructions
@@ -2368,10 +2392,12 @@ Telegram chat is paired with (the session `openConversation` created):
   owner's turn runs appears after that turn's answer, never inside it; the run
   itself does not wait, so it may not know that answer yet. The owner's next
   message, in AgentPier or on Telegram, has the check-in in its context.
-- AgentPier sends a check-in to Telegram only when the completion event reports the
-  commit into the conversation as `delivered`; a check-in that did not reach the
-  conversation stays in the run history. In the AgentPier chat it shows as a plain
-  agent message, without the `Check-in:` marker Telegram gets.
+- AgentPier handles a check-in only when the completion event reports the commit
+  into the conversation as `delivered`; a check-in that did not reach the
+  conversation stays in the run history. In the AgentPier chat it is badged
+  "Check-in" in the owner's interface language (a `heartbeat` record in
+  `assistant_routine_results`); Telegram gets the `Check-in:` marker in the
+  channel's language.
 - MEMORY.md is not part of a detached run's prompt (a chat turn's is), so the
   check-in prompt asks the agent to read it with `memory_get` first; the run's tools
   are `memory_search` and `memory_get` only, so nothing is written unattended.
@@ -2380,28 +2406,29 @@ Telegram chat is paired with (the session `openConversation` created):
   webhook is the reminder receiver. A `NO_REPLY` result is silent: nothing is
   committed (the conversation shows no message; OpenClaw records the run as
   not delivered), and AgentPier drops the posted `NO_REPLY` summary.
-- A new or re-paired conversation retires the job and creates one for the new
-  session key.
+- A new main chat (the old one archived) retires the job and creates one for the new
+  session key. A pairing change never does.
 
-The binding (kind `heartbeat`, hidden from reminder and routine lists) fixes the
-paired Telegram destination when the job is created. AgentPier drops an empty or
-`NO_REPLY` summary and failed runs; anything else goes, prefixed with `Check-in:`
-(server message `heartbeatPrefix`, in the chat's language), to the outbox of that
-paired chat (kind `heartbeat`) plus an `agent-checkin` push notice that names only the
-agent. The model's text never chooses a recipient. The push is sent when the
-check-in is handed to the outbox, not after Telegram accepted it. Native
+The binding (kind `heartbeat`, hidden from reminder and routine lists) stores the main
+chat and the paired Telegram destination, which each sync brings to the current
+pairing. AgentPier drops an empty or `NO_REPLY` summary and failed runs; anything else
+is recorded for the chat and sends an `agent-checkin` push notice that names only the
+agent and the conversation it opens. Unless the owner switched **Also send to
+Telegram** off (`heartbeat.telegram: false`), it also goes, prefixed with `Check-in:`
+(server message `heartbeatPrefix`, in the chat's language), to the outbox of the
+paired chat (kind `heartbeat`). The model's text never chooses a recipient. The push
+is sent when the check-in is recorded, not after Telegram accepted it. Native
 `chat.inject` was evaluated for the reply context first and rejected: gateway-injected
 notes appear in the transcript but never reach the model.
 
 A saved change converges the job at once (update in place, or removal when switched
 off). So do changes of the paired chat (`ChannelService.channelChanged`): starting a
-new pairing or disabling, disconnecting or halting the chat retires the job,
-completing a pairing creates one bound to the new chat. Archiving a member retires
+new pairing or disabling, disconnecting or halting the chat only stops the Telegram
+extra, completing a pairing sends later check-ins to the new chat too; the job stays. Archiving a member retires
 its job and restoring it schedules one again. Every Gateway ready and every end of
 maintenance repeats the convergence for all agents. Maintenance switches the whole
-scheduler off. Agents whose model connection is blocked, archived members, agents
-without memory and agents without a paired chat keep no job, and queued check-ins of
-such agents are not sent. Switching reminders off pauses an agent's jobs, and the
+scheduler off. Agents whose model connection is blocked, archived members, and
+agents without memory keep no job, and queued check-ins of such agents are not sent. Switching reminders off pauses an agent's jobs, and the
 same save schedules its check-ins again. A creation whose acknowledgement was lost
 stays tracked until a listing shows its job; the job's first completion adopts it.
 

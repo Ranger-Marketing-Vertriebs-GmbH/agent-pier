@@ -89,7 +89,7 @@ export const assistantCopy = {
     restartCancel: "Abbrechen",
     capabilities: "Persönliche Assistenz",
     enableMemory: "Informationen merken",
-    enableReminders: "Telegram-Erinnerungen erlauben",
+    enableReminders: "Erinnerungen und Routinen erlauben",
     capabilityHint:
       "Jeder Agent hat eigene Notizen. Beim Abschalten der Erinnerungen werden seine Zeitpläne pausiert.",
     memory: "Gedächtnis",
@@ -112,7 +112,7 @@ export const assistantCopy = {
     noResults: "Keine passenden Notizen gefunden.",
     reminders: "Erinnerungen",
     remindersHint:
-      "Erhalte einmalige oder tägliche Erinnerungen im verbundenen Telegram-Chat dieses Agenten. Du kannst Erinnerungen auch im Chat beauftragen.",
+      "Erhalte einmalige oder tägliche Erinnerungen im Chat dieses Agenten, mit Push-Benachrichtigung. Du kannst Erinnerungen auch im Chat beauftragen.",
     reminderName: "Name der Erinnerung",
     reminderText: "Erinnerungstext",
     repeat: "Wiederholung",

@@ -168,6 +168,8 @@ test("a member's reminders are capped per team and noted in the lead's chat", as
   const reminders = {
     kind: "reminder",
     bindings: { list: () => created },
+    // The lead has no paired Telegram chat: reminders go to its main chat only.
+    channels: { store: { list: () => [] } },
   };
   const { NativeReminders } =
     await import("../../server/features/assistants/native-reminders.js");

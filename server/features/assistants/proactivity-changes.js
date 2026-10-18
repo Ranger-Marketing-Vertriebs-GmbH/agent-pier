@@ -38,13 +38,6 @@ export function lacksMemory(current, patch) {
   return heartbeatSettings(after).enabled && !personalCapabilities(after).memory;
 }
 
-/** Enabling check-ins (or moving them) needs a chat they can be delivered to. */
-export function needsChannel(current, patch) {
-  return (
-    !!patch.heartbeat?.enabled && !isDeepStrictEqual(patch.heartbeat, current.heartbeat)
-  );
-}
-
 /** One audit record per proactivity change; never fails the committed change. */
 export function auditProactivity(audit, id, change) {
   if (!change) return;

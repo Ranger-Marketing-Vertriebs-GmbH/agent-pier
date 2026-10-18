@@ -30,7 +30,11 @@ self.agentPierNotificationCopyEn = {
   },
   "agent-checkin": {
     title: "AgentPier: Agent check-in",
-    body: "An agent has something for you. Open the paired chat.",
+    body: "An agent has something for you. Open the agent's chat.",
+  },
+  "agent-routine": {
+    title: "AgentPier: Routine result",
+    body: "A routine or reminder has written in an agent's chat.",
   },
   "telegram-revocation": {
     title: "AgentPier: Telegram access still active",

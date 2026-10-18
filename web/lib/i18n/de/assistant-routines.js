@@ -1,7 +1,7 @@
 export const routineCopy = {
   title: "Routinen",
   description:
-    "Speichere eine Aufgabe, die täglich oder bei einem Ereignis ein neues Ergebnis erstellt. Ergebnisse gehen an den gekoppelten Telegram-Chat und erscheinen im Chat dieses Agenten. Routinen nutzen die Werkzeuge und Freigaben des Agenten, können aber nichts planen oder delegieren. Sie lesen die letzten Nachrichten des Chats, auch weitergeleitete, und laufen, ohne dass jemand zusieht. Mit vollem Shell-Zugriff handeln sie also ohne Rückfrage.",
+    "Speichere eine Aufgabe, die täglich oder bei einem Ereignis ein neues Ergebnis erstellt. Ergebnisse erscheinen im Chat dieses Agenten, mit Push-Benachrichtigung. Routinen nutzen die Tools und Freigaben des Agenten, können aber nichts planen oder delegieren. Sie lesen die letzten Nachrichten des Chats, auch weitergeleitete, und laufen, ohne dass jemand zusieht. Mit vollem Shell-Zugriff handeln sie also ohne Rückfrage.",
   name: "Routinenname",
   prompt: "Aufgabenbeschreibung",
   trigger: "Routinenauslöser",
@@ -37,9 +37,16 @@ export const routineCopy = {
   nextRun: (time) => `Nächste Ausführung: ${time}`,
   // Marks a routine's result in the agent's chat; a failed run is a quiet line.
   chatBadge: (name) => (name ? `Geplant · ${name}` : "Geplant"),
+  checkInBadge: "Check-in",
   sshRefused: "SSH abgelehnt: Host ist für Routinen nicht freigegeben",
   chatFailed: (name) =>
     name
       ? `Routine „${name}“ konnte nicht abgeschlossen werden.`
       : "Eine Routine konnte nicht abgeschlossen werden.",
+  reminderFailed: (name) =>
+    name
+      ? `Erinnerung „${name}“ konnte nicht ausgeführt werden.`
+      : "Eine Erinnerung konnte nicht ausgeführt werden.",
+  alsoTelegram: "Auch an Telegram senden",
+  telegramOn: "Wird auch an Telegram gesendet",
 };

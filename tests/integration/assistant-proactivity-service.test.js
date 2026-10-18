@@ -13,21 +13,12 @@ const revision = (f, agent) => f.store.getAssistant(agent.id).revision;
 const proactivityAudit = (f) =>
   f.audit.filter((e) => e.details.kind === "proactivity").map((e) => e.details);
 
-function withHeartbeats(f, { paired = true } = {}) {
+function withHeartbeats(f) {
   const synced = [];
   f.service.reminders = {
     disable: async () => {},
     close: async () => {},
-    heartbeats: {
-      requireChannel() {
-        if (!paired)
-          throw Object.assign(Error("unpaired"), {
-            status: 409,
-            key: "heartbeatChannelRequired",
-          });
-      },
-      sync: async (id) => synced.push(id),
-    },
+    heartbeats: { sync: async (id) => synced.push(id) },
   };
   return synced;
 }
@@ -91,21 +82,9 @@ test("an agent created with check-ins settings starts with them off and unaudite
   assert.deepEqual(proactivityAudit(f), []);
 });
 
-test("enabling check-ins needs a paired chat; a saved change schedules the job", async (t) => {
+test("enabling check-ins needs no Telegram chat; a saved change schedules the job", async (t) => {
   const f = shellService(t);
   const [home] = f.agents;
-  const synced = withHeartbeats(f, { paired: false });
-  await assert.rejects(
-    f.service.update(
-      home.id,
-      { heartbeat, capabilities: { memory: true, reminders: false } },
-      revision(f, home),
-    ),
-    (error) => error.status === 409 && error.key === "heartbeatChannelRequired",
-  );
-  assert.equal(f.store.getAssistant(home.id).heartbeat, undefined, "nothing saved");
-  assert.equal(f.store.getAssistant(home.id).capabilities, undefined);
-  assert.deepEqual(synced, []);
   const paired = withHeartbeats(f);
   await f.service.update(
     home.id,
@@ -117,14 +96,21 @@ test("enabling check-ins needs a paired chat; a saved change schedules the job",
   // An unchanged form neither schedules nor audits anything again.
   await f.service.update(home.id, { heartbeat, name: "Renamed" }, revision(f, home));
   assert.deepEqual(paired, [home.id]);
-  // Switching off never needs a chat.
-  withHeartbeats(f, { paired: false });
+  // Keeping them out of Telegram is a saved change too.
+  await f.service.update(
+    home.id,
+    { heartbeat: { ...heartbeat, telegram: false } },
+    revision(f, home),
+  );
+  assert.equal(f.store.getAssistant(home.id).heartbeat.telegram, false);
+  assert.deepEqual(paired, [home.id, home.id]);
   await f.service.update(
     home.id,
     { heartbeat: { ...heartbeat, enabled: false } },
     revision(f, home),
   );
   assert.deepEqual(proactivityAudit(f), [
+    { kind: "proactivity", fields: ["heartbeat"], heartbeat: true },
     { kind: "proactivity", fields: ["heartbeat"], heartbeat: true },
     { kind: "proactivity", fields: ["heartbeat"], heartbeat: false },
   ]);

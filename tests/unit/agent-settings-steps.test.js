@@ -4,6 +4,7 @@ import { runSaveChain } from "../../web/lib/settings/save-chain.js";
 import {
   capabilityServer,
   heartbeatKeys,
+  routinesServer,
   telegramServer,
   workServer,
 } from "../../web/features/assistants/settings/agent-settings-fields.js";
@@ -70,7 +71,10 @@ test("a Telegram save that fails at the channel keeps the heartbeat as saved", a
       },
     }),
   ];
-  const base = telegramServer(assistant, { language: "de", appUrl: "", revision: 5 });
+  const base = {
+    ...routinesServer(assistant),
+    ...telegramServer({ language: "de", appUrl: "", revision: 5 }),
+  };
   const values = { ...base, heartbeatEnabled: true, language: "en" };
   const result = await runSaveChain({
     steps,
@@ -85,7 +89,14 @@ test("a Telegram save that fails at the channel keeps the heartbeat as saved", a
     [
       "assistant",
       {
-        heartbeat: { enabled: true, interval: "4h", start: 9, end: 18, timeZone: "UTC" },
+        heartbeat: {
+          enabled: true,
+          interval: "4h",
+          start: 9,
+          end: 18,
+          timeZone: "UTC",
+          telegram: true,
+        },
         revision: 2,
       },
     ],

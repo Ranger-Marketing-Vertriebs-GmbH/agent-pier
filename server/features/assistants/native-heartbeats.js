@@ -4,6 +4,12 @@ import { personalCapabilities } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { heartbeatSchedule, heartbeatSettings } from "./heartbeat-schedule.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
+import {
+  deliverableChannel,
+  pairedChannel,
+  telegramOf,
+  telegramTarget,
+} from "./routine-targets.js";
 
 export const heartbeatKind = "heartbeat";
 // OpenClaw's silent-reply token; an empty summary is just as silent.
@@ -21,13 +27,15 @@ const prompt = [
 
 /**
  * Proactive check-ins ("heartbeat"): one native cron job per opted-in agent with
- * memory. It runs as a `current` job bound to the agent's paired conversation: a
- * detached turn with full context (instructions, notes, the conversation's recent
- * tail) whose visible result OpenClaw commits into that conversation once no turn
- * is running there. The run's summary also returns over the reminder webhook
- * (completion destination); AgentPier drops NO_REPLY and sends anything else to
- * the paired chat the binding fixed when the job was created. OpenClaw's own
- * heartbeat stays off: it would deliver through channels AgentPier leaves empty.
+ * memory. It runs as a `current` job bound to the agent's main chat: a detached
+ * turn with full context (instructions, notes, the conversation's recent tail)
+ * whose visible result OpenClaw commits into that conversation once no turn is
+ * running there. The run's summary also returns over the reminder webhook
+ * (completion destination); AgentPier drops NO_REPLY, badges anything else in the
+ * chat, sends an `agent-checkin` push notice and, unless the owner switched it
+ * off, sends it to the paired Telegram chat too. A pairing change only moves that
+ * extra delivery; it never retires the job. OpenClaw's own heartbeat stays off: it
+ * would deliver through channels AgentPier leaves empty.
  */
 export class NativeHeartbeats {
   constructor({ reminders, notifications }) {
@@ -38,46 +46,30 @@ export class NativeHeartbeats {
     this.blocked = () => false;
     reminders.heartbeats = this;
   }
-  /** The agent's paired, enabled chat, or null. */
-  channel(id) {
-    const channel = this.reminders.channels.store
-      .list()
-      .find((c) => c.assistantId === id && c.enabled && c.chatId);
-    return channel
-      ? {
-          assistantId: id,
-          channelId: channel.id,
-          chatId: channel.chatId,
-          userId: channel.userId,
-        }
-      : null;
-  }
-  requireChannel(id) {
-    this.assistants.store.getAssistant(id);
-    if (!this.channel(id)) throw assistantProblem("heartbeatChannelRequired", 409);
-  }
-  /** The paired chat's conversation: the session the check-ins run against. */
-  sessionKey(source) {
-    try {
-      const { conversationId } = this.reminders.channels.store.get(source.channelId);
-      return this.assistants.store.getConversation(conversationId).runtimeSessionKey;
-    } catch {
-      return null;
-    }
-  }
-  wanted(agent) {
-    const settings = heartbeatSettings(agent);
-    const source = this.channel(agent.id);
-    const sessionKey = source && this.sessionKey(source);
-    if (
-      !settings.enabled ||
+  /** Whether the agent should keep a check-in job, chat aside. */
+  eligible(agent) {
+    return (
+      heartbeatSettings(agent).enabled &&
       // The notes are what a check-in looks at; without memory it has nothing.
-      !personalCapabilities(agent).memory ||
-      !sessionKey ||
-      this.blocked(agent.id)
-    )
-      return null;
-    return { settings, source, sessionKey };
+      personalCapabilities(agent).memory &&
+      !this.blocked(agent.id)
+    );
+  }
+  /** The job an eligible agent should have: its main chat and Telegram extra. */
+  wanted(agent) {
+    const conversation = this.reminders.mainConversation(agent.id);
+    if (!this.eligible(agent) || !conversation) return null;
+    const settings = heartbeatSettings(agent);
+    const channel =
+      settings.telegram !== false && pairedChannel(this.reminders.channels, agent.id);
+    return {
+      settings,
+      target: {
+        conversationId: conversation.id,
+        sessionKey: conversation.runtimeSessionKey,
+      },
+      telegram: channel ? telegramTarget(channel) : null,
+    };
   }
   job(settings) {
     return {
@@ -111,6 +103,8 @@ export class NativeHeartbeats {
    */
   async sync(id) {
     const agent = this.assistants.store.getAssistant(id);
+    // Check-ins run in the main chat; an agent that has none yet gets it now.
+    if (this.eligible(agent)) await this.reminders.openMain(id);
     const want = this.wanted(agent);
     const existing = this.current(id);
     if (!want && !existing.length) return;
@@ -126,10 +120,7 @@ export class NativeHeartbeats {
         current.state === "bound" &&
         job &&
         job.sessionTarget === "current" &&
-        job.sessionKey === want.sessionKey &&
-        ["channelId", "chatId", "userId"].every(
-          (k) => current.source[k] === want.source[k],
-        );
+        job.sessionKey === want.target.sessionKey;
       if (same) keep = { binding: current, job };
       else await this.retire(current, job);
     }
@@ -137,6 +128,14 @@ export class NativeHeartbeats {
     const definition = this.job(want.settings);
     if (!keep) return this.create(agent, want, definition);
     const { binding, job } = keep;
+    // The Telegram extra follows the pairing; the job stays as it is.
+    if (
+      !isDeepStrictEqual(binding.target, want.target) ||
+      !isDeepStrictEqual(telegramOf(binding), want.telegram)
+    ) {
+      this.bindings.patch(binding.id, { target: want.target, telegram: want.telegram });
+      this.assistants.changed();
+    }
     if (
       job.enabled &&
       binding.deliveryEnabled !== false &&
@@ -151,15 +150,15 @@ export class NativeHeartbeats {
     this.bindings.patch(binding.id, { deliveryEnabled: true });
     this.assistants.changed();
   }
-  async create(agent, { source, sessionKey }, definition) {
+  async create(agent, { target, telegram }, definition) {
     const connection = await this.reminders.start();
     // A fresh key each time: a retired binding is never revived.
     const { binding } = this.bindings.reserve(
       agent.id,
       `heartbeat:${randomUUID()}`,
-      source,
+      { assistantId: agent.id },
       {},
-      { kind: heartbeatKind },
+      { kind: heartbeatKind, target, telegram },
     );
     this.bindings.patch(binding.id, { state: "pending" });
     try {
@@ -172,11 +171,11 @@ export class NativeHeartbeats {
         ...definition,
         // Commits the visible result into this conversation after any running turn.
         sessionTarget: "current",
-        sessionKey,
+        sessionKey: target.sessionKey,
         wakeMode: "now",
         failureAlert: false,
         // Announce is the session commit (no channels are configured); the
-        // completion webhook hands the result to AgentPier for the paired chat.
+        // completion webhook hands the result to AgentPier.
         delivery: {
           mode: "announce",
           completionDestination: {
@@ -198,7 +197,7 @@ export class NativeHeartbeats {
       this.assistants.changed();
     }
   }
-  /** One agent outside any admission, after its chat changed (channel-service.js). */
+  /** One agent outside any admission, after its pairing changed (channel-service.js). */
   resync(id) {
     return this.assistants.admit(async () => {
       if (this.assistants.runtime.client?.ready) await this.sync(id);
@@ -214,8 +213,8 @@ export class NativeHeartbeats {
       }
     });
   }
-  acceptsDelivery(entry) {
-    const binding = this.bindings.get(entry.source.reminderBindingId);
+  /** Whether the binding's check-ins are still wanted at all. */
+  accepts(binding) {
     const agent = this.assistants.store.getAssistant(binding.assistantId);
     return (
       binding.kind === heartbeatKind &&
@@ -223,6 +222,11 @@ export class NativeHeartbeats {
       binding.deliveryEnabled !== false &&
       !!this.wanted(agent)
     );
+  }
+  /** Telegram outbox entries: only while check-ins still go to Telegram. */
+  acceptsDelivery(entry) {
+    const binding = this.bindings.get(entry.source.reminderBindingId);
+    return this.accepts(binding) && !!telegramOf(binding);
   }
   async complete(binding, event) {
     if (["revoked", "removed"].includes(binding.state)) return;
@@ -241,42 +245,57 @@ export class NativeHeartbeats {
       !["ok", "error"].includes(event.status)
     )
       throw assistantProblem("invalid", 403);
-    const entry = { source: { reminderBindingId: binding.id } };
     // A failed check-in is not news for the owner; its run history keeps it.
-    if (event.status !== "ok" || !this.acceptsDelivery(entry)) return;
+    if (event.status !== "ok" || !this.accepts(binding)) return;
     if (typeof event.summary !== "string" || silent(event.summary)) return;
-    // Only a check-in OpenClaw committed to the conversation reaches the chat: an
-    // owner's reply must find it there (a lost commit is in the run history).
+    // Only a check-in OpenClaw committed to the conversation counts: an owner's
+    // reply must find it there (a lost commit is in the run history).
     if (event.deliveryStatus !== "delivered") return;
     textValue(event.summary, 65536);
     const key = `native-heartbeat:${event.jobId}:${event.runAtMs}`;
-    const { outbox, store } = this.reminders.channels;
+    const { outbox } = this.reminders.channels;
+    const channel = deliverableChannel(this.reminders.channels, telegramOf(binding));
+    const sent = (c) => outbox.all(c.id).some((e) => e.key === key);
     // A replay is already handled; the prefix's language may have changed since.
-    if (outbox.all(binding.source.channelId).some((e) => e.key === key)) return;
-    const prefix = telegramMessages(store.get(binding.source.channelId)).heartbeatPrefix;
+    if (channel && sent(channel)) return;
+    const prefix = channel ? telegramMessages(channel).heartbeatPrefix : "";
     // OpenClaw's webhook caps a long check-in; the run's session has all of it.
     const result = await this.reminders.resultText(binding, event, {
       limit: 65536 - prefix.length - 1,
     });
     // The read waits on the Gateway: a pause or a replay meanwhile still holds.
-    if (!this.acceptsDelivery(entry)) return;
-    if (outbox.all(binding.source.channelId).some((e) => e.key === key)) return;
-    // Marked in the chat's language, so a check-in never passes for a reply.
-    const text = `${prefix} ${result.trim()}`;
-    outbox.enqueue({
-      key,
-      // The destination is the binding's, fixed when the owner enabled check-ins.
-      source: { ...binding.source, reminderBindingId: binding.id },
-      kind: heartbeatKind,
-      text: text.slice(0, 65536),
-    });
-    this.notifications
-      ?.notify({
-        kind: "agent-checkin",
-        assistantId: binding.assistantId,
-        eventId: `heartbeat-${event.runAtMs}-${binding.id}`,
-      })
-      .catch(() => {});
+    binding = this.bindings.get(binding.id);
+    if (!this.accepts(binding)) return;
+    // Badged in the chat in the owner's interface language (routine-results.js).
+    const recorded = this.reminders.completed(binding, event, result);
+    const telegram = deliverableChannel(this.reminders.channels, telegramOf(binding));
+    if (telegram && !sent(telegram))
+      outbox.enqueue({
+        key,
+        // The destination is the binding's: the chat paired when it last synced.
+        source: {
+          assistantId: binding.assistantId,
+          ...telegramOf(binding),
+          reminderBindingId: binding.id,
+        },
+        kind: heartbeatKind,
+        // Marked in the chat's language, so a check-in never passes for a reply.
+        text: `${telegramMessages(telegram).heartbeatPrefix} ${result.trim()}`.slice(
+          0,
+          65536,
+        ),
+      });
+    if (recorded?.fresh)
+      Promise.resolve()
+        .then(() =>
+          this.notifications?.notify({
+            kind: "agent-checkin",
+            assistantId: binding.assistantId,
+            conversationId: recorded.conversation.id,
+            eventId: `heartbeat-${event.runAtMs}-${binding.id}`,
+          }),
+        )
+        .catch(() => {});
     this.assistants.changed();
   }
 }

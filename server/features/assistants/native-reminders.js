@@ -1,55 +1,38 @@
 import { ReminderBindings } from "./reminder-bindings.js";
 import { ReminderWebhook } from "./reminder-webhook.js";
-import { inheritsFromLead, personalCapabilities } from "./native-capabilities.js";
+import { personalCapabilities } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import { cronResultText } from "./cron-result-text.js";
-// Reminders all task members of one team may create together on their lead.
-export const memberReminderLimit = 5;
+import { RoutineResults } from "./routine-results.js";
+import {
+  deliverableChannel,
+  mainConversation,
+  pairedChannel,
+  telegramOf,
+  telegramTarget,
+} from "./routine-targets.js";
+import { exact, schedule, updateInput } from "./reminder-input.js";
+import { invokeReminder } from "./reminder-tools.js";
+export { exact, schedule, updateInput } from "./reminder-input.js";
+export { memberReminderLimit } from "./reminder-tools.js";
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
 // OpenClaw's silent-reply token; an empty summary is just as silent.
 const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";
 const revoked = (binding) => ["revoked", "removed"].includes(binding.state);
 // Creation was submitted but never confirmed; only an owner review resolves it.
 const unconfirmed = (binding) => ["pending", "unknown"].includes(binding.state);
-// One-shot times must carry an explicit offset; a bare local time would be read
-// in the server's time zone, which may differ from the user's.
-const offsetTimestamp =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$/i;
-export const exact = (input, keys) => {
-  if (
-    !input ||
-    typeof input !== "object" ||
-    Array.isArray(input) ||
-    Object.keys(input).some((k) => !keys.includes(k))
-  )
-    throw assistantProblem("invalid");
-};
-export function schedule(input, allowPast = false) {
-  exact(input, input?.kind === "at" ? ["kind", "at"] : ["kind", "expr", "tz"]);
-  if (input.kind === "at") {
-    if (typeof input.at !== "string" || !offsetTimestamp.test(input.at))
-      throw assistantProblem("reminderTimezoneRequired");
-    const at = Date.parse(input.at);
-    if (!Number.isFinite(at) || (!allowPast && at <= Date.now()))
-      throw assistantProblem("invalid");
-    return { kind: "at", at: new Date(at).toISOString() };
-  }
-  if (input.kind !== "cron") throw assistantProblem("invalid");
-  textValue(input.expr, 100);
-  textValue(input.tz, 100);
-  try {
-    new Intl.DateTimeFormat("en", { timeZone: input.tz });
-  } catch {
-    throw assistantProblem("invalid");
-  }
-  return { kind: "cron", expr: input.expr, tz: input.tz };
-}
 export class NativeReminders {
-  constructor({ assistants, channels, dataDir, shared }) {
+  constructor({ assistants, channels, dataDir, shared, notifications }) {
     Object.assign(this, { assistants, channels });
     this.kind = "reminder";
+    this.notifications = shared ? shared.notifications : notifications;
     this.bindings = shared?.bindings || new ReminderBindings(assistants.store.db);
+    // What the main chat shows of reminders, routines and check-ins.
+    this.results = shared?.results || new RoutineResults(assistants.store.db);
+    // Refusals during a routine run, by native job id (note → when), until its
+    // completion records them. Memory only: the tool error already reached the model.
+    this.refusals = shared?.refusals || new Map();
     // Bindings whose cron.add is in flight; their outcome is not yet unknown.
     this.creating = shared?.creating || new Set();
     this.webhook =
@@ -105,12 +88,16 @@ export class NativeReminders {
     return job;
   }
   project(binding, job) {
-    const delivery = this.channels.outbox
-      .all(binding.source.channelId)
-      .filter((e) => e.source.reminderBindingId === binding.id)
-      .at(-1);
+    const telegram = telegramOf(binding);
+    const delivery =
+      telegram &&
+      this.channels.outbox
+        .all(telegram.channelId)
+        .filter((e) => e.source.reminderBindingId === binding.id)
+        .at(-1);
     return {
       id: binding.id,
+      telegram: !!telegram,
       name: job?.name || "",
       enabled: job?.enabled === true && binding.deliveryEnabled !== false,
       status:
@@ -149,15 +136,27 @@ export class NativeReminders {
       };
     });
   }
-  source(id, channelId, origin) {
+  /** The agent's main chat (routine-targets.js), or null before it has one. */
+  mainConversation(id) {
+    return mainConversation(this.assistants.store, id);
+  }
+  /** The main chat, opened first when the agent has none yet. Callers hold admission. */
+  async openMain(id) {
+    return this.mainConversation(id) || (await this.assistants.mainConversation(id));
+  }
+  /** The conversation a binding's results go to: its agent's main chat. */
+  conversation(binding) {
+    const conversation = this.mainConversation(binding.assistantId);
+    return conversation?.assistantId === binding.assistantId ? conversation : null;
+  }
+  /** The paired Telegram chat a binding may also deliver to (origin: the asking chat). */
+  telegramTarget(id, channelId, origin) {
     const channel =
       origin?.kind === "telegram"
         ? this.channels.store.get(origin.channelId)
         : channelId
           ? this.channels.store.get(channelId)
-          : this.channels.store
-              .list()
-              .find((c) => c.assistantId === id && c.enabled && c.chatId);
+          : pairedChannel(this.channels, id);
     if (!channel || channel.assistantId !== id || !channel.enabled || !channel.chatId)
       throw assistantProblem("reminderChannelRequired", 409);
     if (
@@ -165,15 +164,29 @@ export class NativeReminders {
       ["chatId", "userId"].some((k) => channel[k] !== origin[k])
     )
       throw assistantProblem("invalid", 403);
-    return {
-      assistantId: id,
-      channelId: channel.id,
-      chatId: channel.chatId,
-      userId: channel.userId,
-    };
+    return telegramTarget(channel);
+  }
+  /** Whether a binding asks for Telegram too: by default only when asked from there. */
+  wantsTelegram(input, origin) {
+    if (input.telegram !== undefined && typeof input.telegram !== "boolean")
+      throw assistantProblem("invalid");
+    return input.telegram ?? (origin?.kind === "telegram" || !!input.channelId);
+  }
+  /** Switches a binding's extra Telegram delivery; on needs a paired chat. */
+  setTelegram(binding, on) {
+    this.bindings.patch(binding.id, {
+      telegram: on ? this.telegramTarget(binding.assistantId) : null,
+    });
   }
   values(input, old) {
-    exact(input, ["clientRequestId", "name", "message", "schedule", "channelId"]);
+    exact(input, [
+      "clientRequestId",
+      "name",
+      "message",
+      "schedule",
+      "channelId",
+      "telegram",
+    ]);
     textValue(input.message, 8192);
     return {
       name: input.name,
@@ -208,17 +221,27 @@ export class NativeReminders {
       textValue(input?.clientRequestId, 768);
       textValue(input.name, 100);
       const agent = this.agent(id, true);
-      const source = this.source(id, input.channelId, origin);
+      const telegram = this.wantsTelegram(input, origin)
+        ? this.telegramTarget(id, input.channelId, origin)
+        : null;
       const old = this.bindings.list(id).find((b) => b.key === input.clientRequestId);
       // Replay lookup precedes due-time validation: an acknowledged one-shot may
       // already be in the past when the caller recovers its creation result.
       const values = this.values(input, old);
+      // The source is the agent alone: results go to its main chat, and the
+      // Telegram extra may be switched later.
       const { binding, fresh } = this.bindings.reserve(
         id,
         input.clientRequestId,
-        source,
-        values,
-        { kind: this.kind, definition: values, routineEnabled: true, ...metadata },
+        { assistantId: id },
+        { ...values, telegram: !!telegram },
+        {
+          kind: this.kind,
+          definition: values,
+          routineEnabled: true,
+          telegram,
+          ...metadata,
+        },
       );
       if (!fresh && binding.state !== "prepared") {
         if (binding.state === "removed") return this.project(binding);
@@ -236,9 +259,16 @@ export class NativeReminders {
       }
       await this.assistants.config.apply(id);
       const connection = await this.start();
+      const conversation = await this.openMain(id);
       assertCurrent();
       this.agent(id, true);
-      this.bindings.patch(binding.id, { state: "pending" });
+      this.bindings.patch(binding.id, {
+        state: "pending",
+        target: {
+          conversationId: conversation.id,
+          sessionKey: conversation.runtimeSessionKey,
+        },
+      });
       this.creating.add(binding.id);
       try {
         const result = await this.assistants.runtime.client.call("cron.add", {
@@ -250,7 +280,11 @@ export class NativeReminders {
           schedule: values.schedule,
           wakeMode: "now",
           failureAlert: false,
-          ...this.run(binding, values, `${connection.url}/complete/${binding.id}`),
+          ...this.run(
+            this.bindings.get(binding.id),
+            values,
+            `${connection.url}/complete/${binding.id}`,
+          ),
         });
         const job = result?.job || result;
         if (!job?.id) throw assistantProblem("unavailable", 503);
@@ -300,20 +334,19 @@ export class NativeReminders {
   update(id, bindingId, input, assertCurrent = () => {}) {
     return this.assistants.admit(async () => {
       assertCurrent();
-      exact(input, ["enabled", "revision"]);
-      if (typeof input.enabled !== "boolean") throw assistantProblem("invalid");
-      const agent = this.agent(id, input.enabled),
+      updateInput(input);
+      const agent = this.agent(id, input.enabled === true),
         binding = this.owned(id, bindingId);
       if (revoked(binding)) throw assistantProblem("notFound", 404);
       const job = this.find(binding, await this.jobs(agent));
       if (!job || job.updatedAtMs !== input.revision)
         throw assistantProblem("conflict", 409);
-      if (input.enabled)
-        this.source(id, binding.source.channelId, {
-          kind: "telegram",
-          ...binding.source,
-        });
       assertCurrent();
+      if (input.telegram !== undefined) this.setTelegram(binding, input.telegram);
+      if (input.enabled === undefined) {
+        this.assistants.changed();
+        return this.project(this.bindings.get(bindingId), job);
+      }
       // Pause delivery before the RPC; a lost acknowledgement must stay paused.
       if (!input.enabled) this.bindings.patch(bindingId, { deliveryEnabled: false });
       this.bindings.patch(bindingId, { reminderUpdateUnknown: true });
@@ -361,8 +394,12 @@ export class NativeReminders {
       };
     });
   }
+  /** Telegram outbox entries: only while the binding still delivers there. */
   acceptsDelivery(entry) {
     const binding = this.bindings.get(entry.source.reminderBindingId);
+    return !!telegramOf(binding) && this.accepts(binding);
+  }
+  accepts(binding) {
     return (
       !revoked(binding) &&
       binding.deliveryEnabled !== false &&
@@ -385,7 +422,7 @@ export class NativeReminders {
       binding = this.bindings.get(bindingId);
     }
     // Reconciliation may overlap removal, archival or capability revocation.
-    if (!this.acceptsDelivery({ source: { reminderBindingId: binding.id } })) return;
+    if (!this.accepts(binding)) return;
     if (
       !event ||
       !binding.nativeId ||
@@ -396,33 +433,90 @@ export class NativeReminders {
     )
       throw assistantProblem("invalid", 403);
     const key = `native-reminder:${event.jobId}:${event.runAtMs}`;
-    if (event.status === "ok") textValue(event.summary, 65536);
-    const text =
-      event.status === "ok"
-        ? await this.resultText(binding, event, { key })
-        : telegramMessages(this.channels.store.get(binding.source.channelId))
-            .reminderFailed;
-    // Reading the full result waits on the Gateway; a pause meanwhile still holds.
-    if (!this.acceptsDelivery({ source: { reminderBindingId: binding.id } })) return;
+    const ok = event.status === "ok";
+    if (ok) textValue(event.summary, 65536);
+    const text = ok ? await this.resultText(binding, event, { key }) : null;
+    // Reading the full result waits on the Gateway: a pause or a Telegram switch
+    // meanwhile still holds.
+    binding = this.bindings.get(bindingId);
+    if (!this.accepts(binding)) return;
     // A routine that found nothing to say (OpenClaw's silent token) sends nothing.
-    if (binding.kind === "routine" && event.status === "ok" && silent(text)) return;
+    if (binding.kind === "routine" && ok && silent(text)) return;
+    this.toTelegram(binding, { key, ok, text });
+    // The main chat shows it, and a push notice links there.
+    const recorded = this.completed(binding, event, text);
+    if (recorded?.fresh)
+      Promise.resolve()
+        .then(() =>
+          this.notifications?.notify({
+            kind: "agent-routine",
+            assistantId: binding.assistantId,
+            conversationId: recorded.conversation.id,
+            eventId: `routine-${event.runAtMs}-${binding.id}`,
+          }),
+        )
+        .catch(() => {});
+    this.assistants.changed();
+  }
+  /** The extra Telegram delivery, while the binding's chat is still paired. */
+  toTelegram(binding, { key, ok, text }) {
+    const telegram = telegramOf(binding);
+    const channel = deliverableChannel(this.channels, telegram);
+    if (!channel) return;
     this.channels.outbox.enqueue({
       key,
-      source: { ...binding.source, reminderBindingId: binding.id },
+      source: {
+        assistantId: binding.assistantId,
+        ...telegram,
+        reminderBindingId: binding.id,
+      },
       kind: "reminder",
-      text,
+      text: ok ? text : telegramMessages(channel).reminderFailed,
       // Only the failure notice is AgentPier wording; a reminder's own summary
       // must keep conflicting when it differs.
-      localized: event.status !== "ok",
+      localized: !ok,
       // A delivered reminder is the reminder itself; a failure notice links to
       // the agent settings where its history can be reviewed.
-      ...(event.status === "ok"
+      ...(ok
         ? {}
         : { path: `/agents/${encodeURIComponent(binding.assistantId)}/settings` }),
     });
-    // Also shown in the agent's chat, whether or not Telegram delivers it.
-    if (binding.kind === "routine") this.routines?.completed(binding, event, text);
-    this.assistants.changed();
+  }
+  /**
+   * Records an accepted completion for the main chat: a routine's result OpenClaw
+   * committed there is only badged, any other result is kept with its text. Null
+   * without a chat; `fresh` is false for a replayed completion.
+   */
+  completed(binding, event, text = event.summary) {
+    const conversation = this.conversation(binding);
+    if (!conversation) return null;
+    const ok = event.status === "ok";
+    const key = String(event.jobId || "").toLowerCase();
+    // A run that completed without a record (silent, paused) leaves its notes here;
+    // only notes from this run's start on belong to it.
+    const notes = [...(this.refusals.get(key) || [])]
+      .filter(([, at]) => at >= event.runAtMs)
+      .map(([note]) => note);
+    this.refusals.delete(key);
+    const kind = binding.kind || "reminder";
+    const fresh = this.results.record({
+      id: `${event.jobId}:${event.runAtMs}`,
+      conversationId: conversation.id,
+      bindingId: binding.id,
+      ...(kind !== "routine" && { kind }),
+      name: binding.definition?.name || "",
+      runAtMs: event.runAtMs,
+      at: Date.now(),
+      status: ok ? "ok" : "error",
+      // Committed: OpenClaw wrote it into the conversation, whose history shows it.
+      // A reminder's isolated run reports its webhook delivery, never a commit.
+      ...(ok && {
+        text: text.trim(),
+        committed: kind !== "reminder" && event.deliveryStatus === "delivered",
+      }),
+      ...(notes.length ? { notes } : {}),
+    });
+    return { conversation, fresh };
   }
   /**
    * A successful run's full result. OpenClaw's webhook caps the summary; the run's
@@ -435,7 +529,8 @@ export class NativeReminders {
       event,
       known:
         key &&
-        this.channels.outbox.all(binding.source.channelId).find((e) => e.key === key)
+        telegramOf(binding) &&
+        this.channels.outbox.all(telegramOf(binding).channelId).find((e) => e.key === key)
           ?.text,
       limit,
     });
@@ -471,86 +566,6 @@ export class NativeReminders {
     }
   }
   invoke(invocation, input) {
-    invocation.assertCurrent();
-    exact(input, ["action", "name", "message", "schedule", "id", "enabled", "revision"]);
-    const request = this.assistants.ledger.getRequest(
-      this.assistants.ledger.getAttempt(invocation.attemptId).requestId,
-    );
-    const conversation = this.assistants.store.getConversation(request.conversationId);
-    const origin = this.assistants.teams.store.context(request.id);
-    const caller = this.assistants.store.getAssistant(conversation.assistantId);
-    if (inheritsFromLead(caller))
-      return this.memberCreate(caller, invocation, input, origin);
-    if (!["owner", "telegram"].includes(origin.kind) || origin.forwarded)
-      throw assistantProblem("invalid", 403);
-    this.agent(conversation.assistantId, true);
-    if (input.action === "list") return this.list(conversation.assistantId);
-    if (input.action === "create")
-      return this.create(
-        conversation.assistantId,
-        {
-          clientRequestId: `${invocation.attemptId}:${invocation.toolCallId}`,
-          name: input.name,
-          message: input.message,
-          schedule: input.schedule,
-        },
-        origin,
-        invocation.assertCurrent,
-      );
-    if (input.action === "remove")
-      return this.remove(conversation.assistantId, input.id, invocation.assertCurrent);
-    if (input.action === "update")
-      return this.update(
-        conversation.assistantId,
-        input.id,
-        {
-          enabled: input.enabled,
-          revision: input.revision,
-        },
-        invocation.assertCurrent,
-      );
-    throw assistantProblem("invalid");
-  }
-  /**
-   * A temporary member's reminder belongs to its lead: it is created on the lead,
-   * listed in the lead's settings and delivered to the lead's paired chat, so it never
-   * fires from an agent that has ended. A member can only create one, in a turn its
-   * lead gave it, while it holds reminders; listing, pausing and removing stay
-   * with the owner and the lead.
-   */
-  async memberCreate(member, invocation, input, origin) {
-    if (
-      this.kind !== "reminder" ||
-      !["team-member", "lead-request"].includes(origin.kind) ||
-      input.action !== "create" ||
-      !personalCapabilities(member).reminders
-    )
-      throw assistantProblem("invalid", 403);
-    const lead = member.parentAssistantId,
-      key = `${invocation.attemptId}:${invocation.toolCallId}`;
-    const own = this.bindings.list(lead);
-    const replay = own.some((b) => b.key === key);
-    // At most a few per team, so a steered member cannot flood the owner's chat.
-    if (
-      !replay &&
-      own.filter((b) => b.createdBy?.teamId === member.teamId && b.state !== "removed")
-        .length >= memberReminderLimit
-    )
-      throw assistantProblem("memberReminderLimit", 409);
-    const result = await this.create(
-      lead,
-      {
-        clientRequestId: key,
-        name: input.name,
-        message: input.message,
-        schedule: input.schedule,
-      },
-      null,
-      invocation.assertCurrent,
-      { createdBy: { teamId: member.teamId, memberId: member.teamMemberId } },
-    );
-    // Noted in the lead's chat and audited, never with the reminder's text.
-    if (!replay) this.assistants.teams?.grants?.reminderCreated?.(member);
-    return result;
+    return invokeReminder(this, invocation, input);
   }
 }

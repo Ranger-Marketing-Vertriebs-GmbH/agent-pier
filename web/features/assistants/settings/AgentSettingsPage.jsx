@@ -10,6 +10,7 @@ import { agentRoute, resolveAgentLocation } from "./agent-settings-fields.js";
 import ProfileTab from "./ProfileTab.jsx";
 import CapabilitiesTab from "./CapabilitiesTab.jsx";
 import WorkTab from "./WorkTab.jsx";
+import RoutinesTab from "./RoutinesTab.jsx";
 import TelegramTab from "./TelegramTab.jsx";
 import RuntimeSummary from "./RuntimeSummary.jsx";
 import "../agent-settings.css";
@@ -18,6 +19,7 @@ const panels = {
   profile: ProfileTab,
   capabilities: CapabilitiesTab,
   work: WorkTab,
+  routines: RoutinesTab,
   telegram: TelegramTab,
 };
 

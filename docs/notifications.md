@@ -52,7 +52,8 @@ again on that device.
 | Session ended                | A session stopped                                                                                                               |
 | Pipeline waiting             | A pipeline waits at a human gate                                                                                                |
 | Pipeline ended               | A pipeline run finished                                                                                                         |
-| Agent check-in               | An agent [checked in](agents.md#routines-reminders-and-check-ins) with something for you                                        |
+| Agent check-in               | An agent [checked in](agents.md#routines-reminders-and-check-ins) with something for you; opens its chat                        |
+| Routine result               | A [routine or reminder](agents.md#routines-reminders-and-check-ins) wrote in an agent's chat; opens that chat                   |
 | Telegram access still active | A Telegram bot or person you removed could not be stopped; restart the agent service                                            |
 | Check GitHub token           | The [daily token check](github-agents.md#token-check) found a saved GitHub token invalid, expired or expiring within seven days |
 

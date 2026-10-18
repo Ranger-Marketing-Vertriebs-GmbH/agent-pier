@@ -3,17 +3,22 @@ import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import Icon from "../../../components/Icon.jsx";
 import ListCard from "../../../components/ListCard.jsx";
+import { ToggleRow } from "../../../components/ListRow.jsx";
 import { formatTimestamp } from "../../../lib/i18n/index.js";
 import { commonCopy } from "../../../lib/i18n/messages/common.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
+import { routineCopy } from "../../../lib/i18n/messages/assistant-routines.js";
 import { assistantApi } from "../assistant-api.js";
 import usePolling from "../usePolling.js";
 
 const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/** Reminders delivered to the paired Telegram chat; every action applies at once. */
-export default function RemindersGroup({ assistantId, connected }) {
+/**
+ * Reminders delivered to the agent's chat with a push notification, and to a
+ * `paired` Telegram chat where switched on; every action applies at once.
+ */
+export default function RemindersGroup({ assistantId, paired = false }) {
   const copy = assistantCopy.personal;
   const id = useId();
   const [items, setItems] = useState([]),
@@ -27,7 +32,8 @@ export default function RemindersGroup({ assistantId, connected }) {
     [repeat, setRepeat] = useState("once"),
     [at, setAt] = useState(""),
     [time, setTime] = useState("09:00"),
-    [timezone, setTimezone] = useState(browserZone());
+    [timezone, setTimezone] = useState(browserZone()),
+    [telegram, setTelegram] = useState(false);
   const identity = useRef(crypto.randomUUID()),
     alive = useRef(true);
   const refresh = useCallback(async () => {
@@ -81,6 +87,7 @@ export default function RemindersGroup({ assistantId, connected }) {
           repeat === "once"
             ? { kind: "at", at: date.toISOString() }
             : { kind: "cron", expr: `${minutes} ${hours} * * *`, tz: timezone },
+        ...(paired && telegram ? { telegram: true } : {}),
       });
       identity.current = crypto.randomUUID();
       setName("");
@@ -100,18 +107,17 @@ export default function RemindersGroup({ assistantId, connected }) {
     <section id="agent-reminders" aria-labelledby={id}>
       <GroupLabel
         id={id}
-        hint={connected ? copy.remindersHint : undefined}
+        hint={copy.remindersHint}
         action={{
           label: settingsCopy.addReminder,
           onClick: () => setCreating((value) => !value),
-          disabled: !connected || busy,
+          disabled: busy,
         }}
       >
         {copy.reminders}
       </GroupLabel>
-      {!connected && <p className="assistant-note">{copy.remindersHint}</p>}
       <ErrorMessage error={error} />
-      {creating && connected && (
+      {creating && (
         <form
           className="list-card agent-fields"
           onSubmit={create}
@@ -186,6 +192,14 @@ export default function RemindersGroup({ assistantId, connected }) {
               </label>
             </>
           )}
+          {paired && (
+            <ToggleRow
+              label={routineCopy.alsoTelegram}
+              checked={telegram}
+              disabled={busy}
+              onChange={setTelegram}
+            />
+          )}
           <div className="agent-field assistant-actions">
             <button className="button primary" disabled={busy}>
               {copy.createReminder}
@@ -218,6 +232,9 @@ export default function RemindersGroup({ assistantId, connected }) {
                   </span>
                   <span className="list-row-sub">
                     <span>{status(item)}</span>
+                    {item.telegram && (
+                      <span className="agent-sub-part">{routineCopy.telegramOn}</span>
+                    )}
                     {item.nextRunAtMs && (
                       <span className="agent-sub-part">
                         {copy.nextRun(formatTimestamp(item.nextRunAtMs))}
@@ -244,6 +261,21 @@ export default function RemindersGroup({ assistantId, connected }) {
             )}
             {open === item.id && (
               <div className="agent-detail" id={`${id}-detail-${item.id}`}>
+                {(paired || item.telegram) && item.status === "ready" && (
+                  <ToggleRow
+                    label={routineCopy.alsoTelegram}
+                    checked={item.telegram === true}
+                    disabled={busy || (!paired && !item.telegram)}
+                    onChange={(next) =>
+                      act(() =>
+                        assistantApi.updateReminder(assistantId, item.id, {
+                          telegram: next,
+                          revision: item.revision,
+                        }),
+                      )
+                    }
+                  />
+                )}
                 {item.deliveryState && (
                   <p>
                     {copy.telegramDelivery(

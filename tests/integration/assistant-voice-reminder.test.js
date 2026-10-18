@@ -88,8 +88,9 @@ test("a spoken reminder request creates the reminder and confirms it in Telegram
   );
   assert.equal(reminder.status, "ready");
   const [binding] = reminders.bindings.list(id);
-  assert.equal(binding.source.chatId, "42");
-  assert.equal(binding.source.channelId, f.channel.id);
+  // Asked from Telegram: delivered there too, besides the main chat.
+  assert.equal(binding.telegram.chatId, "42");
+  assert.equal(binding.telegram.channelId, f.channel.id);
   assert.equal(jobs.size, 1);
   f.assistants.ledger.transition(entry.attemptId, "completed");
   f.assistants.history = async () => ({

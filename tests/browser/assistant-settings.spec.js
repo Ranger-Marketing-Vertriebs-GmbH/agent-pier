@@ -112,7 +112,7 @@ for (const [language, locale] of [
         },
       ],
     });
-    await page.goto(baseURL + settingsPath("telegram"));
+    await page.goto(baseURL + settingsPath("routines"));
     const expected = new Date(at).toLocaleString(locale);
     await expect(page.getByText(expected, { exact: false }).first()).toBeVisible();
     expect(await page.getByText(expected, { exact: false }).count()).toBeGreaterThan(2);
@@ -194,6 +194,7 @@ test("mobile settings switch tabs in place and use 38×22 switches", async ({ pa
     "Profile",
     "Capabilities",
     "Work",
+    "Routines & check-ins",
     "Telegram",
   ]);
   await agentTab(page, "Telegram").click();

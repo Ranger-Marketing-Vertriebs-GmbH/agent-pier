@@ -181,11 +181,12 @@ test("a saved check-in schedule shows on and can be switched off without Telegra
       heartbeat: { enabled: true, interval: "4h", start: 9, end: 18, timeZone: "UTC" },
     },
   });
-  await page.goto(baseURL + settingsPath("telegram"));
+  await page.goto(baseURL + settingsPath("routines"));
   const checkIns = page.getByRole("switch", { name: "Check in on its own" });
   await expect(checkIns).toBeChecked();
   await checkIns.uncheck();
-  await expect(checkIns).toBeDisabled();
+  // Check-ins need no Telegram chat: they stay available after switching off.
+  await expect(checkIns).toBeEnabled();
   await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => state.updates.length).toBe(1);
   expect(state.updates[0].heartbeat.enabled).toBe(false);

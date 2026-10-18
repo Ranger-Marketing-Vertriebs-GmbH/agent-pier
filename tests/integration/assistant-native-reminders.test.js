@@ -56,8 +56,10 @@ function setup(t, options) {
   });
   f.assistants.reminders = reminders;
   t.after(() => reminders.close());
+  // Delivered to the paired Telegram chat too (besides the main chat).
   const input = {
     clientRequestId: "create-1",
+    telegram: true,
     name: "Shopping",
     message: "Buy bread",
     schedule: { kind: "at", at: new Date(Date.now() + 60000).toISOString() },

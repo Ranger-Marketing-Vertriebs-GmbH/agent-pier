@@ -83,9 +83,8 @@ export const assistants = {
   heartbeatMemoryRequired:
     "Meldungen brauchen das Gedächtnis. Schalte zuerst „Informationen merken“ ein oder schalte die Meldungen mit ab.",
   heartbeatPrefix: "Check-in:",
-  heartbeatChannelRequired:
-    "Check-ins brauchen einen verbundenen Telegram-Chat. Verbinde zuerst einen Telegram-Chat mit diesem Agenten.",
-  reminderChannelRequired: "Verbinde zuerst einen Telegram-Chat mit diesem Agenten.",
+  reminderChannelRequired:
+    "Um auch an Telegram zu senden, verbinde zuerst einen Telegram-Chat mit diesem Agenten.",
   reminderTimezoneRequired:
     "Gib den Erinnerungszeitpunkt mit Zeitzonen-Offset an, zum Beispiel 2026-10-09T09:00:00+02:00.",
   routineReviewRequired:

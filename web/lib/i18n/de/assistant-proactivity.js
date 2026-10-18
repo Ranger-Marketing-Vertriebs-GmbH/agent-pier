@@ -4,10 +4,10 @@ export const assistantProactivityCopy = {
     "Optionale Wege, auf denen der Agent ohne Auftrag tätig wird. Alles hier ist aus, bis du es einschaltest.",
   heartbeat: "Sich von selbst melden",
   heartbeatDescription:
-    "Zu festen Zeiten liest der Agent seine Unterhaltung und Notizen und entscheidet, ob etwas deine Aufmerksamkeit braucht. Nur dann schreibt er in seinen Chat, der auch deinen verbundenen Telegram-Chat erreicht.",
-  heartbeatChannel: "Braucht einen verbundenen Telegram-Chat für diesen Agenten.",
+    "Zu festen Zeiten liest der Agent seine Unterhaltung und Notizen und entscheidet, ob etwas deine Aufmerksamkeit braucht. Nur dann schreibt er in seinen Chat und du bekommst eine Push-Benachrichtigung.",
+  alsoTelegram: "Auch an Telegram senden",
   heartbeatReply:
-    "Meldungen erscheinen im Chat des Agenten, auf Telegram mit „Check-in:“ markiert, sodass du direkt antworten kannst. Wird eine Meldung fällig, während der Agent antwortet, erscheint sie nach dieser Antwort und kennt sie womöglich noch nicht.",
+    "Meldungen erscheinen im Chat des Agenten, mit „Check-in“ markiert, sodass du direkt antworten kannst. Wird eine Meldung fällig, während der Agent antwortet, erscheint sie nach dieser Antwort und kennt sie womöglich noch nicht.",
   interval: "Wie oft",
   intervals: {
     "1h": "Jede Stunde",

@@ -18,7 +18,7 @@ import "./member-mentions.css";
 // the member's lead agent sent, get a quiet meta line under the bubble, which also
 // describes the message for screen readers. In a lead's chat the owner's @mentions
 // of its members (`mentions`: `{ members, navigate }`) become chips to their chats.
-// A routine's result (`scheduled`: `{ name, notes? }`) carries a badge beside the
+// A routine's result (`scheduled`: `{ name, kind?, notes? }`) carries a badge beside the
 // agent's name, and a note when AgentPier refused SSH during the run.
 // A message the history could not load whole (`cut`), or has not loaded whole yet
 // (`partial`), ends with a short note. A file the agent shared (`shared`) shows its
@@ -71,7 +71,9 @@ export default memo(function AssistantMessage({
         <div className="assistant-message-head">
           <strong>{name}</strong>
           <span className="assistant-scheduled-badge">
-            {routineCopy.chatBadge(scheduled.name)}
+            {scheduled.kind === "heartbeat"
+              ? routineCopy.checkInBadge
+              : routineCopy.chatBadge(scheduled.name)}
           </span>
           {scheduled.notes?.includes("ssh_refused") && (
             <span className="assistant-note">{routineCopy.sshRefused}</span>

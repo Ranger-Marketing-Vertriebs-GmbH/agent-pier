@@ -74,11 +74,23 @@ test("a task member's reminder is created on its lead and delivered to the lead'
   assert.deepEqual(f.reminders.bindings.list(f.member.id), []);
   const [binding] = f.reminders.bindings.list(f.lead);
   assert.equal(binding.assistantId, f.lead);
-  assert.equal(binding.source.channelId, f.channel.id);
+  // The lead's main chat, and its paired Telegram chat as before.
+  assert.equal(binding.target.conversationId, f.channel.conversationId);
+  assert.equal(binding.telegram.channelId, f.channel.id);
   assert.equal(
     [...f.jobs.values()][0].agentId,
     f.store.getAssistant(f.lead).runtimeAgentId,
   );
+});
+
+test("a task member's reminder reaches a lead without Telegram in its main chat", async (t) => {
+  const f = setup(t);
+  f.service.store.disconnect(f.channel.id, f.channel.revision);
+  const reminder = await f.create(f.turn(f.assigned, "unpaired"));
+  assert.equal(reminder.status, "ready");
+  assert.equal(reminder.telegram, false);
+  const [binding] = f.reminders.bindings.list(f.lead);
+  assert.equal(binding.target.conversationId, f.channel.conversationId);
 });
 
 test("a task member only creates reminders, in its lead's turns, while it holds them", async (t) => {

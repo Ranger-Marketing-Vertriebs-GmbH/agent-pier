@@ -44,7 +44,8 @@ be refreshed. The agent appears in the sidebar under **Agents**; its chat opens 
 
 ## Agent settings
 
-**Settings** in the agent's chat header opens four tabs.
+**Settings** in the agent's chat header opens five tabs: **Profile**, **Capabilities**,
+**Work**, **Routines & check-ins** and **Telegram**.
 
 ### Profile
 
@@ -56,8 +57,9 @@ member also shows whether its model changed since it took it over from the lead.
 ### Capabilities
 
 - **Memory & reminders:** **Remember information** keeps the agent's own notes
-  between conversations; **Memory** opens and searches them. **Allow Telegram
-  reminders** lets it send reminders and run routines through Telegram.
+  between conversations; **Memory** opens and searches them. **Allow reminders and
+  routines** lets it send reminders and run routines
+  ([routines, reminders and check-ins](#routines-reminders-and-check-ins)).
 - **Web & documents:** **Search the web**, **Read web pages**, **Use a browser** (a
   persistent browser profile of the agent's own; needs Chrome, Brave, Edge or
   Chromium on the host), **Read images** and **Create images** (through a ChatGPT
@@ -186,6 +188,11 @@ told it was not saved.
 - **Teams:** the agent's active and archived teams and, below them, **Questions and
   tasks** it sent to its members.
 
+### Routines & check-ins
+
+**Acting on its own** (check-ins), **Reminders** and **Routines**; see
+[routines, reminders and check-ins](#routines-reminders-and-check-ins).
+
 ### Telegram
 
 - **Connection:** create a dedicated bot with BotFather, paste its token under
@@ -197,8 +204,6 @@ told it was not saved.
   need a decision. Voice messages are transcribed when a Deepgram key is set under
   **Accounts → Services for agents → Speech recognition**. Files the agent shares in
   a Telegram turn reach Telegram too ([files from agents](#files-from-agents)).
-- **Acting on its own:** see [check-ins](#routines-reminders-and-check-ins).
-- **Reminders** and **Routines** (with **Allow Telegram reminders** on).
 - **Telegram for other people:** gives the agent its own bot for people you choose,
   each with a separate conversation. Add each person by numeric Telegram user ID
   under **Allowed people**. The agent never uses shell, local (stdio) MCP servers,
@@ -306,24 +311,35 @@ Check your members' shell levels and MCP servers before you let a lead use them.
 
 ## Routines, reminders and check-ins
 
-All three need a paired Telegram chat and live in the agent's **Telegram** tab.
+All three live in the agent's **Routines & check-ins** tab and need no Telegram. Their
+results go to the agent's main chat (its one conversation in AgentPier, the same one a
+paired Telegram chat writes into) with a push notification that opens it. With a paired
+Telegram chat, **Also send to Telegram** sends a reminder, routine or the check-ins
+there too; it is a switch per reminder and routine (also when creating one) and one
+for all check-ins. Unpairing Telegram only stops that extra delivery; everything keeps
+running in the chat. Reminders and routines created before this kept their Telegram
+delivery.
 
-- **Reminders** send a one-time or daily text. You can also ask for one in the chat.
+- **Reminders** send a one-time or daily text, shown in the chat marked
+  "Scheduled · <name>". You can also ask for one in the chat; one asked for in
+  Telegram is sent there too.
 - **Routines** save a task prompt that runs daily or on an event (an owner request or
   a linked coding run that completed); **Run once** starts one now. A routine uses
   the agent's own tools and approvals (memory, its workspace files, web, browser,
   shell and MCP servers, as far as they are switched on) but cannot schedule, ask or
-  delegate. Its whole result goes to the paired Telegram chat (several messages
-  when it is long) and appears in the agent's
-  chat marked "Scheduled · <name>"; a failed run shows a short line there. Routines
+  delegate. Its whole result appears in the agent's chat marked
+  "Scheduled · <name>" (and, with Telegram switched on, in the paired chat as several
+  messages when it is long); a failed run shows a short line there. You can also ask
+  the agent for a routine in the chat. Routines
   read the chat's recent messages, including forwarded ones, and run while nobody
   watches, so with full shell access they act without asking. A routine can run SSH
   commands only on hosts set to **Trusted incl. routines**; on any other host it is
   refused and its result says so.
 - **Check in on its own** (under **Acting on its own**) lets the agent look at its
   conversation and notes every hour, every 2 or 4 hours or once a day, within active
-  hours, and write only when something needs your attention. It needs **Remember
-  information**. Each check-in costs a model run.
+  hours, and write only when something needs your attention. A check-in is marked
+  "Check-in" in the chat. It needs **Remember information**. Each check-in costs a model
+  run.
 
 ## Dictation
 
@@ -422,7 +438,7 @@ file explorer. It
 stays in the history, also while AgentPier is unreachable. When the turn came from your
 paired Telegram chat, the file goes there too, as a photo or as a document. A
 routine's run can share files as well, for example a weekly report: they appear in the
-chat the routine writes to and in its Telegram chat. Images an agent creates with
+agent's chat and, when the routine also sends to Telegram, in its Telegram chat. Images an agent creates with
 **Create images** arrive the same way on their own, a moment after its reply, without
 the agent sharing them. There is no daily limit on created images; an agent uses reference
 images from the web only when it may also read web pages, and with several ChatGPT accounts any
