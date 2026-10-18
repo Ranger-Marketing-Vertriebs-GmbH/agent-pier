@@ -2196,9 +2196,11 @@ matching command asks again. Deletes are audited.
 
 ### Backups and stored levels
 
-A host backup holds the agents' records and the Gateway's private state, so
-restoring it brings back each agent's stored shell level and its allowlist entries
-**without a new confirmation**. That is deliberate: the owner starts the restore
+A host backup holds the agents' records, so restoring it brings back each agent's
+stored shell level **without a new confirmation**. Its allowlist entries live in
+OpenClaw's state database, which host backups treat as private content: a backup
+with history and a passphrase brings them back the same way, sealed; one without
+leaves them out, and matching commands ask again. That is deliberate: the owner starts the restore
 and returns to levels and entries they confirmed before. The same holds when an
 archived permanent member is restored, and when a level is raised again over
 entries that survived an earlier lowering (entries are only removed by deleting
@@ -2433,8 +2435,9 @@ type.
   files and check the inline limits on the bytes read. JPEG and WebP above
   80 megapixels are refused like PNG and GIF. The quota counts the folder itself, and
   index rows whose copy is gone are dropped.
-- **Backups.** Copies and their index are part of host backups and runtime update
-  snapshots (see [backups](backups.md)).
+- **Backups.** Copies and their index are part of runtime update snapshots, and of
+  host backups only with history and a passphrase, sealed (see
+  [backups](backups.md#what-a-backup-holds)).
 - **Limits.** Agents cannot be deleted today (only archived), so the copies follow
   the workspace; `AgentAttachments.purge` removes an agent's folder and index for a
   future deletion path. OpenClaw also stages inline images it receives under

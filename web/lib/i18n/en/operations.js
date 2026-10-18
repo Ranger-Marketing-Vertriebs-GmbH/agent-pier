@@ -74,9 +74,9 @@ export const operationsCopy = {
   includeHistory: "Include history",
   withCredentials: "Include encrypted credentials",
   backupPrivacy:
-    "Session, chat and AgentBus histories and CLI histories may contain private task content; they are only backed up encrypted, in backups with a passphrase. Agent chats, channels, workspaces and attachments, pipeline history and artifacts (unpinned ones only with history) are always backed up unencrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. External local CLI profiles, keychains and repository working directories stay out.",
+    "Session, chat and AgentBus histories, CLI histories, agent chats, channel messages, workspaces and attachments, pipeline history and unpinned artifacts may contain private content; they are only backed up encrypted, in backups with history and a passphrase. Agent settings, pinned artifacts, project knowledge and the activity log are always backed up unencrypted. Credentials cover logins, settings, instructions, skills and agents of managed CLI profiles; caches, logs, installed CLIs and runtimes are never backed up. External local CLI profiles, keychains and repository working directories stay out.",
   historyNeedsPassphrase:
-    "Without a passphrase, histories are left out of this backup. To back them up encrypted, also choose “Include encrypted credentials” and set a passphrase.",
+    "Without a passphrase, histories, agent chats, channel messages, workspaces and attachments, pipeline history and unpinned artifacts are left out of this backup; agents are restored with their settings only. To back them up encrypted, also choose “Include encrypted credentials” and set a passphrase.",
   passphrase: "Passphrase",
   plan: "Review backup scope",
   create: "Create backup",
@@ -277,12 +277,15 @@ export const backupCopy = {
     preferences: "Settings",
     "pipeline-definitions": "Pipeline and profile definitions",
     memory: "Project knowledge",
-    "pipeline-history": "Pipeline history",
+    "pipeline-history": "Pipeline history (encrypted)",
+    "unpinned-artifacts": "Unpinned artifacts (encrypted)",
     audit: "Activity log",
     chat: "Chat history (encrypted)",
     terminal: "Terminal captures (encrypted)",
     "agentbus-history": "AgentBus history (encrypted)",
-    assistants: "Agents, their chats, channels and workspaces",
+    assistants: "Agents and their settings",
+    "agent-history":
+      "Agent chats, channel messages, workspaces, attachments and shared files (encrypted)",
     "sealed-agent-browser-profiles":
       "Agent browser profiles with logins and cookies (encrypted, without caches)",
     "Agent browser profiles (only in backups with a passphrase, then encrypted)":
@@ -322,6 +325,10 @@ export const backupCopy = {
     "CLI caches, logs, telemetry and files outside the profile allowlists":
       "CLI caches, logs, telemetry and files outside the profile allowlists",
     "AgentPier and CLI histories": "AgentPier and CLI histories",
+    "Agent chats, channel messages, workspaces and attachments, pipeline history and unpinned artifacts":
+      "Agent chats, channel messages, workspaces and attachments, pipeline history and unpinned artifacts",
+    "Agent chats, channel messages, workspaces and attachments, pipeline history and unpinned artifacts are only backed up in backups with a passphrase, and then encrypted":
+      "Agent chats, channel messages, workspaces and attachments, pipeline history and unpinned artifacts (set a passphrase to back them up encrypted)",
     "AgentPier and CLI histories are only backed up in backups with a passphrase, and then encrypted":
       "AgentPier and CLI histories (set a passphrase to back them up encrypted)",
     // Older backups named only the CLI histories.

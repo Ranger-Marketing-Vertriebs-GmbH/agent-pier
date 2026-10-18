@@ -13,7 +13,7 @@ import { Restore } from "../../server/features/operations/restore.js";
 import { loadArchive } from "../helpers/backup-archive.js";
 import { decryptCredentials } from "../../server/features/operations/archive.js";
 import { DatabaseSync } from "node:sqlite";
-test("default restore preserves audit and execution history but removes credentials, capabilities and recovery effects", async (t) => {
+test("default restore preserves the audit log but removes credentials, capabilities and private history", async (t) => {
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-restore-policy-")),
   );
@@ -95,12 +95,17 @@ test("default restore preserves audit and execution history but removes credenti
     false,
   );
   assert.equal(archive.credentials, undefined);
+  // Pipeline history is private content: only sealed, in backups with a passphrase.
+  assert.equal(
+    archive.files.some((file) => file.path.startsWith("pipeline-runs/")),
+    false,
+  );
   const target = path.join(root, "target");
   const result = await new Restore({ dataDir }).apply({
     archive: created.file,
     targetDataDir: target,
   });
-  assert.equal(result.importedRuns, 1);
+  assert.equal(result.importedRuns, 0);
   const restoredMemory = new ProjectMemory({ dataDir: target });
   assert.equal(
     restoredMemory.db.prepare("SELECT COUNT(*) AS n FROM capabilities").get().n,
@@ -113,12 +118,7 @@ test("default restore preserves audit and execution history but removes credenti
   const restoredAudit = new AuditStore({ dataDir: target });
   assert.deepEqual(restoredAudit.export()[0], event);
   const restoredRuns = new RunStore(target);
-  const run = restoredRuns.get("run");
-  assert.equal(run.status, "cancelled");
-  assert.equal(run.workspace, null);
-  assert.equal(run.activeTurn, null);
-  assert.equal(run.pendingTurn, undefined);
-  assert.equal(run.imported.historyOnly, true);
+  assert.throws(() => restoredRuns.get("run"), { status: 404 });
   await assert.rejects(fs.stat(path.join(target, "agentbus")), { code: "ENOENT" });
   // Without a passphrase, AgentBus history is left out (it is only archived sealed).
   await assert.rejects(fs.stat(path.join(target, "imported-history")), {

@@ -15,6 +15,7 @@ import { sealHistory } from "./history-seal.js";
 import { backupOptions, capture, omissions } from "./snapshot.js";
 import { mcpServersPresent } from "./mcp-server-backup.js";
 import { applicationVersion } from "./version.js";
+import { privateContentOmissions } from "./private-content.js";
 import { problem } from "../../lib/storage.js";
 import {
   assistantOmissions,
@@ -53,6 +54,7 @@ export class Backup {
     const options = backupOptions(input);
     const assistants = assistantsCaptured(this.dataDir);
     const mcpServers = mcpServersPresent(this.dataDir);
+    const sealing = options.includeHistory && options.withCredentials;
     return {
       components: [
         "accounts",
@@ -61,13 +63,21 @@ export class Backup {
         "preferences",
         "pipeline-definitions",
         "memory",
-        "pipeline-history",
         "audit",
-        // Histories are archived only sealed, in backups with a passphrase.
-        ...(options.includeHistory && options.withCredentials
-          ? ["chat", "terminal", "agentbus-history", "cli-histories"]
+        // Histories and private content are archived only sealed, in backups with a
+        // passphrase.
+        ...(sealing
+          ? [
+              "chat",
+              "terminal",
+              "agentbus-history",
+              "cli-histories",
+              "pipeline-history",
+              "unpinned-artifacts",
+            ]
           : []),
         ...(assistants ? ["assistants"] : []),
+        ...(assistants && sealing ? ["agent-history"] : []),
         ...(mcpServers ? ["mcp-servers"] : []),
         ...(options.withCredentials
           ? [
@@ -88,6 +98,11 @@ export class Backup {
           ? [profileOmissions.history]
           : !options.withCredentials
             ? [profileOmissions.unsealed]
+            : []),
+        ...(!options.includeHistory
+          ? [privateContentOmissions.history]
+          : !options.withCredentials
+            ? [privateContentOmissions.unsealed]
             : []),
         ...(assistants ? assistantOmissions : []),
         ...(assistants ? [browserCachesOmission] : []),
@@ -150,6 +165,7 @@ export class Backup {
         dataDir: this.dataDir,
         id,
         withCredentials: options.withCredentials,
+        includeHistory: options.includeHistory && options.withCredentials,
         busy: this.assistantsBusy,
         plan: members,
         scratch,
@@ -166,9 +182,12 @@ export class Backup {
       // History is sealed under a key that travels in the capsule.
       const history = sealHistory(
         id,
-        [...snapshot.files, ...profiles.files, ...browser.files].filter(
-          (member) => member.history,
-        ),
+        [
+          ...snapshot.files,
+          ...profiles.files,
+          ...browser.files,
+          ...(assistants?.files || []),
+        ].filter((member) => member.history),
       );
       try {
         return await this.write(
@@ -193,7 +212,10 @@ export class Backup {
               ...browser.omissions,
             ],
           },
-          assistants,
+          assistants && {
+            ...assistants,
+            files: assistants.files.filter((member) => !member.history),
+          },
         );
       } catch (error) {
         // A backup that was never written must not leave its assistant key behind.

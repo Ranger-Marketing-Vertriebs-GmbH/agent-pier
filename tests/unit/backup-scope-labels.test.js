@@ -14,6 +14,7 @@ import {
   browserUnreadableOmission,
 } from "../../server/features/operations/browser-profile-backup.js";
 import { profileOmissions } from "../../server/features/operations/profile-capture.js";
+import { privateContentOmissions } from "../../server/features/operations/private-content.js";
 import {
   changedOmission,
   removedOmission,
@@ -41,6 +42,9 @@ test("every backup scope entry has a German and an English label", (t) => {
     browserUnreadableOmission,
     browserAgentsUnreadableOmission,
     ...Object.values(profileOmissions),
+    ...Object.values(privateContentOmissions),
+    // Listed only on a host with agents.
+    "agent-history",
     removedOmission,
     changedOmission,
     legacy,

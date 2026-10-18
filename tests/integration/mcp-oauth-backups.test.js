@@ -117,10 +117,15 @@ test("host backups leave MCP OAuth logins out, sealed or not", async (t) => {
       ...(withCredentials ? { passphrase } : {}),
     });
     const restored = path.join(target, "assistants", stateDatabase);
-    assert.equal(loginRows(restored), 0);
-    assert.equal(count(restored, "conversations"), 1);
-    // The auth profile comes back on this host; only it decides "assistants".
-    assert.equal(count(restored, "auth_profile_store"), withCredentials ? 1 : 0);
+    // OpenClaw's state database can hold conversations: it is private content,
+    // sealed with the passphrase and left out without one.
+    assert.equal(fs.existsSync(restored), withCredentials);
+    if (withCredentials) {
+      assert.equal(loginRows(restored), 0);
+      assert.equal(count(restored, "conversations"), 1);
+      // The auth profile comes back on this host; only it decides "assistants".
+      assert.equal(count(restored, "auth_profile_store"), 1);
+    }
     assert.equal(report.credentialsNeedingLogin.includes("assistants"), !withCredentials);
     // The server the login belongs to comes back without any memory of the login.
     const restoredServers = new McpServerStore({ dataDir: target, pathEnv: "/fake/bin" });

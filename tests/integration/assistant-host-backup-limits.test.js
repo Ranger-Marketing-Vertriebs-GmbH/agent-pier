@@ -62,7 +62,13 @@ test("large agent data streams into the backup instead of being left out", async
   write(root, "state/agents/main/sessions/large.jsonl", Buffer.alloc(2 * 1024 * 1024));
   for (let index = 0; index < 300; index++) write(root, `state/many/${index}.json`, "{}");
   for (const withCredentials of [false, true]) {
-    const result = await captureAssistants({ dataDir, id, withCredentials });
+    // Transcripts are private: captured only with history, to be sealed.
+    const result = await captureAssistants({
+      dataDir,
+      id,
+      withCredentials,
+      includeHistory: true,
+    });
     assert.equal(result.omissions.includes(tooLarge), false);
     const large = result.files.find(
       (member) => member.path === "assistants/state/agents/main/sessions/large.jsonl",
@@ -70,6 +76,7 @@ test("large agent data streams into the backup instead of being left out", async
     // Copied-through files are streamed later, not held in memory.
     assert.equal(large.size, 2 * 1024 * 1024);
     assert.equal(large.bytes, undefined);
+    assert.equal(large.history, true);
     assert.equal(
       result.files.filter((member) => member.path.startsWith("assistants/state/many/"))
         .length,
@@ -89,7 +96,8 @@ test("an unparsable relocatable file is omitted so the archive stays restorable"
     const names = paths(backup.file);
     assert.equal(names.includes(`assistants/${index}`), false);
     assert.equal(names.includes("assistants/state/openclaw.json"), false);
-    assert.ok(names.includes("assistants/state/agents/main/sessions/a.jsonl"));
+    // The transcript is sealed with a passphrase and left out without one.
+    assert.equal(names.includes("assistants/state/agents/main/sessions/a.jsonl"), false);
     assert.ok(backup.manifest.omissions.includes(unreadable));
     const target = path.join(temporary, `restored-${options.withCredentials === true}`);
     await new Restore({ dataDir }).apply({
@@ -97,8 +105,9 @@ test("an unparsable relocatable file is omitted so the archive stays restorable"
       targetDataDir: target,
       ...(options.passphrase ? { passphrase } : {}),
     });
-    assert.ok(
+    assert.equal(
       fs.existsSync(path.join(target, "assistants/state/agents/main/sessions/a.jsonl")),
+      options.withCredentials === true,
     );
   }
 });
@@ -115,11 +124,23 @@ test("files agents shared survive a backup and restore whatever their names", as
     "20261017-101500-1a2b3c51-cache",
   ];
   for (const name of names) write(root, `shares/${agent}/${name}`, name);
-  const backup = await new Backup({ dataDir }).create();
+  // Shared files are private content: sealed, so restored with the passphrase.
+  const backup = await new Backup({ dataDir }).create({
+    withCredentials: true,
+    passphrase,
+  });
   for (const name of names)
-    assert.ok(paths(backup.file).includes(`assistants/shares/${agent}/${name}`), name);
+    assert.equal(
+      paths(backup.file).includes(`assistants/shares/${agent}/${name}`),
+      false,
+      name,
+    );
   const target = path.join(temporary, "restored");
-  await new Restore({ dataDir }).apply({ archive: backup.file, targetDataDir: target });
+  await new Restore({ dataDir }).apply({
+    archive: backup.file,
+    targetDataDir: target,
+    passphrase,
+  });
   for (const name of names)
     assert.equal(
       fs.readFileSync(path.join(target, "assistants/shares", agent, name), "utf8"),

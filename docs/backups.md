@@ -4,7 +4,7 @@ Settings → Operations → Backups creates a host backup of the data directory 
 a new, separate data directory. The running instance never switches its data
 directory. `node scripts/operations.mjs backup|inspect|restore` offers the same
 operations on the command line; `backup` without `--with-credentials` (and a
-passphrase on stdin) leaves out all histories.
+passphrase on stdin) leaves out all histories and private content.
 
 ## What a backup holds
 
@@ -12,27 +12,22 @@ Always, as public (unencrypted) members:
 
 - Accounts, provider connections, repositories, preferences, pipeline definitions,
   the port from `config.json`.
-- Project memory and pipeline history as consistent SQLite snapshots (memory without
-  capabilities), the audit log, pinned artifacts, the sanitized MCP server store.
-- Agent data under `assistants/` without runtimes, package caches (in any spelling,
-  such as Chromium's `Cache`, `Code Cache` and `GPUCache`), update snapshots, TLS
-  material, backup keys and the agents' browser profiles (see
-  `docs/assistant-gateway.md`).
-- Agent chat attachments: the owner's uploaded files in each agent's
-  `workspaces/<agent>/attachments/` (up to 1 GB per agent; photos, videos and
-  documents may be private) together with their index in `assistants.sqlite`, so a restore
-  brings back both. They are public members like the rest of the workspaces; leave
-  agents' attachment folders out of a backup only by deleting the files first.
-- Files agents shared with you: AgentPier's copies in `shares/<agent>/` (up to 1 GB
-  per agent, each kept for 90 days) with the same index, as public members too.
-- With **Include history**, unpinned artifacts as well, with or without a
-  passphrase.
-
-So agent chats, channels, workspaces and attachments, pipeline history and artifacts
-are never encrypted; only the histories below are.
+- Project memory as a consistent SQLite snapshot (without capabilities), the audit
+  log, pinned artifacts (with a tombstone for every other record, and no publish
+  receipt of an unpinned one), the sanitized MCP server store.
+- Agent configuration under `assistants/`: `settings.json`, `openclaw.json` and
+  its copies (secrets sealed or left out, see below), the agents' home folder,
+  OpenClaw's other configuration files, and configuration copies of AgentPier's
+  agent databases (`assistants.sqlite`, `channels.sqlite`, `web-search.sqlite`)
+  without their private rows. A restore without private content brings back
+  working agents with their settings, channels, team policy, reminders and
+  access, and an empty history. Runtimes, package caches (in any spelling, such
+  as Chromium's `Cache`, `Code Cache` and `GPUCache`), update snapshots, TLS
+  material, backup keys and the agents' browser profiles are never public members
+  (see `docs/assistant-gateway.md`).
 
 With **Include history** and **Include encrypted credentials** together, the
-histories, always encrypted (see "Sealed history"):
+histories and private content, always encrypted (see "Sealed history"):
 
 - AgentPier's own: session records and terminal captures (`sessions/`), chat
   histories (`chat/`), AgentBus inbox history and earlier imported AgentBus history
@@ -40,20 +35,44 @@ histories, always encrypted (see "Sealed history"):
   temporary file that a crashed writer left in `chat/` or in a credential folder is
   left out.
 - Each managed CLI profile's conversation history (table below).
+- Pipeline history (`pipeline-runs/runs.sqlite`): task prompts, stage verdicts and
+  findings.
+- Unpinned artifacts: their generation files, and their records and publish
+  receipts as `artifacts/unpinned.json`, which a restore merges back into the
+  artifact index in place of the tombstones.
+- The agents' private content below `assistants/`: workspaces with the owner's
+  chat attachments (`workspaces/<agent>/attachments/`, up to 1 GB per agent),
+  files agents shared with you (`shares/<agent>/`), OpenClaw's transcripts and
+  session index (`state/agents/<agent>/sessions/`), its media (`state/media/`),
+  its memory index (`state/memory/`) and every SQLite database below `state/`
+  (OpenClaw's state database can hold conversations next to approvals). For
+  `assistants.sqlite` and `channels.sqlite`, a full copy is sealed as
+  `assistant-history/<name>`; a restore puts it in place of the configuration copy.
+  Their private rows are conversations, requests and attempts, cached messages,
+  attachment and share indexes, queued messages, routine results and events, memory
+  notes, action history, team records other than policy and settings, and Telegram
+  inbox, outbox and unknown senders.
 
 Histories hold task content and tool output verbatim, and Claude Code's
 `file-history/` holds copies of edited files, so they are never archived in plain
-text. Without a passphrase, histories are left out: the backup dialog says so and
-how to back them up encrypted, and the plan and manifest list "AgentPier and CLI
-histories are only backed up in backups with a passphrase, and then encrypted".
-Without **Include history**, they list "AgentPier and CLI histories". The
+text, and neither is private content. Without a passphrase, both are left out: the
+backup dialog says so and how to back them up encrypted, and the plan and manifest
+list "AgentPier and CLI histories are only backed up in backups with a passphrase,
+and then encrypted" and "Agent chats, channel messages, workspaces and attachments,
+pipeline history and unpinned artifacts are only backed up in backups with a
+passphrase, and then encrypted". Without **Include history**, they list "AgentPier
+and CLI histories" and "Agent chats, channel messages, workspaces and attachments,
+pipeline history and unpinned artifacts"; the restore report repeats these
+omissions. OpenClaw's state database stays out with its credential rows then, so
+the restore report lists `assistants` under credentials needing a login. The
 manifest's and the backup list's `includeHistory` says whether the backup holds
 history, so it is false for a backup without a passphrase; in earlier backups it
 recorded the choice, which then also meant public AgentPier history.
 
 Earlier backups archived AgentPier's own histories as public
-members whenever history was included; restore still accepts them, in version 1
-and version 2 archives. Their manifests name "CLI conversation histories" and "CLI
+members whenever history was included, and agent chats, channels, workspaces and
+attachments, pipeline history and (with history) unpinned artifacts always;
+restore still accepts them, in version 1 and version 2 archives. Their manifests name "CLI conversation histories" and "CLI
 histories are only backed up in backups with a passphrase, and then encrypted"
 instead.
 
@@ -134,17 +153,21 @@ manifest, members }`. `manifest` holds `schemaVersion` 2, `applicationVersion`,
 
 ### Sealed history
 
-AgentPier's own histories, CLI histories and the agents' browser profiles are
-sealed the same way, in one sequence of `sealed/<n>` entries under one key. A backup
-with browser profiles has a version 2 seal record even without history, so
+AgentPier's own histories, CLI histories, private content and the agents' browser
+profiles are sealed the same way, in one sequence of `sealed/<n>` entries under one
+key. A backup with browser profiles has a seal record even without history, so
 AgentPier 2.0 to 2.2 cannot restore it.
 
-The seal record (`history-seal.json`) has version 2 since AgentPier's own
-histories are sealed. Version 1 records (AgentPier 2.0 to 2.2) may only name CLI
-history paths and may stand beside public AgentPier history; beside a version 2
-record, a public `sessions/`, `chat/` or `imported-history/` member fails the
-restore. A record version newer than the reader knows is reported as written by a
-newer AgentPier version. AgentPier 2.0 to 2.2 know only version 1 and report a
+The seal record (`history-seal.json`) has version 3 since private content is
+sealed. Version 1 records (AgentPier 2.0 to 2.2) may only name CLI history paths
+and may stand beside public AgentPier history; beside a version 2 or 3 record, a
+public `sessions/`, `chat/` or `imported-history/` member fails the restore.
+Version 2 records may not name private content, which may stand beside them in
+public; beside a version 3 record, a public `pipeline-runs/runs.sqlite`,
+`artifacts/unpinned.json`, `assistant-history/` member or agent workspace,
+shared file, transcript, media or memory index member fails the restore. A record
+version newer than the reader knows is reported as written by a newer AgentPier
+version: AgentPier versions that know version 2 say so for a version 3 record. AgentPier 2.0 to 2.2 know only version 1 and report a
 backup with a version 2 record as damaged or altered ("An encrypted CLI history in
 the backup is damaged or was altered"); it needs a current AgentPier to restore.
 Backups without history have no seal record and stay restorable there.
@@ -176,8 +199,10 @@ when the backup ends, and after a crash at the next server start.
 Every file a restore writes, whatever kind of member it comes from, is checked by
 one guard: its path must be a clean relative path that resolves inside the real
 path of the hidden stage, with no link or file on the way. Sealed history paths
-from the capsule must also be history paths (AgentPier's session, chat and
-AgentBus history files, or CLI history paths), each at most once.
+from the capsule must also be history paths of the record's version (AgentPier's
+session, chat and AgentBus history files, CLI history paths, browser profiles, and
+with version 3 the private content paths above), each at most once and never the
+path of a public member.
 
 The header is a separate, uncompressed (stored) gzip member. It is written with
 placeholder hashes first and rewritten in place once all members are streamed. Its
