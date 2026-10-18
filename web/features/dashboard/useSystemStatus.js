@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../lib/api.js";
 import { startVisiblePolling } from "../../lib/visible-polling.js";
+import { usableStatus } from "./system-status-format.js";
 
 // The server samples only while a page asks, so polling stops with a hidden page.
 export const SYSTEM_STATUS_INTERVAL = 5000;
@@ -12,7 +13,8 @@ export default function useSystemStatus(path, enabled = true) {
     let active = true;
     const stop = startVisiblePolling(async (signal) => {
       try {
-        const data = await api(path, "GET", undefined, signal);
+        const data = usableStatus(await api(path, "GET", undefined, signal));
+        if (!data) throw new Error("Unusable system status");
         if (active) setState({ data, error: null });
       } catch (error) {
         if (active && !signal.aborted) setState((current) => ({ ...current, error }));

@@ -27,5 +27,14 @@ export const statusTime = (value) => formatTimestamp(value);
 /** The used share of the disk bar; an unknown free share stays unknown ("–"). */
 export const diskUsedPercent = (disk) =>
   Number.isFinite(disk?.freePercent) ? 100 - disk.freePercent : null;
+/** An answer with every figure the row needs; anything else counts as no answer. */
+export const usableStatus = (data) =>
+  data &&
+  typeof data === "object" &&
+  ["disk", "cpu", "memory", "warning", "agentPier"].every(
+    (key) => data[key] && typeof data[key] === "object",
+  )
+    ? data
+    : null;
 export const clampPercent = (value) =>
   Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;

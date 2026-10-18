@@ -1,11 +1,19 @@
+import { systemStatusAnswer } from "./system-status-fixture.js";
 // Unrelated browser fixtures run with agents switched off: the only requests the UI
 // may make then are the opt-in switch and the central MCP server list with its finds
 // in the CLIs (empty, shown on Accounts with or without agents); any other one fails
 // in strict fixtures.
+// The start page's system status polls in every fixture that shows it; it is answered
+// here too.
 export async function fulfillDormantAssistantRequest(route) {
   const request = route.request();
   if (request.method() !== "GET") return false;
   const path = new URL(request.url()).pathname;
+  const status = systemStatusAnswer(path);
+  if (status) {
+    await route.fulfill({ json: status });
+    return true;
+  }
   if (path === "/api/mcp-servers") {
     await route.fulfill({ json: [] });
     return true;
