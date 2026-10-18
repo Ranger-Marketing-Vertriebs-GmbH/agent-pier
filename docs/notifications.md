@@ -48,7 +48,7 @@ again on that device.
 | Approval required            | A session waits for your decision                                                                                               |
 | Question                     | A session waits for your answer                                                                                                 |
 | Response ready               | A session finished its reply                                                                                                    |
-| Session waiting              | A session's CLI reports that it waits for you in the terminal, outside AgentPier's approvals and questions                      |
+| Session waiting              | A session's CLI reports that it waits for you in the terminal, outside AgentPier's approvals and questions, for a few seconds   |
 | Session ended                | A session stopped                                                                                                               |
 | Pipeline waiting             | A pipeline waits at a human gate                                                                                                |
 | Pipeline ended               | A pipeline run finished                                                                                                         |

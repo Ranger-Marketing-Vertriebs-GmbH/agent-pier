@@ -160,6 +160,8 @@ export class SessionActivity {
     this.sessions = sessions;
     Object.assign(this, { hooks, pending, quietMs, reportStaleMs });
     this.screens = new Map();
+    // The report each session's terminal reading ended (see mergeActivity).
+    this.ended = new Map();
     this.cacheMs = cacheMs;
     this.now = now;
     this.staleMs = staleMs;
@@ -261,21 +263,7 @@ export class SessionActivity {
         )
           state = "unknown";
       } else this.observations.delete(key);
-      let hook = null,
-        pending = false;
-      try {
-        hook = await this.hooks(session);
-        pending = !!(await this.pending(session.id));
-      } catch {}
-      const merged = mergeActivity({
-        pane: state,
-        hook,
-        pending,
-        now: time,
-        paneChangedAt: this.screens.get(session.id)?.changedAt,
-        quietMs: this.quietMs,
-        staleMs: this.reportStaleMs,
-      });
+      const merged = await this.combine(session, state, time);
       entry.pending = false;
       entry.time = time;
       return result(merged.state, {
@@ -296,6 +284,36 @@ export class SessionActivity {
       })),
     );
   }
+  async combine(session, pane, now) {
+    let hook = null,
+      pending = false;
+    try {
+      hook = await this.hooks(session);
+      pending = !!(await this.pending(session.id));
+    } catch {}
+    const { ends, ...merged } = mergeActivity({
+      pane,
+      hook,
+      pending,
+      now,
+      paneChangedAt: this.screens.get(session.id)?.changedAt,
+      endedAt: this.ended.get(session.id),
+      quietMs: this.quietMs,
+      staleMs: this.reportStaleMs,
+    });
+    if (ends !== undefined) this.ended.set(session.id, ends);
+    return merged;
+  }
+  /**
+   * The same combined state for a screen the caller captured itself, without the
+   * read cache: a reload's last check under the session lock must agree with the
+   * state that let it start.
+   */
+  async settle(session, raw) {
+    const pane = parseSessionActivity(session.tool, raw).state;
+    const merged = await this.combine(session, pane, this.now());
+    return result(merged.state, merged);
+  }
   /** Remember when the screen last changed; a working CLI keeps animating it. */
   screenChanged(id, raw) {
     const digest = createHash("sha1").update(String(raw)).digest("hex");
@@ -306,6 +324,7 @@ export class SessionActivity {
   remove(id) {
     this.cache.delete(id);
     this.screens.delete(id);
+    this.ended.delete(id);
     for (const key of this.observations.keys())
       if (JSON.parse(key)[0] === id) this.observations.delete(key);
   }

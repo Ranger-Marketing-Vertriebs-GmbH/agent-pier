@@ -126,12 +126,11 @@ test("ended pipeline runs are audited with their own status action", async (t) =
   );
 });
 
-test("a reported wait notifies once, unless an approval or question already did", async (t) => {
-  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-event-test-"));
-  const audit = new AuditStore({ dataDir });
+function waitingFixture(t) {
   const sent = [];
+  let subscriptions = [{}];
   const notifications = {
-    status: () => ({ subscriptions: [{}] }),
+    status: () => ({ subscriptions }),
     observations: new Map(),
     observation(key) {
       return this.observations.get(key);
@@ -141,59 +140,126 @@ test("a reported wait notifies once, unless an approval or question already did"
     },
     notify: async (value) => sent.push(value),
   };
-  let activity = { state: "working", source: "hook" };
-  const session = { id: "session-wait", tool: "claude", status: "running" };
-  const events = new OperationsEvents({
+  const ctx = {
+    sent,
+    clock: 0,
+    reads: 0,
+    activity: { state: "working", source: "hook" },
+    session: { id: "session-wait", tool: "claude", status: "running" },
+    devices: (value) => {
+      subscriptions = value ? [{}] : [];
+    },
+    kinds: () => sent.map((item) => item.kind),
+  };
+  const audit = { append() {} };
+  ctx.events = new OperationsEvents({
     audit,
     notifications,
-    sessions: { list: async () => [session] },
-    activity: { read: async () => activity },
+    sessions: { list: async () => [ctx.session] },
+    activity: {
+      read: async () => {
+        ctx.reads++;
+        return ctx.activity;
+      },
+    },
     pipelines: { store: { all: () => [] } },
     intervalMs: 0,
+    now: () => ctx.clock,
   });
-  t.after(async () => {
-    await events.close();
-    audit.close();
-    await fs.rm(dataDir, { recursive: true, force: true });
-  });
-  const kinds = () => sent.map((item) => item.kind);
-  await events.poll();
-  activity = { state: "waiting", source: "hook" };
-  await events.poll();
-  await events.poll();
-  assert.deepEqual(kinds(), ["session-waiting"]);
-  assert.deepEqual(pushPayload(sent[0]), {
+  ctx.request = () =>
+    ctx.events.emit({
+      action: "request.created",
+      resourceType: "request",
+      resourceId: `r${ctx.clock}`,
+      sessionId: ctx.session.id,
+      kind: "permission",
+      source: "system",
+      outcome: "success",
+      details: { kind: "permission" },
+    });
+  // One poll every 2.5 seconds, as in production.
+  ctx.poll = async (state, source = "hook") => {
+    if (state) ctx.activity = { state, source };
+    ctx.clock += 2500;
+    await ctx.events.poll();
+  };
+  t.after(() => ctx.events.close());
+  return ctx;
+}
+
+test("a reported wait notifies once after a short grace, unless a request already did", async (t) => {
+  const ctx = waitingFixture(t);
+  await ctx.poll();
+  await ctx.poll("waiting");
+  assert.deepEqual(ctx.kinds(), [], "a request for the same wait may still arrive");
+  await ctx.poll();
+  await ctx.poll();
+  assert.deepEqual(ctx.kinds(), ["session-waiting"]);
+  assert.deepEqual(pushPayload(ctx.sent[0]), {
     kind: "session-waiting",
-    eventId: sent[0].eventId,
+    eventId: ctx.sent[0].eventId,
     sessionId: "session-wait",
   });
   // A native dialog the owner opened in the terminal never notifies.
-  activity = { state: "working", source: "hook" };
-  await events.poll();
-  activity = { state: "waiting", source: "native-terminal" };
-  await events.poll();
-  assert.deepEqual(kinds(), ["session-waiting"]);
-  // An AgentPier request already sent its own push for this wait.
-  activity = { state: "working", source: "hook" };
-  await events.poll();
-  events.emit({
-    action: "request.created",
-    resourceType: "request",
-    resourceId: "r1",
-    sessionId: session.id,
-    kind: "permission",
-    source: "system",
-    outcome: "success",
-    details: { kind: "permission" },
-  });
-  activity = { state: "waiting", source: "hook" };
-  await events.poll();
-  assert.deepEqual(kinds(), ["session-waiting", "permission"]);
+  await ctx.poll("working");
+  await ctx.poll("waiting", "native-terminal");
+  await ctx.poll();
+  await ctx.poll();
+  assert.deepEqual(ctx.kinds(), ["session-waiting"]);
+  // Codex reports waitingOnApproval and its approval request almost together, in
+  // either order: only the approval notifies.
+  for (const requestFirst of [true, false]) {
+    await ctx.poll("working");
+    if (requestFirst) ctx.request();
+    await ctx.poll("waiting");
+    if (!requestFirst) ctx.request();
+    await ctx.poll();
+    await ctx.poll();
+  }
+  assert.deepEqual(ctx.kinds(), ["session-waiting", "permission", "permission"]);
   // The next wait after the session moved on notifies again, with a new event ID.
-  activity = { state: "working", source: "hook" };
-  await events.poll();
-  activity = { state: "waiting", source: "hook" };
-  await events.poll();
-  assert.deepEqual(kinds(), ["session-waiting", "permission", "session-waiting"]);
-  assert.notEqual(sent[0].eventId, sent[2].eventId);
+  await ctx.poll("working");
+  await ctx.poll("waiting");
+  await ctx.poll();
+  await ctx.poll();
+  assert.deepEqual(ctx.kinds(), [
+    "session-waiting",
+    "permission",
+    "permission",
+    "session-waiting",
+  ]);
+  assert.notEqual(ctx.sent[0].eventId, ctx.sent[3].eventId);
+});
+
+test("a remembered request is forgotten once its session stops waiting, even without devices", async (t) => {
+  const ctx = waitingFixture(t);
+  ctx.devices(false);
+  await ctx.poll("working");
+  assert.equal(ctx.reads, 0, "without devices and requests nothing reads the terminal");
+  ctx.request();
+  await ctx.poll("waiting", "request");
+  assert.equal(ctx.events.requested.has(ctx.session.id), true);
+  await ctx.poll("idle");
+  assert.equal(ctx.events.requested.has(ctx.session.id), false);
+  const reads = ctx.reads;
+  await ctx.poll();
+  assert.equal(ctx.reads, reads);
+  // A stopped session forgets its request as well.
+  ctx.request();
+  ctx.session.status = "stopped";
+  await ctx.poll();
+  assert.equal(ctx.events.requested.size, 0);
+  // Devices added during a later wait get its push.
+  ctx.session.status = "running";
+  ctx.devices(true);
+  await ctx.poll("working");
+  await ctx.poll("waiting");
+  await ctx.poll();
+  await ctx.poll();
+  assert.deepEqual(ctx.kinds(), [
+    "permission",
+    "permission",
+    "session-ended",
+    "session-waiting",
+  ]);
 });

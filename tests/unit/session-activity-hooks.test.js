@@ -78,7 +78,23 @@ test("merged activity prefers the report, and the terminal only where it contrad
   assert.deepEqual(merge("idle", old, still), {
     state: "idle",
     source: "native-terminal",
+    ends: old.at,
   });
+  // An ended report stays ended while the screen changes (typing, a resize) until
+  // the CLI reports again.
+  for (const pane of ["idle", "unknown"])
+    assert.deepEqual(merge(pane, old, { endedAt: old.at }), {
+      state: pane,
+      source: "native-terminal",
+    });
+  assert.equal(
+    merge("waiting", hook("waiting"), { endedAt: now - 1000 }).source,
+    "native-terminal",
+  );
+  assert.equal(
+    merge("unknown", hook("working", { at: now }), { endedAt: old.at }).state,
+    "working",
+  );
   assert.equal(merge("unknown", old, still).state, "working");
   assert.equal(merge("idle", { ...old, background: 2 }, still).background, 2);
   assert.equal(merge("idle", { ...old, background: 2 }, still).state, "working");
@@ -88,6 +104,7 @@ test("merged activity prefers the report, and the terminal only where it contrad
   assert.deepEqual(merge("unknown", ancient, stale), {
     state: "unknown",
     source: "native-terminal",
+    ends: ancient.at,
   });
   // A moving screen keeps a report fresh.
   assert.equal(merge("unknown", ancient).state, "working");
@@ -95,10 +112,19 @@ test("merged activity prefers the report, and the terminal only where it contrad
   assert.equal(merge("working", hook("waiting")).state, "working");
   assert.equal(merge("unknown", hook("waiting")).state, "waiting");
   assert.equal(merge("idle", hook("waiting", { at: now - 20_000 }), still).state, "idle");
-  assert.equal(
-    merge("unknown", hook("waiting", { at: now - 60 * 60_000 }), stale).state,
-    "waiting",
-  );
+  // A reported wait expires like any report when nothing moves on screen.
+  assert.deepEqual(merge("unknown", hook("waiting", { at: now - 60 * 60_000 }), stale), {
+    state: "unknown",
+    source: "native-terminal",
+    ends: now - 60 * 60_000,
+  });
+  // A dialog both on screen and reported stays the CLI's own wait.
+  assert.deepEqual(merge("waiting", hook("waiting")), {
+    state: "waiting",
+    source: "hook",
+    event: "x",
+  });
+  assert.equal(merge("waiting", hook("working")).source, "native-terminal");
 });
 
 test("Codex turns and thread status become one session activity", () => {

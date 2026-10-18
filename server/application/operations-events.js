@@ -16,11 +16,26 @@ export class OperationsEvents {
     activity,
     pipelines,
     intervalMs = 2500,
+    // A reported wait must last this long before it notifies, so an AgentPier
+    // request for the same wait (a Codex approval) arrives first and wins.
+    waitingGraceMs = 3000,
+    now = Date.now,
     onError = () => {},
   }) {
-    Object.assign(this, { audit, notifications, sessions, activity, pipelines, onError });
-    // Sessions whose current wait already sent an approval or question push.
-    this.requested = new Set();
+    Object.assign(this, {
+      audit,
+      notifications,
+      sessions,
+      activity,
+      pipelines,
+      onError,
+      waitingGraceMs,
+      now,
+    });
+    // When each session last sent an approval or question push.
+    this.requested = new Map();
+    // Each session's current wait: when it began and whether it was handled.
+    this.waits = new Map();
     if (intervalMs > 0) {
       this.timer = setInterval(() => this.poll().catch(onError), intervalMs);
       this.timer.unref();
@@ -32,7 +47,8 @@ export class OperationsEvents {
     } catch (error) {
       this.onError(error);
     }
-    if (event.action === "request.created") this.requested.add(event.sessionId);
+    if (event.action === "request.created")
+      this.requested.set(event.sessionId, this.now());
     if (event.action === "request.created")
       this.notifications
         .notify({
@@ -65,7 +81,13 @@ export class OperationsEvents {
   }
   async collect() {
     const enabled = this.notifications.status().subscriptions.length > 0;
-    for (const session of await this.sessions.list()) {
+    const sessions = await this.sessions.list();
+    const running = new Set(
+      sessions.filter((session) => session.status === "running").map(({ id }) => id),
+    );
+    for (const map of [this.requested, this.waits])
+      for (const id of map.keys()) if (!running.has(id)) map.delete(id);
+    for (const session of sessions) {
       if (
         session.imported?.historyOnly ||
         session.purpose === "login" ||
@@ -89,7 +111,17 @@ export class OperationsEvents {
           eventId: change.eventId,
         });
       }
-      if (!enabled || session.status !== "running") continue;
+      if (session.status !== "running") continue;
+      if (!enabled) {
+        // Without devices nothing notifies; only a remembered request needs the
+        // reading, to forget it once its session no longer waits.
+        if (
+          this.requested.has(session.id) &&
+          (await this.activity.read(session)).state !== "waiting"
+        )
+          this.requested.delete(session.id);
+        continue;
+      }
       const { state, source } = await this.activity.read(session);
       await this.waiting(session, state, source);
       if (!["working", "idle"].includes(state)) continue;
@@ -118,16 +150,27 @@ export class OperationsEvents {
     const waiting = state === "waiting";
     const change = this.transition(`waiting:${session.id}`, waiting);
     if (!waiting) {
+      this.waits.delete(session.id);
       this.requested.delete(session.id);
       return;
     }
+    const now = this.now();
+    let wait = this.waits.get(session.id);
+    // A wait already under way when AgentPier (re)started never notifies late.
+    if (change.changed || !wait)
+      this.waits.set(
+        session.id,
+        (wait = { since: now, eventId: change.eventId, done: !change.changed }),
+      );
     // Only a reported wait counts: a terminal dialog the owner opened (a model
     // picker) is no reason to notify, and AgentPier's requests notify on their own.
-    if (!change.changed || source !== "hook" || this.requested.has(session.id)) return;
+    if (wait.done || source !== "hook" || now - wait.since < this.waitingGraceMs) return;
+    wait.done = true;
+    if (this.requested.get(session.id) >= wait.since - this.waitingGraceMs) return;
     await this.notifications.notify({
       kind: "session-waiting",
       sessionId: session.id,
-      eventId: change.eventId,
+      eventId: wait.eventId,
     });
   }
   pipeline(run) {

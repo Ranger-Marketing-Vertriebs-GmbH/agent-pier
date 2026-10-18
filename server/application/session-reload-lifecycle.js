@@ -242,13 +242,18 @@ export function createReloadLifecycle(services) {
           const latestModel = currentModel(session.tool, raw);
           if (plan.displayedModel && latestModel && plan.displayedModel !== latestModel)
             throw problem(serverMessages.sessionReload.modelChangedBeforeReload, 409);
-          // Recheck under the manager lock, after earlier queued input/model operations.
+          // Recheck under the manager lock, after earlier queued input/model operations,
+          // with the same combined reading (CLI report and terminal) that started it.
           if (
             session.reload?.interrupt !== true &&
             (requests.hasPending?.(session.id) ||
-              parseSessionActivity(session.tool, raw).state !== "idle")
+              (services.activity?.settle
+                ? (await services.activity.settle(current, raw)).state
+                : parseSessionActivity(session.tool, raw).state) !== "idle")
           )
-            throw problem(serverMessages.sessionReload.notIdle, 409);
+            throw Object.assign(problem(serverMessages.sessionReload.notIdle, 409), {
+              notIdle: true,
+            });
         },
       );
     } finally {
