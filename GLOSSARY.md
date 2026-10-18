@@ -87,8 +87,15 @@ _Avoid_: Subagent, child, worker.
 **Ask**, **Task**:
 The two kinds of lead request. An ask is a question to any member and never writes
 files; a task is work delegated to a permanent member and may write only with the
-owner's explicit request in the same message.
+owner's explicit request in the same message, or as a self-initiated task of an
+autonomous lead.
 _Avoid_: Job, ticket, delegation (for the record itself).
+
+**Team usage**:
+How a lead involves its members on its own: _on request_, _suggest_ (offers a member
+and waits for the owner's yes) or _autonomous_ (asks and delegates itself, within a
+per-turn and hourly limit). Shown as "Use team".
+_Avoid_: Team mode, autopilot.
 
 **Routine**:
 A saved task prompt that runs daily or on an event and reports to the agent's chat
