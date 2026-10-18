@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
+import StatusDot from "../../components/StatusDot.jsx";
+import { chipTone } from "../../components/status-tones.js";
 import { formatNumber } from "../../lib/i18n/index.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 
@@ -80,7 +82,7 @@ const stepTone = (step) =>
 export function VerificationSteps({ evidence, node }) {
   return verificationSteps(node).map((step, index) => (
     <div className="run-verify-step" key={index}>
-      <span className={`run-dot tone-${stepTone(step)}`} aria-hidden="true" />
+      <StatusDot tone={chipTone(stepTone(step))} className="run-dot" />
       <small>
         {step.name} · {step.blocking ? copy.blocking : copy.verification} ·{" "}
         {stepResult(step)}

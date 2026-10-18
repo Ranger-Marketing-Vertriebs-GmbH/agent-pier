@@ -1,5 +1,7 @@
 import React from "react";
 import ProviderMark from "../components/ProviderMark.jsx";
+import StatusDot from "../components/StatusDot.jsx";
+import { activityTone } from "../components/status-tones.js";
 import { sessionActivity, sandboxBadge } from "./SidebarGroup.jsx";
 
 // Sessions may lack a working directory (cwd null); they then show no location.
@@ -22,7 +24,11 @@ export default function SessionRow({ session, selected, onSelect, names }) {
           size="row"
           label={shell ? undefined : names[session.tool]}
         />
-        <span className={`activity-dot ${activity.state}`} aria-hidden="true" />
+        <StatusDot
+          tone={activityTone(activity.state)}
+          pulse={activity.state === "working"}
+          className={`activity-dot ${activity.state}`}
+        />
       </span>
       <span>
         <strong>{session.name}</strong>

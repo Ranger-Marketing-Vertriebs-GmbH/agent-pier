@@ -123,7 +123,7 @@
   color: #ffc99d;
 }
 .project-item-text .project-hint.failed {
-  color: #e7a3a3;
+  color: var(--error-text);
 }
 .project-item-chevron {
   display: none;

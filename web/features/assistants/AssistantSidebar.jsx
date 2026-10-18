@@ -8,6 +8,8 @@ import useAssistants from "./useAssistants.js";
 import { avatarGlyph } from "./avatar-glyph.js";
 import { connectionMissing } from "./connection-state.js";
 import Icon from "../../components/Icon.jsx";
+import StatusDot from "../../components/StatusDot.jsx";
+import { activityTone } from "../../components/status-tones.js";
 import { activityFor, activityDot, sidebarSubline } from "./assistant-status.js";
 
 // Agents whose team members the owner unfolded stay unfolded across reloads (per
@@ -167,7 +169,13 @@ export default function AssistantSidebar({ navigate, route }) {
       >
         <span className="assistant-avatar-wrap" aria-hidden="true">
           <span className="assistant-avatar">{avatarGlyph(assistant.name)}</span>
-          {dot && <span className={`activity-dot ${dot}`} />}
+          {dot && (
+            <StatusDot
+              tone={activityTone(dot)}
+              pulse={dot === "working"}
+              className={`activity-dot ${dot}`}
+            />
+          )}
         </span>
         <span>
           <strong>{assistant.name}</strong>

@@ -1,4 +1,5 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import StatusDot from "../../components/StatusDot.jsx";
 import {
   credentialListCopy as copy,
   tokenCheckCopy,
@@ -53,9 +54,9 @@ export default function CredentialList({
             )}
           </div>
           <div role="cell" className="github-access-token">
-            <span
-              className={`github-access-dot ${credential.hasSecret ? "saved" : "missing"}`}
-              aria-hidden="true"
+            <StatusDot
+              tone={credential.hasSecret ? "ok" : "idle"}
+              className="github-access-dot"
             />
             <div>
               {credential.hasSecret ? copy.tokenSaved : copy.tokenMissing}

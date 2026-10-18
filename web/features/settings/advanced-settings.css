@@ -25,7 +25,7 @@
 .advanced-setting-badge.live {
   border-color: #5fbf7533;
   background: #1c2b20;
-  color: #9fd3a8;
+  color: var(--success);
 }
 .advanced-setting-row input.list-row-number {
   width: 88px;

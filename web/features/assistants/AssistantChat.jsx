@@ -34,6 +34,7 @@ import { streamInHistory } from "./stream-reply.js";
 import { takeBack } from "./queued-message.js";
 import { connectionLost } from "./agent-offline.js";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
+import StatusDot from "../../components/StatusDot.jsx";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
 const sameTurnText = (a, b) => turnText(a) === turnText(b);
@@ -478,7 +479,7 @@ export default function AssistantChat({
                 data-compacting={compacting || undefined}
               >
                 {active && !uncertain && (
-                  <span className="assistant-run-dot" aria-hidden="true" />
+                  <StatusDot tone="working" pulse className="assistant-run-dot" />
                 )}
                 {compacting ? copy.compaction.running : copy.status[shownAttempt.state]}
               </p>

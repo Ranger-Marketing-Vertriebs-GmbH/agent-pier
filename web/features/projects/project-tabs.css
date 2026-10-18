@@ -30,10 +30,10 @@
 .project-attention-strip.failed {
   border-color: #d66a6a33;
   background: #2a1a1a;
-  color: #e7a3a3;
+  color: var(--error-text);
 }
 .project-attention-strip.failed .dot {
-  background: #d66a6a;
+  background: var(--status-error);
 }
 .project-attention-text {
   flex: 1;
@@ -93,10 +93,10 @@
   background: #6f7075;
 }
 .project-session-status.running {
-  color: #9fd3a8;
+  color: var(--success);
 }
 .project-session-status.running i {
-  background: #5fbf75;
+  background: var(--status-ok);
 }
 .project-knowledge {
   display: flex;
