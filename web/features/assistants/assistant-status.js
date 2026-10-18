@@ -26,6 +26,14 @@ export function copyAt(copy, path) {
   return typeof value === "string" ? value : undefined;
 }
 
+// The header dot of a headerStatus tone: a failed runtime is an error, a stale runtime or
+// an uncertain or interrupted turn a warning; "missing" shows no dot.
+const headerDots = { ready: "ok", working: "working", waiting: "waiting" };
+export function headerDotTone(tone, availability) {
+  if (tone === "attention") return availability === "failed" ? "error" : "warning";
+  return headerDots[tone] ?? "idle";
+}
+
 export function headerStatus({
   assistant,
   models,
