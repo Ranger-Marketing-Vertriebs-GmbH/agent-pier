@@ -20,7 +20,8 @@ const keepsDraft = (next, route) =>
  * `discarded` runs only after a dirty draft was discarded) and, through the global
  * navigation guard, before the sidebar, back, tab switches and reload leave it.
  * The editor reports `setDirty(dirty)` and registers its save with `setSave(fn)`,
- * where `fn` resolves true once saved.
+ * where `fn` resolves true once saved; while `deciding()`, the page skips its own
+ * navigation to a newly saved item.
  */
 export default function useDraftGuard(description, route) {
   const [dirty, setDirtyState] = useState(false),
@@ -110,5 +111,8 @@ export default function useDraftGuard(description, route) {
       }}
     />
   );
-  return { setDirty, setSave, guarded, confirm };
+  // True while the sheet decides: a save it started must not navigate to the saved
+  // item, or that navigation would replace the one the sheet is deciding about.
+  const deciding = useCallback(() => Boolean(waiting.current), []);
+  return { setDirty, setSave, guarded, deciding, confirm };
 }

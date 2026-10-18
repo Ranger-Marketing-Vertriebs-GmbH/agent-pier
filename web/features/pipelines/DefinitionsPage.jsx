@@ -20,7 +20,10 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
     [clone, setClone] = useState(null),
     [resets, setResets] = useState(0);
   // Leaving an edited draft through this page asks first instead of discarding it.
-  const { guarded, setDirty, setSave, confirm } = useDraftGuard(copy.discardDraft, route);
+  const { guarded, setDirty, setSave, deciding, confirm } = useDraftGuard(
+    copy.discardDraft,
+    route,
+  );
   const mobile = useMobileLayout();
   const items = definitions.data?.pipelines || [],
     item = route.pipelineItem,
@@ -63,7 +66,7 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
     setClone(null);
     // A fresh builder starts from what was saved, so it is no longer dirty.
     setResets((value) => value + 1);
-    if (item !== pipeline.id) navigate({ pipelineItem: pipeline.id });
+    if (item !== pipeline.id && !deciding()) navigate({ pipelineItem: pipeline.id });
   };
   const cancel = () => {
     setDirty(false);

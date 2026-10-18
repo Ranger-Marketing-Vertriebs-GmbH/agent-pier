@@ -69,7 +69,7 @@ export default function ProfilesPage({
     setClone(null);
     // A fresh editor starts from what was saved, so it is no longer dirty.
     setResets((value) => value + 1);
-    if (item !== profile.id) navigate({ pipelineItem: profile.id });
+    if (item !== profile.id && !draft.deciding()) navigate({ pipelineItem: profile.id });
   };
   const cancel = () => {
     draft.setDirty(false);
