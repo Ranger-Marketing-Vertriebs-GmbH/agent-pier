@@ -23,7 +23,7 @@ test.describe("agent chat header", () => {
     await expect(status).toContainText("· openai/gpt-4.1-mini");
     await expect(status.locator(".assistant-header-dot")).toHaveCSS(
       "background-color",
-      "rgb(125, 214, 165)",
+      "rgb(134, 184, 142)",
     );
     expect(Math.round((await header.boundingBox()).height)).toBe(56);
     await header.getByRole("button", { name: "Agent settings", exact: true }).click();

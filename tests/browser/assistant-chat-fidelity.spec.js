@@ -90,7 +90,7 @@ test.describe("agent chat handoff measurements", () => {
     const row = await box(switchRow);
     const icon = await box(`${switchRow} > svg`);
     const label = await box(`${switchRow} .assistant-options-label`);
-    const track = await box(".assistant-switch");
+    const track = await box(`${switchRow} .switch`);
     expect(row.height).toBe(52);
     await expect(page.locator(`${switchRow} .assistant-options-label`)).toHaveCSS(
       "font-weight",

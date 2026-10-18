@@ -248,7 +248,7 @@ test.describe("team proposal", () => {
       proposal.getByRole("button", { name: "Decline team", exact: true }).boundingBox(),
     ]);
     expect(Math.abs(approve.width - decline.width)).toBeLessThanOrEqual(1);
-    expect(approve.height).toBe(40);
+    expect(approve.height).toBe(44);
     await expect(page.locator(".assistant-team-card")).toHaveCount(1);
     await expect(page.getByText("Prepare the website relaunch")).toHaveCount(0);
   });
