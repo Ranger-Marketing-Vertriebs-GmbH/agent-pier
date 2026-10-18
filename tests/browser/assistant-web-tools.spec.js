@@ -278,6 +278,24 @@ for (const [label, use] of [
       expect(state.patches[0].capabilities).toMatchObject({ createImages: true });
     });
 
+    test("a signed-in account counts while the agent service is away", async ({
+      page,
+    }) => {
+      await setup(page, {
+        models: [
+          {
+            id: "openclaw:abc",
+            name: "ChatGPT",
+            providerId: "openai-chatgpt",
+            available: false,
+            signedIn: true,
+          },
+        ],
+      });
+      await page.goto(baseURL + settingsPath("capabilities"));
+      await expect(page.getByLabel("Create images")).toBeEnabled();
+    });
+
     test("the browser switch is disabled and explained without a browser", async ({
       page,
     }) => {

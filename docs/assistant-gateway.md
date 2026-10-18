@@ -1138,9 +1138,32 @@ expiring). Only then does the startup configuration add `image_generate` to the 
 model is removed). OpenClaw 2026.10.3 then routes the request through that OAuth
 profile and the Codex Responses backend, not an API key. Like the web tools this is a
 startup section: switching it on asks to restart the agent service, and an account
-signed in later takes effect at the next restart. Without a ready account the switch
-is disabled with a hint; the agent's AGENTS.md mentions images only while it can
-create them.
+signed in later takes effect at the next restart. Without a ready account (its last
+known status, also while the service is away) the switch is disabled with a hint; the
+agent's AGENTS.md mentions images only while it can create them.
+
+With several ChatGPT accounts, OpenClaw picks the profile for an image request by its
+own order for the `openai` provider (a stored order override, then `auth.order`, then
+its default order), not by the account the agent chats with: the order is global, so
+AgentPier cannot pin it per agent without changing it for every agent. Use one ChatGPT
+account for image creation, or expect any signed-in one to be used.
+
+Like the browser, `image_generate` is offered only while the plugin's tool guard is
+proven, and every call passes its `before_tool_call` hook (`imageCall` in
+`team-plugin/tool-guard.js`, `ImagePolicy` in `image-policy.js` through the bridge's
+`/image-policy`):
+
+- the calling agent must hold **Create images** now (its own switch, or its lead's
+  grant for a task member);
+- `model` may only name `openai/gpt-image-*`;
+- a reference image with a scheme (`http(s):`, `file:`; inline `data:` stays local)
+  needs **Read web pages** as well, since OpenClaw fetches web references itself and
+  the tool would otherwise carry data out; local references come from the workspace
+  and OpenClaw's shared media folder (`tools.fs.workspaceOnly`);
+- each generation counts against the agent's limit of 30 per UTC day
+  (`DAILY_IMAGE_LIMIT`; status and list reads do not count) and writes an
+  `assistant.executed` audit event with `kind: "image-generation"` and the day's count,
+  never the prompt. Refusals reach the model with a reason it can act on.
 
 `image_generate` runs in the background: its completion turn writes an assistant
 message whose content carries `{ type: "image", artifactId:
@@ -1155,9 +1178,14 @@ image. The copy appears as an agent message at the time of the completion, can b
 deleted by the owner and expires like any shared file. The completion's run id names
 the background task, and so does the tool result of the turn that asked for it, so
 the image follows that turn: to the lead's chat for a member, and to the paired
-Telegram chat as a photo when the turn came from there. A failed copy is retried at
-most once a minute. Each copy writes an `assistant.sent` audit event with
-`kind: "generated-image"`.
+Telegram chat as a photo when the turn came from there. A routine's own run session
+(`agent:<id>:cron:<job>:run:<run>`) copies into the chat its routine commits to and
+to the Telegram chat it delivers to. Only images of an agent that may create images
+are copied; each page read covers the newest 50 messages. A passing failure is
+retried after 1, 2, 4 … minutes, at most an hour; an artifact the Gateway no longer
+holds, one above 25 MiB or bytes that are no image end permanently: the chat shows the
+image as no longer available. Each copy writes an `assistant.sent` audit event with
+`kind: "generated-image"` (outcome `failure` for one that could not be kept).
 
 The opt-in contract `tests/integration/assistant-image-contract.test.js`
 (`AGENTPIER_IMAGE_CONTRACT_RUNTIME`) runs the pinned runtime with AgentPier's compiled

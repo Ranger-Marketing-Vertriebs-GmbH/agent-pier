@@ -166,6 +166,60 @@ export async function browserCall(event, ctx, bridge) {
     };
   return { params: { ...event.params, profile: policy.profile, target: "host" } };
 }
+// Why an image_generate call was refused (image-policy.js), for the model.
+export const imageRefusals = {
+  unavailable: "Image creation is not available right now. Tell the owner.",
+  notGranted: "This agent may not create images.",
+  model:
+    "Only OpenAI image models (openai/gpt-image-...) are available. Leave model unset.",
+  reference:
+    "Give reference images as paths to files in your workspace, or as a list of such paths.",
+  remote:
+    "Reference images from web addresses need the 'Read web pages' capability. Use a file in your workspace instead.",
+  limit:
+    "This agent reached its daily limit of 30 generated images. Do not retry today; tell the owner.",
+};
+const imageModel = /^openai\/gpt-image-[A-Za-z0-9._-]+$/;
+// Any scheme but inline data reaches beyond the workspace (OpenClaw fetches http(s)
+// references itself; loadMediaToolReferences).
+const remoteReference = (value) =>
+  /^[a-z][a-z0-9+.-]*:/i.test(value.trim()) && !/^data:/i.test(value.trim());
+/**
+ * Lets an image_generate call through only for an agent that may create images now,
+ * within its daily limit and with the OpenAI model; a reference from the web needs
+ * the agent's web reading as well, or the tool would carry data out. Fails closed.
+ */
+export async function imageCall(event, ctx, bridge) {
+  const params = event?.params || {};
+  const block = (reason) => ({ block: true, blockReason: imageRefusals[reason] });
+  if (
+    params.model !== undefined &&
+    !(typeof params.model === "string" && imageModel.test(params.model.trim()))
+  )
+    return block("model");
+  const references = [
+    ...(params.image === undefined ? [] : [params.image]),
+    ...(params.images === undefined
+      ? []
+      : Array.isArray(params.images)
+        ? params.images
+        : [null]),
+  ];
+  if (references.some((value) => typeof value !== "string")) return block("reference");
+  const response = await bridge(
+    "/image-policy",
+    {
+      agentId: ctx?.agentId,
+      sessionKey: ctx?.sessionKey,
+      action: typeof params.action === "string" ? params.action : "generate",
+      remote: references.some(remoteReference),
+    },
+    ctx?.abortSignal,
+  ).catch(() => null);
+  const policy = response?.ok ? await response.json().catch(() => null) : null;
+  if (policy?.allow === true) return undefined;
+  return block(imageRefusals[policy?.reason] ? policy.reason : "unavailable");
+}
 export function registerToolGuard(api) {
   const configured = api.pluginConfig?.workspaces;
   const roots =
@@ -228,6 +282,10 @@ export function registerToolGuard(api) {
   );
   api.on("before_tool_call", (event, ctx) => browserCall(event, ctx, bridge), {
     matcher: ["browser"],
+    priority: 1000,
+  });
+  api.on("before_tool_call", (event, ctx) => imageCall(event, ctx, bridge), {
+    matcher: ["image_generate"],
     priority: 1000,
   });
   // Only after the hook is registered, and only from the active Gateway runtime

@@ -48,6 +48,8 @@ function pinnedSocket(url, certPath, handshake) {
 // on Intel macOS runners); later calls take milliseconds. Waiting is the only safe
 // option: a timed-out create leaves it unknown whether the session exists.
 export const sessionCreateTimeoutMs = 60000;
+// What GatewayClient.download may read: OpenClaw's managed outgoing media.
+const downloadPaths = ["/api/chat/media/outgoing/"];
 
 export class GatewayClient extends EventEmitter {
   constructor({ url, token, certPath, timeoutMs = 10000, caps = [] }) {
@@ -211,7 +213,12 @@ export class GatewayClient extends EventEmitter {
       return Promise.reject(gatewayError("RPC_FAILED"));
     const base = new URL(this.url.replace(/^wss:/, "https:"));
     const url = new URL(urlPath, base);
-    if (url.host !== base.host || url.protocol !== "https:")
+    // Only managed media paths, checked after resolution (no "..", no other origin).
+    if (
+      url.host !== base.host ||
+      url.protocol !== "https:" ||
+      !downloadPaths.some((prefix) => url.pathname.startsWith(prefix))
+    )
       return Promise.reject(gatewayError("RPC_FAILED"));
     let pin;
     try {

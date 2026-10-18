@@ -200,7 +200,7 @@ export class AssistantConfig {
       // Its GitHub access: profile, level and the server's tool prefix.
       github: (nativeReady && this.github?.(assistant)) || null,
       // The image tool this start can serve (web-tools.js availability).
-      images: nativeReady && available.createImages === true,
+      images: nativeReady && available.createImages === true && !!this.writeGuard?.(),
     });
     const fingerprint = createHash("sha256")
       .update(

@@ -10,6 +10,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
 import { AgentShares } from "../../server/features/assistants/agent-shares.js";
 import { GeneratedImages } from "../../server/features/assistants/generated-images.js";
+import { ImagePolicy } from "../../server/features/assistants/image-policy.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
@@ -67,8 +68,14 @@ async function fakes(png) {
     }
     const input = JSON.parse(body || "{}");
     state.requests.push(input);
-    const asked = JSON.stringify(input.messages).includes("DRAW_CONTRACT");
-    const called = input.messages.some((m) => m.role === "assistant" && m.tool_calls);
+    // Only the newest owner message decides, and only before its tool call.
+    const last = input.messages.findLastIndex((m) => m.role === "user");
+    const newest = JSON.stringify(input.messages[last] || "");
+    const remote = newest.includes("REMOTE_CONTRACT");
+    const asked = remote || newest.includes("DRAW_CONTRACT");
+    const called = input.messages
+      .slice(last + 1)
+      .some((m) => m.role === "assistant" && m.tool_calls);
     const tools = (input.tools || []).map((t) => t.function?.name);
     const call =
       asked && !called && tools.includes("image_generate")
@@ -80,7 +87,10 @@ async function fakes(png) {
                 type: "function",
                 function: {
                   name: "image_generate",
-                  arguments: JSON.stringify({ prompt: "a grey square" }),
+                  arguments: JSON.stringify({
+                    prompt: "a grey square",
+                    ...(remote ? { image: "https://example.com/secret.png" } : {}),
+                  }),
                 },
               },
             ],
@@ -182,6 +192,11 @@ test(
     });
     f.assistants.config.nativeReady = () => true;
     f.assistants.config.webToolsAvailable = () => ({ createImages: true });
+    // The plugin's guard checks and counts every call through the bridge.
+    f.assistants.config.writeGuard = () => true;
+    const audit = [];
+    f.assistants.audit = { append: (event) => audit.push(event) };
+    f.assistants.imagePolicy = new ImagePolicy({ assistants: f.assistants });
     await f.assistants.config.apply(id);
     // The fake stands in for the account: the OpenAI provider with a test key.
     await patchConfig(runtime.client, () => ({
@@ -223,6 +238,11 @@ test(
     const offered = model.requests[0].tools.map((tool) => tool.function.name);
     t.diagnostic(`agent tools=${JSON.stringify(offered)}`);
     assert.ok(offered.includes("image_generate"));
+    // The tool guard counted the call: one audited generation, without the prompt.
+    assert.deepEqual(
+      audit.filter((e) => e.details.kind === "image-generation").map((e) => e.details),
+      [{ kind: "image-generation", count: 1 }],
+    );
     // The background completion writes the image into the session.
     let page;
     const deadline = Date.now() + 90000;
@@ -256,5 +276,27 @@ test(
     // A second look copies nothing again.
     await images.observe(conversation);
     assert.equal(attachments.sharedFor(conversation.id).length, 1);
+    // A reference from the web is refused for an agent without web reading.
+    const before = model.requests.length;
+    const remote = await runtime.client.call(
+      "sessions.send",
+      {
+        key: session.key,
+        message: "REMOTE_CONTRACT use this picture",
+        idempotencyKey: randomUUID(),
+      },
+      long,
+    );
+    await runtime.client.call(
+      "agent.wait",
+      { runId: remote.runId, timeoutMs: 60000 },
+      { timeoutMs: 65000 },
+    );
+    const results = JSON.stringify(
+      model.requests.slice(before).map((r) => r.messages.at(-1)),
+    );
+    t.diagnostic(`remote reference result=${results.slice(0, 400)}`);
+    assert.match(results, /Read web pages/);
+    assert.equal(model.images.length, 1, "no second image request was sent");
   },
 );

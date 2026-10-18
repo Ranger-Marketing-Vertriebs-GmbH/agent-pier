@@ -395,7 +395,9 @@ paired Telegram chat, the file goes there too, as a photo or as a document. A
 routine's run can share files as well, for example a weekly report: they appear in the
 chat the routine writes to and in its Telegram chat. Images an agent creates with
 **Create images** arrive the same way on their own, a moment after its reply, without
-the agent sharing them.
+the agent sharing them. An agent creates at most 30 images a day, uses reference images from
+the web only when it may also read web pages, and with several ChatGPT accounts any
+signed-in one may be used for images.
 
 - A team member's file appears in its own chat and in its lead's chat, under the
   member's name; it reaches Telegram when the lead's turn the member works for came

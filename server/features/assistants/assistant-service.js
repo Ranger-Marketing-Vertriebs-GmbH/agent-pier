@@ -158,7 +158,8 @@ export class AssistantService {
       const conversation = this.store
         .listConversations()
         .find((c) => c.runtimeSessionKey === payload.sessionKey);
-      if (!conversation) return;
+      // A routine's own run session may leave images too (generated-images.js).
+      if (!conversation) return this.generatedImages.observeRun(event);
       // Only a run's first frame carries the whole reply; later ones carry what was
       // appended. The browser always receives the reply so far.
       const text =

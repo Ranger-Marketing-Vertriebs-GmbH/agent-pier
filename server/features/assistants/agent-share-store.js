@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
-import { detectAttachment } from "./agent-attachment-types.js";
+import { detectAttachment, safeFileName } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 
 // Files agents shared with the owner, per agent: their own budget beside the owner's
@@ -164,6 +164,36 @@ export class SharedFiles {
         throw error;
       }
       return publicFile({ id, ...entry });
+    });
+  }
+  /**
+   * Records a generated image that could not be copied (gone, too large, no image):
+   * its chat shows it as no longer available, and it is never tried again.
+   */
+  unavailable({ conversation, requestId, name, mirror = null, artifactId, at = null }) {
+    if (this.artifact(conversation.id, artifactId)) return;
+    const now = this.a.now();
+    const when = Number.isFinite(at) && at <= now && at > now - 86400000 ? at : now;
+    const entry = {
+      name: safeFileName(name),
+      type: "application/octet-stream",
+      kind: "file",
+      size: 0,
+      shared: true,
+      artifactId,
+      gone: true,
+      failed: true,
+    };
+    this.a.transaction(() => {
+      this.a.index(randomUUID(), conversation, entry, SHARED + requestId, when);
+      if (mirror)
+        this.a.index(
+          randomUUID(),
+          { assistantId: conversation.assistantId, id: mirror.conversationId },
+          { ...entry, from: mirror.from },
+          SHARED + requestId,
+          when,
+        );
     });
   }
   /** The file a conversation already holds for a Gateway artifact, or null. */

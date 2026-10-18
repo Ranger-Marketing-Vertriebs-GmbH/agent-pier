@@ -63,27 +63,42 @@ function imageTurn(attemptId, at, { id = artifactId } = {}) {
   ];
 }
 
+const canCreate = (f, profile, on = true) =>
+  f.store.updateAssistant(
+    profile.id,
+    { capabilities: { memory: false, reminders: false, createImages: on } },
+    f.store.getAssistant(profile.id).revision,
+  );
+// `download` answers artifacts.download (or throws), `fetch` the media read.
 async function setup(
   t,
-  { body = png, url = "/api/chat/media/outgoing/s/i/full?t=1" } = {},
+  {
+    body = png,
+    url = "/api/chat/media/outgoing/s/i/full?t=1",
+    download = null,
+    fetch = null,
+  } = {},
 ) {
   const f = await shareFixture(t);
+  canCreate(f, f.agent);
   const client = f.service.runtime.client;
   const base = client.call;
   const calls = [];
   client.call = async (method, params) => {
     if (method === "artifacts.download") {
       calls.push(params);
+      if (download) return download(params);
       return { artifact: { id: params.artifactId }, url };
     }
     return base(method, params);
   };
   client.download = async (path, { maxBytes }) => {
+    if (fetch) return fetch(path);
     assert.equal(path, url);
     assert.ok(maxBytes >= png.length);
     return { body, type: "image/png" };
   };
-  return { ...f, calls };
+  return { ...f, calls, clock: (ms) => (f.service.now = () => ms) };
 }
 const shared = async (f) =>
   (await f.service.history(f.chat.id)).messages.filter((m) => m.shared);
@@ -159,21 +174,166 @@ test("an owner's web turn gets the image in the chat only", async (t) => {
   assert.deepEqual(f.api.files(token, 42), []);
 });
 
-test("bytes that are no image, or a location off the Gateway's media path, are refused", async (t) => {
-  const notImage = await setup(t, { body: Buffer.from("<svg onload=alert(1)>") });
-  const attempt = await notImage.turn(notImage.chat, "draw-bad");
-  notImage.setHistory(imageTurn(attempt.id, Date.now() - 5000));
-  await notImage.service.generatedImages.observe(notImage.chat);
-  assert.deepEqual(await shared(notImage), []);
-  // A failed copy waits before the next try instead of downloading on every read.
-  await notImage.service.generatedImages.observe(notImage.chat);
-  assert.equal(notImage.calls.length, 1);
+test("bytes that are no image, a missing artifact or a foreign location end as unavailable", async (t) => {
+  for (const options of [
+    { body: Buffer.from("<svg onload=alert(1)>") },
+    { url: "/api/other/thing" },
+    {
+      download: () => {
+        throw Object.assign(Error("artifact not found"), {
+          answered: true,
+          code: "artifact_not_found",
+        });
+      },
+    },
+    {
+      fetch: () => {
+        throw Object.assign(Error("too large"), { tooLarge: true });
+      },
+    },
+  ]) {
+    const f = await setup(t, options);
+    const attempt = await f.turn(f.chat, "draw-bad");
+    f.setHistory(imageTurn(attempt.id, Date.now() - 5000));
+    await f.service.generatedImages.observe(f.chat);
+    // The owner sees that an image was made but could not be kept; no retry follows.
+    const [message] = await shared(f);
+    assert.equal(message.unavailable, true, JSON.stringify(Object.keys(options)));
+    assert.deepEqual(message.attachments, []);
+    await f.service.generatedImages.observe(f.chat);
+    assert.equal(f.calls.length, 1);
+    assert.deepEqual(
+      [f.audit.at(-1).details.kind, f.audit.at(-1).outcome],
+      ["generated-image", "failure"],
+    );
+  }
+});
 
-  const elsewhere = await setup(t, { url: "/api/other/thing" });
-  const second = await elsewhere.turn(elsewhere.chat, "draw-elsewhere");
-  elsewhere.setHistory(imageTurn(second.id, Date.now() - 5000));
-  await elsewhere.service.generatedImages.observe(elsewhere.chat);
-  assert.deepEqual(await shared(elsewhere), []);
+test("a passing failure is retried later, each time after a longer wait", async (t) => {
+  let fail = true;
+  const f = await setup(t, {
+    fetch: () => {
+      if (fail) throw Object.assign(Error("reset"), { code: "RPC_FAILED" });
+      return { body: png, type: "image/png" };
+    },
+  });
+  let now = Date.now();
+  f.clock(now);
+  const attempt = await f.turn(f.chat, "draw-retry");
+  f.setHistory(imageTurn(attempt.id, now - 5000));
+  await f.service.generatedImages.observe(f.chat);
+  await f.service.generatedImages.observe(f.chat);
+  assert.equal(f.calls.length, 1);
+  f.clock((now += 61000));
+  await f.service.generatedImages.observe(f.chat);
+  assert.equal(f.calls.length, 2);
+  // The second wait is two minutes.
+  f.clock((now += 61000));
+  await f.service.generatedImages.observe(f.chat);
+  assert.equal(f.calls.length, 2);
+  fail = false;
+  f.clock((now += 61000));
+  await f.service.generatedImages.observe(f.chat);
+  assert.equal(f.calls.length, 3);
+  assert.equal((await shared(f))[0].attachments.length, 1);
+});
+
+test("only an agent that may create images has its images copied", async (t) => {
+  const f = await setup(t);
+  canCreate(f, f.agent, false);
+  const attempt = await f.turn(f.chat, "draw-off");
+  f.setHistory(imageTurn(attempt.id, Date.now() - 5000));
+  await f.service.generatedImages.observe(f.chat);
+  assert.equal(f.calls.length, 0);
+});
+
+test("a member's image joins its lead's chat and the lead's Telegram chat", async (t) => {
+  const f = await setup(t);
+  const member = f.store.reserveMember({
+    id: "member-1",
+    parent: f.agent.id,
+    assignment: { name: "Scout", role: "Design", assignment: "Draw" },
+    snapshot: { instructions: "Draw", model: { connectionId: "c", modelId: "vision" } },
+    teamId: "team-1",
+    lifetime: "task",
+  });
+  // The lead granted it image creation (TeamStore answers this in the app).
+  f.store.memberGrants = () => ({ grants: { createImages: true }, shellSsh: false });
+  canCreate(f, f.agent);
+  const memberChat = f.store.saveConversation({
+    assistantId: member.id,
+    runtimeSessionKey: "agent:member:task",
+  });
+  f.service.teams.requests = {
+    store: { get: () => ({ parentConversationId: f.chat.id }) },
+  };
+  const attempt = await f.turn(memberChat, "lead-draw", {
+    kind: "lead-request",
+    requestId: "lead-request-1",
+    leadAssistantId: f.agent.id,
+    leadName: "Lead",
+    display: "Draw",
+    telegram: {
+      channelId: f.channel.id,
+      chatId: f.channel.chatId,
+      userId: f.channel.userId,
+    },
+  });
+  f.setHistory(imageTurn(attempt.id, Date.now() - 5000));
+  await f.service.generatedImages.observe(memberChat);
+  const own = (await f.service.history(memberChat.id)).messages.filter((m) => m.shared);
+  const lead = (await f.service.history(f.chat.id)).messages.filter((m) => m.shared);
+  assert.equal(own.length, 1);
+  assert.equal(lead[0].from, "Scout");
+  assert.equal(lead[0].attachments[0].kind, "image");
+  await f.deliver();
+  assert.deepEqual(
+    f.api.files(token, 42).map((c) => c.method),
+    ["sendPhoto"],
+  );
+});
+
+test("a routine's run session copies into its chat and its Telegram chat", async (t) => {
+  const f = await setup(t);
+  const agent = f.store.getAssistant(f.agent.id);
+  const session = `agent:${agent.runtimeAgentId}:cron:job-1:run:run-7`;
+  f.service.routines = {
+    runOrigin: (profile, key) =>
+      profile.id === agent.id && key === session
+        ? {
+            binding: {
+              id: "b1",
+              source: {
+                channelId: f.channel.id,
+                chatId: f.channel.chatId,
+                userId: f.channel.userId,
+              },
+            },
+            conversation: f.chat,
+          }
+        : null,
+    results: { forConversation: () => [] },
+  };
+  f.setHistory(imageTurn("routine-run", Date.now() - 5000));
+  f.service.generatedImages.observeRun({
+    event: "chat",
+    payload: { sessionKey: session, state: "final", runId: "run-7" },
+  });
+  const [image] = await until(async () => {
+    const found = await shared(f);
+    return found.length ? found : null;
+  });
+  assert.equal(image.attachments[0].kind, "image");
+  assert.equal(f.calls[0].sessionKey, session);
+  await f.deliver();
+  assert.equal(f.api.files(token, 42)[0].method, "sendPhoto");
+  // Any other session is left alone.
+  f.service.generatedImages.observeRun({
+    event: "chat",
+    payload: { sessionKey: "agent:ap-other:cron:x", state: "final" },
+  });
+  await delay(30);
+  assert.equal(f.calls.length, 1);
 });
 
 test("nothing is copied while AgentPier is in maintenance", async (t) => {
