@@ -16,6 +16,7 @@ import ArtifactPreview from "./ArtifactPreview.jsx";
 import { ArtifactTime } from "./ArtifactRows.jsx";
 import { artifactSource, artifactTypeLabel } from "./artifact-presentation.js";
 import { artifactLink } from "./artifact-return-link.js";
+import { downloadArtifact } from "./artifact-download.js";
 
 async function copyText(text) {
   try {
@@ -114,7 +115,7 @@ function ConfirmSheet({ confirm, item, busy, error, onConfirm, onCancel }) {
 }
 
 /**
- * The selected artifact: preview, Open and Copy link, where it came from, the pin and
+ * The selected artifact: preview, Open, Download and Copy link, where it came from, the pin and
  * its technical facts; Delete asks in a Sheet. `returnTo` is this detail's address.
  */
 export default function ArtifactDetail({
@@ -129,7 +130,9 @@ export default function ArtifactDetail({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [confirm, setConfirm] = useState(null),
-    [copied, setCopied] = useState(null);
+    [copied, setCopied] = useState(null),
+    [downloading, setDownloading] = useState(false),
+    [downloadError, setDownloadError] = useState("");
   const viewer = `/artifacts/view/${encodeURIComponent(item.id)}`;
   async function change(remove) {
     setBusy(true);
@@ -153,6 +156,17 @@ export default function ArtifactDetail({
   async function copyLink() {
     const url = new URL(viewer, window.location.origin).href;
     setCopied((await copyText(url)) ? { ok: true } : { ok: false, url });
+  }
+  async function download() {
+    setDownloading(true);
+    setDownloadError("");
+    try {
+      await downloadArtifact(item);
+    } catch (failure) {
+      setDownloadError(failure.message);
+    } finally {
+      setDownloading(false);
+    }
   }
   const cancel = () => {
     if (busy) return;
@@ -180,11 +194,22 @@ export default function ArtifactDetail({
           <Icon name="external" size={16} />
           {copy.open}
         </a>
+        <button
+          type="button"
+          className="button secondary"
+          disabled={downloading}
+          aria-label={copy.downloadLabel(item.title)}
+          onClick={download}
+        >
+          <Icon name="download" size={16} />
+          {downloading ? copy.downloading : copy.download}
+        </button>
         <button type="button" className="button secondary" onClick={copyLink}>
           <Icon name="link" size={16} />
           {copy.copyLink}
         </button>
       </div>
+      <ErrorMessage error={downloadError} />
       <p className="artifact-detail-note" role="status">
         {copied ? (copied.ok ? copy.linkCopied : copy.copyFailed) : ""} {copy.linkHint}
       </p>

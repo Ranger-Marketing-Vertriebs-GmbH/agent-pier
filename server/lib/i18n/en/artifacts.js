@@ -32,5 +32,6 @@ export const artifacts = {
   ARTIFACT_UNAVAILABLE: "Artifact publishing is temporarily unavailable.",
   ARTIFACT_BUSY: "Another artifact is loading. Please try again shortly.",
   ARTIFACT_RATE_LIMITED: "Too many searches. Try again in a minute.",
+  ARTIFACT_DOWNLOAD_RATE_LIMITED: "Too many downloads. Try again in a minute.",
   ARTIFACT_IO_ERROR: "The artifact could not be read or saved.",
 };
