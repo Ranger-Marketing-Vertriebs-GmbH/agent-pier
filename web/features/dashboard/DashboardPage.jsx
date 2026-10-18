@@ -5,6 +5,7 @@ import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 import { utilityPages } from "../../lib/providers.js";
+import SystemStatus from "./SystemStatus.jsx";
 const outdated = (tool) => tool.versionStatus === "update-required";
 export default function DashboardPage({
   state,
@@ -87,6 +88,7 @@ export default function DashboardPage({
           </p>
         </div>
       </section>
+      <SystemStatus />
       <section className="tools-section">
         <div className="section-heading">
           <h2>{copy.sectionHeadingHeading}</h2>

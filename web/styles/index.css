@@ -31,6 +31,7 @@
 @import "../features/sessions/mobile-workspace.css";
 @import "accessibility.css";
 @import "../features/dashboard/snapshot.css";
+@import "../features/dashboard/system-status.css";
 @import "../features/providers/providers.css";
 @import "../features/chat/observability.css";
 @import "../features/chat/mobile-chat.css";

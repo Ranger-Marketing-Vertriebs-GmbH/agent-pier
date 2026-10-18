@@ -44,9 +44,11 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Wiederherstellung von Zustellung und Uploads
   ([Benachrichtigungen](docs/notifications.md),
   [Wiederherstellung auf dem Handy](docs/mobile-recovery.md)).
-- **Betrieb:** Sicherungen, Updates über die Kanäle Stable und Preview und ein
-  Aktivitätsprotokoll ([Sicherungen](docs/backups.md),
-  [Release-Kanäle](docs/release-channels.md)).
+- **Betrieb:** Sicherungen, Updates über die Kanäle Stable und Preview, ein
+  Aktivitätsprotokoll und ein Systemstatus auf der Startseite mit Speicher, CPU und
+  RAM, dem Anteil von AgentPier und einer Warnung bei knappem Speicherplatz
+  ([Sicherungen](docs/backups.md), [Release-Kanäle](docs/release-channels.md),
+  [Systemstatus](docs/system-status.md)).
 
 ## Voraussetzungen
 
@@ -149,7 +151,7 @@ Die [Dokumentationsübersicht](docs/README.md) listet alle Anleitungen.
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Nutzen     | [Eingang](docs/inbox.md) · [Provider](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Dateien](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Benachrichtigungen](docs/notifications.md) |
 | Agenten    | [Agenten](docs/agents.md) · [Workflows](docs/assistant-workflows.md) · [Modell-Zugänge](docs/assistant-model-connections.md) · [Runtime-Updates](docs/assistant-runtime-updates.md)                                                                          |
-| Betreiben  | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Fernzugriff](docs/remote-access.md) · [Sicherungen](docs/backups.md) · [Betrieb](docs/operations.md) · [Sandbox](docs/sandbox.md)                                                                  |
+| Betreiben  | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Fernzugriff](docs/remote-access.md) · [Sicherungen](docs/backups.md) · [Betrieb](docs/operations.md) · [Systemstatus](docs/system-status.md) · [Sandbox](docs/sandbox.md)                          |
 | Entwickeln | [Architektur](docs/architecture.md) · [UI-Leitfaden](docs/ui-guide.md) · [Einstellungsmuster](docs/settings-pattern.md) · [Tests](docs/testing.md) · [Frontend](web/README.md) · [Mitwirken](CONTRIBUTING.md)                                                |
 
 ## Daten und Sicherheitsgrenzen

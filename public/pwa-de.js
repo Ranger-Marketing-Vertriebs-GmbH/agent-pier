@@ -44,6 +44,10 @@ self.agentPierNotificationCopy = {
     title: "AgentPier: GitHub-Token prüfen",
     body: "Ein gespeicherter GitHub-Token ist ungültig, abgelaufen oder läuft bald ab.",
   },
+  "disk-space": {
+    title: "AgentPier: Speicherplatz wird knapp",
+    body: "Auf dem Laufwerk mit den AgentPier-Daten sind weniger als 10 % frei.",
+  },
   test: {
     title: "AgentPier: Testbenachrichtigung",
     body: "Benachrichtigungen erreichen dieses Gerät.",

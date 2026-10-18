@@ -75,6 +75,8 @@ import { accountsRoutes } from "./http/routes/accounts.js";
 import { sessionsRoutes } from "./http/routes/sessions.js";
 import { repositoriesRoutes } from "./http/routes/repositories.js";
 import { GithubTokenMonitor } from "./features/repositories/github-token-monitor.js";
+import { SystemStatus } from "./features/system-status/system-status.js";
+import { systemStatusRoutes } from "./http/routes/system-status.js";
 import { extensionsRoutes } from "./http/routes/extensions.js";
 import { pluginsRoutes } from "./http/routes/plugins.js";
 import { chatRoutes } from "./http/routes/chat.js";
@@ -174,7 +176,26 @@ export async function createApplication(config) {
         `AgentPier could not check a GitHub token: ${error?.code || "unknown error"}`,
       ),
   });
-  server.once("listening", () => services.githubTokenMonitor.start());
+  services.systemStatus = new SystemStatus({
+    dataDir: config.dataDir,
+    sessions: services.sessions,
+    notifications: services.notifications,
+    // The Gateway is a child of this server; its tree is reported on its own.
+    gatewayPid: () => {
+      const child = services.assistantRuntime?.child;
+      return child?.exitCode === null ? child.pid : null;
+    },
+    ...config.systemStatus,
+    onError: (error) =>
+      console.error(
+        `AgentPier could not read the system status: ${error?.code || "unknown error"}`,
+      ),
+  });
+  // One listener for both monitors keeps the server below the listener warning limit.
+  server.once("listening", () => {
+    services.githubTokenMonitor.start();
+    services.systemStatus.start();
+  });
   server.once("listening", () =>
     stageToolchainsInBackground({ dataDir: config.dataDir }),
   );
@@ -290,6 +311,7 @@ export async function createApplication(config) {
   mount(remoteRoutes(services));
   mount(settingsSummaryRoutes(services));
   mount(dictationRoutes(services));
+  mount(systemStatusRoutes(services));
   app.use("/api", operationsRoutes(services));
   app.get("/api/health", (_req, res) =>
     res.json({

@@ -38,8 +38,10 @@ and agents that work as a team.
   [AgentBus](docs/agentbus-integration.md)).
 - **Phone-first:** install as an app, push notifications, and delivery and upload
   recovery ([notifications](docs/notifications.md), [mobile recovery](docs/mobile-recovery.md)).
-- **Operations:** backups, updates with Stable and Preview channels, and an activity
-  log ([backups](docs/backups.md), [release channels](docs/release-channels.md)).
+- **Operations:** backups, updates with Stable and Preview channels, an activity log,
+  and a system status on the start page with disk, CPU and RAM, AgentPier's own share
+  and a low-disk warning ([backups](docs/backups.md),
+  [release channels](docs/release-channels.md), [system status](docs/system-status.md)).
 
 ## Requirements
 
@@ -131,7 +133,7 @@ The [docs index](docs/README.md) lists every guide.
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Use     | [Inbox](docs/inbox.md) · [Providers](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Files](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Notifications](docs/notifications.md) |
 | Agents  | [Agents](docs/agents.md) · [Workflows](docs/assistant-workflows.md) · [Model connections](docs/assistant-model-connections.md) · [Runtime updates](docs/assistant-runtime-updates.md)                                                                |
-| Operate | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Remote access](docs/remote-access.md) · [Backups](docs/backups.md) · [Operations](docs/operations.md) · [Sandbox](docs/sandbox.md)                                                         |
+| Operate | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Remote access](docs/remote-access.md) · [Backups](docs/backups.md) · [Operations](docs/operations.md) · [System status](docs/system-status.md) · [Sandbox](docs/sandbox.md)                |
 | Develop | [Architecture](docs/architecture.md) · [UI guide](docs/ui-guide.md) · [Settings pattern](docs/settings-pattern.md) · [Testing](docs/testing.md) · [Frontend](web/README.md) · [Contributing](CONTRIBUTING.md)                                        |
 
 ## Data and security boundaries
