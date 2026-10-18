@@ -137,30 +137,19 @@ test("long Codex shell output keeps its tail within one tool payload", () => {
 });
 
 test("user shell command parsing scales linearly on hostile commands", () => {
-  // About 1 MB per shape; doubling the input must not much more than double the time.
+  // About 1 MB per shape. Linear parsing takes milliseconds; a quadratic one would need
+  // on the order of 10^12 steps for these inputs, hours on any host. So one generous
+  // bound tells them apart without comparing timings, however busy the host is.
   const shapes = [
     (n) => `/bin/zsh -lc ${"'a'".repeat(n / 3)}`,
     (n) => `/bin/zsh -lc "${"\\".repeat(n / 2)}"`,
     (n) => `/bin/zsh -lc ${'"'.repeat(n + 1)}`,
     (n) => `${" ".repeat(n)}x`,
   ];
-  const best = (command) => {
-    let fastest = Infinity;
-    for (let run = 0; run < 3; run++) {
-      const started = performance.now();
-      rows(shell(command));
-      fastest = Math.min(fastest, performance.now() - started);
-    }
-    return fastest;
-  };
   for (const shape of shapes) {
-    const small = best(shape(600000));
-    const large = best(shape(1200000));
-    const label = shape(12).slice(0, 20);
-    assert.ok(large < 2000, `${label} took ${Math.round(large)} ms`);
-    assert.ok(
-      large <= 3 * small + 20,
-      `${label}: ${Math.round(small)} ms -> ${Math.round(large)} ms for 2x input`,
-    );
+    const started = performance.now();
+    rows(shell(shape(1200000)));
+    const took = performance.now() - started;
+    assert.ok(took < 30000, `${shape(12).slice(0, 20)} took ${Math.round(took)} ms`);
   }
 });

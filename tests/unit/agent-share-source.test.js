@@ -116,32 +116,48 @@ test("a path in the wrong case is a missing file or the file itself, never a lin
   else assert.equal(read.body.toString(), "Summary\n");
 });
 
-test("a folder swapped for a link while the share is read never yields outside bytes", async (t) => {
+// The checks around the open, in order; a swap may land before any of them.
+const points = ["beforeOpen", "afterOpen", "beforeIdentity", "beforeRecheck"];
+// The one interleaving only the descriptor's own path (Linux) can catch: the link
+// in place at the open and the identity check, the folder back for both folder
+// checks. On macOS it is the documented best-effort limit (agent-share-source.js).
+const gap = ["beforeOpen", "afterOpen", "beforeIdentity", "beforeRecheck"];
+
+test("a folder swapped for a link between any of the checks never yields outside bytes", async (t) => {
   const { base, root, roots } = workspace(t);
   fs.mkdirSync(path.join(root, "d"));
   fs.writeFileSync(path.join(root, "d", "f.txt"), "inside");
   fs.mkdirSync(path.join(base, "out"));
   fs.writeFileSync(path.join(base, "out", "f.txt"), "SECRET");
   fs.symlinkSync(path.join(base, "out"), path.join(root, "d.link"));
-  const { Worker } = await import("node:worker_threads");
-  // Swaps d between the real folder and the link as fast as it can.
-  const worker = new Worker(
-    `const fs = require("node:fs"), path = require("node:path");
-     const { root, ms } = require("node:worker_threads").workerData;
-     const d = path.join(root, "d"), r = path.join(root, "d.real"), l = path.join(root, "d.link");
-     const end = Date.now() + ms;
-     while (Date.now() < end) {
-       fs.renameSync(d, r); fs.renameSync(l, d); fs.renameSync(d, l); fs.renameSync(r, d);
-     }`,
-    { eval: true, workerData: { root, ms: 3000 } },
-  );
-  const done = new Promise((resolve) => worker.once("exit", resolve));
-  const seen = new Set();
-  const end = Date.now() + 2800;
-  while (Date.now() < end) {
-    const result = await readShareSource(roots, "d/f.txt").catch((e) => e);
-    seen.add(result instanceof Error ? result.key : result.body.toString());
+  const d = path.join(root, "d"),
+    real = path.join(root, "d.real"),
+    link = path.join(root, "d.link");
+  let linked = false;
+  // d becomes the link, or the real folder again.
+  const swap = () => {
+    if (linked) {
+      fs.renameSync(d, link);
+      fs.renameSync(real, d);
+    } else {
+      fs.renameSync(d, real);
+      fs.renameSync(link, d);
+    }
+    linked = !linked;
+  };
+  // Every subset of the points, each a deterministic interleaving.
+  for (let mask = 1; mask < 2 ** points.length; mask++) {
+    const at = points.filter((_, bit) => mask & (2 ** bit));
+    const hooks = Object.fromEntries(at.map((name) => [name, swap]));
+    const result = await readShareSource(roots, "d/f.txt", { hooks }).catch((e) => e);
+    if (linked) swap();
+    const outcome = result instanceof Error ? result.key : result.body.toString();
+    if (at.join() === gap.join() && process.platform === "darwin") {
+      t.diagnostic(`documented macOS limit (${at.join(", ")}): ${outcome}`);
+      continue;
+    }
+    assert.notEqual(outcome, "SECRET", at.join(", "));
+    // A swap before the open always ends in a refusal, never in the folder's file.
+    if (at.includes("beforeOpen")) assert.equal(outcome, "shareOutside", at.join(", "));
   }
-  await done;
-  assert.equal(seen.has("SECRET"), false, [...seen].join());
 });

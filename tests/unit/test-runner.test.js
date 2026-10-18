@@ -166,3 +166,26 @@ test("each run gets a short private temp folder that is removed afterwards", (t)
   assert.equal(seen.shared, process.env.AGENTPIER_TEST_SHARED_TMPDIR || os.tmpdir());
   assert.equal(fs.existsSync(seen.tmp), false, "the run folder is removed");
 });
+
+test("a file that declares a longer timeout gets it; others keep the default", (t) => {
+  const slow =
+    'test("slow", async () => { await new Promise((r) => setTimeout(r, 2500)); });\n';
+  const root = runnerRoot(t, {
+    // The marker the runner reads from a file's first lines.
+    "declared.test.js": `// test-runner-timeout-ms: 20000\n${slow}`,
+    "plain.test.js": slow,
+  });
+  const declared = runFiles(root, ["--test-timeout", "1000", "declared.test.js"]);
+  assert.equal(declared.status, 0, declared.stdout + declared.stderr);
+  const plain = runFiles(root, ["--test-timeout", "1000", "plain.test.js"]);
+  assert.notEqual(plain.status, 0, plain.stdout);
+  // Both together: each keeps its own class, and the run fails only for the plain one.
+  const both = runFiles(root, [
+    "--test-timeout",
+    "1000",
+    "declared.test.js",
+    "plain.test.js",
+  ]);
+  assert.notEqual(both.status, 0);
+  assert.match(both.stdout, /✔ slow|ok 1 - slow/);
+});

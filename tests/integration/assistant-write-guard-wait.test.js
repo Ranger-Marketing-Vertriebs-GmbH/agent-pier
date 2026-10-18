@@ -87,6 +87,23 @@ async function pendingGuardService(t) {
   return { service, bridge, state, report, notes, send, complete };
 }
 
+// Whether a step waited for the guard is told by a poll too long for any test: a
+// step that waited would never settle within the bound, however busy the host.
+async function withoutWait(f, step) {
+  const poll = f.service.writeGuardPollMs;
+  f.service.writeGuardPollMs = 10 * 60 * 1000;
+  let timer;
+  const bound = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(Error("no further wait")), 15000);
+  });
+  try {
+    return await Promise.race([step(), bound]);
+  } finally {
+    clearTimeout(timer);
+    f.service.writeGuardPollMs = poll;
+  }
+}
+
 test("an owner turn waits for the write guard before it is applied and sent", async (t) => {
   const f = await pendingGuardService(t);
   assert.equal(
@@ -120,9 +137,7 @@ test("the wait ends with the window after readiness; later turns do not wait", a
   assert.equal(f.state.sends.length, 1);
   assert.equal((await f.notes()).length, 1);
   // The window is over: the next turn is sent at once, read-only and noted.
-  const started = Date.now();
-  f.complete(await f.send("after-window"));
-  assert.ok(Date.now() - started < 80, "no further wait");
+  f.complete(await withoutWait(f, () => f.send("after-window")));
   assert.equal((await f.notes()).length, 2);
   assert.equal(f.state.warnings.length, 1, "logged once per readiness");
   // Telegram's own chat is an owner turn too; forwarded content gets no note.
@@ -138,13 +153,13 @@ test("a Telegram turn waits like a web turn, and an invalid request never waits"
   setTimeout(f.report, 100);
   await f.send("telegram-wait", { kind: "telegram", channelId: "c" });
   assert.deepEqual(f.state.applies, [{ guardLive: true }]);
-  const started = Date.now();
-  await assert.rejects(f.send("x".repeat(101)), { status: 400 });
-  await assert.rejects(
-    f.service.send("missing", { clientRequestId: "bad", text: "x", extra: 1 }),
-    { status: 400 },
-  );
-  assert.ok(Date.now() - started < 80);
+  await withoutWait(f, async () => {
+    await assert.rejects(f.send("x".repeat(101)), { status: 400 });
+    await assert.rejects(
+      f.service.send("missing", { clientRequestId: "bad", text: "x", extra: 1 }),
+      { status: 400 },
+    );
+  });
 });
 
 test("a guard that reports during the apply leaves no read-only note", async (t) => {

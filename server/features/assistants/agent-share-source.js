@@ -95,7 +95,8 @@ async function unchanged(dirs) {
 export async function readShareSource(
   roots,
   requested,
-  { maxBytes = MAX_SHARE_BYTES } = {},
+  // `hooks` is a test seam: called between the checks to interleave a folder swap.
+  { maxBytes = MAX_SHARE_BYTES, hooks = {} } = {},
 ) {
   if (
     typeof requested !== "string" ||
@@ -128,6 +129,7 @@ export async function readShareSource(
   });
   if (leaf.isSymbolicLink()) throw assistantProblem("shareOutside", 403);
   if (leaf.isDirectory()) throw assistantProblem("shareNotFound", 404);
+  await hooks.beforeOpen?.();
   let handle;
   try {
     handle = await fs.open(
@@ -145,13 +147,16 @@ export async function readShareSource(
     if (stat.size === 0n) throw assistantProblem("shareEmpty", 400);
     // The descriptor must still be the file at the checked place: a folder swapped
     // for a link around the open is caught here, one check after another.
+    await hooks.afterOpen?.();
     const opened = await descriptorPath(handle);
     if (opened !== null && opened !== expected)
       throw assistantProblem("shareOutside", 403);
     await unchanged(dirs);
+    await hooks.beforeIdentity?.();
     const named = await fs.lstat(expected, { bigint: true }).catch(() => null);
     if (!named || named.dev !== stat.dev || named.ino !== stat.ino)
       throw assistantProblem("shareOutside", 403);
+    await hooks.beforeRecheck?.();
     await unchanged(dirs);
     const size = Number(stat.size);
     const body = Buffer.alloc(size + 1);

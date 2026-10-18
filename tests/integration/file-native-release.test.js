@@ -1,3 +1,6 @@
+// test-runner-timeout-ms: 600000
+// Builds and installs a native package: the run's per-test ceiling is too short for it
+// under load, so it runs in its own timeout class (scripts/test-runner.mjs).
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
