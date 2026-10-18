@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import api from "../../lib/api.js";
-import ConfirmOperation from "./ConfirmOperation.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 
 /**
@@ -36,10 +36,13 @@ export default function ReleaseOrphans({ version, processes, busy, onStopped }) 
       </button>
       {stopped > 0 && <p role="status">{copy.orphanedStopped(stopped)}</p>}
       {confirm && (
-        <ConfirmOperation
-          description={copy.orphanedConfirm(version, processes.length)}
-          close={() => setConfirm(false)}
-          action={async () => {
+        <ConfirmDialog
+          destructive
+          title={copy.confirmTitles.orphans(version, processes.length)}
+          body={copy.orphanedConsequence}
+          confirmLabel={copy.confirmLabels.orphans}
+          onCancel={() => setConfirm(false)}
+          onConfirm={async () => {
             const result = await api(
               `/operations/releases/cleanup/${encodeURIComponent(version)}/stop-processes`,
               "POST",

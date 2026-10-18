@@ -38,6 +38,8 @@ export const operationsCopy = {
     restore: "Sicherung in einem neuen Verzeichnis wiederherstellen?",
     activate: (version) => `Version ${version} aktivieren?`,
     rollback: (version) => `Auf Version ${version} zurücksetzen?`,
+    orphans: (version, count) =>
+      `${count} verwaiste(n) Prozess(e) der Version ${version} beenden?`,
   },
   confirmLabels: {
     deleteBackup: "Jetzt löschen",
@@ -47,6 +49,7 @@ export const operationsCopy = {
     restore: "Jetzt wiederherstellen",
     activate: "Jetzt aktivieren",
     rollback: "Jetzt zurücksetzen",
+    orphans: "Jetzt beenden",
   },
   unknown: "Unbekannt",
   details: "Details",
@@ -202,8 +205,7 @@ export const operationsCopy = {
   orphanedHelp:
     "Diese Prozesse führen nur das Node dieser Version aus, ohne AgentPier-Skript, und haben keinen Elternprozess mehr. Sie blockieren das Löschen der Version nicht; meist sind es übrig gebliebene Tests oder Skripte.",
   orphanedStop: "Prozesse beenden",
-  orphanedConfirm: (version, count) =>
-    `${count} verwaiste(n) Prozess(e) der Version ${version} beenden? Ungespeicherte Arbeit darin geht verloren.`,
+  orphanedConsequence: "Ungespeicherte Arbeit darin geht verloren.",
   orphanedStopped: (count) => `${count} Prozess(e) beendet.`,
   migrateSessions: "Sessions anzeigen",
   migrateLoading: "Sessions werden geladen …",
