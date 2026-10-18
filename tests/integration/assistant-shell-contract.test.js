@@ -18,6 +18,7 @@ import {
   shellGateway,
   silent,
 } from "../helpers/assistant-shell-gateway.js";
+import { shellQuote } from "../../server/lib/launch-serialization.js";
 
 // docs/assistant-shell-qualification.md records what these tests establish. Every
 // command touches only the test's own temporary directory.
@@ -27,6 +28,10 @@ const options = {
   timeout: 300000,
 };
 const execTools = ["session_status", "exec", "process"];
+// The runtime's node as a command word. A local install lives under "Application
+// Support": unquoted, the shell splits it and OpenClaw denies the unresolvable program
+// outright ("cannot safely bind"), so no approval request ever arrives.
+const nodeWord = (node) => shellQuote(node);
 
 test("allow-once, allow-always, deny and the allowlist", options, async (t) => {
   const gw = await shellGateway(t, installed, { prefix: "shell-approvals-" });
@@ -263,7 +268,7 @@ test(
     );
 
     // An interpreter running a script: no entry, the next run asks again.
-    const script = `${node} ${at("mark.js")} ${at("node")}`;
+    const script = `${nodeWord(node)} ${at("mark.js")} ${at("node")}`;
     const interpreted = await allowAlways("interpreter", script);
     assert.deepEqual(interpreted.plan, {
       kind: "once",
@@ -273,7 +278,7 @@ test(
     assert.equal(fs.existsSync(at("node")), true);
     assert.equal(await asks("interpreter-again", script), true);
     // A pipeline with an interpreter segment: no entries at all.
-    const mixed = `${mark} ${at("x")} | ${node} ${at("mark.js")} ${at("y")}`;
+    const mixed = `${mark} ${at("x")} | ${nodeWord(node)} ${at("mark.js")} ${at("y")}`;
     const mixedRun = await allowAlways("mixed", mixed);
     assert.equal(mixedRun.plan.kind, "once");
     assert.equal(await asks("mixed-again", mixed), true);
@@ -349,7 +354,8 @@ test("inline evaluation and strictInlineEval", options, async (t) => {
   const gw = await shellGateway(t, installed, { prefix: "shell-inline-" });
   const at = (name) => path.join(gw.dataDir, name);
   const node = fs.realpathSync(path.join(installed, "node/bin/node"));
-  const inline = (name) => `${node} -e "require('fs').writeFileSync('${at(name)}','')"`;
+  const inline = (name) =>
+    `${nodeWord(node)} -e "require('fs').writeFileSync('${at(name)}','')"`;
   await gw.configure({ tools: { allow: execTools, exec: { mode: "ask" } } });
   const approver = await gw.approver();
 
