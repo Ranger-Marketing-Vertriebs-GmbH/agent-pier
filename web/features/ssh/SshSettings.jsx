@@ -288,7 +288,11 @@ export default function SshSettings() {
               ) : (
                 tab === "accesses" &&
                 !keys.length && (
-                  <button className="button secondary" onClick={() => changeTab("keys")}>
+                  <button
+                    className="button secondary"
+                    disabled={!ownerAvailable}
+                    onClick={() => setEditingKey({})}
+                  >
                     {copy.addKey}
                   </button>
                 )

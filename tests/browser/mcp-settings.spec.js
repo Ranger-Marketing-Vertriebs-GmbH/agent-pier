@@ -10,7 +10,7 @@ test("HTTPS setup copy, CLI deep links and grant pages survive reload without wr
     page.getByRole("heading", { name: "MCP & Zugriffe", exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Hinzufügen kopieren", exact: true })
+    .getByRole("button", { name: "Befehl kopieren: Hinzufügen", exact: true })
     .click();
   expect(await page.evaluate(() => window.copiedText)).toBe(
     "codex mcp add agentpier --url 'https://agentpier.example.test/mcp'",
@@ -76,7 +76,7 @@ test("missing HTTPS blocks setup and expired consent cannot be approved", async 
     page.getByText("HTTPS-Verbindung einrichten", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Hinzufügen kopieren", exact: true }),
+    page.getByRole("button", { name: "Befehl kopieren: Hinzufügen", exact: true }),
   ).toHaveCount(0);
   state.available = true;
   state.fail = "/api/mcp-access/authorizations/auth-one";
@@ -186,7 +186,7 @@ test("local HTTP setup copies the fixed loopback endpoint and explains same-mach
     .click();
   expect(await page.evaluate(() => window.copiedText)).toBe("http://127.0.0.1:4389/mcp");
   await page
-    .getByRole("button", { name: "Hinzufügen kopieren", exact: true })
+    .getByRole("button", { name: "Befehl kopieren: Hinzufügen", exact: true })
     .click();
   expect(await page.evaluate(() => window.copiedText)).toBe(
     "codex mcp add agentpier --url 'http://127.0.0.1:4389/mcp'",
@@ -207,9 +207,31 @@ test("unsafe remote HTTP never becomes a local setup command", async ({ page }) 
     page.getByText("HTTPS-Verbindung einrichten", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Hinzufügen kopieren", exact: true }),
+    page.getByRole("button", { name: "Befehl kopieren: Hinzufügen", exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Lokale MCP-Adresse kopieren", exact: true }),
   ).toHaveCount(0);
+});
+test("setup copy buttons name the command or configuration they copy", async ({
+  page,
+}) => {
+  await mcpFixture(page);
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.goto(baseURL + "/settings/mcp");
+  const panel = page.getByRole("tabpanel");
+  await expect(
+    panel.getByRole("button", { name: "Copy command: Add", exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel.getByRole("button", {
+      name: "Copy command: Repeat sign-in if needed",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "OpenCode", exact: true }).click();
+  await expect(
+    panel.getByRole("button", { name: "Copy configuration: Add", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Copy Add$/ })).toHaveCount(0);
 });

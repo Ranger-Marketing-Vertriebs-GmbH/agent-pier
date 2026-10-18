@@ -3351,6 +3351,8 @@
   "mcp:mcpCopy.consentHelp": "de:32225e5df152 en:230d85962c8c",
   "mcp:mcpCopy.copied": "de:c2756e0294f8 en:8d525e5f158b",
   "mcp:mcpCopy.copy": "de:2996ff3b2213 en:78ea9f42171e",
+  "mcp:mcpCopy.copyCommand": "de:c54450957e4a en:a4197a5fe766",
+  "mcp:mcpCopy.copyConfiguration": "de:1d6c9d8916e5 en:9bb22bd5fdff",
   "mcp:mcpCopy.copyFailed": "de:35b849e4dd89 en:2582b9b21931",
   "mcp:mcpCopy.created": "de:2f00877ab3d8 en:683a84c27104",
   "mcp:mcpCopy.deny": "de:7be75ced7162 en:05a2d7332eb9",

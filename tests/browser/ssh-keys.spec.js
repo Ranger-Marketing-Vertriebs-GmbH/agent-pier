@@ -169,3 +169,18 @@ test("key catalog loading gates key and host creation", async ({ page }) => {
     page.getByRole("button", { name: "SSH-Schlüssel hinzufügen", exact: true }),
   ).toBeEnabled();
 });
+
+test("the empty access list's Add SSH key button opens the key form", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.keys = [];
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.goto(baseURL + "/settings/ssh");
+  await expect(page.getByText("No SSH accesses yet.", { exact: true })).toBeVisible();
+  await page
+    .locator(".ssh-empty")
+    .getByRole("button", { name: "Add SSH key", exact: true })
+    .click();
+  await expect(page.getByLabel("Name", { exact: true })).toBeVisible();
+});
