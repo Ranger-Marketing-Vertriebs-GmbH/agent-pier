@@ -309,7 +309,7 @@
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 .assistant-team-proposal strong,
 .assistant-team-member strong {

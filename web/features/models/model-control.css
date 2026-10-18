@@ -16,7 +16,7 @@
 }
 .model-caption {
   color: #95969a;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   white-space: nowrap;
 }
 .model-control button {
@@ -58,7 +58,7 @@
   outline-offset: 2px;
 }
 .model-working {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #a5a6aa;
 }
 .model-popover {
@@ -123,7 +123,7 @@
 }
 .model-option-label small {
   color: #f49a58;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   flex: none;
 }
 .model-option-description {
@@ -160,7 +160,7 @@
   border-radius: 6px;
   background: transparent;
   color: #bebfc3;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 .model-search {
   display: flex;

@@ -219,7 +219,7 @@
 }
 .sidebar-group-count {
   margin-left: auto;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-group);
 }
 .sidebar-group-content[hidden] {
@@ -293,7 +293,7 @@
 }
 .count {
   margin-left: auto;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   background: #2c2d31;
   border-radius: 4px;
   padding: 2px 6px;
@@ -312,7 +312,7 @@
   margin-bottom: 7px;
 }
 .sidebar-empty > span {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #6b6c70;
 }
 .session-item {
@@ -402,7 +402,7 @@
 .host-status small {
   display: block;
   margin-top: 5px;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   color: #7e7f83;
 }
 .host-status > svg {
@@ -412,7 +412,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--accent);
 }
 .remote-link svg:last-child {

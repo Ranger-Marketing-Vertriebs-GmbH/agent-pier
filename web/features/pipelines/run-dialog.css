@@ -60,7 +60,7 @@ dialog.run-dialog[open] {
 }
 .run-dialog-option-path {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #8b8c90;
 }
 .run-dialog-empty {

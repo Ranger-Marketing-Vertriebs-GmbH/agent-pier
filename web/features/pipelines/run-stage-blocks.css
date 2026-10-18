@@ -49,7 +49,7 @@
 }
 .run-severity {
   flex-shrink: 0;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   padding: 4px 7px;
   border-radius: 4px;
   border: 1px solid #3d3e42;
@@ -166,7 +166,7 @@
   background: #18191d;
 }
 .run-usage span {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #8b8c90;
 }
 .run-usage strong {

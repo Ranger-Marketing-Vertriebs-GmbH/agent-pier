@@ -16,7 +16,7 @@
   min-width: 0;
 }
 .tool-install-details dt {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #9d9ea2;
   margin-bottom: 6px;
 }

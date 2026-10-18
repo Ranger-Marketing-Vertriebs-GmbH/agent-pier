@@ -91,7 +91,7 @@
 .file-explorer .explorer-list-header {
   padding: 0.65rem 0.55rem;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   border-bottom: 1px solid var(--line);
 }
 .file-explorer .explorer-entry {
@@ -147,7 +147,7 @@
   min-width: 0;
   padding: 0.7rem 0.35rem;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -228,7 +228,7 @@
     grid-row: 2;
     padding: 0 0.6rem 0.6rem;
     color: var(--muted);
-    font-size: 0.72rem;
+    font-size: var(--font-size-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -298,7 +298,7 @@
     grid-row: 2;
     padding: 0 0.6rem 0.6rem;
     color: var(--muted);
-    font-size: 0.72rem;
+    font-size: var(--font-size-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

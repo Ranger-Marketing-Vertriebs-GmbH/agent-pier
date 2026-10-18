@@ -99,7 +99,7 @@ test("an open group keeps a neutral header; a collapsed one marks the selection"
   await expect(header).toHaveAttribute("aria-expanded", "true");
   await expect(header).toHaveCSS("color", "rgb(151, 152, 156)");
   const count = header.locator(".sidebar-group-count");
-  await expect(count).toHaveCSS("font-size", "10px");
+  await expect(count).toHaveCSS("font-size", "11px");
   await expect(count).toHaveCSS("font-weight", "600");
   await header.click();
   await expect(header).toHaveAttribute("aria-expanded", "false");
