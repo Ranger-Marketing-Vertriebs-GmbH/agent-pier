@@ -53,7 +53,7 @@ test("changing a connection agents use asks to restart their Gateway first", asy
     .getByRole("button", { name: "Delete connection", exact: true })
     .click();
   const removal = page.getByRole("dialog");
-  await removal.getByRole("button", { name: "Delete connection", exact: true }).click();
+  await removal.getByRole("button", { name: "Delete now", exact: true }).click();
   await expect(removal.getByRole("status")).toContainText("restarts their Gateway");
   await removal
     .getByRole("button", { name: "Delete and restart agents", exact: true })
@@ -79,7 +79,7 @@ test("deleting a connection names the agents that lose it", async ({ page }) => 
     .getByRole("button", { name: "Delete connection", exact: true })
     .click();
   const removal = page.getByRole("dialog");
-  await removal.getByRole("button", { name: "Delete connection", exact: true }).click();
+  await removal.getByRole("button", { name: "Delete now", exact: true }).click();
   await expect(removal).toContainText(
     "Olli and Tmp use this provider connection. They stop working until you choose another provider connection for them.",
   );

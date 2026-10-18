@@ -108,7 +108,7 @@ test("deleting a changed connection leaves without asking", async ({ page }) => 
   await detail.getByRole("button", { name: "Delete connection", exact: true }).click();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Delete connection", exact: true })
+    .getByRole("button", { name: "Delete now", exact: true })
     .click();
   await expect(page).toHaveURL(`${baseURL}/accounts?section=models`);
   await expect(page.getByRole("dialog", { name: "Save changes?" })).toHaveCount(0);

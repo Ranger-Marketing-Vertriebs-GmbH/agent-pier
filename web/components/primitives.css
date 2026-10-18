@@ -71,9 +71,9 @@
     min-width: var(--touch-target);
     min-height: var(--touch-target);
   }
-  /* A label around a checkbox or radio is its tap target. */
-  label:has(> input[type="checkbox"]),
-  label:has(> input[type="radio"]) {
+  /* A label around a checkbox or radio is its tap target; :where keeps a feature's
+     larger row height in charge. */
+  :where(label:has(> input[type="checkbox"]), label:has(> input[type="radio"])) {
     min-height: var(--touch-target);
   }
 }
