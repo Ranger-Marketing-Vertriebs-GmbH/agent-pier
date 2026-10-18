@@ -49,7 +49,7 @@ export const inboxCopy = {
     answered: "Beantwortet",
     handedOff: "An das Terminal übergeben",
     closed:
-      "Außerhalb des Eingangs beendet, zum Beispiel im Terminal, durch Ablauf oder weil die Sitzung endete.",
+      "Außerhalb des Eingangs beendet, zum Beispiel im Terminal, durch Ablauf oder weil die Session endete.",
     cancelled: "Abgebrochen",
     at: (time) => `Am ${time}`,
   },
