@@ -49,6 +49,7 @@ import { SessionManager } from "../features/sessions/session-manager.js";
 import { ChatEvents } from "../features/chat/chat-events.js";
 import { ChatStreams } from "../features/chat/chat-streams.js";
 import { createFileServices } from "./files.js";
+import { OwnerInbox } from "../features/inbox/owner-inbox.js";
 
 import { createAssistantFeature } from "./assistants.js";
 
@@ -56,7 +57,7 @@ export async function createServices(config) {
   const mutationBarrier = new MutationBarrier();
   const audit = new AuditStore(config);
   const notifications = new NotificationService(config);
-  let requests, agentbus;
+  let requests, agentbus, inbox;
   const providerCatalog = new ProviderCatalog({ dataDir: config.dataDir });
   const providerConnections = new ProviderConnections({
     dataDir: config.dataDir,
@@ -259,7 +260,10 @@ export async function createServices(config) {
   requests = new RequestBroker({
     dataDir: config.dataDir,
     sessions,
-    onEvent: (event) => events.current?.emit(event),
+    onEvent: (event) => {
+      events.current?.emit(event);
+      inbox?.changed();
+    },
   });
   await requests.ready;
   const chatDelivery = new ChatDelivery({
@@ -353,6 +357,8 @@ export async function createServices(config) {
     mcpDirectory,
     nonoSandbox,
   };
+  // Everything waiting for the owner, read lazily (server/features/inbox/).
+  services.inbox = inbox = new OwnerInbox({ services });
   // Assistant services stay null until the owner opts in; failures never stop startup.
   services.assistantFeature = createAssistantFeature(services);
   // The managed agent browser stays while an agent browser runs or the running

@@ -11,6 +11,8 @@ export function createShutdown({ services, wss, server }) {
     // Closes only the assistant services that the opt-in actually created.
     await services.assistantFeature?.close();
     services.chatStreams?.close();
+    // Ends the inbox event streams, which would otherwise keep the server open.
+    services.inbox?.close();
     for (const socketServer of [wss, services.chatWss, services.browserWss])
       for (const ws of socketServer?.clients || []) {
         ws.close(1001, serverMessages.common.serverRestarting);

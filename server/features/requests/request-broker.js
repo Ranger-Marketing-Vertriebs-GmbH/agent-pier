@@ -266,6 +266,25 @@ export class RequestBroker {
   hasPending(sessionId) {
     return [...this.entries.values()].some((entry) => entry.sessionId === sessionId);
   }
+  /**
+   * Every open request of every session, for the owner's inbox. Unlike list() it has
+   * no side effects: nothing is discarded, refreshed or announced, and the entries
+   * carry only what the session's own request list shows.
+   */
+  listAll() {
+    return [...this.entries.values()].map(
+      ({
+        socket: _socket,
+        key: _key,
+        accountId: _account,
+        launchIdentity: _launch,
+        local: _local,
+        interaction: _interaction,
+        nativeOutcome: _outcome,
+        ...entry
+      }) => entry,
+    );
+  }
   async launchIdentity(id) {
     return hookLaunchIdentity(JSON.parse(await fs.readFile(this.file(id), "utf8")));
   }

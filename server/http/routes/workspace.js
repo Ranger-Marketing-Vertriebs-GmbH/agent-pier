@@ -20,6 +20,14 @@ export function workspaceRoutes(services) {
   } = services;
   const router = Router();
   const projects = new SessionProjects();
+  // The inbox count rides on the polled state; a failed read never fails the state.
+  const inboxSummary = async () => {
+    try {
+      return (await services.inbox?.summary()) ?? null;
+    } catch {
+      return null;
+    }
+  };
   router.get("/state", async (_req, res) =>
     res.json({
       // Never waits for a probe: a slow --version must not delay the app.
@@ -43,6 +51,7 @@ export function workspaceRoutes(services) {
       sharedCliExtensions: true,
       providerConnections: services.providerConnections.list(),
       sessions: await projects.enrich(await activity.enrich(await sessions.list())),
+      inbox: await inboxSummary(),
       home: config.home,
       ...preferences.get(),
       remoteUrl: config.remoteUrl || null,

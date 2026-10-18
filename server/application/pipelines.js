@@ -32,7 +32,10 @@ export async function createPipelineServices(services) {
     mutationBarrier: services.mutationBarrier,
     audit: services.audit,
     ...config.pipelines,
-    onChange: (run) => services.operationsEvents?.pipeline(run),
+    onChange: (run) => {
+      services.operationsEvents?.pipeline(run);
+      services.inbox?.changed();
+    },
   });
   try {
     await pipelines.recover();

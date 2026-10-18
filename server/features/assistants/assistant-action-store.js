@@ -63,6 +63,16 @@ export class AssistantActionStore {
     }
     return counts;
   }
+  // Every approval the owner still has to decide, oldest first, for the owner's inbox;
+  // expired ones are left out as in awaitingCounts.
+  awaiting(now = Date.now()) {
+    return this.db
+      .prepare(
+        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.state')='awaiting_approval' AND (json_extract(body,'$.expiresAt') IS NULL OR json_extract(body,'$.expiresAt')>?) ORDER BY rowid",
+      )
+      .all(now)
+      .map((r) => JSON.parse(r.body));
+  }
   // Members' requests still waiting in turns this lead delegated, and their allowed SSH
   // commands while they run, as the member's own chat shows them.
   delegated(leadId) {
