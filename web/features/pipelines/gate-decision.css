@@ -1,0 +1,41 @@
+/* The decision a gate stage waits for, wherever GateDecision is shown. */
+.run-gate-decision {
+  padding: 18px;
+  border: 1px solid #54402f;
+  border-radius: 9px;
+  background: #1d1915;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.run-gate-decision > h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffc99d;
+}
+.run-gate-decision label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11px;
+  color: #cdced2;
+}
+.run-gate-decision textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid #404145;
+  border-radius: 6px;
+  background: #141519;
+  color: #ffe2c9;
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.run-gate-decision .button {
+  height: 36px;
+  padding: 0 13px;
+  font-size: 11px;
+}

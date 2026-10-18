@@ -5,6 +5,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import QuestionDialog from "./QuestionDialog.jsx";
 import { touchRequest, settleNotice } from "./request-interaction.js";
+import "./requests.css";
 export default function NativeRequest({ request, updated, openTerminal }) {
   const action = useAsyncAction(),
     pending = request.status === "pending",

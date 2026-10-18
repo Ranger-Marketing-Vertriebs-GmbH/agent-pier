@@ -3,6 +3,7 @@ import React from "react";
 import SidebarNewMenu from "./SidebarNewMenu.jsx";
 import useNewMenuItems from "./useNewMenuItems.js";
 import Icon from "../components/Icon.jsx";
+import { InboxHeaderButton } from "../features/inbox/InboxEntry.jsx";
 export default function MobileHeader({
   mobileNav,
   setMobileNav,
@@ -26,7 +27,10 @@ export default function MobileHeader({
         {copy.mobileBrand}
         <span>.</span>
       </button>
-      <SidebarNewMenu icon align="right" items={items} disabled={!installed} />
+      <div className="mobile-header-actions">
+        <InboxHeaderButton onOpen={() => navigate({ view: "inbox" })} />
+        <SidebarNewMenu icon align="right" items={items} disabled={!installed} />
+      </div>
     </div>
   );
 }

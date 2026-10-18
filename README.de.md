@@ -21,6 +21,9 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Rückfragen der jeweiligen CLI, dazu eine Chat-Ansicht, die sich auf dem Handy
   wiederherstellt ([Neu laden und fortsetzen](docs/session-reload.md),
   [Nachrichten auf dem Handy](docs/mobile-delivery.md)).
+- **Eingang:** alle Fragen und Freigaben der CLIs, Pipeline-Gates und Anfragen deiner
+  Agenten, die auf dich warten, mit Live-Zähler an einer Stelle beantwortet
+  ([Eingang](docs/inbox.md)).
 - **Pipelines mit Review:** wiederverwendbare Profile, isolierte Git-Worktrees,
   begrenzte Review-Schleifen, Prüfungen und menschliche Freigabe
   ([Pipelines](docs/pipelines.md)).
@@ -141,12 +144,12 @@ Mindestversion startet erst nach dem Update wieder Sitzungen. Ein Quellcode-Chec
 
 Die [Dokumentationsübersicht](docs/README.md) listet alle Anleitungen.
 
-| Bereich    | Anleitungen                                                                                                                                                                                                                       |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nutzen     | [Provider](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Dateien](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Benachrichtigungen](docs/notifications.md) |
-| Agenten    | [Agenten](docs/agents.md) · [Workflows](docs/assistant-workflows.md) · [Modell-Zugänge](docs/assistant-model-connections.md) · [Runtime-Updates](docs/assistant-runtime-updates.md)                                               |
-| Betreiben  | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Fernzugriff](docs/remote-access.md) · [Sicherungen](docs/backups.md) · [Betrieb](docs/operations.md) · [Sandbox](docs/sandbox.md)                                       |
-| Entwickeln | [Architektur](docs/architecture.md) · [Einstellungsmuster](docs/settings-pattern.md) · [Tests](docs/testing.md) · [Frontend](web/README.md) · [Mitwirken](CONTRIBUTING.md)                                                        |
+| Bereich    | Anleitungen                                                                                                                                                                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Nutzen     | [Eingang](docs/inbox.md) · [Provider](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Dateien](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Benachrichtigungen](docs/notifications.md) |
+| Agenten    | [Agenten](docs/agents.md) · [Workflows](docs/assistant-workflows.md) · [Modell-Zugänge](docs/assistant-model-connections.md) · [Runtime-Updates](docs/assistant-runtime-updates.md)                                                                          |
+| Betreiben  | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Fernzugriff](docs/remote-access.md) · [Sicherungen](docs/backups.md) · [Betrieb](docs/operations.md) · [Sandbox](docs/sandbox.md)                                                                  |
+| Entwickeln | [Architektur](docs/architecture.md) · [Einstellungsmuster](docs/settings-pattern.md) · [Tests](docs/testing.md) · [Frontend](web/README.md) · [Mitwirken](CONTRIBUTING.md)                                                                                   |
 
 ## Daten und Sicherheitsgrenzen
 
