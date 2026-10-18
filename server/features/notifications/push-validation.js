@@ -57,6 +57,7 @@ export function pushPayload(input) {
       "question",
       "session-ended",
       "session-completed",
+      "session-waiting",
       "pipeline-gate",
       "pipeline-ended",
       "agent-checkin",

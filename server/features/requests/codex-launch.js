@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createCodexProxy } from "./codex-proxy.js";
 import { NativeRequestChannel } from "./native-channel.js";
+import { recordNativeActivity } from "../sessions/native-session-activity.js";
 import { stopOwnedGroup } from "../pipelines/native-owned-group.js";
 import { ADAPTER_URL_PLACEHOLDER } from "../providers/adapter-launch.js";
 
@@ -76,6 +77,11 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
     input: backend.stdout,
     output: backend.stdin,
     channel,
+    // Turn events are Codex's own activity report; sessions without a binding keep
+    // the terminal reading.
+    onActivity: (update) => {
+      if (env.AGENTPIER_NATIVE_BINDING_FILE) recordNativeActivity(update, env);
+    },
   });
   if (backendError) {
     await proxy.close();

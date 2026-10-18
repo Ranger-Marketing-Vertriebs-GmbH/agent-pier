@@ -7,6 +7,7 @@ import { createECDH, randomBytes } from "node:crypto";
 import { NotificationService } from "../../server/features/notifications/notification-service.js";
 import { AuditStore } from "../../server/features/audit/audit-store.js";
 import { OperationsEvents } from "../../server/application/operations-events.js";
+import { pushPayload } from "../../server/features/notifications/push-validation.js";
 test("closed browser observes completion and every pipeline gate without replaying history on restart", async (t) => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-event-test-"));
   const sent = [];
@@ -123,4 +124,76 @@ test("ended pipeline runs are audited with their own status action", async (t) =
       ["pipeline.cancelled", "success", "run-cancelled"],
     ],
   );
+});
+
+test("a reported wait notifies once, unless an approval or question already did", async (t) => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-event-test-"));
+  const audit = new AuditStore({ dataDir });
+  const sent = [];
+  const notifications = {
+    status: () => ({ subscriptions: [{}] }),
+    observations: new Map(),
+    observation(key) {
+      return this.observations.get(key);
+    },
+    observe(key, value) {
+      this.observations.set(key, value);
+    },
+    notify: async (value) => sent.push(value),
+  };
+  let activity = { state: "working", source: "hook" };
+  const session = { id: "session-wait", tool: "claude", status: "running" };
+  const events = new OperationsEvents({
+    audit,
+    notifications,
+    sessions: { list: async () => [session] },
+    activity: { read: async () => activity },
+    pipelines: { store: { all: () => [] } },
+    intervalMs: 0,
+  });
+  t.after(async () => {
+    await events.close();
+    audit.close();
+    await fs.rm(dataDir, { recursive: true, force: true });
+  });
+  const kinds = () => sent.map((item) => item.kind);
+  await events.poll();
+  activity = { state: "waiting", source: "hook" };
+  await events.poll();
+  await events.poll();
+  assert.deepEqual(kinds(), ["session-waiting"]);
+  assert.deepEqual(pushPayload(sent[0]), {
+    kind: "session-waiting",
+    eventId: sent[0].eventId,
+    sessionId: "session-wait",
+  });
+  // A native dialog the owner opened in the terminal never notifies.
+  activity = { state: "working", source: "hook" };
+  await events.poll();
+  activity = { state: "waiting", source: "native-terminal" };
+  await events.poll();
+  assert.deepEqual(kinds(), ["session-waiting"]);
+  // An AgentPier request already sent its own push for this wait.
+  activity = { state: "working", source: "hook" };
+  await events.poll();
+  events.emit({
+    action: "request.created",
+    resourceType: "request",
+    resourceId: "r1",
+    sessionId: session.id,
+    kind: "permission",
+    source: "system",
+    outcome: "success",
+    details: { kind: "permission" },
+  });
+  activity = { state: "waiting", source: "hook" };
+  await events.poll();
+  assert.deepEqual(kinds(), ["session-waiting", "permission"]);
+  // The next wait after the session moved on notifies again, with a new event ID.
+  activity = { state: "working", source: "hook" };
+  await events.poll();
+  activity = { state: "waiting", source: "hook" };
+  await events.poll();
+  assert.deepEqual(kinds(), ["session-waiting", "permission", "session-waiting"]);
+  assert.notEqual(sent[0].eventId, sent[2].eventId);
 });

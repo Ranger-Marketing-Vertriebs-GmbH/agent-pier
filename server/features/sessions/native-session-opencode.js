@@ -1,15 +1,44 @@
 import { recordNativeSession } from "./native-session-binding.js";
+import { recordNativeActivity } from "./native-session-activity.js";
 
 export const id = "agentpier-reader";
 // OpenCode 1.18 exposes the visible route directly to TUI plugins. Watching the
 // route avoids guessing from history timestamps or background server activity.
+/** The visible session's busy state as AgentPier's activity, or null when unknown. */
+export function openCodeActivity(api, session) {
+  const state = api.state?.session;
+  if (!session || typeof state?.status !== "function") return null;
+  const waiting = ["permission", "question"].some(
+    (kind) => typeof state[kind] === "function" && (state[kind](session) || []).length,
+  );
+  if (waiting) return "waiting";
+  const type = state.status(session)?.type;
+  return type === "busy" || type === "retry" ? "working" : "idle";
+}
 export async function tui(api) {
   const env = { ...process.env };
   let previous;
+  let reported;
   let warned = false;
+  const activity = (session) => {
+    let state;
+    try {
+      state = openCodeActivity(api, session);
+    } catch {
+      state = null;
+    }
+    if (!state || state === reported) return;
+    try {
+      recordNativeActivity({ state, event: "session.status" }, env);
+      reported = state;
+    } catch {
+      /* The terminal reading stays the fallback. */
+    }
+  };
   const update = () => {
     const route = api.route.current;
     const session = route?.name === "session" ? route.params?.sessionID : null;
+    activity(session);
     if (session === previous) return;
     try {
       recordNativeSession({ session_id: session }, env, { pid: process.pid });

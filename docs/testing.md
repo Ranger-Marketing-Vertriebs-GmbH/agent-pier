@@ -72,6 +72,17 @@ must retain their conversation, model, permissions and attachment access across 
 reload, then accept a message through the Chat HTTP endpoint without a hook receipt.
 Without the executable variable these cases are reported as skipped.
 
+Two activity checks are opt-in as well. The first starts the installed Codex through
+the request bridge in the same isolated way and checks that its turns reach the
+session activity; the second runs the installed Claude Code in a temporary HOME on a
+private tmux socket against a local mock of the Messages API (no account, no model
+calls) and checks the activity hooks for a turn, a background shell, Esc and exit:
+
+```sh
+AGENTPIER_TEST_CODEX_BIN=/absolute/path/to/codex node --test tests/integration/codex-activity-native.test.js
+AGENTPIER_CLI_HOOK_CONTRACT=1 node --test tests/integration/claude-activity-hooks-contract.test.js
+```
+
 The GitHub MCP server contract for agents is opt-in as well. It starts the pinned
 `github-mcp-server` with each level's arguments against a fake GitHub Enterprise API
 on loopback (`GITHUB_HOST=http://127.0.0.1:<port>`), lists the tools of both levels,

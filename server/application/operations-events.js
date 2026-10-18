@@ -19,6 +19,8 @@ export class OperationsEvents {
     onError = () => {},
   }) {
     Object.assign(this, { audit, notifications, sessions, activity, pipelines, onError });
+    // Sessions whose current wait already sent an approval or question push.
+    this.requested = new Set();
     if (intervalMs > 0) {
       this.timer = setInterval(() => this.poll().catch(onError), intervalMs);
       this.timer.unref();
@@ -30,6 +32,7 @@ export class OperationsEvents {
     } catch (error) {
       this.onError(error);
     }
+    if (event.action === "request.created") this.requested.add(event.sessionId);
     if (event.action === "request.created")
       this.notifications
         .notify({
@@ -87,7 +90,8 @@ export class OperationsEvents {
         });
       }
       if (!enabled || session.status !== "running") continue;
-      const { state } = await this.activity.read(session);
+      const { state, source } = await this.activity.read(session);
+      await this.waiting(session, state, source);
       if (!["working", "idle"].includes(state)) continue;
       const activity = this.transition(`activity:${session.id}`, state);
       if (activity.changed && activity.previous === "working" && state === "idle") {
@@ -108,6 +112,23 @@ export class OperationsEvents {
       }
     }
     for (const run of this.pipelines.store.all()) this.pipeline(run);
+  }
+  /** A CLI reported that it waits for the owner, outside AgentPier's own requests. */
+  async waiting(session, state, source) {
+    const waiting = state === "waiting";
+    const change = this.transition(`waiting:${session.id}`, waiting);
+    if (!waiting) {
+      this.requested.delete(session.id);
+      return;
+    }
+    // Only a reported wait counts: a terminal dialog the owner opened (a model
+    // picker) is no reason to notify, and AgentPier's requests notify on their own.
+    if (!change.changed || source !== "hook" || this.requested.has(session.id)) return;
+    await this.notifications.notify({
+      kind: "session-waiting",
+      sessionId: session.id,
+      eventId: change.eventId,
+    });
   }
   pipeline(run) {
     try {
