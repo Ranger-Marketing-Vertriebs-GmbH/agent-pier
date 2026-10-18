@@ -15,13 +15,15 @@ Always, as public (unencrypted) members:
 - Project memory as a consistent SQLite snapshot (without capabilities), the audit
   log, pinned artifacts (with a tombstone for every other record, and no publish
   receipt of an unpinned one), the sanitized MCP server store.
-- Agent configuration under `assistants/`: `settings.json`, `openclaw.json` and
-  its copies (secrets sealed or left out, see below), the agents' home folder,
-  OpenClaw's other configuration files, and configuration copies of AgentPier's
-  agent databases (`assistants.sqlite`, `channels.sqlite`, `web-search.sqlite`)
-  without their private rows. A restore without private content brings back
-  working agents with their settings, channels, team policy, reminders and
-  access, and an empty history. Runtimes, package caches (in any spelling, such
+- Agent configuration under `assistants/`: `settings.json`, the agents' home
+  folder and, of OpenClaw's state folder, only an allowlist: `openclaw.json` and its
+  copies (secrets sealed or left out, see below), `plugin-skills/`, `credentials/`
+  (sealed or left out like other credentials) and each agent's `agents/<agent>/agent/`
+  configuration files. Every other file or folder below `state/`, including what a
+  later OpenClaw adds, is private content. Agent databases go in as configuration
+  copies (see "Agent databases" below). A restore without private content brings
+  back working agents with their settings, channels, team policy, reminders,
+  access, schedules and shell approvals, and an empty history. Runtimes, package caches (in any spelling, such
   as Chromium's `Cache`, `Code Cache` and `GPUCache`), update snapshots, TLS
   material, backup keys and the agents' browser profiles are never public members
   (see `docs/assistant-gateway.md`).
@@ -44,14 +46,46 @@ histories and private content, always encrypted (see "Sealed history"):
   chat attachments (`workspaces/<agent>/attachments/`, up to 1 GB per agent),
   files agents shared with you (`shares/<agent>/`), OpenClaw's transcripts and
   session index (`state/agents/<agent>/sessions/`), its media (`state/media/`),
-  its memory index (`state/memory/`) and every SQLite database below `state/`
-  (OpenClaw's state database can hold conversations next to approvals). For
-  `assistants.sqlite` and `channels.sqlite`, a full copy is sealed as
-  `assistant-history/<name>`; a restore puts it in place of the configuration copy.
-  Their private rows are conversations, requests and attempts, cached messages,
-  attachment and share indexes, queued messages, routine results and events, memory
-  notes, action history, team records other than policy and settings, and Telegram
-  inbox, outbox and unknown senders.
+  its memory index (`state/memory/`), every other file below `state/` outside the
+  allowlist above (such as `config-journal-fingerprint.key` and `migration/`), and
+  the full copies of the agent databases.
+
+#### Agent databases
+
+Each agent database is split: a public configuration copy keeps the schema and the
+rows of its configuration tables; the full copy (credential tables emptied as
+before) is sealed as `assistant-history/<path below assistants/>`, and a restore
+with the passphrase puts it in place of the configuration copy. Credential rows in
+either copy travel only in the sealed sidecar, exactly as without this split.
+
+- AgentPier's `assistants.sqlite` and `channels.sqlite` lose their private rows:
+  conversations, requests and attempts, cached messages, attachment and share
+  indexes, queued messages, routine results and events, memory notes, action
+  history, team records other than policy and settings, and Telegram inbox, outbox
+  and unknown senders. `web-search.sqlite` holds only configuration.
+- OpenClaw's databases below `state/` (the global `state/state/openclaw.sqlite`,
+  each agent's `agents/<agent>/agent/openclaw-agent.sqlite` and any other) keep the
+  rows of an allowlist only: `agent_databases`, `agent_provenance`,
+  `auth_profile_state`, `auth_profile_store`, `channel_pairing_allow_entries`,
+  `claw_installs`, `claw_mcp_server_refs`, `claw_package_refs`,
+  `config_health_entries`, `config_machine_state`, `config_revision_keys`,
+  `cron_jobs`, `device_auth_tokens`, `device_bootstrap_tokens`,
+  `device_identities`, `device_pairing_paired`, `exec_approvals_config`,
+  `gateway_origin_device_tokens`, `mcp_oauth_pending_authorizations`,
+  `mcp_oauth_stores` (always emptied), `migration_runs`, `migration_sources`,
+  `operator_approvals`, `plugin_binding_approvals`, `plugin_state_entries`,
+  `projects`, `schema_meta`, `secret_store_entries`, `user_preferences`,
+  `web_push_subscriptions`, `worker_environment_credentials`,
+  `worker_environments`, `workspace_setup_state` and `worktree_templates`. Every
+  other table, including any a later OpenClaw adds, is emptied: sessions,
+  transcripts, conversations, task, flow and subagent runs, delivery queues, audit
+  and diagnostic events, memory and full-text indexes. A full-text or vector index
+  is emptied through its module; one whose module this host lacks loses the rows of
+  its shadow tables.
+- Databases in a private folder (`state/memory/`, transcripts) are private as a
+  whole. OpenClaw's lock and writer databases (`*-lock.sqlite`,
+  `*.generation-writer.sqlite`) and its `state/locks/` and `state/tmp/` folders are
+  runtime state and never captured; a restore still accepts them from older backups.
 
 Histories hold task content and tool output verbatim, and Claude Code's
 `file-history/` holds copies of edited files, so they are never archived in plain
@@ -63,8 +97,7 @@ pipeline history and unpinned artifacts are only backed up in backups with a
 passphrase, and then encrypted". Without **Include history**, they list "AgentPier
 and CLI histories" and "Agent chats, channel messages, workspaces and attachments,
 pipeline history and unpinned artifacts"; the restore report repeats these
-omissions. OpenClaw's state database stays out with its credential rows then, so
-the restore report lists `assistants` under credentials needing a login. The
+omissions. The
 manifest's and the backup list's `includeHistory` says whether the backup holds
 history, so it is false for a backup without a passphrase; in earlier backups it
 recorded the choice, which then also meant public AgentPier history.

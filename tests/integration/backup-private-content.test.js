@@ -12,7 +12,9 @@ import {
   artifactIds,
   botToken,
   generations,
+  loginToken,
   marker,
+  openClawDatabases,
   passphrase,
   privateContentFixture,
   rows,
@@ -24,10 +26,35 @@ const privateFiles = [
   "assistants/shares/home/20261017-101500-1a2b3c4d-report.pdf",
   "assistants/state/agents/home/sessions/s1.jsonl",
   "assistants/state/media/inbound/voice.ogg",
-  "assistants/state/state/openclaw.sqlite",
+  "assistants/state/unknown-folder/notes.json",
+  "assistants/state/config-journal-fingerprint.key",
   "pipeline-runs/runs.sqlite",
   `artifacts/generations/${generations.unpinned}/0`,
 ];
+const runtimeOnly = [
+  "assistants/state/state/openclaw-agent.sqlite.generation-lock.sqlite",
+  "assistants/state/locks/gateway.lock.json",
+];
+const publicState = [
+  "assistants/state/plugin-skills/team/SKILL.md",
+  "assistants/state/agents/home/agent/models.json",
+];
+/** OpenClaw's databases restored as configuration copies, or as full ones. */
+function assertOpenClaw(agents, { full, login }) {
+  for (const relative of openClawDatabases) {
+    const file = path.join(agents, relative);
+    const count = (table) => rows(file, `SELECT count(*) AS n FROM ${table}`)[0].n;
+    assert.equal(count("exec_approvals_config"), 1, relative);
+    // Private and unknown tables keep their schema; their rows only come sealed.
+    for (const table of ["session_entries", "future_table", "memory_fts"])
+      assert.equal(count(table), full ? 1 : 0, `${relative} ${table}`);
+    assert.deepEqual(
+      rows(file, "SELECT value_json FROM auth_profile_store"),
+      login ? [{ value_json: loginToken }] : [],
+      relative,
+    );
+  }
+}
 const index = (target) =>
   JSON.parse(fs.readFileSync(path.join(target, "artifacts/index.json"), "utf8"));
 
@@ -49,7 +76,10 @@ test("without a passphrase, private content is left out and agents keep their se
   assert.equal(archiveText(made.file).includes(marker), false);
   const header = await readArchiveHeader(made.file);
   const names = header.members.map((member) => member.path);
-  for (const name of privateFiles) assert.equal(names.includes(name), false, name);
+  for (const name of [...privateFiles, ...runtimeOnly])
+    assert.equal(names.includes(name), false, name);
+  for (const name of [...publicState, ...openClawDatabases.map((d) => `assistants/${d}`)])
+    assert.ok(names.includes(name), name);
   assert.equal(
     header.members.some((member) => member.kind === "sealed"),
     false,
@@ -85,6 +115,9 @@ test("without a passphrase, private content is left out and agents keep their se
   assert.ok(fs.existsSync(path.join(agents, "state/openclaw.json")));
   for (const name of privateFiles)
     assert.equal(fs.existsSync(path.join(target, name)), false, name);
+  // Without credentials, logins stay out as before this change.
+  assertOpenClaw(agents, { full: false, login: false });
+  assert.ok(report.credentialsNeedingLogin.includes("assistants"));
   // The pinned artifact stays; the unpinned one is a tombstone without its receipt.
   const restored = index(target);
   assert.equal(restored.records[artifactIds.pinned].pinned, true);
@@ -109,7 +142,7 @@ test("with a passphrase, private content is sealed and restores intact", async (
   assert.equal(archiveText(made.file).includes(marker), false);
   const header = await readArchiveHeader(made.file);
   const names = header.members.map((member) => member.path);
-  for (const name of [...privateFiles, "artifacts/unpinned.json"])
+  for (const name of [...privateFiles, ...runtimeOnly, "artifacts/unpinned.json"])
     assert.equal(names.includes(name), false, name);
   assert.ok(header.members.filter((member) => member.kind === "sealed").length >= 10);
   // The public manifest names no private file.
@@ -149,9 +182,9 @@ test("with a passphrase, private content is sealed and restores intact", async (
     rows(path.join(agents, "channels.sqlite"), "SELECT token FROM channel_credentials"),
     [{ token: botToken }],
   );
-  const openclaw = path.join(agents, "state/state/openclaw.sqlite");
-  assert.deepEqual(rows(openclaw, "SELECT body FROM conversations"), [{ body: marker }]);
-  assert.equal(rows(openclaw, "SELECT * FROM auth_profile_store").length, 1);
+  assertOpenClaw(agents, { full: true, login: true });
+  for (const name of runtimeOnly)
+    assert.equal(fs.existsSync(path.join(target, name)), false, name);
   assert.equal(report.credentialsNeedingLogin.includes("assistants"), false);
   assert.equal(fs.existsSync(path.join(target, "assistant-history")), false);
   // Pipeline history comes back as history only.
@@ -204,6 +237,7 @@ test("a passphrase without history keeps private content out but credentials in"
   );
   for (const name of privateFiles)
     assert.equal(fs.existsSync(path.join(target, name)), false, name);
-  // OpenClaw's state database stayed out with its credential rows: agents sign in.
-  assert.ok(report.credentialsNeedingLogin.includes("assistants"));
+  // Model logins come back in the configuration copies, without any history.
+  assertOpenClaw(agents, { full: false, login: true });
+  assert.equal(report.credentialsNeedingLogin.includes("assistants"), false);
 });

@@ -11,6 +11,11 @@ import { RunStore } from "../../server/features/pipelines/run-store.js";
 export const marker = "private-content-plaintext-marker";
 export const passphrase = "private content fixture phrase";
 export const botToken = "private-content-bot-token-123456";
+export const loginToken = "private-content-model-login-654321";
+export const openClawDatabases = [
+  "state/state/openclaw.sqlite",
+  "state/agents/home/agent/openclaw-agent.sqlite",
+];
 export const generations = {
   pinned: "11111111-1111-4111-8111-111111111111",
   unpinned: "22222222-2222-4222-8222-222222222222",
@@ -126,14 +131,40 @@ export function privateContentFixture(t) {
     `{"t":"${marker}"}\n`,
   );
   write(path.join(assistants, "state/media/inbound/voice.ogg"), marker);
-  const openclaw = path.join(assistants, "state/state/openclaw.sqlite");
-  fs.mkdirSync(path.dirname(openclaw), { recursive: true, mode: 0o700 });
-  const state = new DatabaseSync(openclaw);
-  state.exec(`CREATE TABLE auth_profile_store(profile_id TEXT PRIMARY KEY, value_json TEXT);
-    CREATE TABLE conversations(id TEXT PRIMARY KEY, body TEXT);`);
-  state.prepare("INSERT INTO auth_profile_store VALUES (?,?)").run("openai:me", "{}");
-  state.prepare("INSERT INTO conversations VALUES (?,?)").run("c1", marker);
-  state.close();
+  // OpenClaw's databases: a configuration table, a credential table, a private
+  // table, a full-text index and a table a later OpenClaw might add.
+  for (const relative of openClawDatabases) {
+    const file = path.join(assistants, relative);
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    const db = new DatabaseSync(file);
+    db.exec(`CREATE TABLE auth_profile_store(profile_id TEXT PRIMARY KEY, value_json TEXT);
+      CREATE TABLE exec_approvals_config(id TEXT PRIMARY KEY, value_json TEXT);
+      CREATE TABLE session_entries(id TEXT PRIMARY KEY, body TEXT);
+      CREATE TABLE future_table(id TEXT PRIMARY KEY, body TEXT);
+      CREATE VIRTUAL TABLE memory_fts USING fts5(body);`);
+    db.prepare("INSERT INTO auth_profile_store VALUES (?,?)").run(
+      "openai:me",
+      loginToken,
+    );
+    db.prepare("INSERT INTO exec_approvals_config VALUES (?,?)").run(
+      "ls",
+      `{"allow":true}`,
+    );
+    db.prepare("INSERT INTO session_entries VALUES (?,?)").run("c1", marker);
+    db.prepare("INSERT INTO future_table VALUES (?,?)").run("f1", marker);
+    db.prepare("INSERT INTO memory_fts(body) VALUES (?)").run(`indexed ${marker}`);
+    db.close();
+  }
+  // Runtime-only state and files a later OpenClaw might add.
+  write(
+    path.join(assistants, "state/state/openclaw-agent.sqlite.generation-lock.sqlite"),
+    "x",
+  );
+  write(path.join(assistants, "state/locks/gateway.lock.json"), "{}");
+  write(path.join(assistants, "state/unknown-folder/notes.json"), JSON.stringify(marker));
+  write(path.join(assistants, "state/config-journal-fingerprint.key"), marker);
+  write(path.join(assistants, "state/plugin-skills/team/SKILL.md"), "# Team skill");
+  write(path.join(assistants, "state/agents/home/agent/models.json"), "{}");
 
   const runs = new RunStore(dataDir);
   runs.create({

@@ -2202,10 +2202,9 @@ matching command asks again. Deletes are audited.
 ### Backups and stored levels
 
 A host backup holds the agents' records, so restoring it brings back each agent's
-stored shell level **without a new confirmation**. Its allowlist entries live in
-OpenClaw's state database, which host backups treat as private content: a backup
-with history and a passphrase brings them back the same way, sealed; one without
-leaves them out, and matching commands ask again. That is deliberate: the owner starts the restore
+stored shell level and its allowlist entries (OpenClaw's `exec_approvals_config`,
+part of the database's configuration copy) **without a new confirmation**. That is
+deliberate: the owner starts the restore
 and returns to levels and entries they confirmed before. The same holds when an
 archived permanent member is restored, and when a level is raised again over
 entries that survived an earlier lowering (entries are only removed by deleting

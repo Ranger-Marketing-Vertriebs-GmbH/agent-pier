@@ -65,9 +65,10 @@ with 409 while a runtime update or provider change is running; update or mainten
 state left behind without one (a crash, a failed recovery, a dormant install) skips
 the agent data with a declared omission instead. The agents' private content
 (workspaces with attachments, `shares/`, OpenClaw's transcripts, session index,
-media, memory index and state databases, and the conversation and channel-message
-tables of `assistants.sqlite` and `channels.sqlite`) is archived only in backups
-with history and a passphrase, sealed; see
+media and memory index, every file below `state/` outside a configuration
+allowlist, and the private rows of the agent databases, whose public copies keep
+only configuration tables) is archived only in backups with history and a
+passphrase, sealed; see
 [backups](backups.md#what-a-backup-holds). Live databases are copied
 consistently first. MCP OAuth logins (`mcp_oauth_stores`,
 `mcp_oauth_pending_authorizations`) are always left out, like the MCP servers they

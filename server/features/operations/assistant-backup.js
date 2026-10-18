@@ -32,10 +32,11 @@ import { isRelocatable, portableText, restoredText } from "./assistant-backup-pa
 import { inlineCopies, sqliteSnapshotFile, sqliteSnapshotFileAsync } from "./snapshot.js";
 import {
   agentHistoryFolder,
-  isPrivateAssistantDatabase,
+  isPrivateAssistantPath,
   isPrivateAssistantTree,
-  stripPrivateRows,
+  isRuntimeOnly,
 } from "./private-content.js";
+import { stripOpenClawRows, stripPrivateRows } from "./private-tables.js";
 import { CapturePlan } from "./capture-plan.js";
 import { areaComponent } from "./backup-components.js";
 import { stagePath } from "./stage-path.js";
@@ -112,6 +113,7 @@ const restorable = (relative) => {
 const included = (relative) =>
   restorable(relative) &&
   !browserTree.test(relative) &&
+  !isRuntimeOnly(relative) &&
   (relative.split("/")[0] === "workspaces" ||
     shared(relative) ||
     !volatileTree.test(relative));
@@ -166,20 +168,28 @@ async function sqliteFile(source) {
 // Configuration, session indexes and credential files are rewritten or sealed in
 // memory; they are small, and a larger one is not what it claims to be.
 const transformedLimit = 64 * 1024 * 1024;
-// AgentPier's own databases lie directly in assistants/ (assistants.sqlite, …).
+// AgentPier's own databases lie directly in assistants/ (assistants.sqlite, …);
+// OpenClaw's below state/. Both are split into a public configuration copy and a
+// sealed full copy (private-tables.js).
 const ownDatabase = /^[A-Za-z0-9_-]+\.sqlite$/;
+const splitRows = (relative) =>
+  ownDatabase.test(relative)
+    ? stripPrivateRows
+    : relative.startsWith("state/")
+      ? stripOpenClawRows
+      : null;
 // Private content travels only sealed, as history; credential sidecars stay public.
 const privateMember = (relative) =>
-  !relative.endsWith(sealedSuffix) && isPrivateAssistantTree(relative);
+  !relative.endsWith(sealedSuffix) && isPrivateAssistantPath(relative);
 
 /**
- * The configuration copy of AgentPier's database copy `file` (its private rows
- * removed) in `work`, or null when it has no private tables.
+ * The configuration copy of database copy `file` in `work`, `strip` having removed
+ * its private rows, or null when it has no private tables.
  */
-function configurationCopy(file, work) {
+function configurationCopy(file, work, strip) {
   let found = false;
   const copy = sqliteSnapshotFile(file, work, {
-    sanitize: (db) => (found = stripPrivateRows(db)),
+    sanitize: (db) => (found = strip(db)),
   });
   if (found) return copy;
   fs.rmSync(copy, { force: true });
@@ -267,7 +277,8 @@ export async function captureAssistants({
     }
     const aad = `${id}\0${relative}`;
     if (stat.size >= 16 && (await sqliteFile(source))) {
-      const privateDatabase = isPrivateAssistantDatabase(relative);
+      // Databases in private folders are private as a whole.
+      const privateDatabase = isPrivateAssistantTree(relative);
       if (privateDatabase && !includeHistory) {
         // Its credential rows would have travelled in a sidecar beside it.
         withheld ||= hasCredentialTables(source);
@@ -285,8 +296,9 @@ export async function captureAssistants({
         omit: mcpOAuthTables,
       });
       fs.rmSync(consistent, { force: true });
-      // AgentPier's own databases: configuration in public, the full copy sealed.
-      const configuration = ownDatabase.test(relative) && configurationCopy(copy, work);
+      // Configuration in public, the full copy sealed with history.
+      const strip = !privateDatabase && splitRows(relative);
+      const configuration = strip && configurationCopy(copy, work, strip);
       if (!configuration) addFile(relative, copy, privateDatabase);
       else {
         addFile(relative, configuration, false);
@@ -302,6 +314,8 @@ export async function captureAssistants({
     }
     const transformed =
       isConfigFile(relative) || isRelocatable(relative) || isCredentialFile(relative);
+    // Credential files are handled as before; other private files need history.
+    if (!transformed && privateMember(relative) && !includeHistory) return;
     if (!transformed) {
       const member = plan.file(`${prefix}/${relative}`, source, component, stat);
       if (member)

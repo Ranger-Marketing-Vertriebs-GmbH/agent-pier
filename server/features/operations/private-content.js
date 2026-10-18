@@ -17,24 +17,39 @@ import {
 export const pipelineHistoryMember = "pipeline-runs/runs.sqlite";
 /** The unpinned artifact records and their receipts, merged back by a restore. */
 export const unpinnedArtifactsMember = "artifacts/unpinned.json";
-/** Full copies of AgentPier's agent databases; a restore puts them in place. */
+/**
+ * Full copies of the agent databases split into a public configuration copy
+ * (`assistant-history/<path below assistants/>`); a restore puts them in place.
+ */
 export const agentHistoryFolder = "assistant-history";
 const artifactFile = /^artifacts\/generations\/[a-f0-9-]{36}\/\d{1,3}$/;
-const agentDatabase = /^assistant-history\/[A-Za-z0-9_-]+\.sqlite$/;
+const isAgentDatabaseCopy = (name, isAssistantMember) =>
+  name.startsWith(`${agentHistoryFolder}/`) &&
+  isAssistantMember(`assistants/${name.slice(agentHistoryFolder.length + 1)}`);
 
 // Below assistants/: workspaces (with the owner's attachments), files agents shared,
-// OpenClaw's transcripts and session index, its media and its memory index.
+// OpenClaw's transcripts and session index, its media and its memory index. Files
+// and databases there are private as a whole.
 const privateTree =
   /^(workspaces|shares|state\/media|state\/memory|state\/agents\/[^/]+\/sessions)(\/|$)/;
 /** Whether `relative` (below assistants/) is or lies in a private folder. */
 export const isPrivateAssistantTree = (relative) => privateTree.test(relative);
+// What a restore needs of OpenClaw's state folder in public: its configuration and
+// copies, plugin skills, credential files (sealed in place, backup-credentials.js)
+// and each agent's configuration folder. Anything else below state/, including what
+// a later OpenClaw adds, is private; its databases are split (private-tables.js).
+const publicState =
+  /^state\/(openclaw\.json(\.[^/]+)?|plugin-skills\/.+|credentials\/.+|agents\/[^/]+\/agent\/.+)$/;
+/** Whether file `relative` (below assistants/) is private content. */
+export const isPrivateAssistantPath = (relative) =>
+  privateTree.test(relative) ||
+  (relative.startsWith("state/") && !publicState.test(relative));
 /**
- * Whether a database at `relative` (below assistants/) is private as a whole:
- * OpenClaw's state databases can hold conversations next to their credential
- * tables, whose rows still travel only in the credential sidecar.
+ * Runtime-only state below assistants/: OpenClaw's lock and temporary folders and
+ * its lock and writer databases. Never captured; older archives still restore it.
  */
-export const isPrivateAssistantDatabase = (relative) =>
-  isPrivateAssistantTree(relative) || relative.startsWith("state/");
+export const isRuntimeOnly = (relative) =>
+  /^state\/(locks|tmp)(\/|$)|(-lock|\.generation-writer)\.sqlite$/.test(relative);
 
 /**
  * Whether sealed member `name` may hold private content (seal record version 3).
@@ -45,13 +60,13 @@ export function isPrivateContentPath(name, isAssistantMember) {
     name === pipelineHistoryMember ||
     name === unpinnedArtifactsMember ||
     artifactFile.test(name) ||
-    agentDatabase.test(name)
+    isAgentDatabaseCopy(name, isAssistantMember)
   )
     return true;
   if (!name.startsWith("assistants/") || !isAssistantMember(name)) return false;
   const relative = name.slice("assistants/".length);
   return (
-    isPrivateAssistantDatabase(relative) &&
+    (privateTree.test(relative) || relative.startsWith("state/")) &&
     !isConfigFile(relative) &&
     !isCredentialFile(relative) &&
     !relative.endsWith(sealedSuffix)
@@ -61,73 +76,28 @@ export function isPrivateContentPath(name, isAssistantMember) {
 export const isUnsealedPrivateContent = (name) =>
   name === pipelineHistoryMember ||
   name === unpinnedArtifactsMember ||
-  agentDatabase.test(name) ||
+  name.startsWith(`${agentHistoryFolder}/`) ||
   (name.startsWith("assistants/") &&
     !name.endsWith(sealedSuffix) &&
     isPrivateAssistantTree(name.slice("assistants/".length)));
 
-// AgentPier's agent databases (assistants.sqlite, channels.sqlite): conversations,
-// requests and their attempts, cached messages, attachment and share indexes, queued
-// messages, routine results, memory notes, action history and Telegram messages.
-const privateTables = [
-  "agent_attachments",
-  "assistant_actions",
-  "assistant_memory_notes",
-  "assistant_routine_events",
-  "assistant_routine_results",
-  "attempt_reviews",
-  "attempts",
-  "channel_inbox",
-  "channel_outbox",
-  "channel_strangers",
-  "messages",
-  "queued_messages",
-  "requests",
-  "conversations",
-];
-// Team records: policy and settings are configuration; teams, members, request
-// contexts and lead requests are task history.
-const teamConfiguration = ["policy", "settings"];
-
 /**
- * Removes the private rows from database `db` (a copy), keeping configuration.
- * Returns whether the database has private tables at all.
- */
-export function stripPrivateRows(db) {
-  const tables = new Set(
-    db
-      .prepare("SELECT name FROM sqlite_master WHERE type='table'")
-      .all()
-      .map((row) => row.name),
-  );
-  const present = privateTables.filter((table) => tables.has(table));
-  const teams = tables.has("assistant_team_records");
-  if (!present.length && !teams) return false;
-  db.exec("PRAGMA foreign_keys=OFF");
-  for (const table of present) db.exec(`DELETE FROM "${table}"`);
-  if (teams)
-    db.prepare(
-      `DELETE FROM assistant_team_records WHERE kind NOT IN (${teamConfiguration
-        .map(() => "?")
-        .join(",")})`,
-    ).run(...teamConfiguration);
-  return true;
-}
-
-/**
- * Puts the sealed full copies of AgentPier's agent databases in restore stage
- * `stage` in place of their public configuration copies.
+ * Puts the sealed full copies of the agent databases in restore stage `stage` in
+ * place of their public configuration copies. The capsule named only paths below
+ * assistants/ (isPrivateContentPath); stagePath guards each move.
  */
 export function adoptAgentDatabases(stage) {
   const folder = path.join(stage, agentHistoryFolder);
   if (!fs.existsSync(folder)) return;
-  for (const name of fs.readdirSync(folder).sort()) {
-    const member = `${agentHistoryFolder}/${name}`;
-    // The capsule named only such paths (isPrivateContentPath).
-    if (!agentDatabase.test(member)) continue;
-    const target = stagePath(stage, `assistants/${name}`);
+  for (const entry of fs.readdirSync(folder, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const relative = path
+      .relative(folder, path.join(entry.parentPath, entry.name))
+      .split(path.sep)
+      .join("/");
+    const target = stagePath(stage, `assistants/${relative}`);
     fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
-    fs.renameSync(stagePath(stage, member), target);
+    fs.renameSync(stagePath(stage, `${agentHistoryFolder}/${relative}`), target);
   }
   fs.rmSync(folder, { recursive: true, force: true });
 }
