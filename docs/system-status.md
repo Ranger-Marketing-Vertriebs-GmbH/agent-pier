@@ -62,10 +62,13 @@ The response names only these areas, never a path.
 ## Refresh and cost
 
 The start page and the details ask for new figures every five seconds while the page is
-visible. The server samples only while someone looks and stops 30 seconds after the last
-request. The sparkline therefore shows the last hour of the times the status was open;
-gaps break the line. Without viewers, only a disk check runs every ten minutes for the
-warning below.
+visible. The server then samples every five seconds and returns to its background pace
+30 seconds after the last request. In the background it takes one sample a minute (CPU
+and memory of the computer and of AgentPier's processes: one `ps` call, plus `vm_stat`
+on macOS and one tmux listing), so the sparkline covers the whole last hour even when
+nobody looked. The data directory is walked only while the details are open. A disk
+check runs every ten minutes for the warning below, and every sample stops at shutdown.
+Points more than 90 seconds apart, such as after a restart, break the line.
 
 ## Low disk space
 

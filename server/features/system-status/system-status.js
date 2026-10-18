@@ -80,8 +80,9 @@ export function historyPoints(history, now, bucketMs = 30_000) {
 
 /**
  * Samples host and AgentPier load every few seconds while a page shows it and stops
- * soon after the last view; without viewers only a slow disk check runs for the low
- * space warning. Data directory sizes are measured in the background and cached.
+ * soon after the last view; without viewers one sample a minute keeps the history and
+ * a slow disk check drives the low space warning. Data directory sizes are measured
+ * in the background, only when the details are open, and cached.
  */
 export class SystemStatus {
   constructor({
@@ -91,6 +92,7 @@ export class SystemStatus {
     gatewayPid = () => null,
     now = Date.now,
     intervalMs = 5000,
+    backgroundMs = 60_000,
     idleAfterMs = 30_000,
     diskCheckMs = 10 * 60 * 1000,
     areasMaxAgeMs = 10 * 60 * 1000,
@@ -109,6 +111,7 @@ export class SystemStatus {
       gatewayPid,
       now,
       intervalMs,
+      backgroundMs,
       idleAfterMs,
       diskCheckMs,
       areasMaxAgeMs,
@@ -130,11 +133,22 @@ export class SystemStatus {
     this.areasRun = null;
     this.cpuReading = null;
     this.table = null;
+    this.liveTimer = null;
     this.closed = false;
   }
-  /** Starts the slow disk check; live sampling starts with the first view. */
+  /**
+   * Starts the slow disk check and a once-a-minute background sample that keeps the
+   * hour of history complete; live sampling starts with the first view.
+   */
   start() {
     if (this.closed || this.diskTimer) return;
+    // A minute between samples averages host and process CPU over that minute; the
+    // live 5 s sampling replaces it while a page looks.
+    this.backgroundTimer = setInterval(() => {
+      if (!this.liveTimer && !this.closed)
+        this.sample({ background: true }).catch(this.onError);
+    }, this.backgroundMs);
+    this.backgroundTimer.unref?.();
     const check = () => this.checkDisk().catch(this.onError);
     this.diskTimer = setInterval(check, this.diskCheckMs);
     this.diskTimer.unref?.();
@@ -196,16 +210,17 @@ export class SystemStatus {
         this.areasRun = null;
       });
   }
-  sample() {
-    this.sampling ??= this.collect().finally(() => {
+  sample(options) {
+    this.sampling ??= this.collect(options).finally(() => {
       this.sampling = null;
     });
     return this.sampling;
   }
-  async collect() {
+  async collect({ background = false } = {}) {
     const at = this.now();
     // A reading from before an idle period would average CPU over that period.
-    if (!this.cpuReading || at - this.cpuReading.at > this.intervalMs * 3) {
+    const maxAge = background ? this.backgroundMs * 2 : this.intervalMs * 3;
+    if (!this.cpuReading || at - this.cpuReading.at > maxAge) {
       this.cpuReading = { at, times: cpuTimes(this.cpus()) };
       await new Promise((resolve) => setTimeout(resolve, this.primeMs));
     }
@@ -294,6 +309,7 @@ export class SystemStatus {
     this.closed = true;
     this.idle();
     clearInterval(this.diskTimer);
+    clearInterval(this.backgroundTimer);
     clearTimeout(this.firstCheck);
     await Promise.allSettled([this.sampling, this.areasRun]);
   }
