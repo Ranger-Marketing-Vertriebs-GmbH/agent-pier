@@ -202,6 +202,26 @@ test("document navigation without activation metadata supports WebKit but never 
   for (const url of ["/api/state", "/api/sessions/demo/input", "/assets/app.js"])
     assert.throws(() => authorizeRequest({ ...request(headers), url }, config));
 });
+
+test("a navigation the service worker re-fetches, such as an OAuth return, opens the page", () => {
+  const headers = {
+    "sec-fetch-site": "cross-site",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-dest": "empty",
+  };
+  const url = "/accounts?oauth=connected&server=4f1802c1-97bd-4615-83eb-002860bb0d94";
+  assert.equal(authorizeRequest({ ...request(headers), url }, config), true);
+  for (const blocked of [
+    { ...headers, "sec-fetch-dest": "iframe" },
+    { ...headers, "sec-fetch-mode": "cors" },
+    { ...headers, "sec-fetch-mode": "no-cors" },
+    { ...headers, "sec-fetch-mode": "same-origin" },
+  ])
+    assert.throws(() => authorizeRequest({ ...request(blocked), url }, config));
+  for (const api of ["/api/state", "/assets/app.js"])
+    assert.throws(() => authorizeRequest({ ...request(headers), url: api }, config));
+  assert.throws(() => authorizeRequest({ ...request(headers, "POST"), url }, config));
+});
 const networkConfig = {
   ...config,
   network: { enabled: true, bind: "0.0.0.0", hosts: ["agentpier.home.arpa"] },
