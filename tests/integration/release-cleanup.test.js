@@ -395,7 +395,10 @@ test("the owner stops a version's orphaned processes, and only those", async (t)
   await new Promise((resolve, reject) => {
     const shell = spawn("/bin/sh", [
       "-c",
-      `"${bin}/node" -e "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)" >/dev/null 2>&1 & echo $! > "${pidFile}"`,
+      `"$1" -e "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)" >/dev/null 2>&1 & echo $! > "$2"`,
+      "sh",
+      `${bin}/node`,
+      pidFile,
     ]);
     shell.once("exit", resolve).once("error", reject);
   });
