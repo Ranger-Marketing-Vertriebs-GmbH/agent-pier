@@ -389,18 +389,21 @@ test("the owner stops a version's orphaned processes, and only those", async (t)
   const bin = path.join(r.installRoot, "releases/1.0.0/bin");
   await fs.mkdir(bin);
   await fs.symlink(process.execPath, path.join(bin, "node"));
-  // A shell that exits at once leaves its background node to init/launchd, as an
+  // A launcher that exits at once leaves its detached node to init/launchd, as an
   // orphaned test fixture would be; it ignores SIGTERM like the reported ones.
   const pidFile = path.join(r.installRoot, "orphan.pid");
+  const launcher = `
+    const { spawn } = require("node:child_process");
+    const [node, file] = process.argv.slice(1);
+    const code = "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)";
+    const child = spawn(node, ["-e", code], { detached: true, stdio: "ignore" });
+    require("node:fs").writeFileSync(file, String(child.pid));
+    child.unref();
+  `;
   await new Promise((resolve, reject) => {
-    const shell = spawn("/bin/sh", [
-      "-c",
-      `"$1" -e "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)" >/dev/null 2>&1 & echo $! > "$2"`,
-      "sh",
-      `${bin}/node`,
-      pidFile,
-    ]);
-    shell.once("exit", resolve).once("error", reject);
+    spawn(process.execPath, ["-e", launcher, path.join(bin, "node"), pidFile])
+      .once("exit", resolve)
+      .once("error", reject);
   });
   const pid = Number(await fs.readFile(pidFile, "utf8"));
   const alive = () => {
