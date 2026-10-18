@@ -6,7 +6,7 @@ import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 // server would; the inbox list then reports a new revision.
 const created = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
 
-export async function inboxFixture(page, { language } = {}) {
+export async function inboxFixture(page, { language, agents = true } = {}) {
   if (language)
     await page.addInitScript(
       (value) => localStorage.setItem("agentpier-language", value),
@@ -194,7 +194,7 @@ export async function inboxFixture(page, { language } = {}) {
       body = method === "POST" ? request.postDataJSON() : null;
     state.calls.push({ path, method, body });
     let result = {};
-    if (path === "/assistant-feature") result = { enabled: true, error: null };
+    if (path === "/assistant-feature") result = { enabled: agents, error: null };
     else if (path === "/assistant-events" || path === "/inbox/events")
       return route.fulfill({
         contentType: "text/event-stream",

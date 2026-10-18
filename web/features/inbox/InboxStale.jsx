@@ -11,13 +11,17 @@ export default function InboxStale({ type, id }) {
     [error, setError] = useState("");
   useEffect(() => {
     let alive = true,
-      timer;
+      timer,
+      attempts = 0;
     const read = () =>
       api(`/inbox/${encodeURIComponent(type)}/${encodeURIComponent(id)}`)
         .then((next) => {
           if (!alive) return;
+          // Still listed as waiting while its source no longer shows it: the list is
+          // about to change, so ask again; after ten seconds stop waiting for it.
+          if (next.state === "pending" && ++attempts >= 10)
+            return setStatus({ state: "unavailable" });
           setStatus(next);
-          // Still listed as waiting: the list is about to change, so ask again.
           if (next.state === "pending") timer = setTimeout(read, 1000);
         })
         .catch((e) => alive && setError(e.message));
@@ -34,6 +38,8 @@ export default function InboxStale({ type, id }) {
         {copy.loading}
       </p>
     );
+  if (status.state === "unavailable")
+    return <p className="assistant-note">{copy.unavailable}</p>;
   if (status.state !== "done")
     return (
       <section className="inbox-stale" role="status">
