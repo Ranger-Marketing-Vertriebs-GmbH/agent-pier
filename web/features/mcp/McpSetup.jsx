@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { mcpCopy as copy } from "../../lib/i18n/messages/mcp.js";
 import { clients, mcpEndpoint, setupSteps } from "./setup.js";
-function CopyBlock({ label, value }) {
+function CopyBlock({ label, value, button = copy.copy(label) }) {
   const [status, setStatus] = useState("");
   const copyValue = async () => {
     try {
@@ -15,8 +15,8 @@ function CopyBlock({ label, value }) {
     <div className="mcp-command">
       <header>
         <strong>{label}</strong>
-        <button className="button" onClick={copyValue} aria-label={copy.copy(label)}>
-          {copy.copy(label)}
+        <button className="button" onClick={copyValue} aria-label={button}>
+          {button}
         </button>
       </header>
       <pre tabIndex={0}>
@@ -80,13 +80,23 @@ export default function McpSetup({ config, cli, navigate }) {
           <div id="mcp-cli-panel" role="tabpanel" aria-labelledby={`mcp-tab-${cli}`}>
             <p>{copy[`${cli}Hint`]}</p>
             <p>{copy.connectionHint}</p>
-            {setupSteps(cli, endpoint).map(([id, value]) => (
-              <CopyBlock
-                key={`${cli}-${id}`}
-                label={cli === "codex" && id === "login" ? copy.retryLogin : copy[id]}
-                value={value}
-              />
-            ))}
+            {setupSteps(cli, endpoint).map(([id, value]) => {
+              const label =
+                cli === "codex" && id === "login" ? copy.retryLogin : copy[id];
+              // The OpenCode entry is JSON for opencode.json; every other step is a command.
+              const button =
+                cli === "opencode" && id === "add"
+                  ? copy.copyConfiguration(label)
+                  : copy.copyCommand(label);
+              return (
+                <CopyBlock
+                  key={`${cli}-${id}`}
+                  label={label}
+                  value={value}
+                  button={button}
+                />
+              );
+            })}
             {cli === "opencode" && <p>{copy.opencodeRemove}</p>}
             <p>{copy.revokeHint}</p>
             <a href={clients[cli].docs} target="_blank" rel="noreferrer">

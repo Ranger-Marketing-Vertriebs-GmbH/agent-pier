@@ -36,6 +36,8 @@ export const mcpCopy = {
   check: "Check connection",
   remove: "Remove",
   copy: (label) => `Copy ${label}`,
+  copyCommand: (step) => `Copy command: ${step}`,
+  copyConfiguration: (step) => `Copy configuration: ${step}`,
   copied: "Copied",
   copyFailed: "Copy failed. Select the text and copy it manually.",
   loading: "Loading MCP access …",
