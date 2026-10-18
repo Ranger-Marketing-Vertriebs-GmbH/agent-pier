@@ -206,3 +206,17 @@
   font-weight: 500;
   vertical-align: middle;
 }
+
+/* A version's orphaned processes take the row's full width below its actions. */
+.release-orphans {
+  flex-basis: 100%;
+  min-width: 0;
+}
+.release-orphans ul {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+}
+.release-orphans code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}

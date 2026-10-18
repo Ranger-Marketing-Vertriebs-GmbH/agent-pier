@@ -103,3 +103,40 @@ test("activate route forwards stagedId and reloadSessions to operations.activate
   );
   assert.deepEqual(calls, [{ stagedId: "s", reloadSessions: true }]);
 });
+
+test("stopping a version's orphaned processes forwards the chosen pids and audits it", async () => {
+  const calls = [];
+  const audits = [];
+  const { Operations } = await import("../../server/features/operations/operations.js");
+  const operations = Object.create(Operations.prototype);
+  operations.releases = {
+    stopOrphans: async (version, pids) => (
+      calls.push([version, pids]),
+      { stopped: pids }
+    ),
+  };
+  operations.audit = { append: (entry) => audits.push(entry) };
+  const application = app({}, operations);
+  const path = "/api/operations/releases/cleanup/1.0.0/stop-processes";
+  assert.deepEqual(await request(application, "POST", path, { pids: [4242] }), {
+    status: 200,
+    body: { stopped: [4242] },
+  });
+  assert.deepEqual(calls, [["1.0.0", [4242]]]);
+  assert.equal(audits[0].action, "release.stopped");
+  assert.deepEqual(audits[0].details, { version: "1.0.0", count: 1 });
+  assert.equal((await request(application, "POST", path, { other: 1 })).status, 400);
+  assert.equal(
+    (
+      await request(
+        application,
+        "POST",
+        "/api/operations/releases/cleanup/x/stop-processes",
+        {
+          pids: [1],
+        },
+      )
+    ).status,
+    400,
+  );
+});

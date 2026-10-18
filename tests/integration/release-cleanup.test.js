@@ -162,7 +162,12 @@ test("cleanup state lists the sessions and process classes holding each version"
   const held = state.versions.find((v) => v.version === "1.1.0");
   assert.equal(held.deleteReason, "inUse");
   assert.deepEqual(held.sessionIds, [id]);
-  assert.equal(held.nodeOnlyProcesses, 1);
+  // pid 500 runs no AgentPier script and was reparented to launchd: an orphan.
+  assert.equal(held.nodeOnlyProcesses, 0);
+  assert.deepEqual(
+    held.orphanedProcesses.map((p) => p.pid),
+    [500],
+  );
   assert.deepEqual(held.helperProcesses, [
     { reference: "vendor/agentbus/agentpier/mcp.js" },
   ]);
@@ -335,5 +340,83 @@ test("cleanup lists versions newest first like the release history", async (t) =
   assert.deepEqual(
     r.cleanupStatus().versions.map((v) => v.version),
     ["1.10.0", "1.3.0", "1.3.0-rc.10", "1.3.0-rc.9", "1.2.0", "1.1.0", "1.0.0"],
+  );
+});
+
+test("an orphaned process that only runs a version's node never pins it", async (t) => {
+  const r = await fixture(t);
+  const old = `${r.installRoot}/releases/1.0.0`;
+  r.processes = () =>
+    [
+      // Reparented to launchd, no AgentPier script: a left-over test fixture.
+      `  700     1 node ${old}/bin/node -e setInterval(()=>{},1000)`,
+      // Still has its parent: it may be in use.
+      `  800   555 node ${old}/bin/node /Users/me/tool.js`,
+    ].join("\n");
+  const state = r.cleanupStatus();
+  const free = state.versions.find((v) => v.version === "1.0.0");
+  assert.equal(free.canDelete, false, "the parented process still holds it");
+  assert.equal(free.nodeOnlyProcesses, 1);
+  assert.deepEqual(free.orphanedProcesses, [{ pid: 700, command: `${old}/bin/node -e` }]);
+  r.processes = () => `  700     1 node ${old}/bin/node -e setInterval(()=>{},1000)`;
+  const orphanOnly = r.cleanupStatus().versions.find((v) => v.version === "1.0.0");
+  assert.equal(orphanOnly.canDelete, true);
+  assert.equal(orphanOnly.deleteReason, null);
+  assert.equal(orphanOnly.orphanedProcesses.length, 1);
+  // An AgentPier entry point keeps the version even when orphaned.
+  r.processes = () => `  701     1 node ${old}/bin/node ${old}/server/index.js`;
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
+    "inUse",
+  );
+});
+
+test("the owner stops a version's orphaned processes, and only those", async (t) => {
+  const { spawn } = await import("node:child_process");
+  const { releaseProcesses } =
+    await import("../../server/features/operations/release-cleanup.js");
+  const r = await fixture(t);
+  const bin = path.join(r.installRoot, "releases/1.0.0/bin");
+  await fs.mkdir(bin);
+  await fs.symlink(process.execPath, path.join(bin, "node"));
+  // A shell that exits at once leaves its background node to init/launchd, as an
+  // orphaned test fixture would be; it ignores SIGTERM like the reported ones.
+  const pidFile = path.join(r.installRoot, "orphan.pid");
+  await new Promise((resolve, reject) => {
+    const shell = spawn("/bin/sh", [
+      "-c",
+      `"${bin}/node" -e "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)" >/dev/null 2>&1 & echo $! > "${pidFile}"`,
+    ]);
+    shell.once("exit", resolve).once("error", reject);
+  });
+  const pid = Number(await fs.readFile(pidFile, "utf8"));
+  const alive = () => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  t.after(() => alive() && process.kill(pid, "SIGKILL"));
+  r.processes = releaseProcesses;
+  let held;
+  for (let tries = 0; tries < 50; tries++) {
+    held = r.cleanupStatus().versions.find((v) => v.version === "1.0.0");
+    if (held.orphanedProcesses?.some((p) => p.pid === pid)) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.ok(
+    held.orphanedProcesses.some((p) => p.pid === pid),
+    JSON.stringify(held),
+  );
+  // Nothing outside the version's orphans can be named.
+  await assert.rejects(r.stopOrphans("1.0.0", [process.pid]), { status: 409 });
+  await assert.rejects(r.stopOrphans("1.0.0", ["x"]), { status: 400 });
+  assert.deepEqual(await r.stopOrphans("1.0.0", [pid]), { stopped: [pid] });
+  assert.equal(alive(), false);
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").canDelete,
+    true,
   );
 });

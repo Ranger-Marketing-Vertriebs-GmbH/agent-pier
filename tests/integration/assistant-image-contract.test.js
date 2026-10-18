@@ -5,7 +5,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
+import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
 import { AgentShares } from "../../server/features/assistants/agent-shares.js";

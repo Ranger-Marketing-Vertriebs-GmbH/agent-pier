@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
+import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeRoutines } from "../../server/features/assistants/native-routines.js";

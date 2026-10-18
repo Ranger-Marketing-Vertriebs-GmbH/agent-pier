@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { EventEmitter, once } from "node:events";
 import { spawn } from "node:child_process";
-import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
+import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { recordOwner } from "../../server/features/assistants/gateway-ownership.js";
 import { processIdentity } from "../../server/lib/process-identity.js";
 

@@ -412,6 +412,9 @@ export function runtimeEnvironment(
     OPENCLAW_NO_RESPAWN: "1",
     OPENCLAW_NO_AUTO_UPDATE: "1",
     DO_NOT_TRACK: "1",
+    // A test run's marker (scripts/test-runner.mjs): its sweep finds a Gateway that
+    // outlived its test. Never set outside test runs.
+    ...(parent.AGENTPIER_TEST_RUN && { AGENTPIER_TEST_RUN: parent.AGENTPIER_TEST_RUN }),
     ...(shell && { SHELL: shell }),
     // A visible agent browser opens on the owner's display; without one OpenClaw
     // launches it headless (browser-detection.js hasDisplay).

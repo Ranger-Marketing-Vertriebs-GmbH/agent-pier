@@ -191,6 +191,15 @@ export function operationsRoutes({ operations, releaseMigration }) {
       .status(202)
       .json({ job: operations.cleanupReleases(fields(req.body, ["versions"])) }),
   );
+  // Orphaned processes that only run a version's node: stopped on the owner's word.
+  router.post(`${root}/releases/cleanup/:version/stop-processes`, async (req, res) =>
+    res.json(
+      await operations.stopOrphanedProcesses(
+        releaseVersion(req.params.version),
+        fields(req.body, ["pids"]),
+      ),
+    ),
+  );
   router.get(`${root}/releases/cleanup/:version/sessions`, async (req, res) =>
     res.json(await releaseMigration.plan(releaseVersion(req.params.version))),
   );

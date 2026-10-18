@@ -106,7 +106,15 @@ export function cleanupState({
         manifestValid = readJson(path.join(target, "release.json")).version === version;
       } catch {}
       const targets = [target, path.join(installRoot, "releases", version)];
-      const inUse = [commands, process.execPath, applicationRoot].some((value) =>
+      const references = releaseSessionReferences(commands, targets);
+      // Every process that references the release holds it, except orphaned ones
+      // that only run its node (release-references.js).
+      const orphans = new Set(references.orphaned.map((item) => String(item.pid)));
+      const holding = commands
+        .split("\n")
+        .filter((line) => !orphans.has(/^\s*(\d+)\s/.exec(line)?.[1]))
+        .join("\n");
+      const inUse = [holding, process.execPath, applicationRoot].some((value) =>
         targets.some(
           (candidate) => value.includes(candidate + path.sep) || value === candidate,
         ),
@@ -123,7 +131,6 @@ export function cleanupState({
                 : inUse
                   ? "inUse"
                   : null;
-      const references = releaseSessionReferences(commands, targets);
       return [
         {
           version,
@@ -133,6 +140,7 @@ export function cleanupState({
           nodeOnlyProcesses: references.nodeOnly,
           helperProcesses: references.helperReferences,
           unidentifiedProcesses: references.unidentified,
+          orphanedProcesses: references.orphaned,
         },
       ];
     });
@@ -142,6 +150,63 @@ export function cleanupState({
   } catch {
     return blocked;
   }
+}
+
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Stops the orphaned processes the owner chose for a version (cleanupState lists
+ * them): each must still be one of that version's orphans; SIGTERM, then SIGKILL
+ * after a grace period for one that ignores it. Never any other process.
+ */
+export async function stopOrphanedProcesses(
+  options,
+  version,
+  pids,
+  { graceMs = 2000 } = {},
+) {
+  releaseVersion(version);
+  if (
+    !Array.isArray(pids) ||
+    !pids.length ||
+    pids.length > 100 ||
+    pids.some((pid) => !Number.isSafeInteger(pid) || pid <= 1) ||
+    new Set(pids).size !== pids.length
+  )
+    throw cleanupError("cleanupInvalid", serverMessages.releases.cleanupInvalid, 400);
+  const orphans = () =>
+    new Set(
+      (
+        cleanupState(options).versions?.find((item) => item.version === version)
+          ?.orphanedProcesses || []
+      ).map((item) => item.pid),
+    );
+  const known = orphans();
+  if (pids.some((pid) => !known.has(pid)))
+    throw cleanupError("cleanupChanged", serverMessages.releases.cleanupChanged, 409);
+  for (const pid of pids)
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {}
+  for (let waited = 0; waited < graceMs && pids.some(alive); waited += 100)
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  // Only a process that is still the same orphan is killed outright.
+  const still = orphans();
+  for (const pid of pids)
+    if (alive(pid) && still.has(pid))
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {}
+  for (let waited = 0; waited < 1000 && pids.some(alive); waited += 50)
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  return { stopped: pids };
 }
 
 export async function cleanupReleases(options, versions) {

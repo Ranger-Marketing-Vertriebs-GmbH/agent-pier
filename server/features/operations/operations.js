@@ -143,6 +143,18 @@ export class Operations {
     if (this.jobs.running("release-migrate"))
       throw problem(serverMessages.operations.migrationRunning, 409);
   }
+  /** The owner stops a version's orphaned processes (release-cleanup.js). */
+  async stopOrphanedProcesses(version, { pids }) {
+    const result = await this.releases.stopOrphans(version, pids);
+    this.audit?.append({
+      action: "release.stopped",
+      resourceType: "release",
+      outcome: "success",
+      source: "user",
+      details: { version, count: result.stopped.length },
+    });
+    return result;
+  }
   cleanupReleases({ versions }) {
     this.requireNoMigration();
     return this.jobs.start("release-cleanup", async (jobId) => {

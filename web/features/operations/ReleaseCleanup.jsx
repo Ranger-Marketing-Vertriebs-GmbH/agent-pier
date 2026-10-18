@@ -3,6 +3,7 @@ import useResource from "../../lib/useResource.js";
 import api from "../../lib/api.js";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import ReleaseSessions from "./ReleaseSessions.jsx";
+import ReleaseOrphans from "./ReleaseOrphans.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 
 export default function ReleaseCleanup({ busy, job, navigate }) {
@@ -63,6 +64,12 @@ export default function ReleaseCleanup({ busy, job, navigate }) {
               onCancel={() => setMigration(null)}
             />
           )}
+          <ReleaseOrphans
+            version={item.version}
+            processes={item.orphanedProcesses}
+            busy={busy}
+            onStopped={refresh}
+          />
         </div>
       ))}
       {selection && (

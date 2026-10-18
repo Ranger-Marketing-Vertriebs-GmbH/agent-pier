@@ -18,6 +18,7 @@ function runnerRoot(t, tests) {
     "test-runner.mjs",
     "test-retry.mjs",
     "test-failures-reporter.mjs",
+    "test-process-sweep.mjs",
   ])
     fs.copyFileSync(
       fileURLToPath(new URL(`../../scripts/${name}`, import.meta.url)),
@@ -188,4 +189,37 @@ test("a file that declares a longer timeout gets it; others keep the default", (
   ]);
   assert.notEqual(both.status, 0);
   assert.match(both.stdout, /✔ slow|ok 1 - slow/);
+});
+
+test("a process a test leaves behind is stopped and fails the run", (t) => {
+  const root = runnerRoot(t, {
+    // A detached child that ignores SIGTERM and outlives its test file.
+    "leak.test.js":
+      'import { spawn } from "node:child_process";\n' +
+      'import fs from "node:fs";\n' +
+      'test("leak", () => {\n' +
+      '  const child = spawn(process.execPath, ["-e", "process.on(\'SIGTERM\', () => {}); setInterval(() => {}, 1000)"], { detached: true, stdio: "ignore" });\n' +
+      "  child.unref();\n" +
+      '  fs.writeFileSync("leaked.pid", String(child.pid));\n' +
+      "});\n",
+    "ok.test.js": 'test("ok", () => {});\n',
+  });
+  const result = runFiles(root, ["leak.test.js"]);
+  const pid = Number(fs.readFileSync(path.join(root, "leaked.pid"), "utf8"));
+  const alive = () => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  t.after(() => alive() && process.kill(pid, "SIGKILL"));
+  assert.notEqual(result.status, 0, result.stdout);
+  assert.match(result.stdout, new RegExp(`LEAKED PROCESS \\(stopped\\): ${pid} `));
+  assert.equal(alive(), false);
+  // A clean run reports nothing.
+  const clean = runFiles(root, ["ok.test.js"]);
+  assert.equal(clean.status, 0, clean.stdout);
+  assert.doesNotMatch(clean.stdout, /LEAKED PROCESS/);
 });

@@ -16,7 +16,12 @@ import { applicationVersion, compareReleaseVersions } from "./version.js";
 import { problem } from "../../lib/storage.js";
 import { requireDataCompatibility } from "./release-schema.js";
 
-import { cleanupState, cleanupReleases, releaseProcesses } from "./release-cleanup.js";
+import {
+  cleanupState,
+  cleanupReleases,
+  releaseProcesses,
+  stopOrphanedProcesses,
+} from "./release-cleanup.js";
 import { officialChannel, ReleaseNotes } from "./release-notes.js";
 import { download } from "./release-download.js";
 import {
@@ -169,6 +174,9 @@ export class Releases {
   }
   cleanup(versions) {
     return cleanupReleases(this, versions);
+  }
+  stopOrphans(version, pids) {
+    return stopOrphanedProcesses(this, version, pids);
   }
   stagedVersion(stagedId) {
     const receipt = readJson(

@@ -6,7 +6,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import net from "node:net";
-import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
+import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { AssistantModelAccounts } from "../../server/features/assistants/model-accounts.js";

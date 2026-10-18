@@ -1,4 +1,5 @@
 import test from "node:test";
+import { guardProcess } from "../helpers/process-guard.js";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -41,6 +42,7 @@ for (const [kind, target] of [
       env,
       stdio: "ignore",
     });
+    guardProcess(null, sentinel);
     t.after(async () => {
       keeper?.kill("SIGKILL");
       sentinel.kill("SIGKILL");
@@ -111,12 +113,15 @@ setInterval(()=>{},1000);`,
           keeper.send({ command: process.execPath, args: [native], cwd: root }),
         );
     }
+    // Killed with the test process too, even when it dies before t.after.
+    guardProcess(null, keeper);
     keeper.stdout.resume();
     keeper.stderr.resume();
     await waitFor(async () => {
       pids = await fs.readFile(marker, "utf8").then(JSON.parse, () => null);
       return pids !== null;
     }, "Native fixture did not start");
+    for (const pid of Object.values(pids)) guardProcess(null, pid);
     assert.equal(alive(pids.native), true);
     assert.equal(alive(pids.descendant), true);
     if (target === "watchdog") {

@@ -169,6 +169,13 @@ export const operationsCopy = {
     busy: "Update in progress",
     unsafe: "Unsupported directory",
   },
+  orphanedTitle: (count) => `Orphaned processes (${count})`,
+  orphanedHelp:
+    "These processes only run this version's Node, without an AgentPier script, and have no parent process left. They do not block deleting the version; usually they are left-over tests or scripts.",
+  orphanedStop: "Stop processes",
+  orphanedConfirm: (version, count) =>
+    `Stop ${count} orphaned process(es) of version ${version}? Unsaved work in them is lost.`,
+  orphanedStopped: (count) => `${count} process(es) stopped.`,
   migrateSessions: "Show sessions",
   migrateLoading: "Loading sessions …",
   migrateEmpty: "No AgentPier session holds this version.",

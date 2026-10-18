@@ -18,7 +18,8 @@ test("plan lists sessions with eligibility, activity and process classes", async
     },
     { id: ids[2], status: "running", holdsRelease: false },
   ]);
-  f.extra.push(` 500 1 node ${f.old}/bin/node /Users/me/tool.js`);
+  // A parented node-only process; an orphaned one would not count (release-references.js).
+  f.extra.push(` 500 77 node ${f.old}/bin/node /Users/me/tool.js`);
   const plan = await f.migration.plan("1.0.0");
   assert.equal(plan.deleteReason, "inUse");
   assert.equal(plan.migratable, false);
