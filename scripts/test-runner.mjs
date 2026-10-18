@@ -30,7 +30,24 @@ export function runTestFiles({
     os.tmpdir(),
     `agentpier-test-events-${process.pid}-${Date.now()}.jsonl`,
   );
+  // Files run in classes by their timeout (fileTimeout): one runner per class.
   const run = (selected) => {
+    if (!testTimeout) return runClass(selected, undefined);
+    const classes = new Map();
+    for (const file of selected) {
+      const timeout = Math.max(testTimeout, fileTimeout(path.resolve(root, file)));
+      classes.set(timeout, [...(classes.get(timeout) || []), file]);
+    }
+    const results = [...classes].map(([timeout, group]) => runClass(group, timeout));
+    return {
+      status: results.find((r) => r.status)?.status ?? 0,
+      signal: results.find((r) => r.signal)?.signal ?? null,
+      failures: new Set(results.flatMap((r) => [...r.failures])),
+      skipped: results.flatMap((r) => r.skipped),
+      complete: results.every((r) => r.complete),
+    };
+  };
+  const runClass = (selected, timeout) => {
     fs.rmSync(events, { force: true });
     const temporary = runTemporaryFolder();
     let child;
@@ -52,7 +69,7 @@ export function runTestFiles({
           // Since Node 24 a file whose timed-out test leaves a handle open (a timer,
           // a socket) never exits, and the runner waits for it forever. Exiting once
           // the file's tests are done makes the per-test timeout end the file.
-          ...(testTimeout ? [`--test-timeout=${testTimeout}`, "--test-force-exit"] : []),
+          ...(timeout ? [`--test-timeout=${timeout}`, "--test-force-exit"] : []),
           ...nodeArgs,
           ...selected,
         ],
@@ -98,6 +115,18 @@ export function runTestFiles({
     if (!noSkips || !skipped.length) return status;
     for (const name of skipped) console.log(`SKIPPED (not allowed here): ${name}`);
     return 1;
+  }
+}
+
+// A file whose tests need longer than the run's per-test ceiling (a native build)
+// declares its own in its first lines: `// test-runner-timeout-ms: 600000`.
+const timeoutMarker = /^\/\/ test-runner-timeout-ms: (\d{1,9})$/m;
+function fileTimeout(file) {
+  try {
+    const head = fs.readFileSync(file, "utf8").split("\n", 20).join("\n");
+    return Number(timeoutMarker.exec(head)?.[1]) || 0;
+  } catch {
+    return 0;
   }
 }
 

@@ -1,3 +1,6 @@
+// test-runner-timeout-ms: 300000
+// Starts real CLIs, sandboxes or child processes: its own timeout class under load
+// (scripts/test-runner.mjs).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { applicationFixture } from "../helpers/application.js";

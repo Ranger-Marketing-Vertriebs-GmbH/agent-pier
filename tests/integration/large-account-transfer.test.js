@@ -1,3 +1,4 @@
+// test-runner-timeout-ms: 300000
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -9,7 +10,8 @@ import { spawn } from "node:child_process";
 // materialization of the complete conversation. No real CLI or user data is used.
 test(
   "large Codex history transfers and returns with bounded heap and metadata-only reload",
-  { timeout: 60000 },
+  // It proves a bounded heap, not a speed: a busy host may take minutes.
+  { timeout: 300000 },
   async (t) => {
     const root = await fs.realpath(
       await fs.mkdtemp(path.join(os.tmpdir(), "large-transfer-")),

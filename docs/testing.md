@@ -29,6 +29,14 @@ Run all Node strategies together:
 npm test
 ```
 
+With `AGENTPIER_TEST_TIMEOUT_MS` (CI and local checks set it) every test file gets that
+per-test ceiling. A file whose tests need longer, such as a native package build or
+real CLIs in the matrix, declares its own in its first lines,
+`// test-runner-timeout-ms: 600000`, and `scripts/test-runner.mjs` runs it in its own
+class with the longer ceiling. Load-sensitive checks assert outcomes, not wall-clock
+ratios: a step that must not wait is given a poll too long for any test, and race
+tests interleave the competing step deterministically through a test seam.
+
 ## Reproduce and shrink a generated failure
 
 `tests/helpers/property.js` configures fast-check with seed `20260906` and 100 runs by default. Individual properties can request a smaller count for more expensive operations. Shrinking remains enabled: a failure includes its seed, replay path and minimized counterexample.

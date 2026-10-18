@@ -1,3 +1,6 @@
+// test-runner-timeout-ms: 300000
+// Starts real CLIs, sandboxes or child processes: its own timeout class under load
+// (scripts/test-runner.mjs).
 // Smoke matrix: the REAL installed CLIs run one tool-call round trip against scripted
 // loopback upstreams: Claude Code and Codex through the terminal launcher and the protocol
 // adapter, OpenCode directly on its SDK routes. Rows skip with the CLI's name when it is
