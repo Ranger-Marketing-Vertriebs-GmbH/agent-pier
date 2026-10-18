@@ -279,9 +279,9 @@ Do not use `tailscale serve reset` if other exposures exist. Remove the project 
 
 Under **Settings → Operations → Updates → Delete old versions**, older versions can be deleted individually or together. The confirmation lists the exact selection. Deleted versions are no longer available for rollback.
 
-The active version, newer staged versions and versions with running processes are retained. If the existing `ps` process check cannot run reliably, nothing is deleted. Cleanup is locked during activation, rollback or session migration. It does not change session data or profiles.
+The active version, newer staged versions and versions with running processes are retained. Orphaned processes (see below) no longer block deleting a version. If the existing `ps` process check cannot run reliably, nothing is deleted. Cleanup is locked during activation, rollback or session migration. It does not change session data or profiles.
 
-A process that only runs a version's bundled Node, without an AgentPier entry point (terminal launcher, MCP servers, hooks, Gateway or server), and whose parent has exited, is listed under **Orphaned processes** instead of keeping the version. Such processes are usually left-over tests or scripts. **Stop processes** ends exactly the listed processes after confirmation (SIGTERM, then SIGKILL for one that ignores it) and records the action in the audit log. A Node process from the version that still has a parent, or any process running an AgentPier script, keeps the version as before.
+A process that only runs a version's bundled Node, without an AgentPier entry point (terminal launcher, MCP servers, hooks, Gateway or server), and whose parent has exited, is listed under **Orphaned processes** instead of keeping the version. Such processes are usually left-over tests or scripts. **Stop processes** is offered only for versions older than the active one and ends exactly the listed processes after confirmation (SIGTERM, then SIGKILL for one that ignores it) and records the action in the audit log. A Node process from the version that still has a parent, or any process running an AgentPier script, keeps the version as before.
 
 #### Migrate sessions
 

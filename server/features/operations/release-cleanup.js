@@ -181,32 +181,37 @@ export async function stopOrphanedProcesses(
     new Set(pids).size !== pids.length
   )
     throw cleanupError("cleanupInvalid", serverMessages.releases.cleanupInvalid, 400);
+  // Only an old version's orphans: never the active or a newer version's processes.
+  const entry = () =>
+    cleanupState(options).versions?.find((item) => item.version === version);
   const orphans = () =>
-    new Set(
-      (
-        cleanupState(options).versions?.find((item) => item.version === version)
-          ?.orphanedProcesses || []
-      ).map((item) => item.pid),
-    );
+    new Set((entry()?.orphanedProcesses || []).map((item) => item.pid));
+  const current = entry();
+  if (!current || ["active", "newer", "unsafe"].includes(current.deleteReason))
+    throw cleanupError("cleanupInvalid", serverMessages.releases.cleanupInvalid, 400);
   const known = orphans();
   if (pids.some((pid) => !known.has(pid)))
     throw cleanupError("cleanupChanged", serverMessages.releases.cleanupChanged, 409);
+  const stopped = [];
   for (const pid of pids)
     try {
       process.kill(pid, "SIGTERM");
-    } catch {}
-  for (let waited = 0; waited < graceMs && pids.some(alive); waited += 100)
+      stopped.push(pid);
+    } catch {
+      /* Already gone. */
+    }
+  for (let waited = 0; waited < graceMs && stopped.some(alive); waited += 100)
     await new Promise((resolve) => setTimeout(resolve, 100));
   // Only a process that is still the same orphan is killed outright.
   const still = orphans();
-  for (const pid of pids)
+  for (const pid of stopped)
     if (alive(pid) && still.has(pid))
       try {
         process.kill(pid, "SIGKILL");
       } catch {}
-  for (let waited = 0; waited < 1000 && pids.some(alive); waited += 50)
+  for (let waited = 0; waited < 1000 && stopped.some(alive); waited += 50)
     await new Promise((resolve) => setTimeout(resolve, 50));
-  return { stopped: pids };
+  return { stopped };
 }
 
 export async function cleanupReleases(options, versions) {

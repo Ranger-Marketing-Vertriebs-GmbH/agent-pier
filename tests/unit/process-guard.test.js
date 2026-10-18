@@ -36,3 +36,14 @@ test("a guarded process group is gone once its test ends", async (t) => {
     await new Promise((resolve) => setTimeout(resolve, 50));
   assert.deepEqual(pids.map(alive), [false, false]);
 });
+
+test("a guarded child that exited is never signalled again", async () => {
+  const { guardedCount } = await import("../helpers/process-guard.js");
+  const before = guardedCount();
+  const child = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
+  guardProcess(null, child);
+  assert.equal(guardedCount(), before + 1);
+  await once(child, "exit");
+  // Its pid may belong to another process by the time the test process exits.
+  assert.equal(guardedCount(), before);
+});
