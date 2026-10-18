@@ -235,7 +235,9 @@ test(
     const ddg = selected.searchPlugins.duckduckgo;
     assert.equal(ddg.id, "duckduckgo");
     assert.ok(ddg.directory.startsWith(installed + path.sep), ddg.directory);
+    // Every capability reports its availability; no ChatGPT account signs in here.
     assert.deepEqual(runtime.webTools.availability, {
+      createImages: false,
       browser: browser.available,
       webSearch: true,
     });
@@ -265,8 +267,11 @@ test(
       fetch: { ssrfPolicy: { dangerouslyAllowPrivateNetwork: false } },
     });
     for (const name of Object.values(capabilityTools).flat())
-      if (name !== "browser" || browser.available)
+      if ((name !== "browser" || browser.available) && name !== "image_generate")
         assert.ok(running.tools.allow.includes(name), name);
+    // Image creation needs a signed-in ChatGPT account, which no contract has.
+    assert.equal(running.tools.allow.includes("image_generate"), false);
+    assert.equal(running.agents.defaults.mediaModels, undefined);
     assert.deepEqual(running.browser, sections.browser ?? { enabled: false });
     const listed = await runtime.client.call("plugins.list", {});
     const plugins = listed.plugins ?? listed;
