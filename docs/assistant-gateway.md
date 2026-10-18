@@ -1109,22 +1109,62 @@ For the later merged branch, see the [release qualification](assistant-release-q
 
 ## Web, browser and document capabilities (2026-10-11)
 
-Agent settings group four more switches under **Web & documents**. All default to
+Agent settings group five more switches under **Web & documents**. All default to
 off. Like memory and reminders, they are set only on permanent agents; archived
 agents do not count. Task-scoped team members have no switches of their own and use
 what their lead grants them (see [Team member grants](#team-member-grants-2026-10-17)).
 The tools exist only in team mode (native teams), where AgentPier compiles them into
 the Gateway's startup configuration.
 
-| Switch             | Grants       | What it does                                                                                    |
-| ------------------ | ------------ | ----------------------------------------------------------------------------------------------- |
-| **Search the web** | `web_search` | Searches with the provider chosen under **Accounts → Services for agents → Web search**         |
-| **Read web pages** | `web_fetch`  | Fetches a public address and reads its text; private, loopback and internal targets are refused |
-| **Use a browser**  | `browser`    | Drives a separate, headless browser profile owned by AgentPier                                  |
-| **Read images**    | `view_image` | Looks at images; needs a model that accepts images                                              |
+| Switch             | Grants           | What it does                                                                                                                                  |
+| ------------------ | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Search the web** | `web_search`     | Searches with the provider chosen under **Accounts → Services for agents → Web search**                                                       |
+| **Read web pages** | `web_fetch`      | Fetches a public address and reads its text; private, loopback and internal targets are refused                                               |
+| **Use a browser**  | `browser`        | Drives a separate, headless browser profile owned by AgentPier                                                                                |
+| **Read images**    | `view_image`     | Looks at images; needs a model that accepts images                                                                                            |
+| **Create images**  | `image_generate` | Creates and edits images with `openai/gpt-image-2` through a signed-in ChatGPT account (see [Image generation](#image-generation-2026-10-18)) |
 
 Web content is untrusted data. OpenClaw wraps fetched and browsed content as
 external content, and the switches do not grant any other tool.
+
+### Image generation (2026-10-18)
+
+**Create images** (`createImages`, also grantable to task members within their lead's
+own switch) offers OpenClaw's `image_generate` while a ChatGPT account is signed in
+(`AssistantModelAccounts.imageReady`: an `openai` OAuth profile with status ok or
+expiring). Only then does the startup configuration add `image_generate` to the global
+`tools.allow` and set `agents.defaults.mediaModels.image` to
+`{ primary: "openai/gpt-image-2", timeoutMs: 180000 }` (compiler-owned: a stale image
+model is removed). OpenClaw 2026.10.3 then routes the request through that OAuth
+profile and the Codex Responses backend, not an API key. Like the web tools this is a
+startup section: switching it on asks to restart the agent service, and an account
+signed in later takes effect at the next restart. Without a ready account the switch
+is disabled with a hint; the agent's AGENTS.md mentions images only while it can
+create them.
+
+`image_generate` runs in the background: its completion turn writes an assistant
+message whose content carries `{ type: "image", artifactId:
+"artifact_managed_image_<uuid>", alt, mimeType }`, and the image itself stays in
+OpenClaw's managed media (`state/media/`). AgentPier copies every such image once into
+the chat's share store (`GeneratedImages`, `generated-images.js`), after each finished
+run of the conversation and on every history read: `artifacts.download` answers with
+a short-lived ticketed path under `/api/chat/media/outgoing/`, which AgentPier reads
+from the Gateway's own HTTPS origin with the pinned certificate
+(`GatewayClient.download`, at most 25 MiB), keeping only bytes that prove to be an
+image. The copy appears as an agent message at the time of the completion, can be
+deleted by the owner and expires like any shared file. The completion's run id names
+the background task, and so does the tool result of the turn that asked for it, so
+the image follows that turn: to the lead's chat for a member, and to the paired
+Telegram chat as a photo when the turn came from there. A failed copy is retried at
+most once a minute. Each copy writes an `assistant.sent` audit event with
+`kind: "generated-image"`.
+
+The opt-in contract `tests/integration/assistant-image-contract.test.js`
+(`AGENTPIER_IMAGE_CONTRACT_RUNTIME`) runs the pinned runtime with AgentPier's compiled
+configuration and a local fake of the OpenAI Images API (OpenClaw's QA switch
+`OPENCLAW_QA_ALLOW_LOCAL_IMAGE_PROVIDER` admits the loopback endpoint) and verifies the
+tool, the completion message and the copy into the chat. It uses an API-key route: the
+ChatGPT OAuth route through the Codex backend is not qualified without a real account.
 
 ### Managed agent browser
 
@@ -1541,15 +1581,15 @@ is cancelled. A lead's own promotion keeps the
 member's effective grants instead (see
 [lead promotions](#lead-promotions-of-team-members-2026-10-17)).
 
-| Grant (proposal `grants`, tool `agentpier_team_grant`) | How a temporary member uses it                                                                                 |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `webSearch`, `webFetch`, `browser`, `documents`        | The lead's web and image tools, with the same global network and browser safety                                |
-| `skills` (`true` for all of the lead's, or names)      | Those of the lead's skills                                                                                     |
-| `mcpServers` (names of servers bound to the lead)      | Those servers, while the member works ([bindings](#bindings))                                                  |
-| `memory`                                               | A read-only copy of the lead's memory beside the member's own memory (see below)                               |
-| `reminders`                                            | Reminders created on the lead (see below)                                                                      |
-| `shell` (`approval` or `full`), `ssh`                  | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants |
-| `github` (`read` or `write`)                           | The lead's GitHub token profile, at most at the lead's level ([GitHub for agents](#github-for-agents))         |
+| Grant (proposal `grants`, tool `agentpier_team_grant`)          | How a temporary member uses it                                                                                 |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `webSearch`, `webFetch`, `browser`, `documents`, `createImages` | The lead's web and image tools (reading and creating images), with the same global network and browser safety  |
+| `skills` (`true` for all of the lead's, or names)               | Those of the lead's skills                                                                                     |
+| `mcpServers` (names of servers bound to the lead)               | Those servers, while the member works ([bindings](#bindings))                                                  |
+| `memory`                                                        | A read-only copy of the lead's memory beside the member's own memory (see below)                               |
+| `reminders`                                                     | Reminders created on the lead (see below)                                                                      |
+| `shell` (`approval` or `full`), `ssh`                           | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants |
+| `github` (`read` or `write`)                                    | The lead's GitHub token profile, at most at the lead's level ([GitHub for agents](#github-for-agents))         |
 
 A member the lead grants nothing explicitly gets `memory`, `webSearch` and
 `webFetch`, as far as the lead has them. Members reserved before grants existed

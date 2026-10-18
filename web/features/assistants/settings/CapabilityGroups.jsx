@@ -24,6 +24,7 @@ const names = {
   webFetch: ["enableWebFetch", "webFetchDescription"],
   browser: ["enableBrowser", "browserDescription"],
   documents: ["enableDocuments", "documentsDescription"],
+  createImages: ["enableCreateImages", "createImagesDescription"],
 };
 
 /**
@@ -65,7 +66,8 @@ export function MemoryGroup({ assistant, draft, go }) {
 }
 
 /** Web switches with today's availability rules and the search provider reference. */
-export function WebGroup({ draft, browser, creating = false, navigate }) {
+// `images` is false while no ChatGPT account can create images.
+export function WebGroup({ draft, browser, images, creating = false, navigate }) {
   const id = useId();
   const crossLink = useCrossLink();
   const copy = assistantCopy.personal;
@@ -82,6 +84,7 @@ export function WebGroup({ draft, browser, creating = false, navigate }) {
   const missing = {
     browser: browser?.available === false ? copy.browserUnavailable : "",
     webSearch: search && search.ready === false ? copy.searchUnavailable : "",
+    createImages: images === false ? copy.imagesUnavailable : "",
   };
   const provider = search?.provider
     ? (settingsCopy.searchProviders[search.provider] ?? search.provider)

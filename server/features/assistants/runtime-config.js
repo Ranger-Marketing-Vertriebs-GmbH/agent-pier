@@ -154,6 +154,13 @@ export function compileOpenClawConfig({
   // agents' own lists are the gate (agents.defaults.skills below, agentEntry).
   config.skills = { ...config.skills, allowBundled: hardened.skillsAllowBundled };
   config.agents.defaults.heartbeat = hardened.heartbeat;
+  // Compiler-owned: only applyWebTools sets the image model, while an agent creates
+  // images and a ChatGPT account is ready; a stale one would keep the tool offered.
+  if (config.agents.defaults.mediaModels) {
+    const { image: _image, ...media } = config.agents.defaults.mediaModels;
+    if (Object.keys(media).length) config.agents.defaults.mediaModels = media;
+    else delete config.agents.defaults.mediaModels;
+  }
   // Compiler-owned: an MCP server could run host commands. Only applyMcp writes it,
   // from the servers bound to eligible agents.
   delete config.mcp;

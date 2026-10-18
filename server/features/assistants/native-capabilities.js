@@ -5,6 +5,7 @@ export const capabilityKeys = [
   "webFetch",
   "browser",
   "documents",
+  "createImages",
 ];
 export const capabilityTools = {
   webSearch: ["web_search"],
@@ -13,8 +14,17 @@ export const capabilityTools = {
   // `pdf` is not offered: OpenClaw needs a global agents.defaults.pdfModel (tracked
   // separately), so only image reading is granted.
   documents: ["view_image"],
+  // OpenClaw's image_generate through the ChatGPT account (gpt-image-2); its results
+  // reach the owner as shared files (generated-images.js).
+  createImages: ["image_generate"],
 };
-export const webCapabilityKeys = ["webSearch", "webFetch", "browser", "documents"];
+export const webCapabilityKeys = [
+  "webSearch",
+  "webFetch",
+  "browser",
+  "documents",
+  "createImages",
+];
 export const memoryTools = ["memory_search", "memory_get", "read", "write", "edit"];
 // Writes reach the workspace only through the plugin's before_tool_call guard, which
 // is verified live on these runtimes; elsewhere memory stays read-only.

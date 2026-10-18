@@ -43,6 +43,13 @@ export class AssistantModelAccounts {
   ensureModels() {
     if (this.records.length) this.catalog.ensure();
   }
+  /**
+   * Whether a ChatGPT account is signed in, from the last account read (kept across
+   * restarts): OpenClaw then routes image_generate through it (web-tools.js).
+   */
+  imageReady() {
+    return this.records.some((r) => ["ok", "expiring"].includes(r.status));
+  }
   /** Synchronous: the cached model lists, never a Gateway read. */
   capabilities() {
     return this.records.map((r) => ({

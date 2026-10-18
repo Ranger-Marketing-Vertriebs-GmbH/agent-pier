@@ -12,8 +12,15 @@ import { webToolsSignature } from "./openclaw-config/web-tools.js";
  * Everything else, including the agent's own entry, keeps applying live.
  */
 export class WebToolsChanges {
-  constructor({ assistants, webSearch, synchronization, detect = detectBrowser }) {
-    Object.assign(this, { assistants, webSearch, synchronization, detect });
+  // `images()` is `{ ready }`: whether a ChatGPT account can create images now.
+  constructor({
+    assistants,
+    webSearch,
+    synchronization,
+    detect = detectBrowser,
+    images = () => ({ ready: false }),
+  }) {
+    Object.assign(this, { assistants, webSearch, synchronization, detect, images });
   }
   /**
    * True when the running Gateway was started with other global sections than
@@ -32,6 +39,7 @@ export class WebToolsChanges {
       search,
       browser: this.detect(),
       searchPlugins: running.searchPlugins,
+      images: this.images(),
     };
     return webToolsSignature({ profiles, webTools }) !== running.signature;
   }

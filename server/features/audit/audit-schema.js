@@ -13,6 +13,7 @@ const memberGrantKeys = new Set([
   "webFetch",
   "browser",
   "documents",
+  "createImages",
   "skills",
   "shell",
   "ssh",
@@ -201,6 +202,7 @@ export function auditEvent(input) {
       "project-grants",
       "share",
       "github-access",
+      "generated-image",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;

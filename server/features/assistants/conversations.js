@@ -176,6 +176,8 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         limit,
         offset,
       });
+      // Generated images on the page join the share store once (generated-images.js).
+      service.generatedImages?.scan(conversation, history.messages || []);
       // The page cuts every text at OpenClaw's 8000 characters; cut ones are
       // completed from the cache or read on their own (history-text.js).
       const page = await completePage(

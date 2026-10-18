@@ -150,6 +150,7 @@ test("capability drafts flatten switches and send only what changed", () => {
     webFetch: false,
     browser: false,
     documents: false,
+    createImages: false,
     browserVisible: false,
     shell: "off",
     mcpServers: ["a", "b"],
@@ -170,6 +171,7 @@ test("capability drafts flatten switches and send only what changed", () => {
         webFetch: true,
         browser: false,
         documents: false,
+        createImages: false,
       },
     },
   );
@@ -216,6 +218,7 @@ test("switching memory off also switches a saved check-in schedule off", () => {
         webFetch: false,
         browser: false,
         documents: false,
+        createImages: false,
       },
       heartbeat: { enabled: false, interval: "4h", start: 9, end: 18, timeZone: "UTC" },
     },
@@ -380,6 +383,7 @@ test("create mode starts empty and sends shell only when raised", () => {
       webFetch: false,
       browser: false,
       documents: false,
+      createImages: false,
     },
   });
   assert.equal(createInput({ ...values, shell: "approval" }).shell, "approval");

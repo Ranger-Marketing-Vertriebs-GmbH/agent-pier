@@ -26,7 +26,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   ([Pipelines](docs/pipelines.md)).
 - **Agenten und Teams:** dauerhafte Agenten, deren Leads ihre Mitglieder fragen und
   ihnen Aufgaben übergeben, mit @-Erwähnungen, Telegram, Skills, Routinen, Check-ins,
-  Dateien in beide Richtungen, Lese- oder Schreibzugriff auf Projektordner und GitHub
+  Dateien in beide Richtungen, über ChatGPT erstellte Bilder, Lese- oder Schreibzugriff auf Projektordner und GitHub
   über deine Tokenprofile ([Agenten](docs/agents.md)).
 - **Zentrale MCP-Server:** einen Server einmal anlegen und an Agenten und deine
   Coding-CLIs binden, mit OAuth-Anmeldung aus AgentPier ([MCP](docs/mcp.md)).

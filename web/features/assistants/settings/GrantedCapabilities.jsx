@@ -17,6 +17,7 @@ const capabilityLabels = {
   webFetch: () => copy.personal.enableWebFetch,
   browser: () => copy.personal.enableBrowser,
   documents: () => copy.personal.enableDocuments,
+  createImages: () => copy.personal.enableCreateImages,
   memory: () => grantCopy.memory,
   reminders: () => copy.personal.enableReminders,
 };

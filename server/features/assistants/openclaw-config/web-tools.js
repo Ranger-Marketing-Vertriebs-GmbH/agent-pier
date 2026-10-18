@@ -3,6 +3,7 @@ import { capabilityTools, usedCapabilities } from "../native-capabilities.js";
 import { browserProfileMap } from "./browser-profiles.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-web-tools-qualification.md.
+export const imageModel = "openai/gpt-image-2";
 
 /**
  * Which web tools this runtime can actually serve. `webTools` is
@@ -14,6 +15,9 @@ import { browserProfileMap } from "./browser-profiles.js";
 export function webToolsAvailability(webTools) {
   const search = webTools?.search;
   return {
+    // A ChatGPT account (an `openai` OAuth profile) that is signed in: OpenClaw routes
+    // gpt-image-2 through it (docs/tools/image-generation.md of 2026.10.3).
+    createImages: webTools?.images?.ready === true,
     browser: !!(webTools?.browser?.available && webTools.browser.executablePath),
     webSearch: !!(
       search?.provider &&
@@ -42,6 +46,7 @@ export function webToolsSections({ profiles, webTools, port }) {
     ),
     web: undefined,
     browser: undefined,
+    media: undefined,
     plugins: { allow: [], paths: [], entries: {} },
   };
   const web = {};
@@ -59,6 +64,10 @@ export function webToolsSections({ profiles, webTools, port }) {
   if (active("webFetch"))
     web.fetch = { ssrfPolicy: { dangerouslyAllowPrivateNetwork: false } };
   if (Object.keys(web).length) sections.web = web;
+  // An explicit model keeps image_generate on the account's OpenAI route instead of
+  // auto-detection; the timeout follows OpenClaw's hosted image defaults.
+  if (active("createImages"))
+    sections.media = { image: { primary: imageModel, timeoutMs: 180000 } };
   if (active("browser")) {
     // An explicit root block activates the bundled plugin; listing it is explicit.
     sections.plugins.allow.push("browser");
@@ -105,6 +114,11 @@ export function applyWebTools(config, sections) {
   config.tools.allow = [...config.tools.allow, ...sections.tools];
   if (sections.web) config.tools.web = sections.web;
   if (sections.browser) config.browser = sections.browser;
+  if (sections.media)
+    config.agents = {
+      ...config.agents,
+      defaults: { ...config.agents?.defaults, mediaModels: sections.media },
+    };
   const { allow, paths, entries } = sections.plugins;
   config.plugins.allow = [...(config.plugins.allow || []), ...allow];
   if (paths.length)

@@ -305,6 +305,8 @@ export function constructAssistantGraph(host, created = {}) {
     webSearch: assistantWebSearch,
     synchronization: assistantProviderSynchronization,
     detect: detectAgentBrowser,
+    // A signed-in ChatGPT account lets agents create images (model-accounts.js).
+    images: () => ({ ready: assistantModelAccounts.imageReady() }),
   });
   // The owner's advanced OpenClaw settings; a restart change reuses the web tools
   // confirmation and its list of interrupted agents.
@@ -499,6 +501,8 @@ export function connectAssistantServices(graph) {
           browser: webToolsChanges.detect(),
           // A runtime installed before the plugins were bundled reports none.
           searchPlugins: installed.searchPlugins || {},
+          // The same readiness a save compares with (web-tools-changes.js).
+          images: webToolsChanges.images(),
         },
         // Read at each start; tokens and the speech key reach only openclaw.json.
         telegram: telegramSenders.inputs(),

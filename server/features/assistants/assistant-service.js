@@ -2,6 +2,7 @@ import { assistantProblem, validateDefinition } from "./assistant-validation.js"
 import { sendTurn } from "./conversation-turns.js";
 import { AgentAttachments } from "./agent-attachments.js";
 import { AgentShares } from "./agent-shares.js";
+import { GeneratedImages } from "./generated-images.js";
 import { createGatewaySession } from "./session-create.js";
 import { RequestLedger } from "./request-ledger.js";
 import { QueuedMessages } from "./queued-messages.js";
@@ -61,6 +62,7 @@ export class AssistantService {
     void this.attachments.videos.sweepAll().catch(() => {});
     // Files agents hand the owner; the graph adds the Telegram channels.
     this.shares = new AgentShares({ assistants: this });
+    this.generatedImages = new GeneratedImages(this);
     this.markOutstandingUnknown();
     this.events = new AssistantEvents();
     this.chatStreams = new ChatStreams();
@@ -176,6 +178,8 @@ export class AssistantService {
       ) {
         this.chatStreams.end(payload.runId);
         this.reconcile().catch(() => {});
+        // An image_generate completion leaves its images here (generated-images.js).
+        this.generatedImages.observe(conversation).catch(() => {});
       }
     });
   }

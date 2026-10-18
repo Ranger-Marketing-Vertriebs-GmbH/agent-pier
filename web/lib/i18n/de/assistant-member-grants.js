@@ -6,6 +6,7 @@ export const memberGrantCopy = {
     webFetch: "Webseiten",
     browser: "Browser",
     documents: "Bilder",
+    createImages: "Bilder erstellen",
     allSkills: "Alle Skills",
     skills: (count) => `Skills: ${count}`,
     shell: (level) => `Shell (${level})`,

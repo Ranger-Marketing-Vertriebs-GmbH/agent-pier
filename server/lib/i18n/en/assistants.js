@@ -107,6 +107,7 @@ export const assistants = {
       webFetch: "web pages",
       browser: "browser",
       documents: "images",
+      createImages: "creating images",
       allSkills: "all of the lead's skills",
       skills: (count) => `skills: ${count}`,
       shell: (level) => `⚠ shell (${level})`,

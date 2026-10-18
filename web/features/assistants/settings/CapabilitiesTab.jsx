@@ -35,6 +35,7 @@ const conflictLabels = {
   browser: () => copy.personal.enableBrowser,
   browserVisible: () => assistantBrowserCopy.visible,
   documents: () => copy.personal.enableDocuments,
+  createImages: () => copy.personal.enableCreateImages,
   shell: () => assistantShellCopy.title,
   mcpServers: () => mcpServerCopy.agentTitle,
   skills: () => assistantSkillsCopy.title,
@@ -42,7 +43,9 @@ const conflictLabels = {
 
 /** Capabilities: memory, web, shell, skills and MCP servers in one draft and one PATCH. */
 export default function CapabilitiesTab({ assistant, page, go, navigate }) {
-  const { refresh, runtime, members = [] } = useAssistants();
+  const { refresh, runtime, members = [], models = [] } = useAssistants();
+  // Images come from a signed-in ChatGPT account (server model-accounts.js).
+  const images = models.some((m) => m.providerId === "openai-chatgpt" && m.available);
   const personal = isPersonal(assistant);
   const draft = useTabDraft({
     server: capabilityServer(assistant),
@@ -128,7 +131,12 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       )}
       {personal && <MemoryGroup assistant={assistant} draft={draft} go={go} />}
       {personal && (
-        <WebGroup draft={draft} browser={runtime?.browser} navigate={navigate} />
+        <WebGroup
+          draft={draft}
+          browser={runtime?.browser}
+          images={images}
+          navigate={navigate}
+        />
       )}
       {personal && (
         <BrowserGroup

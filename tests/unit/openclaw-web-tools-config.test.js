@@ -233,6 +233,7 @@ test("an unavailable provider keeps web_search out of every tool list", () => {
     assert.ok(config.tools.allow.includes("browser"));
   }
   assert.deepEqual(webToolsAvailability(webTools({ searchPlugins: {} })), {
+    createImages: false,
     browser: true,
     webSearch: false,
   });
@@ -304,6 +305,7 @@ test("a temporary team member's own capabilities give it no web tools", () => {
     tools: [],
     web: undefined,
     browser: undefined,
+    media: undefined,
     plugins: { allow: [], paths: [], entries: {} },
   });
 });
@@ -387,7 +389,11 @@ test("the running state signs the global sections without keeping the key", () =
     webTools({ search: { provider: "brave", key, requiresPlugin: true } });
   const snapshot = webToolsSnapshot({ profiles: [personal], webTools: brave("k-one") });
   assert.equal(JSON.stringify(snapshot).includes("k-one"), false);
-  assert.deepEqual(snapshot.availability, { browser: true, webSearch: true });
+  assert.deepEqual(snapshot.availability, {
+    createImages: false,
+    browser: true,
+    webSearch: true,
+  });
   assert.deepEqual(snapshot.searchPlugins, plugins);
   const sign = (profiles, tools) => webToolsSignature({ profiles, webTools: tools });
   assert.equal(sign([personal], brave("k-one")), snapshot.signature);

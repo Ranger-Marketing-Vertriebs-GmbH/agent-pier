@@ -31,6 +31,9 @@ const readOnly = [
   "web_fetch",
   "browser",
   "view_image",
+  // Writes only into OpenClaw's managed media (state/media), never the workspace;
+  // reference images are read within the workspace (tools.fs.workspaceOnly).
+  "image_generate",
 ];
 const everything = {
   memory: true,
@@ -39,6 +42,7 @@ const everything = {
   webFetch: true,
   browser: true,
   documents: true,
+  createImages: true,
 };
 
 test("every file tool an agent can be granted is behind the write guard", () => {
