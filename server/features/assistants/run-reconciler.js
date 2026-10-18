@@ -9,6 +9,8 @@ export async function reconcileRuns(service) {
   if (!service.runtime.client?.ready || service.closed) return;
   for (const attempt of service.ledger.unresolved()) {
     if (service.closed) return;
+    // Its send decides first (conversation-turns.js).
+    if (service.sending?.has(attempt.id)) continue;
     const request = service.ledger.getRequest(attempt.requestId);
     const conversation = service.store.getConversation(request.conversationId);
     try {

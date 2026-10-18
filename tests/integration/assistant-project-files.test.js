@@ -341,3 +341,31 @@ test("a member's record shows its folder levels as capped by the lead right now"
   f.grant({});
   assert.deepEqual(levels(), {});
 });
+
+test("a turn whose send went unacknowledged writes once the Gateway proved it", async (t) => {
+  const f = await setup(t);
+  f.grant({ [f.folderProject.id]: "write" });
+  const inv = await f.invocation();
+  const write = () =>
+    f.workflows.invoke(inv, {
+      projectId: f.folderProject.id,
+      action: "file_write",
+      path: "animation/package.json",
+      content: "{}",
+    });
+  // conversation-turns.js after a sessions.send timeout.
+  f.assistants.ledger.transition(inv.attemptId, "uncertain", {
+    unconfirmed: "send",
+    generation: null,
+  });
+  await assert.rejects(write(), { status: 403 });
+  assert.equal(
+    f.assistants.ledger.confirm(inv.attemptId, { proof: "event" }).state,
+    "running",
+  );
+  assert.equal((await write()).bytes, 2);
+  assert.equal(
+    fs.readFileSync(path.join(f.folder, "animation/package.json"), "utf8"),
+    "{}",
+  );
+});

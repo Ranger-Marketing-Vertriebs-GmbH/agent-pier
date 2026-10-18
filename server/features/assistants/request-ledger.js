@@ -20,6 +20,17 @@ const requestRecord = (r) =>
   };
 const attemptQuery =
   "SELECT attempts.*, (SELECT reviewed_at FROM attempt_reviews WHERE attempt_id=attempts.id) AS reviewed_at FROM attempts";
+const evidenceOf = (r) => {
+  try {
+    return JSON.parse(r.evidence || "{}") || {};
+  } catch {
+    return {};
+  }
+};
+// A send whose acknowledgement was lost (conversation-turns.js) leaves the attempt
+// uncertain but confirmable: the Gateway may still prove it runs the turn.
+const unconfirmedSend = (r) =>
+  r.state === "uncertain" && !r.reviewed_at && evidenceOf(r).unconfirmed === "send";
 const attemptRecord = (r) =>
   r && {
     id: r.id,
@@ -28,6 +39,7 @@ const attemptRecord = (r) =>
     reviewedAt: r.reviewed_at || null,
     state: r.state,
     createdAt: r.created_at,
+    ...(unconfirmedSend(r) ? { unconfirmed: true } : {}),
   };
 export class RequestLedger {
   constructor(db) {
@@ -138,6 +150,21 @@ export class RequestLedger {
       throw error;
     }
     return this.getAttempt(id);
+  }
+  /**
+   * Moves an unreviewed uncertain attempt whose send went unacknowledged to running,
+   * once the Gateway proved it runs the turn (`proof`: "event" or "transcript").
+   * Only on the Gateway generation the send went to: a restart ended that run. Every
+   * other attempt is left as it is; returns the confirmed attempt or null.
+   */
+  confirm(id, { generation = null, proof } = {}) {
+    const row = this.db.prepare(`${attemptQuery} WHERE id=?`).get(id);
+    if (!row || !unconfirmedSend(row)) return null;
+    if ((evidenceOf(row).generation ?? null) !== generation) return null;
+    return this.transition(id, "running", {
+      runtimeRunId: row.runtime_run_id || id,
+      confirmedBy: proof,
+    });
   }
   review(id) {
     const attempt = this.getAttempt(id);

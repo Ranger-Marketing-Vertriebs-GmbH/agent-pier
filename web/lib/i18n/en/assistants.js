@@ -359,6 +359,9 @@ export const assistantCopy = {
   uncertain:
     "The previous request may have run. Its outcome is still unknown; it will not be sent again automatically.",
   recover: "Restart service and acknowledge uncertainty",
+  // A sent turn whose acceptance the service has not confirmed yet.
+  unconfirmed:
+    "Waiting for the agent service to confirm. The request is probably running already; it will not be sent again.",
   recoverNotice:
     "Review the history first. This restarts the service and lets you continue; previous effects remain unknown. Nothing is resent automatically.",
   reviewed:
@@ -385,6 +388,7 @@ export const assistantCopy = {
     completed: "Completed",
     interrupted: "Interrupted",
     uncertain: "Outcome unknown",
+    unconfirmed: "Awaiting confirmation",
     cancelled: "Cancelled",
     compacting: "Summarising conversation",
   },

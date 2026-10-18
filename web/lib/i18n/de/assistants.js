@@ -372,6 +372,9 @@ export const assistantCopy = {
   uncertain:
     "Die vorherige Anfrage wurde möglicherweise ausgeführt. Ihr Ausgang ist noch unklar; sie wird nicht automatisch erneut gesendet.",
   recover: "Dienst neu starten und Ungewissheit bestätigen",
+  // Ein gesendeter Turn, dessen Annahme der Dienst noch nicht bestätigt hat.
+  unconfirmed:
+    "Bestätigung vom Agenten-Dienst steht aus. Die Anfrage läuft vermutlich bereits; sie wird nicht erneut gesendet.",
   recoverNotice:
     "Prüfe zuerst den Verlauf. Der Dienst wird neu gestartet und der Chat freigegeben; bisherige Auswirkungen bleiben unklar. Es wird nichts automatisch erneut gesendet.",
   reviewed:
@@ -398,6 +401,7 @@ export const assistantCopy = {
     completed: "Abgeschlossen",
     interrupted: "Unterbrochen",
     uncertain: "Ausgang unklar",
+    unconfirmed: "Bestätigung ausstehend",
     cancelled: "Abgebrochen",
     compacting: "Fasst Verlauf zusammen",
   },

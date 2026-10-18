@@ -1,6 +1,7 @@
 // How AssistantService follows its Gateway: runtime status changes and the chat
 // events of the current connection (streamed replies, finished runs, generated
 // images). Extracted from assistant-service.js; `service` is the AssistantService.
+import { confirmFromEvent } from "./run-confirmation.js";
 
 /** The runtime status listener: readiness, failures and maintenance. */
 export function runtimeStatusHandler(service) {
@@ -59,6 +60,8 @@ export function bindChatEvents(service) {
       .find((c) => c.runtimeSessionKey === payload.sessionKey);
     // A routine's own run session may leave images too (generated-images.js).
     if (!conversation) return service.generatedImages.observeRun(event);
+    // Any frame of the turn's run proves a send whose acknowledgement was lost.
+    confirmFromEvent(service, conversation, payload);
     // Only a run's first frame carries the whole reply; later ones carry what was
     // appended. The browser always receives the reply so far.
     const text =
