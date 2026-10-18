@@ -3,12 +3,11 @@ import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
-import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useResource from "../../lib/useResource.js";
 import useMobileLayout from "../../lib/useMobileLayout.js";
 import useSettledReplace from "../../lib/useSettledReplace.js";
 import PipelineBuilder from "./PipelineBuilder.jsx";
-import ConfirmAction from "./ConfirmAction.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import DefinitionList from "./DefinitionList.jsx";
 import useDraftGuard from "./useDraftGuard.jsx";
 import { pipelineRoutePath } from "./routes.js";
@@ -150,11 +149,13 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
         </div>
       </div>
       {removing && (
-        <ConfirmAction
-          description={copy.deleteDefinition}
-          label={commonCopy.remove}
-          close={() => setRemoving(null)}
-          action={async () => {
+        <ConfirmDialog
+          destructive
+          title={copy.confirmTitles.definition(removing.name)}
+          body={copy.deleteDefinition}
+          confirmLabel={copy.confirmLabels.definition}
+          onCancel={() => setRemoving(null)}
+          onConfirm={async () => {
             await api(`/pipelines/${removing.id}`, "DELETE");
             setRemoving(null);
             replaceItems(items.filter((p) => p.id !== removing.id));

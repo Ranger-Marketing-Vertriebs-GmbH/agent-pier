@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import useRunAction from "./useRunAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import ConfirmAction from "./ConfirmAction.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
+import { runTitle } from "./run-title.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import {
   confirmDescription,
   confirmedActions,
+  destructiveActions,
   localCommitsBlockDelete,
   offeredRunActions,
   requestRunAction,
@@ -93,14 +95,18 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
       </div>
       <ErrorMessage error={mutation.error} />
       {confirm && (
-        <ConfirmAction
+        <ConfirmDialog
           key={confirm}
-          label={
-            confirm === "delete-local" ? copy.deleteKeepBranch : copy.actions[confirm]
+          destructive={destructiveActions.includes(confirm)}
+          title={copy.confirmTitles[confirm](runTitle(run))}
+          body={confirmDescription(confirm, run)}
+          confirmLabel={
+            confirm === "delete-local"
+              ? copy.deleteKeepBranch
+              : copy.confirmLabels[confirm]
           }
-          description={confirmDescription(confirm, run)}
-          close={() => setConfirm(null)}
-          action={() => execute(confirm)}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => execute(confirm)}
         />
       )}
     </section>

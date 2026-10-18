@@ -92,7 +92,25 @@ export const pipelineCopy = {
   profileEligibility:
     "Pipeline stages require an autonomous profile without required parameters.",
   noProfiles: "No task profiles yet.",
-  confirmAction: "Confirm action",
+  // ConfirmDialog titles name the object; the button repeats the verb.
+  confirmTitles: {
+    delete: (run) => `Delete run “${run}”?`,
+    "delete-local": (run) => `Remove the worktree of “${run}”?`,
+    abort: (run) => `Cancel run “${run}”?`,
+    override: (run) => `Override the current stage of “${run}”?`,
+    "create-pr": (run) => `Create or update the pull request of “${run}”?`,
+    definition: (name) => `Delete pipeline “${name}”?`,
+    profile: (name) => `Delete profile “${name}”?`,
+    discard: "Discard unsaved changes?",
+  },
+  confirmLabels: {
+    delete: "Delete now",
+    abort: "Cancel now",
+    override: "Override now",
+    "create-pr": "Create now",
+    definition: "Delete now",
+    profile: "Delete now",
+  },
   deleteTitle: "Really delete?",
   deleteDefinition:
     "Delete this pipeline? Existing runs retain their saved definition. Pipelines with active runs cannot be deleted.",

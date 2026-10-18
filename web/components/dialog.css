@@ -419,3 +419,10 @@ label.check-row:has(input:disabled) .check-row-text {
     appearance: auto;
   }
 }
+/* ConfirmDialog: Cancel then the action; on phones the action sits on top. */
+@media (max-width: 700px) {
+  .confirm-dialog .dialog-body + .dialog-actions:last-child {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}

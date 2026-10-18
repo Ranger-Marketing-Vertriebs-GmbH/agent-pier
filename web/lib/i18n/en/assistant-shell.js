@@ -49,6 +49,9 @@ export const assistantShellCopy = {
   linked: (count) => `Linked command entries: ${count}`,
   remove: "Delete",
   removeLabel: (pattern) => `Delete entry ${pattern}`,
+  removeTitle: (pattern) => `Delete the entry ${pattern}?`,
+  removeBody: "The agent asks for approval again before it runs this command.",
+  removeNow: "Delete now",
   exec: {
     history: "Shell command",
     title: "Shell command awaiting approval",

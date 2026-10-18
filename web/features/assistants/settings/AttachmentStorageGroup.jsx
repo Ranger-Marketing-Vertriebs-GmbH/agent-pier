@@ -2,7 +2,7 @@ import React, { useEffect, useId, useState } from "react";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow from "../../../components/ListRow.jsx";
-import Sheet from "../../../components/Sheet.jsx";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { assistantAttachmentsCopy as copy } from "../../../lib/i18n/messages/assistant-attachments.js";
 import { formatNumber } from "../../../lib/i18n/index.js";
 import { assistantApi } from "../assistant-api.js";
@@ -91,30 +91,15 @@ export default function AttachmentStorageGroup({ assistant }) {
         </p>
       )}
       {confirming && (
-        <Sheet
-          open
+        <ConfirmDialog
+          destructive
           title={copy.storageClearTitle}
+          body={[usageText(usage), copy.storageClearDescription]}
+          confirmLabel={copy.storageClearConfirm}
+          cancelLabel={copy.storageClearCancel}
           onCancel={() => setConfirming(false)}
-          className="agent-confirmation-sheet"
-        >
-          <div className="sheet-body">
-            <p>{usageText(usage)}</p>
-            <p>{copy.storageClearDescription}</p>
-          </div>
-          <div className="sheet-actions">
-            <button type="button" className="button danger" onClick={clear}>
-              {copy.storageClearConfirm}
-            </button>
-            <button
-              type="button"
-              className="button secondary"
-              data-autofocus
-              onClick={() => setConfirming(false)}
-            >
-              {copy.storageClearCancel}
-            </button>
-          </div>
-        </Sheet>
+          onConfirm={clear}
+        />
       )}
     </section>
   );

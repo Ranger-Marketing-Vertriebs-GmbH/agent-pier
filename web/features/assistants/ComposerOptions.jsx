@@ -70,7 +70,7 @@ export default function ComposerOptions({
             aria-checked={teamAllowed}
             onChange={(event) => onTeamAllowed(event.target.checked)}
           />
-          <span className="assistant-switch" aria-hidden="true" />
+          <span className="switch" aria-hidden="true" />
         </label>
       )}
       {hint && <p className="assistant-options-hint">{hint}</p>}

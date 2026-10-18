@@ -49,6 +49,9 @@ export const assistantShellCopy = {
   linked: (count) => `Verknüpfte Befehlseinträge: ${count}`,
   remove: "Löschen",
   removeLabel: (pattern) => `Eintrag ${pattern} löschen`,
+  removeTitle: (pattern) => `Eintrag ${pattern} löschen?`,
+  removeBody: "Der Agent fragt vor diesem Befehl wieder nach einer Freigabe.",
+  removeNow: "Jetzt löschen",
   exec: {
     history: "Shell-Befehl",
     title: "Shell-Befehl wartet auf Freigabe",

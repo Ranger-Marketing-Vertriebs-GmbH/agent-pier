@@ -327,9 +327,7 @@ test("failed native stage offers an explicit override with confirmation", async 
   );
   expect(state.calls.some((call) => call.path.endsWith("/gate"))).toBe(false);
   await page.screenshot({ path: "test-results/pipeline-failed-stage-override.png" });
-  await dialog
-    .getByRole("button", { name: "Übergehen & fortsetzen", exact: true })
-    .click();
+  await dialog.getByRole("button", { name: "Jetzt übergehen", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(state.calls).toContainEqual({
     path: "/pipeline-runs/run-one/gate",

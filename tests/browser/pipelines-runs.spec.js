@@ -49,7 +49,7 @@ test("run pagination and status filters survive reload and retain exact run iden
   await expect(page.getByRole("dialog")).toBeVisible();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Lauf löschen", exact: true })
+    .getByRole("button", { name: "Jetzt löschen", exact: true })
     .click();
   await expect(
     page.getByText("Noch keine passenden Läufe.", { exact: true }),

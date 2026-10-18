@@ -105,11 +105,15 @@ export default function SshAccessDetails({
         <div className="ssh-confirm">
           <p>{copy.deleteHint}</p>
           <div className="ssh-actions">
-            <button className="button" disabled={busy} onClick={() => setConfirm(false)}>
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => setConfirm(false)}
+            >
               {commonCopy.cancel}
             </button>
             <button
-              className="button"
+              className="button danger"
               disabled={busy}
               onClick={() =>
                 run(async () => {

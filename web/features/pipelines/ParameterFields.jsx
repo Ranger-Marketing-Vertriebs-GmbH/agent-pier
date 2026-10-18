@@ -1,5 +1,6 @@
 import React from "react";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
+import Checkbox from "../../components/Checkbox.jsx";
 export default function ParameterFields({ params, onChange }) {
   const patch = (index, change) =>
     onChange(params.map((param, i) => (i === index ? { ...param, ...change } : param)));
@@ -26,15 +27,12 @@ export default function ParameterFields({ params, onChange }) {
               onChange={(event) => patch(index, { label: event.target.value })}
             />
           </label>
-          <label className="pipeline-check">
-            <input
-              type="checkbox"
-              aria-label={copy.paramRequired(index + 1)}
-              checked={param.required}
-              onChange={(event) => patch(index, { required: event.target.checked })}
-            />
-            {copy.paramRequired(index + 1)}
-          </label>
+          <Checkbox
+            className="pipeline-check"
+            label={copy.paramRequired(index + 1)}
+            checked={param.required}
+            onChange={(required) => patch(index, { required })}
+          />
           <button
             type="button"
             className="button secondary compact"

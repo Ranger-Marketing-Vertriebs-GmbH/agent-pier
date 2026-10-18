@@ -17,15 +17,7 @@ import { ArtifactTime } from "./ArtifactRows.jsx";
 import { artifactSource, artifactTypeLabel } from "./artifact-presentation.js";
 import { artifactLink } from "./artifact-return-link.js";
 import { downloadArtifact } from "./artifact-download.js";
-
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { writeClipboard } from "../../lib/clipboard.js";
 
 function SourceGroup({ item, lists, navigate }) {
   const { session, sessionGone, project } = artifactSource(item, lists);
@@ -155,7 +147,7 @@ export default function ArtifactDetail({
   }
   async function copyLink() {
     const url = new URL(viewer, window.location.origin).href;
-    setCopied((await copyText(url)) ? { ok: true } : { ok: false, url });
+    setCopied((await writeClipboard(url)) ? { ok: true } : { ok: false, url });
   }
   async function download() {
     setDownloading(true);
@@ -238,7 +230,7 @@ export default function ArtifactDetail({
         </ListCard>
         {!confirm && <ErrorMessage error={error} />}
       </section>
-      <ArtifactFacts item={item} copyText={copyText} />
+      <ArtifactFacts item={item} writeClipboard={writeClipboard} />
       <ListCard label={copy.deleteRow} className="artifact-danger-card">
         <ListRow
           icon={<Icon name="trash" size={16} />}

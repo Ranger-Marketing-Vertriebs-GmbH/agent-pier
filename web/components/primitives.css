@@ -77,3 +77,8 @@
     min-height: var(--touch-target);
   }
 }
+/* CopyButton result next to the button. */
+.copy-status {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}

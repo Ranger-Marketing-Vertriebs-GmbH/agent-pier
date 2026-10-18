@@ -141,7 +141,7 @@ test("local-only commits ask once more and remove the worktree keeping the branc
   await page.getByRole("button", { name: "Lauf löschen", exact: true }).click();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Lauf löschen", exact: true })
+    .getByRole("button", { name: "Jetzt löschen", exact: true })
     .click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("nur lokal existieren");

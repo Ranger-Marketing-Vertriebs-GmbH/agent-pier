@@ -123,6 +123,8 @@ instead of building a one-off in a feature.
 | `AnchoredSelect`                                    | A select whose options open anchored below it, optionally with search (`searchLabel`). Use for long or searchable option lists.                                                                                             | A native `select` with a listbox; keyboard and typeahead work.                       | `web/components/AnchoredSelect.jsx` |
 | `SearchSelect`                                      | A searchable picker with a trigger button and optional footer, for remote option lists.                                                                                                                                     | Combobox with listbox.                                                               | `web/components/SearchSelect.jsx`   |
 | `LanguageSelect`                                    | The language choice (login and general settings).                                                                                                                                                                           | Labelled native select.                                                              | `web/components/LanguageSelect.jsx` |
+| `Switch`                                            | A labelled binary setting outside a list card (`role="switch"`); `ToggleRow` is its row form.                                                                                                                               | The label names the switch; the whole label is the target.                           | `web/components/Switch.jsx`         |
+| `Checkbox`                                          | A labelled option of an action or one choice among several; `CheckboxRow` and `CheckRow` are the row forms.                                                                                                                 | The label names the box; the whole label is the target.                              | `web/components/Checkbox.jsx`       |
 | `PermissionList`                                    | Granted capabilities with check marks.                                                                                                                                                                                      | A labelled list.                                                                     | `web/components/PermissionList.jsx` |
 | `AsyncForm`                                         | A dialog form with Cancel and a primary (or danger) submit, busy state and error.                                                                                                                                           | Errors render through `ErrorMessage` (`role="alert"`).                               | `web/components/AsyncForm.jsx`      |
 | `Pagination`, `usePagination`                       | Pages of 20 for long client-side lists.                                                                                                                                                                                     | A labelled `nav`; the page number is a polite live region.                           | `web/components/Pagination.jsx`     |
@@ -148,15 +150,16 @@ Buttons are CSS classes on a native `<button>` (`.button` variants in `web/app/l
 
 ### Dialogs and overlays
 
-| Component             | Purpose and use                                                                                                     | Accessibility                                                                   | File                                     |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------- |
-| `Modal`               | A dialog with title and close button; `footer` gives a scrolling body and sticky actions. A bottom sheet on phones. | Native modal `<dialog>`, labelled by its title; Escape honours `closeDisabled`. | `web/components/Modal.jsx`               |
-| `Sheet`               | A short decision: bottom sheet on phones, centred 420px dialog on desktop. Use for confirmations.                   | As `Modal`.                                                                     | `web/components/Sheet.jsx`               |
-| `UnsavedChangesSheet` | "Save changes?" with Save and switch, Discard, Cancel. The only unsaved-changes dialog.                             | As `Sheet`.                                                                     | `web/components/UnsavedChangesSheet.jsx` |
-| `SidePanel`           | A side panel for a longer form or preview beside the page.                                                          | Native modal dialog.                                                            | `web/components/SidePanel.jsx`           |
-| `ImageViewer`         | Full-size image with zoom, download and share.                                                                      | Native modal dialog; focus returns to the opener.                               | `web/components/ImageViewer.jsx`         |
-| `useAlertDialogFocus` | Focus handling for an inline `role="alertdialog"` confirmation inside a row or card.                                | Focus moves in, Tab cycles, Escape cancels, focus returns.                      | `web/components/useAlertDialogFocus.js`  |
-| `SaveBar`             | Bottom bar of a draft: Cancel and Save; Reload and Overwrite on a conflict; partial and error notes.                | A labelled region; notes are alerts.                                            | `web/components/SaveBar.jsx`             |
+| Component             | Purpose and use                                                                                                                                                                                                                                                          | Accessibility                                                                   | File                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- | ---------------------------------------- |
+| `Modal`               | A dialog with title and close button; `footer` gives a scrolling body and sticky actions. A bottom sheet on phones.                                                                                                                                                      | Native modal `<dialog>`, labelled by its title; Escape honours `closeDisabled`. | `web/components/Modal.jsx`               |
+| `ConfirmDialog`       | Every confirmation (see [Confirmations](#confirmations)): `title` names the object, `body` the consequence, `confirmLabel` repeats the verb; `destructive` for danger, else primary; `focusCancel`; async `onConfirm` with busy state and error; `children` for details. | As `Modal`; a destructive one starts on Cancel.                                 | `web/components/ConfirmDialog.jsx`       |
+| `Sheet`               | A short choice with more than two answers: bottom sheet on phones, centred 420px dialog on desktop.                                                                                                                                                                      | As `Modal`.                                                                     | `web/components/Sheet.jsx`               |
+| `UnsavedChangesSheet` | "Save changes?" with Save and switch, Discard, Cancel. The only unsaved-changes dialog.                                                                                                                                                                                  | As `Sheet`.                                                                     | `web/components/UnsavedChangesSheet.jsx` |
+| `SidePanel`           | A side panel for a longer form or preview beside the page.                                                                                                                                                                                                               | Native modal dialog.                                                            | `web/components/SidePanel.jsx`           |
+| `ImageViewer`         | Full-size image with zoom, download and share.                                                                                                                                                                                                                           | Native modal dialog; focus returns to the opener.                               | `web/components/ImageViewer.jsx`         |
+| `useAlertDialogFocus` | The inline variant: a `role="alertdialog"` confirmation inside a row or card, for cheap or reversible actions and wizard steps. Same texts, colours and order as `ConfirmDialog`.                                                                                        | Focus moves in, Tab cycles, Escape cancels, focus returns.                      | `web/components/useAlertDialogFocus.js`  |
+| `SaveBar`             | Bottom bar of a draft: Cancel and Save; Reload and Overwrite on a conflict; partial and error notes.                                                                                                                                                                     | A labelled region; notes are alerts.                                            | `web/components/SaveBar.jsx`             |
 
 ### Feedback
 
@@ -167,22 +170,20 @@ Buttons are CSS classes on a native `<button>` (`.button` variants in `web/app/l
 | `ErrorMessage` | An error as `role="alert"`; renders nothing without an error.                                                                                                                                                                                               | `web/components/ErrorMessage.jsx` |
 | `InfoHint`     | ⓘ disclosure that reveals a hint verbatim; never a tooltip. Built into `ListRow` and `GroupLabel`.                                                                                                                                                          | `web/components/InfoHint.jsx`     |
 | `LearnMore`    | A short hint with the full explanation behind a disclosure.                                                                                                                                                                                                 | `web/components/LearnMore.jsx`    |
-| `CodeBlock`    | Code with a copy button (the only shared copy-to-clipboard today).                                                                                                                                                                                          | `web/components/CodeBlock.jsx`    |
+| `CopyButton`   | Copies `text` and reports Copied / failed in a live region; the label names what it copies; `iconOnly`; `onFailed` to reveal the text. `useCopy` is its hook, `writeClipboard` (`web/lib/clipboard.js`) the plain write.                                    | `web/components/CopyButton.jsx`   |
+| `CodeBlock`    | Code with an icon copy button (built on `useCopy`).                                                                                                                                                                                                         | `web/components/CodeBlock.jsx`    |
 
 ### Planned components
 
-These do not exist yet; they are planned in AGENTPIER-139 and follow-up tickets.
+These do not exist yet; they are planned in follow-up tickets.
 Until they land, follow the rule for each and use the closest existing piece.
 
-| Component       | Replaces                                                      | Until then                                            |
-| --------------- | ------------------------------------------------------------- | ----------------------------------------------------- |
-| `ConfirmDialog` | Five confirmation patterns, inline confirms, `window.confirm` | `Sheet` with the [confirmation rules](#confirmations) |
-| `Switch`        | Four switch styles                                            | `ToggleRow`                                           |
-| `CopyButton`    | Six hand-made copy buttons                                    | `CodeBlock`'s behaviour                               |
-| `Menu`          | Five `role="menu"` implementations                            | `extensions/RowMenu.jsx` (roving focus) as reference  |
-| `Notice`        | 17 notice and banner classes                                  | `ErrorMessage`, `.save-bar-note`                      |
-| `EmptyState`    | 17 empty-state classes                                        | A short sentence plus one action                      |
-| `Loading`       | Three spinner animations, ad-hoc loading text                 | `<p role="status">` with the loading copy             |
+| Component    | Replaces                                      | Until then                                           |
+| ------------ | --------------------------------------------- | ---------------------------------------------------- |
+| `Menu`       | Five `role="menu"` implementations            | `extensions/RowMenu.jsx` (roving focus) as reference |
+| `Notice`     | 17 notice and banner classes                  | `ErrorMessage`, `.save-bar-note`                     |
+| `EmptyState` | 17 empty-state classes                        | A short sentence plus one action                     |
+| `Loading`    | Three spinner animations, ad-hoc loading text | `<p role="status">` with the loading copy            |
 
 ## Rules
 
@@ -190,9 +191,9 @@ Until they land, follow the rule for each and use the closest existing piece.
 
 - Confirm only what is destructive or hard to undo: deleting, removing access,
   discarding work, overwriting. Do not confirm cheap, reversible actions.
-- Use a dialog (`Sheet` today, `ConfirmDialog` later). An inline confirmation
-  (`useAlertDialogFocus`) is only for cheap or reversible actions inside a row. Never
-  `window.confirm`, `alert` or `prompt`.
+- Use `ConfirmDialog`. The inline variant (`useAlertDialogFocus`) is only for cheap or
+  reversible actions inside a row or a wizard step. Never `window.confirm`, `alert` or
+  `prompt` (`nativeDialogs` in [Enforcement](#enforcement)).
 - The title asks the question with the object's name ("Delete backup 'nightly'?"), the
   body says what is lost, the buttons repeat the verb ("Delete", not "OK" or "Yes").
 - The confirming destructive button is `.button.danger`; Cancel is secondary or text.
@@ -241,8 +242,10 @@ Until they land, follow the rule for each and use the closest existing piece.
 
 ### Binary settings
 
-A setting that is on or off is a switch (`ToggleRow`), saved through the save bar.
-Checkboxes are for choosing several items from a list (`CheckboxRow`, `CheckRow`).
+A setting that is on or off is a switch: `ToggleRow` in a list card, `Switch`
+elsewhere, saved through the save bar. Checkboxes (`Checkbox`, `CheckboxRow`,
+`CheckRow`) choose several items from a list or set an option of one action. Both share
+one look (`web/components/choice.css`); no `accent-color` or bespoke switch styles.
 
 ### Navigation and headers
 

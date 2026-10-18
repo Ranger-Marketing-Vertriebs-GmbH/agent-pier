@@ -8,7 +8,7 @@ test("a small confirmation opens as a short bottom sheet on a phone", async ({
   await pipelinesFixture(page);
   await openPipelines(page, "profiles/profile-one");
   await page.getByRole("button", { name: "Löschen: Planer", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Aktion bestätigen" });
+  const dialog = page.getByRole("dialog", { name: "Profil „Planer“ löschen?" });
   await expect(dialog).toBeVisible();
   const box = await dialog.boundingBox();
   // Content-sized, far below the 82dvh sheet height, and anchored to the bottom edge.

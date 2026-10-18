@@ -2,6 +2,7 @@ import React, { useId, useState } from "react";
 import Segment from "../../components/Segment.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { stageProfileName } from "./StageFlow.jsx";
+import Checkbox from "../../components/Checkbox.jsx";
 
 const minRounds = 1,
   maxRounds = 5;
@@ -126,19 +127,18 @@ export default function StageEditor({
           ["verify", copy.verifyStage],
           ["createPr", copy.createPr],
         ].map(([field, label]) => (
-          <label key={field} className="pipeline-check">
-            <input
-              type="checkbox"
-              checked={stage[field]}
-              onChange={(event) => {
-                // Only one stage may open the pull request.
-                if (field === "createPr" && event.target.checked)
-                  setStages(stages.map((s, i) => ({ ...s, createPr: i === index })));
-                else patch({ [field]: event.target.checked });
-              }}
-            />
-            {label}
-          </label>
+          <Checkbox
+            key={field}
+            className="pipeline-check"
+            label={label}
+            checked={stage[field]}
+            onChange={(checked) => {
+              // Only one stage may open the pull request.
+              if (field === "createPr" && checked)
+                setStages(stages.map((s, i) => ({ ...s, createPr: i === index })));
+              else patch({ [field]: checked });
+            }}
+          />
         ))}
       </div>
       {index > 0 && (

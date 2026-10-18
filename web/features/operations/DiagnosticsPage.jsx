@@ -7,6 +7,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
+import Checkbox from "../../components/Checkbox.jsx";
 export default function DiagnosticsPage() {
   const resource = useResource("/operations/doctor"),
     projects = useResource("/repositories"),
@@ -64,15 +65,12 @@ export default function DiagnosticsPage() {
             />
           </label>
         )}
-        <label className="operations-check">
-          <input
-            type="checkbox"
-            checked={deep}
-            disabled={action.busy}
-            onChange={(event) => setDeep(event.target.checked)}
-          />
-          {copy.deep}
-        </label>
+        <Checkbox
+          label={copy.deep}
+          checked={deep}
+          disabled={action.busy}
+          onChange={setDeep}
+        />
         <button className="button primary" disabled={action.busy}>
           {copy.runChecks}
         </button>
