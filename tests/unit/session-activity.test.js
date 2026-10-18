@@ -318,3 +318,48 @@ test("Claude skip-permissions footer keeps idle and working detection", () => {
   assert.equal(parseSessionActivity("claude", bypass()).state, "idle");
   assert.equal(parseSessionActivity("claude", bypass(spin())).state, "working");
 });
+
+test("narrow Claude panes keep background work visible without the manage hint", async () => {
+  for (const name of [
+    "claude-background-agent-narrow-native",
+    "claude-background-shell-narrow-native",
+  ]) {
+    let now = 1000;
+    let screen = nativeClaude(name);
+    assert.doesNotMatch(screen, /↓ to manage/, name);
+    const activity = new SessionActivity({
+      sessions: {},
+      screen: async () => screen,
+      cacheMs: 0,
+      now: () => now,
+    });
+    const session = { id: name, tool: "claude", status: "running" };
+    assert.equal((await activity.read(session)).state, "working", name);
+    now += 30000;
+    screen = screen.replace("4m 29s", "4m 59s");
+    assert.equal((await activity.read(session)).state, "working", name);
+    now += 11000;
+    assert.equal(
+      (await activity.read(session)).state,
+      name.includes("agent") ? "unknown" : "working",
+      name,
+    );
+    screen = nativeClaude("claude-background-agent-completed-narrow-native");
+    assert.equal((await activity.read(session)).state, "idle", name);
+  }
+});
+
+test("narrow Claude panes never infer work from quoted or unparsed agent rows", () => {
+  const busy = nativeClaude("claude-background-agent-narrow-native");
+  const rows = busy
+    .split("\n")
+    .filter((line) => /⏺ main|◯|↓ 2 more/.test(line))
+    .join("\n");
+  const finished = nativeClaude("claude-background-agent-completed-narrow-native");
+  const quoted = finished.replace("⏺ Probe parent finished.", `${rows}\nDone.`);
+  assert.equal(parseSessionActivity("claude", quoted).state, "idle");
+  const unparsed = busy.replace(/\d+h? ?\d*m? ?\d+s · ↓ [\d.]+k tokens/g, "done");
+  assert.equal(parseSessionActivity("claude", unparsed).state, "unknown");
+  const header = busy.split("\n").filter((line) => !/◯|↓ 2 more/.test(line));
+  assert.equal(parseSessionActivity("claude", header.join("\n")).state, "idle");
+});
