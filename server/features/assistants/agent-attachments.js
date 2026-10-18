@@ -17,6 +17,7 @@ import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { SHARED, SharedFiles } from "./agent-share-store.js";
 import { VideoUploads } from "./agent-video-uploads.js";
 import { MAX_VIDEO_BYTES, videoExtensions } from "./agent-video-types.js";
+import { folderUsage, removeChecked, trashFor } from "./agent-attachment-storage.js";
 
 // Files picked in the composer but not sent yet; they expire after a day. A page left
 // without sending may leave its files behind, so a conversation at the cap gives up
@@ -25,8 +26,8 @@ const MAX_STAGED = 20;
 const STAGED_TTL = 24 * 3600 * 1000;
 // Per agent; counted over the copies still present in its workspace. Room for a few
 // phone videos (200 MB each, agent-video-types.js) next to photos and documents.
-const MAX_AGENT_BYTES = 1024 * 1024 * 1024;
-const MAX_AGENT_FILES = 1000;
+export const MAX_AGENT_BYTES = 1024 * 1024 * 1024;
+export const MAX_AGENT_FILES = 1000;
 const FOLDER = "attachments";
 const extensions = {
   "image/png": [".png"],
@@ -65,7 +66,8 @@ const owned = `request_id NOT LIKE '${SHARED}%'`;
  */
 export class AgentAttachments {
   // `config.workspaces` is the Gateway's workspace root; each agent owns <root>/<id>.
-  // `hooks.checked` runs after the folder check (a test seam for the swap race).
+  // `hooks.checked` runs after the folder check, `hooks.clearing` before a checked
+  // folder is removed (test seams for the swap race).
   constructor({ store, models, config, now = Date.now, hooks = {} }) {
     Object.assign(this, { store, models, config, now, hooks });
     this.db = store.db;
@@ -315,12 +317,14 @@ export class AgentAttachments {
       if (present.has(file.file) || file.gone) continue;
       if (file.row.request_id === null)
         this.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
-      else
-        this.db
-          .prepare("UPDATE agent_attachments SET body=? WHERE id=?")
-          .run(JSON.stringify({ ...JSON.parse(file.row.body), gone: true }), file.id);
+      else this.markGone(file);
     }
     if (bytes > MAX_AGENT_BYTES) throw assistantProblem("attachmentStorageFull", 409);
+  }
+  markGone(file) {
+    this.db
+      .prepare("UPDATE agent_attachments SET body=? WHERE id=?")
+      .run(JSON.stringify({ ...JSON.parse(file.row.body), gone: true }), file.id);
   }
   async discard(conversationId, id) {
     const conversation = this.store.getConversation(conversationId);
@@ -489,7 +493,11 @@ export class AgentAttachments {
     }
     for (const entry of byRequest.values()) {
       entry.note = attachmentNote(entry.files.map((f) => ({ ...f, path: agentPath(f) })));
-      entry.files = entry.files.filter((f) => !f.gone).map(publicFile);
+      // A copy that is gone (deleted by the agent, or cleared by the owner) stays
+      // in its message, named and marked unavailable, without a link.
+      entry.files = entry.files.map((f) =>
+        f.gone ? { ...publicFile(f), unavailable: true } : publicFile(f),
+      );
     }
     return byRequest;
   }
@@ -532,16 +540,54 @@ export class AgentAttachments {
       maxFiles: MAX_ATTACHMENTS_PER_MESSAGE,
     };
   }
+  /** What the agent's attachments folder holds, against its limits. */
+  async usage(assistantId) {
+    this.store.getAssistant(assistantId);
+    const used = await folderUsage(await this.folder(assistantId, false));
+    return { ...used, maxBytes: MAX_AGENT_BYTES, maxFiles: MAX_AGENT_FILES };
+  }
   /**
-   * Removes an agent's copies and their index, for when the agent itself goes.
-   * Unwired: nothing deletes agents yet. Before anyone wires it, harden it against a
-   * folder swapped between the check and the recursive removal (remove by verified
-   * descriptor or rename the checked inode aside first), as create() does for writes.
+   * The owner empties the agent's attachments folder (the quota's folder only; files
+   * the agent shared live in the share store and stay). Uploads still arriving end
+   * first, with their partial copies; unsent files lose their rows, and sent ones
+   * stay in their messages marked unavailable. Resolves with what was removed.
    */
+  async clear(assistantId) {
+    this.store.getAssistant(assistantId);
+    return this.serial(assistantId, async () => {
+      const removed = await this.removeFolder(assistantId);
+      this.transaction(() => {
+        this.db
+          .prepare(
+            "DELETE FROM agent_attachments WHERE assistant_id=? AND request_id IS NULL",
+          )
+          .run(assistantId);
+        for (const file of this.rows(
+          `SELECT * FROM agent_attachments WHERE assistant_id=? AND request_id IS NOT NULL AND ${owned}`,
+          assistantId,
+        ))
+          if (!file.gone) this.markGone(file);
+      });
+      return { files: removed.files, bytes: removed.bytes };
+    });
+  }
+  // Ends the agent's open uploads and removes its checked folder; the caller holds
+  // the agent's serial queue. Resolves with what the folder held.
+  async removeFolder(assistantId) {
+    await this.videos.dropAgent(assistantId);
+    const folder = await this.folder(assistantId, false);
+    const held = await folderUsage(folder);
+    if (!folder) return held;
+    await this.hooks.clearing?.(folder);
+    const trash = trashFor(this.config.workspaces);
+    await removeChecked(folder, trash, `${assistantId}-attachments`);
+    return held;
+  }
+  // Removes an agent's copies (both folders only as checked, removeChecked) and their
+  // index, for when the agent itself goes. Unwired: nothing deletes agents yet.
   purge(assistantId) {
     return this.serial(assistantId, async () => {
-      const folder = await this.folder(assistantId, false);
-      if (folder) await fs.rm(folder.path, { recursive: true, force: true });
+      await this.removeFolder(assistantId);
       await this.shared.purge(assistantId);
       this.db
         .prepare("DELETE FROM agent_attachments WHERE assistant_id=?")

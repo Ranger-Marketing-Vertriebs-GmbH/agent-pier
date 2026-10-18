@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { detectAttachment, safeFileName } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
+import { removeChecked, trashFor } from "./agent-attachment-storage.js";
 
 // Files agents shared with the owner, per agent: their own budget beside the owner's
 // uploads. Copies expire after 90 days; a full store gives up its oldest ones, whose
@@ -256,6 +257,7 @@ export class SharedFiles {
   /** Removes an agent's shared copies; see AgentAttachments.purge. */
   async purge(assistantId) {
     const folder = await this.folder(assistantId, false);
-    if (folder) await fs.rm(folder.path, { recursive: true, force: true });
+    if (folder)
+      await removeChecked(folder, trashFor(this.root()), `${assistantId}-shares`);
   }
 }

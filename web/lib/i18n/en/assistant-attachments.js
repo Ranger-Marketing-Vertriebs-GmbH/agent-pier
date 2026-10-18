@@ -27,5 +27,19 @@ export const assistantAttachmentsCopy = Object.freeze({
     "This agent's model can't see images. Images are only saved in its workspace so it can read them with its tools.",
   heicKept:
     "HEIC photos this browser can't convert reach the agent only as a file in its workspace.",
+  unavailable: "No longer available",
+  storageGroup: "Chat attachments",
+  storageHint:
+    "Files you send this agent are saved in attachments/ of its workspace, so it can read them with its tools.",
+  storageUsage: (bytes, maxBytes, files, maxFiles) =>
+    `${bytes} of ${maxBytes} · ${files} of ${maxFiles} files`,
+  storageLoading: "Reading the folder …",
+  storageClear: "Clear attachments",
+  storageClearDescription:
+    "Deletes every file in attachments/, also files the agent put there and videos still uploading. Sent messages keep the file names, marked as no longer available. Files the agent shared with you stay.",
+  storageClearTitle: "Clear this agent's attachments?",
+  storageClearConfirm: "Clear",
+  storageClearCancel: "Cancel",
+  storageCleared: "Attachments cleared.",
   drop: "Drop files here",
 });

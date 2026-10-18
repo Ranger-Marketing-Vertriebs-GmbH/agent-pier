@@ -172,6 +172,35 @@ export function assistantAttachmentRoutes({
       res.status(204).end();
     }),
   );
+  // The owner's view of an agent's attachments folder against its limits, and
+  // clearing it (agent-attachments.js clear), audited with what it removed.
+  router.get("/assistants/:id/attachment-usage", read, async (req, res) => {
+    gate();
+    res.json(await attachments().usage(req.params.id));
+  });
+  router.delete("/assistants/:id/attachments", upload, (req, res) =>
+    assistants.admit(async () => {
+      const removed = await attachments().clear(req.params.id);
+      try {
+        assistants.audit?.append({
+          action: "assistant.updated",
+          resourceType: "assistant",
+          resourceId: req.params.id,
+          source: "user",
+          outcome: "success",
+          details: {
+            kind: "attachment-clear",
+            count: removed.files,
+            bytes: removed.bytes,
+          },
+        });
+      } catch (error) {
+        console.error("Attachment clear audit failed:", error?.message);
+      }
+      assistants.changed?.();
+      res.json(await attachments().usage(req.params.id));
+    }),
+  );
   // Reads skip the admission queue (a long apply must not stall thumbnails) but not
   // its gate: no workspace reads while a restore or update may replace them.
   router.get("/assistant-attachments/:file", read, async (req, res) => {

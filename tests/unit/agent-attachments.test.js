@@ -346,10 +346,14 @@ test("the index follows the folder and a failed insert leaves no file (M5)", asy
   attachments.claim(c.id, [sent.id], "r1");
   const note = attachments.forConversation(c.id).get("r1").note;
   // The agent deletes its copy: the next upload marks the sent file gone. Its row stays,
-  // so the history still recognises the note the agent received.
+  // so the history still recognises the note the agent received, and the message
+  // names the file as unavailable.
   fs.rmSync(path.join(folder, fs.readdirSync(folder)[0]));
   await attachments.stage(c.id, "next.md", Buffer.from("y"));
-  assert.deepEqual(attachments.forConversation(c.id).get("r1"), { files: [], note });
+  assert.deepEqual(attachments.forConversation(c.id).get("r1"), {
+    files: [{ ...sent, unavailable: true }],
+    note,
+  });
   // A staged upload whose copy is gone loses its row.
   const staged = await attachments.stage(c.id, "staged.md", Buffer.from("w"));
   fs.rmSync(
@@ -402,8 +406,11 @@ test("the history hides the note after the agent removed one of the copies", asy
     const shown = view(message);
     assert.equal(shown.text, "Read these.");
     assert.deepEqual(
-      shown.attachments.map((f) => f.name),
-      ["two.md"],
+      shown.attachments.map((f) => [f.name, f.unavailable === true]),
+      [
+        ["one.md", true],
+        ["two.md", false],
+      ],
     );
   }
 });

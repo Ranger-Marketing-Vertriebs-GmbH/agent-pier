@@ -83,6 +83,10 @@
   color: var(--warning);
   white-space: normal;
 }
+.agent-attachment-chip.unavailable {
+  border-style: dashed;
+  color: var(--text-meta);
+}
 .agent-attachment-chip.uploading img {
   opacity: 0.55;
 }

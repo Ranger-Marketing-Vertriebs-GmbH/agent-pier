@@ -43,7 +43,8 @@ histories and private content, always encrypted (see "Sealed history"):
   receipts as `artifacts/unpinned.json`, which a restore merges back into the
   artifact index in place of the tombstones.
 - The agents' private content below `assistants/`: workspaces with the owner's
-  chat attachments (`workspaces/<agent>/attachments/`, up to 1 GB per agent),
+  chat attachments (`workspaces/<agent>/attachments/`, up to 1 GB per agent; the
+  agent's Profile > Chat attachments > **Clear attachments** empties the folder),
   files agents shared with you (`shares/<agent>/`), OpenClaw's transcripts and
   session index (`state/agents/<agent>/sessions/`), its media (`state/media/`),
   its memory index (`state/memory/`), every other file below `state/` outside the

@@ -14,6 +14,7 @@ import ConflictNotice from "./ConflictNotice.jsx";
 import ConfirmationSheet from "./ConfirmationSheet.jsx";
 import ProfileFields, { profileValid } from "./ProfileFields.jsx";
 import MemberGroup from "./MemberGroup.jsx";
+import AttachmentStorageGroup from "./AttachmentStorageGroup.jsx";
 import RuntimeSummary from "./RuntimeSummary.jsx";
 
 const conflictLabels = {
@@ -104,6 +105,7 @@ export default function ProfileTab({ assistant, navigate }) {
         </p>
       </form>
       {assistant.teamMemberId && <MemberGroup assistant={assistant} />}
+      <AttachmentStorageGroup assistant={assistant} />
       <RuntimeSummary
         className="agent-runtime-group"
         runtime={runtime}

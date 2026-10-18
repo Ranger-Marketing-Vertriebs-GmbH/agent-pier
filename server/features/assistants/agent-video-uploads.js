@@ -104,6 +104,11 @@ export class VideoUploads {
     for (const upload of [...this.uploads.values()])
       await this.drop(upload).catch(() => {});
   }
+  /** The owner cleared the agent's folder (or it goes): its open uploads end. */
+  async dropAgent(assistantId) {
+    for (const upload of [...this.uploads.values()])
+      if (upload.assistantId === assistantId) await this.drop(upload).catch(() => {});
+  }
   // The staged file a finished upload produced, while it is still staged.
   done(conversationId, id) {
     const entry = this.finished.get(String(id));

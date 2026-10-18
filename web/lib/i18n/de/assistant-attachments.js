@@ -27,5 +27,19 @@ export const assistantAttachmentsCopy = Object.freeze({
     "Das Modell dieses Agenten kann keine Bilder sehen. Bilder werden nur in seinem Arbeitsbereich gespeichert, damit er sie mit Werkzeugen lesen kann.",
   heicKept:
     "HEIC-Fotos, die dieser Browser nicht umwandeln kann, bekommt der Agent nur als Datei in seinem Arbeitsbereich.",
+  unavailable: "Nicht mehr verfügbar",
+  storageGroup: "Chat-Anhänge",
+  storageHint:
+    "Dateien, die du diesem Agenten schickst, liegen in attachments/ seines Arbeitsbereichs, damit er sie mit seinen Werkzeugen lesen kann.",
+  storageUsage: (bytes, maxBytes, files, maxFiles) =>
+    `${bytes} von ${maxBytes} · ${files} von ${maxFiles} Dateien`,
+  storageLoading: "Ordner wird gelesen …",
+  storageClear: "Anhänge leeren",
+  storageClearDescription:
+    "Löscht alle Dateien in attachments/, auch Dateien, die der Agent dort abgelegt hat, und Videos, die noch hochladen. Gesendete Nachrichten behalten die Dateinamen, als nicht mehr verfügbar markiert. Dateien, die der Agent mit dir geteilt hat, bleiben.",
+  storageClearTitle: "Anhänge dieses Agenten leeren?",
+  storageClearConfirm: "Leeren",
+  storageClearCancel: "Abbrechen",
+  storageCleared: "Anhänge geleert.",
   drop: "Dateien hier ablegen",
 });

@@ -171,6 +171,15 @@ export const assistantApi = {
     }),
   browserStatus: (id, signal) =>
     api(`/assistants/${encodeURIComponent(id)}/browser`, "GET", undefined, signal),
+  attachmentUsage: (id, signal) =>
+    api(
+      `/assistants/${encodeURIComponent(id)}/attachment-usage`,
+      "GET",
+      undefined,
+      signal,
+    ),
+  clearAttachments: (id) =>
+    api(`/assistants/${encodeURIComponent(id)}/attachments`, "DELETE"),
   browserReset: (id) =>
     api(`/assistants/${encodeURIComponent(id)}/browser/reset`, "POST", {}),
   shellAllowlist: (id) => api(`/assistants/${encodeURIComponent(id)}/shell-allowlist`),

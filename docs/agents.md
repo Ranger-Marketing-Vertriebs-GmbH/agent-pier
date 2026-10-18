@@ -373,6 +373,15 @@ also see images directly; the composer says when the agent's model cannot. Attac
 are part of host backups only with history and a passphrase, and then encrypted (see
 [backups](backups.md#what-a-backup-holds)).
 
+Each agent keeps up to 1 GB or 1000 files in its `attachments/` folder, files the
+agent put there itself included. The agent's **Profile** tab shows how much of that it
+uses under **Chat attachments**, for example "120 MB of 1 GB · 34 of 1,000 files".
+**Clear attachments** deletes everything in the folder after a confirmation, including
+videos still uploading and unsent files in the composer. Sent messages keep their text
+and name each removed file as no longer available. Files the agent shared with you
+(below) are not affected. The clear is recorded in the audit log with the number of
+files and bytes removed.
+
 ### Videos
 
 Videos can be up to 200 MB each: MP4, MOV (iPhone recordings in HEVC or H.264) and
@@ -383,8 +392,8 @@ first frame and length until then).
 
 The agent receives the video as a file in its workspace, with its length and size in
 pixels, and is told that it cannot watch it. No model sees the video itself: AgentPier
-sends no video to the model and extracts no frames. Each agent keeps up to 1 GB of
-attachments in total, videos included.
+sends no video to the model and extracts no frames. Videos count toward the agent's
+1 GB of attachments.
 
 ### Files from agents
 

@@ -182,3 +182,72 @@ test("uploads are rate limited with a translated error", async (t) => {
   }
   assert.equal(limited?.messageKey, "assistants.attachmentRateLimited");
 });
+
+test("the owner sees an agent's attachment usage and clears it, audited", async (t) => {
+  const { url, assistant, conversation, upload, workspace, assistants } =
+    await agentChat(t);
+  const usageUrl = `${url}/api/assistants/${assistant.id}/attachment-usage`;
+  const clearUrl = `${url}/api/assistants/${assistant.id}/attachments`;
+  const sent = await (await upload("photo.png", png)).json();
+  await upload("notes.md", "# Notes\n");
+  const usage = await fixtureFetch(usageUrl);
+  assert.equal(usage.status, 200);
+  assert.deepEqual(await usage.json(), {
+    files: 2,
+    bytes: png.length + 8,
+    capped: false,
+    maxBytes: 1024 * 1024 * 1024,
+    maxFiles: 1000,
+  });
+  // Only the signed-in owner, from AgentPier's own page.
+  assert.equal((await fetch(usageUrl)).status, 401);
+  assert.equal(
+    (await fetch(clearUrl, { method: "DELETE", headers: { origin: url } })).status,
+    401,
+  );
+  assert.equal(
+    (
+      await fixtureFetch(clearUrl, {
+        method: "DELETE",
+        headers: { origin: "https://foreign.invalid" },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(fs.readdirSync(path.join(workspace, "attachments")).length, 2);
+  assert.equal(
+    (await fixtureFetch(`${url}/api/assistants/missing/attachment-usage`)).status,
+    404,
+  );
+
+  const cleared = await fixtureFetch(clearUrl, {
+    method: "DELETE",
+    headers: { origin: url },
+  });
+  assert.equal(cleared.status, 200);
+  assert.equal((await cleared.json()).files, 0);
+  assert.equal(fs.existsSync(path.join(workspace, "attachments")), false);
+  assert.equal(
+    (await fixtureFetch(`${url}/api/assistant-attachments/${sent.id}`)).status,
+    404,
+  );
+  assert.equal(
+    (
+      await fixtureFetch(
+        `${url}/api/assistant-conversations/${conversation.id}/attachments/${sent.id}`,
+        { method: "DELETE", headers: { origin: url } },
+      )
+    ).status,
+    404,
+  );
+  const [event] = assistants.audit
+    .list({ action: "assistant.updated" })
+    .events.filter((e) => e.details.kind === "attachment-clear");
+  assert.equal(event.resourceId, assistant.id);
+  assert.equal(event.source, "user");
+  assert.deepEqual(event.details, {
+    kind: "attachment-clear",
+    count: 2,
+    bytes: png.length + 8,
+  });
+});
