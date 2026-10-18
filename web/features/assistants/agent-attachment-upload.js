@@ -64,20 +64,34 @@ export async function preparedFile(file) {
 
 /**
  * Sends raw bytes with upload progress (`progress(loaded)` in bytes). Resolves with
- * `{ status, result }`, status 0 when the request never got an answer.
+ * `{ status, result }`, status 0 when the request never got an answer. With
+ * `stallMs` the request has no fixed timeout: it gives up only after that long
+ * without progress, so a slow but moving line is never cut off.
  */
-export function sendBytes(method, url, body, signal, progress = () => {}) {
+export function sendBytes(method, url, body, signal, progress = () => {}, stallMs = 0) {
   return new Promise((resolve) => {
     const xhr = new XMLHttpRequest();
     const abort = () => xhr.abort();
+    let stall;
+    const watch = () => {
+      clearTimeout(stall);
+      if (stallMs) stall = setTimeout(abort, stallMs);
+    };
     const finish = (value) => {
+      clearTimeout(stall);
       signal.removeEventListener("abort", abort);
       resolve(value);
     };
     xhr.open(method, url);
-    xhr.timeout = 120000;
+    xhr.timeout = stallMs ? 0 : 120000;
     xhr.setRequestHeader("Content-Type", "application/octet-stream");
-    xhr.upload.onprogress = (event) => progress(event.loaded);
+    xhr.upload.onprogress = (event) => {
+      watch();
+      progress(event.loaded);
+    };
+    // The body is out; the reply may take a moment longer.
+    xhr.upload.onload = watch;
+    watch();
     xhr.onload = () => {
       if (xhr.status === 401) window.dispatchEvent(new Event("agentpier-login-required"));
       let result = {};

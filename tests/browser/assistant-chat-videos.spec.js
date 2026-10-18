@@ -82,6 +82,7 @@ async function videoRoutes(page, state) {
         state.size = Number(url.searchParams.get("size"));
         state.name = url.searchParams.get("name");
         state.received = 0;
+        state.upload = url.searchParams.get("upload");
       } else if (Number(url.searchParams.get("offset")) !== state.received)
         return route.fulfill({ status: 409, json: { received: state.received } });
       // Playwright's WebKit hands routes no Blob bodies; the browser still sends them.
@@ -93,7 +94,7 @@ async function videoRoutes(page, state) {
       if (state.received < state.size)
         return route.fulfill({
           status: request.method() === "POST" ? 201 : 200,
-          json: { upload: "u1", received: state.received },
+          json: { upload: state.upload, received: state.received },
         });
       return route.fulfill({
         status: 201,

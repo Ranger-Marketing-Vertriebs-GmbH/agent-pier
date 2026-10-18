@@ -2296,7 +2296,7 @@ and WebM videos of up to 200 MB (`agent-video-types.js`, `agent-video-uploads.js
   `msf1`, …) stay images. WebM needs an EBML header with DocType `webm`; other
   Matroska files are refused. A completed MP4 or MOV must contain its `moov` box;
   otherwise it is refused and its copy removed.
-- **Chunked upload.** `POST /api/assistant-conversations/:id/video-uploads?name=&size=`
+- **Chunked upload.** `POST /api/assistant-conversations/:id/video-uploads?name=&size=&upload=`
   carries the first chunk and announces the full size; `PUT
 …/video-uploads/:upload?offset=` carries the next ones, each at most 8 MiB and
   streamed to disk, so no request meets Node's five-minute request timeout and no
@@ -2305,10 +2305,22 @@ and WebM videos of up to 200 MB (`agent-video-types.js`, `agent-video-uploads.js
   through that descriptor at their offsets. A chunk at the wrong offset gets a 409
   naming the received length, so the composer resumes there; more bytes than
   announced, or a larger chunk, end the upload. The SHA-256 is computed while the
-  chunks arrive. Only the completed, checked copy is indexed as a staged attachment.
-  An upload idle for ten minutes is removed, and an agent has at most three open; a
-  fourth replaces the oldest. Videos still arriving count with their announced size
-  against the per-agent quota (1 GB, shared with all other attachments).
+  chunks arrive. Only the completed, checked copy is indexed as a staged attachment,
+  making room among the conversation's unsent files like any upload.
+- **Retries.** The page chooses the upload id (a UUID), so every chunk can be sent
+  again when its reply is lost: a repeated first chunk continues the upload, and for
+  ten minutes a finished upload's id answers with its staged file. The composer has
+  no fixed request timeout for video chunks; it gives up a chunk after 60 seconds
+  without progress and retries it up to three times, and any progress resets that
+  budget.
+- **Housekeeping.** An upload idle for ten minutes is removed. An agent has at most
+  three open uploads; a fourth takes the place of one without a chunk for two
+  minutes, or is refused with 429 while all three are moving. Entering maintenance
+  (backup, restore, update) drops every open upload with its partial copy. Copies a
+  crash or restart left half-written (AgentPier-named files without an index row,
+  untouched for ten minutes) are removed at startup and before every quota check.
+  Videos still arriving count with their announced size against the per-agent quota
+  (1 GB, shared with all other attachments).
 - **Metadata.** Duration and display size come from the container without decoding:
   `mvhd` and the video track's `tkhd` (a quarter-turn matrix, as iPhones write for
   portrait videos, swaps width and height) or WebM's `Info` and `Tracks`. The note
@@ -2328,8 +2340,7 @@ and WebM videos of up to 200 MB (`agent-video-types.js`, `agent-video-uploads.js
   `<video controls playsinline preload="metadata">` without a server-side poster; a
   `#t=0.001` media fragment makes Safari draw the first frame.
 - **Not yet.** Files agents share stay downloads, also when they are videos, and
-  Telegram videos are not received. A copy left half-written by a crash during an
-  upload stays in `attachments/` and counts against the quota until removed.
+  Telegram videos are not received.
 
 ### Files agents share (2026-10-17)
 

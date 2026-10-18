@@ -13,8 +13,17 @@ import {
 
 // An upload nobody continues is given up after this long, its partial copy removed.
 const IDLE_MS = 10 * 60 * 1000;
-// Uploads one agent may have open; a page left mid-upload frees its slot this way.
+// Uploads one agent may have open. An upload without a chunk for this long gives
+// its slot to a new one (a page left mid-upload); active ones are never dropped.
 const MAX_OPEN_PER_AGENT = 3;
+const ACTIVE_MS = 2 * 60 * 1000;
+// A finished upload's id still names its staged file this long, so a retried last
+// chunk whose reply was lost gets the file instead of an error.
+const FINISHED_MS = 10 * 60 * 1000;
+const MAX_FINISHED = 200;
+// The names AgentPier gives its copies (storedName in agent-attachments.js).
+const STAMPED = /^\d{8}-\d{6}-[0-9a-f]{8}-/;
+const uploadId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 // Videos whose bytes were proven against their digest, by id: the file's identity
 // then. Range requests (Safari asks for many) need not hash 200 MB each time.
 const MAX_VERIFIED = 256;
@@ -54,6 +63,56 @@ export class VideoUploads {
     this.uploads = new Map();
     this.verified = new Map();
     this.checking = new Map();
+    this.finished = new Map();
+  }
+  /**
+   * Removes copies a crash or restart left half-written: AgentPier-named regular
+   * files in the folder with no index row, no upload still writing them, and
+   * untouched for the idle time. The caller holds the agent's serial queue.
+   */
+  async sweep(assistantId, folder) {
+    const indexed = new Set(
+      this.a.db
+        .prepare("SELECT body FROM agent_attachments WHERE assistant_id=?")
+        .all(assistantId)
+        .map((row) => JSON.parse(row.body).file),
+    );
+    const arriving = this.arriving(assistantId);
+    const cutoff = Date.now() - IDLE_MS;
+    let seen = 0;
+    for await (const entry of await fs.opendir(folder)) {
+      if (++seen > 5000) break;
+      if (!entry.isFile() || !STAMPED.test(entry.name)) continue;
+      if (indexed.has(entry.name) || arriving.has(entry.name)) continue;
+      const target = path.join(folder, entry.name);
+      const stat = await fs.lstat(target).catch(() => null);
+      if (stat?.isFile() && stat.mtimeMs < cutoff) await fs.rm(target, { force: true });
+    }
+  }
+  /** At startup: every agent's leftovers, before anything counts them. */
+  async sweepAll() {
+    for (const { id } of this.a.store.listAssistants())
+      await this.a
+        .serial(id, async () => {
+          const folder = await this.a.folder(id, false);
+          if (folder) await this.sweep(id, folder.path);
+        })
+        .catch(() => {});
+  }
+  /** Maintenance (backup, restore, update): no partial copy may outlive it. */
+  async dropAll() {
+    for (const upload of [...this.uploads.values()])
+      await this.drop(upload).catch(() => {});
+  }
+  // The staged file a finished upload produced, while it is still staged.
+  done(conversationId, id) {
+    const entry = this.finished.get(String(id));
+    if (!entry || entry.conversationId !== conversationId) return null;
+    if (Date.now() - entry.at > FINISHED_MS) {
+      this.finished.delete(String(id));
+      return null;
+    }
+    return this.a.staged(conversationId, [entry.fileId], false)[0] || null;
   }
   /** fileName → announced size of the videos still arriving for an agent. */
   arriving(assistantId) {
@@ -63,7 +122,18 @@ export class VideoUploads {
     return sizes;
   }
   /** Starts an upload from the first bytes of the video; `size` is its full length. */
-  async begin(conversationId, name, size, head) {
+  // `id` is chosen by the page, so a first chunk whose reply was lost can be sent
+  // again: an upload already started continues, a finished one names its file.
+  async begin(conversationId, name, size, head, id = randomUUID()) {
+    if (!uploadId.test(String(id))) throw assistantProblem("invalid");
+    const file = this.done(conversationId, id);
+    if (file) return { file };
+    const existing = this.uploads.get(id);
+    if (existing) {
+      if (existing.conversationId !== conversationId)
+        throw assistantProblem("conflict", 409);
+      return { upload: id, received: existing.written };
+    }
     if (!Number.isSafeInteger(size) || size < 1) throw assistantProblem("invalid");
     if (size > MAX_VIDEO_BYTES) throw assistantProblem("videoTooLarge", 413);
     const type = videoType(head);
@@ -73,19 +143,23 @@ export class VideoUploads {
     return this.a.serial(assistantId, async () => {
       const folder = await this.a.folder(assistantId);
       await this.a.expire(assistantId, folder.path);
+      if (this.uploads.has(id)) throw assistantProblem("conflict", 409);
       const open = [...this.uploads.values()].filter(
         (u) => u.assistantId === assistantId,
       );
-      for (const stale of open.slice(
-        0,
-        Math.max(0, open.length - MAX_OPEN_PER_AGENT + 1),
-      ))
-        await this.drop(stale);
+      const now = Date.now();
+      for (const stale of open.filter((u) => !u.busy && now - u.touched > ACTIVE_MS))
+        if (open.length >= MAX_OPEN_PER_AGENT) {
+          await this.drop(stale);
+          open.splice(open.indexOf(stale), 1);
+        }
+      if (open.length >= MAX_OPEN_PER_AGENT)
+        throw assistantProblem("videoUploadsBusy", 429);
       await this.a.assertQuota(assistantId, folder.path, size);
       const { display, file } = this.a.storedName(name, type);
       const handle = await this.a.createEmpty(folder, file);
       const upload = {
-        id: randomUUID(),
+        id,
         conversationId,
         assistantId,
         folder,
@@ -104,6 +178,7 @@ export class VideoUploads {
     });
   }
   idle(upload) {
+    upload.touched = Date.now();
     clearTimeout(upload.timer);
     upload.timer = setTimeout(() => void this.drop(upload).catch(() => {}), IDLE_MS);
     upload.timer.unref?.();
@@ -120,6 +195,8 @@ export class VideoUploads {
    * the retry names the offset to continue from.
    */
   async receive(conversationId, id, offset, chunks) {
+    const file = this.done(conversationId, id);
+    if (file) return { complete: true, file };
     const upload = this.get(conversationId, id);
     if (upload.busy) throw assistantProblem("conflict", 409);
     if (offset !== upload.written)
@@ -171,6 +248,9 @@ export class VideoUploads {
     clearTimeout(upload.timer);
     return this.a.serial(upload.assistantId, async () => {
       const target = path.join(upload.folder.path, upload.file);
+      // Like any upload, a finished video gives way to none: the oldest unsent
+      // files of the conversation do (agent-attachments.js).
+      await this.a.trimStaged(upload.conversationId, upload.folder.path);
       let meta;
       try {
         await this.proven(upload, target);
@@ -203,6 +283,13 @@ export class VideoUploads {
         await fs.rm(target, { force: true });
         throw error;
       }
+      this.finished.set(upload.id, {
+        conversationId: upload.conversationId,
+        fileId,
+        at: Date.now(),
+      });
+      if (this.finished.size > MAX_FINISHED)
+        this.finished.delete(this.finished.keys().next().value);
       const { name, type, kind, size, video } = entry;
       return { id: fileId, name, type, kind, size, ...(video && { video }) };
     });

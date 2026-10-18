@@ -231,6 +231,8 @@ export const assistants = {
   attachmentUnsupported:
     "This file type is not supported. You can attach images (JPEG, PNG, WebP, GIF, HEIC), videos (MP4, MOV, WebM), PDF and text files.",
   videoTooLarge: "Videos can be at most 200 MB.",
+  videoUploadsBusy:
+    "This agent is already receiving three videos. Wait until one has finished.",
   videoUploadOffset: "The upload was interrupted. It continues where it stopped.",
   attachmentTooMany: "Too many attachments. A message can hold at most 5 files.",
   attachmentNotFound: "This attachment is no longer available. Add the file again.",
