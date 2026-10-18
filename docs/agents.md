@@ -389,7 +389,9 @@ attachments in total, videos included.
 Every agent, team members included, can hand you a file from its own workspace with
 its `agentpier_share_file` tool, for example a report it wrote or a chart it drew. The
 file appears in the chat at once as the agent's message: images inline (select one to
-open it), every other file as a download chip, with the agent's short caption. It
+open it in the image viewer: close it with ×, Esc, a tap beside the image or a swipe
+down; pinch to zoom, download or share from there), every other file as a download
+chip that saves it without leaving the chat, with the agent's short caption. It
 stays in the history, also while AgentPier is unreachable. When the turn came from your
 paired Telegram chat, the file goes there too, as a photo or as a document. A
 routine's run can share files as well, for example a weekly report: they appear in the

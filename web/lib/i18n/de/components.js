@@ -8,3 +8,10 @@ export const paginationCopy = {
 export const apiCopy = {
   requestFailed: (value1) => `Anfrage fehlgeschlagen (${value1})`,
 };
+export const imageViewerCopy = {
+  title: "Bildansicht",
+  close: "Bildansicht schließen",
+  download: "Herunterladen",
+  share: "Teilen",
+  missing: "Bild nicht mehr verfügbar.",
+};

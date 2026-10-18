@@ -112,7 +112,11 @@
 .agent-message-attachments:last-child {
   margin-bottom: 0;
 }
-.agent-message-image a {
+.agent-message-image-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
   display: block;
   border-radius: 10px;
   overflow: hidden;

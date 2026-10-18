@@ -109,7 +109,7 @@ test("tool images load only after the row is opened", async ({ page }) => {
   await expect(open).toBeEnabled();
   expect(hits).toBeGreaterThan(0);
   await open.click();
-  await expect(page.locator("dialog.chat-image-dialog")).toBeVisible();
+  await expect(page.locator("dialog.image-viewer")).toBeVisible();
 });
 
 test("a tool row shows every image beyond the attachment limit", async ({ page }) => {

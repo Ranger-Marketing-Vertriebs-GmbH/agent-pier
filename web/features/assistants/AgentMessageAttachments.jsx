@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import Icon from "../../components/Icon.jsx";
+import ImageViewer from "../../components/ImageViewer.jsx";
 import "./agent-attachments.css";
 import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assistant-attachments.js";
 import { formatNumber } from "../../lib/i18n/index.js";
@@ -55,46 +56,61 @@ function VideoAttachment({ file }) {
 const shown = (file) => file.kind === "image" && file.type !== "image/heic";
 
 // The owner's files in a sent message, or the files an agent shared (`shared`):
-// thumbnails that open the image, and chips that download the file. Both are served
-// through the signed-in route by id.
+// thumbnails that open the image in the in-app viewer, and chips that download the
+// file. Nothing navigates away: a home-screen app (iOS) has no way back. Both are
+// served through the signed-in route by id.
 export default function AgentMessageAttachments({ files, shared = false }) {
+  const [open, setOpen] = useState(null);
   if (!files?.length) return null;
   return (
-    <ul
-      className="agent-message-attachments"
-      aria-label={shared ? copy.shared : copy.sent}
-    >
-      {files.map((file) =>
-        file.kind === "video" && !shared ? (
-          <VideoAttachment key={file.id} file={file} />
-        ) : shown(file) ? (
-          <li key={file.id} className="agent-message-image">
-            <a
-              href={source(file.id)}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={copy.open(file.name)}
-            >
-              <img src={source(file.id)} alt={file.name} loading="lazy" />
-            </a>
-          </li>
-        ) : (
-          <li key={file.id} className="agent-attachment-chip ready">
-            <span className="agent-attachment-icon" aria-hidden="true">
-              <Icon name="file" size={16} />
-            </span>
-            <a
-              className="agent-attachment-text"
-              href={source(file.id)}
-              download={file.name}
-              aria-label={copy.download(file.name)}
-            >
-              <span className="agent-attachment-name">{file.name}</span>
-              <span className="agent-attachment-meta">{fileSize(file.size)}</span>
-            </a>
-          </li>
-        ),
+    <>
+      <ul
+        className="agent-message-attachments"
+        aria-label={shared ? copy.shared : copy.sent}
+      >
+        {files.map((file) =>
+          file.kind === "video" && !shared ? (
+            <VideoAttachment key={file.id} file={file} />
+          ) : shown(file) ? (
+            <li key={file.id} className="agent-message-image">
+              <button
+                type="button"
+                className="agent-message-image-open"
+                aria-label={copy.open(file.name)}
+                onClick={(event) => setOpen({ file, opener: event.currentTarget })}
+              >
+                <img src={source(file.id)} alt={file.name} loading="lazy" />
+              </button>
+            </li>
+          ) : (
+            <li key={file.id} className="agent-attachment-chip ready">
+              <span className="agent-attachment-icon" aria-hidden="true">
+                <Icon name="file" size={16} />
+              </span>
+              <a
+                className="agent-attachment-text"
+                href={source(file.id)}
+                download={file.name}
+                aria-label={copy.download(file.name)}
+              >
+                <span className="agent-attachment-name">{file.name}</span>
+                <span className="agent-attachment-meta">{fileSize(file.size)}</span>
+              </a>
+            </li>
+          ),
+        )}
+      </ul>
+      {open && (
+        <ImageViewer
+          key={open.file.id}
+          src={source(open.file.id)}
+          alt={open.file.name}
+          title={open.file.name}
+          name={open.file.name}
+          opener={open.opener}
+          close={() => setOpen(null)}
+        />
       )}
-    </ul>
+    </>
   );
 }
