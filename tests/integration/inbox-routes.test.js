@@ -51,7 +51,11 @@ test("the inbox lists, streams revisions and resolves stable item addresses", as
     agents: 0,
   });
   const state = await (await f.request("/api/state")).json();
-  assert.deepEqual(state.inbox, { revision: empty.revision, counts: empty.counts });
+  assert.deepEqual(state.inbox, {
+    instance: empty.instance,
+    revision: empty.revision,
+    counts: empty.counts,
+  });
 
   const controller = new AbortController();
   t.after(() => controller.abort());

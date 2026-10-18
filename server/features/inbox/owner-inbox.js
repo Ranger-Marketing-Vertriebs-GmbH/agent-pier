@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
 import { collectItems } from "./inbox-sources.js";
 import { countItems, itemsSignature, sortItems } from "./inbox-items.js";
 import { itemHistory } from "./inbox-history.js";
@@ -35,6 +36,9 @@ export class OwnerInbox {
     Object.assign(this, { services, now, intervalMs, debounceMs, maxAgeMs, onError });
     this.events = new EventEmitter();
     this.events.setMaxListeners(0);
+    // Revisions count from one per process; the instance tells clients a restart
+    // started a new count.
+    this.instance = randomUUID();
     this.revision = 0;
     this.signature = null;
     this.current = null;
@@ -65,18 +69,15 @@ export class OwnerInbox {
     this.debounce.unref?.();
   }
   async snapshot() {
-    if (
-      this.current &&
-      !this.dirty &&
-      this.now() - this.computedAt < this.maxAgeMs &&
-      !this.running
-    )
+    // A read during a computation shares it; only a change asks for another one.
+    if (this.running) return this.running;
+    if (this.current && !this.dirty && this.now() - this.computedAt < this.maxAgeMs)
       return this.current;
     return this.refresh();
   }
   async summary() {
-    const { revision, counts } = await this.snapshot();
-    return { revision, counts };
+    const { instance, revision, counts } = await this.snapshot();
+    return { instance, revision, counts };
   }
   refresh() {
     if (this.running) {
@@ -111,11 +112,17 @@ export class OwnerInbox {
       this.revision++;
       this.signature = signature;
     }
-    this.current = { revision: this.revision, counts: countItems(items), items };
+    this.current = {
+      instance: this.instance,
+      revision: this.revision,
+      counts: countItems(items),
+      items,
+    };
     this.computedAt = now;
     if (changed)
       this.events.emit("change", {
         type: "inbox",
+        instance: this.instance,
         revision: this.current.revision,
         counts: this.current.counts,
       });
