@@ -48,6 +48,9 @@ function pinnedSocket(url, certPath, handshake) {
 // on Intel macOS runners); later calls take milliseconds. Waiting is the only safe
 // option: a timed-out create leaves it unknown whether the session exists.
 export const sessionCreateTimeoutMs = 60000;
+// A busy Gateway (memory pressure, slow SQLite) acknowledges a turn late; a send
+// that times out still runs, so its acknowledgement gets as long as a session create.
+export const sessionSendTimeoutMs = 60000;
 // What GatewayClient.download may read: OpenClaw's managed outgoing media.
 const downloadPaths = ["/api/chat/media/outgoing/"];
 

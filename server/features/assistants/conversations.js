@@ -13,6 +13,7 @@ import { withMemoryNotes } from "./memory-notes.js";
 import { historyTextLimit } from "./history-text.js";
 import { cachedWindow } from "./assistant-store.js";
 import { completePage, historyReads, withoutMarks } from "./history-completion.js";
+import { confirmFromTranscript } from "./run-confirmation.js";
 // A compaction marker (OpenClaw 2026.10.3: a system message with
 // `__openclaw.kind: "compaction"` and its token counts) is a chat note only where the
 // chat asks for it (`compactions`); every other reader sees the turns alone.
@@ -211,6 +212,8 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         service.store.cacheMessages(id, cached);
       messages = page;
       stale = false;
+      // The turn's own message proves a send whose acknowledgement was lost.
+      confirmFromTranscript(service, id, page);
       if (history.hasMore)
         nextBefore = String(offset + (history.messages?.length || limit));
     } catch {

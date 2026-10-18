@@ -1,4 +1,5 @@
 import { assistantProblem, validateSendInput } from "./assistant-validation.js";
+import { sessionSendTimeoutMs } from "./gateway-client.js";
 
 /**
  * One owner (or Telegram, or internal) turn of an AgentPier conversation, admitted by
@@ -50,16 +51,30 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   const { request, attempt } = (service.teams?.store || service.attachments).transaction(
     accept,
   );
+  // The reconciler leaves an attempt alone while its send is under way.
+  const sending = (service.sending ??= new Set());
+  sending.add(attempt.id);
+  const generation = service.runtime.generation ?? null;
+  let delivered = false;
   try {
     const turn = await service.attachments.delivery(request, conversation.assistantId);
-    const sent = await service.runtime.client.call("sessions.send", {
-      key: conversation.runtimeSessionKey,
-      ...turn,
-      idempotencyKey: attempt.id,
-    });
+    delivered = true;
+    const sent = await service.runtime.client.call(
+      "sessions.send",
+      { key: conversation.runtimeSessionKey, ...turn, idempotencyKey: attempt.id },
+      { timeoutMs: sessionSendTimeoutMs },
+    );
     service.ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });
   } catch {
-    service.ledger.transition(attempt.id, "uncertain", {});
+    // A send that went out may run without its acknowledgement: the Gateway's own
+    // evidence of the run confirms it later (run-confirmation.js).
+    service.ledger.transition(
+      attempt.id,
+      "uncertain",
+      delivered ? { unconfirmed: "send", generation } : {},
+    );
+  } finally {
+    sending.delete(attempt.id);
   }
   service.changed();
   return {

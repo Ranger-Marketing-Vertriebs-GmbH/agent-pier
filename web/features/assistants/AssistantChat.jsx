@@ -33,6 +33,7 @@ import { leadMembers } from "./useMemberMention.js";
 import { streamInHistory } from "./stream-reply.js";
 import { takeBack } from "./queued-message.js";
 import { connectionLost } from "./agent-offline.js";
+import useAwaitingConfirmation from "./unconfirmed-turn.js";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
 const sameTurnText = (a, b) => turnText(a) === turnText(b);
@@ -165,7 +166,16 @@ export default function AssistantChat({
     latest?.attempt &&
     !latest.attempt.reviewedAt &&
     !["completed", "failed", "cancelled"].includes(latest.attempt.state);
-  const uncertain = ["uncertain", "interrupted"].includes(latest?.attempt?.state);
+  // A lost send acknowledgement waits calmly while the run may still show progress.
+  const awaiting = useAwaitingConfirmation(
+    latest?.attempt,
+    `${history.messages.length}:${delta?.text?.length ?? 0}`,
+  );
+  const uncertain =
+    !awaiting && ["uncertain", "interrupted"].includes(latest?.attempt?.state);
+  const shownAttempt = awaiting
+    ? { ...latest.attempt, state: "unconfirmed" }
+    : latest?.attempt;
   // The run summarises its long history before it answers (compactions.js).
   const compacting = Boolean(active && !uncertain && history.compacting);
   // Every agent's own requests wait in its chat: a permanent member may have a shell.
@@ -367,7 +377,7 @@ export default function AssistantChat({
         navigate={navigate}
         openNavigation={openNavigation}
         navigationOpen={navigationOpen}
-        attempt={active ? latest.attempt : null}
+        attempt={active ? shownAttempt : null}
         member={member}
         compacting={compacting}
       />
@@ -470,9 +480,10 @@ export default function AssistantChat({
                 {active && !uncertain && (
                   <span className="assistant-run-dot" aria-hidden="true" />
                 )}
-                {compacting ? copy.compaction.running : copy.status[latest.attempt.state]}
+                {compacting ? copy.compaction.running : copy.status[shownAttempt.state]}
               </p>
             )}
+            {awaiting && <p className="assistant-notice">{copy.unconfirmed}</p>}
             {uncertain && (
               <p className="assistant-notice">
                 {latest.attempt.reviewedAt ? copy.reviewed : copy.uncertain}

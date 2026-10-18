@@ -425,6 +425,18 @@ original request successful or undo previous effects. The record retains its
 unknown outcome and can accept later terminal evidence. No recovery path resends
 the request automatically; a manually repeated message gets a new delivery ID.
 
+**Unconfirmed sends.** `sessions.send` waits up to 60 s for its acknowledgement
+(`sessionSendTimeoutMs`); a busy Gateway may still run a turn whose acknowledgement
+is lost. Such an attempt becomes `uncertain` but stays _unconfirmed_ (evidence
+`unconfirmed: "send"` with the Gateway generation, `run-confirmation.js`). Without
+proof it gets no AgentPier tools and no native writes. Any Gateway event of its run
+(run ID = attempt ID) or its own user message in the transcript (delivery key
+`<attempt ID>:user`) moves it to `running` on that same Gateway generation, so the
+turn's tools work and it completes normally. A restart, a review, or uncertainty from
+any other cause is never confirmed this way. The chat shows "Awaiting confirmation"
+for such a turn and offers the restart-and-acknowledge action only after its run has
+been quiet for two minutes.
+
 Agents receive `session_status` plus the managed AgentPier tools their settings
 enable (team, memory, reminder, routine and coding tools; see the sections below).
 Gmail, Microsoft 365, Google Calendar and Apple service tools remain deferred.
