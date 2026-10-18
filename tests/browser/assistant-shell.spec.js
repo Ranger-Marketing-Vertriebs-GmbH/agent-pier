@@ -221,11 +221,11 @@ for (const [label, use] of [
       await expect(list.nth(2)).toContainText("Exact command");
       await expect(allowlist(page).getByText("=node-command:0123")).toHaveCount(0);
       await allowlist(page)
-        .getByRole("button", { name: "Delete entry /usr/bin/git" })
+        .getByRole("button", { name: "Remove entry /usr/bin/git" })
         .click();
       await page
-        .getByRole("dialog", { name: "Delete the entry /usr/bin/git?" })
-        .getByRole("button", { name: "Delete now" })
+        .getByRole("dialog", { name: "Remove the entry /usr/bin/git?" })
+        .getByRole("button", { name: "Remove now" })
         .click();
       await expect(list).toHaveCount(2);
       expect(state.deletes).toEqual(["e2"]);
@@ -485,28 +485,28 @@ for (const [label, use] of [
       });
       await page.goto(baseURL + settingsPath("capabilities", "allowlist"));
       await allowlist(page)
-        .getByRole("button", { name: "Delete entry /usr/bin/git" })
+        .getByRole("button", { name: "Remove entry /usr/bin/git" })
         .click();
       // Deleting asks first; Cancel keeps the entry without a request.
       const confirm = page.getByRole("dialog", {
-        name: "Delete the entry /usr/bin/git?",
+        name: "Remove the entry /usr/bin/git?",
       });
-      await expect(confirm.getByRole("button", { name: "Delete now" })).toHaveClass(
+      await expect(confirm.getByRole("button", { name: "Remove now" })).toHaveClass(
         /danger/,
       );
       await confirm.getByRole("button", { name: "Cancel" }).click();
       await expect(confirm).toHaveCount(0);
       expect(state.deletes).toEqual([]);
       await allowlist(page)
-        .getByRole("button", { name: "Delete entry /usr/bin/git" })
+        .getByRole("button", { name: "Remove entry /usr/bin/git" })
         .click();
-      await confirm.getByRole("button", { name: "Delete now" }).click();
+      await confirm.getByRole("button", { name: "Remove now" }).click();
       await expect(allowlist(page).getByRole("alert")).toHaveText(
         "The agent service is not ready.",
       );
       await expect(allowlist(page).locator(".assistant-shell-entry")).toHaveCount(1);
       await expect(
-        allowlist(page).getByRole("button", { name: "Delete entry /usr/bin/git" }),
+        allowlist(page).getByRole("button", { name: "Remove entry /usr/bin/git" }),
       ).toBeEnabled();
       expect(state.deletes).toEqual(["broken"]);
     });

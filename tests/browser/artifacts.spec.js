@@ -19,6 +19,8 @@ const labels = {
     image: "Image · PNG",
     open: (title) => `Open ${title}`,
     copyLink: "Copy link",
+    copyId: "Copy artifact ID",
+    idCopied: "Artifact ID copied.",
     copied: "Link copied.",
     linkHint: "The link only works when signed in to AgentPier.",
     session: "Session · Claude Code",
@@ -57,6 +59,8 @@ const labels = {
     image: "Bild · PNG",
     open: (title) => `${title} öffnen`,
     copyLink: "Link kopieren",
+    copyId: "Artifact-ID kopieren",
+    idCopied: "Artifact-ID kopiert.",
     copied: "Link kopiert.",
     linkHint: "Der Link funktioniert nur, wenn du bei AgentPier angemeldet bist.",
     session: "Session · Claude Code",
@@ -193,6 +197,15 @@ for (const language of ["en", "de"]) {
     expect(await page.evaluate(() => window.copiedText)).toBe(
       `${base}/artifacts/view/a3`,
     );
+    // The details card copies the full artifact ID.
+    const copyId = detail.getByRole("button", { name: t.copyId });
+    if (!(await copyId.isVisible()))
+      await detail.getByRole("button", { name: t.details }).click();
+    await copyId.click();
+    await expect(
+      detail.getByRole("status").filter({ hasText: t.idCopied }),
+    ).toBeVisible();
+    expect(await page.evaluate(() => window.copiedText)).toBe("a3");
     if (shots && language === "en") {
       await page.evaluate(() =>
         document.querySelectorAll("*").forEach((node) => node.scrollTo?.(0, 0)),
