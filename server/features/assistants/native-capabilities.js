@@ -29,9 +29,11 @@ export const memoryTools = ["memory_search", "memory_get", "read", "write", "edi
 // Writes reach the workspace only through the plugin's before_tool_call guard, which
 // is verified live on these runtimes; elsewhere memory stays read-only.
 export const guardedTools = ["write", "edit"];
-// Tools offered only while the plugin's tool guard is proven: the guarded writes and
-// the browser, whose calls the guard pins to the agent's own profile.
-export const guardGatedTools = [...guardedTools, "browser"];
+// Tools offered only while the plugin's tool guard is proven: the guarded writes, the
+// browser, whose calls the guard pins to the agent's own profile, and image creation,
+// whose calls it checks and counts (image-policy.js).
+export const guardGatedTools = [...guardedTools, "browser", "image_generate"];
+const guardGatedCapabilities = ["browser", "createImages"];
 export const writeGuardRuntimes = ["2026.9.8", "2026.9.9", "2026.10.3"];
 export const delegationTools = [
   "agentpier_team_propose",
@@ -183,7 +185,7 @@ export function profileTools(
           // the browser also waits for the proven tool guard.
           capabilities[key] &&
           available[key] !== false &&
-          (key !== "browser" || writeGuard)
+          (!guardGatedCapabilities.includes(key) || writeGuard)
             ? tools
             : [],
         )

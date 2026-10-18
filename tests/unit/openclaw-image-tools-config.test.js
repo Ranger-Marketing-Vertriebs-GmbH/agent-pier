@@ -72,6 +72,12 @@ test("image creation is a capability of its own, apart from reading images", () 
     ),
     false,
   );
+  assert.equal(
+    profileTools(artist, true, true, false, { createImages: true }).includes(
+      "image_generate",
+    ),
+    false,
+  );
   // Without a ready ChatGPT account the tool is withheld, as for a missing browser.
   assert.equal(
     profileTools(artist, true, true, true, { createImages: false }).includes(
@@ -96,7 +102,11 @@ test("a ready ChatGPT account compiles the image tool and OpenAI's image model",
   assert.deepEqual(config.agents.defaults.mediaModels, {
     image: { primary: "openai/gpt-image-2", timeoutMs: 180000 },
   });
-  assert.ok(config.agents.entries["ap-a1"].tools.allow.includes("image_generate"));
+  // Like the browser it waits for the proven tool guard, which checks every call.
+  assert.equal(
+    config.agents.entries["ap-a1"].tools.allow.includes("image_generate"),
+    false,
+  );
   assert.equal(
     config.agents.entries["ap-a2"].tools.allow.includes("image_generate"),
     false,

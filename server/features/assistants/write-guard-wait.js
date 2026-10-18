@@ -14,7 +14,9 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * memory included) and the browser.
  */
 export const guardNeeded = (assistant) =>
-  memoryEnabled(assistant) || personalCapabilities(assistant).browser;
+  memoryEnabled(assistant) ||
+  personalCapabilities(assistant).browser ||
+  personalCapabilities(assistant).createImages;
 const ownTurn = (context) =>
   ["owner", "telegram"].includes(context?.kind) && !context.forwarded;
 

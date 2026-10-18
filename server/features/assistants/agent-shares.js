@@ -161,7 +161,7 @@ export class AgentShares {
     }
   }
   // `kind` "generated-image" marks an image the agent created (generated-images.js).
-  audit(agent, origin, telegram, projectId, kind = "share") {
+  audit(agent, origin, telegram, projectId, kind = "share", outcome = "success") {
     try {
       this.assistants.audit?.append({
         action: "assistant.sent",
@@ -169,7 +169,7 @@ export class AgentShares {
         resourceId: agent.id,
         ...(projectId ? { projectId } : {}),
         source: "system",
-        outcome: "success",
+        outcome,
         details: {
           kind,
           channel: telegram === "queued" ? "telegram" : "tool",

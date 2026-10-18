@@ -203,6 +203,7 @@ export function auditEvent(input) {
       "share",
       "github-access",
       "generated-image",
+      "image-generation",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;

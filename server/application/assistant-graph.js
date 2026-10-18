@@ -1,4 +1,5 @@
 import path from "node:path";
+import { ImagePolicy } from "../features/assistants/image-policy.js";
 import { NativeRoutines } from "../features/assistants/native-routines.js";
 import { temporaryMember } from "../features/assistants/team-presentation.js";
 import { TeamService } from "../features/assistants/team-service.js";
@@ -214,6 +215,8 @@ export function constructAssistantGraph(host, created = {}) {
   }));
   // A shared file also reaches the owner's Telegram chat its turn came from.
   assistants.shares.channels = assistantChannels;
+  // Every image_generate call is checked and counted through the bridge.
+  assistants.imagePolicy = new ImagePolicy({ assistants });
   const assistantMemory = new NativeMemory(assistants, {
     workspaces: assistantRuntime.paths.workspaces,
   });

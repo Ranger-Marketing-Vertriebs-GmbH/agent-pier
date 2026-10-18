@@ -31,8 +31,10 @@ const readOnly = [
   "web_fetch",
   "browser",
   "view_image",
-  // Writes only into OpenClaw's managed media (state/media), never the workspace;
-  // reference images are read within the workspace (tools.fs.workspaceOnly).
+  // Writes only into OpenClaw's managed media (state/media), never the workspace.
+  // Local reference images come from the workspace and OpenClaw's shared media folder
+  // (tools.fs.workspaceOnly); web references are refused by the tool guard unless the
+  // agent may read web pages (tool-guard.js imageCall).
   "image_generate",
 ];
 const everything = {

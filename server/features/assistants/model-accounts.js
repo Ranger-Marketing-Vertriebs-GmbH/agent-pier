@@ -58,6 +58,8 @@ export class AssistantModelAccounts {
       providerId: "openai-chatgpt",
       status: this.runtime.client?.ready ? r.status : "offline",
       available: !!this.runtime.client?.ready && ["ok", "expiring"].includes(r.status),
+      // The last known sign-in, also while the Gateway is away (imageReady).
+      signedIn: ["ok", "expiring"].includes(r.status),
       ...this.catalog.account(r.profileId, { accounts: this.records.length }),
     }));
   }

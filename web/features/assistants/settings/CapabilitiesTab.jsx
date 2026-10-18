@@ -45,7 +45,10 @@ const conflictLabels = {
 export default function CapabilitiesTab({ assistant, page, go, navigate }) {
   const { refresh, runtime, members = [], models = [] } = useAssistants();
   // Images come from a signed-in ChatGPT account (server model-accounts.js).
-  const images = models.some((m) => m.providerId === "openai-chatgpt" && m.available);
+  // Its last known status counts, as on the server, also while the service is away.
+  const images = models.some(
+    (m) => m.providerId === "openai-chatgpt" && (m.signedIn ?? m.available) === true,
+  );
   const personal = isPersonal(assistant);
   const draft = useTabDraft({
     server: capabilityServer(assistant),
