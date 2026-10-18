@@ -2568,8 +2568,14 @@ for SSH), never in a sender bot's session, and routes it to `AgentShares`
   budget per agent, 1 GiB or 2000 files, separate from the owner's uploads; a copy
   expires after 90 days (no longer served, removed by an hourly sweep), and a full
   store gives up its oldest copies. Its type is decided by the bytes: JPEG, PNG, WebP,
-  GIF, HEIC and PDF keep theirs, anything else (text, CSV, office files, archives) is
-  stored as `application/octet-stream` and only ever downloaded. The index row in
+  GIF, HEIC and PDF keep theirs; MP4, QuickTime and WebM videos and MP3, Ogg, WAV,
+  FLAC and M4A audio are served inline a byte range at a time (`openMedia`, checked
+  once by size and SHA-256 per file identity, like the owner's videos) and play in the
+  chat; anything else (text, CSV, office files, archives) is stored as
+  `application/octet-stream` and only ever downloaded. In the installed home-screen
+  app (`display-mode: standalone`, `web/lib/standalone.js`) no file link navigates:
+  `FileLink` and `saveBlob` fetch the file and hand it to the share sheet, or open a
+  separate window without file sharing. The index row in
   `agent_attachments` names `share:<request id>` (`share:routine:<run id>` for a
   routine) as its request, so no delivery, claim, history note or upload quota of an
   owner turn ever picks it up. The owner deletes a copy with

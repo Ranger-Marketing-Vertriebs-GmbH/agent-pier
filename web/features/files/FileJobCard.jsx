@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import FileLink from "../../components/FileLink.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 import { isTerminal } from "./file-action-utils.js";
 import { FileJobIssue } from "./FileJobs.jsx";
@@ -65,13 +66,12 @@ export default function FileJobCard({ job, state, scopeId, client, onRetry }) {
       {job.kind === "archive" &&
         job.status === "completed" &&
         job.artifactReady === true && (
-          <a
+          <FileLink
             className="button secondary compact"
             href={client.archiveDownload(job.id)}
-            download
           >
             {copy.transfers.downloadArchive}
-          </a>
+          </FileLink>
         )}
       {job.kind === "archive" &&
         job.status === "completed" &&

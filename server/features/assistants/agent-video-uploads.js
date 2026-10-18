@@ -29,15 +29,15 @@ const uploadId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 const MAX_VERIFIED = 256;
 const READ_BYTES = 1024 * 1024;
 
-const reader = (handle) => async (offset, length) => {
+export const reader = (handle) => async (offset, length) => {
   const buffer = Buffer.alloc(length);
   const { bytesRead } = await handle.read(buffer, 0, length, offset);
   return buffer.subarray(0, bytesRead);
 };
-const identity = (stat) =>
+export const identity = (stat) =>
   `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`;
 
-async function hashFile(handle, size) {
+export async function hashFile(handle, size) {
   const hash = createHash("sha256");
   const buffer = Buffer.alloc(Math.min(READ_BYTES, Math.max(1, size)));
   for (let offset = 0; offset < size;) {

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { saveBlob } from "../../lib/standalone.js";
 import { observeBuild } from "../../lib/build-check.js";
 import api, { apiError } from "../../lib/api.js";
 import SshCopy from "./SshCopy.jsx";
@@ -44,14 +45,8 @@ export default function SshKeyCard({ sshKey, project, edited, removed }) {
                 }),
               );
               if (!response.ok) throw await apiError(response);
-              const blobUrl = URL.createObjectURL(await response.blob());
-              const link = document.createElement("a");
-              link.href = blobUrl;
-              link.download = `agentpier-${sshKey.id}.key`;
-              document.body.append(link);
-              link.click();
-              link.remove();
-              setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
+              // The share sheet in a standalone app (lib/standalone.js).
+              await saveBlob(await response.blob(), `agentpier-${sshKey.id}.key`);
             } catch (err) {
               setError(err.message);
             } finally {

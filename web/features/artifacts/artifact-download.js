@@ -1,4 +1,5 @@
 import { apiError } from "../../lib/api.js";
+import { saveBlob } from "../../lib/standalone.js";
 import { observeBuild } from "../../lib/build-check.js";
 
 /** The file name a download response names (RFC 5987 first), or `fallback`. */
@@ -25,15 +26,7 @@ export async function downloadArtifact(item) {
   );
   if (!response.ok) throw await apiError(response);
   const name = downloadName(response.headers.get("Content-Disposition"), "artifact");
-  const url = URL.createObjectURL(await response.blob());
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  link.hidden = true;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  // Safari reads the blob after the click returns; keep it a little while.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  // A standalone app gets the share sheet instead of a navigation (lib/standalone.js).
+  await saveBlob(await response.blob(), name);
   return name;
 }
