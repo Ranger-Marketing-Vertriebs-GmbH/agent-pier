@@ -79,8 +79,15 @@ function processLabel(item) {
 }
 
 export default function SystemStatusDialog({ close }) {
-  const { data, error } = useSystemStatus("/system-status/details");
-  const now = data ? Date.parse(data.sampledAt) : Date.now();
+  const { data: answer, error } = useSystemStatus("/system-status/details");
+  // The details tolerate a missing part, such as process rows after a failed ps.
+  const data = answer && {
+    ...answer,
+    processes: Array.isArray(answer.processes) ? answer.processes : [],
+    history: Array.isArray(answer.history) ? answer.history : [],
+    areas: Array.isArray(answer.areas?.areas) ? answer.areas : { state: "pending" },
+  };
+  const now = Date.parse(data?.sampledAt) || Date.now();
   const largest = Math.max(1, ...(data?.areas?.areas || []).map((item) => item.bytes));
   const sessions = data?.processes.filter((item) => item.kind === "session") || [];
   return (

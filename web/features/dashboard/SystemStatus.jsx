@@ -11,6 +11,8 @@ const SystemStatusDialog = lazy(() => import("./SystemStatusDialog.jsx"));
 export default function SystemStatus() {
   const [open, setOpen] = useState(false);
   const { data, error } = useSystemStatus("/system-status", !open);
+  // Optional information: without any figures yet, a failure hides the row quietly.
+  if (error && !data) return null;
   return (
     <section className="system-status" aria-label={copy.title}>
       <DiskWarning status={data} />
@@ -51,9 +53,7 @@ export default function SystemStatus() {
             />
           </span>
         ) : (
-          <span className="system-status-empty">
-            {error ? copy.unavailable : copy.loading}
-          </span>
+          <span className="system-status-empty">{copy.loading}</span>
         )}
         <Icon name="chevron" size={16} />
       </button>

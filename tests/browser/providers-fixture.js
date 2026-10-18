@@ -1,3 +1,4 @@
+import { systemStatusAnswer } from "../helpers/system-status-fixture.js";
 import { baseURL } from "../helpers/browser.js";
 import {
   resolveDraftRoute,
@@ -396,6 +397,8 @@ export async function fixture(page, { account, session } = {}) {
       });
     if (/\/sessions\/[^/]+\/github$/.test(path))
       return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
+    const status = systemStatusAnswer(path);
+    if (status) return route.fulfill({ json: status });
     throw new Error(`Unexpected provider fixture request: ${method} ${path}`);
   });
   await page.routeWebSocket("**/terminal", (socket) =>

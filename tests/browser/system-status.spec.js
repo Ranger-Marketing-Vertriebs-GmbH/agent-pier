@@ -1,60 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { details, summary } from "../helpers/system-status-fixture.js";
 
 test.use({ locale: "en-GB" });
 
-const GB = 1024 ** 3;
-function summary({ freePercent = 40, diskLow = false } = {}) {
-  return {
-    sampledAt: new Date().toISOString(),
-    cpu: { percent: 34, cores: 12, load: [4.68, 5.61, 6.17] },
-    memory: { totalBytes: 48 * GB, usedBytes: 36 * GB, percent: 75 },
-    disk: {
-      totalBytes: 500 * GB,
-      freeBytes: 5 * freePercent * GB,
-      usedBytes: (500 - 5 * freePercent) * GB,
-      freePercent,
-    },
-    agentPier: { cpuPercent: 2.5, rssBytes: 3 * GB },
-    warning: { diskLow, thresholdPercent: 10 },
-  };
-}
-function details(options) {
-  const now = Date.now();
-  return {
-    ...summary(options),
-    processes: [
-      { kind: "server", processes: 3, rssBytes: 0.2 * GB, cpuPercent: 0.4 },
-      { kind: "gateway", processes: 2, rssBytes: 0.8 * GB, cpuPercent: 1.1 },
-      {
-        kind: "session",
-        id: "s1",
-        name: "Fix the login flow",
-        tool: "claude",
-        processes: 4,
-        rssBytes: 2 * GB,
-        cpuPercent: 1,
-      },
-    ],
-    history: Array.from({ length: 20 }, (_, index) => ({
-      t: now - (19 - index) * 30_000,
-      cpu: 20 + index,
-      memory: 70 + index / 4,
-      agentCpu: 2,
-    })),
-    areas: {
-      state: "ready",
-      computedAt: new Date(now - 60_000).toISOString(),
-      partial: false,
-      totalBytes: 15 * GB,
-      areas: [
-        { id: "profiles", bytes: 12 * GB },
-        { id: "clis", bytes: GB },
-        { id: "agentAttachments", bytes: 0.1 * GB },
-        { id: "other", bytes: 0.9 * GB },
-      ],
-    },
-  };
-}
 async function routeStatus(page, options) {
   const calls = { summary: 0, details: 0 };
   await page.route("**/api/system-status", (route) => {
@@ -160,3 +108,15 @@ test("an unknown disk share shows a dash, not a full bar", async ({ page }) => {
   expect(await bar.evaluate((node) => node.style.width)).toBe("0%");
   await expect(row.locator("div")).toHaveCount(0);
 });
+
+for (const [name, answer] of [
+  ["an unexpected answer", { json: {} }],
+  ["a failed request", { status: 500, json: { error: "unavailable" } }],
+])
+  test(`${name} hides the status row quietly`, async ({ page }) => {
+    await page.route("**/api/system-status", (route) => route.fulfill(answer));
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Your tools" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "System status" })).toHaveCount(0);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
