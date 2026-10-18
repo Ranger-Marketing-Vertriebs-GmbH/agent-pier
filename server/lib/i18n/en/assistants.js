@@ -236,7 +236,9 @@ export const assistants = {
     "A proposed team member names an MCP server that is not bound to the lead agent.",
   attachmentTooLarge: "This file is larger than 10 MB.",
   attachmentUnsupported:
-    "This file type is not supported. You can attach images (JPEG, PNG, WebP, GIF, HEIC), PDF and text files.",
+    "This file type is not supported. You can attach images (JPEG, PNG, WebP, GIF, HEIC), videos (MP4, MOV, WebM), PDF and text files.",
+  videoTooLarge: "Videos can be at most 200 MB.",
+  videoUploadOffset: "The upload was interrupted. It continues where it stopped.",
   attachmentTooMany: "Too many attachments. A message can hold at most 5 files.",
   attachmentNotFound: "This attachment is no longer available. Add the file again.",
   attachmentStorageFull:

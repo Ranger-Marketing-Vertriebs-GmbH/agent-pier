@@ -1,6 +1,6 @@
 export const assistantAttachmentsCopy = Object.freeze({
-  attach: "Attach file or image",
-  choose: "Choose files or images",
+  attach: "Attach file, image or video",
+  choose: "Choose files, images or videos",
   list: "Attachments",
   sent: "Attached files",
   shared: "Shared files",
@@ -15,10 +15,13 @@ export const assistantAttachmentsCopy = Object.freeze({
   open: (name) => `Open ${name}`,
   download: (name) => `Download ${name}`,
   uploading: "Uploading …",
+  uploadingProgress: (percent) => `Uploading … ${percent} %`,
+  video: (name) => `Video ${name}`,
+  videoTooLarge: (name) => `"${name}" is larger than 200 MB.`,
   failed: "Upload failed",
   tooLarge: (name) => `"${name}" is larger than 10 MB.`,
   unsupported: (name) =>
-    `"${name}" is not supported. You can attach images (JPEG, PNG, WebP, GIF, HEIC), PDF and text files.`,
+    `"${name}" is not supported. You can attach images (JPEG, PNG, WebP, GIF, HEIC), videos (MP4, MOV, WebM), PDF and text files.`,
   tooMany: (max) => `A message can hold at most ${max} files.`,
   noImageInput:
     "This agent's model can't see images. Images are only saved in its workspace so it can read them with its tools.",

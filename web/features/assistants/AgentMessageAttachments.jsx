@@ -13,6 +13,44 @@ export function fileSize(bytes) {
 }
 
 const source = (id) => `/api/assistant-attachments/${encodeURIComponent(id)}`;
+
+export function videoDuration(seconds) {
+  if (!Number.isFinite(seconds)) return "";
+  const total = Math.round(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
+// A sent video plays inline from the signed-in route, a range at a time. No poster
+// is extracted on the server; the media fragment makes Safari, which preloads no
+// frame on its own, show the first one.
+function VideoAttachment({ file }) {
+  const details = [videoDuration(file.video?.duration), fileSize(file.size)]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <li className="agent-message-video">
+      <video
+        controls
+        playsInline
+        preload="metadata"
+        src={`${source(file.id)}#t=0.001`}
+        aria-label={copy.video(file.name)}
+      />
+      <a
+        className="agent-attachment-text"
+        href={source(file.id)}
+        download={file.name}
+        aria-label={copy.download(file.name)}
+      >
+        <span className="agent-attachment-name">{file.name}</span>
+        <span className="agent-attachment-meta">{details}</span>
+      </a>
+    </li>
+  );
+}
 // HEIC stays a download: most browsers cannot show it.
 const shown = (file) => file.kind === "image" && file.type !== "image/heic";
 
@@ -27,7 +65,9 @@ export default function AgentMessageAttachments({ files, shared = false }) {
       aria-label={shared ? copy.shared : copy.sent}
     >
       {files.map((file) =>
-        shown(file) ? (
+        file.kind === "video" && !shared ? (
+          <VideoAttachment key={file.id} file={file} />
+        ) : shown(file) ? (
           <li key={file.id} className="agent-message-image">
             <a
               href={source(file.id)}

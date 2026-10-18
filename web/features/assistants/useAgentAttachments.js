@@ -7,6 +7,7 @@ import {
   MAX_FILES,
   fileProblem,
   isImage,
+  isVideo,
   preparedFile,
   uploadAttachment,
 } from "./agent-attachment-upload.js";
@@ -120,6 +121,7 @@ export default function useAgentAttachments(conversationId) {
         name: original.name,
         size: original.size,
         image: isImage(original),
+        video: isVideo(original),
         status: "uploading",
         progress: 0,
       };
@@ -166,6 +168,7 @@ export default function useAgentAttachments(conversationId) {
           name: file.name,
           size: file.size,
           image: file.kind === "image",
+          video: file.kind === "video",
           status: "ready",
           progress: 1,
         })),

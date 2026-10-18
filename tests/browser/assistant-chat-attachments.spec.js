@@ -39,7 +39,7 @@ const shots = process.env.AGENTPIER_ATTACHMENT_SHOTS;
 const words = {
   en: {
     options: "Options",
-    attach: "Attach file or image",
+    attach: "Attach file, image or video",
     team: "Allow a team for this message",
     list: "Attachments",
     sent: "Attached files",
@@ -53,7 +53,7 @@ const words = {
   },
   de: {
     options: "Optionen",
-    attach: "Datei oder Bild anhängen",
+    attach: "Datei, Bild oder Video anhängen",
     team: "Ein Team für diese Nachricht erlauben",
     list: "Anhänge",
     sent: "Angehängte Dateien",
@@ -68,7 +68,7 @@ const words = {
 };
 const unsupportedProblem = {
   error:
-    "Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPEG, PNG, WebP, GIF, HEIC), PDF und Textdateien.",
+    "Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPEG, PNG, WebP, GIF, HEIC), Videos (MP4, MOV, WebM), PDF und Textdateien.",
   messageKey: "assistants.attachmentUnsupported",
 };
 const viewports = [

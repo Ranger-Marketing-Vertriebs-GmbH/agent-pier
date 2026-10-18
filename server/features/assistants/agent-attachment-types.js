@@ -1,6 +1,7 @@
 import path from "node:path";
 import { rasterType } from "../chat/chat-image-probe.js";
 import { acceptableDimensions } from "./image-dimensions.js";
+import { VIDEO_NOTE, VIDEO_TYPES, videoDetails } from "./agent-video-types.js";
 
 // What the owner may attach to an agent message. The browser applies the same
 // limits first; the server decides by the bytes, never by a name or a client type.
@@ -146,7 +147,10 @@ export function attachmentNote(files) {
   return [
     NOTE_HEADER,
     ...files.map(
-      (file) => `- ${JSON.stringify(file.path)} (${file.type}, ${size(file.size)})`,
+      (file) =>
+        `- ${JSON.stringify(file.path)} (${file.type}, ${size(file.size)}${videoDetails(file.video)})`,
     ),
+    // Older notes, without videos, stay exactly as they were sent.
+    ...(files.some((file) => VIDEO_TYPES.has(file.type)) ? [VIDEO_NOTE] : []),
   ].join("\n");
 }
