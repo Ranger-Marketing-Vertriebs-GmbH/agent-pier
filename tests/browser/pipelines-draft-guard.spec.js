@@ -35,6 +35,25 @@ test("a tab switch asks about the draft and Save and continue saves before leavi
   expect(patch.body.name).toBe("Geänderter Planer");
 });
 
+test("Save and continue on a new profile saves it and still opens the chosen tab", async ({
+  page,
+}) => {
+  const state = await pipelinesFixture(page);
+  await openPipelines(page, "profiles/profile-one");
+  await page.getByRole("button", { name: "Duplizieren: Planer", exact: true }).click();
+  await expect(page).toHaveURL(/\/pipelines\/profiles\/new$/);
+  await profileName(page).fill("Neuer Planer");
+  await page.getByRole("tab", { name: /^Läufe/ }).click();
+  await sheet(page)
+    .getByRole("button", { name: "Speichern und fortfahren", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/pipelines$/);
+  const post = state.calls.find(
+    (call) => call.method === "POST" && call.path === "/pipeline-profiles",
+  );
+  expect(post.body.name).toBe("Neuer Planer");
+});
+
 test("browser back asks about the draft and Discard leaves it", async ({ page }) => {
   const state = await pipelinesFixture(page);
   await page.goto(baseURL + "/pipelines");
