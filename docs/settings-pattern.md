@@ -4,6 +4,8 @@ Agent settings, Accounts, Settings, Extensions and Projects share one pattern:
 a header with underline tabs, grouped list cards, one bottom save bar per tab or
 subpage, hints behind ⓘ, central settings as dashed reference rows into Accounts, and
 "Used by" lists in Accounts. This guide names the building blocks and their contracts.
+It is part of the [UI guide](ui-guide.md), which holds the design tokens, the full
+component catalogue and the rules for every screen.
 
 ## Components (`web/components/`, styles in `web/styles/settings-pattern.css`)
 

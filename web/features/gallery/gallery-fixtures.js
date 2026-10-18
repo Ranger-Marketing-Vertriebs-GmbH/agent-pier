@@ -1,0 +1,49 @@
+import { galleryCopy as copy } from "../../lib/i18n/messages/gallery.js";
+
+// Sample data for the gallery: everything is local, nothing reaches the API.
+export const noop = () => {};
+
+export const options = () => [
+  { value: "a", label: copy.sample.optionA },
+  { value: "b", label: copy.sample.optionB },
+  { value: "c", label: copy.sample.optionC },
+  { value: "x", label: copy.sample.optionDisabled, disabled: true },
+];
+
+export const pageItems = () =>
+  Array.from({ length: 45 }, (_, index) => copy.sample.pageItem(index + 1));
+
+export const detailItems = () => [
+  { id: "a", name: copy.sample.optionA },
+  { id: "b", name: copy.sample.optionB },
+  { id: "c", name: copy.sample.optionC },
+];
+
+// A small inline SVG; colours as rgb() since only base.css holds hex literals.
+export const sampleImage =
+  "data:image/svg+xml," +
+  encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='320' height='200' viewBox='0 0 320 200'>" +
+      "<rect width='320' height='200' fill='rgb(24,25,29)'/>" +
+      "<circle cx='160' cy='100' r='56' fill='rgb(244,154,88)'/></svg>",
+  );
+
+/** A settings draft (useTabDraft) frozen in one of the save bar's states. */
+export function sampleDraft(state) {
+  const outcome =
+    state === "error"
+      ? { status: "error", error: { message: copy.sample.error } }
+      : state === "conflict"
+        ? { status: "conflict" }
+        : state === "partial"
+          ? { status: "error", partial: [copy.sample.optionA] }
+          : null;
+  return {
+    dirty: state !== "hidden",
+    saving: state === "saving",
+    outcome,
+    conflicts: [],
+    reset: noop,
+    reload: noop,
+  };
+}

@@ -1,67 +1,179 @@
+/* Design tokens (docs/ui-guide.md#foundations). Three layers:
+   1. Palette: raw colours, named by hue and step. Only this file uses hex literals.
+   2. Semantic colours: what a colour is for (--text, --panel, --status-ok). Features
+      use only these. A light theme later redefines this layer, not the palette users.
+   3. Scales: spacing, radius, type, weight, elevation, z-index, focus, safe areas.
+   The app is dark only for now; the palette steps run from dark to light. */
 :root {
+  /* Palette: neutrals, dark (01) to light (31). */
+  --neutral-01: #101114;
+  --neutral-02: #15161a;
+  --neutral-03: #16171b;
+  --neutral-04: #18191d;
+  --neutral-05: #1b1c20;
+  --neutral-06: #1c1d21;
+  --neutral-07: #1f2024;
+  --neutral-08: #202125;
+  --neutral-09: #23262b;
+  --neutral-10: #24252a;
+  --neutral-11: #242529;
+  --neutral-12: #26272b;
+  --neutral-13: #28292d;
+  --neutral-14: #2a2b30;
+  --neutral-15: #303137;
+  --neutral-16: #323337;
+  --neutral-17: #3a3b3f;
+  --neutral-18: #6b6c70;
+  --neutral-19: #6f7075;
+  --neutral-20: #737478;
+  --neutral-21: #7e7f83;
+  --neutral-22: #8a8b8f;
+  --neutral-23: #92949d;
+  --neutral-24: #97989c;
+  --neutral-25: #b9babe;
+  --neutral-26: #c4c5c9;
+  --neutral-27: #cfd0d4;
+  --neutral-28: #dcdde1;
+  --neutral-29: #e1e2e6;
+  --neutral-30: #e8e8ec;
+  --neutral-31: #fff;
+  /* Palette: warm neutrals behind accent and approval surfaces. */
+  --warm-01: #1b1a19;
+  --warm-02: #2e2924;
+  --warm-03: #30261c;
+  /* Palette: hues. */
+  --orange-500: #f49a58;
+  --orange-200: #ffc99d;
+  --green-500: #86b88e;
+  --green-400: #7dd6a5;
+  --green-300: #a4cdb3;
+  --amber-400: #e8b765;
+  --red-500: #e5796b;
+  --red-300: #e7a3a3;
+
+  /* Semantic colours. Alpha tints keep their literal value: a light theme redefines
+     them together with their base colour. */
+  --surface-page: var(--neutral-01);
+  --accent: var(--orange-500);
+  --muted: var(--neutral-23);
+  --line: var(--neutral-15);
+  --panel: var(--neutral-04);
+  --surface-input: var(--neutral-01);
+  --surface-raised: var(--neutral-09);
+  --surface-accent: var(--warm-03);
+  --accent-faint: #f49a5810;
+  --accent-soft: #f49a581a;
+  --accent-line: #f49a5833;
+  --success: var(--green-400);
+  --warning: var(--amber-400);
+  --error-text: var(--red-300);
+  --success-muted: var(--green-300);
+  --success-faint: #a4cdb310;
+  --success-line: #a4cdb333;
+  --text: var(--neutral-30);
+  --sidebar-bg: var(--neutral-02);
+  --header-bg: var(--neutral-03);
+  --header-line: var(--neutral-13);
+  --popover-bg: var(--neutral-05);
+  --popover-raised: var(--neutral-07);
+  --popover-shadow: 0 18px 40px -12px #000;
+  --scrim: #0b0c0e99;
+  --accent-text: var(--orange-200);
+  --accent-focus: #f49a5866;
+  --button-secondary-bg: var(--neutral-08);
+  --button-secondary-line: var(--neutral-16);
+  --button-secondary-text: var(--neutral-28);
+  --nav-selected: var(--neutral-12);
+  --pill-bg: var(--neutral-06);
+  --pill-text: var(--neutral-25);
+  --text-row: var(--neutral-27);
+  --text-meta: var(--neutral-22);
+  --text-menu: var(--neutral-26);
+  --text-group: var(--neutral-24);
+  --text-faint: var(--neutral-19);
+  /* Down chevron for restyled selects, stroked in --muted (handoff 2e). */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2392949d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 9 7 7 7-7'/%3E%3C/svg%3E");
+  --text-message: var(--neutral-29);
+  --placeholder: var(--neutral-18);
+  --hint: var(--neutral-21);
+  --approval-bg: var(--warm-01);
+  --approval-line: var(--warm-02);
+  --divider: var(--neutral-14);
+  --divider-soft: var(--neutral-10);
+  --switch-off: var(--neutral-17);
+  --switch-knob: var(--neutral-31);
+  --on-accent: var(--neutral-11);
+  /* Status: one colour per state, for dots, chips and row states. */
+  --status-working: var(--orange-500);
+  --status-waiting: var(--orange-200);
+  --status-ok: var(--green-500);
+  --status-error: var(--red-500);
+  --status-idle: var(--neutral-20);
+
+  /* Spacing: a 4px grid. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  /* Radius: controls, rows and cards, dialogs and sheets, pills and chips. */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+  /* Type: 11px is the floor for any text (tests/unit/ui-guide-rules.test.js). */
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 15px;
+  --font-size-xl: 17px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  /* Elevation: raised bars, popovers and menus, dialogs. */
+  --elevation-1: 0 1px 2px rgb(0 0 0 / 30%);
+  --elevation-2: 0 14px 34px rgb(0 0 0 / 36%);
+  --elevation-3: var(--popover-shadow);
+  /* Stacking. Native modal dialogs use the top layer and need no z-index. */
+  --z-base: 1;
+  --z-sticky: 20;
+  --z-dropdown: 50;
+  --z-overlay: 80;
+  --z-toast: 90;
+  /* Keyboard focus for every interactive element: `outline: var(--focus-ring)`. */
+  --focus-ring: 2px solid var(--accent);
+  --focus-ring-offset: 3px;
+  /* Minimum touch target on phones and touch screens. */
+  --touch-target: 44px;
+  /* Device safe areas (viewport-fit=cover); variables, so browser tests can emulate
+     them. Breakpoints cannot be variables in media queries: phone ≤700px, tablet
+     ≤1150px, wide ≥1500px, mirrored in web/lib/breakpoints.js. */
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+
   font-family:
     "DM Sans",
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #e8e8ec;
-  background: #101114;
+  color: var(--text);
+  background: var(--surface-page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  font-weight: 400;
-  font-size: 14px;
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-base);
   color-scheme: dark;
-  --accent: #f49a58;
-  --muted: #92949d;
-  --line: #303137;
-  --panel: #18191d;
-  --surface-input: #101114;
-  --surface-raised: #23262b;
-  --surface-accent: #30261c;
-  --accent-faint: #f49a5810;
-  --accent-soft: #f49a581a;
-  --accent-line: #f49a5833;
-  --success: #7dd6a5;
-  --warning: #e8b765;
-  --error-text: #e7a3a3;
-  --success-muted: #a4cdb3;
-  --success-faint: #a4cdb310;
-  --success-line: #a4cdb333;
-  --text: #e8e8ec;
-  --sidebar-bg: #15161a;
-  --header-bg: #16171b;
-  --header-line: #28292d;
-  --popover-bg: #1b1c20;
-  --popover-raised: #1f2024;
-  --popover-shadow: 0 18px 40px -12px #000;
-  --scrim: #0b0c0e99;
-  --accent-text: #ffc99d;
-  --accent-focus: #f49a5866;
-  --button-secondary-bg: #202125;
-  --button-secondary-line: #323337;
-  --button-secondary-text: #dcdde1;
-  --nav-selected: #26272b;
-  --pill-bg: #1c1d21;
-  --pill-text: #b9babe;
-  --text-row: #cfd0d4;
-  --text-meta: #8a8b8f;
-  --text-menu: #c4c5c9;
-  --text-group: #97989c;
-  --text-faint: #6f7075;
-  /* Down chevron for restyled selects, stroked in --muted (handoff 2e). */
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2392949d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 9 7 7 7-7'/%3E%3C/svg%3E");
-  --text-message: #e1e2e6;
-  --placeholder: #6b6c70;
-  --hint: #7e7f83;
-  --approval-bg: #1b1a19;
-  --approval-line: #2e2924;
-  --divider: #2a2b30;
-  --divider-soft: #24252a;
-  --switch-off: #3a3b3f;
-  --switch-knob: #fff;
-  --on-accent: #242529;
 }
 * {
   box-sizing: border-box;
@@ -105,8 +217,8 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 /* iOS Safari zooms into a focused text-entry control under 16px. On phones and touch
    screens every such control gets 16px, above any feature rule; desktop keeps its

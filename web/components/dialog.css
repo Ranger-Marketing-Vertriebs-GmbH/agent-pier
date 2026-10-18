@@ -197,7 +197,7 @@ dialog.file-action-dialog > .file-action-buttons:last-child {
   transform: rotate(180deg);
 }
 .learn-more > summary:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -283,7 +283,7 @@ label.check-row:has(input:disabled) .check-row-text {
   opacity: 0.6;
 }
 .check-row input[type="checkbox"]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
 .check-row-text {

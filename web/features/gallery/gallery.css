@@ -1,0 +1,122 @@
+/* Component gallery (Settings › Operations › Development › Components). Tokens only,
+   as docs/ui-guide.md asks of every new stylesheet. */
+.component-gallery {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-bottom: var(--space-6);
+}
+.gallery-intro {
+  color: var(--muted);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+}
+.gallery-contents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.gallery-contents a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--text-row);
+  font-size: var(--font-size-sm);
+}
+.gallery-contents a:hover {
+  color: var(--accent-text);
+}
+.gallery-section {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  scroll-margin-top: var(--space-4);
+}
+.gallery-specimen {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+.gallery-caption {
+  color: var(--text-meta);
+  font-size: var(--font-size-xs);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+.gallery-demo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.gallery-specimen.wide .gallery-demo {
+  display: grid;
+  align-items: stretch;
+}
+.gallery-specimen.wide .gallery-demo > * {
+  min-width: 0;
+}
+.gallery-icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gallery-icons li {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-input);
+  color: var(--text-row);
+}
+.gallery-icons code {
+  color: var(--text-meta);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.gallery-tabpanel {
+  padding: var(--space-3) 0 0;
+  color: var(--text-row);
+}
+.gallery-field {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--text-row);
+  font-size: var(--font-size-sm);
+}
+.gallery-inline-confirm {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--approval-line);
+  border-radius: var(--radius-md);
+  background: var(--approval-bg);
+}
+.gallery-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.gallery-list-detail {
+  min-height: 160px;
+}
+@media (max-width: 700px) {
+  .gallery-specimen {
+    padding: var(--space-2);
+  }
+  .gallery-demo .button {
+    min-height: var(--touch-target);
+  }
+}

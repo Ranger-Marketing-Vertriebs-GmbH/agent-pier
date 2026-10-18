@@ -56,6 +56,7 @@ _(German)_ are not translated yet.
 | Document                                                  | What it covers                                          |
 | --------------------------------------------------------- | ------------------------------------------------------- |
 | [Architecture](architecture.md)                           | Boundaries of the server, web app and features          |
+| [UI guide](ui-guide.md)                                   | Design tokens, shared components and UI rules           |
 | [Settings pattern](settings-pattern.md)                   | The shared layout and save model of settings pages      |
 | [UI glossary](ui-glossary.md)                             | Interface terms, action verbs and copy rules            |
 | [ADR 0001](adr/0001-optional-per-session-nono-sandbox.md) | Optional per-session nono sandbox                       |

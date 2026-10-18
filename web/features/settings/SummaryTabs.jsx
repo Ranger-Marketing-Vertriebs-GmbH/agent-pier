@@ -7,6 +7,8 @@ import { routePath } from "../../app/routes.js";
 import { useCrossLink } from "../../app/cross-link.js";
 import { operationsCopy } from "../../lib/i18n/messages/operations.js";
 import { settingsHubCopy } from "../../lib/i18n/messages/settings.js";
+import { galleryCopy } from "../../lib/i18n/messages/gallery.js";
+import GroupLabel from "../../components/GroupLabel.jsx";
 import { TabFrame } from "./SettingsFrame.jsx";
 import { subpage } from "./settings-navigation.js";
 import { accessRows, operationsRows } from "./settings-summary-rows.js";
@@ -58,6 +60,15 @@ export function OperationsTab({ frame }) {
         label={operationsCopy.groups.operations}
         rows={operationsRows(summary.data?.operations)}
       />
+      <GroupLabel id="settings-development">{galleryCopy.group}</GroupLabel>
+      <ListCard labelledBy="settings-development">
+        <ListRow
+          label={galleryCopy.title}
+          sub={galleryCopy.rowSub}
+          href={routePath(subpage("components"))}
+          onClick={() => frame.go(subpage("components"))}
+        />
+      </ListCard>
     </TabFrame>
   );
 }
