@@ -25,7 +25,7 @@ tree:
 
 - **AgentPier server:** the server process and its children, such as the protocol
   adapters and MCP servers.
-- **Agent Gateway:** the managed agent runtime, when agents are enabled.
+- **Agent gateway:** the managed agent runtime, when agents are enabled.
 - **One row per running session:** the coding CLI (Claude Code, Codex, OpenCode) or shell
   started in the session's tmux pane, found through the pane's process ID.
 

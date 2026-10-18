@@ -56,7 +56,7 @@ for (const [name, viewport] of [
     await expect(
       table.getByRole("rowheader", { name: "AgentPier server" }),
     ).toBeVisible();
-    await expect(table.getByRole("rowheader", { name: "Agent Gateway" })).toBeVisible();
+    await expect(table.getByRole("rowheader", { name: "Agent gateway" })).toBeVisible();
     await expect(
       table.getByRole("rowheader", { name: /Fix the login flow/ }),
     ).toContainText("Claude Code");
