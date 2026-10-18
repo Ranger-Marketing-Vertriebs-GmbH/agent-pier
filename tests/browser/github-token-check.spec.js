@@ -117,3 +117,33 @@ test("a session footer names its GitHub profile and warns about SSH remotes", as
     "The project remote uses SSH. GitHub tokens apply to HTTPS only",
   );
 });
+
+test("a session footer stays quiet when its GitHub status is unavailable", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const { state } = await fixture(page);
+  state.sessions.push({
+    id: "quiet-session",
+    name: "Quiet fixture",
+    tool: "shell",
+    cwd: "/home/test/project",
+    status: "running",
+    accountId: "local-shell",
+    createdAt: checkedAt,
+  });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  let answered = false;
+  await page.route("**/api/sessions/quiet-session/github", async (route) => {
+    answered = true;
+    await route.fulfill({ status: 404, json: { error: "Not found." } });
+  });
+  await page.goto(base + "/sessions/quiet-session/terminal");
+  const footer = page.locator(".session-footer");
+  await expect(footer).toContainText("/home/test/project");
+  await expect.poll(() => answered).toBe(true);
+  await expect(footer.locator(".session-github-status")).toHaveCount(0);
+  await expect(page.getByText("Not found.")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

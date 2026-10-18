@@ -229,6 +229,8 @@ export async function pipelinesFixture(page) {
       result = { currentModel: null, picker: null, pending: false };
     else if (path.endsWith("/chat"))
       result = { messages: [], tasks: [], availability: "ready" };
+    else if (/\/sessions\/[^/]+\/github$/.test(path))
+      result = { configured: true, hosts: [], remote: null };
     else throw Error(`Unexpected pipeline fixture request ${method} ${path}`);
     await route.fulfill({ json: result });
   });
