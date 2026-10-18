@@ -63,6 +63,19 @@ export const mcpOAuthTables = new Set([
   "mcp_oauth_stores",
   "mcp_oauth_pending_authorizations",
 ]);
+/** Whether database `file` has credential tables a host backup would seal. */
+export function hasCredentialTables(file) {
+  const database = new DatabaseSync(file, { readOnly: true });
+  try {
+    database.exec("PRAGMA busy_timeout=5000");
+    return database
+      .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all()
+      .some((row) => credentialTables.has(row.name) && !mcpOAuthTables.has(row.name));
+  } finally {
+    database.close();
+  }
+}
 export const configPath = "state/openclaw.json";
 // openclaw.json and the copies OpenClaw keeps beside it: its atomic-write temporary,
 // `.bak` … `.bak.4` and `.last-good`. Every copy may hold the same secrets.

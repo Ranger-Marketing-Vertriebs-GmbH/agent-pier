@@ -118,9 +118,13 @@ test("host backups include assistant data without runtimes, caches or keys", asy
     "assistants/channels.sqlite",
     "assistants/settings.json",
     "assistants/state/openclaw.json",
-    "assistants/workspaces/home/notes.md",
   ])
     assert.ok(paths.includes(expected), expected);
+  // Workspaces are private content: only sealed, in backups with a passphrase.
+  assert.equal(
+    paths.some((name) => name.startsWith("assistants/workspaces/")),
+    false,
+  );
   for (const excluded of [
     "logs",
     "runtimes",
@@ -171,10 +175,7 @@ test("host backups include assistant data without runtimes, caches or keys", asy
     rows(path.join(restored, "assistants.sqlite"), "SELECT id FROM assistants")[0].id,
     "home",
   );
-  assert.equal(
-    fs.readFileSync(path.join(restored, "workspaces/home/notes.md"), "utf8"),
-    "remember the milk",
-  );
+  assert.equal(fs.existsSync(path.join(restored, "workspaces/home/notes.md")), false);
   assert.equal(fs.existsSync(path.join(restored, "state/credentials/oauth.json")), false);
   assert.ok(report.credentialsNeedingLogin.includes("assistants"));
 });
@@ -389,14 +390,25 @@ test("restores reject assistant members outside the backed-up folders", async (t
 test("a restore to a new path reinstalls the runtime instead of trusting old paths", async (t) => {
   const { dataDir, root } = fixture(t);
   assistantData(root);
-  const backup = await new Backup({ dataDir }).create();
+  const backup = await new Backup({ dataDir }).create({
+    withCredentials: true,
+    passphrase,
+  });
   const paths = members(backup.file).map((member) => member.path);
   for (const name of ["runtime.json", "candidate.json", "update.json"])
     assert.equal(paths.includes(`assistants/${name}`), false, name);
-  assert.ok(paths.includes("assistants/workspaces/home/cache/recipe.md"));
   const target = path.join(path.dirname(dataDir), "moved");
-  await new Restore({ dataDir }).apply({ archive: backup.file, targetDataDir: target });
+  await new Restore({ dataDir }).apply({
+    archive: backup.file,
+    targetDataDir: target,
+    passphrase,
+  });
   const restored = path.join(target, "assistants");
+  // The user's own cache folder in a workspace comes back with the sealed workspace.
+  assert.equal(
+    fs.readFileSync(path.join(restored, "workspaces/home/cache/recipe.md"), "utf8"),
+    "the user's own cache folder",
+  );
   // The opt-in file stays with the data directory; stored agents enable the restore.
   assert.equal(fs.existsSync(path.join(target, "assistant-feature.json")), false);
   assert.deepEqual(readAssistantFeature(target), { enabled: true, error: null });
@@ -490,11 +502,21 @@ test("relocated paths can never leave the restored assistant folder", async (t) 
       main: { sessionFile: path.join(root, "state/agents/main/sessions/a.jsonl") },
     }),
   );
-  const backup = await new Backup({ dataDir }).create();
-  const stored = members(backup.file).find((m) => m.path === `assistants/${index}`);
-  assert.equal(Buffer.from(stored.content, "base64").toString().includes(root), false);
+  // The session index is private content: sealed, and relocated when restored.
+  const backup = await new Backup({ dataDir }).create({
+    withCredentials: true,
+    passphrase,
+  });
+  assert.equal(
+    members(backup.file).some((m) => m.path === `assistants/${index}`),
+    false,
+  );
   const target = path.join(path.dirname(dataDir), "relocated");
-  await new Restore({ dataDir }).apply({ archive: backup.file, targetDataDir: target });
+  await new Restore({ dataDir }).apply({
+    archive: backup.file,
+    targetDataDir: target,
+    passphrase,
+  });
   assert.equal(
     JSON.parse(fs.readFileSync(path.join(target, "assistants", index))).main.sessionFile,
     path.join(target, "assistants/state/agents/main/sessions/a.jsonl"),
@@ -550,12 +572,14 @@ test("large workspaces stay in the backup, streamed from disk", async (t) => {
     dataDir,
     id: "8b0c5f0e-8f43-4a8e-9a55-3c2f4c1d0e02",
     withCredentials: false,
+    includeHistory: true,
   });
   assert.equal(result.omissions.includes("Agent workspaces too large"), false);
   const large = result.files.find(
     (member) => member.path === "assistants/workspaces/home/large.bin",
   );
   assert.equal(large.size, 2 * 1024 * 1024);
+  assert.equal(large.history, true);
   assert.ok(
     result.files.some((member) => member.path === "assistants/assistants.sqlite"),
   );

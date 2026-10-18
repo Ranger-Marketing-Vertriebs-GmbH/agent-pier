@@ -12,19 +12,21 @@ test("the backup scope names what is encrypted and what never leaves", async ({
   page,
 }) => {
   const state = await operationsFixture(page);
-  // The fixture plan always lists the chat history.
+  // The fixture plan always lists the chat and pipeline history.
   state.planComponents = [
     "terminal",
     "agentbus-history",
     "cli-histories",
     "encrypted-managed-profiles",
+    "unpinned-artifacts",
+    "agent-history",
   ];
   state.planOmissions = [
     "CLI caches, logs, telemetry and files outside the profile allowlists",
     "Platform-specific installed tool binaries and caches",
   ];
   const note =
-    "Without a passphrase, histories are left out of this backup. To back them up encrypted, also choose “Include encrypted credentials” and set a passphrase.";
+    "Without a passphrase, histories, agent chats, channel messages, workspaces and attachments, pipeline history and unpinned artifacts are left out of this backup; agents are restored with their settings only. To back them up encrypted, also choose “Include encrypted credentials” and set a passphrase.";
   for (const viewport of [
     { name: "desktop", width: 1440, height: 1000 },
     { name: "phone", width: 390, height: 844 },
@@ -35,7 +37,7 @@ test("the backup scope names what is encrypted and what never leaves", async ({
     const dialog = page.getByRole("dialog", { name: "Prepare backup" });
     await expect(
       dialog.getByText(
-        "they are only backed up encrypted, in backups with a passphrase",
+        "they are only backed up encrypted, in backups with history and a passphrase",
         {
           exact: false,
         },
@@ -44,7 +46,7 @@ test("the backup scope names what is encrypted and what never leaves", async ({
     // What stays unencrypted is named as well.
     await expect(
       dialog.getByText(
-        "pipeline history and artifacts (unpinned ones only with history)",
+        "Agent settings, pinned artifacts, project knowledge and the activity log are always backed up unencrypted",
         {
           exact: false,
         },
@@ -62,6 +64,9 @@ test("the backup scope names what is encrypted and what never leaves", async ({
       "Chat history (encrypted)",
       "Terminal captures (encrypted)",
       "AgentBus history (encrypted)",
+      "Pipeline history (encrypted)",
+      "Unpinned artifacts (encrypted)",
+      "Agent chats, channel messages, workspaces, attachments and shared files (encrypted)",
       "CLI caches, logs, telemetry and files outside the profile allowlists",
     ])
       await expect(dialog.getByText(text, { exact: true })).toBeVisible();

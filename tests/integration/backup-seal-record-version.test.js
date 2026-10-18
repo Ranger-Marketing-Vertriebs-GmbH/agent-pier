@@ -15,7 +15,8 @@ import {
 import { Restore } from "../../server/features/operations/restore.js";
 
 // Seal record version 1 (AgentPier 2.0 to 2.2) sealed only CLI histories and kept
-// AgentPier's own histories public; version 2 seals both.
+// AgentPier's own histories public; version 2 seals both; version 3 also seals
+// private content (agent chats and workspaces, pipeline history, unpinned artifacts).
 const passphrase = "seal record fixture passphrase";
 const cliHistory = "profiles/a/codex/sessions/0.jsonl";
 const ownPublic = { "sessions/s1.json": '{"id":"s1","status":"running"}' };
@@ -66,10 +67,10 @@ async function archive(root, name, { version, sealed, publicFiles = {} }) {
   return file;
 }
 
-test("new backups write seal record version 2", () => {
+test("new backups write seal record version 3", () => {
   const { record } = sealHistory("id", []);
-  assert.equal(SEAL_VERSION, 2);
-  assert.equal(JSON.parse(Buffer.from(record.content, "base64")).version, 2);
+  assert.equal(SEAL_VERSION, 3);
+  assert.equal(JSON.parse(Buffer.from(record.content, "base64")).version, 3);
 });
 
 test("a version 1 seal record restores with public AgentPier history beside it", async (t) => {
@@ -137,7 +138,7 @@ test("beside a version 2 seal record, public AgentPier history is refused", asyn
 
 test("an unknown seal record version is refused as unsupported", async (t) => {
   const { root, restore } = setup(t);
-  const file = await archive(root, "future", { version: 3, sealed: [cliHistory] });
+  const file = await archive(root, "future", { version: 4, sealed: [cliHistory] });
   await assert.rejects(
     restore.apply({
       archive: file,

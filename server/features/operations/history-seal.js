@@ -5,6 +5,8 @@ import { fileMember } from "./snapshot.js";
 import { relativeName } from "./files.js";
 import { profileMemberKind } from "./profile-allowlist.js";
 import { isBrowserProfilePath } from "./browser-profile-backup.js";
+import { isAssistantMember } from "./assistant-backup.js";
+import { isPrivateContentPath } from "./private-content.js";
 
 const cleanPath = (name) => {
   try {
@@ -21,12 +23,16 @@ const ownHistory =
 export const isOwnHistoryPath = (name) => ownHistory.test(name);
 /**
  * Whether `name` is a history file, which backups archive only sealed; an agent's
- * browser profile is sealed the same way.
+ * browser profile is sealed the same way, and so is private content
+ * (private-content.js) under a record of `version` 3.
  */
-export const isHistoryPath = (name) =>
-  isOwnHistoryPath(name) ||
-  profileMemberKind(name) === "history" ||
-  isBrowserProfilePath(name);
+export const isHistoryPath = (name, version = SEAL_VERSION) =>
+  version === 1
+    ? profileMemberKind(name) === "history"
+    : isOwnHistoryPath(name) ||
+      profileMemberKind(name) === "history" ||
+      isBrowserProfilePath(name) ||
+      (version >= 3 && isPrivateContentPath(name, isAssistantMember));
 
 /**
  * Histories, AgentPier's own and the CLIs', are archived only in backups with a
@@ -45,9 +51,11 @@ export const SEAL_MEMBER = "history-seal.json";
 /**
  * Record version 1 (AgentPier 2.0 to 2.2) sealed CLI histories only; AgentPier's
  * own histories were public members then. Version 2 seals both, and no public
- * history may stand beside it.
+ * history may stand beside it. Version 3 also seals private content (agent chats,
+ * channels and workspaces, pipeline history, unpinned artifacts), which version 2
+ * backups held in public; none of it may stand in public beside it.
  */
-export const SEAL_VERSION = 2;
+export const SEAL_VERSION = 3;
 export const CHUNK = 1024 * 1024;
 const TAG = 16;
 const failed = () => problem(serverMessages.backups.historyAuthenticationFailed);
@@ -194,7 +202,7 @@ export function sealRecord(secrets) {
   if (
     !value ||
     Object.keys(value).sort().join() !== "chunk,cipher,id,key,members,version" ||
-    ![1, SEAL_VERSION].includes(value.version) ||
+    ![1, 2, SEAL_VERSION].includes(value.version) ||
     value.cipher !== "aes-256-gcm" ||
     value.chunk !== CHUNK ||
     typeof value.id !== "string" ||
@@ -205,8 +213,8 @@ export function sealRecord(secrets) {
   const byName = new Map(),
     paths = new Set();
   for (const [entry, item] of value.members.entries()) {
-    // Each entry restores to a history path (version 1: a CLI history path),
-    // and to no other entry's path.
+    // Each entry restores to a history path of its version (version 1: a CLI
+    // history path), and to no other entry's path.
     // Paths that differ only in case or normalization are distinct, as public
     // members are: a file system that ignores the difference refuses the second
     // file when it is written (caseConflict).
@@ -215,9 +223,7 @@ export function sealRecord(secrets) {
       Object.keys(item).sort().join() !== "name,path" ||
       item.name !== `sealed/${entry}` ||
       !cleanPath(item.path) ||
-      !(value.version === 1
-        ? profileMemberKind(item.path) === "history"
-        : isHistoryPath(item.path)) ||
+      !isHistoryPath(item.path, value.version) ||
       paths.has(item.path)
     )
       throw failed();

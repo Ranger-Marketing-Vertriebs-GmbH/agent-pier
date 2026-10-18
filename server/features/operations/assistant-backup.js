@@ -14,6 +14,7 @@ import {
   configShaped,
   createBackupKey,
   destroyBackupKey,
+  hasCredentialTables,
   isConfigFile,
   isCredentialFile,
   mcpOAuthTables,
@@ -28,7 +29,13 @@ import {
 } from "../assistants/backup-credentials.js";
 import { folder, readFile, relativeName } from "./files.js";
 import { isRelocatable, portableText, restoredText } from "./assistant-backup-paths.js";
-import { inlineCopies, sqliteSnapshotFileAsync } from "./snapshot.js";
+import { inlineCopies, sqliteSnapshotFile, sqliteSnapshotFileAsync } from "./snapshot.js";
+import {
+  agentHistoryFolder,
+  isPrivateAssistantDatabase,
+  isPrivateAssistantTree,
+  stripPrivateRows,
+} from "./private-content.js";
 import { CapturePlan } from "./capture-plan.js";
 import { areaComponent } from "./backup-components.js";
 import { stagePath } from "./stage-path.js";
@@ -159,18 +166,40 @@ async function sqliteFile(source) {
 // Configuration, session indexes and credential files are rewritten or sealed in
 // memory; they are small, and a larger one is not what it claims to be.
 const transformedLimit = 64 * 1024 * 1024;
+// AgentPier's own databases lie directly in assistants/ (assistants.sqlite, …).
+const ownDatabase = /^[A-Za-z0-9_-]+\.sqlite$/;
+// Private content travels only sealed, as history; credential sidecars stay public.
+const privateMember = (relative) =>
+  !relative.endsWith(sealedSuffix) && isPrivateAssistantTree(relative);
+
+/**
+ * The configuration copy of AgentPier's database copy `file` (its private rows
+ * removed) in `work`, or null when it has no private tables.
+ */
+function configurationCopy(file, work) {
+  let found = false;
+  const copy = sqliteSnapshotFile(file, work, {
+    sanitize: (db) => (found = stripPrivateRows(db)),
+  });
+  if (found) return copy;
+  fs.rmSync(copy, { force: true });
+  return null;
+}
 
 /**
  * Captures assistants/ for backup `id`; returns null when the feature never stored
  * data. Copied-through files and database copies stream from disk (`plan`, copies in
  * `scratch`, which must outlive the archive); only rewritten configuration and
  * sealed credentials are held in memory. Without `scratch` (tests), copies are read
- * into memory before the work folder is removed.
+ * into memory before the work folder is removed. Private content (chats, channel
+ * messages, workspaces, shared files; private-content.js) is captured only with
+ * `includeHistory`, as members with `history: true` the backup seals.
  */
 export async function captureAssistants({
   dataDir,
   id,
   withCredentials,
+  includeHistory = false,
   busy = () => false,
   plan = new CapturePlan(),
   scratch: shared,
@@ -198,21 +227,31 @@ export async function captureAssistants({
     unreadable = false,
     skipped = 0;
   const add = (relative, content) =>
-    files.push({ path: `${prefix}/${relative}`, bytes: content, component });
-  const addFile = (relative, file) =>
     files.push({
       path: `${prefix}/${relative}`,
+      bytes: content,
+      component,
+      ...(privateMember(relative) && { history: true }),
+    });
+  const addFile = (relative, file, history = privateMember(relative), name) =>
+    files.push({
+      path: name || `${prefix}/${relative}`,
       file,
       size: fs.statSync(file).size,
       component,
       temporary: true,
+      ...(history && { history: true }),
     });
   async function entry(source, relative) {
     const stat = fs.lstatSync(source);
     if (stat.isDirectory()) {
       for (const name of fs.readdirSync(source).sort()) {
         const next = `${relative ? `${relative}/` : ""}${name}`;
-        if (included(next) && !name.endsWith(sealedSuffix))
+        if (
+          included(next) &&
+          !name.endsWith(sealedSuffix) &&
+          (includeHistory || !isPrivateAssistantTree(next))
+        )
           await entry(path.join(source, name), next);
       }
       return;
@@ -228,9 +267,15 @@ export async function captureAssistants({
     }
     const aad = `${id}\0${relative}`;
     if (stat.size >= 16 && (await sqliteFile(source))) {
+      const privateDatabase = isPrivateAssistantDatabase(relative);
+      if (privateDatabase && !includeHistory) {
+        // Its credential rows would have travelled in a sidecar beside it.
+        withheld ||= hasCredentialTables(source);
+        return;
+      }
       // Live databases are copied consistently off the event loop.
       const consistent = await sqliteSnapshotFileAsync(source, work);
-      if (!sealedTree(relative)) return addFile(relative, consistent);
+      if (!sealedTree(relative)) return addFile(relative, consistent, privateDatabase);
       const copy = path.join(work, randomUUID());
       // MCP OAuth logins stay on this host (see mcpOAuthTables).
       const moved = await sealDatabase(consistent, copy, {
@@ -240,9 +285,17 @@ export async function captureAssistants({
         omit: mcpOAuthTables,
       });
       fs.rmSync(consistent, { force: true });
-      addFile(relative, copy);
+      // AgentPier's own databases: configuration in public, the full copy sealed.
+      const configuration = ownDatabase.test(relative) && configurationCopy(copy, work);
+      if (!configuration) addFile(relative, copy, privateDatabase);
+      else {
+        addFile(relative, configuration, false);
+        if (includeHistory)
+          addFile(relative, copy, true, `${agentHistoryFolder}/${relative}`);
+        else fs.rmSync(copy, { force: true });
+      }
       if (moved && sealing) {
-        addFile(relative + sealedSuffix, copy + sealedSuffix);
+        addFile(relative + sealedSuffix, copy + sealedSuffix, false);
         sealed.push(relative);
       } else withheld ||= moved;
       return;
@@ -251,7 +304,8 @@ export async function captureAssistants({
       isConfigFile(relative) || isRelocatable(relative) || isCredentialFile(relative);
     if (!transformed) {
       const member = plan.file(`${prefix}/${relative}`, source, component, stat);
-      if (member) files.push(member);
+      if (member)
+        files.push(privateMember(relative) ? { ...member, history: true } : member);
       return;
     }
     const content = readFile(source, transformedLimit);
@@ -432,9 +486,12 @@ export async function restoreAssistants({ stage, target, liveDataDir, value }) {
           flag: "wx",
         });
       else withheld = true;
-    } else
+    } else {
       // Backups written before MCP OAuth logins were left out may still seal them.
-      withheld ||= !(await unsealDatabase(file, sidecar, key, aad, mcpOAuthTables));
+      // Unsealed even when something else is withheld already (no `||=`).
+      const opened = await unsealDatabase(file, sidecar, key, aad, mcpOAuthTables);
+      withheld = withheld || !opened;
+    }
     await fsp.rm(sidecar, { force: true });
   }
   return { withheld };

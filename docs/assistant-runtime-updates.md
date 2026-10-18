@@ -63,7 +63,12 @@ record, the reminder webhook secret and the host-bound runtime state (`runtime.j
 `candidate.json`, `update.json`, `runtime-maintenance.json`). A host backup is refused
 with 409 while a runtime update or provider change is running; update or maintenance
 state left behind without one (a crash, a failed recovery, a dormant install) skips
-the agent data with a declared omission instead. Live databases are copied
+the agent data with a declared omission instead. The agents' private content
+(workspaces with attachments, `shares/`, OpenClaw's transcripts, session index,
+media, memory index and state databases, and the conversation and channel-message
+tables of `assistants.sqlite` and `channels.sqlite`) is archived only in backups
+with history and a passphrase, sealed; see
+[backups](backups.md#what-a-backup-holds). Live databases are copied
 consistently first. MCP OAuth logins (`mcp_oauth_stores`,
 `mcp_oauth_pending_authorizations`) are always left out, like the MCP servers they
 belong to; a restore drops them from older backups too. Absolute paths below `assistants/` in `openclaw.json` (and its

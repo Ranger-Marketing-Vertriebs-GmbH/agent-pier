@@ -369,7 +369,8 @@ PNG, WebP, GIF and HEIC images, PDF and text files. Copies are saved in the agen
 workspace so it can read them with its tools. Models that accept images (ChatGPT,
 endpoint models that declare it, OpenRouter models whose catalog lists image input)
 also see images directly; the composer says when the agent's model cannot. Attachments
-are part of host backups.
+are part of host backups only with history and a passphrase, and then encrypted (see
+[backups](backups.md#what-a-backup-holds)).
 
 ### Videos
 

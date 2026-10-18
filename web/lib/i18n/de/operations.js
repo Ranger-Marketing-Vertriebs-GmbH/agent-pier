@@ -74,9 +74,9 @@ export const operationsCopy = {
   includeHistory: "Verläufe einschließen",
   withCredentials: "Zugangsdaten verschlüsselt einschließen",
   backupPrivacy:
-    "Sitzungs-, Chat- und AgentBus-Verläufe sowie CLI-Verläufe können private Aufgabeninhalte enthalten; sie werden nur verschlüsselt in Backups mit Passphrase gesichert. Chats, Kanäle, Arbeitsbereiche und Anhänge der Agenten, Pipeline-Verlauf und Artefakte (nicht angeheftete nur mit Verläufen) werden immer unverschlüsselt gesichert. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
+    "Sitzungs-, Chat- und AgentBus-Verläufe, CLI-Verläufe, Chats, Kanalnachrichten, Arbeitsbereiche und Anhänge der Agenten, Pipeline-Verlauf und nicht angeheftete Artefakte können private Inhalte enthalten; sie werden nur verschlüsselt in Backups mit Verläufen und Passphrase gesichert. Agenteneinstellungen, angeheftete Artefakte, Projektwissen und das Aktivitätsprotokoll werden immer unverschlüsselt gesichert. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
   historyNeedsPassphrase:
-    "Ohne Passphrase bleiben Verläufe in dieser Sicherung außen vor. Um sie verschlüsselt zu sichern, wähle auch „Zugangsdaten verschlüsselt einschließen“ und setze eine Passphrase.",
+    "Ohne Passphrase bleiben Verläufe, Chats, Kanalnachrichten, Arbeitsbereiche und Anhänge der Agenten, Pipeline-Verlauf und nicht angeheftete Artefakte in dieser Sicherung außen vor; Agenten werden nur mit ihren Einstellungen wiederhergestellt. Um sie verschlüsselt zu sichern, wähle auch „Zugangsdaten verschlüsselt einschließen“ und setze eine Passphrase.",
   passphrase: "Passphrase",
   plan: "Sicherungsumfang prüfen",
   create: "Sicherung erstellen",
@@ -285,12 +285,15 @@ export const backupCopy = {
     preferences: "Einstellungen",
     "pipeline-definitions": "Pipeline- und Profildefinitionen",
     memory: "Projektwissen",
-    "pipeline-history": "Pipeline-Verlauf",
+    "pipeline-history": "Pipeline-Verlauf (verschlüsselt)",
+    "unpinned-artifacts": "Nicht angeheftete Artefakte (verschlüsselt)",
     audit: "Aktivitätsprotokoll",
     chat: "Chat-Verläufe (verschlüsselt)",
     terminal: "Terminal-Aufnahmen (verschlüsselt)",
     "agentbus-history": "AgentBus-Verlauf (verschlüsselt)",
-    assistants: "Agenten, ihre Chats, Kanäle und Arbeitsbereiche",
+    assistants: "Agenten und ihre Einstellungen",
+    "agent-history":
+      "Chats, Kanalnachrichten, Arbeitsbereiche, Anhänge und geteilte Dateien der Agenten (verschlüsselt)",
     "sealed-agent-browser-profiles":
       "Browserprofile der Agenten mit Anmeldungen und Cookies (verschlüsselt, ohne Caches)",
     "Agent browser profiles (only in backups with a passphrase, then encrypted)":
@@ -331,6 +334,10 @@ export const backupCopy = {
     "CLI caches, logs, telemetry and files outside the profile allowlists":
       "CLI-Caches, -Protokolle, -Telemetrie und alle Dateien außerhalb der Profil-Positivlisten",
     "AgentPier and CLI histories": "AgentPier- und CLI-Verläufe",
+    "Agent chats, channel messages, workspaces and attachments, pipeline history and unpinned artifacts":
+      "Chats, Kanalnachrichten, Arbeitsbereiche und Anhänge der Agenten, Pipeline-Verlauf und nicht angeheftete Artefakte",
+    "Agent chats, channel messages, workspaces and attachments, pipeline history and unpinned artifacts are only backed up in backups with a passphrase, and then encrypted":
+      "Chats, Kanalnachrichten, Arbeitsbereiche und Anhänge der Agenten, Pipeline-Verlauf und nicht angeheftete Artefakte (setze eine Passphrase, um sie verschlüsselt zu sichern)",
     "AgentPier and CLI histories are only backed up in backups with a passphrase, and then encrypted":
       "AgentPier- und CLI-Verläufe (setze eine Passphrase, um sie verschlüsselt zu sichern)",
     // Older backups named only the CLI histories.

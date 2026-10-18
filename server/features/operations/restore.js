@@ -34,6 +34,7 @@ import {
   Unsealer,
 } from "./history-seal.js";
 import { claim } from "./work-claims.js";
+import { adoptAgentDatabases, isUnsealedPrivateContent } from "./private-content.js";
 import { stagePath } from "./stage-path.js";
 
 // Histories read line by line: an archived prefix of them stays valid.
@@ -191,11 +192,17 @@ async function stageArchive(archive, directory, { passphrase, inspect = false })
             const record = sealRecord(opened);
             seals = record?.seals || new Map();
             const histories = [...seals.values()].map((seal) => seal.path);
+            const taken = new Set(publicPaths);
             for (const name of histories)
-              if (!isHistoryPath(name))
+              if (!isHistoryPath(name, record.version) || taken.has(name))
                 throw problem(serverMessages.backups.unexpectedComponent);
-            // Backups that seal AgentPier's own histories hold none in public.
-            if (record && record.version > 1 && publicPaths.some(isOwnHistoryPath))
+            // Backups that seal AgentPier's own histories hold none in public, and
+            // those that seal private content none of that.
+            if (
+              record &&
+              ((record.version > 1 && publicPaths.some(isOwnHistoryPath)) ||
+                (record.version > 2 && publicPaths.some(isUnsealedPrivateContent)))
+            )
               throw problem(serverMessages.backups.unexpectedComponent);
             secrets = checkSecrets(
               opened.filter((entry) => entry.path !== SEAL_MEMBER),
@@ -332,6 +339,7 @@ export class Restore {
       const manifest = staged.manifest,
         secrets = staged.secrets || [];
       write(secrets, stage, true, staged.version);
+      adoptAgentDatabases(stage);
       verifyStaged(stage);
       const mcpServersNeedingValues = restoreMcpServers(stage);
       const assistants = await restoreAssistants({

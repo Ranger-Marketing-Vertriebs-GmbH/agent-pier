@@ -10,6 +10,7 @@ import { CapturePlan } from "./capture-plan.js";
 import { areaComponent } from "./backup-components.js";
 import { problem } from "../../lib/storage.js";
 import { discardSearchIndex } from "../memory/memory-search.js";
+import { pipelineHistoryMember } from "./private-content.js";
 import {
   mcpServersPresent,
   mcpStoreMember,
@@ -168,8 +169,11 @@ export function capture({
       temporary: true,
     };
   };
+  // Histories and private content are sealed with a key from the capsule
+  // (history-seal.js), so they need a passphrase; without one they are left out.
+  const sealing = includeHistory && withCredentials;
   try {
-    files.push(...artifactMembers(dataDir, includeHistory, plan));
+    files.push(...artifactMembers(dataDir, sealing, plan));
     addJson("accounts.json", (rows) =>
       rows.map((row) => ({
         ...row,
@@ -181,23 +185,28 @@ export function capture({
     addJson("preferences.json");
     addJson("pipelines/definitions.json");
     addJson("config.json", (value) => ({ port: value.port }));
-    for (const name of ["memory/memory.sqlite", "pipeline-runs/runs.sqlite"]) {
-      if (!fs.existsSync(path.join(dataDir, name))) continue;
+    if (fs.existsSync(path.join(dataDir, "memory/memory.sqlite"))) {
       const startedAt = new Date().toISOString();
       files.push(
         snapshotMember(
-          name,
-          { withoutCapabilities: name === "memory/memory.sqlite" },
+          "memory/memory.sqlite",
+          { withoutCapabilities: true },
           areaComponent("applicationData"),
         ),
       );
       captures.push({
-        component: name,
+        component: "memory/memory.sqlite",
         startedAt,
         finishedAt: new Date().toISOString(),
         consistency: "sqlite-snapshot",
       });
     }
+    // Pipeline history holds task prompts, verdicts and findings: sealed history.
+    if (sealing && fs.existsSync(path.join(dataDir, pipelineHistoryMember)))
+      files.push({
+        ...snapshotMember(pipelineHistoryMember, {}, areaComponent("applicationData")),
+        history: true,
+      });
     if (mcpServersPresent(dataDir)) {
       const startedAt = new Date().toISOString();
       let withheld;
@@ -235,9 +244,7 @@ export function capture({
         db.close();
       }
     }
-    // Histories are sealed with a key from the capsule (history-seal.js), so they
-    // need a passphrase; without one they are left out.
-    if (includeHistory && withCredentials) {
+    if (sealing) {
       const history = [];
       const agentbus = areaComponent("agentbus");
       history.push(
