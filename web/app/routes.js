@@ -15,6 +15,7 @@ import { defaultExtensionTab, readExtensionTab } from "../features/extensions/ro
 import { readMcpOAuthResult } from "../features/mcp-servers/oauth-result.js";
 import { appPathParts, returnParam, withoutReturnParam } from "./return-to.js";
 import { artifactsRoutePath, readArtifactsQuery } from "../features/artifacts/routes.js";
+import { inboxRoutePath, readInboxRoute } from "../features/inbox/routes.js";
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export function readRoute(location) {
   let pathname;
@@ -87,6 +88,8 @@ export function readRoute(location) {
       // An MCP OAuth login's result; the address drops it (see routePath).
       ...readMcpOAuthResult(location.search),
     };
+  const inbox = readInboxRoute(pathname, location.search);
+  if (inbox) return inbox;
   if (pathname === "/repositories") return projectsRoute();
   if (pathname === "/files")
     return {
@@ -240,6 +243,7 @@ export function routePath(route) {
 function basePath(route) {
   if (route.view === "artifacts") return artifactsRoutePath(route);
   if (route.view === "files") return `/files${explorerQuery(route)}`;
+  if (route.view === "inbox") return inboxRoutePath(route);
   if (route.view === "agents")
     return route.conversationId
       ? `/agents/${encodeURIComponent(route.assistantId)}/chats/${encodeURIComponent(route.conversationId)}`

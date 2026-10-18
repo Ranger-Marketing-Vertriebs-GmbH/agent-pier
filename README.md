@@ -18,6 +18,9 @@ and agents that work as a team.
 - **Native CLI sessions:** real tmux-backed terminals with each CLI's own login,
   models and prompts, plus a chat view that recovers on the phone
   ([reload and resume](docs/session-reload.md), [mobile delivery](docs/mobile-delivery.md)).
+- **Inbox:** every CLI question and approval, pipeline gate and agent request that
+  waits on you, with live counts, answered in place or in one list
+  ([inbox](docs/inbox.md)).
 - **Pipelines with review:** reusable profiles, isolated Git worktrees, bounded
   review loops, checks and human approval ([pipelines](docs/pipelines.md)).
 - **Agents and teams:** persistent agents whose leads ask and delegate to their
@@ -123,12 +126,12 @@ below its minimum version until it is updated. A source checkout updates with `g
 
 The [docs index](docs/README.md) lists every guide.
 
-| Area    | Guides                                                                                                                                                                                                                      |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Use     | [Providers](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Files](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Notifications](docs/notifications.md) |
-| Agents  | [Agents](docs/agents.md) · [Workflows](docs/assistant-workflows.md) · [Model connections](docs/assistant-model-connections.md) · [Runtime updates](docs/assistant-runtime-updates.md)                                       |
-| Operate | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Remote access](docs/remote-access.md) · [Backups](docs/backups.md) · [Operations](docs/operations.md) · [Sandbox](docs/sandbox.md)                                |
-| Develop | [Architecture](docs/architecture.md) · [Settings pattern](docs/settings-pattern.md) · [Testing](docs/testing.md) · [Frontend](web/README.md) · [Contributing](CONTRIBUTING.md)                                              |
+| Area    | Guides                                                                                                                                                                                                                                               |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Use     | [Inbox](docs/inbox.md) · [Providers](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Files](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Notifications](docs/notifications.md) |
+| Agents  | [Agents](docs/agents.md) · [Workflows](docs/assistant-workflows.md) · [Model connections](docs/assistant-model-connections.md) · [Runtime updates](docs/assistant-runtime-updates.md)                                                                |
+| Operate | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Remote access](docs/remote-access.md) · [Backups](docs/backups.md) · [Operations](docs/operations.md) · [Sandbox](docs/sandbox.md)                                                         |
+| Develop | [Architecture](docs/architecture.md) · [Settings pattern](docs/settings-pattern.md) · [Testing](docs/testing.md) · [Frontend](web/README.md) · [Contributing](CONTRIBUTING.md)                                                                       |
 
 ## Data and security boundaries
 

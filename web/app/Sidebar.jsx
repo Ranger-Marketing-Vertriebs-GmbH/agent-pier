@@ -13,6 +13,7 @@ import SidebarNewMenu from "./SidebarNewMenu.jsx";
 import SidebarMenu from "./SidebarMenu.jsx";
 import SidebarGroup from "./SidebarGroup.jsx";
 import SessionRow from "./SessionRow.jsx";
+import InboxEntry from "../features/inbox/InboxEntry.jsx";
 export default function Sidebar({
   mobileNav,
   navigate,
@@ -84,6 +85,12 @@ export default function Sidebar({
       </div>
       <div className="sidebar-launch">
         <SidebarNewMenu disabled={!installed} items={newItems} />
+      </div>
+      <div className="sidebar-inbox">
+        <InboxEntry
+          active={view === "inbox"}
+          onOpen={() => navigate({ view: "inbox" })}
+        />
       </div>
       <div className="sidebar-scroll">
         {agentsEnabled && (

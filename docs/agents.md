@@ -89,7 +89,8 @@ member also shows whether its model changed since it took it over from the lead.
   the chat and in the paired Telegram chat with **Allow once**, **Always allow** and
   **Deny**. A permanent team member asks in its own chat; when its lead asked or
   delegated the turn, the request also appears in the lead's chat, and deciding in
-  either chat settles it in both. **Always allowed commands** lists what you allowed
+  either chat settles it in both. Every request waiting for approval, and every team
+  proposal, also appears under **Agents** in the [inbox](inbox.md). **Always allowed commands** lists what you allowed
   permanently; delete an entry and the agent asks again. Temporary team members get
   shell access only through their lead's **Team members may use shell and SSH**
   (see below).

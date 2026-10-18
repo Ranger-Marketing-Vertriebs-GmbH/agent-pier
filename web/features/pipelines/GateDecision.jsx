@@ -9,6 +9,7 @@ import {
   gateActions,
   requestRunAction,
 } from "./run-action-request.js";
+import "./gate-decision.css";
 
 export const availableGateActions = (run) =>
   (run.actions || []).filter((action) => gateActions.includes(action));

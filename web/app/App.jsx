@@ -21,6 +21,7 @@ import MobileHeader from "./MobileHeader.jsx";
 import useFileNavigationGuard from "../features/files/useFileNavigationGuard.js";
 import FileNavigationGuardDialog from "../features/files/FileNavigationGuardDialog.jsx";
 import AgentsOff from "../features/assistants/AgentsOff.jsx";
+import { publishInboxSummary } from "../features/inbox/inbox-store.js";
 const AgentsPage = lazy(() => import("../features/assistants/AgentsPage.jsx"));
 const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
 const Extensions = lazy(() => import("../features/extensions/ExtensionsPage.jsx"));
@@ -30,6 +31,7 @@ const SessionWorkspace = lazy(() => import("../features/sessions/SessionWorkspac
 const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx"));
 const ArtifactsPage = lazy(() => import("../features/artifacts/ArtifactsPage.jsx"));
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
+const InboxPage = lazy(() => import("../features/inbox/InboxPage.jsx"));
 export default function App() {
   const { enabled } = useAssistantFeature();
   return (
@@ -44,6 +46,10 @@ function Application() {
   const { enabled: agentsEnabled, loading: agentsLoading } = useAssistantFeature();
   useLanguage();
   const { state, loading, error, ready, refresh } = useWorkspaceState();
+  // The polled state carries the inbox count for the sidebar and the phone header.
+  useEffect(() => {
+    publishInboxSummary(state.inbox);
+  }, [state.inbox]);
   const [modal, setModal] = useState(null),
     [mobileNav, setMobileNav] = useState(false),
     [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -235,6 +241,13 @@ function Application() {
                   navigationOpen={mobileNav}
                 />
               </Suspense>
+            ) : view === "inbox" ? (
+              <InboxPage
+                route={route}
+                navigate={navigate}
+                openNavigation={openNavigation}
+                navigationOpen={mobileNav}
+              />
             ) : view === "files" ? (
               <Suspense
                 fallback={
