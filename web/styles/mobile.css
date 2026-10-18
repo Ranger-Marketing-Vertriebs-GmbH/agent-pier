@@ -264,9 +264,6 @@
   .session-actions {
     gap: 1px;
   }
-  .session-actions > .icon-button {
-    width: 28px;
-  }
   .session-title .provider-mark {
     width: 28px;
     height: 28px;

@@ -22,6 +22,7 @@
 @import "../app/layout.css";
 @import "../app/sidebar-menu.css";
 @import "../features/dashboard/dashboard.css";
+@import "../components/primitives.css";
 @import "../features/accounts/accounts.css";
 @import "../components/forms.css";
 @import "../components/dialog.css";

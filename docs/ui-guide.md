@@ -129,7 +129,9 @@ instead of building a one-off in a feature.
 
 ### Buttons and icons
 
-Buttons are CSS classes on a native `<button>` (`web/app/layout.css`), no component yet:
+Buttons are CSS classes on a native `<button>` (`.button` variants in `web/app/layout.css`;
+`.compact`, `.icon-button`, `.badge`, `.error` and `.loading` in
+`web/components/primitives.css`), no component yet:
 
 | Class                 | Use                                                                            |
 | --------------------- | ------------------------------------------------------------------------------ |
@@ -261,8 +263,10 @@ waiting `--status-waiting` (light orange), ok `--status-ok` (green), error
 ### Mobile and touch
 
 - Phones are ≤ 700px. Lay out in one column; lists open details as subpages.
-- Tap targets are at least `--touch-target` (44px) on phones and touch screens;
-  `.compact` and 33px icon buttons are desktop sizes.
+- Tap targets are at least `--touch-target` (44px) on phones: `primitives.css` raises
+  `.button`, `.compact`, `.icon-button` and labels around a checkbox or radio to 44px
+  below 700px. `.compact` and 33px icon buttons are desktop sizes; do not cap them with
+  a smaller `min-height` in feature CSS (`tests/browser/touch-target-size.spec.js`).
 - Dialogs become bottom sheets on phones (`Modal`, `Sheet` do this already); actions
   stay visible above the home indicator (`--safe-area-inset-bottom`).
 - No horizontal page scroll; long values wrap or truncate with the full text available.

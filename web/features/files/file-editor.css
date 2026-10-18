@@ -25,8 +25,8 @@
 }
 .file-editor-tab-close {
   flex: none;
-  min-width: 40px;
-  min-height: 40px;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
   padding: 6px;
 }
 .file-editor-tabs [aria-selected="true"] {
@@ -92,7 +92,7 @@
     padding: 8px;
   }
   .file-editor-toolbar button {
-    min-height: 40px;
+    min-height: var(--touch-target);
   }
   .file-editor-view .cm-editor {
     height: 320px;
