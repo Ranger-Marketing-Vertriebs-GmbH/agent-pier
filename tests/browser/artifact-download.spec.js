@@ -12,8 +12,17 @@ async function start(page, context) {
 test("Download saves the artifact under its server file name without leaving the page", async ({
   page,
   context,
+  browserName,
 }) => {
   await start(page, context);
+  // The name the page hands the browser, before the engine sanitizes it.
+  await page.addInitScript(() => {
+    const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () {
+      if (this.download) (window.__downloadNames ||= []).push(this.download);
+      return click.call(this);
+    };
+  });
   const requests = [];
   await context.route(/\/api\/artifacts\/a1\/download$/, (route) => {
     requests.push(route.request().url());
@@ -31,7 +40,16 @@ test("Download saves the artifact under its server file name without leaving the
   const button = page.getByRole("button", { name: "Download Settings QA report" });
   await expect(button).toHaveText("Download");
   const [download] = await Promise.all([page.waitForEvent("download"), button.click()]);
-  expect(download.suggestedFilename()).toBe("Settings QA report.zip");
+  expect(await page.evaluate(() => window.__downloadNames)).toEqual([
+    "Settings QA report.zip",
+  ]);
+  // WebKit on Linux (WebKitGTK) reports spaces as underscores; Safari keeps them.
+  const saved = "Settings QA report.zip";
+  expect(download.suggestedFilename()).toBe(
+    browserName === "webkit" && process.platform === "linux"
+      ? saved.replaceAll(" ", "_")
+      : saved,
+  );
   expect(download.url()).toMatch(/^blob:/);
   expect(requests).toHaveLength(1);
   expect(page.url()).toBe(address);
