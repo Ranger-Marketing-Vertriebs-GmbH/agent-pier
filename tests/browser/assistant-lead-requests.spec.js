@@ -355,3 +355,44 @@ test("a long task's whole text replaces its 'Show all' link once loaded", async 
   await expect(card.locator(".assistant-approval-task")).toHaveText(full);
   await expect(card.getByRole("button", { name: "Show all" })).toHaveCount(0);
 });
+
+test("a task an autonomous lead started on its own is marked self-initiated", async ({
+  page,
+}) => {
+  await chatFixture(page, {
+    assistants: [
+      chatAssistant(),
+      memberAgent("scout", "Scout", { lifetime: "permanent" }),
+    ],
+    conversations: [
+      { id: "dinner", assistantId: "home" },
+      { id: "scout-chat", assistantId: "scout" },
+    ],
+    teams: [
+      {
+        id: "research",
+        kind: "team",
+        revision: 1,
+        parentAssistantId: "home",
+        parentConversationId: "dinner",
+        objective: "Research hosting vendors",
+        phase: "completed",
+        status: "completed",
+        members: [],
+        memberIds: ["scout"],
+        lifetime: "task",
+        createdAt: "2026-10-12T09:00:00.000Z",
+      },
+    ],
+    members: [memberRecord("scout", "Scout", { lifetime: "permanent" })],
+    requests: [
+      request("task-1", { type: "task", writeAllowed: true, selfInitiated: true }),
+    ],
+  });
+  await page.goto(baseURL + "/agents/home/settings?tab=work");
+  const card = page.locator(".lead-request-card");
+  await expect(card.locator(".lead-request-access")).toHaveText([
+    "may write",
+    "self-initiated",
+  ]);
+});

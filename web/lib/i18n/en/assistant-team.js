@@ -21,6 +21,20 @@ export const assistantTeamCopy = {
   archive: "Archive",
   restore: "Restore",
   autonomous: "Allow teams without asking each time",
+  // How a lead involves its members on its own (server team-guidance.js).
+  usage: "Use team",
+  usageLevels: {
+    onRequest: "On request",
+    suggest: "Suggest",
+    autonomous: "Autonomous",
+  },
+  usageHints: {
+    onRequest: "The agent asks or delegates to its members only when you ask it to.",
+    suggest:
+      "The agent offers to involve a matching member in one sentence and waits for your yes. Your yes counts as your request.",
+    autonomous:
+      "The agent asks members and delegates suitable tasks on its own, within a limit per turn and hour. Its own tasks may change the member's workspace; shell, SSH, project folders, GitHub and new teams keep their usual approvals.",
+  },
   memberShellSsh: "Team members may use shell and SSH",
   memberShellSshHint:
     "Lead agents grant their task members only what they have themselves. With this option they may also grant shell, at most at their own level, and SSH on their own hosts; you approve every later grant. It applies to teams proposed while it is on. Members act unattended, and content they read can steer them.",

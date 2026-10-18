@@ -21,6 +21,8 @@ export const leadRequestCopy = {
   // Eine Aufgabe darf nur schreiben, wenn der Besitzer sie ausdrücklich verlangt hat.
   mayWrite: "darf schreiben",
   readOnly: "nur lesen",
+  // Der Lead hat sie von sich aus gestartet (Team-Nutzung „Selbstständig“).
+  selfInitiated: "selbst gestartet",
   showAll: "Alles anzeigen",
   // An answer stored incomplete beyond the history limit.
   answerShortened: "Gekürzt – der vollständige Text steht im Chat des Mitglieds.",
@@ -29,7 +31,7 @@ export const leadRequestCopy = {
     "Das Ergebnis ließ sich nicht an den Agenten zurückgeben. Lies es hier.",
   listTitle: "Fragen und Aufgaben",
   listHint:
-    "Was dieser Agent seine Mitglieder gefragt oder ihnen übergeben hat, offene zuerst. Eine Aufgabe darf Dateien im Arbeitsbereich des Mitglieds nur ändern, wenn du sie selbst verlangt hast. Antworten stehen auch in den Chats der Mitglieder.",
+    "Was dieser Agent seine Mitglieder gefragt oder ihnen übergeben hat, offene zuerst. Eine Aufgabe darf Dateien im Arbeitsbereich des Mitglieds nur ändern, wenn du sie selbst verlangt hast oder wenn der Agent sein Team selbstständig nutzt und sie als Antwort auf deine Nachricht gestartet hat (markiert als selbst gestartet). Antworten stehen auch in den Chats der Mitglieder.",
   open: (count) => `Offen (${count})`,
   finished: (count) => `Abgeschlossen (${count})`,
   none: "Dieser Agent hat seinen Mitgliedern noch nichts geschickt.",

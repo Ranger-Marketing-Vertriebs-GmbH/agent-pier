@@ -87,6 +87,7 @@ test("a team policy changed elsewhere is overwritten with its newer revision", a
   await expect.poll(() => state.work.length).toBe(2);
   expect(state.work[1].team).toEqual({
     revision: 5,
+    usage: "suggest",
     autonomous: false,
     memberShellSsh: false,
     maxMembers: 6,

@@ -3,6 +3,7 @@ import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import Icon from "../../../components/Icon.jsx";
 import ListCard from "../../../components/ListCard.jsx";
+import Segmented from "../../../components/Segmented.jsx";
 import ListRow, {
   NumberRow,
   ToggleRow,
@@ -28,6 +29,7 @@ import {
   removedProjectCount,
   sshSummary,
   teamLimits,
+  teamUsageLevels,
   toggleId,
   workServer,
 } from "./agent-settings-fields.js";
@@ -53,6 +55,7 @@ const conflictLabels = {
   memoryWrite: () => wf.memoryWrite,
   autonomous: () => wf.autonomous,
   publish: () => wf.publish,
+  teamUsage: () => teamCopy.usage,
   teamAutonomous: () => teamCopy.autonomous,
   memberShellSsh: () => teamCopy.memberShellSsh,
   maxMembers: () => teamCopy.maxMembers,
@@ -356,6 +359,20 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
             {settingsCopy.teamGroup}
           </GroupLabel>
           <ListCard labelledBy={teamId} disabled={!teamReady}>
+            <div className="list-row agent-team-usage">
+              <span className="list-row-label">{teamCopy.usage}</span>
+              <Segmented
+                label={teamCopy.usage}
+                options={teamUsageLevels.map((value) => ({
+                  value,
+                  label: teamCopy.usageLevels[value],
+                }))}
+                value={values.teamUsage}
+                disabled={!teamReady || draft.saving}
+                onChange={(next) => draft.set("teamUsage", next)}
+              />
+            </div>
+            <p className="agent-row-note">{teamCopy.usageHints[values.teamUsage]}</p>
             <ToggleRow
               label={teamCopy.autonomous}
               checked={values.teamAutonomous}

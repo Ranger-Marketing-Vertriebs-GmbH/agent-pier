@@ -21,6 +21,21 @@ export const assistantTeamCopy = {
   archive: "Archivieren",
   restore: "Wiederherstellen",
   autonomous: "Teams ohne erneute Rückfrage erlauben",
+  // Wie ein Lead seine Mitglieder von sich aus einbezieht (Server team-guidance.js).
+  usage: "Team nutzen",
+  usageLevels: {
+    onRequest: "Auf Anfrage",
+    suggest: "Vorschlagen",
+    autonomous: "Selbstständig",
+  },
+  usageHints: {
+    onRequest:
+      "Der Agent fragt seine Mitglieder oder übergibt ihnen Aufgaben nur, wenn du ihn darum bittest.",
+    suggest:
+      "Der Agent schlägt in einem Satz vor, ein passendes Mitglied einzubeziehen, und wartet auf dein Ja. Dein Ja gilt als deine Anfrage.",
+    autonomous:
+      "Der Agent fragt Mitglieder und übergibt passende Aufgaben von sich aus, begrenzt pro Antwort und Stunde. Seine eigenen Aufgaben dürfen den Arbeitsbereich des Mitglieds ändern; Shell, SSH, Projektordner, GitHub und neue Teams behalten ihre üblichen Freigaben.",
+  },
   memberShellSsh: "Team-Mitglieder dürfen Shell und SSH nutzen",
   memberShellSshHint:
     "Leitende Agenten geben ihren auftragsgebundenen Mitgliedern nur, was sie selbst haben. Mit dieser Option dürfen sie zusätzlich Shell geben, höchstens mit ihrer eigenen Stufe, und SSH auf ihren eigenen Hosts; jede spätere Freigabe bestätigst du. Sie gilt für Teams, die vorgeschlagen werden, während sie an ist. Mitglieder arbeiten unbeaufsichtigt, und Inhalte, die sie lesen, können sie lenken.",

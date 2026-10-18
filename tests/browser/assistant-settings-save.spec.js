@@ -145,6 +145,7 @@ test("the Work tab saves grants and team policy in one request, then only what c
     },
     team: {
       revision: 1,
+      usage: "suggest",
       autonomous: false,
       memberShellSsh: false,
       maxMembers: 6,
@@ -158,6 +159,7 @@ test("the Work tab saves grants and team policy in one request, then only what c
   expect(state.work[1]).toEqual({
     team: {
       revision: 2,
+      usage: "suggest",
       autonomous: false,
       memberShellSsh: false,
       maxMembers: 6,

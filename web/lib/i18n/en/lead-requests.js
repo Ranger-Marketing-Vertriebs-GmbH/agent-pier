@@ -21,6 +21,8 @@ export const leadRequestCopy = {
   // A task may write only when the owner explicitly asked for it.
   mayWrite: "may write",
   readOnly: "read-only",
+  // The lead started it on its own (team usage "Autonomous").
+  selfInitiated: "self-initiated",
   showAll: "Show all",
   // An answer stored incomplete beyond the history limit.
   answerShortened: "Shortened – the whole text is in the member’s chat.",
@@ -28,7 +30,7 @@ export const leadRequestCopy = {
   followUpFailed: "The result could not be passed back to the agent. Read it here.",
   listTitle: "Questions and tasks",
   listHint:
-    "What this agent asked its members or gave them to do, open ones first. A task may change files in the member's workspace only when you asked for it yourself. Answers also appear in the members' chats.",
+    "What this agent asked its members or gave them to do, open ones first. A task may change files in the member's workspace only when you asked for it yourself, or when the agent uses its team autonomously and started it in reply to your message (marked self-initiated). Answers also appear in the members' chats.",
   open: (count) => `Open (${count})`,
   finished: (count) => `Finished (${count})`,
   none: "This agent has not asked its members anything yet.",
