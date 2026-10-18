@@ -20,7 +20,7 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
     [clone, setClone] = useState(null),
     [resets, setResets] = useState(0);
   // Leaving an edited draft through this page asks first instead of discarding it.
-  const { guarded, setDirty, confirm } = useDraftGuard(copy.discardDraft);
+  const { guarded, setDirty, setSave, confirm } = useDraftGuard(copy.discardDraft, route);
   const mobile = useMobileLayout();
   const items = definitions.data?.pipelines || [],
     item = route.pipelineItem,
@@ -66,6 +66,7 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
     if (item !== pipeline.id) navigate({ pipelineItem: pipeline.id });
   };
   const cancel = () => {
+    setDirty(false);
     if (selected) setResets((value) => value + 1);
     else {
       setClone(null);
@@ -82,6 +83,7 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
         saved={saved}
         cancel={cancel}
         onDirtyChange={setDirty}
+        onSaver={setSave}
       />
     ) : (
       item && ready && <ErrorMessage error={copy.definitionUnavailable} />
@@ -160,7 +162,11 @@ export default function DefinitionsPage({ route, navigate, refreshCounts }) {
             setRemoving(null);
             replaceItems(items.filter((p) => p.id !== removing.id));
             refreshCounts?.();
-            if (removing.id === item) navigate({ pipelineItem: "" });
+            if (removing.id === item) {
+              // A removed pipeline has no unsaved draft left to protect.
+              setDirty(false);
+              navigate({ pipelineItem: "" });
+            }
           }}
         />
       )}

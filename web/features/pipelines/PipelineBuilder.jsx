@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
@@ -93,6 +93,7 @@ export default function PipelineBuilder({
   saved,
   cancel,
   onDirtyChange,
+  onSaver,
 }) {
   const source = pipeline || template;
   const initial = graphToStages(source?.graph);
@@ -136,7 +137,10 @@ export default function PipelineBuilder({
   };
   const submit = (event) => {
     event.preventDefault();
-    action.run(async () => {
+    persist();
+  };
+  function persist() {
+    return action.run(async () => {
       let graph;
       try {
         graph = advanced ? JSON.parse(json) : stagesToGraph(draft.stages);
@@ -157,12 +161,28 @@ export default function PipelineBuilder({
           ...(pipeline ? { expectedRevision: pipeline.revision } : {}),
         },
       );
+      onDirtyChange?.(false);
       saved(result.pipeline);
+      return true;
     });
-  };
+  }
+  // The guard's "Save and continue" saves like the form's own submit; invalid fields
+  // report themselves and keep the draft.
+  const form = useRef(null),
+    persistRef = useRef(null);
+  persistRef.current = persist;
+  useEffect(() => {
+    onSaver?.(() =>
+      form.current?.reportValidity() === false
+        ? Promise.resolve(false)
+        : persistRef.current(),
+    );
+    return () => onSaver?.(null);
+  }, [onSaver]);
+
   const stageProfiles = eligible(profiles);
   return (
-    <form className="pipeline-form definition-card" onSubmit={submit}>
+    <form ref={form} className="pipeline-form definition-card" onSubmit={submit}>
       <fieldset disabled={action.busy}>
         <div className="definition-head">
           <label>

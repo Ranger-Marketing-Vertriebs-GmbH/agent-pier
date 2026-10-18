@@ -247,11 +247,11 @@ test("a tab close uses the retained-draft guard and restores focus after cancell
   await page.getByRole("textbox", { name: `Document content: ${path}` }).fill("draft");
   const close = page.getByRole("button", { name: `Close tab ${path}`, exact: true });
   await close.click();
-  await expect(page.getByRole("dialog", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(close).toBeFocused();
   await close.click();
-  await expect(page.getByRole("dialog", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Save changes?" })).toBeVisible();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Cancel", exact: true })
@@ -399,7 +399,7 @@ test("mobile editor keeps multiple tabs, a dirty draft, and conflict controls", 
         .tap();
       await mobile
         .getByRole("button", {
-          name: language === "en" ? "Discard and continue" : "Verwerfen und fortfahren",
+          name: language === "en" ? "Discard" : "Verwerfen",
           exact: true,
         })
         .tap();

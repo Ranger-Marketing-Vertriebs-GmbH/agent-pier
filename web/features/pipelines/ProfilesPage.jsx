@@ -27,7 +27,7 @@ export default function ProfilesPage({
     [removing, setRemoving] = useState(null),
     [resets, setResets] = useState(0);
   const mobile = useMobileLayout();
-  const draft = useDraftGuard(copy.discardProfileDraft);
+  const draft = useDraftGuard(copy.discardProfileDraft, route);
   const profiles = resource.data?.profiles || [],
     groups = profileGroups(profiles),
     item = route.pipelineItem,
@@ -72,6 +72,7 @@ export default function ProfilesPage({
     if (item !== profile.id) navigate({ pipelineItem: profile.id });
   };
   const cancel = () => {
+    draft.setDirty(false);
     if (selected) setResets((value) => value + 1);
     else {
       setClone(null);
@@ -88,6 +89,7 @@ export default function ProfilesPage({
         cancel={cancel}
         saved={saved}
         onDirtyChange={draft.setDirty}
+        onSaver={draft.setSave}
         // Launching uses the saved profile, so an unsaved draft is confirmed away and
         // the editor shows the saved profile again.
         onLaunch={() =>

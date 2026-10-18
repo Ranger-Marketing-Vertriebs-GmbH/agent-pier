@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
@@ -82,6 +82,7 @@ export default function VerificationEditor({
   initial,
   saved,
   onDirtyChange,
+  onSaver,
 }) {
   const [steps, setSteps] = useState(initial);
   const dirty = JSON.stringify(steps) !== JSON.stringify(initial);
@@ -98,18 +99,37 @@ export default function VerificationEditor({
     [next[index], next[index + delta]] = [next[index + delta], next[index]];
     setSteps(next);
   };
+  function persist() {
+    return action.run(async () => {
+      await api(`/pipeline-verification/${encodeURIComponent(projectId)}`, "PUT", {
+        steps,
+      });
+      onDirtyChange?.(false);
+      saved();
+      return true;
+    });
+  }
+  // The guard's "Save and continue" saves like the form's own submit; invalid fields
+  // report themselves and keep the draft.
+  const form = useRef(null),
+    persistRef = useRef(null);
+  persistRef.current = persist;
+  useEffect(() => {
+    onSaver?.(() =>
+      form.current?.reportValidity() === false
+        ? Promise.resolve(false)
+        : persistRef.current(),
+    );
+    return () => onSaver?.(null);
+  }, [onSaver]);
   return (
     <form
+      ref={form}
       className="pipeline-form verification-card"
       aria-labelledby={headingId}
       onSubmit={(event) => {
         event.preventDefault();
-        action.run(async () => {
-          await api(`/pipeline-verification/${encodeURIComponent(projectId)}`, "PUT", {
-            steps,
-          });
-          saved();
-        });
+        persist();
       }}
     >
       <fieldset disabled={action.busy}>

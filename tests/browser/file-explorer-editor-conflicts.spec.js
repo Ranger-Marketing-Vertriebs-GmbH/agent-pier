@@ -196,5 +196,5 @@ test("manual conflict resolution adopts disk text and format as the dirty baseli
   await editor.press("ControlOrMeta+z");
   await editor.press("ArrowRight");
   await page.getByRole("button", { name: "Close document", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
 });

@@ -122,7 +122,8 @@ const steps = [
 ## Unsaved changes and navigation (`web/lib/navigation-guard.js`)
 
 All navigation goes through one coordinator: app routes and browser history
-(`useWorkspaceNavigation`), file editor tab closes, and settings drafts. Guards are
+(`useWorkspaceNavigation`), file editor tab closes, settings drafts and Pipelines
+editors (`web/features/pipelines/useDraftGuard.jsx`). Guards are
 asked in registration order; the first refusal cancels; a newer navigation invalidates
 an older one still waiting or queued. One `beforeunload` listener is held while any protector
 needs it (`holdUnloadWarning()`).

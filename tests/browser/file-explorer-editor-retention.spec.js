@@ -60,7 +60,7 @@ for (const lost of [false, true]) {
     await expect(content).toHaveText("original");
     await expect(page.getByRole("tab", { name: path, exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Close document", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(content).toHaveText("original");
     expect(requests).toHaveLength(1);

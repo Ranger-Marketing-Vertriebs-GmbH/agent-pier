@@ -323,7 +323,7 @@ test("unsaved profile drafts ask before another profile, a new one or a copy ope
   const name = page.getByRole("textbox", { name: "Profilname", exact: true });
   await name.fill("Geänderter Planer");
   const confirm = page.getByRole("dialog", {
-    name: "Ungespeicherte Änderungen verwerfen?",
+    name: "Änderungen speichern?",
   });
   await page.getByRole("button", { name: "Bearbeiten: Prüfer", exact: true }).click();
   await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
@@ -379,7 +379,7 @@ test("mobile profiles show the list first and the editor without overflow", asyn
   await page.getByRole("textbox", { name: "Profilname", exact: true }).fill("Neu");
   await page.getByRole("button", { name: "Alle Profile", exact: true }).click();
   await page
-    .getByRole("dialog", { name: "Ungespeicherte Änderungen verwerfen?" })
+    .getByRole("dialog", { name: "Änderungen speichern?" })
     .getByRole("button", { name: "Verwerfen", exact: true })
     .click();
   await expect(item).toBeVisible();
@@ -428,7 +428,7 @@ test("refreshing the profile list asks before discarding an unsaved draft", asyn
   state.fail = "";
   state.profiles[0] = { ...state.profiles[0], name: "Server-Planer", revision: 5 };
   const confirm = page.getByRole("dialog", {
-    name: "Ungespeicherte Änderungen verwerfen?",
+    name: "Änderungen speichern?",
   });
   await page.getByRole("button", { name: "Aktualisieren", exact: true }).click();
   await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
@@ -450,7 +450,7 @@ test("starting a session from an unsaved draft asks before discarding it", async
     exact: true,
   });
   const confirm = page.getByRole("dialog", {
-    name: "Ungespeicherte Änderungen verwerfen?",
+    name: "Änderungen speichern?",
   });
   const launch = page.getByRole("dialog", { name: "Neue Session", exact: true });
   await start.click();

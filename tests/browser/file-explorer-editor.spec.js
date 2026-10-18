@@ -55,7 +55,7 @@ test("English guarded navigation keeps full history, saves CRLF/BOM, and offers 
   await expect(page.locator(".cm-editor")).toHaveCount(1);
   await content.fill("Changed\nworld\n");
   await page.getByRole("button", { name: "Close document", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
