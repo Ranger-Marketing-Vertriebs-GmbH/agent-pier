@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import useResource from "../../lib/useResource.js";
 import api from "../../lib/api.js";
-import ConfirmOperation from "./ConfirmOperation.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 
@@ -121,12 +121,15 @@ export default function ReleaseSessions({
         </>
       )}
       {confirm && (
-        <ConfirmOperation
-          description={(confirm === "interrupt"
+        <ConfirmDialog
+          destructive
+          title={copy.confirmTitles[confirm](version)}
+          body={(confirm === "interrupt"
             ? copy.migrateInterruptConfirm
             : copy.migrateConfirm)(version, sessions.length)}
-          close={() => setConfirm(null)}
-          action={async () => {
+          confirmLabel={copy.confirmLabels[confirm]}
+          onCancel={() => setConfirm(null)}
+          onConfirm={async () => {
             const result = await api(
               `/operations/releases/cleanup/${encodeURIComponent(version)}/migrate`,
               "POST",

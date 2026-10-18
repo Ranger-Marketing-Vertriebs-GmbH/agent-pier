@@ -1,4 +1,5 @@
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
+import Switch from "../../components/Switch.jsx";
 import React, { useEffect, useId, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import api from "../../lib/api.js";
@@ -175,14 +176,12 @@ export default function ProfileEditor({
               onChange={(event) => patch({ description: event.target.value })}
             />
           </label>
-          <label className="pipeline-check">
-            <input
-              type="checkbox"
-              checked={draft.enabled}
-              onChange={(event) => patch({ enabled: event.target.checked })}
-            />
-            {copy.enabled}
-          </label>
+          <Switch
+            className="pipeline-check"
+            label={copy.enabled}
+            checked={draft.enabled}
+            onChange={(enabled) => patch({ enabled })}
+          />
         </fieldset>
         <ProfileExecutionFields
           {...{ draft, setDraft, patchConfig, accounts, account, connection, catalog }}

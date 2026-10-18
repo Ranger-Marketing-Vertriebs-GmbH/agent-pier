@@ -5,6 +5,7 @@ import Icon from "../../components/Icon.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import Checkbox from "../../components/Checkbox.jsx";
 
 // One step per row: # · Name · Befehl · Zeitlimit (s) · blocking · order and removal.
 function StepRow({ step, index, count, patch, move, remove }) {
@@ -37,14 +38,12 @@ function StepRow({ step, index, count, patch, move, remove }) {
         value={step.timeoutMs / 1000}
         onChange={(event) => patch({ timeoutMs: Number(event.target.value) * 1000 })}
       />
-      <label className="pipeline-check verification-step-blocking">
-        <input
-          type="checkbox"
-          checked={step.blocking}
-          onChange={(event) => patch({ blocking: event.target.checked })}
-        />
-        {copy.blocking}
-      </label>
+      <Checkbox
+        className="pipeline-check verification-step-blocking"
+        label={copy.blocking}
+        checked={step.blocking}
+        onChange={(blocking) => patch({ blocking })}
+      />
       <div className="verification-step-actions">
         <button
           type="button"

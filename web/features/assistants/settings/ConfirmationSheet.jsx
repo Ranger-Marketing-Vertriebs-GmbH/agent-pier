@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import Sheet from "../../../components/Sheet.jsx";
+import React from "react";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantShellCopy as shell } from "../../../lib/i18n/messages/assistant-shell.js";
 import { mcpServerCopy as mcp } from "../../../lib/i18n/messages/mcp-servers.js";
@@ -27,14 +27,11 @@ function texts({ kind, data }) {
   ];
 }
 
-/** A save-chain confirmation (shell, full shell, stdio, restart) as a sheet. */
+/**
+ * A save-chain confirmation (shell, full shell, stdio, restart). The change is risky
+ * but not destructive: a primary button, with Cancel focused so Enter never confirms.
+ */
 export default function ConfirmationSheet({ confirmation, onShellCancel }) {
-  const cancelButton = useRef(null);
-  // Enter must not confirm a risky change: Cancel takes the focus that showModal()
-  // gave the first button (the sheet's effect runs before this one).
-  useEffect(() => {
-    if (confirmation) cancelButton.current?.focus();
-  }, [confirmation]);
   if (!confirmation) return null;
   const [title, body, confirm, cancelLabel] = texts(confirmation);
   const cancel = () => {
@@ -43,25 +40,15 @@ export default function ConfirmationSheet({ confirmation, onShellCancel }) {
       onShellCancel?.();
   };
   return (
-    <Sheet open title={title} onCancel={cancel} className="agent-confirmation-sheet">
-      <div className="sheet-body">
-        {body.map((text) => (
-          <p key={text}>{text}</p>
-        ))}
-      </div>
-      <div className="sheet-actions">
-        <button type="button" className="button primary" onClick={confirmation.confirm}>
-          {confirm}
-        </button>
-        <button
-          type="button"
-          className="button secondary"
-          ref={cancelButton}
-          onClick={cancel}
-        >
-          {cancelLabel}
-        </button>
-      </div>
-    </Sheet>
+    <ConfirmDialog
+      key={confirmation.kind}
+      title={title}
+      body={body}
+      confirmLabel={confirm}
+      cancelLabel={cancelLabel}
+      focusCancel
+      onCancel={cancel}
+      onConfirm={confirmation.confirm}
+    />
   );
 }

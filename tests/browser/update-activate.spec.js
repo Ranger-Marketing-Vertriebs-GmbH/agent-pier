@@ -31,7 +31,10 @@ for (const locale of ["de-DE", "en-GB"]) {
       );
       await page
         .getByRole("dialog")
-        .getByRole("button", { name: en ? "Confirm" : "Bestätigen", exact: true })
+        .getByRole("button", {
+          name: en ? "Activate now" : "Jetzt aktivieren",
+          exact: true,
+        })
         .click();
       await expect(page.getByRole("dialog")).toHaveCount(0);
       const first = state.calls.find(
@@ -43,7 +46,10 @@ for (const locale of ["de-DE", "en-GB"]) {
       await checkbox.check();
       await page
         .getByRole("dialog")
-        .getByRole("button", { name: en ? "Confirm" : "Bestätigen", exact: true })
+        .getByRole("button", {
+          name: en ? "Activate now" : "Jetzt aktivieren",
+          exact: true,
+        })
         .click();
       const posts = state.calls.filter(
         (call) => call.path === "/operations/releases/activate" && call.method === "POST",

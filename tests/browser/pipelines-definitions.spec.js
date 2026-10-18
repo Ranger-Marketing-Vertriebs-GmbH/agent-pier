@@ -249,7 +249,9 @@ test("desktop definitions select the first pipeline and highlight the chosen sta
   ).toHaveCount(2);
   // Unsaved edits are not silently discarded when another pipeline is chosen.
   await page.getByRole("button", { name: "Bearbeiten: Wartung", exact: true }).click();
-  const confirm = page.getByRole("dialog", { name: "Aktion bestätigen" });
+  const confirm = page.getByRole("dialog", {
+    name: "Ungespeicherte Änderungen verwerfen?",
+  });
   await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
   await expect(page).toHaveURL(/\/definitions\/pipeline-one$/);
   await expect(
@@ -331,8 +333,10 @@ test("unknown definitions report unavailability and new pipelines start empty", 
   await page
     .getByRole("button", { name: "Löschen: Entwicklungsablauf", exact: true })
     .click();
-  const confirm = page.getByRole("dialog", { name: "Aktion bestätigen" });
-  await confirm.getByRole("button", { name: "Entfernen", exact: true }).click();
+  const confirm = page.getByRole("dialog", {
+    name: "Pipeline „Entwicklungsablauf“ löschen?",
+  });
+  await confirm.getByRole("button", { name: "Jetzt löschen", exact: true }).click();
   await expect(confirm.getByRole("alert")).toContainText("Fixture conflict");
 });
 

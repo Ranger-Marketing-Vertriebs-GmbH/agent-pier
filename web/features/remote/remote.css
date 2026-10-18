@@ -6,16 +6,6 @@
   margin: 16px 0;
   min-width: 0;
 }
-.remote-settings .switch-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
-}
-.remote-settings .switch-row input {
-  width: auto;
-  accent-color: var(--accent);
-}
 .remote-settings .chip-list {
   display: flex;
   flex-wrap: wrap;

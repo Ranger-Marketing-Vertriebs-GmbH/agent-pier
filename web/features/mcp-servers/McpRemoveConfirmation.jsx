@@ -21,20 +21,20 @@ export default function McpRemoveConfirmation({ server, busy, onConfirm, onCance
       <div className="mcp-actions">
         <button
           type="button"
-          className="button primary"
-          disabled={busy}
-          onClick={onConfirm}
-        >
-          {copy.confirmRemoveAction}
-        </button>
-        <button
-          type="button"
           className="button secondary"
           data-autofocus
           disabled={busy}
           onClick={onCancel}
         >
           {commonCopy.cancel}
+        </button>
+        <button
+          type="button"
+          className="button danger"
+          disabled={busy}
+          onClick={onConfirm}
+        >
+          {copy.confirmRemoveAction}
         </button>
       </div>
     </div>

@@ -20,3 +20,7 @@ export const fileLinkCopy = {
   title: "Save file",
   tap: "Tap to save",
 };
+export const copyButtonCopy = {
+  copied: "Copied",
+  failed: "Copy failed. Select the text and copy it manually.",
+};

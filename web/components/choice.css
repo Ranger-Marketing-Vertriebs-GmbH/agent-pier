@@ -1,0 +1,101 @@
+/* Switch and Checkbox (docs/ui-guide.md#binary-settings), also used by ToggleRow,
+   CheckboxRow and CheckRow. Doubled classes outrank feature rules on bare inputs. */
+.switch.switch {
+  appearance: none;
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 38px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: var(--switch-off);
+  cursor: pointer;
+  transition: background 0.16s;
+}
+.switch.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition:
+    transform 0.16s,
+    background 0.16s;
+}
+.switch.switch:checked,
+input:checked + .switch.switch {
+  background: var(--accent);
+}
+.switch.switch:checked::after,
+input:checked + .switch.switch::after {
+  background: var(--on-accent);
+  transform: translateX(16px);
+}
+.switch.switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+input:focus-visible + .switch.switch {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.switch-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  cursor: pointer;
+}
+.switch-field-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.checkbox.checkbox,
+.list-row input[type="checkbox"]:not(.switch) {
+  appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--switch-off);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+}
+.checkbox.checkbox:checked,
+.list-row input[type="checkbox"]:not(.switch):checked {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--header-bg);
+}
+.checkbox.checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+.checkbox-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  cursor: pointer;
+}
+.checkbox-field-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  .switch.switch,
+  .switch.switch::after {
+    transition: none;
+  }
+}

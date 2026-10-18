@@ -105,6 +105,18 @@ export const galleryCopy = {
     listDetail: "Beispieleinträge",
     detailFor: (name) => `Details zu ${name}`,
     tabName: "Beispiel",
+    switchLabel: "Benachrichtigen",
+    checkboxLabel: "Verlauf einschließen",
+    copyLabel: "Befehl kopieren: Beispiel",
+    confirmDelete: "Löschen bestätigen",
+    confirmOther: "Änderung bestätigen",
+    confirmDeleteTitle: "Sicherung „nightly“ löschen?",
+    confirmDeleteBody:
+      "Das Archiv wird von diesem Server entfernt. Das kann nicht rückgängig gemacht werden.",
+    confirmOtherTitle: "Version 2.3.0 aktivieren?",
+    confirmOtherBody: "Der Webdienst startet neu; laufende Sessions bleiben erhalten.",
+    deleteNow: "Jetzt löschen",
+    activateNow: "Jetzt aktivieren",
   },
   saveStates: {
     label: "Zustand der Speicherleiste",

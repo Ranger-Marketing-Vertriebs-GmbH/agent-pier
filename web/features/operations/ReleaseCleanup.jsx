@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import useResource from "../../lib/useResource.js";
 import api from "../../lib/api.js";
-import ConfirmOperation from "./ConfirmOperation.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ReleaseSessions from "./ReleaseSessions.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 
@@ -66,10 +66,13 @@ export default function ReleaseCleanup({ busy, job, navigate }) {
         </div>
       ))}
       {selection && (
-        <ConfirmOperation
-          description={copy.cleanupConfirm(selection.join(", "))}
-          close={() => setSelection(null)}
-          action={async () => {
+        <ConfirmDialog
+          destructive
+          title={copy.confirmTitles.cleanup(selection.join(", "), selection.length)}
+          body={copy.cleanupConfirm(selection.join(", "))}
+          confirmLabel={copy.confirmLabels.cleanup}
+          onCancel={() => setSelection(null)}
+          onConfirm={async () => {
             const result = await api("/operations/releases/cleanup", "POST", {
               versions: selection,
             });

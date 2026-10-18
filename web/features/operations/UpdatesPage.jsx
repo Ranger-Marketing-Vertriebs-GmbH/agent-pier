@@ -15,10 +15,11 @@ import { updateChannelStep } from "../settings/settings-steps.js";
 import ReleaseCleanup from "./ReleaseCleanup.jsx";
 import ReleaseNotes from "./ReleaseNotes.jsx";
 import OperationJob from "./OperationJob.jsx";
-import ConfirmOperation from "./ConfirmOperation.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { releasePresentation } from "./release-presentation.js";
 import { serverText } from "../../lib/server-messages.js";
+import Checkbox from "../../components/Checkbox.jsx";
 const stays = staysOn("updates");
 const channelOf = (releases) =>
   releases.updateChannelManaged ? "custom" : releases.updateChannel || "stable";
@@ -198,10 +199,16 @@ export default function UpdatesPage({ route, navigate, frame }) {
           onState={setObservedJob}
         />
         {confirm && (
-          <ConfirmOperation
-            description={`${confirm.kind === "activate" ? copy.activateConfirmation : copy.rollbackConfirmation} ${confirm.version}`}
-            close={() => setConfirm(null)}
-            action={() =>
+          <ConfirmDialog
+            title={copy.confirmTitles[confirm.kind](confirm.version)}
+            body={
+              confirm.kind === "activate"
+                ? copy.activateConfirmation
+                : copy.rollbackConfirmation
+            }
+            confirmLabel={copy.confirmLabels[confirm.kind]}
+            onCancel={() => setConfirm(null)}
+            onConfirm={() =>
               start(
                 confirm.kind,
                 confirm.kind === "activate"
@@ -215,21 +222,18 @@ export default function UpdatesPage({ route, navigate, frame }) {
           >
             {confirm.kind === "activate" && (
               <div className="operations-form">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={reloadSessions}
-                    onChange={(event) => setReloadSessions(event.target.checked)}
-                    aria-describedby="activate-reload-help"
-                  />{" "}
-                  {copy.activateReload}
-                </label>
+                <Checkbox
+                  label={copy.activateReload}
+                  checked={reloadSessions}
+                  onChange={setReloadSessions}
+                  aria-describedby="activate-reload-help"
+                />
                 <p className="field-description" id="activate-reload-help">
                   {copy.activateReloadHelp}
                 </p>
               </div>
             )}
-          </ConfirmOperation>
+          </ConfirmDialog>
         )}
       </section>
       <UnsavedChangesSheet {...sheet} />

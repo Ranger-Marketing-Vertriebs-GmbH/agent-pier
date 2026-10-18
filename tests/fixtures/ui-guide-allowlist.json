@@ -46,7 +46,7 @@
     "web/features/models/model-control.css": 25,
     "web/features/notifications/notifications.css": 7,
     "web/features/operations/operations.css": 2,
-    "web/features/pipelines/definitions.css": 54,
+    "web/features/pipelines/definitions.css": 50,
     "web/features/pipelines/gate-decision.css": 7,
     "web/features/pipelines/pipelines.css": 2,
     "web/features/pipelines/profiles.css": 21,
@@ -68,7 +68,7 @@
     "web/features/ssh/ssh.css": 2,
     "web/features/tools/tool-installer.css": 19,
     "web/styles/mobile.css": 6,
-    "web/styles/settings-pattern.css": 57
+    "web/styles/settings-pattern.css": 50
   },
   "smallFontSizes": {},
   "mediaWidths": {
@@ -99,7 +99,5 @@
     "web/styles/desktop.css": 1
   },
   "focusOutlines": {},
-  "nativeDialogs": {
-    "web/features/terminal/useTerminalConnection.js": 1
-  }
+  "nativeDialogs": {}
 }

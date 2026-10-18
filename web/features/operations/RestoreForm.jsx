@@ -6,7 +6,7 @@ import { backupSize } from "./backup-size.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
-import ConfirmOperation from "./ConfirmOperation.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 /** The first unfilled restore input and its explanation; null when restore may start. */
@@ -200,10 +200,12 @@ export default function RestoreForm({ close, started }) {
         </div>
       </form>
       {confirm && (
-        <ConfirmOperation
-          description={`${copy.restoreConfirmation} ${targetDataDir}`}
-          close={() => setConfirm(false)}
-          action={async () => {
+        <ConfirmDialog
+          title={copy.confirmTitles.restore}
+          body={`${copy.restoreConfirmation} ${targetDataDir}`}
+          confirmLabel={copy.confirmLabels.restore}
+          onCancel={() => setConfirm(false)}
+          onConfirm={async () => {
             const result = await api("/operations/restore", "POST", {
               archiveId,
               targetDataDir,

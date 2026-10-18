@@ -28,6 +28,8 @@ export const connectionCopy = {
     "Der Key wird zentral gespeichert. Änderungen gelten für neue Sessions; laufende native Prozesse werden nicht beendet.",
   removeKey: "Gespeicherten API-Key entfernen",
   delete: "Zugang löschen",
+  deleteTitle: (name) => `Zugang „${name}“ löschen?`,
+  deleteNow: "Jetzt löschen",
   restartRequired:
     "Agenten nutzen diesen Zugang. Die Änderung startet ihr Gateway neu; die Agenten sind dabei kurz nicht erreichbar.",
   saveAndRestart: "Speichern und Agenten neu starten",

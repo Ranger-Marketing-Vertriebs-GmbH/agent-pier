@@ -92,7 +92,25 @@ export const pipelineCopy = {
   profileEligibility:
     "Pipeline-Stufen benötigen ein autonomes Profil ohne erforderliche Parameter.",
   noProfiles: "Noch keine Aufgabenprofile.",
-  confirmAction: "Aktion bestätigen",
+  // ConfirmDialog-Titel nennen das Objekt; der Button wiederholt das Verb.
+  confirmTitles: {
+    delete: (run) => `Lauf „${run}“ löschen?`,
+    "delete-local": (run) => `Arbeitsverzeichnis von „${run}“ entfernen?`,
+    abort: (run) => `Lauf „${run}“ abbrechen?`,
+    override: (run) => `Aktuelle Stufe von „${run}“ übergehen?`,
+    "create-pr": (run) => `Pull Request von „${run}“ erstellen oder aktualisieren?`,
+    definition: (name) => `Pipeline „${name}“ löschen?`,
+    profile: (name) => `Profil „${name}“ löschen?`,
+    discard: "Ungespeicherte Änderungen verwerfen?",
+  },
+  confirmLabels: {
+    delete: "Jetzt löschen",
+    abort: "Jetzt abbrechen",
+    override: "Jetzt übergehen",
+    "create-pr": "Jetzt erstellen",
+    definition: "Jetzt löschen",
+    profile: "Jetzt löschen",
+  },
   deleteTitle: "Wirklich löschen?",
   deleteDefinition:
     "Diese Pipeline löschen? Bestehende Läufe behalten ihre gespeicherte Definition. Pipelines mit laufenden Läufen können nicht gelöscht werden.",

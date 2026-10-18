@@ -2,14 +2,13 @@ import React, { useEffect, useId, useState } from "react";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow, { ToggleRow } from "../../../components/ListRow.jsx";
-import Sheet from "../../../components/Sheet.jsx";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { assistantBrowserCopy as copy } from "../../../lib/i18n/messages/assistant-browser.js";
 import { assistantApi } from "../assistant-api.js";
 import { shellEligible } from "../shell-level.js";
 import { isPersonal } from "./agent-settings-fields.js";
 import BrowserInstall from "./BrowserInstall.jsx";
 import { routePath } from "../../../app/routes.js";
-import { commonCopy } from "../../../lib/i18n/messages/common.js";
 
 /**
  * The agent's own browser (docs/assistant-gateway.md "Browser isolation"): the
@@ -94,29 +93,14 @@ export default function BrowserGroup({ assistant, draft, browser, refresh, navig
         </p>
       )}
       {confirming && (
-        <Sheet
-          open
+        <ConfirmDialog
+          destructive
           title={copy.resetTitle}
+          body={copy.resetDescription}
+          confirmLabel={copy.resetConfirm}
           onCancel={() => setConfirming(false)}
-          className="agent-confirmation-sheet"
-        >
-          <div className="sheet-body">
-            <p>{copy.resetDescription}</p>
-          </div>
-          <div className="sheet-actions">
-            <button type="button" className="button primary" onClick={reset}>
-              {copy.resetConfirm}
-            </button>
-            <button
-              type="button"
-              className="button secondary"
-              autoFocus
-              onClick={() => setConfirming(false)}
-            >
-              {commonCopy.cancel}
-            </button>
-          </div>
-        </Sheet>
+          onConfirm={reset}
+        />
       )}
     </section>
   );

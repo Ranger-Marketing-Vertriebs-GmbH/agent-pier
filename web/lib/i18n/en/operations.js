@@ -26,6 +26,28 @@ export const operationsCopy = {
   refresh: "Refresh",
   next: "Next",
   confirm: "Confirm",
+  // ConfirmDialog titles name the object; the button repeats the verb.
+  confirmTitles: {
+    deleteBackup: (date) => `Delete the backup from ${date}?`,
+    cleanup: (versions, count) =>
+      count === 1
+        ? `Delete version ${versions}?`
+        : `Delete ${count} versions (${versions})?`,
+    migrate: (version) => `Migrate sessions and delete version ${version}?`,
+    interrupt: (version) => `Restart sessions now and delete version ${version}?`,
+    restore: "Restore the backup to a new directory?",
+    activate: (version) => `Activate version ${version}?`,
+    rollback: (version) => `Roll back to version ${version}?`,
+  },
+  confirmLabels: {
+    deleteBackup: "Delete now",
+    cleanup: "Delete now",
+    migrate: "Migrate and delete",
+    interrupt: "Restart and delete",
+    restore: "Restore now",
+    activate: "Activate now",
+    rollback: "Roll back now",
+  },
   unknown: "Unknown",
   details: "Details",
   empty: "No entries available.",

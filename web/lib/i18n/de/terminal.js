@@ -1,5 +1,6 @@
 export const terminalViewCopy = {
-  openLinkConfirmation: (url) => `Diesen Link in einem neuen Tab öffnen?\n\n${url}`,
+  openLinkTitle: "Diesen Link in einem neuen Tab öffnen?",
+  openLink: "Link öffnen",
   dropHint: "Dateien hier ablegen – hochladen und Pfad einfügen",
   uploading: "Datei wird hochgeladen",
   uploaded: "Hochgeladen",

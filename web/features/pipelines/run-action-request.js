@@ -6,6 +6,8 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 export const gateActions = ["accept", "feedback", "loop-back", "override"];
 // Actions that change or remove the run irreversibly ask for confirmation first.
 export const confirmedActions = ["delete", "abort", "override", "create-pr"];
+// Of those, the ones that lose work or data: a danger button and Cancel focused first.
+export const destructiveActions = ["delete", "delete-local", "abort"];
 
 // The engine authorizes actions; publishing additionally needs a Git remote, which
 // the run workspace records (`hasRemote` false for a local-only repository).

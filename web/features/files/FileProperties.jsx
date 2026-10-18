@@ -6,6 +6,7 @@ import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 
 import Icon from "../../components/Icon.jsx";
 import { explorerLayoutCopy as layout } from "../../lib/i18n/messages/explorer-layout.js";
+import { writeClipboard } from "../../lib/clipboard.js";
 
 function value(value) {
   return value === null || value === undefined || value === "" ? "—" : value;
@@ -47,13 +48,7 @@ export default function FileProperties({
   const copyAll = async () => {
     if (preview?.type !== "text") return;
     setCopyResult({ owner, status: "copying" });
-    let status;
-    try {
-      await navigator.clipboard.writeText(preview.text);
-      status = "copied";
-    } catch {
-      status = "copyFailed";
-    }
+    const status = (await writeClipboard(preview.text)) ? "copied" : "copyFailed";
     setCopyResult((current) =>
       current?.owner === owner && ownerRef.current === owner
         ? { owner, status }

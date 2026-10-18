@@ -1,5 +1,6 @@
 import React from "react";
 import CodeBlock from "../../components/CodeBlock.jsx";
+import CopyButton from "../../components/CopyButton.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import LearnMore from "../../components/LearnMore.jsx";
 import { Pagination, usePagination } from "../../components/Pagination.jsx";
@@ -62,6 +63,10 @@ export default function FeedbackSection() {
         <LearnMore hint={s.learnMoreHint}>
           <p>{s.learnMoreBody}</p>
         </LearnMore>
+      </Specimen>
+      <Specimen label="CopyButton">
+        <CopyButton text={s.code} label={s.copyLabel} />
+        <CopyButton text={s.code} label={s.copyLabel} iconOnly className="icon-button" />
       </Specimen>
       <Specimen label="CodeBlock" wide>
         <CodeBlock>

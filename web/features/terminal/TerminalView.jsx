@@ -1,6 +1,7 @@
 import "@xterm/xterm/css/xterm.css";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import React from "react";
 
@@ -19,14 +20,15 @@ export default function TerminalView({
   onConnection,
   request,
 }) {
-  const { error, container, paste } = useTerminalConnection({
-    session,
-    mode,
-    sendRef,
-    focusRef,
-    onConnection,
-    request,
-  });
+  const { error, container, paste, pendingLink, openPendingLink, cancelPendingLink } =
+    useTerminalConnection({
+      session,
+      mode,
+      sendRef,
+      focusRef,
+      onConnection,
+      request,
+    });
   const uploads = useTerminalUploads({ session, paste });
   const questionError = useClaudeTerminalQuestions({
     session,
@@ -51,6 +53,15 @@ export default function TerminalView({
         ref={container}
         aria-label={commonCopy.interactiveTerminal}
       />
+      {pendingLink && (
+        <ConfirmDialog
+          title={copy.openLinkTitle}
+          body={pendingLink}
+          confirmLabel={copy.openLink}
+          onCancel={cancelPendingLink}
+          onConfirm={openPendingLink}
+        />
+      )}
     </div>
   );
 }

@@ -83,10 +83,6 @@
   gap: 8px;
   font-size: 12px;
 }
-.pipeline-check input {
-  width: auto;
-  accent-color: var(--accent);
-}
 .pipeline-parameter {
   display: grid;
   grid-template-columns: 1fr 1fr;

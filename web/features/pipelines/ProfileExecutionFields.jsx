@@ -5,6 +5,7 @@ import { changeProfileAccount, permissionModes } from "./profile-draft.js";
 import ProfileProviderFields from "./ProfileProviderFields.jsx";
 import ProviderModelDetails from "../providers/ProviderModelDetails.jsx";
 import ProviderCatalogStatus from "../providers/ProviderCatalogStatus.jsx";
+import Checkbox from "../../components/Checkbox.jsx";
 
 // AUSFÜHRUNG: account, provider access, permissions, run mode and models.
 export default function ProfileExecutionFields({
@@ -122,14 +123,12 @@ export default function ProfileExecutionFields({
           />
         </details>
       )}
-      <label className="pipeline-check">
-        <input
-          type="checkbox"
-          checked={config.run.autonomous}
-          onChange={(event) => patchConfig({ run: { autonomous: event.target.checked } })}
-        />
-        {copy.autonomous}
-      </label>
+      <Checkbox
+        className="pipeline-check"
+        label={copy.autonomous}
+        checked={config.run.autonomous}
+        onChange={(autonomous) => patchConfig({ run: { autonomous } })}
+      />
       <p className="field-description">{copy.pipelinePermissionsHint}</p>
     </fieldset>
   );

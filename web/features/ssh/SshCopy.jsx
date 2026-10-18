@@ -1,30 +1,23 @@
 import React, { useState } from "react";
+import CopyButton from "../../components/CopyButton.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 export default function SshCopy({ label, text, button, compact = false }) {
-  const [status, setStatus] = useState("");
+  const [revealed, setRevealed] = useState(false);
   return (
     <div className="ssh-copy">
       {!compact && <strong>{label}</strong>}
-      {(!compact || status === "copyFailed") && (
+      {(!compact || revealed) && (
         <pre tabIndex={0} aria-label={label}>
           {text}
         </pre>
       )}
-      <button
-        className="button secondary"
-        type="button"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(text);
-            setStatus("copied");
-          } catch {
-            setStatus("copyFailed");
-          }
-        }}
-      >
-        {button}
-      </button>
-      {status && <p role="status">{copy[status]}</p>}
+      <CopyButton
+        text={text}
+        label={button}
+        copiedLabel={copy.copied}
+        failedLabel={copy.copyFailed}
+        onFailed={() => setRevealed(true)}
+      />
     </div>
   );
 }

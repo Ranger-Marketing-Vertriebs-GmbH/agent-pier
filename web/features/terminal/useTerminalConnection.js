@@ -11,6 +11,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { terminalKey } from "./terminal-keyboard.js";
 import { attachTouchScroll } from "./terminal-touch.js";
 import { artifactLink } from "../artifacts/artifact-return-link.js";
+import { writeClipboard } from "../../lib/clipboard.js";
 
 export default function useTerminalConnection({
   session,
@@ -22,7 +23,9 @@ export default function useTerminalConnection({
 }) {
   const container = useRef(null),
     terminalRef = useRef(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    // An OSC 8 link whose label may hide its destination, waiting for confirmation.
+    [pendingLink, setPendingLink] = useState("");
   useEffect(() => {
     let disposed = false,
       connection;
@@ -31,14 +34,9 @@ export default function useTerminalConnection({
         href,
         `/sessions/${encodeURIComponent(session.id)}/terminal`,
       );
-      // OSC 8 labels can hide their destination. Preserve xterm's confirmation
-      // for links outside the artifact viewer; plain URLs already show the target.
-      if (
-        confirmDestination &&
-        !target &&
-        !window.confirm(copy.openLinkConfirmation(href))
-      )
-        return;
+      // OSC 8 labels can hide their destination: a link outside the artifact viewer
+      // asks first (ConfirmDialog in TerminalView); plain URLs already show the target.
+      if (confirmDestination && !target) return setPendingLink(href);
       window.open(target || href, "_blank", "noopener,noreferrer");
     };
     const terminal = new XTerminal({
@@ -66,10 +64,7 @@ export default function useTerminalConnection({
         const text = new TextDecoder().decode(
           Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0)),
         );
-        // Absent over plain HTTP, where the API is unavailable rather than failing.
-        const written = navigator.clipboard?.writeText(text);
-        if (written) written.catch(() => setError(copy.clipboard));
-        else setError(copy.clipboard);
+        writeClipboard(text).then((written) => written || setError(copy.clipboard));
       } catch {
         setError(copy.clipboard);
       }
@@ -182,5 +177,16 @@ export default function useTerminalConnection({
     if (mode === "terminal") terminalRef.current?.focus();
   }, [mode]);
 
-  return { error, container, paste: (text) => terminalRef.current?.paste(text) };
+  return {
+    error,
+    container,
+    paste: (text) => terminalRef.current?.paste(text),
+    pendingLink,
+    // Called from the dialog's click, so the new tab still has the user's activation.
+    openPendingLink: () => {
+      window.open(pendingLink, "_blank", "noopener,noreferrer");
+      setPendingLink("");
+    },
+    cancelPendingLink: () => setPendingLink(""),
+  };
 }

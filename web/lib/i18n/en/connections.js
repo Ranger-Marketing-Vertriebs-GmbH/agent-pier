@@ -28,6 +28,8 @@ export const connectionCopy = {
     "The key is stored centrally. Changes apply to new sessions; running native processes are not stopped.",
   removeKey: "Remove saved API key",
   delete: "Delete connection",
+  deleteTitle: (name) => `Delete the connection “${name}”?`,
+  deleteNow: "Delete now",
   restartRequired:
     "Agents use this connection. Applying the change restarts their Gateway, so agents are briefly unavailable.",
   saveAndRestart: "Save and restart agents",
