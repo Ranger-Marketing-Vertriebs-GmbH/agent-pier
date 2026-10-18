@@ -2,12 +2,12 @@
    buttons, badges, the global error bar, error and loading text. */
 .compact {
   height: 33px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   padding: 0 11px;
 }
 .badge {
   display: inline-block;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   border: 1px solid #3d3e42;
   color: #a5a6aa;
   padding: 5px 8px;

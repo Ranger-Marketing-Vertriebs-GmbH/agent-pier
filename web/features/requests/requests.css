@@ -33,7 +33,7 @@
   overflow-wrap: anywhere;
 }
 .native-request small {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--muted);
   overflow-wrap: anywhere;
 }
@@ -79,7 +79,7 @@
   margin: 8px 0;
 }
 .native-question-preview figcaption {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--muted);
   margin-bottom: 4px;
   overflow-wrap: anywhere;

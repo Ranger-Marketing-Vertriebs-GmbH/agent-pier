@@ -100,7 +100,7 @@
 .explorer-toolbar details > summary {
   color: var(--muted);
   cursor: pointer;
-  font-size: 0.78rem;
+  font-size: var(--font-size-xs);
   user-select: none;
 }
 
@@ -142,7 +142,7 @@
 
 .explorer-path-form label > span {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--font-size-xs);
 }
 
 .explorer-path-form input {

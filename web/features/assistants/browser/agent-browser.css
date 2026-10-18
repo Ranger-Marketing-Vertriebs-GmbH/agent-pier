@@ -91,7 +91,7 @@
   overflow: hidden;
   background: #000;
   color: var(--accent);
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   text-decoration: none;
 }
 .agent-browser-preview img {

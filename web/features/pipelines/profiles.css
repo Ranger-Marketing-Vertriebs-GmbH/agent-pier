@@ -20,7 +20,7 @@
 .profile-group-caps {
   margin: 0;
   padding: 0 12px 6px;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 1.4px;
   color: #7d7e82;
@@ -65,7 +65,7 @@
   color: #ffc99d;
 }
 .profile-item-text small {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #a5a6aa;
   overflow-wrap: anywhere;
 }
@@ -120,7 +120,7 @@
 .profile-head-actions .button {
   height: 34px;
   padding: 0 12px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 .pipeline-page .profile-eligibility {
   flex-basis: 100%;
@@ -135,7 +135,7 @@
 .profile-caps {
   padding: 0;
   margin-bottom: 14px;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 1.4px;
   color: #7d7e82;
