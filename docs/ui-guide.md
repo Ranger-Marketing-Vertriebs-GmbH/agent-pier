@@ -155,7 +155,7 @@ Buttons are CSS classes on a native `<button>` (`.button` variants in `web/app/l
 | `Modal`               | A dialog with title and close button; `footer` gives a scrolling body and sticky actions. A bottom sheet on phones.                                                                                                                                                      | Native modal `<dialog>`, labelled by its title; Escape honours `closeDisabled`. | `web/components/Modal.jsx`               |
 | `ConfirmDialog`       | Every confirmation (see [Confirmations](#confirmations)): `title` names the object, `body` the consequence, `confirmLabel` repeats the verb; `destructive` for danger, else primary; `focusCancel`; async `onConfirm` with busy state and error; `children` for details. | As `Modal`; a destructive one starts on Cancel.                                 | `web/components/ConfirmDialog.jsx`       |
 | `Sheet`               | A short choice with more than two answers: bottom sheet on phones, centred 420px dialog on desktop.                                                                                                                                                                      | As `Modal`.                                                                     | `web/components/Sheet.jsx`               |
-| `UnsavedChangesSheet` | "Save changes?" with Save and switch, Discard, Cancel. The only unsaved-changes dialog.                                                                                                                                                                                  | As `Sheet`.                                                                     | `web/components/UnsavedChangesSheet.jsx` |
+| `UnsavedChangesSheet` | "Save changes?" with Save and switch (or `saveLabel` "Save and continue"), Discard, Cancel; `body` and `children` for page-specific text and errors; `saveDisabled` while nothing can be saved. The only unsaved-changes dialog (settings, Pipelines, Files).            | As `Sheet`.                                                                     | `web/components/UnsavedChangesSheet.jsx` |
 | `SidePanel`           | A side panel for a longer form or preview beside the page.                                                                                                                                                                                                               | Native modal dialog.                                                            | `web/components/SidePanel.jsx`           |
 | `ImageViewer`         | Full-size image with zoom, download and share.                                                                                                                                                                                                                           | Native modal dialog; focus returns to the opener.                               | `web/components/ImageViewer.jsx`         |
 | `useAlertDialogFocus` | The inline variant: a `role="alertdialog"` confirmation inside a row or card, for cheap or reversible actions and wizard steps. Same texts, colours and order as `ConfirmDialog`.                                                                                        | Focus moves in, Tab cycles, Escape cancels, focus returns.                      | `web/components/useAlertDialogFocus.js`  |
@@ -218,8 +218,11 @@ Until they land, follow the rule for each and use the closest existing piece.
   ([settings pattern › drafts](settings-pattern.md#drafts-and-the-save-chain-weblibsettings)).
   Real actions (add, delete, log in, run) stay immediate.
 - Leaving a dirty draft asks with `UnsavedChangesSheet` through the navigation guard
-  ([settings pattern › unsaved changes](settings-pattern.md#unsaved-changes-and-navigation-weblibnavigation-guardjs)).
-  No other unsaved-changes dialogs.
+  ([settings pattern › unsaved changes](settings-pattern.md#unsaved-changes-and-navigation-weblibnavigation-guardjs)),
+  for the sidebar, tabs, Back/Forward and reload as well as the page's own actions.
+  Settings drafts use `useUnsavedChangesGuard`, Pipelines editors `useDraftGuard`
+  (Save and continue runs the editor's own save), the file editor
+  `useFileNavigationGuard`. No other unsaved-changes dialogs.
 - A conflict (the record changed elsewhere) offers "Reload" and "Overwrite anyway" in
   the save bar, never just a "please reload" text.
 

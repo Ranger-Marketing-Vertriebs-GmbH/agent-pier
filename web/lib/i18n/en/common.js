@@ -124,6 +124,7 @@ export const commonCopy = {
   usedBy: "Used by",
   unsavedTitle: "Save changes?",
   saveAndSwitch: "Save and switch",
+  saveAndContinue: "Save and continue",
   discard: "Discard",
   showHint: "Show hint",
   learnMore: "Learn more",

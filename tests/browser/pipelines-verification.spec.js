@@ -54,7 +54,7 @@ test("unsaved verification steps ask before another project opens", async ({ pag
   await page.getByRole("button", { name: "Prüfschritt hinzufügen", exact: true }).click();
   await page.getByLabel("Prüfschritt 1: Name", { exact: true }).fill("Tests");
   const confirm = page.getByRole("dialog", {
-    name: "Ungespeicherte Änderungen verwerfen?",
+    name: "Änderungen speichern?",
   });
   await projectItem(page, "Zweites").click();
   await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();

@@ -1,6 +1,6 @@
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import Switch from "../../components/Switch.jsx";
-import React, { useEffect, useId, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
@@ -80,6 +80,7 @@ export default function ProfileEditor({
   onDuplicate,
   onRemove,
   onDirtyChange,
+  onSaver,
 }) {
   const [draft, setDraft] = useState(() =>
     structuredClone(profile || blankProfile(accounts.find((a) => a.tool !== "shell"))),
@@ -119,23 +120,42 @@ export default function ProfileEditor({
   const patchConfig = (change) => patch({ config: { ...config, ...change } });
   const eligible =
     config.run.autonomous && !config.prompts.params.some((p) => p.required);
+  function persist() {
+    return action.run(async () => {
+      const result = await api(
+        `/pipeline-profiles${profile?.id ? "/" + encodeURIComponent(profile.id) : ""}`,
+        profile?.id ? "PATCH" : "POST",
+        {
+          ...profileBody(draft),
+          ...(profile?.id ? { expectedRevision: profile.revision } : {}),
+        },
+      );
+      onDirtyChange?.(false);
+      saved(result.profile);
+      return true;
+    });
+  }
+  // The guard's "Save and continue" saves like the form's own submit; invalid fields
+  // report themselves and keep the draft.
+  const form = useRef(null),
+    persistRef = useRef(null);
+  persistRef.current = persist;
+  useEffect(() => {
+    onSaver?.(() =>
+      form.current?.reportValidity() === false
+        ? Promise.resolve(false)
+        : persistRef.current(),
+    );
+    return () => onSaver?.(null);
+  }, [onSaver]);
   return (
     <form
+      ref={form}
       className="pipeline-form profile-card"
       aria-labelledby={headingId}
       onSubmit={(event) => {
         event.preventDefault();
-        action.run(async () => {
-          const result = await api(
-            `/pipeline-profiles${profile?.id ? "/" + encodeURIComponent(profile.id) : ""}`,
-            profile?.id ? "PATCH" : "POST",
-            {
-              ...profileBody(draft),
-              ...(profile?.id ? { expectedRevision: profile.revision } : {}),
-            },
-          );
-          saved(result.profile);
-        });
+        persist();
       }}
     >
       <ProfileHead

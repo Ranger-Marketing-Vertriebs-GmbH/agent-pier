@@ -73,7 +73,7 @@ test("accepted last-tab close restores the surviving open control", async ({ pag
     .getByRole("textbox", { name: `Document content: ${path}` })
     .fill("retained draft");
   await page.getByRole("button", { name: `Close tab ${path}`, exact: true }).click();
-  await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
   await expect(page.getByRole("tab")).toHaveCount(0);
   await expect(open).toBeFocused();
 });

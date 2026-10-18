@@ -101,7 +101,6 @@ export const pipelineCopy = {
     "create-pr": (run) => `Create or update the pull request of “${run}”?`,
     definition: (name) => `Delete pipeline “${name}”?`,
     profile: (name) => `Delete profile “${name}”?`,
-    discard: "Discard unsaved changes?",
   },
   confirmLabels: {
     delete: "Delete now",
@@ -145,7 +144,6 @@ export const pipelineCopy = {
   increaseRounds: "Increase loop rounds",
   allPipelines: "All pipelines",
   discardDraft: "Unsaved changes to this pipeline will be lost. Continue anyway?",
-  discard: "Discard",
   loopDropped: (stage) =>
     `The loop back from stage ${stage} was removed because after the move it pointed to a later stage.`,
   addStage: "Add stage",

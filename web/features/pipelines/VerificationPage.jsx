@@ -21,7 +21,7 @@ export default function VerificationPage({ route, navigate, home }) {
       projectId ? `/pipeline-verification/${encodeURIComponent(projectId)}` : null,
     );
   const mobile = useMobileLayout();
-  const draft = useDraftGuard(copy.discardVerificationDraft);
+  const draft = useDraftGuard(copy.discardVerificationDraft, route);
   const all = projects.data?.projects || [],
     items = listedProjects(all, projectId),
     project = all.find((p) => p.id === projectId);
@@ -82,6 +82,7 @@ export default function VerificationPage({ route, navigate, home }) {
               initial={config.data.steps}
               saved={config.refresh}
               onDirtyChange={draft.setDirty}
+              onSaver={draft.setSave}
             />
           )}
         </div>

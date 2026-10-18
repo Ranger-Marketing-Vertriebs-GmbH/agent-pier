@@ -66,7 +66,7 @@ test("cancelled application navigation preserves the route and draft", async ({
 }, testInfo) => {
   const editor = await setup(page);
   await navigateTo(page, "Settings");
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("guard-english-desktop.png") });
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page).toHaveURL(editorURL);
@@ -80,7 +80,7 @@ test("German mobile guard preserves the draft on cancellation", async ({
   const editor = await setup(page, { english: false });
   await navigateTo(page, "Einstellungen");
   await expect(
-    page.getByRole("heading", { name: "Ungespeicherte Dokumente" }),
+    page.getByRole("heading", { name: "Änderungen speichern?" }),
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("guard-german-mobile.png") });
   await page.getByRole("button", { name: "Abbrechen", exact: true }).click();
@@ -90,7 +90,7 @@ test("German mobile guard preserves the draft on cancellation", async ({
 test("discard accepts navigation and closes the protected tab", async ({ page }) => {
   await setup(page);
   await navigateTo(page, "Settings");
-  await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
   await expect(page).toHaveURL(`${baseURL}/settings`);
   await navigateTo(page, "Files");
   await expect(page.getByRole("tab")).toHaveCount(0);
@@ -112,7 +112,7 @@ test("failed endpoint-mocked save keeps navigation blocked and the draft retaine
   await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Save and continue", exact: true }).click();
   await expect(page).toHaveURL(editorURL);
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await expect(editor).toHaveText("draft");
 });
 
@@ -127,7 +127,7 @@ test("Escape cannot cancel a decision while its save completion is pending", asy
     page.getByRole("dialog").getByRole("button", { name: "Saving …", exact: true }),
   ).toBeDisabled();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   saveGate.resolve();
   await expect(page).toHaveURL(`${baseURL}/settings`);
 });
@@ -162,10 +162,10 @@ test("an obsolete save continuation cannot resolve a newer navigation decision",
       ?.click();
   });
   saveGate.resolve();
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
-  await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
   await expect(page).toHaveURL(`${baseURL}/accounts`);
 });
 
@@ -177,7 +177,7 @@ test("Back restores the indexed route once while the guard decides", async ({ pa
   await editor.fill("draft after history");
   const committedURL = page.url();
   await page.goBack({ waitUntil: "commit" }).catch(() => {});
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page).toHaveURL(committedURL);
   await expect(editor).toHaveText("draft after history");
@@ -191,7 +191,7 @@ test("accepted Back replays once to the indexed route", async ({ page }) => {
   await navigateTo(page, "Files");
   await editor.fill("history draft");
   await page.goBack({ waitUntil: "commit" }).catch(() => {});
-  await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
   await expect(page).toHaveURL(targetURL);
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
@@ -209,12 +209,10 @@ test("application navigation during history replay reconciles before push", asyn
   await editor.fill("interleaved draft");
   const committedURL = page.url();
   await page.goBack({ waitUntil: "commit" }).catch(() => {});
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   const replay = await page.evaluate(async () => {
     const buttons = [...document.querySelectorAll("button")];
-    const discard = buttons.find(
-      (button) => button.textContent === "Discard and continue",
-    );
+    const discard = buttons.find((button) => button.textContent === "Discard");
     const accounts = buttons.find((button) => button.textContent.includes("Accounts"));
     if (!discard || !accounts) throw new Error("Expected navigation controls");
     const go = history.go;
@@ -262,7 +260,7 @@ test("rapid Back Back keeps the latest indexed intent and cancellation restores 
     history.back();
     history.back();
   });
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page).toHaveURL(current.url);
   expect(await page.evaluate(() => history.length)).toBe(current.length);
@@ -299,7 +297,7 @@ test("rapid Back Forward returns to the current indexed entry without a stale co
   });
   await expect(page).toHaveURL(current.url);
   await expect(editor).toHaveText("forward draft");
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(await page.evaluate(() => history.length)).toBe(current.length);
   expect(await page.evaluate(() => history.state.agentPierNavigationIndex)).toBe(
@@ -323,7 +321,7 @@ test("a newer indexed traversal owns history before an older save completes", as
   await editor.fill("overlap draft");
   const length = await page.evaluate(() => history.length);
   await page.goBack({ waitUntil: "commit" }).catch(() => {});
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("button", { name: "Save and continue", exact: true }).click();
   await page.evaluate((targetIndex) => {
     const go = history.go.bind(history);
@@ -359,7 +357,7 @@ test("navigation index preserves unrelated history state", async ({ page }) => {
   await setup(page);
   await page.evaluate(() => history.replaceState({ foreign: "keep" }, ""));
   await navigateTo(page, "Settings");
-  await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
   expect(await page.evaluate(() => history.state.foreign)).toBe("keep");
   expect(await page.evaluate(() => history.state.agentPierNavigationIndex)).toBe(1);
 });
@@ -374,7 +372,7 @@ test("cancelled unindexed history preserves length, foreign state and the draft"
     history.pushState({ foreign: "unindexed" }, "", "/accounts");
     dispatchEvent(new PopStateEvent("popstate", { state: history.state }));
   });
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page).toHaveURL(currentURL);
   await expect(editor).toHaveText("draft");
@@ -406,11 +404,11 @@ test("navigation rechecks an earlier tab protected during a later decision", asy
   const committedURL = page.url();
   await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Save and continue", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("tab", { name: path, exact: true }).click({ force: true });
   await page.getByLabel("Line ending").selectOption("crlf", { force: true });
-  await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await expect(page.getByLabel("Line ending")).toHaveValue("crlf");
   await expect(first).toHaveText("first draft again");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();

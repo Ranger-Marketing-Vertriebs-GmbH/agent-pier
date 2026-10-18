@@ -9,12 +9,8 @@ export const fileEditorCopy = {
   search: "Suchen und ersetzen",
   closeTab: "Dokument schließen",
   closeNamedTab: (path) => `Tab ${path} schließen`,
-  guardTitle: "Ungespeicherte Dokumente",
   guardDescription: (path) =>
     `Wähle vor dem Fortfahren aus, was mit ${path} geschehen soll.`,
-  guardSave: "Speichern und fortfahren",
-  guardDiscard: "Verwerfen und fortfahren",
-  guardCancel: "Abbrechen",
   conflictTitle: "Konfliktvergleich",
   conflictDraft: "Dein Entwurf",
   conflictCurrent: "Aktuelle Version vom Datenträger",

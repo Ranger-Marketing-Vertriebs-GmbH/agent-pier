@@ -250,7 +250,7 @@ test("desktop definitions select the first pipeline and highlight the chosen sta
   // Unsaved edits are not silently discarded when another pipeline is chosen.
   await page.getByRole("button", { name: "Bearbeiten: Wartung", exact: true }).click();
   const confirm = page.getByRole("dialog", {
-    name: "Ungespeicherte Änderungen verwerfen?",
+    name: "Änderungen speichern?",
   });
   await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click();
   await expect(page).toHaveURL(/\/definitions\/pipeline-one$/);

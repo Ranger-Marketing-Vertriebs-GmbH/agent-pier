@@ -81,7 +81,8 @@ between routes, sessions, modes, or working directories in the same running page
 reload, tab close, browser close, or crash discards them. AgentPier does not autosave them
 to browser storage, URLs, jobs, or audit records.
 
-Dirty, pending, and unresolved-attempt tabs guard tab close and Back/Forward navigation.
+Dirty, pending, and unresolved-attempt tabs guard tab close and Back/Forward navigation
+with the shared **Save changes?** sheet: **Save and continue**, **Discard**, **Cancel**.
 An uncertain or failed save retains the exact attempted bytes for an explicit retry. Only
 `FILE_CONFLICT_CHANGED` opens the current-disk comparison. Choose the current version,
 edit manually, use **Save As**, or explicitly replace at the newly observed revision.

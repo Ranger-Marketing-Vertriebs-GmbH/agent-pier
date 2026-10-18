@@ -2,6 +2,9 @@ import React from "react";
 import Sheet from "./Sheet.jsx";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 
+// The only unsaved-changes dialog: save (and continue), discard, or stay. `body`
+// replaces the default text that names the tab and the number of changed fields;
+// `children` adds details such as a failed save's error.
 export default function UnsavedChangesSheet({
   open,
   tab,
@@ -10,6 +13,10 @@ export default function UnsavedChangesSheet({
   onSave,
   onDiscard,
   onCancel,
+  body,
+  saveLabel = commonCopy.saveAndSwitch,
+  saveDisabled = false,
+  children,
 }) {
   return (
     <Sheet
@@ -18,10 +25,16 @@ export default function UnsavedChangesSheet({
       onCancel={onCancel}
       className="unsaved-changes-sheet"
     >
-      <p className="sheet-body">{commonCopy.unsavedBody(tab, count)}</p>
+      <p className="sheet-body">{body ?? commonCopy.unsavedBody(tab, count)}</p>
+      {children}
       <div className="sheet-actions">
-        <button type="button" className="button primary" disabled={busy} onClick={onSave}>
-          {busy ? commonCopy.saving : commonCopy.saveAndSwitch}
+        <button
+          type="button"
+          className="button primary"
+          disabled={busy || saveDisabled}
+          onClick={onSave}
+        >
+          {busy ? commonCopy.saving : saveLabel}
         </button>
         <button
           type="button"

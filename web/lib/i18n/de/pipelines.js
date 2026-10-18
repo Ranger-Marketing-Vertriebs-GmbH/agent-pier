@@ -101,7 +101,6 @@ export const pipelineCopy = {
     "create-pr": (run) => `Pull Request von „${run}“ erstellen oder aktualisieren?`,
     definition: (name) => `Pipeline „${name}“ löschen?`,
     profile: (name) => `Profil „${name}“ löschen?`,
-    discard: "Ungespeicherte Änderungen verwerfen?",
   },
   confirmLabels: {
     delete: "Jetzt löschen",
@@ -146,7 +145,6 @@ export const pipelineCopy = {
   allPipelines: "Alle Pipelines",
   discardDraft:
     "Die ungespeicherten Änderungen an dieser Pipeline gehen verloren. Trotzdem fortfahren?",
-  discard: "Verwerfen",
   loopDropped: (stage) =>
     `Der Rücksprung von Stufe ${stage} wurde entfernt, weil er nach dem Verschieben auf eine spätere Stufe zeigte.`,
   addStage: "Stufe hinzufügen",
