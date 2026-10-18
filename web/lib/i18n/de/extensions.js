@@ -78,7 +78,7 @@ export const skillInstallFormCopy = {
   githubRefHint:
     "Ein Ordnerlink kann nach /tree/ einen Branch, einen Tag oder einen vollständigen Commit-SHA nennen. AgentPier installiert den Commit, auf den er jetzt zeigt, und merkt ihn sich.",
   archiveLimitsDescription:
-    "Ein Skill pro Paket · maximal 10 MiB ZIP, 20 MiB entpackt. Bestehende Ordner werden nicht überschrieben. Installationsskripte werden nicht ausgeführt.",
+    "Ein Skill pro Paket · maximal 10 MiB ZIP, 20 MiB entpackt. Bestehende Ordner werden nicht überschrieben. Installationsskripte werden nicht ausgeführt. Vor der Installation prüft AgentPier die Dateien offline und zeigt das Ergebnis.",
   installingSkill: "Skill wird installiert …",
 };
 export const extensionInputsCopy = {

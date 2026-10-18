@@ -86,6 +86,23 @@ async function fixture(page) {
     if (url.pathname === "/api/mcp-servers") return route.fulfill({ json: [] });
     if (url.pathname === "/api/mcp-servers/cli-finds")
       return route.fulfill({ json: { finds: [], problems: [] } });
+    if (url.pathname.endsWith("/skills/preview") && method === "POST")
+      return route.fulfill({
+        json: {
+          previewId: "preview-1",
+          contentHash: "a".repeat(64),
+          importKind: body.url ? "github" : "skill-md",
+          name: "demo-skill",
+          description: "Fixture",
+          size: 60,
+          files: [{ name: "SKILL.md", size: 60, executable: false }],
+          verdict: "ok",
+          rules: [],
+          blocking: [],
+          findings: [],
+          truncated: false,
+        },
+      });
     if (url.pathname.endsWith("/skills") && method === "POST") {
       const skill = {
         id: "installed",
@@ -174,6 +191,9 @@ test("skill file upload and GitHub download show native shared scope and protect
     mimeType: "text/markdown",
     buffer: Buffer.from("---\nname: demo-skill\ndescription: Fixture\n---\nInstructions"),
   });
+  await panel.getByRole("button", { name: "Skill prüfen", exact: true }).click();
+  await expect(panel.getByText("Unauffällig", { exact: true })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
   await panel.getByRole("button", { name: "Skill installieren", exact: true }).click();
   await expect(panel).toHaveCount(0);
   await expect(extensionRow(page, "demo-skill")).toBeVisible();
@@ -192,11 +212,16 @@ test("skill file upload and GitHub download show native shared scope and protect
   await panel
     .getByLabel("Öffentlicher GitHub-Link")
     .fill("https://github.com/example/skills/tree/main/demo");
+  await panel.getByRole("button", { name: "Skill prüfen", exact: true }).click();
   await panel.getByRole("button", { name: "Skill installieren", exact: true }).click();
   await expect(panel).toHaveCount(0);
   await expect(extensionRow(page, "demo-skill")).toBeVisible();
-  expect(writes.at(-1).body).toEqual({
+  expect(writes.at(-2).body).toEqual({
     url: "https://github.com/example/skills/tree/main/demo",
+  });
+  expect(writes.at(-1).body).toEqual({
+    previewId: "preview-1",
+    contentHash: "a".repeat(64),
   });
   await expectNoHorizontalOverflow(page);
 });

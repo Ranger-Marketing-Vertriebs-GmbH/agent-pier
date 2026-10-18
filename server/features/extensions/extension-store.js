@@ -13,6 +13,7 @@ import {
 } from "./skill-packages.js";
 import { record, publicMcp, safePath, readConfig } from "./mcp-config.js";
 import { skillDigest } from "./skill-digest.js";
+import { SkillPreviews } from "./skill-previews.js";
 // The stable scopeKey lets browsers translate the scope; scope keeps the German label.
 const skillScope = (scopeKey) => ({
   scope: serverMessages.extensions[scopeKey],
@@ -46,6 +47,7 @@ export class ExtensionsStore {
     this.fetchImpl = fetchImpl;
     this.file = path.join(accounts.dataDir, "extension-skills.json");
     this.active = new Map();
+    this.previews = new SkillPreviews();
     this.closed = false;
   }
   locations(id) {
@@ -243,13 +245,50 @@ export class ExtensionsStore {
       },
     };
   }
-  async installSkill(id, input = {}) {
-    this.sharedProfiles?.migrate(id);
+  /**
+   * Reads an upload or GitHub download (nothing is written) and scans it offline: the
+   * preview names the verdict and findings and is confirmed through installSkill.
+   */
+  async previewSkill(id, input = {}) {
     if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
     this.locations(id);
     const pack = await this.readPack(input);
     if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
-    return this.writeSkill(id, pack, pack.origin ? { origin: pack.origin } : {});
+    const kind =
+      input.url !== undefined
+        ? "github"
+        : input.fileName === "SKILL.md"
+          ? "skill-md"
+          : "zip";
+    return this.previews.create(id, pack, kind);
+  }
+  /**
+   * Installs a confirmed preview (`previewId`, `contentHash`, `acceptWarnings` for a
+   * warning, `override.rules` for a block) exactly as scanned; `scan` in the result
+   * names the decision for the audit.
+   */
+  async installSkill(id, input = {}) {
+    this.sharedProfiles?.migrate(id);
+    if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
+    this.locations(id);
+    const preview = this.previews.take(id, input);
+    try {
+      const { pack, scan } = preview;
+      const skill = this.writeSkill(id, pack, pack.origin ? { origin: pack.origin } : {});
+      return {
+        ...skill,
+        scan: {
+          verdict: scan.verdict,
+          rules: scan.rules,
+          findings: scan.findings.length,
+          importKind: preview.importKind,
+          overridden: preview.overridden,
+        },
+      };
+    } catch (error) {
+      this.previews.restore(preview);
+      throw error;
+    }
   }
   /** A skill bundled with an MCP package; `owner` ties it to the package version. */
   installPackageSkill(id, pack, owner) {
@@ -457,6 +496,7 @@ export class ExtensionsStore {
   }
   async close() {
     this.closed = true;
+    this.previews.clear();
     for (const controller of this.active.values()) controller.abort();
     await Promise.allSettled([...this.active.keys()]);
   }

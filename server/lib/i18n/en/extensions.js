@@ -84,4 +84,13 @@ export const extensions = Object.freeze({
   packageSkillNotFound: "This package contains no skill with this name.",
   packageSkillsUnavailable:
     "The package skills are available once the package is installed.",
+  skillPreviewRequired: "Please have the skill checked first and confirm the preview.",
+  skillPreviewExpired:
+    "The preview expired or was already used. Please check the skill again.",
+  skillPreviewChanged:
+    "The skill no longer matches the preview. Please check the skill again.",
+  skillWarningsNotAccepted:
+    "The scan found warnings. Please confirm them explicitly before the skill is installed.",
+  skillScanBlocked:
+    "The scan blocked this skill. It is only installed with an explicit override for the named risks.",
 });

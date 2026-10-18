@@ -39,8 +39,10 @@ installation. Reload or start a session to load changed native plugin configurat
 
 **Extensions → Skills → Install skill** installs one skill into the selected CLI
 profile's `skills` directory (shown as **Destination directory**), from an uploaded
-`SKILL.md` or ZIP, or from a public GitHub link. Existing directories are never
-overwritten and no script of the skill runs during installation. A GitHub folder link
+`SKILL.md` or ZIP, or from a public GitHub link. **Check skill** first reads and scans
+the source without writing anything (see [Skill import scan](#skill-import-scan));
+**Install skill** in the scan result then writes exactly the checked files. Existing
+directories are never overwritten and no script of the skill runs during installation. A GitHub folder link
 (`https://github.com/<owner>/<repo>/tree/<ref>/<folder>`) may name a branch, a tag or a
 full 40-character commit SHA as `<ref>`. AgentPier resolves a branch or tag through the
 public GitHub API (an annotated tag to the commit it tags), refuses a name that is both
@@ -53,6 +55,50 @@ unauthenticated lookups per address (60 an hour); a limited lookup says so, and 
 commit SHA needs no lookup. GitHub serves a commit SHA from the whole fork network of
 a repository, so a `tree/<sha>` link can name a commit that only exists in a fork;
 take SHAs from the repository's own history or releases.
+
+### Skill import scan
+
+Every ZIP, `SKILL.md` and GitHub import is scanned offline before anything is written.
+The scan (`server/features/extensions/skill-scan.js`) reads the unpacked files only: it
+runs nothing, fetches nothing and decodes nothing it finds. The result lists the verdict
+and the findings grouped by file, each with its rule, line and a short excerpt in which
+hidden characters are shown as code points such as `<U+202E>`.
+
+| Rule                                        | Finds                                                                                                                                                                                                                                                                                                                                                       | Severity                                  |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Downloads code and runs it                  | a download piped into a shell or interpreter (`curl … \| sh`, `wget … \| bash`, `bash -c "$(curl …)"`, `sh <(curl …)`, `iex (iwr …)`, `irm … \| iex`), a download made executable or started (`&& chmod +x`), `exec`/`eval` of a fetched URL; lines continued with `\` count as one                                                                         | block                                     |
+| Reads credentials and sends data            | a credential path (`~/.ssh`, `id_rsa`/`id_ed25519`, `~/.aws/credentials`, `.env`, `.netrc`, `.git-credentials`, Docker or kube config, `gh` hosts, the keychain, `/etc/shadow`) and a network call (`curl`, `wget`, `nc`, `scp`, `fetch(`, `requests.post(`, `Invoke-WebRequest`, `/dev/tcp` …) in the same file; in Markdown within 20 lines of each other | block                                     |
+| Invisible text direction controls           | U+202A–U+202E and U+2066–U+2069                                                                                                                                                                                                                                                                                                                             | block in instruction text, warn elsewhere |
+| Invisible Unicode tag characters            | U+E0000–U+E007F outside a flag emoji sequence                                                                                                                                                                                                                                                                                                               | block in instruction text, warn elsewhere |
+| Invisible characters                        | zero-width space, word joiner and invisible operators, a byte order mark after the start of a file, zero-width (non-)joiners outside emoji sequences and scripts that need them, runs of variation selectors                                                                                                                                                | block in instruction text, warn elsewhere |
+| Phrasing that tries to replace instructions | English and German prompt-injection phrasing in instruction text ("ignore all previous instructions", "do not tell the user", "without asking the user", `<system>` tags, `--dangerously-skip-permissions` …)                                                                                                                                               | warn                                      |
+| Long encoded data block                     | 200 or more contiguous base64 characters (mixed case and digits) or hex characters (digits and letters), or 50 `\xNN` escapes                                                                                                                                                                                                                               | warn                                      |
+| Executable file                             | a file with an execute bit; the bit is kept on install                                                                                                                                                                                                                                                                                                      | warn                                      |
+| Executable program (binary)                 | ELF, Mach-O, PE or WebAssembly headers                                                                                                                                                                                                                                                                                                                      | warn                                      |
+
+Instruction text is every `.md`, `.mdx`, `.markdown` and `.txt` file, including
+`SKILL.md`. A hidden character in a file name is a warning. Code that merely mentions
+`curl` or `wget` without piping into a shell, flag and multi-person emoji, and the
+joiners of Indic, Arabic or Persian text are not findings. At most 5 findings per rule
+and file and 200 in total are listed; the verdict still counts every match.
+
+- **No findings**: **Install skill** installs the skill.
+- **Warnings**: **Install skill** stays disabled until the owner ticks "I have reviewed
+  the warnings and want to install the skill."
+- **Blocked**: there is no normal install. **Install anyway …** opens a second
+  confirmation that names every blocking rule; **Accept the risk and install** installs
+  the skill as an override.
+
+A preview is used once, expires after 10 minutes and is bound to its profile and the
+SHA-256 hash of the checked files; the server keeps the checked files, so a changed
+upload or a GitHub branch that moved later cannot be installed with an older preview.
+Check the source again after an expiry. The audit log records each check as
+`extension.inspected` and the decision as `extension.installed` or, for a blocked skill,
+`extension.overridden`, with the verdict, the import kind (`zip`, `skill-md` or
+`github`), the rules that matched and the number of findings; never paths, excerpts or
+content. Skills already installed are not scanned again, and skills bundled with an MCP
+package and plugin installs are not scanned yet; `scanSkill(files)` takes the unpacked
+`[path, data, mode]` entries of any source for that.
 
 Skills bundled with an MCP server package are offered in the package's panel; see
 [Bundled skills of a package](mcp.md#bundled-skills-of-a-package). Their rows on

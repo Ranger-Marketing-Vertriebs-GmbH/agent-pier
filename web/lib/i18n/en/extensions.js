@@ -77,7 +77,7 @@ export const skillInstallFormCopy = {
   githubRefHint:
     "A folder link may name a branch, a tag or a full commit SHA after /tree/. AgentPier installs and records the commit it points to now.",
   archiveLimitsDescription:
-    "One skill per package · up to 10 MiB ZIP, 20 MiB extracted. Existing directories are not overwritten. Installation scripts are not executed.",
+    "One skill per package · up to 10 MiB ZIP, 20 MiB extracted. Existing directories are not overwritten. Installation scripts are not executed. Before installing, AgentPier checks the files offline and shows the result.",
   installingSkill: "Installing skill …",
 };
 export const extensionInputsCopy = {

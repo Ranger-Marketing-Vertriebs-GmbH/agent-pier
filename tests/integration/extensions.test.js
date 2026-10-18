@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { AccountStore } from "../../server/features/accounts/account-store.js";
 import { ExtensionsStore } from "../../server/features/extensions/extension-store.js";
+import { previewAndInstall } from "../helpers/skill-import.js";
 function setup(t, options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-extensions-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -61,7 +62,7 @@ test("ZIP install retains related files, lists other sources read-only, rejects 
     path.join(external, "SKILL.md"),
     content.replaceAll("demo-skill", "external"),
   );
-  const installed = await store.installSkill("local-codex", {
+  const installed = await previewAndInstall(store, "local-codex", {
     fileName: "skill.zip",
     contentBase64: zip({
       "bundle/demo/SKILL.md": content,
@@ -82,7 +83,7 @@ test("ZIP install retains related files, lists other sources read-only, rejects 
     true,
   );
   await assert.rejects(
-    store.installSkill("local-codex", {
+    previewAndInstall(store, "local-codex", {
       fileName: "SKILL.md",
       contentBase64: Buffer.from(content).toString("base64"),
     }),
@@ -101,7 +102,7 @@ test("skill listings carry stable scope keys that browsers translate", async (t)
     path.join(external, "SKILL.md"),
     content.replaceAll("demo-skill", "external"),
   );
-  const installed = await store.installSkill("local-codex", {
+  const installed = await previewAndInstall(store, "local-codex", {
     fileName: "SKILL.md",
     contentBase64: Buffer.from(content).toString("base64"),
   });
@@ -125,14 +126,14 @@ test("skill packages reject traversal, symlinks, multiple roots, invalid metadat
     { "SKILL.md": content, ".claude-plugin/plugin.json": "{}" },
   ])
     await assert.rejects(
-      store.installSkill("local-claude", {
+      previewAndInstall(store, "local-claude", {
         fileName: "skill.zip",
         contentBase64: zip(files),
       }),
       { status: 400 },
     );
   await assert.rejects(
-    store.installSkill("local-claude", {
+    previewAndInstall(store, "local-claude", {
       fileName: "SKILL.md",
       contentBase64: "not base64",
     }),
@@ -156,7 +157,7 @@ test("GitHub tree downloads use trusted archive endpoint without ambient authent
       return new Response(archive);
     },
   });
-  const installed = await store.installSkill("local-opencode", {
+  const installed = await previewAndInstall(store, "local-opencode", {
     url: `https://github.com/example/repo/tree/${"a".repeat(40)}/skills/demo`,
   });
   assert.equal(installed.name, "demo-skill");
@@ -174,7 +175,9 @@ test("GitHub tree downloads use trusted archive endpoint without ambient authent
     "https://127.0.0.1/private",
     "https://codeload.github.com:444/a/b/zip/main",
   ])
-    await assert.rejects(store.installSkill("local-opencode", { url }), { status: 400 });
+    await assert.rejects(previewAndInstall(store, "local-opencode", { url }), {
+      status: 400,
+    });
 });
 test("download redirects cannot escape allowed GitHub origins", async (t) => {
   let calls = 0;
@@ -188,7 +191,7 @@ test("download redirects cannot escape allowed GitHub origins", async (t) => {
     },
   });
   await assert.rejects(
-    store.installSkill("local-codex", {
+    previewAndInstall(store, "local-codex", {
       url: "https://github.com/example/repo/archive/refs/heads/main.zip",
     }),
     { status: 400 },
@@ -206,7 +209,7 @@ test("ZIP skills preserve executable scripts without running them during install
     ],
     { input: content, encoding: "utf8" },
   ).stdout.trim();
-  const installed = await store.installSkill("local-claude", {
+  const installed = await previewAndInstall(store, "local-claude", {
     fileName: "demo.zip",
     contentBase64: encoded,
   });
@@ -254,7 +257,10 @@ test("oversized ZIP expansion is rejected before writing any skill files", async
     { input: content, encoding: "utf8", maxBuffer: 1024 * 1024 },
   ).stdout.trim();
   await assert.rejects(
-    store.installSkill("local-claude", { fileName: "demo.zip", contentBase64: encoded }),
+    previewAndInstall(store, "local-claude", {
+      fileName: "demo.zip",
+      contentBase64: encoded,
+    }),
     { status: 400 },
   );
   assert.equal(fs.existsSync(path.join(home, ".claude/skills/demo-skill")), false);
@@ -273,7 +279,7 @@ test("server shutdown cancels a pending skill download without an installed dire
         });
       }),
   });
-  const pending = store.installSkill("local-codex", {
+  const pending = previewAndInstall(store, "local-codex", {
     url: "https://github.com/example/skill",
   });
   const rejected = assert.rejects(pending, { status: 502 });
@@ -282,7 +288,7 @@ test("server shutdown cancels a pending skill download without an installed dire
   await rejected;
   assert.equal(fs.existsSync(path.join(home, ".agents/skills/demo-skill")), false);
   await assert.rejects(
-    store.installSkill("local-codex", {
+    previewAndInstall(store, "local-codex", {
       fileName: "SKILL.md",
       contentBase64: Buffer.from(content).toString("base64"),
     }),

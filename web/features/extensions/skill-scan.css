@@ -1,0 +1,135 @@
+.skill-scan {
+  display: grid;
+  gap: 16px;
+  padding: 22px 0;
+  min-width: 0;
+}
+.skill-scan-title {
+  font-size: 14px;
+}
+.skill-scan-verdict {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-raised);
+}
+.skill-scan-verdict.skill-scan-warn {
+  border-color: var(--warning);
+}
+.skill-scan-verdict.skill-scan-block {
+  border-color: var(--error-text);
+}
+.skill-scan-verdict p {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.skill-scan-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.skill-scan-details dt {
+  color: var(--muted);
+}
+.skill-scan-details dd {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.skill-scan-findings {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.skill-scan-findings h4,
+.skill-scan-findings h5,
+.skill-scan-title {
+  margin: 0;
+}
+.skill-scan-findings h4 {
+  font-size: 13px;
+}
+.skill-scan-findings h5 {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.skill-scan-findings ul {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.skill-scan-finding {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warning);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.skill-scan-finding.skill-scan-block {
+  border-left-color: var(--error-text);
+}
+.skill-scan-finding-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+.skill-scan-severity {
+  color: var(--warning);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.skill-scan-block .skill-scan-severity {
+  color: var(--error-text);
+}
+.skill-scan-line {
+  color: var(--text-meta);
+  font-size: 11px;
+}
+.skill-scan-excerpt {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 5px;
+  background: var(--surface-input);
+  color: var(--accent-text);
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  unicode-bidi: isolate;
+}
+.skill-scan-hint {
+  color: var(--text-meta);
+  font-size: 11px;
+}
+.skill-scan-override h3 {
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.skill-scan-override ul {
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 0 0 16px 18px;
+}
+@media (max-width: 600px) {
+  .skill-scan-details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .skill-scan-details dd {
+    margin-bottom: 8px;
+  }
+}

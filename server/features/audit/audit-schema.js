@@ -6,6 +6,7 @@ import {
 } from "../assistants/openclaw-config/advanced-settings.js";
 import { MCP_SERVER_ORIGINS } from "../mcp-servers/server-origins.js";
 import { sshAuditDetails } from "./audit-ssh-details.js";
+import { SCAN_RULES, SCAN_VERDICTS } from "../extensions/skill-scan.js";
 const memberGrantKeys = new Set([
   "memory",
   "reminders",
@@ -208,6 +209,7 @@ export function auditEvent(input) {
       "image-generation",
       "attachment-clear",
       "dictation",
+      "skill-import",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -404,6 +406,17 @@ export function auditEvent(input) {
             levels.includes(c.to),
         )
         .map(({ projectId, from, to }) => ({ projectId, from, to }));
+  }
+  // A skill import names the scan verdict, how it arrived and the rules that found
+  // something (skill-scan.js); never a path, excerpt or file content.
+  if (input.resourceType === "extension") {
+    if (SCAN_VERDICTS.includes(details.verdict)) event.details.verdict = details.verdict;
+    if (["zip", "skill-md", "github"].includes(details.importKind))
+      event.details.importKind = details.importKind;
+    if (Array.isArray(details.scanRules))
+      event.details.scanRules = SCAN_RULES.filter((rule) =>
+        details.scanRules.includes(rule),
+      );
   }
   // Agent SSH runs, refusals and grant changes (audit-ssh-details.js).
   if (input.resourceType === "ssh" || details.kind === "ssh-grants")
