@@ -4,6 +4,7 @@ import { dropTexts, readText } from "./team-texts.js";
 import {
   intent,
   namesMember,
+  messageNegated,
   ownerConsent,
   ownerMentions,
   ownerProse,
@@ -131,7 +132,9 @@ export class LeadRequestStore {
     if (m.archivedAt || assistant.archivedAt) throw assistantProblem("notFound", 404);
     return { member: m, assistant };
   }
-  create({ type, attemptId, operationId, input }) {
+  // `offer`: the lead's last reply before this turn (LeadRequests.lastReply), which
+  // must name the member for the owner's yes to count.
+  create({ type, attemptId, operationId, input, offer = null }) {
     const field = type === "task" ? "task" : "question";
     exact(
       input,
@@ -266,14 +269,17 @@ export class LeadRequestStore {
           };
       }
       // Third way, where the lead offers members first (team usage "suggest" or
-      // "autonomous"): the owner's own short yes in this turn, once per turn, in a
-      // message that names no other member.
+      // "autonomous"): the owner's own short yes in this turn to the lead's last
+      // reply, which named this member, once per turn, in a message that names no
+      // other member.
       const prose = ownerTurn ? ownerProse(parsed) || "" : "";
       const usage = policy.usage;
       if (open && !proof && quote && usage !== "onRequest") {
         const yes = ownerConsent(quote, parsed);
         if (
           yes &&
+          typeof offer === "string" &&
+          namesMember(offer, assistant.name, others) &&
           !proofs.some((r) => r.ownerProof.consent) &&
           !others.some((name) =>
             namesMember(prose, name, [
@@ -288,6 +294,9 @@ export class LeadRequestStore {
       // the record and the autonomous caps, never for a permission.
       const named = !!prose && namesMember(prose, assistant.name, others);
       const selfInitiated = usage === "autonomous" && !proof && !named;
+      // A negation or limit anywhere in the owner's message ("but don't change
+      // anything") keeps every task of the turn read-only.
+      const negated = !parsed || messageNegated(parsed);
       if (selfInitiated) {
         const own = mine.filter((r) => r.selfInitiated);
         if (
@@ -299,9 +308,11 @@ export class LeadRequestStore {
           throw assistantProblem("memberRequestAutonomousLimit", 429);
       }
       // An autonomous lead's own task in a turn of the owner's own message may change
-      // the member's own workspace too; other turns' tasks run read-only. Shell, SSH,
-      // project folders, GitHub and grants keep their own approvals.
-      const autonomous = type === "task" && !proof && usage === "autonomous" && ownerTurn;
+      // the member's own workspace too, always marked self-initiated and capped. A
+      // task for a member the owner named without a valid proof, a negated message
+      // and other turns run read-only. Shell, SSH, project folders, GitHub and
+      // grants keep their own approvals.
+      const autonomous = type === "task" && selfInitiated && ownerTurn && !negated;
       return t.insert(
         {
           id: randomUUID(),
