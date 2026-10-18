@@ -293,7 +293,11 @@ test("a Gateway's key-free web tool state is recorded once it answers", async (t
   await runtime.start();
   // The previous Gateway's state is gone before the new one answers.
   assert.deepEqual(seen, [null, null]);
-  assert.deepEqual(runtime.webTools.availability, { browser: false, webSearch: true });
+  assert.deepEqual(runtime.webTools.availability, {
+    createImages: false,
+    browser: false,
+    webSearch: true,
+  });
   assert.deepEqual(runtime.webTools.searchPlugins, webTools.searchPlugins);
   assert.equal(runtime.webTools.signature, webToolsSignature({ profiles, webTools }));
   assert.equal(JSON.stringify(runtime.webTools).includes("secret-brave-fixture"), false);

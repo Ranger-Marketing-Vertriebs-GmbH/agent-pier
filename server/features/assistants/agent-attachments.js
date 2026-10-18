@@ -190,7 +190,7 @@ export class AgentAttachments {
       .replace(/\..*$/, "");
     return { display, file: `${stamp}-${randomBytes(4).toString("hex")}-${stored}` };
   }
-  index(id, conversation, entry, requestId = null) {
+  index(id, conversation, entry, requestId = null, at = this.now()) {
     this.db
       .prepare(
         "INSERT INTO agent_attachments (id,assistant_id,conversation_id,request_id,body,created_at) VALUES (?,?,?,?,?,?)",
@@ -201,7 +201,7 @@ export class AgentAttachments {
         conversation.id,
         requestId,
         JSON.stringify(entry),
-        this.now(),
+        at,
       );
   }
   // Files agents hand the owner (agent-share-store.js).

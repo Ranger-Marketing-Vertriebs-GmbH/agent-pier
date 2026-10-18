@@ -22,7 +22,7 @@ and agents that work as a team.
   review loops, checks and human approval ([pipelines](docs/pipelines.md)).
 - **Agents and teams:** persistent agents whose leads ask and delegate to their
   members, with @-mentions, Telegram, skills, routines, check-ins, files in both
-  directions, read or read-and-write access to project folders and GitHub through your
+  directions, images created through ChatGPT, read or read-and-write access to project folders and GitHub through your
   token profiles ([agents](docs/agents.md)).
 - **Central MCP servers:** add a server once and bind it to agents and to your coding
   CLIs, with OAuth sign-in from AgentPier ([MCP](docs/mcp.md)).

@@ -83,7 +83,10 @@ async function setup(page, options = {}) {
         json: {
           assistants: [agent],
           conversations: [],
-          models: [{ id: "router", name: "Router", available: true }],
+          models: [
+            { id: "router", name: "Router", available: true },
+            ...(options.models || []),
+          ],
         },
       });
     if (path === "/api/assistant-runtime/restart" && method === "POST") {
@@ -197,6 +200,7 @@ for (const [label, use] of [
         webFetch: true,
         browser: false,
         documents: true,
+        createImages: false,
       });
       expect(state.patches[0].confirmRestart).toBeUndefined();
     });
@@ -213,12 +217,13 @@ for (const [label, use] of [
         "Read web pages",
         "Use a browser",
         "Read images",
+        "Create images",
       ]) {
         await expect(page.getByLabel(name)).toBeDisabled();
         await expect(page.getByLabel(name)).not.toBeChecked();
       }
-      // The four web switches and scheduled check-ins.
-      await expect(page.getByText("Available after saving the agent")).toHaveCount(5);
+      // The five web switches and scheduled check-ins.
+      await expect(page.getByText("Available after saving the agent")).toHaveCount(6);
       await expect(page.getByLabel("Remember information")).toBeEnabled();
       await page.getByLabel("Remember information").check();
       await agentTab(page, "Profile").click();
@@ -234,6 +239,43 @@ for (const [label, use] of [
         browser: false,
         documents: false,
       });
+    });
+
+    test("creating images needs a signed-in ChatGPT account", async ({ page }) => {
+      await setup(page);
+      await page.goto(baseURL + settingsPath("capabilities"));
+      const images = page.getByLabel("Create images");
+      await expect(images).toBeDisabled();
+      await expect(
+        page.getByText(
+          "Connect a ChatGPT account under Accounts → ChatGPT for agents to create images.",
+        ),
+      ).toBeVisible();
+    });
+
+    test("with a ChatGPT account the image switch saves like the web tools", async ({
+      page,
+    }) => {
+      const state = await setup(page, {
+        models: [
+          {
+            id: "openclaw:abc",
+            name: "ChatGPT",
+            providerId: "openai-chatgpt",
+            available: true,
+          },
+        ],
+      });
+      await page.goto(baseURL + settingsPath("capabilities"));
+      await expect(
+        page.getByText(
+          "Creates and edits images with your ChatGPT account (gpt-image-2) and hands them to you in the chat.",
+        ),
+      ).toBeVisible();
+      await page.getByLabel("Create images").check();
+      await save(page).click();
+      await expect.poll(() => state.patches.length).toBe(1);
+      expect(state.patches[0].capabilities).toMatchObject({ createImages: true });
     });
 
     test("the browser switch is disabled and explained without a browser", async ({

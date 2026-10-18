@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
 import net from "node:net";
 import tls from "node:tls";
+import https from "node:https";
 import WebSocket from "ws";
 import { gatewayHandshake, gatewayError } from "./gateway-protocol.js";
 import { readGatewayPin } from "./gateway-tls.js";
@@ -195,6 +196,73 @@ export class GatewayClient extends EventEmitter {
     )
       throw gatewayError("RPC_FAILED");
     return pinnedSocket(url.href, this.certPath, { connected: false, secured: false });
+  }
+  /**
+   * Reads one file the Gateway serves on its own HTTPS origin (a managed media path
+   * with its short-lived ticket, as artifacts.download returns it), pinned like the
+   * RPC connection and bounded to `maxBytes`. Never sends the Gateway token.
+   */
+  download(urlPath, { maxBytes, timeoutMs = 30000 } = {}) {
+    if (
+      typeof urlPath !== "string" ||
+      !urlPath.startsWith("/") ||
+      urlPath.startsWith("//")
+    )
+      return Promise.reject(gatewayError("RPC_FAILED"));
+    const base = new URL(this.url.replace(/^wss:/, "https:"));
+    const url = new URL(urlPath, base);
+    if (url.host !== base.host || url.protocol !== "https:")
+      return Promise.reject(gatewayError("RPC_FAILED"));
+    let pin;
+    try {
+      pin = readGatewayPin(this.certPath);
+    } catch {
+      return Promise.reject(gatewayError("ENDPOINT_UNTRUSTED"));
+    }
+    return new Promise((resolve, reject) => {
+      const request = https.get(
+        url,
+        {
+          ca: pin.cert,
+          rejectUnauthorized: true,
+          servername: net.isIP(url.hostname) ? "" : url.hostname,
+          checkServerIdentity: (_host, certificate) =>
+            certificate?.fingerprint256 === pin.fingerprint
+              ? undefined
+              : gatewayError("ENDPOINT_UNTRUSTED"),
+          timeout: timeoutMs,
+        },
+        (response) => {
+          if (response.statusCode !== 200) {
+            response.resume();
+            return reject(gatewayError("RPC_FAILED"));
+          }
+          const chunks = [];
+          let size = 0;
+          response.on("data", (chunk) => {
+            size += chunk.length;
+            if (size > maxBytes) {
+              request.destroy();
+              return reject(
+                Object.assign(gatewayError("RPC_FAILED"), { tooLarge: true }),
+              );
+            }
+            chunks.push(chunk);
+          });
+          response.on("end", () =>
+            resolve({
+              body: Buffer.concat(chunks),
+              type: String(response.headers["content-type"] || ""),
+            }),
+          );
+          response.on("error", () => reject(gatewayError("RPC_FAILED")));
+        },
+      );
+      request.on("timeout", () => request.destroy(gatewayError("RPC_FAILED")));
+      request.on("error", (error) =>
+        reject(error?.code === "ENDPOINT_UNTRUSTED" ? error : gatewayError("RPC_FAILED")),
+      );
+    });
   }
   supports(method) {
     return !!this.features?.methods.has(method);

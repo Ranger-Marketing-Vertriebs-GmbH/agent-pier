@@ -84,6 +84,7 @@ test("a lead promotes its member: grants become its own settings, visibly", asyn
     webFetch: false,
     browser: true,
     documents: false,
+    createImages: false,
   });
   assert.deepEqual(personalSkills(promoted), ["weather"]);
   assert.equal(personalShell(promoted), "off");

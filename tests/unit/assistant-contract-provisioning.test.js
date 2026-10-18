@@ -45,6 +45,7 @@ test("contracts use the runtime the installer's --with-assistants step selected"
     AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME: runtime,
     AGENTPIER_TELEGRAM_SENDERS_CONTRACT_RUNTIME: runtime,
     AGENTPIER_SKILLS_CONTRACT_RUNTIME: runtime,
+    AGENTPIER_IMAGE_CONTRACT_RUNTIME: runtime,
   });
 });
 

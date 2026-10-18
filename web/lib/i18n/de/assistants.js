@@ -60,6 +60,7 @@ export const assistantCopy = {
     enableWebFetch: "Webseiten lesen",
     enableBrowser: "Einen Browser nutzen",
     enableDocuments: "Bilder lesen",
+    enableCreateImages: "Bilder erstellen",
     memoryDescription: "Führt eigene Notizen über Unterhaltungen hinweg.",
     remindersDescription: "Sendet Erinnerungen und führt Zeitpläne über Telegram aus.",
     webSearchDescription: "Recherchiert mit dem in den Zugängen gewählten Suchanbieter.",
@@ -68,6 +69,10 @@ export const assistantCopy = {
       "Steuert ein eigenes, dauerhaftes Browserprofil für Seiten, die Klicken oder Anmelden erfordern.",
     documentsDescription:
       "Betrachtet Bilder in seinem Arbeitsordner. Braucht ein Modell, das Bilder annimmt.",
+    createImagesDescription:
+      "Erstellt und bearbeitet Bilder mit deinem ChatGPT-Konto (gpt-image-2) und gibt sie dir im Chat.",
+    imagesUnavailable:
+      "Verbinde unter Zugänge → ChatGPT für Agenten ein ChatGPT-Konto, um Bilder zu erstellen.",
     browserUnavailable:
       "Auf diesem Rechner wurde kein unterstützter Browser gefunden. Installiere Chrome, Brave, Edge oder Chromium, um dies zu nutzen.",
     searchUnavailable:

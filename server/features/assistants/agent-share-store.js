@@ -111,13 +111,28 @@ export class SharedFiles {
    * Stores a file an agent hands the owner (agent-shares.js) for the chat of the turn
    * that shared it. Images and PDFs keep their type; any other file is a download.
    * `mirror` (`{ conversationId, from }`) shows a member's file in its lead's chat as
-   * well, from the same copy.
+   * well, from the same copy. A generated image (generated-images.js) names its
+   * Gateway `artifactId`, stored once per conversation, and the time `at` its message
+   * was written, so the chat shows it in place.
    */
-  async share({ conversation, requestId, name, body, caption = "", mirror = null }) {
+  async share({
+    conversation,
+    requestId,
+    name,
+    body,
+    caption = "",
+    mirror = null,
+    artifactId = null,
+    at = null,
+  }) {
     if (!Buffer.isBuffer(body) || !body.length) throw assistantProblem("shareEmpty");
     if (body.length > MAX_SHARE_BYTES) throw assistantProblem("shareTooLarge", 413);
     const owner = conversation.assistantId;
     return this.a.serial(`share:${owner}`, async () => {
+      const known = artifactId && this.artifact(conversation.id, artifactId);
+      if (known) return publicFile(known);
+      const now = this.a.now();
+      const when = Number.isFinite(at) && at <= now && at > now - 86400000 ? at : now;
       const detected = detectAttachment(body, name);
       const typed =
         detected && detected.kind !== "text"
@@ -129,17 +144,19 @@ export class SharedFiles {
         ...(await this.a.copy(folder, name, body, typed)),
         shared: true,
         ...(caption ? { caption } : {}),
+        ...(artifactId ? { artifactId } : {}),
       };
       const id = randomUUID();
       try {
         this.a.transaction(() => {
-          this.a.index(id, conversation, entry, SHARED + requestId);
+          this.a.index(id, conversation, entry, SHARED + requestId, when);
           if (mirror)
             this.a.index(
               randomUUID(),
               { assistantId: owner, id: mirror.conversationId },
               { ...entry, from: mirror.from },
               SHARED + requestId,
+              when,
             );
         });
       } catch (error) {
@@ -148,6 +165,16 @@ export class SharedFiles {
       }
       return publicFile({ id, ...entry });
     });
+  }
+  /** The file a conversation already holds for a Gateway artifact, or null. */
+  artifact(conversationId, artifactId) {
+    return (
+      this.rows(
+        "conversation_id=? AND json_extract(body, '$.artifactId')=?",
+        conversationId,
+        String(artifactId),
+      )[0] || null
+    );
   }
   /**
    * The files agents shared in a conversation, as agent messages at the time each

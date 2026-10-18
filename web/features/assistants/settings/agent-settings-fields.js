@@ -12,6 +12,7 @@ export const capabilityKeys = [
   "webFetch",
   "browser",
   "documents",
+  "createImages",
 ];
 export const webCapabilityKeys = capabilityKeys.slice(2);
 export const capabilityDefaults = Object.fromEntries(

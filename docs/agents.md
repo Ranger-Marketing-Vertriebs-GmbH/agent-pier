@@ -60,7 +60,9 @@ member also shows whether its model changed since it took it over from the lead.
   reminders** lets it send reminders and run routines through Telegram.
 - **Web & documents:** **Search the web**, **Read web pages**, **Use a browser** (a
   persistent browser profile of the agent's own; needs Chrome, Brave, Edge or
-  Chromium on the host) and **Read images**. The search provider is set once under
+  Chromium on the host), **Read images** and **Create images** (through a ChatGPT
+  account connected under **Accounts → ChatGPT for agents**; without one the switch
+  is disabled and says so). The search provider is set once under
   **Accounts → Services for agents → Web search** (DuckDuckGo, Brave Search or
   Perplexity through OpenRouter).
 - **Agent browser** (while **Use a browser** is on): **Visible browser** opens a
@@ -391,7 +393,9 @@ open it), every other file as a download chip, with the agent's short caption. I
 stays in the history, also while AgentPier is unreachable. When the turn came from your
 paired Telegram chat, the file goes there too, as a photo or as a document. A
 routine's run can share files as well, for example a weekly report: they appear in the
-chat the routine writes to and in its Telegram chat.
+chat the routine writes to and in its Telegram chat. Images an agent creates with
+**Create images** arrive the same way on their own, a moment after its reply, without
+the agent sharing them.
 
 - A team member's file appears in its own chat and in its lead's chat, under the
   member's name; it reaches Telegram when the lead's turn the member works for came

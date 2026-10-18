@@ -28,6 +28,7 @@ const ALL = {
   webFetch: true,
   browser: true,
   documents: true,
+  createImages: true,
 };
 const OFF = Object.fromEntries(Object.keys(ALL).map((key) => [key, false]));
 const DEFAULT = { ...OFF, memory: true, webSearch: true, webFetch: true };

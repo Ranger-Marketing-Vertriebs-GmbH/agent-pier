@@ -103,6 +103,7 @@ test("createAssistantServices returns a graph whose every reference is connected
   assert.ok(services.assistantMcpServers);
   // Live applies see what the last start compiled; before any start, nothing.
   assert.deepEqual(assistants.config.webToolsAvailable(), {
+    createImages: false,
     browser: false,
     webSearch: false,
   });
@@ -115,6 +116,7 @@ test("createAssistantServices returns a graph whose every reference is connected
     },
   });
   assert.deepEqual(assistants.config.webToolsAvailable(), {
+    createImages: false,
     browser: true,
     webSearch: true,
   });
