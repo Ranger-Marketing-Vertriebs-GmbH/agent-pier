@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useState } from "react";
 import { systemStatusCopy as copy } from "../../lib/i18n/messages/system-status.js";
 import Icon from "../../components/Icon.jsx";
 import useSystemStatus from "./useSystemStatus.js";
-import { statusBytes, statusPercent } from "./system-status-format.js";
+import { diskUsedPercent, statusBytes, statusPercent } from "./system-status-format.js";
 import { DiskWarning, SystemMeter } from "./SystemMeter.jsx";
 
 const SystemStatusDialog = lazy(() => import("./SystemStatusDialog.jsx"));
@@ -29,7 +29,7 @@ export default function SystemStatus() {
           <span className="system-status-meters">
             <SystemMeter
               label={copy.disk}
-              percent={100 - data.disk.freePercent}
+              percent={diskUsedPercent(data.disk)}
               value={copy.diskValue(
                 statusBytes(data.disk.freeBytes),
                 statusBytes(data.disk.totalBytes),

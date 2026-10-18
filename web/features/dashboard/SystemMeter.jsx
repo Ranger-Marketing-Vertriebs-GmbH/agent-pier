@@ -5,17 +5,18 @@ import { clampPercent, statusPercent } from "./system-status-format.js";
 
 export function SystemMeter({ label, percent, value, tone = "" }) {
   return (
-    <div className={`system-meter ${tone}`}>
-      <div className="system-meter-top">
+    // Spans only: the start page renders the meters inside its row button.
+    <span className={`system-meter ${tone}`}>
+      <span className="system-meter-top">
         <span>{label}</span>
         <strong>{statusPercent(percent)}</strong>
-      </div>
+      </span>
       {/* The text below carries the value; the bar only repeats it visually. */}
-      <div className="system-meter-bar" aria-hidden="true">
+      <span className="system-meter-bar" aria-hidden="true">
         <i style={{ width: `${clampPercent(percent)}%` }} />
-      </div>
+      </span>
       <small>{value}</small>
-    </div>
+    </span>
   );
 }
 

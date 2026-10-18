@@ -9,6 +9,7 @@ import {
   statusNumber,
   statusPercent,
   statusTime,
+  diskUsedPercent,
 } from "./system-status-format.js";
 
 const WIDTH = 240,
@@ -103,7 +104,7 @@ export default function SystemStatusDialog({ close }) {
               <div className="system-status-meters">
                 <SystemMeter
                   label={copy.disk}
-                  percent={100 - data.disk.freePercent}
+                  percent={diskUsedPercent(data.disk)}
                   value={copy.diskValue(
                     statusBytes(data.disk.freeBytes),
                     statusBytes(data.disk.totalBytes),

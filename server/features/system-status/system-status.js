@@ -228,7 +228,6 @@ export class SystemStatus {
     const times = cpuTimes(cpus);
     const cpu = cpuBusy(this.cpuReading.times, times);
     const sampledAt = this.now();
-    const elapsedMs = sampledAt - this.cpuReading.at;
     this.cpuReading = { at: sampledAt, times };
     const [memory, disk, panes] = await Promise.all([
       this.memory(),
@@ -242,31 +241,50 @@ export class SystemStatus {
       ["server", this.serverPid],
     ];
     let trees = new Map();
-    const table = await this.processes({
-      pids: (current) => {
-        trees = processTrees(current, roots);
-        return new Set([...trees.values()].flatMap((tree) => [...tree]));
-      },
-    });
-    if (!trees.size) trees = processTrees(table, roots);
+    let table = null;
+    try {
+      table = await this.processes({
+        pids: (current) => {
+          trees = processTrees(current, roots);
+          return new Set([...trees.values()].flatMap((tree) => [...tree]));
+        },
+      });
+      if (!trees.size) trees = processTrees(table, roots);
+    } catch (error) {
+      // Without ps the host bars still show; the process rows stay empty.
+      this.onError(error);
+    }
     const cores = Math.max(1, cpus.length);
+    // Process CPU covers the time since the previous process table, which after an
+    // idle period is older than the host CPU reading primed just before this sample.
+    const previous = this.table;
+    const tableElapsedMs = previous ? sampledAt - previous.at : 0;
     const usage = (key) => {
-      const result = treeUsage(table, trees.get(key) || new Set(), this.table, elapsedMs);
-      // Shares of the whole host, like the CPU bar, instead of percent of one core.
-      return { ...result, cpuPercent: Math.round((result.cpuPercent / cores) * 10) / 10 };
+      const result = treeUsage(
+        table,
+        trees.get(key) || new Set(),
+        previous?.rows,
+        tableElapsedMs,
+      );
+      // Shares of the whole host, like the CPU bar, instead of percent of one core;
+      // a counter jump (a reused pid) never reports more than every core.
+      const cpuPercent = Math.min(result.cpuPercent, cores * 100) / cores;
+      return { ...result, cpuPercent: Math.round(cpuPercent * 10) / 10 };
     };
-    this.table = table;
-    const processes = [
-      { kind: "server", ...usage("server") },
-      ...(gateway ? [{ kind: "gateway", ...usage("gateway") }] : []),
-      ...panes.map(({ id, name, tool }) => ({
-        kind: "session",
-        id,
-        name,
-        tool,
-        ...usage(`session:${id}`),
-      })),
-    ];
+    const processes = table
+      ? [
+          { kind: "server", ...usage("server") },
+          ...(gateway ? [{ kind: "gateway", ...usage("gateway") }] : []),
+          ...panes.map(({ id, name, tool }) => ({
+            kind: "session",
+            id,
+            name,
+            tool,
+            ...usage(`session:${id}`),
+          })),
+        ]
+      : [];
+    if (table) this.table = { at: sampledAt, rows: table };
     const agentPier = processes.reduce(
       (sum, item) => ({
         cpuPercent: Math.round((sum.cpuPercent + item.cpuPercent) * 10) / 10,

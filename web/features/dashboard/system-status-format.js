@@ -24,5 +24,8 @@ export function statusNumber(value, digits = 2) {
   return formatNumber(value, { maximumFractionDigits: digits });
 }
 export const statusTime = (value) => formatTimestamp(value);
+/** The used share of the disk bar; an unknown free share stays unknown ("–"). */
+export const diskUsedPercent = (disk) =>
+  Number.isFinite(disk?.freePercent) ? 100 - disk.freePercent : null;
 export const clampPercent = (value) =>
   Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;
