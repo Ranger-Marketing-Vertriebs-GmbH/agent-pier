@@ -55,7 +55,7 @@
   border-radius: 9px;
   background: var(--accent);
   color: #16171b;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   line-height: 17px;
   text-align: center;

@@ -8,7 +8,7 @@
   min-width: 0;
 }
 .list-detail-caps {
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 1.4px;
   color: #7d7e82;

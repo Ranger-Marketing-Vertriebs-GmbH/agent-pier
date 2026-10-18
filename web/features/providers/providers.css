@@ -89,13 +89,13 @@
   overflow-wrap: anywhere;
 }
 .provider-account-summary code {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 .provider-key-missing {
   color: var(--accent);
 }
 .session-provider-configuration {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--muted);
   margin-bottom: 8px;
   max-width: 100%;
@@ -120,6 +120,6 @@
     width: 100%;
   }
   .session-provider-configuration {
-    font-size: 9px;
+    font-size: var(--font-size-xs);
   }
 }

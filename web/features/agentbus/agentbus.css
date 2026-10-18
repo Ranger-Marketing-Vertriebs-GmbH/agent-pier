@@ -108,7 +108,7 @@
   overflow-wrap: anywhere;
 }
 .agentbus-message-state {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   border: 1px solid #574333;
   border-radius: 6px;
   padding: 3px 7px;
@@ -116,7 +116,7 @@
 }
 .agentbus-message-time {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   margin: 8px 0 16px;
   line-height: 1.7;
 }

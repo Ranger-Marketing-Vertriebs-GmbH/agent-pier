@@ -5,7 +5,7 @@
   border: 1px solid var(--line);
   border-radius: 5px;
   color: var(--accent);
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 .repository-agent-choice {
   flex-direction: row;
@@ -129,7 +129,7 @@
 .github-access-head {
   padding: 0 20px;
   color: #7d7e82;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 1.4px;
   text-transform: uppercase;

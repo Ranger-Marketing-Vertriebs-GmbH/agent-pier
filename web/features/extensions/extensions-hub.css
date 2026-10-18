@@ -37,7 +37,7 @@
   color: #ffc99d;
 }
 .extension-profile-name small {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #8a8b8f;
 }
 .extension-profile-switch {

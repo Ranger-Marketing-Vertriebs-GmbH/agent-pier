@@ -49,7 +49,7 @@
   border-radius: 5px;
   background: #101114e6;
   color: #f49a58;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 .chat-image-card figcaption {
   padding: 10px 12px;
@@ -74,7 +74,7 @@
 }
 .chat-image-unavailable small {
   color: #939499;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 .chat-image-retry {
   margin-top: 8px;

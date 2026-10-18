@@ -98,7 +98,7 @@ select {
   display: flex;
   gap: 9px;
   color: #939498;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   line-height: 1.8;
 }
 .form-note svg {

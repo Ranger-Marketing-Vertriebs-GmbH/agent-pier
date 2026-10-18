@@ -31,7 +31,7 @@
   text-overflow: ellipsis;
 }
 .session-title p {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #9a9b9f;
   margin-top: 7px;
 }
@@ -75,7 +75,7 @@
   display: flex;
   gap: 6px;
   align-items: center;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #919296;
   padding: 6px 9px;
   border-radius: 3px;
@@ -88,7 +88,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   color: #999a9e;
 }
 .connection i {
@@ -180,7 +180,7 @@
   justify-content: space-between;
   gap: 14px;
   color: #818286;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   flex-shrink: 0;
 }
 .session-footer > span:first-child {
@@ -237,12 +237,12 @@
   padding-left: 10px;
 }
 .composer > div > span {
-  font-size: 8px;
+  font-size: var(--font-size-xs);
   color: #8e8f93;
 }
 .composer .button {
   height: 32px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   padding: 0 12px;
 }
 

@@ -67,7 +67,7 @@
   overflow-wrap: anywhere;
 }
 .definition-select small {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #8b8c90;
 }
 .definition-row-actions {
@@ -80,7 +80,7 @@
 .stage-editor-actions .button {
   height: 28px;
   padding: 0 10px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 
 /* Editor card */
@@ -133,7 +133,7 @@
   min-width: 0;
 }
 .stage-caps {
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 1.4px;
   color: #7d7e82;
@@ -186,7 +186,7 @@
   outline-offset: 2px;
 }
 .stage-tile-number {
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 1.2px;
   color: #7d7e82;
@@ -201,7 +201,7 @@
   color: #8b8c90;
 }
 .stage-tile small {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   line-height: 1.5;
   color: #8b8c90;
 }
