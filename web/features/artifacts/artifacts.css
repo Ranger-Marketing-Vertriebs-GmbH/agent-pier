@@ -113,7 +113,7 @@
 }
 .artifacts-search:focus-within,
 .artifacts-filter:focus-within {
-  border-color: #f49a58;
+  border-color: var(--accent);
 }
 .artifacts-search input {
   flex: 1;

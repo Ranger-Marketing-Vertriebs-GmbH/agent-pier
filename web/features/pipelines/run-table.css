@@ -142,7 +142,7 @@
   outline: none;
 }
 .run-table-row:has(.run-table-open:focus-visible) {
-  outline: 1px solid #f49a58;
+  outline: var(--focus-ring);
   outline-offset: -1px;
 }
 .run-table-title {

@@ -50,7 +50,7 @@
   line-height: 1.7;
 }
 .extension-fields textarea:focus {
-  outline: 1px solid var(--accent);
+  outline: var(--focus-ring);
 }
 .extension-wide {
   grid-column: 1 / -1;
