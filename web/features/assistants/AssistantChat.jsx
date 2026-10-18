@@ -1,5 +1,4 @@
 import TeamApprovals from "./TeamApprovals.jsx";
-import TeamNote from "./TeamNote.jsx";
 import { foldResultEvents, teamNotes, withTeamNotes } from "./team-notes.js";
 import { scrollToChild } from "./transcript-scroll.js";
 import AssistantHeader from "./AssistantHeader.jsx";
@@ -22,21 +21,16 @@ import useAgentAttachments from "./useAgentAttachments.js";
 import useFileDrop from "../../components/useFileDrop.js";
 import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 import AssistantMessage from "./AssistantMessage.jsx";
-import CodingRunNote from "./CodingRunNote.jsx";
-import SshRunNote from "./SshRunNote.jsx";
-import MemberGrantNote from "./MemberGrantNote.jsx";
+import TranscriptItem from "./TranscriptItem.jsx";
 import { plainText } from "./plain-text.js";
 import useTouchInput from "../chat/useTouchInput.js";
 import useSessionViewport from "../sessions/useSessionViewport.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
-import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
-import { memoryNoteCopy } from "../../lib/i18n/messages/assistant-memory-notes.js";
 import { assistantApi } from "./assistant-api.js";
 import useAssistants, { useAssistantEvents } from "./useAssistants.js";
 import { leadMembers } from "./useMemberMention.js";
 import { streamInHistory } from "./stream-reply.js";
-import { compactionNoteText } from "./compaction-note.js";
 import { takeBack } from "./queued-message.js";
 import { connectionLost } from "./agent-offline.js";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
@@ -425,75 +419,17 @@ export default function AssistantChat({
                 <h2>{copy.emptyChat}</h2>
               </div>
             )}
-            {transcript.map(({ message: m, note }) =>
-              note ? (
-                <TeamNote
-                  key={note.id}
-                  note={note}
-                  navigate={navigate}
-                  focused={note.id === focusedNote}
-                />
-              ) : m.event === "coding-run" ? (
-                <CodingRunNote key={m.id} note={m} navigate={navigate} />
-              ) : m.event === "ssh-run" ? (
-                <SshRunNote key={m.id} note={m} />
-              ) : [
-                  "member-grant",
-                  "member-reminder",
-                  "member-update",
-                  "member-promote",
-                ].includes(m.event) ? (
-                <MemberGrantNote key={m.id} note={m} />
-              ) : m.event === "routine-failed" ? (
-                <p
-                  key={m.id}
-                  className="assistant-note assistant-event"
-                  data-routine-failed
-                >
-                  {routineCopy.chatFailed(m.name)}
-                  {m.notes?.includes("ssh_refused") ? ` · ${routineCopy.sshRefused}` : ""}
-                </p>
-              ) : m.event === "memory-note" ? (
-                <p
-                  key={m.id}
-                  className="assistant-note assistant-event"
-                  data-memory-note={m.reason}
-                >
-                  {memoryNoteCopy.reasons[m.reason] || memoryNoteCopy.unknown}
-                </p>
-              ) : m.event === "compaction" ? (
-                <p
-                  key={m.id}
-                  className="assistant-note assistant-event"
-                  data-compaction-note
-                >
-                  {compactionNoteText(copy, m)}
-                </p>
-              ) : m.role === "event" ? (
-                <p key={m.id} className="assistant-note assistant-event">
-                  {copy.team.internalTurns[m.event]}
-                </p>
-              ) : (
-                <AssistantMessage
-                  key={m.id}
-                  role={m.role}
-                  name={m.role === "user" ? copy.you : m.from || assistant.name}
-                  text={m.text}
-                  cut={m.cut === true}
-                  partial={m.partial === true}
-                  source={m.source}
-                  sender={m.sender}
-                  timestamp={m.timestamp}
-                  attachments={m.attachments}
-                  forwarded={m.forwarded === true}
-                  mentions={mentions}
-                  scheduled={m.scheduled || null}
-                  shared={m.shared === true}
-                  unavailable={m.unavailable === true}
-                  removeShared={offline ? null : removeShared}
-                />
-              ),
-            )}
+            {transcript.map((item) => (
+              <TranscriptItem
+                key={item.note?.id ?? item.message.id}
+                item={item}
+                assistant={assistant}
+                navigate={navigate}
+                focusedNote={focusedNote}
+                mentions={mentions}
+                removeShared={offline ? null : removeShared}
+              />
+            ))}
             {active &&
               latest.internal &&
               history.messages.findLast((m) => !noteEvents.has(m.event))?.event !==
