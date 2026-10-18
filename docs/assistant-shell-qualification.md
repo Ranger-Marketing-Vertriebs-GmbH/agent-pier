@@ -49,6 +49,12 @@ AGENTPIER_SHELL_CONTRACT_RUNTIME=/absolute/path/to/2026.9.8-node26.7.0-darwin-ar
 runtime variables. The `native-contracts` job of `assistant-runtime.yml` runs all
 four files and fails on any skip. Without the variable, they skip.
 
+The contracts quote the runtime's Node path in the commands they send. A local
+runtime lives under `~/Library/Application Support`; unquoted, the shell would split
+that path, and OpenClaw denies the unresolvable program outright with
+`SYSTEM_RUN_DENIED: approval cannot safely bind this interpreter/runtime command`
+instead of asking. Nothing runs in that case.
+
 Verified on macOS arm64 against lock `563cf3904093` on 2026-10-12: 15 tests passed,
 none skipped, in about 5 minutes. Linux is covered by CI only.
 
