@@ -29,7 +29,7 @@ export const systemStatusCopy = {
   processCpu: "CPU",
   processMemory: "RAM",
   server: "AgentPier server",
-  gateway: "Agent Gateway",
+  gateway: "Agent gateway",
   session: (name) => name || "Session",
   sessionTool: {
     claude: "Claude Code",
