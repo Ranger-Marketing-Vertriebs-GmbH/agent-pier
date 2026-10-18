@@ -34,6 +34,7 @@ const privateFiles = [
 const runtimeOnly = [
   "assistants/state/state/openclaw-agent.sqlite.generation-lock.sqlite",
   "assistants/state/locks/gateway.lock.json",
+  "assistants/attachment-trash/home-attachments.1/photo.png",
 ];
 const publicState = [
   "assistants/state/plugin-skills/team/SKILL.md",

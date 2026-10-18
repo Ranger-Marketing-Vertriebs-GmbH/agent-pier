@@ -204,6 +204,7 @@ export function auditEvent(input) {
       "github-access",
       "generated-image",
       "image-generation",
+      "attachment-clear",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -372,6 +373,13 @@ export function auditEvent(input) {
     if (Number.isSafeInteger(details.bytes) && details.bytes >= 0)
       event.details.bytes = details.bytes;
   }
+  // The owner cleared an agent's attachments folder: how many entries and bytes.
+  if (
+    details.kind === "attachment-clear" &&
+    Number.isSafeInteger(details.bytes) &&
+    details.bytes >= 0
+  )
+    event.details.bytes = details.bytes;
   // An agent's project grants and folder levels: project ids and levels only.
   if (details.kind === "project-grants") {
     const ids = (value) =>

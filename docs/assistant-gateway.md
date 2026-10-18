@@ -2409,7 +2409,8 @@ type.
   discards its own. A conversation keeps at most 20 unsent uploads; a further one
   replaces the oldest, so files abandoned elsewhere never block a new message. Each
   agent holds at most 1 GB or 1000 files there. When the agent deletes a sent copy,
-  the chat history keeps the message without that file.
+  the chat history keeps the message and names that file as no longer available
+  (`unavailable: true`, no link).
 - **Delivery.** `sessions.send` carries the owner's text followed by a note that
   names each saved copy by its workspace-relative path, so the agent can read it with
   its tools. Images the agent's model accepts also travel inline as `attachments`
@@ -2442,8 +2443,28 @@ type.
 - **Backups.** Copies and their index are part of runtime update snapshots, and of
   host backups only with history and a passphrase, sealed (see
   [backups](backups.md#what-a-backup-holds)).
+- **Clearing (2026-10-18).** `GET /api/assistants/:id/attachment-usage` returns the
+  folder's entries and regular-file bytes against the limits (`files`, `bytes`,
+  `maxFiles`, `maxBytes`, and `capped` once a count stops at 5000 entries).
+  `DELETE /api/assistants/:id/attachments`, behind the owner login and the
+  admission queue, empties the folder: open video uploads end with their partial
+  copies, the folder is removed, unsent index rows are deleted (a queued message
+  naming them fails and says so), and sent rows are marked gone, so their messages
+  keep the file name as unavailable. Shared files (`shares/<agent>/`) are a separate
+  store and stay. The clear is audited as `assistant.updated` with kind
+  `attachment-clear`, the entry count and the bytes, never file names. Profile >
+  Chat attachments in the agent settings offers it after a confirmation.
+- **Removal by verified folder.** Clearing and `purge` never delete through a path
+  alone. The checked folder (device and inode from the folder check) is first renamed
+  into `<assistants>/attachment-trash/`, a private directory outside every workspace;
+  rename moves the name itself, never a link's target. Only if the moved entry is still
+  that directory is it removed there, out of the agent's reach, where entries are
+  unlinked and never followed. A link or another directory swapped in since the check
+  is renamed back untouched and the request fails with `attachmentStorageUnsafe`.
+  The share store's `purge` uses the same removal. The trash is runtime-only and
+  never part of a backup, sealed or not.
 - **Limits.** Agents cannot be deleted today (only archived), so the copies follow
-  the workspace; `AgentAttachments.purge` removes an agent's folder and index for a
+  the workspace; `AgentAttachments.purge` removes an agent's folders and index for a
   future deletion path. OpenClaw also stages inline images it receives under
   `media/inbound/` of the workspace, so such an image exists twice.
 

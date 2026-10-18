@@ -8,6 +8,8 @@ import { formatNumber } from "../../lib/i18n/index.js";
 export function fileSize(bytes) {
   if (!Number.isFinite(bytes)) return "";
   if (bytes < 1024) return `${formatNumber(bytes)} B`;
+  if (bytes >= 1024 ** 3)
+    return `${formatNumber(bytes / 1024 ** 3, { maximumFractionDigits: 1 })} GB`;
   const megabytes = bytes >= 1024 * 1024;
   const value = bytes / (megabytes ? 1024 * 1024 : 1024);
   return `${formatNumber(value, { maximumFractionDigits: 1 })} ${megabytes ? "MB" : "KB"}`;
@@ -55,6 +57,22 @@ function VideoAttachment({ file }) {
 // HEIC stays a download: most browsers cannot show it.
 const shown = (file) => file.kind === "image" && file.type !== "image/heic";
 
+// A sent file whose copy is gone (the agent deleted it, or the owner cleared the
+// agent's attachments): its name stays, without a link.
+function UnavailableAttachment({ file }) {
+  return (
+    <li className="agent-attachment-chip unavailable">
+      <span className="agent-attachment-icon" aria-hidden="true">
+        <Icon name="file" size={16} />
+      </span>
+      <span className="agent-attachment-text">
+        <span className="agent-attachment-name">{file.name}</span>
+        <span className="agent-attachment-meta">{copy.unavailable}</span>
+      </span>
+    </li>
+  );
+}
+
 // The owner's files in a sent message, or the files an agent shared (`shared`):
 // thumbnails that open the image in the in-app viewer, and chips that download the
 // file. Nothing navigates away: a home-screen app (iOS) has no way back. Both are
@@ -69,7 +87,9 @@ export default function AgentMessageAttachments({ files, shared = false }) {
         aria-label={shared ? copy.shared : copy.sent}
       >
         {files.map((file) =>
-          file.kind === "video" && !shared ? (
+          file.unavailable ? (
+            <UnavailableAttachment key={file.id} file={file} />
+          ) : file.kind === "video" && !shared ? (
             <VideoAttachment key={file.id} file={file} />
           ) : shown(file) ? (
             <li key={file.id} className="agent-message-image">

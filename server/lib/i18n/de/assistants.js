@@ -264,7 +264,7 @@ export const assistants = {
   attachmentNotFound:
     "Dieser Anhang ist nicht mehr verfügbar. Füge die Datei erneut hinzu.",
   attachmentStorageFull:
-    "Der Anhang-Ordner dieses Agenten ist voll. Bitte den Agenten, ältere Dateien in attachments/ zu löschen.",
+    "Der Anhang-Ordner dieses Agenten ist voll. Bitte den Agenten, ältere Dateien in attachments/ zu löschen, oder leere sie im Profil des Agenten unter Chat-Anhänge.",
   attachmentStorageUnsafe:
     "Der Anhang-Ordner im Arbeitsbereich dieses Agenten ist unsicher. Prüfe, ob attachments/ ein normaler Ordner ist.",
   attachmentRateLimited: "Zu viele Anhänge in kurzer Zeit. Warte einen Moment.",

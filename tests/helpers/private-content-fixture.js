@@ -161,6 +161,8 @@ export function privateContentFixture(t) {
     "x",
   );
   write(path.join(assistants, "state/locks/gateway.lock.json"), "{}");
+  // An attachments folder a crashed clear left on its way out (agent-attachment-storage.js).
+  write(path.join(assistants, "attachment-trash/home-attachments.1/photo.png"), marker);
   write(path.join(assistants, "state/unknown-folder/notes.json"), JSON.stringify(marker));
   write(path.join(assistants, "state/config-journal-fingerprint.key"), marker);
   write(path.join(assistants, "state/plugin-skills/team/SKILL.md"), "# Team skill");

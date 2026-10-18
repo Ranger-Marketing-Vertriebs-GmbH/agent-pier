@@ -245,7 +245,7 @@ export const assistants = {
   attachmentTooMany: "Too many attachments. A message can hold at most 5 files.",
   attachmentNotFound: "This attachment is no longer available. Add the file again.",
   attachmentStorageFull:
-    "This agent's attachment folder is full. Ask the agent to delete older files in attachments/.",
+    "This agent's attachment folder is full. Ask the agent to delete older files in attachments/, or clear them under the agent's Profile > Chat attachments.",
   attachmentStorageUnsafe:
     "The attachment folder in this agent's workspace is unsafe. Check that attachments/ is a normal folder.",
   attachmentRateLimited: "Too many attachments in a short time. Wait a moment.",

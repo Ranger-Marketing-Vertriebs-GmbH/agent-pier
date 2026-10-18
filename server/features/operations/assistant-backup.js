@@ -59,6 +59,8 @@ const excludedFolders = new Set([
   "backups",
   "tls",
   "backup-keys",
+  // Attachment folders on their way out (agent-attachment-storage.js).
+  "attachment-trash",
 ]);
 const excludedFiles = new Set([
   // Live process ownership and the loopback webhook secret are regenerated on start.
