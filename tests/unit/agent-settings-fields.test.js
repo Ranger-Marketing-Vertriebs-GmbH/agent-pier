@@ -288,6 +288,8 @@ test("work drafts send only the half that changed, each with its revision", () =
     memoryWrite: true,
     autonomous: false,
     publish: false,
+    // A policy without a level reads as the server's default.
+    teamUsage: "suggest",
     teamAutonomous: false,
     memberShellSsh: false,
     maxMembers: 4,
@@ -304,6 +306,7 @@ test("work drafts send only the half that changed, each with its revision", () =
     {
       team: {
         revision: 7,
+        usage: "suggest",
         autonomous: false,
         memberShellSsh: false,
         maxMembers: 6,
@@ -340,6 +343,18 @@ test("work drafts send only the half that changed, each with its revision", () =
     },
   );
   assert.deepEqual(workServer(null, null).maxMembers, "");
+  // The team usage level is part of the team half; an unknown level reads as default.
+  assert.equal(
+    workBody({
+      values: { ...base, teamUsage: "autonomous" },
+      changed: ["teamUsage"],
+      revisions,
+      withTeam: true,
+    }).team.usage,
+    "autonomous",
+  );
+  assert.equal(workServer(null, { usage: "onRequest" }).teamUsage, "onRequest");
+  assert.equal(workServer(null, { usage: "always" }).teamUsage, "suggest");
 });
 
 test("team numbers must be whole numbers within the server's limits", () => {

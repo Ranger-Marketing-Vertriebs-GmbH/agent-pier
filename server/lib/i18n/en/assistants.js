@@ -216,6 +216,8 @@ export const assistants = {
   memberRequestNotFinished: "Only finished temporary members can be archived.",
   memberRequestRate:
     "The agent sent too many questions or tasks in a short time. Wait a moment.",
+  memberRequestAutonomousLimit:
+    "The agent started the most questions and tasks of its own for now. Ask it by name for more.",
   memberRequestUnavailable: "This member has no chat yet and cannot answer.",
   memberRequestNoReply: (member) =>
     `${member} answered, but the agent's summary has no text. Check the chat.`,

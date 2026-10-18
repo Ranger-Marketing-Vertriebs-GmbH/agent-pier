@@ -170,6 +170,7 @@
   "assistants.memberGrants.warning": "de:469db5617d23 en:dc0f9a013e4a",
   "assistants.memberModelFollowsLead": "de:4b9e11383256 en:bff8a37bf9b4",
   "assistants.memberReminderLimit": "de:90f54a8cff95 en:a9ba3d448d67",
+  "assistants.memberRequestAutonomousLimit": "de:c49bd1947fdf en:599c12ed1c9f",
   "assistants.memberRequestNoReply": "de:f67632a44538 en:941c69406d5f",
   "assistants.memberRequestNotFinished": "de:3889755d71b3 en:55ce78d59927",
   "assistants.memberRequestNotPermanent": "de:00cffea76a59 en:513163749984",

@@ -2,6 +2,7 @@
 // on. Problem texts are owner-facing German UI copy and may name internals, so
 // they never reach the model; only real transport or runtime failures read as
 // "unavailable".
+import { autonomousCaps } from "./team-policy.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
     "Connect a Telegram chat in the agent settings first. Tell the owner; retrying does not help until then.",
@@ -36,6 +37,7 @@ const reasons = {
     "Only your finished temporary members without open questions or tasks can be archived. Check agentpier_team_members.",
   RATE_LIMITED:
     "Too many questions or tasks for your members in this turn or minute. Do not retry now; tell the owner what is still open, or let the owner approve more.",
+  AUTONOMOUS_LIMIT: `You already started ${autonomousCaps.perTurn} questions or tasks for your members on your own in this turn, or ${autonomousCaps.perHour} in the last hour. Do not retry; finish with what you have and tell the owner what is still open. The owner can ask you by name for more.`,
   MEMBER_UNAVAILABLE:
     "This member never started and has no chat to answer in. Choose another member.",
   SSH_NOT_GRANTED:
@@ -97,6 +99,7 @@ const byKey = {
   memberRequestNotFinished: "MEMBER_NOT_FINISHED",
   memberRequestUnavailable: "MEMBER_UNAVAILABLE",
   memberRequestRate: "RATE_LIMITED",
+  memberRequestAutonomousLimit: "AUTONOMOUS_LIMIT",
   sshNotGranted: "SSH_NOT_GRANTED",
   sshHostUnavailable: "SSH_HOST_UNAVAILABLE",
   sshRoutineNotTrusted: "SSH_ROUTINE_NOT_TRUSTED",

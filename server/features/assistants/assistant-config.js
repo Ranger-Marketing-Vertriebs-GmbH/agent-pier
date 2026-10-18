@@ -193,7 +193,7 @@ export class AssistantConfig {
     const shadowed = shadowedSkills(path.dirname(this.workspaces), assistant, assigned);
     let skills = assigned.filter((name) => !shadowed.includes(name));
     let gatewayDropped = false;
-    const bootstrap = assistantBootstrap(assistant, lease.display, {
+    const guidance = {
       memoryWritable: !!this.writeGuard?.(),
       // Its granted project folders, resolved now (agent-project-files.js).
       projectFolders: (nativeReady && this.projectFolders?.(assistant)) || [],
@@ -201,7 +201,22 @@ export class AssistantConfig {
       github: (nativeReady && this.github?.(assistant)) || null,
       // The image tool this start can serve (web-tools.js availability).
       images: nativeReady && available.createImages === true && !!this.writeGuard?.(),
-    });
+    };
+    // A lead's "Your team" section names its members as they are now. It changes
+    // with every busy member, so it stays out of the fingerprint: verifyBootstrap
+    // writes the new AGENTS.md without applying the whole configuration again.
+    // `teamRoster` answers null while the team tools are not offered.
+    let team = null;
+    if (!assistant.teamMemberId && !assistant.archivedAt)
+      try {
+        team = this.teamRoster?.(assistant) || null;
+      } catch {
+        team = null;
+      }
+    const bootstrap = assistantBootstrap(assistant, lease.display, { ...guidance, team });
+    const configured = team
+      ? assistantBootstrap(assistant, lease.display, guidance)
+      : bootstrap;
     const fingerprint = createHash("sha256")
       .update(
         JSON.stringify([
@@ -216,7 +231,7 @@ export class AssistantConfig {
           exec,
           shellGlobal,
           skills,
-          bootstrap,
+          configured,
           senderFacing,
           ssh,
         ]),

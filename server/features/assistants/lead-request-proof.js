@@ -258,6 +258,48 @@ export function ownerTeamQuote(quote, parsed) {
   return !!found && !found.negated && !found.quoted && plain(quote).includes("team");
 }
 
+// The owner's short yes to a lead's offer ("Should I ask Scout?"), in German and
+// English: one agreeing word, or two adjacent ones ("go ahead", "mach das").
+const agree =
+  /^(yes|yeah|yep|yup|sure|ok|okay|alright|absolutely|definitely|ja|jo|jep|jap|klar|gerne|gern|einverstanden|passt|genau|unbedingt)$/;
+const agreePairs = [
+  [/^go$/, /^(ahead|for)$/],
+  [/^do$/, /^(it|that|so)$/],
+  [/^sounds$/, /^(good|great|fine)$/],
+  [/^mach(e|t)?$/, /^(das|es|ruhig|mal|gerne|gern)$/],
+  [/^leg$/, /^los$/],
+  [/^nur$/, /^zu$/],
+  [/^klingt$/, /^(gut|super)$/],
+];
+const agrees = (list) =>
+  list.some(
+    (w, n) =>
+      agree.test(w) ||
+      agreePairs.some(([a, b]) => a.test(w) && b.test(list[n + 1] || "")),
+  );
+// At most this many words: consent is a short answer, not a new instruction.
+export const consentWords = 12;
+
+/**
+ * Whether the lead's quote is the owner's short agreement in this message: the
+ * whole own prose is at most `consentWords` words, agrees without any negation or
+ * limit anywhere in the message, and the quote is a whole-word excerpt of it that
+ * holds the agreeing words and follows no quotation mark. Returns the sentence as
+ * `ownerSentence` does, or null. The store accepts it only at the team usage levels
+ * where a lead offers members to the owner ("suggest" and "autonomous",
+ * lead-request-store.js) and only for a message that names no other member.
+ */
+export function ownerConsent(quote, parsed) {
+  const prose = ownerProse(parsed);
+  if (!prose || typeof quote !== "string" || quote.includes(blank)) return null;
+  if (!quote.trim() || quote.length > 300 || messageNegated(parsed)) return null;
+  const said = words(prose);
+  if (!said.length || said.length > consentWords || !agrees(words(quote))) return null;
+  if (!wordMatch(plain(quote)).test(plain(prose))) return null;
+  const sentence = ownerSentence(quote, prose);
+  return sentence && !sentence.negated && !sentence.quoted ? sentence : null;
+}
+
 /**
  * The @mentions in the owner's own message (`parseOwnerMessage`), found where the
  * chat shows them as chips (`treeMentions`). Each carries the member it means alone

@@ -50,6 +50,31 @@ export class LeadRequests {
     const r = this.store.get(id);
     return publicRequest({ ...r, answer: this.store.answer(r) }, { full: true });
   }
+  /** A lead's members that are not archived, each with its own agent profile. */
+  reachable(leadId) {
+    return this.teams
+      .members()
+      .filter((m) => m.parentAssistantId === leadId && !m.archivedAt)
+      .flatMap((m) => {
+        const a = this.assistants.store.getAssistant(m.assistantId);
+        return a.archivedAt ? [] : [{ m, a }];
+      });
+  }
+  /**
+   * What a lead's instructions name of its team (team-guidance.js): the owner's
+   * team usage level and its members as they are at the start of the turn.
+   */
+  roster(leadId) {
+    return {
+      usage: this.teams.policy(leadId).usage,
+      members: this.reachable(leadId).map(({ m, a }) => ({
+        name: a.name,
+        role: m.role,
+        lifetime: m.lifetime,
+        busy: this.teams.activeMember(m),
+      })),
+    };
+  }
   // --- lead tools -------------------------------------------------------------
   members(inv, input) {
     if (input && Object.keys(input).length) throw assistantProblem("invalid");
@@ -57,34 +82,25 @@ export class LeadRequests {
     const { lead } = this.store.lead(inv.attemptId);
     const requests = this.store.list(lead.id);
     return {
-      members: this.teams
-        .members()
-        .filter((m) => m.parentAssistantId === lead.id && !m.archivedAt)
-        .flatMap((m) => {
-          const a = this.assistants.store.getAssistant(m.assistantId);
-          if (a.archivedAt) return [];
-          return [
-            {
-              memberId: m.id,
-              name: a.name,
-              role: m.role,
-              lifetime: m.lifetime,
-              phase: m.phase,
-              busy: this.teams.activeMember(m),
-              canDelegate: m.lifetime === "permanent",
-              requests: requests
-                .filter((r) => r.memberId === m.id)
-                .slice(-5)
-                .map((r) => ({
-                  requestId: r.id,
-                  type: r.type,
-                  phase: r.phase,
-                  text: excerpt(r.text, 300),
-                  ...(r.answer ? { answer: excerpt(r.answer, 2000) } : {}),
-                })),
-            },
-          ];
-        }),
+      members: this.reachable(lead.id).map(({ m, a }) => ({
+        memberId: m.id,
+        name: a.name,
+        role: m.role,
+        lifetime: m.lifetime,
+        phase: m.phase,
+        busy: this.teams.activeMember(m),
+        canDelegate: m.lifetime === "permanent",
+        requests: requests
+          .filter((r) => r.memberId === m.id)
+          .slice(-5)
+          .map((r) => ({
+            requestId: r.id,
+            type: r.type,
+            phase: r.phase,
+            text: excerpt(r.text, 300),
+            ...(r.answer ? { answer: excerpt(r.answer, 2000) } : {}),
+          })),
+      })),
     };
   }
   async ask(inv, input) {
@@ -149,8 +165,10 @@ export class LeadRequests {
       requestId: r.id,
       type: r.type,
       member: r.memberName,
-      // Only a task the owner explicitly asked for may change the member's files.
+      // Only a task the owner asked for, or one an autonomous lead started in the
+      // owner's turn, may change the member's files.
       ...(r.type === "task" ? { mayWrite: !!r.writeAllowed } : {}),
+      ...(r.selfInitiated ? { selfInitiated: true } : {}),
     };
     if (r.phase === "completed" && r.delivery === "inline")
       return {
@@ -243,8 +261,8 @@ export class LeadRequests {
     }
   }
   /**
-   * Whether a native write in a member turn is this task's own, owner-proven work
-   * (lead-request-store.js). Questions, every other task, cancelled or uncertain
+   * Whether a native write in a member turn is this task's own, owner-proven work,
+   * or a task an autonomous lead started in the owner's turn (lead-request-store.js). Questions, every other task, cancelled or uncertain
    * runs never write; the member's memory stays read-only so a task cannot plant
    * instructions for the owner's own chats.
    */
@@ -255,7 +273,7 @@ export class LeadRequests {
       r.kind !== "lead-request" ||
       r.type !== "task" ||
       r.writeAllowed !== true ||
-      !r.ownerProof ||
+      (!r.ownerProof && r.autonomous !== true) ||
       r.phase !== "running" ||
       r.cancelRequested ||
       r.attemptId !== attemptId ||
