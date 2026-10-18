@@ -57,8 +57,9 @@ test.describe("English project agents under concurrent saves", () => {
     let releaseHome;
     const held = new Promise((resolve) => (releaseHome = resolve));
     const access = twoAgents({
-      answer: (put) =>
-        put.agentId === "home"
+      // Only Home's first answer is held; later saves get the ordinary answer.
+      answer: (put, state) =>
+        put.agentId === "home" && state.puts.length < 3
           ? async (route) => {
               await held;
               await route.fulfill({
@@ -84,6 +85,8 @@ test.describe("English project agents under concurrent saves", () => {
     await block(page, "home").getByLabel("None", { exact: true }).check();
     await expect.poll(() => access.state.puts.length).toBe(3);
     expect(access.state.puts[2].body.expected).toEqual({ coding: true, folder: "read" });
+    await expect(block(page, "home").getByText("Saving …")).toHaveCount(0);
+    await expect(block(page, "home").getByLabel("None", { exact: true })).toBeChecked();
     await expect(page.getByText(/changed elsewhere/)).toHaveCount(0);
   });
 
@@ -111,7 +114,9 @@ test.describe("English project agents under concurrent saves", () => {
     });
     await hubFixture(page, { intercept: access.intercept });
     await page.goto(base + "/projects/m1?tab=agents");
-    await block(page, "home").getByLabel("Read", { exact: true }).check();
+    // click, not check: the refusal may already have restored None when check()
+    // reads the radio back (WebKit answers the fulfilled route that fast).
+    await block(page, "home").getByLabel("Read", { exact: true }).click();
     // The message comes from the server catalog by its key.
     await expect(block(page, "home").getByRole("alert")).toHaveText(
       /request is still running/,
@@ -120,7 +125,7 @@ test.describe("English project agents under concurrent saves", () => {
     await expect(block(page, "home").getByLabel("None", { exact: true })).toBeChecked();
     const lists = access.state.lists;
     next = "conflict";
-    await block(page, "home").getByLabel("Read", { exact: true }).check();
+    await block(page, "home").getByLabel("Read", { exact: true }).click();
     await expect(page.getByText(/changed elsewhere/)).toBeVisible();
     await expect.poll(() => access.state.lists).toBe(lists + 1);
   });
