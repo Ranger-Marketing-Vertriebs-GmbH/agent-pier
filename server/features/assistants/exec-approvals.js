@@ -3,6 +3,7 @@ import { notifyAction } from "./assistant-action-notifications.js";
 import { personalShell } from "./native-capabilities.js";
 import { temporaryMember } from "./team-presentation.js";
 import { allowAlwaysPlan } from "./exec-allowlist-policy.js";
+import { telegramOf } from "./routine-targets.js";
 
 // Exec approval requests from the Gateway become assistant actions awaiting the
 // owner (`payload.action: "exec"`), keyed by the Gateway's approval id. A request
@@ -84,19 +85,16 @@ export class ExecApprovals {
     if (!assistant) return { reason: "UNKNOWN_AGENT" };
     if (personalShell(assistant) === "off") return { reason: "SHELL_OFF" };
     // A routine's run asks in the chat its result goes to, and through the
-    // Telegram chat the routine was bound to.
+    // Telegram chat the routine also delivers to, if any.
     const routine = a.routines?.runOrigin(assistant, sessionKey);
-    if (routine)
+    if (routine) {
+      const telegram = telegramOf(routine.binding);
       return {
         assistantId: assistant.id,
         conversationId: routine.conversation.id,
-        origin: {
-          kind: "telegram",
-          channelId: routine.binding.source.channelId,
-          chatId: routine.binding.source.chatId,
-          userId: routine.binding.source.userId,
-        },
+        origin: telegram ? { kind: "telegram", ...telegram } : { kind: "owner" },
       };
+    }
     const conversation =
       typeof sessionKey === "string" &&
       a.store.listConversations().find((c) => c.runtimeSessionKey === sessionKey);

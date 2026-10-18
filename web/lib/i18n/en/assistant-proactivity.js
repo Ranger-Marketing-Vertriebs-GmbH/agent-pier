@@ -4,10 +4,10 @@ export const assistantProactivityCopy = {
     "Optional ways for the agent to act without being asked. Everything here is off until you switch it on.",
   heartbeat: "Check in on its own",
   heartbeatDescription:
-    "At set times the agent reads its conversation and notes and decides whether something needs your attention. Only then does it write in its chat, which also reaches your paired Telegram chat.",
-  heartbeatChannel: "Needs a paired Telegram chat for this agent.",
+    "At set times the agent reads its conversation and notes and decides whether something needs your attention. Only then does it write in its chat and you get a push notification.",
+  alsoTelegram: "Also send to Telegram",
   heartbeatReply:
-    "Check-ins appear in the agent's chat, marked “Check-in:” on Telegram, so you can reply to them directly. A check-in that comes due while the agent is answering appears after that answer and may not know it yet.",
+    "Check-ins appear in the agent's chat, marked “Check-in”, so you can reply to them directly. A check-in that comes due while the agent is answering appears after that answer and may not know it yet.",
   interval: "How often",
   intervals: {
     "1h": "Every hour",

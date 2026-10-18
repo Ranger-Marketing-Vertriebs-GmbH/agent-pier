@@ -79,6 +79,24 @@ test("worker persists only a supported language and localizes generic notificati
     notification: { close() {}, data: { assistantId: "agent-one" } },
   });
   assert.equal(opened, "https://fixture.example/agents/agent-one/settings");
+  // A routine result opens the agent's chat it was written to.
+  await dispatch("push", {
+    data: {
+      json: () => ({
+        kind: "agent-routine",
+        assistantId: "agent-one",
+        conversationId: "chat-one",
+        eventId: "event-three",
+        body: "PRIVATE",
+      }),
+    },
+  });
+  assert.equal(notification.title, "AgentPier: Routine result");
+  assert.doesNotMatch(JSON.stringify(notification), /PRIVATE/);
+  await dispatch("notificationclick", {
+    notification: { close() {}, data: { ...notification.options.data } },
+  });
+  assert.equal(opened, "https://fixture.example/agents/agent-one/chats/chat-one");
 });
 
 test("offline help uses the saved language ahead of browser settings", () => {

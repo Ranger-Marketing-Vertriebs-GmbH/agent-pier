@@ -17,6 +17,7 @@ import {
   removedProjectCount,
   resolveAgentLocation,
   staysOnAgentTab,
+  routinesServer,
   telegramServer,
   toggleId,
   visibleAgentTabs,
@@ -41,16 +42,12 @@ const settings = (extra = {}) => ({
   ...extra,
 });
 
-test("personal agents get four tabs, task-bound members two", () => {
-  assert.deepEqual(visibleAgentTabs(agent()), [
-    "profile",
-    "capabilities",
-    "work",
-    "telegram",
-  ]);
+test("personal agents get five tabs, task-bound members two", () => {
+  const personal = ["profile", "capabilities", "work", "routines", "telegram"];
+  assert.deepEqual(visibleAgentTabs(agent()), personal);
   assert.deepEqual(
     visibleAgentTabs(agent({ teamMemberId: "m", lifetime: "permanent" })),
-    ["profile", "capabilities", "work", "telegram"],
+    personal,
   );
   assert.deepEqual(visibleAgentTabs(agent({ teamMemberId: "m", lifetime: "task" })), [
     "profile",
@@ -62,7 +59,7 @@ test("locations the agent cannot show normalise to a valid tab", () => {
   assert.deepEqual(resolveAgentLocation(agent(), settings({ agentTab: "work" })), {
     tab: "work",
     page: "",
-    tabs: ["profile", "capabilities", "work", "telegram"],
+    tabs: ["profile", "capabilities", "work", "routines", "telegram"],
     normalized: false,
   });
   const member = agent({ teamMemberId: "m", lifetime: "task" });
@@ -220,42 +217,61 @@ test("switching memory off also switches a saved check-in schedule off", () => {
         documents: false,
         createImages: false,
       },
-      heartbeat: { enabled: false, interval: "4h", start: 9, end: 18, timeZone: "UTC" },
+      heartbeat: {
+        enabled: false,
+        interval: "4h",
+        start: 9,
+        end: 18,
+        timeZone: "UTC",
+        telegram: true,
+      },
     },
   );
 });
 
-test("telegram drafts keep the heartbeat flat and send only changed channel fields", () => {
+test("check-in drafts keep the heartbeat flat; telegram drafts send only changed fields", () => {
   const assistant = agent({
     heartbeat: { enabled: true, interval: "2h", start: 8, end: 20, timeZone: "UTC" },
   });
-  const base = telegramServer(assistant, { language: "en", appUrl: null });
+  const base = routinesServer(assistant);
   assert.deepEqual(base, {
     heartbeatEnabled: true,
     interval: "2h",
     start: 8,
     end: 20,
     timeZone: "UTC",
-    language: "en",
-    appUrl: "",
+    heartbeatTelegram: true,
   });
   assert.deepEqual(heartbeatPatch({ ...base, interval: "1h" }, assistant), {
-    heartbeat: { enabled: true, interval: "1h", start: 8, end: 20, timeZone: "UTC" },
+    heartbeat: {
+      enabled: true,
+      interval: "1h",
+      start: 8,
+      end: 20,
+      timeZone: "UTC",
+      telegram: true,
+    },
   });
   const noMemory = { ...assistant, capabilities: { memory: false } };
   assert.equal(heartbeatPatch(base, noMemory).heartbeat.enabled, false);
-  // Without a paired chat the server refuses switching check-ins on: never sent.
-  const unpaired = { ...assistant, heartbeatChannel: false };
-  assert.equal(heartbeatPatch(base, unpaired).heartbeat.enabled, false);
-  const paired = { ...assistant, heartbeatChannel: true };
-  assert.equal(heartbeatPatch(base, paired).heartbeat.enabled, true);
-  assert.deepEqual(channelPatch({ values: { ...base, language: "de" }, base }), {
-    language: "de",
-  });
-  assert.deepEqual(channelPatch({ values: { ...base, appUrl: "  " }, base }), {
-    appUrl: null,
-  });
-  assert.equal(telegramServer(assistant, null).language, "de");
+  // Check-ins need no Telegram chat; keeping them out of Telegram is saved as such.
+  assert.equal(
+    heartbeatPatch({ ...base, heartbeatTelegram: false }, assistant).heartbeat.telegram,
+    false,
+  );
+  const channel = telegramServer({ language: "en", appUrl: null });
+  assert.deepEqual(channel, { language: "en", appUrl: "" });
+  assert.deepEqual(
+    channelPatch({ values: { ...channel, language: "de" }, base: channel }),
+    { language: "de" },
+  );
+  assert.deepEqual(
+    channelPatch({ values: { ...channel, appUrl: "  " }, base: channel }),
+    {
+      appUrl: null,
+    },
+  );
+  assert.equal(telegramServer(null).language, "de");
 });
 
 test("work drafts send only the half that changed, each with its revision", () => {

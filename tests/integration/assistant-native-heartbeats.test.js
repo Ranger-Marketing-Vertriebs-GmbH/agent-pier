@@ -128,17 +128,18 @@ test("an agent without memory keeps no check-in job", async (t) => {
   assert.equal(f.jobs.size, 0);
 });
 
-test("a new conversation moves the job to it", async (t) => {
+test("a new main chat moves the job to it", async (t) => {
   const f = setup(t);
   await f.heartbeats.sync(f.id);
   const [old] = f.jobs.keys();
-  const next = f.store.saveConversation({
-    assistantId: f.id,
-    runtimeSessionKey: "session-2",
-  });
-  f.service.store.db
-    .prepare("UPDATE channels SET body=json_set(body,'$.conversationId',?) WHERE id=?")
-    .run(next.id, f.channel.id);
+  const conversation = f.store.getConversation(f.channel.conversationId);
+  f.store.db
+    .prepare("UPDATE conversations SET body=? WHERE id=?")
+    .run(
+      JSON.stringify({ ...conversation, archivedAt: new Date().toISOString() }),
+      conversation.id,
+    );
+  f.store.saveConversation({ assistantId: f.id, runtimeSessionKey: "session-2" });
   await f.heartbeats.sync(f.id);
   assert.equal(f.jobs.has(old), false);
   assert.equal([...f.jobs.values()][0].sessionKey, "session-2");
@@ -252,34 +253,41 @@ test("a paused or ineligible agent loses its job and pending check-ins stay unse
   assert.equal(f.jobs.size, 1, "unblocking schedules a fresh job");
 });
 
-test("enabling requires a paired chat to deliver to", async (t) => {
+test("an agent without Telegram or a chat gets its main chat opened for check-ins", async (t) => {
   const f = setup(t);
-  assert.doesNotThrow(() => f.heartbeats.requireChannel(f.id));
   const other = f.store.createAssistant({
     name: "Unpaired",
     model: { connectionId: "test", modelId: "fixture" },
+    capabilities: { memory: true, reminders: false },
   });
-  assert.throws(() => f.heartbeats.requireChannel(other.id), {
-    status: 409,
-    key: "heartbeatChannelRequired",
-  });
-  // Without a chat no job is kept, even when the settings say on.
   f.store.updateAssistant(other.id, { heartbeat }, other.revision);
+  let opened = 0;
+  f.assistants.mainConversation = async (id) => {
+    opened++;
+    return f.store.saveConversation({ assistantId: id, runtimeSessionKey: "other" });
+  };
   await f.heartbeats.sync(other.id);
-  assert.equal(added(f).length, 0);
+  await f.heartbeats.sync(other.id);
+  assert.equal(opened, 1);
+  assert.equal(added(f).length, 1);
+  assert.equal(added(f)[0].input.sessionKey, "other");
+  const [binding] = f.reminders.bindings.list(other.id);
+  assert.equal(binding.telegram, null);
 });
 
-test("channel changes converge the job: re-pairing moves it, disconnecting retires it", async (t) => {
+test("pairing changes move only the Telegram extra and never retire the job", async (t) => {
   const f = setup(t);
   await f.heartbeats.sync(f.id);
   const [first] = f.reminders.bindings.list(f.id);
-  // Starting a new pairing disables the chat: no runs while nothing is delivered.
+  const [jobId] = f.jobs.keys();
+  // Starting a new pairing disables the chat: the job keeps running in the main chat.
   const channel = f.service.store.get(f.channel.id);
   const { code } = await f.service.pair(channel.id, channel.revision);
   await f.service.heartbeatSync;
-  assert.equal(f.jobs.size, 0);
-  assert.equal(f.reminders.bindings.get(first.id).state, "removed");
-  // Completing it with a different chat schedules a job bound to that chat.
+  assert.deepEqual([...f.jobs.keys()], [jobId]);
+  assert.equal(f.reminders.bindings.get(first.id).state, "bound");
+  assert.equal(f.reminders.bindings.get(first.id).telegram, null);
+  // Completing it with a different chat sends later check-ins there too.
   await f.service.ingress.receive(channel.id, [
     {
       update_id: 7,
@@ -293,15 +301,14 @@ test("channel changes converge the job: re-pairing moves it, disconnecting retir
     },
   ]);
   await f.service.heartbeatSync;
-  assert.equal(f.jobs.size, 1);
-  const moved = f.reminders.bindings
-    .list(f.id)
-    .find((b) => b.state === "bound" && b.kind === "heartbeat");
-  assert.equal(moved.source.chatId, "77");
+  assert.deepEqual([...f.jobs.keys()], [jobId]);
+  assert.equal(f.reminders.bindings.get(first.id).telegram.chatId, "77");
   await f.service.disconnect(channel.id, f.service.store.get(channel.id).revision);
   await f.service.heartbeatSync;
-  assert.equal(f.jobs.size, 0);
-  assert.equal(f.reminders.bindings.get(moved.id).state, "removed");
+  assert.deepEqual([...f.jobs.keys()], [jobId]);
+  assert.equal(f.reminders.bindings.get(first.id).state, "bound");
+  assert.equal(added(f).length, 1);
+  assert.equal(f.calls.filter((c) => c.method === "cron.remove").length, 0);
 });
 
 test("a lost creation acknowledgement is adopted by delivery and never orphaned", async (t) => {

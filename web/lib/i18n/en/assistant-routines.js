@@ -1,7 +1,7 @@
 export const routineCopy = {
   title: "Routines",
   description:
-    "Save a task to generate a fresh result daily or on an event. Results go to the paired Telegram chat and appear in this agent's chat. Routines use the agent's tools and approvals, but cannot schedule or delegate. They read the chat's recent messages, including forwarded ones, and run while nobody watches, so with full shell access they act without asking.",
+    "Save a task to generate a fresh result daily or on an event. Results appear in this agent's chat with a push notification. Routines use the agent's tools and approvals, but cannot schedule or delegate. They read the chat's recent messages, including forwarded ones, and run while nobody watches, so with full shell access they act without asking.",
   name: "Routine name",
   prompt: "Task prompt",
   trigger: "Routine trigger",
@@ -37,7 +37,12 @@ export const routineCopy = {
   nextRun: (time) => `Next run: ${time}`,
   // Marks a routine's result in the agent's chat; a failed run is a quiet line.
   chatBadge: (name) => (name ? `Scheduled · ${name}` : "Scheduled"),
+  checkInBadge: "Check-in",
   sshRefused: "SSH refused: host not trusted for routines",
   chatFailed: (name) =>
     name ? `Routine “${name}” could not finish.` : "A routine could not finish.",
+  reminderFailed: (name) =>
+    name ? `Reminder “${name}” could not run.` : "A reminder could not run.",
+  alsoTelegram: "Also send to Telegram",
+  telegramOn: "Also sent to Telegram",
 };

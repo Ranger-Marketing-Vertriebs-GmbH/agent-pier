@@ -3,6 +3,8 @@ import { assistantProblem } from "./assistant-validation.js";
 // Hours between check-ins; "daily" is one check-in at the start of the active hours.
 export const heartbeatIntervals = { "1h": 1, "2h": 2, "4h": 4, daily: 24 };
 const keys = ["enabled", "interval", "start", "end", "timeZone"];
+// Optional: false keeps check-ins out of the paired Telegram chat (default: sent).
+const optional = ["telegram"];
 const defaults = { enabled: false, interval: "4h", start: 9, end: 18, timeZone: "UTC" };
 
 export function validTimeZone(value) {
@@ -21,8 +23,9 @@ export function validateHeartbeat(input) {
     !input ||
     typeof input !== "object" ||
     Array.isArray(input) ||
-    Object.keys(input).some((k) => !keys.includes(k)) ||
+    Object.keys(input).some((k) => !keys.includes(k) && !optional.includes(k)) ||
     typeof input.enabled !== "boolean" ||
+    (input.telegram !== undefined && typeof input.telegram !== "boolean") ||
     !Object.hasOwn(heartbeatIntervals, input.interval) ||
     !Number.isInteger(input.start) ||
     !Number.isInteger(input.end) ||
@@ -32,7 +35,11 @@ export function validateHeartbeat(input) {
     !validTimeZone(input.timeZone)
   )
     throw assistantProblem("invalid");
-  return Object.fromEntries(keys.map((k) => [k, input[k]]));
+  return Object.fromEntries(
+    [...keys, ...optional]
+      .filter((k) => input[k] !== undefined)
+      .map((k) => [k, input[k]]),
+  );
 }
 
 /** The agent's heartbeat with defaults for an agent that never saved one. */

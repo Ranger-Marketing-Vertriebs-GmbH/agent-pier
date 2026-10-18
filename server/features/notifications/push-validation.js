@@ -61,6 +61,8 @@ export function pushPayload(input) {
       "pipeline-gate",
       "pipeline-ended",
       "agent-checkin",
+      // A routine or reminder result in an agent's main chat.
+      "agent-routine",
       // An agent's own Telegram bot still runs after the owner revoked it.
       "telegram-revocation",
       // A saved GitHub token was rejected, expired or expires soon.
@@ -73,9 +75,12 @@ export function pushPayload(input) {
   if (input.kind === "telegram-revocation") {
     if (input.assistantId !== undefined) payload.assistantId = pushId(input.assistantId);
   } else if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
-  else if (input.kind === "agent-checkin")
+  else if (input.kind === "agent-checkin" || input.kind === "agent-routine") {
     payload.assistantId = pushId(input.assistantId);
-  else if (input.kind !== "test" && input.kind !== "github-token")
+    // The chat it was written to; the notice opens it.
+    if (input.conversationId !== undefined)
+      payload.conversationId = pushId(input.conversationId);
+  } else if (input.kind !== "test" && input.kind !== "github-token")
     payload.sessionId = pushId(input.sessionId);
   return payload;
 }

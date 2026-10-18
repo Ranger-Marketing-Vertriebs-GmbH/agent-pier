@@ -26,10 +26,10 @@ import { assistantActivity } from "./assistant-activity.js";
 import { temporaryMember } from "./team-presentation.js";
 import { ChatStreams } from "./chat-stream.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
+import { mainConversation } from "./routine-targets.js";
 import {
   auditProactivity,
   lacksMemory,
-  needsChannel,
   proactivityChange,
 } from "./proactivity-changes.js";
 
@@ -161,7 +161,7 @@ export class AssistantService {
       const capabilities = input.capabilities && { ...input.capabilities };
       for (const key of webCapabilityKeys)
         if (capabilities && key in capabilities) capabilities[key] = false;
-      // Check-ins need a paired chat, which a new agent cannot have yet.
+      // Check-ins are switched on in the saved agent (its settings), not at creation.
       const heartbeat = input.heartbeat && { ...input.heartbeat, enabled: false };
       const record = this.store.createAssistant({
         ...input,
@@ -177,20 +177,10 @@ export class AssistantService {
   }
   /** The profile with its bound MCP server ids, for agents the owner binds. */
   withMcp(profile) {
-    const decorated = this.withCheckInChat(this.shellChanges.decorate(profile));
+    const decorated = this.shellChanges.decorate(profile);
     // The badge while the agent's own browser runs (agent-browsers.js).
     if (this.browsers?.isRunning(profile.id)) decorated.browserRunning = true;
     return this.mcp ? this.mcp.decorate(decorated) : decorated;
-  }
-  /**
-   * `heartbeatChannel`: whether check-ins have the paired chat a save switching them on
-   * needs (requireChannel). Editors offer them only then, so that refusal never takes
-   * the other choices of the same save with it.
-   */
-  withCheckInChat(profile) {
-    const heartbeats = this.reminders?.heartbeats;
-    if (!profile || typeof heartbeats?.channel !== "function") return profile;
-    return { ...profile, heartbeatChannel: !!heartbeats.channel(profile.id) };
   }
   /** The decorated profile, flagged `pending` while the Gateway lags behind. */
   withPending(profile, pending) {
@@ -257,10 +247,10 @@ export class AssistantService {
         const lease = await this.models.resolve(patch.model);
         lease.release();
       }
-      // Check-ins need memory and a paired chat; refused before any change.
+      // Check-ins need memory; refused before any change. They run in the main
+      // chat, which the job opens when the agent has none yet.
       if (lacksMemory(current, patch))
         throw assistantProblem("heartbeatMemoryRequired", 409);
-      if (needsChannel(current, patch)) this.reminders?.heartbeats?.requireChannel(id);
       // Refuses ineligible agents and unconfirmed stdio servers before any change.
       if (binds)
         outcome.stdioAdded = this.mcp.checkBindings(current, mcpServers, confirmStdio);
@@ -395,32 +385,33 @@ export class AssistantService {
   }
   openConversation(assistantId) {
     assertWired(this);
-    return this.admit(async () => {
-      const existing = this.store
-        .listConversations()
-        .find(
-          (c) =>
-            c.assistantId === assistantId && c.channel === "agentpier" && !c.archivedAt,
-        );
-      if (existing) return existing;
-      this.teams?.assertMemberTurn(assistantId, { kind: "owner" });
-      this.requireReady();
-      await this.config.apply(assistantId);
-      const assistant = this.store.getAssistant(assistantId);
-      const created = await createGatewaySession(
-        this.runtime.client,
-        { agentId: assistant.runtimeAgentId, label: `AgentPier ${assistant.id}` },
-        this.sessionCreate,
-      );
-      if (!created.key) throw assistantProblem("unavailable", 503);
-      const conversation = this.store.saveConversation({
-        assistantId,
-        runtimeSessionKey: created.key,
-      });
-      await this.runtime.client.call("sessions.messages.subscribe", { key: created.key });
-      this.changed();
-      return conversation;
+    return this.admit(() => this.mainConversation(assistantId));
+  }
+  /**
+   * The agent's main chat: its one AgentPier conversation, created on first use.
+   * Telegram pairing, reminders, routines and check-ins all use it. Callers hold
+   * admission (openConversation takes it).
+   */
+  async mainConversation(assistantId) {
+    const existing = mainConversation(this.store, assistantId);
+    if (existing) return existing;
+    this.teams?.assertMemberTurn(assistantId, { kind: "owner" });
+    this.requireReady();
+    await this.config.apply(assistantId);
+    const assistant = this.store.getAssistant(assistantId);
+    const created = await createGatewaySession(
+      this.runtime.client,
+      { agentId: assistant.runtimeAgentId, label: `AgentPier ${assistant.id}` },
+      this.sessionCreate,
+    );
+    if (!created.key) throw assistantProblem("unavailable", 503);
+    const conversation = this.store.saveConversation({
+      assistantId,
+      runtimeSessionKey: created.key,
     });
+    await this.runtime.client.call("sessions.messages.subscribe", { key: created.key });
+    this.changed();
+    return conversation;
   }
   send(conversationId, input, trustedContext = { kind: "owner" }) {
     assertWired(this);

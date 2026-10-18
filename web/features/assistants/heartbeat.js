@@ -17,6 +17,7 @@ export function heartbeatForm(assistant) {
     start: 9,
     end: 18,
     timeZone: browserTimeZone(),
+    telegram: true,
     ...assistant?.heartbeat,
   };
 }

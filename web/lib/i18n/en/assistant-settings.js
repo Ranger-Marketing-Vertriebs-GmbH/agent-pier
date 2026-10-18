@@ -4,6 +4,7 @@ export const assistantSettingsCopy = {
     profile: "Profile",
     capabilities: "Capabilities",
     work: "Work",
+    routines: "Routines & check-ins",
     telegram: "Telegram",
   },
   createAgent: "Create agent",
@@ -29,6 +30,8 @@ export const assistantSettingsCopy = {
   replaceTokenHint: "Only a new token for the same bot is accepted.",
   addReminder: "+ Create reminder",
   addRoutine: "+ Routine",
+  remindersNeedCapability:
+    "Reminders and routines are off for this agent. Switch on “Allow reminders and routines” under Capabilities.",
   heartbeatNeedsMemory:
     "Needs memory: switch on “Remember information” under Capabilities.",
 };

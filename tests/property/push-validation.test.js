@@ -37,6 +37,36 @@ test("an agent check-in push names only the agent", () => {
   );
 });
 
+test("a routine push names only the agent and the chat it opens", () => {
+  check(
+    fc.property(fc.dictionary(fc.string(), fc.jsonValue()), (untrusted) => {
+      assert.deepEqual(
+        pushPayload({
+          ...untrusted,
+          kind: "agent-routine",
+          assistantId: "agent-one",
+          conversationId: "chat-one",
+          eventId: "event-one",
+        }),
+        {
+          kind: "agent-routine",
+          assistantId: "agent-one",
+          conversationId: "chat-one",
+          eventId: "event-one",
+        },
+      );
+    }),
+  );
+  assert.throws(() =>
+    pushPayload({
+      kind: "agent-routine",
+      assistantId: "agent-one",
+      conversationId: "../settings",
+      eventId: "event-one",
+    }),
+  );
+});
+
 test("a Telegram revocation alert carries only its kind, event and agent", () => {
   check(
     fc.property(fc.dictionary(fc.string(), fc.jsonValue()), (untrusted) => {

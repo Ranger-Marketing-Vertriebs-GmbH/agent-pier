@@ -62,7 +62,7 @@ const deliver = async (f) => {
 test("a routine result OpenClaw capped reaches Telegram in full, in order, in several messages", async (t) => {
   assert.ok(digest.length > 4096);
   const f = routineFixture(t);
-  const routine = await f.routines.create(f.id, f.input);
+  const routine = await f.routines.create(f.id, { ...f.input, telegram: true });
   const jobId = f.reminders.bindings.get(routine.id).nativeId;
   const agent = f.store.getAssistant(f.id).runtimeAgentId;
   const runSession = `agent:${agent}:cron:${jobId}:run:run-1`;
@@ -129,7 +129,7 @@ test("a routine result OpenClaw capped reaches Telegram in full, in order, in se
 
 test("a capped summary stays the fallback when the run's reply cannot be proven", async (t) => {
   const f = routineFixture(t);
-  const routine = await f.routines.create(f.id, f.input);
+  const routine = await f.routines.create(f.id, { ...f.input, telegram: true });
   const jobId = f.reminders.bindings.get(routine.id).nativeId;
   const agent = f.store.getAssistant(f.id).runtimeAgentId;
   const runSession = `agent:${agent}:cron:${jobId}:run:run-1`;
@@ -178,7 +178,7 @@ test("a capped summary stays the fallback when the run's reply cannot be proven"
 
 test("a replayed completion keeps the full text it was first delivered with", async (t) => {
   const f = routineFixture(t);
-  const routine = await f.routines.create(f.id, f.input);
+  const routine = await f.routines.create(f.id, { ...f.input, telegram: true });
   const jobId = f.reminders.bindings.get(routine.id).nativeId;
   const agent = f.store.getAssistant(f.id).runtimeAgentId;
   const runSession = `agent:${agent}:cron:${jobId}:run:run-1`;
@@ -202,7 +202,7 @@ test("a replayed completion keeps the full text it was first delivered with", as
 
 test("a routine paused while its full result is read sends nothing", async (t) => {
   const f = routineFixture(t);
-  const routine = await f.routines.create(f.id, f.input);
+  const routine = await f.routines.create(f.id, { ...f.input, telegram: true });
   const jobId = f.reminders.bindings.get(routine.id).nativeId;
   const agent = f.store.getAssistant(f.id).runtimeAgentId;
   const runSession = `agent:${agent}:cron:${jobId}:run:run-1`;

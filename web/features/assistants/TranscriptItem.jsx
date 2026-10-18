@@ -31,7 +31,9 @@ export default function TranscriptItem({
     <MemberGrantNote note={m} />
   ) : m.event === "routine-failed" ? (
     <p className="assistant-note assistant-event" data-routine-failed>
-      {routineCopy.chatFailed(m.name)}
+      {m.kind === "reminder"
+        ? routineCopy.reminderFailed(m.name)
+        : routineCopy.chatFailed(m.name)}
       {m.notes?.includes("ssh_refused") ? ` · ${routineCopy.sshRefused}` : ""}
     </p>
   ) : m.event === "memory-note" ? (

@@ -166,7 +166,7 @@ test("the Work tab saves grants and team policy in one request, then only what c
   });
 });
 
-test("a Telegram save that fails at the channel reports the saved part and retries only the rest", async ({
+test("a Telegram save that fails at the channel keeps the edit and retries it", async ({
   page,
 }) => {
   const state = await setup(page, {
@@ -176,18 +176,16 @@ test("a Telegram save that fails at the channel reports the saved part and retri
     channelFailures: [{ status: 500, error: "Telegram is unavailable" }],
   });
   await page.goto(baseURL + settingsPath("telegram"));
-  await page.getByRole("switch", { name: "Check in on its own" }).check();
+  // Check-ins moved to Routines & check-ins; this tab saves only the channel.
+  await expect(page.getByRole("switch", { name: "Check in on its own" })).toHaveCount(0);
   await page.getByLabel("Language of Telegram notices").selectOption("de");
   await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
-  const alert = saveBar(page).getByRole("alert");
-  await expect(alert).toContainText("Partially saved: Acting on its own.");
-  await expect(alert).toContainText("Telegram is unavailable");
-  expect(state.updates).toHaveLength(1);
-  expect(state.updates[0].heartbeat.enabled).toBe(true);
+  await expect(saveBar(page).getByRole("alert")).toContainText("Telegram is unavailable");
+  expect(state.updates).toHaveLength(0);
   expect(state.channelPatches).toEqual([{ language: "de", revision: 1 }]);
   await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => state.channelPatches.length).toBe(2);
-  expect(state.updates).toHaveLength(1);
+  expect(state.updates).toHaveLength(0);
   await expect(saveBar(page)).toHaveCount(0);
 });
 

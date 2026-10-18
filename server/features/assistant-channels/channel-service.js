@@ -93,9 +93,10 @@ export class ChannelService {
     );
   }
   /**
-   * The agent's check-in job follows its paired chat: pairing, re-pairing,
-   * disabling and disconnecting converge it at once (native-heartbeats.js). Not
-   * awaited: it takes the assistants' admission, which a channel operation may hold.
+   * The agent's check-ins send to its paired chat as an extra: pairing, re-pairing,
+   * disabling and disconnecting move or stop that extra at once, never the job
+   * (native-heartbeats.js). Not awaited: it takes the assistants' admission, which a
+   * channel operation may hold.
    */
   channelChanged(id) {
     const { heartbeats, routines } = this.assistants.reminders || {};
@@ -104,7 +105,7 @@ export class ChannelService {
     this.heartbeatSync = Promise.resolve()
       .then(() => heartbeats?.resync(assistantId))
       .catch(() => {});
-    // Routines commit into the paired chat's conversation; they follow it as well.
+    // Routines commit into the agent's main chat; a resync keeps their jobs on it.
     this.routineSync = Promise.resolve()
       .then(() => routines?.resync(assistantId))
       .catch(() => {});

@@ -57,6 +57,8 @@ const validId = (value) =>
 function notificationTarget(data) {
   if (data.kind === "github-token") return "/settings/github";
   if (validId(data.runId)) return `/pipelines/runs/${encodeURIComponent(data.runId)}`;
+  if (validId(data.assistantId) && validId(data.conversationId))
+    return `/agents/${encodeURIComponent(data.assistantId)}/chats/${encodeURIComponent(data.conversationId)}`;
   if (validId(data.assistantId))
     return `/agents/${encodeURIComponent(data.assistantId)}/settings`;
   if (validId(data.sessionId))
@@ -106,6 +108,9 @@ self.addEventListener("push", (event) => {
     ...(validId(payload.sessionId) ? { sessionId: payload.sessionId } : {}),
     ...(validId(payload.runId) ? { runId: payload.runId } : {}),
     ...(validId(payload.assistantId) ? { assistantId: payload.assistantId } : {}),
+    ...(validId(payload.conversationId)
+      ? { conversationId: payload.conversationId }
+      : {}),
     ...(payload.kind === "github-token" ? { kind: payload.kind } : {}),
   };
   event.waitUntil(

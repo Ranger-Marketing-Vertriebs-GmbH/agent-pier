@@ -3,6 +3,7 @@ import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import Icon from "../../../components/Icon.jsx";
 import ListCard from "../../../components/ListCard.jsx";
+import { ToggleRow } from "../../../components/ListRow.jsx";
 import { formatTimestamp } from "../../../lib/i18n/index.js";
 import { commonCopy } from "../../../lib/i18n/messages/common.js";
 import { routineCopy as copy } from "../../../lib/i18n/messages/assistant-routines.js";
@@ -26,8 +27,11 @@ const stateOf = (item) =>
     item.status === "ready" ? (item.enabled ? "active" : "paused") : item.status
   ] || copy.states.unknown;
 
-/** Routines whose results go to the paired Telegram chat; every action applies at once. */
-export default function RoutinesGroup({ assistantId, connected }) {
+/**
+ * Routines whose results go to the agent's chat with a push notification, and to a
+ * `paired` Telegram chat where switched on; every action applies at once.
+ */
+export default function RoutinesGroup({ assistantId, paired = false }) {
   const id = useId();
   const [items, setItems] = useState([]),
     [busy, setBusy] = useState(false),
@@ -40,7 +44,8 @@ export default function RoutinesGroup({ assistantId, connected }) {
     [trigger, setTrigger] = useState("daily"),
     [eventKind, setEventKind] = useState("manual"),
     [time, setTime] = useState("09:00"),
-    [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone),
+    [telegram, setTelegram] = useState(false);
   const alive = useRef(true),
     generation = useRef(0),
     identity = useRef(crypto.randomUUID()),
@@ -99,6 +104,7 @@ export default function RoutinesGroup({ assistantId, connected }) {
           trigger === "event"
             ? { kind: "event", eventKind }
             : { kind: "cron", expr: `${minutes} ${hours} * * *`, tz: timezone },
+        ...(paired && telegram ? { telegram: true } : {}),
       });
       if (alive.current) {
         setName("");
@@ -119,18 +125,17 @@ export default function RoutinesGroup({ assistantId, connected }) {
     <section id="agent-routines" aria-labelledby={id}>
       <GroupLabel
         id={id}
-        hint={connected ? copy.description : undefined}
+        hint={copy.description}
         action={{
           label: settingsCopy.addRoutine,
           onClick: () => setCreating((value) => !value),
-          disabled: !connected || busy,
+          disabled: busy,
         }}
       >
         {copy.title}
       </GroupLabel>
-      {!connected && <p className="assistant-note">{copy.description}</p>}
       <ErrorMessage error={error} />
-      {creating && connected && (
+      {creating && (
         <form
           className="list-card agent-fields"
           onSubmit={create}
@@ -206,6 +211,14 @@ export default function RoutinesGroup({ assistantId, connected }) {
               </label>
             </>
           )}
+          {paired && (
+            <ToggleRow
+              label={copy.alsoTelegram}
+              checked={telegram}
+              disabled={busy}
+              onChange={setTelegram}
+            />
+          )}
           <div className="agent-field assistant-actions">
             <button className="button primary" disabled={busy}>
               {copy.create}
@@ -243,6 +256,9 @@ export default function RoutinesGroup({ assistantId, connected }) {
                       <span className="agent-sub-part">
                         {scheduleLabel(item.trigger)}
                       </span>
+                      {item.telegram && (
+                        <span className="agent-sub-part">{copy.telegramOn}</span>
+                      )}
                       {item.nextRunAtMs && (
                         <span className="agent-sub-part">
                           {copy.nextRun(formatTimestamp(item.nextRunAtMs))}
@@ -261,6 +277,22 @@ export default function RoutinesGroup({ assistantId, connected }) {
               {open === item.id && (
                 <div className="agent-detail" id={`${id}-detail-${item.id}`}>
                   <p>{item.prompt}</p>
+                  {(paired || item.telegram) &&
+                    ["ready", "unknown"].includes(item.status) && (
+                      <ToggleRow
+                        label={copy.alsoTelegram}
+                        checked={item.telegram === true}
+                        disabled={busy || (!paired && !item.telegram)}
+                        onChange={(next) =>
+                          act(() =>
+                            routineApi.update(assistantId, item.id, {
+                              telegram: next,
+                              revision: item.revision,
+                            }),
+                          )
+                        }
+                      />
+                    )}
                   <div className="assistant-actions">
                     {["ready", "unknown"].includes(item.status) && (
                       <button

@@ -1,5 +1,5 @@
 // Agent settings tabs and their subpages: /agents/:id/settings?tab=…&page=…
-export const agentTabs = ["profile", "capabilities", "work", "telegram"];
+export const agentTabs = ["profile", "capabilities", "work", "routines", "telegram"];
 // Each subpage belongs to one tab; a valid page decides the tab.
 export const agentPages = {
   memory: "capabilities",

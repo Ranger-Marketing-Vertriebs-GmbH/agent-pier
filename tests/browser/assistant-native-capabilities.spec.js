@@ -108,7 +108,7 @@ test("English agent settings edit native memory with its revision and manage dai
   await page.getByLabel("Search memory").fill("router");
   await memory.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("The router is in the hallway.")).toBeVisible();
-  await page.goto(baseURL + settingsPath("telegram"));
+  await page.goto(baseURL + settingsPath("routines"));
   await page.getByRole("button", { name: "+ Create reminder" }).click();
   await page.getByLabel("Reminder name").fill("Take a break");
   await page.getByLabel("Reminder text").fill("Stretch for a minute");
@@ -151,7 +151,7 @@ test("English agent settings let the owner review an unconfirmed reminder", asyn
   const state = await setup(page, [
     { id: "reminder", name: "", status: "unknown", enabled: false, reviewRequired: true },
   ]);
-  await page.goto(baseURL + settingsPath("telegram"));
+  await page.goto(baseURL + settingsPath("routines"));
   await expect(
     page.getByText("It is unclear whether this reminder was created."),
   ).toBeVisible();

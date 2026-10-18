@@ -26,7 +26,14 @@ export const capabilityFormKeys = [
   "skills",
 ];
 export const profileKeys = ["name", "instructions", "connectionId", "modelId"];
-export const heartbeatKeys = ["heartbeatEnabled", "interval", "start", "end", "timeZone"];
+export const heartbeatKeys = [
+  "heartbeatEnabled",
+  "interval",
+  "start",
+  "end",
+  "timeZone",
+  "heartbeatTelegram",
+];
 export const channelKeys = ["language", "appUrl"];
 export const permissionKeys = ["memoryWrite", "autonomous", "publish"];
 export const accessKeys = [
@@ -65,7 +72,7 @@ export const isPersonal = (assistant) =>
 
 export const visibleAgentTabs = (assistant) =>
   isPersonal(assistant)
-    ? ["profile", "capabilities", "work", "telegram"]
+    ? ["profile", "capabilities", "work", "routines", "telegram"]
     : ["profile", "capabilities"];
 
 /** Whether the agent has this subpage; Telegram subpages also need a channel (tab). */
@@ -198,7 +205,8 @@ export function capabilityPatch({ values, base, assistant }) {
   return patch;
 }
 
-export function telegramServer(assistant, channel) {
+/** The Routines & check-ins tab's draft: the check-in schedule. */
+export function routinesServer(assistant) {
   const heartbeat = heartbeatForm(assistant);
   return {
     heartbeatEnabled: heartbeat.enabled === true,
@@ -206,22 +214,24 @@ export function telegramServer(assistant, channel) {
     start: heartbeat.start,
     end: heartbeat.end,
     timeZone: heartbeat.timeZone,
-    language: channel?.language || "de",
-    appUrl: channel?.appUrl ?? "",
+    // Check-ins also go to a paired Telegram chat unless switched off.
+    heartbeatTelegram: heartbeat.telegram !== false,
   };
 }
-// Check-ins are only sent switched on when the server would accept it: with memory and,
-// where it is known, a paired chat (`heartbeatChannel`).
+/** The Telegram tab's draft: the notice language and AgentPier address. */
+export const telegramServer = (channel) => ({
+  language: channel?.language || "de",
+  appUrl: channel?.appUrl ?? "",
+});
+// Check-ins are only sent switched on when the server would accept it: with memory.
 export const heartbeatPatch = (values, assistant) => ({
   heartbeat: {
-    enabled:
-      values.heartbeatEnabled &&
-      assistant.capabilities?.memory === true &&
-      assistant.heartbeatChannel !== false,
+    enabled: values.heartbeatEnabled && assistant.capabilities?.memory === true,
     interval: values.interval,
     start: values.start,
     end: values.end,
     timeZone: values.timeZone,
+    telegram: values.heartbeatTelegram,
   },
 });
 export function channelPatch({ values, base }) {

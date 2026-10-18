@@ -120,10 +120,12 @@ test(
     f.assistants.runtime = runtime;
     f.assistants.requireReady = () => assert.ok(runtime.client?.ready);
     f.assistants.admit = (fn) => Promise.resolve().then(fn);
+    const pushes = [];
     reminders = new NativeReminders({
       assistants: f.assistants,
       channels: f.service,
       dataDir: f.dataDir,
+      notifications: { notify: async (input) => pushes.push(input) },
     });
     f.assistants.reminders = reminders;
     const routines = new NativeRoutines({ reminders });
@@ -207,6 +209,8 @@ test(
       name: "News digest",
       prompt: "Collect today's news. ROUTINE_NATIVE_CONTRACT",
       trigger: { kind: "event", eventKind: "manual" },
+      // The chat is the target; Telegram is the extra delivery checked here too.
+      telegram: true,
     });
     const jobId = reminders.bindings.get(routine.id).nativeId;
     const job = async () => (await reminders.jobs(agent)).find((j) => j.id === jobId);
@@ -255,6 +259,11 @@ test(
       await delay(200);
     const [delivered] = f.service.outbox.all(f.channel.id);
     assert.equal(delivered?.text, "ROUTINE_RESULT Three new items today.");
+    // The main chat records it and a push notice opens that chat.
+    assert.deepEqual(
+      pushes.map((p) => [p.kind, p.conversationId]),
+      [["agent-routine", f.channel.conversationId]],
+    );
 
     const runRequests = model.requests.slice(offset).filter(isRoutine);
     const runTools = offered(runRequests[0]);

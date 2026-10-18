@@ -74,7 +74,7 @@ test("the skills subpage belongs to Capabilities and to eligible agents only", (
     {
       tab: "capabilities",
       page: "skills",
-      tabs: ["profile", "capabilities", "work", "telegram"],
+      tabs: ["profile", "capabilities", "work", "routines", "telegram"],
       normalized: false,
     },
   );
