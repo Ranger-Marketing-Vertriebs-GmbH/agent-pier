@@ -283,7 +283,7 @@
 }
 .artifact-danger-row,
 .artifact-danger-row .list-row-sub {
-  color: #e7a3a3;
+  color: var(--error-text);
 }
 .artifact-danger-row .list-row-sub {
   opacity: 0.8;

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import StatusDot from "../components/StatusDot.jsx";
 import Icon from "../components/Icon.jsx";
 import LogoutButton from "../features/login/LogoutButton.jsx";
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
@@ -171,7 +172,7 @@ export default function SidebarMenu({
         })}
         <div className="sidebar-menu-divider" />
         <div className="host-status">
-          <span className={`status-dot ${error ? "stopped" : "running"}`} />
+          <StatusDot tone={error ? "error" : "ok"} />
           <span>
             {copy.hostStatusLabel}
             <small>

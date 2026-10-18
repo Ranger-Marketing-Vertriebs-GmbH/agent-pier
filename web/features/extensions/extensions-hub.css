@@ -258,7 +258,7 @@
   background: #26272b;
 }
 .row-menu > button.danger {
-  color: #e7a3a3;
+  color: var(--error-text);
 }
 .row-menu > button:disabled {
   opacity: 0.5;

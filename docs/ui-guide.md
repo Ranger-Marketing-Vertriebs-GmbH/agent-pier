@@ -160,13 +160,14 @@ Buttons are CSS classes on a native `<button>` (`.button` variants in `web/app/l
 
 ### Feedback
 
-| Component      | Purpose and use                                                                                    | File                              |
-| -------------- | -------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `StatusChip`   | A state with a dot: `ok`, `error`, `neutral`, `pending`, `running`, `waiting`; `decision`; `pill`. | `web/components/StatusChip.jsx`   |
-| `ErrorMessage` | An error as `role="alert"`; renders nothing without an error.                                      | `web/components/ErrorMessage.jsx` |
-| `InfoHint`     | ⓘ disclosure that reveals a hint verbatim; never a tooltip. Built into `ListRow` and `GroupLabel`. | `web/components/InfoHint.jsx`     |
-| `LearnMore`    | A short hint with the full explanation behind a disclosure.                                        | `web/components/LearnMore.jsx`    |
-| `CodeBlock`    | Code with a copy button (the only shared copy-to-clipboard today).                                 | `web/components/CodeBlock.jsx`    |
+| Component      | Purpose and use                                                                                                                                                                                                                                             | File                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `StatusDot`    | The only status dot: tones `working`, `waiting`, `ok`, `error`, `warning`, `idle`, `pending`, `unknown`; `pulse`; `label` when it is the only sign. Map feature states with `activityTone` / `chipTone` (`status-tones.js`); `className` only positions it. | `web/components/StatusDot.jsx`    |
+| `StatusChip`   | A state with a dot: `ok`, `error`, `neutral`, `pending`, `running`, `waiting`; `decision`; `pill`.                                                                                                                                                          | `web/components/StatusChip.jsx`   |
+| `ErrorMessage` | An error as `role="alert"`; renders nothing without an error.                                                                                                                                                                                               | `web/components/ErrorMessage.jsx` |
+| `InfoHint`     | ⓘ disclosure that reveals a hint verbatim; never a tooltip. Built into `ListRow` and `GroupLabel`.                                                                                                                                                          | `web/components/InfoHint.jsx`     |
+| `LearnMore`    | A short hint with the full explanation behind a disclosure.                                                                                                                                                                                                 | `web/components/LearnMore.jsx`    |
+| `CodeBlock`    | Code with a copy button (the only shared copy-to-clipboard today).                                                                                                                                                                                          | `web/components/CodeBlock.jsx`    |
 
 ### Planned components
 
@@ -182,7 +183,6 @@ Until they land, follow the rule for each and use the closest existing piece.
 | `Notice`        | 17 notice and banner classes                                  | `ErrorMessage`, `.save-bar-note`                      |
 | `EmptyState`    | 17 empty-state classes                                        | A short sentence plus one action                      |
 | `Loading`       | Three spinner animations, ad-hoc loading text                 | `<p role="status">` with the loading copy             |
-| `StatusDot`     | Nine status dot classes                                       | `StatusChip` or the `--status-*` tokens               |
 
 ## Rules
 
@@ -257,8 +257,9 @@ Checkboxes are for choosing several items from a list (`CheckboxRow`, `CheckRow`
 
 One colour per state, from the tokens: working `--status-working` (orange),
 waiting `--status-waiting` (light orange), ok `--status-ok` (green), error
-`--status-error` (red), idle `--status-idle` (grey). "Ready" and "connected" are ok
-(green), not accent. Never encode a state by colour alone: add text or an icon.
+`--status-error` (red), idle `--status-idle` (grey). Dots are `StatusDot`; status
+text uses `--success` and `--error-text`. "Ready" and "connected" are ok (green), not
+accent. Never encode a state by colour alone: add text or an icon.
 
 ### Mobile and touch
 

@@ -3,7 +3,16 @@ import { edgeClassNames } from "../../components/scroll-fade.js";
 import useScrollFade from "../../components/useScrollFade.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { statusFilters } from "./run-presentation.js";
+import StatusDot from "../../components/StatusDot.jsx";
 import "./run-table.css";
+
+const runStatusTones = {
+  running: "working",
+  "awaiting-human": "waiting",
+  completed: "ok",
+  failed: "error",
+  cancelled: "idle",
+};
 
 export default function RunStatusFilter({ counts, selected, onSelect }) {
   const row = useRef(null);
@@ -31,7 +40,7 @@ export default function RunStatusFilter({ counts, selected, onSelect }) {
             aria-pressed={selected === status}
             onClick={() => onSelect(status)}
           >
-            {status && <span className="run-status-dot" />}
+            {status && <StatusDot tone={runStatusTones[status] ?? "idle"} />}
             {status ? copy.statuses[status] : copy.allStatuses}
             {count !== null && count !== undefined && (
               <span className="run-status-count">{` ${count}`}</span>

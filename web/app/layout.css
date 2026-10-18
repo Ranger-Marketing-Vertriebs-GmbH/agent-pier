@@ -228,46 +228,16 @@
 .sessions-group {
   margin-top: 8px;
 }
+/* Activity dots are StatusDots (components/status-dot.css); this only places them. */
 .activity-dot {
   flex: 0 0 7px;
-  width: 7px;
-  height: 7px;
   margin-top: 5px;
-  border-radius: 50%;
-  background: #85868a;
-}
-.activity-dot.working {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px #f49a581a;
-  animation: session-working 1.6s ease-in-out infinite;
-}
-.activity-dot.waiting {
-  background: transparent;
-  border: 2px solid #ffc99d;
-}
-.activity-dot.unknown {
-  background: transparent;
-  border: 1px dashed #a2a3a7;
-}
-.activity-dot.stopped {
-  opacity: 0.45;
-}
-.activity-dot.terminal {
-  background: #c5c6ca;
 }
 .activity-label.working,
 .activity-label.waiting {
   color: #ffc99d;
 }
-@keyframes session-working {
-  50% {
-    box-shadow: 0 0 0 5px #f49a5805;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .activity-dot.working {
-    animation: none;
-  }
   .sidebar-group-chevron {
     transition: none;
   }
@@ -343,11 +313,10 @@
   font-size: 24px;
 }
 .session-provider .activity-dot {
+  --status-dot-size: 8px;
   position: absolute;
   right: -2px;
   bottom: -2px;
-  width: 8px;
-  height: 8px;
   flex-basis: 8px;
   margin: 0;
   box-shadow: 0 0 0 2px var(--sidebar-bg);
@@ -369,22 +338,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.status-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  flex: 0 0 6px;
-  border-radius: 100%;
-  background: #737478;
-}
-.status-dot.running {
-  background: #f49a58;
-  box-shadow: 0 0 0 3px #f49a580b;
-}
-.status-dot.exited,
-.status-dot.stopped {
-  background: #828387;
 }
 .session-item .status-dot {
   margin-top: 5px;
