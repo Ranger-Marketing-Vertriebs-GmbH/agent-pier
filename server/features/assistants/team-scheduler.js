@@ -161,11 +161,15 @@ export class TeamScheduler {
       m.phase !== "stopping"
     ) {
       if (m.phase !== "uncertain") teams.write(m, { phase: "uncertain" });
-    } else if (
-      m.phase !== "stopping" &&
-      this.now() - m.startedAt >= teams.get(m.teamId).policy.runTimeoutMinutes * 60000
-    )
-      await this.stop(id, "deadline");
+    } else {
+      // The Gateway confirmed a send whose acknowledgement was lost (run-confirmation.js).
+      if (m.phase === "uncertain") teams.write(m, { phase: "running" });
+      if (
+        m.phase !== "stopping" &&
+        this.now() - m.startedAt >= teams.get(m.teamId).policy.runTimeoutMinutes * 60000
+      )
+        await this.stop(id, "deadline");
+    }
   }
   async stop(id, reason = "owner") {
     const { teams, assistants: a } = this;

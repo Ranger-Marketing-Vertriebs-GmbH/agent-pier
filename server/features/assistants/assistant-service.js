@@ -65,6 +65,8 @@ export class AssistantService {
     this.shares = new AgentShares({ assistants: this });
     this.generatedImages = new GeneratedImages(this);
     this.markOutstandingUnknown();
+    // The previous process's Gateway can no longer confirm a lost send.
+    this.ledger.forgetUnconfirmed();
     this.events = new AssistantEvents();
     this.chatStreams = new ChatStreams();
     this.gatewayEvents = new GatewayEventHub();

@@ -1,7 +1,7 @@
 // Derived, never stored: what each agent is doing right now, for the sidebar dot, the
 // chat header and the approval count. Labels are copy paths inside assistantCopy so the
 // server never holds translations.
-const workingAttempts = new Set(["pending", "accepted", "running"]);
+const workingAttempts = new Set(["pending", "accepted", "running", "unconfirmed"]);
 const attentionAttempts = new Set(["uncertain", "interrupted"]);
 const workingMembers = new Set(["provisioning", "admitting", "running", "stopping"]);
 const attentionMembers = new Set(["uncertain", "provisioning_uncertain"]);
@@ -46,7 +46,13 @@ function classify({ attempts, member, pendingApprovals, team }) {
         team === "awaiting" ? "teamActive.awaiting" : "team.states.awaiting_approval",
     };
   if (attempts.some((s) => workingAttempts.has(s)))
-    return { state: "working", reason: "attempt", label: "status.running" };
+    return {
+      state: "working",
+      reason: "attempt",
+      label: attempts.every((s) => s === "unconfirmed")
+        ? "status.unconfirmed"
+        : "status.running",
+    };
   if (workingMembers.has(phase))
     return { state: "working", reason: "member", label: `team.states.${phase}` };
   if (phase === "queued")

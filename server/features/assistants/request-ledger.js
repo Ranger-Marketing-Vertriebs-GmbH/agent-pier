@@ -166,6 +166,17 @@ export class RequestLedger {
       confirmedBy: proof,
     });
   }
+  /**
+   * After an AgentPier restart no unconfirmed send can be proven any more: the
+   * Gateway it went to belongs to the previous process. They stay plain uncertain.
+   */
+  forgetUnconfirmed() {
+    for (const row of this.db
+      .prepare(`${attemptQuery} WHERE state='uncertain'`)
+      .all()
+      .filter(unconfirmedSend))
+      this.db.prepare("UPDATE attempts SET evidence='{}' WHERE id=?").run(row.id);
+  }
   review(id) {
     const attempt = this.getAttempt(id);
     if (!["uncertain", "interrupted"].includes(attempt.state))
@@ -195,7 +206,7 @@ export class RequestLedger {
     return this.db
       .prepare(
         `SELECT r.conversation_id, r.id AS request_id, r.state AS request_state,
-          a.id AS attempt_id, a.state AS attempt_state,
+          a.id AS attempt_id, a.state AS attempt_state, a.evidence AS attempt_evidence,
           (SELECT reviewed_at FROM attempt_reviews WHERE attempt_id=a.id) AS reviewed_at
         FROM requests r
         LEFT JOIN attempts a
@@ -209,7 +220,14 @@ export class RequestLedger {
         requestId: r.request_id,
         requestState: r.request_state,
         attemptId: r.attempt_id ?? null,
-        attemptState: r.attempt_state ?? null,
+        // A turn awaiting the Gateway's confirmation is working, not an unclear outcome.
+        attemptState: unconfirmedSend({
+          state: r.attempt_state,
+          reviewed_at: r.reviewed_at,
+          evidence: r.attempt_evidence,
+        })
+          ? "unconfirmed"
+          : (r.attempt_state ?? null),
         reviewedAt: r.reviewed_at ?? null,
       }));
   }

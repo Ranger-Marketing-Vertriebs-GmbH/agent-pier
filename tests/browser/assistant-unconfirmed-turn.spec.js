@@ -20,6 +20,8 @@ const copy = {
 const timestamp = Date.now();
 
 async function setup(page, language) {
+  // Time flows normally; the quiet period is skipped with fastForward.
+  await page.clock.install();
   await fixture(page);
   await page.addInitScript((language) => {
     localStorage.setItem("agentpier-language", language);
@@ -109,10 +111,12 @@ for (const language of ["en", "de"]) {
     await changed(page);
     await expect(page.getByText(t.waiting)).toHaveCount(0);
     await expect(recover).toHaveCount(0);
-    // Quiet for longer than the wait, the outcome is unclear and the restart offered.
-    const old = new Date(Date.now() - 300000).toISOString();
-    state.requests = [turn({ state: "uncertain", unconfirmed: true }, old)];
+    // Waiting again, then quiet for longer than the wait (counted from when this chat
+    // first saw it waiting): the outcome is unclear and the restart offered.
+    state.requests = [turn({ state: "uncertain", unconfirmed: true }, now)];
     await changed(page);
+    await expect(page.getByText(t.waiting)).toBeVisible();
+    await page.clock.fastForward(125000);
     await expect(recover).toBeVisible();
     await expect(page.getByText(t.waiting)).toHaveCount(0);
   });

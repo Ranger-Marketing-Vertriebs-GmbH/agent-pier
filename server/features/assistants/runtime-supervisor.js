@@ -1,4 +1,5 @@
 import { EventEmitter, once } from "node:events";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
@@ -138,6 +139,9 @@ export class RuntimeSupervisor extends EventEmitter {
     // An owner's explicit start after exhausted retries grants a fresh budget.
     if (!automatic && this.state.diagnostic === "RESTART_LIMIT") this.attempts = 0;
     const generation = ++this.generation;
+    // Unique across AgentPier restarts, unlike the counter: evidence of one launch
+    // never matches another (run-confirmation.js).
+    this.generationId = randomUUID();
     this.wanted = true;
     this.starting = this.launch(generation)
       .catch(async (error) => {

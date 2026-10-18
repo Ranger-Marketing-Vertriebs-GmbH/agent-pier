@@ -6,7 +6,8 @@
 // the attempt to running on the Gateway generation the send went to
 // (RequestLedger.confirm); nothing is sent again.
 
-const generationOf = (service) => service.runtime.generation ?? null;
+// The supervisor's per-launch id; the launch counter restarts with AgentPier.
+const generationOf = (service) => service.runtime.generationId ?? null;
 
 function confirm(service, attempt, proof) {
   const confirmed = service.ledger.confirm(attempt.id, {

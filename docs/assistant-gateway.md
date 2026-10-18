@@ -314,7 +314,7 @@ conversation, pending approvals and team state (`assistant-activity.js`); it is 
 stored. First match wins: an unreviewed `uncertain` or `interrupted` attempt, or a
 member in `uncertain` / `provisioning_uncertain`, needs **attention**; any pending
 approval (own actions, team coding requests, team proposals) means **waiting**; an
-unreviewed `pending` / `accepted` / `running` attempt, a working or queued member, or an
+unreviewed `pending` / `accepted` / `running` or unconfirmed attempt, a working or queued member, or an
 active own team means **working**; everything else, including a `failed` last attempt,
 is **idle**. `pendingApprovals` carries the count shown in the chat. Clients refetch the
 list on every `change` event, so a runtime failure publishes `change` after marking
@@ -425,17 +425,22 @@ original request successful or undo previous effects. The record retains its
 unknown outcome and can accept later terminal evidence. No recovery path resends
 the request automatically; a manually repeated message gets a new delivery ID.
 
-**Unconfirmed sends.** `sessions.send` waits up to 60 s for its acknowledgement
-(`sessionSendTimeoutMs`); a busy Gateway may still run a turn whose acknowledgement
-is lost. Such an attempt becomes `uncertain` but stays _unconfirmed_ (evidence
-`unconfirmed: "send"` with the Gateway generation, `run-confirmation.js`). Without
-proof it gets no AgentPier tools and no native writes. Any Gateway event of its run
-(run ID = attempt ID) or its own user message in the transcript (delivery key
-`<attempt ID>:user`) moves it to `running` on that same Gateway generation, so the
-turn's tools work and it completes normally. A restart, a review, or uncertainty from
-any other cause is never confirmed this way. The chat shows "Awaiting confirmation"
-for such a turn and offers the restart-and-acknowledge action only after its run has
-been quiet for two minutes.
+**Unconfirmed sends.** A busy Gateway may run a turn whose `sessions.send`
+acknowledgement times out (the client's default 10 s, so the admission lock is never
+held longer). Such an attempt becomes `uncertain` but stays _unconfirmed_ (evidence
+`unconfirmed: "send"` with the supervisor's per-launch `generationId`,
+`run-confirmation.js`); a send the closed connection refused at once does not.
+Without proof it gets no AgentPier tools and no native writes. Any Gateway event of
+its run (run ID = attempt ID) or its own user message in the transcript (delivery key
+`<attempt ID>:user`) moves it to `running` on that same Gateway launch, so the turn's
+tools work, team member and lead request phases return to `running`, and it
+completes normally. A Gateway restart, a review, or uncertainty from any other cause
+is never confirmed this way, and an AgentPier start turns leftover unconfirmed
+attempts into plain `uncertain` ones. Agent activity counts an unconfirmed turn as
+working ("Awaiting confirmation"). The chat shows the same calm note and offers the
+restart-and-acknowledge action only once the run has been quiet for two minutes,
+counted on the browser's clock from when the chat first saw the turn waiting or from
+its latest output.
 
 Agents receive `session_status` plus the managed AgentPier tools their settings
 enable (team, memory, reminder, routine and coding tools; see the sections below).

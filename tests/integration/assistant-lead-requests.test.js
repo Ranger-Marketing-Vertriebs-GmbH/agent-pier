@@ -299,3 +299,20 @@ test("the bridge refuses the new lead tools to members", async (t) => {
   });
   assert.equal(reached, false);
 });
+
+test("a member turn confirmed after a lost acknowledgement is running again", async (t) => {
+  const f = await lead(t);
+  f.service.requests.waitMs = 0;
+  await ask(f, f.temporary, f.turn());
+  const r = f.requests()[0];
+  // conversation-turns.js after a sessions.send timeout, then the Gateway's proof.
+  f.assistants.ledger.transition(r.attemptId, "uncertain", { unconfirmed: "send" });
+  await f.service.reconcile();
+  assert.equal(f.service.requests.store.get(r.id).phase, "uncertain");
+  assert.equal(
+    f.assistants.ledger.confirm(r.attemptId, { proof: "event" }).state,
+    "running",
+  );
+  await f.service.reconcile();
+  assert.equal(f.service.requests.store.get(r.id).phase, "running");
+});
