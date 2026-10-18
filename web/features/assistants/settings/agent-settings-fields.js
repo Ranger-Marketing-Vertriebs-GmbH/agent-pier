@@ -47,7 +47,10 @@ export const accessKeys = [
 // Direct folder access per granted project (server assistant-access.js projectFiles).
 export const folderLevels = ["none", "read", "write"];
 export const sshModes = ["approval", "trusted", "routines"];
+// The team usage levels the server accepts (team-policy.js); "suggest" is its default.
+export const teamUsageLevels = ["onRequest", "suggest", "autonomous"];
 export const teamKeys = [
+  "teamUsage",
   "teamAutonomous",
   "memberShellSsh",
   "maxMembers",
@@ -253,6 +256,7 @@ export const workServer = (policy, team) => ({
   memoryWrite: policy?.memoryWrite === true,
   autonomous: policy?.autonomous === true,
   publish: policy?.publish === true,
+  teamUsage: teamUsageLevels.includes(team?.usage) ? team.usage : "suggest",
   teamAutonomous: team?.autonomous === true,
   memberShellSsh: team?.memberShellSsh === true,
   maxMembers: team?.maxMembers ?? "",
@@ -299,6 +303,7 @@ export function workBody({ values, changed, revisions, withTeam, sshHostIds = nu
   if (withTeam && teamKeys.some((key) => changed.includes(key)))
     body.team = {
       revision: revisions.team,
+      usage: values.teamUsage,
       autonomous: values.teamAutonomous,
       memberShellSsh: values.memberShellSsh,
       maxMembers: values.maxMembers,

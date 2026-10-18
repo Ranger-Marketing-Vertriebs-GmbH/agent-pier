@@ -50,6 +50,9 @@ export default function LeadRequestCard({
             {r.writeAllowed ? copy.mayWrite : copy.readOnly}
           </span>
         )}
+        {r.selfInitiated && (
+          <span className="lead-request-access">{copy.selfInitiated}</span>
+        )}
         <small>{requestState(r)}</small>
       </div>
       <p className="assistant-approval-task">

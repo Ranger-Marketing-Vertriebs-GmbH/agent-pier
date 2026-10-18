@@ -108,6 +108,15 @@
 .agent-shell-levels .segmented {
   width: 100%;
 }
+/* "Use team": its label above the three levels, full width on phones too. */
+.list-row.agent-team-usage {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px 10px 14px;
+}
+.agent-team-usage .segmented {
+  width: 100%;
+}
 .agent-pending-strip {
   display: flex;
   align-items: center;
