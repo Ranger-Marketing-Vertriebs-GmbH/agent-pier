@@ -4,21 +4,13 @@ import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { mobileHeaderCopy } from "../../lib/i18n/messages/app.js";
 import useAssistants from "./useAssistants.js";
 import { avatarGlyph } from "./avatar-glyph.js";
-import { activityFor, headerStatus } from "./assistant-status.js";
+import { activityFor, headerDotTone, headerStatus } from "./assistant-status.js";
 import { assistantShellCopy } from "../../lib/i18n/messages/assistant-shell.js";
 import { assistantBrowserCopy } from "../../lib/i18n/messages/assistant-browser.js";
 import { shellLevel } from "./shell-level.js";
 import BrowserPreview from "./browser/BrowserPreview.jsx";
 import "./assistant-shell.css";
 import StatusDot from "../../components/StatusDot.jsx";
-
-// headerStatus tones as StatusDot tones; "missing" hides the dot.
-const headerTones = {
-  ready: "ok",
-  working: "working",
-  waiting: "waiting",
-  attention: "unknown",
-};
 
 // One bar for the agent chat and its settings (handoff 1d, 2e, 2f). Below 701px it
 // replaces the app's mobile header, so it carries the navigation button itself.
@@ -100,7 +92,7 @@ export default function AssistantHeader({
           ) : (
             <p className={`assistant-header-status ${status.tone}`}>
               <StatusDot
-                tone={headerTones[status.tone] ?? "idle"}
+                tone={headerDotTone(status.tone, runtime?.availability)}
                 pulse={status.tone === "working"}
                 className="assistant-header-dot"
               />
