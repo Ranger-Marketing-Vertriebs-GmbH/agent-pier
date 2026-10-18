@@ -25,6 +25,7 @@ import { followLead } from "./member-follow.js";
 import { assistantActivity } from "./assistant-activity.js";
 import { temporaryMember } from "./team-presentation.js";
 import { ChatStreams } from "./chat-stream.js";
+import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import {
   auditProactivity,
   lacksMemory,
@@ -81,43 +82,7 @@ export class AssistantService {
     this.gatewayEvents.onReady(reapplySkills);
     this.locks = new Map();
     this.closed = false;
-    this.onStatus = (state) => {
-      if (this.maintenance) {
-        // A maintenance restart replaces the client while readiness is absorbed
-        // here, so subscriptions follow it now; leaving maintenance resyncs.
-        if (state.availability === "ready") this.bindGateway();
-        this.lastAvailability = state.availability;
-        this.events.publish({ type: "runtime", ...state });
-        return;
-      }
-      // Outstanding attempts become uncertain; clients only refetch on change.
-      if (state.availability === "failed") {
-        this.markOutstandingUnknown();
-        this.changed();
-      }
-      this.events.publish({ type: "runtime", ...state });
-      const becameReady =
-        state.availability === "ready" && this.lastAvailability !== "ready";
-      this.lastAvailability = state.availability;
-      if (becameReady) {
-        this.config.reset?.();
-        this.bindGateway();
-        this.gatewayEvents.ready();
-        this.accounts
-          ?.list()
-          .then(() => this.changed())
-          .catch(() => {});
-        // A reconnect re-subscribes every session at once; a pass that started on
-        // the previous connection must not absorb this one.
-        this.sessionFailures.clear();
-        // The start compiled the store; a level a lost apply left pending is checked.
-        this.shellChanges.retry({ force: true }).catch(() => {});
-        (this.reconciling || Promise.resolve())
-          .catch(() => {})
-          .then(() => this.reconcile())
-          .catch(() => {});
-      }
-    };
+    this.onStatus = runtimeStatusHandler(this);
     runtime.on("status", this.onStatus);
     this.bindGateway();
     this.poll = setInterval(() => this.pollReconcile(), 2000);
@@ -149,40 +114,7 @@ export class AssistantService {
     this.gatewayEvents.bind(this.runtime.client);
   }
   bindEvents() {
-    this.unsubscribe?.();
-    // A new connection starts every run with a snapshot; old baselines are stale.
-    this.chatStreams.clear();
-    this.unsubscribe = this.runtime.client?.subscribe((event) => {
-      const payload = event.payload;
-      if (!payload?.sessionKey) return;
-      const conversation = this.store
-        .listConversations()
-        .find((c) => c.runtimeSessionKey === payload.sessionKey);
-      // A routine's own run session may leave images too (generated-images.js).
-      if (!conversation) return this.generatedImages.observeRun(event);
-      // Only a run's first frame carries the whole reply; later ones carry what was
-      // appended. The browser always receives the reply so far.
-      const text =
-        event.event === "chat" && payload.state === "delta"
-          ? this.chatStreams.delta(payload)
-          : undefined;
-      if (text !== undefined)
-        this.events.publish({
-          type: "delta",
-          conversationId: conversation.id,
-          runId: payload.runId,
-          text,
-        });
-      if (
-        event.event === "chat" &&
-        ["final", "aborted", "error"].includes(payload.state)
-      ) {
-        this.chatStreams.end(payload.runId);
-        this.reconcile().catch(() => {});
-        // An image_generate completion leaves its images here (generated-images.js).
-        this.generatedImages.observe(conversation).catch(() => {});
-      }
-    });
+    bindChatEvents(this);
   }
   list() {
     assertWired(this);
