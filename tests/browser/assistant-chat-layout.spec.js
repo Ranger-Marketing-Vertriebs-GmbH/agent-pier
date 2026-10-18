@@ -376,7 +376,7 @@ test.describe("agent chat composer", () => {
     await expect(options).toHaveAttribute("aria-expanded", "false");
     await options.click();
     await expect(
-      page.getByRole("button", { name: "Attach file or image" }),
+      page.getByRole("button", { name: "Attach file, image or video" }),
     ).toBeFocused();
     const toggle = page.getByRole("switch", { name: "Allow a team for this message" });
     await expect(page.locator(".assistant-options-hint")).toBeVisible();
@@ -562,7 +562,7 @@ test.describe("team member composer", () => {
     await options.click();
     await expect(page.locator(".assistant-options-row")).toHaveCount(1);
     await expect(
-      page.getByRole("button", { name: "Attach file or image" }),
+      page.getByRole("button", { name: "Attach file, image or video" }),
     ).toBeVisible();
     await expect(page.locator(".assistant-options-hint")).toHaveCount(0);
   });

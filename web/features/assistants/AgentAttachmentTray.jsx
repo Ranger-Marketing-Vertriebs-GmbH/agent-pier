@@ -19,7 +19,7 @@ export default function AgentAttachmentTray({ attachments }) {
                 <img src={item.previewUrl} alt="" />
               ) : (
                 <span className="agent-attachment-icon" aria-hidden="true">
-                  <Icon name="file" size={16} />
+                  <Icon name={item.video ? "video" : "file"} size={16} />
                 </span>
               )}
               <span className="agent-attachment-text">
@@ -29,7 +29,9 @@ export default function AgentAttachmentTray({ attachments }) {
                   role={item.status === "failed" ? "alert" : undefined}
                 >
                   {item.status === "uploading"
-                    ? copy.uploading
+                    ? item.progress > 0
+                      ? copy.uploadingProgress(item.progress)
+                      : copy.uploading
                     : item.status === "failed"
                       ? item.error
                       : fileSize(item.size)}

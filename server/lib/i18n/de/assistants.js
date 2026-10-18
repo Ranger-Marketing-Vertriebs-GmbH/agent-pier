@@ -244,7 +244,10 @@ export const assistants = {
     "Ein vorgeschlagenes Teammitglied nennt einen MCP-Server, der dem leitenden Agenten nicht zugewiesen ist.",
   attachmentTooLarge: "Diese Datei ist größer als 10 MB.",
   attachmentUnsupported:
-    "Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPEG, PNG, WebP, GIF, HEIC), PDF und Textdateien.",
+    "Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPEG, PNG, WebP, GIF, HEIC), Videos (MP4, MOV, WebM), PDF und Textdateien.",
+  videoTooLarge: "Videos dürfen höchstens 200 MB groß sein.",
+  videoUploadOffset:
+    "Der Upload wurde unterbrochen. Er wird an der unterbrochenen Stelle fortgesetzt.",
   attachmentTooMany:
     "Zu viele Anhänge. Eine Nachricht kann höchstens 5 Dateien enthalten.",
   attachmentNotFound:

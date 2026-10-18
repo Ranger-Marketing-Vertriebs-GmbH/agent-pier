@@ -15,14 +15,17 @@ import {
 } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { SHARED, SharedFiles } from "./agent-share-store.js";
+import { VideoUploads } from "./agent-video-uploads.js";
+import { MAX_VIDEO_BYTES, videoExtensions } from "./agent-video-types.js";
 
 // Files picked in the composer but not sent yet; they expire after a day. A page left
 // without sending may leave its files behind, so a conversation at the cap gives up
 // its oldest unsent files instead of refusing the next one.
 const MAX_STAGED = 20;
 const STAGED_TTL = 24 * 3600 * 1000;
-// Per agent; counted over the copies still present in its workspace.
-const MAX_AGENT_BYTES = 512 * 1024 * 1024;
+// Per agent; counted over the copies still present in its workspace. Room for a few
+// phone videos (200 MB each, agent-video-types.js) next to photos and documents.
+const MAX_AGENT_BYTES = 1024 * 1024 * 1024;
 const MAX_AGENT_FILES = 1000;
 const FOLDER = "attachments";
 const extensions = {
@@ -32,10 +35,18 @@ const extensions = {
   "image/webp": [".webp"],
   "image/heic": [".heic", ".heif"],
   "application/pdf": [".pdf"],
+  ...videoExtensions,
 };
 const agentId = /^[A-Za-z0-9][A-Za-z0-9-]{0,99}$/;
 const record = (row) => row && { ...JSON.parse(row.body), id: row.id, row };
-const publicFile = ({ id, name, type, kind, size }) => ({ id, name, type, kind, size });
+const publicFile = ({ id, name, type, kind, size, video }) => ({
+  id,
+  name,
+  type,
+  kind,
+  size,
+  ...(video && { video }),
+});
 const agentPath = (file) => `${FOLDER}/${file.file}`;
 const digest = (body) => createHash("sha256").update(body).digest("hex");
 // Staged files a queued message names (queued-messages.js): never expired or removed.
@@ -60,6 +71,7 @@ export class AgentAttachments {
     this.db = store.db;
     this.queues = new Map();
     this.shared = new SharedFiles(this);
+    this.videos = new VideoUploads(this);
   }
   transaction(fn) {
     this.db.exec("BEGIN IMMEDIATE");
@@ -155,8 +167,14 @@ export class AgentAttachments {
   }
   // Writes one copy into the checked folder under a stamped, unique name.
   async copy(folder, name, body, detected) {
+    const { display, file } = this.storedName(name, detected.type);
+    const identity = await this.create(folder, file, body);
+    return { name: display, file, size: body.length, ...detected, ...identity };
+  }
+  // The display name and the stamped, unique file name of a new copy.
+  storedName(name, type) {
     const display = safeFileName(name);
-    const wanted = extensions[detected.type];
+    const wanted = extensions[type];
     const stored =
       wanted && !wanted.includes(path.extname(display).toLowerCase())
         ? `${display}${wanted[0]}`
@@ -166,9 +184,7 @@ export class AgentAttachments {
       .replace(/[-:]/g, "")
       .replace("T", "-")
       .replace(/\..*$/, "");
-    const file = `${stamp}-${randomBytes(4).toString("hex")}-${stored}`;
-    const identity = await this.create(folder, file, body);
-    return { name: display, file, size: body.length, ...detected, ...identity };
+    return { display, file: `${stamp}-${randomBytes(4).toString("hex")}-${stored}` };
   }
   index(id, conversation, entry, requestId = null) {
     this.db
@@ -199,12 +215,25 @@ export class AgentAttachments {
    * Returns the content digest that every later read requires.
    */
   async create(folder, file, body) {
+    const handle = await this.createEmpty(folder, file);
+    try {
+      await handle.writeFile(body);
+      return { sha256: digest(body) };
+    } catch {
+      await fs.rm(path.join(folder.path, file), { force: true });
+      throw assistantProblem("attachmentStorageUnsafe", 409);
+    } finally {
+      await handle.close();
+    }
+  }
+  // The empty, proven file, open for writing; a video receives its chunks through it.
+  async createEmpty(folder, file) {
     const target = path.join(folder.path, file);
     let handle;
     try {
       handle = await fs.open(
         target,
-        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+        constants.O_RDWR | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
         0o600,
       );
     } catch {
@@ -233,14 +262,12 @@ export class AgentAttachments {
           await fs.rm(target, { force: true });
         throw assistantProblem("attachmentStorageUnsafe", 409);
       }
-      await handle.writeFile(body);
-      return { sha256: digest(body) };
+      return handle;
     } catch (error) {
+      await handle.close();
       if (error.key === "attachmentStorageUnsafe") throw error;
       await fs.rm(target, { force: true });
       throw assistantProblem("attachmentStorageUnsafe", 409);
-    } finally {
-      await handle.close();
     }
   }
   async expire(assistantId, folder) {
@@ -264,12 +291,15 @@ export class AgentAttachments {
   async assertQuota(assistantId, folder, adding) {
     let bytes = adding;
     const present = new Set();
+    // Videos still arriving count with the size they announced.
+    const arriving = this.videos.arriving(assistantId);
+    for (const size of arriving.values()) bytes += size;
     // Streamed, and stopped at the cap: a folder flooded by the agent costs no more.
     for await (const entry of await fs.opendir(folder)) {
       if (present.size + 1 >= MAX_AGENT_FILES)
         throw assistantProblem("attachmentStorageFull", 409);
       present.add(entry.name);
-      if (!entry.isFile()) continue;
+      if (!entry.isFile() || arriving.has(entry.name)) continue;
       bytes +=
         (await fs.lstat(path.join(folder, entry.name)).catch(() => null))?.size || 0;
     }
@@ -470,6 +500,14 @@ export class AgentAttachments {
       detectAttachment(body, file.name)?.type === file.type;
     return { name: file.name, type: file.type, kind: file.kind, inline, body };
   }
+  // For the chat: a video as a verified open file (agent-video-uploads.js), any
+  // other attachment as its bytes.
+  async serve(id) {
+    const [file] = this.rows("SELECT * FROM agent_attachments WHERE id=?", String(id));
+    if (file?.kind === "video" && !file.shared)
+      return this.videos.open(file.row.assistant_id, file);
+    return this.content(id);
+  }
   // Whether the agent's model takes images: the fact its compiled provider declares.
   imageInput(assistantId) {
     try {
@@ -485,6 +523,7 @@ export class AgentAttachments {
     return {
       imageInput: this.imageInput(assistantId),
       maxBytes: MAX_ATTACHMENT_BYTES,
+      maxVideoBytes: MAX_VIDEO_BYTES,
       maxFiles: MAX_ATTACHMENTS_PER_MESSAGE,
     };
   }

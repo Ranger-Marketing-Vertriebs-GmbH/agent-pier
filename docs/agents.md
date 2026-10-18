@@ -345,13 +345,26 @@ signing in, also forgets unsent agent drafts.
 
 ## Attachments
 
-Choose **+ → Attach file or image**, paste or drag files into the agent chat, also in
-a team member's chat. A message holds up to five files of at most 10 MB: JPEG, PNG,
-WebP, GIF and HEIC images, PDF and text files. Copies are saved in the agent's
+Choose **+ → Attach file, image or video**, paste or drag files into the agent chat,
+also in a team member's chat. A message holds up to five files of at most 10 MB: JPEG,
+PNG, WebP, GIF and HEIC images, PDF and text files. Copies are saved in the agent's
 workspace so it can read them with its tools. Models that accept images (ChatGPT,
 endpoint models that declare it, OpenRouter models whose catalog lists image input)
 also see images directly; the composer says when the agent's model cannot. Attachments
 are part of host backups.
+
+### Videos
+
+Videos can be up to 200 MB each: MP4, MOV (iPhone recordings in HEVC or H.264) and
+WebM. On a phone the picker offers your videos next to your photos. A video uploads in
+pieces, and the composer shows how far it is; a dropped connection resumes where it
+stopped. The chat plays a sent video inline (select play; nothing loads beyond its
+first frame and length until then).
+
+The agent receives the video as a file in its workspace, with its length and size in
+pixels, and is told that it cannot watch it. No model sees the video itself: AgentPier
+sends no video to the model and extracts no frames. Each agent keeps up to 1 GB of
+attachments in total, videos included.
 
 ### Files from agents
 

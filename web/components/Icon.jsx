@@ -36,6 +36,7 @@ export default function Icon({ name, size = 18, fill = false, ...props }) {
     paperclip:
       "m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7",
     file: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5",
+    video: "M3 6h12v12H3Zm12 4.5 6-3.5v10l-6-3.5",
     star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z",
   };
   return (

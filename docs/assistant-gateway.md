@@ -2234,9 +2234,10 @@ so a switch limited to agents with memory cannot be built yet.
 
 The owner can attach up to five files of at most 10 MB each to a message in the
 agent chat, to the lead agent and in the direct chat with a team member: "+" >
-"Attach file or image", paste or drag and drop. Accepted are JPEG, PNG, WebP, GIF and
-HEIC images, PDF and UTF-8 text files with a known text or code extension. The
-server decides by the bytes, never by the name or the browser's type.
+"Attach file, image or video", paste or drag and drop. Accepted are JPEG, PNG, WebP,
+GIF and HEIC images, PDF and UTF-8 text files with a known text or code extension, and
+videos (see below). The server decides by the bytes, never by the name or the browser's
+type.
 
 - **Storage.** Each file is uploaded when it is picked and copied into
   `attachments/` of the receiving agent's own workspace under a generated name
@@ -2246,7 +2247,7 @@ server decides by the bytes, never by the name or the browser's type.
   workspace. Unsent uploads expire after a day, and a page that is closed or reloaded
   discards its own. A conversation keeps at most 20 unsent uploads; a further one
   replaces the oldest, so files abandoned elsewhere never block a new message. Each
-  agent holds at most 512 MB or 1000 files there. When the agent deletes a sent copy,
+  agent holds at most 1 GB or 1000 files there. When the agent deletes a sent copy,
   the chat history keeps the message without that file.
 - **Delivery.** `sessions.send` carries the owner's text followed by a note that
   names each saved copy by its workspace-relative path, so the agent can read it with
@@ -2283,6 +2284,52 @@ server decides by the bytes, never by the name or the browser's type.
   the workspace; `AgentAttachments.purge` removes an agent's folder and index for a
   future deletion path. OpenClaw also stages inline images it receives under
   `media/inbound/` of the workspace, so such an image exists twice.
+
+### Chat videos (2026-10-18)
+
+The owner can also attach MP4, QuickTime (MOV, as iPhones record in HEVC or H.264)
+and WebM videos of up to 200 MB (`agent-video-types.js`, `agent-video-uploads.js`).
+
+- **Recognition.** A video is recognised by its first bytes: an `ftyp` box whose
+  major brand is `qt  ` (QuickTime) or an MP4 brand (`isom`, `mp42`, `M4V `, …),
+  or, failing that, a compatible brand of either; HEIF brands (`heic`, `mif1`,
+  `msf1`, …) stay images. WebM needs an EBML header with DocType `webm`; other
+  Matroska files are refused. A completed MP4 or MOV must contain its `moov` box;
+  otherwise it is refused and its copy removed.
+- **Chunked upload.** `POST /api/assistant-conversations/:id/video-uploads?name=&size=`
+  carries the first chunk and announces the full size; `PUT
+…/video-uploads/:upload?offset=` carries the next ones, each at most 8 MiB and
+  streamed to disk, so no request meets Node's five-minute request timeout and no
+  video is held in memory. The copy is created by descriptor like every attachment
+  (`O_EXCL|O_NOFOLLOW`, proven before the first byte) and the chunks are written
+  through that descriptor at their offsets. A chunk at the wrong offset gets a 409
+  naming the received length, so the composer resumes there; more bytes than
+  announced, or a larger chunk, end the upload. The SHA-256 is computed while the
+  chunks arrive. Only the completed, checked copy is indexed as a staged attachment.
+  An upload idle for ten minutes is removed, and an agent has at most three open; a
+  fourth replaces the oldest. Videos still arriving count with their announced size
+  against the per-agent quota (1 GB, shared with all other attachments).
+- **Metadata.** Duration and display size come from the container without decoding:
+  `mvhd` and the video track's `tkhd` (a quarter-turn matrix, as iPhones write for
+  portrait videos, swaps width and height) or WebM's `Info` and `Tracks`. The note
+  names them, for example `(video/quicktime, 12.3 MB, 0:42, 1080x1920)`, and adds a
+  line that the agent cannot watch videos directly.
+- **No video understanding.** OpenClaw 2026.10.3 can describe inbound video through
+  `tools.media.video` with Google, Moonshot or Qwen (50 MB default), but AgentPier
+  configures no such provider, and an RPC frame carries at most 25 MiB. Videos
+  therefore never travel inline and no keyframes are extracted (no ffmpeg is
+  provisioned).
+- **Playback.** `GET /api/assistant-attachments/:id` serves a video inline with its
+  type, `nosniff` and the sandboxed content policy, and answers `Range` requests with
+  206 (Safari plays nothing otherwise) or 416. Its bytes are checked against the
+  recorded size and SHA-256 once per file identity (device, inode, size, change
+  times), so a seek does not hash 200 MB again. The app's content policy needs no
+  `media-src`: `default-src 'self'` covers the route. The chat shows
+  `<video controls playsinline preload="metadata">` without a server-side poster; a
+  `#t=0.001` media fragment makes Safari draw the first frame.
+- **Not yet.** Files agents share stay downloads, also when they are videos, and
+  Telegram videos are not received. A copy left half-written by a crash during an
+  upload stays in `attachments/` and counts against the quota until removed.
 
 ### Files agents share (2026-10-17)
 

@@ -91,6 +91,7 @@ test("the attachment routes store owner uploads in the agent's workspace only", 
   assert.deepEqual(await policy.json(), {
     imageInput: false,
     maxBytes: 10 * 1024 * 1024,
+    maxVideoBytes: 200 * 1024 * 1024,
     maxFiles: 5,
   });
 
