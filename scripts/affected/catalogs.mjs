@@ -11,6 +11,14 @@ export const catalogHub = /^server\/lib\/i18n\/[^/]+\.js$/;
 // Tests that check all catalogs at once rather than one namespace.
 export const catalogTest = /(?:i18n|catalog|messages|language)[^/]*\.test\.js$/;
 
+// Catalog-wide i18n tests load every catalog and the translation locks at run
+// time (readdir and computed imports), which the import graph cannot follow, so
+// a changed catalog or lock selects them directly.
+export const translationLock = /^(?:server|web)\/lib\/i18n\/translation-lock\.json$/;
+export const catalogData =
+  /^(?:server|web)\/lib\/i18n\/(?:(?:de|en)\/[^/]+\.js|translation-lock\.json)$/;
+export const catalogWideTest = /^tests\/unit\/(?:[^/]*-)?i18n[^/]*\.test\.js$/;
+
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // The names a catalog's messages are read under: its exports and the keys the

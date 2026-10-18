@@ -12,9 +12,6 @@ import {
   serializeLock,
 } from "../../scripts/i18n-translation-lock.mjs";
 
-// Checks web/lib/i18n/translation-lock.json and server/lib/i18n/translation-lock.json
-// against the web catalogs and server/lib/i18n/catalogs.js (the server catalogs).
-
 for (const kind of Object.keys(lockPaths)) {
   test(`${kind} English messages follow changes to their German source`, async (t) => {
     const { german, english } = await loadCatalogs(kind);

@@ -1,6 +1,12 @@
 import { buildGraph, codeFile, reachingFiles, syntaxError } from "./import-graph.mjs";
 import { browserSpecsFor } from "./browser-map.mjs";
-import { catalogHub, catalogStarts, serverCatalog } from "./catalogs.mjs";
+import {
+  catalogData,
+  catalogHub,
+  catalogStarts,
+  catalogWideTest,
+  serverCatalog,
+} from "./catalogs.mjs";
 
 // Chooses the tests a change can affect. See scripts/affected-tests.mjs for the
 // command line and docs/testing.md for the policy.
@@ -147,6 +153,8 @@ function select({ listed, source, previous, threshold }) {
     const reach = serverCatalog.test(file)
       ? reachingFiles(graph, catalogStarts(graph, file, source.read), catalogHub)
       : reachingFiles(graph, [file]);
+    if (catalogData.test(file))
+      for (const wide of nodeTests) if (catalogWideTest.test(wide)) reach.add(wide);
     for (const reached of reach) {
       if (!present.has(reached)) continue;
       if (nodeTest.test(reached)) node.add(reached);
