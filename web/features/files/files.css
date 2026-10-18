@@ -352,7 +352,7 @@ dialog .directory-tree {
     gap: 6px;
   }
   .explorer-primary-actions .button {
-    min-height: 40px;
+    min-height: var(--touch-target);
     font-size: 11px;
     padding-inline: 10px;
   }
@@ -406,12 +406,12 @@ dialog .directory-tree {
   }
   .tree-node-row > button,
   .tree-shortcut {
-    min-height: 40px;
+    min-height: var(--touch-target);
   }
   .tree-node-row > .tree-expand,
   .tree-shortcut-row > .icon-button {
-    min-width: 40px;
-    min-height: 40px;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
   }
 }
 .file-jobs:has(h2) {
