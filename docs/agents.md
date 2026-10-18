@@ -182,8 +182,9 @@ told it was not saved.
   **Trusted incl. routines** also runs in the agent's routines.
   Every command is listed under **Actions and coding tasks** and recorded in the
   activity log by its fingerprint, never its text. Agents cannot add hosts or keys.
-- **Team:** **Allow teams without asking each time**, **Team members may use shell
-  and SSH** (off by default; see [teams](#teams-asks-and-tasks) below), **Maximum team size** and
+- **Team:** **Use team** (**On request**, **Suggest** or **Autonomous**; see
+  [when a lead uses its team](#when-a-lead-uses-its-team)), **Allow teams without
+  asking each time**, **Team members may use shell and SSH** (off by default; see [teams](#teams-asks-and-tasks) below), **Maximum team size** and
   **Member time limit (minutes)**.
 - **Teams:** the agent's active and archived teams and, below them, **Questions and
   tasks** it sent to its members.
@@ -298,9 +299,13 @@ A lead also talks to its members directly:
   when you asked for it yourself in the same message: name the member and say to ask
   or delegate, or mention it with `@`. Type `@` in the lead's composer to pick a
   member; Telegram understands `@Name` too. Negations such as "don't" or "read-only"
-  in the message cancel that permission.
+  in the message cancel that permission. With **Suggest** or **Autonomous**, a short
+  yes to the lead's offer ("yes, go ahead") counts as well; with **Autonomous**, a
+  task the lead starts on its own in reply to your message may also write (see
+  below).
 - **Work → Teams → Questions and tasks** lists every request, open ones first, marked
-  "may write" or "read-only", with **Cancel** for open ones.
+  "may write" or "read-only", and "self-initiated" when an autonomous lead started it
+  on its own, with **Cancel** for open ones.
 - Member reports and answers reach the lead whole up to 65,536 characters. A longer
   one is marked shortened, and the team card or request shows "Shortened" with **Open
   chat**, where the whole text is. When a team's reports together are too long for the
@@ -308,6 +313,32 @@ A lead also talks to its members directly:
   the whole reports are in the members' chats.
 
 Check your members' shell levels and MCP servers before you let a lead use them.
+
+### When a lead uses its team
+
+**Work → Team → Use team** sets how the lead involves its members on its own. Each
+turn, AgentPier adds a short "Your team" section to the lead's instructions: its
+members with name, role, whether they are permanent or temporary and whether they are
+busy right now, and the rules for the chosen level:
+
+- **On request:** the lead asks or delegates only when you ask it to, by name, with
+  `@` or for a team.
+- **Suggest** (the default, also for agents created before this setting existed): when
+  a member fits, for example a question in its area or longer research or writing for
+  a permanent member, the lead offers it in one sentence and waits. Your yes counts as
+  your request, so a task delegated after it may change the member's workspace.
+- **Autonomous:** the lead asks members and delegates suitable tasks on its own and
+  tells you whom it involved. A task it starts on its own in reply to your message may
+  change files in the member's own workspace (never its memory) and is marked
+  "self-initiated"; in forwarded, scheduled or follow-up turns its tasks stay
+  read-only. Shell, SSH, project folders, GitHub and grants beyond the default keep
+  their approvals, and a team the lead proposes on its own still waits for you unless
+  you asked for one or allowed teams without asking. A lead starts at most 4 questions
+  or tasks on its own per turn and 20 per hour; requests you asked for by name do not
+  count.
+
+At every level the lead is told not to involve members for trivial requests and to
+summarize their answers for you.
 
 ## Routines, reminders and check-ins
 

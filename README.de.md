@@ -29,7 +29,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   begrenzte Review-Schleifen, Prüfungen und menschliche Freigabe
   ([Pipelines](docs/pipelines.md)).
 - **Agenten und Teams:** dauerhafte Agenten, deren Leads ihre Mitglieder fragen und
-  ihnen Aufgaben übergeben, mit @-Erwähnungen, Telegram, Skills, Routinen, Check-ins,
+  ihnen Aufgaben übergeben, auf Anfrage, als Vorschlag oder selbstständig, mit @-Erwähnungen, Telegram, Skills, Routinen, Check-ins,
   Dateien in beide Richtungen, über ChatGPT erstellte Bilder, Lese- oder Schreibzugriff auf Projektordner und GitHub
   über deine Tokenprofile ([Agenten](docs/agents.md)).
 - **Zentrale MCP-Server:** einen Server einmal anlegen und an Agenten und deine
