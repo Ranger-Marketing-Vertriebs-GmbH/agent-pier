@@ -125,6 +125,12 @@ test("the hook records activity for the current launch only, and SessionActivity
     false,
   );
   assert.equal(ctx.bindings.activity(session).state, "working");
+  assert.deepEqual(
+    fs
+      .readdirSync(path.dirname(prepared.env.AGENTPIER_NATIVE_BINDING_FILE))
+      .filter((name) => name.startsWith(".tmp")),
+    [],
+  );
   assert.throws(() =>
     recordNativeActivity(
       { state: "idle", event: "Stop" },
@@ -173,34 +179,53 @@ test("the hook records activity for the current launch only, and SessionActivity
   );
 });
 
-test("an interrupted Claude turn falls back to the still, idle terminal", async (t) => {
-  const ctx = setup(t);
-  const { prepared, session } = await launch(ctx, "claude-esc", "claude");
-  await hook(prepared, {
-    hook_event_name: "UserPromptSubmit",
-    cwd: ctx.cwd,
-    prompt: "x",
+for (const [event, reported] of [
+  ["UserPromptSubmit", "working"],
+  ["PermissionRequest", "waiting"],
+])
+  test(`an interrupted Claude ${reported} report ends at the still, idle terminal and stays ended`, async (t) => {
+    const ctx = setup(t);
+    const { prepared, session } = await launch(ctx, `claude-esc-${reported}`, "claude");
+    await hook(prepared, { hook_event_name: event, cwd: ctx.cwd, prompt: "x" });
+    const at = ctx.bindings.activity(session).at;
+    let now = at;
+    const composer = (draft = "") =>
+      [
+        "─".repeat(40),
+        `❯ ${draft}`,
+        "─".repeat(40),
+        "  ⏸ manual mode on · ? for shortcuts",
+      ].join("\n");
+    let screen = composer();
+    const activity = new SessionActivity({
+      sessions: {},
+      screen: async () => screen,
+      hooks: (value) => ctx.bindings.activity(value),
+      cacheMs: 0,
+      now: () => now,
+    });
+    assert.equal((await activity.read(session)).state, reported);
+    now = at + 20_000;
+    let read = await activity.read(session);
+    assert.deepEqual([read.state, read.source], ["idle", "native-terminal"]);
+    // Typing a draft or resizing changes the screen; the ended report stays ended.
+    for (const draft of ["h", "hello", "hello there"]) {
+      screen = composer(draft);
+      now += 1000;
+      read = await activity.read(session);
+      assert.deepEqual([read.state, read.source], ["idle", "native-terminal"]);
+    }
+    // The reload's last check agrees with that reading.
+    assert.equal((await activity.settle(session, screen)).state, "idle");
+    // The CLI's next report counts again.
+    await hook(prepared, {
+      hook_event_name: "UserPromptSubmit",
+      cwd: ctx.cwd,
+      prompt: "y",
+    });
+    read = await activity.read(session);
+    assert.deepEqual([read.state, read.source], ["working", "hook"]);
   });
-  const at = ctx.bindings.activity(session).at;
-  let now = at;
-  const idleClaude = [
-    "─".repeat(40),
-    "❯ ",
-    "─".repeat(40),
-    "  ⏸ manual mode on · ? for shortcuts",
-  ].join("\n");
-  const activity = new SessionActivity({
-    sessions: {},
-    screen: async () => idleClaude,
-    hooks: (value) => ctx.bindings.activity(value),
-    cacheMs: 0,
-    now: () => now,
-  });
-  assert.equal((await activity.read(session)).state, "working");
-  now = at + 20_000;
-  const read = await activity.read(session);
-  assert.deepEqual([read.state, read.source], ["idle", "native-terminal"]);
-});
 
 test("AgentPier's pending request makes a reporting session wait", async (t) => {
   const ctx = setup(t);

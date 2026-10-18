@@ -181,7 +181,14 @@ export class SessionReload {
       }
       await this.save(session, { state: "completed", error: null });
       this.services.activity.remove(session.id);
-    } catch {
+    } catch (error) {
+      // The CLI started a turn between the idle reading and the lock: a reload
+      // after the response keeps waiting for the next idle instead of failing.
+      if (error?.notIdle && session.reload?.mode === "when-idle") {
+        await this.save(session, { state: "waiting", error: null });
+        this.pending.add(session.id);
+        return;
+      }
       await this.save(session, { state: "failed", error: failureMessage });
     }
   }

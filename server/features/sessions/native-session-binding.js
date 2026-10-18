@@ -343,8 +343,10 @@ const activityOnly = new Set([
 export async function runNativeSessionHook({
   env = process.env,
   input = process.stdin,
+  // The hook process's own start, before this module's imports loaded: the closest
+  // AgentPier gets to the event's time (Claude Code's payload carries none).
+  at = Math.round(performance.timeOrigin) || Date.now(),
 } = {}) {
-  const at = Date.now();
   const warn = (error) =>
     process.stderr.write(`agentpier-reader: ${String(error.message).slice(0, 240)}\n`);
   let payload;

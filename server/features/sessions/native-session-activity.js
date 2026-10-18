@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { readJson, writeJsonAtomic } from "../../../vendor/agentbus/core/fsx.js";
+import { randomBytes } from "node:crypto";
+import { readJson } from "../../../vendor/agentbus/core/fsx.js";
 
 // Activity a CLI reports about itself: hooks (Claude Code), the app-server proxy
 // (Codex) or the TUI plugin (OpenCode). "ended" means the CLI said goodbye, so the
@@ -76,13 +77,17 @@ export function recordNativeActivity(
     path.basename(files.launch) !== `${launch.id}.launch.json`
   )
     throw problem(serverMessages.sessions.invalidNativeBindingKey);
-  let previous;
-  try {
-    previous = readJson(files.activity);
-  } catch {}
   // Async hooks may finish out of order; the event time decides, not the write.
-  if (previous?.token === launch.token && Date.parse(previous.at) > at) return false;
-  writeJsonAtomic(files.activity, {
+  const newer = () => {
+    try {
+      const previous = readJson(files.activity);
+      return previous?.token === launch.token && Date.parse(previous.at) > at;
+    } catch {
+      return false;
+    }
+  };
+  if (newer()) return false;
+  const value = {
     id: launch.id,
     accountId: launch.accountId,
     tool: launch.tool,
@@ -93,8 +98,25 @@ export function recordNativeActivity(
       ? Math.max(0, Math.min(background, 1000))
       : 0,
     at: new Date(at).toISOString(),
-  });
-  return true;
+  };
+  // Write a private temporary file, check again, then rename over the report. Two
+  // writers can still both pass the second check within the same few microseconds;
+  // the next event (or the terminal fallback) corrects such a report.
+  const temporary = path.join(
+    path.dirname(files.activity),
+    `.tmp-activity-${process.pid}-${randomBytes(4).toString("hex")}`,
+  );
+  try {
+    fs.writeFileSync(temporary, JSON.stringify(value) + "\n", {
+      mode: 0o600,
+      flag: "wx",
+    });
+    if (newer()) return false;
+    fs.renameSync(temporary, files.activity);
+    return true;
+  } finally {
+    fs.rmSync(temporary, { force: true });
+  }
 }
 
 /** The current launch's own report, or null for older sessions and foreign files. */

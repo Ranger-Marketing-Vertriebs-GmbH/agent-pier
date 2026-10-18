@@ -395,3 +395,30 @@ test("an outdated CLI refuses a reload and keeps its update message when idle re
   assert.equal(f.session.reload.state, "failed");
   assert.equal(f.session.reload.error, outdated.message);
 });
+
+test("a when-idle reload whose last check finds a new turn keeps waiting instead of failing", async () => {
+  const f = fixture();
+  let busy = true;
+  const restart = f.services.restartReload;
+  f.services.restartReload = async (session, plan) => {
+    // The CLI started a turn between the idle reading and the session lock.
+    if (busy) {
+      busy = false;
+      throw Object.assign(Error(serverMessages.sessionReload.notIdle), {
+        status: 409,
+        notIdle: true,
+      });
+    }
+    return restart(session, plan);
+  };
+  f.activity("working");
+  await f.reload.request("session", { mode: "when-idle", requestId: randomUUID() });
+  f.activity("idle");
+  await f.reload.poll();
+  assert.equal(f.session.reload.state, "waiting");
+  assert.equal(f.session.reload.error, null);
+  assert.equal(f.stops, 0);
+  await f.reload.poll();
+  assert.equal(f.stops, 1);
+  assert.equal(f.session.reload.state, "completed");
+});
