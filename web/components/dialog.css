@@ -390,7 +390,7 @@ label.check-row:has(input:disabled) .check-row-text {
     padding-bottom: 21px;
   }
   /* Grab handle of a bottom sheet; full-height panels and viewers have none. */
-  dialog:where(:not(.chat-image-dialog, .task-drawer, .launch-dialog, .side-panel))
+  dialog:where(:not(.image-viewer, .task-drawer, .launch-dialog, .side-panel))
     > .dialog-heading::before {
     content: "";
     position: absolute;

@@ -1,56 +1,9 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { chatImagesCopy as copy } from "../../lib/i18n/messages/chat.js";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
+import ImageViewer from "../../components/ImageViewer.jsx";
 function imageURL(sessionId, id) {
   return `/api/sessions/${encodeURIComponent(sessionId)}/chat/images/${id}`;
-}
-function FullImage({ image, sessionId, close }) {
-  const dialog = useRef(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    const node = dialog.current;
-    node.showModal();
-    return () => node.close();
-  }, []);
-  return (
-    <dialog
-      className="chat-image-dialog"
-      ref={dialog}
-      aria-label={copy.chatImageDialogAriaLabel}
-      onCancel={(event) => {
-        event.preventDefault();
-        close();
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) close();
-      }}
-    >
-      <div className="chat-image-dialog-content">
-        <header>
-          <span>{copy.chatImageDialogAriaLabel}</span>
-          <button
-            type="button"
-            aria-label={copy.chatImageDialogContentAriaLabel}
-            onClick={close}
-          >
-            ×
-          </button>
-        </header>
-        {failed ? (
-          <p className="chat-image-unavailable" role="status">
-            {copy.missingImage}
-          </p>
-        ) : (
-          <img
-            src={imageURL(sessionId, image.id)}
-            alt={commonCopy.imageTitle(image.path)}
-            onError={() => setFailed(true)}
-          />
-        )}
-        <code className="chat-image-path">{image.path}</code>
-      </div>
-    </dialog>
-  );
 }
 function Thumbnail({ image, sessionId, open }) {
   const [failed, setFailed] = useState(false);
@@ -64,7 +17,7 @@ function Thumbnail({ image, sessionId, open }) {
         type="button"
         aria-label={copy.chatImageOpenAriaLabel(image.path)}
         disabled={!loaded || failed}
-        onClick={() => open(image)}
+        onClick={(event) => open({ ...image, opener: event.currentTarget })}
       >
         {failed ? (
           <span className="chat-image-unavailable">
@@ -134,10 +87,13 @@ export default function ChatImages({ images = [], sessionId, limit = 8 }) {
         ))}
       </div>
       {selected && (
-        <FullImage
+        <ImageViewer
           key={selected.id}
-          image={selected}
-          sessionId={sessionId}
+          src={imageURL(sessionId, selected.id)}
+          alt={commonCopy.imageTitle(selected.path)}
+          title={selected.path}
+          name={selected.path.split(/[\\/]/).at(-1) || "image"}
+          opener={selected.opener}
           close={() => setSelected(null)}
         />
       )}

@@ -20,9 +20,6 @@ export const chatAttachmentsCopy = {
   fileTooLarge: "Files must not exceed 10 MiB.",
 };
 export const chatImagesCopy = {
-  chatImageDialogAriaLabel: "Image viewer",
-  chatImageDialogContentAriaLabel: "Close image viewer",
-  missingImage: "Image no longer available.",
   chatImageOpenAriaLabel: (value1) => `Open image: ${value1}`,
   unavailableImage: "Image unavailable",
   chatImageUnavailableHint: "The image file could not be loaded.",

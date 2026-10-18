@@ -142,10 +142,15 @@ test("files the agent shares appear in the open chat, download, and stay while o
   await expect
     .poll(() => thumbnail.evaluate((img) => img.complete && img.naturalWidth))
     .toBe(1);
-  await expect(log.getByRole("link", { name: "Open chart.png" })).toHaveAttribute(
-    "href",
+  // The image opens in the in-app viewer, never by navigating to it.
+  await log.getByRole("button", { name: "Open chart.png" }).click();
+  const viewer = page.getByRole("dialog", { name: "Image viewer" });
+  await expect(viewer.getByRole("img", { name: "chart.png" })).toHaveAttribute(
+    "src",
     "/api/assistant-attachments/img",
   );
+  await viewer.getByRole("button", { name: "Close image viewer" }).click();
+  await expect(viewer).toHaveCount(0);
   await expect(log.getByText("The weekly chart")).toBeVisible();
   // A member's file in its lead's chat carries the member's name.
   await expect(
@@ -177,7 +182,7 @@ test("files the agent shares appear in the open chat, download, and stay while o
   await page.getByRole("button", { name: /^Home assistant, / }).click();
   await expect(page).toHaveURL(/\/agents\/home\/chats\/dinner$/);
   await expect(log.getByRole("link", { name: "Download data.csv" })).toBeVisible();
-  await expect(log.getByRole("link", { name: "Open chart.png" })).toBeVisible();
+  await expect(log.getByRole("button", { name: "Open chart.png" })).toBeVisible();
   await expect(log.getByText("The weekly chart")).toBeVisible();
 });
 
