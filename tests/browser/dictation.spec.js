@@ -3,16 +3,23 @@ import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 
-// Chromium's fake microphone feeds a tone through the real capture path (audio
-// worklet → PCM frames); a stand-in for AgentPier's dictation socket answers.
-test.skip(
-  ({ browserName }) => browserName !== "chromium",
-  "the fake microphone is a Chromium switch",
-);
+// A fake microphone feeds the real capture path (audio worklet → PCM frames):
+// Chromium's through its switches, WebKit's mock capture device by default. A
+// stand-in for AgentPier's dictation socket answers.
 test.use({
-  launchOptions: {
-    args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
-  },
+  launchOptions: async ({ browserName, launchOptions }, use) =>
+    use(
+      browserName === "chromium"
+        ? {
+            ...launchOptions,
+            args: [
+              ...(launchOptions.args || []),
+              "--use-fake-device-for-media-stream",
+              "--use-fake-ui-for-media-stream",
+            ],
+          }
+        : launchOptions,
+    ),
   permissions: ["microphone"],
 });
 
@@ -170,6 +177,28 @@ test("over plain HTTP from another host the microphone explains the secure conte
   // aria-disabled: still focusable and pressable, to explain why.
   await mic.click({ force: true });
   await expect(page.getByText(/needs a secure connection/)).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+});
+
+test("on a phone the session chat's hint stays inside the screen", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await sessionChat(page);
+  await page.route("**/api/dictation", (route) =>
+    route.fulfill({
+      json: { available: false, reason: "notConfigured", autoSend: false },
+    }),
+  );
+  await page.goto(baseURL + "/sessions/dictate/chat");
+  const mic = page.getByRole("button", { name: "Voice input unavailable" });
+  expect((await mic.boundingBox()).width).toBeGreaterThanOrEqual(44);
+  await mic.click({ force: true });
+  const hint = page.locator(".dictation-hint");
+  await expect(hint).toContainText("Voice input needs a Deepgram key.");
+  const box = await hint.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(16);
+  expect(box.x + box.width).toBeLessThanOrEqual(390 - 16 + 1);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);

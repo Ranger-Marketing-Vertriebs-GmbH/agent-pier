@@ -29,6 +29,7 @@ export const dictationCopy = Object.freeze({
     upstreamBusy: "Deepgram ist ausgelastet. Versuche es gleich noch einmal.",
     rejected: "Deepgram hat den Audiostream abgelehnt.",
     invalid: "Der Audiostream war ungültig.",
+    slow: "Die Verbindung zu Deepgram ist zu langsam. Versuche es erneut.",
     failed: "Die Spracheingabe wurde unerwartet beendet.",
     connection: "Die Verbindung zu AgentPier wurde unterbrochen.",
   },

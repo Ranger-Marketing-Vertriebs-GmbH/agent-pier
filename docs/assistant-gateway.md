@@ -579,7 +579,9 @@ key never reaches the browser and is held only for the handshake, so the speech
 settings stay editable) and relays interim and final transcripts. Model and language
 come from the speech settings; **Detect automatically** streams as Nova-3's
 `multi`, because live streaming cannot detect the language. Audio is forwarded, never
-stored, and each forwarded buffer is zeroed. Neither audio nor text reaches logs or the
+stored; each forwarded buffer is zeroed once sent. That zeroing is best effort: the
+WebSocket library masks a copy of each frame, which the runtime frees later. A Deepgram
+socket that stops draining (about 30 seconds of audio queued) ends the dictation. Neither audio nor text reaches logs or the
 audit, which records `speech.completed` with the dictation's length in seconds.
 
 Limits: five minutes per dictation, eight seconds without audio, one dictation per

@@ -48,6 +48,29 @@ test("an edit during dictation is kept and later words follow it", () => {
   assert.equal(settleDraft(draft, "anders"), draft);
 });
 
+test("edit with interim still visible: the interim phrase is replaced, not repeated", () => {
+  let draft = play("", [
+    { final: true, text: "Erster Satz." },
+    { final: false, text: "zweiter" },
+  ]);
+  assert.equal(draft.written, "Erster Satz. zweiter");
+  // The owner fixes a word at the start while "zweiter" is still interim.
+  draft = applyTranscript(draft, "Mein Satz. zweiter", {
+    final: false,
+    text: "zweiter Satz",
+  });
+  assert.equal(draftText(draft), "Mein Satz. zweiter Satz");
+  draft = applyTranscript(draft, draft.written, { final: true, text: "zweiter Satz." });
+  assert.equal(draftText(draft), "Mein Satz. zweiter Satz.");
+  // An edit that changed the interim words themselves keeps the owner's text.
+  draft = play("", [{ final: false, text: "hallo" }]);
+  draft = applyTranscript(draft, "Hallo!", { final: true, text: "hallo welt" });
+  assert.equal(draftText(draft), "Hallo! hallo welt");
+  draft = play("Liste:\n", [{ final: false, text: "eins" }]);
+  draft = applyTranscript(draft, "Liste!\neins", { final: true, text: "eins zwei" });
+  assert.equal(draftText(draft), "Liste!\neins zwei");
+});
+
 test("the composed text always starts with what the owner had", () => {
   const result = fc.record({ final: fc.boolean(), text: fc.string({ maxLength: 12 }) });
   fc.assert(

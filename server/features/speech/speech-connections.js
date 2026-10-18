@@ -8,24 +8,24 @@ export class SpeechConnections {
       "CREATE TABLE IF NOT EXISTS settings(id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, model TEXT NOT NULL, language TEXT NOT NULL); CREATE TABLE IF NOT EXISTS credentials(id INTEGER PRIMARY KEY CHECK(id=1), api_key TEXT NOT NULL); INSERT OR IGNORE INTO settings(id,revision,model,language) VALUES (1,0,'nova-3','auto'); CREATE TABLE IF NOT EXISTS key_state(id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL); INSERT OR IGNORE INTO key_state VALUES (1,0);",
     );
     // Whether a finished dictation sends its message right away (dictation-service.js).
-    const columns = this.db.prepare("PRAGMA table_info(settings)").all();
-    if (!columns.some((column) => column.name === "dictation_send"))
-      this.db.exec(
-        "ALTER TABLE settings ADD COLUMN dictation_send INTEGER NOT NULL DEFAULT 0",
-      );
+    // A table of its own keeps `settings` in the shape older builds still insert into.
+    this.db.exec(
+      "CREATE TABLE IF NOT EXISTS dictation(id INTEGER PRIMARY KEY CHECK(id=1), send INTEGER NOT NULL); INSERT OR IGNORE INTO dictation VALUES (1,0);",
+    );
     this.leases = 0;
   }
   get() {
-    const { revision, model, language, dictation_send } = this.db
+    const { revision, model, language } = this.db
       .prepare("SELECT * FROM settings WHERE id=1")
       .get();
+    const { send } = this.db.prepare("SELECT send FROM dictation WHERE id=1").get();
     return {
       id: "deepgram",
       provider: "deepgram",
       revision,
       model,
       language,
-      dictationSend: dictation_send === 1,
+      dictationSend: send === 1,
       hasSecret: !!this.db.prepare("SELECT 1 FROM credentials WHERE id=1").get(),
     };
   }
@@ -79,9 +79,12 @@ export class SpeechConnections {
         this.db.prepare("UPDATE key_state SET revision=revision+1 WHERE id=1").run();
       const changed = this.db
         .prepare(
-          "UPDATE settings SET revision=revision+1,model=?,language=?,dictation_send=? WHERE id=1 AND revision=?",
+          "UPDATE settings SET revision=revision+1,model=?,language=? WHERE id=1 AND revision=?",
         )
-        .run(model, language, dictationSend ? 1 : 0, input.revision);
+        .run(model, language, input.revision);
+      this.db
+        .prepare("UPDATE dictation SET send=? WHERE id=1")
+        .run(dictationSend ? 1 : 0);
       if (!changed.changes) throw assistantProblem("conflict", 409);
       this.db.exec("COMMIT");
     } catch (error) {

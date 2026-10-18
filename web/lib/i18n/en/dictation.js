@@ -27,6 +27,7 @@ export const dictationCopy = Object.freeze({
     upstreamBusy: "Deepgram is busy. Try again shortly.",
     rejected: "Deepgram refused the audio stream.",
     invalid: "The audio stream was invalid.",
+    slow: "The connection to Deepgram is too slow. Try again.",
     failed: "Voice input stopped unexpectedly.",
     connection: "The connection to AgentPier was lost.",
   },

@@ -167,3 +167,21 @@ test("too much audio before Deepgram answers, or no key, ends without a stream",
   const off = new DictationService({ speech: () => null });
   assert.equal(off.status().reason, "agentsOff");
 });
+
+test("a Deepgram socket that stops draining ends the dictation instead of queueing", () => {
+  const h = harness({ limits: { maxUpstreamBuffer: 1000 } });
+  const c = h.client();
+  const session = h.service.start({ holder: "a", client: c });
+  const [upstream] = h.upstreams;
+  upstream.emit("open");
+  upstream.bufferedAmount = 900;
+  session.audio(Buffer.alloc(320));
+  assert.equal(upstream.sent.length, 1);
+  upstream.bufferedAmount = 1200;
+  const stuck = Buffer.alloc(320, 5);
+  session.audio(stuck);
+  assert.equal(upstream.sent.length, 1);
+  assert.ok(stuck.every((byte) => byte === 0));
+  assert.deepEqual(c.messages.at(-1), { type: "error", code: "slow" });
+  assert.ok(upstream.terminated);
+});
