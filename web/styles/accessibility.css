@@ -14,14 +14,14 @@
     min-width: 25px;
   }
   .connection {
-    font-size: 6.5px;
+    font-size: var(--font-size-xs);
   }
   .tool-card {
     column-gap: 9px;
     padding: 16px 12px;
   }
   .tool-card p {
-    font-size: 7.5px;
+    font-size: var(--font-size-xs);
   }
 }
 @media (prefers-reduced-motion: reduce) {

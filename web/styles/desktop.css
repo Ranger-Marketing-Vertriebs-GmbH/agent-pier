@@ -43,16 +43,16 @@
     gap: 10px;
   }
   .tool-state {
-    font-size: 7px;
+    font-size: var(--font-size-xs);
   }
   .tool-card p {
-    font-size: 9px;
+    font-size: var(--font-size-xs);
   }
   .tool-card > button {
-    font-size: 9px;
+    font-size: var(--font-size-xs);
   }
   .page-heading > .button {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     padding: 0 11px;
   }
   .session-footer > span:last-child {

@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 15px;
-  font-size: 8px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 1.6px;
   color: #939498;
@@ -18,7 +18,7 @@
   align-items: center;
   gap: 7px;
   letter-spacing: 0.1px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #8b8c90;
 }
 .subtle .status-dot {
@@ -36,7 +36,7 @@
   align-items: center;
   gap: 9px;
   color: #a9aaae;
-  font-size: 8px;
+  font-size: var(--font-size-xs);
   letter-spacing: 1.6px;
   font-weight: 600;
   margin-bottom: 23px;
@@ -88,7 +88,7 @@
   letter-spacing: -0.2px;
 }
 .section-heading > span {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #797a7e;
 }
 .tool-grid {
@@ -141,7 +141,7 @@
   font-size: 26px;
 }
 .tool-state {
-  font-size: 8px;
+  font-size: var(--font-size-xs);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -169,7 +169,7 @@
 .tool-card .tool-version {
   display: block;
   margin: -4px 0 8px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #a1a2a6;
   overflow-wrap: anywhere;
 }
@@ -188,7 +188,7 @@
   letter-spacing: -0.3px;
 }
 .tool-card p {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #8e8f93;
   line-height: 1.7;
   min-height: 35px;
@@ -201,7 +201,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #f49a58;
   text-align: left;
 }
@@ -233,7 +233,7 @@
   color: #8d8e92;
 }
 .dashboard-note p {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   line-height: 1.7;
   color: #898a8e;
 }
@@ -251,7 +251,7 @@
   gap: 12px;
   margin-top: 53px;
   color: #6e6f73;
-  font-size: 7px;
+  font-size: var(--font-size-xs);
   letter-spacing: 1.2px;
 }
 .dashboard-footer > span:last-child {
@@ -259,7 +259,7 @@
   align-items: center;
   gap: 6px;
   letter-spacing: 0;
-  font-size: 9px;
+  font-size: var(--font-size-xs);
 }
 .page-heading {
   display: flex;

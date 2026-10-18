@@ -98,7 +98,7 @@
 .run-header-actions .button {
   height: 34px;
   padding: 0 12px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 .pipeline-run-detail .pipeline-task {
   margin: 0 0 20px;
@@ -117,7 +117,7 @@
 }
 .run-caps,
 .run-stage-block > h4 {
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   letter-spacing: 1.4px;
   font-weight: 600;
   color: #7d7e82;
@@ -181,7 +181,7 @@
   overflow-wrap: anywhere;
 }
 .run-stage-text small {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: #8b8c90;
 }
 .run-stage-flags {
@@ -191,7 +191,7 @@
   margin-top: 3px;
 }
 .run-stage-flag {
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   border: 1px solid #3d3e42;
   color: #a5a6aa;
   padding: 3px 6px;
@@ -286,7 +286,7 @@
   border: 1px solid #323337;
   background: #202125;
   color: #dcdde1;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   text-decoration: none;
 }
