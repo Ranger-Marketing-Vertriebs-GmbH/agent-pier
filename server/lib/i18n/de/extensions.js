@@ -1,7 +1,7 @@
 /** Existing German product copy, addressed through English semantic keys. */
 export const extensions = Object.freeze({
   shellManagementUnavailable:
-    "Für Shell-Sitzungen gibt es keine MCP- oder Skill-Verwaltung.",
+    "Für Shell-Sessions gibt es keine MCP- oder Skill-Verwaltung.",
   sharedUserSkillScope: "Benutzer · von Codex und kompatiblen CLIs geteilt",
   codexProfileSkillScope: "Codex-Profil · vorhandene Skills",
   systemReadOnlyScope: "System · schreibgeschützt",

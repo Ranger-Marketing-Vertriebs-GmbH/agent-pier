@@ -2,8 +2,8 @@
 export const ssh = Object.freeze({
   invalidBinding: "Ungültige SSH-Zuordnung.",
   invalidStoredBinding: "Ungültige gespeicherte SSH-Zuordnung.",
-  accessNotBound: "Dieser SSH-Zugang ist der Sitzung nicht zugeordnet.",
-  loginSessionsUnsupported: "SSH-Zugänge sind für Login-Sitzungen nicht verfügbar.",
+  accessNotBound: "Dieser SSH-Zugang ist der Session nicht zugeordnet.",
+  loginSessionsUnsupported: "SSH-Zugänge sind für Login-Sessions nicht verfügbar.",
   invalidProjectReassignment: "Ungültige Neuzuordnung des SSH-Projekts.",
   projectCollision:
     "Das Zielprojekt enthält bereits einen passenden Schlüssel oder Host.",
@@ -42,14 +42,14 @@ export const ssh = Object.freeze({
   projectUnavailable: "Das SSH-Projekt ist nicht verfügbar.",
   projectChanged: "Die Identität des SSH-Projekts hat sich geändert.",
   projectChangedReload:
-    "Das Projekt dieser Sitzung hat sich geändert. Lade die Sitzung neu, um SSH weiter zu nutzen.",
+    "Das Projekt dieser Session hat sich geändert. Lade die Session neu, um SSH weiter zu nutzen.",
   projectDirectoryUnavailable: "Das SSH-Projektverzeichnis ist nicht verfügbar.",
   targetProjectRequired: "Ein Zielprojekt ist erforderlich.",
   sourceProjectUnavailable: "Das SSH-Quellprojekt ist nicht verfügbar.",
-  unsupportedAccount: "Nicht unterstützter Account für SSH-Werkzeuge.",
+  unsupportedAccount: "Nicht unterstützter Account für SSH-Tools.",
   reservedMcpName: "Der reservierte SSH-MCP-Name ist bereits konfiguriert.",
   discoveryFailed: "Die SSH-Erkennungs-Hooks konnten nicht eingerichtet werden.",
   interactiveSessionsOnly:
-    "SSH-Zugänge können nur laufenden interaktiven Sitzungen zugeordnet werden.",
+    "SSH-Zugänge können nur laufenden interaktiven Sessions zugeordnet werden.",
   unknownManagementAction: "Unbekannte SSH-Verwaltungsaktion.",
 });

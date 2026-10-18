@@ -84,7 +84,7 @@ test("mobile artifact can exit while its bundle is still loading", async ({ page
       await release.promise;
       await route.abort().catch(() => {});
     });
-    await expect(page.getByRole("status")).toHaveText("Loading artifact…");
+    await expect(page.getByRole("status")).toHaveText("Loading artifact …");
     await leaveViewer(page, "Back to AgentPier", "Artifacts");
   } finally {
     release.resolve();

@@ -132,7 +132,7 @@ test("group headers stay pinned while the list scrolls", async ({ page }) => {
     const json = await response.json();
     json.sessions = Array.from({ length: 30 }, (_, i) => ({
       id: `s${i}`,
-      name: `Sitzung ${i}`,
+      name: `Session ${i}`,
       tool: "codex",
       cwd: `/work/p${i}`,
       status: "running",
@@ -143,7 +143,7 @@ test("group headers stay pinned while the list scrolls", async ({ page }) => {
   await page.goto(baseURL);
   const header = page.locator(".sessions-group > .sidebar-group-toggle");
   // Scroll only once the long list is rendered; WebKit may still be laying it out.
-  await expect(page.getByText("Sitzung 29")).toBeAttached();
+  await expect(page.getByText("Session 29")).toBeAttached();
   const scroller = page.locator(".sidebar-scroll");
   await expect
     .poll(async () => {

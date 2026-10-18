@@ -2,22 +2,22 @@
 self.agentPierNotificationCopy = {
   permission: {
     title: "AgentPier: Freigabe erforderlich",
-    body: "Eine Sitzung wartet auf deine Entscheidung.",
+    body: "Eine Session wartet auf deine Entscheidung.",
   },
   question: {
     title: "AgentPier: Rückfrage",
-    body: "Eine Sitzung wartet auf deine Antwort.",
+    body: "Eine Session wartet auf deine Antwort.",
   },
   "session-completed": {
     title: "AgentPier: Antwort bereit",
     body: "Öffne AgentPier, um den aktuellen Stand anzusehen.",
   },
   "session-waiting": {
-    title: "AgentPier: Sitzung wartet",
-    body: "Eine Sitzung wartet im Terminal auf dich.",
+    title: "AgentPier: Session wartet",
+    body: "Eine Session wartet im Terminal auf dich.",
   },
   "session-ended": {
-    title: "AgentPier: Sitzung beendet",
+    title: "AgentPier: Session beendet",
     body: "Öffne AgentPier, um den Status anzusehen.",
   },
   "pipeline-gate": {

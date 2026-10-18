@@ -14,10 +14,10 @@ export const sshCopy = {
   usageUnavailable: "Nutzung noch nicht geladen",
   accessCount: (count) => (count === 1 ? "1 Zugang" : `${count} Zugänge`),
 
-  toolsReady: "SSH-Werkzeuge sind für diese Sitzung bereit.",
-  toolsStarting: "Warte auf die Verbindung der CLI mit den SSH-Werkzeugen …",
-  toolsReload: "Lade diese Unterhaltung neu, um SSH-Werkzeuge zu aktivieren.",
-  toolsUnavailable: "SSH-Werkzeuge sind für diese Sitzung nicht verfügbar.",
+  toolsReady: "SSH-Tools sind für diese Session bereit.",
+  toolsStarting: "Warte auf die Verbindung der CLI mit den SSH-Tools …",
+  toolsReload: "Lade diese Unterhaltung neu, um SSH-Tools zu aktivieren.",
+  toolsUnavailable: "SSH-Tools sind für diese Session nicht verfügbar.",
   reload: "Neu laden & fortsetzen",
   unsaved: "Speichere deine Host-Auswahl vor dem Neuladen.",
   advanced: "Erweitert · manuelle Verbindungsbefehle",
@@ -44,15 +44,10 @@ export const sshCopy = {
   backupHint: "SSH-Zugänge und Schlüssel sind nicht in Backups enthalten.",
   add: "Zugang hinzufügen",
   edit: "Bearbeiten",
-  remove: "Löschen",
-  confirmDelete: "Löschen bestätigen",
+  confirmDelete: "Jetzt löschen",
   deleteHint:
     "Diesen Zugang löschen? Sein SSH-Schlüssel bleibt verfügbar. Bestehende Verbindungen bleiben offen.",
-  save: "Speichern",
-  cancel: "Abbrechen",
-  close: "Schließen",
   loading: "SSH-Zugänge werden geladen …",
-  retry: "Erneut versuchen",
   empty: "Noch keine SSH-Zugänge vorhanden.",
   name: "Name",
   host: "Host",
@@ -81,13 +76,13 @@ export const sshCopy = {
   testOk: "Verbindung erfolgreich",
   busy: "Bitte warten …",
   saved: "Gespeichert",
-  sessionSummary: "Wähle die Hosts, die dein Agent in dieser Sitzung nutzen darf.",
+  sessionSummary: "Wähle die Hosts, die dein Agent in dieser Session nutzen darf.",
   sessionHint:
-    "Wähle Zugänge aus und speichere sie. Bereite SSH-Werkzeuge ermöglichen deinem Agenten die Nutzung zugewiesener Hosts. Speichern führt keinen Remote-Befehl aus.",
+    "Wähle Zugänge aus und speichere sie. Bereite SSH-Tools ermöglichen deinem Agenten die Nutzung zugewiesener Hosts. Speichern führt keinen Remote-Befehl aus.",
   commandHint:
     "Hänge einen Remote-Befehl an den kopierten Verbindungsbefehl an, zum Beispiel:",
   command: "Verbindungsbefehl",
   launchHint:
-    "Weise bei Bedarf SSH-Zugänge zu. Prüfe nach dem Start unter SSH-Zugänge, ob die SSH-Werkzeuge bereit sind.",
+    "Weise bei Bedarf SSH-Zugänge zu. Prüfe nach dem Start unter SSH-Zugänge, ob die SSH-Tools bereit sind.",
   manage: "SSH-Zugänge verwalten",
 };

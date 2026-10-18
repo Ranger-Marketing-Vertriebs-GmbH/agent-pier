@@ -8,7 +8,7 @@ export const notificationCopy = {
   installHelp:
     "Im Browsermenü „App installieren“ oder „Zum Home-Bildschirm“ wählen. Auf iPhone und iPad stehen Push-Mitteilungen ab iOS 16.4 in der installierten Home-Bildschirm-App zur Verfügung.",
   offlinePrivacy:
-    "Offline erscheint nur ein öffentlicher Hinweis. Sitzungen, Chats, API-Antworten und Zugangsdaten werden nicht für die Offline-Nutzung gespeichert.",
+    "Offline erscheint nur ein öffentlicher Hinweis. Sessions, Chats, API-Antworten und Zugangsdaten werden nicht für die Offline-Nutzung gespeichert.",
   pushTitle: "Benachrichtigungen auf diesem Gerät",
   pushPrivacy:
     "Hinweise enthalten nur den Ereignistyp. Aufgaben, Befehle und Chat-Inhalte bleiben privat. Ein Hinweis öffnet die betreffende Ansicht; er genehmigt keine Aktion.",

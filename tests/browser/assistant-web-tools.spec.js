@@ -248,7 +248,7 @@ for (const [label, use] of [
       await expect(images).toBeDisabled();
       await expect(
         page.getByText(
-          "Connect a ChatGPT account under Accounts → ChatGPT for agents to create images.",
+          "Connect a ChatGPT account under Accounts › ChatGPT for agents to create images.",
         ),
       ).toBeVisible();
     });
@@ -327,7 +327,7 @@ for (const [label, use] of [
       expect(state.patches[0]).toMatchObject({ browserVisible: true });
       expect(state.patches[0].capabilities).toBeUndefined();
       await page.getByRole("button", { name: /Reset browser profile/ }).click();
-      await page.getByRole("button", { name: "Delete profile" }).click();
+      await page.getByRole("button", { name: "Reset profile" }).click();
       await expect.poll(() => state.resets).toBe(1);
       await expect(page.getByText("The browser profile was deleted.")).toBeVisible();
     });
@@ -349,7 +349,7 @@ for (const [label, use] of [
       const state = await setup(page, { assistant: archived, stored: true });
       await page.reload();
       await page.getByRole("button", { name: /Reset browser profile/ }).click();
-      await page.getByRole("button", { name: "Delete profile" }).click();
+      await page.getByRole("button", { name: "Reset profile" }).click();
       await expect.poll(() => state.resets).toBe(1);
       await expect(page.getByLabel("Visible browser")).toHaveCount(0);
     });

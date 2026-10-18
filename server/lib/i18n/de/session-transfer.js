@@ -12,7 +12,7 @@ export const sessionTransfer = Object.freeze({
   targetDiffers: "Der Ziel-Account enthält einen abweichenden Unterhaltungsverlauf.",
   incomplete:
     "Der Unterhaltungsverlauf ist unvollständig. Bitte erneut versuchen, wenn das CLI im Leerlauf ist.",
-  identityMismatch: "Der Unterhaltungsverlauf gehört nicht zu dieser Sitzung.",
+  identityMismatch: "Der Unterhaltungsverlauf gehört nicht zu dieser Session.",
   notPortable:
     "Das Format des Unterhaltungsverlaufs ist unvollständig oder nicht übertragbar.",
   targetChanged: "Die Ziel-Unterhaltung hat sich während der Übertragung geändert.",

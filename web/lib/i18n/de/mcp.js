@@ -1,10 +1,10 @@
 export const mcpCopy = {
-  sessionTools: "AgentPier-Werkzeuge",
-  sessionToolsSummary: "Alle Werkzeuge für alle Projekte, Accounts und Provider-Zugänge.",
+  sessionTools: "AgentPier-Tools",
+  sessionToolsSummary: "Alle Tools für alle Projekte, Accounts und Provider-Zugänge.",
   sessionToolsLimited:
     "Nur die unten aufgeführten Berechtigungen, für ausgewählte Projekte, Accounts und Provider-Zugänge.",
   sessionToolsHint:
-    "Gilt ohne Zeitlimit, solange diese Sitzung läuft. Stoppen oder Löschen der Sitzung sowie ein Widerruf beenden die Freigabe. Gestartete Läufe laufen nach Ende der Sitzung weiter. Pipeline-Sitzungen erhalten diesen Zugang nicht.",
+    "Gilt ohne Zeitlimit, solange diese Session läuft. Stoppen oder Löschen der Session sowie ein Widerruf beenden die Freigabe. Gestartete Läufe laufen nach Ende der Session weiter. Pipeline-Sessions erhalten diesen Zugang nicht.",
   title: "MCP & Zugriffe",
   introduction:
     "Verbinde deine Coding-CLI mit AgentPier und lege fest, welche Projekte und Aktionen sie nutzen darf.",
@@ -39,7 +39,6 @@ export const mcpCopy = {
   copied: "Kopiert",
   copyFailed: "Kopieren fehlgeschlagen. Markiere den Text und kopiere ihn manuell.",
   loading: "MCP-Zugriffe werden geladen …",
-  retry: "Erneut versuchen",
   grants: "Verbundene Clients",
   noGrants: "Noch keine Clients freigegeben.",
   created: "Freigegeben am",
@@ -50,10 +49,9 @@ export const mcpCopy = {
   expired: "Abgelaufen",
   revoked: "Widerrufen",
   revoke: "Zugriff widerrufen",
-  confirmRevoke: "Widerruf bestätigen",
+  confirmRevoke: "Jetzt widerrufen",
   revokeWarning:
     "Dieser Client verliert sofort den Zugriff. Für eine neue Verbindung ist eine neue Browserfreigabe nötig.",
-  cancel: "Abbrechen",
   previous: "Vorherige Zugriffe",
   next: "Nächste Zugriffe",
   page: (page, total) => `Seite ${page} · ${total} Zugriffe`,

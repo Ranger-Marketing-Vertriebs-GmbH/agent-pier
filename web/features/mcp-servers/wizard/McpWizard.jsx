@@ -24,6 +24,7 @@ import {
   resolveStep,
   wizardReducer,
 } from "./wizard-state.js";
+import { commonCopy } from "../../../lib/i18n/messages/common.js";
 import "../mcp-servers.css";
 import "../mcp-packages.css";
 import "./mcp-wizard.css";
@@ -106,7 +107,7 @@ export default function McpWizard({
         <button
           type="button"
           className="button secondary mcp-wizard-icon"
-          aria-label={copy.back}
+          aria-label={commonCopy.back}
           disabled={!canGoBack}
           onClick={back}
         >
@@ -118,7 +119,7 @@ export default function McpWizard({
         <button
           type="button"
           className="button secondary mcp-wizard-icon"
-          aria-label={copy.close}
+          aria-label={commonCopy.close}
           onClick={close}
         >
           <span aria-hidden="true">×</span>

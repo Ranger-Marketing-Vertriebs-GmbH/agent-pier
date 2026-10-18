@@ -1,7 +1,7 @@
 export const memoryCopy = {
   savedByAssistant: "Von einem Agenten gespeichert",
   discoveryError:
-    "Memory-Hooks konnten nicht konfiguriert werden. Prüfe die Hook-Konfiguration der Sitzung und versuche es erneut.",
+    "Memory-Hooks konnten nicht konfiguriert werden. Prüfe die Hook-Konfiguration der Session und versuche es erneut.",
   addProject: "Projekt hinzufügen",
   directory: "Projektordner",
   notRegistered:
@@ -32,7 +32,7 @@ export const memoryCopy = {
   forgetLimit:
     "Gesperrt wird nur identischer Text: Dasselbe Geheimnis in anderem Text lässt sich weiterhin speichern.",
   forgetArchives:
-    "Vorhandene Sicherungsarchive unter Einstellungen → Betrieb → Sicherungen enthalten den Inhalt weiterhin. Lösche oder behandle sie von Hand.",
+    "Vorhandene Sicherungsarchive unter Einstellungen › Betrieb › Sicherungen enthalten den Inhalt weiterhin. Lösche oder behandle sie von Hand.",
   forgetReason: "Begründung (optional; nie das Geheimnis selbst eintragen)",
   forgetRemoveBackups: (count) =>
     `Auch ${count === 1 ? "die Migrationssicherung" : `die ${count} Migrationssicherungen`} der Wissensdatenbank (memory.sqlite.*) auf diesem Rechner löschen`,

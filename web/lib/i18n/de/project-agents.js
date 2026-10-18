@@ -3,7 +3,7 @@ export const projectAgentsCopy = {
   title: "Agentenzugriff",
   hint: "Derselbe Zugriff wie im Tab „Arbeit“ des jeweiligen Agenten: Eine Änderung hier gilt auch dort.",
   agentsLabel: "Agenten mit Zugriff auf dieses Projekt",
-  coding: "Darf in diesem Projekt Coding-Sitzungen starten",
+  coding: "Darf in diesem Projekt Coding-Sessions starten",
   codingHint:
     "Projektwissen und Coding-Aufträge mit den Pipelines, die im Tab „Arbeit“ des Agenten freigegeben sind. Ordnerzugriff setzt das voraus.",
   folderLegend: "Ordnerzugriff",

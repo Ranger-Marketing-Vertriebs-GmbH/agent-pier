@@ -27,7 +27,6 @@ export const leadRequestCopy = {
   openMemberChat: "Chat öffnen",
   followUpFailed:
     "Das Ergebnis ließ sich nicht an den Agenten zurückgeben. Lies es hier.",
-  cancel: "Abbrechen",
   listTitle: "Fragen und Aufgaben",
   listHint:
     "Was dieser Agent seine Mitglieder gefragt oder ihnen übergeben hat, offene zuerst. Eine Aufgabe darf Dateien im Arbeitsbereich des Mitglieds nur ändern, wenn du sie selbst verlangt hast. Antworten stehen auch in den Chats der Mitglieder.",

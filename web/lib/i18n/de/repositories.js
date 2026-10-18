@@ -12,7 +12,7 @@ export const credentialDialogCopy = {
   commitName: "Commit-Name (optional)",
   commitEmail: "Commit-E-Mail (optional)",
   commitIdentityHint:
-    "Name und E-Mail für Commits in Sitzungen mit diesem Zugang. Beide Felder leer lassen, um vorhandene Git-Einstellungen zu verwenden. Bestehende Sitzungen nach Änderungen neu laden. Bei mehreren Hosts ohne Projektzuordnung wird keine Identität automatisch gewählt.",
+    "Name und E-Mail für Commits in Sessions mit diesem Zugang. Beide Felder leer lassen, um vorhandene Git-Einstellungen zu verwenden. Bestehende Sessions nach Änderungen neu laden. Bei mehreren Hosts ohne Projektzuordnung wird keine Identität automatisch gewählt.",
   commitIdentityInvalid:
     "Bitte einen gültigen Commit-Namen und eine E-Mail-Adresse angeben oder beide Felder leeren.",
   repositoryDialogTitle: "Token löschen?",
@@ -52,10 +52,10 @@ export const githubAccessPageCopy = {
 };
 export const repositoriesPageCopy = {
   agentCredentialDescription:
-    "Neue Agent-Sitzungen erhalten je Host den Standardzugang. Geklonte Projekte verwenden ihren gewählten Zugang.",
-  buttonAriaLabel: (value1) => `Sitzung in ${value1} starten`,
+    "Neue Agent-Sessions erhalten je Host den Standardzugang. Geklonte Projekte verwenden ihren gewählten Zugang.",
+  buttonAriaLabel: (value1) => `Session in ${value1} starten`,
   repositoryEmpty:
-    "Deine geklonten Repositories erscheinen hier. Starte anschließend eine CLI-Sitzung direkt im Projekt.",
+    "Deine geklonten Repositories erscheinen hier. Starte anschließend eine CLI-Session direkt im Projekt.",
 };
 export const repositoryPickerCopy = {
   organizationLabel: "Organisation",
@@ -76,7 +76,7 @@ export const repositoryPickerCopy = {
   nextRepositories: "Weitere Repositories",
 };
 export const cloneStoreCopy = {
-  notice: (value1) => `„${value1}“ wurde geklont. Du kannst jetzt eine Sitzung starten.`,
+  notice: (value1) => `„${value1}“ wurde geklont. Du kannst jetzt eine Session starten.`,
 };
 export const tokenCheckCopy = {
   check: "Prüfen",
@@ -122,7 +122,7 @@ export const sessionGithubCopy = {
   profile: (name, host) => `${name} (${host})`,
   removed: (host) => `${host}: Profil entfernt`,
   tokenProblem: (host) =>
-    `${host}: Token unter Einstellungen → Zugriff → GitHub-Zugänge prüfen`,
+    `${host}: Token unter Einstellungen › Zugriff › GitHub-Zugänge prüfen`,
   sshRemote:
     "Das Projekt-Remote verwendet SSH. GitHub-Tokens gelten nur für HTTPS; Git nutzt hier deine SSH-Schlüssel.",
 };

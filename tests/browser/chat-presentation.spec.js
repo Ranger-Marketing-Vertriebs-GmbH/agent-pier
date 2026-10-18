@@ -92,7 +92,7 @@ for (const width of [390, 1440])
   }) => {
     await page.setViewportSize({ width, height: 844 });
     const { session } = await fixture(page);
-    const status = page.getByRole("status", { name: "Sitzungsaktivität" });
+    const status = page.getByRole("status", { name: "Session-Aktivität" });
     const tab = page.getByRole("button", { name: "Chat", exact: true });
     await expect(status).toContainText("Arbeitet");
     await expect(tab.locator(".chat-working-spinner")).toBeVisible();
@@ -292,7 +292,7 @@ test("session rows show the folder name and keep the full path as title", async 
   await expect(row.locator("small")).toContainText(" · website");
   await expect(row).toHaveAttribute("title", "/fixture/projects/website");
   await expect(page.locator(".session-directory")).toHaveCount(0);
-  await page.getByRole("button", { name: "Sitzungen", exact: true }).click();
+  await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await expect(row).toBeHidden();
 });
 

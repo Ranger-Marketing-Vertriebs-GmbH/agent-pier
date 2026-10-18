@@ -7,7 +7,7 @@ export const chatDeliveryCopy = {
   recoveryChanged:
     "Der Zustellungsstand hat sich inzwischen geändert. Bitte aktualisiere den Status.",
   recoveryRuntime:
-    "Die ursprüngliche CLI-Sitzung ist nicht mehr eindeutig zugeordnet. Bitte prüfe die TUI.",
+    "Die ursprüngliche CLI-Session ist nicht mehr eindeutig zugeordnet. Bitte prüfe die TUI.",
   recoveryComposer:
     "Die TUI-Eingabe enthält anderen Text oder ist nicht vollständig lesbar. Sie wurde nicht verändert.",
   recoveryAttachmentMissing:
@@ -21,7 +21,7 @@ export const chatDeliveryCopy = {
   recoveryHandedOff: "Die Nachricht wurde an die TUI übergeben.",
   unknownDelivery: "Diese Zustellung ist nicht bekannt.",
   invalid: "Ungültiger Zustellauftrag.",
-  scope: "Der Zustellauftrag gehört nicht zur aktuellen Sitzung.",
+  scope: "Der Zustellauftrag gehört nicht zur aktuellen Session.",
   conflict: "Diese Zustell-ID wurde bereits für einen anderen Auftrag verwendet.",
   storage: "Der Zustellbeleg kann nicht sicher gespeichert oder gelesen werden.",
   cancelPasted:
@@ -30,7 +30,7 @@ export const chatDeliveryCopy = {
     "Die angehängten Bilder stehen bereits im Eingabefeld der TUI. Entferne sie dort oder sende die Nachricht dort.",
   recoveryHeld: "Die Nachricht wartet und wird zugestellt, sobald die TUI frei ist.",
   rejected:
-    "Die Eingabe wurde vor der Terminal-Übergabe abgelehnt. Bitte prüfe die Sitzung und offene Freigaben.",
+    "Die Eingabe wurde vor der Terminal-Übergabe abgelehnt. Bitte prüfe die Session und offene Freigaben.",
   uncertain:
     "Die Terminal-Übergabe ist unklar. Erneutes Senden kann die Eingabe duplizieren.",
   imagesPasted:

@@ -81,8 +81,9 @@ export const assistantChannelCopy = {
     TRANSCRIPTION_RATE_LIMITED:
       "Deepgram hat nach mehreren Versuchen weiterhin eine Pause verlangt. Du kannst die Transkription später erneut versuchen.",
     MEDIA_DOWNLOAD: "Die Sprachnachricht konnte nicht heruntergeladen werden.",
-    SPEECH_NOT_CONFIGURED: "Richte vor der Transkription Deepgram unter Konten ein.",
-    SPEECH_AUTH: "Deepgram hat den Schlüssel abgewiesen. Aktualisiere ihn unter Konten.",
+    SPEECH_NOT_CONFIGURED: "Richte vor der Transkription Deepgram unter Accounts ein.",
+    SPEECH_AUTH:
+      "Deepgram hat den Schlüssel abgewiesen. Aktualisiere ihn unter Accounts.",
     TRANSCRIPTION_EMPTY: "Es wurde keine Sprache erkannt.",
     TRANSCRIPTION_FAILED:
       "Transkription fehlgeschlagen. Du kannst sie gezielt erneut versuchen.",

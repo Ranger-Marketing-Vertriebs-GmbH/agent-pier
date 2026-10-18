@@ -3,6 +3,7 @@ import api from "../../lib/api.js";
 import { mcpCopy as copy } from "../../lib/i18n/messages/mcp.js";
 import { formatDate, resourceFields } from "./McpConsent.jsx";
 import useMcpResource from "./useMcpResource.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 function Grant({ grant, resources, reload }) {
   const [confirm, setConfirm] = useState(false),
     [busy, setBusy] = useState(false),
@@ -78,7 +79,7 @@ function Grant({ grant, resources, reload }) {
                 disabled={busy}
                 onClick={() => setConfirm(false)}
               >
-                {copy.cancel}
+                {commonCopy.cancel}
               </button>
             </div>
           </div>
@@ -99,7 +100,7 @@ export default function McpGrants({ resources, page, navigate }) {
         <>
           <p role="alert">{result.error}</p>
           <button className="button" onClick={result.reload}>
-            {copy.retry}
+            {commonCopy.retry}
           </button>
         </>
       ) : !result.data ? (

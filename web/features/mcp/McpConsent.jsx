@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import api from "../../lib/api.js";
 import { mcpCopy as copy } from "../../lib/i18n/messages/mcp.js";
 import useMcpResource from "./useMcpResource.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 export const resourceFields = {
   projectIds: "projects",
   accountIds: "accounts",
@@ -181,7 +182,7 @@ export default function McpConsent({ id, config }) {
         <>
           <p role="alert">{request.error}</p>
           <button className="button" onClick={request.reload}>
-            {copy.retry}
+            {commonCopy.retry}
           </button>
         </>
       ) : request.data ? (

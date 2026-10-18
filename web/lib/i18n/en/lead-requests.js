@@ -26,7 +26,6 @@ export const leadRequestCopy = {
   answerShortened: "Shortened – the whole text is in the member’s chat.",
   openMemberChat: "Open chat",
   followUpFailed: "The result could not be passed back to the agent. Read it here.",
-  cancel: "Cancel",
   listTitle: "Questions and tasks",
   listHint:
     "What this agent asked its members or gave them to do, open ones first. A task may change files in the member's workspace only when you asked for it yourself. Answers also appear in the members' chats.",

@@ -1,7 +1,5 @@
 export const mcpWizardCopy = {
   newTitle: "Neuer MCP-Server",
-  back: "Zurück",
-  close: "Schließen",
   continue: "Weiter",
   stepsLabel: "Einrichtungsschritte",
   stepOf: (current, total) => `Schritt ${current} von ${total}`,
@@ -21,7 +19,7 @@ export const mcpWizardCopy = {
   lost: "Die Einrichtung wurde nicht gespeichert. Fang bitte neu an.",
   emptyTitle: "Noch keine MCP-Server",
   emptyBody:
-    "MCP-Server geben deinen Agents und Coding-CLIs neue Werkzeuge, zum Beispiel Zugriff auf einen Router, ein Wiki oder ein Ticketsystem.",
+    "MCP-Server geben deinen Agents und Coding-CLIs neue Tools, zum Beispiel Zugriff auf einen Router, ein Wiki oder ein Ticketsystem.",
   addFirst: "Ersten Server hinzufügen",
   source: {
     title: "Woher kommt der Server?",
@@ -75,7 +73,7 @@ export const mcpWizardCopy = {
   },
   command: {
     title: "Welcher Befehl?",
-    checking: "Befehl wird gesucht…",
+    checking: "Befehl wird gesucht …",
     found: (path) => `Gefunden: ${path}`,
     missing: "Auf diesem Rechner nicht gefunden.",
     looksLikePackage:
@@ -129,7 +127,7 @@ export const mcpWizardCopy = {
     title: (name) => `${name} installieren`,
     summary: (name, count, secret) =>
       `${name} · ${count} Einstellungen (${secret} geheim)`,
-    checking: "Das Paket und alle Abhängigkeiten werden geprüft…",
+    checking: "Das Paket und alle Abhängigkeiten werden geprüft …",
     previewFailed:
       "Das Paket konnte nicht geprüft werden. Geh zurück und versuch es erneut.",
     progressTitle: "Installation",
@@ -161,19 +159,19 @@ export const mcpWizardCopy = {
   connect: {
     title: (name) => `Wer darf ${name} nutzen?`,
     intro:
-      "Wähl die Coding-CLIs und Agents, die die Werkzeuge dieses Servers bekommen. Du kannst das jederzeit ändern.",
+      "Wähl die Coding-CLIs und Agents, die die Tools dieses Servers bekommen. Du kannst das jederzeit ändern.",
     clis: "Coding-CLIs",
     cliHint:
-      "Wird in seine Einstellungen für alle Konten eingetragen – klappt auch, wenn du ihn im Terminal startest.",
+      "Wird in seine Einstellungen für alle Accounts eingetragen – klappt auch, wenn du ihn im Terminal startest.",
     agents: "Agents",
-    agentsLoading: "Agents werden geladen…",
+    agentsLoading: "Agents werden geladen …",
     agentsFailed: "Die Agents konnten nicht geladen werden.",
     shell: (level) => `Shell: ${level}`,
     telegramLocked:
       "Hat einen eigenen Telegram-Bot für andere Personen und darf deshalb keine lokalen Programme starten.",
     allows: "Was das erlaubt",
     stdioRights:
-      "Läuft auf diesem Rechner mit deinen Benutzerrechten. Jede Sitzung der gewählten CLIs und Agents startet ihn, auch wenn du eine CLI im Terminal startest.",
+      "Läuft auf diesem Rechner mit deinen Benutzerrechten. Jede Session der gewählten CLIs und Agents startet ihn, auch wenn du eine CLI im Terminal startest.",
     writeOff: (name) => `${name} ist aus, er kann also nur lesen.`,
     writeOn: (name) => `${name} ist an, er kann also etwas ändern.`,
     writeStored: (name) =>
@@ -186,7 +184,7 @@ export const mcpWizardCopy = {
     agentSettings: (name) => `Einstellungen von ${name} öffnen`,
     oauthNote:
       "Nach dem Speichern meldest du dich einmal pro CLI an; der nächste Schritt zeigt wie.",
-    waiting: "Wird verbunden, sobald das Paket installiert ist…",
+    waiting: "Wird verbunden, sobald das Paket installiert ist …",
     save: "Speichern und verbinden",
     allow: "Erlauben und verbinden",
     whenInstalled: "Nach der Installation verbinden",
@@ -216,7 +214,7 @@ export const mcpWizardCopy = {
     settings: "Einstellungen",
     settingsStored: (count) => `${count} gespeichert, Werte verborgen`,
     next: "Als Nächstes",
-    restart: "Starte laufende Sitzungen neu, damit die neuen Werkzeuge erscheinen.",
+    restart: "Starte laufende Sessions neu, damit die neuen Tools erscheinen.",
     open: "Server öffnen",
     another: "Weiteren Server hinzufügen",
     changesSaved: "Änderungen gespeichert",
@@ -237,7 +235,7 @@ export const mcpWizardCopy = {
   edit: {
     save: "Änderungen speichern",
     renameNote:
-      "Laufende Sitzungen behalten den alten Namen bis zum Neustart; OAuth-Anmeldungen unter dem alten Namen werden abgemeldet.",
+      "Laufende Sessions behalten den alten Namen bis zum Neustart; OAuth-Anmeldungen unter dem alten Namen werden abgemeldet.",
   },
   paste: {
     title: "Einrichtung einfügen",

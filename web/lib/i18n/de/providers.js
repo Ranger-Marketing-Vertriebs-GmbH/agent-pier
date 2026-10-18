@@ -38,11 +38,11 @@ export const providerCopy = {
   keyMissing: "API-Key fehlt",
   keySaved: "API-Key gespeichert",
   keyHelp:
-    "Der API-Key gilt für den ausgewählten Anbieter. Ein leeres Feld behält den gespeicherten Key; Änderungen gelten für neue Sitzungen.",
+    "Der API-Key gilt für den ausgewählten Anbieter. Ein leeres Feld behält den gespeicherten Key; Änderungen gelten für neue Sessions.",
   switchKey:
     "Beim Anbieterwechsel einen neuen API-Key eingeben oder den gespeicherten Key entfernen.",
   configuredModel: (id) => `Konfiguriertes Anbietermodell: ${id}`,
   modelDetails: "Kontext & Anbieter",
-  restart: "Modellwechsel benötigt eine neue Sitzung.",
+  restart: "Modellwechsel benötigt eine neue Session.",
   accountDetails: "Anbietermodell & Kontext",
 };

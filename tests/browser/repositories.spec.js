@@ -53,11 +53,11 @@ test("clone failures keep fields, pending requests cannot duplicate, and project
     parentDirectory: "/home/test",
     folderName: "project-new",
   });
-  await page.getByRole("button", { name: "Sitzung in project-new starten" }).click();
+  await page.getByRole("button", { name: "Session in project-new starten" }).click();
   await expect(page.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
     "/home/test/project-new",
   );
-  await page.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await page.getByRole("button", { name: "Session starten", exact: true }).click();
   expect(state.sessions[0].cwd).toBe("/home/test/project-new");
 });
 
@@ -158,7 +158,7 @@ for (const outcome of ["success", "failure"]) {
         page.getByRole("heading", { name: "pending-project", exact: true }),
       ).toBeVisible();
       await page
-        .getByRole("button", { name: "Sitzung in pending-project starten" })
+        .getByRole("button", { name: "Session in pending-project starten" })
         .click();
       await expect(page.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
         "/home/test/pending-project",

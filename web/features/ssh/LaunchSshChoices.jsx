@@ -2,6 +2,7 @@ import React from "react";
 import useSshAccesses from "./useSshAccesses.js";
 import SshChoices from "./SshChoices.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./ssh.css";
 export default function LaunchSshChoices({ selected, change }) {
   const { data, error, reload } = useSshAccesses();
@@ -11,7 +12,7 @@ export default function LaunchSshChoices({ selected, change }) {
         <>
           <p role="alert">{error}</p>
           <button className="button" type="button" onClick={reload}>
-            {copy.retry}
+            {commonCopy.retry}
           </button>
         </>
       ) : !data ? (

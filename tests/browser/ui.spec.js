@@ -154,11 +154,11 @@ for (const status of ["stopped", "running"]) {
     });
     await page.goto(base + "/sessions/orphan-pipeline-session/chat");
     if (status === "running") {
-      await expect(page.getByRole("button", { name: "Sitzung stoppen" })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Session stoppen" })).toBeDisabled();
       expect(state.sessions).toHaveLength(1);
       return;
     }
-    const remove = page.getByRole("button", { name: "Sitzung entfernen" });
+    const remove = page.getByRole("button", { name: "Session entfernen" });
     await expect(remove).toBeEnabled();
     await remove.click();
     await page.getByRole("button", { name: "Jetzt entfernen" }).click();
@@ -189,26 +189,26 @@ test("account creation, directory selection, session lifecycle and reload preser
   await expect(accountRow(page, "Arbeit")).toBeVisible();
   await expect(page.getByText("never-return-me")).toHaveCount(0);
   await openNewSession(page);
-  await page.getByLabel("Name der Sitzung").fill("Review");
+  await page.getByLabel("Name der Session").fill("Review");
   await page.getByLabel("Zugang", { exact: true }).selectOption("managed-1");
   await page.getByRole("button", { name: "Ordner auswählen" }).click();
   await page.getByRole("button", { name: "project", exact: true }).click();
   await page.getByRole("button", { name: "Diesen Ordner verwenden" }).click();
-  await page.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await page.getByRole("button", { name: "Session starten", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
   expect(state.sessions[0].cwd).toBe("/home/test/project");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Sitzung umbenennen" }).click();
+  await page.getByRole("button", { name: "Session umbenennen" }).click();
   await page.getByLabel("Neuer Name").fill("Review final");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Review final", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Sitzung stoppen" }).click();
+  await page.getByRole("button", { name: "Session stoppen" }).click();
   await page.getByRole("button", { name: "Jetzt stoppen" }).click();
-  await expect(page.getByRole("button", { name: "Sitzung entfernen" })).toBeVisible();
-  await page.getByRole("button", { name: "Sitzung entfernen" }).click();
+  await expect(page.getByRole("button", { name: "Session entfernen" })).toBeVisible();
+  await page.getByRole("button", { name: "Session entfernen" }).click();
   await page.getByRole("button", { name: "Jetzt entfernen" }).click();
   await expect(
     page.getByRole("heading", { name: "Dein Terminal. Überall." }),

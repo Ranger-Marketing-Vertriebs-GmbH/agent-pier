@@ -2,7 +2,7 @@ export const projectsHubCopy = {
   subtle: "Lokal gespeichert",
   title: "Projekte",
   description:
-    "Vom Repository zur nächsten Sitzung. Wissen, AgentBus und Läufe je Projekt.",
+    "Vom Repository zur nächsten Session. Wissen, AgentBus und Läufe je Projekt.",
   addFolder: "Ordner hinzufügen",
   addMenu: "Projekt hinzufügen",
   projectsCount: (count) => (count === 1 ? "1 Projekt" : `${count} Projekte`),
@@ -35,9 +35,9 @@ export const projectOverviewCopy = {
   tokenProfile: "Token-Profil",
   folder: "Ordner",
   noToken: "Keins",
-  sessions: (count) => `Sitzungen · ${count}`,
-  noSessions: "Noch keine Sitzungen in diesem Projekt.",
-  openSession: (name) => `Sitzung ${name} öffnen`,
+  sessions: (count) => `Sessions · ${count}`,
+  noSessions: "Noch keine Sessions in diesem Projekt.",
+  openSession: (name) => `Session ${name} öffnen`,
   justNow: "gerade eben",
 };
 export const projectDialogsCopy = {
@@ -51,15 +51,15 @@ export const projectDialogsCopy = {
   mergeMoves: "Was übernommen wird",
   mergeLoading: "Umfang wird ermittelt …",
   mergeEntries: (count) => `Memory-Einträge: ${count}`,
-  mergeCapabilities: (count) => `Memory-Zugänge von Sitzungen: ${count}`,
+  mergeCapabilities: (count) => `Memory-Zugänge von Sessions: ${count}`,
   mergeSsh: (count) => `SSH-Schlüssel und -Hosts: ${count}`,
   mergeArtifacts: (count) => `Artefakte: ${count}`,
   mergeVerification: (count) => `Prüfschritte: ${count}`,
   mergeArchived: (count) => `Archivierte Memory-Einträge: ${count}`,
-  mergeSessions: (count) => `Sitzungen: ${count}`,
+  mergeSessions: (count) => `Sessions: ${count}`,
   mergeSessionsUnknown:
-    "Sitzungen: unbekannt (ein Sitzungseintrag konnte nicht gelesen werden)",
+    "Sessions: unbekannt (ein Session-Eintrag konnte nicht gelesen werden)",
   mergeWarning:
-    "SSH-Zugänge und die Berechtigungen von Sitzungen, die den älteren Eintrag genutzt haben, gehen auf den aktuellen Ordner über. Das lässt sich nicht rückgängig machen.",
+    "SSH-Zugänge und die Berechtigungen von Sessions, die den älteren Eintrag genutzt haben, gehen auf den aktuellen Ordner über. Das lässt sich nicht rückgängig machen.",
   mergeConfirm: "Zusammenführen",
 };

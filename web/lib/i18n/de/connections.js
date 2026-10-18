@@ -1,6 +1,6 @@
 export const connectionCopy = {
   description:
-    "Einen API-Key pro Provider-Zugang speichern und mit kompatiblen CLIs verwenden. CLI, Modell und Startmodus wählst du für jede Sitzung.",
+    "Einen API-Key pro Provider-Zugang speichern und mit kompatiblen CLIs verwenden. CLI, Modell und Startmodus wählst du für jede Session.",
   add: "Provider-Zugang hinzufügen",
   name: "Name des Zugangs",
   key: "API-Key",
@@ -25,7 +25,7 @@ export const connectionCopy = {
   keyPlaceholder: "Leer lassen, um den gespeicherten Key zu behalten",
   keyOptional: "Kann auch später ergänzt werden",
   keyHelp:
-    "Der Key wird zentral gespeichert. Änderungen gelten für neue Sitzungen; laufende native Prozesse werden nicht beendet.",
+    "Der Key wird zentral gespeichert. Änderungen gelten für neue Sessions; laufende native Prozesse werden nicht beendet.",
   removeKey: "Gespeicherten API-Key entfernen",
   delete: "Zugang löschen",
   restartRequired:
@@ -33,7 +33,7 @@ export const connectionCopy = {
   saveAndRestart: "Speichern und Agenten neu starten",
   deleteAndRestart: "Löschen und Agenten neu starten",
   deleteConfirm: (name, hasKey) =>
-    `Provider-Zugang „${name}“${hasKey ? " und seinen gespeicherten Key" : ""} löschen? Neue Sitzungen können diesen Zugang dann nicht mehr verwenden. Bestehende Sitzungen und ihre Verläufe bleiben erhalten.`,
+    `Provider-Zugang „${name}“${hasKey ? " und seinen gespeicherten Key" : ""} löschen? Neue Sessions können diesen Zugang dann nicht mehr verwenden. Bestehende Sessions und ihre Verläufe bleiben erhalten.`,
   responses: "Responses-API-Zugang bestätigt",
   responsesHelp:
     "Mein Z.ai-Zugang erlaubt die Responses API für Codex. Diese Angabe ist eine eigene Bestätigung und keine automatische Prüfung.",
@@ -42,7 +42,7 @@ export const connectionCopy = {
   access: "Zugang",
   nativeModel: "Natives Modell (optional)",
   nativeModelHelp:
-    "Leer lassen für die CLI-Voreinstellung oder eine exakte native Modell-ID eingeben. Die verfügbare Modellauswahl kannst du auch in der laufenden Sitzung öffnen.",
+    "Leer lassen für die CLI-Voreinstellung oder eine exakte native Modell-ID eingeben. Die verfügbare Modellauswahl kannst du auch in der laufenden Session öffnen.",
   nativeDefault: "CLI-Voreinstellung",
   noAccess: "Kein kompatibler Zugang",
   isolated:

@@ -68,7 +68,7 @@ export const assistantCopy = {
     createImagesDescription:
       "Creates and edits images with your ChatGPT account (gpt-image-2) and hands them to you in the chat.",
     imagesUnavailable:
-      "Connect a ChatGPT account under Accounts → ChatGPT for agents to create images.",
+      "Connect a ChatGPT account under Accounts › ChatGPT for agents to create images.",
     browserUnavailable:
       "No supported browser found on this computer. Install Chrome, Brave, Edge or Chromium to use this.",
     searchUnavailable:
@@ -162,7 +162,7 @@ export const assistantCopy = {
   },
   conversation: "Conversation",
   settingsTab: "Settings",
-  messagePlaceholder: "Message your agent…",
+  messagePlaceholder: "Message your agent …",
   webSearch: {
     title: "Web search",
     description:
@@ -181,7 +181,7 @@ export const assistantCopy = {
     ready: "Ready",
     notConfigured: "Not configured: agents cannot search the web until this is complete.",
     save: "Save search settings",
-    saving: "Saving…",
+    saving: "Saving …",
   },
   speech: {
     title: "Speech recognition",
@@ -216,7 +216,7 @@ export const assistantCopy = {
   loginPage: "Sign-in page:",
   loginCancel: "Cancel sign-in",
   loginStatus: {
-    starting: "Starting sign-in…",
+    starting: "Starting sign-in …",
     awaiting_user: "Waiting for your sign-in",
     completed: "ChatGPT connected",
     cancelled: "Sign-in cancelled",
@@ -248,7 +248,7 @@ export const assistantCopy = {
     title: "Enable agents",
     description:
       "Agents are managed by OpenClaw. While this is off, AgentPier shows no agent navigation or account sections and runs no agent connections or background work on this host.",
-    saving: "Saving…",
+    saving: "Saving …",
     diagnostic: "Agent diagnostic",
     problem: (code) => `Agents reported a problem (${code}).`,
     errors: {
@@ -277,7 +277,7 @@ export const assistantCopy = {
   modelChoice: "Model",
   chooseModel: "Choose a model",
   noMatchingModels: "No matching models found.",
-  customModel: "Custom model ID…",
+  customModel: "Custom model ID …",
   refreshAccountModels: "Refresh models",
   accountModelsLoading: "Loading ChatGPT models …",
   accountModelsStale:
@@ -290,7 +290,6 @@ export const assistantCopy = {
   connections: "Manage connections",
   noConnections: "Connect ChatGPT or OpenRouter in Accounts to get started.",
   save: "Save agent",
-  cancel: "Cancel",
   settings: "Agent settings",
   connectionUse: {
     agents: (names) =>
@@ -317,7 +316,7 @@ export const assistantCopy = {
     edit: "Edit",
     editLabel: "Edit queued message",
     label: "Queued message",
-    sending: "Sending now…",
+    sending: "Sending now …",
     retrying: (name) => `Not sent yet: AgentPier keeps trying to send it to ${name}`,
     blocked: (name) => `Not sent yet: ${name} can't take messages right now`,
     failed: (reason) => `Not sent: ${reason}`,
@@ -342,7 +341,7 @@ export const assistantCopy = {
   },
   earlier: "Earlier messages",
   emptyChat: "What would you like to work on?",
-  loading: "Loading…",
+  loading: "Loading …",
   unavailable: "This agent is not available.",
   runtimeLink: "Agent service settings",
   runtime: "Agent service",

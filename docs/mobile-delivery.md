@@ -1,17 +1,17 @@
 # Nachrichten auf dem Handy senden und wiederherstellen
 
 Der Chat speichert Entwürfe und bereits hochgeladene Anhänge im Browser. Beim
-Wiederöffnen derselben Sitzung stehen sie wieder bereit. Ein anderer Account oder
-eine andere Sitzung erhält einen getrennten Entwurf. Browserdaten sind an die
+Wiederöffnen derselben Session stehen sie wieder bereit. Ein anderer Account oder
+eine andere Session erhält einen getrennten Entwurf. Browserdaten sind an die
 Adresse gebunden: localhost und die mobile HTTPS-Adresse teilen keinen Speicher.
 
 Nach dem Senden erscheint die Nachricht sofort im Verlauf. Ihr Status zeigt:
 
 - **Wartet auf Übergabe:** lokal gespeichert, noch nicht bestätigt angenommen.
 - **Wird übergeben / Übergabe läuft:** ein Übergabeversuch ist aktiv.
-- **An Sitzung übergeben:** die Terminal-Eingabe ist beendet. Das bestätigt noch
+- **An Session übergeben:** die Terminal-Eingabe ist beendet. Das bestätigt noch
   keinen Bearbeitungsbeginn und auch keine interne Warteschlange des Providers.
-- **Nicht übergeben:** die Sitzung oder eine Freigabe hat die Eingabe vor dem
+- **Nicht übergeben:** die Session oder eine Freigabe hat die Eingabe vor dem
   Schreiben abgelehnt. „Neu zustellen“ prüft einen weiteren Versuch; über
   „Nachricht bearbeiten“ wird sie wieder zum Entwurf.
 - **Zustellung unklar:** die Eingabe könnte bereits erfolgt sein. Zuerst Verlauf
@@ -33,18 +33,18 @@ ist ausschließlich eine Darstellungshilfe und entscheidet nicht über Wiederhol
 Codex, Claude und OpenCode erhalten Chatnachrichten direkt in ihrer laufenden TUI.
 Der Terminal-Tab muss dafür nicht geöffnet sein. Die CLI entscheidet, wie Eingaben
 während einer laufenden Aufgabe eingereiht oder verarbeitet werden. AgentPier prüft
-vorher die Sitzung, offene Dialoge und das native Eingabefeld. Andere vorhandene
+vorher die Session, offene Dialoge und das native Eingabefeld. Andere vorhandene
 Entwürfe werden nicht gelöscht oder mit der Chatnachricht vermischt.
 
 Fehlgeschlagene und unklare Nachrichten behalten ihren Text und ihre Anhänge, auch
 wenn später weitere Nachrichten gesendet werden. **Neu zustellen** prüft zuerst
-unter der Sitzungssperre, was bereits geschrieben wurde:
+unter der Session-Sperre, was bereits geschrieben wurde:
 
 - Wurde noch nichts geschrieben und ist das Eingabefeld frei, wird die Nachricht
   einmal eingefügt und abgeschickt.
 - Steht der vollständige eigene Text noch unverändert im Eingabefeld und hat der
   ursprüngliche Versuch noch keinen Submit begonnen, wird nur das Abschicken nachgeholt.
-- Bei anderem oder nur teilweise erkennbarem Text, einer geänderten CLI-Sitzung
+- Bei anderem oder nur teilweise erkennbarem Text, einer geänderten CLI-Session
   oder einem möglicherweise schon erfolgten Submit bleibt die Eingabe unverändert.
   Der Chat zeigt den Grund und bietet **TUI öffnen** an.
 
@@ -60,7 +60,7 @@ Ein Doppelklick oder wiederholter HTTP-Aufruf mit derselben Versuchs-ID führt d
 Versuch nicht erneut aus. **Übergabe prüfen** bei einer bereits übergebenen Nachricht
 liest nur den Zustand. Fehlende KI-Ausgabe allein beweist keinen Zustellfehler.
 Gleichzeitiges Tippen außerhalb AgentPiers, etwa über einen eigenen tmux-Client,
-kann AgentPier nicht unter seiner internen Sitzungssperre koordinieren.
+kann AgentPier nicht unter seiner internen Session-Sperre koordinieren.
 
 ## Slash-Befehle
 
@@ -85,7 +85,7 @@ für den geschützten Versand erforderlich. Speicherprobleme erscheinen als Fehl
 ohne gespeicherten Auftrag startet der Chat keinen neuen Übergabeversuch.
 
 Browserdaten löschen entfernt auch Entwürfe und lokale Übergabeanzeigen. Der
-Server behält private Belege ohne Nachrichtentext bis zum Löschen der Sitzung.
+Server behält private Belege ohne Nachrichtentext bis zum Löschen der Session.
 Die Garantie setzt wie bisher eine einzelne AgentPier-Instanz pro Datenverzeichnis
 voraus. Ein erfolgreicher Beleg ist keine Bestätigung des KI-Providers.
 

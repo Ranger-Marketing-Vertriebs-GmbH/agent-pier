@@ -67,7 +67,8 @@ async function fixture(page) {
           await route.fulfill({
             status: 409,
             json: {
-              error: "Memory wurde geändert. Bitte vor dem Speichern neu laden.",
+              error:
+                "Das Projektwissen wurde geändert. Bitte vor dem Speichern neu laden.",
               messageKey: "memory.changed",
             },
           });
@@ -121,7 +122,7 @@ test("project memory deep links support conflict recovery, revisions, archive an
   await content.fill("My unsaved draft");
   state.conflict();
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Memory wurde geändert");
+  await expect(page.getByRole("alert")).toContainText("Das Projektwissen wurde geändert");
   await expect(content).toHaveValue("My unsaved draft");
   await page.getByRole("button", { name: "Aktuellen Stand laden" }).click();
   await expect(content).toHaveValue("Updated by another agent.");

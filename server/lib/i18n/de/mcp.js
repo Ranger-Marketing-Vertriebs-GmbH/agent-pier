@@ -3,9 +3,9 @@ export const mcp = Object.freeze({
   invalidPermissions: "Bitte gültige AgentPier-Berechtigungen wählen.",
   unavailableResources: "Bitte verfügbare AgentPier-Ressourcen wählen.",
   projectRequired: "Bitte mindestens ein AgentPier-Projekt wählen.",
-  sessionAccessRevoked: "Der AgentPier-Zugang dieser Sitzung wurde widerrufen.",
+  sessionAccessRevoked: "Der AgentPier-Zugang dieser Session wurde widerrufen.",
   reservedSessionMcpName:
-    "Der reservierte MCP-Name für AgentPier-Sitzungen ist bereits konfiguriert.",
+    "Der reservierte MCP-Name für AgentPier-Sessions ist bereits konfiguriert.",
   invalidOpenCodeMcpConfig:
     "Die temporäre OpenCode-MCP-Konfiguration ist ungültig oder widersprüchlich.",
   authorizationNotFound: "Autorisierungsanfrage nicht gefunden.",

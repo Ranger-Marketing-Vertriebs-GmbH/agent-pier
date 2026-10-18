@@ -32,7 +32,7 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
     catalogReasonCode: "empty",
     catalogReason: "Für diesen Account sind keine Standard-Plugins verfügbar.",
     noteCodes: ["restartRequired", "codexActivation"],
-    note: "Änderungen gelten für neue CLI-Sitzungen. Aktivierung über /plugins.",
+    note: "Änderungen gelten für neue CLI-Sessions. Aktivierung über /plugins.",
   };
   await page.route("**/api/**", (route) => {
     const url = new URL(route.request().url());

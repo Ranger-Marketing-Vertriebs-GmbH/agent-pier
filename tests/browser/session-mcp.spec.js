@@ -17,7 +17,7 @@ for (const mobile of [false, true])
     await page.goto(baseURL);
     await openNewSession(page);
     await page.locator(".launch-extensions > summary").click();
-    const enabled = page.getByRole("checkbox", { name: /AgentPier-Werkzeuge/ });
+    const enabled = page.getByRole("checkbox", { name: /AgentPier-Tools/ });
     await expect(enabled).toBeChecked();
     await expect(
       page.getByRole("checkbox", { name: "Läufe starten", exact: true }),
@@ -35,14 +35,14 @@ for (const mobile of [false, true])
     });
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Sitzung starten", exact: true })
+      .getByRole("button", { name: "Session starten", exact: true })
       .click();
     await expect(page.getByRole("alert")).toContainText("Launch rejected");
     expect(launches[0].agentpierTools).toBe(true);
     await enabled.uncheck();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Sitzung starten", exact: true })
+      .getByRole("button", { name: "Session starten", exact: true })
       .click();
     await expect.poll(() => launches.length).toBe(2);
     expect(launches[1].agentpierTools).toBe(false);
@@ -104,7 +104,7 @@ for (const language of ["de", "en"])
       await page.goto(baseURL + "/sessions/fixture-session");
       await page
         .getByRole("button", {
-          name: english ? "AgentPier tools" : "AgentPier-Werkzeuge",
+          name: english ? "AgentPier tools" : "AgentPier-Tools",
           exact: true,
         })
         .click();

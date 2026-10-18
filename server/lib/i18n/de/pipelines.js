@@ -72,8 +72,8 @@ export const pipelines = Object.freeze({
   noNativeConversationToResume:
     "Der vorherige Turn hat keine geprüfte native Unterhaltung, die fortgesetzt werden kann.",
   invalidNativeConversation: "Ungültige Kennung der nativen Unterhaltung.",
-  sessionOwnershipMismatch: "Die Zuordnung der Pipeline-Sitzung stimmt nicht überein.",
-  invalidSessionMode: "Ungültiger Pipeline-Sitzungsmodus.",
+  sessionOwnershipMismatch: "Die Zuordnung der Pipeline-Session stimmt nicht überein.",
+  invalidSessionMode: "Ungültiger Pipeline-Session-Modus.",
   observationRequiresTurn:
     "Die native Beobachtung erfordert einen eigenen Pipeline-Turn.",
   useFeedbackControls:
@@ -85,7 +85,7 @@ export const pipelines = Object.freeze({
   stageWorkspaceUnsafe:
     "Der Arbeitsbereich der Stufe konnte nicht sicher vorbereitet werden.",
   stageLaunchFailed:
-    "Die Stufe konnte nicht gestartet werden. Bitte Account und native Sitzung prüfen.",
+    "Die Stufe konnte nicht gestartet werden. Bitte Account und native Session prüfen.",
   usageLimitReached: "Das Nutzungslimit des nativen Providers ist erreicht.",
   nativeTurnFailed:
     "Der native Turn der Stufe ist nicht erfolgreich beendet worden. Bitte die Terminalausgabe prüfen.",

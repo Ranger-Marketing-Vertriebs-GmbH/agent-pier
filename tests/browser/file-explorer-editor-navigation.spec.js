@@ -124,7 +124,7 @@ test("Escape cannot cancel a decision while its save completion is pending", asy
   await navigateTo(page, "Settings");
   await page.getByRole("button", { name: "Save and continue", exact: true }).click();
   await expect(
-    page.getByRole("dialog").getByRole("button", { name: "Saving…", exact: true }),
+    page.getByRole("dialog").getByRole("button", { name: "Saving …", exact: true }),
   ).toBeDisabled();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { name: "Unsaved documents" })).toBeVisible();

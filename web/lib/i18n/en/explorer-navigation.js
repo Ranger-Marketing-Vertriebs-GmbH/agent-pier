@@ -1,7 +1,6 @@
 export const explorerNavigationCopy = {
   root: "Project directory",
   home: "Home",
-  back: "Back",
   forward: "Forward",
   up: "Parent directory",
   refresh: "Refresh file list",

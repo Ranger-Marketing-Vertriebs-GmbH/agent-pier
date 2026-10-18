@@ -1,8 +1,8 @@
 import React, { useId, useState } from "react";
 import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
 import { mcpPackageCopy as copy } from "../../lib/i18n/messages/mcp-packages.js";
-import { mcpServerCopy } from "../../lib/i18n/messages/mcp-servers.js";
 import { showsPath } from "./mcp-package-labels.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./mcp-packages.css";
 
 /** Nested copies of one package share name and version; their lock path tells them apart. */
@@ -185,7 +185,7 @@ function ConfirmationBody({
           disabled={busy}
           onClick={onCancel}
         >
-          {mcpServerCopy.cancel}
+          {commonCopy.cancel}
         </button>
       </div>
     </>

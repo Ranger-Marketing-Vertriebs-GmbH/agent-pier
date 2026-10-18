@@ -81,7 +81,7 @@ export default function PluginFrame({
                     plugins.mutate(confirm.body, copy.buttonOnClick(confirm.name))
                   }
                 >
-                  {commonCopy.confirmRemoval}
+                  {commonCopy.removeNow}
                 </button>
               </div>
             </div>

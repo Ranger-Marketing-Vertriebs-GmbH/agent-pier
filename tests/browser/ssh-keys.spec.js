@@ -85,7 +85,7 @@ test("named keys are created independently, renamed and reused by two hosts", as
     await openAccess(page, name);
     await card(page, name).getByRole("button", { name: "Delete", exact: true }).click();
     await card(page, name)
-      .getByRole("button", { name: "Confirm deletion", exact: true })
+      .getByRole("button", { name: "Delete now", exact: true })
       .click();
     await expect(card(page, name)).toHaveCount(0);
   }
@@ -130,14 +130,14 @@ test("existing host key selection preserves confirmation and failed key deletion
     .click();
   state.fail = true;
   await card(page, "Deployment key")
-    .getByRole("button", { name: "Löschen bestätigen", exact: true })
+    .getByRole("button", { name: "Jetzt löschen", exact: true })
     .click();
   await expect(card(page, "Deployment key").getByRole("alert")).toContainText(
     "Fixture conflict",
   );
   state.fail = false;
   await card(page, "Deployment key")
-    .getByRole("button", { name: "Löschen bestätigen", exact: true })
+    .getByRole("button", { name: "Jetzt löschen", exact: true })
     .click();
   await expect(card(page, "Deployment key")).toHaveCount(0);
 });

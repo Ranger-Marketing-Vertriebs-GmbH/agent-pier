@@ -5,7 +5,7 @@ export const mcpPackageCopy = {
   registries: { npm: "npm", pypi: "PyPI" },
   nameLabel: "Package",
   versionLabel: "Version",
-  versionsLoading: "Loading versions…",
+  versionsLoading: "Loading versions …",
   versionsUnavailable:
     "Versions could not be loaded. Check the package name or try again later.",
   showPrereleases: "Show prereleases",
@@ -49,7 +49,7 @@ export const mcpPackageCopy = {
   diffNone: "No package changes.",
   diffChange: (name, from, to) => `${name} ${from} → ${to}`,
   status: {
-    installing: "Installing…",
+    installing: "Installing …",
     ready: "Installed",
     failed: "Installation failed",
     missing: "Installation missing",

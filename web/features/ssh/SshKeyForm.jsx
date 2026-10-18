@@ -3,6 +3,7 @@ import api from "../../lib/api.js";
 import Modal from "../../components/Modal.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 export default function SshKeyForm({ sshKey, projects, projectId, close, saved }) {
   const [name, setName] = useState(sshKey?.name || "");
   const [mode, setMode] = useState("generate");
@@ -103,10 +104,10 @@ export default function SshKeyForm({ sshKey, projects, projectId, close, saved }
         {busy && <p role="status">{copy.busy}</p>}
         <div className="ssh-actions">
           <button className="button" type="button" disabled={busy} onClick={close}>
-            {copy.cancel}
+            {commonCopy.cancel}
           </button>
           <button className="button primary" disabled={busy || !name.trim()}>
-            {copy.save}
+            {commonCopy.save}
           </button>
         </div>
       </form>

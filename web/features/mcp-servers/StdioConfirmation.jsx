@@ -2,6 +2,7 @@ import React from "react";
 import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
 import { mcpCliCopy as cliCopy } from "../../lib/i18n/messages/mcp-cli.js";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 
 /**
  * Warns that stdio servers run with the owner's rights; the owner confirms or backs
@@ -51,7 +52,7 @@ export default function StdioConfirmation({
           disabled={busy}
           onClick={onCancel}
         >
-          {copy.cancel}
+          {commonCopy.cancel}
         </button>
       </div>
     </div>

@@ -3,6 +3,7 @@ import Modal from "../../components/Modal.jsx";
 import api from "../../lib/api.js";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 
 export default function SshProjectReassign({
   sourceProjects,
@@ -65,7 +66,7 @@ export default function SshProjectReassign({
         {busy && <p role="status">{copy.busy}</p>}
         <div className="ssh-actions">
           <button type="button" className="button" disabled={busy} onClick={close}>
-            {copy.cancel}
+            {commonCopy.cancel}
           </button>
           <button
             className="button primary"

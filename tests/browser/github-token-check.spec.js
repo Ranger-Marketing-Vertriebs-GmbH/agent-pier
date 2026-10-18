@@ -111,7 +111,7 @@ test("a session footer names its GitHub profile and warns about SSH remotes", as
   const footer = page.locator(".session-footer");
   await expect(footer).toContainText("Persönlich (github.com)");
   await expect(footer).toContainText(
-    "github.com: token needs attention in Settings → Access → GitHub connections",
+    "github.com: token needs attention in Settings › Access › GitHub connections",
   );
   await expect(footer).toContainText(
     "The project remote uses SSH. GitHub tokens apply to HTTPS only",

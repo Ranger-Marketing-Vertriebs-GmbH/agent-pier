@@ -141,7 +141,7 @@ for (const mobile of [false, true])
     const dialog = page.getByRole("dialog", { name: "Frontend Expert" });
     await expect(dialog).toContainText("Use the selected project.");
     await expect(dialog).toContainText(
-      "Modell und Berechtigungen werden von deiner Sitzung geerbt.",
+      "Modell und Berechtigungen werden von deiner Session geerbt.",
     );
     await expect(dialog.getByRole("link", { name: /Quelle auf GitHub/ })).toBeVisible();
     await page.screenshot({
@@ -151,7 +151,7 @@ for (const mobile of [false, true])
     await dialog.getByRole("button", { name: "Für diese CLI installieren" }).click();
     await expect(dialog).toHaveCount(0);
     await expect(
-      page.getByText("Agent installiert. Starte eine neue Sitzung, um ihn zu verwenden."),
+      page.getByText("Agent installiert. Starte eine neue Session, um ihn zu verwenden."),
     ).toBeVisible();
     expect(writes.find((item) => item.path.endsWith("/agency")).body).toEqual({
       id: "engineering__frontend",

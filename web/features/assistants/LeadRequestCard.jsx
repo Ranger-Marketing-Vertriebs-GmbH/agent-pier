@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { leadRequestCopy as copy } from "../../lib/i18n/messages/lead-requests.js";
 import { assistantApi } from "./assistant-api.js";
 import RouteLink from "./RouteLink.jsx";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 
 const open = new Set(["queued", "dispatching", "running", "uncertain"]);
 /** The state label; a finished question reads "Answered", a finished task "Done". */
@@ -96,7 +97,7 @@ export default function LeadRequestCard({
             className="button secondary"
             onClick={() => act(() => assistantApi.cancelLeadRequest(r.id))}
           >
-            {copy.cancel}
+            {commonCopy.cancel}
           </button>
         </div>
       )}

@@ -1,12 +1,12 @@
 /** Existing German product copy, addressed through English semantic keys. */
 export const tools = Object.freeze({
   cliUpdateRequired: (name, found, required) =>
-    `${name} ist in Version ${found} installiert, AgentPier benötigt aber ${required} oder neuer. Bitte das CLI aktualisieren und die Sitzung erneut starten.`,
+    `${name} ist in Version ${found} installiert, AgentPier benötigt aber ${required} oder neuer. Bitte das CLI aktualisieren und die Session erneut starten.`,
   nativeUpdateRequired:
     "Für Updates ist eine native oder von AgentPier verwaltete npm-Installation erforderlich.",
   installationChanged: "Die CLI-Installation wurde während des Updates geändert.",
   cliUpdated:
-    "CLI aktualisiert und geprüft. Neue oder neu geladene Sitzungen verwenden die aktualisierte Version.",
+    "CLI aktualisiert und geprüft. Neue oder neu geladene Sessions verwenden die aktualisierte Version.",
   invalidGithubRedirect: "Ungültige GitHub-Download-Weiterleitung.",
   forbiddenGithubRedirect: "GitHub-Download-Weiterleitung zu einem nicht erlaubten Ziel.",
   publicDownloadFailed: "Der öffentliche GitHub-Download ist fehlgeschlagen.",
@@ -74,8 +74,8 @@ export const tools = Object.freeze({
   installedReleaseVersionMismatch:
     "Die GitHub-CLI-Version stimmt nicht mit dem geprüften Release überein.",
   githubCliInstalled:
-    "GitHub CLI installiert und geprüft. Es steht neuen Sitzungen zur Verfügung.",
-  cliInstalled: "CLI installiert und geprüft. Du kannst eine Sitzung starten.",
+    "GitHub CLI installiert und geprüft. Es steht neuen Sessions zur Verfügung.",
+  cliInstalled: "CLI installiert und geprüft. Du kannst eine Session starten.",
   installationTargetFailed:
     "Installation fehlgeschlagen. Bitte Zielordner und Schreibrechte prüfen.",
   installationAbortedOrTimedOut:

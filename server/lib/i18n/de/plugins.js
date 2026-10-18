@@ -25,15 +25,15 @@ export const plugins = Object.freeze({
     "Doppelte Konfigurationsschlüssel müssen zuerst im CLI-Profil korrigiert werden.",
   invalidExistingConfig:
     "Die vorhandene Plugin-Konfiguration ist ungültig und wurde nicht verändert.",
-  shellManagementUnavailable: "Für Shell-Sitzungen gibt es keine Plugin-Verwaltung.",
+  shellManagementUnavailable: "Für Shell-Sessions gibt es keine Plugin-Verwaltung.",
   restartRequiredNotice:
-    "Änderungen gelten für neue CLI-Sitzungen. Bereits laufende Sitzungen bleiben unverändert.",
+    "Änderungen gelten für neue CLI-Sessions. Bereits laufende Sessions bleiben unverändert.",
   unsupportedCliJson:
     "Das CLI liefert kein unterstütztes Plugin-JSON. Bitte die CLI-Version prüfen.",
   unsupportedEntryFormat: "Ein Plugin-Eintrag hat ein nicht unterstütztes Format.",
   externalSourceScope: "Externe Quelle · nur im nativen Profil verwaltbar",
   openCodeConfigurationNotice:
-    "OpenCode verwendet npm-Pakete und lokale Plugins, keine verwalteten Marketplaces. Server- und TUI-Konfiguration werden berücksichtigt. Änderungen werden in neuen CLI-Sitzungen geladen.",
+    "OpenCode verwendet npm-Pakete und lokale Plugins, keine verwalteten Marketplaces. Server- und TUI-Konfiguration werden berücksichtigt. Änderungen werden in neuen CLI-Sessions geladen.",
   openCodeInstallerUnavailable:
     "Diese OpenCode-Version unterstützt noch keinen nativen Plugin-Installationsbefehl.",
   unsupportedPluginList: "Dieses native Plugin-Listenformat wird noch nicht unterstützt.",
@@ -54,7 +54,7 @@ export const plugins = Object.freeze({
   notFound: "Plugin nicht gefunden.",
   readOnly: "Dieses Plugin ist hier schreibgeschützt.",
   configurationUpdated:
-    "Plugin-Konfiguration aktualisiert. Neue CLI-Sitzungen übernehmen die Änderung.",
+    "Plugin-Konfiguration aktualisiert. Neue CLI-Sessions übernehmen die Änderung.",
   missingOrReadOnly: "Plugin nicht gefunden oder schreibgeschützt.",
   multipleVersionsConfigured:
     "Mehrere Versionen dieses Plugins sind konfiguriert. Bitte zuerst die nativen Konfigurationen bereinigen.",

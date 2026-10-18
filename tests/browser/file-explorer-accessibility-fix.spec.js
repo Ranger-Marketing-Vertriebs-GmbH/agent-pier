@@ -95,7 +95,7 @@ for (const language of ["en", "de"])
             collapse: "Collapse /",
             move: "Move",
             rename: "Rename",
-            trash: "Move to Trash",
+            trash: "Move to trash",
             copy: "Copy",
             cut: "Cut",
             cancel: "Cancel",

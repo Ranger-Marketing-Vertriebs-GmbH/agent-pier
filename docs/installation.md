@@ -273,9 +273,11 @@ tailscale serve --https=8443 off
 
 Do not use `tailscale serve reset` if other exposures exist. Remove the project directory and profile data only if they are no longer needed. Old installations under the former name may use `dev.tuiui.server.plist`; stop such a service explicitly before switching so that two web services do not compete for the same port.
 
-### Remove old versions
+<a id="remove-old-versions"></a>
 
-Under **Settings → Operations → Updates → Remove old versions**, older versions can be deleted individually or together. The confirmation lists the exact selection. Deleted versions are no longer available for rollback.
+### Delete old versions
+
+Under **Settings → Operations → Updates → Delete old versions**, older versions can be deleted individually or together. The confirmation lists the exact selection. Deleted versions are no longer available for rollback.
 
 The active version, newer staged versions and versions with running processes are retained. If the existing `ps` process check cannot run reliably, nothing is deleted. Cleanup is locked during activation, rollback or session migration. It does not change session data or profiles.
 

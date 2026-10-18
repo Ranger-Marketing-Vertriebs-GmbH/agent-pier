@@ -9,13 +9,11 @@ export const mcpServerCopy = {
   confirmRemove: (name) =>
     `${name} entfernen? Agenten, die ihn nutzen, verlieren sofort den Zugriff. Gespeicherte Header- und Umgebungswerte werden gelöscht.`,
   confirmRemoveAction: "Server entfernen",
-  cancel: "Abbrechen",
-  close: "Schließen",
   save: "Server speichern",
   saving: "Speichert …",
   nameLabel: "Name",
   nameRule:
-    "1 bis 30 Buchstaben, Ziffern, Bindestriche oder Unterstriche, das erste Zeichen ein Buchstabe. Agenten und Coding-CLIs sehen die Werkzeuge unter diesem Namen.",
+    "1 bis 30 Buchstaben, Ziffern, Bindestriche oder Unterstriche, das erste Zeichen ein Buchstabe. Agenten und Coding-CLIs sehen die Tools unter diesem Namen.",
   transportLabel: "Verbindung",
   transports: {
     http: "HTTP",
@@ -66,11 +64,11 @@ export const mcpServerCopy = {
     "Dieser Agent hat einen eigenen Telegram-Bot für andere Personen und kann daher keine stdio-Server nutzen: Diese führen Befehle auf diesem Rechner aus. Entfernte Server bleiben verfügbar.",
   stdioWarningTitle: "Lokalen Befehl ausführen?",
   stdioWarning:
-    "Ein stdio-Server führt diesen Befehl mit deinen Benutzerrechten aus, ohne Sandbox. Sobald er einem Agenten zugewiesen ist, startet er für jede Sitzung jedes Agenten, auch für Agenten, die ihn nie nutzen. Füge nur Befehle hinzu, denen du vertraust.",
+    "Ein stdio-Server führt diesen Befehl mit deinen Benutzerrechten aus, ohne Sandbox. Sobald er einem Agenten zugewiesen ist, startet er für jede Session jedes Agenten, auch für Agenten, die ihn nie nutzen. Füge nur Befehle hinzu, denen du vertraust.",
   stdioConfirm: "Bestätigen und speichern",
   stdioBindingTitle: "Agenten einen lokalen Befehl geben?",
   stdioBindingWarning:
-    "Die gewählten stdio-Server führen lokale Befehle mit deinen Benutzerrechten aus, ohne Sandbox. Sobald sie einem Agenten zugewiesen sind, starten sie für jede Sitzung jedes Agenten, nicht nur für diesen Agenten.",
+    "Die gewählten stdio-Server führen lokale Befehle mit deinen Benutzerrechten aus, ohne Sandbox. Sobald sie einem Agenten zugewiesen sind, starten sie für jede Session jedes Agenten, nicht nur für diesen Agenten.",
   stdioBindingConfirm: "Bestätigen und speichern",
   agentTitle: "MCP-Server",
   agentDescription:

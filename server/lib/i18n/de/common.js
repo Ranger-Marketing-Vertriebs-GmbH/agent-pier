@@ -9,7 +9,7 @@ export const common = Object.freeze({
   invalidProjectDirectory: "Ungültiger Projektordner.",
   invalidTemporaryOpenCodeConfig: "Die temporäre OpenCode-Konfiguration ist ungültig.",
   unknownCliTool: "Unbekanntes CLI-Tool.",
-  invalidSessionId: "Ungültige Sitzungs-ID.",
+  invalidSessionId: "Ungültige Session-ID.",
   invalidCliProfile: "Ungültiges CLI-Profil.",
   serverStopping: "Der Server wird beendet.",
   cliNotInstalled: "Dieses CLI-Tool ist nicht installiert.",

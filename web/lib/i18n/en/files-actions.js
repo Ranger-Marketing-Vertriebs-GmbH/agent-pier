@@ -16,7 +16,7 @@ export const fileActionsCopy = {
   paste: "Paste",
   move: "Move",
   copyPath: "Copy path",
-  trash: "Move to Trash",
+  trash: "Move to trash",
   trashTitle: "Trash",
   clearSelection: "Clear selection",
   selection: (count) => `${count} selected.`,
@@ -26,7 +26,7 @@ export const fileActionsCopy = {
   confirm: "Confirm",
   destination: (path) => `Destination: ${path}`,
   trashConfirm:
-    "Move these entries to AgentPier Trash? They remain there until you explicitly restore or permanently delete them.",
+    "Move these entries to the AgentPier trash? They remain there until you explicitly restore or permanently delete them.",
   conflict: "File conflict",
   applyRemaining: "Apply to remaining conflicts of the same type",
   choices: {
@@ -40,14 +40,14 @@ export const fileActionsCopy = {
     "Restore this folder separately with Keep both. You can then explicitly merge it using Copy or Move.",
   restore: "Restore",
   permanentDelete: "Delete permanently",
-  emptyTrash: "Empty Trash",
-  refreshTrash: "Refresh Trash",
+  emptyTrash: "Empty trash",
+  refreshTrash: "Refresh trash",
   trashEmpty: "Trash is empty.",
   trashPolicy:
     "Trash has no automatic expiry. Replaced entries and interrupted recovery records remain visible here.",
-  loadingTrash: "Loading every Trash page …",
+  loadingTrash: "Loading every trash page …",
   usage: (bytes, unknown) =>
-    `${bytes} known bytes across all loaded Trash pages; ${unknown} entries have unknown or unverified storage.`,
+    `${bytes} known bytes across all loaded trash pages; ${unknown} entries have unknown or unverified storage.`,
   unknownSize: "Size unknown or unverified",
   reasons: {
     deleted: "Deleted",
@@ -64,7 +64,7 @@ export const fileActionsCopy = {
     "The original location is retained as provenance. Recovery availability is unverified; this does not prove that the original or a usable backup exists. Refresh after recovery verification.",
   checkRecovery: "Check recovery status",
   originalLocation: "Show original location",
-  moreTrash: "Show more Trash entries",
+  moreTrash: "Show more trash entries",
   purgeConfirm: (count, excluded) =>
     `Permanently remove these ${count} frozen entries? ${excluded} nonrecoverable entries are excluded. Regular deletion cannot be undone here and does not guarantee secure physical overwriting.`,
   batchPolicy:

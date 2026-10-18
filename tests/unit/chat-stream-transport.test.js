@@ -320,7 +320,7 @@ test("socket errors show server messages in the active UI language", async (t) =
   const f = fixture();
   f.send({
     type: "error",
-    message: "Für diese Sitzung ist kein Chatverlauf verfügbar.",
+    message: "Für diese Session ist kein Chatverlauf verfügbar.",
     messageKey: "chat.historyUnavailable",
   });
   assert.equal(f.errors.at(-1), "No chat history is available for this session.");
@@ -337,7 +337,7 @@ test("an unusable fallback response keeps the old chat and reports it", async (t
   await settle();
   assert.equal(f.reads, 1);
   assert.equal(f.snapshots.length, 1);
-  assert.equal(f.errors.at(-1), "The chat could not be loaded completely. Retrying…");
+  assert.equal(f.errors.at(-1), "The chat could not be loaded completely. Retrying …");
   f.tick();
   f.send(snapshot(1, "Again"));
   assert.equal(f.snapshots.length, 2);

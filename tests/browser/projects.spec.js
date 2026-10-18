@@ -39,7 +39,7 @@ test("the hub joins projects, selects the first one and resolves every id space"
     await expect(page.getByRole("tab", { name: new RegExp(`^${tab}`) })).toContainText(
       count,
     );
-  await expect(page.getByText("Sitzungen · 1")).toBeVisible();
+  await expect(page.getByText("Sessions · 1")).toBeVisible();
   // Page margins sit on the frame, so the hover arrows line up with the tab row.
   const tabList = page.getByRole("tablist");
   const tabRow = await tabList.boundingBox();
@@ -71,7 +71,7 @@ test("the hub joins projects, selects the first one and resolves every id space"
   await expect(page).toHaveURL(/\/projects\/m1\?tab=runs$/);
   await expect(page.getByRole("button", { name: /^Lauf öffnen:/ })).toHaveCount(3);
   await page.getByRole("tab", { name: "Übersicht" }).click();
-  await page.getByRole("button", { name: "Sitzung Hub fixture session öffnen" }).click();
+  await page.getByRole("button", { name: "Session Hub fixture session öffnen" }).click();
   await expect(page).toHaveURL(/\/sessions\/s1\//);
   expect(calls.filter((call) => call.method !== "GET")).toEqual([]);
 });
@@ -128,7 +128,7 @@ test("mobile shows the list first, then the detail, and dialogs fit as sheets", 
   await expect(page).toHaveURL(/\/projects\/m1$/);
   await expect(page.getByRole("heading", { name: "agent-pier", level: 1 })).toBeVisible();
   await expect(list).toBeHidden();
-  const launch = page.getByRole("button", { name: "Sitzung in agent-pier starten" });
+  const launch = page.getByRole("button", { name: "Session in agent-pier starten" });
   const box = await launch.boundingBox();
   expect(Math.round(box.height)).toBe(44);
   expect(Math.round(box.y + box.height)).toBeGreaterThan(780);

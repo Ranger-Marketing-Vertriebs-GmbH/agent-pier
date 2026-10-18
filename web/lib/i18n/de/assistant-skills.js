@@ -1,7 +1,7 @@
 export const assistantSkillsCopy = {
   title: "Skills",
   intro:
-    "Mit OpenClaw mitgelieferte Skills bringen dem Agenten ein Werkzeug bei, meist ein Kommandozeilenprogramm. Schalte die ein, die dieser Agent nutzen darf.",
+    "Mit OpenClaw mitgelieferte Skills bringen dem Agenten ein Tool bei, meist ein Kommandozeilenprogramm. Schalte die ein, die dieser Agent nutzen darf.",
   row: "Mitgelieferte Skills",
   shellOff:
     "Die meisten Skills führen Kommandozeilenprogramme aus und brauchen Shell-Zugriff.",

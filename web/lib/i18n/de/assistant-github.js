@@ -23,7 +23,7 @@ export const assistantGithubCopy = {
   writeWarning:
     "Der Agent kann in deinem Namen kommentieren, Pull Requests öffnen und zusammenführen, Änderungen pushen, Dateien löschen, Workflows starten sowie Repositories anlegen, forken und löschen, ohne Freigabe pro Änderung. Ein gelöschtes Repository lässt sich nicht immer wiederherstellen. Inhalte, die er auf GitHub liest, können ihn steuern.",
   memoryNote:
-    "Jedes Profil mit jeder Stufe läuft als eigener GitHub-MCP-Server, der für jede Agentensitzung startet (je etwa 45 MB Arbeitsspeicher).",
+    "Jedes Profil mit jeder Stufe läuft als eigener GitHub-MCP-Server, der für jede Agent-Session startet (je etwa 45 MB Arbeitsspeicher).",
   server: {
     installing: "Der GitHub-MCP-Server wird installiert …",
     failed: "Der GitHub-MCP-Server konnte nicht installiert werden.",

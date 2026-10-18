@@ -211,8 +211,8 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
       await page
         .getByRole("checkbox", { name: "Select document.txt", exact: true })
         .check();
-      await page.getByRole("button", { name: "Move to Trash", exact: true }).click();
-      const dialog = page.getByRole("dialog", { name: "Move to Trash" });
+      await page.getByRole("button", { name: "Move to trash", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "Move to trash" });
       await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
       // An empty list during refresh is not evidence that the action was accepted.
       await expect(dialog).toHaveCount(0);
@@ -263,7 +263,7 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
         .filter({ hasText: "Deleted" })
         .getByRole("checkbox", { name: "Select document.txt", exact: true }),
     ).toHaveCount(0);
-    await expect(page.getByText("Loading every Trash page …")).toHaveCount(0);
+    await expect(page.getByText("Loading every trash page …")).toHaveCount(0);
 
     await page.goto(`${f.url}/settings`);
     await chooseLanguage(page, "de");

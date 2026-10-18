@@ -7,6 +7,7 @@ import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantSshCopy as copy } from "../../../lib/i18n/messages/assistant-ssh.js";
 import { setSshGrant, sshModes } from "./agent-settings-fields.js";
 import SubpageHeader from "./SubpageHeader.jsx";
+import { commonCopy } from "../../../lib/i18n/messages/common.js";
 import "./ssh-grant-page.css";
 
 /**
@@ -45,7 +46,7 @@ export default function SshGrantPage({
         <div className="ssh-grant-state">
           <ErrorMessage error={copy.loadError} />
           <button type="button" className="button secondary" onClick={onRetry}>
-            {copy.retry}
+            {commonCopy.retry}
           </button>
         </div>
       )}

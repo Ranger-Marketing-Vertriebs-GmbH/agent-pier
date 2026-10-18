@@ -2,17 +2,15 @@ export const mcpServerCopy = {
   title: "MCP servers",
   description:
     "Central MCP servers for agents and coding CLIs. Header and environment values are stored on this computer and are never shown again.",
-  loading: "Loading…",
+  loading: "Loading …",
   add: "Add MCP server",
   remove: "Remove",
   removeNamed: (name) => `Remove ${name}`,
   confirmRemove: (name) =>
     `Remove ${name}? Agents that use it lose access immediately. Stored header and environment values are deleted.`,
   confirmRemoveAction: "Remove server",
-  cancel: "Cancel",
-  close: "Close",
   save: "Save server",
-  saving: "Saving…",
+  saving: "Saving …",
   nameLabel: "Name",
   nameRule:
     "1 to 30 letters, digits, hyphens or underscores, starting with a letter. Tools appear to agents and coding CLIs under this name.",
@@ -76,7 +74,7 @@ export const mcpServerCopy = {
   agentDescription:
     "Choose which central MCP servers this agent can use. A change applies to the running agent service without a restart.",
   agentNone: "No MCP servers are set up yet. Add them under Accounts.",
-  agentOpenAccounts: "Open Accounts",
+  agentOpenAccounts: "Open accounts",
   agentSaved: "MCP servers saved.",
   pendingNotice: "Saved — will be applied to running agents shortly.",
   temporaryTitle: "MCP servers",

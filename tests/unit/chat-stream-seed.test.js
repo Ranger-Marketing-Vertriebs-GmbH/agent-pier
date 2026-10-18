@@ -165,7 +165,7 @@ test("a rejected fallback delta reports translated copy, never the raw error", a
   f.fail();
   await settle();
   assert.equal(f.snapshots.length, 0);
-  assert.equal(f.errors.at(-1), "The chat could not be loaded completely. Retrying…");
+  assert.equal(f.errors.at(-1), "The chat could not be loaded completely. Retrying …");
   assert.ok(!f.errors.includes("Invalid chat delta"));
   f.tick();
   assert.equal(f.urls[1], "ws://fixture/chat-stream");

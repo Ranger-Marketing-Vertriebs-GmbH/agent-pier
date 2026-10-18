@@ -11,6 +11,7 @@ import SshKeyForm from "./SshKeyForm.jsx";
 import SshProjectReassign from "./SshProjectReassign.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./ssh.css";
 import "./ssh-settings.css";
 export default function SshSettings() {
@@ -218,7 +219,7 @@ export default function SshSettings() {
             <div key={index} className="ssh-load-error">
               <p role="alert">{resource.error}</p>
               <button className="button secondary" onClick={resource.reload}>
-                {copy.retry}
+                {commonCopy.retry}
               </button>
             </div>
           ),

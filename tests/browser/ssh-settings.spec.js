@@ -179,7 +179,7 @@ test("deleting the last entry on a page returns to the remaining entries", async
   await page.getByRole("button", { name: /next page/i }).click();
   await page.getByRole("button", { name: "Server 21", exact: true }).click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await page.getByRole("button", { name: "Confirm deletion", exact: true }).click();
+  await page.getByRole("button", { name: "Delete now", exact: true }).click();
   await expect(page.getByRole("article")).toHaveCount(0);
   await expect(page.locator(".ssh-resource-row")).toHaveCount(20);
   await expect(

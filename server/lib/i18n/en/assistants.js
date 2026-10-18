@@ -186,7 +186,7 @@ export const assistants = {
     "An agent with its own Telegram bot for other people cannot have GitHub access. Remove the GitHub access or disconnect the bot first.",
   githubFromLead: "A task-bound team member gets GitHub only from its lead agent.",
   githubProfileUnavailable:
-    "This GitHub token profile no longer exists. Choose another one under Settings → Access → GitHub connections.",
+    "This GitHub token profile no longer exists. Choose another one under Settings › Access › GitHub connections.",
   sshNotGranted: "This SSH access is not granted to the agent.",
   sshHostUnavailable:
     "This SSH access is unavailable: it was removed, or OpenSSH is missing.",
@@ -272,7 +272,7 @@ export const assistants = {
   queuedExpired: "The queued message was older than a day and was not sent anymore.",
   queuedArchived: "This agent is archived and takes no more messages.",
   active: "A request is still running. Wait for its result or stop it first.",
-  disabled: "Agents are turned off. Turn them on under Settings > Agents.",
+  disabled: "Agents are turned off. Turn them on under Settings › Agents.",
   storageUnsafe:
     "The agent storage folder is unsafe. Check its owner and links in the data directory.",
   restartRequired:

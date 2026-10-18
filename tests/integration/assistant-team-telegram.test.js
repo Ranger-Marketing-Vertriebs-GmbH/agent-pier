@@ -427,7 +427,7 @@ for (const [language, heading, marker] of [
     // A lead without capabilities passes none on by default.
     assert.equal(
       critic.split("\n").at(-1),
-      language === "de" ? "Erhält: keine Werkzeuge" : "Gets: no tools",
+      language === "de" ? "Erhält: keine Tools" : "Gets: no tools",
     );
     assert.equal(planner.split("\n").at(-1), `${heading}github`);
     assert.equal(writer.split("\n").at(-1), `${heading}files ${marker}, github`);

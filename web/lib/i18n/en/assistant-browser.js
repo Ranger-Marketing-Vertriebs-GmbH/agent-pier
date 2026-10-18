@@ -65,7 +65,7 @@ export const assistantBrowserCopy = {
   reset: "Reset browser profile",
   resetDescription:
     "Stops the agent's browser and deletes its profile with every sign-in, cookie and its history.",
-  resetConfirm: "Delete profile",
+  resetConfirm: "Reset profile",
   resetTitle: "Reset the browser profile?",
   resetDone: "The browser profile was deleted.",
   resetFailed: "The browser profile could not be reset.",

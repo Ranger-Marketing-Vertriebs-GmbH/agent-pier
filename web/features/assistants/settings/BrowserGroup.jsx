@@ -4,12 +4,12 @@ import ListCard from "../../../components/ListCard.jsx";
 import ListRow, { ToggleRow } from "../../../components/ListRow.jsx";
 import Sheet from "../../../components/Sheet.jsx";
 import { assistantBrowserCopy as copy } from "../../../lib/i18n/messages/assistant-browser.js";
-import { assistantShellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { assistantApi } from "../assistant-api.js";
 import { shellEligible } from "../shell-level.js";
 import { isPersonal } from "./agent-settings-fields.js";
 import BrowserInstall from "./BrowserInstall.jsx";
 import { routePath } from "../../../app/routes.js";
+import { commonCopy } from "../../../lib/i18n/messages/common.js";
 
 /**
  * The agent's own browser (docs/assistant-gateway.md "Browser isolation"): the
@@ -113,7 +113,7 @@ export default function BrowserGroup({ assistant, draft, browser, refresh, navig
               autoFocus
               onClick={() => setConfirming(false)}
             >
-              {assistantShellCopy.cancel}
+              {commonCopy.cancel}
             </button>
           </div>
         </Sheet>

@@ -9,10 +9,10 @@ export const projectAgentBusCopy = {
   waitingForSignIn: "Wartet auf CLI-Anmeldung",
   reloadRequired: "Neuladen erforderlich",
   reloadRequiredDescription:
-    "Lade diese Sitzung neu, um die aktuelle AgentBus-Anbindung zu verwenden.",
+    "Lade diese Session neu, um die aktuelle AgentBus-Anbindung zu verwenden.",
   agentbusPending: " in der Inbox",
   noProjectMessages:
-    "Noch keine Sitzungen mit AgentBus. Starte eine neue Coding-CLI-Sitzung.",
+    "Noch keine Sessions mit AgentBus. Starte eine neue Coding-CLI-Session.",
   missingProjectDescription: "Dieses AgentBus-Projekt wurde nicht gefunden.",
 };
 export const messageLogCopy = {

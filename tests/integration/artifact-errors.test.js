@@ -31,7 +31,7 @@ test("artifact rejections identify the offending file and reason with translatab
     [
       { sourcePath: path.join(f.root, "outside.html") },
       "ARTIFACT_OUTSIDE_WORKSPACE",
-      /Sitzungsverzeichnisses/,
+      /Session-Verzeichnisses/,
       /outside the session workspace/,
     ],
     [

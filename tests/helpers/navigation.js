@@ -36,5 +36,5 @@ export async function openNewSession(page) {
     await page.locator(".sidebar").waitFor({ state: "attached" });
     await page.locator(".sidebar .sidebar-launch").getByRole("button", { name }).click();
   }
-  await page.getByRole("menuitem", { name: /^(Sitzung|Session)$/ }).click();
+  await page.getByRole("menuitem", { name: /^Session$/ }).click();
 }

@@ -154,7 +154,7 @@ for (const [label, use] of [
       const wizard = await search(page);
       const card = wizard.getByRole("article", { name: "OPNsense" });
       await card.getByRole("button", { name: "OPNsense" }).click();
-      await expect(wizard.getByRole("status")).toHaveText("Loading the server details…");
+      await expect(wizard.getByRole("status")).toHaveText("Loading the server details …");
       await expect(card).toHaveAttribute("aria-busy", "true");
       release();
       await expect(page.getByRole("dialog", { name: "OPNsense" })).toBeVisible();
@@ -178,7 +178,7 @@ for (const [label, use] of [
       const alert = wizard.getByRole("alert");
       await expect(alert).toContainText("Directory turned off");
       await expect(alert.getByRole("button", { name: "Try again" })).toHaveCount(0);
-      await alert.getByRole("link", { name: "Open Settings" }).click();
+      await alert.getByRole("link", { name: "Open settings" }).click();
       await expect(page).toHaveURL(/\/settings/);
     });
 
@@ -219,7 +219,7 @@ for (const [label, use] of [
         wizard.getByRole("radio", { name: /Search the directory/ }),
       ).toBeDisabled();
       await expect(wizard.getByText("Directory turned off")).toBeVisible();
-      await expect(wizard.getByRole("link", { name: "Open Settings" })).toBeVisible();
+      await expect(wizard.getByRole("link", { name: "Open settings" })).toBeVisible();
     });
 
     test("a remote entry composes its address from the variables and saves its origin", async ({

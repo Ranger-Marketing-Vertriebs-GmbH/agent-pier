@@ -12,7 +12,7 @@ export const accounts = Object.freeze({
   skipPermissionsAsRoot:
     "„Ohne Rückfragen“ ist nicht verfügbar, weil AgentPier als root läuft. Claude Code verweigert diesen Modus für root.",
   launchModeRequiresWorkSession:
-    "Startmodi gelten nur für neue Arbeitssitzungen, nicht für die Anmeldung.",
+    "Startmodi gelten nur für neue Coding-Sessions, nicht für die Anmeldung.",
   managedLoginRequired: "Bitte einen separaten Account für die Anmeldung anlegen.",
   apiKeyLoginConflict:
     "Dieses Profil verwendet einen API-Key. Für die Browser-Anmeldung bitte einen Account ohne API-Key anlegen.",
@@ -23,7 +23,7 @@ export const accounts = Object.freeze({
   providerSwitchKeyRequired:
     "Beim Provider-Wechsel bitte einen neuen API-Key angeben oder den gespeicherten Key entfernen.",
   generatedProfileNotRemovable:
-    "Generierte Provider-Profile behalten den Sitzungsverlauf und können nicht als Account entfernt werden.",
+    "Generierte Provider-Profile behalten den Session-Verlauf und können nicht als Account entfernt werden.",
   invalidProfileModel: "Ungültiges Profilmodell.",
   providerProfileNoOAuth:
     "Provider-Profile verwenden API-Keys und können keine OAuth-Anmeldung starten.",

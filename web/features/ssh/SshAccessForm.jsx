@@ -3,6 +3,7 @@ import api from "../../lib/api.js";
 import Modal from "../../components/Modal.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 export default function SshAccessForm({
   access,
   keys,
@@ -167,13 +168,13 @@ export default function SshAccessForm({
         {busy && <p role="status">{copy.busy}</p>}
         <div className="ssh-actions">
           <button className="button" type="button" disabled={busy} onClick={close}>
-            {copy.cancel}
+            {commonCopy.cancel}
           </button>
           <button
             className="button primary"
             disabled={busy || !draft.keyId || !hostKey || !confirmed}
           >
-            {copy.save}
+            {commonCopy.save}
           </button>
         </div>
       </form>

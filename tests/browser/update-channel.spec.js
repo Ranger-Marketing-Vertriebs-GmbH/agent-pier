@@ -143,8 +143,8 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(
         page.getByText(
           en
-            ? /Release candidates can contain unfinished changes\. .*rolling back to the previous stable version can be impossible.*Settings → Operations → Backups/
-            : /Release Candidates können unfertige Änderungen enthalten\. .*Einstellungen → Betrieb → Sicherungen/,
+            ? /Release candidates can contain unfinished changes\. .*rolling back to the previous stable version can be impossible.*Settings › Operations › Backups/
+            : /Release Candidates können unfertige Änderungen enthalten\. .*Einstellungen › Betrieb › Sicherungen/,
         ),
       ).toBeVisible();
       await page

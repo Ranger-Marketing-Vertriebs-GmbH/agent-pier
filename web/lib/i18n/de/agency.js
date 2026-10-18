@@ -19,14 +19,12 @@ export const agencyCopy = {
   stale:
     "Der GitHub-Katalog ist gerade nicht erreichbar. Die letzte gespeicherte Version wird angezeigt.",
   source: "Quelle auf GitHub",
-  back: "Zurück",
   next: "Weiter",
   close: "Vorschau schließen",
   revision: "GitHub-Stand",
-  note: "AgentPier übernimmt die Anweisungen als native Agentendefinition. Modell und Berechtigungen werden von deiner Sitzung geerbt. Installationsskripte aus dem Repository werden nicht ausgeführt.",
-  success: "Agent installiert. Starte eine neue Sitzung, um ihn zu verwenden.",
+  note: "AgentPier übernimmt die Anweisungen als native Agentendefinition. Modell und Berechtigungen werden von deiner Session geerbt. Installationsskripte aus dem Repository werden nicht ausgeführt.",
+  success: "Agent installiert. Starte eine neue Session, um ihn zu verwenden.",
   removed: "Agency-Agent entfernt.",
   removal: "Diesen Agency-Agenten für alle Accounts dieser CLI entfernen?",
-  cancel: "Abbrechen",
   count: (total, page) => `${total} Agenten · Seite ${page}`,
 };

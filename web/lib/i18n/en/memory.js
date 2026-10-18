@@ -32,7 +32,7 @@ export const memoryCopy = {
   forgetLimit:
     "Only identical text is blocked: the same secret inside different text can still be written.",
   forgetArchives:
-    "Existing backup archives under Settings → Operations → Backups still contain the content. Delete or handle them by hand.",
+    "Existing backup archives under Settings › Operations › Backups still contain the content. Delete or handle them by hand.",
   forgetReason: "Reason (optional; never enter the secret itself)",
   forgetRemoveBackups: (count) =>
     `Also delete the ${count === 1 ? "migration backup" : `${count} migration backups`} of the knowledge database (memory.sqlite.*) on this computer`,

@@ -4,8 +4,8 @@ import Sheet from "../../../components/Sheet.jsx";
 import api from "../../../lib/api.js";
 import { serverText } from "../../../lib/server-messages.js";
 import { assistantBrowserCopy as copy } from "../../../lib/i18n/messages/assistant-browser.js";
-import { assistantShellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { assistantApi } from "../assistant-api.js";
+import { commonCopy } from "../../../lib/i18n/messages/common.js";
 
 /**
  * Installs AgentPier's own agent browser (Chrome for Testing, chromium-installer.js)
@@ -107,7 +107,7 @@ export default function BrowserInstall({ browser, refresh }) {
               autoFocus
               onClick={() => setConfirming(false)}
             >
-              {assistantShellCopy.cancel}
+              {commonCopy.cancel}
             </button>
           </div>
         </Sheet>

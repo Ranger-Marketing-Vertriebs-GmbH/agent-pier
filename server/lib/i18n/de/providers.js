@@ -1,14 +1,14 @@
 /** German browser-visible server messages, addressed through English semantic keys. */
 export const providers = Object.freeze({
-  invalidAccessSelection: "Ungültige Zugriffsauswahl für die Sitzung.",
+  invalidAccessSelection: "Ungültige Zugriffsauswahl für die Session.",
   nativeOrProviderModel:
     "Bitte entweder ein natives Modell oder ein Provider-Modell wählen.",
   connectionRequiredForModel:
     "Bitte für das Provider-Modell einen Provider-Zugang wählen.",
   nativeAccountToolMismatch: "Der native Account gehört nicht zum gewählten CLI.",
-  connectionRequiresWorkSession: "Provider-Zugänge benötigen eine Coding-Arbeitssitzung.",
+  connectionRequiresWorkSession: "Provider-Zugänge benötigen eine Coding-Session.",
   apiKeyRequiredForSession:
-    "Bitte vor dem Start dieser Sitzung einen Provider-API-Key hinterlegen.",
+    "Bitte vor dem Start dieser Session einen Provider-API-Key hinterlegen.",
   apiKeyRequiredForAccount:
     "Bitte vor dem Start dieses Accounts einen Provider-API-Key hinterlegen.",
   connectionToolUnsupported:
@@ -25,7 +25,7 @@ export const providers = Object.freeze({
     "Der Zugriff auf die Responses API muss ausdrücklich als Wahrheitswert angegeben werden.",
   connectionNotFound: "Provider-Zugang nicht gefunden.",
   connectionPreparingSession:
-    "Mit dieser Verbindung wird gerade eine Sitzung vorbereitet. Bitte nach dem Sitzungsstart erneut versuchen.",
+    "Mit dieser Verbindung wird gerade eine Session vorbereitet. Bitte nach dem Session-Start erneut versuchen.",
   responsesEntitlementZaiOnly:
     "Die Responses-Berechtigung gilt nur für Z.ai-Verbindungen.",
   unknownProvider: "Unbekannter Provider.",

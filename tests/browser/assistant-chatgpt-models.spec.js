@@ -80,7 +80,7 @@ const english = {
   modelId: "Model ID",
   choose: "Choose a model",
   options: "options",
-  custom: "Custom model ID…",
+  custom: "Custom model ID …",
   search: "Search models",
   refresh: "Refresh models",
   loading: "Loading ChatGPT models …",

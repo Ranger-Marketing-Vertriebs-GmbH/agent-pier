@@ -83,24 +83,24 @@ test("profile launch validates required parameters and opens its native session"
   ];
   await openPipelines(page);
   await page
-    .getByRole("button", { name: "Sitzung mit Profil starten", exact: true })
+    .getByRole("button", { name: "Session mit Profil starten", exact: true })
     .click();
-  const dialog = page.getByRole("dialog", { name: "Neue Sitzung", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Neue Session", exact: true });
   await expect(
     dialog.getByRole("combobox", { name: "Aufgabenprofil", exact: true }),
   ).toHaveValue("profile-one");
   await dialog
-    .getByRole("textbox", { name: "Name der Sitzung", exact: true })
+    .getByRole("textbox", { name: "Name der Session", exact: true })
     .fill("Meine Planung");
   await dialog
     .getByRole("textbox", { name: "Arbeitsverzeichnis", exact: true })
     .fill("/fixture/project");
   await dialog.locator(".launch-extensions > summary").click();
   await dialog.getByRole("checkbox", { name: /AgentBus/ }).uncheck();
-  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
   expect(state.calls.filter((c) => c.path.endsWith("/launch"))).toHaveLength(0);
   await dialog.getByRole("textbox", { name: "Thema", exact: true }).fill("Security");
-  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
   await expect(page).toHaveURL(/sessions\/launched\/terminal$/);
   expect(state.calls.find((c) => c.path.endsWith("/launch")).body).toMatchObject({
     name: "Meine Planung",
@@ -120,7 +120,7 @@ test("disabled profiles cannot launch and rejected deletion preserves the profil
   state.profiles[0].enabled = false;
   await openPipelines(page);
   await expect(
-    page.getByRole("button", { name: "Sitzung mit Profil starten", exact: true }),
+    page.getByRole("button", { name: "Session mit Profil starten", exact: true }),
   ).toBeDisabled();
   await page.getByRole("button", { name: "Löschen: Planer", exact: true }).click();
   state.fail = "/pipeline-profiles/profile-one";
@@ -299,7 +299,7 @@ test("desktop profiles select the first profile, group by phase and edit inline"
   await reviewer.click();
   await expect(page).toHaveURL(/\/profiles\/profile-review$/);
   await expect(
-    page.getByRole("button", { name: "Sitzung mit Profil starten", exact: true }),
+    page.getByRole("button", { name: "Session mit Profil starten", exact: true }),
   ).toBeDisabled();
   const hint = page.getByText(
     "Pipeline-Stufen benötigen ein autonomes Profil ohne erforderliche Parameter.",
@@ -442,11 +442,11 @@ test("starting a session from an unsaved draft asks before discarding it", async
   const name = page.getByRole("textbox", { name: "Profilname", exact: true });
   await name.fill("Entwurf");
   const start = page.getByRole("button", {
-    name: "Sitzung mit Profil starten",
+    name: "Session mit Profil starten",
     exact: true,
   });
   const confirm = page.getByRole("dialog", { name: "Aktion bestätigen" });
-  const launch = page.getByRole("dialog", { name: "Neue Sitzung", exact: true });
+  const launch = page.getByRole("dialog", { name: "Neue Session", exact: true });
   await start.click();
   await expect(confirm).toBeVisible();
   await expect(launch).toHaveCount(0);

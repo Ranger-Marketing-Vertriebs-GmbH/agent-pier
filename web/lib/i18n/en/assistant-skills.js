@@ -14,7 +14,7 @@ export const assistantSkillsCopy = {
     ready: "Ready",
     missing: "Something missing",
   },
-  loading: "Loading skills…",
+  loading: "Loading skills …",
   empty: "No skills match.",
   unavailable: "Skills can be listed while the agent service runs.",
   offlineHint:

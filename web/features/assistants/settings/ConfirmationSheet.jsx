@@ -3,18 +3,19 @@ import Sheet from "../../../components/Sheet.jsx";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantShellCopy as shell } from "../../../lib/i18n/messages/assistant-shell.js";
 import { mcpServerCopy as mcp } from "../../../lib/i18n/messages/mcp-servers.js";
+import { commonCopy } from "../../../lib/i18n/messages/common.js";
 
 function texts({ kind, data }) {
   if (kind === "fullShell")
-    return [shell.fullTitle, [shell.fullBody], shell.confirmFull, shell.cancel];
+    return [shell.fullTitle, [shell.fullBody], shell.confirmFull, commonCopy.cancel];
   if (kind === "shell")
-    return [shell.confirmTitle, [shell.warning], shell.confirm, shell.cancel];
+    return [shell.confirmTitle, [shell.warning], shell.confirm, commonCopy.cancel];
   if (kind === "stdio")
     return [
       mcp.stdioBindingTitle,
       [mcp.stdioBindingWarning],
       mcp.stdioBindingConfirm,
-      mcp.cancel,
+      commonCopy.cancel,
     ];
   const copy = assistantCopy.personal;
   const names = (data?.affected?.agents || []).map((agent) => agent.name).join(", ");

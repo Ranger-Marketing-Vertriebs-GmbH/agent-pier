@@ -16,7 +16,7 @@ async function setup(page, tool = "claude") {
     tool,
     available: true,
     reason: null,
-    note: "Änderungen gelten für neue Sitzungen.",
+    note: "Änderungen gelten für neue Sessions.",
     busy: false,
     capabilities: {
       marketplaces: tool !== "opencode",
@@ -131,7 +131,7 @@ test("marketplace source, browse, install, disable and deliberate removal use se
   await expect(await rowMenuItem(page, "Demo", "Plugin Demo aktivieren")).toBeVisible();
   await (await rowMenuItem(page, "Demo", "Plugin Demo entfernen")).click();
   expect(writes.at(-1).action).toBe("disable");
-  await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
+  await page.getByRole("button", { name: "Jetzt entfernen", exact: true }).click();
   await expect(
     page.getByText("Noch keine Plugins installiert.", { exact: true }),
   ).toBeVisible();
@@ -225,7 +225,7 @@ test("marketplace removal reveals its confirmation and resets a removed catalog 
   const confirm = page.getByRole("group", { name: "Entfernen bestätigen" });
   await expect(confirm).toBeFocused();
   await expect(confirm).toBeInViewport();
-  await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
+  await page.getByRole("button", { name: "Jetzt entfernen", exact: true }).click();
   await expect(extensionRow(page, "A")).toHaveCount(0);
   await openTab(page, "Plugins");
   await expect(page.getByLabel("Marketplace filtern")).toHaveValue("");

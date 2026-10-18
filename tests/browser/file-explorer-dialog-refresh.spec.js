@@ -34,7 +34,7 @@ for (const outcome of [
       await selectEnglish(page);
       await page.goto(baseURL + "/files");
       await page.getByRole("checkbox", { name: "Select a.txt", exact: true }).check();
-      const title = outcome === "rename" ? "Rename" : "Move to Trash";
+      const title = outcome === "rename" ? "Rename" : "Move to trash";
       await page.getByRole("button", { name: title, exact: true }).click();
       const dialog = page.getByRole("dialog", { name: title, exact: true });
       await expect(dialog).toBeVisible();

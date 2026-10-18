@@ -10,7 +10,7 @@ export const scripts = Object.freeze({
     "AgentPier-Dienst ist nicht geladen oder der systemd-Benutzerdienst ist nicht erreichbar.",
   buildRequired: "Bitte zuerst npm run build ausführen.",
   systemctlUnavailable:
-    "systemctl --user ist nicht erreichbar. Linux mit systemd und eine aktive Benutzersitzung sind erforderlich; alternativ npm start verwenden.",
+    "systemctl --user ist nicht erreichbar. Linux mit systemd und eine aktive Benutzer-Session sind erforderlich; alternativ npm start verwenden.",
   serviceNotLoaded: "AgentPier-Dienst ist nicht geladen.",
   deploymentHeading: "Dein Terminal. Überall.",
   browserCheckName: (toolName) => `Browserprüfung ${toolName}`,

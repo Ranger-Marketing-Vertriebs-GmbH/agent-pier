@@ -5,6 +5,7 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { remoteCopy as copy } from "../../lib/i18n/messages/remote.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./remote.css";
 
 const RESTART_TIMEOUT = 25000;
@@ -169,7 +170,7 @@ export default function RemoteSettings() {
             disabled={action.busy}
             onClick={save}
           >
-            {copy.save}
+            {commonCopy.save}
           </button>
           {network.restartRequired && (
             <button

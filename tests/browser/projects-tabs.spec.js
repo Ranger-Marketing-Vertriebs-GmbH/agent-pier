@@ -44,12 +44,12 @@ test("the overview shows facts and sessions as list cards", async ({ page }) => 
     "github.com/acme/agent-pier",
   );
   await expect(
-    page.getByRole("heading", { name: "Sitzungen · 1", level: 2 }),
+    page.getByRole("heading", { name: "Sessions · 1", level: 2 }),
   ).toBeVisible();
-  const sessionList = page.getByRole("list", { name: "Sitzungen · 1" });
+  const sessionList = page.getByRole("list", { name: "Sessions · 1" });
   await expect(sessionList.getByRole("listitem")).toHaveCount(1);
   const row = sessionList.getByRole("button", {
-    name: "Sitzung Hub fixture session öffnen",
+    name: "Session Hub fixture session öffnen",
   });
   await expect(row).toHaveAccessibleDescription("Codex · vor 5 Minuten Läuft");
   await row.click();
@@ -78,7 +78,7 @@ test("a project without knowledge registration shows no attention strip", async 
   await page.goto(base + "/projects/r2");
   await expect(page.getByRole("heading", { name: "loose", level: 2 })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Sitzungen · 0", level: 3 }),
+    page.getByRole("heading", { name: "Sessions · 0", level: 3 }),
   ).toBeVisible();
   await expect(page.locator(".project-attention")).toHaveCount(0);
   await expect(page.getByRole("definition").first()).toBeVisible();
@@ -174,7 +174,7 @@ test("the AgentBus view switch is a radio group bound to the address", async ({
   await expect(
     page.getByText("0 verbunden · 0 Nachrichten warten · Version test"),
   ).toBeVisible();
-  await view.getByRole("radio", { name: /^Sitzungen/ }).check();
+  await view.getByRole("radio", { name: /^Sessions/ }).check();
   await expect(page).toHaveURL(/\/projects\/m1\?tab=agentbus$/);
   await expect(
     page.getByRole("heading", { name: "0 verbunden", level: 3 }),

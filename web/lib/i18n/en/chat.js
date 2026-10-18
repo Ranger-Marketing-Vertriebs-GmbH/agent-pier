@@ -65,7 +65,7 @@ export const chatMessageCopy = {
   subtle: "[Image",
 };
 export const chatViewCopy = {
-  invalidSnapshot: "The chat could not be loaded completely. Retrying…",
+  invalidSnapshot: "The chat could not be loaded completely. Retrying …",
   limitWarning: "Usage limit warning",
   jumpToLatest: "Jump to latest",
   resetRequested: "New conversation requested",

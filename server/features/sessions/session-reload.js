@@ -4,7 +4,7 @@ import { validId } from "./session-validation.js";
 import { problem } from "../../lib/storage.js";
 
 const failureMessage =
-  "Die Sitzung konnte nicht neu geladen werden. Die bisherige Unterhaltung bleibt für einen erneuten Versuch erhalten.";
+  "Die Session konnte nicht neu geladen werden. Die bisherige Unterhaltung bleibt für einen erneuten Versuch erhalten.";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const active = (state) => ["waiting", "reloading"].includes(state);
 const sameRoute = (a, b) => !!a && !!b && a.mode === b.mode && a.source === b.source;

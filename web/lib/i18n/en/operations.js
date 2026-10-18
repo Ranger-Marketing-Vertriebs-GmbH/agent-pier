@@ -24,14 +24,8 @@ export const operationsCopy = {
   description: "Manage your workspace, app and operations.",
   loading: "Loading data …",
   refresh: "Refresh",
-  retry: "Try again",
-  back: "Back",
   next: "Next",
-  save: "Save",
-  cancel: "Cancel",
-  remove: "Delete",
   confirm: "Confirm",
-  close: "Close",
   unknown: "Unknown",
   details: "Details",
   empty: "No entries available.",
@@ -123,7 +117,7 @@ export const operationsCopy = {
   channelStableHelp:
     "Only approved stable releases. Switching to Stable does not install an older version.",
   channelPreviewHelp:
-    "Preview includes release candidates for testing as well as stable releases. This selection applies to this AgentPier installation. Release candidates can contain unfinished changes. After a release candidate has migrated your data, rolling back to the previous stable version can be impossible, so create a backup under Settings → Operations → Backups first. Switching back to Stable keeps the installed release candidate until a newer stable release arrives.",
+    "Preview includes release candidates for testing as well as stable releases. This selection applies to this AgentPier installation. Release candidates can contain unfinished changes. After a release candidate has migrated your data, rolling back to the previous stable version can be impossible, so create a backup under Settings › Operations › Backups first. Switching back to Stable keeps the installed release candidate until a newer stable release arrives.",
   channelManagedHelp:
     "A custom update source is configured. It is managed on the server.",
   channelUnsupportedHelp:
@@ -147,7 +141,7 @@ export const operationsCopy = {
   releaseNotesIncomplete: "Some release notes could not be loaded.",
   releaseNotesAll: "View all releases on GitHub",
   cleanupErrors: {
-    cleanupInvalid: "Choose valid versions to remove.",
+    cleanupInvalid: "Choose valid versions to delete.",
     cleanupBusy: "Another update operation is running. Try again after it finishes.",
     cleanupChanged:
       "The selected versions can no longer be safely removed. Refresh the list.",
@@ -159,7 +153,7 @@ export const operationsCopy = {
       "The web service stopped before the migration finished. The version was kept.",
     migrateCancelled: "The migration was cancelled. The version was kept.",
   },
-  cleanupReleases: "Remove old versions",
+  cleanupReleases: "Delete old versions",
   cleanupHelp:
     "Remove unused older versions to free disk space. Active versions and versions used by running processes are kept.",
   cleanupAll: "Delete all old versions",

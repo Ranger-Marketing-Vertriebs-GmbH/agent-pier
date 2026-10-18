@@ -399,7 +399,7 @@ test("a build with several programs waits for the program choice", async ({ page
   if (screens) await panel.screenshot({ path: `${screens}/en-pypi-choosing.png` });
   await panel.getByRole("button", { name: "Use this program" }).click();
   await expect(
-    panel.getByRole("status").filter({ hasText: "Installing…" }),
+    panel.getByRole("status").filter({ hasText: "Installing …" }),
   ).toBeVisible();
   expect(writes(state, "/api/mcp-servers/s1/package/program")[0].body).toEqual({
     program: "opnsense-admin",

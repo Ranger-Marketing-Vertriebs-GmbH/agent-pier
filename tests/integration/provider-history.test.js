@@ -56,7 +56,7 @@ test("Claude history is restricted to the exact profile, cwd and conversation ID
     file,
     JSON.stringify({ ...record("wrong workspace"), cwd: dir }) + "\n",
   );
-  await assert.rejects(history.read(session, id), /Projekt|Sitzung/);
+  await assert.rejects(history.read(session, id), /Projekt|Session/);
 });
 test("JSONL ignores a partial final write, retains completed records and rejects oversized input", async (t) => {
   const { dir } = await fixture(t);
@@ -83,7 +83,7 @@ test("Claude discovery does not follow transcript symlinks outside the profile",
   await fs.symlink(outside, file);
   const session = { tool: "claude", accountId: "local-claude", cwd };
   assert.deepEqual(await history.list(session), []);
-  await assert.rejects(history.read(session, id), /Sitzung|Profil/);
+  await assert.rejects(history.read(session, id), /Session|Profil/);
 });
 test("empty or partial Claude startup logs wait; null records cannot break discovery", async (t) => {
   const { dir, history, cwd } = await fixture(t);

@@ -12,7 +12,7 @@ export const assistantShellCopy = {
     full: "Der Agent führt jeden Befehl aus, ohne dich zu fragen.",
   },
   offHint:
-    "Ohne Shell-Zugriff funktionieren Skills und Werkzeuge nicht, die Kommandozeilenprogramme brauchen, zum Beispiel gh, git oder Mail-Programme.",
+    "Ohne Shell-Zugriff funktionieren Skills und Tools nicht, die Kommandozeilenprogramme brauchen, zum Beispiel gh, git oder Mail-Programme.",
   warning:
     "Mit Shell-Zugriff arbeitet der Agent als dein Benutzerkonto: mit deinen Anmeldungen, deinen Dateien und deinen Schlüsseln, und er kann AgentPiers eigene Daten lesen. Der Schreibschutz für Teams gilt nicht für Shell-Befehle.",
   temporary:
@@ -30,7 +30,6 @@ export const assistantShellCopy = {
   fullBody:
     "Mit vollem Zugriff gibt es überhaupt keine Rückfragen: Der Agent führt jeden Befehl sofort aus, auch Befehle, die Dateien löschen oder Daten versenden. Du kannst einen Befehl nicht vorher stoppen.",
   confirmFull: "Ohne Rückfragen erlauben",
-  cancel: "Abbrechen",
   allowlist: "Immer erlaubte Befehle",
   allowlistHint:
     "Programme und Befehle, die du mit „Immer erlauben“ freigegeben hast. Löschst du einen Eintrag, fragt der Agent wieder.",

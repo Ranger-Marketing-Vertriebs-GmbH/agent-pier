@@ -10,7 +10,7 @@ export const memory = Object.freeze({
   invalidInput: "Ungültige Memory-Eingabe.",
   unsafeStorage: "Unsicherer Memory-Speicher.",
   accessUnavailable: "Der Memory-Zugang ist nicht verfügbar.",
-  sessionAccessExists: "Für diese Sitzung besteht bereits ein Memory-Zugang.",
+  sessionAccessExists: "Für diese Session besteht bereits ein Memory-Zugang.",
   invalidProvenance: "Ungültige Memory-Herkunft.",
   projectChanged: "Das Memory-Projekt hat sich während der Registrierung geändert.",
   projectNotFound: "Memory-Projekt nicht gefunden.",
@@ -26,7 +26,7 @@ export const memory = Object.freeze({
     "Agenten-Aufzeichnungen enthalten den Text noch. AgentPier entfernt ihn beim nächsten Start und beim nächsten Vergessen erneut.",
   purgePending:
     "Der Eintrag ist vergessen, aber die Memory-Dateien sind noch nicht vollständig bereinigt. AgentPier versucht es beim nächsten Start und beim nächsten Vergessen erneut.",
-  changed: "Memory wurde geändert. Bitte vor dem Speichern neu laden.",
+  changed: "Das Projektwissen wurde geändert. Bitte vor dem Speichern neu laden.",
   archiveStateRequired:
     "Eine erwartete Revision und ein gültiger Archivstatus sind erforderlich.",
   invalidProjectDirectory: "Ungültiges Memory-Projektverzeichnis.",

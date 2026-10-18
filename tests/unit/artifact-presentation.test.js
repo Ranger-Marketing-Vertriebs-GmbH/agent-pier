@@ -116,7 +116,7 @@ test("source lines name the session and project or say the session was deleted",
   );
   assert.equal(
     line({ sessionId: "gone", projectId: "p1", orphaned: true }, de.artifactCopy),
-    "Sitzung gelöscht · agent-pier",
+    "Session gelöscht · agent-pier",
   );
   assert.equal(
     line({ sessionId: "s2", projectId: "p1" }),

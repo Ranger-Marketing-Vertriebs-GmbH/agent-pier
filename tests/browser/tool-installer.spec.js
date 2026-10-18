@@ -190,10 +190,10 @@ test("missing CLI installation is previewed before any package installation star
   expect(controls.starts).toEqual([]);
   await modal.getByRole("button", { name: "Dialog schließen", exact: true }).click();
   await card(page, "Claude Code")
-    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect(
-    page.getByRole("dialog", { name: "Neue Sitzung", exact: true }),
+    page.getByRole("dialog", { name: "Neue Session", exact: true }),
   ).toBeVisible();
   expect(controls.starts).toEqual([]);
 });
@@ -226,7 +226,7 @@ test("GitHub CLI installs as a utility and opens GitHub credentials without a se
   );
   controls.state.utilities[0].installed = true;
   await expect(
-    modal.getByRole("button", { name: "Sitzung starten", exact: true }),
+    modal.getByRole("button", { name: "Session starten", exact: true }),
   ).toHaveCount(0);
   await modal.getByRole("button", { name: "GitHub-Zugänge", exact: true }).click();
   await expect(page).toHaveURL(/\/settings\/github$/);
@@ -370,10 +370,10 @@ test("closing and reopening an installation restores its job and success enables
   controls.state.tools[0].installed = true;
   await page
     .getByRole("dialog", { name: "Codex installieren", exact: true })
-    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect(
-    page.getByRole("dialog", { name: "Neue Sitzung", exact: true }),
+    page.getByRole("dialog", { name: "Neue Session", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Zugang", { exact: true })).toHaveValue("local-codex");
   expect(controls.starts).toHaveLength(1);

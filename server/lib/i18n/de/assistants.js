@@ -125,9 +125,9 @@ export const assistants = {
     githubLevels: { read: "lesen", write: "lesen und schreiben" },
     levels: { approval: "mit Freigabe", full: "voller Zugriff" },
     gets: (labels) => `Erhält: ${labels}`,
-    getsNothing: "Erhält: keine Werkzeuge",
+    getsNothing: "Erhält: keine Tools",
     promoted: (lead, member) =>
-      `${lead} hat sein Team-Mitglied ${member} als dauerhaften Agenten behalten. Es behält seine Web-Werkzeuge, das Lesen von Bildern, Skills, MCP-Server und Erinnerungen, und nur sein eigenes Gedächtnis, nicht das seines leitenden Agenten; Shell, SSH, Projektordner und GitHub erhält es nicht. Du kannst es in seinen Einstellungen prüfen oder archivieren.`,
+      `${lead} hat sein Team-Mitglied ${member} als dauerhaften Agenten behalten. Es behält seine Web-Tools, das Lesen von Bildern, Skills, MCP-Server und Erinnerungen, und nur sein eigenes Gedächtnis, nicht das seines leitenden Agenten; Shell, SSH, Projektordner und GitHub erhält es nicht. Du kannst es in seinen Einstellungen prüfen oder archivieren.`,
     proposalWarning:
       "⚠ Mit ⚠ markierte Mitglieder erhalten Shell oder SSH, höchstens mit der Stufe und auf den Hosts des leitenden Agenten. Sie arbeiten unbeaufsichtigt; gelesene Inhalte können sie lenken.",
     approval: (lead, member) =>
@@ -198,7 +198,7 @@ export const assistants = {
   githubFromLead:
     "Ein auftragsgebundenes Team-Mitglied erhält GitHub nur von seinem leitenden Agenten.",
   githubProfileUnavailable:
-    "Dieses GitHub-Tokenprofil gibt es nicht mehr. Wähle unter Einstellungen → Zugriff → GitHub-Zugänge ein anderes.",
+    "Dieses GitHub-Tokenprofil gibt es nicht mehr. Wähle unter Einstellungen › Zugriff › GitHub-Zugänge ein anderes.",
   sshNotGranted: "Dieser SSH-Zugang ist dem Agenten nicht zugewiesen.",
   sshHostUnavailable:
     "Dieser SSH-Zugang ist nicht verfügbar: Er wurde entfernt, oder OpenSSH fehlt.",
@@ -212,7 +212,7 @@ export const assistants = {
   projectFolderNotGranted: "Dieser Projektordner ist dem Agenten nicht freigegeben.",
   projectFolderReadOnly: "Der Agent darf diesen Projektordner nur lesen.",
   projectWriteUnavailable:
-    "Änderungen in Projektordnern sind erst möglich, wenn der Werkzeugschutz der Agenten-Laufzeit bestätigt ist.",
+    "Änderungen in Projektordnern sind erst möglich, wenn der Tool-Schutz der Agenten-Laufzeit bestätigt ist.",
   projectPathRefused:
     "Dieser Pfad ist nicht erlaubt: Er muss im Projektordner bleiben; .git, Links nach außen und AgentPiers eigene Daten sind gesperrt.",
   projectFileUnsuitable:
@@ -294,13 +294,13 @@ export const assistants = {
     "Die wartende Nachricht war älter als einen Tag und wurde nicht mehr gesendet.",
   queuedArchived: "Dieser Agent ist archiviert und nimmt keine Nachrichten mehr an.",
   active: "Es läuft noch eine Anfrage. Warte auf das Ergebnis oder stoppe sie zuerst.",
-  disabled: "Agenten sind ausgeschaltet. Aktiviere sie unter Einstellungen > Agenten.",
+  disabled: "Agenten sind ausgeschaltet. Aktiviere sie unter Einstellungen › Agenten.",
   storageUnsafe:
     "Der Speicherordner der Agenten ist unsicher. Prüfe Eigentümer und Verknüpfungen im Datenverzeichnis.",
   restartRequired:
     "Agenten nutzen diesen Zugang. Eine Änderung startet ihr Gateway neu; bestätige den Neustart.",
   webToolsRestartRequired:
-    "Diese Änderung an den Webwerkzeugen startet das Gateway der Agenten neu; bestätige den Neustart.",
+    "Diese Änderung an den Web-Tools startet das Gateway der Agenten neu; bestätige den Neustart.",
   advancedRestartRequired:
     "Diese Einstellung wird erst nach einem Neustart des Agentendienstes wirksam; bestätige den Neustart.",
   advancedSettingUnavailable:

@@ -1,7 +1,6 @@
 export const explorerNavigationCopy = {
   root: "Projektordner",
   home: "Persönlicher Ordner",
-  back: "Zurück",
   forward: "Vorwärts",
   up: "Übergeordneter Ordner",
   refresh: "Dateiliste aktualisieren",

@@ -24,14 +24,8 @@ export const operationsCopy = {
   description: "Arbeitsbereich, App und Betrieb verwalten.",
   loading: "Daten werden geladen …",
   refresh: "Aktualisieren",
-  retry: "Erneut versuchen",
-  back: "Zurück",
   next: "Weiter",
-  save: "Speichern",
-  cancel: "Abbrechen",
-  remove: "Löschen",
   confirm: "Bestätigen",
-  close: "Schließen",
   unknown: "Unbekannt",
   details: "Details",
   empty: "Keine Einträge vorhanden.",
@@ -41,7 +35,7 @@ export const operationsCopy = {
   action: "Aktion",
   outcome: "Ergebnis",
   all: "Alle",
-  sessionId: "Sitzungs-ID",
+  sessionId: "Session-ID",
   projectId: "Projekt-ID",
   filter: "Filtern",
   clear: "Filter zurücksetzen",
@@ -74,7 +68,7 @@ export const operationsCopy = {
   includeHistory: "Verläufe einschließen",
   withCredentials: "Zugangsdaten verschlüsselt einschließen",
   backupPrivacy:
-    "Sitzungs-, Chat- und AgentBus-Verläufe, CLI-Verläufe, Chats, Kanalnachrichten, Arbeitsbereiche und Anhänge der Agenten, Pipeline-Verlauf und nicht angeheftete Artefakte können private Inhalte enthalten; sie werden nur verschlüsselt in Backups mit Verläufen und Passphrase gesichert. Agenteneinstellungen, angeheftete Artefakte, Projektwissen und das Aktivitätsprotokoll werden immer unverschlüsselt gesichert. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
+    "Session-, Chat- und AgentBus-Verläufe, CLI-Verläufe, Chats, Kanalnachrichten, Arbeitsbereiche und Anhänge der Agenten, Pipeline-Verlauf und nicht angeheftete Artefakte können private Inhalte enthalten; sie werden nur verschlüsselt in Backups mit Verläufen und Passphrase gesichert. Agenteneinstellungen, angeheftete Artefakte, Projektwissen und das Aktivitätsprotokoll werden immer unverschlüsselt gesichert. Zugangsdaten umfassen Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile; Caches, Protokolle, installierte CLIs und Laufzeiten werden nie gesichert. Externe lokale CLI-Profile, Schlüsselbunde und Repository-Arbeitsverzeichnisse bleiben außen vor.",
   historyNeedsPassphrase:
     "Ohne Passphrase bleiben Verläufe, Chats, Kanalnachrichten, Arbeitsbereiche und Anhänge der Agenten, Pipeline-Verlauf und nicht angeheftete Artefakte in dieser Sicherung außen vor; Agenten werden nur mit ihren Einstellungen wiederhergestellt. Um sie verschlüsselt zu sichern, wähle auch „Zugangsdaten verschlüsselt einschließen“ und setze eine Passphrase.",
   passphrase: "Passphrase",
@@ -96,14 +90,14 @@ export const operationsCopy = {
   targetDataDir: "Neues Datenverzeichnis",
   restore: "In neuem Verzeichnis wiederherstellen",
   restoreHelp:
-    "Das Ziel muss neu sein, sein übergeordnetes Verzeichnis bereits existieren. Die laufende Anwendung und native Sitzungen bleiben unverändert.",
+    "Das Ziel muss neu sein, sein übergeordnetes Verzeichnis bereits existieren. Die laufende Anwendung und native Sessions bleiben unverändert.",
   restoreTargetRequired: "Gib das neue Datenverzeichnis an.",
   restoreMappingRequired: (projects) =>
     `Gib für jedes Projekt ein Verzeichnis an: ${projects}`,
   restorePassphraseRequired: "Gib die Passphrase der Sicherung an.",
   projectMapping: "Projektverzeichnisse zuordnen",
   restoreConfirmation:
-    "Das geprüfte Archiv wird in einem neuen Datenverzeichnis wiederhergestellt. Es werden keine nativen Sitzungen gestartet.",
+    "Das geprüfte Archiv wird in einem neuen Datenverzeichnis wiederhergestellt. Es werden keine nativen Sessions gestartet.",
   restored: "Wiederherstellung abgeschlossen",
   credentialsRestored: "Zugangsdaten wiederhergestellt",
   yes: "Ja",
@@ -112,7 +106,7 @@ export const operationsCopy = {
   needsMcpServerValues: (name) => `MCP-Server ${name} (Werte neu eingeben)`,
   needsMcpServerAddress: (name) =>
     `MCP-Server ${name} (Token in der Adresse neu eingeben)`,
-  importedSessions: "Importierte Sitzungen",
+  importedSessions: "Importierte Sessions",
   changedFilesLeftOut: "Während der Sicherung geänderte Dateien, nicht wiederhergestellt",
   importedRuns: "Importierte Läufe",
   updates: "Updates",
@@ -123,7 +117,7 @@ export const operationsCopy = {
   channelStableHelp:
     "Nur freigegebene stabile Releases. Der Wechsel zu Stable installiert keine ältere Version.",
   channelPreviewHelp:
-    "Preview enthält Release Candidates zum Testen sowie stabile Releases. Die Auswahl gilt für diese AgentPier-Installation. Release Candidates können unfertige Änderungen enthalten. Nachdem ein Release Candidate die Daten migriert hat, ist eine Rückkehr zur vorherigen stabilen Version unter Umständen nicht mehr möglich. Lege deshalb vorher unter Einstellungen → Betrieb → Sicherungen eine Sicherung an. Beim Wechsel zurück zu Stable bleibt der installierte Release Candidate erhalten, bis eine neuere stabile Version erscheint.",
+    "Preview enthält Release Candidates zum Testen sowie stabile Releases. Die Auswahl gilt für diese AgentPier-Installation. Release Candidates können unfertige Änderungen enthalten. Nachdem ein Release Candidate die Daten migriert hat, ist eine Rückkehr zur vorherigen stabilen Version unter Umständen nicht mehr möglich. Lege deshalb vorher unter Einstellungen › Betrieb › Sicherungen eine Sicherung an. Beim Wechsel zurück zu Stable bleibt der installierte Release Candidate erhalten, bis eine neuere stabile Version erscheint.",
   channelManagedHelp:
     "Eine eigene Update-Quelle ist eingerichtet. Sie wird auf dem Server verwaltet.",
   channelUnsupportedHelp:
@@ -166,7 +160,7 @@ export const operationsCopy = {
       "Der Webdienst wurde beendet, bevor der Umzug abgeschlossen war. Die Version bleibt erhalten.",
     migrateCancelled: "Der Umzug wurde abgebrochen. Die Version bleibt erhalten.",
   },
-  cleanupReleases: "Alte Versionen aufräumen",
+  cleanupReleases: "Alte Versionen löschen",
   cleanupHelp:
     "Entferne ungenutzte ältere Versionen, um Speicherplatz freizugeben. Aktive Versionen und Versionen laufender Prozesse bleiben erhalten.",
   cleanupAll: "Alle alten Versionen löschen",
@@ -228,7 +222,7 @@ export const operationsCopy = {
   platform: "Plattform",
   staged: "Vorbereitet",
   activateConfirmation:
-    "Diese vorbereitete Version aktivieren? Der Webdienst wird neu gestartet; native Sitzungen bleiben erhalten.",
+    "Diese vorbereitete Version aktivieren? Der Webdienst wird neu gestartet; native Sessions bleiben erhalten.",
   rollbackConfirmation:
     "Zu dieser freigegebenen Version zurückwechseln? Aktuelle Nutzerdaten werden nicht durch alte Datenbanken ersetzt.",
   setupRequired:
@@ -249,16 +243,16 @@ export const operationsCopy = {
 export const diagnosticCopy = {
   account: "Account-Profil",
   project: "Projektverzeichnis",
-  adapterSession: "Adapter-Sitzung",
+  adapterSession: "Adapter-Session",
   remedies: {
     platform: "Nutze einen unterstützten macOS- oder Linux-Rechner.",
     pty: "Installiere die Abhängigkeiten für diese Node-Laufzeit und Plattform neu.",
-    tool: "Installiere das Werkzeug oder korrigiere den PATH des Dienstes.",
+    tool: "Installiere das Tool oder korrigiere den PATH des Dienstes.",
     project:
       "Stelle den Projekt-Checkout auf diesem Rechner wieder her oder ordne ihn zu.",
-    adapterReload: "Lade die Sitzung neu, um den Protokolladapter neu zu starten.",
+    adapterReload: "Lade die Session neu, um den Protokolladapter neu zu starten.",
     adapterRestartFailed:
-      "Lade die Sitzung neu, um den Protokolladapter neu zu starten. Schlägt das erneut fehl, teste die Verbindung und prüfe ihre Adresse.",
+      "Lade die Session neu, um den Protokolladapter neu zu starten. Schlägt das erneut fehl, teste die Verbindung und prüfe ihre Adresse.",
   },
   checks: {
     platform: "Betriebssystem",
@@ -320,9 +314,9 @@ export const backupCopy = {
     "provider-connections": "Provider-Zugänge",
     "encrypted-provider-credentials": "Keys der Provider-Zugänge (verschlüsselt)",
     "Managed SSH accesses, private keys and session assignments":
-      "Verwaltete SSH-Zugänge, private Schlüssel und Sitzungszuordnungen",
+      "Verwaltete SSH-Zugänge, private Schlüssel und Session-Zuordnungen",
     "Workspace login credentials and browser sessions":
-      "Anmeldedaten für Arbeitsbereiche und Browsersitzungen",
+      "Anmeldedaten für Arbeitsbereiche und Browser-Sessions",
     "MCP client grants, OAuth credentials and start request capabilities":
       "MCP-Client-Freigaben, OAuth-Zugangsdaten und Berechtigungen für Startanfragen",
     "Shared native extensions, Agency agent files and their local installation records":
@@ -330,7 +324,7 @@ export const backupCopy = {
     "encrypted-managed-profiles":
       "Anmeldungen, Einstellungen, Anweisungen, Skills und Agenten der verwalteten CLI-Profile (verschlüsselt)",
     "cli-histories":
-      "CLI-Verläufe (verschlüsselt): Codex-Sitzungen und erzeugte Bilder, Claude-Code-Projekte, -Aufgaben und -Dateiversionen, OpenCode-Sitzungen",
+      "CLI-Verläufe (verschlüsselt): Codex-Sessions und erzeugte Bilder, Claude-Code-Projekte, -Aufgaben und -Dateiversionen, OpenCode-Sessions",
     "CLI caches, logs, telemetry and files outside the profile allowlists":
       "CLI-Caches, -Protokolle, -Telemetrie und alle Dateien außerhalb der Profil-Positivlisten",
     "AgentPier and CLI histories": "AgentPier- und CLI-Verläufe",
@@ -350,7 +344,7 @@ export const backupCopy = {
     "Repository checkouts, worktrees and uncommitted files":
       "Repository-Arbeitsverzeichnisse, Worktrees und nicht eingecheckte Dateien",
     "Platform-specific installed tool binaries and caches":
-      "Installierte plattformspezifische Werkzeuge und Caches",
+      "Installierte plattformspezifische Tools und Caches",
     "Live native processes, delivery channels, capabilities and subscriptions":
       "Laufende native Prozesse, Zustellkanäle, Berechtigungen und Benachrichtigungsanmeldungen",
     "File trash, file journals and transfer bytes":

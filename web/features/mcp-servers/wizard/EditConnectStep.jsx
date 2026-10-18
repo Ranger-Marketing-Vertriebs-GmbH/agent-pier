@@ -7,6 +7,7 @@ import usePackageStatus from "../usePackageStatus.js";
 import { ConnectForm } from "./ConnectStep.jsx";
 import ConnectResults from "./ConnectResults.jsx";
 import { writeSwitch } from "./setting-hints.js";
+import { commonCopy } from "../../../lib/i18n/messages/common.js";
 import "./mcp-wizard.css";
 
 /** Edit "Who may use it": the same switches and consent; results before returning. */
@@ -50,7 +51,7 @@ export default function EditConnectStep({ entry, data, navigate, agentsEnabled }
           titleTag="h2"
           onFinished={(results, context) => setOutcome({ results, ...context })}
           onSkip={back}
-          skipLabel={copy.back}
+          skipLabel={commonCopy.back}
         />
       )}
     </AccountDetail>
