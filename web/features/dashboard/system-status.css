@@ -1,0 +1,244 @@
+.system-status {
+  margin: -30px 0 46px;
+  display: grid;
+  gap: 12px;
+}
+.system-status-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: linear-gradient(145deg, #1e1f23, #17181c);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.system-status-row:hover {
+  border-color: var(--accent-line);
+}
+.system-status-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.system-status-row > svg:last-child {
+  color: var(--muted);
+}
+.system-status-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #b5b6ba;
+}
+.system-status-meters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+.system-status-empty {
+  font-size: 11px;
+  color: var(--muted);
+}
+.system-meter {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.system-meter-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: #9e9fa3;
+}
+.system-meter-top strong {
+  font:
+    500 13px "Manrope",
+    sans-serif;
+  color: #ffc99d;
+}
+.system-meter small {
+  font-size: 10px;
+  color: #7d7e82;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.system-meter-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: #2c2d31;
+  overflow: hidden;
+}
+.system-meter-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.system-meter.low .system-meter-bar i {
+  background: var(--warning);
+}
+.system-meter.low .system-meter-top strong {
+  color: var(--warning);
+}
+.system-status-warning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warning) 9%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.system-status-warning svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--warning);
+}
+.system-status-warning strong {
+  display: block;
+  color: var(--warning);
+}
+.system-status-details {
+  display: grid;
+  gap: 24px;
+}
+.system-status-details h3 {
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.system-status-details .hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.system-status-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+.system-status-total small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.system-sparklines {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.system-sparkline {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.system-sparkline figcaption {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #9e9fa3;
+}
+.system-sparkline svg {
+  width: 100%;
+  height: 44px;
+  border-bottom: 1px solid var(--line);
+}
+.system-sparkline polyline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.system-sparkline circle {
+  fill: var(--accent);
+}
+.system-process-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.system-process-table th,
+.system-process-table td {
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.system-process-table th:first-child {
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.system-process-table thead th {
+  font-size: 10px;
+  color: var(--muted);
+}
+.system-process-table tbody th small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+}
+.system-area-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.system-area-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 12px;
+  font-size: 12px;
+}
+.system-area-list .system-meter-bar {
+  grid-column: 1 / -1;
+}
+@media (max-width: 760px) {
+  .system-status {
+    margin: 0 0 32px;
+  }
+  .system-status-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 14px;
+  }
+  .system-status-row .system-status-meters,
+  .system-status-row .system-status-empty {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .system-status-row > svg:last-child {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+@media (max-width: 520px) {
+  /* The phone row stays one line of three bars; the dialog has the full figures. */
+  .system-status-row .system-status-meters {
+    gap: 14px;
+  }
+  .system-status-row .system-meter small {
+    display: none;
+  }
+  .system-status-details .system-status-meters,
+  .system-sparklines {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+}

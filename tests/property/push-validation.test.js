@@ -98,3 +98,10 @@ test("GitHub token notices carry only their kind and event id", () => {
     { kind: "github-token", eventId: "e1" },
   );
 });
+
+test("low disk notices carry only their kind and event id", () => {
+  assert.deepEqual(pushPayload({ kind: "disk-space", eventId: "e1", sessionId: "s1" }), {
+    kind: "disk-space",
+    eventId: "e1",
+  });
+});

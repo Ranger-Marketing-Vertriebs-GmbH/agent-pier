@@ -67,6 +67,8 @@ export function pushPayload(input) {
       "telegram-revocation",
       // A saved GitHub token was rejected, expired or expires soon.
       "github-token",
+      // Free space on the data directory's volume fell below 10 %.
+      "disk-space",
       "test",
     ].includes(input?.kind)
   )
@@ -80,7 +82,7 @@ export function pushPayload(input) {
     // The chat it was written to; the notice opens it.
     if (input.conversationId !== undefined)
       payload.conversationId = pushId(input.conversationId);
-  } else if (input.kind !== "test" && input.kind !== "github-token")
+  } else if (!["test", "github-token", "disk-space"].includes(input.kind))
     payload.sessionId = pushId(input.sessionId);
   return payload;
 }

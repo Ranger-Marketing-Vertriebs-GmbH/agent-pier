@@ -39,6 +39,7 @@ export function createShutdown({ services, wss, server }) {
     await services.mcpTransport?.close();
     await services.operationsEvents?.close();
     await services.githubTokenMonitor?.close();
+    await services.systemStatus?.close();
     services.chatEvents?.close();
     await services.operations?.close();
     await services.pipelines?.close();

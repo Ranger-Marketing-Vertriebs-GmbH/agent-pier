@@ -56,6 +56,7 @@ again on that device.
 | Routine result               | A [routine or reminder](agents.md#routines-reminders-and-check-ins) wrote in an agent's chat; opens that chat                   |
 | Telegram access still active | A Telegram bot or person you removed could not be stopped; restart the agent service                                            |
 | Check GitHub token           | The [daily token check](github-agents.md#token-check) found a saved GitHub token invalid, expired or expiring within seven days |
+| Disk space is low            | Less than 10 % is free on the drive that holds AgentPier's data ([system status](system-status.md#low-disk-space))              |
 
 Notifications carry only the event type. Tasks, commands and chat content stay on the
 host. Opening a notification opens the matching view; it never approves anything.

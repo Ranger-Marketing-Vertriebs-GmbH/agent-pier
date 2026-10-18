@@ -44,6 +44,10 @@ self.agentPierNotificationCopyEn = {
     title: "AgentPier: Check GitHub token",
     body: "A saved GitHub token is invalid, expired or expires soon.",
   },
+  "disk-space": {
+    title: "AgentPier: Disk space is low",
+    body: "Less than 10% is free on the drive that holds AgentPier's data.",
+  },
   test: {
     title: "AgentPier: Test notification",
     body: "Notifications are reaching this device.",

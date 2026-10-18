@@ -56,6 +56,7 @@ const validId = (value) =>
   typeof value === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 function notificationTarget(data) {
   if (data.kind === "github-token") return "/settings/github";
+  if (data.kind === "disk-space") return "/";
   if (validId(data.runId)) return `/pipelines/runs/${encodeURIComponent(data.runId)}`;
   if (validId(data.assistantId) && validId(data.conversationId))
     return `/agents/${encodeURIComponent(data.assistantId)}/chats/${encodeURIComponent(data.conversationId)}`;
@@ -111,7 +112,9 @@ self.addEventListener("push", (event) => {
     ...(validId(payload.conversationId)
       ? { conversationId: payload.conversationId }
       : {}),
-    ...(payload.kind === "github-token" ? { kind: payload.kind } : {}),
+    ...(["github-token", "disk-space"].includes(payload.kind)
+      ? { kind: payload.kind }
+      : {}),
   };
   event.waitUntil(
     notificationCopy().then((catalog) => {
