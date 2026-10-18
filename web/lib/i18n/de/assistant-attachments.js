@@ -30,7 +30,7 @@ export const assistantAttachmentsCopy = Object.freeze({
   unavailable: "Nicht mehr verfügbar",
   storageGroup: "Chat-Anhänge",
   storageHint:
-    "Dateien, die du diesem Agenten schickst, liegen in attachments/ seines Arbeitsbereichs, damit er sie mit seinen Werkzeugen lesen kann.",
+    "Dateien, die du diesem Agenten schickst, liegen in attachments/ seines Arbeitsbereichs, damit er sie mit seinen Tools lesen kann.",
   storageUsage: (bytes, maxBytes, files, maxFiles) =>
     `${bytes} von ${maxBytes} · ${files} von ${maxFiles} Dateien`,
   storageLoading: "Ordner wird gelesen …",
