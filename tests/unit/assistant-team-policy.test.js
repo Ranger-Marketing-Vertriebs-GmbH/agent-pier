@@ -9,11 +9,14 @@ test("team limits accept all members but reject invalid capacity and hidden gran
   assert.deepEqual(policy, {
     revision: 1,
     autonomous: false,
+    usage: "suggest",
     maxMembers: 4,
     runTimeoutMinutes: 10,
     memberShellSsh: false,
   });
   assert.equal(normalizeTeamPolicy({ memberShellSsh: true }).memberShellSsh, true);
+  for (const usage of ["onRequest", "suggest", "autonomous"])
+    assert.equal(normalizeTeamPolicy({ usage }).usage, usage);
   for (const input of [
     { maxMembers: 0 },
     { maxMembers: 9 },
@@ -21,6 +24,8 @@ test("team limits accept all members but reject invalid capacity and hidden gran
     { runTimeoutMinutes: 61 },
     { autonomous: "yes" },
     { memberShellSsh: "yes" },
+    { usage: "always" },
+    { usage: null },
     { grants: ["all"] },
   ])
     assert.throws(() => normalizeTeamPolicy(input), { status: 400 });

@@ -2,8 +2,10 @@ import { randomUUID, createHash } from "node:crypto";
 import { migrateTeams } from "./team-schema.js";
 import {
   defaultTeamPolicy,
+  defaultTeamUsage,
   normalizeTeamPolicy,
   normalizeTeamSettings,
+  teamUsageLevels,
 } from "./team-policy.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { RequestLedger } from "./request-ledger.js";
@@ -165,6 +167,8 @@ export class TeamStore {
       ? {
           revision: p.revision,
           autonomous: p.autonomous,
+          // Policies saved before team usage levels existed use the default.
+          usage: teamUsageLevels.includes(p.usage) ? p.usage : defaultTeamUsage,
           maxMembers: p.maxMembers,
           runTimeoutMinutes: p.runTimeoutMinutes,
           memberShellSsh: p.memberShellSsh === true,

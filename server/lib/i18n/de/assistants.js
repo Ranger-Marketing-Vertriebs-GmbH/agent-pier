@@ -231,6 +231,8 @@ export const assistants = {
     "Nur abgeschlossene temporäre Mitglieder lassen sich archivieren.",
   memberRequestRate:
     "Der Agent hat in kurzer Zeit zu viele Fragen oder Aufgaben geschickt. Warte einen Moment.",
+  memberRequestAutonomousLimit:
+    "Der Agent hat vorerst die meisten Fragen und Aufgaben aus eigenem Antrieb gestellt. Bitte ihn ausdrücklich darum, wenn er mehr tun soll.",
   memberRequestUnavailable:
     "Dieses Mitglied hat noch keinen Chat und kann nichts beantworten.",
   memberRequestNoReply: (member) =>

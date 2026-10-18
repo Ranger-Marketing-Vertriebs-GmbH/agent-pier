@@ -1,7 +1,16 @@
 import { assistantProblem } from "./assistant-validation.js";
+// How a lead uses its team members on its own (team-guidance.js): only when the
+// owner asks, by offering them first, or autonomously within the request caps.
+export const teamUsageLevels = ["onRequest", "suggest", "autonomous"];
+export const defaultTeamUsage = "suggest";
+// Questions and tasks a lead may start on its own under "autonomous", per owner turn
+// and per hour, so a lead and its members cannot keep each other busy
+// (lead-request-store.js); the general request caps apply as well.
+export const autonomousCaps = { perTurn: 4, perHour: 20 };
 export const defaultTeamPolicy = {
   revision: 1,
   autonomous: false,
+  usage: defaultTeamUsage,
   maxMembers: 4,
   runTimeoutMinutes: 10,
   // Temporary members may use the lead's shell level and SSH grants (off by default).
@@ -14,7 +23,13 @@ export function normalizeTeamPolicy(input, current = defaultTeamPolicy) {
     Array.isArray(input) ||
     Object.keys(input).some(
       (k) =>
-        !["autonomous", "maxMembers", "runTimeoutMinutes", "memberShellSsh"].includes(k),
+        ![
+          "autonomous",
+          "usage",
+          "maxMembers",
+          "runTimeoutMinutes",
+          "memberShellSsh",
+        ].includes(k),
     )
   )
     throw assistantProblem("invalid");
@@ -22,6 +37,7 @@ export function normalizeTeamPolicy(input, current = defaultTeamPolicy) {
   if (
     typeof result.autonomous !== "boolean" ||
     typeof result.memberShellSsh !== "boolean" ||
+    !teamUsageLevels.includes(result.usage) ||
     !Number.isInteger(result.maxMembers) ||
     result.maxMembers < 1 ||
     result.maxMembers > 8 ||

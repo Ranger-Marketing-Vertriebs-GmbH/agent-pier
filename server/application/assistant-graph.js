@@ -129,6 +129,7 @@ export function constructAssistantGraph(host, created = {}) {
       "projectFolders",
       "github",
       "githubShellPath",
+      "teamRoster",
     ],
   );
   const assistants = (created.assistants = expectWiring(
@@ -450,6 +451,10 @@ export function connectAssistantServices(graph) {
     // Its GitHub access, named in its instructions, and its shell's GitHub folder.
     github: (assistant) => workflows.github.describe(assistant),
     githubShellPath: (assistant) => workflows.github.shellPath(assistant),
+    // A lead's members and team usage level, named in its instructions while its
+    // team tools are offered.
+    teamRoster: (assistant) =>
+      bridge.status().ready ? teams.requests.roster(assistant.id) : null,
   });
   // The agents' GitHub servers compile beside the store's (agent-github.js).
   const githubInputs = (taken) =>

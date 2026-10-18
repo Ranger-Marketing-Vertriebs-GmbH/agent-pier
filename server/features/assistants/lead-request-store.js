@@ -4,11 +4,14 @@ import { dropTexts, readText } from "./team-texts.js";
 import {
   intent,
   namesMember,
+  ownerConsent,
   ownerMentions,
+  ownerProse,
   ownerQuoteProof,
   parseOwnerText,
   plain,
 } from "./lead-request-proof.js";
+import { autonomousCaps } from "./team-policy.js";
 export { ownerQuote } from "./lead-request-proof.js";
 // Questions and tasks a lead agent sends to its own members. They live in the team
 // store as `lead-request` records beside the teams and members they refer to.
@@ -150,7 +153,7 @@ export class LeadRequestStore {
     // The owner's message is parsed for the proofs before the transaction; inside
     // it only a parse of the same request (its text and context never change) is used.
     let owner = null;
-    if (type === "task")
+    {
       try {
         const { request } = this.lead(attemptId);
         const parsed = parseOwnerText(request.text, t.context(request.id).hidden);
@@ -158,6 +161,7 @@ export class LeadRequestStore {
       } catch {
         owner = null;
       }
+    }
     return t.transaction(() => {
       const { request, conversation, lead } = this.lead(attemptId);
       const key = `${attemptId}:${operationId}`;
@@ -261,6 +265,43 @@ export class LeadRequestStore {
             mention: m.ordinal,
           };
       }
+      // Third way, where the lead offers members first (team usage "suggest" or
+      // "autonomous"): the owner's own short yes in this turn, once per turn, in a
+      // message that names no other member.
+      const prose = ownerTurn ? ownerProse(parsed) || "" : "";
+      const usage = policy.usage;
+      if (open && !proof && quote && usage !== "onRequest") {
+        const yes = ownerConsent(quote, parsed);
+        if (
+          yes &&
+          !proofs.some((r) => r.ownerProof.consent) &&
+          !others.some((name) =>
+            namesMember(prose, name, [
+              assistant.name,
+              ...others.filter((o) => o !== name),
+            ]),
+          )
+        )
+          proof = { requestId: request.id, quote, sentence: yes.index, consent: true };
+      }
+      // Whether the owner's message in this turn names the member at all; only for
+      // the record and the autonomous caps, never for a permission.
+      const named = !!prose && namesMember(prose, assistant.name, others);
+      const selfInitiated = usage === "autonomous" && !proof && !named;
+      if (selfInitiated) {
+        const own = mine.filter((r) => r.selfInitiated);
+        if (
+          own.filter((r) => r.parentRequestId === request.id).length >=
+            autonomousCaps.perTurn ||
+          own.filter((r) => now - Date.parse(r.createdAt) < 3600000).length >=
+            autonomousCaps.perHour
+        )
+          throw assistantProblem("memberRequestAutonomousLimit", 429);
+      }
+      // An autonomous lead's own task in a turn of the owner's own message may change
+      // the member's own workspace too; other turns' tasks run read-only. Shell, SSH,
+      // project folders, GitHub and grants keep their own approvals.
+      const autonomous = type === "task" && !proof && usage === "autonomous" && ownerTurn;
       return t.insert(
         {
           id: randomUUID(),
@@ -278,7 +319,9 @@ export class LeadRequestStore {
           text,
           origin: context,
           ownerProof: proof,
-          writeAllowed: !!proof,
+          writeAllowed: !!proof || autonomous,
+          ...(autonomous ? { autonomous: true } : {}),
+          ...(selfInitiated ? { selfInitiated: true } : {}),
           runTimeoutMinutes: policy.runTimeoutMinutes,
           phase: "queued",
           fingerprint: hash,
@@ -340,6 +383,7 @@ export function publicRequest(r, { full = false } = {}) {
     phase: r.phase,
     createdAt: r.createdAt,
     writeAllowed: !!r.writeAllowed,
+    ...(r.selfInitiated ? { selfInitiated: true } : {}),
     ...(r.startedAt ? { startedAt: r.startedAt } : {}),
     ...(r.finishedAt ? { finishedAt: r.finishedAt } : {}),
     ...(r.answer ? (full ? { answer: r.answer } : { hasAnswer: true }) : {}),

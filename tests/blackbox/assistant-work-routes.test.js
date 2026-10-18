@@ -43,6 +43,8 @@ test("an agent's work settings save together or not at all", async (t) => {
   assert.deepEqual(body.team, {
     revision: 2,
     autonomous: true,
+    // Saved without a level: the default for new and existing agents.
+    usage: "suggest",
     maxMembers: 3,
     runTimeoutMinutes: 15,
     memberShellSsh: false,

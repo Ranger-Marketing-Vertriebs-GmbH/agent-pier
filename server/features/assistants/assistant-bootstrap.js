@@ -17,6 +17,7 @@ import {
   memoryEnabled,
   personalCapabilities,
 } from "./native-capabilities.js";
+import { teamGuidance } from "./team-guidance.js";
 
 // OpenClaw's own memory routine never reaches the workspace (skipBootstrap), so an
 // agent with memory learns here that only a file write persists anything.
@@ -91,11 +92,18 @@ const imageGuidance = [
 ].join("\n");
 
 // `memoryWritable` false: the agent's write and edit tools are withheld (no live
-// write guard, AssistantConfig.applyOnce).
+// write guard, AssistantConfig.applyOnce). `team`: a lead's members and team usage
+// level (team-guidance.js), only while its team tools are offered.
 export function assistantBootstrap(
   assistant,
   display = {},
-  { memoryWritable = true, projectFolders = [], github = null, images = false } = {},
+  {
+    memoryWritable = true,
+    projectFolders = [],
+    github = null,
+    images = false,
+    team = null,
+  } = {},
 ) {
   const model = shareable(display.model) || shareable(assistant.model?.modelId);
   const connection = shareable(display.connection);
@@ -110,6 +118,7 @@ export function assistantBootstrap(
     "- Internal identifiers (agent, session, provider or connection IDs) and operator or command-line instructions (for example `openclaw …` commands) are for AgentPier only. The user cannot run them: never suggest such commands or repeat such identifiers. When a tool reports an internal maintenance step, tell the user that the feature is temporarily unavailable instead.",
   ].join("\n");
   const task = inheritsFromLead(assistant);
+  const lead = !assistant.teamMemberId && !assistant.archivedAt && teamGuidance(team);
   const sections = [
     managed,
     ...(memoryEnabled(assistant)
@@ -126,6 +135,7 @@ export function assistantBootstrap(
     ...(github ? [githubGuidance(github)] : []),
     // While the agent can create images: the capability with a ready ChatGPT account.
     ...(images && personalCapabilities(assistant).createImages ? [imageGuidance] : []),
+    ...(lead ? [lead] : []),
   ].join("\n\n");
   const instructions = String(assistant.instructions || "").trimEnd();
   return instructions ? `${instructions}\n\n${sections}\n` : `${sections}\n`;
