@@ -195,7 +195,7 @@ test("an update shows the lock diff before it is confirmed", async ({ page }) =>
   expect(writes(state, "/api/mcp-servers/s1/package/update")).toHaveLength(0);
   await confirm.getByRole("button", { name: "Update" }).click();
   await expect(
-    panel.getByRole("status").filter({ hasText: "Installing…" }),
+    panel.getByRole("status").filter({ hasText: "Installing …" }),
   ).toBeVisible();
   expect(writes(state, "/api/mcp-servers/s1/package/update")[0].body).toEqual({
     version: "1.1.0",
@@ -387,7 +387,7 @@ test("German: a failed package shows its error, log and Reinstall; bindings wait
   if (screens) await panel.screenshot({ path: `${screens}/de-status-panel.png` });
   await panel.getByRole("button", { name: "Neu installieren" }).click();
   await expect(
-    panel.getByRole("status").filter({ hasText: "Wird installiert…" }),
+    panel.getByRole("status").filter({ hasText: "Wird installiert …" }),
   ).toBeVisible();
   expect(writes(state, "/api/mcp-servers/s1/package/reinstall")).toHaveLength(1);
   // Bindings wait for the package; the set-up step still offers the own command.

@@ -8,6 +8,7 @@ import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 /** The first unfilled restore input and its explanation; null when restore may start. */
 function restoreGap({ inspection, targetDataDir, projectMap, passphrase }) {
   if (!targetDataDir.trim())
@@ -191,7 +192,7 @@ export default function RestoreForm({ close, started }) {
             disabled={action.busy}
             onClick={dismiss}
           >
-            {copy.cancel}
+            {commonCopy.cancel}
           </button>
           <button className="button primary" disabled={action.busy || !file}>
             {inspection ? copy.restore : copy.inspect}

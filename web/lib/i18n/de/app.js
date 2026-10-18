@@ -7,8 +7,8 @@ export const appCopy = {
 export const appDialogsCopy = {
   keychainRetention:
     " Vom CLI verwaltete Schlüsselbund-Einträge können erhalten bleiben.",
-  titleStop: "Sitzung stoppen?",
-  titleRemove: "Sitzung entfernen?",
+  titleStop: "Session stoppen?",
+  titleRemove: "Session entfernen?",
   titleRemoveTool: (name) => `${name} entfernen?`,
   confirmCopyRemoveTool: (name) =>
     `${name} wird von diesem Rechner gelöscht. Agenten nutzen danach einen anderen installierten Browser, sobald der Agentendienst neu startet. Solange die Agenten ihn nutzen, beende zuerst den Agentendienst.`,
@@ -22,7 +22,7 @@ export const appDialogsCopy = {
   confirmCopyDeleteAccount: (value1, value2) =>
     `Das Profil „${value1}“ und seine lokalen Dateien werden gelöscht.${value2}`,
   confirmCopyLogin: (value1) =>
-    `Die native Anmeldung für „${value1}“ öffnet sich in einer eigenen Sitzung. Folge dort den Anweisungen deines Tools.`,
+    `Die native Anmeldung für „${value1}“ öffnet sich in einer eigenen Session. Folge dort den Anweisungen deines Tools.`,
 };
 export const mobileHeaderCopy = {
   iconButtonAriaLabel: "Navigation öffnen",
@@ -30,7 +30,7 @@ export const mobileHeaderCopy = {
 };
 export const sidebarCopy = {
   newLabel: "Neu",
-  newSessionItem: "Sitzung",
+  newSessionItem: "Session",
   newAgentItem: "Agent",
   brandAriaLabel: "AgentPier Startseite",
   brandLabel: "AgentPier",
@@ -41,7 +41,7 @@ export const sidebarCopy = {
   projectsNavigation: "Projekte",
   extensionsNavigation: "Erweiterungen",
   sidebarEmptyDescription: "Platz für deine nächste Idee.",
-  sidebarEmptyLabel: "Deine Sitzungen erscheinen hier.",
+  sidebarEmptyLabel: "Deine Sessions erscheinen hier.",
   hostStatusLabel: "Lokaler Workspace",
   serviceConnecting: "Verbindung wird hergestellt",
   localHostDescription: "Auf deinem Rechner",
@@ -55,7 +55,7 @@ export const sidebarGroupCopy = {
 };
 export const useWorkspaceNavigationCopy = {
   pageNotFound: "Seite nicht gefunden",
-  sessionNotFound: "Sitzung nicht gefunden",
+  sessionNotFound: "Session nicht gefunden",
   profileNotFound: "Profil nicht gefunden",
 };
 export const useWorkspaceStateCopy = {

@@ -74,7 +74,7 @@ export const backups = Object.freeze({
     `Profil „${name}“ (${tool}): Konfiguration und Zugangsdaten überschreiten ${limit}.`,
   unreadable: Object.freeze({
     sessions:
-      "Sitzungen: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
+      "Sessions: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
     chat: "Chat-Verläufe: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
     agentbus:
       "AgentBus-Verlauf: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
@@ -91,7 +91,7 @@ export const backups = Object.freeze({
   }),
   linked: Object.freeze({
     sessions:
-      "Sitzungen: Enthält einen symbolischen Link und kann nicht gesichert werden.",
+      "Sessions: Enthält einen symbolischen Link und kann nicht gesichert werden.",
     chat: "Chat-Verläufe: Enthält einen symbolischen Link und kann nicht gesichert werden.",
     agentbus:
       "AgentBus-Verlauf: Enthält einen symbolischen Link und kann nicht gesichert werden.",

@@ -57,6 +57,7 @@ _(German)_ are not translated yet.
 | --------------------------------------------------------- | ------------------------------------------------------- |
 | [Architecture](architecture.md)                           | Boundaries of the server, web app and features          |
 | [Settings pattern](settings-pattern.md)                   | The shared layout and save model of settings pages      |
+| [UI glossary](ui-glossary.md)                             | Interface terms, action verbs and copy rules            |
 | [ADR 0001](adr/0001-optional-per-session-nono-sandbox.md) | Optional per-session nono sandbox                       |
 | [ADR 0002](adr/0002-managed-openclaw-assistants.md)       | Managed OpenClaw agents and visible agent teams         |
 | [ADR 0003](adr/0003-agent-ssh-access.md)                  | SSH access for agents                                   |

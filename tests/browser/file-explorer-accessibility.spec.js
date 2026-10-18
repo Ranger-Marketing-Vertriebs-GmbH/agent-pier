@@ -80,12 +80,12 @@ test("menu action cancellation restores the row action trigger", async ({ page }
   await page.goto(baseURL + "/files");
   const trigger = page.getByRole("button", { name: "Actions for a.txt", exact: true });
   await trigger.click();
-  await page.getByRole("menuitem", { name: "Move to Trash", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Move to trash", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
   await expect(trigger).toBeFocused();
   await openExplorerDisclosure(page, ".explorer-path-options");
   await trigger.click();
-  await page.getByRole("menuitem", { name: "Move to Trash", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Move to trash", exact: true }).click();
   const laterCancel = page.getByRole("dialog").getByRole("button", {
     name: "Cancel",
     exact: true,
@@ -113,7 +113,7 @@ test("successful row mutations move focus to a stable list control", async ({ pa
   await selectEnglish(page);
   await page.goto(baseURL + "/files");
   await page.getByRole("button", { name: "Actions for a.txt", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Move to Trash", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Move to trash", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Move to trash" });
   await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(page.getByRole("button", { name: "a.txt", exact: true })).toHaveCount(0);

@@ -40,7 +40,7 @@ export async function extensionsPageFixture(
     available: true,
     busy: false,
     reason: null,
-    note: "Änderungen gelten für neue Sitzungen.",
+    note: "Änderungen gelten für neue Sessions.",
     capabilities: { marketplaces: true, enable: true, update: true, install: true },
     installed: [
       {

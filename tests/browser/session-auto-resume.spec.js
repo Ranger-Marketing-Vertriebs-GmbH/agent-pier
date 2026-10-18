@@ -14,7 +14,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       const toggle = page.getByRole("switch", {
         name: en
           ? "Resume interrupted sessions automatically"
-          : "Unterbrochene Sitzungen automatisch fortsetzen",
+          : "Unterbrochene Sessions automatisch fortsetzen",
       });
       await expect(toggle).toBeChecked();
       await toggle.click();
@@ -68,7 +68,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         page.getByText(
           en
             ? "This session was interrupted and could not be resumed automatically: the reload failed."
-            : "Diese Sitzung wurde unterbrochen und konnte nicht automatisch fortgesetzt werden: Das Neuladen ist fehlgeschlagen.",
+            : "Diese Session wurde unterbrochen und konnte nicht automatisch fortgesetzt werden: Das Neuladen ist fehlgeschlagen.",
         ),
       ).toBeVisible();
     });
@@ -113,7 +113,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         page.getByText(
           en
             ? "This session was interrupted and could not be resumed automatically."
-            : "Diese Sitzung wurde unterbrochen und konnte nicht automatisch fortgesetzt werden.",
+            : "Diese Session wurde unterbrochen und konnte nicht automatisch fortgesetzt werden.",
           { exact: true },
         ),
       ).toBeVisible();
@@ -123,10 +123,10 @@ for (const locale of ["de-DE", "en-GB"]) {
       const en = locale === "en-GB";
       const resuming = en
         ? "This session was interrupted and is being resumed automatically …"
-        : "Diese Sitzung wurde unterbrochen und wird automatisch fortgesetzt …";
+        : "Diese Session wurde unterbrochen und wird automatisch fortgesetzt …";
       const disabled = en
         ? "This session was interrupted. Automatic resume is off; use Reload & resume to continue it."
-        : "Diese Sitzung wurde unterbrochen. Das automatische Fortsetzen ist aus; nutze „Neu laden & fortsetzen“, um sie fortzusetzen.";
+        : "Diese Session wurde unterbrochen. Das automatische Fortsetzen ist aus; nutze „Neu laden & fortsetzen“, um sie fortzusetzen.";
       await operationsFixture(page);
       const pending = {
         status: "stopped",

@@ -32,7 +32,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         await openNewSession(page);
         const dialog = page.getByRole("dialog");
         const start = dialog.getByRole("button", {
-          name: en ? "Start session" : "Sitzung starten",
+          name: en ? "Start session" : "Session starten",
           exact: true,
         });
         const summary = dialog.locator(".launch-extensions > summary");
@@ -53,7 +53,7 @@ for (const locale of ["de-DE", "en-GB"]) {
           await page.screenshot({ path: test.info().outputPath(`launch-${width}.png`) });
         await expect(start).toBeInViewport();
         await dialog
-          .getByLabel(en ? "Session name" : "Name der Sitzung", { exact: true })
+          .getByLabel(en ? "Session name" : "Name der Session", { exact: true })
           .fill("Layout test");
         await dialog
           .getByRole("button", {
@@ -68,7 +68,7 @@ for (const locale of ["de-DE", "en-GB"]) {
           })
           .click();
         await expect(
-          dialog.getByLabel(en ? "Session name" : "Name der Sitzung", { exact: true }),
+          dialog.getByLabel(en ? "Session name" : "Name der Session", { exact: true }),
         ).toHaveValue("Layout test");
         await summary.focus();
         await page.keyboard.press("Enter");
@@ -81,7 +81,7 @@ for (const locale of ["de-DE", "en-GB"]) {
           await page.setViewportSize({ width, height: 430 });
           await expect(start).toBeInViewport();
           await dialog
-            .getByLabel(en ? "Session name" : "Name der Sitzung", { exact: true })
+            .getByLabel(en ? "Session name" : "Name der Session", { exact: true })
             .fill("Keyboard test");
           await expect(start).toBeInViewport();
         }

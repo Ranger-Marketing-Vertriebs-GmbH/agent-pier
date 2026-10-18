@@ -27,7 +27,7 @@ test("coded plugin messages resolve the active language when it changes", () => 
   assert.match(pluginNote(data), /Changes apply to new CLI sessions/);
   setLanguage("de");
   assert.match(catalogReason(data), /Lokale Plugins bleiben verfügbar/);
-  assert.match(pluginNote(data), /Änderungen gelten für neue CLI-Sitzungen/);
+  assert.match(pluginNote(data), /Änderungen gelten für neue CLI-Sessions/);
 });
 
 test("Claude and OpenCode plugin notices are also localized", () => {

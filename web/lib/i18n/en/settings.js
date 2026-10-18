@@ -9,7 +9,7 @@ export const settingsPageCopy = {
   autoResumeLabel: "Resume interrupted sessions automatically",
   autoResumeDescription:
     "After a restart or a lost terminal server, AgentPier resumes every interrupted session with its own conversation, one after another. Sessions you stopped stay stopped.",
-  loadingSettings: "Loading settings…",
+  loadingSettings: "Loading settings …",
   saveSettings: "Save settings",
 };
 

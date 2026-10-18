@@ -5,7 +5,7 @@ export const mcpPackageCopy = {
   registries: { npm: "npm", pypi: "PyPI" },
   nameLabel: "Paket",
   versionLabel: "Version",
-  versionsLoading: "Versionen werden geladen…",
+  versionsLoading: "Versionen werden geladen …",
   versionsUnavailable:
     "Die Versionen konnten nicht geladen werden. Prüfe den Paketnamen oder versuche es später erneut.",
   showPrereleases: "Vorabversionen anzeigen",
@@ -17,7 +17,7 @@ export const mcpPackageCopy = {
   allowScriptsWarning:
     "Paketcode läuft dann schon beim Prüfen und beim Installieren mit den Rechten deines Benutzers. Erlaube das nur für Pakete, denen du vertraust.",
   buildToolsNote:
-    "Build-Werkzeuge wie setuptools werden dann während des Builds von PyPI geladen; sie gehören nicht zur eingefrorenen, per Prüfsumme gesicherten Abhängigkeitsliste.",
+    "Build-Tools wie setuptools werden dann während des Builds von PyPI geladen; sie gehören nicht zur eingefrorenen, per Prüfsumme gesicherten Abhängigkeitsliste.",
   constraintsLabel: "Abhängigkeitsgrenzen",
   constraintsHint:
     "Optional. Ein PyPI-Paket mit Versionsgrenzen pro Zeile, zum Beispiel fastmcp<4. Sie gelten beim Auflösen; eine Neuinstallation nutzt die eingefrorene Liste.",
@@ -50,7 +50,7 @@ export const mcpPackageCopy = {
   diffNone: "Keine Paketänderungen.",
   diffChange: (name, from, to) => `${name} ${from} → ${to}`,
   status: {
-    installing: "Wird installiert…",
+    installing: "Wird installiert …",
     ready: "Installiert",
     failed: "Installation fehlgeschlagen",
     missing: "Installation fehlt",

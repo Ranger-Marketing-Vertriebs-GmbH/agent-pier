@@ -164,7 +164,6 @@ export const filesCopy = {
   summary: (total, page) => `${total} Einträge · Seite ${page}`,
   path: "Pfad",
   go: "Öffnen",
-  back: "Zurück",
   forward: "Vorwärts",
   refresh: "Dateiliste aktualisieren",
   breadcrumbs: "Pfadsegmente",

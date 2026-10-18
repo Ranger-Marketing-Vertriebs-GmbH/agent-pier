@@ -5,6 +5,7 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 export default function BackupForm({ close, started }) {
   const [includeHistory, setHistory] = useState(true),
     [withCredentials, setCredentials] = useState(false),
@@ -103,7 +104,7 @@ export default function BackupForm({ close, started }) {
             disabled={action.busy}
             onClick={dismiss}
           >
-            {copy.cancel}
+            {commonCopy.cancel}
           </button>
           <button className="button primary" disabled={action.busy}>
             {plan ? copy.create : copy.plan}

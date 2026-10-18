@@ -210,7 +210,7 @@ test("configured provider limits stay separate from native model confirmation an
     page.getByText("Konfiguriertes Anbietermodell: glm-5.3", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Modellwechsel benötigt eine neue Sitzung.", { exact: true }),
+    page.getByText("Modellwechsel benötigt eine neue Session.", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("textbox", { name: "Nachricht", exact: true })

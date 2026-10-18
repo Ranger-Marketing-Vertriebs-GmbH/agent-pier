@@ -100,7 +100,7 @@ test("a failed sign-in names its reason", async ({ page }) => {
   await page.goto(baseURL + "/accounts");
   const panel = await openAccountItem(page, "ChatGPT for agents");
   await panel.getByRole("button", { name: "Connect ChatGPT" }).click();
-  await expect(panel.getByText("Starting sign-in…")).toBeVisible();
+  await expect(panel.getByText("Starting sign-in …")).toBeVisible();
   Object.assign(state, { status: "failed", diagnostic: "LOGIN_UNAVAILABLE" });
   await expect(panel.getByText("Sign-in failed. Please try again.")).toBeVisible();
   await expect(

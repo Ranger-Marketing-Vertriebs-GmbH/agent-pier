@@ -18,7 +18,6 @@ export const agencyCopy = {
   loading: "Loading agency catalog …",
   stale: "The GitHub catalog is currently unavailable. Showing the last saved version.",
   source: "Source on GitHub",
-  back: "Back",
   next: "Next",
   close: "Close preview",
   revision: "GitHub revision",
@@ -26,6 +25,5 @@ export const agencyCopy = {
   success: "Agent installed. Start a new session to use it.",
   removed: "Agency agent removed.",
   removal: "Remove this agency agent for all accounts using this CLI?",
-  cancel: "Cancel",
   count: (total, page) => `${total} agents · page ${page}`,
 };

@@ -100,10 +100,10 @@ test("endpoint edits invalidate confirmation and deletion requires confirmation"
   await page.getByRole("button", { name: "Löschen", exact: true }).click();
   expect(state.calls.filter((call) => call.method === "DELETE")).toHaveLength(0);
   state.fail = true;
-  await page.getByRole("button", { name: "Löschen bestätigen", exact: true }).click();
+  await page.getByRole("button", { name: "Jetzt löschen", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
   state.fail = false;
-  await page.getByRole("button", { name: "Löschen bestätigen", exact: true }).click();
+  await page.getByRole("button", { name: "Jetzt löschen", exact: true }).click();
   await expect(page.getByText("Noch keine SSH-Zugänge vorhanden.")).toBeVisible();
 });
 
@@ -169,7 +169,7 @@ test("launch selections are submitted and retained when launch fails", async ({
   await page.getByRole("checkbox", { name: /Build server/ }).check();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("Launch rejected");
   expect(launches[0].sshAccessIds).toEqual(["ssh-one"]);

@@ -30,12 +30,11 @@ export const assistantShellCopy = {
   fullBody:
     "With full access there are no prompts at all: the agent runs every command right away, including commands that delete files or send data. You cannot stop a command before it runs.",
   confirmFull: "Allow without prompts",
-  cancel: "Cancel",
   allowlist: "Always allowed commands",
   allowlistHint:
     'Programs and commands you allowed with "Always allow". Delete an entry and the agent asks again.',
   allowlistEmpty: "No always allowed commands.",
-  allowlistLoading: "Loading allowed commands…",
+  allowlistLoading: "Loading allowed commands …",
   sources: {
     agentpier: "Added by AgentPier",
     openclaw: "Added by OpenClaw",

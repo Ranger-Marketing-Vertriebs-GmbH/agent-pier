@@ -283,9 +283,7 @@ test("SSH readiness updates without losing unsaved choices", async ({ page }) =>
     .getByRole("checkbox", { name: /Build server/ })
     .check();
   state.tools.state = "ready";
-  await expect(dialog(page)).toContainText(
-    "SSH-Werkzeuge sind für diese Sitzung bereit.",
-  );
+  await expect(dialog(page)).toContainText("SSH-Tools sind für diese Session bereit.");
   await expect(
     dialog(page).getByRole("checkbox", { name: /Build server/ }),
   ).toBeChecked();

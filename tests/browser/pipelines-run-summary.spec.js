@@ -68,7 +68,7 @@ test("run header shows the run worktree and the folder it was created from", asy
 });
 
 for (const [language, reason, kind] of [
-  ["de", "Die Sitzung endete mit einem Fehler", "Ergebnis-Erinnerung"],
+  ["de", "Die Session endete mit einem Fehler", "Ergebnis-Erinnerung"],
   ["en", "The session ended with an error", "Result reminder"],
 ])
   test(`stop reasons and turn kinds are translated (${language})`, async ({ page }) => {

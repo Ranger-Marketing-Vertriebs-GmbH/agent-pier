@@ -11,7 +11,7 @@ export const sshProjectCopy = {
   downloadHint:
     "Der Download enthält den unverschlüsselten privaten Schlüssel. Bewahre ihn sicher auf.",
   projectManaged: "Vom Projekt verwaltet",
-  explicitAssignment: "Explizite Sitzungszuordnung",
+  explicitAssignment: "Explizite Session-Zuordnung",
   removeExplicit: "Explizite Zuordnung entfernen",
   manageProject: "Projektzugänge verwalten",
   reassignOpen: "Projektressourcen neu zuweisen",
@@ -22,7 +22,7 @@ export const sshProjectCopy = {
   to: "Zielprojekt",
   reassign: "Neu zuweisen",
   errors: {
-    SSH_PROJECT_CHANGED: "Die Projektidentität hat sich geändert. Lade die Sitzung neu.",
+    SSH_PROJECT_CHANGED: "Die Projektidentität hat sich geändert. Lade die Session neu.",
     SSH_PROJECT_UNAVAILABLE: "Das Projektverzeichnis ist nicht verfügbar.",
     SSH_IMPORT_SOURCE:
       "Die Quelle des privaten Schlüssels konnte nicht sicher gelesen werden.",

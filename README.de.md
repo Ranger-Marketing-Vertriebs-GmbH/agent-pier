@@ -11,13 +11,13 @@ Pipelines mit Review und Agenten, die als Team arbeiten.
 
 Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 
-![AgentPier mit einem Agenten-Chat, einem Teammitglied und Coding-Sitzungen in der Seitenleiste](docs/screenshots/agentpier-agent-chat-desktop.png)
+![AgentPier mit einem Agenten-Chat, einem Teammitglied und Coding-Sessions in der Seitenleiste](docs/screenshots/agentpier-agent-chat-desktop.png)
 
 <img src="docs/screenshots/agentpier-agent-chat-phone.png" alt="Derselbe Agenten-Chat auf einem Handy" width="260">
 
 ## Was du bekommst
 
-- **Native CLI-Sitzungen:** echte tmux-Terminals mit Anmeldung, Modellen und
+- **Native CLI-Sessions:** echte tmux-Terminals mit Anmeldung, Modellen und
   Rückfragen der jeweiligen CLI, dazu eine Chat-Ansicht, die sich auf dem Handy
   wiederherstellt und Diktat annimmt ([Neu laden und fortsetzen](docs/session-reload.md),
   [Nachrichten auf dem Handy](docs/mobile-delivery.md),
@@ -37,7 +37,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **Accounts an einer Stelle:** native CLI-Accounts, Provider-Zugänge, ChatGPT für
   Agenten und Dienste für Agenten ([Provider](docs/providers.md)).
 - **Dateien und Wissen:** ein Datei-Explorer, private Artifacts, gemeinsames
-  Projektwissen und AgentBus zwischen Sitzungen ([Dateien](docs/file-explorer.md),
+  Projektwissen und AgentBus zwischen Sessions ([Dateien](docs/file-explorer.md),
   [Artifacts](docs/artifacts.md), [Projektwissen](docs/memory.md),
   [AgentBus](docs/agentbus-integration.md)).
 - **Fürs Handy gemacht:** Installation als App, Push-Benachrichtigungen sowie
@@ -53,7 +53,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - macOS 14 oder neuer (Apple Silicon oder Intel) oder Linux auf x64 oder arm64.
 - Node.js 22.13 oder neuer (in Release-Paketen enthalten), Git und tmux.
 - Optional: Tailscale für den Fernzugriff und ein Chromium-basierter Browser für das
-  Browser-Werkzeug der Agenten (Brave oder Chromium für sichtbare Browserfenster der
+  Browser-Tool der Agenten (Brave oder Chromium für sichtbare Browserfenster der
   Agenten; AgentPier kann dafür mit einem Klick ein verwaltetes Chrome for Testing
   installieren).
 - Mindestens eine Coding-CLI oder ein Modell-Provider. Provider-Accounts und ihre
@@ -102,7 +102,7 @@ npm start
 2. Öffne **Accounts** über das **Menü** der Seitenleiste: Melde dich unter **Native
    CLI-Accounts** bei einer Coding-CLI an oder lege unter **Modell-Zugänge** einen
    Provider-Zugang an. Fehlende CLIs lassen sich in der Übersicht installieren.
-3. Wähle **Neu → Sitzung**, eine CLI, einen Account und einen Projektordner und
+3. Wähle **Neu › Session**, eine CLI, einen Account und einen Projektordner und
    starte. Das native Terminal übernimmt CLI-Anmeldungen und Menüs; der Chat zeigt
    den gespeicherten Verlauf.
 4. Optional: Schalte Agenten unter
@@ -111,7 +111,7 @@ npm start
 
 Deutsch oder Englisch wählst du unter
 **Einstellungen → Arbeitsbereich → Allgemein → Sprache**. Wenn der Webserver stoppt,
-laufen die CLI-Sitzungen weiter; beende eine Sitzung in der Oberfläche, um ihren
+laufen die CLI-Sessions weiter; beende eine Session in der Oberfläche, um ihren
 CLI-Prozess zu beenden.
 
 ## Aktualisieren
@@ -121,7 +121,7 @@ Installierte Versionen aktualisierst du unter
 ([Release-Kanäle](docs/release-channels.md)). Startet die neue Version nicht, kehrt
 AgentPier zur vorherigen zurück. Coding-CLIs aktualisierst du in der Übersicht
 ([CLI-Updates](docs/cli-updates.md)); ein von AgentPier installiertes CLI unter seiner
-Mindestversion startet erst nach dem Update wieder Sitzungen. Ein Quellcode-Checkout wird mit `git pull`,
+Mindestversion startet erst nach dem Update wieder Sessions. Ein Quellcode-Checkout wird mit `git pull`,
 `npm ci` und `npm run build` aktualisiert
 ([Aktualisieren](docs/installation.md#6-updating)).
 
@@ -135,7 +135,7 @@ Mindestversion startet erst nach dem Update wieder Sitzungen. Ein Quellcode-Chec
 >   Freigabe-Rückfrage.
 > - Die Einstellungen liegen jetzt in den Tabs Arbeitsbereich, Zugriff und Betrieb;
 >   alte Links funktionieren weiter.
-> - Sicherungen kopieren CLI-Profile nach Allowlist, enthalten Verläufe (Sitzungen,
+> - Sicherungen kopieren CLI-Profile nach Allowlist, enthalten Verläufe (Sessions,
 >   Chats und AgentBus-Nachrichten von AgentPier sowie CLI-Verläufe) nur verschlüsselt
 >   mit Passphrase, und wiederhergestellte Hook-Skripte brauchen erneut `chmod +x`.
 >
@@ -158,12 +158,12 @@ AgentPier ist ein vertrauenswürdiger persönlicher Arbeitsbereich, keine
 Isolationsgrenze zwischen Benutzern. Die Daten liegen bei einem Quellcode-Checkout
 in `.data/` und bei einer macOS-Installation in
 `~/Library/Application Support/AgentPier`. Sie enthalten Zugangsdaten, Profile,
-Sitzungsmetadaten und Unterhaltungen mit privaten Dateirechten, sind aber nicht
+Session-Metadaten und Unterhaltungen mit privaten Dateirechten, sind aber nicht
 verschlüsselt gespeichert. Die Anmeldung schützt den Web-Arbeitsbereich;
 [Fernzugriff](docs/remote-access.md) erklärt Tailscale Serve und den Netzwerkmodus.
 
 Coding-CLIs und Agenten laufen als dein Betriebssystembenutzer. Die optionale
-[nono-Sandbox](docs/sandbox.md) begrenzt nur CLI-Sitzungen, keine Agenten. Ein Agent
+[nono-Sandbox](docs/sandbox.md) begrenzt nur CLI-Sessions, keine Agenten. Ein Agent
 mit Shell-Zugriff arbeitet mit deinen Anmeldungen, Dateien und Schlüsseln; lokale
 MCP-Server führen Befehle auf dem Host aus; der eigene Telegram-Bot eines Agenten
 antwortet den Personen, die du zulässt; und Fragen und Aufgaben eines Lead-Agenten

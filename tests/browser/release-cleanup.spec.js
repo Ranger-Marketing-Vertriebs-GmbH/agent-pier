@@ -31,7 +31,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       });
       await page.goto("/settings/updates");
       await page
-        .getByText(en ? "Remove old versions" : "Alte Versionen aufräumen", {
+        .getByText(en ? "Delete old versions" : "Alte Versionen löschen", {
           exact: true,
         })
         .click();
@@ -152,7 +152,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       state.jobStatus = "running";
       await page.goto("/settings/updates");
       await page
-        .getByText(en ? "Remove old versions" : "Alte Versionen aufräumen", {
+        .getByText(en ? "Delete old versions" : "Alte Versionen löschen", {
           exact: true,
         })
         .click();
@@ -220,7 +220,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       plan = { ...plan, migrating: true };
       await page.reload();
       await page
-        .getByText(en ? "Remove old versions" : "Alte Versionen aufräumen", {
+        .getByText(en ? "Delete old versions" : "Alte Versionen löschen", {
           exact: true,
         })
         .click();
@@ -245,7 +245,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       };
       await page.reload();
       await page
-        .getByText(en ? "Remove old versions" : "Alte Versionen aufräumen", {
+        .getByText(en ? "Delete old versions" : "Alte Versionen löschen", {
           exact: true,
         })
         .click();

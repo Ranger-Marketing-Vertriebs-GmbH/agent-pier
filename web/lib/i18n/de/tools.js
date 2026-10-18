@@ -1,6 +1,6 @@
 export const toolInstallerCopy = {
   externalUpdateNotice: (name, found, required) =>
-    `${name} ${found} ist älter als die Mindestversion ${required}. AgentPier hat diese Installation nicht eingerichtet und kann sie nicht aktualisieren: Aktualisiere sie mit dem Paketmanager, über den sie installiert wurde (zum Beispiel Homebrew oder npm). Sitzungen starten trotzdem.`,
+    `${name} ${found} ist älter als die Mindestversion ${required}. AgentPier hat diese Installation nicht eingerichtet und kann sie nicht aktualisieren: Aktualisiere sie mit dem Paketmanager, über den sie installiert wurde (zum Beispiel Homebrew oder npm). Sessions starten trotzdem.`,
   versionLabel: (version) => `Version ${version}`,
   versionUnknown: "Version unbekannt",
   updateRequiredBadge: "Update nötig",
@@ -11,9 +11,9 @@ export const toolInstallerCopy = {
   chromiumInstallationDescription:
     "AgentPier lädt den Browser selbst, prüft Größe und SHA-256 und legt ihn in seinem eigenen Ordner ab. Kein Homebrew, keine Administratorrechte.",
   updateRequiredNotice: (name, found, required) =>
-    `${name} ${found} ist älter als die Mindestversion ${required}. Aktualisiere die CLI, um eine Sitzung zu starten.`,
+    `${name} ${found} ist älter als die Mindestversion ${required}. Aktualisiere die CLI, um eine Session zu starten.`,
   versionUnknownNotice: (name) =>
-    `AgentPier konnte die Version von ${name} nicht lesen. Die Sitzung startet trotzdem; falls etwas nicht funktioniert, aktualisiere die CLI.`,
+    `AgentPier konnte die Version von ${name} nicht lesen. Die Session startet trotzdem; falls etwas nicht funktioniert, aktualisiere die CLI.`,
   updateCli: "CLI aktualisieren",
   updateBrowser: "Browser aktualisieren",
   browserUpdateDescription:
@@ -23,9 +23,9 @@ export const toolInstallerCopy = {
   browserUpdateReady: "Browser-Update",
   updateTitle: (name) => `${name} aktualisieren`,
   updateDescription:
-    "Aktualisiert die CLI auf dem AgentPier-Server. Laufende Sitzungen arbeiten weiter; neue oder neu geladene Sitzungen verwenden die aktualisierte Version.",
+    "Aktualisiert die CLI auf dem AgentPier-Server. Laufende Sessions arbeiten weiter; neue oder neu geladene Sessions verwenden die aktualisierte Version.",
   migrationDescription:
-    "Diese CLI wurde über npm von AgentPier installiert. Sie wird zuerst mit dem offiziellen Installationsskript auf eine native Installation umgestellt. Die bisherigen Programmdateien bleiben für laufende Sitzungen erhalten; Accounts und Unterhaltungen bleiben bestehen.",
+    "Diese CLI wurde über npm von AgentPier installiert. Sie wird zuerst mit dem offiziellen Installationsskript auf eine native Installation umgestellt. Die bisherigen Programmdateien bleiben für laufende Sessions erhalten; Accounts und Unterhaltungen bleiben bestehen.",
   backgroundUpdateDescription:
     "Du kannst dieses Fenster schließen. Das Update läuft im Hintergrund weiter.",
   migrateNow: "Umstellen & aktualisieren",

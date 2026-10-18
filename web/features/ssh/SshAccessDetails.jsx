@@ -3,6 +3,7 @@ import api from "../../lib/api.js";
 import SshCopy from "./SshCopy.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 export default function SshAccessDetails({
   access,
   project,
@@ -97,7 +98,7 @@ export default function SshAccessDetails({
           disabled={busy}
           onClick={() => setConfirm(true)}
         >
-          {copy.remove}
+          {commonCopy.delete}
         </button>
       </div>
       {confirm && (
@@ -105,7 +106,7 @@ export default function SshAccessDetails({
           <p>{copy.deleteHint}</p>
           <div className="ssh-actions">
             <button className="button" disabled={busy} onClick={() => setConfirm(false)}>
-              {copy.cancel}
+              {commonCopy.cancel}
             </button>
             <button
               className="button"

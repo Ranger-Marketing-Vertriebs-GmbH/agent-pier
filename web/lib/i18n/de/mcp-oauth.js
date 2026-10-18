@@ -47,7 +47,7 @@ export const mcpOAuthCopy = {
   originBlocked:
     "Von der Adresse, mit der du AgentPier geöffnet hast, lassen sich keine OAuth-Anmeldungen starten. Server mit Headern sind nicht betroffen.",
   connected: (name) =>
-    `Bei ${name} angemeldet. Zugewiesene Agenten können die Werkzeuge ab ihrem nächsten Zug nutzen.`,
+    `Bei ${name} angemeldet. Zugewiesene Agenten können die Tools ab ihrem nächsten Zug nutzen.`,
   failed: (name) => `Die Anmeldung bei ${name} ist fehlgeschlagen.`,
   failedUnnamed: "Die OAuth-Anmeldung ist fehlgeschlagen.",
   thisServer: "dem Server",
@@ -77,7 +77,7 @@ export const mcpOAuthCopy = {
     "redirect-rejected": (redirect) =>
       `Der Anbieter hat die Weiterleitungsadresse ${redirect} abgelehnt.`,
     "session-missing":
-      "Die Anmeldesitzung ist nicht mehr gültig. Starte die Anmeldung erneut.",
+      "Die Anmelde-Session ist nicht mehr gültig. Starte die Anmeldung erneut.",
     "runtime-unavailable": "Die Agenten-Laufzeit ist nicht verfügbar.",
     "server-unknown":
       "Der Server ist noch nicht aktiv. Weise ihn einem Agenten zu und warte, bis die Agenten-Laufzeit läuft.",

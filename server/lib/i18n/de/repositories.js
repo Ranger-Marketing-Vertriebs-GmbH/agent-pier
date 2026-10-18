@@ -53,11 +53,11 @@ export const repositories = Object.freeze({
   cloneTargetOrTokenFailed:
     "Klonen fehlgeschlagen. Bitte Zugriffstoken und Zielordner prüfen.",
   invalidTemporaryGitConfig: "Die temporäre Git-Konfiguration ist ungültig.",
-  sessionConfigUnavailable: "Die GitHub-Sitzungskonfiguration ist nicht zugänglich.",
+  sessionConfigUnavailable: "Die GitHub-Session-Konfiguration ist nicht zugänglich.",
   sessionConfigUpdateFailed:
-    "Eine GitHub-Sitzungskonfiguration konnte nicht aktualisiert werden.",
+    "Eine GitHub-Session-Konfiguration konnte nicht aktualisiert werden.",
   sessionConfigRemoveFailed:
-    "Die GitHub-Sitzungskonfiguration konnte nicht entfernt werden.",
+    "Die GitHub-Session-Konfiguration konnte nicht entfernt werden.",
   cloneShutdown: "Klonen wegen Server-Shutdown abgebrochen.",
-  sessionConfigAlreadyExists: "Diese GitHub-Sitzungskonfiguration existiert bereits.",
+  sessionConfigAlreadyExists: "Diese GitHub-Session-Konfiguration existiert bereits.",
 });

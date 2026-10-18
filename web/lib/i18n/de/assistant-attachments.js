@@ -25,7 +25,7 @@ export const assistantAttachmentsCopy = Object.freeze({
     `„${name}“ wird nicht unterstützt. Erlaubt sind Bilder (JPEG, PNG, WebP, GIF, HEIC), Videos (MP4, MOV, WebM), PDF und Textdateien.`,
   tooMany: (max) => `Eine Nachricht kann höchstens ${max} Dateien enthalten.`,
   noImageInput:
-    "Das Modell dieses Agenten kann keine Bilder sehen. Bilder werden nur in seinem Arbeitsbereich gespeichert, damit er sie mit Werkzeugen lesen kann.",
+    "Das Modell dieses Agenten kann keine Bilder sehen. Bilder werden nur in seinem Arbeitsbereich gespeichert, damit er sie mit Tools lesen kann.",
   heicKept:
     "HEIC-Fotos, die dieser Browser nicht umwandeln kann, bekommt der Agent nur als Datei in seinem Arbeitsbereich.",
   unavailable: "Nicht mehr verfügbar",

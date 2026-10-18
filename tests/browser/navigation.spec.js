@@ -167,7 +167,7 @@ test("profile deep links and navigation survive reload and history", async ({ pa
   await expect(page.getByRole("heading", { name: "Deine Accounts" })).toBeVisible();
 });
 for (const [path, message] of [
-  ["/sessions/missing/chat", "Sitzung nicht gefunden"],
+  ["/sessions/missing/chat", "Session nicht gefunden"],
   ["/extensions/missing", "Profil nicht gefunden"],
   ["/unknown-page", "Seite nicht gefunden"],
 ])
@@ -276,7 +276,7 @@ test("AgentBus history restores project and page through reload and Back/Forward
   await expect(
     page.getByText("Verlauf project-one Seite 1", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("radio", { name: /^Sitzungen/ }).check();
+  await page.getByRole("radio", { name: /^Sessions/ }).check();
   await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus$/);
   await page.goBack();
   await expect(page).toHaveURL(/\/projects\/project-one\?tab=agentbus&bus=messages$/);

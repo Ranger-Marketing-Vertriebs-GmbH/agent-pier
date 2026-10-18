@@ -35,7 +35,7 @@ export const mcpServers = {
   oauthRedirectRejected: (redirect) =>
     `Der Anbieter hat die Rücksprungadresse ${redirect} abgelehnt.`,
   oauthSessionMissing:
-    "Die Anmeldesitzung ist nicht mehr gültig. Bitte die Anmeldung neu starten.",
+    "Die Anmelde-Session ist nicht mehr gültig. Bitte die Anmeldung neu starten.",
   oauthCliTimeout:
     "Die Anmeldung hat nicht rechtzeitig geantwortet. Bitte erneut versuchen.",
   oauthRuntimeUnavailable: "Die Assistenz-Laufzeit ist nicht verfügbar.",
@@ -79,7 +79,7 @@ export const mcpServers = {
     "Die Konfiguration der CLI lässt sich nicht gezielt bearbeiten, ohne andere Einträge zu verändern.",
   cliReasonWriteFailed: "Die Konfiguration der CLI kann nicht geschrieben werden.",
   cliReasonFailed:
-    "Die MCP-Server dieser CLI konnten nicht vorbereitet werden. AgentPier versucht es beim nächsten Sitzungsstart erneut.",
+    "Die MCP-Server dieser CLI konnten nicht vorbereitet werden. AgentPier versucht es beim nächsten Session-Start erneut.",
   cliReasonInvalid: "Diese Coding-CLI kann den Server so nicht eintragen.",
   cliReasonDuplicate:
     "Die CLI führt diesen Namen mehrfach. Bitte einen der Einträge in der CLI entfernen.",
@@ -89,13 +89,13 @@ export const mcpServers = {
   cliLoginNotInEffect:
     "Codex führt den Eintrag dieses Servers nicht, etwa weil ein eigener Eintrag in Codex den Namen belegt. Bitte zuerst den Status des Servers in Codex klären.",
   cliLoginAccountInvalid:
-    "Anmelden lässt sich nur in einem von AgentPier verwalteten Codex-Konto. Im eigenen Codex-Profil bitte codex mcp login im Terminal ausführen.",
+    "Anmelden lässt sich nur in einem von AgentPier verwalteten Codex-Account. Im eigenen Codex-Profil bitte codex mcp login im Terminal ausführen.",
   cliLoginCodexMissing:
     "Für die Anmeldung muss Codex auf dem AgentPier-Rechner installiert sein.",
   cliLoginLimit:
     "Zu viele offene Codex-Anmeldungen. Bitte eine abschließen oder abbrechen und erneut versuchen.",
   cliLoginPrepareFailed:
-    "Das Codex-Konto ließ sich nicht vorbereiten. Bitte erneut versuchen, sobald keine Plugin-Aktion mehr läuft.",
+    "Der Codex-Account ließ sich nicht vorbereiten. Bitte erneut versuchen, sobald keine Plugin-Aktion mehr läuft.",
   cliLoginEnded:
     "Die Anmeldung wurde beendet, bevor Codex sie starten konnte (abgebrochen oder ersetzt).",
   cliLoginFailed: "Codex konnte die Anmeldung nicht starten. Bitte erneut versuchen.",

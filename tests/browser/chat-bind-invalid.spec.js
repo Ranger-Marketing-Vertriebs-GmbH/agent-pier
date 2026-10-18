@@ -49,7 +49,7 @@ test("an unusable link response keeps the running chat and shows a message", asy
     .selectOption("native-two-abcdef");
   await page.locator(".conversation-picker button.primary").click();
   await expect(page.locator(".conversation-picker")).toContainText(
-    "The chat could not be loaded completely. Retrying…",
+    "The chat could not be loaded completely. Retrying …",
   );
   await expect(chat).toContainText("Still here");
   await expect(page.locator(".conversation-picker button.primary")).toBeEnabled();

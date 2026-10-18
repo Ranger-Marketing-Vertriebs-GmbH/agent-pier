@@ -113,7 +113,7 @@ test("directory editing waits for initial settings and later refresh preserves d
   ).toBeDisabled();
   await expect(settingsBar(page)).toHaveCount(0);
   await chooseLanguage(page, "en");
-  await expect(page.getByText("Loading settings…", { exact: true })).toBeVisible();
+  await expect(page.getByText("Loading settings …", { exact: true })).toBeVisible();
   await chooseLanguage(page, "de");
   const loaded = page.waitForResponse("**/api/state");
   releaseInitial();

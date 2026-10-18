@@ -6,7 +6,7 @@ export const mcpCliCopy = {
   removedOnSave: (cli, name) => `Beim Speichern wird ${name} aus ${cli} entfernt.`,
   statuses: {
     written: "eingetragen",
-    pending: "wird beim nächsten Speichern oder Sitzungsstart eingetragen",
+    pending: "wird beim nächsten Speichern oder Session-Start eingetragen",
     conflict: "in der CLI von Hand geändert",
     "name-taken": "der Name ist in der CLI schon von einem anderen Eintrag belegt",
     error: "konnte nicht eingetragen werden",
@@ -21,7 +21,7 @@ export const mcpCliCopy = {
       "ihre Konfigurationsdatei lässt sich nicht an Ort und Stelle ändern, ohne andere Einträge zu verändern",
     "write-failed": "ihre Konfigurationsdatei lässt sich nicht schreiben",
     failed:
-      "ihre MCP-Server ließen sich nicht vorbereiten; AgentPier versucht es beim nächsten Sitzungsstart erneut",
+      "ihre MCP-Server ließen sich nicht vorbereiten; AgentPier versucht es beim nächsten Session-Start erneut",
     transport: "sie unterstützt diese Verbindungsart nicht",
     cwd: "sie kann kein Arbeitsverzeichnis verwenden",
     invalid: "sie kann den Server so nicht übernehmen",
@@ -44,7 +44,7 @@ export const mcpCliCopy = {
   codexAccountsTitle: "Codex-Accounts",
   codexAccountsFor: (name) => `Codex-Accounts für ${name}`,
   codexAccountsHint:
-    "Jeder von AgentPier verwaltete Codex-Account hat eine eigene Anmeldung. Neue Sitzungen des Accounts nutzen sie.",
+    "Jeder von AgentPier verwaltete Codex-Account hat eine eigene Anmeldung. Neue Sessions des Accounts nutzen sie.",
   codexAccountsNone: "Noch keine von AgentPier verwalteten Codex-Accounts.",
   codexAccountStates: {
     connected: "angemeldet",
@@ -72,11 +72,11 @@ export const mcpCliCopy = {
     "cli-failed": "Codex konnte sie nicht abschließen. Bitte erneut versuchen.",
   },
   codexConnected: (account, name) =>
-    `Der Codex-Account ${account} ist bei ${name} angemeldet. Neue Sitzungen dieses Accounts können seine Werkzeuge nutzen.`,
+    `Der Codex-Account ${account} ist bei ${name} angemeldet. Neue Sessions dieses Accounts können seine Tools nutzen.`,
   codexFailed: (account, name) =>
     `Die Anmeldung des Codex-Accounts ${account} bei ${name} ist fehlgeschlagen.`,
   codexConnectedUnnamed: (name) =>
-    `Ein Codex-Account ist bei ${name} angemeldet. Neue Sitzungen dieses Accounts können seine Werkzeuge nutzen.`,
+    `Ein Codex-Account ist bei ${name} angemeldet. Neue Sessions dieses Accounts können seine Tools nutzen.`,
   codexFailedUnnamed: (name) =>
     `Die Anmeldung eines Codex-Accounts bei ${name} ist fehlgeschlagen.`,
   codexLoginAgain: "Erneut anmelden",
@@ -91,7 +91,7 @@ export const mcpCliCopy = {
   agentsUsing: (names) => `Agenten: ${names}`,
   clisUsing: (names) => `CLIs: ${names}`,
   unused: "Noch nicht in Verwendung",
-  restartNote: "Laufende Sitzungen sehen Änderungen nach einem Neustart.",
+  restartNote: "Laufende Sessions sehen Änderungen nach einem Neustart.",
   foundTitle: "In den CLIs gefunden",
   foundHint:
     "Einträge, die du selbst in einer CLI angelegt hast. AgentPier lässt sie unverändert, bis du sie übernimmst. Werte werden nie angezeigt.",
@@ -116,6 +116,6 @@ export const mcpCliCopy = {
   adoptFailed: (name, error) => `${name}: ${error}`,
   stdioCliTitle: "Coding-CLIs einen lokalen Befehl geben?",
   stdioCliWarning:
-    "Ein stdio-Server führt diesen Befehl mit deinen Rechten aus. Jede Sitzung der gewählten CLIs startet ihn, auch wenn du die CLI im Terminal startest. Füge nur Befehle hinzu, denen du vertraust.",
+    "Ein stdio-Server führt diesen Befehl mit deinen Rechten aus. Jede Session der gewählten CLIs startet ihn, auch wenn du die CLI im Terminal startest. Füge nur Befehle hinzu, denen du vertraust.",
   stdioCliConfirm: "Bestätigen und speichern",
 };

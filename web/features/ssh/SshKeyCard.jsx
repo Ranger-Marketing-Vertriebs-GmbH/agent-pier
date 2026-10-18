@@ -5,6 +5,7 @@ import api, { apiError } from "../../lib/api.js";
 import SshCopy from "./SshCopy.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 export default function SshKeyCard({ sshKey, project, edited, removed }) {
   const [confirm, setConfirm] = useState(false),
     [busy, setBusy] = useState(false),
@@ -61,7 +62,7 @@ export default function SshKeyCard({ sshKey, project, edited, removed }) {
           disabled={busy || inUse}
           onClick={() => setConfirm(true)}
         >
-          {copy.remove}
+          {commonCopy.delete}
         </button>
       </div>
       {confirm && (
@@ -69,7 +70,7 @@ export default function SshKeyCard({ sshKey, project, edited, removed }) {
           <p>{copy.keyDeleteHint}</p>
           <div className="ssh-actions">
             <button className="button" disabled={busy} onClick={() => setConfirm(false)}>
-              {copy.cancel}
+              {commonCopy.cancel}
             </button>
             <button
               className="button"

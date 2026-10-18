@@ -12,7 +12,6 @@ export const assistantSshCopy = {
   manage: "SSH-Zugänge einrichten",
   loading: "SSH-Zugänge werden geladen …",
   loadError: "SSH-Zugänge konnten nicht geladen werden.",
-  retry: "Erneut versuchen",
   removed: "Host entfernt",
   removedHint: "Diesen Host gibt es nicht mehr. Er wird beim Speichern entfernt.",
   project: (name) => `Projekt: ${name}`,

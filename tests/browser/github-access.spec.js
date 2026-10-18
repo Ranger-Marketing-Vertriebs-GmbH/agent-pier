@@ -65,7 +65,7 @@ test("agent defaults are selected per host and refresh all badges", async ({ pag
   await expect(profile("Enterprise")).toContainText("Standard für Agenten");
   await expect(
     page.getByText(
-      "Neue Agent-Sitzungen erhalten je Host den Standardzugang. Geklonte Projekte verwenden ihren gewählten Zugang.",
+      "Neue Agent-Sessions erhalten je Host den Standardzugang. Geklonte Projekte verwenden ihren gewählten Zugang.",
     ),
   ).toBeVisible();
   await page.getByRole("button", { name: "Zugang hinzufügen", exact: true }).click();

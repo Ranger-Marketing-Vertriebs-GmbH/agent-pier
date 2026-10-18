@@ -159,7 +159,7 @@ test("another tab's auth change empties the chat cache", async ({ page }) => {
 test("deleting a session removes its cache entry", async ({ page }) => {
   const state = await fixture(page);
   await seed(page, state.sessions.map(entry));
-  await page.getByRole("button", { name: "Sitzung entfernen" }).click();
+  await page.getByRole("button", { name: "Session entfernen" }).click();
   await page.getByRole("button", { name: "Jetzt entfernen" }).click();
   await expect.poll(() => state.deletes).toEqual(["one"]);
   await expect.poll(() => storedKeys(page)).toEqual([keyOf(session("two"))]);

@@ -64,7 +64,7 @@ test("bundled AgentBus status groups this project's sessions without consuming i
   await expect(page).toHaveURL(/\/projects\/demo\?tab=agentbus$/);
   await expect(page.getByRole("heading", { name: "Website", exact: true })).toBeVisible();
   await expect(
-    page.getByRole("radio", { name: "Sitzungen · 2", exact: true }),
+    page.getByRole("radio", { name: "Sessions · 2", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("radio", { name: "Nachrichten · 3", exact: true }),
@@ -155,7 +155,7 @@ test("a hub project without an AgentBus id shows the existing empty texts", asyn
   await page.goto(base + "/projects?tab=agentbus");
   await expect(
     page.getByText(
-      "Noch keine Sitzungen mit AgentBus. Starte eine neue Coding-CLI-Sitzung.",
+      "Noch keine Sessions mit AgentBus. Starte eine neue Coding-CLI-Session.",
     ),
   ).toBeVisible();
   await page.getByRole("radio", { name: /^Nachrichten/ }).check();
@@ -196,7 +196,7 @@ test.describe("English AgentBus status", () => {
                     registered: false,
                     pending: 0,
                     reasonCode: "AGENTBUS_RELOAD_REQUIRED",
-                    reason: "Diese Sitzung muss neu geladen werden.",
+                    reason: "Diese Session muss neu geladen werden.",
                   },
                 ],
               },
@@ -218,7 +218,7 @@ test.describe("English AgentBus status", () => {
       }),
     ).toBeVisible();
     await expect(session).not.toContainText("Waiting for CLI sign-in");
-    await expect(session).not.toContainText("Diese Sitzung");
+    await expect(session).not.toContainText("Diese Session");
     await page.screenshot({
       path: `.cache/review-fixes/agentbus-reload-required-${browserName}.png`,
       fullPage: true,

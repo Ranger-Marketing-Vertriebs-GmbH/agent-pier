@@ -72,14 +72,14 @@ export const assistantCopy = {
     createImagesDescription:
       "Erstellt und bearbeitet Bilder mit deinem ChatGPT-Konto (gpt-image-2) und gibt sie dir im Chat.",
     imagesUnavailable:
-      "Verbinde unter Zugänge → ChatGPT für Agenten ein ChatGPT-Konto, um Bilder zu erstellen.",
+      "Verbinde unter Accounts › ChatGPT für Agenten ein ChatGPT-Konto, um Bilder zu erstellen.",
     browserUnavailable:
       "Auf diesem Rechner wurde kein unterstützter Browser gefunden. Installiere Chrome, Brave, Edge oder Chromium, um dies zu nutzen.",
     searchUnavailable:
       "Die Websuche ist nicht eingerichtet. Wähle in den Zugängen einen Anbieter und hinterlege seinen Schlüssel.",
     availableAfterSaving: "Nach dem Speichern verfügbar",
     webHint:
-      "Webseiten können Anweisungen enthalten, die den Agenten in die Irre führen sollen. Schalte das nur für Agenten ein, deren übrige Werkzeuge du dem anvertrauen würdest.",
+      "Webseiten können Anweisungen enthalten, die den Agenten in die Irre führen sollen. Schalte das nur für Agenten ein, deren übrige Tools du dem anvertrauen würdest.",
     restartTitle: "Agentendienst neu starten?",
     restartBody:
       "Diese Änderung startet den Dienst der Agenten kurz neu. Laufende Arbeit wird nicht unterbrochen: Ist ein Agent beschäftigt, wird das Speichern abgelehnt und nichts ändert sich.",
@@ -162,7 +162,7 @@ export const assistantCopy = {
   },
   conversationDiagnostics: {
     SESSION_UNAVAILABLE:
-      "Die Sitzung dieses Chats ist im Agentendienst gerade nicht verfügbar. Neue Antworten können sich verzögern; AgentPier versucht es automatisch erneut.",
+      "Die Session dieses Chats ist im Agentendienst gerade nicht verfügbar. Neue Antworten können sich verzögern; AgentPier versucht es automatisch erneut.",
   },
   conversation: "Unterhaltung",
   settingsTab: "Einstellungen",
@@ -256,8 +256,8 @@ export const assistantCopy = {
   feature: {
     title: "Agenten aktivieren",
     description:
-      "Agenten werden von OpenClaw verwaltet. Solange dies aus ist, zeigt AgentPier keine Agenten-Navigation und keine Konto-Bereiche und startet auf diesem Host keine Agentenverbindungen oder Hintergrundarbeit.",
-    saving: "Wird gespeichert…",
+      "Agenten werden von OpenClaw verwaltet. Solange dies aus ist, zeigt AgentPier keine Agenten-Navigation und keine Account-Bereiche und startet auf diesem Host keine Agentenverbindungen oder Hintergrundarbeit.",
+    saving: "Wird gespeichert …",
     diagnostic: "Agenten-Diagnose",
     problem: (code) => `Agenten meldeten ein Problem (${code}).`,
     errors: {
@@ -298,9 +298,8 @@ export const assistantCopy = {
     "Die ChatGPT-Modellliste konnte nicht geladen werden. Gib eine Modell-ID ein oder versuche es später erneut.",
   chooseConnection: "Zugang auswählen",
   connections: "Zugänge verwalten",
-  noConnections: "Verbinde unter Konten ChatGPT oder OpenRouter, um zu starten.",
+  noConnections: "Verbinde unter Accounts ChatGPT oder OpenRouter, um zu starten.",
   save: "Agent speichern",
-  cancel: "Abbrechen",
   settings: "Agenten-Einstellungen",
   connectionUse: {
     agents: (names) =>

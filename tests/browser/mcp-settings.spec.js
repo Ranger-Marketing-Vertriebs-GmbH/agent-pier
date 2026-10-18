@@ -9,7 +9,9 @@ test("HTTPS setup copy, CLI deep links and grant pages survive reload without wr
   await expect(
     page.getByRole("heading", { name: "MCP & Zugriffe", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Hinzufügen kopieren", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Hinzufügen kopieren", exact: true })
+    .click();
   expect(await page.evaluate(() => window.copiedText)).toBe(
     "codex mcp add agentpier --url 'https://agentpier.example.test/mcp'",
   );
@@ -59,7 +61,7 @@ test("revoke refreshes a grant and reload never repeats the mutation", async ({
   await page.goto(baseURL + "/settings/mcp");
   const grant = page.getByRole("article").filter({ hasText: "Codex <untrusted>" });
   await grant.getByRole("button", { name: "Zugriff widerrufen", exact: true }).click();
-  await grant.getByRole("button", { name: "Widerruf bestätigen", exact: true }).click();
+  await grant.getByRole("button", { name: "Jetzt widerrufen", exact: true }).click();
   await expect(grant.getByText("Widerrufen", { exact: true })).toBeVisible();
   await page.reload();
   expect(state.calls.filter((call) => call.path.endsWith("/revoke"))).toHaveLength(1);
@@ -130,11 +132,11 @@ test("failed revocation leaves the grant active and retry revokes it once", asyn
   const grant = page.getByRole("article").filter({ hasText: "Codex <untrusted>" });
   await grant.getByRole("button", { name: "Zugriff widerrufen", exact: true }).click();
   state.fail = "/api/mcp-access/grants/grant-0/revoke";
-  await grant.getByRole("button", { name: "Widerruf bestätigen", exact: true }).click();
+  await grant.getByRole("button", { name: "Jetzt widerrufen", exact: true }).click();
   await expect(grant.getByRole("alert")).toBeVisible();
   await expect(grant.getByText("Aktiv", { exact: true })).toBeVisible();
   state.fail = "";
-  await grant.getByRole("button", { name: "Widerruf bestätigen", exact: true }).click();
+  await grant.getByRole("button", { name: "Jetzt widerrufen", exact: true }).click();
   await expect(grant.getByText("Widerrufen", { exact: true })).toBeVisible();
 });
 test("consent reload stays read-only and explicit publication and provider choices are submitted", async ({
@@ -183,7 +185,9 @@ test("local HTTP setup copies the fixed loopback endpoint and explains same-mach
     .getByRole("button", { name: "Lokale MCP-Adresse kopieren", exact: true })
     .click();
   expect(await page.evaluate(() => window.copiedText)).toBe("http://127.0.0.1:4389/mcp");
-  await page.getByRole("button", { name: "Hinzufügen kopieren", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Hinzufügen kopieren", exact: true })
+    .click();
   expect(await page.evaluate(() => window.copiedText)).toBe(
     "codex mcp add agentpier --url 'http://127.0.0.1:4389/mcp'",
   );

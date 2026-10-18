@@ -29,7 +29,6 @@ export const remoteCopy = {
   urls: "Reachable addresses",
   locked:
     "Through network access the mode can only be switched off. Change bind address and host list locally or through Tailscale.",
-  save: "Save",
   saved: "Saved.",
   restartRequired: "Restart required for the change to apply.",
   restart: "Restart service",

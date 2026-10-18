@@ -37,13 +37,13 @@ export const profilePluginsCopy = {
   },
   notes: {
     restartRequired:
-      "Änderungen gelten für neue CLI-Sitzungen. Bereits laufende Sitzungen bleiben unverändert.",
+      "Änderungen gelten für neue CLI-Sessions. Bereits laufende Sessions bleiben unverändert.",
     codexActivation:
       "Aktivieren und Aktualisieren einzelner Codex-Plugins ist in dieser CLI-Verwaltung nicht verfügbar; /plugins bietet die native Aktivierung.",
     claudeMarketplaceRemoval:
       "Beim Entfernen eines Marketplaces deinstalliert Claude dessen Plugins. Gespeicherte Plugin-Daten bleiben bei einzelner Deinstallation erhalten.",
     openCodeConfiguration:
-      "OpenCode verwendet npm-Pakete und lokale Plugins, keine verwalteten Marketplaces. Server- und TUI-Konfiguration werden berücksichtigt. Änderungen werden in neuen CLI-Sitzungen geladen.",
+      "OpenCode verwendet npm-Pakete und lokale Plugins, keine verwalteten Marketplaces. Server- und TUI-Konfiguration werden berücksichtigt. Änderungen werden in neuen CLI-Sessions geladen.",
   },
   catalogAccount: "Marketplace-Account",
   catalogAccountDescription:

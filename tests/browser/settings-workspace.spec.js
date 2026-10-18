@@ -22,7 +22,7 @@ for (const locale of ["de-DE", "en-GB"]) {
   const en = locale === "en-GB";
   const t = (german, english) => (en ? english : german);
   const resume = t(
-    "Unterbrochene Sitzungen automatisch fortsetzen",
+    "Unterbrochene Sessions automatisch fortsetzen",
     "Resume interrupted sessions automatically",
   );
   test.describe(`settings workspace ${locale}`, () => {
@@ -141,7 +141,7 @@ test("a failed second step keeps the tab dirty and a retry skips the first", asy
   feature.fail = true;
   await page.goto(baseURL + "/settings");
   const resume = page.getByRole("switch", {
-    name: "Unterbrochene Sitzungen automatisch fortsetzen",
+    name: "Unterbrochene Sessions automatisch fortsetzen",
   });
   const agents = page.getByRole("switch", { name: "Agenten aktivieren" });
   await resume.click();
@@ -167,7 +167,7 @@ test("rows, browser back and closing the page ask while the tab has changes", as
   await page.goto(baseURL + "/settings?tab=access");
   await page.getByRole("tab", { name: "Arbeitsbereich" }).click();
   await page
-    .getByRole("switch", { name: "Unterbrochene Sitzungen automatisch fortsetzen" })
+    .getByRole("switch", { name: "Unterbrochene Sessions automatisch fortsetzen" })
     .click();
   const unload = () =>
     page.evaluate(() => {
@@ -194,14 +194,14 @@ test("hints open as disclosures with their text verbatim", async ({ page }) => {
   await page.goto(baseURL + "/settings");
   const info = page
     .locator(".toggle-row")
-    .filter({ hasText: "Unterbrochene Sitzungen automatisch fortsetzen" })
+    .filter({ hasText: "Unterbrochene Sessions automatisch fortsetzen" })
     .getByRole("button", { name: "Hinweis anzeigen" });
   await expect(info).toHaveAttribute("aria-expanded", "false");
   await info.click();
   await expect(info).toHaveAttribute("aria-expanded", "true");
   const panel = page.locator(`#${await info.getAttribute("aria-controls")}`);
   await expect(panel).toHaveText(
-    "Nach einem Neustart oder dem Verlust des Terminal-Servers setzt AgentPier jede unterbrochene Sitzung nacheinander mit ihrer eigenen Unterhaltung fort. Von dir beendete Sitzungen bleiben beendet.",
+    "Nach einem Neustart oder dem Verlust des Terminal-Servers setzt AgentPier jede unterbrochene Session nacheinander mit ihrer eigenen Unterhaltung fort. Von dir beendete Sessions bleiben beendet.",
   );
   await info.click();
   await expect(panel).toBeHidden();

@@ -48,7 +48,7 @@ test("new sessions default to Codex YOLO and Claude/OpenCode Auto", async ({ pag
   await expect(mode).toHaveValue("yolo");
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect(page.getByRole("alert")).toHaveText("Test launch captured");
   expect(launches[0]).toMatchObject({ accountId: "local-codex", launchMode: "yolo" });
@@ -70,7 +70,7 @@ for (const { tool, mode, note } of [
   {
     tool: "claude",
     mode: "bypass",
-    note: /Ohne Rückfragen führt Claude.*Gilt nur für diese neue Sitzung/,
+    note: /Ohne Rückfragen führt Claude.*Gilt nur für diese neue Session/,
   },
   { tool: "opencode", mode: "auto", note: /Verbote bleiben/ },
 ])
@@ -83,7 +83,7 @@ for (const { tool, mode, note } of [
     await expect(page.locator("#launch-mode-description")).toContainText(note);
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Sitzung starten", exact: true })
+      .getByRole("button", { name: "Session starten", exact: true })
       .click();
     await expect(page.getByRole("alert")).toHaveText("Test launch captured");
     expect(launches[0]).toMatchObject({ accountId: `local-${tool}`, launchMode: mode });
@@ -98,14 +98,14 @@ test("AgentBus is included by default and can be disabled for this launch withou
   await expect(toggle).toBeChecked();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect(page.getByRole("alert")).toHaveText("Test launch captured");
   expect(launches[0].agentbus).toBe(true);
   await toggle.uncheck();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect.poll(() => launches.length).toBe(2);
   expect(launches[1].agentbus).toBe(false);
@@ -147,7 +147,7 @@ test("the dialog remembers the last launched mode per CLI, not a failed attempt"
   await page.getByLabel("Startmodus", { exact: true }).selectOption("bypass");
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect(page.getByRole("alert")).toHaveText("Test launch captured");
   await page.reload();
@@ -165,12 +165,12 @@ test("a successful launch preselects that mode next time for the same CLI only",
   const cli = page.getByLabel("CLI", { exact: true });
   await cli.selectOption("claude");
   await mode.selectOption("bypass");
-  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await openDialog(page);
   await expect(mode).toHaveValue("yolo");
   await mode.selectOption("default");
-  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(launches.map((item) => [item.tool, item.launchMode])).toEqual([
     ["claude", "bypass"],
@@ -185,7 +185,7 @@ test("a successful launch preselects that mode next time for the same CLI only",
     "Ohne Rückfragen führt Claude",
   );
   await expect(page.locator("#launch-mode-description")).toContainText(
-    "Aus deiner letzten Sitzung vorausgewählt.",
+    "Aus deiner letzten Session vorausgewählt.",
   );
   await cli.selectOption("opencode");
   await expect(mode).toHaveValue("auto");
@@ -262,7 +262,7 @@ test("a task profile keeps its own permission mode across a CLI round trip", asy
   await expect(page.locator(".launch-mode-remembered")).toHaveCount(0);
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect(page.getByRole("alert")).toHaveText("Profile launch captured");
   expect(profileLaunches).toHaveLength(1);

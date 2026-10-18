@@ -94,10 +94,10 @@ test("a failed message count shows no fake zero and retry recovers", async ({ pa
   const segment = page.getByRole("radiogroup", { name: "AgentBus-Ansicht" });
   const hint = page.getByText("Die Anzahl der Nachrichten konnte nicht geladen werden.");
   await expect(hint).toBeVisible();
-  await expect(segment.locator("label")).toHaveText(["Sitzungen · 1", "Nachrichten"]);
+  await expect(segment.locator("label")).toHaveText(["Sessions · 1", "Nachrichten"]);
   controls.fail = false;
   await page.getByRole("button", { name: "Erneut versuchen" }).click();
-  await expect(segment.locator("label")).toHaveText(["Sitzungen · 1", "Nachrichten · 2"]);
+  await expect(segment.locator("label")).toHaveText(["Sessions · 1", "Nachrichten · 2"]);
   await expect(hint).toHaveCount(0);
 });
 

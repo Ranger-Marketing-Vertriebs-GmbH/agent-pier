@@ -2,7 +2,7 @@
 
 AgentPier läuft als normaler Benutzer mit Node.js, tmux und Git. Für den Webdienst ist kein Desktop erforderlich. Ein systemd-Benutzerdienst ist optional; auf Systemen ohne systemd funktioniert der manuelle Start mit `npm start`.
 
-Beim ersten Öffnen einen Benutzer erstellen; anschließend mit Benutzername und Passwort anmelden. Das funktioniert auch über den freigegebenen Fernzugriff. Details zu Sitzungen und Wiederherstellung stehen unter [Anmeldung](login.md).
+Beim ersten Öffnen einen Benutzer erstellen; anschließend mit Benutzername und Passwort anmelden. Das funktioniert auch über den freigegebenen Fernzugriff. Details zu Sessions und Wiederherstellung stehen unter [Anmeldung](login.md).
 
 Der [Datei-Explorer](file-explorer.md) verwendet die Rechte dieses normalen Benutzers
 auch auf eingebundenen Datenträgern. Er benötigt keinen privilegierten Webdienst. Mount-
@@ -12,11 +12,11 @@ Optionen, ACLs und ein schreibgeschütztes Dateisystem bleiben wirksam.
 
 Die folgenden Abschnitte beschreiben den Start aus einem Source-Checkout. Für eine versionierte Installation mit unveränderlichen Releases, eigenem Node-Runtime und getrenntem Datenverzeichnis nutze stattdessen den [Release-Installer mit den genauen Befehlen](operations.md#installer-and-exact-commands). Dafür wird ein zur Plattform passendes `.aprelease`-Artefakt benötigt; diese Anleitung behauptet keine bereits veröffentlichte oder auf dem Zielrechner geprüfte Version.
 
-`sh scripts/install.sh` benötigt aus einem sauberen Checkout kein `npm ci`. Fehlende tmux-/Git-Pakete werden standardmäßig installiert; Node wird bei Bedarf vorübergehend geladen und ist im Release enthalten. Fehlende Download-Werkzeuge (`curl`, `tar`, SHA-256-Prüfung) werden ebenfalls bei Bedarf installiert. Auf macOS wird Homebrew verwendet und bei Bedarf über den [offiziellen Installer](https://brew.sh) eingerichtet; unter Linux wird apt verwendet. Bestätigungen und Admin-Passwort können im Terminal eingegeben werden. Ohne Terminal läuft der Homebrew-Installer nichtinteraktiv und benötigt passende Administratorrechte. Auf anderen Linux-Distributionen die fehlenden Pakete mit dem dortigen Paketmanager installieren.
+`sh scripts/install.sh` benötigt aus einem sauberen Checkout kein `npm ci`. Fehlende tmux-/Git-Pakete werden standardmäßig installiert; Node wird bei Bedarf vorübergehend geladen und ist im Release enthalten. Fehlende Download-Tools (`curl`, `tar`, SHA-256-Prüfung) werden ebenfalls bei Bedarf installiert. Auf macOS wird Homebrew verwendet und bei Bedarf über den [offiziellen Installer](https://brew.sh) eingerichtet; unter Linux wird apt verwendet. Bestätigungen und Admin-Passwort können im Terminal eingegeben werden. Ohne Terminal läuft der Homebrew-Installer nichtinteraktiv und benötigt passende Administratorrechte. Auf anderen Linux-Distributionen die fehlenden Pakete mit dem dortigen Paketmanager installieren.
 
 `--skip-dependencies` prüft Voraussetzungen, ohne Host-Pakete zu installieren. `--install-dependencies` bleibt als kompatible Option erhalten. `--service` richtet den Benutzer-Webdienst ein und wartet auf dessen Versions-Healthcheck; dabei werden auch die üblichen Homebrew- und Systempfade gespeichert. Das Datenverzeichnis darf nicht innerhalb eines Release-Ordners liegen.
 
-Fehlende Voraussetzungen einer bestehenden Installation lassen sich aus dem aktuellen Checkout nachinstallieren, ohne Releases oder Sitzungsdaten zu ändern:
+Fehlende Voraussetzungen einer bestehenden Installation lassen sich aus dem aktuellen Checkout nachinstallieren, ohne Releases oder Session-Daten zu ändern:
 
 ```sh
 sh scripts/install.sh --dependencies-only
@@ -26,7 +26,7 @@ Danach den AgentPier-Webdienst neu starten. Falls `tmux -V` funktioniert, aber d
 
 ## Voraussetzungen und erster Start
 
-Benötigt werden Node.js ab 22.13 mit npm, tmux und Git. Für das native Terminal-Modul können Python 3, make und ein C++-Compiler erforderlich sein, falls npm für das System kein passendes vorkompiliertes Modul findet. Installiere diese Voraussetzungen mit den üblichen Werkzeugen deiner Distribution. Die direkte Installation der drei Coding-CLIs in AgentPier unterstützt Linux auf x64 und ARM64.
+Benötigt werden Node.js ab 22.13 mit npm, tmux und Git. Für das native Terminal-Modul können Python 3, make und ein C++-Compiler erforderlich sein, falls npm für das System kein passendes vorkompiliertes Modul findet. Installiere diese Voraussetzungen mit den üblichen Tools deiner Distribution. Die direkte Installation der drei Coding-CLIs in AgentPier unterstützt Linux auf x64 und ARM64.
 
 ```sh
 node --version
@@ -49,15 +49,15 @@ ssh -L 4380:127.0.0.1:4380 dein-benutzer@dein-server
 
 Dann dieselbe Adresse im Browser des eigenen Rechners öffnen. Für dauerhaften Fernzugriff beschreibt die [Fernzugriffsanleitung](remote-access.md) Tailscale Serve und den Netzwerkmodus ohne Tailscale, der sich headless mit `npm run remote` einschalten lässt.
 
-Die GitHub CLI `gh` lässt sich ebenfalls unter **Deine Tools** installieren; sie verwendet die gespeicherten [GitHub-Zugänge je Host](github-agents.md) in neuen Agent-Sitzungen.
+Die GitHub CLI `gh` lässt sich ebenfalls unter **Deine Tools** installieren; sie verwendet die gespeicherten [GitHub-Zugänge je Host](github-agents.md) in neuen Agent-Sessions.
 
 Codex, Claude Code und OpenCode können dort über **CLI aktualisieren** unabhängig von AgentPier-Releases aktualisiert werden. Details zur Umstellung älterer npm-Installationen und den manuellen Befehlen stehen unter [CLI-Updates](cli-updates.md).
 
-Eine **Shell**-Sitzung benötigt keine Coding-CLI. AgentPier verwendet eine ausführbare konfigurierte zsh, bash oder sh und fällt sonst in dieser Reihenfolge auf die vorhandenen Varianten unter `/bin` oder `/usr/bin` zurück. zsh muss deshalb nicht nachinstalliert werden. Shell-Sitzungen haben ausschließlich den Terminalmodus und verwenden weder AgentBus noch den Chat. AgentBus verbindet nur dafür aktivierte Coding-CLI-Sitzungen im selben Projekt.
+Eine **Shell**-Session benötigt keine Coding-CLI. AgentPier verwendet eine ausführbare konfigurierte zsh, bash oder sh und fällt sonst in dieser Reihenfolge auf die vorhandenen Varianten unter `/bin` oder `/usr/bin` zurück. zsh muss deshalb nicht nachinstalliert werden. Shell-Sessions haben ausschließlich den Terminalmodus und verwenden weder AgentBus noch den Chat. AgentBus verbindet nur dafür aktivierte Coding-CLI-Sessions im selben Projekt.
 
 ## Private Daten
 
-Standardmäßig liegen Sitzungen und Profile unter `.data/` im Projekt. Optional vor dem manuellen Start und vor der Dienstinstallation einen festen Speicherort wählen:
+Standardmäßig liegen Sessions und Profile unter `.data/` im Projekt. Optional vor dem manuellen Start und vor der Dienstinstallation einen festen Speicherort wählen:
 
 ```sh
 export AGENTPIER_DATA_DIR="$HOME/.local/share/agentpier"
@@ -84,7 +84,7 @@ systemctl --user status --no-pager dev.agentpier.server.service
 journalctl --user -u dev.agentpier.server.service -f
 ```
 
-`KillMode=process` beendet beim Stoppen oder Neustarten der Unit nur den Webprozess. Das ist hier bewusst gewählt, damit der private tmux-Server und laufende Terminals weiterleben und wieder verbunden werden können. Die systemd-Dokumentation weist darauf hin, dass verbleibende Prozesse damit außerhalb des normalen Dienstlebenszyklus laufen. Sitzungen deshalb gezielt in AgentPier stoppen, wenn sie ebenfalls beendet werden sollen. Ein Rechnerneustart beendet weiterhin alle CLI-Prozesse. Nach dem nächsten Start setzt AgentPier unterbrochene Sitzungen (tmux-Server durch Neustart oder Absturz verloren) automatisch mit ihrer eigenen Unterhaltung fort, sofern „Unterbrochene Sitzungen automatisch fortsetzen“ in den Einstellungen aktiv ist (Standard: an). Laufende Antworten und Prozesse zum Zeitpunkt der Unterbrechung gehen verloren; vom Nutzer gestoppte Sitzungen bleiben gestoppt. [systemd.kill](https://github.com/systemd/systemd/blob/main/man/systemd.kill.xml)
+`KillMode=process` beendet beim Stoppen oder Neustarten der Unit nur den Webprozess. Das ist hier bewusst gewählt, damit der private tmux-Server und laufende Terminals weiterleben und wieder verbunden werden können. Die systemd-Dokumentation weist darauf hin, dass verbleibende Prozesse damit außerhalb des normalen Dienstlebenszyklus laufen. Sessions deshalb gezielt in AgentPier stoppen, wenn sie ebenfalls beendet werden sollen. Ein Rechnerneustart beendet weiterhin alle CLI-Prozesse. Nach dem nächsten Start setzt AgentPier unterbrochene Sessions (tmux-Server durch Neustart oder Absturz verloren) automatisch mit ihrer eigenen Unterhaltung fort, sofern „Unterbrochene Sessions automatisch fortsetzen“ in den Einstellungen aktiv ist (Standard: an). Laufende Antworten und Prozesse zum Zeitpunkt der Unterbrechung gehen verloren; vom Nutzer gestoppte Sessions bleiben gestoppt. [systemd.kill](https://github.com/systemd/systemd/blob/main/man/systemd.kill.xml)
 
 Auf einem Server ohne dauerhafte Anmeldung kann _Lingering_ erforderlich sein: Es hält den User-Manager nach dem Abmelden am Leben und startet ihn beim Booten. Ob das erlaubt ist, hängt von der Systemrichtlinie ab. AgentPier schaltet es nicht automatisch ein. Bei Bedarf bewusst für das eigene Benutzerkonto einrichten und prüfen:
 
@@ -93,7 +93,7 @@ loginctl enable-linger "$USER"
 loginctl show-user "$USER" -p Linger
 ```
 
-Das ersetzt keine funktionierende systemd-Benutzerumgebung beim Installieren; bei einer fehlenden Verbindung zum User-Manager in einer regulären SSH-/Benutzersitzung arbeiten. [loginctl](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)
+Das ersetzt keine funktionierende systemd-Benutzerumgebung beim Installieren; bei einer fehlenden Verbindung zum User-Manager in einer regulären SSH-/Benutzer-Session arbeiten. [loginctl](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)
 
 ## Aktualisieren, stoppen und entfernen
 
@@ -120,7 +120,7 @@ rm "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/dev.agentpier.server.service"
 systemctl --user daemon-reload
 ```
 
-Die Daten und laufenden tmux-Sitzungen werden dadurch nicht gelöscht. Falls Lingering eigens für diesen Dienst aktiviert wurde, vor dem Abschalten prüfen, ob andere Benutzerdienste davon abhängen.
+Die Daten und laufenden tmux-Sessions werden dadurch nicht gelöscht. Falls Lingering eigens für diesen Dienst aktiviert wurde, vor dem Abschalten prüfen, ob andere Benutzerdienste davon abhängen.
 
 ## Prüfung und Grenzen
 

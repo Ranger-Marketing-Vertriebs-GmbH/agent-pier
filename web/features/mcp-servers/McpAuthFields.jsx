@@ -2,7 +2,7 @@ import React, { useId, useState } from "react";
 import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
 import Segment from "../../components/Segment.jsx";
 import { mcpOAuthCopy as copy } from "../../lib/i18n/messages/mcp-oauth.js";
-import { mcpServerCopy } from "../../lib/i18n/messages/mcp-servers.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 
 /**
  * How a remote server authenticates: headers (a token) or OAuth. OAuth's optional
@@ -83,7 +83,7 @@ export function OAuthSwitchConfirmation({ names, busy, onConfirm, onCancel }) {
           disabled={busy}
           onClick={onCancel}
         >
-          {mcpServerCopy.cancel}
+          {commonCopy.cancel}
         </button>
       </div>
     </div>

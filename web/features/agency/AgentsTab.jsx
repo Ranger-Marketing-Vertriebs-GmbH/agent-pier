@@ -13,6 +13,7 @@ import { names } from "../../lib/providers.js";
 import ExtensionHint from "../extensions/ExtensionHint.jsx";
 import RowLines from "../extensions/RowLines.jsx";
 import useAgency from "./useAgency.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./agency.css";
 
 // Mounted the first time the Agenten tab opens and kept afterwards, so the
@@ -132,7 +133,7 @@ export default function AgentsTab({ mode, setMode, onCount, ...props }) {
                 disabled={busy || page === 1}
                 onClick={() => state.setPage(page - 1)}
               >
-                {copy.back}
+                {commonCopy.back}
               </button>
               <button
                 type="button"
@@ -238,7 +239,7 @@ export default function AgentsTab({ mode, setMode, onCount, ...props }) {
               disabled={busy}
               onClick={() => state.setConfirm(null)}
             >
-              {copy.cancel}
+              {commonCopy.cancel}
             </button>
             <button
               type="button"

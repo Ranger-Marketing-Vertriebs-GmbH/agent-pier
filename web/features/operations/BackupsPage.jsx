@@ -12,6 +12,7 @@ import BackupForm from "./BackupForm.jsx";
 import RestoreForm from "./RestoreForm.jsx";
 import ConfirmOperation from "./ConfirmOperation.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 export default function BackupsPage({ route, navigate }) {
   const resource = useResource("/operations/backups"),
     [dialog, setDialog] = useState(""),
@@ -58,7 +59,7 @@ export default function BackupsPage({ route, navigate }) {
               {copy.download}
             </FileLink>
             <button className="button secondary" onClick={() => setRemoving(backup.id)}>
-              {copy.remove}
+              {commonCopy.delete}
             </button>
           </div>
         </article>

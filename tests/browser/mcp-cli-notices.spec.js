@@ -106,11 +106,11 @@ test("the finds keep their heading while loading and after a failed load", async
     found.getByRole("heading", { name: "Found in the CLIs", level: 2 }),
   ).toBeVisible();
   await expect(found.getByText(/^Entries you added to a CLI yourself/)).toBeVisible();
-  await expect(found.getByText("Looking in the CLIs…")).toBeVisible();
+  await expect(found.getByText("Looking in the CLIs …")).toBeVisible();
   release();
   await expect(found.getByRole("alert")).toContainText("Finds unavailable.");
   await expect(found.getByRole("heading", { name: "Found in the CLIs" })).toBeVisible();
-  await expect(found.getByText("Looking in the CLIs…")).toHaveCount(0);
+  await expect(found.getByText("Looking in the CLIs …")).toHaveCount(0);
 });
 
 /** Waits until the finds were requested `count` times, then holds to catch a late extra load. */

@@ -83,7 +83,7 @@ test("settings save a default folder and explicit repository launch wins", async
     "/work",
   );
   await clone.getByRole("button", { name: "Abbrechen", exact: true }).click();
-  await page.getByRole("button", { name: "Sitzung in Projekt starten" }).click();
+  await page.getByRole("button", { name: "Session in Projekt starten" }).click();
   await expect(page.getByLabel("Arbeitsverzeichnis", { exact: true })).toHaveValue(
     "/repo/project",
   );
@@ -100,7 +100,7 @@ test("shell has a terminal-only deep link and never exposes coding model or bus 
       sessions: [
         {
           id: "shell-one",
-          name: "Shell Sitzung",
+          name: "Shell Session",
           tool: "shell",
           accountId: "local-shell",
           cwd: "/tmp",
@@ -138,7 +138,7 @@ test("shell has a terminal-only deep link and never exposes coding model or bus 
   await openNewSession(page);
   await expect(page.getByLabel("Startmodus", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: /AgentBus/ })).toHaveCount(0);
-  await page.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await page.getByRole("button", { name: "Session starten", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText("Launch captured");
   expect(calls.find((c) => c.path === "/api/sessions").body).toMatchObject({
     accountId: "local-shell",

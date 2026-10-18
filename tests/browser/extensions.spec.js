@@ -202,7 +202,7 @@ test("skill file upload and GitHub download show native shared scope and protect
   );
   await expect(extensionRow(page, "demo-skill")).toBeVisible();
   await page.getByRole("button", { name: "Skill demo-skill entfernen" }).click();
-  await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
+  await page.getByRole("button", { name: "Jetzt entfernen", exact: true }).click();
   await expect(extensionRow(page, "demo-skill")).toHaveCount(0);
   await page.getByRole("button", { name: "Skill installieren", exact: true }).click();
   await panel

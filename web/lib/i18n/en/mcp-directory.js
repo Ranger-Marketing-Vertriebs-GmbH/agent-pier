@@ -12,7 +12,7 @@ export const mcpDirectoryCopy = {
   sourceCard: "Search the directory",
   sourceCardHint: "Servers listed in the MCP Registry by their makers.",
   turnedOff: "Directory turned off",
-  openSettings: "Open Settings",
+  openSettings: "Open settings",
   unreachable: "Directory not reachable right now",
   title: "Search the directory",
   helper: (host) =>
@@ -20,12 +20,12 @@ export const mcpDirectoryCopy = {
   searchLabel: "Server name",
   searchButton: "Search",
   emptyHint: "Search matches server names only, for example “github” or “filesystem”.",
-  loading: "Searching the directory…",
+  loading: "Searching the directory …",
   results: (count) => `${count} ${count === 1 ? "server" : "servers"} found`,
   hiddenByFilter: (count) =>
     `${count} ${count === 1 ? "server" : "servers"} found, none can be installed here`,
   showAll: "Show all",
-  detailLoading: "Loading the server details…",
+  detailLoading: "Loading the server details …",
   noHit: "No server with this name in the directory.",
   noHitPackage: "Set up a package",
   noHitPaste: "Paste setup from a guide",

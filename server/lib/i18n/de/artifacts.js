@@ -10,23 +10,23 @@ export const artifacts = {
   ARTIFACT_INVALID_ENTRYPOINT: (name) =>
     `Ungültige Startdatei: „${name}“. Bei einem Ordner muss entrypoint eine enthaltene HTML-Datei benennen; bei einer einzelnen Datei muss der Name übereinstimmen.`,
   ARTIFACT_OUTSIDE_WORKSPACE:
-    "Der Quellpfad liegt außerhalb des Sitzungsverzeichnisses. Wähle einen Ausgabeordner innerhalb dieses Verzeichnisses.",
+    "Der Quellpfad liegt außerhalb des Session-Verzeichnisses. Wähle einen Ausgabeordner innerhalb dieses Verzeichnisses.",
   ARTIFACT_STRUCTURE_LIMIT:
     "Der Ausgabeordner enthält zu viele Einträge oder ist zu tief verschachtelt (maximal 1.500 Einträge und 32 Unterordnerebenen).",
 
   ARTIFACT_RESOURCE_UNSUPPORTED: "Nicht unterstützte oder fehlende Artifact-Ressourcen.",
   ARTIFACT_INVALID_SOURCE:
-    "Wähle eine HTML-Datei, ein Bild oder einen Ausgabeordner im Sitzungsverzeichnis. Verknüpfungen und spezielle Dateien können nicht veröffentlicht werden.",
+    "Wähle eine HTML-Datei, ein Bild oder einen Ausgabeordner im Session-Verzeichnis. Verknüpfungen und spezielle Dateien können nicht veröffentlicht werden.",
   ARTIFACT_LIMIT_EXCEEDED:
     "Das Speicher- oder Veröffentlichungslimit wurde erreicht. Lösche ungenutzte Artifacts oder verkleinere die Dateien.",
   ARTIFACT_STORAGE_FULL: "Nicht genügend Speicher für dieses Artifact.",
   ARTIFACT_SOURCE_CHANGED:
     "Die Quelldateien wurden während der Veröffentlichung geändert. Veröffentliche erneut mit einer neuen Anfrage-ID.",
-  ARTIFACT_ACCESS_DENIED: "Diese Sitzung darf auf dieses Artifact nicht zugreifen.",
+  ARTIFACT_ACCESS_DENIED: "Diese Session darf auf dieses Artifact nicht zugreifen.",
   ARTIFACT_PROJECT_CHANGED:
-    "Das Projekt dieser Sitzung hat sich geändert. Lade die Sitzung neu, um fortzufahren.",
+    "Das Projekt dieser Session hat sich geändert. Lade die Session neu, um fortzufahren.",
   ARTIFACT_SESSION_GONE:
-    "Die ursprüngliche Sitzung wurde gelöscht oder wird gerade gelöscht.",
+    "Die ursprüngliche Session wurde gelöscht oder wird gerade gelöscht.",
   ARTIFACT_NOT_FOUND: "Dieses Artifact ist nicht verfügbar oder wurde gelöscht.",
   ARTIFACT_INVALID_INPUT: "Prüfe die Artifact-Angaben.",
   ARTIFACT_CONFLICT: "Diese Anfrage-ID wurde bereits mit anderen Angaben verwendet.",

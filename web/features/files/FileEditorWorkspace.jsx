@@ -5,6 +5,7 @@ import useFileEditor from "./useFileEditor.js";
 import FileEditorTabs from "./FileEditorTabs.jsx";
 import { requestNavigation as requestFileNavigation } from "../../lib/navigation-guard.js";
 import { fileEditorCopy as copy } from "../../lib/i18n/messages/file-editor.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 const FileEditor = lazy(() => import("./FileEditor.jsx"));
 const FileEditorConflict = lazy(() => import("./FileEditorConflict.jsx"));
 
@@ -213,7 +214,7 @@ export default function FileEditorWorkspace({
                         tab.format.lineEnding === "mixed"
                       }
                     >
-                      {tab.pending ? copy.saving : copy.save}
+                      {tab.pending ? copy.saving : commonCopy.save}
                     </button>
                     <button onClick={() => searchRef.current?.()}>{copy.search}</button>
                     <button

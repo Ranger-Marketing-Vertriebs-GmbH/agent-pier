@@ -30,7 +30,7 @@ for (const width of [1440, 390])
     );
     await openPipelines(page);
     await openNewSession(page);
-    const dialog = page.getByRole("dialog", { name: "Neue Sitzung", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Neue Session", exact: true });
     const profile = dialog.getByRole("combobox", { name: "Aufgabenprofil", exact: true });
     await expect(profile).toHaveValue("");
     await profile.selectOption("profile-one");
@@ -46,14 +46,14 @@ for (const width of [1440, 390])
     await dialog.getByLabel("Startmodus", { exact: true }).selectOption("yolo");
     await page.locator(".launch-extensions > summary").click();
     await dialog.getByRole("checkbox", { name: /Testserver/ }).check();
-    await dialog.getByRole("checkbox", { name: /AgentPier-Werkzeuge/ }).uncheck();
+    await dialog.getByRole("checkbox", { name: /AgentPier-Tools/ }).uncheck();
     await profile.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `docs/screenshots/session-profile-${width}.png` });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     ).toBe(true);
     state.fail = "/pipeline-profiles/profile-one/launch";
-    await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+    await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
     await expect(dialog.getByRole("alert")).toContainText("Fixture conflict");
     expect(state.calls.find((call) => call.path.endsWith("/launch")).body).toMatchObject({
       access: { accountId: "local-codex", tool: "codex", nativeModelId: "session-model" },
@@ -83,13 +83,13 @@ test("profile shortcut presets central access and sends its source account with 
   };
   await openPipelines(page);
   await page
-    .getByRole("button", { name: "Sitzung mit Profil starten", exact: true })
+    .getByRole("button", { name: "Session mit Profil starten", exact: true })
     .click();
-  const dialog = page.getByRole("dialog", { name: "Neue Sitzung", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Neue Session", exact: true });
   await expect(dialog.getByLabel("Zugang", { exact: true })).toHaveValue(
     "provider:central-openrouter",
   );
-  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
   await expect(page).toHaveURL(/sessions\/launched\/terminal$/);
   expect(state.calls.find((call) => call.path.endsWith("/launch")).body.access).toEqual({
     tool: "codex",
@@ -105,20 +105,20 @@ test("a removed preselected profile cannot silently launch a plain session", asy
   const state = await pipelinesFixture(page);
   await openPipelines(page);
   await expect(
-    page.getByRole("button", { name: "Sitzung mit Profil starten", exact: true }),
+    page.getByRole("button", { name: "Session mit Profil starten", exact: true }),
   ).toBeVisible();
   state.profiles = [];
   await page
-    .getByRole("button", { name: "Sitzung mit Profil starten", exact: true })
+    .getByRole("button", { name: "Session mit Profil starten", exact: true })
     .click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("alert")).toContainText("nicht verfügbar");
   await expect(
-    dialog.getByRole("button", { name: "Sitzung starten", exact: true }),
+    dialog.getByRole("button", { name: "Session starten", exact: true }),
   ).toBeDisabled();
   await dialog.getByLabel("Aufgabenprofil", { exact: true }).selectOption("");
   await expect(
-    dialog.getByRole("button", { name: "Sitzung starten", exact: true }),
+    dialog.getByRole("button", { name: "Session starten", exact: true }),
   ).toBeEnabled();
 });
 
@@ -134,7 +134,7 @@ test("Bug Hunter instructions and parameters survive switching from Claude to Co
   profile.config.prompts.params = [{ key: "topic", label: "Fehler", required: true }];
   await openPipelines(page);
   await openNewSession(page);
-  const dialog = page.getByRole("dialog", { name: "Neue Sitzung", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Neue Session", exact: true });
   const selection = dialog.getByRole("combobox", { name: "Aufgabenprofil", exact: true });
   await selection.selectOption(profile.id);
   await dialog.getByLabel("Fehler", { exact: true }).fill("Missing kickoff");
@@ -148,7 +148,7 @@ test("Bug Hunter instructions and parameters survive switching from Claude to Co
     dialog.getByLabel("Startmodus", { exact: true }).locator('option[value="profile"]'),
   ).toHaveCount(0);
   state.fail = `/pipeline-profiles/${profile.id}/launch`;
-  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("Fixture conflict");
   expect(state.calls.find((call) => call.path.endsWith("/launch")).body).toMatchObject({
     access: { tool: "codex", accountId: "local-codex" },
@@ -164,7 +164,7 @@ test("Bug Hunter instructions and parameters survive switching from Claude to Co
   await dialog
     .getByRole("combobox", { name: "Anbietermodell", exact: true })
     .selectOption("fixture/model");
-  await dialog.getByRole("button", { name: "Sitzung starten", exact: true }).click();
+  await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
   await expect
     .poll(() => state.calls.filter((call) => call.path.endsWith("/launch")).length)
     .toBe(2);

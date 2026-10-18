@@ -29,7 +29,6 @@ export const remoteCopy = {
   urls: "Erreichbare Adressen",
   locked:
     "Über den Netzwerkzugriff kann der Modus nur ausgeschaltet werden. Bind-Adresse und Hostliste lokal oder über Tailscale ändern.",
-  save: "Speichern",
   saved: "Gespeichert.",
   restartRequired: "Neustart erforderlich, damit die Änderung gilt.",
   restart: "Dienst neu starten",

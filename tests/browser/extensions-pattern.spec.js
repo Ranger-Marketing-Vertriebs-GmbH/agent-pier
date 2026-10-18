@@ -311,7 +311,7 @@ test("removing a plugin from its detail view returns to the list", async ({ page
     .getByRole("button", { name: /^superpowers/ })
     .click();
   await page.getByRole("button", { name: "Plugin superpowers entfernen" }).click();
-  await page.getByRole("button", { name: "Entfernen bestätigen", exact: true }).click();
+  await page.getByRole("button", { name: "Jetzt entfernen", exact: true }).click();
   const empty = page.getByText("Noch keine Plugins installiert.", { exact: true });
   await expect(empty).toBeVisible();
   await expect(page.getByRole("button", { name: "Zurück zu Plugins" })).toHaveCount(0);

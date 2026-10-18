@@ -253,11 +253,11 @@ test("the model field lists the connection's models and keeps a custom model ID"
     "Choose a model",
     "Qwen 3 4B (qwen3:4b)",
     "llama3.2",
-    "Custom model ID…",
+    "Custom model ID …",
   ]);
   await expect(page.getByRole("textbox", { name: "Model ID" })).toHaveCount(0);
   await model.selectOption("llama3.2");
-  await model.selectOption({ label: "Custom model ID…" });
+  await model.selectOption({ label: "Custom model ID …" });
   await page.getByRole("textbox", { name: "Model ID" }).fill("qwen3:8b");
   await page.getByRole("button", { name: "Save agent" }).click();
   await expect
@@ -271,6 +271,6 @@ test("the model field lists the connection's models and keeps a custom model ID"
   await expect(model).toHaveValue("");
   await expect(model.locator("option:checked")).toHaveText("Choose a model");
   await expect(page.getByRole("textbox", { name: "Model ID" })).toHaveCount(0);
-  await model.selectOption({ label: "Custom model ID…" });
+  await model.selectOption({ label: "Custom model ID …" });
   await expect(page.getByRole("textbox", { name: "Model ID" })).toHaveValue("qwen3:8b");
 });

@@ -261,7 +261,7 @@ for (const kind of ["rename", "trash"]) {
       await page.getByRole("checkbox", { name: "Select a.txt", exact: true }).check();
       await page
         .getByRole("button", {
-          name: kind === "rename" ? "Rename" : "Move to Trash",
+          name: kind === "rename" ? "Rename" : "Move to trash",
           exact: true,
         })
         .click();

@@ -51,12 +51,12 @@ test("a Trash refresh keeps the listed selection actionable", async ({ page }) =
   const report = page.getByRole("checkbox", { name: "Select report.txt", exact: true });
   await report.check();
   hold = true;
-  await page.getByRole("button", { name: "Refresh Trash", exact: true }).click();
-  await expect(page.getByText("Loading every Trash page …")).toBeVisible();
+  await page.getByRole("button", { name: "Refresh trash", exact: true }).click();
+  await expect(page.getByText("Loading every trash page …")).toBeVisible();
   await expect(report).toBeChecked();
   await expect(page.getByRole("button", { name: "Restore", exact: true })).toBeEnabled();
   release();
-  await expect(page.getByText("Loading every Trash page …")).toHaveCount(0);
+  await expect(page.getByText("Loading every trash page …")).toHaveCount(0);
   await expect(report).toBeChecked();
   expect(f.unknown).toEqual([]);
 });
@@ -202,7 +202,7 @@ test("Empty loads every page, freezes consent, bounds all bodies and stops after
   };
   await selectEnglish(page);
   await page.goto(baseURL + "/files?panel=trash");
-  await page.getByRole("button", { name: "Empty Trash", exact: true }).click();
+  await page.getByRole("button", { name: "Empty trash", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete permanently", exact: true });
   await expect(dialog).toContainText("900 frozen entries");
   await expect(dialog).toContainText("1 nonrecoverable");
@@ -288,7 +288,7 @@ test("leaving Trash after a submitted batch prevents later batch submissions", a
   f.onStart = () => {};
   await selectEnglish(page);
   await page.goto(baseURL + "/files?panel=trash");
-  await page.getByRole("button", { name: "Empty Trash", exact: true }).click();
+  await page.getByRole("button", { name: "Empty trash", exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Confirm", exact: true })
@@ -320,7 +320,7 @@ test("a lost purge acknowledgement is shown as submitted and uncertain", async (
   await page.route("**/api/files/operations", (route) => route.abort("failed"));
   await selectEnglish(page);
   await page.goto(baseURL + "/files?panel=trash");
-  await page.getByRole("button", { name: "Empty Trash", exact: true }).click();
+  await page.getByRole("button", { name: "Empty trash", exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Confirm", exact: true })

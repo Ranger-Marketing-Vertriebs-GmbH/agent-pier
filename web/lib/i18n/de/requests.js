@@ -1,8 +1,8 @@
 export const requestCopy = {
   reloadRequired:
-    "Diese Claude-Sitzung braucht ein einmaliges Update für Fragen im Chat. Führe /reload-plugins im Terminal aus. Deine Unterhaltung bleibt geöffnet.",
+    "Diese Claude-Session braucht ein einmaliges Update für Fragen im Chat. Führe /reload-plugins im Terminal aus. Deine Unterhaltung bleibt geöffnet.",
   legacyQuestion:
-    "Claude hat eine Frage gestellt, aber diese Sitzung hat ihre Auswahlmöglichkeiten nicht in den Chat übertragen. Beantworte sie im Terminal und führe danach /reload-plugins aus.",
+    "Claude hat eine Frage gestellt, aber diese Session hat ihre Auswahlmöglichkeiten nicht in den Chat übertragen. Beantworte sie im Terminal und führe danach /reload-plugins aus.",
   hookTrustTitle: "Codex-Hooks prüfen",
   hookTrustDescription:
     "Codex wartet auf die Hook-Freigabe. Vertrauenswürdige Hooks können außerhalb der Sandbox laufen. Dein Chat-Entwurf bleibt bis zu deiner Entscheidung erhalten.",
@@ -12,7 +12,7 @@ export const requestCopy = {
   folderTrustDescription:
     "Claude wartet auf die Freigabe zum Lesen, Bearbeiten und Ausführen von Dateien in diesem Arbeitsordner. Dein Chat-Entwurf bleibt bis zu deiner Entscheidung erhalten.",
   folderTrustAllow: "Ordner vertrauen und fortfahren",
-  folderTrustExit: "Sitzung beenden",
+  folderTrustExit: "Session beenden",
   startup: {
     theme: {
       title: "Claude-Textstil wählen",
@@ -70,7 +70,7 @@ export const requestCopy = {
   scopes: {
     turn: "Für diesen Turn",
     once: "Einmal",
-    session: "Diese Sitzung",
+    session: "Diese Session",
     persistent: "Dauerhaft",
   },
   loading: "Native Rückfragen werden geladen …",

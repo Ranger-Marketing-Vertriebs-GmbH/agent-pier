@@ -480,7 +480,7 @@ test("run detail stays within a 390px viewport and reads in English", async ({
     "Approve",
     "Retry with feedback",
     "Return for repair",
-    "Override & Continue",
+    "Override and continue",
   ]);
   await expect(
     page.getByRole("navigation", { name: "Stages" }).getByRole("button").nth(1),

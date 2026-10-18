@@ -4,6 +4,7 @@ import McpSetup from "./McpSetup.jsx";
 import McpConsent from "./McpConsent.jsx";
 import McpGrants from "./McpGrants.jsx";
 import useMcpResource from "./useMcpResource.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./mcp.css";
 export default function McpSettings({ route, navigate }) {
   const result = useMcpResource("/mcp-access");
@@ -14,7 +15,7 @@ export default function McpSettings({ route, navigate }) {
         <section className="mcp-card">
           <p role="alert">{result.error}</p>
           <button className="button" onClick={result.reload}>
-            {copy.retry}
+            {commonCopy.retry}
           </button>
         </section>
       ) : !result.data ? (

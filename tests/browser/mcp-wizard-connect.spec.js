@@ -118,7 +118,7 @@ for (const [label, use] of [
       const wizard = await openWizard(page);
       await installToConnect(wizard);
       await expect(
-        wizard.getByRole("status").filter({ hasText: "Installing…" }),
+        wizard.getByRole("status").filter({ hasText: "Installing …" }),
       ).toBeVisible();
       await wizard.getByRole("switch", { name: "Claude Code" }).check();
       await wizard.getByRole("switch", { name: "Home" }).check();

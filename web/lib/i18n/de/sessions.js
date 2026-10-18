@@ -1,11 +1,11 @@
 export const launchDialogCopy = {
-  sessionSection: "Sitzung",
+  sessionSection: "Session",
   executionSection: "Ausführung",
   extensions: "Erweiterungen",
   busEnabled: "AgentBus aktiv",
   busDisabled: "AgentBus aus",
-  toolsEnabled: "AgentPier-Werkzeuge aktiv",
-  toolsDisabled: "AgentPier-Werkzeuge aus",
+  toolsEnabled: "AgentPier-Tools aktiv",
+  toolsDisabled: "AgentPier-Tools aus",
   sshSummary: (count) => (count ? `${count} SSH-Zugänge` : "Kein SSH"),
 
   taskProfile: "Aufgabenprofil",
@@ -13,7 +13,7 @@ export const launchDialogCopy = {
   profileUnavailable:
     "Das Aufgabenprofil ist nicht verfügbar. Bitte wähle ein anderes Profil.",
   profileSessionHint:
-    "Das Profil belegt die Startoptionen vor. Änderungen gelten nur für diese Sitzung. Bei einem CLI-Wechsel bleiben die Anweisungen und Parameter erhalten; Zugang, Modell und Startmodus werden zurückgesetzt.",
+    "Das Profil belegt die Startoptionen vor. Änderungen gelten nur für diese Session. Bei einem CLI-Wechsel bleiben die Anweisungen und Parameter erhalten; Zugang, Modell und Startmodus werden zurückgesetzt.",
   profileMode: (mode) => `Profil · ${mode}`,
   profileModeDescription: (mode) =>
     `Verwendet den Berechtigungsmodus ${mode} aus dem Aufgabenprofil.`,
@@ -21,25 +21,25 @@ export const launchDialogCopy = {
   nativeModeDescription:
     "Verwendet die Berechtigungen aus deinem Tool-Profil und dessen native Voreinstellungen.",
   codexYoloDescription:
-    "YOLO führt Befehle ohne Rückfragen und ohne Sandbox aus. Gilt nur für diese neue Sitzung.",
+    "YOLO führt Befehle ohne Rückfragen und ohne Sandbox aus. Gilt nur für diese neue Session.",
   claudeAutoDescription:
     "Auto prüft Aktionen mit Claudes Sicherheitsprüfung. Verfügbarkeit hängt von Version, Modell und Kontorichtlinien ab; Rückfragen bleiben möglich.",
   claudeBypassDescription:
-    "Ohne Rückfragen führt Claude jeden Befehl und jede Änderung aus, ohne zu fragen. Nur in vertrauenswürdigen Projekten nutzen, am besten mit Sandbox-Profil. Gilt nur für diese neue Sitzung.",
-  launchModeRemembered: "Aus deiner letzten Sitzung vorausgewählt.",
+    "Ohne Rückfragen führt Claude jeden Befehl und jede Änderung aus, ohne zu fragen. Nur in vertrauenswürdigen Projekten nutzen, am besten mit Sandbox-Profil. Gilt nur für diese neue Session.",
+  launchModeRemembered: "Aus deiner letzten Session vorausgewählt.",
   opencodeAutoDescription:
-    "Auto bestätigt Berechtigungsanfragen automatisch. Explizite Verbote bleiben aktiv. Gilt nur für diese neue Sitzung.",
+    "Auto bestätigt Berechtigungsanfragen automatisch. Explizite Verbote bleiben aktiv. Gilt nur für diese neue Session.",
   codingSessionDescription: "Ein echtes Terminal. Dein Tool, dein Account, dein Projekt.",
   shellSessionDescription:
-    "Eine lokale Shell für Befehle und Werkzeuge in deinem Arbeitsverzeichnis.",
-  sessionNameLabel: "Name der Sitzung",
+    "Eine lokale Shell für Befehle und Tools in deinem Arbeitsverzeichnis.",
+  sessionNameLabel: "Name der Session",
   sessionNamePlaceholder: "z. B. Website überarbeiten",
   nativeModeOption: "Standard · Tool-Voreinstellungen",
   codexYoloOption: "YOLO · ohne Rückfragen und Sandbox",
   claudeAutoOption: "Auto · mit Sicherheitsprüfung",
   claudeBypassOption: "Ohne Rückfragen · ohne Prüfung",
   opencodeAutoOption: "Auto · Anfragen automatisch bestätigen",
-  agentbusLaunchLabel: "AgentBus · Sitzungen im selben Projekt verbinden",
+  agentbusLaunchLabel: "AgentBus · Sessions im selben Projekt verbinden",
   agentbusLaunchHint:
     "CLIs können einander Nachrichten schicken. Das kann weitere Modellarbeit auslösen.",
 
@@ -50,7 +50,7 @@ export const launchDialogCopy = {
   sandboxUnavailableForTaskProfile:
     "Das Sandbox-Profil ist bei Starts mit Aufgabenprofil nicht verfügbar.",
   sandboxHint:
-    "Die Coding-CLI der Sitzung läuft in nono mit diesem Sandbox-Profil. AgentPier ergänzt die Zugriffe, die seine eigenen Integrationen brauchen.",
+    "Die Coding-CLI der Session läuft in nono mit diesem Sandbox-Profil. AgentPier ergänzt die Zugriffe, die seine eigenen Integrationen brauchen.",
   sandboxBadge: (sandboxProfile) => `Sandbox · ${sandboxProfile}`,
 };
 export const sessionWorkspaceCopy = {
@@ -63,7 +63,7 @@ export const sessionWorkspaceCopy = {
   terminalTopbarDisconnected: "Verbindung getrennt · neuer Versuch …",
   chatNotice: "Terminal wird geladen …",
   keyboardToolbarAriaLabel: "Terminal-Tastatur",
-  sessionFooterLabel: "Die Sitzung läuft bei geschlossenem Browser weiter.",
+  sessionFooterLabel: "Die Session läuft bei geschlossenem Browser weiter.",
 };
 
 export const sessionReloadCopy = {
@@ -90,15 +90,15 @@ export const sessionReloadCopy = {
   prepareFailed:
     "Die Anfrage konnte nicht vorbereitet werden. Verwende einen Browser mit Unterstützung für sichere Verbindungen.",
   title: "Neu laden & fortsetzen",
-  hint: "Startet die CLI mit genau dieser Unterhaltung und aktualisierten Integrationen neu. Sitzung, Chatentwurf und zugewiesene Hosts bleiben erhalten.",
+  hint: "Startet die CLI mit genau dieser Unterhaltung und aktualisierten Integrationen neu. Session, Chatentwurf und zugewiesene Hosts bleiben erhalten.",
   loading: "Fortsetzung dieser Unterhaltung wird geprüft …",
   now: "Jetzt neu laden",
   queue: "Auf Leerlauf warten",
   cancel: "Geplantes Neuladen abbrechen",
   interrupt: "Ich verstehe, dass sofortiges Neuladen die laufende Arbeit unterbricht.",
   uncertain:
-    "Die Sitzung arbeitet oder ihre Aktivität ist unklar. Warte auf bestätigten Leerlauf oder bestätige die Unterbrechung.",
-  unsupported: "Diese Sitzung kann nicht neu geladen werden.",
+    "Die Session arbeitet oder ihre Aktivität ist unklar. Warte auf bestätigten Leerlauf oder bestätige die Unterbrechung.",
+  unsupported: "Diese Session kann nicht neu geladen werden.",
   unverified:
     "Die native Unterhaltung ist noch nicht verifiziert. Der laufende Prozess bleibt unverändert.",
   failed:
@@ -115,16 +115,16 @@ export const sessionReloadCopy = {
 
 export const sessionInterruptionCopy = {
   failedUnknown:
-    "Diese Sitzung wurde unterbrochen und konnte nicht automatisch fortgesetzt werden.",
-  resuming: "Diese Sitzung wurde unterbrochen und wird automatisch fortgesetzt …",
+    "Diese Session wurde unterbrochen und konnte nicht automatisch fortgesetzt werden.",
+  resuming: "Diese Session wurde unterbrochen und wird automatisch fortgesetzt …",
   disabled:
-    "Diese Sitzung wurde unterbrochen. Das automatische Fortsetzen ist aus; nutze „Neu laden & fortsetzen“, um sie fortzusetzen.",
+    "Diese Session wurde unterbrochen. Das automatische Fortsetzen ist aus; nutze „Neu laden & fortsetzen“, um sie fortzusetzen.",
   failed: (reason) =>
-    `Diese Sitzung wurde unterbrochen und konnte nicht automatisch fortgesetzt werden: ${reason}`,
+    `Diese Session wurde unterbrochen und konnte nicht automatisch fortgesetzt werden: ${reason}`,
   reasons: {
-    "unsupported-session": "Diese Art Sitzung lässt sich nicht fortsetzen.",
+    "unsupported-session": "Diese Art Session lässt sich nicht fortsetzen.",
     "native-session-unverified":
-      "Die Unterhaltung dieser Sitzung konnte nicht bestätigt werden.",
+      "Die Unterhaltung dieser Session konnte nicht bestätigt werden.",
     "prepare-failed": "Der Neustart konnte nicht vorbereitet werden.",
     "reload-failed": "Das Neuladen ist fehlgeschlagen.",
     timeout: "Die CLI hat die Unterhaltung nicht rechtzeitig bestätigt.",

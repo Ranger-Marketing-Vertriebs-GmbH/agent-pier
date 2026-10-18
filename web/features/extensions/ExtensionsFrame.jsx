@@ -101,7 +101,7 @@ export default function ExtensionsFrame({ ext, account, request, hideError, chil
                 )
               }
             >
-              {commonCopy.confirmRemoval}
+              {commonCopy.removeNow}
             </button>
           </div>
         </div>

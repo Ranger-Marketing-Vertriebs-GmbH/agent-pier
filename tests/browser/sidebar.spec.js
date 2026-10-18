@@ -71,7 +71,7 @@ async function fixture(page) {
 test("the sessions group stays collapsible and remembers its state", async ({ page }) => {
   await fixture(page);
   await page.goto(base);
-  const sessions = page.getByRole("button", { name: "Sitzungen", exact: true });
+  const sessions = page.getByRole("button", { name: "Sessions", exact: true });
   await expect(sessions).toHaveAttribute("aria-expanded", "true");
   await sessions.click();
   await expect(page.locator(".sessions-group .session-list")).toBeHidden();

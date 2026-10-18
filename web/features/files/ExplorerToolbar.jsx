@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import { explorerNavigationCopy as copy } from "../../lib/i18n/messages/explorer-navigation.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./explorer-toolbar.css";
 
 function crumbs(path, project, rootLabel) {
@@ -52,7 +53,7 @@ export default function ExplorerToolbar({
           <button
             type="button"
             className="icon-button"
-            aria-label={copy.back}
+            aria-label={commonCopy.back}
             onClick={() => history.back()}
           >
             <Icon name="back" />

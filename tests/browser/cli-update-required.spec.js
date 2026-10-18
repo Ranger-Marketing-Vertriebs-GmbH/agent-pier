@@ -81,7 +81,7 @@ async function fixture(page, configure = () => {}) {
           code: "CLI_UPDATE_REQUIRED",
           updateRequired: { tool: "claude", found: "2.1.100", required: "2.1.263" },
           error:
-            "Claude Code ist in Version 2.1.100 installiert, AgentPier benötigt aber 2.1.263 oder neuer. Bitte das CLI aktualisieren und die Sitzung erneut starten.",
+            "Claude Code ist in Version 2.1.100 installiert, AgentPier benötigt aber 2.1.263 oder neuer. Bitte das CLI aktualisieren und die Session erneut starten.",
           messageKey: "tools.cliUpdateRequired",
           messageArgs: ["Claude Code", "2.1.100", "2.1.263"],
         },

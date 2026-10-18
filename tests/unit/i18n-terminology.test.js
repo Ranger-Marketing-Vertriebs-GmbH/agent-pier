@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
+import { loadCatalogs } from "../../scripts/i18n-translation-lock.mjs";
 
 // German names a stored provider connection "Provider-Zugang", like the sibling
 // "SSH-Zugänge" and "GitHub-Zugänge"; a second term for the same thing confuses users.
@@ -33,4 +34,68 @@ test("German pipeline catalogs use one term for verification and the run branch"
       assert.doesNotMatch(text, /Verifikation|Run-Branch/, `${dir}${name}`);
     }
   }
+});
+
+// UI glossary (docs/ui-glossary.md): German copy says "Session", "Tool" and
+// "Accounts" (the page), and navigation paths use "›" in both languages.
+// Rendered texts of the web and server catalogs, as the translation lock reads them.
+async function catalogTexts(language) {
+  const texts = [];
+  for (const kind of ["web", "server"]) {
+    const catalogs = await loadCatalogs(kind);
+    for (const lang of language ? [language] : ["german", "english"])
+      for (const [key, text] of catalogs[lang])
+        texts.push({ where: `${kind} ${key}`, text });
+  }
+  return texts;
+}
+
+test("German catalogs follow the UI glossary", async () => {
+  for (const { where, text } of await catalogTexts("german")) {
+    assert.doesNotMatch(text, /Sitzung|sitzung/, where);
+    assert.doesNotMatch(text, /Werkzeug|werkzeug/, where);
+    assert.doesNotMatch(text, /\bKonten\b|Kontoeinstellung/, where);
+    assert.doesNotMatch(text, /Zugänge →/, where);
+  }
+});
+
+test("navigation paths use › and ellipses follow a space", async () => {
+  for (const { where, text } of await catalogTexts()) {
+    assert.doesNotMatch(text, /\p{L} (→|>) \p{Lu}/u, where);
+    // Placeholders such as ${…} or {env:…} quote syntax and keep their form.
+    const prose = text.replace(/\$\{…\}|\{(env|file):…\}/g, "");
+    assert.doesNotMatch(prose, /[^\s„“"'(]…/u, where);
+  }
+});
+
+// Proper nouns and key names that keep their capitals inside short labels.
+const properNouns = [
+  /GitHub App/g,
+  /Brave Search/g,
+  /Claude Code/g,
+  /Z\.ai Coding Plan/g,
+  /OpenAI Chat Completions|Chat Completions|OpenAI Responses|Anthropic Messages/g,
+  /MCP Registry/g,
+  /(Up|Down|Left|Right) Arrow|Escape|Tab|Enter|Control C/g,
+  /\b(Telegram|Deepgram|GitHub|Codex|OpenCode|OpenClaw|ChatGPT|AgentPier|CLI|MCP|SSH|API|URL|ID)\b/g,
+  /\b(Agency|AgentBus|Claude|Brave|Perplexity|OpenRouter|PyPI|Ed25519)\b/g,
+  // Page names and the editor's Save As command.
+  /\b(in|under) (Accounts|Artifacts|Settings)\b/g,
+  /Save As/g,
+];
+test("English labels use sentence case", async () => {
+  const titleCase = [];
+  for (const { where, text } of await catalogTexts("english")) {
+    const words = text.trim().split(/\s+/);
+    if (words.length < 2 || words.length > 6 || /[.:?!]\s|[.?!]$/.test(text)) continue;
+    let rest = text;
+    for (const noun of properNouns) rest = rest.replace(noun, "x");
+    // A separator such as "·", "—" or "/" starts a new label part.
+    const capitalised = rest
+      .split(/\s[·—/]\s|^[^\p{L}_]+/u)
+      .flatMap((part) => part.trim().split(/\s+/).slice(1))
+      .filter((word) => /^[A-Z][a-z]/.test(word));
+    if (capitalised.length) titleCase.push(`${where}: ${JSON.stringify(text)}`);
+  }
+  assert.deepEqual(titleCase, []);
 });

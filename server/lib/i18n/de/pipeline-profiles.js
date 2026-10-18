@@ -44,7 +44,7 @@ export const pipelineProfiles = Object.freeze({
     "Diese Claude-Version bietet den Berechtigungsmodus des Profils nicht an.",
   disabled: "Dieses Profil ist deaktiviert.",
   notFound: "Aufgabenprofil nicht gefunden.",
-  invalidSessionCli: "Ungültiges Sitzungs-CLI.",
+  invalidSessionCli: "Ungültiges Session-CLI.",
   mustBeEnabledAndAutonomous: (name) =>
     `Das Pipeline-Profil muss aktiviert und autonom sein: ${name}`,
   noRequiredParameters: (name) =>

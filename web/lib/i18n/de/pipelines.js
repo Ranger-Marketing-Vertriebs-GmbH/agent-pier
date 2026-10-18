@@ -31,12 +31,12 @@ export const pipelineCopy = {
   verificationStep: (number) => `Prüfschritt ${number}`,
   title: "Pipelines",
   pipelineSessionReadOnly:
-    "Diese Sitzung wird von der Pipeline gesteuert. Rückmeldungen und Entscheidungen erfolgen im Lauf.",
+    "Diese Session wird von der Pipeline gesteuert. Rückmeldungen und Entscheidungen erfolgen im Lauf.",
   returnToRun: "Zum Pipeline-Lauf",
   projectDirectory: "Projektordner registrieren",
   accountDefault: "Account-Standard",
   interactive: "Interaktiv",
-  description: "Aufgabenprofile, überprüfbare Arbeitsschritte und native Sitzungen.",
+  description: "Aufgabenprofile, überprüfbare Arbeitsschritte und native Sessions.",
   runs: "Läufe",
   definitions: "Definitionen",
   profiles: "Aufgabenprofile",
@@ -70,7 +70,7 @@ export const pipelineCopy = {
     "Eine exakte Modell-ID aus dem Katalog pro Zeile. Das Standardmodell muss enthalten sein.",
   permissions: "Berechtigungsmodus",
   pipelinePermissionsHint:
-    "Der gewählte Berechtigungsmodus gilt für separat gestartete Profilsitzungen. Pipeline-Stufen laufen immer autonom: Codex mit YOLO und Hook-Freigabe, Claude mit bypassPermissions, OpenCode mit auto. Menschliche Freigabeschritte der Pipeline bleiben bestehen.",
+    "Der gewählte Berechtigungsmodus gilt für separat gestartete Profil-Sessions. Pipeline-Stufen laufen immer autonom: Codex mit YOLO und Hook-Freigabe, Claude mit bypassPermissions, OpenCode mit auto. Menschliche Freigabeschritte der Pipeline bleiben bestehen.",
   autonomous: "Autonom ausführen",
   model: "Standardmodell",
   models: "Erlaubte Modelle",
@@ -87,7 +87,7 @@ export const pipelineCopy = {
   clone: (n) => `Duplizieren: ${n}`,
   remove: (n) => `Löschen: ${n}`,
   copyName: (n) => `${n} (Kopie)`,
-  startProfile: "Sitzung mit Profil starten",
+  startProfile: "Session mit Profil starten",
   directory: "Arbeitsverzeichnis",
   profileEligibility:
     "Pipeline-Stufen benötigen ein autonomes Profil ohne erforderliche Parameter.",
@@ -187,7 +187,7 @@ export const pipelineCopy = {
     skipped: "Übersprungen",
   },
   failReasons: {
-    "session-error": "Die Sitzung endete mit einem Fehler",
+    "session-error": "Die Session endete mit einem Fehler",
     "turn-timeout": "Der Turn hat seine maximale Laufzeit überschritten",
     "stage-timeout": "Der Turn hat seine maximale Laufzeit überschritten",
     "inactivity-timeout": "Keine Aktivität innerhalb des Zeitlimits",

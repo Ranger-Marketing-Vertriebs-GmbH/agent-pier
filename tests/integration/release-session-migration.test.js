@@ -148,11 +148,11 @@ test("a changed plan aborts before any request and a failed engine reload is rep
   assert.equal(f.reload.requests.length, 0);
   f.store.map.get(ids[0]).eligible = true;
   f.store.map.get(ids[0]).nextState = "failed";
-  f.store.map.get(ids[0]).nextError = "Die Sitzung konnte nicht neu geladen werden.";
+  f.store.map.get(ids[0]).nextError = "Die Session konnte nicht neu geladen werden.";
   const failed = await f.finish(f.migration.migrate("1.0.0"));
   assert.equal(failed.errorCode, "migrateFailed");
   assert.deepEqual(failed.result.failedSessions, [
-    { id: ids[0], error: "Die Sitzung konnte nicht neu geladen werden." },
+    { id: ids[0], error: "Die Session konnte nicht neu geladen werden." },
   ]);
 });
 

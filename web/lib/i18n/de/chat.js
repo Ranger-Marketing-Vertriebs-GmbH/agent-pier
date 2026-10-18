@@ -3,7 +3,7 @@ export const chatComposerCopy = {
   slashHint: "↑↓ wählen · Tab oder Enter übernehmen",
   requestPending:
     "Beantworte die offene Anfrage oben oder im Terminal. Jetzt gesendete Nachrichten werden danach zugestellt.",
-  messageSent: "An die laufende Sitzung gesendet",
+  messageSent: "An die laufende Session gesendet",
   touchSendHint: "Enter: neue Zeile · Senden über den Button",
 };
 export const chatAttachmentsCopy = {
@@ -15,7 +15,7 @@ export const chatAttachmentsCopy = {
   removeAriaLabel: (name) => `Anhang entfernen: ${name}`,
   listAriaLabel: "Anhänge",
   uploading: "Datei wird hochgeladen …",
-  unsupportedSession: "Anhänge sind in dieser Sitzung nicht verfügbar.",
+  unsupportedSession: "Anhänge sind in dieser Session nicht verfügbar.",
   tooManyFiles: "Es sind höchstens 8 Anhänge pro Nachricht möglich.",
   fileTooLarge: "Dateien dürfen höchstens 10 MiB groß sein.",
 };
@@ -93,7 +93,7 @@ export const chatViewCopy = {
 };
 export const conversationPickerCopy = {
   conversationScopeDescription:
-    "Wähle die Unterhaltung, die in dieser Sitzung läuft. Angezeigt werden nur Verläufe dieses Accounts im selben Projekt.",
+    "Wähle die Unterhaltung, die in dieser Session läuft. Angezeigt werden nur Verläufe dieses Accounts im selben Projekt.",
   conversationPickerOption: "Verläufe werden geladen …",
   noConversationsDescription:
     "Noch kein Verlauf vorhanden. Nach der ersten Nachricht kannst du die Liste aktualisieren.",
@@ -123,7 +123,7 @@ export const chatDeliveryCopy = {
 
   savedNotices: (count) => `Gespeicherte Zustellungsanzeigen (${count})`,
   savedNoticesHint:
-    "Diese gespeicherten Anzeigen dokumentieren die Übergabe an die Sitzung. Sie bestätigen keine Bearbeitung und stehen getrennt vom Gesprächsverlauf.",
+    "Diese gespeicherten Anzeigen dokumentieren die Übergabe an die Session. Sie bestätigen keine Bearbeitung und stehen getrennt vom Gesprächsverlauf.",
   ariaLabel: "Nachrichtenzustellung",
   waiting: "Wartet auf Übergabe",
   absent: "Wartet auf Übergabe · noch nicht beim Server angenommen",

@@ -1,7 +1,5 @@
 export const mcpWizardCopy = {
   newTitle: "New MCP server",
-  back: "Back",
-  close: "Close",
   continue: "Continue",
   stepsLabel: "Setup steps",
   stepOf: (current, total) => `Step ${current} of ${total}`,
@@ -65,7 +63,7 @@ export const mcpWizardCopy = {
   },
   command: {
     title: "Which command?",
-    checking: "Looking for the command…",
+    checking: "Looking for the command …",
     found: (path) => `Found: ${path}`,
     missing: "Not found on this computer.",
     looksLikePackage: "This looks like a package. Let AgentPier install it instead?",
@@ -114,7 +112,7 @@ export const mcpWizardCopy = {
   install: {
     title: (name) => `Install ${name}`,
     summary: (name, count, secret) => `${name} · ${count} settings (${secret} secret)`,
-    checking: "Checking the package and all its dependencies…",
+    checking: "Checking the package and all its dependencies …",
     previewFailed: "The package could not be checked. Go back and try again.",
     progressTitle: "Installation",
     saved: "Saved",
@@ -150,7 +148,7 @@ export const mcpWizardCopy = {
     cliHint:
       "Written into its settings for all accounts; also works when you start it in a terminal.",
     agents: "Agents",
-    agentsLoading: "Loading agents…",
+    agentsLoading: "Loading agents …",
     agentsFailed: "The agents could not be loaded.",
     shell: (level) => `Shell: ${level}`,
     telegramLocked:
@@ -168,7 +166,7 @@ export const mcpWizardCopy = {
     agentShell: (name, level) => `${name}: shell ${level}`,
     agentSettings: (name) => `Open ${name}'s settings`,
     oauthNote: "After saving you sign in once per CLI; the next screen shows how.",
-    waiting: "Connecting as soon as the package is installed…",
+    waiting: "Connecting as soon as the package is installed …",
     save: "Save and connect",
     allow: "Allow and connect",
     whenInstalled: "Connect when installed",

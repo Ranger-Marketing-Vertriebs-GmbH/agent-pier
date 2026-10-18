@@ -44,9 +44,9 @@ export const releaseCopy = Object.freeze({
   migrateCancelled: "Die Migration wurde abgebrochen. Das Release bleibt erhalten.",
   migrateInterrupted: "Der Webdienst wird beendet. Das Release bleibt erhalten.",
   migrateChanged:
-    "Die Sitzungen dieses Releases haben sich geändert. Bitte die Liste aktualisieren.",
+    "Die Sessions dieses Releases haben sich geändert. Bitte die Liste aktualisieren.",
   migrateFailed:
-    "Einige Sitzungen konnten nicht neu geladen werden. Das Release bleibt erhalten.",
+    "Einige Sessions konnten nicht neu geladen werden. Das Release bleibt erhalten.",
   reloadCancelled: "Das Neuladen wurde vor dem Abschluss abgebrochen.",
   cleanupUnavailable: "Das Release steht nicht mehr zum Aufräumen zur Verfügung.",
   cleanupStateChanged:

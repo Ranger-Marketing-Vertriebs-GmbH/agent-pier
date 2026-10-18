@@ -15,7 +15,7 @@ test("file actions stay contextual and keep creation and advanced commands in me
   await expect(actions.getByRole("button", { name: "Rename", exact: true })).toHaveCount(
     0,
   );
-  await expect(actions.getByRole("button", { name: "Move to Trash" })).toHaveCount(0);
+  await expect(actions.getByRole("button", { name: "Move to trash" })).toHaveCount(0);
   await expect(
     actions.getByRole("button", { name: "New file", exact: true }),
   ).toHaveCount(0);
@@ -46,7 +46,7 @@ test("file actions stay contextual and keep creation and advanced commands in me
     selectedActions.getByRole("button", { name: "Rename", exact: true }),
   ).toBeVisible();
   await expect(
-    selectedActions.getByRole("button", { name: "Move to Trash" }),
+    selectedActions.getByRole("button", { name: "Move to trash" }),
   ).toBeVisible();
   await expect(
     selectedActions.getByRole("button", { name: "Create ZIP", exact: true }),

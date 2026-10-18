@@ -66,7 +66,7 @@ export const assistantAdvancedCopy = {
     },
     imageMaxDimension: {
       label: "Maximale Bildgröße",
-      help: "Auf welche längste Seite Bilder in Unterhaltungen und Werkzeugergebnissen verkleinert werden, von 256 bis 2000 Pixel. Kleinere Werte sparen Token; größere Bilder lehnen Modellanbieter ab, sobald eine Unterhaltung viele davon enthält.",
+      help: "Auf welche längste Seite Bilder in Unterhaltungen und Tool-Ergebnissen verkleinert werden, von 256 bis 2000 Pixel. Kleinere Werte sparen Token; größere Bilder lehnen Modellanbieter ab, sobald eine Unterhaltung viele davon enthält.",
       unit: "Pixel",
     },
     mediaRetention: {

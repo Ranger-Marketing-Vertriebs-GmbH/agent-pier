@@ -27,7 +27,7 @@ export const memberGrantCopy = {
     extraInstructions: "zusätzliche Anweisungen",
     instructions: "Anweisungen",
   },
-  none: "Keine Werkzeuge",
+  none: "Keine Tools",
   gets: (labels) => `Erhält: ${labels}`,
   proposalWarning:
     "Mit einer Warnung markierte Mitglieder erhalten Shell oder SSH, höchstens mit der Stufe und auf den Hosts dieses Agenten. Sie arbeiten unbeaufsichtigt, und Inhalte, die sie lesen, können sie lenken.",

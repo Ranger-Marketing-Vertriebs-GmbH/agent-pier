@@ -270,7 +270,7 @@ test("the notice says when the message waits, is on its way or was refused", asy
   if (!isMobile) await edit(page).focus();
   server.queued = { ...server.queued, state: "sending" };
   await changed(page);
-  await expect(queued(page)).toContainText("Sending now…");
+  await expect(queued(page)).toContainText("Sending now …");
   await expect(edit(page)).toHaveCount(0);
   if (!isMobile) await expect(field(page)).toBeFocused();
 

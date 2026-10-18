@@ -75,7 +75,7 @@ test("a project on a phone has a back header, five tabs and the launch bar", asy
   ]);
   // Five tabs no longer fit 390 px: the row scrolls, and every tab stays reachable.
   await expect(tabs).toHaveClass(/can-scroll-right/);
-  const launch = page.getByRole("button", { name: "Sitzung in agent-pier starten" });
+  const launch = page.getByRole("button", { name: "Session in agent-pier starten" });
   for (const tab of ["Übersicht", "Wissen", "AgentBus", "Agenten", "Läufe"]) {
     await tabs.getByRole("tab", { name: new RegExp(`^${tab}`) }).click();
     await expect(launch).toBeVisible();
@@ -118,7 +118,7 @@ test("the desktop header carries the add actions and the detail pane its launch 
     header(page).getByRole("heading", { name: "Projekte", level: 1 }),
   ).toBeVisible();
   await expect(
-    header(page).getByText("Vom Repository zur nächsten Sitzung.", { exact: false }),
+    header(page).getByText("Vom Repository zur nächsten Session.", { exact: false }),
   ).toBeVisible();
   await expect(
     header(page).getByRole("button", { name: "Ordner hinzufügen" }),
@@ -135,7 +135,7 @@ test("the desktop header carries the add actions and the detail pane its launch 
   const card = page.locator(".project-card");
   await expect(card.getByRole("heading", { name: "agent-pier", level: 2 })).toBeVisible();
   await expect(
-    card.getByRole("button", { name: "Sitzung in agent-pier starten" }),
+    card.getByRole("button", { name: "Session in agent-pier starten" }),
   ).toBeVisible();
   await expect(page.locator(".project-launch-bar")).toHaveCount(0);
 });

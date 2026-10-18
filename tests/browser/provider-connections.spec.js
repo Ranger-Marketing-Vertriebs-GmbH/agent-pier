@@ -106,7 +106,7 @@ test("mobile launch selects the CLI before compatible access and shares one conn
   await page.getByLabel("Arbeitsverzeichnis", { exact: true }).fill("/fixture");
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const body = controls.calls.find(
@@ -154,7 +154,7 @@ test("missing keys cannot be selected or launched and native model IDs remain se
     .fill("native-model-fixture");
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Sitzung starten", exact: true })
+    .getByRole("button", { name: "Session starten", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const body = controls.calls.find(

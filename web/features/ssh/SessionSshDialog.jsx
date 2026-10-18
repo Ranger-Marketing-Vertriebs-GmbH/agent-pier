@@ -8,6 +8,7 @@ import SshChoices from "./SshChoices.jsx";
 import SshCopy from "./SshCopy.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./ssh.css";
 const toolTones = {
   ready: "ok",
@@ -103,7 +104,7 @@ export default function SessionSshDialog({ session, close, openReload }) {
               )
             )}
             <button className="button primary" disabled={busy} onClick={save}>
-              {copy.save}
+              {commonCopy.save}
             </button>
           </>
         ) : null
@@ -121,7 +122,7 @@ export default function SessionSshDialog({ session, close, openReload }) {
             {loadError}
           </p>
           <button className="button secondary" onClick={reload}>
-            {copy.retry}
+            {commonCopy.retry}
           </button>
         </div>
       )}
