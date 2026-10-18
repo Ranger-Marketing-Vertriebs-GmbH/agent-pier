@@ -187,7 +187,12 @@ test("with shell, gh and git use the agent's profile, never the owner's", async 
   assert.doesNotMatch(shellEnv, new RegExp(token));
   assert.doesNotMatch(shellEnv, /owner-login/);
   assert.match(shellEnv, new RegExp(`GH_CONFIG_DIR=${folder}`));
-  assert.match(shellEnv, /GIT_CONFIG_COUNT=3/);
+  // github.com and gist.github.com, each: cleared, AgentPier's helper, quit.
+  assert.match(shellEnv, /GIT_CONFIG_COUNT=6/);
+  assert.match(
+    shellEnv,
+    /GIT_CONFIG_KEY_4=credential\.https:\/\/gist\.github\.com\.helper/,
+  );
   const vars = Object.fromEntries(
     shellEnv
       .trim()
@@ -197,7 +202,12 @@ test("with shell, gh and git use the agent's profile, never the owner's", async 
         line.slice(line.indexOf("=") + 1),
       ]),
   );
-  assert.match(vars.GIT_CONFIG_VALUE_1, /github-credentials\.js' --git-credential$/);
+  // The helper names the agent folder itself, like an owner shell's session.
+  assert.ok(
+    vars.GIT_CONFIG_VALUE_1.endsWith(
+      `github-credentials.js' --git-credential --session '${folder}'`,
+    ),
+  );
   // AgentPier's helper answers git with the profile's token for that host only.
   const answer = (environment) =>
     gitCredential("protocol=https\nhost=github.com\n\n", environment);
@@ -205,6 +215,19 @@ test("with shell, gh and git use the agent's profile, never the owner's", async 
     answer({ GH_CONFIG_DIR: folder }),
     `username=x-access-token\npassword=${token}\n\n`,
   );
+  // The helper as git starts it from the agent's shell: the folder from --session.
+  const helper = execFileSync(
+    process.execPath,
+    [
+      path.resolve("server/github-credentials.js"),
+      "--git-credential",
+      "--session",
+      folder,
+      "get",
+    ],
+    { input: "protocol=https\nhost=gist.github.com\n\n", env: {}, encoding: "utf8" },
+  );
+  assert.equal(helper, `username=x-access-token\npassword=${token}\n\n`);
   // Rotation reaches hosts.yml through the session sync, deletion revokes it.
   f.repositories.updateCredential(f.work.id, { name: "Work", token: rotated });
   await f.github.sync();

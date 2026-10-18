@@ -1942,8 +1942,10 @@ An agent with shell and GitHub access gets its own folder
 (`exec-shell.js`) sources `shell-env.sh` from the first such entry on `PATH`. It sets
 `GH_CONFIG_DIR` to the folder, unsets `GH_TOKEN`, `GITHUB_TOKEN` and the other
 override variables, and routes git's HTTPS authentication for that host through
-AgentPier's helper alone (`credential.https://<host>.helper`, owner helpers cleared,
-the quit helper after it), plus the profile's commit identity and, for a GitHub
+AgentPier's helper alone (`credential.https://<host>.helper` and
+`gist.<host>`, owner helpers cleared, the quit helper after it; the shared
+`gitCredentialConfig()` with the stable helper location of sessions, started with
+`--session <folder>` like an owner shell's), plus the profile's commit identity and, for a GitHub
 Enterprise profile, `GH_HOST`. The same directories (the marker and the managed
 `gh`) also feed the approval analysis, so **Always allow** resolves `gh` as it runs. `shell-env.sh` holds no
 token, so `env` in the agent's shell shows none; `gh` and the helper read it from
