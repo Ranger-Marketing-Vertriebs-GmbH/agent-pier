@@ -32,6 +32,7 @@ test("launcher lines map to session ids with and without shell quoting", () => {
     helperReferences: [],
     nodeOnly: 0,
     unidentified: [],
+    orphaned: [],
   });
 });
 
@@ -69,6 +70,7 @@ test("descendants of a session launcher are helpers whatever they run", () => {
     ],
     nodeOnly: 0,
     unidentified: [{ reference: "server/features/mcp/session-stdio.js" }],
+    orphaned: [],
   });
   assert.ok(!JSON.stringify(result).includes("SECRET-TOKEN"));
 });
@@ -77,6 +79,7 @@ test("processes outside any session are node-only or unidentified", () => {
   const output = [
     launcher(100, 50, id),
     proc(500, 1, `node ${release}/bin/node /Users/me/tool.js`),
+    proc(507, 9, `node ${release}/bin/node /Users/me/tool.js`),
     proc(
       501,
       1,
@@ -91,6 +94,7 @@ test("processes outside any session are node-only or unidentified", () => {
     proc(504, 1, `node ${release}/bin/node ${release}/server/terminal-launcher.js`),
     proc(505, 1, `bash bash -lc 'echo ${release}/README.md'`),
     proc(506, 1, `node ${release}/bin/node ${release}/vendor/agentbus/agentpier/mcp.js`),
+    proc(508, 1, `node ${release}/bin/node -e x --token SECRET-TOKEN`),
   ].join("\n");
   assert.deepEqual(releaseSessionReferences(output, [release]), {
     sessionIds: [id],
@@ -105,7 +109,16 @@ test("processes outside any session are node-only or unidentified", () => {
       { reference: "README.md" },
       { reference: "vendor/agentbus/agentpier/mcp.js" },
     ],
+    // Only runs the release node, no AgentPier script, parent gone (pid 1).
+    orphaned: [
+      { pid: 500, command: `${release}/bin/node /Users/me/tool.js` },
+      // Only the executable and its first argument are shown: arguments may hold tokens.
+      { pid: 508, command: `${release}/bin/node -e` },
+    ],
   });
+  assert.ok(
+    !JSON.stringify(releaseSessionReferences(output, [release])).includes("SECRET"),
+  );
 });
 
 test("ancestry survives parent cycles and lines without pid columns have no ancestry", () => {
@@ -134,6 +147,7 @@ test("duplicate session ids across realpath and symlinked release paths collapse
     helperReferences: [],
     nodeOnly: 0,
     unidentified: [],
+    orphaned: [],
   };
   assert.deepEqual(releaseSessionReferences("", [release]), empty);
   assert.deepEqual(releaseSessionReferences(launcher(100, 50, id), []), empty);

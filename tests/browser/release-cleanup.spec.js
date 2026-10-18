@@ -272,5 +272,60 @@ for (const locale of ["de-DE", "en-GB"]) {
       ).toBeVisible();
       await expect(page.getByText(/verify-supervisor\.js/)).toBeVisible();
     });
+
+    test("orphaned processes are listed apart and stopped only after confirming", async ({
+      page,
+    }) => {
+      const en = locale === "en-GB";
+      await operationsFixture(page);
+      const orphan = {
+        pid: 4242,
+        command: "/opt/releases/0.9.0/bin/node -e",
+      };
+      let versions = [
+        { version: "0.9.0", canDelete: true, orphanedProcesses: [orphan] },
+        { version: "1.0.0", canDelete: false, deleteReason: "active" },
+      ];
+      const stops = [];
+      await page.route("**/api/operations/releases/cleanup", (route) =>
+        route.fulfill({ json: { available: true, versions } }),
+      );
+      await page.route(
+        "**/api/operations/releases/cleanup/0.9.0/stop-processes",
+        (route) => {
+          stops.push(route.request().postDataJSON());
+          versions = [{ ...versions[0], orphanedProcesses: [] }, versions[1]];
+          return route.fulfill({ json: { stopped: [4242] } });
+        },
+      );
+      await page.goto("/settings/updates");
+      await page
+        .getByText(en ? "Delete old versions" : "Alte Versionen löschen", { exact: true })
+        .click();
+      // The orphan does not block deleting the version.
+      await expect(
+        page.getByRole("button", {
+          name: `${en ? "Delete version" : "Version löschen"}: 0.9.0`,
+          exact: true,
+        }),
+      ).toBeEnabled();
+      await expect(
+        page.getByText(en ? "Orphaned processes (1)" : "Verwaiste Prozesse (1)"),
+      ).toBeVisible();
+      await expect(page.getByText("4242 /opt/releases/0.9.0/bin/node -e")).toBeVisible();
+      const stop = en ? "Stop processes" : "Prozesse beenden";
+      await page.getByRole("button", { name: stop, exact: true }).click();
+      await page
+        .getByRole("button", { name: en ? "Cancel" : "Abbrechen", exact: true })
+        .click();
+      expect(stops).toHaveLength(0);
+      await page.getByRole("button", { name: stop, exact: true }).click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: en ? "Confirm" : "Bestätigen", exact: true })
+        .click();
+      await expect(page.getByRole("button", { name: stop, exact: true })).toHaveCount(0);
+      expect(stops).toEqual([{ pids: [4242] }]);
+    });
   });
 }

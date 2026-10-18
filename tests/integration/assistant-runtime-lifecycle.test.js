@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import tls from "node:tls";
 import { EventEmitter, once } from "node:events";
-import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
+import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { webToolsSignature } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { consoleLogLimit } from "../../server/features/assistants/gateway-log.js";
 import { issueGatewayCertificate } from "../../server/features/assistants/gateway-tls.js";

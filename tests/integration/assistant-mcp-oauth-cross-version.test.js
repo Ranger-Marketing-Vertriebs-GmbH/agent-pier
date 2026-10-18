@@ -5,7 +5,7 @@ import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
+import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { RuntimeUpdates } from "../../server/features/assistants/runtime-updates.js";
 import { AssistantMaintenance } from "../../server/features/assistants/assistant-maintenance.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";

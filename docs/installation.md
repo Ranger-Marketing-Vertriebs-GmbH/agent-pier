@@ -281,6 +281,8 @@ Under **Settings → Operations → Updates → Delete old versions**, older ver
 
 The active version, newer staged versions and versions with running processes are retained. If the existing `ps` process check cannot run reliably, nothing is deleted. Cleanup is locked during activation, rollback or session migration. It does not change session data or profiles.
 
+A process that only runs a version's bundled Node, without an AgentPier entry point (terminal launcher, MCP servers, hooks, Gateway or server), and whose parent has exited, is listed under **Orphaned processes** instead of keeping the version. Such processes are usually left-over tests or scripts. **Stop processes** ends exactly the listed processes after confirmation (SIGTERM, then SIGKILL for one that ignores it) and records the action in the audit log. A Node process from the version that still has a parent, or any process running an AgentPier script, keeps the version as before.
+
 #### Migrate sessions
 
 For a version with running processes, **Show sessions** lists the AgentPier sessions holding it and their status: ready, busy, unknown, reloading or not reloadable. **Migrate sessions and delete version** reloads each session onto the active version using [Reload & resume](session-reload.md), then deletes the old version once the last session has migrated. Busy sessions migrate only after their current step finishes; sessions with an unknown state wait until the CLI is visibly ready. **Migrate now and delete** immediately restarts all sessions after confirmation, interrupting ongoing work. A running migration can be cancelled; reloads already initiated continue independently, and the version is retained.

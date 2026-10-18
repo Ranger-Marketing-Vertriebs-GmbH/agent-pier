@@ -2,6 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { sweepRun } from "./test-process-sweep.mjs";
 import {
   defaultMaxFlaky,
   retryFailed,
@@ -50,7 +52,11 @@ export function runTestFiles({
   const runClass = (selected, timeout) => {
     fs.rmSync(events, { force: true });
     const temporary = runTemporaryFolder();
-    let child;
+    // Every process of this run inherits the marker; the sweep below finds the ones
+    // still alive afterwards (also reparented to init/launchd) and stops them.
+    const runId = randomUUID();
+    let child,
+      leaked = [];
     try {
       child = spawnSync(
         process.execPath,
@@ -78,19 +84,29 @@ export function runTestFiles({
           stdio: "inherit",
           env: {
             ...process.env,
+            AGENTPIER_TEST_RUN: runId,
             TMPDIR: temporary,
             AGENTPIER_TEST_SHARED_TMPDIR:
               process.env.AGENTPIER_TEST_SHARED_TMPDIR || os.tmpdir(),
           },
         },
       );
+      leaked = sweepRun(runMarkers(runId, temporary));
     } finally {
       fs.rmSync(temporary, { recursive: true, force: true, maxRetries: 3 });
     }
     if (child.error) throw child.error;
+    for (const entry of leaked)
+      console.log(`LEAKED PROCESS (stopped): ${entry.pid} ${entry.command}`);
+    // A leak fails the run so its fixture gets fixed (AGENTPIER_TEST_ALLOW_LEAKS=1
+    // reports it only).
+    if (leaked.length && process.env.AGENTPIER_TEST_ALLOW_LEAKS !== "1")
+      console.log(`${leaked.length} process(es) outlived the test run; see above.`);
     const lines = fs.existsSync(events) ? fs.readFileSync(events, "utf8") : "";
     fs.rmSync(events, { force: true });
-    return { status: child.status ?? 1, signal: child.signal, ...runEvents(lines, root) };
+    const status =
+      leaked.length && process.env.AGENTPIER_TEST_ALLOW_LEAKS !== "1" ? 1 : child.status;
+    return { status: status ?? 1, signal: child.signal, ...runEvents(lines, root) };
   };
   const relative = files.map((file) => path.relative(root, path.resolve(root, file)));
   const first = run(relative);
@@ -128,6 +144,19 @@ function fileTimeout(file) {
   } catch {
     return 0;
   }
+}
+
+// What marks a process of one run: its marker variable, or paths in its private
+// temp folder (as configured and as resolved, /tmp being /private/tmp on macOS).
+function runMarkers(runId, temporary) {
+  let real = temporary;
+  try {
+    real = fs.realpathSync(temporary);
+  } catch {}
+  return [
+    `AGENTPIER_TEST_RUN=${runId}`,
+    ...new Set([temporary, real].flatMap((folder) => [`${folder}/`, `TMPDIR=${folder}`])),
+  ];
 }
 
 /**

@@ -176,6 +176,13 @@ export const operationsCopy = {
     busy: "Update läuft",
     unsafe: "Nicht unterstütztes Verzeichnis",
   },
+  orphanedTitle: (count) => `Verwaiste Prozesse (${count})`,
+  orphanedHelp:
+    "Diese Prozesse führen nur das Node dieser Version aus, ohne AgentPier-Skript, und haben keinen Elternprozess mehr. Sie blockieren das Löschen der Version nicht; meist sind es übrig gebliebene Tests oder Skripte.",
+  orphanedStop: "Prozesse beenden",
+  orphanedConfirm: (version, count) =>
+    `${count} verwaiste(n) Prozess(e) der Version ${version} beenden? Ungespeicherte Arbeit darin geht verloren.`,
+  orphanedStopped: (count) => `${count} Prozess(e) beendet.`,
   migrateSessions: "Sessions anzeigen",
   migrateLoading: "Sessions werden geladen …",
   migrateEmpty: "Keine AgentPier-Session hält diese Version.",

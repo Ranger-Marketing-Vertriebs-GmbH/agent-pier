@@ -358,6 +358,20 @@ test("the Gateway environment carries the wrapper and never the token", () => {
   assert.equal(runtimeEnvironment(paths, "/node/bin/node", parent).SHELL, undefined);
 });
 
+test("the Gateway inherits a test run marker so the runner can find it, and nothing else", () => {
+  const paths = { home: "/h", tmp: "/t", state: "/s", config: "/c" };
+  const marked = { PATH: "/x", AGENTPIER_TEST_RUN: "run-1" };
+  assert.equal(
+    runtimeEnvironment(paths, "/node/bin/node", marked).AGENTPIER_TEST_RUN,
+    "run-1",
+  );
+  assert.ok(
+    !(
+      "AGENTPIER_TEST_RUN" in runtimeEnvironment(paths, "/node/bin/node", { PATH: "/x" })
+    ),
+  );
+});
+
 test("the Gateway PATH carries the owner's login PATH behind the runtime's Node", () => {
   const paths = { home: "/h", tmp: "/t", state: "/s", config: "/c" };
   assert.equal(
