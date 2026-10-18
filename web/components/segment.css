@@ -39,7 +39,7 @@
   color: #ffc99d;
 }
 .segment label:has(input:focus-visible) {
-  outline: 1px solid #f49a58;
+  outline: var(--focus-ring);
 }
 .segment label:has(input:disabled) {
   cursor: default;

@@ -83,7 +83,7 @@
   border-color: var(--accent);
 }
 .member-mention-chip:focus-visible {
-  outline: 2px solid var(--accent-focus);
+  outline: var(--focus-ring);
   outline-offset: 1px;
 }
 @media (max-width: 700px) {
