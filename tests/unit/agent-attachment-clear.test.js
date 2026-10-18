@@ -232,6 +232,9 @@ test("a link that turns into a directory before the clear is put back (M1)", asy
         fs.unlinkSync(entry.path);
         fs.mkdirSync(entry.path);
         fs.writeFileSync(path.join(entry.path, "agent-notes.md"), "keep");
+        // As on Linux, the new directory may get the freed link's inode number.
+        const reused = fs.lstatSync(entry.path, { bigint: true });
+        Object.assign(entry, { dev: reused.dev, ino: reused.ino });
       },
     },
   });
