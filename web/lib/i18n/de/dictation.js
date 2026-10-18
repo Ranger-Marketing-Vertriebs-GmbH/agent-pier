@@ -10,7 +10,7 @@ export const dictationCopy = Object.freeze({
   close: "Hinweis schließen",
   reasons: {
     agentsOff:
-      "Die Spracheingabe nutzt die Spracherkennung der Agenten. Schalte die Agenten ein und hinterlege unter Konten einen Deepgram-Schlüssel.",
+      "Die Spracheingabe nutzt die Spracherkennung der Agenten. Schalte die Agenten ein und hinterlege unter Accounts › Dienste für Agenten › Spracherkennung einen Deepgram-Schlüssel.",
     notConfigured: "Für die Spracheingabe fehlt ein Deepgram-Schlüssel.",
     insecure:
       "Der Mikrofonzugriff braucht eine sichere Verbindung. Öffne AgentPier über HTTPS, zum Beispiel per Tailscale, oder auf localhost.",
@@ -24,7 +24,7 @@ export const dictationCopy = Object.freeze({
     rateLimited:
       "Zu viele Diktate in kurzer Zeit. Versuche es in ein paar Minuten erneut.",
     busy: "Gerade laufen zu viele Diktate. Versuche es gleich noch einmal.",
-    auth: "Deepgram hat den Schlüssel abgelehnt. Prüfe ihn unter Konten.",
+    auth: "Deepgram hat den Schlüssel abgelehnt. Prüfe ihn unter Accounts › Dienste für Agenten › Spracherkennung.",
     quota: "Das Deepgram-Konto hat kein Guthaben mehr.",
     upstreamBusy: "Deepgram ist ausgelastet. Versuche es gleich noch einmal.",
     rejected: "Deepgram hat den Audiostream abgelehnt.",
