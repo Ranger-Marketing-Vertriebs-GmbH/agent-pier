@@ -254,6 +254,8 @@ export const assistants = {
   attachmentUnsupported:
     "Dieser Dateityp wird nicht unterstützt. Erlaubt sind Bilder (JPEG, PNG, WebP, GIF, HEIC), Videos (MP4, MOV, WebM), PDF und Textdateien.",
   videoTooLarge: "Videos dürfen höchstens 200 MB groß sein.",
+  videoUploadsBusy:
+    "Dieser Agent empfängt bereits drei Videos. Warte, bis eines fertig ist.",
   videoUploadOffset:
     "Der Upload wurde unterbrochen. Er wird an der unterbrochenen Stelle fortgesetzt.",
   attachmentTooMany:

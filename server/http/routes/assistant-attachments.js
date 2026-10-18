@@ -96,6 +96,7 @@ export function assistantAttachmentRoutes({
         .status(409)
         .json({ error: message, ...messageIdentity(message), received: error.received });
     }
+    if (state.file) return res.status(201).json(state.file);
     if (!state.complete)
       return res.status(offset ? 200 : 201).json({ upload, received: state.received });
     res
@@ -112,8 +113,11 @@ export function assistantAttachmentRoutes({
         req.query.name,
         integer(req.query.size),
         head,
+        req.query.upload,
       ),
     );
+    // The reply to an earlier try of this request was lost; the video is staged.
+    if (started.file) return res.status(201).json(started.file);
     try {
       await receive(req, res, started.upload, 0, chunks);
     } catch (error) {

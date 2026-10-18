@@ -31,6 +31,8 @@ export class AssistantMaintenance {
       throw assistantProblem("active", 409);
     a.maintenance = true;
     a.maintenanceEpoch = (a.maintenanceEpoch || 0) + 1;
+    // No half-written video may land in a backup or survive a restore.
+    await a.attachments?.videos?.dropAll();
     const paths = this.s.assistantRuntime.paths;
     if (paths) {
       this.file = path.join(paths.root, "runtime-maintenance.json");

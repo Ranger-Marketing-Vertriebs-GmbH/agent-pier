@@ -179,17 +179,121 @@ test("videos still arriving count against the agent's quota", async (t) => {
   await videos.begin(c.id, "c.mp4", 140 * mb, mp4File());
 });
 
-test("an agent keeps at most three uploads open; the oldest gives way", async (t) => {
+test("an agent keeps three uploads open; only idle ones give way", async (t) => {
   const { agent, videos } = setup(t);
   const { c, folder } = agent("lead");
   const ids = [];
-  for (let n = 0; n < 4; n++)
+  for (let n = 0; n < 3; n++)
     ids.push((await videos.begin(c.id, `v${n}.mp4`, 9000, mp4File())).upload);
+  // Three uploads still moving: a fourth is refused, none is dropped.
+  await assert.rejects(videos.begin(c.id, "v3.mp4", 9000, mp4File()), {
+    status: 429,
+    key: "videoUploadsBusy",
+  });
+  assert.equal(fs.readdirSync(folder).length, 3);
+  // One left behind by a closed page makes room.
+  videos.uploads.get(ids[0]).touched = Date.now() - 3 * 60 * 1000;
+  const fourth = (await videos.begin(c.id, "v3.mp4", 9000, mp4File())).upload;
   assert.equal(fs.readdirSync(folder).length, 3);
   await assert.rejects(videos.receive(c.id, ids[0], 0, once(Buffer.alloc(1))), {
     status: 404,
   });
-  await videos.receive(c.id, ids[3], 0, once(Buffer.alloc(1)));
+  await videos.receive(c.id, fourth, 0, once(Buffer.alloc(1)));
+});
+
+test("a resent first or last chunk continues the upload or names the staged file", async (t) => {
+  const { agent, videos } = setup(t);
+  const { c } = agent("lead");
+  const id = "0b6c1f0e-3a1d-4f6e-9a6b-2c1d3e4f5a6b";
+  const head = iphone.subarray(0, 4096);
+  assert.deepEqual(await videos.begin(c.id, "a.mov", iphone.length, head, id), {
+    upload: id,
+    received: 0,
+  });
+  await videos.receive(c.id, id, 0, once(iphone.subarray(0, 1000)));
+  // The first reply was lost: the same POST learns where the copy ends.
+  assert.deepEqual(await videos.begin(c.id, "a.mov", iphone.length, head, id), {
+    upload: id,
+    received: 1000,
+  });
+  await assert.rejects(videos.begin(agent("other").c.id, "a.mov", 10, head, id), {
+    status: 409,
+  });
+  await assert.rejects(videos.begin(c.id, "a.mov", 10, head, "not-an-id"), {
+    status: 400,
+  });
+  await videos.receive(c.id, id, 1000, once(iphone.subarray(1000)));
+  const file = await videos.finish(c.id, id);
+  // The last reply was lost: the retried chunk, or the first one, names the file.
+  assert.deepEqual(await videos.receive(c.id, id, 1000, once(Buffer.alloc(0))), {
+    complete: true,
+    file,
+  });
+  assert.deepEqual(await videos.begin(c.id, "a.mov", iphone.length, head, id), { file });
+});
+
+test("leftovers of a restart are swept; agent files and fresh copies stay", async (t) => {
+  const { agent, videos, attachments } = setup(t);
+  const { a, c, folder } = agent("lead");
+  const kept = await upload(videos, c.id, iphone);
+  const [indexed] = fs.readdirSync(folder);
+  const old = (Date.now() - 11 * 60 * 1000) / 1000;
+  const write = (name, time = old) => {
+    fs.writeFileSync(path.join(folder, name), "partial");
+    fs.utimesSync(path.join(folder, name), time, time);
+  };
+  write("20261018-010203-0a1b2c3d-IMG_0001.MOV");
+  write("20261018-010203-0a1b2c3e-fresh.MOV", Date.now() / 1000);
+  write("agent-notes.md");
+  fs.utimesSync(path.join(folder, indexed), old, old);
+  // An upload still arriving is never swept, however old its copy looks.
+  const { upload: open } = await videos.begin(c.id, "open.mov", 9000, mp4File());
+  const arriving = videos.uploads.get(open).file;
+  fs.utimesSync(path.join(folder, arriving), old, old);
+  await attachments.stage(c.id, "notes.md", Buffer.from("# Notes\n"));
+  const names = fs.readdirSync(folder);
+  assert.equal(names.includes("20261018-010203-0a1b2c3d-IMG_0001.MOV"), false);
+  for (const name of [
+    "20261018-010203-0a1b2c3e-fresh.MOV",
+    "agent-notes.md",
+    indexed,
+    arriving,
+  ])
+    assert.ok(names.includes(name), name);
+  // At startup, before anything is staged.
+  write("20261018-010203-0a1b2c3f-IMG_0002.MOV");
+  await videos.sweepAll();
+  assert.equal(
+    fs.existsSync(path.join(folder, "20261018-010203-0a1b2c3f-IMG_0002.MOV")),
+    false,
+  );
+  assert.ok(kept && a);
+});
+
+test("maintenance drops open uploads with their partial copies", async (t) => {
+  const { agent, videos } = setup(t);
+  const { c, folder } = agent("lead");
+  const { upload: id } = await videos.begin(c.id, "clip.mp4", 9000, mp4File());
+  await videos.receive(c.id, id, 0, once(Buffer.alloc(100)));
+  await videos.dropAll();
+  assert.deepEqual(fs.readdirSync(folder), []);
+  await assert.rejects(videos.receive(c.id, id, 100, once(Buffer.alloc(1))), {
+    status: 404,
+  });
+});
+
+test("a finished video makes room among unsent files like any upload", async (t) => {
+  const { agent, videos, attachments } = setup(t);
+  const { c } = agent("lead");
+  const first = await attachments.stage(c.id, "first.md", Buffer.from("x"));
+  for (let n = 0; n < 19; n++)
+    await attachments.stage(c.id, `n${n}.md`, Buffer.from("x"));
+  const video = await upload(videos, c.id, iphone);
+  const staged = attachments.staged(c.id, [first.id, video.id], false);
+  assert.deepEqual(
+    staged.map((f) => f.id),
+    [video.id],
+  );
 });
 
 test("a video folder swapped for a link during the start receives nothing", async (t) => {

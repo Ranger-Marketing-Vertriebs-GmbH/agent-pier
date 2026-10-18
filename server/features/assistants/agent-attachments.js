@@ -147,12 +147,7 @@ export class AgentAttachments {
     if (!detected) throw assistantProblem("attachmentUnsupported", 415);
     const folder = await this.folder(conversation.assistantId);
     await this.expire(conversation.assistantId, folder.path);
-    const staged = this.rows(
-      `SELECT * FROM agent_attachments WHERE conversation_id=? AND request_id IS NULL AND ${unqueued} ORDER BY created_at, rowid`,
-      conversation.id,
-    );
-    for (const file of staged.slice(0, Math.max(0, staged.length - MAX_STAGED + 1)))
-      await this.remove(file, folder.path);
+    await this.trimStaged(conversation.id, folder.path);
     await this.assertQuota(conversation.assistantId, folder.path, body.length);
     const entry = await this.copy(folder, name, body, detected);
     const id = randomUUID();
@@ -164,6 +159,15 @@ export class AgentAttachments {
       throw error;
     }
     return publicFile({ id, ...entry });
+  }
+  // Makes room for one more unsent file in the conversation.
+  async trimStaged(conversationId, folder) {
+    const staged = this.rows(
+      `SELECT * FROM agent_attachments WHERE conversation_id=? AND request_id IS NULL AND ${unqueued} ORDER BY created_at, rowid`,
+      conversationId,
+    );
+    for (const file of staged.slice(0, Math.max(0, staged.length - MAX_STAGED + 1)))
+      await this.remove(file, folder);
   }
   // Writes one copy into the checked folder under a stamped, unique name.
   async copy(folder, name, body, detected) {
@@ -277,6 +281,7 @@ export class AgentAttachments {
       this.now() - STAGED_TTL,
     );
     for (const file of old) await this.remove(file, folder);
+    await this.videos.sweep(assistantId, folder);
   }
   async remove(file, folder) {
     await fs.rm(path.join(folder, file.file), { force: true });

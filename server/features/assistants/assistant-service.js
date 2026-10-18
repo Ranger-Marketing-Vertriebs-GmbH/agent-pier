@@ -57,6 +57,8 @@ export class AssistantService {
     this.ledger = new RequestLedger(store.db);
     this.queued = new QueuedMessages(store.db, now);
     this.attachments = new AgentAttachments({ store, models, config });
+    // Copies a restart left half-written are removed before any quota counts them.
+    void this.attachments.videos.sweepAll().catch(() => {});
     // Files agents hand the owner; the graph adds the Telegram channels.
     this.shares = new AgentShares({ assistants: this });
     this.markOutstandingUnknown();
