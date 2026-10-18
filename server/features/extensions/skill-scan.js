@@ -43,6 +43,23 @@ export const SCAN_LIMITS = Object.freeze({
 // Text an agent reads as instructions: hidden characters there block the install.
 const instructionText = (name) => /\.(?:md|mdx|markdown|txt)$/i.test(name);
 const markdown = (name) => /\.(?:md|mdx|markdown)$/i.test(name);
+const referencePattern =
+  /(?:\]\(\s*<?|`|^|[\s"'(])((?:\.\/)?[\w.-]+(?:\/[\w.-]+)*\.(?:md|mdx|markdown|txt))\b/gimu;
+
+/**
+ * The documents SKILL.md points to (links, code spans or plain relative paths): the
+ * agent follows them as instructions, so they count like SKILL.md itself.
+ */
+function followedDocuments(files) {
+  const skill = files.find((file) => file.name === "SKILL.md");
+  if (!skill) return new Set();
+  const followed = new Set(["SKILL.md"]);
+  for (const found of skill.data.toString("utf8").matchAll(referencePattern)) {
+    const name = path.posix.normalize(found[1]);
+    if (!name.startsWith("../")) followed.add(name);
+  }
+  return followed;
+}
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
 /**
@@ -88,7 +105,7 @@ function readText(data) {
   }
 }
 
-function scanText(file, { text, unicode }, add) {
+function scanText(file, { text, unicode }, add, followed) {
   const lines = text.split(/\r?\n/);
   const instructions = instructionText(file.name);
   const credentials = [];
@@ -131,7 +148,11 @@ function scanText(file, { text, unicode }, add) {
     for (const pattern of downloadExecPatterns) {
       const found = pattern.exec(logical);
       if (found) {
-        add("download-exec", "block", logicalStart, {
+        // README-style docs often show such installs; only what the agent runs or
+        // follows as instructions blocks.
+        const severity =
+          !instructionText(file.name) || followed.has(file.name) ? "block" : "warn";
+        add("download-exec", severity, logicalStart, {
           line: logical,
           index: found.index,
         });
@@ -169,7 +190,9 @@ export function scanSkill(files) {
   // Every rule hit counts for the verdict, also one past the finding limits.
   const hits = new Map();
   let truncated = false;
-  for (const file of files.map(normalize).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+  const normalized = files.map(normalize);
+  const followed = followedDocuments(normalized);
+  for (const file of normalized.sort((a, b) => (a.name < b.name ? -1 : 1))) {
     const counts = new Map();
     const add = (rule, severity, line, at) => {
       if (hits.get(rule) !== "block") hits.set(rule, severity);
@@ -204,7 +227,7 @@ export function scanSkill(files) {
       if (machineCode(file.data)) add("binary-executable", "warn", null, null);
       continue;
     }
-    scanText(file, text, add);
+    scanText(file, text, add, followed);
   }
   const rank = (finding) => SCAN_RULES.indexOf(finding.rule);
   findings.sort(

