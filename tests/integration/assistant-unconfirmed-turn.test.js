@@ -11,18 +11,23 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 
 // A Gateway that runs the turn but whose acknowledgement of sessions.send never
 // arrives in time: the send times out, the run goes on.
-async function setup(t) {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-unconfirmed-"));
-  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+// `dataDir` reopens an earlier fixture's data, as after an AgentPier restart.
+async function setup(t, { dataDir, sendError = "TIMEOUT" } = {}) {
+  const reopened = !!dataDir;
+  if (!reopened) {
+    dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-unconfirmed-"));
+    t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  }
   const store = new AssistantStore({ dataDir });
-  const assistant = store.createAssistant({
-    name: "Home",
-    model: { connectionId: "c", modelId: "m" },
-  });
-  const conversation = store.saveConversation({
-    assistantId: assistant.id,
-    runtimeSessionKey: "agent:home:unconfirmed",
-  });
+  const assistant = reopened
+    ? store.listAssistants()[0]
+    : store.createAssistant({ name: "Home", model: { connectionId: "c", modelId: "m" } });
+  const conversation = reopened
+    ? store.listConversations()[0]
+    : store.saveConversation({
+        assistantId: assistant.id,
+        runtimeSessionKey: "agent:home:unconfirmed",
+      });
   const gateway = {
     sendOptions: null,
     wait: { status: "timeout" },
@@ -37,7 +42,7 @@ async function setup(t) {
   client.call = async (method, _params, options) => {
     if (method === "sessions.send") {
       gateway.sendOptions = options;
-      throw Object.assign(Error("RPC timeout"), { code: "TIMEOUT" });
+      throw Object.assign(Error("RPC failed"), { code: sendError });
     }
     if (method === "sessions.messages.subscribe") return {};
     if (method === "chat.history")
@@ -48,7 +53,10 @@ async function setup(t) {
   };
   const runtime = new EventEmitter();
   runtime.client = client;
+  // The bridge's counter starts at 1 in every process; the launch id never repeats
+  // in a real supervisor, here it does on purpose.
   runtime.generation = 1;
+  runtime.generationId = "launch-1";
   runtime.close = async () => {};
   runtime.setState = () => {};
   const service = new AssistantService({
@@ -57,7 +65,7 @@ async function setup(t) {
     models: { listCapabilities: () => [], resolve: () => ({ release() {} }) },
     config: { apply: async () => {}, reset() {} },
   });
-  t.after(() => service.close());
+  t.after(() => (service.closed ? undefined : service.close()));
   const bridge = new TeamBridge({
     assistants: service,
     teams: {},
@@ -92,15 +100,28 @@ async function setup(t) {
     });
   const send = (text = "Lass uns weiter machen") =>
     service.send(conversation.id, { clientRequestId: randomUUID(), text });
-  return { store, service, runtime, conversation, gateway, tool, emit, send };
+  return { dataDir, store, service, runtime, conversation, gateway, tool, emit, send };
 }
 
-test("a send whose acknowledgement is lost waits long and stays confirmable", async (t) => {
+test("a send whose acknowledgement timed out stays confirmable", async (t) => {
   const f = await setup(t);
   const { attempt } = await f.send();
-  assert.ok(f.gateway.sendOptions?.timeoutMs >= 60000);
+  // The admission lock is not held longer than the client's default timeout.
+  assert.equal(f.gateway.sendOptions?.timeoutMs, undefined);
   assert.equal(attempt.state, "uncertain");
   assert.equal(attempt.unconfirmed, true);
+  // The sidebar counts it as working, not as needing attention.
+  assert.deepEqual(
+    f.service.ledger.latestByConversation().map((r) => r.attemptState),
+    ["unconfirmed"],
+  );
+  assert.deepEqual(f.service.list().activity[f.conversation.assistantId], {
+    state: "working",
+    reason: "attempt",
+    label: "status.unconfirmed",
+    pendingApprovals: 0,
+    team: null,
+  });
   // Without proof the turn has no AgentPier tools.
   assert.equal(f.tool("workspace"), false);
   assert.equal(f.tool("share_file"), false);
@@ -154,10 +175,12 @@ test("no proof confirms a turn after a restart, a review or a lost run", async (
   const { attempt } = await f.send();
   // A restarted Gateway ended whatever ran; its events belong to new runs.
   f.runtime.generation = 2;
+  f.runtime.generationId = "launch-2";
   f.emit(attempt.id);
   assert.equal(f.service.ledger.getAttempt(attempt.id).state, "uncertain");
   assert.equal(f.tool("workspace"), false);
   f.runtime.generation = 1;
+  f.runtime.generationId = "launch-1";
   f.service.ledger.review(attempt.id);
   f.emit(attempt.id);
   assert.equal(f.service.ledger.getAttempt(attempt.id).state, "uncertain");
@@ -173,4 +196,33 @@ test("no proof confirms a turn after a restart, a review or a lost run", async (
   f.emit(lost.id);
   assert.equal(f.service.ledger.getAttempt(lost.id).state, "uncertain");
   assert.equal(f.tool("workspace"), false);
+});
+
+test("a send the closed connection refused at once is not confirmable", async (t) => {
+  const f = await setup(t, { sendError: "CLOSED" });
+  const { attempt } = await f.send();
+  assert.equal(attempt.state, "uncertain");
+  assert.equal(attempt.unconfirmed, undefined);
+  f.emit(attempt.id);
+  assert.equal(f.service.ledger.getAttempt(attempt.id).state, "uncertain");
+});
+
+test("an AgentPier restart leaves an old unconfirmed send unconfirmable", async (t) => {
+  const f = await setup(t);
+  const { attempt } = await f.send("Dann lass uns weiter machen");
+  await f.service.close();
+  // The new process counts its Gateway launches from 1 again.
+  const g = await setup(t, { dataDir: f.dataDir });
+  assert.equal(g.service.ledger.getAttempt(attempt.id).state, "uncertain");
+  assert.equal(g.service.ledger.getAttempt(attempt.id).unconfirmed, undefined);
+  g.gateway.transcript.push({
+    role: "user",
+    content: "Dann lass uns weiter machen",
+    timestamp: 2,
+    __openclaw: { id: "m1", idempotencyKey: `${attempt.id}:user` },
+  });
+  await g.service.reconcile();
+  g.emit(attempt.id);
+  assert.equal(g.service.ledger.getAttempt(attempt.id).state, "uncertain");
+  assert.equal(g.tool("workspace"), false);
 });

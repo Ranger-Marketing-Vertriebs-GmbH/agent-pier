@@ -424,7 +424,7 @@ export class LeadRequests {
   }
   async observe(id) {
     const a = this.assistants;
-    const r = this.store.get(id);
+    let r = this.store.get(id);
     const attempt = a.ledger.getAttempt(r.attemptId);
     const finish = (patch) =>
       this.teams.write(this.store.get(id), {
@@ -460,6 +460,8 @@ export class LeadRequests {
       if (r.phase !== "uncertain") this.teams.write(r, { phase: "uncertain" });
       return r;
     }
+    // The Gateway confirmed a send whose acknowledgement was lost (run-confirmation.js).
+    if (r.phase === "uncertain") r = this.teams.write(r, { phase: "running" });
     const started = Date.parse(r.startedAt);
     if (
       !r.cancelRequested &&

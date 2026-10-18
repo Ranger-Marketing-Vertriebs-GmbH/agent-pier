@@ -175,3 +175,19 @@ test("a stopped member persisted before stop reasons existed keeps its failure",
   await f.service.reconcile();
   assert.equal(f.service.store.member(m.id).phase, "failed");
 });
+test("a member run confirmed after a lost acknowledgement is running again", async (t) => {
+  const f = teamFixture(t),
+    { team } = await f.proposal({ count: 1 });
+  await f.service.reconcile();
+  const m = f.service.store.members(team.id)[0];
+  assert.equal(m.phase, "running");
+  f.assistants.ledger.transition(m.attemptId, "uncertain", { unconfirmed: "send" });
+  await f.service.reconcile();
+  assert.equal(f.service.store.member(m.id).phase, "uncertain");
+  assert.equal(
+    f.assistants.ledger.confirm(m.attemptId, { proof: "event" }).state,
+    "running",
+  );
+  await f.service.reconcile();
+  assert.equal(f.service.store.member(m.id).phase, "running");
+});
