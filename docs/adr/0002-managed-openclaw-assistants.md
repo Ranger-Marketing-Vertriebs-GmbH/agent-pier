@@ -457,7 +457,8 @@ them unattended. The owner-facing record lists every request as "may write" or
 Team usage levels (2026-10-19, AGENTPIER-150): leads used members only when told to,
 so each lead now has **Use team** (on request, suggest, autonomous; suggest is the
 default for new and existing agents) and a "Your team" section in its instructions.
-Under suggest the owner's short yes to the lead's offer counts as the owner request.
+Under suggest the owner's short yes counts as the owner request when the lead's last
+reply offered that member.
 Under autonomous a task the lead starts itself in the owner's turn may write in the
 member's own workspace and is marked self-initiated, capped per turn and hour.
 Accepted risk: an autonomous lead decides itself when a member's workspace changes;

@@ -1,6 +1,7 @@
 // The "Your team" section of a lead's AGENTS.md (assistant-bootstrap.js): its own
 // members, kept compact, and when to involve them at the owner's chosen team usage
-// level (team-policy.js). Agents read English.
+// level (team-policy.js). Agents read English. Busy states are left out: they
+// change often, and agentpier_team_members reports them.
 import { autonomousCaps } from "./team-policy.js";
 
 // Members named in the prompt; the rest are listed by agentpier_team_members.
@@ -21,7 +22,7 @@ const memberLine = (m) =>
     m.lifetime === "permanent"
       ? "permanent, takes tasks and questions"
       : "temporary, answers questions"
-  }${m.busy ? ", busy right now" : ""})`;
+  })`;
 
 const shared = [
   "- Good reasons to involve a member: a question in its area (ask it before you answer yourself), or longer research, writing or review that a permanent member can take on.",
@@ -41,7 +42,7 @@ const levels = {
   autonomous: [
     ...shared,
     "- You may ask members and delegate suitable tasks on your own, without asking the owner first. Tell the owner briefly whom you involved and why.",
-    "- A task you start yourself in a turn of the owner's own message may change files in the member's own workspace; AgentPier marks it as self-initiated. Shell, SSH, project folders, GitHub and grants beyond the default keep their usual approvals, and a new team you propose on your own still waits for the owner's approval.",
+    "- A task you start yourself in a turn of the owner's own message may change files in the member's own workspace, unless that message says not to change anything; AgentPier marks it as self-initiated. Shell, SSH, project folders, GitHub and grants beyond the default keep their usual approvals, and a new team you propose on your own still waits for the owner's approval unless the owner asked for one or allowed teams without asking.",
     `- You may start at most ${autonomousCaps.perTurn} questions or tasks on your own per turn and ${autonomousCaps.perHour} per hour. When the limit is reached, finish with what you have.`,
   ],
 };
@@ -53,7 +54,7 @@ const empty = {
     "- When work would clearly benefit from several specialists, offer the owner a team in one sentence first; propose it only after the owner agrees.",
   ],
   autonomous: [
-    "- When work would clearly benefit from several specialists, you may propose a team with agentpier_team_propose; it waits for the owner's approval unless the owner asked for one.",
+    "- When work would clearly benefit from several specialists, you may propose a team with agentpier_team_propose; it waits for the owner's approval unless the owner asked for one or allowed teams without asking.",
   ],
 };
 

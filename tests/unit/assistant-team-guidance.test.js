@@ -12,20 +12,20 @@ import { leadStoreFixture } from "../helpers/lead-request-fixture.js";
 
 const lead = { id: "a", name: "Lead", instructions: "Help the owner." };
 const members = [
-  { name: "Scout", role: "Market research", lifetime: "permanent", busy: true },
-  { name: "Writer", role: "Drafts texts", lifetime: "task", busy: false },
+  { name: "Scout", role: "Market research", lifetime: "permanent" },
+  { name: "Writer", role: "Drafts texts", lifetime: "task" },
 ];
 const prompt = (usage, list = members, assistant = lead) =>
   assistantBootstrap(assistant, {}, { team: { usage, members: list } });
 const section = (text) => text.slice(text.indexOf("## Your team"));
 
-test("every level names the members compactly, with lifetime and busy state", () => {
+test("every level names the members compactly, with their lifetime", () => {
   for (const usage of ["onRequest", "suggest", "autonomous"]) {
     const text = section(prompt(usage));
     assert.match(text, /^## Your team\n/);
     assert.match(
       text,
-      /- "Scout": "Market research" \(permanent, takes tasks and questions, busy right now\)/,
+      /- "Scout": "Market research" \(permanent, takes tasks and questions\)\n/,
     );
     assert.match(text, /- "Writer": "Drafts texts" \(temporary, answers questions\)\n/);
     assert.match(text, /agentpier_team_ask/);
@@ -35,7 +35,6 @@ test("every level names the members compactly, with lifetime and busy state", ()
     name: `M${n}`,
     role: "r".repeat(500),
     lifetime: "task",
-    busy: false,
   }));
   const text = section(prompt("suggest", many));
   assert.equal((text.match(/^- "M\d+"/gm) || []).length, rosterLimit);
@@ -168,19 +167,18 @@ function gateway(t) {
 
 test("a changed roster rewrites AGENTS.md without a full apply", async (t) => {
   const g = gateway(t);
-  let roster = { usage: "suggest", members: [{ ...members[0], busy: false }] };
+  let roster = { usage: "suggest", members: [members[0]] };
   g.config.teamRoster = () => roster;
   await g.config.apply(g.assistant.id);
   assert.match(g.files["AGENTS.md"], /"Scout": "Market research" \(permanent, takes/);
-  assert.doesNotMatch(g.files["AGENTS.md"], /busy right now/);
+  assert.doesNotMatch(g.files["AGENTS.md"], /Writer/);
   const updates = () => g.calls.filter((m) => m === "agents.update").length;
   assert.equal(updates(), 1);
-  // The member got busy and the owner chose another level: the next turn's apply
-  // only writes the file.
-  roster = { usage: "autonomous", members: [members[0]] };
+  // A new member and another level: the next turn's apply only writes the file.
+  roster = { usage: "autonomous", members };
   await g.config.apply(g.assistant.id);
   assert.equal(updates(), 1, "no second full apply");
-  assert.match(g.files["AGENTS.md"], /busy right now/);
+  assert.match(g.files["AGENTS.md"], /"Writer": "Drafts texts"/);
   assert.match(g.files["AGENTS.md"], /on your own/);
   // A roster that cannot be read leaves the section out instead of failing the turn.
   g.config.teamRoster = () => {

@@ -25,10 +25,19 @@ function setup(t, usage) {
   if (usage) f.teams.savePolicy(own.assistant.id, { usage }, policy.revision);
   const request = (
     member,
-    { type = "task", text = "Can you look at the budget?", context, quote, attempt } = {},
+    {
+      type = "task",
+      text = "Can you look at the budget?",
+      context,
+      quote,
+      attempt,
+      // The lead's last reply before the turn: by default it offered Scout.
+      offer = "Should I ask Scout to review the budget?",
+    } = {},
   ) => {
     const r = f.requests.create({
       type,
+      offer,
       attemptId: (attempt ?? f.turn(own.chat, text, context)).id,
       operationId: crypto.randomUUID(),
       input: {
@@ -105,6 +114,37 @@ test("the owner's short yes counts as the request where the lead offers members"
     f.request(f.scout, { attempt, quote: "Ja, mach das" }).writeAllowed,
     false,
   );
+});
+
+test("a yes counts only when the lead's last reply offered that member", (t) => {
+  const f = setup(t, "suggest");
+  const yes = (offer) =>
+    f.request(f.scout, { text: "ok", quote: "ok", offer }).writeAllowed;
+  assert.equal(yes("Shall I summarize the mail?"), false, "another offer");
+  assert.equal(yes("Should I ask Writer?"), false, "another member");
+  assert.equal(yes(null), false, "no reply could be read");
+  assert.equal(yes("Shall I let Scout review it?"), true);
+});
+
+test("an autonomous task for a member the owner named in a negated message stays read-only", (t) => {
+  const f = setup(t, "autonomous");
+  const r = f.request(f.scout, {
+    text: "Ask Scout to review the plan, but don't change anything",
+  });
+  assert.equal(r.writeAllowed, false);
+  assert.equal(r.ownerProof, null);
+  assert.equal(r.selfInitiated, undefined);
+  // Named without a valid proof, even without a negation: read-only, not capped.
+  const named = f.request(f.scout, { text: "Scout knows the plan best" });
+  assert.equal(named.writeAllowed, false);
+  // Not named, but negated: still the lead's own, marked and capped, read-only.
+  const own = f.request(f.scout, { text: "Plan the release, but don't change files" });
+  assert.equal(own.writeAllowed, false);
+  assert.equal(own.selfInitiated, true);
+  // Every autonomous write without proof is self-initiated.
+  const free = f.request(f.scout, { text: "Plan the release for next week" });
+  assert.equal(free.writeAllowed, true);
+  assert.equal(free.selfInitiated, true);
 });
 
 test("consent is a short, unnegated agreement in the owner's own prose", () => {

@@ -192,7 +192,7 @@ export const parseOwnerMessage = (text, hidden) =>
 
 // A negation or a limit to reading anywhere in the message, in any paragraph, list,
 // heading, table or footnote, also in quoted or pasted text.
-const messageNegated = ({ text, tree }) =>
+export const messageNegated = ({ text, tree }) =>
   negated(words(text)) || negated(words(nodeText(tree)));
 
 // What stands in the owner's prose where the owner's own words are not: no letter,

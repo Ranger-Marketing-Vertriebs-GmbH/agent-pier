@@ -34,6 +34,17 @@ test("a lead's own task writes in the member's workspace only when autonomous", 
   }
 });
 
+test("an owner's negation keeps an autonomous task read-only", async (t) => {
+  const f = await writeGate(t);
+  level(f, "autonomous");
+  const result = await own(
+    f,
+    f.turn(`Ask ${f.member.name} to review the plan, but don't change anything`),
+  );
+  assert.equal(result.mayWrite, false);
+  assert.equal(f.write(), false);
+});
+
 test("autonomy never widens forwarded or scheduled turns", async (t) => {
   const f = await writeGate(t);
   level(f, "autonomous");
@@ -47,9 +58,18 @@ test("autonomy never widens forwarded or scheduled turns", async (t) => {
   }
 });
 
+// The lead's last reply in its chat, as the Gateway's history serves it.
+const lastReply = (f, text) => {
+  f.assistants.history = async () => ({
+    stale: false,
+    messages: [{ id: "r1", role: "assistant", text, runId: "earlier-run" }],
+  });
+};
+
 test("under suggest the owner's yes after the offer lets the task write", async (t) => {
   const f = await writeGate(t);
   level(f, "suggest");
+  lastReply(f, `Should I ask ${f.member.name} to draft the plan?`);
   const yes = await own(f, f.turn("Yes, go ahead"));
   assert.equal(yes.mayWrite, false, "without the quote the yes proves nothing");
   finish(f, yes.requestId);
@@ -62,9 +82,16 @@ test("under suggest the owner's yes after the offer lets the task write", async 
   const card = f.service.requests.list(f.parent.id).at(-1);
   assert.equal(card.ownerRequestQuote, "Yes, go ahead");
   assert.equal(card.selfInitiated, undefined);
-  // Under "on request" the same yes stays read-only.
+  // A yes to an offer of something else proves nothing.
   finish(f, quoted.requestId);
   await f.service.reconcile();
+  lastReply(f, "Shall I summarize the mail?");
+  const other = await f.delegate(f.turn("ok"), { ownerRequestQuote: "ok" });
+  assert.equal(other.mayWrite, false);
+  // Under "on request" the same yes stays read-only.
+  finish(f, other.requestId);
+  await f.service.reconcile();
+  lastReply(f, `Should I ask ${f.member.name} to draft the plan?`);
   level(f, "onRequest");
   const strict = await f.delegate(f.turn("Yes, go ahead"), {
     ownerRequestQuote: "Yes, go ahead",
@@ -98,10 +125,10 @@ test("the lead's roster names its members and the level", async (t) => {
   const roster = f.service.requests.roster(f.parent.id);
   assert.equal(roster.usage, "autonomous");
   assert.deepEqual(
-    roster.members.map((m) => [m.lifetime, typeof m.busy, typeof m.name]),
+    roster.members.map((m) => [m.lifetime, typeof m.name, "busy" in m]),
     [
-      ["task", "boolean", "string"],
-      ["permanent", "boolean", "string"],
+      ["task", "string", false],
+      ["permanent", "string", false],
     ],
   );
 });

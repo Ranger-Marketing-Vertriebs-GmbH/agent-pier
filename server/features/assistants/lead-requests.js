@@ -62,7 +62,8 @@ export class LeadRequests {
   }
   /**
    * What a lead's instructions name of its team (team-guidance.js): the owner's
-   * team usage level and its members as they are at the start of the turn.
+   * team usage level and its members. No busy state: it would rewrite the
+   * instructions whenever a member starts or ends a turn.
    */
   roster(leadId) {
     return {
@@ -71,7 +72,6 @@ export class LeadRequests {
         name: a.name,
         role: m.role,
         lifetime: m.lifetime,
-        busy: this.teams.activeMember(m),
       })),
     };
   }
@@ -111,13 +111,37 @@ export class LeadRequests {
   async delegate(inv, input) {
     return this.toolResult(await this.create("task", inv, input));
   }
+  /**
+   * The lead's last reply before this turn, as the Gateway's history serves it: a
+   * claimed owner yes proves a task only when this reply offered that member
+   * (lead-request-store.js). Null when it cannot be read or is not needed.
+   */
+  async lastReply(inv, input) {
+    if (input?.ownerRequested !== true) return null;
+    try {
+      const { attempt, conversation, lead } = this.store.lead(inv.attemptId);
+      if (this.teams.policy(lead.id).usage === "onRequest") return null;
+      const history = await this.assistants.history(conversation.id);
+      if (history.stale) return null;
+      const current = [attempt.id, attempt.runtimeRunId];
+      const reply = history.messages
+        .filter((m) => m.role === "assistant" && m.runId && !current.includes(m.runId))
+        .at(-1);
+      return typeof reply?.text === "string" ? reply.text : null;
+    } catch {
+      return null;
+    }
+  }
   async create(type, inv, input) {
+    inv.assertCurrent();
+    const offer = type === "task" ? await this.lastReply(inv, input) : null;
     inv.assertCurrent();
     const r = this.store.create({
       type,
       attemptId: inv.attemptId,
       operationId: inv.toolCallId,
       input,
+      offer,
     });
     this.assistants.changed();
     // Only the new request, and only briefly: the wait counts from the tool call.
@@ -262,9 +286,10 @@ export class LeadRequests {
   }
   /**
    * Whether a native write in a member turn is this task's own, owner-proven work,
-   * or a task an autonomous lead started in the owner's turn (lead-request-store.js). Questions, every other task, cancelled or uncertain
-   * runs never write; the member's memory stays read-only so a task cannot plant
-   * instructions for the owner's own chats.
+   * or a task an autonomous lead started in the owner's turn (lead-request-store.js).
+   * Questions, every other task, cancelled or uncertain runs never write; the
+   * member's memory stays read-only so a task cannot plant instructions for the
+   * owner's own chats.
    */
   mayWrite(requestId, attemptId, assistantId, target) {
     const r = typeof requestId === "string" ? this.store.teams.find(requestId) : null;

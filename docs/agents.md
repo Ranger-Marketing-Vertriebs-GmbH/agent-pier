@@ -318,20 +318,22 @@ Check your members' shell levels and MCP servers before you let a lead use them.
 
 **Work → Team → Use team** sets how the lead involves its members on its own. Each
 turn, AgentPier adds a short "Your team" section to the lead's instructions: its
-members with name, role, whether they are permanent or temporary and whether they are
-busy right now, and the rules for the chosen level:
+members with name, role and whether they are permanent or temporary, and the rules
+for the chosen level:
 
 - **On request:** the lead asks or delegates only when you ask it to, by name, with
   `@` or for a team.
 - **Suggest** (the default, also for agents created before this setting existed): when
   a member fits, for example a question in its area or longer research or writing for
   a permanent member, the lead offers it in one sentence and waits. Your yes counts as
-  your request, so a task delegated after it may change the member's workspace.
+  your request when the lead's last reply offered that member, so a task delegated
+  after it may change the member's workspace.
 - **Autonomous:** the lead asks members and delegates suitable tasks on its own and
   tells you whom it involved. A task it starts on its own in reply to your message may
   change files in the member's own workspace (never its memory) and is marked
-  "self-initiated"; in forwarded, scheduled or follow-up turns its tasks stay
-  read-only. Shell, SSH, project folders, GitHub and grants beyond the default keep
+  "self-initiated". Its tasks stay read-only when your message says not to change
+  anything, when you named the member without asking for the task as described above,
+  and in forwarded, scheduled or follow-up turns. Shell, SSH, project folders, GitHub and grants beyond the default keep
   their approvals, and a team the lead proposes on its own still waits for you unless
   you asked for one or allowed teams without asking. A lead starts at most 4 questions
   or tasks on its own per turn and 20 per hour; requests you asked for by name do not

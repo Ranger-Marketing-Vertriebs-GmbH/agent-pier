@@ -910,16 +910,20 @@ A lead reaches its own members without the owner relaying anything
   without it read as `suggest`, which is also the default for new agents. Before each
   turn `AssistantConfig` adds a "Your team" section to the lead's `AGENTS.md`
   (`team-guidance.js`, read by `LeadRequests.roster` while the team tools are
-  offered): up to twelve members with name, role, lifetime and busy state, and the
-  level's rules. The section stays out of the configuration fingerprint, so a member
-  getting busy only rewrites the file (`verifyBootstrap`). Under `suggest` and
+  offered): up to twelve members with name, role and lifetime, and the level's
+  rules. Busy states stay out (`agentpier_team_members` reports them), and the
+  section stays out of the configuration fingerprint, so a roster or level change
+  only rewrites the file (`verifyBootstrap`). Under `suggest` and
   `autonomous` a third proof makes a task writable: the lead's quote of the owner's
   short yes (`ownerConsent` in `lead-request-proof.js`: the owner's own prose is at
   most twelve words, holds an agreeing word such as "yes", "ok", "go ahead", "ja",
   "mach das", has no negation or limit anywhere, the quote follows no quotation mark,
-  and the message names no other member), once per turn. Under `autonomous` a task
-  without proof in a turn of the owner's own message is writable as well
-  (`autonomous: true`, accepted by `LeadRequests.mayWrite` with the same
+  and the message names no other member), once per turn, and only when the lead's
+  last reply before the turn, read from the Gateway's history
+  (`LeadRequests.lastReply`), names that member. Under `autonomous` a self-initiated task
+  without proof in a turn of the owner's own message is writable as well, unless the
+  message holds a negation or limit anywhere (`messageNegated`) or names the
+  member (then only a valid proof makes it writable) (`autonomous: true`, accepted by `LeadRequests.mayWrite` with the same
   workspace and memory limits); forwarded, scheduled and follow-up turns stay
   read-only. Shell, SSH, project folders, GitHub and grants are untouched, and team
   proposals keep their rules. A request at that level whose owner message does not
