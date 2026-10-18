@@ -34,6 +34,8 @@ export const assistantAttachmentsCopy = Object.freeze({
   storageUsage: (bytes, maxBytes, files, maxFiles) =>
     `${bytes} von ${maxBytes} · ${files} von ${maxFiles} Dateien`,
   storageLoading: "Ordner wird gelesen …",
+  storageReplaced:
+    "Der Agent hat attachments/ durch etwas ersetzt, das kein Ordner ist, deshalb sind Uploads blockiert. Leeren entfernt es; der nächste Upload legt den Ordner neu an.",
   storageClear: "Anhänge leeren",
   storageClearDescription:
     "Löscht alle Dateien in attachments/, auch Dateien, die der Agent dort abgelegt hat, und Videos, die noch hochladen. Gesendete Nachrichten behalten die Dateinamen, als nicht mehr verfügbar markiert. Dateien, die der Agent mit dir geteilt hat, bleiben.",

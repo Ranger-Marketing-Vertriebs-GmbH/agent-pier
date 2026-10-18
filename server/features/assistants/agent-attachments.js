@@ -17,17 +17,17 @@ import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { SHARED, SharedFiles } from "./agent-share-store.js";
 import { VideoUploads } from "./agent-video-uploads.js";
 import { MAX_VIDEO_BYTES, videoExtensions } from "./agent-video-types.js";
-import { folderUsage, removeChecked, trashFor } from "./agent-attachment-storage.js";
+import {
+  AttachmentStorage,
+  MAX_AGENT_BYTES,
+  MAX_AGENT_FILES,
+} from "./agent-attachment-storage.js";
 
 // Files picked in the composer but not sent yet; they expire after a day. A page left
 // without sending may leave its files behind, so a conversation at the cap gives up
 // its oldest unsent files instead of refusing the next one.
 const MAX_STAGED = 20;
 const STAGED_TTL = 24 * 3600 * 1000;
-// Per agent; counted over the copies still present in its workspace. Room for a few
-// phone videos (200 MB each, agent-video-types.js) next to photos and documents.
-export const MAX_AGENT_BYTES = 1024 * 1024 * 1024;
-export const MAX_AGENT_FILES = 1000;
 const FOLDER = "attachments";
 const extensions = {
   "image/png": [".png"],
@@ -74,6 +74,7 @@ export class AgentAttachments {
     this.queues = new Map();
     this.shared = new SharedFiles(this);
     this.videos = new VideoUploads(this);
+    this.storage = new AttachmentStorage(this);
   }
   transaction(fn) {
     this.db.exec("BEGIN IMMEDIATE");
@@ -540,58 +541,14 @@ export class AgentAttachments {
       maxFiles: MAX_ATTACHMENTS_PER_MESSAGE,
     };
   }
-  /** What the agent's attachments folder holds, against its limits. */
-  async usage(assistantId) {
-    this.store.getAssistant(assistantId);
-    const used = await folderUsage(await this.folder(assistantId, false));
-    return { ...used, maxBytes: MAX_AGENT_BYTES, maxFiles: MAX_AGENT_FILES };
+  // The folder's usage, the owner's clear and purge (agent-attachment-storage.js).
+  usage(assistantId) {
+    return this.storage.usage(assistantId);
   }
-  /**
-   * The owner empties the agent's attachments folder (the quota's folder only; files
-   * the agent shared live in the share store and stay). Uploads still arriving end
-   * first, with their partial copies; unsent files lose their rows, and sent ones
-   * stay in their messages marked unavailable. Resolves with what was removed.
-   */
-  async clear(assistantId) {
-    this.store.getAssistant(assistantId);
-    return this.serial(assistantId, async () => {
-      const removed = await this.removeFolder(assistantId);
-      this.transaction(() => {
-        this.db
-          .prepare(
-            "DELETE FROM agent_attachments WHERE assistant_id=? AND request_id IS NULL",
-          )
-          .run(assistantId);
-        for (const file of this.rows(
-          `SELECT * FROM agent_attachments WHERE assistant_id=? AND request_id IS NOT NULL AND ${owned}`,
-          assistantId,
-        ))
-          if (!file.gone) this.markGone(file);
-      });
-      return { files: removed.files, bytes: removed.bytes };
-    });
+  clear(assistantId) {
+    return this.storage.clear(assistantId);
   }
-  // Ends the agent's open uploads and removes its checked folder; the caller holds
-  // the agent's serial queue. Resolves with what the folder held.
-  async removeFolder(assistantId) {
-    await this.videos.dropAgent(assistantId);
-    const folder = await this.folder(assistantId, false);
-    const held = await folderUsage(folder);
-    if (!folder) return held;
-    await this.hooks.clearing?.(folder);
-    const trash = trashFor(this.config.workspaces);
-    await removeChecked(folder, trash, `${assistantId}-attachments`);
-    return held;
-  }
-  // Removes an agent's copies (both folders only as checked, removeChecked) and their
-  // index, for when the agent itself goes. Unwired: nothing deletes agents yet.
   purge(assistantId) {
-    return this.serial(assistantId, async () => {
-      await this.removeFolder(assistantId);
-      await this.shared.purge(assistantId);
-      this.db
-        .prepare("DELETE FROM agent_attachments WHERE assistant_id=?")
-        .run(assistantId);
-    });
+    return this.storage.purge(assistantId);
   }
 }

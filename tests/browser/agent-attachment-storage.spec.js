@@ -102,3 +102,27 @@ test("a sent file whose copy is gone stays named in its message, without a link"
   await expect(files.getByRole("link")).toHaveCount(0);
   await expect(files.locator("img")).toHaveCount(0);
 });
+
+test("a folder the agent replaced is explained and restored by clearing", async ({
+  page,
+}) => {
+  await chatFixture(page);
+  const state = { clears: 0, usage: { files: 0, bytes: 0, unsafe: true } };
+  await storageRoutes(page, state);
+  await page.goto(baseURL + settingsPath("profile"));
+  const group = page.getByRole("region", { name: "Chat attachments" });
+  await expect(
+    group.getByText(
+      /The agent replaced attachments\/ with something that is not a folder/,
+    ),
+  ).toBeVisible();
+  const clear = group.getByRole("button", { name: /Clear attachments/ });
+  await expect(clear).toBeEnabled();
+  await clear.click();
+  await page
+    .getByRole("dialog", { name: "Clear this agent's attachments?" })
+    .getByRole("button", { name: "Clear", exact: true })
+    .click();
+  await expect.poll(() => state.clears).toBe(1);
+  await expect(group.getByText("0 B of 1 GB · 0 of 1,000 files")).toBeVisible();
+});

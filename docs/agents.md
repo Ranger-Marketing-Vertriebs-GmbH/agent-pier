@@ -379,7 +379,9 @@ uses under **Chat attachments**, for example "120 MB of 1 GB · 34 of 1,000 file
 videos still uploading and unsent files in the composer. Sent messages keep their text
 and name each removed file as no longer available. Files the agent shared with you
 (below) are not affected. The clear is recorded in the audit log with the number of
-files and bytes removed.
+files and bytes removed. If the agent replaced the folder with a link or a file, which
+blocks every upload, the section says so, and clearing removes it; the next upload
+creates the folder again. What a link pointed to is never touched.
 
 ### Videos
 
