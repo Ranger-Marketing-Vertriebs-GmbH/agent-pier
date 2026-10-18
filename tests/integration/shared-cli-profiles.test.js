@@ -55,7 +55,7 @@ for (const tool of ["codex", "claude", "opencode"])
           ? "CLAUDE_CONFIG_DIR"
           : "XDG_DATA_HOME";
     assert.notEqual(envA[key], envB[key]);
-    const skill = await f.request(endpoint(a.id) + "/skills", {
+    const preview = await f.request(endpoint(a.id) + "/skills/preview", {
       method: "POST",
       body: {
         fileName: "SKILL.md",
@@ -63,6 +63,11 @@ for (const tool of ["codex", "claude", "opencode"])
           "---\nname: shared-fixture\ndescription: Fixture skill\n---\nUse a temporary project.\n",
         ).toString("base64"),
       },
+    });
+    const { previewId, contentHash } = await preview.json();
+    const skill = await f.request(endpoint(a.id) + "/skills", {
+      method: "POST",
+      body: { previewId, contentHash },
     });
     assert.equal(skill.status, 201);
     assert.ok(

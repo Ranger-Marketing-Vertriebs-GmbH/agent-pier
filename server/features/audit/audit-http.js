@@ -68,8 +68,11 @@ export function requestAudit(req) {
     if (operation === "login") {
       resourceType = "session";
       action = "started";
-    } else if (operation === "extensions") resourceType = "extension";
-    else if (operation === "plugins") {
+    } else if (operation === "extensions") {
+      resourceType = "extension";
+      // A skill preview only reads and scans; its install is audited separately.
+      if (segments[3] === "skills" && segments[4] === "preview") action = "inspected";
+    } else if (operation === "plugins") {
       resourceType = "plugin";
       action = "updated";
     } else return null;

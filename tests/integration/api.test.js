@@ -213,12 +213,16 @@ test("extension routes edit only the selected profile and allow bounded skill up
     "---\nname: api-skill\ndescription: Large upload fixture\n---\n" +
     "Documentation only.\n".repeat(5000);
   response = await fetch(
-    root + "/skills",
+    root + "/skills/preview",
     body(url, {
       fileName: "SKILL.md",
       contentBase64: Buffer.from(markdown).toString("base64"),
     }),
   );
+  assert.equal(response.status, 200);
+  const { previewId, contentHash, verdict } = await response.json();
+  assert.equal(verdict, "ok");
+  response = await fetch(root + "/skills", body(url, { previewId, contentHash }));
   assert.equal(response.status, 201);
   const skill = await response.json();
   assert.equal(skill.name, "api-skill");

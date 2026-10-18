@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { AccountStore } from "../../server/features/accounts/account-store.js";
 import { ExtensionsStore } from "../../server/features/extensions/extension-store.js";
+import { previewAndInstall } from "../helpers/skill-import.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 
 const content =
@@ -51,7 +52,7 @@ const api = "/repos/example/repo/git";
 
 test("a commit SHA in a tree link downloads exactly that commit without a lookup", async (t) => {
   const { store, calls } = setup(t);
-  const installed = await store.installSkill("local-claude", {
+  const installed = await previewAndInstall(store, "local-claude", {
     url: `https://github.com/example/repo/tree/${commit.toUpperCase()}/skills/demo`,
   });
   assert.deepEqual(
@@ -73,7 +74,7 @@ test("a tag resolves through its annotated tag object and pins the commit", asyn
     [`${api}/ref/tags/v1.2.0`]: { object: { type: "tag", sha: tagObject } },
     [`${api}/tags/${tagObject}`]: { object: { type: "commit", sha: commit } },
   });
-  const installed = await store.installSkill("local-claude", {
+  const installed = await previewAndInstall(store, "local-claude", {
     url: "https://github.com/example/repo/tree/v1.2.0/skills/demo",
   });
   assert.deepEqual(
@@ -98,7 +99,7 @@ test("a branch pins the commit it points to when the skill is installed", async 
   const { store, calls } = setup(t, {
     [`${api}/ref/heads/main`]: { object: { type: "commit", sha: commit } },
   });
-  const installed = await store.installSkill("local-claude", {
+  const installed = await previewAndInstall(store, "local-claude", {
     url: "https://github.com/example/repo/tree/main/skills/demo",
   });
   assert.equal(
@@ -116,19 +117,19 @@ test("an ambiguous, unknown or malformed ref downloads nothing", async (t) => {
     [`${api}/ref/heads/bad`]: { object: { type: "commit", sha: "not-a-sha" } },
   });
   await assert.rejects(
-    both.store.installSkill("local-claude", {
+    previewAndInstall(both.store, "local-claude", {
       url: "https://github.com/example/repo/tree/v1/skills/demo",
     }),
     { status: 400, message: serverMessages.extensions.skillRefAmbiguous },
   );
   await assert.rejects(
-    both.store.installSkill("local-claude", {
+    previewAndInstall(both.store, "local-claude", {
       url: "https://github.com/example/repo/tree/missing/skills/demo",
     }),
     { status: 400, message: serverMessages.extensions.skillRefNotFound },
   );
   await assert.rejects(
-    both.store.installSkill("local-claude", {
+    previewAndInstall(both.store, "local-claude", {
       url: "https://github.com/example/repo/tree/bad/skills/demo",
     }),
     { status: 502 },
@@ -150,7 +151,7 @@ test("a ref lookup never follows a redirect off api.github.com", async (t) => {
     });
   };
   await assert.rejects(
-    store.installSkill("local-claude", {
+    previewAndInstall(store, "local-claude", {
       url: "https://github.com/example/repo/tree/main/skills/demo",
     }),
     { status: 400 },
@@ -172,7 +173,7 @@ test("a rate-limited or oversized ref lookup names the reason and downloads noth
       calls.push({ url: String(target), options });
       return limited();
     };
-    await assert.rejects(store.installSkill("local-claude", { url }), {
+    await assert.rejects(previewAndInstall(store, "local-claude", { url }), {
       status: 429,
       message: serverMessages.extensions.skillRefRateLimited,
     });
@@ -181,7 +182,7 @@ test("a rate-limited or oversized ref lookup names the reason and downloads noth
     calls.push({ url: String(target) });
     return new Response(`{"pad":"${"x".repeat(70 * 1024)}"}`);
   };
-  await assert.rejects(store.installSkill("local-claude", { url }), {
+  await assert.rejects(previewAndInstall(store, "local-claude", { url }), {
     status: 502,
     message: serverMessages.extensions.skillRefLookupFailed,
   });
