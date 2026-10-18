@@ -22,6 +22,7 @@ export function inboxRoutes({ inbox }) {
     });
     res.flushHeaders();
     const send = (event) => {
+      if (res.writableEnded || res.destroyed) return;
       if (res.writableLength > 1024 * 1024) return res.end();
       res.write(`data: ${JSON.stringify(event)}\n\n`);
       res.flush?.();
@@ -40,8 +41,7 @@ export function inboxRoutes({ inbox }) {
       inbox.events.off("close", close);
     });
     try {
-      const { revision, counts } = await inbox.summary();
-      send({ type: "connected", revision, counts });
+      send({ type: "connected", ...(await inbox.summary()) });
     } catch {
       send({ type: "connected" });
     }
