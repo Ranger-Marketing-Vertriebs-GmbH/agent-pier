@@ -16,6 +16,8 @@ const result = (state, extra = {}) => ({
   ...extra,
 });
 const border = (line) => /^\s*[─━]{8,}\s*$/.test(line);
+const agentRow =
+  /^\s*◯\s+\S[^\n]*(?:\s{2,}\d+[hms](?:\s+\d+[ms]){0,2}|\s+\d+[hms](?:\s+\d+[ms]){0,2}\s+·\s+↓\s+[\d.]+[kKmM]?\s+tokens)\s*$/;
 /** Recognize only current native chrome near the composer, never transcript text. */
 export function parseSessionActivity(tool, raw) {
   if (typeof raw !== "string" || raw.length > 256 * 1024) return result("unknown");
@@ -89,19 +91,28 @@ export function parseSessionActivity(tool, raw) {
   );
   if (!border(lines[prompt - 1] || "") || lowerBorder < 0) return result("unknown");
   const nativeFooter = lines.slice(lowerBorder + 1).join("\n");
-  if (/↓ to manage/.test(nativeFooter)) {
-    // The shell counter lasts for the task's lifetime and does not animate.
-    if (/(?:^|·\s+)[1-9]\d*\s+shells?(?:\s+·|$)/m.test(nativeFooter))
-      return result("working");
+  // Narrow panes clip the footer hint, so the task panel header counts too.
+  const panel = lines.findIndex(
+    (line, index) => index > lowerBorder && /^\s*⏺\s+main\s*$/.test(line),
+  );
+  // The shell counter lasts for the task's lifetime and does not animate.
+  if (/(?:^|·\s+)[1-9]\d*\s+shells?(?:\s+·|$)/m.test(nativeFooter))
+    return result("working");
+  if (panel >= 0 || /↓ to manage/.test(nativeFooter)) {
+    // Narrow rows replace the description column with a token counter.
     const agents = original.filter(
       (line, index) =>
         index > lowerBorder &&
-        /^\s*◯\s+\S[^\n]*\s{2,}\d+[hms](?:\s+\d+[ms]){0,2}\s*$/.test(lines[index]) &&
+        agentRow.test(lines[index]) &&
         /\x1b\[(?:\d+;)*38;/.test(line),
     );
     if (agents.length) return result("working", { evidence: agents.join("\n") });
+    // Listed agents in a layout this parser does not know must not read as ready.
+    if (panel >= 0 && lines.some((line, index) => index > panel && /^\s*◯\s/.test(line)))
+      return result("unknown");
   }
-  if (prompt < lines.length - 10) return result("unknown");
+  // The task panel may push the composer up; measure from where the panel starts.
+  if (prompt < (panel >= 0 ? panel : lines.length) - 10) return result("unknown");
   // Newer Claude versions expose interruption in the footer and may omit the
   // spinner timer or place effort/queued-input rows between it and the composer.
   if (/\besc to interrupt\b/i.test(nativeFooter)) {
