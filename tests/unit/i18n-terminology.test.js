@@ -63,7 +63,7 @@ test("navigation paths use › and ellipses follow a space", async () => {
   for (const { where, text } of await catalogTexts()) {
     assert.doesNotMatch(text, /\p{L} (→|>) \p{Lu}/u, where);
     // Placeholders such as ${…} or {env:…} quote syntax and keep their form.
-    const prose = text.replace(/\$\{…\}|\{(env|file):…\}/g, "");
+    const prose = text.replace(/\$\{…\}|\{(env|file):…\}|<U\+…>/g, "");
     assert.doesNotMatch(prose, /[^\s„“"'(]…/u, where);
   }
 });
@@ -78,7 +78,7 @@ const properNouns = [
   /MCP Registry/g,
   /(Up|Down|Left|Right) Arrow|Escape|Tab|Enter|Control C/g,
   /\b(Telegram|Deepgram|GitHub|Codex|OpenCode|OpenClaw|ChatGPT|AgentPier|CLI|MCP|SSH|API|URL|ID)\b/g,
-  /\b(Agency|AgentBus|Claude|Brave|Perplexity|OpenRouter|PyPI|Ed25519)\b/g,
+  /\b(Agency|AgentBus|Claude|Brave|Perplexity|OpenRouter|PyPI|Ed25519|Unicode|KiB|MiB|GiB)\b/g,
   // Page names and the editor's Save As command.
   /\b(in|under) (Accounts|Artifacts|Settings)\b/g,
   /Save As/g,

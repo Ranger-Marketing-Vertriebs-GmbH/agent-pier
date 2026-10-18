@@ -44,7 +44,7 @@ catalog defines its own key only when its text differs from the shared one.
   "Einstellungen › Zugriff › GitHub-Zugänge" _(checked)_.
 - **Ellipses** take a space before them in both languages: "Wird geladen …",
   "Loading …" _(checked)_. Shortened values such as `3f2a9c1e…b6c5` and syntax such as
-  `${…}` keep their form.
+  `${…}` or `<U+…>` keep their form.
 - **English sentence case** for labels, buttons and titles: "Override and continue",
   "Empty trash", "Open settings" _(checked)_. Proper nouns keep their capitals
   (Telegram, GitHub App, Claude Code, Brave Search); the test lists them.
