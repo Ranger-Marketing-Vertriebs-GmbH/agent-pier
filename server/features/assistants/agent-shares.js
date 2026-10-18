@@ -1,6 +1,7 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { MAX_CAPTION_LENGTH, readShareSource, shareRoots } from "./agent-share-source.js";
 import { projectTarget } from "./project-paths.js";
+import { routineOrigin } from "./routine-targets.js";
 
 /**
  * agentpier_share_file: an agent hands the owner a file from its own workspace.
@@ -89,9 +90,7 @@ export class AgentShares {
       return {
         conversation: a.store.getConversation(conversation.id),
         requestId: `routine:${run || binding.id}`,
-        origin: binding.source
-          ? { kind: "telegram", ...binding.source }
-          : { kind: "routine" },
+        origin: routineOrigin(binding),
       };
     }
     if (!invocation.attemptId) throw assistantProblem("invalid", 403);

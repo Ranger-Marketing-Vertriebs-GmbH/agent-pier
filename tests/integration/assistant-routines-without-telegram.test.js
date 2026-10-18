@@ -350,3 +350,45 @@ test("an agent creates a routine from its web chat without Telegram", async (t) 
   assert.equal(routine.telegram, false);
   assert.equal(f.jobs.get(nativeId(f, routine.id)).sessionKey, "session");
 });
+
+test("queued Telegram output only goes to the chat a binding delivers to now", async (t) => {
+  const f = routineFixture(t);
+  f.store.updateAssistant(
+    f.id,
+    { capabilities: { memory: true, reminders: true }, heartbeat },
+    f.store.getAssistant(f.id).revision,
+  );
+  const heartbeats = new NativeHeartbeats({ reminders: f.reminders });
+  const routine = await f.routines.create(f.id, { ...f.input, telegram: true });
+  await heartbeats.sync(f.id);
+  const checkIn = f.reminders.bindings.list(f.id).find((b) => b.kind === "heartbeat");
+  await f.reminders.complete(routine.id, {
+    jobId: nativeId(f, routine.id),
+    runAtMs: 1,
+    status: "ok",
+    summary: "Routine result",
+    deliveryStatus: "delivered",
+  });
+  await f.reminders.complete(checkIn.id, {
+    jobId: nativeId(f, checkIn.id),
+    runAtMs: 2,
+    status: "ok",
+    summary: "Check-in result",
+    deliveryStatus: "delivered",
+  });
+  const [queued, queuedCheckIn] = f.service.outbox.all(f.channel.id);
+  assert.equal(f.reminders.acceptsDelivery(queued), true);
+  assert.equal(heartbeats.acceptsDelivery(queuedCheckIn), true);
+  // Re-paired with another chat: the queued output is not sent to it.
+  const channel = f.service.store.get(f.channel.id);
+  f.service.store.write({ ...channel, chatId: "77", userId: "77" }, channel.revision);
+  const off = await f.routines.update(f.id, routine.id, {
+    telegram: false,
+    revision: routine.revision,
+  });
+  await f.routines.update(f.id, routine.id, { telegram: true, revision: off.revision });
+  await heartbeats.sync(f.id);
+  assert.equal(f.reminders.bindings.get(routine.id).telegram.chatId, "77");
+  assert.equal(f.reminders.acceptsDelivery(queued), false);
+  assert.equal(heartbeats.acceptsDelivery(queuedCheckIn), false);
+});

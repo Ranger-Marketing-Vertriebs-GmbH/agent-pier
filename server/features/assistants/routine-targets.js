@@ -43,6 +43,28 @@ export function telegramOf(binding) {
   return channelId ? { channelId, chatId, userId } : null;
 }
 
+/**
+ * The trusted origin of a routine run: its Telegram chat while the routine delivers
+ * there (shares, generated images and approvals follow it), otherwise the routine.
+ */
+export function routineOrigin(binding) {
+  const telegram = telegramOf(binding);
+  return telegram
+    ? { kind: "telegram", assistantId: binding.assistantId, ...telegram }
+    : { kind: "routine" };
+}
+
+/** Whether a queued Telegram entry is addressed to the binding's current chat. */
+export function sameTelegram(binding, entry) {
+  const telegram = telegramOf(binding);
+  return (
+    !!telegram &&
+    ["channelId", "chatId", "userId"].every(
+      (k) => String(telegram[k] ?? "") === String(entry.source?.[k] ?? ""),
+    )
+  );
+}
+
 /** The binding's Telegram chat when it is still paired and enabled, or null. */
 export function deliverableChannel(channels, telegram) {
   if (!telegram) return null;

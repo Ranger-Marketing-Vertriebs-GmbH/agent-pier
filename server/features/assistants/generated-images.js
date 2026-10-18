@@ -1,6 +1,7 @@
 import { detectAttachment } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { personalCapabilities } from "./native-capabilities.js";
+import { routineOrigin } from "./routine-targets.js";
 
 // OpenClaw 2026.10.3 runs image_generate in the background. When the provider is
 // done, a completion turn of the same session writes an assistant message whose
@@ -134,9 +135,7 @@ export class GeneratedImages {
       );
     const run = agent && this.s.routines.runOrigin(agent, session);
     if (!run) return;
-    const origin = run.binding.source
-      ? { kind: "telegram", ...run.binding.source }
-      : { kind: "routine" };
+    const origin = routineOrigin(run.binding);
     this.observe(run.conversation, { session, origin }).catch(() => {});
   }
   // The request whose turn asked for the image, from the task its tool result names.

@@ -390,12 +390,15 @@ export class AssistantService {
   /**
    * The agent's main chat: its one AgentPier conversation, created on first use.
    * Telegram pairing, reminders, routines and check-ins all use it. Callers hold
-   * admission (openConversation takes it).
+   * admission (openConversation takes it). `turn: false` opens it for scheduled
+   * work only, which need not wait for a member's team task to end.
    */
-  async mainConversation(assistantId) {
+  async mainConversation(assistantId, { turn = true } = {}) {
     const existing = mainConversation(this.store, assistantId);
     if (existing) return existing;
-    this.teams?.assertMemberTurn(assistantId, { kind: "owner" });
+    if (turn) this.teams?.assertMemberTurn(assistantId, { kind: "owner" });
+    else if (this.store.getAssistant(assistantId).archivedAt)
+      throw assistantProblem("active", 409);
     this.requireReady();
     await this.config.apply(assistantId);
     const assistant = this.store.getAssistant(assistantId);

@@ -277,22 +277,21 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
               {open === item.id && (
                 <div className="agent-detail" id={`${id}-detail-${item.id}`}>
                   <p>{item.prompt}</p>
-                  {(paired || item.telegram) &&
-                    ["ready", "unknown"].includes(item.status) && (
-                      <ToggleRow
-                        label={copy.alsoTelegram}
-                        checked={item.telegram === true}
-                        disabled={busy || (!paired && !item.telegram)}
-                        onChange={(next) =>
-                          act(() =>
-                            routineApi.update(assistantId, item.id, {
-                              telegram: next,
-                              revision: item.revision,
-                            }),
-                          )
-                        }
-                      />
-                    )}
+                  {(paired || item.telegram) && item.status === "ready" && (
+                    <ToggleRow
+                      label={copy.alsoTelegram}
+                      checked={item.telegram === true}
+                      disabled={busy || (!paired && !item.telegram)}
+                      onChange={(next) =>
+                        act(() =>
+                          routineApi.update(assistantId, item.id, {
+                            telegram: next,
+                            revision: item.revision,
+                          }),
+                        )
+                      }
+                    />
+                  )}
                   <div className="assistant-actions">
                     {["ready", "unknown"].includes(item.status) && (
                       <button

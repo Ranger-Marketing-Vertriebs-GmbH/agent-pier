@@ -2356,7 +2356,9 @@ agent's notes are what it checks against. The settings disable the switch withou
 memory, and switching memory off switches check-ins off in the same save. A save
 that sends check-ins switched on without memory is refused; a client that does not
 send them (an older one) may still switch memory off, and the stored flag then has
-no effect: the agent keeps no job. They need no Telegram chat; a new agent switches check-ins on after saving.
+no effect: the agent keeps no job. They need no Telegram chat (since AGENTPIER-141; an agent saved with check-ins on but
+never paired starts checking in after that update); a new agent switches check-ins on
+after saving.
 
 It is not OpenClaw's native heartbeat, which stays at `agents.defaults.heartbeat.every:
 "0m"`: that one delivers through OpenClaw channels, which AgentPier leaves empty. Each

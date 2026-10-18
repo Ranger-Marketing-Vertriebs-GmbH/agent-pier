@@ -7,6 +7,7 @@ import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import {
   deliverableChannel,
   pairedChannel,
+  sameTelegram,
   telegramOf,
   telegramTarget,
 } from "./routine-targets.js";
@@ -223,10 +224,10 @@ export class NativeHeartbeats {
       !!this.wanted(agent)
     );
   }
-  /** Telegram outbox entries: only while check-ins still go to Telegram. */
+  /** Telegram outbox entries: only while check-ins still go to that chat. */
   acceptsDelivery(entry) {
     const binding = this.bindings.get(entry.source.reminderBindingId);
-    return this.accepts(binding) && !!telegramOf(binding);
+    return this.accepts(binding) && sameTelegram(binding, entry);
   }
   async complete(binding, event) {
     if (["revoked", "removed"].includes(binding.state)) return;
