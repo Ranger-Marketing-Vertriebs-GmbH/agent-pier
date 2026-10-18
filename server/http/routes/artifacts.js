@@ -5,9 +5,37 @@ import {
   artifactError,
   artifactSearch,
 } from "../../features/artifacts/artifact-errors.js";
+import {
+  artifactDownload,
+  sendArtifactDownload,
+} from "../../features/artifacts/artifact-download.js";
+// At most `limit` responses that hold an artifact in memory at once.
+function slots(limit) {
+  let used = 0;
+  return async (res, work) => {
+    if (used >= limit) throw artifactError("ARTIFACT_BUSY", 503);
+    used++;
+    let released = false;
+    const release = () => {
+      if (!released) {
+        released = true;
+        used--;
+      }
+    };
+    res.once("close", release);
+    res.once("finish", release);
+    try {
+      await work();
+    } catch (error) {
+      release();
+      throw error;
+    }
+  };
+}
 export function artifactsRoutes({ artifacts, audit, sessions, memory }) {
   const router = Router();
-  let bundles = 0;
+  const bundles = slots(2),
+    downloads = slots(2);
   // Search also finds artifacts by their session's or project's name.
   const names = new ArtifactNames({
     sessions: () => sessions?.names(),
@@ -23,6 +51,17 @@ export function artifactsRoutes({ artifacts, audit, sessions, memory }) {
     standardHeaders: "draft-8",
     legacyHeaders: false,
     handler: (_req, _res, next) => next(artifactError("ARTIFACT_RATE_LIMITED", 429)),
+  });
+  // Downloads read a whole artifact (up to 50 MB); an owner budget well above saving
+  // a few results by hand.
+  const downloadLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 30,
+    keyGenerator: () => "owner",
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    handler: (_req, _res, next) =>
+      next(artifactError("ARTIFACT_DOWNLOAD_RATE_LIMITED", 429)),
   });
   router.get("/artifacts", searchLimit, async (req, res) => {
     const { q, pinned } = req.query;
@@ -47,25 +86,17 @@ export function artifactsRoutes({ artifacts, audit, sessions, memory }) {
   router.get("/artifacts/:id", async (req, res) =>
     res.json(await artifacts.get(req.params.id)),
   );
-  router.get("/artifacts/:id/bundle", async (req, res) => {
-    if (bundles >= 2) throw artifactError("ARTIFACT_BUSY", 503);
-    bundles++;
-    let released = false;
-    const release = () => {
-      if (!released) {
-        released = true;
-        bundles--;
-      }
-    };
-    res.once("close", release);
-    res.once("finish", release);
-    try {
-      res.json(await artifacts.snapshot(req.params.id));
-    } catch (error) {
-      release();
-      throw error;
-    }
-  });
+  router.get("/artifacts/:id/bundle", (req, res) =>
+    bundles(res, async () => res.json(await artifacts.snapshot(req.params.id))),
+  );
+  router.get("/artifacts/:id/download", downloadLimit, (req, res) =>
+    downloads(res, async () =>
+      sendArtifactDownload(
+        res,
+        await artifactDownload(await artifacts.download(req.params.id)),
+      ),
+    ),
+  );
   router.patch("/artifacts/:id", async (req, res) => {
     if (
       !req.body ||

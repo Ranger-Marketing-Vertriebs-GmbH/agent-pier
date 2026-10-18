@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { ArtifactStore } from "./artifact-store.js";
 import { copyArtifactSource } from "./artifact-source.js";
+import { readArtifactFiles } from "./artifact-download.js";
 import {
   artifactError,
   artifactFailure,
@@ -297,6 +298,22 @@ export class ArtifactService {
         generation: record.generation,
         entrypoint: record.entrypoint,
         files,
+      };
+    });
+  }
+  // The stored files with their bytes, read in the queue so no deletion races them.
+  download(id) {
+    return this.serial(async () => {
+      const record = this.record(id);
+      return {
+        title: record.title,
+        updatedAt: record.updatedAt,
+        files: await readArtifactFiles(
+          path.join(this.store.generations, record.generation),
+          record.files,
+        ).catch((error) => {
+          throw artifactFailure(error);
+        }),
       };
     });
   }

@@ -23,7 +23,7 @@ of the address together with the filters (`/artifacts[/<projectId>]?session=<id>
 so a reload or the viewer's **Back to AgentPier** returns to the same detail and list,
 including the page's way back to the session that opened it. The "no longer
 available" notice for a removed selection ends with the next tab, filter or search change. The detail shows a
-preview, **Open**, **Copy link** (the link only works when signed in), the source
+preview, **Open**, **Download**, **Copy link** (the link only works when signed in), the source
 session and project, the pin switch, technical details and **Delete artifact**,
 which asks for confirmation. The preview loads the selected artifact only, once it
 is on screen, in an inert iframe with `sandbox=""`: scripts never run there, so pages
@@ -32,6 +32,12 @@ the app's Content-Security-Policy, which loads no `data:` stylesheets or fonts:
 bundled CSS and its `@import`s are inlined, bundled fonts are not, so the preview uses
 system fonts. While two other bundles are loading, the preview and the viewer retry
 with a short backoff.
+
+**Download** saves the artifact: an image or a single HTML page as its original file,
+a bundle with several files as a zip of its file tree. The file is named after the
+artifact's title. The browser fetches it and saves it through a blob link, so an
+installed home-screen app stays on the detail and a refused download shows its reason
+there.
 
 The session's **Artifacts** panel lists that session's artifacts in compact rows that
 open the viewer, with the retention hint above them. Each row's ⓘ opens the artifact's
@@ -45,6 +51,16 @@ characters, no control characters) and `pinned=true|false`, and returns
 except `pinned`. Search also matches session names (from the stored session metadata)
 and project names, read at most every 5 seconds; searches share an owner budget of 120
 requests per minute and answer `ARTIFACT_RATE_LIMITED` (429) beyond it.
+
+`GET /api/artifacts/<id>/download` requires the owner login like every artifact route.
+It answers with `Content-Disposition: attachment` (an RFC 5987 `filename*` from the
+title, without separators or reserved characters), `Cache-Control: no-store`,
+`nosniff` and a sandboxing Content-Security-Policy. Images keep their media type;
+single pages are sent as `application/octet-stream` and bundles as
+`application/zip`. Stored copies are read without following links, and zip entries
+use the validated bundle paths. Downloads share an owner budget of 30 per minute
+(`ARTIFACT_DOWNLOAD_RATE_LIMITED`, 429) and at most two run at once
+(`ARTIFACT_BUSY`, 503).
 
 ## Publishing and updating
 
@@ -124,7 +140,8 @@ atomically publishes a durable metadata pointer before reclaiming old content.
 Session retirement and publication share a serialized queue and the application's
 backup mutation barrier.
 
-The authenticated API returns data, never generated HTML as an application page.
+The authenticated API returns data, never generated HTML as an application page;
+downloads are attachments that the browser saves instead of rendering.
 The viewer parses and rewrites the bundle into a sandboxed iframe with scripts
 allowed but without same-origin, popup or top-navigation privileges. Its CSP
 blocks network connections, nested frames, workers, forms and external assets.

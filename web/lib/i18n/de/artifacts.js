@@ -63,6 +63,9 @@ export const artifactCopy = {
   previewLoading: "Vorschau wird geladen…",
   previewUnavailable: "Keine Vorschau verfügbar. Öffne das Artifact, um es anzusehen.",
   copyLink: "Link kopieren",
+  download: "Herunterladen",
+  downloadLabel: (title) => `${title} herunterladen`,
+  downloading: "Wird heruntergeladen…",
   linkCopied: "Link kopiert.",
   copyFailed: "Der Link konnte nicht kopiert werden.",
   linkHint: "Der Link funktioniert nur, wenn du bei AgentPier angemeldet bist.",
@@ -119,6 +122,8 @@ export const artifactCopy = {
       "Die Artifact-Veröffentlichung ist vorübergehend nicht verfügbar.",
     ARTIFACT_BUSY: "Ein anderes Artifact wird geladen. Versuche es gleich erneut.",
     ARTIFACT_RATE_LIMITED: "Zu viele Suchanfragen. Versuche es in einer Minute erneut.",
+    ARTIFACT_DOWNLOAD_RATE_LIMITED:
+      "Zu viele Downloads. Versuche es in einer Minute erneut.",
     ARTIFACT_IO_ERROR: "Das Artifact konnte nicht gelesen oder gespeichert werden.",
   },
 };
