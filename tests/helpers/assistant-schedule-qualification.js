@@ -235,6 +235,8 @@ test("native restart coalesces thirty days of recurring misses and delivers once
   const f = await fixture(t);
   const routine = await f.routines.create(f.id, {
     clientRequestId: "downtime-recurring",
+    // Qualifies the Telegram extra; the main chat record is checked alongside.
+    telegram: true,
     name: "Daily plan",
     prompt: "Daily plan",
     trigger: { kind: "cron", expr: "30 9 * * *", tz: "Europe/Berlin" },
@@ -259,6 +261,7 @@ test("native restart coalesces thirty days of recurring misses and delivers once
   await f.deliver();
   assert.equal(f.deliveries.length, 1);
   assert.equal(f.service.outbox.all(f.channel.id).length, 1);
+  assert.equal(f.reminders.results.forConversation(f.channel.conversationId).length, 1);
   await f.restart();
   await f.deliver();
   assert.equal(f.executions.length, 1);
@@ -281,6 +284,7 @@ test("overdue one-shot survives downtime once, including skipMissedJobs", async 
   t.mock.timers.enable({ apis: ["Date"], now: f.now });
   const reminder = await f.reminders.create(f.id, {
     clientRequestId: "downtime-one-shot",
+    telegram: true,
     name: "Reminder",
     message: "Remember this",
     schedule: { kind: "at", at: iso(f.now + 60000) },
@@ -308,6 +312,7 @@ test("native skipMissedJobs advances recurring schedules without replay", async 
   const f = await fixture(t, { skipMissedJobs: true });
   await f.routines.create(f.id, {
     clientRequestId: "skip-recurring",
+    telegram: true,
     name: "Daily plan",
     prompt: "Daily plan",
     trigger: { kind: "cron", expr: "30 9 * * *", tz: "Europe/Berlin" },
@@ -327,6 +332,7 @@ test("paused and event routines remain disabled across prolonged downtime", asyn
   const f = await fixture(t);
   const paused = await f.routines.create(f.id, {
     clientRequestId: "paused",
+    telegram: true,
     name: "Paused",
     prompt: "Paused plan",
     trigger: { kind: "cron", expr: "30 9 * * *", tz: "Europe/Berlin" },
@@ -334,6 +340,7 @@ test("paused and event routines remain disabled across prolonged downtime", asyn
   await f.routines.update(f.id, paused.id, { enabled: false, revision: paused.revision });
   await f.routines.create(f.id, {
     clientRequestId: "event",
+    telegram: true,
     name: "Event",
     prompt: "Event plan",
     trigger: { kind: "event" },
@@ -352,6 +359,7 @@ test("restart defers several overdue agent jobs in five-second steps", async (t)
   for (let i = 0; i < 3; i++)
     await f.routines.create(f.id, {
       clientRequestId: `backlog-${i}`,
+      telegram: true,
       name: `Plan ${i}`,
       prompt: `Plan ${i}`,
       trigger: { kind: "cron", expr: "30 9 * * *", tz: "Europe/Berlin" },
@@ -381,6 +389,7 @@ test("a running scheduler coalesces thirty days of sleep without startup deferra
   const f = await fixture(t);
   await f.routines.create(f.id, {
     clientRequestId: "sleep",
+    telegram: true,
     name: "Daily plan",
     prompt: "Daily plan",
     trigger: { kind: "cron", expr: "30 9 * * *", tz: "Europe/Berlin" },
