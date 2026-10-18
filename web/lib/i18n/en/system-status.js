@@ -16,7 +16,7 @@ export const systemStatusCopy = {
   load: (one, five, fifteen) => `Load average ${one} · ${five} · ${fifteen}`,
   historyHeading: "Last hour",
   historyEmpty:
-    "The history fills while this view is open; AgentPier samples only while someone looks.",
+    "The history fills over the first hour after AgentPier starts: one sample a minute, every five seconds while this view is open.",
   historyCpu: "CPU",
   historyMemory: "RAM",
   historyAgentPier: "AgentPier CPU",

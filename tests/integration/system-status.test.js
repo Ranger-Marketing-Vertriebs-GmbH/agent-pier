@@ -252,3 +252,16 @@ test("the system status routes need the login and return no host paths", async (
   const later = await (await f.request("/api/system-status/details")).json();
   assert.equal(later.areas.state, "ready");
 });
+
+test("a once-a-minute background sample fills the history without viewers", async () => {
+  const { status, calls } = sampler({ backgroundMs: 30, diskCheckMs: 60_000 });
+  status.start();
+  await wait(130);
+  assert.equal(status.liveTimer, null, "no live sampling without a view");
+  assert.ok(calls.processes >= 2, `sampled ${calls.processes} times in the background`);
+  assert.ok(status.history.length >= 2);
+  await status.close();
+  const closed = calls.processes;
+  await wait(90);
+  assert.equal(calls.processes, closed, "the background sample stops on shutdown");
+});

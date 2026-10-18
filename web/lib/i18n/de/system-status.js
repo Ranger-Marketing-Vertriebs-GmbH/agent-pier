@@ -16,7 +16,7 @@ export const systemStatusCopy = {
   load: (one, five, fifteen) => `Durchschnittslast ${one} · ${five} · ${fifteen}`,
   historyHeading: "Letzte Stunde",
   historyEmpty:
-    "Der Verlauf füllt sich, solange diese Ansicht offen ist; AgentPier misst nur, während jemand hinschaut.",
+    "Der Verlauf füllt sich in der ersten Stunde nach dem Start von AgentPier: eine Messung pro Minute, alle fünf Sekunden, solange diese Ansicht offen ist.",
   historyCpu: "CPU",
   historyMemory: "RAM",
   historyAgentPier: "AgentPier-CPU",
