@@ -32,6 +32,7 @@ import { applicationVersion } from "./features/operations/version.js";
 import { operationsRoutes } from "./http/routes/operations.js";
 import { ReleaseSessionMigration } from "./features/operations/release-session-migration.js";
 import { requestsRoutes } from "./http/routes/requests.js";
+import { inboxRoutes } from "./http/routes/inbox.js";
 import { notificationsRoutes } from "./http/routes/notifications.js";
 import { remoteRoutes } from "./http/routes/remote.js";
 import { settingsSummaryRoutes } from "./http/routes/settings-summary.js";
@@ -275,6 +276,7 @@ export async function createApplication(config) {
   mount(pipelineRunRoutes(services));
   mount(auditRoutes(services));
   mount(requestsRoutes(services));
+  mount(inboxRoutes(services));
   mount(notificationsRoutes(services));
   mount(remoteRoutes(services));
   mount(settingsSummaryRoutes(services));

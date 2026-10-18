@@ -52,6 +52,15 @@ export class RunStore {
     if (!row) throw problem(serverMessages.pipelines.runNotFound, 404);
     return normalizeRun(JSON.parse(row.doc));
   }
+  /** Runs with this status, newest first (the owner's inbox reads waiting runs). */
+  withStatus(status) {
+    return this.db
+      .prepare(
+        "SELECT doc FROM runs WHERE json_extract(doc,'$.status')=? ORDER BY rowid DESC",
+      )
+      .all(status)
+      .map((r) => normalizeRun(JSON.parse(r.doc)));
+  }
   /** Whether any run belongs to the project. */
   hasProject(projectId) {
     return Boolean(

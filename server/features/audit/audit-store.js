@@ -70,6 +70,41 @@ export class AuditStore {
       .map((row) => ({ ...JSON.parse(row.document), id: String(row.id) }));
     return { events, total, page, pageSize: 25, before: String(boundary) };
   }
+  /**
+   * The newest successful event since `since` (ISO time) with one of `actions` that
+   * names `id` as its resource or as the decided action, or null. Events are appended
+   * in time order, so the first event of the window is found by a binary search over
+   * the primary key; only that window is read.
+   */
+  recent({ actions, id, since }) {
+    const first = this.firstSince(since);
+    if (first === null || !actions.length) return null;
+    const row = this.db
+      .prepare(
+        `SELECT id,document FROM events WHERE id>=? AND action IN (${actions.map(() => "?").join(",")}) AND outcome='success' AND created_at>=? AND (json_extract(document,'$.resourceId')=? OR json_extract(document,'$.details.actionId')=?) ORDER BY id DESC LIMIT 1`,
+      )
+      .get(first, ...actions, since, id, id);
+    return row ? { ...JSON.parse(row.document), id: String(row.id) } : null;
+  }
+  firstSince(since) {
+    const bounds = this.db
+      .prepare("SELECT MIN(id) AS low, MAX(id) AS high FROM events")
+      .get();
+    if (bounds.high === null) return null;
+    const next = this.db.prepare(
+      "SELECT id,created_at FROM events WHERE id>=? ORDER BY id LIMIT 1",
+    );
+    let low = bounds.low,
+      high = bounds.high + 1;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      const row = next.get(middle);
+      if (!row) high = middle;
+      else if (row.created_at >= since) high = middle;
+      else low = row.id + 1;
+    }
+    return low > bounds.high ? null : low;
+  }
   export() {
     return this.db
       .prepare("SELECT id,document FROM events ORDER BY id")
