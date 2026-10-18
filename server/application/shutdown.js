@@ -8,12 +8,19 @@ export function createShutdown({ services, wss, server }) {
     // exit in server/index.js. It is awaited before the server store closes, because
     // a settling job still writes its package record.
     const packagesClosed = services.mcpPackages?.close();
+    // Dictations end before the speech connection they relay through closes.
+    services.dictation?.close();
     // Closes only the assistant services that the opt-in actually created.
     await services.assistantFeature?.close();
     services.chatStreams?.close();
     // Ends the inbox event streams, which would otherwise keep the server open.
     services.inbox?.close();
-    for (const socketServer of [wss, services.chatWss, services.browserWss])
+    for (const socketServer of [
+      wss,
+      services.chatWss,
+      services.browserWss,
+      services.dictationWss,
+    ])
       for (const ws of socketServer?.clients || []) {
         ws.close(1001, serverMessages.common.serverRestarting);
         const timeout = setTimeout(() => ws.terminate(), 1000);

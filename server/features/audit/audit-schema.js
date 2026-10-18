@@ -52,6 +52,8 @@ const resources = new Set([
   "tool",
   // MCP package installs of an MCP server (resourceType "mcp", the server's id).
   "package",
+  // Live dictation in the composers: that it was used and for how long, never audio.
+  "speech",
 ]);
 const verbs = new Set([
   "revoked",
@@ -205,6 +207,7 @@ export function auditEvent(input) {
       "generated-image",
       "image-generation",
       "attachment-clear",
+      "dictation",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -343,7 +346,7 @@ export function auditEvent(input) {
   for (const key of ["enabled", "pending"])
     if (typeof details[key] === "boolean") event.details[key] = details[key];
   if (["0.0.0.0", "::"].includes(details.bind)) event.details.bind = details.bind;
-  for (const key of ["statusCode", "count", "revision", "skipped"])
+  for (const key of ["statusCode", "count", "revision", "skipped", "seconds"])
     if (Number.isSafeInteger(details[key]) && details[key] >= 0 && details[key] <= 1e9)
       event.details[key] = details[key];
   if (

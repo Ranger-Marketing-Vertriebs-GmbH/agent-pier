@@ -15,6 +15,8 @@ export function attachTerminalWebSocket(server, { sessions, login, effective }) 
     if (/^\/api\/sessions\/[a-zA-Z0-9_-]+\/chat-stream$/.test(pathname)) return;
     // The agents' browser live view has its own handler (browser-websocket.js).
     if (/^\/api\/assistants\/[A-Za-z0-9_-]+\/browser-stream$/.test(pathname)) return;
+    // Live dictation has its own handler (dictation-websocket.js).
+    if (pathname === "/api/dictation/stream") return;
     try {
       authorizeRequest(req, effective(), true);
       const authSession = login.require(sessionToken(req));

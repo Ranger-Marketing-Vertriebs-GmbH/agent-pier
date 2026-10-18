@@ -86,8 +86,8 @@
   .mobile-chat-workspace .chat-composer-shell {
     position: relative;
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) 44px;
-    grid-template-areas: "attachments attachments attachments" "input input input" "add model send" "status status status" "attachment-error attachment-error attachment-error";
+    grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+    grid-template-areas: "attachments attachments attachments attachments" "input input input input" "add model mic send" "status status status status" "attachment-error attachment-error attachment-error attachment-error";
     align-items: end;
     gap: 0 8px;
     padding: 8px;

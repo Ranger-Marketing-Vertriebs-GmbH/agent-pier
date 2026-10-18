@@ -43,6 +43,7 @@ async function setup(page) {
           ...state.speech,
           model: input.model || state.speech.model,
           language: input.language || state.speech.language,
+          dictationSend: input.dictationSend ?? state.speech.dictationSend,
           hasSecret: !input.removeApiKey,
           revision: state.speech.revision + 1,
         };
@@ -99,13 +100,19 @@ async function setup(page) {
 test("Deepgram settings save a write-only credential and allow removal", async ({
   page,
 }) => {
-  await setup(page);
+  const state = await setup(page);
   await page.goto(baseURL + "/accounts");
   const panel = await openAccountItem(page, "Speech recognition");
   await panel.getByLabel("Deepgram API key").fill("private-fixture-key");
   await panel.getByLabel("Recognition language").selectOption("de");
+  // Dictation in the chats leaves the text for editing unless this is on.
+  const send = panel.getByRole("switch", { name: "Send dictated messages right away" });
+  await expect(send).not.toBeChecked();
+  await send.check();
   await panel.getByRole("button", { name: "Save speech settings" }).click();
   await expect(panel.getByText("Key saved", { exact: true })).toBeVisible();
+  expect(state.speech.dictationSend).toBe(true);
+  await expect(send).toBeChecked();
   await expect(panel.getByLabel("Deepgram API key")).toHaveValue("");
   // Removing saves at once, so it waits until unsaved changes are saved or cancelled.
   const remove = panel.getByRole("button", { name: "Remove speech key" });

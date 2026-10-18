@@ -67,6 +67,9 @@ import { buildHeader, buildIdentity } from "./http/build-identity.js";
 import { attachTerminalWebSocket } from "./http/terminal-websocket.js";
 import { attachChatWebSocket } from "./http/chat-websocket.js";
 import { attachBrowserWebSocket } from "./http/browser-websocket.js";
+import { attachDictationWebSocket } from "./http/dictation-websocket.js";
+import { dictationRoutes } from "./http/routes/dictation.js";
+import { DictationService } from "./features/speech/dictation-service.js";
 import { workspaceRoutes } from "./http/routes/workspace.js";
 import { accountsRoutes } from "./http/routes/accounts.js";
 import { sessionsRoutes } from "./http/routes/sessions.js";
@@ -89,6 +92,12 @@ export async function createApplication(config) {
   const server = http.createServer(app);
   const services = await createServices(config);
   services.login = new LoginStore(config);
+  // Live dictation uses the agents' central Deepgram connection while it exists.
+  services.dictation = new DictationService({
+    speech: () => services.assistantSpeech || null,
+    audit: services.audit,
+    ...(config.dictationConnect ? { connect: config.dictationConnect } : {}),
+  });
   services.tools = () =>
     detectTools(
       { ...process.env, HOME: config.home },
@@ -280,6 +289,7 @@ export async function createApplication(config) {
   mount(notificationsRoutes(services));
   mount(remoteRoutes(services));
   mount(settingsSummaryRoutes(services));
+  mount(dictationRoutes(services));
   app.use("/api", operationsRoutes(services));
   app.get("/api/health", (_req, res) =>
     res.json({
@@ -305,6 +315,11 @@ export async function createApplication(config) {
   // The owner's live view of the agents' browsers, while the agent feature runs.
   services.browserWss = attachBrowserWebSocket(server, {
     live: () => services.assistants?.liveView || null,
+    login: services.login,
+    effective,
+  });
+  services.dictationWss = attachDictationWebSocket(server, {
+    dictation: () => services.dictation,
     login: services.login,
     effective,
   });

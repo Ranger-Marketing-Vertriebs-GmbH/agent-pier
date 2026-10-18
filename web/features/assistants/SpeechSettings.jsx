@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ListCard from "../../components/ListCard.jsx";
-import { SelectRow } from "../../components/ListRow.jsx";
+import { SelectRow, ToggleRow } from "../../components/ListRow.jsx";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import AccountDetail, { AccountSaveBar } from "../accounts/AccountDetail.jsx";
 import FieldRow from "../accounts/FieldRow.jsx";
@@ -16,6 +16,7 @@ const serverOf = (settings) => ({
   apiKey: "",
   model: settings?.model ?? "",
   language: settings?.language ?? "auto",
+  dictationSend: settings?.dictationSend === true,
 });
 
 /** The central Deepgram connection for agent voice messages. */
@@ -29,7 +30,7 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
   const { reloadSpeech } = data;
   const server = useMemo(
     () => serverOf(settings),
-    [settings?.model, settings?.language], // eslint-disable-line react-hooks/exhaustive-deps
+    [settings?.model, settings?.language, settings?.dictationSend], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const form = useAccountDraft({
     server,
@@ -51,6 +52,7 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
             revision,
             model: values.model,
             language: values.language,
+            dictationSend: values.dictationSend,
             ...(values.apiKey ? { apiKey: values.apiKey } : {}),
             ...confirmations,
           });
@@ -162,6 +164,14 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
                 { value: "de", label: copy.german },
                 { value: "en", label: copy.english },
               ]}
+            />
+          </ListCard>
+          <ListCard>
+            <ToggleRow
+              label={copy.dictationSend}
+              sub={copy.dictationSendHint}
+              checked={draft.values.dictationSend}
+              onChange={(value) => edit("dictationSend", value)}
             />
           </ListCard>
         </form>
