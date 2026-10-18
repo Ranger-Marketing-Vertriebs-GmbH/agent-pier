@@ -55,7 +55,10 @@ export function authorizeRequest(req, config, websocket = false) {
     req.method === "GET" &&
     (appDocumentPath.test(requestPath) || callback) &&
     req.headers["sec-fetch-mode"] === "navigate" &&
-    req.headers["sec-fetch-dest"] === "document";
+    // The service worker re-fetches a navigation (an OAuth return, a link): Chrome
+    // keeps mode navigate but reports the destination as empty. No page can start a
+    // navigate-mode request with fetch(), so only this origin's worker sends that pair.
+    ["document", "empty"].includes(req.headers["sec-fetch-dest"]);
   if (req.headers["sec-fetch-site"] === "cross-site" && !openingPage)
     throw problem(serverMessages.http.crossSiteAccessDenied, 403);
   const origin = req.headers.origin;
