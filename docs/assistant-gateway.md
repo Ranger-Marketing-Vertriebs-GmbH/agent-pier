@@ -1230,23 +1230,59 @@ For the later merged branch, see the [release qualification](assistant-release-q
 
 ## Web, browser and document capabilities (2026-10-11)
 
-Agent settings group five more switches under **Web & documents**. All default to
+Agent settings group six more switches under **Web & documents**. All default to
 off. Like memory and reminders, they are set only on permanent agents; archived
 agents do not count. Task-scoped team members have no switches of their own and use
 what their lead grants them (see [Team member grants](#team-member-grants-2026-10-17)).
 The tools exist only in team mode (native teams), where AgentPier compiles them into
 the Gateway's startup configuration.
 
-| Switch             | Grants           | What it does                                                                                                                                  |
-| ------------------ | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Search the web** | `web_search`     | Searches with the provider chosen under **Accounts → Services for agents → Web search**                                                       |
-| **Read web pages** | `web_fetch`      | Fetches a public address and reads its text; private, loopback and internal targets are refused                                               |
-| **Use a browser**  | `browser`        | Drives a separate, headless browser profile owned by AgentPier                                                                                |
-| **Read images**    | `view_image`     | Looks at images; needs a model that accepts images                                                                                            |
-| **Create images**  | `image_generate` | Creates and edits images with `openai/gpt-image-2` through a signed-in ChatGPT account (see [Image generation](#image-generation-2026-10-18)) |
+| Switch             | Grants           | What it does                                                                                                                                       |
+| ------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Search the web** | `web_search`     | Searches with the provider chosen under **Accounts → Services for agents → Web search**                                                            |
+| **Read web pages** | `web_fetch`      | Fetches a public address and reads its text; private, loopback and internal targets are refused                                                    |
+| **Use a browser**  | `browser`        | Drives a separate, headless browser profile owned by AgentPier                                                                                     |
+| **Read images**    | `view_image`     | Looks at images; needs a model that accepts images                                                                                                 |
+| **Read PDFs**      | `pdf`            | Reads workspace PDFs with the PDF model chosen under **Accounts → Services for agents → PDF reading** (see [PDF reading](#pdf-reading-2026-10-19)) |
+| **Create images**  | `image_generate` | Creates and edits images with `openai/gpt-image-2` through a signed-in ChatGPT account (see [Image generation](#image-generation-2026-10-18))      |
 
 Web content is untrusted data. OpenClaw wraps fetched and browsed content as
 external content, and the switches do not grant any other tool.
+
+### PDF reading (2026-10-19)
+
+**Read PDFs** (`readPdfs`, off by default, also grantable to task members within their
+lead's own switch) offers OpenClaw's `pdf` tool. OpenClaw 2026.10.3 takes the model
+that reads a PDF only from the global `agents.defaults.pdfModel`: an agent entry with
+its own `pdfModel` (or `imageModel`) is rejected as an unrecognized key, and without
+an explicit model the tool picks the first image-capable provider it finds, which need
+not be the agent's own. AgentPier therefore keeps one owner setting:
+**Accounts → Services for agents → PDF reading** chooses a model connection (OpenRouter,
+a custom endpoint or a ChatGPT account) and one of its models. Only ids are stored
+(`assistants/pdf-model.sqlite`); the key stays with the model connection. The model
+must accept images, because pages with little text reach it as rendered page images;
+a model that cannot is refused on save.
+
+- The switch is effective only while that model is usable (`PdfModelSettings`: the
+  connection exists and is available, or the ChatGPT account is signed in, and the
+  model accepts images) and the runtime bundles OpenClaw's `document-extract`
+  plugin. Otherwise the switch is disabled and names the reason (no model chosen, the
+  connection is gone or unusable, the model cannot read images); an agent that has it
+  on keeps the setting but is not granted `pdf`.
+- A start whose agents read PDFs adds `pdf` to the global `tools.allow` and
+  `document-extract` to `plugins.allow` (without it the tool refuses every PDF a
+  non-native model reads). `AssistantProviderSynchronization.prepare` then writes
+  `agents.defaults.pdfModel` as `{ primary, fallbacks: [] }` with the connection's
+  provider entry, like an agent's own model; if the model cannot be resolved it
+  withdraws `pdf` instead. `agents.defaults.pdfModel` is compiler-owned and locked for
+  advanced settings.
+- Like image creation, `pdf` waits for the proven tool guard. The guard refuses a
+  `model` argument (the agent cannot pick another configured model) and any
+  reference with a scheme (`http(s)`, `file:`, `media:`): PDFs come from the
+  agent's workspace (`tools.fs.workspaceOnly`), never from the web.
+- Choosing another model, or the first agent switching it on, changes the startup
+  sections and asks to restart the agent service. Editing or deleting the PDF model's
+  connection counts as a change for every agent that reads PDFs.
 
 ### Image generation (2026-10-18)
 
@@ -1621,10 +1657,10 @@ key that Perplexity uses, take effect at the next Gateway start.
   otherwise offer it and fail every call.
 - **Runtime without the bundled plugins** (an installation not yet updated, or a
   rollback target): web search is unavailable until the staged update is activated.
-- **Documents:** OpenClaw 2026.9.8 offers `view_image` only for models that accept
-  images. `pdf` is not offered: OpenClaw needs a global `agents.defaults.pdfModel`
-  for it, which AgentPier does not compile (tracked separately), so the switch
-  grants `view_image` only (see [web tools qualification](assistant-web-tools-qualification.md)).
+- **Documents:** OpenClaw offers `view_image` only for models that accept images.
+  **Read images** grants `view_image` only; PDFs need **Read PDFs** and a chosen PDF
+  model (see [PDF reading](#pdf-reading-2026-10-19) and the
+  [web tools qualification](assistant-web-tools-qualification.md)).
 - **New agents:** the web, browser and image switches are disabled while creating an
   agent ("Available after saving the agent"); the server stores them as off on
   create. Switch them on in the agent's settings after saving.
@@ -1730,15 +1766,15 @@ is cancelled. A lead's own promotion keeps the
 member's effective grants instead (see
 [lead promotions](#lead-promotions-of-team-members-2026-10-17)).
 
-| Grant (proposal `grants`, tool `agentpier_team_grant`)          | How a temporary member uses it                                                                                 |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `webSearch`, `webFetch`, `browser`, `documents`, `createImages` | The lead's web and image tools (reading and creating images), with the same global network and browser safety  |
-| `skills` (`true` for all of the lead's, or names)               | Those of the lead's skills                                                                                     |
-| `mcpServers` (names of servers bound to the lead)               | Those servers, while the member works ([bindings](#bindings))                                                  |
-| `memory`                                                        | A read-only copy of the lead's memory beside the member's own memory (see below)                               |
-| `reminders`                                                     | Reminders created on the lead (see below)                                                                      |
-| `shell` (`approval` or `full`), `ssh`                           | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants |
-| `github` (`read` or `write`)                                    | The lead's GitHub token profile, at most at the lead's level ([GitHub for agents](#github-for-agents))         |
+| Grant (proposal `grants`, tool `agentpier_team_grant`)                      | How a temporary member uses it                                                                                                  |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `webSearch`, `webFetch`, `browser`, `documents`, `readPdfs`, `createImages` | The lead's web, image and PDF tools (reading images and PDFs, creating images), with the same global network and browser safety |
+| `skills` (`true` for all of the lead's, or names)                           | Those of the lead's skills                                                                                                      |
+| `mcpServers` (names of servers bound to the lead)                           | Those servers, while the member works ([bindings](#bindings))                                                                   |
+| `memory`                                                                    | A read-only copy of the lead's memory beside the member's own memory (see below)                                                |
+| `reminders`                                                                 | Reminders created on the lead (see below)                                                                                       |
+| `shell` (`approval` or `full`), `ssh`                                       | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants                  |
+| `github` (`read` or `write`)                                                | The lead's GitHub token profile, at most at the lead's level ([GitHub for agents](#github-for-agents))                          |
 
 A member the lead grants nothing explicitly gets `memory`, `webSearch` and
 `webFetch`, as far as the lead has them. Members reserved before grants existed

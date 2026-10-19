@@ -1,7 +1,7 @@
 # Web tools and browser qualification
 
 Two opt-in contracts check how OpenClaw 2026.9.8 serves `web_search`, `web_fetch`,
-`browser` and `view_image` (and shows why `pdf` is not offered) with the configuration AgentPier writes. Both run
+`browser`, `view_image` and `pdf` with the configuration AgentPier writes. Both run
 a real isolated Gateway started by `RuntimeSupervisor` in a temporary data
 directory. The deterministic model from `tests/helpers/assistant-model-server.js`
 calls each tool once. No search API, model account or credential is involved, and
@@ -72,8 +72,12 @@ DuckDuckGo), the runtime descriptor's `searchPlugins`, `TeamBridge`, the team
 plugin, and `AssistantConfig.apply` for the agent entries. After the entries are
 applied, the Gateway restarts so that they also come from the startup compile.
 
+On 2026-10-19 the contract with PDF reading passed on macOS arm64 against a fresh
+`2026.10.3-node26.7.0-darwin-arm64-lock5d0ace4d722a` runtime (the browser subtest
+was skipped there; it is unchanged by PDF reading).
+
 - **One agent with every capability** (memory, reminders, web search, web fetch,
-  browser, documents), **one temporary team member of it**, and a second temporary
+  browser, documents, PDFs), **one temporary team member of it**, and a second temporary
   member with every capability recorded under a lead without any.
 - **The Gateway accepts the compiled startup configuration** under the restrictive
   team allow list: `plugins.allow` is exactly
@@ -84,19 +88,27 @@ applied, the Gateway restarts so that they also come from the startup compile.
 { dangerouslyAllowPrivateNetwork: false } } }`, and the root `browser` block equals
   `webToolsSections` for the running port.
 - **The agent** is granted `web_search`, `web_fetch`, `browser` and
-  `view_image` (the Read images switch no longer grants `pdf`), and is offered
-  `web_search`, `web_fetch`, `browser` and `view_image`. `web_search` is not called (no real search). `web_fetch` of the
+  `view_image` and `pdf`, and is offered `web_search`, `web_fetch`, `browser`,
+  `view_image` and `pdf`. `web_search` is not called (no real search). `web_fetch` of the
   loopback page fails with `Blocked hostname or private/internal/special-use IP
 address`; the page receives no request.
-- **`pdf` is not granted by AgentPier and not offered.** OpenClaw offers `pdf` for a custom provider
-  only when `agents.defaults.pdfModel` (or `imageModel`) names a model. AgentPier
-  compiles neither, and a per-agent `pdfModel` in `agents.entries.<id>` is rejected
-  with `INVALID_REQUEST`; a probe with `agents.defaults.pdfModel` made `pdf`
-  appear. The contract asserts that `pdf` stays not offered; a global `pdfModel` is tracked separately.
+- **`pdf` reads with the owner's PDF model** (since 2026-10-19, see
+  [PDF reading](assistant-gateway.md#pdf-reading-2026-10-19)). The contract chooses the
+  fixture model as PDF model; the real `AssistantProviderSynchronization.prepare`
+  runs before each spawn and compiles `agents.defaults.pdfModel` as
+  `{ primary: "fixture/fixture-model", fallbacks: [] }`, and `plugins.allow` gains
+  `document-extract`, which `plugins.list` reports active. A call of `pdf` on a
+  generated one-page PDF in the agent's workspace sends the extracted page text to the
+  fixture model and returns its answer. The tool guard refuses a loopback URL
+  (`without a web address`, the page gets no request) and a `model` argument
+  (`Leave model unset`). Without `document-extract` in `plugins.allow` the call fails
+  with `PDF extraction disabled or unavailable`. On 2026.10.3 the agent entry
+  schema still rejects `pdfModel` and `imageModel` as unrecognized keys (checked
+  against the runtime's own schema on 2026-10-19), so the model stays global.
 - **The lead's temporary member** has the default grants (since 2026-10-17,
   [team member grants](assistant-gateway.md#team-member-grants-2026-10-17)): its
   entry holds `web_search`, `web_fetch` and `memory_search` within the lead's
-  capabilities, but not `browser`, `view_image` or `agentpier_reminder` (not granted),
+  capabilities, but not `browser`, `view_image`, `pdf` or `agentpier_reminder` (not granted),
   and never team tools, `agentpier_routine`, `write` or `exec`. Its `web_fetch` of
   the loopback page fails with the same private-network block.
 - **The member whose lead has no capabilities** gets no capability tool in its
@@ -352,7 +364,8 @@ and restart the Gateway when they change, rather than relying on live patches.
   search, which is not repeated.
 - The Perplexity key and transport were verified through configuration acceptance
   and the plugin source, not with a request.
-- `pdf` is not offered with AgentPier's custom providers (see above).
+- `pdf` is covered with the extraction path of a custom provider only; native PDF
+  input (Anthropic, Google) and a ChatGPT account as PDF model are not exercised.
 - Headless Linux Chrome without `noSandbox` is unverified on hosted runners (see
   [continuous integration](#continuous-integration)).
 - The browser plugin's bundled `browser-automation` skill is skipped in the

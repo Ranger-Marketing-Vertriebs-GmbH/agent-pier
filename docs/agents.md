@@ -70,11 +70,15 @@ member also shows whether its model changed since it took it over from the lead.
   ([routines, reminders and check-ins](#routines-reminders-and-check-ins)).
 - **Web & documents:** **Search the web**, **Read web pages**, **Use a browser** (a
   persistent browser profile of the agent's own; needs Chrome, Brave, Edge or
-  Chromium on the host), **Read images** and **Create images** (through a ChatGPT
-  account connected under **Accounts → ChatGPT for agents**; without one the switch
-  is disabled and says so). The search provider is set once under
-  **Accounts → Services for agents → Web search** (DuckDuckGo, Brave Search or
-  Perplexity through OpenRouter).
+  Chromium on the host), **Read images**, **Read PDFs** and **Create images**
+  (through a ChatGPT account connected under **Accounts → ChatGPT for agents**;
+  without one the switch is disabled and says so). The search provider is set once
+  under **Accounts → Services for agents → Web search** (DuckDuckGo, Brave Search or
+  Perplexity through OpenRouter). **Read PDFs** reads PDF files in the agent's
+  workspace with one PDF model for all agents, chosen under
+  **Accounts → Services for agents → PDF reading** from the model connections and
+  ChatGPT accounts; it must accept images. Until a usable model is chosen the switch
+  is disabled and says why.
 - **Agent browser** (while **Use a browser** is on): **Visible browser** opens a
   regular, minimized window instead of a headless one, so shop and product pages that
   block headless browsers work; open the window from the Dock or the window list to
