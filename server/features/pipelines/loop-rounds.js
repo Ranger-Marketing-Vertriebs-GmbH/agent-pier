@@ -27,6 +27,7 @@ function stageEntry(run, nodeId, attempt, verdict) {
       severity: f.severity,
       title: f.title,
       ...(f.detail ? { detail: f.detail } : {}),
+      ...(f.criterion ? { criterion: f.criterion } : {}),
     })),
     ...(findings.length > STAGE_FINDINGS
       ? { omittedFindings: findings.length - STAGE_FINDINGS }
@@ -198,6 +199,7 @@ function currentView(round, level) {
         severity: f.severity,
         title: clip(f.title, level.title),
         ...(f.detail && level.detail ? { detail: clip(f.detail, level.detail) } : {}),
+        ...(f.criterion ? { criterion: f.criterion } : {}),
       })),
       ...(stage.omittedFindings ? { omittedFindings: stage.omittedFindings } : {}),
       ...reportsView(stage.reports || [], level.reports),
@@ -233,6 +235,7 @@ const earlierView = (round) => ({
       id: f.id,
       severity: f.severity,
       title: clip(f.title, 200),
+      ...(f.criterion ? { criterion: f.criterion } : {}),
     })),
     ...reportsView(stage.reports || [], 5),
   })),

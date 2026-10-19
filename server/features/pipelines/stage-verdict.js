@@ -78,13 +78,16 @@ export function parseVerdict(text) {
       (s) => typeof s === "string" && s.trim(),
     );
     if (!title) throw problem(serverMessages.pipelines.verdictFindingTitle);
+    const criterion = typeof f.criterion === "string" ? criterionId(f.criterion) : "";
     return {
       title: title.slice(0, 2000),
       severity: ["low", "medium", "high"].includes(f.severity) ? f.severity : "medium",
       ...(typeof f.detail === "string" ? { detail: f.detail.slice(0, 8000) } : {}),
+      ...(criterion ? { criterion } : {}),
     };
   });
   const responses = parseResponses(value.responses);
+  const criteria = parseCriteria(value.criteria);
   const artifacts = (Array.isArray(value.artifacts) ? value.artifacts : [])
     .flatMap((a) => {
       if (typeof a === "string") a = { path: a };
@@ -105,6 +108,10 @@ export function parseVerdict(text) {
           !/[\x00-\x1f\x7f]/.test(a.label)
             ? { label: a.label }
             : {}),
+          // Only roles the engine knows are kept; "spec" marks the run's contract.
+          ...(typeof a.role === "string" && artifactRoles.has(a.role.trim().toLowerCase())
+            ? { role: a.role.trim().toLowerCase() }
+            : {}),
         },
       ];
     })
@@ -116,7 +123,49 @@ export function parseVerdict(text) {
     artifacts,
     ...(requiresHuman != null ? { requiresHuman } : {}),
     ...(responses.length ? { responses } : {}),
+    ...(criteria.length ? { criteria } : {}),
   };
+}
+const artifactRoles = new Set(["spec"]);
+// Acceptance criteria ids as the spec numbers them (AC1); "ac-1", "#AC 1" and a bare
+// number are the same criterion. Anything else is no criterion.
+export function criterionId(value) {
+  const match = /^#?\s*(?:ac)?[\s\-\u2010-\u2015\u2212]*0*([1-9]\d{0,2})$/i.exec(
+    value.trim(),
+  );
+  return match ? `AC${match[1]}` : "";
+}
+const criterionStatuses = Object.assign(Object.create(null), {
+  met: "met",
+  "not-met": "not-met",
+  "not met": "not-met",
+  not_met: "not-met",
+  unmet: "not-met",
+});
+// Per-criterion results: one entry per acceptance criterion, each with evidence.
+function parseCriteria(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw problem(serverMessages.pipelines.verdictCriteriaArray);
+  const entries = new Map();
+  for (const entry of value.slice(0, 200)) {
+    const criterion =
+      typeof entry?.criterion === "string" ? criterionId(entry.criterion) : "";
+    if (!criterion) throw problem(serverMessages.pipelines.verdictCriterionId);
+    const status =
+      typeof entry.status === "string"
+        ? criterionStatuses[entry.status.trim().toLowerCase()]
+        : null;
+    if (!status) throw problem(serverMessages.pipelines.verdictCriterionStatus);
+    if (typeof entry.evidence !== "string" || !entry.evidence.trim())
+      throw problem(serverMessages.pipelines.verdictCriterionEvidence);
+    entries.delete(criterion);
+    entries.set(criterion, {
+      criterion,
+      status,
+      evidence: entry.evidence.slice(0, 2000),
+    });
+  }
+  return [...entries.values()];
 }
 // A repair turn answers each finding of the round it repaired; other turns omit this.
 const responseStatuses = Object.assign(Object.create(null), {

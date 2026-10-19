@@ -7,6 +7,13 @@ const seeds = [
     true,
   ],
   [
+    "spec-writer",
+    "Spec writer",
+    "planning",
+    'Write the contract for the task; do not implement it. Inspect the repository, then write spec.md in the stage report directory with these sections: "## Context" (the real files, modules and commands involved, with paths), "## Requirements", "## Acceptance criteria" (a numbered list; each criterion is one checkable outcome and ends with "Verify:" and the command or check that proves it), "## Out of scope" and "## Assumptions" (a bulleted list; start an assumption with "[product decision]" when it settles product behaviour the owner should confirm). Declare spec.md as an artifact with "role":"spec". Later stages refer to the criteria as AC1, AC2 and so on. Do not change application code.',
+    true,
+  ],
+  [
     "implementer",
     "Implementer",
     "implementation",
