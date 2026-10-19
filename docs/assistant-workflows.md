@@ -118,6 +118,14 @@ member's **Capabilities → Granted by the lead agent** shows the levels it has 
 kept as a permanent agent keeps no folder access its lead granted; grant it yourself
 in its **Work** tab.
 
+A lead can also share its folders and coding projects with its permanent members,
+standing or for one delegated task, apart from the access you give them; in a task
+from the lead only those shares count, and files change only in a task that may
+change files. Coding requests on a shared project always wait for your approval and
+run on the lead's grant. You see and revoke each share in the member's **Work →
+Shared by the lead agent** and in the project's Agents section
+([sharing a lead's access](agents.md#sharing-a-leads-access-with-permanent-members)).
+
 ## Agent access from the project
 
 **Projects → <project> → Agents** shows the same access from the project's side.
@@ -139,6 +147,9 @@ change from the project gets the usual conflict notice on save.
 
 Team members are not editable here. A read-only list shows the task members that use
 the folder through their lead, at the level they have right now (at most the lead's).
+**Shared by lead agents** lists the permanent members a lead shares this project with,
+"via <lead>", with what applies now (folder level, coding, standing or for one task)
+and **Revoke** (`shared` in the Agents view, `DELETE /api/assistant-lead-shares/:id`).
 
 **Add folder** offers the permanent agents with **No access**, **Coding only**,
 **Coding and read folder** or **Coding, read and write folder**; the choice is applied
@@ -214,8 +225,9 @@ routine run as its own origin (`TeamBridge.routineWrite`): only the run session 
 a bound, enabled routine of the calling agent with memory and routines switched on
 may change that agent's workspace, under the same workspace and instruction-file
 limits as an owner turn. It is not owner text: it never makes a delegated task
-writable (owner proof stays owner-text only, also for tasks the routine delegates
-itself), and reminder and check-in runs,
+writable on its own (owner proof stays owner-text only); only a routine the owner
+marked **May delegate writing tasks** in its details starts tasks that may write,
+recorded as the owner's standing instruction. Reminder and check-in runs,
 forwarded and tool-provided content still never write. After a Gateway start the
 routine's agent regains `write` and `edit` after the write guard is reported and
 the Gateway is ready, without a chat turn (see the write guard handshake in

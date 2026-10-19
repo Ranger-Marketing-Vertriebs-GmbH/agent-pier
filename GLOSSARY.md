@@ -87,9 +87,16 @@ _Avoid_: Subagent, child, worker.
 **Ask**, **Task**:
 The two kinds of lead request. An ask is a question to any member and never writes
 files; a task is work delegated to a permanent member and may write only with the
-owner's explicit request in the same message, or as a self-initiated task of an
-autonomous lead.
+owner's explicit request in the same message, as a self-initiated task of an
+autonomous lead, or from a routine the owner lets delegate writing tasks.
 _Avoid_: Job, ticket, delegation (for the record itself).
+
+**Lead share**:
+Access a lead passes on to one of its permanent members: project folders, coding
+projects or MCP servers it holds itself, standing or for one task, never above what
+the lead holds now. Kept apart from the access the owner gives the member and shown
+"via <lead>". A temporary member gets a _grant_ instead.
+_Avoid_: Inheritance (in UI text), delegation of rights.
 
 **Team usage**:
 How a lead involves its members on its own: _on request_, _suggest_ (offers a member
