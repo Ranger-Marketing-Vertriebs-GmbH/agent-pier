@@ -40,6 +40,24 @@ function exact(input, keys, required) {
   )
     throw assistantProblem("invalid");
 }
+/**
+ * Who calls a lead tool: an attempt of the lead's chat, or a routine's own run
+ * session (TeamBridge admits only ask, delegate and members there). The routine's
+ * name comes from its binding, never from the lead.
+ */
+export const callerOf = (inv) =>
+  inv.attemptId
+    ? { attemptId: inv.attemptId }
+    : inv.routine
+      ? {
+          routine: {
+            bindingId: inv.routine.binding.id,
+            name: inv.routine.binding.definition?.name || "",
+            conversationId: inv.routine.conversation.id,
+            sessionKey: inv.sessionKey,
+          },
+        }
+      : { attemptId: null };
 export class LeadRequestStore {
   constructor(teams) {
     this.teams = teams;
@@ -122,6 +140,19 @@ export class LeadRequestStore {
     if (lead.teamMemberId || lead.archivedAt) throw assistantProblem("invalid", 403);
     return { attempt, request, conversation, lead };
   }
+  /**
+   * The calling lead of a tool call: from its attempt, or for a routine's own run
+   * session (no attempt, TeamBridge.routineRun) from the chat the routine belongs to.
+   * The same rules hold: members and archived agents never lead.
+   */
+  caller({ attemptId, routine }) {
+    if (attemptId) return this.lead(attemptId);
+    if (!routine) throw assistantProblem("invalid", 403);
+    const conversation = this.teams.store.getConversation(routine.conversationId),
+      lead = this.teams.store.getAssistant(conversation.assistantId);
+    if (lead.teamMemberId || lead.archivedAt) throw assistantProblem("invalid", 403);
+    return { attempt: null, request: null, conversation, lead };
+  }
   /** A member of exactly this lead that can still be reached. */
   ownMember(leadId, memberId) {
     textValue(memberId, 100);
@@ -133,8 +164,10 @@ export class LeadRequestStore {
     return { member: m, assistant };
   }
   // `offer`: the lead's last reply before this turn (LeadRequests.lastReply), which
-  // must name the member for the owner's yes to count.
-  create({ type, attemptId, operationId, input, offer = null }) {
+  // must name the member for the owner's yes to count. `routine` ({ bindingId,
+  // name, conversationId, sessionKey }) stands for the attempt when a routine's run
+  // calls: its own origin, never owner text, so its tasks always run read-only.
+  create({ type, attemptId = null, routine = null, operationId, input, offer = null }) {
     const field = type === "task" ? "task" : "question";
     exact(
       input,
@@ -156,7 +189,7 @@ export class LeadRequestStore {
     // The owner's message is parsed for the proofs before the transaction; inside
     // it only a parse of the same request (its text and context never change) is used.
     let owner = null;
-    {
+    if (!routine) {
       try {
         const { request } = this.lead(attemptId);
         const parsed = parseOwnerText(request.text, t.context(request.id).hidden);
@@ -166,8 +199,10 @@ export class LeadRequestStore {
       }
     }
     return t.transaction(() => {
-      const { request, conversation, lead } = this.lead(attemptId);
-      const key = `${attemptId}:${operationId}`;
+      const { request, conversation, lead } = this.caller({ attemptId, routine });
+      // A routine run is its own turn: its session key names the run.
+      const run = routine ? `routine:${textValue(routine.sessionKey, 512)}` : null;
+      const key = `${run || attemptId}:${operationId}`;
       const hash = fingerprint({ type, memberId: input.memberId, text });
       const old = t.db
         .prepare("SELECT id FROM assistant_team_records WHERE operation_key=?")
@@ -186,7 +221,9 @@ export class LeadRequestStore {
           throw assistantProblem("memberRequestOpenTask", 409);
       }
       const mine = this.list(lead.id),
-        turn = mine.filter((r) => r.parentRequestId === request.id),
+        turn = mine.filter((r) =>
+          run ? r.routineRun === run : r.parentRequestId === request.id,
+        ),
         now = Date.now();
       if (mine.filter((r) => !requestTerminal.has(r.phase)).length >= requestCaps.open)
         throw assistantProblem("active", 409);
@@ -196,7 +233,9 @@ export class LeadRequestStore {
           requestCaps.perMinute
       )
         throw assistantProblem("memberRequestRate", 429);
-      const context = t.context(request.id),
+      const context = routine
+          ? { kind: "routine", bindingId: routine.bindingId, name: routine.name }
+          : t.context(request.id),
         policy = t.policy(lead.id);
       const ownerTurn =
         ["owner", "telegram"].includes(context.kind) && !context.forwarded;
@@ -221,11 +260,12 @@ export class LeadRequestStore {
         .map(({ m, profile }) => ({ id: m.id, name: profile.name }));
       // Only the owner's own prose proves anything: never text the owner quoted,
       // pasted, coded or linked (Markdown, or a Telegram message's formatting).
-      const parsed =
-        owner?.requestId === request.id
+      const parsed = !request
+        ? null
+        : owner?.requestId === request.id
           ? owner.parsed
           : parseOwnerText(request.text, context.hidden);
-      const sentence = quote ? ownerQuoteProof(quote, parsed) : null;
+      const sentence = quote && parsed ? ownerQuoteProof(quote, parsed) : null;
       // The lead's quote proves a request only by name and an ask or delegate verb;
       // mentions count only from the owner's own message below.
       const addressed =
@@ -274,7 +314,7 @@ export class LeadRequestStore {
       // other member.
       const prose = ownerTurn ? ownerProse(parsed) || "" : "";
       const usage = policy.usage;
-      if (open && !proof && quote && usage !== "onRequest") {
+      if (open && !proof && quote && parsed && usage !== "onRequest") {
         const yes = ownerConsent(quote, parsed);
         if (
           yes &&
@@ -300,8 +340,7 @@ export class LeadRequestStore {
       if (selfInitiated) {
         const own = mine.filter((r) => r.selfInitiated);
         if (
-          own.filter((r) => r.parentRequestId === request.id).length >=
-            autonomousCaps.perTurn ||
+          own.filter((r) => turn.includes(r)).length >= autonomousCaps.perTurn ||
           own.filter((r) => now - Date.parse(r.createdAt) < 3600000).length >=
             autonomousCaps.perHour
         )
@@ -321,8 +360,9 @@ export class LeadRequestStore {
           type,
           parentAssistantId: lead.id,
           parentConversationId: conversation.id,
-          parentRequestId: request.id,
+          parentRequestId: request?.id ?? null,
           parentAttemptId: attemptId,
+          ...(run ? { routineRun: run } : {}),
           leadName: lead.name,
           memberId: member.id,
           memberAssistantId: member.assistantId,
@@ -395,6 +435,10 @@ export function publicRequest(r, { full = false } = {}) {
     createdAt: r.createdAt,
     writeAllowed: !!r.writeAllowed,
     ...(r.selfInitiated ? { selfInitiated: true } : {}),
+    // Started by the lead's routine of this name, never by the owner's text.
+    ...(r.origin?.kind === "routine" && r.routineRun
+      ? { routine: textOr(r.origin.name) }
+      : {}),
     ...(r.startedAt ? { startedAt: r.startedAt } : {}),
     ...(r.finishedAt ? { finishedAt: r.finishedAt } : {}),
     ...(r.answer ? (full ? { answer: r.answer } : { hasAnswer: true }) : {}),
@@ -405,3 +449,4 @@ export function publicRequest(r, { full = false } = {}) {
     ...(r.ownerProof ? { ownerRequestQuote: r.ownerProof.quote } : {}),
   };
 }
+const textOr = (value) => (typeof value === "string" ? value : "");

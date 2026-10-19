@@ -214,7 +214,8 @@ routine run as its own origin (`TeamBridge.routineWrite`): only the run session 
 a bound, enabled routine of the calling agent with memory and routines switched on
 may change that agent's workspace, under the same workspace and instruction-file
 limits as an owner turn. It is not owner text: it never makes a delegated task
-writable (owner proof stays owner-text only), and reminder and check-in runs,
+writable (owner proof stays owner-text only, also for tasks the routine delegates
+itself), and reminder and check-in runs,
 forwarded and tool-provided content still never write. After a Gateway start the
 routine's agent regains `write` and `edit` after the write guard is reported and
 the Gateway is ready, without a chat turn (see the write guard handshake in
@@ -230,10 +231,14 @@ Owners who give an agent with routines shell "Full access" or memory (which brin
 file writes) should keep that in mind; shell "Approval" still asks before every command.
 
 A routine run never gets the reminder and routine tools (no self-scheduling).
-Known limitation: it does not get the team and workspace tools either, so it
-cannot ask or delegate to members, start coding jobs or write project knowledge.
-The bridge serves those tools only within an owner's chat turn (an AgentPier
-attempt for the session), which a routine's own run session does not have. The run cap is the
+A lead's routine may list, ask and delegate to its own members
+(`agentpier_team_members`, `_ask`, `_delegate`, `routineTeamTools`): the bridge
+binds such a call to the routine's run session (`TeamBridge.routineRun`) and the
+request carries the routine as its origin (`{ kind: "routine", bindingId, name }`,
+`LeadRequestStore.caller`). Known limitation: the workspace tools and every other
+team tool stay out, so a routine cannot start coding jobs, write project knowledge,
+propose teams or archive and grant members; the bridge serves those only within an
+owner's chat turn (an AgentPier attempt for the session). The run cap is the
 fixed list `routineTools` (`server/features/assistants/native-capabilities.js`);
 OpenClaw intersects it with the agent's `tools.allow`, so capability, shell and MCP
 changes apply to routines without rewriting their jobs.

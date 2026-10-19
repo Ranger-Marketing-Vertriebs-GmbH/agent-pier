@@ -966,9 +966,25 @@ A lead reaches its own members without the owner relaying anything
   and only routine runs reach `write`/`edit`: they run in their own `cron:<job>`
   session, which has no attempt; check-ins run with `toolsAllow: ["memory_search", "memory_get"]`,
   reminders with no tools, and routines with `routineTools`, which leaves out the
-  plugin's tools (pinned by the native heartbeat, reminder and routine tests). A
+  plugin's tools apart from SSH, shared files and the lead's `members`, `ask` and
+  `delegate` (pinned by the native heartbeat, reminder and routine tests). A
   routine run's `write`/`edit` pass the guard as their own origin
   (`TeamBridge.routineWrite`, see [workflows](assistant-workflows.md)).
+- **Routine origin.** A lead's routine run reaches `members`, `ask` and
+  `delegate` without an attempt: `TeamBridge.prepare` binds the call to the run
+  session of a bound, enabled routine of a personal, non-archived agent with routines
+  on (`routineRun`) and re-checks it on every step. `LeadRequestStore.caller`
+  resolves the lead from the routine's chat (members and archived agents never lead),
+  and the request is stored with `origin: { kind: "routine", bindingId, name }` and
+  `routineRun` (the run session) in place of `parentRequestId`. A routine is not
+  owner text: no quote, mention or yes is read, so its tasks never write
+  (`writeAllowed: false`, no `ownerProof`, never `autonomous`) at every usage level;
+  questions run as usual. The same member checks apply as in chat (own member, not
+  archived, tasks only to permanent members), the per-turn limit counts per run, and
+  under `autonomous` a routine's requests are `selfInitiated` and count against
+  `autonomousCaps`. An ask returns the answer inline within the wait; a later answer
+  or a task's result reaches the lead as a follow-up turn in the routine's chat once no
+  ask waits for it. **Work → Teams** marks such requests "Scheduled · <routine>".
 - **Recovery.** Requests are durable records in the team store; settled ones are
   pruned after 30 days or beyond the newest 200 per lead, and the scheduling pass
   reads only open or undelivered ones. A send whose outcome is unknown at a restart
@@ -1619,7 +1635,7 @@ key that Perplexity uses, take effect at the next Gateway start.
 only while the agent holds an SSH grant, and it is part of `routineTools`. The bridge
 admits `action: "ssh"` for owner and permanent-member turns like the other personal
 tools, for a temporary member only while it was granted SSH on its lead's grants
-([Team member grants](#team-member-grants-2026-10-17)), and, as the only action, for a routine's run session without an attempt
+([Team member grants](#team-member-grants-2026-10-17)), and, beside shared files and a lead's `members`, `ask` and `delegate`, for a routine's run session without an attempt
 (`TeamBridge.routineRun`, a bound, enabled routine with routines on). The plugin's
 call budget for `ssh` is 245 seconds: a 110-second approval hold plus a 120-second
 command. Forwarded, member-result, reminder, check-in and unknown turns are refused
