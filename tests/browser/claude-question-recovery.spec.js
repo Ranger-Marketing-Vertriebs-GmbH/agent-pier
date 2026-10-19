@@ -82,8 +82,8 @@ for (const locale of ["de-DE", "en-GB"]) {
           presentation: "claudeLegacyQuestion",
           subject: { tool: "AskUserQuestion" },
           options: [
-            { id: "allow", label: "Allow" },
-            { id: "deny", label: "Deny" },
+            { id: "allow", label: "Einmal erlauben", scope: "once" },
+            { id: "deny", label: "Ablehnen" },
           ],
         },
       ];
@@ -91,12 +91,9 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(
         page.getByText(en ? "Answer required" : "Antwort erforderlich", { exact: true }),
       ).toBeVisible();
-      await expect(page.getByRole("button", { name: "Allow", exact: true })).toHaveCount(
-        0,
-      );
-      await expect(page.getByRole("button", { name: "Deny", exact: true })).toHaveCount(
-        0,
-      );
+      // Neither the server's labels nor Claude's translated options are offered.
+      for (const name of ["Einmal erlauben", "Allow once", "Ablehnen", "Deny"])
+        await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
       await expect(page.locator(".native-requests code")).toHaveText("/reload-plugins");
       await page.screenshot({ path: testInfo.outputPath("claude-legacy-question.png") });
       await page
