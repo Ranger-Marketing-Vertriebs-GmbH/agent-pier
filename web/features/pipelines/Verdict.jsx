@@ -37,7 +37,9 @@ export function Findings({ findings, answer }) {
             <span className="run-finding-title">{finding.title || finding.message}</span>
             {finding.file && <code>{finding.file}</code>}
             {finding.detail && <small>{finding.detail}</small>}
-            {answer && <small className="run-finding-answer">{answer(finding)}</small>}
+            {answer?.(finding) && (
+              <small className="run-finding-answer">{answer(finding)}</small>
+            )}
           </span>
         </li>
       ))}
@@ -51,6 +53,9 @@ export default function Verdict({ verdict }) {
     <>
       <VerdictSummary verdict={verdict} />
       <Findings findings={verdict.findings} />
+      {verdict.ignoredAnswers?.length > 0 && (
+        <p>{copy.ignoredAnswers(verdict.ignoredAnswers.join(", "))}</p>
+      )}
     </>
   );
 }

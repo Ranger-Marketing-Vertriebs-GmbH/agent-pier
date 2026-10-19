@@ -24,6 +24,8 @@ export const pipelineCopy = {
   },
   roundUnanswered: "Nicht beantwortet",
   roundAnswer: (status, reason) => (reason ? `${status}: ${reason}` : status),
+  roundAnswerPending: "Antwort ausstehend",
+  ignoredAnswers: (ids) => `Antworten auf unbekannte Befunde wurden ignoriert: ${ids}`,
   loopTo: (stage) => `↺ zu Stufe ${stage}`,
   decisionCue: (stage) => `Entscheidung erforderlich · Stufe ${stage}`,
   attemptNumber: (number) => `Versuch ${number}`,

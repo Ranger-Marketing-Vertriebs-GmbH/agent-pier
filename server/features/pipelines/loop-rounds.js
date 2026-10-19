@@ -1,5 +1,4 @@
 import { edgeKey, loopResetSet } from "./graph-navigation.js";
-import { serverMessages } from "../../lib/i18n/de.js";
 import { stageReports } from "./stage-reports.js";
 
 // A round is what one pass over a loop edge hands back to the edge's target: the stage
@@ -59,15 +58,26 @@ export function recordRound(run, node, edge, verdict, { iteration, operatorNote,
     stageEntry(run, node.id, source, verdict),
     ...[...latest].map(([id, attempt]) => stageEntry(run, id, attempt, attempt.verdict)),
   ];
+  // Finding ids count rounds per loop target, so rounds of two edges into the same stage
+  // never share an id. Rounds saved before `seq` existed numbered by their edge's round.
+  const seq =
+    1 +
+    Math.max(
+      0,
+      ...(run.loopRounds || [])
+        .filter((r) => r.toNodeId === edge.to)
+        .map((r) => r.seq ?? r.round),
+    );
   let number = 0;
   for (const stage of stages)
     stage.findings = stage.findings.map((f) => ({
-      id: `R${iteration}-${++number}`,
+      id: `R${seq}-${++number}`,
       ...f,
     }));
   const round = {
     edge: key,
     round: iteration,
+    seq,
     fromNodeId: node.id,
     toNodeId: edge.to,
     at: at || new Date().toISOString(),
@@ -93,21 +103,33 @@ export function repairRound(run, node, attempt) {
   return round;
 }
 
-// A repair verdict may only answer findings of the round it repairs.
-export function checkAnswers(run, node, attempt, found) {
+// A repair verdict keeps only answers to findings of the round it repairs. Answers to an
+// earlier round into the stage (e.g. confirming an earlier fix) are dropped silently;
+// answers to ids no round has are dropped and named in `ignoredAnswers`, which the run
+// history shows. Turns that repair nothing keep their answers unchecked.
+export function filterAnswers(run, node, attempt, found) {
   const round = found.present && repairRound(run, node, attempt);
   if (!round || !found.verdict.responses?.length) return found;
   const ids = new Set(findingsOf(round).map((f) => f.id));
-  const unknown = found.verdict.responses
+  const earlier = new Set(
+    (run.loopRounds || [])
+      .filter((r) => r.toNodeId === node.id && r !== round)
+      .flatMap((r) => findingsOf(r).map((f) => f.id)),
+  );
+  const responses = found.verdict.responses.filter((r) => ids.has(r.finding));
+  const ignored = found.verdict.responses
     .map((r) => r.finding)
-    .filter((id) => !ids.has(id));
-  if (!unknown.length) return found;
+    .filter((id) => !ids.has(id) && !earlier.has(id));
+  if (responses.length === found.verdict.responses.length) return found;
+  const verdict = { ...found.verdict };
+  delete verdict.responses;
   return {
-    present: false,
-    invalid: true,
-    reason: serverMessages.pipelines.verdictResponseUnknown(
-      unknown.slice(0, 5).join(", "),
-    ),
+    ...found,
+    verdict: {
+      ...verdict,
+      ...(responses.length ? { responses } : {}),
+      ...(ignored.length ? { ignoredAnswers: ignored.slice(0, 20) } : {}),
+    },
   };
 }
 
@@ -128,15 +150,24 @@ export function missingAnswers(run, node, attempt, verdict) {
 export const answersNudge = (missing) =>
   `Your verdict does not answer these findings of the current round: ${missing.join(", ")}. Write the verdict again and answer each of them in "responses" with "fixed", "not-fixed" or "disputed" and a reason unless fixed.`;
 
-// Every accepted verdict of a repair turn binds the round to that repair; its answers
-// are merged by finding, a later answer replacing an earlier one.
-export function recordResponses(run, node, attempt, verdict) {
+// Answers of a repair turn are merged into its round by finding, a later answer
+// replacing an earlier one. Only an accepted verdict binds the round to the repair
+// (`repairAttemptId`); until then the round's answers are still pending.
+export function recordResponses(run, node, attempt, verdict, { accepted = true } = {}) {
   const round = repairRound(run, node, attempt);
   if (!round) return;
   const merged = new Map((round.responses || []).map((r) => [r.finding, r]));
   for (const response of verdict?.responses || []) merged.set(response.finding, response);
   if (merged.size) round.responses = [...merged.values()];
-  round.repairAttemptId = attempt.attemptId;
+  if (accepted) round.repairAttemptId = attempt.attemptId;
+}
+
+// A round asks for missing answers once, however often its repair is retried.
+export function claimAnswersNudge(run, node, attempt) {
+  const round = repairRound(run, node, attempt);
+  if (!round || round.answersNudged) return false;
+  round.answersNudged = true;
+  return true;
 }
 
 const shrinkLevels = [

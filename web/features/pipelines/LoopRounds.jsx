@@ -18,13 +18,19 @@ function answerCounts(responses) {
     .join(" · ");
 }
 
-// The repair turn's answer to one finding, once the repair has delivered its verdict.
-function answerText(round) {
-  if (!round.repairAttemptId && !round.responses?.length) return undefined;
+// The repair turn's answer to one finding. A finding without an answer is unanswered once
+// the repair delivered its verdict, and pending while the repair of the newest round
+// into its stage may still answer it.
+function answerText(round, pending) {
   const answers = new Map((round.responses || []).map((r) => [r.finding, r]));
   return (finding) => {
     const response = answers.get(finding.id);
-    if (!response) return copy.roundUnanswered;
+    if (!response)
+      return round.repairAttemptId
+        ? copy.roundUnanswered
+        : pending
+          ? copy.roundAnswerPending
+          : undefined;
     return copy.roundAnswer(
       copy.roundAnswers[response.status] || response.status,
       response.reason,
@@ -38,6 +44,9 @@ function answerText(round) {
 export default function LoopRounds({ run }) {
   const rounds = Array.isArray(run.loopRounds) ? run.loopRounds : [];
   if (!rounds.length) return null;
+  const live = !["completed", "failed", "cancelled"].includes(run.status);
+  const newest = (round) =>
+    rounds.findLast((item) => item.toNodeId === round.toNodeId) === round;
   const name = (id) => {
     const node = run.nodes?.find((item) => item.id === id);
     return node ? stageName(node) : id;
@@ -75,7 +84,10 @@ export default function LoopRounds({ run }) {
                     <Icon name="chevron" size={14} className="run-round-chevron" />
                     {row}
                   </summary>
-                  <Findings findings={findings} answer={answerText(round)} />
+                  <Findings
+                    findings={findings}
+                    answer={answerText(round, live && newest(round))}
+                  />
                 </details>
               ) : (
                 row

@@ -2,13 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import {
-  checkAnswers,
+  claimAnswersNudge,
+  filterAnswers,
   missingAnswers,
   recordResponses,
   repairRound,
   reviewContext,
 } from "../../server/features/pipelines/loop-rounds.js";
 import { parseVerdict } from "../../server/features/pipelines/stage-verdict.js";
+import { recordRound } from "../../server/features/pipelines/loop-rounds.js";
 import { loopRun, repairing, round, turn } from "../helpers/pipeline-rounds.js";
 
 const review = (run, node) => reviewContext(run, node).join("\n\n");
@@ -118,25 +120,98 @@ test("missing and unknown answers are found against the repaired round", () => {
   ]);
   // Outside a repair nothing is missing.
   assert.deepEqual(missingAnswers(run, run.nodes[1], turn(run, "test"), {}), []);
+});
 
-  const verdict = { result: "pass", summary: "x", responses: [] };
-  const found = (responses) => ({ present: true, verdict: { ...verdict, responses } });
-  const ok = found([{ finding: "R1-1", status: "fixed" }]);
-  assert.equal(checkAnswers(run, build, repair, ok), ok);
+test("answers outside the repaired round are dropped, unknown ones with a note", () => {
+  const run = loopRun();
+  round(run, "Missing validation", 1);
+  const build = repairing(run, 1);
+  recordResponses(run, build, turn(run, "build"), {
+    responses: [{ finding: "R1-1", status: "fixed" }],
+  });
+  round(run, "Broken error message", 2);
+  build.loop.iteration = 2;
+  const repair = turn(run, "build");
+  const found = (responses) => ({
+    present: true,
+    verdict: { result: "pass", summary: "x", responses },
+  });
+  const ok = found([{ finding: "R2-1", status: "fixed" }]);
+  assert.equal(filterAnswers(run, build, repair, ok), ok);
+  // Confirming an earlier round's fix is harmless; an id no round has is noted.
   assert.deepEqual(
-    checkAnswers(run, build, repair, found([{ finding: "R9-9", status: "fixed" }])),
+    filterAnswers(
+      run,
+      build,
+      repair,
+      found([
+        { finding: "R2-1", status: "fixed" },
+        { finding: "R1-1", status: "fixed" },
+        { finding: "R9-9", status: "fixed" },
+      ]),
+    ),
     {
-      present: false,
-      invalid: true,
-      reason: serverMessages.pipelines.verdictResponseUnknown("R9-9"),
+      present: true,
+      verdict: {
+        result: "pass",
+        summary: "x",
+        responses: [{ finding: "R2-1", status: "fixed" }],
+        ignoredAnswers: ["R9-9"],
+      },
     },
+  );
+  assert.deepEqual(
+    filterAnswers(run, build, repair, found([{ finding: "R1-1", status: "fixed" }])),
+    { present: true, verdict: { result: "pass", summary: "x" } },
   );
   // Answers on a turn that repairs nothing stay optional and unchecked.
   const other = found([{ finding: "R9-9", status: "fixed" }]);
-  assert.equal(checkAnswers(run, run.nodes[1], turn(run, "test"), other), other);
-  assert.deepEqual(checkAnswers(run, build, repair, { present: false }), {
+  assert.equal(filterAnswers(run, run.nodes[1], turn(run, "test"), other), other);
+  assert.deepEqual(filterAnswers(run, build, repair, { present: false }), {
     present: false,
   });
+});
+
+test("ids count rounds per loop target, also for rounds saved before that", () => {
+  const run = loopRun();
+  // A round saved by an earlier build carries no seq; its round number stands in.
+  run.loopRounds = [{ edge: "review->build", round: 2, toNodeId: "build", stages: [] }];
+  const next = round(run, "Missing validation", 3);
+  assert.equal(next.seq, 3);
+  assert.equal(next.stages[0].findings[0].id, "R3-1");
+  // Another edge into the same stage continues the count.
+  run.edges.push({ from: "test", to: "build", condition: "fail", maxIterations: 2 });
+  turn(run, "build", { result: "pass", summary: "b", findings: [], artifacts: [] });
+  const verdict = { result: "fail", summary: "t", findings: [{ title: "Flaky" }] };
+  turn(run, "test", verdict);
+  const other = recordRound(run, run.nodes[1], run.edges.at(-1), verdict, {
+    iteration: 1,
+    at: run.executionLog.at(-1).finishedAt,
+  });
+  assert.deepEqual(
+    [other.round, other.seq, other.stages[0].findings[0].id],
+    [1, 4, "R4-1"],
+  );
+});
+
+test("a round asks for missing answers once and keeps them pending until accepted", () => {
+  const run = loopRun();
+  round(run, "Missing validation", 1);
+  const build = repairing(run, 1);
+  const first = turn(run, "build");
+  assert.equal(claimAnswersNudge(run, build, first), true);
+  // A retried repair is a new attempt of the same round: no second nudge.
+  assert.equal(claimAnswersNudge(run, build, turn(run, "build")), false);
+  assert.equal(claimAnswersNudge(run, run.nodes[1], turn(run, "test")), false);
+  recordResponses(
+    run,
+    build,
+    first,
+    { responses: [{ finding: "R1-1", status: "fixed" }] },
+    { accepted: false },
+  );
+  assert.equal(run.loopRounds[0].responses.length, 1);
+  assert.equal(run.loopRounds[0].repairAttemptId, undefined);
 });
 
 test("verdict responses are validated and stay optional", () => {
@@ -171,11 +246,21 @@ test("verdict responses are validated and stay optional", () => {
   reject([{ finding: "R1-1", status: "maybe" }], m.verdictResponseStatus);
   reject([{ finding: "R1-1", status: "not-fixed" }], m.verdictResponseReason);
   reject([{ finding: "R1-1", status: "disputed", reason: " " }], m.verdictResponseReason);
-  reject(
+  // Ids are normalised and a finding answered twice keeps its last answer.
+  assert.deepEqual(
+    parseVerdict(
+      JSON.stringify({
+        ...base,
+        responses: [
+          { finding: "r1-1", status: "fixed" },
+          { finding: "R1-2", status: "fixed" },
+          { finding: " #R1\u20131", status: "disputed", reason: "x" },
+        ],
+      }),
+    ).responses,
     [
-      { finding: "R1-1", status: "fixed" },
-      { finding: " R1-1", status: "disputed", reason: "x" },
+      { finding: "R1-2", status: "fixed" },
+      { finding: "R1-1", status: "disputed", reason: "x" },
     ],
-    m.verdictResponseDuplicate("R1-1"),
   );
 });
