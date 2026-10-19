@@ -7,6 +7,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { assistantApi } from "./assistant-api.js";
 import { sharedDrafts } from "./useAssistants.js";
 import { AgentHistoryCache, connectionLost } from "./agent-offline.js";
+import { applyListSync } from "./agent-list-sync.js";
+const none = [];
+const nothing = {};
+// The host state from a list read or a list sync; missing sections stay stable.
+const toData = (next) => ({
+  assistants: next.assistants || none,
+  conversations: next.conversations || none,
+  models: next.models || none,
+  teams: next.teams || none,
+  members: next.members || none,
+  requests: next.requests || none,
+  policies: next.policies || nothing,
+  teamSettings: next.teamSettings,
+  activity: next.activity || nothing,
+});
 // Lazily loaded owner of the assistant data and the event stream. It renders nothing
 // and publishes into the always-mounted gate, so toggling it never remounts the app.
 export default function AssistantsHost({ publishState, publishEvents }) {
@@ -25,25 +40,21 @@ export default function AssistantsHost({ publishState, publishEvents }) {
   const [histories] = useState(() => new AgentHistoryCache());
   const listeners = useRef(new Set());
   const alive = useRef(true);
+  // Counts applied list syncs: a read that a sync overtook is not shown.
+  const syncs = useRef(0);
   const refresh = useCallback(async () => {
+    const seen = syncs.current;
     try {
       const [next, status] = await Promise.all([
         assistantApi.list(),
         assistantApi.runtime(),
       ]);
       if (alive.current) {
-        setData({
-          assistants: next.assistants || [],
-          conversations: next.conversations || [],
-          models: next.models || [],
-          teams: next.teams || [],
-          members: next.members || [],
-          requests: next.requests || [],
-          policies: next.policies || {},
-          teamSettings: next.teamSettings,
-          activity: next.activity || {},
-        });
-        setRuntime(status);
+        // A sync that arrived meanwhile is at least as new; it stays.
+        if (syncs.current === seen) {
+          setData(toData(next));
+          setRuntime(status);
+        }
         setError("");
         setReachable(true);
       }
@@ -55,16 +66,26 @@ export default function AssistantsHost({ publishState, publishEvents }) {
   }, []);
   useEffect(() => {
     alive.current = true;
+    // The first list comes at once, also when the stream is slow to connect.
     refresh();
     let stream,
       timer,
-      attempts = 0;
+      attempts = 0,
+      // The list as last synced ({state, list, sections}): its cursor resumes.
+      synced = null,
+      // Whether this stream sends the list as diffs; an older server only says
+      // "change", and the list is read again for each.
+      feed = false;
     // 2 is EventSource.CLOSED.
     const closed = () => stream?.readyState === 2;
     const open = () => {
       clearTimeout(timer);
       stream?.close();
-      stream = new EventSource("/api/assistant-events");
+      feed = false;
+      const cursor = synced?.state.sync.cursor;
+      stream = new EventSource(
+        `/api/assistant-events${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      );
       stream.onopen = () => {
         attempts = 0;
         setConnected(true);
@@ -86,16 +107,46 @@ export default function AssistantsHost({ publishState, publishEvents }) {
           return;
         }
         for (const listener of [...listeners.current]) listener(event);
-        if (event.type === "runtime") setRuntime(event);
-        if (["change", "connected"].includes(event.type)) refresh();
+        // The browser status comes only with the list; the event keeps the last one.
+        if (event.type === "runtime")
+          setRuntime((old) => ({ browser: old.browser, ...event }));
+        if (event.type === "connected") feed = !!event.list;
+        if (event.type === "sync") applySync(event.data);
+        // Without the feed, or when it could not read the list: read it whole.
+        if (
+          event.type === "list-error" ||
+          (!feed && ["change", "connected"].includes(event.type))
+        )
+          refresh();
       };
+    };
+    const applySync = (data) => {
+      try {
+        synced = applyListSync(synced, data);
+      } catch {
+        // Another base or a malformed frame: start over with the whole list.
+        synced = null;
+        open();
+        return;
+      }
+      syncs.current++;
+      const { runtime: status, ...list } = synced.list;
+      setData((old) => {
+        const next = toData(list);
+        // Unchanged sections keep their identity, and so does an unchanged list.
+        return Object.keys(next).every((key) => next[key] === old[key]) ? old : next;
+      });
+      if (status) setRuntime((old) => (old === status ? old : status));
+      setError("");
+      setReachable(true);
     };
     open();
     const offline = () => setReachable(false);
     // Back online or in the foreground again: check now rather than after the backoff.
     const resume = () => {
       if (document.hidden) return;
-      refresh();
+      // An open feed keeps the list current; otherwise read it now.
+      if (!feed || closed()) refresh();
       if (closed()) {
         attempts = 0;
         open();

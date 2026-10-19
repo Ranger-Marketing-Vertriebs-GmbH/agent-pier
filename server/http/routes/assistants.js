@@ -6,7 +6,6 @@ import { assistantWorkRoutes } from "./assistant-work.js";
 import { assistantProjectAccessRoutes } from "./assistant-project-access.js";
 import { assistantLeadShareRoutes } from "./assistant-lead-shares.js";
 import { assistantCapabilityRoutes } from "./assistant-capabilities.js";
-import { chromiumUnavailable } from "../../features/tools/chromium-installer.js";
 import { assistantChannelRoutes } from "./assistant-channels.js";
 import { assistantWebSearchRoutes } from "./assistant-web-search.js";
 import { assistantPdfModelRoutes } from "./assistant-pdf-model.js";
@@ -29,7 +28,7 @@ import { assistantFeatureRoutes } from "./assistant-feature.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { ASSISTANT_STORAGE_UNSAFE } from "../../features/assistants/assistant-feature.js";
-import { runtimeStatus } from "../../features/assistants/team-bridge.js";
+import { runtimeView } from "../../features/assistants/runtime-view.js";
 import { replyRestartRequired } from "./restart-required.js";
 
 // Agent OAuth logins of MCP servers exist only while the agent services do; the
@@ -75,40 +74,6 @@ export function assistantRoutes(services) {
     return routes(req, res, next);
   });
   return router;
-}
-function browserStatus(webTools) {
-  // Whether AgentPier can install its own agent browser on this host.
-  const installable = !chromiumUnavailable(process.platform, process.arch);
-  try {
-    const { available, name, visible, managed } = webTools?.detect() || {};
-    // Whether agents may get a visible window, and why not ("noApp", "noDisplay").
-    const window = visible?.available
-      ? { available: true }
-      : { available: false, reason: visible?.reason || "noApp" };
-    // A browser installed (or removed) since the running Gateway started needs a
-    // restart before agents drive it.
-    let restartNeeded = false;
-    try {
-      restartNeeded = !!webTools?.differs?.();
-    } catch {
-      /* No running Gateway to compare with. */
-    }
-    return {
-      ...(available ? { available: true, name } : { available: false }),
-      visible: window,
-      managed: !!managed,
-      installable,
-      restartNeeded,
-    };
-  } catch {
-    return {
-      available: false,
-      visible: { available: false, reason: "noApp" },
-      managed: false,
-      installable,
-      restartNeeded: false,
-    };
-  }
 }
 function activeAssistantRoutes(services) {
   const { assistants, assistantRuntime, audit } = services;
@@ -236,11 +201,14 @@ function activeAssistantRoutes(services) {
     res.json(await assistants.recover(req.params.id, req.body)),
   );
   router.get("/assistant-runtime", (_req, res) =>
-    res.json({
-      ...runtimeStatus(assistantRuntime, assistants, services.assistantTeams?.bridge),
-      // Whether the agents can drive a browser; the settings page gates its switch on it.
-      browser: browserStatus(services.assistantWebTools),
-    }),
+    res.json(
+      runtimeView({
+        runtime: assistantRuntime,
+        assistants,
+        bridge: services.assistantTeams?.bridge,
+        webTools: services.assistantWebTools,
+      }),
+    ),
   );
   router.post("/assistant-runtime/:action", async (req, res) =>
     assistants.admit(async () => {
@@ -278,13 +246,24 @@ function activeAssistantRoutes(services) {
       "X-Accel-Buffering": "no",
     });
     res.flushHeaders();
-    const send = (event) => {
+    // A slow reader is cut off; the browser reconnects with its last list cursor.
+    const send = (event, id) => {
+      if (res.writableEnded) return;
       if (res.writableLength > 1024 * 1024) return res.end();
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
+      const line = id === undefined ? "" : `id: ${id}\n`;
+      res.write(`${line}data: ${JSON.stringify(event)}\n\n`);
       res.flush?.();
     };
-    send({ type: "connected" });
-    const unsubscribe = assistants.events.subscribe(send);
+    // `list: true`: the list comes as `sync` frames (assistant-list-feed.js) whose
+    // id is the cursor a reconnect resumes from (Last-Event-ID, or `cursor`).
+    send({ type: "connected", list: true });
+    const unsubscribe = assistants.events.subscribe((event) => send(event));
+    const cursor = req.get("Last-Event-ID") || req.query.cursor;
+    const unlist = assistants.listFeed.subscribe(
+      { cursor: typeof cursor === "string" ? cursor : undefined },
+      (frame) =>
+        send(frame, frame.type === "sync" ? frame.data.sync.cursor || "" : undefined),
+    );
     const heartbeat = setInterval(() => {
       res.write(": heartbeat\n\n");
       res.flush?.();
@@ -294,6 +273,7 @@ function activeAssistantRoutes(services) {
     assistants.events.once("close", close);
     req.on("close", () => {
       unsubscribe();
+      unlist();
       clearInterval(heartbeat);
       assistants.events.off("close", close);
     });

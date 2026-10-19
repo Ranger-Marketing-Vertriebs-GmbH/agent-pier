@@ -26,6 +26,7 @@ import { assistantActivity } from "./assistant-activity.js";
 import { temporaryMember } from "./team-presentation.js";
 import { ChatStreams } from "./chat-stream.js";
 import { conversationFeeds, reconciledChanges } from "./conversation-feeds.js";
+import { assistantListFeed } from "./assistant-list-feed.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { mainConversation } from "./routine-targets.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
@@ -73,6 +74,8 @@ export class AssistantService {
     this.chatStreams = new ChatStreams();
     // The open chats' live feeds (conversation-feeds.js).
     this.feeds = conversationFeeds(this);
+    // The agent list as diffs on the event stream (assistant-list-feed.js).
+    this.listFeed = assistantListFeed(this);
     this.gatewayEvents = new GatewayEventHub();
     // A skill folder changed (one may now shadow an assigned skill), or a Gateway
     // started from a compile that could not ask it: re-apply agents with skills.
@@ -554,6 +557,7 @@ export class AssistantService {
     this.unsubscribe?.();
     this.chatStreams.clear();
     this.feeds.close();
+    this.listFeed.close();
     this.gatewayEvents.unsubscribe?.();
     this.runtime.off("status", this.onStatus);
     await this.workflows?.close();
