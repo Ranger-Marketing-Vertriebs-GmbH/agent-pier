@@ -53,7 +53,7 @@ export const notificationCopy = {
   preferencesTitle: (name) => `Notifications on ${name}`,
   levelGroup: "Detail level",
   levelHint:
-    "Others can see the lock screen. Notifications are encrypted on their way but appear in plain text on the device.",
+    "Others can see the lock screen. Notifications are encrypted in transit but appear in plain text on the device.",
   levels: {
     type: {
       label: "Event type only",

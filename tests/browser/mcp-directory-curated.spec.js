@@ -34,7 +34,7 @@ for (const [label, use] of [
       const note = detail.getByRole("region", { name: noteName });
       await expect(note.getByText("Note from AgentPier")).toBeVisible();
       for (const text of [
-        /circumventing DRM, licence checks or anti-cheat/,
+        /circumventing DRM, license checks or anti-cheat/,
         /Only morluto\/rea on GitHub and the npm package rea-agents by morluto/,
         /tick “Allow install scripts or source builds”/,
         /REA_MCP_INPUT_SCHEMA_PROFILE to compact/,

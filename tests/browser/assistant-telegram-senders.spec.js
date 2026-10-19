@@ -364,7 +364,7 @@ test("allowed people change live, without asking to restart", async ({ page }) =
     pendingLive: true,
   };
   await page.reload();
-  await expect(section.getByText("Status: waiting to apply")).toBeVisible();
+  await expect(section.getByText("Status: waiting to be applied")).toBeVisible();
   await expect(
     section.getByText("the agent service keeps running", { exact: false }),
   ).toBeVisible();
