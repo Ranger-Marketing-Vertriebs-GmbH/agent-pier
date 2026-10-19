@@ -113,10 +113,11 @@ change push notifications.
   midnight. Questions, approvals and gates are held too, unless **Let questions and
   approvals through** is on.
 - **Quiet while visible:** nothing is sent to any device while the inbox (for items
-  that wait in it) or the same session, agent chat or pipeline run is open and visible
-  on one of your devices, or was within the last 30 seconds. Open pages report the
-  view they show while visible, and only when at least one device is registered; the
-  server keeps this in memory and never stores it.
+  that wait in it) or the same session, agent chat or pipeline run is open, visible
+  and focused on one of your devices, or was within the last 30 seconds. A window left
+  open in the background or without focus does not count. Open pages report the view
+  they show while visible and focused, and only when at least one device is
+  registered; the server keeps this in memory and never stores it.
 
 ## App badge
 
