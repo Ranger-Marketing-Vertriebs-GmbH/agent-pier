@@ -56,47 +56,41 @@ test("worker persists only a supported language and localizes generic notificati
   });
   assert.equal(notification.title, "AgentPier: Approval required");
   assert.doesNotMatch(JSON.stringify(notification), /PRIVATE/);
-  // An agent check-in names only the agent; its text stays in the paired chat.
-  await dispatch("push", {
-    data: {
-      json: () => ({
-        kind: "agent-checkin",
-        assistantId: "agent-one",
-        eventId: "event-two",
-        body: "PRIVATE",
-      }),
-    },
-  });
-  assert.equal(notification.title, "AgentPier: Agent check-in");
-  assert.deepEqual({ ...notification.options.data }, { assistantId: "agent-one" });
-  assert.doesNotMatch(JSON.stringify(notification), /PRIVATE/);
   let opened;
   scope.clients = {
     matchAll: async () => [],
     openWindow: async (url) => (opened = url),
   };
+  // An older payload of an agent check-in opens the agents, never the settings.
   await dispatch("notificationclick", {
     notification: { close() {}, data: { assistantId: "agent-one" } },
   });
-  assert.equal(opened, "https://fixture.example/agents/agent-one/settings");
-  // A routine result opens the agent's chat it was written to.
+  assert.equal(opened, "https://fixture.example/agents");
+  // A check-in opens the agent's chat it was written to.
   await dispatch("push", {
     data: {
       json: () => ({
-        kind: "agent-routine",
-        assistantId: "agent-one",
-        conversationId: "chat-one",
-        eventId: "event-three",
+        v: 2,
+        kind: "agent-checkin",
+        eventId: "event-two",
+        link: "/agents/agent-one/chats/chat-one",
+        tag: "agent:agent-one",
         body: "PRIVATE",
       }),
     },
   });
-  assert.equal(notification.title, "AgentPier: Routine result");
+  assert.equal(notification.title, "AgentPier: Agent check-in");
+  assert.equal(notification.options.tag, "agent:agent-one");
   assert.doesNotMatch(JSON.stringify(notification), /PRIVATE/);
   await dispatch("notificationclick", {
     notification: { close() {}, data: { ...notification.options.data } },
   });
   assert.equal(opened, "https://fixture.example/agents/agent-one/chats/chat-one");
+  // A link outside AgentPier's own views is never opened.
+  await dispatch("notificationclick", {
+    notification: { close() {}, data: { link: "//evil.example/x" } },
+  });
+  assert.equal(opened, "https://fixture.example/settings/notifications");
 });
 
 test("offline help uses the saved language ahead of browser settings", () => {

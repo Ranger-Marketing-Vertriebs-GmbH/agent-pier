@@ -1,55 +1,96 @@
 /* global self */
+// English notification texts; public/pwa-de.js has the same keys.
 self.agentPierNotificationCopyEn = {
-  permission: {
-    title: "AgentPier: Approval required",
-    body: "A session is waiting for your decision.",
+  kinds: {
+    permission: {
+      title: "AgentPier: Approval required",
+      body: "A session is waiting for your decision.",
+      name: "Approval required",
+    },
+    question: {
+      title: "AgentPier: Question",
+      body: "A session is waiting for your answer.",
+      name: "Question",
+    },
+    "session-completed": {
+      title: "AgentPier: Response ready",
+      body: "Open AgentPier to see the latest progress.",
+      name: "Response ready",
+    },
+    "session-waiting": {
+      title: "AgentPier: Session waiting",
+      body: "A session is waiting for you in the terminal.",
+      name: "Waiting in the terminal",
+    },
+    "session-ended": {
+      title: "AgentPier: Session ended",
+      body: "Open AgentPier to see the status.",
+      name: "Session ended",
+    },
+    "pipeline-gate": {
+      title: "AgentPier: Pipeline waiting",
+      body: "A pipeline is waiting for your decision.",
+      name: "Pipeline waiting",
+    },
+    "pipeline-completed": {
+      title: "AgentPier: Pipeline completed",
+      body: "Open AgentPier to see the result.",
+      name: "Pipeline completed",
+    },
+    "pipeline-failed": {
+      title: "AgentPier: Pipeline failed",
+      body: "Open AgentPier to see what failed.",
+      name: "Pipeline failed",
+    },
+    "agent-approval": {
+      title: "AgentPier: Approval required",
+      body: "An agent is waiting for your decision.",
+      name: "Approval required",
+    },
+    "agent-checkin": {
+      title: "AgentPier: Agent check-in",
+      body: "An agent has something for you. Open the agent's chat.",
+      name: "Check-in",
+    },
+    "agent-routine": {
+      title: "AgentPier: Routine result",
+      body: "A routine or reminder has written in an agent's chat.",
+      name: "Routine result",
+    },
+    "telegram-revocation": {
+      title: "AgentPier: Telegram access still active",
+      body: "A bot or person you removed could not be stopped. Restart the agent service.",
+      name: "Telegram access still active",
+    },
+    "github-token": {
+      title: "AgentPier: Check GitHub token",
+      body: "A saved GitHub token is invalid, expired or expires soon.",
+      name: "Check GitHub token",
+    },
+    "disk-space": {
+      title: "AgentPier: Disk space is low",
+      body: "Less than 10% is free on the drive that holds AgentPier's data.",
+      name: "Disk space is low",
+    },
+    test: {
+      title: "AgentPier: Test notification",
+      body: "Notifications are reaching this device.",
+      name: "Test notification",
+    },
   },
-  question: {
-    title: "AgentPier: Question",
-    body: "A session is waiting for your answer.",
+  // What an agent asks to approve.
+  subjects: {
+    exec: "Shell command",
+    ssh: "SSH command",
+    coding: "Coding task",
+    memory: "Memory entry",
+    grant: "Member permission",
+    team: "Team proposal",
   },
-  "session-completed": {
-    title: "AgentPier: Response ready",
-    body: "Open AgentPier to see the latest progress.",
+  tools: {
+    claude: "Claude Code",
+    codex: "Codex",
+    opencode: "OpenCode",
   },
-  "session-waiting": {
-    title: "AgentPier: Session waiting",
-    body: "A session is waiting for you in the terminal.",
-  },
-  "session-ended": {
-    title: "AgentPier: Session ended",
-    body: "Open AgentPier to see the status.",
-  },
-  "pipeline-gate": {
-    title: "AgentPier: Pipeline waiting",
-    body: "A pipeline is waiting for your decision.",
-  },
-  "pipeline-ended": {
-    title: "AgentPier: Pipeline ended",
-    body: "Open AgentPier to see the result.",
-  },
-  "agent-checkin": {
-    title: "AgentPier: Agent check-in",
-    body: "An agent has something for you. Open the agent's chat.",
-  },
-  "agent-routine": {
-    title: "AgentPier: Routine result",
-    body: "A routine or reminder has written in an agent's chat.",
-  },
-  "telegram-revocation": {
-    title: "AgentPier: Telegram access still active",
-    body: "A bot or person you removed could not be stopped. Restart the agent service.",
-  },
-  "github-token": {
-    title: "AgentPier: Check GitHub token",
-    body: "A saved GitHub token is invalid, expired or expires soon.",
-  },
-  "disk-space": {
-    title: "AgentPier: Disk space is low",
-    body: "Less than 10% is free on the drive that holds AgentPier's data.",
-  },
-  test: {
-    title: "AgentPier: Test notification",
-    body: "Notifications are reaching this device.",
-  },
+  quote: (text) => `“${text}”`,
 };

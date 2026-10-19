@@ -18,7 +18,7 @@ test("closed browser observes completion and every pipeline gate without replayi
   const audit = new AuditStore({ dataDir });
   const key = createECDH("prime256v1");
   key.generateKeys();
-  await notifications.subscribe({
+  const { subscription: device } = await notifications.subscribe({
     deviceId: "phone",
     label: "Phone",
     subscription: {
@@ -74,11 +74,28 @@ test("closed browser observes completion and every pipeline gate without replayi
   events = new OperationsEvents(inputs);
   await events.poll();
   assert.equal(sent.length, 3);
+  // A completed run notifies only devices that chose it; a failed one by default.
   run.status = "completed";
   events.pipeline(run);
   await new Promise(setImmediate);
-  assert.equal(sent.at(-1).kind, "pipeline-ended");
-  assert.equal(audit.list().total, 4);
+  assert.equal(sent.length, 3);
+  await notifications.setPreferences(device.id, {
+    events: { "pipeline-completed": true },
+  });
+  run.status = "running";
+  events.pipeline(run);
+  run.status = "completed";
+  events.pipeline(run);
+  await new Promise(setImmediate);
+  assert.equal(sent.at(-1).kind, "pipeline-completed");
+  assert.equal(sent.at(-1).link, "/pipelines/runs/run-one");
+  run.status = "running";
+  events.pipeline(run);
+  run.status = "failed";
+  events.pipeline(run);
+  await new Promise(setImmediate);
+  assert.equal(sent.at(-1).kind, "pipeline-failed");
+  assert.equal(audit.list().total, 6);
   assert.equal(JSON.stringify(audit.export()).includes("Phone"), false);
 });
 
@@ -256,10 +273,11 @@ test("a remembered request is forgotten once its session stops waiting, even wit
   await ctx.poll("waiting");
   await ctx.poll();
   await ctx.poll();
+  // The request push reads its session first, so it follows the ended session.
   assert.deepEqual(ctx.kinds(), [
     "permission",
-    "permission",
     "session-ended",
+    "permission",
     "session-waiting",
   ]);
 });

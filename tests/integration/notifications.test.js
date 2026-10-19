@@ -84,9 +84,12 @@ test("push occurrences deliver once across concurrent calls and restart without 
   await f.service.notify(event);
   assert.equal(sent.length, 1);
   assert.deepEqual(sent[0].payload, {
+    v: 2,
     kind: "question",
-    sessionId: "session-one",
     eventId: "request-one",
+    link: "/sessions/session-one/chat",
+    tag: "session:session-one",
+    renotify: true,
   });
   assert.equal(JSON.stringify(sent[0].payload).includes("fixture-sensitive"), false);
 });

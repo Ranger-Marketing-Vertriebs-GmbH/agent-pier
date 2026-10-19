@@ -218,6 +218,11 @@ test("only a check-in with content reaches the paired chat, plus a push notice",
     f.pushes.map((p) => [p.kind, p.assistantId]),
     [["agent-checkin", f.id]],
   );
+  // Devices that show names and previews get the agent and the check-in; the paired
+  // Telegram chat delivered it too, which devices may leave out.
+  assert.equal(typeof f.pushes[0].label, "string");
+  assert.equal(f.pushes[0].preview, text);
+  assert.equal(f.pushes[0].telegram, true);
   assert.equal(
     (await f.deliver(binding.id, { ...event(6, "x"), jobId: "foreign" })).status,
     403,
