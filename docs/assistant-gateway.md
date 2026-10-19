@@ -1946,8 +1946,11 @@ own permanent members, without the owner (`lead-shares.js`, `lead-share-input.js
   (`LeadShares.authorize`: the share still gives coding, or a task's share ended only
   with its task; `AssistantAccess.authorize` on the lead with the request's
   `accessRevision`); the run uses the lead's grant for that one project under the
-  member's client id, so only the member reaches its run. Revoking the share fails a
-  waiting request (`GRANT_REVOKED`).
+  member's client id, so only the member reaches its run. A task's share stays stored
+  after its task ended while a coding request resting on it waits for the owner or
+  runs (`LeadShares.restsOn`), so the scheduler's prune cannot revoke it before the
+  owner decided; it gives nothing else meanwhile. Revoking the share fails a waiting
+  request (`GRANT_REVOKED`).
 - **MCP.** `readMcpInputs({ inherited })` merges `LeadShares.mcpBindings()` into the
   agent bindings before secrets are read, at every start and live apply
   (`McpChanges.inherited`), so placeholder servers compile a per-member entry. A
