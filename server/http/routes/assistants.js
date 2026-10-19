@@ -205,12 +205,16 @@ function activeAssistantRoutes(services) {
   router.post("/assistants/:id/conversations", async (req, res) =>
     res.json(await assistants.openConversation(req.params.id)),
   );
+  // With `cursor` (empty for none): the live window as a diff against that
+  // baseline, the same shape as the chat feed's sync frames (conversation-feeds.js).
   router.get("/assistant-conversations/:id/messages", async (req, res) =>
     res.json(
-      await assistants.history(req.params.id, {
-        before: req.query.before,
-        limit: req.query.limit ? Number(req.query.limit) : 100,
-      }),
+      typeof req.query.cursor === "string" && req.query.before === undefined
+        ? await assistants.feeds.snapshot(req.params.id, req.query.cursor)
+        : await assistants.history(req.params.id, {
+            before: req.query.before,
+            limit: req.query.limit ? Number(req.query.limit) : 100,
+          }),
     ),
   );
   router.post("/assistant-conversations/:id/messages", async (req, res) =>
