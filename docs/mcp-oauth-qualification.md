@@ -353,7 +353,8 @@ The URL carries that `redirect_uri`; the authorization server redirects there, a
 `tests/integration/assistant-mcp-oauth-cross-version.test.js` logs in on the previous
 runtime, activates the candidate through `RuntimeUpdates` and refreshes the login on
 it twice. It passed 2026.9.8 → 2026.9.9 on 2026-10-14 (one SDK warning, no new
-registration or authorization) and runs manually with the cross-version variables
+registration or authorization) and runs with the cross-version variables, manually
+or in the nightly `cross-version` CI job
 (see [release qualification](assistant-release-qualification.md)). Both MCP OAuth
 contracts passed against 2026.9.9 with the other native contracts.
 
@@ -395,7 +396,9 @@ own codes:
 
 Both MCP OAuth contracts passed against 2026.10.3 on 2026-10-14 with the other
 native contracts. `assistant-mcp-oauth-cross-version.test.js` passed 2026.9.9 →
-2026.10.3 on the same day, with no SDK missing-issuer warning after the update.
+2026.10.3 on the same day, with no SDK missing-issuer warning after the update. The
+skip update 2026.9.8 → 2026.10.3 passed on 2026-10-19 with one missing-issuer
+warning after the update, as for 2026.9.8 → 2026.9.9.
 
 ## Compiled path
 
