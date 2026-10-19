@@ -134,6 +134,7 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
           {creating && (
             <AgentCreate
               navigate={navigate}
+              initialTemplate={route.template}
               onCreated={(created) => {
                 setCreating(false);
                 navigate({

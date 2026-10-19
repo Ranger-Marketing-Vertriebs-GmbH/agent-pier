@@ -1,0 +1,31 @@
+// Agency-Agenten als Vorlagen für neue Agenten und Team-Mitglieder.
+export const agentTemplateCopy = {
+  start: "Mit Vorlage beginnen",
+  change: "Andere Vorlage wählen",
+  clear: "Vorlage entfernen",
+  pickerTitle: "Mit Vorlage beginnen",
+  pickerSubtitle: "Agency-Agenten aus msitarzewski/agency-agents",
+  search: "Vorlagen durchsuchen",
+  category: "Kategorie",
+  all: "Alle Kategorien",
+  preview: "Vorschau",
+  use: "Vorlage verwenden",
+  back: "Zurück zu den Vorlagen",
+  close: "Schließen",
+  loading: "Vorlagen werden geladen …",
+  empty: "Keine passenden Vorlagen gefunden.",
+  next: "Weiter",
+  count: (total, page) => `${total} Vorlagen · Seite ${page}`,
+  note: "Name, Beschreibung und Anweisungen werden übernommen. Modell- und Tool-Einstellungen der Vorlage werden nicht importiert; Tools und Zugriffe bleiben, wie du sie hier festlegst.",
+  source: "Quelle auf GitHub",
+  revision: "Revision",
+  license: "MIT-Lizenz",
+  from: (name) => `Vorlage: ${name} (Agency-Agenten)`,
+  warned:
+    "Die Prüfung hat verdächtige Formulierungen in dieser Vorlage gefunden. Lies ihre Anweisungen, bevor du den Agenten anlegst.",
+  blocked:
+    "Die Prüfung hat diese Vorlage blockiert: Sie enthält versteckte Zeichen oder Anweisungen zum Herunterladen und Ausführen. Sie kann nicht verwendet werden.",
+  createAgent: "Agent anlegen",
+  memberWarned:
+    "Die Prüfung hat verdächtige Formulierungen gefunden; prüfe sie vor der Freigabe.",
+};

@@ -41,7 +41,7 @@ function source(preview) {
   return copy.importKinds[preview.importKind] || preview.importKind;
 }
 
-function Finding({ finding }) {
+export function Finding({ finding }) {
   return (
     <li className={`skill-scan-finding skill-scan-${finding.severity}`}>
       <div className="skill-scan-finding-head">

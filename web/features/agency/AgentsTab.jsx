@@ -13,13 +13,25 @@ import { names } from "../../lib/providers.js";
 import ExtensionHint from "../extensions/ExtensionHint.jsx";
 import RowLines from "../extensions/RowLines.jsx";
 import useAgency from "./useAgency.js";
+import useAssistantFeature from "../assistants/useAssistantFeature.js";
+import { agentTemplateCopy } from "../../lib/i18n/messages/agent-templates.js";
+import { routePath } from "../../app/routes.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./agency.css";
 
+// "Create agent": the agent form with this entry as its template.
+const agentRoute = (preview) => ({
+  view: "agents",
+  creating: true,
+  template: { id: preview.id, revision: preview.revision },
+});
+
 // Mounted the first time the Agenten tab opens and kept afterwards, so the
 // catalog is only fetched on demand and notices survive tab switches.
-export default function AgentsTab({ mode, setMode, onCount, ...props }) {
+export default function AgentsTab({ mode, setMode, onCount, onNavigate, ...props }) {
   const state = useAgency(props);
+  // An entry can also become an AgentPier agent while agents are switched on.
+  const { enabled: agentsEnabled } = useAssistantFeature();
   const { data, preview, confirm, busy, loading, query, category, page } = state;
   const installed = usePagination(data?.installed || [], props.account.id);
   const installedCount = data?.installed.length;
@@ -198,14 +210,28 @@ export default function AgentsTab({ mode, setMode, onCount, ...props }) {
           closeDisabled={busy}
           cancelLabel={copy.close}
           footer={
-            <button
-              type="button"
-              className="button primary"
-              disabled={busy || isInstalled(preview.id)}
-              onClick={state.install}
-            >
-              {isInstalled(preview.id) ? copy.installed : copy.install}
-            </button>
+            <>
+              {agentsEnabled && onNavigate && (
+                <a
+                  className="button secondary"
+                  href={routePath(agentRoute(preview))}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onNavigate(agentRoute(preview));
+                  }}
+                >
+                  {agentTemplateCopy.createAgent}
+                </a>
+              )}
+              <button
+                type="button"
+                className="button primary"
+                disabled={busy || isInstalled(preview.id)}
+                onClick={state.install}
+              >
+                {isInstalled(preview.id) ? copy.installed : copy.install}
+              </button>
+            </>
           }
         >
           <div className="agency-preview">

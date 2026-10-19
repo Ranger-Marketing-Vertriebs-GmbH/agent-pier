@@ -3,6 +3,7 @@ import Icon from "../../components/Icon.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { mcpServerCopy as mcpCopy } from "../../lib/i18n/messages/mcp-servers.js";
 import "../mcp-servers/mcp-servers.css";
+import { agentTemplateCopy as templateCopy } from "../../lib/i18n/messages/agent-templates.js";
 import { assistantApi } from "./assistant-api.js";
 import { avatarGlyph } from "./avatar-glyph.js";
 import { grantsLine, holdsShellSsh } from "./member-grants.js";
@@ -60,6 +61,14 @@ export default function TeamProposalCard({ team, busy, act }) {
                 {m.name} · {m.role}
               </strong>
               <small>{m.assignment}</small>
+              {m.template && (
+                <small className="assistant-team-template" data-template={m.template.id}>
+                  <a href={m.template.source} target="_blank" rel="noreferrer">
+                    {templateCopy.from(m.template.name)}
+                  </a>
+                  {m.template.verdict === "warn" && ` · ⚠ ${templateCopy.memberWarned}`}
+                </small>
+              )}
               <small
                 className="assistant-team-grants"
                 data-grants=""

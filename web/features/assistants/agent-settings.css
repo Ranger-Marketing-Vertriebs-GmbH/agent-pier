@@ -108,6 +108,32 @@
 .agent-shell-levels .segmented {
   width: 100%;
 }
+/* An Agency template: the start button, then where the instructions came from. */
+.agent-template-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.agent-template-note {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.agent-template-note strong {
+  color: var(--text);
+}
+.agent-template-note a {
+  color: var(--accent-text);
+}
 /* "Use team": its label above the three levels, full width on phones too. */
 .list-row.agent-team-usage {
   display: grid;
