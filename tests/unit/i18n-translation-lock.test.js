@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  confirmEntries,
   createLock,
+  describeStale,
   describeUntranslated,
+  diffLock,
   findStale,
   findUntranslated,
   flattenMessages,
@@ -13,14 +16,24 @@ import {
 } from "../../scripts/i18n-translation-lock.mjs";
 
 for (const kind of Object.keys(lockPaths)) {
-  test(`${kind} English messages follow changes to their German source`, async (t) => {
+  test(`${kind} English messages follow changes to their German source`, async () => {
     const { german, english } = await loadCatalogs(kind);
     const lock = await readLock(kind);
     assert.ok(Object.keys(lock).length > 0, `${lockPaths[kind]} is missing`);
     const found = findUntranslated(german, english, lock);
     assert.deepEqual(found, [], describeUntranslated(found));
-    const stale = findStale(german, english, lock).length;
-    if (stale) t.diagnostic(`${stale} entries outdated; npm run i18n:confirm refreshes`);
+  });
+
+  // Every pull request confirms the keys it adds or changes, so a later
+  // `npm run i18n:confirm` never records someone else's unreviewed texts.
+  test(`${kind} translation lock records every reviewed message`, async () => {
+    const { german, english } = await loadCatalogs(kind);
+    const diff = diffLock(german, english, await readLock(kind));
+    assert.deepEqual(
+      diff,
+      { added: [], changed: [], removed: [] },
+      describeStale(diff, lockPaths[kind]),
+    );
   });
 }
 
@@ -114,4 +127,47 @@ test("the lock keeps one sorted key per line", () => {
   assert.equal(text, '{\n  "a": "de:1 en:1",\n  "b": "de:2 en:2"\n}\n');
   assert.deepEqual(Object.keys(lock), ["hint", "page.greet", "page.title"]);
   assert.match(lock.hint, /^de:[0-9a-f]{12} en:[0-9a-f]{12}$/);
+});
+
+test("the lock diff names new, changed and removed keys", () => {
+  const german = catalog({ ...germanCopy, added: "Neu", hint: "Alles bleibt hier." });
+  const english = catalog({
+    ...englishCopy,
+    added: "New",
+    hint: "Everything stays here.",
+  });
+  const stale = { ...lock, gone: "de:000000000000 en:000000000000" };
+  const diff = diffLock(german, english, stale);
+  assert.deepEqual(diff, { added: ["added"], changed: ["hint"], removed: ["gone"] });
+  const message = describeStale(diff, "web/lib/i18n/translation-lock.json");
+  assert.match(message, /New keys[^\n]*:\n {2}added\n/);
+  assert.match(message, /changed since review:\n {2}hint\n/);
+  assert.match(message, /no longer in the catalogs:\n {2}gone\n/);
+  assert.match(message, /npm run i18n:confirm/);
+});
+
+test("confirming a selection leaves other keys unreviewed", () => {
+  const german = catalog({ ...germanCopy, added: "Neu", hint: "Alles bleibt hier." });
+  const english = catalog({
+    ...englishCopy,
+    added: "New",
+    hint: "Everything stays here.",
+  });
+  const stale = { ...lock, gone: "de:000000000000 en:000000000000" };
+  const { lock: next, confirmed } = confirmEntries(german, english, stale, ["hint"]);
+  assert.deepEqual(confirmed, { added: [], changed: ["hint"], removed: [] });
+  assert.deepEqual(diffLock(german, english, next), {
+    added: ["added"],
+    changed: [],
+    removed: ["gone"],
+  });
+  const all = confirmEntries(german, english, stale).lock;
+  assert.deepEqual(all, createLock(german, english));
+  const page = confirmEntries(
+    catalog({ ...germanCopy, page: { title: "Profile", greet: germanCopy.page.greet } }),
+    catalog(englishCopy),
+    lock,
+    ["page"],
+  );
+  assert.deepEqual(page.confirmed.changed, ["page.title"]);
 });
