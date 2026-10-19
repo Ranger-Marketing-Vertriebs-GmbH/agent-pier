@@ -48,8 +48,9 @@ export async function inboxFixture(page, { language, agents = true } = {}) {
         createdAt: created(20),
         subject: { tool: "Bash", command: "npm test" },
         options: [
-          { id: "allow", label: "Allow" },
-          { id: "deny", label: "Deny" },
+          // The server's German fallback labels; chat translates Claude options by ID.
+          { id: "allow", label: "Einmal erlauben", scope: "once" },
+          { id: "deny", label: "Ablehnen" },
         ],
       },
     ],

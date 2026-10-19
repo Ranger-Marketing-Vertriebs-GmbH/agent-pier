@@ -49,7 +49,7 @@ test("answering inline uses each source's own endpoint and the item leaves the l
   const state = await inboxFixture(page);
   await page.goto(baseURL + "/inbox/approval/permit-beta");
   await expect(page.getByText("npm test", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Allow", exact: true }).click();
+  await page.getByRole("button", { name: "Einmal erlauben", exact: true }).click();
   await expect(page.getByText("Bereits erledigt")).toBeVisible();
   await expect(page.getByText("Erlaubt", { exact: true })).toBeVisible();
   expect(
