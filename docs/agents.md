@@ -552,7 +552,7 @@ Videos can be up to 200 MB each: MP4, MOV (iPhone recordings in HEVC or H.264) a
 WebM. On a phone the picker offers your videos next to your photos. A video uploads in
 pieces, and the composer shows how far it is; a dropped connection resumes where it
 stopped. The chat plays a sent video inline (select play; nothing loads beyond its
-first frame and length until then).
+first frame and length until then); the download button under it saves the file.
 
 The agent receives the video as a file in its workspace, with its length and size in
 pixels, and is told that it cannot watch it. No model sees the video itself: AgentPier
@@ -567,8 +567,10 @@ file appears in the chat at once as the agent's message: images inline (select o
 open it in the image viewer: close it with ×, Esc, a tap beside the image or a swipe
 down; pinch to zoom, download or share from there), videos and audio with the
 player inline (a full-screen video keeps its own Done button), every other file as a
-download chip that saves it without leaving the chat, with the agent's short caption.
-In the home-screen app (iPhone, iPad) a download opens the share sheet instead, so
+chip, with the agent's short caption. Every video, audio and file in the chat, your own
+attachments included, has a download button beside its name and size that saves the
+whole file without leaving the chat; the players themselves offer no download on an
+iPhone. In the home-screen app (iPhone, iPad) a download opens the share sheet instead, so
 you can save the file to Files or open it in another app and the app stays where it
 was; the same applies to downloads of artifacts, backups, SSH keys and files in the
 file explorer. It

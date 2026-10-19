@@ -166,7 +166,7 @@ test("files the agent shares appear in the open chat, download, and stay while o
   const link = await log
     .getByRole("link", { name: "Download data.csv" })
     .getAttribute("href");
-  expect(link).toBe("/api/assistant-attachments/csv");
+  expect(link).toBe("/api/assistant-attachments/csv?download=1");
   expect(await page.evaluate((href) => fetch(href).then((r) => r.text()), link)).toBe(
     csv,
   );

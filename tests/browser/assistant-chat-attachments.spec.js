@@ -235,7 +235,7 @@ for (const language of ["en", "de"])
         await expect(sent.locator("img")).toHaveJSProperty("naturalWidth", 160);
         await expect(
           sent.getByRole("link", { name: w.download("notes.md") }),
-        ).toHaveAttribute("href", "/api/assistant-attachments/file-2");
+        ).toHaveAttribute("href", "/api/assistant-attachments/file-2?download=1");
         await expect(page.getByText("What can I cook with this?")).toBeVisible();
         if (shots && language === "en")
           await page.screenshot({
