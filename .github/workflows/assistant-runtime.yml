@@ -1,7 +1,10 @@
 name: Assistant runtime
 # Nightly and before a release through full.yml: upstream registries and hosted
-# runner images change without a commit. Pull requests run the Linux half only;
-# macOS runs after the merge, nightly and before a release.
+# runner images change without a commit. Pull requests run the Linux jobs only
+# (fresh installs on x64 and arm64, native contracts on x64); the macOS jobs join after
+# the merge. The native contracts on Linux arm64 and macOS x64 and the
+# cross-version updates run only nightly, on demand and before a release (a tag
+# push through release.yml).
 on:
   workflow_dispatch:
   workflow_call:
@@ -78,9 +81,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Every target of the runtime manifest's nodeChecksums. The arm64 Linux and
+        # Intel macOS runners only run nightly, on demand and before a release.
         runner: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["ubuntu-latest"]' || '["ubuntu-latest","macos-latest"]') }}
+          ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]'
+          || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+          || startsWith(github.ref, 'refs/tags/'))
+          && '["ubuntu-latest","macos-latest","ubuntu-24.04-arm","macos-15-intel"]'
+          || '["ubuntu-latest","macos-latest"]') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,6 +97,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Report the native runner architecture
+        run: node -p '`${process.platform}-${process.arch}`'
       - name: Read the pinned runtime identity
         id: runtime
         run: >-
@@ -109,6 +119,10 @@ jobs:
       # The compiled web tools contract drives the runner's preinstalled Google Chrome
       # headless, with its own profile in the test's temporary data directory. A
       # runner without Chrome fails here instead of skipping the browser checks.
+      # When the Linux arm64 image has no Google Chrome, that runner gets
+      # Playwright's Chromium instead, which has no setuid sandbox helper, so the
+      # disposable runner allows unprivileged user namespaces for Chromium's own
+      # sandbox. AgentPier still never compiles browser.noSandbox.
       - name: Locate the browser for the web tools contract
         run: |
           for candidate in /usr/bin/google-chrome "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
@@ -117,6 +131,17 @@ jobs:
               exit 0
             fi
           done
+          if [ "$RUNNER_OS" = Linux ] && [ "$RUNNER_ARCH" = ARM64 ]; then
+            npx playwright install --with-deps chromium
+            if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            fi
+            chromium=$(node -p 'require("@playwright/test").chromium.executablePath()')
+            if [ -x "$chromium" ]; then
+              echo "AGENTPIER_TEST_BROWSER_PATH=$chromium" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          fi
           echo "::error::No Google Chrome on this runner for the web tools contract."
           exit 1
       # Simulated model endpoints, accounts and channels only: no secrets, so the
@@ -166,3 +191,78 @@ jobs:
           tests/integration/assistant-skills-contract.test.js
       - name: Fail when a contract skipped instead of running
         run: grep -qx '# skipped 0' "$RUNNER_TEMP/native-contracts.tap"
+  # Installed users update from the runtime an older AgentPier release pinned
+  # straight to the current pin; one entry per release line that is still a
+  # rollback target. Keep `from` in step with runtimeManifest.rollbackTargets: the
+  # team plugin refuses any other predecessor. Release tags are never moved.
+  cross-version:
+    name: Cross-version update (${{ matrix.from }}, ${{ matrix.runner }})
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      || startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest]
+        # v1.27.0-v1.28.1 pinned OpenClaw 2026.9.8, v2.0.0 pinned 2026.9.9.
+        from: [v1.28.1, v2.0.0]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The predecessor installs its runtime with its own manifest and lock, exactly
+      # as that release's installer did; its provisioning needs no npm packages.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.from }}
+          path: predecessor
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Read the pinned runtime identity
+        id: runtime
+        run: >-
+          node --input-type=module -e 'import { runtimeManifest as m } from
+          "./server/features/assistants/runtime-manifest.js";
+          console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}`)'
+          >> "$GITHUB_OUTPUT"
+      # Same path and key as native-contracts, so either job reuses the other's cache.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/agentpier-assistant-contracts/assistants/runtimes
+          key: assistant-runtime-${{ runner.os }}-${{ runner.arch }}-${{ steps.runtime.outputs.identity }}
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/agentpier-predecessor/assistants/runtimes
+          key: assistant-predecessor-${{ runner.os }}-${{ runner.arch }}-${{ matrix.from }}
+      - name: Provision the predecessor release's runtime
+        working-directory: predecessor
+        run: |
+          : > "$RUNNER_TEMP/predecessor.env"
+          node scripts/provision-assistant-contracts.mjs \
+            --data-dir "$RUNNER_TEMP/agentpier-predecessor" \
+            --env-file "$RUNNER_TEMP/predecessor.env"
+          previous=$(sed -n 's/^AGENTPIER_ASSISTANT_UPDATE_RUNTIME=//p' "$RUNNER_TEMP/predecessor.env")
+          test -x "$previous/node/bin/node"
+          echo "AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME=$previous" >> "$GITHUB_ENV"
+      - name: Provision the pinned runtime
+        run: >-
+          node scripts/provision-assistant-contracts.mjs
+          --data-dir "$RUNNER_TEMP/agentpier-assistant-contracts"
+          --env-file "$GITHUB_ENV"
+      # Activation, rollback after a failed validation, the legacy agent roster and
+      # an MCP OAuth login refreshed on the updated runtime.
+      - name: Run the cross-version update tests
+        run: >-
+          node --test --test-concurrency=1
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=tap --test-reporter-destination="$RUNNER_TEMP/cross-version.tap"
+          tests/integration/assistant-runtime-cross-version.test.js
+          tests/integration/assistant-mcp-oauth-cross-version.test.js
+      - name: Fail when a cross-version test skipped instead of running
+        run: grep -qx '# skipped 0' "$RUNNER_TEMP/cross-version.tap"
