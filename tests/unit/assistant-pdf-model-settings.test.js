@@ -47,6 +47,7 @@ test("a vision model of a usable connection becomes the PDF model", (t) => {
     revision: 1,
     connectionId: "router",
     modelId: "vision",
+    images: true,
     ready: true,
   });
   assert.deepEqual(settings.resolve(), {
@@ -75,12 +76,28 @@ test("a signed-in ChatGPT account counts also while the Gateway is stopped", (t)
   );
 });
 
-test("models that cannot read images or unusable connections are refused", (t) => {
+test("a text-only model reads PDF text and says that scans stay unreadable", (t) => {
   const { settings } = fixture(t);
-  assert.throws(
-    () => settings.save({ revision: 0, connectionId: "router", modelId: "text-only" }),
-    { key: "pdfModelImages", status: 400 },
-  );
+  const saved = settings.save({
+    revision: 0,
+    connectionId: "router",
+    modelId: "text-only",
+  });
+  assert.deepEqual(saved, {
+    revision: 1,
+    connectionId: "router",
+    modelId: "text-only",
+    images: false,
+    ready: true,
+  });
+  assert.deepEqual(settings.selection(), {
+    connectionId: "router",
+    modelId: "text-only",
+  });
+});
+
+test("unusable connections and invalid input are refused", (t) => {
+  const { settings } = fixture(t);
   for (const connectionId of ["keyless", "missing"])
     assert.throws(() => settings.save({ revision: 0, connectionId, modelId: "vision" }), {
       key: "provider",
@@ -111,6 +128,7 @@ test("a chosen model that stops working says why and is not compiled", (t) => {
     revision: 1,
     connectionId: "router",
     modelId: "vision",
+    images: true,
     ready: false,
     reason: "connectionUnavailable",
   });

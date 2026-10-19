@@ -1243,16 +1243,19 @@ an explicit model the tool picks the first image-capable provider it finds, whic
 not be the agent's own. AgentPier therefore keeps one owner setting:
 **Accounts → Services for agents → PDF reading** chooses a model connection (OpenRouter,
 a custom endpoint or a ChatGPT account) and one of its models. Only ids are stored
-(`assistants/pdf-model.sqlite`); the key stays with the model connection. The model
-must accept images, because pages with little text reach it as rendered page images;
-a model that cannot is refused on save.
+(`assistants/pdf-model.sqlite`); the key stays with the model connection. Any model
+of a usable connection can be chosen. Pages with little text reach a model that
+accepts images as rendered page images; a text-only model gets the extracted text
+only (OpenClaw drops the images), so it cannot read scanned pages or pages without
+text, and a PDF without any extractable text fails. The PDF reading page shows that
+note for a model without image input.
 
 - The switch is effective only while that model is usable (`PdfModelSettings`: the
-  connection exists and is available, or the ChatGPT account is signed in, and the
-  model accepts images) and the runtime bundles OpenClaw's `document-extract`
+  connection exists and is available, or the ChatGPT account is signed in; image
+  input does not matter) and the runtime bundles OpenClaw's `document-extract`
   plugin. Otherwise the switch is disabled and names the reason (no model chosen, the
-  connection is gone or unusable, the model cannot read images); an agent that has it
-  on keeps the setting but is not granted `pdf`.
+  connection is gone or unusable); an agent that has it on keeps the setting but is
+  not granted `pdf`.
 - A start whose agents read PDFs adds `pdf` to the global `tools.allow` and
   `document-extract` to `plugins.allow` (without it the tool refuses every PDF a
   non-native model reads). `AssistantProviderSynchronization.prepare` then writes
