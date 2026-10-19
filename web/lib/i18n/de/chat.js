@@ -59,6 +59,9 @@ export const chatMessageCopy = {
   shellOutputLabel: "Shell-Ausgabe",
   shellOutputOmitted: (size) => `Ältere Ausgabe ausgelassen (${size})`,
   toolDetails: "Details",
+  sandboxBlocked: "Wahrscheinlich von der Sandbox blockiert",
+  sandboxBlockedHint: (profile) =>
+    `Diese Session läuft im nono-Sandbox-Profil ${profile}, und der Fehler sieht nach einem verweigerten Zugriff aus. Führ das Tool in einer Session ohne Sandbox aus oder erlaube den Zugriff im Sandbox-Profil.`,
   subagentLabel: (description, type) =>
     `Unteragent: ${description || "Aufgabe ohne Titel"}${type ? ` (${type})` : ""}`,
   ariaLabel: "Deine Nachricht",

@@ -5,6 +5,7 @@ import ToolOutput from "./ToolOutput.jsx";
 import TruncatedToolOutput from "./TruncatedToolOutput.jsx";
 import ToolChanges from "./ToolChanges.jsx";
 import { formatSize } from "./tool-output.js";
+import { sandboxDenied } from "./sandbox-denial.js";
 import { defaultUrlTransform } from "react-markdown";
 import ChatMarkdown from "../../components/ChatMarkdown.jsx";
 import { projectLinkPath } from "./chat-file-link.js";
@@ -21,6 +22,7 @@ export default function Message({
   openFile,
   subagentsLive = true,
   observedSubagents = [],
+  sandboxProfile = "",
 }) {
   // Bash-mode output answers the user's own command, so it starts expanded.
   const [toolOpen, setToolOpen] = useState(Boolean(message.shellOutput));
@@ -30,6 +32,7 @@ export default function Message({
     const status = subagent
       ? subagentRowStatus(message, observedSubagents, subagentsLive)
       : message.status;
+    const blocked = sandboxDenied(message, sandboxProfile);
     const usage = subagent
       ? usageSummary(observedAgent(message, observedSubagents)?.usage)
       : null;
@@ -50,17 +53,24 @@ export default function Message({
                 ? copy.shellOutputLabel
                 : message.toolName || copy.chatToolLabel}
           </strong>
-          <small>
+          <small className={blocked ? "chat-tool-sandbox" : undefined}>
             {subagent
               ? subagentStatusLabel(status)
-              : {
-                  running: commonCopy.running,
-                  completed: commonCopy.completed,
-                  failed: commonCopy.failed,
-                }[status] || copy.toolDetails}
+              : blocked
+                ? copy.sandboxBlocked
+                : {
+                    running: commonCopy.running,
+                    completed: commonCopy.completed,
+                    failed: commonCopy.failed,
+                  }[status] || copy.toolDetails}
           </small>
           {usage && <small className="subagent-usage">{usage}</small>}
         </summary>
+        {toolOpen && blocked && (
+          <p className="chat-tool-sandbox-hint">
+            {copy.sandboxBlockedHint(sandboxProfile)}
+          </p>
+        )}
         {toolOpen && toolImages.length > 0 && (
           <ChatImages images={toolImages} sessionId={sessionId} limit={Infinity} />
         )}

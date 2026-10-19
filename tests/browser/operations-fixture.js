@@ -1,7 +1,7 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { operationState, operationResponse } from "./operations-http-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
-export async function operationsFixture(page, { tool = "codex" } = {}) {
+export async function operationsFixture(page, { tool = "codex", session = {} } = {}) {
   const chat = { messages: [], tasks: [], availability: "ready" };
   const state = {
     ...operationState(),
@@ -88,6 +88,7 @@ export async function operationsFixture(page, { tool = "codex" } = {}) {
             status: "running",
             cwd: "/fixture",
             nativeRequests: { enabled: true, version: 1 },
+            ...session,
           },
         ],
         home: "/fixture",
