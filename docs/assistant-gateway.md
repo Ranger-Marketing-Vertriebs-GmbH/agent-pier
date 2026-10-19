@@ -2845,8 +2845,16 @@ and WebM videos of up to 200 MB (`agent-video-types.js`, `agent-video-uploads.js
   `media-src`: `default-src 'self'` covers the route. The chat shows
   `<video controls playsinline preload="metadata">` without a server-side poster; a
   `#t=0.001` media fragment makes Safari draw the first frame.
-- **Not yet.** Files agents share stay downloads, also when they are videos, and
-  Telegram videos are not received.
+- **Download.** `?download=1` on the same route answers with
+  `Content-Disposition: attachment` and the file name, also for a video, audio or
+  image otherwise served inline, and without a `Range` header sends the whole file
+  (200 with its `Content-Length`; `HEAD` gives the length alone). The download
+  button beside every video, audio and file in the chat
+  (`AgentMessageAttachments.jsx`) links there through `FileLink`: a plain
+  `download` link in a browser, which streams to disk without buffering; in the
+  iPhone or iPad home-screen app the share sheet, or a separate window for a file
+  over 50 MB, because the native players there offer no download.
+- **Not yet.** Telegram videos are not received.
 
 ### Files agents share (2026-10-17)
 

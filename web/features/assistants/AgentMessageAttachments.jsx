@@ -17,6 +17,32 @@ export function fileSize(bytes) {
 }
 
 const source = (id) => `/api/assistant-attachments/${encodeURIComponent(id)}`;
+// The whole file as a download (Content-Disposition: attachment), never a range of
+// it, also for media the players stream inline.
+export const downloadSource = (id) => `${source(id)}?download=1`;
+
+// The name, its details and an explicit download button under a player or in a
+// chip. FileLink keeps a home-screen app (iOS) in place: the share sheet instead
+// of navigating; native iOS players offer no download of their own.
+function FileRow({ file, details }) {
+  return (
+    <div className="agent-attachment-row">
+      <span className="agent-attachment-text">
+        <span className="agent-attachment-name">{file.name}</span>
+        {details && <span className="agent-attachment-meta">{details}</span>}
+      </span>
+      <FileLink
+        className="icon-button agent-attachment-download"
+        href={downloadSource(file.id)}
+        name={file.name}
+        aria-label={copy.download(file.name)}
+        title={copy.download(file.name)}
+      >
+        <Icon name="download" size={18} />
+      </FileLink>
+    </div>
+  );
+}
 
 export function videoDuration(seconds) {
   if (!Number.isFinite(seconds)) return "";
@@ -44,15 +70,7 @@ function VideoAttachment({ file }) {
         src={`${source(file.id)}#t=0.001`}
         aria-label={copy.video(file.name)}
       />
-      <FileLink
-        className="agent-attachment-text"
-        href={source(file.id)}
-        name={file.name}
-        aria-label={copy.download(file.name)}
-      >
-        <span className="agent-attachment-name">{file.name}</span>
-        <span className="agent-attachment-meta">{details}</span>
-      </FileLink>
+      <FileRow file={file} details={details} />
     </li>
   );
 }
@@ -66,15 +84,7 @@ function AudioAttachment({ file }) {
         src={source(file.id)}
         aria-label={copy.audio(file.name)}
       />
-      <FileLink
-        className="agent-attachment-text"
-        href={source(file.id)}
-        name={file.name}
-        aria-label={copy.download(file.name)}
-      >
-        <span className="agent-attachment-name">{file.name}</span>
-        <span className="agent-attachment-meta">{fileSize(file.size)}</span>
-      </FileLink>
+      <FileRow file={file} details={fileSize(file.size)} />
     </li>
   );
 }
@@ -99,7 +109,7 @@ function UnavailableAttachment({ file }) {
 
 // The owner's files in a sent message, or the files an agent shared (`shared`):
 // thumbnails that open the image in the in-app viewer, videos and audio that play
-// inline, and chips that save the file. Nothing navigates away: a home-screen app
+// inline, and chips, each with a download button. Nothing navigates away: a home-screen app
 // (iOS) has no way back. All are served through the signed-in route by id.
 export default function AgentMessageAttachments({ files, shared = false }) {
   const [open, setOpen] = useState(null);
@@ -133,15 +143,7 @@ export default function AgentMessageAttachments({ files, shared = false }) {
               <span className="agent-attachment-icon" aria-hidden="true">
                 <Icon name="file" size={16} />
               </span>
-              <FileLink
-                className="agent-attachment-text"
-                href={source(file.id)}
-                name={file.name}
-                aria-label={copy.download(file.name)}
-              >
-                <span className="agent-attachment-name">{file.name}</span>
-                <span className="agent-attachment-meta">{fileSize(file.size)}</span>
-              </FileLink>
+              <FileRow file={file} details={fileSize(file.size)} />
             </li>
           ),
         )}

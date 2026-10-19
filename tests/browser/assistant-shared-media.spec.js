@@ -121,7 +121,10 @@ for (const [label, use] of [
       const log = await open(page);
       const pdf = log.getByRole("link", { name: "Download script.pdf" });
       await expect(pdf).toHaveAttribute("download", "script.pdf");
-      await expect(pdf).toHaveAttribute("href", "/api/assistant-attachments/pdf");
+      await expect(pdf).toHaveAttribute(
+        "href",
+        "/api/assistant-attachments/pdf?download=1",
+      );
       expect(await log.locator(".agent-message-attachments a[target]").count()).toBe(0);
     });
 
@@ -154,7 +157,7 @@ for (const [label, use] of [
       await log.getByRole("link", { name: "Download assets.zip" }).click();
       await expect
         .poll(() => page.evaluate(() => window.opened))
-        .toEqual(["/api/assistant-attachments/zip"]);
+        .toEqual(["/api/assistant-attachments/zip?download=1"]);
       expect(page.attachmentRequests.filter(([, id]) => id === "zip")).toEqual([
         ["HEAD", "zip"],
       ]);

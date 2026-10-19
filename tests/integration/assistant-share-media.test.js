@@ -87,6 +87,18 @@ test("a shared video and audio play inline from the share route, a range at a ti
   assert.equal(part.status, 206);
   assert.equal(part.headers.get("content-range"), `bytes 0-23/${mp4().length}`);
   assert.equal(Buffer.from(await part.arrayBuffer()).toString("latin1", 4, 8), "ftyp");
+  // The download button saves the whole file by its name, not a range of it.
+  const saved = await get(`${id}?download=1`);
+  assert.equal(saved.status, 200);
+  assert.equal(saved.headers.get("content-type"), "video/mp4");
+  assert.equal(
+    saved.headers.get("content-disposition"),
+    "attachment; filename*=UTF-8''clip.mp4",
+  );
+  assert.equal(saved.headers.get("content-length"), String(mp4().length));
+  assert.ok(Buffer.from(await saved.arrayBuffer()).equals(mp4()));
+  const head = await fetch(saved.url, { method: "HEAD" });
+  assert.equal(head.headers.get("content-length"), String(mp4().length));
   const sound = await get(shared[1].attachments[0].id, { range: "bytes=0-2" });
   assert.equal(sound.status, 206);
   assert.equal(sound.headers.get("content-type"), "audio/mpeg");

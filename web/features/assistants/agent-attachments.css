@@ -33,6 +33,33 @@
 .agent-attachment-chip.failed {
   border-color: var(--warning);
 }
+/* A sent or shared file: the chip grows with its download button on phones. */
+.agent-attachment-chip.ready {
+  height: auto;
+  min-height: 44px;
+  padding-block: 2px;
+}
+/* Name, size and the download button, in a chip or under a player. */
+.agent-attachment-row {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.agent-attachment-row .agent-attachment-text {
+  flex: 1;
+}
+.agent-attachment-download {
+  color: var(--accent-text);
+}
+.agent-attachment-download[aria-busy="true"] {
+  opacity: 0.55;
+}
+.agent-attachment-row .file-link-error {
+  flex-basis: 100%;
+}
 .agent-attachment-chip img,
 .agent-attachment-icon {
   flex: none;

@@ -203,15 +203,18 @@ export function assistantAttachmentRoutes({
   );
   // Reads skip the admission queue (a long apply must not stall thumbnails) but not
   // its gate: no workspace reads while a restore or update may replace them.
+  // `?download=1` saves the whole file by its name, also one shown or played inline.
   router.get("/assistant-attachments/:file", read, async (req, res) => {
     gate();
     const file = await attachments().serve(req.params.file);
     const inline = file.inline === true;
+    const download = req.query.download === "1";
     res.set({
       "Content-Type": inline ? file.type : "application/octet-stream",
-      "Content-Disposition": inline
-        ? "inline"
-        : `attachment; filename*=UTF-8''${headerName(file.name)}`,
+      "Content-Disposition":
+        inline && !download
+          ? "inline"
+          : `attachment; filename*=UTF-8''${headerName(file.name)}`,
       "X-Content-Type-Options": "nosniff",
       "Cross-Origin-Resource-Policy": "same-origin",
       "Content-Security-Policy": "default-src 'none'; sandbox",
