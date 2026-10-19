@@ -22,6 +22,7 @@ async function openRounds(page) {
           reports: [],
         },
       ],
+      repairAttemptId: "attempt-2",
       responses: [
         { finding: "R1-1", status: "fixed" },
         { finding: "R1-2", status: "disputed", reason: "Intended" },
@@ -41,6 +42,32 @@ async function openRounds(page) {
           findings: [finding("R2-1", "Broken error message")],
           reports: [],
         },
+        {
+          nodeId: "stage-one",
+          result: "pass",
+          summary: "Tests green",
+          findings: [{ ...finding("R2-2", "Slow suite"), severity: "low" }],
+          reports: [],
+        },
+      ],
+      repairAttemptId: "attempt-3",
+      responses: [{ finding: "R2-1", status: "not-fixed", reason: "Needs a migration" }],
+    },
+    {
+      edge: "stage-two->stage-one",
+      round: 3,
+      fromNodeId: "stage-two",
+      toNodeId: "stage-one",
+      at: "2026-09-07T12:30:00Z",
+      operatorNote: "Once more",
+      stages: [
+        {
+          nodeId: "stage-two",
+          result: "pass",
+          summary: "Fine",
+          findings: [],
+          reports: [],
+        },
       ],
     },
   ];
@@ -51,13 +78,32 @@ async function openRounds(page) {
 
 test("the run view shows the loop rounds as a timeline", async ({ page }) => {
   const rounds = await openRounds(page);
-  await expect(rounds).toHaveCount(2);
+  await expect(rounds).toHaveCount(3);
   await expect(rounds.nth(0)).toContainText("Runde 1");
   await expect(rounds.nth(0)).toContainText("Befunde · 2");
   await expect(rounds.nth(0)).toContainText("Behoben 1 · Bestritten 1");
   await expect(rounds.nth(1)).toContainText("Runde 2");
-  await expect(rounds.nth(1)).toContainText("Befunde · 1");
-  await expect(rounds.nth(1)).not.toContainText("Behoben");
+  await expect(rounds.nth(1)).toContainText("Befunde · 2");
+  await expect(rounds.nth(1)).toContainText("Nicht behoben 1");
+  // The result is named, not only coloured.
+  await expect(rounds.nth(0).getByRole("img", { name: "Fehlgeschlagen" })).toBeVisible();
+  await expect(rounds.nth(2).getByRole("img", { name: "Bestanden" })).toBeVisible();
+  // A round without findings has nothing to open.
+  await expect(rounds.nth(2).locator("details")).toHaveCount(0);
+
+  // A round opens to its findings with the repair turn's answers.
+  const second = rounds.nth(1).locator(".run-findings > li");
+  await expect(second.first()).toBeHidden();
+  await rounds.nth(1).locator("summary").click();
+  await expect(second).toHaveCount(2);
+  await expect(second.nth(0)).toContainText("Broken error message");
+  await expect(second.nth(0)).toContainText("Nicht behoben: Needs a migration");
+  await expect(second.nth(1)).toContainText("Slow suite");
+  await expect(second.nth(1)).toContainText("Nicht beantwortet");
+  await rounds.nth(0).locator("summary").click();
+  await expect(rounds.nth(0).locator(".run-findings > li").nth(1)).toContainText(
+    "Bestritten: Intended",
+  );
 });
 
 test("the loop round timeline reads in English", async ({ page }) => {
@@ -67,4 +113,9 @@ test("the loop round timeline reads in English", async ({ page }) => {
   await expect(rounds.nth(0)).toContainText("Round 1");
   await expect(rounds.nth(0)).toContainText("Findings · 2");
   await expect(rounds.nth(0)).toContainText("Fixed 1 · Disputed 1");
+  await expect(rounds.nth(0).getByRole("img", { name: "Failed" })).toBeVisible();
+  await rounds.nth(1).locator("summary").click();
+  const findings = rounds.nth(1).locator(".run-findings > li");
+  await expect(findings.nth(0)).toContainText("Not fixed: Needs a migration");
+  await expect(findings.nth(1)).toContainText("Not answered");
 });

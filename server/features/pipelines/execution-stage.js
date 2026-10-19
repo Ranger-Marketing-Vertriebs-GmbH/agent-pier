@@ -3,6 +3,9 @@ import { checkpointStage } from "./stage-checkpoint.js";
 import { randomUUID } from "node:crypto";
 import { clearVerdict, readVerdict } from "./stage-verdict.js";
 import {
+  answersNudge,
+  checkAnswers,
+  missingAnswers,
   recordResponses,
   recordRound,
   repairContext,
@@ -56,6 +59,7 @@ async function prepareStage(
   if (fresh) {
     node.verdictContinuations = 0;
     node.verifyAttempts = 0;
+    delete node.answersNudged;
     delete node.verifyResult;
     delete node.verified;
     delete node.nativeId;
@@ -263,7 +267,7 @@ export async function applyOutcome(engine, run, outcome) {
     );
     return;
   }
-  const found = readVerdict(run, attempt);
+  const found = checkAnswers(run, node, attempt, readVerdict(run, attempt));
   if (!found.present) {
     node.verdictContinuations = (node.verdictContinuations || 0) + 1;
     if (node.verdictContinuations <= 2) {
@@ -287,6 +291,19 @@ export async function applyOutcome(engine, run, outcome) {
         found.invalid ? "verdict-invalid" : "verdict-missing",
         found.reason || serverMessages.pipelines.verdictMissing,
       );
+    return;
+  }
+  // A repair turn that leaves findings of its round unanswered is asked once for them.
+  const missing = missingAnswers(run, node, attempt, found.verdict);
+  if (missing.length && !node.answersNudged) {
+    node.answersNudged = true;
+    attempt.verdict = found.verdict;
+    recordResponses(run, node, attempt, found.verdict);
+    await launchStage(engine, run, node, {
+      kind: "verdict-nudge",
+      resumeNativeId: node.nativeId,
+      feedback: answersNudge(missing),
+    });
     return;
   }
   node.verdict = found.verdict;
@@ -448,17 +465,18 @@ export async function loopBack(engine, run, node, verdict, feedback) {
       "verified",
       "verifyResult",
       "gateDecision",
+      "loop",
     ])
       delete n[k];
   }
   const target = run.nodes.find((n) => n.id === edge.to);
-  // The round history holds the findings; the loop context points at its edge.
+  // The round history holds the findings and the operator's note; the loop context
+  // points at its edge.
   target.loop = {
     edge: key,
     fromNodeId: node.id,
     iteration,
     maxIterations: edge.maxIterations,
-    ...(feedback ? { operatorNote: feedback } : {}),
   };
   run.pendingTurn = { nodeId: target.id, kind: "kickoff" };
   delete run.pendingConclusion;

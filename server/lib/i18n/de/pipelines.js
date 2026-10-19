@@ -56,6 +56,10 @@ export const pipelines = Object.freeze({
     "Eine Antwort im Ergebnis braucht den Status fixed, not-fixed oder disputed.",
   verdictResponseReason:
     "Eine Antwort mit not-fixed oder disputed braucht eine Begründung.",
+  verdictResponseDuplicate: (finding) =>
+    `Der Befund ${finding} wird im Ergebnis mehr als einmal beantwortet.`,
+  verdictResponseUnknown: (findings) =>
+    `Das Ergebnis beantwortet Befunde, die es in dieser Runde nicht gibt: ${findings}.`,
   verdictTooLarge: "Das Ergebnis ist größer als 64 KiB.",
   verdictUnreadable: "Das Ergebnis konnte nicht sicher gelesen werden.",
   invalidTurn: "Ungültiger Pipeline-Turn.",

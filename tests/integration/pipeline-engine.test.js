@@ -50,7 +50,12 @@ test("fail loop budget gates exhausted review and does not use default edge on f
     findings: [{ severity: "high", title: "Bug" }],
   });
   assert.equal(f.engine.get(r.id).currentNodeId, "build");
-  await f.end();
+  // The repair answers the round's finding, so it needs no answer nudge.
+  await f.end({
+    result: "pass",
+    summary: "Done",
+    responses: [{ finding: "R1-1", status: "fixed" }],
+  });
   await f.end({ result: "fail", summary: "Still wrong" });
   const run = f.engine.get(r.id);
   assert.equal(run.status, "awaiting-human");
