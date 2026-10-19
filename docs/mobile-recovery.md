@@ -59,6 +59,11 @@ when the page becomes visible or the device comes back online, and resumes from 
 cursor of its last window, also after reopening the chat. See
 [Live agent chat feed](assistant-gateway.md#live-agent-chat-feed).
 
+The agent list uses the same encoding on `/api/assistant-events`: a browser that
+reconnects sends its last list cursor (`Last-Event-ID`, or `?cursor=` for a new
+stream) and receives a diff, or the whole list for an unknown cursor. See
+[Live agent list](assistant-gateway.md#live-agent-list).
+
 ### Chat session cache in the browser
 
 The browser keeps a bounded cache of recently opened chats so that reopening one shows
