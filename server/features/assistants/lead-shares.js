@@ -8,6 +8,8 @@ import { shareNote } from "./lead-share-input.js";
 const rank = (level) => projectFileLevels.indexOf(level);
 const lower = (a, b) => (rank(a) < 0 || rank(b) < 0 ? null : rank(a) < rank(b) ? a : b);
 const higher = (a, b) => (rank(a) >= rank(b) ? a : b);
+// Coding requests that still wait for the owner or run on the share they rest on.
+const openCoding = new Set(["awaiting_approval", "approved", "executing", "running"]);
 
 /**
  * What a lead shares of its own access with one of its permanent members
@@ -378,6 +380,9 @@ export class LeadShares {
           ? !live.bound && "lead-lost"
           : !live.coding && !live.folder && "lead-lost");
       if (!reason) continue;
+      // A coding request on a task's own share stays approvable once the task ended
+      // on its own (authorize): the row goes when no open request rests on it.
+      if (reason === "task-ended" && this.restsOn(row)) continue;
       this.delete(row.id);
       if (row.kind === "mcp") mcp = true;
       (
@@ -394,6 +399,16 @@ export class LeadShares {
       this.changed(memberAssistantId, rows, { quiet: true });
     }
     return mcp;
+  }
+  /** Whether an open coding request of the member rests on this project share. */
+  restsOn(row) {
+    return (
+      row.kind === "project" &&
+      !!row.coding &&
+      this.w.store
+        .list(row.memberAssistantId)
+        .some((a) => a.inherited?.shareId === row.id && openCoding.has(a.state))
+    );
   }
   // A change reaches the member: MCP servers with the next apply, its instructions
   // (project folders) with its next profile apply.

@@ -386,3 +386,41 @@ test("a shared MCP server compiles for the member while the lead holds it", asyn
   assert.equal(revoked.status, "revoked");
   assert.deepEqual(changes.inherited(), {});
 });
+
+test("a coding request on a task's share stays approvable once the task ended", async (t) => {
+  const f = await setup(t);
+  const { taskShare, applyTaskShare } =
+    await import("../../server/features/assistants/lead-share-input.js");
+  const lead = f.store.getAssistant(f.lead);
+  const share = taskShare(f.workflows, lead, f.teams.member(f.member.id), {
+    coding: [f.folderProject.id],
+  });
+  const one = await f.task();
+  applyTaskShare(share, f.teams.get(one.id), one.inv);
+  const action = await f.call(one.inv, {
+    action: "coding_start",
+    pipelineId: f.pipeline.id,
+    task: "Render the site",
+  });
+  assert.equal(action.state, "awaiting_approval");
+  // The member ends its task before the owner decides, and the team scheduler
+  // prunes ended shares at its next tick (team-mcp.js refresh).
+  f.teams.write(f.teams.get(one.id), { phase: "completed" });
+  f.shares.prune();
+  assert.equal(f.shares.rows().length, 1, "kept for the open request");
+  const stored = f.workflows.store.get(action.id);
+  await f.workflows.decide(
+    action.id,
+    { decision: "approve", revision: stored.revision },
+    { kind: "owner" },
+  );
+  await f.workflows.advanceAction(f.workflows.store.get(action.id));
+  const running = f.workflows.store.get(action.id);
+  assert.equal(running.state, "running");
+  assert.equal(f.starts.length, 1);
+  f.runs.get(running.runId).status = "completed";
+  await f.workflows.advanceAction(running);
+  assert.equal(f.workflows.store.get(action.id).state, "completed");
+  f.shares.prune();
+  assert.deepEqual(f.shares.rows(), [], "gone once no request rests on it");
+});
