@@ -844,8 +844,9 @@ A lead reaches its own members without the owner relaying anything
   hands a task to a permanent member (one open task per member);
   `agentpier_team_cancel` cancels an open one; `agentpier_team_archive` archives the
   lead's finished temporary members without asking; `agentpier_team_member_update`
-  edits a temporary member and `agentpier_team_promote` keeps one as a permanent
-  agent (see below). `agentpier_team_templates` searches the Agency catalog
+  edits a temporary member, `agentpier_team_promote` keeps one as a permanent
+  agent and `agentpier_team_member_routine` sets up routines on permanent members
+  that report back (see below). `agentpier_team_templates` searches the Agency catalog
   (ids, names, categories; `team-templates.js`), and a proposed member may name one
   as `template`: `TeamService.propose` fetches it at the catalog's current revision,
   scans it (`skill-scan.js`), refuses a blocked one (`TEMPLATE_BLOCKED`) and stores
@@ -1959,6 +1960,79 @@ own permanent members, without the owner (`lead-shares.js`, `lead-share-input.js
   with coding and folder levels and server ids; a folder change through a share adds
   `leadAssistantId` and `leadRequestId` (or `sharedBy`) to its `project-file` record.
   Both chats get the grant note.
+
+## Lead routines on permanent members (2026-10-19, AGENTPIER-175)
+
+`agentpier_team_member_routine` (lead-only, `lead-routines.js`) lets a lead plan
+standing work for its own permanent members: `create`, `list`, `update` (name,
+prompt, trigger and/or `enabled`, with the routine's `revision`) and `remove`.
+
+- **Who and when.** Only the lead's own permanent members (team record and agent
+  both `permanent`, neither archived, routines switched on for the member;
+  temporary members get `ROUTINE_MEMBER_NOT_PERMANENT`, a member with routines off
+  `ROUTINE_MEMBER_OFF`, anyone else `NOT_FOUND`). Every action runs only in a turn
+  of the owner's own message (`owner` or `telegram`, not forwarded); routine runs,
+  member-result follow-ups and other internal turns get `ROUTINE_OWNER_TURN`, and
+  `routineActions` in `team-bridge.js` never admits the tool for a routine run.
+- **Usage levels.** A routine is standing work, never a write by itself, so the
+  levels decide the way they do for asks and tasks: under `onRequest` a `create`
+  needs the owner's own message in this turn to name the member (`namesMember` on
+  `ownerProse`, an `@` mention included), else `ROUTINE_NOT_REQUESTED`; under
+  `suggest` the "Your team" section tells the lead to offer the routine and set it
+  up after the owner's yes; under `autonomous` the lead may set one up on its own and
+  tells the owner. The per-member cap below bounds all levels.
+- **Validation and limits.** Name and prompt as for the agent's own routines (100
+  and 8,192 characters) and the same `schedule()` checks (one time with an offset,
+  or a cron with an IANA time zone); event triggers are refused. A cron must be a
+  five-field expression whose minute and hour fields leave at least 15 minutes
+  between two runs (`cron-gap.js`, also across midnight; anything it cannot read is
+  refused), else `ROUTINE_TOO_FREQUENT`. At most 5 live lead routines per lead and
+  member (`ROUTINE_MEMBER_LIMIT`); a replayed tool call adopts its routine.
+- **Storage.** The routine is the member's own binding
+  (`assistant_reminder_bindings`, `kind: "routine"`) with `createdBy: "lead"`,
+  `leadId` and `leadMemberId`, created through `NativeRoutines.create`, so it runs
+  as the member's native routine with the member's own capabilities and its lead's
+  standing shares (never a task's share). Its payload tells the member that its lead
+  set it up and that its reply is the report; it may answer `NO_REPLY` when its task
+  says to report only findings. Edits go through `NativeRoutines.edit`
+  (`routine-edits.js`): the definition and the native job (`name`, `schedule`,
+  `payload`) together under the routine's revision; the owner's
+  `PATCH /api/assistants/:id/routines/:routineId` accepts `name` and `prompt` too.
+- **Writing.** `writes` is not part of the tool's input. A run of a lead routine
+  writes (native writes in the member's workspace, project folders, writable tasks)
+  only when the owner switched on **May write** for it (`routineWrites`) or the lead's
+  team usage is `autonomous`, read live (`LeadRoutines.writeReason`,
+  `NativeRoutines.writable`, used by `TeamBridge.routineWrite` and `routineContext`).
+  The owner's own routines keep their rules.
+- **Reporting.** `NativeReminders.complete` records the run in the member's chat as
+  for every routine, and `LeadRoutines.report` turns it into a settled lead request
+  of `type: "report"` (`lead-routine-reports.js`; origin `{ kind: "member-routine",
+bindingId, name }`, the result kept like an answer, idempotent per run). The
+  scheduler's next pass delivers it like any other result: a `member-result`
+  follow-up in the lead's main chat, "Report from <member> · routine <name>",
+  attributed data that the lead may act on like any follow-up. A silent run sends
+  nothing; a failed run is reported once (`ROUTINE_FAILED`) and later failures stay
+  quiet until a run succeeds again (`leadReportFailing` on the binding). Reports are
+  listed in **Work → Teams → Questions and tasks** as "Routine report from
+  <member>" with "Scheduled · <name>" and do not count against the lead's request
+  caps.
+- **Lifecycle.** A lead routine counts only while the relation holds
+  (`LeadRoutines.ended`: lead and member active, the member still the lead's
+  permanent member); `runOrigin` ignores it otherwise, so a run that still fires
+  reaches no tools, writes nothing and reports nothing. The team scheduler's tick
+  (`TeamService.reconcile`, at most every 30 seconds) then removes it for good: the
+  binding is revoked at once and its native job removed once the Gateway is ready.
+  Removing rather than pausing keeps no orphaned work that would report to nobody.
+- **Audit.** Every create, update and removal is recorded as `assistant.updated`
+  with `kind: "lead-routine"`, the member as resource, `leadAssistantId`,
+  `routineId`, `change`, `by` (`lead` or `system`), the edited fields and, for an
+  ended relation, the `reason` (`lead-archived`, `member-archived`, `member-left`,
+  `lead-gone`, `member-gone`); never the routine's text.
+- **Owner view.** The member's **Routines & check-ins** list shows "Created by
+  <lead>" and a note that its results also go to the lead and that it only reads
+  unless **May write** is on or the lead uses its team autonomously; the owner
+  edits name and task, pauses, removes and switches **May write** like for any
+  routine.
 
 ## MCP servers for agents (2026-10-11)
 

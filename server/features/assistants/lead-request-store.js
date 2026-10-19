@@ -235,7 +235,9 @@ export class LeadRequestStore {
         if (this.open((r) => r.memberId === member.id && r.type === "task").length)
           throw assistantProblem("memberRequestOpenTask", 409);
       }
-      const mine = this.list(lead.id),
+      // Reports of the lead's routines on members (lead-routine-reports.js) are not
+      // the lead's own requests and never count against its caps.
+      const mine = this.list(lead.id).filter((r) => r.type !== "report"),
         turn = mine.filter((r) =>
           run ? r.routineRun === run : r.parentRequestId === request.id,
         ),
@@ -479,6 +481,8 @@ export function publicRequest(r, { full = false } = {}) {
     ...(r.origin?.kind === "routine" && r.routineRun
       ? { routine: textOr(r.origin.name) }
       : {}),
+    // A report of the lead's routine of this name on the member.
+    ...(r.type === "report" ? { memberRoutine: textOr(r.origin?.name) } : {}),
     ...(r.startedAt ? { startedAt: r.startedAt } : {}),
     ...(r.finishedAt ? { finishedAt: r.finishedAt } : {}),
     ...(r.answer ? (full ? { answer: r.answer } : { hasAnswer: true }) : {}),

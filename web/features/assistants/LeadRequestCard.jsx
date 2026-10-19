@@ -56,6 +56,9 @@ export default function LeadRequestCard({
         {r.routine !== undefined && (
           <span className="lead-request-access">{copy.routine(r.routine)}</span>
         )}
+        {r.memberRoutine !== undefined && (
+          <span className="lead-request-access">{copy.routine(r.memberRoutine)}</span>
+        )}
         <small>{requestState(r)}</small>
       </div>
       <p className="assistant-approval-task">
@@ -77,7 +80,13 @@ export default function LeadRequestCard({
           className="assistant-team-report"
           onToggle={(event) => event.currentTarget.open && load()}
         >
-          <summary>{r.type === "task" ? copy.result : copy.answer}</summary>
+          <summary>
+            {r.type === "task"
+              ? copy.result
+              : r.type === "report"
+                ? copy.report
+                : copy.answer}
+          </summary>
           {r.answer && <p>{r.answer}</p>}
           {r.answerCut && (
             <p className="assistant-note">

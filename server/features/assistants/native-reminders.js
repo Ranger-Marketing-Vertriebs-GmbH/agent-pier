@@ -459,6 +459,8 @@ export class NativeReminders {
     this.toTelegram(binding, { key, ok, text });
     // The main chat shows it, and a push notice links there.
     const recorded = this.completed(binding, event, text);
+    // A lead's routine on its member reports to the lead as well (lead-routines.js).
+    if (binding.kind === "routine") this.routines?.lead?.report(binding, event, text);
     if (recorded?.fresh)
       Promise.resolve()
         .then(() =>

@@ -52,4 +52,10 @@ export const routineCopy = {
   writesHint: "Projektordner und delegierte Aufgaben",
   writesOn: "Darf schreiben",
   telegramOn: "Wird auch an Telegram gesendet",
+  edit: "Routine bearbeiten",
+  save: "Routine speichern",
+  // Eine Routine, die der leitende Agent des Mitglieds angelegt hat (Team-Tool).
+  createdBy: (lead) => (lead ? `Angelegt von ${lead}` : "Angelegt vom leitenden Agenten"),
+  leadHint: (lead) =>
+    `${lead || "Der leitende Agent"} hat diese Routine angelegt. Ihre Ergebnisse gehen auch an ${lead || "den leitenden Agenten"}. Sie liest nur, solange du „Darf schreiben“ nicht einschaltest oder der leitende Agent sein Team nicht selbstständig nutzt.`,
 };

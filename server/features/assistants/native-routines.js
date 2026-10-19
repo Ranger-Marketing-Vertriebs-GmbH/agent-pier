@@ -3,6 +3,8 @@ import { NativeReminders, exact, schedule, updateInput } from "./native-reminder
 import { RoutineEvents } from "./routine-events.js";
 import { routineTools } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
+import { isLeadRoutine, LeadRoutines } from "./lead-routines.js";
+import { editRoutine } from "./routine-edits.js";
 export const permanentReasons = {
   400: "INVALID",
   403: "FORBIDDEN",
@@ -42,6 +44,8 @@ export class NativeRoutines extends NativeReminders {
     });
     this.kind = "routine";
     this.receipts = new RoutineEvents(this.assistants.store.db);
+    // Routines a lead set up on its permanent members (lead-routines.js).
+    this.lead = new LeadRoutines(this);
     reminders.routines = this;
   }
   values(input, old) {
@@ -72,7 +76,16 @@ export class NativeRoutines extends NativeReminders {
           : trigger,
     };
   }
-  payload(values) {
+  payload(values, binding) {
+    // A lead's routine on its member reports to the lead (lead-routine-reports.js);
+    // the lead is not named, so a rename never rewrites the job.
+    if (isLeadRoutine(binding))
+      return [
+        `This is the scheduled AgentPier routine ${JSON.stringify(values.name)} that your lead agent set up for you, not a message from the owner.`,
+        "Carry out its saved task below. Your reply is your report: it goes to your lead agent and shows in your chat. If the task says to report only when something is found and there is nothing, reply with exactly NO_REPLY.",
+        "",
+        values.prompt,
+      ].join("\n");
     return [
       `This is the scheduled AgentPier routine ${JSON.stringify(values.name)}, not a message from the owner.`,
       "Carry out its saved task below and reply with the result for the owner.",
@@ -89,7 +102,7 @@ export class NativeRoutines extends NativeReminders {
       sessionKey,
       payload: {
         kind: "agentTurn",
-        message: this.payload(values),
+        message: this.payload(values, binding),
         timeoutSeconds: routineTimeoutSeconds,
         lightContext: false,
         toolsAllow: [...routineTools],
@@ -118,7 +131,35 @@ export class NativeRoutines extends NativeReminders {
       revision: binding.routineRevision || 1,
       // The owner lets this routine write: project folders and delegated tasks.
       writes: binding.routineWrites === true,
+      // Set up by the member's lead (lead-routines.js), named for the owner.
+      ...(isLeadRoutine(binding)
+        ? {
+            createdBy: {
+              kind: "lead",
+              leadId: binding.leadId,
+              leadName: this.leadName(binding),
+            },
+          }
+        : {}),
     };
+  }
+  leadName(binding) {
+    try {
+      return this.assistants.store.getAssistant(binding.leadId).name;
+    } catch {
+      return "";
+    }
+  }
+  /**
+   * Whether a run of this routine may write: the owner's "May write", or for a
+   * lead's routine on its member also the lead's autonomous team usage (read live).
+   */
+  writable(binding) {
+    return !!this.lead.writeReason(binding);
+  }
+  /** Name, task or schedule in place (routine-edits.js). */
+  edit(id, bindingId, input, assertCurrent) {
+    return editRoutine(this, id, bindingId, input, assertCurrent);
   }
   /**
    * The owner's switch "May write": the routine's run may change files in its
@@ -151,6 +192,9 @@ export class NativeRoutines extends NativeReminders {
     return { routines: reminders };
   }
   update(id, bindingId, input, assertCurrent = () => {}) {
+    // The owner's edit of a routine's name or task (and a lead's, lead-routines.js).
+    if (input && ["name", "prompt", "trigger"].some((k) => k in input))
+      return this.edit(id, bindingId, input, assertCurrent);
     return this.assistants.admit(async () => {
       assertCurrent();
       updateInput(input, { routine: true });
@@ -369,15 +413,15 @@ export class NativeRoutines extends NativeReminders {
     const match = runSession.exec(typeof sessionKey === "string" ? sessionKey : "");
     if (!match || match[1].toLowerCase() !== assistant.runtimeAgentId?.toLowerCase())
       return null;
-    const binding = this.bindings
-      .list(assistant.id)
-      .find(
-        (b) =>
-          b.kind === "routine" &&
-          b.state === "bound" &&
-          b.routineEnabled !== false &&
-          b.nativeId?.toLowerCase() === match[2].toLowerCase(),
-      );
+    const binding = this.bindings.list(assistant.id).find(
+      (b) =>
+        b.kind === "routine" &&
+        b.state === "bound" &&
+        b.routineEnabled !== false &&
+        b.nativeId?.toLowerCase() === match[2].toLowerCase() &&
+        // A lead's routine counts only while its lead and member still belong.
+        (!isLeadRoutine(b) || !this.lead.ended(b)),
+    );
     const conversation = binding && this.conversation(binding);
     return conversation ? { binding, conversation } : null;
   }

@@ -199,6 +199,32 @@ const definitions = {
       ["memberId"],
     ),
   },
+  member_routine: {
+    description:
+      "Plan standing work for your own permanent members: set up, list, change, pause/resume (update with enabled) and remove routines that run on a member and report back to you. Temporary members are refused (they work only on their task). A routine runs as the member's own scheduled routine with its own tools and the access you share with it for good; its saved prompt is the member's task. Each run's result shows in the member's chat and reaches you as a separate message from '<member> · routine <name>' to summarize for the owner; a failed run is reported once until it works again, and a run whose prompt says to report only findings can reply NO_REPLY to stay silent. It runs read-only (no file changes, no writing tasks) unless the owner switched on 'May write' for it in the member's settings or your team usage is Autonomous; you cannot set that. Only in a turn of the owner's own message; at team usage 'On request' only when that message names the member. At most 5 of your routines per member. trigger: {kind:'at',at:ISO timestamp with a UTC offset or Z} or {kind:'cron',expr:five-field cron,tz:IANA timezone}, at most every 15 minutes. Updates need the id and revision from list or create; update may change name, prompt and trigger and/or set enabled. The owner sees and can change or remove every routine.",
+    parameters: schema(
+      {
+        action: { type: "string", enum: ["create", "list", "update", "remove"] },
+        memberId: text(100),
+        id: text(100),
+        name: text(100),
+        prompt: text(8192),
+        trigger: {
+          anyOf: [
+            schema({ kind: { const: "at", type: "string" }, at: text(100) }),
+            schema({
+              kind: { const: "cron", type: "string" },
+              expr: text(100),
+              tz: text(100),
+            }),
+          ],
+        },
+        enabled: { type: "boolean" },
+        revision: { type: "integer", minimum: 1 },
+      },
+      ["action"],
+    ),
+  },
   grant: {
     description: `Give one of your own task members more tools or access, while it works on its task or after it finished (for your questions and tasks to it; not once archived), or take them back with revoke: true (any time). ${grantRule} Shell and SSH granted here wait for the owner's approval (status approval_requested); everything else applies at once and is shown to the owner in both chats. ${shareRule} For a permanent member this is a standing share for your tasks to it and the owner's own chats with it; use grants.projects, coding and mcpServers only, revoke takes a share back.`,
     parameters: schema(

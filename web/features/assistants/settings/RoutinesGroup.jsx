@@ -38,6 +38,7 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
     [error, setError] = useState(""),
     [creating, setCreating] = useState(false),
     [open, setOpen] = useState(null),
+    [editing, setEditing] = useState(null),
     [events, setEvents] = useState({});
   const [name, setName] = useState(""),
     [prompt, setPrompt] = useState(""),
@@ -113,6 +114,18 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
       }
     });
     if (done && alive.current) setCreating(false);
+  }
+  // The owner changes a routine's name and task in place (also one its lead set up).
+  async function save(event, item) {
+    event.preventDefault();
+    const done = await act(() =>
+      routineApi.update(assistantId, item.id, {
+        name: editing.name,
+        prompt: editing.prompt,
+        revision: item.revision,
+      }),
+    );
+    if (done && alive.current) setEditing(null);
   }
   async function run(item) {
     const eventId = eventIds.current.get(item.id) || crypto.randomUUID();
@@ -262,6 +275,11 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
                       {item.writes && (
                         <span className="agent-sub-part">{copy.writesOn}</span>
                       )}
+                      {item.createdBy?.kind === "lead" && (
+                        <span className="agent-sub-part">
+                          {copy.createdBy(item.createdBy.leadName)}
+                        </span>
+                      )}
                       {item.nextRunAtMs && (
                         <span className="agent-sub-part">
                           {copy.nextRun(formatTimestamp(item.nextRunAtMs))}
@@ -279,7 +297,54 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
               )}
               {open === item.id && (
                 <div className="agent-detail" id={`${id}-detail-${item.id}`}>
-                  <p>{item.prompt}</p>
+                  {item.createdBy?.kind === "lead" && (
+                    <p className="agent-row-note">
+                      {copy.leadHint(item.createdBy.leadName)}
+                    </p>
+                  )}
+                  {editing?.id === item.id ? (
+                    <form className="agent-fields" onSubmit={(e) => save(e, item)}>
+                      <label className="agent-field">
+                        {copy.name}
+                        <input
+                          required
+                          disabled={busy}
+                          maxLength={100}
+                          value={editing.name}
+                          onChange={(e) =>
+                            setEditing({ ...editing, name: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="agent-field">
+                        {copy.prompt}
+                        <textarea
+                          required
+                          disabled={busy}
+                          maxLength={8192}
+                          rows={3}
+                          value={editing.prompt}
+                          onChange={(e) =>
+                            setEditing({ ...editing, prompt: e.target.value })
+                          }
+                        />
+                      </label>
+                      <div className="agent-field assistant-actions">
+                        <button className="button primary" disabled={busy}>
+                          {copy.save}
+                        </button>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() => setEditing(null)}
+                        >
+                          {commonCopy.cancel}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <p>{item.prompt}</p>
+                  )}
                   {(paired || item.telegram) && item.status === "ready" && (
                     <ToggleRow
                       label={copy.alsoTelegram}
@@ -312,6 +377,21 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
                     />
                   )}
                   <div className="assistant-actions">
+                    {item.status === "ready" && editing?.id !== item.id && (
+                      <button
+                        className="button secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          setEditing({
+                            id: item.id,
+                            name: item.name,
+                            prompt: item.prompt,
+                          })
+                        }
+                      >
+                        {copy.edit}
+                      </button>
+                    )}
                     {["ready", "unknown"].includes(item.status) && (
                       <button
                         className="button secondary"

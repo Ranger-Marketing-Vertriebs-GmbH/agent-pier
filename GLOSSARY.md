@@ -94,8 +94,9 @@ _Avoid_: Job, ticket, delegation (for the record itself).
 **Lead share**:
 Access a lead passes on to one of its permanent members: project folders, coding
 projects or MCP servers it holds itself, standing or for one task, never above what
-the lead holds now. Kept apart from the access the owner gives the member and shown
-"via <lead>". A temporary member gets a _grant_ instead.
+the lead holds now. A write share changes files in every task of that lead. Kept
+apart from the access the owner gives the member and shown "via <lead>". A temporary
+member gets a _grant_ instead.
 _Avoid_: Inheritance (in UI text), delegation of rights.
 
 **Team usage**:
@@ -113,7 +114,9 @@ _Avoid_: Persona, preset, blueprint.
 **Routine**:
 A saved task prompt that runs daily or on an event and reports to the agent's chat
 and paired Telegram chat. It reads the agent's project folders; only a routine the
-owner marked "May write" changes files there and delegates tasks that may write.
+owner marked "May write" changes files there and delegates tasks that may write. A
+lead can set one up on its permanent member: it runs as the member's routine, reports
+back to the lead and writes only with "May write" or an autonomous lead.
 _Avoid_: Cron job, schedule (unqualified).
 
 **Reminder**:
