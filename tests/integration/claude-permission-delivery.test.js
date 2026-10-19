@@ -290,3 +290,63 @@ test("a released Claude question leaves no approval notice", async (t) => {
   await run.done;
   assert.equal((await state(f)).notice, undefined);
 });
+
+test("Always allow from chat returns Claude's rule for the account's user settings", async (t) => {
+  const f = await fixture(t);
+  const run = hook(
+    f,
+    {
+      hook_event_name: "PermissionRequest",
+      tool_name: "Bash",
+      tool_input: { command: "npm test" },
+      permission_suggestions: [
+        {
+          type: "addRules",
+          rules: [{ toolName: "Bash", ruleContent: "npm test:*" }],
+          behavior: "allow",
+          destination: "localSettings",
+        },
+      ],
+    },
+    { timeout: 10_000 },
+  );
+  const request = await pending(f);
+  assert.equal(
+    request.options.find((option) => option.id === "always")?.description,
+    "Bash(npm test:*)",
+  );
+  await f.broker.answer("session", request.id, { expectedRevision: 1, choice: "always" });
+  await run.done;
+  assert.deepEqual(JSON.parse(run.output()).hookSpecificOutput.decision, {
+    behavior: "allow",
+    updatedPermissions: [
+      {
+        type: "addRules",
+        rules: [{ toolName: "Bash", ruleContent: "npm test:*" }],
+        behavior: "allow",
+        destination: "userSettings",
+      },
+    ],
+  });
+});
+
+test("a Claude plan reaches chat in full and keep planning stops Claude", async (t) => {
+  const f = await fixture(t);
+  const plan = "# Plan\n\n" + "- step\n".repeat(6000);
+  const run = hook(
+    f,
+    {
+      hook_event_name: "PermissionRequest",
+      tool_name: "ExitPlanMode",
+      tool_input: { plan },
+    },
+    { timeout: 10_000 },
+  );
+  const request = await pending(f);
+  assert.equal(request.subject.plan, plan);
+  await f.broker.answer("session", request.id, { expectedRevision: 1, choice: "keep" });
+  await run.done;
+  const { decision } = JSON.parse(run.output()).hookSpecificOutput;
+  assert.equal(decision.behavior, "deny");
+  assert.equal(decision.interrupt, true);
+});

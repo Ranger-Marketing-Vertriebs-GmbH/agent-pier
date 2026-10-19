@@ -66,6 +66,21 @@ export const requestCopy = {
   noteLabel: (prompt) => `Note for Claude: ${prompt}`,
   preview: (label) => `Preview: ${label}`,
   details: "Requested action",
+  claudeOptions: {
+    allow: "Allow once",
+    always: "Always allow",
+    deny: "Deny",
+  },
+  alwaysRules:
+    "Always allow saves these rules for this Claude account, in every project:",
+  planTitle: "Plan ready for review",
+  plan: "Proposed plan",
+  planHint: "Keep planning stops Claude so you can send feedback in chat.",
+  planOptions: {
+    acceptEdits: "Approve and auto-accept edits",
+    approve: "Approve and review each edit",
+    keep: "Keep planning",
+  },
   cwd: "Working directory",
   scopes: {
     turn: "For this turn",

@@ -7,6 +7,12 @@ import { claudeHookVersion, claudeHookTimeoutSeconds } from "./claude-runtime.js
 import { requestValue } from "./request-validation.js";
 import { watchNativeDecision } from "./claude-native-decision.js";
 import { workflowMeta } from "./claude-workflow-meta.js";
+import {
+  alwaysDecision,
+  persistentRules,
+  planRequest,
+  ruleText,
+} from "./claude-permission.js";
 
 // Without a transcript match a terminal approval cannot be observed, so such a
 // permission keeps the earlier bounded wait instead of holding chat for a day.
@@ -97,8 +103,13 @@ export function claudeRequest(data) {
       },
     };
   }
+  if (data.hook_event_name === "PermissionRequest" && data.tool_name === "ExitPlanMode") {
+    const plan = planRequest(data);
+    if (plan) return plan;
+  }
   if (data.hook_event_name === "PermissionRequest") {
     const workflow = workflowMetaOf(data);
+    const rules = persistentRules(data.permission_suggestions);
     return {
       view: {
         kind: "permission",
@@ -120,6 +131,17 @@ export function claudeRequest(data) {
         },
         options: [
           { id: "allow", label: copy.once, scope: "once" },
+          // Offered only for rules Claude itself proposes for this call.
+          ...(rules.length
+            ? [
+                {
+                  id: "always",
+                  label: copy.always,
+                  description: rules.map(ruleText).join("\n"),
+                  scope: "persistent",
+                },
+              ]
+            : []),
           { id: "deny", label: copy.deny },
         ],
       },
@@ -129,7 +151,10 @@ export function claudeRequest(data) {
           : {
               hookSpecificOutput: {
                 hookEventName: "PermissionRequest",
-                decision: { behavior: input.choice },
+                decision:
+                  input.choice === "always"
+                    ? alwaysDecision(rules)
+                    : { behavior: input.choice },
               },
             },
     };
