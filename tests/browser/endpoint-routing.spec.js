@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
 import { accountDetail, saveBar } from "../helpers/accounts-browser.js";
+import { docScreenshot, updateDocScreenshots } from "../helpers/doc-screenshots.js";
 
 test.use({ locale: "en-GB" });
 
@@ -47,10 +48,10 @@ test("routes resolve live and explain unavailable choices", async ({ page }) => 
   await responses.check();
   await claude.selectOption("adapter:responses");
   await expect(uses("via adapter · Responses")).toBeVisible();
-  if (process.env.CAPTURE_ADAPTER_SCREENSHOTS) {
+  if (updateDocScreenshots) {
     await dialog.getByText("Adapter options", { exact: true }).scrollIntoViewIfNeeded();
     await dialog.screenshot({
-      path: "docs/screenshots/endpoint-routing-desktop.png",
+      path: docScreenshot("docs/screenshots/endpoint-routing-desktop.png"),
       animations: "disabled",
     });
   }
@@ -152,9 +153,9 @@ test("test proposals fill adapter options that stay editable", async ({ page }) 
   await expect(options.getByText("suggested by the test")).toHaveCount(2);
   await effort.check();
   await expect(effort).toHaveAccessibleDescription("changed by you");
-  if (process.env.CAPTURE_ADAPTER_SCREENSHOTS) {
+  if (updateDocScreenshots) {
     await options.screenshot({
-      path: "docs/screenshots/endpoint-adapter-options.png",
+      path: docScreenshot("docs/screenshots/endpoint-adapter-options.png"),
       animations: "disabled",
     });
   }

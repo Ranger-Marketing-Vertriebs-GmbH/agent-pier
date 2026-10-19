@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 
 test.use({ isMobile: true, hasTouch: true, viewport: { width: 390, height: 844 } });
 const file = (path, mediaType, text) => ({
@@ -53,7 +54,9 @@ test("mobile artifact follows bundled page and image links without leaving the s
     20,
   );
   if (process.env.CAPTURE_ARTIFACT_LINK_SCREENSHOT)
-    await page.screenshot({ path: "docs/screenshots/artifact-links-mobile.png" });
+    await page.screenshot({
+      path: docScreenshot("docs/screenshots/artifact-links-mobile.png"),
+    });
   await frame.getByRole("link", { name: "Overview" }).tap();
   await expect(frame.getByRole("heading", { name: "Overview" })).toBeVisible();
   await frame.getByRole("link", { name: "Bestandsvergleich" }).tap();

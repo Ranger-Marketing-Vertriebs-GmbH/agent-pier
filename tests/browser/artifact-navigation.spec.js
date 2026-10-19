@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 
 test.use({ isMobile: true, hasTouch: true });
 
@@ -68,7 +69,9 @@ for (const language of ["en", "de"])
     await frame.getByText("End", { exact: true }).scrollIntoViewIfNeeded();
     await expect(page.locator("iframe")).toHaveAttribute("sandbox", "allow-scripts");
     if (process.env.CAPTURE_ARTIFACT_SCREENSHOTS && language === "en")
-      await page.screenshot({ path: "docs/screenshots/artifact-viewer-mobile.png" });
+      await page.screenshot({
+        path: docScreenshot("docs/screenshots/artifact-viewer-mobile.png"),
+      });
     await leaveViewer(
       page,
       language === "en" ? "Back to AgentPier" : "Zurück zu AgentPier",

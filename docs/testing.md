@@ -146,6 +146,8 @@ TUIUI_TEST_URL=http://127.0.0.1:5188 npm run test:e2e
 
 Install Playwright browser binaries as development prerequisites. To keep them inside this checkout, use `PLAYWRIGHT_BROWSERS_PATH=.cache/playwright npx playwright install chromium webkit` and set the same variable on test runs. This installs test browsers, not coding CLIs or background services.
 
+Specs that capture the documentation's screenshots name their `docs/screenshots/` file through `docScreenshot()` from `tests/helpers/doc-screenshots.js`. A normal run writes those images into the test's Playwright output folder and leaves `docs/` untouched. To refresh the checked-in images, run the specs with `AGENTPIER_UPDATE_DOC_SCREENSHOTS=1`, for example `AGENTPIER_UPDATE_DOC_SCREENSHOTS=1 AGENTPIER_TEST_BROWSER=chromium npx playwright test tests/browser/pipelines-profiles.spec.js`, and review the changed images before committing them.
+
 Concurrent local Playwright invocations need distinct `AGENTPIER_TEST_PORT` values and `--output` directories. Each invocation clears its output directory at startup; sharing it can delete another run's active trace files.
 
 `tests/helpers/repository-browser.js` shares the repository feature state machine across access, clone and discovery scenarios. Unknown API requests fail explicitly, so a newly introduced endpoint cannot silently succeed with an empty object. Other features keep their specific fixtures because their state transitions differ. Browser fixtures must not replace failing assertions with permissive default responses.

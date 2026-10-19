@@ -2,6 +2,7 @@ import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./ssh-fixture.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 
 for (const mobile of [false, true])
   test(`session MCP defaults on with one checkbox and preserves opt-out after failed launch (${mobile ? "mobile" : "desktop"})`, async ({
@@ -30,7 +31,9 @@ for (const mobile of [false, true])
     ).toBe(true);
     await enabled.scrollIntoViewIfNeeded();
     await page.screenshot({
-      path: `docs/screenshots/session-mcp-${mobile ? "mobile" : "desktop"}.png`,
+      path: docScreenshot(
+        `docs/screenshots/session-mcp-${mobile ? "mobile" : "desktop"}.png`,
+      ),
       fullPage: true,
     });
     await page
@@ -124,7 +127,7 @@ for (const language of ["de", "en"])
       ).toHaveCount(0);
       if (english && legacy)
         await page.screenshot({
-          path: "docs/screenshots/session-mcp-access-en.png",
+          path: docScreenshot("docs/screenshots/session-mcp-access-en.png"),
           fullPage: true,
         });
       await dialog

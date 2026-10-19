@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { operationsFixture } from "./operations-fixture.js";
 import { baseURL } from "../helpers/browser.js";
+import { docScreenshot, updateDocScreenshots } from "../helpers/doc-screenshots.js";
 
 test.use({ locale: "en-GB" });
 
@@ -60,9 +61,9 @@ test("adapter session checks show label, status, remedy and collapsed details", 
   await details.locator("summary").click();
   await expect(details.locator("pre")).toContainText('"gaveUpAt"');
   await expect(card("Adapter session: s2").locator("header")).toContainText("Notice");
-  if (process.env.CAPTURE_ADAPTER_SCREENSHOTS) {
+  if (updateDocScreenshots) {
     await page.screenshot({
-      path: "docs/screenshots/diagnostics-adapter-session.png",
+      path: docScreenshot("docs/screenshots/diagnostics-adapter-session.png"),
       animations: "disabled",
     });
   }

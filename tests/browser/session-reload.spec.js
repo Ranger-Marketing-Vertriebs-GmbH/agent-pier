@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 
 async function fixture(page, language = "en", configure = () => {}) {
   const state = {
@@ -182,7 +183,9 @@ test("busy reload requires acknowledgement and preserves chat draft and history"
   const now = dialog(page).getByRole("button", { name: "Reload now", exact: true });
   await expect(now).toBeDisabled();
   await dialog(page).getByRole("checkbox").check();
-  await page.screenshot({ path: "docs/screenshots/session-reload-mobile.png" });
+  await page.screenshot({
+    path: docScreenshot("docs/screenshots/session-reload-mobile.png"),
+  });
   await now.click();
   await expect(dialog(page)).toContainText(
     "Conversation resumed with refreshed integrations.",
@@ -287,7 +290,7 @@ test("SSH readiness updates without losing unsaved choices", async ({ page }) =>
   await expect(
     dialog(page).getByRole("checkbox", { name: /Build server/ }),
   ).toBeChecked();
-  await page.screenshot({ path: "docs/screenshots/ssh-tools-mobile.png" });
+  await page.screenshot({ path: docScreenshot("docs/screenshots/ssh-tools-mobile.png") });
   expect(state.assignedIds).toEqual([]);
 });
 

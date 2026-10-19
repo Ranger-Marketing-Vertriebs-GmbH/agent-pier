@@ -3,6 +3,7 @@ import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 
 import { baseURL as base } from "../helpers/browser.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 async function fixture(page) {
   const session = {
     id: "model-demo",
@@ -554,7 +555,7 @@ test("Codex shows the live model instead of schema text and retains it after scr
   await expect(trigger).toContainText("GPT-6-Astra max");
   await expect(draft).toHaveValue("Keep this draft while the model status refreshes");
   await page.locator(".chat-layout").screenshot({
-    path: "docs/screenshots/codex-model-status-english.png",
+    path: docScreenshot("docs/screenshots/codex-model-status-english.png"),
     animations: "disabled",
   });
 });
