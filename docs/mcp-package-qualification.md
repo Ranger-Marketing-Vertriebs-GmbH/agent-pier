@@ -177,3 +177,30 @@ toolchains already staged at startup.
 - Agent and Claude Code calls, and OPNsense with real credentials and the restricted
   API user, are done by the owner in the real instance after merge.
 - Upstream issue: not posted (owner decision).
+
+## REA (rea-agents): setup notes, not qualified
+
+REA (`io.github.morluto/rea`, npm `rea-agents`, argument `mcp`) is not part of the
+qualification above: it was not installed, run or code-reviewed on the qualification
+machine, and REA's own `rea setup` was not run because it writes into the CLI files
+AgentPier manages. What AgentPier knows about it comes from REA's documentation and
+registry listing, and is shown to the owner as a curated note in the directory and on
+the package step ([MCP](mcp.md#worked-example-rea)):
+
+- The optional dependency `frida` has an install script, so the npm install is refused
+  until **Allow install scripts or source builds** is ticked. Allowing it runs
+  third-party code as the server user during install.
+- The tool catalog is about 496 KB; `REA_MCP_INPUT_SCHEMA_PROFILE=compact` brings it to
+  about 290 KB.
+- Ghidra 12.1 and JDK 21+ are bring-your-own (`GHIDRA_INSTALL_DIR`, `JAVA_HOME`);
+  AgentPier provisions neither.
+- LLDB, Frida attach and the setuid `ps` are very likely denied in a nono-sandboxed
+  session (inferred, not tested); see
+  [sandboxed sessions](sandbox.md#tools-that-do-not-run-sandboxed).
+- Trojaned look-alike copies circulate; only `morluto/rea` and the npm package
+  published by morluto are genuine. The note is keyed by the exact names and is not
+  shown for look-alikes.
+
+A qualification run (install with scripts allowed, tool listing with the compact
+profile, a static analysis call, and a runtime call in a sandboxed and an unsandboxed
+session) is still open.

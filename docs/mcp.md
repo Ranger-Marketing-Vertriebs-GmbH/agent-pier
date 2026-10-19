@@ -619,3 +619,45 @@ when the MCP list opens, AgentPier asks the directory for at most 20 such server
 shows **Update available** when a newer exact version of the same package is listed.
 The package panel then pre-fills that version for **Check update**. A different
 package or address is shown as a hint only.
+
+#### Curated notes on known servers
+
+A few servers have pitfalls their listing does not tell. For those, AgentPier shows
+its own note, **Note from AgentPier**, in the directory detail and on the package step
+(`web/features/mcp-servers/wizard/curated-hints.js`, copy in the `mcp-directory`
+catalogs under `curated`). A note is keyed by the exact registry name and the exact
+package (registry and name), never by a prefix, a case-folded or a similar name, so a
+look-alike entry or package gets none. It is a hint for the owner, not a review and not
+a setting: nothing is filled in or ticked for you. To add a note, add an entry with its
+registry name and packages there and its title and points in both catalogs;
+`tests/unit/mcp-curated-hints.test.js` checks the exact matching and the catalog
+parity.
+
+#### Worked example: REA
+
+[REA](https://github.com/morluto/rea) ("Reverse Engineer Anything", MIT) is listed as
+`io.github.morluto/rea` and runs as the npm package `rea-agents` with the argument
+`mcp` over stdio, about 172 tools. Search the directory for `rea`, open **REA** and
+check the note before **Use this server**:
+
+- **Dual use.** REA analyses programs and running processes. Its disclaimer forbids
+  circumventing DRM, licence checks or anti-cheat; use it only on software you may
+  analyse.
+- **Genuine copies only.** Only `morluto/rea` on GitHub and the npm package
+  `rea-agents` published by morluto are genuine; trojaned copies circulate under
+  similar names. Compare the namespace in the detail and the publisher on the package
+  step.
+- **Install scripts.** Its optional dependency `frida` runs an install script, so the
+  install is refused until you tick **Allow install scripts or source builds** under
+  **More options** on the package step.
+- **Tool catalog size.** The tool list is about 496 KB. On the settings step add
+  `REA_MCP_INPUT_SCHEMA_PROFILE` with the value `compact` to cut it to about 290 KB.
+- **Bring your own analysers.** Ghidra 12.1 and JDK 21 or newer are not installed by
+  AgentPier; install them yourself and add `GHIDRA_INSTALL_DIR` and `JAVA_HOME`.
+- **No sandbox for runtime tools.** LLDB, Frida attach and the setuid `ps` very likely
+  fail in a nono-sandboxed session (inferred from REA's documentation, not tested).
+  Use REA's runtime tools in an unsandboxed session; see
+  [sandboxed sessions](sandbox.md#tools-that-do-not-run-sandboxed).
+- **Do not run `rea setup`.** REA's own setup command writes into the CLI configuration
+  files that AgentPier manages. Set it up through the wizard and bind it with
+  **Connect** instead.

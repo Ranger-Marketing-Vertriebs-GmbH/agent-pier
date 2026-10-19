@@ -294,5 +294,24 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    more files while it runs (for example `npx` with its package cache) needs the
    operator's sandbox profile to allow them.
 
+## Tools that do not run sandboxed
+
+AgentPier does not try to make every tool work under nono. Some tools need access a
+sandbox profile is meant to withhold: attaching a debugger (LLDB) or Frida to another
+process, or reading other processes through a setuid `ps`, for example REA's runtime
+tools ([MCP](mcp.md#worked-example-rea)). Such tools are shown, not supported: run them
+in an unsandboxed session, or widen the sandbox profile yourself with `nono`.
+
+When a tool call fails in a sandboxed session and its output reads like an operating
+system denial — `EPERM`, `EACCES`, "Operation not permitted", "Permission denied" or a
+Seatbelt `deny(1)` line — the chat marks that call **Likely blocked by the sandbox**
+instead of **Failed** and, when opened, names the session's sandbox profile and the two
+ways out. This applies to every tool row, MCP servers included, because the sandbox
+confines every subprocess of the CLI. It is a hint read from the output the CLI
+recorded (only the first and last 16 KiB of a long output are scanned), not a report
+from nono: the same errors can have other causes, and a server that swallows the error
+or a denial that only shows up as nono's own prompt in the terminal (limitation 3) is
+not recognised.
+
 See the [architecture guide](architecture.md#persistence-and-safety-boundaries) for
 where this fits alongside AgentPier's other persistence and safety boundaries.
