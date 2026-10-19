@@ -27,6 +27,7 @@ export default function ExecutionHistory({ run }) {
           </small>
           <Verdict verdict={entry.verdict} />
           {entry.failReason && <p>{failReasonLabel(entry.failReason)}</p>}
+          {entry.failDetail && <p>{entry.failDetail}</p>}
           {entry.sessionId && (
             <a href={`/sessions/${encodeURIComponent(entry.sessionId)}/chat`}>
               {copy.openChat}

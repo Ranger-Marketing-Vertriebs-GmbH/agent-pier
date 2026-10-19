@@ -4378,6 +4378,7 @@
   "pipelines:pipelineCopy.repairFallbacks.no-session": "de:267b7f83c5ea en:7d1ac29c41cc",
   "pipelines:pipelineCopy.repairFallbacks.profile-changed": "de:6bf23fa12b4f en:3ece3e383114",
   "pipelines:pipelineCopy.repairFallbacks.resume-failed": "de:f0694c85cb5b en:666365351662",
+  "pipelines:pipelineCopy.repairFallbacks.retried": "de:942ef82afe9e en:c2f610f097af",
   "pipelines:pipelineCopy.repairFallbacks.unknown": "de:e278fb0524a5 en:db9d9ac6a368",
   "pipelines:pipelineCopy.repairSession": "de:a659867d90cd en:a659867d90cd",
   "pipelines:pipelineCopy.repairSessions.fresh": "de:e0d5a1caa27e en:cffdba22adf2",

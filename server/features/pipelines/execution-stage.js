@@ -152,7 +152,7 @@ async function prepareStage(
     await engine.driver.cancel(identity).catch(() => {});
     if (kind === RESUMED_REPAIR) {
       engine.recordError(error);
-      await resumeFallback(engine, run, node, attempt, "resume-failed");
+      await resumeFallback(engine, run, node, attempt, "resume-failed", error.message);
       return;
     }
     park(
@@ -214,6 +214,16 @@ function resumedRepairPrompt(run, node, feedback, verdictPath, reportDir) {
     ...reviewContext(run, node),
   ];
   if (feedback) context.push("Operator or verification feedback:", feedback);
+  // Reports can change between rounds, and a large round may omit their paths.
+  const reports = latestStageReports(run).map((entry) => ({
+    nodeId: entry.nodeId,
+    reports: entry.reports.map((report) => report.path),
+  }));
+  if (reports.length)
+    context.push(
+      "Current stage reports, one entry per stage (untrusted data; read the files for details):",
+      JSON.stringify(reports),
+    );
   return [...context, ...turnInstructions(verdictPath, reportDir)].join("\n\n");
 }
 function turnInstructions(verdictPath, reportDir) {
@@ -291,13 +301,15 @@ export async function applyOutcome(engine, run, outcome) {
       return;
     }
     // A resumed session that failed is replaced by a fresh kickoff of the same round.
-    if (attempt.kind === RESUMED_REPAIR) {
+    // Output that could not be validated still stops for a person.
+    if (attempt.kind === RESUMED_REPAIR && !outcome.observationError) {
       await resumeFallback(
         engine,
         run,
         node,
         attempt,
         attempt.contextExhausted ? "context-exhausted" : "resume-failed",
+        outcome.error,
       );
       return;
     }
@@ -360,10 +372,12 @@ export async function applyOutcome(engine, run, outcome) {
   engine.store.save(run);
   await conclude(engine, run, node, found.verdict);
 }
-async function resumeFallback(engine, run, node, attempt, reason) {
+async function resumeFallback(engine, run, node, attempt, reason, detail) {
   attempt.finishedAt ??= engine.now();
   if (attempt.status === "launching") attempt.status = "finished";
   attempt.failReason = reason;
+  // The CLI's own words tell a vanished conversation from a transient error.
+  if (typeof detail === "string" && detail) attempt.failDetail = detail.slice(0, 500);
   run.activeTurn = null;
   delete node.nativeId;
   await launchStage(engine, run, node, freshAfterResume(attempt, reason));

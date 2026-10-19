@@ -38,6 +38,7 @@ const fallbackReasons = [
     literals(m[1]),
   ),
   ...[...sources.matchAll(/\bfresh\("([a-z-]+)"\)/g)].map((m) => m[1]),
+  ...[...sources.matchAll(/\bfallback: "([a-z-]+)"/g)].map((m) => m[1]),
 ];
 const turnKinds = [...sources.matchAll(/kind: "([a-z]+(?:-[a-z]+)+|kickoff)"/g)].map(
   (m) => m[1],
@@ -66,6 +67,7 @@ test("every run code the engine writes is known to the pipeline UI", () => {
   assert.ok(cases.attemptKinds.includes("resumed-repair"), "the scan finds the repair");
   assert.ok(cases.repairFallbacks.includes("no-session"), "the scan finds fallbacks");
   assert.ok(cases.repairFallbacks.includes("resume-failed"), "the scan finds failures");
+  assert.ok(cases.repairFallbacks.includes("retried"), "the scan finds relaunches");
   for (const [list, codes] of Object.entries(cases))
     for (const code of codes)
       assert.ok(runCodes[list].includes(code), `${list} misses engine code ${code}`);
@@ -138,6 +140,10 @@ test("a repair turn reads as the same or a new session with its fallback", (t) =
   assert.equal(
     repairSessionLabel({ session: "fresh", fallback: "context-exhausted" }),
     "New session (context exhausted)",
+  );
+  assert.equal(
+    repairSessionLabel({ session: "fresh", fallback: "retried" }),
+    "New session (started again)",
   );
   assert.equal(
     repairSessionLabel({ session: "fresh", fallback: "brand-new" }),

@@ -241,6 +241,7 @@ export const pipelineCopy = {
     "context-exhausted": "context exhausted",
     "profile-changed": "profile changed",
     "no-session": "no session to resume",
+    retried: "started again",
     unknown: "not resumed",
   },
   repairSession: (session, reason) => (reason ? `${session} (${reason})` : session),

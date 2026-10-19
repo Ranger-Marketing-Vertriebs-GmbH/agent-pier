@@ -2,7 +2,7 @@ import React, { useId, useState } from "react";
 import Segment from "../../components/Segment.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { stageProfileName } from "./StageFlow.jsx";
-import Checkbox from "../../components/Checkbox.jsx";
+import Switch from "../../components/Switch.jsx";
 
 const minRounds = 1,
   maxRounds = 5;
@@ -127,7 +127,7 @@ export default function StageEditor({
           ["verify", copy.verifyStage],
           ["createPr", copy.createPr],
         ].map(([field, label]) => (
-          <Checkbox
+          <Switch
             key={field}
             className="pipeline-check"
             label={label}
@@ -169,7 +169,7 @@ export default function StageEditor({
           )}
           {stage.loopBackTo && (
             <div className="stage-field">
-              <Checkbox
+              <Switch
                 className="pipeline-check"
                 label={copy.continueSession}
                 aria-describedby={`${headingId}-session`}

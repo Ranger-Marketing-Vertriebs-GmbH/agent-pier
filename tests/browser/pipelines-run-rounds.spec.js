@@ -214,6 +214,7 @@ test("the run view tells resumed from fresh repairs and shows their tokens", asy
     turn("turn-3", "resumed-repair", "attempt-2", {
       repair: { edge, round: 2, session: "resumed" },
       failReason: "context-exhausted",
+      failDetail: "Codex ran out of room in the model's context window.",
     }),
     turn("turn-4", "kickoff", "attempt-3", {
       repair: { edge, round: 2, session: "fresh", fallback: "context-exhausted" },
@@ -231,5 +232,6 @@ test("the run view tells resumed from fresh repairs and shows their tokens", asy
   const log = page.locator(".run-execution-log");
   await expect(log).toContainText("Repair in the same session · Same session");
   await expect(log).toContainText("The session's context is exhausted");
+  await expect(log).toContainText("Codex ran out of room in the model's context window.");
   await expect(log).toContainText("Start · New session (context exhausted)");
 });

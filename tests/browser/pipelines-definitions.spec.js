@@ -386,7 +386,7 @@ test.describe("English pipeline definitions", () => {
         exact: true,
       }),
     ).toBeVisible();
-    const session = page.getByLabel("Continue the same session", { exact: true });
+    const session = page.getByRole("switch", { name: "Continue the same session" });
     await expect(session).not.toBeChecked();
     await expect(session).toHaveAccessibleDescription(/resumes its earlier CLI session/);
     await expect(page.getByRole("button", { name: "Move forward 2" })).toBeVisible();
