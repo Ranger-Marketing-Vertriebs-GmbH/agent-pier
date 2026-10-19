@@ -940,6 +940,7 @@
   "pipelines.specNoCriteria": "de:e2efe57e93b2 en:a0b65467dad6",
   "pipelines.specOutsideReports": "de:3bd0e86b877b en:9f090ef17893",
   "pipelines.specRedeclare": "de:57d87e87d473 en:eba2ab7a4242",
+  "pipelines.specRevisionImported": "de:e8991f4f1473 en:e21bdda01cfe",
   "pipelines.specRevisionNotFound": "de:b3cdff5537a1 en:33d0aae6884f",
   "pipelines.specSingle": "de:7247f9b4d4b5 en:2c730e8fc4d2",
   "pipelines.specText": "de:cc8d6a27c9ae en:75c688ee90ff",

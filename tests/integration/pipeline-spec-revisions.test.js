@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { serverMessages } from "../../server/lib/i18n/de.js";
+import { auditEvent } from "../../server/features/audit/audit-schema.js";
 import { SPEC, met, started } from "../helpers/pipeline-spec.js";
 
 const OWNED = "# Spec\n\n## Acceptance criteria\n1. Owner criterion.\n2. Second.\n";
@@ -29,6 +30,24 @@ test("an owner replacement is audited as a spec revision, not as a gate decision
   ]);
   await f.engine.gate(run.id, { action: "accept" });
   assert.equal(events.length, 1);
+  // The audit schema keeps the revision with the stage and the hash.
+  assert.deepEqual(auditEvent(events[0]).details, events[0].details);
+});
+
+test("an imported history-only run shows its current spec, not earlier revisions", async (t) => {
+  const { f, run, writeSpec } = await started(t, { gate: true });
+  await writeSpec();
+  await f.engine.gate(run.id, { action: "replace-spec", spec: OWNED });
+  const stored = f.engine.store.get(run.id);
+  stored.imported = { historyOnly: true };
+  // The imported worktree path does not exist on this host.
+  stored.workingDir = path.join(f.dir, "gone");
+  f.engine.store.save(stored);
+  assert.equal(f.engine.specRevision(run.id, 2).text, OWNED);
+  assert.throws(() => f.engine.specRevision(run.id, 1), {
+    status: 404,
+    message: serverMessages.pipelines.specRevisionImported,
+  });
 });
 
 test("the spec stage starts from the owner's replacement when it is asked again", async (t) => {
@@ -158,6 +177,25 @@ test("a restore that cannot write records the failure", async (t) => {
     [["turn", false, null]],
   );
   assert.deepEqual(fs.readdirSync(elsewhere), []);
+  // The same obstacle on the next check is not recorded again.
+  await f.end({ result: "fail", summary: "Review", findings: [{ title: "Broken" }] });
+  assert.equal(current().spec.changes.length, 1);
+  // Once the link is gone, the next check restores the spec.
+  fs.rmSync(directory);
+  await f.end({
+    result: "pass",
+    summary: "Repaired",
+    criteria: both,
+    responses: [{ finding: "R1-1", status: "fixed" }],
+  });
+  assert.equal(fs.readFileSync(path.join(current().workingDir, file), "utf8"), SPEC);
+  assert.deepEqual(
+    current().spec.changes.map((c) => [c.source, c.restored]),
+    [
+      ["turn", false],
+      ["turn", true],
+    ],
+  );
 });
 
 test("a spec replaced by a link or a hard link is restored without writing through it", async (t) => {

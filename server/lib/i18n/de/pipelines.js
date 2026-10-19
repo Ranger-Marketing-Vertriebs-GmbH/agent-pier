@@ -75,6 +75,8 @@ export const pipelines = Object.freeze({
   specRedeclare:
     "Die Spec-Datei wurde geändert, aber nicht neu angegeben. Schreibe die vollständige Spec als spec.md in das Berichtsverzeichnis dieses Turns und gib sie mit der Rolle spec an.",
   specRevisionNotFound: "Diese Spec-Fassung wurde nicht gefunden.",
+  specRevisionImported:
+    "Ein importierter Lauf enthält nur den Text der aktuellen Spec; frühere Fassungen sind nicht verfügbar.",
   specFileUnsafe: "Die Spec-Datei im Arbeitsbaum kann nicht sicher geschrieben werden.",
   verdictTooLarge: "Das Ergebnis ist größer als 64 KiB.",
   verdictUnreadable: "Das Ergebnis konnte nicht sicher gelesen werden.",

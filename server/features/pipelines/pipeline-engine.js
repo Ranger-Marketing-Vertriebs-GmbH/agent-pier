@@ -323,9 +323,7 @@ export class PipelineEngine {
     };
   }
   specRevision(id, n) {
-    const run = this.store.get(id);
-    requireLiveRun(run);
-    return specRevision(run, n);
+    return specRevision(this.store.get(id), n);
   }
   artifacts(id, nodeId) {
     return artifactsForNode(this.store.get(id), nodeId);
