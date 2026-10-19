@@ -44,6 +44,7 @@ import GithubGrantPage from "./GithubGrantPage.jsx";
 import { githubChoice } from "./agent-github-fields.js";
 import SshGrantPage from "./SshGrantPage.jsx";
 import TeamsGroup from "./TeamsGroup.jsx";
+import LeadSharesGroup from "./LeadSharesGroup.jsx";
 
 const teamCopy = assistantCopy.team;
 const conflictLabels = {
@@ -350,6 +351,9 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
           />
         </ListCard>
       </section>
+      {assistant.teamMemberId && assistant.lifetime === "permanent" && (
+        <LeadSharesGroup assistant={assistant} />
+      )}
       {withTeam && (
         <section id="agent-team" aria-labelledby={teamId}>
           <GroupLabel

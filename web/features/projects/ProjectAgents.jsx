@@ -7,6 +7,9 @@ import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
 import { projectAgentsCopy as copy } from "../../lib/i18n/messages/project-agents.js";
 import { RegisterHint } from "./ProjectRuns.jsx";
+import { leadShareCopy as shareCopy } from "../../lib/i18n/messages/lead-shares.js";
+import { shareDetail } from "../assistants/lead-shares.js";
+import RevokeLeadShare from "../assistants/RevokeLeadShare.jsx";
 import "./project-agents.css";
 
 const levels = ["none", "read", "write"];
@@ -88,7 +91,8 @@ export default function ProjectAgents({ project, onNavigate, reloadHub }) {
   // the list itself is never replaced, so a refresh always lands.
   const [saved, setSaved] = useState({});
   const titleId = useId(),
-    membersId = useId();
+    membersId = useId(),
+    sharedId = useId();
   if (!id)
     return (
       <RegisterHint
@@ -103,7 +107,8 @@ export default function ProjectAgents({ project, onNavigate, reloadHub }) {
   const agents = (data?.agents || []).map((a) =>
       saved[a.id] && saved[a.id].revision >= a.revision ? saved[a.id] : a,
     ),
-    members = data?.members || [];
+    members = data?.members || [],
+    shared = data?.shared || [];
   const remember = (agent) =>
     setSaved((current) =>
       current[agent.id]?.revision > agent.revision
@@ -141,6 +146,33 @@ export default function ProjectAgents({ project, onNavigate, reloadHub }) {
           ))}
         </div>
       </section>
+      {shared.length > 0 && (
+        <section aria-labelledby={sharedId} data-project-shared="">
+          <GroupLabel id={sharedId} hint={shareCopy.projectHint}>
+            {shareCopy.projectSection}
+          </GroupLabel>
+          <ListCard labelledBy={sharedId}>
+            {shared.map((s) => (
+              <ListRow
+                key={s.id}
+                className="lead-share-row"
+                label={s.name || copy.unknownLead}
+                sub={`${shareCopy.via(s.leadName || copy.unknownLead)} · ${shareDetail({
+                  kind: "project",
+                  requestId: s.requestId,
+                  live: { coding: s.coding, folder: s.folder },
+                })}`}
+              >
+                <RevokeLeadShare
+                  share={{ ...s, memberName: s.name }}
+                  what={project.name}
+                  onRevoked={list.refresh}
+                />
+              </ListRow>
+            ))}
+          </ListCard>
+        </section>
+      )}
       {members.length > 0 && (
         <section aria-labelledby={membersId}>
           <GroupLabel id={membersId} hint={copy.membersHint}>
