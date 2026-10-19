@@ -17,6 +17,7 @@ import { reconcileRun } from "./pipeline-recovery.js";
 import { provisionRun } from "./execution-workspace.js";
 import { readVerdict } from "./stage-verdict.js";
 import { specRevision } from "./run-spec.js";
+import { PortLeases } from "./run-ports.js";
 import {
   artifactsForNode,
   artifactText,
@@ -44,12 +45,19 @@ export class PipelineEngine {
     completionGraceMs = 30000,
     inactivityTimeoutMs = 7200000,
     turnTimeoutMs = 21600000,
+    portRange,
+    portProbe,
     audit,
   }) {
     this.audit = audit;
     this.timing = { completionGraceMs, inactivityTimeoutMs, turnTimeoutMs };
     fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
     this.store = new RunStore(dataDir, onChange);
+    this.ports = new PortLeases({
+      range: portRange,
+      probe: portProbe,
+      runs: () => this.store.all(),
+    });
     this.definitions = definitions;
     this.driver = driver;
     this.workspace = workspace;

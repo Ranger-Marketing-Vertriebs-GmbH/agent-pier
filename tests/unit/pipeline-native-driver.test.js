@@ -315,3 +315,47 @@ test("finishing a turn whose launcher already exited keeps its tmux session", as
   await driver.finish(identity);
   assert.deepEqual(stopped, []);
 });
+
+test("a pipeline turn's CLI gets its run, stage, ports and browser session", async () => {
+  const account = { id: "account", kind: "local", tool: "codex", hasSecret: true };
+  const profileSnapshot = {
+    id: "profile",
+    name: "Tester",
+    accountSnapshot: { id: "account", kind: "local", tool: "codex" },
+    config: {
+      accountId: "account",
+      cliTool: "codex",
+      models: { default: "" },
+      permissions: { mode: "never" },
+      prompts: { role: "" },
+    },
+  };
+  let launched;
+  const driver = new NativePipelineDriver({
+    dataDir: "/unused",
+    accounts: { get: () => account },
+    lifecycle: {
+      launch: async (_body, _login, trusted) => {
+        launched = await trusted.transformLaunch({
+          id: trusted.id,
+          launch: { command: "/fixture/codex", args: [], env: { KEEP: "yes" } },
+        });
+        return { id: trusted.id, createdAt: "now" };
+      },
+    },
+  });
+  await driver.start({
+    ...identity,
+    profileSnapshot,
+    cwd: "/unused",
+    prompt: "task",
+    ports: { base: 20110, count: 3 },
+  });
+  assert.equal(launched.env.KEEP, "yes");
+  assert.equal(launched.env.AGENTRUNNER_SANDBOX, "none");
+  assert.equal(launched.env.AGENTPIER_RUN_ID, "run");
+  assert.equal(launched.env.AGENTPIER_STAGE_ID, "node");
+  assert.equal(launched.env.AGENTPIER_PORT, "20110");
+  assert.equal(launched.env.AGENTPIER_PORT_COUNT, "3");
+  assert.equal(launched.env.AGENTPIER_BROWSER_SESSION, "agentpier-run-node");
+});

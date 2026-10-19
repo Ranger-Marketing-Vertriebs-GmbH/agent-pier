@@ -11,6 +11,7 @@ export function nativeCommand({
   resumeNativeId,
   headless = false,
   claudeDefault = "default",
+  turnEnv = {},
 }) {
   if (!PERMISSION_MODES[tool]?.includes(mode))
     throw problem(serverMessages.pipelineProfiles.invalidNativePermissionMode(tool));
@@ -22,6 +23,8 @@ export function nativeCommand({
   // is allowed to write, so it is told the sandbox it actually runs in.
   const env = {
     ...launch.env,
+    // A pipeline turn's run, stage, leased ports and browser session (run-ports.js).
+    ...turnEnv,
     // AgentPier pipeline profiles have no sandbox profile concept yet, so this
     // always reports the tool's own answer without a nono sandbox.
     AGENTRUNNER_SANDBOX: headless ? "none" : runSandbox(tool, null),

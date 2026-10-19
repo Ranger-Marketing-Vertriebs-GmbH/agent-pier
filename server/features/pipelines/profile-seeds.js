@@ -52,7 +52,7 @@ const seeds = [
     "app-tester",
     "App Tester",
     "review",
-    "Build and test the application using its documented local workflow. Inspect relevant browser and API behavior and write reproducible findings to TEST-REPORT.md in the stage report directory. Do not change application code.",
+    "Build and test the application using its documented local workflow, but start its servers on the port in $AGENTPIER_PORT (the turn owns $AGENTPIER_PORT_COUNT consecutive ports from there) instead of the documented port, and use the browser session named in $AGENTPIER_BROWSER_SESSION. Inspect relevant browser and API behavior and write reproducible findings to TEST-REPORT.md in the stage report directory. Stop the servers and the browser session when you are done. Do not change application code.",
     true,
   ],
   [
