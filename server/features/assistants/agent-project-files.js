@@ -61,17 +61,36 @@ export class AgentProjectFiles {
       return {};
     }
   }
-  /** The levels that apply to a workspace call (AssistantWorkflows.context). */
+  // What the agent's lead shares with it in a scope (lead-shares.js); never throws.
+  shared(id, requestId = null) {
+    try {
+      return this.w.shares?.folders(id, { requestId }) || {};
+    } catch {
+      return {};
+    }
+  }
+  // The agent's own levels with its lead's standing shares, the higher one each.
+  ownAndShared(id) {
+    const own = this.held(id);
+    for (const [projectId, level] of Object.entries(this.shared(id)))
+      if (own[projectId] !== "write") own[projectId] = level;
+    return own;
+  }
+  /**
+   * The levels that apply to a workspace call (AssistantWorkflows.context): a task
+   * member's grant, a lead's task with what the lead shares for it, or the owner's
+   * own turn with the agent's own levels and its lead's standing shares.
+   */
   levels(ctx) {
-    return ctx.requestedBy
-      ? this.memberLevels(ctx.requestedBy)
-      : this.held(ctx.assistantId);
+    if (ctx.requestedBy) return this.memberLevels(ctx.requestedBy);
+    if (ctx.leadRequest) return this.shared(ctx.assistantId, ctx.leadRequest.id);
+    return this.ownAndShared(ctx.assistantId);
   }
   /** Named folders with paths for an agent's instructions; never throws. */
   forAgent(assistant) {
     const levels = inheritsFromLead(assistant)
       ? this.memberLevels(assistant.teamMemberId)
-      : this.held(assistant.id);
+      : this.ownAndShared(assistant.id);
     return this.describe(levels);
   }
   describe(levels) {
@@ -121,6 +140,9 @@ export class AgentProjectFiles {
       return { projectId, access: level, ...result };
     }
     if (level !== "write") throw assistantProblem("projectFolderReadOnly", 403);
+    // A lead's task changes files only when the task may write (taskWritable).
+    if (ctx.leadRequest && !ctx.leadRequest.writable)
+      throw assistantProblem("projectTaskReadOnly", 403);
     // Like native writes: only while the running Gateway's tool guard is proven.
     if (!this.w.a.config?.writeGuard?.())
       throw assistantProblem("projectWriteUnavailable", 503);
@@ -142,6 +164,13 @@ export class AgentProjectFiles {
           );
     this.audit(ctx, projectId, append ? "append" : input.action, result);
     return { projectId, access: level, ...result };
+  }
+  // The lead whose standing share an owner's turn used, for the audit.
+  sharedBy(ctx, projectId) {
+    const row = this.w.shares
+      ?.scoped(ctx.assistantId)
+      .find((r) => r.kind === "project" && r.projectId === projectId);
+    return row ? { leadAssistantId: row.leadId, sharedBy: "lead" } : {};
   }
   // One record per change: the agent, project, relative path and size, never content.
   audit(ctx, projectId, action, result) {
@@ -166,6 +195,13 @@ export class AgentProjectFiles {
           filePath: result.path,
           bytes: result.bytes,
           ...(ctx.requestedBy ? { requestedBy: ctx.requestedBy } : {}),
+          // A change on a lead's share names the lead and the task (lead-shares.js).
+          ...(ctx.leadRequest
+            ? {
+                leadAssistantId: ctx.leadRequest.leadId,
+                leadRequestId: ctx.leadRequest.id,
+              }
+            : !this.held(ctx.assistantId)[projectId] && this.sharedBy(ctx, projectId)),
         },
       });
     } catch (error) {

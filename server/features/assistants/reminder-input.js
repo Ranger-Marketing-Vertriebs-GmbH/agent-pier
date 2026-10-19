@@ -32,13 +32,16 @@ export function schedule(input, allowPast = false) {
   }
   return { kind: "cron", expr: input.expr, tz: input.tz };
 }
-/** An update's input: `enabled` and/or `telegram`, with the revision it read. */
-export function updateInput(input) {
-  exact(input, ["enabled", "telegram", "revision"]);
+/**
+ * An update's input: `enabled` and/or `telegram`, with the revision it read; a
+ * routine also takes `delegateWrites` (only the owner's own route sends it).
+ */
+export function updateInput(input, { routine = false } = {}) {
+  const keys = ["enabled", "telegram", ...(routine ? ["delegateWrites"] : [])];
+  exact(input, [...keys, "revision"]);
   if (
-    (input.enabled === undefined && input.telegram === undefined) ||
-    (input.enabled !== undefined && typeof input.enabled !== "boolean") ||
-    (input.telegram !== undefined && typeof input.telegram !== "boolean")
+    keys.every((key) => input[key] === undefined) ||
+    keys.some((key) => input[key] !== undefined && typeof input[key] !== "boolean")
   )
     throw assistantProblem("invalid");
 }

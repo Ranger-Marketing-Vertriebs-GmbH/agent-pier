@@ -272,7 +272,7 @@ export class TeamBridge {
     if (!matches.length) return this.routineWrite(input);
     if (matches.length !== 1) return false;
     const { attempt, parent, origin, current } = this.turn(matches[0], input.agentId);
-    return (
+    const allowed =
       current &&
       (this.ownerOrigin(origin) ||
         // A task member writes its own memory in any turn it works, never the copy
@@ -290,8 +290,11 @@ export class TeamBridge {
             attempt.id,
             parent.id,
             input.path,
-          )))
-    );
+          )));
+    // A lead's turn on a member's result never writes; the owner gets a "go ahead".
+    if (!allowed && current && origin?.kind === "member-result")
+      this.teams.requests?.refusedChange?.(origin.requestId);
+    return !!allowed;
   }
   // The active attempts bound to a runtime session.
   bound(sessionKey) {
@@ -319,7 +322,8 @@ export class TeamBridge {
   // change the agent's own workspace like an owner turn. This origin is only the
   // run session of a bound, enabled routine of the calling agent with memory and
   // routines on; reminders, check-ins and every other session never match, and it
-  // grants nothing to delegated tasks (their writes stay owner-text only).
+  // grants nothing to delegated tasks by itself: only a routine the owner marked
+  // "may delegate writing tasks" starts tasks that may write (lead-request-store.js).
   routineWrite(input) {
     const agent = this.assistants.store
       .listAssistants()

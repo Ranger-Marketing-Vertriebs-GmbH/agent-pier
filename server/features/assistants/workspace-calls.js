@@ -1,0 +1,253 @@
+import { approvalRevision, exact } from "./assistant-access.js";
+import { notifyAction } from "./assistant-action-notifications.js";
+import { assistantProblem, textValue } from "./assistant-validation.js";
+import { memberActions, memberContext, ownerTelegram } from "./team-coding.js";
+import { fileActions } from "./agent-project-files.js";
+import { withExcerpts } from "../memory/memory-search.js";
+import { taskWritable } from "./lead-request-store.js";
+import { workflowDefinitions } from "./team-plugin/workflow-tools.js";
+
+const workspaceKeys = Object.keys(workflowDefinitions.workspace.parameters.properties);
+// What a task from the member's lead reaches (lead-shares.js): the folders and
+// coding projects the lead shares with it, nothing of the member's own grants.
+const leadTaskActions = new Set([
+  "catalog",
+  "actions",
+  "coding_start",
+  "coding_status",
+  "coding_artifacts",
+]);
+const changing = new Set(["file_write", "file_edit", "coding_start", "memory_write"]);
+
+/**
+ * The turn context of a workspace call: the owner's own turn (also from its
+ * Telegram chat, not forwarded), a temporary member's team turn (team-coding.js)
+ * or a task the member's lead delegated to it (leadRequestContext). Every other
+ * turn is refused; a lead's turn handling a member's result notes the refused
+ * change for the owner's "go ahead" (lead-request-follow.js).
+ */
+export function workspaceContext(w, inv, action) {
+  inv.assertCurrent();
+  const attempt = w.a.ledger.getAttempt(inv.attemptId);
+  if (!["pending", "accepted", "running"].includes(attempt.state) || attempt.reviewedAt)
+    throw assistantProblem("invalid", 403);
+  const req = w.a.ledger.getRequest(attempt.requestId),
+    chat = w.a.store.getConversation(req.conversationId);
+  const origin = w.a.teams.store.context(req.id);
+  if (origin.kind === "team-member") return memberContext(w, chat, attempt, origin);
+  if (origin.kind === "lead-request")
+    return leadRequestContext(w, chat, attempt, req, origin);
+  w.access.eligible(chat.assistantId);
+  if (!["owner", "telegram"].includes(origin.kind) || origin.forwarded) {
+    if (origin.kind === "member-result" && changing.has(action))
+      w.a.teams?.requests?.refusedChange?.(origin.requestId);
+    throw assistantProblem("invalid", 403);
+  }
+  return {
+    assistantId: chat.assistantId,
+    conversationId: chat.id,
+    attemptId: attempt.id,
+    origin,
+  };
+}
+
+/**
+ * A permanent member's turn for a task of its lead, while that task runs in exactly
+ * this turn: `leadRequest` carries the task and whether it may change files
+ * (taskWritable: the owner's request, an autonomous lead or a routine the owner
+ * lets delegate writing tasks).
+ */
+function leadRequestContext(w, chat, attempt, req, origin) {
+  const r = w.a.teams?.store?.find(origin.requestId);
+  if (
+    !r ||
+    r.kind !== "lead-request" ||
+    r.memberAssistantId !== chat.assistantId ||
+    req.clientRequestId !== `lead-request:${r.id}` ||
+    !["dispatching", "running", "uncertain"].includes(r.phase) ||
+    r.cancelRequested
+  )
+    throw assistantProblem("invalid", 403);
+  const lead = w.a.store.getAssistant(r.parentAssistantId);
+  if (lead.archivedAt) throw assistantProblem("invalid", 403);
+  w.access.eligible(chat.assistantId);
+  const telegram = ownerTelegram(r.origin);
+  return {
+    assistantId: chat.assistantId,
+    conversationId: chat.id,
+    attemptId: attempt.id,
+    origin,
+    leadRequest: { id: r.id, leadId: r.parentAssistantId, writable: taskWritable(r) },
+    ...(telegram ? { telegram } : {}),
+  };
+}
+
+/**
+ * The project a call works on, under the agent's own grant or, failing that, a
+ * share of its lead (lead-shares.js): `{ policy, inherited }`. A task of the lead
+ * uses only the lead's shares.
+ */
+function authorizeCall(w, ctx, projectId, pipelineId) {
+  const scope = { requestId: ctx.leadRequest?.id ?? null };
+  const viaShare = () => {
+    const share = w.shares.coding(ctx.assistantId, projectId, scope);
+    if (!share) throw assistantProblem("invalid", 403);
+    const inherited = {
+      leadId: share.leadId,
+      requestId: share.requestId || null,
+      shareId: share.shareId,
+    };
+    return {
+      policy: w.shares.authorize(
+        ctx.assistantId,
+        projectId,
+        pipelineId,
+        undefined,
+        inherited,
+      ),
+      inherited,
+    };
+  };
+  if (ctx.leadRequest) return viaShare();
+  try {
+    return { policy: w.access.authorize(ctx.assistantId, projectId, pipelineId) };
+  } catch (error) {
+    if (ctx.requestedBy || error.status !== 403) throw error;
+    try {
+      return viaShare();
+    } catch {
+      throw error;
+    }
+  }
+}
+
+/** The catalog: own projects and pipelines, and what the lead shares (`sharedBy`). */
+function catalog(w, ctx) {
+  const scope = { requestId: ctx.leadRequest?.id ?? null };
+  const own = ctx.leadRequest
+    ? { projectIds: [], pipelineIds: [], projectFiles: {} }
+    : w.access.get(ctx.assistantId);
+  const shared = w.shares.codingProjects(ctx.assistantId, scope);
+  const levels = w.folders.levels(ctx);
+  const all = w.access.catalog();
+  const folders = new Map(w.folders.describe(levels).map((f) => [f.projectId, f]));
+  const leads = new Map(shared.map((s) => [s.projectId, s.leadId]));
+  const pipelineIds = new Set(own.pipelineIds);
+  for (const leadId of new Set(leads.values()))
+    for (const id of w.access.get(leadId).pipelineIds) pipelineIds.add(id);
+  const ids = new Set([...own.projectIds, ...leads.keys(), ...folders.keys()]);
+  return {
+    // A granted folder names its path and level (agent-project-files.js).
+    projects: all.projects
+      .filter((x) => ids.has(x.id))
+      .map(({ id, name }) => {
+        const folder = folders.get(id);
+        return {
+          id,
+          name,
+          ...(folder ? { folder: { path: folder.path, access: folder.access } } : {}),
+          ...(!own.projectIds.includes(id) && leads.has(id)
+            ? { sharedBy: leads.get(id) }
+            : {}),
+        };
+      }),
+    pipelines: all.pipelines.filter((x) => pipelineIds.has(x.id)),
+  };
+}
+
+/** One agentpier_workspace call (AssistantWorkflows.invoke, under admission). */
+export async function workspaceCall(w, inv, input) {
+  const ctx = workspaceContext(w, inv, input?.action);
+  exact(input, workspaceKeys);
+  // Project folders are the member's own grant (agent-project-files.js).
+  if (fileActions.has(input.action)) return w.folders.invoke(ctx, input);
+  if (ctx.requestedBy && !memberActions.has(input.action))
+    throw assistantProblem("invalid", 403);
+  if (ctx.leadRequest && !leadTaskActions.has(input.action))
+    throw assistantProblem("invalid", 403);
+  if (input.action === "catalog") return catalog(w, ctx);
+  if (["coding_status", "coding_cancel", "coding_artifacts"].includes(input.action))
+    return w.coding.call(
+      ctx.assistantId,
+      input.id,
+      {
+        coding_status: "run_get",
+        coding_cancel: "run_cancel",
+        coding_artifacts: "run_artifacts",
+      }[input.action],
+      input.nodeId ? { nodeId: input.nodeId } : {},
+      ctx.requestedBy,
+    );
+  if (input.action === "actions") return w.list(ctx.assistantId);
+  const { policy: p, inherited } = authorizeCall(
+    w,
+    ctx,
+    input.projectId,
+    input.pipelineId,
+  );
+  if (input.action === "memory_search") {
+    return withExcerpts(
+      w.s.memory.list(input.projectId, {
+        query: input.query || "",
+        page: input.page || 1,
+      }),
+    );
+  }
+  if (input.action === "memory_read") return w.s.memory.read(input.projectId, input.id);
+  if (!["memory_write", "coding_start"].includes(input.action))
+    throw assistantProblem("invalid");
+  const payload =
+    input.action === "coding_start"
+      ? {
+          action: input.action,
+          projectId: input.projectId,
+          pipelineId: textValue(input.pipelineId, 100),
+          task: textValue(input.task, 65536),
+          ...(input.baseBranch ? { baseBranch: textValue(input.baseBranch, 300) } : {}),
+        }
+      : {
+          action: input.action,
+          projectId: input.projectId,
+          title: textValue(input.title, 200),
+          content: textValue(input.content, 32768),
+          ...(input.id ? { id: input.id, expectedRevision: input.expectedRevision } : {}),
+        };
+  // A lead's share covers coding requests, never the project's memory.
+  if (input.action === "memory_write" && (!p.memoryWrite || inherited))
+    throw assistantProblem("invalid", 403);
+  if (
+    payload.id &&
+    (!Number.isSafeInteger(payload.expectedRevision) || payload.expectedRevision < 1)
+  )
+    throw assistantProblem("invalid");
+  inv.assertCurrent();
+  const { leadRequest: task, ...stored } = ctx;
+  const action = w.store.reserve({
+    ...stored,
+    payload,
+    accessRevision: approvalRevision(p),
+    key: `${inv.attemptId}:${inv.toolCallId}`,
+    // A member's request, and every request on a lead's share, waits for the owner,
+    // whatever the standing permission says.
+    state:
+      input.action === "coding_start" && p.autonomous && !ctx.requestedBy && !inherited
+        ? "approved"
+        : "awaiting_approval",
+    ...(inherited ? { inherited } : {}),
+    // A task's request waits in the lead's chat too (assistant-action-store.js delegated).
+    ...(task
+      ? {
+          leadRequestId: task.id,
+          leadAssistantId: task.leadId,
+          memberName: w.a.store.getAssistant(ctx.assistantId).name,
+        }
+      : {}),
+    projectName: w.s.memory.project(input.projectId).name,
+    ...(input.pipelineId
+      ? { pipelineName: w.s.pipelineDefinitions.getPipeline(input.pipelineId).name }
+      : {}),
+  });
+  if (action.state === "awaiting_approval") notifyAction(w, action, "approval");
+  w.a.changed();
+  return w.project(action);
+}

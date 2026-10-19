@@ -96,6 +96,14 @@ test("a slow answer reaches the lead later as a hidden follow-up turn", async (t
   const visible = history.requests.find((x) => x.id === followUp.id);
   assert.equal(visible.internal, "member-result");
   assert.equal(visible.text, undefined);
+  assert.equal(visible.goAhead, undefined);
+  // The lead's turn on the result tried a change it may not make: the chat offers
+  // the owner a one-tap go-ahead for this follow-up.
+  f.service.requests.refusedChange(r.id);
+  const marked = (await f.assistants.history(f.chat.id)).requests.find(
+    (x) => x.id === followUp.id,
+  );
+  assert.equal(marked.goAhead, true);
 });
 
 test("a busy member gets the question only after its current turn ends", async (t) => {

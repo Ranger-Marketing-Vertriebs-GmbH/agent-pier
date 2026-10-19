@@ -227,3 +227,40 @@ test("a coding.completed routine whose native job vanished is skipped permanentl
   );
   assert.equal(f.calls.filter((c) => c.method === "cron.run").length, 0);
 });
+test("only the owner marks a routine as one that may delegate writing tasks", async (t) => {
+  const f = setup(t);
+  const audits = [];
+  f.assistants.audit = { append: (event) => audits.push(event) };
+  const routine = await f.routines.create(f.id, f.input);
+  assert.equal(routine.delegateWrites, false);
+  const marked = await f.routines.update(f.id, routine.id, {
+    delegateWrites: true,
+    revision: routine.revision,
+  });
+  assert.equal(marked.delegateWrites, true);
+  assert.equal(marked.revision, routine.revision + 1);
+  assert.equal(
+    marked.enabled,
+    routine.enabled,
+    "the switch alone leaves the job as it is",
+  );
+  assert.deepEqual(audits.at(-1).details, {
+    kind: "routine-delegate-writes",
+    routineId: routine.id,
+    delegateWrites: true,
+  });
+  await assert.rejects(
+    f.routines.update(f.id, routine.id, { delegateWrites: "yes", revision: 2 }),
+    { status: 400 },
+  );
+  // Reminders have no such switch.
+  await assert.rejects(
+    f.reminders.update(f.id, routine.id, { delegateWrites: true, revision: 1 }),
+    { status: 400 },
+  );
+  const off = await f.routines.update(f.id, routine.id, {
+    delegateWrites: false,
+    revision: marked.revision,
+  });
+  assert.equal(off.delegateWrites, false);
+});

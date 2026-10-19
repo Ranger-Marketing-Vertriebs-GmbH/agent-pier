@@ -516,6 +516,7 @@ export function connectAssistantServices(graph) {
         mcp: readMcpInputs(mcpServers, {
           redirectUrl: mcpChanges.redirectUrl(),
           extra: githubInputs,
+          inherited: mcpChanges.inherited,
           // Agent placeholders resolve below the Gateway's own workspace root.
           workspaces: runtime.paths?.workspaces ?? null,
         }),

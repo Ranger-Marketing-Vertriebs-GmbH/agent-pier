@@ -210,3 +210,30 @@ test("a routine origin never makes a delegated task writable", async (t) => {
   );
   assert.equal(f.write(), false);
 });
+
+test("a task of a routine the owner lets delegate writing tasks writes in its own turn", async (t) => {
+  const f = await writeGate(t);
+  const { requestId } = await f.delegate(f.turn());
+  const r = f.service.requests.store.get(requestId);
+  const may = (patch) => {
+    f.service.store.write(f.service.requests.store.get(r.id), patch);
+    return f.service.requests.mayWrite(r.id, r.attemptId, f.member.id, "notes/plan.md");
+  };
+  assert.equal(
+    may({ ownerProof: null, writeAllowed: true }),
+    false,
+    "no standing instruction",
+  );
+  assert.equal(may({ routineWrites: true }), true, "the owner's routine switch");
+  assert.equal(may({ writeAllowed: false }), false, "never without the grant");
+});
+
+test("a lead's turn on a member's result never writes and offers the owner a go-ahead", async (t) => {
+  const f = await writeGate(t);
+  const { requestId } = await f.delegate(f.turn());
+  f.idle();
+  const lead = f.store.getAssistant(f.parent.id);
+  f.turn("result", { kind: "member-result", requestId });
+  assert.equal(f.write("notes/plan.md", lead, f.chat), false);
+  assert.equal(f.service.requests.store.get(requestId).resultWriteRefused, true);
+});

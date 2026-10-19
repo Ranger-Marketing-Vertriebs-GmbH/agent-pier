@@ -124,7 +124,9 @@ export function mcpServerRoutes(services) {
       list = await services.assistantMcpOAuth.decorate(list);
     // Servers with agent placeholders show what each bound agent's folders resolve to.
     if (services.assistantMcpChanges)
-      list = services.assistantMcpChanges.placeholderViews(list);
+      list = services.assistantMcpChanges.sharedViews(
+        services.assistantMcpChanges.placeholderViews(list),
+      );
     res.json(services.cliMcp ? await services.cliMcp.decorate(list) : list);
   });
   // `clis` (optional) binds the server to coding CLIs in the same write.

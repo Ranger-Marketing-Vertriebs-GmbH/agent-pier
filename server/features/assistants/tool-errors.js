@@ -17,7 +17,7 @@ const reasons = {
   MEMBER_REMINDER_LIMIT:
     "Your team already set the most reminders a team may set on its lead. Do not retry; report the reminder you wanted to your lead instead.",
   MEMBER_NOT_RUNNING:
-    "Grants are only for your own running task-bound members. Check agentpier_team_members for the memberId.",
+    "Grants are only for your own task members that are not archived, and shares only for your own permanent members. Check agentpier_team_members for the memberId.",
   FORBIDDEN:
     "This action is not permitted for this agent in the current turn. Do not retry; explain this to the owner.",
   NOT_FOUND:
@@ -66,6 +66,10 @@ const reasons = {
     "This project folder is not granted to you. Your instructions list the project folders you may use; ask the owner (or your lead) for access instead of retrying.",
   PROJECT_READ_ONLY:
     "You may only read this project folder. Do not retry the change; tell the owner (or your lead) what you wanted to change.",
+  TASK_READ_ONLY:
+    "This task from your lead may not change files: the owner did not explicitly ask for it. Do not retry; report the change you would make in your answer instead.",
+  PERMANENT_ACCESS_ONLY:
+    "A permanent member's tools and settings are the owner's. You can only share your project folders (grants.projects), coding projects (coding) and MCP servers (mcpServers) with it. Remove the other grants and try again.",
   PROJECT_WRITE_UNAVAILABLE:
     "Project folder changes are unavailable until AgentPier has verified the agent runtime's tool guard. Try again in a minute; tell the owner if it persists.",
   PROJECT_PATH_REFUSED:
@@ -121,6 +125,8 @@ const byKey = {
   sshRevoked: "SSH_REVOKED",
   projectFolderNotGranted: "PROJECT_NOT_GRANTED",
   projectFolderReadOnly: "PROJECT_READ_ONLY",
+  projectTaskReadOnly: "TASK_READ_ONLY",
+  teamShareAccessOnly: "PERMANENT_ACCESS_ONLY",
   projectWriteUnavailable: "PROJECT_WRITE_UNAVAILABLE",
   projectPathRefused: "PROJECT_PATH_REFUSED",
   projectFileUnsuitable: "PROJECT_FILE_UNSUITABLE",

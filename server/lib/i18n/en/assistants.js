@@ -199,6 +199,8 @@ export const assistants = {
   sshRevoked: "The SSH access changed; the command was stopped.",
   projectFolderNotGranted: "This project folder is not granted to the agent.",
   projectFolderReadOnly: "The agent may only read this project folder.",
+  projectTaskReadOnly:
+    "This task from the lead agent may not change files: the owner did not explicitly ask for it.",
   projectWriteUnavailable:
     "Changes in project folders are possible only once the agent runtime's tool guard is confirmed.",
   projectPathRefused:
@@ -248,6 +250,8 @@ export const assistants = {
 
   teamMcpServersUnavailable:
     "The MCP server list of this team cannot be read right now. Try again later.",
+  teamShareAccessOnly:
+    "A lead agent can share only project folders, coding projects and MCP servers with a permanent member.",
   teamGrantNotHeld:
     "A lead agent can only give a team member what it holds itself; shell and SSH only with the setting “Team members may use shell and SSH”.",
   memberReminderLimit:

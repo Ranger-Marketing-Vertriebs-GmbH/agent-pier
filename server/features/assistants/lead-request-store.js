@@ -41,6 +41,19 @@ function exact(input, keys, required) {
     throw assistantProblem("invalid");
 }
 /**
+ * Whether a lead's task may change files: a task the owner asked for (ownerProof),
+ * one an autonomous lead started in the owner's own turn, or one a routine the owner
+ * lets delegate writing tasks started (routineWrites, the owner's standing
+ * instruction); never once cancelled. Where and when it writes is checked apart.
+ */
+export const taskWritable = (r) =>
+  !!r &&
+  r.kind === requestKind &&
+  r.type === "task" &&
+  r.writeAllowed === true &&
+  (!!r.ownerProof || r.autonomous === true || r.routineWrites === true) &&
+  !r.cancelRequested;
+/**
  * Who calls a lead tool: an attempt of the lead's chat, or a routine's own run
  * session (TeamBridge admits only ask, delegate and members there). The routine's
  * name comes from its binding, never from the lead.
@@ -53,6 +66,8 @@ export const callerOf = (inv) =>
           routine: {
             bindingId: inv.routine.binding.id,
             name: inv.routine.binding.definition?.name || "",
+            // The owner's own switch on the routine, never the lead's.
+            delegateWrites: inv.routine.binding.routineDelegateWrites === true,
             conversationId: inv.routine.conversation.id,
             sessionKey: inv.sessionKey,
           },
@@ -234,7 +249,12 @@ export class LeadRequestStore {
       )
         throw assistantProblem("memberRequestRate", 429);
       const context = routine
-          ? { kind: "routine", bindingId: routine.bindingId, name: routine.name }
+          ? {
+              kind: "routine",
+              bindingId: routine.bindingId,
+              name: routine.name,
+              ...(routine.delegateWrites ? { delegateWrites: true } : {}),
+            }
           : t.context(request.id),
         policy = t.policy(lead.id);
       const ownerTurn =
@@ -352,6 +372,9 @@ export class LeadRequestStore {
       // and other turns run read-only. Shell, SSH, project folders, GitHub and
       // grants keep their own approvals.
       const autonomous = type === "task" && selfInitiated && ownerTurn && !negated;
+      // A routine the owner marked "may delegate writing tasks" stands for the
+      // owner's instruction: its tasks may change files like an owner-proven one.
+      const routineWrites = type === "task" && !!routine?.delegateWrites;
       return t.insert(
         {
           id: randomUUID(),
@@ -370,8 +393,9 @@ export class LeadRequestStore {
           text,
           origin: context,
           ownerProof: proof,
-          writeAllowed: !!proof || autonomous,
+          writeAllowed: !!proof || autonomous || routineWrites,
           ...(autonomous ? { autonomous: true } : {}),
+          ...(routineWrites ? { routineWrites: true } : {}),
           ...(selfInitiated ? { selfInitiated: true } : {}),
           runTimeoutMinutes: policy.runTimeoutMinutes,
           phase: "queued",
@@ -382,6 +406,21 @@ export class LeadRequestStore {
         key,
       );
     });
+  }
+  /**
+   * The lead's turn handling this request's result tried to change something, which
+   * such a turn never may: the chat then offers the owner a "go ahead"
+   * (conversations.js goAheadMarks). Returns whether it marked; never throws.
+   */
+  refusedChange(requestId) {
+    try {
+      const r = typeof requestId === "string" ? this.teams.find(requestId) : null;
+      if (!r || r.kind !== requestKind || r.resultWriteRefused) return false;
+      this.teams.write(r, { resultWriteRefused: true });
+      return true;
+    } catch {
+      return false;
+    }
   }
   /** The archive checks a lead's tidy-up must pass for every member it names. */
   archivable(leadId, memberIds) {
@@ -435,6 +474,7 @@ export function publicRequest(r, { full = false } = {}) {
     createdAt: r.createdAt,
     writeAllowed: !!r.writeAllowed,
     ...(r.selfInitiated ? { selfInitiated: true } : {}),
+    ...(r.routineWrites ? { routineWrites: true } : {}),
     // Started by the lead's routine of this name, never by the owner's text.
     ...(r.origin?.kind === "routine" && r.routineRun
       ? { routine: textOr(r.origin.name) }

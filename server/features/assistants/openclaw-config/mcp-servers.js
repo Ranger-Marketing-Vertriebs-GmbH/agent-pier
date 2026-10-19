@@ -98,14 +98,17 @@ function oauthServerConfig(server, redirectUrl) {
  *   each call so a changed origin reaches the next start or live apply.
  * - `workspaces`, `pathCheck`: the Gateway's workspace root and the folder check for
  *   servers with agent placeholders (mcpSections).
+ * `inherited()` adds the servers members use through their lead
+ * (`{ [assistantId]: serverId[] }`, lead-shares.js mcpBindings): compiled like the
+ * member's own bindings, placeholder servers per member included.
  * `extra(names)` adds servers AgentPier manages itself in the same shape (the agents'
  * GitHub servers, agent-github.js mcpInputs); `names` are the store's, which win.
  */
 export function readMcpInputs(
   store,
-  { redirectUrl = null, extra = null, workspaces = null } = {},
+  { redirectUrl = null, extra = null, workspaces = null, inherited = null } = {},
 ) {
-  const inputs = readStoreInputs(store, redirectUrl);
+  const inputs = readStoreInputs(store, redirectUrl, inherited);
   // Agent placeholders resolve below the Gateway's workspace root; each resolved
   // path is checked on disk at every compile (agent-folders.js).
   Object.assign(inputs, { workspaces, pathCheck: safeAgentPath });
@@ -122,7 +125,25 @@ export function readMcpInputs(
   return inputs;
 }
 
-function readStoreInputs(store, redirectUrl) {
+/**
+ * The store's agent bindings with `inherited()` merged in; an inherited list that
+ * cannot be read adds nothing.
+ */
+export function withInherited(bindings, inherited) {
+  if (!inherited) return bindings;
+  let more = {};
+  try {
+    more = inherited() || {};
+  } catch {
+    return bindings;
+  }
+  const out = { ...bindings };
+  for (const [id, ids] of Object.entries(more))
+    out[id] = [...new Set([...(out[id] || []), ...ids])];
+  return out;
+}
+
+function readStoreInputs(store, redirectUrl, inherited) {
   const inputs = {
     servers: [],
     bindings: {},
@@ -144,7 +165,7 @@ function readStoreInputs(store, redirectUrl) {
             deferred.some((t) => t.name === s.name && t.url === s.url)
           ),
       );
-    inputs.bindings = store.bindingsByTarget("agent");
+    inputs.bindings = withInherited(store.bindingsByTarget("agent"), inherited);
   } catch {
     return { servers: [], bindings: {}, secrets: {}, unreadable: true, redirectUrl };
   }

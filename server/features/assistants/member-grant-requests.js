@@ -3,6 +3,7 @@ import { exact } from "./assistant-access.js";
 import { leadServerIds, memberServerNames } from "./team-mcp.js";
 import { notifyAction } from "./assistant-action-notifications.js";
 import { pairedTelegram } from "./team-coding.js";
+import { leadShare } from "./lead-share-input.js";
 import {
   assertWithinLead,
   defaultGrants,
@@ -52,11 +53,33 @@ export class MemberGrants {
     if (!this.live(member, lead.id)) throw assistantProblem("teamGrantMemberEnded", 409);
     return { attempt, request, conversation, lead, member };
   }
+  // The calling lead with its own permanent member, or null for any other member.
+  permanentMember(inv, memberId) {
+    inv.assertCurrent();
+    const a = this.assistants;
+    const member = this.teams.find(memberId);
+    if (member?.kind !== "member" || member.lifetime !== "permanent") return null;
+    const attempt = a.ledger.getAttempt(inv.attemptId),
+      request = a.ledger.getRequest(attempt.requestId),
+      conversation = a.store.getConversation(request.conversationId),
+      lead = a.store.getAssistant(conversation.assistantId);
+    if (lead.teamMemberId || lead.archivedAt) throw assistantProblem("invalid", 403);
+    return { lead, member, conversation };
+  }
   async grant(inv, input) {
-    exact(input, ["memberId", "grants", "mcpServers", "revoke"]);
+    exact(input, ["memberId", "grants", "mcpServers", "revoke", "coding"]);
     if (typeof input.memberId !== "string") throw assistantProblem("invalid");
     if ("revoke" in input && typeof input.revoke !== "boolean")
       throw assistantProblem("invalid");
+    // A permanent member gets shares of the lead's own access (lead-shares.js).
+    const permanent = this.permanentMember(inv, input.memberId);
+    if (permanent) {
+      const result = leadShare(this.workflows || {}, { ...permanent, inv, input });
+      this.assistants.changed?.();
+      return result;
+    }
+    // Coding requests of a task member always use the lead's grant already.
+    if ("coding" in input) throw assistantProblem("invalid");
     const grants = input.grants === undefined ? {} : grantInput(input.grants);
     const servers = memberServerNames(input.mcpServers);
     if (!grantedKeys(grants).length && !servers.length) throw assistantProblem("invalid");
