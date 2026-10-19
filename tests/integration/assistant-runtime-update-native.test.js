@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -16,7 +17,7 @@ test(
   "isolated native Gateway stages, activates same pin, and restarts without accounts",
   {
     skip: !installed,
-    timeout: 180000,
+    timeout: contractTimeout(180000),
   },
   async () => {
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-native-update-"));
@@ -82,7 +83,7 @@ test(
   "native update gates overdue cron until commit and restores it without restarting Gateway",
   {
     skip: !installed,
-    timeout: 180000,
+    timeout: contractTimeout(180000),
   },
   async () => {
     const dataDir = fs.mkdtempSync(

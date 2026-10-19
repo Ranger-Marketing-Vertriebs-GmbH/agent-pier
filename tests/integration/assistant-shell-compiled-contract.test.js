@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -18,7 +19,7 @@ import {
 const installed = process.env.AGENTPIER_SHELL_CONTRACT_RUNTIME;
 const options = {
   skip: !installed && "set AGENTPIER_SHELL_CONTRACT_RUNTIME",
-  timeout: 400000,
+  timeout: contractTimeout(400000),
 };
 const entryOf = async (h, agent) =>
   (await h.running()).agents.entries[h.store.getAssistant(agent.id).runtimeAgentId];

@@ -79,7 +79,10 @@ jobs:
         run: node scripts/verify-assistant-installation.mjs
   native-contracts:
     name: Native contracts (${{ matrix.runner }})
-    timeout-minutes: 75
+    # The Intel macOS runner needs about 2.2 times as long as Apple silicon (about
+    # 111 instead of 52 minutes for the contracts), so it gets a larger budget and
+    # scales the contracts' own wait budgets by AGENTPIER_CONTRACT_TIME_SCALE.
+    timeout-minutes: ${{ matrix.runner == 'macos-15-intel' && 150 || 75 }}
     strategy:
       fail-fast: false
       matrix:
@@ -153,6 +156,7 @@ jobs:
         # full wait budget of lead-requests.js; pull requests use a 12 s ask.
         env:
           AGENTPIER_TEAM_LONG_ASK: ${{ github.event_name != 'pull_request' && '1' || '' }}
+          AGENTPIER_CONTRACT_TIME_SCALE: ${{ matrix.runner == 'macos-15-intel' && '2.5' || '1' }}
         run: >-
           node --test --test-concurrency=1
           --test-reporter=spec --test-reporter-destination=stdout

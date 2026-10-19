@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import http from "node:http";
@@ -17,7 +18,7 @@ import {
 const installed = process.env.AGENTPIER_TELEGRAM_SENDERS_CONTRACT_RUNTIME;
 const options = {
   skip: !installed && "set AGENTPIER_TELEGRAM_SENDERS_CONTRACT_RUNTIME",
-  timeout: 600000,
+  timeout: contractTimeout(600000),
 };
 const token1 = "7001:fixture-token-one-abcdefghijklmnopqrstuvwxyz";
 const token2 = "7002:fixture-token-two-abcdefghijklmnopqrstuvwxyz";

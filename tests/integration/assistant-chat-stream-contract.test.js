@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import http from "node:http";
@@ -59,7 +60,7 @@ async function gatedModelServer() {
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 test(
   "pinned Gateway streams a reply as one snapshot followed by appended deltas",
-  { skip: !installed, timeout: 180000 },
+  { skip: !installed, timeout: contractTimeout(180000) },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
     assert.equal(

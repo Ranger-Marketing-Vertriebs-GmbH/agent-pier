@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -33,7 +34,7 @@ const options = {
   skip:
     !(installed && contractDir) &&
     "set AGENTPIER_MCP_CONTRACT_RUNTIME and AGENTPIER_ASSISTANT_CONTRACT_DIR",
-  timeout: 300000,
+  timeout: contractTimeout(300000),
 };
 
 const headerValue = "mcp-compiled-header-4721";

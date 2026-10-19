@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -9,7 +10,7 @@ import { promisify } from "node:util";
 const installed = process.env.AGENTPIER_ASSISTANT_ROUTINE_RUNTIME;
 test(
   "pinned native scheduler qualifies DST and durable downtime recovery",
-  { skip: !installed, timeout: 120000 },
+  { skip: !installed, timeout: contractTimeout(120000) },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-schedule-"));
@@ -28,7 +29,7 @@ test(
           OPENCLAW_CONFIG_PATH: path.join(home, "openclaw.json"),
           AGENTPIER_ASSISTANT_ROUTINE_RUNTIME: installed,
         },
-        timeout: 110000,
+        timeout: contractTimeout(110000),
         maxBuffer: 1024 * 1024,
       },
     );

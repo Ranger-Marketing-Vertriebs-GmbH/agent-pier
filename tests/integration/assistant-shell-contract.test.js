@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -25,7 +26,7 @@ import { shellQuote } from "../../server/lib/launch-serialization.js";
 const installed = process.env.AGENTPIER_SHELL_CONTRACT_RUNTIME;
 const options = {
   skip: !installed && "set AGENTPIER_SHELL_CONTRACT_RUNTIME",
-  timeout: 300000,
+  timeout: contractTimeout(300000),
 };
 const execTools = ["session_status", "exec", "process"];
 // The runtime's node as a command word. A local install lives under "Application

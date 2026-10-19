@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -137,7 +138,7 @@ async function fixture(t) {
         {
           cwd: runtime.paths.root,
           env: runtimeEnvironment(runtime.paths, descriptor.nodePath),
-          timeout: 60000,
+          timeout: contractTimeout(60000),
           maxBuffer: 1024 * 1024,
         },
       );
@@ -182,7 +183,7 @@ async function fixture(t) {
 
 test(
   "native memory clears and removes indexed notes across re-index and restart",
-  { skip: !installed, timeout: 240000 },
+  { skip: !installed, timeout: contractTimeout(240000) },
   async (t) => {
     const f = await fixture(t);
     const agent = await f.create("Memory deletion contract");
@@ -229,7 +230,7 @@ test(
 
 test(
   "native memory persists across configured model switches and stays agent scoped",
-  { skip: !installed, timeout: 240000 },
+  { skip: !installed, timeout: contractTimeout(240000) },
   async (t) => {
     const f = await fixture(t);
     const alpha = await f.create("Alpha memory contract");

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -19,7 +20,7 @@ test(
   "native scheduled work rotates credentials and cannot use a removed connection after restart",
   {
     skip: !installed,
-    timeout: 240000,
+    timeout: contractTimeout(240000),
   },
   async (t) => {
     assert.ok(path.isAbsolute(installed));

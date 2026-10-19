@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import { e2eGraph, turnOf } from "../helpers/assistant-e2e-graph.js";
 import { fakeBotApi, fakeDeepgram } from "../helpers/assistant-telegram-fakes.js";
@@ -14,7 +15,7 @@ import { DeepgramTranscriber } from "../../server/features/speech/deepgram-trans
 const installed = process.env.AGENTPIER_E2E_CONTRACT_RUNTIME;
 const options = {
   skip: !installed && "set AGENTPIER_E2E_CONTRACT_RUNTIME",
-  timeout: 300000,
+  timeout: contractTimeout(300000),
 };
 const token = "7101:fixture-owner-bot-abcdefghijklmnopqrstuvwxyz";
 const owner = { id: "4242", name: "Owner" };

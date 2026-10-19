@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -21,7 +22,7 @@ import { migrateAssistants } from "../../server/features/assistants/assistant-sc
 const installed = process.env.AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME;
 const options = {
   skip: !installed && "set AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME",
-  timeout: 300000,
+  timeout: contractTimeout(300000),
 };
 const signatureKeys = [
   "type",

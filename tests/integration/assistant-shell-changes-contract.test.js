@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
@@ -15,7 +16,7 @@ import { decide, shellGateway, silent } from "../helpers/assistant-shell-gateway
 const installed = process.env.AGENTPIER_SHELL_CONTRACT_RUNTIME;
 const options = {
   skip: !installed && "set AGENTPIER_SHELL_CONTRACT_RUNTIME",
-  timeout: 300000,
+  timeout: contractTimeout(300000),
 };
 
 test(
