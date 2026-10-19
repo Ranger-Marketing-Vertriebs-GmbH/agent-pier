@@ -137,6 +137,7 @@ test("a resume the CLI cannot start falls back to a fresh kickoff and records wh
   const [resumed, fresh] = log.slice(-2);
   assert.equal(resumed.kind, "resumed-repair");
   assert.equal(resumed.failReason, "resume-failed");
+  assert.equal(resumed.failDetail, "No conversation to resume");
   assert.ok(resumed.finishedAt);
   assert.equal(fresh.kind, "kickoff");
   assert.deepEqual(fresh.repair, {
@@ -166,6 +167,8 @@ for (const [error, reason] of [
     await f.engine.reconcile();
     const [resumed, fresh] = current().executionLog.slice(-2);
     assert.equal(resumed.failReason, reason);
+    // The CLI's own words are kept for the operator.
+    assert.equal(resumed.failDetail, error);
     assert.equal(resumed.contextExhausted, reason === "context-exhausted" || undefined);
     assert.equal(fresh.kind, "kickoff");
     assert.equal(fresh.repair.fallback, reason);
@@ -244,4 +247,109 @@ test("a resumed repair queued before a restart is launched resumed after it", as
   assert.equal(relaunched.resumeNativeId, "native-1");
   assert.equal(current().executionLog.at(-1).repair.session, "resumed");
   assert.equal(current().pendingTurn, undefined);
+});
+
+test("a resumed turn whose output could not be validated stops for a person", async (t) => {
+  const { f, current } = await reviewFailed(t);
+  f.outcomes.set(f.launches.at(-1).sessionId, {
+    status: "failed",
+    exitCode: 0,
+    isError: true,
+    observationError: "Native output could not be validated.",
+  });
+  await f.engine.reconcile();
+  assert.equal(f.launches.length, 3, "no fresh kickoff is launched");
+  assert.equal(current().status, "awaiting-human");
+  assert.equal(current().nodes[0].failReason, "session-error");
+  assert.equal(current().executionLog.at(-1).failReason, "session-error");
+});
+
+test("a parked repair turn started again keeps its round as a new session", async (t) => {
+  for (const relaunch of ["resume-now", "automatic", "retry"])
+    await t.test(relaunch, async (t) => {
+      let now = Date.now();
+      const f = sessionFixture(t);
+      const { engine } = f;
+      engine.clock = { now: () => now };
+      const id = (
+        await engine.start({ pipelineId: "definition", cwd: f.dir, task: "Fix" })
+      ).id;
+      await f.end(pass("Built"), { nativeId: "native-1" });
+      await f.end(fail("Missing validation"));
+      assert.equal(f.launches.at(-1).kind, "resumed-repair");
+      f.outcomes.set(
+        f.launches.at(-1).sessionId,
+        relaunch === "retry"
+          ? { status: "failed", exitCode: 1, observationError: "Unreadable output." }
+          : {
+              status: "failed",
+              exitCode: 1,
+              usageLimit: { resetAt: Math.floor(now / 1000) + 10 },
+            },
+      );
+      await engine.reconcile();
+      const parked = engine.get(id);
+      assert.equal(parked.status, "awaiting-human");
+      if (relaunch === "automatic") {
+        now = Date.parse(parked.usageResumeAt) + 1;
+        await engine.reconcile();
+      } else if (relaunch === "retry") await engine.retry(id);
+      else await engine.gate(id, { action: "resume-now" });
+      const launched = f.launches.at(-1);
+      assert.equal(launched.kind, "kickoff");
+      assert.equal(launched.resumeNativeId, undefined);
+      const attempt = engine.get(id).executionLog.at(-1);
+      assert.deepEqual(attempt.repair, {
+        edge: "review->build",
+        round: 1,
+        session: "fresh",
+        fallback: "retried",
+      });
+      await f.end({
+        ...pass("Repaired"),
+        responses: [{ finding: "R1-1", status: "fixed" }],
+      });
+      assert.equal(engine.get(id).loopRounds[0].repairAttemptId, attempt.attemptId);
+    });
+});
+
+test("a retried fresh repair keeps the fallback reason of its round", async (t) => {
+  const { f, current } = await reviewFailed(t);
+  f.outcomes.set(f.launches.at(-1).sessionId, {
+    status: "failed",
+    exitCode: 1,
+    error: "Gone",
+  });
+  await f.engine.reconcile();
+  f.outcomes.set(f.launches.at(-1).sessionId, { status: "failed", exitCode: 1 });
+  await f.engine.reconcile();
+  await f.engine.retry(current().id);
+  assert.deepEqual(current().executionLog.at(-1).repair, {
+    edge: "review->build",
+    round: 1,
+    session: "fresh",
+    fallback: "resume-failed",
+  });
+});
+
+// A round too large for its budget drops report paths from the round view; the list of
+// current stage reports keeps them, as a fresh kickoff's prompt does.
+test("a resumed repair prompt lists the current stage reports", async (t) => {
+  const f = sessionFixture(t);
+  const id = (await f.engine.start({ pipelineId: "definition", cwd: f.dir, task: "Fix" }))
+    .id;
+  await f.end(pass("Built"), { nativeId: "native-1" });
+  const review = f.engine.get(id).executionLog.at(-1);
+  const report = `${review.reportDir}/REVIEW.md`;
+  await f.end({ ...fail("Missing validation"), artifacts: [{ path: report }] });
+  const launched = f.launches.at(-1);
+  assert.equal(launched.kind, "resumed-repair");
+  const reports = launched.prompt.split("\n\n");
+  const at = reports.findIndex((part) => part.startsWith("Current stage reports"));
+  assert.ok(at > 0);
+  assert.deepEqual(JSON.parse(reports[at + 1]), [
+    { nodeId: "review", reports: [report] },
+  ]);
+  assert.doesNotMatch(launched.prompt, /Perform Fix/);
+  assert.doesNotMatch(launched.prompt, /Prior stage artifact declarations/);
 });

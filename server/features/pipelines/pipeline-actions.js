@@ -3,6 +3,7 @@ import { problem } from "../../lib/storage.js";
 import { activeNode, currentAttempt, outgoing, terminal } from "./graph-navigation.js";
 import { advance, conclude, launchStage, loopBack } from "./execution-stage.js";
 import { readVerdict } from "./stage-verdict.js";
+import { relaunchOptions } from "./loop-session.js";
 import { recordReportDigests } from "./stage-reports.js";
 import { filterAnswers, recordResponses } from "./loop-rounds.js";
 export function requireLiveRun(run) {
@@ -76,7 +77,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
       return;
     }
     run.usageResumeAt = null;
-    await launchStage(engine, run, node);
+    await launchStage(engine, run, node, relaunchOptions(run, node));
     return;
   }
   if (action === "wait-for-reset") {

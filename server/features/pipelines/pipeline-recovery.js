@@ -3,6 +3,7 @@ import { activeNode, currentAttempt, terminal } from "./graph-navigation.js";
 import { applyOutcome, launchStage, park, conclude, advance } from "./execution-stage.js";
 import { provisionRun } from "./execution-workspace.js";
 import { cancelRun } from "./pipeline-actions.js";
+import { relaunchOptions } from "./loop-session.js";
 // Graceful stop through the launcher keeps the exit status and quiescence receipt,
 // so a stopped turn stays inspectable (and overridable). Killing the tmux session
 // would lose both; it is only the fallback of drivers without `finish`.
@@ -72,7 +73,12 @@ export async function reconcileRun(engine, run) {
       Date.parse(run.usageResumeAt) <= engine.nowMs() &&
       activeNode(run)?.failReason === "usage-limit-exceeded"
     )
-      await launchStage(engine, run, activeNode(run));
+      await launchStage(
+        engine,
+        run,
+        activeNode(run),
+        relaunchOptions(run, activeNode(run)),
+      );
     return;
   }
   if (run.verifyJob) {

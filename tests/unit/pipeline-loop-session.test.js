@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { validateGraph } from "../../server/features/pipelines/graph-validation.js";
 import {
   contextExhausted,
+  relaunchOptions,
   repairLaunch,
   sessionKey,
 } from "../../server/features/pipelines/loop-session.js";
@@ -162,4 +163,40 @@ test("a loop back resumes only a session it can continue", () => {
     fallback({ run: { executionLog: [{ nodeId: "build", attemptId: "a-1" }] } }),
     "profile-changed",
   );
+});
+
+test("a relaunched repair keeps its round and starts a new session", () => {
+  const node = { id: "build", attemptId: "a-2" };
+  const opened = (repair) => ({
+    executionLog: [
+      {
+        nodeId: "build",
+        attemptId: "a-1",
+        repair: { edge: "e", round: 1, session: "fresh" },
+      },
+      { nodeId: "build", attemptId: "a-2", repair },
+      { nodeId: "build", attemptId: "a-2", kind: "verdict-nudge" },
+    ],
+  });
+  assert.deepEqual(
+    relaunchOptions(opened({ edge: "e", round: 2, session: "resumed" }), node),
+    {
+      repair: { edge: "e", round: 2, session: "fresh", fallback: "retried" },
+    },
+  );
+  assert.deepEqual(
+    relaunchOptions(
+      opened({ edge: "e", round: 2, session: "fresh", fallback: "context-exhausted" }),
+      node,
+    ),
+    { repair: { edge: "e", round: 2, session: "fresh", fallback: "context-exhausted" } },
+  );
+  assert.deepEqual(
+    relaunchOptions(opened({ edge: "e", round: 2, session: "fresh" }), node),
+    {
+      repair: { edge: "e", round: 2, session: "fresh" },
+    },
+  );
+  // A stage that repairs nothing is relaunched as a plain kickoff.
+  assert.deepEqual(relaunchOptions({ executionLog: [] }, node), {});
 });

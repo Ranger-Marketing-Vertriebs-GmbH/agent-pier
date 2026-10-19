@@ -83,6 +83,7 @@ function StageAttempts({ run, node }) {
                     ? failReasonLabel(entry.failReason)
                     : ""}
               </span>
+              {entry.failDetail && <span>{entry.failDetail}</span>}
               {tokenTotal(entry.usage) !== null && (
                 <span>{copy.tokenCount(formatNumber(tokenTotal(entry.usage)))}</span>
               )}

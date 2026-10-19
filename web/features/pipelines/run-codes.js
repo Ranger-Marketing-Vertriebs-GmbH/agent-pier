@@ -40,6 +40,7 @@ export const runCodes = {
     "context-exhausted",
     "profile-changed",
     "no-session",
+    "retried",
   ],
   gateDecisions: ["accepted", "overridden", "feedback", "looped-back"],
 };

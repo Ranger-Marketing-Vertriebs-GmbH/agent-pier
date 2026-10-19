@@ -74,3 +74,25 @@ export const freshAfterResume = (attempt, reason) => ({
   kind: "kickoff",
   repair: { ...attempt.repair, session: "fresh", fallback: reason },
 });
+
+// A parked repair turn that is retried or resumed after a usage reset starts over in a
+// new session; it keeps the round it repairs, so the history and the round still
+// count it as that round's repair.
+export function relaunchOptions(run, node) {
+  const opened = (run.executionLog || []).findLast(
+    (a) => a.nodeId === node.id && a.attemptId === node.attemptId && a.repair,
+  );
+  if (!opened) return {};
+  const { fallback, ...repair } = opened.repair;
+  return {
+    repair: {
+      ...repair,
+      session: "fresh",
+      ...(repair.session === "resumed"
+        ? { fallback: "retried" }
+        : fallback
+          ? { fallback }
+          : {}),
+    },
+  };
+}
