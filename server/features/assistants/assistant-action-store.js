@@ -19,6 +19,10 @@ export function memoryRedaction(payload) {
 export class AssistantActionStore {
   constructor(db) {
     this.db = db;
+    // Counts writes; `onWrite(...rows)` hears every written row (AssistantWorkflows
+    // re-reads the chat feeds of the agents these rows belong to).
+    this.writes = 0;
+    this.onWrite = null;
     db.exec(
       "CREATE TABLE IF NOT EXISTS assistant_actions(id TEXT PRIMARY KEY,assistant_id TEXT NOT NULL REFERENCES assistants(id),operation_key TEXT UNIQUE NOT NULL,body TEXT NOT NULL)",
     );
@@ -132,6 +136,7 @@ export class AssistantActionStore {
     this.db
       .prepare("INSERT INTO assistant_actions VALUES(?,?,?,?)")
       .run(a.id, a.assistantId, a.key, JSON.stringify(a));
+    this.written(a);
     return a;
   }
   patch(id, values) {
@@ -140,7 +145,12 @@ export class AssistantActionStore {
     this.db
       .prepare("UPDATE assistant_actions SET body=? WHERE id=?")
       .run(JSON.stringify(next), id);
+    this.written(a, next);
     return next;
+  }
+  written(...rows) {
+    this.writes++;
+    this.onWrite?.(...rows);
   }
   /**
    * Clears title and content of agent memory writes that stored an entry an owner
@@ -186,10 +196,11 @@ export class AssistantActionStore {
   pruneTrustedSsh(assistantId, keep) {
     const trusted =
       "assistant_id=? AND json_extract(body,'$.payload.action')='ssh' AND json_extract(body,'$.payload.trusted')=1";
-    this.db
+    const { changes } = this.db
       .prepare(
         `DELETE FROM assistant_actions WHERE ${trusted} AND rowid NOT IN (SELECT rowid FROM assistant_actions WHERE ${trusted} ORDER BY rowid DESC LIMIT ?)`,
       )
       .run(assistantId, assistantId, keep);
+    if (changes) this.written({ assistantId });
   }
 }

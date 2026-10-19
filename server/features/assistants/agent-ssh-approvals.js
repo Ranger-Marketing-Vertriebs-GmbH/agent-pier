@@ -80,7 +80,7 @@ export class SshApprovals {
         ...(telegram ? { telegram } : {}),
       });
       notifyAction(this.w, action, "approval");
-      this.w.a.changed();
+      this.w.a.changed({ feeds: false });
     } else if (
       action.payload.action !== "ssh" ||
       action.payload.accessId !== input.accessId ||
@@ -153,7 +153,7 @@ export class SshApprovals {
   }
   finish(id, values) {
     const next = this.w.store.patch(id, values);
-    this.w.a.changed();
+    this.w.a.changed({ feeds: false });
     return next;
   }
   /** The owner's decision; workflows.decideOnce checked revision, state, expiry, chat. */

@@ -163,7 +163,11 @@ export default function AssistantChat({
   // The run summarises its long history before it answers (compactions.js).
   const compacting = Boolean(active && !uncertain && history.compacting);
   // Every agent's own requests wait in its chat: a permanent member may have a shell.
-  const ownActions = useAssistantActions(assistant.id);
+  // The feed carries them while its socket is connected; else the hook reads them.
+  const liveActions = view.live?.actions;
+  const pushedActions =
+    feed.connection === "connected" && Array.isArray(liveActions) ? liveActions : null;
+  const ownActions = useAssistantActions(assistant.id, pushedActions);
   const entry = activityFor(activity, assistant.id);
   const canSend = Boolean(
     (text.trim() || files) &&
@@ -509,7 +513,13 @@ export default function AssistantChat({
               deliver({ clientRequestId: crypto.randomUUID(), text: message }, [])
             }
           />
-          {!member && <PendingTeams assistant={assistant} navigate={navigate} />}
+          {!member && (
+            <PendingTeams
+              assistant={assistant}
+              navigate={navigate}
+              pushed={pushedActions}
+            />
+          )}
           <AssistantActionApprovals {...ownActions} assistantId={assistant.id} />
         </div>
         <div

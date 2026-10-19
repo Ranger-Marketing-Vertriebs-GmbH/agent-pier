@@ -153,7 +153,7 @@ export async function decideExec(w, action, decision, log = (l) => console.warn(
         ...(fallback ? { resolvedAs: sent, allowlist } : {}),
       },
     });
-    w.a.changed?.();
+    w.a.changed?.({ feeds: false });
     return next;
   } finally {
     w.exec.deciding.delete(approvalId);
