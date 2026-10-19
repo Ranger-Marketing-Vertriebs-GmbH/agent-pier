@@ -3,6 +3,7 @@ import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
+import StatusChip from "../../components/StatusChip.jsx";
 import { chipTone } from "../../components/status-tones.js";
 import { formatNumber } from "../../lib/i18n/index.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
@@ -24,6 +25,7 @@ export function useEvidence(runId, node) {
         title,
         text: result[field] || (field === "diff" ? copy.emptyDiff : ""),
         truncated: result.truncated,
+        changed: result.changed === true,
       });
     });
   // The log tile shows every step's log; several steps are separated by their names.
@@ -53,6 +55,13 @@ export function useEvidence(runId, node) {
     viewer: pane && (
       <Modal title={pane.title} wide close={() => setPane(null)}>
         <div className="pipeline-form">
+          {pane.changed && (
+            <p>
+              <StatusChip tone="waiting" pill>
+                {copy.reportChanged}
+              </StatusChip>
+            </p>
+          )}
           <pre className="pipeline-evidence">{pane.text}</pre>
           {pane.truncated && <p>{copy.truncated}</p>}
         </div>
