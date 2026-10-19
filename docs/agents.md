@@ -117,7 +117,9 @@ member also shows whether its model changed since it took it over from the lead.
   directly (**Manage MCP servers** links there); OAuth servers
   are signed in from AgentPier ([MCP](mcp.md#central-mcp-servers-in-the-coding-clis)).
   A local server can also be installed from an npm or PyPI package under **Accounts → MCP
-  servers** ([MCP](mcp.md#installing-a-server-package)).
+  servers** ([MCP](mcp.md#installing-a-server-package)). A local server's path setting
+  can use an [agent placeholder](mcp.md#agent-placeholders) such as
+  `{agent.workspace}`, so each agent reads and writes only in its own folder.
 
 Saving can restart the agent service briefly; AgentPier asks first and refuses the
 save while an affected agent is busy.

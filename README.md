@@ -30,7 +30,8 @@ and agents that work as a team.
   directions, images created through ChatGPT, read or read-and-write access to project folders and GitHub through your
   token profiles ([agents](docs/agents.md)).
 - **Central MCP servers:** add a server once and bind it to agents and to your coding
-  CLIs, with OAuth sign-in from AgentPier ([MCP](docs/mcp.md)).
+  CLIs, with OAuth sign-in from AgentPier and per-agent folders for local servers
+  ([MCP](docs/mcp.md)).
 - **Accounts hub:** native CLI accounts, provider connections, ChatGPT for agents and
   agent services in one place ([providers](docs/providers.md)).
 - **Files and knowledge:** a file explorer, private artifacts, shared project memory
