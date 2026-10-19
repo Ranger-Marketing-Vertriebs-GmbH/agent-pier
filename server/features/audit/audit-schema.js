@@ -6,6 +6,7 @@ import {
 } from "../assistants/openclaw-config/advanced-settings.js";
 import { MCP_SERVER_ORIGINS } from "../mcp-servers/server-origins.js";
 import { sshAuditDetails } from "./audit-ssh-details.js";
+import { teamAuditDetails } from "./audit-team-details.js";
 import { SCAN_RULES, SCAN_VERDICTS } from "../extensions/skill-scan.js";
 const memberGrantKeys = new Set([
   "memory",
@@ -204,6 +205,8 @@ export function auditEvent(input) {
       "member-promote",
       "project-file",
       "project-grants",
+      "lead-routine",
+      "native-write",
       "share",
       "github-access",
       "generated-image",
@@ -419,6 +422,8 @@ export function auditEvent(input) {
         details.scanRules.includes(rule),
       );
   }
+  // How a lead's team acted: routines, follow-up writes, shared folders.
+  if (input.resourceType === "assistant") teamAuditDetails(details, event, auditId);
   // Agent SSH runs, refusals and grant changes (audit-ssh-details.js).
   if (input.resourceType === "ssh" || details.kind === "ssh-grants")
     sshAuditDetails(details, event, auditId);
