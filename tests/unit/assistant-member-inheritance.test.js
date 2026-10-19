@@ -28,6 +28,7 @@ const ALL = {
   webFetch: true,
   browser: true,
   documents: true,
+  readPdfs: true,
   createImages: true,
 };
 const OFF = Object.fromEntries(Object.keys(ALL).map((key) => [key, false]));

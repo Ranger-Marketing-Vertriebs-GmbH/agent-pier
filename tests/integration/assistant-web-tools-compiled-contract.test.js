@@ -15,10 +15,15 @@ import { selectedAssistantRuntime } from "../../server/features/assistants/runti
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { capabilityTools } from "../../server/features/assistants/native-capabilities.js";
 import { defaultGrants } from "../../server/features/assistants/member-grants.js";
-import { webToolsSections } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import {
+  hasDocumentExtract,
+  webToolsSections,
+} from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { BrowserLiveView } from "../../server/features/assistants/browser-live-view.js";
+import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import { textPdf } from "../helpers/text-pdf.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs: its data
 // directory yields the runtime descriptor, including the bundled search plugins.
@@ -67,6 +72,7 @@ const everything = {
   webFetch: true,
   browser: true,
   documents: true,
+  readPdfs: true,
 };
 
 test(
@@ -145,14 +151,30 @@ test(
         };
       },
     });
-    // Linux only, opt-in: a runner whose kernel refuses Chrome's sandbox. This
-    // touches the test's startup file, never AgentPier's compiled configuration.
-    if (process.env.AGENTPIER_TEST_BROWSER_NO_SANDBOX === "1")
-      runtime.beforeSpawn = () => {
-        const config = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8"));
-        if (config.browser.enabled) config.browser.noSandbox = true;
-        fs.writeFileSync(runtime.paths.config, JSON.stringify(config));
-      };
+    const models = {
+      resolve: () => ({
+        providerId: "fixture",
+        modelRef: "fixture/fixture-model",
+        provider: fixtureModel(model.url),
+        release() {},
+      }),
+    };
+    // The owner chose the fixture model for PDFs; the real provider preparation
+    // compiles it into agents.defaults.pdfModel before each spawn, as in the app.
+    const pdfModel = { connectionId: "fixture", modelId: "fixture-model" };
+    const synchronization = new AssistantProviderSynchronization({
+      assistants: { store, models, runtime, config: { reset() {} } },
+      pdfModel: () => pdfModel,
+    });
+    runtime.beforeSpawn = async () => {
+      await synchronization.prepare();
+      // Linux only, opt-in: a runner whose kernel refuses Chrome's sandbox. This
+      // touches the test's startup file, never AgentPier's compiled configuration.
+      if (process.env.AGENTPIER_TEST_BROWSER_NO_SANDBOX !== "1") return;
+      const config = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8"));
+      if (config.browser.enabled) config.browser.noSandbox = true;
+      fs.writeFileSync(runtime.paths.config, JSON.stringify(config));
+    };
     // The tool guard pins every browser call to the agent's own profile.
     const browsers = new AgentBrowsers({ store, runtime });
     const bridge = new TeamBridge({
@@ -185,6 +207,8 @@ test(
           search: webSearch.resolve(),
           browser,
           searchPlugins: descriptor.searchPlugins || {},
+          pdf: { ready: true, ...pdfModel },
+          documentExtract: hasDocumentExtract(descriptor),
         },
       };
       return {
@@ -202,14 +226,7 @@ test(
       client: runtime.client,
       teamReady: () => bridge.status().ready,
       hostCapacity: () => 4,
-      models: {
-        resolve: () => ({
-          providerId: "fixture",
-          modelRef: "fixture/fixture-model",
-          provider: fixtureModel(model.url),
-          release() {},
-        }),
-      },
+      models,
     });
     config.nativeReady = () => true;
     // The browser waits for the plugin's proven tool guard, like guarded writes.
@@ -238,6 +255,7 @@ test(
     // Every capability reports its availability; no ChatGPT account signs in here.
     assert.deepEqual(runtime.webTools.availability, {
       createImages: false,
+      readPdfs: true,
       browser: browser.available,
       webSearch: true,
     });
@@ -254,6 +272,7 @@ test(
       "openai",
       "memory-core",
       "duckduckgo",
+      "document-extract",
       ...(browser.available ? ["browser"] : []),
     ]);
     assert.deepEqual(running.plugins.load.paths, [teamDirectory, ddg.directory]);
@@ -272,6 +291,11 @@ test(
     // Image creation needs a signed-in ChatGPT account, which no contract has.
     assert.equal(running.tools.allow.includes("image_generate"), false);
     assert.equal(running.agents.defaults.mediaModels, undefined);
+    // The one PDF model every agent reads with, from the owner's choice.
+    assert.deepEqual(running.agents.defaults.pdfModel, {
+      primary: "fixture/fixture-model",
+      fallbacks: [],
+    });
     assert.deepEqual(running.browser, sections.browser ?? { enabled: false });
     const listed = await runtime.client.call("plugins.list", {});
     const plugins = listed.plugins ?? listed;
@@ -284,9 +308,8 @@ test(
     const entry = (agent) => running.agents.entries[agent.runtimeAgentId];
     const granted = entry(web).tools.allow;
     t.diagnostic(`web agent allow=${JSON.stringify(granted)}`);
-    for (const name of ["web_search", "web_fetch", "view_image"])
+    for (const name of ["web_search", "web_fetch", "view_image", "pdf"])
       assert.ok(granted.includes(name), name);
-    assert.equal(granted.includes("pdf"), false);
     assert.equal(granted.includes("browser"), browser.available);
     const inherited = entry(member).tools.allow;
     t.diagnostic(`member allow=${JSON.stringify(inherited)}`);
@@ -297,6 +320,7 @@ test(
     for (const name of [
       "browser",
       "view_image",
+      "pdf",
       "agentpier_reminder",
       "agentpier_team_propose",
       "agentpier_routine",
@@ -347,15 +371,43 @@ test(
       "web-fetch",
     );
     t.diagnostic(`web agent offered=${JSON.stringify(fetched.offered)}`);
-    for (const name of ["web_search", "web_fetch", "view_image"])
+    for (const name of ["web_search", "web_fetch", "view_image", "pdf"])
       assert.ok(fetched.offered.includes(name), `offered ${name}`);
     assert.equal(fetched.offered.includes("browser"), browser.available);
-    // docs/assistant-web-tools-qualification.md: OpenClaw offers `pdf` for a custom
-    // provider only with agents.defaults.pdfModel, which AgentPier does not compile;
-    // the switch therefore neither grants nor is offered `pdf`.
-    assert.equal(fetched.offered.includes("pdf"), false);
     assert.match(fetched.result, /Blocked hostname or private\/internal\/special-use IP/);
     assert.equal(page.hits, 0);
+
+    // Read PDFs: a workspace PDF reaches the owner's PDF model as extracted text.
+    fs.writeFileSync(
+      path.join(runtime.paths.workspaces, web.id, "report.pdf"),
+      textPdf("AGENTPIER_PDF_MARKER quarterly report"),
+    );
+    const from = model.requests.length;
+    const read = await turn(
+      web,
+      { name: "pdf", arguments: { pdf: "report.pdf", prompt: "Summarize it." } },
+      "pdf-read",
+    );
+    const pdfRequests = model.requests
+      .slice(from)
+      .filter((r) => JSON.stringify(r.messages).includes("AGENTPIER_PDF_MARKER"));
+    assert.ok(pdfRequests.length, "the PDF text reached the PDF model");
+    assert.equal(pdfRequests[0].model, "fixture-model");
+    assert.match(read.result, /A useful assistant reply/);
+    // The tool guard keeps calls on workspace files and the owner's PDF model.
+    const remote = await turn(
+      web,
+      { name: "pdf", arguments: { pdf: local } },
+      "pdf-remote",
+    );
+    assert.match(remote.result, /without a web address/);
+    assert.equal(page.hits, 0);
+    const other = await turn(
+      web,
+      { name: "pdf", arguments: { pdf: "report.pdf", model: "fixture/other" } },
+      "pdf-model",
+    );
+    assert.match(other.result, /Leave model unset/);
 
     // The lead's member is offered its granted web tools under the same private
     // network block.

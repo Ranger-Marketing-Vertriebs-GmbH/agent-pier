@@ -162,6 +162,9 @@ export function compileOpenClawConfig({
     if (Object.keys(media).length) config.agents.defaults.mediaModels = media;
     else delete config.agents.defaults.mediaModels;
   }
+  // Compiler-owned: only the start's provider preparation writes the PDF model, while
+  // an agent reads PDFs and the owner chose a usable model (pdf-model-settings.js).
+  delete config.agents.defaults.pdfModel;
   // Compiler-owned: an MCP server could run host commands. Only applyMcp writes it,
   // from the servers bound to eligible agents.
   delete config.mcp;

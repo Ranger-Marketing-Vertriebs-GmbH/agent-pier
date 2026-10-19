@@ -36,6 +36,9 @@ const readOnly = [
   // (tools.fs.workspaceOnly); web references are refused by the tool guard unless the
   // agent may read web pages (tool-guard.js imageCall).
   "image_generate",
+  // Reads workspace PDFs with the owner's PDF model; the tool guard refuses web
+  // addresses and other models (tool-guard.js pdfCall).
+  "pdf",
 ];
 const everything = {
   memory: true,
@@ -44,6 +47,7 @@ const everything = {
   webFetch: true,
   browser: true,
   documents: true,
+  readPdfs: true,
   createImages: true,
 };
 

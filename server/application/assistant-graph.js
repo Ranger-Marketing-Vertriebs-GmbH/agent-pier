@@ -13,12 +13,16 @@ import { ChannelService } from "../features/assistant-channels/channel-service.j
 import { TelegramSenders } from "../features/assistant-channels/telegram-senders.js";
 import { stdioAgents } from "../features/assistants/openclaw-config/telegram-senders.js";
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
+import { PdfModelSettings } from "../features/assistants/pdf-model-settings.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { managedChromium } from "../features/tools/chromium-installer.js";
 import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
 import { BrowserLiveView } from "../features/assistants/browser-live-view.js";
 import { noteBrowserHandBack } from "../features/assistants/browser-hand-back.js";
-import { webToolsAvailability } from "../features/assistants/openclaw-config/web-tools.js";
+import {
+  hasDocumentExtract,
+  webToolsAvailability,
+} from "../features/assistants/openclaw-config/web-tools.js";
 import { readMcpInputs } from "../features/assistants/openclaw-config/mcp-servers.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { SpeechConnections } from "../features/speech/speech-connections.js";
@@ -208,6 +212,11 @@ export function constructAssistantGraph(host, created = {}) {
     dataDir,
     connections: providerConnections,
   }));
+  // The one model every agent reads PDFs with (Read PDFs capability).
+  const assistantPdfModel = (created.pdfModel = new PdfModelSettings({
+    dataDir,
+    models,
+  }));
   // The core store when AgentPier has one; it outlives the agent feature.
   const assistantMcpServers =
     host.mcpServers || (created.mcpServers = new McpServerStore({ dataDir }));
@@ -246,6 +255,7 @@ export function constructAssistantGraph(host, created = {}) {
     assistantModelLogin,
     assistantSpeech,
     assistantWebSearch,
+    assistantPdfModel,
     assistantMcpServers,
     assistantChannels,
     assistantMemory,
@@ -279,6 +289,7 @@ export function constructAssistantGraph(host, created = {}) {
     connections: providerConnections,
     maintenance,
     isUpdating: () => scope.assistantUpdates.status().busy,
+    pdfModel: () => assistantPdfModel.selection(),
   });
   // The agents' own Telegram bots for other people; their changes restart the Gateway
   // like web tool changes do.
@@ -315,6 +326,7 @@ export function constructAssistantGraph(host, created = {}) {
     detect: detectAgentBrowser,
     // A signed-in ChatGPT account lets agents create images (model-accounts.js).
     images: () => ({ ready: assistantModelAccounts.imageReady() }),
+    pdfModel: assistantPdfModel,
   });
   // The owner's advanced OpenClaw settings; a restart change reuses the web tools
   // confirmation and its list of interrupted agents.
@@ -517,6 +529,9 @@ export function connectAssistantServices(graph) {
           searchPlugins: installed.searchPlugins || {},
           // The same readiness a save compares with (web-tools-changes.js).
           images: webToolsChanges.images(),
+          // The owner's PDF model, ids only (pdf-model-settings.js).
+          pdf: webToolsChanges.pdf(),
+          documentExtract: hasDocumentExtract(installed),
         },
         // Read at each start; tokens and the speech key reach only openclaw.json.
         telegram: telegramSenders.inputs(),

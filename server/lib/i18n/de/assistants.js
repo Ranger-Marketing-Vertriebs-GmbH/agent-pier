@@ -113,6 +113,7 @@ export const assistants = {
       webFetch: "Webseiten",
       browser: "Browser",
       documents: "Bilder",
+      readPdfs: "PDFs",
       createImages: "Bilder erstellen",
       allSkills: "alle Skills des leitenden Agenten",
       skills: (count) => `Skills: ${count}`,
@@ -304,6 +305,8 @@ export const assistants = {
   agentLoading:
     "Der Agentendienst hat den Agenten nicht rechtzeitig geladen. Versuche es in einem Moment erneut.",
   provider: "Dieser Provider-Zugang ist für Agenten nicht verfügbar.",
+  pdfModelImages:
+    "Dieses Modell kann keine Bilder lesen. Wähle zum Lesen von PDFs ein Modell, das Bilder annimmt.",
   uncertain:
     "Der Ausgang dieser Anfrage ist noch unklar. Prüfe den Verlauf vor einem neuen Versuch.",
   queuedTooLong:

@@ -21,6 +21,7 @@ export const assistantServiceNames = [
   "assistantModelLogin",
   "assistantSpeech",
   "assistantWebSearch",
+  "assistantPdfModel",
   "assistantMcpServers",
   "assistantChannels",
   "assistantMemory",
@@ -53,6 +54,7 @@ export function createAssistantServices(options) {
       created.bridge,
       created.teams,
       created.webSearch,
+      created.pdfModel,
       created.mcpServers,
       created.channels || created.speech,
       created.assistants || created.store,
@@ -109,6 +111,7 @@ export function createAssistantFeature(services) {
       assistants,
       assistantChannels,
       assistantWebSearch,
+      assistantPdfModel,
       assistantMcpServers,
       assistantMcpOAuth,
     } = services;
@@ -117,6 +120,9 @@ export function createAssistantFeature(services) {
     await assistantChannels?.close().catch(() => {});
     try {
       assistantWebSearch?.close();
+    } catch {}
+    try {
+      assistantPdfModel?.close();
     } catch {}
     assistantMcpOAuth?.close();
     // The core store stays open for the central list; only a private one is closed.

@@ -14,6 +14,7 @@ const memberGrantKeys = new Set([
   "webFetch",
   "browser",
   "documents",
+  "readPdfs",
   "createImages",
   "skills",
   "shell",

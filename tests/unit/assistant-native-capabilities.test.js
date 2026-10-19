@@ -19,6 +19,7 @@ const OFF = {
   webFetch: false,
   browser: false,
   documents: false,
+  readPdfs: false,
   createImages: false,
 };
 test("personal capabilities are opt-in; a task member's own settings never count", () => {

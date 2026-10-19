@@ -11,12 +11,13 @@ export const writeGuardWindowMs = 20000;
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * Agents whose tools wait for the guard: memory writes (memoryEnabled, members' own
- * memory included) and the browser.
+ * memory included), the browser, image creation and PDF reading.
  */
 export const guardNeeded = (assistant) =>
   memoryEnabled(assistant) ||
   personalCapabilities(assistant).browser ||
-  personalCapabilities(assistant).createImages;
+  personalCapabilities(assistant).createImages ||
+  personalCapabilities(assistant).readPdfs;
 const ownTurn = (context) =>
   ["owner", "telegram"].includes(context?.kind) && !context.forwarded;
 

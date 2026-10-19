@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { createHmac, randomBytes } from "node:crypto";
 import { capabilityTools, usedCapabilities } from "../native-capabilities.js";
 import { browserProfileMap } from "./browser-profiles.js";
@@ -5,10 +7,30 @@ import { browserProfileMap } from "./browser-profiles.js";
 // Verified against OpenClaw 2026.10.3, see docs/assistant-web-tools-qualification.md.
 export const imageModel = "openai/gpt-image-2";
 
+export const documentExtractPlugin = "document-extract";
+/**
+ * Whether the runtime `installed` (a runtime descriptor) bundles OpenClaw's document
+ * extraction plugin, which reads PDF text and page images (2026.10.3 has it).
+ */
+export function hasDocumentExtract(installed) {
+  if (typeof installed?.entryPath !== "string") return false;
+  return fs.existsSync(
+    path.join(
+      path.dirname(installed.entryPath),
+      "dist",
+      "extensions",
+      documentExtractPlugin,
+      "openclaw.plugin.json",
+    ),
+  );
+}
+
 /**
  * Which web tools this runtime can actually serve. `webTools` is
- * `{ search, browser, searchPlugins }`: the WebSearchSettings.resolve() result, the
- * detectBrowser() result and the runtime descriptor's bundled search plugins. A
+ * `{ search, browser, searchPlugins, images, pdf }`: the WebSearchSettings.resolve()
+ * result, the detectBrowser() result, the runtime descriptor's bundled search plugins,
+ * the ChatGPT image readiness, the PdfModelSettings.resolve() result and whether the
+ * runtime bundles PDF extraction (hasDocumentExtract). A
  * provider whose plugin the runtime lacks (old or rollback runtime) is unavailable:
  * OpenClaw would offer web_search without a provider and fail each call.
  */
@@ -18,6 +40,9 @@ export function webToolsAvailability(webTools) {
     // A ChatGPT account (an `openai` OAuth profile) that is signed in: OpenClaw routes
     // gpt-image-2 through it (docs/tools/image-generation.md of 2026.10.3).
     createImages: webTools?.images?.ready === true,
+    // The owner chose a model that can read PDFs (pdf-model-settings.js), and the
+    // runtime bundles the extraction plugin the pdf tool needs for non-native models.
+    readPdfs: webTools?.pdf?.ready === true && webTools?.documentExtract === true,
     browser: !!(webTools?.browser?.available && webTools.browser.executablePath),
     webSearch: !!(
       search?.provider &&
@@ -34,6 +59,7 @@ export function webToolsAvailability(webTools) {
  * - `tools`: tool names to append to the global `tools.allow`.
  * - `web`: `tools.web`, or undefined.
  * - `browser`: the root `browser` block, or undefined (keep `{ enabled: false }`).
+ * - `pdf`: `{ connectionId, modelId }` of the PDF model to compile, or undefined.
  * - `plugins`: `{ allow, paths, entries }` to add to the plugin configuration.
  */
 export function webToolsSections({ profiles, webTools, port }) {
@@ -47,6 +73,7 @@ export function webToolsSections({ profiles, webTools, port }) {
     web: undefined,
     browser: undefined,
     media: undefined,
+    pdf: undefined,
     plugins: { allow: [], paths: [], entries: {} },
   };
   const web = {};
@@ -68,6 +95,17 @@ export function webToolsSections({ profiles, webTools, port }) {
   // auto-detection; the timeout follows OpenClaw's hosted image defaults.
   if (active("createImages"))
     sections.media = { image: { primary: imageModel, timeoutMs: 180000 } };
+  // Ids only: AssistantProviderSynchronization.prepare resolves them into
+  // agents.defaults.pdfModel and its provider before the Gateway starts.
+  if (active("readPdfs")) {
+    sections.pdf = {
+      connectionId: webTools.pdf.connectionId,
+      modelId: webTools.pdf.modelId,
+    };
+    // Bundled, but the restrictive allow list leaves it off; without it the pdf tool
+    // refuses every PDF a non-native model reads ("PDF extraction disabled").
+    sections.plugins.allow.push(documentExtractPlugin);
+  }
   if (active("browser")) {
     // An explicit root block activates the bundled plugin; listing it is explicit.
     sections.plugins.allow.push("browser");
@@ -163,6 +201,8 @@ export function webToolsSnapshot({ profiles, webTools, port = 0 }) {
     // The executable this start compiled (the managed browser may not be removed).
     browserExecutable: available ? webTools.browser.executablePath : null,
     searchPlugins: webTools?.searchPlugins || {},
+    // Whether the runtime bundles PDF extraction; a save compares with the same.
+    documentExtract: webTools?.documentExtract === true,
     tools: webToolsSections({ profiles, webTools, port: 0 }).tools,
     signature: webToolsSignature({ profiles, webTools }),
   };
