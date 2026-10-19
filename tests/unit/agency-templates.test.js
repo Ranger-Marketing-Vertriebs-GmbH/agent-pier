@@ -56,7 +56,7 @@ test("a template keeps name, description, body and attribution, never model or t
   // Every file read is pinned to the catalog revision.
   assert.ok(
     urls
-      .filter((u) => u.includes("raw.githubusercontent.com"))
+      .filter((u) => new URL(u).host === "raw.githubusercontent.com")
       .every((u) => u.includes(agencyRevision)),
   );
   // What profiles and the browser keep: no text, no license body.

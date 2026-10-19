@@ -100,7 +100,7 @@ test("a slow template fetch never holds other agent operations", async (t) => {
   const held = new Promise((resolve) => (release = resolve));
   // The entry itself hangs until released; the catalog answers at once.
   f.application.agency.fetchImpl = async (url) =>
-    String(url).includes("raw.githubusercontent.com") && !String(url).endsWith("/LICENSE")
+    new URL(url).host === "raw.githubusercontent.com" && !String(url).endsWith("/LICENSE")
       ? held.then(() => fetchImpl(url))
       : fetchImpl(url);
   const connection = f.application.providerConnections.create({
