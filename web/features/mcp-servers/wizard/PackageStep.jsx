@@ -5,6 +5,7 @@ import { mcpPackageCopy } from "../../../lib/i18n/messages/mcp-packages.js";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import McpPackageFields from "../McpPackageFields.jsx";
 import NameField from "../NameField.jsx";
+import CuratedHint from "./CuratedHint.jsx";
 import { fieldErrors } from "../field-errors.js";
 import { newestStable } from "../mcp-package-versions.js";
 import useMcpPackageVersions from "../useMcpPackageVersions.js";
@@ -98,6 +99,12 @@ export default function PackageStep({ state, dispatch, go, headingRef, data }) {
           </label>
         </div>
       )}
+      <CuratedHint
+        serverName={draft.hints.directory?.name}
+        registry={draft.registry}
+        packageName={draft.packageName}
+        level={2}
+      />
       <McpPackageFields
         formId={formId}
         values={draft}
