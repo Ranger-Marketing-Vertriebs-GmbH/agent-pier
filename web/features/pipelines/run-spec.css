@@ -1,0 +1,109 @@
+/* The run's spec: above the stages in the run view and in the inbox gate. Its styles
+   stand alone, so the inbox shows it without the run view's stylesheets. */
+.run-spec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.run-spec > h4,
+.run-spec-label {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  letter-spacing: 1.4px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+.run-spec > p {
+  margin: 0;
+}
+.run-spec-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: var(--font-size-xs);
+  color: var(--text-meta);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.run-spec-meta code {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.run-spec-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.run-spec-items > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--divider);
+}
+.run-spec-id {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  color: var(--text-meta);
+}
+.run-spec-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.run-spec-title {
+  color: var(--text);
+}
+.run-spec-text small {
+  font-size: var(--font-size-xs);
+  color: var(--text-meta);
+  white-space: pre-wrap;
+}
+.run-spec-assumptions > summary {
+  cursor: pointer;
+  color: var(--accent-text);
+}
+.run-spec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.run-spec-dialog {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  min-width: 0;
+}
+.run-spec-dialog label {
+  display: grid;
+  gap: 7px;
+  font-size: var(--font-size-sm);
+}
+.run-spec-dialog textarea {
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  max-height: 50dvh;
+}
+.run-spec-source {
+  margin: 0;
+  max-height: 65dvh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+}

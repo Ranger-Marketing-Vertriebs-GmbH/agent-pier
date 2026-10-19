@@ -70,6 +70,9 @@ test("answering inline uses each source's own endpoint and the item leaves the l
 
   await rows(page).filter({ hasText: "Review" }).first().click();
   await expect(page.getByText("Release the new version")).toBeVisible();
+  // The gate shows the spec the stage wrote.
+  await expect(page.getByText("The release notes are published.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Spec ersetzen" })).toBeVisible();
   await page.getByRole("button", { name: "Freigeben", exact: true }).click();
   await expect(page.getByText("Bereits erledigt")).toBeVisible();
   expect(

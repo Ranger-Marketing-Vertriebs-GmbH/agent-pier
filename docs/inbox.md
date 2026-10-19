@@ -22,7 +22,9 @@ follows with the longest waiting first.
 
 Select an item to open it in the detail pane. The pane shows the same card you would
 see in place: the native question or approval from the session's chat, the gate
-decision from the run, the agent's approval card or the team proposal. Answering there
+decision from the run (with the run's spec when it has one, see
+[pipelines](pipelines.md#spec-and-acceptance-criteria)), the agent's approval card or the
+team proposal. Answering there
 has the same effect as answering in place, because the card uses the same endpoint and
 the same checks. **Open in context** opens the session chat, the run or the agent's
 chat instead. The list has no quick actions; a decision is always made on the full

@@ -1,4 +1,5 @@
 import React from "react";
+import StatusChip from "../../components/StatusChip.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { serverText } from "../../lib/server-messages.js";
 
@@ -37,9 +38,30 @@ export function Findings({ findings, answer }) {
             <span className="run-finding-title">{finding.title || finding.message}</span>
             {finding.file && <code>{finding.file}</code>}
             {finding.detail && <small>{finding.detail}</small>}
+            {finding.criterion && <small>{copy.criterionRef(finding.criterion)}</small>}
             {answer?.(finding) && (
               <small className="run-finding-answer">{answer(finding)}</small>
             )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// A stage's report on the spec's acceptance criteria: met or not, with its evidence.
+export function CriteriaResults({ criteria }) {
+  if (!criteria?.length) return null;
+  return (
+    <ul className="run-findings">
+      {criteria.map((entry) => (
+        <li key={entry.criterion}>
+          <span className="run-severity">{entry.criterion}</span>
+          <span className="run-finding-text">
+            <StatusChip tone={entry.status === "met" ? "ok" : "error"}>
+              {copy.criterionStatuses[entry.status] || copy.unknown}
+            </StatusChip>
+            <small>{entry.evidence}</small>
           </span>
         </li>
       ))}
@@ -55,6 +77,10 @@ export default function Verdict({ verdict }) {
       <Findings findings={verdict.findings} />
       {verdict.ignoredAnswers?.length > 0 && (
         <p>{copy.ignoredAnswers(verdict.ignoredAnswers.join(", "))}</p>
+      )}
+      <CriteriaResults criteria={verdict.criteria} />
+      {verdict.ignoredCriteria?.length > 0 && (
+        <p>{copy.ignoredCriteria(verdict.ignoredCriteria.join(", "))}</p>
       )}
     </>
   );

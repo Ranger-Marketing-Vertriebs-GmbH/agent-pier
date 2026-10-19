@@ -13,7 +13,7 @@ import EvidenceTiles, {
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GateDecision from "./GateDecision.jsx";
 import RunUsage from "./RunUsage.jsx";
-import { Findings, VerdictSummary } from "./Verdict.jsx";
+import { CriteriaResults, Findings, VerdictSummary } from "./Verdict.jsx";
 import { stageName, stageStatus, stageTone } from "./run-stages.js";
 import {
   attemptKindLabel,
@@ -84,6 +84,8 @@ function StageAttempts({ run, node }) {
                     : ""}
               </span>
               {entry.failDetail && <span>{entry.failDetail}</span>}
+              {entry.specChanged && <span>{copy.specRestoredAfterTurn}</span>}
+              {entry.specIgnored && <span>{copy.specIgnored}</span>}
               {tokenTotal(entry.usage) !== null && (
                 <span>{copy.tokenCount(formatNumber(tokenTotal(entry.usage)))}</span>
               )}
@@ -153,6 +155,14 @@ export default function StageDetail({ run, node, index, navigate, refresh, gate 
         <Block title={`${copy.findings} · ${node.verdict.findings.length}`}>
           <Findings findings={node.verdict.findings} />
         </Block>
+      )}
+      {node.verdict?.criteria?.length > 0 && (
+        <Block title={`${copy.specCriteria} · ${node.verdict.criteria.length}`}>
+          <CriteriaResults criteria={node.verdict.criteria} />
+        </Block>
+      )}
+      {node.verdict?.ignoredCriteria?.length > 0 && (
+        <p>{copy.ignoredCriteria(node.verdict.ignoredCriteria.join(", "))}</p>
       )}
       {(verifying || steps.length > 0 || notConfigured) && (
         <Block title={copy.verification}>
