@@ -148,11 +148,16 @@ page reloads that agent and says so. Unrelated changes, for example the agent's
 pipelines saved in its Work tab meanwhile, are kept. A Work tab draft opened before a
 change from the project gets the usual conflict notice on save.
 
-Team members are not editable here. A read-only list shows the task members that use
-the folder through their lead, at the level they have right now (at most the lead's).
-**Shared by lead agents** lists the permanent members a lead shares this project with,
-"via <lead>", with what applies now (folder level, coding, standing or for one task)
-and **Revoke** (`shared` in the Agents view, `DELETE /api/assistant-lead-shares/:id`).
+Team members are not editable here. **Shared by lead agents** lists the permanent
+members a lead shares this project with, "via <lead>", with what applies now (folder
+level, coding, standing or for one task) and **Revoke** (`shared` in the Agents view,
+`DELETE /api/assistant-lead-shares/:id`). The same section lists the folders leads
+granted their temporary members, marked **Task-bound member**, at the level the member
+has right now (at most the lead's), with **Revoke**, and their coding through the lead
+for information (`memberGrants` in the Agents view; `GET /api/assistant-lead-shares`
+returns them as `memberGrants` beside `shares`, and their ids, `task:<member>:<kind>…`,
+revoke through the same `DELETE` route). The older read-only `members` list is still
+returned for existing clients.
 
 **Add folder** offers the permanent agents with **No access**, **Coding only**,
 **Coding and read folder** or **Coding, read and write folder**; the choice is applied

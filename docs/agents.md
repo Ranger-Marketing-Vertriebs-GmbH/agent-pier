@@ -275,7 +275,9 @@ grant it more or take grants back; each change shows on
 the team card, as a note in the member's chat and the lead's chat, and in the
 member's **Capabilities → Granted by the lead agent**, and it is recorded in the
 activity log. Grants follow the lead: if it loses a capability, its members lose it
-too. A reminder a member sets is created on the lead, listed in the lead's settings
+too. You see a member's project folders, MCP servers, shell and SSH from its lead
+next to the shares with permanent members, and can revoke them there
+([Sharing a lead's access](#sharing-a-leads-access-with-permanent-members)). A reminder a member sets is created on the lead, listed in the lead's settings
 and sent to the lead's Telegram chat. Members never get the team tools or routines.
 
 Every temporary member has its own memory that it can write, always on. The lead's
@@ -382,6 +384,22 @@ change files (you asked for it, an autonomous lead started it, or a routine mark
 **May write** did); in a routine only when that routine is marked **May write**;
 otherwise the member reads only.
 Shell and SSH are never shared this way: a permanent member uses only its own.
+
+The same overviews list what leads granted their temporary members, marked
+**Task-bound member**: in the member's **Capabilities → Shared by the lead agent**
+(a temporary member has no Work tab), in **Projects → <project> → Agents → Shared by
+lead agents** and with the MCP server under **Accounts → MCP servers**. Each project
+folder shows the level the member uses now, at most the lead's own; a folder,
+server, shell level or SSH the lead does not hold right now is marked **Not in
+effect** and stays listed until it is revoked. **Revoke** takes a folder, MCP server,
+shell or SSH back as the lead's own revocation would: the member loses it at once (an
+MCP server also in the running agent service), a note goes to the member's and the
+lead's chat, the activity log records you as the one who revoked it, and a waiting
+shell or SSH approval for what you revoked is cancelled. Coding is listed as
+**Coding runs through the lead agent** without **Revoke**: a temporary member
+requests coding runs on its lead's projects and pipelines while its team works, and
+every run waits for your approval. To end it, stop or archive the member, or remove
+the project from the lead.
 
 ### When a lead uses its team
 
