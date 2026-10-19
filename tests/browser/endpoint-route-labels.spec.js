@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
 import { openAccountItem } from "../helpers/accounts-browser.js";
+import { docScreenshot, updateDocScreenshots } from "../helpers/doc-screenshots.js";
 
 test.use({ locale: "en-GB" });
 
@@ -111,9 +112,9 @@ test("the session header shows the route of endpoint sessions only", async ({ pa
     .locator(".session-title p")
     .evaluate((element) => element.textContent);
   expect(subtitle).toBe("Claude Code / GPU box via adapter · Chat Completions");
-  if (process.env.CAPTURE_ADAPTER_SCREENSHOTS) {
+  if (updateDocScreenshots) {
     await page.locator(".session-title").screenshot({
-      path: "docs/screenshots/session-adapter-route.png",
+      path: docScreenshot("docs/screenshots/session-adapter-route.png"),
       animations: "disabled",
     });
   }

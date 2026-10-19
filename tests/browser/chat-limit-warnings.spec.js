@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { baseURL } from "../helpers/browser.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 
 test.use({ locale: "en-GB", viewport: { width: 390, height: 650 } });
 for (const tool of ["codex", "claude"]) {
@@ -61,7 +62,9 @@ for (const tool of ["codex", "claude"]) {
     expect(box.x + box.width).toBeLessThanOrEqual(390);
     expect(box.y + box.height).toBeLessThanOrEqual(650);
     if (tool === "claude")
-      await page.screenshot({ path: "docs/screenshots/chat-limit-warning-mobile.png" });
+      await page.screenshot({
+        path: docScreenshot("docs/screenshots/chat-limit-warning-mobile.png"),
+      });
     data.nativeInput.providerSessionId = "previous-thread";
     await publish();
     await expect(notice).toHaveCount(0);

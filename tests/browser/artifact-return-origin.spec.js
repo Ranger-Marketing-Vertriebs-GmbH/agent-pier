@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 
 const artifact = {
   id: "example",
@@ -130,7 +131,9 @@ for (const mode of ["chat", "terminal"])
     const viewer = await openViewer(page, () => sessionArtifact(page).click());
     await returnToSession(viewer, "origin", mode);
     if (process.env.CAPTURE_ARTIFACT_SCREENSHOTS && mode === "chat")
-      await viewer.screenshot({ path: "docs/screenshots/artifact-return-chat.png" });
+      await viewer.screenshot({
+        path: docScreenshot("docs/screenshots/artifact-return-chat.png"),
+      });
   });
 
 for (const label of ["Absolute report", "Relative report"])

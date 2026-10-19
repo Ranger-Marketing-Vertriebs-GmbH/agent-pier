@@ -1,6 +1,7 @@
 import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { pipelinesFixture, openPipelines } from "./pipelines-fixture.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 
 for (const width of [1440, 390])
   test(`normal session dialog selects and overrides an interactive profile at width ${width}`, async ({
@@ -48,7 +49,9 @@ for (const width of [1440, 390])
     await dialog.getByRole("checkbox", { name: /Testserver/ }).check();
     await dialog.getByRole("checkbox", { name: /AgentPier-Tools/ }).uncheck();
     await profile.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `docs/screenshots/session-profile-${width}.png` });
+    await page.screenshot({
+      path: docScreenshot(`docs/screenshots/session-profile-${width}.png`),
+    });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     ).toBe(true);

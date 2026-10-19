@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { operationsFixture } from "./operations-fixture.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 
 const tag = (version) =>
   `https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases/tag/v${version}`;
@@ -53,7 +54,9 @@ test.describe("update release notes across versions", () => {
       region.getByRole("link", { name: "View release on GitHub" }).first(),
     ).toHaveAttribute("href", tag("1.1.0"));
 
-    await region.screenshot({ path: "docs/screenshots/release-notes-range.png" });
+    await region.screenshot({
+      path: docScreenshot("docs/screenshots/release-notes-range.png"),
+    });
 
     await summaries.nth(1).focus();
     await page.keyboard.press("Enter");

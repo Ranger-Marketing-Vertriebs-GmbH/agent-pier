@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 
 test.use({
   locale: "en-GB",
@@ -242,7 +243,7 @@ for (const size of [
       ).toBeGreaterThanOrEqual(16);
       if (size.width === 1024) {
         await page.screenshot({
-          path: "docs/screenshots/ipad-terminal-keyboard.png",
+          path: docScreenshot("docs/screenshots/ipad-terminal-keyboard.png"),
           clip: { x: 0, y: 80, width: size.width, height: size.keyboardHeight },
         });
       }
@@ -276,7 +277,7 @@ for (const size of [
       await expect(page.locator(".chat-send")).toBeInViewport({ ratio: 1 });
       if (size.width === 1024) {
         await page.screenshot({
-          path: "docs/screenshots/ipad-chat-keyboard.png",
+          path: docScreenshot("docs/screenshots/ipad-chat-keyboard.png"),
           clip: { x: 0, y: 130, width: size.width, height: size.keyboardHeight },
         });
       }

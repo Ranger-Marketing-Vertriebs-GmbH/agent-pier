@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { pipelinesFixture, openPipelines } from "./pipelines-fixture.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 test("profile editing preserves drafts on conflict and clones without reusing identity", async ({
   page,
 }) => {
@@ -46,7 +47,9 @@ test("mobile profile creation supports account permissions and parameters withou
   await page.getByLabel("Account", { exact: true }).selectOption("local-claude");
   await page.getByLabel("Berechtigungsmodus", { exact: true }).selectOption("plan");
   await page.getByText(/Der gewählte Berechtigungsmodus gilt/).scrollIntoViewIfNeeded();
-  await page.screenshot({ path: "docs/screenshots/pipeline-permissions.png" });
+  await page.screenshot({
+    path: docScreenshot("docs/screenshots/pipeline-permissions.png"),
+  });
   await page.getByRole("button", { name: "Parameter hinzufügen", exact: true }).click();
   await page.getByLabel("Parameterschlüssel 1", { exact: true }).fill("topic");
   await page.getByLabel("Parametername 1", { exact: true }).fill("Thema");

@@ -3,6 +3,7 @@ import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { pauseClockSoon } from "./subagent-fixture.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 
 async function fixture(
   page,
@@ -221,7 +222,7 @@ test("mobile task drawer lists working subagents first with their task immediate
   await expect(
     drawer.getByRole("heading", { name: "Unteragenten (2 · 1 aktiv)" }),
   ).toBeVisible();
-  await page.screenshot({ path: "docs/screenshots/active-subagents.png" });
+  await page.screenshot({ path: docScreenshot("docs/screenshots/active-subagents.png") });
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
   await expect(page.getByRole("button", { name: "Unteragenten anzeigen" })).toBeFocused();

@@ -3,6 +3,7 @@ import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 
 import { baseURL as base } from "../helpers/browser.js";
+import { docScreenshot } from "../helpers/doc-screenshots.js";
 async function fixture(page, configure = () => {}) {
   const state = {
     tools: [
@@ -128,7 +129,7 @@ test("installed CLI previews native migration and updates without launching a se
   });
   await expect(modal).toContainText("claude update");
   await expect(modal).toContainText("npm");
-  await modal.screenshot({ path: "docs/screenshots/cli-update.png" });
+  await modal.screenshot({ path: docScreenshot("docs/screenshots/cli-update.png") });
   expect(controls.starts).toEqual([]);
   await modal
     .getByRole("button", { name: "Umstellen & aktualisieren", exact: true })
