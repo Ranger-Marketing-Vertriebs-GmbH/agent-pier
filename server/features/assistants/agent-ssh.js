@@ -344,7 +344,7 @@ export class AgentSsh {
       settled: true,
     });
     this.w.store.pruneTrustedSsh(caller.assistant.id, trustedSshRows);
-    this.w.a.changed();
+    this.w.a.changed({ feeds: false });
   }
   refuse(caller, cls, input, key) {
     this.audit("ssh.denied", "failure", input?.accessId, {

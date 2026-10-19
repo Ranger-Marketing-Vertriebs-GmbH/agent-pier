@@ -405,9 +405,11 @@ export class AssistantService {
    * names it, so only that chat's live feed reads its history again; without one,
    * every live feed does.
    */
-  changed({ conversationId } = {}) {
-    if (conversationId) this.feeds?.invalidate(conversationId);
-    else this.feeds?.invalidateAll();
+  // `feeds: false`: only agent actions changed, whose writes already re-read the
+  // feeds of their agents (AssistantWorkflows.written).
+  changed({ conversationId, feeds = true } = {}) {
+    if (feeds && conversationId) this.feeds?.invalidate(conversationId);
+    else if (feeds) this.feeds?.invalidateAll();
     this.events.publish({ type: "change" });
   }
   serialize(key, operation) {

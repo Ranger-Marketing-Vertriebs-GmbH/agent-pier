@@ -11,11 +11,12 @@ import useTeamCodingRequests from "./useTeamCodingRequests.js";
 // What a lead's teams need from the owner stays in the chat until it is decided:
 // team proposals, the members' coding requests and members whose outcome is unknown
 // (the team cannot end until the owner reviews them). Everything else about the
-// teams lives in Settings → Work → Teams.
-export default function TeamApprovals({ assistant, navigate }) {
+// teams lives in Settings → Work → Teams. `pushed`: the pending actions the chat feed
+// carries while connected, else null (useTeamCodingRequests).
+export default function TeamApprovals({ assistant, navigate, pushed = null }) {
   const { teams = [], members = [] } = useAssistants();
   const own = teams.filter((t) => t.parentAssistantId === assistant.id);
-  const coding = useTeamCodingRequests(assistant.id, own.length > 0, teams);
+  const coding = useTeamCodingRequests(assistant.id, own.length > 0, teams, pushed);
   const { busy, error, act } = useTeamActions();
   const proposals = own.filter((t) => t.phase === "awaiting_approval" && !t.archivedAt);
   const requests = coding.actions.filter((a) => a.state === "awaiting_approval");

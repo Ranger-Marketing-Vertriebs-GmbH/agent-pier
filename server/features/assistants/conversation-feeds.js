@@ -25,17 +25,19 @@ export class ConversationFeeds {
   /**
    * `read(id)` returns the latest history window, `scope(id)` the baseline scope
    * key ([conversationId, runtimeSessionKey, runtime generation]) and `runs(id)` the
-   * replies streaming right now as [runId, text] pairs.
+   * replies streaming right now as [runId, text] pairs. `owner(id)` names the agent
+   * whose chat the conversation is (invalidateOwners).
    */
   constructor({
     read,
     scope,
     runs = () => [],
+    owner = () => null,
     sync = new ChatSync({}),
     debounceMs = 200,
     recoveryMs = 30000,
   }) {
-    Object.assign(this, { read, scope, runs, sync, debounceMs, recoveryMs });
+    Object.assign(this, { read, scope, runs, owner, sync, debounceMs, recoveryMs });
     this.entries = new Map();
     this.epochs = 0;
     this.closed = false;
@@ -101,6 +103,21 @@ export class ConversationFeeds {
   /** A change without a known conversation: every live feed reads again. */
   invalidateAll() {
     for (const entry of this.entries.values()) this.schedule(entry);
+  }
+  /** The pending actions of these agents changed: their open chats read again. */
+  invalidateOwners(ids) {
+    const owners = new Set(ids);
+    if (!owners.size) return;
+    for (const entry of this.entries.values()) {
+      let owner;
+      try {
+        owner = this.owner(entry.id);
+      } catch {
+        // A conversation that is gone reads again and reports it.
+        owner = null;
+      }
+      if (owner === null || owners.has(owner)) this.schedule(entry);
+    }
   }
   schedule(entry) {
     if (entry.disposed || this.closed) return;
@@ -212,10 +229,20 @@ export class ConversationFeeds {
   }
 }
 
-/** The feeds of an AssistantService: its history, runtime and streaming replies. */
+/**
+ * The feeds of an AssistantService: its history with the agent's pending actions
+ * (AssistantWorkflows.pending), runtime and streaming replies.
+ */
 export function conversationFeeds(service, options = {}) {
+  const owner = (id) => service.store.getConversation(id).assistantId;
   return new ConversationFeeds({
-    read: (id) => conversationHistory(service, id),
+    read: async (id) => {
+      const history = await conversationHistory(service, id);
+      const actions = service.workflows?.pending(owner(id));
+      // Without the workflows the chat reads its actions itself.
+      return actions ? { ...history, actions } : history;
+    },
+    owner,
     // A new runtime generation (a Gateway restart) never resumes an old baseline.
     scope: (id) => [
       id,

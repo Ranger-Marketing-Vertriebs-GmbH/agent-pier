@@ -35,6 +35,7 @@ export class AssistantWorkflows {
     this.a = services.assistants;
     this.access = new AssistantAccess(services);
     this.store = new AssistantActionStore(this.a.store.db);
+    this.store.onWrite = (...rows) => this.written(rows);
     this.coding = new AssistantCoding(this);
     this.exec = new ExecApprovals(this);
     this.ssh = new AgentSsh(this);
@@ -98,6 +99,38 @@ export class AssistantWorkflows {
     return {
       actions: actions.map((a) => ({ ...this.project(a), ...this.liveRun(a) })),
     };
+  }
+  /**
+   * What waits for the owner in this agent's chat, pushed on its chat feed
+   * (conversation-feeds.js): its approvals (team coding requests included), its
+   * members' approvals in turns it delegated, and allowed SSH commands while they
+   * run. Null when the agent is gone.
+   */
+  pending(id) {
+    try {
+      return this.list(id, { delegated: true }).actions.filter(
+        (a) =>
+          a.state === "awaiting_approval" ||
+          (a.payload?.action === "ssh" && a.state === "executing"),
+      );
+    } catch {
+      return null;
+    }
+  }
+  // Every written action re-reads the open chats of its agent and of the lead that
+  // shows it, once per batch of writes.
+  written(rows) {
+    this.touched ??= new Set();
+    for (const a of rows)
+      for (const id of [a?.assistantId, a?.leadAssistantId]) if (id) this.touched.add(id);
+    if (this.flushing) return;
+    this.flushing = true;
+    queueMicrotask(() => {
+      const ids = this.touched;
+      this.touched = new Set();
+      this.flushing = false;
+      this.a.feeds?.invalidateOwners(ids);
+    });
   }
   // The run as it is now; the stored snapshot only covers runs that are gone.
   liveRun(a) {
@@ -225,7 +258,7 @@ export class AssistantWorkflows {
           input.decision
         ],
       });
-      this.a.changed();
+      this.a.changed({ feeds: false });
       return this.project(next);
     });
   }
@@ -236,7 +269,7 @@ export class AssistantWorkflows {
       state: "failed",
       diagnostic: "GRANT_REVOKED",
     });
-    this.a.changed();
+    this.a.changed({ feeds: false });
     return next;
   }
   /**
@@ -306,7 +339,7 @@ export class AssistantWorkflows {
         () => this.store.patch(a.id, { state: "declined", diagnostic: "TEAM_STOPPED" }),
       );
     }
-    this.a.changed();
+    this.a.changed({ feeds: false });
   }
   tick() {
     if (this.closed || this.a.maintenance) return Promise.resolve();
@@ -316,7 +349,9 @@ export class AssistantWorkflows {
     });
     return this.running;
   }
+  // A pass that wrote no action changes nothing the owner sees.
   async advance() {
+    const writes = this.store.writes;
     for (const action of this.store.open()) {
       if (this.closed || this.a.maintenance) return;
       try {
@@ -327,7 +362,7 @@ export class AssistantWorkflows {
           this.store.patch(action.id, { state: "unknown" });
       }
     }
-    this.a.changed();
+    if (this.store.writes !== writes) this.a.changed({ feeds: false });
   }
   async advanceAction(a) {
     if (a.payload.action === "ssh") return this.ssh.approvals.advance(a);
