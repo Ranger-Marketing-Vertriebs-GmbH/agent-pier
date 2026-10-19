@@ -172,6 +172,14 @@ export const assistantApi = {
     api(
       `/assistant-conversations/${encodeURIComponent(id)}/messages${before ? `?before=${encodeURIComponent(before)}` : ""}`,
     ),
+  // The live window as a diff against `cursor` (the chat feed's HTTP fallback).
+  feed: (id, cursor, signal) =>
+    api(
+      `/assistant-conversations/${encodeURIComponent(id)}/messages?cursor=${encodeURIComponent(cursor || "")}`,
+      "GET",
+      undefined,
+      signal,
+    ),
   send: (id, input) =>
     api(`/assistant-conversations/${encodeURIComponent(id)}/messages`, "POST", input),
   queue: (id, input) =>

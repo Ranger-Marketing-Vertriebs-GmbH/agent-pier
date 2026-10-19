@@ -1,7 +1,13 @@
 import TeamApprovals from "./TeamApprovals.jsx";
 import { foldResultEvents, teamNotes, withTeamNotes } from "./team-notes.js";
 import { scrollToChild } from "./transcript-scroll.js";
-import { withLatest, withOlderPage } from "./history-pages.js";
+import {
+  emptyHistoryView,
+  shownHistory,
+  withLive,
+  withOlder,
+} from "./agent-history-view.js";
+import useAgentConversationStream from "./useAgentConversationStream.js";
 import AssistantHeader from "./AssistantHeader.jsx";
 import AssistantActionApprovals from "./AssistantActionApprovals.jsx";
 import AssistantApprovalStrip from "./AssistantApprovalStrip.jsx";
@@ -29,11 +35,10 @@ import useSessionViewport from "../sessions/useSessionViewport.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { assistantApi } from "./assistant-api.js";
-import useAssistants, { useAssistantEvents } from "./useAssistants.js";
+import useAssistants from "./useAssistants.js";
 import { leadMembers } from "./useMemberMention.js";
 import { streamInHistory } from "./stream-reply.js";
 import { takeBack } from "./queued-message.js";
-import { connectionLost } from "./agent-offline.js";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
 import StatusDot from "../../components/StatusDot.jsx";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
@@ -76,15 +81,17 @@ export default function AssistantChat({
     drafts.teamAllowed(conversationId),
   );
   const [text, setText] = useState(() => drafts.get(conversationId));
-  // A chat opened again starts from its last read, which stays while offline.
-  const [history, setHistory] = useState(
-    () => histories?.get(conversationId) || { messages: [], requests: [], stale: false },
-  );
+  // The live window, the rows it pushed out and the older pages (agent-history-view.js).
+  // A chat opened again starts from its last window, which stays while offline and
+  // lets the feed resume with a diff.
+  const [view, setView] = useState(() => {
+    const cached = histories?.get(conversationId);
+    return cached ? withLive(emptyHistoryView, cached) : emptyHistoryView;
+  });
+  const history = useMemo(() => shownHistory(view), [view]);
   // The history read failed for want of a connection.
   const [unreachable, setUnreachable] = useState(false);
   const offline = serviceOffline || unreachable;
-  // The streamed reply so far, with its run: { runId, text } or null.
-  const [delta, setDelta] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState(0);
@@ -108,45 +115,25 @@ export default function AssistantChat({
   const scroll = useRef(0);
   // The transcript height the last resize left; see onScroll.
   const outputHeight = useRef(0);
-  // Only the latest history read applies: an older one answering late, or one of the
-  // previous conversation, would bring back a state that is already over.
-  const reads = useRef(0);
   // The transcript's distance from its end before an older page was prepended.
   const prepended = useRef(null);
-  const shownConversation = useRef(conversationId);
-  shownConversation.current = conversationId;
   // Keeps the composer above the on-screen keyboard, as the session chat does.
   useSessionViewport(true);
-  const refresh = useCallback(async () => {
-    const read = ++reads.current;
-    try {
-      const next = await assistantApi.history(conversationId);
-      if (read !== reads.current) return;
+  // The feed pushes every change of this chat; actions only await their request.
+  const feed = useAgentConversationStream(conversationId, {
+    initial: histories?.get(conversationId),
+    onLive: (live) => {
       if (baseline.current === undefined)
         baseline.current =
-          next.messages.findLast((m) => m.role === "assistant")?.id ?? null;
-      // Live reads bring the latest window; loaded older pages stay above it.
-      setHistory((current) => withLatest(current, next));
-      histories?.set(conversationId, next);
-      setUnreachable(false);
-      if (
-        next.requests?.every((r) =>
-          ["completed", "failed", "cancelled"].includes(r.state),
-        )
-      )
-        setDelta(null);
-      else setDelta((d) => (streamInHistory(d, next) ? null : d));
-    } catch (e) {
-      if (read !== reads.current) return;
-      // Offline the hint says it; the last known messages stay.
-      if (connectionLost(e)) setUnreachable(true);
-      else setError(e.message);
-    }
-  }, [conversationId, histories]);
-  useEffect(() => {
-    baseline.current = undefined;
-    refresh();
-  }, [refresh]);
+          live.messages.findLast((m) => m.role === "assistant")?.id ?? null;
+      setView((current) => withLive(current, live));
+      histories?.set(conversationId, live);
+    },
+    onReachable: (reachable) => setUnreachable(!reachable),
+  });
+  // The streamed reply so far, with its run: { runId, text } or null.
+  const delta = feed.stream;
+  const refresh = feed.refresh;
   const removeShared = useCallback(
     async (file) => {
       await assistantApi.deleteSharedFile(conversationId, file.id);
@@ -154,17 +141,6 @@ export default function AssistantChat({
     },
     [conversationId, refresh],
   );
-  // AgentPier answers again: read the history now, even before the event stream is back.
-  const wasOffline = useRef(serviceOffline);
-  useEffect(() => {
-    if (wasOffline.current && !serviceOffline) refresh();
-    wasOffline.current = serviceOffline;
-  }, [serviceOffline, refresh]);
-  useAssistantEvents((event) => {
-    if (event.type === "delta" && event.conversationId === conversationId)
-      setDelta({ runId: event.runId, text: event.text });
-    if (["change", "connected"].includes(event.type)) refresh();
-  });
   const member = members.find((m) => m.assistantId === assistant.id);
   const memberBusy =
     member && !["completed", "failed", "cancelled"].includes(member.phase);
@@ -363,13 +339,11 @@ export default function AssistantChat({
     await refresh();
   }
   async function earlier() {
-    const id = conversationId;
     try {
-      const page = await assistantApi.history(id, history.nextBefore);
-      if (shownConversation.current !== id) return;
+      const page = await assistantApi.history(conversationId, history.nextBefore);
       const element = output.current;
       if (element) prepended.current = element.scrollHeight - element.scrollTop;
-      setHistory((current) => withOlderPage(current, page));
+      setView((current) => withOlder(current, page));
     } catch (e) {
       setError(e.message);
     }
@@ -402,7 +376,7 @@ export default function AssistantChat({
         {...drop}
         data-drop-hint={assistantAttachmentsCopy.drop}
       >
-        <ErrorMessage error={error} />
+        <ErrorMessage error={error || feed.error} />
         {(!connected || offline) && (
           <p role="status" className="assistant-notice">
             {copy.disconnected}

@@ -141,6 +141,8 @@ test("a failed list read keeps the agents and the next successful read restores 
   await page.goto(baseURL + "/agents/home/chats/dinner");
   await expect(page.getByText("We can plan dinner together.")).toBeVisible();
   network.offline = true;
+  // The lost connection ends the chat's feed socket too.
+  await page.evaluate(() => window.agentFeed.drop());
   // The page comes back to the foreground while the server is unreachable.
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(sidebar(page).getByText(sidebarNote)).toBeVisible();
@@ -151,7 +153,8 @@ test("a failed list read keeps the agents and the next successful read restores 
     ...histories.dinner,
     { id: "while-away", role: "assistant", text: "Shopping list is ready." },
   ];
-  // Back without an event stream: the next read alone brings list and chat back.
+  // Back without an event stream: the next list read and the reconnected feed bring
+  // list and chat back.
   network.offline = false;
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(sidebar(page).getByText(sidebarNote)).toHaveCount(0);

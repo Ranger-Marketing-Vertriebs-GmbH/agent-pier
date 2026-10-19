@@ -18,8 +18,8 @@ const textSize = (history) =>
   );
 
 /**
- * The last history read of recently opened agent chats, so a chat opened again while
- * offline shows what was last known. Bounded by chat count and by text size; beyond
+ * The last live window of recently opened agent chats, with its feed cursor: a chat
+ * opened again resumes with a diff, and shows what was last known while offline. Bounded by chat count and by text size; beyond
  * the budget the oldest messages of one chat and the least recently used chats leave.
  */
 export class AgentHistoryCache {
@@ -46,6 +46,8 @@ export class AgentHistoryCache {
       size = textSize(kept);
     }
     if (size > this.maxChars) return;
+    // A trimmed window is no baseline the server knows: the feed starts over in full.
+    if (kept !== history) kept = { ...kept, sync: undefined };
     this.entries.set(id, { history: kept, size });
     this.size += size;
     for (const old of this.entries.keys()) {
