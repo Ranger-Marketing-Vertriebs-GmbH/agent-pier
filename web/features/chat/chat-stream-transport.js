@@ -8,10 +8,22 @@ const FIRST_SNAPSHOT_TIMEOUT = 30000;
 // A never-settling HTTP read must not block later recovery reads.
 const FALLBACK_TIMEOUT = 30000;
 
-/** One live subscription. HTTP is a bounded recovery path, never a polling loop. */
+/**
+ * One live subscription. HTTP is a bounded recovery path, never a polling loop.
+ * `address(cursor)` builds the socket address (default: `url` with `?cursor=`).
+ * Frames other than snapshots, syncs, errors and `ended` go to `onFrame`; it returns
+ * false when the frame does not fit, which reconnects. `retryNow(code)` lets a close
+ * code reconnect without backoff, and `network` (a window) reconnects when the
+ * device comes back online. The returned dispose function has `refresh()`: one
+ * HTTP read against the current cursor while no socket delivers.
+ */
 export function createChatStream({
   url,
+  address,
   read,
+  onFrame,
+  retryNow = () => false,
+  network = null,
   onSnapshot,
   onConnection,
   onError,
@@ -36,8 +48,11 @@ export function createChatStream({
   const cursor = () => snapshot?.sync?.cursor;
   const socketUrl = () => {
     const value = cursor();
+    if (address) return address(value);
     return value ? `${url}?cursor=${encodeURIComponent(value)}` : url;
   };
+  // Whether the current socket delivered its first frame.
+  let live = false;
   let fallbackController;
   const abortRead = () => {
     fallbackController?.abort();
@@ -53,9 +68,9 @@ export function createChatStream({
   };
   // A running fallback survives reconnect attempts: a slow first snapshot must
   // land unless a socket snapshot, hiding, ending or disposal superseded it.
-  const fallback = async () => {
-    if (fallbacks >= 3 || fallbackController) return;
-    fallbacks++;
+  const fallback = async (forced = false) => {
+    if ((!forced && fallbacks >= 3) || fallbackController) return;
+    if (!forced) fallbacks++;
     const version = revision;
     const controller = new AbortController();
     fallbackController = controller;
@@ -93,11 +108,14 @@ export function createChatStream({
     onConnection("disconnected");
     cancel(timer);
     const token = ++epoch;
+    live = false;
     let sequence = -1;
-    const fail = (message = "") => {
+    const fail = (message = "", code) => {
       if (disposed || token !== epoch) return;
       // Detaching handlers also makes an error followed by close a single retry.
       stopSocket();
+      live = false;
+      if (code !== undefined && retryNow(code)) attempt = 0;
       onConnection("disconnected");
       if (message) onError(message);
       void fallback();
@@ -142,7 +160,10 @@ export function createChatStream({
             return;
           }
           if (message.type === "error") return fail(serverProblemText(message, ""));
-          if (message.type !== "snapshot" && message.type !== "sync") return;
+          if (message.type !== "snapshot" && message.type !== "sync") {
+            if (onFrame?.(message) === false) fail();
+            return;
+          }
           if (!Number.isInteger(message.sequence) || message.sequence <= sequence) return;
           if (sequence >= 0 && message.sequence !== sequence + 1) return fail();
           const next =
@@ -158,7 +179,10 @@ export function createChatStream({
           fallbacks = 0;
           onSnapshot(next);
           onError("");
-          if (sequence === first) onConnection("connected");
+          if (sequence === first) {
+            live = true;
+            onConnection("connected");
+          }
         } catch {
           // A rejected baseline must not seed the next connection.
           if (message?.type === "sync") snapshot = null;
@@ -166,7 +190,7 @@ export function createChatStream({
         }
       };
       socket.onerror = () => fail();
-      socket.onclose = () => fail();
+      socket.onclose = (event) => fail("", event?.code);
     } catch {
       fail();
     }
@@ -179,14 +203,24 @@ export function createChatStream({
     stopSocket();
     if (!visibility.hidden) connect();
   };
+  // Back online: a socket that died meanwhile reconnects now, not after its backoff.
+  const online = () => {
+    if (live) return;
+    attempt = 0;
+    visible();
+  };
   visibility.addEventListener("visibilitychange", visible);
+  network?.addEventListener("online", online);
   connect();
-  return () => {
+  const dispose = () => {
     disposed = true;
     ++epoch;
     abortRead();
     cancel(timer);
     stopSocket();
     visibility.removeEventListener("visibilitychange", visible);
+    network?.removeEventListener("online", online);
   };
+  dispose.refresh = () => (live || disposed ? Promise.resolve() : fallback(true));
+  return dispose;
 }

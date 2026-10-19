@@ -22,3 +22,21 @@ export function streamInHistory(stream, history) {
     return Boolean(stored) && (stored.startsWith(streamed) || streamed.endsWith(stored));
   });
 }
+
+/**
+ * The reply so far after a feed `stream` frame ({runId, from, text}): `from: 0` is the
+ * whole text, any other `from` appends where the held text ends. Null when the frame
+ * does not fit what is held; the feed then reconnects and sends the whole text again.
+ */
+export function nextStream(current, frame) {
+  if (
+    typeof frame?.runId !== "string" ||
+    typeof frame.text !== "string" ||
+    !Number.isInteger(frame.from) ||
+    frame.from < 0
+  )
+    return null;
+  if (frame.from === 0) return { runId: frame.runId, text: frame.text };
+  if (current?.runId !== frame.runId || current.text.length !== frame.from) return null;
+  return { runId: frame.runId, text: current.text + frame.text };
+}
