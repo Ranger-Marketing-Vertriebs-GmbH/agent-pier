@@ -66,6 +66,10 @@ export default function useAgentConversationStream(
       onError: setError,
       // A socket that fell behind resumes from its cursor at once.
       retryNow: (code) => code === 1013,
+      // A logout or a conversation that is gone stops the feed until the page shows
+      // again, the device comes online or the owner acts; a read that still finds
+      // no login or no conversation keeps it stopped.
+      halt: { codes: [1008], statuses: [401, 403, 404] },
       network: window,
     });
     control.current = dispose;

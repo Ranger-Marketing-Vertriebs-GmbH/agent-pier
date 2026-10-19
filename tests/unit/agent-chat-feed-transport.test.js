@@ -4,10 +4,11 @@ import { createChatStream } from "../../web/features/chat/chat-stream-transport.
 import { nextStream } from "../../web/features/assistants/stream-reply.js";
 
 // The agent chat feed on the shared transport, as useAgentConversationStream uses it.
-function feed({ initial, read = async () => full("http", ["a"]) } = {}) {
+function feed({ initial, halt, read = async () => full("http", ["a"]) } = {}) {
   const timers = new Map();
   const sockets = [];
   const lives = [];
+  const errors = [];
   const reads = [];
   const listeners = {};
   let stream = null;
@@ -37,8 +38,9 @@ function feed({ initial, read = async () => full("http", ["a"]) } = {}) {
       stream = next;
     },
     onConnection: () => {},
-    onError: () => {},
+    onError: (message) => errors.push(message),
     retryNow: (code) => code === 1013,
+    halt,
     network,
     visibility,
     schedule: (fn, delay) => {
@@ -58,6 +60,7 @@ function feed({ initial, read = async () => full("http", ["a"]) } = {}) {
     sockets,
     lives,
     reads,
+    errors,
     timers,
     get stream() {
       return stream;
@@ -217,4 +220,57 @@ test("nextStream replaces at 0, appends at its end and refuses anything else", (
     null,
   );
   assert.equal(nextStream(null, { runId: "r", from: -1, text: "B" }), null);
+});
+
+const halt = { codes: [1008], statuses: [401, 403, 404] };
+const status = (code) => Object.assign(new Error(`HTTP ${code}`), { status: code });
+
+test("a 1008 close stops the feed until an explicit trigger finds it again", async () => {
+  let answer = () => Promise.reject(status(404));
+  const f = feed({ halt, read: (_signal, cursor) => answer(cursor) });
+  f.send({ type: "sync", sequence: 1, data: full("c1", ["a"]) });
+  // The server reports the gone conversation, then closes for good.
+  f.send({ type: "error", message: "gone" });
+  assert.equal(f.sockets.length, 1, "an error frame alone does not reconnect");
+  f.sockets[0].onclose({ code: 1008 });
+  await settle();
+  assert.equal(f.timers.size, 0, "no reconnect and no read is scheduled");
+  assert.deepEqual(f.reads, []);
+  // Showing the page again reads once; a 404 keeps the feed stopped.
+  f.visible(false);
+  await settle();
+  assert.deepEqual(f.reads, ["c1"]);
+  assert.equal(f.sockets.length, 1);
+  assert.equal(f.timers.size, 0);
+  // The conversation is back: coming online reads and then reconnects with the cursor.
+  answer = (cursor) => Promise.resolve(delta(cursor, "c2", [], undefined));
+  f.online();
+  await settle();
+  assert.equal(f.sockets.length, 2);
+  assert.equal(f.sockets[1].url, "ws://feed/stream?cursor=c2");
+});
+
+test("a refused upgrade whose read finds no login stops the feed", async () => {
+  let answer = () => Promise.reject(status(401));
+  const f = feed({ halt, read: () => answer() });
+  f.send({ type: "sync", sequence: 1, data: full("c1", ["a"]) });
+  // A rejected upgrade looks like an abnormal close; its fallback read says why.
+  f.sockets[0].onclose({ code: 1006 });
+  await settle();
+  assert.deepEqual(f.reads, ["c1"]);
+  assert.equal(f.timers.size, 0, "the scheduled reconnect is cancelled");
+  // The owner acts: refresh tries once and connects after a successful read.
+  answer = () => Promise.resolve(full("c3", ["a"]));
+  await f.dispose.refresh();
+  await settle();
+  assert.equal(f.sockets.length, 2);
+  assert.equal(f.sockets[1].url, "ws://feed/stream?cursor=c3");
+});
+
+test("without halt a 1008 close keeps retrying, as the session chat does", async () => {
+  const f = feed();
+  f.send({ type: "sync", sequence: 1, data: full("c1", ["a"]) });
+  f.sockets[0].onclose({ code: 1008 });
+  await settle();
+  assert.ok(f.delays().includes(1000), `retry scheduled: ${f.delays()}`);
 });
