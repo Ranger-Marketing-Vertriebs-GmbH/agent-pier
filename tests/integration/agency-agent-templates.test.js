@@ -76,13 +76,13 @@ test("the owner creates an agent from an Agency entry with its origin recorded",
     assert.equal((await create(template)).status, 400, JSON.stringify(template));
 });
 
-function teamTemplates(t, f) {
+function teamTemplates(t, f, options) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agency-team-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const agency = new AgencyStore({
     accounts: { dataDir },
     sharedProfiles: {},
-    fetchImpl: agencyFetch(files).fetchImpl,
+    fetchImpl: agencyFetch(files, options).fetchImpl,
   });
   f.assistants.templates = new AgencyTemplates(agency);
 }
@@ -91,6 +91,39 @@ const member = (template) => ({
   role: "Frontend review",
   assignment: "Review the checkout page",
   ...(template ? { template } : {}),
+});
+
+test("a slow template fetch never holds other agent operations", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const { fetchImpl } = agencyFetch(files);
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  // The entry itself hangs until released; the catalog answers at once.
+  f.application.agency.fetchImpl = async (url) =>
+    String(url).includes("raw.githubusercontent.com") && !String(url).endsWith("/LICENSE")
+      ? held.then(() => fetchImpl(url))
+      : fetchImpl(url);
+  const connection = f.application.providerConnections.create({
+    name: "Templates",
+    providerId: "openrouter",
+    apiKey: "private-template-key",
+  });
+  const a = f.application.assistants;
+  const creating = a.create({
+    name: "Fiona",
+    instructions: "x",
+    model: { connectionId: connection.id, modelId: "openai/gpt-4.1-mini" },
+    capabilities: { memory: false, reminders: false },
+    template: { id: frontend, revision: agencyRevision },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const other = await Promise.race([
+    a.admit(() => "admitted"),
+    new Promise((resolve) => setTimeout(() => resolve("blocked"), 2000)),
+  ]);
+  release();
+  assert.equal(other, "admitted");
+  assert.equal((await creating).template.id, frontend);
 });
 
 test("a lead proposes a member from a template; it gets the template's instructions", async (t) => {
@@ -132,4 +165,17 @@ test("a template the scan warns about waits for the owner; a blocked one is refu
     found.templates.map((x) => x.id),
     ["design__ui-designer"],
   );
+});
+
+test("a retried proposal stays the same after the catalog moved on", async (t) => {
+  const f = teamFixture(t);
+  teamTemplates(t, f);
+  const { team, attempt } = await f.proposal({ members: [member(frontend)] });
+  // The same tool call again, now with a newer catalog revision.
+  teamTemplates(t, f, { revision: "c".repeat(40) });
+  const again = await f.service.propose(
+    { attemptId: attempt.id, toolCallId: "call", assertCurrent() {} },
+    { objective: "Review", members: [member(frontend)] },
+  );
+  assert.equal(again.id, team.id);
 });

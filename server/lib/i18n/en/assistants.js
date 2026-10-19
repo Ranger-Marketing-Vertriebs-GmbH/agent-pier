@@ -220,7 +220,20 @@ export const assistants = {
     "The agent started the most questions and tasks of its own for now. Ask it by name for more.",
   memberRequestUnavailable: "This member has no chat yet and cannot answer.",
   memberTemplate: (name) => `Template: ${name} (Agency agents)`,
-  memberTemplateWarned: "The scan found suspicious phrasing; review it before approving.",
+  memberTemplateWarned: (findings) =>
+    `The scan found: ${findings}. Review the template before approving.`,
+  // The skill scan's rules (skill-scan.js), as the browser names them.
+  scanRules: {
+    "download-exec": "Downloads code and runs it",
+    "credential-exfiltration": "Reads credentials and sends data",
+    "bidi-control": "Invisible text direction controls",
+    "unicode-tag": "Invisible Unicode tag characters",
+    "invisible-character": "Invisible characters",
+    "prompt-injection": "Phrasing that tries to replace instructions",
+    "encoded-blob": "Long encoded data block",
+    "executable-file": "Executable file",
+    "binary-executable": "Executable program (binary)",
+  },
   templateNotFound: "This Agency agent is not in the catalog.",
   templateBlocked: "The scan blocked this Agency agent.",
   templateTooLarge: "This Agency agent is too long to use as a template.",

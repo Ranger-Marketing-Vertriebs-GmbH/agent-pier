@@ -234,8 +234,20 @@ export const assistants = {
   memberRequestAutonomousLimit:
     "Der Agent hat vorerst die meisten Fragen und Aufgaben aus eigenem Antrieb gestellt. Bitte ihn ausdrücklich darum, wenn er mehr tun soll.",
   memberTemplate: (name) => `Vorlage: ${name} (Agency-Agenten)`,
-  memberTemplateWarned:
-    "Die Prüfung hat verdächtige Formulierungen gefunden; prüfe sie vor der Freigabe.",
+  memberTemplateWarned: (findings) =>
+    `Die Prüfung hat gefunden: ${findings}. Prüfe die Vorlage vor der Freigabe.`,
+  // Die Regeln der Skill-Prüfung (skill-scan.js), wie der Browser sie nennt.
+  scanRules: {
+    "download-exec": "Lädt Code herunter und führt ihn aus",
+    "credential-exfiltration": "Liest Zugangsdaten und sendet Daten",
+    "bidi-control": "Unsichtbare Steuerzeichen für die Textrichtung",
+    "unicode-tag": "Unsichtbare Unicode-Tag-Zeichen",
+    "invisible-character": "Unsichtbare Zeichen",
+    "prompt-injection": "Formulierung, die Anweisungen ersetzen will",
+    "encoded-blob": "Langer kodierter Datenblock",
+    "executable-file": "Ausführbare Datei",
+    "binary-executable": "Ausführbares Programm (Binärdatei)",
+  },
   templateNotFound: "Dieser Agency-Agent ist nicht im Katalog.",
   templateBlocked: "Die Prüfung hat diesen Agency-Agenten blockiert.",
   templateTooLarge: "Dieser Agency-Agent ist zu lang für eine Vorlage.",

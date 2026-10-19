@@ -13,6 +13,9 @@ import {
   repository,
   sourceUrl,
 } from "./source.js";
+// After a failed catalog refresh, reads wait this long before GitHub is asked again
+// (an explicit refresh always asks), so an offline host answers at once.
+export const catalogBackoffMs = 300000;
 const digest = (text) => createHash("sha256").update(text).digest("hex");
 /** One page of 20 catalog entries matching `query` (q, category, page). */
 export function searchCatalog(catalog, query = {}) {
@@ -66,6 +69,10 @@ export class AgencyStore {
   async catalog(refresh = false) {
     const saved = readJSON(this.cacheFile, null);
     if (!refresh && saved && Date.now() - saved.checkedAt < 3600000) return saved;
+    if (!refresh && this.failure && Date.now() - this.failure.at < catalogBackoffMs) {
+      if (saved) return { ...saved, stale: true };
+      throw this.failure.error;
+    }
     if (this.pending) return this.pending;
     this.pending = (async () => {
       try {
@@ -96,8 +103,10 @@ export class AgencyStore {
         };
         if (this.closed) throw problem(serverMessages.agency.stopping, 503);
         writePrivate(this.cacheFile, result);
+        this.failure = null;
         return result;
       } catch (error) {
+        if (!this.closed) this.failure = { at: Date.now(), error };
         if (saved && !refresh) return { ...saved, stale: true };
         throw error;
       }

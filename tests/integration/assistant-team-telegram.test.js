@@ -573,3 +573,23 @@ test("the Telegram fallback reads each whole report, or marks one whose row is g
     notice.text.endsWith("Excerpt\nBericht gekürzt – vollständig im Chat des Mitglieds."),
   );
 });
+test("a Telegram approval names a member's template and its scan warnings", async (t) => {
+  const f = setup(t);
+  f.assistants.templates = {
+    template: async ({ id }) => ({
+      id,
+      name: "Content Creator",
+      revision: "a".repeat(40),
+      source: "https://github.com/msitarzewski/agency-agents/blob/a/marketing/c.md",
+      instructions: "Writes posts",
+      scan: { verdict: "warn", rules: ["prompt-injection"], findings: [] },
+    }),
+  };
+  await f.proposal([
+    { name: "Writer", role: "Copy", assignment: "Write", template: "marketing__c" },
+  ]);
+  await f.service.teamOutbox.transfer();
+  const entry = f.service.outbox.pending(f.channel.id)[0];
+  assert.match(entry.text, /Vorlage: Content Creator \(Agency-Agenten\)/);
+  assert.match(entry.text, /Formulierung, die Anweisungen ersetzen will/);
+});

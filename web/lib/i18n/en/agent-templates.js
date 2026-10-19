@@ -26,5 +26,5 @@ export const agentTemplateCopy = {
   blocked:
     "The scan blocked this template: it contains hidden characters or download-and-run instructions. It cannot be used.",
   createAgent: "Create agent",
-  memberWarned: "The scan found suspicious phrasing; review it before approving.",
+  memberWarned: "Review it before approving. The scan found:",
 };

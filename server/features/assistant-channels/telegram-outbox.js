@@ -89,7 +89,15 @@ export class TelegramOutbox {
               ...(m.template
                 ? [
                     msg.memberTemplate(m.template.name),
-                    ...(m.template.verdict === "warn" ? [msg.memberTemplateWarned] : []),
+                    ...(m.template.verdict === "warn"
+                      ? [
+                          msg.memberTemplateWarned(
+                            (m.template.rules || [])
+                              .map((rule) => msg.scanRules[rule] || rule)
+                              .join(", "),
+                          ),
+                        ]
+                      : []),
                   ]
                 : []),
               grantLabels(m.grants, msg).length

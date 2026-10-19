@@ -155,7 +155,7 @@ Native CLI changes to shared configuration fields are reconciled at the next lau
 
 ## Agency Agents
 
-The catalog uses only the public [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) repository. Opening its section fetches a bounded GitHub tree pinned to a commit SHA. Search, category filtering and pagination show 20 entries per page. A one-hour cache supports ordinary viewing; a failed refresh reports an error, while an older cached catalog can be used when offline.
+The catalog uses only the public [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) repository. Opening its section fetches a bounded GitHub tree pinned to a commit SHA. Search, category filtering and pagination show 20 entries per page. A one-hour cache supports ordinary viewing; a failed refresh reports an error, while an older cached catalog can be used when offline. After a failure, reads use the cached catalog (or report the failure) for five minutes without asking GitHub again; **Refresh catalog** always asks.
 
 Preview and installation fetch Markdown from the selected immutable revision. A changed catalog requires a new preview. Only validated YAML identity/description and the instruction body are converted. The installer does not execute upstream scripts, clone the repository, bulk-install the catalog, or accept arbitrary download hosts. Installation is always an explicit selection in the UI.
 
@@ -176,7 +176,7 @@ the description, the instruction body and a closing attribution with the source 
 the revision and the MIT license. The upstream `model`, `tools` and permission fields
 are never read; tools and access start with the agent form's defaults (no shell, SSH,
 project folders or GitHub). The profile keeps the template's id, name, revision and
-source, shown on its **Profile** tab.
+source, shown on its **Profile** tab. **Remove template** restores the name and instructions from before the template. The template is fetched before the agent is admitted, so a slow GitHub never holds other agent operations.
 
 Catalog text is untrusted. Each entry is scanned offline with the skill import scan
 (`skill-scan.js`): a blocked entry (hidden characters, download-and-run, credential
