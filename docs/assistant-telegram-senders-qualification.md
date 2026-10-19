@@ -3,7 +3,8 @@
 An agent can get its own Telegram bot for other people (AGENTPIER-26). OpenClaw
 runs the bot natively inside the agents' Gateway; AgentPier stores the token and the
 allowed people and compiles them at each Gateway start
-(`server/features/assistants/openclaw-config/telegram-senders.js`). The owner's own
+(`server/features/assistants/openclaw-config/telegram-senders.js`); changed allowed
+people reach the running Gateway live (AGENTPIER-52). The owner's own
 AgentPier bot (`server/features/assistant-channels/`) is unchanged and separate.
 
 ## Evidence
@@ -45,6 +46,18 @@ request leaves the machine. The contract verifies:
 - **Bad tokens never stop the Gateway.** A token Telegram rejects (401, for example
   after BotFather `/revoke`) and a second poller of a bot (409) leave the Gateway,
   the owner's agents and the other bots running; the section shows the bot's error.
+- **Live allowlists.** `tests/integration/assistant-telegram-senders-live-contract.test.js`
+  (same runtime variable) removes and adds a person through `config.patch`: the
+  same Gateway process keeps running and polling, the removed person's next message
+  is ignored without a reply and never reaches the model, and the added person's
+  first message is answered. The pinned runtime's Telegram plugin declares
+  `channels.telegram.accounts.*.allowFrom` (with `dmPolicy`, `groupPolicy` and a
+  few others) as a no-op reload prefix: the runtime config snapshot is replaced and
+  the allowlist is read again at the next inbound message, without restarting the
+  channel. Any other `channels.telegram` path restarts the Telegram channel, and a
+  change to `plugins.allow` reloads the plugin runtime. The patch needs
+  `replacePaths` for each `allowFrom`: a JSON merge patch cannot shorten an array,
+  and without it the contract's removal did not apply live.
 - The owner's AgentPier conversations keep working, including a team proposal while
   bots are compiled; raising the shell level of an agent with a bot is refused, a
   removed bot is no longer polled after the restart, and neither the tokens nor the
@@ -73,18 +86,31 @@ allowPrivateNetwork: true`; production compiles Deepgram's public base URL and
   is owned by the proactivity work (`tools.sessions.visibility`).
 - A bot id serves either the owner's AgentPier bot or one agent: both setups refuse
   the other's bot.
-- Telegram sections exist only in the startup configuration. A save that changes
-  what the running or starting Gateway compiled restarts it after the owner
-  confirmed, like the web search settings. A revocation (a removed bot or person, a
-  replaced token or speech key) that slipped past a start restarts the Gateway once
-  it answers; additions stay "pending" until the owner applies them. Every
+- Changed allowed people (`allowFrom` only, every account and token unchanged) are
+  saved at once and patched into the ready Gateway with `config.patch` and
+  `replacePaths` (`server/features/assistant-channels/telegram-live.js`), under the
+  admission lock like the MCP live apply, and the save waits until the Gateway
+  announced the written configuration. Display names live only in AgentPier and never
+  reach the Gateway. A list saved while the Gateway starts is patched in once it
+  answers. A refused patch leaves an addition "pending" ("Apply now" patches it
+  without a restart); a refused patch that removes a person falls back to the
+  automatic revocation restart, so a removed person never keeps access.
+- Every other Telegram change exists only in the startup configuration: a new or
+  removed bot (the first bot also enables the Telegram plugin), a replaced token, the
+  last person removed (OpenClaw rejects an empty allowlist, so the account is
+  dropped) and the speech key. A save that changes one of them in what the running or
+  starting Gateway compiled restarts it after the owner confirmed, like the web
+  search settings. Such a revocation (a removed bot, a replaced token or speech key)
+  that slipped past a start restarts the Gateway once it answers; additions stay
+  "pending" until the owner applies them. Every
   comparison uses the agents the next start finds in `openclaw.json`, the same set
   the start compiles from, so a configured agent whose first apply never finished
   causes no restart. Each revocation gets at most one automatic restart; refusals
   (busy agents) back off from 30 seconds and stop after five attempts. A revocation
   that is still running then shows an error asking the owner to restart.
 - States: `running`, `starting`, `error`, `stopped` (no Gateway), `pending` (saved,
-  not in the running Gateway yet; "Apply now" restarts) and `inactive` (nobody
+  not in the running Gateway yet; "Apply now" patches allowed people live and
+  restarts for anything else, `pendingLive` tells which) and `inactive` (nobody
   allowed, the agent cannot own a bot, or the agent has no Gateway entry until its
   first apply). Only the agent concerned shows a pending change.
 - Tokens live in `native_telegram_credentials` (sealed in update and host backups)
@@ -106,6 +132,7 @@ allowPrivateNetwork: true`; production compiles Deepgram's public base URL and
 
 A release that changes the Telegram layer, `TelegramSenders`, the compiler's locked
 paths or the pinned OpenClaw version must pass
-`tests/integration/assistant-telegram-senders-contract.test.js` with no skips (it
+`tests/integration/assistant-telegram-senders-contract.test.js` and
+`tests/integration/assistant-telegram-senders-live-contract.test.js` with no skips (it
 runs in the `native-contracts` CI job), together with the team, native interface and
 memory contracts, which share the compiled configuration.

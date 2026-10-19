@@ -19,7 +19,8 @@ export const people = [
 /**
  * TelegramSenders over real stores in a temporary directory; Telegram and the
  * Gateway are simulated: `bots` maps token → getMe identity, `h.runtime` is the
- * running Gateway (ready with a Telegram snapshot, or stopped).
+ * running Gateway (ready with a Telegram snapshot, or stopped); `h.gateway` records
+ * its live `config.patch` calls (`refuse`: an error the next patches throw).
  */
 export function fixture(t) {
   const dataDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "tg-senders-")));
@@ -39,6 +40,8 @@ export function fixture(t) {
     call: async () => [],
   });
   const runtime = { client: null, telegram: null, telegramStarting: null, calls: [] };
+  // The Gateway's configuration as config.get answers it, and each config.patch.
+  const gateway = { config: {}, hash: 0, patches: [], refuse: null };
   // Assistant ids bound to a stdio MCP server.
   const stdio = new Set();
   // Assistant ids with an SSH grant (assistant-access.js sshAgents).
@@ -101,6 +104,7 @@ export function fixture(t) {
     runtime,
     audit,
     restarts,
+    gateway,
     stdio,
     ssh,
     unconfigured,
@@ -118,8 +122,16 @@ export function fixture(t) {
     start(accounts = {}) {
       runtime.client = {
         ready: true,
-        call: async (method) => {
+        call: async (method, params) => {
           runtime.calls.push(method);
+          if (method === "config.get")
+            return { config: gateway.config, hash: `h${gateway.hash}` };
+          if (method === "config.patch") {
+            if (gateway.refuse) throw gateway.refuse;
+            gateway.patches.push({ ...params, patch: JSON.parse(params.raw) });
+            gateway.hash++;
+            return {};
+          }
           return { channelAccounts: { telegram: Object.values(accounts) } };
         },
       };

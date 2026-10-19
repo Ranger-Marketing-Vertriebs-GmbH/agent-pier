@@ -12,6 +12,13 @@ const keys = (h) => {
   const folder = path.join(h.dataDir, "assistants", "backup-keys");
   return fs.existsSync(folder) ? fs.readdirSync(folder) : [];
 };
+// A replaced token: a revocation only a Gateway restart applies.
+const replaceToken = (h, assistantId, id = 1001) =>
+  h.senders.store.save(
+    assistantId,
+    { identity: { id, username: "replaced_bot", token: token(9) } },
+    h.senders.store.get(assistantId).revision,
+  );
 const backupKey = (h) =>
   createBackupKey(path.join(h.dataDir, "assistants"), randomUUID());
 
@@ -30,11 +37,6 @@ test("a removal while the Gateway starts takes the restart path", async (t) => {
     code: "ASSISTANT_RESTART_REQUIRED",
   });
   assert.ok(h.senders.store.get(agent.id), "nothing removed unconfirmed");
-  // A person removed during the start as well.
-  await assert.rejects(
-    h.senders.save(agent.id, { people: [people[0]], revision: saved.bot.revision }),
-    { code: "ASSISTANT_RESTART_REQUIRED" },
-  );
   const removed = await h.senders.remove(agent.id, saved.bot.revision, {
     confirmed: true,
   });
@@ -51,9 +53,10 @@ test("a revocation that slipped past a start restarts the Gateway once it answer
     people,
     revision: null,
   });
-  // The start read the store just before the owner removed a person.
+  // The start read the store just before the owner replaced the token.
   const started = h.snapshot();
-  h.senders.store.save(agent.id, { people: [people[0]] }, saved.bot.revision);
+  assert.ok(saved.bot);
+  replaceToken(h, agent.id);
   h.runtime.client = { ready: true, call: async () => ({}) };
   h.runtime.telegram = h.runtime.telegramStarting = started;
   assert.equal(h.senders.revoked(), true);
@@ -64,8 +67,7 @@ test("a revocation that slipped past a start restarts the Gateway once it answer
   assert.equal(h.senders.revoked(), false);
   // An addition alone never restarts on its own: it waits for the owner.
   const before = h.snapshot();
-  const current = h.senders.store.get(agent.id);
-  h.senders.store.save(agent.id, { people }, current.revision);
+  h.speech.save({ apiKey: "dg-key", revision: 0 });
   h.runtime.telegram = before;
   assert.equal(h.senders.revoked(), false);
   assert.equal(await h.senders.converge(), false);
@@ -111,7 +113,8 @@ test("a revocation restarts once; one a restart cannot remove goes to the owner"
     revision: null,
   });
   const started = h.snapshot();
-  h.senders.store.save(agent.id, { people: [people[0]] }, saved.bot.revision);
+  assert.ok(saved.bot);
+  replaceToken(h, agent.id);
   // A restart that keeps compiling the old allowlist (it never converges).
   h.senders.synchronization = {
     restartGateway: async (operation) => {
@@ -141,7 +144,8 @@ test("a revocation restarts once; one a restart cannot remove goes to the owner"
     revision: null,
   });
   failing.start();
-  failing.senders.store.save(other.id, { people: [people[0]] }, first.bot.revision);
+  assert.ok(first.bot);
+  replaceToken(failing, other.id, 1002);
   failing.senders.maxAttempts = 2;
   failing.senders.synchronization = {
     restartGateway: async () => {
@@ -318,7 +322,8 @@ test("the owner is notified once when the restart cap is reached", async (t) => 
     revision: null,
   });
   const started = h.snapshot();
-  h.senders.store.save(agent.id, { people: [people[0]] }, saved.bot.revision);
+  assert.ok(saved.bot);
+  replaceToken(h, agent.id);
   const notified = [];
   h.senders.notifications = { notify: async (input) => notified.push(input) };
   h.senders.synchronization = {

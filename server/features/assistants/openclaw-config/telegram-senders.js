@@ -295,3 +295,51 @@ export function telegramRevoked(running, desired) {
   }
   return running.voice && running.voiceKey !== desired.voiceKey;
 }
+
+// Account ids a dotted `replacePaths` entry can address (runtime agent ids).
+const accountPath = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * The allowlists to patch into the running Gateway when they are all that differs
+ * between `running` and `desired` (telegramSnapshot): `{ <account id>: [user id] }`.
+ * OpenClaw declares `channels.telegram.accounts.*.allowFrom` a no-op reload prefix
+ * and reads it at each inbound message, so these apply without a restart (see
+ * docs/assistant-telegram-senders-qualification.md). Null when nothing differs or
+ * anything else does (a bot added or removed, a token, the speech key): those need
+ * a Gateway restart.
+ */
+export function telegramLiveChanges(running, desired) {
+  if (!running || !desired || running.signature === desired.signature) return null;
+  const was = JSON.parse(running.signature);
+  const now = JSON.parse(desired.signature);
+  const changes = {};
+  for (const [id, account] of Object.entries(now.accounts)) {
+    if (!was.accounts[id] || !accountPath.test(id)) return null;
+    if (JSON.stringify(was.accounts[id].allowFrom) === JSON.stringify(account.allowFrom))
+      continue;
+    changes[id] = [...account.allowFrom];
+    was.accounts[id].allowFrom = account.allowFrom;
+  }
+  if (!Object.keys(changes).length || JSON.stringify(was) !== JSON.stringify(now))
+    return null;
+  return changes;
+}
+
+/**
+ * The `config.patch` for telegramLiveChanges: a merge patch touching only each
+ * account's `allowFrom`, which `replacePaths` replaces whole (a merge patch cannot
+ * shorten an array, so a removed person would otherwise stay).
+ */
+export function telegramLivePatch(changes) {
+  const ids = Object.keys(changes);
+  return {
+    patch: {
+      channels: {
+        telegram: {
+          accounts: Object.fromEntries(ids.map((id) => [id, { allowFrom: changes[id] }])),
+        },
+      },
+    },
+    replacePaths: ids.map((id) => `channels.telegram.accounts.${id}.allowFrom`),
+  };
+}
