@@ -4,6 +4,7 @@ import { routineFixture } from "../helpers/native-routines-fixture.js";
 import {
   delegationTools,
   profileTools,
+  routineTeamTools,
   routineTools,
 } from "../../server/features/assistants/native-capabilities.js";
 import { ExecApprovals } from "../../server/features/assistants/exec-approvals.js";
@@ -47,15 +48,17 @@ function legacy(f, binding) {
 }
 const updates = (f) => f.calls.filter((c) => c.method === "cron.update");
 
-test("a routine run gets exactly the agent's chat tools minus scheduling, team and workspace", () => {
+test("a routine run gets exactly the agent's chat tools minus scheduling, workspace and most team tools", () => {
   for (const excluded of [
     "agentpier_routine",
     "agentpier_reminder",
     "agentpier_workspace",
-    ...delegationTools,
+    ...delegationTools.filter((tool) => !routineTeamTools.includes(tool)),
     "cron",
   ])
     assert.equal(matches(excluded), false, excluded);
+  // A lead's routine asks its members and delegates read-only tasks.
+  for (const included of routineTeamTools) assert.equal(matches(included), true);
   // OpenClaw intersects the cap with the agent's tools.allow: the result follows
   // the agent's capabilities, shell level and MCP bindings without a job rewrite.
   const effective = (agent, writeGuard = true) =>
@@ -63,6 +66,8 @@ test("a routine run gets exactly the agent's chat tools minus scheduling, team a
   const base = { capabilities: everything, shell: "approval" };
   assert.deepEqual(effective(base), [
     "session_status",
+    // A lead asks and delegates read-only from its routine (TeamBridge.routineRun).
+    ...routineTeamTools,
     "memory_search",
     "memory_get",
     "read",
@@ -82,6 +87,7 @@ test("a routine run gets exactly the agent's chat tools minus scheduling, team a
     effective({ capabilities: { ...everything, webSearch: false, memory: false } }),
     [
       "session_status",
+      ...routineTeamTools,
       "agentpier_share_file",
       "web_fetch",
       "browser",

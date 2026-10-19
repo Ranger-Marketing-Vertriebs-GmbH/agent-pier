@@ -324,8 +324,8 @@ A lead also talks to its members directly:
   task the lead starts on its own in reply to your message may also write (see
   below).
 - **Work → Teams → Questions and tasks** lists every request, open ones first, marked
-  "may write" or "read-only", and "self-initiated" when an autonomous lead started it
-  on its own, with **Cancel** for open ones.
+  "may write" or "read-only", "self-initiated" when an autonomous lead started it
+  on its own and "Scheduled · <name>" when one of its routines did, with **Cancel** for open ones.
 - Member reports and answers reach the lead whole up to 65,536 characters. A longer
   one is marked shortened, and the team card or request shows "Shortened" with **Open
   chat**, where the whole text is. When a team's reports together are too long for the
@@ -353,7 +353,7 @@ for the chosen level:
   change files in the member's own workspace (never its memory) and is marked
   "self-initiated". Its tasks stay read-only when your message says not to change
   anything, when you named the member without asking for the task as described above,
-  and in forwarded, scheduled or follow-up turns. Shell, SSH, project folders, GitHub and grants beyond the default keep
+  and in forwarded, scheduled or follow-up turns, including tasks a routine delegates. Shell, SSH, project folders, GitHub and grants beyond the default keep
   their approvals, and a team the lead proposes on its own still waits for you unless
   you asked for one or allowed teams without asking. A lead starts at most 4 questions
   or tasks on its own per turn and 20 per hour; requests you asked for by name do not
@@ -385,8 +385,10 @@ or proposing a team sends an **Agent approval** push notification as well.
 - **Routines** save a task prompt that runs daily or on an event (an owner request or
   a linked coding run that completed); **Run once** starts one now. A routine uses
   the agent's own tools and approvals (memory, its workspace files, web, browser,
-  shell and MCP servers, as far as they are switched on) but cannot schedule, ask or
-  delegate. Its whole result appears in the agent's chat marked
+  shell and MCP servers, as far as they are switched on) but cannot schedule. A lead's
+  routine can ask its members and delegate tasks to permanent ones; such a task always
+  runs read-only, and **Work → Teams → Questions and tasks** marks the request
+  "Scheduled · <name>". Its whole result appears in the agent's chat marked
   "Scheduled · <name>" (and, with Telegram switched on, in the paired chat as several
   messages when it is long); a failed run shows a short line there. You can also ask
   the agent for a routine in the chat. Routines

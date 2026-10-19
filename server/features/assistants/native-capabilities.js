@@ -49,6 +49,13 @@ export const delegationTools = [
   "agentpier_team_promote",
   "agentpier_team_templates",
 ];
+// What a routine's run of a lead reaches of its team: questions, read-only tasks and
+// the member list. The bridge binds them to the routine (TeamBridge.routineRun).
+export const routineTeamTools = [
+  "agentpier_team_members",
+  "agentpier_team_ask",
+  "agentpier_team_delegate",
+];
 export const shellLevels = ["off", "approval", "full"];
 export const shellTools = ["exec", "process"];
 // OpenClaw's session tools: they read (and can steer) other sessions of the agent,
@@ -67,10 +74,11 @@ export const sessionTools = [
  * exactly the agent's current chat tools and a capability change needs no job
  * rewrite. Writes stay with the tool guard, which admits a routine's own run
  * (TeamBridge.routineWrite). Left out: reminders and routines (a routine never
- * schedules) and the team and workspace tools (the bridge serves them only in an
- * owner's chat turn). `agentpier_ssh` is in: the bridge admits a routine's run
- * session for SSH only on hosts marked "Trusted incl. routines", and for
- * `agentpier_share_file` into the routine's chat and Telegram. `*__*`
+ * schedules), the workspace tools and every other team tool (the bridge serves them
+ * only in an owner's chat turn). `agentpier_ssh` is in: the bridge admits a
+ * routine's run session for SSH only on hosts marked "Trusted incl. routines", for
+ * `agentpier_share_file` into the routine's chat and Telegram, and for a lead's
+ * routineTeamTools with the routine as origin: its tasks never write. `*__*`
  * stands for the agent's MCP tools (`<server>__<tool>`).
  */
 export const routineTools = [
@@ -80,6 +88,7 @@ export const routineTools = [
   ...shellTools,
   "agentpier_ssh",
   "agentpier_share_file",
+  ...routineTeamTools,
   "*__*",
 ];
 export const personalEligible = (assistant) =>
