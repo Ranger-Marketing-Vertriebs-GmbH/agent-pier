@@ -311,6 +311,6 @@ export class NativeHeartbeats {
           }),
         )
         .catch(() => {});
-    this.assistants.changed();
+    this.assistants.changed({ conversationId: recorded?.conversation.id });
   }
 }

@@ -95,5 +95,5 @@ export function noteReadOnlyTurn(service, conversationId, context, result) {
     conversationId,
     reason: "guard-pending",
   });
-  if (added) service.changed();
+  if (added) service.changed({ conversationId });
 }

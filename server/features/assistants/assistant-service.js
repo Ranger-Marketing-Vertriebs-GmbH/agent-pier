@@ -25,6 +25,7 @@ import { followLead } from "./member-follow.js";
 import { assistantActivity } from "./assistant-activity.js";
 import { temporaryMember } from "./team-presentation.js";
 import { ChatStreams } from "./chat-stream.js";
+import { conversationFeeds } from "./conversation-feeds.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { mainConversation } from "./routine-targets.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
@@ -70,6 +71,8 @@ export class AssistantService {
     this.ledger.forgetUnconfirmed();
     this.events = new AssistantEvents();
     this.chatStreams = new ChatStreams();
+    // The open chats' live feeds (conversation-feeds.js).
+    this.feeds = conversationFeeds(this);
     this.gatewayEvents = new GatewayEventHub();
     // A skill folder changed (one may now shadow an assigned skill), or a Gateway
     // started from a compile that could not ask it: re-apply agents with skills.
@@ -394,7 +397,14 @@ export class AssistantService {
     if (this.closed || this.recovering || !this.runtime.client?.ready)
       throw assistantProblem("unavailable", 503);
   }
-  changed() {
+  /**
+   * Announces a change to the list (`change` event). A change of one conversation
+   * names it, so only that chat's live feed reads its history again; without one,
+   * every live feed does.
+   */
+  changed({ conversationId } = {}) {
+    if (conversationId) this.feeds?.invalidate(conversationId);
+    else this.feeds?.invalidateAll();
     this.events.publish({ type: "change" });
   }
   serialize(key, operation) {
@@ -538,6 +548,7 @@ export class AssistantService {
     this.browsers?.close();
     this.unsubscribe?.();
     this.chatStreams.clear();
+    this.feeds.close();
     this.gatewayEvents.unsubscribe?.();
     this.runtime.off("status", this.onStatus);
     await this.workflows?.close();

@@ -51,7 +51,7 @@ export class TelegramDelivery {
         remoteMessageIds: approvals.flatMap((n) => n.remoteMessageIds),
         diagnostic: null,
       });
-      assistants.changed();
+      assistants.changed({ conversationId: entry.conversationId });
     }
     return true;
   }
@@ -78,7 +78,7 @@ export class TelegramDelivery {
             : messages.telegramInputNeedsReview,
       });
       ledger.patch(entry.id, { reviewNoticeId: notice.id });
-      assistants.changed();
+      assistants.changed({ conversationId: entry.conversationId });
     }
   }
   /**
@@ -106,7 +106,7 @@ export class TelegramDelivery {
         state: "delivery_failed",
         diagnostic: "CHANNEL_DESTINATION_CHANGED",
       });
-      assistants.changed();
+      assistants.changed({ conversationId: entry.conversationId });
       return;
     }
     if (["running", "model_uncertain"].includes(entry.state)) {
@@ -116,7 +116,7 @@ export class TelegramDelivery {
           state: attempt.state,
           diagnostic: "MODEL_REQUEST_FAILED",
         });
-        assistants.changed();
+        assistants.changed({ conversationId: entry.conversationId });
         return;
       }
       // A reviewed attempt is never polled again, so no late completion can
@@ -126,7 +126,7 @@ export class TelegramDelivery {
           state: "model_reviewed",
           diagnostic: "MODEL_OUTCOME_REVIEWED",
         });
-        assistants.changed();
+        assistants.changed({ conversationId: entry.conversationId });
         return;
       }
       if (["uncertain", "interrupted"].includes(attempt.state)) {
@@ -135,7 +135,7 @@ export class TelegramDelivery {
             state: "model_uncertain",
             diagnostic: "MODEL_OUTCOME_UNKNOWN",
           });
-          assistants.changed();
+          assistants.changed({ conversationId: entry.conversationId });
         }
         return;
       }
@@ -159,7 +159,7 @@ export class TelegramDelivery {
             state: "reply_unavailable",
             diagnostic: "REPLY_WITHOUT_TEXT",
           });
-          assistants.changed();
+          assistants.changed({ conversationId: entry.conversationId });
         } else if (entry.replyMissingSince == null)
           ledger.patch(entry.id, {
             diagnostic: "REPLY_UNAVAILABLE",
@@ -183,7 +183,7 @@ export class TelegramDelivery {
       entry,
       save: (patch) => ledger.patch(entry.id, patch),
       signal,
-      changed: () => assistants.changed(),
+      changed: () => assistants.changed({ conversationId: entry.conversationId }),
     });
   }
 }

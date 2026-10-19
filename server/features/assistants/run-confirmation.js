@@ -14,7 +14,10 @@ function confirm(service, attempt, proof) {
     generation: generationOf(service),
     proof,
   });
-  if (confirmed) service.changed();
+  if (confirmed)
+    service.changed({
+      conversationId: service.ledger.getRequest(attempt.requestId).conversationId,
+    });
   return confirmed;
 }
 
