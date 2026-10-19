@@ -4,14 +4,45 @@ import { randomUUID } from "node:crypto";
 import webpush from "web-push";
 import { privateDatabase } from "../../lib/private-database.js";
 import { problem, nameValue } from "../../lib/storage.js";
-import { pushId, pushSubscription, pushPayload } from "./push-validation.js";
+import { pushId, pushSubscription, pushEvent } from "./push-validation.js";
+import { buildPayload, pushSource } from "./push-content.js";
+import {
+  defaultPreferences,
+  normalizePreferences,
+  systemKinds,
+  updatePreferences,
+  validTimeZone,
+  wantsEvent,
+} from "./push-preferences.js";
+import { PushPresence } from "./push-presence.js";
 import { createPushSender } from "./push-sender.js";
 import { pushFailureText } from "./push-failure.js";
 
+/** A lookup for a notice, given up (undefined) after a failure or the time limit. */
+async function bounded(read, ms) {
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(read),
+      new Promise((resolve) => {
+        timer = setTimeout(resolve, ms);
+        timer.unref?.();
+      }),
+    ]);
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export class NotificationService {
-  constructor({ dataDir, send = createPushSender(), clock = Date }) {
+  constructor({ dataDir, send = createPushSender(), clock = Date, inboxCount = null }) {
     this.send = send;
     this.clock = clock;
+    // The number of inbox items, for the app badge (set once the inbox exists).
+    this.inboxCount = inboxCount;
+    this.presence = new PushPresence({ now: () => this.clock.now() });
     this.active = new Set();
     this.inFlight = 0;
     this.queue = [];
@@ -41,8 +72,13 @@ export class NotificationService {
       subscriptions: this.db
         .prepare("SELECT public FROM subscriptions ORDER BY rowid")
         .all()
-        .map((row) => JSON.parse(row.public)),
+        .map((row) => this.summary(row.public)),
     };
+  }
+  /** A stored device summary, with its preferences in the current shape. */
+  summary(text) {
+    const summary = JSON.parse(text);
+    return { ...summary, preferences: normalizePreferences(summary.preferences) };
   }
   async subscribe(input) {
     if (this.closed) throw problem(serverMessages.notifications.unavailable, 503);
@@ -55,12 +91,17 @@ export class NotificationService {
       .get(deviceId);
     if (!existing && this.status().subscriptions.length >= 50)
       throw problem(serverMessages.notifications.deviceLimit, 409);
-    const previous = existing ? JSON.parse(existing.public) : null;
+    const previous = existing ? this.summary(existing.public) : null;
+    const timeZone = validTimeZone(input.timeZone) ? input.timeZone : null;
+    // A new device starts at the event type only; a renewed one keeps its choices.
+    const preferences = previous ? previous.preferences : defaultPreferences(timeZone);
+    if (timeZone) preferences.timeZone = timeZone;
     const summary = {
       id: existing?.id || randomUUID(),
       deviceId,
       label,
       createdAt: previous ? previous.createdAt : this.now(),
+      preferences,
     };
     // Renaming keeps the delivery state of an unchanged push subscription.
     if (previous && existing.secret === JSON.stringify(subscription))
@@ -72,6 +113,27 @@ export class NotificationService {
       )
       .run(summary.id, deviceId, JSON.stringify(summary), JSON.stringify(subscription));
     return { subscription: summary };
+  }
+  /** Changes a device's preferences; unknown or invalid fields are refused. */
+  async setPreferences(id, input) {
+    if (this.closed) throw problem(serverMessages.notifications.unavailable, 503);
+    const row = this.db
+      .prepare("SELECT public FROM subscriptions WHERE id=?")
+      .get(pushId(id));
+    if (!row) throw problem(serverMessages.notifications.deviceNotRegistered, 404);
+    const summary = this.summary(row.public);
+    summary.preferences = updatePreferences(summary.preferences, input);
+    this.db
+      .prepare("UPDATE subscriptions SET public=? WHERE id=?")
+      .run(JSON.stringify(summary), id);
+    return { subscription: summary };
+  }
+  /** A visible page names its view (push-presence.js); false when rate limited. */
+  reportPresence(route) {
+    return this.presence.report(route);
+  }
+  badgeCount() {
+    return this.inboxCount ? bounded(this.inboxCount, 1000) : undefined;
   }
   async unsubscribe(id) {
     this.db.prepare("DELETE FROM subscriptions WHERE id=?").run(pushId(id));
@@ -142,22 +204,47 @@ export class NotificationService {
   }
   async test(id) {
     if (this.closed) throw problem(serverMessages.notifications.unavailable, 503);
-    return this.track(this.deliver(pushId(id), { kind: "test", eventId: randomUUID() }));
+    const row = this.db
+      .prepare("SELECT public FROM subscriptions WHERE id=?")
+      .get(pushId(id));
+    const preferences = row ? this.summary(row.public).preferences : defaultPreferences();
+    const payload = buildPayload({ kind: "test", eventId: randomUUID() }, preferences, {
+      count: await this.badgeCount(),
+    });
+    return this.track(this.deliver(id, payload));
   }
   async notify(input) {
     if (this.closed) return;
-    const payload = pushPayload(input),
-      ids = [];
-    for (const { id } of this.status().subscriptions) {
+    // An emitter may pass the preview as a function: it is read only for devices
+    // that show previews (a reply's start needs the session's chat).
+    const lazy = typeof input?.preview === "function" ? input.preview : null;
+    const event = pushEvent(lazy ? { ...input, preview: undefined } : input),
+      now = this.clock.now(),
+      targets = [];
+    // Nobody needs a push about what an open AgentPier page shows right now.
+    if (!systemKinds.has(event.kind) && this.presence.watching(event, pushSource(event)))
+      return;
+    const devices = this.status().subscriptions.filter((device) =>
+      wantsEvent(device.preferences, event, now),
+    );
+    if (!devices.length) return;
+    if (lazy && devices.some((device) => device.preferences.level === "preview")) {
+      const preview = await bounded(lazy, 2000);
+      if (typeof preview === "string" && preview.trim())
+        event.preview = preview.slice(0, 4000);
+    }
+    const count = await this.badgeCount();
+    if (this.closed) return;
+    for (const { id, preferences } of devices) {
       const claim = this.db
         .prepare("INSERT OR IGNORE INTO deliveries VALUES(?,?,'claimed')")
-        .run(payload.eventId, id);
-      if (claim.changes) ids.push(id);
+        .run(event.eventId, id);
+      if (claim.changes) targets.push([id, buildPayload(event, preferences, { count })]);
     }
     const work = (async () => {
-      for (let index = 0; index < ids.length; index += 4)
+      for (let index = 0; index < targets.length; index += 4)
         await Promise.all(
-          ids.slice(index, index + 4).map(async (id) => {
+          targets.slice(index, index + 4).map(async ([id, payload]) => {
             const result = await this.deliver(id, payload);
             this.db
               .prepare(

@@ -29,4 +29,6 @@ export const notifications = Object.freeze({
   invalidEndpoint: "Ungültiger Push-Endpunkt.",
   publicHttpsRequired: "Push erfordert einen öffentlichen HTTPS-Endpunkt.",
   invalidPublicKey: "Ungültiger öffentlicher Push-Schlüssel.",
+  invalidPreferences: "Ungültige Einstellungen für Benachrichtigungen.",
+  presenceRateLimit: "Zu viele Sichtbarkeitsmeldungen. Bitte kurz warten.",
 });

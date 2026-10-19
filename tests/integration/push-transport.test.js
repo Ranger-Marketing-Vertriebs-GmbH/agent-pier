@@ -77,7 +77,13 @@ function keys() {
     },
   };
 }
-const payload = { kind: "permission", eventId: "request-123", sessionId: "session-1" };
+const payload = {
+  v: 2,
+  kind: "permission",
+  eventId: "request-123",
+  link: "/inbox/approval/request-123",
+  tag: "session:session-1",
+};
 
 async function fixture(t, handler) {
   let calls = 0;

@@ -363,6 +363,8 @@ export async function createServices(config) {
   };
   // Everything waiting for the owner, read lazily (server/features/inbox/).
   services.inbox = inbox = new OwnerInbox({ services });
+  // Push notifications carry the inbox count for the app badge.
+  notifications.inboxCount = async () => (await inbox.summary()).counts.all;
   // Assistant services stay null until the owner opts in; failures never stop startup.
   services.assistantFeature = createAssistantFeature(services);
   // The managed agent browser stays while an agent browser runs or the running

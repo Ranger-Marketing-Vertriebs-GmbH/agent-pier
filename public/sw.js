@@ -1,5 +1,5 @@
 /* global self, caches, importScripts */
-importScripts("/pwa-de.js", "/pwa-en.js");
+importScripts("/pwa-de.js", "/pwa-en.js", "/pwa-render.js");
 const PUBLIC_CACHE = "agentpier-public-v2";
 const PUBLIC_PATHS = [
   "/offline.html",
@@ -52,20 +52,7 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
-const validId = (value) =>
-  typeof value === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
-function notificationTarget(data) {
-  if (data.kind === "github-token") return "/settings/github";
-  if (data.kind === "disk-space") return "/";
-  if (validId(data.runId)) return `/pipelines/runs/${encodeURIComponent(data.runId)}`;
-  if (validId(data.assistantId) && validId(data.conversationId))
-    return `/agents/${encodeURIComponent(data.assistantId)}/chats/${encodeURIComponent(data.conversationId)}`;
-  if (validId(data.assistantId))
-    return `/agents/${encodeURIComponent(data.assistantId)}/settings`;
-  if (validId(data.sessionId))
-    return `/sessions/${encodeURIComponent(data.sessionId)}/chat`;
-  return "/settings/notifications";
-}
+const notices = self.agentPierNotificationRender;
 // This cache stores a single nonsecret language code, never page or API responses.
 const LANGUAGE_CACHE = "agentpier-language-v1";
 const LANGUAGE_KEY = "/.agentpier-language";
@@ -97,6 +84,25 @@ async function notificationCopy() {
     ? self.agentPierNotificationCopyEn
     : self.agentPierNotificationCopy;
 }
+// The app badge shows the inbox count where the platform supports it.
+function updateBadge(count) {
+  const navigator = self.navigator;
+  if (count === null || !navigator?.setAppBadge) return Promise.resolve();
+  return (count > 0 ? navigator.setAppBadge(count) : navigator.clearAppBadge()).catch(
+    () => {},
+  );
+}
+// Safari ignores the tag, so an older notice of the same session, agent or run is
+// closed by hand before its replacement shows.
+async function closeGroup(group) {
+  if (!group || !self.registration.getNotifications) return;
+  try {
+    for (const notice of await self.registration.getNotifications())
+      if (notice.data?.group === group) notice.close();
+  } catch {
+    // Stacking instead of replacing is the fallback.
+  }
+}
 self.addEventListener("push", (event) => {
   let payload;
   try {
@@ -104,35 +110,22 @@ self.addEventListener("push", (event) => {
   } catch {
     return;
   }
-  if (!payload || !Object.hasOwn(self.agentPierNotificationCopy, payload.kind)) return;
-  const data = {
-    ...(validId(payload.sessionId) ? { sessionId: payload.sessionId } : {}),
-    ...(validId(payload.runId) ? { runId: payload.runId } : {}),
-    ...(validId(payload.assistantId) ? { assistantId: payload.assistantId } : {}),
-    ...(validId(payload.conversationId)
-      ? { conversationId: payload.conversationId }
-      : {}),
-    ...(["github-token", "disk-space"].includes(payload.kind)
-      ? { kind: payload.kind }
-      : {}),
-  };
+  if (!payload || !Object.hasOwn(self.agentPierNotificationCopy.kinds, payload.kind))
+    return;
   event.waitUntil(
-    notificationCopy().then((catalog) => {
-      const copy = catalog[payload.kind];
-      return self.registration.showNotification(copy.title, {
-        body: copy.body,
-        icon: "/pwa-icon-192.png",
-        badge: "/pwa-icon-192.png",
-        ...(validId(payload.eventId) ? { tag: payload.eventId } : {}),
-        data,
-      });
+    notificationCopy().then(async (catalog) => {
+      const { title, body } = notices.render(payload, catalog);
+      const options = notices.options(payload);
+      await closeGroup(options.data.group);
+      await updateBadge(notices.badgeCount(payload));
+      return self.registration.showNotification(title, { ...options, body });
     }),
   );
 });
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = new URL(
-    notificationTarget(event.notification.data || {}),
+    notices.target(event.notification.data || {}),
     self.location.origin,
   ).href;
   event.waitUntil(
@@ -141,6 +134,15 @@ self.addEventListener("notificationclick", (event) => {
       .then(async (clients) => {
         const existing = clients.find((client) => client.url === target);
         if (existing) return existing.focus();
+        // An open AgentPier window moves to the target instead of a second window.
+        const open = clients.find(
+          (client) => new URL(client.url).origin === self.location.origin,
+        );
+        if (open?.navigate)
+          return open
+            .navigate(target)
+            .then((client) => (client || open).focus())
+            .catch(() => self.clients.openWindow(target));
         return self.clients.openWindow(target);
       }),
   );

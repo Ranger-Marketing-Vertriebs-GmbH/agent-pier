@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { AgentApprovalEvents } from "./agent-approval-events.js";
+import { replyPreview, requestNotice, runNotice, sessionNotice } from "./push-notices.js";
 
 // The audited action of each status that ends a pipeline run.
 const pipelineEnded = {
@@ -9,7 +11,16 @@ const pipelineEnded = {
 
 /** Observe durable metadata and native activity without attaching a terminal client. */
 export class OperationsEvents {
-  constructor({
+  constructor(options) {
+    this.init(options);
+    // Agents' approvals and team proposals, for the agent-approval push.
+    this.agentApprovals = new AgentApprovalEvents({
+      services: options,
+      notifications: this.notifications,
+      onError: this.onError,
+    });
+  }
+  init({
     audit,
     notifications,
     sessions,
@@ -21,8 +32,12 @@ export class OperationsEvents {
     waitingGraceMs = 3000,
     now = Date.now,
     onError = () => {},
+    requests = null,
+    chat = null,
   }) {
     Object.assign(this, {
+      requests,
+      chat,
       audit,
       notifications,
       sessions,
@@ -50,13 +65,19 @@ export class OperationsEvents {
     if (event.action === "request.created")
       this.requested.set(event.sessionId, this.now());
     if (event.action === "request.created")
-      this.notifications
-        .notify({
-          kind: event.kind,
-          sessionId: event.sessionId,
-          eventId: event.resourceId,
-        })
-        .catch(this.onError);
+      this.requestCreated(event).catch(this.onError);
+  }
+  /** A native question or approval: its session, and the question as a preview. */
+  async requestCreated(event) {
+    const session = await Promise.resolve(this.sessions.get?.(event.sessionId)).catch(
+      () => null,
+    );
+    const entry = this.requests?.listAll?.().find((e) => e.id === event.resourceId);
+    await this.notifications.notify({
+      kind: event.kind,
+      eventId: event.resourceId,
+      ...requestNotice(event, session, entry),
+    });
   }
   transition(key, value) {
     const stored = this.notifications.observation(key);
@@ -107,8 +128,8 @@ export class OperationsEvents {
         });
         await this.notifications.notify({
           kind: "session-ended",
-          sessionId: session.id,
           eventId: change.eventId,
+          ...sessionNotice(session),
         });
       }
       if (session.status !== "running") continue;
@@ -138,12 +159,15 @@ export class OperationsEvents {
         });
         await this.notifications.notify({
           kind: "session-completed",
-          sessionId: session.id,
           eventId: activity.eventId,
+          ...sessionNotice(session),
+          // Read only when a device shows previews.
+          preview: () => replyPreview(this.chat, session),
         });
       }
     }
     for (const run of this.pipelines.store.all()) this.pipeline(run);
+    await this.agentApprovals.poll();
   }
   /** A CLI reported that it waits for the owner, outside AgentPier's own requests. */
   async waiting(session, state, source) {
@@ -169,8 +193,8 @@ export class OperationsEvents {
     if (this.requested.get(session.id) >= wait.since - this.waitingGraceMs) return;
     await this.notifications.notify({
       kind: "session-waiting",
-      sessionId: session.id,
       eventId: wait.eventId,
+      ...sessionNotice(session),
     });
   }
   pipeline(run) {
@@ -203,11 +227,13 @@ export class OperationsEvents {
       outcome: run.status === "failed" ? "failure" : "success",
       details: { kind: ended ? "completion" : "gate" },
     });
+    // A cancelled run was stopped on purpose; it notifies nobody.
+    if (run.status === "cancelled") return;
     this.notifications
       .notify({
-        kind: ended ? "pipeline-ended" : "pipeline-gate",
-        runId: run.id,
+        kind: ended ? `pipeline-${run.status}` : "pipeline-gate",
         eventId: change.eventId,
+        ...runNotice(run, !ended),
       })
       .catch(this.onError);
   }

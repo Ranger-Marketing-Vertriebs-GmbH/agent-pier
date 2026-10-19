@@ -12,6 +12,15 @@ import {
   telegramTarget,
 } from "./routine-targets.js";
 
+// The agent's name for a push notice; a notice without it still goes out.
+const agentName = (assistants, id) => {
+  try {
+    return assistants.store.getAssistant(id)?.name;
+  } catch {
+    return undefined;
+  }
+};
+
 export const heartbeatKind = "heartbeat";
 // OpenClaw's silent-reply token; an empty summary is just as silent.
 const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";
@@ -294,6 +303,11 @@ export class NativeHeartbeats {
             assistantId: binding.assistantId,
             conversationId: recorded.conversation.id,
             eventId: `heartbeat-${event.runAtMs}-${binding.id}`,
+            // The agent's name and the check-in as a preview, for devices that show
+            // them; whether the paired Telegram chat has it too.
+            label: agentName(this.assistants, binding.assistantId),
+            preview: result,
+            ...(telegram ? { telegram: true } : {}),
           }),
         )
         .catch(() => {});

@@ -15,6 +15,15 @@ import {
 } from "./routine-targets.js";
 import { exact, schedule, updateInput } from "./reminder-input.js";
 import { invokeReminder } from "./reminder-tools.js";
+
+// The agent's name for a push notice; a notice without it still goes out.
+const agentName = (assistants, id) => {
+  try {
+    return assistants.store.getAssistant(id)?.name;
+  } catch {
+    return undefined;
+  }
+};
 export { exact, schedule, updateInput } from "./reminder-input.js";
 export { memberReminderLimit } from "./reminder-tools.js";
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
@@ -446,6 +455,7 @@ export class NativeReminders {
     if (!this.accepts(binding)) return;
     // A routine that found nothing to say (OpenClaw's silent token) sends nothing.
     if (binding.kind === "routine" && ok && silent(text)) return;
+    const viaTelegram = Boolean(deliverableChannel(this.channels, telegramOf(binding)));
     this.toTelegram(binding, { key, ok, text });
     // The main chat shows it, and a push notice links there.
     const recorded = this.completed(binding, event, text);
@@ -457,6 +467,9 @@ export class NativeReminders {
             assistantId: binding.assistantId,
             conversationId: recorded.conversation.id,
             eventId: `routine-${event.runAtMs}-${binding.id}`,
+            // The agent's name for devices that show names; a routine never previews.
+            label: agentName(this.assistants, binding.assistantId),
+            ...(viaTelegram ? { telegram: true } : {}),
           }),
         )
         .catch(() => {});
