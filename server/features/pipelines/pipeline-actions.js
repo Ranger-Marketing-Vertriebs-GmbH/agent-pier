@@ -4,7 +4,7 @@ import { activeNode, currentAttempt, outgoing, terminal } from "./graph-navigati
 import { advance, conclude, launchStage, loopBack } from "./execution-stage.js";
 import { readVerdict } from "./stage-verdict.js";
 import { recordReportDigests } from "./stage-reports.js";
-import { recordResponses } from "./loop-rounds.js";
+import { checkAnswers, recordResponses } from "./loop-rounds.js";
 export function requireLiveRun(run) {
   if (run.imported?.historyOnly)
     throw problem(serverMessages.pipelines.importedHistoryReadOnly, 409);
@@ -147,7 +147,8 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
       outcome.quiesced !== true
     )
       throw problem(serverMessages.pipelines.reconcileRequiresQuiescedTurn, 409);
-    const found = readVerdict(run, attempt);
+    const found = checkAnswers(run, node, attempt, readVerdict(run, attempt));
+    if (found.invalid) throw problem(found.reason, 409);
     if (!found.present) throw problem(serverMessages.pipelines.noFreshVerdict, 409);
     node.verified = false;
     node.verifyAttempts = 0;

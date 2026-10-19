@@ -130,10 +130,14 @@ function parseResponses(value) {
   if (value == null) return [];
   if (!Array.isArray(value))
     throw problem(serverMessages.pipelines.verdictResponsesArray);
+  const seen = new Set();
   return value.slice(0, 200).map((r) => {
     const finding = typeof r?.finding === "string" ? r.finding.trim() : "";
     if (!finding || finding.length > 100)
       throw problem(serverMessages.pipelines.verdictResponseFinding);
+    if (seen.has(finding))
+      throw problem(serverMessages.pipelines.verdictResponseDuplicate(finding));
+    seen.add(finding);
     const status =
       typeof r.status === "string"
         ? responseStatuses[r.status.trim().toLowerCase()]

@@ -225,3 +225,28 @@
   line-height: 1.6;
   color: #c9cace;
 }
+.run-round {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.run-round > summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.run-round > summary::-webkit-details-marker {
+  display: none;
+}
+.run-round-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.run-round[open] .run-round-chevron {
+  transform: rotate(90deg);
+}
+.run-round > .run-findings {
+  margin-top: 8px;
+}

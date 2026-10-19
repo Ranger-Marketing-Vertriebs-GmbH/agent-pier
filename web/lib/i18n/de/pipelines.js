@@ -22,6 +22,8 @@ export const pipelineCopy = {
     "not-fixed": "Nicht behoben",
     disputed: "Bestritten",
   },
+  roundUnanswered: "Nicht beantwortet",
+  roundAnswer: (status, reason) => (reason ? `${status}: ${reason}` : status),
   loopTo: (stage) => `↺ zu Stufe ${stage}`,
   decisionCue: (stage) => `Entscheidung erforderlich · Stufe ${stage}`,
   attemptNumber: (number) => `Versuch ${number}`,

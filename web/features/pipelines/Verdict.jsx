@@ -23,7 +23,8 @@ export function VerdictSummary({ verdict }) {
 }
 
 // Findings with a severity tag, the title, the file when reported and the detail.
-export function Findings({ findings }) {
+// `answer(finding)` adds a line under each finding, e.g. a repair turn's answer.
+export function Findings({ findings, answer }) {
   if (!findings?.length) return null;
   return (
     <ul className="run-findings">
@@ -36,6 +37,7 @@ export function Findings({ findings }) {
             <span className="run-finding-title">{finding.title || finding.message}</span>
             {finding.file && <code>{finding.file}</code>}
             {finding.detail && <small>{finding.detail}</small>}
+            {answer && <small className="run-finding-answer">{answer(finding)}</small>}
           </span>
         </li>
       ))}
