@@ -103,10 +103,13 @@ export async function createWorkspacePr(manager, workspace, run, expectedSha) {
     } catch {
       throw problem(serverMessages.pipelineWorkspaces.invalidPullRequestResponse, 409);
     }
-    await git(workspace.cwd, ["push", "origin", `HEAD:refs/heads/${workspace.branch}`], {
-      env,
-      timeout: 60000,
-    });
+    // The checked commit itself is pushed: a commit landing after the check, even
+    // while GitHub answered, never reaches the branch unchecked.
+    await git(
+      workspace.cwd,
+      ["push", "origin", `${expectedSha || "HEAD"}:refs/heads/${workspace.branch}`],
+      { env, timeout: 60000 },
+    );
     const body = pullRequestBody(run);
     if (parsed[0]?.url) {
       const url = checkedUrl(parsed[0].url);

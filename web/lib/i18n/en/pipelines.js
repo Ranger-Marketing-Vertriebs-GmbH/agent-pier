@@ -129,6 +129,7 @@ export const pipelineCopy = {
     feedback: "Feedback sent",
     "looped-back": "Returned for repair",
     "risk-approved": "Risky changes approved",
+    "risk-declined": "Publication declined",
   },
   phaseNames: {
     refinement: "Refinement",
@@ -325,6 +326,7 @@ export const pipelineCopy = {
     "create-pr": "Create / update pull request",
     delete: "Delete run",
     "approve-risk": "Approve changes",
+    "decline-risk": "Don't publish",
   },
   deleteRun:
     "The run and its dedicated working directory will be removed. This cannot be undone.",
@@ -405,7 +407,10 @@ export const pipelineCopy = {
   riskDependency: (name) => `New dependency ${name}`,
   riskUnreadableManifest: "Unreadable manifest: a new dependency cannot be ruled out",
   riskMore: (count) => `${count} more are matched again after this approval.`,
-  riskApprovals: "Approved risky changes",
+  riskApprovals: "Risk gate decisions",
+  riskDeclined: (time) => `${time} · not published; the run stays completed`,
+  riskPublishHelp:
+    "Publishing this completed run found these changes. Approve them to publish it, or keep the run completed without a pull request.",
   riskApproval: (time, count) =>
     count === 1 ? `${time} · 1 change` : `${time} · ${count} changes`,
   riskApprovalUnchecked: (time) => `${time} · approved without the check`,

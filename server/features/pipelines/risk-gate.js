@@ -159,14 +159,79 @@ export async function riskGate(engine, run, node, park, { sha, resume } = {}) {
  */
 export async function publishCheck(engine, run, node, park, resume) {
   if (!engine.workspace.checkpoint || !checkable(engine, run)) return {};
-  const { sha } = await engine.workspace.checkpoint({
-    workspace: run.workspace,
-    run,
-    node,
-    attempt: currentAttempt(run),
-  });
+  let sha;
+  try {
+    ({ sha } = await engine.workspace.checkpoint({
+      workspace: run.workspace,
+      run,
+      node,
+      attempt: currentAttempt(run),
+    }));
+  } catch (error) {
+    // A completed run stays completed; its publish request reports the error.
+    if (resume === "publish") throw error;
+    // A stage's publication stops visibly and can be retried, as a failed push does.
+    engine.recordError(error);
+    park(
+      engine,
+      run,
+      node,
+      "pr-failed",
+      [400, 409].includes(error.status)
+        ? error.message
+        : serverMessages.pipelines.checkpointFailed,
+    );
+    return { parked: true };
+  }
   if (await riskGate(engine, run, node, park, { sha, resume })) return { parked: true };
   return { sha };
+}
+
+/**
+ * The owner declines publishing a completed run that its risk gate reopened: the run
+ * is completed again, without a pull request, and nothing is approved.
+ */
+export function declineRisk(engine, run, node) {
+  const gate = node.riskGate;
+  const items = gate?.items || [];
+  const at = engine.now();
+  run.risk = {
+    approved: run.risk?.approved || [],
+    decisions: [
+      ...(run.risk?.decisions || []),
+      {
+        at,
+        nodeId: node.id,
+        attemptId: gate?.attemptId ?? null,
+        sha: gate?.sha ?? null,
+        decision: "declined",
+        ...(gate?.error
+          ? { error: true }
+          : { items, total: gate?.total ?? items.length }),
+      },
+    ].slice(-DECISIONS),
+  };
+  delete node.riskGate;
+  delete node.failReason;
+  delete node.failDetail;
+  node.status = "passed";
+  node.gateDecision = "risk-declined";
+  node.gateDecidedAt = at;
+  run.status = "completed";
+  engine.store.save(run);
+  return run.risk.decisions.at(-1);
+}
+
+/**
+ * Reopens a completed run at its last stage's risk gate before a publication, without
+ * touching the finished turn's record: declining restores the completed run as it was.
+ */
+export function parkForPublish(engine, run, node, reason, detail) {
+  node.status = "awaiting-gate";
+  node.failReason = reason;
+  if (detail) node.failDetail = detail.slice(0, 500);
+  run.status = "awaiting-human";
+  engine.store.save(run);
 }
 
 /**

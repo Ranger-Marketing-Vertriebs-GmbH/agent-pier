@@ -43,7 +43,7 @@ export function RiskGateItems({ gate, detail }) {
   const more = (gate.total || gate.items.length) - gate.items.length;
   return (
     <>
-      <p>{copy.riskGateHelp}</p>
+      <p>{gate.resume === "publish" ? copy.riskPublishHelp : copy.riskGateHelp}</p>
       <ul className="run-findings run-risk-items">
         {gate.items.map((item, index) => (
           <RiskItem key={itemKey(item, index)} item={item} />
@@ -54,7 +54,7 @@ export function RiskGateItems({ gate, detail }) {
   );
 }
 
-/** Risky changes the owner approved after this stage, oldest first. */
+/** The owner's decisions at this stage's risk gate, oldest first. */
 export function RiskApprovals({ run, node }) {
   const decisions = (run.risk?.decisions || []).filter((d) => d.nodeId === node.id);
   if (!decisions.length) return null;
@@ -62,12 +62,14 @@ export function RiskApprovals({ run, node }) {
     <ul className="run-stage-overrides">
       {decisions.map((decision, index) => (
         <li key={`${decision.at}-${index}`}>
-          {decision.error
-            ? copy.riskApprovalUnchecked(formatTimestamp(decision.at))
-            : copy.riskApproval(
-                formatTimestamp(decision.at),
-                decision.total ?? decision.items?.length ?? 0,
-              )}
+          {decision.decision === "declined"
+            ? copy.riskDeclined(formatTimestamp(decision.at))
+            : decision.error
+              ? copy.riskApprovalUnchecked(formatTimestamp(decision.at))
+              : copy.riskApproval(
+                  formatTimestamp(decision.at),
+                  decision.total ?? decision.items?.length ?? 0,
+                )}
           {decision.items?.length > 0 && (
             <ul className="run-findings run-risk-items">
               {decision.items.map((item, i) => (

@@ -43,7 +43,14 @@ export const runCodes = {
     "no-session",
     "retried",
   ],
-  gateDecisions: ["accepted", "overridden", "feedback", "looped-back", "risk-approved"],
+  gateDecisions: [
+    "accepted",
+    "overridden",
+    "feedback",
+    "looped-back",
+    "risk-approved",
+    "risk-declined",
+  ],
 };
 // Labels never show a raw code: an unknown code gets a neutral wording.
 const label = (labels, code, fallback) =>

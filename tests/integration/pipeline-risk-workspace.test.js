@@ -205,3 +205,61 @@ test("the Approver is a seeded review profile that asks the owner with a questio
   ])
     assert.ok(role.includes(part), part);
 });
+
+test("the push publishes the checked commit, not one that lands while GitHub answers", async (t) => {
+  const { root, project, dataDir, git } = await repository(t);
+  const remote = path.join(root, "remote.git");
+  await exec("git", ["init", "--bare", remote]);
+  await git(project, "remote", "add", "origin", "https://github.example/org/repo.git");
+  await git(project, "config", "remote.origin.pushurl", remote);
+  // `gh pr list` stands for the network round trip; a leftover process commits a
+  // workflow in the worktree meanwhile.
+  const gh = path.join(root, "fake-gh.cjs");
+  await fs.writeFile(
+    gh,
+    `#!${process.execPath}
+const { execFileSync } = require("node:child_process");
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+const cwd = fs.readFileSync(${JSON.stringify(path.join(root, "cwd"))}, "utf8");
+if (args[1] === "list") {
+  fs.mkdirSync(cwd + "/.github/workflows", { recursive: true });
+  fs.writeFileSync(cwd + "/.github/workflows/late.yml", "on: push\\n");
+  const git = (...a) => execFileSync("git", ["-C", cwd, "-c", "user.name=x", "-c", "user.email=x@example.invalid", ...a]);
+  git("add", ".github");
+  git("commit", "-q", "-m", "late");
+  console.log("[]");
+} else console.log("https://github.example/org/repo/pull/7");
+`,
+    { mode: 0o700 },
+  );
+  const github = {
+    prepare: async ({ launch }) => launch,
+    discard: async () => {},
+    resolveGh: () => gh,
+  };
+  const manager = new PipelineWorkspace({ dataDir, github });
+  const workspace = await manager.prepare({ runId: "late-push", cwd: project });
+  await fs.writeFile(path.join(root, "cwd"), workspace.cwd);
+  await fs.writeFile(path.join(workspace.cwd, "src/app.js"), "checked\n");
+  const run = { id: "late-push", task: "Change the app" };
+  const { sha } = await manager.checkpoint({ workspace, run, attempt: {} });
+  const result = await manager.createPr({ workspace, run, expectedSha: sha });
+  assert.equal(result.url, "https://github.example/org/repo/pull/7");
+  // The worktree moved on, but the branch holds exactly the checked commit.
+  assert.notEqual(await git(workspace.cwd, "rev-parse", "HEAD"), sha);
+  assert.equal(await git(remote, "rev-parse", "refs/heads/agentpier/late-push"), sha);
+  await assert.rejects(
+    git(
+      remote,
+      "cat-file",
+      "-e",
+      "refs/heads/agentpier/late-push:.github/workflows/late.yml",
+    ),
+  );
+  // A checkpoint that no longer matches the check refuses to publish at all.
+  await fs.writeFile(path.join(workspace.cwd, "src/app.js"), "changed again\n");
+  await assert.rejects(manager.createPr({ workspace, run, expectedSha: sha }), {
+    status: 409,
+  });
+});
