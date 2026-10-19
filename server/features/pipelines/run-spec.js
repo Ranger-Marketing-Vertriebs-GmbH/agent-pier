@@ -190,15 +190,16 @@ export function holdSpec(
   } catch {
     // Missing, replaced by a link or unreadable: restore it.
   }
-  // A file that still cannot be restored was recorded when it first failed.
-  const last = spec.changes?.at(-1);
-  if (last && last.restored === false && last.sha256 === found) return;
   let restored = true;
   try {
     writeSpecFile(run.workingDir, spec.path, spec.text);
   } catch {
     restored = false;
   }
+  // Every check tries the restore again; a failure that repeats the last recorded one
+  // is recorded only once, so it is never attributed to a later turn.
+  const last = spec.changes?.at(-1);
+  if (!restored && last?.restored === false && last.sha256 === found) return;
   spec.changes = [
     ...(spec.changes || []),
     {
@@ -265,10 +266,16 @@ export function replaceSpec(run, node, text, now) {
 }
 
 // One recorded revision's text, read from its file; `changed` when the file no longer
-// holds what was recorded.
+// holds what was recorded. An imported history-only run has no worktree on this host:
+// its current revision comes from the run record, earlier ones are not available.
 export function specRevision(run, n) {
   const entry = (run.spec?.revisions || []).find((r) => r.n === n && r.path);
   if (!entry) throw problem(serverMessages.pipelines.specRevisionNotFound, 404);
+  const current = entry.sha256 === run.spec.sha256 && entry.path === run.spec.path;
+  if (run.imported?.historyOnly) {
+    if (current) return { text: run.spec.text, truncated: false };
+    throw problem(serverMessages.pipelines.specRevisionImported, 404);
+  }
   try {
     const read = containedFile(run.workingDir, entry.path, SPEC_LIMIT);
     return {

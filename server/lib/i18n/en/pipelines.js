@@ -68,6 +68,8 @@ export const pipelines = Object.freeze({
   specRedeclare:
     "The spec file changed but was not declared again. Write the complete spec as spec.md into this turn's report directory and declare it with the role spec.",
   specRevisionNotFound: "This spec revision was not found.",
+  specRevisionImported:
+    "An imported run keeps only the text of the current spec; earlier revisions are not available.",
   specFileUnsafe: "The spec file in the worktree cannot be written safely.",
   verdictTooLarge: "Verdict exceeds 64 KiB.",
   verdictUnreadable: "Verdict could not be read safely.",
