@@ -9,6 +9,7 @@ export const assistantRuntimePaths = [
   ".github/workflows/assistant-runtime-queue.yml",
   "server/features/assistants/**",
   "server/features/assistant-channels/**",
+  "server/application/assistant-graph.js",
   "server/features/operations/releases.js",
   "server/lib/storage.js",
   "scripts/*assistant*.mjs",
