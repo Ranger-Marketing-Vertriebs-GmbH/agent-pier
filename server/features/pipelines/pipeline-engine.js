@@ -227,7 +227,7 @@ export class PipelineEngine {
       if (result?.riskDecision)
         risk = {
           kind: "risk",
-          decision: "approve",
+          decision: result.riskDecision.decision === "declined" ? "decline" : "approve",
           stageId: node.id,
           paths: [
             ...new Set(

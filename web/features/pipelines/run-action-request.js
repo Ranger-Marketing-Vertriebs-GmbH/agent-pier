@@ -6,6 +6,7 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 export const gateActions = [
   "accept",
   "approve-risk",
+  "decline-risk",
   "feedback",
   "loop-back",
   "override",

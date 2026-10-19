@@ -16,7 +16,7 @@ import {
   reportDirectory,
 } from "./stage-reports.js";
 import { resumedRepairPrompt, stagePrompt } from "./stage-prompt.js";
-import { publishCheck, riskGate } from "./risk-gate.js";
+import { parkForPublish, publishCheck, riskGate } from "./risk-gate.js";
 import {
   adoptSpec,
   checkSpec,
@@ -522,7 +522,9 @@ export async function advance(engine, run, node) {
  */
 export async function publishCompleted(engine, run) {
   const node = run.nodes.find((n) => n.id === run.currentNodeId);
-  const checked = node ? await publishCheck(engine, run, node, park, "publish") : {};
+  const checked = node
+    ? await publishCheck(engine, run, node, parkForPublish, "publish")
+    : {};
   if (checked.parked) return;
   const pr = await engine.workspace.createPr({
     workspace: run.workspace,

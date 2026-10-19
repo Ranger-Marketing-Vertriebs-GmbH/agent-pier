@@ -160,7 +160,7 @@ test("a stage at the risk gate lists the matched paths and is approved as such",
   await expect(block).toContainText("Product decision A1");
   await expect(block).toContainText("Guests may comment");
   const approvals = page.locator(".run-stage-block").filter({
-    has: page.getByRole("heading", { name: "Approved risky changes" }),
+    has: page.getByRole("heading", { name: "Risk gate decisions" }),
   });
   await expect(approvals).toContainText("1 change");
   await expect(approvals).toContainText("db/migrations/001.sql");
@@ -245,4 +245,28 @@ test("a profile opts in to the earlier stages' verdicts", async ({ page }) => {
           ?.body.config.run,
     )
     .toEqual({ autonomous: true, earlierVerdicts: true });
+});
+
+test("a completed run reopened by its publication can be published or kept as is", async ({
+  page,
+}) => {
+  await english(page);
+  const state = await pipelinesFixture(page);
+  const run = riskRun(state);
+  run.nodes[0].riskGate.resume = "publish";
+  run.actions = ["approve-risk", "decline-risk"];
+  await openPipelines(page, "runs/run-one");
+  await expect(
+    page.getByText("Publishing this completed run found these changes."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry with feedback" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Approve changes", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Don't publish", exact: true }).click();
+  await expect
+    .poll(
+      () => state.calls.find((call) => call.path === "/pipeline-runs/run-one/gate")?.body,
+    )
+    .toEqual({ action: "decline-risk" });
 });

@@ -13,7 +13,7 @@ import { relaunchOptions } from "./loop-session.js";
 import { recordReportDigests } from "./stage-reports.js";
 import { filterAnswers, recordResponses } from "./loop-rounds.js";
 import { adoptSpec, checkSpec, replaceSpec, specReplaceable } from "./run-spec.js";
-import { approveRisk } from "./risk-gate.js";
+import { approveRisk, declineRisk } from "./risk-gate.js";
 export function requireLiveRun(run) {
   if (run.imported?.historyOnly)
     throw problem(serverMessages.pipelines.importedHistoryReadOnly, 409);
@@ -45,6 +45,10 @@ export function availableActions(run) {
   const actions = ["abort"];
   if (run.status !== "awaiting-human") return actions;
   const node = activeNode(run);
+  // A completed run reopened by its publication only decides on publishing it: the
+  // finished stages are not reworked, and declining keeps the run completed.
+  if (node.failReason === "risk-gate" && node.riskGate?.resume === "publish")
+    return ["approve-risk", "decline-risk"];
   if (node.status === "awaiting-gate") {
     // The risk gate is approved as such; an override would also accept the verdict.
     actions.push(
@@ -195,6 +199,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt, spec
     return;
   }
   if (action === "override") return overrideStage(engine, run, node);
+  if (action === "decline-risk") return { riskDecision: declineRisk(engine, run, node) };
   if (action === "approve-risk") {
     const resume = node.riskGate?.resume;
     const decision = approveRisk(engine, run, node);

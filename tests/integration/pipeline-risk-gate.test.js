@@ -420,3 +420,73 @@ test("an owner who turned the gate off for the project is never stopped", async 
   assert.equal(f.engine.get(r.id).status, "completed");
   assert.equal(state.diffs.length, 0);
 });
+
+test("a checkpoint that fails before the push parks the stage instead of retrying forever", async (t) => {
+  const { f, state } = riskFixture(t);
+  withPr(f);
+  // The stage's own checkpoint succeeds; the one before the push fails.
+  let calls = 0,
+    broken = true;
+  f.workspace.checkpoint = async () => {
+    calls++;
+    if (broken && calls >= 2) throw Error("index.lock exists");
+    return { sha: `end-${calls}` };
+  };
+  state.changes = [{ status: "M", path: "src/app.js" }];
+  const r = await start(f);
+  await f.end(pass);
+  let run = f.engine.get(r.id);
+  assert.equal(run.status, "awaiting-human");
+  assert.equal(run.nodes[0].failReason, "pr-failed");
+  assert.equal(run.nodes[0].failDetail, serverMessages.pipelines.checkpointFailed);
+  assert.equal(run.pendingAdvance, undefined);
+  assert.ok(run.actions.includes("retry"));
+  const tried = calls;
+  await f.engine.reconcile();
+  await f.engine.reconcile();
+  assert.equal(calls, tried, "a parked run does not try again on its own");
+  assert.equal(state.prs.length, 0);
+  broken = false;
+  await f.engine.retry(r.id);
+  run = f.engine.get(r.id);
+  assert.equal(run.status, "completed");
+  assert.equal(state.prs.length, 1);
+});
+
+test("the owner can decline publishing a reopened completed run, which stays completed", async (t) => {
+  const { f, state, audit } = riskFixture(t);
+  f.workspace.hasRemote = async () => true;
+  const r = await start(f);
+  await f.end(pass);
+  const finished = f.engine.get(r.id);
+  const attempt = structuredClone(finished.executionLog.at(-1));
+  state.changes = [{ status: "M", path: ".github/CODEOWNERS" }];
+  let run = await f.engine.createPr(r.id);
+  assert.equal(run.status, "awaiting-human");
+  // Only publishing is decided; the finished stage is not reworked.
+  assert.deepEqual(run.actions, ["approve-risk", "decline-risk"]);
+  assert.deepEqual(run.executionLog.at(-1), attempt);
+  await assert.rejects(f.engine.gate(r.id, { action: "feedback", feedback: "x" }), {
+    status: 409,
+  });
+  await f.engine.gate(r.id, { action: "decline-risk" });
+  run = f.engine.get(r.id);
+  assert.equal(run.status, "completed");
+  assert.equal(run.finishedAt, finished.finishedAt);
+  assert.equal(run.nodes[0].status, "passed");
+  assert.equal(run.nodes[0].failReason, undefined);
+  assert.equal(run.nodes[0].gateDecision, "risk-declined");
+  assert.equal(run.pullRequestUrl, null);
+  assert.equal(state.prs.length, 0);
+  assert.deepEqual(run.risk.approved, []);
+  assert.equal(run.risk.decisions.at(-1).decision, "declined");
+  assert.ok(run.actions.includes("create-pr"));
+  const entry = audit.find((e) => e.details?.decision === "decline");
+  assert.deepEqual(entry.details, {
+    kind: "risk",
+    decision: "decline",
+    stageId: "build",
+    paths: [".github/CODEOWNERS"],
+    count: 1,
+  });
+});

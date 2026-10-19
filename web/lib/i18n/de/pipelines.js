@@ -133,6 +133,7 @@ export const pipelineCopy = {
     feedback: "Rückmeldung gesendet",
     "looped-back": "Zur Reparatur zurückgesprungen",
     "risk-approved": "Riskante Änderungen freigegeben",
+    "risk-declined": "Veröffentlichung abgelehnt",
   },
   phaseNames: {
     refinement: "Klärung",
@@ -334,6 +335,7 @@ export const pipelineCopy = {
     "create-pr": "Pull Request erstellen / aktualisieren",
     delete: "Lauf löschen",
     "approve-risk": "Änderungen freigeben",
+    "decline-risk": "Nicht veröffentlichen",
   },
   deleteRun:
     "Lauf und zugehöriges eigenes Arbeitsverzeichnis werden entfernt. Dies kann nicht rückgängig gemacht werden.",
@@ -417,7 +419,10 @@ export const pipelineCopy = {
   riskUnreadableManifest:
     "Manifest nicht lesbar: eine neue Abhängigkeit ist nicht auszuschließen",
   riskMore: (count) => `${count} weitere werden nach dieser Freigabe erneut abgeglichen.`,
-  riskApprovals: "Freigegebene riskante Änderungen",
+  riskApprovals: "Entscheidungen am Risiko-Gate",
+  riskDeclined: (time) => `${time} · nicht veröffentlicht; der Lauf bleibt abgeschlossen`,
+  riskPublishHelp:
+    "Beim Veröffentlichen dieses abgeschlossenen Laufs wurden diese Änderungen gefunden. Gib sie frei, um ihn zu veröffentlichen, oder lass den Lauf ohne Pull Request abgeschlossen.",
   riskApproval: (time, count) =>
     count === 1 ? `${time} · 1 Änderung` : `${time} · ${count} Änderungen`,
   riskApprovalUnchecked: (time) => `${time} · ohne Abgleich freigegeben`,
