@@ -169,15 +169,30 @@ export class McpChanges {
   }
   /**
    * The list with the members that use each server through their lead
-   * (`shared`, lead-shares.js), for the owner to see and remove. Unreadable shares
-   * leave the list as it is.
+   * (`shared`, lead-shares.js, and `memberGrants` of task members,
+   * task-member-grants.js), for the owner to see and remove. Unreadable shares leave
+   * the list as it is.
    */
   sharedViews(list) {
     try {
       const shares = this.assistants.workflows?.shares?.list((row) => row.kind === "mcp");
-      if (!shares?.length) return list;
+      const granted =
+        this.assistants.workflows?.memberGrants?.list((row) => row.kind === "mcp") || [];
+      if (!shares?.length && !granted.length) return list;
       return list.map((server) => {
-        const shared = shares
+        // Task members using it through their lead (`memberGrants`, revocable too).
+        const members = granted
+          .filter((g) => g.serverId === server.id)
+          .map((g) => ({
+            id: g.id,
+            agentId: g.memberAssistantId,
+            agentName: g.memberName,
+            leadId: g.leadId,
+            leadName: g.leadName,
+            bound: g.live.bound,
+          }));
+        server = members.length ? { ...server, memberGrants: members } : server;
+        const shared = (shares || [])
           .filter((s) => s.serverId === server.id)
           .map((s) => ({
             id: s.id,

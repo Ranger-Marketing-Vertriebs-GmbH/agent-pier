@@ -60,6 +60,7 @@ export const memberGrantCopy = {
     ownerRevoked: (date, labels) =>
       `${date}: Das Ausschalten von Shell und SSH für Team-Mitglieder hat ${labels} entzogen`,
     owner: (date, labels) => `${date}: Du hast ${labels} freigegeben`,
+    youRevoked: (date, labels) => `${date}: Du hast ${labels} widerrufen`,
   },
   note: {
     promoted: (member) =>
@@ -72,6 +73,7 @@ export const memberGrantCopy = {
       `${member} hat beim leitenden Agenten eine Erinnerung angelegt; sie steht in dessen Erinnerungen`,
     granted: (member, labels) => `${member} hat vom leitenden Agenten ${labels} erhalten`,
     revoked: (member, labels) => `Der leitende Agent hat ${member} ${labels} entzogen`,
+    ownerRevoked: (member, labels) => `Du hast ${labels} für ${member} widerrufen`,
     completed: (member, labels) => `Du hast ${labels} für ${member} freigegeben`,
     declined: (member, labels) => `Du hast ${labels} für ${member} abgelehnt`,
     expired: (member, labels) =>

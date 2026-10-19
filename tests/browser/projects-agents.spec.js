@@ -53,13 +53,18 @@ function agentAccess({ conflictOnce = false } = {}) {
     await route.fulfill({
       json: {
         agents: [{ id: "home", name: "Home", revision: 1, ...state.home }],
-        members: [
+        // A task-bound member's folder from its lead (task-member-grants.js).
+        memberGrants: [
           {
-            id: "writer",
+            id: "task:writer:project:m1",
+            kind: "project",
+            revocable: true,
+            agentId: "writer",
             name: "Writer",
             leadId: "home",
             leadName: "Home",
             folder: "read",
+            coding: false,
           },
         ],
       },
@@ -102,7 +107,9 @@ test.describe("English project agents", () => {
       await coding.uncheck();
       await expect(agent.getByLabel("None", { exact: true })).toBeChecked();
       expect(access.state.puts.at(-1)).toMatchObject({ coding: false, folder: "none" });
-      await expect(page.getByText("via Home · Read", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("via Home · Task-bound member · Folder: read", { exact: true }),
+      ).toBeVisible();
       expect(await noOverflow(page)).toBe(true);
     });
 

@@ -5,8 +5,9 @@ import { revokeLeadShare } from "./lead-shares.js";
 import "./lead-shares.css";
 
 /**
- * Revokes one share a lead agent gave its permanent member, after a confirmation:
- * the member loses that access at once (docs/ui-guide.md#confirmations).
+ * Revokes one share a lead agent gave its permanent member, or one grant to a
+ * task-bound member (`share.temporary`), after a confirmation: the member loses that
+ * access at once (docs/ui-guide.md#confirmations).
  */
 export default function RevokeLeadShare({ share, what, onRevoked }) {
   const [open, setOpen] = useState(false);
@@ -25,7 +26,9 @@ export default function RevokeLeadShare({ share, what, onRevoked }) {
       {open && (
         <ConfirmDialog
           title={copy.confirmTitle(what, member)}
-          body={copy.confirmBody(share.leadName || "")}
+          body={(share.temporary ? copy.taskConfirmBody : copy.confirmBody)(
+            share.leadName || "",
+          )}
           confirmLabel={copy.confirmLabel}
           destructive
           onCancel={() => setOpen(false)}

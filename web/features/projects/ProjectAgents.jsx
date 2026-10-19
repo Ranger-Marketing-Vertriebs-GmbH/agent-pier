@@ -8,7 +8,7 @@ import useResource from "../../lib/useResource.js";
 import { projectAgentsCopy as copy } from "../../lib/i18n/messages/project-agents.js";
 import { RegisterHint } from "./ProjectRuns.jsx";
 import { leadShareCopy as shareCopy } from "../../lib/i18n/messages/lead-shares.js";
-import { shareDetail } from "../assistants/lead-shares.js";
+import { memberGrantDetail, shareDetail } from "../assistants/lead-shares.js";
 import RevokeLeadShare from "../assistants/RevokeLeadShare.jsx";
 import "./project-agents.css";
 
@@ -81,7 +81,10 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
   );
 }
 
-/** The project's Agents section: permanent agents editable, task members read-only. */
+/**
+ * The project's Agents section: permanent agents editable; what lead agents share
+ * with permanent members and grant task-bound members, each revocable.
+ */
 export default function ProjectAgents({ project, onNavigate, reloadHub }) {
   const id = project.memoryId;
   const list = useResource(id ? path(id) : null);
@@ -91,7 +94,6 @@ export default function ProjectAgents({ project, onNavigate, reloadHub }) {
   // the list itself is never replaced, so a refresh always lands.
   const [saved, setSaved] = useState({});
   const titleId = useId(),
-    membersId = useId(),
     sharedId = useId();
   if (!id)
     return (
@@ -107,8 +109,8 @@ export default function ProjectAgents({ project, onNavigate, reloadHub }) {
   const agents = (data?.agents || []).map((a) =>
       saved[a.id] && saved[a.id].revision >= a.revision ? saved[a.id] : a,
     ),
-    members = data?.members || [],
-    shared = data?.shared || [];
+    shared = data?.shared || [],
+    granted = data?.memberGrants || [];
   const remember = (agent) =>
     setSaved((current) =>
       current[agent.id]?.revision > agent.revision
@@ -146,7 +148,7 @@ export default function ProjectAgents({ project, onNavigate, reloadHub }) {
           ))}
         </div>
       </section>
-      {shared.length > 0 && (
+      {shared.length + granted.length > 0 && (
         <section aria-labelledby={sharedId} data-project-shared="">
           <GroupLabel id={sharedId} hint={shareCopy.projectHint}>
             {shareCopy.projectSection}
@@ -170,24 +172,26 @@ export default function ProjectAgents({ project, onNavigate, reloadHub }) {
                 />
               </ListRow>
             ))}
-          </ListCard>
-        </section>
-      )}
-      {members.length > 0 && (
-        <section aria-labelledby={membersId}>
-          <GroupLabel id={membersId} hint={copy.membersHint}>
-            {copy.members}
-          </GroupLabel>
-          <ListCard labelledBy={membersId}>
-            {members.map((m) => (
+            {granted.map((g) => (
               <ListRow
-                key={m.id}
-                label={m.name}
-                value={copy.memberVia(
-                  m.leadName || copy.unknownLead,
-                  copy.folder[m.folder],
+                key={g.id}
+                className="lead-share-row"
+                label={g.name || copy.unknownLead}
+                sub={`${shareCopy.via(g.leadName || copy.unknownLead)} · ${memberGrantDetail(
+                  {
+                    kind: g.kind,
+                    live: { folder: g.folder, coding: g.coding },
+                  },
+                )}${g.revocable ? "" : ` · ${shareCopy.codingFixed}`}`}
+              >
+                {g.revocable && (
+                  <RevokeLeadShare
+                    share={{ ...g, temporary: true, memberName: g.name }}
+                    what={project.name}
+                    onRevoked={list.refresh}
+                  />
                 )}
-              />
+              </ListRow>
             ))}
           </ListCard>
         </section>

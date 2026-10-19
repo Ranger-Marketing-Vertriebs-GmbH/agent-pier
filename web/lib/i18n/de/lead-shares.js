@@ -22,8 +22,19 @@ export const leadShareCopy = {
   confirmLabel: "Jetzt widerrufen",
   projectSection: "Von leitenden Agenten geteilt",
   projectHint:
-    "Dauerhafte Mitglieder, die dieses Projekt über ihren leitenden Agenten nutzen. Das gilt nur, solange der leitende Agent es selbst hat.",
+    "Mitglieder, die dieses Projekt über ihren leitenden Agenten nutzen. Das gilt nur, solange der leitende Agent es selbst hat.",
   serverShared: "Über einen leitenden Agenten genutzt",
+  taskMember: "Auftragsgebundenes Mitglied",
+  taskHint:
+    "Was der leitende Agent diesem auftragsgebundenen Mitglied von seinem eigenen Zugriff gewährt hat. Das gilt nur, solange er ihn selbst hat. Widerrufen beendet eine Gewährung sofort, so wie wenn der leitende Agent sie zurücknimmt.",
+  shell: (level) => `Shell: ${level}`,
+  ssh: "SSH auf den Hosts des leitenden Agenten",
+  sshShort: "SSH",
+  codingViaLead: "Coding-Aufträge über den leitenden Agenten",
+  codingFixed:
+    "Gehört zur Aufgabe: Jeder Auftrag wartet auf deine Freigabe. Zum Beenden stoppe oder archiviere das Mitglied.",
+  taskConfirmBody: (lead) =>
+    `Das Mitglied verliert diesen Zugriff sofort; wartende Freigaben dafür werden abgebrochen. ${lead} kann ihn erneut gewähren.`,
 };
 
 // Ein Tippen des Besitzers, nachdem ein leitender Agent beim Verarbeiten eines

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
 import { leadServerIds, memberServerNames } from "./team-mcp.js";
@@ -132,8 +133,41 @@ export class MemberGrants {
       mcpServers: ids.length,
     };
   }
+  /**
+   * The owner takes back one grant from a task member (task-member-grants.js), with
+   * the lead's own revoke semantics: the member's record and log, the audit with the
+   * owner as actor, a note in the member's and the lead's chat, and the lead's
+   * waiting shell or SSH card for what is revoked can no longer be approved.
+   */
+  ownerRevoke(memberId, { removed = {}, ids = [] }) {
+    const member = this.teams.member(memberId);
+    if (member.lifetime === "permanent" || member.archivedAt)
+      throw assistantProblem("notFound", 404);
+    const lead = this.assistants.store.getAssistant(member.parentAssistantId);
+    const team = this.teams.find(member.teamId);
+    const conversation = team?.parentConversationId
+      ? { id: team.parentConversationId }
+      : null;
+    const next = this.apply({ lead, member, conversation }, null, {
+      removed,
+      ids,
+      by: "owner",
+      direct: true,
+    });
+    if (removed.shell || removed.ssh)
+      this.cancelPending(
+        lead.id,
+        (a) =>
+          a.payload.memberId === member.id &&
+          ((removed.shell && !!a.payload.grants?.shell) ||
+            (removed.ssh && !!a.payload.grants?.ssh)),
+        "REVOKED",
+      );
+    this.assistants.changed?.();
+    return next;
+  }
   /** Writes the change to the member's record, audits and notes it, then applies it. */
-  apply({ lead, member, conversation }, inv, { added, removed, ids = [], by }) {
+  apply({ lead, member, conversation }, inv, { added, removed, ids = [], by, direct }) {
     const current = this.teams.member(member.id);
     const before = current.grants ?? defaultGrants;
     const grants = removed ? removeGrants(before, removed) : mergeGrants(before, added);
@@ -151,6 +185,8 @@ export class MemberGrants {
     const entry = {
       at: new Date().toISOString(),
       by,
+      // The owner's own revocation, apart from switching shell and SSH off.
+      ...(direct ? { direct: true } : {}),
       ...(removed ? { revoked: keys } : { granted: keys }),
       ...(ids.length ? { mcpServers: ids.length } : {}),
     };
@@ -176,6 +212,7 @@ export class MemberGrants {
         details: {
           kind: "member-grant",
           change: entry.revoked ? "revoke" : "grant",
+          by: entry.by,
           grants: entry.revoked || entry.granted,
           teamId: member.teamId,
           leadAssistantId: lead.id,
@@ -204,6 +241,8 @@ export class MemberGrants {
       ...(leadConversation ? [[lead.id, leadConversation.id]] : []),
     ];
     const at = Date.now();
+    // Owner changes have no tool call: one key per change, never merged with another.
+    const once = `${at}-${randomUUID()}`;
     for (const [assistantId, conversationId] of rows) {
       if (!conversationId) continue;
       store.reserve({
@@ -211,7 +250,7 @@ export class MemberGrants {
         conversationId,
         attemptId: inv?.attemptId || null,
         origin: { kind: "member-grant" },
-        key: `member-grant:${inv?.attemptId || "owner"}:${inv?.toolCallId || at}:${assistantId}`,
+        key: `member-grant:${inv?.attemptId || "owner"}:${inv?.toolCallId || once}:${assistantId}`,
         state: "completed",
         payload,
         chatNotes: { result: { at, state: "completed" } },

@@ -58,6 +58,7 @@ export const memberGrantCopy = {
     ownerRevoked: (date, labels) =>
       `${date}: switching off shell and SSH for team members took back ${labels}`,
     owner: (date, labels) => `${date}: you approved ${labels}`,
+    youRevoked: (date, labels) => `${date}: you revoked ${labels}`,
   },
   note: {
     promoted: (member) => `The lead agent kept ${member} as a permanent agent`,
@@ -68,6 +69,7 @@ export const memberGrantCopy = {
       `${member} set a reminder on the lead agent; it is listed in its reminders`,
     granted: (member, labels) => `${member} was granted ${labels} by its lead agent`,
     revoked: (member, labels) => `The lead agent took back ${labels} from ${member}`,
+    ownerRevoked: (member, labels) => `You revoked ${labels} for ${member}`,
     completed: (member, labels) => `You approved ${labels} for ${member}`,
     declined: (member, labels) => `You declined ${labels} for ${member}`,
     expired: (member, labels) => `The approval of ${labels} for ${member} expired`,

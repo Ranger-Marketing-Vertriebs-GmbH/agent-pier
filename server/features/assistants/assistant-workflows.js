@@ -22,6 +22,7 @@ import { sshDecisions } from "./agent-ssh-approvals.js";
 import { sshTelegramApprovable } from "./agent-ssh-notifications.js";
 import { AgentProjectFiles } from "./agent-project-files.js";
 import { LeadShares } from "./lead-shares.js";
+import { TaskMemberGrants } from "./task-member-grants.js";
 import { workspaceCall, workspaceContext } from "./workspace-calls.js";
 import { AgentGithub } from "./agent-github.js";
 const maxEventRetryMs = 300000;
@@ -40,6 +41,7 @@ export class AssistantWorkflows {
     this.forget = new AssistantMemoryForget(this);
     this.folders = new AgentProjectFiles(this);
     this.shares = new LeadShares(this);
+    this.memberGrants = new TaskMemberGrants(this);
     this.github = new AgentGithub(this);
     if (autoStart) this.start();
   }

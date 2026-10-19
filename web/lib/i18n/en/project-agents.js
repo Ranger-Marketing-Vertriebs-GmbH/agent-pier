@@ -9,10 +9,6 @@ export const projectAgentsCopy = {
   folderLegend: "Folder access",
   folder: { none: "None", read: "Read", write: "Read and write" },
   noAgents: "No permanent agents yet. Create one under Agents.",
-  members: "Team members with access",
-  membersHint:
-    "Task members use the folder through their lead, at most at the lead's level. Their lead decides; change it in the lead's team.",
-  memberVia: (lead, level) => `via ${lead} · ${level}`,
   unknownLead: "its lead",
   reloaded:
     "This agent's access was changed elsewhere in the meantime. The current state is shown; choose again.",
