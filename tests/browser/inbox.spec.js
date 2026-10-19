@@ -129,7 +129,7 @@ test("on a phone in English the inbox opens from the header and answers in the d
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
-  await page.getByRole("button", { name: "Inbox", exact: true }).click();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(list).toHaveCount(4);
   await list.filter({ hasText: "Shell command" }).click();
   await expect(page.getByRole("button", { name: "Allow once" })).toBeVisible();

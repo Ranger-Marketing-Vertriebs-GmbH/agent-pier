@@ -1,4 +1,9 @@
 import { operationsFixture } from "./operations-fixture.js";
+import {
+  defaultPreferences,
+  normalizePreferences,
+  updatePreferences,
+} from "../../server/features/notifications/push-preferences.js";
 
 export const ownDeviceId = "0f6c2b8e-6a1d-4f5e-9a51-3c1e2d7b4a90";
 
@@ -96,7 +101,12 @@ export async function notifications(
     const request = route.request(),
       path = new URL(request.url()).pathname,
       method = request.method(),
-      body = method === "POST" ? request.postDataJSON() : null;
+      body = ["POST", "PUT"].includes(method) ? request.postDataJSON() : null;
+    // Visible pages report their view every few seconds; tests read them apart.
+    if (path.endsWith("/presence")) {
+      (state.presence ||= []).push(body.route);
+      return route.fulfill({ status: 204 });
+    }
     state.calls.push({ path, method, body });
     if (method === "POST" && path.endsWith("/subscriptions")) {
       if (state.failSave)
@@ -113,12 +123,20 @@ export async function notifications(
         deviceId: body.deviceId,
         label: body.label,
         createdAt: existing?.createdAt || "2026-09-07T12:00:00Z",
+        // As on the server: a new device starts at the event type only.
+        preferences: existing?.preferences || defaultPreferences(body.timeZone),
       };
       state.subscriptions = [
         ...state.subscriptions.filter((entry) => entry.deviceId !== body.deviceId),
         summary,
       ];
       return route.fulfill({ json: { subscription: summary } });
+    }
+    if (method === "PUT" && path.endsWith("/preferences")) {
+      const id = decodeURIComponent(path.split("/").at(-2));
+      const entry = state.subscriptions.find((item) => item.id === id);
+      entry.preferences = updatePreferences(entry.preferences, body);
+      return route.fulfill({ json: { subscription: entry } });
     }
     if (method === "DELETE") {
       if (state.failDelete)
@@ -130,7 +148,15 @@ export async function notifications(
     if (path.endsWith("/test"))
       return route.fulfill({ json: state.testResult || { sent: true } });
     return route.fulfill({
-      json: { enabled: true, publicKey: "AQIDBA", subscriptions: state.subscriptions },
+      json: {
+        enabled: true,
+        publicKey: "AQIDBA",
+        // The server returns every device with its preferences in the current shape.
+        subscriptions: state.subscriptions.map((entry) => ({
+          ...entry,
+          preferences: normalizePreferences(entry.preferences),
+        })),
+      },
     });
   });
   return state;

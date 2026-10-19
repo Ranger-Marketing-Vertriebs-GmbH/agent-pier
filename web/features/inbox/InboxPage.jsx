@@ -4,6 +4,7 @@ import Icon from "../../components/Icon.jsx";
 import ListDetail from "../../components/ListDetail.jsx";
 import SettingsShell from "../../components/SettingsShell.jsx";
 import UnderlineTabs from "../../components/UnderlineTabs.jsx";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { inboxCopy as copy } from "../../lib/i18n/messages/inbox.js";
 import InboxDetail from "./InboxDetail.jsx";
 import { itemContext, itemIcon, itemTime, itemTitle } from "./inbox-presentation.js";
@@ -100,7 +101,7 @@ export default function InboxPage({ route, navigate, openNavigation, navigationO
                 selectedId={selectedKey}
                 onSelect={open}
                 renderItem={(item) => <InboxRow item={item} />}
-                mobileBackLabel={copy.back}
+                mobileBackLabel={commonCopy.back}
                 detail={
                   selectedKey ? (
                     <InboxDetail

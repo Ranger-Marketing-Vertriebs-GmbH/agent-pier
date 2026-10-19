@@ -57,5 +57,6 @@ screen decide only when none is open (see [architecture](architecture.md)).
   never answers on its own and adds no new way to decide.
 
 The server side lives in `server/features/inbox/` (sources, items, history) and
-`server/http/routes/inbox.js`; the page lives in `web/features/inbox/`. Push
-notifications still open the item in place; see [notifications](notifications.md).
+`server/http/routes/inbox.js`; the page lives in `web/features/inbox/`. A push
+notification about a waiting item opens its inbox address, and the installed app's
+badge shows the inbox count; see [notifications](notifications.md).

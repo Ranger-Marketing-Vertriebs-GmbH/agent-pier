@@ -9,6 +9,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { notificationCopy as copy } from "../../lib/i18n/messages/notifications.js";
 import { serverText } from "../../lib/server-messages.js";
 import { deviceDisplayName, formatDeviceTime } from "./device-labels.js";
+import NotificationPreferences from "./NotificationPreferences.jsx";
 
 function deviceTimes(entry) {
   // The registration always names its day; a delivery today needs only the time.
@@ -22,7 +23,7 @@ function deviceTimes(entry) {
     .join(" · ");
 }
 
-function DeviceRow({ entry, name, current, busy, error, onRemove }) {
+function DeviceRow({ entry, name, current, busy, error, onRemove, onSettings }) {
   return (
     <div
       className="list-row two-line notification-device"
@@ -49,6 +50,15 @@ function DeviceRow({ entry, name, current, busy, error, onRemove }) {
       <button
         type="button"
         className="button secondary compact"
+        aria-label={copy.deviceSettingsNamed(name)}
+        disabled={busy}
+        onClick={onSettings}
+      >
+        {copy.deviceSettings}
+      </button>
+      <button
+        type="button"
+        className="button secondary compact"
         aria-label={copy.removeNamed(name)}
         disabled={busy}
         onClick={onRemove}
@@ -59,11 +69,27 @@ function DeviceRow({ entry, name, current, busy, error, onRemove }) {
   );
 }
 
+function DevicePreferences({ entry, state, name, onClose }) {
+  const current = entry.deviceId === state.deviceId;
+  return (
+    <NotificationPreferences
+      entry={entry}
+      name={name}
+      // Quiet hours count in the device's own time zone; this device saves its current one.
+      zone={current ? state.timeZone : entry.preferences?.timeZone}
+      onSave={state.savePreferences}
+      onClose={onClose}
+    />
+  );
+}
+
 // Registered devices; this browser's entry unregisters at once (as turning
 // notifications off does), any other device after a confirmation.
 export default function DeviceList({ state }) {
   const { resource, action } = state;
   const [pending, setPending] = useState(null);
+  // The device whose notification settings are open.
+  const [editing, setEditing] = useState(null);
   const subscriptions = resource.data?.subscriptions || [];
   const nameOf = (entry) =>
     deviceDisplayName(entry, {
@@ -92,10 +118,19 @@ export default function DeviceList({ state }) {
               busy={action.busy}
               error={current ? "" : state.errorFor(entry.id)}
               onRemove={() => (current ? state.remove(entry) : setPending(entry))}
+              onSettings={() => setEditing(entry.id)}
             />
           );
         })}
       </ListCard>
+      {editing && subscriptions.some((entry) => entry.id === editing) && (
+        <DevicePreferences
+          entry={subscriptions.find((entry) => entry.id === editing)}
+          state={state}
+          name={nameOf(subscriptions.find((entry) => entry.id === editing))}
+          onClose={() => setEditing(null)}
+        />
+      )}
       <Sheet
         open={Boolean(pending)}
         title={copy.removeTitle}

@@ -1,6 +1,4 @@
 import { Router } from "express";
-import { serverMessages } from "../../lib/i18n/de.js";
-import { problem } from "../../lib/storage.js";
 export function notificationsRoutes({ notifications, audit }) {
   const router = Router();
   const record = (action, id, outcome = "success") =>
@@ -28,10 +26,9 @@ export function notificationsRoutes({ notifications, audit }) {
     res.json(result);
   });
   // A visible page names its view, so pushes about it are held back (push-presence.js).
-  // Nothing is stored or audited.
+  // Nothing is stored or audited; reports beyond the rate limit are ignored quietly.
   router.post("/notifications/presence", (req, res) => {
-    if (!notifications.reportPresence(req.body?.route))
-      throw problem(serverMessages.notifications.presenceRateLimit, 429);
+    notifications.reportPresence(req.body?.route);
     res.status(204).end();
   });
   router.post("/notifications/test", async (req, res) => {

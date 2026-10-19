@@ -18,7 +18,6 @@ export const inboxCopy = {
   empty: "Nichts wartet auf dich.",
   emptyTab: "In diesem Bereich wartet nichts auf dich.",
   select: "Wähle einen Eintrag, um ihn zu beantworten.",
-  back: "Eingang",
   openContext: "Im Kontext öffnen",
   types: {
     question: "Frage",
