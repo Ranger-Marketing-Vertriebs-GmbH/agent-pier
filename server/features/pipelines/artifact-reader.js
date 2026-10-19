@@ -2,7 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { containedFile } from "./stage-verdict.js";
 import { privatePipelinePath } from "./private-paths.js";
-import { stageReportPath } from "./stage-reports.js";
+import { REPORT_READ_LIMIT, reportChanged, stageReportPath } from "./stage-reports.js";
 const deny = new Set([
   ".git",
   ".git-credentials",
@@ -37,14 +37,19 @@ export function artifactText(run, nodeId, file) {
     .some((a) => a.verdict?.artifacts?.some((f) => f.path === file));
   if (!declared) throw problem(serverMessages.pipelines.artifactNotDeclared, 404);
   // The run's report area is the only readable part of the private .pipeline/ tree.
+  const report = stageReportPath(run, nodeId, file);
   if (
-    (privatePipelinePath(file) && !stageReportPath(run, nodeId, file)) ||
+    (privatePipelinePath(file) && !report) ||
     file.split("/").some((part) => deny.has(part.toLowerCase()))
   )
     throw problem(serverMessages.pipelines.artifactPathPrivate, 403);
   try {
-    const { text, truncated } = containedFile(run.workingDir, file, 2 * 1024 * 1024);
-    return { text, truncated };
+    const read = containedFile(run.workingDir, file, REPORT_READ_LIMIT);
+    return {
+      text: read.text,
+      truncated: read.truncated,
+      ...(report && reportChanged(run, nodeId, file, read) ? { changed: true } : {}),
+    };
   } catch (e) {
     if (e.code === "ENOENT")
       throw problem(serverMessages.pipelines.artifactNotFound, 404);

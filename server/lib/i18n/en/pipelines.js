@@ -50,6 +50,7 @@ export const pipelines = Object.freeze({
   verdictUnreadable: "Verdict could not be read safely.",
   invalidTurn: "Invalid pipeline turn.",
   unsafeVerdictDirectory: "Unsafe pipeline verdict directory.",
+  unsafeReportDirectory: "Unsafe pipeline report directory.",
   invalidVerificationReceipt: "Invalid verification receipt.",
   unsafeVerificationDirectory: "Unsafe verification job directory.",
   invalidVerificationPlan: "Invalid verification plan.",

@@ -74,7 +74,11 @@ export function pipelineRunRoutes({ pipelines }) {
     if (typeof req.query.path !== "string")
       throw problem(serverMessages.pipelines.artifactPathRequired);
     const result = pipelines.artifact(req.params.id, req.params.nodeId, req.query.path);
-    res.json({ content: result.text, truncated: result.truncated });
+    res.json({
+      content: result.text,
+      truncated: result.truncated,
+      ...(result.changed ? { changed: true } : {}),
+    });
   });
   router.get(`${node}/diff`, async (req, res) =>
     res.json(await pipelines.diff(req.params.id, req.params.nodeId)),

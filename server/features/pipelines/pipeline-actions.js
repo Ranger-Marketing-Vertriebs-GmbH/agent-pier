@@ -3,6 +3,7 @@ import { problem } from "../../lib/storage.js";
 import { activeNode, currentAttempt, outgoing, terminal } from "./graph-navigation.js";
 import { advance, conclude, launchStage, loopBack } from "./execution-stage.js";
 import { readVerdict } from "./stage-verdict.js";
+import { recordReportDigests } from "./stage-reports.js";
 export function requireLiveRun(run) {
   if (run.imported?.historyOnly)
     throw problem(serverMessages.pipelines.importedHistoryReadOnly, 409);
@@ -153,6 +154,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
     node.status = "running";
     node.verdict = found.verdict;
     attempt.verdict = found.verdict;
+    recordReportDigests(run, attempt);
     attempt.quiesced = true;
     run.pendingConclusion = { nodeId: node.id, verdict: found.verdict };
     delete node.failReason;

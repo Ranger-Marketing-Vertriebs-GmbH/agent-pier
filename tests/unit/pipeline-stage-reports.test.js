@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import {
   reportDirectory,
   prepareReportDirectory,
   stageReportPath,
   latestStageReports,
+  recordReportDigests,
 } from "../../server/features/pipelines/stage-reports.js";
 import { artifactText } from "../../server/features/pipelines/artifact-reader.js";
 import { privatePipelinePath } from "../../server/features/pipelines/private-paths.js";
@@ -46,17 +49,23 @@ test("report directories are scoped per stage and attempt inside the private are
     ["review", ".."],
   ])
     assert.throws(() => reportDirectory(nodeId, attemptId), { status: 400 });
+  // Follow-up turns of an attempt get their own subdirectory.
+  assert.equal(reportDirectory("review", "a1", "t2"), ".pipeline/reports/review/a1/t2");
+  assert.throws(() => reportDirectory("review", "a1", "../t"), { status: 400 });
 });
 
 test("the report directory is created privately and refuses planted links", (t) => {
   const dir = workdir(t);
-  const relative = prepareReportDirectory(dir, "review", "a1");
+  const relative = prepareReportDirectory(dir, reportDirectory("review", "a1"));
   assert.equal(relative, ".pipeline/reports/review/a1");
   assert.equal(fs.statSync(path.join(dir, relative)).isDirectory(), true);
-  assert.equal(prepareReportDirectory(dir, "review", "a1"), relative);
+  assert.equal(prepareReportDirectory(dir, reportDirectory("review", "a1")), relative);
   const other = workdir(t);
   fs.symlinkSync(other, path.join(dir, ".pipeline/reports/linked"));
-  assert.throws(() => prepareReportDirectory(dir, "linked", "a1"), { status: 409 });
+  assert.throws(() => prepareReportDirectory(dir, reportDirectory("linked", "a1")), {
+    status: 409,
+    message: serverMessages.pipelines.unsafeReportDirectory,
+  });
   assert.deepEqual(fs.readdirSync(other), []);
 });
 
@@ -86,7 +95,7 @@ test("only files inside this stage's recorded report directories count as report
 
 test("declared reports are readable while verdicts, turn files and other private files stay denied", (t) => {
   const dir = workdir(t);
-  const reportDir = prepareReportDirectory(dir, "review", "a1");
+  const reportDir = prepareReportDirectory(dir, reportDirectory("review", "a1"));
   const files = {
     report: `${reportDir}/REVIEW.md`,
     verdict: ".pipeline/turns/turn-a1/verdict.json",
@@ -122,7 +131,7 @@ test("declared reports are readable while verdicts, turn files and other private
 
 test("report reads keep the containment, symlink and size rules", (t) => {
   const dir = workdir(t);
-  const reportDir = prepareReportDirectory(dir, "review", "a1");
+  const reportDir = prepareReportDirectory(dir, reportDirectory("review", "a1"));
   write(dir, ".pipeline/turns/t/verdict.json", "{}");
   fs.symlinkSync(
     path.join(dir, ".pipeline/turns/t/verdict.json"),
@@ -189,4 +198,53 @@ test("seed reviewers write their reports into the stage report directory", () =>
       roles[key],
       new RegExp(`${file.replace(".", "\\.")} in the stage report directory`),
     );
+});
+
+test("a newer round without reports supersedes an earlier round's report", () => {
+  const report = { path: ".pipeline/reports/review/r1/REVIEW.md" };
+  const run = {
+    executionLog: [attempt("review", "r1", [report]), attempt("review", "r2", [])],
+  };
+  assert.deepEqual(latestStageReports(run), []);
+  // An unfinished newer round does not hide the finished one.
+  run.executionLog[1].finishedAt = undefined;
+  assert.deepEqual(latestStageReports(run), [
+    {
+      nodeId: "review",
+      attemptId: "r1",
+      reportDir: ".pipeline/reports/review/r1",
+      reports: [report],
+    },
+  ]);
+});
+
+test("a report rewritten after its turn finished is flagged as changed", (t) => {
+  const dir = workdir(t);
+  const reportDir = prepareReportDirectory(dir, reportDirectory("review", "a1"));
+  const file = `${reportDir}/REVIEW.md`;
+  write(dir, file, "original findings");
+  write(dir, "README.md", "repository file");
+  const entry = attempt("review", "a1", [{ path: file }, { path: "README.md" }]);
+  const run = { workingDir: dir, nodes: [{ id: "review" }], executionLog: [entry] };
+  recordReportDigests(run, entry);
+  assert.deepEqual(entry.reportDigests, {
+    [file]: {
+      size: 17,
+      sha256: createHash("sha256").update("original findings").digest("hex"),
+    },
+  });
+  assert.deepEqual(artifactText(run, "review", file), {
+    text: "original findings",
+    truncated: false,
+  });
+  write(dir, file, "rewritten findings");
+  assert.deepEqual(artifactText(run, "review", file), {
+    text: "rewritten findings",
+    truncated: false,
+    changed: true,
+  });
+  write(dir, file, "original findings");
+  assert.equal(artifactText(run, "review", file).changed, undefined);
+  // Repository files are tracked by Git checkpoints, not by report digests.
+  assert.equal(artifactText(run, "review", "README.md").changed, undefined);
 });
