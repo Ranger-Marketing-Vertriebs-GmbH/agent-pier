@@ -4,7 +4,8 @@ import { readFile, readdir, writeFile } from "node:fs/promises";
 // The translation lock records, per message key, a hash of the German source and
 // of the English translation at the last review (`npm run i18n:confirm`). When the
 // German text changes but the English one still matches the lock, the English
-// translation was probably not updated. See AGENTS.md.
+// translation was probably not updated. Any other key that is missing, differs or
+// left the catalogs still needs a review and a confirmation. See AGENTS.md.
 
 const root = new URL("../", import.meta.url);
 export const lockPaths = {
@@ -87,9 +88,69 @@ export function findUntranslated(german, english, lock) {
 
 /** Keys whose lock entry is missing or differs; `npm run i18n:confirm` refreshes them. */
 export function findStale(german, english, lock) {
+  const { added, changed, removed } = diffLock(german, english, lock);
+  return [...added, ...changed, ...removed].sort();
+}
+
+/**
+ * Sorted keys the lock lacks (`added`), records with other texts (`changed`) or
+ * still lists after they left a catalog (`removed`).
+ */
+export function diffLock(german, english, lock) {
   const current = createLock(german, english);
-  const keys = new Set([...Object.keys(current), ...Object.keys(lock)]);
-  return [...keys].filter((key) => current[key] !== lock[key]).sort();
+  const added = [];
+  const changed = [];
+  for (const key of Object.keys(current).sort()) {
+    if (typeof lock[key] !== "string") added.push(key);
+    else if (lock[key] !== current[key]) changed.push(key);
+  }
+  const removed = Object.keys(lock)
+    .filter((key) => !(key in current))
+    .sort();
+  return { added, changed, removed };
+}
+
+export function describeStale({ added, changed, removed }, lockPath) {
+  const section = (title, keys) =>
+    keys.length ? [`${title}:`, ...keys.map((key) => `  ${key}`)] : [];
+  return [
+    `${lockPath} does not match the catalogs.`,
+    ...section("New keys without a reviewed translation", added),
+    ...section("Keys whose German or English text changed since review", changed),
+    ...section("Keys no longer in the catalogs", removed),
+    "Review each German and English pair, then run `npm run i18n:confirm` and commit the lock.",
+  ].join("\n");
+}
+
+/** True when `key` is selected by a full key, a key prefix or a web catalog name. */
+export function matchesSelection(key, selection) {
+  if (!selection.length) return true;
+  return selection.some(
+    (item) =>
+      key === item ||
+      key.startsWith(`${item}.`) ||
+      key.startsWith(`${item}:`) ||
+      (item.endsWith(":") && key.startsWith(item)),
+  );
+}
+
+/**
+ * The lock after confirming the selected keys: selected keys take their current
+ * entry or leave the lock, the rest keep their recorded entry.
+ */
+export function confirmEntries(german, english, lock, selection = []) {
+  const current = createLock(german, english);
+  const next = { ...lock };
+  const diff = diffLock(german, english, lock);
+  const pick = (keys) => keys.filter((key) => matchesSelection(key, selection));
+  const confirmed = {
+    added: pick(diff.added),
+    changed: pick(diff.changed),
+    removed: pick(diff.removed),
+  };
+  for (const key of [...confirmed.added, ...confirmed.changed]) next[key] = current[key];
+  for (const key of confirmed.removed) delete next[key];
+  return { lock: next, confirmed };
 }
 
 export function describeUntranslated(found) {
@@ -151,13 +212,18 @@ export async function readLock(kind) {
   }
 }
 
-/** Rewrites the lock of `kind` from the current catalogs; returns the changed keys. */
-export async function confirmLock(kind) {
+/**
+ * Records the current texts of the selected keys (all when `selection` is empty) in
+ * the lock of `kind`; returns the added, changed and removed keys.
+ */
+export async function confirmLock(kind, selection = []) {
   const { german, english } = await loadCatalogs(kind);
-  const changed = findStale(german, english, await readLock(kind));
-  await writeFile(
-    new URL(lockPaths[kind], root),
-    serializeLock(createLock(german, english)),
+  const { lock, confirmed } = confirmEntries(
+    german,
+    english,
+    await readLock(kind),
+    selection,
   );
-  return changed;
+  await writeFile(new URL(lockPaths[kind], root), serializeLock(lock));
+  return confirmed;
 }
