@@ -20,6 +20,7 @@ export function stagesToGraph(stages) {
         to: stage.loopBackTo,
         condition: "fail",
         maxIterations: stage.maxIterations,
+        ...(stage.continueSession ? { continueSession: true } : {}),
       });
   });
   return { entry: stages[0]?.key || "", nodes, edges };
@@ -32,7 +33,7 @@ export function graphToStages(graph) {
     hasExtraKeys(graph, ["entry", "nodes", "edges"]) ||
     graph.nodes.some((node) => hasExtraKeys(node, ["id", "kind", "profileId"])) ||
     graph.edges.some((edge) =>
-      hasExtraKeys(edge, ["from", "to", "condition", "maxIterations"]),
+      hasExtraKeys(edge, ["from", "to", "condition", "maxIterations", "continueSession"]),
     )
   )
     return null;
@@ -53,6 +54,7 @@ export function graphToStages(graph) {
       sideEffectIds: {},
       loopBackTo: "",
       maxIterations: 2,
+      continueSession: false,
     };
     const loops = graph.edges.filter((e) => e.from === id && e.condition === "fail");
     if (loops.length > 1) return null;
@@ -60,6 +62,7 @@ export function graphToStages(graph) {
       if (!stages.some((s) => s.key === loops[0].to)) return null;
       stage.loopBackTo = loops[0].to;
       stage.maxIterations = loops[0].maxIterations;
+      stage.continueSession = loops[0].continueSession === true;
     }
     let tail = id;
     for (;;) {

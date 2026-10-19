@@ -3,9 +3,32 @@ import Icon from "../../components/Icon.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { chipTone } from "../../components/status-tones.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
-import { formatTimestamp } from "../../lib/i18n/index.js";
+import { formatNumber, formatTimestamp } from "../../lib/i18n/index.js";
 import { Findings } from "./Verdict.jsx";
 import { stageName } from "./run-stages.js";
+import { repairSessionLabel, tokenTotal } from "./run-codes.js";
+
+// The repair of a round: how its session ran, and the tokens of every turn it took,
+// including a resumed turn that fell back to a new session.
+function roundRepair(run, round) {
+  const log = Array.isArray(run.executionLog) ? run.executionLog : [];
+  const opened = log.filter(
+    (entry) =>
+      entry.nodeId === round.toNodeId &&
+      entry.repair?.edge === round.edge &&
+      entry.repair?.round === round.round,
+  );
+  if (!opened.length) return "";
+  const attempts = new Set(opened.map((entry) => entry.attemptId));
+  const totals = log
+    .filter((entry) => attempts.has(entry.attemptId))
+    .map((entry) => tokenTotal(entry.usage))
+    .filter((total) => total !== null);
+  const session = repairSessionLabel(opened.at(-1).repair);
+  return totals.length
+    ? `${session} · ${copy.tokenCount(formatNumber(totals.reduce((a, b) => a + b, 0)))}`
+    : session;
+}
 
 // Answer counts of a repair turn, e.g. "Fixed 2 · Disputed 1".
 function answerCounts(responses) {
@@ -62,6 +85,7 @@ export default function LoopRounds({ run }) {
           const findings = stages.flatMap((stage) => stage.findings || []);
           const failed = stages.some((stage) => stage.result === "fail");
           const answers = answerCounts(round.responses);
+          const repair = roundRepair(run, round);
           const row = (
             <>
               <StatusDot
@@ -73,6 +97,7 @@ export default function LoopRounds({ run }) {
               <span>{copy.roundPath(name(round.fromNodeId), name(round.toNodeId))}</span>
               <span>{`${copy.findings} · ${findings.length}`}</span>
               {answers && <span>{answers}</span>}
+              {repair && <span>{repair}</span>}
               <small>{formatTimestamp(round.at)}</small>
             </>
           );

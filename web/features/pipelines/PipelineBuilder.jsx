@@ -55,6 +55,7 @@ function useStageDraft(initial) {
           createPr: false,
           loopBackTo: "",
           maxIterations: 2,
+          continueSession: false,
         },
       ]);
       setSelectedKey(key);

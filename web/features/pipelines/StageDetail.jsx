@@ -2,7 +2,7 @@ import React from "react";
 import StatusDot from "../../components/StatusDot.jsx";
 import { chipTone } from "../../components/status-tones.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
-import { formatTimestamp } from "../../lib/i18n/index.js";
+import { formatNumber, formatTimestamp } from "../../lib/i18n/index.js";
 import { serverText } from "../../lib/server-messages.js";
 import VerificationStatus, { isVerifying } from "./VerificationStatus.jsx";
 import EvidenceTiles, {
@@ -15,7 +15,13 @@ import GateDecision from "./GateDecision.jsx";
 import RunUsage from "./RunUsage.jsx";
 import { Findings, VerdictSummary } from "./Verdict.jsx";
 import { stageName, stageStatus, stageTone } from "./run-stages.js";
-import { attemptKindLabel, failReasonLabel, gateDecisionLabel } from "./run-codes.js";
+import {
+  attemptKindLabel,
+  failReasonLabel,
+  gateDecisionLabel,
+  repairSessionLabel,
+  tokenTotal,
+} from "./run-codes.js";
 
 function Block({ title, children }) {
   return (
@@ -69,6 +75,7 @@ function StageAttempts({ run, node }) {
               <StatusDot tone={chipTone(tone)} className="run-dot" />
               <strong>{copy.attemptNumber(index + 1)}</strong>
               <span>{attemptKindLabel(entry.kind)}</span>
+              {entry.repair && <span>{repairSessionLabel(entry.repair)}</span>}
               <span>
                 {entry.verdict
                   ? `${copy.verdict}: ${entry.verdict.result === "pass" ? copy.pass : copy.fail}`
@@ -76,6 +83,9 @@ function StageAttempts({ run, node }) {
                     ? failReasonLabel(entry.failReason)
                     : ""}
               </span>
+              {tokenTotal(entry.usage) !== null && (
+                <span>{copy.tokenCount(formatNumber(tokenTotal(entry.usage)))}</span>
+              )}
               <small>
                 {formatTimestamp(entry.startedAt)}
                 {entry.finishedAt && ` — ${formatTimestamp(entry.finishedAt)}`}
