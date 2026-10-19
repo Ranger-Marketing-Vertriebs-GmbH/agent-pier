@@ -32,7 +32,9 @@ export const mcpServers = Object.freeze({
   oauthStateInvalid:
     "This login has expired, was replaced or is unknown. Start the login again.",
   oauthNoDynamicRegistration:
-    "This provider does not support automatic client registration. Use a token in the headers instead.",
+    "This provider does not support automatic client registration. It needs a pre-registered client or a client metadata document, which AgentPier cannot set up yet. If the provider offers this server as an MCP package, for example with an API key, add the package instead.",
+  oauthResourceMismatch: (resource) =>
+    `The provider gives ${resource} as the address of this server. Enter that address for the server and start the login again.`,
   oauthRedirectRejected: (redirect) =>
     `The provider rejected the redirect address ${redirect}.`,
   oauthSessionMissing: "The login session is no longer valid. Start the login again.",

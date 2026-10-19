@@ -5,6 +5,7 @@ import {
   pendingLoginMs,
 } from "../../server/features/mcp-servers/mcp-oauth-logins.js";
 import { McpCliError } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import {
   local,
   oauthFixture as setup,
@@ -249,6 +250,26 @@ test("CLI failures at the start map to stable codes with catalog messages", asyn
     assert.ok(error.message.includes(redirect));
     return true;
   });
+});
+
+test("a resource mismatch at the start names the provider's resource", async (t) => {
+  const resource = "https://api.us.example.test/v1/mcp";
+  const f = setup(t, {
+    startLogin: Object.assign(
+      new McpCliError("resource-mismatch", "OpenClaw MCP login failed"),
+      { resource },
+    ),
+  });
+  await assert.rejects(f.oauth.start(f.docs.id, { requestOrigin: local }), (error) => {
+    assert.equal(error.code, "resource-mismatch");
+    assert.equal(error.status, 502);
+    assert.equal(
+      error.message,
+      serverMessages.mcpServers.oauthResourceMismatch(resource),
+    );
+    return true;
+  });
+  assert.equal(f.servers.oauthMemory(f.docs.id).loginRedirect, null);
 });
 
 test("a changed redirect logs out before the next login registers again", async (t) => {

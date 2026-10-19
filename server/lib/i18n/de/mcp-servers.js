@@ -31,7 +31,9 @@ export const mcpServers = {
   oauthStateInvalid:
     "Diese Anmeldung ist abgelaufen, wurde ersetzt oder ist unbekannt. Bitte die Anmeldung neu starten.",
   oauthNoDynamicRegistration:
-    "Dieser Anbieter unterstützt keine automatische Client-Registrierung. Bitte stattdessen einen Token in den Headern verwenden.",
+    "Dieser Anbieter unterstützt keine automatische Client-Registrierung. Er verlangt einen vorab registrierten Client oder ein Client-Metadatendokument, das AgentPier noch nicht einrichten kann. Bietet der Anbieter diesen Server als MCP-Paket an, etwa mit API-Schlüssel, bitte stattdessen das Paket hinzufügen.",
+  oauthResourceMismatch: (resource) =>
+    `Der Anbieter nennt für diesen Server die Adresse ${resource}. Bitte diese Adresse beim Server eintragen und die Anmeldung erneut starten.`,
   oauthRedirectRejected: (redirect) =>
     `Der Anbieter hat die Rücksprungadresse ${redirect} abgelehnt.`,
   oauthSessionMissing:

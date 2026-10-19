@@ -171,6 +171,7 @@ test("output beyond the cap fails without hanging", async (t) => {
 test("known OpenClaw failures map to stable codes", async (t) => {
   const cases = {
     "fail-dcr": "no-dynamic-registration",
+    "fail-resource": "resource-mismatch",
     "fail-redirect": "redirect-rejected",
     "fail-session": "session-missing",
     "fail-unknown": "server-unknown",
@@ -187,6 +188,32 @@ test("known OpenClaw failures map to stable codes", async (t) => {
     cli.completeLogin("docs", "abc"),
     /Missing MCP OAuth authorization/,
   );
+});
+
+test("a resource mismatch names the provider's resource without its secrets", async (t) => {
+  const resourceOf = async (mode) => {
+    const { cli } = setup(t, mode);
+    let resource;
+    await assert.rejects(cli.startLogin("docs"), (error) => {
+      assert.equal(error.code, "resource-mismatch");
+      resource = error.resource;
+      return true;
+    });
+    return resource;
+  };
+  // A long host name stays readable.
+  assert.equal(
+    await resourceOf("fail-resource"),
+    "https://api.us-central.example-provider.test/v1/mcp",
+  );
+  // No query, fragment or key-like path segment reaches the owner.
+  assert.equal(
+    await resourceOf("fail-resource-query"),
+    "https://api.us.example.test/s/[redacted]/mcp",
+  );
+  // A reason without a usable URL stays the generic failure.
+  const { cli } = setup(t, "fail-resource-invalid");
+  await rejects(cli.startLogin("docs"), "cli-failed");
 });
 
 test("a call whose lease could not start on a locked database is repeated", async (t) => {

@@ -43,6 +43,14 @@ const url =
   `&state=${state}&resource=http%3A%2F%2F127.0.0.1%3A41234%2Fmcp`;
 
 const out = (text) => process.stdout.write(`${text}\n`);
+// The protected resource a "fail-resource*" mode reports instead of the server URL.
+const resources = {
+  "fail-resource": "https://api.us-central.example-provider.test/v1/mcp",
+  "fail-resource-query":
+    "https://api.us.example.test/s/AbCdEfGhIjKlMnOpQrStUvWxYz012345/mcp?key=secret#x",
+  "fail-resource-invalid": "not-a-url",
+};
+
 const fail = (text) => {
   process.stderr.write(`${text}\n`);
   process.exit(1);
@@ -187,7 +195,18 @@ else if (mode === "fail-generic")
   fail(`Error: something broke for ${rest.join(" ")} Bearer abc.def.ghi`);
 else if (mode === "fail-dcr")
   fail("Reason: Incompatible auth server: does not support dynamic client registration");
-else if (mode === "fail-redirect")
+else if (resources[mode]) {
+  // OpenClaw 2026.10.3 with OPENCLAW_DEBUG: the MCP SDK's RFC 9728 resource check.
+  const reason = `Protected resource ${resources[mode]} does not match expected https://api.example.test/v1/mcp (or origin)`;
+  fail(
+    [
+      "[openclaw] The CLI command failed.",
+      `[openclaw] Reason: ${reason}`,
+      "[openclaw] Stack:",
+      `[openclaw] Error: ${reason}`,
+    ].join("\n"),
+  );
+} else if (mode === "fail-redirect")
   fail(
     'Reason: Dynamic client registration failed: invalid_client_metadata "redirect_uri"',
   );

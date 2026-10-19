@@ -6,7 +6,7 @@ export const mcpOAuthCopy = {
     oauth: "OAuth",
   },
   oauthHint:
-    "Melde dich nach dem Speichern mit „Anmelden“ in der Serverliste an. Der Anbieter muss die automatische Client-Registrierung unterstützen; sonst lege ein Token in den Headern ab.",
+    "Melde dich nach dem Speichern mit „Anmelden“ in der Serverliste an. Der Anbieter muss die automatische Client-Registrierung unterstützen; sonst lege ein Token in den Headern ab, sofern der Anbieter eines annimmt, oder nutze ein MCP-Paket des Servers.",
   oauthEditHint:
     "Wenn du Name oder Adresse änderst oder zu Headern wechselst, wird die aktuelle OAuth-Anmeldung entfernt.",
   advanced: "Erweitert",
@@ -73,7 +73,9 @@ export const mcpOAuthCopy = {
     "cli-timeout":
       "Der Abschluss der Anmeldung hat zu lange gedauert. Bitte erneut versuchen.",
     "no-dynamic-registration":
-      "Dieser Anbieter unterstützt keine automatische Client-Registrierung. Nutze stattdessen ein Token in den Headern.",
+      "Dieser Anbieter unterstützt keine automatische Client-Registrierung. Er verlangt einen vorab registrierten Client oder ein Client-Metadatendokument, das AgentPier noch nicht einrichten kann. Bietet der Anbieter diesen Server als MCP-Paket an, etwa mit API-Schlüssel, füg stattdessen das Paket hinzu.",
+    "resource-mismatch":
+      "Der Anbieter nennt für diesen Server eine andere Adresse. Trag die Adresse des Anbieters beim Server ein und starte die Anmeldung erneut.",
     "redirect-rejected": (redirect) =>
       `Der Anbieter hat die Weiterleitungsadresse ${redirect} abgelehnt.`,
     "session-missing":

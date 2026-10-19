@@ -16,6 +16,7 @@ export const mcpCliErrorCodes = Object.freeze([
   "cli-failed",
   "url-missing",
   "no-dynamic-registration",
+  "resource-mismatch",
   "redirect-rejected",
   "session-missing",
   "server-unknown",
@@ -104,15 +105,41 @@ function reasonOf(stderr) {
   return reason.replace(/^(\[openclaw\]\s*)?(Error|Reason):\s*/i, "");
 }
 
+// The MCP SDK refuses protected resource metadata (RFC 9728) whose `resource` lies
+// outside the configured server URL, for example on another host of the provider.
+const resourceMismatch = /\bProtected resource (\S+) does not match expected \S+/;
+
+/**
+ * The resource a provider named instead of the server URL: an HTTP(S) address
+ * without query or fragment whose path is redacted like a reason (a host name is
+ * not secret, but a long one would look like a key), or null.
+ */
+function mismatchedResource(stderr, secrets) {
+  const match = resourceMismatch.exec(String(stderr));
+  let url;
+  try {
+    url = new URL(match?.[1] ?? "");
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  return `${url.origin}${redact(url.pathname, secrets)}`.slice(0, reasonLength);
+}
+
 function failure(command, exitCode, stderr, secrets) {
   if (!Number.isInteger(exitCode))
     return new McpCliError("cli-failed", `OpenClaw MCP ${command} could not run.`);
-  const code = known.find(([pattern]) => pattern.test(stderr))?.[1] || "cli-failed";
+  const resource = mismatchedResource(stderr, secrets);
+  const code = resource
+    ? "resource-mismatch"
+    : known.find(([pattern]) => pattern.test(stderr))?.[1] || "cli-failed";
   const reason = redact(reasonOf(stderr), secrets).slice(0, reasonLength);
-  return new McpCliError(
+  const error = new McpCliError(
     code,
     `OpenClaw MCP ${command} failed (exit ${exitCode})${reason ? `: ${reason}` : "."}`,
   );
+  if (resource) error.resource = resource;
+  return error;
 }
 
 const checkedName = (name) => {
