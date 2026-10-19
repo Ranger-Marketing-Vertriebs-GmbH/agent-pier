@@ -13,6 +13,7 @@ export const assistantRuntimePaths = [
   "server/features/operations/releases.js",
   "server/lib/storage.js",
   "scripts/*assistant*.mjs",
+  "scripts/assistant-contract-shards.json",
   "scripts/assistant-runtime-paths.mjs",
   "scripts/test-files.mjs",
   "scripts/test-runner.mjs",

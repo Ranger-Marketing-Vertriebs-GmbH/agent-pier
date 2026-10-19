@@ -3082,7 +3082,9 @@ for SSH), never in a sender bot's session, and routes it to `AgentShares`
 The `Assistant runtime` workflow runs the opt-in native contracts in a
 `native-contracts` job (Ubuntu x64 on pull requests touching assistants, macOS arm64
 after the merge as well; nightly and before a release also Ubuntu arm64 and macOS
-x64). It provisions the pinned runtime with
+x64). Each runner splits the contracts into balanced shards (four, six on macOS
+x64) with `scripts/assistant-contract-shards.mjs`, whose JSON file lists every
+contract and its recorded duration. Each shard provisions the pinned runtime with
 `scripts/provision-assistant-contracts.mjs`, uses simulated model endpoints, accounts
 and channels, needs no secrets, and fails if any contract skips. It also points the
 compiled web tools contract at the runner's preinstalled Google Chrome and fails
