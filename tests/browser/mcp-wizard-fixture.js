@@ -13,6 +13,15 @@ export const phone = {
 /** A server as POST /mcp-servers answers it, built from the request body. */
 export function createdServer(state, body) {
   const stdio = body.transport === "stdio";
+  // Like the store: a local server with agent placeholders reports where it uses them.
+  const placeholderEnv = Object.fromEntries(
+    Object.entries(body.env ?? {}).filter(([, value]) => value.includes("{agent.")),
+  );
+  const placeholders =
+    stdio &&
+    (Object.keys(placeholderEnv).length > 0 ||
+      (body.args ?? []).some((arg) => arg.includes("{agent.")) ||
+      (body.cwd ?? "").includes("{agent."));
   return {
     id: `s${state.nextId++}`,
     name: body.name,
@@ -33,12 +42,26 @@ export function createdServer(state, body) {
       : {}),
     headerNames: Object.keys(body.headers ?? {}),
     envNames: Object.keys(body.env ?? {}),
+    ...(placeholders
+      ? {
+          agentPlaceholders: true,
+          placeholders: { args: [], cwd: null, env: placeholderEnv },
+          agentFolders: [],
+        }
+      : {}),
     clis: [],
-    cliSupport: {
-      claude: { supported: !(stdio && body.cwd) },
-      codex: { supported: body.transport !== "sse" },
-      opencode: { supported: true },
-    },
+    cliSupport: placeholders
+      ? Object.fromEntries(
+          ["claude", "codex", "opencode"].map((cli) => [
+            cli,
+            { supported: false, reason: "placeholder" },
+          ]),
+        )
+      : {
+          claude: { supported: !(stdio && body.cwd) },
+          codex: { supported: body.transport !== "sse" },
+          opencode: { supported: true },
+        },
     cliStatus: {},
     users: { agents: [], clis: [] },
   };

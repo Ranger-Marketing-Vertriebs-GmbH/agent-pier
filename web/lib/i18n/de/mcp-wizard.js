@@ -111,7 +111,29 @@ export const mcpWizardCopy = {
       duplicate: "Dieser Name kommt doppelt vor.",
       tooLong: "Dieser Wert ist zu lang (höchstens 16 KiB).",
       lineBreak: "Ein Wert darf keine Zeilenumbrüche enthalten.",
+      placeholder:
+        "Nutze {agent.workspace} oder {agent.attachments}, allein oder mit einem Unterordner wie /voice. Ein Ordner . oder .. ist nicht erlaubt.",
+      placeholderRemote:
+        "Agenten-Platzhalter gibt es nur in den Einstellungen eines lokalen Servers.",
     },
+    placeholdersHint:
+      "Ein Pfad kann auf den eigenen Ordner jedes Agenten zeigen: {agent.workspace} oder {agent.attachments}.",
+    placeholdersLabel: "So funktionieren Agenten-Platzhalter",
+    placeholdersFolders:
+      "{agent.workspace} ist der Arbeitsbereich des Agenten, {agent.attachments} der Anhänge-Ordner darin. Ein Unterordner darf folgen, etwa {agent.workspace}/voice. In einem Argument darf fester Text davorstehen, etwa --dir={agent.workspace}.",
+    placeholdersPerAgent:
+      "AgentPier startet den Server für jeden Agenten einzeln und setzt dessen Ordner ein. Kein Agent liest oder schreibt die Dateien eines anderen, und kein gemeinsamer Ordner braucht Zugriff.",
+    placeholdersClis: "Coding-CLIs können keinen Server mit Agenten-Platzhaltern nutzen.",
+    useWorkspace: "Arbeitsbereich des Agenten",
+    useAttachments: "Anhänge des Agenten",
+    useWorkspaceFor: (name) => `Arbeitsbereich des Agenten für ${name} verwenden`,
+    useAttachmentsFor: (name) => `Anhänge-Ordner des Agenten für ${name} verwenden`,
+    placeholderNote: "Jeder Agent bekommt hier seinen eigenen Ordner.",
+    argumentPlaceholder:
+      "Ein Argument nutzt einen Agenten-Platzhalter falsch. Nutze {agent.workspace} oder {agent.attachments}, allein, mit einem Unterordner oder nach festem Text wie --dir=.",
+    cwdPlaceholder:
+      "Nutze hier {agent.workspace} oder {agent.attachments}, allein oder mit einem Unterordner.",
+    useWorkspaceCwd: "Arbeitsbereich des Agenten als Arbeitsordner verwenden",
     argsTitle: "Argumente und Arbeitsordner",
     argsNone: "keine",
     argsHint: "Nur nötig, wenn die Anleitung zusätzliche Argumente nennt.",
@@ -120,7 +142,7 @@ export const mcpWizardCopy = {
       "Dieses Argument braucht einen Wert. Trage ihn ein oder entferne das Argument.",
     addArgument: "Argument hinzufügen",
     removeArgument: (n) => `Argument ${n} entfernen`,
-    cwd: "Arbeitsordner (optional, absoluter Pfad)",
+    cwd: "Arbeitsordner (optional, absoluter Pfad oder Agenten-Platzhalter)",
     cwdNote: "Claude Code kann keinen Server mit Arbeitsordner nutzen.",
   },
   install: {
@@ -231,6 +253,18 @@ export const mcpWizardCopy = {
     toolTimeoutLine: (seconds) => `Tool-Timeout ${seconds} s`,
     noSettings: "Keine Einstellungen",
     nobody: "Noch niemand",
+    agentFoldersTitle: "Agentenordner",
+    agentFoldersHint: "Jeder Agent startet den Server mit seinem eigenen Ordner.",
+    agentFoldersNone: "Noch kein Agent nutzt ihn.",
+    agentFolderStates: {
+      active: "in Gebrauch",
+      pending: "gilt ab der nächsten Änderung oder dem nächsten Start",
+      unsafe: "nicht gestartet: Ein Link oder eine Datei blockiert den Ordner",
+      unavailable: "Agenten sind noch nicht eingerichtet",
+    },
+    agentFolderLine: (name, state) => `${name}: ${state}`,
+    argumentLabel: (n) => `Argument ${n}`,
+    cwdLabel: "Arbeitsordner",
   },
   edit: {
     save: "Änderungen speichern",

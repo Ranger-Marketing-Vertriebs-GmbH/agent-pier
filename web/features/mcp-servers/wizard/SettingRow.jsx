@@ -2,15 +2,29 @@ import React, { useId, useState } from "react";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import FieldError from "../FieldError.jsx";
 import Switch from "../../../components/Switch.jsx";
+import { looksLikePath, parsePlaceholder } from "../agent-placeholders.js";
 import { isSecretName, isWriteSwitch } from "./setting-hints.js";
+
+const folders = [
+  ["{agent.workspace}", "useWorkspace", "useWorkspaceFor"],
+  ["{agent.attachments}", "useAttachments", "useAttachmentsFor"],
+];
 
 /**
  * One setting as a card: its name (typed, or fixed from a guide or the directory),
  * markers, description and value. Secret values are masked with a labelled toggle;
  * `choices` become a select and `format: "boolean"` a switch. Values never leave
- * React memory before the save.
+ * React memory before the save. A local server's setting whose name looks like a path
+ * offers the agent's own folders as placeholders (docs/mcp.md#agent-placeholders).
  */
-export default function SettingRow({ row, hint = {}, problem, onChange, onRemove }) {
+export default function SettingRow({
+  row,
+  hint = {},
+  kind,
+  problem,
+  onChange,
+  onRemove,
+}) {
   const id = useId();
   const [shown, setShown] = useState(false);
   const name = row.name.trim();
@@ -22,6 +36,10 @@ export default function SettingRow({ row, hint = {}, problem, onChange, onRemove
     secret && copy.settings.secret,
   ].filter(Boolean);
   const value = (event) => onChange({ value: event.target.value });
+  const free =
+    !(Array.isArray(hint.choices) && hint.choices.length) && hint.format !== "boolean";
+  const offerFolders = kind === "env" && free && looksLikePath(name);
+  const placeholder = kind === "env" && parsePlaceholder(row.value);
   return (
     <div className="mcp-setting">
       <div className="mcp-setting-head">
@@ -94,6 +112,23 @@ export default function SettingRow({ row, hint = {}, problem, onChange, onRemove
           )}
         </div>
       )}
+      {offerFolders && (
+        <div className="mcp-folder-offer">
+          {folders.map(([template, label, labelFor]) => (
+            <button
+              key={template}
+              type="button"
+              className="button secondary compact"
+              aria-label={copy.settings[labelFor](name || copy.settings.name)}
+              aria-pressed={row.value === template}
+              onClick={() => onChange({ value: template })}
+            >
+              {copy.settings[label]}
+            </button>
+          ))}
+        </div>
+      )}
+      {placeholder && <p className="mcp-hint">{copy.settings.placeholderNote}</p>}
       <FieldError id={errorId} text={problem ? copy.settings.problems[problem] : ""} />
       {isWriteSwitch(name, hint.description) && (
         <p className="mcp-hint mcp-write-switch">{copy.settings.writeSwitch}</p>

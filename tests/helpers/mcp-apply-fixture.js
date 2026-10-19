@@ -107,6 +107,8 @@ export function mcpApplyFixture(t, { now, warn, redirectUrl } = {}) {
     client: gateway.client,
     webTools: { tools: webTools },
     mcp: null,
+    // The Gateway's workspace root, where agent placeholders resolve.
+    paths: { workspaces: path.join(dataDir, "workspaces") },
     status: () => ({ availability: "ready" }),
     close: async () => {},
   });

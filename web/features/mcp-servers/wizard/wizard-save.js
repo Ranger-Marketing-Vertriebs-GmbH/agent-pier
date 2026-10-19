@@ -18,9 +18,10 @@ const fieldsByKey = {
 export function refusedField(error, registry) {
   const packageField = refusalField(error, registry);
   if (packageField) return { field: packageField, text: error.message };
-  if (error?.code === "MCP_SERVER_VALUE_REFERENCE")
+  if (["MCP_SERVER_VALUE_REFERENCE", "MCP_SERVER_PLACEHOLDER"].includes(error?.code))
     return {
       field: error.field,
+      code: error.code,
       names: error.names || [],
       text: error.names?.length
         ? `${error.message} ${mcpServerCopy.referenceNames(error.names.join(", "))}`

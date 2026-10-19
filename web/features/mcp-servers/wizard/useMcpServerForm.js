@@ -8,7 +8,9 @@ import { refusalField } from "../mcp-package-labels.js";
 import { mcpServerStep, mcpServerValues } from "../mcp-server-save.js";
 import { timeoutRefusal } from "../mcp-timeouts.js";
 
-const valueReference = (error) => error?.code === "MCP_SERVER_VALUE_REFERENCE";
+// A reference and a wrong agent placeholder both name the field and the settings.
+const valueReference = (error) =>
+  ["MCP_SERVER_VALUE_REFERENCE", "MCP_SERVER_PLACEHOLDER"].includes(error?.code);
 const nameRefusal = (error) =>
   ["mcpServers.nameTaken", "mcpServers.invalidName"].includes(error?.messageKey);
 
@@ -74,6 +76,7 @@ export default function useMcpServerForm({ entry, data, notifyMcp, navigate }) {
     consumed.current = draft.outcome;
     setFieldError({
       field: failure.field,
+      code: failure.code,
       names: failure.names || [],
       text: failure.names?.length
         ? `${failure.message} ${copy.referenceNames(failure.names.join(", "))}`

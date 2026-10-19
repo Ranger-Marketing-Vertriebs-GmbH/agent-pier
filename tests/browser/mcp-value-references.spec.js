@@ -82,7 +82,9 @@ test("a working directory with a reference is refused at that field", async ({
   await expect(primary(wizard)).toBeEnabled();
   await primary(wizard).click();
   await wizard.getByText(/^Arguments and working directory/).click();
-  const cwd = wizard.getByLabel("Working directory (optional, absolute path)");
+  const cwd = wizard.getByLabel(
+    "Working directory (optional, absolute path or agent placeholder)",
+  );
   await cwd.fill("${HOME}/work");
   await primary(wizard).click();
   await wizard.getByRole("button", { name: "Allow and save" }).click();

@@ -8,7 +8,7 @@ import { mcpPackageCopy } from "../../../lib/i18n/messages/mcp-packages.js";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import { names } from "../../../lib/providers.js";
 import { shellLevel } from "../../assistants/shell-level.js";
-import { cliSupport, clis as allClis } from "../cli-support.js";
+import { cliSupport, cliTarget, clis as allClis } from "../cli-support.js";
 import ConsentCard from "./ConsentCard.jsx";
 import { connectApi } from "./connect-api.js";
 import {
@@ -71,7 +71,7 @@ export function ConnectForm({
   const blocked = mode === "new" && notReady && !installing;
   const locked = mode === "edit" && notReady;
   const diff = connectDiff({ server, clis, agents: chosen, assistants: agentsList });
-  const target = { transport: server.transport, cwd: server.cwd || "" };
+  const target = cliTarget(server);
   const wait = (on) => {
     setWaitingHere(on);
     setWaiting(on);

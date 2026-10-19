@@ -504,6 +504,8 @@ export function connectAssistantServices(graph) {
         mcp: readMcpInputs(mcpServers, {
           redirectUrl: mcpChanges.redirectUrl(),
           extra: githubInputs,
+          // Agent placeholders resolve below the Gateway's own workspace root.
+          workspaces: runtime.paths?.workspaces ?? null,
         }),
         // Each agent's GitHub folder on its shell PATH (agent-github.js shellPaths).
         githubShell: workflows.github.shellPaths(store.listAssistants()),

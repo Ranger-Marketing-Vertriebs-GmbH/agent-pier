@@ -11,6 +11,7 @@ import {
   readMcpInputs,
 } from "./openclaw-config/mcp-servers.js";
 import { applyShell, shellSections } from "./openclaw-config/shell.js";
+import { placeholderViews } from "./mcp-placeholder-view.js";
 import { nativeTools } from "./runtime-config.js";
 import { temporaryMember } from "./team-presentation.js";
 import {
@@ -144,6 +145,24 @@ export class McpChanges {
   list() {
     return this.servers.list();
   }
+  /**
+   * The list with each server's agent placeholders resolved per bound agent
+   * (mcp-placeholder-view.js). An unreadable state leaves the list as it is.
+   */
+  placeholderViews(list) {
+    if (!list.some((server) => server.agentPlaceholders === true)) return list;
+    try {
+      const runtime = this.assistants.runtime;
+      return placeholderViews(list, {
+        profiles: this.assistants.store.listAssistants(),
+        bindings: this.servers.bindingsByTarget("agent"),
+        workspaces: runtime?.paths?.workspaces ?? null,
+        running: runtime?.mcp ?? null,
+      });
+    } catch {
+      return list;
+    }
+  }
   /** `clis`: the coding CLIs the new server is bound to in the same write. */
   create(
     input,
@@ -267,6 +286,7 @@ export class McpChanges {
       const inputs = readMcpInputs(this.servers, {
         redirectUrl: this.redirectUrl(),
         extra: this.extraInputs,
+        workspaces: runtime.paths?.workspaces ?? null,
       });
       if (inputs.unreadable) {
         this.failed({ code: "MCP_STORE_UNREADABLE" });

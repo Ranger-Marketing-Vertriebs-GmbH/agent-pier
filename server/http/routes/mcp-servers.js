@@ -2,6 +2,7 @@ import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { STDIO_CONFIRMATION_REQUIRED } from "../../features/mcp-servers/stdio-confirmation.js";
 import { VALUE_REFERENCE } from "../../features/mcp-servers/value-references.js";
+import { PLACEHOLDER } from "../../features/mcp-servers/agent-placeholders.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
@@ -41,12 +42,12 @@ export function replyStdioConfirmation(response, error) {
 }
 
 /**
- * Answers a value with an environment or file reference with 400, its stable code,
- * the field and the header or environment names; never the value. Returns false for
- * any other error.
+ * Answers a value with an environment or file reference, or a wrong agent
+ * placeholder, with 400, its stable code, the field and the header or environment
+ * names; never the value. Returns false for any other error.
  */
 export function replyValueReference(response, error) {
-  if (error?.code !== VALUE_REFERENCE) return false;
+  if (error?.code !== VALUE_REFERENCE && error?.code !== PLACEHOLDER) return false;
   response.status(400).json({
     code: error.code,
     field: error.field,
@@ -121,6 +122,9 @@ export function mcpServerRoutes(services) {
     let list = changes().list();
     if (services.assistantMcpOAuth)
       list = await services.assistantMcpOAuth.decorate(list);
+    // Servers with agent placeholders show what each bound agent's folders resolve to.
+    if (services.assistantMcpChanges)
+      list = services.assistantMcpChanges.placeholderViews(list);
     res.json(services.cliMcp ? await services.cliMcp.decorate(list) : list);
   });
   // `clis` (optional) binds the server to coding CLIs in the same write.

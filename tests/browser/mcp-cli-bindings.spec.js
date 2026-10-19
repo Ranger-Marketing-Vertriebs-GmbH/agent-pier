@@ -81,7 +81,9 @@ test("a working directory rules out Claude Code only", async ({ page }) => {
   await expect(primary(wizard)).toBeEnabled();
   await primary(wizard).click();
   await wizard.getByText(/^Arguments and working directory/).click();
-  await wizard.getByLabel("Working directory (optional, absolute path)").fill("/w");
+  await wizard
+    .getByLabel("Working directory (optional, absolute path or agent placeholder)")
+    .fill("/w");
   await primary(wizard).click();
   await wizard.getByRole("button", { name: "Allow and save" }).click();
   const claude = wizard.getByRole("switch", { name: "Claude Code" });
