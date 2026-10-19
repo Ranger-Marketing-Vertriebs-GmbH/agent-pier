@@ -19,6 +19,7 @@ diagnostic evidence, code identifiers, URLs and anchors keep their original word
 | The approval of a single request       | die Freigabe                             | approval           | Approve or deny one action; not a stored setting.                                                       |
 | Project knowledge (memory)             | das Projektwissen                        | memory             | German copy does not use "Memory" on its own.                                                           |
 | An Agency agent an agent starts from   | die Vorlage                              | template           | "Mit Vorlage beginnen" / "Start from a template"; the catalog stays "Agency-Agenten" / "Agency agents". |
+| `{agent.workspace}` in an MCP setting  | der Agenten-Platzhalter                  | agent placeholder  | Resolves to each bound agent's own folder; the overview card is "Agentenordner" / "Agent folders".      |
 
 ## Actions
 

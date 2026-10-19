@@ -232,11 +232,37 @@ With a header value and an environment value set:
   `tests/integration/assistant-host-backup.test.js` verify the restore with the key
   and the withheld restore after the key was destroyed.
 
+### (h) Agent placeholders and OpenClaw 2026.10.3
+
+Read from the pinned runtime's documentation (`docs/tools/mcp.md`) and compiled
+source (`dist/`) for the [agent placeholders](mcp.md#agent-placeholders) (AGENTPIER-149),
+not by a contract run:
+
+- `mcp.servers` is one Gateway-wide map. Its schema (`McpConfigSchema`) has no
+  per-agent block, and an agent entry has no MCP override; a session's tool overrides
+  can only switch a configured server on or off by name
+  (`loadMergedBundleMcpConfig`). Environment values cannot differ per agent within
+  one entry.
+- Values are passed to the process as written. The only placeholders OpenClaw
+  resolves are a plugin bundle's own `${CLAUDE_PLUGIN_ROOT}`, `${PLUGIN_ROOT}` and
+  `${PLUGIN_DATA}`, never for `mcp.servers` entries.
+- stdio servers run in a **session** MCP runtime (`SESSION_MCP_RUNTIME_MANAGER_KEY`,
+  keyed by session): one process per configured server and session, created when the
+  session's tool allow list can reach an MCP namespace. `mcp.sessionIdleTtlMs` is
+  opt-in; unset or `0` keeps the runtime for the session's lifetime, a positive value
+  evicts idle runtimes (swept every minute). AgentPier does not set it.
+- Consequence: per-agent folders need one compiled entry per agent binding. Each
+  entry is another server name, so the agent's tool prefix changes to that entry's
+  name, and a session that starts its runtime may also start other agents' entries
+  (without being offered their tools), as with any configured server.
+
 ## Consequences for AgentPier
 
 - Compile `mcp.servers` only for servers bound to an eligible agent: every
   configured stdio server starts a process for every session, bound or not.
 - Write `transport` explicitly for HTTP servers.
+- A server with agent placeholders compiles one entry per bound agent, each with
+  that agent's folders and its own name and glob (section (h)).
 - Validate names so that the sanitised prefix is unique, at most 30 characters
   and starts with a letter; write the sanitised prefix into the agent globs.
 - Add `bundle-mcp` to the global `tools.allow` and `<prefix>__*` to each bound

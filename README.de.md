@@ -34,7 +34,8 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Dateien in beide Richtungen, über ChatGPT erstellte Bilder, Lese- oder Schreibzugriff auf Projektordner und GitHub
   über deine Tokenprofile ([Agenten](docs/agents.md)).
 - **Zentrale MCP-Server:** einen Server einmal anlegen und an Agenten und deine
-  Coding-CLIs binden, mit OAuth-Anmeldung aus AgentPier ([MCP](docs/mcp.md)).
+  Coding-CLIs binden, mit OAuth-Anmeldung aus AgentPier und eigenen Ordnern je Agent
+  für lokale Server ([MCP](docs/mcp.md)).
 - **Accounts an einer Stelle:** native CLI-Accounts, Provider-Zugänge, ChatGPT für
   Agenten und Dienste für Agenten ([Provider](docs/providers.md)).
 - **Dateien und Wissen:** ein Datei-Explorer, private Artifacts, gemeinsames

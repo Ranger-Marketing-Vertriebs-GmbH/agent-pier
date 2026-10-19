@@ -121,6 +121,12 @@ _Avoid_: Heartbeat (in UI text), ping.
 The link between one central MCP server and an agent or a coding CLI that receives it.
 _Avoid_: MCP integration, MCP assignment.
 
+**Agent placeholder**:
+`{agent.workspace}` or `{agent.attachments}` in a local MCP server's settings,
+arguments or working directory, resolved to each bound agent's own folder when the
+server is compiled once per agent.
+_Avoid_: Variable, template, path macro.
+
 **Skill**:
 Always qualify it. A _CLI skill_ is a shared `SKILL.md` for the coding CLIs, managed
 under Extensions. An _agent skill_ is a skill bundled with OpenClaw that the owner

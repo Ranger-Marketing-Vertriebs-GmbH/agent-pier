@@ -198,7 +198,8 @@ command is such a runner.
   stdio and HTTP or SSE (`remote`). Only Claude Code cannot start a stdio command in a
   working directory. Unsupported combinations are disabled with a reason in the form
   and refused by the API (`400 MCP_CLI_TRANSPORT_UNSUPPORTED`,
-  `400 MCP_CLI_CWD_UNSUPPORTED`). When an edit rules out a CLI the server is bound to,
+  `400 MCP_CLI_CWD_UNSUPPORTED`). No CLI takes a server with
+  [agent placeholders](#agent-placeholders) (`400 MCP_CLI_PLACEHOLDER_UNSUPPORTED`). When an edit rules out a CLI the server is bound to,
   the form says that saving removes the server from that CLI; a newly chosen CLI that
   drops out is named too. [cli-mcp-qualification.md](cli-mcp-qualification.md)
   records the native forms and how they were verified.
@@ -276,7 +277,8 @@ command is such a runner.
   server is not migrated. Text with an unpaired UTF-16 surrogate in the command, an
   argument, the working directory, a header or environment value or the OAuth scope is
   refused as invalid. A shell argument such as `sh -c "srv --dir ${HOME}"` is
-  refused too; use a wrapper script for it.
+  refused too; use a wrapper script for it. The one exception are the fixed
+  [agent placeholders](#agent-placeholders) of a local server.
 - **Secrets.** Header and environment values are stored by AgentPier and written in
   plain text into the CLI files with mode 0600, because the CLIs read them there. They
   never appear in API responses, logs or the audit trail (names only).
@@ -341,6 +343,75 @@ command is such a runner.
 - **Extensions** does not edit MCP servers: Skills and Plugins show a reference row
   with the number of central servers bound to that CLI, linking to Accounts →
   **MCP servers**.
+
+### Agent placeholders
+
+A local package often takes one folder setting, such as elevenlabs-mcp's
+`ELEVENLABS_MCP_BASE_PATH`, which bounds the files it reads and the folder it writes
+to. With one literal path every agent bound to the server shares that folder. Agent
+placeholders give each agent its own folder instead:
+
+| Placeholder           | Resolves to, for each bound agent                                          |
+| --------------------- | -------------------------------------------------------------------------- |
+| `{agent.workspace}`   | the agent's own workspace, `<data>/assistants/workspaces/<agent id>`       |
+| `{agent.attachments}` | the attachments folder inside it, where chat attachments to the agent land |
+
+- **Where.** In a local (stdio) server's settings (environment values), its arguments
+  and its working directory. A value holds one placeholder, as the whole value or
+  followed by a subfolder (`{agent.workspace}/voice`); an argument may also start with
+  fixed text (`--output-dir={agent.workspace}/voice`). There are no other placeholders
+  and no expressions: anything else in `{agent.…}` or `{session.…}`, a `.` or `..`
+  folder, an empty folder name, a placeholder in the command, a URL or a header is
+  refused with `400 MCP_SERVER_PLACEHOLDER`, the `field` and, for settings, their
+  `names`.
+- **Wizard.** The **Settings** step explains the placeholders under **How agent
+  placeholders work**. A setting whose name looks like a path (`PATH`, `DIR`,
+  `FOLDER`, `BASE`, `OUTPUT`, …) offers **Use agent workspace** and **Use agent
+  attachments**; the working directory offers **Use the agent's workspace as working
+  directory**. A wrong placeholder is named at its field before anything is sent.
+- **One server per agent.** OpenClaw's `mcp.servers` is one list for the whole
+  Gateway, without per-agent environment values. AgentPier therefore compiles a
+  separate entry for every bound agent, named `<name>-<hash>` (the server's name cut
+  to 21 characters and 8 hex characters of the server and agent ids), with that agent's
+  folders filled in, and grants each agent only its own entry (`<name>-<hash>__*`).
+  The agent's tools carry that prefix. Each entry starts its own process per session, as
+  every stdio server does
+  ([qualification](assistant-mcp-qualification.md#h-agent-placeholders-and-openclaw-2026103)).
+- **Safety.** A resolved path is always inside the agent's own workspace. Before every
+  compile AgentPier checks the way there on disk: a symbolic link or a file in the way
+  (for example a link the agent created in its workspace) means the agent gets no entry
+  for this server, and the server is reported as skipped. Settings without
+  placeholders, such as an API key, are passed to every entry unchanged and stay
+  write-only. Agents' MCP servers run without nono, like every agent MCP server; the
+  agent itself can already read and write its workspace, so a placeholder grants no
+  shared folder.
+- **Overview.** A saved server with placeholders shows an **Agent folders** card: per
+  bound agent the resolved values and whether the agent's entry is _in use_ by the
+  running Gateway, _applied with the next change or start_, _not started_ because a
+  link or file blocks the folder, or unavailable because agents are not set up. The
+  edit step shows a stored placeholder setting with its template; other values stay
+  hidden.
+- **Coding CLIs.** A CLI's MCP configuration is one file for every session of that
+  CLI (and the shared CLI profile carries it to every account), so a per-session
+  folder such as the session's working directory cannot be written into it; the CLIs'
+  own references (`${…}`, `{env:…}`) differ per CLI and Codex holds them literally.
+  A server with placeholders is therefore for agents only: the wizard disables the
+  CLIs with the reason, and the API refuses the binding. Without a working directory a
+  CLI starts a stdio server from its own session process, so a server that resolves
+  relative paths against its working directory usually works in the session's
+  project folder (not qualified by AgentPier's contracts).
+
+Example, elevenlabs-mcp installed as a package from PyPI:
+
+| Setting                    | Value                       |
+| -------------------------- | --------------------------- |
+| `ELEVENLABS_API_KEY`       | the key (secret, shared)    |
+| `ELEVENLABS_MCP_BASE_PATH` | `{agent.attachments}/voice` |
+
+Each bound agent then reads its input files from and writes generated audio to its
+own `attachments/voice` folder. When an agent only needs the generated audio, not
+files from its folder, `ELEVENLABS_MCP_OUTPUT_MODE=resources` returns the audio in the
+tool result instead and needs no folder at all.
 
 ### Installing a server package
 
