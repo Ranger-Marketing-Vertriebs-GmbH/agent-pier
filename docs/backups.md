@@ -63,7 +63,7 @@ either copy travel only in the sealed sidecar, exactly as without this split.
   conversations, requests and attempts, cached messages, attachment and share
   indexes, queued messages, routine results and events, memory notes, action
   history, team records other than policy and settings, and Telegram inbox, outbox
-  and unknown senders. `web-search.sqlite` holds only configuration.
+  and unknown senders. `web-search.sqlite` and `pdf-model.sqlite` hold only configuration.
 - OpenClaw's databases below `state/` (the global `state/state/openclaw.sqlite`,
   each agent's `agents/<agent>/agent/openclaw-agent.sqlite` and any other) keep the
   rows of an allowlist only: `agent_databases`, `agent_provenance`,
