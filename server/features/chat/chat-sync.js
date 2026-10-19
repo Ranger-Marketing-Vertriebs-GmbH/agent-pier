@@ -2,7 +2,11 @@ import { createHash, randomUUID } from "node:crypto";
 
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
-/** Bounded transport baselines. Authorization and image filtering run on every read. */
+/**
+ * Bounded transport baselines. Authorization and image filtering run on every read.
+ * A baseline belongs to a scope key: a cursor from another scope (a replaced
+ * session, a new runtime generation) always yields a full snapshot.
+ */
 export class ChatSync {
   constructor({
     sessions,
@@ -86,6 +90,20 @@ export class ChatSync {
     return this.encode(session, snapshot, cursor);
   }
   encode(session, snapshot, cursor) {
+    return this.encodeScoped(
+      [
+        session.id,
+        session.accountId,
+        session.tool,
+        session.createdAt || null,
+        snapshot.providerSessionId || null,
+      ],
+      snapshot,
+      cursor,
+    );
+  }
+  /** Encodes `snapshot` against `cursor`; `scopeKey` starts with the owner id. */
+  encodeScoped(scopeKey, snapshot, cursor) {
     for (const map of [this.cache, this.parked])
       for (const [key, entry] of [...map])
         if (entry.expires <= this.now()) this.drop(key);
@@ -98,13 +116,7 @@ export class ChatSync {
     const rows = new Map(messages.map((message) => [message.id, hash(message)]));
     if (rows.size !== messages.length)
       return { ...snapshot, sync: { mode: "full", cursor: null } };
-    const scope = JSON.stringify([
-      session.id,
-      session.accountId,
-      session.tool,
-      session.createdAt || null,
-      snapshot.providerSessionId || null,
-    ]);
+    const scope = JSON.stringify(scopeKey);
     const base =
       typeof cursor === "string"
         ? this.cache.get(cursor) || this.parked.get(cursor)
