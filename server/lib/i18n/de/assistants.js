@@ -212,6 +212,8 @@ export const assistants = {
   sshRevoked: "Der SSH-Zugang hat sich geändert; der Befehl wurde gestoppt.",
   projectFolderNotGranted: "Dieser Projektordner ist dem Agenten nicht freigegeben.",
   projectFolderReadOnly: "Der Agent darf diesen Projektordner nur lesen.",
+  projectRoutineReadOnly:
+    "Diese Routine darf Projektordner nur lesen: Schalte in ihren Details „Darf schreiben“ ein, damit sie Dateien ändern darf.",
   projectTaskReadOnly:
     "Diese Aufgabe des leitenden Agenten darf keine Dateien ändern: Sie wurde nicht ausdrücklich vom Besitzer beauftragt.",
   projectWriteUnavailable:

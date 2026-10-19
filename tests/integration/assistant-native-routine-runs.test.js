@@ -48,11 +48,10 @@ function legacy(f, binding) {
 }
 const updates = (f) => f.calls.filter((c) => c.method === "cron.update");
 
-test("a routine run gets exactly the agent's chat tools minus scheduling, workspace and most team tools", () => {
+test("a routine run gets exactly the agent's chat tools minus scheduling and most team tools", () => {
   for (const excluded of [
     "agentpier_routine",
     "agentpier_reminder",
-    "agentpier_workspace",
     ...delegationTools.filter((tool) => !routineTeamTools.includes(tool)),
     "cron",
   ])
@@ -73,6 +72,8 @@ test("a routine run gets exactly the agent's chat tools minus scheduling, worksp
     "read",
     "write",
     "edit",
+    // Project folders, read-only unless the owner marked the routine "May write".
+    "agentpier_workspace",
     // A routine run hands its owner files too (agent-shares.js).
     "agentpier_share_file",
     "web_search",
@@ -88,6 +89,7 @@ test("a routine run gets exactly the agent's chat tools minus scheduling, worksp
     [
       "session_status",
       ...routineTeamTools,
+      "agentpier_workspace",
       "agentpier_share_file",
       "web_fetch",
       "browser",

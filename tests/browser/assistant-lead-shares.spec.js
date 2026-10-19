@@ -23,7 +23,8 @@ const words = {
     revoke: "Revoke",
     revokeNow: "Revoke now",
     projectSection: "Shared by lead agents",
-    delegate: "May delegate writing tasks",
+    delegate: "May write",
+    writesSub: "Project folders and delegated tasks",
     goAhead: "Go ahead",
     goAheadText: "Yes, go ahead",
   },
@@ -34,7 +35,8 @@ const words = {
     revoke: "Widerrufen",
     revokeNow: "Jetzt widerrufen",
     projectSection: "Von leitenden Agenten geteilt",
-    delegate: "Darf schreibende Aufgaben delegieren",
+    delegate: "Darf schreiben",
+    writesSub: "Projektordner und delegierte Aufgaben",
     goAhead: "Direkt umsetzen",
     goAheadText: "Ja, direkt umsetzen",
   },
@@ -222,9 +224,7 @@ for (const [language, label, viewport] of cases) {
       await expect(section).toHaveCount(0);
     });
 
-    test("the owner marks a routine as one that may delegate writing tasks", async ({
-      page,
-    }) => {
+    test("the owner lets a routine write", async ({ page }) => {
       await fixture(page);
       await page.addInitScript(
         (value) => localStorage.setItem("agentpier-language", value),
@@ -238,7 +238,7 @@ for (const [language, label, viewport] of cases) {
         status: "ready",
         enabled: true,
         revision: 1,
-        delegateWrites: false,
+        writes: false,
       };
       const patches = [];
       await page.route(/\/api\/assistant/, async (route) => {
@@ -280,9 +280,10 @@ for (const [language, label, viewport] of cases) {
       await page.getByRole("button", { name: /Nightly render/ }).click();
       const toggle = page.getByRole("switch", { name: w.delegate });
       await expect(toggle).not.toBeChecked();
+      await expect(page.getByText(w.writesSub, { exact: true })).toBeVisible();
       await toggle.click();
       await expect.poll(() => patches.length).toBe(1);
-      expect(patches[0]).toEqual({ delegateWrites: true, revision: 1 });
+      expect(patches[0]).toEqual({ writes: true, revision: 1 });
       await expect(toggle).toBeChecked();
       expect(await fits(page)).toBe(true);
     });

@@ -65,11 +65,7 @@ export default function RoutinesTab({ assistant }) {
       {assistant.capabilities?.reminders ? (
         <>
           <RemindersGroup assistantId={assistant.id} paired={paired} />
-          <RoutinesGroup
-            assistantId={assistant.id}
-            paired={paired}
-            lead={!assistant.teamMemberId}
-          />
+          <RoutinesGroup assistantId={assistant.id} paired={paired} />
         </>
       ) : (
         <p className="assistant-note">{settingsCopy.remindersNeedCapability}</p>

@@ -34,10 +34,10 @@ export function schedule(input, allowPast = false) {
 }
 /**
  * An update's input: `enabled` and/or `telegram`, with the revision it read; a
- * routine also takes `delegateWrites` (only the owner's own route sends it).
+ * routine also takes `writes` (only the owner's own route sends it).
  */
 export function updateInput(input, { routine = false } = {}) {
-  const keys = ["enabled", "telegram", ...(routine ? ["delegateWrites"] : [])];
+  const keys = ["enabled", "telegram", ...(routine ? ["writes"] : [])];
   exact(input, [...keys, "revision"]);
   if (
     keys.every((key) => input[key] === undefined) ||

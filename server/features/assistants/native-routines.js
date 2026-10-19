@@ -116,18 +116,19 @@ export class NativeRoutines extends NativeReminders {
         binding.routineEnabled !== false &&
         (binding.definition?.trigger.kind === "event" || projected.enabled),
       revision: binding.routineRevision || 1,
-      // The owner lets this routine's delegated tasks change files (lead-request-store.js).
-      delegateWrites: binding.routineDelegateWrites === true,
+      // The owner lets this routine write: project folders and delegated tasks.
+      writes: binding.routineWrites === true,
     };
   }
   /**
-   * The owner's switch "may delegate writing tasks": the tasks this routine
-   * delegates count as the owner's standing instruction and may change files.
+   * The owner's switch "May write": the routine's run may change files in its
+   * project folders (workspace-calls.js), and the tasks it delegates count as the
+   * owner's standing instruction and may change files.
    * Never reachable from the agent's own routine tool; audited.
    */
-  setDelegateWrites(binding, input) {
-    if ((binding.routineDelegateWrites === true) === input.delegateWrites) return;
-    this.bindings.patch(binding.id, { routineDelegateWrites: input.delegateWrites });
+  setWrites(binding, input) {
+    if ((binding.routineWrites === true) === input.writes) return;
+    this.bindings.patch(binding.id, { routineWrites: input.writes });
     try {
       this.assistants.audit?.append({
         action: "assistant.updated",
@@ -136,9 +137,9 @@ export class NativeRoutines extends NativeReminders {
         source: "user",
         outcome: "success",
         details: {
-          kind: "routine-delegate-writes",
+          kind: "routine-writes",
           routineId: binding.id,
-          delegateWrites: input.delegateWrites,
+          writes: input.writes,
         },
       });
     } catch (error) {
@@ -163,7 +164,7 @@ export class NativeRoutines extends NativeReminders {
       if (!job) throw assistantProblem("unavailable", 503);
       assertCurrent();
       if (input.telegram !== undefined) this.setTelegram(binding, input.telegram);
-      if (input.delegateWrites !== undefined) this.setDelegateWrites(binding, input);
+      if (input.writes !== undefined) this.setWrites(binding, input);
       if (input.enabled === undefined) {
         this.bindings.patch(bindingId, { routineRevision: input.revision + 1 });
         this.assistants.changed();

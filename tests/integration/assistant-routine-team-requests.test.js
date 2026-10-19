@@ -49,7 +49,6 @@ test("a routine run is offered the lead's ask, delegate and members tools", () =
     "agentpier_team_archive",
     "agentpier_team_grant",
     "agentpier_team_cancel",
-    "agentpier_workspace",
   ])
     assert.equal(routineTools.includes(tool), false, tool);
 });
@@ -122,7 +121,7 @@ test("a routine is refused for archived and temporary members as in chat", async
 
 test("only a current routine run reaches the team tools, and never the rest", async (t) => {
   const f = await routineLead(t);
-  for (const action of ["propose", "archive", "grant", "cancel", "workspace"])
+  for (const action of ["propose", "archive", "grant", "cancel"])
     assert.throws(
       () =>
         f.bridge.prepare({

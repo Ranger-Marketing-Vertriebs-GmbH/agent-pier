@@ -43,7 +43,7 @@ function exact(input, keys, required) {
 /**
  * Whether a lead's task may change files: a task the owner asked for (ownerProof),
  * one an autonomous lead started in the owner's own turn, or one a routine the owner
- * lets delegate writing tasks started (routineWrites, the owner's standing
+ * marked "May write" started (routineWrites, the owner's standing
  * instruction); never once cancelled. Where and when it writes is checked apart.
  */
 export const taskWritable = (r) =>
@@ -67,7 +67,7 @@ export const callerOf = (inv) =>
             bindingId: inv.routine.binding.id,
             name: inv.routine.binding.definition?.name || "",
             // The owner's own switch on the routine, never the lead's.
-            delegateWrites: inv.routine.binding.routineDelegateWrites === true,
+            writes: inv.routine.binding.routineWrites === true,
             conversationId: inv.routine.conversation.id,
             sessionKey: inv.sessionKey,
           },
@@ -253,7 +253,7 @@ export class LeadRequestStore {
               kind: "routine",
               bindingId: routine.bindingId,
               name: routine.name,
-              ...(routine.delegateWrites ? { delegateWrites: true } : {}),
+              ...(routine.writes ? { writes: true } : {}),
             }
           : t.context(request.id),
         policy = t.policy(lead.id);
@@ -372,9 +372,9 @@ export class LeadRequestStore {
       // and other turns run read-only. Shell, SSH, project folders, GitHub and
       // grants keep their own approvals.
       const autonomous = type === "task" && selfInitiated && ownerTurn && !negated;
-      // A routine the owner marked "may delegate writing tasks" stands for the
+      // A routine the owner marked "May write" stands for the
       // owner's instruction: its tasks may change files like an owner-proven one.
-      const routineWrites = type === "task" && !!routine?.delegateWrites;
+      const routineWrites = type === "task" && !!routine?.writes;
       return t.insert(
         {
           id: randomUUID(),
