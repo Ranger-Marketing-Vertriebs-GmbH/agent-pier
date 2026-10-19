@@ -125,7 +125,7 @@ test("shares end when member or lead is archived", async (t) => {
   }
 });
 
-test("a lead's task uses only what the lead shares, and writes only when it may", async (t) => {
+test("a lead's task uses only what the lead shares, and writes at the shared level", async (t) => {
   const f = await setup(t);
   // The member's own owner-granted folder does not reach a task of its lead.
   f.workflows.access.save(
@@ -142,15 +142,35 @@ test("a lead's task uses only what the lead shares, and writes only when it may"
     f.call(readOnly.inv, { action: "files_list" }),
     code("PROJECT_NOT_GRANTED"),
   );
+  // A read share reads only, also in a task that may not write.
+  await f.share({ grants: { projects: { [f.folderProject.id]: "read" } } });
+  await assert.rejects(
+    f.call(readOnly.inv, { action: "file_write", path: "x.md", content: "x" }),
+    code("PROJECT_READ_ONLY"),
+  );
+  // A standing write share is the lead's authorization: it writes in every task of
+  // that lead, also one without the owner's request (writeAllowed false).
   await f.share({ grants: { projects: { [f.folderProject.id]: "write" } } });
   assert.equal(
     (await f.call(readOnly.inv, { action: "file_read", path: "README.md" })).access,
     "write",
   );
-  await assert.rejects(
-    f.call(readOnly.inv, { action: "file_write", path: "x.md", content: "x" }),
-    code("TASK_READ_ONLY"),
+  assert.equal(
+    (await f.call(readOnly.inv, { action: "file_write", path: "x.md", content: "x" }))
+      .created,
+    true,
   );
+  const shared = f.audits.findLast((e) => e.details?.kind === "project-file");
+  assert.equal(shared.details.via, "lead-share");
+  assert.equal(shared.details.leadRequestId, readOnly.id);
+  assert.equal(shared.details.leadAssistantId, f.lead);
+  // The lead's own level caps it live: down to read, the share no longer writes.
+  f.leadAccess({ [f.folderProject.id]: "read" });
+  await assert.rejects(
+    f.call(readOnly.inv, { action: "file_write", path: "y.md", content: "y" }),
+    code("PROJECT_READ_ONLY"),
+  );
+  f.leadAccess({ [f.folderProject.id]: "write" });
   // Memory and other own actions stay out of a lead's task.
   await assert.rejects(
     f.call(readOnly.inv, { action: "memory_search" }),
@@ -168,7 +188,7 @@ test("a lead's task uses only what the lead shares, and writes only when it may"
   });
   assert.equal(written.created, true);
   assert.equal(fs.readFileSync(path.join(f.folder, "render.md"), "utf8"), "done");
-  const audit = f.audits.find((e) => e.details?.kind === "project-file");
+  const audit = f.audits.findLast((e) => e.details?.kind === "project-file");
   assert.equal(audit.resourceId, f.member.assistantId);
   assert.equal(audit.details.leadAssistantId, f.lead);
   assert.equal(audit.details.leadRequestId, proven.id);
