@@ -11,8 +11,9 @@ const telegramUserId = /^[1-9]\d{0,19}$/;
 
 /**
  * The agent's own Telegram bot for other people: its token (written here, never
- * shown again), the people it admits and its state. A change the running agent
- * service was not started with restarts it once the owner confirms.
+ * shown again), the people it admits and its state. Changed people apply live; any
+ * other change the running agent service was not started with (a bot, a token)
+ * restarts it once the owner confirms.
  */
 export default function TelegramSendersSettings({ assistantId }) {
   const copy = telegramSendersCopy;
@@ -126,6 +127,8 @@ export default function TelegramSendersSettings({ assistantId }) {
   // Saved, but the agent service still runs something else; also after a removal.
   const pending =
     !!data && (data.pending || data.revocationFailed || state === "pending");
+  // The pending change is only allowed people: "Apply now" needs no restart.
+  const live = !!data?.pendingLive && !data.revocationFailed;
   return (
     <section className="assistant-accounts" aria-label={copy.title}>
       <GroupLabel hint={copy.description}>{copy.title}</GroupLabel>
@@ -139,7 +142,7 @@ export default function TelegramSendersSettings({ assistantId }) {
             </p>
           ) : (
             <p className="assistant-note" role="status">
-              {bot ? copy.pending : copy.removedPending}
+              {live ? copy.pendingLive : bot ? copy.pending : copy.removedPending}
             </p>
           )}
           <button
@@ -163,7 +166,11 @@ export default function TelegramSendersSettings({ assistantId }) {
             <>
               <strong>{copy.bot(bot.username)}</strong>
               <p className="assistant-note" role="status">
-                {copy.status(copy.states[state] || copy.states.inactive)}
+                {copy.status(
+                  (state === "pending" && live
+                    ? copy.states.pendingLive
+                    : copy.states[state]) || copy.states.inactive,
+                )}
               </p>
             </>
           )}

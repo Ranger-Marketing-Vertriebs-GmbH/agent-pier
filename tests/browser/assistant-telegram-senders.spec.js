@@ -10,7 +10,8 @@ const shots = process.env.AGENTPIER_TELEGRAM_SENDERS_SHOTS;
 const affected = { agents: [{ id: "home", name: "Home" }], teamMembers: 0 };
 
 // A stand-in for server/http/routes/assistant-telegram-senders.js: a change asks to
-// restart the agent service once; the confirmed request repeats it.
+// restart the agent service once; the confirmed request repeats it. With
+// `restart: false` every change applies live, like changed allowed people.
 async function senders(page, options = {}) {
   const state = {
     view: {
@@ -327,4 +328,51 @@ test("a revocation the automatic restart could not apply asks the owner", async 
     "the automatic restart could not stop it",
   );
   await expect(section.getByRole("button", { name: "Apply now" })).toBeVisible();
+});
+
+test("allowed people change live, without asking to restart", async ({ page }) => {
+  await setupAssistantSettings(page);
+  const bot = {
+    username: "helper_fixture_bot",
+    botId: "7001",
+    revision: 3,
+    people: [{ id: "111", name: "Alice" }],
+  };
+  // The server patches allowed people into the running agent service.
+  const state = await senders(page, { bot, restart: false });
+  await page.goto(baseURL + settingsPath("telegram"));
+  const section = page.getByRole("region", { name: "Telegram for other people" });
+  await expect(
+    section.getByText("Adding or removing people takes effect at once", { exact: false }),
+  ).toBeVisible();
+  await section.getByLabel("Person", { exact: true }).fill("Bob");
+  await section.getByLabel("Telegram user ID").fill("222");
+  await section.getByRole("button", { name: "Add person" }).click();
+  await expect(section.getByRole("button", { name: "Remove Bob" })).toBeVisible();
+  await section.getByRole("button", { name: "Remove Alice" }).click();
+  await expect(section.getByRole("button", { name: "Remove Alice" })).toHaveCount(0);
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  expect(state.requests.map((r) => [r.method, r.body.confirmRestart ?? false])).toEqual([
+    ["PUT", false],
+    ["PUT", false],
+  ]);
+  // A change the service could not take yet is applied without a restart dialog.
+  state.view = {
+    ...state.view,
+    status: { state: "pending" },
+    pending: true,
+    pendingLive: true,
+  };
+  await page.reload();
+  await expect(section.getByText("Status: waiting to apply")).toBeVisible();
+  await expect(
+    section.getByText("the agent service keeps running", { exact: false }),
+  ).toBeVisible();
+  await section.getByRole("button", { name: "Apply now" }).click();
+  await expect.poll(() => state.requests.length).toBe(3);
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  expect(state.requests[2]).toMatchObject({
+    path: "/api/assistant-telegram-senders/apply",
+    body: {},
+  });
 });

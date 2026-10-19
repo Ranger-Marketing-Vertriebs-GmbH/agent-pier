@@ -24,7 +24,7 @@ export const telegramSendersCopy = {
   bot: (username) => `Bot @${username}`,
   people: "Erlaubte Personen",
   peopleHint:
-    "Nur diese Telegram-Nutzer können dem Bot schreiben. Frage jede Person nach ihrer numerischen Telegram-Nutzer-ID, zum Beispiel über @userinfobot. Benutzernamen funktionieren nicht.",
+    "Nur diese Telegram-Nutzer können dem Bot schreiben. Frage jede Person nach ihrer numerischen Telegram-Nutzer-ID, zum Beispiel über @userinfobot. Benutzernamen funktionieren nicht. Hinzugefügte oder entfernte Personen gelten sofort, ohne den Agentendienst neu zu starten, solange mindestens eine Person auf der Liste bleibt.",
   noPeople: "Noch kann niemand dem Bot schreiben. Füge mindestens eine Person hinzu.",
   personId: "Telegram-Nutzer-ID",
   personName: "Person",
@@ -39,6 +39,8 @@ export const telegramSendersCopy = {
     "Sprachnachrichten werden nicht transkribiert. Hinterlege einen Deepgram-Schlüssel unter Accounts, um sie einzuschalten.",
   pending:
     "Gespeicherte Änderungen sind noch nicht aktiv. Starte den Agentendienst neu, um sie zu übernehmen.",
+  pendingLive:
+    "Gespeicherte Änderungen an den erlaubten Personen sind noch nicht aktiv. Übernimm sie jetzt; der Agentendienst läuft weiter.",
   apply: "Jetzt übernehmen",
   status: (state) => `Status: ${state}`,
   states: {
@@ -47,6 +49,7 @@ export const telegramSendersCopy = {
     error: "Fehler, prüfe den Bot-Token",
     stopped: "Agentendienst gestoppt",
     pending: "wartet auf einen Neustart",
+    pendingLive: "wartet auf die Übernahme",
     inactive: "inaktiv",
   },
 };

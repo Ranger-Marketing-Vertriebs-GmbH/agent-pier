@@ -24,7 +24,7 @@ export const telegramSendersCopy = {
   bot: (username) => `Bot @${username}`,
   people: "Allowed people",
   peopleHint:
-    "Only these Telegram accounts can write to the bot. Ask each person for their numeric Telegram user ID, for example from @userinfobot. Usernames do not work.",
+    "Only these Telegram accounts can write to the bot. Ask each person for their numeric Telegram user ID, for example from @userinfobot. Usernames do not work. Adding or removing people takes effect at once without restarting the agent service, as long as at least one person stays on the list.",
   noPeople: "Nobody can write to the bot yet. Add at least one person.",
   personId: "Telegram user ID",
   personName: "Person",
@@ -38,6 +38,8 @@ export const telegramSendersCopy = {
   voiceOff:
     "Voice messages are not transcribed. Add a Deepgram key in your account settings to turn them on.",
   pending: "Saved changes are not active yet. Restart the agent service to apply them.",
+  pendingLive:
+    "Saved changes to the allowed people are not active yet. Apply them now; the agent service keeps running.",
   apply: "Apply now",
   status: (state) => `Status: ${state}`,
   states: {
@@ -46,6 +48,7 @@ export const telegramSendersCopy = {
     error: "error, check the bot token",
     stopped: "agent service stopped",
     pending: "waiting for a restart",
+    pendingLive: "waiting to apply",
     inactive: "inactive",
   },
 };
