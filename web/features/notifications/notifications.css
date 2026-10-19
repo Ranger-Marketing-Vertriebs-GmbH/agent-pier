@@ -93,3 +93,65 @@
 .notification-retry {
   margin-top: 8px;
 }
+.notification-device {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.notification-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) 14px;
+  background: var(--surface-accent);
+  border-top: 1px solid var(--accent-line);
+}
+.notification-offer-text {
+  display: grid;
+  flex: 1 1 260px;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: var(--font-size-md);
+  line-height: 1.45;
+  color: var(--muted);
+}
+.notification-offer-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text);
+}
+.notification-offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.notification-preferences .dialog-body > .group-label:not(:first-child),
+.notification-event-group + .group-label {
+  margin-top: var(--space-4);
+}
+.notification-event-group h3 {
+  margin: var(--space-3) 4px var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-meta);
+}
+.notification-quiet-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) 14px;
+  background: var(--panel);
+}
+.notification-time {
+  display: grid;
+  flex: 1 1 140px;
+  gap: 6px;
+  font-size: var(--font-size-md);
+  color: var(--text-meta);
+}
+@media (max-width: 700px) {
+  .notification-device .button,
+  .notification-offer-actions .button {
+    flex: 1 1 auto;
+  }
+}

@@ -17,7 +17,13 @@ import {
   resolveMessage,
 } from "../../server/lib/i18n/message-keys.js";
 
-const payload = { kind: "test", eventId: "event-1" };
+const payload = {
+  v: 2,
+  kind: "test",
+  eventId: "event-1",
+  link: "/settings/notifications",
+  tag: "event-1",
+};
 
 function material(endpoint) {
   const receiver = createECDH("prime256v1");

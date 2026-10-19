@@ -20,6 +20,14 @@ function deviceIdentity() {
     return null;
   }
 }
+// The device's IANA time zone: quiet hours count in the device's own time.
+function timeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
 function applicationKey(value) {
   const decoded = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
@@ -35,7 +43,9 @@ export default function useNotifications() {
   const [label, setLabel] = useState(derivedName),
     [message, setMessage] = useState(""),
     // Where the last action's error belongs: "device", "test" or a subscription id.
-    [scope, setScope] = useState(null);
+    [scope, setScope] = useState(null),
+    // After enabling a new device: the offer to show names (never a forced change).
+    [offer, setOffer] = useState(false);
   const supported =
     globalThis.isSecureContext &&
     "Notification" in window &&
@@ -92,11 +102,14 @@ export default function useNotifications() {
         });
       subscriptionGeneration.current++;
       setSubscription(current);
+      const known = Boolean(own);
       const result = await api("/notifications/subscriptions", "POST", {
         deviceId,
         label: label.trim() || derivedName,
         subscription: current.toJSON(),
+        timeZone: timeZone(),
       });
+      if (!known && result.subscription.preferences?.level === "type") setOffer(true);
       updateSubscriptions([
         ...(resource.data.subscriptions || []).filter(
           (item) => item.deviceId !== deviceId,
@@ -104,9 +117,32 @@ export default function useNotifications() {
         result.subscription,
       ]);
     });
+  const replace = (subscription) =>
+    updateSubscriptions(
+      (resource.data.subscriptions || []).map((item) =>
+        item.id === subscription.id ? subscription : item,
+      ),
+    );
+  // Saves a device's preferences; this device also reports its current time zone.
+  const savePreferences = async (entry, preferences) => {
+    const zone = entry.deviceId === deviceId ? timeZone() : undefined;
+    const result = await api(
+      `/notifications/subscriptions/${encodeURIComponent(entry.id)}/preferences`,
+      "PUT",
+      { ...preferences, ...(zone ? { timeZone: zone } : {}) },
+    );
+    replace(result.subscription);
+    return result.subscription;
+  };
+  const acceptOffer = () =>
+    run("offer", async () => {
+      await savePreferences(own, { level: "label" });
+      setOffer(false);
+    });
   const remove = (entry = own) =>
     run(!entry || entry.deviceId === deviceId ? "device" : entry.id, async () => {
       setMessage("");
+      setOffer(false);
       if (entry) {
         await api(
           `/notifications/subscriptions/${encodeURIComponent(entry.id)}`,
@@ -159,5 +195,10 @@ export default function useNotifications() {
     enable,
     remove,
     test,
+    offer: Boolean(offer && own && own.preferences?.level === "type"),
+    acceptOffer,
+    dismissOffer: () => setOffer(false),
+    savePreferences,
+    timeZone: timeZone(),
   };
 }

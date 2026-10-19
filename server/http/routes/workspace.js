@@ -52,6 +52,9 @@ export function workspaceRoutes(services) {
       providerConnections: services.providerConnections.list(),
       sessions: await projects.enrich(await activity.enrich(await sessions.list())),
       inbox: await inboxSummary(),
+      // With registered push devices, open pages report what they show (quiet while
+      // visible, server/features/notifications/push-presence.js).
+      pushDevices: services.notifications?.deviceCount?.() ?? 0,
       home: config.home,
       ...preferences.get(),
       remoteUrl: config.remoteUrl || null,

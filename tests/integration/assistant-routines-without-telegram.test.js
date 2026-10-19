@@ -70,6 +70,8 @@ test("without Telegram a routine is created, paused, resumed and run in the main
       assistantId: f.id,
       conversationId: f.channel.conversationId,
       eventId: `routine-1000-${routine.id}`,
+      // Devices that show names see the agent; a routine never previews.
+      label: "Home",
     },
   ]);
   // A replayed completion sends no second notice.
@@ -305,6 +307,9 @@ test("check-ins run in the main chat without Telegram and notify with a push", a
       assistantId: f.id,
       conversationId: f.channel.conversationId,
       eventId: `heartbeat-3-${binding.id}`,
+      // Without Telegram it is not flagged as delivered there.
+      label: "Home",
+      preview: "Your parcel arrives today.",
     },
   ]);
   const [result] = f.routines.results.forConversation(f.channel.conversationId);

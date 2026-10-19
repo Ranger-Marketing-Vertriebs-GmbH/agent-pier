@@ -29,5 +29,4 @@ export const notifications = Object.freeze({
   publicHttpsRequired: "Push requires a public HTTPS endpoint.",
   invalidPublicKey: "Invalid push public key.",
   invalidPreferences: "Invalid notification settings.",
-  presenceRateLimit: "Too many visibility reports. Please wait a moment.",
 });

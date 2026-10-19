@@ -38,28 +38,102 @@ If the status says **Not fully enabled**, turn **Notifications** off and on agai
 **Registered devices** lists every device that receives notifications, with its name,
 when it was registered and when a notification last reached it. The device you are
 using is marked **This device**. A device whose last delivery failed shows **Last
-delivery error**. **Unregister** stops notifications for a device; it can be enabled
-again on that device.
+delivery error**. **Settings** opens what that device receives (see below), also for a
+device other than the one you are using. **Unregister** stops notifications for a
+device; it can be enabled again on that device.
+
+## What a notification shows
+
+Each device has its own **Detail level**. The server applies it, so a device never
+receives more than its level allows:
+
+| Level               | Shows                                                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Event type only** | What happened, for example "Question: A session is waiting for your answer". Meant for shared devices. New and existing devices start here.                   |
+| **With names**      | Also the session, agent or pipeline name, the CLI, the pipeline stage and the project folder's name, for example "api-refactor · Question" and "Claude Code". |
+| **With preview**    | Also up to 140 characters of a question, the start of a reply, an agent check-in or a team proposal's goal.                                                   |
+
+When you enable notifications on a new device, the page offers **Show names in
+notifications?**; **Show names** switches that device to **With names**, **Not now**
+keeps **Event type only**.
+
+Notifications never contain commands, arguments, file paths, working directories,
+URLs, tokens or other secrets, at any level. Approvals (of a CLI or an agent, including
+shell and SSH commands) never show a preview. Code in a preview is left out, and a
+preview or name that looks like a command, a path, a URL or a secret is not shown at
+all. The server sends only data (kind, names, preview, link, grouping tag, inbox
+count) of at most 1 KB; the app words it in your interface language.
+
+A notification has no action buttons. Opening it opens the matching view; it never
+approves anything. Items that wait in the [inbox](inbox.md) open at their inbox address
+(`/inbox/<type>/<id>`), which shows **Already done** once they were answered elsewhere;
+everything else opens the exact session chat, agent chat or pipeline run.
 
 ## What notifies you
 
-| Notification                 | When                                                                                                                            |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Approval required            | A session waits for your decision                                                                                               |
-| Question                     | A session waits for your answer                                                                                                 |
-| Response ready               | A session finished its reply                                                                                                    |
-| Session waiting              | A session's CLI reports that it waits for you in the terminal, outside AgentPier's approvals and questions, for a few seconds   |
-| Session ended                | A session stopped                                                                                                               |
-| Pipeline waiting             | A pipeline waits at a human gate                                                                                                |
-| Pipeline ended               | A pipeline run finished                                                                                                         |
-| Agent check-in               | An agent [checked in](agents.md#routines-reminders-and-check-ins) with something for you; opens its chat                        |
-| Routine result               | A [routine or reminder](agents.md#routines-reminders-and-check-ins) wrote in an agent's chat; opens that chat                   |
-| Telegram access still active | A Telegram bot or person you removed could not be stopped; restart the agent service                                            |
-| Check GitHub token           | The [daily token check](github-agents.md#token-check) found a saved GitHub token invalid, expired or expiring within seven days |
-| Disk space is low            | Less than 10 % is free on the drive that holds AgentPier's data ([system status](system-status.md#low-disk-space))              |
+**Settings** next to a device opens its notification settings; **Save** applies them.
 
-Notifications carry only the event type. Tasks, commands and chat content stay on the
-host. Opening a notification opens the matching view; it never approves anything.
+**Events** chooses which events notify this device:
+
+| Group           | Event                                              | Default | When                                                                                                                                   |
+| --------------- | -------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Waiting for you | Question from a CLI                                | On      | A session waits for your answer                                                                                                        |
+|                 | Approval for a CLI                                 | On      | A session waits for your decision                                                                                                      |
+|                 | Session waiting in the terminal                    | On      | A session's CLI reports that it waits for you in the terminal, outside AgentPier's approvals and questions, for a few seconds          |
+|                 | Pipeline waiting at a gate                         | On      | A pipeline waits at a human gate                                                                                                       |
+|                 | Agent approval (shell, SSH, tasks, team proposals) | On      | An agent waits for approval of a shell or SSH command, a coding task, a memory entry or a team member's permission, or proposes a team |
+| Finished        | Response ready                                     | On      | A session finished its reply                                                                                                           |
+|                 | Session ended                                      | On      | A session stopped                                                                                                                      |
+|                 | Pipeline completed                                 | Off     | A pipeline run completed                                                                                                               |
+|                 | Pipeline failed                                    | On      | A pipeline run failed (a cancelled run does not notify)                                                                                |
+| Agents          | Agent check-in                                     | On      | An agent [checked in](agents.md#routines-reminders-and-check-ins) with something for you; opens its chat                               |
+|                 | Routine result                                     | On      | A [routine or reminder](agents.md#routines-reminders-and-check-ins) wrote in an agent's chat; opens that chat                          |
+|                 | Also what Telegram delivered                       | Off     | Check-ins and routine results that also went to the agent's paired Telegram chat; while off, Telegram alone tells you about them       |
+
+These always notify every device and cannot be switched off: **Telegram access still
+active** (a Telegram bot or person you removed could not be stopped; restart the agent
+service), **Check GitHub token** (the [daily token check](github-agents.md#token-check)
+found a saved token invalid, expired or expiring within seven days), **Disk space is
+low** (less than 10 % free on the drive with AgentPier's data, see
+[system status](system-status.md#low-disk-space)) and the test notification.
+
+Telegram keeps its own messages and approval buttons for agents; these settings only
+change push notifications.
+
+**Grouping and quiet**:
+
+- **Group by session, agent or run** (on by default): a new notification from the same
+  session, agent or pipeline run replaces the older one instead of stacking. A
+  replacement that waits for you (a question or an approval) alerts again; others
+  replace it silently.
+- **Quiet hours** (off by default, 22:00 to 07:00 when switched on): the server holds
+  notifications back during these hours; they are not delivered later, and the inbox
+  still lists what waits. The times count in the device's own time zone, which the
+  device reports when it registers or saves its settings. A range may run past
+  midnight. Questions, approvals and gates are held too, unless **Let questions and
+  approvals through** is on.
+- **Quiet while visible:** nothing is sent to any device while the inbox (for items
+  that wait in it) or the same session, agent chat or pipeline run is open and visible
+  on one of your devices, or was within the last 30 seconds. Open pages report the
+  view they show while visible, and only when at least one device is registered; the
+  server keeps this in memory and never stores it.
+
+## App badge
+
+Where the platform supports app badges (an installed app in Chrome or Edge on desktop
+and Android, the Home Screen app on iOS and iPadOS 16.4 or later, Safari 17 on macOS
+Sonoma or later), the app icon shows how many items wait in the inbox. Every
+notification carries the count, and an open page keeps it current.
+
+## Grouping on Apple devices
+
+Safari on iPhone, iPad and Mac ignores the notification tag and does not support
+`renotify` (WebKit bug [258922](https://webkit.org/b/258922); MDN's browser
+compatibility data lists `Notification.tag` and `renotify` as unsupported in Safari).
+AgentPier's service worker therefore closes the older notification of the same
+session, agent or run itself before it shows the new one. Where the system does not
+allow that either, notifications stack as before; nothing else changes. Badging works
+in the Home Screen app from iOS 16.4.
 
 ## Apple devices after updating to 2.0
 

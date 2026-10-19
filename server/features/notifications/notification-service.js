@@ -75,6 +75,10 @@ export class NotificationService {
         .map((row) => this.summary(row.public)),
     };
   }
+  deviceCount() {
+    if (this.closed) return 0;
+    return this.db.prepare("SELECT COUNT(*) AS count FROM subscriptions").get().count;
+  }
   /** A stored device summary, with its preferences in the current shape. */
   summary(text) {
     const summary = JSON.parse(text);

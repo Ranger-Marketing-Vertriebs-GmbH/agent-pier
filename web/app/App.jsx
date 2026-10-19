@@ -23,6 +23,10 @@ import useFileNavigationGuard from "../features/files/useFileNavigationGuard.js"
 import FileNavigationGuardDialog from "../features/files/FileNavigationGuardDialog.jsx";
 import AgentsOff from "../features/assistants/AgentsOff.jsx";
 import { publishInboxSummary } from "../features/inbox/inbox-store.js";
+import {
+  useAppBadge,
+  usePushPresence,
+} from "../features/notifications/usePushPresence.js";
 const AgentsPage = lazy(() => import("../features/assistants/AgentsPage.jsx"));
 const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
 const Extensions = lazy(() => import("../features/extensions/ExtensionsPage.jsx"));
@@ -51,6 +55,9 @@ function Application() {
   useEffect(() => {
     publishInboxSummary(state.inbox);
   }, [state.inbox]);
+  // Quiet while visible, and the inbox count on the installed app's badge.
+  usePushPresence(state.pushDevices > 0);
+  useAppBadge();
   const [modal, setModal] = useState(null),
     [mobileNav, setMobileNav] = useState(false),
     [sidebarCollapsed, setSidebarCollapsed] = useState(false);
