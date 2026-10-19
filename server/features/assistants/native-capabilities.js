@@ -5,15 +5,17 @@ export const capabilityKeys = [
   "webFetch",
   "browser",
   "documents",
+  "readPdfs",
   "createImages",
 ];
 export const capabilityTools = {
   webSearch: ["web_search"],
   webFetch: ["web_fetch"],
   browser: ["browser"],
-  // `pdf` is not offered: OpenClaw needs a global agents.defaults.pdfModel (tracked
-  // separately), so only image reading is granted.
   documents: ["view_image"],
+  // OpenClaw reads a PDF with one global model (agents.defaults.pdfModel; an agent
+  // entry cannot name its own), which the owner picks (pdf-model-settings.js).
+  readPdfs: ["pdf"],
   // OpenClaw's image_generate through the ChatGPT account (gpt-image-2); its results
   // reach the owner as shared files (generated-images.js).
   createImages: ["image_generate"],
@@ -23,6 +25,7 @@ export const webCapabilityKeys = [
   "webFetch",
   "browser",
   "documents",
+  "readPdfs",
   "createImages",
 ];
 export const memoryTools = ["memory_search", "memory_get", "read", "write", "edit"];
@@ -30,10 +33,11 @@ export const memoryTools = ["memory_search", "memory_get", "read", "write", "edi
 // is verified live on these runtimes; elsewhere memory stays read-only.
 export const guardedTools = ["write", "edit"];
 // Tools offered only while the plugin's tool guard is proven: the guarded writes, the
-// browser, whose calls the guard pins to the agent's own profile, and image creation,
-// whose calls it checks and audits (image-policy.js).
-export const guardGatedTools = [...guardedTools, "browser", "image_generate"];
-const guardGatedCapabilities = ["browser", "createImages"];
+// browser, whose calls the guard pins to the agent's own profile, image creation,
+// whose calls it checks and audits (image-policy.js), and PDF reading, whose calls it
+// keeps on workspace files and the owner's PDF model (tool-guard.js pdfCall).
+export const guardGatedTools = [...guardedTools, "browser", "image_generate", "pdf"];
+const guardGatedCapabilities = ["browser", "createImages", "readPdfs"];
 export const writeGuardRuntimes = ["2026.9.8", "2026.9.9", "2026.10.3"];
 export const delegationTools = [
   "agentpier_team_propose",

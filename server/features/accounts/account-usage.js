@@ -127,6 +127,7 @@ export function summarizeUsage(sources) {
     entry(cliAccounts, profile.config?.accountId)?.pipelineProfiles.push(ref);
   }
   const webSearch = sources.agentsEnabled ? usage() : null;
+  const pdfModel = sources.agentsEnabled ? usage() : null;
   const speech = sources.agentsEnabled ? usage() : null;
   const byId = new Map(sources.agents.map((agent) => [agent.id, agent]));
   for (const agent of sources.agents) {
@@ -142,6 +143,7 @@ export function summarizeUsage(sources) {
     for (const id of sources.agentServers[agent.id] || [])
       addAgent(entry(mcpServers, id), agent, "binding");
     if (personalCapabilities(agent).webSearch) addAgent(webSearch, agent, "capability");
+    if (personalCapabilities(agent).readPdfs) addAgent(pdfModel, agent, "capability");
   }
   for (const channel of sources.channels) {
     const agent = byId.get(channel.assistantId);
@@ -153,6 +155,7 @@ export function summarizeUsage(sources) {
     chatgpt,
     mcpServers,
     webSearch,
+    pdfModel,
     speech,
     cliAccounts,
   };

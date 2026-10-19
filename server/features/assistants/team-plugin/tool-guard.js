@@ -218,6 +218,37 @@ export async function imageCall(event, ctx, bridge) {
   if (policy?.allow === true) return undefined;
   return block(imageRefusals[policy?.reason] ? policy.reason : "unavailable");
 }
+// Why a pdf call was refused, for the model.
+export const pdfRefusals = {
+  model: "PDFs are read with the model the owner chose. Leave model unset.",
+  reference: "Give PDFs as paths to files in your workspace, without a web address.",
+};
+/**
+ * Lets a pdf call through only with the owner's PDF model (agents.defaults.pdfModel;
+ * `model` would pick any configured model) and with workspace files: OpenClaw fetches
+ * http(s) references itself, which would reach the web without the agent's web
+ * capabilities. Local paths stay within the workspace (tools.fs.workspaceOnly).
+ */
+export function pdfCall(event) {
+  const params = event?.params || {};
+  const block = (reason) => ({ block: true, blockReason: pdfRefusals[reason] });
+  if (params.model !== undefined) return block("model");
+  const references = [
+    ...(params.pdf === undefined ? [] : [params.pdf]),
+    ...(params.pdfs === undefined
+      ? []
+      : Array.isArray(params.pdfs)
+        ? params.pdfs
+        : [null]),
+  ];
+  if (
+    references.some(
+      (value) => typeof value !== "string" || /^[a-z][a-z0-9+.-]*:/i.test(value.trim()),
+    )
+  )
+    return block("reference");
+  return undefined;
+}
 export function registerToolGuard(api) {
   const configured = api.pluginConfig?.workspaces;
   const roots =
@@ -284,6 +315,10 @@ export function registerToolGuard(api) {
   });
   api.on("before_tool_call", (event, ctx) => imageCall(event, ctx, bridge), {
     matcher: ["image_generate"],
+    priority: 1000,
+  });
+  api.on("before_tool_call", (event) => pdfCall(event), {
+    matcher: ["pdf"],
     priority: 1000,
   });
   // Only after the hook is registered, and only from the active Gateway runtime

@@ -295,6 +295,7 @@ test("a Gateway's key-free web tool state is recorded once it answers", async (t
   assert.deepEqual(seen, [null, null]);
   assert.deepEqual(runtime.webTools.availability, {
     createImages: false,
+    readPdfs: false,
     browser: false,
     webSearch: true,
   });

@@ -29,6 +29,8 @@ export const lockedPaths = [
   "agents.defaults.skills",
   "agents.defaults.maxConcurrent",
   "agents.defaults.heartbeat",
+  // The owner picks it under Accounts (pdf-model-settings.js); compiled per start.
+  "agents.defaults.pdfModel",
   "agents.entries",
   "agents.list",
   "mcp",

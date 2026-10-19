@@ -2,6 +2,7 @@ import { readJSON, writePrivate } from "../../lib/storage.js";
 import { temporaryMember } from "./team-presentation.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { destroyBackupKeys } from "./backup-credentials.js";
+import { personalCapabilities } from "./native-capabilities.js";
 
 const blockedModel = { primary: "agentpier-unavailable/blocked", fallbacks: [] };
 const central = (profile) => !profile.model.connectionId.startsWith("openclaw:");
@@ -13,8 +14,15 @@ export const restartRequired = (key, affected) =>
   });
 
 export class AssistantProviderSynchronization {
-  constructor({ assistants, connections, maintenance, isUpdating = () => false }) {
-    Object.assign(this, { assistants, connections, maintenance, isUpdating });
+  // `pdfModel()` is the owner's PDF model selection, or null (pdf-model-settings.js).
+  constructor({
+    assistants,
+    connections,
+    maintenance,
+    isUpdating = () => false,
+    pdfModel = () => null,
+  }) {
+    Object.assign(this, { assistants, connections, maintenance, isUpdating, pdfModel });
     this.blocked = new Set();
     this.changing = false;
   }
@@ -29,9 +37,13 @@ export class AssistantProviderSynchronization {
     const profiles = a.store.listAssistants();
     const entries = config.agents?.entries || config.agents?.list;
     const providers = { ...config.models?.providers };
+    const pdf = this.pdfModel();
+    const connectionIds = [
+      ...profiles.map((profile) => profile.model.connectionId),
+      ...(pdf ? [pdf.connectionId] : []),
+    ];
     for (const key of Object.keys(providers))
-      if (profiles.some((profile) => key.startsWith(`ap-${profile.model.connectionId}-`)))
-        delete providers[key];
+      if (connectionIds.some((id) => key.startsWith(`ap-${id}-`))) delete providers[key];
     const blocked = new Set();
     for (const profile of profiles) {
       const entry = Array.isArray(entries)
@@ -60,10 +72,55 @@ export class AssistantProviderSynchronization {
         lease?.release();
       }
     }
+    await this.preparePdf(config, providers, pdf);
     config.models = { ...config.models, providers };
     writePrivate(a.runtime.paths.config, config);
     this.blocked = blocked;
     a.config.reset?.();
+  }
+  /**
+   * The PDF model of a start that offers `pdf` (web-tools.js compiled the tool for an
+   * agent that reads PDFs): its reference and, for a model connection, its provider.
+   * Without a usable model the tool is withdrawn, so no agent is offered a tool that
+   * would pick some other model on its own.
+   */
+  async preparePdf(config, providers, pdf) {
+    const offered =
+      Array.isArray(config.tools?.allow) && config.tools.allow.includes("pdf");
+    if (!offered) return;
+    let primary = null;
+    let lease;
+    try {
+      if (pdf && !central({ model: pdf })) {
+        const selected = this.assistants.models.accounts.offlineSelection(
+          pdf.connectionId,
+          pdf.modelId,
+        );
+        if (selected.available) primary = selected.modelRef;
+      } else if (pdf) {
+        lease = await this.assistants.models.resolve(pdf);
+        if (lease.provider && lease.providerId) {
+          providers[lease.providerId] = lease.provider;
+          primary = lease.modelRef;
+        }
+      }
+    } catch {
+      primary = null;
+    } finally {
+      lease?.release();
+    }
+    if (primary) {
+      config.agents = {
+        ...config.agents,
+        defaults: { ...config.agents?.defaults, pdfModel: { primary, fallbacks: [] } },
+      };
+      return;
+    }
+    config.tools.allow = config.tools.allow.filter((tool) => tool !== "pdf");
+    const entries = config.agents?.entries || config.agents?.list || {};
+    for (const entry of Object.values(entries))
+      if (Array.isArray(entry?.tools?.allow))
+        entry.tools.allow = entry.tools.allow.filter((tool) => tool !== "pdf");
   }
   async pauseBlocked({ duringMaintenance = false } = {}) {
     const a = this.assistants;
@@ -79,17 +136,26 @@ export class AssistantProviderSynchronization {
       throw error;
     }
   }
+  /** Whether `profile` runs on the connection: its model, or the PDF model it reads with. */
+  uses(profile, connectionId, pdf = this.pdfModel()) {
+    return (
+      profile.model.connectionId === connectionId ||
+      (pdf?.connectionId === connectionId && personalCapabilities(profile).readPdfs)
+    );
+  }
   /** True when changing this connection must restart the Gateway of its agents. */
   affects(connectionId) {
+    const pdf = this.pdfModel();
     return this.assistants.store
       .listAssistants()
-      .some((profile) => profile.model.connectionId === connectionId);
+      .some((profile) => this.uses(profile, connectionId, pdf));
   }
   /** Agents the owner knows by name, plus a count of temporary team members. */
   usage(connectionId) {
+    const pdf = this.pdfModel();
     const using = this.assistants.store
       .listAssistants()
-      .filter((profile) => profile.model.connectionId === connectionId);
+      .filter((profile) => this.uses(profile, connectionId, pdf));
     return {
       agents: using
         .filter((p) => !temporaryMember(p))

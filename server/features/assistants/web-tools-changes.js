@@ -13,14 +13,27 @@ import { webToolsSignature } from "./openclaw-config/web-tools.js";
  */
 export class WebToolsChanges {
   // `images()` is `{ ready }`: whether a ChatGPT account can create images now.
+  // `pdfModel` is the owner's PDF model choice (pdf-model-settings.js).
   constructor({
     assistants,
     webSearch,
     synchronization,
     detect = detectBrowser,
     images = () => ({ ready: false }),
+    pdfModel = null,
   }) {
-    Object.assign(this, { assistants, webSearch, synchronization, detect, images });
+    Object.assign(this, {
+      assistants,
+      webSearch,
+      synchronization,
+      detect,
+      images,
+      pdfModel,
+    });
+  }
+  /** What a start compiles for PDF reading: `{ ready, connectionId, modelId }`. */
+  pdf() {
+    return this.pdfModel?.resolve() || { ready: false };
   }
   /**
    * True when the running Gateway was started with other global sections than
@@ -30,6 +43,7 @@ export class WebToolsChanges {
   differs({
     profiles = this.assistants.store.listAssistants(),
     search = this.webSearch.resolve(),
+    pdf = this.pdf(),
   } = {}) {
     const runtime = this.assistants.runtime;
     const running = runtime.client?.ready && runtime.webTools;
@@ -39,7 +53,9 @@ export class WebToolsChanges {
       search,
       browser: this.detect(),
       searchPlugins: running.searchPlugins,
+      documentExtract: running.documentExtract,
       images: this.images(),
+      pdf,
     };
     return webToolsSignature({ profiles, webTools }) !== running.signature;
   }
@@ -82,5 +98,12 @@ export class WebToolsChanges {
       return this.webSearch.save(input);
     this.confirm(confirmed);
     return this.restart(() => this.webSearch.save(input));
+  }
+  /** Saves the PDF model; a change for agents that read PDFs restarts the Gateway. */
+  async savePdfModel(input, { confirmed = false } = {}) {
+    if (!this.differs({ pdf: this.pdfModel.preview(input) }))
+      return this.pdfModel.save(input);
+    this.confirm(confirmed);
+    return this.restart(() => this.pdfModel.save(input));
   }
 }

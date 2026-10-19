@@ -235,6 +235,7 @@ test("an unavailable provider keeps web_search out of every tool list", () => {
   }
   assert.deepEqual(webToolsAvailability(webTools({ searchPlugins: {} })), {
     createImages: false,
+    readPdfs: false,
     browser: true,
     webSearch: false,
   });
@@ -307,6 +308,7 @@ test("a temporary team member's own capabilities give it no web tools", () => {
     web: undefined,
     browser: undefined,
     media: undefined,
+    pdf: undefined,
     plugins: { allow: [], paths: [], entries: {} },
   });
 });
@@ -392,6 +394,7 @@ test("the running state signs the global sections without keeping the key", () =
   assert.equal(JSON.stringify(snapshot).includes("k-one"), false);
   assert.deepEqual(snapshot.availability, {
     createImages: false,
+    readPdfs: false,
     browser: true,
     webSearch: true,
   });

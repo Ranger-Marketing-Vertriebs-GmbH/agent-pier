@@ -147,6 +147,7 @@ test("capability drafts flatten switches and send only what changed", () => {
     webFetch: false,
     browser: false,
     documents: false,
+    readPdfs: false,
     createImages: false,
     browserVisible: false,
     shell: "off",
@@ -168,6 +169,7 @@ test("capability drafts flatten switches and send only what changed", () => {
         webFetch: true,
         browser: false,
         documents: false,
+        readPdfs: false,
         createImages: false,
       },
     },
@@ -215,6 +217,7 @@ test("switching memory off also switches a saved check-in schedule off", () => {
         webFetch: false,
         browser: false,
         documents: false,
+        readPdfs: false,
         createImages: false,
       },
       heartbeat: {
@@ -414,6 +417,7 @@ test("create mode starts empty and sends shell only when raised", () => {
       webFetch: false,
       browser: false,
       documents: false,
+      readPdfs: false,
       createImages: false,
     },
   });
