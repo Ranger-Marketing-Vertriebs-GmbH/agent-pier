@@ -380,8 +380,20 @@ test("creating an agent opens its settings without asking", async ({ page }) => 
   await expect(create).toBeVisible();
   await page.getByLabel("Name", { exact: true }).fill("Fresh");
   await agentTab(page, "Capabilities").click();
-  // The five web switches (Create images too) and scheduled check-ins.
-  await expect(page.getByText("Available after saving the agent")).toHaveCount(6);
+  // Every web switch waits for the saved agent, like scheduled check-ins.
+  const web = [
+    "Search the web",
+    "Read web pages",
+    "Use a browser",
+    "Read images",
+    "Read PDFs",
+    "Create images",
+  ];
+  for (const name of web)
+    await expect(page.getByRole("switch", { name, exact: true })).toBeDisabled();
+  await expect(page.getByText("Available after saving the agent")).toHaveCount(
+    web.length + 1,
+  );
   await page.getByRole("switch", { name: "Remember information" }).check();
   await create.click();
   await expect(page).toHaveURL(/\/agents\/fresh\/settings$/);
