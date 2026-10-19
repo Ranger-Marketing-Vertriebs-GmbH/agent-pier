@@ -8,6 +8,7 @@ import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
  * Rows: `{ key, name, value, stored, removed }`. `error` is shown at the rows and
  * describes them (`errorId`); the value inputs of `invalidNames` are marked invalid.
  * Stored `requiredNames` (marked required by the MCP directory) carry a marker.
+ * `templates` show stored agent placeholders, the one kind of value that is no secret.
  */
 export default function McpSecretRows({
   label,
@@ -17,6 +18,7 @@ export default function McpSecretRows({
   errorId,
   invalidNames = [],
   requiredNames = [],
+  templates = {},
 }) {
   const invalid = (row) =>
     error && invalidNames.includes(row.name.trim()) ? { "aria-invalid": true } : {};
@@ -40,6 +42,12 @@ export default function McpSecretRows({
                   <span className="list-row-pill">{mcpDirectoryCopy.required}</span>
                 )}{" "}
                 <em className="mcp-stored">{copy.stored}</em>
+                {Object.hasOwn(templates, row.name) && (
+                  <>
+                    {" · "}
+                    <code>{templates[row.name]}</code>
+                  </>
+                )}
                 {row.removed && (
                   <span className="mcp-removed"> · {copy.removedMarker}</span>
                 )}

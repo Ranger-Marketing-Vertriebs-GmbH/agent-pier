@@ -76,6 +76,18 @@ test("setting problems follow the server's limits", () => {
   assert.equal(env(row("", "")), null);
 });
 
+test("agent placeholders: valid in the environment, refused in headers", () => {
+  const env = (value) => settingProblem(row("BASE", value), { kind: "env", rows: [] });
+  assert.equal(env("{agent.workspace}"), null);
+  assert.equal(env("{agent.attachments}/voice"), null);
+  assert.equal(env("{agent.workspace}/../x"), "placeholder");
+  assert.equal(env("{agent.home}"), "placeholder");
+  assert.equal(
+    settingProblem(row("X-Dir", "{agent.workspace}"), { kind: "header", rows: [] }),
+    "placeholderRemote",
+  );
+});
+
 test("names the server refuses as object keys are refused here too", () => {
   for (const name of ["__proto__", "constructor", "prototype"]) {
     assert.equal(settingProblem(row(name, "x"), { kind: "env", rows: [] }), "envName");

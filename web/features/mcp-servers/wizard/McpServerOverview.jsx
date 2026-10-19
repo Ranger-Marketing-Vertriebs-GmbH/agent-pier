@@ -13,6 +13,7 @@ import McpPackagePanel from "../McpPackagePanel.jsx";
 import McpRemoveConfirmation from "../McpRemoveConfirmation.jsx";
 import McpServerInfo from "../McpServerInfo.jsx";
 import { savedNotice } from "../mcp-notices.js";
+import AgentFoldersCard from "./AgentFoldersCard.jsx";
 import useDirectoryUpdates from "./useDirectoryUpdates.js";
 import "../mcp-servers.css";
 import "../mcp-cli.css";
@@ -139,6 +140,9 @@ export default function McpServerOverview({
           ]}
           onChange={() => open("settings")}
         />
+        {server.agentPlaceholders === true && agentsEnabled && (
+          <AgentFoldersCard server={server} />
+        )}
         {update?.hint === "identifier" && (
           <p className="mcp-hint">{directoryCopy.identifierHint}</p>
         )}

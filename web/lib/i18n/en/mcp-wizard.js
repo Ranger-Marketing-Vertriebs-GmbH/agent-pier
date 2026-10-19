@@ -98,7 +98,28 @@ export const mcpWizardCopy = {
       duplicate: "This name is used twice.",
       tooLong: "This value is too long (at most 16 KiB).",
       lineBreak: "A value cannot contain line breaks.",
+      placeholder:
+        "Use {agent.workspace} or {agent.attachments}, alone or with a subfolder such as /voice. A . or .. folder is not allowed.",
+      placeholderRemote: "Agent placeholders work only in a local server's settings.",
     },
+    placeholdersHint:
+      "A path can point to each agent's own folder: {agent.workspace} or {agent.attachments}.",
+    placeholdersLabel: "How agent placeholders work",
+    placeholdersFolders:
+      "{agent.workspace} is the agent's workspace, {agent.attachments} the attachments folder in it. A subfolder may follow, such as {agent.workspace}/voice. In an argument, fixed text may come first, such as --dir={agent.workspace}.",
+    placeholdersPerAgent:
+      "AgentPier starts the server separately for each agent and fills in that agent's folder. No agent reads or writes another agent's files, and no shared folder needs access.",
+    placeholdersClis: "Coding CLIs cannot use a server with agent placeholders.",
+    useWorkspace: "Use agent workspace",
+    useAttachments: "Use agent attachments",
+    useWorkspaceFor: (name) => `Use the agent's workspace for ${name}`,
+    useAttachmentsFor: (name) => `Use the agent's attachments folder for ${name}`,
+    placeholderNote: "Each agent gets its own folder here.",
+    argumentPlaceholder:
+      "An argument uses an agent placeholder wrongly. Use {agent.workspace} or {agent.attachments}, alone, with a subfolder or after fixed text such as --dir=.",
+    cwdPlaceholder:
+      "Use {agent.workspace} or {agent.attachments} here, alone or with a subfolder.",
+    useWorkspaceCwd: "Use the agent's workspace as working directory",
     argsTitle: "Arguments and working directory",
     argsNone: "none",
     argsHint: "Only needed when the guide names extra arguments.",
@@ -106,7 +127,7 @@ export const mcpWizardCopy = {
     argumentRequired: "This argument needs a value. Type it or remove the argument.",
     addArgument: "Add an argument",
     removeArgument: (n) => `Remove argument ${n}`,
-    cwd: "Working directory (optional, absolute path)",
+    cwd: "Working directory (optional, absolute path or agent placeholder)",
     cwdNote: "Claude Code cannot use a server with a working directory.",
   },
   install: {
@@ -213,6 +234,18 @@ export const mcpWizardCopy = {
     toolTimeoutLine: (seconds) => `Tool timeout ${seconds} s`,
     noSettings: "No settings",
     nobody: "Nobody yet",
+    agentFoldersTitle: "Agent folders",
+    agentFoldersHint: "Each agent runs the server with its own folder.",
+    agentFoldersNone: "No agent uses it yet.",
+    agentFolderStates: {
+      active: "in use",
+      pending: "applied with the next change or start",
+      unsafe: "not started: a link or file blocks the folder",
+      unavailable: "agents are not set up yet",
+    },
+    agentFolderLine: (name, state) => `${name}: ${state}`,
+    argumentLabel: (n) => `Argument ${n}`,
+    cwdLabel: "Working directory",
   },
   edit: {
     save: "Save changes",

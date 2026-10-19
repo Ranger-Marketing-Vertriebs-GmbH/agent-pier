@@ -5,6 +5,7 @@ import { privateDatabase } from "../../lib/private-database.js";
 import { problem } from "../../lib/storage.js";
 import { mcpUrl, record } from "../extensions/mcp-config.js";
 import { PackageRecords } from "../mcp-packages/package-records.js";
+import { rowPlaceholders, usesAgentPlaceholders } from "./agent-placeholders.js";
 import { CliEntryStore } from "./cli-entry-store.js";
 import { cleanDirectoryOrigin, readDirectoryOrigin } from "./directory-origin.js";
 import { resolveCommand, sanitisedPrefix } from "./command-resolution.js";
@@ -96,6 +97,18 @@ export class McpServerStore {
       .all(id, kind)
       .map((r) => r.name);
   }
+  /** `{ [name]: value }` of a server's environment, for placeholder checks only. */
+  envValues(id) {
+    return Object.fromEntries(
+      this.db
+        .prepare("SELECT name,value FROM server_secrets WHERE server_id=? AND kind='env'")
+        .all(id)
+        .map((r) => [r.name, r.value]),
+    );
+  }
+  placeholderFields(row) {
+    return rowPlaceholders(row, row.transport === "stdio" ? this.envValues(row.id) : {});
+  }
   publicServer(row, packages) {
     const origin = readDirectoryOrigin(row.directory_origin);
     return {
@@ -119,6 +132,7 @@ export class McpServerStore {
       revision: row.revision,
       ...(origin ? { directoryOrigin: origin } : {}),
       ...this.packages.publicFields(row.id, packages),
+      ...this.placeholderFields(row),
     };
   }
   row(id) {
@@ -164,6 +178,9 @@ export class McpServerStore {
           oauthScope: row.oauth_scope ?? null,
           ...rowTimeouts(row),
           ...this.packages.definitionFields(row.id, packages, row.command),
+          ...(this.placeholderFields(row).agentPlaceholders
+            ? { agentPlaceholders: true }
+            : {}),
         };
       });
   }
@@ -405,7 +422,15 @@ export class McpServerStore {
       transport: value.transport,
       cwd: value.cwd ?? null,
     });
-    return { before: pick({ ...row, auth: row.auth ?? "headers" }), after: pick(fields) };
+    // The environment after the update: stored values with the patch's set and drop.
+    const env = { ...this.envValues(id), ...(record(patch.env) ? patch.env : {}) };
+    return {
+      before: pick({ ...row, auth: row.auth ?? "headers" }),
+      after: {
+        ...pick(fields),
+        ...(usesAgentPlaceholders(fields, env) ? { agentPlaceholders: true } : {}),
+      },
+    };
   }
   /**
    * What AgentPier remembers about an OAuth server's logins, never a secret:

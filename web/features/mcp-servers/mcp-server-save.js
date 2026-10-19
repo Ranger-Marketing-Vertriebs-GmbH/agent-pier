@@ -1,5 +1,6 @@
 import { confirmationRequest } from "../../lib/settings/save-chain.js";
 import { assistantApi } from "../assistants/assistant-api.js";
+import { draftUsesPlaceholders } from "./agent-placeholders.js";
 import { cliSupport } from "./cli-support.js";
 import {
   draftFrom,
@@ -22,7 +23,11 @@ export const mcpServerValues = (server) => ({
 
 /** The CLIs the server goes to: unsupported ones fall away as the draft changes. */
 export function mcpTargets(values, server) {
-  const target = { transport: values.transport, cwd: values.cwd.trim() };
+  const target = {
+    transport: values.transport,
+    cwd: values.cwd.trim(),
+    agentPlaceholders: draftUsesPlaceholders(values, server),
+  };
   const wanted = values.clis.filter((cli) => cliSupport(cli, target).supported);
   const before = server?.clis || [];
   const added = wanted.filter((cli) => !before.includes(cli));

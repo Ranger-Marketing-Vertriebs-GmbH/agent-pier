@@ -59,6 +59,10 @@ export const mcpServers = Object.freeze({
     "AgentPier stores values literally. The CLIs would each resolve references such as ${…}, {env:…} or {file:…} differently, and agents not at all; enter the value itself.",
   cliChangeNotAdoptable:
     "The change cannot be adopted: its connection type differs or it uses settings AgentPier does not manage.",
+  placeholderInvalid:
+    "Only {agent.workspace} and {agent.attachments} are available as placeholders, and only in a local server's arguments, working directory and settings: as the whole value or followed by a subfolder such as {agent.workspace}/output, in an argument also after fixed text such as --dir=. Neither . nor .. may follow.",
+  cliPlaceholderUnsupported:
+    "Coding CLIs do not get servers with agent placeholders: their configuration is the same for every session. Give such servers to agents only.",
   cliTransportUnsupported:
     "This coding CLI does not support the server's connection type.",
   cliCwdUnsupported:

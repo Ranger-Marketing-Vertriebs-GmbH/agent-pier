@@ -3,6 +3,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { record, values } from "../extensions/mcp-config.js";
 import { clis } from "./cli-native.js";
+import { parsePlaceholder } from "./agent-placeholders.js";
 
 export const messages = serverMessages.mcpServers;
 export const targetKinds = ["agent", "cli"];
@@ -66,7 +67,8 @@ export function cleanCwd(value) {
     value.length > 4096 ||
     /[\x00-\x1f\x7f]/.test(value) ||
     !value.isWellFormed() ||
-    !path.isAbsolute(value)
+    // An agent placeholder resolves to an absolute folder per agent.
+    !(path.isAbsolute(value) || parsePlaceholder(value))
   )
     throw invalid(messages.invalidCwd);
   return value;

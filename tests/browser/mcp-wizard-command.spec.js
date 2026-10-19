@@ -70,7 +70,7 @@ for (const [label, use] of [
       await wizard.getByRole("button", { name: "Add an argument" }).click();
       await wizard.getByLabel("Argument 1", { exact: true }).fill("--read-only");
       await wizard
-        .getByLabel("Working directory (optional, absolute path)")
+        .getByLabel("Working directory (optional, absolute path or agent placeholder)")
         .fill("/tmp/work");
       await expect(
         wizard.getByText("Claude Code cannot use a server with a working directory."),

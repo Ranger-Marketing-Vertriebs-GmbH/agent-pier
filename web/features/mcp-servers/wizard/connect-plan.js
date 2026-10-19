@@ -1,4 +1,4 @@
-import { cliSupport } from "../cli-support.js";
+import { cliSupport, cliTarget } from "../cli-support.js";
 
 // Connect binds coding CLIs and agents with one consent and reports every target on
 // its own; nothing is all-or-nothing across agents (decision Q2). It does not use
@@ -12,7 +12,7 @@ export const ownerManaged = (assistants = []) =>
 
 /** What Connect changes about `server` for the chosen CLIs and agent ids. */
 export function connectDiff({ server, clis, agents, assistants }) {
-  const target = { transport: server.transport, cwd: server.cwd || "" };
+  const target = cliTarget(server);
   const wanted = clis.filter((cli) => cliSupport(cli, target).supported);
   const before = server.clis || [];
   const added = wanted.filter((cli) => !before.includes(cli));

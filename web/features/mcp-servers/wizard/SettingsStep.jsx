@@ -1,7 +1,9 @@
 import React, { useId, useState } from "react";
+import LearnMore from "../../../components/LearnMore.jsx";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import FieldError from "../FieldError.jsx";
 import TimeoutFields from "../TimeoutFields.jsx";
+import { placeholderInvalid } from "../agent-placeholders.js";
 import { fieldErrors } from "../field-errors.js";
 import SettingRow from "./SettingRow.jsx";
 import { settingHints, settingProblem } from "./setting-hints.js";
@@ -18,10 +20,19 @@ function Arguments({ draft, set, errorOf, describe, errorId, tried }) {
   // A pasted argument that could not be taken over stays a row until it has a value.
   const missing = (value) => draft.hints.argsRequired === true && !value.trim();
   const unfilled = rows.some(missing);
+  const wrongArg = (value) => placeholderInvalid(value, { prefix: true });
+  const wrongArgs = tried && rows.some(wrongArg);
+  const wrongCwd = tried && placeholderInvalid(draft.cwd.trim());
+  // A problem opens the section; once open it stays open while the owner fixes it.
+  const [shown, setShown] = useState(false);
+  const forced = Boolean(
+    errorOf("args") || errorOf("cwd") || unfilled || wrongArgs || wrongCwd,
+  );
   return (
     <details
       className="mcp-advanced"
-      open={Boolean(errorOf("args") || errorOf("cwd") || unfilled)}
+      open={forced || shown}
+      onToggle={(event) => setShown(event.currentTarget.open)}
     >
       <summary>
         {copy.settings.argsTitle} · {count || copy.settings.argsNone}
@@ -36,7 +47,7 @@ function Arguments({ draft, set, errorOf, describe, errorId, tried }) {
             autoCapitalize="none"
             spellCheck={false}
             {...describe("args")}
-            aria-invalid={tried && missing(value) ? true : undefined}
+            aria-invalid={tried && (missing(value) || wrongArg(value)) ? true : undefined}
             onChange={(event) =>
               write(rows.map((item, at) => (at === index ? event.target.value : item)))
             }
@@ -56,6 +67,11 @@ function Arguments({ draft, set, errorOf, describe, errorId, tried }) {
           {copy.settings.argumentRequired}
         </p>
       )}
+      {wrongArgs && (
+        <p role="alert" className="mcp-field-error">
+          {copy.settings.argumentPlaceholder}
+        </p>
+      )}
       <button
         type="button"
         className="button secondary"
@@ -70,11 +86,25 @@ function Arguments({ draft, set, errorOf, describe, errorId, tried }) {
           value={draft.cwd}
           autoCapitalize="none"
           spellCheck={false}
+          aria-invalid={wrongCwd ? true : undefined}
           {...describe("cwd")}
           onChange={(event) => set("cwd")(event.target.value)}
         />
       </label>
+      <button
+        type="button"
+        className="button secondary compact"
+        aria-pressed={draft.cwd === "{agent.workspace}"}
+        onClick={() => set("cwd")("{agent.workspace}")}
+      >
+        {copy.settings.useWorkspaceCwd}
+      </button>
       <FieldError id={errorId} text={errorOf("cwd")} />
+      {wrongCwd && (
+        <p role="alert" className="mcp-field-error">
+          {copy.settings.cwdPlaceholder}
+        </p>
+      )}
       {draft.cwd.trim() && <small className="mcp-hint">{copy.settings.cwdNote}</small>}
     </details>
   );
@@ -125,7 +155,16 @@ export default function SettingsStep({ state, dispatch, go, headingRef }) {
           stdio &&
           draft.hints.argsRequired === true &&
           draft.argRows.some((a) => !a.trim());
-        if (!argsMissing && (!editable || !Object.values(problems).some(Boolean)))
+        // Agent placeholders the server would refuse stop here, at their field.
+        const argsWrong =
+          stdio &&
+          (draft.argRows.some((a) => placeholderInvalid(a, { prefix: true })) ||
+            placeholderInvalid(draft.cwd.trim()));
+        if (
+          !argsMissing &&
+          !argsWrong &&
+          (!editable || !Object.values(problems).some(Boolean))
+        )
           go(path === "package" ? "install" : "review");
       }}
     >
@@ -136,6 +175,16 @@ export default function SettingsStep({ state, dispatch, go, headingRef }) {
             ? copy.settings.headersIntro
             : copy.settings.noHeaders}
       </p>
+      {stdio && (
+        <LearnMore
+          hint={copy.settings.placeholdersHint}
+          label={copy.settings.placeholdersLabel}
+        >
+          <p className="mcp-hint">{copy.settings.placeholdersFolders}</p>
+          <p className="mcp-hint">{copy.settings.placeholdersPerAgent}</p>
+          <p className="mcp-hint">{copy.settings.placeholdersClis}</p>
+        </LearnMore>
+      )}
       {refused && (
         <p id={errorId} role="alert" className="mcp-field-error">
           {refused}
@@ -152,7 +201,13 @@ export default function SettingsStep({ state, dispatch, go, headingRef }) {
                 kind={kind}
                 problem={
                   visible(problems[row.key]) ||
-                  (fieldError?.names?.includes(row.name.trim()) ? "reference" : null)
+                  (fieldError?.names?.includes(row.name.trim())
+                    ? fieldError.code !== "MCP_SERVER_PLACEHOLDER"
+                      ? "reference"
+                      : stdio
+                        ? "placeholder"
+                        : "placeholderRemote"
+                    : null)
                 }
                 onChange={(change) => patch(row.key, change)}
                 onRemove={() => write(all.filter((item) => item.key !== row.key))}

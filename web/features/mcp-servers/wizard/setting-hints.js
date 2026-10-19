@@ -1,3 +1,4 @@
+import { hasPlaceholderCandidate, placeholderInvalid } from "../agent-placeholders.js";
 import { hasReference } from "./value-references.js";
 
 // Masking only (Q3): a secret-looking name hides its value while typing; every value
@@ -57,6 +58,9 @@ export function settingProblem(row, { kind, required = false, rows = [] }) {
   if (row.value.length > valueLimit) return "tooLong";
   if (/[\0\r\n]/.test(row.value)) return "lineBreak";
   if (hasReference(row.value)) return "reference";
+  // Agent placeholders: valid in a local server's environment, nowhere in headers.
+  if (kind === "header" && hasPlaceholderCandidate(row.value)) return "placeholderRemote";
+  if (kind === "env" && placeholderInvalid(row.value)) return "placeholder";
   return null;
 }
 

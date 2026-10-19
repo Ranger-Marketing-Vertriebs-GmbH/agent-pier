@@ -64,6 +64,10 @@ export const mcpServers = {
     "AgentPier speichert Werte wörtlich. Verweise wie ${…}, {env:…} oder {file:…} würden die CLIs jeweils anders auflösen und Agenten gar nicht; bitte den Wert selbst eintragen.",
   cliChangeNotAdoptable:
     "Die Änderung lässt sich nicht übernehmen: Die Verbindungsart weicht ab oder der Eintrag nutzt Einstellungen, die AgentPier nicht verwaltet.",
+  placeholderInvalid:
+    "Nur {agent.workspace} und {agent.attachments} sind als Platzhalter erlaubt, und nur in den Argumenten, im Arbeitsverzeichnis und in den Einstellungen eines lokalen Servers: als ganzer Wert oder mit einem Unterordner wie {agent.workspace}/ausgabe, in einem Argument auch nach festem Text wie --dir=. Weder . noch .. dürfen folgen.",
+  cliPlaceholderUnsupported:
+    "Coding-CLIs bekommen keine Server mit Agenten-Platzhaltern: Ihre Konfiguration gilt für jede Session gleich. Gib solche Server nur Agenten.",
   cliTransportUnsupported:
     "Diese Coding-CLI unterstützt die Verbindungsart des Servers nicht.",
   cliCwdUnsupported:

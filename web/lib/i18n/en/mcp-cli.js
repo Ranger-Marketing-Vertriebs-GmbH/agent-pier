@@ -2,6 +2,8 @@ export const mcpCliCopy = {
   unsupported: {
     transport: "Codex does not support SSE servers.",
     cwd: "Claude Code cannot start a local command in a working directory; Codex and OpenCode can.",
+    placeholder:
+      "Coding CLIs cannot use a server with agent placeholders; give it to agents only.",
   },
   removedOnSave: (cli, name) => `Saving removes ${name} from ${cli}.`,
   statuses: {
@@ -24,6 +26,7 @@ export const mcpCliCopy = {
       "its MCP servers could not be prepared; AgentPier tries again at the next session start",
     transport: "it does not support this connection type",
     cwd: "it cannot use a working directory",
+    placeholder: "it cannot use agent placeholders",
     invalid: "it cannot take the server as it is",
   },
   statusLine: (cli, status) => `${cli}: ${status}`,

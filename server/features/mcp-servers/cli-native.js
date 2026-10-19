@@ -6,6 +6,7 @@ import { mcpUrl, nativeMcp, record, values } from "../extensions/mcp-config.js";
 import { namePattern } from "./command-resolution.js";
 import { nativeTimeoutKeys, nativeTimeouts, timeoutsFromNative } from "./mcp-timeouts.js";
 import { hasReference, referenceNames } from "./value-references.js";
+import { usesAgentPlaceholders } from "./agent-placeholders.js";
 
 /** The coding CLIs a central server can be bound to: the `cli` binding target ids. */
 export const clis = ["claude", "codex", "opencode"];
@@ -14,8 +15,13 @@ export const clis = ["claude", "codex", "opencode"];
  * Whether `cli` can run `server` (a definition or a public server). Codex has no SSE;
  * Claude Code does not start a stdio command in a working directory, Codex and OpenCode
  * do (docs/cli-mcp-qualification.md): MCP_CLI_CWD_UNSUPPORTED applies to Claude Code only.
+ * No CLI gets a server with agent placeholders (docs/mcp.md#agent-placeholders): its
+ * one configuration serves every session. `agentPlaceholders` marks a stored server;
+ * a raw input is judged by its own arguments, working directory and environment.
  */
 export function cliSupport(cli, server) {
+  if (server.agentPlaceholders === true || usesAgentPlaceholders(server, server.env))
+    return { supported: false, reason: "placeholder" };
   if (cli === "codex" && server.transport === "sse")
     return { supported: false, reason: "transport" };
   if (cli === "claude" && server.transport === "stdio" && server.cwd)
@@ -26,6 +32,7 @@ export function cliSupport(cli, server) {
 const refusals = {
   transport: ["MCP_CLI_TRANSPORT_UNSUPPORTED", "cliTransportUnsupported"],
   cwd: ["MCP_CLI_CWD_UNSUPPORTED", "cliCwdUnsupported"],
+  placeholder: ["MCP_CLI_PLACEHOLDER_UNSUPPORTED", "cliPlaceholderUnsupported"],
 };
 
 /** The CLIs `wanted` names, in canonical order; anything else is refused (400). */

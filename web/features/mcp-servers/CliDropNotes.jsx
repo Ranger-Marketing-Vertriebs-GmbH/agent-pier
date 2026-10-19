@@ -1,11 +1,16 @@
 import React from "react";
 import { mcpCliCopy as copy } from "../../lib/i18n/messages/mcp-cli.js";
 import { names } from "../../lib/providers.js";
+import { draftUsesPlaceholders } from "./agent-placeholders.js";
 import { cliSupport, clis } from "./cli-support.js";
 
 /** A bound CLI the edited definition rules out: saving removes the server there. */
 export default function CliDropNotes({ values, server }) {
-  const target = { transport: values.transport, cwd: values.cwd.trim() };
+  const target = {
+    transport: values.transport,
+    cwd: values.cwd.trim(),
+    agentPlaceholders: draftUsesPlaceholders(values, server),
+  };
   const dropped = clis.filter(
     (cli) => (server.clis || []).includes(cli) && !cliSupport(cli, target).supported,
   );

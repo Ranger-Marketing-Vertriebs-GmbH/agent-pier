@@ -1,5 +1,11 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import path from "node:path";
+import {
+  agentFolders,
+  resolveStdioServer,
+  usesAgentPlaceholders,
+} from "../../mcp-servers/agent-placeholders.js";
+import { safeAgentPath } from "./agent-folders.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-mcp-qualification.md.
 
@@ -15,6 +21,17 @@ const stringMap = (value) =>
   record(value) && Object.values(value).every((v) => typeof v === "string");
 const strings = (value) =>
   Array.isArray(value) && value.every((v) => typeof v === "string");
+
+/**
+ * The compiled name of a server with agent placeholders for one agent, also that
+ * agent's tool prefix: the server's name (cut to 21 characters) and a hash of the
+ * server and agent ids, at most OpenClaw's 30 characters (docs/mcp.md#agent-placeholders).
+ */
+export const agentServerName = (server, assistantId) =>
+  `${String(server.name).slice(0, 21)}-${createHash("sha256")
+    .update(`${server.id}\0${assistantId}`)
+    .digest("hex")
+    .slice(0, 8)}`;
 
 /** Archived agents get no MCP servers; any other agent through its own bindings. */
 export function mcpEligible(profile) {
@@ -79,11 +96,19 @@ function oauthServerConfig(server, redirectUrl) {
  * - `secrets`: `{ [serverId]: { headers, env } | null }` for bound servers.
  * - `redirectUrl`: the OAuth redirect URL (oauthRedirect), read by the caller at
  *   each call so a changed origin reaches the next start or live apply.
+ * - `workspaces`, `pathCheck`: the Gateway's workspace root and the folder check for
+ *   servers with agent placeholders (mcpSections).
  * `extra(names)` adds servers AgentPier manages itself in the same shape (the agents'
  * GitHub servers, agent-github.js mcpInputs); `names` are the store's, which win.
  */
-export function readMcpInputs(store, { redirectUrl = null, extra = null } = {}) {
+export function readMcpInputs(
+  store,
+  { redirectUrl = null, extra = null, workspaces = null } = {},
+) {
   const inputs = readStoreInputs(store, redirectUrl);
+  // Agent placeholders resolve below the Gateway's workspace root; each resolved
+  // path is checked on disk at every compile (agent-folders.js).
+  Object.assign(inputs, { workspaces, pathCheck: safeAgentPath });
   if (!extra || inputs.unreadable) return inputs;
   try {
     const more = extra(new Set(inputs.servers.map((server) => server.name)));
@@ -143,6 +168,11 @@ function readStoreInputs(store, redirectUrl) {
  * - `agentTools`: `{ [runtimeAgentId]: ["<name>__*", ...] }` for bound agents.
  * - `skipped`: names of bound servers left out because they cannot be compiled.
  * - `redirectUrl`: the OAuth redirect URL compiled servers carry, else null.
+ * A stdio server with agent placeholders compiles one entry per bound agent instead,
+ * named by agentServerName and resolved to that agent's folders below `workspaces`
+ * (OpenClaw's `mcp.servers` is global; docs/assistant-mcp-qualification.md). An agent
+ * whose entry cannot be resolved, whose folder fails `pathCheck` or whose entry name
+ * a stored server holds gets none; the server is named in `skipped`.
  */
 export function mcpSections({
   profiles = [],
@@ -150,6 +180,8 @@ export function mcpSections({
   bindings = {},
   secrets = {},
   redirectUrl = null,
+  workspaces = null,
+  pathCheck = () => true,
 }) {
   const sections = {
     servers: {},
@@ -168,6 +200,28 @@ export function mcpSections({
     }
     return compiled.get(server.id);
   };
+  const taken = new Set(servers.map((server) => String(server.name).toLowerCase()));
+  // `{ [serverId]: Map(entry name → config) }` of the per-agent entries.
+  const perAgent = new Map();
+  const compileFor = (server, profile) => {
+    const folders = agentFolders(workspaces, profile.id);
+    const stored = secrets[server.id];
+    const resolved =
+      folders && record(stored) && resolveStdioServer(server, stored.env ?? {}, folders);
+    const name = agentServerName(server, profile.id);
+    const config =
+      resolved &&
+      resolved.paths.every((target) => pathCheck(target, folders["agent.workspace"])) &&
+      !taken.has(name.toLowerCase()) &&
+      mcpServerConfig(resolved.server, { headers: {}, env: resolved.env }, redirectUrl);
+    if (!config) {
+      sections.skipped.push(String(server.name));
+      return null;
+    }
+    if (!perAgent.has(server.id)) perAgent.set(server.id, new Map());
+    perAgent.get(server.id).set(name, config);
+    return name;
+  };
   const used = new Set();
   for (const profile of profiles) {
     if (!mcpEligible(profile)) continue;
@@ -177,18 +231,28 @@ export function mcpSections({
     const tools = [];
     for (const id of ids) {
       const server = servers[order.get(id)];
+      if (usesAgentPlaceholders(server, secrets[server.id]?.env)) {
+        const name = compileFor(server, profile);
+        if (name) tools.push(`${name}__*`);
+        continue;
+      }
       if (!compile(server)) continue;
       used.add(id);
       tools.push(`${server.name}__*`);
     }
     if (tools.length) sections.agentTools[profile.runtimeAgentId] = tools;
   }
-  for (const server of servers)
+  for (const server of servers) {
     if (used.has(server.id)) sections.servers[server.name] = compiled.get(server.id);
-  if (used.size) sections.globalTools = [mcpGlobalTool];
+    const entries = perAgent.get(server.id);
+    if (!entries) continue;
+    for (const name of [...entries.keys()].sort())
+      sections.servers[name] = entries.get(name);
+  }
+  if (Object.keys(sections.servers).length) sections.globalTools = [mcpGlobalTool];
   if (Object.values(sections.servers).some((server) => server.auth === "oauth"))
     sections.redirectUrl = redirectUrl;
-  sections.skipped.sort();
+  sections.skipped = [...new Set(sections.skipped)].sort();
   return sections;
 }
 

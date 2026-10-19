@@ -1,5 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { requireValidPlaceholders } from "./agent-placeholders.js";
 
 /**
  * Claude Code's `${…}` (any non-empty content, `${VAR:-default}` included), OpenCode's
@@ -54,9 +55,12 @@ export const VALUE_REFERENCE = "MCP_SERVER_VALUE_REFERENCE";
  * reference each in their own way, agents not at all. Only the fields present are
  * checked, so a stored server is never refused for what it already holds. The error
  * names the `field` and, for headers and environment, the `names`; never a value.
+ * The agent placeholders are the one exception (agent-placeholders.js): a value in
+ * their namespace must be a valid placeholder (400 MCP_SERVER_PLACEHOLDER).
  */
-export function requireLiteralValues(input) {
+export function requireLiteralValues(input, transport = input?.transport) {
   if (!input || typeof input !== "object") return;
+  requireValidPlaceholders(input, transport);
   const refuse = (field, names = []) => {
     throw Object.assign(problem(serverMessages.mcpServers.valueReference, 400), {
       code: VALUE_REFERENCE,
@@ -87,7 +91,7 @@ export function changedValues(row, patch) {
     args: row.args ?? "[]",
     cwd: row.cwd ?? "",
   };
-  const changed = { headers: patch.headers, env: patch.env };
+  const changed = { transport: row.transport, headers: patch.headers, env: patch.env };
   for (const field of ["url", "command", "cwd"])
     if ((patch[field] ?? "") !== stored[field]) changed[field] = patch[field];
   if (patch.args !== undefined && JSON.stringify(patch.args) !== stored.args)

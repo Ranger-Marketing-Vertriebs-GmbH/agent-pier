@@ -14,9 +14,10 @@ test("the form disables exactly what the server refuses", () => {
   for (const cli of clis)
     for (const transport of ["http", "sse", "stdio"])
       for (const cwd of [null, "", "/tmp"])
-        assert.deepEqual(
-          browser(cli, { transport, cwd }),
-          server(cli, { transport, cwd }),
-          `${cli}/${transport}/${cwd}`,
-        );
+        for (const agentPlaceholders of [false, true])
+          assert.deepEqual(
+            browser(cli, { transport, cwd, agentPlaceholders }),
+            server(cli, { transport, cwd, agentPlaceholders }),
+            `${cli}/${transport}/${cwd}/${agentPlaceholders}`,
+          );
 });

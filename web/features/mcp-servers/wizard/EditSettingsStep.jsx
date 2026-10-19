@@ -95,6 +95,7 @@ export default function EditSettingsStep(props) {
               error={errorOf(stdio ? "env" : "headers")}
               invalidNames={fieldError?.names}
               requiredNames={requiredNames}
+              templates={stdio ? server.placeholders?.env : undefined}
               errorId={errorId}
             />
           )}
