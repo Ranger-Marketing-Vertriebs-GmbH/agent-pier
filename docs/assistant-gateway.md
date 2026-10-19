@@ -2565,6 +2565,46 @@ and REM phase notes and a Dream Diary there. 2026.9.8 offers no per-agent scope
 (`memoryPolicy.excludeSessions` filters by channel, chat type or hook source only),
 so a switch limited to agents with memory cannot be built yet.
 
+## Live agent chat feed
+
+`/api/assistant-conversations/<id>/stream?cursor=<cursor>` is a WebSocket behind the
+login and the origin check of the session chat stream. The upgrade is refused with
+404 for an unknown conversation (the check of the history route) and with 503 while
+the agent feature is off; a logout closes the socket (1008). The client sends nothing.
+
+- `ConversationFeeds` (`server/features/assistants/conversation-feeds.js`) keeps one
+  feed per watched conversation, shared by every tab and device. An invalidation is
+  debounced for 200 ms and then read once: the latest history window, exactly what
+  `GET /api/assistant-conversations/<id>/messages` returns.
+- `AssistantService.changed({ conversationId })` invalidates only that feed; a plain
+  `changed()` invalidates every live feed. Both still publish the `change` event on
+  `/api/assistant-events` for the list and the sidebar. The busy paths name their
+  conversation: a sent turn, the queued message, a confirmed run, a compaction, a
+  routine, reminder or check-in result, and Telegram input and reply delivery. A
+  run's terminal chat frame invalidates its feed directly. While a turn of the
+  conversation is active (an attempt pending, accepted or running, a compaction, or a
+  reply streaming), the feed also re-reads every 30 seconds.
+- `sync` frames (`{type: "sync", sequence, data}`) carry the `ChatSync` encoding of
+  the session chat: a full window (the history payload plus
+  `sync: {mode: "full", cursor}`) or a delta (`sync: {mode: "delta", base, cursor}`,
+  `metadata` with `requests`, `queued`, `compacting`, `stale` and `nextBefore`,
+  `upserts` as whole rows, `removed` ids and `order` when the order changed). A read
+  that changes nothing for a socket sends nothing. The baseline scope is the
+  conversation, its runtime session key and the Gateway launch (`generationId`): a
+  cursor from another launch, or an expired (30 minutes) or unknown cursor, for
+  example after an AgentPier restart, yields a full window. Cursors are not persisted.
+- `stream` frames (`{type: "stream", runId, from, text}`, without a sequence) carry
+  the reply streaming now. A socket first receives a run's whole text (`from: 0`),
+  then only the appended part; a rewritten reply or a new Gateway connection starts
+  at `from: 0` again. The text is capped at 64 KiB like the `delta` event on
+  `/api/assistant-events`; the history has the rest.
+- A socket that falls more than 2 MiB behind is closed with 1013; the client
+  reconnects with its cursor. Stopping the agent feature closes every feed socket
+  (1001).
+- `GET /api/assistant-conversations/<id>/messages?cursor=<cursor>` (an empty cursor
+  for none) answers with the same encoding, for a client that cannot keep the socket
+  open.
+
 ## Chat attachments (2026-10-13)
 
 The owner can attach up to five files of at most 10 MB each to a message in the

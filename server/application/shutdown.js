@@ -18,6 +18,7 @@ export function createShutdown({ services, wss, server }) {
     for (const socketServer of [
       wss,
       services.chatWss,
+      services.assistantChatWss,
       services.browserWss,
       services.dictationWss,
     ])
@@ -55,7 +56,12 @@ export function createShutdown({ services, wss, server }) {
       services.mcpServers?.close();
     } catch {}
     await history.close();
-    for (const socketServer of [wss, services.chatWss, services.browserWss])
+    for (const socketServer of [
+      wss,
+      services.chatWss,
+      services.assistantChatWss,
+      services.browserWss,
+    ])
       for (const ws of socketServer?.clients || [])
         ws.close(1001, serverMessages.common.serverRestarting);
     await sessions.close();
@@ -64,7 +70,12 @@ export function createShutdown({ services, wss, server }) {
     services.mcpTools?.close();
     services.mcpAccess?.close();
     services.audit.close();
-    for (const socketServer of [wss, services.chatWss, services.browserWss])
+    for (const socketServer of [
+      wss,
+      services.chatWss,
+      services.assistantChatWss,
+      services.browserWss,
+    ])
       if (socketServer) await new Promise((resolve) => socketServer.close(resolve));
     if (server.listening)
       await new Promise((resolve) => {

@@ -49,6 +49,14 @@ per-scope active limit. This lets a reconnecting browser, or one restoring a cac
 chat, receive a delta instead of the full history. Deleting a session discards all of
 its baselines, active and parked.
 
+### Agent chat feed
+
+Agent chats use the same `ChatSync` encoding on their own instance, scoped by
+conversation, runtime session key and Gateway launch, over
+`/api/assistant-conversations/:id/stream?cursor=...` and
+`GET /api/assistant-conversations/:id/messages?cursor=...`. See
+[Live agent chat feed](assistant-gateway.md#live-agent-chat-feed).
+
 ### Chat session cache in the browser
 
 The browser keeps a bounded cache of recently opened chats so that reopening one shows

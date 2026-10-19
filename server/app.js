@@ -66,6 +66,7 @@ import { registerResponses } from "./http/responses.js";
 import { buildHeader, buildIdentity } from "./http/build-identity.js";
 import { attachTerminalWebSocket } from "./http/terminal-websocket.js";
 import { attachChatWebSocket } from "./http/chat-websocket.js";
+import { attachAssistantChatWebSocket } from "./http/assistant-chat-websocket.js";
 import { attachBrowserWebSocket } from "./http/browser-websocket.js";
 import { attachDictationWebSocket } from "./http/dictation-websocket.js";
 import { dictationRoutes } from "./http/routes/dictation.js";
@@ -334,6 +335,12 @@ export async function createApplication(config) {
     effective,
   });
   services.chatWss = chatWss;
+  // The agent chats' live feeds, while the agent feature runs.
+  services.assistantChatWss = attachAssistantChatWebSocket(server, {
+    assistants: () => services.assistants,
+    login: services.login,
+    effective,
+  });
   // The owner's live view of the agents' browsers, while the agent feature runs.
   services.browserWss = attachBrowserWebSocket(server, {
     live: () => services.assistants?.liveView || null,
