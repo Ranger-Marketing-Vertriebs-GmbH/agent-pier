@@ -248,17 +248,21 @@ x64/ARM64 runners. A local macOS ARM64 run passed; consult the workflow for the 
 host results. This fresh-install smoke test does not replace adjacent-version
 activation/rollback tests or qualification of every optional upstream feature.
 
-The same workflow's `native-contracts` job (Ubuntu and macOS, nightly and on pull
-requests that touch assistants, assistant channels or `tests/**/assistant*`)
+The same workflow's `native-contracts` job (Ubuntu x64 on pull requests that touch
+assistants, assistant channels or `tests/**/assistant*`, macOS arm64 after the merge
+as well, and nightly and before a release also Ubuntu arm64 and macOS x64)
 provisions the pinned runtime with `scripts/provision-assistant-contracts.mjs`. That
 script runs the installer's `--with-assistants` step against a temporary data
 directory. The job caches only `assistants/runtimes`, keyed by OS, architecture,
 version, Node version and `dependencyLockSha256`. It then runs every deterministic
 native contract with the `AGENTPIER_ASSISTANT_*` variables set. Model endpoints,
 accounts and channels are simulated, and no secrets are used. The job fails if any
-contract skips. Two contracts stay manual: the live provider test needs real
-credentials, and the cross-version test needs a predecessor runtime that has no
-installer path. Native contracts locate OpenClaw internals by their exported symbol
+contract skips. The live provider test stays manual because it needs real
+credentials. The cross-version tests need a predecessor runtime, which the current
+installer cannot install: the workflow's `cross-version` job (nightly and before a
+release) checks out the release tags whose pins are still `rollbackTargets` and
+installs each predecessor with that tag's own provisioning script (see
+[release qualification](assistant-release-qualification.md#update-paths-installed-users-take)). Native contracts locate OpenClaw internals by their exported symbol
 names (`tests/helpers/openclaw-dist-exports.js`), not by hashed chunk file names. A
 rebuilt package therefore keeps working, and a missing symbol fails with a message
 that names the OpenClaw version.

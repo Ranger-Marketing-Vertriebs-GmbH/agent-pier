@@ -180,7 +180,8 @@ with `sysctl kernel.apparmor_restrict_unprivileged_userns=0` (persisted in
 `/etc/sysctl.d/`), which weakens a hardening for every program. Then install again.
 
 The assistant runtime installer pins Linux arm64 and x64 packages. The deterministic
-native contracts run on Ubuntu in CI (`native-contracts` job), but Linux assistant
+native contracts run on Ubuntu x64 in CI (`native-contracts` job), and nightly and
+before a release on Ubuntu arm64 too, but Linux assistant
 qualification on real hosts, including the systemd `KillMode=process` orphan reclaim,
 remains outstanding. Behind a proxy, set the standard proxy variables when running the
 installer; they are written into the unit (see [installation](installation.md#managed-assistant-runtime)).

@@ -522,7 +522,9 @@ Requalification checklist for a version bump:
 1. Update the manifest and refresh the runtime lock with
    `scripts/refresh-assistant-runtime-lock.mjs` (one reviewed change).
 2. Update the plugin compatibility list (`rollbackTargets`) and keep the previous
-   version as rollback target only if the cross-version test passes. Add the new
+   version as rollback target only if the cross-version test passes, and keep the
+   `cross-version` job's release-tag matrix in `assistant-runtime.yml` in step with
+   the list. Add the new
    version to `writeGuardRuntimes` once the native write and team plugin contracts
    pass on it; unit guards fail while either gate lags the pin. Review the advanced
    settings allow list against the new `config.schema` and re-pin
@@ -538,7 +540,9 @@ Requalification checklist for a version bump:
    manifest together with OpenClaw.
 4. Run the manual live-provider and cross-version tests with disposable state
    (`assistant-runtime-cross-version` and `assistant-mcp-oauth-cross-version`, with
-   `AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME` and `AGENTPIER_ASSISTANT_UPDATE_RUNTIME`).
+   `AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME` and `AGENTPIER_ASSISTANT_UPDATE_RUNTIME`)
+   from every runtime a release pinned that is still a rollback target, not only the
+   adjacent one: users update from their last release's pin straight to the new one.
 5. Run `scripts/verify-assistant-runtime.mjs` and `scripts/verify-assistant-teams.mjs`
    against new data directories.
 6. Review the upstream changelog for protocol, config-schema and table changes, and

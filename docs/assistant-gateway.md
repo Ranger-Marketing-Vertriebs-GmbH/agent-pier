@@ -3077,13 +3077,17 @@ for SSH), never in a sender bot's session, and routes it to `AgentShares`
 ## Continuous integration
 
 The `Assistant runtime` workflow runs the opt-in native contracts in a
-`native-contracts` job (Ubuntu and macOS, nightly and on pull requests touching
-assistants). It provisions the pinned runtime with
+`native-contracts` job (Ubuntu x64 on pull requests touching assistants, macOS arm64
+after the merge as well; nightly and before a release also Ubuntu arm64 and macOS
+x64). It provisions the pinned runtime with
 `scripts/provision-assistant-contracts.mjs`, uses simulated model endpoints, accounts
 and channels, needs no secrets, and fails if any contract skips. It also points the
 compiled web tools contract at the runner's preinstalled Google Chrome and fails
 when none is installed. The live provider
-test and the cross-version test stay manual. The browser matrix runs every
+test stays manual. A `cross-version` job (nightly and before a release) installs the
+runtimes that older release tags pinned and runs the cross-version update tests
+against the current pin; see
+[release qualification](assistant-release-qualification.md#update-paths-installed-users-take). The browser matrix runs every
 `assistant*.spec.js` in Chromium and WebKit; a Playwright `tablet` project (820x1180,
 touch) repeats those specs at iPad size. The slim `Assistant runtime (queue)` workflow
 (`assistant-runtime-queue.yml`) is the required merge-queue gate: it passes at once

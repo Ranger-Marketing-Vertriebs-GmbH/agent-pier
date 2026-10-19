@@ -30,9 +30,14 @@ prevails.
   specs passed 160 of 160 in Chromium and 160 of 160 in WebKit across the `desktop`
   and `tablet` projects.
 - **Still open:** real Azure qualification (needs an endpoint
-  from the owner), additional runtime version pairs, other architectures, production
-  deployment, team spend budgets (AGENTPIER-7), and Gmail, Microsoft 365, Google
-  Calendar, Apple services and a sandbox.
+  from the owner), production deployment, team spend budgets (AGENTPIER-7), and
+  Gmail, Microsoft 365, Google Calendar, Apple services and a sandbox. Every update
+  path an installed user can take today is qualified locally on macOS arm64 (see
+  [update paths installed users take](#update-paths-installed-users-take)); the
+  native contracts and cross-version tests on the other architectures run nightly
+  and before a release, and their first results are pending (see
+  [native architectures](#native-architectures-2026-10-19)). Real Linux hosts
+  (systemd, orphan reclaim) remain unqualified, see [Linux](linux.md).
 
 - **Agent shell access (2026-10-12):** before a release, the four shell contracts
   (`assistant-shell-contract`, `assistant-shell-environment-contract`,
@@ -46,7 +51,7 @@ prevails.
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Native memory         | Two pinned Gateway contracts verify deletion/re-index/restart, model-reference switching and agent isolation.                                                                                                                                                                                                                                                                                                                           | Deterministic HTTP model; no semantic embeddings or erasure of historical transcripts/backups.                                                                                          |
 | Native scheduling     | Nine native scheduler cases cover Berlin/New York DST, explicit timezones, 30-day downtime, restart, missed-run policy, backlog spacing and duplicate completion delivery.                                                                                                                                                                                                                                                              | Injected clock with real scheduler/SQLite; not an operating-system suspend or crash experiment.                                                                                         |
-| Runtime update        | Two native cases verify activation and rollback after injected candidate validation failure for OpenClaw 2026.9.7 → 2026.9.8, 2026.9.8 → 2026.9.9 and 2026.9.9 → 2026.10.3 (see below).                                                                                                                                                                                                                                                 | Node 26.7.0, macOS arm64, exact adjacent pair only.                                                                                                                                     |
+| Runtime update        | Two native cases verify activation and rollback after injected candidate validation failure for OpenClaw 2026.9.7 → 2026.9.8, 2026.9.8 → 2026.9.9, 2026.9.9 → 2026.10.3 and the skip update 2026.9.8 → 2026.10.3 (see below).                                                                                                                                                                                                           | Node 26.7.0, macOS arm64 locally; Linux x64 in the nightly `cross-version` job.                                                                                                         |
 | Project identity      | Three real Git/ProjectMemory/ProjectRebind cases cover git initialization, automatic rebind and duplicate-project merging.                                                                                                                                                                                                                                                                                                              | Synthetic projects; no real user coding task executed.                                                                                                                                  |
 | Native interfaces     | Two pinned Gateway contracts verify the locked core, hello features, config schema and lookup, `replacePaths`, stale hashes, pairing list and a denied exec approval.                                                                                                                                                                                                                                                                   | Deterministic HTTP model; no WhatsApp login, pairing approval or allowed exec.                                                                                                          |
 | Web tools and browser | The compiled team-mode startup configuration (team plugin, memory, DuckDuckGo plugin from the runtime descriptor, isolated browser) is accepted; `web_fetch` refuses loopback, the browser uses only `openclaw` profiles in the data dir, temporary members get no capability tool; each bundled search plugin loads.                                                                                                                   | Deterministic model, no real search; `pdf` granted but not offered on custom providers; Linux Chrome sandbox CI-only, unverified locally.                                               |
@@ -239,6 +244,98 @@ OpenClaw archive and Node checksums. The subsequent locked-installer work also p
 the transitive dependency graph; see [installation qualification](assistant-runtime-updates.md#fresh-native-qualification)
 for its fresh native platform matrix and remaining boundaries.
 
+### Update paths installed users take
+
+An installed AgentPier updates to the newest release, and its next start stages the
+runtime that release pins (`stageRuntimeInBackground`); the owner activates it. No
+release requires an intermediate step, so a user's runtime update goes from whatever
+runtime their last release pinned straight to the current pin. The release tags pin:
+
+| AgentPier release | Pinned OpenClaw | Rollback targets   | Update path to the current pin (2026.10.3) |
+| ----------------- | --------------- | ------------------ | ------------------------------------------ |
+| v1.27.0 – v1.28.1 | 2026.9.8        | 2026.9.7           | 2026.9.8 → 2026.10.3 (skip update)         |
+| v2.0.0            | 2026.9.9        | 2026.9.8, 2026.9.7 | 2026.9.9 → 2026.10.3                       |
+| v2.1.0 – v2.3.0   | 2026.10.3       | 2026.9.9, 2026.9.8 | none                                       |
+
+Releases before v1.27.0 had no managed assistants. 2026.9.7 was never pinned by a
+release, so no installed user runs it. 2026.9.8 → 2026.9.9 is no longer reachable:
+a v1.28.x user now updates to a release that pins 2026.10.3.
+
+### OpenClaw 2026.9.8 → 2026.10.3 skip update (2026-10-19)
+
+Qualified on macOS arm64 (Darwin 25.5) at `26cef2a6`, in disposable data directories.
+Each predecessor runtime was installed by its own release's code, manifest and lock:
+`git archive v1.28.1` and `git archive v2.0.0` into a scratch directory, then
+`node scripts/provision-assistant-contracts.mjs --data-dir <dir> --env-file <file>`
+there, which gave `2026.9.8-node26.7.0-darwin-arm64-lock93bd048153fd` and
+`2026.9.9-node26.7.0-darwin-arm64-lockc197993dfd41`. The current pin is
+`2026.10.3-node26.7.0-darwin-arm64-lock5d0ace4d722a`. Older release trees need no
+`npm ci` for provisioning.
+
+- `assistant-runtime-cross-version.test.js` and
+  `assistant-mcp-oauth-cross-version.test.js` with 2026.9.8 as the previous and
+  2026.10.3 as the update runtime: 4 of 4 passed, 0 skipped (152 s). Activation keeps
+  memory, the disabled schedule, history and the completed receipt across a restart
+  without a model request; an injected validation failure rolls back to 2026.9.8 with
+  the original memory; a legacy `agents.list` roster is canonicalized; the MCP OAuth
+  login made on 2026.9.8 refreshes twice on 2026.10.3 without a new registration or
+  authorization. The SDK's missing-`issuer` warning appears once after the update, as
+  in the 2026.9.8 → 2026.9.9 record: 2026.9.8 does not stamp the issuer.
+- **Application path.** A throwaway `node:test` file (not committed) used
+  `applicationFixture` (`tests/helpers/application.js`): its data directory was
+  first provisioned by the v1.28.1 tree, then the current code started on it. The
+  background staging prepared 2026.10.3 (`candidateReady: true`, current 2026.9.8),
+  `POST /api/assistant-runtime/updates/activate` answered 200 with phase
+  `complete` and a snapshot under `assistants/backups/`, retention removed the
+  2026.9.8 installation, and after an application restart the status stayed at
+  2026.10.3 with `updateAvailable: false`. The same run from a v2.0.0 installation
+  (2026.9.9 → 2026.10.3) passed identically.
+- **Rollback.** Before commit, a failed activation restores 2026.9.8 (case above).
+  After commit there is no downgrade: 2026.10.3 migrates the state database to
+  schema 20, which 2026.9.8 refuses like 2026.9.9 (see the 2026.10.3 section), and
+  retention deletes the 2026.9.8 installation. The team plugin still accepts 2026.9.8
+  because it stays in `rollbackTargets`.
+
+Repeat it with the commands above and:
+
+```sh
+AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME=/absolute/path/to/2026.9.8-runtime \
+AGENTPIER_ASSISTANT_UPDATE_RUNTIME=/absolute/path/to/2026.10.3-runtime \
+  node --test --test-concurrency=1 tests/integration/assistant-runtime-cross-version.test.js \
+  tests/integration/assistant-mcp-oauth-cross-version.test.js
+```
+
+The `cross-version` job of the `Assistant runtime` workflow now repeats both
+pairs on Ubuntu x64 nightly, on demand and before a release. It checks out the
+release tags `v1.28.1` and `v2.0.0`, provisions their runtimes as above, and fails
+when a test skips. Its matrix must follow `rollbackTargets`: a predecessor that
+leaves the list is refused by the team plugin and leaves the matrix too.
+
+### Native architectures (2026-10-19)
+
+The runtime manifest pins Node checksums for darwin-arm64, darwin-x64, linux-arm64
+and linux-x64 (glibc); the transitive lock carries the native packages for all four
+(`@openclaw/fs-safe`, `sqlite-vec`, `@lydell/node-pty` and others; musl and
+Windows packages are present but unused, because there is no Node pin for them). Any
+other host gets `Unsupported assistant runtime platform`.
+
+| Target       | Fresh install (`fresh-install`)           | Native contracts (`native-contracts`)              |
+| ------------ | ----------------------------------------- | -------------------------------------------------- |
+| linux-x64    | `ubuntu-24.04`, also pull requests        | `ubuntu-latest`, also pull requests                |
+| linux-arm64  | `ubuntu-24.04-arm`, also pull requests    | `ubuntu-24.04-arm`, nightly and release only (new) |
+| darwin-arm64 | `macos-15`, after merge and nightly       | `macos-latest`, after merge and nightly            |
+| darwin-x64   | `macos-15-intel`, after merge and nightly | `macos-15-intel`, nightly and release only (new)   |
+
+`macos-13` is retired; `macos-15-intel` is the GitHub-hosted Intel label the
+`fresh-install` job already used. On Linux arm64 the web tools contract uses Google
+Chrome when the image has it and otherwise Playwright's Chromium, for which the job
+lifts the Ubuntu 24.04 AppArmor restriction on unprivileged user namespaces (on the
+disposable runner only) so Chromium's sandbox starts. These jobs were validated with
+`actionlint` 1.7.12 only; neither runner can be exercised locally, so their first
+nightly (or a manual `workflow_dispatch` of `Assistant runtime`) is the first
+evidence. Like every advisory job, a red result blocks the next release through
+`full.yml` until it is fixed.
+
 ## Main integration
 
 Project identity changes from main must not transfer assistant authorization to a
@@ -324,9 +421,11 @@ login output, the `status --json` shape and the startup backoff that the post-lo
 
 ## Remaining scope
 
-Actual Azure inference/tool behavior (Ollama and llama.cpp passed on 2026-10-10), additional runtime
-version pairs, Linux/other architectures and production deployment remain separate
-gates. Gmail, M365, Google Calendar, Apple services and sandbox design remain
+Actual Azure inference/tool behavior (Ollama and llama.cpp passed on 2026-10-10), real
+Linux hosts and production deployment remain separate gates. Runtime version pairs and
+the native architectures are covered as described under
+[update paths installed users take](#update-paths-installed-users-take) and
+[native architectures](#native-architectures-2026-10-19). Gmail, M365, Google Calendar, Apple services and sandbox design remain
 explicitly deferred. The owner can test a deployment after review; this
 qualification does not change the existing personal trial.
 
