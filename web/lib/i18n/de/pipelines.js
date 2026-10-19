@@ -276,6 +276,33 @@ export const pipelineCopy = {
   emptyDiff: "Keine Änderungen gemeldet.",
   truncated: "Ausgabe gekürzt.",
   reportChanged: "Nach Abschluss der Stufe geändert",
+  spec: "Spec",
+  specFrozen: "Eingefroren",
+  specDraft: "Entwurf",
+  specWrittenBy: (stage) => `Geschrieben von ${stage}`,
+  specReplaced: (time) => `Von dir ersetzt ${time}`,
+  specChanged: (count, time, restored) =>
+    restored
+      ? `Nach dem Einfrieren ${count}× geändert, zuletzt ${time}; der festgehaltene Text wurde wiederhergestellt`
+      : `Nach dem Einfrieren ${count}× geändert, zuletzt ${time}; der festgehaltene Text konnte nicht wiederhergestellt werden`,
+  specCriteria: "Akzeptanzkriterien",
+  specVerify: (text) => `So prüfen: ${text}`,
+  specAssumptions: (count, decisions) =>
+    decisions
+      ? `Annahmen · ${count} · Produktentscheidungen · ${decisions}`
+      : `Annahmen · ${count}`,
+  productDecision: "Produktentscheidung",
+  showSpec: "Spec anzeigen",
+  replaceSpec: "Spec ersetzen",
+  replaceSpecSave: "Ersetzen",
+  replaceSpecHelp:
+    "Der neue Text wird zum Vertrag für alle späteren Stufen. Nummeriere die Akzeptanzkriterien unter „## Acceptance criteria“. Die Freigabe wartet weiter auf deine Entscheidung.",
+  criterionRef: (id) => `Kriterium ${id}`,
+  criterionStatuses: { met: "Erfüllt", "not-met": "Nicht erfüllt" },
+  ignoredCriteria: (ids) =>
+    `Angaben zu unbekannten Akzeptanzkriterien wurden ignoriert: ${ids}`,
+  specRestoredAfterTurn: "Hat die Spec geändert; wiederhergestellt",
+  specIgnored: "Hat eine weitere Spec angegeben; ignoriert",
   feedback: "Rückmeldung",
   resumeAt: "Fortsetzen ab (optional)",
   actions: {

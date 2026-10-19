@@ -14,6 +14,8 @@ import { defaultStageId } from "./run-stages.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import "./run-detail.css";
 import "./run-stage-blocks.css";
+// After the stylesheets above, so the spec's own styles keep their cascade order.
+import RunSpec from "./RunSpec.jsx";
 
 // Run detail: header with run-wide actions, the stage rail on the left and the chosen
 // stage on the right. The chosen stage lives in component state, so polling keeps it.
@@ -59,6 +61,7 @@ export default function RunDetail({ id, navigate }) {
                 : null
             }
           />
+          <RunSpec run={run} refresh={resource.refresh} />
           {nodes.length === 0 && <RunUsage usage={run.usage} />}
           {nodes.length > 0 && (
             <div className="run-detail-layout">

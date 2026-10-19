@@ -65,7 +65,17 @@ export async function inboxFixture(page, { language, agents = true } = {}) {
       { id: "review", status: "awaiting-gate", profileSnapshot: { name: "Review" } },
     ],
     executionLog: [],
-    actions: ["accept", "feedback", "abort"],
+    actions: ["accept", "feedback", "replace-spec", "abort"],
+    // The stage at the gate wrote the run's spec; the gate shows it.
+    spec: {
+      path: ".pipeline/reports/review/attempt-1/spec.md",
+      nodeId: "review",
+      source: "stage",
+      frozen: false,
+      text: "# Spec\n\n## Acceptance criteria\n1. The release notes are published.\n",
+      criteria: [{ id: "AC1", text: "The release notes are published." }],
+      assumptions: [],
+    },
   };
   const exec = {
     id: "exec-one",

@@ -271,6 +271,32 @@ export const pipelineCopy = {
   emptyDiff: "No changes reported.",
   truncated: "Output truncated.",
   reportChanged: "Changed after the stage finished",
+  spec: "Spec",
+  specFrozen: "Frozen",
+  specDraft: "Draft",
+  specWrittenBy: (stage) => `Written by ${stage}`,
+  specReplaced: (time) => `Replaced by you ${time}`,
+  specChanged: (count, time, restored) =>
+    restored
+      ? `Changed ${count}× after it froze, last ${time}; the recorded text was restored`
+      : `Changed ${count}× after it froze, last ${time}; the recorded text could not be restored`,
+  specCriteria: "Acceptance criteria",
+  specVerify: (text) => `Verify: ${text}`,
+  specAssumptions: (count, decisions) =>
+    decisions
+      ? `Assumptions · ${count} · product decisions · ${decisions}`
+      : `Assumptions · ${count}`,
+  productDecision: "Product decision",
+  showSpec: "Show spec",
+  replaceSpec: "Replace spec",
+  replaceSpecSave: "Replace",
+  replaceSpecHelp:
+    "The new text becomes the contract for every later stage. Number the acceptance criteria under “## Acceptance criteria”. The gate keeps waiting for your decision.",
+  criterionRef: (id) => `Criterion ${id}`,
+  criterionStatuses: { met: "Met", "not-met": "Not met" },
+  ignoredCriteria: (ids) => `Reports on unknown acceptance criteria were ignored: ${ids}`,
+  specRestoredAfterTurn: "Changed the spec; restored",
+  specIgnored: "Declared another spec; ignored",
   feedback: "Feedback",
   resumeAt: "Resume from (optional)",
   actions: {
