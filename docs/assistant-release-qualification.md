@@ -45,6 +45,12 @@ prevails.
   without skips with `AGENTPIER_SHELL_CONTRACT_RUNTIME`; the `native-contracts` job
   runs them. Locally on macOS arm64 they passed 15 of 15.
 
+- **Recorded end-to-end runs (2026-10-19):** a Telegram voice note through
+  transcription to a delivered native reminder, and an owner-approved coding run that
+  a lead's permanent member requested, with its result in the lead's chat, passed
+  three times each on the pinned runtime; the `native-contracts` job runs both (see
+  [Recorded end-to-end runs](#recorded-end-to-end-runs-2026-10-19-agentpier-173)).
+
 ## Deeper checks
 
 | Area                  | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                | Boundaries                                                                                                                                                                              |
@@ -70,6 +76,88 @@ The detailed records are [memory](assistant-memory-qualification.md),
 [providers](assistant-provider-qualification.md). Native memory and update tests
 exercise actual Gateway processes with a deterministic HTTP model. Provider
 protocol tests against simulated endpoints are not actual vendor qualification.
+
+## Recorded end-to-end runs (2026-10-19, AGENTPIER-173)
+
+Two opt-in native contracts run whole owner journeys on the pinned runtime instead
+of one subsystem at a time. Both build the production assistant graph
+(`constructAssistantGraph` and `connectAssistantServices` from
+`server/application/assistant-graph.js`, as AgentPier wires it) in a disposable data
+directory, mount AgentPier's own assistant routes (`assistantRoutes`) on a loopback server and
+drive the owner's steps through them (`tests/helpers/assistant-e2e-graph.js`). They
+need `AGENTPIER_E2E_CONTRACT_RUNTIME`, which
+`scripts/provision-assistant-contracts.mjs` exports with the other contract
+variables, skip without it and run in the `native-contracts` CI job.
+
+What is real and what is a double:
+
+| Part               | In the run                                                                                                                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Gateway            | The pinned OpenClaw 2026.10.3 runtime (Node 26.7.0, lock `5d0ace4d722a…`) with the installed team plugin, started by AgentPier's `RuntimeSupervisor`; only its runtime selection points at the provisioned installation. |
+| AgentPier services | All production services and their wiring: `AssistantService`, `TeamService` with its scheduler and lead requests, `TeamBridge`, `NativeReminders`, `ChannelService`, `AssistantWorkflows`, `LeadShares`, `McpTools`.     |
+| Model              | A scripted OpenAI-compatible loopback endpoint behind a real endpoint provider connection (`ProviderConnections`, preset `custom`); it decides each turn from its text and tool results.                                 |
+| Telegram           | The loopback Bot API of the agents' own bots contract (`tests/helpers/assistant-telegram-fakes.js`), reached through `TelegramClient`'s `apiRoot` test seam.                                                             |
+| Transcription      | AgentPier's `SpeechService` and `DeepgramTranscriber`; only the request to `api.deepgram.com` is redirected to a loopback `/v1/listen` fake with a fixture key.                                                          |
+| Coding run         | AgentPier's real `PipelineEngine` with a one-stage pipeline; its stage driver launches no coding CLI and no tmux session but writes a passing verdict and an artifact into the run's workspace.                          |
+| Timing             | No clock hooks: the reminder is due 15 seconds after the agent creates it and fires through OpenClaw's own scheduler.                                                                                                    |
+
+**Voice note to reminder** (`tests/integration/assistant-voice-reminder-e2e-contract.test.js`).
+The owner creates an agent with reminders, saves the speech key, connects and pairs
+the owner's AgentPier bot (`/start <code>` through the fake Bot API) and sends a
+voice note. Observed sequence: Deepgram request with `Token <key>` and the chosen
+language → the transcript reaches the agent's turn with `agentpier_reminder` offered
+→ the agent creates a one-shot reminder (Telegram delivery on, because it was asked
+from Telegram) → its confirmation goes back to the Telegram chat → at its time the
+reminder runs as its own native turn without tools → the text reaches the Telegram
+chat, the agent's main chat (marked `scheduled: { kind: "reminder" }`) and an
+`agent-routine` push notice for that chat.
+
+**Lead, member, coding run** (`tests/integration/assistant-team-coding-e2e-contract.test.js`).
+The owner creates a lead and grants it a project and the pipeline
+(`PUT /api/assistants/:id/access`). The lead proposes a team, the owner approves it
+with `lifetime: "permanent"`, the member reports and the lead's synthesis completes
+the team. The owner then asks for a coding task. Observed sequence: the lead calls
+`agentpier_team_delegate` with `access: { coding: [project] }` (a task share, shown
+as `member-grant` in both chats) → the member's turn calls
+`agentpier_workspace` `coding_start` → the request waits for the owner on the
+member with `inherited.leadId` and is listed in the lead's actions → nothing runs
+before `POST /api/assistant-actions/:id/decision` approves it → the engine runs and
+completes the pipeline on the lead's project (two `coding-run` notes in the member's
+chat) → the member reads `coding_status` and reports → the task completes and a
+`member-result` turn in the lead's chat produces the lead's summary. A second task
+ends right after its coding request; the lead reports that the run waits, and the
+owner's later approval still starts and completes the run on the ended task's share.
+
+Runs on macOS 26.5.1 arm64 (Node 22.22.2 for the tests) on 2026-10-19, each contract
+alone with
+`node --test --test-concurrency=1 tests/integration/assistant-<name>-e2e-contract.test.js`
+after `node scripts/provision-assistant-contracts.mjs --data-dir <tmp> --env-file <file>`:
+
+| Contract       | Run 1 | Run 2 | Run 3 | Outcome  |
+| -------------- | ----- | ----- | ----- | -------- |
+| Voice reminder | 69 s  | 43 s  | 40 s  | 3/3 pass |
+| Team coding    | 53 s  | 51 s  | 40 s  | 3/3 pass |
+
+The Gateway start takes 11–28 s of each run (other suites ran on the host); the
+reminder arrives 17–23 s after its creation, the coding run ends about 2 s after the
+approval, and the member's result reaches the lead 3–5 s after the run. Both are
+deterministic and well below three minutes, so the `native-contracts` job runs them.
+
+**Bug found and fixed.** The team scheduler prunes ended lead shares on every tick
+(`TeamMcpBindings.refresh` → `LeadShares.prune`), so a task's share was deleted about
+a second after its task ended. A coding request resting on it was then refused at
+the owner's approval (`403 invalid`), although `LeadShares.authorize` is meant to
+accept a share that ended only with its task. Any member that ended its task before
+the owner decided hit this. The prune now keeps such
+a project share while a coding request on it waits for the owner or runs
+(`LeadShares.restsOn`); the second task above and a regression case in
+`tests/integration/assistant-lead-shares.test.js` cover it.
+
+**Boundaries.** No real model, Telegram, Deepgram or coding CLI is involved; the
+coding stage is simulated after the engine starts it. The voice path is the owner's
+AgentPier bot (`server/features/assistant-channels/`): reminders need an AgentPier
+turn, and the agents' own bots for other people cannot create them
+(`team-bridge.js` refuses their turns). Linux results come from the CI job.
 
 ## Adjacent runtime update and rollback
 

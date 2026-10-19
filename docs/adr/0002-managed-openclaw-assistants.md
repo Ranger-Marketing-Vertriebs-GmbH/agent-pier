@@ -535,8 +535,9 @@ Requalification checklist for a version bump:
    interfaces contract (`AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME`) and both web
    tools contracts (`AGENTPIER_WEB_TOOLS_CONTRACT_RUNTIME` with
    `AGENTPIER_ASSISTANT_CONTRACT_DIR`, and a Chromium-based browser) and both MCP
-   contracts (`AGENTPIER_MCP_CONTRACT_RUNTIME`) and the four shell contracts
-   (`AGENTPIER_SHELL_CONTRACT_RUNTIME`). Bump the search plugin pins in the
+   contracts (`AGENTPIER_MCP_CONTRACT_RUNTIME`), the four shell contracts
+   (`AGENTPIER_SHELL_CONTRACT_RUNTIME`) and the two recorded end-to-end runs
+   (`AGENTPIER_E2E_CONTRACT_RUNTIME`). Bump the search plugin pins in the
    manifest together with OpenClaw.
 4. Run the manual live-provider and cross-version tests with disposable state
    (`assistant-runtime-cross-version` and `assistant-mcp-oauth-cross-version`, with
