@@ -9,6 +9,8 @@ export const pipelineWorkspaces = Object.freeze({
   canonicalGithubRemoteRequired:
     "Pull requests require a canonical GitHub repository remote.",
   githubCliRequired: "Install the GitHub CLI before creating a pull request.",
+  changedSinceRiskCheck:
+    "The worktree changed after its risk check. Retry to check it again before publishing.",
   pullRequestOperationFailed: "GitHub could not complete the pull-request operation.",
   invalidPullRequestResponse: "GitHub returned an invalid pull-request response.",
   invalidPullRequestUrl: "GitHub returned an invalid pull-request URL.",

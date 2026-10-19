@@ -8,6 +8,8 @@ import GateDecision, { availableGateActions } from "../pipelines/GateDecision.js
 import { failReasonLabel } from "../pipelines/run-codes.js";
 import { stageName } from "../pipelines/run-stages.js";
 import RunSpec from "../pipelines/RunSpec.jsx";
+import { RiskGateItems } from "../pipelines/RiskGate.jsx";
+import { OwnerQuestion } from "../pipelines/Verdict.jsx";
 import AssistantActionApprovals from "../assistants/AssistantActionApprovals.jsx";
 import TeamCodingRequests from "../assistants/TeamCodingRequests.jsx";
 import TeamProposalCard from "../assistants/TeamProposalCard.jsx";
@@ -67,6 +69,10 @@ export function InboxGateDetail({ item, done }) {
         {node.failReason && <span> · {failReasonLabel(node.failReason)}</span>}
       </p>
       {run.task && <p className="inbox-gate-task">{run.task}</p>}
+      {node.failReason === "risk-gate" && (
+        <RiskGateItems gate={node.riskGate} detail={node.failDetail} />
+      )}
+      <OwnerQuestion verdict={node.verdict} />
       <RunSpec run={run} refresh={resource.refresh} />
       {availableGateActions(run).length ? (
         <GateDecision

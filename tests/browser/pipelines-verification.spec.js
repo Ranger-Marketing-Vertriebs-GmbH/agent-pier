@@ -41,7 +41,7 @@ test("desktop verification selects the first project and edits steps as rows", a
   await expect(
     page.getByRole("button", { name: "Nach oben 1", exact: true }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await page.getByRole("button", { name: "Prüfschritte speichern", exact: true }).click();
   await expect
     .poll(() => state.steps.map((step) => step.name))
     .toEqual(["Lint", "Tests"]);

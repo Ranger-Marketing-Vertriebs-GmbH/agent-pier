@@ -51,4 +51,8 @@ export const pipelineProfiles = Object.freeze({
     `Pipeline-Profile dürfen keine Pflichtparameter haben: ${name}`,
   stillReferenced: "Eine Pipeline verweist noch auf dieses Profil",
   accountCliChanged: "Das CLI des Profil-Accounts wurde geändert",
+  earlierVerdictsBoolean: "earlierVerdicts im Profil muss ein Boolean sein",
+  invalidRiskRules:
+    "Risikoregeln brauchen eine Liste von höchstens 100 Pfadmustern und die Angabe, ob neue Abhängigkeiten zählen",
+  invalidRiskGlob: (glob) => `Ungültiges Pfadmuster: ${glob}`,
 });

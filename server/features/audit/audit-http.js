@@ -101,7 +101,7 @@ export function requestAudit(req) {
     projectId = identity(operation);
     resourceId = identity(segments[4]);
     if (segments.at(-1) === "archive") action = "archived";
-  } else if (area === "pipeline-verification") {
+  } else if (area === "pipeline-verification" || area === "pipeline-risk") {
     resourceType = "pipeline";
     action = "updated";
   } else if (area === "tools") {

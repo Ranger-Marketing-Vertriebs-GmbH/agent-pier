@@ -165,7 +165,8 @@ export async function inboxFixture(page, { language, agents = true } = {}) {
       link: "/agents/helper/chats/chat-1",
     },
   ];
-  const state = { items, revision: 1, calls: [], done: {} };
+  // `run` is the pipeline run behind the gate item; tests may reshape it.
+  const state = { items, revision: 1, calls: [], done: {}, run };
   const counts = () => {
     const result = {
       all: state.items.length,

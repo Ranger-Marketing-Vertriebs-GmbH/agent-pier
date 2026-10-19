@@ -180,7 +180,7 @@ export default function VerificationEditor({
       <ErrorMessage error={action.error} />
       <div className="profile-footer">
         <button className="button primary" disabled={action.busy}>
-          {commonCopy.save}
+          {copy.verificationSave}
         </button>
       </div>
     </form>

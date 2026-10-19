@@ -3,7 +3,15 @@ import { serverText } from "../../lib/server-messages.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 
 // Decisions taken on the current gate stage; the run header offers everything else.
-export const gateActions = ["accept", "feedback", "loop-back", "override"];
+export const gateActions = [
+  "accept",
+  "approve-risk",
+  "feedback",
+  "loop-back",
+  "override",
+];
+// The decision a gate is waiting for is the highlighted one.
+export const primaryActions = ["accept", "approve-risk"];
 // Actions that change or remove the run irreversibly ask for confirmation first.
 export const confirmedActions = ["delete", "abort", "override", "create-pr"];
 // Of those, the ones that lose work or data: a danger button and Cancel focused first.

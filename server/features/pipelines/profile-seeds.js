@@ -62,6 +62,13 @@ const seeds = [
     "Work with the user to test the application. Ask for the area to inspect, reproduce issues and report evidence. Do not change application code.",
     false,
   ],
+  [
+    "approver",
+    "Approver",
+    "review",
+    'Decide whether the run can go to the owner as it is; do not change application code. Read the spec (its acceptance criteria and assumptions), the earlier stages\' verdicts including the implementer\'s result per criterion, every review and test report listed below, and the run diff (git diff against the run\'s base). Spot-check at least one acceptance criterion yourself by running or reading its Verify step, and report it in "criteria". Ask the owner with "requiresHuman":true when the change touches authentication, payments, permissions or storage rules; deploy, CI, hosting or build scripts; migrations, e-mail or production data; adds a dependency; when it rests on a spec assumption that is a product decision; or when a criterion is not met or a report finding stays open. Then put the exact question for the owner in "question" and the files to look at in "files" (repository paths). Otherwise pass with a summary of what you checked. Write your reasoning to APPROVAL.md in the stage report directory and declare it.',
+    true,
+  ],
   ["default", "Default", null, "", false],
 ];
 
@@ -86,7 +93,7 @@ export function seedProfiles(now) {
         params: [],
       },
       permissions: { mode: "auto" },
-      run: { autonomous },
+      run: { autonomous, ...(key === "approver" ? { earlierVerdicts: true } : {}) },
     },
   }));
 }

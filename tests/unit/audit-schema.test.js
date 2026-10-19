@@ -75,6 +75,42 @@ test("a replaced run spec is audited with its stage, revision and hash only", ()
   assert.deepEqual(event({ kind: "spec", sha256: "not-a-hash" }), { kind: "spec" });
 });
 
+test("an approved risk gate is audited with its stage, paths and count only", () => {
+  const event = (details) =>
+    auditEvent({
+      action: "pipeline.updated",
+      resourceType: "pipeline",
+      resourceId: "run-1",
+      source: "user",
+      outcome: "success",
+      details,
+    }).details;
+  const many = Array.from({ length: 205 }, (_, i) => `src/f${i}.js`);
+  const details = event({
+    kind: "risk",
+    decision: "approve",
+    stageId: "build",
+    paths: [".github/ci.yml", "x\ny", "a".repeat(2000), 42, "b\u2028c", ...many],
+    count: 3,
+    failReason: "risk-check-failed",
+    content: "never",
+  });
+  assert.deepEqual(details, {
+    kind: "risk",
+    decision: "approve",
+    stageId: "build",
+    failReason: "risk-check-failed",
+    paths: [".github/ci.yml", ...many.slice(0, 199)],
+    count: 3,
+  });
+  assert.equal(details.paths.length, 200);
+  // Saved risk rules record whether the gate is on and how many patterns it has.
+  assert.deepEqual(
+    event({ kind: "risk-rules", enabled: false, count: 0, globs: ["secret/**"] }),
+    { kind: "risk-rules", enabled: false, count: 0 },
+  );
+});
+
 test("assistant shell events keep levels, pending and the entry id only", () => {
   const event = (details) =>
     auditEvent({

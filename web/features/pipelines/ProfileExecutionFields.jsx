@@ -127,9 +127,18 @@ export default function ProfileExecutionFields({
         className="pipeline-check"
         label={copy.autonomous}
         checked={config.run.autonomous}
-        onChange={(autonomous) => patchConfig({ run: { autonomous } })}
+        onChange={(autonomous) => patchConfig({ run: { ...config.run, autonomous } })}
       />
       <p className="field-description">{copy.pipelinePermissionsHint}</p>
+      <Checkbox
+        className="pipeline-check"
+        label={copy.earlierVerdicts}
+        checked={config.run.earlierVerdicts === true}
+        onChange={(earlierVerdicts) =>
+          patchConfig({ run: { ...config.run, earlierVerdicts } })
+        }
+      />
+      <p className="field-description">{copy.earlierVerdictsHint}</p>
     </fieldset>
   );
 }

@@ -59,8 +59,11 @@ export async function pushWorkspace(manager, workspace) {
     return { branch: workspace.branch, pushed: true };
   });
 }
-export async function createWorkspacePr(manager, workspace, run) {
-  await manager.checkpoint({ workspace, run });
+export async function createWorkspacePr(manager, workspace, run, expectedSha) {
+  const { sha } = await manager.checkpoint({ workspace, run });
+  // The risk gate checked `expectedSha`; anything written since is not pushed unchecked.
+  if (expectedSha && sha !== expectedSha)
+    throw problem(serverMessages.pipelineWorkspaces.changedSinceRiskCheck, 409);
   await manager.inspect(workspace);
   const repo = repository(await git(workspace.cwd, ["remote", "get-url", "origin"]));
   return withGitCredentials(manager, workspace, async (env) => {

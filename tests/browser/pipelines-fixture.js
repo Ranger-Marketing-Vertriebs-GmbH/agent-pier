@@ -54,6 +54,7 @@ export async function pipelinesFixture(page) {
     runs: [],
     sessions: [],
     steps: [],
+    risk: null,
     calls: [],
     fail: "",
     hold: null,
@@ -122,6 +123,19 @@ export async function pipelinesFixture(page) {
     } else if (path.startsWith("/pipeline-verification/")) {
       if (method === "PUT") state.steps = body.steps;
       result = { projectId: "project-one", steps: state.steps };
+    } else if (path.startsWith("/pipeline-risk/")) {
+      const defaults = {
+        globs: ["package.json", "/.github/**"],
+        newDependency: true,
+        enabled: true,
+      };
+      if (method === "PUT") state.risk = body;
+      result = {
+        projectId: "project-one",
+        ...(state.risk || defaults),
+        custom: Boolean(state.risk),
+        defaults,
+      };
     } else if (path.startsWith("/pipeline-profiles")) {
       const id = path.split("/")[2];
       if (path.endsWith("/stats")) result = { stageRunsLast7Days: 3 };

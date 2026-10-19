@@ -11,6 +11,7 @@ import {
   withGitCredentials,
 } from "./workspace-forge.js";
 import { checkpointWorkspace } from "./workspace-checkpoint.js";
+import { changedPaths, fileAt } from "./workspace-changes.js";
 import { NativeEventReader } from "./native-reader.js";
 
 const fenceName = ".agentpier-worktrees";
@@ -285,6 +286,13 @@ export class PipelineWorkspace {
       to: end,
     };
   }
+  /** Changed files between two commits of the run, for the risk gate. */
+  async changes(input) {
+    return changedPaths(this, input);
+  }
+  async fileAt(input) {
+    return fileAt(this, input);
+  }
   async push({ workspace }) {
     const stored = await this.validate(workspace);
     return pushWorkspace(this, stored);
@@ -292,9 +300,9 @@ export class PipelineWorkspace {
   async checkpoint(input) {
     return checkpointWorkspace(this, input);
   }
-  async createPr({ workspace, run }) {
+  async createPr({ workspace, run, expectedSha }) {
     const stored = await this.validate(workspace);
-    return createWorkspacePr(this, stored, run);
+    return createWorkspacePr(this, stored, run, expectedSha);
   }
   /**
    * Local-only commits block cleanup unless the operator confirms. The run branch is

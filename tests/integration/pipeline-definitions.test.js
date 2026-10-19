@@ -172,3 +172,27 @@ test("a pipeline naming an unknown task profile reports the missing profile", as
     status: 404,
   });
 });
+test("a profile opts in to earlier verdicts explicitly; anything but a boolean is refused", async (t) => {
+  const { store } = await fixture(t);
+  const base = profile();
+  const plain = store.saveProfile(base);
+  assert.deepEqual(plain.config.run, { autonomous: true });
+  const reading = store.saveProfile({
+    ...base,
+    config: { ...base.config, run: { autonomous: true, earlierVerdicts: true } },
+  });
+  assert.deepEqual(reading.config.run, { autonomous: true, earlierVerdicts: true });
+  const off = store.saveProfile({
+    ...base,
+    config: { ...base.config, run: { autonomous: true, earlierVerdicts: false } },
+  });
+  assert.deepEqual(off.config.run, { autonomous: true });
+  assert.throws(
+    () =>
+      store.saveProfile({
+        ...base,
+        config: { ...base.config, run: { autonomous: true, earlierVerdicts: "yes" } },
+      }),
+    { status: 400, message: copy.earlierVerdictsBoolean },
+  );
+});

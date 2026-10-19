@@ -7,6 +7,7 @@ export function pipelineDefinitionRoutes({
   pipelines,
   pipelineDriver,
   memory,
+  audit,
 }) {
   const router = Router();
   router.get("/pipeline-profiles", (req, res) => {
@@ -69,6 +70,26 @@ export function pipelineDefinitionRoutes({
   router.put("/pipeline-verification/:projectId", (req, res) => {
     project(req.params.projectId);
     res.json(definitions.saveVerification(req.params.projectId, req.body));
+  });
+  // Risk rules are the owner's: only this route changes them, never an agent's MCP
+  // tool, a verdict or a file in the run's worktree.
+  router.get("/pipeline-risk/:projectId", (req, res) => {
+    project(req.params.projectId);
+    res.json(definitions.getRisk(req.params.projectId));
+  });
+  router.put("/pipeline-risk/:projectId", (req, res) => {
+    project(req.params.projectId);
+    const saved = definitions.saveRisk(req.params.projectId, req.body);
+    // Turning the gate off or changing its rules is the owner's recorded decision.
+    audit?.append({
+      action: "pipeline.updated",
+      resourceType: "pipeline",
+      projectId: req.params.projectId,
+      source: "user",
+      outcome: "success",
+      details: { kind: "risk-rules", enabled: saved.enabled, count: saved.globs.length },
+    });
+    res.json(saved);
   });
   return router;
 }

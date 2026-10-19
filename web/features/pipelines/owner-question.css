@@ -1,0 +1,15 @@
+/* A stage's question for the owner under its verdict, in the run view and inbox. */
+.pipeline-owner-question {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.pipeline-owner-question p {
+  margin: 0;
+}
+.pipeline-owner-question ul {
+  margin: 0;
+  padding-left: 16px;
+}

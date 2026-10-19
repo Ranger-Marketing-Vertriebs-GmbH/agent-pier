@@ -215,6 +215,8 @@ export function auditEvent(input) {
       "dictation",
       "skill-import",
       "spec",
+      "risk",
+      "risk-rules",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -291,6 +293,16 @@ export function auditEvent(input) {
     // A replaced run spec names the hash of the owner's text.
     if (typeof details.sha256 === "string" && /^[a-f0-9]{64}$/.test(details.sha256))
       event.details.sha256 = details.sha256;
+    // An approved risk gate names the repository paths it covered, never content.
+    if (Array.isArray(details.paths))
+      event.details.paths = details.paths
+        .filter(
+          (file) =>
+            typeof file === "string" &&
+            file.length <= 1024 &&
+            !/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(file),
+        )
+        .slice(0, 200);
   }
   // MCP OAuth logins name why one failed, as a stable code (never state or code).
   if (
