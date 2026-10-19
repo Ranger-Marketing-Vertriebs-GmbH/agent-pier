@@ -356,9 +356,8 @@ test("a long task's whole text replaces its 'Show all' link once loaded", async 
   await expect(card.getByRole("button", { name: "Show all" })).toHaveCount(0);
 });
 
-test("a task an autonomous lead started on its own is marked self-initiated", async ({
-  page,
-}) => {
+// A lead's settings with one request of its permanent member Scout.
+async function oneRequest(page, record) {
   await chatFixture(page, {
     assistants: [
       chatAssistant(),
@@ -385,14 +384,28 @@ test("a task an autonomous lead started on its own is marked self-initiated", as
       },
     ],
     members: [memberRecord("scout", "Scout", { lifetime: "permanent" })],
-    requests: [
-      request("task-1", { type: "task", writeAllowed: true, selfInitiated: true }),
-    ],
+    requests: [record],
   });
   await page.goto(baseURL + "/agents/home/settings?tab=work");
-  const card = page.locator(".lead-request-card");
-  await expect(card.locator(".lead-request-access")).toHaveText([
-    "may write",
-    "self-initiated",
-  ]);
+  return page.locator(".lead-request-card .lead-request-access");
+}
+
+test("a task an autonomous lead started on its own is marked self-initiated", async ({
+  page,
+}) => {
+  const chips = await oneRequest(
+    page,
+    request("task-1", { type: "task", writeAllowed: true, selfInitiated: true }),
+  );
+  await expect(chips).toHaveText(["may write", "self-initiated"]);
+});
+
+test("a task one of the lead's routines delegated is marked with the routine", async ({
+  page,
+}) => {
+  const chips = await oneRequest(
+    page,
+    request("task-1", { type: "task", writeAllowed: false, routine: "Morning check" }),
+  );
+  await expect(chips).toHaveText(["read-only", "Scheduled · Morning check"]);
 });

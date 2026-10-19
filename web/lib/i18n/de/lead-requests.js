@@ -23,6 +23,8 @@ export const leadRequestCopy = {
   readOnly: "nur lesen",
   // Der Lead hat sie von sich aus gestartet (Team-Nutzung „Selbstständig“).
   selfInitiated: "selbst gestartet",
+  // Eine Routine des Leads hat sie gestellt; ihre Aufgaben dürfen nie schreiben.
+  routine: (name) => (name ? `Geplant · ${name}` : "Geplant"),
   showAll: "Alles anzeigen",
   // An answer stored incomplete beyond the history limit.
   answerShortened: "Gekürzt – der vollständige Text steht im Chat des Mitglieds.",
