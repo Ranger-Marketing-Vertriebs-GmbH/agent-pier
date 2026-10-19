@@ -27,6 +27,7 @@ import { temporaryMember } from "./team-presentation.js";
 import { ChatStreams } from "./chat-stream.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { mainConversation } from "./routine-targets.js";
+import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import {
   auditProactivity,
   lacksMemory,
@@ -149,10 +150,15 @@ export class AssistantService {
       }),
     };
   }
-  /** A new agent with shell needs the same confirmations as raising it later. */
+  /**
+   * A new agent with shell needs the same confirmations as raising it later.
+   * `template` ({id, revision}) records the Agency agent the owner started from:
+   * fetched again at that revision and scanned, never its model or tools.
+   */
   create(body) {
-    const { confirmShell, confirmFull, ...input } = body || {};
+    const { confirmShell, confirmFull, template, ...input } = body || {};
     return this.admit(async () => {
+      const origin = template === undefined ? null : await this.templateOrigin(template);
       const shell = shellChange({ shell: "off" }, input, { confirmShell, confirmFull });
       // Skills are assigned once the agent exists (agent-skills.js).
       if (input.skills?.length) throw assistantProblem("invalid");
@@ -165,17 +171,34 @@ export class AssistantService {
         if (capabilities && key in capabilities) capabilities[key] = false;
       // Check-ins are switched on in the saved agent (its settings), not at creation.
       const heartbeat = input.heartbeat && { ...input.heartbeat, enabled: false };
-      const record = this.store.createAssistant({
-        ...input,
-        ...(capabilities && { capabilities }),
-        ...(heartbeat && { heartbeat }),
-      });
+      const record = this.store.createAssistant(
+        {
+          ...input,
+          ...(capabilities && { capabilities }),
+          ...(heartbeat && { heartbeat }),
+        },
+        origin && { template: origin },
+      );
       // The Gateway gets the agent, and its level, at its first apply.
       if (shell) this.shellChanges.audit(record.id, shell, {});
       auditProactivity(this.audit, record.id, proactivityChange({}, record));
       this.changed();
       return record;
     });
+  }
+  async templateOrigin(template) {
+    if (
+      !template ||
+      typeof template !== "object" ||
+      Array.isArray(template) ||
+      Object.keys(template).some((k) => !["id", "revision"].includes(k)) ||
+      typeof template.revision !== "string"
+    )
+      throw assistantProblem("invalid");
+    if (!this.templates) throw templateProblem("templateUnavailable", 503);
+    const t = await this.templates.template(template);
+    if (t.scan.verdict === "block") throw templateProblem("templateBlocked", 422);
+    return templateRecord(t);
   }
   /** The profile with its bound MCP server ids, for agents the owner binds. */
   withMcp(profile) {

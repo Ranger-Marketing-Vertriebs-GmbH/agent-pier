@@ -24,8 +24,10 @@ export const extraStart = "[Additional instructions from your lead]";
 export const extraEnd = "[End of additional instructions from your lead]";
 export const extraSection = (text) => `\n\n${extraStart}\n${text}\n${extraEnd}`;
 
+// A member made from an Agency template gets the template's instructions instead of
+// its lead's (team-templates.js).
 export function memberInstructions(snapshot, member) {
-  return `${snapshot.instructions}\n\nRole: ${member.role}\nAssignment: ${member.assignment}${
+  return `${member.templateInstructions ?? snapshot.instructions}\n\nRole: ${member.role}\nAssignment: ${member.assignment}${
     member.extraInstructions ? extraSection(member.extraInstructions) : ""
   }`;
 }

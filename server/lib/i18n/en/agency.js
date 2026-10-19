@@ -18,4 +18,9 @@ export const agency = Object.freeze({
   invalidMetadata: "Agency agent metadata is invalid.",
   aliasesUnsupported: "Agency agent metadata aliases are unsupported.",
   invalidIdentity: "Agency agent identity or description is invalid.",
+  templateInvalid: "This Agency template is not valid.",
+  templateTooLarge: "This Agency agent is too long to use as a template.",
+  templateBlocked:
+    "The scan blocked this Agency agent: it holds hidden characters or download-and-run instructions.",
+  templateUnavailable: "Agency templates are not available.",
 });

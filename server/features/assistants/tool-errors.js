@@ -38,6 +38,14 @@ const reasons = {
   RATE_LIMITED:
     "Too many questions or tasks for your members in this turn or minute. Do not retry now; tell the owner what is still open, or let the owner approve more.",
   AUTONOMOUS_LIMIT: `You already started ${autonomousCaps.perTurn} questions or tasks for your members on your own in this turn, or ${autonomousCaps.perHour} in the last hour. Do not retry; finish with what you have and tell the owner what is still open. The owner can ask you by name for more.`,
+  TEMPLATE_NOT_FOUND:
+    "No Agency agent has this id. Search with agentpier_team_templates and use an id it returned.",
+  TEMPLATE_BLOCKED:
+    "AgentPier's scan blocked this Agency agent (hidden characters or download-and-run instructions). Choose another template or none.",
+  TEMPLATE_TOO_LARGE:
+    "This Agency agent is too long to be a member template. Choose another template or none.",
+  TEMPLATE_UNAVAILABLE:
+    "The Agency catalog cannot be read right now. Propose the member without a template or try later.",
   MEMBER_UNAVAILABLE:
     "This member never started and has no chat to answer in. Choose another member.",
   SSH_NOT_GRANTED:
@@ -99,6 +107,10 @@ const byKey = {
   memberRequestNotFinished: "MEMBER_NOT_FINISHED",
   memberRequestUnavailable: "MEMBER_UNAVAILABLE",
   memberRequestRate: "RATE_LIMITED",
+  templateNotFound: "TEMPLATE_NOT_FOUND",
+  templateBlocked: "TEMPLATE_BLOCKED",
+  templateTooLarge: "TEMPLATE_TOO_LARGE",
+  templateUnavailable: "TEMPLATE_UNAVAILABLE",
   memberRequestAutonomousLimit: "AUTONOMOUS_LIMIT",
   sshNotGranted: "SSH_NOT_GRANTED",
   sshHostUnavailable: "SSH_HOST_UNAVAILABLE",

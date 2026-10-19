@@ -154,6 +154,8 @@ export function constructAssistantGraph(host, created = {}) {
       "telegramSenders",
     ],
   ));
+  // Agency agents as templates for new agents and team members (agency-templates.js).
+  assistants.templates = host.agencyTemplates || null;
   // The agents' own browsers: profile pinning, the visible limit and idle stops.
   assistants.browsers = created.browsers = new AgentBrowsers({
     store,

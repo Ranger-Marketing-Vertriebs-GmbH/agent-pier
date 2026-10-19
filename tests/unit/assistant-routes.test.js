@@ -33,4 +33,23 @@ test("the new-agent flow has its own address", () => {
   assert.deepEqual(route, { view: "agents", creating: true });
   assert.equal(routePath(route), "/agents?new=1");
   assert.deepEqual(readRoute({ pathname: "/agents", search: "" }), { view: "agents" });
+  // "Create agent" from an Agency entry carries the template and its revision.
+  const revision = "a".repeat(40);
+  const templated = readRoute({
+    pathname: "/agents",
+    search: `?new=1&template=engineering__frontend&revision=${revision}`,
+  });
+  assert.deepEqual(templated, {
+    view: "agents",
+    creating: true,
+    template: { id: "engineering__frontend", revision },
+  });
+  assert.equal(
+    routePath(templated),
+    `/agents?new=1&template=engineering__frontend&revision=${revision}`,
+  );
+  assert.deepEqual(readRoute({ pathname: "/agents", search: "?new=1&template=x" }), {
+    view: "agents",
+    creating: true,
+  });
 });
