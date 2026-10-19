@@ -2665,10 +2665,22 @@ longer carries reply text.
   reply streaming), the feed also re-reads every 30 seconds. The reconciliation poll
   (every 2 s while a turn is unresolved) re-reads only the feeds whose history or
   turns changed during the pass.
+- The window also carries `actions`: what waits for the owner in this agent's chat
+  (`AssistantWorkflows.pending`), the same rows as
+  `GET /api/assistants/<id>/actions` limited to approvals still awaiting a decision
+  (team coding requests and members' requests in turns the agent delegated included)
+  and allowed SSH commands while they run. They are read with the history, once per
+  invalidation for every socket. Every write of the action store (a new request, a
+  decision, an expiry, a revoked grant, a finished run) re-reads the feeds of the
+  agent that owns the action and of the lead it is shown to, batched per tick of the
+  event loop (`AssistantActionStore.onWrite`); the matching change event is published
+  with `changed({ feeds: false })` and re-reads no other feed. The workflow pass that
+  advances open actions every second publishes a change only when it wrote an action.
 - `sync` frames (`{type: "sync", sequence, data}`) carry the `ChatSync` encoding of
   the session chat: a full window (the history payload plus
   `sync: {mode: "full", cursor}`) or a delta (`sync: {mode: "delta", base, cursor}`,
-  `metadata` with `requests`, `queued`, `compacting`, `stale` and `nextBefore`,
+  `metadata` with `requests`, `queued`, `compacting`, `stale`, `nextBefore` and
+  `actions`,
   `upserts` as whole rows, `removed` ids and `order` when the order changed). A read
   that changes nothing for a socket sends nothing. The baseline scope is the
   conversation, its runtime session key and the Gateway launch (`generationId`): a
@@ -2700,6 +2712,14 @@ shared `chat-stream-transport.js`):
 - Sending, queueing, taking back, stopping, recovering and removing a shared file
   only await their request: the feed brings the result. While the socket is down, the
   chat reads once over HTTP instead.
+- The approval cards (`useAssistantActions`) and the lead's pending team coding
+  requests (`useTeamCodingRequests` in `TeamApprovals`) use the feed's `actions`
+  while its socket is connected: no change event reads `/actions` then, and nothing
+  polls. A decided card stays hidden until the feed pushes its next state. While the
+  socket is down, or with a server whose window has no `actions`, the chat reads
+  `GET /api/assistants/<id>/actions` at start, on change events and every 5 seconds
+  while an approval waits. Settings → Work → Teams still reads the team requests
+  itself.
 - The chat shows the live window, the rows the window pushed out while the chat is
   open, and the pages "Earlier messages" loaded above them
   (`agent-history-view.js`), each row once. The last window of recently opened chats,
