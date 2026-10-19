@@ -20,8 +20,9 @@ and agents that work as a team.
   ([reload and resume](docs/session-reload.md), [mobile delivery](docs/mobile-delivery.md),
   [dictation](docs/assistant-gateway.md#live-dictation-in-the-chats)).
 - **Inbox:** every CLI question and approval, pipeline gate and agent request that
-  waits on you, with live counts, answered in place or in one list
-  ([inbox](docs/inbox.md)).
+  waits on you, with live counts, answered in place or in one list; Claude Code
+  approvals offer Always allow per account and show plans before you approve them
+  ([inbox](docs/inbox.md#claude-code-approvals-and-plans)).
 - **Pipelines with review:** reusable profiles, isolated Git worktrees, bounded
   review loops, checks and human approval ([pipelines](docs/pipelines.md)).
 - **Agents and teams:** persistent agents whose leads ask and delegate to their

@@ -35,6 +35,24 @@ with the decision and its time when the audit log recorded it within the last 24
 and **No longer waiting** otherwise (for example after the CLI dialog was answered in
 the terminal long ago, or an approval expired).
 
+## Claude Code approvals and plans
+
+A Claude Code tool approval offers **Allow once**, **Deny** and, when Claude proposes
+a "don't ask again" rule for the call, **Always allow**. The card lists the rules
+before you decide, for example `Bash(npm test:*)`. Always allow saves them as allow
+rules in the user settings of the session's Claude account (`settings.json` in its
+own `CLAUDE_CONFIG_DIR`), so they apply to that account in every project and never to
+another account. Rules are never written to a project's `.claude/` folder, which
+every account opening the folder would share. Remove a rule with `/permissions` in
+the terminal or in that `settings.json`.
+
+When Claude leaves plan mode (`ExitPlanMode`), the card shows the proposed plan as
+Markdown with **Approve and auto-accept edits**, **Approve and review each edit** and
+**Keep planning**. Approving switches the session to the chosen permission mode for the
+rest of the session; Keep planning stops Claude in plan mode so you can send feedback
+in chat. Switching the permission mode outside such a plan approval stays in the
+terminal (Shift+Tab).
+
 ## Waiting sessions
 
 A session in the sidebar shows **Waiting** while one of its native requests is open,
