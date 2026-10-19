@@ -27,7 +27,8 @@ and agents that work as a team.
   review loops, checks and human approval ([pipelines](docs/pipelines.md)).
 - **Agents and teams:** persistent agents whose leads ask and delegate to their
   members on request, by suggestion or on their own and share their project folders,
-  coding projects and MCP servers with them, Agency agents as templates for
+  coding projects and MCP servers with them or set up routines on them that report
+  back, Agency agents as templates for
   agents and members, with @-mentions, Telegram, skills, routines, check-ins, files in both
   directions, images created through ChatGPT, PDFs read with one model you choose, read or read-and-write access to project folders and GitHub through your
   token profiles ([agents](docs/agents.md)).

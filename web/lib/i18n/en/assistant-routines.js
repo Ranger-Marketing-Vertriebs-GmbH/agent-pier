@@ -48,4 +48,10 @@ export const routineCopy = {
   writes: "May write",
   writesHint: "Project folders and delegated tasks",
   writesOn: "May write",
+  edit: "Edit routine",
+  save: "Save routine",
+  // A routine the member's lead agent set up (team tool), shown to the owner.
+  createdBy: (lead) => (lead ? `Created by ${lead}` : "Created by the lead agent"),
+  leadHint: (lead) =>
+    `${lead || "The lead agent"} set up this routine. Its results also go to ${lead || "the lead agent"}. It only reads unless you switch on May write or the lead agent uses its team autonomously.`,
 };

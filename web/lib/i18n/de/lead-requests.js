@@ -7,7 +7,11 @@ export const leadRequestCopy = {
   permanentSection: "Dauerhaft",
   temporarySection: "Temporär",
   title: (type, member) =>
-    type === "task" ? `Aufgabe für ${member}` : `Frage an ${member}`,
+    type === "task"
+      ? `Aufgabe für ${member}`
+      : type === "report"
+        ? `Routinebericht von ${member}`
+        : `Frage an ${member}`,
   states: {
     queued: "Wartet auf das Mitglied",
     dispatching: "Wird gesendet",
@@ -39,6 +43,7 @@ export const leadRequestCopy = {
   none: "Dieser Agent hat seinen Mitgliedern noch nichts geschickt.",
   answer: "Antwort",
   result: "Ergebnis",
+  report: "Bericht",
   because: (quote) => `Weil du geschrieben hast: „${quote}“`,
   // Die @Erwähnung im Eingabefeld eines leitenden Agenten und die Chips im Chat.
   mentions: {

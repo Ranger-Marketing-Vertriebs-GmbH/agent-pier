@@ -16,6 +16,18 @@ const reasons = {
     "You can only grant a member tools, skills, MCP servers and access that you hold yourself. Shell and SSH also need the owner's setting 'Team members may use shell and SSH', and never more than your own shell level. Remove that grant and try again.",
   MEMBER_REMINDER_LIMIT:
     "Your team already set the most reminders a team may set on its lead. Do not retry; report the reminder you wanted to your lead instead.",
+  ROUTINE_OWNER_TURN:
+    "Routines on members can only be set up or changed in a turn of the owner's own message, not in scheduled, forwarded or member-result turns. Do not retry now; offer it to the owner.",
+  ROUTINE_MEMBER_NOT_PERMANENT:
+    "Routines can only be set up on your own permanent members; temporary members work only on their task. Ask the owner to keep the member as a permanent agent first.",
+  ROUTINE_MEMBER_OFF:
+    "This member has routines switched off in its settings. Do not retry; ask the owner to switch them on.",
+  ROUTINE_TOO_FREQUENT:
+    "A routine on a member may run at most every 15 minutes. Choose a less frequent schedule.",
+  ROUTINE_NOT_REQUESTED:
+    "At your team usage 'On request' you set up a routine on a member only when the owner's own message in this turn asks for it and names that member. Ask the owner instead of retrying.",
+  ROUTINE_MEMBER_LIMIT:
+    "You already run the most routines allowed on this member (5). Change or remove one of them with agentpier_team_member_routine instead.",
   MEMBER_NOT_RUNNING:
     "Grants are only for your own task members that are not archived, and shares only for your own permanent members. Check agentpier_team_members for the memberId.",
   FORBIDDEN:
@@ -106,6 +118,12 @@ const byKey = {
   teamGrantNotHeld: "TEAM_GRANT_NOT_HELD",
   teamGrantMemberEnded: "MEMBER_NOT_RUNNING",
   memberReminderLimit: "MEMBER_REMINDER_LIMIT",
+  leadRoutineOwnerTurn: "ROUTINE_OWNER_TURN",
+  leadRoutineNotPermanent: "ROUTINE_MEMBER_NOT_PERMANENT",
+  leadRoutineMemberOff: "ROUTINE_MEMBER_OFF",
+  leadRoutineInterval: "ROUTINE_TOO_FREQUENT",
+  leadRoutineNotRequested: "ROUTINE_NOT_REQUESTED",
+  leadRoutineLimit: "ROUTINE_MEMBER_LIMIT",
   memberRequestNotPermanent: "MEMBER_NOT_PERMANENT",
   memberRequestOpenTask: "TASK_OPEN",
   memberRequestNotFinished: "MEMBER_NOT_FINISHED",

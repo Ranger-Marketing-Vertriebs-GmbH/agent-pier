@@ -254,6 +254,16 @@ export const assistants = {
     "A lead agent can share only project folders, coding projects and MCP servers with a permanent member.",
   teamGrantNotHeld:
     "A lead agent can only give a team member what it holds itself; shell and SSH only with the setting “Team members may use shell and SSH”.",
+  leadRoutineOwnerTurn:
+    "A lead agent sets up or changes routines on its members only in a turn of your own message.",
+  leadRoutineNotPermanent:
+    "Routines can only be set up on permanent members; temporary members work only on their task.",
+  leadRoutineMemberOff: "This member has routines switched off.",
+  leadRoutineInterval: "A routine on a member may run at most every 15 minutes.",
+  leadRoutineNotRequested:
+    "With team usage “On request”, a lead agent sets up a routine on a member only when your message names that member.",
+  leadRoutineLimit:
+    "The lead agent already runs the most routines allowed on this member.",
   memberReminderLimit:
     "The members of this team have already created the most reminders a team may set on its lead agent.",
   teamGrantMemberEnded:

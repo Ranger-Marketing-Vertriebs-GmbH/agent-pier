@@ -13,6 +13,7 @@ import { flushSessionAgent } from "./memory-flushes.js";
 import { flushWrite, noteRefusal } from "./memory-write-policy.js";
 import { isMemory, ownMemoryTarget } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
+import { isLeadRoutine } from "./lead-routines.js";
 const actions = new Set([
   "propose",
   "status",
@@ -25,6 +26,8 @@ const actions = new Set([
   "archive",
   "grant",
   "member_update",
+  // Routines a lead sets up on its own permanent members (lead-routines.js).
+  "member_routine",
   "promote",
   // Agency agents as member templates (team-templates.js).
   "templates",
@@ -344,7 +347,12 @@ export class TeamBridge {
     if (!agent || agent.archivedAt) return false;
     const capabilities = personalCapabilities(agent);
     if (!capabilities.memory || !capabilities.reminders) return false;
-    return !!this.assistants.routines?.runOrigin(agent, input.sessionKey);
+    const run = this.assistants.routines?.runOrigin(agent, input.sessionKey);
+    // A lead's routine on its member writes only with the owner's "May write" or the
+    // lead's autonomous team usage (lead-routines.js); the owner's own always may.
+    if (run && isLeadRoutine(run.binding))
+      return this.assistants.routines.writable(run.binding);
+    return !!run;
   }
   // The run session of a bound, enabled routine of a personal agent with routines on.
   routineRun(input) {

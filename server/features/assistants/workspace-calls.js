@@ -80,7 +80,8 @@ function routineContext(w, inv) {
     routine: {
       bindingId: binding.id,
       name: binding.definition?.name || "",
-      writable: binding.routineWrites === true,
+      // The owner's "May write", or for a lead's routine its autonomous usage.
+      writable: w.a.routines?.writable?.(binding) ?? binding.routineWrites === true,
       key: `routine:${inv.sessionKey}`,
     },
   };

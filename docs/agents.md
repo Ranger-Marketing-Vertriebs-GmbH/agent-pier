@@ -410,6 +410,31 @@ requests coding runs on its lead's projects and pipelines while its team works, 
 every run waits for your approval. To end it, stop or archive the member, or remove
 the project from the lead.
 
+### Routines a lead sets up for its members
+
+A lead can plan recurring work for its permanent members: it sets up, lists,
+changes, pauses and removes routines on them with its team tools, without asking you
+each time. Temporary members are refused, as they work only on their task.
+
+- Such a routine is the member's own routine: it runs on its schedule with the
+  member's own tools and approvals and the folders its lead shares with it for good.
+  Its result appears in the member's chat as for any routine and also reaches the
+  lead as a report from "<member> · routine <name>", which the lead summarizes for
+  you. A failed run is reported once, not again until the routine works again; a
+  run whose task says to report only findings stays silent when there are none.
+- It only reads unless you switch on **May write** in the member's **Routines &
+  check-ins** (only you can) or the lead uses its team **Autonomous**ly.
+- The lead sets one up only in reply to your own message. With **On request** that
+  message must name the member; with **Suggest** the lead offers it first. Each
+  member takes at most 5 routines from its lead, and they run at most every 15
+  minutes.
+- In the member's **Routines & check-ins** each shows "Created by <lead>". You can
+  edit its name and task, pause, remove it and switch **May write** like any
+  routine. The lead's reports are listed under **Work → Teams → Questions and
+  tasks** as "Routine report from <member>".
+- When the member is archived or no longer the lead's permanent member, or the lead
+  is archived, its routines are removed and the activity log records why.
+
 ### When a lead uses its team
 
 **Work → Team → Use team** sets how the lead involves its members on its own. Each
@@ -460,7 +485,8 @@ or proposing a team sends an **Agent approval** push notification as well.
   "Scheduled · <name>". You can also ask for one in the chat; one asked for in
   Telegram is sent there too.
 - **Routines** save a task prompt that runs daily or on an event (an owner request or
-  a linked coding run that completed); **Run once** starts one now. A routine uses
+  a linked coding run that completed); **Run once** starts one now. A member's lead can
+  set routines up for it too ([routines a lead sets up](#routines-a-lead-sets-up-for-its-members)). A routine uses
   the agent's own tools and approvals (memory, its workspace files, web, browser,
   shell and MCP servers, as far as they are switched on) but cannot schedule. It reads
   the agent's project folders (its own and those its lead shares with it for good)

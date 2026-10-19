@@ -442,6 +442,13 @@ export class TeamService {
     assertWired(this);
     return this.edits.update(inv, input);
   }
+  // A lead's routines on its own permanent members (lead-routines.js).
+  member_routine(inv, input) {
+    assertWired(this);
+    const lead = this.assistants.routines?.lead;
+    if (!lead) throw assistantProblem("unavailable", 503);
+    return lead.invoke(inv, input);
+  }
   // A lead's later grant to a running task member (member-grant-requests.js).
   grant(inv, input) {
     assertWired(this);
@@ -494,7 +501,11 @@ export class TeamService {
   reconcile() {
     return this.assistants.recovering || this.assistants.maintenance
       ? Promise.resolve()
-      : this.scheduler.tick().finally(() => this.requests.advance());
+      : this.scheduler
+          .tick()
+          .finally(() => this.requests.advance())
+          // Lead routines whose lead or member left end for good (lead-routines.js).
+          .finally(() => this.assistants.routines?.lead?.prune());
   }
   async close() {
     if (this.closed) return;

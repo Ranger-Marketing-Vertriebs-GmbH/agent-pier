@@ -7,7 +7,11 @@ export const leadRequestCopy = {
   permanentSection: "Permanent",
   temporarySection: "Temporary",
   title: (type, member) =>
-    type === "task" ? `Task for ${member}` : `Question for ${member}`,
+    type === "task"
+      ? `Task for ${member}`
+      : type === "report"
+        ? `Routine report from ${member}`
+        : `Question for ${member}`,
   states: {
     queued: "Waiting for the member",
     dispatching: "Sending",
@@ -38,6 +42,7 @@ export const leadRequestCopy = {
   none: "This agent has not asked its members anything yet.",
   answer: "Answer",
   result: "Result",
+  report: "Report",
   because: (quote) => `Because you wrote: “${quote}”`,
   // The @mention autocomplete in a lead's composer and the chips in its chat.
   mentions: {

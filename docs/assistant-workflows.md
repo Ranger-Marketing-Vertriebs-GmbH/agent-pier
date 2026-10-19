@@ -78,10 +78,13 @@ its `projectId` hand the owner a file from the folder in the chat (see
 
 - **Who:** the owner's own turns (in AgentPier or the paired Telegram chat), a
   task member's team turns, a lead's tasks for a permanent member (with what the
-  lead shares) and the agent's own routine runs, never forwarded content, reminders
-  or check-ins. A routine reads the agent's folders and its lead's standing shares
-  and changes files only when the owner marked it **May write**; otherwise
-  `ROUTINE_READ_ONLY`.
+  lead shares; a write share changes files in every task of that lead, capped at the
+  lead's own level), a lead's own follow-up on its member's result (its own folders
+  only, never shares) and the agent's own routine runs, never forwarded content,
+  reminders or check-ins. A routine reads the agent's folders and its lead's standing
+  shares and changes files only when the owner marked it **May write** (for a
+  routine the member's lead set up, also while the lead uses its team
+  **Autonomous**ly); otherwise `ROUTINE_READ_ONLY`.
 - **Paths:** relative to the project folder or absolute inside it. Every call
   resolves the real path again: `..`, `~`, URL forms, control characters and
   backslashes are refused, links may point anywhere inside the folder but never out
@@ -308,6 +311,15 @@ the capability does not silently resume paused routines. Native history and
 Telegram acknowledgement are separate: a successful model run does not guarantee
 Telegram delivery, while the chat record and push notice follow the accepted
 completion. The model connection and host must be available.
+
+A lead may also set routines up on its own permanent members
+(`agentpier_team_member_routine`, `lead-routines.js`): each is the member's own
+routine binding with `createdBy: "lead"`, run with the member's capabilities and its
+lead's standing shares, and its result reaches the lead as an attributed
+`member-result` report besides the member's chat. Such a run writes only when the
+owner marked it **May write** or the lead's team usage is **Autonomous**; the lead's
+tool cannot set either. The routine ends when the lead or member is archived or the
+member leaves the lead (see the [Gateway guide](assistant-gateway.md#lead-routines-on-permanent-members-2026-10-19-agentpier-175)).
 
 ## Operations and qualification boundaries
 

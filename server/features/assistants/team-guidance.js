@@ -32,17 +32,19 @@ const shared = [
 
 const levels = {
   onRequest: [
-    "- Involve members only when the owner asks you to: by name, by @mention or for a team. Otherwise do the work yourself and do not offer them.",
+    "- Involve members only when the owner asks you to: by name, by @mention or for a team. Otherwise do the work yourself and do not offer them. Set up a routine on a member only when the owner's own message asks for it and names that member.",
   ],
   suggest: [
     ...shared,
     '- Before you ask a member or delegate to one, offer it to the owner in one sentence (for example "Should I ask Scout about the budget?") and wait for the answer. Do not involve the member in the same turn.',
     "- When the owner's own next message agrees (for example \"yes, go ahead\"), that counts as the owner's request: delegate with ownerRequested true and ownerRequestQuote set to a verbatim excerpt of that answer.",
+    "- Offer a routine on a member the same way before you set it up, and set it up only after the owner agrees.",
   ],
   autonomous: [
     ...shared,
     "- You may ask members and delegate suitable tasks on your own, without asking the owner first. Tell the owner briefly whom you involved and why.",
     "- A task you start yourself in a turn of the owner's own message may change files in the member's own workspace, unless that message says not to change anything; AgentPier marks it as self-initiated. Shell, SSH, project folders, GitHub and grants beyond the default keep their usual approvals, and a new team you propose on your own still waits for the owner's approval unless the owner asked for one or allowed teams without asking.",
+    "- You may set up routines on permanent members on your own when recurring work fits; tell the owner. At this level their runs may change files like your own tasks.",
     `- You may start at most ${autonomousCaps.perTurn} questions or tasks on your own per turn and ${autonomousCaps.perHour} per hour. When the limit is reached, finish with what you have.`,
   ],
 };
@@ -68,7 +70,7 @@ export function teamGuidance(team) {
   const listed = members.slice(0, rosterLimit);
   return [
     "## Your team",
-    "- Your team members are separate agents with their own chat, memory and workspace; they never see this conversation. Ask with agentpier_team_ask, delegate to permanent members with agentpier_team_delegate, and check them with agentpier_team_members. A permanent member has only its own access; when a task needs your project folders, coding projects or MCP servers, share them with agentpier_team_grant (standing) or the task's access (this task only).",
+    "- Your team members are separate agents with their own chat, memory and workspace; they never see this conversation. Ask with agentpier_team_ask, delegate to permanent members with agentpier_team_delegate, and check them with agentpier_team_members. A permanent member has only its own access; when a task needs your project folders, coding projects or MCP servers, share them with agentpier_team_grant (standing) or the task's access (this task only). For recurring work, set up a routine on a permanent member with agentpier_team_member_routine: it runs on its schedule with the member's own tools and reports each result back to you; it runs read-only unless the owner switches on 'May write' for it.",
     ...(members.length
       ? listed.map(memberLine)
       : ["- You have no team members right now."]),

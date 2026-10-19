@@ -270,6 +270,17 @@ export const assistants = {
     "Mit einem dauerhaften Mitglied kann ein leitender Agent nur Projektordner, Coding-Projekte und MCP-Server teilen.",
   teamGrantNotHeld:
     "Ein leitender Agent kann einem Teammitglied nur geben, was er selbst hat; Shell und SSH nur mit der Einstellung „Team-Mitglieder dürfen Shell und SSH nutzen“.",
+  leadRoutineOwnerTurn:
+    "Ein leitender Agent legt Routinen bei seinen Mitgliedern nur in einer Antwort auf deine eigene Nachricht an oder ändert sie.",
+  leadRoutineNotPermanent:
+    "Routinen lassen sich nur bei dauerhaften Mitgliedern anlegen; temporäre Mitglieder arbeiten nur an ihrem Auftrag.",
+  leadRoutineMemberOff: "Bei diesem Mitglied sind Routinen ausgeschaltet.",
+  leadRoutineInterval:
+    "Eine Routine bei einem Mitglied darf höchstens alle 15 Minuten laufen.",
+  leadRoutineNotRequested:
+    "Bei der Team-Nutzung „Auf Anfrage“ legt ein leitender Agent eine Routine bei einem Mitglied nur an, wenn deine Nachricht dieses Mitglied nennt.",
+  leadRoutineLimit:
+    "Der leitende Agent hat bei diesem Mitglied bereits die höchstmögliche Zahl an Routinen angelegt.",
   memberReminderLimit:
     "Die Mitglieder dieses Teams haben bereits die höchstmögliche Zahl an Erinnerungen beim leitenden Agenten angelegt.",
   teamGrantMemberEnded:
