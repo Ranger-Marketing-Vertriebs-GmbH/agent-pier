@@ -6,7 +6,7 @@ export const mcpOAuthCopy = {
     oauth: "OAuth",
   },
   oauthHint:
-    "After saving, use “Log in” in the server list. The provider must support automatic client registration; otherwise put a token in the headers.",
+    "After saving, use “Log in” in the server list. The provider must support automatic client registration; otherwise put a token in the headers if the provider accepts one, or use an MCP package of the server.",
   oauthEditHint:
     "Changing the name or address, or switching to headers, removes the current OAuth login.",
   advanced: "Advanced",
@@ -67,7 +67,9 @@ export const mcpOAuthCopy = {
     "url-missing": "OpenClaw returned no login address. Please try again.",
     "cli-timeout": "Completing the login took too long. Please try again.",
     "no-dynamic-registration":
-      "This provider does not support automatic client registration. Use a token in the headers instead.",
+      "This provider does not support automatic client registration. It needs a pre-registered client or a client metadata document, which AgentPier cannot set up yet. If the provider offers this server as an MCP package, for example with an API key, add the package instead.",
+    "resource-mismatch":
+      "The provider gives a different address for this server. Enter the provider's address for the server and start the login again.",
     "redirect-rejected": (redirect) =>
       `The provider rejected the redirect address ${redirect}.`,
     "session-missing": "The login session is no longer valid. Start the login again.",

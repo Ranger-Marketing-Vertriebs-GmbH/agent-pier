@@ -370,6 +370,29 @@ formats a failure; as a side effect it adds a stack trace to stderr, which
 AgentPier ignores. The CLI contract runs its commands the same way and asserts that
 a failure without the variable prints no `Reason:` line.
 
+Two failures of `openclaw mcp login` against a real provider, reproduced on
+2026.10.3 with a disposable state on 2026-10-18 (hosted ElevenLabs MCP), map to their
+own codes:
+
+- `Reason: Protected resource <resource> does not match expected <server URL> (or origin)`:
+  the MCP SDK's RFC 9728 check (`selectResourceURL`) requires the metadata's
+  `resource` to share the server URL's origin and contain its path. ElevenLabs
+  answers `https://api.elevenlabs.io/v1/mcp` with the resource
+  `https://api.us.elevenlabs.io/v1/mcp`. OpenClaw sets no `validateResourceURL`, so
+  the login fails before any registration. AgentPier maps it to `resource-mismatch`
+  and names the resource: its origin and its path, redacted like a reason, never its
+  query or fragment.
+- `Reason: Incompatible auth server: does not support dynamic client registration`:
+  an authorization server without `registration_endpoint`, such as ElevenLabs on its
+  `us` host. AgentPier maps it to `no-dynamic-registration`. OpenClaw's
+  `mcp.servers.*.oauth` schema is strict (`identity`, `authProfileId`, `scope`,
+  `redirectUrl`, `clientMetadataUrl`), so a pre-registered client ID or secret cannot
+  be configured. OpenClaw does support Client ID Metadata Documents through
+  `oauth.clientMetadataUrl` when the authorization server advertises
+  `client_id_metadata_document_supported`: with one set, the disposable run printed a
+  valid ElevenLabs authorization URL. That needs a public HTTPS document listing the
+  owner's redirect URL, which AgentPier does not provide.
+
 Both MCP OAuth contracts passed against 2026.10.3 on 2026-10-14 with the other
 native contracts. `assistant-mcp-oauth-cross-version.test.js` passed 2026.9.9 →
 2026.10.3 on the same day, with no SDK missing-issuer warning after the update.

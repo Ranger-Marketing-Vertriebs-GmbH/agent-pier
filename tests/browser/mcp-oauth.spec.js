@@ -20,6 +20,10 @@ const refusals = {
   "plain-http-remote": [409, german.oauthPlainHttpRemote],
   "loopback-redirect": [409, german.oauthLoopbackRedirect],
   "no-dynamic-registration": [502, german.oauthNoDynamicRegistration],
+  "resource-mismatch": [
+    502,
+    german.oauthResourceMismatch("https://api.us.example.test/mcp"),
+  ],
   "redirect-rejected": [
     502,
     german.oauthRedirectRejected("http://127.0.0.1:4380/api/mcp-servers/oauth/callback"),
@@ -312,7 +316,12 @@ for (const [label, use] of [
       state.refusal = "no-dynamic-registration";
       await login.click();
       await expect(item.getByRole("alert")).toHaveText(
-        "This provider does not support automatic client registration. Use a token in the headers instead.",
+        "This provider does not support automatic client registration. It needs a pre-registered client or a client metadata document, which AgentPier cannot set up yet. If the provider offers this server as an MCP package, for example with an API key, add the package instead.",
+      );
+      state.refusal = "resource-mismatch";
+      await login.click();
+      await expect(item.getByRole("alert")).toHaveText(
+        "The provider gives https://api.us.example.test/mcp as the address of this server. Enter that address for the server and start the login again.",
       );
       state.refusal = "redirect-rejected";
       await login.click();

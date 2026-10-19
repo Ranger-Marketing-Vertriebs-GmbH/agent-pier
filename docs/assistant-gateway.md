@@ -1973,7 +1973,16 @@ A remote server (HTTP or SSE) authenticates with one of two methods, chosen unde
 OAuth needs a provider that supports dynamic client registration (RFC 7591):
 OpenClaw registers itself as a public client for exactly AgentPier's redirect URL.
 There is no field for a client ID or secret. A provider without registration fails
-the login with a message that points to the token option.
+the login (`no-dynamic-registration`) with a message that it needs a pre-registered
+client or a client metadata document, which AgentPier cannot set up yet, and that an
+MCP package of the server (for example with an API key) is the alternative. Header
+tokens remain an option only where the provider accepts them; the hosted ElevenLabs
+MCP, for example, accepts OAuth bearer tokens only.
+
+A provider whose protected resource metadata (RFC 9728) names a `resource` outside the
+configured server URL, for example on another host, fails the login
+(`resource-mismatch`); the message names that resource so the owner can enter it as
+the server address.
 
 **Redirect rule.** OAuth servers compile with
 `oauth.redirectUrl = <origin>/api/mcp-servers/oauth/callback`, where the origin is

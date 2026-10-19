@@ -42,6 +42,8 @@ function cliFailure(error, redirect) {
       return failure(messages.oauthCliTimeout, error.code, 504);
     case "no-dynamic-registration":
       return failure(messages.oauthNoDynamicRegistration, error.code, 502);
+    case "resource-mismatch":
+      return failure(messages.oauthResourceMismatch(error.resource), error.code, 502);
     case "redirect-rejected":
       return failure(messages.oauthRedirectRejected(redirect), error.code, 502);
     case "session-missing":
