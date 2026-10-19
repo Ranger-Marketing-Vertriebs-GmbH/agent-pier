@@ -16,7 +16,6 @@ import {
 import { reconcileRun } from "./pipeline-recovery.js";
 import { provisionRun } from "./execution-workspace.js";
 import { readVerdict } from "./stage-verdict.js";
-import { checkAnswers } from "./loop-rounds.js";
 import {
   artifactsForNode,
   artifactText,
@@ -295,9 +294,10 @@ export class PipelineEngine {
   verdictStatus(id) {
     const run = this.store.get(id);
     requireLiveRun(run);
-    const attempt = run.executionLog.find((a) => a.id === run.currentAttemptId);
-    const node = run.nodes.find((n) => n.id === attempt?.nodeId);
-    const found = checkAnswers(run, node, attempt, readVerdict(run, attempt));
+    const found = readVerdict(
+      run,
+      run.executionLog.find((a) => a.id === run.currentAttemptId),
+    );
     return {
       ...found,
       verdict: undefined,

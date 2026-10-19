@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { clearVerdict, readVerdict } from "./stage-verdict.js";
 import {
   answersNudge,
-  checkAnswers,
+  claimAnswersNudge,
+  filterAnswers,
   missingAnswers,
   recordResponses,
   recordRound,
@@ -59,7 +60,6 @@ async function prepareStage(
   if (fresh) {
     node.verdictContinuations = 0;
     node.verifyAttempts = 0;
-    delete node.answersNudged;
     delete node.verifyResult;
     delete node.verified;
     delete node.nativeId;
@@ -267,7 +267,7 @@ export async function applyOutcome(engine, run, outcome) {
     );
     return;
   }
-  const found = checkAnswers(run, node, attempt, readVerdict(run, attempt));
+  const found = filterAnswers(run, node, attempt, readVerdict(run, attempt));
   if (!found.present) {
     node.verdictContinuations = (node.verdictContinuations || 0) + 1;
     if (node.verdictContinuations <= 2) {
@@ -295,10 +295,10 @@ export async function applyOutcome(engine, run, outcome) {
   }
   // A repair turn that leaves findings of its round unanswered is asked once for them.
   const missing = missingAnswers(run, node, attempt, found.verdict);
-  if (missing.length && !node.answersNudged) {
-    node.answersNudged = true;
+  if (missing.length && claimAnswersNudge(run, node, attempt)) {
     attempt.verdict = found.verdict;
-    recordResponses(run, node, attempt, found.verdict);
+    recordReportDigests(run, attempt);
+    recordResponses(run, node, attempt, found.verdict, { accepted: false });
     await launchStage(engine, run, node, {
       kind: "verdict-nudge",
       resumeNativeId: node.nativeId,

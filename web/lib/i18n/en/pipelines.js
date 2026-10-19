@@ -20,6 +20,8 @@ export const pipelineCopy = {
   roundAnswers: { fixed: "Fixed", "not-fixed": "Not fixed", disputed: "Disputed" },
   roundUnanswered: "Not answered",
   roundAnswer: (status, reason) => (reason ? `${status}: ${reason}` : status),
+  roundAnswerPending: "Answer pending",
+  ignoredAnswers: (ids) => `Answers to unknown findings were ignored: ${ids}`,
   loopTo: (stage) => `↺ to stage ${stage}`,
   decisionCue: (stage) => `Decision required · stage ${stage}`,
   attemptNumber: (number) => `Attempt ${number}`,

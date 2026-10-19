@@ -68,24 +68,40 @@ test("the second repair prompt carries round 1 and round 2 and the review gets t
   const ids = current().loopRounds[0].stages.flatMap((s) => s.findings.map((x) => x.id));
   assert.deepEqual(ids, ["R1-1", "R1-2"]);
 
-  // The repair turn answers per finding; a broken answer list is a broken verdict, and
-  // so is an answer to a finding the round does not have.
+  // The repair turn answers per finding; a broken answer list is a broken verdict.
   await f.end({
     ...pass("Repaired"),
     responses: [{ finding: "R1-1", status: "not-fixed" }],
   });
   assert.equal(turn().kind, "verdict-nudge");
-  await f.end({ ...pass("Repaired"), responses: [{ finding: "R9-9", status: "fixed" }] });
-  assert.equal(turn().kind, "verdict-nudge");
-  assert.match(prompt(), /R9-9/);
+  // Ids are matched loosely; an answer to a finding no round has is dropped and noted.
   // Unanswered findings get one nudge that names them, then the verdict is accepted.
-  await f.end({ ...pass("Repaired"), responses: [{ finding: "R1-1", status: "fixed" }] });
+  const nudged = turn();
+  const nudgedReport = `${nudged.reportDir}/REPAIR.md`;
+  fs.writeFileSync(path.join(current().workingDir, nudgedReport), "repair notes");
+  await f.end({
+    ...pass("Repaired"),
+    artifacts: [nudgedReport],
+    responses: [
+      { finding: "R9-9", status: "fixed" },
+      { finding: " r1-1 ", status: "not-fixed", reason: "first thought" },
+      { finding: "#R1–1", status: "fixed" },
+    ],
+  });
   assert.equal(turn().kind, "verdict-nudge");
   assert.match(prompt(), /does not answer these findings of the current round: R1-2\./);
+  const asked = current().executionLog.find((a) => a.id === nudged.id);
+  assert.deepEqual(asked.verdict.ignoredAnswers, ["R9-9"]);
+  assert.deepEqual(asked.verdict.responses, [{ finding: "R1-1", status: "fixed" }]);
+  // The asked turn's reports are fingerprinted like any accepted turn's.
+  assert.ok(asked.reportDigests[nudgedReport]);
+  // Until the repair is accepted its answers are pending, not final.
+  assert.equal(current().loopRounds[0].repairAttemptId, undefined);
   await f.end(pass("Repaired"));
   assert.deepEqual(current().loopRounds[0].responses, [
     { finding: "R1-1", status: "fixed" },
   ]);
+  assert.equal(current().loopRounds[0].answersNudged, true);
 
   // The next review round sees the answers and what stayed unanswered; so does test.
   assert.equal(turn().nodeId, "test");
@@ -260,5 +276,79 @@ test("a stage reset by another loop loses its earlier repair context", async (t)
   const reviewRound = current().loopRounds.find((r) => r.edge === "review->test");
   assert.deepEqual(reviewRound.responses, [
     { finding: "R1-1", status: "not-fixed", reason: "Needs a fixture" },
+  ]);
+});
+
+test("a retried repair is not asked again for the answers of its round", async (t) => {
+  const f = roundsFixture(t);
+  const run = await f.engine.start({ pipelineId: "definition", cwd: f.dir, task: "Fix" });
+  const current = () => f.engine.get(run.id);
+  const turn = () => current().executionLog.at(-1);
+  await f.end(pass("Built"));
+  await f.end(pass("Tests green"));
+  await f.end(fail("Missing validation"));
+  await f.end(pass("Repaired"));
+  assert.equal(turn().kind, "verdict-nudge");
+  // The asked turn fails; the operator retries the repair as a fresh attempt.
+  f.outcomes.set(f.launches.at(-1).sessionId, { status: "completed", exitCode: 1 });
+  await f.engine.reconcile();
+  assert.equal(current().status, "awaiting-human");
+  await f.engine.retry(run.id);
+  assert.equal(turn().kind, "kickoff");
+  await f.end(pass("Repaired again"));
+  assert.equal(turn().nodeId, "test");
+  assert.equal(current().loopRounds[0].repairAttemptId, current().nodes[0].attemptId);
+});
+
+test("findings of two loop edges into the same stage get distinct ids", async (t) => {
+  const f = fixture(t);
+  const original = f.definitions.snapshot;
+  f.definitions.snapshot = () => {
+    const snapshot = original();
+    snapshot.pipeline.graph = {
+      entry: "build",
+      nodes: ["build", "review", "e2e"].map((id) => ({
+        id,
+        kind: "profile",
+        profileId: "profile",
+      })),
+      edges: [
+        { from: "build", to: "review", condition: "default" },
+        { from: "review", to: "e2e", condition: "pass" },
+        { from: "review", to: "build", condition: "fail", maxIterations: 2 },
+        { from: "e2e", to: "build", condition: "fail", maxIterations: 2 },
+      ],
+    };
+    return snapshot;
+  };
+  const run = await f.engine.start({ pipelineId: "definition", cwd: f.dir, task: "Fix" });
+  const current = () => f.engine.get(run.id);
+  await f.end(pass("Built"));
+  await f.end(fail("Missing validation"));
+  await f.end({ ...pass("Repaired"), responses: [{ finding: "R1-1", status: "fixed" }] });
+  await f.end(pass("Review fine"));
+  await f.end(fail("Flow broken"));
+  const [review, e2e] = current().loopRounds;
+  assert.deepEqual(
+    [review.edge, review.round, review.stages[0].findings[0].id],
+    ["review->build", 1, "R1-1"],
+  );
+  assert.deepEqual(
+    [e2e.edge, e2e.round, e2e.stages[0].findings[0].id],
+    ["e2e->build", 1, "R2-1"],
+  );
+  // Re-confirming the earlier round's fix is harmless: dropped without a note.
+  await f.end({
+    ...pass("Repaired"),
+    responses: [
+      { finding: "R2-1", status: "fixed" },
+      { finding: "R1-1", status: "fixed" },
+    ],
+  });
+  const repair = current().executionLog.findLast((a) => a.nodeId === "build");
+  assert.deepEqual(repair.verdict.responses, [{ finding: "R2-1", status: "fixed" }]);
+  assert.equal(repair.verdict.ignoredAnswers, undefined);
+  assert.deepEqual(current().loopRounds[0].responses, [
+    { finding: "R1-1", status: "fixed" },
   ]);
 });

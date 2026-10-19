@@ -126,18 +126,24 @@ const responseStatuses = Object.assign(Object.create(null), {
   not_fixed: "not-fixed",
   disputed: "disputed",
 });
+// Finding ids as the engine writes them (R2-1): case, a leading # and dash variants a
+// model may produce do not matter.
+export const findingId = (value) =>
+  value
+    .trim()
+    .replace(/^#/, "")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .toUpperCase();
 function parseResponses(value) {
   if (value == null) return [];
   if (!Array.isArray(value))
     throw problem(serverMessages.pipelines.verdictResponsesArray);
-  const seen = new Set();
-  return value.slice(0, 200).map((r) => {
-    const finding = typeof r?.finding === "string" ? r.finding.trim() : "";
+  // A finding answered twice keeps its last answer.
+  const answers = new Map();
+  for (const r of value.slice(0, 200)) {
+    const finding = typeof r?.finding === "string" ? findingId(r.finding) : "";
     if (!finding || finding.length > 100)
       throw problem(serverMessages.pipelines.verdictResponseFinding);
-    if (seen.has(finding))
-      throw problem(serverMessages.pipelines.verdictResponseDuplicate(finding));
-    seen.add(finding);
     const status =
       typeof r.status === "string"
         ? responseStatuses[r.status.trim().toLowerCase()]
@@ -146,8 +152,14 @@ function parseResponses(value) {
     const reason = typeof r.reason === "string" && r.reason.trim() ? r.reason : "";
     if (status !== "fixed" && !reason)
       throw problem(serverMessages.pipelines.verdictResponseReason);
-    return { finding, status, ...(reason ? { reason: reason.slice(0, 2000) } : {}) };
-  });
+    answers.delete(finding);
+    answers.set(finding, {
+      finding,
+      status,
+      ...(reason ? { reason: reason.slice(0, 2000) } : {}),
+    });
+  }
+  return [...answers.values()];
 }
 export function readVerdict(run, attempt) {
   try {
