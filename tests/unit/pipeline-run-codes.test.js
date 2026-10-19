@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   attemptKindLabel,
+  repairNote,
   repairSessionLabel,
   tokenTotal,
   effectiveNodeStatus,
@@ -149,6 +150,14 @@ test("a repair turn reads as the same or a new session with its fallback", (t) =
     repairSessionLabel({ session: "fresh", fallback: "brand-new" }),
     "New session (not resumed)",
   );
+  // A resumed repair's kind already names its session.
+  const repair = { session: "resumed" };
+  assert.equal(repairNote({ kind: "resumed-repair", repair }), "");
+  assert.equal(
+    repairNote({ kind: "kickoff", repair: { session: "fresh", fallback: "no-session" } }),
+    "New session (no session to resume)",
+  );
+  assert.equal(repairNote({ kind: "kickoff" }), "");
   assert.equal(tokenTotal(undefined), null);
   assert.equal(tokenTotal({}), null);
   assert.equal(tokenTotal({ inputTokens: 40, outputTokens: 5 }), 45);

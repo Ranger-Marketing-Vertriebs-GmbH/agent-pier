@@ -19,7 +19,7 @@ import {
   attemptKindLabel,
   failReasonLabel,
   gateDecisionLabel,
-  repairSessionLabel,
+  repairNote,
   tokenTotal,
 } from "./run-codes.js";
 
@@ -75,7 +75,7 @@ function StageAttempts({ run, node }) {
               <StatusDot tone={chipTone(tone)} className="run-dot" />
               <strong>{copy.attemptNumber(index + 1)}</strong>
               <span>{attemptKindLabel(entry.kind)}</span>
-              {entry.repair && <span>{repairSessionLabel(entry.repair)}</span>}
+              {repairNote(entry) && <span>{repairNote(entry)}</span>}
               <span>
                 {entry.verdict
                   ? `${copy.verdict}: ${entry.verdict.result === "pass" ? copy.pass : copy.fail}`
