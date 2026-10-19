@@ -1,0 +1,73 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { auditEvent } from "../../server/features/audit/audit-schema.js";
+
+const event = (details) =>
+  auditEvent({
+    action: "assistant.updated",
+    resourceType: "assistant",
+    resourceId: "member",
+    source: "system",
+    outcome: "success",
+    details,
+  }).details;
+
+test("a lead routine audit keeps ids, change, actor, reason and edited fields only", () => {
+  assert.deepEqual(
+    event({
+      kind: "lead-routine",
+      routineId: "routine-1",
+      leadAssistantId: "lead",
+      change: "remove",
+      by: "system",
+      reason: "member-archived",
+      edited: ["name", "prompt", "secret"],
+      prompt: "never stored",
+    }),
+    {
+      kind: "lead-routine",
+      leadAssistantId: "lead",
+      routineId: "routine-1",
+      change: "remove",
+      by: "system",
+      reason: "member-archived",
+      edited: ["name", "prompt"],
+    },
+  );
+  assert.deepEqual(event({ kind: "lead-routine", change: "explode", by: "owner" }), {
+    kind: "lead-routine",
+  });
+});
+
+test("writes name how they were authorized: a lead share or a member result", () => {
+  assert.deepEqual(
+    event({
+      kind: "native-write",
+      tool: "write",
+      filePath: "notes/plan.md",
+      via: "member-result",
+      leadRequestId: "request-1",
+    }),
+    {
+      kind: "native-write",
+      tool: "write",
+      filePath: "notes/plan.md",
+      via: "member-result",
+      leadRequestId: "request-1",
+    },
+  );
+  const file = event({
+    kind: "project-file",
+    fileChange: "edit",
+    filePath: "a.md",
+    via: "lead-share",
+    leadRequestId: "request-2",
+  });
+  assert.equal(file.via, "lead-share");
+  assert.equal(file.leadRequestId, "request-2");
+  assert.equal(
+    event({ kind: "native-write", via: "owner", filePath: "a\nb" }).via,
+    undefined,
+  );
+  assert.equal(event({ kind: "native-write", filePath: "a\nb" }).filePath, undefined);
+});
