@@ -236,7 +236,8 @@ for the implementation and remaining native platform/version qualification.
 
 - **Only owner turns and a routine's own run write natively.** The write guard
   covers every native file tool (`write`, `edit`, `apply_patch`). It admits the
-  owner's own turn, an owner-proven member task and, as a deliberate widening of the
+  owner's own turn, an owner-proven member task (or one an autonomous lead or a routine
+  the owner marked **May delegate writing tasks** started) and, as a deliberate widening of the
   owner-only rule, the run of a routine the owner configured for that agent
   (`TeamBridge.routineWrite`, see [workflows](assistant-workflows.md)). A turn that is
   forwarded, internal, made by a team member without owner proof, or a reminder or
@@ -951,7 +952,12 @@ A lead reaches its own members without the owner relaying anything
   written to the caller, a task result or a failure reaches the lead as a hidden
   follow-up turn (at most 60,000 characters) once its chat is idle, and from there
   the paired Telegram chat when the request came from Telegram. Follow-ups that
-  keep failing end as `FOLLOW_UP_FAILED`, shown on the request.
+  keep failing end as `FOLLOW_UP_FAILED`, shown on the request. The follow-up turn
+  (`member-result`) never writes, natively or through `agentpier_workspace`; when the
+  lead tries, `LeadRequests.refusedChange` marks the request `resultWriteRefused`, the
+  chat history marks that follow-up `goAhead` (`conversations.js goAheadMarks`), and the
+  web chat offers **Go ahead** below the lead's reply while nothing newer was sent: it
+  sends "Yes, go ahead" as a real owner message.
 - **Answers.** The member's answer or result is its run's last reply, kept whole
   up to 65,536 characters; the request record keeps its first 2,000 code points
   (`answerTruncated`) and the whole answer has its own `text` row, pruned with the
@@ -977,9 +983,16 @@ A lead reaches its own members without the owner relaying anything
   resolves the lead from the routine's chat (members and archived agents never lead),
   and the request is stored with `origin: { kind: "routine", bindingId, name }` and
   `routineRun` (the run session) in place of `parentRequestId`. A routine is not
-  owner text: no quote, mention or yes is read, so its tasks never write
-  (`writeAllowed: false`, no `ownerProof`, never `autonomous`) at every usage level;
-  questions run as usual. The same member checks apply as in chat (own member, not
+  owner text: no quote, mention or yes is read, so its tasks do not write
+  (`writeAllowed: false`, no `ownerProof`, never `autonomous`) at every usage level,
+  unless the owner switched on **May delegate writing tasks** for that routine
+  (`routineDelegateWrites` on its binding, set only through the owner's
+  `PATCH /api/assistants/:id/routines/:routineId` with `delegateWrites`, never through
+  `agentpier_routine`, audited as `kind: "routine-delegate-writes"`). Its tasks then
+  count as the owner's standing instruction: the context records `delegateWrites: true`
+  and the request `routineWrites: true` and `writeAllowed: true`, which
+  `LeadRequests.mayWrite` and folder writes accept like an owner proof (`taskWritable`
+  in `lead-request-store.js`). Questions run as usual. The same member checks apply as in chat (own member, not
   archived, tasks only to permanent members), the per-turn limit counts per run, and
   under `autonomous` a routine's requests are `selfInitiated` and count against
   `autonomousCaps`. An ask returns the answer inline within the wait; a later answer
@@ -1868,6 +1881,58 @@ Capabilities tab and the audit) and the owner's approval for every shell or SSH
 grant after the proposal. A member cannot change the lead's memory, start teams or
 schedule routines. Keep the shell and SSH setting off unless the lead's work needs
 it, and prefer `approval` modes for its shell level and SSH hosts.
+
+## Lead shares with permanent members (2026-10-19, AGENTPIER-153)
+
+A lead shares its own project folders (`read` or `write`, at most its level), coding
+projects (requests on its project and pipelines) and MCP servers bound to it with its
+own permanent members, without the owner (`lead-shares.js`, `lead-share-input.js`):
+
+- **Tools.** `agentpier_team_grant` with a permanent member's `memberId` takes only
+  `grants.projects`, `coding` (project ids) and `mcpServers` and stores a standing
+  share; anything else is `PERMANENT_ACCESS_ONLY`, and `revoke: true` takes a share
+  back. `agentpier_team_delegate` takes `access` with the same three fields for that
+  one task: checked against the lead before the request exists and in place before
+  the member's turn starts. Shell and SSH are never shared.
+- **Store.** `assistant_lead_shares`, one row per member, lead, resource and scope
+  (`requestId` null for a standing share), with `grantedAt`, `grantedBy` and the
+  granting attempt. The member's own `assistant_access` row is never touched.
+- **Live cap.** Every use reads the lead's access now: a folder at most at the lead's
+  level, coding only while the lead holds the project, a server only while the lead
+  is bound to it (and never a stdio server for an agent with its own Telegram bot for
+  other people). A share ends, and the team scheduler's tick prunes it with an audit
+  record (`reason`), when the lead or member is archived or gone, the member is no
+  longer the lead's permanent member, the task ended (`task-ended`) or the lead holds
+  nothing of it any more (`lead-lost`).
+- **Where it works.** `AssistantWorkflows.context` admits a `lead-request` turn while
+  its task runs in exactly that turn (`workspace-calls.js`): file actions use only the
+  lead's shares for that scope (standing and the task's own), writes need
+  `taskWritable` (owner proof, autonomous lead or a write-enabled routine) besides
+  `write` level and the proven guard, otherwise `TASK_READ_ONLY`; the member's own
+  owner-granted folders, project memory and other actions stay out. In the owner's
+  own turns with the member the shares add to its own levels and projects. A routine
+  run of the member reaches no workspace actions, shared or own.
+- **Coding.** A coding request on a shared project is stored on the member with
+  `inherited: { leadId, requestId, shareId }`, always waits for the owner (also with
+  the lead's standing permission), and in a task carries `leadAssistantId`, so it
+  shows in the lead's chat too. Approval and start authorize on the lead's grant
+  (`LeadShares.authorize`: the share still gives coding, or a task's share ended only
+  with its task; `AssistantAccess.authorize` on the lead with the request's
+  `accessRevision`); the run uses the lead's grant for that one project under the
+  member's client id, so only the member reaches its run. Revoking the share fails a
+  waiting request (`GRANT_REVOKED`).
+- **MCP.** `readMcpInputs({ inherited })` merges `LeadShares.mcpBindings()` into the
+  agent bindings before secrets are read, at every start and live apply
+  (`McpChanges.inherited`), so placeholder servers compile a per-member entry. A
+  share change marks the MCP state pending; the scheduler's tick applies it.
+- **Owner.** `GET /api/assistant-lead-shares` (filters `memberId`, `leadId`,
+  `projectId`, `serverId`) and `DELETE /api/assistant-lead-shares/:id`; the project's
+  Agents view carries `shared`, the MCP server list `shared` per server.
+- **Audit.** `assistant.updated` with `kind: "lead-share"`, `change` (`grant` or
+  `revoke`), `by` (`lead`, `owner` or `system`), the lead, member, task, project ids
+  with coding and folder levels and server ids; a folder change through a share adds
+  `leadAssistantId` and `leadRequestId` (or `sharedBy`) to its `project-file` record.
+  Both chats get the grant note.
 
 ## MCP servers for agents (2026-10-11)
 

@@ -203,6 +203,9 @@ told it was not saved.
   **Member time limit (minutes)**.
 - **Teams:** the agent's active and archived teams and, below them, **Questions and
   tasks** it sent to its members.
+- **Shared by the lead agent** (permanent members only): the project folders, coding
+  projects and MCP servers the member's lead shares with it, each "via <lead>", with
+  **Revoke** ([sharing a lead's access](#sharing-a-leads-access-with-permanent-members)).
 
 ### Routines & check-ins
 
@@ -330,7 +333,11 @@ A lead also talks to its members directly:
   in the message cancel that permission. With **Suggest** or **Autonomous**, a short
   yes to the lead's offer ("yes, go ahead") counts as well; with **Autonomous**, a
   task the lead starts on its own in reply to your message may also write (see
-  below).
+  below), and so may a task from a routine you marked **May delegate writing tasks**.
+- The turn in which the lead handles a member's result never changes anything itself.
+  When the lead tried to (a file write or a project change) and asks you whether to
+  apply the result, the chat shows **Go ahead** below its reply: it sends "Yes, go
+  ahead" as your own message, so the lead can act in your turn.
 - **Work → Teams → Questions and tasks** lists every request, open ones first, marked
   "may write" or "read-only", "self-initiated" when an autonomous lead started it
   on its own and "Scheduled · <name>" when one of its routines did, with **Cancel** for open ones.
@@ -341,6 +348,38 @@ A lead also talks to its members directly:
   the whole reports are in the members' chats.
 
 Check your members' shell levels and MCP servers before you let a lead use them.
+
+### Sharing a lead's access with permanent members
+
+A permanent member has only the access you gave it. When a task needs the lead's own
+access, the lead can share it, without asking you:
+
+- **Project folders** at most at the lead's own **Read** or **Read and write** level,
+- **Coding projects**: the member may request coding runs on the lead's project with
+  the lead's pipelines; every run still waits for your approval, also when the lead
+  may start pipelines without one. The request shows in the member's chat and in the
+  lead's chat,
+- **MCP servers** bound to the lead (servers with agent folder placeholders get the
+  member's own folders).
+
+The lead shares either for good (a standing share, through its grant tool) or with
+one delegated task, ending with that task. A share counts only while the lead holds
+the same access: if the lead's level drops, the member's drops with it at its next
+call; if the lead loses the project or server, or the lead or member is archived or
+the member is no longer the lead's permanent member, the share ends and is removed.
+Shares never change the access you gave the member yourself and are listed apart from
+it: in the member's **Work → Shared by the lead agent**, in **Projects → <project> →
+Agents → Shared by lead agents** and with the MCP server under **Accounts → MCP
+servers**, each "via <lead>" with **Revoke**. Revoking ends the share at once and fails
+coding requests that still wait on it. Every share, revocation and change of a
+project file through a share is recorded in the activity log with the lead and the
+task.
+
+Shared folders and coding projects work in the lead's tasks for the member and in your
+own chats with the member, not in the member's routines. In a task, files change only
+when the task may change files (you asked for it, an autonomous lead started it, or a
+routine marked **May delegate writing tasks** did); otherwise the member reads only.
+Shell and SSH are never shared this way: a permanent member uses only its own.
 
 ### When a lead uses its team
 
@@ -361,7 +400,8 @@ for the chosen level:
   change files in the member's own workspace (never its memory) and is marked
   "self-initiated". Its tasks stay read-only when your message says not to change
   anything, when you named the member without asking for the task as described above,
-  and in forwarded, scheduled or follow-up turns, including tasks a routine delegates. Shell, SSH, project folders, GitHub and grants beyond the default keep
+  and in forwarded, scheduled or follow-up turns, including tasks a routine delegates
+  unless you marked it **May delegate writing tasks**. Shell, SSH, project folders, GitHub and grants beyond the default keep
   their approvals, and a team the lead proposes on its own still waits for you unless
   you asked for one or allowed teams without asking. A lead starts at most 4 questions
   or tasks on its own per turn and 20 per hour; requests you asked for by name do not
@@ -394,9 +434,11 @@ or proposing a team sends an **Agent approval** push notification as well.
   a linked coding run that completed); **Run once** starts one now. A routine uses
   the agent's own tools and approvals (memory, its workspace files, web, browser,
   shell and MCP servers, as far as they are switched on) but cannot schedule. A lead's
-  routine can ask its members and delegate tasks to permanent ones; such a task always
-  runs read-only, and **Work → Teams → Questions and tasks** marks the request
-  "Scheduled · <name>". Its whole result appears in the agent's chat marked
+  routine can ask its members and delegate tasks to permanent ones; such a task runs
+  read-only unless you switch on **May delegate writing tasks** in the routine's
+  details (only you can; the agent cannot), and **Work → Teams → Questions and tasks**
+  marks the request "Scheduled · <name>". A marked routine's tasks count as your
+  standing instruction and may change files like a task you asked for. Its whole result appears in the agent's chat marked
   "Scheduled · <name>" (and, with Telegram switched on, in the paired chat as several
   messages when it is long); a failed run shows a short line there. You can also ask
   the agent for a routine in the chat. Routines

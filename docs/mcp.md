@@ -344,6 +344,24 @@ command is such a runner.
   with the number of central servers bound to that CLI, linking to Accounts →
   **MCP servers**.
 
+### Servers a member uses through its lead
+
+A lead agent can share the MCP servers bound to it with its permanent members, for
+good or for one delegated task
+([sharing a lead's access](agents.md#sharing-a-leads-access-with-permanent-members)).
+Such a binding is not stored with the member's own bindings, which stay yours to
+edit: AgentPier adds it when it compiles the agents' servers, at every Gateway start
+and with every live apply, as long as the lead is bound to the server, the share
+exists and (for a task's share) the task runs. A server with
+[agent placeholders](#agent-placeholders) gets an entry of its own for the member,
+with the member's folders. An agent with its own Telegram bot for other people never
+gets a local (stdio) server this way. A share, its revocation and the lead losing the
+binding reach the running Gateway like any binding change, at the latest with the
+team scheduler's next tick. The server's overview under **Accounts → MCP servers**
+lists every member using it this way, "via <lead>", with **Revoke**
+(`DELETE /api/assistant-lead-shares/:id`, owner only; `GET /api/assistant-lead-shares`
+lists them).
+
 ### Agent placeholders
 
 A local package often takes one folder setting, such as elevenlabs-mcp's
@@ -371,7 +389,8 @@ placeholders give each agent its own folder instead:
   directory**. A wrong placeholder is named at its field before anything is sent.
 - **One server per agent.** OpenClaw's `mcp.servers` is one list for the whole
   Gateway, without per-agent environment values. AgentPier therefore compiles a
-  separate entry for every bound agent, named `<name>-<hash>` (the server's name cut
+  separate entry for every bound agent (members using the server through their lead
+  included), named `<name>-<hash>` (the server's name cut
   to 21 characters and 8 hex characters of the server and agent ids), with that agent's
   folders filled in, and grants each agent only its own entry (`<name>-<hash>__*`).
   The agent's tools carry that prefix. Each entry starts its own process per session, as
