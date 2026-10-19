@@ -231,7 +231,7 @@ test("a Gateway restart during maintenance moves event subscriptions to the new 
   assert.equal(old.listenerCount("event"), 0);
 });
 
-test("Gateway chat frames feed the conversation's live feed and keep the SSE delta", async (t) => {
+test("Gateway chat frames feed the conversation's live feed instead of an SSE delta", async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-feed-wiring-"));
   const store = new AssistantStore({ dataDir });
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -278,13 +278,11 @@ test("Gateway chat frames feed the conversation's live feed and keep the SSE del
       { type: "stream", runId: "run", from: 3, text: "lo" },
     ],
   );
-  // The SSE delta keeps its whole text until every chat reads the feed.
-  assert.deepEqual(published.at(-1), {
-    type: "delta",
-    conversationId: c.id,
-    runId: "run",
-    text: "Hello",
-  });
+  // The reply streams only through the feed now.
+  assert.equal(
+    published.some((e) => e.type === "delta"),
+    false,
+  );
   chat({ state: "final" });
   assert.equal(service.feeds.entries.get(c.id).runs.size, 0);
   // A scoped change still announces the list change.

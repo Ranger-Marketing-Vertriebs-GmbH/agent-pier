@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   ConversationFeeds,
+  reconciledChanges,
   turnActive,
 } from "../../server/features/assistants/conversation-feeds.js";
 import { ChatSync } from "../../server/features/chat/chat-sync.js";
@@ -284,4 +285,24 @@ test("the HTTP read encodes against a cursor; close ends every subscriber", asyn
   feeds.close();
   assert.deepEqual(one.frames.at(-1), { type: "end" });
   assert.throws(() => feeds.subscribe("a", {}, () => {}));
+});
+
+test("a reconciliation pass names only the conversations that changed", () => {
+  const attempts = new Map([["a", { state: "running" }]]);
+  const service = {
+    ledger: {
+      requests: (id) => (id === "a" ? [{ id: "a" }] : []),
+      attemptFor: (id) => attempts.get(id),
+    },
+  };
+  const reads = new Map([
+    ["a", history([row("1")])],
+    ["b", history([row("x")])],
+  ]);
+  assert.deepEqual(reconciledChanges(service, reads), ["a", "b"]);
+  assert.deepEqual(reconciledChanges(service, reads), []);
+  attempts.set("a", { state: "completed" });
+  assert.deepEqual(reconciledChanges(service, reads), ["a"]);
+  reads.set("b", history([row("x"), row("y")]));
+  assert.deepEqual(reconciledChanges(service, reads), ["b"]);
 });

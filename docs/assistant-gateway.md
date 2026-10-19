@@ -632,7 +632,7 @@ message a page cut again on its own (`chat.history` with `messageId` and `maxCha
 65,536): at most eight per page, newest first and four at a time; concurrent pages
 share a running read, and the cache keeps each result, so later pages within the
 cached newest messages need no new reads. The cache holds a conversation's newest 300
-messages (three full pages: the newest page that the chat polls and server-side
+messages (three full pages: the newest page that the chat's live feed and server-side
 readers use, plus room to scroll back while the Gateway is unavailable) and at most
 about 4 MB of text; beyond the newest page, which always stays whole, the oldest
 messages leave it first. A history read that changes nothing writes nothing. The AgentPier chat therefore shows long messages whole, the owner's own turns
@@ -2571,6 +2571,9 @@ so a switch limited to agents with memory cannot be built yet.
 login and the origin check of the session chat stream. The upgrade is refused with
 404 for an unknown conversation (the check of the history route) and with 503 while
 the agent feature is off; a logout closes the socket (1008). The client sends nothing.
+The agent chat in the browser reads its messages only from this feed; the
+`/api/assistant-events` stream keeps the agent list and the sidebar current and no
+longer carries reply text.
 
 - `ConversationFeeds` (`server/features/assistants/conversation-feeds.js`) keeps one
   feed per watched conversation, shared by every tab and device. An invalidation is
@@ -2583,7 +2586,9 @@ the agent feature is off; a logout closes the socket (1008). The client sends no
   routine, reminder or check-in result, and Telegram input and reply delivery. A
   run's terminal chat frame invalidates its feed directly. While a turn of the
   conversation is active (an attempt pending, accepted or running, a compaction, or a
-  reply streaming), the feed also re-reads every 30 seconds.
+  reply streaming), the feed also re-reads every 30 seconds. The reconciliation poll
+  (every 2 s while a turn is unresolved) re-reads only the feeds whose history or
+  turns changed during the pass.
 - `sync` frames (`{type: "sync", sequence, data}`) carry the `ChatSync` encoding of
   the session chat: a full window (the history payload plus
   `sync: {mode: "full", cursor}`) or a delta (`sync: {mode: "delta", base, cursor}`,
@@ -2596,14 +2601,34 @@ the agent feature is off; a logout closes the socket (1008). The client sends no
 - `stream` frames (`{type: "stream", runId, from, text}`, without a sequence) carry
   the reply streaming now. A socket first receives a run's whole text (`from: 0`),
   then only the appended part; a rewritten reply or a new Gateway connection starts
-  at `from: 0` again. The text is capped at 64 KiB like the `delta` event on
-  `/api/assistant-events`; the history has the rest.
+  at `from: 0` again. The text is capped at 64 KiB; the history has the rest.
 - A socket that falls more than 2 MiB behind is closed with 1013; the client
   reconnects with its cursor. Stopping the agent feature closes every feed socket
   (1001).
 - `GET /api/assistant-conversations/<id>/messages?cursor=<cursor>` (an empty cursor
   for none) answers with the same encoding, for a client that cannot keep the socket
   open.
+
+The browser side (`web/features/assistants/useAgentConversationStream.js` on the
+shared `chat-stream-transport.js`):
+
+- The chat applies `sync` frames with the session chat's `applyChatSync`. A
+  sequence gap reconnects with the held cursor; a delta on another base drops the
+  baseline and reconnects without a cursor for a full window. A `stream` frame with
+  `from: 0` replaces the reply text, any other `from` appends where the held text
+  ends; one that does not fit reconnects, and the new socket sends the whole text.
+  The streamed reply disappears once the stored reply is in the history.
+- A hidden page closes the socket and a visible one reopens it with the cursor; coming
+  back online reconnects at once, and so does a close with 1013. While no socket
+  connects, at most three HTTP reads with the cursor stand in.
+- Sending, queueing, taking back, stopping, recovering and removing a shared file
+  only await their request: the feed brings the result. While the socket is down, the
+  chat reads once over HTTP instead.
+- The chat shows the live window, the rows the window pushed out while the chat is
+  open, and the pages "Earlier messages" loaded above them
+  (`agent-history-view.js`), each row once. The last window of recently opened chats,
+  with its cursor, stays in the page's memory (`AgentHistoryCache`): a chat opened
+  again shows it at once, also offline, and resumes the feed with a diff.
 
 ## Chat attachments (2026-10-13)
 

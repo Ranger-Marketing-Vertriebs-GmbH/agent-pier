@@ -204,7 +204,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
       const cached = cachedWindow(
         [...merged.values()].sort((a, b) => a.timestamp - b.timestamp),
       );
-      // The chat polls every 2 s during a run; an unchanged page writes nothing.
+      // Reconciliation reads every 2 s during a run; an unchanged page writes nothing.
       if (
         cached.length !== messages.length ||
         cached.some((m, i) => !sameMessage(m, messages[i]))
