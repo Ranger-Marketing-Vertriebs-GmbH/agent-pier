@@ -293,7 +293,15 @@ export class TeamStore {
         request = this.ledger.getRequest(attempt.requestId),
         conversation = this.store.getConversation(request.conversationId),
         parent = this.store.getAssistant(conversation.assistantId);
-      const hash = fingerprint({ objective, members: drafts }),
+      // A template counts by its id, as the lead named it: a retry after the catalog
+      // moved to a new revision is the same proposal.
+      const hash = fingerprint({
+          objective,
+          members: drafts.map(({ template, templateInstructions: _text, ...d }) => ({
+            ...d,
+            ...(template ? { template: template.id } : {}),
+          })),
+        }),
         key = `${parentAttemptId}:${operationId}`;
       const old = this.db
         .prepare("SELECT id FROM assistant_team_records WHERE operation_key=?")

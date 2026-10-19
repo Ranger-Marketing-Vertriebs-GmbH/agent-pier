@@ -38,8 +38,16 @@ export default function AgentCreate({ navigate, onCreated, onCancel, initialTemp
     [picking, setPicking] = useState(false),
     [templateError, setTemplateError] = useState("");
   const announced = useRef(false);
+  // Name and instructions before the first template, restored when it is removed:
+  // third-party text never stays without its recorded origin.
+  const before = useRef(null);
   const draft = useTabDraft({ server: createServer() });
   const use = (preview) => {
+    if (!before.current)
+      before.current = {
+        name: draft.values.name,
+        instructions: draft.values.instructions,
+      };
     draft.set("name", Array.from(preview.name).slice(0, 100).join(""));
     draft.set("instructions", preview.instructions);
     setTemplate(preview);
@@ -120,14 +128,19 @@ export default function AgentCreate({ navigate, onCreated, onCancel, initialTemp
           <button
             type="button"
             className="button secondary compact"
-            onClick={() => setTemplate(null)}
+            onClick={() => {
+              draft.set("name", before.current?.name ?? "");
+              draft.set("instructions", before.current?.instructions ?? "");
+              before.current = null;
+              setTemplate(null);
+            }}
           >
             {templateCopy.clear}
           </button>
         )}
       </div>
       <ErrorMessage error={templateError} />
-      {template && <TemplateNote template={template} />}
+      {template && <TemplateNote template={template} findings={template.findings} />}
       {picking && <TemplatePicker onUse={use} onClose={() => setPicking(false)} />}
       <UnderlineTabs
         label={settingsCopy.tabsLabel}

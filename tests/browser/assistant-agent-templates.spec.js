@@ -185,10 +185,28 @@ for (const [label, viewport] of Object.entries(viewports))
       );
       await page.getByRole("button", { name: "Remove template" }).click();
       await expect(page.locator(".agent-template-note")).toHaveCount(0);
+      // The third-party text leaves with its origin.
+      await expect(page.getByLabel("Name", { exact: true })).toHaveValue("");
+      await expect(page.getByRole("textbox", { name: "Instructions" })).toHaveValue("");
+      await page.getByLabel("Name", { exact: true }).fill("Mine");
       await chooseModel(page);
       await saveBar(page).getByRole("button", { name: "Create agent" }).click();
       await expect(page).toHaveURL(/\/agents\/fresh\/settings$/);
       expect(state.created.template).toBeUndefined();
+    });
+
+    test("a warned template from an address shows its findings", async ({ page }) => {
+      await setup(page);
+      await templates(page);
+      await page.goto(
+        baseURL +
+          `/agents?new=1&template=marketing__content-creator&revision=${revision}`,
+      );
+      const note = page.locator(".agent-template-note");
+      await expect(note).toContainText("The scan found suspicious phrasing");
+      await expect(note).toContainText("Phrasing that tries to replace instructions");
+      await expect(note).toContainText("Ignore all previous instructions");
+      await fits(page);
     });
 
     test("the profile names the template an agent came from", async ({ page }) => {
@@ -228,7 +246,9 @@ for (const [label, viewport] of Object.entries(viewports))
       await page.goto(baseURL + settingsPath("work"));
       const member = page.locator(".assistant-team-template");
       await expect(member).toContainText("Template: Content Creator (Agency agents)");
-      await expect(member).toContainText("review it before approving");
+      await expect(member).toContainText(
+        "Review it before approving. The scan found: Phrasing that tries to replace instructions",
+      );
       await expect(member.getByRole("link")).toHaveAttribute("href", warned.source);
       await fits(page);
     });

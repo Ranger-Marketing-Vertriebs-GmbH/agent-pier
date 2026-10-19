@@ -26,6 +26,5 @@ export const agentTemplateCopy = {
   blocked:
     "Die Prüfung hat diese Vorlage blockiert: Sie enthält versteckte Zeichen oder Anweisungen zum Herunterladen und Ausführen. Sie kann nicht verwendet werden.",
   createAgent: "Agent anlegen",
-  memberWarned:
-    "Die Prüfung hat verdächtige Formulierungen gefunden; prüfe sie vor der Freigabe.",
+  memberWarned: "Prüfe sie vor der Freigabe. Die Prüfung hat gefunden:",
 };

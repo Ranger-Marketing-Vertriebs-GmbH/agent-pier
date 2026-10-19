@@ -83,6 +83,27 @@ test("catalog text is scanned like an imported skill", async (t) => {
   assert.ok(blocked.scan.rules.includes("bidi-control"));
 });
 
+test("a failed catalog refresh is remembered instead of asked again", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agency-offline-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  let calls = 0;
+  const agency = new AgencyStore({
+    accounts: { dataDir },
+    sharedProfiles: {},
+    fetchImpl: async () => {
+      calls++;
+      throw Error("offline");
+    },
+  });
+  await assert.rejects(agency.catalog());
+  const asked = calls;
+  await assert.rejects(agency.catalog());
+  assert.equal(calls, asked, "no second wait while offline");
+  // An explicit refresh asks again.
+  await assert.rejects(agency.catalog(true));
+  assert.ok(calls > asked);
+});
+
 test("ids, revisions and sizes are checked", async (t) => {
   const { templates } = setup(t);
   for (const input of [{}, { id: "../etc" }, { id: "Engineering" }])

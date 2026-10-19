@@ -153,12 +153,13 @@ export class AssistantService {
   /**
    * A new agent with shell needs the same confirmations as raising it later.
    * `template` ({id, revision}) records the Agency agent the owner started from:
-   * fetched again at that revision and scanned, never its model or tools.
+   * fetched again at that revision and scanned, never its model or tools. The fetch
+   * runs before admission: a slow GitHub never holds the shared admission lock.
    */
-  create(body) {
+  async create(body) {
     const { confirmShell, confirmFull, template, ...input } = body || {};
+    const origin = template === undefined ? null : await this.templateOrigin(template);
     return this.admit(async () => {
-      const origin = template === undefined ? null : await this.templateOrigin(template);
       const shell = shellChange({ shell: "off" }, input, { confirmShell, confirmFull });
       // Skills are assigned once the agent exists (agent-skills.js).
       if (input.skills?.length) throw assistantProblem("invalid");

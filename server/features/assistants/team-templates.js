@@ -57,26 +57,26 @@ export async function resolveTemplates(templates, members) {
   if (!Array.isArray(members) || !members.some((m) => m && "template" in m))
     return members;
   if (!templates) throw assistantProblem("templateUnavailable", 503);
-  const resolved = [];
-  for (const member of members) {
-    if (!member || typeof member !== "object" || !("template" in member)) {
-      resolved.push(member);
-      continue;
-    }
-    const { template: id, ...rest } = member;
-    textValue(id, 240);
-    let t;
-    try {
-      t = await templates.template({ id });
-    } catch (error) {
-      throw leadProblem(error);
-    }
-    if (t.scan.verdict === "block") throw assistantProblem("templateBlocked", 422);
-    resolved.push({
-      ...rest,
-      template: templateRecord(t),
-      templateInstructions: t.instructions,
-    });
-  }
-  return resolved;
+  for (const member of members)
+    if (member && typeof member === "object" && "template" in member)
+      textValue(member.template, 240);
+  // In parallel, so a proposal of up to eight templates stays inside the tool's time.
+  return Promise.all(
+    members.map(async (member) => {
+      if (!member || typeof member !== "object" || !("template" in member)) return member;
+      const { template: id, ...rest } = member;
+      let t;
+      try {
+        t = await templates.template({ id });
+      } catch (error) {
+        throw leadProblem(error);
+      }
+      if (t.scan.verdict === "block") throw assistantProblem("templateBlocked", 422);
+      return {
+        ...rest,
+        template: templateRecord(t),
+        templateInstructions: t.instructions,
+      };
+    }),
+  );
 }
