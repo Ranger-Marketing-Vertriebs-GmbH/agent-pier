@@ -167,6 +167,19 @@ export default function StageEditor({
               onChange={(value) => patch({ maxIterations: value })}
             />
           )}
+          {stage.loopBackTo && (
+            <div className="stage-field">
+              <Checkbox
+                className="pipeline-check"
+                label={copy.continueSession}
+                aria-describedby={`${headingId}-session`}
+                disabled={disabled}
+                checked={stage.continueSession === true}
+                onChange={(checked) => patch({ continueSession: checked })}
+              />
+              <small id={`${headingId}-session`}>{copy.continueSessionHint}</small>
+            </div>
+          )}
         </div>
       )}
     </section>

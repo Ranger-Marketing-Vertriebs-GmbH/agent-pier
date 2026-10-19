@@ -167,3 +167,69 @@ test("the loop round timeline reads in English", async ({ page }) => {
     "Answers to unknown findings were ignored: R9-9",
   );
 });
+
+// Round 1 was repaired in the same session, round 2 fell back to a new one.
+test("the run view tells resumed from fresh repairs and shows their tokens", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const state = await pipelinesFixture(page);
+  const run = sampleRun(state);
+  run.nodes.push({ ...run.nodes[0], id: "stage-two", status: "pending" });
+  const round = (number) => ({
+    edge: "stage-two->stage-one",
+    round: number,
+    fromNodeId: "stage-two",
+    toNodeId: "stage-one",
+    at: `2026-09-07T12:${number}0:00Z`,
+    stages: [
+      {
+        nodeId: "stage-two",
+        result: "fail",
+        summary: "Needs work",
+        findings: [finding(`R${number}-1`, "Missing validation")],
+        reports: [],
+      },
+    ],
+  });
+  run.loopRounds = [round(1), round(2)];
+  const turn = (id, kind, attemptId, extra) => ({
+    id,
+    nodeId: "stage-one",
+    kind,
+    attemptId,
+    startedAt: "2026-09-07T12:41:00Z",
+    finishedAt: "2026-09-07T12:42:00Z",
+    ...extra,
+  });
+  const edge = "stage-two->stage-one";
+  run.executionLog = [
+    turn("turn-1", "resumed-repair", "attempt-1", {
+      repair: { edge, round: 1, session: "resumed" },
+      usage: { inputTokens: 1000, outputTokens: 200 },
+    }),
+    turn("turn-2", "verdict-nudge", "attempt-1", {
+      usage: { inputTokens: 300, outputTokens: 34 },
+    }),
+    turn("turn-3", "resumed-repair", "attempt-2", {
+      repair: { edge, round: 2, session: "resumed" },
+      failReason: "context-exhausted",
+    }),
+    turn("turn-4", "kickoff", "attempt-3", {
+      repair: { edge, round: 2, session: "fresh", fallback: "context-exhausted" },
+      usage: { inputTokens: 9000, outputTokens: 500 },
+    }),
+  ];
+  state.runs.push(run);
+  await openPipelines(page, "runs/run-one");
+  const rounds = page.locator(".run-rounds > li");
+  await expect(rounds.nth(0)).toContainText("Same session · 1,534 tokens");
+  await expect(rounds.nth(1)).toContainText(
+    "New session (context exhausted) · 9,500 tokens",
+  );
+  await page.locator(".run-execution-log > summary").click();
+  const log = page.locator(".run-execution-log");
+  await expect(log).toContainText("Repair in the same session · Same session");
+  await expect(log).toContainText("The session's context is exhausted");
+  await expect(log).toContainText("Start · New session (context exhausted)");
+});

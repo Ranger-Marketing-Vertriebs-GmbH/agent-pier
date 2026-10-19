@@ -24,8 +24,23 @@ export const runCodes = {
     "verdict-invalid",
     "verdict-fail",
     "verify-failed",
+    // Recorded on a resumed repair turn whose session failed; never on a stage.
+    "resume-failed",
+    "context-exhausted",
   ],
-  attemptKinds: ["kickoff", "verdict-nudge", "gate-feedback", "verify-feedback"],
+  attemptKinds: [
+    "kickoff",
+    "verdict-nudge",
+    "gate-feedback",
+    "verify-feedback",
+    "resumed-repair",
+  ],
+  repairFallbacks: [
+    "resume-failed",
+    "context-exhausted",
+    "profile-changed",
+    "no-session",
+  ],
   gateDecisions: ["accepted", "overridden", "feedback", "looped-back"],
 };
 // Labels never show a raw code: an unknown code gets a neutral wording.
@@ -37,6 +52,27 @@ export const failReasonLabel = (code) =>
   label(copy.failReasons, code, copy.failReasons.unknown);
 export const attemptKindLabel = (code) =>
   label(copy.attemptKinds, code, copy.attemptKinds.unknown);
+// How the repair turn of a loop back ran: in the stage's earlier session or a new one,
+// and why a session that was asked for was not continued.
+export function repairSessionLabel(repair) {
+  if (!repair) return "";
+  const session =
+    repair.session === "resumed"
+      ? copy.repairSessions.resumed
+      : copy.repairSessions.fresh;
+  return copy.repairSession(
+    session,
+    repair.fallback &&
+      label(copy.repairFallbacks, repair.fallback, copy.repairFallbacks.unknown),
+  );
+}
+// The tokens a turn reported, or null when it reported none.
+export function tokenTotal(usage) {
+  if (!usage) return null;
+  if (Number.isFinite(usage.totalTokens)) return usage.totalTokens;
+  const parts = [usage.inputTokens, usage.outputTokens].filter(Number.isFinite);
+  return parts.length ? parts.reduce((sum, n) => sum + n, 0) : null;
+}
 export const gateDecisionLabel = (code) => label(copy.gateDecisions, code, copy.unknown);
 // A run that ended while a stage was still active leaves that stage ended too, even
 // when an older run record kept the stage's last live status.

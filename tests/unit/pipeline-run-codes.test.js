@@ -4,6 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   attemptKindLabel,
+  repairSessionLabel,
+  tokenTotal,
   effectiveNodeStatus,
   failReasonLabel,
   nodeStatusLabel,
@@ -30,6 +32,13 @@ const assigned = (owner, field) =>
 const parkReasons = [...sources.matchAll(/\bpark\(([^;]*?)\);/gs)]
   .flatMap((m) => literals(m[1]))
   .filter((code) => !["awaiting-gate", "awaiting-human"].includes(code));
+// The reasons a resumed repair turn falls back to a fresh session with.
+const fallbackReasons = [
+  ...[...sources.matchAll(/\bresumeFallback\(([^;]*?)\);/gs)].flatMap((m) =>
+    literals(m[1]),
+  ),
+  ...[...sources.matchAll(/\bfresh\("([a-z-]+)"\)/g)].map((m) => m[1]),
+];
 const turnKinds = [...sources.matchAll(/kind: "([a-z]+(?:-[a-z]+)+|kickoff)"/g)].map(
   (m) => m[1],
 );
@@ -41,12 +50,22 @@ test("every run code the engine writes is known to the pipeline UI", () => {
     failReasons: [
       ...parkReasons,
       ...literals(sources.match(/retryable = \[[^\]]*\]/)[0]),
+      ...[...sources.matchAll(/\bresumeFallback\(([^;]*?)\);/gs)].flatMap((m) =>
+        literals(m[1]),
+      ),
     ],
-    attemptKinds: turnKinds,
+    attemptKinds: [
+      ...turnKinds,
+      ...literals(sources.match(/RESUMED_REPAIR = "[^"]+"/)[0]),
+    ],
+    repairFallbacks: fallbackReasons,
     gateDecisions: [...assigned("node", "gateDecision"), "accepted", "overridden"],
   };
   assert.ok(cases.failReasons.includes("verdict-missing"), "the scan finds reasons");
   assert.ok(cases.attemptKinds.includes("gate-feedback"), "the scan finds turn kinds");
+  assert.ok(cases.attemptKinds.includes("resumed-repair"), "the scan finds the repair");
+  assert.ok(cases.repairFallbacks.includes("no-session"), "the scan finds fallbacks");
+  assert.ok(cases.repairFallbacks.includes("resume-failed"), "the scan finds failures");
   for (const [list, codes] of Object.entries(cases))
     for (const code of codes)
       assert.ok(runCodes[list].includes(code), `${list} misses engine code ${code}`);
@@ -60,6 +79,7 @@ test("every run code has a German and an English label", (t) => {
     failReasons: "failReasons",
     attemptKinds: "attemptKinds",
     gateDecisions: "gateDecisions",
+    repairFallbacks: "repairFallbacks",
   };
   for (const language of ["de", "en"]) {
     setLanguage(language);
@@ -107,4 +127,24 @@ test("pull requests are not offered for a repository without a remote", () => {
   assert.deepEqual(offeredRunActions({ actions, workspace: { hasRemote: false } }), [
     "delete",
   ]);
+});
+
+test("a repair turn reads as the same or a new session with its fallback", (t) => {
+  t.after(() => setLanguage("en"));
+  setLanguage("en");
+  assert.equal(repairSessionLabel(undefined), "");
+  assert.equal(repairSessionLabel({ session: "resumed" }), "Same session");
+  assert.equal(repairSessionLabel({ session: "fresh" }), "New session");
+  assert.equal(
+    repairSessionLabel({ session: "fresh", fallback: "context-exhausted" }),
+    "New session (context exhausted)",
+  );
+  assert.equal(
+    repairSessionLabel({ session: "fresh", fallback: "brand-new" }),
+    "New session (not resumed)",
+  );
+  assert.equal(tokenTotal(undefined), null);
+  assert.equal(tokenTotal({}), null);
+  assert.equal(tokenTotal({ inputTokens: 40, outputTokens: 5 }), 45);
+  assert.equal(tokenTotal({ inputTokens: 40, outputTokens: 5, totalTokens: 50 }), 50);
 });

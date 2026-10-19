@@ -37,6 +37,7 @@ test("ordered builder saves gates verification singleton PR and bounded backward
   await expect(rounds).toHaveAttribute("min", "1");
   await expect(rounds).toHaveAttribute("max", "5");
   await rounds.fill("3");
+  await page.getByLabel("Dieselbe Session fortsetzen", { exact: true }).check();
   await expect(
     page.getByText("↺ Planer springt bei Fehler zu Stufe 1 zurück · max. 3 Runden", {
       exact: true,
@@ -65,6 +66,7 @@ test("ordered builder saves gates verification singleton PR and bounded backward
   expect(graph.edges.find((e) => e.condition === "fail")).toMatchObject({
     to: "plan",
     maxIterations: 3,
+    continueSession: true,
   });
 });
 test("advanced non-chain graph survives edit save and reload without routing loss", async ({
@@ -384,6 +386,9 @@ test.describe("English pipeline definitions", () => {
         exact: true,
       }),
     ).toBeVisible();
+    const session = page.getByLabel("Continue the same session", { exact: true });
+    await expect(session).not.toBeChecked();
+    await expect(session).toHaveAccessibleDescription(/resumes its earlier CLI session/);
     await expect(page.getByRole("button", { name: "Move forward 2" })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Edit: Entwicklungsablauf", exact: true }),
