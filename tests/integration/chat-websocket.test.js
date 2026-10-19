@@ -213,18 +213,25 @@ test(
     await fs.writeFile(transcript, JSON.stringify(initial));
     f.application.chatImages.read = async () =>
       JSON.parse(await fs.readFile(transcript, "utf8"));
+    // The real source watchers stay armed, but FSEvents delivery lags by seconds when
+    // fseventsd is busy, so the test reports the write the way the watcher would.
+    const watch = f.application.chatStreams.watch;
+    const watchers = [];
+    f.application.chatStreams.watch = (options, changed) => {
+      watchers.push({ options, changed });
+      return watch(options, changed);
+    };
     const client = connect(t, f);
     const first = await client.next("sync");
+    assert.deepEqual(
+      watchers.map(({ options }) => options.session.tool),
+      ["codex"],
+    );
     const changed = structuredClone(initial);
     changed.messages[0].text = "Update from native file";
     const offset = client.frames.length;
-    // A native CLI keeps writing; repeat identical writes until the watcher reports one.
-    const synced = () =>
-      client.frames.slice(offset).some((frame) => frame.type === "sync");
-    for (let write = 0; write < 20 && !synced(); write++) {
-      await fs.writeFile(transcript, JSON.stringify(changed));
-      await delay(200);
-    }
+    await fs.writeFile(transcript, JSON.stringify(changed));
+    watchers[0].changed();
     const next = await client.next("sync", offset);
     assert.equal(next.sequence, first.sequence + 1);
     assert.equal(next.data.sync.mode, "delta");
