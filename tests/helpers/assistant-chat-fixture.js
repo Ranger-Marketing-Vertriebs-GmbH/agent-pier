@@ -14,7 +14,8 @@ export function chatAssistant(overrides = {}) {
 }
 
 // One agent chat with every list field the redesign reads. Options replace the
-// defaults; the returned state records posted messages and POST paths.
+// defaults; the returned state records posted messages and POST paths. `olderPages`
+// maps a `before` cursor to the older history page the chat reads with it.
 export async function chatFixture(page, options = {}) {
   const state = {
     language: "en",
@@ -54,7 +55,8 @@ export async function chatFixture(page, options = {}) {
   }, state.language);
   await page.route(/\/api\/assistant/, async (route) => {
     if (await fulfillEnabledAssistantFeature(route)) return;
-    const p = new URL(route.request().url()).pathname;
+    const url = new URL(route.request().url());
+    const p = url.pathname;
     const method = route.request().method();
     if (
       [
@@ -85,7 +87,12 @@ export async function chatFixture(page, options = {}) {
               request: { id: "sent" },
               attempt: { id: "sent-attempt", state: "accepted" },
             }
-          : state.history;
+          : url.searchParams.has("before")
+            ? state.olderPages?.[url.searchParams.get("before")] || {
+                messages: [],
+                nextBefore: null,
+              }
+            : state.history;
     } else if (p.endsWith("/actions")) body = { actions: state.actions };
     else if (p.endsWith("/conversations")) {
       const id = p.split("/")[3];
