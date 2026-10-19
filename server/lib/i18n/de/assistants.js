@@ -214,8 +214,6 @@ export const assistants = {
   projectFolderReadOnly: "Der Agent darf diesen Projektordner nur lesen.",
   projectRoutineReadOnly:
     "Diese Routine darf Projektordner nur lesen: Schalte in ihren Details „Darf schreiben“ ein, damit sie Dateien ändern darf.",
-  projectTaskReadOnly:
-    "Diese Aufgabe des leitenden Agenten darf keine Dateien ändern: Sie wurde nicht ausdrücklich vom Besitzer beauftragt.",
   projectWriteUnavailable:
     "Änderungen in Projektordnern sind erst möglich, wenn der Tool-Schutz der Agenten-Laufzeit bestätigt ist.",
   projectPathRefused:

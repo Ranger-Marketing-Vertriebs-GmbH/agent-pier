@@ -140,9 +140,11 @@ export class AgentProjectFiles {
       return { projectId, access: level, ...result };
     }
     if (level !== "write") throw assistantProblem("projectFolderReadOnly", 403);
-    // A lead's task changes files only when the task may write (taskWritable).
-    if (ctx.leadRequest && !ctx.leadRequest.writable)
-      throw assistantProblem("projectTaskReadOnly", 403);
+    // In a lead's task the level is the lead's share alone (standing or for this
+    // task), capped live at the lead's own level. The share is the lead's
+    // authorization, so it writes in every task of that lead, like a task member's
+    // grant; the task's own permission (taskWritable) governs only the member's own
+    // workspace (TeamBridge.writeAllowed).
     // A routine changes files only when the owner marked it "May write".
     if (ctx.routine && !ctx.routine.writable)
       throw assistantProblem("projectRoutineReadOnly", 403);
@@ -205,6 +207,7 @@ export class AgentProjectFiles {
             ? {
                 leadAssistantId: ctx.leadRequest.leadId,
                 leadRequestId: ctx.leadRequest.id,
+                via: "lead-share",
               }
             : !this.held(ctx.assistantId)[projectId] && this.sharedBy(ctx, projectId)),
         },

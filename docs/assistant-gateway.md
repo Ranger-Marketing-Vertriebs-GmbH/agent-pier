@@ -994,8 +994,9 @@ A lead reaches its own members without the owner relaying anything
   `agentpier_routine`, audited as `kind: "routine-writes"`). Its tasks then
   count as the owner's standing instruction: the context records `writes: true`
   and the request `routineWrites: true` and `writeAllowed: true`, which
-  `LeadRequests.mayWrite` and folder writes accept like an owner proof (`taskWritable`
-  in `lead-request-store.js`). Questions run as usual. The same member checks apply as in chat (own member, not
+  `LeadRequests.mayWrite` accepts like an owner proof (`taskWritable`
+  in `lead-request-store.js`); shared project folders write at their share's level in
+  every task anyway. Questions run as usual. The same member checks apply as in chat (own member, not
   archived, tasks only to permanent members), the per-turn limit counts per run, and
   under `autonomous` a routine's requests are `selfInitiated` and count against
   `autonomousCaps`. An ask returns the answer inline within the wait; a later answer
@@ -1909,9 +1910,13 @@ own permanent members, without the owner (`lead-shares.js`, `lead-share-input.js
   nothing of it any more (`lead-lost`).
 - **Where it works.** `AssistantWorkflows.context` admits a `lead-request` turn while
   its task runs in exactly that turn (`workspace-calls.js`): file actions use only the
-  lead's shares for that scope (standing and the task's own), writes need
-  `taskWritable` (owner proof, autonomous lead or a write-enabled routine) besides
-  `write` level and the proven guard, otherwise `TASK_READ_ONLY`; the member's own
+  lead's shares for that scope (standing and the task's own). A `write` share is the
+  lead's own authorization: with the proven guard it writes in every task of that
+  lead, whatever `taskWritable` says, capped live at the lead's level (a `read` share
+  or a lowered lead gets `PROJECT_READ_ONLY`), and each change is audited with
+  `leadAssistantId`, `leadRequestId` and `via: "lead-share"`. `taskWritable` (owner
+  proof, autonomous lead or a write-enabled routine) still governs the member's native
+  writes in its own workspace (`LeadRequests.mayWrite`); the member's own
   owner-granted folders, project memory and other actions stay out. In the owner's
   own turns with the member the shares add to its own levels and projects, and so do
   standing shares in the member's own routine runs (see routine folders below).

@@ -379,10 +379,14 @@ task.
 
 Shared folders and coding projects work in the lead's tasks for the member, in your
 own chats with the member and, for standing shares, in the member's own routines (a
-task's share stays with its task). In a task, files change only when the task may
-change files (you asked for it, an autonomous lead started it, or a routine marked
-**May write** did); in a routine only when that routine is marked **May write**;
-otherwise the member reads only.
+task's share stays with its task). A folder the lead shares with **Read and write**
+is the lead's own permission: the member may change files there in every task from
+that lead, as a temporary member may in its granted folders, never above the lead's
+own level at that moment (a read share or a lead lowered to **Read** only reads).
+Whether a task may change files in the member's own workspace still depends on the
+task (you asked for it, an autonomous lead started it, or a routine marked **May
+write** did). In a routine, shared folders change only when that routine is marked
+**May write**. Coding requests on a shared project always wait for your approval.
 Shell and SSH are never shared this way: a permanent member uses only its own.
 
 The same overviews list what leads granted their temporary members, marked

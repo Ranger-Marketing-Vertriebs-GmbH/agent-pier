@@ -68,8 +68,6 @@ const reasons = {
     "You may only read this project folder. Do not retry the change; tell the owner (or your lead) what you wanted to change.",
   ROUTINE_READ_ONLY:
     "This routine may only read project folders: the owner has not allowed it to write. Do not retry; say in the routine's result which change you would make, so the owner can switch on 'May write' for this routine or make it.",
-  TASK_READ_ONLY:
-    "This task from your lead may not change files: the owner did not explicitly ask for it. Do not retry; report the change you would make in your answer instead.",
   PERMANENT_ACCESS_ONLY:
     "A permanent member's tools and settings are the owner's. You can only share your project folders (grants.projects), coding projects (coding) and MCP servers (mcpServers) with it. Remove the other grants and try again.",
   PROJECT_WRITE_UNAVAILABLE:
@@ -127,7 +125,6 @@ const byKey = {
   sshRevoked: "SSH_REVOKED",
   projectFolderNotGranted: "PROJECT_NOT_GRANTED",
   projectFolderReadOnly: "PROJECT_READ_ONLY",
-  projectTaskReadOnly: "TASK_READ_ONLY",
   projectRoutineReadOnly: "ROUTINE_READ_ONLY",
   teamShareAccessOnly: "PERMANENT_ACCESS_ONLY",
   projectWriteUnavailable: "PROJECT_WRITE_UNAVAILABLE",
