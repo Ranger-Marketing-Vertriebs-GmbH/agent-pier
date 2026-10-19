@@ -1,6 +1,7 @@
 import TeamApprovals from "./TeamApprovals.jsx";
 import { foldResultEvents, teamNotes, withTeamNotes } from "./team-notes.js";
 import { scrollToChild } from "./transcript-scroll.js";
+import { withLatest, withOlderPage } from "./history-pages.js";
 import AssistantHeader from "./AssistantHeader.jsx";
 import AssistantActionApprovals from "./AssistantActionApprovals.jsx";
 import AssistantApprovalStrip from "./AssistantApprovalStrip.jsx";
@@ -110,6 +111,10 @@ export default function AssistantChat({
   // Only the latest history read applies: an older one answering late, or one of the
   // previous conversation, would bring back a state that is already over.
   const reads = useRef(0);
+  // The transcript's distance from its end before an older page was prepended.
+  const prepended = useRef(null);
+  const shownConversation = useRef(conversationId);
+  shownConversation.current = conversationId;
   // Keeps the composer above the on-screen keyboard, as the session chat does.
   useSessionViewport(true);
   const refresh = useCallback(async () => {
@@ -120,7 +125,8 @@ export default function AssistantChat({
       if (baseline.current === undefined)
         baseline.current =
           next.messages.findLast((m) => m.role === "assistant")?.id ?? null;
-      setHistory(next);
+      // Live reads bring the latest window; loaded older pages stay above it.
+      setHistory((current) => withLatest(current, next));
       histories?.set(conversationId, next);
       setUnreachable(false);
       if (
@@ -216,6 +222,16 @@ export default function AssistantChat({
     lastReply && baseline.current !== undefined && lastReply.id !== baseline.current
       ? plainText(lastReply.text)
       : "";
+  // An older page lands above what the reader sees, which keeps its place.
+  useLayoutEffect(() => {
+    const element = output.current;
+    const distance = prepended.current;
+    prepended.current = null;
+    if (!element || distance === null) return;
+    element.scrollTop = element.scrollHeight - distance;
+    scroll.current = element.scrollTop;
+    stick.current = element.scrollHeight - element.scrollTop - element.clientHeight < 80;
+  }, [history.messages]);
   // Follow the newest content only while the reader is at the bottom. Team notes count:
   // they arrive with the team list, apart from the history.
   useLayoutEffect(() => {
@@ -347,17 +363,13 @@ export default function AssistantChat({
     await refresh();
   }
   async function earlier() {
+    const id = conversationId;
     try {
-      const page = await assistantApi.history(conversationId, history.nextBefore);
-      setHistory((current) => ({
-        ...current,
-        nextBefore: page.nextBefore,
-        // An older page may repeat a newer event note; the newer place wins.
-        messages: [
-          ...page.messages.filter((m) => !current.messages.some((c) => c.id === m.id)),
-          ...current.messages,
-        ],
-      }));
+      const page = await assistantApi.history(id, history.nextBefore);
+      if (shownConversation.current !== id) return;
+      const element = output.current;
+      if (element) prepended.current = element.scrollHeight - element.scrollTop;
+      setHistory((current) => withOlderPage(current, page));
     } catch (e) {
       setError(e.message);
     }
