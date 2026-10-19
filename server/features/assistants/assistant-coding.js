@@ -14,10 +14,21 @@ export class AssistantCoding {
       requestId: action.id,
     };
   }
+  // The run grant: the agent's own, or for a request on a lead's share the lead's
+  // grant of that one project under the agent's own client id (lead-shares.js).
+  runGrant(action) {
+    return action.inherited
+      ? this.w.shares.grant(
+          action.assistantId,
+          action.inherited.leadId,
+          action.payload.projectId,
+        )
+      : this.w.access.grant(action.assistantId);
+  }
   async start(action) {
     const grant = () => {
       this.w.authorize(action);
-      return this.w.access.grant(action.assistantId);
+      return this.runGrant(action);
     };
     return this.s.mcpTools.call("run_start", this.args(action), grant(), grant);
   }
@@ -56,8 +67,16 @@ export class AssistantCoding {
     )
       throw assistantProblem("notFound", 404);
     const grant = () => {
-      this.w.access.authorize(id, a.payload.projectId);
-      return this.w.access.grant(id);
+      if (a.inherited)
+        this.w.shares.authorize(
+          id,
+          a.payload.projectId,
+          undefined,
+          undefined,
+          a.inherited,
+        );
+      else this.w.access.authorize(id, a.payload.projectId);
+      return this.runGrant(a);
     };
     return this.s.mcpTools.call(name, { ...args, runId: a.runId }, grant(), grant);
   }

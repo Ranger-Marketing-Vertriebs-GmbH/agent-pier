@@ -68,7 +68,7 @@ export function teamGuidance(team) {
   const listed = members.slice(0, rosterLimit);
   return [
     "## Your team",
-    "- Your team members are separate agents with their own chat, memory and workspace; they never see this conversation. Ask with agentpier_team_ask, delegate to permanent members with agentpier_team_delegate, and check them with agentpier_team_members.",
+    "- Your team members are separate agents with their own chat, memory and workspace; they never see this conversation. Ask with agentpier_team_ask, delegate to permanent members with agentpier_team_delegate, and check them with agentpier_team_members. A permanent member has only its own access; when a task needs your project folders, coding projects or MCP servers, share them with agentpier_team_grant (standing) or the task's access (this task only).",
     ...(members.length
       ? listed.map(memberLine)
       : ["- You have no team members right now."]),

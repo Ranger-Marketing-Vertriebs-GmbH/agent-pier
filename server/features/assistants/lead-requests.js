@@ -5,11 +5,13 @@ import {
   LeadRequestStore,
   publicRequest,
   requestTerminal,
+  taskWritable,
 } from "./lead-request-store.js";
 import { excerpt, followUp, memberPrompt, toolResult } from "./lead-request-text.js";
 import { ownerTelegram } from "./team-coding.js";
 import { runReply } from "./history-text.js";
 import { saveText, shortForm } from "./team-texts.js";
+import { applyTaskShare, taskShare } from "./lead-share-input.js";
 // How long the ask tool holds the lead's turn for an answer. AgentPier runs agents
 // on OpenClaw's embedded harness, where a plugin tool call has no own timeout; its
 // stuck-session diagnostics only flag a call as long-running after two minutes, so
@@ -110,8 +112,29 @@ export class LeadRequests {
     const answered = await this.waitFor(r.id, inv, this.waitMs);
     return this.toolResult(answered);
   }
+  /**
+   * A task, optionally with `access` the lead shares for this task only
+   * (lead-shares.js): checked against the lead before the task exists, in place
+   * before the member's turn starts, gone when the task ends.
+   */
   async delegate(inv, input) {
-    return this.toolResult(await this.create("task", inv, input));
+    let share = null;
+    if (
+      input &&
+      typeof input === "object" &&
+      !Array.isArray(input) &&
+      "access" in input
+    ) {
+      const { access, ...task } = input;
+      share = this.taskShare(inv, task.memberId, access);
+      input = task;
+    }
+    return this.toolResult(await this.create("task", inv, input, share));
+  }
+  taskShare(inv, memberId, access) {
+    inv.assertCurrent();
+    const { lead } = this.store.caller(callerOf(inv));
+    return taskShare(this.assistants.workflows, lead, this.teams.find(memberId), access);
   }
   /**
    * The lead's last reply before this turn, as the Gateway's history serves it: a
@@ -134,7 +157,7 @@ export class LeadRequests {
       return null;
     }
   }
-  async create(type, inv, input) {
+  async create(type, inv, input, share = null) {
     inv.assertCurrent();
     const offer = type === "task" ? await this.lastReply(inv, input) : null;
     inv.assertCurrent();
@@ -145,6 +168,7 @@ export class LeadRequests {
       input,
       offer,
     });
+    if (share && !requestTerminal.has(r.phase)) applyTaskShare(share, r, inv);
     this.assistants.changed();
     // Only the new request, and only briefly: the wait counts from the tool call.
     if (r.phase === "queued")
@@ -255,7 +279,8 @@ export class LeadRequests {
   }
   /**
    * Whether a native write in a member turn is this task's own, owner-proven work,
-   * or a task an autonomous lead started in the owner's turn (lead-request-store.js).
+   * a task an autonomous lead started in the owner's turn, or one a routine the
+   * owner lets delegate writing tasks started (taskWritable, lead-request-store.js).
    * Questions, every other task, cancelled or uncertain runs never write; the
    * member's memory stays read-only so a task cannot plant instructions for the
    * owner's own chats.
@@ -263,13 +288,8 @@ export class LeadRequests {
   mayWrite(requestId, attemptId, assistantId, target) {
     const r = typeof requestId === "string" ? this.store.teams.find(requestId) : null;
     if (
-      !r ||
-      r.kind !== "lead-request" ||
-      r.type !== "task" ||
-      r.writeAllowed !== true ||
-      (!r.ownerProof && r.autonomous !== true) ||
+      !taskWritable(r) ||
       r.phase !== "running" ||
-      r.cancelRequested ||
       r.attemptId !== attemptId ||
       r.memberAssistantId !== assistantId ||
       typeof target !== "string"
@@ -289,6 +309,10 @@ export class LeadRequests {
       return false;
     }
     return !memoryTarget(this.assistants.runtime?.paths?.workspaces, agentId, target);
+  }
+  // A refused change while the lead handles a result (LeadRequestStore.refusedChange).
+  refusedChange(requestId) {
+    if (this.store.refusedChange(requestId)) this.assistants.changed();
   }
   // --- owner actions ------------------------------------------------------------
   /** Ends an open request; a running member turn is aborted, not abandoned. */

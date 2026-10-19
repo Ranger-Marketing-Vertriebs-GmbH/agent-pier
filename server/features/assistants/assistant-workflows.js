@@ -1,4 +1,4 @@
-import { AssistantAccess, approvalRevision, exact } from "./assistant-access.js";
+import { AssistantAccess, exact } from "./assistant-access.js";
 import {
   AssistantActionStore,
   actionTerminal as terminal,
@@ -11,20 +11,19 @@ import {
   telegramTarget,
 } from "./assistant-action-notifications.js";
 import { deliverMemoryFollowUp } from "./memory-follow-up.js";
-import { deliverFollowUps, memberActions, memberContext } from "./team-coding.js";
+import { deliverFollowUps } from "./team-coding.js";
 import { decideAudited } from "./approval-audit.js";
-import { assistantProblem, textValue } from "./assistant-validation.js";
+import { assistantProblem } from "./assistant-validation.js";
 import { permanentReasons } from "./native-routines.js";
 import { ExecApprovals, execDecisions } from "./exec-approvals.js";
 import { allowAlwaysByAgentPier, decideExec, execPlan } from "./exec-decisions.js";
 import { AgentSsh } from "./agent-ssh.js";
-import { withExcerpts } from "../memory/memory-search.js";
 import { sshDecisions } from "./agent-ssh-approvals.js";
 import { sshTelegramApprovable } from "./agent-ssh-notifications.js";
-import { AgentProjectFiles, fileActions } from "./agent-project-files.js";
+import { AgentProjectFiles } from "./agent-project-files.js";
+import { LeadShares } from "./lead-shares.js";
+import { workspaceCall, workspaceContext } from "./workspace-calls.js";
 import { AgentGithub } from "./agent-github.js";
-import { workflowDefinitions } from "./team-plugin/workflow-tools.js";
-const workspaceKeys = Object.keys(workflowDefinitions.workspace.parameters.properties);
 const maxEventRetryMs = 300000;
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
@@ -40,6 +39,7 @@ export class AssistantWorkflows {
     this.ssh = new AgentSsh(this);
     this.forget = new AssistantMemoryForget(this);
     this.folders = new AgentProjectFiles(this);
+    this.shares = new LeadShares(this);
     this.github = new AgentGithub(this);
     if (autoStart) this.start();
   }
@@ -106,139 +106,25 @@ export class AssistantWorkflows {
       return {};
     }
   }
-  context(inv) {
-    inv.assertCurrent();
-    const attempt = this.a.ledger.getAttempt(inv.attemptId);
-    if (!["pending", "accepted", "running"].includes(attempt.state) || attempt.reviewedAt)
-      throw assistantProblem("invalid", 403);
-    const req = this.a.ledger.getRequest(attempt.requestId),
-      chat = this.a.store.getConversation(req.conversationId);
-    const origin = this.a.teams.store.context(req.id);
-    if (origin.kind === "team-member") return memberContext(this, chat, attempt, origin);
-    this.access.eligible(chat.assistantId);
-    if (!["owner", "telegram"].includes(origin.kind) || origin.forwarded)
-      throw assistantProblem("invalid", 403);
-    return {
-      assistantId: chat.assistantId,
-      conversationId: chat.id,
-      attemptId: attempt.id,
-      origin,
-    };
+  /** A workspace call's turn context (workspace-calls.js workspaceContext). */
+  context(inv, action) {
+    return workspaceContext(this, inv, action);
   }
   authorize(action) {
-    const p = this.access.authorize(
+    // A request on a lead's share is authorized on the lead's grant (lead-shares.js).
+    const p = (action.inherited ? this.shares : this.access).authorize(
       action.assistantId,
       action.payload.projectId,
       action.payload.pipelineId,
       action.accessRevision,
+      action.inherited,
     );
     if (action.payload.action === "memory_write" && !p.memoryWrite)
       throw assistantProblem("invalid", 403);
     return p;
   }
   invoke(inv, input) {
-    return this.a.admit(async () => {
-      const ctx = this.context(inv);
-      exact(input, workspaceKeys);
-      // Project folders are the member's own grant (agent-project-files.js).
-      if (fileActions.has(input.action)) return this.folders.invoke(ctx, input);
-      if (ctx.requestedBy && !memberActions.has(input.action))
-        throw assistantProblem("invalid", 403);
-      if (input.action === "catalog") {
-        const p = this.access.get(ctx.assistantId),
-          catalog = this.access.catalog(),
-          folders = new Map(
-            this.folders.describe(p.projectFiles).map((f) => [f.projectId, f]),
-          );
-        return {
-          // A granted folder names its path and level (agent-project-files.js).
-          projects: catalog.projects
-            .filter((x) => p.projectIds.includes(x.id))
-            .map(({ id, name }) => {
-              const folder = folders.get(id);
-              return folder
-                ? { id, name, folder: { path: folder.path, access: folder.access } }
-                : { id, name };
-            }),
-          pipelines: catalog.pipelines.filter((x) => p.pipelineIds.includes(x.id)),
-        };
-      }
-      if (["coding_status", "coding_cancel", "coding_artifacts"].includes(input.action))
-        return this.coding.call(
-          ctx.assistantId,
-          input.id,
-          {
-            coding_status: "run_get",
-            coding_cancel: "run_cancel",
-            coding_artifacts: "run_artifacts",
-          }[input.action],
-          input.nodeId ? { nodeId: input.nodeId } : {},
-          ctx.requestedBy,
-        );
-      if (input.action === "actions") return this.list(ctx.assistantId);
-      const p = this.access.authorize(ctx.assistantId, input.projectId, input.pipelineId);
-      if (input.action === "memory_search") {
-        return withExcerpts(
-          this.s.memory.list(input.projectId, {
-            query: input.query || "",
-            page: input.page || 1,
-          }),
-        );
-      }
-      if (input.action === "memory_read")
-        return this.s.memory.read(input.projectId, input.id);
-      if (!["memory_write", "coding_start"].includes(input.action))
-        throw assistantProblem("invalid");
-      const payload =
-        input.action === "coding_start"
-          ? {
-              action: input.action,
-              projectId: input.projectId,
-              pipelineId: textValue(input.pipelineId, 100),
-              task: textValue(input.task, 65536),
-              ...(input.baseBranch
-                ? { baseBranch: textValue(input.baseBranch, 300) }
-                : {}),
-            }
-          : {
-              action: input.action,
-              projectId: input.projectId,
-              title: textValue(input.title, 200),
-              content: textValue(input.content, 32768),
-              ...(input.id
-                ? { id: input.id, expectedRevision: input.expectedRevision }
-                : {}),
-            };
-      if (input.action === "memory_write" && !p.memoryWrite)
-        throw assistantProblem("invalid", 403);
-      if (
-        payload.id &&
-        (!Number.isSafeInteger(payload.expectedRevision) || payload.expectedRevision < 1)
-      )
-        throw assistantProblem("invalid");
-      inv.assertCurrent();
-      const action = this.store.reserve({
-        ...ctx,
-        payload,
-        accessRevision: approvalRevision(p),
-        key: `${inv.attemptId}:${inv.toolCallId}`,
-        // A member's request always waits for the owner, whatever the parent's
-        // standing permission says.
-        state:
-          input.action === "coding_start" && p.autonomous && !ctx.requestedBy
-            ? "approved"
-            : "awaiting_approval",
-        projectName: this.s.memory.project(input.projectId).name,
-        ...(input.pipelineId
-          ? {
-              pipelineName: this.s.pipelineDefinitions.getPipeline(input.pipelineId).name,
-            }
-          : {}),
-      });
-      if (action.state === "awaiting_approval") notifyAction(this, action, "approval");
-      this.a.changed();
-      return this.project(action);
-    });
+    return this.a.admit(() => workspaceCall(this, inv, input));
   }
   decide(id, input, origin) {
     let kind = "action";

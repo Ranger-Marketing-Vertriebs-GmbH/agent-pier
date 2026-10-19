@@ -157,6 +157,13 @@ export class TeamMcpBindings {
    */
   async refresh() {
     this.sync();
+    // Shares of a lead that ended for good go (lead-shares.js); an MCP one changes
+    // what the members compile.
+    try {
+      if (this.assistants.workflows?.shares?.prune()) this.dirty = true;
+    } catch {
+      /* Retried at the next tick. */
+    }
     // A lead's GitHub grant or access changed who uses which GitHub server.
     const github = this.assistants.workflows?.github;
     if (github?.changed()) await github.refresh().catch(() => {});

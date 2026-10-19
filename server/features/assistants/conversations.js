@@ -244,7 +244,11 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
   const visible = hideInternal(messages, requests, contexts, attempts);
   return {
     ...visible,
-    requests: requestsWithSources(visible.requests, contexts),
+    requests: goAheadMarks(
+      service,
+      requestsWithSources(visible.requests, contexts),
+      contexts,
+    ),
     messages: withSharedFiles(
       withMemoryNotes(
         withRoutineResults(
@@ -269,6 +273,22 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     // While the active attempt's run summarises the conversation (compactions.js).
     compacting: summarising(service, conversation, requests),
   };
+}
+/**
+ * A lead's turn handling a member's result may not change anything; when it tried
+ * (LeadRequests.refusedChange), its request is marked `goAhead`, so the chat offers
+ * the owner a one-tap "go ahead" that sends a real owner message.
+ */
+function goAheadMarks(service, requests, contexts) {
+  const teams = service.teams?.store;
+  if (!teams) return requests;
+  return requests.map((r) => {
+    const context = contexts.get(r.id);
+    if (r.internal !== "member-result" || context?.kind !== "member-result") return r;
+    return teams.find(context.requestId)?.resultWriteRefused
+      ? { ...r, goAhead: true }
+      : r;
+  });
 }
 // Only the conversation's active attempt (its id is the Gateway run's idempotency key,
 // runtimeRunId the run id) can be summarising; a cancelled one never is.

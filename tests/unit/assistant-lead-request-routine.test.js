@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { leadStoreFixture } from "../helpers/lead-request-fixture.js";
 import {
+  callerOf,
   publicRequest,
   requestCaps,
+  taskWritable,
 } from "../../server/features/assistants/lead-request-store.js";
 import { autonomousCaps } from "../../server/features/assistants/team-policy.js";
 
@@ -73,6 +75,50 @@ test("a task a routine delegates never writes, whatever the lead claims", (t) =>
     // At the autonomous level the lead's own request counts against its budget.
     assert.equal(!!r.selfInitiated, usage === "autonomous", usage);
   }
+});
+
+test("a routine the owner lets delegate writing tasks starts tasks that may write", (t) => {
+  const f = setup(t);
+  const marked = f.request(f.scout, { routine: { ...f.run(), delegateWrites: true } });
+  assert.equal(marked.writeAllowed, true);
+  assert.equal(marked.routineWrites, true);
+  assert.equal(marked.ownerProof, null);
+  assert.equal(
+    marked.origin.delegateWrites,
+    true,
+    "recorded as the owner's standing instruction",
+  );
+  assert.equal(publicRequest(marked).routineWrites, true);
+  assert.equal(taskWritable(marked), true);
+  f.finish(marked);
+  // Unmarked routines stay read-only; a question never writes.
+  const plain = f.request(f.scout);
+  assert.equal(plain.writeAllowed, false);
+  assert.equal(taskWritable(plain), false);
+  const question = f.request(f.writer, {
+    type: "question",
+    routine: { ...f.run(), delegateWrites: true },
+  });
+  assert.equal(question.writeAllowed, false);
+  assert.equal(taskWritable({ ...marked, cancelRequested: true }), false);
+});
+
+test("only the routine binding's own switch reaches a request, never the lead", () => {
+  const binding = (flag) => ({
+    id: "b1",
+    definition: { name: "Nightly" },
+    ...(flag === undefined ? {} : { routineDelegateWrites: flag }),
+  });
+  const caller = (flag) =>
+    callerOf({
+      attemptId: null,
+      routine: { binding: binding(flag), conversation: { id: "c1" } },
+      sessionKey: "agent:a:cron:j:run:1",
+    }).routine.delegateWrites;
+  assert.equal(caller(true), true);
+  assert.equal(caller(false), false);
+  assert.equal(caller(undefined), false);
+  assert.equal(caller("yes"), false);
 });
 
 test("a routine reaches neither archived nor temporary members for tasks", (t) => {

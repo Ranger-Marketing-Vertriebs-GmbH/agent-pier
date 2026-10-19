@@ -26,7 +26,7 @@ function choice(value) {
  * project, and, read-only, the task members that use it through their lead at the
  * level they have right now.
  */
-export function projectAgents({ assistants, access }, projectId) {
+export function projectAgents({ assistants, access, shares = null }, projectId) {
   access.s.memory.project(projectId);
   const all = assistants.store.listAssistants();
   const names = new Map(all.map((a) => [a.id, a.name]));
@@ -40,6 +40,18 @@ export function projectAgents({ assistants, access }, projectId) {
         ...view(policy, projectId),
       };
     }),
+    // What leads share of this project with their permanent members (lead-shares.js):
+    // the owner sees each "via" its lead and can remove it.
+    shared: (shares?.list((row) => row.projectId === projectId) || []).map((s) => ({
+      id: s.id,
+      agentId: s.memberAssistantId,
+      name: s.memberName,
+      leadId: s.leadId,
+      leadName: s.leadName,
+      requestId: s.requestId,
+      coding: s.live.coding,
+      folder: s.live.folder,
+    })),
     members: all.filter(inheritsFromLead).flatMap((m) => {
       const folder = m.inherited.projects?.[projectId];
       return folder

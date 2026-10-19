@@ -63,6 +63,18 @@ const grantsSchema = {
   },
   additionalProperties: false,
 };
+// What a lead shares of its own access with a permanent member (lead-shares.js).
+const accessSchema = {
+  type: "object",
+  properties: {
+    projects: grantsSchema.properties.projects,
+    coding: { type: "array", maxItems: 20, items: text(100) },
+    mcpServers: { type: "array", maxItems: 16, items: text(100) },
+  },
+  additionalProperties: false,
+};
+const shareRule =
+  "With a permanent member you can share only your own access: projects (project folder access as {projectId: read or write}, at most your own level), coding (project IDs on which it may request coding runs with your pipelines; every run still waits for the owner's approval) and mcpServers (names of MCP servers bound to you). It applies at once and only while you hold it yourself; the owner sees and can remove every share.";
 const grantRule =
   "Each task member gets only what you grant it, and only what you hold yourself: webSearch, webFetch, browser, documents (reading images), readPdfs (reading PDFs with the owner's PDF model), createImages (creating images through the owner's ChatGPT account), memory (a read-only copy of yours; every member also has its own writable memory), reminders (created on you), skills (true for all of yours, or names), mcpServers (names of MCP servers bound to you, the prefix before __ in your MCP tool names, at most 16), projects (project folder access as {projectId: read or write}, at most your own level of each folder; revoke removes a project's access), github (read or write: your GitHub access through your token profile, at most your own level), and shell (at most your own level) or ssh (your SSH hosts) only when the owner allows team members shell and SSH. Without grants a member gets memory, webSearch and webFetch as far as you have them. Grant only what the assignment needs; the owner sees every grant. Anything else rejects the call.";
 const definitions = {
@@ -149,11 +161,11 @@ const definitions = {
     ]),
   },
   delegate: {
-    description: `Delegate a task to one of your own permanent members (lifetime permanent; temporary members only answer questions), for example longer research, writing or review in its area. ${usageRule} Each member has at most one open task. The member works in its own chat when it is free; its result follows later as a separate message for you to summarize. Cancel with agentpier_team_cancel. A task from a scheduled routine run always runs read-only. ${ownerRule}`,
-    parameters: schema({ memberId: text(100), task: text(8192), ...owner }, [
-      "memberId",
-      "task",
-    ]),
+    description: `Delegate a task to one of your own permanent members (lifetime permanent; temporary members only answer questions), for example longer research, writing or review in its area. ${usageRule} Each member has at most one open task. The member works in its own chat when it is free; its result follows later as a separate message for you to summarize. Cancel with agentpier_team_cancel. A task from a scheduled routine run runs read-only unless the owner lets that routine delegate writing tasks. access passes your own access for this task only and ends with it: ${shareRule} The member changes project files only when the task may change files (see below). ${ownerRule}`,
+    parameters: schema(
+      { memberId: text(100), task: text(8192), ...owner, access: accessSchema },
+      ["memberId", "task"],
+    ),
   },
   cancel: {
     description:
@@ -188,11 +200,12 @@ const definitions = {
     ),
   },
   grant: {
-    description: `Give one of your own task members more tools or access, while it works on its task or after it finished (for your questions and tasks to it; not once archived), or take them back with revoke: true (any time). ${grantRule} Shell and SSH granted here wait for the owner's approval (status approval_requested); everything else applies at once and is shown to the owner in both chats.`,
+    description: `Give one of your own task members more tools or access, while it works on its task or after it finished (for your questions and tasks to it; not once archived), or take them back with revoke: true (any time). ${grantRule} Shell and SSH granted here wait for the owner's approval (status approval_requested); everything else applies at once and is shown to the owner in both chats. ${shareRule} For a permanent member this is a standing share for your tasks to it and the owner's own chats with it; use grants.projects, coding and mcpServers only, revoke takes a share back.`,
     parameters: schema(
       {
         memberId: text(100),
         grants: grantsSchema,
+        coding: accessSchema.properties.coding,
         mcpServers: { type: "array", maxItems: 16, items: text(100) },
         revoke: { type: "boolean" },
       },

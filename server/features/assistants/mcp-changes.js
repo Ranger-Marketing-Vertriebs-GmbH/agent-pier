@@ -9,6 +9,7 @@ import {
   mcpSections,
   mcpSnapshot,
   readMcpInputs,
+  withInherited,
 } from "./openclaw-config/mcp-servers.js";
 import { applyShell, shellSections } from "./openclaw-config/shell.js";
 import { placeholderViews } from "./mcp-placeholder-view.js";
@@ -73,6 +74,9 @@ export class McpChanges {
     this.retryAt = 0;
     // Agents whose profile re-apply after a patch is still outstanding.
     this.stale = new Set();
+    // `{ [assistantId]: serverId[] }` members use through their lead, wired by the
+    // graph (lead-shares.js mcpBindings).
+    this.inherited = () => this.assistants.workflows?.shares?.mcpBindings() || {};
   }
   /** Whether a pending apply is due now (failures back off up to one minute). */
   due() {
@@ -155,9 +159,36 @@ export class McpChanges {
       const runtime = this.assistants.runtime;
       return placeholderViews(list, {
         profiles: this.assistants.store.listAssistants(),
-        bindings: this.servers.bindingsByTarget("agent"),
+        bindings: withInherited(this.servers.bindingsByTarget("agent"), this.inherited),
         workspaces: runtime?.paths?.workspaces ?? null,
         running: runtime?.mcp ?? null,
+      });
+    } catch {
+      return list;
+    }
+  }
+  /**
+   * The list with the members that use each server through their lead
+   * (`shared`, lead-shares.js), for the owner to see and remove. Unreadable shares
+   * leave the list as it is.
+   */
+  sharedViews(list) {
+    try {
+      const shares = this.assistants.workflows?.shares?.list((row) => row.kind === "mcp");
+      if (!shares?.length) return list;
+      return list.map((server) => {
+        const shared = shares
+          .filter((s) => s.serverId === server.id)
+          .map((s) => ({
+            id: s.id,
+            agentId: s.memberAssistantId,
+            agentName: s.memberName,
+            leadId: s.leadId,
+            leadName: s.leadName,
+            requestId: s.requestId,
+            bound: s.live.bound,
+          }));
+        return shared.length ? { ...server, shared } : server;
       });
     } catch {
       return list;
@@ -287,6 +318,8 @@ export class McpChanges {
         redirectUrl: this.redirectUrl(),
         extra: this.extraInputs,
         workspaces: runtime.paths?.workspaces ?? null,
+        // Servers members use through their lead (lead-shares.js).
+        inherited: this.inherited,
       });
       if (inputs.unreadable) {
         this.failed({ code: "MCP_STORE_UNREADABLE" });
