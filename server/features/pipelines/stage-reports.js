@@ -57,12 +57,13 @@ const reportsOf = (run, attempt) =>
     stageReportPath(run, attempt.nodeId, artifact.path),
   );
 
-// The newest finished turn of every stage decides its current reports: a later round
+// The newest finished turn with a verdict decides a stage's current reports (a turn
+// without one, e.g. before a verdict nudge, declared nothing): a later round
 // without reports supersedes an earlier round's, so a stale report is never handed on.
 export function latestStageReports(run) {
   const latest = new Map();
   for (const attempt of run.executionLog)
-    if (attempt.finishedAt) latest.set(attempt.nodeId, attempt);
+    if (attempt.finishedAt && attempt.verdict) latest.set(attempt.nodeId, attempt);
   return [...latest.values()].flatMap((attempt) => {
     const reports = reportsOf(run, attempt);
     return reports.length

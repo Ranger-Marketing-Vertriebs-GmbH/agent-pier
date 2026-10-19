@@ -248,3 +248,21 @@ test("a report rewritten after its turn finished is flagged as changed", (t) => 
   // Repository files are tracked by Git checkpoints, not by report digests.
   assert.equal(artifactText(run, "review", "README.md").changed, undefined);
 });
+
+test("a finished turn without a verdict keeps the stage's current reports", () => {
+  const report = { path: ".pipeline/reports/review/r1/REVIEW.md" };
+  const run = {
+    executionLog: [
+      attempt("review", "r1", [report]),
+      attempt("review", "r2", [], { verdict: undefined }),
+    ],
+  };
+  assert.deepEqual(latestStageReports(run), [
+    {
+      nodeId: "review",
+      attemptId: "r1",
+      reportDir: ".pipeline/reports/review/r1",
+      reports: [report],
+    },
+  ]);
+});
