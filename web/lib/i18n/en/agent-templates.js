@@ -1,0 +1,30 @@
+// Agency agents as templates for new agents and team members.
+export const agentTemplateCopy = {
+  start: "Start from a template",
+  change: "Choose another template",
+  clear: "Remove template",
+  pickerTitle: "Start from a template",
+  pickerSubtitle: "Agency agents from msitarzewski/agency-agents",
+  search: "Search templates",
+  category: "Category",
+  all: "All categories",
+  preview: "Preview",
+  use: "Use template",
+  back: "Back to templates",
+  close: "Close",
+  loading: "Loading templates …",
+  empty: "No matching templates found.",
+  next: "Next",
+  count: (total, page) => `${total} templates · page ${page}`,
+  note: "Name, description and instructions are taken over. The template's model and tool settings are not imported; tools and access stay as you set them here.",
+  source: "Source on GitHub",
+  revision: "Revision",
+  license: "MIT license",
+  from: (name) => `Template: ${name} (Agency agents)`,
+  warned:
+    "The scan found suspicious phrasing in this template. Read its instructions before you create the agent.",
+  blocked:
+    "The scan blocked this template: it contains hidden characters or download-and-run instructions. It cannot be used.",
+  createAgent: "Create agent",
+  memberWarned: "The scan found suspicious phrasing; review it before approving.",
+};

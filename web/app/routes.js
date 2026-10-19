@@ -51,10 +51,16 @@ export function readRoute(location) {
       view: "workspace",
       sessionId: "",
     };
-  if (pathname === "/agents")
-    return new URLSearchParams(location.search).get("new") === "1"
-      ? { view: "agents", creating: true }
-      : { view: "agents" };
+  if (pathname === "/agents") {
+    const query = new URLSearchParams(location.search);
+    if (query.get("new") !== "1") return { view: "agents" };
+    // "Create agent" from an Agency entry: the template and its pinned revision.
+    const template = query.get("template"),
+      revision = query.get("revision");
+    return template && revision
+      ? { view: "agents", creating: true, template: { id: template, revision } }
+      : { view: "agents", creating: true };
+  }
   const agent =
     /^\/agents\/([A-Za-z0-9_-]+)\/(settings|browser|chats\/([A-Za-z0-9_-]+)|teams\/([A-Za-z0-9_-]+))$/.exec(
       pathname,
@@ -254,7 +260,11 @@ function basePath(route) {
           : route.assistantId
             ? `/agents/${encodeURIComponent(route.assistantId)}/settings${agentSettingsQuery(route)}`
             : route.creating
-              ? "/agents?new=1"
+              ? `/agents?new=1${
+                  route.template
+                    ? `&${new URLSearchParams({ template: route.template.id, revision: route.template.revision })}`
+                    : ""
+                }`
               : "/agents";
   if (route.view === "settings") return settingsRoutePath(route);
   if (route.view === "pipelines") return pipelineRoutePath(route);

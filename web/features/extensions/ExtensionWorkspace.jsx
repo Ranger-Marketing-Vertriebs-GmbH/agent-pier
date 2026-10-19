@@ -247,6 +247,7 @@ export default function ExtensionWorkspace({
             mode={agentMode}
             setMode={setAgentMode}
             onCount={setAgentCount}
+            onNavigate={onNavigate}
           />
         </section>
       )}

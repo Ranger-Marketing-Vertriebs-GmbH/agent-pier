@@ -1,4 +1,7 @@
-import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
+import {
+  fulfillDormantAssistantRequest,
+  fulfillEnabledAssistantFeature,
+} from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import {
@@ -10,7 +13,7 @@ import {
   revealRow,
 } from "../helpers/extensions.js";
 const revision = "a".repeat(40);
-async function fixture(page) {
+async function fixture(page, { agents = false } = {}) {
   const writes = [];
   const state = {
     home: "/fixture",
@@ -26,6 +29,7 @@ async function fixture(page) {
   const installed = [];
   const agencyReads = [];
   await page.route("**/api/**", async (route) => {
+    if (agents && (await fulfillEnabledAssistantFeature(route))) return;
     if (await fulfillDormantAssistantRequest(route)) return;
     const request = route.request(),
       url = new URL(request.url()),
@@ -38,6 +42,10 @@ async function fixture(page) {
         method: request.method(),
       });
     if (endpoint === "/api/state") result = state;
+    // With agents on, the sidebar lists them; this fixture has none.
+    else if (agents && endpoint.startsWith("/api/assistant"))
+      result =
+        endpoint === "/api/assistants" ? { assistants: [], conversations: [] } : {};
     else if (endpoint === "/api/accounts/usage") result = { mcpServers: {} };
     else if (endpoint.endsWith("/extensions"))
       result = {
@@ -144,6 +152,8 @@ for (const mobile of [false, true])
       "Modell und Berechtigungen werden von deiner Session geerbt.",
     );
     await expect(dialog.getByRole("link", { name: /Quelle auf GitHub/ })).toBeVisible();
+    // Without agents switched on, an entry cannot become an AgentPier agent.
+    await expect(dialog.getByRole("link", { name: "Agent anlegen" })).toHaveCount(0);
     await page.screenshot({
       path: `/tmp/agentpier-agency-preview-${mobile ? "mobile" : "desktop"}.png`,
       animations: "disabled",
@@ -173,4 +183,23 @@ for (const mobile of [false, true])
       path: `/tmp/agentpier-agency-${mobile ? "mobile" : "desktop"}.png`,
       animations: "disabled",
     });
+  });
+
+for (const mobile of [false, true])
+  test(`an Agency entry offers "Create agent" while agents are on (${mobile ? "mobile" : "desktop"})`, async ({
+    page,
+  }) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    await fixture(page, { agents: true });
+    await page.goto(baseURL + "/extensions/local-claude?tab=agents");
+    await page.getByRole("button", { name: "Katalog durchsuchen", exact: true }).click();
+    await revealRow(page, "frontend");
+    await page.getByRole("button", { name: "Agent ansehen" }).click();
+    const dialog = page.getByRole("dialog", { name: "Frontend Expert" });
+    const create = dialog.getByRole("link", { name: "Agent anlegen" });
+    await expect(create).toHaveAttribute(
+      "href",
+      `/agents?new=1&template=engineering__frontend&revision=${revision}`,
+    );
+    await expectNoHorizontalOverflow(page);
   });

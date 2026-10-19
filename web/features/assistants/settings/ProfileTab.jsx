@@ -16,6 +16,7 @@ import ProfileFields, { profileValid } from "./ProfileFields.jsx";
 import MemberGroup from "./MemberGroup.jsx";
 import AttachmentStorageGroup from "./AttachmentStorageGroup.jsx";
 import RuntimeSummary from "./RuntimeSummary.jsx";
+import TemplateNote from "./TemplateNote.jsx";
 
 const conflictLabels = {
   name: () => copy.name,
@@ -90,6 +91,10 @@ export default function ProfileTab({ assistant, navigate }) {
               {copy.confirmInstructions}
             </button>
           </p>
+        )}
+        {/* The Agency template its instructions came from (source and license). */}
+        {assistant.template && (
+          <TemplateNote template={assistant.template} scan={false} />
         )}
         <ProfileFields
           draft={draft}

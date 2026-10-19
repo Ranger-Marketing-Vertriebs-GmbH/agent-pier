@@ -152,6 +152,18 @@ export const assistantApi = {
   list: () => api("/assistants"),
   runtime: () => api("/assistant-runtime"),
   create: (input) => api("/assistants", "POST", input),
+  // Agency agents as templates for new agents (server agency-templates.js).
+  templates: ({ q = "", category = "", page = 1 } = {}, signal) =>
+    api(
+      `/agency/templates?${new URLSearchParams({ q, category, page: String(page) })}`,
+      "GET",
+      undefined,
+      signal,
+    ),
+  template: (id, revision) =>
+    api(
+      `/agency/templates/preview?${new URLSearchParams({ id, ...(revision ? { revision } : {}) })}`,
+    ),
   update: (id, input) => api(`/assistants/${encodeURIComponent(id)}`, "PATCH", input),
   open: (id) => api(`/assistants/${encodeURIComponent(id)}/conversations`, "POST", {}),
   history: (id, before) =>
