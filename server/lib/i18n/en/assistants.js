@@ -199,6 +199,8 @@ export const assistants = {
   sshRevoked: "The SSH access changed; the command was stopped.",
   projectFolderNotGranted: "This project folder is not granted to the agent.",
   projectFolderReadOnly: "The agent may only read this project folder.",
+  projectRoutineReadOnly:
+    "This routine may only read project folders: switch on “May write” in its details to let it change files.",
   projectTaskReadOnly:
     "This task from the lead agent may not change files: the owner did not explicitly ask for it.",
   projectWriteUnavailable:

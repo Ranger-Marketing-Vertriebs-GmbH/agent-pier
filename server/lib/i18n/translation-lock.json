@@ -192,6 +192,7 @@
   "assistants.projectFolderNotGranted": "de:fd5df75844b3 en:ff94bf1fb266",
   "assistants.projectFolderReadOnly": "de:8322f4a744a1 en:ff8f491b77be",
   "assistants.projectPathRefused": "de:53cbfa753cb1 en:31e3adf3912f",
+  "assistants.projectRoutineReadOnly": "de:4fc0598f9474 en:58466e02c513",
   "assistants.projectTaskReadOnly": "de:3c5de15d9e7f en:0196f96a7836",
   "assistants.projectWriteTooLarge": "de:9971fb398aee en:ce2780fc8b68",
   "assistants.projectWriteUnavailable": "de:af782b9be178 en:52ae088c1d2d",

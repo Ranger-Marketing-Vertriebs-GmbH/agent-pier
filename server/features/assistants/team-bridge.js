@@ -35,10 +35,18 @@ const actions = new Set([
   "share_file",
 ]);
 const active = new Set(["pending", "accepted", "running"]);
-// What a routine's own run session (no attempt) may call: SSH, shared files, and a
-// lead's questions and read-only tasks for its own members (routine origin,
+// What a routine's own run session (no attempt) may call: SSH, shared files, project
+// folders, and a lead's questions and tasks for its own members (routine origin,
 // lead-request-store.js).
-const routineActions = new Set(["ssh", "share_file", "members", "ask", "delegate"]);
+const routineActions = new Set([
+  "ssh",
+  "share_file",
+  "members",
+  "ask",
+  "delegate",
+  // Project folders and coding requests (workspace-calls.js routineContext).
+  "workspace",
+]);
 // What a temporary member reaches through its lead: reminders (created on the lead)
 // and SSH on the lead's grants, each only while it inherits them right now.
 const inheritedAction = (a, action) =>
@@ -173,8 +181,8 @@ export class TeamBridge {
     let bound;
     if (matches.length === 1) bound = { attemptId: matches[0].id };
     else if (!matches.length && routineActions.has(input.action)) {
-      // Only SSH (on hosts granted "incl. routines"), shared files and the lead's
-      // ask, delegate and members serve a routine's run.
+      // Only SSH (on hosts granted "incl. routines"), shared files, project folders
+      // and the lead's ask, delegate and members serve a routine's run.
       const routine = this.routineRun(input);
       if (!routine) throw assistantProblem("invalid", 403);
       bound = { attemptId: null, routine };
@@ -323,7 +331,7 @@ export class TeamBridge {
   // run session of a bound, enabled routine of the calling agent with memory and
   // routines on; reminders, check-ins and every other session never match, and it
   // grants nothing to delegated tasks by itself: only a routine the owner marked
-  // "may delegate writing tasks" starts tasks that may write (lead-request-store.js).
+  // "May write" starts tasks that may write (lead-request-store.js).
   routineWrite(input) {
     const agent = this.assistants.store
       .listAssistants()

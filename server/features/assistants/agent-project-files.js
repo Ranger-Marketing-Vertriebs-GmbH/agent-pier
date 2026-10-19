@@ -143,6 +143,9 @@ export class AgentProjectFiles {
     // A lead's task changes files only when the task may write (taskWritable).
     if (ctx.leadRequest && !ctx.leadRequest.writable)
       throw assistantProblem("projectTaskReadOnly", 403);
+    // A routine changes files only when the owner marked it "May write".
+    if (ctx.routine && !ctx.routine.writable)
+      throw assistantProblem("projectRoutineReadOnly", 403);
     // Like native writes: only while the running Gateway's tool guard is proven.
     if (!this.w.a.config?.writeGuard?.())
       throw assistantProblem("projectWriteUnavailable", 503);
@@ -195,6 +198,8 @@ export class AgentProjectFiles {
           filePath: result.path,
           bytes: result.bytes,
           ...(ctx.requestedBy ? { requestedBy: ctx.requestedBy } : {}),
+          // A routine run names its routine (the binding) as the origin.
+          ...(ctx.routine ? { origin: "routine", routineId: ctx.routine.bindingId } : {}),
           // A change on a lead's share names the lead and the task (lead-shares.js).
           ...(ctx.leadRequest
             ? {

@@ -18,6 +18,8 @@ const leadTaskActions = new Set([
   "coding_artifacts",
 ]);
 const changing = new Set(["file_write", "file_edit", "coding_start", "memory_write"]);
+// What a routine run reaches: what an owner turn does, apart from cancelling a run.
+const routineRefused = new Set(["coding_cancel"]);
 
 /**
  * The turn context of a workspace call: the owner's own turn (also from its
@@ -28,6 +30,7 @@ const changing = new Set(["file_write", "file_edit", "coding_start", "memory_wri
  */
 export function workspaceContext(w, inv, action) {
   inv.assertCurrent();
+  if (!inv.attemptId && inv.routine) return routineContext(w, inv);
   const attempt = w.a.ledger.getAttempt(inv.attemptId);
   if (!["pending", "accepted", "running"].includes(attempt.state) || attempt.reviewedAt)
     throw assistantProblem("invalid", 403);
@@ -52,10 +55,37 @@ export function workspaceContext(w, inv, action) {
 }
 
 /**
+ * A routine's own run (TeamBridge.routineRun: a bound, enabled routine of a
+ * personal agent with routines on, re-checked on every step): the agent's own
+ * project folders and its lead's standing shares, read always, changed only when
+ * the owner marked the routine "May write" (`routineWrites` on its binding, read
+ * live here). Coding requests always wait for the owner.
+ */
+function routineContext(w, inv) {
+  const agent = w.access.eligible(inv.routine.conversation.assistantId);
+  const run = w.a.routines?.runOrigin(agent, inv.sessionKey);
+  if (!run || run.binding.id !== inv.routine.binding.id)
+    throw assistantProblem("invalid", 403);
+  const { binding, conversation } = run;
+  return {
+    assistantId: agent.id,
+    conversationId: conversation.id,
+    attemptId: null,
+    origin: { kind: "routine", bindingId: binding.id },
+    routine: {
+      bindingId: binding.id,
+      name: binding.definition?.name || "",
+      writable: binding.routineWrites === true,
+      key: `routine:${inv.sessionKey}`,
+    },
+  };
+}
+
+/**
  * A permanent member's turn for a task of its lead, while that task runs in exactly
  * this turn: `leadRequest` carries the task and whether it may change files
  * (taskWritable: the owner's request, an autonomous lead or a routine the owner
- * lets delegate writing tasks).
+ * marked "May write").
  */
 function leadRequestContext(w, chat, attempt, req, origin) {
   const r = w.a.teams?.store?.find(origin.requestId);
@@ -165,6 +195,8 @@ export async function workspaceCall(w, inv, input) {
     throw assistantProblem("invalid", 403);
   if (ctx.leadRequest && !leadTaskActions.has(input.action))
     throw assistantProblem("invalid", 403);
+  if (ctx.routine && routineRefused.has(input.action))
+    throw assistantProblem("invalid", 403);
   if (input.action === "catalog") return catalog(w, ctx);
   if (["coding_status", "coding_cancel", "coding_artifacts"].includes(input.action))
     return w.coding.call(
@@ -221,19 +253,24 @@ export async function workspaceCall(w, inv, input) {
   )
     throw assistantProblem("invalid");
   inv.assertCurrent();
-  const { leadRequest: task, ...stored } = ctx;
+  const { leadRequest: task, routine, ...stored } = ctx;
   const action = w.store.reserve({
     ...stored,
     payload,
     accessRevision: approvalRevision(p),
-    key: `${inv.attemptId}:${inv.toolCallId}`,
+    key: `${routine?.key || inv.attemptId}:${inv.toolCallId}`,
     // A member's request, and every request on a lead's share, waits for the owner,
     // whatever the standing permission says.
     state:
-      input.action === "coding_start" && p.autonomous && !ctx.requestedBy && !inherited
+      input.action === "coding_start" &&
+      p.autonomous &&
+      !ctx.requestedBy &&
+      !inherited &&
+      !routine
         ? "approved"
         : "awaiting_approval",
     ...(inherited ? { inherited } : {}),
+    ...(routine ? { routineId: routine.bindingId } : {}),
     // A task's request waits in the lead's chat too (assistant-action-store.js delegated).
     ...(task
       ? {

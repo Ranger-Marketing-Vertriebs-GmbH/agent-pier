@@ -161,7 +161,7 @@ const definitions = {
     ]),
   },
   delegate: {
-    description: `Delegate a task to one of your own permanent members (lifetime permanent; temporary members only answer questions), for example longer research, writing or review in its area. ${usageRule} Each member has at most one open task. The member works in its own chat when it is free; its result follows later as a separate message for you to summarize. Cancel with agentpier_team_cancel. A task from a scheduled routine run runs read-only unless the owner lets that routine delegate writing tasks. access passes your own access for this task only and ends with it: ${shareRule} The member changes project files only when the task may change files (see below). ${ownerRule}`,
+    description: `Delegate a task to one of your own permanent members (lifetime permanent; temporary members only answer questions), for example longer research, writing or review in its area. ${usageRule} Each member has at most one open task. The member works in its own chat when it is free; its result follows later as a separate message for you to summarize. Cancel with agentpier_team_cancel. A task from a scheduled routine run runs read-only unless the owner marked that routine 'May write'. access passes your own access for this task only and ends with it: ${shareRule} The member changes project files only when the task may change files (see below). ${ownerRule}`,
     parameters: schema(
       { memberId: text(100), task: text(8192), ...owner, access: accessSchema },
       ["memberId", "task"],

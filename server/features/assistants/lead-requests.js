@@ -280,7 +280,7 @@ export class LeadRequests {
   /**
    * Whether a native write in a member turn is this task's own, owner-proven work,
    * a task an autonomous lead started in the owner's turn, or one a routine the
-   * owner lets delegate writing tasks started (taskWritable, lead-request-store.js).
+   * owner marked "May write" started (taskWritable, lead-request-store.js).
    * Questions, every other task, cancelled or uncertain runs never write; the
    * member's memory stays read-only so a task cannot plant instructions for the
    * owner's own chats.

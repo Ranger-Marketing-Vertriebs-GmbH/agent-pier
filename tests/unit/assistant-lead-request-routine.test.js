@@ -79,12 +79,12 @@ test("a task a routine delegates never writes, whatever the lead claims", (t) =>
 
 test("a routine the owner lets delegate writing tasks starts tasks that may write", (t) => {
   const f = setup(t);
-  const marked = f.request(f.scout, { routine: { ...f.run(), delegateWrites: true } });
+  const marked = f.request(f.scout, { routine: { ...f.run(), writes: true } });
   assert.equal(marked.writeAllowed, true);
   assert.equal(marked.routineWrites, true);
   assert.equal(marked.ownerProof, null);
   assert.equal(
-    marked.origin.delegateWrites,
+    marked.origin.writes,
     true,
     "recorded as the owner's standing instruction",
   );
@@ -97,7 +97,7 @@ test("a routine the owner lets delegate writing tasks starts tasks that may writ
   assert.equal(taskWritable(plain), false);
   const question = f.request(f.writer, {
     type: "question",
-    routine: { ...f.run(), delegateWrites: true },
+    routine: { ...f.run(), writes: true },
   });
   assert.equal(question.writeAllowed, false);
   assert.equal(taskWritable({ ...marked, cancelRequested: true }), false);
@@ -107,14 +107,14 @@ test("only the routine binding's own switch reaches a request, never the lead", 
   const binding = (flag) => ({
     id: "b1",
     definition: { name: "Nightly" },
-    ...(flag === undefined ? {} : { routineDelegateWrites: flag }),
+    ...(flag === undefined ? {} : { routineWrites: flag }),
   });
   const caller = (flag) =>
     callerOf({
       attemptId: null,
       routine: { binding: binding(flag), conversation: { id: "c1" } },
       sessionKey: "agent:a:cron:j:run:1",
-    }).routine.delegateWrites;
+    }).routine.writes;
   assert.equal(caller(true), true);
   assert.equal(caller(false), false);
   assert.equal(caller(undefined), false);

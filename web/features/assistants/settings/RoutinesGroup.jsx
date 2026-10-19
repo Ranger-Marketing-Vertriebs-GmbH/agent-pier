@@ -31,7 +31,7 @@ const stateOf = (item) =>
  * Routines whose results go to the agent's chat with a push notification, and to a
  * `paired` Telegram chat where switched on; every action applies at once.
  */
-export default function RoutinesGroup({ assistantId, paired = false, lead = false }) {
+export default function RoutinesGroup({ assistantId, paired = false }) {
   const id = useId();
   const [items, setItems] = useState([]),
     [busy, setBusy] = useState(false),
@@ -259,8 +259,8 @@ export default function RoutinesGroup({ assistantId, paired = false, lead = fals
                       {item.telegram && (
                         <span className="agent-sub-part">{copy.telegramOn}</span>
                       )}
-                      {lead && item.delegateWrites && (
-                        <span className="agent-sub-part">{copy.delegateWritesOn}</span>
+                      {item.writes && (
+                        <span className="agent-sub-part">{copy.writesOn}</span>
                       )}
                       {item.nextRunAtMs && (
                         <span className="agent-sub-part">
@@ -295,16 +295,16 @@ export default function RoutinesGroup({ assistantId, paired = false, lead = fals
                       }
                     />
                   )}
-                  {lead && item.status === "ready" && (
+                  {item.status === "ready" && (
                     <ToggleRow
-                      label={copy.delegateWrites}
-                      sub={copy.delegateWritesHint}
-                      checked={item.delegateWrites === true}
+                      label={copy.writes}
+                      sub={copy.writesHint}
+                      checked={item.writes === true}
                       disabled={busy}
                       onChange={(next) =>
                         act(() =>
                           routineApi.update(assistantId, item.id, {
-                            delegateWrites: next,
+                            writes: next,
                             revision: item.revision,
                           }),
                         )

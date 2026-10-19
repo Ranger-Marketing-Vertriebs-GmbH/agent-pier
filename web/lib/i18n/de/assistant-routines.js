@@ -48,9 +48,8 @@ export const routineCopy = {
       ? `Erinnerung „${name}“ konnte nicht ausgeführt werden.`
       : "Eine Erinnerung konnte nicht ausgeführt werden.",
   alsoTelegram: "Auch an Telegram senden",
-  delegateWrites: "Darf schreibende Aufgaben delegieren",
-  delegateWritesHint:
-    "Aufgaben, die diese Routine an dauerhafte Teammitglieder delegiert, dürfen Dateien ändern, als hättest du sie selbst beauftragt. Sonst laufen sie nur lesend. Nur du kannst das ändern.",
-  delegateWritesOn: "Delegiert schreibende Aufgaben",
+  writes: "Darf schreiben",
+  writesHint: "Projektordner und delegierte Aufgaben",
+  writesOn: "Darf schreiben",
   telegramOn: "Wird auch an Telegram gesendet",
 };
