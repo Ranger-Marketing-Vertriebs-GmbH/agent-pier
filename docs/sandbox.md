@@ -304,7 +304,7 @@ in an unsandboxed session, or widen the sandbox profile yourself with `nono`.
 
 When a tool call fails in a sandboxed session and its output reads like an operating
 system denial — `EPERM`, `EACCES`, "Operation not permitted", "Permission denied" or a
-Seatbelt `deny(1)` line — the chat marks that call **Likely blocked by the sandbox**
+Seatbelt `deny(1)` line, but not SSH's own `Permission denied (publickey)` — the chat marks that call **Likely blocked by the sandbox**
 instead of **Failed** and, when opened, names the session's sandbox profile and the two
 ways out. This applies to every tool row, MCP servers included, because the sandbox
 confines every subprocess of the CLI. It is a hint read from the output the CLI

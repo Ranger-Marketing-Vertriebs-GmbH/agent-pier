@@ -56,3 +56,22 @@ test("only the start and end of a long output are scanned", () => {
   const middle = "y".repeat(150000) + " EPERM " + "y".repeat(150000);
   assert.equal(sandboxDenied(failed(middle), "p"), false);
 });
+
+test("SSH's own auth failure is not a sandbox denial", () => {
+  for (const text of [
+    "git@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository.",
+    "deploy@host: Permission denied (publickey,password).",
+    "Permission denied (keyboard-interactive).",
+    "user@host: Permission denied (hostbased,publickey).",
+    "Permission denied(gssapi-with-mic,publickey).",
+  ])
+    assert.equal(sandboxDenied(failed(text), "p"), false, text);
+});
+
+test("a real denial beside an SSH auth failure still counts", () => {
+  for (const text of [
+    "git@github.com: Permission denied (publickey).\nError: EACCES: permission denied, open '/x'",
+    "Permission denied (publickey).\ncat: /etc/secret: Permission denied",
+  ])
+    assert.equal(sandboxDenied(failed(text), "p"), true, text);
+});
