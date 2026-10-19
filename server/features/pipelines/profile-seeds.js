@@ -17,14 +17,14 @@ const seeds = [
     "code-reviewer",
     "Code Reviewer",
     "review",
-    "Review the current branch and task for correctness, regressions and maintainability. Write actionable findings with file references to REVIEW.md. Do not change application code.",
+    "Review the current branch and task for correctness, regressions and maintainability. Write actionable findings with file references to REVIEW.md in the stage report directory. Do not change application code.",
     true,
   ],
   [
     "security-reviewer",
     "Security Reviewer",
     "review",
-    "Review the task changes for authentication, authorization, injection, secret handling and trust-boundary defects. Write reproducible findings to SECURITY.md. Do not change application code.",
+    "Review the task changes for authentication, authorization, injection, secret handling and trust-boundary defects. Write reproducible findings to SECURITY.md in the stage report directory. Do not change application code.",
     true,
   ],
   [
@@ -45,7 +45,7 @@ const seeds = [
     "app-tester",
     "App Tester",
     "review",
-    "Build and test the application using its documented local workflow. Inspect relevant browser and API behavior and write reproducible findings to TEST-REPORT.md. Do not change application code.",
+    "Build and test the application using its documented local workflow. Inspect relevant browser and API behavior and write reproducible findings to TEST-REPORT.md in the stage report directory. Do not change application code.",
     true,
   ],
   [
