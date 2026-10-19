@@ -133,11 +133,22 @@ test(
       publish: false,
     });
     const chat = await h.http("POST", `/assistants/${lead.id}/conversations`);
+    // A follow-up turn of the lead (such as the team completion) can still start
+    // after idle() saw the chat idle; like the owner, wait until the chat accepts.
     const say = (text) =>
-      h.http("POST", `/assistant-conversations/${chat.id}/messages`, {
-        clientRequestId: crypto.randomUUID(),
-        text,
-      });
+      h.until(
+        () =>
+          h
+            .http("POST", `/assistant-conversations/${chat.id}/messages`, {
+              clientRequestId: crypto.randomUUID(),
+              text,
+            })
+            .catch((error) => {
+              if (/ answered 409: .*"key":"active"/.test(error.message)) return null;
+              throw error;
+            }),
+        `the lead's chat accepts: ${text}`,
+      );
     const idle = () =>
       h.until(async () => {
         const pending = h.graph.assistants.ledger
