@@ -113,11 +113,25 @@ test("a native CLI that never exits after its completed turn is stopped and the 
 });
 
 test("a timed-out turn is stopped with its exit status kept, so it can be overridden", async (t) => {
-  const { app, id, pidFile } = await lingeringRun(t, { turnTimeoutMs: 1500 }, false);
+  const { app, id, pidFile } = await lingeringRun(t, { turnTimeoutMs: 600000 }, false);
+  // A fixed short timeout could expire under load before the CLI even started, so
+  // the turn's budget runs out only once the CLI lingers after its last output.
+  const deadline = Date.now() + 20000;
+  while (!(await fs.stat(pidFile).catch(() => null))) {
+    assert.ok(Date.now() < deadline, "the native CLI never reached its idle loop");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  app.application.pipelines.timing.turnTimeoutMs = 1;
   const parked = await waitFor(app, id, (r) => r.status !== "running");
   assert.equal(parked.nodes[0].failReason, "turn-timeout");
   assert.ok(parked.actions.includes("override"));
-  assert.equal(alive(Number(await fs.readFile(pidFile, "utf8"))), false);
+  // The stop is a SIGTERM to the launcher, which ends the CLI's process group
+  // asynchronously (escalating to SIGKILL after one second); the run parks at once.
+  const pid = Number(await fs.readFile(pidFile, "utf8"));
+  const stopDeadline = Date.now() + 5000;
+  while (alive(pid) && Date.now() < stopDeadline)
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(alive(pid), false);
   const response = await app.request(`/api/pipeline-runs/${id}/gate`, {
     method: "POST",
     body: { action: "override" },
