@@ -4,6 +4,7 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import QuestionDialog from "./QuestionDialog.jsx";
+import ClaudePlan from "./ClaudePlan.jsx";
 import { touchRequest, settleNotice } from "./request-interaction.js";
 import "./requests.css";
 export default function NativeRequest({ request, updated, openTerminal }) {
@@ -16,6 +17,15 @@ export default function NativeRequest({ request, updated, openTerminal }) {
     folderTrust = request.presentation === "claudeFolderTrust",
     legacyQuestion = request.presentation === "claudeLegacyQuestion",
     startup = request.presentation === "claudeStartupPrompt",
+    // A plain Claude tool approval; its option labels follow the UI language.
+    claudeApproval =
+      request.source === "claude" &&
+      request.kind === "permission" &&
+      !request.presentation,
+    plan = claudeApproval ? request.subject?.plan : undefined,
+    alwaysRules = claudeApproval
+      ? request.options?.find((option) => option.id === "always")?.description
+      : undefined,
     startupCopy = startup
       ? copy.startup[request.subject?.dialog] || copy.startup.unknown
       : null,
@@ -29,6 +39,8 @@ export default function NativeRequest({ request, updated, openTerminal }) {
             ? copy.hookTrustAllow
             : copy.hookTrustSkip
           : (startup && copy.startupOptions[request.subject?.dialog]?.[option.id]) ||
+            (claudeApproval &&
+              (plan ? copy.planOptions : copy.claudeOptions)[option.id]) ||
             option.label,
     base = `/sessions/${encodeURIComponent(request.sessionId)}/requests/${encodeURIComponent(request.id)}`;
   const answer = (body) =>
@@ -49,16 +61,20 @@ export default function NativeRequest({ request, updated, openTerminal }) {
               ? copy.hookTrustTitle
               : startup
                 ? startupCopy.title
-                : request.kind === "permission" && !legacyQuestion
-                  ? copy.permission
-                  : copy.question}
+                : plan
+                  ? copy.planTitle
+                  : request.kind === "permission" && !legacyQuestion
+                    ? copy.permission
+                    : copy.question}
         </strong>
         <small>{request.source}</small>
       </header>
       {hookTrust && <p>{copy.hookTrustDescription}</p>}
       {folderTrust && <p>{copy.folderTrustDescription}</p>}
       {startup && <p>{startupCopy.description}</p>}
-      {request.subject && !startup && (
+      {plan && <ClaudePlan plan={plan} />}
+      {plan && pending && <p>{copy.planHint}</p>}
+      {request.subject && !startup && !plan && (
         <div>
           {request.subject.description && <p>{request.subject.description}</p>}
           {(request.subject.command ||
@@ -88,6 +104,12 @@ export default function NativeRequest({ request, updated, openTerminal }) {
         <p role="status">{copy.legacyQuestion}</p>
       ) : request.kind === "permission" && request.options?.length ? (
         <div className="native-request-actions">
+          {alwaysRules && (
+            <div className="native-request-rules">
+              <p>{copy.alwaysRules}</p>
+              <pre>{alwaysRules}</pre>
+            </div>
+          )}
           {request.options?.map((option) => (
             <button
               type="button"

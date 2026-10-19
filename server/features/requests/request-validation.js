@@ -1,6 +1,7 @@
 import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { previewLimit, notesLimit } from "./native-questions.js";
+import { planLimit } from "./claude-permission.js";
 const invalid = () => problem(copy.invalid, 400);
 export const validSession = (id) =>
   typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
@@ -39,12 +40,16 @@ export function requestValue(value) {
     result.presentation = value.presentation;
     result.hookCount = value.hookCount;
   }
-  if (value.subject)
+  if (value.subject) {
     result.subject = Object.fromEntries(
       ["tool", "command", "path", "name", "cwd", "description"]
         .filter((key) => string(value.subject[key]))
         .map((key) => [key, value.subject[key]]),
     );
+    // A Claude plan (ExitPlanMode) is longer than other subject fields.
+    if (string(value.subject.plan, planLimit) && value.subject.plan.trim())
+      result.subject.plan = value.subject.plan;
+  }
   if (value.kind === "permission") {
     result.options = options(value.options);
     if (!result.options.length) throw invalid();

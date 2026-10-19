@@ -66,6 +66,21 @@ export const requestCopy = {
   noteLabel: (prompt) => `Notiz für Claude: ${prompt}`,
   preview: (label) => `Vorschau: ${label}`,
   details: "Angefragte Aktion",
+  claudeOptions: {
+    allow: "Einmal erlauben",
+    always: "Dauerhaft erlauben",
+    deny: "Ablehnen",
+  },
+  alwaysRules:
+    "Dauerhaft erlauben speichert diese Regeln für diesen Claude-Account, in allen Projekten:",
+  planTitle: "Plan zur Freigabe",
+  plan: "Vorgeschlagener Plan",
+  planHint: "Weiter planen hält Claude an, damit du im Chat Feedback geben kannst.",
+  planOptions: {
+    acceptEdits: "Annehmen, Änderungen automatisch erlauben",
+    approve: "Annehmen, Änderungen einzeln freigeben",
+    keep: "Weiter planen",
+  },
   cwd: "Arbeitsverzeichnis",
   scopes: {
     turn: "Für diesen Turn",
