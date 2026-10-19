@@ -175,3 +175,26 @@
     white-space: normal;
   }
 }
+
+/* Risk rules card below the verification steps */
+.risk-rules-card {
+  margin-top: 16px;
+}
+.risk-rules-globs,
+.risk-rules-dependency {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.risk-rules-globs textarea {
+  width: 100%;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: var(--font-size-sm);
+}
+.risk-rules-globs small,
+.risk-rules-dependency small {
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--text-meta);
+}

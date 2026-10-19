@@ -128,6 +128,7 @@ export const pipelineCopy = {
     overridden: "Approved despite findings",
     feedback: "Feedback sent",
     "looped-back": "Returned for repair",
+    "risk-approved": "Risky changes approved",
   },
   phaseNames: {
     refinement: "Refinement",
@@ -225,6 +226,7 @@ export const pipelineCopy = {
     "verify-failed": "Verification failed",
     "resume-failed": "The session could not be resumed",
     "context-exhausted": "The session's context is exhausted",
+    "risk-gate": "Risky changes need your approval",
     unknown: "The stage stopped",
   },
   attemptKinds: {
@@ -322,6 +324,7 @@ export const pipelineCopy = {
     abort: "Stop run",
     "create-pr": "Create / update pull request",
     delete: "Delete run",
+    "approve-risk": "Approve changes",
   },
   deleteRun:
     "The run and its dedicated working directory will be removed. This cannot be undone.",
@@ -355,7 +358,7 @@ export const pipelineCopy = {
   noParameters: "No parameters.",
   discardProfileDraft: "Unsaved changes to this profile will be lost. Continue anyway?",
   discardVerificationDraft:
-    "Unsaved verification steps for this project will be lost. Continue anyway?",
+    "Unsaved verification steps or risk rules for this project will be lost. Continue anyway?",
   projects: "Projects",
   stepCount: (count) =>
     count === 0
@@ -368,4 +371,44 @@ export const pipelineCopy = {
     timeout: "Timeout (s)",
     failure: "On failure",
   },
+  riskRules: "Risk rules",
+  riskRulesHelp:
+    "After a stage, AgentPier matches every path the run changed since its base against these rules. A match stops the run for your approval before verification, approval, a pull request or the next stage, whatever the agents report. Agents cannot change these rules.",
+  riskDefaultsActive:
+    "Using the default rules: they apply until you save rules of your own, also to projects registered before risk rules existed.",
+  riskGlobs: "Path patterns, one per line",
+  riskGlobsHint:
+    "* stays within a folder name, ? is one character, ** as a whole folder spans folders, {a,b} lists alternatives. A pattern starting with / applies from the repository root, any other at every depth; one ending in / covers everything below. Case is ignored.",
+  riskNewDependency: "New dependencies need approval",
+  riskNewDependencyHint:
+    "Compares package.json, composer.json, requirements*.txt, pyproject.toml, Pipfile, go.mod, Cargo.toml and Gemfile before and after the change, and flags moved submodules. Lockfiles are covered by the path patterns only.",
+  riskRestoreDefaults: "Use default rules",
+  riskGate: "Risky changes",
+  riskGateHelp:
+    "The project's risk rules match these changes since the run's base, or the spec rests on these product decisions. Approving continues the stage; the run asks again only for new items.",
+  riskRule: (rule) => `Rule ${rule}`,
+  riskRenamedTo: (path) => `Renamed to ${path}`,
+  riskRenamedFrom: (path) => `Renamed from ${path}`,
+  riskSubmodule: (commit) => `Submodule now at ${commit}`,
+  riskAssumption: (id) => `Product decision ${id}`,
+  riskSavedActive: "Your saved rules apply to this project.",
+  riskEnabled: "Risk gate",
+  riskEnabledHint:
+    "On: every run of this project stops for your approval when it matches these rules or its spec rests on a product decision.",
+  riskDisabledHint:
+    "Off: runs of this project never stop at the risk gate. Saving records this decision in the audit log.",
+  riskSave: "Save risk rules",
+  verificationSave: "Save verification steps",
+  earlierVerdicts: "Read earlier stages' verdicts",
+  earlierVerdictsHint:
+    "The stage's prompt lists what each earlier stage reported, including the results per acceptance criterion, and the risky changes you approved. For a final approver; other stages review on their own.",
+  riskDependency: (name) => `New dependency ${name}`,
+  riskUnreadableManifest: "Unreadable manifest: a new dependency cannot be ruled out",
+  riskMore: (count) => `${count} more are matched again after this approval.`,
+  riskApprovals: "Approved risky changes",
+  riskApproval: (time, count) =>
+    count === 1 ? `${time} · 1 change` : `${time} · ${count} changes`,
+  riskApprovalUnchecked: (time) => `${time} · approved without the check`,
+  ownerQuestion: "Question for you",
+  ownerFiles: "Files to look at",
 };

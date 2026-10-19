@@ -108,6 +108,12 @@ export async function mapProjects(directory, projectMap = {}) {
     for (const [id, steps] of Object.entries(definitions.verification || {}))
       verification[mappings.find((m) => m.from === id)?.to || id] = steps;
     definitions.verification = verification;
+    if (definitions.risk) {
+      const risk = Object.create(null);
+      for (const [id, rules] of Object.entries(definitions.risk))
+        risk[mappings.find((m) => m.from === id)?.to || id] = rules;
+      definitions.risk = risk;
+    }
     atomic(definitionsFile, definitions);
   }
   const preferencesFile = path.join(directory, "preferences.json"),

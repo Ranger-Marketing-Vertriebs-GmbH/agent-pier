@@ -7,7 +7,9 @@ import useSettledReplace from "../../lib/useSettledReplace.js";
 import ProjectRegistration from "./ProjectRegistration.jsx";
 import VerificationEditor from "./VerificationEditor.jsx";
 import VerificationList from "./VerificationList.jsx";
+import RiskRulesEditor from "./RiskRulesEditor.jsx";
 import useDraftGuard from "./useDraftGuard.jsx";
+import useDraftParts from "./useDraftParts.js";
 import { pipelineRoutePath } from "./routes.js";
 import { listedProjects, listedProjectsPath } from "./project-list.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
@@ -19,9 +21,13 @@ export default function VerificationPage({ route, navigate, home }) {
     projectId = route.pipelineItem || "",
     config = useResource(
       projectId ? `/pipeline-verification/${encodeURIComponent(projectId)}` : null,
+    ),
+    risk = useResource(
+      projectId ? `/pipeline-risk/${encodeURIComponent(projectId)}` : null,
     );
   const mobile = useMobileLayout();
   const draft = useDraftGuard(copy.discardVerificationDraft, route);
+  const parts = useDraftParts(draft, ["verification", "risk"]);
   const all = projects.data?.projects || [],
     items = listedProjects(all, projectId),
     project = all.find((p) => p.id === projectId);
@@ -81,8 +87,17 @@ export default function VerificationPage({ route, navigate, home }) {
               name={project?.name || projectId}
               initial={config.data.steps}
               saved={config.refresh}
-              onDirtyChange={draft.setDirty}
-              onSaver={draft.setSave}
+              {...parts.verification}
+            />
+          )}
+          <ErrorMessage error={risk.error} />
+          {config.data && risk.data && (
+            <RiskRulesEditor
+              key={projectId + JSON.stringify(risk.data)}
+              projectId={projectId}
+              initial={risk.data}
+              saved={risk.refresh}
+              {...parts.risk}
             />
           )}
         </div>

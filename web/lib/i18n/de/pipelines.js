@@ -132,6 +132,7 @@ export const pipelineCopy = {
     overridden: "Trotz Befund freigegeben",
     feedback: "Rückmeldung gesendet",
     "looped-back": "Zur Reparatur zurückgesprungen",
+    "risk-approved": "Riskante Änderungen freigegeben",
   },
   phaseNames: {
     refinement: "Klärung",
@@ -230,6 +231,7 @@ export const pipelineCopy = {
     "verify-failed": "Prüfung fehlgeschlagen",
     "resume-failed": "Die Session konnte nicht fortgesetzt werden",
     "context-exhausted": "Der Kontext der Session ist erschöpft",
+    "risk-gate": "Riskante Änderungen brauchen deine Freigabe",
     unknown: "Die Stufe wurde angehalten",
   },
   attemptKinds: {
@@ -331,6 +333,7 @@ export const pipelineCopy = {
     abort: "Lauf abbrechen",
     "create-pr": "Pull Request erstellen / aktualisieren",
     delete: "Lauf löschen",
+    "approve-risk": "Änderungen freigeben",
   },
   deleteRun:
     "Lauf und zugehöriges eigenes Arbeitsverzeichnis werden entfernt. Dies kann nicht rückgängig gemacht werden.",
@@ -366,7 +369,7 @@ export const pipelineCopy = {
   discardProfileDraft:
     "Die ungespeicherten Änderungen an diesem Profil gehen verloren. Trotzdem fortfahren?",
   discardVerificationDraft:
-    "Die ungespeicherten Prüfschritte dieses Projekts gehen verloren. Trotzdem fortfahren?",
+    "Die ungespeicherten Prüfschritte oder Risikoregeln dieses Projekts gehen verloren. Trotzdem fortfahren?",
   projects: "Projekte",
   stepCount: (count) =>
     count === 0
@@ -379,4 +382,45 @@ export const pipelineCopy = {
     timeout: "Zeitlimit (s)",
     failure: "Verhalten bei Fehler",
   },
+  riskRules: "Risikoregeln",
+  riskRulesHelp:
+    "Nach jeder Stufe gleicht AgentPier alle Pfade, die der Lauf seit seiner Basis geändert hat, mit diesen Regeln ab. Ein Treffer hält den Lauf vor Prüfung, Freigabe, Pull Request oder nächster Stufe für deine Freigabe an, egal was die Agenten melden. Agenten können diese Regeln nicht ändern.",
+  riskDefaultsActive:
+    "Es gelten die Standardregeln: Sie gelten, bis du eigene Regeln speicherst, auch für Projekte, die vor den Risikoregeln registriert wurden.",
+  riskGlobs: "Pfadmuster, eines pro Zeile",
+  riskGlobsHint:
+    "* bleibt innerhalb eines Namens, ? ist ein Zeichen, ** als ganzer Ordner reicht über Ordner hinweg, {a,b} nennt Alternativen. Ein Muster mit / am Anfang gilt ab der Wurzel des Repositorys, jedes andere in jeder Tiefe; eines mit / am Ende umfasst alles darunter. Groß- und Kleinschreibung zählen nicht.",
+  riskNewDependency: "Neue Abhängigkeiten brauchen eine Freigabe",
+  riskNewDependencyHint:
+    "Vergleicht package.json, composer.json, requirements*.txt, pyproject.toml, Pipfile, go.mod, Cargo.toml und Gemfile vor und nach der Änderung und meldet verschobene Submodule. Lockfiles decken nur die Pfadmuster ab.",
+  riskRestoreDefaults: "Standardregeln verwenden",
+  riskGate: "Riskante Änderungen",
+  riskGateHelp:
+    "Die Risikoregeln des Projekts treffen auf diese Änderungen seit der Basis des Laufs zu, oder die Spec beruht auf diesen Produktentscheidungen. Eine Freigabe setzt die Stufe fort; der Lauf fragt nur bei neuen Einträgen erneut.",
+  riskRule: (rule) => `Regel ${rule}`,
+  riskRenamedTo: (path) => `Umbenannt in ${path}`,
+  riskRenamedFrom: (path) => `Umbenannt aus ${path}`,
+  riskSubmodule: (commit) => `Submodul jetzt auf ${commit}`,
+  riskAssumption: (id) => `Produktentscheidung ${id}`,
+  riskSavedActive: "Für dieses Projekt gelten deine gespeicherten Regeln.",
+  riskEnabled: "Risiko-Gate",
+  riskEnabledHint:
+    "An: Jeder Lauf dieses Projekts hält für deine Freigabe an, wenn er diese Regeln trifft oder seine Spec auf einer Produktentscheidung beruht.",
+  riskDisabledHint:
+    "Aus: Läufe dieses Projekts halten nie am Risiko-Gate. Beim Speichern wird diese Entscheidung im Audit-Log festgehalten.",
+  riskSave: "Risikoregeln speichern",
+  verificationSave: "Prüfschritte speichern",
+  earlierVerdicts: "Ergebnisse früherer Stufen lesen",
+  earlierVerdictsHint:
+    "Der Prompt der Stufe listet, was jede frühere Stufe gemeldet hat, auch die Ergebnisse je Akzeptanzkriterium, und die riskanten Änderungen, die du freigegeben hast. Für eine abschließende Freigabe-Stufe; andere Stufen prüfen unabhängig.",
+  riskDependency: (name) => `Neue Abhängigkeit ${name}`,
+  riskUnreadableManifest:
+    "Manifest nicht lesbar: eine neue Abhängigkeit ist nicht auszuschließen",
+  riskMore: (count) => `${count} weitere werden nach dieser Freigabe erneut abgeglichen.`,
+  riskApprovals: "Freigegebene riskante Änderungen",
+  riskApproval: (time, count) =>
+    count === 1 ? `${time} · 1 Änderung` : `${time} · ${count} Änderungen`,
+  riskApprovalUnchecked: (time) => `${time} · ohne Abgleich freigegeben`,
+  ownerQuestion: "Frage an dich",
+  ownerFiles: "Dateien zum Ansehen",
 };

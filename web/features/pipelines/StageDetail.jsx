@@ -14,6 +14,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GateDecision from "./GateDecision.jsx";
 import RunUsage from "./RunUsage.jsx";
 import { CriteriaResults, Findings, VerdictSummary } from "./Verdict.jsx";
+import { RiskApprovals, RiskGateItems } from "./RiskGate.jsx";
 import { stageName, stageStatus, stageTone } from "./run-stages.js";
 import {
   attemptKindLabel,
@@ -156,6 +157,16 @@ export default function StageDetail({ run, node, index, navigate, refresh, gate 
           {node.failReason && <p>{failReasonLabel(node.failReason)}</p>}
           {node.failReason && node.failDetail && <p>{serverText(node.failDetail)}</p>}
         </div>
+      )}
+      {node.failReason === "risk-gate" && node.riskGate?.items?.length > 0 && (
+        <Block title={copy.riskGate}>
+          <RiskGateItems gate={node.riskGate} />
+        </Block>
+      )}
+      {run.risk?.decisions?.some((d) => d.nodeId === node.id) && (
+        <Block title={copy.riskApprovals}>
+          <RiskApprovals run={run} node={node} />
+        </Block>
       )}
       {node.verdict?.findings?.length > 0 && (
         <Block title={`${copy.findings} · ${node.verdict.findings.length}`}>

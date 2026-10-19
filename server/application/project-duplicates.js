@@ -20,8 +20,9 @@ export class ProjectDuplicates {
   }
   /**
    * The project list with duplicate folders described (see describeDuplicates). Rows
-   * of a shared folder also say whether they hold pipeline work (verification steps
-   * or runs), so a list can keep an older row whose work its current row lacks.
+   * of a shared folder also say whether they hold pipeline work (verification steps,
+   * saved risk rules or runs), so a list can keep an older row whose work its current
+   * row lacks.
    */
   async describe(projects) {
     const { pipelineDefinitions, pipelines } = this.services;
@@ -31,6 +32,7 @@ export class ProjectDuplicates {
             ...row,
             pipelineWork:
               Boolean(pipelineDefinitions.getVerification(row.id).steps.length) ||
+              pipelineDefinitions.getRisk(row.id).custom ||
               pipelines.store.hasProject(row.id),
           }
         : row,

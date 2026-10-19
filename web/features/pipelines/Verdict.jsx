@@ -2,6 +2,7 @@ import React from "react";
 import StatusChip from "../../components/StatusChip.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { serverText } from "../../lib/server-messages.js";
+import "./owner-question.css";
 
 // Result line and summary; long summaries stay collapsed behind a disclosure.
 export function VerdictSummary({ verdict }) {
@@ -18,6 +19,33 @@ export function VerdictSummary({ verdict }) {
         </details>
       ) : (
         verdict.summary && <p>{serverText(verdict.summary)}</p>
+      )}
+      <OwnerQuestion verdict={verdict} />
+    </div>
+  );
+}
+
+// What a stage that asks the owner wants to know, and the files to look at.
+export function OwnerQuestion({ verdict }) {
+  if (!verdict?.question && !verdict?.files?.length) return null;
+  return (
+    <div className="pipeline-owner-question">
+      {verdict.question && (
+        <p>
+          <strong>{copy.ownerQuestion}:</strong> {verdict.question}
+        </p>
+      )}
+      {verdict.files?.length > 0 && (
+        <>
+          <strong>{copy.ownerFiles}</strong>
+          <ul>
+            {verdict.files.map((file) => (
+              <li key={file}>
+                <code>{file}</code>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

@@ -1,12 +1,19 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { activeNode, currentAttempt, outgoing, terminal } from "./graph-navigation.js";
-import { advance, conclude, launchStage, loopBack } from "./execution-stage.js";
+import {
+  advance,
+  conclude,
+  launchStage,
+  loopBack,
+  publishCompleted,
+} from "./execution-stage.js";
 import { readVerdict } from "./stage-verdict.js";
 import { relaunchOptions } from "./loop-session.js";
 import { recordReportDigests } from "./stage-reports.js";
 import { filterAnswers, recordResponses } from "./loop-rounds.js";
 import { adoptSpec, checkSpec, replaceSpec, specReplaceable } from "./run-spec.js";
+import { approveRisk } from "./risk-gate.js";
 export function requireLiveRun(run) {
   if (run.imported?.historyOnly)
     throw problem(serverMessages.pipelines.importedHistoryReadOnly, 409);
@@ -39,7 +46,14 @@ export function availableActions(run) {
   if (run.status !== "awaiting-human") return actions;
   const node = activeNode(run);
   if (node.status === "awaiting-gate") {
-    actions.push(node.failReason ? "override" : "accept");
+    // The risk gate is approved as such; an override would also accept the verdict.
+    actions.push(
+      node.failReason === "risk-gate"
+        ? "approve-risk"
+        : node.failReason
+          ? "override"
+          : "accept",
+    );
     if (node.nativeId) actions.push("feedback");
     // The owner may replace the run's spec at any gate; the gate keeps waiting.
     if (specReplaceable(run, node)) actions.push("replace-spec");
@@ -181,6 +195,30 @@ export async function gateAction(engine, run, { action, feedback, resumeAt, spec
     return;
   }
   if (action === "override") return overrideStage(engine, run, node);
+  if (action === "approve-risk") {
+    const resume = node.riskGate?.resume;
+    const decision = approveRisk(engine, run, node);
+    delete node.failReason;
+    delete node.failDetail;
+    if (resume === "publish") {
+      // A completed run that was stopped before its publication is published now.
+      node.status = "passed";
+      run.status = "completed";
+      engine.store.save(run);
+      await publishCompleted(engine, run);
+    } else if (resume === "advance") {
+      // The stage had passed; its pull request is pushed now.
+      await advance(engine, run, node);
+    } else {
+      // The stage concludes as it would have: its verdict, verification and gate follow.
+      node.status = "running";
+      run.status = "running";
+      run.pendingConclusion = { nodeId: node.id, verdict: node.verdict };
+      engine.store.save(run);
+      await conclude(engine, run, node, node.verdict);
+    }
+    return { riskDecision: decision };
+  }
   node.gateDecision = "accepted";
   node.gateDecidedAt = engine.now();
   node.overridden = node.overridden === true;

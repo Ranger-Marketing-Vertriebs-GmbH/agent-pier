@@ -10,6 +10,7 @@ import {
   validateVerification,
 } from "./profile-validation.js";
 import { seedProfiles, seedPipeline } from "./profile-seeds.js";
+import { defaultRisk, validateRisk } from "./risk-rules.js";
 
 function identity(id) {
   if (typeof id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id))
@@ -33,6 +34,7 @@ export class PipelineDefinitions {
         profiles: seedProfiles(now),
         pipelines: [seedPipeline(now)],
         verification: {},
+        risk: {},
       };
       writePrivate(this.file, this.state);
     }
@@ -43,6 +45,8 @@ export class PipelineDefinitions {
       !this.state.verification
     )
       throw new Error("Invalid pipeline definition storage");
+    // Definitions written before risk rules existed have none saved.
+    if (!this.state.risk || typeof this.state.risk !== "object") this.state.risk = {};
   }
   commit(next) {
     writePrivate(this.file, next);
@@ -173,8 +177,50 @@ export class PipelineDefinitions {
     this.commit(next);
     return { projectId, steps: copy(steps) };
   }
-  /** Moves verification steps of a plain project folder that became a Git work tree. */
+  /**
+   * A project's risk rules: the saved ones, or the defaults while the owner has saved
+   * none (`custom: false`). The defaults come along so the editor can offer them.
+   */
+  getRisk(projectId) {
+    identity(projectId);
+    const saved = Object.hasOwn(this.state.risk, projectId)
+      ? this.state.risk[projectId]
+      : null;
+    return {
+      projectId,
+      ...copy(saved || defaultRisk()),
+      enabled: saved?.enabled !== false,
+      custom: Boolean(saved),
+      defaults: defaultRisk(),
+    };
+  }
+  /** The rules the risk gate applies to a run's project; never throws. */
+  riskRules(projectId) {
+    try {
+      const { globs, newDependency, enabled } = this.getRisk(projectId);
+      return { globs, newDependency, enabled };
+    } catch {
+      // A project the store cannot name is checked with the defaults, never without.
+      return defaultRisk();
+    }
+  }
+  saveRisk(projectId, body) {
+    identity(projectId);
+    const rules = validateRisk(body);
+    const next = copy(this.state);
+    next.risk[projectId] = rules;
+    this.commit(next);
+    return this.getRisk(projectId);
+  }
+  /** Moves verification steps and risk rules of a plain project folder that became a Git work tree. */
   moveVerification(fromProjectId, toProjectId) {
+    if (Object.hasOwn(this.state.risk, fromProjectId)) {
+      const next = copy(this.state);
+      // The work tree keeps rules of its own; otherwise the folder's rules move along.
+      next.risk[toProjectId] ??= next.risk[fromProjectId];
+      delete next.risk[fromProjectId];
+      this.commit(next);
+    }
     if (!Object.hasOwn(this.state.verification, fromProjectId)) return;
     const next = copy(this.state);
     const merged = Object.hasOwn(next.verification, toProjectId)
@@ -196,7 +242,10 @@ export class PipelineDefinitions {
     this.commit(next);
   }
   hasVerification(projectId) {
-    return Object.hasOwn(this.state.verification, projectId);
+    return (
+      Object.hasOwn(this.state.verification, projectId) ||
+      Object.hasOwn(this.state.risk, projectId)
+    );
   }
   snapshot(pipelineId) {
     const pipeline = this.getPipeline(pipelineId);

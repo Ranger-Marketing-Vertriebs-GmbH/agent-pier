@@ -16,6 +16,7 @@ import {
   reportDirectory,
 } from "./stage-reports.js";
 import { resumedRepairPrompt, stagePrompt } from "./stage-prompt.js";
+import { publishCheck, riskGate } from "./risk-gate.js";
 import {
   adoptSpec,
   checkSpec,
@@ -134,6 +135,7 @@ async function prepareStage(
   delete node.verdict;
   delete node.overridden;
   delete node.gateBypassed;
+  delete node.riskGate;
   node.status = "running";
   node.startedAt = now;
   delete node.finishedAt;
@@ -413,6 +415,9 @@ export async function conclude(engine, run, node, verdict) {
     node,
     selected?.effects || { humanGate: false, verify: false, createPr: false },
   );
+  // Risky changes wait for the owner before verification, approval, a pull request or
+  // the next stage; a loop back repairs first and the gate follows its conclusion.
+  if (decision !== "loop" && (await riskGate(engine, run, node, park))) return;
   if (node.verify && !node.verified && ["pass", "route"].includes(decision)) {
     await engine.beginVerification(run, node);
     return;
@@ -444,9 +449,21 @@ export async function advance(engine, run, node) {
   delete run.pendingConclusion;
   run.pendingAdvance = { nodeId: node.id };
   engine.store.save(run);
+  // What a push publishes is checked first: verification or a late process may have
+  // changed the worktree since the stage's checkpoint.
+  let expectedSha;
+  if (node.createPr || run.pullRequestUrl) {
+    const checked = await publishCheck(engine, run, node, park, "advance");
+    if (checked.parked) return;
+    expectedSha = checked.sha;
+  }
   if (node.createPr && !run.pullRequestUrl) {
     try {
-      const pr = await engine.workspace.createPr({ workspace: run.workspace, run });
+      const pr = await engine.workspace.createPr({
+        workspace: run.workspace,
+        run,
+        ...(expectedSha ? { expectedSha } : {}),
+      });
       run.pullRequestUrl = pr.url;
       engine.store.save(run);
     } catch (error) {
@@ -462,7 +479,11 @@ export async function advance(engine, run, node) {
     }
   } else if (run.pullRequestUrl) {
     try {
-      const pr = await engine.workspace.createPr({ workspace: run.workspace, run });
+      const pr = await engine.workspace.createPr({
+        workspace: run.workspace,
+        run,
+        ...(expectedSha ? { expectedSha } : {}),
+      });
       run.pullRequestUrl = pr.url;
       engine.store.save(run);
     } catch (error) {
@@ -492,6 +513,23 @@ export async function advance(engine, run, node) {
   delete run.pendingAdvance;
   run.finishedAt = engine.now();
   run.activeTurn = null;
+  engine.store.save(run);
+}
+/**
+ * Publishes a completed run as a pull request. Its last stage checks what the push
+ * publishes; risky changes reopen the run at that stage's risk gate, and the owner's
+ * approval publishes it.
+ */
+export async function publishCompleted(engine, run) {
+  const node = run.nodes.find((n) => n.id === run.currentNodeId);
+  const checked = node ? await publishCheck(engine, run, node, park, "publish") : {};
+  if (checked.parked) return;
+  const pr = await engine.workspace.createPr({
+    workspace: run.workspace,
+    run,
+    ...(checked.sha ? { expectedSha: checked.sha } : {}),
+  });
+  run.pullRequestUrl = pr.url;
   engine.store.save(run);
 }
 export async function loopBack(engine, run, node, verdict, feedback) {

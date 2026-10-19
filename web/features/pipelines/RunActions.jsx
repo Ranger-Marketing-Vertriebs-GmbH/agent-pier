@@ -8,6 +8,7 @@ import {
   confirmDescription,
   confirmedActions,
   destructiveActions,
+  primaryActions,
   localCommitsBlockDelete,
   offeredRunActions,
   requestRunAction,
@@ -81,7 +82,7 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
         {actions.map((action) => (
           <button
             key={action}
-            className={`button ${action === "accept" ? "primary" : "secondary"}`}
+            className={`button ${primaryActions.includes(action) ? "primary" : "secondary"}`}
             disabled={mutation.busy || (action === "feedback" && !feedback.trim())}
             onClick={() =>
               confirmedActions.includes(action)

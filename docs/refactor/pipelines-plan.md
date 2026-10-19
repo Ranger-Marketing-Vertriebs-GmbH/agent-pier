@@ -30,6 +30,7 @@ Pipeline shape: `{id,name,description,graph:{entry,nodes:[{id,kind,profileId?}],
 - `/api/pipeline-profiles` GET all (optional `enabled=true`), POST; `/:id` GET/PATCH/DELETE; `/:id/stats` GET; `/:id/launch` POST `{cwd,params?,model?}` for a standalone profile session.
 - `/api/pipelines` GET/POST; `/:id` GET/PATCH/DELETE. Delete rejects active runs and preserves finished history.
 - `/api/pipeline-verification/:projectId` GET/PUT `{steps:[{name,command,timeoutMs,blocking}]}`; projects come from `/api/memory/projects` (POST `{cwd}` registers a project).
+- `/api/pipeline-risk/:projectId` GET (`{projectId,globs,newDependency,enabled,custom,defaults}`) / PUT `{globs,newDependency,enabled?}`: the project's risk rules for the risk gate (audited with `kind: "risk-rules"`); the gate action `approve-risk` approves a run's listed risky changes.
 - `/api/pipeline-runs` GET with `page`, `status`, `projectId`; POST `{pipelineId,cwd,task,baseBranch?}`. List response `{runs,total,page,pageSize:20}`; single responses `{run}`.
 - `/api/pipeline-runs/:id` GET/DELETE; `/:id/gate` POST `{action,feedback?,resumeAt?}`; `/:id/cancel`, `/:id/retry-stage`, `/:id/pull-request` POST.
 - `/:id/verdict-status` GET; `/:id/nodes/:nodeId/artifacts` GET; `/:id/nodes/:nodeId/artifact?path=` GET; `/:id/nodes/:nodeId/diff` GET; `/:id/nodes/:nodeId/verify-logs/:stepIdx` GET.

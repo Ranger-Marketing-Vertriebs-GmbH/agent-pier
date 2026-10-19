@@ -91,15 +91,7 @@ export function parseVerdict(text) {
   const artifacts = (Array.isArray(value.artifacts) ? value.artifacts : [])
     .flatMap((a) => {
       if (typeof a === "string") a = { path: a };
-      if (
-        !a ||
-        typeof a.path !== "string" ||
-        a.path.length > 512 ||
-        !a.path ||
-        /^[\/]|[\x00-\x1f\x7f\\]/.test(a.path) ||
-        a.path.split("/").some((p) => !p || p === "." || p === "..")
-      )
-        return [];
+      if (!relativePath(a?.path)) return [];
       return [
         {
           path: a.path,
@@ -116,17 +108,34 @@ export function parseVerdict(text) {
       ];
     })
     .slice(0, 20);
+  // A stage that asks the owner names the question and the files to look at.
+  const question =
+    typeof value.question === "string" && value.question.trim()
+      ? value.question.trim().slice(0, 2000)
+      : "";
+  const files = (Array.isArray(value.files) ? value.files : [])
+    .filter((file) => relativePath(file))
+    .slice(0, 50);
   return {
     result,
     summary: value.summary,
     findings,
     artifacts,
     ...(requiresHuman != null ? { requiresHuman } : {}),
+    ...(question ? { question } : {}),
+    ...(files.length ? { files: [...new Set(files)] } : {}),
     ...(responses.length ? { responses } : {}),
     ...(criteria.length ? { criteria } : {}),
   };
 }
 const artifactRoles = new Set(["spec"]);
+// A repository-relative path a verdict may name.
+const relativePath = (file) =>
+  typeof file === "string" &&
+  file.length > 0 &&
+  file.length <= 512 &&
+  !/^[\/]|[\x00-\x1f\x7f\\]/.test(file) &&
+  !file.split("/").some((p) => !p || p === "." || p === "..");
 // Acceptance criteria ids as the spec numbers them (AC1); "ac-1", "#AC 1", a bare
 // number and the integer 1 are the same criterion. Anything else is no criterion.
 export function criterionId(value) {

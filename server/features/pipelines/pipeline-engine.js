@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { problem } from "../../lib/storage.js";
 import { RunStore, runId } from "./run-store.js";
 import { compileSnapshot, activeNode, terminal } from "./graph-navigation.js";
-import { advance } from "./execution-stage.js";
+import { advance, publishCompleted } from "./execution-stage.js";
 import {
   availableActions,
   gateAction,
@@ -213,7 +213,7 @@ export class PipelineEngine {
     return this.get(id);
   }
   async gate(id, input) {
-    let overridden, replaced;
+    let overridden, replaced, risk;
     await this.lock(id, async () => {
       const run = this.store.get(id),
         node = activeNode(run);
@@ -224,6 +224,19 @@ export class PipelineEngine {
           path: overridePath(node),
         };
       const result = await gateAction(this, run, input);
+      if (result?.riskDecision)
+        risk = {
+          kind: "risk",
+          decision: "approve",
+          stageId: node.id,
+          paths: [
+            ...new Set(
+              (result.riskDecision.items || []).filter((i) => i.path).map((i) => i.path),
+            ),
+          ],
+          count: result.riskDecision.total ?? 0,
+          ...(result.riskDecision.error ? { failReason: "risk-check-failed" } : {}),
+        };
       if (result?.specRevision)
         replaced = {
           kind: "spec",
@@ -241,6 +254,16 @@ export class PipelineEngine {
         source: "user",
         outcome: "success",
         details: replaced,
+      });
+    // Approving risky changes is the owner's decision on exactly these paths.
+    if (risk)
+      this.audit?.append({
+        action: "pipeline.updated",
+        resourceType: "pipeline",
+        resourceId: id,
+        source: "user",
+        outcome: "success",
+        details: risk,
       });
     // An override accepts a result the stage itself did not deliver; keep a trace.
     if (overridden)
@@ -279,9 +302,7 @@ export class PipelineEngine {
       if (run.pullRequestUrl) return;
       if (run.workspace?.hasRemote === false)
         throw problem(serverMessages.pipelineWorkspaces.noRemote, 409);
-      const pr = await this.workspace.createPr({ workspace: run.workspace, run });
-      run.pullRequestUrl = pr.url;
-      this.store.save(run);
+      await publishCompleted(this, run);
     });
     return this.get(id);
   }

@@ -8,6 +8,7 @@ import {
   confirmDescription,
   confirmedActions,
   destructiveActions,
+  primaryActions,
   gateActions,
   requestRunAction,
 } from "./run-action-request.js";
@@ -53,7 +54,7 @@ export default function GateDecision({ run, node, refresh, feedback: owned, shar
         {actions.map((action) => (
           <button
             key={action}
-            className={`button ${action === "accept" ? "primary" : "secondary"}`}
+            className={`button ${primaryActions.includes(action) ? "primary" : "secondary"}`}
             disabled={mutation.busy || (action === "feedback" && !feedback.trim())}
             onClick={() =>
               confirmedActions.includes(action)

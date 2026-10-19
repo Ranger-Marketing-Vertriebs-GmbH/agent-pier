@@ -131,6 +131,11 @@ export function validateProfile(body, accounts) {
     throw problem(serverMessages.pipelineProfiles.invalidPermissionMode(config.cliTool));
   if (typeof config.run?.autonomous !== "boolean")
     throw problem(serverMessages.pipelineProfiles.autonomousBoolean);
+  if (
+    config.run.earlierVerdicts !== undefined &&
+    typeof config.run.earlierVerdicts !== "boolean"
+  )
+    throw problem(serverMessages.pipelineProfiles.earlierVerdictsBoolean);
   const role = boundedText(
     config.prompts?.role ?? "",
     serverMessages.pipelineProfiles.invalidRolePrompt,
@@ -182,7 +187,11 @@ export function validateProfile(body, accounts) {
       models: { available: models, default: config.models.default },
       prompts: { role, kickoff, params },
       permissions: { mode },
-      run: { autonomous: config.run.autonomous },
+      run: {
+        autonomous: config.run.autonomous,
+        // Only a stage that decides on the whole run reads the earlier verdicts.
+        ...(config.run.earlierVerdicts === true ? { earlierVerdicts: true } : {}),
+      },
     },
   };
 }

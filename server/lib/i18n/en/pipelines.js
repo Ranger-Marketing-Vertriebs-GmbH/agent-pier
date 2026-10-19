@@ -126,6 +126,10 @@ export const pipelines = Object.freeze({
     "The exact native turn could not be recovered. Its workspace is preserved.",
   checkpointFailed:
     "The stage changes could not be checkpointed. The workspace is preserved.",
+  riskTooManyChanges:
+    "The run changes too many files to match them against the risk rules.",
+  riskCheckFailed:
+    "The changed paths could not be matched against the project's risk rules. Approving continues the run without this check.",
   unsafeStorage: "Unsafe pipeline storage.",
   unsafeDatabase: "Unsafe pipeline database.",
 });

@@ -27,6 +27,7 @@ export const runCodes = {
     // Recorded on a resumed repair turn whose session failed; never on a stage.
     "resume-failed",
     "context-exhausted",
+    "risk-gate",
   ],
   attemptKinds: [
     "kickoff",
@@ -42,7 +43,7 @@ export const runCodes = {
     "no-session",
     "retried",
   ],
-  gateDecisions: ["accepted", "overridden", "feedback", "looped-back"],
+  gateDecisions: ["accepted", "overridden", "feedback", "looped-back", "risk-approved"],
 };
 // Labels never show a raw code: an unknown code gets a neutral wording.
 const label = (labels, code, fallback) =>

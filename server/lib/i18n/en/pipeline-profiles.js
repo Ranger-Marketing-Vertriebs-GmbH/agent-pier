@@ -48,4 +48,8 @@ export const pipelineProfiles = Object.freeze({
     `Pipeline profiles cannot have required parameters: ${name}`,
   stillReferenced: "A pipeline still references this profile",
   accountCliChanged: "The profile account CLI changed",
+  earlierVerdictsBoolean: "Profile earlierVerdicts must be a boolean",
+  invalidRiskRules:
+    "Risk rules need a list of at most 100 path patterns and whether new dependencies count",
+  invalidRiskGlob: (glob) => `Invalid path pattern: ${glob}`,
 });

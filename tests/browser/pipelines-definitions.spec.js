@@ -101,6 +101,9 @@ test("advanced non-chain graph survives edit save and reload without routing los
     JSON.stringify(graph, null, 2),
   );
 });
+// The verification steps' own save; the risk rules below have another.
+const saveSteps = (page) =>
+  page.getByRole("button", { name: "Prüfschritte speichern", exact: true });
 test("mobile verification edits timeout blocking order and deletion while preserving failed drafts", async ({
   page,
 }) => {
@@ -115,13 +118,13 @@ test("mobile verification edits timeout blocking order and deletion while preser
     .fill("120");
   await page.getByLabel("Fehler hält den Lauf an", { exact: true }).uncheck();
   state.fail = "/pipeline-verification/project-one";
-  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await saveSteps(page).click();
   await expect(page.getByRole("alert")).toContainText("Fixture conflict");
   await expect(page.getByLabel("Prüfschritt 1: Befehl", { exact: true })).toHaveValue(
     "npm test",
   );
   state.fail = "";
-  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await saveSteps(page).click();
   await expect(page.getByLabel("Prüfschritt 1: Befehl", { exact: true })).toHaveValue(
     "npm test",
   );
@@ -131,7 +134,7 @@ test("mobile verification edits timeout blocking order and deletion while preser
   await page
     .getByRole("button", { name: "Prüfschritt entfernen 1", exact: true })
     .click();
-  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await saveSteps(page).click();
   await expect(
     page.getByText("Keine Prüfung konfiguriert.", { exact: true }),
   ).toBeVisible();
