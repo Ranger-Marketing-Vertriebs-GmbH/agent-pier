@@ -46,6 +46,11 @@ export const pipelines = Object.freeze({
   verdictRequiresHumanBoolean: "Verdict requiresHuman must be a boolean.",
   verdictFindingsArray: "Verdict findings must be an array.",
   verdictFindingTitle: "Verdict finding needs a title.",
+  verdictResponsesArray: "Verdict responses must be an array.",
+  verdictResponseFinding: "A verdict response needs the id of its finding.",
+  verdictResponseStatus:
+    "A verdict response needs the status fixed, not-fixed or disputed.",
+  verdictResponseReason: "A not-fixed or disputed verdict response needs a reason.",
   verdictTooLarge: "Verdict exceeds 64 KiB.",
   verdictUnreadable: "Verdict could not be read safely.",
   invalidTurn: "Invalid pipeline turn.",

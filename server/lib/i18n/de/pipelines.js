@@ -50,6 +50,12 @@ export const pipelines = Object.freeze({
   verdictRequiresHumanBoolean: "requiresHuman im Ergebnis muss ein Boolean sein.",
   verdictFindingsArray: "Die Befunde im Ergebnis müssen ein Array sein.",
   verdictFindingTitle: "Ein Befund im Ergebnis benötigt einen Titel.",
+  verdictResponsesArray: "Die Antworten auf Befunde im Ergebnis müssen ein Array sein.",
+  verdictResponseFinding: "Eine Antwort im Ergebnis benötigt die Kennung ihres Befunds.",
+  verdictResponseStatus:
+    "Eine Antwort im Ergebnis braucht den Status fixed, not-fixed oder disputed.",
+  verdictResponseReason:
+    "Eine Antwort mit not-fixed oder disputed braucht eine Begründung.",
   verdictTooLarge: "Das Ergebnis ist größer als 64 KiB.",
   verdictUnreadable: "Das Ergebnis konnte nicht sicher gelesen werden.",
   invalidTurn: "Ungültiger Pipeline-Turn.",

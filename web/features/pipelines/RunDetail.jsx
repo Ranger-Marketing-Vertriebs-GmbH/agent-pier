@@ -6,6 +6,7 @@ import RunHeader from "./RunHeader.jsx";
 import StageRail from "./StageRail.jsx";
 import StageDetail from "./StageDetail.jsx";
 import ExecutionHistory from "./ExecutionHistory.jsx";
+import LoopRounds from "./LoopRounds.jsx";
 import RunUsage from "./RunUsage.jsx";
 import { availableGateActions } from "./GateDecision.jsx";
 import { gateActions } from "./run-action-request.js";
@@ -63,6 +64,7 @@ export default function RunDetail({ id, navigate }) {
             <div className="run-detail-layout">
               <div className="run-detail-side">
                 <StageRail run={run} selectedId={selectedId} onSelect={setChosen} />
+                <LoopRounds run={run} />
                 <ExecutionHistory run={run} />
               </div>
               <StageDetail

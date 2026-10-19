@@ -52,7 +52,8 @@ export function stageReportPath(run, nodeId, file) {
   });
 }
 
-const reportsOf = (run, attempt) =>
+// Declared files of a finished turn that lie in its stage's private report area.
+export const stageReports = (run, attempt) =>
   (attempt.verdict?.artifacts || []).filter((artifact) =>
     stageReportPath(run, attempt.nodeId, artifact.path),
   );
@@ -65,7 +66,7 @@ export function latestStageReports(run) {
   for (const attempt of run.executionLog)
     if (attempt.finishedAt && attempt.verdict) latest.set(attempt.nodeId, attempt);
   return [...latest.values()].flatMap((attempt) => {
-    const reports = reportsOf(run, attempt);
+    const reports = stageReports(run, attempt);
     return reports.length
       ? [
           {
@@ -88,7 +89,7 @@ const fingerprint = (read) => ({
 // visible to everyone who reads it.
 export function recordReportDigests(run, attempt) {
   const digests = {};
-  for (const { path: file } of reportsOf(run, attempt)) {
+  for (const { path: file } of stageReports(run, attempt)) {
     try {
       digests[file] = fingerprint(containedFile(run.workingDir, file, REPORT_READ_LIMIT));
     } catch {
