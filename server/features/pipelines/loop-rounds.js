@@ -1,5 +1,6 @@
 import { edgeKey, loopResetSet } from "./graph-navigation.js";
 import { stageReports } from "./stage-reports.js";
+import { RESUMED_REPAIR } from "./loop-session.js";
 
 // A round is what one pass over a loop edge hands back to the edge's target: the stage
 // that sent the run back (listed first) and every stage that passed since the target
@@ -41,7 +42,10 @@ function stageEntry(run, nodeId, attempt, verdict) {
 export function recordRound(run, node, edge, verdict, { iteration, operatorNote, at }) {
   const key = edgeKey(edge);
   const log = run.executionLog || [];
-  const start = log.findLastIndex((a) => a.nodeId === edge.to && a.kind === "kickoff");
+  // The target's newest attempt starts with a kickoff or a resumed repair turn.
+  const start = log.findLastIndex(
+    (a) => a.nodeId === edge.to && (a.kind === "kickoff" || a.kind === RESUMED_REPAIR),
+  );
   const span = new Set(loopResetSet(run, edge));
   span.delete(edge.to);
   const latest = new Map();

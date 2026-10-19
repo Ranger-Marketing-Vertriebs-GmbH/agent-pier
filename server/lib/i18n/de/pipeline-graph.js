@@ -11,6 +11,8 @@ export const pipelineGraph = Object.freeze({
     `Ungültige Pipeline-Kante: ${from} → ${to} (${condition})`,
   oneEdgePerCondition: "Ein Knoten darf pro Bedingung nur eine Kante haben",
   loopBudgetRange: "Schleifenbudgets für Fehlschläge müssen zwischen 1 und 5 liegen",
+  continueSessionLoopOnly:
+    "Nur eine begrenzte Fehlschlag-Schleife kann die Session ihrer Zielstufe fortsetzen",
   invalidSideEffectRouting: (node) =>
     `Ungültige Weiterleitung der Nebenwirkungen am Knoten ${node}`,
   cycleNeedsFailEdge: "Jeder Zyklus benötigt eine begrenzte Fehlschlag-Kante",
