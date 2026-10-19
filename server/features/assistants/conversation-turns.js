@@ -74,7 +74,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   } finally {
     sending.delete(attempt.id);
   }
-  service.changed();
+  service.changed({ conversationId });
   return {
     request: service.ledger.getRequest(request.id),
     attempt: service.ledger.getAttempt(attempt.id),

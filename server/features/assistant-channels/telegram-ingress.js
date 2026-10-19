@@ -186,7 +186,7 @@ export class TelegramIngress {
         state: "delivery_failed",
         diagnostic: "CHANNEL_DESTINATION_CHANGED",
       });
-      assistants.changed();
+      assistants.changed({ conversationId: channel.conversationId });
       return;
     }
     const existing = assistants.ledger
@@ -247,6 +247,6 @@ export class TelegramIngress {
         diagnostic: [409, 503].includes(error.status) ? null : "MODEL_REQUEST_FAILED",
       });
     }
-    assistants.changed();
+    assistants.changed({ conversationId: channel.conversationId });
   }
 }

@@ -88,13 +88,11 @@ export class Compactions {
 export function watchCompactions(service, options) {
   const compactions = new Compactions(options);
   service.gatewayEvents.on("agent", (payload) => {
-    if (
-      compactions.observe(payload) &&
-      service.store
-        .listConversations()
-        .some((c) => c.runtimeSessionKey === payload.sessionKey)
-    )
-      service.changed();
+    if (!compactions.observe(payload)) return;
+    const conversation = service.store
+      .listConversations()
+      .find((c) => c.runtimeSessionKey === payload.sessionKey);
+    if (conversation) service.changed({ conversationId: conversation.id });
   });
   return compactions;
 }

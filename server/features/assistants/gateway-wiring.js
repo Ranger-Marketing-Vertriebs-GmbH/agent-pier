@@ -52,6 +52,7 @@ export function bindChatEvents(service) {
   service.unsubscribe?.();
   // A new connection starts every run with a snapshot; old baselines are stale.
   service.chatStreams.clear();
+  service.feeds?.clearRuns();
   service.unsubscribe = service.runtime.client?.subscribe((event) => {
     const payload = event.payload;
     if (!payload?.sessionKey) return;
@@ -68,6 +69,8 @@ export function bindChatEvents(service) {
       event.event === "chat" && payload.state === "delta"
         ? service.chatStreams.delta(payload)
         : undefined;
+    if (text !== undefined) service.feeds?.stream(conversation.id, payload.runId, text);
+    // The SSE delta stays until every chat reads the live feed.
     if (text !== undefined)
       service.events.publish({
         type: "delta",
@@ -77,6 +80,7 @@ export function bindChatEvents(service) {
       });
     if (event.event === "chat" && ["final", "aborted", "error"].includes(payload.state)) {
       service.chatStreams.end(payload.runId);
+      service.feeds?.endRun(conversation.id, payload.runId);
       service.reconcile().catch(() => {});
       // An image_generate completion leaves its images here (generated-images.js).
       service.generatedImages.observe(conversation).catch(() => {});

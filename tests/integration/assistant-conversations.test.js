@@ -230,3 +230,65 @@ test("a Gateway restart during maintenance moves event subscriptions to the new 
   );
   assert.equal(old.listenerCount("event"), 0);
 });
+
+test("Gateway chat frames feed the conversation's live feed and keep the SSE delta", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-feed-wiring-"));
+  const store = new AssistantStore({ dataDir });
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const a = store.createAssistant({
+    name: "Feed",
+    model: { connectionId: "c", modelId: "m" },
+  });
+  const c = store.saveConversation({ assistantId: a.id, runtimeSessionKey: "feed-key" });
+  const client = new EventEmitter();
+  client.ready = true;
+  client.subscribe = (f) => {
+    client.on("event", f);
+    return () => client.off("event", f);
+  };
+  client.call = async (method) =>
+    method === "chat.history" ? { messages: [], hasMore: false } : {};
+  const runtime = new EventEmitter();
+  runtime.client = client;
+  runtime.close = async () => {};
+  runtime.setState = () => {};
+  const service = new AssistantService({
+    store,
+    runtime,
+    models: { listCapabilities: () => [], resolve: () => ({ release() {} }) },
+    config: { apply: async () => {}, reset() {} },
+  });
+  t.after(() => service.close());
+  const published = [];
+  service.events.subscribe((event) => published.push(event));
+  const chat = (payload) =>
+    client.emit("event", {
+      event: "chat",
+      payload: { sessionKey: "feed-key", runId: "run", ...payload },
+    });
+  chat({ state: "delta", message: { role: "assistant", content: "Hel" } });
+  const frames = [];
+  const unsubscribe = service.feeds.subscribe(c.id, {}, (f) => frames.push(f));
+  t.after(unsubscribe);
+  chat({ state: "delta", deltaText: "lo" });
+  assert.deepEqual(
+    frames.filter((f) => f.type === "stream"),
+    [
+      { type: "stream", runId: "run", from: 0, text: "Hel" },
+      { type: "stream", runId: "run", from: 3, text: "lo" },
+    ],
+  );
+  // The SSE delta keeps its whole text until every chat reads the feed.
+  assert.deepEqual(published.at(-1), {
+    type: "delta",
+    conversationId: c.id,
+    runId: "run",
+    text: "Hello",
+  });
+  chat({ state: "final" });
+  assert.equal(service.feeds.entries.get(c.id).runs.size, 0);
+  // A scoped change still announces the list change.
+  published.length = 0;
+  service.changed({ conversationId: c.id });
+  assert.deepEqual(published, [{ type: "change" }]);
+});

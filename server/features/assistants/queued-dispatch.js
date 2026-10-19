@@ -48,7 +48,7 @@ export function queueMessage(service, conversationId, input) {
   service.attachments.staged(conversationId, value.attachments);
   service.queued.put(conversationId, value);
   retriesOf(service).delete(conversationId);
-  service.changed();
+  service.changed({ conversationId });
   dispatchQueued(service, conversationId).catch(() => {});
   return queuedView(service, conversationId);
 }
@@ -60,7 +60,7 @@ export function takeBackQueued(service, conversationId) {
   retriesOf(service).delete(conversationId);
   // Back in the composer, its files are fresh drafts again for the staging expiry.
   service.attachments.touch(conversationId, message.attachments);
-  service.changed();
+  service.changed({ conversationId });
   return {
     text: message.text,
     teamAllowed: message.teamAllowed,
@@ -126,7 +126,7 @@ export async function dispatchQueued(service, conversationId) {
     if (now - service.queued.deliverable(m, now) > MAX_AGE) {
       backoff.delete(m.conversationId);
       service.queued.fail(m, serverMessages.assistants.queuedExpired);
-      service.changed();
+      service.changed({ conversationId: m.conversationId });
       continue;
     }
     if (!waits(m.conversationId)) ready.push(m);
@@ -138,7 +138,7 @@ export async function dispatchQueued(service, conversationId) {
         await service.send(message.conversationId, delivery(message), { kind: "owner" });
         service.queued.done(message);
         backoff.delete(message.conversationId);
-        service.changed();
+        service.changed({ conversationId: message.conversationId });
       } catch (error) {
         const result = outcome(error);
         if (result.retry) {
@@ -152,7 +152,7 @@ export async function dispatchQueued(service, conversationId) {
         }
         backoff.delete(message.conversationId);
         service.queued.fail(message, result.error);
-        service.changed();
+        service.changed({ conversationId: message.conversationId });
       }
     }),
   );
@@ -175,5 +175,5 @@ function retryLater(service, message, blockers) {
     (entry.tries >= NOTICE_TRIES || now - entry.since >= NOTICE_AFTER) &&
     service.queued.markRetrying(message)
   )
-    service.changed();
+    service.changed({ conversationId: message.conversationId });
 }

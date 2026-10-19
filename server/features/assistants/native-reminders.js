@@ -473,7 +473,7 @@ export class NativeReminders {
           }),
         )
         .catch(() => {});
-    this.assistants.changed();
+    this.assistants.changed({ conversationId: recorded?.conversation.id });
   }
   /** The extra Telegram delivery, while the binding's chat is still paired. */
   toTelegram(binding, { key, ok, text }) {
