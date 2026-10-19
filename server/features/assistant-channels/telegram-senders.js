@@ -9,11 +9,13 @@ import {
   configuredAgents,
   readTelegramInputs,
   telegramEligible,
+  telegramLiveChanges,
   telegramRevoked,
   telegramSections,
   telegramSnapshot,
 } from "../assistants/openclaw-config/telegram-senders.js";
 import { TelegramClient } from "./telegram-client.js";
+import { patchTelegramAllowlists } from "./telegram-live.js";
 import { validPeople } from "./native-telegram-store.js";
 
 // Telegram client failures the owner can act on; anything else is "unavailable".
@@ -27,9 +29,10 @@ const clientProblems = {
 /**
  * Agents' own Telegram bots for other people (one bot per agent). OpenClaw runs them
  * natively inside the Gateway (openclaw-config/telegram-senders.js); AgentPier keeps
- * the token and the allowed people, and compiles them at each Gateway start. Telegram
- * settings exist only in the startup configuration, so a save that changes what the
- * running Gateway was started with restarts it once the owner confirmed, like the web
+ * the token and the allowed people, and compiles them at each Gateway start. A save
+ * that only changes allowed people is patched into the running Gateway at once
+ * (telegram-live.js); any other change to what the running Gateway was started with
+ * (a bot, a token, the speech key) restarts it once the owner confirmed, like the web
  * search settings.
  */
 export class TelegramSenders {
@@ -54,6 +57,8 @@ export class TelegramSenders {
     warn = console.warn,
     // The owner's push notifications (notification-service.js), when available.
     notifications = null,
+    // How long a live allowlist patch waits for the Gateway's adoption event.
+    adoptionTimeoutMs,
   }) {
     Object.assign(this, {
       assistants,
@@ -72,6 +77,9 @@ export class TelegramSenders {
       notifications,
     });
     this.configured = configured || this.configuredFromFile;
+    this.adoption = { warn, timeoutMs: adoptionTimeoutMs };
+    // Live allowlist patches run one at a time.
+    this.live = Promise.resolve();
     this.retry = null;
     // The automatic restart for one revocation: { signature, attempts, restarted,
     // failed }. One restart per revocation; refusals back off, then the owner decides.
@@ -138,9 +146,46 @@ export class TelegramSenders {
     return telegramRevoked(this.running(), this.desired(inputs));
   }
   /**
-   * Called once a Gateway start answers. A revocation saved while it started (or a
-   * start that read the store just before one) restarts it again at once; additions
-   * wait for the owner ("pending"). A refused restart (busy agents) is retried.
+   * The allowlists the running or starting Gateway can take live, when they are all
+   * that differs from `inputs` (telegramLiveChanges); null otherwise.
+   */
+  liveChanges(inputs = this.inputs()) {
+    return telegramLiveChanges(this.running(), this.desired(inputs));
+  }
+  /**
+   * Patches the stored allowlists into the ready Gateway when they are all that
+   * differs. One at a time and, when available, under admission like every other
+   * live configuration write. Resolves true once the Gateway runs what the store
+   * compiles; false when there was nothing to patch or no ready Gateway (its start
+   * compiles the store, ready() converges a start that read it too early). Rejects
+   * when the patch failed.
+   */
+  applyLive() {
+    const patch = async () => {
+      const runtime = this.assistants.runtime;
+      const started = runtime.telegram;
+      if (!runtime.client?.ready || !started) return false;
+      const desired = this.desired();
+      const changes = telegramLiveChanges(started, desired);
+      if (!changes) return false;
+      await patchTelegramAllowlists(runtime.client, changes, this.adoption);
+      // A restart meanwhile compiled the store itself and keeps its own snapshot.
+      if (runtime.telegram === started) {
+        if (runtime.telegramStarting === started) runtime.telegramStarting = desired;
+        runtime.telegram = desired;
+      }
+      return true;
+    };
+    const admit = this.assistants.admit?.bind(this.assistants);
+    const run = this.live.then(() => (admit ? admit(patch) : patch()));
+    this.live = run.catch(() => {});
+    return run;
+  }
+  /**
+   * Called once a Gateway start answers. Allowed people saved while it started (or
+   * just before its start read the store) are patched in live. Any other revocation
+   * restarts it again at once; other additions wait for the owner ("pending"). A
+   * refused restart (busy agents) is retried.
    */
   ready() {
     this.schedule(0);
@@ -152,7 +197,8 @@ export class TelegramSenders {
     this.retry.unref?.();
   }
   /**
-   * Restarts the Gateway once for a revocation it still runs. Never rejects: a check
+   * Patches changed allowlists live; restarts the Gateway once for a revocation it
+   * still runs otherwise, also when the live patch failed. Never rejects: a check
    * that cannot read openclaw.json or the store is logged by code and reported to the
    * owner like a revocation the restart could not remove.
    */
@@ -199,6 +245,18 @@ export class TelegramSenders {
     return profile?.id || null;
   }
   async convergeOnce() {
+    if (this.liveChanges()) {
+      try {
+        if (await this.applyLive()) {
+          this.revocation = null;
+          return true;
+        }
+      } catch (error) {
+        this.warn(
+          `Allowed Telegram people could not be applied live (${error?.code || error?.key || "ERROR"}).`,
+        );
+      }
+    }
     const desired = this.desired();
     if (!telegramRevoked(this.running(), desired)) {
       this.revocation = null;
@@ -274,13 +332,18 @@ export class TelegramSenders {
     };
   }
   /**
-   * Runs `operation` at once when the running Gateway is unaffected, otherwise after
-   * the owner's confirmation inside a Gateway restart.
+   * Runs `operation` at once when the running Gateway is unaffected or only its
+   * allowlists change (patched in live right after), otherwise after the owner's
+   * confirmation inside a Gateway restart.
    */
   async commit(inputs, operation, confirmed) {
-    if (!this.differs(inputs)) {
+    const live = this.liveChanges(inputs);
+    if (!this.differs(inputs) || live) {
       const result = operation();
       this.assistants.changed?.();
+      // A starting Gateway gets the lists once it answers (ready()). A failed patch
+      // of a removed person falls back to the revocation restart (converge).
+      if (live && this.assistants.runtime.client?.ready) await this.converge();
       return result;
     }
     if (!confirmed) throw restartRequired("telegramSendersRestartRequired", this.usage());
@@ -314,6 +377,11 @@ export class TelegramSenders {
       bot,
       status: bot ? await this.status(bot).catch(() => ({ state: "error" })) : null,
       pending: checked(() => this.agentPending(assistantId), false),
+      // The pending change applies without a restart ("Apply now" patches it in).
+      pendingLive: checked(
+        () => this.agentPending(assistantId) && !!this.liveChanges(),
+        false,
+      ),
       // The automatic restart could not remove a revoked bot (or the check failed):
       // the owner restarts.
       revocationFailed:
@@ -451,12 +519,16 @@ export class TelegramSenders {
       confirmed,
     );
   }
-  /** Restarts the Gateway when it lags behind the stored bots (a new speech key). */
+  /**
+   * Brings the Gateway up to the stored bots: live for allowlists, otherwise by a
+   * restart (a new speech key, a bot waiting for its agent's Gateway entry).
+   */
   async apply({ confirmed = false } = {}) {
     if (confirmed) this.revocation = null;
     if (!this.differs()) return { applied: false };
+    const live = !!this.liveChanges();
     await this.commit(this.inputs(), () => null, confirmed);
-    return { applied: true };
+    return { applied: live ? !this.differs() : true };
   }
   /** One audit record per change; never a token, an id or a name. */
   record(assistantId, before, after, { token = false } = {}) {

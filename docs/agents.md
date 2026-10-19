@@ -219,7 +219,10 @@ told it was not saved.
   each with a separate conversation. Add each person by numeric Telegram user ID
   under **Allowed people**. The agent never uses shell, local (stdio) MCP servers,
   AgentPier's own tools or session tools for them, so shell must be off, stdio
-  servers removed and SSH accesses removed before you connect such a bot.
+  servers removed and SSH accesses removed before you connect such a bot. Adding,
+  removing or renaming people applies at once while the agent service keeps running;
+  connecting or disconnecting a bot, replacing its token or removing the last person
+  restarts the agent service after you confirm.
 
 ## Teams, asks and tasks
 
