@@ -88,7 +88,7 @@ _Avoid_: Subagent, child, worker.
 The two kinds of lead request. An ask is a question to any member and never writes
 files; a task is work delegated to a permanent member and may write only with the
 owner's explicit request in the same message, as a self-initiated task of an
-autonomous lead, or from a routine the owner lets delegate writing tasks.
+autonomous lead, or from a routine the owner marked "May write".
 _Avoid_: Job, ticket, delegation (for the record itself).
 
 **Lead share**:
@@ -112,7 +112,8 @@ _Avoid_: Persona, preset, blueprint.
 
 **Routine**:
 A saved task prompt that runs daily or on an event and reports to the agent's chat
-and paired Telegram chat.
+and paired Telegram chat. It reads the agent's project folders; only a routine the
+owner marked "May write" changes files there and delegates tasks that may write.
 _Avoid_: Cron job, schedule (unqualified).
 
 **Reminder**:

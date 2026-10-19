@@ -76,9 +76,12 @@ outgoing media read any file on the host. With **Read**, `agentpier_share_file` 
 its `projectId` hand the owner a file from the folder in the chat (see
 [files from agents](agents.md#files-from-agents)).
 
-- **Who:** the owner's own turns (in AgentPier or the paired Telegram chat) and a
-  task member's team turns, never forwarded content, reminders, check-ins or
-  routines.
+- **Who:** the owner's own turns (in AgentPier or the paired Telegram chat), a
+  task member's team turns, a lead's tasks for a permanent member (with what the
+  lead shares) and the agent's own routine runs, never forwarded content, reminders
+  or check-ins. A routine reads the agent's folders and its lead's standing shares
+  and changes files only when the owner marked it **May write**; otherwise
+  `ROUTINE_READ_ONLY`.
 - **Paths:** relative to the project folder or absolute inside it. Every call
   resolves the real path again: `..`, `~`, URL forms, control characters and
   backslashes are refused, links may point anywhere inside the folder but never out
@@ -226,7 +229,7 @@ a bound, enabled routine of the calling agent with memory and routines switched 
 may change that agent's workspace, under the same workspace and instruction-file
 limits as an owner turn. It is not owner text: it never makes a delegated task
 writable on its own (owner proof stays owner-text only); only a routine the owner
-marked **May delegate writing tasks** in its details starts tasks that may write,
+marked **May write** in its details starts tasks that may write,
 recorded as the owner's standing instruction. Reminder and check-in runs,
 forwarded and tool-provided content still never write. After a Gateway start the
 routine's agent regains `write` and `edit` after the write guard is reported and
@@ -247,10 +250,16 @@ A lead's routine may list, ask and delegate to its own members
 (`agentpier_team_members`, `_ask`, `_delegate`, `routineTeamTools`): the bridge
 binds such a call to the routine's run session (`TeamBridge.routineRun`) and the
 request carries the routine as its origin (`{ kind: "routine", bindingId, name }`,
-`LeadRequestStore.caller`). Known limitation: the workspace tools and every other
-team tool stay out, so a routine cannot start coding jobs, write project knowledge,
-propose teams or archive and grant members; the bridge serves those only within an
-owner's chat turn (an AgentPier attempt for the session). The run cap is the
+`LeadRequestStore.caller`). `agentpier_workspace` serves a routine run as well
+(`workspace-calls.js` `routineContext`, the binding read live on every step): the
+agent's own project folders and its lead's standing shares, never a task's share;
+reads always, changes only with the routine's **May write** (`routineWrites`,
+otherwise `ROUTINE_READ_ONLY`), audited with `origin: "routine"` and the
+`routineId`. Coding requests and project knowledge proposals always wait for the
+owner (shown in the agent's chat, stored with the `routineId`); `coding_cancel` is
+refused. Every other team tool stays out, so a routine cannot propose teams or
+archive and grant members; the bridge serves those only within an owner's chat turn
+(an AgentPier attempt for the session). The run cap is the
 fixed list `routineTools` (`server/features/assistants/native-capabilities.js`);
 OpenClaw intersects it with the agent's `tools.allow`, so capability, shell and MCP
 changes apply to routines without rewriting their jobs.
