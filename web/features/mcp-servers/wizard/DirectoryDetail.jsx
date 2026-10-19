@@ -5,6 +5,7 @@ import { locale } from "../../../lib/i18n/index.js";
 import { mcpDirectoryCopy as copy } from "../../../lib/i18n/messages/mcp-directory.js";
 import useNarrowViewport from "../../accounts/useNarrowViewport.js";
 import { linkLabel } from "./PackageStep.jsx";
+import CuratedHint from "./CuratedHint.jsx";
 import { optionChip } from "./DirectoryResult.jsx";
 import { isSelectable } from "./directory-draft.js";
 
@@ -42,6 +43,7 @@ function Body({ entry, chosen, setChosen }) {
       </p>
       {entry.statusMessage && <p className="mcp-warning">{entry.statusMessage}</p>}
       {entry.description && <p className="mcp-directory-text">{entry.description}</p>}
+      <CuratedHint serverName={entry.name} />
       {[
         ["repositoryUrl", copy.sourceLink],
         ["websiteUrl", copy.website],

@@ -80,4 +80,21 @@ export const mcpDirectoryCopy = {
   identifierHint:
     "The directory now lists another package for this server. Add it as a new server if you want to switch.",
   remoteHint: "The directory now lists another address for this server.",
+  curated: {
+    label: "Note from AgentPier",
+    hints: {
+      rea: {
+        title: "Before you set up REA",
+        points: [
+          "Dual use: REA analyses programs and running processes. Its disclaimer forbids circumventing DRM, licence checks or anti-cheat. Use it only on software you may analyse.",
+          "Only morluto/rea on GitHub and the npm package rea-agents by morluto are genuine. Copies with trojans circulate under similar names.",
+          "Its optional dependency frida runs an install script: tick “Allow install scripts or source builds”, or the install is refused.",
+          "Its tool list is large (about 500 KB). Set REA_MCP_INPUT_SCHEMA_PROFILE to compact to cut it to about 290 KB.",
+          "Ghidra 12.1 and JDK 21 or newer are not installed for you. Install them yourself and set GHIDRA_INSTALL_DIR and JAVA_HOME.",
+          "Its runtime tools (LLDB, Frida attach, process lists) need an unsandboxed session. A nono sandbox very likely blocks them.",
+          "Do not run REA’s own “rea setup”: it writes into the CLI configuration AgentPier manages.",
+        ],
+      },
+    },
+  },
 };

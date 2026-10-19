@@ -469,3 +469,14 @@ dialog.sheet.mcp-directory-sheet {
   max-height: 90dvh;
   overflow-y: auto;
 }
+/* AgentPier's own note on a known server (CuratedHint.jsx). */
+.mcp-curated-hint {
+  border-left: 3px solid var(--warning);
+}
+.mcp-curated-points {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
