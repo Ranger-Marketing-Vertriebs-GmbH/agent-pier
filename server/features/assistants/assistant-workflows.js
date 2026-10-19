@@ -142,8 +142,8 @@ export class AssistantWorkflows {
     }
   }
   /** A workspace call's turn context (workspace-calls.js workspaceContext). */
-  context(inv, action) {
-    return workspaceContext(this, inv, action);
+  context(inv) {
+    return workspaceContext(this, inv);
   }
   authorize(action) {
     // A request on a lead's share is authorized on the lead's grant (lead-shares.js).

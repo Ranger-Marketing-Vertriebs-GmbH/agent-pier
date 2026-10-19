@@ -318,20 +318,41 @@ test("the owner removes a share; requests resting on it fail closed", async (t) 
   assert.throws(() => f.shares.remove(mcp.id), { status: 404 });
 });
 
-test("a lead's turn on a member's result still never changes anything", async (t) => {
+test("a lead's follow-up on a member's result writes with the lead's own access", async (t) => {
   const f = await setup(t);
-  f.leadAccess({ [f.folderProject.id]: "write" });
+  f.leadAccess({ [f.folderProject.id]: "write" }, { autonomous: true });
   const { id } = await f.task({ phase: "completed" });
-  const inv = await f.turn(f.channel.conversationId, {
+  // A turn that only claims the context is no follow-up: refused, no go-ahead.
+  const forged = await f.turn(f.channel.conversationId, {
     kind: "member-result",
     requestId: id,
   });
   await assert.rejects(
-    f.call(inv, { action: "file_write", path: "x.md", content: "x" }),
+    f.call(forged, { action: "file_write", path: "x.md", content: "x" }),
     code("FORBIDDEN"),
   );
-  assert.deepEqual(f.marked, [id]);
-  assert.equal(f.teams.get(id).resultWriteRefused, true);
+  f.assistants.ledger.transition(forged.attemptId, "completed");
+  const inv = await f.turn(
+    f.channel.conversationId,
+    { kind: "member-result", requestId: id },
+    `lead-request-result:${id}`,
+  );
+  const written = await f.call(inv, { action: "file_write", path: "x.md", content: "x" });
+  assert.equal(written.created, true);
+  const audit = f.audits.findLast((e) => e.details?.kind === "project-file");
+  assert.equal(audit.resourceId, f.lead);
+  assert.equal(audit.details.via, "member-result");
+  assert.equal(audit.details.leadRequestId, id);
+  // Coding requests wait for the owner, even where the lead may start them alone.
+  const action = await f.call(inv, {
+    action: "coding_start",
+    pipelineId: f.pipeline.id,
+    task: "Render the site",
+  });
+  assert.equal(action.state, "awaiting_approval");
+  assert.equal(f.workflows.store.get(action.id).via, "member-result");
+  assert.deepEqual(f.marked, []);
+  assert.equal(f.teams.get(id).resultWriteRefused, undefined);
 });
 
 test("a shared MCP server compiles for the member while the lead holds it", async (t) => {

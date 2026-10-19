@@ -84,6 +84,8 @@ export class AgentProjectFiles {
   levels(ctx) {
     if (ctx.requestedBy) return this.memberLevels(ctx.requestedBy);
     if (ctx.leadRequest) return this.shared(ctx.assistantId, ctx.leadRequest.id);
+    // A lead's follow-up on its member's result: what the owner granted the lead.
+    if (ctx.memberResult) return this.held(ctx.assistantId);
     return this.ownAndShared(ctx.assistantId);
   }
   /** Named folders with paths for an agent's instructions; never throws. */
@@ -202,6 +204,10 @@ export class AgentProjectFiles {
           ...(ctx.requestedBy ? { requestedBy: ctx.requestedBy } : {}),
           // A routine run names its routine (the binding) as the origin.
           ...(ctx.routine ? { origin: "routine", routineId: ctx.routine.bindingId } : {}),
+          // A lead's follow-up on its member's result names that request.
+          ...(ctx.memberResult
+            ? { via: "member-result", leadRequestId: ctx.memberResult.requestId }
+            : {}),
           // A change on a lead's share names the lead and the task (lead-shares.js).
           ...(ctx.leadRequest
             ? {

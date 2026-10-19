@@ -275,8 +275,9 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
   };
 }
 /**
- * A lead's turn handling a member's result may not change anything; when it tried
- * (LeadRequests.refusedChange), its request is marked `goAhead`, so the chat offers
+ * A lead's turn handling a member's result changes files like the lead's own work
+ * (member-result-writes.js), but never runs what needs the owner's own message (SSH);
+ * when it tried (LeadRequests.refusedChange), its request is marked `goAhead`, so the chat offers
  * the owner a one-tap "go ahead" that sends a real owner message.
  */
 function goAheadMarks(service, requests, contexts) {

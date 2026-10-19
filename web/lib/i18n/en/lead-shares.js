@@ -37,10 +37,10 @@ export const leadShareCopy = {
     `The member loses this access at once; waiting approvals for it are cancelled. ${lead} can grant it again.`,
 };
 
-// The owner's one tap after a lead agent was refused a change while it handled a
-// member's result (server conversations.js goAheadMarks).
+// The owner's one tap after a lead agent was refused an owner-only action (SSH) while
+// it handled a member's result (server conversations.js goAheadMarks).
 export const goAheadCopy = {
   button: "Go ahead",
   message: "Yes, go ahead",
-  hint: "The lead agent may not change anything while it handles a member's result. Tap to give it your go-ahead.",
+  hint: "While it handled a member's result, the lead agent was refused something that needs your own message, such as an SSH command. Tap to give it your go-ahead.",
 };

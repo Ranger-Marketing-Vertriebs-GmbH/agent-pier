@@ -100,10 +100,15 @@ test("refusals name a stable code and are audited", async (t) => {
     await code(run({ kind: "telegram", forwarded: true })),
     "SSH_ORIGIN_REFUSED",
   );
+  // A lead's follow-up on a member's result never runs SSH; the chat then offers the
+  // owner a go-ahead for it.
+  const marked = [];
+  f.assistants.teams.requests = { refusedChange: (id) => marked.push(id) };
   assert.equal(
     await code(run({ kind: "member-result", requestId: "r" })),
     "SSH_ORIGIN_REFUSED",
   );
+  assert.deepEqual(marked, ["r"]);
   f.catalog.rows.delete(hostId);
   assert.equal(await code(run()), "SSH_HOST_UNAVAILABLE");
   assert.deepEqual(

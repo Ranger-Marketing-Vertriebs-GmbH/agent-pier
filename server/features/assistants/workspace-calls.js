@@ -6,6 +6,7 @@ import { fileActions } from "./agent-project-files.js";
 import { withExcerpts } from "../memory/memory-search.js";
 import { taskWritable } from "./lead-request-store.js";
 import { workflowDefinitions } from "./team-plugin/workflow-tools.js";
+import { resultTurn } from "./member-result-writes.js";
 
 const workspaceKeys = Object.keys(workflowDefinitions.workspace.parameters.properties);
 // What a task from the member's lead reaches (lead-shares.js): the folders and
@@ -17,18 +18,18 @@ const leadTaskActions = new Set([
   "coding_status",
   "coding_artifacts",
 ]);
-const changing = new Set(["file_write", "file_edit", "coding_start", "memory_write"]);
 // What a routine run reaches: what an owner turn does, apart from cancelling a run.
 const routineRefused = new Set(["coding_cancel"]);
 
 /**
  * The turn context of a workspace call: the owner's own turn (also from its
  * Telegram chat, not forwarded), a temporary member's team turn (team-coding.js)
- * or a task the member's lead delegated to it (leadRequestContext). Every other
- * turn is refused; a lead's turn handling a member's result notes the refused
- * change for the owner's "go ahead" (lead-request-follow.js).
+ * a task the member's lead delegated to it (leadRequestContext) or a lead's follow-up
+ * on its member's result (`memberResult`: the lead's own folders and projects, never
+ * shares, and coding requests always wait for the owner). Every other turn is
+ * refused.
  */
-export function workspaceContext(w, inv, action) {
+export function workspaceContext(w, inv) {
   inv.assertCurrent();
   if (!inv.attemptId && inv.routine) return routineContext(w, inv);
   const attempt = w.a.ledger.getAttempt(inv.attemptId);
@@ -41,16 +42,20 @@ export function workspaceContext(w, inv, action) {
   if (origin.kind === "lead-request")
     return leadRequestContext(w, chat, attempt, req, origin);
   w.access.eligible(chat.assistantId);
-  if (!["owner", "telegram"].includes(origin.kind) || origin.forwarded) {
-    if (origin.kind === "member-result" && changing.has(action))
-      w.a.teams?.requests?.refusedChange?.(origin.requestId);
+  // A lead's follow-up on its member's result acts like the lead's own work
+  // (member-result-writes.js), on the lead's own access only.
+  const memberResult =
+    origin.kind === "member-result"
+      ? resultTurn(w.a, origin.requestId, attempt.id)
+      : null;
+  if (!memberResult && (!["owner", "telegram"].includes(origin.kind) || origin.forwarded))
     throw assistantProblem("invalid", 403);
-  }
   return {
     assistantId: chat.assistantId,
     conversationId: chat.id,
     attemptId: attempt.id,
     origin,
+    ...(memberResult ? { memberResult: { requestId: memberResult.id } } : {}),
   };
 }
 
@@ -142,7 +147,8 @@ function authorizeCall(w, ctx, projectId, pipelineId) {
   try {
     return { policy: w.access.authorize(ctx.assistantId, projectId, pipelineId) };
   } catch (error) {
-    if (ctx.requestedBy || error.status !== 403) throw error;
+    // A follow-up on a member's result uses the lead's own grants only.
+    if (ctx.requestedBy || ctx.memberResult || error.status !== 403) throw error;
     try {
       return viaShare();
     } catch {
@@ -187,7 +193,7 @@ function catalog(w, ctx) {
 
 /** One agentpier_workspace call (AssistantWorkflows.invoke, under admission). */
 export async function workspaceCall(w, inv, input) {
-  const ctx = workspaceContext(w, inv, input?.action);
+  const ctx = workspaceContext(w, inv);
   exact(input, workspaceKeys);
   // Project folders are the member's own grant (agent-project-files.js).
   if (fileActions.has(input.action)) return w.folders.invoke(ctx, input);
@@ -253,7 +259,7 @@ export async function workspaceCall(w, inv, input) {
   )
     throw assistantProblem("invalid");
   inv.assertCurrent();
-  const { leadRequest: task, routine, ...stored } = ctx;
+  const { leadRequest: task, routine, memberResult, ...stored } = ctx;
   const action = w.store.reserve({
     ...stored,
     payload,
@@ -266,11 +272,14 @@ export async function workspaceCall(w, inv, input) {
       p.autonomous &&
       !ctx.requestedBy &&
       !inherited &&
-      !routine
+      !routine &&
+      !ctx.memberResult
         ? "approved"
         : "awaiting_approval",
     ...(inherited ? { inherited } : {}),
     ...(routine ? { routineId: routine.bindingId } : {}),
+    // Requested in a follow-up on a member's result: always the owner's approval.
+    ...(memberResult ? { via: "member-result", resultOf: memberResult.requestId } : {}),
     // A task's request waits in the lead's chat too (assistant-action-store.js delegated).
     ...(task
       ? {
