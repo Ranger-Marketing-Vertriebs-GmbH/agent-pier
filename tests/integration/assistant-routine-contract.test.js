@@ -272,6 +272,7 @@ test(
       [...runTools].sort(),
       [
         "agentpier_share_file",
+        "agentpier_workspace",
         "apply_patch",
         "edit",
         "memory_get",
@@ -398,6 +399,7 @@ test(
     t.diagnostic(`routine tools without memory=${JSON.stringify(narrowed)}`);
     assert.deepEqual([...narrowed].sort(), [
       "agentpier_share_file",
+      "agentpier_workspace",
       "session_status",
       "web_fetch",
     ]);
