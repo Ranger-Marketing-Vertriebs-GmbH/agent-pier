@@ -18,6 +18,7 @@ on:
       - "server/features/operations/releases.js"
       - "server/lib/storage.js"
       - "scripts/*assistant*.mjs"
+      - "scripts/assistant-contract-shards.json"
       - "tests/**/assistant*"
       - "tests/helpers/openclaw-dist-exports.js"
       - "tests/helpers/mcp-*"
@@ -34,6 +35,7 @@ on:
       - "server/features/operations/releases.js"
       - "server/lib/storage.js"
       - "scripts/*assistant*.mjs"
+      - "scripts/assistant-contract-shards.json"
       - "tests/**/assistant*"
       - "tests/helpers/openclaw-dist-exports.js"
       - "tests/helpers/mcp-*"
@@ -78,11 +80,13 @@ jobs:
       - name: Qualify fresh shipped runtime without model credentials
         run: node scripts/verify-assistant-installation.mjs
   native-contracts:
-    name: Native contracts (${{ matrix.runner }})
-    # The Intel macOS runner needs about 2.2 times as long as Apple silicon (about
-    # 111 instead of 52 minutes for the contracts), so it gets a larger budget and
-    # scales the contracts' own wait budgets by AGENTPIER_CONTRACT_TIME_SCALE.
-    timeout-minutes: ${{ matrix.runner == 'macos-15-intel' && 150 || 75 }}
+    # The contracts run in parallel shards that scripts/assistant-contract-shards.mjs
+    # balances by the measured seconds in scripts/assistant-contract-shards.json:
+    # four per runner, six on the Intel macOS runner, which needs about 2.2 times as
+    # long as Apple silicon. Each shard is its own runner with its own runtime
+    # installation, data directories and ports.
+    name: Native contracts (${{ matrix.runner }}) shard ${{ matrix.shard }}/${{ matrix.runner == 'macos-15-intel' && 6 || 4 }}
+    timeout-minutes: ${{ matrix.runner == 'macos-15-intel' && 45 || 30 }}
     strategy:
       fail-fast: false
       matrix:
@@ -94,6 +98,14 @@ jobs:
           || startsWith(github.ref, 'refs/tags/'))
           && '["ubuntu-latest","macos-latest","ubuntu-24.04-arm","macos-15-intel"]'
           || '["ubuntu-latest","macos-latest"]') }}
+        shard: [1, 2, 3, 4, 5, 6]
+        exclude:
+          - { runner: ubuntu-latest, shard: 5 }
+          - { runner: ubuntu-latest, shard: 6 }
+          - { runner: macos-latest, shard: 5 }
+          - { runner: macos-latest, shard: 6 }
+          - { runner: ubuntu-24.04-arm, shard: 5 }
+          - { runner: ubuntu-24.04-arm, shard: 6 }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -156,47 +168,18 @@ jobs:
         # full wait budget of lead-requests.js; pull requests use a 12 s ask.
         env:
           AGENTPIER_TEAM_LONG_ASK: ${{ github.event_name != 'pull_request' && '1' || '' }}
+          # The Intel macOS runner stretches the contracts' own wait budgets.
           AGENTPIER_CONTRACT_TIME_SCALE: ${{ matrix.runner == 'macos-15-intel' && '2.5' || '1' }}
-        run: >-
-          node --test --test-concurrency=1
-          --test-reporter=spec --test-reporter-destination=stdout
-          --test-reporter=tap --test-reporter-destination="$RUNNER_TEMP/native-contracts.tap"
-          tests/integration/assistant-runtime-contract.test.js
-          tests/integration/assistant-provider-contract.test.js
-          tests/integration/assistant-chat-stream-contract.test.js
-          tests/integration/assistant-attachments-contract.test.js
-          tests/integration/assistant-provider-schedule-contract.test.js
-          tests/integration/assistant-account-logout-contract.test.js
-          tests/integration/assistant-chatgpt-login-contract.test.js
-          tests/integration/assistant-chatgpt-models-contract.test.js
-          tests/integration/assistant-routine-contract.test.js
-          tests/integration/assistant-schedule-qualification.test.js
-          tests/integration/assistant-memory-contract.test.js
-          tests/integration/assistant-memory-flush-contract.test.js
-          tests/integration/assistant-compaction-contract.test.js
-          tests/integration/assistant-runtime-update-native.test.js
-          tests/integration/assistant-native-write-contract.test.js
-          tests/integration/assistant-team-plugin-contract.test.js
-          tests/integration/assistant-native-interfaces-contract.test.js
-          tests/integration/assistant-advanced-settings-contract.test.js
-          tests/integration/assistant-web-tools-contract.test.js
-          tests/integration/assistant-web-tools-compiled-contract.test.js
-          tests/integration/assistant-shell-contract.test.js
-          tests/integration/assistant-shell-environment-contract.test.js
-          tests/integration/assistant-shell-changes-contract.test.js
-          tests/integration/assistant-shell-abort-contract.test.js
-          tests/integration/assistant-shell-compiled-contract.test.js
-          tests/integration/assistant-mcp-contract.test.js
-          tests/integration/assistant-mcp-compiled-contract.test.js
-          tests/integration/assistant-mcp-oauth-contract.test.js
-          tests/integration/assistant-mcp-oauth-compiled-contract.test.js
-          tests/integration/assistant-heartbeat-contract.test.js
-          tests/integration/assistant-dreaming-contract.test.js
-          tests/integration/assistant-telegram-senders-contract.test.js
-          tests/integration/assistant-telegram-senders-live-contract.test.js
-          tests/integration/assistant-skills-contract.test.js
-          tests/integration/assistant-voice-reminder-e2e-contract.test.js
-          tests/integration/assistant-team-coding-e2e-contract.test.js
+        # macOS has bash 3.2 without mapfile; the contract paths contain no spaces.
+        run: |
+          files=$(node scripts/assistant-contract-shards.mjs \
+            --shard "${{ matrix.shard }}" --total "${{ matrix.runner == 'macos-15-intel' && 6 || 4 }}")
+          echo "$files"
+          # shellcheck disable=SC2086
+          node --test --test-concurrency=1 \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=tap --test-reporter-destination="$RUNNER_TEMP/native-contracts.tap" \
+            $files
       - name: Fail when a contract skipped instead of running
         run: grep -qx '# skipped 0' "$RUNNER_TEMP/native-contracts.tap"
   # Installed users update from the runtime an older AgentPier release pinned
