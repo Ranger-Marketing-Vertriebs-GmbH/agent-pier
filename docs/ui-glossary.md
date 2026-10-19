@@ -9,15 +9,16 @@ diagnostic evidence, code identifiers, URLs and anchors keep their original word
 
 ## Terms
 
-| Concept                                | German                                   | English            | Notes                                                                                                  |
-| -------------------------------------- | ---------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------ |
-| A running or stored CLI terminal       | die Session, die Sessions                | session            | Never "Sitzung" _(checked)_. Compounds take a hyphen: "Session-ID", "Shell-Session", "Coding-Session". |
-| The Accounts page and its entries      | Accounts, der Account                    | Accounts, account  | Never "Konten" or "Zugänge →" for the page _(checked)_. A vendor's own account stays "Konto".          |
-| A program or capability an agent calls | das Tool, die Tools                      | tool               | Never "Werkzeug" _(checked)_. "SSH-Tools", "Web-Tools", "AgentPier-Tools".                             |
-| A stored connection or credential      | der Zugang (Provider-Zugang, SSH-Zugang) | connection, access | Not "Verbindung" for provider connections _(checked)_.                                                 |
-| A permission level                     | die Berechtigung                         | permission         | For example a launch mode or a tool's permission profile.                                              |
-| The approval of a single request       | die Freigabe                             | approval           | Approve or deny one action; not a stored setting.                                                      |
-| Project knowledge (memory)             | das Projektwissen                        | memory             | German copy does not use "Memory" on its own.                                                          |
+| Concept                                | German                                   | English            | Notes                                                                                                   |
+| -------------------------------------- | ---------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------- |
+| A running or stored CLI terminal       | die Session, die Sessions                | session            | Never "Sitzung" _(checked)_. Compounds take a hyphen: "Session-ID", "Shell-Session", "Coding-Session".  |
+| The Accounts page and its entries      | Accounts, der Account                    | Accounts, account  | Never "Konten" or "Zugänge →" for the page _(checked)_. A vendor's own account stays "Konto".           |
+| A program or capability an agent calls | das Tool, die Tools                      | tool               | Never "Werkzeug" _(checked)_. "SSH-Tools", "Web-Tools", "AgentPier-Tools".                              |
+| A stored connection or credential      | der Zugang (Provider-Zugang, SSH-Zugang) | connection, access | Not "Verbindung" for provider connections _(checked)_.                                                  |
+| A permission level                     | die Berechtigung                         | permission         | For example a launch mode or a tool's permission profile.                                               |
+| The approval of a single request       | die Freigabe                             | approval           | Approve or deny one action; not a stored setting.                                                       |
+| Project knowledge (memory)             | das Projektwissen                        | memory             | German copy does not use "Memory" on its own.                                                           |
+| An Agency agent an agent starts from   | die Vorlage                              | template           | "Mit Vorlage beginnen" / "Start from a template"; the catalog stays "Agency-Agenten" / "Agency agents". |
 
 ## Actions
 

@@ -841,7 +841,13 @@ A lead reaches its own members without the owner relaying anything
   `agentpier_team_cancel` cancels an open one; `agentpier_team_archive` archives the
   lead's finished temporary members without asking; `agentpier_team_member_update`
   edits a temporary member and `agentpier_team_promote` keeps one as a permanent
-  agent (see below). Members never get these tools,
+  agent (see below). `agentpier_team_templates` searches the Agency catalog
+  (ids, names, categories; `team-templates.js`), and a proposed member may name one
+  as `template`: `TeamService.propose` fetches it at the catalog's current revision,
+  scans it (`skill-scan.js`), refuses a blocked one (`TEMPLATE_BLOCKED`) and stores
+  the template record and its instructions with the draft; the member's instructions
+  are the template's instead of the lead's, and a warned template forces the owner's
+  approval. Members never get these tools,
   and the bridge refuses them to member turns, so there are no chains.
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and

@@ -165,6 +165,27 @@ Preview and installation fetch Markdown from the selected immutable revision. A 
 
 Upstream model and tool/permission overrides are not imported. Source URL, revision and MIT license attribution are retained alongside the installed agent. `agency-agents.json` tracks installation ownership. Removal checks the original path, inode and content hash; externally modified files remain intact. Native CLI custom-agent support is required; the agent files supply instructions, not a separate model runtime.
 
+### Agency agents as AgentPier agent templates
+
+While agents are switched on, an entry's preview also offers **Create agent**. It opens
+**Agents › New agent** with the entry as its template; **Start from a template** in that
+form searches the same catalog. AgentPier fetches the entry at the pinned revision
+(`GET /api/agency/templates` and `/api/agency/templates/preview`,
+`server/features/agency/agency-templates.js`) and fills **Name** and **Instructions**:
+the description, the instruction body and a closing attribution with the source URL,
+the revision and the MIT license. The upstream `model`, `tools` and permission fields
+are never read; tools and access start with the agent form's defaults (no shell, SSH,
+project folders or GitHub). The profile keeps the template's id, name, revision and
+source, shown on its **Profile** tab.
+
+Catalog text is untrusted. Each entry is scanned offline with the skill import scan
+(`skill-scan.js`): a blocked entry (hidden characters, download-and-run, credential
+exfiltration) cannot be used, and the server refuses it again when the agent is
+created; warnings such as instruction-override phrasing are shown with their lines.
+Composed instructions longer than 48,000 characters are refused.
+
+Leads can use the same entries for team members: see [agents](agents.md#teams-asks-and-tasks).
+
 ## Backups and verification
 
 Logical AgentPier backups exclude external native CLI profiles, including shared extensions and Agency installation ownership records. Encrypted managed-profile backups omit only verified shared directory links; unexpected links remain an error. Use a filesystem backup of the native CLI roots plus `shared-cli-profiles.json`, `agency-agents.json` and `extension-skills.json` when moving the complete installation. A restored account can inherit the destination machine's shared profile on its next start.

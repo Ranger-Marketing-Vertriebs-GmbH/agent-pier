@@ -97,6 +97,12 @@ and waits for the owner's yes) or _autonomous_ (asks and delegates itself, withi
 per-turn and hourly limit). Shown as "Use team".
 _Avoid_: Team mode, autopilot.
 
+**Template**:
+An Agency agent (from msitarzewski/agency-agents) an owner creates an agent from, or
+a lead names for a team member: its description and instructions, with source,
+revision and MIT attribution, never its model or tools.
+_Avoid_: Persona, preset, blueprint.
+
 **Routine**:
 A saved task prompt that runs daily or on an event and reports to the agent's chat
 and paired Telegram chat.
