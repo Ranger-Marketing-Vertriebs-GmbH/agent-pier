@@ -16,6 +16,7 @@ import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import ConfirmationSheet from "./ConfirmationSheet.jsx";
 import { assistantBrowserCopy } from "../../../lib/i18n/messages/assistant-browser.js";
+import { assistantPdfCopy } from "../../../lib/i18n/messages/assistant-pdf.js";
 import { MemoryGroup, ShellGroup, WebGroup } from "./CapabilityGroups.jsx";
 import McpGroup from "./McpGroup.jsx";
 import BrowserGroup from "./BrowserGroup.jsx";
@@ -35,6 +36,7 @@ const conflictLabels = {
   browser: () => copy.personal.enableBrowser,
   browserVisible: () => assistantBrowserCopy.visible,
   documents: () => copy.personal.enableDocuments,
+  readPdfs: () => assistantPdfCopy.enable,
   createImages: () => copy.personal.enableCreateImages,
   shell: () => assistantShellCopy.title,
   mcpServers: () => mcpServerCopy.agentTitle,

@@ -105,6 +105,7 @@ async function setup(page, { serversUnavailable = false } = {}) {
         "/api/assistant-channels",
         "/api/assistant-speech",
         "/api/assistant-web-search",
+        "/api/assistant-pdf-model",
         "/api/assistant-runtime/updates",
         "/api/assistant-model-accounts",
       ].includes(path)

@@ -4,6 +4,7 @@ import ListCard from "../../../components/ListCard.jsx";
 import ListRow from "../../../components/ListRow.jsx";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
 import { memberGrantCopy as grantCopy } from "../../../lib/i18n/messages/assistant-member-grants.js";
+import { assistantPdfCopy as pdfCopy } from "../../../lib/i18n/messages/assistant-pdf.js";
 import { assistantShellCopy as shellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { assistantSkillsCopy as skillsCopy } from "../../../lib/i18n/messages/assistant-skills.js";
 import { assistantSshCopy as sshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
@@ -17,6 +18,7 @@ const capabilityLabels = {
   webFetch: () => copy.personal.enableWebFetch,
   browser: () => copy.personal.enableBrowser,
   documents: () => copy.personal.enableDocuments,
+  readPdfs: () => pdfCopy.enable,
   createImages: () => copy.personal.enableCreateImages,
   memory: () => grantCopy.memory,
   reminders: () => copy.personal.enableReminders,

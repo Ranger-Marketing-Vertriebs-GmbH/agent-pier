@@ -10,6 +10,7 @@ import {
   accountsHubCopy as hubCopy,
   accountsPageCopy as copy,
 } from "../../lib/i18n/messages/accounts.js";
+import { assistantPdfCopy as pdfCopy } from "../../lib/i18n/messages/assistant-pdf.js";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
@@ -163,6 +164,7 @@ export default function AccountsHub({
             <>
               <ErrorMessage error={data.speechError} />
               <ErrorMessage error={data.webSearchError} />
+              <ErrorMessage error={data.pdfModelError} />
               <ListCard labelledBy={labelId}>
                 <ItemRow
                   section="services"
@@ -187,6 +189,20 @@ export default function AccountsHub({
                       : unknownValue
                   }
                   value={usageValue(usageEntry(usage, "web-search"))}
+                />
+                <ItemRow
+                  section="services"
+                  id="pdf-model"
+                  {...row}
+                  label={pdfCopy.title}
+                  sub={
+                    data.pdfModel
+                      ? data.pdfModel.modelId
+                        ? `${data.pdfModel.modelId} · ${data.pdfModel.ready ? pdfCopy.ready : hubCopy.notReady}`
+                        : pdfCopy.notSet
+                      : unknownValue
+                  }
+                  value={usageValue(usageEntry(usage, "pdf-model"))}
                 />
               </ListCard>
             </>

@@ -9,6 +9,7 @@ const keys = [
   "webFetch",
   "browser",
   "documents",
+  "readPdfs",
   "createImages",
   "skills",
   "shell",

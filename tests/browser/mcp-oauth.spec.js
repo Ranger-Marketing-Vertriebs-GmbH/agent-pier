@@ -65,6 +65,7 @@ async function setup(page, { language = "en" } = {}) {
         "/api/assistant-channels",
         "/api/assistant-speech",
         "/api/assistant-web-search",
+        "/api/assistant-pdf-model",
         "/api/assistant-runtime/updates",
         "/api/assistant-model-accounts",
       ].includes(path)

@@ -13,6 +13,7 @@ import { routePath } from "../../../app/routes.js";
 import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantShellCopy as shellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
+import { assistantPdfCopy as pdfCopy } from "../../../lib/i18n/messages/assistant-pdf.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { assistantApi } from "../assistant-api.js";
 import { shellEligible, shellLevels } from "../shell-level.js";
@@ -24,6 +25,7 @@ const names = {
   webFetch: ["enableWebFetch", "webFetchDescription"],
   browser: ["enableBrowser", "browserDescription"],
   documents: ["enableDocuments", "documentsDescription"],
+  readPdfs: [() => pdfCopy.enable, () => pdfCopy.description],
   createImages: ["enableCreateImages", "createImagesDescription"],
 };
 
@@ -72,6 +74,7 @@ export function WebGroup({ draft, browser, images, creating = false, navigate })
   const crossLink = useCrossLink();
   const copy = assistantCopy.personal;
   const [search, setSearch] = useState(null);
+  const [pdf, setPdf] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
     // Unknown stays usable: the server decides when the agent starts.
@@ -79,12 +82,17 @@ export function WebGroup({ draft, browser, images, creating = false, navigate })
       .webSearch(controller.signal)
       .then(setSearch)
       .catch(() => {});
+    assistantApi
+      .pdfModel(controller.signal)
+      .then(setPdf)
+      .catch(() => {});
     return () => controller.abort();
   }, []);
   const missing = {
     browser: browser?.available === false ? copy.browserUnavailable : "",
     webSearch: search && search.ready === false ? copy.searchUnavailable : "",
     createImages: images === false ? copy.imagesUnavailable : "",
+    readPdfs: pdf && !pdf.ready ? (pdfCopy.unavailable[pdf.reason] ?? "") : "",
   };
   const provider = search?.provider
     ? (settingsCopy.searchProviders[search.provider] ?? search.provider)
@@ -94,6 +102,11 @@ export function WebGroup({ draft, browser, images, creating = false, navigate })
     section: "services",
     item: "web-search",
   });
+  const pdfAccounts = crossLink({
+    view: "accounts",
+    section: "services",
+    item: "pdf-model",
+  });
   return (
     <section aria-labelledby={id}>
       <GroupLabel id={id} hint={copy.webHint}>
@@ -101,15 +114,17 @@ export function WebGroup({ draft, browser, images, creating = false, navigate })
       </GroupLabel>
       <ListCard labelledBy={id}>
         {webCapabilityKeys.map((key) => {
-          const [label, description] = names[key];
+          const [label, description] = names[key].map((name) =>
+            typeof name === "function" ? name() : copy[name],
+          );
           // A new agent has no stored profile yet: web tools are switched on after saving.
           const reason = creating ? copy.availableAfterSaving : missing[key];
           const on = !creating && draft.values[key] === true;
           return (
             <ToggleRow
               key={key}
-              label={copy[label]}
-              sub={reason || copy[description]}
+              label={label}
+              sub={reason || description}
               checked={on}
               // A switched-on capability can always be turned off.
               disabled={creating || (Boolean(reason) && !on)}
@@ -123,6 +138,13 @@ export function WebGroup({ draft, browser, images, creating = false, navigate })
           title={settingsCopy.searchProvider(provider)}
           href={routePath(accounts)}
           onOpen={() => navigate(accounts)}
+        />
+      )}
+      {!creating && (
+        <ReferenceRow
+          title={pdfCopy.reference(pdf?.modelId ?? (pdf ? pdfCopy.notSet : unknownValue))}
+          href={routePath(pdfAccounts)}
+          onOpen={() => navigate(pdfAccounts)}
         />
       )}
     </section>

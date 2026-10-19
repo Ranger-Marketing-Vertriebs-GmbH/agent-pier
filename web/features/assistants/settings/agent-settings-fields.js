@@ -12,6 +12,7 @@ export const capabilityKeys = [
   "webFetch",
   "browser",
   "documents",
+  "readPdfs",
   "createImages",
 ];
 export const webCapabilityKeys = capabilityKeys.slice(2);

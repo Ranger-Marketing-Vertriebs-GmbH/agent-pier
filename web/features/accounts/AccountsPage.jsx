@@ -86,6 +86,7 @@ export default function AccountsPage({
       ids(data.chatgpt),
       data.speech?.revision,
       data.webSearch?.revision,
+      data.pdfModel?.revision,
     ]),
   );
   const entry = resolveAccountItem(route, {
