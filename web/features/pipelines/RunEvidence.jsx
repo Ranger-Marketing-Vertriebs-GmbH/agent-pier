@@ -61,6 +61,10 @@ export function useEvidence(runId, node) {
   };
 }
 
+// Reports live in the run's private report area; their name inside it identifies them.
+export const artifactName = (artifact) =>
+  artifact.label || artifact.path.replace(/^\.pipeline\/reports\/[^/]+\/[^/]+\//, "");
+
 const stepResult = (step) =>
   step.timedOut
     ? copy.verificationTimedOut
@@ -160,12 +164,12 @@ export default function EvidenceTiles({ evidence, node }) {
               onClick={() =>
                 evidence.open(
                   "/artifact?path=" + encodeURIComponent(artifact.path),
-                  artifact.label || artifact.path,
+                  artifactName(artifact),
                   "content",
                 )
               }
             >
-              {artifact.label || artifact.path}
+              {artifactName(artifact)}
             </button>
           ))}
         </div>

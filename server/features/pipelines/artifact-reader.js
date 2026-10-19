@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { containedFile } from "./stage-verdict.js";
 import { privatePipelinePath } from "./private-paths.js";
+import { stageReportPath } from "./stage-reports.js";
 const deny = new Set([
   ".git",
   ".git-credentials",
@@ -35,8 +36,9 @@ export function artifactText(run, nodeId, file) {
     .filter((a) => a.nodeId === nodeId && a.finishedAt)
     .some((a) => a.verdict?.artifacts?.some((f) => f.path === file));
   if (!declared) throw problem(serverMessages.pipelines.artifactNotDeclared, 404);
+  // The run's report area is the only readable part of the private .pipeline/ tree.
   if (
-    privatePipelinePath(file) ||
+    (privatePipelinePath(file) && !stageReportPath(run, nodeId, file)) ||
     file.split("/").some((part) => deny.has(part.toLowerCase()))
   )
     throw problem(serverMessages.pipelines.artifactPathPrivate, 403);
