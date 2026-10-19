@@ -364,8 +364,10 @@ and restart the Gateway when they change, rather than relying on live patches.
   search, which is not repeated.
 - The Perplexity key and transport were verified through configuration acceptance
   and the plugin source, not with a request.
-- `pdf` is covered with the extraction path of a custom provider only; native PDF
-  input (Anthropic, Google) and a ChatGPT account as PDF model are not exercised.
+- `pdf` is covered with the extraction path of a custom provider whose model accepts
+  images only; a text-only PDF model (text only, page images dropped, per OpenClaw's
+  `docs/tools/pdf.md`), native PDF input (Anthropic, Google) and a ChatGPT account as
+  PDF model are not exercised.
 - Headless Linux Chrome without `noSandbox` is unverified on hosted runners (see
   [continuous integration](#continuous-integration)).
 - The browser plugin's bundled `browser-automation` skill is skipped in the

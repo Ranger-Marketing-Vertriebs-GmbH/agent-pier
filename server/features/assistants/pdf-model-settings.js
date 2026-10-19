@@ -10,7 +10,8 @@ const account = (connectionId) => connectionId.startsWith("openclaw:");
  * cannot name one, verified on 2026.10.3), so this is global; without a usable
  * choice the Read PDFs capability stays unavailable. Only ids are stored here: the
  * connection's key stays with the model connection and reaches only openclaw.json
- * (AssistantProviderSynchronization.prepare).
+ * (AssistantProviderSynchronization.prepare). A model without image input is allowed:
+ * it reads the PDF text, not scanned pages.
  */
 export class PdfModelSettings {
   // `models` is AssistantModels: the same connections and accounts agents choose from.
@@ -40,9 +41,21 @@ export class PdfModelSettings {
     if (!listed) return "connectionMissing";
     if (account(connectionId) ? !listed.signedIn : !listed.available)
       return "connectionUnavailable";
-    // Scanned pages reach the model as images (OpenClaw's extraction fallback).
-    if (this.models.imageInput({ connectionId, modelId }) !== true) return "noImages";
     return null;
+  }
+  /**
+   * Whether the model takes images: true, false, or null when unknown. A text-only
+   * model still reads PDFs: OpenClaw sends it the extracted text and drops the page
+   * images, so only pages without text (scans) stay unreadable.
+   */
+  images(connectionId, modelId) {
+    if (!connectionId || !modelId) return null;
+    try {
+      const images = this.models.imageInput({ connectionId, modelId });
+      return typeof images === "boolean" ? images : null;
+    } catch {
+      return null;
+    }
   }
   get() {
     const row = this.row();
@@ -51,6 +64,7 @@ export class PdfModelSettings {
       revision: row.revision,
       ...(row.connection_id && { connectionId: row.connection_id }),
       ...(row.model_id && { modelId: row.model_id }),
+      ...(row.connection_id && { images: this.images(row.connection_id, row.model_id) }),
       ready: !reason,
       ...(reason && { reason }),
     };
@@ -91,9 +105,7 @@ export class PdfModelSettings {
       throw assistantProblem("invalid");
     if (revision !== this.row().revision) throw assistantProblem("conflict", 409);
     if (connectionId) {
-      const reason = this.problem(connectionId, modelId);
-      if (reason === "noImages") throw assistantProblem("pdfModelImages");
-      if (reason) throw assistantProblem("provider");
+      if (this.problem(connectionId, modelId)) throw assistantProblem("provider");
     }
     return { revision, connectionId, modelId };
   }

@@ -285,8 +285,6 @@ export const assistants = {
   agentLoading:
     "The agent service did not load the agent in time. Try again in a moment.",
   provider: "This model connection is not available for agents.",
-  pdfModelImages:
-    "This model cannot read images. Choose a model that accepts images to read PDFs.",
   uncertain:
     "The outcome of this request is still unknown. Check the history before trying again.",
   queuedTooLong: "The queued message has no room for more text. Edit it first.",

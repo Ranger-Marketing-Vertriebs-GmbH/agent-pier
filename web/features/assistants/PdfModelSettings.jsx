@@ -148,6 +148,11 @@ export default function PdfModelSettings({
           <p className="accounts-note" role="status">
             {settings.ready ? copy.ready : copy.status[settings.reason]}
           </p>
+          {settings.images === false && (
+            <p className="accounts-note" role="note">
+              {copy.textOnly}
+            </p>
+          )}
           <GroupLabel hint={copy.hint}>{copy.model}</GroupLabel>
           {models.some((model) => model.available) ? (
             <div className="list-card agent-fields">

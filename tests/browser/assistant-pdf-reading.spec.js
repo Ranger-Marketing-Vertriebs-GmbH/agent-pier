@@ -69,6 +69,7 @@ async function setup(page, { language = "en", pdf = {} } = {}) {
               revision: state.pdf.revision + 1,
               connectionId: body.connectionId,
               modelId: body.modelId,
+              images: true,
               ready: true,
             }
           : { revision: state.pdf.revision + 1, ready: false, reason: "notSet" };
@@ -107,6 +108,8 @@ const copy = {
     ready: "Ready",
     remove: "Remove PDF model",
     saveAgent: "Save agent",
+    textOnly:
+      "This model does not accept images: it reads the text of PDFs, but not scanned pages or pages without text.",
     unsaved: "Unsaved changes",
   },
   de: {
@@ -123,6 +126,8 @@ const copy = {
     ready: "Bereit",
     remove: "PDF-Modell entfernen",
     saveAgent: "Agent speichern",
+    textOnly:
+      "Dieses Modell nimmt keine Bilder an: Es liest den Text von PDFs, aber keine gescannten Seiten oder Seiten ohne Text.",
     unsaved: "Ungespeicherte Änderungen",
   },
 };
@@ -168,6 +173,27 @@ for (const language of ["en", "de"]) {
       await expect.poll(() => state.puts.length).toBe(2);
       expect(state.puts[1]).toEqual({ revision: 1, connectionId: null, modelId: null });
       await expect(panel.getByText(t.notSet)).toBeVisible();
+    });
+
+    test("a text-only PDF model is usable and says scans stay unreadable", async ({
+      page,
+    }) => {
+      await setup(page, {
+        language,
+        pdf: {
+          revision: 1,
+          connectionId: "vision",
+          modelId: "vl-1",
+          images: false,
+          ready: true,
+        },
+      });
+      await page.goto(baseURL + settingsPath("capabilities"));
+      await expect(page.getByLabel(t.capability, { exact: true })).toBeEnabled();
+      await page.getByRole("link", { name: t.referenceSet }).click();
+      const panel = page.locator(".accounts-detail");
+      await expect(panel.getByText(t.ready, { exact: true })).toBeVisible();
+      await expect(panel.getByRole("note")).toContainText(t.textOnly);
     });
 
     test("with a PDF model the Read PDFs switch is saved with the agent", async ({
