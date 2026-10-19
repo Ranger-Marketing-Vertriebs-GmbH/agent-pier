@@ -16,6 +16,7 @@ export function assistantProjectAccessRoutes({ assistants }) {
       assistants,
       access: assistants.workflows.access,
       shares: assistants.workflows.shares,
+      memberGrants: assistants.workflows.memberGrants,
       teams: assistants.teams.store,
     };
   };

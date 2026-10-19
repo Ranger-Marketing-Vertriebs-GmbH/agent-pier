@@ -88,9 +88,11 @@ export function logText(entry) {
   if (entry.edited) return copy.log.edited(date, fieldLabels(entry.edited));
   const labels = keyLabels(entry.revoked || entry.granted, entry.mcpServers);
   if (entry.revoked)
-    return entry.by === "owner"
-      ? copy.log.ownerRevoked(date, labels)
-      : copy.log.revoked(date, labels);
+    return entry.by !== "owner"
+      ? copy.log.revoked(date, labels)
+      : entry.direct
+        ? copy.log.youRevoked(date, labels)
+        : copy.log.ownerRevoked(date, labels);
   return entry.by === "owner"
     ? copy.log.owner(date, labels)
     : copy.log.lead(date, labels);

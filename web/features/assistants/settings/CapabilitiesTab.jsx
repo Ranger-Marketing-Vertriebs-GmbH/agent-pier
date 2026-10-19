@@ -21,6 +21,7 @@ import { MemoryGroup, ShellGroup, WebGroup } from "./CapabilityGroups.jsx";
 import McpGroup from "./McpGroup.jsx";
 import BrowserGroup from "./BrowserGroup.jsx";
 import GrantedCapabilities from "./GrantedCapabilities.jsx";
+import LeadSharesGroup from "./LeadSharesGroup.jsx";
 import MemoryPage from "./MemoryPage.jsx";
 import AllowlistPage from "./AllowlistPage.jsx";
 import SkillsGroup from "./SkillsGroup.jsx";
@@ -134,6 +135,8 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
           go={go}
         />
       )}
+      {/* A task-bound member has no Work tab: its lead's grants with Revoke. */}
+      {!personal && assistant.inherited && <LeadSharesGroup assistant={assistant} />}
       {personal && <MemoryGroup assistant={assistant} draft={draft} go={go} />}
       {personal && (
         <WebGroup

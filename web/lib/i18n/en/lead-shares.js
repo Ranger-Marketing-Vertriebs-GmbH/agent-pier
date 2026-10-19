@@ -22,8 +22,19 @@ export const leadShareCopy = {
   confirmLabel: "Revoke now",
   projectSection: "Shared by lead agents",
   projectHint:
-    "Permanent members using this project through their lead agent. It counts only while the lead holds it.",
+    "Members using this project through their lead agent. It counts only while the lead holds it.",
   serverShared: "Used through a lead agent",
+  taskMember: "Task-bound member",
+  taskHint:
+    "What the lead agent granted this task-bound member of its own access. It counts only while the lead holds it. Revoke ends a grant at once, like the lead taking it back.",
+  shell: (level) => `Shell: ${level}`,
+  ssh: "SSH on the lead agent's hosts",
+  sshShort: "SSH",
+  codingViaLead: "Coding runs through the lead agent",
+  codingFixed:
+    "Comes with the task: each run waits for your approval. To end it, stop or archive the member.",
+  taskConfirmBody: (lead) =>
+    `The member loses this access at once; waiting approvals for it are cancelled. ${lead} can grant it again.`,
 };
 
 // The owner's one tap after a lead agent was refused a change while it handled a

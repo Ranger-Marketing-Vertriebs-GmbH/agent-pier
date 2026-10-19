@@ -9,10 +9,6 @@ export const projectAgentsCopy = {
   folderLegend: "Ordnerzugriff",
   folder: { none: "Keiner", read: "Lesen", write: "Lesen und schreiben" },
   noAgents: "Noch keine dauerhaften Agenten. Lege einen unter Agenten an.",
-  members: "Team-Mitglieder mit Zugriff",
-  membersHint:
-    "Auftragsgebundene Mitglieder nutzen den Ordner über ihren leitenden Agenten, höchstens auf dessen Stufe. Das entscheidet der leitende Agent in seinem Team.",
-  memberVia: (lead, level) => `über ${lead} · ${level}`,
   unknownLead: "seinen leitenden Agenten",
   reloaded:
     "Der Zugriff dieses Agenten wurde inzwischen an anderer Stelle geändert. Der aktuelle Stand wird angezeigt; wähle erneut.",

@@ -26,7 +26,10 @@ function choice(value) {
  * project, and, read-only, the task members that use it through their lead at the
  * level they have right now.
  */
-export function projectAgents({ assistants, access, shares = null }, projectId) {
+export function projectAgents(
+  { assistants, access, shares = null, memberGrants = null },
+  projectId,
+) {
   access.s.memory.project(projectId);
   const all = assistants.store.listAssistants();
   const names = new Map(all.map((a) => [a.id, a.name]));
@@ -52,6 +55,21 @@ export function projectAgents({ assistants, access, shares = null }, projectId) 
       coding: s.live.coding,
       folder: s.live.folder,
     })),
+    // What lead agents granted their task members of this project
+    // (task-member-grants.js): folders the owner can revoke, coding for information.
+    memberGrants: (memberGrants?.list((row) => row.projectId === projectId) || []).map(
+      (g) => ({
+        id: g.id,
+        kind: g.kind,
+        revocable: g.revocable,
+        agentId: g.memberAssistantId,
+        name: g.memberName,
+        leadId: g.leadId,
+        leadName: g.leadName,
+        folder: g.live.folder || "none",
+        coding: g.live.coding,
+      }),
+    ),
     members: all.filter(inheritsFromLead).flatMap((m) => {
       const folder = m.inherited.projects?.[projectId];
       return folder
