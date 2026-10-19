@@ -230,7 +230,8 @@ test("the run view tells resumed from fresh repairs and shows their tokens", asy
   );
   await page.locator(".run-execution-log > summary").click();
   const log = page.locator(".run-execution-log");
-  await expect(log).toContainText("Repair in the same session · Same session");
+  await expect(log).toContainText("Repair in the same session");
+  await expect(log).not.toContainText("Same session");
   await expect(log).toContainText("The session's context is exhausted");
   await expect(log).toContainText("Codex ran out of room in the model's context window.");
   await expect(log).toContainText("Start · New session (context exhausted)");

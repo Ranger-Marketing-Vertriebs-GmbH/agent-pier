@@ -67,6 +67,12 @@ export function repairSessionLabel(repair) {
       label(copy.repairFallbacks, repair.fallback, copy.repairFallbacks.unknown),
   );
 }
+// The session note of a turn in the history: a resumed repair turn's kind already
+// says it runs in the same session, so only a new session and its reason are noted.
+export const repairNote = (entry) =>
+  entry?.repair && entry.kind !== "resumed-repair"
+    ? repairSessionLabel(entry.repair)
+    : "";
 // The tokens a turn reported, or null when it reported none.
 export function tokenTotal(usage) {
   if (!usage) return null;
