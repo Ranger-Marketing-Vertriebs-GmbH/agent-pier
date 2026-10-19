@@ -59,6 +59,9 @@ export const chatMessageCopy = {
   shellOutputLabel: "Shell output",
   shellOutputOmitted: (size) => `Earlier output omitted (${size})`,
   toolDetails: "Details",
+  sandboxBlocked: "Likely blocked by the sandbox",
+  sandboxBlockedHint: (profile) =>
+    `This session runs in the nono sandbox profile ${profile}, and the error reads like a denied access. Run the tool in a session without a sandbox, or allow the access in the sandbox profile.`,
   subagentLabel: (description, type) =>
     `Subagent: ${description || "Untitled task"}${type ? ` (${type})` : ""}`,
   ariaLabel: "Your message",

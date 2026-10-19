@@ -239,6 +239,7 @@ export default function ChatView({
               subagentsLive={subagentsLive}
               observedSubagents={data?.observability?.subagents}
               tool={session.tool}
+              sandboxProfile={session.sandbox?.profile}
               sessionId={session.id}
               cwd={session.cwd}
               openFile={openFile}
@@ -252,6 +253,7 @@ export default function ChatView({
             subagentsLive={subagentsLive}
             observedSubagents={data?.observability?.subagents}
             tool={session.tool}
+            sandboxProfile={session.sandbox?.profile}
             sessionId={session.id}
             cwd={session.cwd}
             openFile={openFile}
