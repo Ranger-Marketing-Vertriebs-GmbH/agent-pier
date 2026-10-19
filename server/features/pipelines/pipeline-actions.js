@@ -4,6 +4,7 @@ import { activeNode, currentAttempt, outgoing, terminal } from "./graph-navigati
 import { advance, conclude, launchStage, loopBack } from "./execution-stage.js";
 import { readVerdict } from "./stage-verdict.js";
 import { recordReportDigests } from "./stage-reports.js";
+import { recordResponses } from "./loop-rounds.js";
 export function requireLiveRun(run) {
   if (run.imported?.historyOnly)
     throw problem(serverMessages.pipelines.importedHistoryReadOnly, 409);
@@ -155,6 +156,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
     node.verdict = found.verdict;
     attempt.verdict = found.verdict;
     recordReportDigests(run, attempt);
+    recordResponses(run, node, attempt, found.verdict);
     attempt.quiesced = true;
     run.pendingConclusion = { nodeId: node.id, verdict: found.verdict };
     delete node.failReason;

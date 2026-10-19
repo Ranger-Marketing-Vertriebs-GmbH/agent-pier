@@ -84,6 +84,7 @@ export function parseVerdict(text) {
       ...(typeof f.detail === "string" ? { detail: f.detail.slice(0, 8000) } : {}),
     };
   });
+  const responses = parseResponses(value.responses);
   const artifacts = (Array.isArray(value.artifacts) ? value.artifacts : [])
     .flatMap((a) => {
       if (typeof a === "string") a = { path: a };
@@ -114,7 +115,35 @@ export function parseVerdict(text) {
     findings,
     artifacts,
     ...(requiresHuman != null ? { requiresHuman } : {}),
+    ...(responses.length ? { responses } : {}),
   };
+}
+// A repair turn answers each finding of the round it repaired; other turns omit this.
+const responseStatuses = Object.assign(Object.create(null), {
+  fixed: "fixed",
+  "not-fixed": "not-fixed",
+  "not fixed": "not-fixed",
+  not_fixed: "not-fixed",
+  disputed: "disputed",
+});
+function parseResponses(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value))
+    throw problem(serverMessages.pipelines.verdictResponsesArray);
+  return value.slice(0, 200).map((r) => {
+    const finding = typeof r?.finding === "string" ? r.finding.trim() : "";
+    if (!finding || finding.length > 100)
+      throw problem(serverMessages.pipelines.verdictResponseFinding);
+    const status =
+      typeof r.status === "string"
+        ? responseStatuses[r.status.trim().toLowerCase()]
+        : null;
+    if (!status) throw problem(serverMessages.pipelines.verdictResponseStatus);
+    const reason = typeof r.reason === "string" && r.reason.trim() ? r.reason : "";
+    if (status !== "fixed" && !reason)
+      throw problem(serverMessages.pipelines.verdictResponseReason);
+    return { finding, status, ...(reason ? { reason: reason.slice(0, 2000) } : {}) };
+  });
 }
 export function readVerdict(run, attempt) {
   try {

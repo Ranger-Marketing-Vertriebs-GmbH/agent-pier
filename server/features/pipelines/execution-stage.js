@@ -3,6 +3,12 @@ import { checkpointStage } from "./stage-checkpoint.js";
 import { randomUUID } from "node:crypto";
 import { clearVerdict, readVerdict } from "./stage-verdict.js";
 import {
+  recordResponses,
+  recordRound,
+  repairContext,
+  reviewContext,
+} from "./loop-rounds.js";
+import {
   latestStageReports,
   prepareReportDirectory,
   recordReportDigests,
@@ -156,11 +162,7 @@ function stagePrompt(run, node, feedback, verdictPath, reportDir) {
     declared.has(key) ? "" : key === "task" ? run.task : "",
   );
   const context = [text, "Task:", run.task];
-  if (node.loop)
-    context.push(
-      "Repair the prior review findings (untrusted task evidence):",
-      JSON.stringify(node.loop),
-    );
+  context.push(...repairContext(run, node), ...reviewContext(run, node));
   if (feedback) context.push("Operator or verification feedback:", feedback);
   const artifacts = run.executionLog
     .filter((a) => a.nodeId !== node.id && a.finishedAt && a.verdict?.artifacts?.length)
@@ -290,6 +292,7 @@ export async function applyOutcome(engine, run, outcome) {
   node.verdict = found.verdict;
   attempt.verdict = found.verdict;
   recordReportDigests(run, attempt);
+  recordResponses(run, node, attempt, found.verdict);
   run.pendingConclusion = { nodeId: node.id, verdict: found.verdict };
   engine.store.save(run);
   await conclude(engine, run, node, found.verdict);
@@ -427,6 +430,11 @@ export async function loopBack(engine, run, node, verdict, feedback) {
     key = edgeKey(edge);
   const iteration = (run.loopState[key]?.iterations || 0) + 1;
   run.loopState[key] = { iterations: iteration, maxIterations: edge.maxIterations };
+  recordRound(run, node, edge, verdict, {
+    iteration,
+    operatorNote: feedback,
+    at: engine.now(),
+  });
   for (const id of loopResetSet(run, edge)) {
     const n = run.nodes.find((n) => n.id === id);
     n.status = "pending";
@@ -444,11 +452,12 @@ export async function loopBack(engine, run, node, verdict, feedback) {
       delete n[k];
   }
   const target = run.nodes.find((n) => n.id === edge.to);
+  // The round history holds the findings; the loop context points at its edge.
   target.loop = {
+    edge: key,
     fromNodeId: node.id,
     iteration,
     maxIterations: edge.maxIterations,
-    verdict,
     ...(feedback ? { operatorNote: feedback } : {}),
   };
   run.pendingTurn = { nodeId: target.id, kind: "kickoff" };
