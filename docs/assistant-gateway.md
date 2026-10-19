@@ -237,7 +237,7 @@ for the implementation and remaining native platform/version qualification.
 - **Only owner turns and a routine's own run write natively.** The write guard
   covers every native file tool (`write`, `edit`, `apply_patch`). It admits the
   owner's own turn, an owner-proven member task (or one an autonomous lead or a routine
-  the owner marked **May delegate writing tasks** started) and, as a deliberate widening of the
+  the owner marked **May write** started) and, as a deliberate widening of the
   owner-only rule, the run of a routine the owner configured for that agent
   (`TeamBridge.routineWrite`, see [workflows](assistant-workflows.md)). A turn that is
   forwarded, internal, made by a team member without owner proof, or a reminder or
@@ -295,6 +295,8 @@ for the implementation and remaining native platform/version qualification.
   on every call (`project-paths.js`: real path, no links out, no `..`, `.git` and
   AgentPier's data dir locked, case-folded), changed only with the proven guard and
   audited with path and size ([folder access](assistant-workflows.md#direct-folder-access)).
+  A routine run reads them and changes them only when the owner marked that routine
+  **May write**.
 - **Approvals are audited.** Every approval, decline and withdrawal of an action
   (memory change, coding start, member coding request) is recorded with its actor,
   source and outcome.
@@ -985,11 +987,11 @@ A lead reaches its own members without the owner relaying anything
   `routineRun` (the run session) in place of `parentRequestId`. A routine is not
   owner text: no quote, mention or yes is read, so its tasks do not write
   (`writeAllowed: false`, no `ownerProof`, never `autonomous`) at every usage level,
-  unless the owner switched on **May delegate writing tasks** for that routine
-  (`routineDelegateWrites` on its binding, set only through the owner's
-  `PATCH /api/assistants/:id/routines/:routineId` with `delegateWrites`, never through
-  `agentpier_routine`, audited as `kind: "routine-delegate-writes"`). Its tasks then
-  count as the owner's standing instruction: the context records `delegateWrites: true`
+  unless the owner switched on **May write** for that routine (`routineWrites` on
+  its binding, set only through the owner's
+  `PATCH /api/assistants/:id/routines/:routineId` with `writes`, never through
+  `agentpier_routine`, audited as `kind: "routine-writes"`). Its tasks then
+  count as the owner's standing instruction: the context records `writes: true`
   and the request `routineWrites: true` and `writeAllowed: true`, which
   `LeadRequests.mayWrite` and folder writes accept like an owner proof (`taskWritable`
   in `lead-request-store.js`). Questions run as usual. The same member checks apply as in chat (own member, not
@@ -1910,8 +1912,17 @@ own permanent members, without the owner (`lead-shares.js`, `lead-share-input.js
   `taskWritable` (owner proof, autonomous lead or a write-enabled routine) besides
   `write` level and the proven guard, otherwise `TASK_READ_ONLY`; the member's own
   owner-granted folders, project memory and other actions stay out. In the owner's
-  own turns with the member the shares add to its own levels and projects. A routine
-  run of the member reaches no workspace actions, shared or own.
+  own turns with the member the shares add to its own levels and projects, and so do
+  standing shares in the member's own routine runs (see routine folders below).
+- **Routine folders.** A routine's own run session reaches `agentpier_workspace`
+  (in `routineTools`; `TeamBridge` binds it to the routine like SSH and shared
+  files, `routineContext` re-reads the binding on every step): the agent's own
+  `projectFiles` and its lead's standing shares, never a task's share. Reads always;
+  `file_write` and `file_edit` only with the owner's **May write** on that routine
+  (`routineWrites`), else `ROUTINE_READ_ONLY`, and audited with
+  `origin: "routine"` and `routineId`. Coding and project-knowledge requests from a
+  run always wait for the owner in the agent's main chat (`routineId` on the action,
+  never auto-approved); `coding_cancel` is refused.
 - **Coding.** A coding request on a shared project is stored on the member with
   `inherited: { leadId, requestId, shareId }`, always waits for the owner (also with
   the lead's standing permission), and in a task carries `leadAssistantId`, so it

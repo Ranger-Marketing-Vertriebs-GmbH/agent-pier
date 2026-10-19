@@ -333,7 +333,7 @@ A lead also talks to its members directly:
   in the message cancel that permission. With **Suggest** or **Autonomous**, a short
   yes to the lead's offer ("yes, go ahead") counts as well; with **Autonomous**, a
   task the lead starts on its own in reply to your message may also write (see
-  below), and so may a task from a routine you marked **May delegate writing tasks**.
+  below), and so may a task from a routine you marked **May write**.
 - The turn in which the lead handles a member's result never changes anything itself.
   When the lead tried to (a file write or a project change) and asks you whether to
   apply the result, the chat shows **Go ahead** below its reply: it sends "Yes, go
@@ -375,10 +375,12 @@ coding requests that still wait on it. Every share, revocation and change of a
 project file through a share is recorded in the activity log with the lead and the
 task.
 
-Shared folders and coding projects work in the lead's tasks for the member and in your
-own chats with the member, not in the member's routines. In a task, files change only
-when the task may change files (you asked for it, an autonomous lead started it, or a
-routine marked **May delegate writing tasks** did); otherwise the member reads only.
+Shared folders and coding projects work in the lead's tasks for the member, in your
+own chats with the member and, for standing shares, in the member's own routines (a
+task's share stays with its task). In a task, files change only when the task may
+change files (you asked for it, an autonomous lead started it, or a routine marked
+**May write** did); in a routine only when that routine is marked **May write**;
+otherwise the member reads only.
 Shell and SSH are never shared this way: a permanent member uses only its own.
 
 ### When a lead uses its team
@@ -401,7 +403,7 @@ for the chosen level:
   "self-initiated". Its tasks stay read-only when your message says not to change
   anything, when you named the member without asking for the task as described above,
   and in forwarded, scheduled or follow-up turns, including tasks a routine delegates
-  unless you marked it **May delegate writing tasks**. Shell, SSH, project folders, GitHub and grants beyond the default keep
+  unless you marked it **May write**. Shell, SSH, project folders, GitHub and grants beyond the default keep
   their approvals, and a team the lead proposes on its own still waits for you unless
   you asked for one or allowed teams without asking. A lead starts at most 4 questions
   or tasks on its own per turn and 20 per hour; requests you asked for by name do not
@@ -433,10 +435,16 @@ or proposing a team sends an **Agent approval** push notification as well.
 - **Routines** save a task prompt that runs daily or on an event (an owner request or
   a linked coding run that completed); **Run once** starts one now. A routine uses
   the agent's own tools and approvals (memory, its workspace files, web, browser,
-  shell and MCP servers, as far as they are switched on) but cannot schedule. A lead's
-  routine can ask its members and delegate tasks to permanent ones; such a task runs
-  read-only unless you switch on **May delegate writing tasks** in the routine's
-  details (only you can; the agent cannot), and **Work → Teams → Questions and tasks**
+  shell and MCP servers, as far as they are switched on) but cannot schedule. It reads
+  the agent's project folders (its own and those its lead shares with it for good)
+  and changes files there only when you switch on **May write** ("Project folders and
+  delegated tasks") in the routine's details; only you can, the agent cannot.
+  Otherwise a write attempt is refused and the routine's result says so. Every change
+  is recorded in the activity log with the routine. A coding request from a routine
+  always waits for your approval in the agent's chat, also when the agent may start
+  pipelines without one; a routine cannot cancel coding runs. A lead's routine can ask
+  its members and delegate tasks to permanent ones; such a task runs read-only unless
+  the routine is marked **May write**, and **Work → Teams → Questions and tasks**
   marks the request "Scheduled · <name>". A marked routine's tasks count as your
   standing instruction and may change files like a task you asked for. Its whole result appears in the agent's chat marked
   "Scheduled · <name>" (and, with Telegram switched on, in the paired chat as several
