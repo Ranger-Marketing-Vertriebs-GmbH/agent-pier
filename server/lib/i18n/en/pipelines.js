@@ -102,6 +102,8 @@ export const pipelines = Object.freeze({
   stageWorkspaceUnsafe: "The stage workspace could not be prepared safely.",
   stageLaunchFailed:
     "The stage could not be launched. Check its account and native session.",
+  portRangeExhausted:
+    "No free port block for the stage. Finish running stages or widen the pipeline port range.",
   usageLimitReached: "Native provider usage limit reached.",
   nativeTurnFailed:
     "The native stage turn ended unsuccessfully. Inspect its terminal output.",

@@ -42,8 +42,9 @@ import {
 } from "./graph-navigation.js";
 
 export async function launchStage(engine, run, node, options = {}) {
+  const lease = {};
   try {
-    return await prepareStage(engine, run, node, options);
+    return await prepareStage(engine, run, node, options, lease);
   } catch (error) {
     engine.recordError(error);
     park(
@@ -55,6 +56,9 @@ export async function launchStage(engine, run, node, options = {}) {
         ? error.message
         : serverMessages.pipelines.stageWorkspaceUnsafe,
     );
+  } finally {
+    // By now the run store holds the block in the active turn, or the launch failed.
+    if (lease.turnId) engine.ports.settle(lease.turnId);
   }
 }
 async function prepareStage(
@@ -62,6 +66,7 @@ async function prepareStage(
   run,
   node,
   { kind = "kickoff", feedback = "", resumeNativeId, repair } = {},
+  lease = {},
 ) {
   run.pendingTurn = {
     nodeId: node.id,
@@ -100,10 +105,16 @@ async function prepareStage(
   const workspaceState = engine.workspace.inspect
     ? await engine.workspace.inspect(run.workspace)
     : null;
+  // A stage keeps its block across turns while it stays free, so a URL it reported holds.
+  lease.turnId = identity.turnId;
+  const ports = await engine.ports.lease({
+    turnId: identity.turnId,
+    prefer: run.executionLog.findLast((a) => a.nodeId === node.id && a.ports)?.ports.base,
+  });
   const prompt =
     kind === RESUMED_REPAIR
-      ? resumedRepairPrompt(run, node, feedback, verdictPath, reportDir)
-      : stagePrompt(run, node, feedback, verdictPath, reportDir);
+      ? resumedRepairPrompt(run, node, feedback, verdictPath, reportDir, ports)
+      : stagePrompt(run, node, feedback, verdictPath, reportDir, ports);
   const attempt = {
     id: identity.turnId,
     ...identity,
@@ -112,6 +123,7 @@ async function prepareStage(
     sessionKey: sessionKey(node.profileSnapshot),
     verdictPath,
     reportDir,
+    ports,
     startedAt: now,
     status: "launching",
     baseSha: workspaceState?.headSha || run.workspace.baseSha,
@@ -133,7 +145,7 @@ async function prepareStage(
   run.currentNodeId = node.id;
   run.currentAttemptId = attempt.id;
   run.executionLog.push(attempt);
-  run.activeTurn = { ...identity, kind, startedAt: now };
+  run.activeTurn = { ...identity, kind, startedAt: now, ports };
   run.activityAt = now;
   run.usageResumeAt = null;
   engine.store.save(run);
@@ -144,6 +156,7 @@ async function prepareStage(
       cwd: run.workingDir,
       prompt,
       verdictPath,
+      ports,
       kind,
       ...(resumeNativeId ? { resumeNativeId } : {}),
     });
@@ -159,6 +172,8 @@ async function prepareStage(
     engine.store.save(run);
   } catch (error) {
     await engine.driver.cancel(identity).catch(() => {});
+    // The failed turn gives its block back; a fresh fallback turn may take it again.
+    engine.ports.settle(identity.turnId);
     if (kind === RESUMED_REPAIR) {
       engine.recordError(error);
       await resumeFallback(engine, run, node, attempt, "resume-failed", error.message);

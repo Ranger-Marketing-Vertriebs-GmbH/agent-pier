@@ -115,6 +115,7 @@ export function profileCommand({
   headless,
   prompt,
   useLaunchPermissions = false,
+  turnEnv,
 }) {
   const tool = profile.config.cliTool,
     mode = profile.config.permissions.mode;
@@ -134,6 +135,7 @@ export function profileCommand({
           resumeNativeId,
           headless,
           mode,
+          turnEnv,
           ...(!headless && tool === "claude" && mode === "default"
             ? { claudeDefault: claudeDefaultMode(launch.command) }
             : {}),

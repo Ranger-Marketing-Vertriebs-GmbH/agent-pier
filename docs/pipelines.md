@@ -63,6 +63,20 @@ The exact plan is frozen for each gate attempt when used; edits can affect a lat
 
 Artifact reads are bounded and confined to the run's worktree and declared evidence. Within `.pipeline/`, only declared files inside a report directory of the stage's own attempts can be read; verdicts and other turn files stay private. Credential directories, dotenv files (`.env` and `.env.*` at any depth), PEM/key files, traversal and symlink escapes are rejected. Private filename checks ignore case. Checkpoints also exclude these private files when they were already staged; removing them from the index preserves their working-tree contents. Every accepted or overridden completed stage records a Git checkpoint. A diff identifies that recorded boundary; later repair attempts do not erase previous attempt records.
 
+## Ports and browser sessions
+
+Stages of parallel runs work on the same machine at the same time, so every native turn gets its own resources instead of the ports a repository's docs name. Its CLI process receives:
+
+- `AGENTPIER_RUN_ID` and `AGENTPIER_STAGE_ID`: the run and the stage of the turn.
+- `AGENTPIER_PORT` and `AGENTPIER_PORT_COUNT`: a block of consecutive ports leased to this turn, from `AGENTPIER_PORT` through `AGENTPIER_PORT + AGENTPIER_PORT_COUNT - 1` (currently three ports, for example `20110`–`20112`).
+- `AGENTPIER_BROWSER_SESSION`: a browser session name for this run and stage, `agentpier-<run>-<stage>`, for tools with named sessions such as `agent-browser --session`.
+
+The stage prompt states the same ports and session name and tells the agent to start every dev, preview, API or test server on them, and to stop its servers and browsers before it writes the verdict. The built-in **App Tester** profile uses the variables. Built-in profiles are created only for a new installation, so an existing installation keeps its earlier app tester text; add the port and session instructions to its role text yourself if needed.
+
+A block is leased per active turn. Blocks start every ten ports in the range `20100`–`20999` by default, which stays clear of AgentPier's own port, the Vite dev server and the ephemeral ports of Linux and macOS. A different range can be set in the data directory's `config.json`: `"pipelines": { "portRangeStart": 30000, "portRangeEnd": 30999 }` (both between 1024 and 65535, at least ten ports; an invalid range keeps the default). The lease is stored with the run's active turn: it is released when the turn ends, fails, times out or is cancelled, a turn recovered after a restart keeps its block, and no block is leased twice. A stage takes its previous block again while that block is free. When leasing, AgentPier skips blocks with a port that is already in use on the host; a program that binds such a port later is not detected. When the range has no free block, the stage stops with a launch error that can be retried. AgentPier itself reads `AGENTPIER_PORT` as its listening port, so a stage that starts AgentPier from its worktree listens on the leased port.
+
+Dev servers a stage starts in the foreground or as background jobs of its shell belong to the turn's owned process group and stop with it when the turn ends, is stopped or the run is cancelled (see below). A process that detaches into its own process group or session (for example with `setsid`, a daemon mode or a service manager) is outside that guarantee and keeps its port until it exits; the next lease then skips that block. Browser tools that keep a background daemon per session may detach this way, which is why the prompt asks the agent to close its browser session itself.
+
 ## Restart, cancellation and cleanup
 
 Run state, attempt identity and native session identity are durable. A web-only restart reconciles the existing turn instead of launching another copy. Interrupted or ambiguous side effects become an actionable state; they are not silently reported as completed.

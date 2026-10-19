@@ -12,6 +12,7 @@ import {
   validateProfileLaunch,
 } from "./native-profile.js";
 import { renderProfilePrompt } from "./profile-validation.js";
+import { turnEnvironment } from "./run-ports.js";
 
 export class NativePipelineDriver {
   constructor({ dataDir, accounts, sessions, lifecycle, chat }) {
@@ -63,6 +64,7 @@ export class NativePipelineDriver {
             resumeNativeId,
             headless: true,
             prompt: text,
+            turnEnv: turnEnvironment(input),
           }),
       },
     );
