@@ -231,3 +231,28 @@ export function conversationFeeds(service, options = {}) {
     ...options,
   });
 }
+
+// The last reconciled state of each conversation, per service.
+const reconciled = new WeakMap();
+/**
+ * The conversations whose history (`reads`, read during the pass) or ledger turns
+ * changed since the previous reconciliation pass.
+ */
+export function reconciledChanges(service, reads) {
+  if (!reconciled.has(service)) reconciled.set(service, new Map());
+  const last = reconciled.get(service);
+  const changed = [];
+  for (const [id, history] of reads) {
+    const digest = createHash("sha256")
+      .update(
+        JSON.stringify([
+          history,
+          service.ledger.requests(id).map((r) => service.ledger.attemptFor(r.id)),
+        ]),
+      )
+      .digest("hex");
+    if (last.get(id) !== digest) changed.push(id);
+    last.set(id, digest);
+  }
+  return changed;
+}

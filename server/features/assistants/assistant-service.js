@@ -25,7 +25,7 @@ import { followLead } from "./member-follow.js";
 import { assistantActivity } from "./assistant-activity.js";
 import { temporaryMember } from "./team-presentation.js";
 import { ChatStreams } from "./chat-stream.js";
-import { conversationFeeds } from "./conversation-feeds.js";
+import { conversationFeeds, reconciledChanges } from "./conversation-feeds.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { mainConversation } from "./routine-targets.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
@@ -508,6 +508,7 @@ export class AssistantService {
       return Promise.resolve();
     this.reconciling = (async () => {
       let stale = false;
+      const reads = new Map();
       for (const c of this.store.listConversations()) {
         // One unavailable session must not stall run reconciliation for the rest.
         if (this.closed) break;
@@ -526,12 +527,16 @@ export class AssistantService {
           continue;
         }
         const history = await this.history(c.id);
+        reads.set(c.id, history);
         stale ||= history.stale;
       }
       await reconcileRuns(this);
       if (!this.closed) {
         this.runtime.setState({ sync: stale ? "stale" : "current" });
-        this.changed();
+        // The poll reconciles every 2 s during a turn: only the chats whose history
+        // or turns changed read their feed again; the list hears of every pass.
+        for (const id of reconciledChanges(this, reads)) this.feeds.invalidate(id);
+        this.events.publish({ type: "change" });
       }
     })().finally(() => {
       this.reconciling = null;

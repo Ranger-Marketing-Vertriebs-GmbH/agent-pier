@@ -67,10 +67,14 @@ function streamingService(t) {
   });
   service.reconcile = async () => {};
   t.after(() => service.close());
+  // The reply so far reaches the conversation's live feed, never the event stream.
   const published = [];
-  service.events.subscribe((e) => {
-    if (e.type === "delta") published.push([e.conversationId, e.runId, e.text]);
-  });
+  const stream = service.feeds.stream.bind(service.feeds);
+  service.feeds.stream = (id, runId, text) => {
+    published.push([id, runId, text]);
+    return stream(id, runId, text);
+  };
+  service.events.subscribe((e) => assert.notEqual(e.type, "delta"));
   const emit = (frame) => runtime.client.emit("event", frame);
   return { service, runtime, news: news.id, other: other.id, published, emit };
 }

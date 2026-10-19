@@ -54,7 +54,9 @@ its baselines, active and parked.
 Agent chats use the same `ChatSync` encoding on their own instance, scoped by
 conversation, runtime session key and Gateway launch, over
 `/api/assistant-conversations/:id/stream?cursor=...` and
-`GET /api/assistant-conversations/:id/messages?cursor=...`. See
+`GET /api/assistant-conversations/:id/messages?cursor=...`. The chat reconnects
+when the page becomes visible or the device comes back online, and resumes from the
+cursor of its last window, also after reopening the chat. See
 [Live agent chat feed](assistant-gateway.md#live-agent-chat-feed).
 
 ### Chat session cache in the browser

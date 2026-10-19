@@ -64,20 +64,12 @@ export function bindChatEvents(service) {
     // Any frame of the turn's run proves a send whose acknowledgement was lost.
     confirmFromEvent(service, conversation, payload);
     // Only a run's first frame carries the whole reply; later ones carry what was
-    // appended. The browser always receives the reply so far.
+    // appended. The chat's live feed always holds the reply so far.
     const text =
       event.event === "chat" && payload.state === "delta"
         ? service.chatStreams.delta(payload)
         : undefined;
     if (text !== undefined) service.feeds?.stream(conversation.id, payload.runId, text);
-    // The SSE delta stays until every chat reads the live feed.
-    if (text !== undefined)
-      service.events.publish({
-        type: "delta",
-        conversationId: conversation.id,
-        runId: payload.runId,
-        text,
-      });
     if (event.event === "chat" && ["final", "aborted", "error"].includes(payload.state)) {
       service.chatStreams.end(payload.runId);
       service.feeds?.endRun(conversation.id, payload.runId);
