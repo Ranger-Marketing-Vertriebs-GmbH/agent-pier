@@ -24,6 +24,7 @@ import React, {
   useState,
 } from "react";
 import AssistantComposer from "./AssistantComposer.jsx";
+import GoAheadButton from "./GoAheadButton.jsx";
 import useAgentAttachments from "./useAgentAttachments.js";
 import useFileDrop from "../../components/useFileDrop.js";
 import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-attachments.js";
@@ -500,6 +501,14 @@ export default function AssistantChat({
               </div>
             )}
           </div>
+          <GoAheadButton
+            latest={latest}
+            available={available && !history.queued}
+            busy={busy}
+            onSend={(message) =>
+              deliver({ clientRequestId: crypto.randomUUID(), text: message }, [])
+            }
+          />
           {!member && <PendingTeams assistant={assistant} navigate={navigate} />}
           <AssistantActionApprovals {...ownActions} assistantId={assistant.id} />
         </div>

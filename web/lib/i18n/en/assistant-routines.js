@@ -45,4 +45,8 @@ export const routineCopy = {
     name ? `Reminder “${name}” could not run.` : "A reminder could not run.",
   alsoTelegram: "Also send to Telegram",
   telegramOn: "Also sent to Telegram",
+  delegateWrites: "May delegate writing tasks",
+  delegateWritesHint:
+    "Tasks this routine delegates to permanent team members may change files, as if you had asked for them yourself. Otherwise they run read-only. Only you can change this.",
+  delegateWritesOn: "Delegates writing tasks",
 };

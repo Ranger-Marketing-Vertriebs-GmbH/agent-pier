@@ -203,3 +203,12 @@
 .mcp-empty .accounts-note {
   margin: 0;
 }
+
+/* Members using a server through their lead agent (McpSharedAgents.jsx). */
+.mcp-shared-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}

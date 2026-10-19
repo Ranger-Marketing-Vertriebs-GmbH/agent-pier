@@ -1,0 +1,5 @@
+/* Shares of a lead agent in a list row: the revoke button keeps its size. */
+.lead-share-row > .button,
+.mcp-shared-row > .button {
+  flex: none;
+}

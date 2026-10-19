@@ -19,6 +19,7 @@ export const memberGrantCopy = {
     someProjects: "Project folders",
     github: (level) => `GitHub (${level})`,
     someGithub: "GitHub",
+    coding: "Coding projects",
   },
   githubLevels: { read: "read", write: "read and write", none: "No access" },
   fields: {

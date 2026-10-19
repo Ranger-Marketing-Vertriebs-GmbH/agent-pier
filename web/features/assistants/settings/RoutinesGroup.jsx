@@ -31,7 +31,7 @@ const stateOf = (item) =>
  * Routines whose results go to the agent's chat with a push notification, and to a
  * `paired` Telegram chat where switched on; every action applies at once.
  */
-export default function RoutinesGroup({ assistantId, paired = false }) {
+export default function RoutinesGroup({ assistantId, paired = false, lead = false }) {
   const id = useId();
   const [items, setItems] = useState([]),
     [busy, setBusy] = useState(false),
@@ -259,6 +259,9 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
                       {item.telegram && (
                         <span className="agent-sub-part">{copy.telegramOn}</span>
                       )}
+                      {lead && item.delegateWrites && (
+                        <span className="agent-sub-part">{copy.delegateWritesOn}</span>
+                      )}
                       {item.nextRunAtMs && (
                         <span className="agent-sub-part">
                           {copy.nextRun(formatTimestamp(item.nextRunAtMs))}
@@ -286,6 +289,22 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
                         act(() =>
                           routineApi.update(assistantId, item.id, {
                             telegram: next,
+                            revision: item.revision,
+                          }),
+                        )
+                      }
+                    />
+                  )}
+                  {lead && item.status === "ready" && (
+                    <ToggleRow
+                      label={copy.delegateWrites}
+                      sub={copy.delegateWritesHint}
+                      checked={item.delegateWrites === true}
+                      disabled={busy}
+                      onChange={(next) =>
+                        act(() =>
+                          routineApi.update(assistantId, item.id, {
+                            delegateWrites: next,
                             revision: item.revision,
                           }),
                         )

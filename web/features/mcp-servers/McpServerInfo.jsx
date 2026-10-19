@@ -2,6 +2,7 @@ import React from "react";
 import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
 import McpCliStatus from "./McpCliStatus.jsx";
 import McpServerDetails, { usersText } from "./McpServerDetails.jsx";
+import McpSharedAgents from "./McpSharedAgents.jsx";
 import { McpOAuthActions } from "./McpOAuthLogin.jsx";
 import McpOAuthStatus, { McpOAuthStatusHint, usesOAuth } from "./McpOAuthStatus.jsx";
 
@@ -24,6 +25,7 @@ export default function McpServerInfo({ server, agentsEnabled, oauth, reload }) 
       </div>
       <McpServerDetails server={server} />
       {server.users && <p className="mcp-hint">{usersText(server)}</p>}
+      {agentsEnabled && <McpSharedAgents server={server} onChanged={reload} />}
       <McpCliStatus server={server} onChanged={reload} />
       {agentLogin && <McpOAuthStatusHint server={server} />}
       {agentLogin && (
