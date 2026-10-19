@@ -6,7 +6,7 @@ import { readVerdict } from "./stage-verdict.js";
 import { relaunchOptions } from "./loop-session.js";
 import { recordReportDigests } from "./stage-reports.js";
 import { filterAnswers, recordResponses } from "./loop-rounds.js";
-import { adoptSpec, checkSpec, replaceSpec } from "./run-spec.js";
+import { adoptSpec, checkSpec, replaceSpec, specReplaceable } from "./run-spec.js";
 export function requireLiveRun(run) {
   if (run.imported?.historyOnly)
     throw problem(serverMessages.pipelines.importedHistoryReadOnly, 409);
@@ -42,7 +42,7 @@ export function availableActions(run) {
     actions.push(node.failReason ? "override" : "accept");
     if (node.nativeId) actions.push("feedback");
     // The owner may replace the run's spec at any gate; the gate keeps waiting.
-    if (run.spec) actions.push("replace-spec");
+    if (specReplaceable(run, node)) actions.push("replace-spec");
   }
   if (node.status === "failed") {
     if (node.failReason === "usage-limit-exceeded")
@@ -116,9 +116,9 @@ export async function gateAction(engine, run, { action, feedback, resumeAt, spec
     return;
   }
   if (action === "replace-spec") {
-    replaceSpec(run, spec, engine.now());
+    const entry = replaceSpec(run, node, spec, engine.now());
     engine.store.save(run);
-    return;
+    return { specRevision: entry };
   }
   if (action === "loop-back") {
     if (

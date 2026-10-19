@@ -44,6 +44,10 @@ test("criterion ids accept the spellings a model writes and nothing else", () =>
     ["R1-1", ""],
     ["AC1a", ""],
     ["", ""],
+    [3, "AC3"],
+    [0, ""],
+    [1.5, ""],
+    [null, ""],
   ])
     assert.equal(criterionId(value), id, value);
   fc.assert(
@@ -82,6 +86,85 @@ test("verdict criteria need an id, met or not-met and evidence; the last entry w
   ])
     assert.throws(() => verdict({ criteria }), { status: 400 });
   assert.equal("criteria" in verdict({}), false);
+});
+
+test("integer criterion ids count in verdict entries and on findings alike", () => {
+  const parsed = verdict({
+    findings: [{ title: "By number", criterion: 2 }],
+    criteria: [{ criterion: 2, status: "met", evidence: "e" }],
+  });
+  assert.equal(parsed.findings[0].criterion, "AC2");
+  assert.deepEqual(parsed.criteria, [{ criterion: "AC2", status: "met", evidence: "e" }]);
+});
+
+test("nested items and closing prose neither add nor shift criteria", () => {
+  const spec = parseSpec(
+    [
+      "## Acceptance Criteria (AC)",
+      "1. Login works",
+      "   1. with password",
+      "   2. with token",
+      "  3) with a passkey",
+      "2. Logout works. Verify: npm test",
+      "",
+      "All criteria run in CI.",
+      "",
+      "3. Later list after prose",
+    ].join("\n"),
+  );
+  assert.deepEqual(
+    spec.criteria.map((c) => [c.id, c.text, c.verify]),
+    [
+      [
+        "AC1",
+        "Login works\n1. with password\n2. with token\n3) with a passkey",
+        undefined,
+      ],
+      ["AC2", "Logout works.", "npm test"],
+      ["AC3", "Later list after prose", undefined],
+    ],
+  );
+});
+
+test("criteria follow the top-level items whatever is nested or appended", () => {
+  const text = fc.string({ minLength: 1, maxLength: 30 }).map(
+    (s) =>
+      s
+        .replace(/[\s#*+\-:]+/g, " ")
+        .replace(/\d/g, "x")
+        .trim() || "item",
+  );
+  const item = fc.record({
+    text,
+    nested: fc.array(fc.tuple(fc.integer({ min: 2, max: 6 }), text), { maxLength: 3 }),
+    paragraph: fc.boolean(),
+  });
+  fc.assert(
+    fc.property(
+      fc.array(item, { minLength: 1, maxLength: 8 }),
+      fc.boolean(),
+      (items, prose) => {
+        const lines = ["## Acceptance criteria"];
+        items.forEach((entry, index) => {
+          lines.push(`${index + 1}. ${entry.text}`);
+          for (const [indent, sub] of entry.nested)
+            lines.push(`${" ".repeat(indent)}1. ${sub}`);
+          if (entry.paragraph) lines.push("", `   ${entry.text}`, "");
+        });
+        if (prose) lines.push("", "Closing prose that belongs to no criterion.");
+        const criteria = parseSpec(lines.join("\n")).criteria;
+        return (
+          criteria.length === items.length &&
+          criteria.every(
+            (c, index) =>
+              c.id === `AC${index + 1}` &&
+              c.text.split("\n")[0] === items[index].text &&
+              !c.text.includes("Closing prose"),
+          )
+        );
+      },
+    ),
+  );
 });
 
 test("a spec's numbered criteria and flagged assumptions are read from their sections", () => {
@@ -140,9 +223,21 @@ const run = (frozen) => ({
 });
 const node = (id, phaseKey) => ({ id, profileSnapshot: { phaseKey } });
 
-test("later stages get the spec by path; the stage still writing it does not", () => {
+test("later stages get the spec by path; the stage still writing it gets its draft", () => {
   assert.deepEqual(specContext({}, node("build", "implementation")), []);
-  assert.deepEqual(specContext(run(false), node("spec", "planning")), []);
+  const [draft] = specContext(run(false), node("spec", "planning"));
+  assert.match(
+    draft,
+    /^Your current draft spec is \.pipeline\/reports\/spec\/a\/spec\.md\. If/,
+  );
+  assert.match(draft, /declare it with "role":"spec"/);
+  // After the owner's replacement the stage is told to start from that text.
+  const owned = run(false);
+  Object.assign(owned.spec, { source: "owner", path: ".pipeline/spec/owner-2/spec.md" });
+  assert.match(
+    specContext(owned, node("spec", "planning"))[0],
+    /draft spec is \.pipeline\/spec\/owner-2\/spec\.md; the owner replaced your earlier draft/,
+  );
   const [intro, label, criteria, report] = specContext(
     run(true),
     node("build", "implementation"),
@@ -154,8 +249,15 @@ test("later stages get the spec by path; the stage still writing it does not", (
     { id: "AC2", criterion: "Two" },
   ]);
   assert.match(report, /report every acceptance criterion/);
-  // A rerun of the spec stage after the freeze reads the frozen spec too.
-  assert.equal(specContext(run(true), node("spec", "planning")).length, 4);
+  assert.doesNotMatch(intro, /A spec you declare now is ignored/);
+  // A rerun of the spec stage after the freeze reads the frozen spec and learns that a
+  // new declaration does not change it.
+  const rerun = specContext(run(true), node("spec", "planning"));
+  assert.equal(rerun.length, 4);
+  assert.match(
+    rerun[0],
+    /A spec you declare now is ignored; only the owner can replace it/,
+  );
   assert.match(
     specContext(run(true), node("review", "review"))[3],
     /each acceptance criterion you implemented or checked/,

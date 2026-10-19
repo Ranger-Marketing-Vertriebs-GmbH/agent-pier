@@ -66,6 +66,16 @@ export function pipelineRunRoutes({ pipelines }) {
   router.get("/pipeline-runs/:id/verdict-status", (req, res) =>
     res.json(pipelines.verdictStatus(req.params.id)),
   );
+  router.get("/pipeline-runs/:id/spec/revisions/:n", (req, res) => {
+    if (!/^[1-9]\d{0,5}$/.test(req.params.n))
+      throw problem(serverMessages.pipelines.specRevisionNotFound, 404);
+    const result = pipelines.specRevision(req.params.id, Number(req.params.n));
+    res.json({
+      content: result.text,
+      truncated: result.truncated,
+      ...(result.changed ? { changed: true } : {}),
+    });
+  });
   const node = "/pipeline-runs/:id/nodes/:nodeId";
   router.get(`${node}/artifacts`, (req, res) =>
     res.json(pipelines.artifacts(req.params.id, req.params.nodeId)),

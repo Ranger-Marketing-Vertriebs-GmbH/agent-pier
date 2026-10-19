@@ -218,7 +218,7 @@ export async function applyOutcome(engine, run, outcome) {
   attempt.finishedAt = outcome.finishedAt || engine.now();
   attempt.status = "finished";
   attempt.quiesced = outcome.quiesced === true;
-  holdSpec(run, attempt.finishedAt, attempt);
+  holdSpec(run, attempt.finishedAt, { attempt });
   if (outcome.nativeId) node.nativeId = outcome.nativeId;
   if (outcome.usage && !attempt.usage) {
     attempt.usage = outcome.usage;
@@ -286,6 +286,8 @@ export async function applyOutcome(engine, run, outcome) {
     filterAnswers(run, node, attempt, readVerdict(run, attempt)),
   );
   if (!found.present) {
+    // A rejected spec leaves the owner a way to supply one at the stage's gate.
+    if (found.specError) node.specRejected = true;
     node.verdictContinuations = (node.verdictContinuations || 0) + 1;
     if (node.verdictContinuations <= 2) {
       await launchStage(engine, run, node, {

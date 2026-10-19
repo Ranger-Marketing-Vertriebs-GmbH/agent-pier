@@ -210,6 +210,12 @@ export async function pipelinesFixture(page) {
         result = { diff: "+new line\n-old line", truncated: true };
       else if (path.includes("/verify-logs/"))
         result = { log: "Fixture verification log", truncated: false };
+      else if (path.includes("/spec/revisions/"))
+        result = {
+          content: `Revision ${path.split("/").at(-1)} text`,
+          truncated: false,
+          ...(path.endsWith("/1") ? { changed: true } : {}),
+        };
       else if (path.endsWith("/verdict-status"))
         result = { present: true, result: "pass" };
       else if (method === "DELETE") {

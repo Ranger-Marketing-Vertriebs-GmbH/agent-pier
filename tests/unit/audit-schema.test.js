@@ -57,6 +57,24 @@ test("pipeline override audits keep the stage, overridden reason and path only",
   );
 });
 
+test("a replaced run spec is audited with its stage, revision and hash only", () => {
+  const sha256 = "a".repeat(64);
+  const event = (details) =>
+    auditEvent({
+      action: "pipeline.updated",
+      resourceType: "pipeline",
+      resourceId: "run-1",
+      source: "user",
+      outcome: "success",
+      details,
+    }).details;
+  assert.deepEqual(
+    event({ kind: "spec", stageId: "spec", revision: 3, sha256, text: "never" }),
+    { kind: "spec", stageId: "spec", revision: 3, sha256 },
+  );
+  assert.deepEqual(event({ kind: "spec", sha256: "not-a-hash" }), { kind: "spec" });
+});
+
 test("assistant shell events keep levels, pending and the entry id only", () => {
   const event = (details) =>
     auditEvent({

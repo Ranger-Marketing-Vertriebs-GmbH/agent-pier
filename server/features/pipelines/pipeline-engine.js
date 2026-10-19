@@ -16,6 +16,7 @@ import {
 import { reconcileRun } from "./pipeline-recovery.js";
 import { provisionRun } from "./execution-workspace.js";
 import { readVerdict } from "./stage-verdict.js";
+import { specRevision } from "./run-spec.js";
 import {
   artifactsForNode,
   artifactText,
@@ -202,8 +203,8 @@ export class PipelineEngine {
     return this.get(id);
   }
   async gate(id, input) {
-    let overridden;
-    await this.lock(id, () => {
+    let overridden, replaced;
+    await this.lock(id, async () => {
       const run = this.store.get(id),
         node = activeNode(run);
       if (input?.action === "override" && node)
@@ -212,8 +213,25 @@ export class PipelineEngine {
           failReason: node.failReason,
           path: overridePath(node),
         };
-      return gateAction(this, run, input);
+      const result = await gateAction(this, run, input);
+      if (result?.specRevision)
+        replaced = {
+          kind: "spec",
+          stageId: node.id,
+          revision: result.specRevision.n,
+          sha256: result.specRevision.sha256,
+        };
     });
+    // A spec replacement is the owner's own contract text; record which revision.
+    if (replaced)
+      this.audit?.append({
+        action: "pipeline.updated",
+        resourceType: "pipeline",
+        resourceId: id,
+        source: "user",
+        outcome: "success",
+        details: replaced,
+      });
     // An override accepts a result the stage itself did not deliver; keep a trace.
     if (overridden)
       this.audit?.append({
@@ -303,6 +321,11 @@ export class PipelineEngine {
       verdict: undefined,
       ...(found.verdict ? { result: found.verdict.result } : {}),
     };
+  }
+  specRevision(id, n) {
+    const run = this.store.get(id);
+    requireLiveRun(run);
+    return specRevision(run, n);
   }
   artifacts(id, nodeId) {
     return artifactsForNode(this.store.get(id), nodeId);

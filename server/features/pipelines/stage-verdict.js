@@ -78,7 +78,7 @@ export function parseVerdict(text) {
       (s) => typeof s === "string" && s.trim(),
     );
     if (!title) throw problem(serverMessages.pipelines.verdictFindingTitle);
-    const criterion = typeof f.criterion === "string" ? criterionId(f.criterion) : "";
+    const criterion = criterionId(f.criterion);
     return {
       title: title.slice(0, 2000),
       severity: ["low", "medium", "high"].includes(f.severity) ? f.severity : "medium",
@@ -127,9 +127,11 @@ export function parseVerdict(text) {
   };
 }
 const artifactRoles = new Set(["spec"]);
-// Acceptance criteria ids as the spec numbers them (AC1); "ac-1", "#AC 1" and a bare
-// number are the same criterion. Anything else is no criterion.
+// Acceptance criteria ids as the spec numbers them (AC1); "ac-1", "#AC 1", a bare
+// number and the integer 1 are the same criterion. Anything else is no criterion.
 export function criterionId(value) {
+  if (Number.isInteger(value)) value = String(value);
+  if (typeof value !== "string") return "";
   const match = /^#?\s*(?:ac)?[\s\-\u2010-\u2015\u2212]*0*([1-9]\d{0,2})$/i.exec(
     value.trim(),
   );
@@ -148,8 +150,7 @@ function parseCriteria(value) {
   if (!Array.isArray(value)) throw problem(serverMessages.pipelines.verdictCriteriaArray);
   const entries = new Map();
   for (const entry of value.slice(0, 200)) {
-    const criterion =
-      typeof entry?.criterion === "string" ? criterionId(entry.criterion) : "";
+    const criterion = criterionId(entry?.criterion);
     if (!criterion) throw problem(serverMessages.pipelines.verdictCriterionId);
     const status =
       typeof entry.status === "string"

@@ -73,7 +73,8 @@
   color: var(--text-meta);
   white-space: pre-wrap;
 }
-.run-spec-assumptions > summary {
+.run-spec-assumptions > summary,
+.run-spec-history > summary {
   cursor: pointer;
   color: var(--accent-text);
 }
@@ -106,4 +107,14 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: var(--font-size-sm);
+}
+.run-spec-history > summary {
+  font-size: var(--font-size-sm);
+}
+.run-spec-items > li > .button {
+  margin-left: auto;
+}
+.run-spec-text code {
+  font-size: var(--font-size-xs);
+  color: var(--text-meta);
 }
