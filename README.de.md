@@ -23,8 +23,9 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   [Nachrichten auf dem Handy](docs/mobile-delivery.md),
   [Diktat](docs/assistant-gateway.md#live-dictation-in-the-chats)).
 - **Eingang:** alle Fragen und Freigaben der CLIs, Pipeline-Gates und Anfragen deiner
-  Agenten, die auf dich warten, mit Live-Zähler an einer Stelle beantwortet
-  ([Eingang](docs/inbox.md)).
+  Agenten, die auf dich warten, mit Live-Zähler an einer Stelle beantwortet;
+  Claude-Code-Freigaben bieten „Dauerhaft erlauben“ pro Account und zeigen Pläne vor
+  der Freigabe ([Eingang](docs/inbox.md#claude-code-approvals-and-plans)).
 - **Pipelines mit Review:** wiederverwendbare Profile, isolierte Git-Worktrees,
   begrenzte Review-Schleifen, Prüfungen und menschliche Freigabe
   ([Pipelines](docs/pipelines.md)).
