@@ -1,4 +1,5 @@
 import { qualifyAssistantChannels } from "../helpers/assistant-channel-contract.js";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
@@ -15,7 +16,7 @@ const dataDir = process.env.AGENTPIER_ASSISTANT_CONTRACT_DIR;
 // macOS run already took 89 s, and the same runner type is often 30 % slower.
 test(
   "pinned Gateway applies profiles and streams a real model tool loop",
-  { skip: !dataDir, timeout: 300000 },
+  { skip: !dataDir, timeout: contractTimeout(300000) },
   async (t) => {
     assert.ok(
       path.isAbsolute(dataDir) &&

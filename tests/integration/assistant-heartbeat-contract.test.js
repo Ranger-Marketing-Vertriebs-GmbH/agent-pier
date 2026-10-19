@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -25,7 +26,7 @@ const isCheckIn = (request) =>
 
 test(
   "pinned native check-ins run in the agent's conversation and reach only the paired chat",
-  { skip: !installed, timeout: 300000 },
+  { skip: !installed, timeout: contractTimeout(300000) },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
     let runtime, reminders, model;

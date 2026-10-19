@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { telegramSendersGateway } from "../helpers/assistant-telegram-senders-gateway.js";
@@ -11,7 +12,7 @@ import { telegramSendersGateway } from "../helpers/assistant-telegram-senders-ga
 const installed = process.env.AGENTPIER_TELEGRAM_SENDERS_CONTRACT_RUNTIME;
 const options = {
   skip: !installed && "set AGENTPIER_TELEGRAM_SENDERS_CONTRACT_RUNTIME",
-  timeout: 600000,
+  timeout: contractTimeout(600000),
 };
 const token1 = "7101:fixture-token-live-abcdefghijklmnopqrstuvwxyz";
 const bots = { [token1]: { id: 7101, username: "live_fixture_bot" } };

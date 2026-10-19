@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -25,7 +26,10 @@ const png = Buffer.from(
 
 test(
   "pinned Gateway accepts chat attachments and shows images to models with image input",
-  { skip: !installed && "set AGENTPIER_ASSISTANT_PROVIDER_RUNTIME", timeout: 240000 },
+  {
+    skip: !installed && "set AGENTPIER_ASSISTANT_PROVIDER_RUNTIME",
+    timeout: contractTimeout(240000),
+  },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-attachments-"));

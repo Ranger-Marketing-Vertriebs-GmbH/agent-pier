@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -15,7 +16,7 @@ import { e2eGraph, turnOf } from "../helpers/assistant-e2e-graph.js";
 const installed = process.env.AGENTPIER_E2E_CONTRACT_RUNTIME;
 const options = {
   skip: !installed && "set AGENTPIER_E2E_CONTRACT_RUNTIME",
-  timeout: 300000,
+  timeout: contractTimeout(300000),
 };
 
 test(

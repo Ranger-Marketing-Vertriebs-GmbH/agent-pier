@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -30,18 +31,17 @@ import {
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { approve, oauthMcpServer } from "../helpers/mcp-oauth-test-server.js";
 
-// The installation provisioned by scripts/provision-assistant-contracts.mjs. Unlike
-// assistant-mcp-oauth-contract.test.js, which runs the OpenClaw CLI by hand to
-// qualify OpenClaw, this contract drives AgentPier's own path: the server store, the
-// start compile and McpChanges' live patches, McpOAuthLogins with its CLI wrapper on
-// the Gateway's private state, and the HTTP routes including the OAuth callback.
+// Uses scripts/provision-assistant-contracts.mjs. Unlike the hand-run OpenClaw CLI of
+// assistant-mcp-oauth-contract.test.js, this drives AgentPier's own path: the server
+// store, start compile, McpChanges' live patches, McpOAuthLogins with its CLI wrapper
+// on the Gateway's private state, and the HTTP routes including the OAuth callback.
 const installed = process.env.AGENTPIER_MCP_CONTRACT_RUNTIME;
 const contractDir = process.env.AGENTPIER_ASSISTANT_CONTRACT_DIR;
 const options = {
   skip:
     !(installed && contractDir) &&
     "set AGENTPIER_MCP_CONTRACT_RUNTIME and AGENTPIER_ASSISTANT_CONTRACT_DIR",
-  timeout: 400000,
+  timeout: contractTimeout(400000),
 };
 
 const fixture = { connectionId: "fixture", modelId: "fixture-model" };

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -27,7 +28,7 @@ const reasons = ["missing-auth", "auth-failed", "cooldown"];
 
 test(
   "the pinned Gateway answers the ChatGPT model list read in the shape AgentPier parses",
-  { skip: !installed, timeout: 240000 },
+  { skip: !installed, timeout: contractTimeout(240000) },
   async (t) => {
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-models-contract-"));
     const nodePath = path.join(installed, "node/bin/node");
@@ -98,7 +99,7 @@ test(
     execFileSync(nodePath, ["--input-type=module", "-e", code], {
       env: runtimeEnvironment(runtime.paths, nodePath),
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: 30000,
+      timeout: contractTimeout(30000),
     });
     await runtime.start();
     const client = runtime.client;

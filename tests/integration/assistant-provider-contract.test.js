@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -18,7 +19,7 @@ test(
   "pinned Gateway streams central endpoint tool loops with exact authentication",
   {
     skip: !installed,
-    timeout: 240000,
+    timeout: contractTimeout(240000),
   },
   async (t) => {
     assert.ok(path.isAbsolute(installed));

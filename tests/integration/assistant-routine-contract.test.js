@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import http from "node:http";
@@ -33,7 +34,7 @@ const toolResults = (request) =>
 
 test(
   "pinned native routines run with the agent's chat tools and land in its chat",
-  { skip: !installed, timeout: 300000 },
+  { skip: !installed, timeout: contractTimeout(300000) },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
     let runtime, reminders, model, bridge;

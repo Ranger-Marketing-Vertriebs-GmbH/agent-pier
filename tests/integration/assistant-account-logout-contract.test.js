@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -21,7 +22,7 @@ import { locateOpenClawExports } from "../helpers/openclaw-dist-exports.js";
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 test(
   "native account logout pauses scheduled work and preserves the explicit missing identity after restart",
-  { skip: !installed, timeout: 240000 },
+  { skip: !installed, timeout: contractTimeout(240000) },
   async (t) => {
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-logout-contract-"));
     const nodePath = path.join(installed, "node/bin/node");
@@ -88,7 +89,7 @@ test(
     execFileSync(nodePath, ["--input-type=module", "-e", code], {
       env: runtimeEnvironment(runtime.paths, nodePath),
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: 30000,
+      timeout: contractTimeout(30000),
     });
     await runtime.start();
     await accounts.list();

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -98,7 +99,7 @@ async function nativeFixture(t) {
 }
 test(
   "pinned native dreaming stays off, and once on would ingest AgentPier chats of agents without memory",
-  { skip: !installed, timeout: 300000 },
+  { skip: !installed, timeout: contractTimeout(300000) },
   async (t) => {
     const f = await nativeFixture(t);
     const withMemory = await f.create("Dreamer", { memory: true, reminders: false });

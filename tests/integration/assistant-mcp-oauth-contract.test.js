@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import fs from "node:fs";
@@ -33,7 +34,7 @@ const options = {
   skip:
     !(installed && contractDir) &&
     "set AGENTPIER_MCP_CONTRACT_RUNTIME and AGENTPIER_ASSISTANT_CONTRACT_DIR",
-  timeout: 300000,
+  timeout: contractTimeout(300000),
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -171,7 +172,7 @@ async function harness(t) {
       execFile(
         selected.nodePath,
         [selected.entryPath, ...args],
-        { env, cwd: runtime.paths.root, timeout: 90000 },
+        { env, cwd: runtime.paths.root, timeout: contractTimeout(90000) },
         (error, stdout, stderr) => {
           const run = {
             code: error ? (error.code ?? null) : 0,

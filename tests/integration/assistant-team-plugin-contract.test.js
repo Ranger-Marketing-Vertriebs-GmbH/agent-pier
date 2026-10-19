@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -42,7 +43,7 @@ test("plugin guard rejects a prepare response after native invocation retirement
 const packageRoot = process.env.AGENTPIER_TEAM_CONTRACT_RUNTIME;
 test(
   "pinned runtime executes the installed product plugin through the attempt-bound bridge",
-  { skip: !packageRoot, timeout: 330000 },
+  { skip: !packageRoot, timeout: contractTimeout(330000) },
   async (t) => {
     assert.ok(path.isAbsolute(packageRoot));
     const runtimeVersion = JSON.parse(

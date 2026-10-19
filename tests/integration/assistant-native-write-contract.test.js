@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -63,7 +64,7 @@ async function writingModel() {
 const packageRoot = process.env.AGENTPIER_TEAM_CONTRACT_RUNTIME;
 test(
   "pinned runtime blocks native writes to instructions and from forwarded turns",
-  { skip: !packageRoot, timeout: 180000 },
+  { skip: !packageRoot, timeout: contractTimeout(180000) },
   async (t) => {
     const runtimeVersion = JSON.parse(
       fs.readFileSync(

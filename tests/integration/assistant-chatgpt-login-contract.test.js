@@ -1,4 +1,5 @@
 import test from "node:test";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -20,7 +21,7 @@ const options = {
   skip:
     !(installed && contractDir) &&
     "set AGENTPIER_TEAM_CONTRACT_RUNTIME and AGENTPIER_ASSISTANT_CONTRACT_DIR",
-  timeout: 240000,
+  timeout: contractTimeout(240000),
 };
 
 test(
