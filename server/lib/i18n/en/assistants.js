@@ -219,6 +219,12 @@ export const assistants = {
   memberRequestAutonomousLimit:
     "The agent started the most questions and tasks of its own for now. Ask it by name for more.",
   memberRequestUnavailable: "This member has no chat yet and cannot answer.",
+  memberTemplate: (name) => `Template: ${name} (Agency agents)`,
+  memberTemplateWarned: "The scan found suspicious phrasing; review it before approving.",
+  templateNotFound: "This Agency agent is not in the catalog.",
+  templateBlocked: "The scan blocked this Agency agent.",
+  templateTooLarge: "This Agency agent is too long to use as a template.",
+  templateUnavailable: "Agency templates are not available right now.",
   memberRequestNoReply: (member) =>
     `${member} answered, but the agent's summary has no text. Check the chat.`,
   telegramSendersArchive:

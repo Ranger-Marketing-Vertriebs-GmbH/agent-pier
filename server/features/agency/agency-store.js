@@ -14,6 +14,31 @@ import {
   sourceUrl,
 } from "./source.js";
 const digest = (text) => createHash("sha256").update(text).digest("hex");
+/** One page of 20 catalog entries matching `query` (q, category, page). */
+export function searchCatalog(catalog, query = {}) {
+  const search = typeof query.q === "string" ? query.q.slice(0, 200).toLowerCase() : "";
+  const found = catalog.items.filter(
+    (item) =>
+      (!query.category || item.category === query.category) &&
+      `${item.name} ${item.category}`.includes(search),
+  );
+  const raw = Number(query.page || 1),
+    page =
+      Number.isSafeInteger(raw) && raw > 0
+        ? Math.min(raw, Math.max(1, Math.ceil(found.length / 20)))
+        : 1;
+  return {
+    sourceUrl,
+    revision: catalog.revision,
+    checkedAt: catalog.checkedAt,
+    stale: Boolean(catalog.stale),
+    categories: [...new Set(catalog.items.map((item) => item.category))].sort(),
+    total: found.length,
+    page,
+    hasMore: page * 20 < found.length,
+    items: found.slice((page - 1) * 20, page * 20),
+  };
+}
 export class AgencyStore {
   constructor({ accounts, sharedProfiles, fetchImpl = fetch }) {
     Object.assign(this, { accounts, sharedProfiles, fetchImpl });
@@ -90,27 +115,10 @@ export class AgencyStore {
     const records = readJSON(this.file, []).filter(
       (record) => record.tool === location.account.tool,
     );
-    const search = typeof query.q === "string" ? query.q.slice(0, 200).toLowerCase() : "";
-    const found = catalog.items.filter(
-      (item) =>
-        (!query.category || item.category === query.category) &&
-        `${item.name} ${item.category}`.includes(search),
-    );
-    const raw = Number(query.page || 1),
-      page =
-        Number.isSafeInteger(raw) && raw > 0
-          ? Math.min(raw, Math.max(1, Math.ceil(found.length / 20)))
-          : 1;
+    const result = searchCatalog(catalog, query);
     return {
-      sourceUrl,
-      revision: catalog.revision,
-      checkedAt: catalog.checkedAt,
-      stale: Boolean(catalog.stale),
-      categories: [...new Set(catalog.items.map((item) => item.category))].sort(),
-      total: found.length,
-      page,
-      hasMore: page * 20 < found.length,
-      items: found.slice((page - 1) * 20, page * 20).map((item) => ({
+      ...result,
+      items: result.items.map((item) => ({
         ...item,
         installed: records.some((record) => record.id === item.id),
       })),
@@ -125,6 +133,15 @@ export class AgencyStore {
   }
   async preview(id, input) {
     this.location(id);
+    const { raw: _raw, ...agent } = await this.entry(input);
+    return agent;
+  }
+  /**
+   * One catalog entry at the pinned revision `input.revision`, parsed: name,
+   * description and body only (upstream model and tool fields are never read),
+   * with its source URL and the repository's license. `raw` is the file as fetched.
+   */
+  async entry(input) {
     const catalog = await this.catalog();
     if (input?.revision !== catalog.revision)
       throw problem(serverMessages.agency.catalogChanged, 409);
@@ -137,6 +154,7 @@ export class AgencyStore {
     );
     return {
       ...parseAgent(text),
+      raw: text,
       id: item.id,
       category: item.category,
       revision: catalog.revision,

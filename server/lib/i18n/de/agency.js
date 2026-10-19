@@ -23,4 +23,9 @@ export const agency = Object.freeze({
   aliasesUnsupported:
     "Aliase in den Metadaten des Agency-Agents werden nicht unterstützt.",
   invalidIdentity: "Identität oder Beschreibung des Agency-Agents ist ungültig.",
+  templateInvalid: "Diese Agency-Vorlage ist ungültig.",
+  templateTooLarge: "Dieser Agency-Agent ist zu lang für eine Vorlage.",
+  templateBlocked:
+    "Die Prüfung hat diesen Agency-Agenten blockiert: Er enthält versteckte Zeichen oder Anweisungen zum Herunterladen und Ausführen.",
+  templateUnavailable: "Agency-Vorlagen sind nicht verfügbar.",
 });

@@ -46,12 +46,14 @@ export class AssistantStore {
     );
     migrateAssistants(this.db);
   }
-  createAssistant(input) {
+  // `origin`: what AgentPier itself records with a new profile (its Agency template).
+  createAssistant(input, origin = null) {
     const values = validateDefinition(input),
       id = randomUUID();
     const record = {
       id,
       ...values,
+      ...(origin?.template ? { template: origin.template } : {}),
       revision: 1,
       effectiveRevision: 0,
       runtimeAgentId: `ap-${id}`,
@@ -68,6 +70,8 @@ export class AssistantStore {
       id,
       name: assignment.name,
       instructions: memberInstructions(snapshot, assignment),
+      // Which Agency template it came from, kept with the profile (agency-templates.js).
+      ...(assignment.template ? { template: assignment.template } : {}),
       model: { ...snapshot.model },
       revision: 1,
       effectiveRevision: 0,

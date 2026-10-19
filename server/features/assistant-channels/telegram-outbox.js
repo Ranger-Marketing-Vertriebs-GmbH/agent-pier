@@ -85,6 +85,13 @@ export class TelegramOutbox {
             [
               `${n + 1}. ${m.name} · ${m.role}`,
               m.assignment,
+              // An Agency template, and whether its scan warned (team-templates.js).
+              ...(m.template
+                ? [
+                    msg.memberTemplate(m.template.name),
+                    ...(m.template.verdict === "warn" ? [msg.memberTemplateWarned] : []),
+                  ]
+                : []),
               grantLabels(m.grants, msg).length
                 ? msg.memberGrants.gets(grantLabels(m.grants, msg).join(", "))
                 : msg.memberGrants.getsNothing,

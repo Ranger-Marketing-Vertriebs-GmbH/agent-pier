@@ -25,6 +25,8 @@ const actions = new Set([
   "grant",
   "member_update",
   "promote",
+  // Agency agents as member templates (team-templates.js).
+  "templates",
   "reminder",
   "routine",
   "workspace",

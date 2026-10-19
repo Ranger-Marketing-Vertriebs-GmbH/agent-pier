@@ -5,6 +5,7 @@ import { revokeSessionMcp } from "../features/mcp/session-capability.js";
 import { SshIntegration } from "../features/ssh/ssh-integration.js";
 import { SshManagement } from "../features/ssh/ssh-management.js";
 import { AgencyStore } from "../features/agency/agency-store.js";
+import { AgencyTemplates } from "../features/agency/agency-templates.js";
 import { SharedCliProfiles } from "../features/cli-profiles/shared-profiles.js";
 import { ProviderConnections } from "../features/providers/provider-connections.js";
 import { ProviderAccess } from "../features/providers/provider-access.js";
@@ -170,6 +171,8 @@ export async function createServices(config) {
   const sharedProfiles = new SharedCliProfiles({ accounts });
   const extensions = new ExtensionsStore({ accounts, home: config.home, sharedProfiles });
   const agency = new AgencyStore({ accounts, sharedProfiles });
+  // Agency agents as templates for AgentPier agents and team members.
+  const agencyTemplates = new AgencyTemplates(agency);
   const installer = new ToolInstaller(config);
   // Leftovers of an interrupted install go first; then an AgentPier update that pins
   // a newer agent browser updates an installed one.
@@ -350,6 +353,7 @@ export async function createServices(config) {
     cliMcp,
     sharedProfiles,
     agency,
+    agencyTemplates,
     installer,
     plugins,
     agentbus,

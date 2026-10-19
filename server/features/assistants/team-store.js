@@ -258,7 +258,16 @@ export class TeamStore {
       ownerRequestQuote = undefined;
     if (!Array.isArray(members) || !members.length || members.length > 8)
       throw assistantProblem("invalid");
-    const memberKeys = ["name", "role", "assignment", "mcpServers", "grants"];
+    // `template` and its instructions come from TeamService (team-templates.js).
+    const memberKeys = [
+      "name",
+      "role",
+      "assignment",
+      "mcpServers",
+      "grants",
+      "template",
+      "templateInstructions",
+    ];
     const drafts = members.map((m) => {
       if (!m || Object.keys(m).some((k) => !memberKeys.includes(k)))
         throw assistantProblem("invalid");
@@ -270,6 +279,12 @@ export class TeamStore {
         // Server names and grants belong to the fingerprint: other ones are another
         // proposal.
         ...(servers.length ? { mcpServers: servers } : {}),
+        ...(m.template
+          ? {
+              template: m.template,
+              templateInstructions: textValue(m.templateInstructions, 48000),
+            }
+          : {}),
         ...(m.grants !== undefined ? { grants: grantInput(m.grants) } : {}),
       };
     });
@@ -327,7 +342,10 @@ export class TeamStore {
         ownerRequestedTeam &&
         quoted(ownerRequestQuote, request.text, context);
       // Shell or SSH for a member always waits for the owner's own decision.
-      const ownerMust = stored.some((m) => m.grants.shell || m.grants.ssh);
+      // So does a template the scan warned about (team-templates.js).
+      const ownerMust = stored.some(
+        (m) => m.grants.shell || m.grants.ssh || m.template?.verdict === "warn",
+      );
       const authorization = ownerMust
         ? null
         : ownerTurn && (context.teamAllowed || ownerRequest) && !consumed

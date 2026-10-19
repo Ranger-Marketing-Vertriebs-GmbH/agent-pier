@@ -233,6 +233,13 @@ export const assistants = {
     "Der Agent hat in kurzer Zeit zu viele Fragen oder Aufgaben geschickt. Warte einen Moment.",
   memberRequestAutonomousLimit:
     "Der Agent hat vorerst die meisten Fragen und Aufgaben aus eigenem Antrieb gestellt. Bitte ihn ausdrücklich darum, wenn er mehr tun soll.",
+  memberTemplate: (name) => `Vorlage: ${name} (Agency-Agenten)`,
+  memberTemplateWarned:
+    "Die Prüfung hat verdächtige Formulierungen gefunden; prüfe sie vor der Freigabe.",
+  templateNotFound: "Dieser Agency-Agent ist nicht im Katalog.",
+  templateBlocked: "Die Prüfung hat diesen Agency-Agenten blockiert.",
+  templateTooLarge: "Dieser Agency-Agent ist zu lang für eine Vorlage.",
+  templateUnavailable: "Agency-Vorlagen sind gerade nicht verfügbar.",
   memberRequestUnavailable:
     "Dieses Mitglied hat noch keinen Chat und kann nichts beantworten.",
   memberRequestNoReply: (member) =>

@@ -12,6 +12,7 @@ import { MemberGrants } from "./member-grant-requests.js";
 import { MemberEdits } from "./member-edits.js";
 import { MemberPromotions } from "./member-promotion.js";
 import { mirrorLeadMemory } from "./member-memory.js";
+import { resolveTemplates, searchTemplates } from "./team-templates.js";
 function exact(input, keys) {
   if (
     !input ||
@@ -28,7 +29,10 @@ const servers = (ids, describe) => {
   const list = describe(ids);
   return list ? { mcpServers: list } : { mcpServersUnavailable: true };
 };
-const publicDraft = ({ mcpServerIds, ...draft }, describe) => ({
+const publicDraft = (
+  { mcpServerIds, templateInstructions: _instructions, ...draft },
+  describe,
+) => ({
   ...draft,
   ...servers(mcpServerIds, describe),
 });
@@ -54,6 +58,8 @@ export function publicTeam(record, describe = () => []) {
           // What the lead granted, and its later changes (member-grant-requests.js).
           "grants",
           "grantLog",
+          // The Agency template it came from, without its text.
+          "template",
         ]
       : [
           "id",
@@ -269,9 +275,12 @@ export class TeamService {
     const lease = await a.models.resolve(parent.model);
     lease.release();
     inv.assertCurrent();
+    const members = await resolveTemplates(a.templates, input.members);
+    inv.assertCurrent();
     if (this.closed) throw assistantProblem("unavailable", 503);
     const record = this.store.propose({
       ...input,
+      members,
       operationId: inv.toolCallId,
       parentAttemptId: inv.attemptId,
     });
@@ -387,6 +396,12 @@ export class TeamService {
     this.mcp.sync();
     this.assistants.changed();
     return this.project(this.store.get(id));
+  }
+  // Agency agents a lead may name as member templates (team-templates.js).
+  async templates(inv, input) {
+    assertWired(this);
+    inv.assertCurrent();
+    return searchTemplates(this.assistants.templates, input);
   }
   // A lead's questions and tasks for its own members (lead-requests.js).
   members(inv, input) {
