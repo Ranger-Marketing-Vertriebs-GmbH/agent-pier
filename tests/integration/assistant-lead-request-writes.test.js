@@ -228,12 +228,46 @@ test("a task of a routine the owner lets delegate writing tasks writes in its ow
   assert.equal(may({ writeAllowed: false }), false, "never without the grant");
 });
 
-test("a lead's turn on a member's result never writes and offers the owner a go-ahead", async (t) => {
+test("a lead's follow-up on a member's result writes like the lead's own work", async (t) => {
   const f = await writeGate(t);
-  const { requestId } = await f.delegate(f.turn());
+  const audits = [];
+  f.assistants.audit = { append: (event) => audits.push(event) };
+  // A task without the owner's request: its follow-up writes all the same.
+  const { requestId } = await f.service.delegate(f.turn("Thanks"), {
+    memberId: f.permanent.id,
+    task: "Draft the plan",
+  });
+  assert.equal(f.service.requests.store.get(requestId).writeAllowed, false);
   f.idle();
   const lead = f.store.getAssistant(f.parent.id);
+  // Another turn that only claims the context is no follow-up and never writes.
   f.turn("result", { kind: "member-result", requestId });
   assert.equal(f.write("notes/plan.md", lead, f.chat), false);
-  assert.equal(f.service.requests.store.get(requestId).resultWriteRefused, true);
+  f.idle();
+  // The follow-up AgentPier itself submitted for this request.
+  const request = f.assistants.ledger.accept(f.chat.id, {
+    clientRequestId: `lead-request-result:${requestId}`,
+    text: "Follow-up",
+  });
+  f.service.store.recordContext(request.id, { kind: "member-result", requestId });
+  f.assistants.ledger.recordAttempt(request.id);
+  assert.equal(f.write("notes/plan.md", lead, f.chat), true);
+  assert.equal(f.write("MEMORY.md", lead, f.chat), true, "its own memory too");
+  // Never the member's workspace from the lead's turn.
+  assert.equal(f.write("notes/plan.md", f.member, f.chat), false);
+  const audit = audits.filter((e) => e.details?.kind === "native-write");
+  assert.deepEqual(
+    audit.map((e) => [e.resourceId, e.details.via, e.details.leadRequestId]),
+    [
+      [lead.id, "member-result", requestId],
+      [lead.id, "member-result", requestId],
+    ],
+  );
+  assert.equal(f.service.requests.store.get(requestId).resultWriteRefused, undefined);
+  // An archived lead's follow-up writes nothing.
+  const archived = { ...lead, archivedAt: new Date().toISOString() };
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify(archived), lead.id);
+  assert.equal(f.write("notes/plan.md", lead, f.chat), false);
 });

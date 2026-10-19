@@ -12,6 +12,7 @@ import { writeTools } from "./team-plugin/tool-guard.js";
 import { flushSessionAgent } from "./memory-flushes.js";
 import { flushWrite, noteRefusal } from "./memory-write-policy.js";
 import { isMemory, ownMemoryTarget } from "./lead-request-writes.js";
+import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 const actions = new Set([
   "propose",
   "status",
@@ -242,8 +243,9 @@ export class TeamBridge {
     );
   }
   // Native write/edit calls are permitted only while the current turn is the owner's
-  // own message or a routine's run (routineWrite); forwarded, other scheduled,
-  // internal and member turns never write, apart from an owner-proven task.
+  // own message, a lead's follow-up on its member's result (member-result-writes.js)
+  // or a routine's run (routineWrite); forwarded, other scheduled, internal and
+  // member turns never write, apart from an owner-proven task.
   toolPolicy(input) {
     if (
       !input ||
@@ -280,6 +282,12 @@ export class TeamBridge {
     if (!matches.length) return this.routineWrite(input);
     if (matches.length !== 1) return false;
     const { attempt, parent, origin, current } = this.turn(matches[0], input.agentId);
+    // A lead's follow-up on its member's result writes like the lead's own work.
+    if (current && origin?.kind === "member-result") {
+      const r = resultTurn(this.assistants, origin.requestId, attempt.id);
+      if (r) auditResultWrite(this.assistants, r, input);
+      return !!r;
+    }
     const allowed =
       current &&
       (this.ownerOrigin(origin) ||
@@ -299,9 +307,6 @@ export class TeamBridge {
             parent.id,
             input.path,
           )));
-    // A lead's turn on a member's result never writes; the owner gets a "go ahead".
-    if (!allowed && current && origin?.kind === "member-result")
-      this.teams.requests?.refusedChange?.(origin.requestId);
     return !!allowed;
   }
   // The active attempts bound to a runtime session.

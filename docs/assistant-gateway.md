@@ -934,8 +934,8 @@ A lead reaches its own members without the owner relaying anything
   without proof in a turn of the owner's own message is writable as well, unless the
   message holds a negation or limit anywhere (`messageNegated`) or names the
   member (then only a valid proof makes it writable) (`autonomous: true`, accepted by `LeadRequests.mayWrite` with the same
-  workspace and memory limits); forwarded, scheduled and follow-up turns stay
-  read-only. Shell, SSH, project folders, GitHub and grants are untouched, and team
+  workspace and memory limits); forwarded, scheduled and member turns stay
+  read-only (a lead's own `member-result` follow-up writes, see delivery below). Shell, SSH, project folders, GitHub and grants are untouched, and team
   proposals keep their rules. A request at that level whose owner message does not
   name the member is `selfInitiated` (shown as "self-initiated") and counts
   against `autonomousCaps`: 4 per turn and 20 per lead and hour, refused as
@@ -956,11 +956,20 @@ A lead reaches its own members without the owner relaying anything
   follow-up turn (at most 60,000 characters) once its chat is idle, and from there
   the paired Telegram chat when the request came from Telegram. Follow-ups that
   keep failing end as `FOLLOW_UP_FAILED`, shown on the request. The follow-up turn
-  (`member-result`) never writes, natively or through `agentpier_workspace`; when the
-  lead tries, `LeadRequests.refusedChange` marks the request `resultWriteRefused`, the
-  chat history marks that follow-up `goAhead` (`conversations.js goAheadMarks`), and the
-  web chat offers **Go ahead** below the lead's reply while nothing newer was sent: it
-  sends "Yes, go ahead" as a real owner message.
+  (`member-result`) acts like the lead's own work whatever the request was allowed
+  (`member-result-writes.js resultTurn`: exactly the ledger request
+  `lead-request-result:<id>` in the lead's chat, the lead still active): native
+  writes in the lead's workspace and memory, each audited as `kind: "native-write"`
+  with `via: "member-result"` and `leadRequestId`, and `agentpier_workspace` on the
+  lead's own `projectFiles` and projects only (never shares; folder changes audited
+  the same way). Its `coding_start` always waits for the owner (`via:
+"member-result"` on the action). The member's text never proves anything: SSH stays
+  refused (`SSH_ORIGIN_REFUSED`), and so do grants and owner-only switches. A refused
+  SSH command makes `LeadRequests.refusedChange` mark the request
+  `resultWriteRefused`, the chat history marks that follow-up `goAhead`
+  (`conversations.js goAheadMarks`), and the web chat offers **Go ahead** below the
+  lead's reply while nothing newer was sent: it sends "Yes, go ahead" as a real owner
+  message.
 - **Answers.** The member's answer or result is its run's last reply, kept whole
   up to 65,536 characters; the request record keeps its first 2,000 code points
   (`answerTruncated`) and the whole answer has its own `text` row, pruned with the

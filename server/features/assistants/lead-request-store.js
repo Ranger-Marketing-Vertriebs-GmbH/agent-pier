@@ -408,9 +408,9 @@ export class LeadRequestStore {
     });
   }
   /**
-   * The lead's turn handling this request's result tried to change something, which
-   * such a turn never may: the chat then offers the owner a "go ahead"
-   * (conversations.js goAheadMarks). Returns whether it marked; never throws.
+   * The lead's turn handling this request's result tried something only the owner's
+   * own message allows (SSH, agent-ssh.js): the chat then offers the owner a "go
+   * ahead" (conversations.js goAheadMarks). Returns whether it marked; never throws.
    */
   refusedChange(requestId) {
     try {

@@ -176,7 +176,13 @@ export class AgentSsh {
     const caller = this.caller(inv);
     this.w.access.sshHolder(caller.assistant.id);
     const cls = this.classify(caller);
-    if (cls === "refused") throw this.refuse(caller, cls, input, "sshOriginRefused");
+    if (cls === "refused") {
+      // A lead's follow-up on a member's result never runs SSH: the chat offers the
+      // owner a one-tap "go ahead" instead (conversations.js goAheadMarks).
+      if (caller.origin?.kind === "member-result")
+        this.w.a.teams?.requests?.refusedChange?.(caller.origin.requestId);
+      throw this.refuse(caller, cls, input, "sshOriginRefused");
+    }
     const grant = this.w.access.sshGrant(caller.assistant.id, input.accessId);
     if (!grant) throw this.refuse(caller, cls, input, "sshNotGranted");
     const host = this.host(input.accessId);

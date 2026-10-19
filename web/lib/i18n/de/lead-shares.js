@@ -42,5 +42,5 @@ export const leadShareCopy = {
 export const goAheadCopy = {
   button: "Direkt umsetzen",
   message: "Ja, direkt umsetzen",
-  hint: "Beim Verarbeiten eines Mitgliederergebnisses darf der leitende Agent nichts ändern. Tippe, um ihm dein Okay zu geben.",
+  hint: "Beim Verarbeiten eines Mitgliederergebnisses durfte der leitende Agent etwas nicht tun, das nur auf deine eigene Nachricht hin geht, etwa einen SSH-Befehl. Tippe, um ihm dein Okay zu geben.",
 };

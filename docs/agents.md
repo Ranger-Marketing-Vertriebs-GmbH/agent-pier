@@ -336,10 +336,15 @@ A lead also talks to its members directly:
   yes to the lead's offer ("yes, go ahead") counts as well; with **Autonomous**, a
   task the lead starts on its own in reply to your message may also write (see
   below), and so may a task from a routine you marked **May write**.
-- The turn in which the lead handles a member's result never changes anything itself.
-  When the lead tried to (a file write or a project change) and asks you whether to
-  apply the result, the chat shows **Go ahead** below its reply: it sends "Yes, go
-  ahead" as your own message, so the lead can act in your turn.
+- The turn in which the lead handles a member's result may act on it like the lead's
+  own work, whatever the task was allowed: it changes files in the lead's own
+  workspace and memory and in the project folders you gave the lead with **Read and
+  write**; a coding request from it always waits for your approval. The member's
+  answer never counts as your request or approval, so it unlocks nothing else. Each
+  such change is recorded in the activity log with the request. When the lead tried
+  something that needs your own message, such as an SSH command, the chat shows
+  **Go ahead** below its reply: it sends "Yes, go ahead" as your own message, so the
+  lead can act in your turn.
 - **Work → Teams → Questions and tasks** lists every request, open ones first, marked
   "may write" or "read-only", "self-initiated" when an autonomous lead started it
   on its own and "Scheduled · <name>" when one of its routines did, with **Cancel** for open ones.
