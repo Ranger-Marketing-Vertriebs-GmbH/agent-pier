@@ -42,6 +42,14 @@ Then open **Agents** from the sidebar **Menu** and choose **New agent**. Give it
 accounts the list shows the models your account can use and says when it could not
 be refreshed. The agent appears in the sidebar under **Agents**; its chat opens there.
 
+**Start from a template** fills Name and Instructions from an Agency agent (a role
+description from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents),
+MIT licensed); the preview of an entry under **Extensions › Agency agents** offers the same
+as **Create agent**. Its model and tool settings are not imported: you choose the model,
+and tools and access stay off until you grant them. AgentPier scans the entry first: a
+blocked one cannot be used, and warnings are shown before you create the agent. The
+agent's **Profile** names the template with its source, revision and license.
+
 ## Agent settings
 
 **Settings** in the agent's chat header opens five tabs: **Profile**, **Capabilities**,
@@ -218,8 +226,18 @@ the proposal in its chat or in Telegram. `/team <task>` or **Allow a team for th
 message** behind **+** in the composer allows one team for one request; **Allow teams
 without asking each time** allows them in general. Temporary members get their own
 chat, finish with the task and can be kept with **Keep as permanent agent**.
-Permanent members stay under their lead in the sidebar. Every member row and chat header
-shows the model the member actually runs on:
+Permanent members stay under their lead in the sidebar.
+
+A lead can base a member on an Agency agent: it searches the catalog with its team
+tools and names an entry as the member's template. The member then gets that
+template's instructions instead of the lead's, plus its role and assignment; what it
+may use still comes only from the lead's grants. The proposal card and the Telegram
+approval name each member's template with a link to its source. A template the scan
+warned about always waits for your approval, even when teams are allowed without
+asking; a blocked one is refused. The member's **Profile** keeps the template, also
+after **Keep as permanent agent**.
+
+Every member row and chat header shows the model the member actually runs on:
 
 - **Temporary members** always use the lead's current model. Change the lead's model
   and its temporary members use the new one from their next turn on; the member's own
