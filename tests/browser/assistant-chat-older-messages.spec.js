@@ -4,7 +4,7 @@ import { chatFixture, emit } from "../helpers/assistant-chat-fixture.js";
 
 // "Earlier messages" prepends an older history page. While a turn runs, every change
 // event reads the latest window again; that read once replaced the whole list, so the
-// older messages showed for a moment and vanished (AssistantChat.jsx, history-pages.js).
+// older messages showed for a moment and vanished (AssistantChat.jsx, agent-history-view.js).
 const message = (n, extra = {}) => ({
   id: `m-${n}`,
   role: n % 2 ? "user" : "assistant",

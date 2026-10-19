@@ -92,7 +92,16 @@ export async function chatFixture(page, options = {}) {
                 messages: [],
                 nextBefore: null,
               }
-            : state.history;
+            : url.searchParams.has("cursor")
+              ? // The feed's HTTP fallback: a full window with a cursor of its own.
+                {
+                  ...state.history,
+                  sync: {
+                    mode: "full",
+                    cursor: `http-${state.calls.length}-${Date.now()}`,
+                  },
+                }
+              : state.history;
     } else if (p.endsWith("/actions")) body = { actions: state.actions };
     else if (p.endsWith("/conversations")) {
       const id = p.split("/")[3];

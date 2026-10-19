@@ -68,3 +68,14 @@ test("the chat cache ignores a read without messages and replaces an older read"
     ["second"],
   );
 });
+
+test("the chat cache keeps a window's feed cursor, but not for a trimmed window", () => {
+  const cache = new AgentHistoryCache({ maxEntries: 5, maxChars: 10 });
+  cache.set("a", { ...history("a", ["one"]), sync: { mode: "full", cursor: "c1" } });
+  assert.equal(cache.get("a").sync.cursor, "c1");
+  cache.set("b", {
+    ...history("b", ["older text", "newest"]),
+    sync: { mode: "full", cursor: "c2" },
+  });
+  assert.equal(cache.get("b").sync, undefined);
+});

@@ -1,5 +1,6 @@
 import { systemStatusAnswer } from "../helpers/system-status-fixture.js";
 import { baseURL } from "../helpers/browser.js";
+import { installAgentFeedFake } from "../helpers/agent-feed-fake.js";
 import {
   resolveDraftRoute,
   ROUTE_TOOLS,
@@ -16,6 +17,8 @@ const emptyUsage = {
 };
 
 export async function fixture(page, { account, session } = {}) {
+  // Agent chats read their live feed from the routed history (agent-feed-fake.js).
+  await installAgentFeedFake(page);
   const providers = [
     ...["openrouter", "zai", "zai-coding-plan"].map((id) => ({
       id,
