@@ -3,8 +3,9 @@
 // permitted" or a Seatbelt `deny(1)` line. Any tool counts, MCP servers included,
 // because the sandbox confines every subprocess of the CLI. A hint, not a verdict:
 // the same errors can have other causes, so the chat names it as likely.
+// SSH's own auth failure, "Permission denied (publickey,password)", is not a denial.
 const denial =
-  /\bE(?:PERM|ACCES)\b|operation not permitted|\bpermission denied\b|\bdeny\(\d+\)|\bsandbox(?:-exec)?\b[^\n]{0,80}\bden(?:y|ied)\b/i;
+  /\bE(?:PERM|ACCES)\b|operation not permitted|\bpermission denied\b(?!\s*\((?:publickey|password|keyboard-interactive|hostbased|gssapi))|\bdeny\(\d+\)|\bsandbox(?:-exec)?\b[^\n]{0,80}\bden(?:y|ied)\b/i;
 // Errors sit at the start or end of an output; a long one is not scanned in full.
 const edge = 16384;
 
