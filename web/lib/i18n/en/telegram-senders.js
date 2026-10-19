@@ -48,7 +48,7 @@ export const telegramSendersCopy = {
     error: "error, check the bot token",
     stopped: "agent service stopped",
     pending: "waiting for a restart",
-    pendingLive: "waiting to apply",
+    pendingLive: "waiting to be applied",
     inactive: "inactive",
   },
 };

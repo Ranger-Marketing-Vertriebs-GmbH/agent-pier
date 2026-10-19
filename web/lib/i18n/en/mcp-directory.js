@@ -86,7 +86,7 @@ export const mcpDirectoryCopy = {
       rea: {
         title: "Before you set up REA",
         points: [
-          "Dual use: REA analyses programs and running processes. Its disclaimer forbids circumventing DRM, licence checks or anti-cheat. Use it only on software you may analyse.",
+          "Dual use: REA analyzes programs and running processes. Its disclaimer forbids circumventing DRM, license checks or anti-cheat. Use it only on software you may analyze.",
           "Only morluto/rea on GitHub and the npm package rea-agents by morluto are genuine. Copies with trojans circulate under similar names.",
           "Its optional dependency frida runs an install script: tick “Allow install scripts or source builds”, or the install is refused.",
           "Its tool list is large (about 500 KB). Set REA_MCP_INPUT_SCHEMA_PROFILE to compact to cut it to about 290 KB.",

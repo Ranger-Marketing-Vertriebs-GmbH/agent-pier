@@ -659,9 +659,9 @@ parity.
 `mcp` over stdio, about 172 tools. Search the directory for `rea`, open **REA** and
 check the note before **Use this server**:
 
-- **Dual use.** REA analyses programs and running processes. Its disclaimer forbids
-  circumventing DRM, licence checks or anti-cheat; use it only on software you may
-  analyse.
+- **Dual use.** REA analyzes programs and running processes. Its disclaimer forbids
+  circumventing DRM, license checks or anti-cheat; use it only on software you may
+  analyze.
 - **Genuine copies only.** Only `morluto/rea` on GitHub and the npm package
   `rea-agents` published by morluto are genuine; trojaned copies circulate under
   similar names. Compare the namespace in the detail and the publisher on the package
