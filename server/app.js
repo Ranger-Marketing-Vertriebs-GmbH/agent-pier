@@ -275,6 +275,11 @@ export async function createApplication(config) {
     /^\/api\/assistant-conversations\/[^/]+\/(?:messages|queued)$/,
     express.json({ limit: "256kb", strict: true }),
   );
+  // A gate decision may carry a replacement spec of up to 64 KiB, escaped as JSON.
+  app.use(
+    /^\/api\/pipeline-runs\/[^/]+\/gate$/,
+    express.json({ limit: "256kb", strict: true }),
+  );
   app.use(express.json({ limit: "64kb", strict: true }));
   const mount = (router) =>
     app.use("/api", guardMutations(router, services.mutationBarrier));

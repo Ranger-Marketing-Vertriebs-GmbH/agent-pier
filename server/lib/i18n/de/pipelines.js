@@ -72,6 +72,9 @@ export const pipelines = Object.freeze({
   specNoCriteria:
     "Die Spec braucht einen Abschnitt „## Acceptance criteria“ mit einer nummerierten Liste von Kriterien.",
   specText: "Die Spec muss Text zwischen 1 und 65536 Bytes enthalten.",
+  specRedeclare:
+    "Die Spec-Datei wurde geändert, aber nicht neu angegeben. Schreibe die vollständige Spec als spec.md in das Berichtsverzeichnis dieses Turns und gib sie mit der Rolle spec an.",
+  specRevisionNotFound: "Diese Spec-Fassung wurde nicht gefunden.",
   specFileUnsafe: "Die Spec-Datei im Arbeitsbaum kann nicht sicher geschrieben werden.",
   verdictTooLarge: "Das Ergebnis ist größer als 64 KiB.",
   verdictUnreadable: "Das Ergebnis konnte nicht sicher gelesen werden.",

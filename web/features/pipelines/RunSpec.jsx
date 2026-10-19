@@ -6,6 +6,7 @@ import StatusChip from "../../components/StatusChip.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { stageName } from "./run-stages.js";
+import { SpecChanges, SpecRevisions } from "./RunSpecHistory.jsx";
 import "./run-spec.css";
 
 // One numbered item of the spec: its id as a tag, the text and an optional line below.
@@ -22,13 +23,55 @@ function SpecItem({ id, text, note, chip }) {
   );
 }
 
+// Replacing the spec at a gate: the owner's text becomes a new revision.
+function ReplaceSpec({ run, text, refresh, close }) {
+  const submit = async (data) => {
+    await api(`/pipeline-runs/${encodeURIComponent(run.id)}/gate`, "POST", {
+      action: "replace-spec",
+      spec: data.get("spec"),
+    });
+    close();
+    refresh();
+  };
+  return (
+    <Modal title={copy.replaceSpec} wide close={close}>
+      <div className="run-spec-dialog">
+        <AsyncForm submit={submit} button={copy.replaceSpecSave} close={close}>
+          <p>{copy.replaceSpecHelp}</p>
+          <label>
+            {copy.spec}
+            <textarea name="spec" rows={18} defaultValue={text} required />
+          </label>
+        </AsyncForm>
+      </div>
+    </Modal>
+  );
+}
+
 // The run's contract at the top of the run view: who wrote it, whether it is frozen,
-// its acceptance criteria and assumptions, the full text and, at a gate, the owner's
-// replacement.
+// its acceptance criteria and assumptions, its revisions and changes, the full text
+// and, at a gate, the owner's replacement. A stage whose spec was rejected leaves only
+// the replacement.
 export default function RunSpec({ run, refresh }) {
   const [pane, setPane] = useState(null);
   const spec = run.spec;
-  if (!spec) return null;
+  const replace = (run.actions || []).includes("replace-spec");
+  if (!spec && !replace) return null;
+  if (!spec)
+    return (
+      <section className="run-spec" aria-labelledby="run-spec-title">
+        <h4 id="run-spec-title">{copy.spec}</h4>
+        <p>{copy.specRejected}</p>
+        <div className="run-spec-actions">
+          <button className="button secondary compact" onClick={() => setPane("edit")}>
+            {copy.replaceSpec}
+          </button>
+        </div>
+        {pane === "edit" && (
+          <ReplaceSpec run={run} text="" refresh={refresh} close={() => setPane(null)} />
+        )}
+      </section>
+    );
   const node = run.nodes?.find((item) => item.id === spec.nodeId);
   const author =
     spec.source === "owner"
@@ -37,15 +80,6 @@ export default function RunSpec({ run, refresh }) {
   const changes = Array.isArray(spec.changes) ? spec.changes : [];
   const criteria = Array.isArray(spec.criteria) ? spec.criteria : [];
   const assumptions = Array.isArray(spec.assumptions) ? spec.assumptions : [];
-  const replace = (run.actions || []).includes("replace-spec");
-  const submit = async (data) => {
-    await api(`/pipeline-runs/${encodeURIComponent(run.id)}/gate`, "POST", {
-      action: "replace-spec",
-      spec: data.get("spec"),
-    });
-    setPane(null);
-    refresh();
-  };
   return (
     <section className="run-spec" aria-labelledby="run-spec-title">
       <h4 id="run-spec-title">{copy.spec}</h4>
@@ -56,19 +90,9 @@ export default function RunSpec({ run, refresh }) {
         <span>{author}</span>
         <code>{spec.path}</code>
       </p>
-      {changes.length > 0 && (
-        <p role="note">
-          <StatusChip tone="waiting" pill>
-            {copy.specChanged(
-              changes.length,
-              formatTimestamp(changes.at(-1).at),
-              changes.at(-1).restored !== false,
-            )}
-          </StatusChip>
-        </p>
-      )}
+      <SpecChanges run={run} changes={changes} />
       <span className="run-spec-label">{`${copy.specCriteria} · ${criteria.length}`}</span>
-      <ol className="run-spec-items">
+      <ol className="run-spec-items run-spec-criteria">
         {criteria.map((criterion) => (
           <SpecItem
             key={criterion.id}
@@ -102,8 +126,16 @@ export default function RunSpec({ run, refresh }) {
           </ul>
         </details>
       )}
+      <SpecRevisions
+        run={run}
+        revisions={Array.isArray(spec.revisions) ? spec.revisions : []}
+        open={setPane}
+      />
       <div className="run-spec-actions">
-        <button className="button secondary compact" onClick={() => setPane("view")}>
+        <button
+          className="button secondary compact"
+          onClick={() => setPane({ title: copy.spec, text: spec.text })}
+        >
           {copy.showSpec}
         </button>
         {replace && (
@@ -112,29 +144,27 @@ export default function RunSpec({ run, refresh }) {
           </button>
         )}
       </div>
-      {pane === "view" && (
-        <Modal title={copy.spec} wide close={() => setPane(null)}>
+      {pane?.title && (
+        <Modal title={pane.title} wide close={() => setPane(null)}>
           <div className="run-spec-dialog">
-            <pre className="run-spec-source">{spec.text}</pre>
+            {pane.changed && (
+              <p>
+                <StatusChip tone="waiting" pill>
+                  {copy.reportChanged}
+                </StatusChip>
+              </p>
+            )}
+            <pre className="run-spec-source">{pane.text}</pre>
           </div>
         </Modal>
       )}
       {pane === "edit" && (
-        <Modal title={copy.replaceSpec} wide close={() => setPane(null)}>
-          <div className="run-spec-dialog">
-            <AsyncForm
-              submit={submit}
-              button={copy.replaceSpecSave}
-              close={() => setPane(null)}
-            >
-              <p>{copy.replaceSpecHelp}</p>
-              <label>
-                {copy.spec}
-                <textarea name="spec" rows={18} defaultValue={spec.text} required />
-              </label>
-            </AsyncForm>
-          </div>
-        </Modal>
+        <ReplaceSpec
+          run={run}
+          text={spec.text}
+          refresh={refresh}
+          close={() => setPane(null)}
+        />
       )}
     </section>
   );

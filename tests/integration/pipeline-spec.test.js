@@ -2,101 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { fixture } from "../helpers/pipeline-engine.js";
-
-// spec -> [gate] -> build -> review; a review failure loops back to build.
-function specFixture(t, { gate = false, continueSession = false } = {}) {
-  const f = fixture(t);
-  const original = f.definitions.snapshot;
-  f.definitions.snapshot = () => {
-    const snapshot = original();
-    const base = snapshot.profiles.profile;
-    const profile = (id, phaseKey) => ({ ...structuredClone(base), id, phaseKey });
-    snapshot.profiles = {
-      writer: profile("writer", "planning"),
-      builder: profile("builder", "implementation"),
-      reviewer: profile("reviewer", "review"),
-    };
-    snapshot.pipeline.graph = {
-      entry: "spec",
-      nodes: [
-        { id: "spec", kind: "profile", profileId: "writer" },
-        ...(gate ? [{ id: "approve-spec", kind: "gate" }] : []),
-        { id: "build", kind: "profile", profileId: "builder" },
-        { id: "review", kind: "profile", profileId: "reviewer" },
-      ],
-      edges: [
-        ...(gate
-          ? [
-              { from: "spec", to: "approve-spec", condition: "default" },
-              { from: "approve-spec", to: "build", condition: "default" },
-            ]
-          : [{ from: "spec", to: "build", condition: "default" }]),
-        { from: "build", to: "review", condition: "default" },
-        {
-          from: "review",
-          to: "build",
-          condition: "fail",
-          maxIterations: 1,
-          ...(continueSession ? { continueSession: true } : {}),
-        },
-      ],
-    };
-    return snapshot;
-  };
-  return f;
-}
-
-const SPEC = `# Spec
-
-## Context
-- server/app.js
-
-## Requirements
-- Validate input.
-
-## Acceptance criteria
-1. Empty input is rejected. Verify: npm test -- validation
-2. Valid input is stored.
-   Verify: open the list
-
-## Out of scope
-- Styling
-
-## Assumptions
-- [product decision] Rejected input shows no message.
-- The API stays the same.
-`;
-
-async function started(t, options) {
-  const f = specFixture(t, options);
-  const run = await f.engine.start({ pipelineId: "definition", cwd: f.dir, task: "Fix" });
-  const current = () => f.engine.get(run.id);
-  const turn = () => current().executionLog.at(-1);
-  const write = (file, text) => fs.writeFileSync(path.join(run.workingDir, file), text);
-  const read = (file) => fs.readFileSync(path.join(run.workingDir, file), "utf8");
-  // The spec stage writes spec.md into its report directory and declares it.
-  const writeSpec = async (text = SPEC, extra = {}) => {
-    const file = `${turn().reportDir}/spec.md`;
-    write(file, text);
-    await f.end(
-      {
-        result: "pass",
-        summary: "Spec written",
-        artifacts: [{ path: file, role: "spec" }],
-      },
-      extra,
-    );
-    return file;
-  };
-  return { f, run, current, turn, write, read, writeSpec };
-}
-
-const met = (criterion) => ({
-  criterion,
-  status: "met",
-  evidence: `checked ${criterion}`,
-});
+import { SPEC, met, started } from "../helpers/pipeline-spec.js";
 
 test("the spec reaches every later stage by path and its criteria bind the implementer", async (t) => {
   const { f, current, turn, writeSpec } = await started(t);
@@ -170,11 +76,14 @@ test("the frozen spec survives loop-back and a rewrite by a later stage is rever
   // The builder's rewrite is reverted when its turn ends and recorded against it.
   assert.equal(read(file), SPEC);
   const build = current().executionLog.findLast((a) => a.nodeId === "build");
-  assert.equal(build.specChanged, true);
+  assert.equal(build.specChanged, "restored");
+  const [change] = current().spec.changes;
   assert.deepEqual(
-    current().spec.changes.map((c) => [c.nodeId, c.attemptId, c.restored]),
-    [["build", build.attemptId, true]],
+    [change.source, change.nodeId, change.attemptId, change.restored],
+    ["turn", "build", build.attemptId, true],
   );
+  assert.match(change.sha256, /^[a-f0-9]{64}$/);
+  assert.notEqual(change.sha256, current().spec.sha256);
   // A spec the builder declares after the freeze changes nothing.
   await f.end({
     result: "fail",
@@ -266,21 +175,34 @@ test("the spec gate shows the spec and the owner's decision can replace it", asy
   const owned = "# Spec\n\n## Acceptance criteria\n1. Owner criterion. Verify: run it\n";
   await f.engine.gate(run.id, { action: "replace-spec", spec: owned });
   assert.equal(current().status, "awaiting-human");
-  assert.equal(read(rewritten), owned);
+  // The owner's text is a revision of its own; the stage's reports stay untouched.
+  const owner = current().spec.revisions.at(-1);
+  assert.equal(owner.path, ".pipeline/spec/owner-3/spec.md");
+  assert.equal(current().spec.path, owner.path);
+  assert.equal(read(owner.path), owned);
+  assert.notEqual(read(rewritten), owned);
   assert.equal(current().spec.source, "owner");
   assert.deepEqual(
     current().spec.criteria.map((c) => c.id),
     ["AC1"],
   );
   assert.deepEqual(
-    current().spec.revisions.map((r) => r.source),
-    ["stage", "stage", "owner"],
+    current().spec.revisions.map((r) => [r.n, r.source, r.path]),
+    [
+      [1, "stage", file],
+      [2, "stage", rewritten],
+      [3, "owner", owner.path],
+    ],
   );
   assert.equal(read(file), SPEC);
+  // Every revision stays readable with the text it had.
+  assert.equal(f.engine.specRevision(run.id, 1).text, SPEC);
+  assert.equal(f.engine.specRevision(run.id, 3).text, owned);
+  assert.throws(() => f.engine.specRevision(run.id, 9), { status: 404 });
   await f.engine.gate(run.id, { action: "accept" });
   const build = f.launches.at(-1);
   assert.equal(build.nodeId, "build");
-  assert.ok(build.prompt.includes(`Spec: ${rewritten}`));
+  assert.ok(build.prompt.includes(`Spec: ${owner.path}`));
   assert.match(build.prompt, /replaced by the owner/);
   assert.match(build.prompt, /Owner criterion/);
   assert.equal(current().spec.frozen, true);

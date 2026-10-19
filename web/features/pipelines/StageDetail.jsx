@@ -84,7 +84,13 @@ function StageAttempts({ run, node }) {
                     : ""}
               </span>
               {entry.failDetail && <span>{entry.failDetail}</span>}
-              {entry.specChanged && <span>{copy.specRestoredAfterTurn}</span>}
+              {entry.specChanged && (
+                <span>
+                  {entry.specChanged === "failed"
+                    ? copy.specNotRestoredAfterTurn
+                    : copy.specRestoredAfterTurn}
+                </span>
+              )}
               {entry.specIgnored && <span>{copy.specIgnored}</span>}
               {tokenTotal(entry.usage) !== null && (
                 <span>{copy.tokenCount(formatNumber(tokenTotal(entry.usage)))}</span>

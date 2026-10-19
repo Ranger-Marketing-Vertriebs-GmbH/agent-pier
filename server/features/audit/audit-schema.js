@@ -214,6 +214,7 @@ export function auditEvent(input) {
       "attachment-clear",
       "dictation",
       "skill-import",
+      "spec",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -287,6 +288,9 @@ export function auditEvent(input) {
       event.details.failReason = details.failReason;
     if (["checks-follow", "skips-checks", "gate-decision"].includes(details.path))
       event.details.path = details.path;
+    // A replaced run spec names the hash of the owner's text.
+    if (typeof details.sha256 === "string" && /^[a-f0-9]{64}$/.test(details.sha256))
+      event.details.sha256 = details.sha256;
   }
   // MCP OAuth logins name why one failed, as a stable code (never state or code).
   if (

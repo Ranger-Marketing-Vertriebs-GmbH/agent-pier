@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { problem } from "../../lib/storage.js";
 import { privateRunDirectory, runId } from "./run-store.js";
 import { activeNode, currentAttempt } from "./graph-navigation.js";
+import { holdSpec } from "./run-spec.js";
 import { conclude, launchStage, park } from "./execution-stage.js";
 const supervisor = fileURLToPath(new URL("./verify-supervisor.js", import.meta.url));
 function json(file) {
@@ -192,6 +193,8 @@ export async function settleVerification(engine, run) {
   if (attempt) attempt.verifyResult = result;
   node.verifyPending = false;
   run.verifyJob = null;
+  // Verification commands run in the worktree; a spec they changed is put back.
+  holdSpec(run, engine.now(), { source: "verification" });
   if (result.status === "pass") {
     node.verified = true;
     engine.store.save(run);

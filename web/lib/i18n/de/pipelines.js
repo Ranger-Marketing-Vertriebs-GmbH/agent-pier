@@ -302,6 +302,20 @@ export const pipelineCopy = {
   ignoredCriteria: (ids) =>
     `Angaben zu unbekannten Akzeptanzkriterien wurden ignoriert: ${ids}`,
   specRestoredAfterTurn: "Hat die Spec geändert; wiederhergestellt",
+  specRestored: "Wiederhergestellt",
+  specNotRestored: "Konnte nicht wiederhergestellt werden",
+  specChangeSources: {
+    verification: "Prüfung",
+    manual: "Außerhalb eines Turns bearbeitet",
+  },
+  specRevisions: (count) => `Fassungen · ${count}`,
+  specRevision: (n) => `Spec-Fassung ${n}`,
+  specRevisionByOwner: "Von dir ersetzt",
+  showSpecRevision: (n) => `Spec-Fassung ${n} anzeigen`,
+  showSpecRevisionShort: "Anzeigen",
+  specRejected:
+    "Die Spec der Stufe wurde abgelehnt. Ersetze sie, damit der Lauf einen Vertrag hat, bevor du fortsetzt.",
+  specNotRestoredAfterTurn: "Hat die Spec geändert; nicht wiederhergestellt",
   specIgnored: "Hat eine weitere Spec angegeben; ignoriert",
   feedback: "Rückmeldung",
   resumeAt: "Fortsetzen ab (optional)",
