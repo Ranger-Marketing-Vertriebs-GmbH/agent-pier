@@ -246,6 +246,7 @@ export const pipelineCopy = {
   noArtifacts: "Keine Dateien gemeldet.",
   emptyDiff: "Keine Änderungen gemeldet.",
   truncated: "Ausgabe gekürzt.",
+  reportChanged: "Nach Abschluss der Stufe geändert",
   feedback: "Rückmeldung",
   resumeAt: "Fortsetzen ab (optional)",
   actions: {

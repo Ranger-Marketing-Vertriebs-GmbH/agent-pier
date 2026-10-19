@@ -245,6 +245,7 @@ export const pipelineCopy = {
   noArtifacts: "No files reported.",
   emptyDiff: "No changes reported.",
   truncated: "Output truncated.",
+  reportChanged: "Changed after the stage finished",
   feedback: "Feedback",
   resumeAt: "Resume from (optional)",
   actions: {

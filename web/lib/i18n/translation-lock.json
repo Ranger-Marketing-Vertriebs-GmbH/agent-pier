@@ -4363,6 +4363,7 @@
   "pipelines:pipelineCopy.removeParameter": "de:889e09b20a16 en:830fc0f35c77",
   "pipelines:pipelineCopy.removeStage": "de:8ba9f97ef7ca en:1c2a084f678e",
   "pipelines:pipelineCopy.removeStep": "de:83a31c882653 en:e115072dd395",
+  "pipelines:pipelineCopy.reportChanged": "de:602d36de8b89 en:f6f7945dfee2",
   "pipelines:pipelineCopy.resultSummary": "de:92c176bd7477 en:7c9243ef7bc3",
   "pipelines:pipelineCopy.resumeAt": "de:6a38227ce2ee en:fbecfd8d0777",
   "pipelines:pipelineCopy.retryConnections": "de:383a8498aed3 en:a1089053c1f7",
