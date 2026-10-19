@@ -200,6 +200,7 @@ for (const [label, use] of [
         webFetch: true,
         browser: false,
         documents: true,
+        readPdfs: false,
         createImages: false,
       });
       expect(state.patches[0].confirmRestart).toBeUndefined();
@@ -217,13 +218,14 @@ for (const [label, use] of [
         "Read web pages",
         "Use a browser",
         "Read images",
+        "Read PDFs",
         "Create images",
       ]) {
         await expect(page.getByLabel(name)).toBeDisabled();
         await expect(page.getByLabel(name)).not.toBeChecked();
       }
-      // The five web switches and scheduled check-ins.
-      await expect(page.getByText("Available after saving the agent")).toHaveCount(6);
+      // The six web switches and scheduled check-ins.
+      await expect(page.getByText("Available after saving the agent")).toHaveCount(7);
       await expect(page.getByLabel("Remember information")).toBeEnabled();
       await page.getByLabel("Remember information").check();
       await agentTab(page, "Profile").click();

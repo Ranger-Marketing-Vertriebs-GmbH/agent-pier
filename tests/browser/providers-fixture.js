@@ -10,6 +10,7 @@ const emptyUsage = {
   chatgpt: {},
   mcpServers: {},
   webSearch: null,
+  pdfModel: null,
   speech: null,
   cliAccounts: {},
 };
@@ -189,6 +190,8 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({
         json: { revision: 0, provider: "duckduckgo", hasBraveKey: false, ready: true },
       });
+    if (method === "GET" && path === "/api/assistant-pdf-model")
+      return route.fulfill({ json: { revision: 0, ready: false, reason: "notSet" } });
     if (method === "GET" && path === "/api/mcp-servers")
       return route.fulfill({ json: [] });
     if (method === "GET" && path === "/api/mcp-servers/cli-finds")

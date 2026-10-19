@@ -3,7 +3,7 @@ import { assistantApi } from "../assistants/assistant-api.js";
 
 /**
  * What the hub lists besides /api/state: the central MCP servers (always) and, with
- * agents, the ChatGPT accounts, speech and web search settings. Each source keeps its
+ * agents, the ChatGPT accounts, speech, web search and PDF model settings. Each source keeps its
  * own load error. The newest load of the ChatGPT accounts wins over an older one still
  * in flight; they load again whenever the agent runtime becomes ready or stops being
  * ready, so their status is never stale.
@@ -18,6 +18,8 @@ export default function useAccountsData({ agentsEnabled, runtimeReady = false })
   const [speechError, setSpeechError] = useState("");
   const [webSearch, setWebSearch] = useState(null);
   const [webSearchError, setWebSearchError] = useState("");
+  const [pdfModel, setPdfModel] = useState(null);
+  const [pdfModelError, setPdfModelError] = useState("");
   const chatgptLoad = useRef(null);
   // Resolves to the fresh list (undefined after a failed load).
   const reloadMcp = useCallback(async () => {
@@ -73,6 +75,16 @@ export default function useAccountsData({ agentsEnabled, runtimeReady = false })
       setWebSearchError(error.message);
     }
   }, []);
+  const reloadPdfModel = useCallback(async () => {
+    try {
+      const next = await assistantApi.pdfModel();
+      setPdfModel(next);
+      setPdfModelError("");
+      return next;
+    } catch (error) {
+      setPdfModelError(error.message);
+    }
+  }, []);
   useEffect(() => {
     if (!agentsEnabled) return undefined;
     const controller = new AbortController();
@@ -86,6 +98,7 @@ export default function useAccountsData({ agentsEnabled, runtimeReady = false })
         });
     load(assistantApi.speech, setSpeech, setSpeechError);
     load(assistantApi.webSearch, setWebSearch, setWebSearchError);
+    load(assistantApi.pdfModel, setPdfModel, setPdfModelError);
     return () => controller.abort();
   }, [agentsEnabled]);
   useEffect(() => {
@@ -111,5 +124,9 @@ export default function useAccountsData({ agentsEnabled, runtimeReady = false })
     webSearchError,
     setWebSearch,
     reloadWebSearch,
+    pdfModel,
+    pdfModelError,
+    setPdfModel,
+    reloadPdfModel,
   };
 }

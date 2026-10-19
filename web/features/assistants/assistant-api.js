@@ -110,6 +110,8 @@ export const assistantApi = {
     api("/assistant-telegram-senders/apply", "POST", input),
   webSearch: (signal) => api("/assistant-web-search", "GET", undefined, signal),
   saveWebSearch: (input) => api("/assistant-web-search", "PUT", input),
+  pdfModel: (signal) => api("/assistant-pdf-model", "GET", undefined, signal),
+  savePdfModel: (input) => api("/assistant-pdf-model", "PUT", input),
   advancedSettings: (signal) =>
     api("/assistant-advanced-settings", "GET", undefined, signal),
   saveAdvancedSetting: (input) => api("/assistant-advanced-settings", "PUT", input),

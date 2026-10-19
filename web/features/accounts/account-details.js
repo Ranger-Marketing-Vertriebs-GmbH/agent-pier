@@ -8,6 +8,7 @@ const ChatgptLoginDetail = lazy(() => import("../assistants/ChatgptLoginDetail.j
 const ChatgptAccountDetail = lazy(() => import("../assistants/ChatgptAccountDetail.jsx"));
 const SpeechSettings = lazy(() => import("../assistants/SpeechSettings.jsx"));
 const WebSearchSettings = lazy(() => import("../assistants/WebSearchSettings.jsx"));
+const PdfModelSettings = lazy(() => import("../assistants/PdfModelSettings.jsx"));
 const McpServerEntry = lazy(() => import("../mcp-servers/McpServerEntry.jsx"));
 const McpFindsDetail = lazy(() => import("../mcp-servers/McpFindsDetail.jsx"));
 
@@ -23,6 +24,7 @@ export const detailComponents = {
   "cli-new": NativeAccountDetail,
   speech: SpeechSettings,
   "web-search": WebSearchSettings,
+  "pdf-model": PdfModelSettings,
   "mcp-server": McpServerEntry,
   "mcp-new": McpServerEntry,
   "mcp-finds": McpFindsDetail,

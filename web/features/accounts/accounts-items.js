@@ -4,6 +4,7 @@ import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { mcpServerCopy } from "../../lib/i18n/messages/mcp-servers.js";
 import { mcpCliCopy } from "../../lib/i18n/messages/mcp-cli.js";
 import { accountsHubCopy } from "../../lib/i18n/messages/accounts.js";
+import { assistantPdfCopy } from "../../lib/i18n/messages/assistant-pdf.js";
 
 // /accounts?section=<group>&item=<id>: the hub, or one entry's subpage.
 export const itemRoute = (section, item, step) => ({
@@ -26,7 +27,7 @@ export const sectionLabel = (section) => accountsHubCopy.groups[groupKeys[sectio
  * unknown, `error` when that list failed to load (`record` holds the message and the
  * source to load again), `missing` for an id that does not exist (the page returns to
  * the group).
- * Reserved ids: new, chatgpt, speech, web-search, cli-finds; real ids are UUIDs or
+ * Reserved ids: new, chatgpt, speech, web-search, pdf-model, cli-finds; real ids are UUIDs or
  * openclaw:<hex>.
  */
 export function resolveAccountItem(route, data) {
@@ -66,7 +67,9 @@ export function resolveAccountItem(route, data) {
         ? at("speech")
         : item === "web-search"
           ? at("web-search")
-          : at("missing"),
+          : item === "pdf-model"
+            ? at("pdf-model")
+            : at("missing"),
     );
   if (section === "mcp-servers") {
     if (item === "new") return at("mcp-new");
@@ -98,6 +101,8 @@ export function accountItemTitle(entry) {
       return assistantCopy.speech.title;
     case "web-search":
       return assistantCopy.webSearch.title;
+    case "pdf-model":
+      return assistantPdfCopy.title;
     case "mcp-new":
       return mcpServerCopy.add;
     case "mcp-finds":

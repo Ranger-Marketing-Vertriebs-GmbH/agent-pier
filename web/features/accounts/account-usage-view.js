@@ -23,6 +23,7 @@ export function usageEntry(usage, kind, id) {
   if (!usage || typeof usage !== "object") return undefined;
   if (kind === "speech") return usage.speech ?? undefined;
   if (kind === "web-search") return usage.webSearch ?? undefined;
+  if (kind === "pdf-model") return usage.pdfModel ?? undefined;
   const group = usage[groups[kind]];
   if (!group || typeof group !== "object") return undefined;
   // The endpoint lists only ChatGPT accounts an agent's model references; once the
