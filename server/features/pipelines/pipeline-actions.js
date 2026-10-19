@@ -6,6 +6,7 @@ import { readVerdict } from "./stage-verdict.js";
 import { relaunchOptions } from "./loop-session.js";
 import { recordReportDigests } from "./stage-reports.js";
 import { filterAnswers, recordResponses } from "./loop-rounds.js";
+import { adoptSpec, checkSpec, replaceSpec } from "./run-spec.js";
 export function requireLiveRun(run) {
   if (run.imported?.historyOnly)
     throw problem(serverMessages.pipelines.importedHistoryReadOnly, 409);
@@ -40,6 +41,8 @@ export function availableActions(run) {
   if (node.status === "awaiting-gate") {
     actions.push(node.failReason ? "override" : "accept");
     if (node.nativeId) actions.push("feedback");
+    // The owner may replace the run's spec at any gate; the gate keeps waiting.
+    if (run.spec) actions.push("replace-spec");
   }
   if (node.status === "failed") {
     if (node.failReason === "usage-limit-exceeded")
@@ -65,7 +68,7 @@ function recheckable(attempt) {
     (Number.isInteger(attempt?.exitCode) && attempt.exitCode !== 0)
   );
 }
-export async function gateAction(engine, run, { action, feedback, resumeAt } = {}) {
+export async function gateAction(engine, run, { action, feedback, resumeAt, spec } = {}) {
   requireLiveRun(run);
   if (!availableActions(run).includes(action) || ["delete", "create-pr"].includes(action))
     throw problem(serverMessages.pipelines.actionUnavailable, 409);
@@ -112,6 +115,11 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
     });
     return;
   }
+  if (action === "replace-spec") {
+    replaceSpec(run, spec, engine.now());
+    engine.store.save(run);
+    return;
+  }
   if (action === "loop-back") {
     if (
       feedback !== undefined &&
@@ -148,8 +156,13 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
       outcome.quiesced !== true
     )
       throw problem(serverMessages.pipelines.reconcileRequiresQuiescedTurn, 409);
-    const found = filterAnswers(run, node, attempt, readVerdict(run, attempt));
-    if (!found.present) throw problem(serverMessages.pipelines.noFreshVerdict, 409);
+    const found = checkSpec(
+      run,
+      node,
+      filterAnswers(run, node, attempt, readVerdict(run, attempt)),
+    );
+    if (!found.present)
+      throw problem(found.reason || serverMessages.pipelines.noFreshVerdict, 409);
     node.verified = false;
     node.verifyAttempts = 0;
     run.status = "running";
@@ -158,6 +171,7 @@ export async function gateAction(engine, run, { action, feedback, resumeAt } = {
     attempt.verdict = found.verdict;
     recordReportDigests(run, attempt);
     recordResponses(run, node, attempt, found.verdict);
+    adoptSpec(run, node, attempt, found, engine.now());
     attempt.quiesced = true;
     run.pendingConclusion = { nodeId: node.id, verdict: found.verdict };
     delete node.failReason;

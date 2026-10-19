@@ -56,6 +56,23 @@ export const pipelines = Object.freeze({
     "Eine Antwort im Ergebnis braucht den Status fixed, not-fixed oder disputed.",
   verdictResponseReason:
     "Eine Antwort mit not-fixed oder disputed braucht eine Begründung.",
+  verdictCriteriaArray: "Die Akzeptanzkriterien im Ergebnis müssen ein Array sein.",
+  verdictCriterionId:
+    "Ein Eintrag zu einem Akzeptanzkriterium benötigt dessen Kennung, z. B. AC1.",
+  verdictCriterionStatus:
+    "Ein Eintrag zu einem Akzeptanzkriterium braucht den Status met oder not-met.",
+  verdictCriterionEvidence:
+    "Ein Eintrag zu einem Akzeptanzkriterium braucht einen Nachweis (evidence).",
+  specSingle: "Ein Ergebnis darf nur eine Datei mit der Rolle spec angeben.",
+  specOutsideReports:
+    "Die Spec muss im Berichtsverzeichnis dieser Stufe liegen und als Artefakt mit der Rolle spec angegeben sein.",
+  specMissing: "Die als spec angegebene Datei wurde nicht gefunden.",
+  specUnreadable: "Die als spec angegebene Datei konnte nicht sicher gelesen werden.",
+  specTooLarge: "Die Spec ist größer als 64 KiB.",
+  specNoCriteria:
+    "Die Spec braucht einen Abschnitt „## Acceptance criteria“ mit einer nummerierten Liste von Kriterien.",
+  specText: "Die Spec muss Text zwischen 1 und 65536 Bytes enthalten.",
+  specFileUnsafe: "Die Spec-Datei im Arbeitsbaum kann nicht sicher geschrieben werden.",
   verdictTooLarge: "Das Ergebnis ist größer als 64 KiB.",
   verdictUnreadable: "Das Ergebnis konnte nicht sicher gelesen werden.",
   invalidTurn: "Ungültiger Pipeline-Turn.",

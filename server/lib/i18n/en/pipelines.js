@@ -51,6 +51,21 @@ export const pipelines = Object.freeze({
   verdictResponseStatus:
     "A verdict response needs the status fixed, not-fixed or disputed.",
   verdictResponseReason: "A not-fixed or disputed verdict response needs a reason.",
+  verdictCriteriaArray: "Verdict acceptance criteria must be an array.",
+  verdictCriterionId: "An acceptance criterion entry needs the criterion's id, e.g. AC1.",
+  verdictCriterionStatus:
+    "An acceptance criterion entry needs the status met or not-met.",
+  verdictCriterionEvidence: "An acceptance criterion entry needs evidence.",
+  specSingle: "A verdict may declare only one file with the role spec.",
+  specOutsideReports:
+    "The spec must lie in this stage's report directory and be declared as an artifact with the role spec.",
+  specMissing: "The file declared as spec was not found.",
+  specUnreadable: "The file declared as spec could not be read safely.",
+  specTooLarge: "The spec exceeds 64 KiB.",
+  specNoCriteria:
+    'The spec needs a "## Acceptance criteria" section with a numbered list of criteria.',
+  specText: "The spec must contain between 1 and 65536 bytes of text.",
+  specFileUnsafe: "The spec file in the worktree cannot be written safely.",
   verdictTooLarge: "Verdict exceeds 64 KiB.",
   verdictUnreadable: "Verdict could not be read safely.",
   invalidTurn: "Invalid pipeline turn.",
