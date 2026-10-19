@@ -54,6 +54,7 @@ export const pipelines = Object.freeze({
   verdictUnreadable: "Das Ergebnis konnte nicht sicher gelesen werden.",
   invalidTurn: "Ungültiger Pipeline-Turn.",
   unsafeVerdictDirectory: "Unsicheres Verzeichnis für Pipeline-Ergebnisse.",
+  unsafeReportDirectory: "Unsicheres Verzeichnis für Pipeline-Berichte.",
   invalidVerificationReceipt: "Ungültige Prüfquittung.",
   unsafeVerificationDirectory: "Unsicheres Verzeichnis für den Prüfauftrag.",
   invalidVerificationPlan: "Ungültiger Prüfplan.",

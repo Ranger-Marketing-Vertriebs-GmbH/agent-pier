@@ -96,3 +96,50 @@ test("review reports stay off the run branch, survive loop-back and reach later 
     status: 403,
   });
 });
+
+test("feedback turns report into their own directory and keep earlier reports intact", async (t) => {
+  const f = fixture(t, { gate: true });
+  const run = await f.engine.start({
+    pipelineId: "definition",
+    cwd: f.dir,
+    task: "Task",
+  });
+  const turn = () => f.engine.get(run.id).executionLog.at(-1);
+  const write = (file, text) => fs.writeFileSync(path.join(run.workingDir, file), text);
+  const first = turn();
+  assert.equal(first.reportDir, `.pipeline/reports/build/${first.attemptId}`);
+  // Only files the role asks for move into the report directory; task files do not.
+  assert.match(
+    f.launches[0].prompt,
+    /When your role instructions ask you to write a report/,
+  );
+  assert.match(f.launches[0].prompt, /stay in the repository/);
+  const firstReport = `${first.reportDir}/REVIEW.md`;
+  write(firstReport, "first findings");
+  await f.end(
+    { result: "pass", summary: "Done", artifacts: [firstReport] },
+    { nativeId: "native-fixture" },
+  );
+  assert.equal(f.engine.get(run.id).status, "awaiting-human");
+
+  await f.engine.gate(run.id, { action: "feedback", feedback: "Look again" });
+  const second = turn();
+  assert.equal(second.kind, "gate-feedback");
+  assert.equal(second.reportDir, `${first.reportDir}/${second.id}`);
+  assert.ok(f.launches.at(-1).prompt.includes(`${second.reportDir}/`));
+  assert.ok(f.launches.at(-1).prompt.includes(firstReport));
+  const secondReport = `${second.reportDir}/REVIEW.md`;
+  write(secondReport, "second findings");
+  // A turn that ends without a verdict is nudged and keeps writing to the same place.
+  f.outcomes.set(second.sessionId, { status: "completed", exitCode: 0 });
+  await f.engine.reconcile();
+  assert.equal(turn().kind, "verdict-nudge");
+  assert.equal(turn().reportDir, second.reportDir);
+  await f.end({ result: "pass", summary: "Again", artifacts: [secondReport] });
+
+  assert.equal(f.engine.artifact(run.id, "build", firstReport).text, "first findings");
+  assert.equal(f.engine.artifact(run.id, "build", secondReport).text, "second findings");
+  assert.equal(f.engine.artifact(run.id, "build", firstReport).changed, undefined);
+  write(firstReport, "tampered");
+  assert.equal(f.engine.artifact(run.id, "build", firstReport).changed, true);
+});

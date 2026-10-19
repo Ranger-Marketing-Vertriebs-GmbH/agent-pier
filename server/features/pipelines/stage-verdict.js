@@ -28,8 +28,10 @@ export function containedFile(root, relative, max = 65536) {
     const size = Math.min(st.size, max);
     const buffer = Buffer.alloc(size);
     const bytes = fs.readSync(fd, buffer, 0, size, 0);
+    const data = buffer.subarray(0, bytes);
     return {
-      text: buffer.subarray(0, bytes).toString("utf8"),
+      data,
+      text: data.toString("utf8"),
       size: st.size,
       mtimeMs: st.mtimeMs,
       truncated: st.size > max,
