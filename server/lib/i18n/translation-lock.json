@@ -789,6 +789,7 @@
   "operations.unsafeDatabaseFile": "de:013697278166 en:cfbf2e9528b6",
   "operations.uploadNotFound": "de:420a7cf4dba9 en:6340b8b1d47e",
   "operations.webProcessRestarted": "de:02d993d46c18 en:03da6fda3e78",
+  "pipelineGraph.continueSessionLoopOnly": "de:b0536a489c56 en:e9382a664230",
   "pipelineGraph.cycleNeedsFailEdge": "de:3ecbf800fbec en:f7c61d6fb24e",
   "pipelineGraph.definitionChanged": "de:4d6fd9c01e2e en:4112019d344c",
   "pipelineGraph.definitionNotFound": "de:84173e82a415 en:022751430fed",

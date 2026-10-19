@@ -11,6 +11,8 @@ export const pipelineGraph = Object.freeze({
     `Invalid pipeline edge: ${from} → ${to} (${condition})`,
   oneEdgePerCondition: "A node may have only one edge per condition",
   loopBudgetRange: "Fail loop budgets must be between 1 and 5",
+  continueSessionLoopOnly:
+    "Only a bounded fail loop can continue its target stage's session",
   invalidSideEffectRouting: (node) => `Invalid side-effect routing on node ${node}`,
   cycleNeedsFailEdge: "Every cycle requires a bounded fail edge",
   failEdgeMustCloseCycle: "A budgeted fail edge must close a cycle",

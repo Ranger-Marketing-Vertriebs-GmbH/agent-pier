@@ -38,7 +38,7 @@ export const toolSchemas = {
   pipeline_get: tool("catalog:read", "Read a pipeline definition and revision.", { id }),
   pipeline_validate: tool(
     "catalog:read",
-    "Validate a definition and its profile access without saving or running it. Graph has entry, nodes {id,kind,profileId?} and edges {from,to,condition,maxIterations?}.",
+    "Validate a definition and its profile access without saving or running it. Graph has entry, nodes {id,kind,profileId?} and edges {from,to,condition,maxIterations?,continueSession?}; continueSession: true on a bounded fail edge resumes the target stage's native session for its repair turn.",
     { pipeline: record },
   ),
   pipeline_save: tool(

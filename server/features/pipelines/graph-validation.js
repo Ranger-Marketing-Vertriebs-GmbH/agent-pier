@@ -99,11 +99,19 @@ export function validateGraph(graph) {
         edge.maxIterations > 5)
     )
       throw problem(serverMessages.pipelineGraph.loopBudgetRange);
+    // Only a bounded loop sends a stage back into its own earlier session.
+    if (
+      edge.continueSession !== undefined &&
+      (typeof edge.continueSession !== "boolean" ||
+        (edge.continueSession && edge.maxIterations === undefined))
+    )
+      throw problem(serverMessages.pipelineGraph.continueSessionLoopOnly);
     return {
       from: edge.from,
       to: edge.to,
       condition: edge.condition,
       ...(edge.maxIterations !== undefined ? { maxIterations: edge.maxIterations } : {}),
+      ...(edge.continueSession ? { continueSession: true } : {}),
     };
   });
   for (const node of nodes) {
