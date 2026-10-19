@@ -14,6 +14,7 @@ on:
       - ".github/workflows/assistant-runtime.yml"
       - "server/features/assistants/**"
       - "server/features/assistant-channels/**"
+      - "server/application/assistant-graph.js"
       - "server/features/operations/releases.js"
       - "server/lib/storage.js"
       - "scripts/*assistant*.mjs"
@@ -29,6 +30,7 @@ on:
       - ".github/workflows/assistant-runtime.yml"
       - "server/features/assistants/**"
       - "server/features/assistant-channels/**"
+      - "server/application/assistant-graph.js"
       - "server/features/operations/releases.js"
       - "server/lib/storage.js"
       - "scripts/*assistant*.mjs"
@@ -189,6 +191,8 @@ jobs:
           tests/integration/assistant-telegram-senders-contract.test.js
           tests/integration/assistant-telegram-senders-live-contract.test.js
           tests/integration/assistant-skills-contract.test.js
+          tests/integration/assistant-voice-reminder-e2e-contract.test.js
+          tests/integration/assistant-team-coding-e2e-contract.test.js
       - name: Fail when a contract skipped instead of running
         run: grep -qx '# skipped 0' "$RUNNER_TEMP/native-contracts.tap"
   # Installed users update from the runtime an older AgentPier release pinned

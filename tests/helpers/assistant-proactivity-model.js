@@ -4,8 +4,8 @@ import { setTimeout as delay } from "node:timers/promises";
 /**
  * An OpenAI-compatible model double for the proactivity contracts. `model.reply`
  * is the answer, or a function of the request returning `{ text, delayMs }` or
- * `{ tool: { name, arguments } }`, so a turn can be told apart (a check-in, a slow
- * owner turn), held open or made to call a tool.
+ * `{ tool: { name, arguments } }` (or a promise of either), so a turn can be told apart
+ * (a check-in, a slow owner turn), held open or made to call a tool.
  */
 export async function proactivityModel() {
   const requests = [];
@@ -24,8 +24,9 @@ export async function proactivityModel() {
     for await (const part of req) bytes += part;
     const input = JSON.parse(bytes || "{}");
     requests.push(input);
-    const answer =
-      typeof model.reply === "function" ? model.reply(input) : { text: model.reply };
+    const answer = await (typeof model.reply === "function"
+      ? model.reply(input)
+      : { text: model.reply });
     if (answer.delayMs) await delay(answer.delayMs);
     res.writeHead(200, { "content-type": "text/event-stream" });
     const call = answer.tool && {
