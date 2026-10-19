@@ -64,7 +64,11 @@ test("an agent's own bot: verified token, allowed people, never the token in ans
       ["assistant.updated", "telegram", "peopleRemoved", 1],
     ],
   );
-  assert.doesNotMatch(JSON.stringify(h.audit), /Alice|Bob|111|fixture-token/);
+  // Names and the token never appear; Telegram user ids never appear as a standalone
+  // number, while generated UUIDs may contain the same digits.
+  const audit = JSON.stringify(h.audit);
+  assert.doesNotMatch(audit, /Alice|Bob|fixture-token/);
+  assert.doesNotMatch(audit, /(?<![0-9a-f])(?:111|222)(?![0-9a-f])/i);
 });
 
 test("one bot serves one purpose: never the AgentPier bot, never two agents", async (t) => {
