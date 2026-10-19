@@ -3,14 +3,14 @@ import path from "node:path";
 
 /** Observe native storage writes without attaching a TUI or reading conversations. */
 export function watchChatSources(
-  { session, accounts, dataDir, home, settleMs = 500 },
+  { session, accounts, dataDir, home, settleMs = 500, watch = fs.watch },
   changed,
 ) {
   const watchers = [];
   const env = accounts.environment(session.accountId);
   const add = (directory, accepts, recursive = false) => {
     try {
-      const watcher = fs.watch(directory, { recursive }, (_event, filename) => {
+      const watcher = watch(directory, { recursive }, (_event, filename) => {
         if (!filename || accepts(String(filename))) changed();
       });
       watcher.on("error", () => changed());

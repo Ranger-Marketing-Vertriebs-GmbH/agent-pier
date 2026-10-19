@@ -39,3 +39,41 @@ test("disposing the watchers cancels the startup re-check", async (t) => {
   await delay(120);
   assert.equal(watch.changes(), 0);
 });
+
+test("only writes to the session's native transcripts report a change", (t) => {
+  const watched = new Map();
+  let changes = 0;
+  const unwatch = watchChatSources(
+    {
+      session: { id: "s", accountId: "a", tool: "codex" },
+      accounts: { environment: () => ({ HOME: "/fixture-home" }) },
+      dataDir: "/fixture-data",
+      home: "/fixture-home",
+      settleMs: 600000,
+      // FSEvents delivery lags under load; the routing is checked without it.
+      watch: (directory, options, listener) => {
+        watched.set(directory, { recursive: options.recursive, listener });
+        return { on() {}, unref() {}, close() {} };
+      },
+    },
+    () => changes++,
+  );
+  t.after(unwatch);
+  assert.deepEqual(
+    [...watched].map(([directory, { recursive }]) => [directory, recursive]),
+    [
+      [path.join("/fixture-data", "native-sessions"), false],
+      [path.join("/fixture-data", "sessions"), false],
+      [path.join("/fixture-home", ".codex"), true],
+    ],
+  );
+  const codex = watched.get(path.join("/fixture-home", ".codex")).listener;
+  const sessions = watched.get(path.join("/fixture-data", "sessions")).listener;
+  codex("change", "config.toml");
+  sessions("change", "other.json");
+  assert.equal(changes, 0);
+  codex("change", "sessions/2026/10/19/rollout.jsonl");
+  sessions("change", "s.json");
+  codex("rename", null);
+  assert.equal(changes, 3);
+});
