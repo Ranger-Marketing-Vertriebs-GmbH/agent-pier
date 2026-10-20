@@ -10,6 +10,15 @@ export const userRoutes = [
   { method: "GET", pattern: /^\/api\/me$/ },
   { method: "PUT", pattern: /^\/api\/me\/password$/ },
   { method: "GET", pattern: /^\/api\/me\/dictation$/ },
+  // Her own devices for push notices (me-notifications.js).
+  { method: "GET", pattern: /^\/api\/me\/notifications$/ },
+  { method: "POST", pattern: /^\/api\/me\/notifications\/subscriptions$/ },
+  { method: "DELETE", pattern: /^\/api\/me\/notifications\/subscriptions\/[^/]+$/ },
+  {
+    method: "PUT",
+    pattern: /^\/api\/me\/notifications\/subscriptions\/[^/]+\/preferences$/,
+  },
+  { method: "POST", pattern: /^\/api\/me\/notifications\/(?:presence|test)$/ },
   // Her agents and her own chats with them (me-agents.js, me-conversations.js).
   { method: "GET", pattern: /^\/api\/me\/agents$/ },
   { method: "POST", pattern: /^\/api\/me\/agents\/[^/]+\/conversation$/ },

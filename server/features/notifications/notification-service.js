@@ -78,26 +78,38 @@ export class NotificationService {
   now() {
     return new Date(this.clock.now()).toISOString();
   }
-  status() {
+  /** One person's devices: the owner's (`userId` null) or a restricted user's. */
+  status({ userId = null } = {}) {
     return {
       enabled: true,
       publicKey: this.vapid.publicKey,
       subscriptions: this.db
-        .prepare("SELECT public FROM subscriptions ORDER BY rowid")
-        .all()
+        .prepare("SELECT public FROM subscriptions WHERE user_id IS ? ORDER BY rowid")
+        .all(userId)
         .map((row) => this.summary(row.public)),
     };
   }
+  // A device of this person, or 404 as for any device that is not registered.
+  row(id, userId, columns = "public") {
+    const row = this.db
+      .prepare(`SELECT ${columns} FROM subscriptions WHERE id=? AND user_id IS ?`)
+      .get(pushId(id), userId);
+    if (!row) throw problem(serverMessages.notifications.deviceNotRegistered, 404);
+    return row;
+  }
   deviceCount() {
     if (this.closed) return 0;
-    return this.db.prepare("SELECT COUNT(*) AS count FROM subscriptions").get().count;
+    return this.db
+      .prepare("SELECT COUNT(*) AS count FROM subscriptions WHERE user_id IS NULL")
+      .get().count;
   }
   /** A stored device summary, with its preferences in the current shape. */
   summary(text) {
     const summary = JSON.parse(text);
     return { ...summary, preferences: normalizePreferences(summary.preferences) };
   }
-  async subscribe(input) {
+  /** Registers a device for one person; a browser signed in anew moves to her. */
+  async subscribe(input, { userId = null } = {}) {
     if (this.closed) throw problem(serverMessages.notifications.unavailable, 503);
     const deviceId = pushId(input?.deviceId),
       label = nameValue(input.label),
@@ -106,7 +118,7 @@ export class NotificationService {
     const existing = this.db
       .prepare("SELECT id,public,secret FROM subscriptions WHERE device_id=?")
       .get(deviceId);
-    if (!existing && this.status().subscriptions.length >= 50)
+    if (!existing && this.status({ userId }).subscriptions.length >= 50)
       throw problem(serverMessages.notifications.deviceLimit, 409);
     const previous = existing ? this.summary(existing.public) : null;
     const timeZone = validTimeZone(input.timeZone) ? input.timeZone : null;
@@ -126,18 +138,21 @@ export class NotificationService {
         if (previous[key] !== undefined) summary[key] = previous[key];
     this.db
       .prepare(
-        "INSERT INTO subscriptions (id,device_id,public,secret) VALUES(?,?,?,?) ON CONFLICT(device_id) DO UPDATE SET public=excluded.public,secret=excluded.secret",
+        "INSERT INTO subscriptions (id,device_id,public,secret,user_id) VALUES(?,?,?,?,?) ON CONFLICT(device_id) DO UPDATE SET public=excluded.public,secret=excluded.secret,user_id=excluded.user_id",
       )
-      .run(summary.id, deviceId, JSON.stringify(summary), JSON.stringify(subscription));
+      .run(
+        summary.id,
+        deviceId,
+        JSON.stringify(summary),
+        JSON.stringify(subscription),
+        userId,
+      );
     return { subscription: summary };
   }
   /** Changes a device's preferences; unknown or invalid fields are refused. */
-  async setPreferences(id, input) {
+  async setPreferences(id, input, { userId = null } = {}) {
     if (this.closed) throw problem(serverMessages.notifications.unavailable, 503);
-    const row = this.db
-      .prepare("SELECT public FROM subscriptions WHERE id=?")
-      .get(pushId(id));
-    if (!row) throw problem(serverMessages.notifications.deviceNotRegistered, 404);
+    const row = this.row(id, userId);
     const summary = this.summary(row.public);
     summary.preferences = updatePreferences(summary.preferences, input);
     this.db
@@ -146,14 +161,19 @@ export class NotificationService {
     return { subscription: summary };
   }
   /** A visible page names its view (push-presence.js); false when rate limited. */
-  reportPresence(route) {
-    return this.presence.report(route);
+  reportPresence(route, { userId = null } = {}) {
+    return this.presence.report(route, userId);
   }
-  badgeCount() {
-    return this.inboxCount ? bounded(this.inboxCount, 1000) : undefined;
+  // The inbox badge is the owner's; a user's devices show no count.
+  badgeCount({ userId = null } = {}) {
+    return this.inboxCount && userId === null
+      ? bounded(this.inboxCount, 1000)
+      : undefined;
   }
-  async unsubscribe(id) {
-    this.db.prepare("DELETE FROM subscriptions WHERE id=?").run(pushId(id));
+  async unsubscribe(id, { userId = null } = {}) {
+    this.db
+      .prepare("DELETE FROM subscriptions WHERE id=? AND user_id IS ?")
+      .run(pushId(id), userId);
     return { removed: true };
   }
   async deliver(id, payload) {
@@ -219,14 +239,11 @@ export class NotificationService {
     promise.finally(() => this.active.delete(promise)).catch(() => {});
     return promise;
   }
-  async test(id) {
+  async test(id, { userId = null } = {}) {
     if (this.closed) throw problem(serverMessages.notifications.unavailable, 503);
-    const row = this.db
-      .prepare("SELECT public FROM subscriptions WHERE id=?")
-      .get(pushId(id));
-    const preferences = row ? this.summary(row.public).preferences : defaultPreferences();
+    const preferences = this.summary(this.row(id, userId).public).preferences;
     const payload = buildPayload({ kind: "test", eventId: randomUUID() }, preferences, {
-      count: await this.badgeCount(),
+      count: await this.badgeCount({ userId }),
     });
     return this.track(this.deliver(id, payload));
   }
@@ -238,10 +255,21 @@ export class NotificationService {
     const event = pushEvent(lazy ? { ...input, preview: undefined } : input),
       now = this.clock.now(),
       targets = [];
-    // Nobody needs a push about what an open AgentPier page shows right now.
-    if (!systemKinds.has(event.kind) && this.presence.watching(event, pushSource(event)))
+    // Whose devices: a user's for her own agents and chats; the owner's otherwise.
+    // System notices are always the owner's alone.
+    const userId =
+      !systemKinds.has(event.kind) &&
+      input?.audience?.kind === "user" &&
+      typeof input.audience.userId === "string"
+        ? input.audience.userId
+        : null;
+    // Nobody needs a push about what an open AgentPier page of hers shows right now.
+    if (
+      !systemKinds.has(event.kind) &&
+      this.presence.watching(event, pushSource(event), undefined, userId)
+    )
       return;
-    const devices = this.status().subscriptions.filter((device) =>
+    const devices = this.status({ userId }).subscriptions.filter((device) =>
       wantsEvent(device.preferences, event, now),
     );
     if (!devices.length) return;
@@ -250,7 +278,7 @@ export class NotificationService {
       if (typeof preview === "string" && preview.trim())
         event.preview = preview.slice(0, 4000);
     }
-    const count = await this.badgeCount();
+    const count = await this.badgeCount({ userId });
     if (this.closed) return;
     for (const { id, preferences } of devices) {
       const claim = this.db
