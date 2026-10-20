@@ -18,6 +18,11 @@ export const chatObservabilityCopy = {
   subagentCount: (count) => `Active subagents (${count})`,
   subagentSummary: (count, active) => `Subagents (${count} · ${active} active)`,
   subagentTotal: (count) => `Subagents (${count})`,
+  liveTool: (tool) => `Running ${tool}`,
+  liveThinking: "Thinking",
+  liveCompacting: "Compacting the conversation",
+  liveAgents: (count) =>
+    count === 1 ? "1 subagent running" : `${count} subagents running`,
   running: "Working",
   completed: "Completed",
   failed: "Failed",

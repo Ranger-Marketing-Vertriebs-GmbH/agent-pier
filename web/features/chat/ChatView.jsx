@@ -33,6 +33,7 @@ export default function ChatView({
   const {
     data,
     replies,
+    liveStatus,
     historyError,
     historyLoading,
     loadOlder,
@@ -183,6 +184,7 @@ export default function ChatView({
         </div>
         <ChatObservability
           session={session}
+          liveStatus={liveStatus}
           observability={data?.observability}
           subagents={subagents}
           showSubagents={openTasks}

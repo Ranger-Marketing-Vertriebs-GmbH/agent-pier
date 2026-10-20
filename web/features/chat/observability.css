@@ -15,6 +15,21 @@
   gap: 6px;
   flex-shrink: 0;
 }
+/* What a Claude turn is busy with (live-status.js); it gives way on narrow screens. */
+.chat-activity:has(.chat-activity-detail) {
+  flex-shrink: 1;
+  min-width: 0;
+}
+.chat-activity-detail {
+  min-width: 0;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-activity-detail::before {
+  content: "· ";
+}
 .chat-activity .activity-dot {
   width: 7px;
   height: 7px;

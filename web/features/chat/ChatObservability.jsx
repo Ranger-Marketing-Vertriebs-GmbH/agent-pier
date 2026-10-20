@@ -4,17 +4,23 @@ import { activityTone } from "../../components/status-tones.js";
 import { chatObservabilityCopy as copy } from "../../lib/i18n/messages/chat-observability.js";
 import { sessionActivity } from "../sessions/sessionPresentation.js";
 import { subagentHeading } from "./subagent-presentation.js";
+import { liveActivity } from "./live-status.js";
 import ContextBudget from "./ContextBudget.jsx";
 import TokenDetails from "./TokenDetails.jsx";
 
 export default function ChatObservability({
   session,
+  liveStatus,
   observability,
   showSubagents,
   subagents = [],
 }) {
   const [expanded, setExpanded] = useState(false);
-  const activity = sessionActivity(session);
+  const activity = liveActivity(
+    { ...sessionActivity(session), observedAt: session.activity?.observedAt },
+    liveStatus,
+    session.status === "running",
+  );
   return (
     <div className={`chat-observability${expanded ? " expanded" : ""}`}>
       <span className="chat-activity" role="status" aria-label={copy.activity}>
@@ -27,6 +33,11 @@ export default function ChatObservability({
           />
         )}
         {activity.label}
+        {activity.detail && (
+          <span className="chat-activity-detail" title={activity.detail}>
+            {activity.detail}
+          </span>
+        )}
       </span>
       <button
         type="button"

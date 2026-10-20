@@ -7,6 +7,7 @@ import {
 } from "./chat-sync.js";
 import { createChatStream } from "./chat-stream-transport.js";
 import { endedReplyGraceMs, nextReplies, withoutEnded } from "./reply-stream.js";
+import { liveValue } from "./live-status.js";
 import {
   chatCacheKey,
   chatCachePreload,
@@ -87,6 +88,8 @@ export default function useChatStream({
   const publish = useCallback(() => setData(view(state.current)), []);
   // The reply streaming now (reply-stream.js): runs by id, only in this tab.
   const [replies, setReplies] = useState(() => new Map());
+  // What the CLI reports doing now (the Claude Code bridge mod), or null.
+  const [liveStatus, setLiveStatus] = useState(null);
   const runs = useRef(replies);
   const setRuns = useCallback((next) => {
     runs.current = next;
@@ -156,6 +159,7 @@ export default function useChatStream({
     setHistoryLoading(false);
     setHistoryError("");
     setRuns(new Map());
+    setLiveStatus(null);
     stick.current = true;
   }, [key, stick, setRuns]);
   // The device preload may settle after the mount (it races /api/state). A late
@@ -200,6 +204,7 @@ export default function useChatStream({
         ),
       onSnapshot: accept,
       onFrame: (frame) => {
+        if (frame.type === "live-status") return void setLiveStatus(liveValue(frame));
         if (frame.type !== "stream" && frame.type !== "stream-end") return;
         const next = nextReplies(runs.current, frame);
         if (!next) return false;
@@ -216,8 +221,9 @@ export default function useChatStream({
           state.current.live = { ...state.current.live, nativeInput: null };
           publish();
         }
-        // A new socket sends every run whole again.
+        // A new socket sends every run whole again, and the live status.
         if (status === "disconnected" && runs.current.size) setRuns(new Map());
+        if (status === "disconnected") setLiveStatus(null);
         onConnection?.(status);
       },
       onError: setLoadError,
@@ -341,6 +347,7 @@ export default function useChatStream({
   return {
     data,
     replies,
+    liveStatus,
     restored: Boolean(data?.restored),
     restoreScroll,
     followBottom,

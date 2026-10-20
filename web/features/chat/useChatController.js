@@ -181,6 +181,7 @@ export default function useChatController({ active, session, request, onConnecti
   return {
     data,
     replies: stream.replies,
+    liveStatus: stream.liveStatus,
     historyError: stream.historyError,
     historyLoading: stream.historyLoading,
     loadOlder: stream.loadOlder,
