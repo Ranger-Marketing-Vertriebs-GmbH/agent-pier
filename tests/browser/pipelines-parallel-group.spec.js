@@ -69,6 +69,12 @@ test.describe("parallel review groups in English", () => {
         .check();
     await page.getByRole("button", { name: "Add member", exact: true }).click();
     // A profile another member already runs is not offered again.
+    // Three profiles, three members: no member can be added without a profile.
+    const add = page.getByRole("button", { name: "Add member", exact: true });
+    await expect(add).toBeDisabled();
+    await expect(add).toHaveAccessibleDescription(
+      "Every eligible profile already runs in this group.",
+    );
     const third = page.getByRole("radiogroup", { name: "Member 3", exact: true });
     await expect(third.getByRole("radio")).toHaveCount(1);
     await expect(third.getByRole("radio", { name: "Security" })).toHaveCount(0);
