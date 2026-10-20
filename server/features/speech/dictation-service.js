@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { auditActor } from "../audit/audit-actor.js";
 import {
   deepgramLiveUrl,
   liveEndpoint,
@@ -16,10 +17,13 @@ export const dictationLimits = Object.freeze({
   maxPendingBytes: 4 * bytesPerSecond,
   // Audio waiting in the Deepgram socket (about 30 seconds): more means it stalled.
   maxUpstreamBuffer: 1024 * 1024,
-  // Starts per login session within the window, and dictations open at once.
+  // Starts within the window: per owner login session, and per user across all of
+  // her sessions. The owner's dictations open at once never count users', so users
+  // cannot lock him out; users share their own few slots, one each.
   starts: 20,
   windowMs: 10 * 60 * 1000,
   concurrent: 4,
+  userConcurrent: 2,
   // How long the last transcripts may take after the owner stopped.
   finishMs: 5000,
 });
@@ -32,7 +36,7 @@ const defaultConnect = (url, headers) =>
   });
 
 /**
- * Live dictation for the owner's composers: the browser streams PCM through
+ * Live dictation for the composers of the owner and of users: the browser streams PCM through
  * AgentPier, which opens Deepgram's live socket with the stored key (the key never
  * reaches the browser) and relays interim and final transcripts back. Audio is only
  * forwarded, never stored, and each sent buffer is zeroed (best effort); the audit
@@ -61,24 +65,36 @@ export class DictationService {
       ? { available: true, autoSend: settings.dictationSend === true }
       : { available: false, reason: "notConfigured", autoSend: false };
   }
-  admit(holder) {
+  /** The dictations a newer one of `holder` replaces: its session, or the user's. */
+  replaced(holder, userId) {
+    return [...this.active.values()].filter((session) =>
+      userId ? session.userId === userId : session.holder === holder,
+    );
+  }
+  admit(holder, userId) {
     const now = this.clock.now();
-    const recent = (this.starts.get(holder) || []).filter(
+    const rateKey = userId ? `user:${userId}` : `owner:${holder}`;
+    const recent = (this.starts.get(rateKey) || []).filter(
       (at) => now - at < this.limits.windowMs,
     );
     if (recent.length >= this.limits.starts) return "rateLimited";
-    // A newer dictation of the same login session replaces the older one.
-    const others = [...this.active.keys()].filter((key) => key !== holder).length;
-    if (others >= this.limits.concurrent) return "busy";
+    const replaced = new Set(this.replaced(holder, userId));
+    const others = [...this.active.values()].filter(
+      (session) => !replaced.has(session) && Boolean(session.userId) === Boolean(userId),
+    ).length;
+    const cap = userId ? this.limits.userConcurrent : this.limits.concurrent;
+    if (others >= cap) return "busy";
     recent.push(now);
-    this.starts.set(holder, recent);
+    this.starts.set(rateKey, recent);
     return null;
   }
   /**
-   * Starts one dictation for login session `holder`; `client` receives
-   * `{type, ...}` messages and is closed with a WebSocket close code.
+   * Starts one dictation for login session `holder` of `principal` (the owner when
+   * absent); `client` receives `{type, ...}` messages and is closed with a
+   * WebSocket close code. A user's newer dictation replaces her older one.
    */
-  start({ holder, client }) {
+  start({ holder, principal, client }) {
+    const userId = auditActor(principal).actorUserId || null;
     const refusal = (code) => {
       client.send({ type: "error", code });
       client.close(1000);
@@ -86,16 +102,16 @@ export class DictationService {
     };
     const status = this.status();
     if (!status.available) return refusal(status.reason);
-    const admitted = this.admit(holder);
+    const admitted = this.admit(holder, userId);
     if (admitted) return refusal(admitted);
-    this.active.get(holder)?.end("replaced");
+    for (const session of this.replaced(holder, userId)) session.end("replaced");
     let lease;
     try {
       lease = this.speech().acquire();
     } catch {
       return refusal("notConfigured");
     }
-    const session = new Dictation(this, { holder, client, lease });
+    const session = new Dictation(this, { holder, userId, client, lease });
     if (session.state !== "ended") this.active.set(holder, session);
     return session;
   }
@@ -106,6 +122,7 @@ export class DictationService {
         action: "speech.completed",
         resourceType: "speech",
         source: "user",
+        ...(session.userId ? { actorUserId: session.userId } : {}),
         outcome: error ? "failure" : "success",
         details: { kind: "dictation", seconds },
       });
@@ -117,8 +134,8 @@ export class DictationService {
 }
 
 class Dictation {
-  constructor(service, { holder, client, lease }) {
-    Object.assign(this, { service, holder, client });
+  constructor(service, { holder, userId, client, lease }) {
+    Object.assign(this, { service, holder, userId, client });
     this.limits = service.limits;
     this.startedAt = service.clock.now();
     this.pending = [];

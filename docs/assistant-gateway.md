@@ -605,11 +605,15 @@ come from the speech settings; **Detect automatically** streams as Nova-3's
 stored; each forwarded buffer is zeroed once sent. That zeroing is best effort: the
 WebSocket library masks a copy of each frame, which the runtime frees later. A Deepgram
 socket that stops draining (about 30 seconds of audio queued) ends the dictation. Neither audio nor text reaches logs or the
-audit, which records `speech.completed` with the dictation's length in seconds.
+audit, which records `speech.completed` with the dictation's length in seconds and,
+for a user's dictation, her id.
 
-Limits: five minutes per dictation, eight seconds without audio, one dictation per
-login session (a newer one replaces it), at most four at once, and 20 starts per login
-session in ten minutes. Hiding the page (a locked phone, another app) stops it. Without
+Limits: five minutes per dictation and eight seconds without audio. The owner has one
+dictation per login session (a newer one replaces it), at most four at once, and 20
+starts per login session in ten minutes. Each user has one dictation across all her
+sessions (a newer one replaces it) and 20 starts in ten minutes, and users together
+hold at most two at once. Users' dictations never count toward the owner's four, so
+they cannot lock him out. Hiding the page (a locked phone, another app) stops it. Without
 a key, with agents turned off, or over plain HTTP from another device (microphone
 access needs HTTPS or localhost, for example through Tailscale Serve) the microphone
 stays visible but explains why it is unavailable. An opt-in contract test runs against

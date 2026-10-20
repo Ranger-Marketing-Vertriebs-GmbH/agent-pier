@@ -1,7 +1,7 @@
 /**
  * The agent routes sorted by what they expose. Content routes return or change what a
  * user wrote or her agent produced for her (chats, attachments, memory, reminders,
- * approvals, the browser); the owner's privacy guard (Task 20) resolves the route's
+ * approvals, the browser, the channel that delivers into her chat); the owner's privacy guard (Task 20) resolves the route's
  * `:id` to its conversation or agent and refuses what he may not read. Metadata routes
  * show or change settings only. A route that is not clearly metadata counts as content.
  * `tests/integration/owner-content-classification.test.js` fails on a new agent route
@@ -62,6 +62,11 @@ export const ownerContentRoutes = {
   "POST /api/assistants/:id/actions/:actionId/cancel": "agent",
   "GET /api/assistants/:id/actions/:actionId/artifacts": "agent",
   "POST /api/assistant-actions/:id/decision": "action",
+  // A channel delivers into the agent's main chat: re-pairing it hands its chat to
+  // whoever redeems the code, and changing or removing it reroutes her reminders.
+  "PATCH /api/assistant-channels/:id": "channel",
+  "POST /api/assistant-channels/:id/pair": "channel",
+  "DELETE /api/assistant-channels/:id": "channel",
   // Re-delivering a channel's inbound message or notification touches a chat.
   "POST /api/assistant-channels/:id/inputs/:inputId/:action": "channel",
   "POST /api/assistant-channels/:id/notifications/:notificationId/:action": "channel",
@@ -77,9 +82,6 @@ export const ownerMetadataRoutes = new Set([
   "GET /api/assistants/:id/skills",
   "GET /api/assistants/:id/attachment-usage",
   "GET /api/assistant-conversations/:id/attachment-policy",
-  "PATCH /api/assistant-channels/:id",
-  "POST /api/assistant-channels/:id/pair",
-  "DELETE /api/assistant-channels/:id",
 ]);
 
 /** Paths of routes that belong to one agent or one of its chats, turns or files. */

@@ -1,17 +1,14 @@
 /**
  * Lists every route the registered /api routers serve (api-registry.js). It walks each
  * router's stack, nested routers included, and asks a router for the routes it builds
- * lazily through `router.inventory()`, which returns more routers to walk.
+ * lazily through `router.inventory()`, which returns more routers to walk. A method and
+ * path registered twice appear twice, so a shadowed handler shows up as a duplicate.
  */
 export function routeInventory(services) {
   const routes = [];
-  const seen = new Set();
   const add = (method, path, beforeLogin) => {
     const regex = path instanceof RegExp;
     const text = regex ? String(path) : `/api${path === "/" ? "" : path}`;
-    const key = `${method} ${text}`;
-    if (seen.has(key)) return;
-    seen.add(key);
     routes.push({
       method,
       path: text,

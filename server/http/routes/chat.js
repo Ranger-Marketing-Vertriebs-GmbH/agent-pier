@@ -7,14 +7,15 @@ export function chatRoutes(services) {
   router.post(
     "/sessions/:id/chat/attachments",
     raw({ type: "application/octet-stream", limit: "10mb" }),
-    async (req, res, next) => {
-      if (!req.is("application/octet-stream")) return next();
+    // A raw upload carries one file; a JSON body carries the composer's attachments.
+    async (req, res) =>
       res
         .status(201)
         .json(
-          await services.chatAttachments.save(req.params.id, req.query.name, req.body),
-        );
-    },
+          req.is("application/octet-stream")
+            ? await chatAttachments.save(req.params.id, req.query.name, req.body)
+            : await chatAttachments.store(req.params.id, req.body),
+        ),
   );
   router.get("/sessions/:id/chat", async (req, res) =>
     res.json(await sync.read(req.params.id, req.query.cursor)),
@@ -61,9 +62,6 @@ export function chatRoutes(services) {
         await chat.bind(req.params.id, req.body?.providerSessionId),
       ),
     ),
-  );
-  router.post("/sessions/:id/chat/attachments", async (req, res) =>
-    res.status(201).json(await chatAttachments.store(req.params.id, req.body)),
   );
   return router;
 }

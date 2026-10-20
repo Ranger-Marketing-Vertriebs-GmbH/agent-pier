@@ -185,3 +185,58 @@ test("a Deepgram socket that stops draining ends the dictation instead of queuei
   assert.deepEqual(c.messages.at(-1), { type: "error", code: "slow" });
   assert.ok(upstream.terminated);
 });
+
+const owner = { role: "owner" };
+const user = (userId) => ({ role: "user", userId });
+
+test("users never take the owner's dictation slots", () => {
+  const h = harness({ limits: { concurrent: 1, userConcurrent: 2 } });
+  // Anna signs in from four browsers: each newer dictation replaces her older one.
+  const anna = ["a1", "a2", "a3", "a4"].map((holder) => {
+    const c = h.client();
+    h.service.start({ holder, principal: user("anna"), client: c });
+    return c;
+  });
+  for (const c of anna.slice(0, 3))
+    assert.deepEqual(c.messages.at(-1), { type: "ended", reason: "replaced" });
+  assert.equal(anna[3].closed, null);
+  const ben = h.client();
+  h.service.start({ holder: "b1", principal: user("ben"), client: ben });
+  assert.equal(ben.closed, null);
+  // The users' slots are full, yet the owner still dictates.
+  const carla = h.client();
+  h.service.start({ holder: "c1", principal: user("carla"), client: carla });
+  assert.deepEqual(carla.messages, [{ type: "error", code: "busy" }]);
+  const mine = h.client();
+  h.service.start({ holder: "o1", principal: owner, client: mine });
+  assert.equal(mine.closed, null);
+  // The owner's own cap counts only his sessions.
+  const second = h.client();
+  h.service.start({ holder: "o2", client: second });
+  assert.deepEqual(second.messages, [{ type: "error", code: "busy" }]);
+  h.service.close();
+});
+
+test("a user's starts are limited across all her login sessions", () => {
+  const h = harness({ limits: { starts: 2, windowMs: 1000 } });
+  for (const holder of ["a1", "a2"])
+    h.service.start({ holder, principal: user("anna"), client: h.client() });
+  const fresh = h.client();
+  h.service.start({ holder: "a3", principal: user("anna"), client: fresh });
+  assert.deepEqual(fresh.messages, [{ type: "error", code: "rateLimited" }]);
+  const mine = h.client();
+  h.service.start({ holder: "o1", principal: owner, client: mine });
+  assert.equal(mine.closed, null);
+  h.service.close();
+});
+
+test("a user's dictation is audited with her id, the owner's without one", () => {
+  const h = harness();
+  h.service.start({ holder: "a1", principal: user("anna"), client: h.client() });
+  h.service.start({ holder: "o1", principal: owner, client: h.client() });
+  h.service.close();
+  const [anna, mine] = h.audits;
+  assert.equal(anna.actorUserId, "anna");
+  assert.equal(anna.action, "speech.completed");
+  assert.equal("actorUserId" in mine, false);
+});

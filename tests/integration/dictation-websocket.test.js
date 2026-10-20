@@ -7,6 +7,7 @@ import {
   enabledAssistants,
   fixtureFetch,
 } from "../helpers/application.js";
+import { signedInUser } from "../helpers/users.js";
 
 const key = "dg-fixture-key";
 
@@ -202,4 +203,19 @@ test("a refused key, silence and a second dictation end the stream cleanly", asy
   newer.ws.send(JSON.stringify({ type: "other" }));
   assert.equal(await newer.closed, 1008);
   await until(() => deepgram.calls.every((call) => call.ws?.readyState === 3));
+});
+
+test("a user's dictation is audited as hers, not the owner's", async (t) => {
+  const deepgram = await fakeDeepgram(t);
+  const { f, open } = await setup(t, deepgram);
+  const { user, cookie } = await signedInUser(f);
+  const dictation = open({ origin: f.url, headers: { cookie } });
+  await until(() => dictation.messages.some((m) => m.type === "ready"));
+  dictation.ws.send(JSON.stringify({ type: "stop" }));
+  await dictation.closed;
+  const audit = await (
+    await fixtureFetch(f.url + "/api/audit?action=speech.completed")
+  ).json();
+  assert.equal(audit.events.length, 1);
+  assert.equal(audit.events[0].actorUserId, user.id);
 });

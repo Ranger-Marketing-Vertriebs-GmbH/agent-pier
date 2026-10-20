@@ -1,4 +1,5 @@
 import test from "node:test";
+import { Router } from "express";
 import assert from "node:assert/strict";
 import { applicationFixture, enabledAssistants } from "../helpers/application.js";
 import { routeInventory } from "../../server/http/route-inventory.js";
@@ -32,4 +33,23 @@ test("inventory reports the agent routes only while agents run", async (t) => {
   const keys = routeInventory(f.application).map((r) => `${r.method} ${r.path}`);
   assert.ok(keys.includes("GET /api/assistant-feature"));
   assert.ok(!keys.includes("GET /api/assistants"));
+});
+
+test("inventory keeps a route registered twice, so the duplicate check can fail", () => {
+  const first = Router();
+  first.get("/assistants/:id/memory", () => {});
+  const second = Router();
+  second.get("/assistants/:id/memory", () => {});
+  second.post("/assistants/:id/memory", () => {});
+  const routes = routeInventory({
+    apiRegistry: { entries: [{ router: first }, { router: second }] },
+  });
+  assert.deepEqual(
+    routes.map(({ method, path }) => `${method} ${path}`),
+    [
+      "GET /api/assistants/:id/memory",
+      "GET /api/assistants/:id/memory",
+      "POST /api/assistants/:id/memory",
+    ],
+  );
 });
