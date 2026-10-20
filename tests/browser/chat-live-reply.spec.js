@@ -103,6 +103,47 @@ for (const viewport of viewports)
       await expect(page.getByText("Child")).toHaveCount(0);
     });
 
+    test("Claude drafts follow the turn's order and give way to the JSONL replies", async ({
+      page,
+    }) => {
+      const chat = await chatFixture(page, "claude");
+      const live = page.locator(".chat-message.streaming");
+      const draft = (runId, order, text) =>
+        chat.frame({ type: "stream", runId, from: 0, text, turn: "turn-1", order });
+      draft("claude-a", 0, "Let me check.\n");
+      await expect(live).toHaveText(/Let me check\./);
+      // The first message reaches the transcript, a tool runs, the second streams.
+      chat.sync([
+        { id: "msg_01:0", role: "assistant", text: "Let me check." },
+        {
+          id: "toolu_1",
+          role: "tool",
+          toolName: "Bash",
+          text: "ls",
+          status: "completed",
+        },
+      ]);
+      draft("claude-b", 1, "Found it:\n");
+      await expect(live).toHaveCount(1);
+      await expect(live).toContainText("Found it:");
+      chat.frame({ type: "stream", runId: "claude-b", from: 10, text: "- one line\n" });
+      await expect(live.locator("li")).toHaveText("one line");
+      chat.sync([
+        { id: "msg_01:0", role: "assistant", text: "Let me check." },
+        {
+          id: "toolu_1",
+          role: "tool",
+          toolName: "Bash",
+          text: "ls",
+          status: "completed",
+        },
+        { id: "msg_02:0", role: "assistant", text: "Found it:\n- one line" },
+      ]);
+      await expect(live).toHaveCount(0);
+      await expect(page.locator(".chat-message.assistant")).toHaveCount(2);
+      await expect(page.getByText("Let me check.")).toHaveCount(1);
+    });
+
     test("an OpenCode part streams and an ended run without history fades", async ({
       page,
     }) => {

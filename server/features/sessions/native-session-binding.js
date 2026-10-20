@@ -18,6 +18,7 @@ import {
   writeJsonAtomic,
 } from "../../../vendor/agentbus/core/fsx.js";
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
+import { atLeast } from "../tools/cli-version.js";
 import { findRuntimePid } from "../../../vendor/agentbus/hooks/register.js";
 import { resolveCodexProcess } from "./native-session-process.js";
 import { addGrant } from "../nono/sandbox-grants.js";
@@ -26,9 +27,11 @@ import {
   readNativeActivity,
   recordNativeActivity,
 } from "./native-session-activity.js";
-import { pushNative } from "../requests/native-push.js";
+import { maxReplyText, pushNative } from "../requests/native-push.js";
 
 const modulePath = fileURLToPath(import.meta.url);
+// Claude Code added the MessageDisplay hook event in this release.
+export const MESSAGE_DISPLAY_VERSION = "2.1.152";
 const validId = (id) =>
   typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
 
@@ -208,6 +211,23 @@ export class NativeSessionBinding {
         },
       });
       args.push("--plugin-dir", activity);
+      // Live reply text, in a plugin of its own: a release without MessageDisplay
+      // must not lose the hooks above, and an unknown version keeps today's chat.
+      // Asynchronous, so the TUI never waits for AgentPier to show a line.
+      if (atLeast(launch.cliVersion, MESSAGE_DISPLAY_VERSION)) {
+        const stream = path.join(this.directory, `${id}.claude-stream`);
+        ensureDir(path.join(stream, ".claude-plugin"));
+        ensureDir(path.join(stream, "hooks"));
+        writeJsonAtomic(path.join(stream, ".claude-plugin/plugin.json"), {
+          name: "agentpier-stream",
+          version: "1.0.0",
+          description: "Live reply text for the AgentPier chat",
+        });
+        writeJsonAtomic(path.join(stream, "hooks/hooks.json"), {
+          hooks: { MessageDisplay: [observe] },
+        });
+        args.push("--plugin-dir", stream);
+      }
     }
     if (account.tool === "opencode") {
       if (env.OPENCODE_TUI_CONFIG)
@@ -326,7 +346,11 @@ export class NativeSessionBinding {
       fs.rmSync(file, { force: true });
       fs.rmSync(receiptPath(file), { force: true });
       fs.rmSync(activityPath(file), { force: true });
-      for (const plugin of [`${id}.claude`, `${id}.claude-activity`])
+      for (const plugin of [
+        `${id}.claude`,
+        `${id}.claude-activity`,
+        `${id}.claude-stream`,
+      ])
         fs.rmSync(path.join(this.directory, plugin), { recursive: true, force: true });
       fs.rmSync(path.join(this.directory, `${id}.tui.json`), { force: true });
     } catch {}
@@ -334,6 +358,7 @@ export class NativeSessionBinding {
 }
 // These Claude Code events only report activity; they carry no new identity.
 const activityOnly = new Set([
+  "MessageDisplay",
   "Stop",
   "StopFailure",
   "PermissionRequest",
@@ -380,8 +405,34 @@ export async function runNativeSessionHook({
   // The receipt and activity files stay for restarts; this push lets an open chat
   // read again at once instead of waiting for the file watcher. Bounded: a stopped
   // server never holds the hook.
-  if (env.AGENTPIER_REQUEST_FILE)
-    await pushNative({ type: "activity", event: payload?.hook_event_name }, { env });
+  const push = env.AGENTPIER_REQUEST_FILE ? hookPush(payload) : null;
+  if (push) await pushNative(push, { env });
+}
+/** What a hook payload tells an open chat (native-push.js), or null for nothing. */
+export function hookPush(payload) {
+  const event = payload?.hook_event_name;
+  if (event === "MessageDisplay") {
+    // A sub-agent's text is not the session's reply; the transcript keeps it apart.
+    if (payload.agent_id) return null;
+    return {
+      type: "claude-display",
+      turnId: payload.turn_id,
+      messageId: payload.message_id,
+      index: payload.index,
+      final: payload.final === true,
+      delta:
+        typeof payload.delta === "string" ? payload.delta.slice(0, maxReplyText) : "",
+    };
+  }
+  return {
+    type: "activity",
+    event,
+    ...(event === "Stop" &&
+    !payload.agent_id &&
+    typeof payload.last_assistant_message === "string"
+      ? { lastAssistantMessage: payload.last_assistant_message.slice(0, maxReplyText) }
+      : {}),
+  };
 }
 
 if (isMainModule(import.meta.url) && process.argv[2] === "--record") {

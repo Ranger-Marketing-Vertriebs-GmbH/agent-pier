@@ -287,6 +287,8 @@ export class RequestBroker {
       () => false,
     );
     if (!(await socket.verified)) throw Error("Native owner unavailable");
+    // Only a Claude Code owner reports MessageDisplay batches.
+    if (push.type === "claude-display" && owner.tool !== "claude") return;
     if (push.type === "stream") {
       socket.runs ??= new Set();
       socket.runs.add(push.runId);
