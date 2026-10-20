@@ -7,6 +7,8 @@
 // frames: `from: 0` carries the whole text so far (a new subscriber, a rewrite),
 // any other `from` appends where that subscriber's copy ends. `{type: "stream-end",
 // runId}` says the run is over; its text is in the transcript (or never will be).
+// `{type: "live-status", status}` says what the CLI is doing now, where it reports
+// that itself (the Claude Code bridge mod); `status: null` ends that report.
 import { maxReplyText } from "../requests/native-push.js";
 
 export class ReplyStreams {
@@ -25,7 +27,13 @@ export class ReplyStreams {
   entry(sessionId, create = true) {
     let entry = this.sessions.get(sessionId);
     if (!entry && create && !this.closed) {
-      entry = { runs: new Map(), subscribers: new Set(), timer: null, idle: null };
+      entry = {
+        runs: new Map(),
+        subscribers: new Set(),
+        timer: null,
+        idle: null,
+        status: null,
+      };
       this.sessions.set(sessionId, entry);
     }
     return entry;
@@ -36,6 +44,7 @@ export class ReplyStreams {
     if (!entry) return () => {};
     const subscriber = { send, sent: new Map() };
     entry.subscribers.add(subscriber);
+    if (entry.status) send({ type: "live-status", status: entry.status });
     for (const [runId, run] of entry.runs) this.streamTo(subscriber, runId, run);
     return () => {
       entry.subscribers.delete(subscriber);
@@ -101,6 +110,17 @@ export class ReplyStreams {
     if (ended.length && !quiet) this.onEnd(sessionId);
     this.release(sessionId, entry);
   }
+  /** What the session's CLI reports doing now (a plain object), or null. */
+  setStatus(sessionId, status) {
+    const entry = this.entry(sessionId, !!status);
+    if (!entry) return;
+    const changed = JSON.stringify(entry.status) !== JSON.stringify(status || null);
+    entry.status = status || null;
+    if (changed)
+      for (const subscriber of entry.subscribers)
+        subscriber.send({ type: "live-status", status: entry.status });
+    this.release(sessionId, entry);
+  }
   /** The runs of a session, as {runId: {text, ...labels}} (tests, diagnostics). */
   runs(sessionId) {
     const entry = this.entry(sessionId, false);
@@ -148,7 +168,7 @@ export class ReplyStreams {
     entry.idle.unref?.();
   }
   release(sessionId, entry) {
-    if (entry.runs.size || entry.subscribers.size) return;
+    if (entry.runs.size || entry.subscribers.size || entry.status) return;
     clearTimeout(entry.timer);
     clearTimeout(entry.idle);
     if (this.sessions.get(sessionId) === entry) this.sessions.delete(sessionId);

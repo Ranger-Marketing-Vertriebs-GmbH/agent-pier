@@ -13,6 +13,9 @@ export const hookStaleMs = 10 * 60 * 1000;
  *   The result then names the report it ended in `ends`; passed back as `endedAt`,
  *   that report stays ended until the CLI sends a newer one, so typing in the
  *   terminal after Esc cannot revive it.
+ * - A report of the Claude Code bridge mod (`hook.mod`) hears every turn end, an
+ *   interrupt included, so an idle composer does not end it; only `staleMs`
+ *   without any report or screen change does.
  */
 export function mergeActivity({
   pane,
@@ -29,7 +32,7 @@ export function mergeActivity({
   if (!hook || !["working", "idle", "waiting"].includes(hook.state)) return terminal;
   const reported = {
     state: hook.state,
-    source: "hook",
+    source: hook.mod ? "mod" : "hook",
     event: hook.event,
     ...(hook.background ? { background: hook.background } : {}),
   };
@@ -49,6 +52,6 @@ export function mergeActivity({
     return pane === "idle" && quiet >= quietMs ? ended : reported;
   }
   // Background tasks keep an idle composer on screen while they run.
-  if (!hook.background && pane === "idle" && quiet >= quietMs) return ended;
+  if (!hook.mod && !hook.background && pane === "idle" && quiet >= quietMs) return ended;
   return reported;
 }
