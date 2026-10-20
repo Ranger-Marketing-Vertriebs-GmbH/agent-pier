@@ -114,7 +114,8 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
             readOnlyHint: tool.readOnly,
             destructiveHint: !tool.readOnly,
             idempotentHint:
-              tool.readOnly || name === "run_start" || name === "artifact_publish",
+              tool.readOnly ||
+              ["run_start", "queue_add", "artifact_publish"].includes(name),
             openWorldHint: !tool.readOnly,
           },
         },

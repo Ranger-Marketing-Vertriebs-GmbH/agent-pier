@@ -23,6 +23,7 @@ import { sessionReload } from "./de/session-reload.js";
 import { sessionTransfer } from "./de/session-transfer.js";
 import { cliProfiles } from "./de/cli-profiles.js";
 import { pipelines } from "./de/pipelines.js";
+import { pipelineQueue } from "./de/pipeline-queue.js";
 import { pipelineProfiles } from "./de/pipeline-profiles.js";
 import { pipelineGraph } from "./de/pipeline-graph.js";
 import { pipelineWorkspaces } from "./de/pipeline-workspaces.js";
@@ -47,6 +48,7 @@ export const germanServerMessages = Object.freeze({
   sessionTransfer,
   cliProfiles,
   pipelines,
+  pipelineQueue,
   pipelineProfiles,
   pipelineGraph,
   pipelineWorkspaces,

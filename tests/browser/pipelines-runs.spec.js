@@ -162,6 +162,7 @@ for (const width of [1440, 390]) {
       /^Definitionen\s*1$/,
       /^Aufgabenprofile\s*1$/,
       "Prüfung",
+      "Warteschlange",
     ]);
     const rows = runRows(page);
     await expect(rows).toHaveCount(3);

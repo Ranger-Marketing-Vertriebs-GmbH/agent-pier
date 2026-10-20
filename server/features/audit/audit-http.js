@@ -104,6 +104,18 @@ export function requestAudit(req) {
   } else if (area === "pipeline-verification" || area === "pipeline-risk") {
     resourceType = "pipeline";
     action = "updated";
+  } else if (area === "pipeline-queue") {
+    // /pipeline-queue/<project>/settings or /items[/<item>[/retry|move]]; an item's id
+    // is the run id reserved for it.
+    resourceType = "pipeline";
+    projectId = resourceId;
+    resourceId = identity(segments[3]);
+    if (operation === "settings") action = "updated";
+    else if (operation !== "items") return null;
+    else if (segments[4] === "retry") action = "retried";
+    else if (segments[4] === "move") action = "updated";
+    else if (segments[4]) return null;
+    else if (req.method === "POST" && segments[3]) return null;
   } else if (area === "tools") {
     resourceType = "tool";
     action = "installed";
@@ -135,6 +147,7 @@ export function auditHttp(audit, { onError = () => {} } = {}) {
           body?.profile?.id ||
           body?.pipeline?.id ||
           body?.run?.id ||
+          body?.item?.id ||
           body?.entry?.id ||
           body?.project?.id ||
           body?.job?.id,

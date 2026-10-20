@@ -1,7 +1,7 @@
 const valid = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export function readPipelineRoute(pathname, search) {
   const match =
-    /^\/pipelines(?:\/(runs|definitions|profiles|verification)(?:\/([^/]+))?)?$/.exec(
+    /^\/pipelines(?:\/(runs|definitions|profiles|verification|queue)(?:\/([^/]+))?)?$/.exec(
       pathname,
     );
   if (!match) return null;

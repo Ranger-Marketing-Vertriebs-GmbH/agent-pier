@@ -219,6 +219,8 @@ export function auditEvent(input) {
       "risk",
       "risk-rules",
       "budget",
+      "queue",
+      "queue-settings",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -324,6 +326,17 @@ export function auditEvent(input) {
         event.details.tokenBudget = budget;
       if (["start", "pipeline"].includes(details.tokenBudgetSource))
         event.details.tokenBudgetSource = details.tokenBudgetSource;
+    }
+    // Queue settings name the concurrent runs and whether waiting runs count.
+    if (details.kind === "queue-settings") {
+      if (
+        Number.isSafeInteger(details.limit) &&
+        details.limit >= 1 &&
+        details.limit <= 20
+      )
+        event.details.limit = details.limit;
+      if (typeof details.countParked === "boolean")
+        event.details.countParked = details.countParked;
     }
     // An approved risk gate names the repository paths it covered, never content.
     if (Array.isArray(details.paths))

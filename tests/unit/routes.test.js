@@ -141,7 +141,7 @@ test("projects knowledge tab deep links reject malformed scopes and normalize in
 });
 
 test("pipeline deep links retain tabs identities and bounded filters", () => {
-  for (const tab of ["definitions", "profiles", "runs", "verification"]) {
+  for (const tab of ["definitions", "profiles", "runs", "verification", "queue"]) {
     const route = read(`/pipelines/${tab}/item-one`);
     assert.equal(route.view, "pipelines");
     assert.equal(route.pipelineTab, tab);

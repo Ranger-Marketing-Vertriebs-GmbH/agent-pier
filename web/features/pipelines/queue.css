@@ -1,0 +1,72 @@
+/* Pipelines › Queue: the settings card reuses the verification card. */
+.queue-settings .stage-stepper input {
+  width: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.verification-card.queue-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+.queue-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.queue-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+.queue-item-text {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.queue-item-text strong {
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+.queue-item-text small {
+  color: var(--text-meta);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.queue-item-error {
+  margin: 0;
+  color: var(--error-text);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.queue-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.queue-empty {
+  margin: 0;
+  color: var(--text-meta);
+  font-size: var(--font-size-sm);
+}

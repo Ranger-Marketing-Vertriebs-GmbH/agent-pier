@@ -55,6 +55,7 @@ export async function pipelinesFixture(page) {
     sessions: [],
     steps: [],
     risk: null,
+    queue: { settings: { limit: 1, countParked: false }, items: [] },
     calls: [],
     fail: "",
     hold: null,
@@ -136,6 +137,8 @@ export async function pipelinesFixture(page) {
         custom: Boolean(state.risk),
         defaults,
       };
+    } else if (path.startsWith("/pipeline-queue/")) {
+      result = queueRoute(state, path, method, body);
     } else if (path.startsWith("/pipeline-profiles")) {
       const id = path.split("/")[2];
       if (path.endsWith("/stats")) result = { stageRunsLast7Days: 3 };
@@ -258,6 +261,36 @@ export async function pipelinesFixture(page) {
     socket.send(JSON.stringify({ type: "status", status: "running" })),
   );
   return state;
+}
+// The queue routes of one project: the view, its settings and its items.
+function queueRoute(state, path, method, body) {
+  const [, , projectId, part, itemId, operation] = path.split("/");
+  const { queue } = state;
+  const view = () => ({ projectId, settings: queue.settings, items: queue.items });
+  if (part === "settings") return (queue.settings = body);
+  if (part !== "items") return view();
+  if (!itemId) {
+    const item = {
+      id: `item-${queue.items.length + 1}`,
+      projectId,
+      pipelineName: "Entwicklungsablauf",
+      state: "queued",
+      error: null,
+      source: { kind: "user" },
+      ...body,
+    };
+    queue.items.push(item);
+    return { item };
+  }
+  const index = queue.items.findIndex((item) => item.id === itemId);
+  if (method === "DELETE") return queue.items.splice(index, 1) && {};
+  if (operation === "retry") {
+    Object.assign(queue.items[index], { state: "queued", error: null });
+    return { item: queue.items[index] };
+  }
+  const other = index + (body.direction === "up" ? -1 : 1);
+  [queue.items[index], queue.items[other]] = [queue.items[other], queue.items[index]];
+  return view();
 }
 export async function openPipelines(page, path = "profiles") {
   await page.goto(baseURL + "/pipelines/" + path);
