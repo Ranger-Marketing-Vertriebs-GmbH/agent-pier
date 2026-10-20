@@ -417,11 +417,11 @@ test("channel metadata refuses platforms with different data schema ranges", asy
         },
       }),
     );
-  await record("darwin-arm64", 1);
-  await record("linux-x64", 1);
+  await record("darwin-arm64", 2);
+  await record("linux-x64", 2);
   const manifest = channelManifest(directory, { releasedAt: "2026-10-13T00:00:00Z" });
   assert.equal(manifest.schemaMin, 1);
-  assert.equal(manifest.schemaMax, 1);
-  await record("linux-x64", 2);
+  assert.equal(manifest.schemaMax, 2);
+  await record("linux-x64", 3);
   assert.throws(() => channelManifest(directory), /different data schemas/);
 });

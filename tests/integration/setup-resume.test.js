@@ -468,12 +468,12 @@ test("setup remains compatible after an in-app data schema update", async (t) =>
   }).stage({ archive: await f.archive("2.0.0") });
   const manifestPath = path.join(f.installRoot, "releases/2.0.0/release.json");
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
-  await fs.writeFile(manifestPath, JSON.stringify({ ...manifest, schemaMax: 2 }));
+  await fs.writeFile(manifestPath, JSON.stringify({ ...manifest, schemaMax: 3 }));
   switchRelease(f.installRoot, "2.0.0");
   await fs.mkdir(path.join(f.dataDir, "memory"));
   const { DatabaseSync } = await import("node:sqlite");
   const db = new DatabaseSync(path.join(f.dataDir, "memory/memory.sqlite"));
-  db.exec("PRAGMA user_version = 2");
+  db.exec("PRAGMA user_version = 3");
   db.close();
   assert.equal((await f.install()).version, "2.0.0");
 });

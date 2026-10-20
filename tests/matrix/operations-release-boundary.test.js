@@ -10,7 +10,7 @@ for (const platform of ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"
       platform,
       schemaVersion: 1,
       schemaMin: 1,
-      schemaMax: 1,
+      schemaMax: 2,
     };
     assert.equal(releaseManifest(manifest, platform), manifest);
     for (const other of [

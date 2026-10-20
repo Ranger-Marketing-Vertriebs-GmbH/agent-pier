@@ -31,7 +31,7 @@ test("release staging validates content and failed health restores the previous 
       version: "1.0.0",
       schemaVersion: 1,
       schemaMin: 1,
-      schemaMax: 1,
+      schemaMax: 2,
       platform: `${process.platform}-${process.arch}`,
     }),
   );
@@ -40,7 +40,7 @@ test("release staging validates content and failed health restores the previous 
     version: "1.1.0",
     schemaVersion: 1,
     schemaMin: 1,
-    schemaMax: 1,
+    schemaMax: 2,
     platform: `${process.platform}-${process.arch}`,
   };
   const archive = gzipSync(
@@ -102,7 +102,7 @@ test("release staging validates content and failed health restores the previous 
   );
   await fs.mkdir(path.join(dataDir, "memory"));
   const newer = new DatabaseSync(path.join(dataDir, "memory/memory.sqlite"));
-  newer.exec("PRAGMA user_version=2");
+  newer.exec("PRAGMA user_version=3");
   newer.close();
   assert.equal(
     releases.status().releases.find((r) => r.version === "1.0.0").canRollback,
