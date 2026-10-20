@@ -35,7 +35,7 @@ export const pipelineQueueCopy = {
   deleteItem: (title) => `Delete “${title}”`,
   deleteTitle: (title) => `Delete item “${title}”?`,
   deleteBody: "The item will not start, and its task is lost.",
-  removeStarted: (title) => `Remove “${title}” from the queue`,
+  removeStarted: (title) => `Remove “${title}” from the queue; its run continues`,
   externalRef: "External reference (optional)",
   externalRefHelp: "For example a ticket key such as AP-123.",
   dialogProject: (name) => `Project: ${name}`,

@@ -37,7 +37,8 @@ export const pipelineQueueCopy = {
   deleteItem: (title) => `„${title}“ löschen`,
   deleteTitle: (title) => `Eintrag „${title}“ löschen?`,
   deleteBody: "Der Eintrag startet nicht mehr, und seine Aufgabe geht verloren.",
-  removeStarted: (title) => `„${title}“ aus der Warteschlange entfernen`,
+  removeStarted: (title) =>
+    `„${title}“ aus der Warteschlange entfernen; sein Lauf läuft weiter`,
   externalRef: "Externe Referenz (optional)",
   externalRefHelp: "Zum Beispiel ein Ticket-Schlüssel wie AP-123.",
   dialogProject: (name) => `Projekt: ${name}`,

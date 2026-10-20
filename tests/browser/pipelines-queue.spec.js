@@ -28,7 +28,8 @@ function queuedItems(state) {
       task: "Fix the search",
       state: "failed",
       // The engine stores its German message; an English page shows it in English.
-      error: "Die Warteschlange ist beendet.",
+      error:
+        "Diese Pipeline erstellt einen Pull Request, aber das Repository hat kein Remote. Bitte ein Remote hinzufügen oder den Pull-Request-Schritt entfernen.",
       source: { kind: "user" },
     },
     {
@@ -61,7 +62,9 @@ test("the queue shows its items with their runs and orders, retries and deletes 
   await expect(items).toHaveCount(3);
   await expect(items.nth(0)).toContainText("Fix the search");
   await expect(items.nth(0)).toContainText("Start failed");
-  await expect(items.nth(0)).toContainText("The queue is closed.");
+  await expect(items.nth(0)).toContainText(
+    "This pipeline creates a pull request, but the repository has no remote.",
+  );
   await expect(items.nth(1)).toContainText("Write the changelog");
   await expect(items.nth(1)).toContainText("Waiting");
   await expect(items.nth(1)).toContainText("Base main");
@@ -87,7 +90,9 @@ test("the queue shows its items with their runs and orders, retries and deletes 
 
   // A started item opens its run, and leaves the list without touching it.
   await page
-    .getByRole("button", { name: "Remove “Build the login page” from the queue" })
+    .getByRole("button", {
+      name: "Remove “Build the login page” from the queue; its run continues",
+    })
     .click();
   await expect(items).toHaveCount(1);
 });
@@ -160,6 +165,30 @@ test("the queue fits a phone without horizontal scrolling", async ({ page }) => 
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+  // Every row has the same structure: the text, then its state left and controls right.
+  const rows = await page.locator(".queue-item").evaluateAll((items) =>
+    items.map((item) => {
+      const box = (selector) => item.querySelector(selector).getBoundingClientRect();
+      const text = box(".queue-item-text"),
+        status = box(".status-chip"),
+        actions = box(".queue-item-actions");
+      return {
+        below: status.top >= text.bottom && actions.top >= text.bottom,
+        left: Math.round(status.left - item.getBoundingClientRect().left),
+        right: Math.round(item.getBoundingClientRect().right - actions.right),
+        sideBySide: status.right <= actions.left,
+      };
+    }),
+  );
+  for (const row of rows) {
+    expect(row.below && row.sideBySide).toBe(true);
+    expect(row.left).toBe(rows[0].left);
+    expect(row.right).toBe(rows[0].right);
+  }
+  for (const button of await page.locator(".queue-item button").all()) {
+    const { height, width } = await button.boundingBox();
+    expect(Math.min(height, width)).toBeGreaterThanOrEqual(44);
+  }
   await page.getByRole("button", { name: "Alle Projekte" }).click();
   await expect(page).toHaveURL(/\/pipelines\/queue$/);
 });

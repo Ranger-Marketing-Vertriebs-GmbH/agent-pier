@@ -48,71 +48,74 @@ function ItemRow({ item, first, last, busy, call, onDelete, onOpenRun }) {
         <small>{meta.join(" · ")}</small>
         {item.error && <p className="queue-item-error">{serverText(item.error)}</p>}
       </div>
-      <ItemStatus item={item} />
-      <div className="queue-item-actions">
-        {waiting(item) && (
-          <>
+      {/* Every row: its state on the left, its controls on the right. */}
+      <div className="queue-item-footer">
+        <ItemStatus item={item} />
+        <div className="queue-item-actions">
+          {waiting(item) && (
+            <>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={copy.moveUp(title)}
+                disabled={busy || first}
+                onClick={() => call(`${base}/move`, "POST", { direction: "up" })}
+              >
+                <Icon name="up" size={16} />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={copy.moveDown(title)}
+                disabled={busy || last}
+                onClick={() => call(`${base}/move`, "POST", { direction: "down" })}
+              >
+                <Icon name="down" size={16} />
+              </button>
+            </>
+          )}
+          {item.state === "failed" && (
+            <button
+              type="button"
+              className="button secondary compact"
+              disabled={busy}
+              onClick={() => call(`${base}/retry`, "POST")}
+            >
+              {copy.retry}
+            </button>
+          )}
+          {item.state === "started" && item.run && (
+            <button
+              type="button"
+              className="button secondary compact"
+              onClick={() => onOpenRun(item.id)}
+            >
+              {pipelineCopy.openRun}
+            </button>
+          )}
+          {waiting(item) && (
             <button
               type="button"
               className="icon-button"
-              aria-label={copy.moveUp(title)}
-              disabled={busy || first}
-              onClick={() => call(`${base}/move`, "POST", { direction: "up" })}
+              aria-label={copy.deleteItem(title)}
+              disabled={busy}
+              onClick={() => onDelete(item)}
             >
-              <Icon name="up" size={16} />
+              <Icon name="trash" size={16} />
             </button>
+          )}
+          {item.state === "started" && (
             <button
               type="button"
               className="icon-button"
-              aria-label={copy.moveDown(title)}
-              disabled={busy || last}
-              onClick={() => call(`${base}/move`, "POST", { direction: "down" })}
+              aria-label={copy.removeStarted(title)}
+              disabled={busy}
+              onClick={() => call(base, "DELETE")}
             >
-              <Icon name="down" size={16} />
+              <Icon name="close" size={16} />
             </button>
-          </>
-        )}
-        {item.state === "failed" && (
-          <button
-            type="button"
-            className="button secondary compact"
-            disabled={busy}
-            onClick={() => call(`${base}/retry`, "POST")}
-          >
-            {copy.retry}
-          </button>
-        )}
-        {item.state === "started" && item.run && (
-          <button
-            type="button"
-            className="button secondary compact"
-            onClick={() => onOpenRun(item.id)}
-          >
-            {pipelineCopy.openRun}
-          </button>
-        )}
-        {waiting(item) && (
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={copy.deleteItem(title)}
-            disabled={busy}
-            onClick={() => onDelete(item)}
-          >
-            <Icon name="trash" size={16} />
-          </button>
-        )}
-        {item.state === "started" && (
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={copy.removeStarted(title)}
-            disabled={busy}
-            onClick={() => call(base, "DELETE")}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        )}
+          )}
+        </div>
       </div>
     </li>
   );

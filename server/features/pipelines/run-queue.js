@@ -309,10 +309,18 @@ export class RunQueue {
   }
   async scheduleProject(projectId) {
     if (!this.exists(projectId)) return this.orphaned(projectId);
-    // Claims a restart interrupted start again with their reserved ids.
-    for (const item of this.store.list(projectId))
-      if (item.state === "starting" && !this.inFlight.has(item.id) && !this.closed)
+    // Claims a restart interrupted start again with their reserved ids. Each item is
+    // read again right before, since an earlier resume or a merge may have changed it.
+    for (const { id } of this.store.list(projectId)) {
+      const item = this.store.find(id);
+      if (
+        item?.state === "starting" &&
+        item.projectId === projectId &&
+        !this.inFlight.has(id) &&
+        !this.closed
+      )
         await this.resume(item);
+    }
     const settings = this.settings(projectId);
     while (!this.closed) {
       const [next] = itemsToStart({
