@@ -34,9 +34,11 @@ export function chatBusy(service, conversationId, pending = busyChats(service)) 
   return pending.has(conversationId) || !!service.queued?.get(conversationId);
 }
 
-// The conversations with a turn under way.
+// The conversations with a turn under way, or an approval waiting.
 function busyChats(service) {
-  const ids = new Set();
+  const ids = new Set(
+    (service.workflows?.store.awaiting?.() || []).map((a) => a.conversationId),
+  );
   for (const attempt of service.ledger.pending()) {
     try {
       ids.add(service.ledger.getRequest(attempt.requestId).conversationId);

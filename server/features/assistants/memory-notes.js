@@ -35,6 +35,12 @@ export class MemoryNotes {
         .run(conversationId, conversationId, kept);
     return inserted.changes === 1;
   }
+  /** A deleted chat's notes go with it (chat-removal.js). */
+  forget(conversationId) {
+    this.db
+      .prepare("DELETE FROM assistant_memory_notes WHERE conversation_id=?")
+      .run(conversationId);
+  }
   forConversation(conversationId) {
     return this.db
       .prepare(

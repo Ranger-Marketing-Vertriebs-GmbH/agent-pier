@@ -222,6 +222,8 @@ export function auditEvent(input) {
       "generated-image",
       "image-generation",
       "attachment-clear",
+      // A deleted agent chat (chat-removal.js); never its title.
+      "chat-deleted",
       "dictation",
       "skill-import",
       "spec",

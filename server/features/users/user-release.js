@@ -1,6 +1,6 @@
 import { audienceOf } from "../assistants/reminder-audience.js";
 import { memberLevel } from "./user-access.js";
-import { RoutineResults } from "../assistants/routine-results.js";
+import { deleteNativeSession, forgetChat } from "../assistants/chat-removal.js";
 
 /**
  * Everything of a deleted user's on the agents (UserAgents.releaseUser): her own
@@ -41,24 +41,10 @@ export async function releaseUserData(services, userId, mode, optIn) {
       nativeDeletePending: true,
       userReleased: true,
     });
-    try {
-      assistants.queued?.take(conversation.id);
-    } catch {
-      /* Nothing queued. */
-    }
     await forgetChat(assistants, conversation);
     await deleteNativeSession(assistants, conversation);
   }
   assistants.changed();
-}
-
-// Her cached messages, request texts, files and the results of her reminders and
-// routines (a reminder's text lives only there) in AgentPier.
-async function forgetChat(assistants, conversation) {
-  await removeFiles(assistants, conversation).catch(() => {});
-  assistants.store.forgetMessages(conversation.id);
-  assistants.ledger.forgetTexts(conversation.id);
-  new RoutineResults(assistants.store.db).forget(conversation.id);
 }
 
 /**
@@ -75,28 +61,14 @@ export function forgetUserBindings(services, userId) {
         reminders.bindings.patch(binding.id, { definition: null, fingerprint: null });
 }
 
-// Her transcript in OpenClaw's session store; the mark goes once it is deleted. A read
-// of her history that ran across her deletion may have cached it again: forgotten once
-// more, now that nothing can read it back.
-async function deleteNativeSession(assistants, conversation) {
-  const client = assistants.runtime.client;
-  if (!client?.ready) return;
-  try {
-    await client.call("sessions.delete", { key: conversation.runtimeSessionKey });
-  } catch {
-    return;
-  }
-  assistants.store.updateConversation(conversation.id, { nativeDeletePending: false });
-  await forgetChat(assistants, conversation);
-}
-
 /**
- * The native sessions of deleted users' chats that a Gateway away at the deletion
- * kept (releaseUserData): deleted at the next Gateway start. Never throws.
+ * The native sessions of deleted users' chats, and of deleted chats, that a Gateway
+ * away at the deletion kept (releaseUserData, chat-removal.js): deleted at the next
+ * Gateway start. Never throws.
  */
 export async function deleteReleasedSessions({ assistants }) {
   try {
-    for (const conversation of assistants.store.listConversations())
+    for (const conversation of assistants.store.listConversations({ deleted: true }))
       if (conversation.nativeDeletePending)
         await deleteNativeSession(assistants, conversation);
   } catch {
@@ -211,20 +183,4 @@ export async function retireReleased(services, agents) {
       assistants.changed();
     })
     .catch(() => {});
-}
-
-// The files of her chat: her uploads and what her agent shared with her.
-async function removeFiles(assistants, conversation) {
-  const attachments = assistants.attachments;
-  const files = attachments.rows(
-    "SELECT * FROM agent_attachments WHERE conversation_id=?",
-    conversation.id,
-  );
-  const folder = await attachments.folder(conversation.assistantId, false);
-  for (const file of files) {
-    if (file.shared)
-      await attachments.shared.remove(conversation.id, file.id).catch(() => {});
-    if (folder && !file.shared) await attachments.remove(file, folder.path);
-    else attachments.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
-  }
 }

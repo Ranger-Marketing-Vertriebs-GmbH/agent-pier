@@ -16,6 +16,7 @@ import {
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { SHARED, SharedFiles, playable } from "./agent-share-store.js";
 import { VideoUploads } from "./agent-video-uploads.js";
+import { chatProblem } from "./agent-chats.js";
 import { MAX_VIDEO_BYTES, videoExtensions } from "./agent-video-types.js";
 import {
   AttachmentStorage,
@@ -138,6 +139,7 @@ export class AgentAttachments {
   }
   async stage(conversationId, name, body) {
     const conversation = this.store.getConversation(conversationId);
+    if (conversation.archivedAt) throw chatProblem("CHAT_ARCHIVED");
     return this.serial(conversation.assistantId, () =>
       this.write(conversation, name, body),
     );
