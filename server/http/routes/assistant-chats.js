@@ -1,7 +1,29 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
+import { chatProblem } from "../../features/assistants/agent-chats.js";
+import {
+  archiveChat,
+  deleteChat,
+  restoreChat,
+} from "../../features/assistants/chat-removal.js";
 
 const at = (value) => Date.parse(value || "");
+
+/** A delete names its confirmation: `{confirm: true}`, or a 400. */
+export function confirmDelete(body) {
+  if (body?.confirm !== true) throw chatProblem("CHAT_CONFIRM");
+}
+
+/** The audit record of a deleted chat: its agent, never its title. */
+export const chatDeleted = (conversation, actor = {}) => ({
+  action: "assistant.updated",
+  resourceType: "assistant",
+  resourceId: conversation.assistantId,
+  outcome: "success",
+  source: "user",
+  ...actor,
+  details: { kind: "chat-deleted" },
+});
 
 /** The title of a rename body (`{title}` and nothing else), or a 400. */
 export function renameTitle(body) {
@@ -41,7 +63,7 @@ export function ownerChatView(privacy) {
  * privacy guard (owner-content-guard.js) has already refused a user's own agent
  * without her opt-in, and any change to one.
  */
-export function assistantChatRoutes({ assistants, ownerPrivacy }) {
+export function assistantChatRoutes({ assistants, ownerPrivacy, audit }) {
   const router = Router();
   router.get("/assistants/:id/chats", (req, res) => {
     assistants.store.getAssistant(req.params.id);
@@ -62,5 +84,18 @@ export function assistantChatRoutes({ assistants, ownerPrivacy }) {
       assistants.chats.rename(req.params.id, renameTitle(req.body), { owner: true }),
     ),
   );
+  router.post("/assistant-conversations/:id/archive", async (req, res) => {
+    await archiveChat(assistants, req.params.id);
+    res.json(assistants.chats.summary(req.params.id, { owner: true }));
+  });
+  router.post("/assistant-conversations/:id/restore", async (req, res) => {
+    await restoreChat(assistants, req.params.id);
+    res.json(assistants.chats.summary(req.params.id, { owner: true }));
+  });
+  router.delete("/assistant-conversations/:id", async (req, res) => {
+    confirmDelete(req.body);
+    audit.append(chatDeleted(await deleteChat(assistants, req.params.id)));
+    res.status(204).end();
+  });
   return router;
 }

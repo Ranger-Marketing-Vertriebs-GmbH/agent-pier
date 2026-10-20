@@ -2,6 +2,7 @@ import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { validateQueueInput } from "./queued-messages.js";
+import { chatProblem } from "./agent-chats.js";
 
 // A queued message that could have gone out for this long is not sent anymore (a
 // restored or long stopped host would otherwise deliver it days later).
@@ -41,11 +42,9 @@ export function queuedView(service, conversationId) {
 export function queueMessage(service, conversationId, input) {
   const value = validateQueueInput(input);
   const conversation = service.store.getConversation(conversationId);
-  if (
-    conversation.archivedAt ||
-    service.store.getAssistant(conversation.assistantId).archivedAt
-  )
+  if (service.store.getAssistant(conversation.assistantId).archivedAt)
     throw assistantProblem("queuedArchived", 409);
+  if (conversation.archivedAt) throw chatProblem("CHAT_ARCHIVED");
   service.attachments.staged(conversationId, value.attachments);
   service.queued.put(conversationId, value);
   retriesOf(service).delete(conversationId);

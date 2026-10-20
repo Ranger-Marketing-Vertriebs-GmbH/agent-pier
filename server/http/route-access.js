@@ -28,6 +28,8 @@ export const userRoutes = [
   { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/chats$/ },
   { method: "POST", pattern: /^\/api\/me\/agents\/[^/]+\/chats$/ },
   { method: "PATCH", pattern: /^\/api\/me\/conversations\/[^/]+$/ },
+  { method: "DELETE", pattern: /^\/api\/me\/conversations\/[^/]+$/ },
+  { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/(?:archive|restore)$/ },
   { method: "GET", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
   { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
   { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/queued$/ },

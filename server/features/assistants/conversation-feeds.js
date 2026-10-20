@@ -112,6 +112,17 @@ export class ConversationFeeds {
       if (!entry.subscribers.size) this.dispose(entry);
     };
   }
+  /**
+   * The conversation was archived or deleted: its viewers get `end` and close; a
+   * viewer of an archived chat may open it again, read-only.
+   */
+  end(id) {
+    const entry = this.entries.get(id);
+    if (!entry) return;
+    const subscribers = [...entry.subscribers];
+    this.dispose(entry);
+    for (const subscriber of subscribers) subscriber.send({ type: "end" });
+  }
   /** The conversation's history changed: its feed reads it again. */
   invalidate(id) {
     const entry = this.entries.get(id);

@@ -42,8 +42,9 @@ export class UserScope {
     return agent;
   }
   /**
-   * The user's own conversation: hers (`userId`), not archived, on an agent she still
-   * belongs to. Anything else, also another user's or the owner's chat, is a 404.
+   * The user's own conversation: hers (`userId`), on an agent she still belongs to;
+   * an archived one stays readable and takes no turn (chat-removal.js). Anything else,
+   * also another user's or the owner's chat or a deleted one, is a 404.
    */
   conversationOf(principal, conversationId) {
     const store = this.store;
@@ -55,7 +56,7 @@ export class UserScope {
     } catch {
       throw refused();
     }
-    if (conversation.userId !== principal.userId || conversation.archivedAt)
+    if (conversation.userId !== principal.userId || conversation.userReleased)
       throw refused();
     this.agentOf(principal, conversation.assistantId);
     return conversation;

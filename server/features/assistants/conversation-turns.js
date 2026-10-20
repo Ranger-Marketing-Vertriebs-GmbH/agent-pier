@@ -2,6 +2,7 @@ import { assistantProblem, validateSendInput } from "./assistant-validation.js";
 import { memberLevel } from "../users/user-access.js";
 import { plainTurnText } from "./plain-turn-text.js";
 import { titleFromTurn } from "./chat-titles.js";
+import { chatProblem } from "./agent-chats.js";
 
 /**
  * One owner (or Telegram, or internal) turn of an AgentPier conversation, admitted by
@@ -33,7 +34,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   // owner's chat on a shared agent that has since become a user's own agent.
   const agent = service.store.getAssistant(conversation.assistantId);
   if (
-    conversation.archivedAt ||
+    conversation.userReleased ||
     conversation.deletedUser ||
     (typeof conversation.userId === "string"
       ? !memberLevel(agent, conversation.userId) ||
@@ -41,6 +42,8 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
       : agent.userAccess?.mode === "own")
   )
     throw assistantProblem("notFound", 404);
+  // An archived chat is read-only until it is restored (chat-removal.js).
+  if (conversation.archivedAt) throw chatProblem("CHAT_ARCHIVED");
   service.requireReady();
   if (
     service.ledger
