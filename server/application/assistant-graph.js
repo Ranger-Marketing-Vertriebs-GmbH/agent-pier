@@ -160,6 +160,9 @@ export function constructAssistantGraph(host, created = {}) {
   ));
   // Agency agents as templates for new agents and team members (agency-templates.js).
   assistants.templates = host.agencyTemplates || null;
+  // What the owner may read of his users' chats (users/owner-privacy.js).
+  // Read lazily: the agent services may exist before the user store does.
+  assistants.privacy = { visible: (c) => host.ownerPrivacy?.visible(c) ?? true };
   // The agents' own browsers: profile pinning, the visible limit and idle stops.
   assistants.browsers = created.browsers = new AgentBrowsers({
     store,

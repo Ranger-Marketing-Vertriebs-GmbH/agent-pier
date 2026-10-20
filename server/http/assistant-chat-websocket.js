@@ -40,7 +40,7 @@ export function attachAssistantChatWebSocket(
       if (!ID.test(match[1])) return refuse(socket, 404);
       const principal = login.principal(auth);
       const target = { kind: "agent-chat", id: match[1] };
-      admit(principal, target);
+      const { since = null } = admit(principal, target) || {};
       const service = assistants();
       if (!service || service.closed || service.feeds.closed) return refuse(socket, 503);
       // Only a conversation of the owner's own agents (the history route's check).
@@ -55,13 +55,13 @@ export function attachAssistantChatWebSocket(
           // Admission again: an unassigned user or a withdrawn opt-in closes it.
           admitted: () => {
             try {
-              admit(principal, target);
-              return true;
+              return (admit(principal, target)?.since ?? null) === since;
             } catch {
               return false;
             }
           },
           cursor: url.searchParams.get("cursor") || undefined,
+          since,
         }),
       );
     } catch (error) {
@@ -70,61 +70,64 @@ export function attachAssistantChatWebSocket(
   };
   server.on("upgrade", upgrade);
   wss.once("close", () => server.off("upgrade", upgrade));
-  wss.on("connection", (ws, { id, token, auth, feeds, events, admitted, cursor }) => {
-    let closed = false,
-      alive = true,
-      sequence = 0;
-    const send = (message) => {
-      if (closed || ws.readyState !== WebSocket.OPEN) return;
-      if (ws.bufferedAmount > backlog) return ws.close(1013);
-      ws.send(JSON.stringify(message));
-    };
-    const cleanupLogin = login.watch(auth, () => ws.close(1008));
-    // Every agent change (an assignment among them) checks the viewer's access again.
-    const unwatch = events.subscribe(() => {
-      if (!admitted()) ws.close(1008);
-    });
-    const ping = setInterval(() => {
-      if (!alive) return ws.terminate();
-      alive = false;
-      ws.ping();
-    }, 30000);
-    ping.unref();
-    let unsubscribe;
-    ws.on("pong", () => (alive = true));
-    ws.on("error", () => ws.close());
-    ws.on("message", () => ws.close(1008));
-    ws.on("close", () => {
-      closed = true;
-      clearInterval(ping);
-      cleanupLogin();
-      unwatch();
-      unsubscribe?.();
-    });
-    const frame = (event) => {
-      if (closed || ws.readyState !== WebSocket.OPEN) return;
+  wss.on(
+    "connection",
+    (ws, { id, token, auth, feeds, events, admitted, cursor, since }) => {
+      let closed = false,
+        alive = true,
+        sequence = 0;
+      const send = (message) => {
+        if (closed || ws.readyState !== WebSocket.OPEN) return;
+        if (ws.bufferedAmount > backlog) return ws.close(1013);
+        ws.send(JSON.stringify(message));
+      };
+      const cleanupLogin = login.watch(auth, () => ws.close(1008));
+      // Every agent change (an assignment among them) checks the viewer's access again.
+      const unwatch = events.subscribe(() => {
+        if (!admitted()) ws.close(1008);
+      });
+      const ping = setInterval(() => {
+        if (!alive) return ws.terminate();
+        alive = false;
+        ws.ping();
+      }, 30000);
+      ping.unref();
+      let unsubscribe;
+      ws.on("pong", () => (alive = true));
+      ws.on("error", () => ws.close());
+      ws.on("message", () => ws.close(1008));
+      ws.on("close", () => {
+        closed = true;
+        clearInterval(ping);
+        cleanupLogin();
+        unwatch();
+        unsubscribe?.();
+      });
+      const frame = (event) => {
+        if (closed || ws.readyState !== WebSocket.OPEN) return;
+        try {
+          login.require(token);
+        } catch {
+          return ws.close(1008);
+        }
+        if (!admitted()) return ws.close(1008);
+        if (event.type === "end") return ws.close(1001);
+        if (event.type === "error") {
+          const { message, status } = event.error || {};
+          send({ type: "error", message, ...messageIdentity(message) });
+          if ([403, 404].includes(status)) ws.close(1008);
+          return;
+        }
+        if (event.type === "sync")
+          return send({ type: "sync", sequence: ++sequence, data: event.data });
+        send(event);
+      };
       try {
-        login.require(token);
+        unsubscribe = feeds.subscribe(id, { cursor, since }, frame);
       } catch {
-        return ws.close(1008);
+        ws.close(1001);
       }
-      if (!admitted()) return ws.close(1008);
-      if (event.type === "end") return ws.close(1001);
-      if (event.type === "error") {
-        const { message, status } = event.error || {};
-        send({ type: "error", message, ...messageIdentity(message) });
-        if ([403, 404].includes(status)) ws.close(1008);
-        return;
-      }
-      if (event.type === "sync")
-        return send({ type: "sync", sequence: ++sequence, data: event.data });
-      send(event);
-    };
-    try {
-      unsubscribe = feeds.subscribe(id, { cursor }, frame);
-    } catch {
-      ws.close(1001);
-    }
-  });
+    },
+  );
   return wss;
 }

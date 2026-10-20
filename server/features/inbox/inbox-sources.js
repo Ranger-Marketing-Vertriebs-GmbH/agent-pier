@@ -41,10 +41,14 @@ export async function collectItems(
     conversations = assistants.store.listConversations();
     return [];
   });
+  // A user's approvals go to her alone (approval-audience.js), never to the owner.
+  const users = new Set(
+    conversations.filter((c) => typeof c.userId === "string").map((c) => c.id),
+  );
   await read("actions", () =>
-    (assistants.workflows?.store.awaiting(now) || []).map((a) =>
-      actionItem(a, agents, conversations),
-    ),
+    (assistants.workflows?.store.awaiting(now) || [])
+      .filter((a) => !users.has(a.conversationId))
+      .map((a) => actionItem(a, agents, conversations)),
   );
   await read("teams", () =>
     (assistants.teams?.store.list() || [])

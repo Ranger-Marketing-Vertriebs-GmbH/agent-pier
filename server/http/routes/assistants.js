@@ -31,6 +31,7 @@ import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { ASSISTANT_STORAGE_UNSAFE } from "../../features/assistants/assistant-feature.js";
 import { runtimeView } from "../../features/assistants/runtime-view.js";
 import { replyRestartRequired } from "./restart-required.js";
+import { fromSince } from "../../features/users/owner-privacy.js";
 
 // Agent OAuth logins of MCP servers exist only while the agent services do; the
 // central list itself is a core route (mcp-servers.js). Agents for restricted users
@@ -181,16 +182,22 @@ function activeAssistantRoutes(services) {
   );
   // With `cursor` (empty for none): the live window as a diff against that
   // baseline, the same shape as the chat feed's sync frames (conversation-feeds.js).
-  router.get("/assistant-conversations/:id/messages", async (req, res) =>
+  // A user's chat read under her opt-in shows only what came after it (privacySince,
+  // owner-content-guard.js).
+  router.get("/assistant-conversations/:id/messages", async (req, res) => {
+    const since = res.locals.privacySince || null;
     res.json(
       typeof req.query.cursor === "string" && req.query.before === undefined
-        ? await assistants.feeds.snapshot(req.params.id, req.query.cursor)
-        : await assistants.history(req.params.id, {
-            before: req.query.before,
-            limit: req.query.limit ? Number(req.query.limit) : 100,
-          }),
-    ),
-  );
+        ? await assistants.feeds.snapshot(req.params.id, req.query.cursor, { since })
+        : fromSince(
+            await assistants.history(req.params.id, {
+              before: req.query.before,
+              limit: req.query.limit ? Number(req.query.limit) : 100,
+            }),
+            since,
+          ),
+    );
+  });
   router.post("/assistant-conversations/:id/messages", async (req, res) =>
     res.status(202).json(await assistants.send(req.params.id, req.body)),
   );
