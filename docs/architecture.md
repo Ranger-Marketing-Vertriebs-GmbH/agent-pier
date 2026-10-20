@@ -12,7 +12,7 @@ AgentPier hosts native coding CLI sessions on one macOS or Linux machine. React 
 | `web/lib`            | HTTP client, asynchronous action handling, provider labels and locale dictionaries |
 | `web/styles`         | Global primitives, application layout and viewport rules                           |
 | `server/application` | Service construction, session launch orchestration and shutdown                    |
-| `server/http`        | Express routes, request/security boundaries and terminal WebSocket transport       |
+| `server/http`        | Express routes, the API registry and route access, WebSocket transport             |
 | `server/features`    | Domain services and native CLI adapters, grouped by capability                     |
 | `server/lib`         | Filesystem/configuration boundaries, serialization, shared errors and locale data  |
 | `tests`              | Unit, integration, blackbox, property, matrix and browser suites                   |

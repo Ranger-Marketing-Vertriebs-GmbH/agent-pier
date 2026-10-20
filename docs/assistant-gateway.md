@@ -594,7 +594,9 @@ composer, never the CLI's own input line.
 
 The browser records with an audio worklet and streams 16 kHz mono PCM, so Chrome,
 Safari and Firefox send the same format. It goes over `/api/dictation/stream`, a
-WebSocket behind the login and the origin check like the chat stream. AgentPier opens
+WebSocket behind the login and the origin check like the chat stream. Restricted users
+dictate through the owner's connection too; `GET /api/me/dictation` tells them only
+whether dictation is available. AgentPier opens
 Deepgram's live endpoint with the stored key in the `Authorization` header (the
 key never reaches the browser and is held only for the handshake, so the speech
 settings stay editable) and relays interim and final transcripts. Model and language
