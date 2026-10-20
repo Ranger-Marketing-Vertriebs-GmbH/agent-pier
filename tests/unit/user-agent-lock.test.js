@@ -117,3 +117,13 @@ test("the tool guard refuses exec and team calls for a user agent", () => {
       action,
     );
 });
+
+test("a user agent keeps the MCP servers the owner bound", () => {
+  const entry = agentEntry({ id: "ap-a1" }, agent, {
+    teamsReady: true,
+    nativeReady: true,
+    guardProven: true,
+    mcpTools: ["local__*"],
+  });
+  assert.ok(entry.tools.allow.includes("local__*"));
+});

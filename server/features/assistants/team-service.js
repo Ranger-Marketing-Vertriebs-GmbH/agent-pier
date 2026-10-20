@@ -1,4 +1,5 @@
 import { teamStatus, memberOverrides } from "./team-presentation.js";
+import { refuseUserAgent } from "../users/user-agent-lock.js";
 import { TeamStore } from "./team-store.js";
 import { TeamScheduler } from "./team-scheduler.js";
 import { assistantProblem } from "./assistant-validation.js";
@@ -272,6 +273,8 @@ export class TeamService {
       parent = a.store.getAssistant(
         a.store.getConversation(request.conversationId).assistantId,
       );
+    // User agents never lead a team (user-agent-lock.js).
+    refuseUserAgent(parent);
     const lease = await a.models.resolve(parent.model);
     lease.release();
     inv.assertCurrent();
@@ -305,6 +308,9 @@ export class TeamService {
       },
       () => {
         exact(input, ["revision", "decision", "lifetime"]);
+        refuseUserAgent(
+          this.assistants.store.getAssistant(this.store.get(id).parentAssistantId),
+        );
         // The owner approves only servers they could see.
         if (input.decision === "approve" && !this.mcp.describable(this.store.get(id)))
           throw assistantProblem("teamMcpServersUnavailable", 503);

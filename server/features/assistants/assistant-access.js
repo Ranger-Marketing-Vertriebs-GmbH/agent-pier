@@ -6,6 +6,7 @@ import { sshModes } from "./agent-ssh-origin.js";
 import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
 import { projectFileLevels } from "./member-grants.js";
 import { githubAccessInput } from "./agent-github.js";
+import { refuseLockedAccess } from "../users/user-agent-lock.js";
 // A temporary member uses its lead's SSH grants only while the lead lets its team
 // members use shell and SSH (memberInheritance); it never holds grants of its own.
 export const sshFromLead = (a) => inheritsFromLead(a) && a.inherited.ssh === true;
@@ -142,6 +143,8 @@ export class AssistantAccess {
       "projectFiles",
       "github",
     ]);
+    // Coding, pipelines, SSH and GitHub stay locked for user agents (user-agent-lock.js).
+    refuseLockedAccess(agent, input);
     const old = this.get(id);
     if (old.revision !== revision) throw assistantProblem("conflict", 409);
     for (const key of ["projectIds", "pipelineIds"]) {
