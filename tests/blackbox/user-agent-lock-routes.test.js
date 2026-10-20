@@ -4,6 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { applicationFixture, enabledAssistants } from "../helpers/application.js";
 import { ownUserAgent } from "../helpers/user-agents.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { readMcpInputs } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
 
 const json = (response) => response.json();
 const locked = async (response, label) => {
@@ -125,4 +127,63 @@ test("owner may bind registered MCP servers to user agents", async (t) => {
   const bound = await bind({ confirmStdio: true });
   assert.equal(bound.status, 200);
   assert.deepEqual((await json(bound)).mcpServers, [local.id]);
+  // The Gateway start compiles the server's tools into the user agent's entry.
+  const profiles = f.application.assistants.store.listAssistants();
+  const user = profiles.find((p) => p.id === agent.id);
+  const compiled = compileOpenClawConfig({
+    paths: { workspaces: path.join(f.dataDir, "w"), logs: path.join(f.dataDir, "l") },
+    port: 1234,
+    token: "t",
+    teams: {
+      directory: "/plugin",
+      connection: { url: "http://127.0.0.1:1", token: "bridge" },
+      hostMaxConcurrent: 4,
+      native: { token: "hook" },
+      profiles,
+      sshAgents: new Set(),
+    },
+    mcp: readMcpInputs(f.application.assistantMcpServers),
+    existing: {
+      agents: { entries: { [user.runtimeAgentId]: { id: user.runtimeAgentId } } },
+    },
+  });
+  assert.ok(compiled.mcp.servers.local, "the stdio server is compiled");
+  const entry = compiled.agents.entries[user.runtimeAgentId];
+  assert.ok(entry.tools.allow.includes("local__*"), JSON.stringify(entry.tools.allow));
+});
+
+test("a user agent's team proposals are refused, never approved", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const { agent } = await ownUserAgent(f);
+  const a = f.application.assistants;
+  const chat = a.store.saveConversation({
+    assistantId: agent.id,
+    runtimeSessionKey: "user-session",
+  });
+  const request = a.ledger.accept(chat.id, { clientRequestId: "r", text: "Hi" }),
+    attempt = a.ledger.recordAttempt(request.id);
+  const members = [{ name: "Member", role: "Reviewer", assignment: "Review" }];
+  // The team tool's proposal naming the user agent as lead.
+  await assert.rejects(
+    a.teams.propose(
+      { attemptId: attempt.id, toolCallId: "call", assertCurrent() {} },
+      { objective: "Review", members },
+    ),
+    (error) => error.code === "USER_AGENT_LOCKED",
+  );
+  // A proposal that reached the store anyway (forged) is never approved.
+  const proposal = a.teams.store.propose({
+    operationId: "forged",
+    parentAttemptId: attempt.id,
+    objective: "Review",
+    members,
+  });
+  await locked(
+    await f.request(`/api/assistant-team-proposals/${proposal.id}/decision`, {
+      method: "POST",
+      body: { revision: proposal.revision, decision: "approve" },
+    }),
+    "team proposal approval",
+  );
+  assert.equal(a.teams.store.get(proposal.id).phase, proposal.phase);
 });

@@ -92,16 +92,10 @@ test("the tool guard refuses exec and team calls for a user agent", () => {
       { allow: false },
       toolName,
     );
-  // An owner agent's exec is not a guarded write: the request stays invalid as before.
-  assert.throws(
-    () =>
-      bridge.toolPolicy({
-        agentId: "ap-other",
-        sessionKey: "s",
-        toolName: "exec",
-        path: "x",
-      }),
-    { status: 400 },
+  // Another agent keeps its locked tools; the plugin asks for each call.
+  assert.deepEqual(
+    bridge.toolPolicy({ agentId: "ap-other", sessionKey: "s", toolName: "exec" }),
+    { allow: true },
   );
   for (const action of ["propose", "delegate", "ssh"])
     assert.throws(

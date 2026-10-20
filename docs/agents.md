@@ -652,7 +652,12 @@ signed-in one may be used for images.
   coding, teams or OpenClaw session tools, and no visible browser window. You can give
   them project folders (files only) and MCP servers you registered. Local (stdio)
   servers run commands on the host for those users too, so bind them only where you
-  would accept that. See
+  would accept that. With **Read and write** such an agent never changes tool
+  configuration in the folder (`.claude/`, `.codex/`, `.opencode/`, `opencode.json`,
+  `.vscode/`, `.mcp.json`, `.envrc`, Git hook managers and similar) or the instruction
+  files your coding CLIs load (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), but it can change any other file, including
+  scripts, `package.json` or Makefiles that you or your coding sessions run later.
+  Give write access only to folders whose content you do not run unchecked. See
   [Agents of restricted users](assistant-gateway.md#agents-of-restricted-users).
 - Web pages can contain instructions meant to mislead an agent; switch on web tools
   only for agents whose other tools you would trust with that.

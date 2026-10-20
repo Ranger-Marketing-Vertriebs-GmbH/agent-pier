@@ -8,6 +8,7 @@ import {
   personalShell,
 } from "./native-capabilities.js";
 import { mcpEligible } from "./openclaw-config/mcp-servers.js";
+import { isUserAgent } from "../users/user-access.js";
 
 // GitHub access for agents through AgentPier's token profiles (AGENTPIER-129): the
 // official GitHub MCP server, bound per agent with its profile's token, and with shell
@@ -129,19 +130,23 @@ export class AgentGithub {
     const entry = this.credentials().find((c) => c.id === access.credentialId);
     return entry ? { credentialId: entry.id, level: access.level, entry } : null;
   }
-  /** An eligible agent's own access; null for anyone else. */
+  /** An eligible agent's own access; null for anyone else, and for a user agent. */
   held(id) {
     try {
-      if (!personalEligible(this.w.a.store.getAssistant(id))) return null;
+      const assistant = this.w.a.store.getAssistant(id);
+      if (!personalEligible(assistant) || isUserAgent(assistant)) return null;
       const access = this.w.access.get(id).github;
       return this.resolve(access) && { ...access };
     } catch {
       return null;
     }
   }
-  /** The access that applies to `assistant`, with its profile, or null. */
+  /**
+   * The access that applies to `assistant`, with its profile, or null. A user agent
+   * never gets GitHub, whatever its stored access says (hard lock).
+   */
   forAgent(assistant) {
-    if (!assistant || assistant.archivedAt) return null;
+    if (!assistant || assistant.archivedAt || isUserAgent(assistant)) return null;
     if (inheritsFromLead(assistant)) return this.resolve(assistant.inherited.github);
     if (!personalEligible(assistant)) return null;
     try {

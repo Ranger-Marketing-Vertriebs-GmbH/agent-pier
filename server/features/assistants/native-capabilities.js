@@ -135,6 +135,9 @@ export const inheritsFromLead = (assistant) =>
  */
 export const memoryEnabled = (assistant) =>
   personalCapabilities(assistant).memory || inheritsFromLead(assistant);
+/** Whether the agent's browser shows a window; a user agent's never does (hard lock). */
+export const browserVisible = (assistant) =>
+  !isUserAgent(assistant) && assistant?.browserVisible === true;
 /** The effective shell level; ineligible or unset profiles and user agents have none. */
 export function personalShell(assistant) {
   if (isUserAgent(assistant)) return "off";

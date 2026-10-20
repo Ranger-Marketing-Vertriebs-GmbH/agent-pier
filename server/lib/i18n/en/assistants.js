@@ -205,6 +205,8 @@ export const assistants = {
     "Changes in project folders are possible only once the agent runtime's tool guard is confirmed.",
   projectPathRefused:
     "This path is not allowed: it must stay inside the project folder; .git, links leading out and AgentPier's own data are locked.",
+  projectToolConfigLocked:
+    "Agents of users may not change tool configuration or CLI instructions in project folders (such as .claude, opencode.json, .mcp.json, .envrc or AGENTS.md).",
   projectFileUnsuitable:
     "This file is too large, binary or not a regular file for this action.",
   projectEditNoMatch: "The text to replace does not occur exactly once in the file.",

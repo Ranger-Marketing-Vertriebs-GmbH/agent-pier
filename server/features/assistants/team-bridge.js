@@ -10,11 +10,11 @@ import { toolError } from "./tool-errors.js";
 import { guardNeeded } from "./write-guard-wait.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
 import { flushSessionAgent } from "./memory-flushes.js";
-import { directOrigin, flushWrite, noteRefusal } from "./memory-write-policy.js";
+import { directTurn, flushWrite, noteRefusal } from "./memory-write-policy.js";
 import { isMemory, ownMemoryTarget } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import { isLeadRoutine } from "./lead-routines.js";
-import { lockedCall } from "../users/user-agent-lock.js";
+import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
 const actions = new Set([
   "propose",
@@ -267,8 +267,12 @@ export class TeamBridge {
       )
     )
       throw assistantProblem("invalid");
-    // A user agent never runs a locked tool, whatever its compiled entry says.
-    if (lockedCall(this.agentOf(input.agentId), input.toolName)) return { allow: false };
+    // A user agent never runs a locked tool, whatever its compiled entry says: the
+    // plugin asks for every call of a locked core tool (tool-guard.js lockedToolCall).
+    if (lockedTools.includes(input.toolName)) {
+      textValue(input.agentId, 4096);
+      return { allow: !lockedCall(this.agentOf(input.agentId), input.toolName) };
+    }
     if (!writeTools.includes(input.toolName)) throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "path"]) textValue(input[k], 4096);
     // The hook's run id (OpenClaw 2026.10.3 reports it); only flushes rely on it.
@@ -305,7 +309,7 @@ export class TeamBridge {
     }
     const allowed =
       current &&
-      (directOrigin(origin) ||
+      (directTurn(origin, parent) ||
         // A task member writes its own memory in any turn it works, never the copy
         // of its lead's memory or anything else (member-memory.js).
         (inheritsFromLead(parent) &&

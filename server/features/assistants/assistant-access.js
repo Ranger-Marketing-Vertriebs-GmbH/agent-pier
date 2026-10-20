@@ -393,26 +393,31 @@ export class AssistantAccess {
   /**
    * Removes one project from every agent's grants in one transaction, together with
    * `during`; returns the changed policies. Like an SSH host removal it keeps the
-   * approval revision, so approvals for other projects stay valid.
+   * approval revision, so approvals for other projects stay valid. A user agent's
+   * folder level, kept without a project grant, goes as well.
    */
   revokeProject(projectId, during = () => {}) {
     return this.revokeEach(
       (before) =>
-        before.projectIds.includes(projectId) && {
+        (before.projectIds.includes(projectId) ||
+          Object.hasOwn(before.projectFiles, projectId)) && {
           projectIds: before.projectIds.filter((id) => id !== projectId),
-          projectFiles: folderLevels(
-            before.projectFiles,
-            before.projectIds.filter((id) => id !== projectId),
+          projectFiles: Object.fromEntries(
+            Object.entries(before.projectFiles).filter(([id]) => id !== projectId),
           ),
         },
       during,
     );
   }
+  // Whether a project grant or a folder level still names the project.
   holdsProject(projectId) {
     return Boolean(
       this.db
         .prepare(
-          "SELECT 1 FROM assistant_access WHERE EXISTS (SELECT 1 FROM json_each(body,'$.projectIds') WHERE value=?) LIMIT 1",
+          `SELECT 1 FROM assistant_access WHERE
+             EXISTS (SELECT 1 FROM json_each(body,'$.projectIds') WHERE value=?1)
+             OR EXISTS (SELECT 1 FROM json_each(body,'$.projectFiles') WHERE key=?1)
+           LIMIT 1`,
         )
         .get(projectId),
     );
@@ -459,7 +464,11 @@ export class AssistantAccess {
     const added = [...to].filter((p) => !from.has(p)).sort();
     const removed = [...from].filter((p) => !to.has(p)).sort();
     const levels = (policy, p) => policy?.projectFiles?.[p] || "none";
-    const folderChanged = [...new Set([...from, ...to])]
+    // A user agent's folders live in projectFiles alone (its projectIds stay empty).
+    const folders = (policy) => Object.keys(policy?.projectFiles || {});
+    const folderChanged = [
+      ...new Set([...from, ...to, ...folders(before), ...folders(after)]),
+    ]
       .sort()
       .filter((p) => levels(before, p) !== levels(after, p))
       .map((p) => ({ projectId: p, from: levels(before, p), to: levels(after, p) }));

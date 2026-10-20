@@ -79,26 +79,52 @@ test("a forwarded user origin may not", async (t) => {
   assert.deepEqual(f.notes(f.channel.conversationId), ["forwarded"]);
 });
 
-test("a flush in a user turn writes today's note", async (t) => {
-  const f = await usersFixture(t, shared);
-  const turn = await f.invocation("anna", { kind: "user", userId: "anna" });
+// A pre-compaction flush in Anna's turn (or another origin's), with its session context.
+async function flushTurn(f, origin = { kind: "user", userId: "anna" }) {
+  const turn = await f.invocation("anna", origin);
   f.assistants.memoryFlushes.observe({
     stream: "run_status",
     runId: turn.attemptId,
     sessionKey: "session",
     data: { phase: "memory_flushing" },
   });
-  const ctx = {
+  return {
     agentId: f.agentId,
     sessionKey: `agent:${f.agentId}:internal-session-effects:${turn.attemptId}-21a903bbd7325dca`,
     runId: turn.attemptId,
   };
+}
+
+test("a flush in a user turn on her own agent writes today's note", async (t) => {
+  const own = { ...shared, mode: "own", members: [shared.members[0]] };
+  const f = await usersFixture(t, own);
+  const ctx = await flushTurn(f);
   assert.equal(await f.call(today, { ctx }), true);
   assert.equal(
     await f.call("MEMORY.md", { ctx }),
     false,
     "the flush writes its note only",
   );
+});
+
+test("a flush in a user turn on a shared agent never reaches the shared memory", async (t) => {
+  const f = await usersFixture(t, shared);
+  const ctx = await flushTurn(f);
+  // Her chat stays private: its summary is refused, and her chat says so.
+  assert.equal(await f.call(today, { ctx }), false);
+  assert.deepEqual(f.notes(f.channel.conversationId), ["flush"]);
+  assert.deepEqual(f.notes(f.other.id), []);
+});
+
+test("a flush in the owner's own chat with a shared agent never reaches the shared memory", async (t) => {
+  for (const kind of ["owner", "telegram"]) {
+    const f = await usersFixture(t, shared);
+    const ctx = await flushTurn(f, { kind });
+    // The users read this memory: the owner's private chat is not summarised into it.
+    assert.equal(await f.call(today, { ctx }), false, kind);
+    assert.deepEqual(f.notes(f.channel.conversationId), ["flush"], kind);
+    assert.deepEqual(f.notes(f.other.id), [], kind);
+  }
 });
 
 test("a shared agent's memory write leaves an applies-to-everyone note only in the writing user's chat", async (t) => {
@@ -118,4 +144,42 @@ test("a shared agent's memory write leaves an applies-to-everyone note only in t
   );
   assert.deepEqual(f.notes(f.other.id), ["shared-write"]);
   assert.deepEqual(f.notes(f.channel.conversationId), ["shared-write"]);
+});
+
+// The owner changes who the agent serves while a turn still runs.
+function reassign(f, userAccess) {
+  const body = { ...f.store.storedAssistant(f.id) };
+  if (userAccess) body.userAccess = userAccess;
+  else delete body.userAccess;
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify(body), f.id);
+}
+
+test("a user's turn no longer writes memory once she is not one of the agent's users", async (t) => {
+  const f = await usersFixture(t, shared);
+  await f.benTurn("ben", { kind: "user", userId: "ben" });
+  const ctx = { ctx: { agentId: f.agentId, sessionKey: "session-ben" } };
+  assert.equal(await f.call("MEMORY.md", ctx), true);
+  reassign(f, { mode: "own", members: [shared.members[0]], released: [] });
+  assert.equal(await f.call("MEMORY.md", ctx), false);
+  assert.equal(await f.call("memory/notes.md", ctx), false);
+  assert.deepEqual(f.notes(f.other.id), ["shared-write", "not-owner"]);
+});
+
+test("a user origin on an agent without users writes no memory", async (t) => {
+  const f = await usersFixture(t, shared);
+  reassign(f, null);
+  await f.invocation("anna", { kind: "user", userId: "anna" });
+  assert.equal(await f.call("MEMORY.md"), false);
+  assert.deepEqual(f.notes(f.channel.conversationId), ["not-owner"]);
+});
+
+test("a flush in the turn of a user who left the agent is refused", async (t) => {
+  const own = { ...shared, mode: "own", members: [shared.members[0]] };
+  const f = await usersFixture(t, own);
+  const ctx = await flushTurn(f);
+  reassign(f, { ...own, members: [shared.members[1]] });
+  assert.equal(await f.call(today, { ctx }), false);
+  assert.deepEqual(f.notes(f.channel.conversationId), ["flush"]);
 });

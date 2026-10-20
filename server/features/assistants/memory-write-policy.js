@@ -5,6 +5,7 @@ import {
   flushTarget,
 } from "./memory-flushes.js";
 import { inheritsFromLead } from "./native-capabilities.js";
+import { isShared, memberLevel } from "../users/user-access.js";
 
 /**
  * A person's own turn: the owner's, his paired Telegram chat's or a restricted
@@ -12,6 +13,12 @@ import { inheritsFromLead } from "./native-capabilities.js";
  */
 export const directOrigin = (origin) =>
   ["owner", "telegram", "user"].includes(origin?.kind) && !origin.forwarded;
+/**
+ * A direct turn on this agent: a user's turn counts only while she is still one of
+ * its users (memberLevel, read live), like her folder access (workspace-calls.js).
+ */
+export const directTurn = (origin, agent) =>
+  directOrigin(origin) && (origin.kind !== "user" || !!memberLevel(agent, origin.userId));
 // Refused flush writes are logged once per flush session (bounded).
 const logged = new Set();
 function diagnose(bridge, input, code) {
@@ -46,7 +53,10 @@ function sources(bridge, input) {
           current &&
           [attempt.id, attempt.runtimeRunId].includes(flush.runId) &&
           // A task member's own memory takes its flush in any of its turns.
-          (directOrigin(origin) || inheritsFromLead(parent)),
+          (directTurn(origin, parent) || inheritsFromLead(parent)) &&
+          // Every chat with a shared agent is private to its person (a user's or the
+          // owner's own): its summary never lands in the memory all its users read.
+          !isShared(parent),
       },
     ];
   });
@@ -56,9 +66,9 @@ function sources(bridge, input) {
  * OpenClaw's pre-compaction memory flush runs in its own internal session
  * (memory-flushes.js); its one write is the append-only day note. It writes for
  * the run it interrupts: a direct turn (directOrigin: the owner, his paired Telegram
- * chat or a restricted user), or a
- * routine's run, of the same agent, never a forwarded, lead-requested or other
- * turn. The key must name the run the hook reports, the note must be today's or
+ * chat or a restricted user on her own agent), or a routine's run, of the same agent,
+ * never a forwarded, lead-requested or other turn, and no direct turn on a shared
+ * agent. The key must name the run the hook reports, the note must be today's or
  * yesterday's, and the first flush session that writes owns the flush; anything
  * else, or more than one flush of the agent at a time, is refused.
  */
@@ -97,7 +107,9 @@ function flushTurn(bridge, input) {
   const turns = bridge.assistants.ledger.pending().filter((a) => {
     if (!["pending", "accepted", "running"].includes(a.state)) return false;
     const { parent, origin, current } = bridge.turn(a, input.agentId);
-    return current && parent.runtimeAgentId === input.agentId && directOrigin(origin);
+    return (
+      current && parent.runtimeAgentId === input.agentId && directTurn(origin, parent)
+    );
   });
   return turns.length === 1
     ? { attempt: turns[0], key: `flush:${input.runId || input.sessionKey}` }
@@ -109,7 +121,7 @@ const refusalReason = (origin) =>
     ? "lead-request"
     : origin?.forwarded
       ? "forwarded"
-      : origin?.kind === "team-member" || !origin?.kind || origin.kind === "unknown"
+      : ["team-member", "user", "unknown"].includes(origin?.kind) || !origin?.kind
         ? "not-owner"
         : "automatic";
 
@@ -130,7 +142,8 @@ export function noteRefusal(bridge, input) {
   }
   if (!target) return;
   const { attempt, parent, origin } = bridge.turn(target.attempt, input.agentId);
-  if (parent.runtimeAgentId !== input.agentId || (!flush && directOrigin(origin))) return;
+  if (parent.runtimeAgentId !== input.agentId || (!flush && directTurn(origin, parent)))
+    return;
   const reason = flush ? "flush" : refusalReason(origin);
   const added = notes.record({
     key: target.key || `${attempt.id}:${reason}`,

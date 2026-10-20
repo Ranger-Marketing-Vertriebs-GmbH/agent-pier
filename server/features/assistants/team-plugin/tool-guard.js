@@ -18,6 +18,35 @@ export const bootstrapFiles = [
 // read, write, edit, apply_patch). apply_patch is implied wherever write is
 // allowed (writeAllowsApplyPatch), so it is guarded like write.
 export const writeTools = ["write", "edit", "apply_patch"];
+// OpenClaw's own tools that an agent of restricted users never runs (lockedTools in
+// native-capabilities.js, less the plugin's tools, whose bridge actions refuse them).
+// Every call asks the bridge, so a stale or forged entry that still holds one is
+// refused at run time too.
+export const lockedCoreTools = [
+  "exec",
+  "process",
+  "session_status",
+  "sessions_list",
+  "sessions_history",
+  "sessions_search",
+  "sessions_send",
+  "sessions_spawn",
+];
+// Refuses a locked core tool unless the bridge answers that this agent may run it.
+async function lockedToolCall(event, ctx, bridge) {
+  const response = await bridge(
+    "/tool-policy",
+    {
+      agentId: ctx?.agentId,
+      ...(typeof ctx?.sessionKey === "string" ? { sessionKey: ctx.sessionKey } : {}),
+      toolName: event.toolName,
+    },
+    ctx?.abortSignal,
+  ).catch(() => null);
+  const policy = response?.ok ? await response.json().catch(() => null) : null;
+  if (policy?.allow === true) return undefined;
+  return { block: true, blockReason: "This agent may not use this tool." };
+}
 /** The tool call's targets, each as classifyWrite sees a single-path call. */
 export function writeTargets(toolName, params) {
   if (toolName !== "apply_patch") return [params];
@@ -309,6 +338,10 @@ export function registerToolGuard(api) {
     },
     { matcher: writeTools, priority: 1000 },
   );
+  api.on("before_tool_call", (event, ctx) => lockedToolCall(event, ctx, bridge), {
+    matcher: lockedCoreTools,
+    priority: 1000,
+  });
   api.on("before_tool_call", (event, ctx) => browserCall(event, ctx, bridge), {
     matcher: ["browser"],
     priority: 1000,

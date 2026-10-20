@@ -190,3 +190,54 @@ test("writes replace a dangling link instead of following it and refuse hard lin
     key: "projectFileUnsuitable",
   });
 });
+
+test("tool configuration is locked for writes of a restricted user's agent", (t) => {
+  const h = host(t);
+  fs.mkdirSync(path.join(h.project, ".claude"));
+  fs.symlinkSync(path.join(h.project, ".claude"), path.join(h.project, "src", "cfg"));
+  const locked = { status: 403, key: "projectToolConfigLocked" };
+  const user = { ...h.options, lockToolConfig: true };
+  for (const raw of [
+    ".claude/settings.json",
+    ".CLAUDE/settings.local.json",
+    "sub/.codex/config.toml",
+    ".mcp.json",
+    ".envrc",
+    ".vscode/tasks.json",
+    ".husky/pre-commit",
+    ".pre-commit-config.yaml",
+    // OpenCode's project config and plugins.
+    "opencode.json",
+    "opencode.jsonc",
+    ".opencode/plugin/x.js",
+    ".agents/skills/x/SKILL.md",
+    // Instruction files the owner's coding CLIs load from the working tree.
+    "CLAUDE.md",
+    "sub/CLAUDE.md",
+    "CLAUDE.local.md",
+    "AGENTS.md",
+    "agents.md",
+    "AGENTS.override.md",
+    "GEMINI.md",
+    // Every lefthook configuration name.
+    "lefthook.yaml",
+    ".lefthook.yaml",
+    "lefthook-local.yml",
+    ".config/lefthook.yml",
+    "src/cfg/settings.json",
+    path.join(h.project, ".claude/settings.json"),
+  ]) {
+    assert.throws(
+      () => projectTarget(h.project, raw, { ...user, write: true }),
+      locked,
+      raw,
+    );
+    // Reading stays allowed, and an owner's agent still writes there.
+    projectTarget(h.project, raw, user);
+    projectTarget(h.project, raw, { ...h.options, write: true });
+  }
+  assert.equal(
+    projectTarget(h.project, "notes/.claude.md", { ...user, write: true }).relative,
+    "notes/.claude.md",
+  );
+});
