@@ -2,6 +2,7 @@ import express from "express";
 import { idleDuration } from "../features/login/login-store.js";
 import { loginErrors } from "../features/login/login-errors.js";
 import { loginMessages as copy } from "../lib/i18n/de/login.js";
+import { principalOf } from "../features/users/identity.js";
 const cookieName = "agentpier_session";
 export function sessionToken(req) {
   const cookies = (req.headers.cookie || "").split(";").map((part) => part.trim());
@@ -39,11 +40,15 @@ export function cookieOptions(req, config) {
 export function loginRoutes(login, effective) {
   const router = express.Router();
   router.use(express.json({ limit: "4kb", strict: true }));
-  const status = (req) => ({
-    configured: login.configured,
-    authenticated: Boolean(login.session(sessionToken(req))),
-    canSetup: !login.configured,
-  });
+  const status = (req) => {
+    const signedIn = login.describe(sessionToken(req));
+    return {
+      configured: login.configured,
+      authenticated: Boolean(signedIn.role),
+      canSetup: !login.configured,
+      ...signedIn,
+    };
+  };
   const cookie = (req, res, token) =>
     res.cookie(cookieName, token, {
       ...cookieOptions(req, effective()),
@@ -105,6 +110,7 @@ export function requireLogin(login, effective) {
       res.cookie(cookieName, token, { ...cookieOptions(req, effective()), maxAge });
     const cleanup = login.watch(session, () => res.destroy());
     res.once("close", cleanup);
+    req.principal = principalOf(session);
     next();
   };
 }
