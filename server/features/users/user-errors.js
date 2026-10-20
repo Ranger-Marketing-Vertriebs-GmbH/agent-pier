@@ -11,6 +11,7 @@ const errors = Object.freeze({
   USER_AGENT_ACCESS_INVALID: ["agentAccessInvalid", 400],
   USER_AGENT_REQUIRED: ["agentRequired", 409],
   USER_LEVEL: ["level", 403],
+  USER_AGENTS_CHOICE: ["agentsChoice", 400],
 });
 
 export function userProblem(code) {

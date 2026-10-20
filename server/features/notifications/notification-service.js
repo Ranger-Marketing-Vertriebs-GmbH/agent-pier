@@ -176,6 +176,11 @@ export class NotificationService {
       .run(pushId(id), userId);
     return { removed: true };
   }
+  /** Removes every device of a deleted user. */
+  forgetUser(userId) {
+    if (this.closed || typeof userId !== "string") return;
+    this.db.prepare("DELETE FROM subscriptions WHERE user_id=?").run(userId);
+  }
   async deliver(id, payload) {
     if (this.closed) return { sent: false };
     if (this.inFlight >= 4) await new Promise((resolve) => this.queue.push(resolve));

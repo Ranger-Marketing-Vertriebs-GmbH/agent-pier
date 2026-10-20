@@ -222,6 +222,27 @@ export class AssistantStore {
       throw assistantProblem("conflict", 409);
     return result;
   }
+  /** Owner-side changes of a user agent when its user is deleted (user-release.js). */
+  changeUserAgent(id, fields) {
+    const current = this.storedAssistant(id);
+    const result = { ...current, ...fields, revision: current.revision + 1 };
+    this.db
+      .prepare("UPDATE assistants SET body=?,revision=? WHERE id=?")
+      .run(JSON.stringify(result), result.revision, id);
+    return result;
+  }
+  /** Changes a conversation's record (archive, a deleted user's mark). */
+  updateConversation(id, fields) {
+    const result = { ...this.getConversation(id), ...fields };
+    this.db
+      .prepare("UPDATE conversations SET body=? WHERE id=?")
+      .run(JSON.stringify(result), id);
+    return result;
+  }
+  /** Drops a conversation's cached messages. */
+  forgetMessages(id) {
+    this.db.prepare("DELETE FROM messages WHERE conversation_id=?").run(id);
+  }
   markEffective(id, revision) {
     const current = this.getAssistant(id);
     if (current.revision !== revision) throw assistantProblem("conflict", 409);
