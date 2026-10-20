@@ -46,9 +46,9 @@ export class Identity {
       throw loginProblem("LOGIN_CREDENTIALS_INVALID");
     }
     // Unknown names verify against a fixed record, so they cost the same as a user.
-    const userId = await this.users.verify({ username, password });
-    if (!userId) throw loginProblem("LOGIN_CREDENTIALS_INVALID");
-    return this.users.issue(userId);
+    const verified = await this.users.verify({ username, password });
+    if (!verified) throw loginProblem("LOGIN_CREDENTIALS_INVALID");
+    return this.users.issue(verified);
   }
   // Users exist only below a configured owner; without one nobody is signed in.
   session(token) {

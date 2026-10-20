@@ -2,7 +2,7 @@
 
 For Linux, see [Linux installation](linux.md). This guide covers installation on the target machine. Running `npm start` for local testing does not configure automatic startup.
 
-Create a user when you first open AgentPier, then sign in with a username and password. This also works over configured remote access. See [Login](login.md) for session and recovery details.
+Create a user when you first open AgentPier, then sign in with a username and password. Over remote access, only your own Tailscale account can create it, and network mode allows it only while no users exist yet. See [Login](login.md) for session and recovery details.
 
 <a id="ein-befehl-installation-auf-macos"></a>
 
