@@ -38,6 +38,7 @@ import { memory } from "./de/memory.js";
 import { providers } from "./de/providers.js";
 import { notifications } from "./de/notifications.js";
 import { audit } from "./de/audit.js";
+import { users } from "./de/users.js";
 
 // Browser-visible German server messages; top-level names are the stable key prefix.
 // Operator script output (de/scripts.js) is terminal-only and stays out on purpose.
@@ -63,6 +64,7 @@ export const germanServerMessages = Object.freeze({
   providers,
   notifications,
   audit,
+  users,
   accounts,
   agentbus,
   artifacts,
