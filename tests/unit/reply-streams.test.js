@@ -201,6 +201,24 @@ test("a live reply gives way to its transcript message by id, order or text", ()
     ).map((run) => run.runId),
     ["m2"],
   );
+  // Claude Code reports no hook on an interrupt: the draft stays a live run, while
+  // its transcript adds the partial reply and an interrupt marker as a user row.
+  for (const marker of [
+    "[Request interrupted by user]",
+    "[Request interrupted by user for tool use]",
+  ])
+    assert.deepEqual(
+      visibleReplies(
+        runs([{ runId: "cut", text: "1. One\n2. Two\n", turn: "t", order: 0 }]),
+        history(
+          user,
+          { id: "partial", role: "assistant", text: "1. One\n2. Two\n3. Thr" },
+          { id: "mark", role: "user", text: marker },
+        ),
+      ),
+      [],
+      marker,
+    );
   // A reply of the current turn that starts with the streamed text replaces it.
   assert.deepEqual(
     visibleReplies(

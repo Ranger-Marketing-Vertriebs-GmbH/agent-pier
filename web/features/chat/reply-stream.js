@@ -46,11 +46,16 @@ export function withoutEnded(runs) {
 }
 
 const normalized = (text) => String(text).replace(/\r\n?/g, "\n").trim();
+// Claude Code records an interrupt as a user row of its own and reports no hook for
+// it, so the interrupted turn's draft lives on: the marker does not start a turn.
+const claudeInterrupt = /^\[Request interrupted by user(?: for tool use)?\]$/;
+const prompt = (row) =>
+  row.role === "user" && !claudeInterrupt.test(normalized(row.text || ""));
 
 /**
  * The runs still to show below the transcript, in reply order. A run gives way to
  * the history when a row has its id (Codex items and OpenCode parts keep it), when
- * the current turn (the rows after the last user message) already holds as many
+ * the current turn (the rows after the last prompt) already holds as many
  * assistant messages as precede it (`order`, Claude: its message ids are not the
  * transcript's), or when a reply of that turn starts with its text. Runs of
  * another conversation (a Codex sub-agent thread) never show.
@@ -59,7 +64,7 @@ export function visibleReplies(runs, snapshot) {
   if (!runs?.size || !snapshot) return [];
   const messages = Array.isArray(snapshot.messages) ? snapshot.messages : [];
   const ids = new Set(messages.map((row) => row.id));
-  const lastUser = messages.findLastIndex((row) => row.role === "user");
+  const lastUser = messages.findLastIndex(prompt);
   const replies = messages
     .slice(lastUser + 1)
     .filter((row) => row.role === "assistant" && normalized(row.text || ""));
