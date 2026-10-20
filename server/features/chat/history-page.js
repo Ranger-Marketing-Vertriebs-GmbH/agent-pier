@@ -40,6 +40,7 @@ export async function readHistoryPage(history, session, id, state = null) {
   let full = { ...thread, turns: [...(page.data || [])].reverse() };
   if (!state) full = await reconcileCodexTail(history, session, full);
   const content = normalizeCodex(full);
+  const childSources = [];
   const [records, children] = await Promise.all([
     !state && history.codexMetadata
       ? history.codexMetadata.read(history, session, full).catch(
@@ -48,7 +49,7 @@ export async function readHistoryPage(history, session, id, state = null) {
         )
       : [],
     !state && history.codexChildren
-      ? history.codexChildren.read(history, session, id).catch(
+      ? history.codexChildren.read(history, session, id, { sources: childSources }).catch(
           // Child usage is supplemental.
           () => null,
         )
@@ -69,7 +70,9 @@ export async function readHistoryPage(history, session, id, state = null) {
     },
     ...splitPage(content.messages, page.nextCursor ? { cursor: page.nextCursor } : null),
     // The rollout the CLI appends to, for the chat's source probe.
-    ...(!state && typeof thread.path === "string" ? { sources: [thread.path] } : {}),
+    ...(!state && typeof thread.path === "string"
+      ? { sources: [thread.path, ...childSources] }
+      : {}),
   };
 }
 function splitPage(messages, continuation) {

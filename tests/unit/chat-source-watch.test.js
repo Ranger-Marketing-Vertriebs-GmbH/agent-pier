@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { EventEmitter } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { watchChatSources } from "../../server/features/chat/chat-source-watch.js";
 
@@ -40,40 +41,123 @@ test("disposing the watchers cancels the startup re-check", async (t) => {
   assert.equal(watch.changes(), 0);
 });
 
-test("only writes to the session's native transcripts report a change", (t) => {
-  const watched = new Map();
+function targeted(t) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "target-watch-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const name of ["sessions", "native-sessions", "profile", "transcripts"])
+    fs.mkdirSync(path.join(root, name));
+  const file = path.join(root, "transcripts", "one.jsonl");
+  fs.writeFileSync(file, "one");
+  const state = { paths: [file], readAt: Date.now() };
+  const registrations = [];
   let changes = 0;
-  const unwatch = watchChatSources(
+  const stop = watchChatSources(
     {
-      session: { id: "s", accountId: "a", tool: "codex" },
-      accounts: { environment: () => ({ HOME: "/fixture-home" }) },
-      dataDir: "/fixture-data",
-      home: "/fixture-home",
+      session: { id: "s", accountId: "a", tool: "claude", cwd: "/project" },
+      accounts: {
+        environment: () => ({ CLAUDE_CONFIG_DIR: path.join(root, "profile") }),
+      },
+      dataDir: root,
+      home: root,
+      sources: () => state,
       settleMs: 600000,
-      // FSEvents delivery lags under load; the routing is checked without it.
-      watch: (directory, options, listener) => {
-        watched.set(directory, { recursive: options.recursive, listener });
-        return { on() {}, unref() {}, close() {} };
+      watch: (file, options, listener) => {
+        const watcher = new EventEmitter();
+        const item = { file, options, listener, closed: false, watcher };
+        watcher.unref = () => {};
+        watcher.close = () => {
+          item.closed = true;
+        };
+        registrations.push(item);
+        return watcher;
       },
     },
     () => changes++,
   );
-  t.after(unwatch);
-  assert.deepEqual(
-    [...watched].map(([directory, { recursive }]) => [directory, recursive]),
-    [
-      [path.join("/fixture-data", "native-sessions"), false],
-      [path.join("/fixture-data", "sessions"), false],
-      [path.join("/fixture-home", ".codex"), true],
-    ],
+  t.after(stop);
+  return {
+    root,
+    file,
+    state,
+    registrations,
+    stop,
+    changes: () => changes,
+    refresh: () => stop.refresh?.(),
+  };
+}
+
+test("known sources watch their files without recursively subscribing to the profile", async (t) => {
+  const f = targeted(t);
+  await f.refresh();
+  const active = () => f.registrations.filter((r) => !r.closed);
+  assert.ok(
+    active().some((r) => r.file === f.file),
+    "the actual transcript is watched",
   );
-  const codex = watched.get(path.join("/fixture-home", ".codex")).listener;
-  const sessions = watched.get(path.join("/fixture-data", "sessions")).listener;
-  codex("change", "config.toml");
-  sessions("change", "other.json");
-  assert.equal(changes, 0);
-  codex("change", "sessions/2026/10/19/rollout.jsonl");
-  sessions("change", "s.json");
-  codex("rename", null);
-  assert.equal(changes, 3);
+  assert.ok(!active().some((r) => r.file === path.join(f.root, "profile")));
+  const first = f.registrations.length;
+  await f.refresh();
+  await f.refresh();
+  assert.equal(f.registrations.length, first, "healthy watches survive recovery");
+  const before = f.changes();
+  active()
+    .find((r) => r.file === f.file)
+    .listener("change", "one.jsonl");
+  assert.equal(f.changes(), before + 1);
+  const metadata = active().find((r) => r.file === path.join(f.root, "sessions"));
+  metadata.listener("change", "other.json");
+  assert.equal(f.changes(), before + 1, "another session cannot invalidate this chat");
+  metadata.listener("change", "s.json");
+  assert.equal(f.changes(), before + 2);
+});
+
+test("an atomic transcript replacement rearms only that file", async (t) => {
+  const f = targeted(t);
+  await f.refresh();
+  const first = f.registrations.find((r) => r.file === f.file);
+  assert.ok(first, "transcript registered");
+  const count = f.registrations.length;
+  const replacement = path.join(f.root, "replacement");
+  fs.writeFileSync(replacement, "two");
+  fs.renameSync(replacement, f.file);
+  await f.refresh();
+  assert.equal(first.closed, true);
+  assert.equal(f.registrations.length, count + 1);
+  assert.equal(f.registrations.at(-1).file, f.file);
+  const before = f.changes();
+  first.listener("change", "one.jsonl");
+  assert.equal(f.changes(), before, "late callbacks of retired watches are ignored");
+});
+
+test("missing WAL files are watched when created and failed watches recover", async (t) => {
+  const f = targeted(t);
+  const wal = f.file + "-wal";
+  f.state.paths.push(wal);
+  await f.refresh();
+  assert.ok(!f.registrations.some((r) => r.file === wal));
+  fs.writeFileSync(wal, "wal");
+  await f.refresh();
+  const first = f.registrations.find((r) => r.file === wal);
+  assert.ok(first, "new WAL discovered without a directory event");
+  first.watcher.emit("error", Error("lost watch"));
+  await delay(1100);
+  await f.refresh();
+  assert.equal(first.closed, true);
+  assert.equal(f.registrations.filter((r) => r.file === wal && !r.closed).length, 1);
+});
+
+test("switching source paths releases the old transcript and disposal stops recovery", async (t) => {
+  const f = targeted(t);
+  await f.refresh();
+  const second = path.join(f.root, "transcripts", "two.jsonl");
+  fs.writeFileSync(second, "two");
+  f.state.paths = [second];
+  await f.refresh();
+  assert.ok(f.registrations.some((r) => r.file === f.file && r.closed));
+  assert.ok(f.registrations.some((r) => r.file === second && !r.closed));
+  f.stop();
+  const count = f.registrations.length;
+  await f.refresh();
+  assert.equal(f.registrations.length, count);
+  assert.ok(f.registrations.every((r) => r.closed));
 });

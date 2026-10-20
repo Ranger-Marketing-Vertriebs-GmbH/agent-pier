@@ -90,10 +90,13 @@ export function watchNativeInput({ sessions, session, onExit }, changed) {
   child.on("error", exited);
   child.on("exit", exited);
   invalidate();
-  return () => {
+  const stop = () => {
     closed = true;
     clearTimeout(timer);
     child.stdin.destroy();
     child.kill();
   };
+  // Recovery rechecks a failed/missed capture without replacing a healthy client.
+  stop.refresh = invalidate;
+  return stop;
 }

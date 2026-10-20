@@ -101,7 +101,7 @@ export class CodexChildUsage {
     this.maxBytes = maxBytes;
     this.reads = 0;
   }
-  async read(history, session, threadId) {
+  async read(history, session, threadId, { sources = [] } = {}) {
     const env = history.environment(session);
     const root = env.CODEX_HOME || path.join(env.HOME || history.home, ".codex");
     const file = path.join(root, "state_5.sqlite");
@@ -109,6 +109,7 @@ export class CodexChildUsage {
     try {
       location = await locateDatabase(root, file);
       if (!location) return null;
+      sources.push(location.file, `${location.file}-wal`);
       db = openDatabase(location, { busyTimeout: BUSY_TIMEOUT });
       if (
         !hasColumns(db, "thread_spawn_edges", ["parent_thread_id", "child_thread_id"]) ||
@@ -138,7 +139,7 @@ export class CodexChildUsage {
         unavailable++;
         continue;
       }
-      const totals = await this.child(row.rollout, id, realRoot);
+      const totals = await this.child(row.rollout, id, realRoot, sources);
       if (totals === undefined) {
         unavailable++;
         continue;
@@ -155,17 +156,29 @@ export class CodexChildUsage {
    * Totals of one child; undefined when its rollout is missing, no regular file, outside
    * the profile or could not be scanned far enough to know its usage.
    */
-  async child(rollout, id, realRoot) {
+  async child(rollout, id, realRoot, sources = []) {
     if (typeof rollout !== "string" || !rollout || !realRoot) return undefined;
     let real, stat;
     try {
-      real = await fs.realpath(rollout);
+      try {
+        real = await fs.realpath(rollout);
+      } catch (error) {
+        if (error.code !== "ENOENT") return undefined;
+        // A row can precede its rollout. Keep an absent file only below a known
+        // in-profile directory, never a dangling symlink or foreign parent.
+        if (await fs.lstat(rollout).catch(() => null)) return undefined;
+        const parent = await fs.realpath(path.dirname(rollout));
+        if (parent === realRoot || parent.startsWith(realRoot + path.sep))
+          sources.push(path.join(parent, path.basename(rollout)));
+        return undefined;
+      }
       if (!real.startsWith(realRoot + path.sep)) return undefined;
       stat = await fs.stat(real);
       if (!stat.isFile()) return undefined;
     } catch {
       return undefined;
     }
+    sources.push(real);
     const cached = this.files.get(real);
     if (cached?.size === stat.size && cached.mtimeMs === stat.mtimeMs) {
       this.files.delete(real);

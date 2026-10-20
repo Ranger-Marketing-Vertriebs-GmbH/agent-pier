@@ -73,6 +73,24 @@ test("the probe stops for good", async (t) => {
   assert.equal(reports.length, 1);
 });
 
+test("replacement and deletion are noticed even with preserved modification time", async (t) => {
+  const files = new Map([
+    ["/t", { dev: 1, ino: 1, size: 10, mtimeMs: 100, ctimeMs: 100 }],
+  ]);
+  const state = { paths: ["/t"], readAt: 200 };
+  const { reports } = fakeProbe(t, files, state);
+  await delay(40);
+  assert.equal(reports.length, 0);
+  files.set("/t", { dev: 1, ino: 2, size: 10, mtimeMs: 100, ctimeMs: 100 });
+  await until(() => reports.length === 1, 1000);
+  files.delete("/t");
+  await until(() => reports.length === 2, 1000);
+  await delay(40);
+  assert.equal(reports.length, 2, "missing is reported only once");
+  files.set("/t", { dev: 1, ino: 3, size: 10, mtimeMs: 100, ctimeMs: 100 });
+  await until(() => reports.length === 3, 1000);
+});
+
 test("a viewed chat sees an appended transcript although no watcher fires", async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "probe-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
