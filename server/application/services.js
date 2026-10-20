@@ -49,6 +49,7 @@ import { NonoSandbox } from "../features/nono/nono-launch.js";
 import { SessionManager } from "../features/sessions/session-manager.js";
 import { ChatEvents } from "../features/chat/chat-events.js";
 import { ChatStreams } from "../features/chat/chat-streams.js";
+import { ClaudeDisplayDrafts } from "../features/chat/claude-display-drafts.js";
 import { createFileServices } from "./files.js";
 import { OwnerInbox } from "../features/inbox/owner-inbox.js";
 
@@ -168,6 +169,8 @@ export async function createServices(config) {
     accounts,
     config,
   });
+  // Claude Code's MessageDisplay batches as live reply drafts (stream frames).
+  const claudeDrafts = new ClaudeDisplayDrafts({ streams: chatStreams });
   const sharedProfiles = new SharedCliProfiles({ accounts });
   const extensions = new ExtensionsStore({ accounts, home: config.home, sharedProfiles });
   const agency = new AgencyStore({ accounts, sharedProfiles });
@@ -275,6 +278,12 @@ export async function createServices(config) {
       if (push.type === "stream") chatStreams.streamText(sessionId, push.runId, push);
       if (push.type === "stream-end")
         chatStreams.endStream(sessionId, push.runId, { turn: push.turn });
+      if (push.type === "claude-display") claudeDrafts.display(sessionId, push);
+      // A Claude turn's drafts give way to its transcript when it stops, and are
+      // dropped when it fails, the session ends or the next prompt starts.
+      if (push.event === "Stop") claudeDrafts.stop(sessionId, push.lastAssistantMessage);
+      if (["StopFailure", "SessionEnd", "UserPromptSubmit"].includes(push.event))
+        claudeDrafts.end(sessionId);
     },
   });
   await requests.ready;
