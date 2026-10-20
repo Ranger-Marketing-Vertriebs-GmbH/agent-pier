@@ -1,7 +1,7 @@
 import net from "node:net";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { terminal } from "./graph-navigation.js";
+import { activeTurnList, terminal } from "./graph-navigation.js";
 
 // Every active native turn leases a block of ports from this range: AGENTPIER_PORT and
 // the next PORT_BLOCK - 1 ports. Blocks start every PORT_STRIDE ports, so a turn's
@@ -56,11 +56,12 @@ export class PortLeases {
   leased() {
     const bases = new Set(this.reserved.values());
     for (const run of this.runs())
-      if (!terminal(run) && !run.imported?.historyOnly) {
-        // One active turn per run today; a parallel group adds its members here.
-        const base = run.activeTurn?.ports?.base;
-        if (Number.isInteger(base)) bases.add(base);
-      }
+      if (!terminal(run) && !run.imported?.historyOnly)
+        // Every active turn holds its own block, each member of a parallel group too.
+        for (const turn of activeTurnList(run)) {
+          const base = turn?.ports?.base;
+          if (Number.isInteger(base)) bases.add(base);
+        }
     return bases;
   }
   blocks() {

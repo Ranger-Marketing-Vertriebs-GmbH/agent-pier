@@ -26,7 +26,7 @@ const free = async () => true;
 const holding = (base, extra = {}) => ({
   id: `run-${base}`,
   status: "running",
-  activeTurn: { turnId: `turn-${base}`, ports: { base, count: PORT_BLOCK } },
+  activeTurns: { build: { turnId: `turn-${base}`, ports: { base, count: PORT_BLOCK } } },
   ...extra,
 });
 const leases = (runs, options = {}) =>
@@ -66,7 +66,7 @@ test("a block is released once its turn ends, the run is cancelled or recovered 
   assert.equal((await ports.lease({ turnId: "x" })).base, 20110);
   ports.settle("x");
   // The turn ended: the engine clears the active turn.
-  run.activeTurn = null;
+  run.activeTurns = {};
   assert.equal((await ports.lease({ turnId: "y" })).base, 20100);
   ports.settle("y");
   // A cancelled or failed run holds nothing even if a stale active turn remains.
@@ -87,6 +87,23 @@ test("a restarted engine rebuilds the leases from the stored active turns", asyn
   runs.push(holding(20110));
   ports.settle("n");
   assert.equal((await ports.lease({ turnId: "m" })).base, 20130);
+});
+
+test("every active turn of a run holds its own block, a parallel group's members too", async () => {
+  const run = {
+    id: "run-group",
+    status: "running",
+    activeTurns: {
+      security: { turnId: "t1", ports: { base: 20100, count: PORT_BLOCK } },
+      code: { turnId: "t2", ports: { base: 20110, count: PORT_BLOCK } },
+    },
+  };
+  const ports = leases([run]);
+  assert.equal((await ports.lease({ turnId: "n" })).base, 20120);
+  ports.settle("n");
+  // One member finishing releases only its own block.
+  delete run.activeTurns.security;
+  assert.equal((await ports.lease({ turnId: "m" })).base, 20100);
 });
 
 test("blocks with a port in use on the host are skipped", async () => {

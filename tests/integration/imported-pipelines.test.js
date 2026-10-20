@@ -17,7 +17,7 @@ test("restored pipeline history cannot execute or read original workspace eviden
     restoredAt: new Date().toISOString(),
   };
   run.workspace = null;
-  run.activeTurn = null;
+  run.activeTurns = {};
   run.verifyJob = null;
   f.engine.store.save(run);
   assert.deepEqual(f.engine.get(run.id).actions, ["delete"]);

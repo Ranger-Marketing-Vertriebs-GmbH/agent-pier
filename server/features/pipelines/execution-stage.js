@@ -35,6 +35,7 @@ import {
 } from "./loop-session.js";
 import {
   activeNode,
+  clearTurn,
   currentAttempt,
   failDecision,
   outgoing,
@@ -148,7 +149,8 @@ async function prepareStage(
   run.currentNodeId = node.id;
   run.currentAttemptId = attempt.id;
   run.executionLog.push(attempt);
-  run.activeTurn = { ...identity, kind, startedAt: now, ports };
+  const turn = { ...identity, kind, startedAt: now, ports };
+  run.activeTurns = { [node.id]: turn };
   run.activityAt = now;
   run.usageResumeAt = null;
   engine.store.save(run);
@@ -167,10 +169,10 @@ async function prepareStage(
       throw Error("Stage driver returned a different session identity.");
     attempt.status = "running";
     node.sessionId = identity.sessionId;
-    run.activeTurn.sessionId = identity.sessionId;
+    turn.sessionId = identity.sessionId;
     if (receipt.nativeId) {
       node.nativeId = receipt.nativeId;
-      run.activeTurn.nativeId = receipt.nativeId;
+      turn.nativeId = receipt.nativeId;
     }
     engine.store.save(run);
   } catch (error) {
@@ -223,7 +225,7 @@ export function park(engine, run, node, reason, detail, verdict) {
     attempt.failReason = reason;
     if (verdict) attempt.verdict = verdict;
   }
-  run.activeTurn = null;
+  clearTurn(run, node.id);
   delete run.pendingTurn;
   delete run.pendingConclusion;
   delete run.pendingAdvance;
@@ -242,7 +244,7 @@ export async function applyOutcome(engine, run, outcome) {
     attempt.usage = outcome.usage;
     run.usage = aggregateUsage(run.executionLog);
   }
-  run.activeTurn = null;
+  clearTurn(run, node.id);
   // A CLI stopped by AgentPier after its own completion event keeps its native result.
   const settled =
     Boolean(attempt.settledAfterCompletion) &&
@@ -364,7 +366,7 @@ async function resumeFallback(engine, run, node, attempt, reason, detail) {
   attempt.failReason = reason;
   // The CLI's own words tell a vanished conversation from a transient error.
   if (typeof detail === "string" && detail) attempt.failDetail = detail.slice(0, 500);
-  run.activeTurn = null;
+  clearTurn(run, node.id);
   delete node.nativeId;
   await launchStage(engine, run, node, freshAfterResume(attempt, reason));
 }
@@ -512,7 +514,7 @@ export async function advance(engine, run, node) {
   run.status = "completed";
   delete run.pendingAdvance;
   run.finishedAt = engine.now();
-  run.activeTurn = null;
+  run.activeTurns = {};
   engine.store.save(run);
 }
 /**

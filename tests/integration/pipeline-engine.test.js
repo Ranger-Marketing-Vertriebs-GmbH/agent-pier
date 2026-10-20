@@ -97,7 +97,7 @@ test("recovery finishes a durably recorded verdict without launching duplicate w
   const f = fixture(t);
   const r = await f.engine.start({ pipelineId: "definition", cwd: f.dir, task: "Task" });
   const stored = f.engine.store.get(r.id);
-  stored.activeTurn = null;
+  stored.activeTurns = {};
   stored.pendingConclusion = {
     nodeId: "build",
     verdict: { result: "pass", summary: "Durable completed work" },

@@ -1,6 +1,12 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { activeNode, currentAttempt, outgoing, terminal } from "./graph-navigation.js";
+import {
+  activeNode,
+  activeTurnList,
+  currentAttempt,
+  outgoing,
+  terminal,
+} from "./graph-navigation.js";
 import {
   advance,
   conclude,
@@ -247,7 +253,7 @@ async function overrideStage(engine, run, node) {
       outcome = await engine.driver.inspect(identity);
     }
     if (
-      run.activeTurn ||
+      activeTurnList(run).length ||
       run.verifyJob ||
       !["completed", "failed"].includes(outcome.status) ||
       outcome.quiesced !== true
@@ -292,7 +298,8 @@ export async function cancelRun(engine, run) {
   if (terminal(run)) throw problem(serverMessages.pipelines.runAlreadyFinished, 409);
   run.cancelRequested = true;
   engine.store.save(run);
-  if (run.activeTurn) await engine.driver.cancel(run.activeTurn);
+  // Every active turn's owned process group is stopped, a parallel group's included.
+  for (const turn of activeTurnList(run)) await engine.driver.cancel(turn);
   if (run.verifyJob) await engine.verify.cancel(run.verifyJob);
   run.status = "cancelled";
   run.finishedAt = engine.now();
@@ -302,7 +309,7 @@ export async function cancelRun(engine, run) {
       node.status = "cancelled";
       node.finishedAt ??= run.finishedAt;
     }
-  run.activeTurn = null;
+  run.activeTurns = {};
   run.verifyJob = null;
   run.usageResumeAt = null;
   const a = currentAttempt(run);

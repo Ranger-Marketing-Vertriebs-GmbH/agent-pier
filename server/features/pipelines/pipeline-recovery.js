@@ -105,7 +105,8 @@ export async function reconcileRun(engine, run) {
     await conclude(engine, run, node, node.verdict);
     return;
   }
-  if (!run.activeTurn) {
+  const identity = run.activeTurns?.[node.id];
+  if (!identity) {
     park(
       engine,
       run,
@@ -115,7 +116,6 @@ export async function reconcileRun(engine, run) {
     );
     return;
   }
-  const identity = run.activeTurn;
   const outcome = await engine.driver.inspect(identity);
   if (outcome.status === "running") {
     await superviseRunningTurn(engine, run, node, identity, outcome);

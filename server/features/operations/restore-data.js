@@ -191,7 +191,8 @@ export function historicalOnly(directory) {
         if (!["completed", "failed", "cancelled"].includes(run.status))
           run.status = "cancelled";
         run.finishedAt ||= new Date().toISOString();
-        run.activeTurn = null;
+        delete run.activeTurn;
+        run.activeTurns = {};
         run.verifyJob = null;
         run.workspace = null;
         for (const key of [

@@ -104,9 +104,20 @@ export class RunStore {
 
 // Earlier builds recorded the per-turn wall-clock bound as "stage-timeout".
 const legacyReasons = { "stage-timeout": "turn-timeout" };
-function normalizeRun(run) {
+export function normalizeRun(run) {
   for (const entry of [...(run.nodes || []), ...(run.executionLog || [])])
     if (Object.hasOwn(legacyReasons, entry?.failReason))
       entry.failReason = legacyReasons[entry.failReason];
+  // Earlier builds kept one active turn per run; a run now keeps one per stage, so a
+  // parallel group's members can run at the same time.
+  if (Object.hasOwn(run, "activeTurn")) {
+    const turn = run.activeTurn;
+    run.activeTurns = {
+      ...(turn && typeof turn.nodeId === "string" ? { [turn.nodeId]: turn } : {}),
+      ...run.activeTurns,
+    };
+    delete run.activeTurn;
+  }
+  run.activeTurns ??= {};
   return run;
 }

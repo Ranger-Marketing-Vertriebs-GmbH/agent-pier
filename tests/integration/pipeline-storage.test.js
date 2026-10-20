@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { RunStore } from "../../server/features/pipelines/run-store.js";
 import { VerificationRunner } from "../../server/features/pipelines/verify-runner.js";
 import { fixture } from "../helpers/pipeline-engine.js";
@@ -186,4 +187,38 @@ test("verification reads an opened receipt safely while its pathname is atomical
     return fd;
   });
   assert.deepEqual(await runner.inspect(job), { status: "running" });
+});
+
+test("a run persisted with one active turn loads, recovers and finishes", async (t) => {
+  const f = fixture(t);
+  const run = await f.engine.start({
+    pipelineId: "definition",
+    cwd: f.dir,
+    task: "Task",
+  });
+  // Rewrite the stored run into the shape earlier builds persisted.
+  const stored = f.engine.store.get(run.id);
+  stored.activeTurn = stored.activeTurns.build;
+  delete stored.activeTurns;
+  f.engine.store.save(stored);
+  const raw = () => {
+    const db = new DatabaseSync(path.join(f.dir, "pipeline-runs", "runs.sqlite"));
+    try {
+      return JSON.parse(db.prepare("SELECT doc FROM runs WHERE id=?").get(run.id).doc);
+    } finally {
+      db.close();
+    }
+  };
+  assert.equal(raw().activeTurn.nodeId, "build");
+  await f.restart();
+  const loaded = f.engine.get(run.id);
+  assert.equal(loaded.activeTurn, undefined);
+  assert.equal(loaded.activeTurns.build.sessionId, f.launches[0].sessionId);
+  assert.equal(f.launches.length, 1, "the recorded turn is not launched again");
+  await f.end({ result: "pass", summary: "Done" });
+  const finished = f.engine.get(run.id);
+  assert.equal(finished.status, "completed");
+  assert.deepEqual(finished.activeTurns, {});
+  // The next save writes the current shape.
+  assert.equal(Object.hasOwn(raw(), "activeTurn"), false);
 });

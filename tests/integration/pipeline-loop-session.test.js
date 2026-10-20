@@ -216,7 +216,7 @@ test("a restart during a resumed repair turn settles that turn in its session", 
   const resumed = f.launches.at(-1);
   await f.restart();
   assert.equal(f.launches.length, 3, "the running turn is not launched again");
-  assert.equal(current().activeTurn.sessionId, resumed.sessionId);
+  assert.equal(current().activeTurns.build.sessionId, resumed.sessionId);
   await f.end(
     { ...pass("Repaired"), responses: [{ finding: "R1-1", status: "fixed" }] },
     { nativeId: "native-1" },
@@ -237,7 +237,7 @@ test("a resumed repair queued before a restart is launched resumed after it", as
     resumeNativeId: "native-1",
     repair: queued.repair,
   };
-  run.activeTurn = null;
+  run.activeTurns = {};
   run.currentAttemptId = run.executionLog.at(-1).id;
   f.engine.store.save(run);
   await f.restart();
