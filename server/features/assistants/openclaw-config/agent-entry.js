@@ -6,6 +6,7 @@ import {
   sessionTools,
 } from "../native-capabilities.js";
 import { agentExec } from "./shell.js";
+import { lockedEntry } from "../../users/user-agent-lock.js";
 
 // One definition for a Gateway start and a live apply: the same assistant and
 // runtime state always yield the same managed entry paths. `toolsManaged` and
@@ -76,5 +77,6 @@ export function agentEntry(
         agentRuntime: { id: agentRuntime.id },
       },
     };
-  return next;
+  // Last, so nothing above can hand a user agent a locked tool (user-agent-lock.js).
+  return lockedEntry(next, assistant);
 }
