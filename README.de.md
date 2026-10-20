@@ -18,8 +18,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 ## Was du bekommst
 
 - **Native CLI-Sessions:** echte tmux-Terminals mit Anmeldung, Modellen und
-  Rückfragen der jeweiligen CLI, dazu eine Chat-Ansicht, die sich auf dem Handy
-  wiederherstellt und Diktat annimmt ([Neu laden und fortsetzen](docs/session-reload.md),
+  Rückfragen der jeweiligen CLI, dazu eine Chat-Ansicht, die Antworten schon beim
+  Schreiben zeigt, sich auf dem Handy wiederherstellt und Diktat annimmt
+  ([Live-Aktualisierung](docs/native-chat-delivery.md#live-chat-updates),
+  [Neu laden und fortsetzen](docs/session-reload.md),
   [Nachrichten auf dem Handy](docs/mobile-delivery.md),
   [Diktat](docs/assistant-gateway.md#live-dictation-in-the-chats)).
 - **Eingang:** alle Fragen und Freigaben der CLIs, Pipeline-Gates und Anfragen deiner

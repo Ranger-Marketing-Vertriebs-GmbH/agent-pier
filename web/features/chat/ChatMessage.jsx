@@ -23,6 +23,8 @@ export default function Message({
   subagentsLive = true,
   observedSubagents = [],
   sandboxProfile = "",
+  // A reply the CLI is still generating (ChatLiveReplies.jsx).
+  streaming = false,
 }) {
   // Bash-mode output answers the user's own command, so it starts expanded.
   const [toolOpen, setToolOpen] = useState(Boolean(message.shellOutput));
@@ -102,8 +104,10 @@ export default function Message({
   }
   return (
     <article
-      className={`chat-message ${message.role}`}
+      className={`chat-message ${message.role}${streaming ? " streaming" : ""}`}
       data-message-id={message.id}
+      data-streaming={streaming || undefined}
+      aria-busy={streaming || undefined}
       aria-label={
         message.role === "user"
           ? copy.ariaLabel
@@ -111,7 +115,12 @@ export default function Message({
       }
     >
       {message.role !== "user" && (
-        <div className="message-byline">{providerNames[tool]}</div>
+        <div className="message-byline">
+          {providerNames[tool]}
+          {streaming && (
+            <span className="message-streaming"> · {copy.replyStreaming}</span>
+          )}
+        </div>
       )}
       <div className="message-content">
         <ChatMarkdown

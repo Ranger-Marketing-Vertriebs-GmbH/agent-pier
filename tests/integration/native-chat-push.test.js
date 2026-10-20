@@ -210,3 +210,27 @@ test("a hook push never waits long for a server that is down", async (t) => {
   );
   assert.ok(Date.now() - waited < 1000);
 });
+
+test("a reconnected channel sends its streaming runs whole again", async (t) => {
+  const f = await fixture(t, { tool: "codex" });
+  const channel = new NativeRequestChannel({ env: f.launches.s1.env });
+  t.after(() => channel.close());
+  await channel.ready;
+  channel.streamDelta("item", "Hel", { turn: "t" });
+  channel.streamDelta("item", "lo", { turn: "t" });
+  await until(() => f.pushes.length === 2, 2000);
+  assert.deepEqual(
+    f.pushes.map(({ from, text, turn }) => [from, text, turn]),
+    [
+      [0, "Hel", "t"],
+      [3, "lo", "t"],
+    ],
+  );
+  channel.socket.destroy();
+  // The broker ends the lost owner's run; the reconnect starts it again whole.
+  await until(() => f.pushes.some((push) => push.type === "stream-end"), 2000);
+  await until(() => f.pushes.at(-1).type === "stream", 4000);
+  assert.deepEqual([f.pushes.at(-1).from, f.pushes.at(-1).text], [0, "Hello"]);
+  channel.streamEnd(undefined, { turn: "t" });
+  await until(() => f.pushes.at(-1).type === "stream-end", 2000);
+});

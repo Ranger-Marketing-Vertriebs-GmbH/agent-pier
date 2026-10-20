@@ -58,7 +58,7 @@ export function attachChatWebSocket(server, { sync, streams, login, effective })
       ws.ping();
     }, 30000);
     ping.unref();
-    let unsubscribe;
+    let unsubscribe, unsubscribeReplies;
     ws.on("pong", () => (alive = true));
     ws.on("error", () => ws.close());
     ws.on("message", () => ws.close(1008));
@@ -67,6 +67,7 @@ export function attachChatWebSocket(server, { sync, streams, login, effective })
       clearInterval(ping);
       cleanupLogin();
       unsubscribe?.();
+      unsubscribeReplies?.();
       if (issued && cursor) sync.park(cursor);
     });
     unsubscribe = streams.subscribe(id, ({ session, snapshot, error }) => {
@@ -86,6 +87,15 @@ export function attachChatWebSocket(server, { sync, streams, login, effective })
         cursor = data.sync.cursor;
         issued = true;
         send({ type: "sync", sequence: ++sequence, data });
+        // Reply text follows the first sync, so the browser can place it.
+        unsubscribeReplies ??= streams.subscribeReplies?.(id, (frame) => {
+          try {
+            login.require(token);
+            send(frame);
+          } catch {
+            ws.close(1008);
+          }
+        });
         if (
           session.status !== "running" &&
           snapshot.availability === "ready" &&

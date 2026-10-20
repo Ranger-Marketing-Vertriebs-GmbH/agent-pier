@@ -16,6 +16,7 @@ import React, { useEffect, useRef, useState } from "react";
 import ModelControl from "../models/ModelControl.jsx";
 import Tasks from "./TaskPanel.jsx";
 import ChatTranscript from "./ChatTranscript.jsx";
+import ChatLiveReplies from "./ChatLiveReplies.jsx";
 import ConversationPicker from "./ConversationPicker.jsx";
 import ChatComposer from "./ChatComposer.jsx";
 import ChatObservability from "./ChatObservability.jsx";
@@ -31,6 +32,7 @@ export default function ChatView({
 }) {
   const {
     data,
+    replies,
     historyError,
     historyLoading,
     loadOlder,
@@ -270,6 +272,13 @@ export default function ChatView({
               session.status !== "running" ||
               session.pipeline?.headless
             }
+          />
+          <ChatLiveReplies
+            replies={replies}
+            data={data}
+            session={session}
+            restored={restored}
+            openFile={openFile}
           />
           {data &&
             !resetStatus &&

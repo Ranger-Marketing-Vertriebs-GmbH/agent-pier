@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { observeHookTrust } from "./codex-hook-trust.js";
 import { codexRequest } from "./codex-protocol.js";
 import { codexActivityTracker } from "./codex-activity.js";
+import { codexReplyObserver } from "./codex-reply-stream.js";
 
 /** One real TUI connection and one stdio app-server. Both UIs race at this sole native owner. */
 export async function createCodexProxy({
@@ -11,8 +12,11 @@ export async function createCodexProxy({
   output,
   channel,
   onActivity = () => {},
+  // Streams agent message text to the chat (NativeRequestChannel); null: none.
+  replies = channel,
 }) {
   const activity = codexActivityTracker(onActivity);
+  const reply = replies?.streamDelta ? codexReplyObserver(replies) : () => {};
   const capability = randomBytes(32).toString("hex");
   const server = new WebSocketServer({
     host: "127.0.0.1",
@@ -81,7 +85,10 @@ export async function createCodexProxy({
   lines.on("line", (line) => {
     try {
       const message = JSON.parse(line);
-      if (message.id === undefined) activity(message);
+      if (message.id === undefined) {
+        activity(message);
+        reply(message);
+      }
       if (tui?.readyState === WebSocket.OPEN) {
         try {
           hooks.incoming(message);

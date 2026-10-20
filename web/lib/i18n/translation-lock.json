@@ -1713,6 +1713,7 @@
   "chat:chatMessageCopy.newNoNewline": "de:15dc399bc131 en:f226bf8e6322",
   "chat:chatMessageCopy.oldNoNewline": "de:b2bef1a8c136 en:20ef1aa7cbb7",
   "chat:chatMessageCopy.outputOmitted": "de:7a2b12fcfa9a en:22d5fd933773",
+  "chat:chatMessageCopy.replyStreaming": "de:39c03dbb82da en:4c4f8e76fbdd",
   "chat:chatMessageCopy.sandboxBlocked": "de:6a7746bbf7c9 en:ef04a0bd8f51",
   "chat:chatMessageCopy.sandboxBlockedHint": "de:4c8e78112d7b en:db1aceedfb27",
   "chat:chatMessageCopy.shellOutputLabel": "de:aa9b330d2f44 en:fea25545bf3b",
