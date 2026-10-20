@@ -161,8 +161,9 @@ export class AssistantService {
    * `template` ({id, revision}) records the Agency agent the owner started from:
    * fetched again at that revision and scanned, never its model or tools. The fetch
    * runs before admission: a slow GitHub never holds the shared admission lock.
+   * `userAccess` (validated, users/user-agents.js) makes it an agent of users.
    */
-  async create(body) {
+  async create(body, { userAccess = null } = {}) {
     const { confirmShell, confirmFull, template, ...input } = body || {};
     const origin = template === undefined ? null : await this.templateOrigin(template);
     return this.admit(async () => {
@@ -184,7 +185,10 @@ export class AssistantService {
           ...(capabilities && { capabilities }),
           ...(heartbeat && { heartbeat }),
         },
-        origin && { template: origin },
+        (origin || userAccess) && {
+          ...(origin && { template: origin }),
+          ...(userAccess && { userAccess }),
+        },
       );
       // The Gateway gets the agent, and its level, at its first apply.
       if (shell) this.shellChanges.audit(record.id, shell, {});
