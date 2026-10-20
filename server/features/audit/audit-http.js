@@ -1,4 +1,5 @@
 import { auditId } from "./audit-schema.js";
+import { auditActor } from "./audit-actor.js";
 const collection = new Map([
   ["accounts", "account"],
   ["ssh-accesses", "ssh"],
@@ -9,6 +10,7 @@ const collection = new Map([
   ["pipeline-profiles", "profile"],
   ["pipelines", "pipeline"],
   ["pipeline-runs", "pipeline"],
+  ["users", "user"],
 ]);
 function identity(value) {
   try {
@@ -28,8 +30,19 @@ export function requestAudit(req) {
     action = verb,
     resourceId = identity(id),
     sessionId,
-    projectId;
-  if (area === "operations") {
+    projectId,
+    kind;
+  if (area === "users") {
+    if (operation === "password") {
+      action = "updated";
+      kind = "password-reset";
+    } else if (operation) return null;
+  } else if (area === "me") {
+    if (id !== "password" || operation) return null;
+    resourceType = "user";
+    resourceId = identity(req.principal?.userId);
+    kind = "password-changed";
+  } else if (area === "operations") {
     resourceType = {
       backups: "backup",
       restore: "restore",
@@ -130,14 +143,16 @@ export function requestAudit(req) {
     ...(resourceId ? { resourceId } : {}),
     ...(sessionId ? { sessionId } : {}),
     ...(projectId ? { projectId } : {}),
+    ...(kind ? { kind } : {}),
   };
 }
 
 /** Capture explicit action metadata only; never retain the response or request body. */
 export function auditHttp(audit, { onError = () => {} } = {}) {
   return (req, res, next) => {
-    const event = requestAudit(req);
-    if (!event) return next();
+    const audited = requestAudit(req);
+    if (!audited) return next();
+    const { kind, ...event } = audited;
     let returnedId;
     const json = res.json;
     res.json = function (body) {
@@ -166,9 +181,10 @@ export function auditHttp(audit, { onError = () => {} } = {}) {
           ...(event.resourceType === "project" && resourceId
             ? { projectId: resourceId }
             : {}),
+          ...auditActor(req.principal),
           source: "user",
           outcome: res.statusCode < 400 ? "success" : "failure",
-          details: { statusCode: res.statusCode },
+          details: { statusCode: res.statusCode, ...(kind ? { kind } : {}) },
         });
       } catch {
         onError();

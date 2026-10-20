@@ -1,3 +1,4 @@
+import { userAuditDetails } from "./audit-actor.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import {
@@ -59,6 +60,8 @@ const resources = new Set([
   "package",
   // Live dictation in the composers: that it was used and for how long, never audio.
   "speech",
+  // Restricted users' accounts (audit-actor.js).
+  "user",
 ]);
 const verbs = new Set([
   "revoked",
@@ -489,6 +492,7 @@ export function auditEvent(input) {
   // Agent SSH runs, refusals and grant changes (audit-ssh-details.js).
   if (input.resourceType === "ssh" || details.kind === "ssh-grants")
     sshAuditDetails(details, event, auditId);
+  userAuditDetails(input, event, auditId);
   return event;
 }
 const invalidInteger = {
