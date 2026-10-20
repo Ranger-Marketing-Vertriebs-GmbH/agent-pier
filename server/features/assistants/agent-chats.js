@@ -5,6 +5,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { createGatewaySession } from "./session-create.js";
 import { mainConversation } from "./routine-targets.js";
 import { assertChatPerson, openMainConversation } from "./conversation-open.js";
+import { firstTurnTitle, setTitle } from "./chat-titles.js";
 
 /**
  * Several chats per agent (AGENTPIER-181). Each chat is one AgentPier conversation
@@ -139,6 +140,25 @@ export class AgentChats {
       .map((c) =>
         chatSummary(c, { busy: chatBusy(service, c.id, pending), owner: !!view }),
       );
+  }
+  /**
+   * Renames a chat: a set title, or with "" its automatic one again. An archived
+   * chat is read-only.
+   */
+  rename(conversationId, value, options = {}) {
+    const service = this.service;
+    const conversation = service.store.getConversation(conversationId);
+    if (conversation.archivedAt) throw chatProblem("CHAT_ARCHIVED");
+    const title = setTitle(value);
+    const auto = title ? null : firstTurnTitle(service, conversationId);
+    service.store.updateConversation(
+      conversationId,
+      title
+        ? { title, titleSource: "set" }
+        : { title: auto, titleSource: auto ? "auto" : null },
+    );
+    service.changed({ conversationId });
+    return this.summary(conversationId, options);
   }
   /** The summary of one conversation now. */
   summary(conversationId, options = {}) {

@@ -33,6 +33,7 @@ import { ASSISTANT_STORAGE_UNSAFE } from "../../features/assistants/assistant-fe
 import { runtimeView } from "../../features/assistants/runtime-view.js";
 import { replyRestartRequired } from "./restart-required.js";
 import { fromSince } from "../../features/users/owner-privacy.js";
+import { sendStatus } from "../../features/assistants/chat-commands.js";
 
 // Agent OAuth logins of MCP servers exist only while the agent services do; the
 // central list itself is a core route (mcp-servers.js). Agents for restricted users
@@ -200,9 +201,10 @@ function activeAssistantRoutes(services) {
           ),
     );
   });
-  router.post("/assistant-conversations/:id/messages", async (req, res) =>
-    res.status(202).json(await assistants.send(req.params.id, req.body)),
-  );
+  router.post("/assistant-conversations/:id/messages", async (req, res) => {
+    const result = await assistants.send(req.params.id, req.body);
+    res.status(sendStatus(result)).json(result);
+  });
   // The message queued while the agent works; the history shows it to every tab.
   router.post("/assistant-conversations/:id/queued", (req, res) =>
     res.json(assistants.queue(req.params.id, req.body)),

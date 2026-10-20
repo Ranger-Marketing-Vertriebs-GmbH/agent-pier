@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { sendStatus } from "../../features/assistants/chat-commands.js";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import {
   attachmentBody,
@@ -43,7 +44,8 @@ export function meConversationRoutes(
   router.post("/me/conversations/:id/messages", async (req, res) => {
     const { id } = own(req);
     const context = { kind: "user", userId: req.principal.userId };
-    res.status(202).json(await assistants.send(id, withoutTeam(req.body), context));
+    const result = await assistants.send(id, withoutTeam(req.body), context);
+    res.status(sendStatus(result)).json(result);
   });
   router.post("/me/conversations/:id/queued", (req, res) =>
     res.json(assistants.queue(own(req).id, withoutTeam(req.body))),

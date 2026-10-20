@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { renameTitle } from "./assistant-chats.js";
 
 /**
  * A user's chat list with each of her agents (AGENTPIER-181). Every level may start
@@ -22,6 +23,10 @@ export function meChatRoutes({ assistants, userScope }) {
       userId: req.principal.userId,
     });
     res.status(201).json(assistants.chats.summary(conversation.id));
+  });
+  router.patch("/me/conversations/:id", (req, res) => {
+    const { id } = userScope.conversationOf(req.principal, req.params.id);
+    res.json(assistants.chats.rename(id, renameTitle(req.body)));
   });
   return router;
 }

@@ -1,6 +1,7 @@
 import { assistantProblem, validateSendInput } from "./assistant-validation.js";
 import { memberLevel } from "../users/user-access.js";
 import { plainTurnText } from "./plain-turn-text.js";
+import { titleFromTurn } from "./chat-titles.js";
 
 /**
  * One owner (or Telegram, or internal) turn of an AgentPier conversation, admitted by
@@ -65,10 +66,12 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   const { request, attempt } = (service.teams?.store || service.attachments).transaction(
     accept,
   );
-  // The chat list orders chats by their latest turn (agent-chats.js).
+  // The chat list orders chats by their latest turn and names them after their first
+  // (agent-chats.js, chat-titles.js).
   service.store.updateConversation(conversationId, {
     lastActivityAt: new Date(service.now?.() ?? Date.now()).toISOString(),
   });
+  titleFromTurn(service.store, conversation, input.text, context);
   // The reconciler leaves an attempt alone while its send is under way.
   const sending = (service.sending ??= new Set());
   sending.add(attempt.id);
