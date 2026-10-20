@@ -6,6 +6,7 @@ import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-ch
 import { fixtureModel } from "../helpers/user-agents.js";
 import { signedInUser } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
+import { deleteReleasedSessions } from "../../server/features/users/user-release.js";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
@@ -155,6 +156,25 @@ test("delete removes chat and transcript", async (t) => {
   const folder = await assistants.attachments.folder(agent.id, false);
   const copy = path.join(folder.path, row.file);
   assert.ok(fs.existsSync(copy));
+  // A file the agent shared into the chat, and a memory note shown in it.
+  const shared = assistants.attachments.shared;
+  const sharedFile = await shared.share({
+    conversation,
+    requestId: "shared-request",
+    name: "notes.txt",
+    body: Buffer.from("Shared secret"),
+  });
+  const sharedCopy = path.join(
+    (await shared.folder(agent.id, false)).path,
+    shared.rows("id=?", sharedFile.id)[0].file,
+  );
+  assert.ok(fs.existsSync(sharedCopy));
+  assistants.memoryNotes.record({
+    key: "turn-1:forwarded",
+    conversationId: second,
+    reason: "forwarded",
+  });
+  assert.equal(assistants.memoryNotes.forConversation(second).length, 1);
   const deleted = await request(r.chat(second), {
     method: "DELETE",
     body: { confirm: true },
@@ -171,6 +191,8 @@ test("delete removes chat and transcript", async (t) => {
   assert.ok(!fs.existsSync(archive));
   assert.ok(fs.existsSync(other));
   assert.ok(!fs.existsSync(copy));
+  assert.ok(!fs.existsSync(sharedCopy));
+  assert.deepEqual(assistants.memoryNotes.forConversation(second), []);
   assert.deepEqual(
     assistants.attachments.rows(
       "SELECT * FROM agent_attachments WHERE conversation_id=?",
@@ -198,6 +220,29 @@ test("delete removes chat and transcript", async (t) => {
   const event = events.find((e) => e.details?.kind === "chat-deleted");
   assert.ok(event);
   assert.doesNotMatch(JSON.stringify(events), /Secret plans/);
+});
+
+test("a chat deleted while the Gateway is away loses its session at the next start", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const { second } = await twoChats(f.request, agent.id);
+  const assistants = f.application.assistants;
+  const key = assistants.store.getConversation(second).runtimeSessionKey;
+  gateway.client.ready = false;
+  const deleted = await f.request(routes(false).chat(second), {
+    method: "DELETE",
+    body: { confirm: true },
+  });
+  assert.equal(deleted.status, 204, await deleted.clone().text());
+  const nativeDeletes = () =>
+    gateway.calls.filter((c) => c.method === "sessions.delete" && c.params.key === key);
+  assert.equal(nativeDeletes().length, 0);
+  assert.equal(assistants.store.storedConversation(second).nativeDeletePending, true);
+  gateway.client.ready = true;
+  await deleteReleasedSessions({ assistants });
+  assert.equal(nativeDeletes().length, 1);
+  assert.equal(nativeDeletes()[0].params.deleteTranscript, true);
+  assert.equal(assistants.store.storedConversation(second).nativeDeletePending, false);
 });
 
 test("main chat cannot be archived or deleted", async (t) => {
