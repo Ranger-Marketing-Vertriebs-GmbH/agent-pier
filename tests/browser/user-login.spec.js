@@ -90,6 +90,11 @@ for (const [language, copy] of [
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(390);
+      // A notch, emulated through the token the shell must read instead of env().
+      await page.evaluate(() =>
+        document.documentElement.style.setProperty("--safe-area-inset-top", "47px"),
+      );
+      await expect(page.locator(".user-app")).toHaveCSS("padding-top", "47px");
       await page.getByRole("button", { name: copy.logout, exact: true }).click();
       await expect(
         page.getByRole("heading", { name: copy.title, exact: true }),

@@ -5,7 +5,7 @@ export const remoteCopy = {
   localDescription: "Always active. Reachable only on this machine.",
   tailscale: "Tailscale",
   tailscaleDescription:
-    "Private HTTPS inside your tailnet, bound to the approved Tailscale account.",
+    "Private HTTPS inside your tailnet. Every tailnet member reaches the sign-in page; the AgentPier login decides who gets in.",
   tailscaleOff: "Not configured. On the server: npm run tailscale",
   network: "Network",
   networkSwitch: "Network access",

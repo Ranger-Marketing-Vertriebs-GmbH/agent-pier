@@ -19,7 +19,7 @@ export const scripts = Object.freeze({
   tailscaleDisconnected: "Tailscale ist nicht verbunden.",
   tailscaleIdentityUnavailable: "Tailscale-Identität konnte nicht ermittelt werden.",
   remoteAccessConfigured: (remoteUrl) =>
-    `Fernzugriff eingerichtet: ${remoteUrl}\nNur das eigene Tailscale-Konto erhält Zugriff. Dienst mit npm run service:install neu laden.`,
+    `Fernzugriff eingerichtet: ${remoteUrl}\nJedes Mitglied des eigenen Tailnets erreicht die Anmeldeseite; wer AgentPier nutzt, entscheidet die AgentPier-Anmeldung. Dienst mit npm run service:install neu laden.`,
   serverListening: (port) => `AgentPier läuft auf http://127.0.0.1:${port}`,
   serverListeningNetwork: (urls) =>
     `Netzwerkzugriff aktiv ohne TLS. Erreichbar unter:\n${urls.map((url) => `  ${url}`).join("\n")}`,

@@ -20,6 +20,8 @@ export function releaseVersion(value) {
     throw problem(serverMessages.releases.invalidVersion);
   return value;
 }
+// A structural check only: whether the data opens is requireDataCompatibility's call, so
+// an installed release from before schema 2 stays valid on its own schema 1 data.
 export function releaseManifest(value, platform = `${process.platform}-${process.arch}`) {
   releaseVersion(value?.version);
   if (
@@ -28,8 +30,8 @@ export function releaseManifest(value, platform = `${process.platform}-${process
     value.schemaVersion !== 1 ||
     !Number.isSafeInteger(value.schemaMin) ||
     !Number.isSafeInteger(value.schemaMax) ||
-    value.schemaMin > dataSchema ||
-    value.schemaMax < dataSchema
+    value.schemaMin < 1 ||
+    value.schemaMin > value.schemaMax
   )
     throw problem(serverMessages.releases.incompatible, 409);
   return value;

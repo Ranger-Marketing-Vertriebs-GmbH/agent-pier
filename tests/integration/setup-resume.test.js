@@ -494,3 +494,12 @@ test("fresh setup preserves an explicitly configured ongoing environment channel
     "https://environment.test/releases/",
   );
 });
+
+test("setup re-runs on an installed release from before data schema 2", async (t) => {
+  const f = await setupFixture(t);
+  await f.install();
+  const manifestPath = path.join(f.installRoot, "releases/1.0.0/release.json");
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+  await fs.writeFile(manifestPath, JSON.stringify({ ...manifest, schemaMax: 1 }));
+  assert.equal((await f.install()).version, "1.0.0");
+});

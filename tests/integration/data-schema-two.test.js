@@ -70,8 +70,14 @@ test("a release that opens only schema 1 is refused on schema 2 data", async (t)
   requireDataCompatibility({ schemaMin: 1, schemaMax: 2 }, dir);
   const platform = "linux-x64";
   const manifest = { version: "2.5.0", platform, schemaVersion: 1, schemaMin: 1 };
-  assert.throws(() => releaseManifest({ ...manifest, schemaMax: 1 }, platform), {
-    status: 409,
-  });
+  // The manifest check stays structural: a schema 1 release is valid, only not here.
+  assert.equal(releaseManifest({ ...manifest, schemaMax: 1 }, platform).schemaMax, 1);
   assert.equal(releaseManifest({ ...manifest, schemaMax: 2 }, platform).schemaMax, 2);
+  for (const range of [
+    { schemaMin: 0, schemaMax: 1 },
+    { schemaMin: 2, schemaMax: 1 },
+  ])
+    assert.throws(() => releaseManifest({ ...manifest, ...range }, platform), {
+      status: 409,
+    });
 });

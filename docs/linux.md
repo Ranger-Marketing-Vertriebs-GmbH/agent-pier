@@ -2,7 +2,7 @@
 
 AgentPier läuft als normaler Benutzer mit Node.js, tmux und Git. Für den Webdienst ist kein Desktop erforderlich. Ein systemd-Benutzerdienst ist optional; auf Systemen ohne systemd funktioniert der manuelle Start mit `npm start`.
 
-Beim ersten Öffnen einen Benutzer erstellen; anschließend mit Benutzername und Passwort anmelden. Das funktioniert auch über den freigegebenen Fernzugriff. Details zu Sessions und Wiederherstellung stehen unter [Anmeldung](login.md).
+Beim ersten Öffnen einen Benutzer erstellen; anschließend mit Benutzername und Passwort anmelden. Das funktioniert auch über den freigegebenen Fernzugriff: über Tailscale mit dem eigenen Tailscale-Konto, im Netzwerkmodus, solange noch keine Benutzer angelegt sind. Details zu Sessions und Wiederherstellung stehen unter [Anmeldung](login.md).
 
 Der [Datei-Explorer](file-explorer.md) verwendet die Rechte dieses normalen Benutzers
 auch auf eingebundenen Datenträgern. Er benötigt keinen privilegierten Webdienst. Mount-
