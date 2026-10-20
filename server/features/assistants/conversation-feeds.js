@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { ChatSync } from "../chat/chat-sync.js";
 import { conversationHistory } from "./conversations.js";
 import { fromSince } from "../users/owner-privacy.js";
+import { isUserAgent } from "../users/user-access.js";
 
 export const CURSOR = /^[A-Za-z0-9-]{1,64}$/;
 const live = new Set(["pending", "accepted", "running"]);
@@ -246,7 +247,11 @@ export function conversationFeeds(service, options = {}) {
   return new ConversationFeeds({
     read: async (id) => {
       const history = await conversationHistory(service, id);
-      const actions = service.workflows?.pending(owner(id));
+      let actions = service.workflows?.pending(owner(id));
+      // A user agent's chats are private to their person: each shows its own
+      // approvals only (user agents have no team members to delegate to).
+      if (actions && isUserAgent(service.store.getAssistant(owner(id))))
+        actions = actions.filter((a) => a.conversationId === id);
       // Without the workflows the chat reads its actions itself.
       return actions ? { ...history, actions } : history;
     },

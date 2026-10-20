@@ -248,7 +248,8 @@ export function auditEvent(input) {
   )
     event.details.decision = details.decision;
   // Assistant approval decisions name the deciding actor and surface.
-  if (["owner", "assistant"].includes(details.actor)) event.details.actor = details.actor;
+  if (["owner", "assistant", "user"].includes(details.actor))
+    event.details.actor = details.actor;
   if (["ui", "telegram", "mcp", "tool"].includes(details.channel))
     event.details.channel = details.channel;
   if (details.actionId !== undefined) event.details.actionId = auditId(details.actionId);

@@ -3,7 +3,13 @@
 const channels = { telegram: "telegram", mcp: "mcp", tool: "tool" };
 export function approvalOrigin(origin) {
   const channel = channels[origin?.channel] || channels[origin?.kind] || "ui";
-  return { channel, actor: origin?.actor === "assistant" ? "assistant" : "owner" };
+  const actor =
+    origin?.kind === "user"
+      ? "user"
+      : origin?.actor === "assistant"
+        ? "assistant"
+        : "owner";
+  return { channel, actor };
 }
 export function decideAudited(audit, details, decide) {
   const { channel, actor } = approvalOrigin(details.origin);
@@ -22,6 +28,8 @@ export function decideAudited(audit, details, decide) {
       resourceType: "assistant",
       ...(assistantId ? { resourceId: assistantId } : {}),
       source: channel === "mcp" ? "mcp" : actor === "assistant" ? "system" : "user",
+      // A restricted user's decision names her (audit-actor.js).
+      ...(actor === "user" ? { actorUserId: details.origin.userId } : {}),
       outcome,
       details: {
         actor,

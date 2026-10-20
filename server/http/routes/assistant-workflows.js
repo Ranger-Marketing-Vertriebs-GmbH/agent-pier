@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
+import { ownerApproval } from "../../features/users/approval-audience.js";
 export function assistantWorkflowRoutes({ assistants }) {
   const router = Router(),
     service = () => {
@@ -37,9 +38,17 @@ export function assistantWorkflowRoutes({ assistants }) {
       res.json(saved);
     }),
   );
-  router.get("/assistants/:id/actions", (req, res) =>
-    res.json(service().list(req.params.id, { delegated: true })),
-  );
+  // A user's approvals are hers alone (approval-audience.js); the owner lists his.
+  router.get("/assistants/:id/actions", (req, res) => {
+    const { actions } = service().list(req.params.id, { delegated: true });
+    const hidden = new Set(
+      service()
+        .store.list(req.params.id)
+        .filter((a) => !ownerApproval(a, assistants.store))
+        .map((a) => a.id),
+    );
+    res.json({ actions: actions.filter((a) => !hidden.has(a.id)) });
+  });
   router.post("/assistant-actions/:id/decision", async (req, res) =>
     res.json(
       await service().decide(req.params.id, req.body, { kind: "owner", channel: "ui" }),

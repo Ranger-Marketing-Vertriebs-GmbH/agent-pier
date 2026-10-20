@@ -34,6 +34,9 @@ export const userRoutes = [
   { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/memory$/ },
   { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/memory\/[^/]+$/ },
   { method: "DELETE", pattern: /^\/api\/me\/agents\/[^/]+\/memory\/[^/]+$/ },
+  // The approvals of her own chats (me-approvals.js).
+  { method: "GET", pattern: /^\/api\/me\/approvals$/ },
+  { method: "POST", pattern: /^\/api\/me\/approvals\/[^/]+\/decision$/ },
   // Her own reminders and routines on her agents (me-reminders.js).
   { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/(?:reminders|routines)$/ },
   { method: "POST", pattern: /^\/api\/me\/agents\/[^/]+\/(?:reminders|routines)$/ },
