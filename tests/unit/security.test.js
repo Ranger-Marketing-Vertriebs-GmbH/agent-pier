@@ -48,30 +48,40 @@ test("local same origin requests work but cross-origin writes are rejected", () 
     authorizeRequest(request({ "sec-fetch-site": "cross-site" }), config),
   );
 });
-test("rejects DNS rebinding and unauthorized remote identities", () => {
+test("rejects DNS rebinding", () => {
   assert.throws(() => authorizeRequest(request({ host: "evil.example" }), config));
-  assert.throws(() =>
-    authorizeRequest(request({ host: "host.example.ts.net:8443" }), config),
-  );
-  assert.throws(() =>
+});
+test("any tailnet identity passes the Tailscale branch", () => {
+  for (const login of ["owner@example.com", "other@example.com"]) {
+    const req = request({
+      host: "host.example.ts.net:8443",
+      "tailscale-user-login": login,
+    });
+    assert.equal(authorizeRequest(req, config), true);
+    assert.equal(req.trustBranch, "tailscale");
+  }
+  // The saved owner login no longer decides; AgentPier's own sign-in does.
+  assert.equal(
     authorizeRequest(
       request({
         host: "host.example.ts.net:8443",
         "tailscale-user-login": "other@example.com",
       }),
-      config,
-    ),
-  );
-  assert.equal(
-    authorizeRequest(
-      request({
-        host: "host.example.ts.net:8443",
-        "tailscale-user-login": "owner@example.com",
-      }),
-      config,
+      { ...config, ownerLogin: null },
     ),
     true,
   );
+});
+test("a request without a Tailscale identity is refused", () => {
+  for (const headers of [
+    { host: "host.example.ts.net:8443" },
+    { host: "host.example.ts.net:8443", "tailscale-user-login": "" },
+    { host: "host.example.ts.net:8443", "tailscale-user-login": "   " },
+  ])
+    assert.throws(() => authorizeRequest(request(headers), config), {
+      status: 403,
+      message: "Dieser Zugang braucht eine Tailscale-Anmeldung aus dem Tailnet.",
+    });
 });
 test("websocket requires exact origin and owner for remote connections", () => {
   assert.throws(() => authorizeRequest(request(), config, true));
@@ -103,7 +113,7 @@ test("websocket requires exact origin and owner for remote connections", () => {
     ),
   );
 });
-test("a proxy cannot bypass Tailscale owner checks by spoofing the local Host", () => {
+test("a proxy cannot bypass Tailscale checks by spoofing the local Host", () => {
   for (const headers of [
     { "tailscale-user-login": "other@example.com" },
     { "x-forwarded-for": "100.1.2.3" },
@@ -326,7 +336,7 @@ test("the provider's redirect to the MCP OAuth callback is a navigation on both 
     url,
   };
   assert.equal(authorizeRequest(remote, config), true);
-  // Only a top-level GET document navigation, only that path, only the owner.
+  // Only a top-level GET document navigation, only that path, only with a tailnet identity.
   const denied = [
     {
       ...request({ ...headers, "sec-fetch-mode": "cors", "sec-fetch-dest": "empty" }),
@@ -336,7 +346,7 @@ test("the provider's redirect to the MCP OAuth callback is a navigation on both 
     { ...request(headers, "POST"), url },
     { ...request(headers), url: "/api/mcp-servers/oauth/callbackx?state=s" },
     { ...request(headers), url: "/api/mcp-servers/x/oauth/login" },
-    { ...remote, headers: { ...remote.headers, "tailscale-user-login": "other@x.com" } },
+    { ...remote, headers: { ...remote.headers, "tailscale-user-login": "" } },
   ];
   for (const req of denied) assert.throws(() => authorizeRequest(req, config), req.url);
 });

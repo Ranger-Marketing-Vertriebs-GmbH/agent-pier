@@ -18,7 +18,8 @@ export const http = Object.freeze({
   sessionStopped: "Die Session ist beendet.",
   notFound: "Nicht gefunden.",
   requestFailed: "Anfrage fehlgeschlagen.",
-  tailscaleAccountDenied: "Dieses Tailscale-Konto hat keinen Zugriff.",
+  tailscaleIdentityRequired:
+    "Dieser Zugang braucht eine Tailscale-Anmeldung aus dem Tailnet.",
   originRequired: "Ursprung der Anfrage fehlt.",
   networkHostNotAllowed:
     "Netzwerkzugriff ist aus oder dieser Host ist nicht freigegeben. Einstellungen › Zugriff › Fernzugriff prüfen.",

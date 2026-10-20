@@ -31,8 +31,11 @@ export function authorizeRequest(req, config, websocket = false) {
     expected = `http://${host}`;
     req.trustBranch = "local";
   } else if (loopback && config.remoteUrl && new URL(config.remoteUrl).host === host) {
-    if (!config.ownerLogin || req.headers["tailscale-user-login"] !== config.ownerLogin)
-      throw problem(serverMessages.http.tailscaleAccountDenied, 403);
+    // Any tailnet member reaches the sign-in; AgentPier's own login decides who they
+    // are. Funnel and tagged devices carry no identity and stay refused.
+    const identity = req.headers["tailscale-user-login"];
+    if (typeof identity !== "string" || !identity.trim())
+      throw problem(serverMessages.http.tailscaleIdentityRequired, 403);
     expected = new URL(config.remoteUrl).origin;
     req.trustBranch = "tailscale";
   } else if (config.network?.enabled && config.networkHosts?.has(host)) {

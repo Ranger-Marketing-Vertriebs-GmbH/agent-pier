@@ -332,7 +332,7 @@ test("MCP reads large Unicode artifacts and diffs within the full response envel
   }
 });
 
-test("non-owner tailnet clients can discover MCP but cannot administer grants", async (t) => {
+test("tailnet members without an AgentPier sign-in can discover MCP but cannot administer grants", async (t) => {
   const fixture = await applicationFixture(t, {
     remoteUrl: "https://agentpier.example",
     ownerLogin: "owner@example.com",
@@ -360,10 +360,11 @@ test("non-owner tailnet clients can discover MCP but cannot administer grants", 
     });
   assert.equal(await request("/.well-known/oauth-protected-resource/mcp"), 200);
   assert.equal(await request("/mcp"), 401);
-  for (const route of ["/api/mcp-access", "/api/mcp-access/grants", "/settings/mcp"])
-    assert.equal(await request(route), 403);
+  // Every tailnet member reaches the sign-in; the API still needs an AgentPier session.
+  for (const route of ["/api/mcp-access", "/api/mcp-access/grants"])
+    assert.equal(await request(route), 401);
   assert.equal(
     await request("/api/mcp-access/authorizations/pending/approve", "POST"),
-    403,
+    401,
   );
 });
