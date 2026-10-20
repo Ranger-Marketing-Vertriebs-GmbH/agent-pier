@@ -2,12 +2,12 @@
 
 AgentPier lauscht standardmäßig nur auf Loopback (`127.0.0.1`) und ist damit nur auf dem Rechner selbst erreichbar. Für den Zugriff von einem anderen Gerät gibt es zwei gleichwertige Wege. Beide setzen die Anmeldung am Arbeitsbereich voraus (siehe [Anmeldung](login.md)); ohne einen dieser beiden Wege bleibt AgentPier lokal.
 
-|              | Weg A: Tailscale Serve         | Weg B: Netzwerkmodus ohne Tailscale  |
-| ------------ | ------------------------------ | ------------------------------------ |
-| Transport    | HTTPS im eigenen Tailnet       | Klartext-HTTP im eigenen Netz        |
-| Identität    | Tailscale-Konto plus Anmeldung | nur die Anmeldung                    |
-| Push/PWA     | ja                             | nein                                 |
-| Geeignet für | unterwegs, mehrere Netze       | Heimnetz, LAN, eigener Reverse-Proxy |
+|              | Weg A: Tailscale Serve          | Weg B: Netzwerkmodus ohne Tailscale  |
+| ------------ | ------------------------------- | ------------------------------------ |
+| Transport    | HTTPS im eigenen Tailnet        | Klartext-HTTP im eigenen Netz        |
+| Identität    | Tailnet-Mitglied plus Anmeldung | nur die Anmeldung                    |
+| Push/PWA     | ja                              | nein                                 |
+| Geeignet für | unterwegs, mehrere Netze        | Heimnetz, LAN, eigener Reverse-Proxy |
 
 Beide Wege lassen sich unabhängig voneinander einrichten und auch gleichzeitig verwenden.
 
@@ -17,7 +17,7 @@ Beide Wege lassen sich unabhängig voneinander einrichten und auch gleichzeitig 
 
 - Ein bestehendes Tailscale-Konto; auf dem AgentPier-Rechner läuft Tailscale bereits und ist angemeldet.
 - Dieselbe `AGENTPIER_DATA_DIR` für den Webdienst und für das Setup-Skript.
-- AgentPier bindet dabei weiterhin an Loopback und akzeptiert nur die beim Einrichten ermittelte eigene Tailscale-Identität. Es richtet dabei keinen öffentlichen Funnel ein und exponiert den Dienst nicht ins offene Internet.
+- AgentPier bindet dabei weiterhin an Loopback und akzeptiert jede Anfrage, die Tailscale Serve mit einer Tailscale-Anmeldung aus dem eigenen Tailnet weiterreicht. Wer AgentPier dann nutzt, entscheidet allein die AgentPier-Anmeldung (Besitzer oder [Benutzer](login.md#benutzer)); so erreichen auch Familienmitglieder im Tailnet die Anmeldeseite. Anfragen ohne Tailscale-Anmeldung, etwa über Funnel oder von getaggten Geräten, bleiben abgewiesen. Das Skript richtet keinen öffentlichen Funnel ein und exponiert den Dienst nicht ins offene Internet.
 
 ### Einrichten
 

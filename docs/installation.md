@@ -173,7 +173,7 @@ The plist saves the Node path, project and data directories, and PATH at install
 
 ## 5. Optional: private remote access
 
-There are two supported ways to access AgentPier from another device: [Tailscale Serve](remote-access.md#weg-a-tailscale-serve) with HTTPS in your own tailnet, or [network mode without Tailscale](remote-access.md#weg-b-netzwerkmodus-ohne-tailscale), which can also be enabled headlessly with `npm run remote` and is protected only by login. The [remote access guide](remote-access.md) provides exact commands for both. To disable your Tailscale exposure when removing the service, use `tailscale serve --https=8443 off` as described below.
+There are two supported ways to access AgentPier from another device: [Tailscale Serve](remote-access.md#weg-a-tailscale-serve) with HTTPS in your own tailnet, or [network mode without Tailscale](remote-access.md#weg-b-netzwerkmodus-ohne-tailscale), which can also be enabled headlessly with `npm run remote` and is protected only by login. Over Tailscale, every member of your tailnet reaches the sign-in page, and the AgentPier login (the owner or a [user](login.md#benutzer) the owner created) decides who they are. The [remote access guide](remote-access.md) provides exact commands for both. To disable your Tailscale exposure when removing the service, use `tailscale serve --https=8443 off` as described below.
 
 ## 6. Updating
 
