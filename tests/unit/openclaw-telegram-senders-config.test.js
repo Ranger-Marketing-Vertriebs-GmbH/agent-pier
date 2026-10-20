@@ -116,8 +116,10 @@ test("without native Telegram bots nothing is compiled and stale surfaces are re
   stale.models = { providers: { deepgram: { apiKey: "old" }, keep: { apiKey: "k" } } };
   const config = compile([profile("a")], { accounts: [], speech }, stale);
   assert.deepEqual(config.channels, {});
-  for (const key of ["bindings", "session", "commands", "approvals", "accessGroups"])
+  for (const key of ["bindings", "commands", "approvals", "accessGroups"])
     assert.equal(config[key], undefined, key);
+  // Only AgentPier's own session maintenance stays (runtime-config.js).
+  assert.deepEqual(config.session, { maintenance: { archiveDashboardAfter: false } });
   assert.equal(config.tools.agentToAgent, undefined);
   assert.equal(config.tools.media, undefined);
   assert.ok(!config.plugins.allow.includes("telegram"));
@@ -152,7 +154,10 @@ test("one bot per agent: an allowlisted account, its binding and per-sender sess
     { agentId: "ap-a", match: { channel: "telegram", accountId: "ap-a" } },
     { agentId: "ap-b", match: { channel: "telegram", accountId: "ap-b" } },
   ]);
-  assert.deepEqual(config.session, { dmScope: "per-account-channel-peer" });
+  assert.deepEqual(config.session, {
+    dmScope: "per-account-channel-peer",
+    maintenance: { archiveDashboardAfter: false },
+  });
   assert.deepEqual(config.commands, {
     native: false,
     nativeSkills: false,

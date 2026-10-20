@@ -283,6 +283,13 @@ export function compileOpenClawConfig({
   // Only the native team start compiles the agents' own bots; any other start, and
   // every start without bots, removes what an earlier one wrote.
   applyTelegram(config, telegramCompiled);
+  // Every AgentPier chat is a dashboard session, and OpenClaw archives those after 7
+  // idle days; an archived session takes no turn. AgentPier keeps archive state for
+  // its chats itself (agent-chats.js), so that trigger stays off.
+  config.session = {
+    ...config.session,
+    maintenance: { ...config.session?.maintenance, archiveDashboardAfter: false },
+  };
   config.cron = { ...config.cron, enabled: !!(enabled && teams.native && !maintenance) };
   // No skills for an agent without its own list: OpenClaw reads agents.defaults.skills
   // `[]` as "none" and agentEntry writes each eligible profile's bundled skills.
