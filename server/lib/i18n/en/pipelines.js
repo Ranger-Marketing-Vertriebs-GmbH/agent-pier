@@ -108,6 +108,8 @@ export const pipelines = Object.freeze({
     "At least one member of the parallel group needs a decision before the group concludes.",
   groupChangedFiles:
     "A member of the parallel group changed the working tree. Review the changes before the group concludes.",
+  groupReadOnlyUnproven:
+    "The parallel group's starting commit is missing, so AgentPier cannot show that the members left the working tree unchanged. Review the changes before the group concludes.",
   groupVerificationFailed:
     "Verification failed. A parallel group only reviews and does not repair.",
   usageLimitReached: "Native provider usage limit reached.",

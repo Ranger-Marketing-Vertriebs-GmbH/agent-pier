@@ -109,13 +109,13 @@ export function normalizeRun(run) {
     if (Object.hasOwn(legacyReasons, entry?.failReason))
       entry.failReason = legacyReasons[entry.failReason];
   // Earlier builds kept one active turn per run; a run now keeps one per stage, so a
-  // parallel group's members can run at the same time.
+  // parallel group's members can run at the same time. This build never writes
+  // `activeTurn`, so a run that has it was last saved by an earlier build: its turn is
+  // the only active one, and turns an earlier build kept unread are stale.
   if (Object.hasOwn(run, "activeTurn")) {
     const turn = run.activeTurn;
-    run.activeTurns = {
-      ...(turn && typeof turn.nodeId === "string" ? { [turn.nodeId]: turn } : {}),
-      ...run.activeTurns,
-    };
+    run.activeTurns =
+      turn && typeof turn.nodeId === "string" ? { [turn.nodeId]: turn } : {};
     delete run.activeTurn;
   }
   run.activeTurns ??= {};

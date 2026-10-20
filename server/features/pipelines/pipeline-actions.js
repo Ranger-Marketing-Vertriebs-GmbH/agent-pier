@@ -32,6 +32,13 @@ export function requireLiveRun(run) {
  * that gate's decision.
  */
 export function overridePath(node) {
+  // A parallel group's override accepts its blocked members without a verdict, or the
+  // files its members changed; a member's override accepts that member.
+  if (node?.group) return "members-pass";
+  if (node?.kind === "parallel" && node.failReason === "members-blocked")
+    return "members-pass";
+  if (node?.kind === "parallel" && node.failReason === "group-changed-files")
+    return "accepts-changes";
   if (node?.status === "failed") return "checks-follow";
   return node?.failReason === "verify-failed" ? "skips-checks" : "gate-decision";
 }

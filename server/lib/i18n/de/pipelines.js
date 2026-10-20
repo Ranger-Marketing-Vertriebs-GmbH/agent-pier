@@ -121,6 +121,8 @@ export const pipelines = Object.freeze({
     "Mindestens ein Mitglied der parallelen Gruppe braucht eine Entscheidung, bevor die Gruppe abschließt.",
   groupChangedFiles:
     "Ein Mitglied der parallelen Gruppe hat das Arbeitsverzeichnis geändert. Prüfe die Änderungen, bevor die Gruppe abschließt.",
+  groupReadOnlyUnproven:
+    "Der Ausgangscommit der parallelen Gruppe fehlt, daher lässt sich nicht belegen, dass die Mitglieder das Arbeitsverzeichnis unverändert gelassen haben. Prüfe die Änderungen, bevor die Gruppe abschließt.",
   groupVerificationFailed:
     "Die Prüfung ist fehlgeschlagen. Eine parallele Gruppe begutachtet nur und repariert nichts.",
   usageLimitReached: "Das Nutzungslimit des nativen Providers ist erreicht.",

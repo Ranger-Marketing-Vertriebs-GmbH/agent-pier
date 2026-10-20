@@ -902,6 +902,7 @@
   "pipelines.frozenAccountRequired": "de:6f54454ec282 en:cdd8ea807b40",
   "pipelines.frozenConnectionRequired": "de:2f06565f7ec2 en:d0fb74511e0b",
   "pipelines.groupChangedFiles": "de:ea9606d2b91f en:46b93b54aae7",
+  "pipelines.groupReadOnlyUnproven": "de:8385277861c1 en:23523981d2d5",
   "pipelines.groupVerificationFailed": "de:9728b001f51e en:a24de5853a4e",
   "pipelines.importedHistoryReadOnly": "de:12c475253095 en:46636351143e",
   "pipelines.inactivityTimeout": "de:63187a5916d1 en:65493de4b888",

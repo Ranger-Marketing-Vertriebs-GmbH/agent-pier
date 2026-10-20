@@ -1,6 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { activeNode, nodeAttempt, terminal } from "./graph-navigation.js";
+import { activeNode, memberTurn, nodeAttempt, terminal } from "./graph-navigation.js";
 import { conclude, launchStage } from "./execution-stage.js";
 import { groupMembers, progressGroup } from "./parallel-group.js";
 import { readVerdict } from "./stage-verdict.js";
@@ -10,17 +10,19 @@ import { filterAnswers } from "./loop-rounds.js";
 
 // Decisions on the members of the current parallel group. They are offered while the
 // group still collects verdicts: while other members run, and once the group parked
-// because a member is blocked or hit a usage limit.
+// because a member is blocked or hit a usage limit. When the joined verdict asks the
+// owner, the members that asked can be answered with feedback.
 const COLLECTING = ["members-blocked", "usage-limit-exceeded"];
 const TURN_FAILURES = ["session-error", "inactivity-timeout", "turn-timeout"];
 
-function collectingGroup(run) {
+function decidingGroup(run) {
   const group = activeNode(run);
-  if (group?.kind !== "parallel" || terminal(run) || run.imported?.historyOnly)
-    return null;
-  return group.status === "running" || COLLECTING.includes(group.failReason)
-    ? group
-    : null;
+  if (group?.kind !== "parallel" || terminal(run) || run.imported?.historyOnly) return {};
+  if (group.status === "running" || COLLECTING.includes(group.failReason))
+    return { group, collecting: true };
+  if (group.status === "awaiting-gate" && group.failReason === "verdict-fail")
+    return { group, collecting: false };
+  return {};
 }
 
 // A recorded non-zero exit or an AgentPier stop is final: checking again cannot succeed.
@@ -32,9 +34,11 @@ export function recheckable(attempt) {
 }
 
 function actionsOf(run, member) {
-  const attempt = nodeAttempt(run, member);
+  const attempt = memberTurn(run, member);
   if (member.status === "failed") {
     const actions = ["retry"];
+    // A member that never started this round has no turn to check or accept.
+    if (!attempt) return actions;
     if (TURN_FAILURES.includes(member.failReason) && attempt?.status !== "launching") {
       if (recheckable(attempt)) actions.push("reconcile");
       if (attempt) actions.push("override");
@@ -46,33 +50,44 @@ function actionsOf(run, member) {
   return [];
 }
 
-/** The actions each blocked member of the current group offers, by member id. */
+// A member whose verdict asks the owner can be answered in its own session.
+const askingActions = (run, member) =>
+  member.status === "reported" &&
+  !member.overridden &&
+  member.verdict?.requiresHuman &&
+  member.nativeId &&
+  memberTurn(run, member)
+    ? ["feedback"]
+    : [];
+
+/** The actions each member of the current group offers, by member id. */
 export function memberActions(run) {
-  const group = collectingGroup(run);
+  const { group, collecting } = decidingGroup(run);
   if (!group) return {};
   const actions = {};
   for (const member of groupMembers(run, group)) {
-    const list = actionsOf(run, member);
+    const list = collecting ? actionsOf(run, member) : askingActions(run, member);
     if (list.length) actions[member.id] = list;
   }
   return actions;
 }
 
-// Acting on a member reopens a group that parked for its members.
+// Acting on a member reopens a group that parked for its members; the members join
+// again, with a new checkpoint and verdict.
 function reopen(engine, run, group) {
   if (group.status === "running") return;
   group.status = "running";
   delete group.failReason;
   delete group.failDetail;
   delete group.usageLimit;
+  delete group.verdict;
   run.status = "running";
   run.usageResumeAt = null;
   const attempt = nodeAttempt(run, group);
-  if (attempt?.kind === "group") {
-    attempt.status = "running";
-    delete attempt.finishedAt;
-    delete attempt.failReason;
-  }
+  if (attempt?.kind !== "group") return;
+  attempt.status = "running";
+  for (const key of ["finishedAt", "failReason", "endSha", "verdict", "quiesced"])
+    delete attempt[key];
 }
 
 const identityOf = (run, member, attempt) => ({
@@ -84,9 +99,10 @@ const identityOf = (run, member, attempt) => ({
 });
 
 // An override accepts a member without its verdict; a failed turn must have stopped.
+// A member that never started this round has nothing to stop.
 async function assertStopped(engine, run, member) {
-  if (member.status !== "failed") return;
-  const attempt = nodeAttempt(run, member);
+  const attempt = memberTurn(run, member);
+  if (member.status !== "failed" || !attempt) return;
   const identity = identityOf(run, member, attempt);
   let outcome = await engine.driver.inspect(identity);
   for (let i = 0; attempt.stopped && outcome.status === "running" && i < 30; i++) {
@@ -121,11 +137,11 @@ function overrideMember(engine, member, attempt) {
 
 /** One gate action on a member of the current group (`input.nodeId`). */
 export async function memberAction(engine, run, { action, nodeId, feedback } = {}) {
-  const group = collectingGroup(run);
+  const { group } = decidingGroup(run);
   const member = group && run.nodes.find((n) => n.id === nodeId && n.group === group.id);
   if (!member || !(memberActions(run)[member.id] || []).includes(action))
     throw problem(serverMessages.pipelines.actionUnavailable, 409);
-  const attempt = nodeAttempt(run, member);
+  const attempt = memberTurn(run, member);
   if (action === "feedback") {
     if (
       typeof feedback !== "string" ||
@@ -191,8 +207,7 @@ export async function overrideGroup(engine, run, group) {
   if (group.failReason === "members-blocked") {
     const blocked = groupMembers(run, group).filter((m) => m.status !== "reported");
     for (const member of blocked) await assertStopped(engine, run, member);
-    for (const member of blocked)
-      overrideMember(engine, member, nodeAttempt(run, member));
+    for (const member of blocked) overrideMember(engine, member, memberTurn(run, member));
     reopen(engine, run, group);
     engine.store.save(run);
     await progressGroup(engine, run, group);

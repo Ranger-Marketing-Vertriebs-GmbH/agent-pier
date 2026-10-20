@@ -128,5 +128,11 @@ export const activeTurnList = (run) => Object.values(run.activeTurns || {});
 export function clearTurn(run, nodeId) {
   if (run.activeTurns) delete run.activeTurns[nodeId];
 }
+// A member's turn of the current group attempt; a turn of an earlier round never
+// counts for this round's decisions.
+export function memberTurn(run, member) {
+  const attempt = nodeAttempt(run, member);
+  return attempt && attempt.groupAttemptId === run.currentAttemptId ? attempt : undefined;
+}
 export const terminal = (run) =>
   ["completed", "failed", "cancelled"].includes(run.status);

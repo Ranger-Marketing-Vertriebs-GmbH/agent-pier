@@ -7,6 +7,7 @@ import { RunStore, runId } from "./run-store.js";
 import {
   compileSnapshot,
   activeNode,
+  memberTurn,
   nodeAttempt,
   terminal,
 } from "./graph-navigation.js";
@@ -226,14 +227,22 @@ export class PipelineEngine {
         node = activeNode(run);
       // A member of a parallel group is overridden on its own.
       const target =
-        input?.nodeId !== undefined
-          ? run.nodes.find((n) => n.id === input.nodeId && n.group === node?.id)
-          : node;
+        input?.nodeId === undefined || input.nodeId === node?.id
+          ? node
+          : run.nodes.find((n) => n.id === input.nodeId && n.group === node?.id);
       if (input?.action === "override" && target)
         overridden = {
           stageId: target.id,
           failReason: target.failReason,
           path: overridePath(target),
+          // A group override accepts every blocked member without a verdict.
+          ...(target.kind === "parallel" && target.failReason === "members-blocked"
+            ? {
+                members: target.members.filter(
+                  (id) => run.nodes.find((n) => n.id === id)?.status !== "reported",
+                ),
+              }
+            : {}),
         };
       const result = await gateAction(this, run, input);
       if (result?.riskDecision)
@@ -355,10 +364,13 @@ export class PipelineEngine {
   verdictStatus(id, nodeId) {
     const run = this.store.get(id);
     requireLiveRun(run);
-    // A member's newest turn, or the current stage's.
+    // A member's turn of the current round, or the current stage's.
     const member = nodeId && run.nodes.find((n) => n.id === nodeId && n.group);
     if (nodeId && !member) throw problem(serverMessages.pipelines.nodeNotFound, 404);
-    const found = readVerdict(run, nodeAttempt(run, member || null));
+    const attempt = member ? memberTurn(run, member) : nodeAttempt(run, null);
+    if (!attempt)
+      return { present: false, reason: serverMessages.pipelines.noFreshVerdict };
+    const found = readVerdict(run, attempt);
     return {
       ...found,
       verdict: undefined,

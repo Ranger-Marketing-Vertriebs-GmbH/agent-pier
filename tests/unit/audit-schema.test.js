@@ -57,6 +57,30 @@ test("pipeline override audits keep the stage, overridden reason and path only",
   );
 });
 
+test("a group override audits the members it accepted without a verdict", () => {
+  const event = auditEvent({
+    action: "pipeline.overridden",
+    resourceType: "pipeline",
+    resourceId: "run-1",
+    source: "user",
+    outcome: "success",
+    details: {
+      kind: "gate",
+      stageId: "review",
+      failReason: "members-blocked",
+      path: "members-pass",
+      members: ["security", "code"],
+    },
+  });
+  assert.deepEqual(event.details, {
+    kind: "gate",
+    stageId: "review",
+    failReason: "members-blocked",
+    path: "members-pass",
+    members: ["security", "code"],
+  });
+});
+
 test("a replaced run spec is audited with its stage, revision and hash only", () => {
   const sha256 = "a".repeat(64);
   const event = (details) =>

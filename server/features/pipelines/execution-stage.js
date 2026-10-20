@@ -39,6 +39,7 @@ import {
   activeNode,
   clearTurn,
   currentAttempt,
+  memberTurn,
   nodeAttempt,
   failDecision,
   outgoing,
@@ -233,9 +234,9 @@ export function park(engine, run, node, reason, detail, verdict) {
   node.failReason = reason;
   if (detail) node.failDetail = detail.slice(0, 500);
   if (verdict) node.verdict = verdict;
-  const attempt = nodeAttempt(run, node);
   // A member whose turn never started keeps its earlier rounds' attempts as they were.
-  if (attempt && (!node.group || attempt.groupAttemptId === run.currentAttemptId)) {
+  const attempt = node.group ? memberTurn(run, node) : nodeAttempt(run, node);
+  if (attempt) {
     attempt.finishedAt = engine.now();
     attempt.failReason = reason;
     if (verdict) attempt.verdict = verdict;

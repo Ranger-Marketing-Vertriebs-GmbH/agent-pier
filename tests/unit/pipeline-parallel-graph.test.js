@@ -258,3 +258,52 @@ test("the stage editor round-trips a parallel group and rejects loops into it", 
   );
   assert.equal(graphToStages(into), null);
 });
+
+test("a crowded round keeps a finding of every failing member", async () => {
+  const { repairContext, ROUND_PROMPT_LIMIT } =
+    await import("../../server/features/pipelines/loop-rounds.js");
+  const many = (prefix, n) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `R1-${prefix}${i}`,
+      severity: "high",
+      title: `${prefix} ${"t".repeat(190)}`,
+    }));
+  const stage = (nodeId, result, findings) => ({
+    nodeId,
+    result,
+    summary: "s",
+    findings,
+    reports: [],
+  });
+  const run = {
+    loopRounds: [
+      {
+        edge: "review->build",
+        round: 1,
+        seq: 1,
+        fromNodeId: "review",
+        toNodeId: "build",
+        at: "2026-10-20T00:00:00Z",
+        stages: [
+          stage("security", "fail", many("S", 60)),
+          stage("code", "fail", many("C", 60)),
+          stage("ux", "fail", many("U", 60)),
+          stage("tests", "pass", many("P", 60)),
+        ],
+      },
+    ],
+  };
+  const build = {
+    id: "build",
+    loop: { edge: "review->build", iteration: 1, maxIterations: 2 },
+  };
+  const parts = repairContext(run, build);
+  const current = JSON.parse(
+    parts[parts.findIndex((p) => /Address the current round/.test(p)) + 1],
+  );
+  assert.ok(Buffer.byteLength(JSON.stringify(current)) <= ROUND_PROMPT_LIMIT + 1024);
+  const kept = Object.fromEntries(
+    current.stages.map((s) => [s.nodeId, s.findings.length]),
+  );
+  for (const id of ["security", "code", "ux"]) assert.ok(kept[id] >= 1, id);
+});
