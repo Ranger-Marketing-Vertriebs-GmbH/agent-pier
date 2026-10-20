@@ -6,4 +6,5 @@ export const users = Object.freeze({
   changeInvalid: "This change to the user is invalid.",
   agentAccessInvalid: "This assignment to users is invalid.",
   agentRequired: "Only agents of users can be assigned to users.",
+  level: "Your level for this agent does not allow this.",
 });

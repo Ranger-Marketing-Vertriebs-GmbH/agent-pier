@@ -1492,6 +1492,7 @@
   "users.agentRequired": "de:86105f346d02 en:2d75b6cd9a6c",
   "users.changeInvalid": "de:3a77a9f68724 en:4982aa4af807",
   "users.displayNameInvalid": "de:c1e4ab84ed64 en:38bcc367456e",
+  "users.level": "de:e5d416f82f94 en:c3e875853500",
   "users.nameTaken": "de:e373eb1a6c0c en:da2c9d394ae3",
   "users.notFound": "de:696a7c61d5c4 en:85dcd7d5eb16",
   "users.passwordWrong": "de:24182847ccb0 en:aa43911cc13f"

@@ -28,6 +28,12 @@ export const userRoutes = [
     pattern: /^\/api\/me\/conversations\/[^/]+\/attachments\/[^/]+$/,
   },
   { method: "GET", pattern: /^\/api\/me\/attachments\/[^/]+$/ },
+  // Her agents' settings and memory within her level (me-agent-settings.js).
+  { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/settings$/ },
+  { method: "PATCH", pattern: /^\/api\/me\/agents\/[^/]+\/settings$/ },
+  { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/memory$/ },
+  { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/memory\/[^/]+$/ },
+  { method: "DELETE", pattern: /^\/api\/me\/agents\/[^/]+\/memory\/[^/]+$/ },
   {
     method: "GET",
     pattern: /^\/api\/me\/conversations\/[^/]+\/shared-files\/[^/]+$/,

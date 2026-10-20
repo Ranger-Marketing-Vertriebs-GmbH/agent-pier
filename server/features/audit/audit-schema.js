@@ -114,6 +114,11 @@ const changeFields = new Set([
   "mcpServers",
   "clis",
   "heartbeat",
+  // Users' changes to their agents (me-agent-settings.js) and the owner's assignments.
+  "avatar",
+  "instructions",
+  "capabilities",
+  "userAccess",
 ]);
 // MCP package references (package-spec.js validated them before the install): the
 // registry, an npm or PyPI name, an exact version and the canonical constraint lines.

@@ -40,6 +40,20 @@ export function validateSendInput(input) {
   )
     throw assistantProblem("invalid");
 }
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+/** An agent's picture: one emoji or other grapheme (at most 16 UTF-16 units), or none. */
+function validateAvatar(value) {
+  if (value === null) return null;
+  if (
+    typeof value !== "string" ||
+    !value.trim() ||
+    value.length > 16 ||
+    [...graphemes.segment(value)].length !== 1 ||
+    /[\p{Cc}\s]/u.test(value)
+  )
+    throw assistantProblem("invalid");
+  return value;
+}
 export function validateDefinition(input, partial = false) {
   if (
     !input ||
@@ -57,6 +71,7 @@ export function validateDefinition(input, partial = false) {
           "skills",
           "heartbeat",
           "confirmInstructions",
+          "avatar",
         ].includes(k),
     ) ||
     ("confirmInstructions" in input && (!partial || input.confirmInstructions !== true))
@@ -73,6 +88,7 @@ export function validateDefinition(input, partial = false) {
     result.browserVisible = input.browserVisible;
   }
   if ("skills" in input) result.skills = validateSkills(input.skills);
+  if ("avatar" in input) result.avatar = validateAvatar(input.avatar);
   if ("heartbeat" in input) result.heartbeat = validateHeartbeat(input.heartbeat);
   if ("capabilities" in input) {
     const c = input.capabilities;
