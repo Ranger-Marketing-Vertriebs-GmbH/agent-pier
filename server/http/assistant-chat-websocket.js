@@ -38,7 +38,9 @@ export function attachAssistantChatWebSocket(
       const token = sessionToken(req);
       const auth = login.require(token);
       if (!ID.test(match[1])) return refuse(socket, 404);
-      admit(login.principal(auth), { kind: "agent-chat", id: match[1] });
+      const principal = login.principal(auth);
+      const target = { kind: "agent-chat", id: match[1] };
+      admit(principal, target);
       const service = assistants();
       if (!service || service.closed || service.feeds.closed) return refuse(socket, 503);
       // Only a conversation of the owner's own agents (the history route's check).
@@ -49,6 +51,16 @@ export function attachAssistantChatWebSocket(
           token,
           auth,
           feeds: service.feeds,
+          events: service.events,
+          // Admission again: an unassigned user or a withdrawn opt-in closes it.
+          admitted: () => {
+            try {
+              admit(principal, target);
+              return true;
+            } catch {
+              return false;
+            }
+          },
           cursor: url.searchParams.get("cursor") || undefined,
         }),
       );
@@ -58,7 +70,7 @@ export function attachAssistantChatWebSocket(
   };
   server.on("upgrade", upgrade);
   wss.once("close", () => server.off("upgrade", upgrade));
-  wss.on("connection", (ws, { id, token, auth, feeds, cursor }) => {
+  wss.on("connection", (ws, { id, token, auth, feeds, events, admitted, cursor }) => {
     let closed = false,
       alive = true,
       sequence = 0;
@@ -68,6 +80,10 @@ export function attachAssistantChatWebSocket(
       ws.send(JSON.stringify(message));
     };
     const cleanupLogin = login.watch(auth, () => ws.close(1008));
+    // Every agent change (an assignment among them) checks the viewer's access again.
+    const unwatch = events.subscribe(() => {
+      if (!admitted()) ws.close(1008);
+    });
     const ping = setInterval(() => {
       if (!alive) return ws.terminate();
       alive = false;
@@ -82,6 +98,7 @@ export function attachAssistantChatWebSocket(
       closed = true;
       clearInterval(ping);
       cleanupLogin();
+      unwatch();
       unsubscribe?.();
     });
     const frame = (event) => {
@@ -91,6 +108,7 @@ export function attachAssistantChatWebSocket(
       } catch {
         return ws.close(1008);
       }
+      if (!admitted()) return ws.close(1008);
       if (event.type === "end") return ws.close(1001);
       if (event.type === "error") {
         const { message, status } = event.error || {};

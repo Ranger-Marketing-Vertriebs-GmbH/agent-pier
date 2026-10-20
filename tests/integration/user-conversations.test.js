@@ -71,3 +71,21 @@ test("the owner cannot open a user's own agent", async (t) => {
   });
   assert.equal(own.userId, user.id);
 });
+
+test("a user's queued message goes out as her turn", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const { anna, agent } = await sharedAgentOfTwo(f);
+  const assistants = f.application.assistants;
+  const conversation = await assistants.openConversation(agent.id, {
+    userId: anna.user.id,
+  });
+  assistants.queue(conversation.id, { text: "Later" });
+  for (let i = 0; i < 50 && !gateway.sent.length; i++)
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  const [request] = assistants.ledger.requests(conversation.id);
+  assert.deepEqual(assistants.teams.store.context(request.id), {
+    kind: "user",
+    userId: anna.user.id,
+    teamAllowed: false,
+  });
+});

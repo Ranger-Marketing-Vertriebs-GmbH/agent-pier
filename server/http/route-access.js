@@ -10,6 +10,28 @@ export const userRoutes = [
   { method: "GET", pattern: /^\/api\/me$/ },
   { method: "PUT", pattern: /^\/api\/me\/password$/ },
   { method: "GET", pattern: /^\/api\/me\/dictation$/ },
+  // Her agents and her own chats with them (me-agents.js, me-conversations.js).
+  { method: "GET", pattern: /^\/api\/me\/agents$/ },
+  { method: "POST", pattern: /^\/api\/me\/agents\/[^/]+\/conversation$/ },
+  { method: "GET", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
+  { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
+  { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/queued$/ },
+  { method: "DELETE", pattern: /^\/api\/me\/conversations\/[^/]+\/queued$/ },
+  { method: "POST", pattern: /^\/api\/me\/attempts\/[^/]+\/cancel$/ },
+  {
+    method: "GET",
+    pattern: /^\/api\/me\/conversations\/[^/]+\/attachment-policy$/,
+  },
+  { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/attachments$/ },
+  {
+    method: "DELETE",
+    pattern: /^\/api\/me\/conversations\/[^/]+\/attachments\/[^/]+$/,
+  },
+  { method: "GET", pattern: /^\/api\/me\/attachments\/[^/]+$/ },
+  {
+    method: "GET",
+    pattern: /^\/api\/me\/conversations\/[^/]+\/shared-files\/[^/]+$/,
+  },
 ];
 
 const userSpace = /^\/api\/me(?:\/|$)/;
