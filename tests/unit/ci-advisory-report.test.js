@@ -296,6 +296,7 @@ test("a fork pull request is found by its head branch and sha", async () => {
 test("the reporter workflow reads results only and never runs pull request code", () => {
   const watched = [
     "verify.yml",
+    "webkit.yml",
     "assistant-runtime.yml",
     "assistant-runtime-queue.yml",
   ].map((name) => workflowFile(name).name);

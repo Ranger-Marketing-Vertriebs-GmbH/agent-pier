@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 
 // Reports red advisory CI jobs on the pull request (AGENTPIER-105). Runs from
-// .github/workflows/advisory-report.yml after Verify, Assistant runtime or
+// .github/workflows/advisory-report.yml after Verify, WebKit, Assistant runtime or
 // Assistant runtime (queue) completes for a pull request or a merge group. It
 // reads job results through the API only and keeps one comment per pull request,
 // found by `marker`; each workflow and event owns one section of it.
