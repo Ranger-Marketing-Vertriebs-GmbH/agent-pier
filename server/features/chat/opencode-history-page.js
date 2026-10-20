@@ -107,7 +107,11 @@ export async function readOpenCodePage(history, session, id, state = null) {
       validateBoundary(db, id, cutoff);
     }
     const result = page(db, id, scope, cursor?.before || cutoff);
-    if (!state) Object.assign(result.observability, sessionUsage(db, id));
+    if (!state) {
+      Object.assign(result.observability, sessionUsage(db, id));
+      // OpenCode writes through its WAL first; the probe watches both files.
+      result.sources = [location.file, `${location.file}-wal`];
+    }
     if (location.immutable) {
       const after = await databaseFile(history, session);
       if (

@@ -24,8 +24,11 @@ export async function readClaudePage(history, session, id, state) {
     if (state) throw problem(serverMessages.chat.sessionHistoryMismatch, 409);
     throw error;
   }
-  const page = await readClaudeContent(history, session, id, state, file);
-  if (state || !page.observability || !history.claudeUsage) return page;
+  const read = await readClaudeContent(history, session, id, state, file);
+  if (state) return read;
+  // The live page names its transcript for the chat's source probe.
+  const page = { ...read, sources: [file] };
+  if (!page.observability || !history.claudeUsage) return page;
   return {
     ...page,
     observability: {

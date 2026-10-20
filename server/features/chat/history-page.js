@@ -68,6 +68,8 @@ export async function readHistoryPage(history, session, id, state = null) {
       ...(full.tailUnavailable ? { stale: true } : {}),
     },
     ...splitPage(content.messages, page.nextCursor ? { cursor: page.nextCursor } : null),
+    // The rollout the CLI appends to, for the chat's source probe.
+    ...(!state && typeof thread.path === "string" ? { sources: [thread.path] } : {}),
   };
 }
 function splitPage(messages, continuation) {
