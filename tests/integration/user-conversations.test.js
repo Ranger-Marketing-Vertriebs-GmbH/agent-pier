@@ -83,11 +83,10 @@ test("a user's queued message goes out as her turn", async (t) => {
   for (let i = 0; i < 50 && !gateway.sent.length; i++)
     await new Promise((resolve) => setTimeout(resolve, 10));
   const [request] = assistants.ledger.requests(conversation.id);
-  assert.deepEqual(assistants.teams.store.context(request.id), {
-    kind: "user",
-    userId: anna.user.id,
-    teamAllowed: false,
-  });
+  const { writtenAt, ...context } = assistants.teams.store.context(request.id);
+  assert.deepEqual(context, { kind: "user", userId: anna.user.id, teamAllowed: false });
+  // When she wrote it: the owner's opt-in counts from there.
+  assert.ok(Date.parse(writtenAt) <= Date.parse(request.createdAt));
 });
 
 test("the owner's chat on a shared agent takes no turns once it is a user's own", async (t) => {

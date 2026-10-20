@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { actionNotes } from "./assistant-action-notifications.js";
 import { requestsWithSources, turnKey, withMessageSources } from "./message-source.js";
+import { shownTurnText } from "./plain-turn-text.js";
 import {
   requestsWithAttachments,
   withAttachments,
@@ -44,13 +45,14 @@ export function publicMessages(messages = [], { compactions = false } = {}) {
       return [compactionNote(m)];
     }
     if (!["user", "assistant"].includes(m.role)) return [];
-    const text =
+    const raw =
       typeof m.content === "string"
         ? m.content
         : (m.content || [])
             .filter((c) => c.type === "text")
             .map((c) => c.text)
             .join("\n");
+    const text = m.role === "user" ? shownTurnText(raw) : raw;
     if (!text) return [];
     const id =
       m.__openclaw?.id ||

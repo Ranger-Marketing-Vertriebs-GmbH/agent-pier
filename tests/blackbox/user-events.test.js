@@ -124,3 +124,24 @@ test("an approval of a chat she left no longer counts for her", async (t) => {
     ],
   );
 });
+
+test("a stream opened while agents are off ends once they start, so she reconnects", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna } = await sharedAgentOfTwo(f);
+  const feature = (enabled) =>
+    f.request("/api/assistant-feature", { method: "PUT", body: { enabled } });
+  assert.equal((await feature(false)).status, 200);
+  const events = await stream(f, anna.cookie);
+  t.after(events.close);
+  await settle();
+  assert.equal(events.ended(), false);
+  assert.equal((await feature(true)).status, 200);
+  await Promise.race([events.done, settle().then(settle).then(settle)]);
+  assert.equal(events.ended(), true);
+  // The new stream follows the started agents.
+  const again = await stream(f, anna.cookie);
+  t.after(again.close);
+  await settle();
+  assert.deepEqual(again.frames(), [{ type: "connected" }]);
+  assert.equal(again.ended(), false);
+});

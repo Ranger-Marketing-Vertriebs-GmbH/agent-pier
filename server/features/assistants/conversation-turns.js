@@ -1,5 +1,6 @@
 import { assistantProblem, validateSendInput } from "./assistant-validation.js";
 import { memberLevel } from "../users/user-access.js";
+import { plainTurnText } from "./plain-turn-text.js";
 
 /**
  * One owner (or Telegram, or internal) turn of an AgentPier conversation, admitted by
@@ -69,7 +70,13 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   sending.add(attempt.id);
   const generation = service.runtime.generationId ?? null;
   try {
-    const turn = await service.attachments.delivery(request, conversation.assistantId);
+    // A user's chat (web, her Telegram bot, queued) never sends OpenClaw commands.
+    const turn = await service.attachments.delivery(
+      typeof conversation.userId === "string"
+        ? { ...request, text: plainTurnText(request.text) }
+        : request,
+      conversation.assistantId,
+    );
     const sent = await service.runtime.client.call("sessions.send", {
       key: conversation.runtimeSessionKey,
       ...turn,

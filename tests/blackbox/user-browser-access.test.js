@@ -208,6 +208,27 @@ test("under the opt-in the owner watches a user's own agent's browser, never dri
   assert.deepEqual(errors, ["VIEW_ONLY", "VIEW_ONLY", "VIEW_ONLY", "VIEW_ONLY"]);
 });
 
+test("under the opt-in the owner's view never moves a user's own agent's browser tab", async (t) => {
+  const { f } = await chatFixture(t);
+  const { agent, socket } = await ownersView(f);
+  const errors = [];
+  socket.on("message", (data, binary) => {
+    if (binary) return;
+    const message = JSON.parse(String(data));
+    if (message.type === "error") errors.push(message.code);
+  });
+  socket.send(JSON.stringify({ type: "select", targetId: "tab-b" }));
+  socket.send(JSON.stringify({ type: "follow" }));
+  for (let i = 0; i < 100 && errors.length < 2; i++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  socket.terminate();
+  assert.deepEqual(errors, ["VIEW_ONLY", "VIEW_ONLY"]);
+  assert.equal(
+    f.application.assistants.liveView.streams.get(agent.id)?.pinned ?? null,
+    null,
+  );
+});
+
 test("a hand-back note reaches a user's own agent without a recorded driver", async (t) => {
   const { f } = await chatFixture(t);
   const { anna, agent, socket } = await ownersView(f);
@@ -255,7 +276,8 @@ test("the owner's driving view closes once a shared agent becomes a user's own u
     },
   });
   assert.equal(switched.status, 200, await switched.clone().text());
-  assert.equal(await closed, 1008);
+  // Still admitted, now to watch: a close the page reconnects after.
+  assert.equal(await closed, 4000);
   // He reconnects view-only: watching, never driving.
   const again = await opens(f, stream(agent.id), f.cookie);
   const error = new Promise((resolve) =>

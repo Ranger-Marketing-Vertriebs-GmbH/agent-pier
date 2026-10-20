@@ -13,6 +13,9 @@ const inputBurst = 240,
   inputRate = 120;
 const inputTypes = new Set(["pointer", "wheel", "key", "text", "paste"]);
 const controls = new Set(["start", "take", "handBack"]);
+// The view is still admitted, but now only to watch (or now to drive): the page
+// reconnects at once and gets the new rights.
+const accessChanged = 4000;
 /** The viewer's view of the shared state: whether this login session holds control. */
 export function personalState(state, holder) {
   const { control, ...rest } = state;
@@ -67,12 +70,14 @@ export function attachBrowserWebSocket(
           preview: url.searchParams.get("preview") === "1",
           viewOnly: access.viewOnly === true,
           // Admission again: the browser changed hands, an opt-in ended or a shared
-          // agent became a user's own. A view admitted to drive that may now only watch
-          // is closed too; it reconnects view-only.
+          // agent became a user's own. "changed" when the view is still admitted but
+          // now only to watch (or now to drive): it closes and reconnects as such.
           admitted: () => {
             try {
               const now = admit(principal, target) || {};
-              return (now.viewOnly === true) === (access.viewOnly === true);
+              return (now.viewOnly === true) === (access.viewOnly === true)
+                ? true
+                : "changed";
             } catch {
               return false;
             }
@@ -124,7 +129,9 @@ export function attachBrowserWebSocket(
     }
     const cleanupLogin = login.watch(auth, () => ws.close(1008));
     const recheck = () => {
-      if (!admitted()) ws.close(1008);
+      const now = admitted();
+      if (now === "changed") ws.close(accessChanged);
+      else if (!now) ws.close(1008);
     };
     const unwatchDrivers = view.watchDrivers?.((agentId) => {
       if (agentId === id) recheck();
@@ -148,10 +155,15 @@ export function attachBrowserWebSocket(
         return ws.close(1008);
       }
       try {
-        // A view-only viewer (the owner on a user's own agent) never takes, types
-        // or starts anything; he follows and switches tabs of the view only.
-        if (viewOnly && !["select", "follow"].includes(command?.type)) {
-          if (!inputTypes.has(command?.type) && !controls.has(command?.type))
+        // A view-only viewer (the owner on a user's own agent) never takes, types,
+        // starts or switches anything: the tab pin is the agent's one stream, so
+        // his select or follow would move her view and her takeover input.
+        if (viewOnly) {
+          if (
+            !inputTypes.has(command?.type) &&
+            !controls.has(command?.type) &&
+            !["select", "follow"].includes(command?.type)
+          )
             return ws.close(1008);
           return send({ type: "error", code: "VIEW_ONLY" });
         }

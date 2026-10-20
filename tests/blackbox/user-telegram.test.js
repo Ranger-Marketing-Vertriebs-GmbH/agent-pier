@@ -143,3 +143,41 @@ test("the owner pairs and removes his own bot on a shared agent", async (t) => {
   });
   assert.equal(removed.status, 200, await removed.clone().text());
 });
+
+test("her Telegram message held back before the opt-in stays hers once it goes out", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const { user, agent, request } = await extended(f);
+  const channel = await pairedTelegram(f, request, agent.id);
+  const channels = f.application.assistantChannels;
+  // The Gateway is away: her message waits in her bot's inbox.
+  gateway.client.ready = false;
+  await channels.ingress.receive(channel.id, [telegramMessage(2, "Held-back")]);
+  await channels.ingress.dispatch(channel.id);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await f.request(`/api/users/${user.id}/owner-may-read`, {
+    method: "PUT",
+    body: { enabled: true },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  gateway.client.ready = true;
+  await channels.ingress.dispatch(channel.id);
+  const sent = gateway.sent.at(-1);
+  assert.match(sent.message, /Held-back/);
+  const conversationId = channels.store.get(channel.id).conversationId;
+  const key =
+    f.application.assistants.store.getConversation(conversationId).runtimeSessionKey;
+  gateway.history[key] = [
+    {
+      role: "user",
+      content: sent.message,
+      timestamp: Date.now(),
+      idempotencyKey: `${sent.idempotencyKey}:user`,
+      __openclaw: { id: "m1" },
+    },
+  ];
+  const history = await (
+    await f.request(`/api/assistant-conversations/${conversationId}/messages`)
+  ).json();
+  assert.doesNotMatch(JSON.stringify(history), /Held-back/);
+  assert.deepEqual(history.requests, []);
+});

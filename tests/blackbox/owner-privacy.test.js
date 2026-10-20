@@ -4,6 +4,7 @@ import { WebSocket } from "ws";
 import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
 import { signedInUser, upgradeStatus } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
+import { dispatchQueued } from "../../server/features/assistants/queued-dispatch.js";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
@@ -183,7 +184,14 @@ test("re-enabling starts a new since", async (t) => {
   const key = f.application.assistants.store.getConversation(id).runtimeSessionKey;
   const first = (await (await optIn(f, user.id, true)).json()).ownerMayRead.since;
   gateway.history[key] = [message("m1", "While on", Date.parse(first) + 1)];
+  // His chat stream is open through the first window and closes with it.
+  const open = await ownerStream(f, id);
+  for (let i = 0; i < 100 && !open.frames.length; i++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.match(JSON.stringify(open.frames), /While on/);
+  const closed = new Promise((resolve) => open.socket.on("close", resolve));
   await optIn(f, user.id, false);
+  assert.equal(await closed, 1008);
   await new Promise((resolve) => setTimeout(resolve, 5));
   const second = (await (await optIn(f, user.id, true)).json()).ownerMayRead.since;
   assert.ok(Date.parse(second) > Date.parse(first));
@@ -195,6 +203,18 @@ test("re-enabling starts a new since", async (t) => {
     history.messages.map((m) => m.text),
     ["Again"],
   );
+  // The feed snapshot and a newly opened stream start from the new since too.
+  const snapshot = await (
+    await f.request(`/api/assistant-conversations/${id}/messages?cursor=`)
+  ).json();
+  assert.doesNotMatch(JSON.stringify(snapshot), /While on/);
+  assert.match(JSON.stringify(snapshot), /Again/);
+  const { socket, frames } = await ownerStream(f, id);
+  for (let i = 0; i < 100 && !/Again/.test(JSON.stringify(frames)); i++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  socket.terminate();
+  assert.doesNotMatch(JSON.stringify(frames), /While on/);
+  assert.match(JSON.stringify(frames), /Again/);
 });
 
 test("switching the opt-in on again keeps its since", async (t) => {
@@ -278,4 +298,49 @@ test("opt-in is not retroactive for her queued message and files", async (t) => 
   assert.deepEqual(await before.json(), notFoundBody());
   const later = await stage();
   assert.equal((await f.request(`/api/assistant-attachments/${later}`)).status, 200);
+});
+
+test("her message queued before the opt-in stays hers once it is sent", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const { id, user, cookie } = await annaChat(f);
+  const assistants = f.application.assistants;
+  const key = assistants.store.getConversation(id).runtimeSessionKey;
+  const running = await as(f, cookie)(`/api/me/conversations/${id}/messages`, {
+    method: "POST",
+    body: { clientRequestId: "first", text: "Running" },
+  });
+  assert.equal(running.status, 202, await running.clone().text());
+  const queued = await as(f, cookie)(`/api/me/conversations/${id}/queued`, {
+    method: "POST",
+    body: { text: "Queued-before" },
+  });
+  assert.equal(queued.status, 200, await queued.clone().text());
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await optIn(f, user.id, true);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  // Her running turn ends; the queued message goes out after the opt-in.
+  for (const attempt of assistants.ledger.pending())
+    assistants.ledger.transition(attempt.id, "completed");
+  await dispatchQueued(assistants, id);
+  const sent = gateway.sent.at(-1);
+  assert.match(sent.message, /Queued-before/);
+  gateway.history[key] = [
+    {
+      ...message("m1", "Queued-before", Date.now()),
+      idempotencyKey: `${sent.idempotencyKey}:user`,
+    },
+    message("m2", "Later-text", Date.now() + 1),
+  ];
+  const history = await (
+    await f.request(`/api/assistant-conversations/${id}/messages`)
+  ).json();
+  assert.doesNotMatch(JSON.stringify(history), /Queued-before/);
+  assert.deepEqual(
+    history.messages.map((m) => m.text),
+    ["Later-text"],
+  );
+  const snapshot = await (
+    await f.request(`/api/assistant-conversations/${id}/messages?cursor=`)
+  ).json();
+  assert.doesNotMatch(JSON.stringify(snapshot), /Queued-before/);
 });

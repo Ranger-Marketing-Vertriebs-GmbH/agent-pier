@@ -9,17 +9,39 @@ const after = (sinceMs) => (value) => {
   return Number.isFinite(at) && at >= sinceMs;
 };
 
+/** The time a request counts from: when she wrote it, not when it went out. */
+export const requestWritten = (request) => request.writtenAt ?? request.createdAt;
+
+/** Whether a request lies before `since`: then its turn and reply stay hers. */
+export const beforeSince = (request, since) =>
+  !after(Date.parse(since))(requestWritten(request));
+
 /**
  * A history window or feed snapshot as the owner sees a user's chat under her opt-in:
  * only what happened from `since` on, never earlier messages, turns or files.
  */
 export function fromSince(history, since) {
   if (!since || !history) return history;
-  const keep = after(Date.parse(since));
+  const sinceMs = Date.parse(since);
+  const keep = after(sinceMs);
+  // A message she queued before the opt-in counts from when she wrote it, not from
+  // when it went out; its transcript entry and the reply its run wrote are hers too.
+  const requests = history.requests || [];
+  const earlier = requests.filter((r) => beforeSince(r, since));
+  const hidden = new Set(earlier.map((r) => r.id));
+  const runs = new Set(
+    earlier.flatMap((r) => [r.attempt?.id, r.attempt?.runtimeRunId]).filter(Boolean),
+  );
+  const messages = history.messages || [];
+  // An older page holds what the owner may read until it reaches back past `since`.
+  const dated = messages.map((m) => time(m.timestamp)).filter((at) => at > 0);
+  const reachesSince = !dated.length || Math.min(...dated) < sinceMs;
   return {
     ...history,
-    messages: (history.messages || []).filter((m) => keep(m.timestamp)),
-    requests: (history.requests || []).filter((r) => keep(r.createdAt)),
+    messages: messages.filter(
+      (m) => keep(m.timestamp) && !hidden.has(m.requestId) && !runs.has(m.runId),
+    ),
+    requests: requests.filter((r) => !hidden.has(r.id)),
     ...(Array.isArray(history.actions) && {
       actions: history.actions.filter((a) => keep(a.createdAt)),
     }),
@@ -27,8 +49,7 @@ export function fromSince(history, since) {
     ...(history.queued && {
       queued: keep(history.queued.createdAt) ? history.queued : null,
     }),
-    // Older pages hold only what came before the opt-in.
-    nextBefore: null,
+    nextBefore: reachesSince ? null : (history.nextBefore ?? null),
   };
 }
 

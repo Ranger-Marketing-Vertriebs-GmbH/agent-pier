@@ -5,7 +5,8 @@
 import { createHash } from "node:crypto";
 import { ChatSync } from "../chat/chat-sync.js";
 import { conversationHistory } from "./conversations.js";
-import { fromSince } from "../users/owner-privacy.js";
+import { beforeSince, fromSince } from "../users/owner-privacy.js";
+import { requestsWithSources } from "./message-source.js";
 import { isUserAgent } from "../users/user-access.js";
 
 export const CURSOR = /^[A-Za-z0-9-]{1,64}$/;
@@ -28,18 +29,29 @@ export class ConversationFeeds {
    * `read(id)` returns the latest history window, `scope(id)` the baseline scope
    * key ([conversationId, runtimeSessionKey, runtime generation]) and `runs(id)` the
    * replies streaming right now as [runId, text] pairs. `owner(id)` names the agent
-   * whose chat the conversation is (invalidateOwners).
+   * whose chat the conversation is (invalidateOwners), `request(id, runId)` the request
+   * a run answers (with `writtenAt`), or null.
    */
   constructor({
     read,
     scope,
     runs = () => [],
     owner = () => null,
+    request = () => null,
     sync = new ChatSync({}),
     debounceMs = 200,
     recoveryMs = 30000,
   }) {
-    Object.assign(this, { read, scope, runs, owner, sync, debounceMs, recoveryMs });
+    Object.assign(this, {
+      read,
+      scope,
+      runs,
+      owner,
+      request,
+      sync,
+      debounceMs,
+      recoveryMs,
+    });
     this.entries = new Map();
     this.epochs = 0;
     this.closed = false;
@@ -83,7 +95,7 @@ export class ConversationFeeds {
     entry.subscribers.add(subscriber);
     entry.waiting.add(subscriber);
     // The reply streaming now, whole: this subscriber has seen none of it.
-    for (const [runId, run] of entry.runs) this.streamTo(subscriber, runId, run);
+    for (const [runId, run] of entry.runs) this.streamTo(entry, subscriber, runId, run);
     // Another tab keeps this feed alive: its settled value answers at once, and
     // the read below still observes the current history for the newcomer.
     const cached = !entry.dirty && !entry.pending ? entry.value : null;
@@ -188,14 +200,28 @@ export class ConversationFeeds {
     } else run.text = text;
     entry.active = true;
     for (const subscriber of [...entry.subscribers])
-      this.streamTo(subscriber, runId, run);
+      this.streamTo(entry, subscriber, runId, run);
   }
-  streamTo(subscriber, runId, run) {
+  streamTo(entry, subscriber, runId, run) {
+    // Under her opt-in the owner never reads the reply to what she wrote before it.
+    if (subscriber.since && !this.runFrom(entry, runId, run, subscriber.since)) return;
     const sent = subscriber.runs.get(runId);
     const from = sent?.epoch === run.epoch ? sent.length : 0;
     if (sent?.epoch === run.epoch && run.text.length <= from) return;
     subscriber.runs.set(runId, { epoch: run.epoch, length: run.text.length });
     subscriber.send({ type: "stream", runId, from, text: run.text.slice(from) });
+  }
+  // Whether a run answers a request written at or after `since`; an unknown run
+  // shows in the history once it ends.
+  runFrom(entry, runId, run, since) {
+    if (!run.request) {
+      try {
+        run.request = this.request(entry.id, runId) || null;
+      } catch {
+        run.request = null;
+      }
+    }
+    return !!run.request && !beforeSince(run.request, since);
   }
   /** The run ended: its text is history now, which the feed reads again. */
   endRun(id, runId) {
@@ -256,6 +282,15 @@ export function conversationFeeds(service, options = {}) {
       return actions ? { ...history, actions } : history;
     },
     owner,
+    request: (id, runId) => {
+      const requestId = service.ledger.attemptRequests(id).get(runId);
+      if (!requestId) return null;
+      const context = service.teams?.store.context(requestId);
+      return requestsWithSources(
+        [service.ledger.getRequest(requestId)],
+        new Map([[requestId, context]]),
+      )[0];
+    },
     // A new runtime generation (a Gateway restart) never resumes an old baseline.
     scope: (id) => [
       id,

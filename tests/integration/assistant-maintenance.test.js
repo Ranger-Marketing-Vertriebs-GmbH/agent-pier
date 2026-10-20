@@ -153,3 +153,40 @@ test("maintenance rejects a Gateway already transitioning before capturing sched
   assert.equal(readJSON(f.paths.config).cron.enabled, true);
   assert.equal(fs.existsSync(path.join(f.paths.root, "runtime-maintenance.json")), false);
 });
+
+test("validation skips a deleted user's chats whose native sessions are gone", async () => {
+  const described = [];
+  const client = {
+    ready: true,
+    call: async (method, params) => {
+      if (method === "agents.list") return { agents: [] };
+      if (method === "sessions.describe") {
+        described.push(params.key);
+        if (params.key === "agent:a:gone") throw new Error("session not found");
+        return { session: {} };
+      }
+      throw new Error(`unexpected ${method}`);
+    },
+  };
+  const m = new AssistantMaintenance({
+    assistantRuntime: { client },
+    assistants: {
+      ledger: { pending: () => [] },
+      store: {
+        listAssistants: () => [],
+        listConversations: () => [
+          { id: "c1", runtimeSessionKey: "agent:a:kept" },
+          {
+            id: "c2",
+            runtimeSessionKey: "agent:a:gone",
+            userReleased: true,
+            nativeDeletePending: false,
+          },
+        ],
+      },
+    },
+    assistantChannels: { store: { list: () => [] } },
+  });
+  await m.validate();
+  assert.deepEqual(described, ["agent:a:kept"]);
+});
