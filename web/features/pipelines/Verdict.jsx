@@ -67,6 +67,7 @@ export function Findings({ findings, answer }) {
             {finding.file && <code>{finding.file}</code>}
             {finding.detail && <small>{finding.detail}</small>}
             {finding.criterion && <small>{copy.criterionRef(finding.criterion)}</small>}
+            {finding.profile && <small>{copy.findingMember(finding.profile)}</small>}
             {answer?.(finding) && (
               <small className="run-finding-answer">{answer(finding)}</small>
             )}

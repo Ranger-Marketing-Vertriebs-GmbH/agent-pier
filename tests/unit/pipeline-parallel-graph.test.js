@@ -219,3 +219,42 @@ test("one member requiring a person makes the group require one", () => {
     overridden: true,
   });
 });
+
+test("the stage editor round-trips a parallel group and rejects loops into it", async () => {
+  const { graphToStages, stagesToGraph, stageError } =
+    await import("../../web/features/pipelines/graph-editor.js");
+  const saved = graph(group(["security", "code"], { concurrency: 1 }), [
+    { from: "review", to: "build", condition: "fail", maxIterations: 2 },
+  ]);
+  const stages = graphToStages(saved);
+  assert.equal(stages[1].kind, "parallel");
+  assert.deepEqual(
+    stages[1].members.map((m) => [m.key, m.profileId]),
+    [
+      ["security", "p-security"],
+      ["code", "p-code"],
+    ],
+  );
+  assert.deepEqual(stagesToGraph(stages), saved);
+  const copy = { emptyStages: "empty", invalidGroup: "group", invalidLoop: "loop" };
+  assert.equal(stageError(stages, copy), "");
+  const lonely = structuredClone(stages);
+  lonely[1].members.pop();
+  assert.equal(stageError(lonely, copy), "group");
+  const unchosen = structuredClone(stages);
+  unchosen[1].members[0].profileId = "";
+  assert.equal(stageError(unchosen, copy), "group");
+  // A stage after the group cannot loop back into it, as the engine requires.
+  const after = [
+    ...structuredClone(stages),
+    { key: "fix", profileId: "p", loopBackTo: "review", maxIterations: 1 },
+  ];
+  assert.equal(stageError(after, copy), "loop");
+  const into = graph(group(["a", "b"]), []);
+  into.nodes.push({ id: "fix", kind: "profile", profileId: "p" });
+  into.edges.push(
+    { from: "review", to: "fix", condition: "default" },
+    { from: "fix", to: "review", condition: "fail", maxIterations: 1 },
+  );
+  assert.equal(graphToStages(into), null);
+});

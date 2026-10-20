@@ -6,7 +6,28 @@ import { effectiveNodeStatus, nodeStatusLabel } from "./run-codes.js";
 const cliNames = { codex: "Codex", claude: "Claude Code", opencode: "OpenCode" };
 export const cliName = (tool) => cliNames[tool] || tool || "";
 
-export const stageName = (node) => node.profileSnapshot?.name || node.kind || node.id;
+export const stageName = (node) =>
+  node.profileSnapshot?.name || node.label || node.kind || node.id;
+
+// The stages of the rail: a parallel group's members are shown inside their group.
+export const railNodes = (run) => (run.nodes || []).filter((node) => !node.group);
+export const groupMembers = (run, group) =>
+  (group.members || [])
+    .map((id) => (run.nodes || []).find((node) => node.id === id))
+    .filter(Boolean);
+
+// A member's chip: its verdict once it reported (or the owner's override), otherwise
+// the state of its turn.
+export function memberTone(run, member) {
+  if (member.status !== "reported") return stageTone(run, member);
+  if (member.overridden) return "ok";
+  return member.verdict?.result === "pass" ? "ok" : "error";
+}
+export function memberStatus(run, member) {
+  if (member.status !== "reported") return stageStatus(run, member);
+  if (member.overridden) return copy.gateDecisions.overridden;
+  return `${copy.verdict}: ${member.verdict?.result === "pass" ? copy.pass : copy.fail}`;
+}
 
 // Status colour class shared by the rail number, the detail dot and chips.
 export function stageTone(run, node) {
@@ -69,7 +90,7 @@ export function stageFlags(run, node) {
       edge.condition === "fail" &&
       edge.maxIterations !== undefined,
   );
-  const target = loop ? (run.nodes || []).findIndex((item) => item.id === loop.to) : -1;
+  const target = loop ? railNodes(run).findIndex((item) => item.id === loop.to) : -1;
   if (target >= 0) flags.push({ key: "loop", label: copy.loopTo(target + 1) });
   return flags.filter(Boolean);
 }

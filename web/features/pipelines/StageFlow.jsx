@@ -4,8 +4,21 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 
 // A stage names its profile; a saved id without a known profile stays readable.
 export function stageProfileName(stage, profiles) {
+  if (stage.kind === "parallel")
+    return stage.members
+      .map((member) => stageProfileName(member, profiles))
+      .filter(Boolean)
+      .join(" · ");
   return profiles.find((p) => p.id === stage.profileId)?.name || stage.profileId;
 }
+
+// The eligible profiles, plus a saved profile id that no longer is.
+export const profileOptions = (profiles, selected) => [
+  ...(selected && !profiles.some((p) => p.id === selected)
+    ? [{ value: selected, label: selected }]
+    : []),
+  ...profiles.map((profile) => ({ value: profile.id, label: profile.name })),
+];
 
 function stageFlags(stage, stages) {
   const loop = stages.findIndex((s) => s.key === stage.loopBackTo);
@@ -17,7 +30,33 @@ function stageFlags(stage, stages) {
   ].filter(Boolean);
 }
 
-export default function StageFlow({ stages, profiles, selected, onSelect, onAdd }) {
+// A parallel group's tile names the group and lists its members side by side.
+function GroupMembers({ stage, profiles }) {
+  return (
+    <span className="stage-tile-members">
+      {stage.members.map((member) => {
+        const name = stageProfileName(member, profiles);
+        return (
+          <span
+            key={member.key}
+            className={`stage-tile-member${name ? "" : " placeholder"}`}
+          >
+            {name || copy.chooseProfile}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+export default function StageFlow({
+  stages,
+  profiles,
+  selected,
+  onSelect,
+  onAdd,
+  onAddGroup,
+}) {
   const loops = stages
     .map((stage, index) =>
       stage.loopBackTo
@@ -51,9 +90,16 @@ export default function StageFlow({ stages, profiles, selected, onSelect, onAdd 
                 onClick={() => onSelect(index)}
               >
                 <span className="stage-tile-number">{copy.stageNumber(index + 1)}</span>
-                <strong className={name ? "" : "placeholder"}>
-                  {name || copy.chooseProfile}
-                </strong>
+                {stage.kind === "parallel" ? (
+                  <>
+                    <strong>{copy.parallelGroup}</strong>
+                    <GroupMembers stage={stage} profiles={profiles} />
+                  </>
+                ) : (
+                  <strong className={name ? "" : "placeholder"}>
+                    {name || copy.chooseProfile}
+                  </strong>
+                )}
                 <small>
                   {stageFlags(stage, stages).join(" · ") || copy.noStageFlags}
                 </small>
@@ -65,6 +111,12 @@ export default function StageFlow({ stages, profiles, selected, onSelect, onAdd 
           <button type="button" className="stage-add" onClick={onAdd}>
             <Icon name="plus" size={14} />
             {copy.addStage}
+          </button>
+        </li>
+        <li>
+          <button type="button" className="stage-add" onClick={onAddGroup}>
+            <Icon name="plus" size={14} />
+            {copy.addParallelGroup}
           </button>
         </li>
       </ol>

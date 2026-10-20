@@ -16,6 +16,7 @@ import RunUsage from "./RunUsage.jsx";
 import { CriteriaResults, Findings, VerdictSummary } from "./Verdict.jsx";
 import { RiskApprovals, RiskGateItems } from "./RiskGate.jsx";
 import { stageName, stageStatus, stageTone } from "./run-stages.js";
+import GroupMembers, { MemberActions } from "./GroupMembers.jsx";
 import {
   attemptKindLabel,
   failReasonLabel,
@@ -112,7 +113,17 @@ function StageAttempts({ run, node }) {
 // the whole run's reported usage, in this order.
 // `gate` carries the decision's shared feedback and action runner when this stage is the
 // current gate stage.
-export default function StageDetail({ run, node, index, navigate, refresh, gate }) {
+export default function StageDetail({
+  run,
+  node,
+  index,
+  navigate,
+  refresh,
+  gate,
+  onSelect,
+  shared,
+}) {
+  const group = node.kind === "parallel";
   const evidence = useEvidence(run.id, node);
   const verifying = isVerifying(run, node);
   const steps = verificationSteps(node);
@@ -122,9 +133,14 @@ export default function StageDetail({ run, node, index, navigate, refresh, gate 
     <article className="run-stage-detail" aria-labelledby={`run-stage-${node.id}`}>
       <header className="run-stage-detail-header">
         <div>
-          <span className="run-caps">{copy.stageNumber(index + 1)}</span>
+          <span className="run-caps">
+            {copy.stageNumber(index + 1)}
+            {node.group && ` · ${copy.groupMember}`}
+          </span>
           <div className="run-stage-title">
-            <h3 id={`run-stage-${node.id}`}>{stageName(node)}</h3>
+            <h3 id={`run-stage-${node.id}`}>
+              {group ? copy.parallelGroup : stageName(node)}
+            </h3>
             <span className="run-stage-state">
               <StatusDot tone={chipTone(stageTone(run, node))} className="run-dot" />
               <span className="pipeline-run-status">{stageStatus(run, node)}</span>
@@ -150,6 +166,20 @@ export default function StageDetail({ run, node, index, navigate, refresh, gate 
             {gateDecisionLabel(node.gateDecision)}
           </p>
         )
+      )}
+      {node.group && (
+        <MemberActions run={run} member={node} refresh={refresh} shared={shared} />
+      )}
+      {group && (
+        <Block title={copy.groupMembers}>
+          <GroupMembers
+            run={run}
+            group={node}
+            onSelect={onSelect}
+            refresh={refresh}
+            shared={shared}
+          />
+        </Block>
       )}
       {(node.verdict || node.failReason) && (
         <div className="run-stage-summary">

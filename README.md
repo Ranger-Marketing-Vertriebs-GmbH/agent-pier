@@ -23,8 +23,8 @@ and agents that work as a team.
   waits on you, with live counts, answered in place or in one list; Claude Code
   approvals offer Always allow per account and show plans before you approve them
   ([inbox](docs/inbox.md#claude-code-approvals-and-plans)).
-- **Pipelines with review:** reusable profiles, isolated Git worktrees, bounded
-  review loops, checks, a risk gate for sensitive paths and human approval
+- **Pipelines with review:** reusable profiles, isolated Git worktrees, parallel
+  reviewers whose verdicts are joined, bounded review loops, checks, a risk gate for sensitive paths and human approval
   ([pipelines](docs/pipelines.md)).
 - **Agents and teams:** persistent agents whose leads ask and delegate to their
   members on request, by suggestion or on their own and share their project folders,

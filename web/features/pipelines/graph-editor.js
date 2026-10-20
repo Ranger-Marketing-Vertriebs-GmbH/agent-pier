@@ -3,7 +3,18 @@ export function stagesToGraph(stages) {
     edges = [];
   stages.forEach((stage, index) => {
     const id = stage.key;
-    nodes.push({ id, kind: "profile", profileId: stage.profileId });
+    nodes.push(
+      stage.kind === "parallel"
+        ? {
+            id,
+            kind: "parallel",
+            members: stage.members.map((m) => ({ id: m.key, profileId: m.profileId })),
+            ...(stage.concurrency !== undefined
+              ? { concurrency: stage.concurrency }
+              : {}),
+          }
+        : { id, kind: "profile", profileId: stage.profileId },
+    );
     let tail = id;
     for (const kind of ["verify", "gate", "createPr"])
       if (stage[kind]) {
@@ -31,7 +42,9 @@ export function graphToStages(graph) {
     Object.keys(value).some((key) => !keys.includes(key));
   if (
     hasExtraKeys(graph, ["entry", "nodes", "edges"]) ||
-    graph.nodes.some((node) => hasExtraKeys(node, ["id", "kind", "profileId"])) ||
+    graph.nodes.some((node) =>
+      hasExtraKeys(node, ["id", "kind", "profileId", "members", "concurrency"]),
+    ) ||
     graph.edges.some((edge) =>
       hasExtraKeys(edge, ["from", "to", "condition", "maxIterations", "continueSession"]),
     )
@@ -43,11 +56,20 @@ export function graphToStages(graph) {
   while (id) {
     if (seen.has(id)) return null;
     const node = graph.nodes.find((n) => n.id === id);
-    if (!node || node.kind !== "profile") return null;
+    if (!node || !isStage(node)) return null;
     seen.add(id);
     const stage = {
       key: id,
-      profileId: node.profileId,
+      ...(node.kind === "parallel"
+        ? {
+            kind: "parallel",
+            members: (node.members || []).map((m) => ({
+              key: m.id,
+              profileId: m.profileId,
+            })),
+            concurrency: node.concurrency,
+          }
+        : { profileId: node.profileId }),
       gate: false,
       verify: false,
       createPr: false,
@@ -59,7 +81,9 @@ export function graphToStages(graph) {
     const loops = graph.edges.filter((e) => e.from === id && e.condition === "fail");
     if (loops.length > 1) return null;
     if (loops.length) {
-      if (!stages.some((s) => s.key === loops[0].to)) return null;
+      // A loop returns to an earlier profile stage, never into a parallel group.
+      if (!stages.some((s) => s.key === loops[0].to && s.kind !== "parallel"))
+        return null;
       stage.loopBackTo = loops[0].to;
       stage.maxIterations = loops[0].maxIterations;
       stage.continueSession = loops[0].continueSession === true;
@@ -74,7 +98,7 @@ export function graphToStages(graph) {
         id = null;
         break;
       }
-      if (target.kind === "profile") {
+      if (isStage(target)) {
         id = target.id;
         break;
       }
@@ -110,12 +134,27 @@ export function graphToStages(graph) {
     return null;
   return stages;
 }
+export const MAX_GROUP_MEMBERS = 8;
+const isStage = (node) => node.kind === "profile" || node.kind === "parallel";
 export function stageError(stages, copy) {
-  if (!stages.length || stages.some((s) => !s.profileId)) return copy.emptyStages;
+  if (!stages.length || stages.some((s) => s.kind !== "parallel" && !s.profileId))
+    return copy.emptyStages;
+  if (
+    stages.some(
+      (s) =>
+        s.kind === "parallel" &&
+        (s.members.length < 2 ||
+          s.members.length > MAX_GROUP_MEMBERS ||
+          s.members.some((m) => !m.profileId)),
+    )
+  )
+    return copy.invalidGroup;
   for (const [index, stage] of stages.entries())
     if (
       stage.loopBackTo &&
-      (!stages.slice(0, index).some((s) => s.key === stage.loopBackTo) ||
+      (!stages
+        .slice(0, index)
+        .some((s) => s.key === stage.loopBackTo && s.kind !== "parallel") ||
         !Number.isInteger(stage.maxIterations) ||
         stage.maxIterations < 1 ||
         stage.maxIterations > 5)

@@ -22,7 +22,8 @@ export function runProject(run) {
 }
 
 export function runProgress(run) {
-  const nodes = run.nodes || [];
+  // A parallel group counts as one stage.
+  const nodes = (run.nodes || []).filter((node) => !node.group);
   const done = nodes.filter((node) => node.status === "passed").length;
   return {
     done,
