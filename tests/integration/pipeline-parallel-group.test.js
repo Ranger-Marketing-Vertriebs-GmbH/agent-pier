@@ -315,3 +315,29 @@ test("the risk check runs once when the group concludes, never per member", asyn
   assert.equal(checks, 2);
   assert.equal(f.engine.get(run.id).status, "completed");
 });
+
+test("a member that cannot start leaves its earlier round's turn untouched", async (t) => {
+  let free = true;
+  const { f, finish, start } = groupFixture(t, {
+    options: { portRange: { start: 20100, end: 20199 }, portProbe: async () => free },
+  });
+  const run = await start();
+  const current = () => f.engine.get(run.id);
+  await finish("build", pass("Built"));
+  await finish("code", pass());
+  await finish("security", fail("Hole"));
+  const before = current().executionLog.find((a) => a.nodeId === "security");
+  free = false;
+  await finish("build", {
+    ...pass("Fixed"),
+    responses: [{ finding: "R1-1", status: "fixed" }],
+  });
+  // The repaired build passes; no member of the next round gets a port block.
+  const parked = current();
+  assert.equal(node(parked, "security").failReason, "session-error");
+  assert.equal(node(parked, "review").failReason, "members-blocked");
+  assert.deepEqual(
+    parked.executionLog.find((a) => a.id === before.id),
+    before,
+  );
+});
