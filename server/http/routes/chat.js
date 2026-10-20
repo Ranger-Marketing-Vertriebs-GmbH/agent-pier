@@ -45,6 +45,12 @@ export function chatRoutes(services) {
   router.get("/sessions/:id/chat/messages/:messageId/text", async (req, res) =>
     res.json({ text: await chatImages.fullText(req.params.id, req.params.messageId) }),
   );
+  // Discovered slash commands (names, descriptions, argument hints only).
+  router.get("/sessions/:id/chat/slash-commands", async (req, res) =>
+    res
+      .set("Cache-Control", "no-store")
+      .json(await services.slashCommands.list(req.params.id)),
+  );
   router.get("/sessions/:id/chat/choices", async (req, res) =>
     res.json({ choices: await chat.choices(req.params.id) }),
   );

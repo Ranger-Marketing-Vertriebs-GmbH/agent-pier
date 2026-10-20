@@ -18,8 +18,38 @@ export function builtinSlashCommands(tool) {
     .sort()
     .map((name) => ({ name }));
 }
+/**
+ * Built-ins plus the commands the server discovered for the session (custom commands,
+ * skills, plugin commands, prompts). A discovered command with a built-in's name
+ * replaces it, because it carries a description.
+ */
+export function mergeSlashCommands(builtins, discovered) {
+  const merged = new Map(
+    builtins.map((command) => [command.name.toLowerCase(), command]),
+  );
+  for (const command of Array.isArray(discovered) ? discovered : [])
+    if (typeof command?.name === "string" && command.name)
+      merged.set(command.name.toLowerCase(), command);
+  return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+/**
+ * Commands for a draft that is just a slash and a command name. A name that starts
+ * with the typed text comes first, then one whose last part does (`/brain` finds
+ * `superpowers:brainstorming`), then one that contains it.
+ */
 export function slashMatches(commands, text) {
-  if (!/^\/[a-z0-9_:-]*$/i.test(text)) return [];
+  if (!/^\/[a-z0-9_.:/-]*$/i.test(text)) return [];
   const query = text.slice(1).toLowerCase();
-  return commands.filter(({ name }) => name.toLowerCase().startsWith(query));
+  const rank = ({ name }) => {
+    const value = name.toLowerCase();
+    if (value.startsWith(query)) return 0;
+    if (!query) return -1;
+    if (value.split(/[:/]/).at(-1).startsWith(query)) return 1;
+    return value.includes(query) ? 2 : -1;
+  };
+  return commands
+    .map((command, index) => ({ command, index, rank: rank(command) }))
+    .filter((item) => item.rank >= 0)
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((item) => item.command);
 }

@@ -10,6 +10,7 @@ import { enterKeyHint, sendHint, shouldSubmitOnEnter } from "./enter-submit.js";
 export default function ChatComposer({
   submit,
   session,
+  request,
   text,
   setText,
   setSent,
@@ -27,6 +28,7 @@ export default function ChatComposer({
   const locked = busy || deliveryLocked;
   const completion = useSlashCompletion({
     session,
+    request,
     text,
     setText,
     setSent,

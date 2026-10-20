@@ -344,6 +344,7 @@ export default function ChatView({
                 requestPending,
                 deliveryLocked: delivery.locked,
                 session,
+                request,
                 text,
                 setText,
                 setSent,

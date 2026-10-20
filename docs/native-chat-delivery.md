@@ -4,19 +4,38 @@ AgentPier distinguishes a durable terminal handoff from an observed native queue
 
 ## Slash-command completion
 
-Typing `/` at the start of the chat composer opens provider-specific built-in
-command suggestions for Codex, Claude Code and OpenCode. Continue typing to filter,
-use Up/Down to select, and Tab/Enter or a click/tap to insert the command. Completion
-adds a trailing space for arguments and never sends input by itself. Escape closes
-the suggestions without changing the draft. Paths, multiline text and command
-arguments do not activate completion. Unlisted commands can still be typed and sent.
+Typing `/` at the start of the chat composer opens the session CLI's commands. Continue
+typing to filter: a name that starts with the text comes first, then a plugin command
+whose last part does (`/brain` finds `/superpowers:brainstorming`), then any name that
+contains it. Each entry shows the command, its argument hint (for example `[env]`), its
+source (the plugin's name, **Skill**, **Prompt** or **Project**) and its description.
+Use Up/Down to select, and Tab/Enter or a click/tap to insert the command. Completion
+adds a trailing space for arguments and never sends input by itself. Escape closes the
+suggestions without changing the draft. Paths, multiline text and command arguments do
+not activate completion. Unlisted commands can still be typed and sent.
 
-The catalog follows the official [Codex command reference](https://developers.openai.com/codex/cli/slash-commands),
+The list combines a maintained catalog of built-ins, following the official
+[Codex command reference](https://developers.openai.com/codex/cli/slash-commands),
 [Claude Code commands](https://code.claude.com/docs/en/commands) and
-[OpenCode TUI commands](https://opencode.ai/docs/tui/). It is a maintained list of
-built-ins, not live discovery of installed plugins, custom commands or skills;
-actual availability depends on the native CLI version and configuration.
-Native menus opened by commands are still handled in the terminal.
+[OpenCode TUI commands](https://opencode.ai/docs/tui/), with what the server discovers
+for the session's account and project folder:
+
+| CLI         | Discovered                                                                                                                                                                                                                                                                  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | Custom commands (`commands/`) and skills (`skills/`) of the profile and of the project's `.claude/` folder, and the commands and skills of plugins enabled in the profile's or project's settings, as `/<plugin>:<name>`. Skills with `user-invocable: false` are left out. |
+| Codex       | Custom prompts in `prompts/` of the profile, as `/prompts:<name>`. Codex skills are mentioned with `$`, not slash commands.                                                                                                                                                 |
+| OpenCode    | Markdown commands in `command/` or `commands/` of the profile's config folder and of the project's `.opencode/` folder, and the `command` entries of `opencode.json(c)`.                                                                                                    |
+
+Only the name, the description and the argument hint from a document's frontmatter
+leave the server; a command's body, file paths and other settings never do. Symbolic
+links inside the profile are followed (shared profiles link to the CLI's home folder),
+links inside a project are not. MCP prompts are not listed, because they need a live
+connection to each MCP server. The server keeps a session's list until a file or
+folder it read changes, and the chat asks again at most every 30 seconds while you
+type a command. If discovery fails, the chat offers the built-ins and says **Built-in
+commands only: custom commands could not be read.** Availability still depends on the
+native CLI version and configuration; native menus opened by commands are handled in
+the terminal.
 
 ## Provider failures in history
 

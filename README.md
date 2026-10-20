@@ -17,8 +17,10 @@ and agents that work as a team.
 
 - **Native CLI sessions:** real tmux-backed terminals with each CLI's own login,
   models and prompts, plus a chat view that shows replies while they are written,
-  recovers on the phone and takes dictation
-  ([live updates](docs/native-chat-delivery.md#live-chat-updates),
+  completes the CLI's own slash commands, skills and plugin commands, recovers on the
+  phone and takes dictation
+  ([slash commands](docs/native-chat-delivery.md#slash-command-completion),
+  [live updates](docs/native-chat-delivery.md#live-chat-updates),
   [reload and resume](docs/session-reload.md), [mobile delivery](docs/mobile-delivery.md),
   [dictation](docs/assistant-gateway.md#live-dictation-in-the-chats)).
 - **Inbox:** every CLI question and approval, pipeline gate and agent request that
