@@ -27,7 +27,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Claude-Code-Freigaben bieten „Dauerhaft erlauben“ pro Account und zeigen Pläne vor
   der Freigabe ([Eingang](docs/inbox.md#claude-code-approvals-and-plans)).
 - **Pipelines mit Review:** wiederverwendbare Profile, isolierte Git-Worktrees,
-  parallele Reviewer mit zusammengeführtem Ergebnis, begrenzte Review-Schleifen, Prüfungen, ein Risiko-Gate für heikle Pfade und
+  parallele Reviewer mit zusammengeführtem Ergebnis, begrenzte Review-Schleifen, Prüfungen, ein Risiko-Gate für heikle Pfade, ein Token-Budget je Lauf und
   menschliche Freigabe, dazu eine eingebaute Software-Fabrik von der Spezifikation bis zum Pull Request
   ([Pipelines](docs/pipelines.md#software-factory)).
 - **Agenten und Teams:** dauerhafte Agenten, deren Leads ihre Mitglieder fragen und

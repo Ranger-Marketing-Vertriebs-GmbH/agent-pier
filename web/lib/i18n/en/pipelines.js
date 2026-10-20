@@ -62,6 +62,9 @@ export const pipelineCopy = {
   runWorktree: "Run worktree",
   runSource: "Created from",
   descriptionLabel: "Description",
+  tokenBudget: "Token budget (optional)",
+  tokenBudgetHelp:
+    "Runs of this pipeline start no new turn once the tokens their turns reported exceed this number. Leave empty for no budget.",
   enabled: "Enabled",
   phase: "Phase",
   account: "Account",
@@ -216,6 +219,10 @@ export const pipelineCopy = {
   noSteps: "No verification configured.",
   task: "Task",
   baseBranch: "Base branch (optional)",
+  runTokenBudgetHelp: (budget) =>
+    budget
+      ? `Leave empty to use the pipeline's budget of ${budget} tokens.`
+      : "Leave empty to run without a token budget.",
   status: "Status",
   allStatuses: "All statuses",
   statuses: {
@@ -251,6 +258,7 @@ export const pipelineCopy = {
     "risk-gate": "Risky changes need your approval",
     "members-blocked": "A member of the group needs a decision",
     "group-changed-files": "A member of the group changed files",
+    "budget-exceeded": "Token budget exceeded",
     unknown: "The stage stopped",
   },
   attemptKinds: {
@@ -285,6 +293,11 @@ export const pipelineCopy = {
   output: "Output",
   total: "Total",
   cost: "Cost",
+  budget: "Budget",
+  budgetUsage: (used, budget) => `${used} of ${budget}`,
+  budgetGateHelp: (used, budget) =>
+    `The run's turns reported ${used} tokens, above its budget of ${budget}. Running turns were not stopped; the next turn starts once you raise the budget.`,
+  newTokenBudget: "New token budget",
   attempts: "Execution history",
   verdict: "Verdict",
   pass: "Passed",
@@ -351,6 +364,7 @@ export const pipelineCopy = {
     delete: "Delete run",
     "approve-risk": "Approve changes",
     "decline-risk": "Don't publish",
+    "raise-budget": "Raise budget and continue",
   },
   deleteRun:
     "The run and its dedicated working directory will be removed. This cannot be undone.",

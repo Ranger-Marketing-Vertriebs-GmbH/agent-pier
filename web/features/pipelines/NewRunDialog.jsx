@@ -6,6 +6,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Modal from "../../components/Modal.jsx";
 import Segment from "../../components/Segment.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
+import { formatNumber } from "../../lib/i18n/index.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useResource from "../../lib/useResource.js";
 import ProjectFields, { segmentLimit } from "./ProjectFields.jsx";
@@ -66,8 +67,13 @@ export default function NewRunDialog({
     [projectId, setProjectId] = useState(fixedProject?.id || ""),
     [cwd, setCwd] = useState(fixedProject?.cwd || home || ""),
     [task, setTask] = useState(""),
-    [baseBranch, setBaseBranch] = useState("");
+    [baseBranch, setBaseBranch] = useState(""),
+    [tokenBudget, setTokenBudget] = useState("");
   const action = useAsyncAction();
+  // An empty field keeps the chosen pipeline's budget, if it has one.
+  const pipelineBudget = definitions.data?.pipelines?.find(
+    (p) => p.id === pipelineId,
+  )?.tokenBudget;
   const dismiss = () => {
     if (!action.busy) close();
   };
@@ -88,6 +94,7 @@ export default function NewRunDialog({
               cwd,
               task,
               ...(baseBranch ? { baseBranch } : {}),
+              ...(tokenBudget ? { tokenBudget: Number(tokenBudget) } : {}),
             });
             onCreated(result.run);
           });
@@ -148,6 +155,23 @@ export default function NewRunDialog({
               onChange={(event) => setBaseBranch(event.target.value)}
             />
           </label>
+          <div>
+            <label>
+              {copy.tokenBudget}
+              <input
+                type="number"
+                min={1}
+                max={1_000_000_000}
+                step={1}
+                value={tokenBudget}
+                aria-describedby="run-dialog-budget-help"
+                onChange={(event) => setTokenBudget(event.target.value)}
+              />
+            </label>
+            <small id="run-dialog-budget-help" className="run-dialog-help">
+              {copy.runTokenBudgetHelp(pipelineBudget && formatNumber(pipelineBudget))}
+            </small>
+          </div>
           <ErrorMessage error={definitions.error || projects.error || action.error} />
         </fieldset>
         <div className="dialog-actions">

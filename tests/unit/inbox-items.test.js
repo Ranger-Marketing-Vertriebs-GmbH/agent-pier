@@ -4,6 +4,7 @@ import {
   actionItem,
   countItems,
   expiringSoonMs,
+  gateItem,
   itemsSignature,
   requestItem,
   sortItems,
@@ -149,4 +150,27 @@ test("agent items link to the chat the decision belongs in", () => {
     [team.type, team.tab, team.source.name, team.members, team.link],
     ["team", "agents", "Helper", 3, "/agents/a1/chats/c1"],
   );
+});
+
+test("a stage held at the token budget dates its gate from the hold", () => {
+  const run = {
+    id: "run-one",
+    status: "awaiting-human",
+    currentNodeId: "review",
+    currentAttemptId: null,
+    createdAt: at(-3600000),
+    executionLog: [],
+    nodes: [
+      {
+        id: "review",
+        status: "awaiting-gate",
+        failReason: "budget-exceeded",
+        budgetHold: { at: at(-60000) },
+        profileSnapshot: { name: "Review" },
+      },
+    ],
+  };
+  const item = gateItem(run);
+  assert.equal(item.createdAt, at(-60000));
+  assert.equal(item.kind, "decision");
 });

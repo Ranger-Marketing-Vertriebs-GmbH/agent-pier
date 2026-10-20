@@ -229,3 +229,26 @@ test("a parallel group's member profiles are validated, frozen and kept referenc
   assert.equal(snapshot.profiles[security.id].accountSnapshot.tool, "claude");
   assert.throws(() => store.removeProfile(code.id), { message: copy.stillReferenced });
 });
+
+test("a pipeline keeps an optional token budget within its bound", async (t) => {
+  const { store } = await fixture(t);
+  const first = store.saveProfile(profile());
+  const graph = {
+    entry: "work",
+    nodes: [{ id: "work", kind: "profile", profileId: first.id }],
+    edges: [],
+  };
+  const pipeline = store.savePipeline({ name: "Budget", graph, tokenBudget: 250000 });
+  assert.equal(pipeline.tokenBudget, 250000);
+  assert.equal(store.snapshot(pipeline.id).pipeline.tokenBudget, 250000);
+  for (const tokenBudget of [0, 2.5, "1000", 1_000_000_001])
+    assert.throws(() => store.savePipeline({ name: "Bad", graph, tokenBudget }), {
+      status: 400,
+    });
+  // Saving without one removes it; null means none.
+  const cleared = store.savePipeline(
+    { name: "Budget", graph, tokenBudget: null, expectedRevision: pipeline.revision },
+    pipeline.id,
+  );
+  assert.equal(Object.hasOwn(cleared, "tokenBudget"), false);
+});

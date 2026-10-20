@@ -3,6 +3,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { currentAttempt, nodeAttempt, outgoing } from "./graph-navigation.js";
 import { conclude, launchStage, park } from "./execution-stage.js";
 import { checkpointStage } from "./stage-checkpoint.js";
+import { budgetExceeded, holdTurn } from "./run-budget.js";
 
 // A parallel group runs 2–N read-only reviewer members on the run's shared worktree at
 // the same time, at most `concurrency` of them at once. The group is the run's current
@@ -144,10 +145,17 @@ export async function progressGroup(engine, run, group) {
   for (const member of members)
     if (live() && member.status === "running" && member.queuedTurn && !turn(run, member))
       await launchStage(engine, run, member, member.queuedTurn);
+  // Above the run's token budget no member starts; running members finish, then the
+  // group waits for the owner with its pending members.
   for (;;) {
     if (!live()) return;
     const busy = members.filter((member) => member.status === "running").length;
     const next = members.find((member) => member.status === "pending");
+    if (budgetExceeded(run)) {
+      if (next && !busy) holdTurn(engine, run, group, { progress: true });
+      if (next) return;
+      break;
+    }
     if (!next || busy >= group.concurrency) break;
     await launchStage(engine, run, next, next.queuedTurn || {});
   }

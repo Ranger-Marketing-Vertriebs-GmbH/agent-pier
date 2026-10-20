@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_TOKEN_BUDGET } from "../pipelines/run-budget.js";
 const id = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/);
 const page = z.number().int().min(1).max(100000).optional();
 const query = z.string().max(200).optional();
@@ -56,12 +57,13 @@ export const toolSchemas = {
   }),
   run_start: tool(
     "runs:start",
-    "Start a durable run in an owned worktree of an authorized registered project. Reuse requestId only to retry the identical start. Returns a run ID and UI link; execution continues after disconnect. A task executes code on the AgentPier host using the selected profiles.",
+    "Start a durable run in an owned worktree of an authorized registered project. Reuse requestId only to retry the identical start. Returns a run ID and UI link; execution continues after disconnect. A task executes code on the AgentPier host using the selected profiles. tokenBudget replaces the pipeline's token budget for this run; a run above its budget starts no new turn and waits for the owner, and only the owner can raise it.",
     {
       pipelineId: id,
       projectId: id,
       task: z.string().min(1).max(65536),
       baseBranch: z.string().min(1).max(300).optional(),
+      tokenBudget: z.number().int().min(1).max(MAX_TOKEN_BUDGET).optional(),
       requestId: id,
     },
     false,

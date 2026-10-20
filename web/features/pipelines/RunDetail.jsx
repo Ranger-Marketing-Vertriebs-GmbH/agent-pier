@@ -66,7 +66,7 @@ export default function RunDetail({ id, navigate }) {
             }
           />
           <RunSpec run={run} refresh={resource.refresh} />
-          {nodes.length === 0 && <RunUsage usage={run.usage} />}
+          {nodes.length === 0 && <RunUsage usage={run.usage} budget={run.tokenBudget} />}
           {nodes.length > 0 && (
             <div className="run-detail-layout">
               <div className="run-detail-side">

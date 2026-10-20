@@ -66,6 +66,9 @@ export const pipelineCopy = {
   runWorktree: "Lauf-Worktree",
   runSource: "Angelegt aus",
   descriptionLabel: "Beschreibung",
+  tokenBudget: "Token-Budget (optional)",
+  tokenBudgetHelp:
+    "Läufe dieser Pipeline starten keinen neuen Turn mehr, sobald die von ihren Turns gemeldeten Tokens diese Zahl überschreiten. Leer lassen für kein Budget.",
   enabled: "Aktiviert",
   phase: "Phase",
   account: "Account",
@@ -221,6 +224,10 @@ export const pipelineCopy = {
   noSteps: "Keine Prüfung konfiguriert.",
   task: "Aufgabe",
   baseBranch: "Ausgangsbranch (optional)",
+  runTokenBudgetHelp: (budget) =>
+    budget
+      ? `Leer lassen, um das Budget der Pipeline von ${budget} Tokens zu verwenden.`
+      : "Leer lassen, um ohne Token-Budget zu laufen.",
   status: "Status",
   allStatuses: "Alle Status",
   statuses: {
@@ -256,6 +263,7 @@ export const pipelineCopy = {
     "risk-gate": "Riskante Änderungen brauchen deine Freigabe",
     "members-blocked": "Ein Mitglied der Gruppe braucht eine Entscheidung",
     "group-changed-files": "Ein Mitglied der Gruppe hat Dateien geändert",
+    "budget-exceeded": "Token-Budget überschritten",
     unknown: "Die Stufe wurde angehalten",
   },
   attemptKinds: {
@@ -290,6 +298,11 @@ export const pipelineCopy = {
   output: "Ausgabe",
   total: "Gesamt",
   cost: "Kosten",
+  budget: "Budget",
+  budgetUsage: (used, budget) => `${used} von ${budget}`,
+  budgetGateHelp: (used, budget) =>
+    `Die Turns des Laufs haben ${used} Tokens gemeldet, mehr als sein Budget von ${budget}. Laufende Turns wurden nicht abgebrochen; der nächste Turn startet, sobald du das Budget erhöhst.`,
+  newTokenBudget: "Neues Token-Budget",
   attempts: "Ausführungsverlauf",
   verdict: "Ergebnis",
   pass: "Bestanden",
@@ -360,6 +373,7 @@ export const pipelineCopy = {
     delete: "Lauf löschen",
     "approve-risk": "Änderungen freigeben",
     "decline-risk": "Nicht veröffentlichen",
+    "raise-budget": "Budget erhöhen und fortsetzen",
   },
   deleteRun:
     "Lauf und zugehöriges eigenes Arbeitsverzeichnis werden entfernt. Dies kann nicht rückgängig gemacht werden.",

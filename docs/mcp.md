@@ -86,6 +86,8 @@ To start pipelines, explicitly select **Start runs** (`runs:start`) during brows
 
 Publication is a separate, initially unchecked permission. It permits pipeline publication steps such as pushes and pull requests. Human approval gates remain in the web interface.
 
+`run_start` accepts an optional `tokenBudget` (1 to 1,000,000,000) that replaces the pipeline's [token budget](pipelines.md#token-budget) for that run; it belongs to the start request, so reusing a request ID with another budget is refused. `run_get` returns the run's `tokenBudget` beside its `usage`. A run above its budget waits for the owner: raising the budget is a gate decision in the web interface, and no MCP tool can change it.
+
 A pipeline may contain a [parallel review group](pipelines.md#parallel-review-groups): a node `{"kind":"parallel","members":[{"id","profileId"}],"concurrency"}` whose members run their own profiles. Starting a run requires access to every member's profile, account and provider connection, as for any stage. `run_get` lists the group as a node with `kind: "parallel"` and its member ids, and each member as a node with `group`.
 
 The connected-client list shows grants in pages of 20, including permissions, resource limits, dates, last use and revocation status. Revoking a grant stops future access using its credentials. Removing a server or logging out in the CLI does not necessarily revoke its server grant; revoke it in Settings as well.

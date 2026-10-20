@@ -11,6 +11,7 @@ import {
 } from "./profile-validation.js";
 import { applySeeds } from "./seed-migration.js";
 import { defaultRisk, validateRisk } from "./risk-rules.js";
+import { tokenBudgetValue } from "./run-budget.js";
 
 function identity(id) {
   if (typeof id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id))
@@ -127,6 +128,8 @@ export class PipelineDefinitions {
   savePipeline(body, id) {
     const graph = validateGraph(body?.graph);
     this.validateProfiles(graph);
+    // Optional: runs of this pipeline stop starting turns above it (see run-budget.js).
+    const tokenBudget = tokenBudgetValue(body.tokenBudget);
     return this.save(
       "pipelines",
       body,
@@ -138,6 +141,7 @@ export class PipelineDefinitions {
           2000,
         ),
         graph,
+        ...(tokenBudget ? { tokenBudget } : {}),
       },
       id,
     );

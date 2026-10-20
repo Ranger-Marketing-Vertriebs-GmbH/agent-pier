@@ -111,9 +111,15 @@ export class McpTools {
     }
   }
   async start(args, grant, resolveGrant) {
-    const { pipelineId, projectId, task, baseBranch, requestId } = args;
+    const { pipelineId, projectId, task, baseBranch, tokenBudget, requestId } = args;
     requireResource(grant, "projectIds", projectId);
-    const input = { pipelineId, projectId, task, baseBranch: baseBranch || null };
+    const input = {
+      pipelineId,
+      projectId,
+      task,
+      baseBranch: baseBranch || null,
+      ...(tokenBudget !== undefined ? { tokenBudget } : {}),
+    };
     const previous = this.replayStart(grant, requestId, input);
     if (previous) return previous;
     const project = this.services.memory.project(projectId);
@@ -131,7 +137,13 @@ export class McpTools {
     this.pipeline(pipelineId, grant, true);
     const receipt = this.requests.reserve(grant.id, requestId, input);
     const run = await this.services.pipelines.start(
-      { pipelineId, cwd: project.cwd, task, ...(baseBranch ? { baseBranch } : {}) },
+      {
+        pipelineId,
+        cwd: project.cwd,
+        task,
+        ...(baseBranch ? { baseBranch } : {}),
+        ...(tokenBudget !== undefined ? { tokenBudget } : {}),
+      },
       { id: receipt.runId, expectedProjectId: projectId },
     );
     this.audit("pipeline.started", "pipeline", run.id, grant, projectId);

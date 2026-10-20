@@ -21,6 +21,8 @@ import { filterAnswers, recordResponses } from "./loop-rounds.js";
 import { adoptSpec, checkSpec, replaceSpec, specReplaceable } from "./run-spec.js";
 import { approveRisk, declineRisk } from "./risk-gate.js";
 import { memberAction, overrideGroup, recheckable } from "./group-actions.js";
+import { progressGroup } from "./parallel-group.js";
+import { raiseBudget } from "./run-budget.js";
 export function requireLiveRun(run) {
   if (run.imported?.historyOnly)
     throw problem(serverMessages.pipelines.importedHistoryReadOnly, 409);
@@ -59,6 +61,8 @@ export function availableActions(run) {
   const actions = ["abort"];
   if (run.status !== "awaiting-human") return actions;
   const node = activeNode(run);
+  // A run above its token budget continues only with a higher budget.
+  if (node.failReason === "budget-exceeded") return ["abort", "raise-budget"];
   // A completed run reopened by its publication only decides on publishing it: the
   // finished stages are not reworked, and declining keeps the run completed.
   if (node.failReason === "risk-gate" && node.riskGate?.resume === "publish")
@@ -96,7 +100,7 @@ export function availableActions(run) {
   return actions;
 }
 export async function gateAction(engine, run, input = {}) {
-  const { action, feedback, resumeAt, spec, nodeId } = input;
+  const { action, feedback, resumeAt, spec, nodeId, tokenBudget } = input;
   requireLiveRun(run);
   // An action on a member of the current parallel group.
   if (nodeId !== undefined && nodeId !== run.currentNodeId)
@@ -145,6 +149,11 @@ export async function gateAction(engine, run, input = {}) {
       feedback,
     });
     return;
+  }
+  if (action === "raise-budget") {
+    const { raise, hold } = raiseBudget(engine, run, node, tokenBudget);
+    await continueHeld(engine, run, node, hold);
+    return { budgetRaise: raise };
   }
   if (action === "replace-spec") {
     const entry = replaceSpec(run, node, spec, engine.now());
@@ -245,6 +254,17 @@ export async function gateAction(engine, run, input = {}) {
   node.gateDecidedAt = engine.now();
   node.overridden = node.overridden === true;
   await advance(engine, run, node);
+}
+// Starts what waited for the budget: a group's pending members, or the held turn.
+async function continueHeld(engine, run, node, hold) {
+  if (!hold.progress) {
+    await launchStage(engine, run, node, hold);
+    return;
+  }
+  node.status = "running";
+  run.status = "running";
+  engine.store.save(run);
+  await progressGroup(engine, run, node);
 }
 async function overrideStage(engine, run, node) {
   const failed = node.status === "failed",
