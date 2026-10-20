@@ -32,6 +32,7 @@ export const runCodes = {
     "risk-gate",
     "members-blocked",
     "group-changed-files",
+    "budget-exceeded",
   ],
   attemptKinds: [
     "kickoff",

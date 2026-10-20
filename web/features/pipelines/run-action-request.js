@@ -10,9 +10,10 @@ export const gateActions = [
   "feedback",
   "loop-back",
   "override",
+  "raise-budget",
 ];
 // The decision a gate is waiting for is the highlighted one.
-export const primaryActions = ["accept", "approve-risk"];
+export const primaryActions = ["accept", "approve-risk", "raise-budget"];
 // Actions that change or remove the run irreversibly ask for confirmation first.
 export const confirmedActions = ["delete", "abort", "override", "create-pr"];
 // Of those, the ones that lose work or data: a danger button and Cancel focused first.
@@ -67,7 +68,7 @@ export function confirmDescription(action, run) {
 export async function requestRunAction(
   run,
   action,
-  { feedback = "", resumeAt = "", confirmLocalCommits = false, nodeId } = {},
+  { feedback = "", resumeAt = "", confirmLocalCommits = false, nodeId, tokenBudget } = {},
 ) {
   const base = `/pipeline-runs/${encodeURIComponent(run.id)}`;
   if (action === "delete") {
@@ -98,6 +99,7 @@ export async function requestRunAction(
           action,
           ...(nodeId ? { nodeId } : {}),
           ...(["feedback", "loop-back"].includes(action) ? { feedback } : {}),
+          ...(action === "raise-budget" ? { tokenBudget } : {}),
           ...(action === "wait-for-reset" && resumeAt
             ? { resumeAt: new Date(resumeAt).toISOString() }
             : {}),

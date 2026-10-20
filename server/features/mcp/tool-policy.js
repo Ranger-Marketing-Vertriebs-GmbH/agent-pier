@@ -91,6 +91,7 @@ export function runSummary(run, baseUrl) {
           },
     ),
     usage: run.usage,
+    tokenBudget: run.tokenBudget ?? null,
     pullRequestUrl: run.pullRequestUrl,
     ...(run.failDetail ? { failure: run.failDetail } : {}),
   };

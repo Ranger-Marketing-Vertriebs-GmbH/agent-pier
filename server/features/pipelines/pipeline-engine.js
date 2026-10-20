@@ -25,6 +25,7 @@ import { provisionRun } from "./execution-workspace.js";
 import { readVerdict } from "./stage-verdict.js";
 import { specRevision } from "./run-spec.js";
 import { PortLeases } from "./run-ports.js";
+import { tokenBudgetValue } from "./run-budget.js";
 import {
   artifactsForNode,
   artifactText,
@@ -155,16 +156,11 @@ export class PipelineEngine {
       }
     return { stageRunsLast7Days: attempts.size };
   }
-  async start(
-    { pipelineId, cwd, task, baseBranch } = {},
-    { id: reservedId, expectedProjectId } = {},
-  ) {
+  async start(input = {}, { id: reservedId, expectedProjectId } = {}) {
+    const { pipelineId, cwd, task, baseBranch, tokenBudget } = input;
     if (this.mutationBarrier && !this.mutationBarrier.hasLease())
       return this.mutationBarrier.run(() =>
-        this.start(
-          { pipelineId, cwd, task, baseBranch },
-          { id: reservedId, expectedProjectId },
-        ),
+        this.start(input, { id: reservedId, expectedProjectId }),
       );
     if (this.closed || this.closing)
       throw problem(serverMessages.pipelines.engineClosed, 503);
@@ -176,6 +172,8 @@ export class PipelineEngine {
       Buffer.byteLength(task) > 65536
     )
       throw problem(serverMessages.pipelines.workingDirectoryAndTaskRequired);
+    // A budget given at the start replaces the definition's for this run.
+    const budget = tokenBudgetValue(tokenBudget);
     const snapshot = this.definitions.snapshot(pipelineId),
       compiled = compileSnapshot(snapshot),
       id = reservedId === undefined ? randomUUID() : runId(reservedId);
@@ -211,6 +209,7 @@ export class PipelineEngine {
       loopState: {},
       executionLog: [],
       usage: null,
+      tokenBudget: budget ?? tokenBudgetValue(snapshot.pipeline.tokenBudget),
       usageResumeAt: null,
       pullRequestUrl: null,
       createdAt: this.now(),
@@ -221,7 +220,7 @@ export class PipelineEngine {
     return this.get(id);
   }
   async gate(id, input) {
-    let overridden, replaced, risk;
+    let overridden, replaced, risk, budget;
     await this.lock(id, async () => {
       const run = this.store.get(id),
         node = activeNode(run);
@@ -258,6 +257,14 @@ export class PipelineEngine {
           count: result.riskDecision.total ?? 0,
           ...(result.riskDecision.error ? { failReason: "risk-check-failed" } : {}),
         };
+      if (result?.budgetRaise)
+        budget = {
+          kind: "budget",
+          stageId: node.id,
+          from: result.budgetRaise.from,
+          to: result.budgetRaise.to,
+          usedTokens: result.budgetRaise.used,
+        };
       if (result?.specRevision)
         replaced = {
           kind: "spec",
@@ -275,6 +282,16 @@ export class PipelineEngine {
         source: "user",
         outcome: "success",
         details: replaced,
+      });
+    // Raising a run's token budget lets it spend more; record the old and new value.
+    if (budget)
+      this.audit?.append({
+        action: "pipeline.updated",
+        resourceType: "pipeline",
+        resourceId: id,
+        source: "user",
+        outcome: "success",
+        details: budget,
       });
     // Approving risky changes is the owner's decision on exactly these paths.
     if (risk)

@@ -417,3 +417,36 @@ test("MCP retries return an existing frozen run even after the source project ch
   assert.equal(replay.replayed, true);
   assert.equal(c.launches.length, 1);
 });
+
+test("MCP starts a run with its own token budget and cannot raise it later", async (t) => {
+  const c = await setup(t);
+  const input = {
+    pipelineId: c.pipeline.id,
+    projectId: c.project.id,
+    task: "test",
+    tokenBudget: 5000,
+    requestId: "budget",
+  };
+  const { run } = await c.tools.call("run_start", input, c.grant);
+  assert.equal(run.tokenBudget, 5000);
+  assert.equal(c.services.pipelines.get(run.id).tokenBudget, 5000);
+  // The budget belongs to the start request: another budget is another start.
+  await assert.rejects(
+    c.tools.call("run_start", { ...input, tokenBudget: 9000 }, c.grant),
+    (error) => error.status === 409,
+  );
+  for (const tokenBudget of [0, 1.5, 1_000_000_001])
+    await assert.rejects(
+      c.tools.call(
+        "run_start",
+        { ...input, tokenBudget, requestId: `budget-${tokenBudget}` },
+        c.grant,
+      ),
+      (error) => error.status === 400,
+    );
+  // Raising a parked run's budget is a gate decision; MCP has no gate tool.
+  await assert.rejects(
+    c.tools.call("run_gate", { runId: run.id, action: "raise-budget" }, c.grant),
+    (error) => error.status === 404,
+  );
+});

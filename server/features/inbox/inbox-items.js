@@ -81,7 +81,9 @@ export function gateItem(run) {
     },
     title: node ? node.profileSnapshot?.name || node.label || node.kind || node.id : "",
     stage: node?.id || null,
-    createdAt: attempt?.finishedAt || node?.startedAt || run.createdAt,
+    // A stage held at the token budget may not have started yet.
+    createdAt:
+      node?.budgetHold?.at || attempt?.finishedAt || node?.startedAt || run.createdAt,
     expiresAt: null,
     link: `/pipelines/runs/${segment(run.id)}`,
   });

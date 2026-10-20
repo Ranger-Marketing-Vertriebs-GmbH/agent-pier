@@ -158,6 +158,9 @@
   border-radius: 8px;
   overflow: hidden;
 }
+.run-usage.run-usage-budget {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
 .run-usage > div {
   display: flex;
   flex-direction: column;
@@ -211,7 +214,8 @@
   .run-stage-detail {
     padding: 16px;
   }
-  .run-usage {
+  .run-usage,
+  .run-usage.run-usage-budget {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .run-header h2 {

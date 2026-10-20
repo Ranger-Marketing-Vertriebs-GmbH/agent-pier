@@ -35,6 +35,7 @@ import {
 } from "./loop-session.js";
 import { launchGroup } from "./parallel-group.js";
 import { aggregateUsage, verificationFailure } from "./turn-results.js";
+import { budgetExceeded, holdMember, holdTurn } from "./run-budget.js";
 import {
   activeNode,
   clearTurn,
@@ -48,6 +49,12 @@ import {
 } from "./graph-navigation.js";
 
 export async function launchStage(engine, run, node, options = {}) {
+  // Above its token budget a run starts no new turn: the turn waits for the owner.
+  if (budgetExceeded(run)) {
+    if (node.group) holdMember(engine, run, node, queuedOptions(options));
+    else holdTurn(engine, run, node, options);
+    return;
+  }
   if (node.kind === "parallel") return launchGroup(engine, run, node, options);
   // prepareStage records the turn whose port block it reserves here; the block is
   // settled once that turn is saved with it, or the launch failed.
@@ -69,22 +76,23 @@ export async function launchStage(engine, run, node, options = {}) {
     if (reservation.turnId) engine.ports.settle(reservation.turnId);
   }
 }
-async function prepareStage(
-  engine,
-  run,
-  node,
-  { kind = "kickoff", feedback = "", resumeNativeId, repair } = {},
-  reservation,
-) {
+const queuedOptions = ({
+  kind = "kickoff",
+  feedback = "",
+  resumeNativeId,
+  repair,
+} = {}) => ({
+  kind,
+  feedback,
+  ...(resumeNativeId ? { resumeNativeId } : {}),
+  ...(repair ? { repair } : {}),
+});
+async function prepareStage(engine, run, node, options, reservation) {
+  const queued = queuedOptions(options);
+  const { kind, feedback, resumeNativeId, repair } = queued;
   // A group member's turn starts beside its siblings: it is queued on the member and
   // never moves the run's current stage, attempt or usage-limit resume time.
   const member = Boolean(node.group);
-  const queued = {
-    kind,
-    feedback,
-    ...(resumeNativeId ? { resumeNativeId } : {}),
-    ...(repair ? { repair } : {}),
-  };
   if (member) node.queuedTurn = queued;
   else run.pendingTurn = { nodeId: node.id, ...queued };
   engine.store.save(run);

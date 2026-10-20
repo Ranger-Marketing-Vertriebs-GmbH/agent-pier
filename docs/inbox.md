@@ -24,7 +24,8 @@ Select an item to open it in the detail pane. The pane shows the same card you w
 see in place: the native question or approval from the session's chat, the gate
 decision from the run (with the run's spec when it has one, see
 [pipelines](pipelines.md#spec-and-acceptance-criteria), the risky paths of a risk gate or why its check could not run,
-see [pipelines](pipelines.md#risk-gate), and a stage's question for you; for a
+see [pipelines](pipelines.md#risk-gate), the tokens a run reported against its budget with
+**Raise budget and continue**, see [pipelines](pipelines.md#token-budget), and a stage's question for you; for a
 [parallel review group](pipelines.md#parallel-review-groups) the members that wait for a
 decision and the group's own restart or override, while decisions on a single member are
 made in the run view), the agent's

@@ -242,7 +242,7 @@ export default function StageDetail({
       )}
       <ErrorMessage error={evidence.error} />
       {evidence.viewer}
-      <RunUsage usage={run.usage} />
+      <RunUsage usage={run.usage} budget={run.tokenBudget} />
       {(node.startedAt || node.profileSnapshot) && (
         <footer className="run-stage-footer">
           {node.startedAt && (

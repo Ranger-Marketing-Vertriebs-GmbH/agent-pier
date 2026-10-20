@@ -126,6 +126,12 @@ export const pipelines = Object.freeze({
   groupVerificationFailed:
     "Die Prüfung ist fehlgeschlagen. Eine parallele Gruppe begutachtet nur und repariert nichts.",
   usageLimitReached: "Das Nutzungslimit des nativen Providers ist erreicht.",
+  budgetExceeded:
+    "Der Lauf hat sein Token-Budget überschritten. Ein neuer Turn startet erst, wenn das Budget erhöht wird.",
+  invalidTokenBudget:
+    "Das Token-Budget muss eine ganze Zahl von 1 bis 1.000.000.000 sein.",
+  budgetBelowUsage: (used) =>
+    `Das neue Token-Budget muss über den bisher gemeldeten ${used} Tokens liegen.`,
   nativeTurnFailed:
     "Der native Turn der Stufe ist nicht erfolgreich beendet worden. Bitte die Terminalausgabe prüfen.",
   // Das Argument ist native CLI-Ausgabe und bleibt in ihrer Originalsprache.

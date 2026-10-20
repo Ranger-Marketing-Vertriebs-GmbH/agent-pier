@@ -18,10 +18,11 @@ const eligible = (profiles) =>
   );
 const formatGraph = (graph) => JSON.stringify(graph, null, 2);
 // The draft as it would be saved; the view toggle alone never makes it dirty.
-const draftSnapshot = (name, description, advanced, json, stages) =>
+const draftSnapshot = (name, description, budget, advanced, json, stages) =>
   JSON.stringify([
     name,
     description,
+    budget,
     advanced ? json : formatGraph(stagesToGraph(stages)),
   ]);
 
@@ -121,16 +122,16 @@ export default function PipelineBuilder({
   const draft = useStageDraft(initial);
   const [name, setName] = useState(source?.name || ""),
     [description, setDescription] = useState(source?.description || ""),
+    [budget, setBudget] = useState(source?.tokenBudget ? String(source.tokenBudget) : ""),
     [advanced, setAdvanced] = useState(Boolean(source && !initial)),
     [json, setJson] = useState(
       formatGraph(source?.graph || { entry: "", nodes: [], edges: [] }),
     ),
     [error, setError] = useState("");
-  const [baseline] = useState(() =>
-    draftSnapshot(name, description, advanced, json, draft.stages),
-  );
-  const dirty =
-    draftSnapshot(name, description, advanced, json, draft.stages) !== baseline;
+  const snapshot = () =>
+    draftSnapshot(name, description, budget, advanced, json, draft.stages);
+  const [baseline] = useState(snapshot);
+  const dirty = snapshot() !== baseline;
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
@@ -179,6 +180,7 @@ export default function PipelineBuilder({
           name,
           description,
           graph,
+          tokenBudget: budget ? Number(budget) : null,
           ...(pipeline ? { expectedRevision: pipeline.revision } : {}),
         },
       );
@@ -228,6 +230,24 @@ export default function PipelineBuilder({
                 setDescription(event.target.value);
               }}
             />
+          </label>
+          <label>
+            {copy.tokenBudget}
+            <input
+              type="number"
+              min={1}
+              max={1_000_000_000}
+              step={1}
+              value={budget}
+              aria-describedby="definition-budget-help"
+              onChange={(event) => {
+                draft.clearNotice();
+                setBudget(event.target.value);
+              }}
+            />
+            <small id="definition-budget-help" className="field-description">
+              {copy.tokenBudgetHelp}
+            </small>
           </label>
         </div>
         {advanced ? (
