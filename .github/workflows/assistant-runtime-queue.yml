@@ -1,17 +1,16 @@
 name: Assistant runtime (queue)
 # A slim gate for the merge queue. It always reports one check with a stable
-# name, so it can be marked required: it finishes green at once when no assistant
-# runtime path changed (scripts/assistant-runtime-paths.mjs) and otherwise runs
-# the core native contracts with one visible retry per failed file. The full
-# matrix stays in assistant-runtime.yml.
+# name: it finishes green at once when no assistant runtime path changed
+# (scripts/assistant-runtime-paths.mjs) and otherwise runs the core native
+# contracts with one visible retry per failed file. Pull requests run the full
+# Linux contracts in assistant-runtime.yml instead, so this runs in the queue only.
 on:
-  pull_request:
   merge_group:
 permissions:
   contents: read
 concurrency:
-  group: assistant-runtime-queue-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: assistant-runtime-queue-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   contracts:
     name: Assistant runtime (queue)
@@ -24,7 +23,7 @@ jobs:
       - name: Detect assistant runtime changes
         id: paths
         env:
-          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
         run: node scripts/assistant-runtime-paths.mjs
       - if: steps.paths.outputs.relevant == 'true'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7

@@ -1,31 +1,14 @@
 name: Assistant runtime
 # Nightly and before a release through full.yml: upstream registries and hosted
 # runner images change without a commit. Pull requests run the Linux jobs only
-# (fresh installs on x64 and arm64, native contracts on x64); the macOS jobs join after
-# the merge. The native contracts on Linux arm64 and macOS x64 and the
-# cross-version updates run only nightly, on demand and before a release (a tag
-# push through release.yml).
+# (fresh installs on x64 and arm64, native contracts on x64). The macOS jobs, the
+# native contracts on Linux arm64 and macOS x64 and the cross-version updates run
+# only nightly, on demand and before a release (a tag push through release.yml),
+# not after each merge. The merge queue runs the core contracts through
+# assistant-runtime-queue.yml.
 on:
   workflow_dispatch:
   workflow_call:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/assistant-runtime.yml"
-      - "server/features/assistants/**"
-      - "server/features/assistant-channels/**"
-      - "server/application/assistant-graph.js"
-      - "server/features/operations/releases.js"
-      - "server/lib/storage.js"
-      - "scripts/*assistant*.mjs"
-      - "scripts/assistant-contract-shards.json"
-      - "tests/**/assistant*"
-      - "tests/helpers/openclaw-dist-exports.js"
-      - "tests/helpers/mcp-*"
-      - "server/features/mcp-servers/**"
-      - "server/http/routes/mcp-*"
-      - "package.json"
-      - "package-lock.json"
   pull_request:
     paths:
       - ".github/workflows/assistant-runtime.yml"
