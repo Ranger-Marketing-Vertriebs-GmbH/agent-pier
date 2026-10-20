@@ -73,7 +73,9 @@ count) of at most 1 KB; the app words it in your interface language.
 A notification has no action buttons. Opening it opens the matching view; it never
 approves anything. Items that wait in the [inbox](inbox.md) open at their inbox address
 (`/inbox/<type>/<id>`), which shows **Already done** once they were answered elsewhere;
-everything else opens the exact session chat, agent chat or pipeline run.
+everything else opens the exact session chat, agent chat or pipeline run. An agent
+notice opens the chat that produced it; check-ins, routine and reminder results open
+the agent's main chat.
 
 ## What notifies you
 

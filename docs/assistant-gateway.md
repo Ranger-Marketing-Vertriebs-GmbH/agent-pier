@@ -2451,10 +2451,14 @@ agent, but none with a user's own agent (404).
 
 A user reaches her agents only through `/api/me` (`server/http/routes/me-*.js`), and
 every handler resolves its target through `UserScope` (`server/features/users/user-scope.js`)
-first: her conversation (hers, not archived, on an agent she still belongs to), her
-agent, her attempt, her chat file. Anything else answers the unknown-route 404.
+first: her conversation (hers, on an agent she still belongs to; an archived one stays
+readable), her agent, her attempt, her chat file. Anything else, also a deleted chat,
+answers the unknown-route 404.
 
-- `GET /me/agents`, `POST /me/agents/:id/conversation`; messages, the queued message,
+- `GET /me/agents`, `POST /me/agents/:id/conversation` (her main chat), her chat list
+  (`GET|POST /me/agents/:id/chats`; rename, archive, restore and delete under
+  `/me/conversations/:id`, see [Several chats per agent](#several-chats-per-agent));
+  messages, the queued message,
   cancel, attachments and shared files under `/me/conversations/:id/…`,
   `/me/attempts/:id/cancel` and `/me/attachments/:file`. A user's turn and her queued
   message run with the trusted origin `{ kind: "user", userId }`; she never starts team
@@ -2503,7 +2507,8 @@ agent, her attempt, her chat file. Anything else answers the unknown-route 404.
   person whose routine it is; any other run of a user's own agent for her. A user's hold
   ends ten minutes (the hand-back lease) after her turn's last browser call, or once a
   takeover then in progress ends, and the browser is the owner's again. Open views
-  close when it changes hands; the hand-back note goes into the driver's chat. Under her
+  close when it changes hands; the hand-back note goes into the chat whose turn drove the
+  browser, or the driver's main chat once that chat is archived or deleted. Under her
   opt-in the owner watches her own agent's browser, view-only (`VIEW_ONLY`, also for
   `select` and `follow`: he never moves the tab she sees and types into); a view he
   opened to drive a shared agent closes with 4000 once it becomes her own, and the page
@@ -2512,8 +2517,9 @@ agent, her attempt, her chat file. Anything else answers the unknown-route 404.
   `/me/notifications…` mirrors the owner's routes for her own devices. A notice with
   `audience: { kind: "user", userId }` reaches only her devices; system notices only the
   owner's. Presence, its report rate limit and quiet hours count per person.
-- `GET /me/events` streams `agents` (her list or one of her chats changed) and
-  `approvals` (`count`) frames, with a heartbeat every 15 seconds. The count holds the
+- `GET /me/events` streams `agents` (her list or one of her main chats changed; an
+  agent works while any of her chats with it does), `chats` (`agentId`: her chat list
+  with that agent changed, never another person's) and `approvals` (`count`) frames, with a heartbeat every 15 seconds. The count holds the
   approvals `GET /me/approvals` lists, so one in a chat she left no longer counts. A
   stream opened while agents are off ends once they start (and when they stop), so
   her app reconnects to one that follows them.
@@ -2573,6 +2579,63 @@ are off, they end when agents start, before any of them runs); her agents and ch
 stay, and her chats take no new turns while she is disabled; her own agent schedules
 no check-ins again for a disabled or deleted user. Enabling her again
 restores her sign-in only.
+
+### Several chats per agent
+
+Every agent, the owner's and users' alike, holds several chats per person
+(AGENTPIER-181; `server/features/assistants/agent-chats.js`). A chat is one AgentPier
+conversation with its own native session from `sessions.create`, labelled
+`AgentPier <agent id> chat <conversation id>` so labels stay unique. New chat never
+uses OpenClaw's `/new` or `sessions.reset`: both keep the session key and start a fresh
+history window (`tests/integration/assistant-multi-chat-contract.test.js`). Memory stays
+one per agent.
+
+- The person's **main chat** (`main: true`) is the first one, the one
+  `POST …/conversation` opens. Reminders, routines, check-ins, Telegram pairing and lead
+  routine reports deliver only there (`mainConversation`,
+  `server/features/assistants/routine-targets.js`), and push notices of those results
+  open it. A chat stored before several chats existed becomes its person's main chat on
+  first read, without a new native session. The main chat cannot be archived or
+  deleted (409 `CHAT_MAIN`).
+- Lists: the owner's `GET /api/assistants/:id/chats` (`?archived=1` for the archived
+  ones) and a user's `GET /api/me/agents/:id/chats` return `{id, title, main,
+archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat first,
+  then the most recently active. `POST` on the same path starts a chat (201); every
+  level may start chats. A user lists only her own chats. The owner lists his own and,
+  under a user's opt-in, her chats that were active since its `since`; a chat she
+  started before it shows without its title.
+- Titles: the first written turn (web or Telegram) names the chat, whitespace collapsed
+  and cut at a word to 60 characters (`server/features/assistants/chat-titles.js`).
+  `PATCH /api/assistant-conversations/:id` and `PATCH /api/me/conversations/:id` with
+  `{title}` set 1 to 80 characters without control characters; `""` brings the
+  automatic title back. Titles never reach the audit log. Typed into a chat, `/new`
+  opens a new chat (201 `{created}`; a retry with the same `clientRequestId` returns the
+  same chat) and `/name <title>` renames it (200 `{chat}`); nothing reaches the Gateway.
+  `/reset` and `/new` with text answer 400 `CHAT_COMMAND`. Telegram turns are passed on
+  as before.
+- Archive and restore: `POST …/conversations/:id/archive|restore` (owner under
+  `/api/assistant-conversations`, user under `/api/me/conversations`). An archived chat
+  leaves the list, stays readable, and refuses turns, queued messages, uploads and
+  renames with 409 `CHAT_ARCHIVED` until it is restored. Archive state lives in AgentPier
+  only: every `sessions.create` session is an OpenClaw dashboard session, which
+  OpenClaw's maintenance would archive after 7 idle days, and a natively archived
+  session takes no turn, so the compiled configuration sets
+  `session.maintenance.archiveDashboardAfter: false`.
+- Delete: `DELETE …/conversations/:id {confirm: true}` (400 `CHAT_CONFIRM` without it)
+  marks the chat deleted, so every route answers 404, closes its open views, forgets
+  its cached messages, request texts, files, shared files, routine results, memory notes
+  and queued message, and deletes its native session with `deleteTranscript: true` and
+  the `<session id>.jsonl.deleted.*` archive OpenClaw leaves in
+  `state/agents/<agent>/sessions/` (`server/features/assistants/chat-removal.js`).
+  OpenClaw keeps a compressed copy of that archive in its session database until its
+  own disk budget removes it. A Gateway that is away deletes it at its next start
+  (`nativeDeletePending`). Audited as `assistant.updated` with `details.kind:
+"chat-deleted"`, never the title. A deleted user's chats go the same way.
+- Archive and delete answer 409 `CHAT_BUSY` while a turn runs, a message waits or an
+  approval waits in the chat. Only the chat's own person changes it: another user and
+  the owner, even under her opt-in, get 404 for a user's chat.
+- Archiving or deleting a chat sends its live viewers `end` (the WebSocket closes with
+  1001); an archived chat may be opened again read-only.
 
 ## Agent shell access (2026-10-12)
 
