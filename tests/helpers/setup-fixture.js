@@ -16,7 +16,7 @@ export async function setupFixture(t) {
       version,
       schemaVersion: 1,
       schemaMin: 1,
-      schemaMax: 1,
+      schemaMax: 2,
       platform: `${process.platform}-${process.arch}`,
     };
     const files = Object.entries({

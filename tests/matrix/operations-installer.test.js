@@ -67,7 +67,7 @@ for (const healthy of [false, true])
       version: "1.0.0",
       schemaVersion: 1,
       schemaMin: 1,
-      schemaMax: 1,
+      schemaMax: 2,
       platform: `${process.platform}-${process.arch}`,
     };
     const files = Object.entries({

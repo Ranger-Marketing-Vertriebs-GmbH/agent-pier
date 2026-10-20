@@ -38,7 +38,7 @@ test("a live native session and old release helper survive backup, activation an
         platform: `${process.platform}-${process.arch}`,
         schemaVersion: 1,
         schemaMin: 1,
-        schemaMax: 1,
+        schemaMax: 2,
       }),
     );
   }

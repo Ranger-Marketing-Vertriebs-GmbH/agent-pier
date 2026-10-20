@@ -134,7 +134,7 @@ test("restore rejects a future embedded memory schema before creating its target
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const dataDir = path.join(root, "data"),
     memory = new ProjectMemory({ dataDir });
-  memory.db.exec("PRAGMA user_version=2");
+  memory.db.exec("PRAGMA user_version=3");
   const backup = await new Backup({ dataDir }).create();
   memory.close();
   const restore = new Restore({ dataDir }),

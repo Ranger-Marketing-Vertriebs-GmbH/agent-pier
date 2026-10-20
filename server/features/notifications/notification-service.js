@@ -36,6 +36,18 @@ async function bounded(read, ms) {
   }
 }
 
+// Data schema 2 gives each device its person (null for the owner). Releases that read only
+// schema 1 refuse this data, so the version never goes back down (release-schema.js).
+export const notificationSchema = 2;
+function migrateNotifications(db) {
+  const version = db.prepare("PRAGMA user_version").get().user_version;
+  if (version >= notificationSchema) return;
+  const columns = db.prepare("PRAGMA table_info(subscriptions)").all();
+  if (!columns.some((column) => column.name === "user_id"))
+    db.exec("ALTER TABLE subscriptions ADD COLUMN user_id TEXT");
+  db.exec(`PRAGMA user_version=${notificationSchema}`);
+}
+
 export class NotificationService {
   constructor({ dataDir, send = createPushSender(), clock = Date, inboxCount = null }) {
     this.send = send;
@@ -51,8 +63,9 @@ export class NotificationService {
       "notifications.sqlite",
     );
     this.db.exec(
-      "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY,device_id TEXT NOT NULL UNIQUE,public TEXT NOT NULL,secret TEXT NOT NULL); CREATE TABLE IF NOT EXISTS deliveries (event_id TEXT NOT NULL,subscription_id TEXT NOT NULL,status TEXT NOT NULL,PRIMARY KEY(event_id,subscription_id)); CREATE TABLE IF NOT EXISTS observations (id TEXT PRIMARY KEY,value TEXT NOT NULL); PRAGMA user_version=1;",
+      "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY,device_id TEXT NOT NULL UNIQUE,public TEXT NOT NULL,secret TEXT NOT NULL); CREATE TABLE IF NOT EXISTS deliveries (event_id TEXT NOT NULL,subscription_id TEXT NOT NULL,status TEXT NOT NULL,PRIMARY KEY(event_id,subscription_id)); CREATE TABLE IF NOT EXISTS observations (id TEXT PRIMARY KEY,value TEXT NOT NULL);",
     );
+    migrateNotifications(this.db);
     const existing = this.db
       .prepare("SELECT value FROM settings WHERE key='vapid'")
       .get();
@@ -113,7 +126,7 @@ export class NotificationService {
         if (previous[key] !== undefined) summary[key] = previous[key];
     this.db
       .prepare(
-        "INSERT INTO subscriptions VALUES(?,?,?,?) ON CONFLICT(device_id) DO UPDATE SET public=excluded.public,secret=excluded.secret",
+        "INSERT INTO subscriptions (id,device_id,public,secret) VALUES(?,?,?,?) ON CONFLICT(device_id) DO UPDATE SET public=excluded.public,secret=excluded.secret",
       )
       .run(summary.id, deviceId, JSON.stringify(summary), JSON.stringify(subscription));
     return { subscription: summary };

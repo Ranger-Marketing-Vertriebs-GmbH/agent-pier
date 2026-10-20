@@ -55,6 +55,16 @@ Every package declares the range of data schemas it can open (`schemaMin` to
 - Testers take a backup in Settings → Operations → Backups before they activate an RC that changes
   the data schema.
 
+### Schema history
+
+- **1:** every release up to 2.4.
+- **2:** restricted users. Starting the server adds a per-person column to the push
+  notification devices (`notifications/notifications.sqlite`) and sets its
+  `user_version` to 2. Releases that open only schema 1 refuse this data, so rollback
+  below the first release with schema 2 is refused; take a backup first. User
+  accounts and their sessions live in `users/users.json`, apart from the owner's
+  `login/auth.json`, so an older release never treats a user session as the owner.
+
 ### When the guard fails
 
 The check runs in the publish job of the release workflow, after the tag push and

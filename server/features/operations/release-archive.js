@@ -9,6 +9,8 @@ import { readFile, folder, digest, atomic } from "./files.js";
 import { problem } from "../../lib/storage.js";
 const execute = promisify(execFile);
 export const RELEASE_LIMIT = 768 * 1024 * 1024;
+// The data schema this release writes; it still opens and migrates schema 1 data.
+export const dataSchema = 2;
 export function releaseVersion(value) {
   if (
     typeof value !== "string" ||
@@ -26,8 +28,8 @@ export function releaseManifest(value, platform = `${process.platform}-${process
     value.schemaVersion !== 1 ||
     !Number.isSafeInteger(value.schemaMin) ||
     !Number.isSafeInteger(value.schemaMax) ||
-    value.schemaMin > 1 ||
-    value.schemaMax < 1
+    value.schemaMin > dataSchema ||
+    value.schemaMax < dataSchema
   )
     throw problem(serverMessages.releases.incompatible, 409);
   return value;
@@ -235,7 +237,7 @@ export function packageRelease({
     platform,
     schemaVersion: 1,
     schemaMin: 1,
-    schemaMax: 1,
+    schemaMax: dataSchema,
   });
   const files = [],
     seen = new Set();
