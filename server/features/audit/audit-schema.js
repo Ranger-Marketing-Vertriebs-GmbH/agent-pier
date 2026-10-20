@@ -314,6 +314,17 @@ export function auditEvent(input) {
         if (Number.isSafeInteger(value) && value >= 0 && value <= max)
           event.details[key] = value;
       }
+    // A started run names the token budget it spends against and who set it.
+    if (input.action === "pipeline.started") {
+      const budget = details.tokenBudget;
+      if (
+        budget === null ||
+        (Number.isSafeInteger(budget) && budget >= 1 && budget <= MAX_TOKEN_BUDGET)
+      )
+        event.details.tokenBudget = budget;
+      if (["start", "pipeline"].includes(details.tokenBudgetSource))
+        event.details.tokenBudgetSource = details.tokenBudgetSource;
+    }
     // An approved risk gate names the repository paths it covered, never content.
     if (Array.isArray(details.paths))
       event.details.paths = details.paths

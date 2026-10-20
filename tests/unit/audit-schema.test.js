@@ -165,6 +165,27 @@ test("a raised token budget is audited with its old and new value", () => {
   assert.deepEqual(event({ kind: "spec", from: 1, to: 2 }), { kind: "spec" });
 });
 
+test("a started run names its effective token budget and its source", () => {
+  const started = (details) =>
+    auditEvent({
+      action: "pipeline.started",
+      resourceType: "pipeline",
+      resourceId: "run-1",
+      source: "mcp",
+      outcome: "success",
+      details,
+    }).details;
+  assert.deepEqual(started({ tokenBudget: 5000, tokenBudgetSource: "start" }), {
+    tokenBudget: 5000,
+    tokenBudgetSource: "start",
+  });
+  assert.deepEqual(started({ tokenBudget: null, tokenBudgetSource: null }), {
+    tokenBudget: null,
+  });
+  assert.deepEqual(started({ tokenBudget: 0, tokenBudgetSource: "owner" }), {});
+  assert.deepEqual(started({ tokenBudget: 1_000_000_001 }), {});
+});
+
 test("assistant shell events keep levels, pending and the entry id only", () => {
   const event = (details) =>
     auditEvent({

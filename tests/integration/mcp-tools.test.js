@@ -474,6 +474,44 @@ test("MCP starts a run with its own token budget and cannot raise it later", asy
     c.grant,
   );
   assert.equal(editor.run.tokenBudget, 9000);
+  // The stored start entry names the effective budget and who set it.
+  const started = (runId) =>
+    c.services.audit
+      .list({ action: "pipeline.started" })
+      .events.find((e) => e.resourceId === runId).details;
+  assert.deepEqual(
+    [started(lower.run.id), started(inherited.run.id), started(run.id)].map(
+      ({ tokenBudget, tokenBudgetSource }) => ({ tokenBudget, tokenBudgetSource }),
+    ),
+    [
+      { tokenBudget: 3000, tokenBudgetSource: "start" },
+      { tokenBudget: 3000, tokenBudgetSource: "pipeline" },
+      { tokenBudget: 5000, tokenBudgetSource: "start" },
+    ],
+  );
+  // A corrupt stored budget counts as none: the client may set any budget.
+  const state = defs.state.pipelines.find((p) => p.id === c.pipeline.id);
+  state.tokenBudget = 0;
+  const warn = t.mock.method(console, "warn", () => {});
+  const corrupt = await c.tools.call(
+    "run_start",
+    { ...tight, tokenBudget: 7000, requestId: "corrupt" },
+    starter,
+  );
+  assert.equal(corrupt.run.tokenBudget, 7000);
+  assert.ok(warn.mock.callCount() >= 1);
+  const unbudgeted = await c.tools.call(
+    "run_start",
+    { ...tight, tokenBudget: undefined, requestId: "unbudgeted" },
+    starter,
+  );
+  assert.deepEqual(
+    (({ tokenBudget, tokenBudgetSource }) => ({ tokenBudget, tokenBudgetSource }))(
+      started(unbudgeted.run.id),
+    ),
+    // No budget: the entry says so and names no source.
+    { tokenBudget: null, tokenBudgetSource: undefined },
+  );
   // Raising a parked run's budget is a gate decision; MCP has no gate tool.
   await assert.rejects(
     c.tools.call("run_gate", { runId: run.id, action: "raise-budget" }, c.grant),
