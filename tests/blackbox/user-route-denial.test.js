@@ -95,6 +95,10 @@ test("a user reaches her own account routes", async (t) => {
   const me = await as("/api/me", "GET");
   assert.equal(me.status, 200);
   assert.equal((await me.json()).user.username, "Anna");
+  // Dictation uses the owner's speech connection and tells the user only whether it can.
+  const dictation = await as("/api/me/dictation", "GET");
+  assert.equal(dictation.status, 200);
+  assert.deepEqual(await dictation.json(), { available: false, autoSend: false });
   for (const [method, endpoint] of [
     ["DELETE", "/api/me"],
     ["GET", "/api/me/password"],
