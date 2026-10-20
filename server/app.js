@@ -13,6 +13,8 @@ import { UserStore } from "./features/users/user-store.js";
 import { Identity } from "./features/users/identity.js";
 import { loginRoutes, requireLogin } from "./http/login.js";
 import { userGuard } from "./http/user-guard.js";
+import { usersRoutes } from "./http/routes/users.js";
+import { meAccountRoutes } from "./http/routes/me-account.js";
 import { agencyRoutes } from "./http/routes/agency.js";
 import { filesRoutes } from "./http/routes/files.js";
 import { fileOperationsRoutes } from "./http/routes/file-operations.js";
@@ -335,6 +337,8 @@ export async function createApplication(config) {
   mount(settingsSummaryRoutes(services));
   mount(dictationRoutes(services));
   mount(systemStatusRoutes(services));
+  mount(usersRoutes(services));
+  mount(meAccountRoutes(services));
   app.use("/api", operationsRoutes(services));
   app.get("/api/health", (_req, res) =>
     res.json({

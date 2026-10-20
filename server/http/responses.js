@@ -51,7 +51,7 @@ export function registerResponses(app) {
     res.status(status).json({
       ...(error.code === "MEMORY_DISCOVERY_CONFIG" ||
       error.code === "CLI_UPDATE_REQUIRED" ||
-      /^(?:SSH|ARTIFACT|PIPELINE|MCP_CLI|MCP_PACKAGE|MCP_DIRECTORY)_[A-Z_]+$/.test(
+      /^(?:(?:SSH|ARTIFACT|PIPELINE|MCP_CLI|MCP_PACKAGE|MCP_DIRECTORY|USER)_[A-Z_]+|LOGIN_(?:USERNAME|PASSWORD)_INVALID)$/.test(
         error.code || "",
       )
         ? { code: error.code }
