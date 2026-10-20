@@ -3,7 +3,8 @@ import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
 
-// Memory an agent could not write shows as quiet lines between the turns
+// Memory an agent could not write, and a write to a shared agent's memory, show as
+// quiet lines between the turns
 // (server/features/assistants/memory-notes.js).
 const note = (reason, timestamp) => ({
   id: `memory-note:${reason}`,
@@ -22,6 +23,7 @@ const messages = [
   note("automatic", 4.2),
   note("lead-request", 5),
   note("flush", 6),
+  note("shared-write", 6.5),
   note("something-new", 7),
   // The agent's follow-up turn after a declined project-knowledge note.
   { id: "followup", role: "event", event: "memory-result", timestamp: 8, runId: null },
@@ -38,6 +40,7 @@ const copy = {
     "Memory not saved: scheduled and automatic turns cannot change memory.",
     "Memory not saved: tasks from the lead agent cannot change memory.",
     "Memory not saved: the automatic note before shortening the conversation was refused.",
+    "Applies to everyone who uses this agent.",
     "Memory not saved.",
   ],
   de: [
@@ -47,6 +50,7 @@ const copy = {
     "Gedächtnis nicht gespeichert: Geplante und automatische Durchläufe können das Gedächtnis nicht ändern.",
     "Gedächtnis nicht gespeichert: Aufgaben des leitenden Agenten können das Gedächtnis nicht ändern.",
     "Gedächtnis nicht gespeichert: Die automatische Notiz vor dem Kürzen der Unterhaltung wurde abgelehnt.",
+    "Gilt für alle, die diesen Agenten nutzen.",
     "Gedächtnis nicht gespeichert.",
   ],
 };
@@ -130,6 +134,7 @@ for (const language of ["en", "de"])
       "automatic",
       "lead-request",
       "flush",
+      "shared-write",
       "something-new",
     ]);
     await expect(log.locator(".assistant-event:not([data-memory-note])")).toHaveText(
