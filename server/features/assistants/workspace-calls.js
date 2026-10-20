@@ -7,6 +7,8 @@ import { withExcerpts } from "../memory/memory-search.js";
 import { taskWritable } from "./lead-request-store.js";
 import { workflowDefinitions } from "./team-plugin/workflow-tools.js";
 import { resultTurn } from "./member-result-writes.js";
+import { isUserAgent } from "../users/user-access.js";
+import { userAgentLocked } from "../users/user-agent-lock.js";
 
 const workspaceKeys = Object.keys(workflowDefinitions.workspace.parameters.properties);
 // What a task from the member's lead reaches (lead-shares.js): the folders and
@@ -198,6 +200,9 @@ export async function workspaceCall(w, inv, input) {
   exact(input, workspaceKeys);
   // Project folders are the member's own grant (agent-project-files.js).
   if (fileActions.has(input.action)) return w.folders.invoke(ctx, input);
+  // A user agent reaches only its folders: no coding, no project memory.
+  if (input.action !== "catalog" && isUserAgent(w.a.store.getAssistant(ctx.assistantId)))
+    throw userAgentLocked();
   if (ctx.requestedBy && !memberActions.has(input.action))
     throw assistantProblem("invalid", 403);
   if (ctx.leadRequest && !leadTaskActions.has(input.action))

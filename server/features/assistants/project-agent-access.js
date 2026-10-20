@@ -2,6 +2,8 @@ import { assistantProblem } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
 import { saveWork } from "./assistant-work.js";
 import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
+import { isUserAgent } from "../users/user-access.js";
+import { userAgentLocked } from "../users/user-agent-lock.js";
 
 // A project's Agents section (AGENTPIER-127): the same assistant_access record the
 // agent's Work tab edits, seen per project. Coding is the project grant
@@ -100,8 +102,10 @@ export function setProjectAgent(services, projectId, id, input) {
   const expected = choice(input.expected);
   const wanted = choice({ coding: input.coding, folder: input.folder });
   // A folder level needs the project grant: removing the grant removes the level.
-  const next = wanted.coding ? wanted : { coding: false, folder: "none" };
-  services.access.eligible(id);
+  // A user agent has folders only, never the coding grant (user-agent-lock.js).
+  const user = isUserAgent(services.access.eligible(id));
+  if (user && wanted.coding) throw userAgentLocked();
+  const next = wanted.coding || user ? wanted : { coding: false, folder: "none" };
   services.access.s.memory.project(projectId);
   for (let attempt = 0; ; attempt++) {
     const policy = services.access.get(id);

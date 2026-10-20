@@ -7,6 +7,7 @@ import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
 import { projectFileLevels } from "./member-grants.js";
 import { githubAccessInput } from "./agent-github.js";
 import { refuseLockedAccess } from "../users/user-agent-lock.js";
+import { isUserAgent } from "../users/user-access.js";
 // A temporary member uses its lead's SSH grants only while the lead lets its team
 // members use shell and SSH (memberInheritance); it never holds grants of its own.
 export const sshFromLead = (a) => inheritsFromLead(a) && a.inherited.ssh === true;
@@ -190,10 +191,7 @@ export class AssistantAccess {
       pipelineIds,
       // Folder access per granted project; absent keeps the stored levels, and a
       // project no longer granted takes its level with it.
-      projectFiles: folderLevels(
-        input.projectFiles === undefined ? old.projectFiles : input.projectFiles,
-        projectIds,
-      ),
+      projectFiles: this.folders(agent, input, old, projectIds),
       // GitHub through a token profile (agent-github.js); absent keeps the stored one.
       github:
         input.github === undefined ? old.github : this.githubAccess(id, input.github),
@@ -208,6 +206,21 @@ export class AssistantAccess {
       connectionIds: [...connectionIds],
       definitions,
     };
+  }
+  // Folder levels of a policy. A user agent has folders without coding grants: its
+  // projects are the known ones its levels name; others follow the granted projects.
+  folders(agent, input, old, projectIds) {
+    const value =
+      input.projectFiles === undefined ? old.projectFiles : input.projectFiles;
+    if (!isUserAgent(agent)) return folderLevels(value, projectIds);
+    const named =
+      value && typeof value === "object" && !Array.isArray(value)
+        ? Object.keys(value)
+        : [];
+    return folderLevels(
+      value,
+      named.filter((id) => typeof id === "string" && this.knownProject(id)),
+    );
   }
   knownProject(projectId) {
     try {
