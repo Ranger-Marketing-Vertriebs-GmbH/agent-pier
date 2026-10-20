@@ -40,3 +40,15 @@ test("the examples of private content are classified as content", () => {
   assert.equal(ownerContentRoutes["GET /api/assistants/:id/memory"], "agent");
   assert.equal(ownerContentRoutes["GET /api/assistants/:id/browser"], "agent");
 });
+
+test("pairing, changing or removing a channel counts as content", () => {
+  // Re-pairing a user agent's channel would hand its main chat to the owner.
+  for (const key of [
+    "PATCH /api/assistant-channels/:id",
+    "POST /api/assistant-channels/:id/pair",
+    "DELETE /api/assistant-channels/:id",
+  ]) {
+    assert.equal(ownerContentRoutes[key], "channel", key);
+    assert.ok(!ownerMetadataRoutes.has(key), key);
+  }
+});
