@@ -1,6 +1,11 @@
 export const chatComposerCopy = {
   slashTitle: "Slash-Befehle",
   slashHint: "↑↓ wählen · Tab oder Enter übernehmen",
+  slashSkill: "Skill",
+  slashPrompt: "Prompt",
+  slashProject: "Projekt",
+  slashBuiltinOnly:
+    "Nur eingebaute Befehle: eigene Befehle konnten nicht gelesen werden.",
   requestPending:
     "Beantworte die offene Anfrage oben oder im Terminal. Jetzt gesendete Nachrichten werden danach zugestellt.",
   messageSent: "An die laufende Session gesendet",

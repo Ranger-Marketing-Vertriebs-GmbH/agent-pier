@@ -43,6 +43,8 @@ export const chat = Object.freeze({
     "Codex cannot read this history with the installed version. Please use the terminal.",
   codexHistoryUnavailable: "Codex history is currently unavailable.",
   serviceStopping: "The history service is stopping.",
+  slashCommandsUnavailable:
+    "Slash commands are only available in Claude Code, Codex and OpenCode sessions.",
   sessionToolMismatch: "Session and account belong to different tools.",
   cliUnavailableOnHost: (toolName) => `${toolName} is not installed on this computer.`,
   sessionHistoryPending: "The history of this session is not available yet.",

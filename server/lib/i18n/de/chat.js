@@ -44,6 +44,8 @@ export const chat = Object.freeze({
     "Codex kann diesen Verlauf mit der installierten Version nicht lesen. Bitte das Terminal verwenden.",
   codexHistoryUnavailable: "Codex-Verlauf ist derzeit nicht erreichbar.",
   serviceStopping: "Der Verlaufsdienst wird beendet.",
+  slashCommandsUnavailable:
+    "Slash-Befehle gibt es nur in Sessions von Claude Code, Codex und OpenCode.",
   sessionToolMismatch: "Session und Account gehören zu unterschiedlichen Tools.",
   cliUnavailableOnHost: (toolName) =>
     `${toolName} ist auf diesem Rechner nicht installiert.`,

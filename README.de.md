@@ -19,8 +19,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 
 - **Native CLI-Sessions:** echte tmux-Terminals mit Anmeldung, Modellen und
   Rückfragen der jeweiligen CLI, dazu eine Chat-Ansicht, die Antworten schon beim
-  Schreiben zeigt, sich auf dem Handy wiederherstellt und Diktat annimmt
-  ([Live-Aktualisierung](docs/native-chat-delivery.md#live-chat-updates),
+  Schreiben zeigt, die eigenen Slash-Befehle, Skills und Plugin-Befehle der CLI
+  ergänzt, sich auf dem Handy wiederherstellt und Diktat annimmt
+  ([Slash-Befehle](docs/native-chat-delivery.md#slash-command-completion),
+  [Live-Aktualisierung](docs/native-chat-delivery.md#live-chat-updates),
   [Neu laden und fortsetzen](docs/session-reload.md),
   [Nachrichten auf dem Handy](docs/mobile-delivery.md),
   [Diktat](docs/assistant-gateway.md#live-dictation-in-the-chats)).

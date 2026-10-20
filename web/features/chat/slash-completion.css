@@ -32,8 +32,10 @@
 }
 .chat-slash-options button {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 2px;
   width: 100%;
   min-height: 42px;
   padding: 8px 12px;
@@ -53,4 +55,44 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.chat-slash-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.chat-slash-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-slash-hint {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.chat-slash-source {
+  flex: 0 0 auto;
+  margin-left: auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.chat-slash-heading .chat-slash-note {
+  flex-basis: 100%;
+  color: var(--warning);
 }

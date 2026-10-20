@@ -425,6 +425,7 @@
   "chat.sessionHistoryPending": "de:f512f575d039 en:3e011491c303",
   "chat.sessionToolMismatch": "de:ac6918c4d61d en:e91c50907a23",
   "chat.shellInTerminal": "de:80fcdf85aa40 en:a142a380ccda",
+  "chat.slashCommandsUnavailable": "de:c009f8bddcc7 en:33352d32eb44",
   "chat.startNativeConversation": "de:246f78f9801e en:84ecbdc2d480",
   "chat.toolTextUnavailable": "de:30cdcf28cdd4 en:5d7966af79e2",
   "chat.unsupportedImageFormat": "de:5c2b37b68da6 en:de4ce29db295",

@@ -43,6 +43,7 @@ import { SessionActivity } from "../features/sessions/session-activity.js";
 import { AgentBus } from "../features/agentbus/agent-bus.js";
 import { Preferences } from "../features/settings/preferences.js";
 import { McpDirectory } from "../features/mcp-directory/client.js";
+import { SlashCommandService } from "../features/chat/slash-command-service.js";
 import { AccountStore, detectUtilities } from "../features/accounts/account-store.js";
 import { toolBinDirectories } from "../features/tools/tool-paths.js";
 import { NonoSandbox } from "../features/nono/nono-launch.js";
@@ -161,6 +162,7 @@ export async function createServices(config) {
     home: config.home,
   });
   const chatSync = new ChatSync({ sessions, chatImages });
+  const slashCommands = new SlashCommandService({ sessions, accounts });
   const chatStreams = new ChatStreams({
     sessions,
     chat,
@@ -362,6 +364,7 @@ export async function createServices(config) {
     models,
     chatImages,
     chatSync,
+    slashCommands,
     chatAttachments,
     chatDelivery,
     extensions,
