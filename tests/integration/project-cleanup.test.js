@@ -92,6 +92,15 @@ test("the startup cleanup merges duplicates and removes only empty junk rows, on
     account: { id: "local-codex", tool: "codex" },
     projectId: "d".repeat(64),
   });
+  // A queue item still names a third empty run worktree row (failed, never starts).
+  const queued = path.join(app.root, "work", "old", ".agentpier-worktrees", "f9a8b7c6");
+  await legacyRow(memory, queued, { id: "e".repeat(64), kind: "git", identity: "[]" });
+  app.application.pipelineQueue.store.insert({
+    id: "queued-item",
+    projectId: "e".repeat(64),
+    state: "failed",
+    task: "Waiting",
+  });
   memory.db.prepare("DELETE FROM migrations").run();
   await app.restart();
   memory = app.application.memory;
@@ -99,6 +108,7 @@ test("the startup cleanup merges duplicates and removes only empty junk rows, on
     ["app", "git", 0],
     ["e5f6a7b8", "git", 0],
     ["electronic-lab", "git", 1],
+    ["f9a8b7c6", "git", 0],
     ["spoolops", "directory", 1],
     ["spoolops", "git", 1],
     ["Used", "directory", 1],

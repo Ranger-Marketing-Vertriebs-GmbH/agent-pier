@@ -123,6 +123,7 @@ export async function createApplication(config) {
   });
   Object.assign(services, await createPipelineServices(services));
   services.projectRebind.definitions = services.pipelineDefinitions;
+  services.projectRebind.runQueue = services.pipelineQueue;
   services.projectDuplicates = new ProjectDuplicates(services);
   await services.projectDuplicates.resume();
   // A failed one-off cleanup keeps no marker, so the next start retries it.
@@ -162,6 +163,9 @@ export async function createApplication(config) {
   services.codexMcpLogins = createCodexMcpLogins(services, effective);
   services.sessionMcp = new SessionMcp(services);
   await services.sessionMcp.ready;
+  // Items MCP clients queued wait until their grants can be checked again.
+  services.pipelineQueue.authorize = (item) => services.mcpTools.queuedStart(item);
+  services.pipelineQueue.changed();
   // Runs after SessionMcp so assistant recovery can never delay it; failures stay isolated.
   await services.assistantFeature.connect();
   services.releaseMigration = new ReleaseSessionMigration({

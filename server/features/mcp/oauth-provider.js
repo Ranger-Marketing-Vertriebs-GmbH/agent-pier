@@ -136,6 +136,22 @@ export function createOAuthProvider({
   };
   return {
     clientsStore,
+    /** A grant's current access while it is neither revoked nor expired, else null. */
+    grant(id) {
+      try {
+        const grant = activeGrant(id);
+        return {
+          id: grant.id,
+          clientId: grant.clientId,
+          scopes: grant.scopes,
+          projectIds: grant.projectIds,
+          accountIds: grant.accountIds,
+          connectionIds: grant.connectionIds,
+        };
+      } catch {
+        return null;
+      }
+    },
     async authorize(client, params, response) {
       requireResource(params.resource);
       if (

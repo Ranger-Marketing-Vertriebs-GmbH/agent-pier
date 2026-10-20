@@ -8,12 +8,22 @@ import { fixture } from "../helpers/pipeline-engine.js";
 import { RunQueue } from "../../server/features/pipelines/run-queue.js";
 import { auditEvent } from "../../server/features/audit/audit-schema.js";
 import { problem } from "../../server/lib/storage.js";
+import { MutationBarrier } from "../../server/application/mutation-barrier.js";
 
 // A queue over the synthetic engine of one project ("project"); every run change
 // reaches the queue like the application's onChange wiring.
-function queueFixture(t, { limit = 1, countParked = false, gate = false } = {}) {
+function queueFixture(
+  t,
+  { limit = 1, countParked = false, gate = false, mutationBarrier } = {},
+) {
   let queue;
-  const f = fixture(t, { gate, options: { onChange: () => queue?.changed() } });
+  const f = fixture(t, {
+    gate,
+    options: { onChange: () => queue?.changed(), mutationBarrier },
+  });
+  // Registered projects, and rebinds recorded for projects that are gone.
+  const known = new Set(["project"]),
+    moved = new Map();
   const settings = { limit, countParked };
   f.definitions.getQueueSettings = (projectId) => ({ projectId, ...settings });
   const audit = [];
@@ -23,9 +33,10 @@ function queueFixture(t, { limit = 1, countParked = false, gate = false } = {}) 
       engine,
       definitions: f.definitions,
       projects: (id) => {
-        if (id !== "project") throw problem("Project not found", 404);
-        return { id, cwd: f.dir };
+        if (!known.has(id)) throw problem("Project not found", 404);
+        return { id, cwd: id === "project" ? f.dir : `${f.dir}/${id}` };
       },
+      projectMoved: (id) => moved.get(id) ?? null,
       audit: { append: (entry) => audit.push(auditEvent(entry)) },
       pollIntervalMs: 0,
     });
@@ -35,6 +46,8 @@ function queueFixture(t, { limit = 1, countParked = false, gate = false } = {}) 
     f,
     audit,
     settings,
+    known,
+    moved,
     get queue() {
       return queue;
     },
@@ -79,7 +92,11 @@ test("items start in order within the limit, the next one when a run finishes", 
     q.audit.filter((e) => e.action === "pipeline.started").map((e) => e.resourceId),
     [a.id, b.id],
   );
-  assert.deepEqual(q.audit[0].details, { kind: "queue" });
+  assert.deepEqual(q.audit[0].details, {
+    kind: "queue",
+    tokenBudget: 500,
+    tokenBudgetSource: "start",
+  });
   assert.equal(q.audit[0].source, "system");
 });
 
@@ -332,4 +349,129 @@ test("queue settings are stored per project and follow a folder that became a wo
   await fs.writeFile(file, JSON.stringify(stored));
   definitions = new PipelineDefinitions({ dataDir: root, accounts });
   assert.equal(definitions.getQueueSettings("project-b").custom, false);
+});
+
+test("items of a project that is gone fail with the reason and never start", async (t) => {
+  const q = queueFixture(t);
+  q.f.engine.store.create({
+    id: "busy",
+    status: "running",
+    projectId: "project",
+    nodes: [],
+  });
+  const a = q.add("A");
+  await q.settle();
+  q.known.delete("project");
+  q.f.engine.store.remove("busy");
+  await q.settle();
+  assert.equal(q.f.launches.length, 0);
+  const failed = q.queue.find(a.id);
+  assert.equal(failed.state, "failed");
+  assert.equal(
+    failed.error,
+    "Das Projekt dieses Eintrags ist nicht mehr registriert. Der Eintrag startet nicht.",
+  );
+  assert.deepEqual(
+    q.audit.filter((e) => e.action === "pipeline.failed").map((e) => e.details),
+    [{ kind: "queue", failReason: "project-gone" }],
+  );
+});
+
+test("items of a rebound project follow it to its new id", async (t) => {
+  const q = queueFixture(t);
+  q.f.engine.store.create({
+    id: "busy",
+    status: "running",
+    projectId: "project",
+    nodes: [],
+  });
+  q.add("A");
+  q.add("B");
+  await q.settle();
+  // The folder became a Git work tree: the old row is gone, the rebind recorded.
+  q.known.delete("project");
+  q.known.add("work-tree");
+  q.moved.set("project", "work-tree");
+  q.f.engine.store.create({
+    id: "busy-2",
+    status: "running",
+    projectId: "work-tree",
+    nodes: [],
+  });
+  await q.settle();
+  assert.equal(q.queue.ownsProject("project"), false);
+  const items = q.queue.view("work-tree").items;
+  assert.deepEqual(
+    items.map((i) => [i.task, i.state]),
+    [
+      ["A", "queued"],
+      ["B", "queued"],
+    ],
+  );
+  assert.equal(q.queue.find(items[0].id).cwd, `${q.f.dir}/work-tree`);
+  assert.equal(q.f.launches.length, 0);
+});
+
+test("a start triggered inside a mutation lease takes a lease of its own", async (t) => {
+  const barrier = new MutationBarrier();
+  const q = queueFixture(t, { mutationBarrier: barrier });
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  const prepare = q.f.workspace.prepare;
+  q.f.workspace.prepare = async (input) => {
+    await held;
+    return prepare(input);
+  };
+  let item;
+  // Like a run that finishes inside the engine's lock: the queue is triggered while
+  // that lease is active, and the lease ends while the new run is still provisioning.
+  await barrier.run(async () => {
+    item = q.add("A");
+    for (let i = 0; i < 100 && !q.f.engine.store.all().length; i++)
+      await new Promise((resolve) => setTimeout(resolve, 5));
+  });
+  assert.equal(q.f.engine.store.get(item.id).phase, "provisioning");
+  let snapshotted = false;
+  const snapshot = barrier.snapshot(async () => {
+    snapshotted = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  // A backup waits for the start's own lease instead of copying a half-written run.
+  assert.equal(snapshotted, false);
+  release();
+  await snapshot;
+  await q.settle();
+  assert.equal(snapshotted, true);
+  assert.equal(q.queue.find(item.id).state, "started");
+});
+
+test("start-up only marks existing runs started and leaves other starts to the background", async (t) => {
+  const q = queueFixture(t);
+  const a = q.add("A");
+  await q.settle();
+  // As after a crash: the run exists, the item still says starting.
+  q.queue.store.save({ ...q.queue.find(a.id), state: "starting" });
+  const b = q.queue.store.insert({
+    ...q.queue.find(a.id),
+    id: "interrupted",
+    task: "B",
+    state: "starting",
+  });
+  q.queue.close();
+  const recovered = q.make();
+  q.replace(recovered);
+  let started = 0;
+  const start = q.f.engine.start.bind(q.f.engine);
+  q.f.engine.start = (...args) => {
+    started++;
+    return start(...args);
+  };
+  recovered.recover();
+  // Synchronously: the existing run marked its item, nothing was launched yet.
+  assert.equal(recovered.find(a.id).state, "started");
+  assert.equal(recovered.find(b.id).state, "starting");
+  assert.equal(started, 0);
+  await q.settle();
+  assert.equal(started, 1);
+  assert.equal(recovered.find(b.id).state, "started");
 });

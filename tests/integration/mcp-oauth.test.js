@@ -171,6 +171,11 @@ test("OAuth HTTP issues restricted tokens, persists private grants and revokes t
   ).json();
   assert.equal(grants.total, 1);
   assert.ok(!JSON.stringify(grants).includes(tokens.access_token));
+  // A queued start looks the grant up without a token while it is active.
+  const active = f.access().grant(info.extra.grant.id);
+  assert.deepEqual(active.projectIds, ["p1"]);
+  assert.equal(active.clientId, client.client_id);
+  assert.equal(f.access().grant("missing-grant"), null);
   assert.ok(
     !fs
       .readFileSync(path.join(f.directory, "access.sqlite"))
@@ -182,6 +187,7 @@ test("OAuth HTTP issues restricted tokens, persists private grants and revokes t
     200,
   );
   await assert.rejects(f.access().verifyAccessToken(tokens.access_token));
+  assert.equal(f.access().grant(info.extra.grant.id), null);
   f.restart();
   await assert.rejects(f.access().verifyAccessToken(tokens.access_token));
 });

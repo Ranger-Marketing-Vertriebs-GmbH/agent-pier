@@ -49,6 +49,7 @@ export async function createPipelineServices(services) {
       engine: pipelines,
       definitions: pipelineDefinitions,
       projects: (id) => services.memory.project(id),
+      projectMoved: (id) => services.memory.reboundTo(id),
       audit: services.audit,
       onError: (error) =>
         console.error(

@@ -85,6 +85,8 @@ export function createMcpAccess({
   return {
     publicRouter: origin ? createOAuthRouter(provider, origin) : Router(),
     verifyAccessToken: (token) => provider.verifyAccessToken(token),
+    grant: (id) =>
+      typeof id === "string" && id.length <= 100 ? provider.grant(id) : null,
     checkAccessToken: (token) => provider.checkAccessToken(token),
     status: () => ({
       available: Boolean(origin),

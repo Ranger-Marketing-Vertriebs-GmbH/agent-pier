@@ -69,6 +69,11 @@ export function createMcpServices(services, effective = () => services.config) {
     return auth;
   };
   mcpAccess.checkAccessToken = (token) => rebound(current().checkAccessToken(token));
+  // A grant as it is now, for starting what it queued earlier; null once revoked.
+  mcpAccess.grant = (id) => {
+    const grant = current().grant(id);
+    return grant && rebound({ extra: { grant } }).extra.grant;
+  };
   mcpAccess.verifyAccessToken = async (token) =>
     rebound(await current().verifyAccessToken(token));
   const mcpTools = new McpTools(services);
