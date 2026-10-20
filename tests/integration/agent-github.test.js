@@ -382,3 +382,29 @@ test("a promoted member keeps no GitHub access its lead granted", async (t) => {
   assert.equal(f.workflows.github.forAgent(f.agent()), null);
   assert.equal(f.workflows.github.held(f.agent().id), null);
 });
+
+test("a user agent's stored GitHub access never compiles", async (t) => {
+  const f = await setup(t);
+  f.save({ credentialId: f.work.id, level: "write" });
+  // A forged or restored database turns the agent into a user agent with its access.
+  const raw = f.store.storedAssistant(f.id);
+  f.store.db.prepare("UPDATE assistants SET body=? WHERE id=?").run(
+    JSON.stringify({
+      ...raw,
+      userAccess: {
+        mode: "own",
+        members: [{ userId: "u1", level: "chat" }],
+        released: [],
+      },
+    }),
+    f.id,
+  );
+  assert.equal(f.workflows.access.get(f.id).github.credentialId, f.work.id);
+  const sections = f.compiled();
+  assert.deepEqual(sections.servers, {});
+  assert.deepEqual(sections.agentTools, {});
+  const agent = f.store.getAssistant(f.id);
+  assert.equal(f.workflows.github.forAgent(agent), null);
+  assert.equal(f.workflows.github.describe(agent), null);
+  assert.equal(f.workflows.github.held(f.id), null);
+});

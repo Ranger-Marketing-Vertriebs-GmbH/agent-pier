@@ -2390,25 +2390,47 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
   (`server/features/users/user-agent-lock.js`) last, on a Gateway start and on every
   live apply. The entry's `tools.allow` loses `exec`, `process`, `agentpier_ssh`,
   every team tool and every OpenClaw session tool, its `tools.deny` names all of them,
-  and it has no `tools.exec` override. This holds for a forged shell level in the
-  database as well.
-- **Run time.** The team bridge refuses these tools for a user agent: the tool guard
-  answers `allow: false`, and team and SSH bridge calls answer 403.
+  and it has no `tools.exec` override. `AgentGithub` compiles no GitHub MCP server
+  for it and describes no GitHub access, even when its stored access names one. This
+  holds for a forged shell level or GitHub access in the database as well. Its browser
+  profile is always compiled headless, even when its stored `browserVisible` is true.
+- **Run time.** The team plugin's `before_tool_call` hook asks the bridge
+  (`/tool-policy`) before every call of `exec`, `process` and the session tools
+  (`lockedCoreTools`), for every agent; for a user agent the bridge answers
+  `allow: false` and the call is blocked, as it is when the bridge cannot be reached.
+  Team and SSH bridge calls of a user agent answer 403.
 - **Settings APIs.** Every write that would switch one of them on answers 409
   `USER_AGENT_LOCKED`: a shell level or the visible browser window, SSH accesses,
   pipelines, GitHub access, coding grants, project memory rights, a team policy or
-  proposal, and a Telegram bot for other people.
+  proposal, and a Telegram bot for other people. The Gateway compile never builds a
+  Telegram account or binding for a user agent either, even from a stored bot, and its
+  bot status stays inactive.
 - **Allowed.** Registered MCP servers the owner binds (stdio servers with the usual
   confirmation), the web capabilities, memory, reminders and routines.
 - **Project folders.** A user agent holds folder levels (`projectFiles`) without the
   coding grant (`projectIds` stays empty). Through `agentpier_workspace` it lists,
-  reads and, with write access, changes files there. Coding, project memory and run
-  actions answer `USER_AGENT_LOCKED`.
+  reads and, with write access, changes files there, in the owner's turn and in the
+  user's own turn (trusted origin `{ kind: "user", userId }` of one of its users).
+  Writes into configuration that the owner's tools run (`.claude/`, `.codex/`,
+  `.gemini/`, `.opencode/`, `.agents/`, `opencode.json(c)`, `.cursor/`, `.vscode/`,
+  `.idea/`, `.devcontainer/`, `.husky/`, `.githooks/`, `.mcp.json`, `.envrc`,
+  `.pre-commit-config.yaml`, every lefthook file name) and into the instruction files
+  his coding CLIs load from the working tree (`CLAUDE.md`, `CLAUDE.local.md`,
+  `AGENTS.md`, `AGENTS.override.md`, `GEMINI.md`; the list is `toolConfigNames` in
+  `project-paths.js`), at any depth and in any case and also through links, answer 403
+  `PROJECT_TOOL_CONFIG_LOCKED`; reading them stays allowed. Other files the owner runs
+  later (scripts, `package.json`, Makefiles) stay writable
+  ([security notes](agents.md#security-notes)).
+  Coding, project memory and run actions answer `USER_AGENT_LOCKED`. A project rebind
+  or merge drops these levels like an owner agent's grants, with the same
+  `project-rebind` audit record; they never come back with the old project id.
 - **Memory.** A user's own turn (trusted origin `{ kind: "user", userId }`) writes
-  memory like the owner's own turn, and so does its pre-compaction flush. Forwarded
-  content does not. A shared agent has one memory for all its users. A saved write to
-  its `MEMORY.md` or `memory/` leaves a "shared-write" note in the chat of the turn
-  that wrote it, and only there. `USER.md` stays the owner's.
+  memory like the owner's own turn. Forwarded content does not. A shared agent has one
+  memory for all its users. A saved write to its `MEMORY.md` or `memory/` leaves a
+  "shared-write" note in the chat of the turn that wrote it, and only there. `USER.md`
+  stays the owner's. On a shared agent the pre-compaction flush is refused in every chat,
+  a user's or the owner's own (a "flush" note in that chat), so a summary of a
+  private chat never reaches the memory that all its users read.
 
 ## Agent shell access (2026-10-12)
 

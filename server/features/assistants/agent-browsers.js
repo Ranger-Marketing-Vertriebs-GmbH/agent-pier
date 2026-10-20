@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import {
+  browserVisible,
   inheritsFromLead,
   personalCapabilities,
   personalEligible,
@@ -237,7 +238,7 @@ export class AgentBrowsers {
       /* No lead: a headless slot. */
     }
     const visible =
-      lead?.browserVisible === true && this.runtime.webTools?.visibleBrowser === true;
+      browserVisible(lead) && this.runtime.webTools?.visibleBrowser === true;
     const taken = new Set([...this.slots.values(), ...this.releasing]);
     for (let index = 0; index < memberSlotCount; index++) {
       const name = memberSlotName(visible, index);

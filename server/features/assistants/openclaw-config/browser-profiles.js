@@ -1,4 +1,5 @@
 import {
+  browserVisible,
   inheritsFromLead,
   personalCapabilities,
   personalEligible,
@@ -49,7 +50,7 @@ export function browserProfileMap({ profiles, browser, port }) {
   const visibleApp = browser?.visible?.available === true;
   const agents = browserAgents(profiles);
   const map = {};
-  const anyVisible = visibleApp && agents.some((agent) => agent.browserVisible === true);
+  const anyVisible = visibleApp && agents.some(browserVisible);
   if (agents.length)
     for (const visible of anyVisible ? [false, true] : [false])
       for (let index = 0; index < memberSlotCount; index++)
@@ -64,7 +65,7 @@ export function browserProfileMap({ profiles, browser, port }) {
     if (!name || offset > lastCdpOffset) continue;
     map[name] = {
       cdpPort: port + offset++,
-      headless: !(visibleApp && agent.browserVisible === true),
+      headless: !(visibleApp && browserVisible(agent)),
       agentId: agent.id,
     };
   }

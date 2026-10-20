@@ -4,6 +4,11 @@ import path from "node:path";
 import { shellService } from "../helpers/assistant-shell-service.js";
 import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
 import { lockedTools } from "../../server/features/users/user-agent-lock.js";
+import {
+  agentProfileName,
+  browserProfileMap,
+} from "../../server/features/assistants/openclaw-config/browser-profiles.js";
+import { personalCapabilities } from "../../server/features/assistants/native-capabilities.js";
 
 const userAccess = {
   mode: "own",
@@ -60,4 +65,30 @@ test("a forged shell level in the database stays locked", async (t) => {
   assert.deepEqual(entry.tools.deny, lockedTools);
   for (const tool of lockedTools) assert.ok(!entry.tools.allow.includes(tool), tool);
   assert.ok(!compiled.tools.allow.includes("exec"));
+});
+
+test("a forged visible browser in the database stays headless", () => {
+  const agent = (id, extra) => ({
+    id,
+    kind: "personal",
+    capabilities: { browser: true },
+    browserVisible: true,
+    ...extra,
+  });
+  const profiles = [agent("owner1"), agent("user1", { userAccess })];
+  for (const p of profiles) assert.ok(personalCapabilities(p).browser, p.id);
+  const map = browserProfileMap({
+    profiles,
+    browser: { visible: { available: true } },
+    port: 1000,
+  });
+  assert.equal(map[agentProfileName("owner1")].headless, false);
+  assert.equal(map[agentProfileName("user1")].headless, true);
+  // Alone, the user agent opens no visible member slots either.
+  const alone = browserProfileMap({
+    profiles: [profiles[1]],
+    browser: { visible: { available: true } },
+    port: 1000,
+  });
+  assert.ok(Object.values(alone).every((entry) => entry.headless));
 });

@@ -142,8 +142,13 @@ pipelines allowed in the agent's **Work** tab) and **Folder access** (**None**,
 (`PUT /api/assistant-project-access/<projectId>/<agentId>`, which calls the same
 `saveWork`): the same validation, revision, audit (`kind: "project-grants"` with the
 added and removed projects and changed folder levels, also for Work tab saves) and
-instruction refresh, so both views always agree. Choosing a folder level grants the
-project; removing the grant removes the level.
+instruction refresh, so both views always agree. For an owner agent, choosing a folder
+level grants the project and removing the grant removes the level. An agent of a
+restricted user holds folder levels without the project grant (files only): its
+`coding: false` request keeps the chosen level, and `coding: true` answers 409
+`USER_AGENT_LOCKED`. Its writes never reach tool configuration such as `.claude/`,
+`opencode.json`, `.vscode/`, `.mcp.json`, `.envrc` or instruction files such as `AGENTS.md` (403 `PROJECT_TOOL_CONFIG_LOCKED`; see
+[Agents of restricted users](assistant-gateway.md#agents-of-restricted-users)).
 
 Only this project's entries change. The request names what the page showed for the
 project (`expected`); if the agent's access to it changed elsewhere since then, the

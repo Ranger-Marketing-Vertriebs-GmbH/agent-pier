@@ -81,6 +81,22 @@ test("eligible agents: personal, not archived, without shell", () => {
   assert.equal(telegramEligible({ id: "x" }), false);
 });
 
+test("a restricted user's agent never owns a bot for other people", () => {
+  const userAccess = { mode: "own", members: [{ userId: "u1", level: "chat" }] };
+  const user = profile("u", { userAccess });
+  assert.equal(telegramEligible(user), false);
+  const sections = telegramSections({
+    profiles: [user, profile("a")],
+    telegram: { accounts: [account("u"), account("a")] },
+  });
+  assert.deepEqual(Object.keys(sections.accounts), ["ap-a"]);
+  assert.deepEqual(
+    sections.bindings.map((b) => b.match?.accountId),
+    ["ap-a"],
+  );
+  assert.deepEqual(sections.skipped, ["u"]);
+});
+
 test("an agent with SSH grants never owns a bot for other people", () => {
   const ssh = new Set(["a"]);
   assert.equal(telegramEligible(profile("a"), new Set(), ssh), false);

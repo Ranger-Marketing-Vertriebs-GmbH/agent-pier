@@ -8,6 +8,7 @@ import { taskWritable } from "./lead-request-store.js";
 import { workflowDefinitions } from "./team-plugin/workflow-tools.js";
 import { resultTurn } from "./member-result-writes.js";
 import { isUserAgent } from "../users/user-access.js";
+import { directTurn } from "./memory-write-policy.js";
 import { userAgentLocked } from "../users/user-agent-lock.js";
 
 const workspaceKeys = Object.keys(workflowDefinitions.workspace.parameters.properties);
@@ -25,7 +26,7 @@ const routineRefused = new Set(["coding_cancel"]);
 
 /**
  * The turn context of a workspace call: the owner's own turn (also from its
- * Telegram chat, not forwarded), a temporary member's team turn (team-coding.js)
+ * Telegram chat, not forwarded), a restricted user's own turn on her agent, a temporary member's team turn (team-coding.js)
  * a task the member's lead delegated to it (leadRequestContext) or a lead's follow-up
  * on its member's result (`memberResult`: the lead's own folders and projects, never
  * shares, and coding requests always wait for the owner). Every other turn is
@@ -43,15 +44,15 @@ export function workspaceContext(w, inv) {
   if (origin.kind === "team-member") return memberContext(w, chat, attempt, origin);
   if (origin.kind === "lead-request")
     return leadRequestContext(w, chat, attempt, req, origin);
-  w.access.eligible(chat.assistantId);
+  const agent = w.access.eligible(chat.assistantId);
   // A lead's follow-up on its member's result acts like the lead's own work
   // (member-result-writes.js), on the lead's own access only.
   const memberResult =
     origin.kind === "member-result"
       ? resultTurn(w.a, origin.requestId, attempt.id)
       : null;
-  if (!memberResult && (!["owner", "telegram"].includes(origin.kind) || origin.forwarded))
-    throw assistantProblem("invalid", 403);
+  // A restricted user's own turn counts only on an agent she is a user of.
+  if (!memberResult && !directTurn(origin, agent)) throw assistantProblem("invalid", 403);
   return {
     assistantId: chat.assistantId,
     conversationId: chat.id,

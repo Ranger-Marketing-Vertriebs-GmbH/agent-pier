@@ -1,5 +1,6 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
+import { isUserAgent } from "../users/user-access.js";
 import {
   appendFile,
   editFile,
@@ -126,7 +127,12 @@ export class AgentProjectFiles {
     const level = this.levels(ctx)[projectId];
     if (!level) throw assistantProblem("projectFolderNotGranted", 403);
     const root = this.w.s.memory.project(projectId).cwd;
-    const options = { protectedRoots: this.protectedRoots };
+    const options = {
+      protectedRoots: this.protectedRoots,
+      // An agent of restricted users never writes configuration the owner's tools
+      // run (project-paths.js): its folder access stays files only.
+      lockToolConfig: isUserAgent(this.w.a.store.getAssistant(ctx.assistantId)),
+    };
     const at = input.path === undefined ? undefined : textValue(input.path, 4096);
     if (!changing.has(input.action)) {
       const result =

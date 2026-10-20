@@ -86,6 +86,10 @@ const reasons = {
     "Project folder changes are unavailable until AgentPier has verified the agent runtime's tool guard. Try again in a minute; tell the owner if it persists.",
   PROJECT_PATH_REFUSED:
     "This path is not allowed. Use a path relative to the project folder (or absolute inside it), without '..'; .git internals, links leading out of the folder and AgentPier's own data are never accessible.",
+  PROJECT_TOOL_CONFIG_LOCKED:
+    "Agents of restricted users may not change tool configuration or CLI instructions in project folders (.claude, .codex, .opencode, opencode.json, .vscode, .mcp.json, .envrc, AGENTS.md, CLAUDE.md, git hook managers and similar), because the owner's tools run or follow them. Do not retry; tell the user which change you wanted so the owner can make it.",
+  USER_AGENT_LOCKED:
+    "Agents of restricted users cannot use coding, project memory, run actions, shell, SSH, Git or teams; this never changes for this agent. Do not retry; tell the user what you wanted to do so the owner can do it.",
   PROJECT_FILE_UNSUITABLE:
     "This file is binary, hard-linked, not a regular file, too large for this action (edits and search: 1 MiB; appends: 16 MiB in total) or the line range lies too deep (256 MiB). Use files_list, read a line range with file_read, or tell the owner.",
   PROJECT_EDIT_NO_MATCH:
@@ -147,6 +151,8 @@ const byKey = {
   teamShareAccessOnly: "PERMANENT_ACCESS_ONLY",
   projectWriteUnavailable: "PROJECT_WRITE_UNAVAILABLE",
   projectPathRefused: "PROJECT_PATH_REFUSED",
+  projectToolConfigLocked: "PROJECT_TOOL_CONFIG_LOCKED",
+  userAgentLocked: "USER_AGENT_LOCKED",
   projectFileUnsuitable: "PROJECT_FILE_UNSUITABLE",
   projectEditNoMatch: "PROJECT_EDIT_NO_MATCH",
   projectFileEncoding: "PROJECT_FILE_ENCODING",

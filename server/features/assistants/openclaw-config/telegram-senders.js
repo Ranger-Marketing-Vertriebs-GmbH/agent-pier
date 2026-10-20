@@ -1,4 +1,5 @@
 import { personalEligible, personalShell } from "../native-capabilities.js";
+import { isUserAgent } from "../../users/user-access.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-telegram-senders-qualification.md
 // and tests/integration/assistant-telegram-senders-contract.test.js: one Telegram account
@@ -22,14 +23,15 @@ export const telegramSurfaces = [
 ];
 
 /**
- * Agents that may own a bot for other people: personal, not archived, without shell,
- * stdio MCP servers or SSH grants. A sender must never reach host commands, whatever
- * the store says.
+ * Agents that may own a bot for other people: personal, not archived, not a
+ * restricted user's agent, without shell, stdio MCP servers or SSH grants. A sender
+ * must never reach host commands or a user's agent, whatever the store says.
  */
 export function telegramEligible(profile, stdio = new Set(), ssh = new Set()) {
   return (
     !!profile?.runtimeAgentId &&
     personalEligible(profile) &&
+    !isUserAgent(profile) &&
     personalShell(profile) === "off" &&
     // A stdio MCP server runs host commands as well; remote servers stay allowed.
     !stdio.has(profile.id) &&

@@ -36,6 +36,15 @@ export async function nativeWriteGuard(t, f, { registrationMode = "full" } = {})
   const [hook] = hooks.filter((h) => h.name === "before_tool_call");
   assert.deepEqual(hook.options.matcher, ["write", "edit", "apply_patch"]);
   const agentId = f.store.getAssistant(f.id).runtimeAgentId;
+  // The run-time lock hook on OpenClaw's own locked tools: true when the call passes.
+  const locked = hooks.find((h) => h.options?.matcher?.includes("exec"));
+  const tool = async (toolName, ctx) =>
+    !(
+      await locked.handler(
+        { toolName, params: {} },
+        ctx || { agentId, sessionKey: "session" },
+      )
+    )?.block;
   const call = async (target, { toolName = "write", ctx } = {}) =>
     !(
       await hook.handler(
@@ -63,6 +72,8 @@ export async function nativeWriteGuard(t, f, { registrationMode = "full" } = {})
     bridge,
     call,
     patch,
+    tool,
+    locked,
     agentId,
     root,
     workspace: path.join(root, f.id),

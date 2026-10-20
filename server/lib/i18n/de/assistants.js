@@ -218,6 +218,8 @@ export const assistants = {
     "Änderungen in Projektordnern sind erst möglich, wenn der Tool-Schutz der Agenten-Laufzeit bestätigt ist.",
   projectPathRefused:
     "Dieser Pfad ist nicht erlaubt: Er muss im Projektordner bleiben; .git, Links nach außen und AgentPiers eigene Daten sind gesperrt.",
+  projectToolConfigLocked:
+    "Agenten von Benutzern dürfen keine Tool-Konfiguration und keine CLI-Anweisungen in Projektordnern ändern (etwa .claude, opencode.json, .mcp.json, .envrc oder AGENTS.md).",
   projectFileUnsuitable:
     "Diese Datei ist zu groß, binär oder keine normale Datei für diese Aktion.",
   projectEditNoMatch: "Der zu ersetzende Text kommt in der Datei nicht genau einmal vor.",

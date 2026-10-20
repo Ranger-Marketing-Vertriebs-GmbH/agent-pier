@@ -8,7 +8,47 @@ import { runFence } from "../memory/project-folders.js";
 // command): never read or written. Pipeline run worktrees belong to their runs.
 const hidden = new Set([".git"].map(fold));
 const readOnly = new Set([runFence].map(fold));
+// Configuration that coding CLIs, editors, direnv or hook managers run as the owner
+// when he opens or commits the folder (hooks, MCP servers, plugins, tasks,
+// environments), and the instruction files his coding CLIs load from the working
+// tree, often without approval. A restricted user's agent never writes there
+// (`lockToolConfig`), so its files-only folder access cannot plant a command or an
+// instruction for the owner's next session.
+export const toolConfigNames = [
+  ".claude",
+  ".codex",
+  ".gemini",
+  ".opencode",
+  ".agents",
+  "opencode.json",
+  "opencode.jsonc",
+  "CLAUDE.md",
+  "CLAUDE.local.md",
+  "AGENTS.md",
+  "AGENTS.override.md",
+  "GEMINI.md",
+  ".cursor",
+  ".vscode",
+  ".idea",
+  ".devcontainer",
+  ".husky",
+  ".githooks",
+  ".mcp.json",
+  ".envrc",
+  ".pre-commit-config.yaml",
+  // lefthook also reads these names under .config/, which the segment match covers.
+  "lefthook.yml",
+  "lefthook.yaml",
+  ".lefthook.yml",
+  ".lefthook.yaml",
+  "lefthook-local.yml",
+  "lefthook-local.yaml",
+  ".lefthook-local.yml",
+  ".lefthook-local.yaml",
+];
+const toolConfig = new Set(toolConfigNames.map(fold));
 const refused = () => assistantProblem("projectPathRefused", 403);
+const toolConfigLocked = () => assistantProblem("projectToolConfigLocked", 403);
 const inside = (parent, child) =>
   child === parent ||
   child.startsWith(parent.endsWith(path.sep) ? parent : parent + path.sep);
@@ -55,6 +95,12 @@ function protectedParts(parts, write) {
   );
 }
 
+// A write of a restricted user's agent into tool configuration, as given or resolved.
+function lockedConfig(parts, write, lockToolConfig) {
+  if (write && lockToolConfig && parts.some((part) => toolConfig.has(fold(part))))
+    throw toolConfigLocked();
+}
+
 /**
  * Resolves `raw` inside a granted project folder, with the real path checked on
  * every call: symbolic links may point anywhere inside the folder, never out of it,
@@ -62,12 +108,19 @@ function protectedParts(parts, write) {
  * variants (".GIT") are caught by folding every segment, before and after links are
  * resolved. Returns the real target (or, for a target that does not exist yet, the
  * real parent joined with the missing names), its relative POSIX path and whether
- * it exists. Refuses with `projectPathRefused` (403) otherwise.
+ * it exists. Refuses with `projectPathRefused` (403) otherwise, and with
+ * `projectToolConfigLocked` (403) a write into tool configuration when
+ * `lockToolConfig` is set (an agent of restricted users).
  */
-export function projectTarget(root, raw, { write = false, protectedRoots = [] } = {}) {
+export function projectTarget(
+  root,
+  raw,
+  { write = false, protectedRoots = [], lockToolConfig = false } = {},
+) {
   const real = realRoot(root);
   const parts = segments(raw, [...new Set([path.resolve(root), real])]);
   if (protectedParts(parts, write)) throw refused();
+  lockedConfig(parts, write, lockToolConfig);
   // The deepest existing ancestor decides where links lead.
   let found = real,
     missing = [];
@@ -83,6 +136,7 @@ export function projectTarget(root, raw, { write = false, protectedRoots = [] } 
   if (!inside(real, found)) throw refused();
   const relative = path.relative(real, target).split(path.sep).filter(Boolean);
   if (protectedParts(relative, write)) throw refused();
+  lockedConfig(relative, write, lockToolConfig);
   for (const root of protectedRoots) {
     const guarded = realpath(root) || root;
     if (inside(guarded, target) || (write && inside(target, guarded))) throw refused();
