@@ -28,6 +28,8 @@ export const userRoutes = [
     pattern: /^\/api\/me\/conversations\/[^/]+\/attachments\/[^/]+$/,
   },
   { method: "GET", pattern: /^\/api\/me\/attachments\/[^/]+$/ },
+  // Her agent's browser: running, and watchable now (me-agents.js).
+  { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/browser$/ },
   // Her agents' settings and memory within her level (me-agent-settings.js).
   { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/settings$/ },
   { method: "PATCH", pattern: /^\/api\/me\/agents\/[^/]+\/settings$/ },

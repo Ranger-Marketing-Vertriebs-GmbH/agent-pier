@@ -184,7 +184,12 @@ export async function browserCall(event, ctx, bridge) {
     typeof event?.params?.action === "string" ? event.params.action : undefined;
   const response = await bridge(
     "/browser-policy",
-    { agentId: ctx?.agentId, ...(action && { action }) },
+    {
+      agentId: ctx?.agentId,
+      // The calling turn: its person may watch and take over the browser.
+      ...(typeof ctx?.sessionKey === "string" && { sessionKey: ctx.sessionKey }),
+      ...(action && { action }),
+    },
     ctx?.abortSignal,
   ).catch(() => null);
   const policy = response?.ok ? await response.json().catch(() => null) : null;

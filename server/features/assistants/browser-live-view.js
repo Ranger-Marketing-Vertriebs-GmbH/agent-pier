@@ -41,6 +41,26 @@ export class BrowserLiveView {
     Object.assign(this, { browsers, runtime, pollMs, retryMs, previewMs, now, openMs });
     Object.assign(this, { cdpInput, onHandBack, leaseMs, warnMs, graceMs });
     this.streams = new Map();
+    // Whose turn drives each agent's browser: a user's id, or null for the owner.
+    this.drivers = new Map();
+    this.driverWatchers = new Set();
+  }
+  /** The user whose turn last drove agent `id`'s browser, or null (the owner). */
+  driver(id) {
+    return this.drivers.get(id) ?? null;
+  }
+  /** A turn drives the browser: its person's views stay, anyone else's close. */
+  setDriver(id, userId) {
+    const next = typeof userId === "string" ? userId : null;
+    if (this.driver(id) === next) return;
+    if (next === null) this.drivers.delete(id);
+    else this.drivers.set(id, next);
+    for (const watcher of [...this.driverWatchers]) watcher(id);
+  }
+  /** Calls `fn(agentId)` whenever a browser changes hands; returns the unwatch. */
+  watchDrivers(fn) {
+    this.driverWatchers.add(fn);
+    return () => this.driverWatchers.delete(fn);
   }
   /** Whether the owner holds agent `id`'s browser (the tool guard waits then). */
   controlled(id) {
