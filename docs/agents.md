@@ -579,7 +579,9 @@ and name each removed file as no longer available. Files the agent shared with y
 (below) are not affected. The clear is recorded in the audit log with the number of
 files and bytes removed. If the agent replaced the folder with a link or a file, which
 blocks every upload, the section says so, and clearing removes it; the next upload
-creates the folder again. What a link pointed to is never touched.
+creates the folder again. What a link pointed to is never touched. An agent that
+restricted users chat with has no **Clear attachments**: their files are theirs, and
+the owner cannot delete them.
 
 ### Videos
 

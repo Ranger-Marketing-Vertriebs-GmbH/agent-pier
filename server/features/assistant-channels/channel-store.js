@@ -212,6 +212,26 @@ export class ChannelStore {
       return this.write({ ...current, enabled: false, diagnostic: null }, revision);
     });
   }
+  /**
+   * Removes a channel with its token, pairing, inbox and outbox: a deleted user's
+   * bot leaves no texts behind, and the agent may get another bot.
+   */
+  remove(id) {
+    this.record(id);
+    destroyBackupKeys(this.root);
+    this.transaction(() => {
+      for (const table of ["channel_inbox", "channel_outbox"])
+        this.db.prepare(`DELETE FROM ${table} WHERE channel_id=?`).run(id);
+      for (const table of [
+        "channel_credentials",
+        "channel_pairing",
+        "channel_offsets",
+        "channel_strangers",
+        "channels",
+      ])
+        this.db.prepare(`DELETE FROM ${table} WHERE id=?`).run(id);
+    });
+  }
   pairing(id, revision, appUrl, language) {
     const current = this.requireRevision(id, revision);
     if (!this.secret(id)) throw assistantProblem("invalid");

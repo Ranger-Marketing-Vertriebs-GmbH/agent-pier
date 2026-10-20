@@ -51,6 +51,17 @@ async function refusedEverywhere(f, request, cookie, id, file) {
     assert.equal(response.status, 404, `${method} ${endpoint}`);
     assert.deepEqual(await response.json(), notFoundBody(), `${method} ${endpoint}`);
   }
+  // Staging a file into someone else's chat is refused before the body is read.
+  const staged = await fetch(
+    `${f.url}/api/me/conversations/${id}/attachments?name=dot.png`,
+    {
+      method: "POST",
+      headers: { cookie, origin: f.url, "content-type": "application/octet-stream" },
+      body: png,
+    },
+  );
+  assert.equal(staged.status, 404, "POST attachments");
+  assert.deepEqual(await staged.json(), notFoundBody(), "POST attachments");
   assert.equal(
     await upgradeStatus(f, `/api/assistant-conversations/${id}/stream`, cookie),
     404,
@@ -216,4 +227,90 @@ test("a user cannot cancel another user's attempt", async (t) => {
     assert.equal(response.status, 404);
     assert.deepEqual(await response.json(), notFoundBody());
   }
+});
+
+test("a user reviews her own uncertain turn, and only hers", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, ben, agent } = await sharedAgentOfTwo(f);
+  const assistants = f.application.assistants;
+  // She never restarts the Gateway every agent shares.
+  let restarts = 0;
+  assistants.runtime.stop = async () => restarts++;
+  assistants.runtime.start = async () => restarts++;
+  const request = as(f, anna.cookie);
+  const id = await open(request, agent.id);
+  const send = (clientRequestId) =>
+    request(`/api/me/conversations/${id}/messages`, {
+      method: "POST",
+      body: { clientRequestId, text: "Hello" },
+    });
+  const { attempt } = await (await send("first")).json();
+  // The Gateway restarted during the send: the outcome is unknown.
+  assistants.ledger.transition(attempt.id, "uncertain");
+  assert.equal((await send("second")).status, 409);
+  const recover = (cookie, attemptId) =>
+    as(f, cookie)(`/api/me/attempts/${attemptId}/recover`, {
+      method: "POST",
+      body: { acknowledgeUnknownOutcome: true },
+    });
+  for (const [cookie, attemptId] of [
+    [ben.cookie, attempt.id],
+    [anna.cookie, "unknown"],
+  ]) {
+    const refused = await recover(cookie, attemptId);
+    assert.equal(refused.status, 404);
+    assert.deepEqual(await refused.json(), notFoundBody());
+  }
+  // The owner never decides her turns.
+  const owner = await f.request(`/api/assistant-attempts/${attempt.id}/recover`, {
+    method: "POST",
+    body: { acknowledgeUnknownOutcome: true },
+  });
+  assert.equal(owner.status, 404);
+  const reviewed = await recover(anna.cookie, attempt.id);
+  assert.equal(reviewed.status, 200, await reviewed.clone().text());
+  assert.ok((await reviewed.json()).reviewedAt);
+  // Asking again stays a review, never a restart.
+  assert.equal((await recover(anna.cookie, attempt.id)).status, 200);
+  assert.equal(restarts, 0);
+  assert.equal((await send("third")).status, 202);
+});
+
+test("a user's review aborts her run that may still go on before another turn starts", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const { anna, agent } = await sharedAgentOfTwo(f);
+  const assistants = f.application.assistants;
+  const request = as(f, anna.cookie);
+  const id = await open(request, agent.id);
+  const send = (clientRequestId) =>
+    request(`/api/me/conversations/${id}/messages`, {
+      method: "POST",
+      body: { clientRequestId, text: "Hello" },
+    });
+  const { attempt } = await (await send("first")).json();
+  // The send timed out: the Gateway may still run the turn.
+  assistants.ledger.transition(attempt.id, "uncertain", { unconfirmed: "send" });
+  const recover = () =>
+    request(`/api/me/attempts/${attempt.id}/recover`, {
+      method: "POST",
+      body: { acknowledgeUnknownOutcome: true },
+    });
+  // A Gateway that does not take the abort leaves the turn running and unreviewed.
+  const call = gateway.client.call;
+  gateway.client.call = async (method, params) => {
+    if (method === "sessions.abort") throw Object.assign(Error("busy"), { code: "X" });
+    return call(method, params);
+  };
+  assert.equal((await recover()).status, 409);
+  assert.equal(assistants.ledger.getAttempt(attempt.id).reviewedAt, null);
+  assert.equal((await send("second")).status, 409);
+  gateway.client.call = call;
+  const reviewed = await recover();
+  assert.equal(reviewed.status, 200, await reviewed.clone().text());
+  const key = assistants.store.getConversation(id).runtimeSessionKey;
+  assert.deepEqual(
+    gateway.calls.filter((c) => c.method === "sessions.abort").map((c) => c.params),
+    [{ key, runId: attempt.runtimeRunId || attempt.id }],
+  );
+  assert.equal((await send("third")).status, 202);
 });

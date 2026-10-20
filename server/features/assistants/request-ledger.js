@@ -74,6 +74,12 @@ export class RequestLedger {
     if (!r) throw assistantProblem("notFound", 404);
     return r;
   }
+  /** Blanks a deleted user's message texts; the rows stay for their attempts. */
+  forgetTexts(conversationId) {
+    this.db
+      .prepare("UPDATE requests SET text='' WHERE conversation_id=?")
+      .run(conversationId);
+  }
   requests(conversationId) {
     return this.db
       .prepare("SELECT * FROM requests WHERE conversation_id=? ORDER BY rowid")

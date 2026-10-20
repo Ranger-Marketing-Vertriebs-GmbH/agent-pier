@@ -25,6 +25,9 @@ const screencastOptions = { maxWidth: 1280, maxHeight: 1280, quality: 60 };
 export const maxViewers = 8;
 // An upstream socket that has not opened by then is given up and retried.
 const openTimeoutMs = 10000;
+// A user's turn holds a shared browser this long after its last browser call (the
+// hand-back lease); then the browser returns to the owner.
+export const driverMs = leaseMs;
 
 export class BrowserLiveView {
   constructor({
@@ -43,6 +46,8 @@ export class BrowserLiveView {
     this.streams = new Map();
     // Whose turn drives each agent's browser: a user's id, or null for the owner.
     this.drivers = new Map();
+    this.driverTimers = new Map();
+    this.driverMs = driverMs;
     this.driverWatchers = new Set();
   }
   /** The user whose turn last drove agent `id`'s browser, or null (the owner). */
@@ -52,10 +57,24 @@ export class BrowserLiveView {
   /** A turn drives the browser: its person's views stay, anyone else's close. */
   setDriver(id, userId) {
     const next = typeof userId === "string" ? userId : null;
+    clearTimeout(this.driverTimers.get(id));
+    this.driverTimers.delete(id);
+    // Nothing reports a turn's end here: each browser call renews the user's hold.
+    if (next !== null) this.expireDriver(id);
     if (this.driver(id) === next) return;
     if (next === null) this.drivers.delete(id);
     else this.drivers.set(id, next);
     for (const watcher of [...this.driverWatchers]) watcher(id);
+  }
+  // A takeover in progress keeps the hold until it ends; the lease bounds it.
+  expireDriver(id) {
+    const timer = setTimeout(() => {
+      this.driverTimers.delete(id);
+      if (this.controlled(id)) this.expireDriver(id);
+      else this.setDriver(id, null);
+    }, this.driverMs);
+    timer.unref?.();
+    this.driverTimers.set(id, timer);
   }
   /** Calls `fn(agentId)` whenever a browser changes hands; returns the unwatch. */
   watchDrivers(fn) {
@@ -125,6 +144,8 @@ export class BrowserLiveView {
   }
   /** Ends every stream and tells its viewers, whose sockets then close. */
   close() {
+    for (const timer of this.driverTimers.values()) clearTimeout(timer);
+    this.driverTimers.clear();
     for (const stream of this.streams.values()) {
       stream.stop();
       for (const { viewer } of stream.viewers) viewer.end?.();

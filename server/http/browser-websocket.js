@@ -12,6 +12,7 @@ const backlog = 4 * 1024 * 1024;
 const inputBurst = 240,
   inputRate = 120;
 const inputTypes = new Set(["pointer", "wheel", "key", "text", "paste"]);
+const controls = new Set(["start", "take", "handBack"]);
 /** The viewer's view of the shared state: whether this login session holds control. */
 export function personalState(state, holder) {
   const { control, ...rest } = state;
@@ -51,7 +52,7 @@ export function attachBrowserWebSocket(
       const auth = login.require(token);
       const principal = login.principal(auth);
       const target = { kind: "browser", id: match[1] };
-      admit(principal, target);
+      const access = admit(principal, target) || {};
       const view = live();
       if (!view) {
         socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
@@ -64,11 +65,14 @@ export function attachBrowserWebSocket(
           auth,
           view,
           preview: url.searchParams.get("preview") === "1",
-          // Admission again: the browser changed hands or an opt-in ended.
+          viewOnly: access.viewOnly === true,
+          // Admission again: the browser changed hands, an opt-in ended or a shared
+          // agent became a user's own. A view admitted to drive that may now only watch
+          // is closed too; it reconnects view-only.
           admitted: () => {
             try {
-              admit(principal, target);
-              return true;
+              const now = admit(principal, target) || {};
+              return (now.viewOnly === true) === (access.viewOnly === true);
             } catch {
               return false;
             }
@@ -84,7 +88,7 @@ export function attachBrowserWebSocket(
   };
   server.on("upgrade", upgrade);
   wss.once("close", () => server.off("upgrade", upgrade));
-  wss.on("connection", (ws, { id, token, auth, view, preview, admitted }) => {
+  wss.on("connection", (ws, { id, token, auth, view, preview, viewOnly, admitted }) => {
     let alive = true;
     // The login session holds a takeover lease; never the token itself.
     const holder = createHash("sha256").update(`browser-holder\0${token}`).digest("hex");
@@ -144,6 +148,13 @@ export function attachBrowserWebSocket(
         return ws.close(1008);
       }
       try {
+        // A view-only viewer (the owner on a user's own agent) never takes, types
+        // or starts anything; he follows and switches tabs of the view only.
+        if (viewOnly && !["select", "follow"].includes(command?.type)) {
+          if (!inputTypes.has(command?.type) && !controls.has(command?.type))
+            return ws.close(1008);
+          return send({ type: "error", code: "VIEW_ONLY" });
+        }
         if (inputTypes.has(command?.type)) {
           // Too fast: dropped, like a frame a slow viewer misses.
           if (!allowInput()) return;

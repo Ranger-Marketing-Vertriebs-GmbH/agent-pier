@@ -514,6 +514,11 @@ export class AgentAttachments {
       detectAttachment(body, file.name)?.type === file.type;
     return { name: file.name, type: file.type, kind: file.kind, inline, body };
   }
+  /** When a chat file was added, or null for an unknown one. */
+  createdAt(id) {
+    const [file] = this.rows("SELECT * FROM agent_attachments WHERE id=?", String(id));
+    return file?.row.created_at ?? null;
+  }
   /** The conversation a chat file (attachment or shared file) belongs to, or null. */
   conversationOf(id) {
     const [file] = this.rows("SELECT * FROM agent_attachments WHERE id=?", String(id));

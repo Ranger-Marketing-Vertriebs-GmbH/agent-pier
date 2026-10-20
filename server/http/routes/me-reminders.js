@@ -4,9 +4,10 @@ import { userProblem } from "../../features/users/user-errors.js";
 
 const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 // A user's reminder goes to her chat; Telegram extras are her agent's to pair (later).
+// "May write" lets a routine change project files: that switch is the owner's alone.
 const ownInput = (body) => {
   if (!record(body)) return body;
-  const { channelId: _channel, telegram: _telegram, ...rest } = body;
+  const { channelId: _channel, telegram: _telegram, writes: _writes, ...rest } = body;
   return rest;
 };
 

@@ -51,16 +51,18 @@ export class AssistantActionStore {
   // on the parent agent with a teamId. A member's shell request in a turn its lead
   // delegated (leadAssistantId) waits in both chats, so it counts for both. Expiry is
   // applied lazily elsewhere, so it is checked here as well.
-  awaitingCounts(now = Date.now()) {
+  // `include({conversationId})` keeps out what the viewer may not see (a user's).
+  awaitingCounts(now = Date.now(), include = () => true) {
     const counts = {};
     const rows = this.db
       .prepare(
-        "SELECT assistant_id, json_extract(body,'$.teamId') AS team_id, json_extract(body,'$.leadAssistantId') AS lead_id, json_extract(body,'$.expiresAt') AS expires_at FROM assistant_actions WHERE json_extract(body,'$.state')='awaiting_approval'",
+        "SELECT assistant_id, json_extract(body,'$.conversationId') AS conversation_id, json_extract(body,'$.teamId') AS team_id, json_extract(body,'$.leadAssistantId') AS lead_id, json_extract(body,'$.expiresAt') AS expires_at FROM assistant_actions WHERE json_extract(body,'$.state')='awaiting_approval'",
       )
       .all();
     const count = (id) => (counts[id] ??= { own: 0, team: 0 });
     for (const r of rows) {
       if (r.expires_at != null && r.expires_at <= now) continue;
+      if (!include({ conversationId: r.conversation_id })) continue;
       if (r.team_id) count(r.assistant_id).team++;
       else count(r.assistant_id).own++;
       if (r.lead_id) count(r.lead_id).team++;

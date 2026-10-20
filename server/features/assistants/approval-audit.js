@@ -4,7 +4,7 @@ const channels = { telegram: "telegram", mcp: "mcp", tool: "tool" };
 export function approvalOrigin(origin) {
   const channel = channels[origin?.channel] || channels[origin?.kind] || "ui";
   const actor =
-    origin?.kind === "user"
+    origin?.kind === "user" || origin?.actor === "user"
       ? "user"
       : origin?.actor === "assistant"
         ? "assistant"
@@ -29,7 +29,10 @@ export function decideAudited(audit, details, decide) {
       ...(assistantId ? { resourceId: assistantId } : {}),
       source: channel === "mcp" ? "mcp" : actor === "assistant" ? "system" : "user",
       // A restricted user's decision names her (audit-actor.js).
-      ...(actor === "user" ? { actorUserId: details.origin.userId } : {}),
+      // Her own bot's button names her through `actorUserId`, not the Telegram user.
+      ...(actor === "user"
+        ? { actorUserId: details.origin.actorUserId ?? details.origin.userId }
+        : {}),
       outcome,
       details: {
         actor,

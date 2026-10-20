@@ -6,6 +6,10 @@ import { TeamService } from "../features/assistants/team-service.js";
 import { NativeMemory } from "../features/assistants/native-memory.js";
 import { NativeReminders } from "../features/assistants/native-reminders.js";
 import { NativeHeartbeats } from "../features/assistants/native-heartbeats.js";
+import {
+  deleteReleasedSessions,
+  retireReleased,
+} from "../features/users/user-release.js";
 import { TeamBridge } from "../features/assistants/team-bridge.js";
 import { WriteGuardReapply } from "../features/assistants/write-guard-reapply.js";
 import { writeGuardWiring } from "../features/assistants/write-guard-wait.js";
@@ -32,6 +36,7 @@ import { AssistantStore } from "../features/assistants/assistant-store.js";
 import { AssistantModels } from "../features/assistants/assistant-models.js";
 import { AssistantConfig } from "../features/assistants/assistant-config.js";
 import { AssistantService } from "../features/assistants/assistant-service.js";
+import { turnReviewable } from "../features/users/turn-review.js";
 import {
   OverrideStore,
   overridesFor,
@@ -163,6 +168,17 @@ export function constructAssistantGraph(host, created = {}) {
   // What the owner may read of his users' chats (users/owner-privacy.js).
   // Read lazily: the agent services may exist before the user store does.
   assistants.privacy = { visible: (c) => host.ownerPrivacy?.visible(c) ?? true };
+  // Whether a user may still use her agents: a disabled or deleted one may not.
+  assistants.userActive = (userId) => {
+    if (!host.users) return true;
+    try {
+      return !host.users.get(userId).disabled;
+    } catch {
+      return false;
+    }
+  };
+  // Turns nobody can review any more are settled by reconciliation (run-reconciler.js).
+  assistants.reviewable = (conversation) => turnReviewable(host, conversation);
   // The agents' own browsers: profile pinning, the visible limit and idle stops.
   assistants.browsers = created.browsers = new AgentBrowsers({
     store,
@@ -555,6 +571,10 @@ export function connectAssistantServices(graph) {
       if (!assistants.maintenance) reminders.heartbeats.reconcile().catch(() => {});
       // Routine jobs follow the current run settings (tools, chat commit).
       if (!assistants.maintenance) reminders.routines?.reconcile().catch(() => {});
+      // Jobs a user took with her, left behind while this Gateway was away.
+      if (!assistants.maintenance) retireReleased({ assistants });
+      // Transcripts of deleted users' chats, likewise.
+      if (!assistants.maintenance) deleteReleasedSessions({ assistants });
     },
   });
   return graph;

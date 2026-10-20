@@ -1,4 +1,5 @@
 import { assistantProblem, validateSendInput } from "./assistant-validation.js";
+import { memberLevel } from "../users/user-access.js";
 
 /**
  * One owner (or Telegram, or internal) turn of an AgentPier conversation, admitted by
@@ -25,6 +26,19 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     service.teams?.store.recordContext(request.id, context);
     return { request, attempt: service.ledger.attemptFor(request.id) };
   }
+  // A deleted or disabled user's chat, or one of a user who left the agent, takes no
+  // new turns: not from her Telegram bot, a reminder or anything else. Nor does the
+  // owner's chat on a shared agent that has since become a user's own agent.
+  const agent = service.store.getAssistant(conversation.assistantId);
+  if (
+    conversation.archivedAt ||
+    conversation.deletedUser ||
+    (typeof conversation.userId === "string"
+      ? !memberLevel(agent, conversation.userId) ||
+        service.userActive?.(conversation.userId) === false
+      : agent.userAccess?.mode === "own")
+  )
+    throw assistantProblem("notFound", 404);
   service.requireReady();
   if (
     service.ledger

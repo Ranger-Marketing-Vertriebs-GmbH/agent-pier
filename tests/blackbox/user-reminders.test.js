@@ -102,6 +102,26 @@ test("user B cannot see or change A's reminder on a shared agent", async (t) => 
   assert.equal(own.status, 200, await own.clone().text());
 });
 
+test("the owner's reminder routes refuse a user's reminder on a shared agent", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, agent } = await family(f);
+  const created = await create(f, anna.cookie, agent.id, "dentist");
+  assert.equal(created.status, 201, await created.clone().text());
+  const { id } = await created.json();
+  const before = f.application.assistants.reminders.bindings.get(id);
+  const base = `/api/assistants/${agent.id}/reminders/${id}`;
+  for (const [method, endpoint, body] of [
+    ["PATCH", base, { enabled: false, revision: 1 }],
+    ["DELETE", base],
+    ["POST", `${base}/review`, { outcome: "absent" }],
+    ["GET", `${base}/runs`],
+  ]) {
+    const response = await f.request(endpoint, { method, body });
+    assert.equal(response.status, 404, `${method} ${endpoint}`);
+  }
+  assert.deepEqual(f.application.assistants.reminders.bindings.get(id), before);
+});
+
 test("a reminder created by the agent in A's turn belongs to A", async (t) => {
   const { f } = await chatFixture(t);
   const { anna, ben, annaChat, benChat } = await family(f);

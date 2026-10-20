@@ -1,5 +1,6 @@
 import { memoryEnabled, personalCapabilities } from "./native-capabilities.js";
 import { textValue, validateSendInput } from "./assistant-validation.js";
+import { directOrigin } from "./memory-write-policy.js";
 // After a Gateway (re)start the agents run without write and edit until the team
 // plugin reports its write guard (WRITE_GUARD_PENDING, team-bridge.js). An owner
 // turn admitted in that window would silently lose what it was asked to remember,
@@ -18,8 +19,9 @@ export const guardNeeded = (assistant) =>
   personalCapabilities(assistant).browser ||
   personalCapabilities(assistant).createImages ||
   personalCapabilities(assistant).readPdfs;
-const ownTurn = (context) =>
-  ["owner", "telegram"].includes(context?.kind) && !context.forwarded;
+// A person's own turn (the owner's, his Telegram chat's or a user's in her chat)
+// may change memory, so it waits for the guard like the owner's.
+const ownTurn = directOrigin;
 
 /** AssistantConfig's view of the guard (assistant-graph.js wires it). */
 export function writeGuardWiring({ bridge, nativeReady }) {

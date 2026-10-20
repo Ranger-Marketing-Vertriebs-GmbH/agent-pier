@@ -2,7 +2,7 @@ import { Router } from "express";
 import { createHash } from "node:crypto";
 import { notFoundBody } from "../responses.js";
 import { agentView } from "./me-agents.js";
-import { approvalAudience } from "../../features/users/approval-audience.js";
+import { awaitingForUser } from "../../features/users/approval-audience.js";
 
 /**
  * A restricted user's event stream: `agents` when her agent list or one of her chats
@@ -35,12 +35,8 @@ export function meEventRoutes(services) {
       const list = services.userScope
         .agentsFor(userId)
         .map((agent) => agentView(assistants, agent, userId));
-      const count = (assistants.workflows?.store.awaiting(Date.now()) || []).filter(
-        (action) => {
-          const audience = approvalAudience(action, assistants.store);
-          return audience.kind === "user" && audience.userId === userId;
-        },
-      ).length;
+      // Only what she can open: an approval of a chat she left is not hers to decide.
+      const count = awaitingForUser(services, req.principal).length;
       return { list, count, chats: new Set(list.map((a) => a.conversationId)) };
     };
     const digest = (value) =>

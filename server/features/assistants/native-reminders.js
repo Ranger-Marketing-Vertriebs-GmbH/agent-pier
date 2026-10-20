@@ -9,6 +9,7 @@ import {
   deliverableChannel,
   mainConversation,
   pairedChannel,
+  personalChannel,
   sameTelegram,
   telegramOf,
   telegramTarget,
@@ -161,15 +162,15 @@ export class NativeReminders {
     const conversation = this.mainConversation(binding.assistantId, audienceOf(binding));
     return conversation?.assistantId === binding.assistantId ? conversation : null;
   }
-  /** The paired Telegram chat a binding may also deliver to (origin: the asking chat). */
-  telegramTarget(id, channelId, origin) {
+  /** The person's (null: owner's) paired chat a binding may also deliver to. */
+  telegramTarget(id, channelId, origin, person = null) {
     const channel =
       origin?.kind === "telegram"
         ? this.channels.store.get(origin.channelId)
         : channelId
           ? this.channels.store.get(channelId)
-          : pairedChannel(this.channels, id);
-    if (!channel || channel.assistantId !== id || !channel.enabled || !channel.chatId)
+          : pairedChannel(this.channels, id, person);
+    if (!personalChannel(this.channels, channel, id, person))
       throw assistantProblem("reminderChannelRequired", 409);
     if (
       origin?.kind === "telegram" &&
@@ -187,7 +188,9 @@ export class NativeReminders {
   /** Switches a binding's extra Telegram delivery; on needs a paired chat. */
   setTelegram(binding, on) {
     this.bindings.patch(binding.id, {
-      telegram: on ? this.telegramTarget(binding.assistantId) : null,
+      telegram: on
+        ? this.telegramTarget(binding.assistantId, null, null, audienceOf(binding))
+        : null,
     });
   }
   values(input, old) {
@@ -234,7 +237,7 @@ export class NativeReminders {
       textValue(input.name, 100);
       const agent = this.agent(id, true);
       const telegram = this.wantsTelegram(input, origin)
-        ? this.telegramTarget(id, input.channelId, origin)
+        ? this.telegramTarget(id, input.channelId, origin, metadata.userId ?? null)
         : null;
       const old = this.bindings.list(id).find((b) => b.key === input.clientRequestId);
       // Replay lookup precedes due-time validation: an acknowledged one-shot may

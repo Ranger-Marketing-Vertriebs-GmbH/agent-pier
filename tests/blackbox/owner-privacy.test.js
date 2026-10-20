@@ -5,6 +5,11 @@ import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-ch
 import { signedInUser, upgradeStatus } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
 
+const png = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
+
 const message = (id, text, timestamp) => ({
   role: "user",
   content: text,
@@ -192,6 +197,15 @@ test("re-enabling starts a new since", async (t) => {
   );
 });
 
+test("switching the opt-in on again keeps its since", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user } = await annaChat(f);
+  const first = (await (await optIn(f, user.id, true)).json()).ownerMayRead.since;
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const again = (await (await optIn(f, user.id, true)).json()).ownerMayRead;
+  assert.deepEqual(again, { enabled: true, since: first });
+});
+
 test("the user sees the opt-in state", async (t) => {
   const { f } = await chatFixture(t);
   const { user, cookie } = await annaChat(f);
@@ -225,4 +239,43 @@ test("owner inbox never shows a user's approvals", async (t) => {
     (inbox.items || []).filter((item) => item.type === "action"),
     [],
   );
+});
+
+test("opt-in is not retroactive for her queued message and files", async (t) => {
+  const { f } = await chatFixture(t);
+  const { id, user, cookie } = await annaChat(f);
+  const stage = async () => {
+    const response = await fetch(
+      `${f.url}/api/me/conversations/${id}/attachments?name=dot.png`,
+      {
+        method: "POST",
+        headers: { cookie, origin: f.url, "content-type": "application/octet-stream" },
+        body: png,
+      },
+    );
+    assert.equal(response.status, 201, await response.clone().text());
+    return (await response.json()).id;
+  };
+  const early = await stage();
+  const queued = await as(f, cookie)(`/api/me/conversations/${id}/queued`, {
+    method: "POST",
+    body: { text: "Queued-before", attachments: [early] },
+  });
+  assert.equal(queued.status, 200, await queued.clone().text());
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await optIn(f, user.id, true);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const history = await (
+    await f.request(`/api/assistant-conversations/${id}/messages`)
+  ).json();
+  assert.equal(history.queued, null);
+  const snapshot = await (
+    await f.request(`/api/assistant-conversations/${id}/messages?cursor=`)
+  ).json();
+  assert.doesNotMatch(JSON.stringify(snapshot), /Queued-before/);
+  const before = await f.request(`/api/assistant-attachments/${early}`);
+  assert.equal(before.status, 404);
+  assert.deepEqual(await before.json(), notFoundBody());
+  const later = await stage();
+  assert.equal((await f.request(`/api/assistant-attachments/${later}`)).status, 200);
 });

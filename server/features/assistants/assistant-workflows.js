@@ -171,7 +171,7 @@ export class AssistantWorkflows {
     return decideAudited(
       this.s.audit,
       {
-        origin,
+        origin: this.auditOrigin(id, origin),
         actionId: id,
         decision: input?.decision,
         revision: input?.revision,
@@ -201,6 +201,16 @@ export class AssistantWorkflows {
       () => this.decideOnce(id, input, origin),
     );
   }
+  // A button of a user's own bot decides as her, so the audit names her, not the owner.
+  auditOrigin(id, origin) {
+    if (origin?.kind !== "telegram") return origin;
+    try {
+      const audience = approvalAudience(this.store.get(id), this.a.store);
+      if (audience.kind === "user")
+        return { ...origin, actor: "user", actorUserId: audience.userId };
+    } catch {}
+    return origin;
+  }
   decideOnce(id, input, origin) {
     return this.a.admit(async () => {
       exact(input, ["revision", "decision"]);
@@ -224,10 +234,13 @@ export class AssistantWorkflows {
       )
         throw assistantProblem("invalid", 403);
       // A user's approval is hers alone: the owner never finds it, another user neither.
+      // Her own bot's buttons decide it too; the chat check below proves the button.
       const audience = approvalAudience(action, this.a.store);
       if (
         audience.kind === "user"
-          ? origin.kind !== "user" || origin.userId !== audience.userId
+          ? origin.kind === "user"
+            ? origin.userId !== audience.userId
+            : origin.kind !== "telegram"
           : origin.kind === "user"
       )
         throw assistantProblem("notFound", 404);

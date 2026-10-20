@@ -366,8 +366,14 @@ export class NativeRoutines extends NativeReminders {
     const connection = await this.start();
     let changed = false;
     for (const binding of routines) {
-      // Each routine runs in the main chat of the person it belongs to.
-      const conversation = await this.openMain(id, audienceOf(binding));
+      // Each routine runs in the main chat of the person it belongs to. One whose
+      // person may no longer chat here is left as it is, never the agent's others.
+      let conversation;
+      try {
+        conversation = await this.openMain(id, audienceOf(binding));
+      } catch {
+        continue;
+      }
       const target = {
         conversationId: conversation.id,
         sessionKey: conversation.runtimeSessionKey,

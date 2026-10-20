@@ -30,3 +30,56 @@ export async function recoverAttempt(service, id, input) {
     service.recovering = false;
   }
 }
+
+// A user's acknowledgement of her own uncertain or interrupted turn. Restarting the
+// Gateway every agent shares stays with the owner, so a user never stops his or another
+// user's runs in flight; her own run is aborted in her session instead (abortAndReview).
+export async function acknowledgeAttempt(service, id, input) {
+  if (input?.acknowledgeUnknownOutcome !== true) throw assistantProblem("invalid");
+  const attempt = service.ledger.getAttempt(id);
+  if (attempt.reviewedAt) return attempt;
+  if (!unknownOutcome(attempt)) throw assistantProblem("active", 409);
+  service.requireReady();
+  return abortAndReview(service, attempt);
+}
+
+/**
+ * A turn of unknown outcome that nobody can review any more (users/turn-review.js): its
+ * user was deleted, disabled or removed from the agent, or it is the owner's on what is
+ * now a user's own agent. Left pending, it would block runtime updates and the agent's
+ * settings for good; reconciliation aborts its run and marks it reviewed. Never throws.
+ */
+export async function settleUnreviewable(service, attempt, conversation) {
+  try {
+    const current = service.ledger.getAttempt(attempt.id);
+    if (current.reviewedAt || !unknownOutcome(current) || service.recovering) return;
+    if (service.reviewable?.(conversation) !== false) return;
+    await abortAndReview(service, current);
+  } catch {
+    /* Retried at the next reconciliation. */
+  }
+}
+
+const unknownOutcome = (attempt) => ["uncertain", "interrupted"].includes(attempt.state);
+
+// Only once the Gateway took the abort of the run in its own session is the attempt
+// marked reviewed and a new turn may follow: a send that timed out may still run there.
+async function abortAndReview(service, attempt) {
+  const conversation = service.store.getConversation(
+    service.ledger.getRequest(attempt.requestId).conversationId,
+  );
+  try {
+    await service.runtime.client.call("sessions.abort", {
+      key: conversation.runtimeSessionKey,
+      runId: attempt.runtimeRunId || attempt.id,
+    });
+  } catch {
+    throw assistantProblem("active", 409);
+  }
+  // Confirmed or ended meanwhile: the run speaks for itself.
+  const current = service.ledger.getAttempt(attempt.id);
+  if (current.reviewedAt || !unknownOutcome(current)) return current;
+  const reviewed = service.ledger.review(attempt.id);
+  service.changed({ conversationId: conversation.id });
+  return reviewed;
+}

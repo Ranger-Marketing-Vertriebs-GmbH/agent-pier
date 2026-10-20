@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
+import {
+  as,
+  chatFixture,
+  pairedTelegram,
+  sharedAgentOfTwo,
+  userAgent,
+} from "../helpers/user-chats.js";
 import { signedInUser } from "../helpers/users.js";
 import { telegramMessage } from "../helpers/assistant-channel-fixture.js";
 
@@ -88,4 +94,52 @@ test("Telegram for other people stays unavailable", async (t) => {
   });
   assert.equal(response.status, 409, await response.clone().text());
   assert.equal((await response.json()).code, "USER_AGENT_LOCKED");
+});
+
+test("the owner's channel list shows a user's Telegram texts only under her opt-in", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user, agent, request } = await extended(f);
+  const channel = await pairedTelegram(f, request, agent.id);
+  const channels = f.application.assistantChannels;
+  await channels.ingress.receive(channel.id, [telegramMessage(2, "Before-opt-in")]);
+  const ownerList = async () =>
+    (await (await f.request("/api/assistant-channels")).json()).channels.find(
+      (c) => c.id === channel.id,
+    );
+  const hidden = await ownerList();
+  assert.doesNotMatch(JSON.stringify(hidden), /Before-opt-in/);
+  assert.equal(hidden.chatId, null);
+  assert.deepEqual(hidden.inputs, []);
+  await f.request(`/api/users/${user.id}/owner-may-read`, {
+    method: "PUT",
+    body: { enabled: true },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await channels.ingress.receive(channel.id, [telegramMessage(3, "After-opt-in")]);
+  const readable = JSON.stringify(await ownerList());
+  assert.doesNotMatch(readable, /Before-opt-in/);
+  assert.match(readable, /After-opt-in/);
+});
+
+test("the owner pairs and removes his own bot on a shared agent", async (t) => {
+  const { f } = await chatFixture(t);
+  fakeTelegram(f);
+  const { agent } = await sharedAgentOfTwo(f, "extended", ["Carla", "Dora"]);
+  const created = await f.request("/api/assistant-channels", {
+    method: "POST",
+    body: { assistantId: agent.id, token, language: "en" },
+  });
+  assert.equal(created.status, 201, await created.clone().text());
+  const channel = await created.json();
+  const paired = await f.request(`/api/assistant-channels/${channel.id}/pair`, {
+    method: "POST",
+    body: { revision: channel.revision },
+  });
+  assert.equal(paired.status, 200, await paired.clone().text());
+  const current = f.application.assistantChannels.store.get(channel.id);
+  const removed = await f.request(`/api/assistant-channels/${channel.id}`, {
+    method: "DELETE",
+    body: { revision: current.revision },
+  });
+  assert.equal(removed.status, 200, await removed.clone().text());
 });

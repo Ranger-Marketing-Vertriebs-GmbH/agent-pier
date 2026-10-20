@@ -52,8 +52,11 @@ export class NativeHeartbeats {
   }
   /** Whether the agent should keep a check-in job, chat aside. */
   eligible(agent) {
+    const person = agentPerson(agent);
     return (
       heartbeatSettings(agent).enabled &&
+      // A disabled or deleted user gets no check-ins in her chat or on her devices.
+      (person === null || this.assistants.userActive?.(person) !== false) &&
       // A shared agent has no one person to check in with (first version: off).
       !isShared(agent) &&
       // The notes are what a check-in looks at; without memory it has nothing.
@@ -64,11 +67,14 @@ export class NativeHeartbeats {
   /** The job an eligible agent should have: its main chat and Telegram extra. */
   wanted(agent) {
     // The main chat of the agent's person: the owner, or the user of her own agent.
-    const conversation = this.reminders.mainConversation(agent.id, agentPerson(agent));
+    const person = agentPerson(agent);
+    const conversation = this.reminders.mainConversation(agent.id, person);
     if (!this.eligible(agent) || !conversation) return null;
     const settings = heartbeatSettings(agent);
     const channel =
-      settings.telegram !== false && pairedChannel(this.reminders.channels, agent.id);
+      settings.telegram !== false &&
+      // Only that person's own bot: never one left from when the agent was shared.
+      pairedChannel(this.reminders.channels, agent.id, person);
     return {
       settings,
       target: {

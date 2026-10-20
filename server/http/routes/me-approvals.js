@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { approvalAudience } from "../../features/users/approval-audience.js";
+import {
+  approvalAudience,
+  awaitingForUser,
+} from "../../features/users/approval-audience.js";
 
 /**
  * The approvals of a user's own chats: what her agents ask her to allow. Another
@@ -13,15 +16,7 @@ export function meApprovalRoutes({ assistants, userScope }) {
   };
   router.get("/me/approvals", (req, res) => {
     const workflows = assistants.workflows;
-    const actions = (workflows?.store.awaiting(Date.now()) || []).filter((action) => {
-      if (!mine(req.principal.userId, action)) return false;
-      try {
-        userScope.conversationOf(req.principal, action.conversationId);
-        return true;
-      } catch {
-        return false;
-      }
-    });
+    const actions = awaitingForUser({ assistants, userScope }, req.principal);
     res.json({ actions: actions.map((action) => workflows.project(action)) });
   });
   router.post("/me/approvals/:id/decision", async (req, res) => {

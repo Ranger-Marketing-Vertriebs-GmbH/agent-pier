@@ -32,6 +32,7 @@ export function queuedView(service, conversationId) {
     ...(message.state === "failed" && message.error
       ? { error: message.error, ...messageIdentity(message.error) }
       : {}),
+    createdAt: message.createdAt,
     updatedAt: message.updatedAt,
   };
 }

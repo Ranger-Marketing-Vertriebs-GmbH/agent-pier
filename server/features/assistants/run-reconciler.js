@@ -1,3 +1,5 @@
+import { settleUnreviewable } from "./attempt-recovery.js";
+
 export function terminalState(result) {
   if (result.status === "ok")
     return result.stopReason === "rpc" || result.aborted ? "cancelled" : "completed";
@@ -39,5 +41,6 @@ export async function reconcileRuns(service) {
     } catch {
       /* Unavailable evidence cannot prove an execution outcome. */
     }
+    await settleUnreviewable(service, attempt, conversation);
   }
 }
