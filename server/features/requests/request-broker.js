@@ -13,6 +13,7 @@ import { refreshClaudeRuntime, confirmClaudeRuntime } from "./claude-runtime.js"
 import { validSession, requestValue, answerValue } from "./request-validation.js";
 import { messages, send } from "./wire.js";
 import { nativePushValue } from "./native-push.js";
+import { listenClaudeMod } from "../claude-mod/claude-mod-socket.js";
 const stale = () => problem(copy.stale, 409);
 // A terminal notice describes a moment, not a state; it fades on its own.
 export const terminalNoticeMs = 10 * 60 * 1000;
@@ -27,11 +28,19 @@ export class RequestBroker {
    * `onNative(sessionId, push)` receives the authenticated owner's push hints
    * (native-push.js): activity, streamed reply text and its end.
    */
-  constructor({ dataDir, sessions, onEvent = () => {}, onNative = () => {} }) {
+  constructor({
+    dataDir,
+    sessions,
+    onEvent = () => {},
+    onNative = () => {},
+    onLaunch = () => {},
+  }) {
     this.directory = path.join(dataDir, "requests");
     this.sessions = sessions;
     this.onEvent = onEvent;
     this.onNative = onNative;
+    // A new launch or a discarded session: what its last CLI reported is over.
+    this.onLaunch = onLaunch;
     this.entries = new Map();
     this.clients = new Set();
     this.deliveries = new Map();
@@ -44,6 +53,9 @@ export class RequestBroker {
       .digest("hex")
       .slice(0, 20);
     this.socketPath = `/tmp/agentpier-requests-${process.getuid?.() ?? "user"}-${hash}/bridge.sock`;
+    // The Claude Code bridge mod speaks HTTP; it gets a socket of its own beside it.
+    this.modSocketPath = path.join(path.dirname(this.socketPath), "claude-mod.sock");
+    this.modOwners = new Map();
     this.ready = this.start();
   }
   async start() {
@@ -93,13 +105,50 @@ export class RequestBroker {
       this.server.listen(this.socketPath, resolve);
     });
     await fs.chmod(this.socketPath, 0o600);
+    this.modServer = await listenClaudeMod({
+      socketPath: this.modSocketPath,
+      authenticate: (id, token) => this.modOwner(id, token),
+      deliver: (owner, events) => this.notify(owner.id, { type: "claude-mod", events }),
+    });
+  }
+  /**
+   * The Claude Code launch a bridge mod request belongs to, checked like a native
+   * channel's hello and the pushes after it; remembered for a second, as the mod
+   * reports about ten times a second.
+   */
+  async modOwner(id, token) {
+    if (!validSession(id)) return null;
+    const cached = this.modOwners.get(id);
+    if (cached && Date.now() - cached.at < 1000 && equal(token, cached.owner.token))
+      return cached.owner;
+    let launch;
+    try {
+      launch = JSON.parse(await fs.readFile(this.file(id), "utf8"));
+    } catch {
+      return null;
+    }
+    if (launch.tool !== "claude" || !equal(token, launch.token)) return null;
+    const session = await this.sessions.get(id).catch(() => null);
+    if (
+      session?.status !== "running" ||
+      session.accountId !== launch.accountId ||
+      session.tool !== launch.tool
+    )
+      return { status: 410 };
+    if (this.modOwners.size > 256) this.modOwners.clear();
+    this.modOwners.set(id, { owner: launch, at: Date.now() });
+    return launch;
   }
   file(id) {
     if (!validSession(id)) throw problem(copy.session);
     return path.join(this.directory, `${id}.launch.json`);
   }
   prepare(input) {
-    return this.ready.then(() => prepareRequests(this, input));
+    return this.ready.then(() => {
+      // Whatever the last launch's CLI reported in memory is over.
+      if (validSession(input?.id)) this.launched(input.id);
+      return prepareRequests(this, input);
+    });
   }
   emit(entry, action, source = "system", outcome = "success", decision) {
     if (action === "request.created") {
@@ -297,9 +346,16 @@ export class RequestBroker {
     if (push.type === "stream-end" && push.runId) socket.runs?.delete(push.runId);
     this.notify(owner.id, push);
   }
+  launched(sessionId) {
+    try {
+      this.onLaunch(sessionId);
+    } catch {
+      /* Advisory, like a push. */
+    }
+  }
   notify(sessionId, push) {
     try {
-      this.onNative(sessionId, push);
+      return this.onNative(sessionId, push);
     } catch {
       /* A hint is advisory; the watcher and the probe still see the change. */
     }
@@ -468,6 +524,8 @@ export class RequestBroker {
   }
   async discard(sessionId, { removeLaunch = true } = {}) {
     this.notices.delete(sessionId);
+    this.modOwners.delete(sessionId);
+    this.launched(sessionId);
     for (const socket of this.clients)
       if (socket.owner?.id === sessionId) socket.destroy();
     for (const [id, entry] of this.entries)
@@ -478,10 +536,8 @@ export class RequestBroker {
     if (removeLaunch) {
       this.claudeReloadRequired.delete(sessionId);
       await fs.rm(this.file(sessionId), { force: true });
-      await fs.rm(path.join(this.directory, `${sessionId}.claude`), {
-        force: true,
-        recursive: true,
-      });
+      for (const plugin of [`${sessionId}.claude`, `${sessionId}.claude-bridge`])
+        await fs.rm(path.join(this.directory, plugin), { force: true, recursive: true });
       await fs.rm(path.join(this.directory, `${sessionId}.tui.json`), { force: true });
     }
   }
@@ -490,6 +546,7 @@ export class RequestBroker {
     if (this.closed) return;
     this.closed = true;
     for (const socket of this.clients) socket.destroy();
+    await this.modServer?.close();
     await new Promise((resolve) => this.server.close(resolve));
     await fs.rm(this.socketPath, { force: true });
   }

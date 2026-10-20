@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { claudeHookVersion, writeClaudeHooks } from "./claude-runtime.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { ADAPTER_URL_PLACEHOLDER } from "../providers/adapter-launch.js";
+import { addClaudeBridge } from "../claude-mod/claude-mod-launch.js";
 const moduleFile = (name) => fileURLToPath(new URL(name, import.meta.url));
 export async function prepareRequests(
   broker,
@@ -44,7 +45,7 @@ export async function prepareRequests(
   );
   // Every tool reaches the broker over its socket and reads the launch file and
   // hook payloads the broker directory holds.
-  const baseGrants = [
+  let baseGrants = [
     { access: "allow", path: broker.directory },
     { access: "socket", path: broker.socketPath },
   ];
@@ -92,6 +93,11 @@ export async function prepareRequests(
     );
     await writeClaudeHooks(broker.directory, id);
     args.push("--plugin-dir", directory);
+    // Live turn, text and tool reports from inside Claude Code (claude-mod/).
+    baseGrants = [
+      ...baseGrants,
+      ...(await addClaudeBridge(broker, id, { launch, args, env })),
+    ];
   }
   if (account.tool === "opencode") {
     const configFile =
