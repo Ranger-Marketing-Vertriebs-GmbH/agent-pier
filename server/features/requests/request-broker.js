@@ -522,7 +522,17 @@ export class RequestBroker {
   handoff(sessionId, id, input) {
     return this.answer(sessionId, id, input, true);
   }
+  /** A file of this broker's directory named after a session, never outside it. */
+  sessionPath(sessionId, suffix) {
+    if (!validSession(sessionId)) throw problem(copy.session);
+    const file = path.resolve(this.directory, `${sessionId}${suffix}`);
+    if (!file.startsWith(path.resolve(this.directory) + path.sep))
+      throw problem(copy.session);
+    return file;
+  }
   async discard(sessionId, { removeLaunch = true } = {}) {
+    // Only a session id can name launch files; anything else removes nothing.
+    if (!validSession(sessionId)) return;
     this.notices.delete(sessionId);
     this.modOwners.delete(sessionId);
     this.launched(sessionId);
@@ -535,10 +545,13 @@ export class RequestBroker {
       }
     if (removeLaunch) {
       this.claudeReloadRequired.delete(sessionId);
-      await fs.rm(this.file(sessionId), { force: true });
-      for (const plugin of [`${sessionId}.claude`, `${sessionId}.claude-bridge`])
-        await fs.rm(path.join(this.directory, plugin), { force: true, recursive: true });
-      await fs.rm(path.join(this.directory, `${sessionId}.tui.json`), { force: true });
+      await fs.rm(this.sessionPath(sessionId, ".launch.json"), { force: true });
+      for (const plugin of [".claude", ".claude-bridge"])
+        await fs.rm(this.sessionPath(sessionId, plugin), {
+          force: true,
+          recursive: true,
+        });
+      await fs.rm(this.sessionPath(sessionId, ".tui.json"), { force: true });
     }
   }
   async close() {

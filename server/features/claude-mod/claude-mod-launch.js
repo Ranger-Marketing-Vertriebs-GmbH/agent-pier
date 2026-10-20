@@ -17,7 +17,8 @@ const moduleFile = fileURLToPath(new URL("./bridge-mod.js", import.meta.url));
  */
 export async function addClaudeBridge(broker, id, { launch, args, env }) {
   if (!atLeast(launch.cliVersion, CLAUDE_MOD_VERSION)) return [];
-  const directory = path.join(broker.directory, `${id}.claude-bridge`);
+  // Validated and kept inside the broker's directory before anything is removed.
+  const directory = broker.sessionPath(id, ".claude-bridge");
   await fs.rm(directory, { recursive: true, force: true });
   for (const folder of [".claude-plugin", "hooks"])
     await fs.mkdir(path.join(directory, folder), { recursive: true, mode: 0o700 });
