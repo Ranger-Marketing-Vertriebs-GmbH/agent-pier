@@ -5,11 +5,13 @@ import path from "node:path";
 import { projectDir } from "../lib/config.js";
 import { appDocumentPath } from "./security.js";
 import { cacheControlFor } from "./cache-policy.js";
+/** The body of an unknown /api route; refusals that must not reveal a route reuse it. */
+export const notFoundBody = () => ({
+  error: serverMessages.http.notFound,
+  ...messageIdentity(serverMessages.http.notFound),
+});
 export function registerResponses(app) {
-  const notFound = {
-    error: serverMessages.http.notFound,
-    ...messageIdentity(serverMessages.http.notFound),
-  };
+  const notFound = notFoundBody();
   app.use("/api", (_req, res) => res.status(404).json(notFound));
   const dist = path.join(projectDir, "dist");
   app.use(

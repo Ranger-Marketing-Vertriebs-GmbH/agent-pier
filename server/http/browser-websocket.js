@@ -1,5 +1,6 @@
 import http from "node:http";
 import { sessionToken } from "./login.js";
+import { requireOwnerSocket } from "./user-guard.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createHash } from "node:crypto";
@@ -46,7 +47,7 @@ export function attachBrowserWebSocket(server, { live, login, effective }) {
     try {
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req);
-      const auth = login.require(token);
+      const auth = requireOwnerSocket(login, token);
       const view = live();
       if (!view) {
         socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");

@@ -1,6 +1,7 @@
 import http from "node:http";
 import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
+import { requireOwnerSocket } from "./user-guard.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 
@@ -32,7 +33,7 @@ export function attachAssistantChatWebSocket(server, { assistants, login, effect
     try {
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req);
-      const auth = login.require(token);
+      const auth = requireOwnerSocket(login, token);
       if (!ID.test(match[1])) return refuse(socket, 404);
       const service = assistants();
       if (!service || service.closed || service.feeds.closed) return refuse(socket, 503);
