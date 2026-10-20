@@ -34,6 +34,16 @@ export const requestCopy = {
       description:
         "This account is not logged in yet. Login needs a browser code and is completed in the terminal.",
     },
+    autoModeDefault: {
+      title: "Make auto mode the default?",
+      description:
+        "Claude asks whether auto mode should become this account's default permission mode. In auto mode Claude checks each tool call for risky actions, runs those it assesses as lower-risk and blocks the rest. Your chat draft is preserved until you decide.",
+    },
+    autoModeBilling: {
+      title: "Claude auto mode billing notice",
+      description:
+        "Claude reports that this session's auto mode classifier requests are still billed as before. Continuing keeps auto mode working; cancelling interrupts the action that is waiting. Your chat draft is preserved until you decide.",
+    },
     unknown: {
       title: "Claude is waiting for input",
       description:
@@ -43,6 +53,11 @@ export const requestCopy = {
   startupOptions: {
     apiKey: { yes: "Use API key", no: "Do not use (recommended)" },
     securityNotes: { continue: "Continue" },
+    autoModeDefault: {
+      accept: "Make auto mode the default",
+      decline: "Keep the current mode",
+    },
+    autoModeBilling: { continue: "Continue in auto mode", cancel: "Cancel the action" },
   },
   title: "Native requests",
   permission: "Approval required",

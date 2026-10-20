@@ -1,9 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { startupScreen } from "../../server/features/requests/claude-startup-prompts.js";
-import { folderScreen } from "../fixtures/requests/claude-folder-trust.js";
+import {
+  folderScreen,
+  folderScreenWithWarnings,
+} from "../fixtures/requests/claude-folder-trust.js";
 import {
   apiKeyScreen,
+  autoModeBillingScreen,
+  autoModeDefaultScreen,
+  autoModeLookalikeScreen,
   composerScreen,
   loginScreen,
   oauthScreen,
@@ -113,4 +119,53 @@ test("a theme phrase without the standalone /theme hint line is not a theme dial
     "   Light mode",
   ].join("\n");
   assert.equal(startupScreen(raw, cwd), null);
+});
+
+test("folder trust below settings warnings is trust, not an unknown menu", () => {
+  const screen = startupScreen(folderScreenWithWarnings(cwd, "exit"), cwd, {
+    started: false,
+  });
+  assert.equal(screen.dialog, "trust");
+  assert.equal(screen.selected, "exit");
+});
+test("the auto mode default prompt keeps Claude's own options, also after the receipt", () => {
+  for (const options of [{ started: false }, { started: true, sessionOnly: true }]) {
+    const screen = startupScreen(autoModeDefaultScreen("decline"), cwd, options);
+    assert.equal(screen.dialog, "autoModeDefault");
+    assert.equal(screen.selected, "decline");
+    assert.deepEqual(screen.options, [
+      { id: "accept", label: "Yes, set auto mode as my default permission mode" },
+      { id: "decline", label: "No, keep manual mode" },
+    ]);
+  }
+  assert.equal(
+    startupScreen(autoModeDefaultScreen("accept", "accept edits"), cwd).options[1].label,
+    "No, keep accept edits",
+  );
+  // Neither or both rows marked: no selection to work from.
+  const raw = autoModeDefaultScreen("accept").replace("❯ Yes", "  Yes");
+  assert.equal(startupScreen(raw, cwd), null);
+});
+test("the classifier billing notice is answered with Enter or Esc", () => {
+  for (const variant of [{}, { boxed: true }, { gateway: true, boxed: true }]) {
+    const screen = startupScreen(autoModeBillingScreen(variant), cwd, {
+      sessionOnly: true,
+    });
+    assert.equal(screen?.dialog, "autoModeBilling", JSON.stringify(variant));
+    assert.deepEqual(screen.keys, { continue: "Enter", cancel: "Escape" });
+    assert.deepEqual(
+      screen.options.map((o) => o.id),
+      ["continue", "cancel"],
+    );
+  }
+  const unfinished = autoModeBillingScreen().replace("Nothing breaks", "Something");
+  assert.equal(startupScreen(unfinished, cwd, { sessionOnly: true }), null);
+});
+test("auto mode texts quoted in a transcript above the composer are no dialog", () => {
+  for (const options of [{ started: false }, { sessionOnly: true }])
+    assert.equal(startupScreen(autoModeLookalikeScreen(), cwd, options), null);
+  // After the receipt, onboarding dialogs and unknown menus are not looked for.
+  assert.equal(startupScreen(themeScreen(), cwd, { sessionOnly: true }), null);
+  assert.equal(startupScreen(folderScreen(cwd), cwd, { sessionOnly: true }), null);
+  assert.equal(startupScreen(unknownMenuScreen(), cwd, { sessionOnly: true }), null);
 });

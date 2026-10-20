@@ -97,6 +97,82 @@ function loginDialog(lines) {
   if (!method && lastLine(lines) !== "Paste code here if prompted >") return null;
   return { dialog: "login", selected: null, options: [] };
 }
+// Claude Code 2.1.304 asks these during a session too, after its native receipt:
+// the auto mode default nudge at startup, the billing notice at a classifier check.
+const SESSION_DIALOGS = new Set(["autoModeDefault", "autoModeBilling"]);
+const AUTO_DEFAULT_TITLE = "Make auto mode your default permission mode?";
+const AUTO_DEFAULT_ACCEPT = "Yes, set auto mode as my default permission mode";
+const BILLING_TITLE =
+  "We're changing auto mode to no longer charge for classifier requests in Claude Code.";
+const BILLING_BODY =
+  "Nothing breaks: auto mode keeps working, and its classifier requests are billed as before.";
+const rule = (line) => /^\s*[─━]{8,}\s*$/.test(line);
+// Dialog frames may draw side borders; box-only rows carry no text.
+const unboxed = (lines) =>
+  lines
+    .map((line) => line.replace(/^\s*[│┃]/, " ").replace(/[│┃]\s*$/, ""))
+    .filter((line) => line.trim() && !/^\s*[╭╮╰╯─━│┃]+\s*$/.test(line));
+/**
+ * "Make auto mode your default permission mode?": two unnumbered rows end the
+ * screen right below the title and its description; no footer, no composer.
+ */
+function autoModeDefaultDialog(lines) {
+  const title = lines.findLastIndex((line) => line.trim() === AUTO_DEFAULT_TITLE);
+  if (title < 0) return null;
+  const rest = unboxed(lines.slice(title + 1));
+  const rows = rest
+    .slice(-2)
+    .map((line) =>
+      line.match(
+        /^\s*(❯)?\s*(Yes, set auto mode as my default permission mode|No, keep [^❯]{1,40})$/,
+      ),
+    );
+  if (
+    rows.length !== 2 ||
+    rows.some((m) => !m) ||
+    rows[0][2] !== AUTO_DEFAULT_ACCEPT ||
+    !rows[1][2].startsWith("No, keep ") ||
+    rest.slice(0, -2).some((line) => rule(line) || /^\s*[❯›]/.test(line))
+  )
+    return null;
+  const cursor = rows.flatMap((m, index) => (m[1] ? [index] : []));
+  if (cursor.length !== 1) return null;
+  const options = [
+    { id: "accept", label: rows[0][2] },
+    { id: "decline", label: rows[1][2].trim() },
+  ];
+  return { dialog: "autoModeDefault", selected: options[cursor[0]].id, options };
+}
+/**
+ * The auto mode classifier billing notice: title, paragraphs and a key footer.
+ * Enter continues in auto mode, Esc cancels (interrupts) the pending action.
+ */
+function autoModeBillingDialog(lines) {
+  const start = lines.findLastIndex((line) =>
+    line.includes("We're changing auto mode to no longer charge"),
+  );
+  if (start < 0) return null;
+  const rows = unboxed(lines.slice(start));
+  const footer = rows.at(-1)?.trim() || "";
+  if (
+    footer.length > 80 ||
+    footer.includes("❯") ||
+    !/(?:^|·\s*)(?:Enter to continue|Esc to cancel)(?:\s*·|$)/.test(footer) ||
+    rows.slice(0, -1).some((line) => rule(line) || /^\s*[❯›]/.test(line))
+  )
+    return null;
+  const text = compact(rows.slice(0, -1));
+  if (!text.startsWith(BILLING_TITLE) || !text.includes(BILLING_BODY)) return null;
+  return {
+    dialog: "autoModeBilling",
+    selected: null,
+    keys: { continue: "Enter", cancel: "Escape" },
+    options: [
+      { id: "continue", label: "Continue" },
+      { id: "cancel", label: "Cancel" },
+    ],
+  };
+}
 function unknownDialog(lines, text) {
   const footer = /(Enter to confirm|Press Enter to continue)/.test(lastLine(lines));
   if (!footer || !text.includes("❯")) return null;
@@ -107,13 +183,16 @@ function unknownDialog(lines, text) {
 /**
  * Recognizes Claude's interactive startup dialogs on the current screen.
  * `started` marks a native receipt; unknown menus are reported only before it.
+ * `sessionOnly` limits it to the dialogs Claude also shows after its receipt.
  */
-export function startupScreen(raw, cwd, { started = true } = {}) {
+export function startupScreen(raw, cwd, { started = true, sessionOnly = false } = {}) {
   if (typeof raw !== "string" || raw.length > 64000 || typeof cwd !== "string")
     return null;
+  const lines = clean(raw);
+  const session = autoModeDefaultDialog(lines) || autoModeBillingDialog(lines);
+  if (session || sessionOnly) return session;
   const trust = folderTrustScreen(raw, cwd);
   if (trust) return { dialog: "trust", selected: trust.selected, options: TRUST_OPTIONS };
-  const lines = clean(raw);
   const text = compact(lines);
   if (!text) return null;
   return (
@@ -156,13 +235,15 @@ export async function refreshStartupPrompts(broker, session) {
     return;
   const current = await startupState(broker, session);
   const previous = localEntry(broker, session.id);
-  if (current?.started || !current) return expire(broker, previous);
-  return broker.sessions.control(session.id, async (control) => {
+  if (!current) return expire(broker, previous);
+  const scan = broker.sessions.control(session.id, async (control) => {
     const fresh = await startupState(broker, control.session);
     const menu =
       fresh &&
-      !fresh.started &&
-      startupScreen(await control.screen(), control.session.cwd, { started: false });
+      startupScreen(await control.screen(), control.session.cwd, {
+        started: fresh.started,
+        sessionOnly: fresh.started,
+      });
     if (!menu) return expire(broker, previous);
     const id = promptId(fresh, menu.dialog);
     if (broker.entries.has(id)) return;
@@ -186,6 +267,9 @@ export async function refreshStartupPrompts(broker, session) {
     broker.entries.set(id, entry);
     broker.emit(entry, "request.created");
   });
+  // A running session's poll must not fail when the terminal is briefly unavailable
+  // (reload, stop); the next poll looks again.
+  return current.started ? scan.catch(() => {}) : scan;
 }
 /** Moves the native selection to `choice`, confirms it and waits for the dialog to leave. */
 export async function answerStartupPrompt(broker, entry, choice) {
@@ -197,7 +281,7 @@ export async function answerStartupPrompt(broker, entry, choice) {
       const current = await startupState(broker, control.session);
       if (
         !current ||
-        current.started ||
+        (current.started && !SESSION_DIALOGS.has(dialog)) ||
         current.identity !== entry.launchIdentity ||
         promptId(current, dialog) !== entry.id ||
         broker.entries.get(entry.id) !== entry
@@ -216,8 +300,10 @@ export async function answerStartupPrompt(broker, entry, choice) {
     await delay(Math.max(0, 750 - (Date.now() - Date.parse(entry.createdAt))));
     let menu = await read();
     const index = (id) => menu.options.findIndex((o) => o.id === id);
+    // A notice without a selection answers with its own key (Enter or Esc).
+    const key = menu.keys?.[choice];
     const selectEnd = Date.now() + 3000;
-    while (menu.selected !== choice) {
+    while (!key && menu.selected !== choice) {
       if (Date.now() > selectEnd) throw stale();
       const from = index(menu.selected),
         to = index(choice);
@@ -235,13 +321,13 @@ export async function answerStartupPrompt(broker, entry, choice) {
     await verify();
     if ((await broker.launchIdentity(entry.sessionId)) !== entry.launchIdentity)
       throw stale();
-    await control.keys(["Enter"]);
+    await control.keys([key || "Enter"]);
     const end = Date.now() + 3000;
     while (Date.now() < end) {
       await delay(25);
       const current = await startupState(broker, control.session);
       if (current?.identity !== entry.launchIdentity) throw stale();
-      if (current.started) return;
+      if (current.started && !SESSION_DIALOGS.has(dialog)) return;
       if ((await screen())?.dialog === dialog) continue;
       // A partial redraw may briefly hide the dialog; require it to stay gone.
       await delay(50);

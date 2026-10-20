@@ -268,6 +268,34 @@ checks. It passed with Claude Code 2.1.270 on macOS arm64 against the local
 provider only. Synthetic frames in `tests/fixtures/requests/claude-startup-prompts.js`
 mirror the recorded 120- and 50-column screens.
 
+### Claude auto mode dialogs and settings warnings (2026-10-20)
+
+Live spikes with Claude Code 2.1.304 found three gaps. A fresh profile showed the
+"Make auto mode your default permission mode?" prompt and the auto mode classifier
+billing notice; both waited in the terminal while AgentPier showed nothing,
+because Claude may show them after its native receipt. A profile whose
+`settings.json` carried invalid permission rules printed warnings above the folder
+trust dialog, which then appeared as an unknown startup menu without options.
+
+Folder trust is now anchored on the dialog's own rule and `Accessing workspace:`
+heading wherever it starts, and still requires the exact workspace, its options
+and footer at the end of the screen. The auto mode prompt is recognized by its
+title and Claude's own unnumbered rows (`Yes, set auto mode as my default
+permission mode`, `No, keep <mode>`) ending the screen, and answered with
+Up/Down and Enter. The billing notice (title "We're changing auto mode to no
+longer charge for classifier requests in Claude Code.", the "Nothing breaks"
+paragraph and an Enter/Esc footer) has no selection: Continue sends Enter, Cancel
+sends Escape, which interrupts the waiting action. Both are the only dialogs
+looked for after the receipt; texts and layout come from the 2.1.304 binary
+strings, as the billing notice needs a real classifier call. Synthetic frames are
+in `tests/fixtures/requests/claude-startup-prompts.js` and
+`tests/fixtures/requests/claude-folder-trust.js`.
+
+```sh
+node --test tests/unit/claude-startup-prompts.test.js tests/unit/claude-folder-trust.test.js \
+  tests/integration/claude-auto-mode-prompts.test.js
+```
+
 ### Claude image preparation regression (2026-09-12)
 
 Claude Code 2.1.269 reproduces a separate paste/submit race with larger image

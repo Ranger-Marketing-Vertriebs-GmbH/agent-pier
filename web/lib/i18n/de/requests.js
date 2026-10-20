@@ -34,6 +34,16 @@ export const requestCopy = {
       description:
         "Dieser Account ist noch nicht angemeldet. Die Anmeldung braucht einen Browser-Code und wird im Terminal abgeschlossen.",
     },
+    autoModeDefault: {
+      title: "Auto-Modus als Standard festlegen?",
+      description:
+        "Claude fragt, ob der Auto-Modus der Standard-Berechtigungsmodus dieses Accounts werden soll. Im Auto-Modus prüft Claude jeden Tool-Aufruf auf riskante Aktionen, führt die als weniger riskant eingeschätzten aus und blockiert den Rest. Dein Chat-Entwurf bleibt bis zu deiner Entscheidung erhalten.",
+    },
+    autoModeBilling: {
+      title: "Abrechnungshinweis zum Claude-Auto-Modus",
+      description:
+        "Claude meldet, dass die Klassifizierer-Anfragen des Auto-Modus in dieser Session weiter wie bisher abgerechnet werden. Fortfahren lässt den Auto-Modus weiterlaufen; Abbrechen unterbricht die wartende Aktion. Dein Chat-Entwurf bleibt bis zu deiner Entscheidung erhalten.",
+    },
     unknown: {
       title: "Claude wartet auf eine Eingabe",
       description:
@@ -43,6 +53,11 @@ export const requestCopy = {
   startupOptions: {
     apiKey: { yes: "API-Key verwenden", no: "Nicht verwenden (empfohlen)" },
     securityNotes: { continue: "Weiter" },
+    autoModeDefault: {
+      accept: "Auto-Modus als Standard festlegen",
+      decline: "Aktuellen Modus behalten",
+    },
+    autoModeBilling: { continue: "Im Auto-Modus fortfahren", cancel: "Aktion abbrechen" },
   },
   title: "Native Rückfragen",
   permission: "Freigabe erforderlich",

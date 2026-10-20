@@ -163,3 +163,74 @@ ${rows.join("\n")}
  \u001b[38;2;153;153;153m Syntax theme: Monokai Extended (ctrl+t to disable)\u001b[39m
 `;
 };
+/**
+ * Synthetic frames of Claude Code 2.1.304's auto mode dialogs, from the strings and
+ * layout of its binary: a permission-coloured top rule, a bold title, the body and
+ * unnumbered option rows without a footer.
+ */
+export const autoModeDefaultScreen = (selected = "accept", mode = "manual mode") => `
+ ▐▛███▛█   Claude Code v2.1.304
+▝▜██████▀  Opus 5.5 · API Usage Billing
+  ▝▝ ▝▝    ~/project
+
+${"─".repeat(120)}
+  Make auto mode your default permission mode?
+
+    Auto mode lets Claude handle permission prompts automatically. Claude checks each tool
+    call for risky actions and prompt injection before executing, runs the ones it assesses
+    as lower-risk, and blocks the rest.
+
+    ${selected === "accept" ? "❯" : " "} Yes, set auto mode as my default permission mode
+    ${selected === "decline" ? "❯" : " "} No, keep ${mode}
+
+`;
+/** The classifier billing notice in a running turn, optionally inside a side border. */
+export const autoModeBillingScreen = ({ boxed = false, gateway = false } = {}) => {
+  const body = [
+    "We're changing auto mode to no longer charge for classifier requests in",
+    "Claude Code.",
+    "",
+    gateway
+      ? "However, this session isn't eligible because your requests go through a LiteLLM"
+      : "However, this session isn't eligible.",
+    ...(gateway ? ["gateway, which isn't compatible with this update."] : []),
+    "",
+    "Nothing breaks: auto mode keeps working, and its classifier requests are billed as",
+    "before.",
+    "",
+    gateway
+      ? "To fix it and access the new version of auto mode, ask your gateway to implement:"
+      : "If this keeps happening, contact support or your company's admin:",
+    "https://code.claude.com/docs/en/auto-mode-classifier-billing",
+    "",
+    "Enter to continue · Esc to cancel",
+  ];
+  const frame = boxed
+    ? [
+        `╭${"─".repeat(96)}╮`,
+        ...body.map((line) => `│ ${line.padEnd(94)} │`),
+        `╰${"─".repeat(96)}╯`,
+      ]
+    : [`${"─".repeat(98)}`, ...body.map((line) => ` ${line}`)];
+  return `
+⏺ Bash(npm test)
+  ⎿  Waiting…
+
+${frame.join("\n")}
+`;
+};
+/** The same dialog texts quoted in a running transcript above the composer. */
+export const autoModeLookalikeScreen = () => `
+⏺ Read(notes.md)
+  ⎿  Make auto mode your default permission mode?
+     ❯ Yes, set auto mode as my default permission mode
+       No, keep manual mode
+     We're changing auto mode to no longer charge for classifier requests in Claude Code.
+     Nothing breaks: auto mode keeps working, and its classifier requests are billed as before.
+     Enter to continue · Esc to cancel
+
+${"─".repeat(120)}
+❯ 
+${"─".repeat(120)}
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← for agents
+`;
