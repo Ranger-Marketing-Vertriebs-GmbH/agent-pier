@@ -14,6 +14,7 @@ import { flushWrite, noteRefusal } from "./memory-write-policy.js";
 import { isMemory, ownMemoryTarget } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import { isLeadRoutine } from "./lead-routines.js";
+import { lockedCall } from "../users/user-agent-lock.js";
 const actions = new Set([
   "propose",
   "status",
@@ -38,6 +39,11 @@ const actions = new Set([
   // Every agent, members too, hands the owner files (agent-shares.js).
   "share_file",
 ]);
+// The tool name behind a bridge action: agentpier_ssh, agentpier_team_<action>, ...
+const bridgeTool = (action) =>
+  ["reminder", "routine", "workspace", "ssh", "share_file"].includes(action)
+    ? `agentpier_${action}`
+    : `agentpier_team_${action}`;
 const active = new Set(["pending", "accepted", "running"]);
 // What a routine's own run session (no attempt) may call: SSH, shared files, project
 // folders, and a lead's questions and tasks for its own members (routine origin,
@@ -127,6 +133,9 @@ export class TeamBridge {
       !this.assistants.runtime.client?.ready
     )
       throw assistantProblem("unavailable", 403);
+    // Team tools and SSH are locked for user agents (user-agent-lock.js).
+    if (lockedCall(this.agentOf(record.agentId), bridgeTool(record.action)))
+      throw assistantProblem("invalid", 403);
     // A routine's own run session (no attempt) stays current while its routine does.
     if (record.routine) {
       const run = this.routineRun(record);
@@ -254,10 +263,12 @@ export class TeamBridge {
       !input ||
       Object.keys(input).some(
         (k) => !["agentId", "sessionKey", "toolName", "path", "runId"].includes(k),
-      ) ||
-      !writeTools.includes(input.toolName)
+      )
     )
       throw assistantProblem("invalid");
+    // A user agent never runs a locked tool, whatever its compiled entry says.
+    if (lockedCall(this.agentOf(input.agentId), input.toolName)) return { allow: false };
+    if (!writeTools.includes(input.toolName)) throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "path"]) textValue(input[k], 4096);
     // The hook's run id (OpenClaw 2026.10.3 reports it); only flushes rely on it.
     if ("runId" in input) textValue(input.runId, 512);
@@ -330,6 +341,14 @@ export class TeamBridge {
     const current =
       !attempt.reviewedAt && parent.runtimeAgentId === agentId && !parent.archivedAt;
     return { attempt, parent, origin, current };
+  }
+  // The agent with this runtime id, or null.
+  agentOf(runtimeAgentId) {
+    return (
+      this.assistants.store
+        .listAssistants()
+        .find((a) => a.runtimeAgentId === runtimeAgentId) || null
+    );
   }
   ownerOrigin(origin) {
     return ["owner", "telegram"].includes(origin?.kind) && !origin.forwarded;

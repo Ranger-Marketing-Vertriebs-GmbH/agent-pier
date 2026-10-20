@@ -1,3 +1,5 @@
+import { isUserAgent } from "../users/user-access.js";
+
 export const capabilityKeys = [
   "memory",
   "reminders",
@@ -74,6 +76,17 @@ export const sessionTools = [
   "sessions_spawn",
 ];
 /**
+ * What an agent of restricted users never holds, whatever its stored settings say:
+ * shell, SSH, team tools and the session tools that read its other users' chats
+ * (users/user-agent-lock.js). Its compiled entry also denies them explicitly.
+ */
+export const lockedTools = [
+  ...shellTools,
+  "agentpier_ssh",
+  ...delegationTools,
+  ...sessionTools,
+];
+/**
  * The run-level cap of a routine (payload.toolsAllow): every tool an agent's own
  * profile can hold, so OpenClaw's intersection with the agent's tools.allow leaves
  * exactly the agent's current chat tools and a capability change needs no job
@@ -122,8 +135,9 @@ export const inheritsFromLead = (assistant) =>
  */
 export const memoryEnabled = (assistant) =>
   personalCapabilities(assistant).memory || inheritsFromLead(assistant);
-/** The effective shell level; ineligible or unset profiles have none. */
+/** The effective shell level; ineligible or unset profiles and user agents have none. */
 export function personalShell(assistant) {
+  if (isUserAgent(assistant)) return "off";
   if (inheritsFromLead(assistant))
     return shellLevels.includes(assistant.inherited.shell)
       ? assistant.inherited.shell
@@ -183,7 +197,7 @@ export function profileTools(
   // A temporary member has its own memory beside the read-only copy of its lead's,
   // and gets no routines (standing jobs with tools that would outlive the team).
   const member = inheritsFromLead(assistant);
-  return [
+  const tools = [
     "session_status",
     ...(teamsReady && !assistant.teamMemberId && !assistant.archivedAt
       ? delegationTools
@@ -219,4 +233,5 @@ export function profileTools(
       ? ["agentpier_ssh"]
       : []),
   ];
+  return isUserAgent(assistant) ? tools.filter((t) => !lockedTools.includes(t)) : tools;
 }

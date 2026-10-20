@@ -1,0 +1,63 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import path from "node:path";
+import { shellService } from "../helpers/assistant-shell-service.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { lockedTools } from "../../server/features/users/user-agent-lock.js";
+
+const userAccess = {
+  mode: "own",
+  members: [{ userId: "u1", level: "chat" }],
+  released: [],
+};
+
+// Writes a body straight into the database, as a damaged or edited file could hold it.
+function forge(store, id, change) {
+  const body = { ...store.storedAssistant(id), ...change };
+  store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify(body), id);
+  return body;
+}
+
+test("a forged shell level in the database stays locked", async (t) => {
+  const f = shellService(t, ["Anna's agent"]);
+  const [agent] = f.agents;
+  const forged = forge(f.store, agent.id, { userAccess, shell: "full", skills: [] });
+  await f.config.apply(agent.id);
+  const live = f.live(agent);
+  assert.equal(live.tools.exec, undefined);
+  assert.deepEqual(live.tools.deny, lockedTools);
+  for (const tool of lockedTools) assert.ok(!live.tools.allow.includes(tool), tool);
+  assert.ok(!f.client.effective().tools.allow.includes("exec"));
+
+  const compiled = compileOpenClawConfig({
+    paths: { workspaces: path.join(f.dataDir, "w"), logs: path.join(f.dataDir, "l") },
+    port: 1234,
+    token: "t",
+    teams: {
+      directory: "/plugin",
+      connection: { url: "http://127.0.0.1:1", token: "bridge" },
+      hostMaxConcurrent: 4,
+      native: { token: "hook" },
+      profiles: [forged],
+      sshAgents: new Set([agent.id]),
+    },
+    shell: { pathPrepend: ["/owner/bin"] },
+    existing: {
+      agents: {
+        entries: {
+          [agent.runtimeAgentId]: {
+            id: agent.runtimeAgentId,
+            tools: { allow: ["exec"], exec: { mode: "full" } },
+          },
+        },
+      },
+    },
+  });
+  const entry = compiled.agents.entries[agent.runtimeAgentId];
+  assert.equal(entry.tools.exec, undefined);
+  assert.deepEqual(entry.tools.deny, lockedTools);
+  for (const tool of lockedTools) assert.ok(!entry.tools.allow.includes(tool), tool);
+  assert.ok(!compiled.tools.allow.includes("exec"));
+});
