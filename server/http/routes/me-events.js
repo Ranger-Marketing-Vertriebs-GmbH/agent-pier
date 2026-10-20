@@ -5,8 +5,9 @@ import { agentView } from "./me-agents.js";
 import { awaitingForUser } from "../../features/users/approval-audience.js";
 
 /**
- * A restricted user's event stream: `agents` when her agent list or one of her chats
- * changed, `approvals` with the count waiting for her, and a heartbeat every 15 s.
+ * A restricted user's event stream: `agents` when her agent list or one of her main
+ * chats changed, `chats` (with `agentId`) when her chat list with an agent changed,
+ * `approvals` with the count waiting for her, and a heartbeat every 15 s.
  * Nothing about other users or the owner passes. Revoking her session ends it (the
  * login check watches every request).
  */
@@ -28,19 +29,23 @@ export function meEventRoutes(services) {
       res.flush?.();
     };
     const assistants = services.assistants;
+    const digest = (value) =>
+      createHash("sha256").update(JSON.stringify(value)).digest("hex");
     // What she sees of her agents, and the approvals waiting for her.
     const read = () => {
       if (!assistants || assistants.closed)
-        return { list: [], count: 0, chats: new Set() };
+        return { list: [], count: 0, chats: new Set(), lists: new Map() };
       const list = services.userScope
         .agentsFor(userId)
         .map((agent) => agentView(assistants, agent, userId));
       // Only what she can open: an approval of a chat she left is not hers to decide.
       const count = awaitingForUser(services, req.principal).length;
-      return { list, count, chats: new Set(list.map((a) => a.conversationId)) };
+      // Her chat list with each agent, as a digest: only her own chats count.
+      const lists = new Map(
+        list.map((a) => [a.id, digest(assistants.chats.list(a.id, { userId }))]),
+      );
+      return { list, count, chats: new Set(list.map((a) => a.conversationId)), lists };
     };
-    const digest = (value) =>
-      createHash("sha256").update(JSON.stringify(value)).digest("hex");
     let last = read();
     let lastList = digest(last.list);
     send({ type: "connected" });
@@ -58,6 +63,9 @@ export function meEventRoutes(services) {
         }
         const listDigest = digest(next.list);
         if (force || listDigest !== lastList) send({ type: "agents" });
+        for (const [agentId, chats] of next.lists)
+          if (last.lists.has(agentId) && last.lists.get(agentId) !== chats)
+            send({ type: "chats", agentId });
         if (next.count !== last.count) send({ type: "approvals", count: next.count });
         last = next;
         lastList = listDigest;

@@ -3,8 +3,9 @@ import { agentPerson } from "./reminder-audience.js";
 import { mainConversation } from "./routine-targets.js";
 
 /**
- * Tells the agent its browser is back (browser-takeover.js): a queued owner message
- * in the agent's most recent chat, delivered once the agent is idle, so a run that
+ * Tells the agent its browser is back (browser-takeover.js): a queued message in the
+ * chat whose turn drove the browser (or else the driver's main chat, or the agent's
+ * most recent chat), delivered once the agent is idle, so a run that
  * stopped while the owner held the browser continues. Sent only when the agent was
  * refused during the lease (never to wake an old chat), and never over a message
  * the owner queued there. In English, like the tool guard's refusals the agent read.
@@ -29,8 +30,28 @@ function driverChat(assistants, id) {
   return mainConversation(assistants.store, id, person);
 }
 
+// The chat whose turn drove the browser, while it still takes turns and belongs to
+// the person who drives now.
+function drivingChat(assistants, id) {
+  const conversationId = assistants.liveView?.driverConversation?.(id);
+  if (!conversationId) return null;
+  try {
+    const conversation = assistants.store.getConversation(conversationId);
+    const person = typeof conversation.userId === "string" ? conversation.userId : null;
+    if (
+      conversation.assistantId !== id ||
+      conversation.archivedAt ||
+      person !== (assistants.liveView.driver(id) ?? null)
+    )
+      return null;
+    return conversation;
+  } catch {
+    return null;
+  }
+}
+
 export function noteBrowserHandBack(assistants, id, reason) {
-  let conversation = driverChat(assistants, id);
+  let conversation = drivingChat(assistants, id) ?? driverChat(assistants, id);
   if (conversation === undefined) conversation = latestChat(assistants, id);
   if (!conversation) return null;
   try {

@@ -39,17 +39,22 @@ function userLimits() {
   return { uploadLimit: limited(60), readLimit: limited(600) };
 }
 
-/** A user's agent as her list shows it, with her own main chat. */
+/**
+ * A user's agent as her list shows it, with her own main chat; it works while any of
+ * her unarchived chats with it does.
+ */
 export function agentView(assistants, agent, userId) {
   const conversation = mainConversation(assistants.store, agent.id, userId);
+  const chats = assistants.store
+    .listConversations()
+    .filter((c) => c.assistantId === agent.id && c.userId === userId && !c.archivedAt);
+  const ids = new Set(chats.map((c) => c.id));
   const activity = assistantActivity({
     assistants: [agent],
-    conversations: conversation ? [conversation] : [],
-    latest: conversation
-      ? assistants.ledger
-          .latestByConversation()
-          .filter((row) => row.conversationId === conversation.id)
-      : [],
+    conversations: chats,
+    latest: assistants.ledger
+      .latestByConversation()
+      .filter((row) => ids.has(row.conversationId)),
   });
   const { state, reason, label } = activity[agent.id];
   return {
