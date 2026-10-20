@@ -3020,7 +3020,7 @@
   "login:loginCopy.repeat": "de:9288852600c0 en:b74070f90e8c",
   "login:loginCopy.retry": "de:948643cb59e8 en:d8b8392e2c54",
   "login:loginCopy.setup": "de:a50b5abbf09c en:f06da128c342",
-  "login:loginCopy.setupDescription": "de:5e3ac26c7aa7 en:0dec0b527705",
+  "login:loginCopy.setupDescription": "de:a9c226fe6c4a en:87946b84616e",
   "login:loginCopy.title": "de:a329a32263a4 en:bfd402b2f6f3",
   "login:loginCopy.username": "de:fc309e30dbbe en:e3b89e9d33f8",
   "login:loginCopy.welcome": "de:ccf532011fef en:e01590c11ade",
@@ -5390,5 +5390,8 @@
   "tools:toolInstallerCopy.versionUnknown": "de:6a22eea203d2 en:e83ee049ebbd",
   "tools:toolInstallerCopy.versionUnknownNotice": "de:c4faae4da8b2 en:9af0585c96f3",
   "tools:useToolInstallationCopy.cliNotDetected": "de:4ae9c8b611e9 en:1287be08bc4a",
-  "tools:useToolInstallationCopy.installationUnavailable": "de:0733f2206ff4 en:36a403cae31f"
+  "tools:useToolInstallationCopy.installationUnavailable": "de:0733f2206ff4 en:36a403cae31f",
+  "user-app:userAppCopy.brand": "de:1ad0f7db738a en:1ad0f7db738a",
+  "user-app:userAppCopy.empty": "de:b810fee42529 en:35059c181265",
+  "user-app:userAppCopy.emptyHint": "de:7ab6fbf2afc6 en:dfb29b8dc1b3"
 }

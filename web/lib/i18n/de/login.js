@@ -4,7 +4,7 @@ export const loginCopy = Object.freeze({
   welcome: "Willkommen bei AgentPier",
   description: "Melde dich an, um deinen Arbeitsbereich zu öffnen.",
   setupDescription:
-    "Lege deinen Benutzernamen und dein Passwort fest. Für diesen Arbeitsbereich gibt es genau einen Benutzer.",
+    "Lege deinen Benutzernamen und dein Passwort fest. Du bist der Besitzer dieses Arbeitsbereichs und kannst später weitere Benutzer anlegen.",
   username: "Benutzername",
   password: "Passwort",
   repeat: "Passwort wiederholen",

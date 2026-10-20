@@ -1,6 +1,6 @@
 import { startupStage } from "../../startup/status.js";
 import useLanguage from "../../lib/i18n/useLanguage.js";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { LoginContext } from "./LoginContext.js";
 import { loginRequest, announceLoginChange } from "./login-api.js";
 import LoginPage from "./LoginPage.jsx";
@@ -14,6 +14,8 @@ const forgetUser = () => {
   void clearChatCache();
 };
 import "./login.css";
+// A restricted user never loads the owner's app, only her own shell.
+const UserApp = lazy(() => import("../users/UserApp.jsx"));
 export default function LoginGate({ children }) {
   useLanguage();
   const generation = useRef(0);
@@ -68,6 +70,14 @@ export default function LoginGate({ children }) {
     setStatus({ configured: true, authenticated: false });
     announceLoginChange();
   }
+  if (status?.authenticated && status.role === "user")
+    return (
+      <LoginContext value={{ logout }}>
+        <Suspense>
+          <UserApp status={status} />
+        </Suspense>
+      </LoginContext>
+    );
   if (status?.authenticated)
     return <LoginContext value={{ logout }}>{children}</LoginContext>;
   if (status) return <LoginPage status={status} onLogin={refresh} refresh={refresh} />;

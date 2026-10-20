@@ -4,7 +4,7 @@ export const loginCopy = Object.freeze({
   welcome: "Welcome to AgentPier",
   description: "Sign in to open your workspace.",
   setupDescription:
-    "Choose your username and password. This workspace has a single user.",
+    "Choose your username and password. You own this workspace and can add more users later.",
   username: "Username",
   password: "Password",
   repeat: "Repeat password",

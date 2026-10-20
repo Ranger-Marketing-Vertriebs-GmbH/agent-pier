@@ -1,0 +1,20 @@
+.user-app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+.user-app > .settings-shell {
+  flex: 1;
+}
+.user-app-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px 0;
+  line-height: 1.6;
+}
+.user-app-hint {
+  color: var(--muted);
+}
