@@ -24,8 +24,9 @@ and agents that work as a team.
   approvals offer Always allow per account and show plans before you approve them
   ([inbox](docs/inbox.md#claude-code-approvals-and-plans)).
 - **Pipelines with review:** reusable profiles, isolated Git worktrees, parallel
-  reviewers whose verdicts are joined, bounded review loops, checks, a risk gate for sensitive paths and human approval
-  ([pipelines](docs/pipelines.md)).
+  reviewers whose verdicts are joined, bounded review loops, checks, a risk gate for sensitive paths and human approval,
+  plus a built-in software factory from spec to pull request
+  ([pipelines](docs/pipelines.md#software-factory)).
 - **Agents and teams:** persistent agents whose leads ask and delegate to their
   members on request, by suggestion or on their own and share their project folders,
   coding projects and MCP servers with them or set up routines on them that report
