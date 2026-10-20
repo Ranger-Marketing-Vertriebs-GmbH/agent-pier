@@ -1,6 +1,7 @@
 import { recordNativeSession } from "./native-session-binding.js";
 import { recordNativeActivity } from "./native-session-activity.js";
 import { NativeRequestChannel } from "../requests/native-channel.js";
+import { streamOpenCodeReplies } from "./opencode-reply-stream.js";
 
 export const id = "agentpier-reader";
 // OpenCode 1.18 exposes the visible route directly to TUI plugins. Watching the
@@ -36,6 +37,11 @@ export const readerTui = ({
   async function tui(api) {
     const env = { ...base };
     const channel = open(env);
+    const visible = () => {
+      const route = api.route?.current;
+      return route?.name === "session" ? route.params?.sessionID : null;
+    };
+    const stopReplies = channel ? streamOpenCodeReplies(api, channel, visible) : () => {};
     let previous;
     let reported;
     let warned = false;
@@ -79,6 +85,7 @@ export const readerTui = ({
     timer.unref?.();
     api.lifecycle.onDispose(() => {
       clearInterval(timer);
+      stopReplies();
       channel?.close();
     });
   };

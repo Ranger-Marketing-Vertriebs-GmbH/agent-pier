@@ -271,6 +271,10 @@ export async function createServices(config) {
     // file watcher triggers); the activity file stays for restarts.
     onNative: (sessionId, push) => {
       if (push.type === "activity") chatEvents.publish(sessionId, "native-activity");
+      // Reply text while the CLI generates it (Codex proxy, OpenCode plugin).
+      if (push.type === "stream") chatStreams.streamText(sessionId, push.runId, push);
+      if (push.type === "stream-end")
+        chatStreams.endStream(sessionId, push.runId, { turn: push.turn });
     },
   });
   await requests.ready;

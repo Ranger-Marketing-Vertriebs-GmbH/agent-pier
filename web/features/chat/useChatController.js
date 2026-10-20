@@ -122,7 +122,15 @@ export default function useChatController({ active, session, request, onConnecti
       stick.current = true;
     }
     if (stick.current) output.current.scrollTop = output.current.scrollHeight;
-  }, [data, active, delivery.outbox, delivery.recent, followBottom, restoreScroll]);
+  }, [
+    data,
+    stream.replies,
+    active,
+    delivery.outbox,
+    delivery.recent,
+    followBottom,
+    restoreScroll,
+  ]);
   const send = (messages) =>
     delivery.send(messages, {
       tool: session.tool,
@@ -172,6 +180,7 @@ export default function useChatController({ active, session, request, onConnecti
   };
   return {
     data,
+    replies: stream.replies,
     historyError: stream.historyError,
     historyLoading: stream.historyLoading,
     loadOlder: stream.loadOlder,

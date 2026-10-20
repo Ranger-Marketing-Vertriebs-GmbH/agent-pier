@@ -6,6 +6,7 @@ import {
   readRestoredOlderPage,
 } from "./chat-sync.js";
 import { createChatStream } from "./chat-stream-transport.js";
+import { endedReplyGraceMs, nextReplies, withoutEnded } from "./reply-stream.js";
 import {
   chatCacheKey,
   chatCachePreload,
@@ -84,6 +85,13 @@ export default function useChatStream({
   const stop = useRef(null);
   const historyRequest = useRef(null);
   const publish = useCallback(() => setData(view(state.current)), []);
+  // The reply streaming now (reply-stream.js): runs by id, only in this tab.
+  const [replies, setReplies] = useState(() => new Map());
+  const runs = useRef(replies);
+  const setRuns = useCallback((next) => {
+    runs.current = next;
+    setReplies(next);
+  }, []);
   const save = useCallback(() => {
     const { key: current, live, older, cursor, paged, scroll } = state.current;
     writeCachedChat(current, { live, older, cursor, paged, scroll: scroll || undefined });
@@ -147,8 +155,9 @@ export default function useChatStream({
     setLoadError("");
     setHistoryLoading(false);
     setHistoryError("");
+    setRuns(new Map());
     stick.current = true;
-  }, [key, stick]);
+  }, [key, stick, setRuns]);
   // The device preload may settle after the mount (it races /api/state). A late
   // entry is adopted only while no frame was accepted for this key. The running
   // socket is kept: it was opened without a cursor, so its first frame is a full
@@ -177,6 +186,7 @@ export default function useChatStream({
     if (!active) return;
     setHistoryLoading(false);
     const baseline = state.current.live;
+    const graces = new Set();
     const dispose = createChatStream({
       // Re-creation continues from the accepted (or cached) cursor instead of full.
       initial: typeof baseline?.sync?.cursor === "string" ? baseline : undefined,
@@ -189,11 +199,25 @@ export default function useChatStream({
           signal,
         ),
       onSnapshot: accept,
+      onFrame: (frame) => {
+        if (frame.type !== "stream" && frame.type !== "stream-end") return;
+        const next = nextReplies(runs.current, frame);
+        if (!next) return false;
+        setRuns(next);
+        if (frame.type !== "stream-end") return;
+        const grace = setTimeout(() => {
+          graces.delete(grace);
+          setRuns(withoutEnded(runs.current));
+        }, endedReplyGraceMs);
+        graces.add(grace);
+      },
       onConnection: (status) => {
         if (status !== "connected" && state.current.live) {
           state.current.live = { ...state.current.live, nativeInput: null };
           publish();
         }
+        // A new socket sends every run whole again.
+        if (status === "disconnected" && runs.current.size) setRuns(new Map());
         onConnection?.(status);
       },
       onError: setLoadError,
@@ -205,6 +229,7 @@ export default function useChatStream({
       historyRequest.current = null;
       state.current.epoch++;
       loading.current = false;
+      for (const grace of graces) clearTimeout(grace);
       dispose();
     };
   }, [
@@ -217,6 +242,7 @@ export default function useChatStream({
     accept,
     publish,
     restart,
+    setRuns,
   ]);
   const loadOlder = async () => {
     const current = state.current;
@@ -314,6 +340,7 @@ export default function useChatStream({
   }, []);
   return {
     data,
+    replies,
     restored: Boolean(data?.restored),
     restoreScroll,
     followBottom,

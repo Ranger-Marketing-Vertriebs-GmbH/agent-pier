@@ -2,6 +2,7 @@ import { watchNativeInput } from "./native-input-watch.js";
 import { createHash } from "node:crypto";
 import { watchChatSources } from "./chat-source-watch.js";
 import { probeChatSources } from "./chat-source-probe.js";
+import { ReplyStreams } from "./reply-streams.js";
 
 /** One serialized source reader per watched session, shared by all browser tabs. */
 export class ChatStreams {
@@ -21,6 +22,7 @@ export class ChatStreams {
     // The stat probe of the last read transcript files while a chat has viewers.
     probe = probeChatSources,
     probeMs = 1000,
+    replies = {},
   }) {
     Object.assign(this, {
       sessions,
@@ -38,6 +40,24 @@ export class ChatStreams {
       probeMs,
     });
     this.entries = new Map();
+    // Reply text streaming now; an ended run means the transcript has it: read again.
+    this.replies = new ReplyStreams({ ...replies, onEnd: (id) => this.touch(id) });
+  }
+  /** A source changed outside the watchers: an open chat reads again. */
+  touch(id) {
+    const entry = this.entries.get(id);
+    if (entry) this.invalidate(entry);
+  }
+  /** The live reply frames of session `id` (reply-streams.js). */
+  subscribeReplies(id, send) {
+    return this.replies.subscribe(id, send);
+  }
+  /** The provider-neutral reply entry point; see ReplyStreams.streamText. */
+  streamText(id, runId, value) {
+    return this.replies.streamText(id, runId, value);
+  }
+  endStream(id, runId, options) {
+    this.replies.endStream(id, runId, options);
   }
   subscribe(id, listener) {
     if (this.closed) throw new Error("Chat stream is closed");
@@ -230,6 +250,7 @@ export class ChatStreams {
   }
   close() {
     this.closed = true;
+    this.replies.close();
     for (const entry of this.entries.values()) this.dispose(entry);
   }
 }
