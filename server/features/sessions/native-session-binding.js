@@ -26,6 +26,7 @@ import {
   readNativeActivity,
   recordNativeActivity,
 } from "./native-session-activity.js";
+import { pushNative } from "../requests/native-push.js";
 
 const modulePath = fileURLToPath(import.meta.url);
 const validId = (id) =>
@@ -376,6 +377,11 @@ export async function runNativeSessionHook({
   } catch (error) {
     warn(error);
   }
+  // The receipt and activity files stay for restarts; this push lets an open chat
+  // read again at once instead of waiting for the file watcher. Bounded: a stopped
+  // server never holds the hook.
+  if (env.AGENTPIER_REQUEST_FILE)
+    await pushNative({ type: "activity", event: payload?.hook_event_name }, { env });
 }
 
 if (isMainModule(import.meta.url) && process.argv[2] === "--record") {

@@ -81,6 +81,14 @@ Output hints are coalesced for 200 ms. A bounded current-pane capture derives qu
 
 The last subscriber disconnect disposes the control client. Session/account changes, stopped sessions and failed captures clear current observations. Stream disconnects clear the browser's live evidence; reload/reconnect reconstruct it from the current stream without resending. The existing shared recovery timer re-establishes watchers; no new browser polling loop is added.
 
+## Live chat updates
+
+An open session chat reads its native source again on one debounced path (`server/features/chat/chat-streams.js`, 150 ms). Three kinds of triggers feed it, and a burst of them still causes one read:
+
+- **Direct pushes from the CLI.** Claude Code hooks (`native-session-binding.js --record`), the Codex app-server proxy (`codex-launch.js`) and the OpenCode TUI plugin (`native-session-opencode.js`) still write `native-sessions/<id>.activity.json` for restarts, and additionally send an `activity` message over the session's native request channel: the broker's private Unix socket (`/tmp/agentpier-requests-<uid>-<hash>/bridge.sock`, mode 0600). Every connection first authenticates with the per-launch token of `requests/<id>.launch.json`; a push never names a session of its own, it always belongs to the authenticated owner, and only while that session runs on the same profile. A hook process gives up after 1.5 s, so a stopped server never holds the CLI. Sessions without the request bridge (headless pipeline runs) keep the file-based path.
+- **File watchers** (`chat-source-watch.js`) on the native storage, as before. On macOS FSEvents can lag by several seconds under load.
+- **The 30 s recovery re-read** for anything both missed.
+
 ## Claude image messages
 
 Claude image messages are pasted in two steps: first all attached image paths, then, after the prompt shows that many image chips, the remaining text, then one Enter. Claude places chips before the text either way, so chips and text keep their order, and a long text can no longer scroll chips out of a short pane before they are counted. Unlike a single paste, which silently dropped blank lines and path-like lines that were not chips, the text keeps those lines. Quoted absolute image paths count as images, as Claude turns them into chips too. The receipt journal records the extra steps (`images-pasted`, `text-intent`); a question between the two pastes holds the text, and recovery continues with only the text when exactly the chips are visible and submits only when exactly chips plus text are visible, comparing chips independent of their session numbering. If an attached image file was deleted in the meantime, recovery is blocked with its own reason. Details and the validation matrix are in `docs/direct-chat-tui-validation.md`.
