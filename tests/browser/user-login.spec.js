@@ -104,30 +104,55 @@ for (const [language, copy] of [
     }
   });
 
-test("devices that may not create the owner wait for it", async ({ page, context }) => {
-  const app = await server();
-  try {
-    await context.clearCookies();
-    await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
-    await page.route("**/auth/status", (route) =>
-      route.fulfill({
-        json: {
-          configured: false,
-          authenticated: false,
-          canSetup: false,
-          role: null,
-          user: null,
-        },
-      }),
-    );
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(app.url);
-    await expect(
-      page.getByRole("heading", { name: "Welcome to AgentPier" }),
-    ).toBeVisible();
-    await expect(page.getByText("This workspace has no owner yet.")).toBeVisible();
-    await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
-  } finally {
-    await app.close();
-  }
-});
+for (const [language, copy] of [
+  [
+    "de",
+    {
+      welcome: "Willkommen bei AgentPier",
+      notice: "Dieser Arbeitsbereich hat noch keinen Besitzer.",
+      password: "Passwort",
+    },
+  ],
+  [
+    "en",
+    {
+      welcome: "Welcome to AgentPier",
+      notice: "This workspace has no owner yet.",
+      password: "Password",
+    },
+  ],
+])
+  test(`devices that may not create the owner wait for it (${language})`, async ({
+    page,
+    context,
+  }) => {
+    const app = await server();
+    try {
+      await context.clearCookies();
+      await page.addInitScript(
+        (value) => localStorage.setItem("agentpier-language", value),
+        language,
+      );
+      await page.route("**/auth/status", (route) =>
+        route.fulfill({
+          json: {
+            configured: false,
+            authenticated: false,
+            canSetup: false,
+            role: null,
+            user: null,
+          },
+        }),
+      );
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(app.url);
+      await expect(page.getByRole("heading", { name: copy.welcome })).toBeVisible();
+      await expect(page.getByText(copy.notice)).toBeVisible();
+      await expect(page.getByLabel(copy.password, { exact: true })).toHaveCount(0);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(390);
+    } finally {
+      await app.close();
+    }
+  });

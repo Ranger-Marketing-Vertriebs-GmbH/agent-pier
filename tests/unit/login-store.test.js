@@ -91,3 +91,21 @@ test("the source window map stays bounded and drops the oldest source", (t) => {
   assert.equal(f.store.attempts.windows.has("10.0.0.1"), false);
   assert.equal(f.store.attempts.windows.has("10.1.3.231"), true);
 });
+test("rotating forged tailnet logins never evicts the shared or local window", (t) => {
+  const f = fixture(t);
+  // Thousands of cheap refusals must not push the pooled windows out of the bounded map.
+  f.store.throttle("local");
+  let allowed = 0;
+  for (let index = 0; index < 5000; index++) {
+    try {
+      f.store.throttle([`tailscale:x${index}@example.test`, "tailnet"]);
+      allowed++;
+    } catch (error) {
+      assert.equal(error.status, 429);
+    }
+  }
+  assert.equal(allowed, 30);
+  assert.equal(f.store.attempts.windows.has("tailnet"), true);
+  assert.equal(f.store.attempts.windows.get("local").count, 1);
+  assert.ok(f.store.attempts.windows.size <= 1000);
+});

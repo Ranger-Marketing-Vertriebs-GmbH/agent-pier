@@ -1,5 +1,9 @@
 import express from "express";
-import { idleDuration } from "../features/login/login-store.js";
+import {
+  idleDuration,
+  localAttempts,
+  tailnetAttempts,
+} from "../features/login/login-store.js";
 import { loginErrors, loginProblem } from "../features/login/login-errors.js";
 import { loginMessages as copy } from "../lib/i18n/de/login.js";
 import { principalOf } from "../features/users/identity.js";
@@ -41,14 +45,17 @@ export function setupAllowed(req, config, hasUsers) {
   return req.trustBranch === "network" && !hasUsers;
 }
 /**
- * The attempt window a sign-in counts against. Tailscale Serve proxies every tailnet
+ * The attempt windows a sign-in counts against. Tailscale Serve proxies every tailnet
  * device from loopback, so each tailnet login gets its own window, apart from the
- * local machine's; plain network requests count per address.
+ * local machine's; plain network requests count per address. A local process can send
+ * the login header itself, so every tailnet request also counts against one shared
+ * window: rotating forged logins never escapes it. The member's own window comes first,
+ * so an attempt it already refuses never counts against the shared one.
  */
 export function attemptSource(req) {
   if (req.trustBranch === "tailscale")
-    return `tailscale:${req.headers["tailscale-user-login"]}`;
-  if (req.trustBranch === "local") return "local";
+    return [`tailscale:${req.headers["tailscale-user-login"]}`, tailnetAttempts];
+  if (req.trustBranch === "local") return localAttempts;
   return `network:${req.socket.remoteAddress}`;
 }
 // Secure only when the transport is TLS or the request uses the HTTPS Tailscale host.

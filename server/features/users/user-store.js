@@ -134,10 +134,16 @@ export class UserStore {
   async changePassword(id, { current, next } = {}, keepToken) {
     const user = this.record(id);
     if (!this.attempts.allow(id)) throw userProblem("LOGIN_THROTTLED");
+    const checked = user.hash;
     if (!(await verifyPassword(current, user, this.hash)))
       throw userProblem("USER_PASSWORD_WRONG");
     const credential = await this.credential(next);
-    Object.assign(this.record(id), credential, { passwordChangedAt: this.timestamp() });
+    // An owner reset, another change or a revoked session during the hashes wins.
+    if (typeof keepToken === "string" && !this.session(keepToken))
+      throw userProblem("LOGIN_REQUIRED");
+    if (this.data.users.find((candidate) => candidate.id === id)?.hash !== checked)
+      throw userProblem("USER_PASSWORD_WRONG");
+    Object.assign(user, credential, { passwordChangedAt: this.timestamp() });
     this.save();
     const keep = typeof keepToken === "string" ? digest(keepToken) : null;
     this.ledger.revokeWhere((row) => row.userId === id && row.hash !== keep);
@@ -160,16 +166,23 @@ export class UserStore {
   revokeUser(id) {
     this.ledger.revokeWhere((row) => row.userId === id);
   }
-  // Login names compare case-sensitively after trimming, like the owner's login.
+  /**
+   * Login names compare case-sensitively after trimming, like the owner's login. A match
+   * yields the credential it checked, so issue() can tell when it changed meanwhile.
+   */
   async verify({ username, password } = {}) {
     const name = typeof username === "string" ? username.trim() : null;
     const user = this.data.users.find((candidate) => candidate.username === name);
+    const checked = user?.hash;
     const matches = await verifyPassword(password, user || dummyCredential, this.hash);
-    return matches && user && !user.disabled ? user.id : null;
+    return matches && user && !user.disabled ? { userId: user.id, hash: checked } : null;
   }
-  issue(userId) {
-    const user = this.record(userId);
-    if (user.disabled) throw userProblem("LOGIN_REQUIRED");
+  // Hashing yields the event loop: a user deleted, disabled or given a new password
+  // during her sign-in gets no session, the same answer as a wrong password.
+  issue({ userId, hash } = {}) {
+    const user = this.data.users.find((candidate) => candidate.id === userId);
+    if (!user || user.disabled || user.hash !== hash)
+      throw userProblem("LOGIN_CREDENTIALS_INVALID");
     return this.ledger.issue({ userId });
   }
   session(token) {
