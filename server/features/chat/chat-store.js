@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { privateDirectory, readJSON, writePrivate, problem } from "../../lib/storage.js";
 import { providerId } from "./provider-history.js";
+import { MAX_OBSERVED_CHILDREN } from "./codex-child-usage.js";
 
 const LIVE_HISTORY_TIMEOUT = 1500;
 
@@ -78,6 +79,11 @@ export class ChatStore {
     )
       return null;
     return state || null;
+  }
+  /** Whether a provider read of session `id` is still running or queued. */
+  reading(id) {
+    for (const key of this.inflight.keys()) if (JSON.parse(key)[0] === id) return true;
+    return false;
   }
   reset(id) {
     this.invalidate(id);
@@ -503,8 +509,8 @@ export class ChatStore {
       const fresh = this.epoch(id) === job.epoch;
       if (fresh && Array.isArray(sources))
         this.sources.set(id, {
-          // Codex: parent rollout, state DB/WAL, and at most 512 descendants.
-          paths: [...new Set(sources)].slice(0, 515),
+          // Codex: parent rollout, state DB/WAL and recently active descendants.
+          paths: [...new Set(sources)].slice(0, 3 + MAX_OBSERVED_CHILDREN),
           readAt,
           scope: JSON.stringify([session.accountId, session.tool, session.cwd]),
         });

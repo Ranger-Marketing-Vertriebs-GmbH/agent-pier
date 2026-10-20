@@ -150,3 +150,27 @@ test("persistent asynchronous watch errors back off while other watches stay act
   assert.equal(f.registrations.length, 4);
   assert.equal(f.active().length, 2, "unrelated observer was retained");
 });
+
+test("an in-place write reported as rename keeps the file watch", async (t) => {
+  const f = fixture(t);
+  let changes = 0;
+  const file = path.join(f.root, "state_5.sqlite");
+  fs.writeFileSync(file, "pages");
+  const stop = f.pool.subscribe({ file }, () => changes++);
+  t.after(stop);
+  await stop.refresh();
+  const first = f.active()[0];
+  // kqueue reports a non-extending write as "rename" while the inode stays.
+  first.listener("rename", "state_5.sqlite");
+  await stop.refresh();
+  assert.equal(first.closed, false);
+  assert.equal(f.registrations.length, 1, "no re-arm for the same identity");
+  assert.equal(changes, 1, "one write invalidates once");
+  fs.renameSync(file, path.join(f.root, "old.sqlite"));
+  fs.writeFileSync(file, "replacement");
+  first.listener("rename", "state_5.sqlite");
+  await stop.refresh();
+  assert.equal(first.closed, true, "a replaced inode retires its watch");
+  assert.equal(f.active().length, 1);
+  assert.equal(f.active()[0].file, file);
+});

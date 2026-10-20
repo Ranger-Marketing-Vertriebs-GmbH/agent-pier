@@ -10,6 +10,7 @@ export function watchChatSources(
     dataDir,
     home,
     sources = () => null,
+    discover = () => true,
     settleMs = 500,
     watch = fs.watch,
     pool = new ChatSourceWatchPool({ watch }),
@@ -53,9 +54,10 @@ export function watchChatSources(
         accepts: (name) => /\.(jsonl|json)$/.test(name),
       });
     }
-    if (!files.length) {
-      // Only unresolved/legacy histories need discovery. The first history read
-      // runs before this, so normal chat switches never arm recursive discovery.
+    if (!files.length && discover()) {
+      // Only unresolved/legacy histories need discovery. `discover()` holds it back
+      // until a provider read completed, so a slow first read or a saved snapshot
+      // served during a running read never arms recursive watches.
       const directories =
         session.tool === "codex"
           ? [path.join(root, "sessions"), path.join(root, "archived_sessions")]

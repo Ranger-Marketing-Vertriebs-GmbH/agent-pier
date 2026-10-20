@@ -14,6 +14,10 @@ const MAX_TAIL = 8 * 1024 * 1024;
 const MAX_LINE = 4 * 1024 * 1024;
 const MAX_CHILDREN = 512;
 const MAX_DEPTH = 4;
+// Only recently written or not yet created child rollouts are observed. Finished
+// children no longer change; a resumed one also updates the state database.
+const ACTIVE_CHILD_MS = 10 * 60 * 1000;
+export const MAX_OBSERVED_CHILDREN = 32;
 const BUSY_TIMEOUT = 200;
 const RECORD = Buffer.from('"token_usage_record"');
 // Grandchildren roll up into the direct child that spawned them. The walk goes one
@@ -95,10 +99,11 @@ async function scanTokenUsage(file, threadId, { maxBytes = MAX_TAIL } = {}) {
 
 /** Child threads from Codex's own state database; usage from their rollouts' tails. */
 export class CodexChildUsage {
-  constructor({ maxFiles = 512, maxBytes = MAX_TAIL } = {}) {
+  constructor({ maxFiles = 512, maxBytes = MAX_TAIL, now = Date.now } = {}) {
     this.files = new Map();
     this.maxFiles = maxFiles;
     this.maxBytes = maxBytes;
+    this.now = now;
     this.reads = 0;
   }
   async read(history, session, threadId, { sources = [] } = {}) {
@@ -129,6 +134,7 @@ export class CodexChildUsage {
     let unavailable = rows.length > MAX_CHILDREN ? 1 : 0,
       observedAt = null;
     const seen = new Set([threadId]);
+    const observed = [];
     for (const row of rows.slice(0, MAX_CHILDREN)) {
       const id = nativeId(row.id),
         top = nativeId(row.top);
@@ -139,7 +145,7 @@ export class CodexChildUsage {
         unavailable++;
         continue;
       }
-      const totals = await this.child(row.rollout, id, realRoot, sources);
+      const totals = await this.child(row.rollout, id, realRoot, observed);
       if (totals === undefined) {
         unavailable++;
         continue;
@@ -150,13 +156,21 @@ export class CodexChildUsage {
         observedAt = totals.observedAt;
       agents[top] = Object.hasOwn(agents, top) ? sumUsage([agents[top], usage]) : usage;
     }
+    const active = this.now() - ACTIVE_CHILD_MS;
+    sources.push(
+      ...observed
+        .filter((child) => child.mtimeMs >= active)
+        .sort((a, b) => b.mtimeMs - a.mtimeMs)
+        .slice(0, MAX_OBSERVED_CHILDREN)
+        .map((child) => child.file),
+    );
     return { agents, toolUses: {}, workflow: null, unavailable, observedAt };
   }
   /**
    * Totals of one child; undefined when its rollout is missing, no regular file, outside
    * the profile or could not be scanned far enough to know its usage.
    */
-  async child(rollout, id, realRoot, sources = []) {
+  async child(rollout, id, realRoot, observed = []) {
     if (typeof rollout !== "string" || !rollout || !realRoot) return undefined;
     let real, stat;
     try {
@@ -169,7 +183,10 @@ export class CodexChildUsage {
         if (await fs.lstat(rollout).catch(() => null)) return undefined;
         const parent = await fs.realpath(path.dirname(rollout));
         if (parent === realRoot || parent.startsWith(realRoot + path.sep))
-          sources.push(path.join(parent, path.basename(rollout)));
+          observed.push({
+            file: path.join(parent, path.basename(rollout)),
+            mtimeMs: Infinity,
+          });
         return undefined;
       }
       if (!real.startsWith(realRoot + path.sep)) return undefined;
@@ -178,7 +195,7 @@ export class CodexChildUsage {
     } catch {
       return undefined;
     }
-    sources.push(real);
+    observed.push({ file: real, mtimeMs: stat.mtimeMs });
     const cached = this.files.get(real);
     if (cached?.size === stat.size && cached.mtimeMs === stat.mtimeMs) {
       this.files.delete(real);

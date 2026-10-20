@@ -159,3 +159,36 @@ test("a viewed chat sees an appended transcript although no watcher fires", asyn
   unsubscribe();
   assert.equal(stops.length, 0, "the last viewer stopped the probe");
 });
+
+test("discovery without known paths backs off and restarts after paths vanish", async (t) => {
+  let now = 0,
+    waiting = true;
+  const state = { paths: [], readAt: 0 };
+  const reports = [];
+  const stop = probeChatSources({
+    sources: () => state,
+    changed: () => reports.push(now),
+    intervalMs: 5,
+    discoverMaxMs: 40,
+    now: () => now,
+    discover: () => waiting,
+    stat: async () => ({ dev: 1, ino: 1, size: 1, mtimeMs: 0, ctimeMs: 0 }),
+  });
+  t.after(stop);
+  for (let i = 0; i < 40; i++) {
+    now += 5;
+    await delay(8);
+  }
+  assert.ok(reports.length >= 3 && reports.length <= 10, String(reports));
+  const gaps = reports.slice(1).map((at, i) => at - reports[i]);
+  assert.ok(gaps.at(-1) >= 40, `the delay grows to its cap: ${gaps}`);
+  waiting = false;
+  await delay(20);
+  const settled = reports.length;
+  waiting = true;
+  for (let i = 0; i < 4; i++) {
+    now += 5;
+    await delay(8);
+  }
+  assert.ok(reports.length > settled, "a new waiting phase starts at the short delay");
+});
