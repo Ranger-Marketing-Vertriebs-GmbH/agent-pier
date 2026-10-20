@@ -3,7 +3,6 @@ import { sendTurn } from "./conversation-turns.js";
 import { AgentAttachments } from "./agent-attachments.js";
 import { AgentShares } from "./agent-shares.js";
 import { GeneratedImages } from "./generated-images.js";
-import { createGatewaySession } from "./session-create.js";
 import { RequestLedger } from "./request-ledger.js";
 import { QueuedMessages } from "./queued-messages.js";
 import * as queuedDispatch from "./queued-dispatch.js";
@@ -29,7 +28,7 @@ import { ChatStreams } from "./chat-stream.js";
 import { conversationFeeds, reconciledChanges } from "./conversation-feeds.js";
 import { assistantListFeed } from "./assistant-list-feed.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
-import { mainConversation } from "./routine-targets.js";
+import { openMainConversation } from "./conversation-open.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import {
   auditProactivity,
@@ -430,38 +429,19 @@ export class AssistantService {
       .catch(() => {});
     return job;
   }
-  openConversation(assistantId) {
+  /** The person's main chat with the agent: the owner's, or with `userId` a user's. */
+  openConversation(assistantId, { userId = null } = {}) {
     assertWired(this);
-    return this.admit(() => this.mainConversation(assistantId));
+    return this.admit(() => this.mainConversation(assistantId, { userId }));
   }
   /**
-   * The agent's main chat: its one AgentPier conversation, created on first use.
+   * The agent's main chat of one person (conversation-open.js), created on first use.
    * Telegram pairing, reminders, routines and check-ins all use it. Callers hold
    * admission (openConversation takes it). `turn: false` opens it for scheduled
    * work only, which need not wait for a member's team task to end.
    */
-  async mainConversation(assistantId, { turn = true } = {}) {
-    const existing = mainConversation(this.store, assistantId);
-    if (existing) return existing;
-    if (turn) this.teams?.assertMemberTurn(assistantId, { kind: "owner" });
-    else if (this.store.getAssistant(assistantId).archivedAt)
-      throw assistantProblem("active", 409);
-    this.requireReady();
-    await this.config.apply(assistantId);
-    const assistant = this.store.getAssistant(assistantId);
-    const created = await createGatewaySession(
-      this.runtime.client,
-      { agentId: assistant.runtimeAgentId, label: `AgentPier ${assistant.id}` },
-      this.sessionCreate,
-    );
-    if (!created.key) throw assistantProblem("unavailable", 503);
-    const conversation = this.store.saveConversation({
-      assistantId,
-      runtimeSessionKey: created.key,
-    });
-    await this.runtime.client.call("sessions.messages.subscribe", { key: created.key });
-    this.changed();
-    return conversation;
+  mainConversation(assistantId, { turn = true, userId = null } = {}) {
+    return openMainConversation(this, assistantId, { turn, userId });
   }
   send(conversationId, input, trustedContext = { kind: "owner" }) {
     assertWired(this);

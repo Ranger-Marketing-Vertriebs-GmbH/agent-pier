@@ -249,6 +249,8 @@ export class AssistantStore {
       channel: input.channel || "agentpier",
       createdAt: new Date().toISOString(),
       archivedAt: null,
+      // A restricted user's own chat (conversation-open.js); the owner's has none.
+      ...(typeof input.userId === "string" && { userId: input.userId }),
     };
     this.db
       .prepare("INSERT INTO conversations VALUES (?,?,?,?)")
