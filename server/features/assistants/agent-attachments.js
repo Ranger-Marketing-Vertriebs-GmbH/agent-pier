@@ -514,6 +514,11 @@ export class AgentAttachments {
       detectAttachment(body, file.name)?.type === file.type;
     return { name: file.name, type: file.type, kind: file.kind, inline, body };
   }
+  /** The conversation a chat file (attachment or shared file) belongs to, or null. */
+  conversationOf(id) {
+    const [file] = this.rows("SELECT * FROM agent_attachments WHERE id=?", String(id));
+    return file?.row.conversation_id ?? null;
+  }
   // For the chat: a video as a verified open file (agent-video-uploads.js), any
   // other attachment as its bytes.
   async serve(id) {

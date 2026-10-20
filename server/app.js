@@ -15,6 +15,7 @@ import { loginRoutes, requireLogin } from "./http/login.js";
 import { routeAccess } from "./http/route-access.js";
 import { usersRoutes } from "./http/routes/users.js";
 import { meAccountRoutes } from "./http/routes/me-account.js";
+import { meAgentRoutes } from "./http/routes/me-agents.js";
 import { agencyRoutes } from "./http/routes/agency.js";
 import { filesRoutes } from "./http/routes/files.js";
 import { fileOperationsRoutes } from "./http/routes/file-operations.js";
@@ -263,6 +264,8 @@ export async function createApplication(config) {
   });
   app.use("/auth", loginRoutes(services.identity, effective));
   // Every /api router goes through the registry, so the access tests see every route.
+  // What a restricted user reaches of the agents; her routes and sockets ask it.
+  services.userScope = new UserScope(services);
   const api = createApiRegistry(app, { barrier: services.mutationBarrier });
   services.apiRegistry = api;
   // Authenticated by its single-use OAuth state, not the session cookie.
@@ -295,7 +298,7 @@ export async function createApplication(config) {
   app.use("/api/sessions/:id/input", express.json({ limit: "256kb", strict: true }));
   // An agent message (or the queued one) holds 65,536 characters of any script.
   app.use(
-    /^\/api\/assistant-conversations\/[^/]+\/(?:messages|queued)$/,
+    /^\/api\/(?:assistant-conversations|me\/conversations)\/[^/]+\/(?:messages|queued)$/,
     express.json({ limit: "256kb", strict: true }),
   );
   // A gate decision may carry a replacement spec of up to 64 KiB, escaped as JSON.
@@ -343,11 +346,10 @@ export async function createApplication(config) {
   mount(systemStatusRoutes(services));
   mount(usersRoutes(services));
   mount(meAccountRoutes(services));
+  mount(meAgentRoutes(services));
   api.mount(operationsRoutes(services), { guarded: false });
   mount(healthRoutes(services));
   registerResponses(app);
-  // What a restricted user reaches of the agents; sockets admit users through it.
-  services.userScope = new UserScope(services);
   const admit = (principal, target) => admitSocket(services, principal, target);
   const wss = attachTerminalWebSocket(server, {
     sessions: services.sessions,

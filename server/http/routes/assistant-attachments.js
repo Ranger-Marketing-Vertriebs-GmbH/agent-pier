@@ -41,6 +41,35 @@ const headerName = (name) =>
 // The raw body may exceed the file limit slightly so the route answers with its own
 // translated error; anything larger fails in the parser and is translated below.
 const body = raw({ type: "application/octet-stream", limit: MAX_ATTACHMENT_BYTES + 1 });
+export const attachmentBody = body;
+
+/** Answers with a served chat file (AgentAttachments.serve), inline when safe. */
+export function sendAttachment(req, res, file) {
+  const inline = file.inline === true;
+  const download = req.query.download === "1";
+  res.set({
+    "Content-Type": inline ? file.type : "application/octet-stream",
+    "Content-Disposition":
+      inline && !download
+        ? "inline"
+        : `attachment; filename*=UTF-8''${headerName(file.name)}`,
+    "X-Content-Type-Options": "nosniff",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "Cache-Control": "private, no-store",
+  });
+  // A video plays from its open, verified copy, a byte range at a time.
+  if (file.handle) return sendFileRange(req, res, file);
+  res.send(file.body);
+}
+
+/** An oversized upload body answers with the translated attachment limit. */
+export const attachmentTooLarge = (error, _req, _res, next) =>
+  next(
+    error?.type === "entity.too.large"
+      ? assistantProblem("attachmentTooLarge", 413)
+      : error,
+  );
 
 // The first bytes of a streamed body, and the whole body as chunks again.
 async function headOf(req, length) {
@@ -206,30 +235,8 @@ export function assistantAttachmentRoutes({
   // `?download=1` saves the whole file by its name, also one shown or played inline.
   router.get("/assistant-attachments/:file", read, async (req, res) => {
     gate();
-    const file = await attachments().serve(req.params.file);
-    const inline = file.inline === true;
-    const download = req.query.download === "1";
-    res.set({
-      "Content-Type": inline ? file.type : "application/octet-stream",
-      "Content-Disposition":
-        inline && !download
-          ? "inline"
-          : `attachment; filename*=UTF-8''${headerName(file.name)}`,
-      "X-Content-Type-Options": "nosniff",
-      "Cross-Origin-Resource-Policy": "same-origin",
-      "Content-Security-Policy": "default-src 'none'; sandbox",
-      "Cache-Control": "private, no-store",
-    });
-    // A video plays from its open, verified copy, a byte range at a time.
-    if (file.handle) return sendFileRange(req, res, file);
-    res.send(file.body);
+    sendAttachment(req, res, await attachments().serve(req.params.file));
   });
-  router.use("/assistant-conversations/:id/attachments", (error, _req, _res, next) =>
-    next(
-      error?.type === "entity.too.large"
-        ? assistantProblem("attachmentTooLarge", 413)
-        : error,
-    ),
-  );
+  router.use("/assistant-conversations/:id/attachments", attachmentTooLarge);
   return router;
 }

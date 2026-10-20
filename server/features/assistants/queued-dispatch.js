@@ -68,6 +68,11 @@ export function takeBackQueued(service, conversationId) {
   };
 }
 
+// A queued message goes out as the turn of the person whose chat it is.
+const turnContext = (conversation) =>
+  typeof conversation.userId === "string"
+    ? { kind: "user", userId: conversation.userId }
+    : { kind: "owner" };
 const delivery = (message) => ({
   clientRequestId: message.clientRequestId,
   text: message.text,
@@ -135,7 +140,11 @@ export async function dispatchQueued(service, conversationId) {
     ready.map(async (message) => {
       if (!service.queued.begin(message)) return;
       try {
-        await service.send(message.conversationId, delivery(message), { kind: "owner" });
+        await service.send(
+          message.conversationId,
+          delivery(message),
+          turnContext(service.store.getConversation(message.conversationId)),
+        );
         service.queued.done(message);
         backoff.delete(message.conversationId);
         service.changed({ conversationId: message.conversationId });
