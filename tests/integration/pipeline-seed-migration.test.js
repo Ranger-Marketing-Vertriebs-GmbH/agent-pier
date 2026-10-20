@@ -44,6 +44,15 @@ const file = (dir) => path.join(dir, "pipelines", "definitions.json");
 const open = (dir) => new PipelineDefinitions({ dataDir: dir, accounts });
 const read = (dir) => JSON.parse(fs.readFileSync(file(dir), "utf8"));
 
+// The first seeds whose role text changed since; each needs its released text listed.
+const REWORDED = [
+  "planner",
+  "implementer",
+  "code-reviewer",
+  "security-reviewer",
+  "app-tester",
+];
+
 // A definitions document as AgentPier's first releases wrote it: the first nine seed
 // profiles with their original role texts, one pipeline and no seed record.
 function writeLegacy(dir, change = (state) => state) {
@@ -51,7 +60,10 @@ function writeLegacy(dir, change = (state) => state) {
   const profiles = seedProfiles(at)
     .filter((p) => FIRST.includes(p.seedKey))
     .map((p) => {
-      const role = previousSeedRoles[p.seedKey]?.[0] ?? p.config.prompts.role;
+      if (REWORDED.includes(p.seedKey)) assert.ok(previousSeedRoles[p.seedKey]?.[0]);
+      const role = REWORDED.includes(p.seedKey)
+        ? previousSeedRoles[p.seedKey][0]
+        : p.config.prompts.role;
       p.description = role;
       p.config.prompts.role = role;
       return p;
@@ -180,4 +192,23 @@ test("an edited seed role stays; an unedited earlier seed text is updated", asyn
     profileOf(open(dir), "planner").config.prompts.role,
     previousSeedRoles.planner[0],
   );
+});
+
+test("a release candidate's tracked seeds get later wording once the revision moves", async (t) => {
+  const dir = await dataDir(t);
+  open(dir);
+  // As a release candidate at revision 2 left it: every seed recorded, earlier wording.
+  const state = read(dir);
+  state.seedRevision = 2;
+  const ux = state.profiles.find((p) => p.seedKey === "ux-reviewer");
+  ux.config.prompts.role = previousSeedRoles["ux-reviewer"].at(-1);
+  ux.description = ux.config.prompts.role;
+  fs.writeFileSync(file(dir), JSON.stringify(state));
+  const store = open(dir);
+  assert.equal(
+    profileOf(store, "ux-reviewer").config.prompts.role,
+    current["ux-reviewer"],
+  );
+  assert.equal(profileOf(store, "ux-reviewer").description, current["ux-reviewer"]);
+  assert.equal(read(dir).seedRevision, SEED_REVISION);
 });

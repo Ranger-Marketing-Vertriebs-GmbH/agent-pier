@@ -1,7 +1,7 @@
 import { previousSeedRoles, seedPipelines, seedProfiles } from "./profile-seeds.js";
 
 /** Raised whenever a seed role text changes; stored seeds then get the new text once. */
-export const SEED_REVISION = 2;
+export const SEED_REVISION = 3;
 
 // The seeds every installation got before seeds were tracked: AgentPier's first
 // releases created exactly these with their definitions.

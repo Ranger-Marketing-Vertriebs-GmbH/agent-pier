@@ -95,9 +95,9 @@ test("the software factory runs spec, implementation, verification, four reviewe
 });
 
 test("the UX and UI reviewers report into the stage report directory with the run's ports", () => {
-  for (const [key, file, topics] of [
-    ["ux-reviewer", "UX-REVIEW.md", ["flow", "copy", "accessibility", "phone width"]],
-    ["ui-reviewer", "UI-REVIEW.md", ["styling system", "tokens", "theme"]],
+  for (const [key, file] of [
+    ["ux-reviewer", "UX-REVIEW.md"],
+    ["ui-reviewer", "UI-REVIEW.md"],
   ]) {
     const text = role(key);
     assert.ok(text.includes(`${file} in the stage report directory`), key);
@@ -106,10 +106,24 @@ test("the UX and UI reviewers report into the stage report directory with the ru
       "$AGENTPIER_BROWSER_SESSION",
       '"criterion"',
       "do not change application code",
-      ...topics,
     ])
-      assert.ok(text.toLowerCase().includes(part.toLowerCase()), `${key}: ${part}`);
+      assert.ok(text.includes(part), `${key}: ${part}`);
   }
+});
+
+test("reviewers keep screenshots and other files out of the worktree", () => {
+  for (const key of [
+    "code-reviewer",
+    "security-reviewer",
+    "ux-reviewer",
+    "ui-reviewer",
+    "app-tester",
+  ])
+    assert.match(
+      role(key),
+      /screenshots, traces, logs and every other file you produce into the stage report directory and leave no new or changed file in the worktree/,
+      key,
+    );
 });
 
 test("the reworded seeds reference the spec's criteria and the stage's resources", () => {
