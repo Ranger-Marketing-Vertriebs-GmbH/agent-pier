@@ -67,9 +67,10 @@ test("the queue paths cover every Assistant runtime workflow filter", () => {
       "utf8",
     ),
   );
-  for (const event of ["push", "pull_request"])
-    for (const filter of workflow.on[event].paths)
-      assert.ok(assistantRuntimePaths.includes(filter), `${event} path ${filter}`);
+  // Pull requests only: after a merge the contracts run nightly, not on push.
+  assert.equal(workflow.on.push, undefined);
+  for (const filter of workflow.on.pull_request.paths)
+    assert.ok(assistantRuntimePaths.includes(filter), `pull_request path ${filter}`);
 });
 
 // A fake git: `present` decides whether the base commit exists locally,
