@@ -278,8 +278,8 @@ OpenClaw intersects it with the agent's `tools.allow`, so capability, shell and 
 changes apply to routines without rewriting their jobs.
 
 Each run has full context (`lightContext: false`, 300 s timeout) and runs detached
-from the agent's main chat (its one AgentPier conversation, which a paired Telegram
-chat also writes into; `sessionTarget: "current"`, as check-ins do), so it never
+from the agent's main chat (the person's main AgentPier conversation, which a paired
+Telegram chat also writes into; `sessionTarget: "current"`, as check-ins do), so it never
 interrupts a running turn. OpenClaw commits the result into that conversation once no
 turn runs there: the AgentPier chat shows it with a "Scheduled · <routine>" badge, a
 later turn can refer to it, and an `agent-routine` push notice opens the chat. With

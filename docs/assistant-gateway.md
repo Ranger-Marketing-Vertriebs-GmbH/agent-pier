@@ -1178,9 +1178,10 @@ The UI lists native state, next execution, run history and, for a reminder that 
 goes to Telegram, separate Telegram outbox delivery status, with pause/resume, remove
 and **Also send to Telegram** controls.
 
-Every reminder, routine and check-in delivers to the agent's main chat: its one
-AgentPier conversation (`channel: "agentpier"`, the one `openConversation` returns
-and creates on first use, `server/features/assistants/routine-targets.js`). A
+Every reminder, routine and check-in delivers to the agent's main chat: the person's
+main AgentPier conversation (`channel: "agentpier"`, `main: true`, the one
+`openConversation` returns and creates on first use, `mainConversation` in
+`server/features/assistants/routine-targets.js`); further chats get none of them. A
 Telegram pairing writes into that same conversation, so a paired agent's main chat is
 its Telegram conversation. Creating a reminder or routine opens the main chat when the
 agent has none yet; the binding stores it as `target` (`conversationId`,
@@ -2603,8 +2604,10 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   then the most recently active. `POST` on the same path starts a chat (201); every
   level may start chats. A user lists only her own chats. The owner lists his own and,
   under a user's opt-in, her chats that were active since its `since`; a chat she
-  started before it shows without its title.
-- Titles: the first written turn (web or Telegram) names the chat, whitespace collapsed
+  started before it shows without its title. The agent list (`GET /api/assistants`
+  and its event feed) holds her chats by the same rule (`OwnerPrivacy.view`).
+- Titles: the first written turn (web or Telegram) names the chat, also a chat stored
+  before titles existed, which takes its first message, not the turn just written, whitespace collapsed
   and cut at a word to 60 characters (`server/features/assistants/chat-titles.js`).
   `PATCH /api/assistant-conversations/:id` and `PATCH /api/me/conversations/:id` with
   `{title}` set 1 to 80 characters without control characters; `""` brings the
@@ -2630,9 +2633,14 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   OpenClaw keeps a compressed copy of that archive in its session database until its
   own disk budget removes it. A Gateway that is away deletes it at its next start
   (`nativeDeletePending`). Audited as `assistant.updated` with `details.kind:
-"chat-deleted"`, never the title. A deleted user's chats go the same way.
+"chat-deleted"`, never the title. The record keeps no title or last activity
+  (cleared under `secure_delete`). A deleted user's chats go the same way. Whatever
+  of a deleted chat a failed file removal left behind never serves to the owner.
 - Archive and delete answer 409 `CHAT_BUSY` while a turn runs, a message waits or an
-  approval waits in the chat. Only the chat's own person changes it: another user and
+  approval waits in the chat, and while a team or lead request started from it still
+  has to report into it (members working, a result not yet sent). A team member
+  agent's chat belongs to its team and is never archived or deleted (400), like no
+  further chat is created for it. Only the chat's own person changes it: another user and
   the owner, even under her opt-in, get 404 for a user's chat.
 - Archiving or deleting a chat sends its live viewers `end` (the WebSocket closes with
   1001); an archived chat may be opened again read-only.
@@ -2926,8 +2934,10 @@ sync opens it when the agent has none yet):
   that reads the conversation's recent tail and the agent's instructions
   (`lightContext: false`), then commits its visible result into that conversation.
   Each run reads the conversation as it is then, not as it was when the job was
-  created, and after an owner `/reset` or `/new` it reads and commits into the new
-  session, so the job is never recreated for that. OpenClaw waits for a running
+  created, and after a `/reset` or `/new` sent from the owner's Telegram chat it
+  reads and commits into the new session, so the job is never recreated for that.
+  In the web chat AgentPier answers both itself: `/new` opens a separate chat and
+  `/reset` is refused, so neither reaches the Gateway. OpenClaw waits for a running
   turn there to end before it commits, so a check-in that comes due while the
   owner's turn runs appears after that turn's answer, never inside it; the run
   itself does not wait, so it may not know that answer yet. The owner's next
@@ -2946,8 +2956,9 @@ sync opens it when the agent has none yet):
   webhook is the reminder receiver. A `NO_REPLY` result is silent: nothing is
   committed (the conversation shows no message; OpenClaw records the run as
   not delivered), and AgentPier drops the posted `NO_REPLY` summary.
-- A new main chat (the old one archived) retires the job and creates one for the new
-  session key. A pairing change never does.
+- A new main chat retires the job and creates one for the new session key. The main
+  chat cannot be archived or deleted (409 `CHAT_MAIN`), so this happens only for a
+  person who had none yet. A pairing change never does.
 
 The binding (kind `heartbeat`, hidden from reminder and routine lists) stores the main
 chat and the paired Telegram destination, which each sync brings to the current
@@ -2979,16 +2990,19 @@ check-in sees the agent's instructions and the conversation, reads MEMORY.md thr
 conversation, and is in the model input of the owner's next reply. `NO_REPLY` leaves
 no visible message and sends nothing. A check-in due during a running owner turn is
 committed after that turn's answer. A message sent after the job was created reaches
-the next check-in's model input, and after an owner `/reset` and `/new` the same job
-reads only the new session and commits into it (`deliveryStatus: "delivered"`). The
+the next check-in's model input, and after an owner `/reset` and `/new` sent from
+Telegram the same job reads only the new session and commits into it
+(`deliveryStatus: "delivered"`). The
 agent's native heartbeat job stays disabled, and switching off removes the job.
 
 ### Recall across conversations is not offered yet
 
 AgentPier keeps OpenClaw's cross-conversation recall off
-(`memory.search.rememberAcrossConversations: false`, transcripts not indexed). Each
-agent has one conversation, which its AgentPier chat and its paired Telegram chat
-share, so the recall pass would have little to find while costing extra model calls.
+(`memory.search.rememberAcrossConversations: false`, transcripts not indexed). A
+person's chats with an agent are kept apart on purpose: a new chat starts without the
+others' history, and on a shared agent each user's chats are her own. Recall across
+them would carry one chat, or one user's words, into another, and cost extra model
+calls.
 
 `tools.sessions.visibility` is `"agent"` on every Gateway: OpenClaw's default
 `"all"` lets session tools reach other agents' transcripts. Teams do not use
