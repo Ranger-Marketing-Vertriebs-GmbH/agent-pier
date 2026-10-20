@@ -5,7 +5,8 @@ import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { runTitle } from "./run-title.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatNumber } from "../../lib/i18n/index.js";
-import { MAX_TOKEN_BUDGET } from "./token-budget.js";
+import { MAX_TOKEN_BUDGET, parseTokenBudget } from "./token-budget.js";
+import TokenBudgetInput from "./TokenBudgetInput.jsx";
 import {
   confirmDescription,
   confirmedActions,
@@ -31,12 +32,10 @@ export default function GateDecision({ run, node, refresh, feedback: owned, shar
   const actions = availableGateActions(run);
   // A run above its token budget continues with a budget above what it reported.
   const used = run.usage?.totalTokens || 0;
-  const budgetValid =
-    Number.isSafeInteger(Number(budget)) &&
-    Number(budget) > used &&
-    Number(budget) <= MAX_TOKEN_BUDGET;
+  const requested = parseTokenBudget(budget);
+  const budgetValid = requested > used && requested <= MAX_TOKEN_BUDGET;
   const execute = async (action) => {
-    await requestRunAction(run, action, { feedback, tokenBudget: Number(budget) });
+    await requestRunAction(run, action, { feedback, tokenBudget: requested });
     setConfirm(null);
     setFeedback("");
     setBudget("");
@@ -67,15 +66,11 @@ export default function GateDecision({ run, node, refresh, feedback: owned, shar
           </p>
           <label>
             {copy.newTokenBudget}
-            <input
-              type="number"
-              min={used + 1}
-              max={MAX_TOKEN_BUDGET}
-              step={1}
+            <TokenBudgetInput
               value={budget}
               aria-describedby={`run-budget-help-${node.id}${budget && !budgetValid ? ` run-budget-error-${node.id}` : ""}`}
               aria-invalid={Boolean(budget) && !budgetValid}
-              onChange={(event) => setBudget(event.target.value)}
+              onChange={setBudget}
             />
           </label>
           {budget && !budgetValid && (
