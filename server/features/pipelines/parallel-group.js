@@ -46,63 +46,78 @@ const GROUP_FIELDS = [
 /**
  * Starts a group: a fresh launch opens a group attempt and starts every member again;
  * `resume` (a retry, resuming after a usage limit) keeps the members that reported and
- * starts the others again.
+ * starts the others again; after a usage limit only the members that hit it.
  */
 export async function launchGroup(engine, run, group, { resume = false } = {}) {
   run.pendingTurn = { nodeId: group.id, kind: "kickoff", ...(resume ? { resume } : {}) };
   engine.store.save(run);
   const now = engine.now();
   const previous = currentAttempt(run);
-  if (resume && previous?.kind === "group" && previous.nodeId === group.id) {
+  const own = previous?.kind === "group" && previous.nodeId === group.id;
+  // A launch that stopped before any member started (a restart during its starting
+  // checkpoint) continues in its attempt instead of leaving it open forever.
+  const unstarted =
+    own &&
+    !previous.finishedAt &&
+    !run.executionLog.some((a) => a.groupAttemptId === previous.id);
+  let attempt = previous;
+  if (resume && own) {
     previous.status = "running";
     delete previous.finishedAt;
     delete previous.failReason;
+    const limitOnly = group.failReason === "usage-limit-exceeded";
     for (const member of groupMembers(run, group))
-      if (member.status !== "reported" && !run.activeTurns?.[member.id])
+      if (
+        member.status !== "reported" &&
+        !run.activeTurns?.[member.id] &&
+        (!limitOnly || member.failReason === "usage-limit-exceeded")
+      )
         resetMember(member);
     delete group.failReason;
     delete group.failDetail;
     delete group.usageLimit;
   } else {
     for (const key of GROUP_FIELDS) delete group[key];
-    group.attemptId = randomUUID();
     group.startedAt = now;
     for (const member of groupMembers(run, group)) resetMember(member);
-    const attempt = {
-      id: randomUUID(),
-      nodeId: group.id,
-      attemptId: group.attemptId,
-      kind: "group",
-      startedAt: now,
-      status: "running",
-    };
-    run.executionLog.push(attempt);
-    run.currentNodeId = group.id;
-    run.currentAttemptId = attempt.id;
-    // Members are read-only reviewers: what the worktree holds now is committed, and
-    // the join refuses a worktree that differs from this commit.
-    if (engine.workspace.checkpoint && run.workspace) {
-      try {
-        attempt.baseSha = (
-          await engine.workspace.checkpoint({
-            workspace: run.workspace,
-            run,
-            node: group,
-          })
-        ).sha;
-      } catch (error) {
-        engine.recordError(error);
-        park(
-          engine,
-          run,
-          group,
-          "session-error",
-          [400, 409].includes(error.status)
-            ? error.message
-            : serverMessages.pipelines.checkpointFailed,
-        );
-        return;
-      }
+    if (unstarted) {
+      previous.status = "running";
+      group.attemptId = previous.attemptId;
+    } else {
+      group.attemptId = randomUUID();
+      attempt = {
+        id: randomUUID(),
+        nodeId: group.id,
+        attemptId: group.attemptId,
+        kind: "group",
+        startedAt: now,
+        status: "running",
+      };
+      run.executionLog.push(attempt);
+      run.currentNodeId = group.id;
+      run.currentAttemptId = attempt.id;
+    }
+  }
+  // Members are read-only reviewers: what the worktree holds when they start is
+  // committed, and the join refuses a worktree that differs from this commit. A retry
+  // after a failed starting checkpoint takes it then.
+  if (!attempt.baseSha && readOnlyCheckable(engine, run)) {
+    try {
+      attempt.baseSha = (
+        await engine.workspace.checkpoint({ workspace: run.workspace, run, node: group })
+      ).sha;
+    } catch (error) {
+      engine.recordError(error);
+      park(
+        engine,
+        run,
+        group,
+        "session-error",
+        [400, 409].includes(error.status)
+          ? error.message
+          : serverMessages.pipelines.checkpointFailed,
+      );
+      return;
     }
   }
   group.status = "running";
@@ -115,6 +130,8 @@ export async function launchGroup(engine, run, group, { resume = false } = {}) {
   engine.store.save(run);
   await progressGroup(engine, run, group);
 }
+const readOnlyCheckable = (engine, run) =>
+  Boolean(engine.workspace.checkpoint && run.workspace);
 
 /**
  * Starts members while the group has free slots, then settles the group once no member
@@ -157,13 +174,18 @@ async function settleGroup(engine, run, group, members) {
   );
   // One checkpoint for the whole group: a member that changed the worktree is refused.
   if (!(await checkpointStage(engine, run, group))) return;
-  if (attempt.baseSha && attempt.endSha && attempt.endSha !== attempt.baseSha) {
+  // Without its starting commit the group cannot prove that the members left the
+  // worktree unchanged; it stops for the owner as if they had changed it.
+  const unproven = readOnlyCheckable(engine, run) && !attempt.baseSha;
+  if (unproven || (attempt.endSha && attempt.endSha !== attempt.baseSha)) {
     park(
       engine,
       run,
       group,
       "group-changed-files",
-      serverMessages.pipelines.groupChangedFiles,
+      unproven
+        ? serverMessages.pipelines.groupReadOnlyUnproven
+        : serverMessages.pipelines.groupChangedFiles,
     );
     return;
   }

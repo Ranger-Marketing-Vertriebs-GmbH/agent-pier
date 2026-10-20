@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { RunStore } from "../../server/features/pipelines/run-store.js";
+import { RunStore, normalizeRun } from "../../server/features/pipelines/run-store.js";
 import { VerificationRunner } from "../../server/features/pipelines/verify-runner.js";
 import { fixture } from "../helpers/pipeline-engine.js";
 function temporary(t) {
@@ -221,4 +221,24 @@ test("a run persisted with one active turn loads, recovers and finishes", async 
   assert.deepEqual(finished.activeTurns, {});
   // The next save writes the current shape.
   assert.equal(Object.hasOwn(raw(), "activeTurn"), false);
+});
+
+test("a run an earlier build saved last keeps only that build's active turn", () => {
+  // An earlier build keeps fields it does not know, so `activeTurns` may be stale.
+  const stale = { turnId: "t1", nodeId: "build" };
+  const live = { turnId: "t2", nodeId: "build" };
+  const cases = [
+    [{ activeTurns: { build: stale }, activeTurn: null }, {}],
+    [{ activeTurns: { build: stale }, activeTurn: live }, { build: live }],
+    [
+      { activeTurns: { review: stale }, activeTurn: { ...live, nodeId: "fix" } },
+      { fix: { ...live, nodeId: "fix" } },
+    ],
+    [{ activeTurns: { build: stale } }, { build: stale }],
+  ];
+  for (const [run, expected] of cases)
+    assert.deepEqual(
+      normalizeRun({ nodes: [], executionLog: [], ...run }).activeTurns,
+      expected,
+    );
 });

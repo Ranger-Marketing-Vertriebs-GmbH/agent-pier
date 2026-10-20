@@ -288,8 +288,19 @@ export function auditEvent(input) {
       /^[a-z]+(?:-[a-z]+){0,4}$/.test(details.failReason)
     )
       event.details.failReason = details.failReason;
-    if (["checks-follow", "skips-checks", "gate-decision"].includes(details.path))
+    if (
+      [
+        "checks-follow",
+        "skips-checks",
+        "gate-decision",
+        "members-pass",
+        "accepts-changes",
+      ].includes(details.path)
+    )
       event.details.path = details.path;
+    // A group override names the members it accepted without a verdict.
+    if (Array.isArray(details.members))
+      event.details.members = details.members.slice(0, 8).map((id) => auditId(id));
     // A replaced run spec names the hash of the owner's text.
     if (typeof details.sha256 === "string" && /^[a-f0-9]{64}$/.test(details.sha256))
       event.details.sha256 = details.sha256;
