@@ -152,7 +152,8 @@ restarts. Everything after `--` is the CLI and its own arguments, verbatim; relo
 appends its resume flags at the end of that list. Enabling further integrations adds
 their own grants to the same list — the MCP integration's capability folder and bridge
 socket, the SSH tools' and GitHub helper's folders, `<dataDir>/native-sessions`,
-`<dataDir>/requests`, a chat attachment directory, and a managed account's own profile
+`<dataDir>/requests` and, for Claude Code with the bridge mod, the mod's own
+`claude-mod.sock` beside the request socket, a chat attachment directory, and a managed account's own profile
 directory.
 
 An installed AgentPier starts the GitHub credential helper through the install root's
