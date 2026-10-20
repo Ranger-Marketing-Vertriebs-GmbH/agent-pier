@@ -475,3 +475,71 @@ test("start-up only marks existing runs started and leaves other starts to the b
   assert.equal(started, 1);
   assert.equal(recovered.find(b.id).state, "started");
 });
+
+// Holds provisioning of runs in one folder until released.
+function holdFolder(q, folder) {
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  const prepare = q.f.workspace.prepare;
+  q.f.workspace.prepare = async (input) => {
+    if (input.cwd === folder) await held;
+    const prepared = await prepare(input);
+    // Runs of another folder belong to that project.
+    return input.cwd === q.f.dir
+      ? prepared
+      : { ...prepared, projectId: input.cwd.split("/").at(-1) };
+  };
+  return release;
+}
+const until = async (check) => {
+  for (let i = 0; i < 200 && !check(); i++)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.ok(check());
+};
+
+test("an item whose project moves while it starts ends up in the moved project", async (t) => {
+  const q = queueFixture(t);
+  const release = holdFolder(q, q.f.dir);
+  q.known.add("work-tree");
+  const waiting = q.queue.store.insert({
+    id: "waiting",
+    projectId: "work-tree",
+    state: "failed",
+    task: "W",
+  });
+  const a = q.add("A");
+  const settled = q.settle();
+  await until(() => q.f.engine.store.all().length === 1);
+  assert.equal(q.queue.find(a.id).state, "starting");
+  q.queue.moveProject("project", "work-tree");
+  release();
+  await settled;
+  const item = q.queue.find(a.id);
+  assert.equal(item.state, "started");
+  assert.equal(item.projectId, "work-tree");
+  assert.equal(q.queue.ownsProject("project"), false);
+  assert.deepEqual(
+    q.queue.store.list("work-tree").map((i) => [i.id, i.position]),
+    [
+      [waiting.id, waiting.position],
+      [a.id, waiting.position + 1],
+    ],
+  );
+});
+
+test("a slow start in one project does not hold back another project", async (t) => {
+  const q = queueFixture(t);
+  const release = holdFolder(q, q.f.dir);
+  q.known.add("other");
+  const a = q.add("A");
+  await until(() => q.f.engine.store.all().length === 1);
+  const b = q.queue.add("other", { pipelineId: "definition", task: "B" });
+  await until(() => q.queue.find(b.id).state === "started");
+  assert.equal(q.queue.find(a.id).state, "starting");
+  assert.equal(q.f.engine.get(b.id).projectId, "other");
+  release();
+  await q.settle();
+  assert.equal(q.queue.find(a.id).state, "started");
+  // Each project started exactly one run.
+  assert.equal(q.f.launches.length, 2);
+});
