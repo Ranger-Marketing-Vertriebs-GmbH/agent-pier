@@ -648,6 +648,12 @@ signed-in one may be used for images.
   into using what it was granted; with **Team members may use shell and SSH** on,
   that can include the lead's shell level and SSH accesses. Every grant is shown in
   the chats and on the team card, and later shell or SSH grants wait for you.
+- Agents of restricted users run under a hard lock: no shell, SSH, Git or GitHub,
+  coding, teams or OpenClaw session tools, and no visible browser window. You can give
+  them project folders (files only) and MCP servers you registered. Local (stdio)
+  servers run commands on the host for those users too, so bind them only where you
+  would accept that. See
+  [Agents of restricted users](assistant-gateway.md#agents-of-restricted-users).
 - Web pages can contain instructions meant to mislead an agent; switch on web tools
   only for agents whose other tools you would trust with that.
 - **SSH accesses** set to **Trusted** run commands without asking. Commands the agent

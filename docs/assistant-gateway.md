@@ -2372,6 +2372,44 @@ agent's instructions or files, but with shell access the agent runs as the owner
 can read it like the owner can. Like sessions, this separates
 configurations, not operating-system users: a command with shell runs as the owner.
 
+## Agents of restricted users
+
+The owner creates agents for restricted users with `POST /api/user-agents`. The body is
+the agent create body plus `userAccess`. He changes whom they serve with
+`PUT /api/user-agents/:id/access {userAccess, revision}`. `userAccess` is
+`{ mode: "own" | "shared", members: [{ userId, level }], released }`: an own agent has
+exactly one member, a shared agent one or more. A level is `chat`, `personalize` or
+`extended`. `released` lists the web capabilities an Extended user may switch on
+herself. The owner's existing agents never become user agents: assigning one answers 409
+`USER_AGENT_REQUIRED`. Both routes are owner routes, so a user gets the unknown-route
+404 for them.
+
+Every agent with `userAccess` runs under a hard lock, whatever its stored settings say:
+
+- **Compiled tools.** `agentEntry` applies `lockedEntry`
+  (`server/features/users/user-agent-lock.js`) last, on a Gateway start and on every
+  live apply. The entry's `tools.allow` loses `exec`, `process`, `agentpier_ssh`,
+  every team tool and every OpenClaw session tool, its `tools.deny` names all of them,
+  and it has no `tools.exec` override. This holds for a forged shell level in the
+  database as well.
+- **Run time.** The team bridge refuses these tools for a user agent: the tool guard
+  answers `allow: false`, and team and SSH bridge calls answer 403.
+- **Settings APIs.** Every write that would switch one of them on answers 409
+  `USER_AGENT_LOCKED`: a shell level or the visible browser window, SSH accesses,
+  pipelines, GitHub access, coding grants, project memory rights, a team policy or
+  proposal, and a Telegram bot for other people.
+- **Allowed.** Registered MCP servers the owner binds (stdio servers with the usual
+  confirmation), the web capabilities, memory, reminders and routines.
+- **Project folders.** A user agent holds folder levels (`projectFiles`) without the
+  coding grant (`projectIds` stays empty). Through `agentpier_workspace` it lists,
+  reads and, with write access, changes files there. Coding, project memory and run
+  actions answer `USER_AGENT_LOCKED`.
+- **Memory.** A user's own turn (trusted origin `{ kind: "user", userId }`) writes
+  memory like the owner's own turn, and so does its pre-compaction flush. Forwarded
+  content does not. A shared agent has one memory for all its users. A saved write to
+  its `MEMORY.md` or `memory/` leaves a "shared-write" note in the chat of the turn
+  that wrote it, and only there. `USER.md` stays the owner's.
+
 ## Agent shell access (2026-10-12)
 
 Agents can run command-line programs on the host through OpenClaw's `exec` and
@@ -2394,6 +2432,10 @@ has shell, the global `tools.allow` includes `exec` and `process`; the global
 `tools.exec.mode` stays `deny`, and an agent without shell keeps both tools out of
 its own `tools.allow`, because a global `deny` alone still offers the tool.
 
+- **Agents of restricted users never have a shell level.** See
+  [Agents of restricted users](#agents-of-restricted-users). The compiler treats any
+  stored level as Off, and the agent update refuses any other level with 409
+  `USER_AGENT_LOCKED`.
 - **Temporary (task-bound) team members have no shell level of their own.** The
   agent update refuses any level other than Off with 400, the compiler ignores a
   stored level, and the allowlist routes refuse them. They get at most their lead's
