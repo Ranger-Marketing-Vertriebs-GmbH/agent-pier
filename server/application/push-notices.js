@@ -77,7 +77,11 @@ export function agentNotice(assistants, assistantId, conversationId = null) {
   const chat =
     conversations.find(
       (c) => c.id === conversationId && c.assistantId === assistantId && !c.archivedAt,
-    ) || conversations.find((c) => c.assistantId === assistantId && !c.archivedAt);
+    ) ||
+    // Without its own chat a notice links the owner's chat, never a user's.
+    conversations.find(
+      (c) => c.assistantId === assistantId && !c.archivedAt && !c.userId,
+    );
   return {
     assistantId,
     ...(chat ? { conversationId: chat.id } : {}),

@@ -1,4 +1,5 @@
 import { agentNotice } from "./push-notices.js";
+import { approvalAudience } from "../features/users/approval-audience.js";
 
 // Which approval an agent action asks for, as the push names it.
 const subjects = {
@@ -28,6 +29,8 @@ export class AgentApprovalEvents {
     for (const action of assistants.workflows?.store.awaiting(this.now()) || []) {
       const subject = subjects[action.payload?.action];
       if (!subject) continue;
+      // A user's approval goes to her devices only, never into the owner's inbox.
+      const audience = approvalAudience(action, assistants.store);
       items.push({
         key: `action:${action.id}`,
         notice: {
@@ -35,7 +38,9 @@ export class AgentApprovalEvents {
           eventId: `agent-action-${action.id}`,
           subject,
           ...agentNotice(assistants, action.assistantId, action.conversationId),
-          inbox: { type: "action", id: action.id },
+          ...(audience.kind === "user"
+            ? { audience }
+            : { inbox: { type: "action", id: action.id } }),
         },
       });
     }

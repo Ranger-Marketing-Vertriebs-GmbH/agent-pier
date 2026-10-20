@@ -13,6 +13,7 @@ import {
 import { deliverMemoryFollowUp } from "./memory-follow-up.js";
 import { deliverFollowUps } from "./team-coding.js";
 import { decideAudited } from "./approval-audit.js";
+import { approvalAudience } from "../users/approval-audience.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { permanentReasons } from "./native-routines.js";
 import { ExecApprovals, execDecisions } from "./exec-approvals.js";
@@ -222,9 +223,18 @@ export class AssistantWorkflows {
         !sshTelegramApprovable(action.payload.command)
       )
         throw assistantProblem("invalid", 403);
+      // A user's approval is hers alone: the owner never finds it, another user neither.
+      const audience = approvalAudience(action, this.a.store);
+      if (
+        audience.kind === "user"
+          ? origin.kind !== "user" || origin.userId !== audience.userId
+          : origin.kind === "user"
+      )
+        throw assistantProblem("notFound", 404);
       const target = telegramTarget(action);
       if (
         origin.kind !== "owner" &&
+        origin.kind !== "user" &&
         !(
           origin.kind === "telegram" &&
           target &&
