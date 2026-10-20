@@ -131,7 +131,7 @@ test("owner cannot read an own user agent's memory, attachments or browser witho
 
 test("opt-in is not retroactive", async (t) => {
   const { f, gateway } = await chatFixture(t);
-  const { id, user } = await annaChat(f);
+  const { id, user, cookie } = await annaChat(f);
   const key = f.application.assistants.store.getConversation(id).runtimeSessionKey;
   const before = Date.now() - 60000;
   gateway.history[key] = [message("m1", "Earlier-text", before)];
@@ -156,9 +156,19 @@ test("opt-in is not retroactive", async (t) => {
   socket.terminate();
   assert.doesNotMatch(JSON.stringify(frames), /Earlier-text/);
   assert.match(JSON.stringify(frames), /Later-text/);
-  // Listed now, but the owner still never writes into her chat.
-  const list = await (await f.request("/api/assistants")).json();
-  assert.ok(list.conversations.some((c) => c.id === id));
+  // Listed only once she used it after the opt-in, without its earlier title, and
+  // the owner still never writes into her chat.
+  const listed = async () =>
+    (await (await f.request("/api/assistants")).json()).conversations.find(
+      (c) => c.id === id,
+    );
+  assert.equal(await listed(), undefined);
+  const written = await as(f, cookie)(`/api/me/conversations/${id}/messages`, {
+    method: "POST",
+    body: { clientRequestId: "after", text: "After the opt-in" },
+  });
+  assert.equal(written.status, 202);
+  assert.equal((await listed())?.title, null);
   const sent = await f.request(`/api/assistant-conversations/${id}/messages`, {
     method: "POST",
     body: { clientRequestId: "x", text: "Hi" },
@@ -343,4 +353,40 @@ test("her message queued before the opt-in stays hers once it is sent", async (t
     await f.request(`/api/assistant-conversations/${id}/messages?cursor=`)
   ).json();
   assert.doesNotMatch(JSON.stringify(snapshot), /Queued-before/);
+});
+
+test("a file left of her deleted chat never serves to the owner", async (t) => {
+  const { f } = await chatFixture(t);
+  const { agent, user, cookie } = await annaChat(f);
+  await optIn(f, user.id, true);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const request = as(f, cookie);
+  const chat = await request(`/api/me/agents/${agent.id}/chats`, { method: "POST" });
+  const { id } = await chat.json();
+  const staged = await fetch(
+    `${f.url}/api/me/conversations/${id}/attachments?name=dot.png`,
+    {
+      method: "POST",
+      headers: { cookie, origin: f.url, "content-type": "application/octet-stream" },
+      body: png,
+    },
+  );
+  const file = (await staged.json()).id;
+  assert.equal((await f.request(`/api/assistant-attachments/${file}`)).status, 200);
+  // The agent's folder is unavailable: her file stays behind the deleted chat.
+  const attachments = f.application.assistants.attachments;
+  const folder = attachments.folder;
+  attachments.folder = async () => {
+    throw new Error("unavailable");
+  };
+  const deleted = await request(`/api/me/conversations/${id}`, {
+    method: "DELETE",
+    body: { confirm: true },
+  });
+  assert.equal(deleted.status, 204, await deleted.clone().text());
+  attachments.folder = folder;
+  assert.equal(attachments.conversationOf(file), id);
+  const read = await f.request(`/api/assistant-attachments/${file}`);
+  assert.equal(read.status, 404);
+  assert.deepEqual(await read.json(), notFoundBody());
 });

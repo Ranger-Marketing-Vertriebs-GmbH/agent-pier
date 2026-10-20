@@ -344,6 +344,12 @@ test("owner opt-in lists only readable chats and filters each by since", async (
     await json(await f.request(`/api/assistants/${agent.id}/chats`), 200),
     [],
   );
+  // The agent list (and its feed) holds no chat from before the opt-in either.
+  const agentList = async () =>
+    (await json(await f.request("/api/assistants"), 200)).conversations.filter(
+      (c) => c.assistantId === agent.id,
+    );
+  assert.deepEqual(await agentList(), []);
   const third = await json(
     await request(`/api/me/agents/${agent.id}/chats`, { method: "POST" }),
     201,
@@ -370,6 +376,10 @@ test("owner opt-in lists only readable chats and filters each by since", async (
   assert.equal(byId[second].title, null);
   assert.equal(byId[third.id].title, "After the opt-in");
   assert.equal(byId[third.id].userId, anna.user.id);
+  const listedAgents = Object.fromEntries((await agentList()).map((c) => [c.id, c]));
+  assert.deepEqual(Object.keys(listedAgents).sort(), [second, third.id].sort());
+  assert.equal(listedAgents[second].title, null);
+  assert.doesNotMatch(JSON.stringify(listedAgents), /Before the opt-in/);
   // Each chat reads from the opt-in on.
   const history = await json(
     await f.request(`/api/assistant-conversations/${second}/messages`),

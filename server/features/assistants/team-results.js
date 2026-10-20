@@ -21,6 +21,16 @@ const codingRun = (a) => ({
 /** A member's whole report: its own row, or the batch text of older records. */
 export const reportText = (teams, team, entry) =>
   (entry.truncated && readText(teams.db, team.id, entry.memberId)) || entry.text || "";
+// A chat archived or deleted before its team reported (agent-chats.js keeps one with
+// open team work, but not one from before that rule) takes no result turn.
+function chatRemoved(assistants, conversationId) {
+  try {
+    const chat = assistants.store.storedConversation(conversationId);
+    return !!(chat.deletedAt || chat.archivedAt);
+  } catch {
+    return false;
+  }
+}
 export class TeamResults {
   constructor({ teams, assistants }) {
     Object.assign(this, { teams, assistants });
@@ -99,7 +109,9 @@ export class TeamResults {
         ? "TEAM_CANCELLED"
         : a.store.getAssistant(team.parentAssistantId).archivedAt
           ? "PARENT_ARCHIVED"
-          : null;
+          : chatRemoved(a, team.parentConversationId)
+            ? "PARENT_CHAT_REMOVED"
+            : null;
     if (skip) {
       teams.write(team, { resultState: "skipped", resultDiagnostic: skip });
       a.changed();

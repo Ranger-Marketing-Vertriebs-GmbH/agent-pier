@@ -301,6 +301,27 @@ test("a set title survives later turns", async (t) => {
   assert.doesNotMatch(audit, /Holiday|Lisbon/);
 });
 
+test("a chat from before titles is named after its first message", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const chat = await newChat(f.request, agent.id);
+  const assistants = f.application.assistants;
+  await post(f.request, `/api/assistant-conversations/${chat.id}/messages`, {
+    clientRequestId: "one",
+    text: "Plan my trip to Rome",
+  });
+  gateway.runs[gateway.sent[0].idempotencyKey] = { status: "ok" };
+  await assistants.reconcile();
+  // As stored before this release: history, but no title yet.
+  assistants.store.updateConversation(chat.id, { title: null, titleSource: null });
+  const sent = await post(f.request, `/api/assistant-conversations/${chat.id}/messages`, {
+    clientRequestId: "two",
+    text: "ok thanks",
+  });
+  assert.equal(sent.status, 202);
+  assert.equal(await title(f.request, agent.id, chat.id), "Plan my trip to Rome");
+});
+
 test("user A cannot rename B's chat", async (t) => {
   const { f } = await chatFixture(t);
   const { anna, ben, agent } = await sharedAgentOfTwo(f);

@@ -187,7 +187,12 @@ test("delete removes chat and transcript", async (t) => {
     assistants.ledger.requests(second).map((q) => q.text),
     [""],
   );
-  assert.equal(assistants.store.storedConversation(second).nativeDeletePending, false);
+  const stored = assistants.store.storedConversation(second);
+  assert.equal(stored.nativeDeletePending, false);
+  // Its title came from her first message: it goes with the chat.
+  assert.equal(stored.title, null);
+  assert.equal(stored.lastActivityAt, null);
+  assert.doesNotMatch(JSON.stringify(stored), /Secret plans/);
   // The audit names the deletion, never the title.
   const events = f.application.audit.list({ action: "assistant.updated" }).events;
   const event = events.find((e) => e.details?.kind === "chat-deleted");
@@ -207,6 +212,47 @@ test("main chat cannot be archived or deleted", async (t) => {
     const refused = await f.request(endpoint, { method, ...(body && { body }) });
     assert.equal(refused.status, 409, endpoint);
     assert.equal((await refused.json()).code, "CHAT_MAIN");
+  }
+});
+
+test("a legacy main chat and a team member's chat cannot be archived or deleted", async (t) => {
+  const { f } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const store = f.application.assistants.store;
+  // Stored before chats had a main flag, and not read since the upgrade.
+  const legacy = store.saveConversation({
+    assistantId: agent.id,
+    runtimeSessionKey: "agent:legacy:1",
+  });
+  // A member's chat (team-provisioning.js) carries no main flag either.
+  const member = store.reserveMember({
+    id: "member-1",
+    parent: agent.id,
+    assignment: { name: "Researcher" },
+    snapshot: { model: agent.model },
+    teamId: "team-1",
+    lifetime: "permanent",
+  });
+  const memberChat = store.saveConversation({
+    assistantId: member.id,
+    runtimeSessionKey: "agent:member:1",
+  });
+  const r = routes(false);
+  for (const [id, status, code] of [
+    [legacy.id, 409, "CHAT_MAIN"],
+    [memberChat.id, 400, undefined],
+  ])
+    for (const [endpoint, method, body] of [
+      [`${r.chat(id)}/archive`, "POST"],
+      [r.chat(id), "DELETE", { confirm: true }],
+    ]) {
+      const refused = await f.request(endpoint, { method, ...(body && { body }) });
+      assert.equal(refused.status, status, endpoint);
+      if (code) assert.equal((await refused.json()).code, code);
+    }
+  for (const id of [legacy.id, memberChat.id]) {
+    assert.equal(store.getConversation(id).archivedAt ?? null, null);
+    assert.equal(store.getConversation(id).deletedAt ?? null, null);
   }
 });
 
@@ -230,6 +276,54 @@ test("a chat with a turn running cannot be archived or deleted", async (t) => {
     assert.equal(refused.status, 409, endpoint);
     assert.equal((await refused.json()).code, "CHAT_BUSY");
   }
+});
+
+test("a chat a team or lead request still reports into cannot be archived or deleted", async (t) => {
+  const { f } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const { second } = await twoChats(f.request, agent.id);
+  const teams = f.application.assistants.teams.store;
+  const r = routes(false);
+  const refused = async () => {
+    for (const [endpoint, method, body] of [
+      [`${r.chat(second)}/archive`, "POST"],
+      [r.chat(second), "DELETE", { confirm: true }],
+    ]) {
+      const response = await f.request(endpoint, { method, ...(body && { body }) });
+      assert.equal(response.status, 409, endpoint);
+      assert.equal((await response.json()).code, "CHAT_BUSY");
+    }
+  };
+  // Its members still work after the lead's turn ended.
+  const team = teams.insert({
+    id: "team-1",
+    kind: "team",
+    revision: 1,
+    parentAssistantId: agent.id,
+    parentConversationId: second,
+    phase: "running",
+  });
+  await refused();
+  // Finished, but its result is not yet sent into the chat.
+  const finished = teams.write(team, {
+    phase: "completed",
+    resultBatch: [],
+    resultState: "queued",
+  });
+  await refused();
+  teams.write(finished, { resultState: "skipped" });
+  // A lead's request to its member not yet delivered holds the chat too.
+  const request = teams.insert({
+    id: "request-1",
+    kind: "lead-request",
+    revision: 1,
+    parentAssistantId: agent.id,
+    parentConversationId: second,
+    phase: "running",
+  });
+  await refused();
+  teams.write(request, { phase: "completed", settled: true });
+  await json(await f.request(`${r.chat(second)}/archive`, { method: "POST" }), 200);
 });
 
 test("user A cannot archive, restore or delete B's chat", async (t) => {

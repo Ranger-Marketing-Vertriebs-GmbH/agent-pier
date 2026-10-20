@@ -93,6 +93,21 @@ export class OwnerPrivacy extends EventEmitter {
     return this.conversation(conversation).readable;
   }
   /**
+   * How the owner's lists show a conversation, or null: his own chats whole, a
+   * user's only under her opt-in and only once it was active from its `since` on. A
+   * chat she started before that keeps its title to herself: the title comes from
+   * her first message.
+   */
+  view(conversation) {
+    if (typeof conversation?.userId !== "string") return conversation;
+    const { readable, since } = this.conversation(conversation);
+    if (!readable) return null;
+    if (!since) return conversation;
+    const keep = after(Date.parse(since));
+    if (!keep(conversation.lastActivityAt || conversation.createdAt)) return null;
+    return keep(conversation.createdAt) ? conversation : { ...conversation, title: null };
+  }
+  /**
    * Whether the owner may read an agent's content (memory, files, attachments,
    * browser): his own agents and shared agents yes, a user's own agent only under her
    * opt-in.
@@ -105,7 +120,7 @@ export class OwnerPrivacy extends EventEmitter {
   filterList(list) {
     return {
       ...list,
-      conversations: (list.conversations || []).filter((c) => this.visible(c)),
+      conversations: (list.conversations || []).map((c) => this.view(c)).filter(Boolean),
     };
   }
   /**

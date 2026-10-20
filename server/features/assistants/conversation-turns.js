@@ -74,7 +74,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   service.store.updateConversation(conversationId, {
     lastActivityAt: new Date(service.now?.() ?? Date.now()).toISOString(),
   });
-  titleFromTurn(service.store, conversation, input.text, context);
+  titleFromTurn(service, conversation, context);
   // The reconciler leaves an attempt alone while its send is under way.
   const sending = (service.sending ??= new Set());
   sending.add(attempt.id);

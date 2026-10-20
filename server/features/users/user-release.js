@@ -36,7 +36,7 @@ export async function releaseUserData(services, userId, mode, optIn) {
     }
     // Marked first: a Gateway that is away deletes the native session at its next start.
     // userReleased keeps reconciliation from reading her native session back.
-    store.updateConversation(conversation.id, {
+    store.forgetConversation(conversation.id, {
       archivedAt: new Date().toISOString(),
       nativeDeletePending: true,
       userReleased: true,

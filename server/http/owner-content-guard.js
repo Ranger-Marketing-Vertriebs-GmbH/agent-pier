@@ -27,20 +27,21 @@ const reading = (method) => ["GET", "HEAD"].includes(method);
  * writes into it, decides its approvals or re-pairs her channel.
  */
 export function ownerContentGuard(services) {
+  // The stored record, a deleted chat's too: what is left of one is nobody's to read.
   const resolve = {
-    conversation: (a, id) => a.store.getConversation(id),
+    conversation: (a, id) => a.store.storedConversation(id),
     attempt: (a, id) =>
-      a.store.getConversation(
+      a.store.storedConversation(
         a.ledger.getRequest(a.ledger.getAttempt(id).requestId).conversationId,
       ),
     attachment: (a, id) => {
       const conversationId = a.attachments.conversationOf(id);
-      return conversationId ? a.store.getConversation(conversationId) : null;
+      return conversationId ? a.store.storedConversation(conversationId) : null;
     },
     action: (a, id) => {
       const action = a.workflows?.store.get(id);
       return action?.conversationId
-        ? a.store.getConversation(action.conversationId)
+        ? a.store.storedConversation(action.conversationId)
         : null;
     },
   };
@@ -69,6 +70,8 @@ export function ownerContentGuard(services) {
     }
     const conversation = resolve[kind](assistants, id);
     if (!conversation) return true;
+    // A deleted chat answers 404 on every route; its leftover files never serve.
+    if (conversation.deletedAt) return false;
     if (typeof conversation.userId !== "string") {
       // His chat from when the agent was shared: once it is a user's own agent, he
       // reads what he wrote but no longer chats with it (conversation-turns.js).

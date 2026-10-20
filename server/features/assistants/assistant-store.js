@@ -239,6 +239,27 @@ export class AssistantStore {
       .run(JSON.stringify(result), id);
     return result;
   }
+  /**
+   * Marks a chat deleted or its user released and forgets what it said of itself: its
+   * title (her first message or what she named it) and when it was last used, written
+   * over with secure_delete.
+   */
+  forgetConversation(id, fields) {
+    const previous = this.db.prepare("PRAGMA secure_delete").get().secure_delete;
+    this.db.exec("PRAGMA secure_delete=ON");
+    try {
+      const result = this.updateConversation(id, {
+        ...fields,
+        title: null,
+        titleSource: null,
+        lastActivityAt: null,
+      });
+      this.db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
+      return result;
+    } finally {
+      this.db.exec(`PRAGMA secure_delete=${previous ? "ON" : "OFF"}`);
+    }
+  }
   /** Drops a conversation's cached messages. */
   forgetMessages(id) {
     this.db.prepare("DELETE FROM messages WHERE conversation_id=?").run(id);

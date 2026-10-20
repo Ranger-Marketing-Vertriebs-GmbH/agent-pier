@@ -7,8 +7,6 @@ import {
   restoreChat,
 } from "../../features/assistants/chat-removal.js";
 
-const at = (value) => Date.parse(value || "");
-
 /** A delete names its confirmation: `{confirm: true}`, or a 400. */
 export function confirmDelete(body) {
   if (body?.confirm !== true) throw chatProblem("CHAT_CONFIRM");
@@ -37,25 +35,9 @@ export function renameTitle(body) {
   return body.title;
 }
 
-/**
- * How the owner's chat list shows a conversation: his own chats whole, a user's only
- * under her opt-in (owner-privacy.js) and only once it was active from its `since`
- * on. A chat she started before that keeps its title to herself: the title comes
- * from her first message.
- */
+/** How the owner's chat list shows a conversation (users/owner-privacy.js). */
 export function ownerChatView(privacy) {
-  return (conversation) => {
-    if (typeof conversation.userId !== "string") return conversation;
-    const { readable, since } = privacy?.conversation(conversation) ?? {};
-    if (!readable) return null;
-    if (!since) return conversation;
-    const sinceMs = at(since);
-    if (!(at(conversation.lastActivityAt || conversation.createdAt) >= sinceMs))
-      return null;
-    return at(conversation.createdAt) >= sinceMs
-      ? conversation
-      : { ...conversation, title: null };
-  };
+  return (conversation) => (privacy ? privacy.view(conversation) : conversation);
 }
 
 /**

@@ -167,7 +167,10 @@ export function constructAssistantGraph(host, created = {}) {
   assistants.templates = host.agencyTemplates || null;
   // What the owner may read of his users' chats (users/owner-privacy.js).
   // Read lazily: the agent services may exist before the user store does.
-  assistants.privacy = { visible: (c) => host.ownerPrivacy?.visible(c) ?? true };
+  assistants.privacy = {
+    visible: (c) => host.ownerPrivacy?.visible(c) ?? true,
+    view: (c) => (host.ownerPrivacy ? host.ownerPrivacy.view(c) : c),
+  };
   // Whether a user may still use her agents: a disabled or deleted one may not.
   assistants.userActive = (userId) => {
     if (!host.users) return true;
