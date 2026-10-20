@@ -116,7 +116,7 @@ export const pipelines = Object.freeze({
   stageLaunchFailed:
     "Die Stufe konnte nicht gestartet werden. Bitte Account und native Session prüfen.",
   portRangeExhausted:
-    "Kein freier Portblock für die Stufe. Bitte laufende Stufen beenden oder den Portbereich der Pipelines vergrößern.",
+    "Kein freier Portblock für die Stufe. Bitte laufende Stufen beenden oder pipelines.portRangeStart und portRangeEnd in config.json erweitern.",
   usageLimitReached: "Das Nutzungslimit des nativen Providers ist erreicht.",
   nativeTurnFailed:
     "Der native Turn der Stufe ist nicht erfolgreich beendet worden. Bitte die Terminalausgabe prüfen.",

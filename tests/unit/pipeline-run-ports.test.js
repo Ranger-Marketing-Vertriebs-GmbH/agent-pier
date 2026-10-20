@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import fc from "fast-check";
 import {
   DEFAULT_PORT_RANGE,
@@ -16,6 +19,7 @@ import {
   stagePrompt,
 } from "../../server/features/pipelines/stage-prompt.js";
 import { seedProfiles } from "../../server/features/pipelines/profile-seeds.js";
+import { loadConfig } from "../../server/lib/config.js";
 
 const free = async () => true;
 // A run holding `ports` in its active turn, as the run store keeps it.
@@ -105,26 +109,66 @@ test("an exhausted range refuses the lease", async () => {
   await assert.rejects(leases(runs).lease({ turnId: "a" }), { status: 409 });
 });
 
-test("concurrent leases never share a block", async () => {
+test("concurrent leases never share a block, and leases beyond the range are refused", async () => {
   await fc.assert(
-    fc.asyncProperty(fc.integer({ min: 1, max: 4 }), async (count) => {
+    fc.asyncProperty(fc.integer({ min: 1, max: 7 }), async (count) => {
       const ports = leases([], {
         probe: () => new Promise((resolve) => setTimeout(() => resolve(true), 1)),
       });
-      const granted = await Promise.all(
+      const results = await Promise.allSettled(
         Array.from({ length: count }, (_, i) => ports.lease({ turnId: `t${i}` })),
       );
-      assert.equal(new Set(granted.map((g) => g.base)).size, count);
+      const granted = results.filter((r) => r.status === "fulfilled");
+      // The range holds four blocks.
+      assert.equal(granted.length, Math.min(count, 4));
+      assert.equal(new Set(granted.map((r) => r.value.base)).size, granted.length);
+      for (const r of results.filter((r) => r.status === "rejected"))
+        assert.equal(r.reason.status, 409);
     }),
-    { numRuns: 10 },
+    { numRuns: 20 },
   );
 });
 
-test("the port probe reports a listening port as unavailable", async (t) => {
+test("a block containing AgentPier's own port is never leased", async () => {
+  const ports = leases([], { hostPort: 20111 });
+  const granted = [];
+  for (const turnId of ["a", "b", "c"])
+    granted.push((await ports.lease({ turnId })).base);
+  assert.deepEqual(granted, [20100, 20120, 20130]);
+  await assert.rejects(ports.lease({ turnId: "d", prefer: 20110 }), { status: 409 });
+  // A port just past a block leaves that block usable.
+  const edge = leases([], { hostPort: 20103 });
+  assert.equal((await edge.lease({ turnId: "a" })).base, 20100);
+});
+
+async function listening(t, host) {
+  const server = net.createServer();
+  try {
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, host, resolve);
+    });
+  } catch {
+    return null;
+  }
+  t.after(() => server.close());
+  return server.address().port;
+}
+// Each bind address is probed on its own: on macOS a loopback or wildcard bind succeeds
+// while another process listens on a different one of them.
+for (const host of ["127.0.0.1", "0.0.0.0", "::1", "::"])
+  test(`the port probe sees a listener on ${host}`, async (t) => {
+    const port = await listening(t, host);
+    if (port === null) return t.skip(`${host} is not available on this host`);
+    assert.equal(await portAvailable(port), false);
+  });
+
+test("the port probe reports a free port as free", async () => {
   const server = net.createServer();
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => server.close());
-  assert.equal(await portAvailable(server.address().port), false);
+  const { port } = server.address();
+  await new Promise((resolve) => server.close(resolve));
+  assert.equal(await portAvailable(port), true);
 });
 
 test("operator range settings are bounded and keep the default otherwise", () => {
@@ -181,10 +225,34 @@ test("kickoff and resumed repair prompts state the turn's ports and browser sess
   }
 });
 
+test("operator range settings reach the pipeline engine options", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-port-config-"));
+  const saved = process.env.AGENTPIER_DATA_DIR;
+  t.after(() => {
+    if (saved === undefined) delete process.env.AGENTPIER_DATA_DIR;
+    else process.env.AGENTPIER_DATA_DIR = saved;
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  fs.writeFileSync(
+    path.join(dir, "config.json"),
+    JSON.stringify({
+      pipelines: { portRangeStart: 30000, portRangeEnd: 30099, turnTimeoutMinutes: 10 },
+    }),
+  );
+  process.env.AGENTPIER_DATA_DIR = dir;
+  assert.deepEqual(loadConfig().pipelines, {
+    turnTimeoutMs: 600000,
+    portRange: { start: 30000, end: 30099 },
+  });
+});
+
 test("the seed app tester starts its servers on the leased port", () => {
   const tester = seedProfiles("2026-10-20T00:00:00Z").find(
     (p) => p.seedKey === "app-tester",
   );
   for (const name of ["AGENTPIER_PORT", "AGENTPIER_BROWSER_SESSION"])
     assert.ok(tester.config.prompts.role.includes(`$${name}`), name);
+  // Also launchable as a plain session, where no port is leased.
+  assert.match(tester.config.prompts.role, /When \$AGENTPIER_PORT is set/);
+  assert.match(tester.config.prompts.role, /otherwise use the documented ports/);
 });

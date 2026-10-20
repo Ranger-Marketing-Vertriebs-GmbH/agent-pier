@@ -103,7 +103,7 @@ export const pipelines = Object.freeze({
   stageLaunchFailed:
     "The stage could not be launched. Check its account and native session.",
   portRangeExhausted:
-    "No free port block for the stage. Finish running stages or widen the pipeline port range.",
+    "No free port block for the stage. Finish running stages or widen pipelines.portRangeStart and portRangeEnd in config.json.",
   usageLimitReached: "Native provider usage limit reached.",
   nativeTurnFailed:
     "The native stage turn ended unsuccessfully. Inspect its terminal output.",

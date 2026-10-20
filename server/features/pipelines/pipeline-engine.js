@@ -47,6 +47,7 @@ export class PipelineEngine {
     turnTimeoutMs = 21600000,
     portRange,
     portProbe,
+    hostPort,
     audit,
   }) {
     this.audit = audit;
@@ -56,6 +57,7 @@ export class PipelineEngine {
     this.ports = new PortLeases({
       range: portRange,
       probe: portProbe,
+      hostPort,
       runs: () => this.store.all(),
     });
     this.definitions = definitions;
