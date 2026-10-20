@@ -2459,9 +2459,14 @@ agent, her attempt, her chat file. Anything else answers the unknown-route 404.
   work. The chat WebSocket admits her own conversation and closes (1008) once she is
   unassigned. An uncertain or interrupted turn in her chat blocks it like the owner's;
   she reviews it herself (`POST /me/attempts/:id/recover`, body
-  `{acknowledgeUnknownOutcome: true}`), which only marks it reviewed: unlike the
-  owner's recovery it never restarts the Gateway every agent shares. The owner never
-  reviews her turns (404).
+  `{acknowledgeUnknownOutcome: true}`): unlike the owner's recovery it never restarts
+  the Gateway every agent shares, but aborts her run in her own session first, since a
+  send that timed out may still run there, and only then marks it reviewed (409 while
+  the Gateway does not take the abort, 503 while it is away). The owner never reviews
+  her turns (404). A turn nobody can review any more (its user deleted, disabled or
+  removed from the agent, or the owner's on what became a user's own agent) is settled
+  by reconciliation the same way, so it never blocks runtime updates or the agent's
+  settings.
 - `GET|PATCH /me/agents/:id/settings` within her level
   (`server/features/users/user-agent-settings.js`): nothing at **Chat only** and on
   shared agents; name, picture (`avatar`, one emoji) and instructions at
@@ -2493,7 +2498,9 @@ agent, her attempt, her chat file. Anything else answers the unknown-route 404.
   ends ten minutes (the hand-back lease) after her turn's last browser call, or once a
   takeover then in progress ends, and the browser is the owner's again. Open views
   close when it changes hands; the hand-back note goes into the driver's chat. Under her
-  opt-in the owner watches her own agent's browser, view-only (`VIEW_ONLY`).
+  opt-in the owner watches her own agent's browser, view-only (`VIEW_ONLY`); a view he
+  opened to drive a shared agent closes (1008) once it becomes her own, as do his views
+  once she turns the opt-in off.
 - Push devices belong to one person (`subscriptions.user_id`, data schema 2):
   `/me/notifications…` mirrors the owner's routes for her own devices. A notice with
   `audience: { kind: "user", userId }` reaches only her devices; system notices only the
@@ -2531,8 +2538,9 @@ agents are switched off but their store exists, since only the running agents ca
 release her data) archives her own agents or
 keeps them as the owner's (`userAccess: null`, settings unchanged), removes her from
 shared agents, ends her reminders and routines, deletes her devices and sessions, and
-archives her chats with their native sessions, cached messages, files and message
-texts, and removes her own Telegram bot with its token and texts. Under her opt-in the
+archives her chats with their native sessions, cached messages, files, message
+texts and the delivered results of her reminders and routines, clears what she wrote
+into her ended reminders and routines (`definition`), and removes her own Telegram bot with its token and texts. Under her opt-in the
 chats stay, marked `deletedUser`, readable from its `since`. No new turn enters an
 archived or deleted user's chat, nor the chat of a user who left the agent. When the
 owner moves a shared agent to other users (`PUT /api/user-agents/:id/access`), whoever
