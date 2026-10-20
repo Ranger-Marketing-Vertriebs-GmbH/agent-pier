@@ -1,15 +1,25 @@
 import { Router } from "express";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
+import { ownerBinding, ownerPerson } from "./binding-scope.js";
 // Mount below the application owner authentication and CSRF middleware.
-export function assistantRoutineRoutes({ assistantRoutines: routines }) {
+export function assistantRoutineRoutes(services) {
+  const { assistantRoutines: routines, assistants } = services;
   const router = Router(),
     base = "/assistants/:id/routines";
   router.use(base, (_req, res, next) => {
     res.set("Cache-Control", "no-store");
     next();
   });
-  router.get(base, async (req, res) => res.json(await routines.list(req.params.id)));
+  router.get(base, async (req, res) =>
+    res.json(
+      await routines.list(req.params.id, {
+        userId: ownerPerson(assistants, req.params.id),
+      }),
+    ),
+  );
+  // Another user's routine on a shared agent is not the owner's to see or change.
+  router.use(`${base}/:routineId`, ownerBinding(services, "routineId"));
   router.post(base, async (req, res) =>
     res.status(201).json(await routines.create(req.params.id, req.body)),
   );

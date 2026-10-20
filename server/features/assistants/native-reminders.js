@@ -16,14 +16,7 @@ import {
 import { exact, schedule, updateInput } from "./reminder-input.js";
 import { invokeReminder } from "./reminder-tools.js";
 
-// The agent's name for a push notice; a notice without it still goes out.
-const agentName = (assistants, id) => {
-  try {
-    return assistants.store.getAssistant(id)?.name;
-  } catch {
-    return undefined;
-  }
-};
+import { agentName, audienceOf, pushAudience } from "./reminder-audience.js";
 export { exact, schedule, updateInput } from "./reminder-input.js";
 export { memberReminderLimit } from "./reminder-tools.js";
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
@@ -134,32 +127,38 @@ export class NativeReminders {
       reviewRequired: !job && unconfirmed(binding) && !this.creating.has(binding.id),
     };
   }
-  list(id) {
+  /** The bindings of one person (`userId`, null: the owner's; reminder-audience.js). */
+  list(id, { userId = null } = {}) {
     return this.assistants.admit(async () => {
       const agent = this.agent(id),
         jobs = await this.jobs(agent);
       return {
         reminders: this.bindings
           .list(id)
-          .filter((b) => b.state !== "removed" && (b.kind || "reminder") === this.kind)
+          .filter(
+            (b) =>
+              b.state !== "removed" &&
+              (b.kind || "reminder") === this.kind &&
+              audienceOf(b) === userId,
+          )
           .map((b) => this.project(b, this.find(b, jobs))),
       };
     });
   }
-  /** The agent's main chat (routine-targets.js), or null before it has one. */
-  mainConversation(id) {
-    return mainConversation(this.assistants.store, id);
+  /** A person's main chat with the agent (routine-targets.js), or null. */
+  mainConversation(id, userId = null) {
+    return mainConversation(this.assistants.store, id, userId);
   }
   /** The main chat, opened first when the agent has none yet. Callers hold admission. */
-  async openMain(id) {
+  async openMain(id, userId = null) {
     return (
-      this.mainConversation(id) ||
-      (await this.assistants.mainConversation(id, { turn: false }))
+      this.mainConversation(id, userId) ||
+      (await this.assistants.mainConversation(id, { turn: false, userId }))
     );
   }
-  /** The conversation a binding's results go to: its agent's main chat. */
+  /** The conversation a binding's results go to: its person's main chat. */
   conversation(binding) {
-    const conversation = this.mainConversation(binding.assistantId);
+    const conversation = this.mainConversation(binding.assistantId, audienceOf(binding));
     return conversation?.assistantId === binding.assistantId ? conversation : null;
   }
   /** The paired Telegram chat a binding may also deliver to (origin: the asking chat). */
@@ -272,7 +271,7 @@ export class NativeReminders {
       }
       await this.assistants.config.apply(id);
       const connection = await this.start();
-      const conversation = await this.openMain(id);
+      const conversation = await this.openMain(id, metadata.userId ?? null);
       assertCurrent();
       this.agent(id, true);
       this.bindings.patch(binding.id, {
@@ -466,6 +465,7 @@ export class NativeReminders {
         .then(() =>
           this.notifications?.notify({
             kind: "agent-routine",
+            ...pushAudience(binding),
             assistantId: binding.assistantId,
             conversationId: recorded.conversation.id,
             eventId: `routine-${event.runAtMs}-${binding.id}`,

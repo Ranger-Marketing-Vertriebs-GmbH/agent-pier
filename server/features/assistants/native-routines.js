@@ -5,6 +5,7 @@ import { routineTools } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { isLeadRoutine, LeadRoutines } from "./lead-routines.js";
 import { editRoutine } from "./routine-edits.js";
+import { audienceOf, boundTo, turnAudience } from "./reminder-audience.js";
 export const permanentReasons = {
   400: "INVALID",
   403: "FORBIDDEN",
@@ -187,8 +188,8 @@ export class NativeRoutines extends NativeReminders {
       console.error("Routine audit failed:", error?.message);
     }
   }
-  async list(id) {
-    const { reminders } = await super.list(id);
+  async list(id, scope) {
+    const { reminders } = await super.list(id, scope);
     return { routines: reminders };
   }
   update(id, bindingId, input, assertCurrent = () => {}) {
@@ -314,11 +315,18 @@ export class NativeRoutines extends NativeReminders {
     );
     const conversation = this.assistants.store.getConversation(request.conversationId);
     const origin = this.assistants.teams.store.context(request.id);
-    if (!["owner", "telegram"].includes(origin.kind) || origin.forwarded)
-      throw assistantProblem("invalid", 403);
     const id = conversation.assistantId;
+    // The person whose chat the turn is in owns what it creates (reminder-audience.js).
+    const userId = turnAudience(
+      this.assistants.store.getAssistant(id),
+      conversation,
+      origin,
+      input?.action !== "list",
+    );
     this.agent(id, true);
-    if (input.action === "list") return this.list(id);
+    if (input.action === "list") return this.list(id, { userId });
+    if (["update", "remove"].includes(input.action))
+      boundTo(this.bindings, id, input.id, userId);
     if (input.action === "create")
       return this.create(
         id,
@@ -330,6 +338,7 @@ export class NativeRoutines extends NativeReminders {
         },
         origin,
         invocation.assertCurrent,
+        userId ? { userId } : {},
       );
     if (input.action === "update")
       return this.update(
@@ -355,13 +364,14 @@ export class NativeRoutines extends NativeReminders {
     if (!routines.length) return;
     const jobs = await this.jobs(this.agent(id));
     const connection = await this.start();
-    const conversation = await this.openMain(id);
-    const target = {
-      conversationId: conversation.id,
-      sessionKey: conversation.runtimeSessionKey,
-    };
     let changed = false;
     for (const binding of routines) {
+      // Each routine runs in the main chat of the person it belongs to.
+      const conversation = await this.openMain(id, audienceOf(binding));
+      const target = {
+        conversationId: conversation.id,
+        sessionKey: conversation.runtimeSessionKey,
+      };
       if (!isDeepStrictEqual(binding.target, target))
         this.bindings.patch(binding.id, { target });
       const job = this.find(binding, jobs);

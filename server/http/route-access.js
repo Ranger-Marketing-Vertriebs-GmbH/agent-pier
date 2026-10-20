@@ -34,6 +34,17 @@ export const userRoutes = [
   { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/memory$/ },
   { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/memory\/[^/]+$/ },
   { method: "DELETE", pattern: /^\/api\/me\/agents\/[^/]+\/memory\/[^/]+$/ },
+  // Her own reminders and routines on her agents (me-reminders.js).
+  { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/(?:reminders|routines)$/ },
+  { method: "POST", pattern: /^\/api\/me\/agents\/[^/]+\/(?:reminders|routines)$/ },
+  {
+    method: "PATCH",
+    pattern: /^\/api\/me\/agents\/[^/]+\/(?:reminders|routines)\/[^/]+$/,
+  },
+  {
+    method: "DELETE",
+    pattern: /^\/api\/me\/agents\/[^/]+\/(?:reminders|routines)\/[^/]+$/,
+  },
   {
     method: "GET",
     pattern: /^\/api\/me\/conversations\/[^/]+\/shared-files\/[^/]+$/,

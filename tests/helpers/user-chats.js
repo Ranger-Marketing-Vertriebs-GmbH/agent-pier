@@ -11,8 +11,20 @@ import { fixtureModel } from "./user-agents.js";
 export function fakeGateway(f) {
   const assistants = f.application.assistants;
   const client = new EventEmitter();
-  const gateway = { client, created: [], sent: [], calls: [], history: {}, runs: {} };
+  const gateway = {
+    client,
+    created: [],
+    sent: [],
+    calls: [],
+    history: {},
+    runs: {},
+    jobs: new Map(),
+  };
   client.ready = true;
+  // The supervisor closes its client on shutdown.
+  client.close = () => {
+    client.ready = false;
+  };
   client.subscribe = (listener) => {
     client.on("event", listener);
     return () => client.off("event", listener);
@@ -38,6 +50,32 @@ export function fakeGateway(f) {
       return {};
     }
     if (method === "sessions.delete") return { deleted: true };
+    // Native cron jobs for reminders, routines and check-ins.
+    if (method === "cron.list")
+      return {
+        jobs: [...gateway.jobs.values()].filter((j) => j.agentId === params.agentId),
+        hasMore: false,
+      };
+    if (method === "cron.add") {
+      const job = {
+        ...params,
+        id: `job-${gateway.jobs.size + 1}`,
+        updatedAtMs: 1,
+        state: {},
+      };
+      gateway.jobs.set(job.id, job);
+      return { created: true, job };
+    }
+    if (method === "cron.update") {
+      const job = { ...gateway.jobs.get(params.id), ...params.patch, updatedAtMs: 2 };
+      gateway.jobs.set(job.id, job);
+      return job;
+    }
+    if (method === "cron.remove") {
+      gateway.jobs.delete(params.id);
+      return { removed: true };
+    }
+    if (method === "cron.runs") return { entries: [] };
     if (method === "sessions.describe") return { session: {} };
     return {};
   };

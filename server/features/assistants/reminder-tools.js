@@ -2,6 +2,7 @@ import { inheritsFromLead, personalCapabilities } from "./native-capabilities.js
 import { assistantProblem } from "./assistant-validation.js";
 import { exact } from "./reminder-input.js";
 import { pairedChannel } from "./routine-targets.js";
+import { boundTo, turnAudience } from "./reminder-audience.js";
 // Reminders all task members of one team may create together on their lead.
 export const memberReminderLimit = 5;
 /** The agent's reminder tool (agentpier_reminder) for one turn. */
@@ -16,10 +17,12 @@ export function invokeReminder(self, invocation, input) {
   const caller = self.assistants.store.getAssistant(conversation.assistantId);
   if (inheritsFromLead(caller))
     return memberCreate(self, caller, invocation, input, origin);
-  if (!["owner", "telegram"].includes(origin.kind) || origin.forwarded)
-    throw assistantProblem("invalid", 403);
+  // The person whose chat the turn is in owns what it creates (reminder-audience.js).
+  const userId = turnAudience(caller, conversation, origin, input?.action !== "list");
   self.agent(conversation.assistantId, true);
-  if (input.action === "list") return self.list(conversation.assistantId);
+  if (input.action === "list") return self.list(conversation.assistantId, { userId });
+  if (["update", "remove"].includes(input.action))
+    boundTo(self.bindings, conversation.assistantId, input.id, userId);
   if (input.action === "create")
     return self.create(
       conversation.assistantId,
@@ -31,6 +34,7 @@ export function invokeReminder(self, invocation, input) {
       },
       origin,
       invocation.assertCurrent,
+      userId ? { userId } : {},
     );
   if (input.action === "remove")
     return self.remove(conversation.assistantId, input.id, invocation.assertCurrent);
