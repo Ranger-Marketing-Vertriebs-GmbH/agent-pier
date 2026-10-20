@@ -59,6 +59,10 @@ export class ChatStreams {
   endStream(id, runId, options) {
     this.replies.endStream(id, runId, options);
   }
+  /** What the CLI reports doing now (live-status frames), or null. */
+  setStatus(id, status) {
+    this.replies.setStatus(id, status);
+  }
   subscribe(id, listener) {
     if (this.closed) throw new Error("Chat stream is closed");
     let entry = this.entries.get(id);

@@ -51,6 +51,10 @@ import { SessionManager } from "../features/sessions/session-manager.js";
 import { ChatEvents } from "../features/chat/chat-events.js";
 import { ChatStreams } from "../features/chat/chat-streams.js";
 import { ClaudeDisplayDrafts } from "../features/chat/claude-display-drafts.js";
+import {
+  ClaudeModBridge,
+  preferModActivity,
+} from "../features/claude-mod/claude-mod-bridge.js";
 import { createFileServices } from "./files.js";
 import { OwnerInbox } from "../features/inbox/owner-inbox.js";
 
@@ -148,9 +152,15 @@ export async function createServices(config) {
     repositories,
   });
   await github.sync();
+  // Late-bound: the bridge mod's state needs the chat streams created below.
+  let claudeMod = null;
   const activity = new SessionActivity({
     sessions,
-    hooks: (session) => bindings.reportedActivity(session),
+    hooks: async (session) =>
+      preferModActivity(
+        claudeMod?.activity(session.id),
+        await bindings.reportedActivity(session),
+      ),
     pending: (id) => requests?.hasPending(id),
   });
   const models = new ModelController({ sessions });
@@ -173,6 +183,13 @@ export async function createServices(config) {
   });
   // Claude Code's MessageDisplay batches as live reply drafts (stream frames).
   const claudeDrafts = new ClaudeDisplayDrafts({ streams: chatStreams });
+  // The bridge mod's reports (Claude Code 2.1.287+): token-level text, tool status and
+  // turn activity; while it reports, the MessageDisplay drafts above stand aside.
+  claudeMod = new ClaudeModBridge({
+    streams: chatStreams,
+    drafts: claudeDrafts,
+    onActivity: (id) => chatEvents.publish(id, "native-activity"),
+  });
   const sharedProfiles = new SharedCliProfiles({ accounts });
   const extensions = new ExtensionsStore({ accounts, home: config.home, sharedProfiles });
   const agency = new AgencyStore({ accounts, sharedProfiles });
@@ -280,7 +297,9 @@ export async function createServices(config) {
       if (push.type === "stream") chatStreams.streamText(sessionId, push.runId, push);
       if (push.type === "stream-end")
         chatStreams.endStream(sessionId, push.runId, { turn: push.turn });
-      if (push.type === "claude-display") claudeDrafts.display(sessionId, push);
+      if (push.type === "claude-display" && !claudeMod.active(sessionId))
+        claudeDrafts.display(sessionId, push);
+      if (push.type === "claude-mod") return claudeMod.receive(sessionId, push.events);
       // A Claude turn's drafts give way to its transcript when it stops, and are
       // dropped when it fails, the session ends or the next prompt starts.
       if (push.event === "Stop") claudeDrafts.stop(sessionId, push.lastAssistantMessage);
@@ -290,6 +309,8 @@ export async function createServices(config) {
       if (push.type === "activity")
         services.operationsEvents?.nativeActivity(sessionId, push.event);
     },
+    // A new launch or a stopped session: the mod reports again only once it loads.
+    onLaunch: (sessionId) => claudeMod.forget(sessionId),
   });
   await requests.ready;
   const chatDelivery = new ChatDelivery({
