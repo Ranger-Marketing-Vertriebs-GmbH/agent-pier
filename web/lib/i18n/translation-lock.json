@@ -602,6 +602,7 @@
   "assistant-memory-notes:memoryNoteCopy.reasons.guard-pending": "de:76a68c474df9 en:8b1f496f4de7",
   "assistant-memory-notes:memoryNoteCopy.reasons.lead-request": "de:9a96df79dc7a en:b559a7f662ed",
   "assistant-memory-notes:memoryNoteCopy.reasons.not-owner": "de:db37b593c7b8 en:1fbb4dcf9e32",
+  "assistant-memory-notes:memoryNoteCopy.reasons.shared-write": "de:3af5df0a44ff en:1ab84a0713f3",
   "assistant-memory-notes:memoryNoteCopy.unknown": "de:28b34f3e8a31 en:22865c446867",
   "assistant-pdf:assistantPdfCopy.description": "de:daf67e14e2a8 en:6ed5777d3bdd",
   "assistant-pdf:assistantPdfCopy.enable": "de:00920f5533e0 en:55ccf84eed14",
