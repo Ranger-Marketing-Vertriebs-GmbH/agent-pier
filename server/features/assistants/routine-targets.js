@@ -5,14 +5,20 @@
  * goes with every result. Telegram is an optional extra destination per binding.
  */
 
-/** The agent's main chat, or null before the agent has one. */
-export function mainConversation(store, assistantId) {
+/**
+ * The agent's main chat of one person (the owner's without `userId`), or null before
+ * that person has one. Each user of a shared agent has her own.
+ */
+export function mainConversation(store, assistantId, userId = null) {
   return (
     store
       .listConversations()
       .find(
         (c) =>
-          c.assistantId === assistantId && c.channel === "agentpier" && !c.archivedAt,
+          c.assistantId === assistantId &&
+          c.channel === "agentpier" &&
+          !c.archivedAt &&
+          (c.userId ?? null) === userId,
       ) || null
   );
 }
