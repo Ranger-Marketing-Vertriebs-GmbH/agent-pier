@@ -81,6 +81,8 @@ export async function runCodexLaunch(file, { env = process.env } = {}) {
     // the terminal reading.
     onActivity: (update) => {
       if (env.AGENTPIER_NATIVE_BINDING_FILE) recordNativeActivity(update, env);
+      // The file stays for restarts; the push lets the chat read again at once.
+      channel.activity(update.event);
     },
   });
   if (backendError) {

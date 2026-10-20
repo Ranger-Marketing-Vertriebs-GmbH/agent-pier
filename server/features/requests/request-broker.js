@@ -12,6 +12,7 @@ import { prepareRequests } from "./request-launch.js";
 import { refreshClaudeRuntime, confirmClaudeRuntime } from "./claude-runtime.js";
 import { validSession, requestValue, answerValue } from "./request-validation.js";
 import { messages, send } from "./wire.js";
+import { nativePushValue } from "./native-push.js";
 const stale = () => problem(copy.stale, 409);
 // A terminal notice describes a moment, not a state; it fades on its own.
 export const terminalNoticeMs = 10 * 60 * 1000;
@@ -22,10 +23,15 @@ const equal = (a, b) =>
   timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 export class RequestBroker {
-  constructor({ dataDir, sessions, onEvent = () => {} }) {
+  /**
+   * `onNative(sessionId, push)` receives the authenticated owner's push hints
+   * (native-push.js): activity, streamed reply text and its end.
+   */
+  constructor({ dataDir, sessions, onEvent = () => {}, onNative = () => {} }) {
     this.directory = path.join(dataDir, "requests");
     this.sessions = sessions;
     this.onEvent = onEvent;
+    this.onNative = onNative;
     this.entries = new Map();
     this.clients = new Set();
     this.deliveries = new Map();
@@ -190,6 +196,8 @@ export class RequestBroker {
           send(socket, { type: "ready" });
           return;
         }
+        const push = nativePushValue(message);
+        if (push) return this.push(socket, owner, push);
         if (message.type === "result") {
           const delivery = this.deliveries.get(message.delivery);
           if (delivery?.socket === socket) delivery.finish(message.status);
@@ -254,6 +262,9 @@ export class RequestBroker {
     socket.on("close", () => {
       clearTimeout(authenticationTimeout);
       this.clients.delete(socket);
+      // A native owner that went away streams nothing any more.
+      for (const runId of socket.runs || [])
+        this.notify(owner.id, { type: "stream-end", runId });
       for (const [id, entry] of this.entries)
         if (entry.socket === socket) {
           this.entries.delete(id);
@@ -262,6 +273,34 @@ export class RequestBroker {
       for (const delivery of this.deliveries.values())
         if (delivery.socket === socket) delivery.finish("unknown");
     });
+  }
+  /**
+   * A push names no session of its own: it always belongs to the owner this socket
+   * authenticated as, and only while that session runs on the same profile.
+   */
+  async push(socket, owner, push) {
+    socket.verified ??= this.sessions.get(owner.id).then(
+      (session) =>
+        session.status === "running" &&
+        session.accountId === owner.accountId &&
+        session.tool === owner.tool,
+      () => false,
+    );
+    if (!(await socket.verified)) throw Error("Native owner unavailable");
+    if (push.type === "stream") {
+      socket.runs ??= new Set();
+      socket.runs.add(push.runId);
+      if (socket.runs.size > 64) socket.runs.delete(socket.runs.values().next().value);
+    }
+    if (push.type === "stream-end" && push.runId) socket.runs?.delete(push.runId);
+    this.notify(owner.id, push);
+  }
+  notify(sessionId, push) {
+    try {
+      this.onNative(sessionId, push);
+    } catch {
+      /* A hint is advisory; the watcher and the probe still see the change. */
+    }
   }
   hasPending(sessionId) {
     return [...this.entries.values()].some((entry) => entry.sessionId === sessionId);

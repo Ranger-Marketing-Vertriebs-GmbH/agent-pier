@@ -77,6 +77,11 @@ export class NativeRequestChannel {
     this.pending.set(key, { request, deliver, status: "pending" });
     if (this.connected) send(this.socket, { type: "publish", key, request });
   }
+  /** A hint that the session's history changed; lost while disconnected. */
+  activity(event) {
+    if (this.connected)
+      send(this.socket, { type: "activity", ...(event ? { event } : {}) });
+  }
   resolve(key, outcome) {
     this.pending.delete(key);
     send(this.socket, { type: "resolved", key, ...(outcome ? { outcome } : {}) });

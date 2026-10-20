@@ -267,6 +267,11 @@ export async function createServices(config) {
       events.current?.emit(event);
       inbox?.changed();
     },
+    // A CLI's own report reaches an open chat at once (the same debounced read the
+    // file watcher triggers); the activity file stays for restarts.
+    onNative: (sessionId, push) => {
+      if (push.type === "activity") chatEvents.publish(sessionId, "native-activity");
+    },
   });
   await requests.ready;
   const chatDelivery = new ChatDelivery({
