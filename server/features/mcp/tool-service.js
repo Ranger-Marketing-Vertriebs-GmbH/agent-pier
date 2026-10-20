@@ -134,7 +134,19 @@ export class McpTools {
     requireResource(grant, "projectIds", projectId);
     const raced = this.replayStart(grant, requestId, input);
     if (raced) return raced;
-    this.pipeline(pipelineId, grant, true);
+    const pipeline = this.pipeline(pipelineId, grant, true);
+    // Raising the owner's spending bound is a definition change: without
+    // definitions:write a client may only tighten the pipeline's token budget.
+    if (
+      tokenBudget !== undefined &&
+      Number.isSafeInteger(pipeline.tokenBudget) &&
+      tokenBudget > pipeline.tokenBudget &&
+      !grant.scopes?.includes("definitions:write")
+    )
+      throw problem(
+        "Without definitions:write a run's token budget cannot exceed the pipeline's token budget.",
+        403,
+      );
     const receipt = this.requests.reserve(grant.id, requestId, input);
     const run = await this.services.pipelines.start(
       {

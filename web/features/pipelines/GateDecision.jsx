@@ -5,6 +5,7 @@ import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { runTitle } from "./run-title.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatNumber } from "../../lib/i18n/index.js";
+import { MAX_TOKEN_BUDGET } from "./token-budget.js";
 import {
   confirmDescription,
   confirmedActions,
@@ -14,9 +15,6 @@ import {
   requestRunAction,
 } from "./run-action-request.js";
 import "./gate-decision.css";
-
-// As the engine's bound (server/features/pipelines/run-budget.js).
-const MAX_TOKEN_BUDGET = 1_000_000_000;
 
 export const availableGateActions = (run) =>
   (run.actions || []).filter((action) => gateActions.includes(action));
@@ -64,7 +62,7 @@ export default function GateDecision({ run, node, refresh, feedback: owned, shar
       )}
       {actions.includes("raise-budget") && (
         <>
-          <p>
+          <p id={`run-budget-help-${node.id}`}>
             {copy.budgetGateHelp(formatNumber(used), formatNumber(run.tokenBudget || 0))}
           </p>
           <label>
@@ -75,9 +73,20 @@ export default function GateDecision({ run, node, refresh, feedback: owned, shar
               max={MAX_TOKEN_BUDGET}
               step={1}
               value={budget}
+              aria-describedby={`run-budget-help-${node.id}${budget && !budgetValid ? ` run-budget-error-${node.id}` : ""}`}
+              aria-invalid={Boolean(budget) && !budgetValid}
               onChange={(event) => setBudget(event.target.value)}
             />
           </label>
+          {budget && !budgetValid && (
+            <p
+              id={`run-budget-error-${node.id}`}
+              className="field-description"
+              role="status"
+            >
+              {copy.budgetRange(formatNumber(used + 1), formatNumber(MAX_TOKEN_BUDGET))}
+            </p>
+          )}
         </>
       )}
       <div className="pipeline-actions">

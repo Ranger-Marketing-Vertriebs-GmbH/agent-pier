@@ -6,6 +6,7 @@ import {
 } from "../assistants/openclaw-config/advanced-settings.js";
 import { MCP_SERVER_ORIGINS } from "../mcp-servers/server-origins.js";
 import { sshAuditDetails } from "./audit-ssh-details.js";
+import { MAX_TOKEN_BUDGET } from "../pipelines/run-budget.js";
 import { teamAuditDetails } from "./audit-team-details.js";
 import { SCAN_RULES, SCAN_VERDICTS } from "../extensions/skill-scan.js";
 const memberGrantKeys = new Set([
@@ -217,6 +218,7 @@ export function auditEvent(input) {
       "spec",
       "risk",
       "risk-rules",
+      "budget",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -304,6 +306,14 @@ export function auditEvent(input) {
     // A replaced run spec names the hash of the owner's text.
     if (typeof details.sha256 === "string" && /^[a-f0-9]{64}$/.test(details.sha256))
       event.details.sha256 = details.sha256;
+    // A raised token budget names the old and new budget and the tokens used so far.
+    if (details.kind === "budget")
+      for (const key of ["from", "to", "usedTokens"]) {
+        const value = details[key];
+        const max = key === "usedTokens" ? Number.MAX_SAFE_INTEGER : MAX_TOKEN_BUDGET;
+        if (Number.isSafeInteger(value) && value >= 0 && value <= max)
+          event.details[key] = value;
+      }
     // An approved risk gate names the repository paths it covered, never content.
     if (Array.isArray(details.paths))
       event.details.paths = details.paths

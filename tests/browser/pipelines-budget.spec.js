@@ -15,6 +15,7 @@ function budgetRun(state) {
   run.nodes[0].verdict = undefined;
   run.nodes[0].verifyResult = undefined;
   run.nodes[0].failReason = "budget-exceeded";
+  // The engine stores its German message; an English page must show it in English.
   run.nodes[0].failDetail =
     "Der Lauf hat sein Token-Budget überschritten. Ein neuer Turn startet erst, wenn das Budget erhöht wird.";
   run.actions = ["abort", "raise-budget"];
@@ -113,4 +114,71 @@ test("a pipeline saves its token budget and a run start can replace it", async (
           .tokenBudget,
     )
     .toBe(100000);
+});
+
+test("at phone width the budget gate fits and the usage tiles leave no gap", async ({
+  page,
+}) => {
+  await english(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await pipelinesFixture(page);
+  budgetRun(state);
+  await openPipelines(page, "runs/run-one");
+  const input = page.getByRole("spinbutton", { name: "New token budget" });
+  await expect(input).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Raise budget and continue", exact: true }),
+  ).toBeVisible();
+  // An out-of-range value says why the button stays disabled.
+  await input.fill("10");
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+  await expect(
+    page.getByText("Enter a whole number from 1,501 to 1,000,000,000."),
+  ).toBeVisible();
+  const usage = page.getByRole("group", { name: "Reported usage" });
+  const tiles = usage.locator(":scope > div");
+  await expect(tiles).toHaveCount(5);
+  // The fifth tile spans both columns instead of leaving an empty cell.
+  const [budgetBox, costBox] = [
+    await tiles.nth(3).boundingBox(),
+    await tiles.nth(4).boundingBox(),
+  ];
+  const usageBox = await usage.boundingBox();
+  expect(costBox.width).toBeGreaterThan(budgetBox.width * 1.5);
+  expect(Math.round(costBox.width)).toBeGreaterThanOrEqual(
+    Math.round(usageBox.width) - 2,
+  );
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+});
+
+test("a run with a budget but no reported usage yet shows zero of its budget", async ({
+  page,
+}) => {
+  await english(page);
+  const state = await pipelinesFixture(page);
+  const run = sampleRun(state);
+  run.usage = null;
+  run.tokenBudget = 2000;
+  state.runs.push(run);
+  await openPipelines(page, "runs/run-one");
+  const usage = page.getByRole("group", { name: "Reported usage" });
+  await expect(usage).toContainText("0 of 2,000");
+});
+
+test("the definition editor refuses a budget outside its range before saving", async ({
+  page,
+}) => {
+  await english(page);
+  const state = await pipelinesFixture(page);
+  await openPipelines(page, "definitions/pipeline-one");
+  const budget = page.getByRole("spinbutton", { name: "Token budget (optional)" });
+  await budget.fill("0");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  expect(await budget.evaluate((input) => input.validity.valid)).toBe(false);
+  await budget.fill("1.5");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  expect(await budget.evaluate((input) => input.validity.valid)).toBe(false);
+  expect(state.calls.some((c) => c.method === "PATCH")).toBe(false);
 });

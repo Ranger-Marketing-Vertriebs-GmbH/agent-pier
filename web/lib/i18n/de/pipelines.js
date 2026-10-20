@@ -303,6 +303,7 @@ export const pipelineCopy = {
   budgetGateHelp: (used, budget) =>
     `Die Turns des Laufs haben ${used} Tokens gemeldet, mehr als sein Budget von ${budget}. Laufende Turns wurden nicht abgebrochen; der nächste Turn startet, sobald du das Budget erhöhst.`,
   newTokenBudget: "Neues Token-Budget",
+  budgetRange: (min, max) => `Gib eine ganze Zahl von ${min} bis ${max} ein.`,
   attempts: "Ausführungsverlauf",
   verdict: "Ergebnis",
   pass: "Bestanden",

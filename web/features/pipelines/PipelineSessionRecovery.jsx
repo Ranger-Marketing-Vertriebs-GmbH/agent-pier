@@ -3,6 +3,7 @@ import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { serverText } from "../../lib/server-messages.js";
 import RunActions from "./RunActions.jsx";
+import GateDecision from "./GateDecision.jsx";
 import "./pipelines.css";
 
 export default function PipelineSessionRecovery({ session }) {
@@ -22,7 +23,12 @@ export default function PipelineSessionRecovery({ session }) {
       {current && run.status === "awaiting-human" && actions.length > 0 && (
         <div>
           {node.failDetail && <p role="status">{serverText(node.failDetail)}</p>}
-          <RunActions run={{ ...run, actions }} refresh={resource.refresh} />
+          {/* A raised budget needs its value: the gate's own form asks for it. */}
+          {actions.includes("raise-budget") ? (
+            <GateDecision run={run} node={node} refresh={resource.refresh} />
+          ) : (
+            <RunActions run={{ ...run, actions }} refresh={resource.refresh} />
+          )}
         </div>
       )}
     </>

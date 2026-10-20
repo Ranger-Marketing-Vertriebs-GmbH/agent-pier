@@ -3,6 +3,7 @@ import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { browserUuid } from "../../lib/browser-uuid.js";
+import { MAX_TOKEN_BUDGET } from "./token-budget.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import StageFlow from "./StageFlow.jsx";
@@ -236,7 +237,7 @@ export default function PipelineBuilder({
             <input
               type="number"
               min={1}
-              max={1_000_000_000}
+              max={MAX_TOKEN_BUDGET}
               step={1}
               value={budget}
               aria-describedby="definition-budget-help"

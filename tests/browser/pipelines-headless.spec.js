@@ -113,3 +113,48 @@ test("historical pipeline sessions do not control a newer stage attempt", async 
     page.getByRole("button", { name: "Stufe erneut starten", exact: true }),
   ).toHaveCount(0);
 });
+
+test("a session held at the token budget asks for the new budget before continuing", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const state = await pipelinesFixture(page);
+  state.sessions.push({
+    id: "headless",
+    name: "Pipeline worker",
+    tool: "codex",
+    accountId: "local-codex",
+    cwd: "/fixture/project",
+    status: "stopped",
+    pipeline: { headless: true, runId: "run-one" },
+  });
+  state.runs.push({
+    id: "run-one",
+    status: "awaiting-human",
+    currentNodeId: "build",
+    tokenBudget: 1000,
+    usage: { inputTokens: 1400, outputTokens: 100, totalTokens: 1500 },
+    nodes: [
+      {
+        id: "build",
+        sessionId: "headless",
+        status: "awaiting-gate",
+        failReason: "budget-exceeded",
+      },
+    ],
+    actions: ["abort", "raise-budget"],
+  });
+  await page.goto(baseURL + "/sessions/headless/chat");
+  const raise = page.getByRole("button", {
+    name: "Raise budget and continue",
+    exact: true,
+  });
+  await expect(raise).toBeDisabled();
+  await page.getByRole("spinbutton", { name: "New token budget" }).fill("3000");
+  await raise.click();
+  await expect
+    .poll(
+      () => state.calls.find((call) => call.path === "/pipeline-runs/run-one/gate")?.body,
+    )
+    .toEqual({ action: "raise-budget", tokenBudget: 3000 });
+});

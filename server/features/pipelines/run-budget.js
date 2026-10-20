@@ -15,6 +15,19 @@ export function tokenBudgetValue(value) {
   return value;
 }
 
+/**
+ * A stored definition's budget. A value the save paths would refuse (restored or
+ * hand-edited data) counts as none, with a warning, so it never blocks every start.
+ */
+export function storedTokenBudget(value, name = "") {
+  try {
+    return tokenBudgetValue(value);
+  } catch {
+    console.warn(`Ignoring the invalid token budget of pipeline ${name}.`);
+    return null;
+  }
+}
+
 /** The tokens the run's turns reported so far. */
 export const usedTokens = (run) =>
   Number.isFinite(run.usage?.totalTokens) ? run.usage.totalTokens : 0;
@@ -72,7 +85,7 @@ export function holdMember(engine, run, member, queued) {
 export function raiseBudget(engine, run, node, value) {
   const budget = tokenBudgetValue(value ?? Number.NaN);
   const used = usedTokens(run);
-  if (budget <= used) throw problem(serverMessages.pipelines.budgetBelowUsage(used));
+  if (budget <= used) throw problem(serverMessages.pipelines.budgetBelowUsage);
   const raise = { at: engine.now(), from: run.tokenBudget, to: budget, used };
   run.tokenBudget = budget;
   run.budgetRaises = [...(run.budgetRaises || []), raise].slice(-20);

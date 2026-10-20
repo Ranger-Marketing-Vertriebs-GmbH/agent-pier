@@ -444,6 +444,36 @@ test("MCP starts a run with its own token budget and cannot raise it later", asy
       ),
       (error) => error.status === 400,
     );
+  // Without definitions:write a client may only tighten the pipeline's budget.
+  const defs = c.services.pipelineDefinitions;
+  const current = defs.getPipeline(c.pipeline.id);
+  defs.savePipeline(
+    { ...current, tokenBudget: 3000, expectedRevision: current.revision },
+    c.pipeline.id,
+  );
+  const starter = {
+    ...c.grant,
+    scopes: c.grant.scopes.filter((scope) => scope !== "definitions:write"),
+  };
+  const tight = { ...input, requestId: "tight" };
+  await assert.rejects(
+    c.tools.call("run_start", { ...tight, tokenBudget: 3001 }, starter),
+    (error) => error.status === 403,
+  );
+  const lower = await c.tools.call("run_start", { ...tight, tokenBudget: 3000 }, starter);
+  assert.equal(lower.run.tokenBudget, 3000);
+  const inherited = await c.tools.call(
+    "run_start",
+    { ...tight, tokenBudget: undefined, requestId: "inherited" },
+    starter,
+  );
+  assert.equal(inherited.run.tokenBudget, 3000);
+  const editor = await c.tools.call(
+    "run_start",
+    { ...tight, tokenBudget: 9000, requestId: "editor" },
+    c.grant,
+  );
+  assert.equal(editor.run.tokenBudget, 9000);
   // Raising a parked run's budget is a gate decision; MCP has no gate tool.
   await assert.rejects(
     c.tools.call("run_gate", { runId: run.id, action: "raise-budget" }, c.grant),
