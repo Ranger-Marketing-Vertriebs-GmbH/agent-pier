@@ -1,4 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
+import { refuseUserAgent } from "../users/user-agent-lock.js";
 export class AssistantCoding {
   constructor(workflows) {
     this.w = workflows;
@@ -26,6 +27,7 @@ export class AssistantCoding {
       : this.w.access.grant(action.assistantId);
   }
   async start(action) {
+    refuseUserAgent(this.w.a.store.getAssistant(action.assistantId));
     const grant = () => {
       this.w.authorize(action);
       return this.runGrant(action);
@@ -58,7 +60,8 @@ export class AssistantCoding {
   }
   // A member caller (requestedBy) reaches only the runs it requested itself.
   async call(id, actionId, name, args = {}, requestedBy) {
-    this.w.access.eligible(id);
+    // A user agent never runs or reads coding work (user-agent-lock.js).
+    refuseUserAgent(this.w.access.eligible(id));
     const a = this.w.store.get(actionId);
     if (
       a.assistantId !== id ||

@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
+import { refuseUserAgent } from "../users/user-agent-lock.js";
 import { migrateTeams } from "./team-schema.js";
 import {
   defaultTeamPolicy,
@@ -179,6 +180,7 @@ export class TeamStore {
   writePolicy(id, input, revision) {
     const a = this.store.getAssistant(id);
     if (a.teamMemberId) throw assistantProblem("active", 409);
+    refuseUserAgent(a);
     const current = this.policy(id);
     if (current.revision !== revision) throw assistantProblem("conflict", 409);
     const values = normalizeTeamPolicy(input, current);

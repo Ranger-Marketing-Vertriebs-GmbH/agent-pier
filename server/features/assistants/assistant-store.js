@@ -11,6 +11,7 @@ import { migrateAssistants } from "./assistant-schema.js";
 import { personalEligible } from "./native-capabilities.js";
 import { memberInheritance } from "./member-grants.js";
 import { validateDefinition, assistantProblem } from "./assistant-validation.js";
+import { refuseLockedSettings } from "../users/user-agent-lock.js";
 
 // The message cache keeps a conversation's newest messages only. A history page holds
 // at most 100 messages; the chat's poll and every server-side reader ask for the
@@ -170,6 +171,8 @@ export class AssistantStore {
     if (!Number.isSafeInteger(revision) || current.revision !== revision)
       throw assistantProblem("conflict", 409);
     const { confirmInstructions, ...fields } = changes;
+    // The hard lock: a user agent never holds a shell level or a visible browser.
+    refuseLockedSettings(current, fields);
     // Only eligible profiles can hold a shell level; a PATCH without it keeps the stored one.
     // An ineligible profile may only restate "off", which changes nothing.
     if ("shell" in fields && !personalEligible(current)) {

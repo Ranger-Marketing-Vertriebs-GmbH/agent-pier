@@ -354,4 +354,5 @@ export const assistants = {
     "Für diesen Agenten gibt es gerade kein Browserprofil. Starte den Agentendienst neu oder versuche es später.",
   browserVisibleLimit:
     "Es laufen bereits drei sichtbare Agenten-Browser. Warte, bis einer frei ist, und versuche es erneut.",
+  userAgentLocked: "Für Agenten von Benutzern gesperrt.",
 };

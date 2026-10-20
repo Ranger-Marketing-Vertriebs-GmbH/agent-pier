@@ -330,4 +330,5 @@ export const assistants = {
     "There is no browser profile for this agent right now. Restart the agent service or try again later.",
   browserVisibleLimit:
     "Three visible agent browsers are already running. Wait until one is free and try again.",
+  userAgentLocked: "Locked for agents of users.",
 };

@@ -18,6 +18,7 @@ import { watchCompactions } from "./compactions.js";
 import { awaitWriteGuard, noteReadOnlyTurn, orderedTurn } from "./write-guard-wait.js";
 import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
+import { refuseLockedSettings } from "../users/user-agent-lock.js";
 import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js";
 import { ExecAllowlist } from "./exec-allowlist.js";
 import { AgentSkills } from "./agent-skills.js";
@@ -242,6 +243,7 @@ export class AssistantService {
       if (binds && !this.mcp) throw assistantProblem("invalid");
       const current = this.store.getAssistant(id);
       if (current.revision !== revision) throw assistantProblem("conflict", 409);
+      refuseLockedSettings(current, changes);
       // A form sends every field; only the ones that differ are a change, so an
       // unchanged name or model never holds back lowering the shell level.
       patch = withoutUnchanged(body, changes, current);

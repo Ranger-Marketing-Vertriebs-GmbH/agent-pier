@@ -1,4 +1,5 @@
 import { assistantProblem } from "../assistants/assistant-validation.js";
+import { refuseUserAgent } from "../users/user-agent-lock.js";
 import { personalEligible, personalShell } from "../assistants/native-capabilities.js";
 import { restartRequired } from "../assistants/assistant-provider-synchronization.js";
 import { temporaryMember } from "../assistants/team-presentation.js";
@@ -98,6 +99,8 @@ export class TelegramSenders {
   /** Refuses agents that cannot own a bot for other people. */
   eligible(assistantId) {
     const profile = this.assistants.store.getAssistant(assistantId);
+    // Telegram for other people is never offered on user agents.
+    refuseUserAgent(profile);
     if (!personalEligible(profile) || temporaryMember(profile))
       throw assistantProblem("invalid");
     if (personalShell(profile) !== "off")
