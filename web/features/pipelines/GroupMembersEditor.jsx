@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 import Segment from "../../components/Segment.jsx";
 import { browserUuid } from "../../lib/browser-uuid.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
@@ -10,6 +10,10 @@ import { profileOptions } from "./StageFlow.jsx";
 // the same time (all of them unless the owner caps it).
 export default function GroupMembersEditor({ stage, profiles, patch, disabled }) {
   const members = stage.members;
+  const hintId = useId();
+  // Each member runs a profile of its own, so there are never more members than
+  // eligible profiles.
+  const exhausted = members.length >= profiles.length;
   const setMembers = (next) =>
     patch({
       members: next,
@@ -60,13 +64,15 @@ export default function GroupMembersEditor({ stage, profiles, patch, disabled })
       <button
         type="button"
         className="button secondary compact"
-        disabled={disabled || members.length >= MAX_GROUP_MEMBERS}
+        aria-describedby={exhausted ? hintId : undefined}
+        disabled={disabled || members.length >= MAX_GROUP_MEMBERS || exhausted}
         onClick={() =>
           setMembers([...members, { key: `member-${browserUuid()}`, profileId: "" }])
         }
       >
         {copy.addMember}
       </button>
+      {exhausted && <small id={hintId}>{copy.noFreeProfile}</small>}
       <NumberStepper
         label={copy.concurrency}
         decreaseLabel={copy.decreaseConcurrency}

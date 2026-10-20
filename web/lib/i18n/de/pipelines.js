@@ -170,6 +170,7 @@ export const pipelineCopy = {
   removeMember: (number) => `Mitglied ${number} entfernen`,
   removeMemberShort: "Entfernen",
   addMember: "Mitglied hinzufügen",
+  noFreeProfile: "Jedes geeignete Profil läuft bereits in dieser Gruppe.",
   concurrency: "Gleichzeitig arbeitende Mitglieder",
   decreaseConcurrency: "Weniger Mitglieder gleichzeitig",
   increaseConcurrency: "Mehr Mitglieder gleichzeitig",

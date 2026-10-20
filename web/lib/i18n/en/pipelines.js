@@ -165,6 +165,7 @@ export const pipelineCopy = {
   removeMember: (number) => `Remove member ${number}`,
   removeMemberShort: "Remove",
   addMember: "Add member",
+  noFreeProfile: "Every eligible profile already runs in this group.",
   concurrency: "Members working at once",
   decreaseConcurrency: "Decrease members working at once",
   increaseConcurrency: "Increase members working at once",

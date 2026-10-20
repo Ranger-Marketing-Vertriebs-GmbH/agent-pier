@@ -4348,6 +4348,7 @@
   "pipelines:pipelineCopy.newStep": "de:8968782f9e36 en:45ade6bfe788",
   "pipelines:pipelineCopy.noArtifacts": "de:ccae45b90402 en:fe32ca87f854",
   "pipelines:pipelineCopy.noDefinitions": "de:3d6beaf8e99b en:e8215ced7875",
+  "pipelines:pipelineCopy.noFreeProfile": "de:20b5b9181b7e en:fa3db88a53e0",
   "pipelines:pipelineCopy.noLoop": "de:1cd8df21e4c2 en:aa97899f6836",
   "pipelines:pipelineCopy.noParameters": "de:a154494ae6fb en:9ed6f3126082",
   "pipelines:pipelineCopy.noProfiles": "de:1537b6937124 en:90c293d49a55",
