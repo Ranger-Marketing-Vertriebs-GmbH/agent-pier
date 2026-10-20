@@ -32,6 +32,8 @@ export class ChatStore {
     this.cursors = new Map();
     this.cursorBytes = 0;
     this.lastKnownTotals = new Map();
+    // The transcript files the last fresh read used ({paths, readAt}); server-only.
+    this.sources = new Map();
     this.maxCursorBytes = maxCursorBytes;
     this.maxCursorEntries = Math.max(1, maxCursorEntries);
     this.history.onIndexed = (event) => this.indexed(event);
@@ -66,6 +68,10 @@ export class ChatStore {
   }
   epoch(id) {
     return this.epochs.get(id) || 0;
+  }
+  /** What the chat's source probe watches (chat-source-probe.js), or null. */
+  sourceState(id) {
+    return this.sources.get(id) || null;
   }
   reset(id) {
     this.invalidate(id);
@@ -482,11 +488,14 @@ export class ChatStore {
       slot.queued = slot.queued === job ? null : slot.queued;
       slot.running = job;
       job.epoch = this.epoch(id);
-      const content = await this.page(session, nativeId);
+      const readAt = Date.now();
+      const { sources, ...content } = await this.page(session, nativeId);
       await this.current(session, nativeId, generation);
       job.placeholder = Boolean(content.indexing && !content.messages?.length);
       // Only the newest source state may replace the saved snapshot and cache.
       const fresh = this.epoch(id) === job.epoch;
+      if (fresh && Array.isArray(sources))
+        this.sources.set(id, { paths: sources.slice(0, 4), readAt });
       const result = this.snapshot(session, nativeId, content, manualBindingSupported, {
         persist: fresh && !job.placeholder,
       });
@@ -509,6 +518,7 @@ export class ChatStore {
   }
   remove(id) {
     this.reset(id);
+    this.sources.delete(id);
     this.epochs.delete(id);
     for (const suffix of ["binding", "snapshot"])
       fs.rmSync(this.file(id, suffix), { force: true });

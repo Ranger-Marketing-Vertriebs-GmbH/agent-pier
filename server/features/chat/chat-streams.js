@@ -1,6 +1,7 @@
 import { watchNativeInput } from "./native-input-watch.js";
 import { createHash } from "node:crypto";
 import { watchChatSources } from "./chat-source-watch.js";
+import { probeChatSources } from "./chat-source-probe.js";
 
 /** One serialized source reader per watched session, shared by all browser tabs. */
 export class ChatStreams {
@@ -17,6 +18,9 @@ export class ChatStreams {
     recoveryMs = 30000,
     // A re-check after the source watchers armed; see chat-source-watch.js.
     settleMs = 500,
+    // The stat probe of the last read transcript files while a chat has viewers.
+    probe = probeChatSources,
+    probeMs = 1000,
   }) {
     Object.assign(this, {
       sessions,
@@ -30,6 +34,8 @@ export class ChatStreams {
       debounceMs,
       recoveryMs,
       settleMs,
+      probe,
+      probeMs,
     });
     this.entries = new Map();
   }
@@ -65,6 +71,12 @@ export class ChatStreams {
         this.invalidate(entry);
       }, this.recoveryMs);
       entry.recovery.unref();
+      // FSEvents can lag by seconds: a cheap stat catches what the watchers miss.
+      entry.stopProbe = this.probe({
+        sources: () => this.chat.sourceState?.(id),
+        changed: () => this.invalidate(entry),
+        intervalMs: this.probeMs,
+      });
     }
     entry.listeners.add(listener);
     entry.waiting.add(listener);
@@ -210,6 +222,7 @@ export class ChatStreams {
     clearTimeout(entry.timer);
     clearTimeout(entry.inputRetry);
     clearInterval(entry.recovery);
+    entry.stopProbe?.();
     entry.unsubscribe?.();
     entry.unwatch?.();
     entry.unwatchInput?.();
