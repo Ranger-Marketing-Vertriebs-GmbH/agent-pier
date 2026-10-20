@@ -12,7 +12,7 @@ import { LoginStore } from "./features/login/login-store.js";
 import { UserStore } from "./features/users/user-store.js";
 import { Identity } from "./features/users/identity.js";
 import { loginRoutes, requireLogin } from "./http/login.js";
-import { userGuard } from "./http/user-guard.js";
+import { routeAccess } from "./http/route-access.js";
 import { usersRoutes } from "./http/routes/users.js";
 import { meAccountRoutes } from "./http/routes/me-account.js";
 import { agencyRoutes } from "./http/routes/agency.js";
@@ -267,8 +267,8 @@ export async function createApplication(config) {
   api.mount(mcpOAuthCallbackRoutes(services), { guarded: false, beforeLogin: true });
   api.mount(mcpCliOAuthCallbackRoutes(services), { guarded: false, beforeLogin: true });
   app.use("/api", requireLogin(services.identity, effective));
-  // Restricted users reach only /api/me; the owner never does.
-  app.use("/api", userGuard());
+  // Deny by default: restricted users reach only their /api/me routes, the owner never.
+  app.use("/api", routeAccess());
   // Slow mobile links benefit most; downloads stream raw bytes uncompressed.
   app.use(
     compression({
