@@ -4,4 +4,6 @@ export const users = Object.freeze({
   displayNameInvalid: "Enter a display name with 1 to 100 characters.",
   passwordWrong: "The current password is incorrect.",
   changeInvalid: "This change to the user is invalid.",
+  agentAccessInvalid: "This assignment to users is invalid.",
+  agentRequired: "Only agents of users can be assigned to users.",
 });

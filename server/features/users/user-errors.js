@@ -8,6 +8,8 @@ const errors = Object.freeze({
   USER_DISPLAY_NAME_INVALID: ["displayNameInvalid", 400],
   USER_PASSWORD_WRONG: ["passwordWrong", 400],
   USER_CHANGE_INVALID: ["changeInvalid", 400],
+  USER_AGENT_ACCESS_INVALID: ["agentAccessInvalid", 400],
+  USER_AGENT_REQUIRED: ["agentRequired", 409],
 });
 
 export function userProblem(code) {

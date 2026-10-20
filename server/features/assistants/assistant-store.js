@@ -46,7 +46,8 @@ export class AssistantStore {
     );
     migrateAssistants(this.db);
   }
-  // `origin`: what AgentPier itself records with a new profile (its Agency template).
+  // `origin`: what AgentPier itself records with a new profile: its Agency template,
+  // and for an agent of restricted users their assignment (users/user-access.js).
   createAssistant(input, origin = null) {
     const values = validateDefinition(input),
       id = randomUUID();
@@ -54,6 +55,7 @@ export class AssistantStore {
       id,
       ...values,
       ...(origin?.template ? { template: origin.template } : {}),
+      ...(origin?.userAccess ? { userAccess: origin.userAccess } : {}),
       revision: 1,
       effectiveRevision: 0,
       runtimeAgentId: `ap-${id}`,
@@ -195,6 +197,20 @@ export class AssistantStore {
         ("instructions" in fields && fields.instructions !== current.instructions))
     )
       result.instructionsSource = "owner";
+    if (
+      !this.db
+        .prepare("UPDATE assistants SET body=?,revision=? WHERE id=? AND revision=?")
+        .run(JSON.stringify(result), result.revision, id, revision).changes
+    )
+      throw assistantProblem("conflict", 409);
+    return result;
+  }
+  /** Replaces a user agent's assignment (validated by the caller) at `revision`. */
+  setUserAccess(id, value, revision) {
+    const current = this.storedAssistant(id);
+    if (!Number.isSafeInteger(revision) || current.revision !== revision)
+      throw assistantProblem("conflict", 409);
+    const result = { ...current, userAccess: value, revision: revision + 1 };
     if (
       !this.db
         .prepare("UPDATE assistants SET body=?,revision=? WHERE id=? AND revision=?")
