@@ -73,6 +73,9 @@ export function assistantRoutes(services) {
     }
     return routes(req, res, next);
   });
+  // The route inventory walks the agent routes while the agent services exist.
+  router.inventory = () =>
+    services.assistants ? [activeAssistantRoutes({ ...services, ...limits })] : [];
   return router;
 }
 function activeAssistantRoutes(services) {
