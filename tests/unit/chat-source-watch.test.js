@@ -41,7 +41,7 @@ test("disposing the watchers cancels the startup re-check", async (t) => {
   assert.equal(watch.changes(), 0);
 });
 
-function targeted(t) {
+function targeted(t, options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "target-watch-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const name of ["sessions", "native-sessions", "profile", "transcripts"])
@@ -71,6 +71,7 @@ function targeted(t) {
         registrations.push(item);
         return watcher;
       },
+      ...options,
     },
     () => changes++,
   );
@@ -160,4 +161,22 @@ test("switching source paths releases the old transcript and disposal stops reco
   await f.refresh();
   assert.equal(f.registrations.length, count);
   assert.ok(f.registrations.every((r) => r.closed));
+});
+
+test("recursive discovery waits until a provider read completed", async (t) => {
+  let settled = false;
+  const f = targeted(t, { discover: () => settled });
+  f.state.paths = [];
+  fs.mkdirSync(path.join(f.root, "profile", "projects", "-project"), { recursive: true });
+  fs.mkdirSync(path.join(f.root, "transcripts", "one", "subagents"), { recursive: true });
+  await f.refresh();
+  const recursive = () => f.registrations.filter((r) => r.options.recursive && !r.closed);
+  assert.equal(recursive().length, 0, "a read still in progress may yet find sources");
+  settled = true;
+  await f.refresh();
+  assert.equal(recursive().length, 1, "a completed read without sources discovers");
+  f.state.paths = [f.file];
+  await f.refresh();
+  assert.equal(recursive().length, 1, "Claude subagent directory only");
+  assert.ok(recursive()[0].file.endsWith("subagents"));
 });

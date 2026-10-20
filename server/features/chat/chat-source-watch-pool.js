@@ -77,10 +77,12 @@ export class ChatSourceWatchPool {
         (event, filename) => {
           if (entry.closed || entry.watcher !== watcher) return;
           entry.failures = 0;
-          // File watches follow an inode, not a replacement at the same path.
-          // Directory rename events also describe ordinary child creation.
-          if (!entry.directory && event === "rename") this.retire(entry);
           this.report(entry, filename == null ? null : String(filename));
+          // File watches follow an inode, not a replacement at the same path. kqueue
+          // also reports in-place writes (SQLite pages, a reset WAL) as "rename", so
+          // only a changed identity retires the watch. Directory rename events
+          // describe ordinary child creation.
+          if (!entry.directory && event === "rename") void this.refresh(entry);
         },
       );
       entry.watcher = watcher;

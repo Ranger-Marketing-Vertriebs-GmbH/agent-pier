@@ -85,6 +85,7 @@ export class ChatStreams {
           entry.value = null;
           entry.digest = null;
           entry.input = null;
+          entry.settled = false;
         }
         this.invalidate(entry, event.type !== "snapshot-changed");
       });
@@ -155,6 +156,7 @@ export class ChatStreams {
         entry.unwatchInput?.();
         entry.unwatchInput = null;
         entry.input = null;
+        entry.settled = false;
       }
       if (
         !entry.unwatch &&
@@ -169,6 +171,7 @@ export class ChatStreams {
             settleMs: this.settleMs,
             pool: this.sourceWatches,
             sources: () => this.chat.sourceState?.(entry.id, session),
+            discover: () => entry.settled,
           },
           () => this.invalidate(entry),
         );
@@ -217,6 +220,8 @@ export class ChatStreams {
       }
       const snapshot = await this.chatImages.read(entry.id);
       if (entry.disposed || this.closed || entry.generation !== generation) return;
+      // A saved snapshot served while the provider read continues has no sources yet.
+      entry.settled = !this.chat.reading?.(entry.id);
       await entry.unwatch?.refresh?.();
       if (entry.disposed || this.closed || entry.generation !== generation) return;
       this.publish(entry, session, snapshot);

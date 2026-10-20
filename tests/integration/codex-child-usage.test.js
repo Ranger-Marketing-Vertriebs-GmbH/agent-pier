@@ -6,6 +6,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
   CodexChildUsage,
+  MAX_OBSERVED_CHILDREN,
   lastTokenUsage,
 } from "../../server/features/chat/codex-child-usage.js";
 import { finalizeObservability } from "../../server/features/chat/chat-observability.js";
@@ -304,4 +305,25 @@ test("a child row before its rollout retains a safe path for creation discovery"
       .totalTokens,
     110,
   );
+});
+
+test("only recently written or pending child rollouts are observed", async (t) => {
+  const f = fixture(t);
+  const old = Date.now() / 1000 - 3600;
+  const finished = f.rollout("thread-old", [record("thread-old", 100, 10)]);
+  fs.utimesSync(finished, old, old);
+  f.edge("thread-parent", "thread-old");
+  const active = [];
+  for (let n = 0; n < MAX_OBSERVED_CHILDREN + 2; n++) {
+    active.push(f.rollout(`thread-${n}`, [record(`thread-${n}`, 1, 1)]));
+    f.edge("thread-parent", `thread-${n}`);
+  }
+  const sources = [];
+  const value = await new CodexChildUsage().read(f.history, f.session, "thread-parent", {
+    sources,
+  });
+  assert.equal(value.agents["thread-old"].totalTokens, 110, "usage still counts");
+  assert.ok(!sources.includes(finished), "a finished child is not observed");
+  assert.equal(sources.length, 2 + MAX_OBSERVED_CHILDREN, "observation is bounded");
+  assert.ok(sources.every((file) => file.includes("state_5") || active.includes(file)));
 });

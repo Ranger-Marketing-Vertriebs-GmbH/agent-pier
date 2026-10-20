@@ -7,6 +7,9 @@ import fs from "node:fs/promises";
  * Ordinary writes already covered by a newer read are not reported again. File
  * identity and disappearance also count: replacements may preserve modification
  * times. Maintenance repairs missing/failed OS watches without restarting others.
+ * Without known paths, `discover()` asks for a re-read with exponential backoff up to
+ * `discoverMaxMs`: a read can be expensive (Codex process scans), the 30-second
+ * recovery read follows anyway, and directory watches usually report first.
  */
 export function probeChatSources({
   sources,
@@ -15,10 +18,13 @@ export function probeChatSources({
   stat = (file) => fs.stat(file),
   maintain = () => {},
   discover = () => false,
+  discoverMaxMs = 16000,
+  now = Date.now,
 }) {
   const seen = new Map();
   let running = false,
-    stopped = false;
+    stopped = false,
+    discovery = null;
   const tick = async () => {
     if (running || stopped) return;
     running = true;
@@ -28,7 +34,14 @@ export function probeChatSources({
       const state = sources();
       const paths = Array.isArray(state?.paths) ? state.paths : [];
       for (const file of seen.keys()) if (!paths.includes(file)) seen.delete(file);
-      let fresh = !paths.length && discover();
+      let fresh = false;
+      if (paths.length || !discover()) discovery = null;
+      else if (!discovery) discovery = { at: now() + intervalMs, delay: intervalMs };
+      else if (now() >= discovery.at) {
+        fresh = true;
+        discovery.delay = Math.min(discoverMaxMs, discovery.delay * 2);
+        discovery.at = now() + discovery.delay;
+      }
       for (const file of paths) {
         let info;
         try {
