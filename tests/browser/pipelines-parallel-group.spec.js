@@ -1,6 +1,47 @@
 import { test, expect } from "@playwright/test";
 import { pipelinesFixture, openPipelines, sampleRun } from "./pipelines-fixture.js";
 
+// A run whose parallel group has one member reported, one failed and one working.
+async function groupRun(page) {
+  const state = await pipelinesFixture(page);
+  const run = sampleRun(state);
+  const profile = (name) => ({ ...state.profiles[0], name });
+  run.status = "running";
+  run.currentNodeId = "review";
+  run.actions = ["abort"];
+  run.nodes = [
+    { ...run.nodes[0], status: "passed" },
+    {
+      id: "review",
+      kind: "parallel",
+      members: ["security", "code", "ux"],
+      concurrency: 3,
+      label: "Security · Code · UX",
+      status: "running",
+    },
+    {
+      id: "security",
+      group: "review",
+      profileSnapshot: profile("Security"),
+      status: "reported",
+      verdict: {
+        result: "fail",
+        summary: "Injection risk",
+        findings: [{ severity: "high", title: "SQL injection" }],
+      },
+    },
+    {
+      id: "code",
+      group: "review",
+      profileSnapshot: profile("Code"),
+      status: "failed",
+      failReason: "session-error",
+    },
+    { id: "ux", group: "review", profileSnapshot: profile("UX"), status: "running" },
+  ];
+  return { state, run };
+}
+
 test.describe("parallel review groups in English", () => {
   test.use({ locale: "en-GB" });
   test.beforeEach(async ({ page }) => {
@@ -80,42 +121,7 @@ test.describe("parallel review groups in English", () => {
   test("the run view shows members with live verdict chips and member actions", async ({
     page,
   }) => {
-    const state = await pipelinesFixture(page);
-    const run = sampleRun(state);
-    const profile = (name) => ({ ...state.profiles[0], name });
-    run.status = "running";
-    run.currentNodeId = "review";
-    run.actions = ["abort"];
-    run.nodes = [
-      { ...run.nodes[0], status: "passed" },
-      {
-        id: "review",
-        kind: "parallel",
-        members: ["security", "code", "ux"],
-        concurrency: 3,
-        label: "Security · Code · UX",
-        status: "running",
-      },
-      {
-        id: "security",
-        group: "review",
-        profileSnapshot: profile("Security"),
-        status: "reported",
-        verdict: {
-          result: "fail",
-          summary: "Injection risk",
-          findings: [{ severity: "high", title: "SQL injection" }],
-        },
-      },
-      {
-        id: "code",
-        group: "review",
-        profileSnapshot: profile("Code"),
-        status: "failed",
-        failReason: "session-error",
-      },
-      { id: "ux", group: "review", profileSnapshot: profile("UX"), status: "running" },
-    ];
+    const { state, run } = await groupRun(page);
     run.memberActions = { code: ["retry", "override"] };
     state.runs.push(run);
     await openPipelines(page, "runs/run-one");
@@ -142,5 +148,49 @@ test.describe("parallel review groups in English", () => {
     await expect(detail.getByRole("heading", { name: "Security" })).toBeVisible();
     await expect(detail).toContainText("Group member");
     await expect(detail).toContainText("SQL injection");
+  });
+
+  test("a group override names the members it accepts without a review", async ({
+    page,
+  }) => {
+    const { state, run } = await groupRun(page);
+    run.status = "awaiting-human";
+    Object.assign(run.nodes[1], { status: "failed", failReason: "members-blocked" });
+    run.nodes[4].status = "reported";
+    run.nodes[4].verdict = { result: "pass", summary: "Fine", findings: [] };
+    run.actions = ["retry", "override", "abort"];
+    state.runs.push(run);
+    await openPipelines(page, "runs/run-one");
+    await page
+      .locator(".run-gate-decision")
+      .getByRole("button", { name: "Override and continue", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText(
+      "Code will count as passed without a review result.",
+    );
+  });
+});
+
+test.describe("parallel review groups on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  test("member chips are full tap targets and wrap inside the screen", async ({
+    page,
+  }) => {
+    const { state, run } = await groupRun(page);
+    run.nodes[2].profileSnapshot.name = "Security reviewer with a very long profile name";
+    state.runs.push(run);
+    await openPipelines(page, "runs/run-one");
+    const chips = page.locator(".run-member-chip");
+    await expect(chips).toHaveCount(3);
+    for (const box of await chips.evaluateAll((items) =>
+      items.map((item) => item.getBoundingClientRect().toJSON()),
+    )) {
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.right).toBeLessThanOrEqual(390);
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
   });
 });

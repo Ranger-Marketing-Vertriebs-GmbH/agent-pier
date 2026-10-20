@@ -86,6 +86,8 @@ To start pipelines, explicitly select **Start runs** (`runs:start`) during brows
 
 Publication is a separate, initially unchecked permission. It permits pipeline publication steps such as pushes and pull requests. Human approval gates remain in the web interface.
 
+A pipeline may contain a [parallel review group](pipelines.md#parallel-review-groups): a node `{"kind":"parallel","members":[{"id","profileId"}],"concurrency"}` whose members run their own profiles. Starting a run requires access to every member's profile, account and provider connection, as for any stage. `run_get` lists the group as a node with `kind: "parallel"` and its member ids, and each member as a node with `group`.
+
 The connected-client list shows grants in pages of 20, including permissions, resource limits, dates, last use and revocation status. Revoking a grant stops future access using its credentials. Removing a server or logging out in the CLI does not necessarily revoke its server grant; revoke it in Settings as well.
 
 Browser reloads only read state. Approval, denial and revocation require explicit actions. Expired or rejected requests show an error; restart login from the CLI to obtain a fresh authorization request.

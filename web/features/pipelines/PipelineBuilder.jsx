@@ -277,9 +277,12 @@ export default function PipelineBuilder({
         error={
           error ||
           // A stage rule that the edited stages now satisfy is no longer shown.
-          ([copy.emptyStages, copy.invalidLoop, copy.invalidGroup].includes(
-            action.error,
-          ) &&
+          ([
+            copy.emptyStages,
+            copy.invalidLoop,
+            copy.invalidGroup,
+            copy.groupFirst,
+          ].includes(action.error) &&
           !advanced &&
           !stageError(draft.stages, copy)
             ? ""

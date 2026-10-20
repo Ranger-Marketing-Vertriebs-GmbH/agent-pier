@@ -374,6 +374,12 @@ export const pipelineCopy = {
     "Die fehlgeschlagene Prüfung wird so akzeptiert. Die Stufe geht ohne erneute Prüfung und ohne gesonderte Freigabe weiter.",
   overrideGate:
     "Diese Entscheidung gibt die Stufe trotz ihres Ergebnisses an ihrer Freigabe frei. Eine konfigurierte Prüfung läuft weiterhin, falls sie noch nicht bestanden ist.",
+  overrideBlockedMembers: (members) =>
+    `${members} gelten ohne Prüfergebnis als bestanden. Mitglieder, die ihr Ergebnis gemeldet haben, behalten es, und die Gruppe schließt mit ihnen ab.`,
+  overrideGroupChanges:
+    "Die von den Reviewern geänderten Dateien werden übernommen und in den Branch des Runs committet; die Gruppe schließt mit dem zusammengeführten Ergebnis ab.",
+  blockedMembers: (members) => `Wartet auf eine Entscheidung: ${members}`,
+  groupFirst: "Die erste Stufe muss ein einzelnes Profil sein, keine parallele Gruppe.",
   prConfirm:
     "Änderungen werden veröffentlicht und der Pull Request wird erstellt oder aktualisiert.",
   verdictMissing: "Noch kein gültiges Ergebnis vorhanden.",

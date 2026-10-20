@@ -6,7 +6,7 @@
 }
 .stage-tile-member {
   font-size: var(--font-size-xs);
-  padding: 2px var(--space-1);
+  padding: 0 var(--space-1);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   color: var(--text-meta);
@@ -39,14 +39,20 @@
   align-items: center;
   gap: 6px;
   min-height: 28px;
-  padding: 2px var(--space-2);
+  max-width: 100%;
+  padding: 0 var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-row);
   font: inherit;
   font-size: var(--font-size-xs);
+  text-align: left;
   cursor: pointer;
+}
+.run-member-chip > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .run-member-chip[aria-current="step"] {
   border-color: var(--accent-line);
@@ -81,7 +87,7 @@
   color: var(--text-meta);
 }
 .run-group-member-name {
-  padding: 0;
+  padding: var(--space-1) 0;
   border: 0;
   background: transparent;
   color: var(--text);
@@ -100,4 +106,18 @@
 .run-member-actions textarea {
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Phones: every member control is a full tap target. */
+@media (max-width: 700px) {
+  .run-member-chip,
+  .run-group-member-name {
+    min-height: var(--touch-target);
+  }
+}
+.run-group-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-meta);
+  overflow-wrap: anywhere;
 }

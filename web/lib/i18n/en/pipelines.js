@@ -365,6 +365,12 @@ export const pipelineCopy = {
     "The failed verification is accepted as is. The stage advances without running verification again and without a separate approval.",
   overrideGate:
     "This decision approves the stage at its gate despite its result. Configured verification still runs if it has not passed yet.",
+  overrideBlockedMembers: (members) =>
+    `${members} will count as passed without a review result. Members that already reported keep their verdicts, and the group concludes with them.`,
+  overrideGroupChanges:
+    "The files the reviewers changed are accepted and committed to the run branch, and the group concludes with the joined verdict.",
+  blockedMembers: (members) => `Waiting for a decision: ${members}`,
+  groupFirst: "The first stage must be a single profile, not a parallel group.",
   prConfirm: "Changes will be published and the pull request will be created or updated.",
   verdictMissing: "No valid result yet.",
   savedConfiguration: "Saved configuration",

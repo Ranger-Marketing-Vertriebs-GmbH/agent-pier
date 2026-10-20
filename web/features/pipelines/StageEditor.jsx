@@ -31,7 +31,8 @@ export default function StageEditor({
             type="button"
             className="button secondary compact"
             aria-label={`${copy.moveForward} ${number}`}
-            disabled={index === 0}
+            // A parallel group never becomes the first stage.
+            disabled={index === 0 || (index === 1 && stage.kind === "parallel")}
             onClick={() => onMove(index, -1)}
           >
             {copy.moveForward}
@@ -40,7 +41,10 @@ export default function StageEditor({
             type="button"
             className="button secondary compact"
             aria-label={`${copy.moveBackward} ${number}`}
-            disabled={index === stages.length - 1}
+            disabled={
+              index === stages.length - 1 ||
+              (index === 0 && stages[1]?.kind === "parallel")
+            }
             onClick={() => onMove(index, 1)}
           >
             {copy.moveBackward}

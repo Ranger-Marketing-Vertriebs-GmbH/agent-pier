@@ -139,6 +139,7 @@ const isStage = (node) => node.kind === "profile" || node.kind === "parallel";
 export function stageError(stages, copy) {
   if (!stages.length || stages.some((s) => s.kind !== "parallel" && !s.profileId))
     return copy.emptyStages;
+  if (stages[0].kind === "parallel") return copy.groupFirst;
   if (
     stages.some(
       (s) =>
