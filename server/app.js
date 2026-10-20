@@ -33,7 +33,6 @@ import { mcpAccessRoutes } from "./http/routes/mcp-access.js";
 import { providerConnectionRoutes } from "./http/routes/provider-connections.js";
 import { randomUUID } from "node:crypto";
 import { OperationsEvents } from "./application/operations-events.js";
-import { applicationVersion } from "./features/operations/version.js";
 import { operationsRoutes } from "./http/routes/operations.js";
 import { ReleaseSessionMigration } from "./features/operations/release-session-migration.js";
 import { requestsRoutes } from "./http/routes/requests.js";
@@ -56,7 +55,8 @@ import { pipelineRunRoutes } from "./http/routes/pipeline-runs.js";
 import { pipelineQueueRoutes } from "./http/routes/pipeline-queue.js";
 import { auditHttp } from "./features/audit/audit-http.js";
 import { auditRoutes } from "./http/routes/audit.js";
-import { guardMutations } from "./application/mutation-barrier.js";
+import { createApiRegistry } from "./http/api-registry.js";
+import { healthRoutes } from "./http/routes/health.js";
 import { createShutdown } from "./application/shutdown.js";
 import { directoryResolver } from "./lib/directories.js";
 import { detectTools } from "./features/accounts/account-store.js";
@@ -260,9 +260,12 @@ export async function createApplication(config) {
     }
   });
   app.use("/auth", loginRoutes(services.identity, effective));
+  // Every /api router goes through the registry, so the access tests see every route.
+  const api = createApiRegistry(app, { barrier: services.mutationBarrier });
+  services.apiRegistry = api;
   // Authenticated by its single-use OAuth state, not the session cookie.
-  app.use("/api", mcpOAuthCallbackRoutes(services));
-  app.use("/api", mcpCliOAuthCallbackRoutes(services));
+  api.mount(mcpOAuthCallbackRoutes(services), { guarded: false, beforeLogin: true });
+  api.mount(mcpCliOAuthCallbackRoutes(services), { guarded: false, beforeLogin: true });
   app.use("/api", requireLogin(services.identity, effective));
   // Restricted users reach only /api/me; the owner never does.
   app.use("/api", userGuard());
@@ -276,8 +279,8 @@ export async function createApplication(config) {
     }),
   );
   app.use(auditHttp(services.audit, { onError: services.onError }));
-  app.use("/api", fileTransferStreams(services));
-  app.use("/api", fileTextRoutes(services));
+  api.mount(fileTransferStreams(services), { guarded: false });
+  api.mount(fileTextRoutes(services), { guarded: false });
   app.use(
     "/api/sessions/:id/chat/attachments",
     express.json({ limit: "15mb", strict: true }),
@@ -299,8 +302,7 @@ export async function createApplication(config) {
     express.json({ limit: "256kb", strict: true }),
   );
   app.use(express.json({ limit: "64kb", strict: true }));
-  const mount = (router) =>
-    app.use("/api", guardMutations(router, services.mutationBarrier));
+  const mount = (router) => api.mount(router);
   mount(artifactsRoutes(services));
   mount(mcpAccessRoutes(services));
   mount(workspaceRoutes(services));
@@ -339,15 +341,8 @@ export async function createApplication(config) {
   mount(systemStatusRoutes(services));
   mount(usersRoutes(services));
   mount(meAccountRoutes(services));
-  app.use("/api", operationsRoutes(services));
-  app.get("/api/health", (_req, res) =>
-    res.json({
-      application: "agentpier",
-      version: applicationVersion(),
-      instanceId,
-      warnings: [...services.operationalWarnings],
-    }),
-  );
+  api.mount(operationsRoutes(services), { guarded: false });
+  mount(healthRoutes(services));
   registerResponses(app);
   const wss = attachTerminalWebSocket(server, {
     sessions: services.sessions,
