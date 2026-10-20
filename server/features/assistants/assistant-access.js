@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
+import { stageProfiles } from "../pipelines/graph-validation.js";
 import { requirePipeline } from "../mcp/tool-policy.js";
 import { sshModes } from "./agent-ssh-origin.js";
 import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
@@ -87,9 +88,7 @@ export class AssistantAccess {
   definition(id) {
     const d = this.s.pipelineDefinitions,
       pipeline = d.getPipeline(id);
-    const profiles = pipeline.graph.nodes
-      .filter((n) => n.kind === "profile")
-      .map((n) => d.getProfile(n.profileId));
+    const profiles = stageProfiles(pipeline.graph).map((n) => d.getProfile(n.profileId));
     return { pipeline, profiles, hash: digest({ pipeline, profiles }) };
   }
   catalog() {

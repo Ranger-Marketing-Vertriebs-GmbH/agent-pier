@@ -33,10 +33,13 @@ import {
   repairLaunch,
   sessionKey,
 } from "./loop-session.js";
+import { launchGroup } from "./parallel-group.js";
+import { aggregateUsage, verificationFailure } from "./turn-results.js";
 import {
   activeNode,
   clearTurn,
   currentAttempt,
+  nodeAttempt,
   failDecision,
   outgoing,
   edgeKey,
@@ -44,6 +47,7 @@ import {
 } from "./graph-navigation.js";
 
 export async function launchStage(engine, run, node, options = {}) {
+  if (node.kind === "parallel") return launchGroup(engine, run, node, options);
   // prepareStage records the turn whose port block it reserves here; the block is
   // settled once that turn is saved with it, or the launch failed.
   const reservation = { turnId: null };
@@ -71,13 +75,17 @@ async function prepareStage(
   { kind = "kickoff", feedback = "", resumeNativeId, repair } = {},
   reservation,
 ) {
-  run.pendingTurn = {
-    nodeId: node.id,
+  // A group member's turn starts beside its siblings: it is queued on the member and
+  // never moves the run's current stage, attempt or usage-limit resume time.
+  const member = Boolean(node.group);
+  const queued = {
     kind,
     feedback,
     ...(resumeNativeId ? { resumeNativeId } : {}),
     ...(repair ? { repair } : {}),
   };
+  if (member) node.queuedTurn = queued;
+  else run.pendingTurn = { nodeId: node.id, ...queued };
   engine.store.save(run);
   // A resumed repair opens a new attempt like a kickoff, in the target's earlier session.
   if (opensAttempt(kind)) {
@@ -130,6 +138,7 @@ async function prepareStage(
     startedAt: now,
     status: "launching",
     baseSha: workspaceState?.headSha || run.workspace.baseSha,
+    ...(member ? { groupAttemptId: run.currentAttemptId } : {}),
   };
   // Verdicts belong to the turn that produced them; history retains prior results.
   // An override applies to the turn it overrode, never to this new one.
@@ -142,17 +151,22 @@ async function prepareStage(
   delete node.finishedAt;
   delete node.failReason;
   delete node.failDetail;
-  run.status = "running";
-  delete run.pendingTurn;
-  delete run.pendingConclusion;
-  delete run.pendingAdvance;
-  run.currentNodeId = node.id;
-  run.currentAttemptId = attempt.id;
   run.executionLog.push(attempt);
   const turn = { ...identity, kind, startedAt: now, ports };
-  run.activeTurns = { [node.id]: turn };
   run.activityAt = now;
-  run.usageResumeAt = null;
+  if (member) {
+    delete node.queuedTurn;
+    run.activeTurns = { ...run.activeTurns, [node.id]: turn };
+  } else {
+    run.status = "running";
+    delete run.pendingTurn;
+    delete run.pendingConclusion;
+    delete run.pendingAdvance;
+    run.currentNodeId = node.id;
+    run.currentAttemptId = attempt.id;
+    run.activeTurns = { [node.id]: turn };
+    run.usageResumeAt = null;
+  }
   engine.store.save(run);
   try {
     const receipt = await engine.driver.start({
@@ -201,7 +215,7 @@ const opensAttempt = (kind) => kind === "kickoff" || kind === RESUMED_REPAIR;
 // nudges; feedback and verification-repair turns write into a subdirectory of their own.
 function turnReportDirectory(run, node, kind, turnId) {
   if (opensAttempt(kind)) return reportDirectory(node.id, node.attemptId);
-  const previous = currentAttempt(run);
+  const previous = nodeAttempt(run, node);
   if (kind === "verdict-nudge" && previous?.nodeId === node.id && previous.reportDir)
     return previous.reportDir;
   return reportDirectory(node.id, node.attemptId, turnId);
@@ -213,27 +227,36 @@ export function park(engine, run, node, reason, detail, verdict) {
     "turn-timeout",
     "pr-failed",
     "usage-limit-exceeded",
+    "members-blocked",
   ].includes(reason);
   node.status = retryable ? "failed" : "awaiting-gate";
   node.failReason = reason;
   if (detail) node.failDetail = detail.slice(0, 500);
   if (verdict) node.verdict = verdict;
-  run.status = "awaiting-human";
-  const attempt = currentAttempt(run);
+  const attempt = nodeAttempt(run, node);
   if (attempt) {
     attempt.finishedAt = engine.now();
     attempt.failReason = reason;
     if (verdict) attempt.verdict = verdict;
   }
   clearTurn(run, node.id);
-  delete run.pendingTurn;
-  delete run.pendingConclusion;
-  delete run.pendingAdvance;
+  // A parked member waits for its siblings; the group parks once they all settled.
+  if (node.group) delete node.queuedTurn;
+  else {
+    run.status = "awaiting-human";
+    delete run.pendingTurn;
+    delete run.pendingConclusion;
+    delete run.pendingAdvance;
+  }
   engine.store.save(run);
 }
-export async function applyOutcome(engine, run, outcome) {
-  const node = activeNode(run),
-    attempt = currentAttempt(run);
+export async function applyOutcome(
+  engine,
+  run,
+  outcome,
+  node = activeNode(run),
+  attempt = currentAttempt(run),
+) {
   if (!node || !attempt) return;
   attempt.finishedAt = outcome.finishedAt || engine.now();
   attempt.status = "finished";
@@ -263,9 +286,11 @@ export async function applyOutcome(engine, run, outcome) {
       const reset = Number(outcome.usageLimit?.resetAt);
       const resetAt = Number.isFinite(reset) && reset > 0 ? reset : null;
       node.usageLimit = { resetAt };
-      run.usageResumeAt = new Date(
-        resetAt ? resetAt * 1000 + 60000 : engine.nowMs() + 3600000,
-      ).toISOString();
+      // A group sets one resume time for all its members once they settled.
+      if (!node.group)
+        run.usageResumeAt = new Date(
+          resetAt ? resetAt * 1000 + 60000 : engine.nowMs() + 3600000,
+        ).toISOString();
       park(
         engine,
         run,
@@ -356,6 +381,13 @@ export async function applyOutcome(engine, run, outcome) {
   recordReportDigests(run, attempt);
   recordResponses(run, node, attempt, found.verdict);
   adoptSpec(run, node, attempt, found, attempt.finishedAt);
+  if (node.group) {
+    // A member reports; its group concludes once every member has a verdict.
+    node.status = "reported";
+    node.finishedAt = attempt.finishedAt;
+    engine.store.save(run);
+    return;
+  }
   run.pendingConclusion = { nodeId: node.id, verdict: found.verdict };
   engine.store.save(run);
   await conclude(engine, run, node, found.verdict);
@@ -369,34 +401,6 @@ async function resumeFallback(engine, run, node, attempt, reason, detail) {
   clearTurn(run, node.id);
   delete node.nativeId;
   await launchStage(engine, run, node, freshAfterResume(attempt, reason));
-}
-function verificationFailure(node) {
-  const result = node.verifyResult;
-  if (node.verified || !["fail", "timed-out"].includes(result?.status)) return null;
-  const steps = Array.isArray(result.steps) ? result.steps : [];
-  const step =
-    steps.find((s) => s.blocking !== false && (s.timedOut || s.exitCode !== 0)) ||
-    steps.find((s) => s.timedOut || s.exitCode !== 0);
-  const name = String(step?.name || "?").slice(0, 100);
-  return step?.timedOut ||
-    (result.status === "timed-out" && !Number.isInteger(step?.exitCode))
-    ? serverMessages.pipelines.verificationStepTimedOut(name)
-    : serverMessages.pipelines.verificationStepFailed(name, step?.exitCode ?? "?");
-}
-function aggregateUsage(log) {
-  const value = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
-  for (const a of log) {
-    const usage = a.usage || {};
-    for (const key of ["inputTokens", "outputTokens"])
-      if (Number.isFinite(usage[key]) && usage[key] >= 0) value[key] += usage[key];
-    if (Number.isFinite(usage.totalTokens) && usage.totalTokens >= 0)
-      value.totalTokens += usage.totalTokens;
-    else
-      value.totalTokens += [usage.inputTokens, usage.outputTokens]
-        .filter((n) => Number.isFinite(n) && n >= 0)
-        .reduce((sum, n) => sum + n, 0);
-  }
-  return value;
 }
 export async function conclude(engine, run, node, verdict) {
   if (!(await checkpointStage(engine, run, node))) return;

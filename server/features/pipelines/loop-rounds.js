@@ -49,20 +49,30 @@ export function recordRound(run, node, edge, verdict, { iteration, operatorNote,
   );
   const span = new Set(loopResetSet(run, edge));
   span.delete(edge.to);
+  // A parallel group reports through its members; its own attempt is never a stage.
+  const group = node.kind === "parallel";
   const latest = new Map();
   let source;
   log.forEach((attempt, index) => {
-    if (index <= start) return;
-    if (attempt.nodeId === node.id) source = attempt;
+    if (index <= start || attempt.kind === "group") return;
+    if (!group && attempt.nodeId === node.id) source = attempt;
     else if (span.has(attempt.nodeId) && attempt.finishedAt && attempt.verdict) {
       latest.delete(attempt.nodeId);
       latest.set(attempt.nodeId, attempt);
     }
   });
-  const stages = [
-    stageEntry(run, node.id, source, verdict),
-    ...[...latest].map(([id, attempt]) => stageEntry(run, id, attempt, attempt.verdict)),
-  ];
+  const entry = ([id, attempt]) => stageEntry(run, id, attempt, attempt.verdict);
+  let stages;
+  if (group) {
+    // A failing group is one round: its failing members first, then the passing ones.
+    const members = node.members.filter((id) => latest.has(id));
+    const failing = members.filter((id) => latest.get(id).verdict.result !== "pass");
+    const order = [...failing, ...members.filter((id) => !failing.includes(id))];
+    stages = [
+      ...order.map((id) => entry([id, latest.get(id)])),
+      ...[...latest].filter(([id]) => !members.includes(id)).map(entry),
+    ];
+  } else stages = [stageEntry(run, node.id, source, verdict), ...[...latest].map(entry)];
   // Finding ids count rounds per loop target, so rounds of two edges into the same stage
   // never share an id. Rounds saved before `seq` existed numbered by their edge's round.
   const seq =

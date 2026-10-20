@@ -218,6 +218,7 @@ export const pipelineCopy = {
     failed: "Fehlgeschlagen",
     cancelled: "Abgebrochen",
     skipped: "Übersprungen",
+    reported: "Ergebnis gemeldet",
   },
   failReasons: {
     "session-error": "Die Session endete mit einem Fehler",
@@ -233,6 +234,8 @@ export const pipelineCopy = {
     "resume-failed": "Die Session konnte nicht fortgesetzt werden",
     "context-exhausted": "Der Kontext der Session ist erschöpft",
     "risk-gate": "Riskante Änderungen brauchen deine Freigabe",
+    "members-blocked": "Ein Mitglied der Gruppe braucht eine Entscheidung",
+    "group-changed-files": "Ein Mitglied der Gruppe hat Dateien geändert",
     unknown: "Die Stufe wurde angehalten",
   },
   attemptKinds: {
@@ -241,6 +244,7 @@ export const pipelineCopy = {
     "gate-feedback": "Nacharbeit nach Feedback",
     "verify-feedback": "Reparatur nach Prüfung",
     "resumed-repair": "Reparatur in derselben Session",
+    group: "Parallele Gruppe",
     unknown: "Durchgang",
   },
   repairSessions: { resumed: "Dieselbe Session", fresh: "Neue Session" },

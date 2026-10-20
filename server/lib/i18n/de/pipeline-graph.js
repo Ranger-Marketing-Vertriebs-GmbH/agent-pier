@@ -9,6 +9,12 @@ export const pipelineGraph = Object.freeze({
   entryMustBeProfile: "Der Einstieg muss auf einen Profilknoten verweisen",
   invalidEdge: (from, to, condition) =>
     `Ungültige Pipeline-Kante: ${from} → ${to} (${condition})`,
+  invalidParallelGroup: (node) =>
+    `Die parallele Gruppe ${node} braucht 2 bis 8 Mitglieder, jedes mit eindeutiger ID und Profil`,
+  invalidParallelConcurrency: (node) =>
+    `Die Parallelität der Gruppe ${node} muss zwischen 1 und der Zahl ihrer Mitglieder liegen`,
+  failEdgeIntoParallelGroup: (node) =>
+    `Eine Fehlschlag-Kante kann nicht in die parallele Gruppe ${node} zurückführen`,
   oneEdgePerCondition: "Ein Knoten darf pro Bedingung nur eine Kante haben",
   loopBudgetRange: "Schleifenbudgets für Fehlschläge müssen zwischen 1 und 5 liegen",
   continueSessionLoopOnly:

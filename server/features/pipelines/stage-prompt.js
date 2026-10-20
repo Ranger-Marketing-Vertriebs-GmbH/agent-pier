@@ -74,7 +74,9 @@ const clip = (text, max) => (text.length > max ? `${text.slice(0, max)}…` : te
 function verdictContext(run, node) {
   const latest = new Map();
   for (const a of run.executionLog)
-    if (a.nodeId !== node.id && a.finishedAt && a.verdict) latest.set(a.nodeId, a);
+    // A parallel group's joined verdict repeats its members', which are listed instead.
+    if (a.nodeId !== node.id && a.finishedAt && a.verdict && a.kind !== "group")
+      latest.set(a.nodeId, a);
   const views = [...latest.values()].map(({ nodeId, verdict }) => ({
     nodeId,
     result: verdict.result,

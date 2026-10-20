@@ -34,7 +34,7 @@ export function requestNotice(event, session, entry) {
 /** A run's pipeline, current stage and project; a gate opens its inbox item. */
 export function runNotice(run, gate) {
   const node = run.nodes?.find((n) => n.id === run.currentNodeId);
-  const stage = node?.profileSnapshot?.name || node?.kind || "";
+  const stage = node?.profileSnapshot?.name || node?.label || node?.kind || "";
   const project = folder(run.workingDir || run.cwd);
   return {
     runId: run.id,

@@ -79,6 +79,8 @@ export const freshAfterResume = (attempt, reason) => ({
 // new session; it keeps the round it repairs, so the history and the round still
 // count it as that round's repair.
 export function relaunchOptions(run, node) {
+  // A parallel group starts its blocked members again and keeps those that reported.
+  if (node.kind === "parallel") return { resume: true };
   const opened = (run.executionLog || []).findLast(
     (a) => a.nodeId === node.id && a.attemptId === node.attemptId && a.repair,
   );

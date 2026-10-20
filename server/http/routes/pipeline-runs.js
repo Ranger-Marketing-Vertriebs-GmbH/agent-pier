@@ -64,7 +64,12 @@ export function pipelineRunRoutes({ pipelines }) {
       res.json({ run: await pipelines[method](req.params.id) }),
     );
   router.get("/pipeline-runs/:id/verdict-status", (req, res) =>
-    res.json(pipelines.verdictStatus(req.params.id)),
+    res.json(
+      pipelines.verdictStatus(
+        req.params.id,
+        typeof req.query.nodeId === "string" ? req.query.nodeId : undefined,
+      ),
+    ),
   );
   router.get("/pipeline-runs/:id/spec/revisions/:n", (req, res) => {
     if (!/^[1-9]\d{0,5}$/.test(req.params.n))

@@ -4,7 +4,12 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { problem } from "../../lib/storage.js";
 import { RunStore, runId } from "./run-store.js";
-import { compileSnapshot, activeNode, terminal } from "./graph-navigation.js";
+import {
+  compileSnapshot,
+  activeNode,
+  nodeAttempt,
+  terminal,
+} from "./graph-navigation.js";
 import { advance, publishCompleted } from "./execution-stage.js";
 import {
   availableActions,
@@ -14,6 +19,7 @@ import {
   requireLiveRun,
 } from "./pipeline-actions.js";
 import { reconcileRun } from "./pipeline-recovery.js";
+import { memberActions } from "./group-actions.js";
 import { provisionRun } from "./execution-workspace.js";
 import { readVerdict } from "./stage-verdict.js";
 import { specRevision } from "./run-spec.js";
@@ -103,6 +109,7 @@ export class PipelineEngine {
   get(id) {
     const run = this.store.get(id);
     run.actions = availableActions(run);
+    run.memberActions = memberActions(run);
     return run;
   }
   list({ page = 1, status, projectId } = {}) {
@@ -140,7 +147,7 @@ export class PipelineEngine {
       for (const entry of run.executionLog) {
         const node = run.nodes.find((node) => node.id === entry.nodeId);
         if (
-          node?.profileSnapshot.id === profileId &&
+          node?.profileSnapshot?.id === profileId &&
           Date.parse(entry.startedAt) >= cutoff
         )
           attempts.add(entry.attemptId);
@@ -217,11 +224,16 @@ export class PipelineEngine {
     await this.lock(id, async () => {
       const run = this.store.get(id),
         node = activeNode(run);
-      if (input?.action === "override" && node)
+      // A member of a parallel group is overridden on its own.
+      const target =
+        input?.nodeId !== undefined
+          ? run.nodes.find((n) => n.id === input.nodeId && n.group === node?.id)
+          : node;
+      if (input?.action === "override" && target)
         overridden = {
-          stageId: node.id,
-          failReason: node.failReason,
-          path: overridePath(node),
+          stageId: target.id,
+          failReason: target.failReason,
+          path: overridePath(target),
         };
       const result = await gateAction(this, run, input);
       if (result?.riskDecision)
@@ -340,13 +352,13 @@ export class PipelineEngine {
   settleVerification(run) {
     return settleVerification(this, run);
   }
-  verdictStatus(id) {
+  verdictStatus(id, nodeId) {
     const run = this.store.get(id);
     requireLiveRun(run);
-    const found = readVerdict(
-      run,
-      run.executionLog.find((a) => a.id === run.currentAttemptId),
-    );
+    // A member's newest turn, or the current stage's.
+    const member = nodeId && run.nodes.find((n) => n.id === nodeId && n.group);
+    if (nodeId && !member) throw problem(serverMessages.pipelines.nodeNotFound, 404);
+    const found = readVerdict(run, nodeAttempt(run, member || null));
     return {
       ...found,
       verdict: undefined,

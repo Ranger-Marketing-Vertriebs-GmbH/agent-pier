@@ -29,7 +29,7 @@ export function pullRequestBody(run) {
   for (const node of (run.nodes || []).slice(0, 40)) {
     const profile = node.profileSnapshot;
     lines.push(
-      `### ${text(profile?.name || node.id, 150)}`,
+      `### ${text(profile?.name || node.label || node.id, 150)}`,
       "",
       `Status: ${text(node.status, 60)}; CLI: ${text(profile?.config?.cliTool || "none", 30)}; model: ${text(profile?.config?.models?.default || "account default", 200)}`,
     );

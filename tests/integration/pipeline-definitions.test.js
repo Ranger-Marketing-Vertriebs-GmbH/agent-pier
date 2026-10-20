@@ -196,3 +196,36 @@ test("a profile opts in to earlier verdicts explicitly; anything but a boolean i
     { status: 400, message: copy.earlierVerdictsBoolean },
   );
 });
+
+test("a parallel group's member profiles are validated, frozen and kept referenced", async (t) => {
+  const { store } = await fixture(t);
+  const build = store.saveProfile(profile());
+  const security = store.saveProfile({ ...profile("claude"), name: "Security" });
+  const code = store.saveProfile({ ...profile("opencode"), name: "Code" });
+  const graph = (memberProfile) => ({
+    entry: "build",
+    nodes: [
+      { id: "build", kind: "profile", profileId: build.id },
+      {
+        id: "review",
+        kind: "parallel",
+        members: [
+          { id: "security", profileId: security.id },
+          { id: "code", profileId: memberProfile },
+        ],
+      },
+    ],
+    edges: [{ from: "build", to: "review", condition: "default" }],
+  });
+  assert.throws(() => store.savePipeline({ name: "Review", graph: graph("missing") }), {
+    status: 400,
+  });
+  const pipeline = store.savePipeline({ name: "Review", graph: graph(code.id) });
+  const snapshot = store.snapshot(pipeline.id);
+  assert.deepEqual(
+    Object.keys(snapshot.profiles).sort(),
+    [build.id, security.id, code.id].sort(),
+  );
+  assert.equal(snapshot.profiles[security.id].accountSnapshot.tool, "claude");
+  assert.throws(() => store.removeProfile(code.id), { message: copy.stillReferenced });
+});

@@ -211,6 +211,17 @@ export async function settleVerification(engine, run) {
     );
     return;
   }
+  // A parallel group only reviews: it has no turn that could repair the failure.
+  if (node.kind === "parallel") {
+    park(
+      engine,
+      run,
+      node,
+      "verify-failed",
+      serverMessages.pipelines.groupVerificationFailed,
+    );
+    return;
+  }
   node.verifyAttempts = (node.verifyAttempts || 0) + 1;
   if (node.verifyAttempts <= 2) {
     const queued = {

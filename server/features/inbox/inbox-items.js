@@ -79,7 +79,7 @@ export function gateItem(run) {
       name: run.pipelineName || run.pipelineId || "",
       project: folder(run.workingDir || run.cwd),
     },
-    title: node ? node.profileSnapshot?.name || node.kind || node.id : "",
+    title: node ? node.profileSnapshot?.name || node.label || node.kind || node.id : "",
     stage: node?.id || null,
     createdAt: attempt?.finishedAt || node?.startedAt || run.createdAt,
     expiresAt: null,

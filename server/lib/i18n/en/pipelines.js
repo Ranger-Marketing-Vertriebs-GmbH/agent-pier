@@ -104,6 +104,12 @@ export const pipelines = Object.freeze({
     "The stage could not be launched. Check its account and native session.",
   portRangeExhausted:
     "No free port block for the stage. Finish running stages or widen pipelines.portRangeStart and portRangeEnd in config.json.",
+  membersBlocked:
+    "At least one member of the parallel group needs a decision before the group concludes.",
+  groupChangedFiles:
+    "A member of the parallel group changed the working tree. Review the changes before the group concludes.",
+  groupVerificationFailed:
+    "Verification failed. A parallel group only reviews and does not repair.",
   usageLimitReached: "Native provider usage limit reached.",
   nativeTurnFailed:
     "The native stage turn ended unsuccessfully. Inspect its terminal output.",

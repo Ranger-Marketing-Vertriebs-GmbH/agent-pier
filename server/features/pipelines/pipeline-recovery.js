@@ -1,5 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
-import { activeNode, currentAttempt, terminal } from "./graph-navigation.js";
+import { activeNode, currentAttempt, nodeAttempt, terminal } from "./graph-navigation.js";
+import { groupMembers, progressGroup } from "./parallel-group.js";
 import { applyOutcome, launchStage, park, conclude, advance } from "./execution-stage.js";
 import { provisionRun } from "./execution-workspace.js";
 import { cancelRun } from "./pipeline-actions.js";
@@ -26,7 +27,7 @@ async function superviseRunningTurn(engine, run, node, identity, outcome) {
   const now = engine.nowMs(),
     started = Date.parse(identity.startedAt),
     activity = outcome.lastActivityAt ? Date.parse(outcome.lastActivityAt) : started,
-    attempt = currentAttempt(run);
+    attempt = nodeAttempt(run, node);
   // Only the turn this attempt launched may be stopped on its behalf.
   if (!attempt || attempt.sessionId !== identity.sessionId) return;
   const settledAt = Date.parse(attempt.settledAfterCompletion);
@@ -105,6 +106,10 @@ export async function reconcileRun(engine, run) {
     await conclude(engine, run, node, node.verdict);
     return;
   }
+  if (node.kind === "parallel") {
+    await reconcileGroup(engine, run, node);
+    return;
+  }
   const identity = run.activeTurns?.[node.id];
   if (!identity) {
     park(
@@ -116,6 +121,11 @@ export async function reconcileRun(engine, run) {
     );
     return;
   }
+  await settleTurn(engine, run, node, identity, currentAttempt(run));
+}
+// Settles one active turn from its native outcome: supervised while it runs, parked
+// when it was lost, concluded (or reported, for a group member) when it ended.
+async function settleTurn(engine, run, node, identity, attempt) {
   const outcome = await engine.driver.inspect(identity);
   if (outcome.status === "running") {
     await superviseRunningTurn(engine, run, node, identity, outcome);
@@ -127,7 +137,25 @@ export async function reconcileRun(engine, run) {
     return;
   }
   if (!["completed", "failed"].includes(outcome.status)) return;
-  const attempt = currentAttempt(run);
   if (!attempt || attempt.sessionId !== identity.sessionId) return;
-  await applyOutcome(engine, run, outcome);
+  await applyOutcome(engine, run, outcome, node, attempt);
+}
+// Every member's turn is settled on its own; then free slots start pending members and
+// the group joins once every member has a verdict.
+async function reconcileGroup(engine, run, group) {
+  for (const member of groupMembers(run, group)) {
+    if (run.status !== "running") return;
+    const identity = run.activeTurns?.[member.id];
+    if (identity)
+      await settleTurn(engine, run, member, identity, nodeAttempt(run, member));
+    else if (member.status === "running" && !member.queuedTurn)
+      park(
+        engine,
+        run,
+        member,
+        "session-error",
+        serverMessages.pipelines.operationInterrupted,
+      );
+  }
+  await progressGroup(engine, run, group);
 }
