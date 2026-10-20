@@ -467,8 +467,8 @@ summarize their answers for you.
 ## Routines, reminders and check-ins
 
 All three live in the agent's **Routines & check-ins** tab and need no Telegram. Their
-results go to the agent's main chat (its one conversation in AgentPier, the same one a
-paired Telegram chat writes into) with a push notification that opens it. With a paired
+results go to the agent's main chat (the first chat in AgentPier, the same one a
+paired Telegram chat writes into, whatever other chats you started) with a push notification that opens it. With a paired
 Telegram chat, **Also send to Telegram** sends a reminder, routine or the check-ins
 there too; it is a switch per reminder and routine (also when creating one) and one
 for all check-ins. Unpairing Telegram only stops that extra delivery; everything keeps
