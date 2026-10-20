@@ -216,3 +216,26 @@ test("a disabled user's check-ins stay off when her agent syncs again", async (t
   assert.deepEqual([...gateway.jobs.values()], []);
   assert.deepEqual(states(f, agent.id), ["removed", "removed"]);
 });
+
+test("a user disabled while agents are off loses her jobs once agents start", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const { user, agent } = await annasJobs(f);
+  const feature = (enabled) =>
+    f.request("/api/assistant-feature", { method: "PUT", body: { enabled } });
+  assert.equal((await feature(false)).status, 200);
+  assert.equal(f.application.assistants, null);
+  const disabled = await f.request(`/api/users/${user.id}`, {
+    method: "PATCH",
+    body: { disabled: true },
+  });
+  assert.equal(disabled.status, 200, await disabled.clone().text());
+  assert.equal((await feature(true)).status, 200);
+  // Revoked before anything runs; the native jobs go at the Gateway's start.
+  assert.deepEqual(states(f, agent.id), ["revoked", "revoked"]);
+  const assistants = f.application.assistants;
+  gateway.client.ready = true;
+  assistants.runtime.client = gateway.client;
+  await retireReleased({ assistants });
+  assert.deepEqual([...gateway.jobs.values()], []);
+  assert.deepEqual(states(f, agent.id), ["removed", "removed"]);
+});

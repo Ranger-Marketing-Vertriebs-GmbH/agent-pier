@@ -110,7 +110,15 @@ function newestBefore(accepted, limit) {
 /** The public request list with each Telegram request's source. */
 export function requestsWithSources(requests, contexts) {
   return requests.map((request) => {
-    const source = requestSource(contexts.get(request.id));
-    return source ? { ...request, ...source } : request;
+    const context = contexts.get(request.id);
+    const source = requestSource(context);
+    // A user's queued message, or one her bot held back, keeps when she wrote it
+    // (queued-dispatch.js, telegram-ingress.js).
+    const writtenAt =
+      ["user", "telegram"].includes(context?.kind) &&
+      typeof context.writtenAt === "string"
+        ? { writtenAt: context.writtenAt }
+        : null;
+    return source || writtenAt ? { ...request, ...source, ...writtenAt } : request;
   });
 }

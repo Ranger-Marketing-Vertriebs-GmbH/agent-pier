@@ -71,6 +71,10 @@ export function meEventRoutes(services) {
     assistants?.events.on("conversation", onConversation);
     const end = () => res.end();
     assistants?.events.once("close", end);
+    // Opened while agents were off: once they start, the stream ends and her app
+    // reconnects to one that follows them.
+    const feature = assistants ? null : services.assistantFeature?.events;
+    feature?.once("started", end);
     const heartbeat = setInterval(() => {
       res.write(": heartbeat\n\n");
       res.flush?.();
@@ -81,6 +85,7 @@ export function meEventRoutes(services) {
       unsubscribe?.();
       assistants?.events.off("conversation", onConversation);
       assistants?.events.off("close", end);
+      feature?.off("started", end);
     });
   });
   return router;

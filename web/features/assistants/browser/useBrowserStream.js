@@ -61,7 +61,9 @@ export default function useBrowserStream(id, { preview = false, enabled = true }
           setError(copy.liveEnded);
           return;
         }
-        if (alive) retry = setTimeout(connect, event.code === 1013 ? 10000 : 2000);
+        // 4000: still admitted, now to watch only (or to drive): reconnect at once.
+        const wait = event.code === 4000 ? 0 : event.code === 1013 ? 10000 : 2000;
+        if (alive) retry = setTimeout(connect, wait);
       };
     };
     connect();

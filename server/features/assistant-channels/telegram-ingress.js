@@ -224,6 +224,10 @@ export class TelegramIngress {
           userId: entry.userId,
           inputId: entry.id,
           forwarded: entry.forwarded,
+          // A user's message counts from when she wrote it, not from when it went out:
+          // the owner's opt-in may have started in between (owner-privacy.js).
+          ...(typeof assistants.store.getConversation(channel.conversationId).userId ===
+            "string" && { writtenAt: entry.createdAt }),
           // Quotes, code and links of the message, which never prove an owner request.
           ...(entry.hidden?.length
             ? {

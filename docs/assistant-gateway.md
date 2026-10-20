@@ -1578,7 +1578,9 @@ later takeover can send input the same way.
   upstream socket that does not open within ten seconds is retried; a refresh asked
   for during another (a tab pick) runs right after it. The status line of a refused
   upgrade names its status (401 Unauthorized, 403 Forbidden). A login that ends
-  closes the view with 1008, and the page then stops reconnecting.
+  closes the view with 1008, and the page then stops reconnecting. A view still
+  admitted, but now only to watch or now to drive, closes with 4000 and the page
+  reconnects at once.
 - The web app connects to `/api/assistants/<id>/browser-stream` behind the login
   and the origin check of the chat stream. The server sends JSON state messages and
   forwards OpenClaw's binary frames unchanged (a four-byte header length, a JSON
@@ -2456,7 +2458,11 @@ agent, her attempt, her chat file. Anything else answers the unknown-route 404.
   cancel, attachments and shared files under `/me/conversations/:id/…`,
   `/me/attempts/:id/cancel` and `/me/attachments/:file`. A user's turn and her queued
   message run with the trusted origin `{ kind: "user", userId }`; she never starts team
-  work. The chat WebSocket admits her own conversation and closes (1008) once she is
+  work. Every turn in a user's chat (web, her Telegram bot, queued) reaches the Gateway
+  as plain text: `sessions.send` would run a leading `/restart`, `/update` or `/model`
+  as an owner's OpenClaw command and inline `/model …` as a directive, so a word joiner
+  (U+2060) goes before each `/` or `!` that starts a word
+  (`server/features/assistants/plain-turn-text.js`); the chat history drops it again. The chat WebSocket admits her own conversation and closes (1008) once she is
   unassigned. An uncertain or interrupted turn in her chat blocks it like the owner's;
   she reviews it herself (`POST /me/attempts/:id/recover`, body
   `{acknowledgeUnknownOutcome: true}`): unlike the owner's recovery it never restarts
@@ -2498,16 +2504,19 @@ agent, her attempt, her chat file. Anything else answers the unknown-route 404.
   ends ten minutes (the hand-back lease) after her turn's last browser call, or once a
   takeover then in progress ends, and the browser is the owner's again. Open views
   close when it changes hands; the hand-back note goes into the driver's chat. Under her
-  opt-in the owner watches her own agent's browser, view-only (`VIEW_ONLY`); a view he
-  opened to drive a shared agent closes (1008) once it becomes her own, as do his views
-  once she turns the opt-in off.
+  opt-in the owner watches her own agent's browser, view-only (`VIEW_ONLY`, also for
+  `select` and `follow`: he never moves the tab she sees and types into); a view he
+  opened to drive a shared agent closes with 4000 once it becomes her own, and the page
+  reconnects at once, view-only. His views close (1008) once she turns the opt-in off.
 - Push devices belong to one person (`subscriptions.user_id`, data schema 2):
   `/me/notifications…` mirrors the owner's routes for her own devices. A notice with
   `audience: { kind: "user", userId }` reaches only her devices; system notices only the
   owner's. Presence, its report rate limit and quiet hours count per person.
 - `GET /me/events` streams `agents` (her list or one of her chats changed) and
   `approvals` (`count`) frames, with a heartbeat every 15 seconds. The count holds the
-  approvals `GET /me/approvals` lists, so one in a chat she left no longer counts.
+  approvals `GET /me/approvals` lists, so one in a chat she left no longer counts. A
+  stream opened while agents are off ends once they start (and when they stop), so
+  her app reconnects to one that follows them.
 - At **Extended** she connects her own agent's Telegram bot to her main chat
   (`/me/agents/:id/telegram`, `PUT {token}`, `POST …/pair`, `DELETE`). The token is never
   returned. Shared agents and lower levels answer 403 `USER_LEVEL`; Telegram for other
@@ -2525,7 +2534,8 @@ The owner's privacy guard (`server/http/owner-content-guard.js`,
 chats, and the memory, attachments and browser of her own agent, answer 404, and his
 agent list and event stream leave her conversations out. With the opt-in he reads them
 from its `since` on, never earlier, in history, feed snapshots, the chat stream, her
-queued message and chat file downloads; he never writes into her chat, decides her
+queued message and chat file downloads. A message she queued counts from when she
+wrote it (the request's `writtenAt`), even once it goes out after the opt-in; he never writes into her chat, decides her
 approvals or re-pairs her bot, and her pending approvals never count in his agent
 activity. The guard matches paths like Express does (trailing slashes, any letter case).
 Turning it off closes his open chat streams (1008); turning it on again after it was off
@@ -2551,10 +2561,12 @@ One she created while her deletion ran is ended the same way once she is release
 chats' native sessions are deleted the same way: a chat whose session the Gateway could
 not delete keeps `nativeDeletePending`, and the next Gateway start deletes it. Her
 released chats are marked `userReleased`: reconciliation and history reads never read
-their native session back into AgentPier, and a successful native delete forgets her
+their native session back into AgentPier, a runtime update's validation does not look
+for it, and a successful native delete forgets her
 cached messages, texts and files once more.
 Disabling a user (`PATCH /api/users/:id {disabled: true}`) ends her sessions and,
-like her deletion, her reminders, routines, check-ins and bots; her agents and chats
+like her deletion, her reminders, routines, check-ins and bots (disabled while agents
+are off, they end when agents start, before any of them runs); her agents and chats
 stay, and her chats take no new turns while she is disabled; her own agent schedules
 no check-ins again for a disabled or deleted user. Enabling her again
 restores her sign-in only.

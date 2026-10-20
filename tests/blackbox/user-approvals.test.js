@@ -10,6 +10,7 @@ import {
 import { signedInUser } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
 import { AgentApprovalEvents } from "../../server/application/agent-approval-events.js";
+import { workspaceContext } from "../../server/features/assistants/workspace-calls.js";
 
 // An approval waiting in Anna's chat with the shared agent.
 async function annasApproval(f) {
@@ -143,4 +144,59 @@ test("a user decides her approval from her own bot's buttons", async (t) => {
   assert.equal(entries[0].actorUserId, user.id);
   assert.equal(entries[0].details.actor, "user");
   assert.equal(entries[0].details.channel, "telegram");
+});
+
+test("approvals raised in two users' concurrent turns go to whose turn raised them", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, ben, agent } = await sharedAgentOfTwo(f);
+  const chat = async (user) =>
+    (
+      await (
+        await as(f, user.cookie)(`/api/me/agents/${agent.id}/conversation`, {
+          method: "POST",
+        })
+      ).json()
+    ).id;
+  const [annaChat, benChat] = [await chat(anna), await chat(ben)];
+  const send = async (user, id) => {
+    const response = await as(f, user.cookie)(`/api/me/conversations/${id}/messages`, {
+      method: "POST",
+      body: { clientRequestId: `turn-${id}`, text: "Note this" },
+    });
+    assert.equal(response.status, 202, await response.clone().text());
+    return (await response.json()).attempt.id;
+  };
+  // Both turns run at once; Ben's started last.
+  const [a, b] = await Promise.all([send(anna, annaChat), send(ben, benChat)]);
+  const workflows = f.application.assistants.workflows;
+  // As workspace-calls.js reserves an approval: from the turn's own context.
+  const raise = async (attemptId, name) => {
+    const {
+      leadRequest: _l,
+      routine: _r,
+      memberResult: _m,
+      ...ctx
+    } = workspaceContext(workflows, {
+      attemptId,
+      toolCallId: `call-${name}`,
+      assertCurrent: () => {},
+    });
+    return workflows.store.reserve({
+      ...ctx,
+      key: `${attemptId}:call-${name}`,
+      payload: { action: "memory_write", projectId: "p", title: name, content: "x" },
+      state: "awaiting_approval",
+    });
+  };
+  const [forA, forB] = await Promise.all([raise(a, "annas"), raise(b, "bens")]);
+  assert.equal(forA.conversationId, annaChat);
+  assert.equal(forB.conversationId, benChat);
+  const listed = async (user) =>
+    (await (await as(f, user.cookie)("/api/me/approvals")).json()).actions.map(
+      (x) => x.id,
+    );
+  assert.deepEqual(await listed(anna), [forA.id]);
+  assert.deepEqual(await listed(ben), [forB.id]);
+  assert.equal((await decide(as(f, ben.cookie), forA)).status, 404);
+  assert.equal((await decide(as(f, anna.cookie), forA)).status, 200);
 });

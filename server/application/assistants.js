@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import path from "node:path";
 import { readJSON } from "../lib/storage.js";
 import { serverMessages } from "../lib/i18n/de.js";
@@ -100,6 +101,8 @@ export function createAssistantFeature(services) {
   let listening = false;
   let recovered = false;
   let queue = Promise.resolve();
+  // "started" once the agent services exist after being switched on.
+  const events = new EventEmitter();
   for (const name of assistantServiceNames) services[name] = null;
   const fail = (cause) => {
     error = failureCode(cause);
@@ -172,6 +175,7 @@ export function createAssistantFeature(services) {
       return error;
     },
     state,
+    events,
     connect: () => serialized(connect),
     start() {
       listening = true;
@@ -186,6 +190,7 @@ export function createAssistantFeature(services) {
           create();
           await connect();
           start();
+          if (services.assistants) events.emit("started");
         }
         return state();
       }),

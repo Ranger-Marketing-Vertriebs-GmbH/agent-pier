@@ -118,8 +118,10 @@ export class AssistantMaintenance {
       if (a.effectiveRevision && !roster.agents?.some((p) => p.id === a.runtimeAgentId))
         throw assistantProblem("conflict", 409);
     }
+    // A deleted user's chat keeps its row, not its native session (user-release.js).
     for (const c of s.assistants.store.listConversations())
-      await client.call("sessions.describe", { key: c.runtimeSessionKey });
+      if (!c.userReleased)
+        await client.call("sessions.describe", { key: c.runtimeSessionKey });
     if ((await this.blockers()).length) throw assistantProblem("active", 409);
   }
   async leave() {

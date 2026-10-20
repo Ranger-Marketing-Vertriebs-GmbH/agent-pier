@@ -69,10 +69,11 @@ export function takeBackQueued(service, conversationId) {
   };
 }
 
-// A queued message goes out as the turn of the person whose chat it is.
-const turnContext = (conversation) =>
+// A queued message goes out as the turn of the person whose chat it is. A user's
+// keeps when she wrote it: the owner's opt-in counts from there (owner-privacy.js).
+const turnContext = (conversation, message) =>
   typeof conversation.userId === "string"
-    ? { kind: "user", userId: conversation.userId }
+    ? { kind: "user", userId: conversation.userId, writtenAt: message.createdAt }
     : { kind: "owner" };
 const delivery = (message) => ({
   clientRequestId: message.clientRequestId,
@@ -144,7 +145,7 @@ export async function dispatchQueued(service, conversationId) {
         await service.send(
           message.conversationId,
           delivery(message),
-          turnContext(service.store.getConversation(message.conversationId)),
+          turnContext(service.store.getConversation(message.conversationId), message),
         );
         service.queued.done(message);
         backoff.delete(message.conversationId);
