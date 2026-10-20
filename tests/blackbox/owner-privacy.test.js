@@ -198,6 +198,9 @@ test("the user sees the opt-in state", async (t) => {
   const off = await (await as(f, cookie)("/api/me")).json();
   assert.deepEqual(off.ownerMayRead, { enabled: false, since: null });
   await optIn(f, user.id, true);
+  const [audited] = f.application.audit.list({}).events;
+  assert.equal(audited.action, "user.updated");
+  assert.equal(audited.details.kind, "owner-may-read");
   const on = await (await as(f, cookie)("/api/me")).json();
   assert.equal(on.ownerMayRead.enabled, true);
   assert.ok(Date.parse(on.ownerMayRead.since));

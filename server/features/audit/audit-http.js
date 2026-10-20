@@ -36,6 +36,10 @@ export function requestAudit(req) {
     if (operation === "password") {
       action = "updated";
       kind = "password-reset";
+    } else if (operation === "owner-may-read") {
+      // Who switched "Owner may read chats", never the state's history.
+      action = "updated";
+      kind = "owner-may-read";
     } else if (operation) return null;
   } else if (area === "me") {
     if (id !== "password" || operation) return null;

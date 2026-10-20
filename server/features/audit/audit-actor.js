@@ -4,7 +4,7 @@ export const auditActor = (principal) =>
     ? { actorUserId: principal.userId }
     : {};
 
-const userKinds = new Set(["password-reset", "password-changed"]);
+const userKinds = new Set(["password-reset", "password-changed", "owner-may-read"]);
 
 /** Copies the acting user and the user-account kinds; never names or passwords. */
 export function userAuditDetails(input, event, auditId) {
