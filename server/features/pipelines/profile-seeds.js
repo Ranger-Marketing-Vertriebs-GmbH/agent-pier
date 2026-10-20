@@ -1,9 +1,16 @@
+// Shared parts of the seed roles: a stage's own ports and browser session, and the
+// spec's acceptance criteria as the reference for review findings.
+const PORTS =
+  "When $AGENTPIER_PORT is set (a pipeline stage), start every server on that port instead of the documented one (the stage owns $AGENTPIER_PORT_COUNT consecutive ports from there) and use the browser session named in $AGENTPIER_BROWSER_SESSION; otherwise use the documented ports. Stop the servers and the browser session when you are done.";
+const CRITERIA =
+  'When the run has a spec, check the change against its acceptance criteria, report the criteria you checked in "criteria" and reference the criterion a finding affects with "criterion".';
+
 const seeds = [
   [
     "planner",
     "Planner",
     "planning",
-    "Analyze the task, inspect the repository and write an actionable implementation plan with validation steps. Preserve existing work. Do not implement the plan.",
+    "Analyze the task, inspect the repository and write an actionable implementation plan with validation steps to PLAN.md in the stage report directory, and declare it. When the run has a spec, name the acceptance criteria each step serves. Preserve existing work. Do not implement the plan.",
     true,
   ],
   [
@@ -17,21 +24,35 @@ const seeds = [
     "implementer",
     "Implementer",
     "implementation",
-    "Implement the task using repository conventions. Follow an existing plan when present, add meaningful tests and run the relevant checks. Report exact changes and validation evidence.",
+    `Implement the task using repository conventions. Follow the run's spec and an existing plan when present: meet every acceptance criterion, check it with its Verify step and report each one in "criteria" with its evidence. Add meaningful tests and run the relevant checks. ${PORTS} Write the exact changes and the validation evidence to IMPLEMENTATION.md in the stage report directory and declare it.`,
     true,
   ],
   [
     "code-reviewer",
     "Code Reviewer",
     "review",
-    "Review the current branch and task for correctness, regressions and maintainability. Write actionable findings with file references to REVIEW.md in the stage report directory. Do not change application code.",
+    `Review the current branch and task for correctness, regressions and maintainability. ${CRITERIA} Write actionable findings with file references to REVIEW.md in the stage report directory. Do not change application code.`,
     true,
   ],
   [
     "security-reviewer",
     "Security Reviewer",
     "review",
-    "Review the task changes for authentication, authorization, injection, secret handling and trust-boundary defects. Write reproducible findings to SECURITY.md in the stage report directory. Do not change application code.",
+    `Review the task changes for authentication, authorization, injection, secret handling and trust-boundary defects. ${CRITERIA} If you run the application to reproduce a finding: ${PORTS} Write reproducible findings to SECURITY.md in the stage report directory. Do not change application code.`,
+    true,
+  ],
+  [
+    "ux-reviewer",
+    "UX Reviewer",
+    "review",
+    `Review the change from the user's side; do not change application code. Walk through every flow the task touches: how it is reached, the order of its steps, its empty, loading, error and success states, and how a user recovers from a mistake or a failed request. Check the copy for clarity, for the product's existing wording and for every language the product supports. Check accessibility: keyboard use and focus order, names and labels of controls, contrast, and how changes are announced. Check the flows at phone width and by touch. ${PORTS} ${CRITERIA} Write reproducible findings (the steps, what you saw and what you expected) to UX-REVIEW.md in the stage report directory and declare it. When the change has no user-facing part, pass and say so.`,
+    true,
+  ],
+  [
+    "ui-reviewer",
+    "UI Reviewer",
+    "review",
+    `Review how the change looks; do not change application code. First find the project's styling system (design tokens, shared components, a UI guide or a component gallery), then check the changed screens against it: colours, type, spacing, icons, the components used and their hover, focus, disabled and selected states. Flag one-off styles, colours or components where an existing one fits, layouts that break at phone, tablet or desktop width, and differences from neighbouring screens, in every theme the product has. ${PORTS} ${CRITERIA} Write findings with the file and the screen to UI-REVIEW.md in the stage report directory, put screenshots you take next to it, and declare them. When the change has no visible part, pass and say so.`,
     true,
   ],
   [
@@ -52,7 +73,7 @@ const seeds = [
     "app-tester",
     "App Tester",
     "review",
-    "Build and test the application using its documented local workflow. When $AGENTPIER_PORT is set (a pipeline stage), start its servers on that port instead of the documented one (the stage owns $AGENTPIER_PORT_COUNT consecutive ports from there) and use the browser session named in $AGENTPIER_BROWSER_SESSION; otherwise use the documented ports. Inspect relevant browser and API behavior and write reproducible findings to TEST-REPORT.md in the stage report directory. Stop the servers and the browser session when you are done. Do not change application code.",
+    `Build and test the application using its documented local workflow. When $AGENTPIER_PORT is set (a pipeline stage), start its servers on that port instead of the documented one (the stage owns $AGENTPIER_PORT_COUNT consecutive ports from there) and use the browser session named in $AGENTPIER_BROWSER_SESSION; otherwise use the documented ports. Inspect relevant browser and API behavior. ${CRITERIA} Write reproducible findings to TEST-REPORT.md in the stage report directory. Stop the servers and the browser session when you are done. Do not change application code.`,
     true,
   ],
   [
@@ -71,6 +92,33 @@ const seeds = [
   ],
   ["default", "Default", null, "", false],
 ];
+
+/**
+ * Role texts that earlier versions seeded. A stored seed profile whose role is still
+ * one of these was never edited there and gets the current text (see seed-migration.js).
+ */
+export const previousSeedRoles = {
+  planner: [
+    "Analyze the task, inspect the repository and write an actionable implementation plan with validation steps. Preserve existing work. Do not implement the plan.",
+  ],
+  implementer: [
+    "Implement the task using repository conventions. Follow an existing plan when present, add meaningful tests and run the relevant checks. Report exact changes and validation evidence.",
+  ],
+  "code-reviewer": [
+    "Review the current branch and task for correctness, regressions and maintainability. Write actionable findings with file references to REVIEW.md. Do not change application code.",
+    "Review the current branch and task for correctness, regressions and maintainability. Write actionable findings with file references to REVIEW.md in the stage report directory. Do not change application code.",
+  ],
+  "security-reviewer": [
+    "Review the task changes for authentication, authorization, injection, secret handling and trust-boundary defects. Write reproducible findings to SECURITY.md. Do not change application code.",
+    "Review the task changes for authentication, authorization, injection, secret handling and trust-boundary defects. Write reproducible findings to SECURITY.md in the stage report directory. Do not change application code.",
+  ],
+  "app-tester": [
+    "Build and test the application using its documented local workflow. Inspect relevant browser and API behavior and write reproducible findings to TEST-REPORT.md. Do not change application code.",
+    "Build and test the application using its documented local workflow. Inspect relevant browser and API behavior and write reproducible findings to TEST-REPORT.md in the stage report directory. Do not change application code.",
+    "Build and test the application using its documented local workflow, but start its servers on the port in $AGENTPIER_PORT (the turn owns $AGENTPIER_PORT_COUNT consecutive ports from there) instead of the documented port, and use the browser session named in $AGENTPIER_BROWSER_SESSION. Inspect relevant browser and API behavior and write reproducible findings to TEST-REPORT.md in the stage report directory. Stop the servers and the browser session when you are done. Do not change application code.",
+    "Build and test the application using its documented local workflow. When $AGENTPIER_PORT is set (a pipeline stage), start its servers on that port instead of the documented one (the stage owns $AGENTPIER_PORT_COUNT consecutive ports from there) and use the browser session named in $AGENTPIER_BROWSER_SESSION; otherwise use the documented ports. Inspect relevant browser and API behavior and write reproducible findings to TEST-REPORT.md in the stage report directory. Stop the servers and the browser session when you are done. Do not change application code.",
+  ],
+};
 
 export function seedProfiles(now) {
   return seeds.map(([key, name, phaseKey, role, autonomous]) => ({
@@ -98,15 +146,12 @@ export function seedProfiles(now) {
   }));
 }
 
-export function seedPipeline(now) {
-  return {
+const pipelineSeeds = [
+  {
     id: "seed-implement-review",
     name: "Implement and review",
     description:
       "Implement, review, then approve. Review failures can return to implementation twice.",
-    revision: 1,
-    createdAt: now,
-    updatedAt: now,
     graph: {
       entry: "implement",
       nodes: [
@@ -120,5 +165,54 @@ export function seedPipeline(now) {
         { from: "review", to: "implement", condition: "fail", maxIterations: 2 },
       ],
     },
-  };
+  },
+  {
+    id: "seed-software-factory",
+    name: "Software factory",
+    description:
+      "Write a spec, implement it, verify, review in parallel (security, code, UX, UI), let the approver decide, then open a pull request. Review failures return to the implementer twice, in its own session.",
+    graph: {
+      entry: "spec",
+      nodes: [
+        { id: "spec", kind: "profile", profileId: "seed-spec-writer" },
+        { id: "implement", kind: "profile", profileId: "seed-implementer" },
+        { id: "verify", kind: "verify" },
+        {
+          id: "review",
+          kind: "parallel",
+          members: [
+            { id: "security", profileId: "seed-security-reviewer" },
+            { id: "code", profileId: "seed-code-reviewer" },
+            { id: "ux", profileId: "seed-ux-reviewer" },
+            { id: "ui", profileId: "seed-ui-reviewer" },
+          ],
+        },
+        { id: "approve", kind: "profile", profileId: "seed-approver" },
+        { id: "pr", kind: "createPr" },
+      ],
+      edges: [
+        { from: "spec", to: "implement", condition: "default" },
+        { from: "implement", to: "verify", condition: "default" },
+        { from: "verify", to: "review", condition: "default" },
+        { from: "review", to: "approve", condition: "default" },
+        {
+          from: "review",
+          to: "implement",
+          condition: "fail",
+          maxIterations: 2,
+          continueSession: true,
+        },
+        { from: "approve", to: "pr", condition: "default" },
+      ],
+    },
+  },
+];
+
+export function seedPipelines(now) {
+  return pipelineSeeds.map((pipeline) => ({
+    ...structuredClone(pipeline),
+    revision: 1,
+    createdAt: now,
+    updatedAt: now,
+  }));
 }

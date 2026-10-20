@@ -9,7 +9,7 @@ import {
   profileConnection,
   validateVerification,
 } from "./profile-validation.js";
-import { seedProfiles, seedPipeline } from "./profile-seeds.js";
+import { applySeeds } from "./seed-migration.js";
 import { defaultRisk, validateRisk } from "./risk-rules.js";
 
 function identity(id) {
@@ -27,17 +27,16 @@ export class PipelineDefinitions {
     this.file = path.join(dataDir, "pipelines", "definitions.json");
     this.accounts = accounts;
     this.state = readJSON(this.file, null);
-    if (this.state === null) {
-      const now = new Date().toISOString();
+    // A new installation starts with every seed; applySeeds adds them below.
+    if (this.state === null)
       this.state = {
         version: 1,
-        profiles: seedProfiles(now),
-        pipelines: [seedPipeline(now)],
+        profiles: [],
+        pipelines: [],
         verification: {},
         risk: {},
+        seedsApplied: [],
       };
-      writePrivate(this.file, this.state);
-    }
     if (
       this.state.version !== 1 ||
       !Array.isArray(this.state.profiles) ||
@@ -47,6 +46,9 @@ export class PipelineDefinitions {
       throw new Error("Invalid pipeline definition storage");
     // Definitions written before risk rules existed have none saved.
     if (!this.state.risk || typeof this.state.risk !== "object") this.state.risk = {};
+    // Seeds added or reworded since this document was written reach it once.
+    if (applySeeds(this.state, new Date().toISOString()))
+      writePrivate(this.file, this.state);
   }
   commit(next) {
     writePrivate(this.file, next);

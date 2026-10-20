@@ -28,7 +28,8 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   der Freigabe ([Eingang](docs/inbox.md#claude-code-approvals-and-plans)).
 - **Pipelines mit Review:** wiederverwendbare Profile, isolierte Git-Worktrees,
   parallele Reviewer mit zusammengeführtem Ergebnis, begrenzte Review-Schleifen, Prüfungen, ein Risiko-Gate für heikle Pfade und
-  menschliche Freigabe ([Pipelines](docs/pipelines.md)).
+  menschliche Freigabe, dazu eine eingebaute Software-Fabrik von der Spezifikation bis zum Pull Request
+  ([Pipelines](docs/pipelines.md#software-factory)).
 - **Agenten und Teams:** dauerhafte Agenten, deren Leads ihre Mitglieder fragen und
   ihnen Aufgaben übergeben, auf Anfrage, als Vorschlag oder selbstständig, und ihre
   Projektordner, Coding-Projekte und MCP-Server mit ihnen teilen oder bei ihnen
