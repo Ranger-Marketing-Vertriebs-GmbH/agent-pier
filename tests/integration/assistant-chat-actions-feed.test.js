@@ -104,9 +104,10 @@ test(
     };
     const action = reserve(f, f.one, "memory-1");
     const created = await first.window(2);
+    const mirrored = await second.window(2);
     assert.equal(second.syncs()[1].data.sync.mode, "delta");
     assert.deepEqual(
-      (await second.window(2)).actions.map((a) => [a.id, a.state]),
+      mirrored.actions.map((a) => [a.id, a.state]),
       [[action.id, "awaiting_approval"]],
     );
     assert.equal(created.actions[0].payload.content, "Remember");

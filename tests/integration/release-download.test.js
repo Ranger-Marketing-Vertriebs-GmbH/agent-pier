@@ -11,7 +11,12 @@ const loopback = (port) => (url, init) =>
   );
 
 async function fakeServer(t, handler) {
-  const server = http.createServer(handler);
+  const server = http.createServer((req, res) => {
+    // Keep the short idle-timeout scenarios independent of fetch's pooled socket
+    // reuse after cancellation, which can outlast 150 ms on newer Node versions.
+    res.setHeader("connection", "close");
+    handler(req, res);
+  });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => {
     server.closeAllConnections();
