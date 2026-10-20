@@ -1,7 +1,7 @@
 import http from "node:http";
 import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
-import { requireOwnerSocket } from "./user-guard.js";
+import { agentChatPath } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 
@@ -16,7 +16,10 @@ const backlog = 2 * 1024 * 1024;
  * diffs against the client's cursor) and `stream` frames (the reply streaming now);
  * the client sends nothing.
  */
-export function attachAssistantChatWebSocket(server, { assistants, login, effective }) {
+export function attachAssistantChatWebSocket(
+  server,
+  { assistants, login, admit, effective },
+) {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: 4096,
@@ -28,13 +31,14 @@ export function attachAssistantChatWebSocket(server, { assistants, login, effect
     );
   const upgrade = (req, socket, head) => {
     const url = new URL(req.url, "http://localhost");
-    const match = url.pathname.match(/^\/api\/assistant-conversations\/([^/]+)\/stream$/);
+    const match = url.pathname.match(agentChatPath);
     if (!match) return;
     try {
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req);
-      const auth = requireOwnerSocket(login, token);
+      const auth = login.require(token);
       if (!ID.test(match[1])) return refuse(socket, 404);
+      admit(login.principal(auth), { kind: "agent-chat", id: match[1] });
       const service = assistants();
       if (!service || service.closed || service.feeds.closed) return refuse(socket, 503);
       // Only a conversation of the owner's own agents (the history route's check).

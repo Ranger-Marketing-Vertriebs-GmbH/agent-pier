@@ -1,11 +1,11 @@
 import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
-import { requireOwnerSocket } from "./user-guard.js";
+import { ownSocketPath, terminalPath } from "./socket-access.js";
 import { serverMessages } from "../lib/i18n/de.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { authorizeRequest } from "./security.js";
 import { problem } from "../lib/storage.js";
-export function attachTerminalWebSocket(server, { sessions, login, effective }) {
+export function attachTerminalWebSocket(server, { sessions, login, admit, effective }) {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: 65536,
@@ -13,20 +13,15 @@ export function attachTerminalWebSocket(server, { sessions, login, effective }) 
   });
   server.on("upgrade", (req, socket, head) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
-    if (/^\/api\/sessions\/[a-zA-Z0-9_-]+\/chat-stream$/.test(pathname)) return;
-    // The agents' browser live view has its own handler (browser-websocket.js).
-    if (/^\/api\/assistants\/[A-Za-z0-9_-]+\/browser-stream$/.test(pathname)) return;
-    // An agent chat's live feed has its own handler (assistant-chat-websocket.js).
-    if (/^\/api\/assistant-conversations\/[^/]+\/stream$/.test(pathname)) return;
-    // Live dictation has its own handler (dictation-websocket.js).
-    if (pathname === "/api/dictation/stream") return;
+    // Session chats, agent chats, browser views and dictation have their own handlers;
+    // this one refuses every other upgrade path.
+    if (ownSocketPath(pathname)) return;
     try {
       authorizeRequest(req, effective(), true);
-      const authSession = requireOwnerSocket(login, sessionToken(req));
-      const match = new URL(req.url, "http://localhost").pathname.match(
-        /^\/api\/sessions\/([a-zA-Z0-9-]+)\/terminal$/,
-      );
+      const authSession = login.require(sessionToken(req));
+      const match = pathname.match(terminalPath);
       if (!match) throw problem(serverMessages.http.notFound, 404);
+      admit(login.principal(authSession), { kind: "terminal", id: match[1] });
       wss.handleUpgrade(req, socket, head, (ws) => {
         ws.sessionId = match[1];
         ws.authSession = authSession;

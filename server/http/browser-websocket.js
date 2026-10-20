@@ -1,6 +1,6 @@
 import http from "node:http";
 import { sessionToken } from "./login.js";
-import { requireOwnerSocket } from "./user-guard.js";
+import { browserPath } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createHash } from "node:crypto";
@@ -35,19 +35,18 @@ export function personalState(state, holder) {
  * sends small JSON commands (`select`, `follow`, `start`). Input for a takeover would
  * travel the same way.
  */
-export function attachBrowserWebSocket(server, { live, login, effective }) {
+export function attachBrowserWebSocket(server, { live, login, admit, effective }) {
   // A paste of up to 4000 characters fits, encoded.
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16384 });
   const upgrade = (req, socket, head) => {
     const url = new URL(req.url, "http://localhost");
-    const match = url.pathname.match(
-      /^\/api\/assistants\/([A-Za-z0-9_-]+)\/browser-stream$/,
-    );
+    const match = url.pathname.match(browserPath);
     if (!match || !ID.test(match[1])) return;
     try {
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req);
-      const auth = requireOwnerSocket(login, token);
+      const auth = login.require(token);
+      admit(login.principal(auth), { kind: "browser", id: match[1] });
       const view = live();
       if (!view) {
         socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
