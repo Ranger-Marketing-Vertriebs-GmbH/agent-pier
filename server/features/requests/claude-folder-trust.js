@@ -10,7 +10,14 @@ import { problem } from "../../lib/storage.js";
 export function folderTrustScreen(raw, cwd) {
   if (typeof raw !== "string" || raw.length > 64000 || typeof cwd !== "string")
     return null;
-  const text = stripVTControlCharacters(raw).replaceAll("\u00a0", " ").trim();
+  const screen = stripVTControlCharacters(raw).replaceAll("\u00a0", " ").trim();
+  // Anchor on the dialog's own rule and heading, never on the top of the screen:
+  // Claude prints settings warnings (about permission rules, for example) above it.
+  const start = [
+    ...screen.matchAll(/(?:^|\n)(?=\u2500{20,}\n Accessing workspace:\n)/g),
+  ].at(-1);
+  if (!start) return null;
+  const text = screen.slice(start.index).replace(/^\n/, "");
   const match = text.match(
     /^─{20,}\n Accessing workspace:\n\n([\s\S]+?)\n\n Quick safety check:/,
   );

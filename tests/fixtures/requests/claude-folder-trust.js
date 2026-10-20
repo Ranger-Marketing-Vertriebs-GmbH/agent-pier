@@ -20,3 +20,18 @@ ${"─".repeat(50)}
 
  Enter to confirm · Esc to cancel
 `;
+/**
+ * Synthetic frame of Claude Code 2.1.304 with settings warnings printed above the
+ * folder-trust dialog, as an owner's permission rules can cause. The rules are made up.
+ */
+export const folderScreenWithWarnings = (cwd, selected = "exit") => `
+ ⚠ Found 2 invalid settings in ~/.claude/settings.json · /doctor for details
+
+   permissions.allow[3]: "Bash(npm run *:*)" uses ":*" after a wildcard; use
+   "Bash(npm run *)" instead. The rule was skipped.
+   permissions.deny[0]: "Read(./secrets/**" is missing a closing parenthesis.
+   The rule was skipped.
+
+ ${"─".repeat(40)}
+ Settings warnings do not stop Claude Code.
+${folderScreen(cwd, selected)}`;

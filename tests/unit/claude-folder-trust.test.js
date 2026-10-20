@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { folderTrustScreen } from "../../server/features/requests/claude-folder-trust.js";
-import { folderScreen } from "../fixtures/requests/claude-folder-trust.js";
+import {
+  folderScreen,
+  folderScreenWithWarnings,
+} from "../fixtures/requests/claude-folder-trust.js";
 
 test("Claude folder trust requires the complete startup menu and exact workspace", () => {
   assert.deepEqual(folderTrustScreen(folderScreen(), "/fixture/project"), {
@@ -12,8 +15,12 @@ test("Claude folder trust requires the complete startup menu and exact workspace
     { selected: "trust" },
   );
   assert.equal(folderTrustScreen(folderScreen(), "/another/project"), null);
+  // Quoted in indented output, the dialog's rule and heading are not its own lines.
   assert.equal(
-    folderTrustScreen("Assistant output:\n" + folderScreen(), "/fixture/project"),
+    folderTrustScreen(
+      "Assistant output:\n" + folderScreen().replace(/\n/g, "\n  ⎿  "),
+      "/fixture/project",
+    ),
     null,
   );
   assert.equal(
@@ -34,6 +41,29 @@ test("wrapped Claude workspace paths retain meaningful spaces", () => {
   );
   assert.equal(
     folderTrustScreen(folderScreen("/long/myproject"), "/long/my project"),
+    null,
+  );
+});
+test("settings warnings printed above the dialog do not hide folder trust", () => {
+  for (const selected of ["exit", "trust"])
+    assert.deepEqual(
+      folderTrustScreen(
+        folderScreenWithWarnings("/fixture/project", selected),
+        "/fixture/project",
+      ),
+      { selected },
+    );
+  // A warning that quotes the dialog does not count; the real dialog below does.
+  const quoted = folderScreenWithWarnings("/fixture/project", "trust").replace(
+    " Settings warnings",
+    ` ${"─".repeat(30)}\n Accessing workspace:\n\n /elsewhere\n\n Quick safety check:\n Settings warnings`,
+  );
+  assert.deepEqual(folderTrustScreen(quoted, "/fixture/project"), { selected: "trust" });
+  assert.equal(
+    folderTrustScreen(
+      folderScreenWithWarnings("/fixture/project") + "\n❯ ",
+      "/fixture/project",
+    ),
     null,
   );
 });
