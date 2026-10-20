@@ -146,6 +146,8 @@ export default function StageDetail({
               <span className="pipeline-run-status">{stageStatus(run, node)}</span>
             </span>
           </div>
+          {/* Two groups of one pipeline differ by their members. */}
+          {group && node.label && <small className="run-group-label">{node.label}</small>}
         </div>
         {node.sessionId && (
           <SessionLinks sessionId={node.sessionId} navigate={navigate} />

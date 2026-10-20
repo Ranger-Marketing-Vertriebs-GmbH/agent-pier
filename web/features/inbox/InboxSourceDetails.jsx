@@ -6,6 +6,8 @@ import { inboxCopy as copy } from "../../lib/i18n/messages/inbox.js";
 import NativeRequest from "../requests/NativeRequest.jsx";
 import GateDecision, { availableGateActions } from "../pipelines/GateDecision.jsx";
 import { failReasonLabel } from "../pipelines/run-codes.js";
+import { blockedMemberNames } from "../pipelines/run-action-request.js";
+import { pipelineCopy } from "../../lib/i18n/messages/pipelines.js";
 import { stageName } from "../pipelines/run-stages.js";
 import RunSpec from "../pipelines/RunSpec.jsx";
 import { RiskGateItems } from "../pipelines/RiskGate.jsx";
@@ -68,6 +70,9 @@ export function InboxGateDetail({ item, done }) {
         <strong>{stageName(node)}</strong>
         {node.failReason && <span> · {failReasonLabel(node.failReason)}</span>}
       </p>
+      {node.kind === "parallel" && node.failReason === "members-blocked" && (
+        <p>{pipelineCopy.blockedMembers(blockedMemberNames(run, node))}</p>
+      )}
       {run.task && <p className="inbox-gate-task">{run.task}</p>}
       {node.failReason === "risk-gate" && (
         <RiskGateItems gate={node.riskGate} detail={node.failDetail} />

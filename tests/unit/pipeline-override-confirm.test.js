@@ -46,3 +46,39 @@ test("the override confirmation describes the path the engine takes", (t) => {
     assert.notEqual(pipelineCopy.overrideGate, pipelineCopy.overrideVerification);
   }
 });
+
+test("a group's override confirmation names what it accepts", (t) => {
+  t.after(() => setLanguage("en"));
+  const member = (id, name, status) => ({
+    id,
+    group: "g",
+    status,
+    profileSnapshot: { name },
+  });
+  const group = (failReason, status) => ({
+    currentNodeId: "g",
+    nodes: [
+      { id: "g", kind: "parallel", members: ["a", "b", "c"], status, failReason },
+      member("a", "Security", "failed"),
+      member("b", "Code", "awaiting-gate"),
+      member("c", "UX", "reported"),
+    ],
+  });
+  for (const language of ["en", "de"]) {
+    setLanguage(language);
+    const blocked = group("members-blocked", "failed");
+    assert.equal(overridePath(blocked.nodes[0]), "members-pass");
+    assert.equal(
+      confirmDescription("override", blocked),
+      pipelineCopy.overrideBlockedMembers("Security, Code"),
+    );
+    const changed = group("group-changed-files", "awaiting-gate");
+    assert.equal(overridePath(changed.nodes[0]), "accepts-changes");
+    assert.equal(
+      confirmDescription("override", changed),
+      pipelineCopy.overrideGroupChanges,
+    );
+    assert.equal(overridePath(blocked.nodes[1]), "members-pass");
+  }
+  assert.match(pipelineCopy.overrideBlockedMembers("Security"), /Security/);
+});

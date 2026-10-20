@@ -307,3 +307,18 @@ test("a crowded round keeps a finding of every failing member", async () => {
   );
   for (const id of ["security", "code", "ux"]) assert.ok(kept[id] >= 1, id);
 });
+
+test("the stage editor refuses a parallel group as the first stage", async () => {
+  const { stageError } = await import("../../web/features/pipelines/graph-editor.js");
+  const copy = { emptyStages: "empty", invalidGroup: "group", groupFirst: "first" };
+  const groupStage = {
+    key: "g",
+    kind: "parallel",
+    members: [
+      { key: "a", profileId: "p" },
+      { key: "b", profileId: "p" },
+    ],
+  };
+  assert.equal(stageError([groupStage, { key: "s", profileId: "p" }], copy), "first");
+  assert.equal(stageError([{ key: "s", profileId: "p" }, groupStage], copy), "");
+});
