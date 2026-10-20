@@ -103,3 +103,31 @@ for (const [language, copy] of [
       await app.close();
     }
   });
+
+test("devices that may not create the owner wait for it", async ({ page, context }) => {
+  const app = await server();
+  try {
+    await context.clearCookies();
+    await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+    await page.route("**/auth/status", (route) =>
+      route.fulfill({
+        json: {
+          configured: false,
+          authenticated: false,
+          canSetup: false,
+          role: null,
+          user: null,
+        },
+      }),
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(app.url);
+    await expect(
+      page.getByRole("heading", { name: "Welcome to AgentPier" }),
+    ).toBeVisible();
+    await expect(page.getByText("This workspace has no owner yet.")).toBeVisible();
+    await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
+  } finally {
+    await app.close();
+  }
+});
