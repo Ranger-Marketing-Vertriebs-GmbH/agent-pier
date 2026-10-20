@@ -70,7 +70,7 @@ test("a group's override confirmation names what it accepts", (t) => {
     assert.equal(overridePath(blocked.nodes[0]), "members-pass");
     assert.equal(
       confirmDescription("override", blocked),
-      pipelineCopy.overrideBlockedMembers("Security, Code"),
+      pipelineCopy.overrideBlockedMembers("Security, Code", 2),
     );
     const changed = group("group-changed-files", "awaiting-gate");
     assert.equal(overridePath(changed.nodes[0]), "accepts-changes");
@@ -80,5 +80,9 @@ test("a group's override confirmation names what it accepts", (t) => {
     );
     assert.equal(overridePath(blocked.nodes[1]), "members-pass");
   }
-  assert.match(pipelineCopy.overrideBlockedMembers("Security"), /Security/);
+  assert.match(pipelineCopy.overrideBlockedMembers("Security", 1), /Security/);
+  // One blocked member reads in the singular, several in the plural.
+  setLanguage("de");
+  assert.match(pipelineCopy.overrideBlockedMembers("Code", 1), /^Code gilt /);
+  assert.match(pipelineCopy.overrideBlockedMembers("Code, UX", 2), /^Code, UX gelten /);
 });

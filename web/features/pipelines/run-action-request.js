@@ -29,20 +29,21 @@ export const offeredRunActions = (run) =>
 export const localCommitsBlockDelete = (error) =>
   error?.code === "PIPELINE_LOCAL_COMMITS";
 
-// Mirrors the engine's overridePath(): what an override of the active stage does.
 // The members of the current parallel group that have not reported, by name.
 export function blockedMemberNames(run, group) {
   return (group?.members || [])
     .map((id) => (run.nodes || []).find((node) => node.id === id))
     .filter((member) => member && member.status !== "reported")
-    .map((member) => member.profileSnapshot?.name || member.id)
-    .join(", ");
+    .map((member) => member.profileSnapshot?.name || member.id);
 }
+// Mirrors the engine's overridePath(): what an override of the active stage does.
 function overrideDescription(run) {
   const node = (run?.nodes || []).find((item) => item.id === run.currentNodeId);
   // A group's override accepts its blocked members or the files its members changed.
-  if (node?.kind === "parallel" && node.failReason === "members-blocked")
-    return copy.overrideBlockedMembers(blockedMemberNames(run, node));
+  if (node?.kind === "parallel" && node.failReason === "members-blocked") {
+    const names = blockedMemberNames(run, node);
+    return copy.overrideBlockedMembers(names.join(", "), names.length);
+  }
   if (node?.kind === "parallel" && node.failReason === "group-changed-files")
     return copy.overrideGroupChanges;
   if (node?.status === "failed") return copy.overrideFailedTurn;

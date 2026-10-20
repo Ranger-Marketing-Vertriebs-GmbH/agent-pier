@@ -195,3 +195,31 @@ test("a member's question is answered with feedback in its own session", async (
   await finish("security", pass("Fine then"));
   assert.equal(current().status, "completed");
 });
+
+test("accepted member changes do not stop the group again after feedback", async (t) => {
+  let head = 0;
+  const { f, finish, start } = groupFixture(t, { loop: false });
+  f.workspace.checkpoint = async () => ({ sha: `sha-${head}` });
+  const run = await start();
+  const current = () => f.engine.get(run.id);
+  await finish("build", pass("Built"));
+  await finish(
+    "security",
+    { ...pass("Ask"), requiresHuman: true, question: "Keep the new config?" },
+    { nativeId: "native-security" },
+  );
+  head = 1; // a member changed files
+  await finish("code", pass());
+  assert.equal(node(current(), "review").failReason, "group-changed-files");
+  await f.engine.gate(run.id, { action: "override" });
+  assert.equal(node(current(), "review").failReason, "verdict-fail");
+  await f.engine.gate(run.id, {
+    action: "feedback",
+    nodeId: "security",
+    feedback: "Keep it.",
+  });
+  await finish("security", pass("Fine then"));
+  assert.equal(current().status, "completed");
+  // The accepted commit is where the group starts now; later changes still stop it.
+  assert.equal(current().executionLog.find((a) => a.kind === "group").baseSha, "sha-1");
+});
