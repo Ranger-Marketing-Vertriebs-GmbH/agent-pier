@@ -8,7 +8,7 @@ name: Advisory report
 # and needs no write permission from full.yml, which calls Assistant runtime.
 on:
   workflow_run:
-    workflows: [Verify, Assistant runtime, Assistant runtime (queue)]
+    workflows: [Verify, WebKit, Assistant runtime, Assistant runtime (queue)]
     types: [completed]
 permissions: {}
 jobs:

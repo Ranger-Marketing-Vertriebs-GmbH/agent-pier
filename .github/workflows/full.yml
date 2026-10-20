@@ -151,24 +151,12 @@ jobs:
           browser: chromium
           shard: ${{ matrix.shard }}
           total: 4
+  # WebKit, its iPad-size tablet project and the repeated timing regressions.
   webkit:
-    name: full browser (webkit) shard ${{ matrix.shard }}/5
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4, 5]
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/browser-shard
-        with:
-          browser: webkit
-          shard: ${{ matrix.shard }}
-          total: 5
-          repeat-timing-regressions: ${{ matrix.shard == 1 }}
+    name: full webkit
+    uses: ./.github/workflows/webkit.yml
+    with:
+      repeat-timing-regressions: true
   assistant-runtime:
     name: full assistant runtime
     uses: ./.github/workflows/assistant-runtime.yml
