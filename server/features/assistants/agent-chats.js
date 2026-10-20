@@ -29,12 +29,42 @@ export function chatProblem(code) {
   return Object.assign(problem(serverMessages.assistants[key], status), { key, code });
 }
 
-/** Whether a turn runs, or a message waits, in the conversation. */
+/** Whether a turn runs, a message waits or team work reports into the conversation. */
 export function chatBusy(service, conversationId, pending = busyChats(service)) {
   return pending.has(conversationId) || !!service.queued?.get(conversationId);
 }
 
-// The conversations with a turn under way, or an approval waiting.
+const teamEnded = new Set(["completed", "failed", "cancelled", "declined"]);
+
+/**
+ * Whether a team or lead request started from a chat still has to report into it: a
+ * team whose members work or whose result is not yet sent, a request not yet
+ * delivered (team-results.js, lead-requests.js). Sent results are ledger turns.
+ */
+function teamWorking(service, team) {
+  if (!teamEnded.has(team.phase)) return true;
+  if (service.teams.store.members(team.id).some((m) => !teamEnded.has(m.phase)))
+    return true;
+  return (
+    !!team.resultBatch &&
+    !team.resultAttemptId &&
+    !["skipped", "unsent"].includes(team.resultState)
+  );
+}
+
+// The conversations a team or lead request it started reports into later.
+function teamChats(service, ids) {
+  const teams = service.teams;
+  if (!teams?.store) return;
+  for (const team of teams.store.list())
+    if (team.parentConversationId && teamWorking(service, team))
+      ids.add(team.parentConversationId);
+  for (const request of teams.requests?.store.pending() || [])
+    if (request.parentConversationId && !request.resultAttemptId)
+      ids.add(request.parentConversationId);
+}
+
+// The conversations with a turn under way, an approval waiting or team work open.
 function busyChats(service) {
   const ids = new Set(
     (service.workflows?.store.awaiting?.() || []).map((a) => a.conversationId),
@@ -46,6 +76,7 @@ function busyChats(service) {
       /* A request that went away meanwhile. */
     }
   }
+  teamChats(service, ids);
   return ids;
 }
 

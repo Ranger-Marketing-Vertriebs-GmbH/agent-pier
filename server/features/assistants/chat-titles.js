@@ -45,13 +45,15 @@ export function setTitle(value) {
 const written = new Set(["owner", "user", "telegram"]);
 
 /**
- * Names a chat after its first written turn, once: a set title, or an automatic one
- * already there, is never overwritten.
+ * Names a chat after its first written turn, once a written turn was accepted: a set
+ * title, or an automatic one already there, is never overwritten. A chat from before
+ * titles existed is named after its first message, not the turn just written.
  */
-export function titleFromTurn(store, conversation, text, context) {
+export function titleFromTurn(service, conversation, context) {
   if (conversation.titleSource || !written.has(context?.kind)) return;
-  const title = autoTitle(text);
-  if (title) store.updateConversation(conversation.id, { title, titleSource: "auto" });
+  const title = firstTurnTitle(service, conversation.id);
+  if (title)
+    service.store.updateConversation(conversation.id, { title, titleSource: "auto" });
 }
 
 /** The automatic title from the chat's first written turn, or null. */

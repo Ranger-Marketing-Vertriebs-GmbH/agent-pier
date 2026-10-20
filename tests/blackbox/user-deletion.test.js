@@ -86,12 +86,19 @@ test("deleting without opt-in removes her chats and devices", async (t) => {
       .prepare("SELECT COUNT(*) AS n FROM subscriptions WHERE user_id=?")
       .get(user.id).n;
   assert.equal(devices(), 1);
+  const store = f.application.assistants.store;
+  // A title she gave her chat goes with it, from the database file too.
+  store.updateConversation(id, { title: "Hiding-money-plans", titleSource: "set" });
   assert.equal((await remove(f, user.id, { agents: "archive" })).status, 204);
   assert.equal(devices(), 0);
+  assert.equal(store.storedConversation(id).title, null);
+  const [{ file: database }] = store.db.prepare("PRAGMA database_list").all();
+  for (const suffix of ["", "-wal"])
+    if (fs.existsSync(database + suffix))
+      assert.ok(!fs.readFileSync(database + suffix).includes("Hiding-money-plans"));
   const messages = await f.request(`/api/assistant-conversations/${id}/messages`);
   assert.equal(messages.status, 404);
   assert.equal(fs.existsSync(copy), false);
-  const store = f.application.assistants.store;
   assert.deepEqual(store.messages(id), []);
   assert.ok(store.getConversation(id).archivedAt);
   assert.ok(

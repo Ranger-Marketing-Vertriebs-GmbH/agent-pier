@@ -3,6 +3,7 @@ import path from "node:path";
 import { RoutineResults } from "./routine-results.js";
 import { chatBusy, chatProblem } from "./agent-chats.js";
 import { assistantProblem } from "./assistant-validation.js";
+import { mainConversation } from "./routine-targets.js";
 
 /**
  * Archive, restore and delete of an agent chat (AGENTPIER-181). Archive state lives
@@ -30,10 +31,20 @@ export function deletedTranscripts(stateDir, runtimeAgentId, sessionId = null) {
 
 const now = () => new Date().toISOString();
 
-// A chat a person may archive or delete now: not her main chat, nothing under way.
+// A chat a person may archive or delete now: not her main chat (a chat stored before
+// several chats existed becomes it here, as on any read), not a team member's chat,
+// which is its team's, and nothing under way.
 function removable(service, conversation) {
   if (conversation.userReleased) throw assistantProblem("notFound", 404);
-  if (conversation.main === true) throw chatProblem("CHAT_MAIN");
+  if (service.store.getAssistant(conversation.assistantId).teamMemberId)
+    throw assistantProblem("invalid");
+  const person = typeof conversation.userId === "string" ? conversation.userId : null;
+  if (
+    conversation.main === true ||
+    mainConversation(service.store, conversation.assistantId, person)?.id ===
+      conversation.id
+  )
+    throw chatProblem("CHAT_MAIN");
   if (chatBusy(service, conversation.id)) throw chatProblem("CHAT_BUSY");
 }
 
@@ -72,7 +83,7 @@ export function deleteChat(service, conversationId) {
   return service.admit(async () => {
     const conversation = service.store.getConversation(conversationId);
     removable(service, conversation);
-    service.store.updateConversation(conversationId, {
+    service.store.forgetConversation(conversationId, {
       deletedAt: now(),
       archivedAt: conversation.archivedAt || now(),
       nativeDeletePending: true,

@@ -273,3 +273,21 @@ test("a permanently rejected routine binding is reported without blocking others
     { status: 503 },
   );
 });
+
+test("a deleted parent chat skips synthesis once and never retries it", async (t) => {
+  const f = teamFixture(t),
+    { team, attempt, chat } = await f.proposal({ count: 1 });
+  await f.service.reconcile();
+  f.complete(f.service.store.members(team.id)[0].attemptId);
+  f.assistants.ledger.transition(attempt.id, "completed");
+  // A chat removed before archive and delete waited for its team.
+  f.assistants.store.updateConversation(chat.id, {
+    deletedAt: new Date().toISOString(),
+  });
+  await f.service.reconcile();
+  const skipped = f.service.store.get(team.id);
+  assert.equal(skipped.resultState, "skipped");
+  assert.equal(skipped.resultDiagnostic, "PARENT_CHAT_REMOVED");
+  await f.service.reconcile();
+  assert.equal(f.service.store.get(team.id).revision, skipped.revision);
+});
