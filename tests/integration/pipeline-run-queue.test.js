@@ -543,3 +543,35 @@ test("a slow start in one project does not hold back another project", async (t)
   // Each project started exactly one run.
   assert.equal(q.f.launches.length, 2);
 });
+
+test("resuming interrupted starts reads each item again right before it", async (t) => {
+  const q = queueFixture(t);
+  const a = q.add("A");
+  await q.settle();
+  q.queue.close();
+  const recovered = q.make();
+  q.replace(recovered);
+  // Two interrupted claims without runs, as after a crash.
+  for (const id of ["first", "second"])
+    recovered.store.insert({ ...recovered.find(a.id), id, task: id, state: "starting" });
+  await q.f.engine.cancel(a.id);
+  let started = 0;
+  const start = q.f.engine.start.bind(q.f.engine);
+  q.f.engine.start = (...args) => {
+    started++;
+    // While the first start runs, the second item fails (for example a merge).
+    const second = recovered.find("second");
+    recovered.store.save({ ...second, state: "failed", error: "Changed meanwhile" });
+    return start(...args);
+  };
+  recovered.recover();
+  await q.settle();
+  assert.equal(started, 1);
+  assert.equal(recovered.find("first").state, "started");
+  assert.equal(recovered.find("second").state, "failed");
+  assert.equal(
+    q.audit.filter((e) => e.action === "pipeline.started" && e.resourceId === "second")
+      .length,
+    0,
+  );
+});
