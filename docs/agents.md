@@ -659,6 +659,11 @@ signed-in one may be used for images.
   scripts, `package.json` or Makefiles that you or your coding sessions run later.
   Give write access only to folders whose content you do not run unchecked. See
   [Agents of restricted users](assistant-gateway.md#agents-of-restricted-users).
+- A restricted user's chats are private. You read them, and her own agent's memory,
+  files and browser, only after you switch on **Owner may read chats** for her, and
+  only from that moment on; she sees that it is on. On a shared agent you see its
+  settings and shared memory, never other users' chats. See
+  [Private chats of restricted users](assistant-gateway.md#private-chats-of-restricted-users).
 - Web pages can contain instructions meant to mislead an agent; switch on web tools
   only for agents whose other tools you would trust with that.
 - **SSH accesses** set to **Trusted** run commands without asking. Commands the agent

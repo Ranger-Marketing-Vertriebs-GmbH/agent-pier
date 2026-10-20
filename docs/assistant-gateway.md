@@ -2432,6 +2432,81 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
   a user's or the owner's own (a "flush" note in that chat), so a summary of a
   private chat never reaches the memory that all its users read.
 
+### Private chats of restricted users
+
+Each person has her own main chat with an agent, and so her own native session: the
+owner's conversation has no `userId` and the Gateway label `AgentPier <agent id>`, a
+user's carries her `userId` and the label `AgentPier <agent id> <user id>`
+(`server/features/assistants/conversation-open.js`). Two users of a shared agent never
+share a transcript; the memory stays one. The owner has his own chat with a shared
+agent, but none with a user's own agent (404).
+
+A user reaches her agents only through `/api/me` (`server/http/routes/me-*.js`), and
+every handler resolves its target through `UserScope` (`server/features/users/user-scope.js`)
+first: her conversation (hers, not archived, on an agent she still belongs to), her
+agent, her attempt, her chat file. Anything else answers the unknown-route 404.
+
+- `GET /me/agents`, `POST /me/agents/:id/conversation`; messages, the queued message,
+  cancel, attachments and shared files under `/me/conversations/:id/…`,
+  `/me/attempts/:id/cancel` and `/me/attachments/:file`. A user's turn and her queued
+  message run with the trusted origin `{ kind: "user", userId }`; she never starts team
+  work. The chat WebSocket admits her own conversation and closes (1008) once she is
+  unassigned.
+- `GET|PATCH /me/agents/:id/settings` within her level
+  (`server/features/users/user-agent-settings.js`): nothing at **Chat only** and on
+  shared agents; name, picture (`avatar`, one emoji) and instructions at
+  **Personalize** on her own agent; at **Extended** also the capabilities the owner
+  released. A field beyond her level answers 403 `USER_LEVEL`, a locked one 400. Changes
+  are audited with her id and the field names, never the values. A change that would
+  restart the Gateway for new web tools answers 409 and stays the owner's decision.
+- `GET /me/agents/:id/memory` and `/memory/:name` read the notes; deleting a note
+  (`DELETE /me/agents/:id/memory/:name`) needs **Personalize** on her own agent.
+- Reminders and routines (`/me/agents/:id/reminders|routines`) belong to the person
+  whose chat created them (`server/features/assistants/reminder-audience.js`): a
+  binding carries `userId`, delivers into her main chat and to her devices, and only
+  she sees and changes it, from **Personalize** on. The agent's reminder and routine
+  tools take the person from the chat of the calling turn, so concurrent turns of two
+  users never mix them. The owner's settings of a shared agent list only his own;
+  check-ins are off on shared agents and go to the user of her own agent.
+- Approvals go to the person in whose chat they arose
+  (`server/features/users/approval-audience.js`): `GET /me/approvals`,
+  `POST /me/approvals/:id/decision`, audited with her id and `actor: "user"`. The owner's
+  inbox, push notices, action lists and decision route never show or decide them (404).
+  A user agent's chat shows only its own approvals.
+- The browser follows the turn that drives it (`BrowserLiveView.driver`): the tool
+  guard reports the calling session, and a user watches and takes over her own agent's
+  browser, or a shared agent's only while her turn drives it. The owner watches a shared
+  agent's browser only while no user's turn drives it. Open views close when it changes
+  hands; the hand-back note goes into the driver's chat.
+- Push devices belong to one person (`subscriptions.user_id`, data schema 2):
+  `/me/notifications…` mirrors the owner's routes for her own devices. A notice with
+  `audience: { kind: "user", userId }` reaches only her devices; system notices only the
+  owner's. Presence and quiet hours count per person.
+- `GET /me/events` streams `agents` (her list or one of her chats changed) and
+  `approvals` (`count`) frames, with a heartbeat every 15 seconds.
+- At **Extended** she connects her own agent's Telegram bot to her main chat
+  (`/me/agents/:id/telegram`, `PUT {token}`, `POST …/pair`, `DELETE`). The token is never
+  returned. Shared agents and lower levels answer 403 `USER_LEVEL`; Telegram for other
+  people stays unavailable on user agents.
+
+The owner's privacy guard (`server/http/owner-content-guard.js`,
+`server/features/users/owner-privacy.js`) resolves every content route of
+`owner-content-routes.js` to its conversation or agent. Without the user's opt-in
+**Owner may read chats** (`PUT /api/users/:id/owner-may-read {enabled}`, audited) her
+chats, and the memory, attachments and browser of her own agent, answer 404, and his
+agent list and event stream leave her conversations out. With the opt-in he reads them
+from its `since` on, never earlier, in history, feed snapshots and the chat stream; he
+never writes into her chat, decides her approvals or re-pairs her bot. Turning it off
+closes his open chat streams (1008); turning it on again starts a new `since`. The user
+sees the state in `GET /api/me`.
+
+Deleting a user (`DELETE /api/users/:id {agents: "archive" | "keep"}`, 400
+`USER_AGENTS_CHOICE` without a choice while she owns agents) archives her own agents or
+keeps them as the owner's (`userAccess: null`, settings unchanged), removes her from
+shared agents, ends her reminders and routines, deletes her devices and sessions, and
+archives her chats with their native sessions, cached messages and files. Under her
+opt-in the chats stay, marked `deletedUser`, readable from its `since`.
+
 ## Agent shell access (2026-10-12)
 
 Agents can run command-line programs on the host through OpenClaw's `exec` and

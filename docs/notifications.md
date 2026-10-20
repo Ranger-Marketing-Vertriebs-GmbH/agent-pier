@@ -42,6 +42,12 @@ delivery error**. **Settings** opens what that device receives (see below), also
 device other than the one you are using. **Unregister** stops notifications for a
 device; it can be enabled again on that device.
 
+Restricted users register their own devices in their own app. Each device belongs to
+one person: a user's device gets notices only about her own agents and chats (her
+reminders, routines, check-ins and approvals), never the owner's or system notices,
+and the owner's device list never shows hers. Quiet hours and "quiet while visible"
+count per person.
+
 ## What a notification shows
 
 Each device has its own **Detail level**. The server applies it, so a device never
