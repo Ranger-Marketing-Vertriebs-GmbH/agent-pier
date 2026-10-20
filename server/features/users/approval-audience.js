@@ -19,3 +19,21 @@ export function approvalAudience(action, store) {
 /** Whether the action is the owner's to see and decide. */
 export const ownerApproval = (action, store) =>
   approvalAudience(action, store).kind === "owner";
+
+/**
+ * The approvals waiting for a user that she can open and decide: hers, in a chat of
+ * hers that is still open on an agent that still serves her (user-scope.js). The list
+ * route and her event stream's count use the same set.
+ */
+export function awaitingForUser({ assistants, userScope }, principal) {
+  return (assistants?.workflows?.store.awaiting(Date.now()) || []).filter((action) => {
+    const audience = approvalAudience(action, assistants.store);
+    if (audience.kind !== "user" || audience.userId !== principal.userId) return false;
+    try {
+      userScope.conversationOf(principal, action.conversationId);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}

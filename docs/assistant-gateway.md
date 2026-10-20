@@ -2381,8 +2381,14 @@ the agent create body plus `userAccess`. He changes whom they serve with
 exactly one member, a shared agent one or more. A level is `chat`, `personalize` or
 `extended`. `released` lists the web capabilities an Extended user may switch on
 herself. The owner's existing agents never become user agents: assigning one answers 409
-`USER_AGENT_REQUIRED`. Both routes are owner routes, so a user gets the unknown-route
-404 for them.
+`USER_AGENT_REQUIRED`. An own agent stays with its user: changing its member or turning
+it into a shared agent answers 409 `USER_AGENT_OWN_FIXED`, because its memory, files and
+browser profile are hers and would reach the owner or another user without her opt-in.
+Only her level and `released` change. A shared agent may become an own agent; the
+owner's chat on it then stays readable to him but takes no new turns, and his
+reminders, routines and Telegram bot on it end, since they would run over her memory,
+`USER.md` and browser profile and deliver to him. Both routes are
+owner routes, so a user gets the unknown-route 404 for them.
 
 Every agent with `userAccess` runs under a hard lock, whatever its stored settings say:
 
@@ -2451,7 +2457,11 @@ agent, her attempt, her chat file. Anything else answers the unknown-route 404.
   `/me/attempts/:id/cancel` and `/me/attachments/:file`. A user's turn and her queued
   message run with the trusted origin `{ kind: "user", userId }`; she never starts team
   work. The chat WebSocket admits her own conversation and closes (1008) once she is
-  unassigned.
+  unassigned. An uncertain or interrupted turn in her chat blocks it like the owner's;
+  she reviews it herself (`POST /me/attempts/:id/recover`, body
+  `{acknowledgeUnknownOutcome: true}`), which only marks it reviewed: unlike the
+  owner's recovery it never restarts the Gateway every agent shares. The owner never
+  reviews her turns (404).
 - `GET|PATCH /me/agents/:id/settings` within her level
   (`server/features/users/user-agent-settings.js`): nothing at **Chat only** and on
   shared agents; name, picture (`avatar`, one emoji) and instructions at
@@ -2464,30 +2474,42 @@ agent, her attempt, her chat file. Anything else answers the unknown-route 404.
 - Reminders and routines (`/me/agents/:id/reminders|routines`) belong to the person
   whose chat created them (`server/features/assistants/reminder-audience.js`): a
   binding carries `userId`, delivers into her main chat and to her devices, and only
-  she sees and changes it, from **Personalize** on. The agent's reminder and routine
+  she sees and changes it, from **Personalize** on. A routine's **May write** stays
+  the owner's switch; her routes ignore `writes`. The agent's reminder and routine
   tools take the person from the chat of the calling turn, so concurrent turns of two
   users never mix them. The owner's settings of a shared agent list only his own;
   check-ins are off on shared agents and go to the user of her own agent.
 - Approvals go to the person in whose chat they arose
   (`server/features/users/approval-audience.js`): `GET /me/approvals`,
-  `POST /me/approvals/:id/decision`, audited with her id and `actor: "user"`. The owner's
-  inbox, push notices, action lists and decision route never show or decide them (404).
-  A user agent's chat shows only its own approvals.
+  `POST /me/approvals/:id/decision`, audited with her id and `actor: "user"`, as is a
+  decision from the buttons of her own bot (`channel: "telegram"`). The owner's inbox,
+  push notices, action lists and decision route never show or decide them (404). A
+  user agent's chat shows only its own approvals.
 - The browser follows the turn that drives it (`BrowserLiveView.driver`): the tool
   guard reports the calling session, and a user watches and takes over her own agent's
   browser, or a shared agent's only while her turn drives it. The owner watches a shared
-  agent's browser only while no user's turn drives it. Open views close when it changes
-  hands; the hand-back note goes into the driver's chat.
+  agent's browser only while no user's turn drives it. A routine run drives it for the
+  person whose routine it is; any other run of a user's own agent for her. A user's hold
+  ends ten minutes (the hand-back lease) after her turn's last browser call, or once a
+  takeover then in progress ends, and the browser is the owner's again. Open views
+  close when it changes hands; the hand-back note goes into the driver's chat. Under her
+  opt-in the owner watches her own agent's browser, view-only (`VIEW_ONLY`).
 - Push devices belong to one person (`subscriptions.user_id`, data schema 2):
   `/me/notifications…` mirrors the owner's routes for her own devices. A notice with
   `audience: { kind: "user", userId }` reaches only her devices; system notices only the
-  owner's. Presence and quiet hours count per person.
+  owner's. Presence, its report rate limit and quiet hours count per person.
 - `GET /me/events` streams `agents` (her list or one of her chats changed) and
-  `approvals` (`count`) frames, with a heartbeat every 15 seconds.
+  `approvals` (`count`) frames, with a heartbeat every 15 seconds. The count holds the
+  approvals `GET /me/approvals` lists, so one in a chat she left no longer counts.
 - At **Extended** she connects her own agent's Telegram bot to her main chat
   (`/me/agents/:id/telegram`, `PUT {token}`, `POST …/pair`, `DELETE`). The token is never
   returned. Shared agents and lower levels answer 403 `USER_LEVEL`; Telegram for other
-  people stays unavailable on user agents.
+  people stays unavailable on user agents. When the owner lowers her below **Extended**,
+  her bot is removed with its token and texts. Her bot's approval buttons decide her
+  approvals. The owner's `GET /api/assistant-channels` shows her bot's Telegram chat and
+  texts only under her opt-in, from its `since`. The owner's own bot on a shared agent
+  delivers into his own chat there; he pairs, changes and removes it like any of his
+  bots.
 
 The owner's privacy guard (`server/http/owner-content-guard.js`,
 `server/features/users/owner-privacy.js`) resolves every content route of
@@ -2495,17 +2517,39 @@ The owner's privacy guard (`server/http/owner-content-guard.js`,
 **Owner may read chats** (`PUT /api/users/:id/owner-may-read {enabled}`, audited) her
 chats, and the memory, attachments and browser of her own agent, answer 404, and his
 agent list and event stream leave her conversations out. With the opt-in he reads them
-from its `since` on, never earlier, in history, feed snapshots and the chat stream; he
-never writes into her chat, decides her approvals or re-pairs her bot. Turning it off
-closes his open chat streams (1008); turning it on again starts a new `since`. The user
+from its `since` on, never earlier, in history, feed snapshots, the chat stream, her
+queued message and chat file downloads; he never writes into her chat, decides her
+approvals or re-pairs her bot, and her pending approvals never count in his agent
+activity. The guard matches paths like Express does (trailing slashes, any letter case).
+Turning it off closes his open chat streams (1008); turning it on again after it was off
+starts a new `since`, while switching it on while on keeps the first. The user
 sees the state in `GET /api/me`.
 
 Deleting a user (`DELETE /api/users/:id {agents: "archive" | "keep"}`, 400
-`USER_AGENTS_CHOICE` without a choice while she owns agents) archives her own agents or
+`USER_AGENTS_CHOICE` without a choice while she owns agents; 503 `USER_AGENTS_OFF` while
+agents are switched off but their store exists, since only the running agents can
+release her data) archives her own agents or
 keeps them as the owner's (`userAccess: null`, settings unchanged), removes her from
 shared agents, ends her reminders and routines, deletes her devices and sessions, and
-archives her chats with their native sessions, cached messages and files. Under her
-opt-in the chats stay, marked `deletedUser`, readable from its `since`.
+archives her chats with their native sessions, cached messages, files and message
+texts, and removes her own Telegram bot with its token and texts. Under her opt-in the
+chats stay, marked `deletedUser`, readable from its `since`. No new turn enters an
+archived or deleted user's chat, nor the chat of a user who left the agent. When the
+owner moves a shared agent to other users (`PUT /api/user-agents/:id/access`), whoever
+left it loses her reminders, routines and bot on it. Her reminders, routines and
+check-ins are revoked at once and their native jobs removed; while the Gateway is away,
+the next Gateway start removes them, so no job keeps running turns in her old chat.
+One she created while her deletion ran is ended the same way once she is released. Her
+chats' native sessions are deleted the same way: a chat whose session the Gateway could
+not delete keeps `nativeDeletePending`, and the next Gateway start deletes it. Her
+released chats are marked `userReleased`: reconciliation and history reads never read
+their native session back into AgentPier, and a successful native delete forgets her
+cached messages, texts and files once more.
+Disabling a user (`PATCH /api/users/:id {disabled: true}`) ends her sessions and,
+like her deletion, her reminders, routines, check-ins and bots; her agents and chats
+stay, and her chats take no new turns while she is disabled; her own agent schedules
+no check-ins again for a disabled or deleted user. Enabling her again
+restores her sign-in only.
 
 ## Agent shell access (2026-10-12)
 

@@ -23,6 +23,10 @@ export function fromSince(history, since) {
     ...(Array.isArray(history.actions) && {
       actions: history.actions.filter((a) => keep(a.createdAt)),
     }),
+    // A message queued before the opt-in stays hers, with its files.
+    ...(history.queued && {
+      queued: keep(history.queued.createdAt) ? history.queued : null,
+    }),
     // Older pages hold only what came before the opt-in.
     nextBefore: null,
   };
@@ -59,6 +63,10 @@ export class OwnerPrivacy extends EventEmitter {
     const { enabled, since } = this.optIn(conversation.userId);
     return { readable: enabled, since: enabled ? since : null };
   }
+  /** Whether a chat file created at `createdAt` lies within the owner's window. */
+  fileVisible(createdAt, since) {
+    return !since || after(Date.parse(since))(createdAt);
+  }
   /** Whether the conversation shows in the owner's list at all. */
   visible(conversation) {
     return this.conversation(conversation).readable;
@@ -77,6 +85,36 @@ export class OwnerPrivacy extends EventEmitter {
     return {
       ...list,
       conversations: (list.conversations || []).filter((c) => this.visible(c)),
+    };
+  }
+  /**
+   * The owner's channel list: a channel delivering into a user's chat shows her
+   * Telegram identity and texts only under her opt-in, and only from its `since`.
+   */
+  filterChannels(list, conversationOf) {
+    return {
+      ...list,
+      channels: (list.channels || []).map((channel) => {
+        let conversation = null;
+        try {
+          conversation = conversationOf(channel.conversationId);
+        } catch {
+          // A channel without its chat shows no texts of anyone.
+        }
+        if (conversation && typeof conversation.userId !== "string") return channel;
+        const { readable, since } = this.conversation(conversation || { userId: "" });
+        const keep = !readable
+          ? () => false
+          : since
+            ? (entry) => after(Date.parse(since))(entry.createdAt)
+            : () => true;
+        return {
+          ...channel,
+          ...(!readable && { chatId: null, userId: null }),
+          inputs: (channel.inputs || []).filter(keep),
+          notifications: (channel.notifications || []).filter(keep),
+        };
+      }),
     };
   }
   /** Sets a user's opt-in; ending it closes every view the owner has open of hers. */

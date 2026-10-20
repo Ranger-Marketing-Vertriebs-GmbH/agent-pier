@@ -51,6 +51,8 @@ function admitOwner(services, { kind, id }) {
     if (agent && !privacy.agentContent(agent)) throw refused();
     if (agent && services.userScope?.ownerMayWatchBrowser?.(agent) === false)
       throw refused();
+    // A user's own agent is hers: under her opt-in the owner watches, never drives.
+    if (agent?.userAccess?.mode === "own") return { viewOnly: true };
   }
   return {};
 }

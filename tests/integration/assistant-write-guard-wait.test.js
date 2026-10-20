@@ -162,6 +162,18 @@ test("a Telegram turn waits like a web turn, and an invalid request never waits"
   });
 });
 
+test("a user's own turn waits for the guard and is noted when read-only", async (t) => {
+  const f = await pendingGuardService(t);
+  const user = { kind: "user", userId: "anna" };
+  setTimeout(f.report, 100);
+  f.complete(await f.send("user-wait", user));
+  assert.deepEqual(f.state.applies, [{ guardLive: true }], "applied with writes");
+  f.bridge.guardPending = () => true;
+  f.bridge.readyAt = Date.now() - 20000;
+  await f.send("user-late", user);
+  assert.equal((await f.notes())[0]?.reason, "guard-pending");
+});
+
 test("a guard that reports during the apply leaves no read-only note", async (t) => {
   const f = await pendingGuardService(t);
   f.bridge.readyAt = Date.now() - 20000;

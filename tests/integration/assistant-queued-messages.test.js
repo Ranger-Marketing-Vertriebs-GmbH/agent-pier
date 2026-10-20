@@ -11,13 +11,18 @@ test("a queued message waits for the turn and is sent once after it completes", 
   await settle();
   assert.equal(sent.length, 1);
   assert.deepEqual(
-    { ...(await service.history(c.id)).queued, updatedAt: undefined },
+    {
+      ...(await service.history(c.id)).queued,
+      createdAt: undefined,
+      updatedAt: undefined,
+    },
     {
       text: "Add a dessert\nWithout nuts",
       teamAllowed: true,
       attachments: [],
       state: "waiting",
       retrying: false,
+      createdAt: undefined,
       updatedAt: undefined,
     },
   );

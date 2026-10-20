@@ -170,13 +170,16 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
   const client = service.runtime.client;
   const maintenanceEpoch = service.maintenanceEpoch || 0;
   const generation = service.runtime.generation;
-  if (client?.ready && !service.maintenance && !service.recovering) {
+  // A deleted user's chat never reads its native session back (user-release.js).
+  const released = () => service.store.getConversation(id).userReleased;
+  if (client?.ready && !service.maintenance && !service.recovering && !released()) {
     try {
       const history = await client.call("chat.history", {
         sessionKey: conversation.runtimeSessionKey,
         limit,
         offset,
       });
+      if (released()) throw assistantProblem("notFound", 404);
       // Generated images on the page join the share store once (generated-images.js).
       service.generatedImages?.scan(conversation, history.messages || []);
       // The page cuts every text at OpenClaw's 8000 characters; cut ones are
@@ -196,7 +199,8 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         service.closed ||
         (service.maintenanceEpoch || 0) !== maintenanceEpoch ||
         service.runtime.generation !== generation ||
-        service.runtime.client !== client
+        service.runtime.client !== client ||
+        released()
       )
         throw assistantProblem("unavailable", 503);
       const merged = new Map(messages.map((m) => [m.id, m]));

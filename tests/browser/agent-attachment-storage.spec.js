@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { settingsPath } from "../helpers/agent-settings-page.js";
-import { chatFixture } from "../helpers/assistant-chat-fixture.js";
+import { chatAssistant, chatFixture } from "../helpers/assistant-chat-fixture.js";
 
 const MB = 1024 * 1024;
 const limits = { maxBytes: 1024 * MB, maxFiles: 1000, capped: false };
@@ -67,6 +67,22 @@ for (const [label, use] of [
     });
   });
 }
+
+test("an agent that users chat with offers no Clear attachments", async ({ page }) => {
+  const userAccess = {
+    mode: "shared",
+    members: [{ userId: "anna", level: "chat" }],
+    released: [],
+  };
+  await chatFixture(page, { assistants: [chatAssistant({ userAccess })] });
+  const state = { clears: 0, usage: { files: 34, bytes: 120 * MB } };
+  await storageRoutes(page, state);
+  await page.goto(baseURL + settingsPath("profile"));
+
+  const group = page.getByRole("region", { name: "Chat attachments" });
+  await expect(group.getByText("120 MB of 1 GB · 34 of 1,000 files")).toBeVisible();
+  await expect(group.getByRole("button", { name: /Clear attachments/ })).toHaveCount(0);
+});
 
 test("a sent file whose copy is gone stays named in its message, without a link", async ({
   page,

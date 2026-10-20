@@ -150,6 +150,8 @@ export class UserStore {
   }
   setOwnerMayRead(id, enabled) {
     const user = this.record(id);
+    // Switching it on again keeps the first `since`; a retry never hides chats.
+    if ((user.ownerMayRead?.enabled === true) === enabled) return publicUser(user);
     user.ownerMayRead = enabled
       ? { enabled: true, since: this.timestamp() }
       : { enabled: false, since: null };

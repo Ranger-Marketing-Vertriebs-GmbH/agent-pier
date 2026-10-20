@@ -23,14 +23,37 @@ export function mainConversation(store, assistantId, userId = null) {
   );
 }
 
-/** The agent's paired, enabled Telegram chat, or null. */
-export function pairedChannel(channels, assistantId) {
-  return (
-    channels.store
-      .list()
-      .find((c) => c.assistantId === assistantId && c.enabled && c.chatId) || null
-  );
+/**
+ * Whose chat a channel delivers into: a user's id, or null for the owner's (also
+ * for a channel whose chat is gone, which then delivers nowhere private).
+ */
+export function channelPerson(channels, channel) {
+  try {
+    const userId = channels.assistants.store.getConversation(
+      channel.conversationId,
+    ).userId;
+    return typeof userId === "string" ? userId : null;
+  } catch {
+    return undefined;
+  }
 }
+
+/**
+ * Whether `channel` is a paired, enabled Telegram chat of one person on the agent
+ * (the owner's without `userId`). Another person's bot never receives her check-ins
+ * or results.
+ */
+export const personalChannel = (channels, channel, assistantId, userId = null) =>
+  !!channel &&
+  channel.assistantId === assistantId &&
+  channel.enabled &&
+  !!channel.chatId &&
+  channelPerson(channels, channel) === userId;
+
+/** That person's paired, enabled Telegram chat on the agent, or null. */
+export const pairedChannel = (channels, assistantId, userId = null) =>
+  channels.store.list().find((c) => personalChannel(channels, c, assistantId, userId)) ||
+  null;
 
 /** A Telegram destination as a binding stores it. */
 export const telegramTarget = (channel) => ({

@@ -9,7 +9,7 @@ import * as queuedDispatch from "./queued-dispatch.js";
 import { AssistantEvents } from "./assistant-events.js";
 import { conversationHistory, conversationMessage } from "./conversations.js";
 import { reconcileRuns } from "./run-reconciler.js";
-import { recoverAttempt } from "./attempt-recovery.js";
+import { acknowledgeAttempt, recoverAttempt } from "./attempt-recovery.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { MemoryFlushes } from "./memory-flushes.js";
 import { MemoryNotes } from "./memory-notes.js";
@@ -18,6 +18,7 @@ import { awaitWriteGuard, noteReadOnlyTurn, orderedTurn } from "./write-guard-wa
 import { webCapabilityKeys } from "./native-capabilities.js";
 import { assertWired } from "./service-wiring.js";
 import { refuseLockedSettings } from "../users/user-agent-lock.js";
+import { ownerApproval } from "../users/approval-audience.js";
 import { ShellChanges, shellChange, withoutUnchanged } from "./shell-changes.js";
 import { ExecAllowlist } from "./exec-allowlist.js";
 import { AgentSkills } from "./agent-skills.js";
@@ -152,7 +153,11 @@ export class AssistantService {
         assistants,
         conversations,
         latest: this.ledger.latestByConversation(),
-        awaiting: this.workflows?.store?.awaitingCounts(Date.now()) ?? {},
+        // A user's approvals are hers: they never count in the owner's activity.
+        awaiting:
+          this.workflows?.store?.awaitingCounts(Date.now(), (action) =>
+            ownerApproval(action, this.store),
+          ) ?? {},
         teams: teamData?.teams ?? [],
         members: teamData?.members ?? [],
       }),
@@ -497,6 +502,10 @@ export class AssistantService {
   recover(id, input) {
     return recoverAttempt(this, id, input);
   }
+  /** A user's review of her own unknown turn, without a Gateway restart. */
+  acknowledge(id, input) {
+    return acknowledgeAttempt(this, id, input);
+  }
   reconcile() {
     if (this.reconciling) return this.reconciling;
     if (!this.runtime.client?.ready || this.closed || this.maintenance)
@@ -507,6 +516,8 @@ export class AssistantService {
       for (const c of this.store.listConversations()) {
         // One unavailable session must not stall run reconciliation for the rest.
         if (this.closed) break;
+        // A deleted user's chat waits only for its native delete (user-release.js).
+        if (c.userReleased) continue;
         if (this.now() < (this.sessionFailures.get(c.id)?.retryAt ?? -Infinity)) continue;
         const client = this.runtime.client;
         try {

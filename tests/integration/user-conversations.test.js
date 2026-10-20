@@ -89,3 +89,36 @@ test("a user's queued message goes out as her turn", async (t) => {
     teamAllowed: false,
   });
 });
+
+test("the owner's chat on a shared agent takes no turns once it is a user's own", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, agent } = await sharedAgentOfTwo(f);
+  const opened = await f.request(`/api/assistants/${agent.id}/conversations`, {
+    method: "POST",
+  });
+  const owner = await opened.json();
+  const assistants = f.application.assistants;
+  const moved = await f.request(`/api/user-agents/${agent.id}/access`, {
+    method: "PUT",
+    body: {
+      userAccess: { mode: "own", members: [{ userId: anna.user.id, level: "chat" }] },
+      revision: assistants.store.getAssistant(agent.id).revision,
+    },
+  });
+  assert.equal(moved.status, 200, await moved.clone().text());
+  const sent = await f.request(`/api/assistant-conversations/${owner.id}/messages`, {
+    method: "POST",
+    body: { clientRequestId: "after-own", text: "What do you know about Anna?" },
+  });
+  assert.equal(sent.status, 404);
+  await assert.rejects(
+    assistants.send(
+      owner.id,
+      { clientRequestId: "direct", text: "Hi" },
+      { kind: "owner" },
+    ),
+    { status: 404 },
+  );
+  const read = await f.request(`/api/assistant-conversations/${owner.id}/messages`);
+  assert.equal(read.status, 200);
+});

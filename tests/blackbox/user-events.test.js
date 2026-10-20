@@ -80,3 +80,47 @@ test("the stream closes when A is disabled", async (t) => {
   await Promise.race([events.done, settle().then(settle).then(settle)]);
   assert.equal(events.ended(), true);
 });
+
+test("an approval of a chat she left no longer counts for her", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, ben, agent } = await sharedAgentOfTwo(f);
+  const request = as(f, anna.cookie);
+  const opened = await request(`/api/me/agents/${agent.id}/conversation`, {
+    method: "POST",
+  });
+  const conversationId = (await opened.json()).id;
+  const events = await stream(f, anna.cookie);
+  t.after(events.close);
+  await settle();
+  const assistants = f.application.assistants;
+  assistants.workflows.store.reserve({
+    key: `approval-${conversationId}`,
+    assistantId: agent.id,
+    conversationId,
+    origin: { kind: "user", userId: anna.user.id },
+    payload: { action: "memory_write", projectId: "p", title: "Note", content: "x" },
+    state: "awaiting_approval",
+  });
+  assistants.changed();
+  await settle();
+  assert.deepEqual(events.frames().at(-1), { type: "approvals", count: 1 });
+  const moved = await f.request(`/api/user-agents/${agent.id}/access`, {
+    method: "PUT",
+    body: {
+      userAccess: { mode: "shared", members: [{ userId: ben.user.id, level: "chat" }] },
+      revision: assistants.store.getAssistant(agent.id).revision,
+    },
+  });
+  assert.equal(moved.status, 200, await moved.clone().text());
+  assistants.changed();
+  await settle();
+  // Her badge matches what she can open: nothing.
+  assert.deepEqual(await (await request("/api/me/approvals")).json(), { actions: [] });
+  assert.deepEqual(
+    events.frames().filter((e) => e.type === "approvals"),
+    [
+      { type: "approvals", count: 1 },
+      { type: "approvals", count: 0 },
+    ],
+  );
+});

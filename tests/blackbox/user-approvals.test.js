@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { as, chatFixture, sharedAgentOfTwo } from "../helpers/user-chats.js";
+import {
+  as,
+  chatFixture,
+  pairedTelegram,
+  sharedAgentOfTwo,
+  userAgent,
+} from "../helpers/user-chats.js";
+import { signedInUser } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
 import { AgentApprovalEvents } from "../../server/application/agent-approval-events.js";
 
@@ -61,6 +68,9 @@ test("an approval raised in A's chat goes to A only", async (t) => {
   );
   const ownerList = await (await f.request(`/api/assistants/${agent.id}/actions`)).json();
   assert.deepEqual(ownerList.actions, []);
+  // Nor does the owner's agent list count it as waiting.
+  const { activity } = await (await f.request("/api/assistants")).json();
+  assert.equal(activity[agent.id].pendingApprovals, 0);
   // The push goes to Anna's devices, never into the owner's inbox.
   const notices = [];
   const events = new AgentApprovalEvents({
@@ -86,4 +96,51 @@ test("A's decision is audited with her id", async (t) => {
   assert.equal(entry.actorUserId, anna.user.id);
   assert.equal(entry.details.actor, "user");
   assert.equal(entry.outcome, "success");
+});
+
+test("a user decides her approval from her own bot's buttons", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user, cookie } = await signedInUser(f, "Anna");
+  const agent = await userAgent(f, {
+    mode: "own",
+    members: [{ userId: user.id, level: "extended" }],
+  });
+  const channel = await pairedTelegram(f, as(f, cookie), agent.id);
+  const target = {
+    channelId: channel.id,
+    chatId: channel.chatId,
+    userId: channel.userId,
+  };
+  const workflows = f.application.assistants.workflows;
+  const action = workflows.store.reserve({
+    key: `approval-${channel.conversationId}`,
+    assistantId: agent.id,
+    conversationId: channel.conversationId,
+    origin: { kind: "telegram", ...target },
+    payload: { action: "memory_write", projectId: "p", title: "Note", content: "x" },
+    state: "awaiting_approval",
+  });
+  // Another chat's button is still refused.
+  await assert.rejects(
+    workflows.decide(
+      action.id,
+      { revision: action.revision, decision: "decline" },
+      { kind: "telegram", ...target, chatId: "999" },
+    ),
+    { status: 403 },
+  );
+  await workflows.decide(
+    action.id,
+    { revision: action.revision, decision: "decline" },
+    { kind: "telegram", ...target },
+  );
+  assert.equal(workflows.store.get(action.id).state, "declined");
+  // Her button's decision is hers in the audit log, not the owner's.
+  const entries = f.application.audit
+    .list({ action: "assistant.answered" })
+    .events.filter((e) => e.resourceId === agent.id && e.outcome === "success");
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].actorUserId, user.id);
+  assert.equal(entries[0].details.actor, "user");
+  assert.equal(entries[0].details.channel, "telegram");
 });

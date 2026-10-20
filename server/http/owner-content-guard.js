@@ -14,7 +14,7 @@ const compiled = Object.entries(ownerContentRoutes).map(([key, kind]) => {
       return group;
     })
     .join("/");
-  return { method, pattern: new RegExp(`^${source}$`), kind };
+  return { method, pattern: new RegExp(`^${source}$`, "i"), kind };
 });
 
 const reading = (method) => ["GET", "HEAD"].includes(method);
@@ -46,23 +46,41 @@ export function ownerContentGuard(services) {
   };
   // Whether the owner may use this route on this target; `since` limits a read.
   function decide(assistants, privacy, { kind, method }, id, res) {
+    // A write over every chat of an agent (clearing its attachments) would delete what
+    // its users wrote: only an agent no user chats with may be cleared.
+    if (kind === "agentChats") return !assistants.store.getAssistant(id).userAccess;
     if (kind === "agent" || kind === "channel") {
-      const agentId =
-        kind === "agent" ? id : services.assistantChannels?.store.get(id)?.assistantId;
+      const channel =
+        kind === "channel" ? services.assistantChannels?.store.get(id) : null;
+      const agentId = kind === "agent" ? id : channel?.assistantId;
       if (!agentId) return true;
       const agent = assistants.store.getAssistant(agentId);
       if (!privacy.agentContent(agent)) return false;
       // A user's own agent is hers: under the opt-in the owner reads, never changes.
       const own = agent.userAccess?.mode === "own";
       if (own && !reading(method)) return false;
-      // Her agent's channel delivers into her chat; only she pairs it.
-      return !(kind === "channel" && agent.userAccess && !reading(method));
+      if (kind === "agent" || reading(method)) return true;
+      // A user's bot delivers into her chat; only she pairs it. The owner's bot on a
+      // shared agent delivers into his own chat and stays his to pair and remove.
+      return (
+        typeof assistants.store.getConversation(channel.conversationId).userId !==
+        "string"
+      );
     }
     const conversation = resolve[kind](assistants, id);
-    if (!conversation || typeof conversation.userId !== "string") return true;
+    if (!conversation) return true;
+    if (typeof conversation.userId !== "string") {
+      // His chat from when the agent was shared: once it is a user's own agent, he
+      // reads what he wrote but no longer chats with it (conversation-turns.js).
+      const agent = assistants.store.getAssistant(conversation.assistantId);
+      return reading(method) || agent.userAccess?.mode !== "own";
+    }
     // Her turns, approvals and uploads are hers alone, opt-in or not.
     if (kind === "action" || kind === "attempt" || !reading(method)) return false;
     const { readable, since } = privacy.conversation(conversation);
+    // A file from before the opt-in stays hers, like the messages it came with.
+    if (kind === "attachment" && readable)
+      return privacy.fileVisible(assistants.attachments.createdAt(id), since);
     if (readable) res.locals.privacySince = since;
     return readable;
   }
@@ -70,7 +88,9 @@ export function ownerContentGuard(services) {
     const assistants = services.assistants;
     const privacy = services.ownerPrivacy;
     if (req.principal?.role !== "owner" || !assistants || !privacy) return next();
-    const path = `${req.baseUrl}${req.path}`;
+    // Express routes are case-insensitive and non-strict: `/x/messages/` and
+    // `/X/Messages` reach the route `/x/messages`, so they must reach the guard too.
+    const path = `${req.baseUrl}${req.path}`.replace(/\/+$/, "");
     const method = req.method === "HEAD" ? "GET" : req.method;
     const route = compiled.find((r) => r.method === method && r.pattern.test(path));
     if (!route) return next();

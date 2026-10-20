@@ -55,6 +55,13 @@ export function meConversationRoutes(
     userScope.attemptOf(req.principal, req.params.id);
     res.json(await assistants.cancel(req.params.id));
   });
+  // Her uncertain or interrupted turn blocks her chat until it is reviewed. The owner
+  // never sees her turns, so she acknowledges it herself (attempt-recovery.js). She
+  // never restarts the shared Gateway: that stays with the owner.
+  router.post("/me/attempts/:id/recover", async (req, res) => {
+    userScope.attemptOf(req.principal, req.params.id);
+    res.json(await assistants.acknowledge(req.params.id, req.body));
+  });
   router.get("/me/conversations/:id/attachment-policy", readLimit, (req, res) =>
     res.json(assistants.attachments.policy(own(req).id)),
   );

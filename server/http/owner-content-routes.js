@@ -14,6 +14,7 @@ export const contentKinds = [
   "attempt",
   "attachment",
   "agent",
+  "agentChats",
   "action",
   "channel",
 ];
@@ -32,7 +33,8 @@ export const ownerContentRoutes = {
   "PUT /api/assistant-conversations/:id/video-uploads/:upload": "conversation",
   "DELETE /api/assistant-conversations/:id/video-uploads/:upload": "conversation",
   "GET /api/assistant-attachments/:file": "attachment",
-  "DELETE /api/assistants/:id/attachments": "agent",
+  // Clearing the folder removes the files of every chat on the agent, users' included.
+  "DELETE /api/assistants/:id/attachments": "agentChats",
   // Turns in flight.
   "POST /api/assistant-attempts/:id/cancel": "attempt",
   "POST /api/assistant-attempts/:id/recover": "attempt",

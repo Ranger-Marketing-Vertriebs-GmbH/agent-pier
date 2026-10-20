@@ -5,13 +5,24 @@ export function assistantChannelRoutes({
   assistantChannels: channels,
   assistantSpeech: speech,
   assistantTelegramSenders: senders,
+  assistants,
+  ownerPrivacy,
 }) {
   const router = Router();
   router.use(["/assistant-channels", "/assistant-speech"], (_req, res, next) => {
     res.set("Cache-Control", "no-store");
     next();
   });
-  router.get("/assistant-channels", (_req, res) => res.json(channels.list()));
+  // A user's channel carries her private Telegram texts (owner-privacy.js).
+  router.get("/assistant-channels", (_req, res) =>
+    res.json(
+      ownerPrivacy && assistants
+        ? ownerPrivacy.filterChannels(channels.list(), (id) =>
+            assistants.store.getConversation(id),
+          )
+        : channels.list(),
+    ),
+  );
   router.post("/assistant-channels", async (req, res) =>
     res.status(201).json(await channels.create(req.body)),
   );

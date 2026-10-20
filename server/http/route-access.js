@@ -28,7 +28,7 @@ export const userRoutes = [
   { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
   { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/queued$/ },
   { method: "DELETE", pattern: /^\/api\/me\/conversations\/[^/]+\/queued$/ },
-  { method: "POST", pattern: /^\/api\/me\/attempts\/[^/]+\/cancel$/ },
+  { method: "POST", pattern: /^\/api\/me\/attempts\/[^/]+\/(?:cancel|recover)$/ },
   {
     method: "GET",
     pattern: /^\/api\/me\/conversations\/[^/]+\/attachment-policy$/,

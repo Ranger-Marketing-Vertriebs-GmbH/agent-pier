@@ -156,3 +156,14 @@ test("presence reports are rate limited", () => {
   now += 60000;
   assert.equal(presence.report("/inbox"), true);
 });
+
+test("each person has her own presence report budget", () => {
+  const now = 1000;
+  const presence = new PushPresence({ now: () => now });
+  for (let index = 0; index < 120; index++) presence.report("/inbox", "anna");
+  assert.equal(presence.report("/inbox", "anna"), false);
+  // The owner's reports still count, and hold back his pushes.
+  assert.equal(presence.report("/inbox"), true);
+  assert.equal(presence.seen("inbox", now), true);
+  assert.equal(presence.report("/inbox", "ben"), true);
+});

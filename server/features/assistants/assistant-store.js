@@ -288,6 +288,13 @@ export class AssistantStore {
     if (!row) throw assistantProblem("notFound", 404);
     return JSON.parse(row.body);
   }
+  /** The conversation whose native session is `key`, or null. */
+  conversationOfSession(key) {
+    const row = this.db
+      .prepare("SELECT body FROM conversations WHERE session_key=?")
+      .get(String(key));
+    return row ? JSON.parse(row.body) : null;
+  }
   listConversations() {
     return this.db
       .prepare("SELECT body FROM conversations ORDER BY rowid")

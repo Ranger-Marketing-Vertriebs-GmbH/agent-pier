@@ -29,7 +29,8 @@ export class PushPresence {
   constructor({ now = Date.now } = {}) {
     this.now = now;
     this.views = new Map();
-    this.reports = [];
+    // Report times per person: one person's reports never use up another's budget.
+    this.reports = new Map();
   }
   /**
    * One report from a visible page of one person (`userId`, null: the owner); false
@@ -37,9 +38,16 @@ export class PushPresence {
    */
   report(route, userId = null) {
     const now = this.now();
-    this.reports = this.reports.filter((at) => now - at < 60000);
-    if (this.reports.length >= reportsPerMinute) return false;
-    this.reports.push(now);
+    const person = userId ?? "";
+    for (const [key, times] of this.reports) {
+      const recent = times.filter((at) => now - at < 60000);
+      if (recent.length) this.reports.set(key, recent);
+      else this.reports.delete(key);
+    }
+    const reports = this.reports.get(person) || [];
+    if (reports.length >= reportsPerMinute) return false;
+    reports.push(now);
+    this.reports.set(person, reports);
     const shown = routeView(route);
     if (!shown) return true;
     const view = viewKey(shown, userId);

@@ -73,12 +73,15 @@ export default function AttachmentStorageGroup({ assistant }) {
           label={copy.list}
           sub={usage ? usageText(usage) : error || copy.storageLoading}
         />
-        <ListRow
-          label={copy.storageClear}
-          sub={copy.storageClearDescription}
-          disabled={busy || !usage || (usage.files === 0 && !usage.unsafe)}
-          onClick={() => setConfirming(true)}
-        />
+        {/* Its users' files are theirs: the owner never clears a user agent. */}
+        {!assistant.userAccess && (
+          <ListRow
+            label={copy.storageClear}
+            sub={copy.storageClearDescription}
+            disabled={busy || !usage || (usage.files === 0 && !usage.unsafe)}
+            onClick={() => setConfirming(true)}
+          />
+        )}
       </ListCard>
       {result && (
         <p role="status" className="assistant-notice">

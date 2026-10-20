@@ -16,6 +16,7 @@ import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import { isLeadRoutine } from "./lead-routines.js";
 import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
+import { agentPerson } from "./reminder-audience.js";
 const actions = new Set([
   "propose",
   "status",
@@ -296,20 +297,24 @@ export class TeamBridge {
     if (policy.allow) this.noteDriver(input);
     return policy;
   }
-  // The person whose turn uses the browser now (browser-live-view.js): the user of
-  // the calling chat, or the owner for his chats, routines and everything else.
+  // The person whose work uses the browser now (browser-live-view.js): the user of
+  // the calling chat or of the routine that runs, the user of her own agent for its
+  // other runs, and the owner for his chats, routines and everything else.
   noteDriver(input) {
     const live = this.assistants.liveView;
     const agent = live && this.agentOf(input.agentId);
     if (!agent) return;
+    const store = this.assistants.store;
     const [attempt] = this.bound(input.sessionKey);
-    let userId = null;
-    if (attempt)
-      userId =
-        this.assistants.store.getConversation(
+    const conversation = attempt
+      ? store.getConversation(
           this.assistants.ledger.getRequest(attempt.requestId).conversationId,
-        ).userId ?? null;
-    live.setDriver(agent.id, userId);
+        )
+      : (this.routineRun(input)?.conversation ??
+        store.conversationOfSession(input.sessionKey));
+    const userId =
+      conversation?.userId ?? (attempt || conversation ? null : agentPerson(agent));
+    live.setDriver(agent.id, userId ?? null);
   }
   writeAllowed(input) {
     if (flushSessionAgent(input.sessionKey)) return flushWrite(this, input);

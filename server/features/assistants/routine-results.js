@@ -33,6 +33,12 @@ export class RoutineResults {
         .run(entry.conversationId, entry.conversationId, kept);
     return inserted.changes === 1;
   }
+  /** A deleted user's chat: its results and their texts go with it (user-release.js). */
+  forget(conversationId) {
+    this.db
+      .prepare("DELETE FROM assistant_routine_results WHERE conversation_id=?")
+      .run(conversationId);
+  }
   forConversation(conversationId) {
     return this.db
       .prepare(

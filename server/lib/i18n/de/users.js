@@ -6,7 +6,11 @@ export const users = Object.freeze({
   changeInvalid: "Diese Änderung am Benutzer ist ungültig.",
   agentAccessInvalid: "Diese Zuweisung an Benutzer ist ungültig.",
   agentRequired: "Nur Agenten von Benutzern lassen sich Benutzern zuweisen.",
+  agentOwnFixed:
+    "Ein eigener Agent bleibt bei seinem Benutzer. Lege für andere einen neuen Agenten an.",
   level: "Das erlaubt deine Stufe für diesen Agenten nicht.",
   agentsChoice:
     "Wähle, ob die eigenen Agenten des Benutzers archiviert oder behalten werden.",
+  agentsOff:
+    "Schalte die Agenten ein, bevor du diesen Benutzer löschst. Nur dann lassen sich seine Agenten und Chats mit ihm aufräumen.",
 });

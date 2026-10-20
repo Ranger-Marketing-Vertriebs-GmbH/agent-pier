@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import { applicationFixture, enabledAssistants } from "./application.js";
 import { signedInUser } from "./users.js";
 import { fixtureModel } from "./user-agents.js";
+import { telegramMessage } from "./assistant-channel-fixture.js";
 
 /**
  * A scripted Gateway behind the fixture's agent service: sessions.create returns a
@@ -127,3 +128,27 @@ export const as =
   (f, cookie) =>
   (endpoint, options = {}) =>
     f.request(endpoint, { ...options, headers: { cookie, ...options.headers } });
+
+/**
+ * Connects and pairs the Telegram bot of a user's own agent (Extended) through her
+ * routes; Telegram itself is faked. Returns the channel record.
+ */
+export async function pairedTelegram(f, request, agentId) {
+  const channels = f.application.assistantChannels;
+  channels.clientFactory = () => ({
+    identity: async () => ({ id: 777, username: "anna_helper_bot" }),
+  });
+  const connected = await request(`/api/me/agents/${agentId}/telegram`, {
+    method: "PUT",
+    body: { token: "123456:user-bot-secret-token", language: "en" },
+  });
+  if (connected.status !== 200) throw new Error(await connected.text());
+  const { channel } = await connected.json();
+  const paired = await request(`/api/me/agents/${agentId}/telegram/pair`, {
+    method: "POST",
+    body: {},
+  });
+  const { code } = await paired.json();
+  await channels.ingress.receive(channel.id, [telegramMessage(1, `/start ${code}`)]);
+  return channels.store.get(channel.id);
+}

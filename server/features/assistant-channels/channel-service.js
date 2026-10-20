@@ -199,6 +199,25 @@ export class ChannelService {
       return result;
     });
   }
+  /**
+   * Removes a user's channel for good when she is deleted or leaves the agent
+   * (user-release.js). Its check-ins and routines move back to the plain chat.
+   */
+  forget(id) {
+    return this.serialize(async () => {
+      const { assistantId } = this.store.get(id);
+      await this.stopChannel(id);
+      this.store.remove(id);
+      this.assistants.changed();
+      const { heartbeats, routines } = this.assistants.reminders || {};
+      this.heartbeatSync = Promise.resolve()
+        .then(() => heartbeats?.resync(assistantId))
+        .catch(() => {});
+      this.routineSync = Promise.resolve()
+        .then(() => routines?.resync(assistantId))
+        .catch(() => {});
+    });
+  }
   recoverInput(channelId, inputId, action) {
     return this.serialize(async () => {
       await this.stopChannel(channelId);
