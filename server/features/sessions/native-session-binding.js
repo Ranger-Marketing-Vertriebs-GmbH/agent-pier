@@ -25,8 +25,10 @@ import { addGrant } from "../nono/sandbox-grants.js";
 import {
   claudeHookActivity,
   readNativeActivity,
+  recordClaudeInterrupt,
   recordNativeActivity,
 } from "./native-session-activity.js";
+import { claudeInterruptAt } from "./claude-interrupt.js";
 import { maxReplyText, pushNative } from "../requests/native-push.js";
 
 const modulePath = fileURLToPath(import.meta.url);
@@ -308,6 +310,30 @@ export class NativeSessionBinding {
   activity(session) {
     if (!session?.nativeBinding?.enabled) return null;
     return readNativeActivity(this.directory, session);
+  }
+  /**
+   * The activity report, ended like a hook would when Claude's transcript shows an
+   * Esc interrupt after a reported running turn (Claude Code sends no hook for it).
+   */
+  async reportedActivity(session) {
+    const activity = this.activity(session);
+    if (
+      session?.tool !== "claude" ||
+      !this.history ||
+      !["working", "waiting"].includes(activity?.state)
+    )
+      return activity;
+    try {
+      const id = (await this.resolve(session))?.id;
+      if (!id) return activity;
+      const file = await this.history.claudeFile(session, id);
+      const at = await claudeInterruptAt(file, activity.at);
+      if (at === null) return activity;
+      recordClaudeInterrupt(this.file(session.id), at);
+      return this.activity(session);
+    } catch {
+      return activity;
+    }
   }
   verifiedReceipt(session) {
     try {
