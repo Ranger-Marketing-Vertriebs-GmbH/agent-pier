@@ -3,7 +3,7 @@ import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { browserUuid } from "../../lib/browser-uuid.js";
-import { MAX_TOKEN_BUDGET } from "./token-budget.js";
+import TokenBudgetInput from "./TokenBudgetInput.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import StageFlow from "./StageFlow.jsx";
@@ -234,16 +234,12 @@ export default function PipelineBuilder({
           </label>
           <label>
             {copy.tokenBudget}
-            <input
-              type="number"
-              min={1}
-              max={MAX_TOKEN_BUDGET}
-              step={1}
+            <TokenBudgetInput
               value={budget}
               aria-describedby="definition-budget-help"
-              onChange={(event) => {
+              onChange={(value) => {
                 draft.clearNotice();
-                setBudget(event.target.value);
+                setBudget(value);
               }}
             />
             <small id="definition-budget-help" className="field-description">

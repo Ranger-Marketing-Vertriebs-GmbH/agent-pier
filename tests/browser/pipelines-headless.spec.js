@@ -150,7 +150,7 @@ test("a session held at the token budget asks for the new budget before continui
     exact: true,
   });
   await expect(raise).toBeDisabled();
-  await page.getByRole("spinbutton", { name: "New token budget" }).fill("3000");
+  await page.getByRole("textbox", { name: "New token budget" }).fill("3000");
   await raise.click();
   await expect
     .poll(
