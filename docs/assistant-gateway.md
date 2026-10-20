@@ -2534,8 +2534,11 @@ The owner's privacy guard (`server/http/owner-content-guard.js`,
 chats, and the memory, attachments and browser of her own agent, answer 404, and his
 agent list and event stream leave her conversations out. With the opt-in he reads them
 from its `since` on, never earlier, in history, feed snapshots, the chat stream, her
-queued message and chat file downloads. A message she queued counts from when she
-wrote it (the request's `writtenAt`), even once it goes out after the opt-in; he never writes into her chat, decides her
+queued message and chat file downloads; older history pages stay reachable until a
+page reaches back past `since`. A message she queued, or one her Telegram bot held in
+its inbox, counts from when she wrote it (the request's `writtenAt`), even once it goes
+out after the opt-in; the reply its run writes stays hers too, in the history and as
+streamed reply text. He never writes into her chat, decides her
 approvals or re-pairs her bot, and her pending approvals never count in his agent
 activity. The guard matches paths like Express does (trailing slashes, any letter case).
 Turning it off closes his open chat streams (1008); turning it on again after it was off
