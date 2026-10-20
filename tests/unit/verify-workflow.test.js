@@ -11,6 +11,9 @@ const verify = YAML.parse(
   fs.readFileSync(path.join(root, ".github/workflows/verify.yml"), "utf8"),
 );
 const required = ["backend", "chromium"];
+const workflow = (name) =>
+  YAML.parse(fs.readFileSync(path.join(root, ".github/workflows", name), "utf8"));
+const specsOf = (shards) => shards.flatMap((shard) => shard.specs.split(" "));
 
 const outputsOf = (text) =>
   Object.fromEntries(
@@ -41,8 +44,21 @@ test("the command line writes the queue plan with --full and all suites for an u
   assert.equal(queue.status, 0, queue.stderr);
   assert.equal(queue.outputs.full, "true");
   assert.equal(queue.outputs["node-all"], "true");
-  assert.equal(queue.outputs["browser-tests"], "");
-  assert.equal(queue.outputs["browser-shards"], "[1,2,3,4]");
+  const shards = JSON.parse(queue.outputs["browser-shards"]);
+  assert.deepEqual(
+    shards.map((shard) => shard.shard),
+    [1, 2, 3, 4],
+  );
+  const specs = specsOf(shards);
+  assert.equal(new Set(specs).size, specs.length);
+  assert.deepEqual(
+    [...specs].sort(),
+    fs
+      .readdirSync(path.join(root, "tests/browser"), { recursive: true })
+      .filter((file) => file.endsWith(".spec.js"))
+      .map((file) => `tests/browser/${file}`)
+      .sort(),
+  );
   assert.deepEqual(JSON.parse(queue.outputs.backend), [
     { os: "ubuntu-latest", node: 24 },
     { os: "macos-latest", node: 24 },
@@ -51,7 +67,7 @@ test("the command line writes the queue plan with --full and all suites for an u
   assert.equal(unknown.status, 0, unknown.stderr);
   assert.equal(unknown.outputs.mode, "all");
   assert.equal(unknown.outputs["node-all"], "true");
-  assert.equal(unknown.outputs["browser-shards"], "[1,2,3,4]");
+  assert.equal(JSON.parse(unknown.outputs["browser-shards"]).length, 4);
   const empty = plan(t, "--base", "");
   assert.notEqual(empty.status, 0);
   assert.equal(empty.outputs.mode, undefined);
@@ -65,7 +81,59 @@ test("the merge queue always plans every suite; only a pull request selects", ()
   );
   assert.match(step.run, /else\n\s+node scripts\/affected-tests\.mjs --full /);
   assert.equal(step.env.EVENT, "${{ github.event_name }}");
-  assert.deepEqual(Object.keys(verify.on).sort(), ["merge_group", "pull_request"]);
+  assert.deepEqual(Object.keys(verify.on).sort(), [
+    "merge_group",
+    "pull_request",
+    "workflow_dispatch",
+  ]);
+});
+
+test("each Chromium shard runs its planned specs in two processes; WebKit is not in Verify", () => {
+  const shards = verify.jobs["chromium-shards"];
+  assert.equal(
+    shards.strategy.matrix.include,
+    "${{ fromJSON(needs.select.outputs.browser-shards) }}",
+  );
+  const step = shards.steps.find((candidate) =>
+    candidate.uses?.includes("browser-shard"),
+  );
+  assert.equal(step.with.specs, "${{ matrix.specs }}");
+  assert.equal(step.with.processes, 2);
+  assert.ok(!JSON.stringify(verify).includes("webkit"));
+  const webkit = workflow("webkit.yml");
+  assert.deepEqual(Object.keys(webkit.on).sort(), [
+    "pull_request",
+    "workflow_call",
+    "workflow_dispatch",
+  ]);
+  assert.deepEqual(webkit.on.pull_request.types, [
+    "opened",
+    "synchronize",
+    "reopened",
+    "labeled",
+  ]);
+  assert.match(webkit.jobs["webkit-shards"].if, /labels\.\*\.name, 'webkit'/);
+  assert.match(webkit.jobs["webkit-shards"].if, /github\.event\.label\.name == 'webkit'/);
+  assert.equal(workflow("full.yml").jobs.webkit.uses, "./.github/workflows/webkit.yml");
+});
+
+test("no workflow runs twice for one change", () => {
+  const secrets = workflow("secrets.yml");
+  assert.deepEqual(secrets.on.push, { branches: ["main"] });
+  assert.ok("pull_request" in secrets.on && "merge_group" in secrets.on);
+  assert.deepEqual(Object.keys(workflow("assistant-runtime-queue.yml").on), [
+    "merge_group",
+  ]);
+  const runtime = workflow("assistant-runtime.yml");
+  assert.deepEqual(Object.keys(runtime.on).sort(), [
+    "pull_request",
+    "workflow_call",
+    "workflow_dispatch",
+  ]);
+  assert.equal(
+    workflow("full.yml").jobs["assistant-runtime"].uses,
+    "./.github/workflows/assistant-runtime.yml",
+  );
 });
 
 test("required jobs always report and never pass on a failed plan", () => {
@@ -120,6 +188,8 @@ test("selected test and spec lists are never glob-expanded", () => {
   );
   assert.match(action, /read -ra specs <<< "\$SPECS"/);
   assert.match(action, /"\$\{specs\[@\]\}"/);
+  assert.match(action, /mapfile -t args < "\$file"/);
+  assert.match(action, /"\$\{args\[@\]\}"/);
   const list = "tests/unit/[ab].test.js tests/unit/*.test.js";
   const words = spawnSync(
     "bash",

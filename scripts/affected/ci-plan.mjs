@@ -1,11 +1,16 @@
+import { splitSpecs, weigher } from "../browser-shards.mjs";
+
 // Turns a selection into the job plan of .github/workflows/verify.yml. A pull
 // request runs what its selection needs, on Linux unless the change is platform
-// code; the merge queue (`full`) runs every suite.
+// code; the merge queue (`full`) runs every node test and Chromium spec.
 
 const linux = { os: "ubuntu-latest", node: 24 };
 const macos = { os: "macos-latest", node: 24 };
 const maxShards = 4;
-// About 25 specs keep a shard near five minutes, plus about three of setup.
+// A Chromium shard job runs two Playwright processes (.github/actions/browser-shard):
+// about 600 recorded seconds keep a shard near five minutes plus three of setup.
+// Without recorded seconds, about 25 specs per shard.
+const secondsPerShard = 600;
 const specsPerShard = 25;
 export const filesystemMatrix = [
   "tests/matrix/file-extract-platform.test.js",
@@ -18,36 +23,58 @@ const agentbusRuntimes = [
   "tests/integration/agentbus-runtimes.test.js",
 ];
 
-const range = (count) => Array.from({ length: count }, (_, index) => index + 1);
+// The Chromium shard matrix: each shard's own specs, balanced by recorded seconds.
+// Without timings a full run leaves every list empty, so each shard falls back to
+// Playwright's --shard, and a selection is split by count.
+export function browserShards(specs, { all, timings }) {
+  if (!specs.length) return [];
+  const count = all
+    ? maxShards
+    : Math.min(
+        maxShards,
+        timings
+          ? Math.ceil(
+              specs.map(weigher(timings)).reduce((a, b) => a + b, 0) / secondsPerShard,
+            )
+          : Math.ceil(specs.length / specsPerShard),
+      );
+  if (all && !timings)
+    return Array.from({ length: count }, (_, index) => ({ shard: index + 1, specs: "" }));
+  return splitSpecs(specs, count, timings || {})
+    .filter((part) => part.specs.length)
+    .map((part, index) => ({ shard: index + 1, specs: part.specs.join(" ") }));
+}
 
-export function ciPlan(result, { full = false, nodeTotal, browserTotal } = {}) {
+export function ciPlan(
+  result,
+  { full = false, nodeTotal, browserSpecs = [], timings = null } = {},
+) {
   if (full)
     return {
       full: true,
       mode: "all",
       "node-all": true,
       "node-tests": "",
-      "browser-tests": "",
-      "browser-shards": range(maxShards),
+      "browser-shards": browserShards(browserSpecs, { all: true, timings }),
       backend: [linux, macos],
       "filesystem-os": ["ubuntu-latest"],
       nono: true,
       "agentbus-runtimes": true,
     };
   const nodeAll = result.mode === "all" || result.node.length === nodeTotal;
-  const browserAll = result.mode === "all" || result.browser.length === browserTotal;
+  const browserAll =
+    result.mode === "all" || result.browser.length === browserSpecs.length;
   const runs = (file) => nodeAll || result.node.includes(file);
-  const shards = browserAll
-    ? maxShards
-    : Math.min(maxShards, Math.ceil(result.browser.length / specsPerShard));
   const testsNode = nodeAll || result.node.length > 0;
   return {
     full: false,
     mode: result.mode,
     "node-all": nodeAll,
     "node-tests": nodeAll ? "" : result.node.join(" "),
-    "browser-tests": browserAll ? "" : result.browser.join(" "),
-    "browser-shards": range(shards),
+    "browser-shards": browserShards(browserAll ? browserSpecs : result.browser, {
+      all: browserAll,
+      timings,
+    }),
     // A macOS backend only for platform code that some test exercises.
     backend: result.macos && testsNode ? [linux, macos] : [linux],
     "filesystem-os": filesystemMatrix.some(runs)

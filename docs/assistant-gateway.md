@@ -3080,9 +3080,9 @@ for SSH), never in a sender bot's session, and routes it to `AgentShares`
 ## Continuous integration
 
 The `Assistant runtime` workflow runs the opt-in native contracts in a
-`native-contracts` job (Ubuntu x64 on pull requests touching assistants, macOS arm64
-after the merge as well; nightly and before a release also Ubuntu arm64 and macOS
-x64). Each runner splits the contracts into balanced shards (four, six on macOS
+`native-contracts` job (Ubuntu x64 on pull requests touching assistants; nightly,
+on demand and before a release also macOS arm64, Ubuntu arm64 and macOS x64). Each
+runner splits the contracts into balanced shards (four, six on macOS
 x64) with `scripts/assistant-contract-shards.mjs`, whose JSON file lists every
 contract and its recorded duration. Each shard provisions the pinned runtime with
 `scripts/provision-assistant-contracts.mjs`, uses simulated model endpoints, accounts
@@ -3093,10 +3093,11 @@ test stays manual. A `cross-version` job (nightly and before a release) installs
 runtimes that older release tags pinned and runs the cross-version update tests
 against the current pin; see
 [release qualification](assistant-release-qualification.md#update-paths-installed-users-take). The browser matrix runs every
-`assistant*.spec.js` in Chromium and WebKit; a Playwright `tablet` project (820x1180,
-touch) repeats those specs at iPad size. The slim `Assistant runtime (queue)` workflow
-(`assistant-runtime-queue.yml`) is the required merge-queue gate: it passes at once
-when no assistant runtime path changed and otherwise runs the core native contracts.
+`assistant*.spec.js` in Chromium and, nightly or on a pull request labelled `webkit`,
+in WebKit; a Playwright `tablet` project (820x1180, touch) repeats those specs at iPad
+size in WebKit. The slim `Assistant runtime (queue)` workflow
+(`assistant-runtime-queue.yml`) runs in the merge queue only: it passes at once when
+no assistant runtime path changed and otherwise runs the core native contracts.
 
 Dependabot must never update `server/features/assistants/runtime-lock/`; the
 exclusion and the refresh procedure for security alerts there are described in

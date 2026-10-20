@@ -1,12 +1,15 @@
 name: Verify
 # Tiered CI (AGENTPIER-60). A pull request runs the static checks plus the tests
 # its change can affect (scripts/affected-tests.mjs), on Linux and Chromium; the
-# merge queue runs the full node and Chromium suites under the same required job
-# names, plus advisory macOS and WebKit jobs. Every Node/OS combination, the
-# repeats and the extra seeds run in full.yml (nightly and before a release).
+# merge queue and a manual run execute the full node and Chromium suites under the
+# same required job names, plus an advisory macOS backend. WebKit runs in
+# webkit.yml (nightly, and on pull requests labelled "webkit"). Every Node/OS
+# combination, the repeats and the extra seeds run in full.yml (nightly and before
+# a release).
 on:
   pull_request:
   merge_group:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -22,7 +25,6 @@ jobs:
       mode: ${{ steps.plan.outputs.mode }}
       node-all: ${{ steps.plan.outputs.node-all }}
       node-tests: ${{ steps.plan.outputs.node-tests }}
-      browser-tests: ${{ steps.plan.outputs.browser-tests }}
       browser-shards: ${{ steps.plan.outputs.browser-shards }}
       backend: ${{ steps.plan.outputs.backend }}
       filesystem-os: ${{ steps.plan.outputs.filesystem-os }}
@@ -140,6 +142,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/native-filesystem-matrix
+  # Each shard runs its own specs, balanced by recorded seconds
+  # (scripts/browser-shards.mjs), in two parallel Playwright processes.
   chromium-shards:
     name: browser (chromium) shard ${{ matrix.shard }}/${{ strategy.job-total }}
     needs: select
@@ -147,9 +151,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.select.outputs.browser-shards) }}
+        include: ${{ fromJSON(needs.select.outputs.browser-shards) }}
     runs-on: ubuntu-latest
-    # Observed p90 12.3 min; a retry of a few slow specs fits well inside.
+    # Observed p90 12.3 min with one process; a retry of a few slow specs fits well
+    # inside.
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -158,27 +163,8 @@ jobs:
           browser: chromium
           shard: ${{ matrix.shard }}
           total: ${{ strategy.job-total }}
-          specs: ${{ needs.select.outputs.browser-tests }}
-  # Advisory in the merge queue: WebKit runs on every merge but is not required.
-  # full.yml also runs it, with the repeated timing regressions.
-  webkit-shards:
-    name: browser (webkit) shard ${{ matrix.shard }}/5
-    needs: select
-    if: needs.select.outputs.full == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4, 5]
-    runs-on: ubuntu-latest
-    # Observed p90 19.1 min with four shards.
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/browser-shard
-        with:
-          browser: webkit
-          shard: ${{ matrix.shard }}
-          total: 5
+          specs: ${{ matrix.specs }}
+          processes: 2
   # Branch protection requires "browser (chromium)". It passes when every planned
   # shard passed, or when the plan selected no spec.
   chromium:
@@ -200,14 +186,3 @@ jobs:
           else
             test "$SHARDS" = success
           fi
-  # Produced in the merge queue only; advisory, not a required check.
-  webkit:
-    name: browser (webkit)
-    needs: [select, webkit-shards]
-    if: ${{ !cancelled() && needs.select.outputs.full == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - env:
-          SHARDS: ${{ needs.webkit-shards.result }}
-        run: test "$SHARDS" = success
