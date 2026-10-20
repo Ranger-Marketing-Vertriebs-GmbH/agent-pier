@@ -251,7 +251,7 @@ test("desktop definitions select the first pipeline and highlight the chosen sta
   await page.getByRole("button", { name: "Stufe entfernen 1", exact: true }).click();
   await expect(
     page.getByRole("list", { name: "Stufen" }).getByRole("button"),
-  ).toHaveCount(2);
+  ).toHaveCount(3); // one stage tile, "add stage" and "add parallel group"
   // Unsaved edits are not silently discarded when another pipeline is chosen.
   await page.getByRole("button", { name: "Bearbeiten: Wartung", exact: true }).click();
   const confirm = page.getByRole("dialog", {
@@ -261,7 +261,7 @@ test("desktop definitions select the first pipeline and highlight the chosen sta
   await expect(page).toHaveURL(/\/definitions\/pipeline-one$/);
   await expect(
     page.getByRole("list", { name: "Stufen" }).getByRole("button"),
-  ).toHaveCount(2);
+  ).toHaveCount(3); // one stage tile, "add stage" and "add parallel group"
   await page.getByRole("button", { name: "Bearbeiten: Wartung", exact: true }).click();
   await confirm.getByRole("button", { name: "Verwerfen", exact: true }).click();
   await expect(page).toHaveURL(/\/definitions\/pipeline-two$/);

@@ -1,57 +1,10 @@
-import React, { useId, useState } from "react";
+import React, { useId } from "react";
 import Segment from "../../components/Segment.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
-import { stageProfileName } from "./StageFlow.jsx";
+import { profileOptions, stageProfileName } from "./StageFlow.jsx";
+import NumberStepper from "./NumberStepper.jsx";
 import Switch from "../../components/Switch.jsx";
-
-const minRounds = 1,
-  maxRounds = 5;
-
-function RoundsStepper({ value, onChange, disabled }) {
-  const id = useId();
-  const clamp = (number) => Math.min(maxRounds, Math.max(minRounds, number));
-  const current = Number.isFinite(value) ? clamp(value) : minRounds;
-  // An emptied field stays empty while typing and returns to the last value on blur.
-  const [typing, setTyping] = useState(null);
-  return (
-    <div className="stage-field">
-      <label htmlFor={id}>{copy.loopBudget}</label>
-      <div className="stage-stepper">
-        <button
-          type="button"
-          aria-label={copy.decreaseRounds}
-          disabled={disabled || current <= minRounds}
-          onClick={() => onChange(clamp(current - 1))}
-        >
-          −
-        </button>
-        <input
-          id={id}
-          type="number"
-          min={minRounds}
-          max={maxRounds}
-          value={typing ?? (Number.isFinite(value) ? value : minRounds)}
-          onChange={(event) => {
-            const text = event.target.value;
-            const number = Number(text);
-            if (text === "" || !Number.isFinite(number)) return setTyping(text);
-            setTyping(null);
-            onChange(clamp(Math.round(number)));
-          }}
-          onBlur={() => setTyping(null)}
-        />
-        <button
-          type="button"
-          aria-label={copy.increaseRounds}
-          disabled={disabled || current >= maxRounds}
-          onClick={() => onChange(clamp(current + 1))}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  );
-}
+import GroupMembersEditor from "./GroupMembersEditor.jsx";
 
 // Edits the one stage chosen in the flow. The profile choice lists only profiles
 // eligible for stages, plus a saved profile id that no longer is.
@@ -69,12 +22,6 @@ export default function StageEditor({
   const headingId = useId();
   const patch = (change) =>
     setStages(stages.map((s, i) => (i === index ? { ...s, ...change } : s)));
-  const profileOptions = [
-    ...(stage.profileId && !profiles.some((p) => p.id === stage.profileId)
-      ? [{ value: stage.profileId, label: stage.profileId }]
-      : []),
-    ...profiles.map((profile) => ({ value: profile.id, label: profile.name })),
-  ];
   return (
     <section className="stage-editor" aria-labelledby={headingId}>
       <header>
@@ -108,19 +55,28 @@ export default function StageEditor({
           </button>
         </div>
       </header>
-      <div className="stage-field">
-        <span aria-hidden="true">{copy.profile}</span>
-        <Segment
-          label={copy.profile}
-          className="stage-pills"
-          required
+      {stage.kind === "parallel" ? (
+        <GroupMembersEditor
+          stage={stage}
+          profiles={profiles}
+          patch={patch}
           disabled={disabled}
-          value={stage.profileId}
-          options={profileOptions}
-          onChange={(value) => patch({ profileId: value })}
         />
-        <small>{copy.profileEligibility}</small>
-      </div>
+      ) : (
+        <div className="stage-field">
+          <span aria-hidden="true">{copy.profile}</span>
+          <Segment
+            label={copy.profile}
+            className="stage-pills"
+            required
+            disabled={disabled}
+            value={stage.profileId}
+            options={profileOptions(profiles, stage.profileId)}
+            onChange={(value) => patch({ profileId: value })}
+          />
+          <small>{copy.profileEligibility}</small>
+        </div>
+      )}
       <div className="stage-checks">
         {[
           ["gate", copy.humanGate],
@@ -152,16 +108,28 @@ export default function StageEditor({
               value={stage.loopBackTo}
               options={[
                 { value: "", label: copy.noLoop },
-                ...stages.slice(0, index).map((s, i) => ({
-                  value: s.key,
-                  label: `${i + 1} · ${stageProfileName(s, profiles) || copy.chooseProfile}`,
-                })),
+                // A loop returns to an earlier profile stage, never into a group.
+                ...stages.slice(0, index).flatMap((s, i) =>
+                  s.kind === "parallel"
+                    ? []
+                    : [
+                        {
+                          value: s.key,
+                          label: `${i + 1} · ${stageProfileName(s, profiles) || copy.chooseProfile}`,
+                        },
+                      ],
+                ),
               ]}
               onChange={(value) => patch({ loopBackTo: value })}
             />
           </div>
           {stage.loopBackTo && (
-            <RoundsStepper
+            <NumberStepper
+              label={copy.loopBudget}
+              decreaseLabel={copy.decreaseRounds}
+              increaseLabel={copy.increaseRounds}
+              min={1}
+              max={5}
               value={stage.maxIterations}
               disabled={disabled}
               onChange={(value) => patch({ maxIterations: value })}

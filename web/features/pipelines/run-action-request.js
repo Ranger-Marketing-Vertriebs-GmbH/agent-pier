@@ -53,7 +53,7 @@ export function confirmDescription(action, run) {
 export async function requestRunAction(
   run,
   action,
-  { feedback = "", resumeAt = "", confirmLocalCommits = false } = {},
+  { feedback = "", resumeAt = "", confirmLocalCommits = false, nodeId } = {},
 ) {
   const base = `/pipeline-runs/${encodeURIComponent(run.id)}`;
   if (action === "delete") {
@@ -61,11 +61,15 @@ export async function requestRunAction(
     return true;
   }
   if (action === "reconcile") {
-    const status = await api(base + "/verdict-status");
+    const status = await api(
+      base + "/verdict-status" + (nodeId ? `?nodeId=${encodeURIComponent(nodeId)}` : ""),
+    );
     if (!status.present) throw Error(serverText(status.reason) || copy.verdictMissing);
   }
-  const suffix =
-    action === "retry"
+  // An action on a member of a parallel group is always a gate decision on that member.
+  const suffix = nodeId
+    ? "/gate"
+    : action === "retry"
       ? "/retry-stage"
       : action === "create-pr"
         ? "/pull-request"
@@ -78,6 +82,7 @@ export async function requestRunAction(
     suffix === "/gate"
       ? {
           action,
+          ...(nodeId ? { nodeId } : {}),
           ...(["feedback", "loop-back"].includes(action) ? { feedback } : {}),
           ...(action === "wait-for-reset" && resumeAt
             ? { resumeAt: new Date(resumeAt).toISOString() }

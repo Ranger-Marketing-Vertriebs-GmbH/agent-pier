@@ -60,6 +60,26 @@ function useStageDraft(initial) {
       ]);
       setSelectedKey(key);
     },
+    // A parallel group of reviewers starts with two members to choose profiles for.
+    addGroup: () => {
+      const key = `group-${browserUuid()}`;
+      setStages([
+        ...stages,
+        {
+          key,
+          kind: "parallel",
+          members: [0, 1].map(() => ({ key: `member-${browserUuid()}`, profileId: "" })),
+          concurrency: undefined,
+          gate: false,
+          verify: false,
+          createPr: false,
+          loopBackTo: "",
+          maxIterations: 2,
+          continueSession: false,
+        },
+      ]);
+      setSelectedKey(key);
+    },
     move: (index, delta) => {
       const next = [...stages];
       [next[index], next[index + delta]] = [next[index + delta], next[index]];
@@ -231,6 +251,7 @@ export default function PipelineBuilder({
               selected={draft.selected}
               onSelect={draft.select}
               onAdd={draft.add}
+              onAddGroup={draft.addGroup}
             />
             {draft.stages.length > 0 && (
               <StageEditor
@@ -256,7 +277,9 @@ export default function PipelineBuilder({
         error={
           error ||
           // A stage rule that the edited stages now satisfy is no longer shown.
-          ([copy.emptyStages, copy.invalidLoop].includes(action.error) &&
+          ([copy.emptyStages, copy.invalidLoop, copy.invalidGroup].includes(
+            action.error,
+          ) &&
           !advanced &&
           !stageError(draft.stages, copy)
             ? ""

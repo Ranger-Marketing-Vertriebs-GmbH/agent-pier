@@ -3,7 +3,8 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 
 const stageCount = (pipeline) =>
-  pipeline.graph.nodes.filter((node) => node.kind === "profile").length;
+  pipeline.graph.nodes.filter((node) => ["profile", "parallel"].includes(node.kind))
+    .length;
 
 // Choosing a pipeline opens it for editing; each row also starts a run with it,
 // duplicates it or removes it.

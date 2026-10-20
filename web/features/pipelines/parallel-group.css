@@ -1,0 +1,103 @@
+/* Parallel groups: members side by side in the definition editor and the run view. */
+.stage-tile-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.stage-tile-member {
+  font-size: var(--font-size-xs);
+  padding: 2px var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text-meta);
+  overflow-wrap: anywhere;
+}
+.stage-tile-member.placeholder {
+  color: var(--text-faint);
+}
+.stage-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.stage-group > .button {
+  align-self: flex-start;
+}
+.stage-group-member > .button {
+  align-self: flex-start;
+}
+.run-member-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2) 50px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.run-member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-row);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.run-member-chip[aria-current="step"] {
+  border-color: var(--accent-line);
+  background: var(--accent-faint);
+}
+.run-member-chip:focus-visible,
+.run-group-member-name:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.run-group-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-2);
+}
+.run-group-member {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  min-width: 0;
+}
+.run-group-member small {
+  font-size: var(--font-size-xs);
+  color: var(--text-meta);
+}
+.run-group-member-name {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.run-member-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+.run-member-actions textarea {
+  width: 100%;
+  box-sizing: border-box;
+}

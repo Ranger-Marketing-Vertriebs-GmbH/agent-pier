@@ -10,10 +10,11 @@ import LoopRounds from "./LoopRounds.jsx";
 import RunUsage from "./RunUsage.jsx";
 import { availableGateActions } from "./GateDecision.jsx";
 import { gateActions } from "./run-action-request.js";
-import { defaultStageId } from "./run-stages.js";
+import { defaultStageId, railNodes } from "./run-stages.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import "./run-detail.css";
 import "./run-stage-blocks.css";
+import "./parallel-group.css";
 // After the stylesheets above, so the spec's own styles keep their cascade order.
 import RunSpec from "./RunSpec.jsx";
 
@@ -33,10 +34,13 @@ export default function RunDetail({ id, navigate }) {
   const selectedId = nodes.some((node) => node.id === chosen)
     ? chosen
     : run && defaultStageId(run);
-  const index = nodes.findIndex((node) => node.id === selectedId);
+  const selected = nodes.find((node) => node.id === selectedId);
+  // Stages are numbered as in the rail; a group member carries its group's number.
+  const rail = run ? railNodes(run) : [];
+  const index = rail.findIndex((node) => node.id === (selected?.group || selectedId));
   // Gate decisions belong to the current stage's decision block; only when that stage is
   // missing from the rail do they stay in the header.
-  const currentIndex = nodes.findIndex((node) => node.id === run.currentNodeId);
+  const currentIndex = rail.findIndex((node) => node.id === run?.currentNodeId);
   const gateInRail = currentIndex >= 0 && availableGateActions(run).length > 0;
   const gateSelected = gateInRail && selectedId === run.currentNodeId;
   const back = () => navigate({ pipelineItem: "" });
@@ -73,8 +77,10 @@ export default function RunDetail({ id, navigate }) {
               <StageDetail
                 key={selectedId}
                 run={run}
-                node={nodes[index]}
+                node={selected}
                 index={index}
+                onSelect={setChosen}
+                shared={shared}
                 navigate={navigate}
                 refresh={resource.refresh}
                 gate={gateSelected ? { feedback, shared } : null}

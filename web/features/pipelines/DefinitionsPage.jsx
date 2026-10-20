@@ -12,6 +12,7 @@ import DefinitionList from "./DefinitionList.jsx";
 import useDraftGuard from "./useDraftGuard.jsx";
 import { pipelineRoutePath } from "./routes.js";
 import "./definitions.css";
+import "./parallel-group.css";
 
 export default function DefinitionsPage({ route, navigate, refreshCounts }) {
   const definitions = useResource("/pipelines"),
