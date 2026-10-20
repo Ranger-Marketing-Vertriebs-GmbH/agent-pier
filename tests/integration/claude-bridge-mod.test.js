@@ -178,3 +178,25 @@ test("the mod socket refuses foreign tokens, other tools and stopped sessions", 
   broker.modOwners.clear();
   assert.equal((await send(auth)).status, 410, "the mod stops reporting");
 });
+
+test("discarding a traversal id removes nothing outside the broker's directory", async (t) => {
+  const { broker } = await setup(t);
+  const outside = path.join(path.dirname(broker.directory), "outside");
+  for (const name of ["x.claude", "x.claude-bridge", "x.launch.json", "x.tui.json"])
+    fs.mkdirSync(path.join(outside, name), { recursive: true });
+  const victim = fs.mkdtempSync(path.join(os.tmpdir(), "victim-"));
+  t.after(() => fs.rmSync(victim, { recursive: true, force: true }));
+  fs.mkdirSync(`${victim}.claude-bridge`);
+  t.after(() => fs.rmSync(`${victim}.claude-bridge`, { recursive: true, force: true }));
+  for (const id of ["../outside/x", "../x", victim, "a/b", "..", "", null])
+    await broker.discard(id);
+  for (const name of ["x.claude", "x.claude-bridge", "x.launch.json", "x.tui.json"])
+    assert.ok(fs.existsSync(path.join(outside, name)), name);
+  assert.ok(fs.existsSync(`${victim}.claude-bridge`));
+  assert.ok(fs.existsSync(broker.directory));
+  assert.throws(() => broker.sessionPath("../x", ".claude-bridge"));
+  assert.match(
+    broker.sessionPath("s", ".claude-bridge"),
+    /\/requests\/s\.claude-bridge$/,
+  );
+});
