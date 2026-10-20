@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 import { changedFiles, mergeBaseReader, workingTree } from "./affected/repo-source.mjs";
 import { ciPlan, githubOutput } from "./affected/ci-plan.mjs";
+import { loadTimings } from "./browser-shards.mjs";
 import {
   browserSpec,
   defaultThreshold,
@@ -56,6 +57,13 @@ function runNodeTests(root, files, options) {
   });
 }
 
+function printShards(plan) {
+  for (const { shard, specs } of plan["browser-shards"])
+    console.log(
+      `Chromium shard ${shard}: ${specs ? `${specs.split(" ").length} specs` : "Playwright --shard"}`,
+    );
+}
+
 async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -76,11 +84,16 @@ async function main() {
   if (values.files && values.base) throw new Error("Use either --base or --files");
   const root = path.resolve(import.meta.dirname, "..");
   const base = values.base ?? process.env.AGENTPIER_AFFECTED_BASE;
+  const browserPlan = () => ({
+    browserSpecs: workingTree(root).files.filter((file) => browserSpec.test(file)),
+    timings: loadTimings("chromium"),
+  });
   if (values.full) {
     if (!values["github-output"]) throw new Error("--full plans CI: add --github-output");
-    const plan = ciPlan(null, { full: true });
+    const plan = ciPlan(null, { full: true, ...browserPlan() });
     fs.appendFileSync(values["github-output"], `${githubOutput(plan)}\n`);
     console.log("Merge queue: every suite runs.");
+    printShards(plan);
     return;
   }
   if (!values.files && !base) throw new Error("Name a --base ref or --files");
@@ -96,9 +109,10 @@ async function main() {
     const { files } = workingTree(root);
     const plan = ciPlan(result, {
       nodeTotal: files.filter((file) => nodeTest.test(file)).length,
-      browserTotal: files.filter((file) => browserSpec.test(file)).length,
+      ...browserPlan(),
     });
     fs.appendFileSync(values["github-output"], `${githubOutput(plan)}\n`);
+    printShards(plan);
   }
   if (!values.run) return;
   if (!result.node.length) {

@@ -51,7 +51,7 @@ Plans, specs, and progress logs are working documents, never deliverables. Befor
 
 Every pull request must review and update the documentation its change affects, in the same pull request: `README.md` and `README.de.md`, guides under `docs/`, ADRs, and every quoted UI path or label. This covers renamed or moved settings, new or removed features, changed behavior, and CLI or route changes. Name the docs you checked or updated in the description, or state why none were affected.
 
-Follow the history's concise imperative prefixes: `fix:`, `feat:`, and `chore:`. Keep commits focused. Describe the problem, resulting behavior, and validation in PRs; list the docs you checked as part of validation, link relevant issues, and include screenshots for visible UI changes. Pull requests run the affected tests on Linux and Chromium; the merge queue runs the full suites, and nightly and release runs cover Linux/macOS, Node 22/24 and Chromium/WebKit.
+Follow the history's concise imperative prefixes: `fix:`, `feat:`, and `chore:`. Keep commits focused. Describe the problem, resulting behavior, and validation in PRs; list the docs you checked as part of validation, link relevant issues, and include screenshots for visible UI changes. Pull requests run the affected tests on Linux and Chromium; the merge queue runs the full Node and Chromium suites, and nightly and release runs cover Linux/macOS, Node 22/24 and Chromium/WebKit. Label a pull request `webkit` to run WebKit on it.
 
 ## Security & Configuration
 

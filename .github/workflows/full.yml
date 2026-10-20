@@ -151,6 +151,7 @@ jobs:
           browser: chromium
           shard: ${{ matrix.shard }}
           total: 4
+          processes: 2
   # WebKit, its iPad-size tablet project and the repeated timing regressions.
   webkit:
     name: full webkit

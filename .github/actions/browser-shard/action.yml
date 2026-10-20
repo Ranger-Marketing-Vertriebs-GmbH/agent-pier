@@ -1,5 +1,5 @@
 name: Browser shard
-description: Build the app and run one Playwright shard in one browser.
+description: Build the app and run one browser shard in one or more Playwright processes.
 inputs:
   browser:
     description: chromium or webkit
@@ -11,9 +11,17 @@ inputs:
     description: The number of shards
     required: true
   specs:
-    description: Space-separated spec files; empty runs every spec
+    description: >-
+      This shard's own space-separated spec files; empty takes the shard's part of
+      every spec, balanced by scripts/browser-shard-timings.json
     required: false
     default: ""
+  processes:
+    description: >-
+      Parallel Playwright processes, each with its own test server port and output
+      directory; the job fails when any of them fails
+    required: false
+    default: "1"
   repeat-timing-regressions:
     description: Also repeat the known WebKit timing regressions without retries
     required: false
@@ -53,17 +61,47 @@ runs:
         BROWSER: ${{ inputs.browser }}
     - shell: bash
       run: npm run build
-    # One spec path per word; read into an array, never glob-expanded. An empty
-    # list runs every spec.
-    - shell: bash
+    # scripts/browser-shards.mjs writes one argument file per process: its specs,
+    # balanced by recorded seconds, or Playwright's --shard without timings. Spec
+    # paths are read one per word or line into arrays, never glob-expanded. Each
+    # process has its own server port (and so its own temporary data, tmux and
+    # broker sockets, and login state) and output directory; with several, every
+    # output line carries a "[pN] " prefix.
+    - name: Run the browser specs
+      shell: bash
       run: |
+        set -uo pipefail
+        plan="$RUNNER_TEMP/browser-shard-plan"
         read -ra specs <<< "$SPECS"
-        npm run test:e2e -- --shard="$SHARD/$TOTAL" "${specs[@]}"
+        node scripts/browser-shards.mjs --browser "$AGENTPIER_TEST_BROWSER" \
+          --shard "$SHARD" --total "$TOTAL" --processes "$PROCESSES" --out "$plan" "${specs[@]}" || exit 1
+        pids=()
+        for file in "$plan"/process-*.args; do
+          index="${file##*/process-}"
+          index="${index%.args}"
+          mapfile -t args < "$file"
+          (
+            export AGENTPIER_TEST_PORT=$((4740 + index))
+            if [ "$PROCESSES" = 1 ]; then
+              npx playwright test --output "test-results/process-$index" "${args[@]}"
+            else
+              npx playwright test --output "test-results/process-$index" "${args[@]}" 2>&1 |
+                sed -u "s/^/[p$index] /"
+            fi
+          ) &
+          pids+=("$!")
+        done
+        status=0
+        for pid in "${pids[@]}"; do
+          wait "$pid" || status=1
+        done
+        exit "$status"
       env:
         AGENTPIER_TEST_BROWSER: ${{ inputs.browser }}
         SHARD: ${{ inputs.shard }}
         TOTAL: ${{ inputs.total }}
         SPECS: ${{ inputs.specs }}
+        PROCESSES: ${{ inputs.processes }}
     # Known WebKit timing regressions, repeated without the CI retry so one
     # failed repetition fails.
     - name: Repeat WebKit timing regressions
