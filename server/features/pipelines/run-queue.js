@@ -61,6 +61,9 @@ export class RunQueue {
     this.closed = false;
     this.dirty = false;
     this.draining = null;
+    // One pass per project at a time: a slow start never holds back another project.
+    this.passes = new Map();
+    this.dirtyProjects = new Set();
     // Events can be missed while closed or on errors; a slow poll catches up.
     if (pollIntervalMs > 0) {
       this.timer = setInterval(() => this.changed(), pollIntervalMs);
@@ -250,7 +253,12 @@ export class RunQueue {
     const barrier = this.engine.mutationBarrier;
     if (!this.closed)
       this.draining ??= barrier ? barrier.detached(() => this.drain()) : this.drain();
-    return this.draining || Promise.resolve();
+    return this.idle();
+  }
+  /** Resolves once no pass is pending or running. */
+  async idle() {
+    while (this.draining || this.passes.size)
+      await Promise.all([this.draining, ...this.passes.values()]);
   }
   async drain() {
     try {
@@ -258,7 +266,11 @@ export class RunQueue {
       await new Promise((resolve) => setImmediate(resolve));
       while (this.dirty && !this.closed) {
         this.dirty = false;
-        await this.schedule().catch((error) => this.onError(error));
+        try {
+          this.schedule();
+        } catch (error) {
+          this.onError(error);
+        }
       }
     } finally {
       this.draining = null;
@@ -270,33 +282,48 @@ export class RunQueue {
       ...this.engine.store.withStatus("awaiting-human"),
     ];
   }
-  async schedule() {
+  /** Starts a pass for every project with waiting or interrupted items. */
+  schedule() {
     const projects = new Set([
       ...this.store.projectsWithState("starting"),
       ...this.store.projectsWithState("queued"),
     ]);
-    for (const projectId of projects) {
-      if (this.closed) return;
-      if (!this.exists(projectId)) {
-        this.orphaned(projectId);
-        continue;
+    for (const projectId of projects) this.pass(projectId);
+  }
+  /**
+   * Runs the project's pass, or marks it to run again when one is already running, so
+   * a project never has two passes at once and never starts an item twice.
+   */
+  pass(projectId) {
+    this.dirtyProjects.add(projectId);
+    if (this.passes.has(projectId)) return;
+    const run = (async () => {
+      try {
+        while (this.dirtyProjects.delete(projectId) && !this.closed)
+          await this.scheduleProject(projectId).catch((error) => this.onError(error));
+      } finally {
+        this.passes.delete(projectId);
       }
-      // Claims a restart interrupted start again with their reserved ids.
-      for (const item of this.store.list(projectId))
-        if (item.state === "starting" && !this.inFlight.has(item.id) && !this.closed)
-          await this.resume(item);
-      const settings = this.settings(projectId);
-      while (!this.closed) {
-        const [next] = itemsToStart({
-          projectId,
-          items: this.store.list(projectId),
-          runs: this.activeRuns(),
-          settings,
-        });
-        // A client's item waits until its grant can be checked.
-        if (!next || (next.source?.kind === "mcp" && !this.authorize)) break;
-        await this.launch(this.store.save({ ...next, state: "starting" }));
-      }
+    })();
+    this.passes.set(projectId, run);
+  }
+  async scheduleProject(projectId) {
+    if (!this.exists(projectId)) return this.orphaned(projectId);
+    // Claims a restart interrupted start again with their reserved ids.
+    for (const item of this.store.list(projectId))
+      if (item.state === "starting" && !this.inFlight.has(item.id) && !this.closed)
+        await this.resume(item);
+    const settings = this.settings(projectId);
+    while (!this.closed) {
+      const [next] = itemsToStart({
+        projectId,
+        items: this.store.list(projectId),
+        runs: this.activeRuns(),
+        settings,
+      });
+      // A client's item waits until its grant can be checked.
+      if (!next || (next.source?.kind === "mcp" && !this.authorize)) break;
+      await this.launch(this.store.save({ ...next, state: "starting" }));
     }
   }
   async resume(item) {
@@ -337,12 +364,12 @@ export class RunQueue {
     }
     if (checked.tokenBudget === item.tokenBudget) return item;
     // Capped to the pipeline's lowered budget; the item and the audit log say so.
-    const capped = {
-      ...item,
+    const changes = {
       tokenBudget: checked.tokenBudget,
       budgetCapped: { from: item.tokenBudget, to: checked.tokenBudget },
     };
-    this.store.save(capped);
+    this.update(item, changes);
+    const capped = { ...item, ...changes };
     this.audit?.append({
       action: "pipeline.updated",
       resourceType: "pipeline",
@@ -388,9 +415,17 @@ export class RunQueue {
     }
     this.started(item);
   }
+  /**
+   * Saves changes onto the item as stored now, so a project move that happened while
+   * the item was being started keeps the item in the moved project at its new place.
+   */
+  update(item, changes) {
+    const stored = this.store.find(item.id) || item;
+    return this.store.save({ ...stored, ...changes });
+  }
   /** Marks an item failed with its reason; `failReason` also records it in the audit log. */
-  fail(item, error, failReason) {
-    this.store.save({ ...item, state: "failed", error });
+  fail(claimed, error, failReason) {
+    const item = this.update(claimed, { state: "failed", error });
     if (failReason)
       this.audit?.append({
         action: "pipeline.failed",
@@ -403,12 +438,20 @@ export class RunQueue {
       });
     this.onChange(item.projectId);
   }
-  started(item) {
-    this.store.save({ ...item, state: "started", error: null, startedAt: this.now() });
+  started(claimed) {
+    const item = this.update(claimed, {
+      state: "started",
+      error: null,
+      startedAt: this.now(),
+    });
     let run = null;
     try {
       run = this.engine.store.get(item.id);
-    } catch {}
+    } catch (error) {
+      // The run may already be deleted; anything else is logged, and the start is
+      // still recorded, without its budget.
+      if (error.status !== 404) this.onError(error);
+    }
     // Like every start: the budget the run spends against and who set it.
     const tokenBudget = run?.tokenBudget ?? null;
     this.audit?.append({
@@ -447,7 +490,7 @@ export class RunQueue {
     if (this.closed) return;
     this.closed = true;
     clearInterval(this.timer);
-    await this.draining;
+    await this.idle();
     this.store.close();
   }
 }
