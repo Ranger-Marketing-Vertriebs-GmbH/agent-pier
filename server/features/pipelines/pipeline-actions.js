@@ -7,14 +7,9 @@ import {
   outgoing,
   terminal,
 } from "./graph-navigation.js";
-import {
-  advance,
-  conclude,
-  launchStage,
-  loopBack,
-  publishCompleted,
-} from "./execution-stage.js";
+import { advance, conclude, launchStage, publishCompleted } from "./execution-stage.js";
 import { readVerdict } from "./stage-verdict.js";
+import { loopBack } from "./loop-back.js";
 import { relaunchOptions } from "./loop-session.js";
 import { recordReportDigests } from "./stage-reports.js";
 import { filterAnswers, recordResponses } from "./loop-rounds.js";
