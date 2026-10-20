@@ -6,8 +6,12 @@ import {
 } from "./memory-flushes.js";
 import { inheritsFromLead } from "./native-capabilities.js";
 
-const ownerOrigin = (origin) =>
-  ["owner", "telegram"].includes(origin?.kind) && !origin.forwarded;
+/**
+ * A person's own turn: the owner's, his paired Telegram chat's or a restricted
+ * user's in her own chat, never forwarded content. Such a turn may change memory.
+ */
+export const directOrigin = (origin) =>
+  ["owner", "telegram", "user"].includes(origin?.kind) && !origin.forwarded;
 // Refused flush writes are logged once per flush session (bounded).
 const logged = new Set();
 function diagnose(bridge, input, code) {
@@ -42,7 +46,7 @@ function sources(bridge, input) {
           current &&
           [attempt.id, attempt.runtimeRunId].includes(flush.runId) &&
           // A task member's own memory takes its flush in any of its turns.
-          (ownerOrigin(origin) || inheritsFromLead(parent)),
+          (directOrigin(origin) || inheritsFromLead(parent)),
       },
     ];
   });
@@ -51,7 +55,8 @@ function sources(bridge, input) {
 /**
  * OpenClaw's pre-compaction memory flush runs in its own internal session
  * (memory-flushes.js); its one write is the append-only day note. It writes for
- * the run it interrupts: an owner's (or the paired Telegram chat's) own turn, or a
+ * the run it interrupts: a direct turn (directOrigin: the owner, his paired Telegram
+ * chat or a restricted user), or a
  * routine's run, of the same agent, never a forwarded, lead-requested or other
  * turn. The key must name the run the hook reports, the note must be today's or
  * yesterday's, and the first flush session that writes owns the flush; anything
@@ -92,7 +97,7 @@ function flushTurn(bridge, input) {
   const turns = bridge.assistants.ledger.pending().filter((a) => {
     if (!["pending", "accepted", "running"].includes(a.state)) return false;
     const { parent, origin, current } = bridge.turn(a, input.agentId);
-    return current && parent.runtimeAgentId === input.agentId && ownerOrigin(origin);
+    return current && parent.runtimeAgentId === input.agentId && directOrigin(origin);
   });
   return turns.length === 1
     ? { attempt: turns[0], key: `flush:${input.runId || input.sessionKey}` }
@@ -125,7 +130,7 @@ export function noteRefusal(bridge, input) {
   }
   if (!target) return;
   const { attempt, parent, origin } = bridge.turn(target.attempt, input.agentId);
-  if (parent.runtimeAgentId !== input.agentId || (!flush && ownerOrigin(origin))) return;
+  if (parent.runtimeAgentId !== input.agentId || (!flush && directOrigin(origin))) return;
   const reason = flush ? "flush" : refusalReason(origin);
   const added = notes.record({
     key: target.key || `${attempt.id}:${reason}`,

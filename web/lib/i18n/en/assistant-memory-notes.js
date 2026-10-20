@@ -1,4 +1,5 @@
-// Quiet chat lines when an agent's memory could not be written (memory-notes.js).
+// Quiet chat lines when an agent's memory could not be written, or when a write to a
+// shared agent's memory applies to all its users (memory-notes.js).
 export const memoryNoteCopy = {
   reasons: {
     "guard-pending":
@@ -9,6 +10,7 @@ export const memoryNoteCopy = {
     "lead-request": "Memory not saved: tasks from the lead agent cannot change memory.",
     flush:
       "Memory not saved: the automatic note before shortening the conversation was refused.",
+    "shared-write": "Applies to everyone who uses this agent.",
   },
   unknown: "Memory not saved.",
 };

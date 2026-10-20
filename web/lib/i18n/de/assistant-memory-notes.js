@@ -1,4 +1,5 @@
-// Ruhige Chatzeilen, wenn das Gedächtnis eines Agenten nicht geschrieben wurde.
+// Ruhige Chatzeilen, wenn das Gedächtnis eines Agenten nicht geschrieben wurde oder
+// ein Eintrag im Gedächtnis eines geteilten Agenten für alle gilt.
 export const memoryNoteCopy = {
   reasons: {
     "guard-pending":
@@ -13,6 +14,7 @@ export const memoryNoteCopy = {
       "Gedächtnis nicht gespeichert: Aufgaben des leitenden Agenten können das Gedächtnis nicht ändern.",
     flush:
       "Gedächtnis nicht gespeichert: Die automatische Notiz vor dem Kürzen der Unterhaltung wurde abgelehnt.",
+    "shared-write": "Gilt für alle, die diesen Agenten nutzen.",
   },
   unknown: "Gedächtnis nicht gespeichert.",
 };

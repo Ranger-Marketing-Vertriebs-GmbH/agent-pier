@@ -10,11 +10,12 @@ import { toolError } from "./tool-errors.js";
 import { guardNeeded } from "./write-guard-wait.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
 import { flushSessionAgent } from "./memory-flushes.js";
-import { flushWrite, noteRefusal } from "./memory-write-policy.js";
+import { directOrigin, flushWrite, noteRefusal } from "./memory-write-policy.js";
 import { isMemory, ownMemoryTarget } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import { isLeadRoutine } from "./lead-routines.js";
 import { lockedCall } from "../users/user-agent-lock.js";
+import { isShared } from "../users/user-access.js";
 const actions = new Set([
   "propose",
   "status",
@@ -304,7 +305,7 @@ export class TeamBridge {
     }
     const allowed =
       current &&
-      (this.ownerOrigin(origin) ||
+      (directOrigin(origin) ||
         // A task member writes its own memory in any turn it works, never the copy
         // of its lead's memory or anything else (member-memory.js).
         (inheritsFromLead(parent) &&
@@ -321,7 +322,19 @@ export class TeamBridge {
             parent.id,
             input.path,
           )));
+    if (allowed && isShared(parent) && isMemory(input.path)) this.noteShared(attempt);
     return !!allowed;
+  }
+  // A saved write to a shared agent's MEMORY.md or memory/ (USER.md is the owner's,
+  // tool-guard.js) applies to all its users: the writer's
+  // chat says so once per turn (memory-notes.js "shared-write").
+  noteShared(attempt) {
+    const added = this.assistants.memoryNotes?.record({
+      key: `${attempt.id}:shared-write`,
+      conversationId: this.assistants.ledger.getRequest(attempt.requestId).conversationId,
+      reason: "shared-write",
+    });
+    if (added) this.assistants.changed?.();
   }
   // The active attempts bound to a runtime session.
   bound(sessionKey) {
@@ -349,9 +362,6 @@ export class TeamBridge {
         .listAssistants()
         .find((a) => a.runtimeAgentId === runtimeAgentId) || null
     );
-  }
-  ownerOrigin(origin) {
-    return ["owner", "telegram"].includes(origin?.kind) && !origin.forwarded;
   }
   // A routine is standing work its owner configured for this agent: its run may
   // change the agent's own workspace like an owner turn. This origin is only the

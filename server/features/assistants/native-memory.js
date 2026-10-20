@@ -105,6 +105,34 @@ export class NativeMemory {
       await handle?.close();
     }
   }
+  /**
+   * Deletes one note under memory/ (the owner reviews shared memory, users delete
+   * their own agents' notes): 400 for MEMORY.md, USER.md or any other path, 404
+   * when the note does not exist. Links are never followed.
+   */
+  remove(id, name) {
+    return this.assistants.admit(async () => {
+      if (
+        typeof name !== "string" ||
+        !noteName.test(name) ||
+        name.split("/").includes("..")
+      )
+        throw assistantProblem("invalid");
+      const root = this.root(id),
+        file = path.join(root, name);
+      try {
+        await assertRealDirectories(root);
+        const real = await fs.realpath(file);
+        if (real !== path.join(await fs.realpath(root), name)) throw Error("link");
+        if (!(await fs.lstat(real)).isFile()) throw Error("type");
+        await fs.unlink(real);
+      } catch (error) {
+        if (error.code === "ENOENT") throw assistantProblem("notFound", 404);
+        throw assistantProblem("invalid");
+      }
+      this.assistants.changed();
+    });
+  }
   async prepare(id) {
     const a = this.assistants;
     const agent = a.store.getAssistant(id);
