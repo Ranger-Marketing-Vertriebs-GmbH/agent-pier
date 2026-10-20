@@ -7,4 +7,6 @@ export const users = Object.freeze({
   agentAccessInvalid: "Diese Zuweisung an Benutzer ist ungültig.",
   agentRequired: "Nur Agenten von Benutzern lassen sich Benutzern zuweisen.",
   level: "Das erlaubt deine Stufe für diesen Agenten nicht.",
+  agentsChoice:
+    "Wähle, ob die eigenen Agenten des Benutzers archiviert oder behalten werden.",
 });

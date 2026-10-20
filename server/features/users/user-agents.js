@@ -1,6 +1,8 @@
 import { assistantProblem } from "../assistants/assistant-validation.js";
 import { isUserAgent, validateUserAccess } from "./user-access.js";
 import { userProblem } from "./user-errors.js";
+import { memberLevel } from "./user-access.js";
+import { releaseUserData } from "./user-release.js";
 
 const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
@@ -45,5 +47,20 @@ export class UserAgents {
       assistants.changed();
       return result;
     });
+  }
+  /** Whether the user has an own agent (deleting her then asks what happens to it). */
+  ownsAgents(userId) {
+    return (this.s.assistants?.store.listAssistants() || []).some(
+      (agent) => agent.userAccess?.mode === "own" && memberLevel(agent, userId),
+    );
+  }
+  /**
+   * Releases a user's agents and data before she is deleted (user-release.js):
+   * `mode` "archive" archives her own agents, "keep" hands them to the owner.
+   */
+  releaseUser(userId, mode, optIn) {
+    const { assistants } = this.s;
+    if (!assistants) return Promise.resolve();
+    return assistants.admit(() => releaseUserData(this.s, userId, mode, optIn));
   }
 }
