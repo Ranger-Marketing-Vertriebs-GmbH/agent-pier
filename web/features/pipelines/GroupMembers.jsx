@@ -48,7 +48,7 @@ export function MemberActions({ run, member, refresh, shared }) {
             key={action}
             type="button"
             className="button secondary compact"
-            aria-label={`${copy.actions[action]} · ${stageName(member)}`}
+            aria-label={`${copy.memberActions[action]} · ${stageName(member)}`}
             disabled={mutation.busy || (action === "feedback" && !feedback.trim())}
             onClick={() =>
               action === "override"
@@ -56,7 +56,7 @@ export function MemberActions({ run, member, refresh, shared }) {
                 : mutation.run(() => execute(action))
             }
           >
-            {copy.actions[action]}
+            {copy.memberActions[action]}
           </button>
         ))}
       </div>
@@ -65,7 +65,7 @@ export function MemberActions({ run, member, refresh, shared }) {
         <ConfirmDialog
           title={copy.confirmTitles.override(runTitle(run))}
           body={copy.overrideMember(stageName(member))}
-          confirmLabel={copy.confirmLabels.override}
+          confirmLabel={copy.memberOverrideConfirm}
           onCancel={() => setConfirm(false)}
           onConfirm={() => mutation.run(() => execute("override"))}
         />

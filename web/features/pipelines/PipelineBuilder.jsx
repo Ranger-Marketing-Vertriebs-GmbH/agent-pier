@@ -282,6 +282,7 @@ export default function PipelineBuilder({
             copy.invalidLoop,
             copy.invalidGroup,
             copy.groupFirst,
+            copy.duplicateMemberProfile,
           ].includes(action.error) &&
           !advanced &&
           !stageError(draft.stages, copy)

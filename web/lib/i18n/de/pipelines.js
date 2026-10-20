@@ -374,6 +374,15 @@ export const pipelineCopy = {
     "Die fehlgeschlagene Prüfung wird so akzeptiert. Die Stufe geht ohne erneute Prüfung und ohne gesonderte Freigabe weiter.",
   overrideGate:
     "Diese Entscheidung gibt die Stufe trotz ihres Ergebnisses an ihrer Freigabe frei. Eine konfigurierte Prüfung läuft weiterhin, falls sie noch nicht bestanden ist.",
+  memberActions: {
+    retry: "Mitglied neu starten",
+    reconcile: "Ergebnis erneut prüfen",
+    override: "Als bestanden werten",
+    feedback: "Mit Rückmeldung wiederholen",
+  },
+  memberOverrideConfirm: "Als bestanden werten",
+  duplicateMemberProfile:
+    "Jedes Mitglied einer parallelen Gruppe braucht ein eigenes Profil.",
   overrideBlockedMembers: (members, count) =>
     `${members} ${count === 1 ? "gilt" : "gelten"} ohne Prüfergebnis als bestanden. Mitglieder, die ihr Ergebnis gemeldet haben, behalten es, und die Gruppe schließt mit ihnen ab.`,
   overrideGroupChanges:

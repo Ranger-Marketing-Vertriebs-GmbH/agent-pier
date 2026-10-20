@@ -316,9 +316,36 @@ test("the stage editor refuses a parallel group as the first stage", async () =>
     kind: "parallel",
     members: [
       { key: "a", profileId: "p" },
-      { key: "b", profileId: "p" },
+      { key: "b", profileId: "q" },
     ],
   };
   assert.equal(stageError([groupStage, { key: "s", profileId: "p" }], copy), "first");
   assert.equal(stageError([{ key: "s", profileId: "p" }, groupStage], copy), "");
+});
+
+test("each member of a group runs a profile of its own", async () => {
+  assert.throws(
+    () =>
+      validateGraph(
+        graph({
+          id: "review",
+          kind: "parallel",
+          members: [
+            { id: "a", profileId: "p-security" },
+            { id: "b", profileId: "p-security" },
+          ],
+        }),
+      ),
+    { message: messages.duplicateGroupProfile("review") },
+  );
+  const { stageError } = await import("../../web/features/pipelines/graph-editor.js");
+  const copy = { duplicateMemberProfile: "twice", invalidGroup: "group" };
+  const stage = (ids) => ({
+    key: "g",
+    kind: "parallel",
+    members: ids.map((profileId, i) => ({ key: `m${i}`, profileId })),
+  });
+  const first = { key: "s", profileId: "p" };
+  assert.equal(stageError([first, stage(["a", "a"])], copy), "twice");
+  assert.equal(stageError([first, stage(["a", "b"])], copy), "");
 });
