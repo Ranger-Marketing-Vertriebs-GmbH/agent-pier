@@ -417,6 +417,8 @@ export class AssistantService {
   changed({ conversationId, feeds = true } = {}) {
     if (feeds && conversationId) this.feeds?.invalidate(conversationId);
     else if (feeds) this.feeds?.invalidateAll();
+    // Named for the users' streams only (me-events.js), never on the owner's list.
+    if (conversationId) this.events.emit("conversation", conversationId);
     this.events.publish({ type: "change" });
   }
   serialize(key, operation) {

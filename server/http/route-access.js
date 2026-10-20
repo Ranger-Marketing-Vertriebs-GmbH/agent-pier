@@ -10,6 +10,8 @@ export const userRoutes = [
   { method: "GET", pattern: /^\/api\/me$/ },
   { method: "PUT", pattern: /^\/api\/me\/password$/ },
   { method: "GET", pattern: /^\/api\/me\/dictation$/ },
+  // Her event stream (me-events.js).
+  { method: "GET", pattern: /^\/api\/me\/events$/ },
   // Her own devices for push notices (me-notifications.js).
   { method: "GET", pattern: /^\/api\/me\/notifications$/ },
   { method: "POST", pattern: /^\/api\/me\/notifications\/subscriptions$/ },
