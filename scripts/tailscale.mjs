@@ -53,7 +53,6 @@ function main() {
   writePrivate(path.join(config.dataDir, "config.json"), {
     port: config.port,
     remoteUrl,
-    ownerLogin: login,
   });
   console.log(serverMessages.scripts.remoteAccessConfigured(remoteUrl));
 }

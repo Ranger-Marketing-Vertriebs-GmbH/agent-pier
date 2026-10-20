@@ -596,7 +596,7 @@
   "http.proxyHostRequired": "de:7faf0de5c6f8 en:cd99674e6ebc",
   "http.requestFailed": "de:7203d3198514 en:e6c5c7ec5c6b",
   "http.sessionStopped": "de:a467bd8bd79b en:043bb4f4d3df",
-  "http.tailscaleAccountDenied": "de:a632f5fde101 en:4dd2fec7c7af",
+  "http.tailscaleIdentityRequired": "de:fa3f87d08871 en:73a97c713760",
   "http.terminalInputTooLong": "de:977ca2dd3537 en:b63ace3a0441",
   "http.unknownTerminalMessage": "de:1887f7fbe5d3 en:c3a012a58a5d",
   "login.exists": "de:d4bf524e131f en:d9b37fdc2211",
