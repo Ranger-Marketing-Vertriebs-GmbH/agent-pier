@@ -9,6 +9,7 @@ import {
   validUsername,
   verifyPassword,
 } from "./passwords.js";
+import { AttemptWindows } from "./attempt-windows.js";
 import { SessionLedger, absoluteDuration, idleDuration } from "./session-ledger.js";
 export { absoluteDuration, idleDuration };
 const day = 24 * 60 * 60 * 1000;
@@ -39,8 +40,9 @@ export class LoginStore {
       save: () => this.save(),
       now: () => this.now(),
     });
-    // One attempt window per source address: a LAN flood must not lock out the local owner.
-    this.attempts = new Map();
+    // One attempt window per source (local, tailnet login or network address): a flood
+    // from one device or tailnet member must not lock out the local owner.
+    this.attempts = new AttemptWindows({ now: () => this.now() });
   }
   get configured() {
     return Boolean(this.data.user);
@@ -67,18 +69,7 @@ export class LoginStore {
     return this.issue();
   }
   throttle(source) {
-    const key = String(source ?? "");
-    const now = this.now();
-    const window = this.attempts.get(key);
-    if (window && now - window.start < 60000) {
-      if (++window.count > 10) throw loginProblem("LOGIN_THROTTLED");
-      return;
-    }
-    this.attempts.delete(key);
-    // Bounded map: a flood of changing sources drops the oldest window instead of growing.
-    while (this.attempts.size >= 1000)
-      this.attempts.delete(this.attempts.keys().next().value);
-    this.attempts.set(key, { start: now, count: 1 });
+    if (!this.attempts.allow(source)) throw loginProblem("LOGIN_THROTTLED");
   }
   // Checks the owner's credentials without throttling; callers throttle themselves.
   async verifyOwner({ username, password } = {}) {

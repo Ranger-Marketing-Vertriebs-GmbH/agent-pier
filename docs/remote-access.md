@@ -63,7 +63,7 @@ npm run tailscale
 npm run service:install
 ```
 
-Der Einrichtungsbefehl gibt die tatsächliche Tailnet-URL aus; eine Namenskollision kann zu einem abweichenden Namen führen. Port 443 wird nur akzeptiert, wenn er frei oder bereits vom exakt gleichen AgentPier-Loopback-Handler belegt ist. AgentPier speichert die entstehende HTTPS-Origin und die autorisierte Anmeldung im privaten Datenverzeichnis. Die [Serve-Referenz](https://tailscale.com/docs/reference/tailscale-cli/serve) beschreibt den tailnet-internen Proxy und die HTTPS-Voraussetzungen.
+Der Einrichtungsbefehl gibt die tatsächliche Tailnet-URL aus; eine Namenskollision kann zu einem abweichenden Namen führen. Port 443 wird nur akzeptiert, wenn er frei oder bereits vom exakt gleichen AgentPier-Loopback-Handler belegt ist. AgentPier speichert die entstehende HTTPS-Origin und das eigene Tailscale-Konto im privaten Datenverzeichnis. Nur dieses Konto darf über Tailscale den Besitzer einrichten; alle anderen Tailnet-Mitglieder melden sich nur an. Die [Serve-Referenz](https://tailscale.com/docs/reference/tailscale-cli/serve) beschreibt den tailnet-internen Proxy und die HTTPS-Voraussetzungen.
 
 ### Entfernen
 

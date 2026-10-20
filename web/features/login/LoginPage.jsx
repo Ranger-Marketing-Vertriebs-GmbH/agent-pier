@@ -9,6 +9,23 @@ export default function LoginPage({ status, onLogin, refresh }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const setup = !status.configured;
+  // Nobody but the owner may create the owner account, so other devices only wait.
+  if (setup && status.canSetup === false)
+    return (
+      <main className="login-page">
+        <div className="login-card">
+          <LanguageSelect />
+          <p className="login-brand">
+            AgentPier<span>.</span>
+          </p>
+          <h1>{copy.welcome}</h1>
+          <p className="login-description">{copy.setupElsewhere}</p>
+          <button className="button secondary" type="button" onClick={refresh}>
+            {copy.retry}
+          </button>
+        </div>
+      </main>
+    );
   async function submit(event) {
     event.preventDefault();
     if (setup && password !== repeat) {

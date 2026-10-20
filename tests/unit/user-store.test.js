@@ -146,3 +146,28 @@ test("corrupt user state fails closed", async (t) => {
   );
   assert.throws(() => new UserStore(f.options), /Invalid private user state/);
 });
+
+test("password changes allow ten checks of the current password per minute", async (t) => {
+  let hashes = 0;
+  const f = fixture(t, {
+    hashPassword: async (value, salt) => {
+      hashes++;
+      return Buffer.from(`${salt}:${value}`.padEnd(64, "0").slice(0, 64));
+    },
+  });
+  const anna = await f.store.create({ username: "Anna", password });
+  const change = (current) =>
+    f.store.changePassword(anna.id, { current, next: "another-user-password" });
+  // Parallel guesses count before any hash starts.
+  const guesses = await Promise.allSettled(
+    Array.from({ length: 12 }, () => change("wrong-user-password")),
+  );
+  const throttled = guesses.filter((result) => result.reason?.code === "LOGIN_THROTTLED");
+  assert.equal(throttled.length, 2);
+  assert.equal(throttled[0].reason.status, 429);
+  const counted = hashes;
+  await assert.rejects(change(password), { status: 429, code: "LOGIN_THROTTLED" });
+  assert.equal(hashes, counted);
+  f.advance(60000);
+  await change(password);
+});

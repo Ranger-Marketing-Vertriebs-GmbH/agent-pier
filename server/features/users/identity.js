@@ -18,10 +18,21 @@ export class Identity {
   get configured() {
     return this.store.configured;
   }
+  get hasUsers() {
+    return this.users.list().length > 0;
+  }
   principal(row) {
     return principalOf(row);
   }
   setup(body, source) {
+    // Names stay unique across the owner and every user, also after an owner reset.
+    const username = body?.username;
+    if (
+      !this.store.configured &&
+      typeof username === "string" &&
+      this.users.taken(username)
+    )
+      throw loginProblem("LOGIN_USERNAME_TAKEN");
     return this.store.setup(body, source);
   }
   async login(body, source) {

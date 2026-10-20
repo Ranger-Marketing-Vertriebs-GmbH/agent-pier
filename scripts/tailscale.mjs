@@ -53,6 +53,8 @@ function main() {
   writePrivate(path.join(config.dataDir, "config.json"), {
     port: config.port,
     remoteUrl,
+    // Only this account may create the owner over Tailscale; everyone else signs in.
+    ownerLogin: login,
   });
   console.log(serverMessages.scripts.remoteAccessConfigured(remoteUrl));
 }

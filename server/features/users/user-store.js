@@ -11,6 +11,7 @@ import {
   verifyPassword,
 } from "../login/passwords.js";
 import { SessionLedger, digest } from "../login/session-ledger.js";
+import { AttemptWindows } from "../login/attempt-windows.js";
 import { userProblem } from "./user-errors.js";
 
 const normalised = (name) => name.trim().toLowerCase();
@@ -50,6 +51,8 @@ export class UserStore {
       save: () => this.save(),
       now: () => this.now(),
     });
+    // Password changes check the current password like a sign-in and get the same limit.
+    this.attempts = new AttemptWindows({ now: () => this.now() });
   }
   save() {
     writePrivate(this.file, this.data);
@@ -130,6 +133,7 @@ export class UserStore {
   }
   async changePassword(id, { current, next } = {}, keepToken) {
     const user = this.record(id);
+    if (!this.attempts.allow(id)) throw userProblem("LOGIN_THROTTLED");
     if (!(await verifyPassword(current, user, this.hash)))
       throw userProblem("USER_PASSWORD_WRONG");
     const credential = await this.credential(next);

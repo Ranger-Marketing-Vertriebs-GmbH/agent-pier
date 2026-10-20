@@ -87,7 +87,7 @@ test("the source window map stays bounded and drops the oldest source", (t) => {
   f.store.throttle("10.0.0.1");
   for (let index = 0; index < 1000; index++)
     f.store.throttle(`10.1.${index >> 8}.${index & 255}`);
-  assert.equal(f.store.attempts.size, 1000);
-  assert.equal(f.store.attempts.has("10.0.0.1"), false);
-  assert.equal(f.store.attempts.has("10.1.3.231"), true);
+  assert.equal(f.store.attempts.windows.size, 1000);
+  assert.equal(f.store.attempts.windows.has("10.0.0.1"), false);
+  assert.equal(f.store.attempts.windows.has("10.1.3.231"), true);
 });
