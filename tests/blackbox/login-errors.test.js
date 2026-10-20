@@ -36,7 +36,7 @@ test("login failures carry stable identifiers while preserving status and thrott
 
 test("unexpected login failures do not expose private diagnostics", async (t) => {
   const f = await applicationFixture(t);
-  f.application.login.login = async () => {
+  f.application.identity.login = async () => {
     throw new Error("private-path-and-token");
   };
   const response = await fetch(`${f.url}/auth/login`, {

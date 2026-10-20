@@ -9,6 +9,8 @@ import { SessionReload } from "./features/sessions/session-reload.js";
 import { SessionAutoResume } from "./features/sessions/session-auto-resume.js";
 import { sshRoutes } from "./http/routes/ssh.js";
 import { LoginStore } from "./features/login/login-store.js";
+import { UserStore } from "./features/users/user-store.js";
+import { Identity } from "./features/users/identity.js";
 import { loginRoutes, requireLogin } from "./http/login.js";
 import { agencyRoutes } from "./http/routes/agency.js";
 import { filesRoutes } from "./http/routes/files.js";
@@ -96,6 +98,12 @@ export async function createApplication(config) {
   const server = http.createServer(app);
   const services = await createServices(config);
   services.login = new LoginStore(config);
+  services.users = new UserStore({
+    dataDir: config.dataDir,
+    ownerName: () => services.login.ownerName(),
+  });
+  // Owner and user sessions; every request and socket asks it for its principal.
+  services.identity = new Identity({ login: services.login, users: services.users });
   // Live dictation uses the agents' central Deepgram connection while it exists.
   services.dictation = new DictationService({
     speech: () => services.assistantSpeech || null,
@@ -248,11 +256,11 @@ export async function createApplication(config) {
         .json({ error: error.message, ...messageIdentity(error.message) });
     }
   });
-  app.use("/auth", loginRoutes(services.login, effective));
+  app.use("/auth", loginRoutes(services.identity, effective));
   // Authenticated by its single-use OAuth state, not the session cookie.
   app.use("/api", mcpOAuthCallbackRoutes(services));
   app.use("/api", mcpCliOAuthCallbackRoutes(services));
-  app.use("/api", requireLogin(services.login, effective));
+  app.use("/api", requireLogin(services.identity, effective));
   // Slow mobile links benefit most; downloads stream raw bytes uncompressed.
   app.use(
     compression({
@@ -336,31 +344,31 @@ export async function createApplication(config) {
   registerResponses(app);
   const wss = attachTerminalWebSocket(server, {
     sessions: services.sessions,
-    login: services.login,
+    login: services.identity,
     effective,
   });
   const chatWss = attachChatWebSocket(server, {
     sync: services.chatSync,
     streams: services.chatStreams,
-    login: services.login,
+    login: services.identity,
     effective,
   });
   services.chatWss = chatWss;
   // The agent chats' live feeds, while the agent feature runs.
   services.assistantChatWss = attachAssistantChatWebSocket(server, {
     assistants: () => services.assistants,
-    login: services.login,
+    login: services.identity,
     effective,
   });
   // The owner's live view of the agents' browsers, while the agent feature runs.
   services.browserWss = attachBrowserWebSocket(server, {
     live: () => services.assistants?.liveView || null,
-    login: services.login,
+    login: services.identity,
     effective,
   });
   services.dictationWss = attachDictationWebSocket(server, {
     dictation: () => services.dictation,
-    login: services.login,
+    login: services.identity,
     effective,
   });
   // Returning the services object itself keeps test seams such as restartService writable.

@@ -17,6 +17,8 @@ test("setup gates APIs and persists one private user and revocable sessions", as
     configured: false,
     authenticated: false,
     canSetup: true,
+    role: null,
+    user: null,
   });
   const created = await f.request("/auth/setup", post(credentials));
   assert.equal(created.status, 201);
@@ -80,6 +82,8 @@ test("permitted network setup creates one user while forged proxy markers remain
     configured: false,
     authenticated: false,
     canSetup: true,
+    role: null,
+    user: null,
   });
   assert.equal((await remote("/api/health")).status, 401);
   assert.equal((await remote("/api/state")).status, 401);
