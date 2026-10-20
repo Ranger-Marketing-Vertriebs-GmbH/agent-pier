@@ -231,9 +231,9 @@ export class AssistantStore {
       .run(JSON.stringify(result), result.revision, id);
     return result;
   }
-  /** Changes a conversation's record (archive, a deleted user's mark). */
+  /** Changes a conversation's record (archive, title, a deleted user's mark). */
   updateConversation(id, fields) {
-    const result = { ...this.getConversation(id), ...fields };
+    const result = { ...this.storedConversation(id), ...fields };
     this.db
       .prepare("UPDATE conversations SET body=? WHERE id=?")
       .run(JSON.stringify(result), id);
@@ -264,7 +264,8 @@ export class AssistantStore {
       return record;
     }
     const record = {
-      id: randomUUID(),
+      // A new chat names its native session after its id (agent-chats.js).
+      id: typeof input.id === "string" ? input.id : randomUUID(),
       assistantId: input.assistantId,
       runtimeSessionKey: input.runtimeSessionKey,
       channel: input.channel || "agentpier",
@@ -272,6 +273,13 @@ export class AssistantStore {
       archivedAt: null,
       // A restricted user's own chat (conversation-open.js); the owner's has none.
       ...(typeof input.userId === "string" && { userId: input.userId }),
+      // The person's main chat, which reminders, routines and Telegram deliver into.
+      ...(input.main === true && { main: true }),
+      title: typeof input.title === "string" ? input.title : null,
+      titleSource:
+        input.titleSource === "set" || input.titleSource === "auto"
+          ? input.titleSource
+          : null,
     };
     this.db
       .prepare("INSERT INTO conversations VALUES (?,?,?,?)")
@@ -283,23 +291,33 @@ export class AssistantStore {
       );
     return record;
   }
+  /** A conversation; a deleted chat (chat-removal.js) is unknown like a missing one. */
   getConversation(id) {
+    const record = this.storedConversation(id);
+    if (record.deletedAt) throw assistantProblem("notFound", 404);
+    return record;
+  }
+  /** The stored record, a deleted chat's too. */
+  storedConversation(id) {
     const row = this.db.prepare("SELECT body FROM conversations WHERE id=?").get(id);
     if (!row) throw assistantProblem("notFound", 404);
     return JSON.parse(row.body);
   }
-  /** The conversation whose native session is `key`, or null. */
+  /** The conversation whose native session is `key`, or null (also when deleted). */
   conversationOfSession(key) {
     const row = this.db
       .prepare("SELECT body FROM conversations WHERE session_key=?")
       .get(String(key));
-    return row ? JSON.parse(row.body) : null;
+    const record = row ? JSON.parse(row.body) : null;
+    return record?.deletedAt ? null : record;
   }
-  listConversations() {
+  /** Every conversation but deleted chats; `{ deleted: true }` includes them. */
+  listConversations({ deleted = false } = {}) {
     return this.db
       .prepare("SELECT body FROM conversations ORDER BY rowid")
       .all()
-      .map((r) => JSON.parse(r.body));
+      .map((r) => JSON.parse(r.body))
+      .filter((c) => deleted || !c.deletedAt);
   }
   /** Replaces the cache with the `cachedWindow` of `messages` (sorted). */
   cacheMessages(id, messages) {

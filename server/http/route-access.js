@@ -24,6 +24,9 @@ export const userRoutes = [
   // Her agents and her own chats with them (me-agents.js, me-conversations.js).
   { method: "GET", pattern: /^\/api\/me\/agents$/ },
   { method: "POST", pattern: /^\/api\/me\/agents\/[^/]+\/conversation$/ },
+  // Her chat list with each agent, and New chat (me-chats.js).
+  { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/chats$/ },
+  { method: "POST", pattern: /^\/api\/me\/agents\/[^/]+\/chats$/ },
   { method: "GET", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
   { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
   { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/queued$/ },

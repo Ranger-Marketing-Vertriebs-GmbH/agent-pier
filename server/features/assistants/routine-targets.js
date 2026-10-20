@@ -1,26 +1,30 @@
 /**
  * Where reminders, routines and check-ins deliver (AGENTPIER-141). Their target is
- * always the agent's main chat: its one AgentPier conversation, the one
- * `openConversation` returns and a Telegram pairing also writes into. A push notice
+ * always the agent's main chat: the AgentPier conversation marked `main`, the one
+ * `openConversation` returns and a Telegram pairing also writes into, whatever other
+ * chats the person started (agent-chats.js). A push notice
  * goes with every result. Telegram is an optional extra destination per binding.
  */
 
 /**
  * The agent's main chat of one person (the owner's without `userId`), or null before
- * that person has one. Each user of a shared agent has her own.
+ * that person has one. Each user of a shared agent has her own. It is the chat marked
+ * `main`; a chat stored before agents had several chats becomes main on first read:
+ * the person's first unarchived AgentPier chat.
  */
 export function mainConversation(store, assistantId, userId = null) {
-  return (
-    store
-      .listConversations()
-      .find(
-        (c) =>
-          c.assistantId === assistantId &&
-          c.channel === "agentpier" &&
-          !c.archivedAt &&
-          (c.userId ?? null) === userId,
-      ) || null
-  );
+  const own = store
+    .listConversations()
+    .filter(
+      (c) =>
+        c.assistantId === assistantId &&
+        c.channel === "agentpier" &&
+        !c.archivedAt &&
+        (c.userId ?? null) === userId,
+    );
+  const main = own.find((c) => c.main === true);
+  if (main || !own.length) return main || null;
+  return store.updateConversation(own[0].id, { main: true });
 }
 
 /**

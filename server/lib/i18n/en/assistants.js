@@ -308,6 +308,13 @@ export const assistants = {
   queuedAttachment: "This attachment belongs to a queued message.",
   queuedFailed: "The queued message was not sent. Edit it first.",
   queuedExpired: "The queued message was older than a day and was not sent anymore.",
+  chatArchived: "This chat is archived and read-only. Restore it to write in it again.",
+  chatMain:
+    "The main chat stays: reminders, routines, check-ins and Telegram write into it.",
+  chatBusy:
+    "The agent is working in this chat or a message is waiting. Try again afterwards.",
+  chatCommand: "This command is not available here. Start a new chat instead.",
+  chatConfirm: "Confirm that this chat is deleted with its history.",
   queuedArchived: "This agent is archived and takes no more messages.",
   active: "A request is still running. Wait for its result or stop it first.",
   disabled: "Agents are turned off. Turn them on under Settings › Agents.",
