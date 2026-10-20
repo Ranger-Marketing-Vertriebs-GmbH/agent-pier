@@ -31,6 +31,7 @@ import { assistantListFeed } from "./assistant-list-feed.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { openMainConversation } from "./conversation-open.js";
 import { AgentChats } from "./agent-chats.js";
+import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import {
   auditProactivity,
@@ -457,6 +458,9 @@ export class AssistantService {
   }
   send(conversationId, input, trustedContext = { kind: "owner" }) {
     assertWired(this);
+    // `/new` and `/name` are AgentPier's own (chat-commands.js).
+    if (isChatCommand(input, trustedContext))
+      return chatCommand(this, conversationId, input, trustedContext);
     return orderedTurn(
       this,
       conversationId,

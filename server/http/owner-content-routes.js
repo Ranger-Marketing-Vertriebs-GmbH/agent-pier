@@ -25,6 +25,8 @@ export const ownerContentRoutes = {
   // The chat list names the chats and their titles; New chat starts one.
   "GET /api/assistants/:id/chats": "agent",
   "POST /api/assistants/:id/chats": "agent",
+  // Renaming, archiving, restoring and deleting change a chat: his own only.
+  "PATCH /api/assistant-conversations/:id": "conversation",
   "GET /api/assistant-conversations/:id/messages": "conversation",
   "POST /api/assistant-conversations/:id/messages": "conversation",
   "POST /api/assistant-conversations/:id/queued": "conversation",

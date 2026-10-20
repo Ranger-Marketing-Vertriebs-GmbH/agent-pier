@@ -254,3 +254,141 @@ test("legacy agents keep their existing chat as main", async (t) => {
     [[legacy.id, true]],
   );
 });
+
+const post = (request, endpoint, body) => request(endpoint, { method: "POST", body });
+const title = async (request, agentId, id, user) =>
+  (await chats(request, agentId, user)).find((c) => c.id === id)?.title;
+
+test("a set title survives later turns", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const chat = await newChat(f.request, agent.id);
+  const assistants = f.application.assistants;
+  // The first turn names the chat.
+  const sent = await post(f.request, `/api/assistant-conversations/${chat.id}/messages`, {
+    clientRequestId: "one",
+    text: "Plan the   trip to Lisbon",
+  });
+  assert.equal(sent.status, 202);
+  assert.equal(await title(f.request, agent.id, chat.id), "Plan the trip to Lisbon");
+  gateway.runs[gateway.sent[0].idempotencyKey] = { status: "ok" };
+  await assistants.reconcile();
+  const renamed = await f.request(`/api/assistant-conversations/${chat.id}`, {
+    method: "PATCH",
+    body: { title: "  Holiday  " },
+  });
+  assert.equal((await json(renamed, 200)).title, "Holiday");
+  await post(f.request, `/api/assistant-conversations/${chat.id}/messages`, {
+    clientRequestId: "two",
+    text: "Something else entirely",
+  });
+  assert.equal(await title(f.request, agent.id, chat.id), "Holiday");
+  // An empty title restores the automatic one.
+  const restored = await f.request(`/api/assistant-conversations/${chat.id}`, {
+    method: "PATCH",
+    body: { title: "" },
+  });
+  assert.equal((await json(restored, 200)).title, "Plan the trip to Lisbon");
+  for (const body of [{ title: "x".repeat(81) }, { title: "a\nb" }, { name: "x" }]) {
+    const refused = await f.request(`/api/assistant-conversations/${chat.id}`, {
+      method: "PATCH",
+      body,
+    });
+    assert.equal(refused.status, 400, JSON.stringify(body));
+  }
+  // The title never reaches the audit log.
+  const audit = JSON.stringify(f.application.audit.list({}));
+  assert.doesNotMatch(audit, /Holiday|Lisbon/);
+});
+
+test("user A cannot rename B's chat", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, ben, agent } = await sharedAgentOfTwo(f);
+  const benRequest = as(f, ben.cookie);
+  const benMain = await openMain(benRequest, agent.id, true);
+  const annaRequest = as(f, anna.cookie);
+  const refused = await annaRequest(`/api/me/conversations/${benMain}`, {
+    method: "PATCH",
+    body: { title: "Mine now" },
+  });
+  assert.equal(refused.status, 404);
+  assert.deepEqual(await refused.json(), notFoundBody());
+  // Nor may the owner rename a user's chat.
+  const owner = await f.request(`/api/assistant-conversations/${benMain}`, {
+    method: "PATCH",
+    body: { title: "Owner's" },
+  });
+  assert.equal(owner.status, 404);
+  const own = await benRequest(`/api/me/conversations/${benMain}`, {
+    method: "PATCH",
+    body: { title: "Ben's plans" },
+  });
+  assert.equal((await json(own, 200)).title, "Ben's plans");
+});
+
+test("/new opens a new chat instead of resetting", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const anna = await signedInUser(f, "Anna");
+  const agent = await userAgent(f, {
+    mode: "own",
+    members: [{ userId: anna.user.id, level: "chat" }],
+  });
+  const request = as(f, anna.cookie);
+  const main = await openMain(request, agent.id, true);
+  const response = await post(request, `/api/me/conversations/${main}/messages`, {
+    clientRequestId: "new-1",
+    text: " /new ",
+  });
+  const { created } = await json(response, 201);
+  assert.notEqual(created, main);
+  // A retry of the same request opens no second chat.
+  const again = await post(request, `/api/me/conversations/${main}/messages`, {
+    clientRequestId: "new-1",
+    text: "/new",
+  });
+  assert.equal((await json(again, 201)).created, created);
+  assert.equal((await chats(request, agent.id, true)).length, 2);
+  // Nothing went to the Gateway as text, and nothing was reset.
+  assert.equal(gateway.sent.length, 0);
+  assert.ok(!gateway.calls.some((c) => c.method === "sessions.reset"));
+  // The owner's chats take /new the same way; /reset is refused.
+  const helper = await ownerAgent(f);
+  const ownerMain = await openMain(f.request, helper.id);
+  const opened = await post(
+    f.request,
+    `/api/assistant-conversations/${ownerMain}/messages`,
+    {
+      clientRequestId: "new-2",
+      text: "/new",
+    },
+  );
+  assert.equal(opened.status, 201);
+  for (const text of ["/reset", "/new please"]) {
+    const refused = await post(
+      f.request,
+      `/api/assistant-conversations/${ownerMain}/messages`,
+      { clientRequestId: `cmd-${text}`, text },
+    );
+    assert.equal(refused.status, 400, text);
+    assert.equal((await refused.json()).code, "CHAT_COMMAND");
+  }
+  assert.equal(gateway.sent.length, 0);
+});
+
+test("/name renames", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const anna = await signedInUser(f, "Anna");
+  const agent = await userAgent(f, {
+    mode: "own",
+    members: [{ userId: anna.user.id, level: "chat" }],
+  });
+  const request = as(f, anna.cookie);
+  const main = await openMain(request, agent.id, true);
+  const response = await post(request, `/api/me/conversations/${main}/messages`, {
+    clientRequestId: "name-1",
+    text: "/name Shopping list",
+  });
+  assert.equal((await json(response, 200)).chat.title, "Shopping list");
+  assert.equal(await title(request, agent.id, main, true), "Shopping list");
+  assert.equal(gateway.sent.length, 0);
+});
