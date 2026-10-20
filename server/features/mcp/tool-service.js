@@ -10,6 +10,7 @@ import { projectScope } from "../memory/project-scope.js";
 import { toolSchemas } from "./tool-schemas.js";
 import { StartRequests } from "./start-requests.js";
 import { queueTools } from "./queue-tools.js";
+import { serverMessages } from "../../lib/i18n/de.js";
 import {
   requireScope,
   requireResource,
@@ -150,6 +151,53 @@ export class McpTools {
         403,
       );
     return { grant, project };
+  }
+  /** The grant that queued an item as it is now, with no more scopes than then. */
+  queuedGrant({ grantId, scopes } = {}) {
+    if (typeof grantId !== "string") return null;
+    const grant = grantId.startsWith("session-")
+      ? this.services.sessionMcp?.grantFor(grantId.slice("session-".length))
+      : grantId.startsWith("assistant-")
+        ? null
+        : this.services.mcpAccess?.grant(grantId);
+    if (!grant) return null;
+    const allowed = Array.isArray(scopes) ? scopes : grant.scopes;
+    return { ...grant, scopes: grant.scopes.filter((scope) => allowed.includes(scope)) };
+  }
+  /**
+   * Re-checks a client's queued item right before the queue starts it: its grant must
+   * still exist and allow starting this pipeline in this project, and a token budget
+   * above the pipeline's current one is capped to it without definitions:write.
+   * Returns the budget to start with.
+   */
+  queuedStart(item) {
+    const queue = serverMessages.pipelineQueue;
+    const grant = this.queuedGrant(item.source);
+    if (!grant)
+      throw Object.assign(problem(queue.grantRevoked, 403), {
+        failReason: "grant-revoked",
+      });
+    let pipeline;
+    try {
+      requireScope(grant, "runs:start");
+      requireResource(grant, "projectIds", item.projectId);
+      pipeline = this.pipeline(item.pipelineId, grant, true);
+    } catch (error) {
+      if (error.status !== 403) throw error;
+      throw Object.assign(problem(queue.grantNarrowed, 403), {
+        failReason: "grant-narrowed",
+      });
+    }
+    // A corrupt stored value counts as no budget, as at the engine's start.
+    const bound = storedTokenBudget(pipeline.tokenBudget, pipeline.id);
+    if (
+      item.tokenBudget !== null &&
+      bound !== null &&
+      item.tokenBudget > bound &&
+      !grant.scopes.includes("definitions:write")
+    )
+      return { tokenBudget: bound };
+    return { tokenBudget: item.tokenBudget };
   }
   async start(args, grant, resolveGrant) {
     const { pipelineId, projectId, task, baseBranch, tokenBudget, requestId } = args;

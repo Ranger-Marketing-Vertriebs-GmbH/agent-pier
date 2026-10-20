@@ -5,7 +5,7 @@ export const pipelineQueue = Object.freeze({
   invalidBaseBranch:
     "The base branch may be at most 300 characters long and contain no control characters.",
   invalidExternalRef:
-    "The external reference may be at most 120 characters long and contain no control characters.",
+    "The external reference may be at most 120 characters long and contain only letters, digits, spaces and . _ : # / -.",
   full: "This project's queue is full: at most 200 items may wait.",
   notWaiting: "Only waiting items can be moved.",
   invalidMove: "An item can only be moved up or down.",
@@ -15,4 +15,9 @@ export const pipelineQueue = Object.freeze({
     "Concurrent runs must be a whole number from 1 to 20, and whether waiting runs count must be yes or no.",
   startFailed: "The run could not be started.",
   closed: "The queue is closed.",
+  projectGone: "This item's project is no longer registered. The item will not start.",
+  grantRevoked:
+    "The access that queued this item was revoked or has ended. The item will not start.",
+  grantNarrowed:
+    "The access that queued this item no longer allows this start. The item will not start.",
 });

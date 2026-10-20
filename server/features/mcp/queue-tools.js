@@ -1,4 +1,7 @@
 import { problem } from "../../lib/storage.js";
+import { messageIdentity } from "../../lib/i18n/message-identity.js";
+import { resolveMessage } from "../../lib/i18n/message-keys.js";
+import { englishServerMessages } from "../../lib/i18n/catalog-en.js";
 import {
   requireResource,
   requirePipeline,
@@ -16,6 +19,13 @@ import {
 const own = (item, grant) =>
   item.source?.kind === "mcp" && item.source.grantId === grant.id;
 
+// Stored reasons are German server text, like every server message; MCP clients get
+// English, as from every other tool.
+function english(text) {
+  const { messageKey, messageArgs } = messageIdentity(text);
+  return resolveMessage(englishServerMessages, messageKey, messageArgs) ?? text;
+}
+
 /** An item as a client sees it; the task text only for its own items. */
 function summary(item, grant) {
   return {
@@ -29,7 +39,8 @@ function summary(item, grant) {
     tokenBudget: item.tokenBudget,
     createdAt: item.createdAt,
     startedAt: item.startedAt,
-    ...(item.error ? { error: item.error } : {}),
+    ...(item.error ? { error: english(item.error) } : {}),
+    ...(item.budgetCapped ? { budgetCapped: item.budgetCapped } : {}),
     ...(own(item, grant) ? { task: item.task } : {}),
     // A started item's run has the item's id.
     runId: item.state === "started" ? item.id : null,
@@ -78,15 +89,21 @@ export const queueTools = {
     );
     if (checked.previous) return checked.previous;
     ({ grant } = checked);
+    const queue = tools.services.pipelineQueue;
+    const fields = { pipelineId, task, baseBranch, tokenBudget, externalRef };
+    // A refused item (a full queue, an invalid reference) leaves the request ID unused.
+    queue.check(projectId, fields);
     const receipt = tools.requests.reserve(grant.id, args.requestId, input);
-    const item = tools.services.pipelineQueue.add(
-      projectId,
-      { pipelineId, task, baseBranch, tokenBudget, externalRef },
-      {
-        id: receipt.runId,
-        source: { kind: "mcp", grantId: grant.id, clientId: grant.clientId },
+    const item = queue.add(projectId, fields, {
+      id: receipt.runId,
+      // The scopes it had now bound what its grant may do when the item starts.
+      source: {
+        kind: "mcp",
+        grantId: grant.id,
+        clientId: grant.clientId,
+        scopes: [...grant.scopes],
       },
-    );
+    });
     tools.audit("pipeline.created", "pipeline", item.id, grant, projectId, {
       kind: "queue",
     });

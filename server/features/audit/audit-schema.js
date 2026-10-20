@@ -7,6 +7,7 @@ import {
 import { MCP_SERVER_ORIGINS } from "../mcp-servers/server-origins.js";
 import { sshAuditDetails } from "./audit-ssh-details.js";
 import { MAX_TOKEN_BUDGET } from "../pipelines/run-budget.js";
+import { MAX_QUEUE_CONCURRENCY } from "../pipelines/queue-policy.js";
 import { teamAuditDetails } from "./audit-team-details.js";
 import { SCAN_RULES, SCAN_VERDICTS } from "../extensions/skill-scan.js";
 const memberGrantKeys = new Set([
@@ -332,7 +333,7 @@ export function auditEvent(input) {
       if (
         Number.isSafeInteger(details.limit) &&
         details.limit >= 1 &&
-        details.limit <= 20
+        details.limit <= MAX_QUEUE_CONCURRENCY
       )
         event.details.limit = details.limit;
       if (typeof details.countParked === "boolean")

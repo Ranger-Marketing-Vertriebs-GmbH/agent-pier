@@ -40,8 +40,8 @@ function realpath(value) {
 
 /**
  * Something other than the project row refers to the project or its folder: a
- * session (record or memory capability), SSH, artifacts, pipeline verification or
- * pipeline runs. Such rows are never removed. Every check fails closed: a source
+ * session (record or memory capability), SSH, artifacts, pipeline verification,
+ * queue items or pipeline runs. Such rows are never removed. Every check fails closed: a source
  * that cannot be read keeps every row.
  */
 function attachment(services) {
@@ -59,6 +59,7 @@ function attachment(services) {
     services.sshManagement.knowsProject(row.id) ||
     services.artifacts.ownsProject(row.id) ||
     services.pipelineDefinitions.hasVerification(row.id) ||
+    Boolean(services.pipelineQueue?.ownsProject(row.id)) ||
     runs.some((run) => run.projectId === row.id);
 }
 

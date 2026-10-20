@@ -1,15 +1,5 @@
-/* Pipelines › Queue: the settings card reuses the verification card. */
-.queue-settings .stage-stepper input {
-  width: 36px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font-size: var(--font-size-sm);
-  text-align: center;
-  appearance: textfield;
-  -moz-appearance: textfield;
-}
+/* Pipelines › Queue: the settings card reuses the verification card and the stage
+   stepper (definitions.css). */
 .verification-card.queue-card {
   display: flex;
   flex-direction: column;

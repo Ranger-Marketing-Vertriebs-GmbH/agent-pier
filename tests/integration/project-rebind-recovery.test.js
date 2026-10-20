@@ -169,3 +169,33 @@ test("verification steps merge into an existing Git project so the move converge
   assert.equal((await ensure()).id, toId);
   assert.equal(adopted, 0, "A completed move takes the fast path");
 });
+
+test("queue items and queue settings follow a folder that became a Git work tree", async (t) => {
+  const f = await applicationFixture(t);
+  const s = await projectSession(t, f);
+  const { pipelineDefinitions: definitions, pipelineQueue: queue } = f.application;
+  definitions.saveQueueSettings(s.fromId, { limit: 4, countParked: true });
+  // Failed items never start, so the move can be observed as it is.
+  for (const id of ["first", "second"])
+    queue.store.insert({ id, projectId: s.fromId, state: "failed", task: id });
+  gitInit(s.cwd);
+  const toId = (await projectScope(s.cwd)).id;
+  queue.store.insert({ id: "existing", projectId: toId, state: "failed", task: "git" });
+  const rebind = f.application.projectRebind;
+  assert.equal(rebind.remnants(s.fromId), true);
+  assert.equal((await rebind.ensure({ cwd: s.cwd, previousIds: [s.fromId] })).id, toId);
+  // Behind the work tree's own items, in their order.
+  assert.deepEqual(
+    queue.store.list(toId).map((item) => item.id),
+    ["existing", "first", "second"],
+  );
+  assert.equal(queue.ownsProject(s.fromId), false);
+  assert.equal(queue.find("first").cwd, f.application.memory.project(toId).cwd);
+  assert.deepEqual(definitions.getQueueSettings(toId), {
+    projectId: toId,
+    limit: 4,
+    countParked: true,
+    custom: true,
+  });
+  assert.equal(rebind.remnants(s.fromId), false);
+});

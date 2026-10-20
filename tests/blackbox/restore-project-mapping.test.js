@@ -38,6 +38,10 @@ test("restore rejects colliding mappings and opens Unicode project memory with u
     { name: "Check", command: "node --version", timeoutMs: 1000, blocking: true },
   ];
   definitions.saveVerification(first.id, { steps });
+  // Risk rules and queue settings belong to the project like its verification steps.
+  const risk = { globs: ["deploy/**"], newDependency: false, enabled: true };
+  definitions.saveRisk(first.id, risk);
+  definitions.saveQueueSettings(first.id, { limit: 3, countParked: true });
   const backup = await new Backup({ dataDir: f.dataDir }).create();
   const restore = new Restore({ dataDir: f.dataDir });
   const targetDataDir = path.join(f.root, "restored");
@@ -67,6 +71,14 @@ test("restore rejects colliding mappings and opens Unicode project memory with u
     assert.deepEqual(restored.pipelineDefinitions.getPipeline(pipeline.id), pipeline);
     assert.deepEqual(restored.pipelineDefinitions.getProfile(profile.id), profile);
     assert.deepEqual(restored.pipelineDefinitions.getVerification(moved.id).steps, steps);
+    assert.deepEqual(restored.pipelineDefinitions.riskRules(moved.id), risk);
+    assert.deepEqual(restored.pipelineDefinitions.getQueueSettings(moved.id), {
+      projectId: moved.id,
+      limit: 3,
+      countParked: true,
+      custom: true,
+    });
+    assert.equal(restored.pipelineDefinitions.getQueueSettings(first.id).custom, false);
     assert.equal((await restored.sessions.list()).length, 0);
     // The tombstone follows the mapped project.
     assert.throws(() => restored.memory.write(moved.id, leaked), { status: 422 });

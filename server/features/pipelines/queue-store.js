@@ -80,6 +80,27 @@ export class QueueStore {
       throw error;
     }
   }
+  /** Moves a project's items behind the target project's items, keeping their order. */
+  moveProject(fromId, toId, cwd) {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const { last } = this.db
+        .prepare("SELECT MAX(position) AS last FROM items WHERE project_id=?")
+        .get(toId);
+      let position = last ?? 0;
+      for (const item of this.list(fromId)) {
+        const moved = { ...item, projectId: toId, position: ++position };
+        if (cwd) moved.cwd = cwd;
+        this.db
+          .prepare("UPDATE items SET project_id=?,position=?,doc=? WHERE id=?")
+          .run(toId, moved.position, JSON.stringify(moved), item.id);
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
   remove(id) {
     this.db.prepare("DELETE FROM items WHERE id=?").run(id);
   }

@@ -14,6 +14,7 @@ import {
   privatePath,
   revokeSessionMcp,
   checkSessionCapability,
+  activeSessionGrant,
 } from "./session-capability.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { reboundProjectIds } from "../memory/project-rebind.js";
@@ -195,18 +196,25 @@ export class SessionMcp {
   }
   check(token) {
     const auth = checkSessionCapability(this.dataDir, token);
-    if (auth.extra.grant.allResources) {
+    this.current(auth.extra.grant);
+    return auth;
+  }
+  /** Resolves a grant's resources as they are now. */
+  current(grant) {
+    if (grant.allResources) {
       const resources = this.resources();
       for (const [field, group] of Object.entries(fields))
-        auth.extra.grant[field] = resources[group].map((resource) => resource.id);
+        grant[field] = resources[group].map((resource) => resource.id);
     } else {
       // A plain project folder that became a Git work tree keeps its grant.
-      auth.extra.grant.projectIds = reboundProjectIds(
-        auth.extra.grant.projectIds,
-        this.services.memory,
-      );
+      grant.projectIds = reboundProjectIds(grant.projectIds, this.services.memory);
     }
-    return auth;
+    return grant;
+  }
+  /** A session's grant while its capability is live, for a queued start; else null. */
+  grantFor(id) {
+    const grant = activeSessionGrant(this.dataDir, id);
+    return grant && this.current(grant);
   }
   async verify(token) {
     const auth = this.check(token);

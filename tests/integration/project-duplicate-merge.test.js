@@ -113,6 +113,13 @@ test("an older project of a replaced folder is described, previewed and merged o
   }
   assert.equal(services.memory.list(older).total, 2, "a refused merge moves nothing");
 
+  // A waiting queue item of the older row moves with it (failed, so it never starts).
+  services.pipelineQueue.store.insert({
+    id: "queued-older",
+    projectId: older,
+    state: "failed",
+    task: "Older item",
+  });
   const fresh = await fingerprint(f, current.id, older);
   const merged = await merge(f, current.id, { olderId: older, fingerprint: fresh });
   assert.equal(merged.status, 200);
@@ -129,6 +136,8 @@ test("an older project of a replaced folder is described, previewed and merged o
   assert.equal(services.artifacts.ownsProject(current.id), true);
   assert.equal(services.pipelineDefinitions.hasVerification(current.id), true);
   assert.equal(services.pipelineDefinitions.hasVerification(older), false);
+  assert.equal(services.pipelineQueue.ownsProject(older), false);
+  assert.equal(services.pipelineQueue.find("queued-older").projectId, current.id);
   assert.equal((await s.record()).sshTools.project.projectId, current.id);
   const audited = auditRows(f, "project.updated");
   assert.deepEqual(

@@ -340,7 +340,8 @@
 .stage-stepper button:disabled {
   opacity: 0.45;
 }
-.definition-card .stage-stepper input {
+.definition-card .stage-stepper input,
+.queue-settings .stage-stepper input {
   width: 36px;
   padding: 0;
   border: 0;

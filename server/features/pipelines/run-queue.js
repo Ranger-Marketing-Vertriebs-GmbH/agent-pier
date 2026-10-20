@@ -11,12 +11,16 @@ const copy = serverMessages.pipelineQueue;
 export const MAX_WAITING_ITEMS = 200;
 export const KEPT_STARTED_ITEMS = 50;
 const controlCharacters = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
+// A ticket-like reference: letters, digits, spaces and . _ : # / - only, so no
+// format, bidi or zero-width characters reach the owner or other clients.
+const referencePattern = /^[\p{L}\p{N}][\p{L}\p{N} ._:#/-]{0,119}$/u;
 
-function optionalText(value, max, message) {
+function optionalText(value, max, message, pattern) {
   if (value === undefined || value === null) return null;
   if (typeof value !== "string") throw problem(message);
   const text = value.trim();
   if (text.length > max || controlCharacters.test(text)) throw problem(message);
+  if (text && pattern && !pattern.test(text)) throw problem(message);
   return text || null;
 }
 function taskValue(task) {
@@ -38,6 +42,8 @@ export class RunQueue {
     engine,
     definitions,
     projects,
+    projectMoved = () => null,
+    authorize,
     audit,
     onChange = () => {},
     onError = () => {},
@@ -45,7 +51,12 @@ export class RunQueue {
     clock = Date,
   }) {
     this.store = new QueueStore(dataDir);
-    Object.assign(this, { engine, definitions, projects, audit, onChange, onError });
+    Object.assign(this, { engine, definitions, projects, projectMoved, audit });
+    Object.assign(this, { onChange, onError });
+    // Re-checks an MCP client's item before its start (McpTools.queuedStart); until
+    // it is set, such items wait.
+    this.authorize = authorize;
+    this.inFlight = new Set();
     this.clock = clock;
     this.closed = false;
     this.dirty = false;
@@ -103,32 +114,42 @@ export class RunQueue {
     if (this.closed) throw problem(copy.closed, 503);
   }
   /**
-   * Adds an item at the end of the project's queue. `id` is a run id reserved by the
-   * caller (an MCP start receipt); `source` names who queued it.
+   * Validates an item for the project's queue without adding it, so a caller can
+   * refuse before it reserves anything (queue_add's request ID).
    */
-  add(projectId, input = {}, { id, source = { kind: "user" } } = {}) {
+  check(projectId, input = {}) {
     this.open();
     const project = this.projects(projectId);
-    const task = taskValue(input.task);
-    const baseBranch = optionalText(input.baseBranch, 300, copy.invalidBaseBranch);
-    const externalRef = optionalText(input.externalRef, 120, copy.invalidExternalRef);
-    const tokenBudget = tokenBudgetValue(input.tokenBudget);
+    const checked = {
+      cwd: project.cwd,
+      task: taskValue(input.task),
+      baseBranch: optionalText(input.baseBranch, 300, copy.invalidBaseBranch),
+      externalRef: optionalText(
+        input.externalRef,
+        120,
+        copy.invalidExternalRef,
+        referencePattern,
+      ),
+      tokenBudget: tokenBudgetValue(input.tokenBudget),
+    };
     // The definition must be startable now; a later change fails its start instead.
     const { pipeline } = this.definitions.snapshot(input.pipelineId);
     if (
       this.store.count(projectId, ["queued", "starting", "failed"]) >= MAX_WAITING_ITEMS
     )
       throw problem(copy.full, 409);
+    return { ...checked, pipelineId: pipeline.id, pipelineName: pipeline.name };
+  }
+  /**
+   * Adds an item at the end of the project's queue. `id` is a run id reserved by the
+   * caller (an MCP start receipt); `source` names who queued it.
+   */
+  add(projectId, input = {}, { id, source = { kind: "user" } } = {}) {
+    const checked = this.check(projectId, input);
     const item = this.store.insert({
       id: id === undefined ? randomUUID() : runId(id),
       projectId,
-      cwd: project.cwd,
-      pipelineId: pipeline.id,
-      pipelineName: pipeline.name,
-      task,
-      baseBranch,
-      tokenBudget,
-      externalRef,
+      ...checked,
       source,
       state: "queued",
       error: null,
@@ -175,6 +196,48 @@ export class RunQueue {
     this.notify(projectId);
     return this.view(projectId);
   }
+  /** Whether any item, in any state, still names the project. */
+  ownsProject(projectId) {
+    return this.store.count(projectId, ["queued", "starting", "failed", "started"]) > 0;
+  }
+  /**
+   * Moves a project's items to the project it became (a folder that became a Git work
+   * tree, or a merged duplicate), behind the items already waiting there.
+   */
+  moveProject(fromId, toId) {
+    if (fromId === toId || !this.ownsProject(fromId)) return;
+    let cwd = null;
+    try {
+      cwd = this.projects(toId).cwd;
+    } catch (error) {
+      if (error.status !== 404) throw error;
+    }
+    this.store.moveProject(fromId, toId, cwd);
+    this.notify(toId);
+  }
+  exists(projectId) {
+    try {
+      this.projects(projectId);
+      return true;
+    } catch (error) {
+      if (error.status === 404) return false;
+      throw error;
+    }
+  }
+  /**
+   * A project that is no longer registered: its items follow a recorded rebind, or
+   * fail with the reason and never start.
+   */
+  orphaned(projectId) {
+    const target = this.projectMoved(projectId);
+    if (target && this.exists(target)) return this.moveProject(projectId, target);
+    for (const item of this.store.list(projectId))
+      if (
+        item.state === "queued" ||
+        (item.state === "starting" && !this.inFlight.has(item.id))
+      )
+        this.fail(item, copy.projectGone, "project-gone");
+  }
   notify(projectId) {
     this.onChange(projectId);
     this.changed();
@@ -182,7 +245,11 @@ export class RunQueue {
   /** Schedules a pass over the queues; resolves when the queue is idle again. */
   changed() {
     this.dirty = true;
-    if (!this.closed) this.draining ??= this.drain();
+    // Detached from a caller's mutation lease (a run save inside the engine's lock),
+    // so every start takes a lease of its own and a backup waits for it.
+    const barrier = this.engine.mutationBarrier;
+    if (!this.closed)
+      this.draining ??= barrier ? barrier.detached(() => this.drain()) : this.drain();
     return this.draining || Promise.resolve();
   }
   async drain() {
@@ -204,7 +271,20 @@ export class RunQueue {
     ];
   }
   async schedule() {
-    for (const projectId of this.store.projectsWithState("queued")) {
+    const projects = new Set([
+      ...this.store.projectsWithState("starting"),
+      ...this.store.projectsWithState("queued"),
+    ]);
+    for (const projectId of projects) {
+      if (this.closed) return;
+      if (!this.exists(projectId)) {
+        this.orphaned(projectId);
+        continue;
+      }
+      // Claims a restart interrupted start again with their reserved ids.
+      for (const item of this.store.list(projectId))
+        if (item.state === "starting" && !this.inFlight.has(item.id) && !this.closed)
+          await this.resume(item);
       const settings = this.settings(projectId);
       while (!this.closed) {
         const [next] = itemsToStart({
@@ -213,10 +293,16 @@ export class RunQueue {
           runs: this.activeRuns(),
           settings,
         });
-        if (!next) break;
+        // A client's item waits until its grant can be checked.
+        if (!next || (next.source?.kind === "mcp" && !this.authorize)) break;
         await this.launch(this.store.save({ ...next, state: "starting" }));
       }
     }
+  }
+  async resume(item) {
+    if (this.runExists(item.id)) return this.started(item);
+    if (item.source?.kind === "mcp" && !this.authorize) return;
+    await this.launch(item);
   }
   runExists(id) {
     try {
@@ -228,8 +314,57 @@ export class RunQueue {
     }
   }
   async launch(item) {
-    this.onChange(item.projectId);
+    this.inFlight.add(item.id);
     try {
+      await this.attempt(item);
+    } finally {
+      this.inFlight.delete(item.id);
+    }
+  }
+  /**
+   * The grant that queued a client's item must still allow this start, and its token
+   * budget is held to the pipeline's current bound (see McpTools.queuedStart).
+   */
+  async authorized(item) {
+    if (item.source?.kind !== "mcp") return item;
+    let checked;
+    try {
+      checked = await this.authorize(item);
+    } catch (error) {
+      if (error.status !== 403) throw error;
+      this.fail(item, error.message, error.failReason || "grant-revoked");
+      return null;
+    }
+    if (checked.tokenBudget === item.tokenBudget) return item;
+    // Capped to the pipeline's lowered budget; the item and the audit log say so.
+    const capped = {
+      ...item,
+      tokenBudget: checked.tokenBudget,
+      budgetCapped: { from: item.tokenBudget, to: checked.tokenBudget },
+    };
+    this.store.save(capped);
+    this.audit?.append({
+      action: "pipeline.updated",
+      resourceType: "pipeline",
+      resourceId: item.id,
+      projectId: item.projectId,
+      source: "system",
+      outcome: "success",
+      details: {
+        kind: "budget",
+        from: item.tokenBudget,
+        to: checked.tokenBudget,
+        usedTokens: 0,
+      },
+    });
+    return capped;
+  }
+  async attempt(claimed) {
+    this.onChange(claimed.projectId);
+    let item = claimed;
+    try {
+      item = await this.authorized(claimed);
+      if (!item) return;
       await this.engine.start(
         {
           pipelineId: item.pipelineId,
@@ -245,22 +380,37 @@ export class RunQueue {
       if (this.closed || this.engine.closing || this.engine.closed) return;
       if (!this.runExists(item.id)) {
         // A refused start explains itself on the item; anything else is logged too.
-        if (![400, 403, 404, 409].includes(error.status)) this.onError(error);
-        this.store.save({
-          ...item,
-          state: "failed",
-          error: [400, 403, 404, 409].includes(error.status)
-            ? String(error.message).slice(0, 500)
-            : copy.startFailed,
-        });
-        this.onChange(item.projectId);
+        const refused = [400, 403, 404, 409].includes(error.status);
+        if (!refused) this.onError(error);
+        this.fail(item, refused ? String(error.message).slice(0, 500) : copy.startFailed);
         return;
       }
     }
     this.started(item);
   }
+  /** Marks an item failed with its reason; `failReason` also records it in the audit log. */
+  fail(item, error, failReason) {
+    this.store.save({ ...item, state: "failed", error });
+    if (failReason)
+      this.audit?.append({
+        action: "pipeline.failed",
+        resourceType: "pipeline",
+        resourceId: item.id,
+        projectId: item.projectId,
+        source: "system",
+        outcome: "failure",
+        details: { kind: "queue", failReason },
+      });
+    this.onChange(item.projectId);
+  }
   started(item) {
     this.store.save({ ...item, state: "started", error: null, startedAt: this.now() });
+    let run = null;
+    try {
+      run = this.engine.store.get(item.id);
+    } catch {}
+    // Like every start: the budget the run spends against and who set it.
+    const tokenBudget = run?.tokenBudget ?? null;
     this.audit?.append({
       action: "pipeline.started",
       resourceType: "pipeline",
@@ -268,7 +418,12 @@ export class RunQueue {
       projectId: item.projectId,
       source: "system",
       outcome: "success",
-      details: { kind: "queue" },
+      details: {
+        kind: "queue",
+        tokenBudget,
+        tokenBudgetSource:
+          item.tokenBudget !== null ? "start" : tokenBudget ? "pipeline" : null,
+      },
     });
     // Older started items leave the list; their runs stay under Runs.
     const started = this.store
@@ -279,16 +434,13 @@ export class RunQueue {
     this.onChange(item.projectId);
   }
   /**
-   * Resumes claims a restart interrupted: an item whose run exists is started, any
-   * other start is repeated with the same reserved id. Then the queues are scheduled.
+   * Resumes claims a restart interrupted: an item whose run exists is started now;
+   * every other start is repeated with the same reserved id by the background pass,
+   * like waiting items, so a start-up never waits for a worktree.
    */
-  async recover() {
-    for (const item of this.store.withState("starting")) {
-      if (this.closed) return;
+  recover() {
+    for (const item of this.store.withState("starting"))
       if (this.runExists(item.id)) this.started(item);
-      else await this.launch(item);
-    }
-    // Waiting items start in the background, so a start-up never waits for them.
     this.changed();
   }
   async close() {
