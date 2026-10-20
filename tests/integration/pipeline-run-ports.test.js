@@ -7,12 +7,14 @@ import { fixture } from "../helpers/pipeline-engine.js";
 const range = { start: 20100, end: 20129 };
 const start = (f, task = "Test the app") =>
   f.engine.start({ pipelineId: "definition", cwd: f.dir, task });
+// The run's one active turn (a single stage runs at a time in these pipelines).
+const turn = (run) => Object.values(run.activeTurns)[0] ?? null;
 const portLine = (prompt) => prompt.match(/This turn's ports are (\d+)-(\d+)/)?.slice(1);
 
 test("two runs working at the same time get different port blocks", async (t) => {
   const f = fixture(t, { options: { portRange: range, portProbe: async () => true } });
   const [a, b] = await Promise.all([start(f), start(f)]);
-  const ports = [a, b].map((run) => f.engine.get(run.id).activeTurn.ports);
+  const ports = [a, b].map((run) => turn(f.engine.get(run.id)).ports);
   assert.notEqual(ports[0].base, ports[1].base);
   for (const lease of ports) {
     assert.equal(lease.count, 3);
@@ -39,7 +41,7 @@ test("a cancelled run releases its block and a third run cannot take a leased on
   const a = await start(f),
     b = await start(f);
   assert.deepEqual(
-    [a, b].map((run) => f.engine.get(run.id).activeTurn.ports.base),
+    [a, b].map((run) => turn(f.engine.get(run.id)).ports.base),
     [20100, 20110],
   );
   // The range is exhausted: the next run parks instead of sharing a block.
@@ -47,9 +49,9 @@ test("a cancelled run releases its block and a third run cannot take a leased on
   assert.equal(f.engine.get(c.id).status, "awaiting-human");
   assert.equal(f.engine.get(c.id).nodes[0].failReason, "session-error");
   await f.engine.cancel(a.id);
-  assert.equal(f.engine.get(a.id).activeTurn, null);
+  assert.equal(turn(f.engine.get(a.id)), null);
   await f.engine.retry(c.id);
-  assert.equal(f.engine.get(c.id).activeTurn.ports.base, 20100);
+  assert.equal(turn(f.engine.get(c.id)).ports.base, 20100);
 });
 
 test("a recovered turn keeps its block across a restart and a stage reuses it", async (t) => {
@@ -60,13 +62,13 @@ test("a recovered turn keeps its block across a restart and a stage reuses it", 
   const other = await start(f);
   const a = await start(f);
   const runA = () => f.engine.get(a.id);
-  const held = runA().activeTurn.ports.base;
+  const held = turn(runA()).ports.base;
   assert.equal(held, 20110);
   await f.restart();
   // The restarted engine reads the running turns' leases from the run store.
-  assert.equal(runA().activeTurn.ports.base, held);
+  assert.equal(turn(runA()).ports.base, held);
   const b = await start(f);
-  assert.equal(f.engine.get(b.id).activeTurn.ports.base, 20120);
+  assert.equal(turn(f.engine.get(b.id)).ports.base, 20120);
   await f.engine.cancel(other.id);
 
   const finish = async (verdict) => {
@@ -80,12 +82,12 @@ test("a recovered turn keeps its block across a restart and a stage reuses it", 
   };
   // build passes and releases its block; review takes the lowest free one...
   await finish({ result: "pass", summary: "Built" });
-  assert.equal(runA().activeTurn.nodeId, "review");
-  assert.equal(runA().activeTurn.ports.base, 20100);
+  assert.equal(turn(runA()).nodeId, "review");
+  assert.equal(turn(runA()).ports.base, 20100);
   // ...and the loop back to build prefers build's earlier block over the lowest.
   await finish({ result: "fail", summary: "Broken", findings: [] });
-  assert.equal(runA().activeTurn.nodeId, "build");
-  assert.equal(runA().activeTurn.ports.base, held);
+  assert.equal(turn(runA()).nodeId, "build");
+  assert.equal(turn(runA()).ports.base, held);
   const prompt = f.launches.at(-1).prompt;
   assert.deepEqual(portLine(prompt), [String(held), String(held + 2)]);
 });

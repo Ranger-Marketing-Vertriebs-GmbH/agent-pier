@@ -198,7 +198,7 @@ export class PipelineEngine {
       currentAttemptId: null,
       status: "running",
       phase: "provisioning",
-      activeTurn: null,
+      activeTurns: {},
       verifyJob: null,
       loopState: {},
       executionLog: [],

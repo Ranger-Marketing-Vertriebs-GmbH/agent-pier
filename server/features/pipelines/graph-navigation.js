@@ -77,5 +77,10 @@ export function activeNode(run) {
 export function currentAttempt(run) {
   return run.executionLog.find((a) => a.id === run.currentAttemptId);
 }
+// The turns a run has active, one per stage (several while a parallel group runs).
+export const activeTurnList = (run) => Object.values(run.activeTurns || {});
+export function clearTurn(run, nodeId) {
+  if (run.activeTurns) delete run.activeTurns[nodeId];
+}
 export const terminal = (run) =>
   ["completed", "failed", "cancelled"].includes(run.status);

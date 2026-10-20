@@ -216,7 +216,11 @@ test("a restart during a resumed turn settles it in the same thread", async (t) 
   const { app, wire, start, calls, marker } = await pipelineApp(t);
   await marker("hold");
   const id = await start();
-  await waitFor(app, id, (run) => run.activeTurn?.kind === "resumed-repair");
+  await waitFor(
+    app,
+    id,
+    (run) => Object.values(run.activeTurns || {})[0]?.kind === "resumed-repair",
+  );
   const deadline = Date.now() + 10000;
   while (!(await calls()).some((call) => call.resume) && Date.now() < deadline)
     await new Promise((resolve) => setTimeout(resolve, 50));
