@@ -9,7 +9,16 @@
 .pipeline-owner-question p {
   margin: 0;
 }
+/* The files to look at read like the risk gate's paths: small monospace, no bullets. */
 .pipeline-owner-question ul {
+  list-style: none;
   margin: 0;
-  padding-left: 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pipeline-owner-question code {
+  font-size: var(--font-size-sm);
+  color: var(--text-row);
 }

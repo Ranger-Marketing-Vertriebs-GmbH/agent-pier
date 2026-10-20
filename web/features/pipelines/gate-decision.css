@@ -34,6 +34,14 @@
   font-size: 12px;
   line-height: 1.6;
 }
+/* The action row carries its own spacing: the inbox shows this card without the
+   pipeline page's stylesheet. */
+.run-gate-decision .pipeline-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
 .run-gate-decision .button {
   height: 36px;
   padding: 0 13px;
