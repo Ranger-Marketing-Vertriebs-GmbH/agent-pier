@@ -20,6 +20,7 @@ import { recordReportDigests } from "./stage-reports.js";
 import { filterAnswers, recordResponses } from "./loop-rounds.js";
 import { adoptSpec, checkSpec, replaceSpec, specReplaceable } from "./run-spec.js";
 import { approveRisk, declineRisk } from "./risk-gate.js";
+import { memberAction, overrideGroup, recheckable } from "./group-actions.js";
 export function requireLiveRun(run) {
   if (run.imported?.historyOnly)
     throw problem(serverMessages.pipelines.importedHistoryReadOnly, 409);
@@ -73,7 +74,10 @@ export function availableActions(run) {
       actions.push("wait-for-reset", "resume-now");
     else actions.push("retry");
     const attempt = currentAttempt(run);
-    if (
+    // A group decides for its blocked members; its own turns are its members'.
+    if (node.kind === "parallel") {
+      if (node.failReason === "members-blocked") actions.push("override");
+    } else if (
       ["session-error", "inactivity-timeout", "turn-timeout"].includes(node.failReason) &&
       attempt?.status !== "launching"
     ) {
@@ -84,16 +88,12 @@ export function availableActions(run) {
   if (outgoing(run, node.id, "fail")?.maxIterations) actions.push("loop-back");
   return actions;
 }
-// A recorded non-zero exit or an AgentPier stop is final: checking again cannot succeed.
-// A clean exit whose process group was not yet proven stopped may still settle.
-function recheckable(attempt) {
-  return !(
-    attempt?.stopped ||
-    (Number.isInteger(attempt?.exitCode) && attempt.exitCode !== 0)
-  );
-}
-export async function gateAction(engine, run, { action, feedback, resumeAt, spec } = {}) {
+export async function gateAction(engine, run, input = {}) {
+  const { action, feedback, resumeAt, spec, nodeId } = input;
   requireLiveRun(run);
+  // An action on a member of the current parallel group.
+  if (nodeId !== undefined && nodeId !== run.currentNodeId)
+    return memberAction(engine, run, input);
   if (!availableActions(run).includes(action) || ["delete", "create-pr"].includes(action))
     throw problem(serverMessages.pipelines.actionUnavailable, 409);
   const node = activeNode(run);
@@ -204,7 +204,11 @@ export async function gateAction(engine, run, { action, feedback, resumeAt, spec
     await conclude(engine, run, node, found.verdict);
     return;
   }
-  if (action === "override") return overrideStage(engine, run, node);
+  if (action === "override")
+    return (
+      (node.kind === "parallel" && (await overrideGroup(engine, run, node))) ||
+      overrideStage(engine, run, node)
+    );
   if (action === "decline-risk") return { riskDecision: declineRisk(engine, run, node) };
   if (action === "approve-risk") {
     const resume = node.riskGate?.resume;
@@ -299,7 +303,11 @@ export async function cancelRun(engine, run) {
   run.cancelRequested = true;
   engine.store.save(run);
   // Every active turn's owned process group is stopped, a parallel group's included.
-  for (const turn of activeTurnList(run)) await engine.driver.cancel(turn);
+  const live = new Set([run.currentAttemptId]);
+  for (const turn of activeTurnList(run)) {
+    live.add(turn.turnId);
+    await engine.driver.cancel(turn);
+  }
   if (run.verifyJob) await engine.verify.cancel(run.verifyJob);
   run.status = "cancelled";
   run.finishedAt = engine.now();
@@ -312,10 +320,10 @@ export async function cancelRun(engine, run) {
   run.activeTurns = {};
   run.verifyJob = null;
   run.usageResumeAt = null;
-  const a = currentAttempt(run);
-  if (a && !a.finishedAt) {
-    a.finishedAt = engine.now();
-    a.status = "cancelled";
-  }
+  for (const a of run.executionLog)
+    if (live.has(a.id) && !a.finishedAt) {
+      a.finishedAt = engine.now();
+      a.status = "cancelled";
+    }
   engine.store.save(run);
 }

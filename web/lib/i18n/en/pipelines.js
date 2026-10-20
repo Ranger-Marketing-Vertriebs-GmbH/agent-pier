@@ -213,6 +213,7 @@ export const pipelineCopy = {
     failed: "Failed",
     cancelled: "Cancelled",
     skipped: "Skipped",
+    reported: "Result reported",
   },
   failReasons: {
     "session-error": "The session ended with an error",
@@ -228,6 +229,8 @@ export const pipelineCopy = {
     "resume-failed": "The session could not be resumed",
     "context-exhausted": "The session's context is exhausted",
     "risk-gate": "Risky changes need your approval",
+    "members-blocked": "A member of the group needs a decision",
+    "group-changed-files": "A member of the group changed files",
     unknown: "The stage stopped",
   },
   attemptKinds: {
@@ -236,6 +239,7 @@ export const pipelineCopy = {
     "gate-feedback": "Rework after feedback",
     "verify-feedback": "Repair after verification",
     "resumed-repair": "Repair in the same session",
+    group: "Parallel group",
     unknown: "Turn",
   },
   repairSessions: { resumed: "Same session", fresh: "New session" },

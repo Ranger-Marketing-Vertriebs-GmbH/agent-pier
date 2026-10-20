@@ -2,7 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { readJSON, writePrivate, problem, nameValue } from "../../lib/storage.js";
-import { validateGraph } from "./graph-validation.js";
+import { stageProfiles, validateGraph } from "./graph-validation.js";
 import {
   boundedText,
   validateProfile,
@@ -100,8 +100,8 @@ export class PipelineDefinitions {
     return this.save("profiles", body, validateProfile(body, this.accounts), id);
   }
   validateProfiles(graph, status = 400) {
-    for (const node of graph.nodes) {
-      if (node.kind !== "profile") continue;
+    // Every stage's profile, each member's of a parallel group too.
+    for (const node of stageProfiles(graph)) {
       let profile;
       try {
         profile = this.getProfile(node.profileId);
@@ -149,7 +149,7 @@ export class PipelineDefinitions {
   removeProfile(id) {
     if (
       this.state.pipelines.some((pipeline) =>
-        pipeline.graph.nodes.some((node) => node.profileId === id),
+        stageProfiles(pipeline.graph).some((node) => node.profileId === id),
       )
     )
       throw problem(serverMessages.pipelineProfiles.stillReferenced, 409);
@@ -251,8 +251,7 @@ export class PipelineDefinitions {
     const pipeline = this.getPipeline(pipelineId);
     this.validateProfiles(pipeline.graph, 409);
     const profiles = {};
-    for (const node of pipeline.graph.nodes) {
-      if (node.kind !== "profile") continue;
+    for (const node of stageProfiles(pipeline.graph)) {
       const profile = this.getProfile(node.profileId);
       const account = this.accounts.get(profile.config.accountId);
       if (account.tool !== profile.config.cliTool)

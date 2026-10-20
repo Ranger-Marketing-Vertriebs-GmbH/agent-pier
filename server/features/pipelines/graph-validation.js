@@ -2,6 +2,21 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 
 const nodeId = /^[A-Za-z0-9_-]{1,64}$/;
+export const MAX_GROUP_MEMBERS = 8;
+// Stages run a profile: one profile, or a parallel group of 2–8 member profiles.
+export const isStage = (node) => node?.kind === "profile" || node?.kind === "parallel";
+/** Every profile a graph runs, with the stage or member id that runs it. */
+export const stageProfiles = (graph) =>
+  (graph?.nodes || []).flatMap((node) =>
+    node.kind === "parallel"
+      ? (node.members || []).map((member) => ({
+          id: member.id,
+          profileId: member.profileId,
+        }))
+      : node.kind === "profile"
+        ? [{ id: node.id, profileId: node.profileId }]
+        : [],
+  );
 export const isLoopEdge = (edge) =>
   edge.condition === "fail" && edge.maxIterations !== undefined;
 
@@ -34,6 +49,40 @@ function cyclic(ids, edges) {
   return [...ids].some(visit);
 }
 
+// A parallel group: 2–8 members, each with an id unique in the graph and a profile, and
+// an optional concurrency cap from 1 to the member count.
+function parallelNode(node, taken) {
+  const members = node.members;
+  const invalid = () =>
+    problem(serverMessages.pipelineGraph.invalidParallelGroup(node.id));
+  if (!Array.isArray(members) || members.length < 2 || members.length > MAX_GROUP_MEMBERS)
+    throw invalid();
+  for (const member of members) {
+    if (
+      typeof member?.id !== "string" ||
+      !nodeId.test(member.id) ||
+      taken.has(member.id) ||
+      typeof member.profileId !== "string" ||
+      Object.keys(member).some((key) => !["id", "profileId"].includes(key))
+    )
+      throw invalid();
+    taken.add(member.id);
+  }
+  if (
+    node.concurrency !== undefined &&
+    (!Number.isInteger(node.concurrency) ||
+      node.concurrency < 1 ||
+      node.concurrency > members.length)
+  )
+    throw problem(serverMessages.pipelineGraph.invalidParallelConcurrency(node.id));
+  return {
+    id: node.id,
+    kind: "parallel",
+    members: members.map(({ id, profileId }) => ({ id, profileId })),
+    ...(node.concurrency !== undefined ? { concurrency: node.concurrency } : {}),
+  };
+}
+
 // Untrusted edge values named in a message are bounded plain text.
 const edgePart = (value) =>
   typeof value === "string" && value
@@ -47,13 +96,21 @@ export function validateGraph(graph) {
   if (!Array.isArray(graph.edges) || graph.edges.length > 300)
     throw problem(serverMessages.pipelineGraph.edgeLimit);
   const ids = new Set();
+  // Node and member ids share one namespace: a member is addressed like a stage.
+  const taken = new Set();
   const nodes = graph.nodes.map((node) => {
-    if (typeof node?.id !== "string" || !nodeId.test(node.id) || ids.has(node.id))
+    if (typeof node?.id !== "string" || !nodeId.test(node.id) || taken.has(node.id))
       throw problem(serverMessages.pipelineGraph.invalidNodeId);
     ids.add(node.id);
+    taken.add(node.id);
     const kind = node.kind ?? "profile";
-    if (!["profile", "gate", "verify", "createPr"].includes(kind))
+    if (!["profile", "parallel", "gate", "verify", "createPr"].includes(kind))
       throw problem(serverMessages.pipelineGraph.unsupportedNodeKind(kind));
+    if (kind === "parallel") {
+      if (node.profileId !== undefined)
+        throw problem(serverMessages.pipelineGraph.invalidProfileReference(node.id));
+      return parallelNode(node, taken);
+    }
     if (
       kind === "profile"
         ? typeof node.profileId !== "string"
@@ -114,8 +171,14 @@ export function validateGraph(graph) {
       ...(edge.continueSession ? { continueSession: true } : {}),
     };
   });
+  for (const edge of edges)
+    if (
+      edge.condition === "fail" &&
+      nodes.find((node) => node.id === edge.to).kind === "parallel"
+    )
+      throw problem(serverMessages.pipelineGraph.failEdgeIntoParallelGroup(edge.to));
   for (const node of nodes) {
-    if (node.kind === "profile") continue;
+    if (isStage(node)) continue;
     const incoming = edges.filter((edge) => edge.to === node.id);
     const outgoing = edges.filter((edge) => edge.from === node.id);
     if (

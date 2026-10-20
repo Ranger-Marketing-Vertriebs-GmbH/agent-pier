@@ -11,6 +11,8 @@ export const runCodes = {
     "failed",
     "cancelled",
     "skipped",
+    // A member of a parallel group whose verdict is in; the group decides.
+    "reported",
   ],
   failReasons: [
     "session-error",
@@ -28,6 +30,8 @@ export const runCodes = {
     "resume-failed",
     "context-exhausted",
     "risk-gate",
+    "members-blocked",
+    "group-changed-files",
   ],
   attemptKinds: [
     "kickoff",
@@ -35,6 +39,8 @@ export const runCodes = {
     "gate-feedback",
     "verify-feedback",
     "resumed-repair",
+    // A parallel group's own attempt; its members' turns are attempts of their own.
+    "group",
   ],
   repairFallbacks: [
     "resume-failed",

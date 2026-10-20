@@ -1,5 +1,5 @@
 import { problem } from "../../lib/storage.js";
-import { validateGraph } from "../pipelines/graph-validation.js";
+import { stageProfiles, validateGraph } from "../pipelines/graph-validation.js";
 export function requireScope(grant, scope) {
   if (!grant?.scopes?.includes(scope))
     throw problem("This MCP grant does not allow that action.", 403);
@@ -27,9 +27,9 @@ export function requirePipeline(
   { executing = false } = {},
 ) {
   const graph = validateGraph(pipeline.graph);
-  for (const node of graph.nodes)
-    if (node.kind === "profile")
-      requireProfile(grant, definitions.getProfile(node.profileId));
+  // Every member of a parallel group runs its profile with the grant too.
+  for (const node of stageProfiles(graph))
+    requireProfile(grant, definitions.getProfile(node.profileId));
   if (executing && graph.nodes.some((node) => node.kind === "createPr"))
     requireScope(grant, "runs:publish");
   return graph;
@@ -38,7 +38,9 @@ export function requireRun(grant, run, request) {
   if (grant.ownedRunsOnly && request?.grantId !== grant.id)
     throw problem("This session did not start that run.", 403);
   requireResource(grant, "projectIds", run.projectId || request?.projectId);
-  for (const node of run.nodes) requireProfile(grant, node.profileSnapshot);
+  // A parallel group runs no profile of its own; its members are checked.
+  for (const node of run.nodes)
+    if (node.kind !== "parallel") requireProfile(grant, node.profileSnapshot);
 }
 export function visible(check) {
   try {
@@ -75,14 +77,19 @@ export function runSummary(run, baseUrl) {
     createdAt: run.createdAt,
     finishedAt: run.finishedAt,
     url: `${baseUrl || ""}/pipelines/runs/${encodeURIComponent(run.id)}`,
-    nodes: run.nodes.map((node) => ({
-      id: node.id,
-      status: node.status,
-      profileId: node.profileSnapshot.id,
-      profileName: node.profileSnapshot.name,
-      tool: node.profileSnapshot.config.cliTool,
-      model: node.profileSnapshot.config.models.default,
-    })),
+    nodes: run.nodes.map((node) =>
+      node.kind === "parallel"
+        ? { id: node.id, kind: "parallel", status: node.status, members: node.members }
+        : {
+            id: node.id,
+            ...(node.group ? { group: node.group } : {}),
+            status: node.status,
+            profileId: node.profileSnapshot.id,
+            profileName: node.profileSnapshot.name,
+            tool: node.profileSnapshot.config.cliTool,
+            model: node.profileSnapshot.config.models.default,
+          },
+    ),
     usage: run.usage,
     pullRequestUrl: run.pullRequestUrl,
     ...(run.failDetail ? { failure: run.failDetail } : {}),

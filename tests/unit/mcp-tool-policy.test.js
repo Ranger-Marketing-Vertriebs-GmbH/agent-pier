@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { requireProfile, requireRun } from "../../server/features/mcp/tool-policy.js";
+import {
+  requireProfile,
+  requireRun,
+  runSummary,
+} from "../../server/features/mcp/tool-policy.js";
 
 const grant = {
   id: "grant-one",
@@ -44,4 +48,42 @@ test("provisioning runs use the reserved project without allowing an absent or f
   assert.doesNotThrow(() => requireRun(unrestricted, pending, { projectId: "project" }));
   for (const request of [undefined, {}, { projectId: "foreign" }])
     assert.throws(() => requireRun(unrestricted, pending, request), { status: 403 });
+});
+
+test("a parallel group is checked through its members and summarized with them", () => {
+  const grouped = {
+    ...run,
+    nodes: [
+      { id: "review", kind: "parallel", status: "running", members: ["security"] },
+      {
+        id: "security",
+        group: "review",
+        status: "running",
+        profileSnapshot: {
+          ...profile,
+          id: "p",
+          name: "Security",
+          config: { ...profile.config, cliTool: "claude", models: { default: "" } },
+        },
+      },
+    ],
+  };
+  assert.doesNotThrow(() => requireRun(grant, grouped, { grantId: "grant-one" }));
+  const foreign = structuredClone(grouped);
+  foreign.nodes[1].profileSnapshot.accountSnapshot.id = "foreign";
+  assert.throws(() => requireRun(grant, foreign, { grantId: "grant-one" }), {
+    status: 409,
+  });
+  assert.deepEqual(runSummary(grouped).nodes, [
+    { id: "review", kind: "parallel", status: "running", members: ["security"] },
+    {
+      id: "security",
+      group: "review",
+      status: "running",
+      profileId: "p",
+      profileName: "Security",
+      tool: "claude",
+      model: "",
+    },
+  ]);
 });

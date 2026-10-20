@@ -117,6 +117,12 @@ export const pipelines = Object.freeze({
     "Die Stufe konnte nicht gestartet werden. Bitte Account und native Session prüfen.",
   portRangeExhausted:
     "Kein freier Portblock für die Stufe. Bitte laufende Stufen beenden oder pipelines.portRangeStart und portRangeEnd in config.json erweitern.",
+  membersBlocked:
+    "Mindestens ein Mitglied der parallelen Gruppe braucht eine Entscheidung, bevor die Gruppe abschließt.",
+  groupChangedFiles:
+    "Ein Mitglied der parallelen Gruppe hat das Arbeitsverzeichnis geändert. Prüfe die Änderungen, bevor die Gruppe abschließt.",
+  groupVerificationFailed:
+    "Die Prüfung ist fehlgeschlagen. Eine parallele Gruppe begutachtet nur und repariert nichts.",
   usageLimitReached: "Das Nutzungslimit des nativen Providers ist erreicht.",
   nativeTurnFailed:
     "Der native Turn der Stufe ist nicht erfolgreich beendet worden. Bitte die Terminalausgabe prüfen.",

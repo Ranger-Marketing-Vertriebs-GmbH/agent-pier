@@ -9,6 +9,12 @@ export const pipelineGraph = Object.freeze({
   entryMustBeProfile: "The entry must reference a profile node",
   invalidEdge: (from, to, condition) =>
     `Invalid pipeline edge: ${from} → ${to} (${condition})`,
+  invalidParallelGroup: (node) =>
+    `Parallel group ${node} needs 2 to 8 members, each with a unique ID and a profile`,
+  invalidParallelConcurrency: (node) =>
+    `The concurrency of group ${node} must be between 1 and its number of members`,
+  failEdgeIntoParallelGroup: (node) =>
+    `A fail edge cannot lead back into parallel group ${node}`,
   oneEdgePerCondition: "A node may have only one edge per condition",
   loopBudgetRange: "Fail loop budgets must be between 1 and 5",
   continueSessionLoopOnly:
