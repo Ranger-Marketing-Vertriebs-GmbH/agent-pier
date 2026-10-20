@@ -82,6 +82,9 @@ async function setup(page, { messages = filler, member = null, requests = [] } =
   });
   await page.goto(baseURL + "/agents/home/chats/dinner");
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
+  // The composer shows before the chat feed's first sync. A test's stream frame must
+  // follow that sync: with no open turn, the sync ends every stream shown before it.
+  await page.waitForFunction(() => window.agentFeed?.synced("dinner"));
   return state;
 }
 
