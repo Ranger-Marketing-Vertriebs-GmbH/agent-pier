@@ -11,6 +11,7 @@ import { meConversationRoutes } from "./me-conversations.js";
 import { meAgentSettingsRoutes } from "./me-agent-settings.js";
 import { meReminderRoutes } from "./me-reminders.js";
 import { meApprovalRoutes } from "./me-approvals.js";
+import { meTelegramRoutes } from "./me-telegram.js";
 
 // The /api/me routes that read or change agent data; each exists only while the
 // agent services do. Every handler asks the user scope (user-scope.js) first.
@@ -90,6 +91,7 @@ function activeRoutes(services, limits) {
   router.use(meAgentSettingsRoutes(services));
   router.use(meReminderRoutes(services));
   router.use(meApprovalRoutes(services));
+  router.use(meTelegramRoutes(services));
   return router;
 }
 

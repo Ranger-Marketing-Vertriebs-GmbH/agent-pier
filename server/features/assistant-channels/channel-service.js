@@ -120,7 +120,8 @@ export class ChannelService {
       })),
     };
   }
-  create(input) {
+  /** A bot for the agent's main chat: the owner's, or with `userId` that user's own. */
+  create(input, { userId = null } = {}) {
     return this.serialize(async () => {
       if (
         !input ||
@@ -134,7 +135,9 @@ export class ChannelService {
       const identity = await this.clientFactory(input.token).identity();
       if (this.nativeBots.usesBot(identity.id))
         throw assistantProblem("telegramBotInUse", 409);
-      const conversation = await this.assistants.openConversation(input.assistantId);
+      const conversation = await this.assistants.openConversation(input.assistantId, {
+        userId,
+      });
       const channel = this.store.create({
         assistantId: input.assistantId,
         conversationId: conversation.id,

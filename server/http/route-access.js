@@ -50,6 +50,11 @@ export const userRoutes = [
   // The approvals of her own chats (me-approvals.js).
   { method: "GET", pattern: /^\/api\/me\/approvals$/ },
   { method: "POST", pattern: /^\/api\/me\/approvals\/[^/]+\/decision$/ },
+  // Her own agent's Telegram bot at "extended" (me-telegram.js).
+  { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/telegram$/ },
+  { method: "PUT", pattern: /^\/api\/me\/agents\/[^/]+\/telegram$/ },
+  { method: "POST", pattern: /^\/api\/me\/agents\/[^/]+\/telegram\/pair$/ },
+  { method: "DELETE", pattern: /^\/api\/me\/agents\/[^/]+\/telegram$/ },
   // Her own reminders and routines on her agents (me-reminders.js).
   { method: "GET", pattern: /^\/api\/me\/agents\/[^/]+\/(?:reminders|routines)$/ },
   { method: "POST", pattern: /^\/api\/me\/agents\/[^/]+\/(?:reminders|routines)$/ },
