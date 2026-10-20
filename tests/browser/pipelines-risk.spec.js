@@ -200,6 +200,15 @@ test("the inbox gate shows the risky paths and the stage's question for the owne
   await expect(page.getByText("Regel migrations/**")).toBeVisible();
   await expect(page.getByText("Darf die Migration Daten löschen?")).toBeVisible();
   await expect(page.getByText("Dateien zum Ansehen")).toBeVisible();
+  // The files read like the risk paths, and the decision buttons keep their gap
+  // without the pipeline page's stylesheet.
+  const files = page.locator(".pipeline-owner-question ul");
+  await expect(files).toHaveCSS("list-style-type", "none");
+  await expect(files.locator("code")).toHaveCSS("font-size", "12px");
+  await expect(page.locator(".run-gate-decision .pipeline-actions")).toHaveCSS(
+    "column-gap",
+    "8px",
+  );
   await page.getByRole("button", { name: "Änderungen freigeben", exact: true }).click();
   await expect
     .poll(
