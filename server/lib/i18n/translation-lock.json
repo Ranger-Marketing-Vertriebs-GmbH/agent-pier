@@ -793,6 +793,7 @@
   "pipelineGraph.cycleNeedsFailEdge": "de:3ecbf800fbec en:f7c61d6fb24e",
   "pipelineGraph.definitionChanged": "de:4d6fd9c01e2e en:4112019d344c",
   "pipelineGraph.definitionNotFound": "de:84173e82a415 en:022751430fed",
+  "pipelineGraph.duplicateGroupProfile": "de:6098dd5df7dc en:1748dc1813a1",
   "pipelineGraph.edgeLimit": "de:424a77348a6e en:bc2b02e50574",
   "pipelineGraph.entryMustBeProfile": "de:b70ac5b7e0e0 en:0d34df120b6c",
   "pipelineGraph.failEdgeIntoParallelGroup": "de:386b25386b23 en:96d76c95af72",

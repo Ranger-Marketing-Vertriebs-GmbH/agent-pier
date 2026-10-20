@@ -365,6 +365,14 @@ export const pipelineCopy = {
     "The failed verification is accepted as is. The stage advances without running verification again and without a separate approval.",
   overrideGate:
     "This decision approves the stage at its gate despite its result. Configured verification still runs if it has not passed yet.",
+  memberActions: {
+    retry: "Restart member",
+    reconcile: "Check result again",
+    override: "Count as passed",
+    feedback: "Retry with feedback",
+  },
+  memberOverrideConfirm: "Count as passed",
+  duplicateMemberProfile: "Each member of a parallel group needs a profile of its own.",
   overrideBlockedMembers: (members, _count) =>
     `${members} will count as passed without a review result. Members that already reported keep their verdicts, and the group concludes with them.`,
   overrideGroupChanges:

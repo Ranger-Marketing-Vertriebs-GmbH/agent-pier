@@ -150,6 +150,14 @@ export function stageError(stages, copy) {
     )
   )
     return copy.invalidGroup;
+  if (
+    stages.some(
+      (s) =>
+        s.kind === "parallel" &&
+        new Set(s.members.map((m) => m.profileId)).size !== s.members.length,
+    )
+  )
+    return copy.duplicateMemberProfile;
   for (const [index, stage] of stages.entries())
     if (
       stage.loopBackTo &&

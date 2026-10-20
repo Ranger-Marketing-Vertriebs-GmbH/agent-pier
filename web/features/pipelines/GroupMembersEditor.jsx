@@ -31,7 +31,15 @@ export default function GroupMembersEditor({ stage, profiles, patch, disabled })
             required
             disabled={disabled}
             value={member.profileId}
-            options={profileOptions(profiles, member.profileId)}
+            // A profile another member already runs is not offered again.
+            options={profileOptions(
+              profiles.filter(
+                (profile) =>
+                  profile.id === member.profileId ||
+                  !members.some((m) => m.profileId === profile.id),
+              ),
+              member.profileId,
+            )}
             onChange={(value) =>
               setMembers(
                 members.map((m, i) => (i === index ? { ...m, profileId: value } : m)),

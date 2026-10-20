@@ -11,6 +11,8 @@ export const pipelineGraph = Object.freeze({
     `Invalid pipeline edge: ${from} → ${to} (${condition})`,
   invalidParallelGroup: (node) =>
     `Parallel group ${node} needs 2 to 8 members, each with a unique ID and a profile`,
+  duplicateGroupProfile: (node) =>
+    `Each member of parallel group ${node} needs a profile of its own`,
   invalidParallelConcurrency: (node) =>
     `The concurrency of group ${node} must be between 1 and its number of members`,
   failEdgeIntoParallelGroup: (node) =>

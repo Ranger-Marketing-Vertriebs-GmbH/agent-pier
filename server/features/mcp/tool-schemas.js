@@ -38,7 +38,7 @@ export const toolSchemas = {
   pipeline_get: tool("catalog:read", "Read a pipeline definition and revision.", { id }),
   pipeline_validate: tool(
     "catalog:read",
-    "Validate a definition and its profile access without saving or running it. Graph has entry, nodes {id,kind:'profile'|'parallel'|'gate'|'verify'|'createPr',profileId?} and edges {from,to,condition,maxIterations?,continueSession?}; continueSession: true on a bounded fail edge resumes the target stage's native session for its repair turn. A parallel node {id,kind:'parallel',members:[{id,profileId}] (2-8, ids unique among all node and member ids),concurrency?} runs its member profiles side by side as read-only reviewers and fails when any member fails; edges name the group, never a member, a fail edge may not target a group and the entry must be a profile node.",
+    "Validate a definition and its profile access without saving or running it. Graph has entry, nodes {id,kind:'profile'|'parallel'|'gate'|'verify'|'createPr',profileId?} and edges {from,to,condition,maxIterations?,continueSession?}; continueSession: true on a bounded fail edge resumes the target stage's native session for its repair turn. A parallel node {id,kind:'parallel',members:[{id,profileId}] (2-8, ids unique among all node and member ids, each member a different profile),concurrency?} runs its member profiles side by side as read-only reviewers and fails when any member fails; edges name the group, never a member, a fail edge may not target a group and the entry must be a profile node.",
     { pipeline: record },
   ),
   pipeline_save: tool(

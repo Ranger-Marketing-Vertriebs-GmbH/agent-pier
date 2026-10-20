@@ -68,6 +68,10 @@ function parallelNode(node, taken) {
       throw invalid();
     taken.add(member.id);
   }
+  // Each member is a lens of its own: the same profile twice would review the same
+  // changes the same way twice.
+  if (new Set(members.map((member) => member.profileId)).size !== members.length)
+    throw problem(serverMessages.pipelineGraph.duplicateGroupProfile(node.id));
   if (
     node.concurrency !== undefined &&
     (!Number.isInteger(node.concurrency) ||
