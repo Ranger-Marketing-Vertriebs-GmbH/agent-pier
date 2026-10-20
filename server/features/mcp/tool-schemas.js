@@ -44,7 +44,7 @@ export const toolSchemas = {
   ),
   pipeline_save: tool(
     "definitions:write",
-    "Create/update a definition {name,description,graph,expectedRevision?}; human gates remain owner-only and createPr nodes require runs:publish.",
+    "Create/update a definition {name,description,graph,tokenBudget?,expectedRevision?}; tokenBudget (1-1000000000) bounds the tokens a run may report before it waits for the owner; an update without tokenBudget keeps the stored one and null removes it. Human gates remain owner-only and createPr nodes require runs:publish.",
     { id: id.optional(), pipeline: record },
     false,
   ),
@@ -57,7 +57,7 @@ export const toolSchemas = {
   }),
   run_start: tool(
     "runs:start",
-    "Start a durable run in an owned worktree of an authorized registered project. Reuse requestId only to retry the identical start. Returns a run ID and UI link; execution continues after disconnect. A task executes code on the AgentPier host using the selected profiles. tokenBudget replaces the pipeline's token budget for this run; a run above its budget starts no new turn and waits for the owner, and only the owner can raise it.",
+    "Start a durable run in an owned worktree of an authorized registered project. Reuse requestId only to retry the identical start. Returns a run ID and UI link; execution continues after disconnect. A task executes code on the AgentPier host using the selected profiles. tokenBudget replaces the pipeline's token budget for this run; above the pipeline's budget it needs definitions:write. A run above its budget starts no new turn and waits for the owner, and only the owner can raise it.",
     {
       pipelineId: id,
       projectId: id,

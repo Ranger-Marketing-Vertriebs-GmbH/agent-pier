@@ -46,6 +46,7 @@ const untranslated = new Map(
       "The provider connection does not support that CLI.",
       "No account for this CLI is authorized.",
       "This grant did not start that run.",
+      "Without definitions:write a run's token budget cannot exceed the pipeline's token budget.",
     ],
     "server/features/ssh/ssh-capability.js": [
       "SSH capability unavailable.",

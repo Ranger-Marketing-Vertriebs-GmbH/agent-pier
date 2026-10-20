@@ -2,17 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fixture } from "../helpers/pipeline-engine.js";
 import { groupFixture, pass } from "../helpers/pipeline-group.js";
+import { auditEvent } from "../../server/features/audit/audit-schema.js";
 
 const node = (run, id) => run.nodes.find((n) => n.id === id);
 const launchesOf = (f, id) => f.launches.filter((l) => l.nodeId === id);
 const tokens = (n) => ({ usage: { inputTokens: n - 1, outputTokens: 1 } });
 
-// build -> review with the definition's token budget; `audit` collects audit entries.
+// build -> review with the definition's token budget; `audit` collects audit entries as
+// the audit log stores them.
 function budgetFixture(t, budget) {
   const audit = [];
   const f = fixture(t, {
     loop: true,
-    options: { audit: { append: (entry) => audit.push(entry) } },
+    options: { audit: { append: (entry) => audit.push(auditEvent(entry)) } },
   });
   const original = f.definitions.snapshot;
   f.definitions.snapshot = () => {

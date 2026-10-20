@@ -245,10 +245,20 @@ test("a pipeline keeps an optional token budget within its bound", async (t) => 
     assert.throws(() => store.savePipeline({ name: "Bad", graph, tokenBudget }), {
       status: 400,
     });
-  // Saving without one removes it; null means none.
+  // An update that leaves the budget out (an older client) keeps it; null removes it.
+  const kept = store.savePipeline(
+    { name: "Renamed", graph, expectedRevision: pipeline.revision },
+    pipeline.id,
+  );
+  assert.equal(kept.tokenBudget, 250000);
   const cleared = store.savePipeline(
-    { name: "Budget", graph, tokenBudget: null, expectedRevision: pipeline.revision },
+    { name: "Budget", graph, tokenBudget: null, expectedRevision: kept.revision },
     pipeline.id,
   );
   assert.equal(Object.hasOwn(cleared, "tokenBudget"), false);
+  const still = store.savePipeline(
+    { name: "Budget", graph, expectedRevision: cleared.revision },
+    pipeline.id,
+  );
+  assert.equal(Object.hasOwn(still, "tokenBudget"), false);
 });

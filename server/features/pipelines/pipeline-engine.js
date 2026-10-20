@@ -25,7 +25,7 @@ import { provisionRun } from "./execution-workspace.js";
 import { readVerdict } from "./stage-verdict.js";
 import { specRevision } from "./run-spec.js";
 import { PortLeases } from "./run-ports.js";
-import { tokenBudgetValue } from "./run-budget.js";
+import { storedTokenBudget, tokenBudgetValue } from "./run-budget.js";
 import {
   artifactsForNode,
   artifactText,
@@ -209,7 +209,8 @@ export class PipelineEngine {
       loopState: {},
       executionLog: [],
       usage: null,
-      tokenBudget: budget ?? tokenBudgetValue(snapshot.pipeline.tokenBudget),
+      tokenBudget:
+        budget ?? storedTokenBudget(snapshot.pipeline.tokenBudget, snapshot.pipeline.id),
       usageResumeAt: null,
       pullRequestUrl: null,
       createdAt: this.now(),

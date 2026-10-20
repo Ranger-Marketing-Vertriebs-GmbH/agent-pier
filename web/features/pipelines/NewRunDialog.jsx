@@ -5,6 +5,7 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Modal from "../../components/Modal.jsx";
 import Segment from "../../components/Segment.jsx";
+import { MAX_TOKEN_BUDGET } from "./token-budget.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatNumber } from "../../lib/i18n/index.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -161,7 +162,7 @@ export default function NewRunDialog({
               <input
                 type="number"
                 min={1}
-                max={1_000_000_000}
+                max={MAX_TOKEN_BUDGET}
                 step={1}
                 value={tokenBudget}
                 aria-describedby="run-dialog-budget-help"

@@ -298,6 +298,7 @@ export const pipelineCopy = {
   budgetGateHelp: (used, budget) =>
     `The run's turns reported ${used} tokens, above its budget of ${budget}. Running turns were not stopped; the next turn starts once you raise the budget.`,
   newTokenBudget: "New token budget",
+  budgetRange: (min, max) => `Enter a whole number from ${min} to ${max}.`,
   attempts: "Execution history",
   verdict: "Verdict",
   pass: "Passed",

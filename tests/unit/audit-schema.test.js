@@ -135,6 +135,36 @@ test("an approved risk gate is audited with its stage, paths and count only", ()
   );
 });
 
+test("a raised token budget is audited with its old and new value", () => {
+  const event = (details) =>
+    auditEvent({
+      action: "pipeline.updated",
+      resourceType: "pipeline",
+      resourceId: "run-1",
+      source: "user",
+      outcome: "success",
+      details,
+    }).details;
+  assert.deepEqual(
+    event({
+      kind: "budget",
+      stageId: "review",
+      from: 100,
+      to: 1000,
+      usedTokens: 150,
+      task: "never",
+    }),
+    { kind: "budget", stageId: "review", from: 100, to: 1000, usedTokens: 150 },
+  );
+  // Values that are no token counts within the bound are dropped.
+  assert.deepEqual(
+    event({ kind: "budget", from: 1.5, to: 1_000_000_001, usedTokens: "150" }),
+    { kind: "budget" },
+  );
+  // Other pipeline updates never carry these fields.
+  assert.deepEqual(event({ kind: "spec", from: 1, to: 2 }), { kind: "spec" });
+});
+
 test("assistant shell events keep levels, pending and the entry id only", () => {
   const event = (details) =>
     auditEvent({

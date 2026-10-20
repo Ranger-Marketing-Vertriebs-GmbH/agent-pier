@@ -116,8 +116,9 @@ export const pipelines = Object.freeze({
   budgetExceeded:
     "The run exceeded its token budget. No new turn starts until the budget is raised.",
   invalidTokenBudget: "The token budget must be a whole number from 1 to 1,000,000,000.",
-  budgetBelowUsage: (used) =>
-    `The new token budget must be above the ${used} tokens reported so far.`,
+  // The UI shows the formatted token count beside the field.
+  budgetBelowUsage:
+    "The new token budget must be above the tokens the run reported so far.",
   nativeTurnFailed:
     "The native stage turn ended unsuccessfully. Inspect its terminal output.",
   // The argument is native CLI output and keeps its original language.

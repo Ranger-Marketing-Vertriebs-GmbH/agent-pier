@@ -11,7 +11,7 @@ import {
 } from "./profile-validation.js";
 import { applySeeds } from "./seed-migration.js";
 import { defaultRisk, validateRisk } from "./risk-rules.js";
-import { tokenBudgetValue } from "./run-budget.js";
+import { storedTokenBudget, tokenBudgetValue } from "./run-budget.js";
 
 function identity(id) {
   if (typeof id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id))
@@ -129,7 +129,14 @@ export class PipelineDefinitions {
     const graph = validateGraph(body?.graph);
     this.validateProfiles(graph);
     // Optional: runs of this pipeline stop starting turns above it (see run-budget.js).
-    const tokenBudget = tokenBudgetValue(body.tokenBudget);
+    // An update that leaves it out keeps the stored budget; null removes it.
+    const tokenBudget =
+      body.tokenBudget === undefined && id
+        ? storedTokenBudget(
+            this.state.pipelines.find((item) => item.id === id)?.tokenBudget,
+            id,
+          )
+        : tokenBudgetValue(body.tokenBudget);
     return this.save(
       "pipelines",
       body,

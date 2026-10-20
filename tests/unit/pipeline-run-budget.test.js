@@ -8,6 +8,7 @@ import {
   tokenBudgetValue,
   usedTokens,
 } from "../../server/features/pipelines/run-budget.js";
+import { MAX_TOKEN_BUDGET as WEB_MAX } from "../../web/features/pipelines/token-budget.js";
 
 const run = (tokenBudget, totalTokens) => ({
   tokenBudget,
@@ -72,4 +73,8 @@ test("a held group resume gets back the reason it was parked for", () => {
   const { hold } = raiseBudget(engine, run(100, 150), node, 1000);
   assert.deepEqual(hold, { resume: true });
   assert.equal(node.failReason, "usage-limit-exceeded");
+});
+
+test("the web inputs use the engine's bound", () => {
+  assert.equal(WEB_MAX, MAX_TOKEN_BUDGET);
 });
