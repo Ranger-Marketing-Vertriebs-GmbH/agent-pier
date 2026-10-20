@@ -289,10 +289,27 @@ export class TeamBridge {
     return this.assistants.imagePolicy.check(input);
   }
   // Every browser call drives the calling agent's own profile (agent-browsers.js).
-  browserPolicy(input) {
+  async browserPolicy(input) {
     if (this.closed || !this.assistants.browsers)
       return { allow: false, reason: "unavailable" };
-    return this.assistants.browsers.policy(input);
+    const policy = await this.assistants.browsers.policy(input);
+    if (policy.allow) this.noteDriver(input);
+    return policy;
+  }
+  // The person whose turn uses the browser now (browser-live-view.js): the user of
+  // the calling chat, or the owner for his chats, routines and everything else.
+  noteDriver(input) {
+    const live = this.assistants.liveView;
+    const agent = live && this.agentOf(input.agentId);
+    if (!agent) return;
+    const [attempt] = this.bound(input.sessionKey);
+    let userId = null;
+    if (attempt)
+      userId =
+        this.assistants.store.getConversation(
+          this.assistants.ledger.getRequest(attempt.requestId).conversationId,
+        ).userId ?? null;
+    live.setDriver(agent.id, userId);
   }
   writeAllowed(input) {
     if (flushSessionAgent(input.sessionKey)) return flushWrite(this, input);

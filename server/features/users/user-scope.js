@@ -1,6 +1,6 @@
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
-import { memberLevel } from "./user-access.js";
+import { isShared, memberLevel } from "./user-access.js";
 
 // The body of an unknown /api route: a refusal never confirms that something exists.
 const refused = () => problem(serverMessages.http.notFound, 404);
@@ -78,7 +78,23 @@ export class UserScope {
     if (!conversationId) throw refused();
     return this.conversationOf(principal, conversationId);
   }
-  mayWatchBrowser(_principal, _agentId) {
-    return false;
+  /**
+   * A user watches and takes over her own agent's browser, and a shared agent's only
+   * while her own turn drives it (browser-live-view.js).
+   */
+  mayWatchBrowser(principal, agentId) {
+    let agent;
+    try {
+      agent = this.agentOf(principal, agentId);
+    } catch {
+      return false;
+    }
+    if (!isShared(agent)) return true;
+    return this.services.assistants?.liveView?.driver(agent.id) === principal.userId;
+  }
+  /** The owner watches a shared agent's browser only while no user's turn drives it. */
+  ownerMayWatchBrowser(agent) {
+    if (!isShared(agent)) return true;
+    return (this.services.assistants?.liveView?.driver(agent.id) ?? null) === null;
   }
 }

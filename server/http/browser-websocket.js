@@ -35,7 +35,10 @@ export function personalState(state, holder) {
  * sends small JSON commands (`select`, `follow`, `start`). Input for a takeover would
  * travel the same way.
  */
-export function attachBrowserWebSocket(server, { live, login, admit, effective }) {
+export function attachBrowserWebSocket(
+  server,
+  { live, login, admit, effective, changes },
+) {
   // A paste of up to 4000 characters fits, encoded.
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16384 });
   const upgrade = (req, socket, head) => {
@@ -46,7 +49,9 @@ export function attachBrowserWebSocket(server, { live, login, admit, effective }
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req);
       const auth = login.require(token);
-      admit(login.principal(auth), { kind: "browser", id: match[1] });
+      const principal = login.principal(auth);
+      const target = { kind: "browser", id: match[1] };
+      admit(principal, target);
       const view = live();
       if (!view) {
         socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
@@ -59,6 +64,15 @@ export function attachBrowserWebSocket(server, { live, login, admit, effective }
           auth,
           view,
           preview: url.searchParams.get("preview") === "1",
+          // Admission again: the browser changed hands or an opt-in ended.
+          admitted: () => {
+            try {
+              admit(principal, target);
+              return true;
+            } catch {
+              return false;
+            }
+          },
         }),
       );
     } catch (error) {
@@ -70,7 +84,7 @@ export function attachBrowserWebSocket(server, { live, login, admit, effective }
   };
   server.on("upgrade", upgrade);
   wss.once("close", () => server.off("upgrade", upgrade));
-  wss.on("connection", (ws, { id, token, auth, view, preview }) => {
+  wss.on("connection", (ws, { id, token, auth, view, preview, admitted }) => {
     let alive = true;
     // The login session holds a takeover lease; never the token itself.
     const holder = createHash("sha256").update(`browser-holder\0${token}`).digest("hex");
@@ -105,6 +119,13 @@ export function attachBrowserWebSocket(server, { live, login, admit, effective }
       return ws.close(error?.code === "LIVE_VIEWERS" ? 1013 : 1008);
     }
     const cleanupLogin = login.watch(auth, () => ws.close(1008));
+    const recheck = () => {
+      if (!admitted()) ws.close(1008);
+    };
+    const unwatchDrivers = view.watchDrivers?.((agentId) => {
+      if (agentId === id) recheck();
+    });
+    const unwatchAccess = changes?.(recheck);
     const ping = setInterval(() => {
       if (!alive) return ws.terminate();
       alive = false;
@@ -145,6 +166,8 @@ export function attachBrowserWebSocket(server, { live, login, admit, effective }
     ws.on("close", () => {
       clearInterval(ping);
       cleanupLogin();
+      unwatchDrivers?.();
+      unwatchAccess?.();
       subscription.close();
     });
   });

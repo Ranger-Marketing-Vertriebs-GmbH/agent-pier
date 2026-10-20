@@ -389,6 +389,16 @@ export async function createApplication(config) {
     login: services.identity,
     admit,
     effective,
+    // Assignments and opt-ins change who may watch (socket-access.js).
+    changes: (listener) => {
+      const events = services.assistants?.events;
+      const off = events?.subscribe(listener);
+      services.ownerPrivacy.on("changed", listener);
+      return () => {
+        off?.();
+        services.ownerPrivacy.off("changed", listener);
+      };
+    },
   });
   services.dictationWss = attachDictationWebSocket(server, {
     dictation: () => services.dictation,

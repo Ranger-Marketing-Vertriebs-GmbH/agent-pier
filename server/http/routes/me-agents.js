@@ -78,6 +78,14 @@ function activeRoutes(services, limits) {
     });
     res.json({ id: conversation.id });
   });
+  // Whether her agent's browser runs, and whether she may watch it now.
+  router.get("/me/agents/:id/browser", (req, res) => {
+    const agent = userScope.agentOf(req.principal, req.params.id);
+    res.json({
+      ...assistants.browsers.status(agent.id),
+      watchable: userScope.mayWatchBrowser(req.principal, agent.id),
+    });
+  });
   router.use(meConversationRoutes(services, limits));
   router.use(meAgentSettingsRoutes(services));
   router.use(meReminderRoutes(services));

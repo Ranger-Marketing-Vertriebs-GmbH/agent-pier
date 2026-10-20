@@ -113,9 +113,10 @@ export class AgentBrowsers {
     if (
       !input ||
       typeof input !== "object" ||
-      Object.keys(input).some((k) => !["agentId", "action"].includes(k))
+      Object.keys(input).some((k) => !["agentId", "action", "sessionKey"].includes(k))
     )
       throw assistantProblem("invalid");
+    if ("sessionKey" in input) textValue(input.sessionKey, 4096);
     textValue(input.agentId, 4096);
     if ("action" in input && input.action !== undefined) textValue(input.action, 64);
     // OpenClaw matches actions as given; any spelling of a refused one stays refused.
