@@ -314,7 +314,7 @@ export class TeamBridge {
         store.conversationOfSession(input.sessionKey));
     const userId =
       conversation?.userId ?? (attempt || conversation ? null : agentPerson(agent));
-    live.setDriver(agent.id, userId ?? null);
+    live.setDriver(agent.id, userId ?? null, conversation?.id ?? null);
   }
   writeAllowed(input) {
     if (flushSessionAgent(input.sessionKey)) return flushWrite(this, input);

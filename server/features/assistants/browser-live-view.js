@@ -46,6 +46,8 @@ export class BrowserLiveView {
     this.streams = new Map();
     // Whose turn drives each agent's browser: a user's id, or null for the owner.
     this.drivers = new Map();
+    // The chat whose turn drove each agent's browser last (browser-hand-back.js).
+    this.driverChats = new Map();
     this.driverTimers = new Map();
     this.driverMs = driverMs;
     this.driverWatchers = new Set();
@@ -54,9 +56,18 @@ export class BrowserLiveView {
   driver(id) {
     return this.drivers.get(id) ?? null;
   }
-  /** A turn drives the browser: its person's views stay, anyone else's close. */
-  setDriver(id, userId) {
+  /** The chat whose turn last drove agent `id`'s browser, or null. */
+  driverConversation(id) {
+    return this.driverChats.get(id) ?? null;
+  }
+  /**
+   * A turn drives the browser: its person's views stay, anyone else's close.
+   * `conversationId` names the chat of that turn, where the hand-back note goes.
+   */
+  setDriver(id, userId, conversationId = null) {
     const next = typeof userId === "string" ? userId : null;
+    if (typeof conversationId === "string") this.driverChats.set(id, conversationId);
+    else this.driverChats.delete(id);
     clearTimeout(this.driverTimers.get(id));
     this.driverTimers.delete(id);
     // Nothing reports a turn's end here: each browser call renews the user's hold.
