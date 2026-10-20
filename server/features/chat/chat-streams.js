@@ -1,6 +1,7 @@
 import { watchNativeInput } from "./native-input-watch.js";
 import { createHash } from "node:crypto";
 import { watchChatSources } from "./chat-source-watch.js";
+import { ChatSourceWatchPool } from "./chat-source-watch-pool.js";
 import { probeChatSources } from "./chat-source-probe.js";
 import { ReplyStreams } from "./reply-streams.js";
 
@@ -40,6 +41,7 @@ export class ChatStreams {
       probeMs,
     });
     this.entries = new Map();
+    this.sourceWatches = new ChatSourceWatchPool();
     // Reply text streaming now; an ended run means the transcript has it: read again.
     this.replies = new ReplyStreams({ ...replies, onEnd: (id) => this.touch(id) });
   }
@@ -87,19 +89,18 @@ export class ChatStreams {
         this.invalidate(entry, event.type !== "snapshot-changed");
       });
       entry.recovery = setInterval(() => {
-        entry.unwatch?.();
-        entry.unwatch = null;
-        // Keep the last native queue until the rebuilt observer reports again.
-        entry.unwatchInput?.();
-        entry.unwatchInput = null;
+        // Re-read missed changes without restarting healthy OS watches or tmux.
+        entry.unwatchInput?.refresh?.();
         this.invalidate(entry);
       }, this.recoveryMs);
       entry.recovery.unref();
       // FSEvents can lag by seconds: a cheap stat catches what the watchers miss.
       entry.stopProbe = this.probe({
-        sources: () => this.chat.sourceState?.(id),
+        sources: () => this.chat.sourceState?.(id, entry.session),
         changed: () => this.invalidate(entry),
         intervalMs: this.probeMs,
+        maintain: () => entry.unwatch?.refresh?.(),
+        discover: () => entry.value?.snapshot?.availability === "waiting",
       });
     }
     entry.listeners.add(listener);
@@ -144,6 +145,7 @@ export class ChatStreams {
     try {
       const session = await this.sessions.get(entry.id);
       if (entry.disposed) return;
+      entry.session = session;
       const scope = JSON.stringify([session.accountId, session.tool, session.cwd]);
       const scopeChanged = entry.scope !== scope;
       if (scopeChanged) {
@@ -160,7 +162,14 @@ export class ChatStreams {
         session.purpose !== "login"
       ) {
         entry.unwatch = this.watch(
-          { session, accounts: this.accounts, ...this.config, settleMs: this.settleMs },
+          {
+            session,
+            accounts: this.accounts,
+            ...this.config,
+            settleMs: this.settleMs,
+            pool: this.sourceWatches,
+            sources: () => this.chat.sourceState?.(entry.id, session),
+          },
           () => this.invalidate(entry),
         );
       }
@@ -207,6 +216,8 @@ export class ChatStreams {
         this.chat.bindings?.processCache?.clear();
       }
       const snapshot = await this.chatImages.read(entry.id);
+      if (entry.disposed || this.closed || entry.generation !== generation) return;
+      await entry.unwatch?.refresh?.();
       if (entry.disposed || this.closed || entry.generation !== generation) return;
       this.publish(entry, session, snapshot);
     } catch (error) {

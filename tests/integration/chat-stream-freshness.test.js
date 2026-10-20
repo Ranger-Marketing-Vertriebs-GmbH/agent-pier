@@ -122,35 +122,41 @@ test("a new subscriber gets the cached value and then the current source", async
   assert.deepEqual(ids(first.at(-1).snapshot), ["m2"]);
 });
 
-test("recovery keeps the native queue while its observer is rebuilt", async (t) => {
+test("recovery refreshes history without restarting healthy source or input watchers", async (t) => {
   const f = fixture(t, { readMs: 1 });
-  let observers = 0;
+  let observers = 0,
+    sourceWatchers = 0,
+    closed = 0,
+    queue = ["q"];
   const s = streams(f, {
     recoveryMs: 40,
+    watch: () => {
+      sourceWatchers++;
+      return () => closed++;
+    },
     watchInput: (_options, changed) => {
-      // Only the first observer reports, at once, so a recovery cannot tear it
-      // down first. A rebuilt one stays silent: every refresh after a recovery
-      // runs before its observer could report again, whatever the timing, and
-      // must still publish the last queue.
-      if (++observers === 1) changed({ generation: 1, queue: ["q"] });
-      return () => {};
+      observers++;
+      changed({ generation: 1, queue });
+      const stop = () => closed++;
+      stop.refresh = () => changed({ generation: 1, queue });
+      return stop;
     },
   });
   t.after(() => s.streams.close());
-  const inputs = [];
-  s.streams.subscribe("s1", (value) => inputs.push(value.snapshot?.nativeInput));
-  // Wait for the queue, then for two rebuilds: the refresh that created the
-  // second-to-last observer has published by the time the last one exists.
-  await until(() => inputs.some(Boolean), 10_000);
-  await until(() => observers >= 3, 10_000);
-  assert.ok(observers >= 3, "observer was rebuilt by recovery");
-  const first = inputs.findIndex(Boolean);
-  assert.ok(first >= 0);
-  assert.deepEqual(
-    inputs.slice(first).filter((input) => !input),
-    [],
-    "native queue never flickered to null",
-  );
+  const values = [];
+  const stop = s.streams.subscribe("s1", (value) => values.push(value));
+  await until(() => values.at(-1)?.snapshot?.nativeInput, 10_000);
+  const reads = f.source.reads;
+  f.source.version = 2;
+  queue = ["recovered"];
+  await until(() => f.source.reads >= reads + 3, 10_000);
+  assert.deepEqual(ids(values.at(-1).snapshot), ["m2"], "recovery still reads history");
+  assert.deepEqual(values.at(-1).snapshot.nativeInput.queue, ["recovered"]);
+  assert.equal(sourceWatchers, 1, "no repeated filesystem registration");
+  assert.equal(observers, 1, "no repeated tmux attachment");
+  assert.equal(closed, 0);
+  stop();
+  assert.equal(closed, 2, "last viewer releases both observers");
 });
 
 test("an exited native observer is reattached without waiting for recovery", async (t) => {

@@ -252,3 +252,56 @@ test("a child whose tail scan gives up or whose rollout is no file is unavailabl
   assert.equal(value.unavailable, 2);
   assert.equal((await lastTokenUsage(file, "thread-a")).totalTokens, 2);
 });
+
+test("child usage exposes only relevant in-profile sources for live observation", async (t) => {
+  const f = fixture(t);
+  const child = f.rollout("thread-a", [record("thread-a", 100, 10)]);
+  f.rollout("thread-other", [record("thread-other", 200, 20)]);
+  f.rollout("thread-foreign", [record("thread-foreign", 300, 30)], f.outside);
+  f.edge("thread-parent", "thread-a");
+  f.edge("thread-parent", "thread-foreign");
+  const sources = [];
+  const children = new CodexChildUsage();
+  const before = await children.read(f.history, f.session, "thread-parent", { sources });
+  assert.deepEqual(
+    sources.sort(),
+    [
+      path.join(f.root, "state_5.sqlite"),
+      path.join(f.root, "state_5.sqlite-wal"),
+      child,
+    ].sort(),
+  );
+  assert.equal("sources" in before, false, "paths are not public usage metadata");
+  fs.appendFileSync(child, line(record("thread-a", 200, 20)));
+  const after = await children.read(f.history, f.session, "thread-parent");
+  assert.equal(after.agents["thread-a"].totalTokens, 220);
+  const empty = [];
+  await children.read(f.history, f.session, "thread-no-children", { sources: empty });
+  assert.deepEqual(
+    empty.sort(),
+    [path.join(f.root, "state_5.sqlite"), path.join(f.root, "state_5.sqlite-wal")].sort(),
+    "database observation discovers new children",
+  );
+});
+
+test("a child row before its rollout retains a safe path for creation discovery", async (t) => {
+  const f = fixture(t);
+  const child = path.join(f.root, "sessions", "pending.jsonl");
+  f.db.prepare("INSERT INTO threads VALUES (?, ?)").run("thread-pending", child);
+  f.edge("thread-parent", "thread-pending");
+  const link = path.join(f.root, "sessions", "dangling.jsonl");
+  fs.symlinkSync(path.join(f.outside, "not-yet-created"), link);
+  f.db.prepare("INSERT INTO threads VALUES (?, ?)").run("thread-link", link);
+  f.edge("thread-parent", "thread-link");
+  const sources = [];
+  const children = new CodexChildUsage();
+  await children.read(f.history, f.session, "thread-parent", { sources });
+  assert.ok(sources.includes(child), "later creation needs an observation target");
+  assert.ok(!sources.includes(link), "dangling symlinks are not safe pending sources");
+  fs.writeFileSync(child, line(record("thread-pending", 100, 10)));
+  assert.equal(
+    (await children.read(f.history, f.session, "thread-parent")).agents["thread-pending"]
+      .totalTokens,
+    110,
+  );
+});

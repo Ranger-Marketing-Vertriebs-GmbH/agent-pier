@@ -4,15 +4,17 @@ import fs from "node:fs/promises";
  * The safety net behind the file watchers and the CLI's own pushes: while a chat has
  * viewers, stat the transcript files its reader last read (`sources()` returns
  * `{paths, readAt}`, ChatStore.sourceState) every `intervalMs` and report a change.
- * Only a change the last read cannot have seen counts, one whose modification time
- * is after that read started: a change a watcher or a push already caused a read
- * for is not reported again. Returns the stop function.
+ * Ordinary writes already covered by a newer read are not reported again. File
+ * identity and disappearance also count: replacements may preserve modification
+ * times. Maintenance repairs missing/failed OS watches without restarting others.
  */
 export function probeChatSources({
   sources,
   changed,
   intervalMs = 1000,
   stat = (file) => fs.stat(file),
+  maintain = () => {},
+  discover = () => false,
 }) {
   const seen = new Map();
   let running = false,
@@ -21,23 +23,33 @@ export function probeChatSources({
     if (running || stopped) return;
     running = true;
     try {
+      await maintain();
+      if (stopped) return;
       const state = sources();
       const paths = Array.isArray(state?.paths) ? state.paths : [];
       for (const file of seen.keys()) if (!paths.includes(file)) seen.delete(file);
-      let fresh = false;
+      let fresh = !paths.length && discover();
       for (const file of paths) {
         let info;
         try {
           info = await stat(file);
-        } catch {
-          // A file that is not there (yet) changes nothing; its creation will.
-          seen.set(file, "missing");
+        } catch (error) {
+          if (!["ENOENT", "ENOTDIR"].includes(error.code)) continue;
+          const previous = seen.get(file);
+          if (previous && !previous.missing) fresh = true;
+          if (!previous?.missing) seen.set(file, { missing: true, readAt: state.readAt });
           continue;
         }
-        const signature = `${info.size}:${info.mtimeMs}`;
+        const identity = `${info.dev}:${info.ino}`;
+        const signature = `${identity}:${info.size}:${info.mtimeMs}:${info.ctimeMs}`;
         const previous = seen.get(file);
-        seen.set(file, signature);
-        if (previous !== signature && info.mtimeMs > (state.readAt ?? Infinity))
+        seen.set(file, { signature, identity });
+        if (
+          (previous?.missing && previous.readAt === state.readAt) ||
+          (previous && !previous.missing && previous.identity !== identity) ||
+          (previous?.signature !== signature &&
+            Math.max(info.mtimeMs, info.ctimeMs || 0) > (state.readAt ?? Infinity))
+        )
           fresh = true;
       }
       if (fresh && !stopped) changed();
@@ -45,7 +57,7 @@ export function probeChatSources({
       running = false;
     }
   };
-  const timer = setInterval(() => void tick(), intervalMs);
+  const timer = setInterval(() => void tick().catch(() => {}), intervalMs);
   timer.unref?.();
   return () => {
     stopped = true;

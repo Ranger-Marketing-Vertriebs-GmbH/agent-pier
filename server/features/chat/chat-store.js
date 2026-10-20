@@ -70,11 +70,18 @@ export class ChatStore {
     return this.epochs.get(id) || 0;
   }
   /** What the chat's source probe watches (chat-source-probe.js), or null. */
-  sourceState(id) {
-    return this.sources.get(id) || null;
+  sourceState(id, session) {
+    const state = this.sources.get(id);
+    if (
+      session &&
+      state?.scope !== JSON.stringify([session.accountId, session.tool, session.cwd])
+    )
+      return null;
+    return state || null;
   }
   reset(id) {
     this.invalidate(id);
+    this.sources.delete(id);
     this.lastKnownTotals.delete(id);
     this.generations.set(id, randomUUID());
     fs.rmSync(this.file(id, "snapshot"), { force: true });
@@ -495,7 +502,12 @@ export class ChatStore {
       // Only the newest source state may replace the saved snapshot and cache.
       const fresh = this.epoch(id) === job.epoch;
       if (fresh && Array.isArray(sources))
-        this.sources.set(id, { paths: sources.slice(0, 4), readAt });
+        this.sources.set(id, {
+          // Codex: parent rollout, state DB/WAL, and at most 512 descendants.
+          paths: [...new Set(sources)].slice(0, 515),
+          readAt,
+          scope: JSON.stringify([session.accountId, session.tool, session.cwd]),
+        });
       const result = this.snapshot(session, nativeId, content, manualBindingSupported, {
         persist: fresh && !job.placeholder,
       });
