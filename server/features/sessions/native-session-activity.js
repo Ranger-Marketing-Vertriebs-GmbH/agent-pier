@@ -22,6 +22,8 @@ const events = new Set([
   "turn/completed",
   "thread/status/changed",
   "session.status",
+  // Not a hook: AgentPier read Claude's interrupt marker in the transcript.
+  "Interrupt",
 ]);
 const validId = (id) =>
   typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
@@ -77,6 +79,23 @@ export function recordNativeActivity(
     path.basename(files.launch) !== `${launch.id}.launch.json`
   )
     throw problem(serverMessages.sessions.invalidNativeBindingKey);
+  return storeActivity(files, launch, { state, event, background, at });
+}
+
+/**
+ * End a reported Claude turn the CLI interrupted without a hook (Esc): the
+ * server read the interrupt marker in the transcript at `at`. Like a hook, a
+ * newer report wins.
+ */
+export function recordClaudeInterrupt(launchFile, at) {
+  const files = bindingFiles(launchFile);
+  const launch = readJson(files.launch);
+  if (path.basename(files.launch) !== `${launch.id}.launch.json`)
+    throw problem(serverMessages.sessions.invalidNativeBinding);
+  return storeActivity(files, launch, { state: "idle", event: "Interrupt", at });
+}
+
+function storeActivity(files, launch, { state, event, background, at }) {
   // Async hooks may finish out of order; the event time decides, not the write.
   const newer = () => {
     try {

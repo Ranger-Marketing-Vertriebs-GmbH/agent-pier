@@ -149,7 +149,7 @@ export async function createServices(config) {
   await github.sync();
   const activity = new SessionActivity({
     sessions,
-    hooks: (session) => bindings.activity(session),
+    hooks: (session) => bindings.reportedActivity(session),
     pending: (id) => requests?.hasPending(id),
   });
   const models = new ModelController({ sessions });
