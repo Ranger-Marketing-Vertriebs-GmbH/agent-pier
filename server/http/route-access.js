@@ -9,6 +9,7 @@ import { notFoundBody } from "./responses.js";
 export const userRoutes = [
   { method: "GET", pattern: /^\/api\/me$/ },
   { method: "PUT", pattern: /^\/api\/me\/password$/ },
+  { method: "GET", pattern: /^\/api\/me\/dictation$/ },
 ];
 
 const userSpace = /^\/api\/me(?:\/|$)/;
