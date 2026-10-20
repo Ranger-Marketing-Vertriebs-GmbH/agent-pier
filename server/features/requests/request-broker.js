@@ -399,7 +399,9 @@ export class RequestBroker {
           "request.answered",
           "user",
           "success",
-          ["exit", "no", "skip"].includes(answer.choice) ? "deny" : "allow",
+          ["exit", "no", "skip", "decline", "cancel"].includes(answer.choice)
+            ? "deny"
+            : "allow",
         );
         return this.list(sessionId);
       } catch (error) {

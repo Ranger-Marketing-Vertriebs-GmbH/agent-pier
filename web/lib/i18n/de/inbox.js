@@ -36,7 +36,7 @@ export const inboxCopy = {
     decision: "Entscheidung zu einer Stufe",
     claudeFolderTrust: "Arbeitsordner vertrauen",
     codexHookTrust: "Codex-Hooks prüfen",
-    claudeStartupPrompt: "Startfrage von Claude",
+    claudeStartupPrompt: "Rückfrage von Claude",
     claudeLegacyQuestion: "Frage im Terminal",
   },
   waitingSince: (time) => `Wartet seit ${time}`,
