@@ -1,3 +1,4 @@
+import { storedTokenBudget } from "../pipelines/run-budget.js";
 import {
   artifactTools,
   artifactToolEntries,
@@ -60,7 +61,7 @@ export class McpTools {
     };
     return descriptor.readOnly ? execute() : this.services.mutationBarrier.run(execute);
   }
-  audit(action, resourceType, resourceId, grant, projectId) {
+  audit(action, resourceType, resourceId, grant, projectId, extra = {}) {
     this.services.audit.append({
       action,
       resourceType,
@@ -68,7 +69,7 @@ export class McpTools {
       source: "mcp",
       outcome: "success",
       ...(projectId ? { projectId } : {}),
-      details: { grantId: grant.id, clientId: grant.clientId },
+      details: { grantId: grant.id, clientId: grant.clientId, ...extra },
     });
   }
   profile(id, grant) {
@@ -137,10 +138,12 @@ export class McpTools {
     const pipeline = this.pipeline(pipelineId, grant, true);
     // Raising the owner's spending bound is a definition change: without
     // definitions:write a client may only tighten the pipeline's token budget.
+    // A corrupt stored value counts as no budget, as at the engine's start.
+    const pipelineBudget = storedTokenBudget(pipeline.tokenBudget, pipeline.id);
     if (
       tokenBudget !== undefined &&
-      Number.isSafeInteger(pipeline.tokenBudget) &&
-      tokenBudget > pipeline.tokenBudget &&
+      pipelineBudget !== null &&
+      tokenBudget > pipelineBudget &&
       !grant.scopes?.includes("definitions:write")
     )
       throw problem(
@@ -158,7 +161,12 @@ export class McpTools {
       },
       { id: receipt.runId, expectedProjectId: projectId },
     );
-    this.audit("pipeline.started", "pipeline", run.id, grant, projectId);
+    // The budget the run spends against, and whether the start or the pipeline set it.
+    this.audit("pipeline.started", "pipeline", run.id, grant, projectId, {
+      tokenBudget: run.tokenBudget ?? null,
+      tokenBudgetSource:
+        tokenBudget !== undefined ? "start" : run.tokenBudget ? "pipeline" : null,
+    });
     return { run: this.summary(run), replayed: false };
   }
   async perform(name, args, grant, resolveGrant) {
