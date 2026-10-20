@@ -47,8 +47,10 @@ export const browserSession = (runId, nodeId) => `agentpier-${runId}-${nodeId}`;
  * In memory are only the blocks granted but not yet saved with their turn.
  */
 export class PortLeases {
-  constructor({ range = DEFAULT_PORT_RANGE, probe = portAvailable, runs }) {
-    Object.assign(this, { range, probe, runs });
+  // `hostPort` is AgentPier's own port: a configured range may contain it, and no
+  // block that does is ever handed to an agent.
+  constructor({ range = DEFAULT_PORT_RANGE, probe = portAvailable, runs, hostPort }) {
+    Object.assign(this, { range, probe, runs, hostPort });
     this.reserved = new Map();
   }
   leased() {
@@ -68,7 +70,8 @@ export class PortLeases {
       base + PORT_BLOCK - 1 <= this.range.end;
       base += PORT_STRIDE
     )
-      blocks.push(base);
+      if (!(this.hostPort >= base && this.hostPort < base + PORT_BLOCK))
+        blocks.push(base);
     return blocks;
   }
   /** Grants a free block to `turnId`; `settle` once the turn holding it is saved. */
@@ -99,18 +102,22 @@ export class PortLeases {
   }
 }
 
-// Best effort: a port is skipped when anything listens on it on loopback or on all
-// interfaces. A server that starts after the probe is not detected.
+// Best effort: a port is skipped when anything listens on it on IPv4 or IPv6 loopback
+// or on either wildcard. Each address is probed on its own: on macOS a bind to one of
+// them succeeds while another process listens on a different one. A server that
+// starts after the probe is not detected.
+const PROBE_HOSTS = ["127.0.0.1", "0.0.0.0", "::1", "::"];
 export async function portAvailable(port) {
-  for (const host of ["127.0.0.1", undefined])
-    if (!(await listens(port, host))) return false;
+  for (const host of PROBE_HOSTS) if (!(await bindable(port, host))) return false;
   return true;
 }
-function listens(port, host) {
+// A host without that address family (no IPv6) cannot have a listener on it.
+const ABSENT_ADDRESS = new Set(["EADDRNOTAVAIL", "EAFNOSUPPORT"]);
+function bindable(port, host) {
   return new Promise((resolve) => {
     const server = net.createServer();
     server.unref();
-    server.once("error", () => resolve(false));
+    server.once("error", (error) => resolve(ABSENT_ADDRESS.has(error.code)));
     server.listen({ port, host, exclusive: true }, () =>
       server.close(() => resolve(true)),
     );

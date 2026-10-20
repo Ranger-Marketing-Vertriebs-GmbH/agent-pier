@@ -42,9 +42,11 @@ import {
 } from "./graph-navigation.js";
 
 export async function launchStage(engine, run, node, options = {}) {
-  const lease = {};
+  // prepareStage records the turn whose port block it reserves here; the block is
+  // settled once that turn is saved with it, or the launch failed.
+  const reservation = { turnId: null };
   try {
-    return await prepareStage(engine, run, node, options, lease);
+    return await prepareStage(engine, run, node, options, reservation);
   } catch (error) {
     engine.recordError(error);
     park(
@@ -57,8 +59,7 @@ export async function launchStage(engine, run, node, options = {}) {
         : serverMessages.pipelines.stageWorkspaceUnsafe,
     );
   } finally {
-    // By now the run store holds the block in the active turn, or the launch failed.
-    if (lease.turnId) engine.ports.settle(lease.turnId);
+    if (reservation.turnId) engine.ports.settle(reservation.turnId);
   }
 }
 async function prepareStage(
@@ -66,7 +67,7 @@ async function prepareStage(
   run,
   node,
   { kind = "kickoff", feedback = "", resumeNativeId, repair } = {},
-  lease = {},
+  reservation,
 ) {
   run.pendingTurn = {
     nodeId: node.id,
@@ -106,7 +107,7 @@ async function prepareStage(
     ? await engine.workspace.inspect(run.workspace)
     : null;
   // A stage keeps its block across turns while it stays free, so a URL it reported holds.
-  lease.turnId = identity.turnId;
+  reservation.turnId = identity.turnId;
   const ports = await engine.ports.lease({
     turnId: identity.turnId,
     prefer: run.executionLog.findLast((a) => a.nodeId === node.id && a.ports)?.ports.base,

@@ -32,6 +32,7 @@ export async function createPipelineServices(services) {
     mutationBarrier: services.mutationBarrier,
     audit: services.audit,
     ...config.pipelines,
+    hostPort: config.port,
     onChange: (run) => {
       services.operationsEvents?.pipeline(run);
       services.inbox?.changed();
