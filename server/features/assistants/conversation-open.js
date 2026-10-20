@@ -4,6 +4,16 @@ import { mainConversation } from "./routine-targets.js";
 import { isUserAgent, memberLevel } from "../users/user-access.js";
 
 /**
+ * Refuses a person who has no chats with the agent: the owner with a user's own agent,
+ * a user with an agent that does not serve her.
+ */
+export function assertChatPerson(agent, userId) {
+  const ownUserAgent = isUserAgent(agent) && agent.userAccess.mode === "own";
+  if (userId === null ? ownUserAgent : !memberLevel(agent, userId))
+    throw assistantProblem("notFound", 404);
+}
+
+/**
  * The main chat of one person with an agent, created on first use: the owner's
  * (`userId` null) or a restricted user's. Each person has her own native session, so
  * two users of a shared agent never share a transcript; the agent's memory stays one.
@@ -12,9 +22,7 @@ import { isUserAgent, memberLevel } from "../users/user-access.js";
  */
 export async function openMainConversation(service, assistantId, { turn, userId }) {
   const agent = service.store.getAssistant(assistantId);
-  const ownUserAgent = isUserAgent(agent) && agent.userAccess.mode === "own";
-  if (userId === null ? ownUserAgent : !memberLevel(agent, userId))
-    throw assistantProblem("notFound", 404);
+  assertChatPerson(agent, userId);
   const existing = mainConversation(service.store, assistantId, userId);
   if (existing) return existing;
   const context = userId === null ? { kind: "owner" } : { kind: "user", userId };
@@ -33,6 +41,7 @@ export async function openMainConversation(service, assistantId, { turn, userId 
   const conversation = service.store.saveConversation({
     assistantId,
     runtimeSessionKey: created.key,
+    main: true,
     ...(userId === null ? {} : { userId }),
   });
   await service.runtime.client.call("sessions.messages.subscribe", { key: created.key });

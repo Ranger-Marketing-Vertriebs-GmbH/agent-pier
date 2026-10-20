@@ -22,6 +22,9 @@ export const contentKinds = [
 export const ownerContentRoutes = {
   // Conversations: messages, the queued message, uploads and shared files.
   "POST /api/assistants/:id/conversations": "agent",
+  // The chat list names the chats and their titles; New chat starts one.
+  "GET /api/assistants/:id/chats": "agent",
+  "POST /api/assistants/:id/chats": "agent",
   "GET /api/assistant-conversations/:id/messages": "conversation",
   "POST /api/assistant-conversations/:id/messages": "conversation",
   "POST /api/assistant-conversations/:id/queued": "conversation",

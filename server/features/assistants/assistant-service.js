@@ -30,6 +30,7 @@ import { conversationFeeds, reconciledChanges } from "./conversation-feeds.js";
 import { assistantListFeed } from "./assistant-list-feed.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { openMainConversation } from "./conversation-open.js";
+import { AgentChats } from "./agent-chats.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import {
   auditProactivity,
@@ -77,6 +78,8 @@ export class AssistantService {
     this.feeds = conversationFeeds(this);
     // The agent list as diffs on the event stream (assistant-list-feed.js).
     this.listFeed = assistantListFeed(this);
+    // Several chats per agent, each its own native session (agent-chats.js).
+    this.chats = new AgentChats(this);
     this.gatewayEvents = new GatewayEventHub();
     // A skill folder changed (one may now shadow an assigned skill), or a Gateway
     // started from a compile that could not ask it: re-apply agents with skills.

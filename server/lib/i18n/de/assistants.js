@@ -331,6 +331,14 @@ export const assistants = {
   queuedFailed: "Die wartende Nachricht wurde nicht gesendet. Bearbeite sie zuerst.",
   queuedExpired:
     "Die wartende Nachricht war älter als einen Tag und wurde nicht mehr gesendet.",
+  chatArchived:
+    "Dieser Chat ist archiviert und nur lesbar. Stelle ihn wieder her, um weiterzuschreiben.",
+  chatMain:
+    "Der Hauptchat bleibt bestehen: Erinnerungen, Routinen, Check-ins und Telegram schreiben in ihn.",
+  chatBusy:
+    "Der Agent arbeitet in diesem Chat oder eine Nachricht wartet. Versuche es danach noch einmal.",
+  chatCommand: "Diesen Befehl gibt es hier nicht. Starte stattdessen einen neuen Chat.",
+  chatConfirm: "Bestätige, dass dieser Chat mit seinem Verlauf gelöscht wird.",
   queuedArchived: "Dieser Agent ist archiviert und nimmt keine Nachrichten mehr an.",
   active: "Es läuft noch eine Anfrage. Warte auf das Ergebnis oder stoppe sie zuerst.",
   disabled: "Agenten sind ausgeschaltet. Aktiviere sie unter Einstellungen › Agenten.",

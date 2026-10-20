@@ -17,6 +17,7 @@ import { mcpOAuthRateLimit, mcpOAuthRoutes } from "./mcp-oauth.js";
 import { assistantShellRoutes, replyShellConfirmation } from "./assistant-shell.js";
 import { assistantSkillRoutes } from "./assistant-skills.js";
 import { userAgentRoutes } from "./user-agents.js";
+import { assistantChatRoutes } from "./assistant-chats.js";
 import {
   assistantAttachmentRateLimits,
   assistantAttachmentRoutes,
@@ -114,6 +115,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantSkillRoutes(services));
   router.use(assistantAttachmentRoutes(services));
   router.use(userAgentRoutes(services));
+  router.use(assistantChatRoutes(services));
   router.get("/assistants", (_req, res) => res.json(assistants.list()));
   router.post("/assistants", async (req, res) => {
     let result;
