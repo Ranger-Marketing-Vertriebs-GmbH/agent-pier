@@ -89,8 +89,11 @@ export class ReplyStreams {
       const run = entry.runs.get(id);
       entry.runs.delete(id);
       for (const subscriber of entry.subscribers) {
-        // Text still waiting for the coalesced flush goes out first.
-        if (subscriber.sent.has(id)) this.streamTo(subscriber, id, run);
+        // Text still waiting for the coalesced flush goes out first, also for a run
+        // this subscriber has not seen yet: Claude Code reports a short last message
+        // and the turn's Stop within milliseconds. An evicted run stays unseen.
+        if (subscriber.sent.has(id) || (!quiet && run.text))
+          this.streamTo(subscriber, id, run);
         if (subscriber.sent.delete(id))
           subscriber.send({ type: "stream-end", runId: id });
       }

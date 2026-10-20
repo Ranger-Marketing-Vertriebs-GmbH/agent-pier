@@ -120,6 +120,31 @@ test("an ended run, or every run of an ended turn, is dropped and announced", as
   assert.equal(value.sessions.has("s"), true, "kept while subscribed");
 });
 
+test("a run that ends before its first flush still reaches its viewers", (t) => {
+  // Claude Code fires a short final message's MessageDisplay and Stop within a
+  // few milliseconds: the run ends while its text still waits for the flush.
+  const { value } = streams(t, { flushMs: 1000 });
+  const frames = [];
+  value.subscribe("s", (frame) => frames.push(frame));
+  value.streamText("s", "last", { text: "Summary.", turn: "t1", order: 1 });
+  value.streamText("s", "empty", { text: "", turn: "t1", order: 2 });
+  value.endStream("s", undefined, { turn: "t1" });
+  assert.deepEqual(
+    frames.map(({ type, runId, from, text, order }) => [type, runId, from, text, order]),
+    [
+      ["stream", "last", 0, "Summary.", 1],
+      ["stream-end", "last", undefined, undefined, undefined],
+    ],
+  );
+  // An evicted run the viewer never saw stays unannounced.
+  const { value: few } = streams(t, { flushMs: 1000, maxRuns: 1 });
+  const seen = [];
+  few.subscribe("s", (frame) => seen.push(frame));
+  few.streamText("s", "old", { text: "old" });
+  few.streamText("s", "new", { text: "new" });
+  assert.deepEqual(seen, []);
+});
+
 test("a run that goes quiet expires and nothing is kept without viewers", async (t) => {
   const { value } = streams(t, { idleMs: 30 });
   value.streamText("s", "r", { text: "stuck" });
