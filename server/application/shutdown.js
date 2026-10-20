@@ -43,6 +43,7 @@ export function createShutdown({ services, wss, server }) {
     await services.systemStatus?.close();
     services.chatEvents?.close();
     await services.operations?.close();
+    await services.pipelineQueue?.close();
     await services.pipelines?.close();
     await services.requests?.close();
     await services.notifications?.close();

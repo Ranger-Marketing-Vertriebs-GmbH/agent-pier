@@ -108,11 +108,13 @@ export async function mapProjects(directory, projectMap = {}) {
     for (const [id, steps] of Object.entries(definitions.verification || {}))
       verification[mappings.find((m) => m.from === id)?.to || id] = steps;
     definitions.verification = verification;
-    if (definitions.risk) {
-      const risk = Object.create(null);
-      for (const [id, rules] of Object.entries(definitions.risk))
-        risk[mappings.find((m) => m.from === id)?.to || id] = rules;
-      definitions.risk = risk;
+    // Risk rules and queue settings belong to a project like its verification steps.
+    for (const kind of ["risk", "queue"]) {
+      if (!definitions[kind]) continue;
+      const mapped = Object.create(null);
+      for (const [id, value] of Object.entries(definitions[kind]))
+        mapped[mappings.find((m) => m.from === id)?.to || id] = value;
+      definitions[kind] = mapped;
     }
     atomic(definitionsFile, definitions);
   }

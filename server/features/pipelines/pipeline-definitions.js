@@ -12,6 +12,7 @@ import {
 import { applySeeds } from "./seed-migration.js";
 import { defaultRisk, validateRisk } from "./risk-rules.js";
 import { storedTokenBudget, tokenBudgetValue } from "./run-budget.js";
+import { storedQueueSettings, validateQueueSettings } from "./queue-policy.js";
 
 function identity(id) {
   if (typeof id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id))
@@ -36,6 +37,7 @@ export class PipelineDefinitions {
         pipelines: [],
         verification: {},
         risk: {},
+        queue: {},
         seedsApplied: [],
       };
     if (
@@ -47,6 +49,8 @@ export class PipelineDefinitions {
       throw new Error("Invalid pipeline definition storage");
     // Definitions written before risk rules existed have none saved.
     if (!this.state.risk || typeof this.state.risk !== "object") this.state.risk = {};
+    // Definitions written before run queues existed have no queue settings.
+    if (!this.state.queue || typeof this.state.queue !== "object") this.state.queue = {};
     // Seeds added or reworded since this document was written reach it once.
     if (applySeeds(this.state, new Date().toISOString()))
       writePrivate(this.file, this.state);
@@ -225,15 +229,32 @@ export class PipelineDefinitions {
     this.commit(next);
     return this.getRisk(projectId);
   }
-  /** Moves verification steps and risk rules of a plain project folder that became a Git work tree. */
+  /** A project's run queue settings; the defaults while the owner has saved none. */
+  getQueueSettings(projectId) {
+    identity(projectId);
+    const saved = Object.hasOwn(this.state.queue, projectId)
+      ? this.state.queue[projectId]
+      : null;
+    return { projectId, ...storedQueueSettings(saved), custom: Boolean(saved) };
+  }
+  saveQueueSettings(projectId, body) {
+    identity(projectId);
+    const settings = validateQueueSettings(body);
+    const next = copy(this.state);
+    next.queue[projectId] = settings;
+    this.commit(next);
+    return this.getQueueSettings(projectId);
+  }
+  /** Moves verification steps, risk rules and queue settings of a plain project folder that became a Git work tree. */
   moveVerification(fromProjectId, toProjectId) {
-    if (Object.hasOwn(this.state.risk, fromProjectId)) {
-      const next = copy(this.state);
-      // The work tree keeps rules of its own; otherwise the folder's rules move along.
-      next.risk[toProjectId] ??= next.risk[fromProjectId];
-      delete next.risk[fromProjectId];
-      this.commit(next);
-    }
+    for (const kind of ["risk", "queue"])
+      if (Object.hasOwn(this.state[kind], fromProjectId)) {
+        const next = copy(this.state);
+        // The work tree keeps settings of its own; otherwise the folder's move along.
+        next[kind][toProjectId] ??= next[kind][fromProjectId];
+        delete next[kind][fromProjectId];
+        this.commit(next);
+      }
     if (!Object.hasOwn(this.state.verification, fromProjectId)) return;
     const next = copy(this.state);
     const merged = Object.hasOwn(next.verification, toProjectId)
@@ -257,7 +278,8 @@ export class PipelineDefinitions {
   hasVerification(projectId) {
     return (
       Object.hasOwn(this.state.verification, projectId) ||
-      Object.hasOwn(this.state.risk, projectId)
+      Object.hasOwn(this.state.risk, projectId) ||
+      Object.hasOwn(this.state.queue, projectId)
     );
   }
   snapshot(pipelineId) {

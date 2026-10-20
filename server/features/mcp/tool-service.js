@@ -9,6 +9,7 @@ import { problem } from "../../lib/storage.js";
 import { projectScope } from "../memory/project-scope.js";
 import { toolSchemas } from "./tool-schemas.js";
 import { StartRequests } from "./start-requests.js";
+import { queueTools } from "./queue-tools.js";
 import {
   requireScope,
   requireResource,
@@ -111,18 +112,16 @@ export class McpTools {
       return { run: this.summary(run), replayed: true };
     }
   }
-  async start(args, grant, resolveGrant) {
-    const { pipelineId, projectId, task, baseBranch, tokenBudget, requestId } = args;
+  /**
+   * The checks of a start, also for a queued one: the project and its identity, the
+   * pipeline's profiles, runs:publish for a pull request and the budget bound. A
+   * `replay` result for the request ID is returned as `previous` instead.
+   */
+  async authorizeStart(args, grant, resolveGrant, input, replay) {
+    const { pipelineId, projectId, tokenBudget, requestId } = args;
     requireResource(grant, "projectIds", projectId);
-    const input = {
-      pipelineId,
-      projectId,
-      task,
-      baseBranch: baseBranch || null,
-      ...(tokenBudget !== undefined ? { tokenBudget } : {}),
-    };
-    const previous = this.replayStart(grant, requestId, input);
-    if (previous) return previous;
+    const previous = replay(grant, requestId, input);
+    if (previous) return { previous };
     const project = this.services.memory.project(projectId);
     const currentProject = await projectScope(project.cwd);
     if (currentProject.id !== projectId)
@@ -133,8 +132,8 @@ export class McpTools {
     if (resolveGrant) grant = resolveGrant();
     requireScope(grant, "runs:start");
     requireResource(grant, "projectIds", projectId);
-    const raced = this.replayStart(grant, requestId, input);
-    if (raced) return raced;
+    const raced = replay(grant, requestId, input);
+    if (raced) return { previous: raced };
     const pipeline = this.pipeline(pipelineId, grant, true);
     // Raising the owner's spending bound is a definition change: without
     // definitions:write a client may only tighten the pipeline's token budget.
@@ -150,11 +149,27 @@ export class McpTools {
         "Without definitions:write a run's token budget cannot exceed the pipeline's token budget.",
         403,
       );
+    return { grant, project };
+  }
+  async start(args, grant, resolveGrant) {
+    const { pipelineId, projectId, task, baseBranch, tokenBudget, requestId } = args;
+    const input = {
+      pipelineId,
+      projectId,
+      task,
+      baseBranch: baseBranch || null,
+      ...(tokenBudget !== undefined ? { tokenBudget } : {}),
+    };
+    const checked = await this.authorizeStart(args, grant, resolveGrant, input, (...a) =>
+      this.replayStart(...a),
+    );
+    if (checked.previous) return checked.previous;
+    ({ grant } = checked);
     const receipt = this.requests.reserve(grant.id, requestId, input);
     const run = await this.services.pipelines.start(
       {
         pipelineId,
-        cwd: project.cwd,
+        cwd: checked.project.cwd,
         task,
         ...(baseBranch ? { baseBranch } : {}),
         ...(tokenBudget !== undefined ? { tokenBudget } : {}),
@@ -315,6 +330,10 @@ export class McpTools {
         this.audit("pipeline.cancelled", "pipeline", run.id, grant, run.projectId);
         return { run: this.summary(run) };
       }
+      case "queue_add":
+      case "queue_list":
+      case "queue_remove":
+        return queueTools[name](this, args, grant, resolveGrant);
       case "run_artifacts":
         this.run(args.runId, grant);
         return pipelines.artifacts(args.runId, args.nodeId);

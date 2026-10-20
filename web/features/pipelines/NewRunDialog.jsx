@@ -12,6 +12,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useResource from "../../lib/useResource.js";
 import ProjectFields, { segmentLimit } from "./ProjectFields.jsx";
 import { listedProjectsPath } from "./project-list.js";
+import { pipelineQueueCopy as queueCopy } from "../../lib/i18n/messages/pipeline-queue.js";
 import "./run-dialog.css";
 
 function PipelineField({ definitions, value, onChange, disabled }) {
@@ -53,23 +54,74 @@ function PipelineField({ definitions, value, onChange, disabled }) {
   );
 }
 
+// The registered project and the folder a started run works in.
+function ProjectAndFolder({
+  projects,
+  projectId,
+  setProjectId,
+  cwd,
+  setCwd,
+  home,
+  disabled,
+}) {
+  return (
+    <>
+      <ProjectFields
+        segment
+        disabled={disabled}
+        resource={projects}
+        value={projectId}
+        onChange={(id, registeredProject) => {
+          setProjectId(id);
+          const project =
+            registeredProject || projects.data?.projects.find((p) => p.id === id);
+          if (project) setCwd(project.cwd);
+        }}
+        home={home}
+      />
+      <div>
+        <label>
+          {copy.runFolder}
+          <input
+            required
+            value={cwd}
+            aria-describedby="run-dialog-folder-help"
+            onChange={(event) => {
+              setCwd(event.target.value);
+              // A different folder is no longer the chosen project's folder.
+              const project = projects.data?.projects.find((p) => p.id === projectId);
+              if (project && project.cwd !== event.target.value) setProjectId("");
+            }}
+          />
+        </label>
+        <small id="run-dialog-folder-help" className="run-dialog-help">
+          {copy.runFolderHelp}
+        </small>
+      </div>
+    </>
+  );
+}
+
 // Starts a pipeline run. `fixedProject` ({id, cwd}) preselects a knowledge project
-// and its folder, for example from the projects hub.
+// and its folder, for example from the projects hub. With `queueProject` ({id, name})
+// the run is added to that project's queue instead (onCreated receives the item).
 export default function NewRunDialog({
   route = {},
   home,
   close,
   onCreated,
   fixedProject,
+  queueProject,
 }) {
   const definitions = useResource("/pipelines"),
-    projects = useResource(listedProjectsPath);
+    projects = useResource(queueProject ? null : listedProjectsPath);
   const [pipelineId, setPipelineId] = useState(route.selectedPipeline || ""),
     [projectId, setProjectId] = useState(fixedProject?.id || ""),
     [cwd, setCwd] = useState(fixedProject?.cwd || home || ""),
     [task, setTask] = useState(""),
     [baseBranch, setBaseBranch] = useState(""),
-    [tokenBudget, setTokenBudget] = useState("");
+    [tokenBudget, setTokenBudget] = useState(""),
+    [externalRef, setExternalRef] = useState("");
   const action = useAsyncAction();
   // An empty field keeps the chosen pipeline's budget, if it has one.
   const pipelineBudget = definitions.data?.pipelines?.find(
@@ -78,9 +130,10 @@ export default function NewRunDialog({
   const dismiss = () => {
     if (!action.busy) close();
   };
+  const title = queueProject ? queueCopy.add : copy.newRun;
   return (
     <Modal
-      title={copy.newRun}
+      title={title}
       className="run-dialog"
       close={dismiss}
       closeDisabled={action.busy}
@@ -90,13 +143,21 @@ export default function NewRunDialog({
         onSubmit={(event) => {
           event.preventDefault();
           action.run(async () => {
-            const result = await api("/pipeline-runs", "POST", {
+            const common = {
               pipelineId,
-              cwd,
               task,
               ...(baseBranch ? { baseBranch } : {}),
               ...(tokenBudget ? { tokenBudget: Number(tokenBudget) } : {}),
-            });
+            };
+            if (queueProject) {
+              const result = await api(
+                `/pipeline-queue/${encodeURIComponent(queueProject.id)}/items`,
+                "POST",
+                { ...common, ...(externalRef ? { externalRef } : {}) },
+              );
+              return onCreated(result.item);
+            }
+            const result = await api("/pipeline-runs", "POST", { ...common, cwd });
             onCreated(result.run);
           });
         }}
@@ -108,38 +169,16 @@ export default function NewRunDialog({
             onChange={setPipelineId}
             disabled={action.busy}
           />
-          <ProjectFields
-            segment
-            disabled={action.busy}
-            resource={projects}
-            value={projectId}
-            onChange={(id, registeredProject) => {
-              setProjectId(id);
-              const project =
-                registeredProject || projects.data?.projects.find((p) => p.id === id);
-              if (project) setCwd(project.cwd);
-            }}
-            home={home}
-          />
-          <div>
-            <label>
-              {copy.runFolder}
-              <input
-                required
-                value={cwd}
-                aria-describedby="run-dialog-folder-help"
-                onChange={(event) => {
-                  setCwd(event.target.value);
-                  // A different folder is no longer the chosen project's folder.
-                  const project = projects.data?.projects.find((p) => p.id === projectId);
-                  if (project && project.cwd !== event.target.value) setProjectId("");
-                }}
-              />
-            </label>
-            <small id="run-dialog-folder-help" className="run-dialog-help">
-              {copy.runFolderHelp}
-            </small>
-          </div>
+          {queueProject ? (
+            <p className="run-dialog-help">
+              {queueCopy.dialogProject(queueProject.name)}
+            </p>
+          ) : (
+            <ProjectAndFolder
+              {...{ projects, projectId, setProjectId, cwd, setCwd, home }}
+              disabled={action.busy}
+            />
+          )}
           <label>
             {copy.task}
             <textarea
@@ -169,6 +208,22 @@ export default function NewRunDialog({
               {copy.runTokenBudgetHelp(pipelineBudget && formatNumber(pipelineBudget))}
             </small>
           </div>
+          {queueProject && (
+            <div>
+              <label>
+                {queueCopy.externalRef}
+                <input
+                  maxLength={120}
+                  value={externalRef}
+                  aria-describedby="run-dialog-reference-help"
+                  onChange={(event) => setExternalRef(event.target.value)}
+                />
+              </label>
+              <small id="run-dialog-reference-help" className="run-dialog-help">
+                {queueCopy.externalRefHelp}
+              </small>
+            </div>
+          )}
           <ErrorMessage error={definitions.error || projects.error || action.error} />
         </fieldset>
         <div className="dialog-actions">
@@ -181,7 +236,7 @@ export default function NewRunDialog({
             {commonCopy.cancel}
           </button>
           <button className="button primary" disabled={action.busy}>
-            {copy.newRun}
+            {title}
           </button>
         </div>
       </form>

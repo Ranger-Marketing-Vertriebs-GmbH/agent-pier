@@ -48,6 +48,7 @@ import { cleanUpProjects } from "./application/project-cleanup.js";
 import { ProjectDuplicates } from "./application/project-duplicates.js";
 import { pipelineDefinitionRoutes } from "./http/routes/pipeline-definitions.js";
 import { pipelineRunRoutes } from "./http/routes/pipeline-runs.js";
+import { pipelineQueueRoutes } from "./http/routes/pipeline-queue.js";
 import { auditHttp } from "./features/audit/audit-http.js";
 import { auditRoutes } from "./http/routes/audit.js";
 import { guardMutations } from "./application/mutation-barrier.js";
@@ -310,6 +311,7 @@ export async function createApplication(config) {
   mount(memoryRoutes(services));
   mount(pipelineDefinitionRoutes(services));
   mount(pipelineRunRoutes(services));
+  mount(pipelineQueueRoutes(services));
   mount(auditRoutes(services));
   mount(requestsRoutes(services));
   mount(inboxRoutes(services));

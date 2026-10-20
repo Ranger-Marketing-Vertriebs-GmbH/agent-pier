@@ -6,6 +6,8 @@ import ProfilesPage from "./ProfilesPage.jsx";
 import DefinitionsPage from "./DefinitionsPage.jsx";
 import RunsPage from "./RunsPage.jsx";
 import VerificationPage from "./VerificationPage.jsx";
+import QueuePage from "./QueuePage.jsx";
+import { pipelineQueueCopy } from "../../lib/i18n/messages/pipeline-queue.js";
 import "./pipelines.css";
 
 // Tab counters reload whenever the tab or item changes, or after edits. The run list
@@ -52,6 +54,7 @@ export default function PipelinePage({
     { id: "definitions", label: copy.definitions, count: counts.definitions },
     { id: "profiles", label: copy.profiles, count: counts.profiles },
     { id: "verification", label: copy.verification },
+    { id: "queue", label: pipelineQueueCopy.tab },
   ];
   return (
     <div className="page pipeline-page">
@@ -91,6 +94,8 @@ export default function PipelinePage({
           <DefinitionsPage {...{ route, navigate }} refreshCounts={counts.refresh} />
         ) : tab === "verification" ? (
           <VerificationPage {...{ route, navigate, home }} />
+        ) : tab === "queue" ? (
+          <QueuePage {...{ route, navigate, home }} />
         ) : (
           <RunsPage {...{ route, navigate, home }} onTotal={counts.setRunTotal} />
         )}

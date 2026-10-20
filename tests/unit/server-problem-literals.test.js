@@ -48,6 +48,13 @@ const untranslated = new Map(
       "This grant did not start that run.",
       "Without definitions:write a run's token budget cannot exceed the pipeline's token budget.",
     ],
+    "server/features/mcp/queue-tools.js": [
+      "This queue item was removed or never confirmed. Inspect AgentPier before submitting a new request ID.",
+      "Queue item not found.",
+      "This grant did not queue that item.",
+      "This item already started its run; cancel the run with run_cancel.",
+      "This item is being started. Read it again shortly.",
+    ],
     "server/features/ssh/ssh-capability.js": [
       "SSH capability unavailable.",
       "SSH capability revoked or session unavailable.",
