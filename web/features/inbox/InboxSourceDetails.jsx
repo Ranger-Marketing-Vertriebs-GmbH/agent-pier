@@ -71,7 +71,7 @@ export function InboxGateDetail({ item, done }) {
         {node.failReason && <span> · {failReasonLabel(node.failReason)}</span>}
       </p>
       {node.kind === "parallel" && node.failReason === "members-blocked" && (
-        <p>{pipelineCopy.blockedMembers(blockedMemberNames(run, node))}</p>
+        <p>{pipelineCopy.blockedMembers(blockedMemberNames(run, node).join(", "))}</p>
       )}
       {run.task && <p className="inbox-gate-task">{run.task}</p>}
       {node.failReason === "risk-gate" && (

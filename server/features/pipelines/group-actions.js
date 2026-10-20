@@ -224,6 +224,10 @@ export async function overrideGroup(engine, run, group) {
   ].slice(-20);
   group.gateDecision = "overridden";
   group.gateDecidedAt = engine.now();
+  // The accepted commit is the group's new starting point: a later join of this attempt
+  // (after feedback to a member) gates only on changes made since.
+  const attempt = nodeAttempt(run, group);
+  if (attempt?.endSha) attempt.baseSha = attempt.endSha;
   delete group.failReason;
   delete group.failDetail;
   group.status = "running";
