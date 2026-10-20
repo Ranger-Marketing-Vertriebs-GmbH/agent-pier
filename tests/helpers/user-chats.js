@@ -71,9 +71,9 @@ export async function userAgent(f, userAccess, body = {}) {
 }
 
 /** Two signed-in users and a shared agent of both at `level`. */
-export async function sharedAgentOfTwo(f, level = "chat") {
-  const anna = await signedInUser(f, "Anna");
-  const ben = await signedInUser(f, "Ben");
+export async function sharedAgentOfTwo(f, level = "chat", names = ["Anna", "Ben"]) {
+  const anna = await signedInUser(f, names[0]);
+  const ben = await signedInUser(f, names[1]);
   const agent = await userAgent(f, {
     mode: "shared",
     members: [

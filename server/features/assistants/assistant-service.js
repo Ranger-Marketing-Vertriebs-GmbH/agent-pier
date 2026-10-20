@@ -131,8 +131,10 @@ export class AssistantService {
     this.accounts?.ensureModels?.();
     const teamData = this.teams?.list();
     const assistants = this.store.listAssistants().map((a) => this.withMcp(a));
+    // The owner's list: users' chats show only under their opt-in (owner-privacy.js).
     const conversations = this.store
       .listConversations()
+      .filter((c) => this.privacy?.visible(c) ?? true)
       .map((c) =>
         this.sessionFailures.has(c.id)
           ? { ...c, diagnostic: this.sessionFailures.get(c.id).diagnostic }

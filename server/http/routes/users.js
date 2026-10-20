@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { notFoundBody } from "../responses.js";
+import { userProblem } from "../../features/users/user-errors.js";
 
 const body = (req) => (req.body && typeof req.body === "object" ? req.body : {});
 
 /** The owner's administration of restricted users. */
-export function usersRoutes({ users }) {
+export function usersRoutes({ users, ownerPrivacy }) {
   const router = Router();
   // Users never learn that these routes exist (the user guard refuses them first).
   router.use("/users", (req, res, next) =>
@@ -18,6 +19,12 @@ export function usersRoutes({ users }) {
   router.patch("/users/:id", (req, res) => {
     const { displayName, disabled } = body(req);
     res.json(users.update(req.params.id, { displayName, disabled }));
+  });
+  // "Owner may read chats": from now on, never earlier; the user sees it in her app.
+  router.put("/users/:id/owner-may-read", (req, res) => {
+    const { enabled } = body(req);
+    if (typeof enabled !== "boolean") throw userProblem("USER_CHANGE_INVALID");
+    res.json(ownerPrivacy.set(req.params.id, enabled));
   });
   router.post("/users/:id/password", async (req, res) => {
     await users.resetPassword(req.params.id, body(req).password);

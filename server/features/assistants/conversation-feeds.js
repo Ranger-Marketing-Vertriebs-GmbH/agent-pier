@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import { ChatSync } from "../chat/chat-sync.js";
 import { conversationHistory } from "./conversations.js";
+import { fromSince } from "../users/owner-privacy.js";
 
 export const CURSOR = /^[A-Za-z0-9-]{1,64}$/;
 const live = new Set(["pending", "accepted", "running"]);
@@ -45,9 +46,11 @@ export class ConversationFeeds {
   /**
    * Watches conversation `id`; `send` receives `{type: "sync", data}`, `{type:
    * "stream", runId, from, text}`, `{type: "error", error}` and `{type: "end"}`.
-   * `cursor` is the subscriber's resume baseline. Returns the unsubscribe function.
+   * `cursor` is the subscriber's resume baseline; `since` (the owner reading a user's
+   * chat under her opt-in) leaves out everything before it. Returns the unsubscribe
+   * function.
    */
-  subscribe(id, { cursor } = {}, send) {
+  subscribe(id, { cursor, since = null } = {}, send) {
     if (this.closed) throw new Error("Conversation feeds are closed");
     let entry = this.entries.get(id);
     if (!entry) {
@@ -71,6 +74,7 @@ export class ConversationFeeds {
     }
     const subscriber = {
       send,
+      since,
       cursor: CURSOR.test(cursor || "") ? cursor : undefined,
       issued: false,
       runs: new Map(),
@@ -157,7 +161,11 @@ export class ConversationFeeds {
   }
   deliver(entry, subscriber, { scope, snapshot }, first) {
     entry.waiting.delete(subscriber);
-    const data = this.sync.encodeScoped(scope, snapshot, subscriber.cursor);
+    const data = this.sync.encodeScoped(
+      scope,
+      fromSince(snapshot, subscriber.since),
+      subscriber.cursor,
+    );
     subscriber.cursor = data.sync.cursor;
     subscriber.issued = true;
     // A recompute with no difference for this subscriber sends nothing.
@@ -204,12 +212,12 @@ export class ConversationFeeds {
     for (const entry of this.entries.values())
       for (const runId of [...entry.runs.keys()]) this.forget(entry, runId);
   }
-  /** The HTTP fallback: one read encoded against `cursor`. */
-  async snapshot(id, cursor) {
+  /** The HTTP fallback: one read encoded against `cursor`, from `since` when given. */
+  async snapshot(id, cursor, { since = null } = {}) {
     const snapshot = await this.read(id);
     return this.sync.encodeScoped(
       this.scope(id),
-      snapshot,
+      fromSince(snapshot, since),
       CURSOR.test(cursor || "") ? cursor : undefined,
     );
   }

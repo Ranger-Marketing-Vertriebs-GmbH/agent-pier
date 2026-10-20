@@ -11,6 +11,8 @@ import { sshRoutes } from "./http/routes/ssh.js";
 import { LoginStore } from "./features/login/login-store.js";
 import { UserStore } from "./features/users/user-store.js";
 import { Identity } from "./features/users/identity.js";
+import { OwnerPrivacy } from "./features/users/owner-privacy.js";
+import { ownerContentGuard } from "./http/owner-content-guard.js";
 import { loginRoutes, requireLogin } from "./http/login.js";
 import { routeAccess } from "./http/route-access.js";
 import { usersRoutes } from "./http/routes/users.js";
@@ -108,6 +110,13 @@ export async function createApplication(config) {
     dataDir: config.dataDir,
     ownerName: () => services.login.ownerName(),
   });
+  // What the owner may read of his users' chats, files and browsers.
+  services.ownerPrivacy = new OwnerPrivacy({
+    users: services.users,
+    assistants: () => services.assistants,
+  });
+  // A changed opt-in changes the owner's list; a withdrawn one closes his views.
+  services.ownerPrivacy.on("changed", () => services.assistants?.changed());
   // Owner and user sessions; every request and socket asks it for its principal.
   services.identity = new Identity({ login: services.login, users: services.users });
   // Live dictation uses the agents' central Deepgram connection while it exists.
@@ -274,6 +283,8 @@ export async function createApplication(config) {
   app.use("/api", requireLogin(services.identity, effective));
   // Deny by default: restricted users reach only their /api/me routes, the owner never.
   app.use("/api", routeAccess());
+  // The owner reads users' private content only under their opt-in.
+  app.use("/api", ownerContentGuard(services));
   // Slow mobile links benefit most; downloads stream raw bytes uncompressed.
   app.use(
     compression({
