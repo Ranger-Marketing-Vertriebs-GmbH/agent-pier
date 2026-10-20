@@ -22,20 +22,27 @@ export function routeView(route) {
   return null;
 }
 
+// A user's views apart from the owner's (and from each other's).
+const viewKey = (view, userId) => (userId === null ? view : `user:${userId}:${view}`);
+
 export class PushPresence {
   constructor({ now = Date.now } = {}) {
     this.now = now;
     this.views = new Map();
     this.reports = [];
   }
-  /** One report from a visible page; false when reports come in too fast. */
-  report(route) {
+  /**
+   * One report from a visible page of one person (`userId`, null: the owner); false
+   * when reports come in too fast. Each person's views hold back only her pushes.
+   */
+  report(route, userId = null) {
     const now = this.now();
     this.reports = this.reports.filter((at) => now - at < 60000);
     if (this.reports.length >= reportsPerMinute) return false;
     this.reports.push(now);
-    const view = routeView(route);
-    if (!view) return true;
+    const shown = routeView(route);
+    if (!shown) return true;
+    const view = viewKey(shown, userId);
     this.views.delete(view);
     this.views.set(view, now);
     for (const [key, at] of this.views)
@@ -43,14 +50,15 @@ export class PushPresence {
         this.views.delete(key);
     return true;
   }
-  seen(view, now = this.now()) {
-    const at = this.views.get(view);
+  seen(view, now = this.now(), userId = null) {
+    const at = this.views.get(viewKey(view, userId));
     return at !== undefined && now - at < presenceWindowMs;
   }
-  /** Whether the owner is looking at what this event is about. */
-  watching(event, source, now = this.now()) {
+  /** Whether the person (the owner by default) looks at what this event is about. */
+  watching(event, source, now = this.now(), userId = null) {
     return Boolean(
-      (event.inbox && this.seen("inbox", now)) || (source && this.seen(source, now)),
+      (event.inbox && this.seen("inbox", now, userId)) ||
+      (source && this.seen(source, now, userId)),
     );
   }
 }
