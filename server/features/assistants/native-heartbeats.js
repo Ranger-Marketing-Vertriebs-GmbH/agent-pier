@@ -12,14 +12,8 @@ import {
   telegramTarget,
 } from "./routine-targets.js";
 
-// The agent's name for a push notice; a notice without it still goes out.
-const agentName = (assistants, id) => {
-  try {
-    return assistants.store.getAssistant(id)?.name;
-  } catch {
-    return undefined;
-  }
-};
+import { agentName, agentPerson, pushAudience } from "./reminder-audience.js";
+import { isShared } from "../users/user-access.js";
 
 export const heartbeatKind = "heartbeat";
 // OpenClaw's silent-reply token; an empty summary is just as silent.
@@ -60,6 +54,8 @@ export class NativeHeartbeats {
   eligible(agent) {
     return (
       heartbeatSettings(agent).enabled &&
+      // A shared agent has no one person to check in with (first version: off).
+      !isShared(agent) &&
       // The notes are what a check-in looks at; without memory it has nothing.
       personalCapabilities(agent).memory &&
       !this.blocked(agent.id)
@@ -67,7 +63,8 @@ export class NativeHeartbeats {
   }
   /** The job an eligible agent should have: its main chat and Telegram extra. */
   wanted(agent) {
-    const conversation = this.reminders.mainConversation(agent.id);
+    // The main chat of the agent's person: the owner, or the user of her own agent.
+    const conversation = this.reminders.mainConversation(agent.id, agentPerson(agent));
     if (!this.eligible(agent) || !conversation) return null;
     const settings = heartbeatSettings(agent);
     const channel =
@@ -114,7 +111,7 @@ export class NativeHeartbeats {
   async sync(id) {
     const agent = this.assistants.store.getAssistant(id);
     // Check-ins run in the main chat; an agent that has none yet gets it now.
-    if (this.eligible(agent)) await this.reminders.openMain(id);
+    if (this.eligible(agent)) await this.reminders.openMain(id, agentPerson(agent));
     const want = this.wanted(agent);
     const existing = this.current(id);
     if (!want && !existing.length) return;
@@ -168,7 +165,12 @@ export class NativeHeartbeats {
       `heartbeat:${randomUUID()}`,
       { assistantId: agent.id },
       {},
-      { kind: heartbeatKind, target, telegram },
+      {
+        kind: heartbeatKind,
+        target,
+        telegram,
+        ...(agentPerson(agent) && { userId: agentPerson(agent) }),
+      },
     );
     this.bindings.patch(binding.id, { state: "pending" });
     try {
@@ -300,6 +302,7 @@ export class NativeHeartbeats {
         .then(() =>
           this.notifications?.notify({
             kind: "agent-checkin",
+            ...pushAudience(binding),
             assistantId: binding.assistantId,
             conversationId: recorded.conversation.id,
             eventId: `heartbeat-${event.runAtMs}-${binding.id}`,

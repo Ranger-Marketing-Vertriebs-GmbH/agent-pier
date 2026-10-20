@@ -9,6 +9,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { meConversationRoutes } from "./me-conversations.js";
 import { meAgentSettingsRoutes } from "./me-agent-settings.js";
+import { meReminderRoutes } from "./me-reminders.js";
 
 // The /api/me routes that read or change agent data; each exists only while the
 // agent services do. Every handler asks the user scope (user-scope.js) first.
@@ -77,6 +78,7 @@ function activeRoutes(services, limits) {
   });
   router.use(meConversationRoutes(services, limits));
   router.use(meAgentSettingsRoutes(services));
+  router.use(meReminderRoutes(services));
   return router;
 }
 

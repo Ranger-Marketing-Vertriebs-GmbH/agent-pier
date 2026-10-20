@@ -12,6 +12,11 @@ test("owner routine routes pass only scoped identities and never expose upstream
   );
   app.use(
     assistantRoutineRoutes({
+      // The owner's own agent and binding (binding-scope.js).
+      assistants: {
+        store: { getAssistant: (id) => ({ id }) },
+        reminders: { bindings: { get: (id) => ({ id, assistantId: "a" }) } },
+      },
       assistantRoutines: {
         list: async (id) => ({ routines: [{ id }] }),
         trigger: async (...args) => {

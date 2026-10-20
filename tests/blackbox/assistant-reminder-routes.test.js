@@ -15,7 +15,12 @@ test("reminder review route is owner-only and an unconfirmed replay asks for rev
   app.use(
     assistantRoutes({
       assistantFeature: { enabled: true },
-      assistants: { maintenance: false },
+      assistants: {
+        maintenance: false,
+        // The owner's own agent and binding (binding-scope.js).
+        store: { getAssistant: (id) => ({ id }) },
+        reminders: { bindings: { get: (id) => ({ id, assistantId: "a" }) } },
+      },
       assistantReminders: {
         review: async (...args) => {
           calls.push(args);

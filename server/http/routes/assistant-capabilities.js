@@ -1,9 +1,7 @@
 import { Router } from "express";
-export function assistantCapabilityRoutes({
-  assistants,
-  assistantMemory,
-  assistantReminders,
-}) {
+import { ownerBinding, ownerPerson } from "./binding-scope.js";
+export function assistantCapabilityRoutes(services) {
+  const { assistants, assistantMemory, assistantReminders } = services;
   const router = Router();
   // The agent's own browser: whether it runs, and deleting its profile.
   router.get("/assistants/:id/browser", (req, res) =>
@@ -25,8 +23,14 @@ export function assistantCapabilityRoutes({
     res.json(await assistantMemory.search(req.params.id, req.query.q)),
   );
   router.get("/assistants/:id/reminders", async (req, res) =>
-    res.json(await assistantReminders.list(req.params.id)),
+    res.json(
+      await assistantReminders.list(req.params.id, {
+        userId: ownerPerson(assistants, req.params.id),
+      }),
+    ),
   );
+  // Another user's reminder on a shared agent is not the owner's to see or change.
+  router.use("/assistants/:id/reminders/:bindingId", ownerBinding(services, "bindingId"));
   router.post("/assistants/:id/reminders", async (req, res) =>
     res.status(201).json(await assistantReminders.create(req.params.id, req.body)),
   );
