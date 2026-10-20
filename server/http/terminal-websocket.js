@@ -1,5 +1,6 @@
 import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
+import { requireOwnerSocket } from "./user-guard.js";
 import { serverMessages } from "../lib/i18n/de.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { authorizeRequest } from "./security.js";
@@ -21,7 +22,7 @@ export function attachTerminalWebSocket(server, { sessions, login, effective }) 
     if (pathname === "/api/dictation/stream") return;
     try {
       authorizeRequest(req, effective(), true);
-      const authSession = login.require(sessionToken(req));
+      const authSession = requireOwnerSocket(login, sessionToken(req));
       const match = new URL(req.url, "http://localhost").pathname.match(
         /^\/api\/sessions\/([a-zA-Z0-9-]+)\/terminal$/,
       );

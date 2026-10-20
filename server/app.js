@@ -12,6 +12,7 @@ import { LoginStore } from "./features/login/login-store.js";
 import { UserStore } from "./features/users/user-store.js";
 import { Identity } from "./features/users/identity.js";
 import { loginRoutes, requireLogin } from "./http/login.js";
+import { userGuard } from "./http/user-guard.js";
 import { agencyRoutes } from "./http/routes/agency.js";
 import { filesRoutes } from "./http/routes/files.js";
 import { fileOperationsRoutes } from "./http/routes/file-operations.js";
@@ -261,6 +262,8 @@ export async function createApplication(config) {
   app.use("/api", mcpOAuthCallbackRoutes(services));
   app.use("/api", mcpCliOAuthCallbackRoutes(services));
   app.use("/api", requireLogin(services.identity, effective));
+  // Restricted users reach only /api/me; the owner never does.
+  app.use("/api", userGuard());
   // Slow mobile links benefit most; downloads stream raw bytes uncompressed.
   app.use(
     compression({

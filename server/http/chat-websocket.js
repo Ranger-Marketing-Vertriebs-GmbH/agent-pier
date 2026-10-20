@@ -1,5 +1,6 @@
 import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
+import { requireOwnerSocket } from "./user-guard.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 
@@ -18,7 +19,7 @@ export function attachChatWebSocket(server, { sync, streams, login, effective })
     try {
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req);
-      const auth = login.require(token);
+      const auth = requireOwnerSocket(login, token);
       if (streams.closed) {
         socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
         return;
