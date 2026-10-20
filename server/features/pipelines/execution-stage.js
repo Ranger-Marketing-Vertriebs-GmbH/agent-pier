@@ -234,7 +234,8 @@ export function park(engine, run, node, reason, detail, verdict) {
   if (detail) node.failDetail = detail.slice(0, 500);
   if (verdict) node.verdict = verdict;
   const attempt = nodeAttempt(run, node);
-  if (attempt) {
+  // A member whose turn never started keeps its earlier rounds' attempts as they were.
+  if (attempt && (!node.group || attempt.groupAttemptId === run.currentAttemptId)) {
     attempt.finishedAt = engine.now();
     attempt.failReason = reason;
     if (verdict) attempt.verdict = verdict;
