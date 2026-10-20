@@ -9,6 +9,9 @@ const pipelineEnded = {
   cancelled: "pipeline.cancelled",
 };
 
+// Pushed events that start a model turn, whatever the poll reads afterwards.
+const turnStarts = new Set(["UserPromptSubmit", "turn/started"]);
+
 /** Observe durable metadata and native activity without attaching a terminal client. */
 export class OperationsEvents {
   constructor(options) {
@@ -92,6 +95,29 @@ export class OperationsEvents {
       previous: previous?.value,
       eventId: createHash("sha256").update(`${key}:${next.sequence}`).digest("hex"),
     };
+  }
+  /**
+   * A CLI pushed an activity report (hooks, Codex proxy, OpenCode plugin). A started
+   * turn is remembered at once, so a turn that ends before the next poll still
+   * notifies as finished, and the push is checked now instead of at the next interval.
+   */
+  nativeActivity(sessionId, event) {
+    if (this.closed || typeof sessionId !== "string") return;
+    try {
+      if (turnStarts.has(event) && this.notifications.deviceCount?.() > 0)
+        this.transition(`activity:${sessionId}`, "working");
+    } catch (error) {
+      this.onError(error);
+    }
+    // One more poll after the running one, however many pushes arrive meanwhile.
+    if (this.again) return;
+    this.again = Promise.resolve(this.pending)
+      .catch(() => {})
+      .then(() => {
+        this.again = null;
+        return this.poll();
+      })
+      .catch(this.onError);
   }
   async poll() {
     if (this.pending || this.closed) return this.pending;
@@ -241,6 +267,7 @@ export class OperationsEvents {
   async close() {
     this.closed = true;
     clearInterval(this.timer);
+    await this.again;
     await this.pending;
   }
 }

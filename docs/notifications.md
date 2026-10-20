@@ -90,6 +90,14 @@ everything else opens the exact session chat, agent chat or pipeline run.
 |                 | Routine result                                     | On      | A [routine or reminder](agents.md#routines-reminders-and-check-ins) wrote in an agent's chat; opens that chat                          |
 |                 | Also what Telegram delivered                       | Off     | Check-ins and routine results that also went to the agent's paired Telegram chat; while off, Telegram alone tells you about them       |
 
+A coding CLI's own activity reports (Claude Code's hooks, the Codex app-server proxy
+and the OpenCode plugin) trigger these session events at once instead of at the next
+check every few seconds, and a turn that starts and finishes between two checks still
+counts as **Response ready**. A question or approval that AgentPier brokers notifies
+as **Question from a CLI** or **Approval for a CLI** only; **Session waiting in the
+terminal** is sent only for a wait that no such request covers. Every push opens the
+session's chat, or the inbox item for a question or approval.
+
 These always notify every device and cannot be switched off: **Telegram access still
 active** (a Telegram bot or person you removed could not be stopped; restart the agent
 service), **Check GitHub token** (the [daily token check](github-agents.md#token-check)

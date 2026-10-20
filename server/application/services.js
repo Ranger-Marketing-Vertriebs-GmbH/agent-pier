@@ -286,6 +286,9 @@ export async function createServices(config) {
       if (push.event === "Stop") claudeDrafts.stop(sessionId, push.lastAssistantMessage);
       if (["StopFailure", "SessionEnd", "UserPromptSubmit"].includes(push.event))
         claudeDrafts.end(sessionId);
+      // The report reaches the push notifications without the poll's delay.
+      if (push.type === "activity")
+        services.operationsEvents?.nativeActivity(sessionId, push.event);
     },
   });
   await requests.ready;
