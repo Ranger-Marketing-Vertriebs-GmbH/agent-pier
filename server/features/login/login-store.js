@@ -24,7 +24,8 @@ export class LoginStore {
       !this.data ||
       !Array.isArray(this.data.sessions) ||
       (this.data.user !== null &&
-        (typeof this.data.user?.username !== "string" || !validCredential(this.data.user)))
+        (typeof this.data.user?.username !== "string" ||
+          !validCredential(this.data.user)))
     )
       throw new Error("Invalid private login state");
     // Rows from the fixed seven-day lifetime carry only hash and expiry.

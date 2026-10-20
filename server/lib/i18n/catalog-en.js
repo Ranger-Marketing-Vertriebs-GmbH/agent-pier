@@ -38,6 +38,7 @@ import { memory } from "./en/memory.js";
 import { providers } from "./en/providers.js";
 import { notifications } from "./en/notifications.js";
 import { audit } from "./en/audit.js";
+import { users } from "./en/users.js";
 
 // English counterpart of catalog-de.js with identical keys.
 export const englishServerMessages = Object.freeze({
@@ -62,6 +63,7 @@ export const englishServerMessages = Object.freeze({
   providers,
   notifications,
   audit,
+  users,
   accounts,
   agentbus,
   artifacts,

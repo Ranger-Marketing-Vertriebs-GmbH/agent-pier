@@ -1483,5 +1483,10 @@
   "tools.unexpectedGithubRedirect": "de:d1ad56aaf953 en:7f86917fee91",
   "tools.unexpectedTarData": "de:d1038c42cec6 en:e0163fd2b6c1",
   "tools.unsafeArchivePath": "de:364fc52e1f76 en:25f805bb3479",
-  "tools.unsupportedPaxData": "de:07be990f9452 en:8abeebda06fa"
+  "tools.unsupportedPaxData": "de:07be990f9452 en:8abeebda06fa",
+  "users.changeInvalid": "de:3a77a9f68724 en:4982aa4af807",
+  "users.displayNameInvalid": "de:c1e4ab84ed64 en:38bcc367456e",
+  "users.nameTaken": "de:e373eb1a6c0c en:da2c9d394ae3",
+  "users.notFound": "de:696a7c61d5c4 en:85dcd7d5eb16",
+  "users.passwordWrong": "de:24182847ccb0 en:aa43911cc13f"
 }

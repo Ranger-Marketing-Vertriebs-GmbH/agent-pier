@@ -26,8 +26,8 @@ export const dummyCredential = Object.freeze({
   hash: "0".repeat(128),
 });
 
-export async function verifyPassword(password, { salt, hash }) {
+export async function verifyPassword(password, { salt, hash }, derive = hashPassword) {
   if (typeof password !== "string" || password.length > 1024) return false;
-  const derived = await hashPassword(password, salt);
+  const derived = await derive(password, salt);
   return timingSafeEqual(derived, Buffer.from(hash, "hex"));
 }
