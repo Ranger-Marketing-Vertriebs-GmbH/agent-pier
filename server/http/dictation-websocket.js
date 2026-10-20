@@ -1,10 +1,8 @@
 import http from "node:http";
 import { sessionToken } from "./login.js";
-import { requireOwnerSocket } from "./user-guard.js";
+import { dictationPath } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
-
-export const dictationPath = "/api/dictation/stream";
 
 /**
  * The owner's live dictation (dictation-service.js): /api/dictation/stream, behind
@@ -12,15 +10,16 @@ export const dictationPath = "/api/dictation/stream";
  * frames of 16 kHz mono PCM and `{"type":"stop"}`; the server answers with JSON
  * messages: `ready`, `transcript` (interim or final), `ended` and `error` codes.
  */
-export function attachDictationWebSocket(server, { dictation, login, effective }) {
+export function attachDictationWebSocket(server, { dictation, login, admit, effective }) {
   // About two seconds of audio per frame at most.
   const wss = new WebSocketServer({ noServer: true, maxPayload: 65536 });
   const upgrade = (req, socket, head) => {
-    if (new URL(req.url, "http://localhost").pathname !== dictationPath) return;
+    if (!dictationPath.test(new URL(req.url, "http://localhost").pathname)) return;
     try {
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req);
-      const auth = requireOwnerSocket(login, token);
+      const auth = login.require(token);
+      admit(login.principal(auth), { kind: "dictation" });
       const service = dictation();
       if (!service) {
         socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");

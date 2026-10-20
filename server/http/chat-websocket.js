@@ -1,12 +1,12 @@
 import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
-import { requireOwnerSocket } from "./user-guard.js";
+import { chatPath } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 
 const CURSOR = /^[A-Za-z0-9-]{1,64}$/;
 
-export function attachChatWebSocket(server, { sync, streams, login, effective }) {
+export function attachChatWebSocket(server, { sync, streams, login, admit, effective }) {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: 65536,
@@ -14,12 +14,13 @@ export function attachChatWebSocket(server, { sync, streams, login, effective })
   });
   const upgrade = (req, socket, head) => {
     const url = new URL(req.url, "http://localhost");
-    const match = url.pathname.match(/^\/api\/sessions\/([a-zA-Z0-9_-]+)\/chat-stream$/);
+    const match = url.pathname.match(chatPath);
     if (!match) return;
     try {
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req);
-      const auth = requireOwnerSocket(login, token);
+      const auth = login.require(token);
+      admit(login.principal(auth), { kind: "chat", id: match[1] });
       if (streams.closed) {
         socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
         return;

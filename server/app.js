@@ -71,6 +71,8 @@ import { mcpDirectoryRoutes } from "./http/routes/mcp-directory.js";
 import { registerResponses } from "./http/responses.js";
 import { buildHeader, buildIdentity } from "./http/build-identity.js";
 import { attachTerminalWebSocket } from "./http/terminal-websocket.js";
+import { admitSocket } from "./http/socket-access.js";
+import { UserScope } from "./features/users/user-scope.js";
 import { attachChatWebSocket } from "./http/chat-websocket.js";
 import { attachAssistantChatWebSocket } from "./http/assistant-chat-websocket.js";
 import { attachBrowserWebSocket } from "./http/browser-websocket.js";
@@ -344,15 +346,20 @@ export async function createApplication(config) {
   api.mount(operationsRoutes(services), { guarded: false });
   mount(healthRoutes(services));
   registerResponses(app);
+  // What a restricted user reaches of the agents; sockets admit users through it.
+  services.userScope = new UserScope(services);
+  const admit = (principal, target) => admitSocket(services, principal, target);
   const wss = attachTerminalWebSocket(server, {
     sessions: services.sessions,
     login: services.identity,
+    admit,
     effective,
   });
   const chatWss = attachChatWebSocket(server, {
     sync: services.chatSync,
     streams: services.chatStreams,
     login: services.identity,
+    admit,
     effective,
   });
   services.chatWss = chatWss;
@@ -360,17 +367,20 @@ export async function createApplication(config) {
   services.assistantChatWss = attachAssistantChatWebSocket(server, {
     assistants: () => services.assistants,
     login: services.identity,
+    admit,
     effective,
   });
   // The owner's live view of the agents' browsers, while the agent feature runs.
   services.browserWss = attachBrowserWebSocket(server, {
     live: () => services.assistants?.liveView || null,
     login: services.identity,
+    admit,
     effective,
   });
   services.dictationWss = attachDictationWebSocket(server, {
     dictation: () => services.dictation,
     login: services.identity,
+    admit,
     effective,
   });
   // Returning the services object itself keeps test seams such as restartService writable.
