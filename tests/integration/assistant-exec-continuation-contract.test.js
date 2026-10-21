@@ -1,0 +1,276 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
+import { contractTimeout } from "../helpers/contract-timeout.js";
+import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
+import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
+import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
+import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
+import { HeartbeatRuns } from "../../server/features/assistants/exec-continuation.js";
+import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
+import { channelFixture } from "../helpers/assistant-channel-fixture.js";
+import {
+  fixtureModels,
+  proactivityModel,
+} from "../helpers/assistant-proactivity-model.js";
+
+// AGENTPIER-185 against the pinned Gateway: an owner turn starts a background exec
+// and ends; when the command exits, OpenClaw's completion run in the same session
+// writes with that turn's rights (exec-continuation.js). The same completion after a
+// newer forwarded request, or outside the window, stays refused. This pins what the
+// implementation assumes of OpenClaw: the completion's raw transcript entry
+// (`sessions.get`: provenance and the owner turn's idempotency key), the
+// `isHeartbeat` agent events of its run, the hook's run id and the session it runs in.
+const installed = process.env.AGENTPIER_SHELL_CONTRACT_RUNTIME;
+const long = { timeoutMs: 60000 };
+const lastUser = (request) =>
+  request.messages.slice(request.messages.findLastIndex((m) => m.role === "user"));
+// The completion run's prompt to the model ("An async command you ran earlier has
+// completed ..."); its transcript entry is "[OpenClaw exec completion]".
+const isCompletion = (request) =>
+  /async command/i.test(JSON.stringify(lastUser(request)[0]));
+
+test(
+  "pinned Gateway: an exec completion continues its owner turn's writes",
+  { skip: !installed, timeout: contractTimeout(300000) },
+  async (t) => {
+    assert.ok(path.isAbsolute(installed));
+    let runtime, model, bridge, clock;
+    t.after(async () => {
+      await runtime?.close();
+      await bridge?.close();
+      await model?.close();
+    });
+    const f = channelFixture(t, { language: () => "en" }),
+      id = f.channel.assistantId;
+    f.store.updateAssistant(
+      id,
+      { capabilities: { memory: true, reminders: false }, shell: "full" },
+      1,
+    );
+    model = await proactivityModel();
+    // The owner turn starts a background command; each completion writes one note.
+    let note = "after";
+    model.reply = (request) => {
+      const done = lastUser(request).some((m) => m.role === "tool");
+      if (isCompletion(request))
+        return done
+          ? { text: "Saved." }
+          : {
+              tool: {
+                name: "write",
+                arguments: { path: `notes/${note}.md`, content: "AFTER\n" },
+              },
+            };
+      return done
+        ? { text: "Started." }
+        : {
+            tool: {
+              name: "exec",
+              arguments: { command: "sleep 4; echo RENDERED", background: true },
+            },
+          };
+    };
+    runtime = new RuntimeSupervisor({
+      dataDir: f.dataDir,
+      install: async () => ({
+        version: runtimeManifest.version,
+        nodePath: path.join(installed, "node/bin/node"),
+        entryPath: path.join(installed, "app/node_modules/openclaw/openclaw.mjs"),
+      }),
+    });
+    f.assistants.runtime = runtime;
+    const heartbeatRuns = new HeartbeatRuns(),
+      gatewayEvents = new GatewayEventHub(),
+      events = [];
+    f.assistants.heartbeatRuns = heartbeatRuns;
+    gatewayEvents.on("agent", (payload) => {
+      events.push(payload);
+      heartbeatRuns.observe(payload);
+    });
+    const contexts = new Map();
+    bridge = new TeamBridge({
+      assistants: f.assistants,
+      generation: () => runtime.generation,
+      teams: { store: { context: (requestId) => contexts.get(requestId) || null } },
+      now: () => (clock ?? Date.now)(),
+    });
+    // Every write decision with the hook's run id.
+    const decisions = [];
+    const decide = bridge.toolPolicy.bind(bridge);
+    bridge.toolPolicy = (input) => {
+      const settle = (result) => {
+        decisions.push({ ...input, allow: result.allow });
+        return result;
+      };
+      const result = decide(input);
+      return result instanceof Promise ? result.then(settle) : settle(result);
+    };
+    const plugin = provisionTeamPlugin({
+      paths: runtime.paths,
+      runtimeVersion: runtimeManifest.version,
+    });
+    runtime.teamConfiguration = async () => ({
+      directory: plugin.directory,
+      connection: await bridge.start(),
+      hostMaxConcurrent: 4,
+      native: { token: "exec-continuation-fixture" },
+      profiles: f.store.listAssistants(),
+    });
+    await runtime.start();
+    gatewayEvents.bind(runtime.client);
+    const config = new AssistantConfig({
+      client: runtime.client,
+      store: f.store,
+      workspaces: runtime.paths.workspaces,
+      models: fixtureModels(model),
+    });
+    config.nativeReady = () => true;
+    config.writeGuard = () => true;
+    await config.apply(id);
+    const agent = f.store.getAssistant(id);
+    const workspace = path.join(runtime.paths.workspaces, id);
+    fs.mkdirSync(path.join(workspace, "notes"), { recursive: true });
+
+    const session = await runtime.client.call(
+      "sessions.create",
+      { agentId: agent.runtimeAgentId, label: `AgentPier ${id}` },
+      long,
+    );
+    // As AgentPier does for every chat (conversation-open.js). The completion run is
+    // not visible to the Control UI: its agent events reach only these subscribers.
+    await runtime.client.call("sessions.messages.subscribe", { key: session.key }, long);
+    const conversation = f.store.getConversation(f.channel.conversationId);
+    f.store.db
+      .prepare("UPDATE conversations SET session_key=?, body=? WHERE id=?")
+      .run(
+        session.key,
+        JSON.stringify({ ...conversation, runtimeSessionKey: session.key }),
+        conversation.id,
+      );
+
+    // An owner turn as AgentPier sends it: the attempt id is the idempotency key.
+    const ownerTurn = async (text) => {
+      const request = f.assistants.ledger.accept(conversation.id, {
+        clientRequestId: randomUUID(),
+        text,
+      });
+      contexts.set(request.id, { kind: "owner" });
+      const attempt = f.assistants.ledger.recordAttempt(request.id);
+      const sent = await runtime.client.call(
+        "sessions.send",
+        { key: session.key, message: text, idempotencyKey: attempt.id },
+        long,
+      );
+      f.assistants.ledger.transition(attempt.id, "running", { runtimeRunId: sent.runId });
+      await runtime.client.call(
+        "agent.wait",
+        { runId: sent.runId, timeoutMs: 60000 },
+        { timeoutMs: 65000 },
+      );
+      f.assistants.ledger.transition(attempt.id, "completed");
+      return { attempt, runId: sent.runId };
+    };
+    // The completion run's write decision, once its run has ended.
+    const completion = async (from) => {
+      const deadline = Date.now() + contractTimeout(60000);
+      while (Date.now() < deadline) {
+        const write = decisions.slice(from).find((d) => d.toolName === "write");
+        const ended =
+          write &&
+          events.some(
+            (e) =>
+              e.runId === write.runId &&
+              e.stream === "lifecycle" &&
+              ["end", "error"].includes(e.data?.phase),
+          );
+        if (ended) return write;
+        await delay(200);
+      }
+      assert.fail("no completion run wrote within a minute");
+    };
+
+    // 1. The owner turn starts the command and ends before it exits.
+    const owner = await ownerTurn("Render the video in the background.");
+    let from = decisions.length;
+    const write = await completion(from);
+    const run = events.filter((e) => e.runId === write.runId);
+    t.diagnostic(`owner run=${owner.runId} attempt=${owner.attempt.id}`);
+    t.diagnostic(`completion hook=${JSON.stringify({ ...write, content: undefined })}`);
+    t.diagnostic(
+      `completion events=${JSON.stringify(
+        run.map((e) => ({
+          stream: e.stream,
+          phase: e.data?.phase,
+          isHeartbeat: e.isHeartbeat,
+          sessionKey: e.sessionKey,
+        })),
+      )}`,
+    );
+    // Assumptions 2 to 4: heartbeat events, the hook's run id, the chat's own session.
+    assert.notEqual(write.runId, owner.runId, "a run of its own");
+    assert.ok(run.length, "the completion run's agent events reach AgentPier");
+    assert.ok(
+      run.some((e) => e.isHeartbeat === true),
+      "its events mark it heartbeat-driven",
+    );
+    assert.equal(write.sessionKey, session.key, "it runs in the chat's session");
+    assert.ok(run.every((e) => e.sessionKey === session.key));
+    // Assumption 1: the raw transcript names the owner turn and the completion.
+    const page = await runtime.client.call(
+      "sessions.get",
+      { key: session.key, limit: 100 },
+      long,
+    );
+    const users = page.messages
+      .filter((m) => m.role === "user")
+      .map((m) => ({
+        provenance: m.provenance,
+        idempotencyKey: m.idempotencyKey ?? m.__openclaw?.idempotencyKey,
+        text: JSON.stringify(m.content).slice(0, 120),
+      }));
+    t.diagnostic(`sessions.get users=${JSON.stringify(users)}`);
+    assert.equal(users[0].idempotencyKey, `${owner.attempt.id}:user`);
+    assert.deepEqual(users.at(-1).provenance, {
+      kind: "internal_system",
+      sourceTool: "exec",
+      ...(users.at(-1).provenance?.sourceSessionKey !== undefined && {
+        sourceSessionKey: users.at(-1).provenance.sourceSessionKey,
+      }),
+    });
+    // The write itself.
+    assert.equal(write.allow, true, "the completion continues the owner turn");
+    assert.equal(
+      fs.readFileSync(path.join(workspace, "notes/after.md"), "utf8"),
+      "AFTER\n",
+    );
+
+    // 2. A newer forwarded request: the next completion stays refused.
+    await ownerTurn("Render another one.");
+    const forwarded = f.assistants.ledger.accept(conversation.id, {
+      clientRequestId: randomUUID(),
+      text: "Forwarded: render this.",
+    });
+    contexts.set(forwarded.id, { kind: "telegram", forwarded: true });
+    const fwd = f.assistants.ledger.recordAttempt(forwarded.id);
+    f.assistants.ledger.transition(fwd.id, "completed");
+    note = "after-forwarded";
+    from = decisions.length;
+    const refused = await completion(from);
+    assert.equal(refused.allow, false, "a newer request ends the continuation");
+    assert.equal(fs.existsSync(path.join(workspace, "notes/after-forwarded.md")), false);
+
+    // 3. Past the window (the bridge's clock three hours on): refused.
+    await ownerTurn("Render a third one.");
+    clock = () => Date.now() + 3 * 3600000;
+    note = "after-window";
+    from = decisions.length;
+    const late = await completion(from);
+    assert.equal(late.allow, false, "a completion past the window stays refused");
+    assert.equal(fs.existsSync(path.join(workspace, "notes/after-window.md")), false);
+  },
+);

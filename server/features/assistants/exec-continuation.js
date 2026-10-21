@@ -13,7 +13,9 @@
 //   live: a restricted user who lost the agent gets nothing) at most
 //   `continuationWindowMs` ago, and no newer request exists;
 // - the Gateway's agent events mark the calling run as heartbeat-driven
-//   (`isHeartbeat`) in this session (HeartbeatRuns), and it is not that turn's run;
+//   (`isHeartbeat`) in this session (HeartbeatRuns), and it is not that turn's run.
+//   The run is hidden from the Control UI, so its events reach AgentPier only through
+//   the chat's `sessions.messages.subscribe` (conversation-open.js);
 // - the session's raw transcript (`sessions.get`) shows that turn's own message
 //   (`<attempt id>:user`), an `exec` call after it, and after that only exec
 //   completions: an image_generate result, a reminder, a heartbeat poll or anything
