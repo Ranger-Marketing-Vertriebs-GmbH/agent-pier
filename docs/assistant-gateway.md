@@ -2609,13 +2609,16 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
 - Titles: the first written turn (web or Telegram) names the chat, also a chat stored
   before titles existed, which takes its first message, not the turn just written, whitespace collapsed
   and cut at a word to 60 characters (`server/features/assistants/chat-titles.js`).
+  AgentPier's browser hand-back note, queued as the person's turn, never names a chat.
   `PATCH /api/assistant-conversations/:id` and `PATCH /api/me/conversations/:id` with
   `{title}` set 1 to 80 characters without control characters; `""` brings the
   automatic title back. Titles never reach the audit log. Typed into a chat, `/new`
   opens a new chat (201 `{created}`; a retry with the same `clientRequestId` returns the
   same chat) and `/name <title>` renames it (200 `{chat}`); nothing reaches the Gateway.
-  `/reset` and `/new` with text answer 400 `CHAT_COMMAND`. Telegram turns are passed on
-  as before.
+  `/reset` and `/new` with text answer 400 `CHAT_COMMAND`. Queued while the agent works,
+  `/new` and `/name` answer 400 `CHAT_COMMAND_QUEUED`, and queued text is always sent as
+  a turn, never run as a command. A rename made while a first message is being admitted
+  keeps its set title. Telegram turns are passed on as before.
 - Archive and restore: `POST …/conversations/:id/archive|restore` (owner under
   `/api/assistant-conversations`, user under `/api/me/conversations`). An archived chat
   leaves the list, stays readable, and refuses turns, queued messages, uploads and
@@ -2623,7 +2626,8 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   only: every `sessions.create` session is an OpenClaw dashboard session, which
   OpenClaw's maintenance would archive after 7 idle days, and a natively archived
   session takes no turn, so the compiled configuration sets
-  `session.maintenance.archiveDashboardAfter: false`.
+  `session.maintenance.archiveDashboardAfter: false`. Reconciliation skips archived
+  chats unless work still reports into them, so they cost no Gateway calls.
 - Delete: `DELETE …/conversations/:id {confirm: true}` (400 `CHAT_CONFIRM` without it)
   marks the chat deleted, so every route answers 404, closes its open views, forgets
   its cached messages, request texts, files, shared files, routine results, memory notes
@@ -2632,10 +2636,13 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   `state/agents/<agent>/sessions/` (`server/features/assistants/chat-removal.js`).
   OpenClaw keeps a compressed copy of that archive in its session database until its
   own disk budget removes it. A Gateway that is away deletes it at its next start
-  (`nativeDeletePending`). Audited as `assistant.updated` with `details.kind:
+  (`nativeDeletePending`). The session id that names the archive is recorded on the chat
+  (`nativeSessionId`) before the delete, and the mark stays until the archive is gone, so
+  a retry after a lost delete answer or a restart still removes it. Audited as `assistant.updated` with `details.kind:
 "chat-deleted"`, never the title. The record keeps no title or last activity
   (cleared under `secure_delete`). A deleted user's chats go the same way. Whatever
-  of a deleted chat a failed file removal left behind never serves to the owner.
+  of a deleted chat a failed file removal left behind never serves to the owner. Its
+  approvals stay its person's (`approval-audience.js`) and never list for the owner.
 - Archive and delete answer 409 `CHAT_BUSY` while a turn runs, a message waits or an
   approval waits in the chat, and while a team or lead request started from it still
   has to report into it (members working, a result not yet sent). A team member
