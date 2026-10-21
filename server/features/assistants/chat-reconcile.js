@@ -42,6 +42,41 @@ export function reconcileChats(service, { full = true, chats = [] } = {}) {
   return service.reconciling;
 }
 
+/**
+ * Keeps one chat's native session open; true once it is (or the Gateway has no such
+ * session). A failure, a concurrent reset that changed the session id among them,
+ * leaves the chat for the next pass and is logged once per connection.
+ */
+async function keepOpen(service, client, c) {
+  let current;
+  try {
+    current = service.store.storedConversation(c.id);
+  } catch {
+    return true;
+  }
+  // A chat deleted or released while the pass ran is left to its native delete.
+  if (current.deletedAt || current.userReleased) return true;
+  try {
+    await keepChatOpen(client, c.runtimeSessionKey);
+    service.keptOpen.add(c.id);
+    service.keepOpenFailures?.delete(c.id);
+    return true;
+  } catch (error) {
+    if (service.runtime.client === client && client.ready) {
+      service.keepOpenFailures ??= new Set();
+      if (!service.keepOpenFailures.has(c.id)) {
+        service.keepOpenFailures.add(c.id);
+        console.warn(
+          `Agent chat ${c.id} could not be kept open natively (${
+            error?.code || "RPC_FAILED"
+          }); retrying on the next pass.`,
+        );
+      }
+    }
+    return false;
+  }
+}
+
 async function pass(service) {
   const full = !!service.reconcileFull;
   const dirty = service.reconcileDirty;
@@ -53,6 +88,7 @@ async function pass(service) {
     service.subscribedOn = client;
     service.subscribed = new Set();
     service.keptOpen = new Set();
+    service.keepOpenFailures = new Set();
   }
   service.keptOpen ??= new Set();
   // The chats whose history came from the cache: a full pass finds them anew, a
@@ -71,6 +107,13 @@ async function pass(service) {
     if (c.userReleased) {
       stale.delete(c.id);
       continue;
+    }
+    // Once per connection, archived chats too: pinned, a chat stays out of OpenClaw's
+    // maintenance (its entry cap and disk budget included), and one it archived anyway
+    // takes turns and deliveries again (native-chat-archive.js).
+    if (!service.keptOpen.has(c.id) && !(await keepOpen(service, client, c))) {
+      // A dropped connection is not a session fault; the reconnect checks anew.
+      if (service.runtime.client !== client || !client.ready) break;
     }
     const working = chatBusy(service, c.id, busy);
     // An archived chat takes no turn: no live read unless work still reports into it.
@@ -93,16 +136,6 @@ async function pass(service) {
       continue;
     // A full pass subscribes every chat again, as after a Gateway restart.
     if (full || !subscribed) {
-      // Once per connection: pinned, a chat stays out of OpenClaw's maintenance, and
-      // one it archived anyway takes turns and deliveries again (native-chat-archive.js).
-      if (!service.keptOpen.has(c.id))
-        try {
-          await keepChatOpen(client, c.runtimeSessionKey);
-          service.keptOpen.add(c.id);
-        } catch {
-          if (service.runtime.client !== client || !client.ready) break;
-          /* The subscription reports a lasting fault; the next pass tries again. */
-        }
       try {
         await client.call("sessions.messages.subscribe", { key: c.runtimeSessionKey });
         service.subscribed.add(c.id);
