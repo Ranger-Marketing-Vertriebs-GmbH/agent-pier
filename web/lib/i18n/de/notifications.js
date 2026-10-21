@@ -108,6 +108,22 @@ export const notificationCopy = {
   labelOffer: "Namen in Hinweisen zeigen?",
   labelOfferSub:
     "Namen von Sessions, Agenten und Pipelines erscheinen auf dem Sperrbildschirm dieses Geräts. Inhalte bleiben privat.",
+  // Die Geräte eines Benutzers: nur Freigaben, Check-ins und Routinen seiner Agenten.
+  user: {
+    approval: "Freigabe für einen Agenten",
+    levels: {
+      type: "„Freigabe erforderlich: Ein Agent wartet auf deine Entscheidung.“ Für geteilte Geräte.",
+      label: "Name des Agenten. Keine Inhalte.",
+      preview:
+        "Zusätzlich bis zu 140 Zeichen aus einem Check-in. Nie Befehle, Pfade oder Geheimnisse; Freigaben zeigen nie eine Vorschau.",
+    },
+    blockingThrough: "Freigaben trotzdem zustellen",
+    blockingThroughSub: "Freigaben, die auf dich warten, kommen auch in der Ruhezeit.",
+    visibleNote:
+      "Solange derselbe Agenten-Chat auf einem deiner Geräte offen ist, kommt kein Hinweis.",
+    labelOfferSub:
+      "Namen von Agenten erscheinen auf dem Sperrbildschirm dieses Geräts. Inhalte bleiben privat.",
+  },
   labelOfferAccept: "Namen zeigen",
   labelOfferDismiss: "Nicht jetzt",
 };

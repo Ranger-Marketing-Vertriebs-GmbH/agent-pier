@@ -669,15 +669,23 @@ Sign out). They never see sessions, pipelines, projects or system settings.
   Create one from **New agent** with **For** set to the person. On the agents page and
   in the sidebar they appear under **Agents of users**. You open your own chat with a
   shared agent (**Open my chat**), never a user's; a user's own agent opens its
-  settings.
+  settings, where its notes and browser stay hidden until you may read them and then
+  show read-only; its reminders and routines are the user's. A user's chat you may
+  read shows read-only, without composer, **New chat**
+  or chat actions.
 - Their **Capabilities** and **Work** tabs show "Locked for agents of users: they
-  cannot run programs on this computer." instead of shell, SSH, GitHub, pipelines,
-  coding and teams. **Work › Projects** offers project folders only, **Read** or **Read
-  and write**. **Profile › Users of this agent** sets each user's level and the
-  **Released capabilities** an Extended user may switch.
+  cannot run programs on this computer." instead of shell, the visible browser window
+  (their browser runs headless), SSH, GitHub, pipelines, coding and teams. Their
+  **Telegram** tab shows **Telegram for other people** as locked; on a user's own agent
+  it offers no bot of yours either and says its user connects its bot in their app.
+  **Work › Projects**, a project's **Agents** section and **Add folder** offer
+  project folders only, **Read** or **Read and write**, never coding. **Profile › Users of this agent** sets each user's level and, on a
+  user's own agent, the **Released capabilities** an Extended user may switch; a shared
+  agent's capabilities stay yours.
 - In the user's app, **Personalize** edits name, picture (an emoji) and personality and
   instructions of their own agent, and their reminders and notes; **Extended** adds the
-  released capabilities and Telegram. A shared agent stays yours at every level. Users
+  released capabilities and Telegram (after **Disconnect** they may connect the same
+  bot again or another one). A shared agent stays yours at every level. Users
   watch and take over their own agent's browser, a shared agent's only while one of
   their chats drives it.
 
@@ -701,7 +709,8 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
   that can include the lead's shell level and SSH accesses. Every grant is shown in
   the chats and on the team card, and later shell or SSH grants wait for you.
 - Agents of restricted users run under a hard lock: no shell, SSH, Git or GitHub,
-  coding, teams or OpenClaw session tools, and no visible browser window. You can give
+  coding, teams or OpenClaw session tools (which would reach the agent's other chats,
+  on a shared agent the other users'), and no visible browser window. You can give
   them project folders (files only) and MCP servers you registered. Local (stdio)
   servers run commands on the host for those users too, so bind them only where you
   would accept that. With **Read and write** such an agent never changes tool
@@ -712,8 +721,11 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
   Give write access only to folders whose content you do not run unchecked. See
   [Agents of restricted users](assistant-gateway.md#agents-of-restricted-users).
 - A restricted user's chats are private. You read them, and her own agent's memory,
-  files and browser, only after you switch on **Owner may read chats** for her, and
-  only from that moment on; she sees that it is on. On a shared agent you see its
+  files and browser, only after you switch on **Owner may read chats** for her. Chats
+  count from that moment on; her own agent's memory, files and browser become readable
+  in full, older entries included. You only watch her agent's browser: its live view
+  offers no **Take over**, start, tab choice or follow. She sees that it is on, in her
+  chats and in her agent's browser view. On a shared agent you see its
   settings and shared memory, never other users' chats. See
   [Private chats of restricted users](assistant-gateway.md#private-chats-of-restricted-users).
 - Web pages can contain instructions meant to mislead an agent; switch on web tools

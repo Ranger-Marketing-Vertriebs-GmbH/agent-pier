@@ -6,6 +6,7 @@ import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantWorkflowCopy as copy } from "../../../lib/i18n/messages/assistant-workflows.js";
 import { folderLevels, setFolderLevel, toggleId } from "./agent-settings-fields.js";
 import SubpageHeader from "./SubpageHeader.jsx";
+import LockedNotice from "./LockedNotice.jsx";
 import "./ssh-grant-page.css";
 
 /**
@@ -39,7 +40,10 @@ export default function ProjectGrantPage({
   return (
     <section className="agent-subpage ssh-grant-page" aria-label={copy.projects}>
       <SubpageHeader title={copy.projects} tab="work" onBack={onBack} />
-      <p className="assistant-note">{copy.projectsIntro}</p>
+      {foldersOnly && <LockedNotice items={["coding"]} />}
+      <p className="assistant-note">
+        {foldersOnly ? copy.projectsFoldersIntro : copy.projectsIntro}
+      </p>
       {!items && <p className="assistant-note">{assistantCopy.loading}</p>}
       {items?.length === 0 && <p className="assistant-note">{copy.noResources}</p>}
       {items?.length > 0 && (

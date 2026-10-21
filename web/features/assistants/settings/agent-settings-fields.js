@@ -196,8 +196,9 @@ export function capabilityPatch({ values, base, assistant }) {
       ...assistant.capabilities,
       ...pick(values, capabilityKeys),
     };
-  // The visible window belongs to the agent's own browser profile.
-  if (shellEligible(assistant) && changed("browserVisible"))
+  // The visible window belongs to the agent's own browser profile; an agent of users
+  // runs it headless only (user-agent-lock.js).
+  if (shellEligible(assistant) && !assistant.userAccess && changed("browserVisible"))
     patch.browserVisible = values.browserVisible;
   // Only a changed level is sent: the server asks to confirm a raise.
   if (shellEligible(assistant) && changed("shell")) patch.shell = values.shell;

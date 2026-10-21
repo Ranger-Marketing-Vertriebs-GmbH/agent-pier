@@ -13,6 +13,7 @@ import UserHeader from "./UserHeader.jsx";
 import { UserPage } from "./UserPage.jsx";
 import UserRemindersGroup from "./UserRemindersGroup.jsx";
 import UserMemoryPage from "./UserMemoryPage.jsx";
+import UserTelegramGroup from "./UserTelegramGroup.jsx";
 import { userApi } from "./user-api.js";
 import "../assistants/agent-settings.css";
 
@@ -88,10 +89,9 @@ function ProfileGroup({ draft, editable, managed }) {
  * reminders and routines, memory, Telegram and the browser. What she may not change
  * shows read-only with who manages it. One draft and save bar, with conflicts.
  */
-export default function UserAgentSettings({ agent, route, navigate }) {
+export default function UserAgentSettings({ agent, route, navigate, subscribe }) {
   const [view, setView] = useState(null);
   const [error, setError] = useState("");
-  const [telegram, setTelegram] = useState(undefined);
   const load = useCallback(async () => {
     const next = await userApi.settings(agent.id);
     setView(next);
@@ -101,13 +101,6 @@ export default function UserAgentSettings({ agent, route, navigate }) {
     load().catch((e) => setError(e.message));
   }, [load]);
   const extendedOwn = agent.level === "extended" && !agent.shared;
-  useEffect(() => {
-    if (!extendedOwn) return;
-    userApi
-      .telegram(agent.id)
-      .then((result) => setTelegram(result.channel))
-      .catch(() => setTelegram(null));
-  }, [agent.id, extendedOwn]);
   const draft = useTabDraft({
     server: view ? valuesOf(view) : null,
     revisions: view ? { agent: view.revision } : {},
@@ -214,24 +207,13 @@ export default function UserAgentSettings({ agent, route, navigate }) {
                 navigate({ view: "settings", agentId: agent.id, page: "memory" })
               }
             />
-            {extendedOwn && (
-              <ListRow
-                label="Telegram"
-                value={
-                  telegram === undefined
-                    ? undefined
-                    : telegram?.paired
-                      ? copy.telegramConnected(telegram.username)
-                      : copy.telegramNone
-                }
-              />
-            )}
             <ListRow
               label={copy.browser}
               sub={copy.browserSub}
               onClick={() => navigate({ view: "browser", agentId: agent.id })}
             />
           </ListCard>
+          {extendedOwn && <UserTelegramGroup agentId={agent.id} subscribe={subscribe} />}
         </>
       )}
       <UnsavedChangesSheet {...sheet} />

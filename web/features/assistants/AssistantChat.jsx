@@ -81,6 +81,11 @@ export default function AssistantChat({
   const conversationFault = copy.conversationDiagnostics[record?.diagnostic];
   // An archived chat is read-only until restored (AGENTPIER-181).
   const archived = Boolean(record?.archivedAt);
+  // A user's chat, and every chat of her own agent, is hers: the owner reads it under
+  // her opt-in and never writes into it (owner-content-guard.js).
+  const userChat =
+    typeof record?.userId === "string" || assistant.userAccess?.mode === "own";
+  const readOnly = archived || userChat;
   const [teamAllowed, setTeamAllowed] = useState(() =>
     drafts.teamAllowed(conversationId),
   );
@@ -107,9 +112,10 @@ export default function AssistantChat({
   const touchInput = useTouchInput();
   const attachments = useAgentAttachments(conversationId);
   // The whole panel takes dropped files; the composer stays droppable while the agent
-  // works, only an archived agent takes none.
+  // works. An archived agent and a read-only chat take none: their composer, which
+  // shows the upload and its error, is not there.
   const drop = useFileDrop({
-    enabled: !assistant.archivedAt,
+    enabled: !assistant.archivedAt && !readOnly,
     onFiles: attachments.add,
   });
   // The newest reply that was already there on load is history, not news.
@@ -179,7 +185,7 @@ export default function AssistantChat({
     !history.queued &&
     !memberBusy &&
     !assistant.archivedAt &&
-    !archived &&
+    !readOnly &&
     !offline &&
     runtime.availability === "ready",
   );
@@ -284,7 +290,7 @@ export default function AssistantChat({
   const available =
     !memberBusy &&
     !assistant.archivedAt &&
-    !archived &&
+    !readOnly &&
     !offline &&
     runtime.availability === "ready";
   // While the agent works, or a queued message still waits, Enter and "Send when
@@ -400,7 +406,7 @@ export default function AssistantChat({
             {copy.disconnected}
           </p>
         )}
-        {archived && (
+        {archived && !userChat && (
           <ArchivedChatBanner
             onRestore={async () => {
               await assistantApi.restoreChat(conversationId);
@@ -551,8 +557,8 @@ export default function AssistantChat({
         >
           {announcement}
         </div>
-        {archived ? (
-          <ReadOnlyComposer />
+        {readOnly ? (
+          <ReadOnlyComposer userChat={userChat} />
         ) : (
           <AssistantComposer
             assistant={assistant}
@@ -577,6 +583,8 @@ export default function AssistantChat({
             stick={stick}
             scroll={scroll}
             mentionMembers={mentionMembers}
+            // A user's agent never leads a team (user-agent-lock.js), also for the owner.
+            team={!assistant.userAccess}
           />
         )}
       </div>

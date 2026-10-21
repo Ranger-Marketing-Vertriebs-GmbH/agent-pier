@@ -9,7 +9,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { useCrossLink } from "../../app/cross-link.js";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { usersCopy as copy } from "../../lib/i18n/messages/users.js";
-import { agentsOf, ownerUsersApi, withMember } from "./owner-users-api.js";
+import { agentsOf, ownerUsersApi, ownsAgents, withMember } from "./owner-users-api.js";
 import DeleteUserSheet from "./DeleteUserSheet.jsx";
 
 const levels = ["chat", "personalize", "extended"];
@@ -118,7 +118,7 @@ export default function UserDetail({ userId, users, agents, reload, onClose, fra
       a.userAccess?.mode === "shared" &&
       !a.userAccess.members.some((m) => m.userId === user.id),
   );
-  const ownsAgents = hers.some(({ agent }) => agent.userAccess.mode === "own");
+  const owns = ownsAgents(agents.assistants, user.id);
   const openAgent = (agent) =>
     frame?.go(crossLink({ view: "agents", assistantId: agent.id, agentSettings: true }));
   return (
@@ -245,7 +245,7 @@ export default function UserDetail({ userId, users, agents, reload, onClose, fra
       {dialog === "delete" && (
         <DeleteUserSheet
           user={user}
-          ownsAgents={ownsAgents}
+          ownsAgents={owns}
           onCancel={() => setDialog(null)}
           onDeleted={async () => {
             setDialog(null);

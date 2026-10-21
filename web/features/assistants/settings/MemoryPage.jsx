@@ -12,9 +12,10 @@ import SubpageHeader from "./SubpageHeader.jsx";
 
 /**
  * The agent's two root notes (editable, saved against the loaded hash) and its own
- * notes under memory/ (read only), plus a search over all of them.
+ * notes under memory/ (read only), plus a search over all of them. `readOnly` (a
+ * user's own agent under her opt-in) shows every note read only.
  */
-export default function MemoryPage({ assistant, onBack }) {
+export default function MemoryPage({ assistant, onBack, readOnly: locked = false }) {
   const copy = assistantCopy.personal;
   const assistantId = assistant.id;
   const [name, setName] = useState("MEMORY.md"),
@@ -48,7 +49,7 @@ export default function MemoryPage({ assistant, onBack }) {
       active = false;
     };
   }, [assistantId, name, reload]);
-  const readOnly = Boolean(file?.readOnly);
+  const readOnly = locked || Boolean(file?.readOnly);
   const savable = Boolean(file) && !readOnly && Boolean(file.missing || file.hash);
   const draft = useTabDraft({ server: { content: file?.content ?? "" } });
   const steps = savable
@@ -132,7 +133,7 @@ export default function MemoryPage({ assistant, onBack }) {
           />
         </label>
       </div>
-      {readOnly && <p className="assistant-note">{copy.agentNotesHint}</p>}
+      {readOnly && !locked && <p className="assistant-note">{copy.agentNotesHint}</p>}
       <div className="assistant-actions">
         {!readOnly && (
           <button
@@ -156,7 +157,7 @@ export default function MemoryPage({ assistant, onBack }) {
           {copy.reload}
         </button>
       </div>
-      <p className="assistant-note">{copy.clearHint}</p>
+      {!locked && <p className="assistant-note">{copy.clearHint}</p>}
       <form className="list-card agent-fields" onSubmit={search}>
         <label className="agent-field">
           {copy.searchMemory}

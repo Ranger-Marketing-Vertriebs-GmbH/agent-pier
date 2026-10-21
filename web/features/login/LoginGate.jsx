@@ -3,6 +3,7 @@ import useLanguage from "../../lib/i18n/useLanguage.js";
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { LoginContext } from "./LoginContext.js";
 import { loginRequest, announceLoginChange } from "./login-api.js";
+import { endPushSubscription, knownDevice } from "../notifications/device-identity.js";
 import LoginPage from "./LoginPage.jsx";
 import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 import { clearChatCache } from "../chat/chat-session-cache.js";
@@ -64,7 +65,8 @@ export default function LoginGate({ children }) {
     };
   }, [refresh, invalidate]);
   async function logout() {
-    await loginRequest("logout", {});
+    await loginRequest("logout", { deviceId: knownDevice() });
+    await endPushSubscription();
     invalidate();
     forgetUser();
     setStatus({ configured: true, authenticated: false });

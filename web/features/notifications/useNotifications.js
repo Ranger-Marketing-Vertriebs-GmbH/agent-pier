@@ -1,25 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import api from "../../lib/api.js";
 import { serverMessagesReady, serverText } from "../../lib/server-messages.js";
-import { browserUuid } from "../../lib/browser-uuid.js";
 import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { notificationCopy as copy } from "../../lib/i18n/messages/notifications.js";
 import { getWorkerRegistration } from "./register-worker.js";
 import { currentDevice, isLegacyLabel } from "./device-labels.js";
-function deviceIdentity() {
-  const key = "agentpier.notification-device";
-  try {
-    let value = localStorage.getItem(key);
-    if (!value || !/^[a-f0-9-]{36}$/i.test(value)) {
-      value = browserUuid();
-      localStorage.setItem(key, value);
-    }
-    return value;
-  } catch {
-    return null;
-  }
-}
+import { deviceIdentity } from "./device-identity.js";
 // The device's IANA time zone: quiet hours count in the device's own time.
 function timeZone() {
   try {
@@ -199,5 +186,7 @@ export default function useNotifications(base = "/notifications") {
     dismissOffer: () => setOffer(false),
     savePreferences,
     timeZone: timeZone(),
+    // A restricted user's own devices (/me/notifications): only her agents' notices.
+    personal: base !== "/notifications",
   };
 }

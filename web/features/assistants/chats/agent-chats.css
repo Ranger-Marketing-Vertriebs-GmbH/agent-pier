@@ -114,3 +114,9 @@
   color: var(--text-faint);
   font-size: var(--font-size-xs);
 }
+/* Phones: each chat in the navigation drawer is a full tap target. */
+@media (max-width: 700px) {
+  .assistant-sidebar-chat {
+    min-height: var(--touch-target);
+  }
+}

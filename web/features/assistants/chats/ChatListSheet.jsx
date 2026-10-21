@@ -11,6 +11,7 @@ import "./agent-chats.css";
  * The Chats sheet of one agent: New chat on top, the main chat first, then the others
  * newest first, and the archived ones behind "Archived chats" at the bottom. `chats`
  * is useAgentChats' state; `onOpen(chat)` opens one, `onCreated(chat)` a new one.
+ * `readOnly` (a user's own agent, for the owner) offers neither New chat nor actions.
  */
 export default function ChatListSheet({
   open,
@@ -20,6 +21,7 @@ export default function ChatListSheet({
   onOpen,
   onCreated,
   onClose,
+  readOnly = false,
 }) {
   const [acting, setActing] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -50,7 +52,7 @@ export default function ChatListSheet({
         onCancel={onClose}
         className="agent-chats-sheet"
       >
-        {!archivedView && (
+        {!archivedView && !readOnly && (
           <button
             type="button"
             className="button primary agent-chats-new"
@@ -70,7 +72,7 @@ export default function ChatListSheet({
             label={archivedView ? copy.showArchived : copy.chats}
             currentId={currentId}
             onOpen={onOpen}
-            onActions={setActing}
+            onActions={readOnly ? undefined : setActing}
           />
         ) : archivedView ? (
           <p className="agent-chats-empty">{copy.noArchived}</p>

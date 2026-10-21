@@ -69,8 +69,18 @@ export function cookieOptions(req, config) {
     path: "/",
   };
 }
-export function loginRoutes(login, effective) {
+export function loginRoutes(login, effective, { notifications } = {}) {
   const router = express.Router();
+  // The browser's push device (useNotifications): it follows who is signed in on it.
+  const device = (req, token, others) => {
+    const session = token && login.session(token);
+    if (!session || typeof req.body?.deviceId !== "string") return;
+    const principal = principalOf(session);
+    notifications?.forgetDevice(req.body.deviceId, {
+      userId: principal.role === "user" ? principal.userId : null,
+      others,
+    });
+  };
   router.use(express.json({ limit: "4kb", strict: true }));
   const status = (req) => {
     const signedIn = login.describe(sessionToken(req));
@@ -96,10 +106,12 @@ export function loginRoutes(login, effective) {
   router.post("/login", async (req, res) => {
     const token = await login.login(req.body, attemptSource(req));
     login.revoke(sessionToken(req));
+    device(req, token, true);
     cookie(req, res, token);
     res.json({ authenticated: true });
   });
   router.post("/logout", (req, res) => {
+    device(req, sessionToken(req), false);
     login.revoke(sessionToken(req));
     cookie(req, res, "");
     res.sendStatus(204);

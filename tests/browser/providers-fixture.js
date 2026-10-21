@@ -407,6 +407,9 @@ export async function fixture(page, { account, session } = {}) {
     if (status) return route.fulfill({ json: status });
     // Creating an agent offers it to a restricted user; fixtures have none.
     if (path === "/api/users" && method === "GET") return route.fulfill({ json: [] });
+    // An agent chat lists its chats (AGENTPIER-181); fixtures that pass it on have none.
+    if (/^\/api\/assistants\/[^/]+\/chats$/.test(path) && method === "GET")
+      return route.fulfill({ json: [] });
     throw new Error(`Unexpected provider fixture request: ${method} ${path}`);
   });
   await page.routeWebSocket("**/terminal", (socket) =>

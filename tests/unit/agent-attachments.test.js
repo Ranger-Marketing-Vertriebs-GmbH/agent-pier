@@ -10,6 +10,7 @@ import { withAttachments } from "../../server/features/assistants/attachment-his
 import {
   MAX_ATTACHMENT_BYTES,
   NOTE_HEADER,
+  USER_NOTE_HEADER,
 } from "../../server/features/assistants/agent-attachment-types.js";
 
 const png = Buffer.from(
@@ -411,6 +412,33 @@ test("the history hides the note after the agent removed one of the copies", asy
         ["one.md", true],
         ["two.md", false],
       ],
+    );
+  }
+});
+
+test("a user's files are announced as hers and her older turns still strip", async (t) => {
+  const { attachments, agent } = setup(t);
+  const { a, c } = agent("lead");
+  const stored = attachments.store.storedConversation.bind(attachments.store);
+  attachments.store.storedConversation = (id) =>
+    id === c.id ? { ...stored(id), userId: "u-1" } : stored(id);
+  const one = await attachments.stage(c.id, "one.md", Buffer.from("1"));
+  attachments.claim(c.id, [one.id], "r1");
+  const request = { id: "r1", text: "Read this." };
+  const sent = (await attachments.delivery(request, a.id, { byUser: true })).message;
+  assert.ok(sent.includes(USER_NOTE_HEADER));
+  assert.ok(!sent.includes(NOTE_HEADER));
+  // A turn she sent before her files were named hers carried the owner's header.
+  const before = (await attachments.delivery(request, a.id)).message;
+  for (const text of [sent, before]) {
+    const [shown] = withAttachments([{ id: "m1", role: "user", text }], [request], {
+      attempts: new Map(),
+      byRequest: attachments.forConversation(c.id),
+    });
+    assert.equal(shown.text, "Read this.");
+    assert.deepEqual(
+      shown.attachments.map((f) => f.name),
+      ["one.md"],
     );
   }
 });

@@ -200,6 +200,18 @@ test("capability drafts flatten switches and send only what changed", () => {
     }),
     {},
   );
+  // An agent of users runs its browser headless only: the hard lock refuses a window.
+  const ofUsers = agent({
+    userAccess: { mode: "own", members: [{ userId: "u-1", level: "chat" }] },
+  });
+  assert.deepEqual(
+    capabilityPatch({
+      values: { ...base, browserVisible: true },
+      base,
+      assistant: ofUsers,
+    }),
+    {},
+  );
 });
 
 test("switching memory off also switches a saved check-in schedule off", () => {

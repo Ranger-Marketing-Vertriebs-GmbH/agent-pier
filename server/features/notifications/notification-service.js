@@ -176,10 +176,27 @@ export class NotificationService {
       .run(pushId(id), userId);
     return { removed: true };
   }
-  /** Removes every device of a deleted user. */
-  forgetUser(userId) {
+  /**
+   * A browser that signs out stops getting its person's notices; one that signs in as
+   * someone else stops getting the previous person's (the owner is `userId` null).
+   */
+  forgetDevice(deviceId, { userId = null, others = false } = {}) {
+    if (this.closed || typeof deviceId !== "string" || !/^[\w-]{1,120}$/.test(deviceId))
+      return;
+    const match = others ? "IS NOT" : "IS";
+    this.db
+      .prepare(`DELETE FROM subscriptions WHERE device_id=? AND user_id ${match} ?`)
+      .run(deviceId, userId);
+  }
+  /**
+   * Removes the devices of a user who is deleted or signed out remotely; `except` keeps
+   * the browser she is still signed in on (her own password change).
+   */
+  forgetUser(userId, { except = null } = {}) {
     if (this.closed || typeof userId !== "string") return;
-    this.db.prepare("DELETE FROM subscriptions WHERE user_id=?").run(userId);
+    this.db
+      .prepare("DELETE FROM subscriptions WHERE user_id=? AND device_id IS NOT ?")
+      .run(userId, typeof except === "string" ? except : null);
   }
   async deliver(id, payload) {
     if (this.closed) return { sent: false };

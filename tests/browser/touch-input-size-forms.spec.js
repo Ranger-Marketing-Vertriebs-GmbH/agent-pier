@@ -287,6 +287,9 @@ test("user app forms: agent settings, chat rename and password", async ({ page }
   await page.goto(baseURL + "/agents/lotta/settings");
   await expect(page.getByLabel("Name", { exact: true })).toBeVisible();
   await expectTouchSized(page, "user agent settings");
+  await page.getByRole("button", { name: "+ Erinnerung erstellen" }).first().click();
+  await expect(page.getByLabel("Name der Erinnerung")).toBeVisible();
+  await expectTouchSized(page, "user reminder");
   await page.goto(baseURL + "/agents/lotta/chats/main");
   await page.getByRole("button", { name: /Chats mit Lotta/ }).click();
   await page.getByRole("button", { name: "Aktionen für Trip" }).click();
@@ -299,6 +302,21 @@ test("user app forms: agent settings, chat rename and password", async ({ page }
   await expectTouchSized(page, "user password");
 });
 
+test("user app form: her own agent's Telegram bot token at Extended", async ({
+  page,
+}) => {
+  await userAppFixture(page, {
+    language: "de",
+    agents: [userAgent({ level: "extended" })],
+  });
+  await page.goto(baseURL + "/agents/lotta/settings");
+  await expect(page.getByLabel("Telegram-Bot-Token", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Telegram verbinden", exact: true }),
+  ).toBeVisible();
+  await expectTouchSized(page, "user Telegram bot");
+});
+
 test("owner users forms: add user and reset password", async ({ page }) => {
   await operationsFixture(page);
   const anna = {
@@ -309,8 +327,13 @@ test("owner users forms: add user and reset password", async ({ page }) => {
     ownerMayRead: { enabled: false, since: null },
   };
   await page.route(/\/api\/users$/, (route) => route.fulfill({ json: [anna] }));
+  const family = {
+    id: "family",
+    name: "Family",
+    userAccess: { mode: "shared", members: [], released: [] },
+  };
   await page.route(/\/api\/assistants$/, (route) =>
-    route.fulfill({ json: { assistants: [], conversations: [], models: [] } }),
+    route.fulfill({ json: { assistants: [family], conversations: [], models: [] } }),
   );
   await page.goto(baseURL + "/settings/users");
   await page.getByRole("button", { name: "Benutzer anlegen" }).click();
@@ -320,4 +343,25 @@ test("owner users forms: add user and reset password", async ({ page }) => {
   await page.getByRole("button", { name: "Passwort zurücksetzen" }).click();
   await expect(page.getByLabel("Neues Passwort")).toBeVisible();
   await expectTouchSized(page, "reset user password");
+  await page.goto(baseURL + "/settings/users?user=u-1");
+  await page
+    .getByRole("button", { name: "Zu einem geteilten Agenten hinzufügen" })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expectTouchSized(page, "add to a shared agent");
+});
+
+test("new agent for a user: For and Kind", async ({ page }) => {
+  await setupAssistantSettings(page, { language: "de" });
+  await page.route(/\/api\/users$/, (route) =>
+    route.fulfill({
+      json: [{ id: "u-1", username: "anna", displayName: "Anna", disabled: false }],
+    }),
+  );
+  await page.goto(baseURL + "/agents?new=1&user=u-1");
+  await expect(page.getByRole("combobox", { name: "Für", exact: true })).toHaveValue(
+    "u-1",
+  );
+  await expect(page.getByText("Art", { exact: true }).first()).toBeVisible();
+  await expectTouchSized(page, "new agent for a user");
 });

@@ -114,7 +114,15 @@ export function attachBrowserWebSocket(
       subscription = view.subscribe(
         id,
         {
-          state: (state) => send({ type: "state", state: personalState(state, holder) }),
+          // A view-only viewer is told so, and his page offers nothing to drive.
+          state: (state) =>
+            send({
+              type: "state",
+              state: {
+                ...personalState(state, holder),
+                ...(viewOnly ? { viewOnly } : {}),
+              },
+            }),
           frame: (bytes) => {
             if (open() && ws.bufferedAmount < backlog) ws.send(bytes, { binary: true });
           },

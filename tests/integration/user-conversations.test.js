@@ -121,3 +121,20 @@ test("the owner's chat on a shared agent takes no turns once it is a user's own"
   const read = await f.request(`/api/assistant-conversations/${owner.id}/messages`);
   assert.equal(read.status, 200);
 });
+
+test("the owner's turn on a shared user agent never allows a team", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const { agent } = await sharedAgentOfTwo(f);
+  const assistants = f.application.assistants;
+  const conversation = await assistants.openConversation(agent.id);
+  const { request } = await assistants.send(conversation.id, {
+    text: "/team research the trip",
+    teamAllowed: true,
+    clientRequestId: "owner-team-1",
+  });
+  assert.ok(gateway.sent.length);
+  assert.deepEqual(assistants.teams.store.context(request.id), {
+    kind: "owner",
+    teamAllowed: false,
+  });
+});

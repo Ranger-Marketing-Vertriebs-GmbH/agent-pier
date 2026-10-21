@@ -12,12 +12,18 @@ import DirectoryPicker from "../directories/DirectoryPicker.jsx";
 import "./project-dialogs.css";
 
 // The access a new project gives an agent: none, the project grant, or the grant
-// with a folder level (server project-agent-access.js).
+// with a folder level (server project-agent-access.js). An agent of users gets a
+// folder level only, never the coding grant (user-agent-lock.js).
 const choices = {
   none: null,
   coding: { coding: true, folder: "none" },
   read: { coding: true, folder: "read" },
   write: { coding: true, folder: "write" },
+};
+const folderChoices = {
+  none: null,
+  read: { coding: false, folder: "read" },
+  write: { coding: false, folder: "write" },
 };
 const choiceLabels = {
   none: () => agentsCopy.pickNone,
@@ -25,6 +31,12 @@ const choiceLabels = {
   read: () => agentsCopy.pickRead,
   write: () => agentsCopy.pickWrite,
 };
+const folderLabels = {
+  none: () => agentsCopy.pickNone,
+  read: () => agentsCopy.pickReadFolder,
+  write: () => agentsCopy.pickWriteFolder,
+};
+const choicesOf = (agent) => (agent?.userAccess ? folderChoices : choices);
 const permanent = (a) => !a.archivedAt && (!a.teamMemberId || a.lifetime === "permanent");
 
 // Permanent agents to offer; none while agents are off or unreadable.
@@ -70,7 +82,7 @@ export default function AddFolderDialog({ home, close, added }) {
             let failed = 0,
               current = null;
             for (const [agentId, choice] of Object.entries(access)) {
-              const wanted = choices[choice];
+              const wanted = choicesOf(agents.find((a) => a.id === agentId))[choice];
               if (!wanted) continue;
               try {
                 await api(`${base}/${encodeURIComponent(agentId)}`, "PUT", {
@@ -133,9 +145,9 @@ export default function AddFolderDialog({ home, close, added }) {
                       setAccess({ ...access, [agent.id]: event.target.value })
                     }
                   >
-                    {Object.keys(choices).map((choice) => (
+                    {Object.keys(choicesOf(agent)).map((choice) => (
                       <option key={choice} value={choice}>
-                        {choiceLabels[choice]()}
+                        {(agent.userAccess ? folderLabels : choiceLabels)[choice]()}
                       </option>
                     ))}
                   </select>

@@ -3,6 +3,7 @@ import Modal from "../../components/Modal.jsx";
 import AsyncForm from "../../components/AsyncForm.jsx";
 import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
 import { userApi } from "./user-api.js";
+import { knownDevice } from "../notifications/device-identity.js";
 
 /**
  * Her new password: the current one and the new one (12 characters or more). This
@@ -18,6 +19,7 @@ export default function PasswordSheet({ onDone, onCancel }) {
           await userApi.changePassword({
             current: String(data.get("current") || ""),
             next: String(data.get("next") || ""),
+            deviceId: knownDevice(),
           });
           onDone();
         }}

@@ -55,15 +55,26 @@ export default function AgentCreate({
   // third-party text never stays without its recorded origin.
   const before = useRef(null);
   const draft = useTabDraft({ server: createServer() });
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState([]),
+    [usersError, setUsersError] = useState("");
   const [owner, setOwner] = useState(forUser),
     [mode, setMode] = useState("own");
   useEffect(() => {
+    // Disabled users are not offered, except the one this form was opened for.
     ownerUsersApi
       .list()
-      .then((list) => setUsers(list.filter((u) => !u.disabled)))
-      .catch(() => setUsers([]));
-  }, []);
+      .then((list) => setUsers(list.filter((u) => !u.disabled || u.id === forUser)))
+      .catch((e) => setUsersError(e.message));
+  }, [forUser]);
+  // The user this form was opened for stays chosen while the list loads, fails or
+  // misses her: the agent is never silently the owner's, and the server checks her.
+  const choices = [
+    { value: "", label: usersCopy.forMe },
+    ...users.map((u) => ({ value: u.id, label: u.displayName })),
+    ...(owner && !users.some((u) => u.id === owner)
+      ? [{ value: owner, label: usersCopy.unknownUser }]
+      : []),
+  ];
   const use = (preview) => {
     if (!before.current)
       before.current = {
@@ -169,16 +180,14 @@ export default function AgentCreate({
         )}
       </div>
       <ErrorMessage error={templateError} />
-      {users.length > 0 && (
+      <ErrorMessage error={usersError} />
+      {choices.length > 1 && (
         <ListCard label={usersCopy.forUser}>
           <SelectRow
             label={usersCopy.forUser}
             value={owner}
             onChange={setOwner}
-            options={[
-              { value: "", label: usersCopy.forMe },
-              ...users.map((u) => ({ value: u.id, label: u.displayName })),
-            ]}
+            options={choices}
           />
           {owner && (
             <div className="list-row agent-team-usage">

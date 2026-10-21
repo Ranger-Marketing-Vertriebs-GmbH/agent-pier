@@ -58,6 +58,15 @@ export const usersCopy = {
   locked:
     "Für Agenten von Benutzern gesperrt: Sie können keine Programme auf diesem Rechner ausführen.",
   lockedList: (list) => `Gesperrt: ${list}.`,
+  ownPrivate:
+    "Privat für seinen Benutzer: Notizen und Browser erscheinen hier nur, solange „Besitzer darf Chats lesen“ für diese Person an ist (Einstellungen › Zugriff › Benutzer).",
+  ownReadOnly:
+    "Gehört seinem Benutzer: Du kannst Notizen lesen und den Browser ansehen, aber nichts ändern.",
+  ownRoutines: "Erinnerungen und Routinen verwaltet sein Benutzer in seiner App.",
+  ownTelegram:
+    "Seinen Telegram-Bot verbindet sein Benutzer in seiner App. Du kannst diesem Agenten keinen Bot verbinden.",
+  lockedTelegramSenders:
+    "Für Agenten von Benutzern gesperrt: ein eigener Telegram-Bot für andere Personen.",
   lockedNames: {
     shell: "Shell",
     ssh: "SSH",
@@ -65,7 +74,8 @@ export const usersCopy = {
     pipelines: "Pipelines",
     coding: "Coding",
     teams: "Teams",
-    sessions: "Sessions anderer Agenten",
+    sessions: "Zugriff auf seine anderen Chats (Session-Tools)",
+    visibleBrowser: "Sichtbares Browserfenster",
   },
   access: "Benutzer dieses Agenten",
   accessHint:

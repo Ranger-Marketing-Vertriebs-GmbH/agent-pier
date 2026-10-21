@@ -135,7 +135,16 @@ export class AssistantService {
     // The agents page shows the ChatGPT model lists; stale ones load in the background.
     this.accounts?.ensureModels?.();
     const teamData = this.teams?.list();
-    const assistants = this.store.listAssistants().map((a) => this.withMcp(a));
+    // A user's own agent says whether the owner may read its content (her opt-in), so
+    // his settings show it read-only or explain why not (owner-privacy.js).
+    const assistants = this.store
+      .listAssistants()
+      .map((a) => this.withMcp(a))
+      .map((a) =>
+        a.userAccess?.mode === "own"
+          ? { ...a, ownerReads: this.privacy?.agentContent?.(a) ?? true }
+          : a,
+      );
     // The owner's list: users' chats show only under their opt-in, and only from its
     // since (owner-privacy.js).
     const conversations = this.store

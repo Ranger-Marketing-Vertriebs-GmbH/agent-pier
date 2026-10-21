@@ -4,6 +4,14 @@ import { plainTurnText } from "./plain-turn-text.js";
 import { titleFromTurn } from "./chat-titles.js";
 import { chatProblem } from "./agent-chats.js";
 
+function usersAgent(service, conversation) {
+  try {
+    return Boolean(service.store.getAssistant(conversation.assistantId).userAccess);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * One owner (or Telegram, or internal) turn of an AgentPier conversation, admitted by
  * the caller: the request is accepted in the ledger together with its trusted context
@@ -12,14 +20,16 @@ import { chatProblem } from "./agent-chats.js";
  */
 export async function sendTurn(service, conversationId, input, trustedContext) {
   validateSendInput(input);
+  const conversation = service.store.getConversation(conversationId);
   const context = {
     ...trustedContext,
+    // A user's agent never leads a team (user-agent-lock.js), whoever writes to it.
     teamAllowed:
       ["owner", "telegram"].includes(trustedContext.kind) &&
+      !usersAgent(service, conversation) &&
       (input.teamAllowed === true ||
         (trustedContext.kind === "owner" && /^\/team\s+\S/.test(input.text))),
   };
-  const conversation = service.store.getConversation(conversationId);
   const existing = service.ledger
     .requests(conversationId)
     .find((r) => r.clientRequestId === input.clientRequestId);
@@ -80,12 +90,13 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   sending.add(attempt.id);
   const generation = service.runtime.generationId ?? null;
   try {
-    // A user's chat (web, her Telegram bot, queued) never sends OpenClaw commands.
+    // A user's chat (web, her Telegram bot, queued) never sends OpenClaw commands,
+    // and its files are announced as hers.
+    const byUser = typeof conversation.userId === "string";
     const turn = await service.attachments.delivery(
-      typeof conversation.userId === "string"
-        ? { ...request, text: plainTurnText(request.text) }
-        : request,
+      byUser ? { ...request, text: plainTurnText(request.text) } : request,
       conversation.assistantId,
+      { byUser },
     );
     const sent = await service.runtime.client.call("sessions.send", {
       key: conversation.runtimeSessionKey,

@@ -417,11 +417,15 @@ export class AgentAttachments {
       requestId,
     );
   }
-  // The text the agent receives and the images its model sees inline.
-  async delivery(request, assistantId) {
+  // The text the agent receives and the images its model sees inline; `byUser` when
+  // the request is a restricted user's.
+  async delivery(request, assistantId, { byUser = false } = {}) {
     const files = this.files(request.id);
     if (!files.length) return { message: request.text };
-    const note = attachmentNote(files.map((f) => ({ ...f, path: agentPath(f) })));
+    const note = attachmentNote(
+      files.map((f) => ({ ...f, path: agentPath(f) })),
+      { byUser },
+    );
     const message = request.text.trim() ? `${request.text}\n\n${note}` : note;
     const attachments = [];
     if (this.imageInput(assistantId) === false) return { message };
@@ -494,8 +498,17 @@ export class AgentAttachments {
       entry.files.push(file);
       byRequest.set(file.row.request_id, entry);
     }
+    // A user's chat names her as the sender; turns sent before it did still strip.
+    let byUser = false;
+    try {
+      byUser = typeof this.store.storedConversation(conversationId)?.userId === "string";
+    } catch {
+      // An unknown chat has no files to name.
+    }
     for (const entry of byRequest.values()) {
-      entry.note = attachmentNote(entry.files.map((f) => ({ ...f, path: agentPath(f) })));
+      const paths = entry.files.map((f) => ({ ...f, path: agentPath(f) }));
+      entry.note = attachmentNote(paths, { byUser });
+      if (byUser) entry.notes = [entry.note, attachmentNote(paths)];
       // A copy that is gone (deleted by the agent, or cleared by the owner) stays
       // in its message, named and marked unavailable, without a link.
       entry.files = entry.files.map((f) =>

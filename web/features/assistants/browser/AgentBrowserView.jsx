@@ -10,20 +10,28 @@ import "./agent-browser.css";
  * agent's browser calls wait (browser-takeover.js). The owner's page and a user's
  * (UserBrowserPage.jsx) share it; the server decides who may watch and drive.
  * `takeover` takes over as soon as the picture is live; `onControl(mine)` reports it.
+ * A view-only viewer (the owner on a user's own agent, under her opt-in) only watches:
+ * no takeover, start, tab choice or follow.
  */
-export default function AgentBrowserView({ assistant, takeover = false, onControl }) {
+export default function AgentBrowserView({
+  assistant,
+  takeover = false,
+  onControl,
+  privacyNote,
+}) {
   const { state, image, error, select, follow, start, take, handBack, input } =
     useBrowserStream(assistant.id);
   const status = state.status;
+  const viewOnly = state.viewOnly === true;
   const control = state.control || { held: false, mine: false };
   const asked = useRef(false);
   const handBackButton = useRef(null);
   useEffect(() => {
-    if (takeover && !asked.current && status === "live" && !control.held) {
+    if (takeover && !viewOnly && !asked.current && status === "live" && !control.held) {
       asked.current = true;
       take();
     }
-  }, [takeover, status, control.held, take]);
+  }, [takeover, viewOnly, status, control.held, take]);
   const mine = control.mine;
   useEffect(() => {
     onControl?.(mine);
@@ -36,7 +44,7 @@ export default function AgentBrowserView({ assistant, takeover = false, onContro
           <i aria-hidden="true" />
           {copy.liveStatus[status] || status}
         </span>
-        {state.tabs.length > 0 && (
+        {!viewOnly && state.tabs.length > 0 && (
           <label className="agent-browser-tabs">
             <span>{copy.liveTab}</span>
             <select
@@ -51,13 +59,18 @@ export default function AgentBrowserView({ assistant, takeover = false, onContro
             </select>
           </label>
         )}
-        {state.pinned && (
+        {!viewOnly && state.pinned && (
           <button type="button" className="button secondary compact" onClick={follow}>
             {copy.liveFollow}
           </button>
         )}
       </div>
-      {(status === "live" || control.mine) && (
+      {viewOnly && (
+        <div className="agent-browser-takeover">
+          <p role="status">{copy.liveViewOnly}</p>
+        </div>
+      )}
+      {!viewOnly && (status === "live" || control.mine) && (
         <div className={`agent-browser-takeover${control.warning ? " warning" : ""}`}>
           <p role="status">
             {control.mine
@@ -102,9 +115,11 @@ export default function AgentBrowserView({ assistant, takeover = false, onContro
         {status === "stopped" ? (
           <div className="agent-browser-empty">
             <p>{copy.liveStatus.stopped}</p>
-            <button type="button" className="button primary" onClick={start}>
-              {copy.liveStart}
-            </button>
+            {!viewOnly && (
+              <button type="button" className="button primary" onClick={start}>
+                {copy.liveStart}
+              </button>
+            )}
           </div>
         ) : status === "live" && image ? (
           <BrowserScreen
@@ -131,7 +146,7 @@ export default function AgentBrowserView({ assistant, takeover = false, onContro
           {copy.liveDialogs} {copy.liveEscape}
         </p>
       )}
-      <p className="assistant-note">{copy.livePrivacy}</p>
+      <p className="assistant-note">{privacyNote || copy.livePrivacy}</p>
     </div>
   );
 }

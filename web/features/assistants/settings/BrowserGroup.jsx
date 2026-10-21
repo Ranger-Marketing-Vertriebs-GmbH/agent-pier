@@ -13,9 +13,18 @@ import { routePath } from "../../../app/routes.js";
 /**
  * The agent's own browser (docs/assistant-gateway.md "Browser isolation"): the
  * visible window, whether it runs and resetting its persistent profile. Shown while
- * the browser switch is on; the window needs a separate agent browser app.
+ * the browser switch is on; the window needs a separate agent browser app. An agent
+ * of users runs headless only (CapabilitiesTab names it in LockedNotice). A user's own
+ * agent (`own`) shows nothing before her opt-in, then only its live view.
  */
-export default function BrowserGroup({ assistant, draft, browser, refresh, navigate }) {
+export default function BrowserGroup({
+  assistant,
+  own = null,
+  draft,
+  browser,
+  refresh,
+  navigate,
+}) {
   const id = useId();
   const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState("");
@@ -33,7 +42,8 @@ export default function BrowserGroup({ assistant, draft, browser, refresh, navig
       .catch(() => {});
     return () => controller.abort();
   }, [archived, agentId]);
-  if (!assistant || !isPersonal(assistant)) return null;
+  if (!assistant || !isPersonal(assistant) || own === "private") return null;
+  const owner = own !== "read";
   if (archived && !stored && !result) return null;
   if (!archived && (!shellEligible(assistant) || draft.values.browser !== true))
     return null;
@@ -57,7 +67,7 @@ export default function BrowserGroup({ assistant, draft, browser, refresh, navig
         {copy.group}
       </GroupLabel>
       <ListCard labelledBy={id}>
-        {!archived && (
+        {!archived && !assistant.userAccess && (
           <ToggleRow
             label={copy.visible}
             sub={reason || copy.visibleDescription}
@@ -67,7 +77,7 @@ export default function BrowserGroup({ assistant, draft, browser, refresh, navig
             onChange={(next) => draft.set("browserVisible", next)}
           />
         )}
-        {!archived && <BrowserInstall browser={browser} refresh={refresh} />}
+        {!archived && owner && <BrowserInstall browser={browser} refresh={refresh} />}
         {!archived && (
           <ListRow
             label={copy.liveOpen}
@@ -79,7 +89,7 @@ export default function BrowserGroup({ assistant, draft, browser, refresh, navig
         {assistant.browserRunning && (
           <ListRow label={copy.running} status={{ tone: "ok", text: copy.runningNow }} />
         )}
-        {(!archived || stored) && (
+        {(!archived || stored) && owner && (
           <ListRow
             label={copy.reset}
             sub={copy.resetDescription}

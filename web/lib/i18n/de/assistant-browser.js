@@ -46,6 +46,8 @@ export const assistantBrowserCopy = {
   liveTakeOverHint:
     "Übernimm den Browser, um dich anzumelden oder eine Prüfung zu lösen. Der Agent wartet so lange.",
   liveControlMine: "Du steuerst den Browser. Der Agent wartet, bis du ihn zurückgibst.",
+  liveViewOnly:
+    "Nur zuschauen: Dies ist der eigene Agent des Benutzers, nur er steuert seinen Browser.",
   liveControlOther: "Du steuerst diesen Browser gerade auf einem anderen Gerät.",
   liveControlWarning:
     "Ohne Eingabe geht der Browser in einer Minute an den Agenten zurück.",

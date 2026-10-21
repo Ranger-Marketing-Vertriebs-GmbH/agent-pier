@@ -13,6 +13,7 @@ import {
 } from "../../server/features/assistants/browser-hand-back.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
+import { browserRefusals } from "../../server/features/assistants/team-plugin/tool-guard.js";
 
 const settle = async () => {
   for (let n = 0; n < 5; n++) await new Promise((r) => setTimeout(r, 2));
@@ -202,6 +203,57 @@ test("the tool guard keeps the agent waiting while the owner holds its browser",
     (await browsers.policy({ agentId: "ap-a", action: "snapshot" })).allow,
     true,
   );
+});
+
+test("a browser held by a user agent's user is never called the owner's", async (t) => {
+  const state = fs.mkdtempSync(path.join(os.tmpdir(), "takeover-"));
+  t.after(() => fs.rmSync(state, { recursive: true, force: true }));
+  const profiles = [
+    { id: "a", runtimeAgentId: "ap-a", capabilities: { browser: true } },
+    {
+      id: "own",
+      runtimeAgentId: "ap-own",
+      capabilities: { browser: true },
+      userAccess: { mode: "own", members: [{ userId: "u-1", level: "chat" }] },
+    },
+    {
+      id: "shared",
+      runtimeAgentId: "ap-shared",
+      capabilities: { browser: true },
+      userAccess: { mode: "shared", members: [{ userId: "u-1", level: "chat" }] },
+    },
+  ];
+  const browsers = new AgentBrowsers({
+    store: {
+      listAssistants: () => profiles,
+      getAssistant: (id) => profiles.find((p) => p.id === id),
+    },
+    runtime: {
+      paths: { state },
+      client: { ready: true, request: async () => ({}) },
+      webTools: {
+        browserProfiles: browserProfileMap({
+          profiles,
+          browser: { available: true, executablePath: "/b" },
+          port: 1,
+        }),
+      },
+    },
+    keeper: () => ({ start: async () => true, close() {} }),
+  });
+  let driver = null;
+  browsers.controlled = () => true;
+  browsers.driver = () => driver;
+  const reason = async (agentId) =>
+    (await browsers.policy({ agentId, action: "snapshot" })).reason;
+  assert.equal(await reason("ap-a"), "ownerControl");
+  assert.equal(await reason("ap-own"), "userControl");
+  // The owner holds a shared agent's browser while no user's turn drives it.
+  assert.equal(await reason("ap-shared"), "ownerControl");
+  driver = "u-1";
+  assert.equal(await reason("ap-shared"), "sharedUserControl");
+  assert.doesNotMatch(browserRefusals.userControl, /owner/i);
+  assert.doesNotMatch(browserRefusals.sharedUserControl, /owner/i);
 });
 
 test("handing back queues a note in the agent's latest chat, never over the owner's", (t) => {

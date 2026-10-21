@@ -110,3 +110,23 @@ test("memory on without writes: the agent is told memory is read-only right now"
     "no memory, no note",
   );
 });
+
+test("an agent of users hands generated images to the person who asked, not the owner", () => {
+  const creates = { ...assistant, capabilities: { createImages: true } };
+  assert.match(
+    assistantBootstrap(creates, {}, { images: true }),
+    /every generated image to the owner in this chat/,
+  );
+  for (const mode of ["own", "shared"]) {
+    const text = assistantBootstrap(
+      { ...creates, userAccess: { mode, members: [], released: [] } },
+      {},
+      { images: true },
+    );
+    assert.match(
+      text,
+      /every generated image to the person who asked for it in this chat/,
+    );
+    assert.doesNotMatch(text, /to the owner in this chat/);
+  }
+});

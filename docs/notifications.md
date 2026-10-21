@@ -45,8 +45,18 @@ device; it can be enabled again on that device.
 Restricted users register their own devices in their own app. Each device belongs to
 one person: a user's device gets notices only about her own agents and chats (her
 reminders, routines, check-ins and approvals), never the owner's or system notices,
-and the owner's device list never shows hers. Quiet hours and "quiet while visible"
-count per person.
+and the owner's device list never shows hers. Her device's **Settings** offer only
+those events (**Agent approval**, **Agent check-in**, **Routine result** and **Also what
+Telegram delivered**). Quiet hours and "quiet while visible" count per person.
+
+Signing out of a browser unregisters it for the person who signs out and closes her
+notices still in the browser's notification tray and clears the app badge, so a shared
+tablet never shows her notices to the next person. Signing in as someone else on a
+browser that another person registered unregisters it for that person as well; the new
+person turns **Notifications** on there to receive her own. Signing a user out remotely
+unregisters her devices too: the owner's **Reset password** and turning **Sign-in
+allowed** off remove all of them, and her own **Change password** keeps only the browser
+she changed it on.
 
 ## What a notification shows
 

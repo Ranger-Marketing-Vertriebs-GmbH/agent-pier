@@ -24,6 +24,10 @@ const languages = {
     memory: "Gedächtnis",
     deleteNote: "Notiz 2026-10-20.md löschen",
     deleteNow: "Jetzt löschen",
+    token: "Telegram-Bot-Token",
+    connect: "Telegram verbinden",
+    disconnect: "Bot trennen",
+    telegramPaired: "Verbunden mit @lotta_bot",
   },
   en: {
     title: "Settings of Lotta",
@@ -39,6 +43,10 @@ const languages = {
     memory: "Memory",
     deleteNote: "Delete note 2026-10-20.md",
     deleteNow: "Delete now",
+    token: "Telegram bot token",
+    connect: "Connect Telegram",
+    disconnect: "Disconnect bot",
+    telegramPaired: "Connected to @lotta_bot",
   },
 };
 
@@ -120,7 +128,58 @@ for (const [language, copy] of Object.entries(languages))
       expect(state.saved).toEqual([
         { id: "lotta", values: { capabilities: { webSearch: true } } },
       ]);
-      await expect(page.getByText("Telegram")).toBeVisible();
+      await expect(page.getByText("Telegram", { exact: true })).toBeVisible();
+    });
+
+    test("at Extended she connects, pairs and disconnects her bot", async ({ page }) => {
+      const state = await userAppFixture(page, {
+        language,
+        agents: [userAgent({ level: "extended" })],
+      });
+      await page.goto(baseURL + "/agents/lotta/settings");
+      await page.getByLabel(copy.token, { exact: true }).fill("123:secret");
+      await page.getByRole("button", { name: copy.connect, exact: true }).click();
+      await expect(page.getByText("/start 123456")).toBeVisible();
+      await expect(page.getByText("@lotta_bot", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: copy.disconnect, exact: true }).click();
+      await expect(page.getByLabel(copy.token, { exact: true })).toBeVisible();
+      expect(state.telegram.map((call) => call.method)).toEqual([
+        "PUT",
+        "POST",
+        "DELETE",
+      ]);
+      expect(state.telegram[0].token).toBe("123:secret");
+      expect(state.foreign).toEqual([]);
+    });
+
+    test("her bot's pairing finishing in Telegram shows at once", async ({ page }) => {
+      const state = await userAppFixture(page, {
+        language,
+        agents: [userAgent({ level: "extended" })],
+        eventRetry: 200,
+      });
+      await page.goto(baseURL + "/agents/lotta/settings");
+      await page.getByLabel(copy.token, { exact: true }).fill("123:secret");
+      await page.getByRole("button", { name: copy.connect, exact: true }).click();
+      await expect(page.getByText("/start 123456")).toBeVisible();
+      // She sends the code to her bot: the server pairs it and tells her app.
+      state.telegramChannels.lotta = { ...state.telegramChannels.lotta, paired: true };
+      state.events.push({ type: "telegram", agentId: "lotta" });
+      await expect(page.getByText("/start 123456")).toHaveCount(0);
+      await expect(page.getByText(copy.telegramPaired)).toBeVisible();
+      expect(state.telegram.map((call) => call.method)).toEqual(["PUT", "POST"]);
+      // Disconnected and connected again, the same bot is hers again without a code.
+      await page.getByRole("button", { name: copy.disconnect, exact: true }).click();
+      await page.getByLabel(copy.token, { exact: true }).fill("123:secret");
+      await page.getByRole("button", { name: copy.connect, exact: true }).click();
+      await expect(page.getByText(copy.telegramPaired)).toBeVisible();
+      await expect(page.getByText(/\/start/)).toHaveCount(0);
+      expect(state.telegram.map((call) => call.method)).toEqual([
+        "PUT",
+        "POST",
+        "DELETE",
+        "PUT",
+      ]);
     });
 
     test("a shared agent stays the owner's at every level", async ({ page }) => {
@@ -136,6 +195,6 @@ for (const [language, copy] of Object.entries(languages))
         .first()
         .click();
       await expect(page.getByText(copy.sharedManaged).first()).toBeVisible();
-      await expect(page.getByText("Telegram")).toHaveCount(0);
+      await expect(page.getByText("Telegram", { exact: true })).toHaveCount(0);
     });
   });

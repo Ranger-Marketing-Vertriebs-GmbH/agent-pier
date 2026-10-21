@@ -404,6 +404,30 @@ test("a cancelled drag clears the agent chat overlay without uploading", async (
   expect(state.uploads).toEqual([]);
 });
 
+test("an archived chat does not arm the drop zone and uploads nothing", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "File drop is desktop-only; touch devices use the picker.");
+  const state = await chatFixture(page, {
+    language: "en",
+    conversations: [
+      { id: "dinner", assistantId: "home", archivedAt: "2026-10-01T00:00:00.000Z" },
+    ],
+  });
+  await attachmentRoutes(page, state);
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  await expect(page.getByText("We can plan dinner together.")).toBeVisible();
+  await expect(page.locator("#assistant-message")).toHaveCount(0);
+  const panel = page.locator(".assistant-chat-panel");
+  const dataTransfer = await fileTransfer(page);
+  await panel.dispatchEvent("dragover", { dataTransfer });
+  await expect(panel).not.toHaveAttribute("data-dropping", "true");
+  await panel.dispatchEvent("drop", { dataTransfer });
+  await page.waitForTimeout(200);
+  expect(state.uploads).toEqual([]);
+});
+
 test("touch-only devices do not arm the agent chat drop zone", async ({ browser }) => {
   const context = await browser.newContext({
     hasTouch: true,

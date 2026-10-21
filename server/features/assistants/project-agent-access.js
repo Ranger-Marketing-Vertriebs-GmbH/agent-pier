@@ -43,6 +43,8 @@ export function projectAgents(
         name: a.name,
         revision: policy.revision,
         ...view(policy, projectId),
+        // An agent of users gets folders only, never the coding grant.
+        ...(isUserAgent(a) && { foldersOnly: true }),
       };
     }),
     // What leads share of this project with their permanent members (lead-shares.js):

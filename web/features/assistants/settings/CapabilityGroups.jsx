@@ -33,7 +33,8 @@ const names = {
  * Memory and reminders switches; the saved-notes row opens the memory editor. It shows
  * no count: MEMORY.md and USER.md are not files of the `memory/` listing.
  */
-export function MemoryGroup({ assistant, draft, go }) {
+// `notes` false hides the notes link (a user's own agent before her opt-in).
+export function MemoryGroup({ assistant, draft, go, notes = true }) {
   const id = useId();
   const copy = assistantCopy.personal;
   const saved = Boolean(assistant) && assistant.capabilities?.memory === true;
@@ -49,7 +50,7 @@ export function MemoryGroup({ assistant, draft, go }) {
           checked={draft.values.memory}
           onChange={(on) => draft.set("memory", on)}
         />
-        {saved && (
+        {saved && notes && (
           <ListRow
             label={copy.notes}
             href={routePath(agentRoute(assistant.id, "capabilities", "memory"))}

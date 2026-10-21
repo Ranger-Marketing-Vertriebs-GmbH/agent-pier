@@ -10,6 +10,7 @@ import { RegisterHint } from "./ProjectRuns.jsx";
 import { leadShareCopy as shareCopy } from "../../lib/i18n/messages/lead-shares.js";
 import { memberGrantDetail, shareDetail } from "../assistants/lead-shares.js";
 import RevokeLeadShare from "../assistants/RevokeLeadShare.jsx";
+import LockedNotice from "../assistants/settings/LockedNotice.jsx";
 import "./project-agents.css";
 
 const levels = ["none", "read", "write"];
@@ -20,7 +21,8 @@ export const isConflict = (e) =>
 const path = (projectId) => `/assistant-project-access/${encodeURIComponent(projectId)}`;
 
 // One permanent agent: the project grant and its folder level, saved at once through
-// the agent's Work tab access (server project-agent-access.js).
+// the agent's Work tab access (server project-agent-access.js). An agent of users
+// (`foldersOnly`) gets a folder level only, never the coding grant.
 function AgentAccess({ projectId, agent, onSaved, onConflict }) {
   const [pending, setPending] = useState(null),
     [error, setError] = useState("");
@@ -48,16 +50,20 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
   return (
     <div className="project-agent" data-project-agent={agent.id}>
       <h3 className="project-agent-name">{agent.name}</h3>
-      <ListCard label={agent.name} disabled={busy}>
-        <CheckboxRow
-          label={copy.coding}
-          sub={copy.codingHint}
-          checked={shown.coding}
-          disabled={busy}
-          // Removing the grant removes the folder level as well.
-          onChange={(on) => save(on, on ? shown.folder : "none")}
-        />
-      </ListCard>
+      {agent.foldersOnly ? (
+        <LockedNotice items={["coding"]} />
+      ) : (
+        <ListCard label={agent.name} disabled={busy}>
+          <CheckboxRow
+            label={copy.coding}
+            sub={copy.codingHint}
+            checked={shown.coding}
+            disabled={busy}
+            // Removing the grant removes the folder level as well.
+            onChange={(on) => save(on, on ? shown.folder : "none")}
+          />
+        </ListCard>
+      )}
       <GroupLabel as="h4" id={legend}>
         {copy.folderLegend}
       </GroupLabel>
@@ -70,8 +76,14 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
             label={copy.folder[level]}
             checked={shown.folder === level}
             disabled={busy}
-            // A folder level needs the project grant, so choosing one grants it.
-            onChange={(next) => save(next === "none" ? shown.coding : true, next)}
+            // A folder level needs the project grant, so choosing one grants it;
+            // an agent of users has folders without it.
+            onChange={(next) =>
+              save(
+                agent.foldersOnly ? false : next === "none" ? shown.coding : true,
+                next,
+              )
+            }
           />
         ))}
       </ListCard>

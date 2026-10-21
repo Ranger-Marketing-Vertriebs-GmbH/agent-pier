@@ -5,6 +5,8 @@ export const assistantWorkflowCopy = {
   pipelines: "Freigegebene Pipelines",
   projectsIntro:
     "Freigegebene Projekte stehen für Projektwissen und Coding-Aufträge bereit. Direkter Ordnerzugriff lässt den Agenten zusätzlich Dateien im Projektordner lesen oder lesen und ändern.",
+  projectsFoldersIntro:
+    "Agenten von Benutzern bekommen weder Projektwissen noch Coding-Aufträge. Ein angehaktes Projekt gibt dem Agenten nur direkten Zugriff auf seinen Ordner: Dateien lesen oder lesen und ändern.",
   folderLegend: "Direkter Ordnerzugriff",
   folderLevels: {
     none: "Keiner",

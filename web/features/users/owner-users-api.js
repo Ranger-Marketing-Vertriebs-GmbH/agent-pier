@@ -36,6 +36,17 @@ export function agentsOf(assistants, userId) {
     );
 }
 
+/**
+ * Whether `userId` owns an agent, an archived one too: deleting her asks whether her
+ * own agents are archived or kept, like the server (user-agents.js ownsAgents).
+ */
+export const ownsAgents = (assistants, userId) =>
+  assistants.some(
+    (a) =>
+      a.userAccess?.mode === "own" &&
+      a.userAccess.members.some((m) => m.userId === userId),
+  );
+
 /** `userAccess` with `userId` at `level` (null removes her). */
 export function withMember(userAccess, userId, level) {
   const members = userAccess.members.filter((m) => m.userId !== userId);

@@ -64,6 +64,9 @@ const conflictLabels = {
   runTimeoutMinutes: () => teamCopy.timeout,
 };
 
+// Work pages an agent of users never has (user-agent-lock.js).
+const lockedPages = ["ssh", "github", "pipelines"];
+
 // `sshHosts` is null when the SSH catalog could not be read (never "no hosts").
 const catalogOf = (list) => ({
   projects: list.projects || [],
@@ -77,10 +80,13 @@ const catalogOf = (list) => ({
  * Work: grants, permissions and team policy in one draft, saved in one transaction,
  * and the lead's teams with their immediate actions.
  */
-export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) {
+export default function WorkTab({ assistant, page: asked, go, navigate, focusTeamId }) {
   const { policies = {}, refresh } = useAssistants();
-  // An agent of users holds project folders only: no grants, pipelines or teams.
+  // An agent of users holds project folders only: no grants, pipelines or teams. A
+  // link to one of their pages (a bookmark, or from before) shows the Work tab with
+  // its lock notice instead.
   const userAgent = Boolean(assistant.userAccess);
+  const page = userAgent && lockedPages.includes(asked) ? null : asked;
   const withTeam = !assistant.teamMemberId && !userAgent;
   const teamPolicy = withTeam ? policies[assistant.id] : null;
   const accessId = useId(),

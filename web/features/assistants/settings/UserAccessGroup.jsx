@@ -22,7 +22,8 @@ const releasable = [
 
 /**
  * Who uses an agent of users and how much each may configure: one level control per
- * member, the capabilities released for Extended, and Remove on a shared agent. Every
+ * member, the capabilities released for Extended on a user's own agent, and Remove on a
+ * shared agent. Every
  * change applies at once through the owner's user-agents route.
  */
 export default function UserAccessGroup({ assistant }) {
@@ -86,27 +87,33 @@ export default function UserAccessGroup({ assistant }) {
           </div>
         ))}
       </ListCard>
-      <GroupLabel id="agent-user-released" hint={copy.releasedHint}>
-        {copy.released}
-      </GroupLabel>
-      <ListCard labelledBy="agent-user-released">
-        {releasable.map((key) => (
-          <CheckboxRow
-            key={key}
-            label={memberGrantCopy.labels[key]}
-            checked={released.includes(key)}
-            disabled={busy}
-            onChange={(on) =>
-              save({
-                ...access,
-                released: on
-                  ? [...released, key].sort()
-                  : released.filter((item) => item !== key),
-              })
-            }
-          />
-        ))}
-      </ListCard>
+      {/* A shared agent's capabilities stay the owner's at every level
+          (user-agent-settings.js), so only a user's own agent releases any. */}
+      {access.mode === "own" && (
+        <>
+          <GroupLabel id="agent-user-released" hint={copy.releasedHint}>
+            {copy.released}
+          </GroupLabel>
+          <ListCard labelledBy="agent-user-released">
+            {releasable.map((key) => (
+              <CheckboxRow
+                key={key}
+                label={memberGrantCopy.labels[key]}
+                checked={released.includes(key)}
+                disabled={busy}
+                onChange={(on) =>
+                  save({
+                    ...access,
+                    released: on
+                      ? [...released, key].sort()
+                      : released.filter((item) => item !== key),
+                  })
+                }
+              />
+            ))}
+          </ListCard>
+        </>
+      )}
     </section>
   );
 }
