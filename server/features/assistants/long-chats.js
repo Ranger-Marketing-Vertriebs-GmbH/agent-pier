@@ -114,6 +114,12 @@ export class LongChats {
         },
         (error) => {
           if (working(error)) throw chatProblem("CHAT_BUSY");
+          // The code and the Gateway's error class only: its text may name host paths.
+          console.warn(
+            `Summarising chat ${id} failed: ${error?.code || "unknown"}${
+              error?.remoteError ? ` (${error.remoteError})` : ""
+            }`,
+          );
           // The Gateway went away before it answered. A timeout is shown as a failure
           // (OpenClaw may still finish the summary; the chat shows it once it did).
           if (!error?.answered && error?.code !== "TIMEOUT")
