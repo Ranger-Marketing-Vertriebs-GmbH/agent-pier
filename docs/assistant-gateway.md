@@ -2409,6 +2409,12 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
   for it and describes no GitHub access, even when its stored access names one. This
   holds for a forged shell level or GitHub access in the database as well. Its browser
   profile is always compiled headless, even when its stored `browserVisible` is true.
+  On the pinned Gateway the deny wins over the allow list on its own, and
+  `tools.effective` for the agent's sessions lists none of the locked tools while
+  its web and workspace file tools stay
+  (`tests/integration/assistant-user-agent-lock-contract.test.js`). A live apply for
+  an agent that is no user agent any more (an own agent kept as the owner's) removes
+  the deny again (`tools.deny: null` with its path in `replacePaths`).
 - **Run time.** The team plugin's `before_tool_call` hook asks the bridge
   (`/tool-policy`) before every call of `exec`, `process` and the session tools
   (`lockedCoreTools`), for every agent; for a user agent the bridge answers
