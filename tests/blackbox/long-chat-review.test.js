@@ -167,3 +167,28 @@ test("a chat deleted while its size is read stores no hidden hint", async (t) =>
   assert.equal(response.status, 404);
   assert.deepEqual(rows(), []);
 });
+
+test("a summary on request blocks maintenance and the model account's logout", async (t) => {
+  const { f, gateway, sizes, key, chat, assistants, agent } = await fixture(t);
+  sizes[key] = long;
+  const maintenance = f.application.assistantUpdates.maintenance;
+  assert.deepEqual(await maintenance.blockers(), []);
+  const release = held(gateway);
+  const summarised = f.request(`${chat}/compact`, { method: "POST" });
+  await tick();
+  assert.ok((await maintenance.blockers()).includes("ASSISTANT_WORK"));
+  const connection = assistants.store.getAssistant(agent.id).model.connectionId;
+  // The direct logout path (no provider synchronization in front of it).
+  const synchronization = assistants.providerSynchronization;
+  assistants.providerSynchronization = null;
+  t.after(() => (assistants.providerSynchronization = synchronization));
+  await assert.rejects(
+    assistants.logoutAccount({ logout: async () => ({}) }, connection),
+    {
+      status: 409,
+    },
+  );
+  release();
+  await json(await summarised, 200);
+  assert.deepEqual(await maintenance.blockers(), []);
+});

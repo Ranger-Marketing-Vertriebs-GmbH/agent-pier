@@ -176,6 +176,17 @@ export class LongChats {
       return { dismissed: true };
     });
   }
+  /** Whether a summary on request runs in a chat of these agents (any without ids). */
+  runningFor(assistantIds) {
+    return [...this.running.keys()].some((id) => {
+      if (!assistantIds) return true;
+      try {
+        return assistantIds.has(this.service.store.storedConversation(id).assistantId);
+      } catch {
+        return false;
+      }
+    });
+  }
   /** A deleted chat's hidden hints go with it (chat-removal.js). */
   forget(conversationId) {
     this.db
