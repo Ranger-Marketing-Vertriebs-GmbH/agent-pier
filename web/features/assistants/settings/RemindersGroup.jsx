@@ -14,11 +14,27 @@ import usePolling from "../usePolling.js";
 
 const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+/** The owner's reminder routes; a user's app passes hers (UserRemindersGroup.jsx). */
+export const ownerReminderApi = {
+  list: assistantApi.reminders,
+  create: assistantApi.createReminder,
+  update: assistantApi.updateReminder,
+  remove: assistantApi.removeReminder,
+  review: assistantApi.reviewReminder,
+  runs: assistantApi.reminderRuns,
+};
+
 /**
  * Reminders delivered to the agent's chat with a push notification, and to a
- * `paired` Telegram chat where switched on; every action applies at once.
+ * `paired` Telegram chat where switched on; every action applies at once. `api`
+ * holds the routes (`review` and `runs` are optional); `readOnly` lists them only.
  */
-export default function RemindersGroup({ assistantId, paired = false }) {
+export default function RemindersGroup({
+  assistantId,
+  paired = false,
+  api = ownerReminderApi,
+  readOnly = false,
+}) {
   const copy = assistantCopy.personal;
   const id = useId();
   const [items, setItems] = useState([]),
@@ -37,9 +53,9 @@ export default function RemindersGroup({ assistantId, paired = false }) {
   const identity = useRef(crypto.randomUUID()),
     alive = useRef(true);
   const refresh = useCallback(async () => {
-    const result = await assistantApi.reminders(assistantId);
+    const result = await api.list(assistantId);
     if (alive.current) setItems(result.reminders || []);
-  }, [assistantId]);
+  }, [assistantId, api]);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -79,7 +95,7 @@ export default function RemindersGroup({ assistantId, paired = false }) {
         [hours, minutes] = time.split(":").map(Number);
       if (repeat === "once" && !Number.isFinite(date.getTime()))
         throw Error(copy.invalidTime);
-      await assistantApi.createReminder(assistantId, {
+      await api.create(assistantId, {
         clientRequestId: identity.current,
         name,
         message,
@@ -108,11 +124,15 @@ export default function RemindersGroup({ assistantId, paired = false }) {
       <GroupLabel
         id={id}
         hint={copy.remindersHint}
-        action={{
-          label: settingsCopy.addReminder,
-          onClick: () => setCreating((value) => !value),
-          disabled: busy,
-        }}
+        action={
+          readOnly
+            ? undefined
+            : {
+                label: settingsCopy.addReminder,
+                onClick: () => setCreating((value) => !value),
+                disabled: busy,
+              }
+        }
       >
         {copy.reminders}
       </GroupLabel>
@@ -245,15 +265,13 @@ export default function RemindersGroup({ assistantId, paired = false }) {
                 <Icon name="down" size={14} className="list-row-chevron" />
               </button>
             </div>
-            {item.reviewRequired && (
+            {item.reviewRequired && api.review && (
               <div className="agent-row-note">
                 <p>{copy.reviewReminderHint}</p>
                 <button
                   className="button secondary"
                   disabled={busy}
-                  onClick={() =>
-                    act(() => assistantApi.reviewReminder(assistantId, item.id))
-                  }
+                  onClick={() => act(() => api.review(assistantId, item.id))}
                 >
                   {copy.reviewReminder}
                 </button>
@@ -261,14 +279,14 @@ export default function RemindersGroup({ assistantId, paired = false }) {
             )}
             {open === item.id && (
               <div className="agent-detail" id={`${id}-detail-${item.id}`}>
-                {(paired || item.telegram) && item.status === "ready" && (
+                {(paired || item.telegram) && item.status === "ready" && !readOnly && (
                   <ToggleRow
                     label={routineCopy.alsoTelegram}
                     checked={item.telegram === true}
                     disabled={busy || (!paired && !item.telegram)}
                     onChange={(next) =>
                       act(() =>
-                        assistantApi.updateReminder(assistantId, item.id, {
+                        api.update(assistantId, item.id, {
                           telegram: next,
                           revision: item.revision,
                         }),
@@ -285,13 +303,13 @@ export default function RemindersGroup({ assistantId, paired = false }) {
                   </p>
                 )}
                 <div className="assistant-actions">
-                  {item.status === "ready" && (
+                  {item.status === "ready" && !readOnly && (
                     <button
                       className="button secondary"
                       disabled={busy}
                       onClick={() =>
                         act(() =>
-                          assistantApi.updateReminder(assistantId, item.id, {
+                          api.update(assistantId, item.id, {
                             enabled: !item.enabled,
                             revision: item.revision,
                           }),
@@ -301,34 +319,33 @@ export default function RemindersGroup({ assistantId, paired = false }) {
                       {item.enabled ? copy.pauseReminder : copy.resumeReminder}
                     </button>
                   )}
-                  <button
-                    className="button secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      act(() => assistantApi.removeReminder(assistantId, item.id))
-                    }
-                  >
-                    {copy.removeReminder}
-                  </button>
-                  <button
-                    className="button secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      act(async () => {
-                        const result = await assistantApi.reminderRuns(
-                          assistantId,
-                          item.id,
-                        );
-                        if (alive.current)
-                          setRuns((current) => ({
-                            ...current,
-                            [item.id]: result.entries,
-                          }));
-                      })
-                    }
-                  >
-                    {copy.history}
-                  </button>
+                  {!readOnly && (
+                    <button
+                      className="button secondary"
+                      disabled={busy}
+                      onClick={() => act(() => api.remove(assistantId, item.id))}
+                    >
+                      {copy.removeReminder}
+                    </button>
+                  )}
+                  {api.runs && (
+                    <button
+                      className="button secondary"
+                      disabled={busy}
+                      onClick={() =>
+                        act(async () => {
+                          const result = await api.runs(assistantId, item.id);
+                          if (alive.current)
+                            setRuns((current) => ({
+                              ...current,
+                              [item.id]: result.entries,
+                            }));
+                        })
+                      }
+                    >
+                      {copy.history}
+                    </button>
+                  )}
                 </div>
                 {runs[item.id]?.length === 0 && <p>{copy.noRuns}</p>}
                 {runs[item.id]?.map((run, index) => (

@@ -216,7 +216,7 @@ function agentRoute(route, state, agent, rest, method, body) {
   if ((m = /^\/(reminders|routines)(?:\/([^/]+))?$/.exec(rest))) {
     const store = state[m[1]];
     const list = (store[id] ||= []);
-    if (method === "GET") return json(route, list);
+    if (method === "GET") return json(route, { [m[1]]: list });
     if (method === "POST") {
       const item = { id: `b-${list.length + 1}`, state: "bound", ...body() };
       list.push(item);
