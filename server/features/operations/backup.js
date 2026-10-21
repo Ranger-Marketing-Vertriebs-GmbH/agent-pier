@@ -14,6 +14,7 @@ import { claim } from "./work-claims.js";
 import { sealHistory } from "./history-seal.js";
 import { backupOptions, capture, omissions } from "./snapshot.js";
 import { mcpServersPresent } from "./mcp-server-backup.js";
+import { usersPresent } from "../users/user-backup.js";
 import { applicationVersion } from "./version.js";
 import { privateContentOmissions } from "./private-content.js";
 import { problem } from "../../lib/storage.js";
@@ -32,6 +33,8 @@ import {
 
 export const historyOmission = profileOmissions.unsealed;
 export const mcpLoginOmission = "MCP server OAuth logins";
+export const userPasswordOmission =
+  "User passwords (the owner sets new ones after a restore)";
 export const mcpValueOmission =
   "MCP server header and environment values and address tokens";
 
@@ -54,6 +57,7 @@ export class Backup {
     const options = backupOptions(input);
     const assistants = assistantsCaptured(this.dataDir);
     const mcpServers = mcpServersPresent(this.dataDir);
+    const users = usersPresent(this.dataDir);
     const sealing = options.includeHistory && options.withCredentials;
     return {
       components: [
@@ -64,6 +68,7 @@ export class Backup {
         "pipeline-definitions",
         "memory",
         "audit",
+        ...(users ? ["users"] : []),
         // Histories and private content are archived only sealed, in backups with a
         // passphrase.
         ...(sealing
@@ -88,6 +93,7 @@ export class Backup {
                 ? ["sealed-assistant-credentials", browserProfilesComponent]
                 : []),
               ...(mcpServers ? ["encrypted-mcp-server-values"] : []),
+              ...(users ? ["encrypted-user-passwords"] : []),
             ]
           : []),
       ],
@@ -109,6 +115,7 @@ export class Backup {
         ...(assistants && !options.withCredentials ? [browserProfilesOmission] : []),
         ...(mcpServers ? [mcpLoginOmission] : []),
         ...(mcpServers && !options.withCredentials ? [mcpValueOmission] : []),
+        ...(users && !options.withCredentials ? [userPasswordOmission] : []),
         ...(!options.withCredentials
           ? ["Managed native configuration and credentials"]
           : []),

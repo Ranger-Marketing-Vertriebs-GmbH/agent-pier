@@ -17,6 +17,11 @@ import {
   mcpValuesMember,
   sanitizeMcpStore,
 } from "./mcp-server-backup.js";
+import {
+  captureUsers,
+  userCredentialsMember,
+  usersMember,
+} from "../users/user-backup.js";
 
 export const omissions = [
   "File trash, file journals and transfer bytes",
@@ -185,6 +190,13 @@ export function capture({
     addJson("preferences.json");
     addJson("pipelines/definitions.json");
     addJson("config.json", (value) => ({ port: value.port }));
+    // Users without their password hashes; those go only into the capsule.
+    const users = captureUsers(dataDir, withCredentials);
+    if (users) {
+      files.push(fileMember(usersMember, users.users));
+      if (users.credentials)
+        credentials.push(fileMember(userCredentialsMember, users.credentials));
+    }
     if (fs.existsSync(path.join(dataDir, "memory/memory.sqlite"))) {
       const startedAt = new Date().toISOString();
       files.push(

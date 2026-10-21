@@ -36,15 +36,16 @@ import {
 import { claim } from "./work-claims.js";
 import { adoptAgentDatabases, isUnsealedPrivateContent } from "./private-content.js";
 import { stagePath } from "./stage-path.js";
+import { restoreUsers } from "../users/user-backup.js";
 
 // Histories read line by line: an archived prefix of them stays valid.
 const lineBased = /\.(?:jsonl|screen)$/;
 
 // Older backups archived AgentPier's own histories as public members.
 const publicPath =
-  /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|mcp-servers\/servers\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
+  /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|mcp-servers\/servers\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|users\/users\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
 const secretPath =
-  /^((?:repository-secrets|provider-connection-secrets)\/[A-Za-z0-9_-]+\.json|mcp-server-secrets\/servers\.json)$/;
+  /^((?:repository-secrets|provider-connection-secrets)\/[A-Za-z0-9_-]+\.json|mcp-server-secrets\/servers\.json|users\/credentials\.json)$/;
 // Version 1 capsules carried whole profile folders.
 const legacyProfilePath = /^profiles\/[A-Za-z0-9_-]+\/.+$/;
 /** Whether `name` may be restored as a public (or, with `credentials`, sealed) member. */
@@ -351,6 +352,7 @@ export class Restore {
       const projectMappings = await mapProjects(stage, projectMap);
       remapClaudeProjects(stage, projectMappings);
       const counts = historicalOnly(stage);
+      const usersNeedingPassword = restoreUsers(stage);
       const auditFile = path.join(stage, "audit/events.json");
       if (fs.existsSync(auditFile)) {
         const audit = new AuditStore({ dataDir: stage });
@@ -388,6 +390,8 @@ export class Restore {
         if (!restored.has(`repository-secrets/${credential.id}.json`))
           credentialsNeedingLogin.push(`repository:${credential.id}`);
       credentialsNeedingLogin.push(...mcpServersNeedingValues);
+      for (const name of usersNeedingPassword)
+        credentialsNeedingLogin.push(`user:${name}`);
       // Sealed agent credentials restore only while this host still holds their key.
       if (assistants.withheld) credentialsNeedingLogin.push("assistants");
       const importRecord = {

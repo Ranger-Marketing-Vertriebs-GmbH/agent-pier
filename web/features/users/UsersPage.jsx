@@ -116,7 +116,13 @@ export default function UsersPage({ route, navigate, frame }) {
               key={user.id}
               label={user.displayName}
               sub={user.username}
-              value={user.disabled ? copy.disabled : undefined}
+              value={
+                user.disabled
+                  ? copy.disabled
+                  : user.mustReset
+                    ? copy.needsPassword
+                    : undefined
+              }
               onClick={() => open(user.id)}
             />
           ))}

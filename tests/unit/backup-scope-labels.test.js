@@ -7,6 +7,7 @@ import {
   Backup,
   mcpLoginOmission,
   mcpValueOmission,
+  userPasswordOmission,
 } from "../../server/features/operations/backup.js";
 import { assistantOmissions } from "../../server/features/operations/assistant-backup.js";
 import {
@@ -45,6 +46,10 @@ test("every backup scope entry has a German and an English label", (t) => {
     ...Object.values(privateContentOmissions),
     // Listed only on a host with agents.
     "agent-history",
+    // Listed only on a host with users.
+    "users",
+    "encrypted-user-passwords",
+    userPasswordOmission,
     removedOmission,
     changedOmission,
     legacy,
