@@ -3,6 +3,8 @@ import UserHeader from "./UserHeader.jsx";
 import MyAgentsPage from "./MyAgentsPage.jsx";
 import UserChatRoute from "./UserChatRoute.jsx";
 import UserAgentSettings from "./UserAgentSettings.jsx";
+import AccountPage from "./AccountPage.jsx";
+import { usePushPresence } from "../notifications/usePushPresence.js";
 import { UserPage } from "./UserPage.jsx";
 import useUserAgents from "./useUserAgents.js";
 import { AgentPathsContext, userAgentPaths } from "../assistants/agent-paths.js";
@@ -44,6 +46,8 @@ function useUserNavigation() {
 export default function UserApp({ status }) {
   const [route, navigate] = useUserNavigation();
   const data = useUserAgents();
+  // Her devices get no push about the chat she is looking at.
+  usePushPresence(true, "/me/notifications");
   // Lives with her app, so signing out (which unmounts it) forgets every chat.
   const [histories] = useState(() => new AgentHistoryCache());
   const name = status.user?.displayName || status.user?.username || "";
@@ -87,7 +91,9 @@ export default function UserApp({ status }) {
     page = (
       <UserPage
         header={<UserHeader title={copy.account} onBack={start} navigate={navigate} />}
-      />
+      >
+        <AccountPage me={data.me} user={status.user} />
+      </UserPage>
     );
   else if (route.view === "agents")
     page = (

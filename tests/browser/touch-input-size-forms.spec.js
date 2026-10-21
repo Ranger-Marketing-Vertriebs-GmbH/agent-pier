@@ -22,6 +22,7 @@ import { pipelinesFixture, openPipelines } from "./pipelines-fixture.js";
 import { wizardSetup, openWizard, chooseSource } from "./mcp-wizard-fixture.js";
 import { hubFixture } from "./projects-fixture.js";
 import { artifactsFixture } from "./artifacts-fixture.js";
+import { userAgent, userAppFixture, userChat } from "../helpers/user-app-fixture.js";
 
 // Dialogs and forms that need data: each step checks the controls it shows.
 test.use(phone);
@@ -275,4 +276,25 @@ test("extensions and skills", async ({ page }) => {
     await page.waitForTimeout(500);
     await expectTouchSized(page, `extensions ${path}`);
   }
+});
+
+test("user app forms: agent settings, chat rename and password", async ({ page }) => {
+  await userAppFixture(page, {
+    language: "de",
+    agents: [userAgent({ level: "personalize" })],
+    chats: { lotta: [userChat(), userChat({ id: "trip", main: false, title: "Trip" })] },
+  });
+  await page.goto(baseURL + "/agents/lotta/settings");
+  await expect(page.getByLabel("Name", { exact: true })).toBeVisible();
+  await expectTouchSized(page, "user agent settings");
+  await page.goto(baseURL + "/agents/lotta/chats/main");
+  await page.getByRole("button", { name: /Chats mit Lotta/ }).click();
+  await page.getByRole("button", { name: "Aktionen für Trip" }).click();
+  await page.getByRole("button", { name: "Umbenennen", exact: true }).click();
+  await expect(page.getByLabel("Titel", { exact: true })).toBeVisible();
+  await expectTouchSized(page, "chat rename");
+  await page.goto(baseURL + "/account");
+  await page.getByRole("button", { name: "Passwort ändern" }).click();
+  await expect(page.getByLabel("Neues Passwort")).toBeVisible();
+  await expectTouchSized(page, "user password");
 });

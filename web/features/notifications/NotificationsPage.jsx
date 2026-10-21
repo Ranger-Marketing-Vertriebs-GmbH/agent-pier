@@ -120,12 +120,14 @@ function ThisDevice({ state }) {
   );
 }
 
-export default function NotificationsPage() {
-  const state = useNotifications();
+/**
+ * This device's push notices and the other devices; `base` is the notification API
+ * (a restricted user's account page passes /me/notifications).
+ */
+export function NotificationDevices({ base }) {
+  const state = useNotifications(base);
   return (
-    <section className="notifications-page">
-      <p className="notifications-intro">{copy.description}</p>
-      <InstallGroup />
+    <>
       <GroupLabel id="notifications-device" hint={copy.pushPrivacy}>
         {copy.pushTitle}
       </GroupLabel>
@@ -144,6 +146,16 @@ export default function NotificationsPage() {
         </button>
       )}
       <DeviceList state={state} />
+    </>
+  );
+}
+
+export default function NotificationsPage() {
+  return (
+    <section className="notifications-page">
+      <p className="notifications-intro">{copy.description}</p>
+      <InstallGroup />
+      <NotificationDevices />
     </section>
   );
 }

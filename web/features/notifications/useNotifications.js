@@ -32,8 +32,10 @@ function applicationKey(value) {
   const decoded = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
 }
-export default function useNotifications() {
-  const resource = useResource("/notifications"),
+// `base` is the notification API: the owner's /notifications or a user's
+// /me/notifications (her own devices only).
+export default function useNotifications(base = "/notifications") {
+  const resource = useResource(base),
     action = useAsyncAction();
   const subscriptionGeneration = useRef(0);
   const [deviceId] = useState(deviceIdentity),
@@ -103,7 +105,7 @@ export default function useNotifications() {
       subscriptionGeneration.current++;
       setSubscription(current);
       const known = Boolean(own);
-      const result = await api("/notifications/subscriptions", "POST", {
+      const result = await api(`${base}/subscriptions`, "POST", {
         deviceId,
         label: label.trim() || derivedName,
         subscription: current.toJSON(),
@@ -127,7 +129,7 @@ export default function useNotifications() {
   const savePreferences = async (entry, preferences) => {
     const zone = entry.deviceId === deviceId ? timeZone() : undefined;
     const result = await api(
-      `/notifications/subscriptions/${encodeURIComponent(entry.id)}/preferences`,
+      `${base}/subscriptions/${encodeURIComponent(entry.id)}/preferences`,
       "PUT",
       { ...preferences, ...(zone ? { timeZone: zone } : {}) },
     );
@@ -144,10 +146,7 @@ export default function useNotifications() {
       setMessage("");
       setOffer(false);
       if (entry) {
-        await api(
-          `/notifications/subscriptions/${encodeURIComponent(entry.id)}`,
-          "DELETE",
-        );
+        await api(`${base}/subscriptions/${encodeURIComponent(entry.id)}`, "DELETE");
         updateSubscriptions(
           resource.data.subscriptions.filter((item) => item.id !== entry.id),
         );
@@ -170,7 +169,7 @@ export default function useNotifications() {
   const test = () =>
     run("test", async () => {
       setMessage("");
-      const result = await api("/notifications/test", "POST", { subscriptionId: own.id });
+      const result = await api(`${base}/test`, "POST", { subscriptionId: own.id });
       if (!result.sent) {
         await serverMessagesReady();
         throw new Error(serverText(result.error) || copy.testFailed);

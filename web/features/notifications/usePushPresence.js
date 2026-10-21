@@ -3,15 +3,18 @@ import api from "../../lib/api.js";
 import { useInboxCount } from "../inbox/inbox-store.js";
 import { startPresenceReporter } from "./presence-reporter.js";
 
-/** Reports the visible, focused view while push devices are registered. */
-export function usePushPresence(enabled) {
+/**
+ * Reports the visible, focused view while push devices are registered; `base` is
+ * the notification API (a user's app reports to /me/notifications).
+ */
+export function usePushPresence(enabled, base = "/notifications") {
   useEffect(() => {
     // Without a registered device nothing is pushed, so nothing needs reporting.
     if (!enabled) return undefined;
     return startPresenceReporter({
-      send: (route) => api("/notifications/presence", "POST", { route }).catch(() => {}),
+      send: (route) => api(`${base}/presence`, "POST", { route }).catch(() => {}),
     });
-  }, [enabled]);
+  }, [enabled, base]);
 }
 
 /** The installed app's badge shows the inbox count where the platform supports it. */
