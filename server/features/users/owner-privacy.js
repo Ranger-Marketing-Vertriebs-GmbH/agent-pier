@@ -36,8 +36,10 @@ export function fromSince(history, since) {
   // An older page holds what the owner may read until it reaches back past `since`.
   const dated = messages.map((m) => time(m.timestamp)).filter((at) => at > 0);
   const reachesSince = !dated.length || Math.min(...dated) < sinceMs;
+  // How long her chat is counts what she wrote before, too: not his to know.
+  const { longChat: _longChat, ...rest } = history;
   return {
-    ...history,
+    ...rest,
     // A file a turn shared or an image it asked for answers its request, whenever it
     // arrived; an image turn whose request is still unknown stays hers too.
     messages: messages.filter(
