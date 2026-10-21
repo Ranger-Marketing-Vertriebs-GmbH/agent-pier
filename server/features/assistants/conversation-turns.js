@@ -3,6 +3,7 @@ import { memberLevel } from "../users/user-access.js";
 import { plainTurnText } from "./plain-turn-text.js";
 import { titleFromTurn } from "./chat-titles.js";
 import { chatProblem } from "./agent-chats.js";
+import { reopenRefusedChat } from "./native-chat-archive.js";
 
 function usersAgent(service, conversation) {
   try {
@@ -98,10 +99,19 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
       conversation.assistantId,
       { byUser },
     );
-    const sent = await service.runtime.client.call("sessions.send", {
-      key: conversation.runtimeSessionKey,
-      ...turn,
-      idempotencyKey: attempt.id,
+    const client = service.runtime.client;
+    const send = () =>
+      client.call("sessions.send", {
+        key: conversation.runtimeSessionKey,
+        ...turn,
+        idempotencyKey: attempt.id,
+      });
+    // OpenClaw's maintenance may have archived the session natively; such a refusal
+    // comes before any run, so the reopened chat takes the same turn.
+    const sent = await send().catch(async (error) => {
+      if (!(await reopenRefusedChat(client, conversation.runtimeSessionKey, error)))
+        throw error;
+      return send();
     });
     service.ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });
   } catch (error) {
