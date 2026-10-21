@@ -1222,11 +1222,14 @@ was compacted and the plan was gone. Four rules close that gap:
     - A process leaves the record only when its end is positively observed, never
       by its pid. OpenClaw's exec session and its completion last until the
       command's output closes, so a shell that exits while `cmd &` runs on is still
-      live. An end is observed when a completion run lists the session's only
-      recorded process with that prefix, when the process tool reports it finished,
-      or when its own bound passed: the call's `timeoutSeconds` above zero plus ten
-      minutes. An ended process leaves two hours after its end. A bounded one leaves
-      at its bound, and its prefix stays refused for two more hours. A process
+      live. An end is observed when a completion run lists a prefix that only one
+      recorded process of the session carries, counting ended ones and those just
+      removed. A completion can still be delivered after the process tool showed
+      that end. The end is also observed when the process tool reports the process
+      finished, or when its own bound passed: the call's `timeoutSeconds` above
+      zero plus ten minutes. A process leaves two hours after its end or at its
+      bound. It then stays a candidate under its prefix, with the run that started
+      it, for two more hours, so a late completion is judged against it. A process
       without a known end or bound stays: a silent success with no timeout that is
       never polled keeps refusing other runs' completions with its prefix in that
       session.
@@ -1235,6 +1238,10 @@ was compacted and the plan was gone. Four rules close that gap:
       approval may still start a command), or after a run that ended with an `exec`
       call that never reported a result. It is also uncertain when more than 1,024
       `exec` calls are open across the Gateway and its call is forgotten.
+    - A session with nothing left (no process, no candidate prefix, not
+      uncertain) is removed. Past 4,096 sessions those go first, then the least
+      recently used one without a recorded process, then the least recently used
+      one; a forgotten one is remembered as described next.
     - Past 4,096 sessions the least recently used one is forgotten. Its key goes
       into a bit filter, so that session, and the rare one sharing its bits, stays
       uncertain; every other chat keeps working.

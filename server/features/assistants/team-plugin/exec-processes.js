@@ -124,9 +124,14 @@ function session(record, key, create = true) {
   if (entry) record.sessions.delete(key);
   else if (create) {
     // A session forgotten before may have had processes this entry never saw.
-    entry = { processes: [], dropped: new Map(), uncertain: forgotten(record, key) };
+    entry = { processes: [], dropped: [], uncertain: forgotten(record, key) };
+    // Entries with nothing left go first; only then is a live one forgotten.
+    if (record.sessions.size >= execBounds.maxSessions)
+      for (const [k, e] of record.sessions) tidy(record, k, e);
     if (record.sessions.size >= execBounds.maxSessions) {
-      const [oldest] = record.sessions.keys();
+      // The least recently used one without a recorded process, else the oldest.
+      const idle = [...record.sessions].find(([, e]) => !e.processes.length);
+      const oldest = idle ? idle[0] : record.sessions.keys().next().value;
       record.sessions.delete(oldest);
       forget(record, oldest);
     }
@@ -139,16 +144,17 @@ const bounded = (map, max, key, value) => {
   if (map.size > max) map.delete(map.keys().next().value);
 };
 // Removes processes whose end, or bound, lies long enough behind.
+// A removed process stays a candidate under its prefix (`dropped`, with the run
+// that started it) for one more window, so a completion still on its way is judged
+// against it like before.
 function prune(entry, now = Date.now()) {
-  for (const [prefix, at] of entry.dropped)
-    if (now - at >= execBounds.dropAfterMs) entry.dropped.delete(prefix);
+  entry.dropped = entry.dropped.filter((d) => now - d.at < execBounds.dropAfterMs);
   entry.processes = entry.processes.filter((p) => {
-    if (p.endedAt) return now - p.endedAt < execBounds.dropAfterMs;
-    if (p.timeoutSec > 0 && now - p.at > p.timeoutSec * 1000 + execBounds.marginMs) {
-      entry.dropped.set(p.id.slice(0, 8), now);
-      return false;
-    }
-    return true;
+    const gone = p.endedAt
+      ? now - p.endedAt >= execBounds.dropAfterMs
+      : p.timeoutSec > 0 && now - p.at > p.timeoutSec * 1000 + execBounds.marginMs;
+    if (gone) entry.dropped.push({ prefix: p.id.slice(0, 8), runId: p.runId, at: now });
+    return !gone;
   });
   const excess = entry.processes.length - execBounds.maxProcesses;
   if (excess > 0) {
@@ -156,10 +162,20 @@ function prune(entry, now = Date.now()) {
     entry.processes.splice(0, excess);
   }
 }
-// A process whose end OpenClaw reported.
-function ending(entry, match, now = Date.now()) {
-  const found = entry.processes.filter((p) => !p.endedAt && match(p));
-  if (found.length === 1) found[0].endedAt = now;
+// An entry with nothing left to remember goes, so it never pushes a live session
+// out of the bound (an uncertain one stays).
+function tidy(record, key, entry) {
+  prune(entry);
+  if (!entry.processes.length && !entry.dropped.length && !entry.uncertain)
+    record.sessions.delete(key);
+}
+// Only when the report can mean that one process: every recorded process it could
+// name counts, ended ones included (an ended process's completion may still be
+// delivered after the process tool showed its end).
+function ending(entry, match, prefix, now = Date.now()) {
+  const found = entry.processes.filter(match);
+  if (entry.dropped.some((d) => d.prefix === prefix)) return;
+  if (found.length === 1 && !found[0].endedAt) found[0].endedAt = now;
 }
 
 // OpenClaw's completion prompt (heartbeat-events-filter buildExecEventPrompt): one
@@ -210,19 +226,24 @@ export function completedProcesses(text) {
 export function execEvidence(sessionKey, runId) {
   const record = execRecord();
   const entry = session(record, sessionKey, false);
-  if (entry) prune(entry);
+  if (entry) tidy(record, sessionKey, entry);
   const found = typeof runId === "string" && record.completions.get(runId);
   const completion = found && found.sessionKey === sessionKey ? found : null;
   const pending = [...record.pending.values()].some((p) => p.sessionKey === sessionKey);
   const ids = new Set(completion?.ids || []);
-  const processes = (entry?.processes || []).filter((p) => ids.has(p.id.slice(0, 8)));
+  // Every process the ids could stand for: recorded ones and those just removed.
+  const processes = [
+    ...(entry?.processes || []).filter((p) => ids.has(p.id.slice(0, 8))),
+    ...(entry?.dropped || [])
+      .filter((d) => ids.has(d.prefix))
+      .map((d) => ({ id: d.prefix, runId: d.runId })),
+  ];
   // More than one message carries is never cut short: the record then proves nothing.
   const complete =
     record.complete === true &&
     !(entry ? entry.uncertain : forgotten(record, sessionKey)) &&
     !pending &&
-    processes.length <= 256 &&
-    ![...ids].some((id) => entry?.dropped.has(id));
+    processes.length <= 256;
   return {
     complete,
     processes: complete ? processes.map(({ id, runId: by }) => ({ id, runId: by })) : [],
@@ -329,7 +350,8 @@ export function registerExecProcesses(api) {
       typeof details.sessionId === "string"
     ) {
       const entry = session(record, ctx.sessionKey, false);
-      if (entry) ending(entry, (p) => p.id === details.sessionId);
+      if (entry)
+        ending(entry, (p) => p.id === details.sessionId, details.sessionId.slice(0, 8));
     }
   });
   api.on("agent_end", (_event, ctx) => {
@@ -351,7 +373,7 @@ export function registerExecProcesses(api) {
     if (!ids) return;
     // The completion's processes have ended: each that one prefix names alone.
     const entry = session(record, ctx.sessionKey, false);
-    if (entry) for (const id of ids) ending(entry, (p) => p.id.slice(0, 8) === id);
+    if (entry) for (const id of ids) ending(entry, (p) => p.id.slice(0, 8) === id, id);
     bounded(record.completions, execBounds.maxCompletions, runId, {
       sessionKey: ctx.sessionKey,
       ids,
