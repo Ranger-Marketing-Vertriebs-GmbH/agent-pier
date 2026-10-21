@@ -147,7 +147,12 @@ AgentPier; nothing is sent to the paired Telegram chat.
 
 Only your own messages (in the chat or the paired Telegram chat) and its routines'
 runs can change an agent's memory. Forwarded content, reminders, check-ins and tasks
-from a lead agent cannot. When a write is refused, the chat shows a quiet line such as
+from a lead agent cannot. When a background command the agent started for one of your
+messages (a long render, for example) finishes after its reply, the agent's follow-up
+on the result may still change files, memory and granted project folders like that
+message did: for up to two hours, and only until a newer message arrives in that chat.
+A command started for forwarded content, a reminder or a lead's task stays read-only,
+and the command's output never counts as your message. When a write is refused, the chat shows a quiet line such as
 **Memory not saved: only your own messages can change memory.** Right after the
 agent service starts, a message waits a few seconds until memory can be written; if
 it still cannot, the chat says the message ran read-only. **Memory** in the agent's
