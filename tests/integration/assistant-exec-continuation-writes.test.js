@@ -72,9 +72,15 @@ test("a user who lost the agent continues nothing", async (t) => {
     released: [],
   };
   const f = await setup(t, { userAccess });
-  await f.turn({ kind: "user", userId: "anna" });
+  const noted = [];
+  f.bridge.noteShared = (key) => noted.push(key);
+  const attemptId = await f.turn({ kind: "user", userId: "anna" });
   const ctx = await f.wake();
   assert.equal(await f.call("notes.md", { ctx }), true);
+  // A shared agent's memory change notes the completion run under its own key: the
+  // owner turn's own shared write keeps `<attempt>:shared-write`.
+  assert.equal(await f.call("MEMORY.md", { ctx }), true);
+  assert.deepEqual(noted, [`${attemptId}:wake-1:shared-write`]);
   const body = {
     ...f.store.storedAssistant(f.id),
     userAccess: { ...userAccess, members: [] },
