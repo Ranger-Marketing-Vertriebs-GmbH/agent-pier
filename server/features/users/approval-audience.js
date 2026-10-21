@@ -1,13 +1,14 @@
 /**
  * Who decides an agent's approval: the person in whose chat it arose. A user's chat
  * (also a routine running in it) sends its approvals to her alone; everything else
- * goes to the owner. An action whose chat is gone stays the owner's.
+ * goes to the owner. A deleted chat keeps its person (storedConversation), so her
+ * cards never become the owner's; an action whose chat record is gone stays his.
  */
 export function approvalAudience(action, store) {
   let conversation = null;
   try {
     if (action?.conversationId)
-      conversation = store.getConversation(action.conversationId);
+      conversation = store.storedConversation(action.conversationId);
   } catch {
     conversation = null;
   }

@@ -200,3 +200,31 @@ test("approvals raised in two users' concurrent turns go to whose turn raised th
   assert.equal((await decide(as(f, ben.cookie), forA)).status, 404);
   assert.equal((await decide(as(f, anna.cookie), forA)).status, 200);
 });
+
+test("a deleted chat's approvals stay hers and never reach the owner", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, agent } = await sharedAgentOfTwo(f);
+  const request = as(f, anna.cookie);
+  await request(`/api/me/agents/${agent.id}/conversation`, { method: "POST" });
+  const created = await request(`/api/me/agents/${agent.id}/chats`, { method: "POST" });
+  assert.equal(created.status, 201, await created.clone().text());
+  const conversationId = (await created.json()).id;
+  const workflows = f.application.assistants.workflows;
+  const action = workflows.store.reserve({
+    key: `approval-${conversationId}`,
+    assistantId: agent.id,
+    conversationId,
+    origin: { kind: "user", userId: anna.user.id },
+    payload: { action: "memory_write", projectId: "p", title: "Note", content: "Annas" },
+    state: "awaiting_approval",
+  });
+  assert.equal((await decide(request, action)).status, 200);
+  const deleted = await request(`/api/me/conversations/${conversationId}`, {
+    method: "DELETE",
+    body: { confirm: true },
+  });
+  assert.equal(deleted.status, 204, await deleted.clone().text());
+  const ownerList = await (await f.request(`/api/assistants/${agent.id}/actions`)).json();
+  assert.ok(!JSON.stringify(ownerList).includes(action.id));
+  assert.ok(!JSON.stringify(ownerList).includes("Annas"));
+});

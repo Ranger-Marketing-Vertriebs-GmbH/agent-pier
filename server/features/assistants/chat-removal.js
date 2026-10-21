@@ -115,21 +115,18 @@ export async function forgetChat(assistants, conversation) {
 
 /**
  * Deletes a chat's native session with its transcript, then the transcript archive
- * OpenClaw keeps in the agent's sessions folder. The mark goes once it is deleted; a
- * history read that ran across the deletion may have cached the chat again, so it is
- * forgotten once more. Returns whether the session is gone.
+ * OpenClaw keeps in the agent's sessions folder. The session's id names that archive;
+ * it is recorded on the chat before the delete, so a retry after a delete whose answer
+ * was lost, or after a restart, still finds the archive once the session is gone. The
+ * mark goes once the session and its archive are; a history read that ran across the
+ * deletion may have cached the chat again, so it is forgotten once more. Returns
+ * whether the session is gone.
  */
 export async function deleteNativeSession(assistants, conversation) {
   const client = assistants.runtime.client;
   if (!client?.ready) return false;
-  let sessionId = null;
-  try {
-    sessionId =
-      (await client.call("sessions.describe", { key: conversation.runtimeSessionKey }))
-        ?.session?.sessionId ?? null;
-  } catch {
-    /* Deleted without its archive name: nothing below matches then. */
-  }
+  const sessionId = await nativeSessionId(assistants, conversation);
+  if (sessionId === undefined) return false;
   try {
     await client.call("sessions.delete", {
       key: conversation.runtimeSessionKey,
@@ -140,12 +137,36 @@ export async function deleteNativeSession(assistants, conversation) {
   }
   const agent = agentOf(assistants, conversation.assistantId);
   const state = assistants.runtime.paths?.state;
-  if (sessionId && agent && state)
+  if (sessionId && agent && state) {
     for (const file of deletedTranscripts(state, agent.runtimeAgentId, sessionId))
       fs.rmSync(file, { force: true });
+    if (deletedTranscripts(state, agent.runtimeAgentId, sessionId).length) return false;
+  }
   assistants.store.updateConversation(conversation.id, { nativeDeletePending: false });
   await forgetChat(assistants, conversation);
   return true;
+}
+
+// The native session's id: the one recorded on the chat, else described and recorded
+// now. Null when the Gateway knows no session for the chat (nothing to archive), and
+// undefined when it could not say: the deletion waits for the next try then.
+async function nativeSessionId(assistants, conversation) {
+  const recorded = assistants.store.storedConversation(conversation.id).nativeSessionId;
+  if (typeof recorded === "string" && recorded) return recorded;
+  let sessionId;
+  try {
+    sessionId =
+      (
+        await assistants.runtime.client.call("sessions.describe", {
+          key: conversation.runtimeSessionKey,
+        })
+      )?.session?.sessionId ?? null;
+  } catch {
+    return undefined;
+  }
+  if (typeof sessionId !== "string" || !sessionId) return null;
+  assistants.store.updateConversation(conversation.id, { nativeSessionId: sessionId });
+  return sessionId;
 }
 
 function agentOf(assistants, id) {

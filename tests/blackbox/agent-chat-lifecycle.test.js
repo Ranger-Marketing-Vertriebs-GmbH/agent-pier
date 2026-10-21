@@ -426,3 +426,50 @@ test("delete without confirm is refused", async (t) => {
   }
   assert.ok(f.application.assistants.store.getConversation(second));
 });
+
+test("a retried deletion removes the archive of a session the first try already deleted", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const { second } = await twoChats(f.request, agent.id);
+  const assistants = f.application.assistants;
+  const key = assistants.store.getConversation(second).runtimeSessionKey;
+  const sessions = path.join(
+    assistants.runtime.paths.state,
+    "agents",
+    agent.runtimeAgentId,
+    "sessions",
+  );
+  const archive = path.join(sessions, "session-x.jsonl.deleted.2026-10-21T08-00-00.000Z");
+  let exists = true;
+  const call = gateway.client.call;
+  gateway.client.call = async (method, params) => {
+    if (params?.key !== key) return call(method, params);
+    if (method === "sessions.describe") {
+      if (!exists) throw new Error("session not found");
+      return { session: { sessionId: "session-x" } };
+    }
+    if (method === "sessions.delete") {
+      // Deleted on the Gateway, but its answer never arrives.
+      fs.mkdirSync(sessions, { recursive: true });
+      fs.writeFileSync(archive, "her transcript");
+      exists = false;
+      throw new Error("timeout");
+    }
+    return call(method, params);
+  };
+  const deleted = await f.request(routes(false).chat(second), {
+    method: "DELETE",
+    body: { confirm: true },
+  });
+  assert.equal(deleted.status, 204, await deleted.clone().text());
+  assert.ok(fs.existsSync(archive));
+  assert.equal(assistants.store.storedConversation(second).nativeDeletePending, true);
+  // The next try: the session is gone, deleting the missing key succeeds.
+  gateway.client.call = async (method, params) =>
+    params?.key === key && method === "sessions.describe"
+      ? Promise.reject(new Error("session not found"))
+      : call(method, params);
+  await deleteReleasedSessions({ assistants });
+  assert.ok(!fs.existsSync(archive));
+  assert.equal(assistants.store.storedConversation(second).nativeDeletePending, false);
+});

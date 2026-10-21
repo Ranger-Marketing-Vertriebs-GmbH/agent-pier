@@ -338,6 +338,8 @@ export const assistants = {
   chatBusy:
     "Der Agent arbeitet in diesem Chat oder eine Nachricht wartet. Versuche es danach noch einmal.",
   chatCommand: "Diesen Befehl gibt es hier nicht. Starte stattdessen einen neuen Chat.",
+  chatCommandQueued:
+    "/new und /name warten nicht auf den Agenten. Sende sie, wenn er fertig ist.",
   chatConfirm: "Bestätige, dass dieser Chat mit seinem Verlauf gelöscht wird.",
   queuedArchived: "Dieser Agent ist archiviert und nimmt keine Nachrichten mehr an.",
   active: "Es läuft noch eine Anfrage. Warte auf das Ergebnis oder stoppe sie zuerst.",
