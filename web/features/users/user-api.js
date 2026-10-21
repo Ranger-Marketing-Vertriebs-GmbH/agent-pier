@@ -17,6 +17,10 @@ export const userApi = {
   renameChat: (conversationId, title) => api(chat(conversationId), "PATCH", { title }),
   archiveChat: (conversationId) => api(`${chat(conversationId)}/archive`, "POST", {}),
   restoreChat: (conversationId) => api(`${chat(conversationId)}/restore`, "POST", {}),
+  // The long-chat hint's actions (useLongChat.js).
+  compact: (conversationId) => api(`${chat(conversationId)}/compact`, "POST", {}),
+  dismissLongChat: (conversationId) =>
+    api(`${chat(conversationId)}/long-chat-dismissal`, "POST", {}),
   deleteChat: (conversationId) => api(chat(conversationId), "DELETE", { confirm: true }),
   history: (conversationId, before) =>
     api(

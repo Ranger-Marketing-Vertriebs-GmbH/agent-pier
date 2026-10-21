@@ -21,7 +21,7 @@ const languages = {
     retry: "Try again",
     continue: "Please continue where you stopped.",
     timedOut: /The model did not answer in time\./,
-    longChat: /This chat is very long/,
+    longChat: /This chat is long\./,
     retrying: "The model did not answer, trying again (2 of 8)",
     approval: "Waiting for approval",
     compacting: "Summarising the chat",
@@ -39,7 +39,7 @@ const languages = {
     retry: "Erneut versuchen",
     continue: "Bitte mach dort weiter, wo du aufgehört hast.",
     timedOut: /Das Modell hat nicht rechtzeitig geantwortet\./,
-    longChat: /Dieser Chat ist sehr lang/,
+    longChat: /Dieser Chat ist lang\./,
     retrying: "Das Modell hat nicht geantwortet, neuer Versuch (2 von 8)",
     approval: "Wartet auf Freigabe",
     compacting: "Fasst den Chat zusammen",
@@ -163,9 +163,7 @@ for (const [language, copy] of Object.entries(languages))
       ]);
     });
 
-    test("a timed-out turn says why, and a long chat suggests a new one", async ({
-      page,
-    }) => {
+    test("a timed-out turn says why, and a long chat says so", async ({ page }) => {
       const state = await chatFixture(page, {
         language,
         history: {

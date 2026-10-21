@@ -48,5 +48,7 @@ export const agentRunStepsCopy = {
   timedOut:
     "Das Modell hat nicht rechtzeitig geantwortet. Prüfe, was der Agent schon erledigt hat, bevor du es erneut versuchst.",
   longChat:
-    "Dieser Chat ist sehr lang, deshalb werden Antworten langsamer und teurer. Starte für ein neues Thema einen neuen Chat.",
+    "Dieser Chat ist lang. Nach Pausen dauert die erste Antwort länger, und ältere Details gehen leichter unter.",
+  summarise: "Jetzt zusammenfassen",
+  dismiss: "Ausblenden",
 };

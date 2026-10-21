@@ -118,7 +118,7 @@ export default function useUserConversation(
   }
   async function send(event, ids = []) {
     event.preventDefault();
-    if (active || queued) return queue(ids);
+    if (active || queued || history.compacting) return queue(ids);
     if (!available || busy || (!text.trim() && !ids.length)) return false;
     const submitted = drafts.delivery(conversationId);
     return deliver(submitted, ids, () => {
@@ -175,6 +175,7 @@ export default function useUserConversation(
     available,
     unreachable,
     error: error || feed.error,
+    setError,
     busy,
     refresh,
     send,

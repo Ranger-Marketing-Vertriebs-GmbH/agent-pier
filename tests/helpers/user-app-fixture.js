@@ -75,6 +75,8 @@ export async function userAppFixture(page, options = {}) {
       Object.fromEntries(agents.map((a) => [a.id, [userChat({ id: a.conversationId })]])),
     messages: options.messages || {},
     requests: options.requests || {},
+    // Chats whose history says they are very long, by id.
+    longChat: options.longChat || {},
     settings: Object.fromEntries(agents.map((a) => [a.id, settingsOf(a)])),
     memory: options.memory || {},
     reminders: options.reminders || {},
@@ -317,6 +319,12 @@ function chatRoute(route, state, chat, rest, method, body) {
     chat.archivedAt = null;
     return json(route, chat);
   }
+  // The long-chat hint's actions: the history is summarised, or the hint hidden.
+  if (rest === "/compact" || rest === "/long-chat-dismissal") {
+    state.longChatCalls = [...(state.longChatCalls || []), `${id}${rest}`];
+    delete state.longChat?.[id];
+    return json(route, rest === "/compact" ? { compacted: true } : { dismissed: true });
+  }
   if (rest === "/attachment-policy") return json(route, { imageInput: true });
   if (rest === "/messages" && method === "POST") {
     const { text } = body();
@@ -344,6 +352,7 @@ function chatRoute(route, state, chat, rest, method, body) {
       requests: state.requests[id] || [],
       stale: false,
       ...(state.compacting?.[id] ? { compacting: true } : {}),
+      ...(state.longChat?.[id] ? { longChat: true } : {}),
     });
   if (rest === "/queued") return json(route, { text: "" });
   return missing(route);
