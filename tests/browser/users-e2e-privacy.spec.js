@@ -41,7 +41,7 @@ const languages = {
     archive: "Archivieren",
     archivedList: "Archivierte Chats",
     deleteUser: "Benutzer löschen",
-    archiveAgents: "Archivieren",
+    keepNeedsOptIn: /Behalten kannst du sie nur, solange du ihre Chats lesen darfst/,
     deleteNow: "Jetzt löschen",
   },
   en: {
@@ -72,7 +72,7 @@ const languages = {
     archive: "Archive",
     archivedList: "Archived chats",
     deleteUser: "Delete user",
-    archiveAgents: "Archive",
+    keepNeedsOptIn: /You can keep them only while you may read their chats/,
     deleteNow: "Delete now",
   },
 };
@@ -333,11 +333,12 @@ for (const [language, copy] of Object.entries(languages))
       expect((await opened.json()).content).toBe(diary);
       await fitsPhone(po);
 
-      // 7. The owner deletes Ben and archives his agent: Ben is back at the sign-in.
+      // 7. The owner deletes Ben, which archives his agent: Ben is back at the sign-in.
       await pb.goto(f.url + `/agents/${family.id}`);
       await po.goto(f.url + `/settings/users?user=${ben.id}`);
       await po.getByRole("button", { name: copy.deleteUser }).click();
-      await po.getByRole("radio", { name: copy.archiveAgents }).check();
+      // Without his opt-in his own agent is archived: keeping it is not offered.
+      await expect(po.getByText(copy.keepNeedsOptIn)).toBeVisible();
       await po.getByRole("button", { name: copy.deleteNow }).click();
       await expect(po).toHaveURL(/\/settings\/users$/);
       await expect(
