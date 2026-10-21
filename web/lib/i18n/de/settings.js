@@ -25,6 +25,7 @@ export const settingsHubCopy = {
   remoteSub: "Von anderen Geräten erreichen",
   sshSub: "Schlüssel und Hosts",
   githubSub: "Token für Klone und Pull Requests",
+  usersSub: "Weitere Personen, die mit Agenten chatten",
   centralTitle: "Provider-Zugänge, MCP-Server",
   diagnosticsOk: "In Ordnung",
   diagnosticsFailed: (count) => (count === 1 ? "1 Fehler" : `${count} Fehler`),

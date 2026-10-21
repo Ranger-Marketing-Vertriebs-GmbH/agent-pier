@@ -11,6 +11,8 @@ export const sections = new Set([
   "remote",
   "ssh",
   "github",
+  // Restricted users and their agents (Settings › Access › Users).
+  "users",
   // The component gallery, below the Development group of the operations tab.
   "components",
 ]);
@@ -18,7 +20,7 @@ export const settingsTabs = ["workspace", "access", "operations"];
 // The settings sections each tab lists; "general" is also the root of every tab.
 export const settingsSectionGroups = {
   workspace: ["general", "notifications", "assistants"],
-  access: ["mcp", "remote", "ssh", "github"],
+  access: ["mcp", "remote", "ssh", "github", "users"],
   operations: ["diagnostics", "backups", "updates", "audit", "components"],
 };
 export const settingsTabOf = (section) =>
@@ -34,6 +36,10 @@ export function readSettingsRoute(pathname, search) {
     job = query.get("job") || "";
   const authorization = query.get("authorization") || "";
   return {
+    // One user's detail on the users page (?user=<id>).
+    ...(match[1] === "users" && identity.test(query.get("user") || "")
+      ? { userId: query.get("user") }
+      : {}),
     ...(match[1] === "mcp"
       ? {
           mcpAuthorization: /^[A-Za-z0-9_-]{1,200}$/.test(authorization)
@@ -91,6 +97,8 @@ export function settingsRoutePath(route) {
       ["auditBefore", "before"],
     ])
       if (route[field]) query.set(name, route[field]);
+  } else if (section === "users") {
+    if (route.userId) query.set("user", route.userId);
   } else if (route.operationId) query.set("job", route.operationId);
   return `/settings${section === "general" ? "" : "/" + section}${query.size ? "?" + query : ""}`;
 }

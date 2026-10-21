@@ -44,6 +44,12 @@ export function accessRows(access) {
       sub: copy.githubSub,
       value: count(access?.github),
     },
+    {
+      id: "users",
+      label: label("users"),
+      sub: copy.usersSub,
+      value: count(access?.users),
+    },
   ];
 }
 

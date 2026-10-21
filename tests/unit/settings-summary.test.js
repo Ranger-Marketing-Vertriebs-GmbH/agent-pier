@@ -23,6 +23,7 @@ const services = {
   }),
   sshAccesses: { list: () => [{ id: "a" }, { id: "b" }] },
   repositories: { listCredentials: () => [{ id: "g" }] },
+  users: { list: () => [{ id: "u1" }, { id: "u2" }, { id: "u3" }] },
   operations: {
     report: () => ({
       generatedAt: "2026-10-12T08:00:00Z",
@@ -50,6 +51,7 @@ test("the summary reports every row from local state", () => {
       remote: { tailscale: true, network: false, restartRequired: null },
       ssh: { count: 2 },
       github: { count: 1 },
+      users: { count: 3 },
     },
     operations: {
       diagnostics: { generatedAt: "2026-10-12T08:00:00Z", failed: 1, warnings: 1 },
@@ -64,6 +66,7 @@ test("missing or failing sources are null, never a made-up zero", () => {
     {
       ...services,
       mcpAccess: undefined,
+      users: undefined,
       sshAccesses: {
         list: () => {
           throw new Error("unreadable");
@@ -82,6 +85,7 @@ test("missing or failing sources are null, never a made-up zero", () => {
     now,
   );
   assert.equal(summary.access.mcp, null);
+  assert.equal(summary.access.users, null);
   assert.equal(summary.access.ssh, null);
   assert.equal(summary.operations.diagnostics, null);
   assert.deepEqual(summary.operations.backups, { count: 0, lastAt: null });

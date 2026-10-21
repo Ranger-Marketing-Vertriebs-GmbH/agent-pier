@@ -15,6 +15,7 @@ const sections = {
   diagnostics: "Diagnostics",
   backups: "Backups",
   updates: "Updates",
+  users: "Users",
   audit: "Activity log",
 };
 export const operationsCopy = {

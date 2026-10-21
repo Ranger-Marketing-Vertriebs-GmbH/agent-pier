@@ -25,6 +25,7 @@ export const settingsHubCopy = {
   remoteSub: "Reach AgentPier from other devices",
   sshSub: "Keys and hosts",
   githubSub: "Tokens for clones and pull requests",
+  usersSub: "Other people who chat with agents",
   centralTitle: "Provider access, MCP servers",
   diagnosticsOk: "OK",
   diagnosticsFailed: (count) => (count === 1 ? "1 failure" : `${count} failures`),

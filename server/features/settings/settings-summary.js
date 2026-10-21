@@ -42,8 +42,15 @@ function updates(releases) {
 }
 
 export function settingsSummary(services, now = Date.now()) {
-  const { mcpAccess, effectiveConfig, sshAccesses, repositories, operations, config } =
-    services;
+  const {
+    mcpAccess,
+    effectiveConfig,
+    sshAccesses,
+    repositories,
+    operations,
+    config,
+    users,
+  } = services;
   return {
     access: {
       mcp: attempt(
@@ -73,6 +80,7 @@ export function settingsSummary(services, now = Date.now()) {
       github: attempt(
         () => repositories && { count: repositories.listCredentials().length },
       ),
+      users: attempt(() => users && { count: users.list().length }),
     },
     operations: {
       diagnostics: attempt(() => {
