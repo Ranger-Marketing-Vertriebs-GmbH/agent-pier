@@ -43,7 +43,9 @@ export async function execContinuationFixture(t, { userAccess, started = true } 
       sessionId = "brisk-orbit",
       status = "running",
       sessionKey = "session",
+      pid,
       result,
+      error,
     } = {},
   ) => {
     const ctx = { agentId: guard.agentId, sessionKey, runId, toolCallId: `x${++calls}` };
@@ -53,7 +55,8 @@ export async function execContinuationFixture(t, { userAccess, started = true } 
       {
         toolName: "exec",
         params: {},
-        result: result === undefined ? { details: { status, sessionId } } : result,
+        result: result === undefined ? { details: { status, sessionId, pid } } : result,
+        ...(error ? { error } : {}),
       },
       ctx,
     );

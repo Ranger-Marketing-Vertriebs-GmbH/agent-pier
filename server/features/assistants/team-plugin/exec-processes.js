@@ -7,21 +7,39 @@
 // started it. Only the Gateway's own hooks see them all, without reading the
 // transcript:
 // - after_tool_call of `exec`: a result with `status: "running"` is a backgrounded
-//   process (`details.sessionId`), started by `ctx.runId`;
+//   process (`details.sessionId`, `details.pid`), started by `ctx.runId`. An errored
+//   call (`event.error`; OpenClaw passes `createErrorToolResult`, details `{}`)
+//   started nothing: the exec tool reports a backgrounded command as a result, and
+//   a call aborted before it backgrounded kills its command, which then never
+//   notifies (maybeNotifyOnExit needs `backgrounded`);
 // - llm_input (conversation access, runtime-config.js): the prompt of a completion
 //   run starts with OpenClaw's completion text and lists its processes;
 // - gateway_start: the record is complete only when it existed before the Gateway
 //   started serving, so no earlier process can be missing.
-// Anything unclear marks the session uncertain for the rest of the Gateway's life,
-// and AgentPier then refuses: an exec result that is neither running nor a known
-// end (an approval that may still start a command, an unknown shape), or an exec
-// call whose run ended without a result. The record lives on globalThis, so a
-// plugin reload in the same Gateway process keeps it.
+// Every bound keeps memory small and fails closed for one session only:
+// - a process whose pid is gone is dropped two hours after AgentPier first saw it
+//   gone (`dropAfterMs`, past the continuation window); its prefix stays on the
+//   session (`dropped`, bounded by OpenClaw's slug space), and a completion naming
+//   it is refused;
+// - a session with more live processes than `maxProcesses` is uncertain;
+// - past `maxSessions` the least recently used session is forgotten, and its key is
+//   remembered in a bit filter: that session, and the rare one sharing its bits,
+//   stays uncertain for the Gateway's life, every other session is unaffected;
+// - an exec result that is neither running nor a known end (an approval that may
+//   still start a command, an unknown shape), or an exec call whose run ended
+//   without a result, marks its session uncertain.
+// The record lives on globalThis, so a plugin reload in the same Gateway process
+// keeps it.
 const store = Symbol.for("agentpier.execProcesses");
-const maxProcesses = 4096,
-  maxSessions = 4096,
-  maxCompletions = 256,
-  maxCalls = 1024;
+export const execBounds = {
+  maxProcesses: 4096,
+  maxSessions: 4096,
+  maxCompletions: 256,
+  maxCalls: 1024,
+  maxPending: 1024,
+  dropAfterMs: 2 * 3600000,
+};
+const filterBits = 1 << 20;
 // Exec results that never leave a process running for a later completion.
 const ended = new Set([
   "completed",
@@ -33,6 +51,8 @@ const ended = new Set([
   "approval-state-write-failed",
   "missing-run-id",
   "operand-drift",
+  "skipped",
+  "error",
 ]);
 
 export function execRecord() {
@@ -42,24 +62,70 @@ export function execRecord() {
     completions: new Map(),
     calls: new Map(),
     pending: new Map(),
+    forgotten: new Uint32Array(filterBits / 32),
   });
 }
 
-function session(record, key) {
-  let entry = record.sessions.get(key);
-  if (!entry) {
-    // Forgetting a session would hide its processes: past the bound nothing is
-    // complete any more.
-    if (record.sessions.size >= maxSessions) record.complete = false;
-    entry = { processes: [], uncertain: false };
-    record.sessions.set(key, entry);
+// The forgotten sessions' filter: three FNV-1a hashes of the key.
+function bits(key) {
+  const out = [];
+  for (let seed = 0; seed < 3; seed += 1) {
+    let h = (0x811c9dc5 ^ seed) >>> 0;
+    for (let i = 0; i < key.length; i += 1)
+      h = Math.imul(h ^ key.charCodeAt(i), 0x01000193) >>> 0;
+    out.push(h % filterBits);
   }
+  return out;
+}
+const forget = (record, key) => {
+  for (const b of bits(key)) record.forgotten[b >>> 5] |= 1 << (b & 31);
+};
+const forgotten = (record, key) =>
+  bits(key).every((b) => record.forgotten[b >>> 5] & (1 << (b & 31)));
+
+// The entry of a session, most recently used last; created only when needed.
+function session(record, key, create = true) {
+  let entry = record.sessions.get(key);
+  if (entry) record.sessions.delete(key);
+  else if (create) {
+    // A session forgotten before may have had processes this entry never saw.
+    entry = { processes: [], dropped: new Set(), uncertain: forgotten(record, key) };
+    if (record.sessions.size >= execBounds.maxSessions) {
+      const [oldest] = record.sessions.keys();
+      record.sessions.delete(oldest);
+      forget(record, oldest);
+    }
+  } else return null;
+  record.sessions.set(key, entry);
   return entry;
 }
 const bounded = (map, max, key, value) => {
   map.set(key, value);
   if (map.size > max) map.delete(map.keys().next().value);
 };
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === "EPERM";
+  }
+};
+// Drops processes gone long enough; their prefixes stay.
+function prune(entry, now = Date.now()) {
+  entry.processes = entry.processes.filter((p) => {
+    if (!Number.isSafeInteger(p.pid) || p.pid <= 0) return true;
+    if (!p.goneAt && !alive(p.pid)) p.goneAt = now;
+    if (!p.goneAt || now - p.goneAt < execBounds.dropAfterMs) return true;
+    entry.dropped.add(p.id.slice(0, 8));
+    return false;
+  });
+  const excess = entry.processes.length - execBounds.maxProcesses;
+  if (excess > 0) {
+    entry.uncertain = true;
+    entry.processes.splice(0, excess);
+  }
+}
 
 // OpenClaw's completion prompt (heartbeat-events-filter buildExecEventPrompt): one
 // line per process, `Exec <status> (<first 8 characters of its id>, <exit>)`, then
@@ -90,29 +156,61 @@ export function completedProcesses(text) {
 
 /**
  * What AgentPier's proof reads for a call of `runId` in `sessionKey`: whether the
- * record is complete, the run's completion and every background process of the
- * session that the completion's ids could stand for (the same first characters
- * OpenClaw reports), whichever run started it.
+ * session's record is complete, the run's completion and every background process
+ * of the session that the completion's ids could stand for (the same first
+ * characters OpenClaw reports), whichever run started it.
  */
 export function execEvidence(sessionKey, runId) {
   const record = execRecord();
-  const entry = record.sessions.get(sessionKey);
+  const entry = session(record, sessionKey, false);
+  if (entry) prune(entry);
   const found = typeof runId === "string" && record.completions.get(runId);
   const completion = found && found.sessionKey === sessionKey ? found : null;
   const pending = [...record.pending.values()].some((p) => p.sessionKey === sessionKey);
   const ids = new Set(completion?.ids || []);
   const processes = (entry?.processes || []).filter((p) => ids.has(p.id.slice(0, 8)));
   // More than one message carries is never cut short: the record then proves nothing.
-  const fits = processes.length <= 256;
+  const complete =
+    record.complete === true &&
+    !(entry ? entry.uncertain : forgotten(record, sessionKey)) &&
+    !pending &&
+    processes.length <= 256 &&
+    ![...ids].some((id) => entry?.dropped.has(id));
   return {
-    complete: record.complete === true && !entry?.uncertain && !pending && fits,
-    processes: fits ? processes.map(({ id, runId: by }) => ({ id, runId: by })) : [],
+    complete,
+    processes: complete ? processes.map(({ id, runId: by }) => ({ id, runId: by })) : [],
     completion: completion && { runId, ids: completion.ids, at: completion.at },
   };
 }
 
 /** The run of a plugin tool call (its execute context names no run). */
 export const callRun = (toolCallId) => execRecord().calls.get(toolCallId) ?? null;
+
+/** Records an exec result (after_tool_call); exported for the tests' fixture. */
+export function recordExec(record, event, ctx) {
+  const key = ctx.sessionKey;
+  record.pending.delete(ctx.toolCallId);
+  const details = event.result?.details;
+  const runId = ctx.runId ?? event.runId;
+  if (
+    details?.status === "running" &&
+    typeof details.sessionId === "string" &&
+    typeof runId === "string"
+  ) {
+    const entry = session(record, key);
+    entry.processes.push({
+      id: details.sessionId,
+      runId,
+      pid: details.pid,
+      at: Date.now(),
+    });
+    prune(entry);
+    return;
+  }
+  // An errored call started nothing (see above); a known end left nothing running.
+  if (typeof event.error === "string" || ended.has(details?.status)) return;
+  session(record, key).uncertain = true;
+}
 
 export function registerExecProcesses(api) {
   const record = execRecord();
@@ -126,32 +224,26 @@ export function registerExecProcesses(api) {
     "before_tool_call",
     (event, ctx) => {
       if (typeof ctx?.toolCallId === "string" && typeof ctx.runId === "string")
-        bounded(record.calls, maxCalls, ctx.toolCallId, ctx.runId);
-      if (event?.toolName === "exec" && typeof ctx?.sessionKey === "string")
+        bounded(record.calls, execBounds.maxCalls, ctx.toolCallId, ctx.runId);
+      if (event?.toolName === "exec" && typeof ctx?.sessionKey === "string") {
         record.pending.set(ctx.toolCallId ?? Symbol(), {
           sessionKey: ctx.sessionKey,
           runId: ctx.runId,
         });
+        // A call forgotten past the bound is as unknown as one that never reported.
+        if (record.pending.size > execBounds.maxPending) {
+          const [oldest, call] = record.pending.entries().next().value;
+          record.pending.delete(oldest);
+          session(record, call.sessionKey).uncertain = true;
+        }
+      }
       return undefined;
     },
     { priority: 1100 },
   );
   api.on("after_tool_call", (event, ctx) => {
-    if (event?.toolName !== "exec" || typeof ctx?.sessionKey !== "string") return;
-    record.pending.delete(ctx.toolCallId);
-    const entry = session(record, ctx.sessionKey);
-    // A call that threw started nothing it reports.
-    if (event.error && event.result === undefined) return;
-    const details = event.result?.details;
-    const runId = ctx.runId ?? event.runId;
-    if (
-      details?.status === "running" &&
-      typeof details.sessionId === "string" &&
-      typeof runId === "string"
-    ) {
-      if (entry.processes.length >= maxProcesses) entry.uncertain = true;
-      else entry.processes.push({ id: details.sessionId, runId, at: Date.now() });
-    } else if (!ended.has(details?.status)) entry.uncertain = true;
+    if (event?.toolName === "exec" && typeof ctx?.sessionKey === "string")
+      recordExec(record, event, ctx);
   });
   api.on("agent_end", (_event, ctx) => {
     // An exec call of this run that never reported its result.
@@ -160,14 +252,17 @@ export function registerExecProcesses(api) {
         record.pending.delete(key);
         session(record, call.sessionKey).uncertain = true;
       }
+    // A completion is read only while its run lasts.
+    if (typeof ctx?.runId === "string") record.completions.delete(ctx.runId);
   });
-  // Conversation access (runtime-config.js): the model input of every run.
+  // Conversation access (runtime-config.js): the model input of a completion run.
   api.on("llm_input", (event, ctx) => {
     const runId = event?.runId ?? ctx?.runId;
     if (typeof runId !== "string" || typeof ctx?.sessionKey !== "string") return;
     if (record.completions.has(runId)) return;
     const ids = completedProcesses(event?.prompt);
-    bounded(record.completions, maxCompletions, runId, {
+    if (!ids) return;
+    bounded(record.completions, execBounds.maxCompletions, runId, {
       sessionKey: ctx.sessionKey,
       ids,
       at: Date.now(),
