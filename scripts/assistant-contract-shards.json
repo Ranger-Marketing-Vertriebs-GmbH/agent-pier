@@ -37,7 +37,8 @@
     "tests/integration/assistant-telegram-senders-live-contract.test.js",
     "tests/integration/assistant-skills-contract.test.js",
     "tests/integration/assistant-voice-reminder-e2e-contract.test.js",
-    "tests/integration/assistant-team-coding-e2e-contract.test.js"
+    "tests/integration/assistant-team-coding-e2e-contract.test.js",
+    "tests/integration/assistant-run-steps-contract.test.js"
   ],
   "seconds": {
     "tests/integration/assistant-runtime-contract.test.js": 95,
@@ -77,6 +78,7 @@
     "tests/integration/assistant-skills-contract.test.js": 85,
     "tests/integration/assistant-voice-reminder-e2e-contract.test.js": 46,
     "tests/integration/assistant-team-coding-e2e-contract.test.js": 55,
-    "tests/integration/assistant-user-agent-lock-contract.test.js": 90
+    "tests/integration/assistant-user-agent-lock-contract.test.js": 90,
+    "tests/integration/assistant-run-steps-contract.test.js": 110
   }
 }

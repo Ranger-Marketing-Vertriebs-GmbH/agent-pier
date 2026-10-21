@@ -169,3 +169,48 @@ for (const state of ["aborted", "error"])
       ["Partial"],
     );
   });
+
+test("a run's tool calls reach its chat as steps, without output, and end with it", async (t) => {
+  const { service, emit, news, other } = streamingService(t);
+  const sent = [];
+  const steps = service.feeds.steps.bind(service.feeds);
+  service.feeds.steps = (id, runId, view) => {
+    sent.push([id, runId, view]);
+    return steps(id, runId, view);
+  };
+  const agent = (sessionKey, stream, data) => ({
+    event: "agent",
+    payload: { runId: "run-1", sessionKey, stream, data },
+  });
+  emit(agent("agent:news:main", "lifecycle", { phase: "start" }));
+  emit(
+    agent("agent:news:main", "item", {
+      itemId: "tool:c1",
+      name: "exec",
+      kind: "tool",
+      phase: "start",
+      meta: "Bilder suchen",
+      status: "running",
+    }),
+  );
+  emit(
+    agent("agent:news:main", "command_output", {
+      itemId: "command:c1",
+      output: "PASSWORD=hunter2",
+    }),
+  );
+  // Another chat's session is another chat's run.
+  emit(agent("agent:news:other", "thinking", { text: "x" }));
+  assert.deepEqual(
+    sent.map(([id, , v]) => [id, v.phase]),
+    [
+      [news, "model"],
+      [news, "tool"],
+      [other, "thinking"],
+    ],
+  );
+  assert.equal(sent[1][2].steps[0].label, "Bilder suchen");
+  assert.doesNotMatch(JSON.stringify(sent), /hunter2/);
+  emit(final("agent:news:main", "run-1"));
+  assert.equal(service.runSteps.view("run-1"), null);
+});

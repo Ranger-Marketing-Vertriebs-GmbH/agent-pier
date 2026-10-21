@@ -7,6 +7,14 @@ export function terminalState(result) {
   if (result.status === "aborted") return "cancelled";
   return null;
 }
+// OpenClaw 2026.10.3 ends a run whose model stayed silent with a `chat` error of
+// `errorKind: "timeout"`; `agent.wait` then reports only the error text.
+function timedOut(service, runId, result) {
+  return (
+    service.runFailures?.get(runId) === "timeout" ||
+    typeof result.timeoutPhase === "string"
+  );
+}
 export async function reconcileRuns(service) {
   if (!service.runtime.client?.ready || service.closed) return;
   for (const attempt of service.ledger.unresolved()) {
@@ -24,9 +32,14 @@ export async function reconcileRuns(service) {
         { timeoutMs: 3000 },
       );
       const state = terminalState(result);
+      const runId = result.runId || attempt.runtimeRunId;
       if (state)
         service.ledger.transition(attempt.id, state, {
-          runtimeRunId: result.runId || attempt.runtimeRunId,
+          runtimeRunId: runId,
+          // A model that never answered in time (gateway-wiring.js runFailures).
+          ...(state === "failed" && timedOut(service, runId || attempt.id, result)
+            ? { failure: "timeout" }
+            : {}),
         });
       else {
         const described = await service.runtime.client.call("sessions.describe", {
