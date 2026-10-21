@@ -205,20 +205,24 @@ export class AgentChats {
       );
   }
   /**
-   * Renames a chat: a set title, or with "" its automatic one again. An archived
-   * chat is read-only.
+   * Renames a chat: a set title, or with "" its automatic one again (the generated
+   * one if its agent named it, generated-titles.js). An archived chat is read-only.
    */
   rename(conversationId, value, options = {}) {
     const service = this.service;
     const conversation = service.store.getConversation(conversationId);
     if (conversation.archivedAt) throw chatProblem("CHAT_ARCHIVED");
     const title = setTitle(value);
-    const auto = title ? null : firstTurnTitle(service, conversationId);
+    // "" brings back the title its agent generated, else the first message's.
+    const generated = title ? null : conversation.generatedTitle;
+    const auto = title || generated ? null : firstTurnTitle(service, conversationId);
     service.store.updateConversation(
       conversationId,
       title
         ? { title, titleSource: "set" }
-        : { title: auto, titleSource: auto ? "auto" : null },
+        : generated
+          ? { title: generated, titleSource: "generated" }
+          : { title: auto, titleSource: auto ? "auto" : null },
     );
     service.changed({ conversationId });
     return this.summary(conversationId, options);

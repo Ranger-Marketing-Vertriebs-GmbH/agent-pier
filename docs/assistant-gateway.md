@@ -2686,6 +2686,32 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   `CHAT_COMMAND`, and queued text is always sent as
   a turn, never run as a command. A rename made while a first message is being admitted
   keeps its set title. Telegram turns are passed on as before.
+- Generated titles (`server/features/assistants/generated-titles.js`): once the attempt
+  of a chat's first written turn (owner, user or Telegram, not a forwarded message)
+  completes with a reply, AgentPier asks the agent's own model for a title of 3 to 6
+  words in the message's language from the message and the reply's start, each cut to
+  2,000 characters. Routine, reminder, check-in and team turns never ask; neither does
+  a first turn that failed or ended without a reply. The request is the product
+  plugin's admin-only Gateway method `agentpier.chatTitle`
+  (`server/features/assistants/team-plugin/chat-title.js`): OpenClaw's
+  `api.runtime.llm.complete` in `isolated-agent-runtime` mode with the agent's id, so
+  the agent's own model and login run one system and one user message with no tools,
+  no session, transcript, memory or workspace, 30 seconds at most, thinking off where
+  the model allows it. It is no turn: nothing reaches the ledger, the chat, its run
+  steps, its native session, the write guard or the team logic. The compiler sets
+  `plugins.entries.agentpier-teams.llm.allowAgentIdOverride`, which OpenClaw requires
+  for a completion on another than its default agent; without the product plugin the
+  method is missing and the chat keeps its first-message title. The answer is
+  untrusted: its first line without reasoning, markdown, a "Title:" label, quotes,
+  trailing punctuation and the characters a set title refuses, and is dropped when
+  nothing readable is left or it exceeds 80 characters or 12 words. It is stored as
+  `titleSource: "generated"` (and `generatedTitle`) only while the chat still carries
+  the automatic title it had when AgentPier asked; a rename in the meantime wins. A
+  failure, timeout or unusable answer keeps the first-message title and logs only the
+  chat id and an error code. Each chat asks once; chats named before this feature keep
+  their titles. `""` brings back the generated title, else the first-message one. The
+  change reaches open lists as a `conversation` event; owner privacy hides a generated
+  title exactly like any other.
 - Archive and restore: `POST …/conversations/:id/archive|restore` (owner under
   `/api/assistant-conversations`, user under `/api/me/conversations`). An archived chat
   leaves the list, stays readable, and refuses turns, queued messages, uploads and

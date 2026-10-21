@@ -1,4 +1,5 @@
 import { settleUnreviewable } from "./attempt-recovery.js";
+import { titleAfterReply } from "./generated-titles.js";
 
 export function terminalState(result) {
   if (result.status === "ok")
@@ -57,6 +58,12 @@ export async function reconcileRuns(service) {
           service.ledger.transition(attempt.id, "uncertain", {});
       }
       await service.history(conversation.id);
+      // The chat's first reply lets its agent name it (generated-titles.js).
+      if (state === "completed")
+        void titleAfterReply(service, conversation, request, {
+          ...attempt,
+          runtimeRunId: runId,
+        });
     } catch {
       /* Unavailable evidence cannot prove an execution outcome. */
     }

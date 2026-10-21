@@ -252,6 +252,7 @@ export class AssistantStore {
         ...fields,
         title: null,
         titleSource: null,
+        generatedTitle: null,
         lastActivityAt: null,
       });
       this.db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
@@ -304,7 +305,9 @@ export class AssistantStore {
       lastActivityAt: null,
       title: typeof input.title === "string" ? input.title : null,
       titleSource:
-        input.titleSource === "set" || input.titleSource === "auto"
+        input.titleSource === "set" ||
+        input.titleSource === "auto" ||
+        input.titleSource === "generated"
           ? input.titleSource
           : null,
     };
