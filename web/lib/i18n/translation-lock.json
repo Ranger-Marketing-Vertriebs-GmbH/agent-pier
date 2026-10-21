@@ -5400,8 +5400,21 @@
   "user-app:userAppCopy.close": "de:b808f6e97075 en:7d9eb7acb13e",
   "user-app:userAppCopy.empty": "de:b810fee42529 en:35059c181265",
   "user-app:userAppCopy.emptyHint": "de:7ab6fbf2afc6 en:dfb29b8dc1b3",
+  "user-app:userAppCopy.greeting": "de:e0f67303df7c en:f76b9d389fe6",
+  "user-app:userAppCopy.loading": "de:2d03f8f3dfe1 en:ef6b82e224ba",
   "user-app:userAppCopy.menu": "de:a314bd0b56a3 en:99af6606ff9d",
   "user-app:userAppCopy.missing": "de:1efc69522a7e en:9646514a6d0a",
   "user-app:userAppCopy.myAgents": "de:3d70f09e7f75 en:f2475bf2b811",
-  "user-app:userAppCopy.toAgents": "de:3d7b18d3ecd0 en:9d2e96221000"
+  "user-app:userAppCopy.offline": "de:3bde3e7fe056 en:847d8623b245",
+  "user-app:userAppCopy.opening": "de:5a10ff01336f en:2759405c4c26",
+  "user-app:userAppCopy.ownerReads": "de:3cd538f1d097 en:8682fd8fb2d4",
+  "user-app:userAppCopy.private": "de:09281309b6b3 en:d69a84fa5568",
+  "user-app:userAppCopy.scope": "de:40110851acc0 en:6900bd1f865f",
+  "user-app:userAppCopy.settingsOf": "de:4058285f8c6e en:85c8e308791b",
+  "user-app:userAppCopy.sharedBadge": "de:152bf8180b85 en:e3c4b39d6d50",
+  "user-app:userAppCopy.sharedBody": "de:22c668ccab40 en:9145d919d189",
+  "user-app:userAppCopy.sharedTitle": "de:0123e6d163d5 en:0bcdea62860b",
+  "user-app:userAppCopy.toAgents": "de:3d7b18d3ecd0 en:9d2e96221000",
+  "user-app:userAppCopy.unavailableAgent": "de:f0d5d5e11d47 en:85ccd6896d12",
+  "user-app:userAppCopy.yourAgents": "de:0360d5cbba47 en:dbb848d64324"
 }

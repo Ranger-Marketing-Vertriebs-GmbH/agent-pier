@@ -11,10 +11,10 @@ import {
   preparedFile,
   uploadAttachment,
 } from "./agent-attachment-upload.js";
+import { useAgentPaths } from "./agent-paths.js";
 
-const conversationPath = (id) => `/assistant-conversations/${encodeURIComponent(id)}`;
-const attachmentPath = (conversationId, id) =>
-  `${conversationPath(conversationId)}/attachments/${encodeURIComponent(id)}`;
+const attachmentPath = (paths, conversationId, id) =>
+  `${paths.conversation(conversationId)}/attachments/${encodeURIComponent(id)}`;
 let nextKey = 0;
 
 /**
@@ -24,6 +24,8 @@ let nextKey = 0;
  * the agent's model cannot see images.
  */
 export default function useAgentAttachments(conversationId) {
+  // The owner's or the user's routes (agent-paths.js); fixed for the app's lifetime.
+  const paths = useAgentPaths();
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
   const [imageInput, setImageInput] = useState(null);
@@ -42,7 +44,7 @@ export default function useAgentAttachments(conversationId) {
   useEffect(() => {
     let live = true;
     setImageInput(null);
-    api(`${conversationPath(conversationId)}/attachment-policy`)
+    api(`${paths.conversation(conversationId)}/attachment-policy`)
       .then((policy) => live && setImageInput(policy.imageInput ?? null))
       .catch(() => {});
     const uploads = controllers.current;
@@ -51,7 +53,7 @@ export default function useAgentAttachments(conversationId) {
     const leave = () => {
       for (const item of current.current)
         if (item.id)
-          fetch(`/api${attachmentPath(conversationId, item.id)}`, {
+          fetch(`/api${attachmentPath(paths, conversationId, item.id)}`, {
             method: "DELETE",
             keepalive: true,
           })
@@ -73,12 +75,12 @@ export default function useAgentAttachments(conversationId) {
       uploads.clear();
       for (const item of current.current)
         if (item.id)
-          api(attachmentPath(conversationId, item.id), "DELETE").catch(() => {});
+          api(attachmentPath(paths, conversationId, item.id), "DELETE").catch(() => {});
       current.current = [];
       setItems([]);
       setError("");
     };
-  }, [conversationId, update]);
+  }, [conversationId, update, paths]);
 
   const upload = async (item, file) => {
     const controller = new AbortController();
@@ -89,6 +91,7 @@ export default function useAgentAttachments(conversationId) {
         file,
         controller.signal,
         (p) => patch(item.key, { progress: p }),
+        paths,
       );
       if (controller.signal.aborted) return;
       patch(item.key, { status: "ready", id: stored.id, name: stored.name });
@@ -146,7 +149,8 @@ export default function useAgentAttachments(conversationId) {
     if (!item) return;
     controllers.current.get(key)?.abort();
     update((list) => list.filter((entry) => entry.key !== key));
-    if (item.id) api(attachmentPath(conversationId, item.id), "DELETE").catch(() => {});
+    if (item.id)
+      api(attachmentPath(paths, conversationId, item.id), "DELETE").catch(() => {});
   };
 
   // After a successful send: the server now owns the sent files as part of the

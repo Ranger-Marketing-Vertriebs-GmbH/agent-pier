@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import UserHeader from "./UserHeader.jsx";
+import MyAgentsPage from "./MyAgentsPage.jsx";
+import UserChat from "./UserChat.jsx";
+import useUserAgents from "./useUserAgents.js";
+import { AgentPathsContext, userAgentPaths } from "../assistants/agent-paths.js";
+import { AgentHistoryCache } from "../assistants/agent-offline.js";
 import { readUserRoute, userRoutePath } from "./user-routes.js";
 import { requestNavigation } from "../../lib/navigation-guard.js";
 import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
@@ -49,10 +54,43 @@ export function UserPage({ header, children, bar }) {
 // workspace. It talks only to /auth and /api/me.
 export default function UserApp({ status }) {
   const [route, navigate] = useUserNavigation();
+  const data = useUserAgents();
+  // Lives with her app, so signing out (which unmounts it) forgets every chat.
+  const [histories] = useState(() => new AgentHistoryCache());
   const name = status.user?.displayName || status.user?.username || "";
   const start = () => navigate({ view: "agents" });
+  const agent = data.agents?.find((a) => a.id === route.agentId);
   let page;
-  if (route.view === "account")
+  if (route.agentId && data.agents && !agent)
+    page = (
+      <UserPage header={<UserHeader title={name} onBack={start} navigate={navigate} />}>
+        <section className="user-app-empty">
+          <p>{copy.unavailableAgent}</p>
+          <button type="button" className="button secondary" onClick={start}>
+            {copy.toAgents}
+          </button>
+        </section>
+      </UserPage>
+    );
+  else if (route.agentId && !agent)
+    page = (
+      <UserPage header={<UserHeader title={name} onBack={start} navigate={navigate} />}>
+        <p role="status">{copy.loading}</p>
+      </UserPage>
+    );
+  else if (route.view === "chat")
+    page = (
+      <UserChat
+        key={route.conversationId}
+        agent={agent}
+        conversationId={route.conversationId}
+        navigate={navigate}
+        histories={histories}
+        subscribe={data.subscribe}
+        ownerMayRead={data.me?.ownerMayRead}
+      />
+    );
+  else if (route.view === "account")
     page = (
       <UserPage
         header={<UserHeader title={copy.account} onBack={start} navigate={navigate} />}
@@ -60,11 +98,16 @@ export default function UserApp({ status }) {
     );
   else if (route.view === "agents")
     page = (
-      <UserPage header={<UserHeader title={name} navigate={navigate} />}>
-        <section className="user-app-empty">
-          <p>{copy.empty}</p>
-          <p className="user-app-hint">{copy.emptyHint}</p>
-        </section>
+      <UserPage
+        header={
+          <UserHeader
+            title={copy.greeting(name)}
+            subtitle={data.offline ? copy.offline : undefined}
+            navigate={navigate}
+          />
+        }
+      >
+        <MyAgentsPage agents={data.agents} error={data.error} navigate={navigate} />
       </UserPage>
     );
   else
@@ -78,5 +121,9 @@ export default function UserApp({ status }) {
         </section>
       </UserPage>
     );
-  return <main className="user-app">{page}</main>;
+  return (
+    <AgentPathsContext value={userAgentPaths}>
+      <main className="user-app">{page}</main>
+    </AgentPathsContext>
+  );
 }

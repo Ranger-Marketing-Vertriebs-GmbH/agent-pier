@@ -25,7 +25,8 @@ const optionsId = "assistant-composer-options";
 // Files can also be pasted (dropping is handled by the chat panel, which owns
 // `attachments`); `onFiles` reports how many are ready, and
 // `onSubmit(event, ids)` resolves true once the message with them was accepted.
-// A lead's composer offers its members after "@" (`mentionMembers`).
+// A lead's composer offers its members after "@" (`mentionMembers`). Without `team`
+// (a restricted user's chat) the one-message team permission is not offered.
 export default function AssistantComposer({
   assistant,
   conversationId,
@@ -49,6 +50,7 @@ export default function AssistantComposer({
   stick,
   scroll,
   mentionMembers = [],
+  team = true,
 }) {
   const mobile = useMobileLayout();
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -169,7 +171,7 @@ export default function AssistantComposer({
       <ComposerOptions
         id={optionsId}
         open={optionsOpen}
-        member={member}
+        member={member || !team}
         onAttach={attach}
         teamAllowed={teamAllowed}
         onTeamAllowed={allowTeam}

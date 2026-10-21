@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
+import { useAgentPaths } from "../assistants/agent-paths.js";
 // Served from AgentPier itself: the CSP refuses an inlined data: worklet.
 import workletUrl from "./pcm-capture-worklet.js?url&no-inline";
 import {
@@ -24,10 +25,12 @@ export function browserReason(scope = globalThis) {
 /** Whether the server can dictate and whether it sends right away; null loading. */
 export function useDictationStatus() {
   const [status, setStatus] = useState(null);
+  // A user's app asks /api/me/dictation: she learns only whether it works.
+  const path = useAgentPaths().dictation;
   useEffect(() => {
     let alive = true;
     const load = () =>
-      api("/dictation")
+      api(path)
         .then((next) => alive && setStatus(next))
         .catch(() => alive && setStatus({ available: false, reason: "unknown" }));
     load();
@@ -37,7 +40,7 @@ export function useDictationStatus() {
       alive = false;
       window.removeEventListener("focus", load);
     };
-  }, []);
+  }, [path]);
   return status;
 }
 

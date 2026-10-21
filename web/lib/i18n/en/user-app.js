@@ -8,4 +8,19 @@ export const userAppCopy = Object.freeze({
   close: "Close",
   missing: "This page does not exist here.",
   toAgents: "Go to my agents",
+  loading: "Loading …",
+  offline: "No connection. Showing the last known agents.",
+  greeting: (name) => (name ? `Hello ${name}` : "My agents"),
+  yourAgents: "Your agents",
+  opening: "Opening …",
+  sharedBadge: "Shared",
+  scope:
+    "Here you find only your agents and your chats: no sessions, pipelines or system settings.",
+  unavailableAgent: "This agent is no longer available to you.",
+  settingsOf: (name) => `Settings of ${name}`,
+  sharedTitle: "Shared agent:",
+  sharedBody:
+    "Your chat is private, but what it remembers, its profile (USER.md) and its browser are shared with everyone who uses it.",
+  ownerReads: (date) => `The owner can read your chats since ${date}.`,
+  private: "Private: only you see this chat.",
 });
