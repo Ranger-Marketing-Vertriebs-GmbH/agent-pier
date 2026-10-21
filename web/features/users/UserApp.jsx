@@ -4,6 +4,7 @@ import MyAgentsPage from "./MyAgentsPage.jsx";
 import UserChatRoute from "./UserChatRoute.jsx";
 import UserAgentSettings from "./UserAgentSettings.jsx";
 import AccountPage from "./AccountPage.jsx";
+import UserBrowserPage from "./UserBrowserPage.jsx";
 import { usePushPresence } from "../notifications/usePushPresence.js";
 import { UserPage } from "./UserPage.jsx";
 import useUserAgents from "./useUserAgents.js";
@@ -87,6 +88,8 @@ export default function UserApp({ status }) {
     page = (
       <UserAgentSettings key={agent.id} agent={agent} route={route} navigate={navigate} />
     );
+  else if (route.view === "browser")
+    page = <UserBrowserPage key={agent.id} agent={agent} navigate={navigate} />;
   else if (route.view === "account")
     page = (
       <UserPage
