@@ -5395,7 +5395,13 @@
   "tools:toolInstallerCopy.versionUnknownNotice": "de:c4faae4da8b2 en:9af0585c96f3",
   "tools:useToolInstallationCopy.cliNotDetected": "de:4ae9c8b611e9 en:1287be08bc4a",
   "tools:useToolInstallationCopy.installationUnavailable": "de:0733f2206ff4 en:36a403cae31f",
+  "user-app:userAppCopy.account": "de:df8525011f61 en:7e1b0d5641f2",
   "user-app:userAppCopy.brand": "de:1ad0f7db738a en:1ad0f7db738a",
+  "user-app:userAppCopy.close": "de:b808f6e97075 en:7d9eb7acb13e",
   "user-app:userAppCopy.empty": "de:b810fee42529 en:35059c181265",
-  "user-app:userAppCopy.emptyHint": "de:7ab6fbf2afc6 en:dfb29b8dc1b3"
+  "user-app:userAppCopy.emptyHint": "de:7ab6fbf2afc6 en:dfb29b8dc1b3",
+  "user-app:userAppCopy.menu": "de:a314bd0b56a3 en:99af6606ff9d",
+  "user-app:userAppCopy.missing": "de:1efc69522a7e en:9646514a6d0a",
+  "user-app:userAppCopy.myAgents": "de:3d70f09e7f75 en:f2475bf2b811",
+  "user-app:userAppCopy.toAgents": "de:3d7b18d3ecd0 en:9d2e96221000"
 }

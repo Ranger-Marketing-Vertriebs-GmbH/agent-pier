@@ -12,7 +12,8 @@
 // first sync: a stream frame sent before it is cleared by that sync when no turn is
 // open, as with the real feed.
 
-function installFeed() {
+// `base` is where the feed reads its chat: the user app reads /api/me/conversations.
+function installFeed({ base = "/api/assistant-conversations" } = {}) {
   const Native = window.WebSocket;
   const pattern = /\/api\/assistant-conversations\/([^/?]+)\/stream(?:\?|$)/;
   const sockets = new Set();
@@ -38,9 +39,7 @@ function installFeed() {
       if (this.readyState !== 1) return;
       let data;
       try {
-        const response = await fetch(
-          `/api/assistant-conversations/${encodeURIComponent(this.id)}/messages`,
-        );
+        const response = await fetch(`${base}/${encodeURIComponent(this.id)}/messages`);
         if (!response.ok) return;
         data = await response.json();
       } catch {
@@ -128,7 +127,10 @@ function installFeed() {
     const response = await nativeFetch(...args);
     const method = String(args[1]?.method || args[0]?.method || "GET").toUpperCase();
     const url = String(args[0]?.url || args[0]);
-    if (method !== "GET" && /\/api\/assistant-(?:conversations|attempts)\//.test(url))
+    if (
+      method !== "GET" &&
+      /\/api\/(?:assistant-|me\/)(?:conversations|attempts)\//.test(url)
+    )
       setTimeout(() => window.agentFeed.push(), 0);
     return response;
   };
@@ -136,3 +138,7 @@ function installFeed() {
 
 /** Installs the fake feed before any page script runs. */
 export const installAgentFeedFake = (page) => page.addInitScript(installFeed);
+
+/** The same fake for the user app, whose chats read /api/me/conversations. */
+export const installUserFeedFake = (page) =>
+  page.addInitScript(installFeed, { base: "/api/me/conversations" });
