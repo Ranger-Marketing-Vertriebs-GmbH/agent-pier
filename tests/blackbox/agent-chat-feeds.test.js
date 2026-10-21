@@ -390,3 +390,50 @@ test("owner opt-in lists only readable chats and filters each by since", async (
     ["Second, later"],
   );
 });
+
+test("the owner's lists show a user's chat active since the opt-in outside AgentPier's turns", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const anna = await signedInUser(f, "Anna");
+  const agent = await userAgent(f, {
+    mode: "own",
+    members: [{ userId: anna.user.id, level: "chat" }],
+  });
+  const { main, second } = await twoChats(as(f, anna.cookie), agent.id, true);
+  const store = f.application.assistants.store;
+  f.application.assistants.bindEvents();
+  // A chat from before AgentPier recorded activity: it may have been used since.
+  store.updateConversation(second, { lastActivityAt: undefined, title: "Hers" });
+  await settle(20);
+  await json(
+    await f.request(`/api/users/${anna.user.id}/owner-may-read`, {
+      method: "PUT",
+      body: { enabled: true },
+    }),
+    200,
+  );
+  await settle(20);
+  const listed = async () => {
+    const chats = await json(await f.request(`/api/assistants/${agent.id}/chats`), 200);
+    const all = (await json(await f.request("/api/assistants"), 200)).conversations;
+    assert.deepEqual(
+      all
+        .filter((c) => c.assistantId === agent.id)
+        .map((c) => c.id)
+        .sort(),
+      chats.map((c) => c.id).sort(),
+    );
+    return Object.fromEntries(chats.map((c) => [c.id, c.title]));
+  };
+  // The main chat, unused since, stays out; the older chat shows without its title.
+  assert.deepEqual(await listed(), { [second]: null });
+  // A reminder, routine or check-in ran in her main chat after the opt-in.
+  gateway.client.emit("event", {
+    event: "chat",
+    payload: {
+      sessionKey: store.getConversation(main).runtimeSessionKey,
+      runId: "r",
+      state: "final",
+    },
+  });
+  assert.deepEqual(await listed(), { [second]: null, [main]: null });
+});

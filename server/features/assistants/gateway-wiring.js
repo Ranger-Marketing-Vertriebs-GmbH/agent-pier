@@ -73,6 +73,13 @@ export function bindChatEvents(service) {
     if (event.event === "chat" && ["final", "aborted", "error"].includes(payload.state)) {
       service.chatStreams.end(payload.runId);
       service.feeds?.endRun(conversation.id, payload.runId);
+      // A run ending is activity, also one AgentPier did not send: a reminder, routine
+      // or check-in delivered into the main chat (owner-privacy.js, agent-chats.js).
+      // A released user's chat keeps no record of its use.
+      if (!conversation.userReleased)
+        service.store.updateConversation(conversation.id, {
+          lastActivityAt: new Date(service.now?.() ?? Date.now()).toISOString(),
+        });
       service.reconcile().catch(() => {});
       // An image_generate completion leaves its images here (generated-images.js).
       service.generatedImages.observe(conversation).catch(() => {});

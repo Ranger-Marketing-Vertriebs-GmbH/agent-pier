@@ -475,7 +475,9 @@ test("/new and /name are never queued to run after the turn", async (t) => {
   for (const text of ["/new", "/name Taxes", " /NEW  "]) {
     const refused = await post(f.request, `${url}/queued`, { text });
     assert.equal(refused.status, 400, await refused.clone().text());
-    assert.equal((await refused.json()).messageKey, "assistants.chatCommandQueued");
+    const body = await refused.json();
+    assert.equal(body.messageKey, "assistants.chatCommandQueued");
+    assert.equal(body.code, "CHAT_COMMAND_QUEUED");
   }
   // One queued before this refusal existed goes out as nothing, not as a command.
   const assistants = f.application.assistants;

@@ -2604,7 +2604,9 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   then the most recently active. `POST` on the same path starts a chat (201); every
   level may start chats. A user lists only her own chats. The owner lists his own and,
   under a user's opt-in, her chats that were active since its `since`; a chat she
-  started before it shows without its title. The agent list (`GET /api/assistants`
+  started before it shows without its title. Activity is every turn and every run's
+  end, also a reminder, routine or check-in delivered natively; a chat stored before
+  AgentPier recorded activity counts as possibly active and shows. The agent list (`GET /api/assistants`
   and its event feed) holds her chats by the same rule (`OwnerPrivacy.view`).
 - Titles: the first written turn (web or Telegram) names the chat, also a chat stored
   before titles existed, which takes its first message, not the turn just written, whitespace collapsed
@@ -2644,8 +2646,10 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   of a deleted chat a failed file removal left behind never serves to the owner. Its
   approvals stay its person's (`approval-audience.js`) and never list for the owner.
 - Archive and delete answer 409 `CHAT_BUSY` while a turn runs, a message waits or an
-  approval waits in the chat, and while a team or lead request started from it still
-  has to report into it (members working, a result not yet sent). A team member
+  approval waits in the chat, while an action still owes it a follow-up turn (an
+  allowed SSH command whose call already returned, a team member's coding run, an
+  unsaved project-knowledge write), and while a team or lead request started from it
+  still has to report into it (members working, a result not yet sent). A team member
   agent's chat belongs to its team and is never archived or deleted (400), like no
   further chat is created for it. Only the chat's own person changes it: another user and
   the owner, even under her opt-in, get 404 for a user's chat.
