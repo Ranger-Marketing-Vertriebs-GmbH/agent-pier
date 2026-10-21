@@ -143,6 +143,7 @@ export class ChatStreams {
     const refreshSource = entry.refreshSource;
     entry.refreshSource = false;
     const generation = entry.generation;
+    let retired = null;
     try {
       const session = await this.sessions.get(entry.id);
       if (entry.disposed) return;
@@ -150,7 +151,11 @@ export class ChatStreams {
       const scope = JSON.stringify([session.accountId, session.tool, session.cwd]);
       const scopeChanged = entry.scope !== scope;
       if (scopeChanged) {
-        entry.unwatch?.();
+        // The retired watch is muted now but stopped only after its successor armed:
+        // the pool then keeps targets both share (this session's state directories)
+        // instead of closing and reopening them. Closing a macOS FSEvents directory
+        // watch can block the event loop for seconds on a busy host.
+        retired = entry.unwatch;
         entry.unwatch = null;
         entry.scope = scope;
         entry.unwatchInput?.();
@@ -163,7 +168,7 @@ export class ChatStreams {
         !["shell"].includes(session.tool) &&
         session.purpose !== "login"
       ) {
-        entry.unwatch = this.watch(
+        const unwatch = this.watch(
           {
             session,
             accounts: this.accounts,
@@ -173,8 +178,11 @@ export class ChatStreams {
             sources: () => this.chat.sourceState?.(entry.id, session),
             discover: () => entry.settled,
           },
-          () => this.invalidate(entry),
+          () => {
+            if (entry.unwatch === unwatch) this.invalidate(entry);
+          },
         );
+        entry.unwatch = unwatch;
       }
       if (
         !entry.unwatchInput &&
@@ -228,6 +236,16 @@ export class ChatStreams {
     } catch (error) {
       if (!entry.disposed && !this.closed && entry.generation === generation)
         for (const listener of entry.listeners) listener({ error });
+    } finally {
+      if (retired) {
+        // Arm the successor first, whatever ended this refresh, then release.
+        try {
+          await entry.unwatch?.refresh?.();
+        } catch {
+          // The successor's own refresh reports and retries its failures.
+        }
+        retired();
+      }
     }
   }
   /** A lost tmux control client is reattached by a later refresh, with backoff. */

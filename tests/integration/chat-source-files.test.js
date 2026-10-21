@@ -130,6 +130,47 @@ test("account rebinding retires the previous source and cannot revive it", async
   assert.equal(f.chat.sourceState("s1"), null, "binding reset clears all source paths");
 });
 
+test("account rebinding keeps shared directory watches and mutes the old scope", async (t) => {
+  const registrations = [];
+  // Closing a macOS FSEvents directory watch can block the event loop for seconds,
+  // so rebinding must not close and reopen the session's own state directories.
+  const f = fixture(t, {
+    watch: (file, options, listener) => {
+      const watcher = new EventEmitter();
+      const entry = { file, listener, closed: false };
+      watcher.unref = () => {};
+      watcher.close = () => (entry.closed = true);
+      registrations.push(entry);
+      return watcher;
+    },
+  });
+  await until(() => f.text() === "first" && f.idle());
+  const directories = ["sessions", "native-sessions"].map((name) =>
+    path.join(f.dataDir, name),
+  );
+  const opened = (file) => registrations.filter((entry) => entry.file === file);
+  for (const file of [...directories, f.file]) assert.equal(opened(file).length, 1);
+  const previous = opened(f.file)[0];
+  const other = path.join(f.dataDir, "transcripts", "native-two.jsonl");
+  fs.writeFileSync(other, "other account");
+  f.source.file = other;
+  f.session.accountId = "b";
+  f.chat.initialize(f.session, "native-two", "manual");
+  await until(() => f.text() === "other account" && f.idle());
+  await until(() => previous.closed);
+  for (const file of directories) {
+    assert.equal(opened(file).length, 1, `${file} is not reopened`);
+    assert.equal(opened(file)[0].closed, false, `${file} stays open`);
+  }
+  assert.equal(opened(other).length, 1, "the new source is observed");
+  await delay(80);
+  await until(f.idle);
+  const reads = f.source.reads;
+  previous.listener("change", path.basename(f.file));
+  await delay(80);
+  assert.equal(f.source.reads, reads, "the retired source no longer invalidates");
+});
+
 test("only a child source changing updates the parent chat before recovery", async (t) => {
   const childDir = fs.mkdtempSync(path.join(os.tmpdir(), "child-source-"));
   t.after(() => fs.rmSync(childDir, { recursive: true, force: true }));
