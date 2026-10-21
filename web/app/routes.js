@@ -54,6 +54,10 @@ export function readRoute(location) {
   if (pathname === "/agents") {
     const query = new URLSearchParams(location.search);
     if (query.get("new") !== "1") return { view: "agents" };
+    // "Add agent for this person" from Settings › Users.
+    const forUser = query.get("user");
+    if (forUser && idPattern.test(forUser))
+      return { view: "agents", creating: true, forUser };
     // "Create agent" from an Agency entry: the template and its pinned revision.
     const template = query.get("template"),
       revision = query.get("revision");
@@ -261,6 +265,8 @@ function basePath(route) {
             ? `/agents/${encodeURIComponent(route.assistantId)}/settings${agentSettingsQuery(route)}`
             : route.creating
               ? `/agents?new=1${
+                  route.forUser ? `&${new URLSearchParams({ user: route.forUser })}` : ""
+                }${
                   route.template
                     ? `&${new URLSearchParams({ template: route.template.id, revision: route.template.revision })}`
                     : ""

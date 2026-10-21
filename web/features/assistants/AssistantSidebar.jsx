@@ -12,6 +12,7 @@ import StatusDot from "../../components/StatusDot.jsx";
 import { activityTone } from "../../components/status-tones.js";
 import { activityFor, activityDot, sidebarSubline } from "./assistant-status.js";
 import SidebarChats from "./chats/SidebarChats.jsx";
+import { usersCopy } from "../../lib/i18n/messages/users.js";
 
 // Agents whose team members the owner unfolded stay unfolded across reloads (per
 // browser, like the sidebar groups). Storage may be unavailable; folding still works.
@@ -65,8 +66,13 @@ export default function AssistantSidebar({ navigate, route }) {
       navigate({ view: "agents", assistantId: assistant.id, conversationId: chat.id });
       return;
     }
-    // Settings explain a missing connection and offer the model choice.
-    if (assistant.teamMemberId || connectionMissing(assistant, models)) {
+    // Settings explain a missing connection and offer the model choice. A user's own
+    // agent is hers to chat with: the owner manages it in its settings.
+    if (
+      assistant.teamMemberId ||
+      connectionMissing(assistant, models) ||
+      assistant.userAccess?.mode === "own"
+    ) {
       navigate({ view: "agents", assistantId: assistant.id, agentSettings: true });
       return;
     }
@@ -93,10 +99,13 @@ export default function AssistantSidebar({ navigate, route }) {
     const lead = leads.get(a.parentAssistantId);
     return !lead || !!lead.archivedAt;
   };
-  const roots = assistants.filter(
-    (a) =>
-      !a.archivedAt && (!a.teamMemberId || (a.lifetime === "permanent" && leadGone(a))),
-  );
+  // The owner's agents first, then the agents of users under their own heading.
+  const roots = assistants
+    .filter(
+      (a) =>
+        !a.archivedAt && (!a.teamMemberId || (a.lifetime === "permanent" && leadGone(a))),
+    )
+    .sort((a, b) => Boolean(a.userAccess) - Boolean(b.userAccess));
   const permanentOf = (parent) =>
     parent.teamMemberId
       ? []
@@ -247,7 +256,7 @@ export default function AssistantSidebar({ navigate, route }) {
         </p>
       )}
       <div className={`session-list${stale ? " assistant-sidebar-stale" : ""}`}>
-        {roots.map((parent) => {
+        {roots.map((parent, index) => {
           const groups = new Map();
           for (const child of visible.filter(
             (a) => a.parentAssistantId === parent.id && a.lifetime === "task",
@@ -264,6 +273,9 @@ export default function AssistantSidebar({ navigate, route }) {
           const current = route.assistantId === parent.id && route.view === "agents";
           return (
             <React.Fragment key={parent.id}>
+              {parent.userAccess && !roots[index - 1]?.userAccess && (
+                <div className="assistant-sidebar-section">{usersCopy.agentsOfUsers}</div>
+              )}
               <div className={`assistant-sidebar-row ${current ? "selected" : ""}`}>
                 {item(parent)}
                 {memberCount > 0 && (

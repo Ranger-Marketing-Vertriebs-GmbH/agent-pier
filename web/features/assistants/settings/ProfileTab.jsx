@@ -17,6 +17,7 @@ import MemberGroup from "./MemberGroup.jsx";
 import AttachmentStorageGroup from "./AttachmentStorageGroup.jsx";
 import RuntimeSummary from "./RuntimeSummary.jsx";
 import TemplateNote from "./TemplateNote.jsx";
+import UserAccessGroup from "./UserAccessGroup.jsx";
 
 const conflictLabels = {
   name: () => copy.name,
@@ -110,6 +111,7 @@ export default function ProfileTab({ assistant, navigate }) {
         </p>
       </form>
       {assistant.teamMemberId && <MemberGroup assistant={assistant} />}
+      <UserAccessGroup assistant={assistant} />
       <AttachmentStorageGroup assistant={assistant} />
       <RuntimeSummary
         className="agent-runtime-group"

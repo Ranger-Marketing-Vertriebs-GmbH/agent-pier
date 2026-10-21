@@ -50,4 +50,29 @@ export const usersCopy = {
   ownAgentsChoice: "Ihre eigenen Agenten",
   archiveAgents: "Archivieren",
   keepAgents: "Unter meinem Konto behalten",
+  agentsOfUsers: "Agenten von Benutzern",
+  openMyChat: "Meinen Chat öffnen",
+  forUser: "Für",
+  forMe: "Für mich",
+  agentKind: "Art",
+  locked:
+    "Für Agenten von Benutzern gesperrt: Sie können keine Programme auf diesem Rechner ausführen.",
+  lockedList: (list) => `Gesperrt: ${list}.`,
+  lockedNames: {
+    shell: "Shell",
+    ssh: "SSH",
+    github: "Git/GitHub",
+    pipelines: "Pipelines",
+    coding: "Coding",
+    teams: "Teams",
+    sessions: "Sessions anderer Agenten",
+  },
+  access: "Benutzer dieses Agenten",
+  accessHint:
+    "Ein geteilter Agent teilt Gedächtnis, Profil (USER.md) und Browser mit allen, die ihn nutzen. Ihre Chats bleiben privat.",
+  released: "Freigegebene Fähigkeiten",
+  releasedHint:
+    "Benutzer mit der Stufe Erweitert dürfen diese Fähigkeiten selbst umschalten.",
+  remove: (name) => `${name} entfernen`,
+  unknownUser: "Unbekannter Benutzer",
 };

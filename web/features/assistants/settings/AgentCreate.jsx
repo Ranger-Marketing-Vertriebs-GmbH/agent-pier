@@ -17,7 +17,13 @@ import ProfileFields, { profileValid } from "./ProfileFields.jsx";
 import ProactivityGroup from "./ProactivityGroup.jsx";
 import TemplateNote from "./TemplateNote.jsx";
 import TemplatePicker from "./TemplatePicker.jsx";
+import LockedNotice from "./LockedNotice.jsx";
 import { MemoryGroup, ShellGroup, WebGroup } from "./CapabilityGroups.jsx";
+import ListCard from "../../../components/ListCard.jsx";
+import { SelectRow } from "../../../components/ListRow.jsx";
+import Segmented from "../../../components/Segmented.jsx";
+import { usersCopy } from "../../../lib/i18n/messages/users.js";
+import { ownerUsersApi } from "../../users/owner-users-api.js";
 import "../agent-settings.css";
 
 const tabs = ["profile", "capabilities"];
@@ -28,9 +34,16 @@ const ignore = () => {};
  * A new agent: Profile and Capabilities in one draft, created with one POST. An
  * Agency template (`initialTemplate`: {id, revision}, or picked here) fills name and
  * instructions; the server records it with the agent. Capabilities keep their safe
- * defaults.
+ * defaults. "For" makes it an agent of a user (`forUser` preselects her): own or
+ * shared, created with her at Chat only under the hard lock (POST /user-agents).
  */
-export default function AgentCreate({ navigate, onCreated, onCancel, initialTemplate }) {
+export default function AgentCreate({
+  navigate,
+  onCreated,
+  onCancel,
+  initialTemplate,
+  forUser = "",
+}) {
   const { models, refresh, runtime } = useAssistants();
   const [tab, setTab] = useState("profile");
   const [created, setCreated] = useState(null);
@@ -42,6 +55,15 @@ export default function AgentCreate({ navigate, onCreated, onCancel, initialTemp
   // third-party text never stays without its recorded origin.
   const before = useRef(null);
   const draft = useTabDraft({ server: createServer() });
+  const [users, setUsers] = useState([]);
+  const [owner, setOwner] = useState(forUser),
+    [mode, setMode] = useState("own");
+  useEffect(() => {
+    ownerUsersApi
+      .list()
+      .then((list) => setUsers(list.filter((u) => !u.disabled)))
+      .catch(() => setUsers([]));
+  }, []);
   const use = (preview) => {
     if (!before.current)
       before.current = {
@@ -75,11 +97,18 @@ export default function AgentCreate({ navigate, onCreated, onCancel, initialTemp
   const steps = [
     createStep({
       label: settingsCopy.createAgent,
-      create: (input) =>
-        assistantApi.create({
+      create: (input) => {
+        const body = {
           ...input,
           ...(template && { template: { id: template.id, revision: template.revision } }),
-        }),
+        };
+        if (!owner) return assistantApi.create(body);
+        const { shell: _shell, ...rest } = body;
+        return ownerUsersApi.createAgent({
+          ...rest,
+          userAccess: { mode, members: [{ userId: owner, level: "chat" }] },
+        });
+      },
     }),
   ];
   // A missing name sends the owner back to the Profile tab instead of the server.
@@ -140,6 +169,33 @@ export default function AgentCreate({ navigate, onCreated, onCancel, initialTemp
         )}
       </div>
       <ErrorMessage error={templateError} />
+      {users.length > 0 && (
+        <ListCard label={usersCopy.forUser}>
+          <SelectRow
+            label={usersCopy.forUser}
+            value={owner}
+            onChange={setOwner}
+            options={[
+              { value: "", label: usersCopy.forMe },
+              ...users.map((u) => ({ value: u.id, label: u.displayName })),
+            ]}
+          />
+          {owner && (
+            <div className="list-row agent-team-usage">
+              <span className="list-row-label">{usersCopy.agentKind}</span>
+              <Segmented
+                label={usersCopy.agentKind}
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { value: "own", label: usersCopy.own },
+                  { value: "shared", label: usersCopy.shared },
+                ]}
+              />
+            </div>
+          )}
+        </ListCard>
+      )}
       {template && <TemplateNote template={template} findings={template.findings} />}
       {picking && <TemplatePicker onUse={use} onClose={() => setPicking(false)} />}
       <UnderlineTabs
@@ -175,7 +231,11 @@ export default function AgentCreate({ navigate, onCreated, onCancel, initialTemp
             <MemoryGroup draft={draft} />
             <WebGroup draft={draft} browser={runtime?.browser} creating />
             <ProactivityGroup values={idleHeartbeat} set={ignore} creating />
-            <ShellGroup draft={draft} creating />
+            {owner ? (
+              <LockedNotice items={["shell", "sessions"]} />
+            ) : (
+              <ShellGroup draft={draft} creating />
+            )}
           </>
         )}
       </div>

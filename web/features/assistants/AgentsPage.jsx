@@ -13,6 +13,7 @@ import { connectionMissing } from "./connection-state.js";
 import { useCrossLink } from "../../app/cross-link.js";
 import AssistantHeader from "./AssistantHeader.jsx";
 import { DeletedChat } from "./chats/ChatStates.jsx";
+import { usersCopy } from "../../lib/i18n/messages/users.js";
 export default function AgentsPage({ route, navigate, openNavigation, navigationOpen }) {
   const {
     assistants,
@@ -72,12 +73,16 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
   // Settings on phones scroll inside their own container under the fixed header, so
   // the visual viewport (keyboard) must size the app like the chat does.
   useSessionViewport(Boolean(route.agentSettings && assistant && !conversationId));
-  // A link to a chat that is gone (a push notice's, another tab deleted it).
+  // A link to a chat that is gone (a push notice's, another tab deleted it). The
+  // agent's other chats are known by then (its main chat is never deleted); a list
+  // without any yet may still be catching up with a chat just opened.
+  const known = (id) => conversations.some((c) => c.id === id);
   if (
     route.conversationId &&
     assistant &&
     !team &&
-    !conversations.some((c) => c.id === route.conversationId)
+    !known(route.conversationId) &&
+    conversations.some((c) => c.assistantId === assistant.id)
   )
     return (
       <section className="assistant-detail assistant-chat">
@@ -157,6 +162,7 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
             <AgentCreate
               navigate={navigate}
               initialTemplate={route.template}
+              forUser={route.forUser}
               onCreated={(created) => {
                 setCreating(false);
                 navigate({
@@ -171,41 +177,63 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
           {!assistants.length && !creating && (
             <p className="assistant-empty">{copy.empty}</p>
           )}
-          <div className="assistant-cards">
-            {assistants
-              .filter(
-                (a) => !a.archivedAt && (!a.teamMemberId || a.lifetime === "permanent"),
-              )
-              .map((a) => (
-                <article key={a.id} className="assistant-card">
-                  <span className="assistant-avatar">{avatarGlyph(a.name)}</span>
-                  <h2>{a.name}</h2>
-                  <p className="assistant-note">{a.model.modelId}</p>
-                  {connectionMissing(a, models) && (
-                    <p className="assistant-state-badge connectionMissing">
-                      {copy.status.connectionMissing}
-                    </p>
-                  )}
-                  <div className="assistant-actions">
-                    <button className="button primary" onClick={() => open(a)}>
-                      {copy.chat}
-                    </button>
-                    <button
-                      className="button secondary"
-                      onClick={() =>
-                        navigate({
-                          view: "agents",
-                          assistantId: a.id,
-                          agentSettings: true,
-                        })
-                      }
-                    >
-                      {copy.settings}
-                    </button>
-                  </div>
-                </article>
-              ))}
-          </div>
+          {[false, true].map((ofUsers) => {
+            const list = assistants.filter(
+              (a) =>
+                !a.archivedAt &&
+                (!a.teamMemberId || a.lifetime === "permanent") &&
+                Boolean(a.userAccess) === ofUsers,
+            );
+            if (!list.length) return null;
+            return (
+              <React.Fragment key={String(ofUsers)}>
+                {ofUsers && (
+                  <h2 className="assistant-cards-heading">{usersCopy.agentsOfUsers}</h2>
+                )}
+                <div className="assistant-cards">
+                  {list.map((a) => (
+                    <article key={a.id} className="assistant-card">
+                      <span className="assistant-avatar">{avatarGlyph(a.name)}</span>
+                      <h2>{a.name}</h2>
+                      <p className="assistant-note">
+                        {a.userAccess
+                          ? a.userAccess.mode === "own"
+                            ? usersCopy.own
+                            : usersCopy.shared
+                          : a.model.modelId}
+                      </p>
+                      {connectionMissing(a, models) && (
+                        <p className="assistant-state-badge connectionMissing">
+                          {copy.status.connectionMissing}
+                        </p>
+                      )}
+                      <div className="assistant-actions">
+                        {/* A user's own agent is hers to chat with; he opens his own
+                            chat with a shared one. */}
+                        {a.userAccess?.mode !== "own" && (
+                          <button className="button primary" onClick={() => open(a)}>
+                            {a.userAccess ? usersCopy.openMyChat : copy.chat}
+                          </button>
+                        )}
+                        <button
+                          className="button secondary"
+                          onClick={() =>
+                            navigate({
+                              view: "agents",
+                              assistantId: a.id,
+                              agentSettings: true,
+                            })
+                          }
+                        >
+                          {copy.settings}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </React.Fragment>
+            );
+          })}
         </>
       )}
     </div>

@@ -245,3 +245,29 @@
   font-weight: 600;
   overflow-wrap: anywhere;
 }
+/* In place of the groups an agent of users never has (LockedNotice.jsx). */
+.agent-locked-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-lg);
+  color: var(--muted);
+  line-height: 1.5;
+}
+.agent-locked-notice svg {
+  flex: none;
+  margin-top: 2px;
+}
+.agent-user-access .users-agent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  background: var(--panel);
+}
+.agent-user-access .users-agent .segmented {
+  margin: 0 var(--space-4);
+}

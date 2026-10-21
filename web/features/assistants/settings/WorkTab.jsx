@@ -45,6 +45,7 @@ import { githubChoice } from "./agent-github-fields.js";
 import SshGrantPage from "./SshGrantPage.jsx";
 import TeamsGroup from "./TeamsGroup.jsx";
 import LeadSharesGroup from "./LeadSharesGroup.jsx";
+import LockedNotice from "./LockedNotice.jsx";
 
 const teamCopy = assistantCopy.team;
 const conflictLabels = {
@@ -78,7 +79,9 @@ const catalogOf = (list) => ({
  */
 export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) {
   const { policies = {}, refresh } = useAssistants();
-  const withTeam = !assistant.teamMemberId;
+  // An agent of users holds project folders only: no grants, pipelines or teams.
+  const userAgent = Boolean(assistant.userAccess);
+  const withTeam = !assistant.teamMemberId && !userAgent;
   const teamPolicy = withTeam ? policies[assistant.id] : null;
   const accessId = useId(),
     teamId = useId();
@@ -227,6 +230,7 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
           items={catalog?.projects ?? null}
           selected={draft.values.projectIds}
           levels={draft.values.projectFiles}
+          foldersOnly={userAgent}
           disabled={!policy || draft.saving}
           onChange={({ projectIds, projectFiles }) => {
             draft.set("projectIds", projectIds);
@@ -289,7 +293,9 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
             value={
               catalog
                 ? commonCopy.ofCount(
-                    grantCount(values.projectIds, catalog.projects),
+                    userAgent
+                      ? grantCount(Object.keys(values.projectFiles), catalog.projects)
+                      : grantCount(values.projectIds, catalog.projects),
                     catalog.projects.length,
                   )
                 : unknownValue
@@ -297,59 +303,69 @@ export default function WorkTab({ assistant, page, go, navigate, focusTeamId }) 
             disabled={!catalog}
             {...link("projects")}
           />
-          <ListRow
-            label={wf.pipelines}
-            value={
-              catalog
-                ? commonCopy.ofCount(
-                    grantCount(values.pipelineIds, catalog.pipelines),
-                    catalog.pipelines.length,
-                  )
-                : unknownValue
-            }
-            disabled={!catalog}
-            {...link("pipelines")}
-          />
-          <ListRow
-            label={sshCopy.row}
-            value={(() => {
-              if (!catalog?.sshHosts) return unknownValue;
-              const { count, trusted } = sshSummary(values.sshAccesses, catalog.sshHosts);
-              return count ? sshCopy.summary(count, trusted) : sshCopy.none;
-            })()}
-            disabled={!catalog}
-            {...link("ssh")}
-          />
-          <ListRow
-            label={githubCopy.row}
-            value={(() => {
-              if (!catalog) return unknownValue;
-              const choice = githubChoice(values.github, catalog.github.profiles);
-              return choice.level
-                ? githubCopy.summary(
-                    githubCopy.levels[choice.level],
-                    choice.profile?.name || githubCopy.profileMissing,
-                  )
-                : githubCopy.none;
-            })()}
-            disabled={!catalog}
-            {...link("github")}
-          />
-          {permissionKeys.map((key) => (
-            <ToggleRow
-              key={key}
-              label={wf[key]}
-              checked={values[key]}
-              disabled={!policy || draft.saving}
-              onChange={(on) => draft.set(key, on)}
-            />
-          ))}
+          {!userAgent && (
+            <>
+              <ListRow
+                label={wf.pipelines}
+                value={
+                  catalog
+                    ? commonCopy.ofCount(
+                        grantCount(values.pipelineIds, catalog.pipelines),
+                        catalog.pipelines.length,
+                      )
+                    : unknownValue
+                }
+                disabled={!catalog}
+                {...link("pipelines")}
+              />
+              <ListRow
+                label={sshCopy.row}
+                value={(() => {
+                  if (!catalog?.sshHosts) return unknownValue;
+                  const { count, trusted } = sshSummary(
+                    values.sshAccesses,
+                    catalog.sshHosts,
+                  );
+                  return count ? sshCopy.summary(count, trusted) : sshCopy.none;
+                })()}
+                disabled={!catalog}
+                {...link("ssh")}
+              />
+              <ListRow
+                label={githubCopy.row}
+                value={(() => {
+                  if (!catalog) return unknownValue;
+                  const choice = githubChoice(values.github, catalog.github.profiles);
+                  return choice.level
+                    ? githubCopy.summary(
+                        githubCopy.levels[choice.level],
+                        choice.profile?.name || githubCopy.profileMissing,
+                      )
+                    : githubCopy.none;
+                })()}
+                disabled={!catalog}
+                {...link("github")}
+              />
+              {permissionKeys.map((key) => (
+                <ToggleRow
+                  key={key}
+                  label={wf[key]}
+                  checked={values[key]}
+                  disabled={!policy || draft.saving}
+                  onChange={(on) => draft.set(key, on)}
+                />
+              ))}
+            </>
+          )}
           <ListRow
             label={wf.actions}
             value={history.loaded ? history.actions.length : unknownValue}
             {...link("actions")}
           />
         </ListCard>
+        {userAgent && (
+          <LockedNotice items={["pipelines", "ssh", "github", "coding", "teams"]} />
+        )}
       </section>
       {assistant.teamMemberId && assistant.lifetime === "permanent" && (
         <LeadSharesGroup assistant={assistant} />
