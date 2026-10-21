@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import UserHeader from "./UserHeader.jsx";
 import MyAgentsPage from "./MyAgentsPage.jsx";
-import UserChat from "./UserChat.jsx";
+import UserChatRoute from "./UserChatRoute.jsx";
+import { UserPage } from "./UserPage.jsx";
 import useUserAgents from "./useUserAgents.js";
 import { AgentPathsContext, userAgentPaths } from "../assistants/agent-paths.js";
 import { AgentHistoryCache } from "../assistants/agent-offline.js";
@@ -37,19 +38,6 @@ function useUserNavigation() {
   return [route, navigate];
 }
 
-/** A page of her app: the header and one content column. */
-export function UserPage({ header, children, bar }) {
-  return (
-    <div className="user-page">
-      {header}
-      <div className="user-page-body">
-        <div className="user-page-content">{children}</div>
-      </div>
-      {bar}
-    </div>
-  );
-}
-
 // The restricted user's own app: her agents and account only, never the owner's
 // workspace. It talks only to /auth and /api/me.
 export default function UserApp({ status }) {
@@ -80,7 +68,7 @@ export default function UserApp({ status }) {
     );
   else if (route.view === "chat")
     page = (
-      <UserChat
+      <UserChatRoute
         key={route.conversationId}
         agent={agent}
         conversationId={route.conversationId}

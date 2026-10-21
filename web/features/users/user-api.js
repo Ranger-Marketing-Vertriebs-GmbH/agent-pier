@@ -55,3 +55,13 @@ export const userApi = {
   approvals: () => api("/me/approvals"),
   decide: (actionId, body) => api(`/me/approvals/${id(actionId)}/decision`, "POST", body),
 };
+
+/** Her chat routes in the shape the shared chat list expects (useAgentChats.js). */
+export const userChatApi = Object.freeze({
+  list: userApi.chats,
+  create: userApi.newChat,
+  rename: userApi.renameChat,
+  archive: userApi.archiveChat,
+  restore: userApi.restoreChat,
+  remove: userApi.deleteChat,
+});

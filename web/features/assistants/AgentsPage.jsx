@@ -11,9 +11,12 @@ import AssistantChat from "./AssistantChat.jsx";
 import useSessionViewport from "../sessions/useSessionViewport.js";
 import { connectionMissing } from "./connection-state.js";
 import { useCrossLink } from "../../app/cross-link.js";
+import AssistantHeader from "./AssistantHeader.jsx";
+import { DeletedChat } from "./chats/ChatStates.jsx";
 export default function AgentsPage({ route, navigate, openNavigation, navigationOpen }) {
   const {
     assistants,
+    conversations = [],
     teams = [],
     models = [],
     error: loadError,
@@ -69,6 +72,25 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
   // Settings on phones scroll inside their own container under the fixed header, so
   // the visual viewport (keyboard) must size the app like the chat does.
   useSessionViewport(Boolean(route.agentSettings && assistant && !conversationId));
+  // A link to a chat that is gone (a push notice's, another tab deleted it).
+  if (
+    route.conversationId &&
+    assistant &&
+    !team &&
+    !conversations.some((c) => c.id === route.conversationId)
+  )
+    return (
+      <section className="assistant-detail assistant-chat">
+        <AssistantHeader
+          assistant={assistant}
+          variant="conversation"
+          navigate={navigate}
+          openNavigation={openNavigation}
+          navigationOpen={navigationOpen}
+        />
+        <DeletedChat onMain={() => open(assistant)} />
+      </section>
+    );
   if (conversationId && assistant)
     return (
       <AssistantChat

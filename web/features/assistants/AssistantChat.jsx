@@ -42,6 +42,8 @@ import { streamInHistory } from "./stream-reply.js";
 import { takeBack } from "./queued-message.js";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
 import StatusDot from "../../components/StatusDot.jsx";
+import OwnerChatBar from "./chats/OwnerChatBar.jsx";
+import { ArchivedChatBanner, ReadOnlyComposer } from "./chats/ChatStates.jsx";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
 const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
 const sameTurnText = (a, b) => turnText(a) === turnText(b);
@@ -73,11 +75,12 @@ export default function AssistantChat({
     teams = [],
     conversations = [],
     activity = {},
+    refresh: reloadList,
   } = useAssistants();
-  const conversationFault =
-    copy.conversationDiagnostics[
-      conversations.find((c) => c.id === conversationId)?.diagnostic
-    ];
+  const record = conversations.find((c) => c.id === conversationId);
+  const conversationFault = copy.conversationDiagnostics[record?.diagnostic];
+  // An archived chat is read-only until restored (AGENTPIER-181).
+  const archived = Boolean(record?.archivedAt);
   const [teamAllowed, setTeamAllowed] = useState(() =>
     drafts.teamAllowed(conversationId),
   );
@@ -176,6 +179,7 @@ export default function AssistantChat({
     !history.queued &&
     !memberBusy &&
     !assistant.archivedAt &&
+    !archived &&
     !offline &&
     runtime.availability === "ready",
   );
@@ -278,7 +282,11 @@ export default function AssistantChat({
   // The message queued while the agent works, kept by the server for every tab.
   const queued = history.queued || null;
   const available =
-    !memberBusy && !assistant.archivedAt && !offline && runtime.availability === "ready";
+    !memberBusy &&
+    !assistant.archivedAt &&
+    !archived &&
+    !offline &&
+    runtime.availability === "ready";
   // While the agent works, or a queued message still waits, Enter and "Send when
   // done" queue the message, after the waiting one: only Stop stops a turn.
   async function queue(ids) {
@@ -373,6 +381,11 @@ export default function AssistantChat({
         member={member}
         compacting={compacting}
       />
+      <OwnerChatBar
+        assistant={assistant}
+        conversationId={conversationId}
+        navigate={navigate}
+      />
       <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
       {member && <AssistantMemberContext member={member} navigate={navigate} />}
 
@@ -386,6 +399,14 @@ export default function AssistantChat({
           <p role="status" className="assistant-notice">
             {copy.disconnected}
           </p>
+        )}
+        {archived && (
+          <ArchivedChatBanner
+            onRestore={async () => {
+              await assistantApi.restoreChat(conversationId);
+              await reloadList();
+            }}
+          />
         )}
         {conversationFault && (
           <p role="status" className="assistant-notice">
@@ -530,30 +551,34 @@ export default function AssistantChat({
         >
           {announcement}
         </div>
-        <AssistantComposer
-          assistant={assistant}
-          conversationId={conversationId}
-          drafts={drafts}
-          attachments={attachments}
-          text={text}
-          setText={setText}
-          teamAllowed={teamAllowed}
-          setTeamAllowed={setTeamAllowed}
-          canSend={canSend}
-          busy={busy}
-          active={Boolean(active)}
-          touchInput={touchInput}
-          onSubmit={send}
-          queued={queued}
-          available={available}
-          onTakeBack={takeBackQueued}
-          onFiles={setFiles}
-          onStop={stop}
-          output={output}
-          stick={stick}
-          scroll={scroll}
-          mentionMembers={mentionMembers}
-        />
+        {archived ? (
+          <ReadOnlyComposer />
+        ) : (
+          <AssistantComposer
+            assistant={assistant}
+            conversationId={conversationId}
+            drafts={drafts}
+            attachments={attachments}
+            text={text}
+            setText={setText}
+            teamAllowed={teamAllowed}
+            setTeamAllowed={setTeamAllowed}
+            canSend={canSend}
+            busy={busy}
+            active={Boolean(active)}
+            touchInput={touchInput}
+            onSubmit={send}
+            queued={queued}
+            available={available}
+            onTakeBack={takeBackQueued}
+            onFiles={setFiles}
+            onStop={stop}
+            output={output}
+            stick={stick}
+            scroll={scroll}
+            mentionMembers={mentionMembers}
+          />
+        )}
       </div>
     </section>
   );
