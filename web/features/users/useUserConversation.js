@@ -10,6 +10,7 @@ import useAwaitingConfirmation from "../assistants/unconfirmed-turn.js";
 import { takeBack } from "../assistants/queued-message.js";
 import { sharedDrafts } from "../assistants/useAssistants.js";
 import { userApi } from "./user-api.js";
+import { agentRunStepsCopy } from "../../lib/i18n/messages/agent-run-steps.js";
 
 const settled = new Set(["completed", "failed", "cancelled"]);
 
@@ -145,7 +146,14 @@ export default function useUserConversation(
     run(async () => {
       await userApi.cancel(latest.attempt.id);
       await refresh();
+      return true;
     });
+  // A stalled or timed-out turn stops, and the agent goes on where it stopped.
+  async function retry() {
+    if (active && !(await stop())) return;
+    const text = agentRunStepsCopy.continueMessage;
+    await deliver({ clientRequestId: crypto.randomUUID(), text }, []);
+  }
   async function recover() {
     setBusy(true);
     await run(async () => {
@@ -178,6 +186,7 @@ export default function useUserConversation(
     takeBackQueued,
     earlier,
     stop,
+    retry,
     recover,
   };
 }

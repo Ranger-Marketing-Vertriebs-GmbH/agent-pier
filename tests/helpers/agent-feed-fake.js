@@ -7,7 +7,8 @@
 //   (`window.assistantTestStream.onmessage`), and a `delta` event becomes a whole
 //   `stream` frame of its conversation;
 // - every non-GET request to a conversation or attempt (send, queue, stop, ...);
-// - `window.agentFeed.push(id?)`, `.stream(id, runId, text, from)`, `.drop(id, code)`.
+// - `window.agentFeed.push(id?)`, `.stream(id, runId, text, from)`, `.send(id, frame)`,
+//   `.drop(id, code)`.
 // `window.agentFeed.synced(id)` tells whether a socket of that chat delivered its
 // first sync: a stream frame sent before it is cleared by that sync when no turn is
 // open, as with the real feed.
@@ -79,6 +80,8 @@ function installFeed({ base = "/api/assistant-conversations" } = {}) {
     },
     push: (id) => Promise.all(of(id).map((socket) => socket.push())),
     synced: (id) => of(id).some((socket) => socket.sequence > 0),
+    // Any other frame, such as a running turn's `steps` (run-steps.js).
+    send: (id, value) => of(id).forEach((socket) => socket.frame(value)),
     stream: (id, runId, text, from = 0) =>
       of(id).forEach((socket) => socket.frame({ type: "stream", runId, from, text })),
     drop: (id, code = 1006) =>

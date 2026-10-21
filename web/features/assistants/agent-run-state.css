@@ -1,0 +1,64 @@
+/* A running turn's live steps and its stalled, failed and long-chat notices
+   (AgentRunState.jsx). */
+.assistant-transcript .assistant-run-state {
+  min-width: 0;
+}
+.assistant-run-steps {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.assistant-run-steps > summary {
+  width: fit-content;
+  color: var(--accent);
+  cursor: pointer;
+}
+.assistant-run-steps ol {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.assistant-run-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.assistant-run-step-dot {
+  --status-dot-size: 6px;
+}
+.assistant-run-step-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+.assistant-run-step-label {
+  color: var(--muted);
+}
+.assistant-run-step-state {
+  flex-shrink: 0;
+}
+.assistant-run-step.omitted {
+  font-style: italic;
+}
+.assistant-run-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.assistant-run-stalled p + p {
+  margin-top: 4px;
+}
+@media (max-width: 700px) {
+  .assistant-run-steps > summary {
+    line-height: var(--touch-target);
+  }
+  .assistant-run-steps {
+    margin-top: -14px;
+  }
+}
