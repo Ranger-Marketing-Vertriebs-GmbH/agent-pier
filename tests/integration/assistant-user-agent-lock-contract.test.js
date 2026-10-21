@@ -54,16 +54,14 @@ test(
     // The same stored profile for both: every capability and shell. The user agent's
     // is written past the routes that refuse shell and a visible browser for it.
     const stored = (agent, fields) =>
-      store.db
-        .prepare("UPDATE assistants SET body=? WHERE id=?")
-        .run(
-          JSON.stringify({
-            ...store.getAssistant(agent.id),
-            capabilities: everything,
-            ...fields,
-          }),
-          agent.id,
-        );
+      store.db.prepare("UPDATE assistants SET body=? WHERE id=?").run(
+        JSON.stringify({
+          ...store.getAssistant(agent.id),
+          capabilities: everything,
+          ...fields,
+        }),
+        agent.id,
+      );
     const owner = h.create("Owner");
     await h.level(owner, "full", confirmFull);
     stored(owner, {});
