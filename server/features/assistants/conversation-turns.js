@@ -14,6 +14,27 @@ function usersAgent(service, conversation) {
 }
 
 /**
+ * Refuses a chat that takes no turns. A deleted or disabled user's chat, or one of a
+ * user who left the agent, takes none: not from her Telegram bot, a reminder or
+ * anything else. Nor does the owner's chat on a shared agent that has since become a
+ * user's own agent. An archived chat is read-only until it is restored
+ * (chat-removal.js).
+ */
+export function refuseClosedChat(service, conversation) {
+  const agent = service.store.getAssistant(conversation.assistantId);
+  if (
+    conversation.userReleased ||
+    conversation.deletedUser ||
+    (typeof conversation.userId === "string"
+      ? !memberLevel(agent, conversation.userId) ||
+        service.userActive?.(conversation.userId) === false
+      : agent.userAccess?.mode === "own")
+  )
+    throw assistantProblem("notFound", 404);
+  if (conversation.archivedAt) throw chatProblem("CHAT_ARCHIVED");
+}
+
+/**
  * One owner (or Telegram, or internal) turn of an AgentPier conversation, admitted by
  * the caller: the request is accepted in the ledger together with its trusted context
  * and staged attachments, then delivered once through `sessions.send`. A retry with
@@ -40,28 +61,16 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     service.teams?.store.recordContext(request.id, context);
     return { request, attempt: service.ledger.attemptFor(request.id) };
   }
-  // A deleted or disabled user's chat, or one of a user who left the agent, takes no
-  // new turns: not from her Telegram bot, a reminder or anything else. Nor does the
-  // owner's chat on a shared agent that has since become a user's own agent.
-  const agent = service.store.getAssistant(conversation.assistantId);
-  if (
-    conversation.userReleased ||
-    conversation.deletedUser ||
-    (typeof conversation.userId === "string"
-      ? !memberLevel(agent, conversation.userId) ||
-        service.userActive?.(conversation.userId) === false
-      : agent.userAccess?.mode === "own")
-  )
-    throw assistantProblem("notFound", 404);
-  // An archived chat is read-only until it is restored (chat-removal.js).
-  if (conversation.archivedAt) throw chatProblem("CHAT_ARCHIVED");
+  refuseClosedChat(service, conversation);
   service.requireReady();
   if (
     service.ledger
       .pending()
       .some(
         (a) => service.ledger.getRequest(a.requestId).conversationId === conversationId,
-      )
+      ) ||
+    // The chat's history is being summarised on request (long-chats.js).
+    service.longChats?.compacting(conversationId)
   )
     throw assistantProblem("active", 409);
   service.teams?.assertMemberTurn(conversation.assistantId, context);

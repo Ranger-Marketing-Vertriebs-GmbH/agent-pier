@@ -37,6 +37,7 @@ import { assistantListFeed } from "./assistant-list-feed.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { openMainConversation } from "./conversation-open.js";
 import { AgentChats } from "./agent-chats.js";
+import { LongChats } from "./long-chats.js";
 import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import {
@@ -88,6 +89,8 @@ export class AssistantService {
     this.listFeed = assistantListFeed(this);
     // Several chats per agent, each its own native session (agent-chats.js).
     this.chats = new AgentChats(this);
+    // A long chat's hint: summarise now, or hide it (long-chats.js).
+    this.longChats = new LongChats(this);
     this.gatewayEvents = new GatewayEventHub();
     // A skill folder changed (one may now shadow an assigned skill), or a Gateway
     // started from a compile that could not ask it: re-apply agents with skills.
