@@ -133,32 +133,46 @@ export class LongChats {
   }
   /**
    * Hides the hint of a chat at its current context size, read from the Gateway, until
-   * the context grew clearly further (reappearsAt).
+   * the context grew clearly further (reappearsAt). A session that names no size
+   * shows no hint either: nothing is stored then (`dismissed: false`). The size is
+   * written under admission, for a chat that still takes turns.
    */
   async dismiss(conversationId) {
     const service = this.service;
     const conversation = service.store.getConversation(conversationId);
     refuseClosedChat(service, conversation);
     service.requireReady();
-    const history = await service.runtime.client.call("chat.history", {
-      sessionKey: conversation.runtimeSessionKey,
-      limit: 1,
-    });
-    const tokens = history?.sessionInfo?.totalTokens;
-    if (!Number.isSafeInteger(tokens) || tokens < 0)
-      throw chatProblem("CHAT_COMPACT_FAILED");
-    this.db
-      .prepare(
-        "INSERT INTO assistant_long_chat_dismissals VALUES(?,?,?,?) ON CONFLICT(conversation_id, person) DO UPDATE SET tokens=excluded.tokens, dismissed_at=excluded.dismissed_at",
-      )
-      .run(
-        conversationId,
-        personOf(conversation),
-        tokens,
-        new Date(service.now?.() ?? Date.now()).toISOString(),
+    let history;
+    try {
+      history = await service.runtime.client.call("chat.history", {
+        sessionKey: conversation.runtimeSessionKey,
+        limit: 1,
+      });
+    } catch (error) {
+      if (!error?.answered) throw assistantProblem("unavailable", 503);
+      console.warn(
+        `Hiding the long-chat hint of chat ${conversationId} failed: ${error.code}`,
       );
-    service.changed({ conversationId });
-    return { dismissed: true };
+      throw chatProblem("CHAT_HINT_FAILED");
+    }
+    const tokens = history?.sessionInfo?.totalTokens;
+    if (!Number.isSafeInteger(tokens) || tokens < 0) return { dismissed: false };
+    return service.admit(() => {
+      const current = service.store.getConversation(conversationId);
+      refuseClosedChat(service, current);
+      this.db
+        .prepare(
+          "INSERT INTO assistant_long_chat_dismissals VALUES(?,?,?,?) ON CONFLICT(conversation_id, person) DO UPDATE SET tokens=excluded.tokens, dismissed_at=excluded.dismissed_at",
+        )
+        .run(
+          conversationId,
+          personOf(current),
+          tokens,
+          new Date(service.now?.() ?? Date.now()).toISOString(),
+        );
+      service.changed({ conversationId });
+      return { dismissed: true };
+    });
   }
   /** A deleted chat's hidden hints go with it (chat-removal.js). */
   forget(conversationId) {

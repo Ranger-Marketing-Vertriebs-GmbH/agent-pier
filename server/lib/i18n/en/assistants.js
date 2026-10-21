@@ -320,6 +320,7 @@ export const assistants = {
   chatCompactNothing:
     "The history cannot be summarised any further right now. Start a new chat for a new topic.",
   chatCompactFailed: "The history could not be summarised. Try again later.",
+  chatHintFailed: "The hint could not be hidden right now. Try again later.",
   queuedArchived: "This agent is archived and takes no more messages.",
   active: "A request is still running. Wait for its result or stop it first.",
   disabled: "Agents are turned off. Turn them on under Settings › Agents.",
