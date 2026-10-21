@@ -3298,10 +3298,14 @@ AgentPier's side:
   a message waits or team work reports into it (409 `CHAT_BUSY`, also when the Gateway
   answers `has an active run` or `has queued work`). OpenClaw's `compacted: false`
   (for example `reason: "Already compacted"`) is 409 `CHAT_COMPACT_NOTHING`; any other
-  Gateway refusal and a timeout after ten minutes are 502 `CHAT_COMPACT_FAILED`; a
-  Gateway that went away is 503. A request while one runs joins it, so a double click
+  Gateway refusal and a timeout after ten minutes are 502 `CHAT_COMPACT_FAILED` and
+  are logged with the chat id, the Gateway code and its error class only (never its
+  text, which may name host paths); a Gateway that went away is 503. A request while one runs joins it, so a double click
   compacts once. While it runs, the chat counts as busy (`busyChats`): a send answers
-  409 `active` and the composer queues instead, archive and delete answer `CHAT_BUSY`,
+  409 `active` and the composer queues instead (queued dispatch skips the chat without
+  a retry backoff, and the compaction's end sends the message at once), archive and
+  delete answer `CHAT_BUSY`, maintenance, backups and runtime updates see
+  `ASSISTANT_WORK`, the logout of the agent's model account answers 409 `active`,
   and the history carries `compacting: true`, so the chat shows the compaction status
   without a turn. OpenClaw 2026.10.3 sends no event for it to an unsubscribed client
   (`session.operation` and `sessions.changed` go to session subscribers only), so the
@@ -3312,9 +3316,14 @@ AgentPier's side:
   (that runs only before a turn, `agent-runner-memory`), so it writes no memory and
   the flush write guard is not involved. `POST …/long-chat-dismissal` (same routes and
   refusals) reads the session's current `totalTokens` and stores it per person and
-  chat (`assistant_long_chat_dismissals`; a deleted chat forgets it); the hint stays
-  hidden until the context reaches that size plus half of it or plus 50,000 tokens,
-  whichever is smaller (`reappearsAt`). Verified live on the pinned runtime with a
+  chat under admission, after checking again that the chat still takes turns
+  (`assistant_long_chat_dismissals`, private in backups; a deleted chat forgets it). A
+  session without a size stores nothing and answers `{dismissed: false}`; a Gateway
+  refusal of the read is 502 `CHAT_HINT_FAILED`, a Gateway that went away 503. The
+  hint stays hidden until the context reaches that size plus half of it or plus
+  50,000 tokens, whichever is smaller (`reappearsAt`). A successful summary forgets
+  the hidden hint, and so does a context read smaller than the hidden size (OpenClaw
+  summarised it on its own): a chat that grows long again shows the hint. Verified live on the pinned runtime with a
   real local model: refusal during a run, a 109 s compaction (21,277 → 15,512 tokens)
   with one summary model call and no flush, the marker, `Already compacted` on a
   second call and an intact follow-up turn.

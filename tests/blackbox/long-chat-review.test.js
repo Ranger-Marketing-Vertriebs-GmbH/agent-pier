@@ -192,3 +192,24 @@ test("a summary on request blocks maintenance and the model account's logout", a
   await json(await summarised, 200);
   assert.deepEqual(await maintenance.blockers(), []);
 });
+
+test("a failed summary is logged with its code and error class, never the Gateway's text", async (t) => {
+  const { f, gateway, chat } = await fixture(t);
+  const warn = t.mock.method(console, "warn", () => {});
+  gateway.compact = async () => {
+    throw Object.assign(Error("x"), {
+      code: "UNAVAILABLE",
+      answered: true,
+      remoteError: "ModelError",
+      remoteMessage: "/Users/someone/secret path",
+    });
+  };
+  const response = await f.request(`${chat}/compact`, { method: "POST" });
+  assert.equal(response.status, 502);
+  const lines = warn.mock.calls.map((c) => c.arguments.join(" "));
+  assert.ok(
+    lines.some((l) => /failed: UNAVAILABLE \(ModelError\)/.test(l)),
+    lines.join("\n"),
+  );
+  assert.ok(!lines.some((l) => l.includes("secret path")));
+});
