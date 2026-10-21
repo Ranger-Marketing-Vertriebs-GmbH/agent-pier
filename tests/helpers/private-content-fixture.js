@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
 import { RunStore } from "../../server/features/pipelines/run-store.js";
+import { dismissalTable } from "../../server/features/assistants/long-chats.js";
 
 // Private content beside the histories (AGENTPIER-110): agent chats, channel
 // messages, workspaces and attachments, pipeline history and unpinned artifacts.
@@ -102,6 +103,11 @@ export function privateContentFixture(t) {
   store.db
     .prepare("INSERT INTO messages VALUES (?,?)")
     .run("c1", JSON.stringify([{ text: marker }]));
+  // A hidden long-chat hint is per chat and person, not configuration.
+  store.db.exec(dismissalTable);
+  store.db
+    .prepare("INSERT INTO assistant_long_chat_dismissals VALUES (?,?,?,?)")
+    .run("c1", "owner", 150000, "2026-10-21T10:00:00.000Z");
   store.close();
   writeAssistantFeature(dataDir, { enabled: true });
   const channels = new DatabaseSync(path.join(assistants, "channels.sqlite"));

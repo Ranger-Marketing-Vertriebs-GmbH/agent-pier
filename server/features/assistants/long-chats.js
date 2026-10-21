@@ -18,6 +18,10 @@ export const dismissedGrowthTokens = 50000;
 export const reappearsAt = (tokens) =>
   tokens + Math.min(Math.round(tokens / 2), dismissedGrowthTokens);
 
+/** The table of hidden hints, per chat and person (private: operations/private-tables.js). */
+export const dismissalTable =
+  "CREATE TABLE IF NOT EXISTS assistant_long_chat_dismissals (conversation_id TEXT NOT NULL, person TEXT NOT NULL, tokens INTEGER NOT NULL, dismissed_at TEXT NOT NULL, PRIMARY KEY(conversation_id, person))";
+
 // Whose chat it is: a user's own, or the owner's.
 const personOf = (conversation) =>
   typeof conversation.userId === "string" ? conversation.userId : "owner";
@@ -37,9 +41,7 @@ export class LongChats {
     this.service = service;
     this.running = new Map();
     this.db = service.store.db;
-    this.db.exec(
-      "CREATE TABLE IF NOT EXISTS assistant_long_chat_dismissals (conversation_id TEXT NOT NULL, person TEXT NOT NULL, tokens INTEGER NOT NULL, dismissed_at TEXT NOT NULL, PRIMARY KEY(conversation_id, person))",
-    );
+    this.db.exec(dismissalTable);
   }
   /** Whether the chat's history is being summarised on request now. */
   compacting(conversationId) {
