@@ -175,16 +175,21 @@ test("a rename while the model answers wins", async (t) => {
 });
 
 test("a failed, empty or rambling answer keeps the first-message title", async (t) => {
-  for (const answer of [
+  const failures = [
+    // As gateway-client.js rejects the plugin's failure.
     async () => {
-      throw Object.assign(Error("Assistant Gateway unavailable"), { code: "TIMEOUT" });
+      throw Object.assign(Error("Assistant Gateway unavailable"), {
+        code: "UNAVAILABLE",
+        remoteCode: "LLM_COMPLETION_TIMEOUT",
+      });
     },
     async () => ({ title: "" }),
     async () => ({
       title: "Okay, the user wants to plan a trip and I should think first",
     }),
     async () => ({}),
-  ]) {
+  ];
+  for (const answer of failures) {
     const { f, gateway } = await chatFixture(t);
     const asked = titles(gateway, answer);
     const warnings = [];
@@ -202,6 +207,15 @@ test("a failed, empty or rambling answer keeps the first-message title", async (
     const logged = warnings.filter((w) => String(w).includes(chat.id));
     assert.equal(logged.length, 1);
     assert.doesNotMatch(logged[0], /Lisbon|secret|Okay/);
+    // The plugin's own code, not the transport's.
+    if (warnings.length && answer === failures[0])
+      assert.match(logged[0], /\(LLM_COMPLETION_TIMEOUT\)/);
+    // Asked once: a failure is not retried on later turns.
+    assert.equal(stored.titleTried, true);
+    await send(f.request, chat.id, "And Porto?");
+    await reply(f, gateway, chat.id, "Porto is lovely too.");
+    await settle();
+    assert.equal(asked.length, 1);
     t.mock.restoreAll();
   }
 });
@@ -266,4 +280,54 @@ test("a user's chat is named on her agent's model and stays hers", async (t) => 
   // The owner's lists never show it without her opt-in.
   const owner = await (await f.request("/api/assistants")).text();
   assert.doesNotMatch(owner, /garden/);
+});
+
+test("a chat whose first turn had no reply is never asked later", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const asked = titles(gateway);
+  const agent = await ownerAgent(f);
+  const chat = await newChat(f.request, agent.id);
+  await send(f.request, chat.id, "Plan the trip to Lisbon");
+  await reply(f, gateway, chat.id, null);
+  await settle();
+  // Decided once: later turns neither ask nor look for the first turn again.
+  assert.equal(
+    f.application.assistants.store.storedConversation(chat.id).titleTried,
+    true,
+  );
+  await send(f.request, chat.id, "Hello?");
+  await reply(f, gateway, chat.id, "Sorry, here I am.");
+  await settle();
+  assert.deepEqual(asked, []);
+});
+
+test("a failure while naming a chat is logged, never an unhandled rejection", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  titles(gateway);
+  const unhandled = [];
+  const onUnhandled = (reason) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  t.after(() => process.off("unhandledRejection", onUnhandled));
+  const warnings = [];
+  t.mock.method(console, "warn", (line) => warnings.push(String(line)));
+  const agent = await ownerAgent(f);
+  const chat = await newChat(f.request, agent.id);
+  const store = f.application.assistants.store;
+  const update = store.updateConversation.bind(store);
+  // The generated title's write fails, as a locked database would.
+  t.mock.method(store, "updateConversation", (id, fields) => {
+    if (fields.titleSource === "generated")
+      throw Object.assign(Error("database is locked"), { code: "ERR_SQLITE_ERROR" });
+    return update(id, fields);
+  });
+  await send(f.request, chat.id, "Plan the trip to Lisbon");
+  await reply(f, gateway, chat.id, "Gladly.");
+  await settle();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(unhandled, []);
+  const logged = warnings.filter((w) => w.includes(chat.id));
+  assert.deepEqual(logged, [
+    `Agent chat ${chat.id} kept its first-message title (ERR_SQLITE_ERROR).`,
+  ]);
+  assert.equal(store.storedConversation(chat.id).title, "Plan the trip to Lisbon");
 });
