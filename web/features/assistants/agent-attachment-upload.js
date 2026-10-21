@@ -1,6 +1,7 @@
 import { serverMessagesReady, serverProblemText } from "../../lib/server-messages.js";
 import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assistant-attachments.js";
 import { uploadVideo } from "./agent-video-upload.js";
+import { ownerAgentPaths } from "./agent-paths.js";
 
 // The server checks every upload again by its bytes; these mirror its limits so the
 // owner learns about a wrong file before it is sent.
@@ -116,11 +117,18 @@ export async function replyError(result) {
 }
 
 /** Uploads one file as raw bytes; resolves with the server's public record. */
-export async function uploadAttachment(conversationId, file, signal, progress) {
-  if (isVideo(file)) return uploadVideo(conversationId, file, signal, progress);
+export async function uploadAttachment(
+  conversationId,
+  file,
+  signal,
+  progress,
+  paths = ownerAgentPaths,
+) {
+  if (isVideo(file) && paths.videoUploads)
+    return uploadVideo(conversationId, file, signal, progress);
   const { status, result } = await sendBytes(
     "POST",
-    `/api/assistant-conversations/${encodeURIComponent(conversationId)}/attachments?name=${encodeURIComponent(file.name)}`,
+    `/api${paths.conversation(conversationId)}/attachments?name=${encodeURIComponent(file.name)}`,
     file,
     signal,
     (loaded) => progress(Math.round((loaded / Math.max(1, file.size)) * 100)),

@@ -3,6 +3,7 @@ import Icon from "../../components/Icon.jsx";
 import ImageViewer from "../../components/ImageViewer.jsx";
 import FileLink from "../../components/FileLink.jsx";
 import "./agent-attachments.css";
+import { useAgentPaths } from "./agent-paths.js";
 import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assistant-attachments.js";
 import { formatNumber } from "../../lib/i18n/index.js";
 
@@ -16,15 +17,17 @@ export function fileSize(bytes) {
   return `${formatNumber(value, { maximumFractionDigits: 1 })} ${megabytes ? "MB" : "KB"}`;
 }
 
-const source = (id) => `/api/assistant-attachments/${encodeURIComponent(id)}`;
-// The whole file as a download (Content-Disposition: attachment), never a range of
-// it, also for media the players stream inline.
-export const downloadSource = (id) => `${source(id)}?download=1`;
+// Served through the signed-in route of the owner or of the user whose app shows it.
+const useSource = () => {
+  const paths = useAgentPaths();
+  return (id) => `/api${paths.attachment(id)}`;
+};
 
 // The name, its details and an explicit download button under a player or in a
 // chip. FileLink keeps a home-screen app (iOS) in place: the share sheet instead
 // of navigating; native iOS players offer no download of their own.
 function FileRow({ file, details }) {
+  const source = useSource();
   return (
     <div className="agent-attachment-row">
       <span className="agent-attachment-text">
@@ -33,7 +36,9 @@ function FileRow({ file, details }) {
       </span>
       <FileLink
         className="icon-button agent-attachment-download"
-        href={downloadSource(file.id)}
+        // The whole file as a download (Content-Disposition: attachment), never a
+        // range of it, also for media the players stream inline.
+        href={`${source(file.id)}?download=1`}
         name={file.name}
         aria-label={copy.download(file.name)}
         title={copy.download(file.name)}
@@ -58,6 +63,7 @@ export function videoDuration(seconds) {
 // extracted on the server; the media fragment makes Safari, which preloads no frame
 // on its own, show the first one.
 function VideoAttachment({ file }) {
+  const source = useSource();
   const details = [videoDuration(file.video?.duration), fileSize(file.size)]
     .filter(Boolean)
     .join(" · ");
@@ -76,6 +82,7 @@ function VideoAttachment({ file }) {
 }
 // Audio an agent shared plays inline with the browser's own controls.
 function AudioAttachment({ file }) {
+  const source = useSource();
   return (
     <li className="agent-message-audio">
       <audio
@@ -113,6 +120,7 @@ function UnavailableAttachment({ file }) {
 // (iOS) has no way back. All are served through the signed-in route by id.
 export default function AgentMessageAttachments({ files, shared = false }) {
   const [open, setOpen] = useState(null);
+  const source = useSource();
   if (!files?.length) return null;
   return (
     <>

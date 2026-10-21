@@ -13,18 +13,19 @@ const settled = new Set(["completed", "failed", "cancelled"]);
  * page becomes visible or the device comes back online, and falls back to a few HTTP
  * reads (`?cursor=`) while it cannot connect. `refresh()` reads once over HTTP when
  * no socket delivers, so a sent message shows even then. `onReachable(false)` reports
- * a read that failed for want of a connection.
+ * a read that failed for want of a connection. `feed(id, cursor, signal)` replaces the
+ * owner's HTTP read: a user's app reads her chat through /api/me (user-api.js).
  */
 export default function useAgentConversationStream(
   conversationId,
-  { initial, onLive, onReachable },
+  { initial, onLive, onReachable, feed = assistantApi.feed },
 ) {
   const [stream, setStream] = useState(null);
   const [connection, setConnection] = useState("disconnected");
   const [error, setError] = useState("");
   const control = useRef(null);
-  const callbacks = useRef({ onLive, onReachable });
-  callbacks.current = { onLive, onReachable };
+  const callbacks = useRef({ onLive, onReachable, feed });
+  callbacks.current = { onLive, onReachable, feed };
   const seed = useRef(initial);
   useEffect(() => {
     const runs = new Map();
@@ -34,7 +35,7 @@ export default function useAgentConversationStream(
       url: `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/assistant-conversations/${encodeURIComponent(conversationId)}/stream`,
       read: async (signal, cursor) => {
         try {
-          const value = await assistantApi.feed(conversationId, cursor, signal);
+          const value = await callbacks.current.feed(conversationId, cursor, signal);
           callbacks.current.onReachable?.(true);
           return value;
         } catch (e) {
