@@ -9,8 +9,9 @@ import { userApi } from "./user-api.js";
 /**
  * Her agent's browser, live: she watches and takes over her own agent's browser, and
  * a shared agent's only while one of her chats drives it (user-scope.js). Otherwise
- * it says so; the server refuses the stream to anyone else. The owner may watch a
- * shared agent's browser, and her own agent's under her opt-in; the view says so.
+ * it says so; the server refuses the stream to anyone else. The owner may watch her
+ * own agent's browser under her opt-in, and the view says so; a shared agent's he
+ * never watches while her chat drives it (ownerMayWatchBrowser), so only she sees it.
  */
 export default function UserBrowserPage({ agent, navigate, ownerMayRead }) {
   const [status, setStatus] = useState(null);
@@ -44,7 +45,7 @@ export default function UserBrowserPage({ agent, navigate, ownerMayRead }) {
         <AgentBrowserView
           assistant={agent}
           privacyNote={
-            agent.shared || ownerMayRead?.enabled ? copy.browserOwnerWatches : undefined
+            !agent.shared && ownerMayRead?.enabled ? copy.browserOwnerWatches : undefined
           }
         />
       ) : (

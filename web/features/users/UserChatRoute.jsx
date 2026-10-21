@@ -74,6 +74,11 @@ export default function UserChatRoute({
         subscribe={subscribe}
         ownerMayRead={ownerMayRead}
         readOnly={Boolean(archived)}
+        onCreated={async (id) => {
+          // The list knows the new chat first, so its page finds it.
+          await chats.reload();
+          go({ id });
+        }}
         banner={
           archived ? (
             <ArchivedChatBanner onRestore={() => chats.restore(archived)} />

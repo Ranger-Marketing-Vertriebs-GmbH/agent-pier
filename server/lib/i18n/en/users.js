@@ -9,6 +9,8 @@ export const users = Object.freeze({
   agentOwnFixed: "An own agent stays with its user. Create a new agent for anyone else.",
   level: "Your level for this agent does not allow this.",
   agentsChoice: "Choose whether the user's own agents are archived or kept.",
+  agentsKeepPrivate:
+    "Their own agents hold their private memory, files and browser. Keep them only while you may read their chats, otherwise archive them.",
   agentsOff:
     "Turn on agents before you delete this user. Only then can their agents and chats be cleaned up with them.",
 });

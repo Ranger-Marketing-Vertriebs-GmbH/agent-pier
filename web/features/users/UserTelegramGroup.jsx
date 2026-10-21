@@ -75,7 +75,7 @@ export default function UserTelegramGroup({ agentId, subscribe }) {
     });
   return (
     <>
-      <GroupLabel id="user-telegram" hint={channelCopy.description}>
+      <GroupLabel id="user-telegram" hint={copy.telegramHint}>
         {channelCopy.title}
       </GroupLabel>
       <ErrorMessage error={error} />

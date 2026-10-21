@@ -162,6 +162,69 @@ export function classifyWrite(params, { roots = [], agentId } = {}) {
     }
   return { path: targets[0] };
 }
+// File tools whose paths may name the agent's attachments/ folder, and their path
+// parameters. On a shared agent a turn uses only its own chat's uploads there
+// (attachment-access.js); every call naming the folder asks the bridge.
+export const attachmentTools = [
+  "read",
+  "memory_get",
+  "pdf",
+  "image",
+  "image_generate",
+  ...writeTools,
+];
+const pathKeys = ["path", "file_path", "filePath", "pdf", "pdfs", "image", "images"];
+const attachmentsFolder = /(^|\/)attachments(\/|$)/;
+/**
+ * The stored names a call names in the calling agent's attachments/ folder (""
+ * for the folder itself, or for a path into it that cannot be resolved here).
+ */
+export function attachmentTargets(toolName, params, { roots = [], agentId } = {}) {
+  const ownId = workspaceId(agentId);
+  const values = writeTools.includes(toolName)
+    ? writeTargets(toolName, params).flatMap((p) => [p?.path, p?.file_path, p?.filePath])
+    : pathKeys.flatMap((key) =>
+        Array.isArray(params?.[key]) ? params[key] : [params?.[key]],
+      );
+  const files = new Set();
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    for (const form of repairs(value)) {
+      const relative = relativeTarget(form, roots, ownId);
+      if (relative) {
+        const [first, ...rest] = relative.split("/");
+        if (fold(first) === "attachments") files.add(rest.join("/"));
+      } else if (attachmentsFolder.test(fold(form.replaceAll("\\", "/")))) files.add("");
+    }
+  }
+  return [...files];
+}
+export const attachmentRefusal =
+  "Files in attachments/ belong to the chat they were sent in. Use only the files sent in this chat.";
+/** Lets a file tool call into attachments/ through only as the bridge allows. */
+export async function attachmentCall(event, ctx, bridge, roots) {
+  let files;
+  try {
+    files = attachmentTargets(event?.toolName, event?.params, {
+      roots,
+      agentId: ctx?.agentId,
+    });
+  } catch {
+    files = [""];
+  }
+  if (!files.length) return undefined;
+  const response =
+    typeof ctx?.sessionKey === "string"
+      ? await bridge(
+          "/attachment-policy",
+          { agentId: ctx?.agentId, sessionKey: ctx.sessionKey, files },
+          ctx?.abortSignal,
+        ).catch(() => null)
+      : null;
+  const policy = response?.ok ? await response.json().catch(() => null) : null;
+  if (policy?.allow === true) return undefined;
+  return { block: true, blockReason: attachmentRefusal };
+}
 // Why AgentPier refused a browser call (agent-browsers.js policy), for the model.
 export const browserRefusals = {
   unavailable: "The browser is not available right now. Try again later.",
@@ -360,6 +423,10 @@ export function registerToolGuard(api) {
   });
   api.on("before_tool_call", (event, ctx) => imageCall(event, ctx, bridge), {
     matcher: ["image_generate"],
+    priority: 1000,
+  });
+  api.on("before_tool_call", (event, ctx) => attachmentCall(event, ctx, bridge, roots), {
+    matcher: attachmentTools,
     priority: 1000,
   });
   api.on("before_tool_call", (event) => pdfCall(event), {

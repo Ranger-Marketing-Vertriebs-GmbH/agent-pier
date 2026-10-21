@@ -1,5 +1,6 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { MAX_CAPTION_LENGTH, readShareSource, shareRoots } from "./agent-share-source.js";
+import { attachmentFile, attachmentsAllowed } from "./attachment-access.js";
 import { projectTarget } from "./project-paths.js";
 import { routineOrigin } from "./routine-targets.js";
 
@@ -61,6 +62,7 @@ export class AgentShares {
       : await readShareSource(
           shareRoots(a.attachments.config?.workspaces, agent),
           input.path,
+          { admit: (relative) => this.admit(agent, conversation, relative) },
         );
     invocation.assertCurrent();
     const caption = (input.caption || "").trim();
@@ -91,6 +93,15 @@ export class AgentShares {
     const target = projectTarget(root, requested, { protectedRoots });
     if (!target.exists) throw assistantProblem("shareNotFound", 404);
     return readShareSource(shareRoots(null, null, [target.root]), target.relative);
+  }
+  // On a shared agent a turn shares only its own chat's uploads (attachment-access.js).
+  admit(agent, conversation, relative) {
+    const file = attachmentFile(relative);
+    if (
+      file !== null &&
+      !attachmentsAllowed(this.assistants.store, agent, conversation.id, [file])
+    )
+      throw assistantProblem("shareNotFound", 404);
   }
   // The chat, request key and trusted origin of the calling turn.
   turn(invocation) {

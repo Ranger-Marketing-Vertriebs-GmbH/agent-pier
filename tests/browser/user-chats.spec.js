@@ -71,6 +71,22 @@ for (const [language, copy] of Object.entries(languages))
       expect(state.foreign).toEqual([]);
     });
 
+    test("typing /new opens the chat it started", async ({ page }) => {
+      await userAppFixture(page, {
+        language,
+        agents: [family],
+        chats: { family: [userChat({ id: "anna-main", title: "Shopping" })] },
+        messages: { "anna-main": [{ id: "1", role: "assistant", text: "Milk added." }] },
+      });
+      await page.goto(baseURL + "/agents/family/chats/anna-main");
+      await expect(page.getByText("Milk added.")).toBeVisible();
+      await page.getByLabel(copy.message, { exact: true }).fill("/new");
+      await page.getByRole("button", { name: /Senden|Send/ }).click();
+      await expect(page).toHaveURL(/\/agents\/family\/chats\/chat-\d+$/);
+      await expect(page.getByText("Milk added.")).toHaveCount(0);
+      await expect(page.getByText(copy.deleted)).toHaveCount(0);
+    });
+
     test("she starts, archives, restores and deletes her chats", async ({ page }) => {
       const state = await userAppFixture(page, {
         language,

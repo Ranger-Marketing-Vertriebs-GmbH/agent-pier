@@ -658,7 +658,7 @@ Sign out). They never see sessions, pipelines, projects or system settings.
 
 - **Add user** asks for a display name, a username and a first password (12 characters
   or more). A user's page offers **Reset password** (signs out all of their devices),
-  **Sign-in allowed** (off signs them out and ends their reminders and routines),
+  **Sign-in allowed** (off signs them out and removes their reminders, routines and Telegram bots for good),
   **Owner may read chats** (they see it in their app; it applies from now on, never to
   older chats), their agents with a level each (**Chat only**, **Personalize**,
   **Extended**), **Add agent for this person**, **Add to a shared agent** and **Delete
@@ -718,7 +718,7 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
   servers run commands on the host for those users too, so bind them only where you
   would accept that. With **Read and write** such an agent never changes tool
   configuration in the folder (`.claude/`, `.codex/`, `.opencode/`, `opencode.json`,
-  `.vscode/`, `.mcp.json`, `.envrc`, Git hook managers and similar) or the instruction
+  `.vscode/`, `.mcp.json`, `.envrc`, `mise.toml`, Git hook managers and similar) or the instruction
   files your coding CLIs load (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), but it can change any other file, including
   scripts, `package.json` or Makefiles that you or your coding sessions run later.
   Give write access only to folders whose content you do not run unchecked. See

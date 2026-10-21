@@ -11,6 +11,8 @@ export const users = Object.freeze({
   level: "Das erlaubt deine Stufe für diesen Agenten nicht.",
   agentsChoice:
     "Wähle, ob die eigenen Agenten des Benutzers archiviert oder behalten werden.",
+  agentsKeepPrivate:
+    "Ihre eigenen Agenten enthalten ihr privates Gedächtnis, ihre Dateien und ihren Browser. Behalte sie nur, solange du ihre Chats lesen darfst, sonst archiviere sie.",
   agentsOff:
     "Schalte die Agenten ein, bevor du diesen Benutzer löschst. Nur dann lassen sich seine Agenten und Chats mit ihm aufräumen.",
 });

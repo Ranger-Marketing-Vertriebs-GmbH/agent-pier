@@ -83,6 +83,14 @@
 .user-app-hint {
   color: var(--muted);
 }
+/* A memory note she reads (UserMemoryPage.jsx): its text as written. */
+.user-memory-note {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
 .user-app .assistant-detail.assistant-chat {
   flex: 1;
   height: auto;

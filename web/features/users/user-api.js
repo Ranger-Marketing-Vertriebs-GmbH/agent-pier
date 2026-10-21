@@ -41,6 +41,7 @@ export const userApi = {
   saveSettings: (agentId, values, revision) =>
     api(`${agent(agentId)}/settings`, "PATCH", { values, revision }),
   memory: (agentId) => api(`${agent(agentId)}/memory`),
+  readMemory: (agentId, name) => api(`${agent(agentId)}/memory/${id(name)}`),
   removeMemory: (agentId, name) => api(`${agent(agentId)}/memory/${id(name)}`, "DELETE"),
   reminders: (agentId, kind = "reminders") => api(`${agent(agentId)}/${kind}`),
   createReminder: (agentId, input, kind = "reminders") =>

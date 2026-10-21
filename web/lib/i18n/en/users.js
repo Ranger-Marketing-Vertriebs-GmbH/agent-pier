@@ -23,7 +23,8 @@ export const usersCopy = {
   reset: "Reset",
   passwordReset: "Password reset. All of their devices are signed out.",
   active: "Sign-in allowed",
-  activeSub: "Off: they are signed out and their reminders and routines end.",
+  activeSub:
+    "Off: they are signed out, and their reminders, routines and Telegram bots are removed for good.",
   ownerMayRead: "Owner may read chats",
   ownerMayReadSub:
     "They see this in their app. It applies from now on, never to older chats.",
@@ -51,6 +52,10 @@ export const usersCopy = {
   ownAgentsChoice: "Their own agents",
   archiveAgents: "Archive",
   keepAgents: "Keep under my account",
+  keepAgentsReveals:
+    "Kept agents become yours with their memory, files and logged-in browser.",
+  keepAgentsNeedsOptIn:
+    "Their own agents are archived. You can keep them only while you may read their chats, since their memory, files and browser are private.",
   agentsOfUsers: "Agents of users",
   openMyChat: "Open my chat",
   forUser: "For",

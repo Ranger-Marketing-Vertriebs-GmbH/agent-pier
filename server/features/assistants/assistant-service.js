@@ -8,7 +8,7 @@ import { QueuedMessages } from "./queued-messages.js";
 import * as queuedDispatch from "./queued-dispatch.js";
 import { AssistantEvents } from "./assistant-events.js";
 import { conversationHistory, conversationMessage } from "./conversations.js";
-import { reconcileRuns } from "./run-reconciler.js";
+import { reconcileChats } from "./chat-reconcile.js";
 import { acknowledgeAttempt, recoverAttempt } from "./attempt-recovery.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { MemoryFlushes } from "./memory-flushes.js";
@@ -26,11 +26,11 @@ import { followLead } from "./member-follow.js";
 import { assistantActivity } from "./assistant-activity.js";
 import { temporaryMember } from "./team-presentation.js";
 import { ChatStreams } from "./chat-stream.js";
-import { conversationFeeds, reconciledChanges } from "./conversation-feeds.js";
+import { conversationFeeds } from "./conversation-feeds.js";
 import { assistantListFeed } from "./assistant-list-feed.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { openMainConversation } from "./conversation-open.js";
-import { AgentChats, busyChats, chatBusy } from "./agent-chats.js";
+import { AgentChats } from "./agent-chats.js";
 import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import {
@@ -39,7 +39,6 @@ import {
   proactivityChange,
 } from "./proactivity-changes.js";
 
-const sessionRetryMs = 60000;
 const pick = (value, keys) => Object.fromEntries(keys.map((k) => [k, value[k]]));
 export class AssistantService {
   constructor({
@@ -113,7 +112,7 @@ export class AssistantService {
       this.ledger.unresolved().length ||
       [...this.sessionFailures.values()].some((f) => f.retryAt <= now)
     )
-      this.reconcile().catch(() => {});
+      this.reconcile({ full: false }).catch(() => {});
   }
   markOutstandingUnknown() {
     for (const attempt of this.ledger.pending()) {
@@ -524,54 +523,9 @@ export class AssistantService {
   acknowledge(id, input) {
     return acknowledgeAttempt(this, id, input);
   }
-  reconcile() {
-    if (this.reconciling) return this.reconciling;
-    if (!this.runtime.client?.ready || this.closed || this.maintenance)
-      return Promise.resolve();
-    this.reconciling = (async () => {
-      let stale = false;
-      const reads = new Map();
-      const conversations = this.store.listConversations();
-      const busy = conversations.some((c) => c.archivedAt) ? busyChats(this) : null;
-      for (const c of conversations) {
-        // One unavailable session must not stall run reconciliation for the rest.
-        if (this.closed) break;
-        // A deleted user's chat waits only for its native delete (user-release.js).
-        if (c.userReleased) continue;
-        // An archived chat takes no turn: no live read unless work still reports into it.
-        if (c.archivedAt && !chatBusy(this, c.id, busy)) continue;
-        if (this.now() < (this.sessionFailures.get(c.id)?.retryAt ?? -Infinity)) continue;
-        const client = this.runtime.client;
-        try {
-          await client.call("sessions.messages.subscribe", { key: c.runtimeSessionKey });
-          this.sessionFailures.delete(c.id);
-        } catch {
-          // A dropped connection is not a session fault; the reconnect resubscribes.
-          if (this.runtime.client !== client || !client.ready) break;
-          this.sessionFailures.set(c.id, {
-            diagnostic: "SESSION_UNAVAILABLE",
-            retryAt: this.now() + sessionRetryMs,
-          });
-          continue;
-        }
-        const history = await this.history(c.id);
-        reads.set(c.id, history);
-        stale ||= history.stale;
-      }
-      await reconcileRuns(this);
-      if (!this.closed) {
-        this.runtime.setState({ sync: stale ? "stale" : "current" });
-        // The poll reconciles every 2 s during a turn: only the chats whose history
-        // or turns changed read their feed again; the list hears of every pass.
-        for (const id of reconciledChanges(this, reads)) this.feeds.invalidate(id);
-        this.events.publish({ type: "change" });
-      }
-    })().finally(() => {
-      this.reconciling = null;
-      // A turn that ended lets the conversation's queued message go out.
-      queuedDispatch.dispatchQueued(this).catch(() => {});
-    });
-    return this.reconciling;
+  /** Reconciles the chats with the Gateway (chat-reconcile.js). */
+  reconcile(options) {
+    return reconcileChats(this, options);
   }
   async close() {
     this.closed = true;

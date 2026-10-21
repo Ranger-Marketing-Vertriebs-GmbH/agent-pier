@@ -17,6 +17,7 @@ import { isLeadRoutine } from "./lead-routines.js";
 import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
 import { agentPerson } from "./reminder-audience.js";
+import { attachmentsAllowed } from "./attachment-access.js";
 const actions = new Set([
   "propose",
   "status",
@@ -304,6 +305,14 @@ export class TeamBridge {
     const live = this.assistants.liveView;
     const agent = live && this.agentOf(input.agentId);
     if (!agent) return;
+    const { attempt, conversation } = this.callingChat(input);
+    const userId =
+      conversation?.userId ?? (attempt || conversation ? null : agentPerson(agent));
+    live.setDriver(agent.id, userId ?? null, conversation?.id ?? null);
+  }
+  // The chat a call of this session works for: its bound turn's, a routine run's
+  // or the session's own chat.
+  callingChat(input) {
     const store = this.assistants.store;
     const [attempt] = this.bound(input.sessionKey);
     const conversation = attempt
@@ -312,15 +321,38 @@ export class TeamBridge {
         )
       : (this.routineRun(input)?.conversation ??
         store.conversationOfSession(input.sessionKey));
-    const userId =
-      conversation?.userId ?? (attempt || conversation ? null : agentPerson(agent));
-    live.setDriver(agent.id, userId ?? null, conversation?.id ?? null);
+    return { attempt, conversation };
+  }
+  // A file tool call naming attachments/: on a shared agent only the calling chat's
+  // own uploads (attachment-access.js).
+  attachmentPolicy(input) {
+    if (!input || typeof input !== "object" || !Array.isArray(input.files))
+      throw assistantProblem("invalid");
+    for (const k of ["agentId", "sessionKey"]) textValue(input[k], 4096);
+    if (input.files.length > 64) throw assistantProblem("invalid");
+    for (const file of input.files) textValue(file, 4096, true);
+    const agent = this.agentOf(input.agentId);
+    if (this.closed || !agent) return { allow: false };
+    if (this.bound(input.sessionKey).length > 1) return { allow: false };
+    const { conversation } = this.callingChat(input);
+    const own = conversation?.assistantId === agent.id ? conversation.id : null;
+    return {
+      allow: attachmentsAllowed(this.assistants.store, agent, own, input.files),
+    };
   }
   writeAllowed(input) {
     if (flushSessionAgent(input.sessionKey)) return flushWrite(this, input);
     const matches = this.bound(input.sessionKey);
     // A routine's own run session has no attempt: its writes are its own origin.
-    if (!matches.length) return this.routineWrite(input);
+    if (!matches.length) {
+      const allowed = this.routineWrite(input);
+      if (allowed && isShared(this.agentOf(input.agentId)) && isMemory(input.path)) {
+        const conversationId = this.routineRun(input)?.conversation?.id;
+        if (conversationId)
+          this.noteShared(`${input.sessionKey}:shared-write`, conversationId);
+      }
+      return allowed;
+    }
     if (matches.length !== 1) return false;
     const { attempt, parent, origin, current } = this.turn(matches[0], input.agentId);
     // A lead's follow-up on its member's result writes like the lead's own work.
@@ -348,16 +380,21 @@ export class TeamBridge {
             parent.id,
             input.path,
           )));
-    if (allowed && isShared(parent) && isMemory(input.path)) this.noteShared(attempt);
+    if (allowed && isShared(parent) && isMemory(input.path))
+      this.noteShared(
+        `${attempt.id}:shared-write`,
+        this.assistants.ledger.getRequest(attempt.requestId).conversationId,
+      );
     return !!allowed;
   }
   // A saved write to a shared agent's MEMORY.md or memory/ (USER.md is the owner's,
   // tool-guard.js) applies to all its users: the writer's
-  // chat says so once per turn (memory-notes.js "shared-write").
-  noteShared(attempt) {
+  // chat (a routine's: its chat) says so once per turn or run (memory-notes.js
+  // "shared-write").
+  noteShared(key, conversationId) {
     const added = this.assistants.memoryNotes?.record({
-      key: `${attempt.id}:shared-write`,
-      conversationId: this.assistants.ledger.getRequest(attempt.requestId).conversationId,
+      key,
+      conversationId,
       reason: "shared-write",
     });
     if (added) this.assistants.changed?.();
@@ -483,6 +520,7 @@ export class TeamBridge {
           "/tool-policy",
           "/browser-policy",
           "/image-policy",
+          "/attachment-policy",
           "/guard",
         ].includes(req.url)
       )
@@ -515,9 +553,11 @@ export class TeamBridge {
             ? this.browserPolicy(input)
             : req.url === "/image-policy"
               ? this.imagePolicy(input)
-              : req.url === "/guard"
-                ? this.registerGuard(input)
-                : this.invoke(input));
+              : req.url === "/attachment-policy"
+                ? this.attachmentPolicy(input)
+                : req.url === "/guard"
+                  ? this.registerGuard(input)
+                  : this.invoke(input));
       if (req.url === "/invoke") invocation = this.tickets.get(input.ticket)?.invocation;
       if (lost) invocation?.undelivered?.();
       res.writeHead(200, {

@@ -157,3 +157,33 @@ test("a routine run's flush writes like the routine itself", async (t) => {
   f.report("other-run", "memory_flushing", `agent:${f.agentId}:cron:job-2:run:r1`);
   assert.equal(await f.flush(today, { run: runB }), false, "not a routine's run");
 });
+
+test("a routine run's flush on a shared agent never reaches the shared memory", async (t) => {
+  const f = await flushFixture(t);
+  const agent = f.store.getAssistant(f.id);
+  f.store.updateAssistant(
+    f.id,
+    { capabilities: { memory: true, reminders: true } },
+    agent.revision,
+  );
+  // A user's routine runs against her private chat: its summary stays out of the
+  // memory every user of the shared agent reads.
+  const body = {
+    ...f.store.storedAssistant(f.id),
+    userAccess: {
+      mode: "shared",
+      members: [
+        { userId: "anna", level: "personalize" },
+        { userId: "ben", level: "chat" },
+      ],
+      released: [],
+    },
+  };
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify(body), f.id);
+  const routineKey = `agent:${f.agentId}:cron:job-1:run:r1`;
+  f.assistants.routines = { runOrigin: (_a, key) => key === routineKey };
+  f.report("routine-run", "memory_flushing", routineKey);
+  assert.equal(await f.flush(today), false);
+});

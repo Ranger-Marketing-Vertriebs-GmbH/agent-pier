@@ -352,3 +352,26 @@ test("nothing is copied while AgentPier is in maintenance", async (t) => {
   await f.service.generatedImages.observe(f.chat);
   assert.equal(f.calls.length, 1);
 });
+
+test("a run ending in a released user's chat copies no image back", async (t) => {
+  const f = await setup(t);
+  const attempt = await f.turn(f.chat, "draw-released");
+  f.setHistory(imageTurn(attempt.id, Date.now() - 5000));
+  const ended = () =>
+    f.service.runtime.client.emit("event", {
+      event: "chat",
+      payload: {
+        sessionKey: f.chat.runtimeSessionKey,
+        runId: attempt.id,
+        state: "final",
+      },
+    });
+  // Her files went with her (user-release.js): the run's end brings none back.
+  f.store.updateConversation(f.chat.id, { userReleased: true });
+  ended();
+  await delay(50);
+  assert.equal(f.calls.length, 0);
+  f.store.updateConversation(f.chat.id, { userReleased: false });
+  ended();
+  await until(() => f.calls.length === 1);
+});

@@ -111,14 +111,20 @@ for (const [language, copy] of Object.entries(languages))
       await expect(page.getByText(copy.onlyYou, { exact: true })).toHaveCount(0);
     });
 
-    test("a shared agent's view says the owner may watch it", async ({ page }) => {
-      await userAppFixture(page, {
+    test("a shared agent's view is hers alone while her chat drives it", async ({
+      page,
+    }) => {
+      // The owner is shut out while a user's turn drives a shared agent's browser,
+      // whatever the opt-in (user-scope.js ownerMayWatchBrowser).
+      const state = await userAppFixture(page, {
         language,
         agents: [family],
         browser: { family: { running: true, watchable: true } },
       });
+      state.ownerMayRead = { enabled: true, since: "2026-10-20T08:00:00.000Z" };
       await stream(page);
       await page.goto(baseURL + "/agents/family/browser");
-      await expect(page.getByText(copy.ownerWatches, { exact: true })).toBeVisible();
+      await expect(page.getByText(copy.onlyYou, { exact: true })).toBeVisible();
+      await expect(page.getByText(copy.ownerWatches, { exact: true })).toHaveCount(0);
     });
   });

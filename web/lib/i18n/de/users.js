@@ -23,7 +23,8 @@ export const usersCopy = {
   reset: "Zurücksetzen",
   passwordReset: "Passwort zurückgesetzt. Alle Geräte der Person sind abgemeldet.",
   active: "Anmelden erlaubt",
-  activeSub: "Aus: Die Person ist abgemeldet, Erinnerungen und Routinen enden.",
+  activeSub:
+    "Aus: Die Person ist abgemeldet, ihre Erinnerungen, Routinen und Telegram-Bots werden endgültig entfernt.",
   ownerMayRead: "Besitzer darf Chats lesen",
   ownerMayReadSub:
     "Die Person sieht das in ihrer App. Es gilt ab jetzt, nie für ältere Chats.",
@@ -51,6 +52,10 @@ export const usersCopy = {
   ownAgentsChoice: "Ihre eigenen Agenten",
   archiveAgents: "Archivieren",
   keepAgents: "Unter meinem Konto behalten",
+  keepAgentsReveals:
+    "Behaltene Agenten werden deine, mit ihrem Gedächtnis, ihren Dateien und dem angemeldeten Browser.",
+  keepAgentsNeedsOptIn:
+    "Ihre eigenen Agenten werden archiviert. Behalten kannst du sie nur, solange du ihre Chats lesen darfst, denn ihr Gedächtnis, ihre Dateien und ihr Browser sind privat.",
   agentsOfUsers: "Agenten von Benutzern",
   openMyChat: "Meinen Chat öffnen",
   forUser: "Für",

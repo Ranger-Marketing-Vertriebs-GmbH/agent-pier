@@ -6,10 +6,12 @@ import { ownerUsersApi } from "./owner-users-api.js";
 
 /**
  * Deleting a user: she can no longer sign in, her private chats go unless the owner
- * may read them, and her own agents are archived or kept under the owner's account.
+ * may read them, and her own agents are archived or, only under that opt-in, kept
+ * under the owner's account: they hold her memory, files and browser.
  */
 export default function DeleteUserSheet({ user, ownsAgents, onDeleted, onCancel }) {
   const [agents, setAgents] = useState("archive");
+  const mayKeep = user.ownerMayRead?.enabled === true;
   return (
     <ConfirmDialog
       title={copy.deleteTitle(user.displayName)}
@@ -18,12 +20,18 @@ export default function DeleteUserSheet({ user, ownsAgents, onDeleted, onCancel 
       destructive
       onCancel={onCancel}
       onConfirm={async () => {
-        await ownerUsersApi.remove(user.id, ownsAgents ? agents : undefined);
+        await ownerUsersApi.remove(
+          user.id,
+          ownsAgents ? (mayKeep ? agents : "archive") : undefined,
+        );
         onDeleted();
       }}
     >
       {ownsAgents && <p className="user-delete-choice">{copy.ownAgentsChoice}</p>}
-      {ownsAgents && (
+      {ownsAgents && !mayKeep && (
+        <p className="users-hint">{copy.keepAgentsNeedsOptIn}</p>
+      )}
+      {ownsAgents && mayKeep && (
         <Segmented
           label={copy.ownAgentsChoice}
           value={agents}
@@ -33,6 +41,9 @@ export default function DeleteUserSheet({ user, ownsAgents, onDeleted, onCancel 
             { value: "keep", label: copy.keepAgents },
           ]}
         />
+      )}
+      {ownsAgents && mayKeep && agents === "keep" && (
+        <p className="users-hint">{copy.keepAgentsReveals}</p>
       )}
     </ConfirmDialog>
   );

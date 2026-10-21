@@ -53,6 +53,8 @@ export const userAppCopy = Object.freeze({
   deleteNoteBody: "Your agent forgets what it says.",
   deleteNoteConfirm: "Delete now",
   telegramConnected: (name) => `Connected to @${name}`,
+  telegramHint:
+    "Use your main chat with this agent from your private Telegram conversation. Replies to Telegram messages return to Telegram.",
   browser: "Browser",
   browserSub: "Live view of your agent's browser",
   save: "Save",
