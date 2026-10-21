@@ -45,6 +45,7 @@ for (const [language, copy] of [
       password: "Passwort",
       empty: "Deine Agenten erscheinen hier.",
       logout: "Abmelden",
+      menu: "Menü",
       forbidden: ["Sessions", "Einstellungen", "Projekte"],
     },
   ],
@@ -56,6 +57,7 @@ for (const [language, copy] of [
       password: "Password",
       empty: "Your agents will appear here.",
       logout: "Sign out",
+      menu: "Menu",
       forbidden: ["Sessions", "Settings", "Projects"],
     },
   ],
@@ -95,6 +97,7 @@ for (const [language, copy] of [
         document.documentElement.style.setProperty("--safe-area-inset-top", "47px"),
       );
       await expect(page.locator(".user-app")).toHaveCSS("padding-top", "47px");
+      await page.getByRole("button", { name: copy.menu, exact: true }).click();
       await page.getByRole("button", { name: copy.logout, exact: true }).click();
       await expect(
         page.getByRole("heading", { name: copy.title, exact: true }),
