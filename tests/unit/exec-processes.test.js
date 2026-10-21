@@ -330,21 +330,24 @@ test("the process tool's report of a finished process ends it", (t) => {
   assert.equal(live("calm-shore"), false);
 });
 
-test("a known timeout bounds a process; its prefix is refused for one more window", (t) => {
+test("a known timeout bounds a process; it stays a candidate for one more window", (t) => {
   const g = gateway(t);
   const tick = clock(t);
   g.background("s", "r1", "calm-shore", { timeoutSeconds: 60 });
   g.background("s", "r1", "tidy-ember", { timeoutSeconds: 0 });
   tick(60000 + execBounds.marginMs + 1);
   g.proof("s", "none");
-  g.complete("s", "w1", ["calm-sho"]);
   assert.equal(live("calm-shore"), false, "past its bound");
   assert.ok(live("tidy-ember"), "timeout 0: no bound");
-  assert.equal(g.proof("s", "w1").complete, false, "its prefix is still refused");
-  tick(execBounds.dropAfterMs);
+  // Its late completion is still judged against the run that started it.
   g.background("s", "r2", "calm-shoal");
-  g.complete("s", "w2", ["calm-sho"]);
-  assert.equal(g.proof("s", "w2").complete, true, "a window later: a new process");
+  g.complete("s", "w1", ["calm-sho"]);
+  assert.deepEqual(g.proof("s", "w1").processes, [
+    { id: "calm-shoal", runId: "r2" },
+    { id: "calm-sho", runId: "r1" },
+  ]);
+  tick(execBounds.dropAfterMs);
+  assert.deepEqual(g.proof("s", "w1").processes, [{ id: "calm-shoal", runId: "r2" }]);
 });
 
 test("a blocked exec call never stays open", (t) => {
@@ -358,4 +361,62 @@ test("a blocked exec call never stays open", (t) => {
   };
   g.exec("s", "r1", blocked);
   assert.equal(g.proof("s", "w1").complete, true);
+});
+
+test("a completion delivered after the process tool showed its end ends no other process", (t) => {
+  const g = gateway(t);
+  const tick = clock(t);
+  const log = (id) =>
+    g.emit(
+      "after_tool_call",
+      {
+        toolName: "process",
+        result: { details: { status: "completed", sessionId: id } },
+      },
+      { sessionKey: "s", runId: "rx", toolCallId: `log-${id}` },
+    );
+  // A (run rA) ends; `process log` shows it before its completion is delivered.
+  g.background("s", "rA", "oceanic-reef");
+  log("oceanic-reef");
+  // A foreign B with the same prefix starts; A's completion arrives, twice.
+  g.background("s", "rB", "oceanic-cove");
+  g.complete("s", "w1", ["oceanic-"]);
+  g.complete("s", "w2", ["oceanic-"]);
+  const b = () =>
+    execRecord()
+      .sessions.get("s")
+      .processes.find((p) => p.id === "oceanic-cove");
+  assert.equal(b().endedAt, undefined, "B is not taken for A");
+  // Hours later A is gone; B still runs, and stays a candidate.
+  tick(execBounds.dropAfterMs + 1);
+  g.proof("s", "none");
+  assert.ok(b());
+  // The owner's C with that prefix: B's completion names both runs.
+  g.background("s", "rC", "oceanic-pine");
+  g.complete("s", "w3", ["oceanic-"]);
+  assert.deepEqual(
+    g
+      .proof("s", "w3")
+      .processes.map((p) => p.runId)
+      .sort(),
+    ["rA", "rB", "rC"],
+  );
+  // A dropped prefix keeps ending ambiguous: B is not ended by that completion.
+  assert.equal(b().endedAt, undefined);
+});
+
+test("a session with nothing left is removed and never pushes out a live one", (t) => {
+  const g = gateway(t, { bounds: { maxSessions: 2 } });
+  const tick = clock(t);
+  g.background("live", "r1", "brisk-orbit");
+  // Cron-like sessions: each ran a command that ended long ago.
+  for (const s of ["cron-1", "cron-2", "cron-3"]) {
+    g.background(s, `r-${s}`, `p-${s}`);
+    g.complete(s, `w-${s}`, [`p-${s}`]);
+    tick(2 * execBounds.dropAfterMs + 1);
+  }
+  g.complete("live", "w1b", ["brisk-or"]);
+  assert.ok(execRecord().sessions.has("live"), "the live chat is kept");
+  assert.ok(execRecord().sessions.size <= 2);
+  assert.equal(g.proof("live", "w1b").complete, true);
 });
