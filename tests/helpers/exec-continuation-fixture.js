@@ -9,6 +9,22 @@ export const completionPrompt = (lines) =>
   "An async command you ran earlier has completed. The command completion details " +
   `are:\n\n${lines.join("\n")}\n\nTreat this completion as an internal continuation.`;
 
+// What OpenClaw 2026.10.3's handleToolExecutionEnd sends as the hook's `error`: the
+// first line of the result's message whenever isToolResultError holds for it (an
+// error-like status, `error` or `timedOut` in its details, or a non-zero exit code).
+export function openClawError(result) {
+  const details = result?.details || {};
+  const errorLike =
+    /^(error|failed|failure|timeout|timed_out|blocked|denied)$/.test(
+      String(details.status ?? ""),
+    ) ||
+    details.timedOut === true ||
+    Boolean(details.error) ||
+    (Number.isFinite(details.exitCode) && details.exitCode !== 0);
+  const text = result?.content?.find?.((b) => b.type === "text")?.text;
+  return errorLike && text ? text.trimStart().split(/\r?\n/, 1)[0].trim() : undefined;
+}
+
 /**
  * The fixture's agent with memory, the plugin's write guard live and the Gateway's
  * hooks driven as OpenClaw would: background exec results, a completion run's model
@@ -49,14 +65,19 @@ export async function execContinuationFixture(t, { userAccess, started = true } 
     } = {},
   ) => {
     const ctx = { agentId: guard.agentId, sessionKey, runId, toolCallId: `x${++calls}` };
+    const outcome = result ?? {
+      content: [{ type: "text", text: `Command ${status}.\nDetails follow.` }],
+      details: { status, sessionId, pid },
+    };
+    const failure = error ?? openClawError(outcome);
     await guard.emit("before_tool_call", { toolName: "exec", params: {} }, ctx);
     await guard.emit(
       "after_tool_call",
       {
         toolName: "exec",
         params: {},
-        result: result === undefined ? { details: { status, sessionId, pid } } : result,
-        ...(error ? { error } : {}),
+        result: outcome,
+        ...(failure ? { error: failure } : {}),
       },
       ctx,
     );
