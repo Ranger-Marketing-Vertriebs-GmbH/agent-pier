@@ -67,4 +67,7 @@ export const userAppCopy = Object.freeze({
   ownerMayReadOn: (date) => `An seit ${date}`,
   ownerMayReadHint:
     "Nur der Besitzer schaltet das um. Er sieht deine Chats dann ab diesem Zeitpunkt, nie ältere.",
+  browserUnavailable:
+    "Der Browser dieses Agenten arbeitet gerade für jemand anderen. Er erscheint hier, sobald einer deiner Chats ihn nutzt.",
+  browserRefresh: "Erneut prüfen",
 });
