@@ -45,14 +45,32 @@ export class LongChats {
   compacting(conversationId) {
     return this.running.has(conversationId);
   }
-  /** Whether its person hid the hint at a size the context has not clearly outgrown. */
+  /**
+   * Whether its person hid the hint at a size the context has not clearly outgrown. A
+   * context smaller than when it was hidden was summarised meanwhile (on request or by
+   * OpenClaw itself): the hidden hint is forgotten, so a chat that grows long again
+   * shows it.
+   */
   hidden(conversation, tokens) {
+    const person = personOf(conversation);
     const row = this.db
       .prepare(
         "SELECT tokens FROM assistant_long_chat_dismissals WHERE conversation_id=? AND person=?",
       )
-      .get(conversation.id, personOf(conversation));
-    return !!row && tokens < reappearsAt(row.tokens);
+      .get(conversation.id, person);
+    if (!row) return false;
+    if (tokens < row.tokens) {
+      this.unhide(conversation.id, person);
+      return false;
+    }
+    return tokens < reappearsAt(row.tokens);
+  }
+  unhide(conversationId, person) {
+    this.db
+      .prepare(
+        "DELETE FROM assistant_long_chat_dismissals WHERE conversation_id=? AND person=?",
+      )
+      .run(conversationId, person);
   }
   /**
    * Summarises the chat's history now. A second request while one runs joins it, so a
@@ -88,6 +106,8 @@ export class LongChats {
       .then(
         (result) => {
           if (result?.compacted !== true) throw chatProblem("CHAT_COMPACT_NOTHING");
+          // A hint hidden before measured the history that is summarised now.
+          this.unhide(id, personOf(conversation));
           return { compacted: true };
         },
         (error) => {
