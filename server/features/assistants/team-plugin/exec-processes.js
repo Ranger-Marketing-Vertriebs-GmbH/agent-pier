@@ -7,11 +7,13 @@
 // started it. Only the Gateway's own hooks see them all, without reading the
 // transcript:
 // - after_tool_call of `exec`: a result with `status: "running"` is a backgrounded
-//   process (`details.sessionId`, `details.pid`), started by `ctx.runId`. An errored
-//   call (`event.error`; OpenClaw passes `createErrorToolResult`, details `{}`)
-//   started nothing: the exec tool reports a backgrounded command as a result, and
-//   a call aborted before it backgrounded kills its command, which then never
-//   notifies (maybeNotifyOnExit needs `backgrounded`);
+//   process (`details.sessionId`, `details.pid`), started by `ctx.runId`. OpenClaw
+//   keeps its own "not started" mark (markToolExecutionNotStarted) private, so an
+//   errored call counts as having started nothing only when its error is one that
+//   OpenClaw raises before the command can start (`notStarted`, verbatim from
+//   2026.10.3): argument validation, or the exec host checks marked not started.
+//   Every other error leaves its session uncertain: OpenClaw may report an error
+//   after the command already ran in the background (an abort after the yield);
 // - llm_input (conversation access, runtime-config.js): the prompt of a completion
 //   run starts with OpenClaw's completion text and lists its processes;
 // - gateway_start: the record is complete only when it existed before the Gateway
@@ -52,8 +54,27 @@ const ended = new Set([
   "missing-run-id",
   "operand-drift",
   "skipped",
-  "error",
 ]);
+// Errors OpenClaw 2026.10.3 raises before an exec command can start: argument
+// validation (validation.js validateToolArguments) and resolveExecTarget, whose
+// errors are marked not started.
+const notStarted = [
+  /^Validation failed for tool "exec":\n/,
+  /^This session requires a sandbox, but its sandbox runtime is unavailable\.$/,
+  /^Elevated execution is unavailable because this session requires a sandbox\.$/,
+  /^exec host not allowed \(requested [a-z]+; this session requires a sandbox\)\.$/,
+  /^exec host not allowed \(requested [a-z]+; configured host is [a-z]+; set tools\.exec\.host=[a-z,]+ to allow this override\)\.$/,
+];
+// An errored call's whole message (the hook's `error` is only its first line).
+function startedNothing(event) {
+  if (typeof event.error !== "string") return false;
+  const content = event.result?.content;
+  const text =
+    Array.isArray(content) && content.length === 1 && content[0]?.type === "text"
+      ? content[0].text
+      : event.error;
+  return typeof text === "string" && notStarted.some((p) => p.test(text.trim()));
+}
 
 export function execRecord() {
   return (globalThis[store] ??= {
@@ -135,6 +156,10 @@ const detailsStart =
 const detailsEnd = "\n\nTreat this completion";
 const processLine =
   /^Exec [a-z]+ \(([A-Za-z0-9_-]{1,8}), [^)\n]*\)(?: :: .*| without captured stdout\/stderr\.)?$/;
+// OpenClaw's fixed note after a process line when the command hit its timeout
+// (user-facing-text EXEC_TIMEOUT_RETRY_GUIDANCE), accepted verbatim and only there.
+const timeoutGuidance =
+  "The command was terminated, but external side effects may already have completed. Verify the resulting state before retrying. Do not automatically rerun non-idempotent commands. Use a higher timeout only when the command is known to be safe to retry.";
 /**
  * The process ids a completion prompt reports, or null when they cannot all be read:
  * another prompt (no output, delivery off), a truncated list or any line that is not
@@ -150,8 +175,16 @@ export function completedProcesses(text) {
     .slice(detailsStart.length, end)
     .split("\n")
     .filter((line) => line.trim());
-  const ids = lines.map((line) => processLine.exec(line)?.[1]);
-  return ids.length && ids.every(Boolean) ? ids : null;
+  const ids = [];
+  // The guidance follows the process line it belongs to, once.
+  let noted = 0;
+  for (const line of lines) {
+    const id = processLine.exec(line)?.[1];
+    if (id) ids.push(id);
+    else if (line === timeoutGuidance && ids.length > noted) noted = ids.length;
+    else return null;
+  }
+  return ids.length ? ids : null;
 }
 
 /**
@@ -186,10 +219,16 @@ export function execEvidence(sessionKey, runId) {
 /** The run of a plugin tool call (its execute context names no run). */
 export const callRun = (toolCallId) => execRecord().calls.get(toolCallId) ?? null;
 
+// An open exec call: its session, run and tool call (an id alone may repeat).
+const callKey = (ctx) =>
+  typeof ctx.toolCallId === "string"
+    ? `${ctx.sessionKey}\u0000${ctx.runId ?? ""}\u0000${ctx.toolCallId}`
+    : Symbol("exec call");
+
 /** Records an exec result (after_tool_call); exported for the tests' fixture. */
 export function recordExec(record, event, ctx) {
   const key = ctx.sessionKey;
-  record.pending.delete(ctx.toolCallId);
+  record.pending.delete(callKey(ctx));
   const details = event.result?.details;
   const runId = ctx.runId ?? event.runId;
   if (
@@ -207,8 +246,8 @@ export function recordExec(record, event, ctx) {
     prune(entry);
     return;
   }
-  // An errored call started nothing (see above); a known end left nothing running.
-  if (typeof event.error === "string" || ended.has(details?.status)) return;
+  // A call OpenClaw refused before it could start; a known end left nothing running.
+  if (startedNothing(event) || (!event.error && ended.has(details?.status))) return;
   session(record, key).uncertain = true;
 }
 
@@ -226,7 +265,7 @@ export function registerExecProcesses(api) {
       if (typeof ctx?.toolCallId === "string" && typeof ctx.runId === "string")
         bounded(record.calls, execBounds.maxCalls, ctx.toolCallId, ctx.runId);
       if (event?.toolName === "exec" && typeof ctx?.sessionKey === "string") {
-        record.pending.set(ctx.toolCallId ?? Symbol(), {
+        record.pending.set(callKey(ctx), {
           sessionKey: ctx.sessionKey,
           runId: ctx.runId,
         });

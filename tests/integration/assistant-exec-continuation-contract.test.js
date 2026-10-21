@@ -80,17 +80,17 @@ test(
       const asked = JSON.stringify(lastUser(request)[0]);
       const steps = lastUser(request).filter((m) => m.role === "tool").length;
       // "List" runs a foreground command; "foreign" starts another background one.
-      // "Render" first makes two exec calls that fail before anything starts (no
-      // command, a host that is not allowed), then backgrounds its command.
+      // "Render" first makes an exec call that fails argument validation (OpenClaw
+      // refuses it before anything starts), "NODEHOST" one whose host fails after the
+      // call began; both then background their command.
+      const background = { command: "sleep 4; echo RENDERED", background: true };
       const plan = asked.includes("List")
         ? [{ command: "echo LISTED" }]
         : asked.includes("foreign")
           ? [{ command: "sleep 6; echo FOREIGN", background: true }]
-          : [
-              {},
-              { command: "echo HOST", host: "node" },
-              { command: "sleep 4; echo RENDERED", background: true },
-            ];
+          : asked.includes("NODEHOST")
+            ? [{ command: "echo HOST", host: "node" }, background]
+            : [{}, background];
       return steps < plan.length
         ? { tool: { name: "exec", arguments: plan[steps] } }
         : { text: "Started." };
@@ -286,12 +286,13 @@ test(
     );
     t.diagnostic(`started=${started.sessionId} reported=${JSON.stringify(reported)}`);
     assert.equal(started.status, "running");
-    // The two failed calls came before it, as errors, and left the record complete.
+    // The failed call came before it, as an error, and left the record complete.
     const failed = page.messages.filter((m) => m.toolName === "exec" && m.isError);
     t.diagnostic(
       `failed execs=${JSON.stringify(failed.map((m) => [m.details, JSON.stringify(m.content).slice(0, 120)]))}`,
     );
-    assert.equal(failed.length, 2);
+    assert.equal(failed.length, 1);
+    assert.match(JSON.stringify(failed[0].content), /Validation failed for tool/);
     assert.deepEqual(reported, [started.sessionId.slice(0, 8)]);
     // The write itself.
     assert.equal(write.allow, true, "the completion continues the owner turn");
@@ -363,5 +364,15 @@ test(
     assert.notEqual(prepared[0].runId, fifth.runId);
     assert.equal(prepared[0].exec.completion.runId, prepared[0].runId);
     assert.equal(prepared[0].bound, true, "the completion's workspace call is bound");
+
+    // 6. An exec error OpenClaw does not mark as before the start (a host check that
+    // runs inside the call) leaves the session uncertain: its completion is refused.
+    await ownerTurn("Render on NODEHOST.");
+    note = "after-node";
+    from = decisions.length;
+    const node = await completion(from);
+    t.diagnostic(`node evidence=${JSON.stringify(node.exec)}`);
+    assert.equal(node.exec.complete, false);
+    assert.equal(node.allow, false);
   },
 );

@@ -135,19 +135,36 @@ test("an incomplete or uncertain Gateway record proves nothing", async (t) => {
   // errored call as `createErrorToolResult`: its text and `details: {}`.
   const h = await setup(t);
   const attempt = await h.turn({ kind: "owner" });
+  // Only errors OpenClaw raises before a command can start count as starting nothing.
+  const failed = (error, details = {}) => ({
+    error,
+    result: { content: [{ type: "text", text: error }], details },
+  });
   for (const error of [
-    "Provide a command to start.",
-    "exec host not allowed (requested node; configured host is gateway)",
-    "Operation aborted",
-    "Tool execution was aborted",
+    'Validation failed for tool "exec":\n  - command: must have required properties command',
+    "exec host not allowed (requested node; configured host is gateway; set tools.exec.host=node to allow this override).",
+    "This session requires a sandbox, but its sandbox runtime is unavailable.",
   ])
-    await h.exec(attempt, {
-      error,
-      result: { content: [{ type: "text", text: error }], details: {} },
-    });
+    await h.exec(attempt, failed(error));
   for (const status of ["completed", "failed", "denied"])
     await h.exec(attempt, { status, sessionId: "other-one" });
   assert.equal(await h.call("notes.md", { ctx: await h.wake() }), true);
+  // Any other error may come after the command went to the background (an abort
+  // after the yield): its session is uncertain.
+  for (const [error, details] of [
+    ["Aborted", {}],
+    ["Tool execution was aborted", {}],
+    ["Provide a command to start.", {}],
+    [
+      "exec host=node requires a paired node (none available).",
+      { status: "error", tool: "exec", error: "exec host=node requires a paired node" },
+    ],
+  ]) {
+    const g = await setup(t);
+    const attempt = await g.turn({ kind: "owner" });
+    await g.exec(attempt, failed(error, details));
+    assert.equal(await g.call("notes.md", { ctx: await g.wake() }), false, error);
+  }
   // An exec call whose result never came: refused while pending and after its run.
   const i = await setup(t);
   await i.turn({ kind: "owner" });
