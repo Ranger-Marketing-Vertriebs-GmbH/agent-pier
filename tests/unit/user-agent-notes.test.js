@@ -29,7 +29,11 @@ test("a check-in of a user's own agent addresses her, not the owner", () => {
 
 test("a user's routine reports to her, the owner's to him", () => {
   const payload = (binding) =>
-    NativeRoutines.prototype.payload.call({}, { name: "Daily", prompt: "Check" }, binding);
+    NativeRoutines.prototype.payload.call(
+      {},
+      { name: "Daily", prompt: "Check" },
+      binding,
+    );
   assert.match(payload({ kind: "routine" }), /for the owner/);
   const own = payload({ kind: "routine", userId: "user-1" });
   assert.doesNotMatch(own, /owner/i);
