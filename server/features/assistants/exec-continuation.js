@@ -233,7 +233,11 @@ export function continuationWrite(bridge, input) {
   if (!source) return false;
   audit(bridge.assistants, source, input);
   if (isShared(source.agent) && isMemory(input.path))
-    bridge.noteShared(`${source.attempt.id}:shared-write`, source.conversation.id);
+    // Its own note: the owner turn's own shared write keeps its key.
+    bridge.noteShared(
+      `${source.attempt.id}:${source.runId}:shared-write`,
+      source.conversation.id,
+    );
   return true;
 }
 
