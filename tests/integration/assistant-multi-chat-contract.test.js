@@ -342,6 +342,11 @@ test(
           refused = error;
         }
         assert.equal(refused?.code, "INVALID_REQUEST", String(refused));
+        // The refusal names the archive; native-chat-archive.js matches this text.
+        assert.equal(
+          refused.remoteMessage,
+          `Session "${scratch.key}" is archived. Restore it before starting new work.`,
+        );
         assert.equal(await reopenRefusedChat(client, scratch.key, refused), true);
         const reopened = (await client.call("sessions.describe", { key: scratch.key }))
           .session;
@@ -353,8 +358,14 @@ test(
         const after = text(await history(scratch.key));
         assert.match(after, /beta/);
         assert.match(after, /Reply gamma/);
-        // A refusal for an open session reopens nothing.
-        assert.equal(await reopenRefusedChat(client, scratch.key, refused), false);
+        // Reopened meanwhile (a reconcile pass), the archive refusal still sends again;
+        // another refusal for an open session does not.
+        assert.equal(await reopenRefusedChat(client, scratch.key, refused), true);
+        const other = Object.assign(Error("INVALID_REQUEST"), {
+          code: "INVALID_REQUEST",
+          remoteMessage: "invalid sessions.send params",
+        });
+        assert.equal(await reopenRefusedChat(client, scratch.key, other), false);
       },
     );
 

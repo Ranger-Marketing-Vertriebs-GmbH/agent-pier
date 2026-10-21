@@ -34,15 +34,27 @@ export async function keepChatOpen(client, key) {
   return "pinned";
 }
 
+// OpenClaw 2026.10.3 refuses work in an archived session with INVALID_REQUEST and
+// `Session "<key>" is archived. Restore it before starting new work.`
+// (resolveSessionWorkStartError, dist/lifecycle-*.mjs).
+const archivedRefusal = /^Session ".*" is archived\./;
+
 /**
  * After the Gateway refused a turn (`INVALID_REQUEST`), reopens the chat's session if
- * OpenClaw archived it. True only when it did: the refusal came before any run
- * started, so the caller sends the same turn again.
+ * OpenClaw archived it. True when the turn may go again: this call reopened the
+ * session, or the refusal named the archive and the session is open now (a reconcile
+ * pass or someone else reopened it meanwhile). The refusal came before any run
+ * started, so the caller sends the same turn once more.
  */
 export async function reopenRefusedChat(client, key, error) {
   if (error?.code !== "INVALID_REQUEST") return false;
   try {
-    return (await keepChatOpen(client, key)) === "reopened";
+    const kept = await keepChatOpen(client, key);
+    if (kept === "reopened") return true;
+    return (
+      ["open", "pinned"].includes(kept) &&
+      archivedRefusal.test(String(error.remoteMessage || ""))
+    );
   } catch {
     return false;
   }
