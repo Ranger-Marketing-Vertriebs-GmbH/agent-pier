@@ -359,3 +359,22 @@ test("changes stacked while the Gateway is down abort only when the last one low
   assert.equal(aborts.length, 1);
   assert.equal(f.live(home).tools.exec.mode, "full");
 });
+
+test("a user agent kept as the owner's loses the lock's deny on a live apply", async (t) => {
+  const f = shellService(t);
+  const [home] = f.agents;
+  const userAccess = {
+    mode: "own",
+    members: [{ userId: "u1", level: "chat" }],
+    released: [],
+  };
+  f.store.changeUserAgent(home.id, { userAccess });
+  await f.config.apply(home.id);
+  assert.ok(f.live(home).tools.deny.includes("exec"));
+  // Its user deleted with "keep" (user-release.js): the owner's agent again.
+  f.store.changeUserAgent(home.id, { userAccess: null });
+  await level(f, home, "full", confirm);
+  assert.equal(f.live(home).tools.deny, undefined);
+  assert.ok(f.live(home).tools.allow.includes("exec"));
+  assert.equal(f.live(home).tools.exec.mode, "full");
+});

@@ -28,7 +28,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       );
       await expect(
         settingsRow(page, t("Aktivitätsprotokoll", "Activity log")),
-      ).toContainText(t("Benutzer, System, MCP", "User, system, MCP"));
+      ).toContainText(t("Besitzer, Benutzer, System, MCP", "Owner, users, system, MCP"));
       await settingsRow(page, "Updates").click();
       await expect(page).toHaveURL(/\/settings\/updates$/);
       await expect(

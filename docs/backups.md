@@ -379,7 +379,8 @@ restored.
 
 A restore rebuilds `users/users.json` without sessions, so every user signs in again.
 With the capsule, users keep their passwords. Without it, they keep their agents and
-chats but cannot sign in: the restore report lists each as "User <name> (set a new
+settings but cannot sign in, and their chats are not in the backup (they come back
+only from a backup with a passphrase and history): the restore report lists each as "User <name> (set a new
 password)", **Settings › Access › Users** marks them **Needs a new password**, and
 **Reset password** on their page lets them sign in again. A user list the server
 would refuse fails the restore.

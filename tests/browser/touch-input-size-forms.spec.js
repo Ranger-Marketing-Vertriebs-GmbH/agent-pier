@@ -35,7 +35,9 @@ test("login setup and sign-in forms", async ({ page, context }) => {
   try {
     await context.clearCookies();
     await page.goto(url + "/settings");
-    await expect(page.getByRole("heading", { name: "Benutzer erstellen" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Besitzerkonto anlegen" }),
+    ).toBeVisible();
     await expectTouchSized(page, "login setup");
     await application.login.setup({ username: "owner", password: "disposable-password" });
     await page.goto(url);
