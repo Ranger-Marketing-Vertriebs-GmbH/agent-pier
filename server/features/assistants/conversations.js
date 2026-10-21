@@ -224,7 +224,11 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         service.store.cacheMessages(id, cached);
       messages = page;
       stale = false;
-      longChat = offset === 0 && longContext(history.sessionInfo);
+      // Unless its person hid the hint at a size not clearly outgrown (long-chats.js).
+      longChat =
+        offset === 0 &&
+        longContext(history.sessionInfo) &&
+        !service.longChats?.hidden(conversation, history.sessionInfo.totalTokens);
       // The turn's own message proves a send whose acknowledgement was lost.
       confirmFromTranscript(service, id, page);
       if (history.hasMore)
@@ -287,27 +291,31 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     queued: queuedView(service, id),
     nextBefore,
     stale,
-    // While the active attempt's run summarises the conversation (compactions.js).
-    compacting: summarising(service, conversation, requests),
+    // While the active attempt's run summarises the conversation (compactions.js), or
+    // its person had it summarised (long-chats.js).
+    compacting:
+      summarising(service, conversation, requests) || !!service.longChats?.compacting(id),
     ...(longChat ? { longChat } : {}),
   };
 }
 
-/** A chat whose context is this many tokens is long: every turn reads all of it. */
+/** The share of the model's context window from which a chat counts as long. */
+export const longChatShare = 0.6;
+/** A chat is long from this many tokens when the session names no window. */
 export const longChatTokens = 100000;
 /**
- * Whether the session's last model call read a very long context (OpenClaw
- * 2026.10.3 `sessionInfo`: `totalTokens` is the last prompt's size, current only
- * while `totalTokensFresh`; `contextTokens` is the model's window). Long means
- * `longChatTokens`, or 80 % of a smaller window.
+ * Whether the session's last model call read a long context (OpenClaw 2026.10.3
+ * `sessionInfo`: `totalTokens` is the last prompt's size, current only while
+ * `totalTokensFresh`; `contextTokens` is the model's window). Long means
+ * `longChatShare` of the window, or `longChatTokens` without a known window.
  */
 export function longContext(info) {
   if (info?.totalTokensFresh !== true || !Number.isFinite(info.totalTokens)) return false;
-  const window =
-    Number.isFinite(info.contextTokens) && info.contextTokens > 0
-      ? info.contextTokens
-      : Infinity;
-  return info.totalTokens >= Math.min(longChatTokens, 0.8 * window);
+  const window = info.contextTokens;
+  return (
+    info.totalTokens >=
+    (Number.isFinite(window) && window > 0 ? longChatShare * window : longChatTokens)
+  );
 }
 /**
  * The background turn that delivers generated images answers the request that asked
