@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import UserHeader from "./UserHeader.jsx";
 import MyAgentsPage from "./MyAgentsPage.jsx";
 import UserChatRoute from "./UserChatRoute.jsx";
+import UserAgentSettings from "./UserAgentSettings.jsx";
 import { UserPage } from "./UserPage.jsx";
 import useUserAgents from "./useUserAgents.js";
 import { AgentPathsContext, userAgentPaths } from "../assistants/agent-paths.js";
@@ -77,6 +78,10 @@ export default function UserApp({ status }) {
         subscribe={data.subscribe}
         ownerMayRead={data.me?.ownerMayRead}
       />
+    );
+  else if (route.view === "settings")
+    page = (
+      <UserAgentSettings key={agent.id} agent={agent} route={route} navigate={navigate} />
     );
   else if (route.view === "account")
     page = (
