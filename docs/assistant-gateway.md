@@ -2702,15 +2702,21 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   `plugins.entries.agentpier-teams.llm.allowAgentIdOverride`, which OpenClaw requires
   for a completion on another than its default agent; without the product plugin the
   method is missing and the chat keeps its first-message title. The answer is
-  untrusted: its first line without reasoning, markdown, a "Title:" label, quotes,
+  untrusted: its first line after any lead-in ("Here is a title:") without reasoning, markdown, a "Title:" label, quotes,
   trailing punctuation and the characters a set title refuses, and is dropped when
   nothing readable is left or it exceeds 80 characters or 12 words. It is stored as
   `titleSource: "generated"` (and `generatedTitle`) only while the chat still carries
   the automatic title it had when AgentPier asked; a rename in the meantime wins. A
   failure, timeout or unusable answer keeps the first-message title and logs only the
-  chat id and an error code. Each chat asks once; chats named before this feature keep
-  their titles. `""` brings back the generated title, else the first-message one. The
-  change reaches open lists as a `conversation` event; owner privacy hides a generated
+  chat id and an error code (OpenClaw's own, such as `LLM_COMPLETION_TIMEOUT`, which
+  the plugin answers as the whole message of an `UNAVAILABLE` error and
+  `gateway-client.js` keeps as `remoteCode`). Each chat is decided once: when its first
+  written turn's run completes, AgentPier records `titleTried`, whether it asked or the
+  turn had no reply or was forwarded; a failure is not retried on later turns, and
+  later turns read nothing more. Chats named before this feature keep their titles.
+  `""` brings back the generated title, else the first-message one. The plugin drops
+  `<think>` reasoning from the model's text before it cuts the answer to 400
+  characters. The change reaches open lists as a `conversation` event; owner privacy hides a generated
   title exactly like any other.
 - Archive and restore: `POST …/conversations/:id/archive|restore` (owner under
   `/api/assistant-conversations`, user under `/api/me/conversations`). An archived chat
