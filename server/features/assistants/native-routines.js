@@ -87,9 +87,11 @@ export class NativeRoutines extends NativeReminders {
         "",
         values.prompt,
       ].join("\n");
+    // A user's routine runs in her chat: it reports to her, never to the owner.
+    const who = typeof binding?.userId === "string" ? "your user" : "the owner";
     return [
-      `This is the scheduled AgentPier routine ${JSON.stringify(values.name)}, not a message from the owner.`,
-      "Carry out its saved task below and reply with the result for the owner.",
+      `This is the scheduled AgentPier routine ${JSON.stringify(values.name)}, not a message from ${who}.`,
+      `Carry out its saved task below and reply with the result for ${who}.`,
       "",
       values.prompt,
     ].join("\n");

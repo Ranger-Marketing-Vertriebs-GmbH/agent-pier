@@ -397,6 +397,35 @@ test("/new opens a new chat instead of resetting", async (t) => {
   assert.equal(gateway.sent.length, 0);
 });
 
+test("a /new retried while the first still opens its chat opens no second one", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const main = await openMain(f.request, agent.id);
+  const assistants = f.application.assistants;
+  // The first /new waits in config.apply, as on a cold Gateway, while the retry arrives.
+  const apply = assistants.config.apply;
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  assistants.config.apply = async (...args) => {
+    assistants.config.apply = apply;
+    await held;
+    return apply(...args);
+  };
+  const url = `/api/assistant-conversations/${main}/messages`;
+  const body = { clientRequestId: "new-1", text: "/new" };
+  const first = post(f.request, url, body);
+  const retry = post(f.request, url, body);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  release();
+  const [a, b] = await Promise.all([json(await first, 201), json(await retry, 201)]);
+  assert.equal(a.created, b.created);
+  assert.equal((await chats(f.request, agent.id)).length, 2);
+  const creates = gateway.calls.filter((c) => c.method === "sessions.create");
+  assert.equal(creates.filter((c) => c.params.label?.includes(" chat ")).length, 1);
+  // The request's key is stored with the chat, so a retry after a restart finds it.
+  assert.equal(assistants.store.getConversation(a.created).openedBy, `${main}\nnew-1`);
+});
+
 test("/name renames", async (t) => {
   const { f, gateway } = await chatFixture(t);
   const anna = await signedInUser(f, "Anna");
@@ -478,6 +507,12 @@ test("/new and /name are never queued to run after the turn", async (t) => {
     const body = await refused.json();
     assert.equal(body.messageKey, "assistants.chatCommandQueued");
     assert.equal(body.code, "CHAT_COMMAND_QUEUED");
+  }
+  // /reset and /new with text are never run, queued or not: the same refusal as sent.
+  for (const text of ["/reset", "/new please"]) {
+    const refused = await post(f.request, `${url}/queued`, { text });
+    assert.equal(refused.status, 400, await refused.clone().text());
+    assert.equal((await refused.json()).code, "CHAT_COMMAND");
   }
   // One queued before this refusal existed goes out as nothing, not as a command.
   const assistants = f.application.assistants;

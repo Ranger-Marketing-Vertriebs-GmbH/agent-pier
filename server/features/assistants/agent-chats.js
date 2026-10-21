@@ -120,9 +120,11 @@ export class AgentChats {
   /**
    * A new chat of one person (the owner's without `userId`): its own native session,
    * labelled with the pre-generated conversation id, so labels stay unique. A person
-   * without chats gets the main chat first.
+   * without chats gets the main chat first. With `openedBy` (a `/new` request's key)
+   * the chat that key already opened is returned instead; admission runs one create
+   * at a time, so a retry sent while the first still runs finds it too.
    */
-  create(assistantId, { userId = null } = {}) {
+  create(assistantId, { userId = null, openedBy = null } = {}) {
     const service = this.service;
     return service.admit(async () => {
       const agent = service.store.getAssistant(assistantId);
@@ -132,6 +134,12 @@ export class AgentChats {
       if (agent.archivedAt) throw assistantProblem("active", 409);
       if (!mainConversation(service.store, assistantId, userId))
         return openMainConversation(service, assistantId, { turn: true, userId });
+      const opened =
+        openedBy &&
+        service.store
+          .listConversations({ deleted: true })
+          .find((c) => c.assistantId === assistantId && c.openedBy === openedBy);
+      if (opened) return opened;
       service.requireReady();
       await service.config.apply(assistantId);
       const id = randomUUID();
@@ -147,6 +155,7 @@ export class AgentChats {
         assistantId,
         runtimeSessionKey: created.key,
         ...(userId === null ? {} : { userId }),
+        ...(openedBy && { openedBy }),
       });
       await client.call("sessions.messages.subscribe", { key: created.key });
       service.changed();

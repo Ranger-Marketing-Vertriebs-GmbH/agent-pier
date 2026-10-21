@@ -21,13 +21,17 @@ const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
 // Creation was submitted but not confirmed: the job may still surface.
 const unconfirmed = (binding) => ["pending", "unknown"].includes(binding.state);
-const prompt = [
-  "This is a scheduled check-in from AgentPier, not a message from the owner.",
-  "First read MEMORY.md with memory_get; search your other notes with memory_search where it helps.",
-  "Using this conversation and your memory, check whether anything needs the owner's attention right now.",
-  "If something does, write one short message addressed to the owner.",
-  "If nothing needs attention, reply exactly NO_REPLY and nothing else.",
-].join("\n");
+/** The check-in turn; a user's own agent checks in with her (`person`), not the owner. */
+export function checkInPrompt(person) {
+  const who = person ? "your user" : "the owner";
+  return [
+    `This is a scheduled check-in from AgentPier, not a message from ${who}.`,
+    "First read MEMORY.md with memory_get; search your other notes with memory_search where it helps.",
+    `Using this conversation and your memory, check whether anything needs ${person ? "your user's" : "the owner's"} attention right now.`,
+    `If something does, write one short message addressed to ${who}.`,
+    "If nothing needs attention, reply exactly NO_REPLY and nothing else.",
+  ].join("\n");
+}
 
 /**
  * Proactive check-ins ("heartbeat"): one native cron job per opted-in agent with
@@ -84,12 +88,12 @@ export class NativeHeartbeats {
       telegram: channel ? telegramTarget(channel) : null,
     };
   }
-  job(settings) {
+  job(settings, person = null) {
     return {
       schedule: heartbeatSchedule(settings),
       payload: {
         kind: "agentTurn",
-        message: prompt,
+        message: checkInPrompt(person),
         timeoutSeconds: 120,
         lightContext: false,
         // Memory is read, never written, in a run nobody watches.
@@ -138,7 +142,7 @@ export class NativeHeartbeats {
       else await this.retire(current, job);
     }
     if (!want) return this.assistants.changed();
-    const definition = this.job(want.settings);
+    const definition = this.job(want.settings, agentPerson(agent));
     if (!keep) return this.create(agent, want, definition);
     const { binding, job } = keep;
     // The Telegram extra follows the pairing; the job stays as it is.

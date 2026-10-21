@@ -181,3 +181,41 @@ test("her Telegram message held back before the opt-in stays hers once it goes o
   assert.doesNotMatch(JSON.stringify(history), /Held-back/);
   assert.deepEqual(history.requests, []);
 });
+
+test("her Telegram turns name her chat and are never chat commands", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const { agent, request } = await extended(f);
+  const channel = await pairedTelegram(f, request, agent.id);
+  const assistants = f.application.assistants;
+  // As telegram-ingress.js hands her bot messages to the agent.
+  const turn = async (id, text) => {
+    const result = await assistants.send(
+      channel.conversationId,
+      { clientRequestId: `telegram:${id}`, text },
+      {
+        kind: "telegram",
+        channelId: channel.id,
+        chatId: channel.chatId,
+        userId: channel.userId,
+        inputId: id,
+      },
+    );
+    assert.ok(!result?.created && !result?.chat, text);
+    const sent = gateway.sent.at(-1);
+    // A user's chat never sends OpenClaw commands: a word joiner leads them.
+    assert.equal(sent.message.replace(/^\u2060/, ""), text);
+    gateway.runs[sent.idempotencyKey] = { status: "ok" };
+    await assistants.reconcile();
+  };
+  const titles = async () =>
+    (await (await request(`/api/me/agents/${agent.id}/chats`)).json()).map(
+      (c) => c.title,
+    );
+  // Her first turn from the bot names the main chat.
+  await turn("tg-1", "Plan the trip to Lisbon");
+  assert.deepEqual(await titles(), ["Plan the trip to Lisbon"]);
+  // `/new` and `/name` from Telegram go to the agent: no new chat, no rename.
+  await turn("tg-2", "/new");
+  await turn("tg-3", "/name Groceries");
+  assert.deepEqual(await titles(), ["Plan the trip to Lisbon"]);
+});
