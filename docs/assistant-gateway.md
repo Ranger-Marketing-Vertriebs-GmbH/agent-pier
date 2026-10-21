@@ -1219,13 +1219,17 @@ was compacted and the plan was gone. Four rules close that gap:
     leaves the session uncertain, because OpenClaw can report an error after the
     command already went to the background (an abort after the yield).
     Each bound fails closed for one session only:
-    - A process whose pid is gone is dropped two hours after the plugin first saw
-      it gone. Its eight-character prefix stays on the session for two more hours,
-      and a completion naming it is refused.
-    - A process without a usable pid, or whose pid stays taken (it may have been
-      reused), is dropped after 24 hours. Nothing proves it ended, so its prefix
-      stays refused on that session for the Gateway's life (at most OpenClaw's
-      1,841 prefixes).
+    - A process leaves the record only when its end is positively observed, never
+      by its pid. OpenClaw's exec session and its completion last until the
+      command's output closes, so a shell that exits while `cmd &` runs on is still
+      live. An end is observed when a completion run lists the session's only
+      recorded process with that prefix, when the process tool reports it finished,
+      or when its own bound passed: the call's `timeoutSeconds` above zero plus ten
+      minutes. An ended process leaves two hours after its end. A bounded one leaves
+      at its bound, and its prefix stays refused for two more hours. A process
+      without a known end or bound stays: a silent success with no timeout that is
+      never polled keeps refusing other runs' completions with its prefix in that
+      session.
     - A session is uncertain for the Gateway's life after more than 4,096 live
       processes, after an `exec` result that is neither running nor a known end (an
       approval may still start a command), or after a run that ended with an `exec`
@@ -1235,6 +1239,9 @@ was compacted and the plan was gone. Four rules close that gap:
       into a bit filter, so that session, and the rare one sharing its bits, stays
       uncertain; every other chat keeps working.
     - While an `exec` call is still open in the session it is not complete either.
+      A call counts as open only once every other `before_tool_call` hook let it
+      through (the plugin registers it last), and a blocked call's result
+      (`status: "blocked"`) closes it.
     - Only completion runs' model input is kept, and only until the run ends.
 
   `llm_input` and `agent_end` are conversation hooks: the compiled config grants
@@ -1262,6 +1269,9 @@ was compacted and the plan was gone. Four rules close that gap:
     prefixes and `gateway_start`;
   - the completion's write continues the owner turn, after an exec call of that
     turn failed argument validation;
+  - a blocked exec call leaves nothing open, and the next completion is credited;
+  - a backgrounded shell that exits at once while its child keeps the output is
+    still credited when the child ends, although its pid is gone;
   - an exec error OpenClaw does not mark as before the start (a node host check)
     leaves the session uncertain, so its completion is refused;
   - the same completion stays refused after a newer forwarded request or past the

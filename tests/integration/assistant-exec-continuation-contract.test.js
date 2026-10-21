@@ -81,8 +81,10 @@ test(
       const steps = lastUser(request).filter((m) => m.role === "tool").length;
       // "List" runs a foreground command; "foreign" starts another background one.
       // "Render" first makes an exec call that fails argument validation (OpenClaw
-      // refuses it before anything starts) and a foreground one that exits 3, "NODEHOST" one whose host fails after the
-      // call began; both then background their command.
+      // refuses it before anything starts) and a foreground one that exits 3;
+      // "NODEHOST" one whose host fails after the call began; "BLOCKONE" one that a
+      // before_tool_call hook blocks; all then background their command. "DETACH"
+      // backgrounds a shell that exits at once while its child keeps the output.
       const background = { command: "sleep 4; echo RENDERED", background: true };
       const plan = asked.includes("List")
         ? [{ command: "echo LISTED" }]
@@ -90,7 +92,11 @@ test(
           ? [{ command: "sleep 6; echo FOREIGN", background: true }]
           : asked.includes("NODEHOST")
             ? [{ command: "echo HOST", host: "node" }, background]
-            : [{}, { command: "echo FAILING; exit 3" }, background];
+            : asked.includes("BLOCKONE")
+              ? [{ command: "echo BLOCKED" }, background]
+              : asked.includes("DETACH")
+                ? [{ command: "(sleep 8; echo LATE) & echo STARTED", background: true }]
+                : [{}, { command: "echo FAILING; exit 3" }, background];
       return steps < plan.length
         ? { tool: { name: "exec", arguments: plan[steps] } }
         : { text: "Started." };
@@ -122,7 +128,13 @@ test(
     // Every write decision with the hook's run id.
     const decisions = [];
     const decide = bridge.toolPolicy.bind(bridge);
+    // Armed, the next exec call is blocked by the plugin's own locked-tool hook.
+    let blockExec = false;
     bridge.toolPolicy = (input) => {
+      if (input.toolName === "exec" && blockExec) {
+        blockExec = false;
+        return { allow: false };
+      }
       const settle = (result) => {
         decisions.push({ ...input, allow: result.allow });
         return result;
@@ -371,7 +383,34 @@ test(
     assert.equal(prepared[0].exec.completion.runId, prepared[0].runId);
     assert.equal(prepared[0].bound, true, "the completion's workspace call is bound");
 
-    // 6. An exec error OpenClaw does not mark as before the start (a host check that
+    // 6. A blocked exec call leaves nothing open: the next completion is credited.
+    blockExec = true;
+    await ownerTurn("BLOCKONE render.");
+    assert.equal(blockExec, false, "the exec call was blocked");
+    note = "after-blocked";
+    from = decisions.length;
+    const unblocked = await completion(from);
+    t.diagnostic(`blocked evidence=${JSON.stringify(unblocked.exec)}`);
+    assert.equal(unblocked.allow, true);
+
+    // 7. A shell that exits at once while its child runs on: its pid is gone, the
+    // exec session lives until the output closes, and its completion is credited.
+    await ownerTurn("DETACH render.");
+    const detached = (
+      await runtime.client.call("sessions.get", { key: session.key }, long)
+    ).messages.findLast(
+      (m) => m.toolName === "exec" && m.details?.status === "running",
+    ).details;
+    await delay(1000);
+    assert.throws(() => process.kill(detached.pid, 0), { code: "ESRCH" });
+    note = "after-detach";
+    from = decisions.length;
+    const afterDetach = await completion(from);
+    t.diagnostic(`detached evidence=${JSON.stringify(afterDetach.exec)}`);
+    assert.equal(afterDetach.exec.completion.ids[0], detached.sessionId.slice(0, 8));
+    assert.equal(afterDetach.allow, true);
+
+    // 8. An exec error OpenClaw does not mark as before the start (a host check that
     // runs inside the call) leaves the session uncertain: its completion is refused.
     await ownerTurn("Render on NODEHOST.");
     note = "after-node";
