@@ -31,3 +31,14 @@ test("a set title is 1 to 80 characters without control characters", () => {
   for (const value of ["x".repeat(81), "a\nb", "a\u0007b", 5, null, ["a"]])
     assert.throws(() => setTitle(value), { status: 400 });
 });
+
+test("a set title refuses what an auto title strips", () => {
+  // Bidi overrides and isolates, zero-width spaces, a BOM and a line separator.
+  for (const hidden of ["\u202E", "\u2066", "\u200B", "\u200E", "\uFEFF", "\u2028"]) {
+    assert.throws(() => setTitle(`Hi${hidden}evil`), { status: 400 }, escape(hidden));
+    assert.equal(autoTitle(`Hi${hidden}evil`), "Hi evil");
+  }
+  // Emoji built with zero-width joiners stay whole in both.
+  assert.equal(setTitle("Code 👩‍💻"), "Code 👩‍💻");
+  assert.equal(autoTitle("Code 👩‍💻"), "Code 👩‍💻");
+});

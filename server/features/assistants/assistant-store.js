@@ -296,6 +296,8 @@ export class AssistantStore {
       ...(typeof input.userId === "string" && { userId: input.userId }),
       // The person's main chat, which reminders, routines and Telegram deliver into.
       ...(input.main === true && { main: true }),
+      // The `/new` that opened it, so a retry finds it again (chat-commands.js).
+      ...(typeof input.openedBy === "string" && { openedBy: input.openedBy }),
       // Set by every turn and every run's end (conversation-turns.js,
       // gateway-wiring.js). A chat from before this field existed has none: its
       // activity is unknown (owner-privacy.js).

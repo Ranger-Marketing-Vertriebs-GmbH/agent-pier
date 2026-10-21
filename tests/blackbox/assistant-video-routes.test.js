@@ -49,7 +49,7 @@ async function videoChat(t) {
   const put = (upload, offset, body) =>
     send(`${base}/${upload}?offset=${offset}`, "PUT", body);
   const workspace = path.join(application.assistants.config.workspaces, assistant.id);
-  return { url, base, begin, put, workspace, conversation };
+  return { application, url, base, begin, put, workspace, conversation };
 }
 
 test("a video uploads in chunks, resumes at the stored offset and plays by range", async (t) => {
@@ -132,5 +132,47 @@ test("video uploads refuse what is too large, no video or unknown", async (t) =>
     headers: { origin: base.split("/api")[0] },
   });
   assert.equal(removed.status, 204);
+  assert.deepEqual(fs.readdirSync(path.join(workspace, "attachments")), []);
+});
+
+test("an archived chat takes no video and gives up one still arriving", async (t) => {
+  const { application, url, workspace, conversation } = await videoChat(t);
+  const { store } = application.assistants;
+  store.updateConversation(conversation.id, { main: true });
+  // A second chat: the main one is never archived.
+  const second = store.saveConversation({
+    assistantId: conversation.assistantId,
+    runtimeSessionKey: `${conversation.runtimeSessionKey}-second`,
+  });
+  const headers = { origin: url, "content-type": "application/octet-stream" };
+  const chat = `${url}/api/assistant-conversations/${second.id}`;
+  const begin = (name) =>
+    fixtureFetch(`${chat}/video-uploads?name=${name}&size=${iphone.length}`, {
+      method: "POST",
+      headers,
+      body: iphone.subarray(0, 5000),
+    });
+  const rest = (upload) =>
+    fixtureFetch(`${chat}/video-uploads/${upload}?offset=5000`, {
+      method: "PUT",
+      headers,
+      body: iphone.subarray(5000),
+    });
+  const started = await begin("clip.mov");
+  assert.equal(started.status, 201);
+  const { upload } = await started.json();
+  const archived = await fixtureFetch(`${chat}/archive`, {
+    method: "POST",
+    headers: { origin: url },
+  });
+  assert.equal(archived.status, 200, await archived.clone().text());
+  // The video still arriving is given up, and no new one starts.
+  const refused = await rest(upload);
+  assert.equal(refused.status, 409);
+  assert.equal((await refused.json()).code, "CHAT_ARCHIVED");
+  assert.equal((await rest(upload)).status, 404);
+  const again = await begin("again.mov");
+  assert.equal(again.status, 409);
+  assert.equal((await again.json()).code, "CHAT_ARCHIVED");
   assert.deepEqual(fs.readdirSync(path.join(workspace, "attachments")), []);
 });

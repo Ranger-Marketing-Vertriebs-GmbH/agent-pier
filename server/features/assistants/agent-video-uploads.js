@@ -3,6 +3,7 @@ import { constants } from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
+import { chatProblem } from "./agent-chats.js";
 import {
   MAX_VIDEO_BYTES,
   VIDEO_CHUNK_BYTES,
@@ -144,6 +145,7 @@ export class VideoUploads {
     const type = videoType(head);
     if (!type) throw assistantProblem("attachmentUnsupported", 415);
     const conversation = this.a.store.getConversation(conversationId);
+    if (conversation.archivedAt) throw chatProblem("CHAT_ARCHIVED");
     const { assistantId } = conversation;
     return this.a.serial(assistantId, async () => {
       const folder = await this.a.folder(assistantId);
@@ -194,6 +196,13 @@ export class VideoUploads {
       throw assistantProblem("attachmentNotFound", 404);
     return upload;
   }
+  // An archived chat is read-only, like for any upload (agent-attachments.js): a
+  // video still arriving when its chat is archived is given up.
+  async writable(upload) {
+    if (!this.a.store.getConversation(upload.conversationId).archivedAt) return;
+    await this.drop(upload);
+    throw chatProblem("CHAT_ARCHIVED");
+  }
   /**
    * Writes one chunk (an async iterable of buffers) at `offset`, which must be
    * where the copy ends. A chunk cut off midway keeps what arrived: the reply to
@@ -204,6 +213,7 @@ export class VideoUploads {
     if (file) return { complete: true, file };
     const upload = this.get(conversationId, id);
     if (upload.busy) throw assistantProblem("conflict", 409);
+    await this.writable(upload);
     if (offset !== upload.written)
       throw Object.assign(assistantProblem("videoUploadOffset", 409), {
         received: upload.written,
@@ -249,6 +259,7 @@ export class VideoUploads {
     const upload = this.get(conversationId, id);
     if (upload.busy || upload.written !== upload.size)
       throw assistantProblem("conflict", 409);
+    await this.writable(upload);
     this.uploads.delete(upload.id);
     clearTimeout(upload.timer);
     return this.a.serial(upload.assistantId, async () => {

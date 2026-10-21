@@ -2613,12 +2613,15 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   and cut at a word to 60 characters (`server/features/assistants/chat-titles.js`).
   AgentPier's browser hand-back note, queued as the person's turn, never names a chat.
   `PATCH /api/assistant-conversations/:id` and `PATCH /api/me/conversations/:id` with
-  `{title}` set 1 to 80 characters without control characters; `""` brings the
+  `{title}` set 1 to 80 characters without control or format characters (bidi
+  overrides, zero-width spaces; emoji joiners stay), the ones an automatic title drops; `""` brings the
   automatic title back. Titles never reach the audit log. Typed into a chat, `/new`
   opens a new chat (201 `{created}`; a retry with the same `clientRequestId` returns the
-  same chat) and `/name <title>` renames it (200 `{chat}`); nothing reaches the Gateway.
+  same chat, also while the first is still opening it and after a restart: the chat
+  stores the request as `openedBy`) and `/name <title>` renames it (200 `{chat}`); nothing reaches the Gateway.
   `/reset` and `/new` with text answer 400 `CHAT_COMMAND`. Queued while the agent works,
-  `/new` and `/name` answer 400 `CHAT_COMMAND_QUEUED`, and queued text is always sent as
+  `/new` and `/name` answer 400 `CHAT_COMMAND_QUEUED`, `/reset` and `/new` with text 400
+  `CHAT_COMMAND`, and queued text is always sent as
   a turn, never run as a command. A rename made while a first message is being admitted
   keeps its set title. Telegram turns are passed on as before.
 - Archive and restore: `POST …/conversations/:id/archive|restore` (owner under

@@ -16,6 +16,21 @@ test("every listed native contract exists and every weight belongs to one", () =
     assert.ok(contractShards.files.includes(file), `stale weight ${file}`);
 });
 
+test("every contract gated on the installed runtime runs in the native-contracts job", () => {
+  // Such a contract skips in `npm test`; only the listed files run where it is set.
+  const dir = new URL("tests/integration/", root);
+  for (const name of fs.readdirSync(dir)) {
+    const source = fs.readFileSync(new URL(name, dir), "utf8");
+    // A live contract needs real provider credentials and runs only by hand.
+    if (
+      !source.includes("AGENTPIER_ASSISTANT_PROVIDER_RUNTIME") ||
+      source.includes("AGENTPIER_ASSISTANT_LIVE")
+    )
+      continue;
+    assert.ok(contractShards.files.includes(`tests/integration/${name}`), name);
+  }
+});
+
 test("shards partition the contracts deterministically for every total", () => {
   for (let total = 1; total <= 8; total++) {
     const shards = splitShards(total);
