@@ -13,6 +13,10 @@ import { AssistantModels } from "../../server/features/assistants/assistant-mode
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { deletedTranscripts } from "../../server/features/assistants/chat-removal.js";
+import {
+  keepChatOpen,
+  reopenRefusedChat,
+} from "../../server/features/assistants/native-chat-archive.js";
 
 // Several chats per agent (AGENTPIER-181) against the pinned runtime: AgentPier makes
 // one sessions.create session per chat and relies on what these tests pin.
@@ -65,8 +69,8 @@ const text = (messages) =>
   );
 
 // The pinned runtime's own session maintenance (OpenClaw 2026.10.3,
-// dist/store-maintenance-*.mjs): `t` archives stale dashboard entries, `u` resolves
-// `session.maintenance`.
+// dist/store-maintenance-*.mjs): `t` archives stale dashboard entries, `c` applies
+// `pruneAfter`, `n` caps `maxEntries`, `u` resolves `session.maintenance`.
 async function runtimeMaintenance(runtime) {
   const dist = path.join(runtime, "app/node_modules/openclaw/dist");
   const [file] = fs.readdirSync(dist).filter((name) => {
@@ -74,11 +78,18 @@ async function runtimeMaintenance(runtime) {
     const source = fs.readFileSync(path.join(dist, name), "utf8");
     return (
       source.includes("archiveStaleDashboardEntries as t") &&
+      source.includes("pruneStaleEntries as c") &&
+      source.includes("capEntryCount as n") &&
       source.includes("resolveMaintenanceConfigFromInput as u")
     );
   });
   const module = await import(pathToFileURL(path.join(dist, file)).href);
-  return { archiveDashboard: module.t, resolve: module.u };
+  return {
+    archiveDashboard: module.t,
+    prune: module.c,
+    cap: module.n,
+    resolve: module.u,
+  };
 }
 
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
@@ -152,12 +163,8 @@ test(
     const client = runtime.client;
     const create = (label) =>
       client.call("sessions.create", { agentId: a.runtimeAgentId, label });
-    const turn = async (key, message) => {
-      const sent = await client.call("sessions.send", {
-        key,
-        message,
-        idempotencyKey: crypto.randomUUID(),
-      });
+    const turn = async (key, message, idempotencyKey = crypto.randomUUID()) => {
+      const sent = await client.call("sessions.send", { key, message, idempotencyKey });
       const result = await client.call(
         "agent.wait",
         { runId: sent.runId, timeoutMs: 45000 },
@@ -256,26 +263,104 @@ test(
       },
     );
 
-    await t.test("a natively archived session takes no turn", async () => {
-      // Why AgentPier keeps archive state itself and keeps OpenClaw's idle archiving
-      // of its chats off: a session OpenClaw archived refuses new work.
-      const scratch = await create(`AgentPier ${a.id} chat scratch`);
-      const described = await client.call("sessions.describe", { key: scratch.key });
-      await client.call("sessions.patch", {
-        key: scratch.key,
-        archived: true,
-        expectedSessionId: described.session.sessionId,
-      });
-      let refused = null;
-      try {
-        await turn(scratch.key, "Say gamma");
-      } catch (error) {
-        refused = { code: error.code, message: error.message };
-      }
-      assert.equal(refused?.code, "INVALID_REQUEST", JSON.stringify(refused));
+    await t.test(
+      "pruneAfter archives an idle chat after 30 days unless it is pinned",
+      async () => {
+        // archiveDashboardAfter: false leaves the age cutoff every durable session
+        // has: 30 idle days archive a dashboard session with `age-retention`, and the
+        // entry cap archives the oldest. A pinned session is exempt from both.
+        const compiled = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8"));
+        const maintenance = await runtimeMaintenance(installed);
+        const resolved = maintenance.resolve(compiled.session.maintenance);
+        assert.equal(resolved.pruneAfterMs, 30 * 24 * 3600 * 1000);
+        const idle = Date.now() - 31 * 24 * 3600 * 1000;
+        const rows = () => ({
+          [first.key]: { sessionId: "one", updatedAt: idle },
+          [second.key]: { sessionId: "two", updatedAt: idle, pinnedAt: idle },
+        });
+        const pruned = rows();
+        maintenance.prune(pruned, resolved.pruneAfterMs, { log: false });
+        assert.equal(pruned[first.key].archiveReason, "age-retention");
+        assert.equal(pruned[second.key].archivedAt, undefined);
+        const capped = rows();
+        maintenance.cap(capped, 0, { log: false });
+        assert.equal(capped[first.key].archiveReason, "active-session-cap");
+        assert.equal(capped[second.key].archivedAt, undefined);
+        const stale = rows();
+        maintenance.archiveDashboard(
+          stale,
+          maintenance.resolve({}).archiveDashboardAfterMs,
+          {
+            log: false,
+          },
+        );
+        assert.equal(stale[first.key].archiveReason, "stale-dashboard");
+        assert.equal(stale[second.key].archivedAt, undefined);
+      },
+    );
+
+    await t.test("keepChatOpen pins an open chat's session", async () => {
+      const pinned = await create(`AgentPier ${a.id} chat pinned`);
+      assert.equal(
+        (await client.call("sessions.describe", { key: pinned.key })).session.pinned,
+        false,
+      );
+      assert.equal(await keepChatOpen(client, pinned.key), "pinned");
+      assert.equal(
+        (await client.call("sessions.describe", { key: pinned.key })).session.pinned,
+        true,
+      );
+      assert.equal(await keepChatOpen(client, pinned.key), "open");
+      await turn(pinned.key, "Say alpha");
     });
 
+    await t.test(
+      "a natively archived session takes no turn until it is reopened with its history",
+      async () => {
+        // A session OpenClaw archived refuses new work before any run starts; restoring
+        // it keeps its transcript, and the refused turn goes through with its key.
+        const scratch = await create(`AgentPier ${a.id} chat scratch`);
+        await turn(scratch.key, "Say beta");
+        const described = await client.call("sessions.describe", { key: scratch.key });
+        await client.call("sessions.patch", {
+          key: scratch.key,
+          archived: true,
+          expectedSessionId: described.session.sessionId,
+        });
+        const archived = (await client.call("sessions.describe", { key: scratch.key }))
+          .session;
+        assert.equal(archived.archived, true);
+        // An archived session cannot be pinned before it is restored.
+        await assert.rejects(
+          client.call("sessions.patch", { key: scratch.key, pinned: true }),
+        );
+        const idempotencyKey = crypto.randomUUID();
+        let refused = null;
+        try {
+          await turn(scratch.key, "Say gamma", idempotencyKey);
+        } catch (error) {
+          refused = error;
+        }
+        assert.equal(refused?.code, "INVALID_REQUEST", String(refused));
+        assert.equal(await reopenRefusedChat(client, scratch.key, refused), true);
+        const reopened = (await client.call("sessions.describe", { key: scratch.key }))
+          .session;
+        assert.equal(reopened.archived, false);
+        assert.equal(reopened.pinned, true);
+        assert.equal(reopened.sessionId, archived.sessionId);
+        assert.match(text(await history(scratch.key)), /beta/);
+        await turn(scratch.key, "Say gamma", idempotencyKey);
+        const after = text(await history(scratch.key));
+        assert.match(after, /beta/);
+        assert.match(after, /Reply gamma/);
+        // A refusal for an open session reopens nothing.
+        assert.equal(await reopenRefusedChat(client, scratch.key, refused), false);
+      },
+    );
+
     await t.test("sessions.delete removes the session", async () => {
+      // AgentPier pins every chat it keeps; a pinned session deletes like any other.
+      assert.equal(await keepChatOpen(client, first.key), "pinned");
       const sessionId = (await client.call("sessions.describe", { key: first.key }))
         .session.sessionId;
       const before = deletedTranscripts(runtime.paths.state, a.runtimeAgentId, sessionId);

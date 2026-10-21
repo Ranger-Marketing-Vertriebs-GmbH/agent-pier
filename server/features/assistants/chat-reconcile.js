@@ -7,6 +7,7 @@ import * as queuedDispatch from "./queued-dispatch.js";
 import { reconcileRuns } from "./run-reconciler.js";
 import { reconciledChanges } from "./conversation-feeds.js";
 import { busyChats, chatBusy } from "./agent-chats.js";
+import { keepChatOpen } from "./native-chat-archive.js";
 
 const sessionRetryMs = 60000;
 
@@ -51,7 +52,9 @@ async function pass(service) {
   if (service.subscribedOn !== client) {
     service.subscribedOn = client;
     service.subscribed = new Set();
+    service.keptOpen = new Set();
   }
+  service.keptOpen ??= new Set();
   // The chats whose history came from the cache: a full pass finds them anew, a
   // partial one reads them again with the chats it needs, so the flag covers every
   // chat and clears once the last one reads, and a chat that takes no live read
@@ -90,6 +93,16 @@ async function pass(service) {
       continue;
     // A full pass subscribes every chat again, as after a Gateway restart.
     if (full || !subscribed) {
+      // Once per connection: pinned, a chat stays out of OpenClaw's maintenance, and
+      // one it archived anyway takes turns and deliveries again (native-chat-archive.js).
+      if (!service.keptOpen.has(c.id))
+        try {
+          await keepChatOpen(client, c.runtimeSessionKey);
+          service.keptOpen.add(c.id);
+        } catch {
+          if (service.runtime.client !== client || !client.ready) break;
+          /* The subscription reports a lasting fault; the next pass tries again. */
+        }
       try {
         await client.call("sessions.messages.subscribe", { key: c.runtimeSessionKey });
         service.subscribed.add(c.id);
