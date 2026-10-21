@@ -71,12 +71,17 @@ export class HeartbeatRuns {
   }
 }
 
-// Refusals are logged once per session, run and reason, with a code only: never a
-// path, the prompt or the command's output.
+// A refusal is logged once per session, run and reason, with a code only (never a
+// path, the prompt or the command's output), and only for a run the Gateway reports
+// as heartbeat-driven in that session: an ordinary refused write elsewhere is not a
+// continuation and stays quiet.
 const logged = new Set();
 function refuse(bridge, input, code) {
-  const key = `${input.sessionKey}\u0000${input.runId ?? ""}\u0000${code}`;
-  if (!logged.has(key)) {
+  const candidate = bridge.assistants?.heartbeatRuns
+    ?.live(input.sessionKey)
+    .some((r) => r.runId === input.runId);
+  const key = `${input.sessionKey}\u0000${input.runId}\u0000${code}`;
+  if (candidate && !logged.has(key)) {
     if (logged.size > 1000) logged.clear();
     logged.add(key);
     (bridge.warn || console.warn)(

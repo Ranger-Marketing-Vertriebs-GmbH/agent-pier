@@ -78,13 +78,22 @@ test(
                 },
               };
       const asked = JSON.stringify(lastUser(request)[0]);
+      const steps = lastUser(request).filter((m) => m.role === "tool").length;
       // "List" runs a foreground command; "foreign" starts another background one.
-      const command = asked.includes("List")
-        ? { command: "echo LISTED" }
+      // "Render" first makes two exec calls that fail before anything starts (no
+      // command, a host that is not allowed), then backgrounds its command.
+      const plan = asked.includes("List")
+        ? [{ command: "echo LISTED" }]
         : asked.includes("foreign")
-          ? { command: "sleep 6; echo FOREIGN", background: true }
-          : { command: "sleep 4; echo RENDERED", background: true };
-      return done ? { text: "Started." } : { tool: { name: "exec", arguments: command } };
+          ? [{ command: "sleep 6; echo FOREIGN", background: true }]
+          : [
+              {},
+              { command: "echo HOST", host: "node" },
+              { command: "sleep 4; echo RENDERED", background: true },
+            ];
+      return steps < plan.length
+        ? { tool: { name: "exec", arguments: plan[steps] } }
+        : { text: "Started." };
     };
     runtime = new RuntimeSupervisor({
       dataDir: f.dataDir,
@@ -268,13 +277,21 @@ test(
     });
     // The completion names the owner turn's background process (its first eight
     // characters), which the exec result reports as still running.
-    const started = page.messages.find((m) => m.toolName === "exec").details;
+    const started = page.messages.find(
+      (m) => m.toolName === "exec" && m.details?.status === "running",
+    ).details;
     const reported = completedProcesses(
       page.messages.findLast((m) => m.role === "user").__openclaw?.modelPromptProjection
         ?.text,
     );
     t.diagnostic(`started=${started.sessionId} reported=${JSON.stringify(reported)}`);
     assert.equal(started.status, "running");
+    // The two failed calls came before it, as errors, and left the record complete.
+    const failed = page.messages.filter((m) => m.toolName === "exec" && m.isError);
+    t.diagnostic(
+      `failed execs=${JSON.stringify(failed.map((m) => [m.details, JSON.stringify(m.content).slice(0, 120)]))}`,
+    );
+    assert.equal(failed.length, 2);
     assert.deepEqual(reported, [started.sessionId.slice(0, 8)]);
     // The write itself.
     assert.equal(write.allow, true, "the completion continues the owner turn");

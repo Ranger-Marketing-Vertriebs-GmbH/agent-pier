@@ -1208,11 +1208,24 @@ was compacted and the plan was gone. Four rules close that gap:
     reported id must belong to that turn's run, and at least one must; a shorter id
     must equal a whole id.
   - The record is complete. It must exist before `gateway_start`; one that appears
-    later may have missed processes. It becomes uncertain for the Gateway's life
-    when an `exec` result is neither running nor a known end (an approval may still
-    start a command), when a run ends with an `exec` call that never reported a
-    result, or past 4,096 processes in the session or 4,096 sessions. While an
-    `exec` call is still open in the session it is not complete either.
+    later may have missed processes. An errored `exec` call (OpenClaw passes
+    `createErrorToolResult`: its text and `details: {}`, or a status `error`)
+    started nothing. The exec tool reports a backgrounded command as a result, and a
+    call aborted before that kills its command, which then never notifies. Each
+    bound fails closed for one session only:
+    - A process whose pid is gone is dropped two hours after the plugin first saw
+      it gone. Its eight-character prefix stays on the session, and a completion
+      naming it is refused.
+    - A session is uncertain for the Gateway's life after more than 4,096 live
+      processes, after an `exec` result that is neither running nor a known end (an
+      approval may still start a command), or after a run that ended with an `exec`
+      call that never reported a result. It is also uncertain when more than 1,024
+      `exec` calls are open across the Gateway and its call is forgotten.
+    - Past 4,096 sessions the least recently used one is forgotten. Its key goes
+      into a bit filter, so that session, and the rare one sharing its bits, stays
+      uncertain; every other chat keeps working.
+    - While an `exec` call is still open in the session it is not complete either.
+    - Only completion runs' model input is kept, and only until the run ends.
 
   `llm_input` and `agent_end` are conversation hooks: the compiled config grants
   the plugin `plugins.entries.agentpier-teams.hooks.allowConversationAccess`
@@ -1222,9 +1235,10 @@ was compacted and the plan was gone. Four rules close that gap:
   successes, a truncated list), a heartbeat poll, a reminder and a completion after
   a newer request stay read-only. So does every completion of a lead-request,
   team-member, forwarded, routine, team-result, coding-result or memory-result
-  turn. The proof never reads the transcript. Each refusal is logged once per
-  session, run and reason with a code such as `PROCESS`, never a path or the
-  command's output. Each write keeps the
+  turn. The proof never reads the transcript. A refusal of a run the Gateway
+  reports as heartbeat-driven in that session is logged once per session, run and
+  reason with a code such as `PROCESS`, never a path or the command's output; an
+  ordinary refused write elsewhere logs nothing. Each write keeps the
   turn's limits (a shared agent's memory note, `USER.md` and instruction files) and
   is audited as `kind: "native-write"` with `via: "exec-completion"` and
   `sourceAttemptId`. `agentpier_workspace` follows the same rule for project-folder
@@ -1235,7 +1249,8 @@ was compacted and the plan was gone. Four rules close that gap:
   (`AGENTPIER_SHELL_CONTRACT_RUNTIME`) pins this against the pinned runtime:
   - the hooks report each background process with its run, the completion's
     prefixes and `gateway_start`;
-  - the completion's write continues the owner turn;
+  - the completion's write continues the owner turn, after two exec calls of that
+    turn failed before anything started (no command, a host that is not allowed);
   - the same completion stays refused after a newer forwarded request or past the
     window;
   - a forwarded turn's background command that completes after an owner turn's

@@ -131,9 +131,20 @@ test("an incomplete or uncertain Gateway record proves nothing", async (t) => {
     await g.exec(attempt, { result });
     assert.equal(await g.call("notes.md", { ctx: await g.wake() }), false);
   }
-  // Foreground results and errors leave nothing running.
+  // Foreground results and errors leave nothing running. OpenClaw 2026.10.3 passes an
+  // errored call as `createErrorToolResult`: its text and `details: {}`.
   const h = await setup(t);
   const attempt = await h.turn({ kind: "owner" });
+  for (const error of [
+    "Provide a command to start.",
+    "exec host not allowed (requested node; configured host is gateway)",
+    "Operation aborted",
+    "Tool execution was aborted",
+  ])
+    await h.exec(attempt, {
+      error,
+      result: { content: [{ type: "text", text: error }], details: {} },
+    });
   for (const status of ["completed", "failed", "denied"])
     await h.exec(attempt, { status, sessionId: "other-one" });
   assert.equal(await h.call("notes.md", { ctx: await h.wake() }), true);
@@ -204,12 +215,18 @@ test("refusals are logged once per run and reason, by code only", async (t) => {
   const ctx = await f.wake("wake-logged");
   assert.equal(await f.call("secret-plan.md", { ctx }), false);
   assert.equal(await f.call("secret-plan.md", { ctx }), false);
+  // A call without a run, or of a run the Gateway never reported as heartbeat-driven,
+  // is no continuation: refused without a log line.
   const { runId: _runId, ...unnamed } = ctx;
   assert.equal(await f.call("secret-plan.md", { ctx: unnamed }), false);
+  assert.equal(
+    await f.call("secret-plan.md", { ctx: { ...ctx, runId: "chat-run" } }),
+    false,
+  );
   t.diagnostic(JSON.stringify(warnings));
   assert.deepEqual(
     warnings.map((w) => w.match(/\((\w+)\)\.$/)?.[1]),
-    ["PROCESS", "NO_RUN_ID"],
+    ["PROCESS"],
   );
   assert.ok(warnings.every((w) => !w.includes("secret-plan")));
 });
