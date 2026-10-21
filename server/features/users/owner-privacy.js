@@ -96,7 +96,8 @@ export class OwnerPrivacy extends EventEmitter {
    * How the owner's lists show a conversation, or null: his own chats whole, a
    * user's only under her opt-in and only once it was active from its `since` on. A
    * chat she started before that keeps its title to herself: the title comes from
-   * her first message.
+   * her first message. A chat from before AgentPier recorded activity has no
+   * `lastActivityAt` at all; it may have been active since, so it shows.
    */
   view(conversation) {
     if (typeof conversation?.userId !== "string") return conversation;
@@ -104,7 +105,9 @@ export class OwnerPrivacy extends EventEmitter {
     if (!readable) return null;
     if (!since) return conversation;
     const keep = after(Date.parse(since));
-    if (!keep(conversation.lastActivityAt || conversation.createdAt)) return null;
+    const unknown = conversation.lastActivityAt === undefined;
+    if (!unknown && !keep(conversation.lastActivityAt || conversation.createdAt))
+      return null;
     return keep(conversation.createdAt) ? conversation : { ...conversation, title: null };
   }
   /**

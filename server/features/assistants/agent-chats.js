@@ -41,11 +41,10 @@ const teamEnded = new Set(["completed", "failed", "cancelled", "declined"]);
  * Whether a team or lead request started from a chat still has to report into it: a
  * team whose members work or whose result is not yet sent, a request not yet
  * delivered (team-results.js, lead-requests.js). Sent results are ledger turns.
+ * `working` holds the teams with a member still at work.
  */
-function teamWorking(service, team) {
-  if (!teamEnded.has(team.phase)) return true;
-  if (service.teams.store.members(team.id).some((m) => !teamEnded.has(m.phase)))
-    return true;
+function teamWorking(team, working) {
+  if (!teamEnded.has(team.phase) || working().has(team.id)) return true;
   return (
     !!team.resultBatch &&
     !team.resultAttemptId &&
@@ -53,23 +52,39 @@ function teamWorking(service, team) {
   );
 }
 
-// The conversations a team or lead request it started reports into later.
+// The conversations a team or lead request it started reports into later. Member
+// rows are read once, and only when an ended team needs them.
 function teamChats(service, ids) {
   const teams = service.teams;
   if (!teams?.store) return;
+  let working = null;
+  const membersWorking = () =>
+    (working ??= new Set(
+      teams.store
+        .members()
+        .filter((m) => !teamEnded.has(m.phase))
+        .map((m) => m.teamId),
+    ));
   for (const team of teams.store.list())
-    if (team.parentConversationId && teamWorking(service, team))
+    if (
+      team.parentConversationId &&
+      !ids.has(team.parentConversationId) &&
+      teamWorking(team, membersWorking)
+    )
       ids.add(team.parentConversationId);
   for (const request of teams.requests?.store.pending() || [])
     if (request.parentConversationId && !request.resultAttemptId)
       ids.add(request.parentConversationId);
 }
 
-// The conversations with a turn under way, an approval waiting or team work open.
+// The conversations with a turn under way, an approval waiting, an action that still
+// owes a follow-up turn, or team work open.
 export function busyChats(service) {
-  const ids = new Set(
-    (service.workflows?.store.awaiting?.() || []).map((a) => a.conversationId),
-  );
+  const actions = service.workflows?.store;
+  const ids = new Set([
+    ...(actions?.awaiting?.() || []).map((a) => a.conversationId),
+    ...(actions?.owingConversations?.() || []),
+  ]);
   for (const attempt of service.ledger.pending()) {
     try {
       ids.add(service.ledger.getRequest(attempt.requestId).conversationId);

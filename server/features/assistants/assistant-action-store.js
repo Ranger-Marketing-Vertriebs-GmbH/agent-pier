@@ -79,6 +79,30 @@ export class AssistantActionStore {
       .all(now)
       .map((r) => JSON.parse(r.body));
   }
+  // The conversations an action still owes a follow-up turn once its turn has ended:
+  // an allowed SSH command whose call returned before it ran (agent-ssh-approvals.js),
+  // a team member's coding run its team summary may list as pending (team-coding.js)
+  // and a project-knowledge write that was not saved (memory-follow-up.js).
+  owingConversations() {
+    return this.db
+      .prepare(
+        `SELECT DISTINCT json_extract(body,'$.conversationId') AS id FROM assistant_actions
+         WHERE json_extract(body,'$.settled') IS NOT 1 AND (
+           (json_extract(body,'$.payload.action')='ssh' AND json_extract(body,'$.followUp')=1
+             AND json_extract(body,'$.followUpSent') IS NULL
+             AND json_extract(body,'$.state') IN ('approved','executing','completed','failed'))
+           OR (json_extract(body,'$.payload.action')='coding_start'
+             AND json_extract(body,'$.requestedBy') IS NOT NULL
+             AND json_extract(body,'$.parentResult') IS NULL
+             AND json_extract(body,'$.state') NOT IN ('awaiting_approval','unknown'))
+           OR (json_extract(body,'$.payload.action')='memory_write'
+             AND json_extract(body,'$.memoryFollowUp') IS NULL
+             AND json_extract(body,'$.state') IN ('declined','expired','failed','cancelled')))`,
+      )
+      .all()
+      .map((r) => r.id)
+      .filter(Boolean);
+  }
   // Members' requests still waiting in turns this lead delegated, and their allowed SSH
   // commands while they run, as the member's own chat shows them.
   delegated(leadId) {

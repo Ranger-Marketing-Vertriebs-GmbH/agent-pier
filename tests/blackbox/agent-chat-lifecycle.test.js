@@ -6,6 +6,7 @@ import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-ch
 import { fixtureModel } from "../helpers/user-agents.js";
 import { signedInUser } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
+import { busyChats } from "../../server/features/assistants/agent-chats.js";
 import { deleteReleasedSessions } from "../../server/features/users/user-release.js";
 
 const png = Buffer.from(
@@ -472,4 +473,78 @@ test("a retried deletion removes the archive of a session the first try already 
   await deleteReleasedSessions({ assistants });
   assert.ok(!fs.existsSync(archive));
   assert.equal(assistants.store.storedConversation(second).nativeDeletePending, false);
+});
+
+test("a chat an approved SSH command, coding run or memory write still owes a turn stays busy", async (t) => {
+  const { f } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const { second } = await twoChats(f.request, agent.id);
+  const actions = f.application.assistants.workflows.store;
+  const r = routes(false);
+  const archive = () => f.request(`${r.chat(second)}/archive`, { method: "POST" });
+  const action = (key, payload, patch) =>
+    actions.patch(
+      actions.reserve({ key, assistantId: agent.id, conversationId: second, payload }).id,
+      patch,
+    );
+  // Approved after the agent's call returned: the result goes into the chat later.
+  const ssh = action("ssh", { action: "ssh" }, { state: "executing", followUp: true });
+  // A member's run the team summary may list as pending reports to the parent chat.
+  const coding = action(
+    "coding",
+    { action: "coding_start" },
+    { state: "running", requestedBy: "member-1" },
+  );
+  // A declined project-knowledge write is reported once.
+  const memory = action("memory", { action: "memory_write" }, { state: "declined" });
+  for (const [owing, done] of [
+    [ssh, { state: "completed", followUpSent: true }],
+    [coding, { state: "completed", parentResult: { attemptId: "x" } }],
+    [memory, { memoryFollowUp: { attemptId: "y" } }],
+  ]) {
+    const refused = await archive();
+    assert.equal(refused.status, 409);
+    assert.equal((await refused.json()).code, "CHAT_BUSY");
+    actions.patch(owing.id, done);
+  }
+  // An SSH call that got its own result, or a run that is unknown, owes nothing.
+  action("ssh-delivered", { action: "ssh" }, { state: "completed", delivered: true });
+  action("lost", { action: "coding_start" }, { state: "unknown", requestedBy: "m" });
+  await json(await archive(), 200);
+});
+
+test("busy chats read team members once however many teams ended", async (t) => {
+  const { f } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const { second } = await twoChats(f.request, agent.id);
+  const teams = f.application.assistants.teams.store;
+  for (let n = 0; n < 20; n++) {
+    teams.insert({
+      id: `team-${n}`,
+      kind: "team",
+      revision: 1,
+      parentAssistantId: agent.id,
+      parentConversationId: second,
+      phase: "completed",
+    });
+    teams.insert({
+      id: `member-${n}`,
+      kind: "member",
+      revision: 1,
+      teamId: `team-${n}`,
+      phase: "completed",
+    });
+  }
+  let reads = 0;
+  const members = teams.members.bind(teams);
+  teams.members = (...args) => (reads++, members(...args));
+  t.after(() => delete teams.members);
+  assert.equal(busyChats(f.application.assistants).has(second), false);
+  assert.equal(reads, 1);
+  // A member still at work keeps its ended team's chat busy.
+  teams.write(teams.get("member-7"), { phase: "running" });
+  const refused = await f.request(`${routes(false).chat(second)}/archive`, {
+    method: "POST",
+  });
+  assert.equal(refused.status, 409);
 });
