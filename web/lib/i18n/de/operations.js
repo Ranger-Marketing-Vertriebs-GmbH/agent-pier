@@ -130,6 +130,7 @@ export const operationsCopy = {
   no: "Nein",
   needsLogin: "Erneute Anmeldung erforderlich",
   needsMcpServerValues: (name) => `MCP-Server ${name} (Werte neu eingeben)`,
+  needsUserPassword: (name) => `Benutzer ${name} (neues Passwort vergeben)`,
   needsMcpServerAddress: (name) =>
     `MCP-Server ${name} (Token in der Adresse neu eingeben)`,
   importedSessions: "Importierte Sessions",
@@ -391,6 +392,10 @@ export const backupCopy = {
     "encrypted-mcp-server-values":
       "Header- und Umgebungswerte der MCP-Server und Tokens in ihren Adressen (verschlüsselt)",
     "MCP server OAuth logins": "OAuth-Anmeldungen der MCP-Server",
+    users: "Benutzer und ihre Einstellungen (ohne Passwörter)",
+    "encrypted-user-passwords": "Passwörter der Benutzer (verschlüsselt)",
+    "User passwords (the owner sets new ones after a restore)":
+      "Passwörter der Benutzer (nach einer Wiederherstellung vergibst du neue)",
     "MCP server header and environment values and address tokens":
       "Header- und Umgebungswerte der MCP-Server und Tokens in ihren Adressen",
     "Files removed while the backup was written":

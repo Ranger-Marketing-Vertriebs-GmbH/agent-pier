@@ -11,6 +11,7 @@ export const usersCopy = {
   create: "Add",
   empty: "No users yet. Add the first one.",
   disabled: "Disabled",
+  needsPassword: "Needs a new password",
   loading: "Loading users …",
   allUsers: "All users",
   notFound: "This user no longer exists.",

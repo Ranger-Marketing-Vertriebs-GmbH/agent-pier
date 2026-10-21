@@ -20,7 +20,8 @@ const validRecord = (user) =>
   typeof user.username === "string" &&
   typeof user.displayName === "string" &&
   typeof user.disabled === "boolean" &&
-  validCredential(user);
+  // A user restored without the backup's credentials has no password until a reset.
+  (user.mustReset === true ? user.salt === undefined : validCredential(user));
 const publicUser = ({ salt: _salt, hash: _hash, ...user }) =>
   structuredClone({ ...user, ownerMayRead: { ...user.ownerMayRead } });
 
@@ -127,7 +128,9 @@ export class UserStore {
   async resetPassword(id, password) {
     this.record(id);
     const credential = await this.credential(password);
-    Object.assign(this.record(id), credential, { passwordChangedAt: this.timestamp() });
+    const user = this.record(id);
+    Object.assign(user, credential, { passwordChangedAt: this.timestamp() });
+    delete user.mustReset;
     this.save();
     this.revokeUser(id);
   }
@@ -135,7 +138,9 @@ export class UserStore {
     const user = this.record(id);
     if (!this.attempts.allow(id)) throw userProblem("LOGIN_THROTTLED");
     const checked = user.hash;
-    if (!(await verifyPassword(current, user, this.hash)))
+    if (
+      !(await verifyPassword(current, user.mustReset ? dummyCredential : user, this.hash))
+    )
       throw userProblem("USER_PASSWORD_WRONG");
     const credential = await this.credential(next);
     // An owner reset, another change or a revoked session during the hashes wins.
@@ -174,7 +179,9 @@ export class UserStore {
    */
   async verify({ username, password } = {}) {
     const name = typeof username === "string" ? username.trim() : null;
-    const user = this.data.users.find((candidate) => candidate.username === name);
+    const found = this.data.users.find((candidate) => candidate.username === name);
+    // A user without a password (restored without credentials) cannot sign in.
+    const user = found?.mustReset ? undefined : found;
     const checked = user?.hash;
     const matches = await verifyPassword(password, user || dummyCredential, this.hash);
     return matches && user && !user.disabled ? { userId: user.id, hash: checked } : null;
@@ -183,7 +190,7 @@ export class UserStore {
   // during her sign-in gets no session, the same answer as a wrong password.
   issue({ userId, hash } = {}) {
     const user = this.data.users.find((candidate) => candidate.id === userId);
-    if (!user || user.disabled || user.hash !== hash)
+    if (!user || user.disabled || user.mustReset || user.hash !== hash)
       throw userProblem("LOGIN_CREDENTIALS_INVALID");
     return this.ledger.issue({ userId });
   }
