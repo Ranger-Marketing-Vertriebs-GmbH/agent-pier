@@ -255,3 +255,64 @@ test("tool configuration is locked for writes of a restricted user's agent", (t)
     "notes/.claude.md",
   );
 });
+
+test("hook folders and imported instructions the repository names are locked", (t) => {
+  const h = host(t);
+  const write = (name, text) => {
+    fs.mkdirSync(path.dirname(path.join(h.project, name)), { recursive: true });
+    fs.writeFileSync(path.join(h.project, name), text);
+  };
+  fs.writeFileSync(
+    path.join(h.project, ".git", "config"),
+    '[core]\n\tbare = false\n\thooksPath = "scripts/git-hooks"\n',
+  );
+  write("lefthook.yml", "source_dir: tools/hooks\nsource_dir_local: tools/local\n");
+  write("CLAUDE.md", "See @docs/conventions.md and mail me@example.com.\n");
+  write("docs/conventions.md", "Also @./more.md\n");
+  write("packages/a/GEMINI.md", "Read @../../shared/style.md\n");
+  write(
+    "opencode.jsonc",
+    '{\n  // guides\n  "instructions": ["docs/agent-guide.md", "guides/*.md"]\n}\n',
+  );
+  const locked = { status: 403, key: "projectToolConfigLocked" };
+  const user = { ...h.options, lockToolConfig: true, write: true };
+  for (const raw of [
+    ".lefthook/pre-commit/check.sh",
+    ".lefthook-local/pre-commit/x.sh",
+    "tools/hooks/pre-commit/check.sh",
+    "tools/local/x.sh",
+    "scripts/git-hooks/pre-commit",
+    "scripts",
+    "docs/conventions.md",
+    "docs/more.md",
+    "docs",
+    "shared/style.md",
+    "docs/agent-guide.md",
+    "guides/setup.md",
+  ]) {
+    assert.throws(() => projectTarget(h.project, raw, user), locked, raw);
+    projectTarget(h.project, raw, { ...h.options, write: true });
+  }
+  for (const raw of ["docs/other.md", "src/index.js", "guides/deep/x.md", "example.com"])
+    assert.equal(projectTarget(h.project, raw, user).relative, raw);
+});
+
+test("a linked worktree's hooks path comes from the shared Git config", (t) => {
+  const h = host(t);
+  const main = path.join(h.base, "main");
+  const gitDir = path.join(main, ".git", "worktrees", "app");
+  fs.mkdirSync(gitDir, { recursive: true });
+  fs.writeFileSync(path.join(main, ".git", "config"), "[core]\nhooksPath = .git-hooks\n");
+  fs.writeFileSync(path.join(gitDir, "commondir"), "../..\n");
+  fs.rmSync(path.join(h.project, ".git"), { recursive: true });
+  fs.writeFileSync(path.join(h.project, ".git"), `gitdir: ${gitDir}\n`);
+  assert.throws(
+    () =>
+      projectTarget(h.project, ".git-hooks/pre-commit", {
+        ...h.options,
+        lockToolConfig: true,
+        write: true,
+      }),
+    { status: 403, key: "projectToolConfigLocked" },
+  );
+});

@@ -45,6 +45,15 @@ export function ownerContentGuard(services) {
         : null;
     },
   };
+  // The request a chat file came with or answers; a lost one counts as unknown.
+  function requestOf(assistants, id) {
+    const requestId = assistants.attachments.requestOf?.(id);
+    try {
+      return requestId ? assistants.ledger.getRequest(requestId) : null;
+    } catch {
+      return null;
+    }
+  }
   // Whether the owner may use this route on this target; `since` limits a read.
   function decide(assistants, privacy, { kind, method }, id, res) {
     // A write over every chat of an agent (clearing its attachments) would delete what
@@ -83,7 +92,11 @@ export function ownerContentGuard(services) {
     const { readable, since } = privacy.conversation(conversation);
     // A file from before the opt-in stays hers, like the messages it came with.
     if (kind === "attachment" && readable)
-      return privacy.fileVisible(assistants.attachments.createdAt(id), since);
+      return privacy.fileVisible(
+        assistants.attachments.createdAt(id),
+        since,
+        requestOf(assistants, id),
+      );
     if (readable) res.locals.privacySince = since;
     return readable;
   }

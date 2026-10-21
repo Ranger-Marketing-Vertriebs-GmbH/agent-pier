@@ -331,3 +331,50 @@ test("a poll or run end reads only the chats that need it, not every open chat",
   assert.deepEqual(read("sessions.messages.subscribe"), ["fresh"]);
   assert.deepEqual(read().sort(), ["fresh", "live"]);
 });
+
+test("a partial pass keeps the stale flag of a chat it did not read", async (t) => {
+  const f = teamFixture(t);
+  const a = parentChat(f, "a"),
+    b = parentChat(f, "b");
+  const states = [];
+  f.assistants.runtime.setState = (state) => states.push(state.sync);
+  const history = f.assistants.history.bind(f.assistants);
+  let failing = new Set([a.id]);
+  f.assistants.history = async (id, options) => ({
+    ...(await history(id, options)),
+    stale: failing.has(id),
+  });
+  await f.assistants.reconcile();
+  assert.equal(states.at(-1), "stale");
+  // A run ends in chat B: only B is read, and A's history is still stale.
+  await f.assistants.reconcile({ full: false, chats: [b.id] });
+  assert.equal(states.at(-1), "stale");
+  failing = new Set();
+  await f.assistants.reconcile({ full: false, chats: [a.id] });
+  assert.equal(states.at(-1), "current");
+});
+
+test("a partial pass reads a stale chat again and forgets an archived one", async (t) => {
+  const f = teamFixture(t);
+  const a = parentChat(f, "a"),
+    b = parentChat(f, "b"),
+    c = parentChat(f, "c");
+  const states = [];
+  f.assistants.runtime.setState = (state) => states.push(state.sync);
+  const history = f.assistants.history.bind(f.assistants);
+  let failing = new Set([a.id, c.id]);
+  f.assistants.history = async (id, options) => ({
+    ...(await history(id, options)),
+    stale: failing.has(id),
+  });
+  await f.assistants.reconcile();
+  assert.equal(states.at(-1), "stale");
+  // A's history recovers: the next run end elsewhere reads it again.
+  failing = new Set([c.id]);
+  const conversation = f.store.getConversation(c.id);
+  f.store.db
+    .prepare("UPDATE conversations SET body=? WHERE id=?")
+    .run(JSON.stringify({ ...conversation, archivedAt: new Date().toISOString() }), c.id);
+  await f.assistants.reconcile({ full: false, chats: [b.id] });
+  assert.equal(states.at(-1), "current");
+});

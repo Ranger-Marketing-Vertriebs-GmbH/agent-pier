@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { png, shareFixture, token } from "../helpers/agent-share-fixture.js";
 import { generatedImageRefs } from "../../server/features/assistants/generated-images.js";
+import { fromSince } from "../../server/features/users/owner-privacy.js";
 
 const task = "44e94c4f-bb9c-4e50-af0b-65f203e10a6e";
 const artifactId = "artifact_managed_image_ecfbf9d6-7803-4f03-aba7-70598bd85b98";
@@ -374,4 +375,29 @@ test("a run ending in a released user's chat copies no image back", async (t) =>
   f.store.updateConversation(f.chat.id, { userReleased: false });
   ended();
   await until(() => f.calls.length === 1);
+});
+
+test("an image and its completion answer the request that asked, also under an opt-in", async (t) => {
+  const f = await setup(t);
+  const attempt = await f.turn(f.chat, "draw-early");
+  f.setHistory(imageTurn(attempt.id, Date.now() - 5000));
+  await f.service.generatedImages.observe(f.chat);
+  const history = await f.service.history(f.chat.id);
+  const done = history.messages.find((m) => m.id === "a3");
+  const [image] = history.messages.filter((m) => m.shared);
+  assert.equal(done.imageResult, true);
+  assert.equal(done.requestId, attempt.requestId);
+  assert.equal(image.requestId, attempt.requestId);
+  assert.equal("imageArtifact" in done, false);
+  // She lets the owner read from now on: the image and its words answer an older turn.
+  const since = new Date(Date.now() + 1000).toISOString();
+  const later = {
+    ...history,
+    messages: history.messages.map((m) => ({ ...m, timestamp: Date.now() + 2000 })),
+  };
+  const shown = fromSince(later, since);
+  assert.deepEqual(
+    shown.messages.filter((m) => ["a3", image.id].includes(m.id)),
+    [],
+  );
 });

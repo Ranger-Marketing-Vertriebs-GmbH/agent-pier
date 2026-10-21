@@ -11,10 +11,18 @@ const ownInput = (body) => {
   return rest;
 };
 
+// Pausing ({ enabled: false } and the revision, nothing else) only stops what she set
+// up, so it stays hers at every level, like deleting.
+const pauseOnly = (body) =>
+  record(body) &&
+  body.enabled === false &&
+  Object.keys(body).every((key) => key === "enabled" || key === "revision");
+
 /**
- * A user's own reminders and routines on her agents: she sees hers at every level and
- * creates, changes and deletes them from "personalize" on. Another user's on a shared
- * agent are not found.
+ * A user's own reminders and routines on her agents: she sees, pauses and deletes hers
+ * at every level, so a lowering to Chat only never leaves them running out of her
+ * reach, and creates and changes them from "personalize" on. Another user's on a
+ * shared agent are not found.
  */
 export function meReminderRoutes({ userScope, assistantReminders, assistantRoutines }) {
   const router = Router();
@@ -29,8 +37,8 @@ export function meReminderRoutes({ userScope, assistantReminders, assistantRouti
     ["routines", assistantRoutines],
   ]) {
     const base = `/me/agents/:id/${kind}`;
-    const own = (req) => {
-      const id = mine(req, true);
+    const own = (req, stop = false) => {
+      const id = mine(req, !stop);
       boundTo(service.bindings, id, req.params.bindingId, req.principal.userId);
       return id;
     };
@@ -45,10 +53,16 @@ export function meReminderRoutes({ userScope, assistantReminders, assistantRouti
       ),
     );
     router.patch(`${base}/:bindingId`, async (req, res) =>
-      res.json(await service.update(own(req), req.params.bindingId, ownInput(req.body))),
+      res.json(
+        await service.update(
+          own(req, pauseOnly(req.body)),
+          req.params.bindingId,
+          ownInput(req.body),
+        ),
+      ),
     );
     router.delete(`${base}/:bindingId`, async (req, res) =>
-      res.json(await service.remove(own(req), req.params.bindingId)),
+      res.json(await service.remove(own(req, true), req.params.bindingId)),
     );
   }
   return router;

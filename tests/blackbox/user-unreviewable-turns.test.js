@@ -108,3 +108,28 @@ test("the owner's unknown turn is settled once the shared agent becomes a user's
   await assistants.reconcile();
   assert.ok(assistants.ledger.getAttempt(mine.id).reviewedAt);
 });
+
+test("the owner's maintenance settles a user's unknown turn she never reviews", async (t) => {
+  const { f, attempt, aborted, assistants } = await unknownTurn(t);
+  const maintenance = f.application.assistantUpdates.maintenance;
+  assert.deepEqual(await maintenance.blockers(), []);
+  assert.ok(aborted(), "her run is aborted before the review");
+  assert.ok(assistants.ledger.getAttempt(attempt.id).reviewedAt);
+  assert.deepEqual(assistants.ledger.pending(), []);
+});
+
+test("the owner's own unknown turn still blocks his maintenance", async (t) => {
+  const { f, agent, assistants } = await unknownTurn(t);
+  const opened = await f.request(`/api/assistants/${agent.id}/conversations`, {
+    method: "POST",
+  });
+  const request = assistants.ledger.accept((await opened.json()).id, {
+    clientRequestId: "owner",
+    text: "Mine",
+  });
+  const mine = assistants.ledger.recordAttempt(request.id);
+  assistants.ledger.transition(mine.id, "uncertain");
+  const maintenance = f.application.assistantUpdates.maintenance;
+  assert.deepEqual(await maintenance.blockers(), ["ASSISTANT_WORK"]);
+  assert.equal(assistants.ledger.getAttempt(mine.id).reviewedAt, null);
+});

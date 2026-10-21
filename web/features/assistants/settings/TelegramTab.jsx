@@ -91,7 +91,13 @@ export default function TelegramTab({ assistant, page, go, navigate }) {
         <>
           <ConflictNotice draft={draft} labels={conflictLabels} />
           {own ? (
-            <UserAgentNote text={usersCopy.ownTelegram} />
+            <UserAgentNote
+              text={
+                assistant.userAccess.members[0]?.level === "extended"
+                  ? usersCopy.ownTelegram
+                  : usersCopy.ownTelegramBelowExtended
+              }
+            />
           ) : (
             <ConnectionGroup
               assistant={assistant}

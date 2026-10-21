@@ -196,3 +196,55 @@ test("chat-only users cannot create reminders", async (t) => {
   assert.equal((await response.json()).code, "USER_LEVEL");
   assert.deepEqual(await list(f, anna.cookie, agent.id), []);
 });
+
+test("after a lowering to Chat only she can still pause and delete her own", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, ben, agent } = await family(f);
+  const { id } = await (await create(f, anna.cookie, agent.id, "dentist")).json();
+  const second = await (await create(f, anna.cookie, agent.id, "gym")).json();
+  const store = f.application.assistants.store;
+  const lowered = await f.request(`/api/user-agents/${agent.id}/access`, {
+    method: "PUT",
+    body: {
+      userAccess: {
+        mode: "shared",
+        members: [
+          { userId: anna.user.id, level: "chat" },
+          { userId: ben.user.id, level: "personalize" },
+        ],
+      },
+      revision: store.getAssistant(agent.id).revision,
+    },
+  });
+  assert.equal(lowered.status, 200, await lowered.clone().text());
+  const path = `/api/me/agents/${agent.id}/reminders/${id}`;
+  const [reminder] = (await list(f, anna.cookie, agent.id)).filter((r) => r.id === id);
+  // Changing or resuming stays refused; pausing and deleting stop what she set up.
+  for (const body of [
+    { name: "x", revision: reminder.revision },
+    { enabled: true, revision: reminder.revision },
+    { enabled: false, name: "x", revision: reminder.revision },
+  ]) {
+    const refused = await as(f, anna.cookie)(path, { method: "PATCH", body });
+    assert.equal(refused.status, 403, JSON.stringify(body));
+    assert.equal((await refused.json()).code, "USER_LEVEL");
+  }
+  const paused = await as(f, anna.cookie)(path, {
+    method: "PATCH",
+    body: { enabled: false, revision: reminder.revision },
+  });
+  assert.equal(paused.status, 200, await paused.clone().text());
+  assert.equal((await paused.json()).enabled, false);
+  const removed = await as(f, anna.cookie)(
+    `/api/me/agents/${agent.id}/reminders/${second.id}`,
+    { method: "DELETE" },
+  );
+  assert.equal(removed.status, 200, await removed.clone().text());
+  // Ben's own at Personalize are not hers to stop.
+  const his = await (await create(f, ben.cookie, agent.id, "ben")).json();
+  const foreign = await as(f, anna.cookie)(
+    `/api/me/agents/${agent.id}/reminders/${his.id}`,
+    { method: "DELETE" },
+  );
+  assert.equal(foreign.status, 404);
+});

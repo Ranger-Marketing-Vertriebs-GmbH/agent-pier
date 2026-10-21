@@ -75,6 +75,7 @@ export class AssistantMaintenance {
     const s = this.s,
       a = s.assistants,
       blockers = [];
+    await a.settleUserTurns?.();
     if (a.ledger.pending().length) blockers.push("ASSISTANT_WORK");
     if (
       s.assistantTeams?.store

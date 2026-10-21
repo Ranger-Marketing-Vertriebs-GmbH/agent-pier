@@ -103,3 +103,41 @@ test("the owner never streams or reads the reply to her message from before the 
     ["Shared-answer"],
   );
 });
+
+test("a file her agent shares after the opt-in for an earlier message stays hers", async (t) => {
+  const { f } = await chatFixture(t);
+  const { id, user, cookie } = await annaChat(f);
+  const assistants = f.application.assistants;
+  const sent = await as(f, cookie)(`/api/me/conversations/${id}/messages`, {
+    method: "POST",
+    body: { clientRequestId: "early", text: "Share-early" },
+  });
+  assert.equal(sent.status, 202, await sent.clone().text());
+  const [request] = assistants.ledger.requests(id);
+  await pause();
+  await f.request(`/api/users/${user.id}/owner-may-read`, {
+    method: "PUT",
+    body: { enabled: true },
+  });
+  await pause();
+  const conversation = assistants.store.getConversation(id);
+  const file = await assistants.attachments.share({
+    conversation,
+    requestId: request.id,
+    name: "early.txt",
+    body: Buffer.from("Early-file"),
+    caption: "Early-caption",
+  });
+  const history = await (
+    await f.request(`/api/assistant-conversations/${id}/messages`)
+  ).json();
+  assert.doesNotMatch(JSON.stringify(history), /Early-caption/);
+  const snapshot = await (
+    await f.request(`/api/assistant-conversations/${id}/messages?cursor=`)
+  ).json();
+  assert.doesNotMatch(JSON.stringify(snapshot), /Early-caption/);
+  assert.equal((await f.request(`/api/assistant-attachments/${file.id}`)).status, 404);
+  // She still sees it.
+  const own = await as(f, cookie)(`/api/me/attachments/${file.id}`);
+  assert.equal(own.status, 200);
+});

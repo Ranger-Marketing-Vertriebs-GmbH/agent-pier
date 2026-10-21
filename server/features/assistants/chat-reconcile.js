@@ -52,7 +52,12 @@ async function pass(service) {
     service.subscribedOn = client;
     service.subscribed = new Set();
   }
-  let stale = false;
+  // The chats whose history came from the cache: a full pass finds them anew, a
+  // partial one reads them again with the chats it needs, so the flag covers every
+  // chat and clears once the last one reads, and a chat that takes no live read
+  // (archived, released) leaves it.
+  if (full || !service.staleChats) service.staleChats = new Set();
+  const stale = service.staleChats;
   const reads = new Map();
   const busy = busyChats(service);
   const watched = new Set(service.feeds?.entries?.keys() || []);
@@ -60,10 +65,16 @@ async function pass(service) {
     // One unavailable session must not stall run reconciliation for the rest.
     if (service.closed) break;
     // A deleted user's chat waits only for its native delete (user-release.js).
-    if (c.userReleased) continue;
+    if (c.userReleased) {
+      stale.delete(c.id);
+      continue;
+    }
     const working = chatBusy(service, c.id, busy);
     // An archived chat takes no turn: no live read unless work still reports into it.
-    if (c.archivedAt && !working) continue;
+    if (c.archivedAt && !working) {
+      stale.delete(c.id);
+      continue;
+    }
     const failure = service.sessionFailures.get(c.id);
     if (service.now() < (failure?.retryAt ?? -Infinity)) continue;
     const subscribed = service.subscribed.has(c.id);
@@ -73,7 +84,8 @@ async function pass(service) {
       failure ||
       !subscribed ||
       dirty.has(c.id) ||
-      watched.has(c.id)
+      watched.has(c.id) ||
+      stale.has(c.id)
     ))
       continue;
     // A full pass subscribes every chat again, as after a Gateway restart.
@@ -95,11 +107,14 @@ async function pass(service) {
     }
     const history = await service.history(c.id);
     reads.set(c.id, history);
-    stale ||= history.stale;
+    if (history.stale) stale.add(c.id);
+    else stale.delete(c.id);
   }
   await reconcileRuns(service);
   if (!service.closed) {
-    service.runtime.setState({ sync: stale ? "stale" : "current" });
+    const listed = new Set(service.store.listConversations().map((c) => c.id));
+    for (const id of stale) if (!listed.has(id)) stale.delete(id);
+    service.runtime.setState({ sync: stale.size ? "stale" : "current" });
     // The poll reconciles every 2 s during a turn: only the chats whose history
     // or turns changed read their feed again; the list hears of every pass.
     for (const id of reconciledChanges(service, reads)) service.feeds.invalidate(id);

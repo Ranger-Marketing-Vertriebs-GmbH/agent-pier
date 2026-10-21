@@ -1,6 +1,6 @@
 import TeamApprovals from "./TeamApprovals.jsx";
 import { foldResultEvents, teamNotes, withTeamNotes } from "./team-notes.js";
-import { scrollToChild } from "./transcript-scroll.js";
+import { anchorToChild } from "./transcript-scroll.js";
 import {
   emptyHistoryView,
   shownHistory,
@@ -247,11 +247,13 @@ export default function AssistantChat({
     return () => resize.disconnect();
   }, []);
   // A team link (/agents/:id/teams/:teamId) shows what the team needs from the owner,
-  // or else its latest note, once the history is there and either is rendered.
+  // or else its latest note, once the history is rendered (not just received) and either
+  // is there; it stays there while late content shifts, until the reader moves.
   const focused = useRef("");
+  const unanchor = useRef(null);
+  useEffect(() => () => unanchor.current?.(), []);
   useEffect(() => {
-    if (!focusTeamId || focused.current === focusTeamId || baseline.current === undefined)
-      return;
+    if (!focusTeamId || focused.current === focusTeamId || !view.live) return;
     const element = output.current;
     const target =
       element?.querySelector(`#assistant-team-${CSS.escape(focusTeamId)}`) ||
@@ -263,7 +265,7 @@ export default function AssistantChat({
     if (!target) return;
     focused.current = focusTeamId;
     stick.current = false;
-    scrollToChild(element, target);
+    unanchor.current = anchorToChild(element, target, () => !stick.current);
   });
   // One delivery of a message; `accepted` runs once the server has taken it.
   async function deliver(submitted, ids, accepted) {

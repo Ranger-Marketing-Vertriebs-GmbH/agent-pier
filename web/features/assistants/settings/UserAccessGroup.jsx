@@ -4,6 +4,8 @@ import ListCard from "../../../components/ListCard.jsx";
 import ListRow, { CheckboxRow } from "../../../components/ListRow.jsx";
 import Segmented from "../../../components/Segmented.jsx";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
+import ConfirmationSheet from "./ConfirmationSheet.jsx";
+import { confirmationRequest } from "../../../lib/settings/save-chain.js";
 import { memberGrantCopy } from "../../../lib/i18n/messages/assistant-member-grants.js";
 import { usersCopy as copy } from "../../../lib/i18n/messages/users.js";
 import { ownerUsersApi, withMember } from "../../users/owner-users-api.js";
@@ -31,6 +33,7 @@ export default function UserAccessGroup({ assistant }) {
   const [users, setUsers] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [confirmation, setConfirmation] = useState(null);
   useEffect(() => {
     ownerUsersApi
       .list()
@@ -41,14 +44,25 @@ export default function UserAccessGroup({ assistant }) {
   if (!access) return null;
   const nameOf = (userId) =>
     users.find((u) => u.id === userId)?.displayName || copy.unknownUser;
-  const save = async (next) => {
+  // A release that changes the Gateway's web sections restarts it once he confirms.
+  const save = async (next, options) => {
     setBusy(true);
     setError("");
     try {
-      await ownerUsersApi.assign(assistant.id, next, assistant.revision);
+      await ownerUsersApi.assign(assistant.id, next, assistant.revision, options);
       await refresh();
     } catch (e) {
-      setError(e.message);
+      const request = confirmationRequest(e);
+      if (request?.kind === "restart" && !options)
+        setConfirmation({
+          ...request,
+          confirm: () => {
+            setConfirmation(null);
+            save(next, { confirmRestart: true });
+          },
+          cancel: () => setConfirmation(null),
+        });
+      else setError(e.message);
     } finally {
       setBusy(false);
     }
@@ -114,6 +128,7 @@ export default function UserAccessGroup({ assistant }) {
           </ListCard>
         </>
       )}
+      <ConfirmationSheet confirmation={confirmation} />
     </section>
   );
 }

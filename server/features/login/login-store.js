@@ -16,6 +16,8 @@ const day = 24 * 60 * 60 * 1000;
 const legacyDuration = 7 * day;
 /** The window every tailnet sign-in also counts against, whatever login it claims. */
 export const tailnetAttempts = "tailnet";
+/** The owner's own tailnet sign-in window, whatever his login is called. */
+export const ownerTailnetAttempts = "tailnet-owner";
 export const localAttempts = "local";
 
 export class LoginStore {
@@ -46,11 +48,12 @@ export class LoginStore {
     // One attempt window per source (local, tailnet login or network address): a flood
     // from one device or tailnet member must not lock out the local owner.
     // All tailnet logins together share a larger window, since their header is forgeable.
-    // The shared and local windows are never evicted, so rotating keys cannot reset them.
+    // The shared, the owner's tailnet and the local windows are never evicted, so
+    // rotating keys cannot reset them.
     this.attempts = new AttemptWindows({
       now: () => this.now(),
       limits: { [tailnetAttempts]: 30 },
-      keep: [localAttempts],
+      keep: [localAttempts, ownerTailnetAttempts],
     });
   }
   get configured() {
@@ -77,11 +80,10 @@ export class LoginStore {
     this.save();
     return this.issue();
   }
-  // A source is one window key or several; the attempt must fit every one of them. A key
-  // that refuses stops the check, so later keys never count a refused attempt.
+  // A source is one window key or several; the attempt must fit every one of them. A
+  // refused attempt counts against none of them, so it never creates a fresh window.
   throttle(source) {
-    for (const key of [source].flat())
-      if (!this.attempts.allow(key)) throw loginProblem("LOGIN_THROTTLED");
+    if (!this.attempts.allowAll(source)) throw loginProblem("LOGIN_THROTTLED");
   }
   // Checks the owner's credentials without throttling; callers throttle themselves.
   async verifyOwner({ username, password } = {}) {

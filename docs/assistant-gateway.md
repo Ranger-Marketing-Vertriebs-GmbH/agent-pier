@@ -429,6 +429,13 @@ original request successful or undo previous effects. The record retains its
 unknown outcome and can accept later terminal evidence. No recovery path resends
 the request automatically; a manually repeated message gets a new delivery ID.
 
+A restricted user reviews her own turns of unknown outcome in her app; the owner
+cannot see her chat. So that a turn she never reviews cannot block the owner for good,
+a Gateway stop or restart, a runtime update, a provider change, an account logout and
+a team member recovery first settle every user's turn of unknown outcome: its run is
+aborted in her session and the attempt is marked reviewed (`settleUserTurns`,
+`attempt-recovery.js`). The owner's own unknown turns still need his review.
+
 **Unconfirmed sends.** A busy Gateway may run a turn whose `sessions.send`
 acknowledgement times out (the client's default 10 s, so the admission lock is never
 held longer). Such an attempt becomes `uncertain` but stays _unconfirmed_ (evidence
@@ -2389,8 +2396,14 @@ the agent create body plus `userAccess`. He changes whom they serve with
 `{ mode: "own" | "shared", members: [{ userId, level }], released }`: an own agent has
 exactly one member, a shared agent one or more. A level is `chat`, `personalize` or
 `extended`. `released` lists the web capabilities an Extended user may switch on
-herself. The owner's existing agents never become user agents: assigning one answers 409
-`USER_AGENT_REQUIRED`. An own agent stays with its user: changing its member or turning
+herself. The Gateway compiles a released capability like a switched-on one (its web
+sections and her browser profile, `native-capabilities.js` `releasedCapabilities`), so
+her own switch applies live. A release that changes those sections therefore restarts
+the Gateway here: without `confirmRestart: true` it answers 409
+`ASSISTANT_RESTART_REQUIRED` with the affected agents, and **Profile › Released
+capabilities** asks the owner first. A new user agent starts without the releases the
+running Gateway would need a restart for. The owner's existing agents never become user
+agents: assigning one answers 409 `USER_AGENT_REQUIRED`. An own agent stays with its user: changing its member or turning
 it into a shared agent answers 409 `USER_AGENT_OWN_FIXED`, because its memory, files and
 browser profile are hers and would reach the owner or another user without her opt-in.
 Only her level and `released` change. A shared agent may become an own agent; the
@@ -2440,7 +2453,17 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
   his coding CLIs load from the working tree (`CLAUDE.md`, `CLAUDE.local.md`,
   `AGENTS.md`, `AGENTS.override.md`, `GEMINI.md`; the list is `toolConfigNames` in
   `project-paths.js`), at any depth and in any case and also through links, answer 403
-  `PROJECT_TOOL_CONFIG_LOCKED`; reading them stays allowed. Other files the owner runs
+  `PROJECT_TOOL_CONFIG_LOCKED`; reading them stays allowed. So do the places the
+  repository itself names, read at every such write (`project-config-lock.js`), for
+  the folder's repository, each of its linked worktrees (a relative hooks path counts
+  per worktree) and every nested repository: `core.hooksPath`, the Git config files
+  its config includes (`[include]`/`[includeIf]` `path`) when they lie in the folder,
+  lefthook's script folders (`.lefthook/`, `.lefthook-local/` and its
+  `source_dir`/`source_dir_local`), the files that instruction files anywhere in the
+  folder import with `@path` (followed five hops deep) and the paths and globs in
+  OpenCode's `instructions`. A folder with more than 10,000 subfolders (dependencies
+  and Git internals not counted) cannot be searched completely, so every write there
+  is locked. Other files the owner runs
   later (scripts, `package.json`, Makefiles) stay writable
   ([security notes](agents.md#security-notes)).
   Coding, project memory and run actions answer `USER_AGENT_LOCKED`. A project rebind
@@ -2496,8 +2519,10 @@ answers the unknown-route 404.
   shared agents; name, picture (`avatar`, one emoji) and instructions at
   **Personalize** on her own agent; at **Extended** also the capabilities the owner
   released. A field beyond her level answers 403 `USER_LEVEL`, a locked one 400. Changes
-  are audited with her id and the field names, never the values. A change that would
-  restart the Gateway for new web tools answers 409 and stays the owner's decision.
+  are audited with her id and the field names, never the values. Released capabilities
+  are compiled in advance, so her switch needs no Gateway restart; a Gateway started
+  before the release still needs one, which stays the owner's decision: her change
+  answers 409 `USER_AGENT_RESTART_NEEDED` and is not saved.
 - `GET /me/agents/:id/memory` and `/memory/:name` read the notes; deleting a note
   (`DELETE /me/agents/:id/memory/:name`) needs **Personalize** on her own agent.
 - Reminders and routines (`/me/agents/:id/reminders|routines`) belong to the person

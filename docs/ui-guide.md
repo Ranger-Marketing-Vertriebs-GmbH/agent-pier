@@ -269,7 +269,7 @@ not the owner's sidebar:
   out**; there are no other destinations.
 - Pages reuse the shared components (`ListCard`, `ListRow`, `ToggleRow`, `Sheet`,
   `AsyncForm`) and the owner's chat; a user's agent settings show only what her level
-  allows and say "Your owner manages this." for the rest.
+  allows and say "The owner manages this." for the rest.
 - Notices that concern her privacy (shared agent, **Owner may read chats**) sit above
   the chat, never in a dismissible toast.
 - Her app makes HTTP requests only to `/auth` and `/api/me`, and opens only the chat,

@@ -111,12 +111,33 @@ export async function releaseBots(services, agentId, userIds) {
 
 /**
  * After a shared agent became a user's own (UserAgents.assign): the owner's
- * reminders, routines and Telegram bot on it end like a removed member's.
+ * reminders, routines and Telegram bot on it end like a removed member's. Her turns
+ * may now use every file of its attachments folder and watch its browser at any
+ * time, so the uploads of everyone else's chats go and the browser closes the tabs
+ * their turns left open.
  */
 export async function releaseOwner(services, agentId) {
-  const agent = services.assistants.store.getAssistant(agentId);
+  const { assistants } = services;
+  const agent = assistants.store.getAssistant(agentId);
   await endBindings(services, [agent], null, false);
   await forgetChannels(services, null, agentId);
+  const userId = agent.userAccess?.members[0]?.userId;
+  await assistants.attachments?.storage
+    .removeChats(
+      agentId,
+      (conversationId) => chatUser(assistants, conversationId) === userId,
+    )
+    .catch(() => {});
+  await assistants.browsers?.stopAgent(agentId).catch(() => {});
+}
+
+function chatUser(assistants, conversationId) {
+  try {
+    const { userId } = assistants.store.storedConversation(conversationId);
+    return typeof userId === "string" ? userId : null;
+  } catch {
+    return undefined;
+  }
 }
 
 // Her own bots deliver into her chats: they go with her, token, texts and all.

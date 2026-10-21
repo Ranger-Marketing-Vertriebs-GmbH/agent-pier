@@ -68,6 +68,10 @@ export const usersCopy = {
   ownReadOnly:
     "Its user's: you can read its notes and watch its browser, but not change them.",
   ownRoutines: "Its user manages its reminders and routines in their app.",
+  ownRoutinesChatOnly:
+    "Its user manages its reminders and routines in their app from Personalize on. At Chat only they can still see, pause and delete them.",
+  ownTelegramBelowExtended:
+    "Its user can connect its Telegram bot in their app once you give them Extended. You cannot connect a bot to this agent.",
   ownTelegram:
     "Its user connects its Telegram bot in their app. You cannot connect a bot to this agent.",
   lockedTelegramSenders:

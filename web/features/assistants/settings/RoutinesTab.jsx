@@ -65,7 +65,11 @@ export default function RoutinesTab({ assistant }) {
       />
       {assistant.userAccess?.mode === "own" ? (
         // Her reminders and routines carry what she asked for: hers to manage.
-        <p className="assistant-note">{usersCopy.ownRoutines}</p>
+        <p className="assistant-note">
+          {assistant.userAccess.members[0]?.level === "chat"
+            ? usersCopy.ownRoutinesChatOnly
+            : usersCopy.ownRoutines}
+        </p>
       ) : assistant.capabilities?.reminders ? (
         <>
           <RemindersGroup assistantId={assistant.id} paired={paired} />

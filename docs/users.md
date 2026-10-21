@@ -40,7 +40,10 @@ after the session check by `server/http/socket-access.js`:
 - `/api/assistant-conversations/<id>/stream`: the live chat, only for a chat that is
   hers.
 - `/api/assistants/<id>/browser-stream`: the agent's browser view, for her own agent,
-  and for a shared agent only while her own turn drives its browser.
+  and for a shared agent only while her own turn drives its browser. Otherwise her
+  **Browser** page says why: the agent has no browser, nobody's turn used it within
+  the last ten minutes, or someone else's turn drives it (the owner's own chat
+  included) or the owner holds it.
 - `/api/dictation/stream`: dictation through the owner's Deepgram connection.
 
 Every other socket is refused like an unknown path (see [Login](login.md)).
@@ -51,7 +54,7 @@ The owner sets a level per user and agent:
 
 | Level       | German          | What the user may do                                                                                                                                                                |
 | ----------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Chat only   | Nur chatten     | Chat, attach files, dictate, read the agent's settings and memory notes.                                                                                                            |
+| Chat only   | Nur chatten     | Chat, attach files, dictate, read the agent's settings and memory notes; see, pause and delete her own reminders and routines.                                                      |
 | Personalize | Personalisieren | Also her own reminders and routines, on her own and on shared agents; on her own agent also name, picture (an emoji), personality and instructions, and deleting the agent's notes. |
 | Extended    | Erweitert       | Also, on her own agent: switch the capabilities the owner released for her, and connect the agent's own Telegram bot for herself.                                                   |
 
@@ -65,11 +68,18 @@ An agent for users is either:
 - an **own agent** (Eigener Agent): it serves one user. Its memory, files, browser
   profile, reminders and routines are hers. It stays with her: the owner can change
   her level and released capabilities, but not give the agent to someone else.
+  Releasing a capability may restart the agent service once he confirms it; her own
+  switch then never does.
 - a **shared agent** (Geteilter Agent): it serves several users. Each user has her own
   private chats with it, but its memory, profile (`USER.md`) and browser are shared
   with everyone who uses it, and its chat says so. Files sent in a chat stay with
   that chat: a turn in another person's chat cannot read or share them. The owner
   keeps a chat of his own with a shared agent (**Open my chat**).
+
+When the owner makes a shared agent one user's own agent, the files sent in
+everyone else's chats with it are deleted (their messages show them as unavailable),
+its browser closes the tabs that are still open, and the owner's reminders, routines
+and Telegram bot on it end.
 
 Create one from **New agent** with **For** set to the person, or from the user's page.
 On the agents page and in the sidebar they appear under **Agents of users**. The owner
@@ -98,7 +108,8 @@ every settings API. What the owner can still give an agent for users:
 
 - **Project folders**, **Read** or **Read and write**, without coding. Tool
   configuration and instruction files that the owner's coding CLIs load (such as
-  `.claude/`, `AGENTS.md`, `.envrc`) stay read-only. Every other file stays writable,
+  `.claude/`, `AGENTS.md`, `.envrc`) stay read-only, and so do the Git hook folders
+  the repository uses and the files its instruction files import. Every other file stays writable,
   including scripts, `package.json` or Makefiles that the owner or his coding sessions
   run later: a user agent with **Read and write** can plant a command there that then
   runs as the owner's OS user. Give write access only to folders whose content you do
@@ -117,7 +128,9 @@ for her. She sees this switch and its start in her app (**Account › Privacy**)
 every chat says so while it is on.
 
 - Chats and their attachments count from the moment it is switched on, never earlier.
-  Switching it off and on again starts a new period.
+  A message she wrote before then stays hers with everything that answers it, also
+  when it arrives later: the reply, files the agent shares for it and images it
+  generates. Switching it off and on again starts a new period.
 - Her own agent's memory, files and browser become readable in full, older entries
   included, as long as it is on.
 - What the owner may read he only reads: no composer, no chat actions.

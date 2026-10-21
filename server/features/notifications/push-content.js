@@ -111,10 +111,15 @@ export function pushLink(event) {
   return "/agents";
 }
 
-/** Where an event comes from: one session, agent or run, or null. */
+/**
+ * Where an event comes from: one session, agent chat, agent or run, or null. Agents
+ * hold several chats, so an event of one chat is its chat's, not the whole agent's.
+ */
 export function pushSource(event) {
   if (event.sessionId) return `session:${event.sessionId}`;
   if (event.runId) return `run:${event.runId}`;
+  if (event.assistantId && event.conversationId && event.kind !== "telegram-revocation")
+    return `chat:${event.conversationId}`;
   if (event.assistantId && event.kind !== "telegram-revocation")
     return `agent:${event.assistantId}`;
   return null;

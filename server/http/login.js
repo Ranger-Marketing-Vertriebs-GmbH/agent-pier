@@ -2,6 +2,7 @@ import express from "express";
 import {
   idleDuration,
   localAttempts,
+  ownerTailnetAttempts,
   tailnetAttempts,
 } from "../features/login/login-store.js";
 import { loginErrors, loginProblem } from "../features/login/login-errors.js";
@@ -48,13 +49,20 @@ export function setupAllowed(req, config, hasUsers) {
  * The attempt windows a sign-in counts against. Tailscale Serve proxies every tailnet
  * device from loopback, so each tailnet login gets its own window, apart from the
  * local machine's; plain network requests count per address. A local process can send
- * the login header itself, so every tailnet request also counts against one shared
- * window: rotating forged logins never escapes it. The member's own window comes first,
- * so an attempt it already refuses never counts against the shared one.
+ * the login header itself, so every other tailnet request also counts against one
+ * shared window: rotating forged logins never escapes it. An attempt that either
+ * window refuses counts against neither, so it creates no fresh window. The owner's
+ * login keeps only its own fixed window, which is never evicted: other tailnet members
+ * filling the shared one never lock him out of signing in remotely, and no flood of
+ * forged logins resets his limit. The local window stays his way in either way.
  */
-export function attemptSource(req) {
-  if (req.trustBranch === "tailscale")
-    return [`tailscale:${req.headers["tailscale-user-login"]}`, tailnetAttempts];
+export function attemptSource(req, config = {}) {
+  if (req.trustBranch === "tailscale") {
+    const login = req.headers["tailscale-user-login"];
+    if (typeof config.ownerLogin === "string" && login === config.ownerLogin)
+      return ownerTailnetAttempts;
+    return [`tailscale:${login}`, tailnetAttempts];
+  }
   if (req.trustBranch === "local") return localAttempts;
   return `network:${req.socket.remoteAddress}`;
 }
@@ -100,11 +108,11 @@ export function loginRoutes(login, effective, { notifications } = {}) {
   router.post("/setup", async (req, res) => {
     if (!login.configured && !setupAllowed(req, effective(), login.hasUsers))
       throw loginProblem("LOGIN_SETUP_LOCAL_ONLY");
-    cookie(req, res, await login.setup(req.body, attemptSource(req)));
+    cookie(req, res, await login.setup(req.body, attemptSource(req, effective())));
     res.status(201).json({ authenticated: true });
   });
   router.post("/login", async (req, res) => {
-    const token = await login.login(req.body, attemptSource(req));
+    const token = await login.login(req.body, attemptSource(req, effective()));
     login.revoke(sessionToken(req));
     device(req, token, true);
     cookie(req, res, token);

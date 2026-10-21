@@ -108,7 +108,7 @@ function relativeTarget(raw, roots, ownId) {
   target = path.posix
     .normalize(target)
     .replace(/^(\.\/)+/, "")
-    .replace(/\/+$/, "");
+    .replace(/\/$/, "");
   if (!target || target === "." || target.startsWith("../") || target === "..")
     return null;
   return target;
@@ -169,6 +169,8 @@ export const attachmentTools = [
   "read",
   "memory_get",
   "pdf",
+  // Read images grants view_image (native-capabilities.js); older names stay matched.
+  "view_image",
   "image",
   "image_generate",
   ...writeTools,

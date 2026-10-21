@@ -35,23 +35,38 @@ export class UserAgents {
       confirmFull: _confirmFull,
       ...input
     } = body;
-    const access = validateUserAccess(userAccess, this.s.users);
+    let access = validateUserAccess(userAccess, this.s.users);
+    // Released capabilities are compiled into the Gateway (native-capabilities.js).
+    // Like switched-on ones on any new agent, they start off when the running Gateway
+    // would need a restart for them; the owner releases them afterwards.
+    const profiles = this.s.assistants.store.listAssistants();
+    const draft = { id: "new", capabilities: {}, userAccess: access };
+    if (this.s.assistants.webTools?.differs({ profiles: [...profiles, draft] }))
+      access = { ...access, released: [] };
     return this.s.assistants.create(
       { ...input, shell: "off", browserVisible: false },
       { userAccess: access },
     );
   }
+  /**
+   * Changes whom an agent serves. Released web capabilities are compiled into the
+   * Gateway like switched-on ones (native-capabilities.js), so her own switch never
+   * restarts it: a release that changes the Gateway's web sections restarts it here,
+   * once the owner confirmed (`confirmRestart`), like his own capability change.
+   */
   async assign(id, body) {
     if (
       !record(body) ||
-      Object.keys(body).some((k) => !["userAccess", "revision"].includes(k))
+      Object.keys(body).some(
+        (k) => !["userAccess", "revision", "confirmRestart"].includes(k),
+      )
     )
       throw assistantProblem("invalid");
     const { assistants, users } = this.s;
     let removed = [],
       lowered = [],
       becameOwn = false;
-    const result = await assistants.admit(() => {
+    const change = () => {
       const agent = assistants.store.getAssistant(id);
       if (!isUserAgent(agent)) throw userProblem("USER_AGENT_REQUIRED");
       const access = validateUserAccess(body.userAccess, users);
@@ -59,6 +74,9 @@ export class UserAgents {
       // owner (shared) or to another user would hand them over without her opt-in.
       if (agent.userAccess.mode === "own" && !sameOwner(agent.userAccess, access))
         throw userProblem("USER_AGENT_OWN_FIXED");
+      return { agent, access };
+    };
+    const save = ({ agent, access }) => {
       const result = assistants.store.setUserAccess(id, access, body.revision);
       becameOwn = agent.userAccess.mode !== "own" && access.mode === "own";
       removed = agent.userAccess.members
@@ -71,7 +89,25 @@ export class UserAgents {
         .filter((userId) => !["extended", null].includes(memberLevel(result, userId)));
       assistants.changed();
       return result;
+    };
+    const decided = await assistants.admit(() => {
+      const next = change();
+      const web = assistants.webTools;
+      const profiles = assistants.store
+        .listAssistants()
+        .map((profile) =>
+          profile.id === id ? { ...profile, userAccess: next.access } : profile,
+        );
+      if (!web?.differs({ profiles })) return { result: save(next) };
+      // Without the owner's confirmation nothing changes.
+      web.confirm(body.confirmRestart === true);
+      return { restart: true };
     });
+    // Maintenance drains the admission lock, so the restart runs outside admit();
+    // the change is checked again inside it.
+    const result = decided.restart
+      ? await assistants.webTools.restart(() => save(change()))
+      : decided.result;
     // Whoever left the agent takes her reminders, routines and bot with her.
     await releaseMembers(this.s, id, removed);
     await releaseBots(this.s, id, lowered);

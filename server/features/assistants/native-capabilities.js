@@ -173,8 +173,20 @@ export function personalCapabilities(assistant) {
   return ownCapabilities(assistant, personalEligible(assistant));
 }
 /**
- * The capabilities at least one eligible profile has switched on. Temporary members
- * only ever hold a subset of their lead's, so they never widen the set.
+ * The web capabilities the owner released for a user to switch herself
+ * (user-access.js). The Gateway compiles them as if they were on, so her switch
+ * applies live and never needs the restart only the owner may confirm.
+ */
+export const releasedCapabilities = (profile) =>
+  personalEligible(profile) && !inheritsFromLead(profile)
+    ? (profile.userAccess?.released ?? []).filter((key) =>
+        webCapabilityKeys.includes(key),
+      )
+    : [];
+/**
+ * The capabilities at least one eligible profile has switched on or released.
+ * Temporary members only ever hold a subset of their lead's, so they never widen the
+ * set.
  */
 export function usedCapabilities(profiles = []) {
   const used = new Set();
@@ -182,6 +194,7 @@ export function usedCapabilities(profiles = []) {
     if (inheritsFromLead(profile)) continue;
     for (const [key, on] of Object.entries(personalCapabilities(profile)))
       if (on) used.add(key);
+    for (const key of releasedCapabilities(profile)) used.add(key);
   }
   return used;
 }

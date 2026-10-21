@@ -32,6 +32,19 @@ const textOf = (message) =>
         .map((block) => block.text)
         .join("\n");
 
+/**
+ * For the background turn that delivers generated images (its run id names the task):
+ * the first image it holds, or "" when it holds none; null for any other message.
+ */
+export function imageResultArtifact(message) {
+  if (message?.role !== "assistant") return null;
+  if (!taskPattern.test(String(message.__openclaw?.runId || ""))) return null;
+  const block = blocks(message).find(
+    (b) => b?.type === "image" && artifactPattern.test(String(b.artifactId)),
+  );
+  return block ? block.artifactId : "";
+}
+
 /** The generated images among raw OpenClaw history messages, oldest first. */
 export function generatedImageRefs(messages = []) {
   const refs = [];

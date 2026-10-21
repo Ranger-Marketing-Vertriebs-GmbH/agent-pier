@@ -32,6 +32,9 @@ const languages = {
     sharedIntro: /stehen für Projektwissen und Coding-Aufträge bereit/,
     access: "Benutzer dieses Agenten",
     released: "Freigegebene Fähigkeiten",
+    browser: "Browser",
+    restartTitle: "Agentendienst neu starten?",
+    restartConfirm: "Speichern und neu starten",
     lockedCoding: /Gesperrt: Coding\./,
     read: "Lesen",
     save: "Speichern",
@@ -49,6 +52,9 @@ const languages = {
     actionsFor: /Aktionen für/,
     ownRoutines: "Erinnerungen und Routinen verwaltet sein Benutzer in seiner App.",
     ownTelegram: /Seinen Telegram-Bot verbindet sein Benutzer in seiner App/,
+    ownTelegramBelowExtended: /sobald du ihm „Erweitert“ gibst/,
+    ownRoutinesChatOnly:
+      /Bei „Nur chatten“ kann er sie noch ansehen, pausieren und löschen/,
     sendersLocked: /gesperrt: ein eigener Telegram-Bot für andere Personen/,
     senders: "Telegram für andere Personen",
     ownReadOnly: /Du kannst Notizen lesen/,
@@ -74,6 +80,9 @@ const languages = {
     sharedIntro: /can be used for project memory and coding tasks/,
     access: "Users of this agent",
     released: "Released capabilities",
+    browser: "Browser",
+    restartTitle: "Restart the agent service?",
+    restartConfirm: "Save and restart",
     lockedCoding: /Locked: Coding\./,
     read: "Read",
     save: "Save",
@@ -90,6 +99,8 @@ const languages = {
     actionsFor: /Actions for/,
     ownRoutines: "Its user manages its reminders and routines in their app.",
     ownTelegram: /Its user connects its Telegram bot in their app/,
+    ownTelegramBelowExtended: /once you give them Extended/,
+    ownRoutinesChatOnly: /At Chat only they can still see, pause and delete them/,
     sendersLocked: /Locked for agents of users: its own Telegram bot for other people/,
     senders: "Telegram for other people",
     ownReadOnly: /you can read its notes/,
@@ -195,6 +206,49 @@ for (const [language, copy] of Object.entries(languages))
           mode === "own" ? 1 : 0,
         );
       });
+
+    test("releasing a capability that restarts the agent service asks first", async ({
+      page,
+    }) => {
+      const access = {
+        mode: "own",
+        members: [{ userId: "u-1", level: "extended" }],
+        released: [],
+      };
+      await setupAssistantSettings(page, {
+        language,
+        assistants: [home({ userAccess: access })],
+      });
+      await users(page);
+      const sent = [];
+      await page.route(/\/api\/user-agents\/home\/access$/, (route) => {
+        const body = route.request().postDataJSON();
+        sent.push(body);
+        if (!body.confirmRestart)
+          return route.fulfill({
+            status: 409,
+            json: {
+              code: "ASSISTANT_RESTART_REQUIRED",
+              error: "restart",
+              affected: { agents: [{ id: "home", name: "Home" }], teamMembers: 0 },
+            },
+          });
+        return route.fulfill({ json: home({ userAccess: body.userAccess }) });
+      });
+      await page.goto(baseURL + "/agents/home/settings?tab=profile");
+      await page.getByRole("checkbox", { name: copy.browser, exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: copy.restartTitle });
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("button", { name: copy.restartConfirm }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect.poll(() => sent.length).toBe(2);
+      expect(
+        sent.map((body) => [body.userAccess.released, !!body.confirmRestart]),
+      ).toEqual([
+        [["browser"], false],
+        [["browser"], true],
+      ]);
+    });
 
     test("owner opens his own chat with a shared agent", async ({ page }) => {
       const state = await setupAssistantSettings(page, {
@@ -327,6 +381,27 @@ for (const [language, copy] of Object.entries(languages))
         } else await expect(page.getByText(/@her_bot/).first()).toBeVisible();
       });
 
+    test("the Telegram tab of a user's own agent below Extended says what her bot needs", async ({
+      page,
+    }) => {
+      await setupAssistantSettings(page, {
+        language,
+        assistants: [
+          home({
+            userAccess: {
+              mode: "own",
+              members: [{ userId: "u-1", level: "personalize" }],
+              released: [],
+            },
+          }),
+        ],
+      });
+      await users(page);
+      await page.goto(baseURL + "/agents/home/settings?tab=telegram");
+      await expect(page.getByText(copy.ownTelegramBelowExtended)).toBeVisible();
+      await expect(page.getByText(copy.ownTelegram)).toHaveCount(0);
+    });
+
     for (const ownerReads of [false, true])
       test(`a user's own agent's notes and routines are hers (owner reads: ${ownerReads})`, async ({
         page,
@@ -350,7 +425,8 @@ for (const [language, copy] of Object.entries(languages))
         });
         await users(page);
         await page.goto(baseURL + "/agents/home/settings?tab=routines");
-        await expect(page.getByText(copy.ownRoutines)).toBeVisible();
+        // At Chat only she cannot manage them yet: the note says what it takes.
+        await expect(page.getByText(copy.ownRoutinesChatOnly)).toBeVisible();
         await page.goto(baseURL + "/agents/home/settings?tab=capabilities");
         await expect(
           page.getByText(ownerReads ? copy.ownReadOnly : copy.ownPrivate),

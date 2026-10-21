@@ -2,11 +2,19 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { emit } from "../helpers/assistant-chat-fixture.js";
 import { at, teamListFixture } from "../helpers/assistant-team-list-fixture.js";
+import { sshAction } from "./assistant-ssh-fixture.js";
 
 // A member whose outcome is unknown holds its team open until the owner reviews it,
 // so the lead's chat keeps it with the approvals. Team notes follow a reader who
 // is at the bottom.
 const chat = baseURL + "/agents/home/chats/dinner";
+const laterMessages = (count) =>
+  Array.from({ length: count }, (_, n) => ({
+    id: `later-${n}`,
+    role: n % 2 ? "user" : "assistant",
+    text: `Later message ${n} with enough words to wrap on a phone screen.`,
+    timestamp: at(100 + n).getTime(),
+  }));
 const waiting = (count) => ({
   home: {
     state: "waiting",
@@ -72,7 +80,10 @@ for (const [label, viewport] of Object.entries({
 
 test("a team link lands on its review entry; German names it", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const state = await teamListFixture(page, { language: "de" });
+  // Approvals below the entry keep it off the transcript's end, which follows by itself.
+  const expiresAt = new Date(Date.now() + 3_600_000).toISOString();
+  const actions = ["a1", "a2", "a3"].map((id) => sshAction(id, { expiresAt }));
+  const state = await teamListFixture(page, { language: "de", actions });
   state.members.find((m) => m.id === "designer").phase = "uncertain";
   await page.goto(baseURL + "/agents/home/teams/design");
   const card = page.getByRole("article", {
@@ -81,6 +92,15 @@ test("a team link lands on its review entry; German names it", async ({ page }) 
   await expect(card).toBeInViewport();
   await expect(card).toContainText("Designer: Ergebnis unklar");
   await expect(card.getByRole("link", { name: "Designer prüfen" })).toBeVisible();
+  // Content that renders later above the entry must not push it out of view. WebKit
+  // has no scroll anchoring; Chromium's is turned off to behave the same.
+  await page.addStyleTag({ content: ".assistant-transcript { overflow-anchor: none }" });
+  state.history.messages = [...state.history.messages, ...laterMessages(12)];
+  const history = page.waitForResponse((r) => r.url().endsWith("/messages"));
+  await emit(page, { type: "change" });
+  await history;
+  await expect(page.getByText("Later message 11 ")).toBeAttached();
+  await expect(card).toBeInViewport();
 });
 
 test("a team note that arrives after the history keeps a bottom reader at the bottom", async ({
@@ -88,15 +108,7 @@ test("a team note that arrives after the history keeps a bottom reader at the bo
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const state = await teamListFixture(page);
-  state.history.messages = [
-    ...state.history.messages,
-    ...Array.from({ length: 30 }, (_, n) => ({
-      id: `later-${n}`,
-      role: n % 2 ? "user" : "assistant",
-      text: `Later message ${n} with enough words to wrap on a phone screen.`,
-      timestamp: at(100 + n).getTime(),
-    })),
-  ];
+  state.history.messages = [...state.history.messages, ...laterMessages(30)];
   await page.goto(chat);
   const transcript = page.locator(".assistant-transcript");
   await expect(page.getByText("Later message 29 ")).toBeInViewport();

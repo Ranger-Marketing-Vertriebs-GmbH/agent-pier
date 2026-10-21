@@ -3,6 +3,7 @@ import {
   inheritsFromLead,
   personalCapabilities,
   personalEligible,
+  releasedCapabilities,
 } from "../native-capabilities.js";
 
 // Verified against OpenClaw 2026.10.3: managed profiles keep their data below
@@ -28,14 +29,18 @@ const slotPort = 14,
   agentPort = slotPort + 2 * memberSlotCount;
 export const lastCdpOffset = 110;
 
-/** Permanent, eligible agents whose own settings switch the browser on, by id. */
+/**
+ * Permanent, eligible agents whose own settings switch the browser on, or whose user
+ * may switch it on herself (released), by id.
+ */
 export function browserAgents(profiles = []) {
   return profiles
     .filter(
       (profile) =>
         personalEligible(profile) &&
         !inheritsFromLead(profile) &&
-        personalCapabilities(profile).browser,
+        (personalCapabilities(profile).browser ||
+          releasedCapabilities(profile).includes("browser")),
     )
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }

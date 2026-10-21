@@ -27,13 +27,17 @@ export const ownerReminderApi = {
 /**
  * Reminders delivered to the agent's chat with a push notification, and to a
  * `paired` Telegram chat where switched on; every action applies at once. `api`
- * holds the routes (`review` and `runs` are optional); `readOnly` lists them only.
+ * holds the routes (`review` and `runs` are optional); `readOnly` lists them only
+ * (with `canStop` it still offers pausing and deleting), and `hint` replaces the
+ * group's hint.
  */
 export default function RemindersGroup({
   assistantId,
   paired = false,
   api = ownerReminderApi,
   readOnly = false,
+  canStop = false,
+  hint,
 }) {
   const copy = assistantCopy.personal;
   const id = useId();
@@ -123,7 +127,7 @@ export default function RemindersGroup({
     <section id="agent-reminders" aria-labelledby={id}>
       <GroupLabel
         id={id}
-        hint={copy.remindersHint}
+        hint={hint ?? copy.remindersHint}
         action={
           readOnly
             ? undefined
@@ -303,23 +307,24 @@ export default function RemindersGroup({
                   </p>
                 )}
                 <div className="assistant-actions">
-                  {item.status === "ready" && !readOnly && (
-                    <button
-                      className="button secondary"
-                      disabled={busy}
-                      onClick={() =>
-                        act(() =>
-                          api.update(assistantId, item.id, {
-                            enabled: !item.enabled,
-                            revision: item.revision,
-                          }),
-                        )
-                      }
-                    >
-                      {item.enabled ? copy.pauseReminder : copy.resumeReminder}
-                    </button>
-                  )}
-                  {!readOnly && (
+                  {item.status === "ready" &&
+                    (!readOnly || (canStop && item.enabled)) && (
+                      <button
+                        className="button secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          act(() =>
+                            api.update(assistantId, item.id, {
+                              enabled: !item.enabled,
+                              revision: item.revision,
+                            }),
+                          )
+                        }
+                      >
+                        {item.enabled ? copy.pauseReminder : copy.resumeReminder}
+                      </button>
+                    )}
+                  {(!readOnly || canStop) && (
                     <button
                       className="button secondary"
                       disabled={busy}

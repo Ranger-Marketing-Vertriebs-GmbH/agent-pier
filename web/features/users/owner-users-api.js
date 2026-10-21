@@ -15,8 +15,12 @@ export const ownerUsersApi = {
   remove: (userId, agents) =>
     api(`/users/${id(userId)}`, "DELETE", agents ? { agents } : {}),
   createAgent: (input) => api("/user-agents", "POST", input),
-  assign: (agentId, userAccess, revision) =>
-    api(`/user-agents/${id(agentId)}/access`, "PUT", { userAccess, revision }),
+  assign: (agentId, userAccess, revision, { confirmRestart = false } = {}) =>
+    api(`/user-agents/${id(agentId)}/access`, "PUT", {
+      userAccess,
+      revision,
+      ...(confirmRestart && { confirmRestart: true }),
+    }),
 };
 
 /** The agents serving `userId`, with her level: own first, then shared. */

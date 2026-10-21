@@ -49,6 +49,8 @@ export class BrowserLiveView {
     // The chat whose turn drove each agent's browser last (browser-hand-back.js).
     this.driverChats = new Map();
     this.driverTimers = new Map();
+    // When a turn last used each agent's browser, whoever's it was (the owner's too).
+    this.lastUse = new Map();
     this.driverMs = driverMs;
     this.driverWatchers = new Set();
   }
@@ -61,10 +63,25 @@ export class BrowserLiveView {
     return this.driverChats.get(id) ?? null;
   }
   /**
+   * Whether anyone works with agent `id`'s browser now: a turn used it within the
+   * hold (`driverMs`), the owner's turns included, whom `driver` reports as null like
+   * an idle browser, or the owner holds it.
+   */
+  inUse(id) {
+    const last = this.lastUse.get(id);
+    return (
+      (last !== undefined && this.now() - last < this.driverMs) || this.controlled(id)
+    );
+  }
+  /**
    * A turn drives the browser: its person's views stay, anyone else's close.
    * `conversationId` names the chat of that turn, where the hand-back note goes.
    */
   setDriver(id, userId, conversationId = null) {
+    this.lastUse.set(id, this.now());
+    this.assignDriver(id, userId, conversationId);
+  }
+  assignDriver(id, userId, conversationId = null) {
     const next = typeof userId === "string" ? userId : null;
     if (typeof conversationId === "string") this.driverChats.set(id, conversationId);
     else this.driverChats.delete(id);
@@ -82,7 +99,7 @@ export class BrowserLiveView {
     const timer = setTimeout(() => {
       this.driverTimers.delete(id);
       if (this.controlled(id)) this.expireDriver(id);
-      else this.setDriver(id, null);
+      else this.assignDriver(id, null);
     }, this.driverMs);
     timer.unref?.();
     this.driverTimers.set(id, timer);
