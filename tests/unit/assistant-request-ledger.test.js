@@ -127,3 +127,24 @@ test("a request without an attempt reports null attempt fields", (t) => {
     },
   ]);
 });
+
+test("the newest request of a conversation is read on its own", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-ledger-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const store = new AssistantStore({ dataDir });
+  t.after(() => store.close());
+  const a = store.createAssistant({
+    name: "Home",
+    instructions: "",
+    model: { connectionId: "test", modelId: "test" },
+  });
+  const c = store.saveConversation({ assistantId: a.id, runtimeSessionKey: "test" });
+  const other = store.saveConversation({ assistantId: a.id, runtimeSessionKey: "other" });
+  const ledger = new RequestLedger(store.db);
+  assert.equal(ledger.latestRequest(c.id), null);
+  ledger.accept(c.id, { clientRequestId: "1", text: "First" });
+  const second = ledger.accept(c.id, { clientRequestId: "2", text: "Second" });
+  ledger.accept(other.id, { clientRequestId: "3", text: "Elsewhere" });
+  assert.deepEqual(ledger.latestRequest(c.id), ledger.requests(c.id).at(-1));
+  assert.equal(ledger.latestRequest(c.id).id, second.id);
+});
