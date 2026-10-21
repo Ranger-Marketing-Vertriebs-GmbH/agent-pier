@@ -89,3 +89,23 @@ test("a context that shrank below the hidden size (OpenClaw's own summary) shows
   assert.equal(await hint(), true);
   assert.deepEqual(rows(), []);
 });
+
+test("a message queued during a summary goes out as soon as it ends", async (t) => {
+  const { f, gateway, chat, sizes, key } = await fixture(t);
+  sizes[key] = long;
+  const release = held(gateway);
+  const summarised = f.request(`${chat}/compact`, { method: "POST" });
+  await tick();
+  await json(
+    await f.request(`${chat}/queued`, { method: "POST", body: { text: "Later" } }),
+    200,
+  );
+  await tick();
+  assert.equal(gateway.sent.length, 0);
+  release();
+  await json(await summarised, 200);
+  for (let i = 0; i < 20 && !gateway.sent.length; i++) await tick();
+  assert.equal(gateway.sent.length, 1);
+  const history = await json(await f.request(`${chat}/messages`), 200);
+  assert.equal(history.queued, null);
+});
