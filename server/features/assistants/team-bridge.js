@@ -181,12 +181,15 @@ export class TeamBridge {
     if (
       !input ||
       Object.keys(input).some(
-        (k) => !["agentId", "sessionKey", "toolCallId", "action"].includes(k),
+        (k) =>
+          !["agentId", "sessionKey", "toolCallId", "action", "runId", "exec"].includes(k),
       ) ||
       !actions.has(input.action)
     )
       throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "toolCallId"]) textValue(input[k], 512);
+    // A workspace call's run and the Gateway's record (team-plugin/exec-processes.js).
+    if (input.runId !== undefined && input.runId !== null) textValue(input.runId, 512);
     for (const [key, value] of this.tickets)
       if (value.expires < this.now() && (!value.promise || value.settled))
         this.tickets.delete(key);
@@ -270,7 +273,8 @@ export class TeamBridge {
     if (
       !input ||
       Object.keys(input).some(
-        (k) => !["agentId", "sessionKey", "toolName", "path", "runId"].includes(k),
+        (k) =>
+          !["agentId", "sessionKey", "toolName", "path", "runId", "exec"].includes(k),
       )
     )
       throw assistantProblem("invalid");
@@ -493,8 +497,7 @@ export class TeamBridge {
       sessionKey: record.sessionKey,
     };
     record.invocation = invocation;
-    record.promise = Promise.resolve().then(async () => {
-      await continuation.proveContinuation(this, record);
+    record.promise = Promise.resolve().then(() => {
       invocation.assertCurrent();
       if (action === "ssh")
         return this.assistants.workflows.ssh.invoke(invocation, input);

@@ -116,6 +116,8 @@ test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
   assert.deepEqual(config.plugins.load, { paths: ["/private/plugin"] });
   assert.deepEqual(config.plugins.entries["agentpier-teams"], {
     enabled: true,
+    // Its exec record reads each run's model input (team-plugin/exec-processes.js).
+    hooks: { allowConversationAccess: true },
     config: {
       url: "http://127.0.0.1:1235",
       token: "bridge",

@@ -1,5 +1,6 @@
 import { workflowDefinitions } from "./workflow-tools.js";
 import { registerToolGuard } from "./tool-guard.js";
+import { callRun, execEvidence, registerExecProcesses } from "./exec-processes.js";
 import { sshDefinition, sshTimeoutMs } from "./ssh-tool.js";
 import { shareDefinition } from "./share-tool.js";
 import { registerChatTitle } from "./chat-title.js";
@@ -258,6 +259,11 @@ export default {
     } catch {}
     // A chat's generated title, on the agent's own model (chat-title.js).
     registerChatTitle(api);
+    // The Gateway's record of background commands (exec-processes.js).
+    try {
+      if (typeof api.on === "function" && api.registrationMode === "full")
+        registerExecProcesses(api);
+    } catch {}
     for (const [action, definition] of Object.entries(definitions))
       api.registerTool(
         {
@@ -300,11 +306,17 @@ export default {
                   return response.json();
                 };
                 context.assertInvocationCurrent();
+                // A workspace call of a command completion names its run and the
+                // Gateway's record of the session (exec-continuation.js).
+                const runId = action === "workspace" ? callRun(toolCallId) : null;
                 const { ticket } = await call("/prepare", {
                   agentId: context.agentId,
                   sessionKey: context.sessionKey,
                   toolCallId,
                   action,
+                  ...(runId
+                    ? { runId, exec: execEvidence(context.sessionKey, runId) }
+                    : {}),
                 });
                 context.assertInvocationCurrent();
                 const result = await call(

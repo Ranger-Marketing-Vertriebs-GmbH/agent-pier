@@ -13,6 +13,7 @@ const files = [
   "chat-title.js",
   "tool-guard.js",
   "patch-paths.js",
+  "exec-processes.js",
   "openclaw.plugin.json",
   "package.json",
 ];

@@ -26,6 +26,8 @@ export async function nativeWriteGuard(t, f, { registrationMode = "full" } = {})
     disposers = [];
   const root = path.join(f.dataDir, "workspaces");
   fs.mkdirSync(path.join(root, f.id), { recursive: true });
+  // A fresh Gateway process: the plugin's record of background commands starts empty.
+  delete globalThis[Symbol.for("agentpier.execProcesses")];
   plugin.register({
     pluginConfig: { ...connection, workspaces: root },
     registrationMode,
@@ -68,8 +70,20 @@ export async function nativeWriteGuard(t, f, { registrationMode = "full" } = {})
         ctx || { agentId, sessionKey: "session" },
       )
     )?.block;
+  // Emits a plugin hook as the Gateway would (exec-processes.js and others).
+  const emit = (name, event, ctx) =>
+    Promise.all(
+      hooks
+        .filter(
+          (h) =>
+            h.name === name &&
+            (!h.options?.matcher || h.options.matcher.includes(event?.toolName)),
+        )
+        .map((h) => h.handler(event, ctx)),
+    );
   return {
     bridge,
+    emit,
     call,
     patch,
     tool,
