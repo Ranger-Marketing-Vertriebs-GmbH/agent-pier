@@ -76,7 +76,9 @@ export class AssistantMaintenance {
       a = s.assistants,
       blockers = [];
     await a.settleUserTurns?.();
-    if (a.ledger.pending().length) blockers.push("ASSISTANT_WORK");
+    // A history summarised on request runs in the Gateway too (long-chats.js).
+    if (a.ledger.pending().length || a.longChats?.runningFor())
+      blockers.push("ASSISTANT_WORK");
     if (
       s.assistantTeams?.store
         .members()

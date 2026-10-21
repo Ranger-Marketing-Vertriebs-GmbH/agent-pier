@@ -428,7 +428,16 @@ export class AssistantService {
           return (
             this.store.getAssistant(conversation.assistantId).model.connectionId === id
           );
-        })
+        }) ||
+        // A history summarised on request uses the agent's model too (long-chats.js).
+        this.longChats.runningFor(
+          new Set(
+            this.store
+              .listAssistants()
+              .filter((a) => a.model?.connectionId === id)
+              .map((a) => a.id),
+          ),
+        )
       )
         throw assistantProblem("active", 409);
       const result = await accounts.logout(id);
