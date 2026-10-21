@@ -65,6 +65,12 @@ Every package declares the range of data schemas it can open (`schemaMin` to
   accounts and their sessions live in `users/users.json`, apart from the owner's
   `login/auth.json`, so an older release never treats a user session as the owner.
 
+  Schema 2 first ships with 2.5. The update migrates once, when the new release first
+  starts; later starts change nothing. Before updating, create a backup with a
+  passphrase in Settings → Operations → Backups. It is the only way back to 2.4: restore
+  it into a new data folder and install 2.4 on that folder. Release notes for 2.5 and
+  for its RCs name the schema change and link to this section.
+
 ### When the guard fails
 
 The check runs in the publish job of the release workflow, after the tag push and
