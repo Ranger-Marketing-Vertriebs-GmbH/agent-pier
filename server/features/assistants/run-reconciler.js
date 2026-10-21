@@ -31,15 +31,21 @@ export async function reconcileRuns(service) {
         { runId: attempt.runtimeRunId || attempt.id, timeoutMs: 1 },
         { timeoutMs: 3000 },
       );
-      const state = terminalState(result);
       const runId = result.runId || attempt.runtimeRunId;
+      // A run the stall guard aborted fails as stalled, not cancelled (run-stall-guard.js).
+      const stalled =
+        service.runFailures?.get(runId || attempt.id) === "stalled" &&
+        terminalState(result) === "cancelled";
+      const state = stalled ? "failed" : terminalState(result);
       if (state)
         service.ledger.transition(attempt.id, state, {
           runtimeRunId: runId,
           // A model that never answered in time (gateway-wiring.js runFailures).
-          ...(state === "failed" && timedOut(service, runId || attempt.id, result)
-            ? { failure: "timeout" }
-            : {}),
+          ...(stalled
+            ? { failure: "stalled" }
+            : state === "failed" && timedOut(service, runId || attempt.id, result)
+              ? { failure: "timeout" }
+              : {}),
         });
       else {
         const described = await service.runtime.client.call("sessions.describe", {

@@ -53,6 +53,7 @@ export function bindChatEvents(service) {
   // A new connection starts every run with a snapshot; old baselines are stale.
   service.chatStreams.clear();
   service.feeds?.clearRuns();
+  service.runSteps.reconnected();
   service.unsubscribe = service.runtime.client?.subscribe((event) => {
     const payload = event.payload;
     if (!payload?.sessionKey) return;
@@ -80,6 +81,12 @@ export function bindChatEvents(service) {
         failures.set(payload.runId, "timeout");
         if (failures.size > 64) failures.delete(failures.keys().next().value);
       }
+      // A reply that ended the run while the stall guard aborted it is no stall.
+      if (
+        payload.state === "final" &&
+        service.runFailures?.get(payload.runId) === "stalled"
+      )
+        service.runFailures.delete(payload.runId);
       service.feeds?.endRun(conversation.id, payload.runId);
       // A run ending is activity, also one AgentPier did not send: a reminder, routine
       // or check-in delivered into the main chat (owner-privacy.js, agent-chats.js).

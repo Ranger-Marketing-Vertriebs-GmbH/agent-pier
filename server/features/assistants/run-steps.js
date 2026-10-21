@@ -50,6 +50,7 @@ export class RunSteps {
         phase: "model",
         retry: null,
         at: this.now(),
+        live: true,
       };
       this.runs.set(payload.runId, run);
       if (this.runs.size > maxRuns) this.runs.delete(this.runs.keys().next().value);
@@ -74,6 +75,7 @@ export class RunSteps {
       return null;
     const run = this.run(payload);
     run.at = this.now();
+    run.live = true;
     const result = { runId: payload.runId, sessionKey: payload.sessionKey };
     if (frame.event === "chat") return { ...result, changed: false };
     const data = payload.data || {};
@@ -161,6 +163,23 @@ export class RunSteps {
   list() {
     const now = this.now();
     return [...this.runs].map(([id, r]) => [id, r.sessionKey, r.phase, now - r.at]);
+  }
+  /**
+   * A run's state now, or null: its session, phase, quiet time and whether a frame
+   * of it arrived since the Gateway last reconnected.
+   */
+  state(runId) {
+    const run = this.runs.get(runId);
+    if (!run) return null;
+    const { sessionKey, phase, live } = run;
+    return { sessionKey, phase, live, quietMs: Math.max(0, this.now() - run.at) };
+  }
+  /**
+   * The Gateway reconnected: frames may have been lost, a run's end among them. Its
+   * steps stay for the chat, but its quiet time proves nothing until it sends again.
+   */
+  reconnected() {
+    for (const run of this.runs.values()) run.live = false;
   }
   /** The runs of one session, oldest first. */
   ofSession(sessionKey) {
