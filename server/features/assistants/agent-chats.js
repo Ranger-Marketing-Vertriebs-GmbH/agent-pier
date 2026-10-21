@@ -20,6 +20,7 @@ const chatErrors = Object.freeze({
   CHAT_MAIN: ["chatMain", 409],
   CHAT_BUSY: ["chatBusy", 409],
   CHAT_COMMAND: ["chatCommand", 400],
+  CHAT_COMMAND_QUEUED: ["chatCommandQueued", 400],
   CHAT_CONFIRM: ["chatConfirm", 400],
 });
 
@@ -65,7 +66,7 @@ function teamChats(service, ids) {
 }
 
 // The conversations with a turn under way, an approval waiting or team work open.
-function busyChats(service) {
+export function busyChats(service) {
   const ids = new Set(
     (service.workflows?.store.awaiting?.() || []).map((a) => a.conversationId),
   );

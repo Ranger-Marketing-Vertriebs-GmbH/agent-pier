@@ -4,6 +4,7 @@ import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-ch
 import { fixtureModel } from "../helpers/user-agents.js";
 import { signedInUser } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
+import { handBackNotes } from "../../server/features/assistants/browser-hand-back.js";
 
 // The owner's agent, created through his API.
 async function ownerAgent(f, body = {}) {
@@ -390,7 +391,7 @@ test("/new opens a new chat instead of resetting", async (t) => {
       `/api/assistant-conversations/${ownerMain}/messages`,
       { clientRequestId: `cmd-${text}`, text },
     );
-    assert.equal(refused.status, 400, text);
+    assert.equal(refused.status, 400, await refused.clone().text());
     assert.equal((await refused.json()).code, "CHAT_COMMAND");
   }
   assert.equal(gateway.sent.length, 0);
@@ -412,4 +413,99 @@ test("/name renames", async (t) => {
   assert.equal((await json(response, 200)).chat.title, "Shopping list");
   assert.equal(await title(request, agent.id, main, true), "Shopping list");
   assert.equal(gateway.sent.length, 0);
+});
+
+test("reconciliation leaves idle archived chats alone", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const main = await openMain(f.request, agent.id);
+  const archived = (await newChat(f.request, agent.id)).id;
+  await json(
+    await f.request(`/api/assistant-conversations/${archived}/archive`, {
+      method: "POST",
+    }),
+    200,
+  );
+  const store = f.application.assistants.store;
+  const [mainKey, archivedKey] = [main, archived].map(
+    (id) => store.getConversation(id).runtimeSessionKey,
+  );
+  gateway.calls.length = 0;
+  await f.application.assistants.reconcile();
+  const keys = gateway.calls
+    .filter((c) => ["sessions.messages.subscribe", "chat.history"].includes(c.method))
+    .map((c) => c.params.key ?? c.params.sessionKey);
+  assert.ok(keys.includes(mainKey));
+  assert.ok(!keys.includes(archivedKey));
+});
+
+test("a rename while the first message is admitted keeps the set title", async (t) => {
+  const { f } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const chat = await newChat(f.request, agent.id);
+  const assistants = f.application.assistants;
+  const apply = assistants.config.apply;
+  assistants.config.apply = async (...args) => {
+    assistants.config.apply = apply;
+    const renamed = await f.request(`/api/assistant-conversations/${chat.id}`, {
+      method: "PATCH",
+      body: { title: "Taxes" },
+    });
+    assert.equal(renamed.status, 200, await renamed.clone().text());
+    return apply(...args);
+  };
+  const sent = await post(f.request, `/api/assistant-conversations/${chat.id}/messages`, {
+    clientRequestId: "one",
+    text: "Collect the receipts",
+  });
+  assert.equal(sent.status, 202, await sent.clone().text());
+  assert.equal(await title(f.request, agent.id, chat.id), "Taxes");
+});
+
+test("/new and /name are never queued to run after the turn", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const chat = await newChat(f.request, agent.id);
+  const url = `/api/assistant-conversations/${chat.id}`;
+  const busy = await post(f.request, `${url}/messages`, {
+    clientRequestId: "one",
+    text: "Work on this",
+  });
+  assert.equal(busy.status, 202);
+  for (const text of ["/new", "/name Taxes", " /NEW  "]) {
+    const refused = await post(f.request, `${url}/queued`, { text });
+    assert.equal(refused.status, 400, await refused.clone().text());
+    assert.equal((await refused.json()).messageKey, "assistants.chatCommandQueued");
+  }
+  // One queued before this refusal existed goes out as nothing, not as a command.
+  const assistants = f.application.assistants;
+  const before = (await chats(f.request, agent.id)).length;
+  assistants.queued.put(chat.id, { text: "/new", teamAllowed: false, attachments: [] });
+  gateway.runs[gateway.sent[0].idempotencyKey] = { status: "ok" };
+  await assistants.reconcile();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal((await chats(f.request, agent.id)).length, before);
+  assert.equal(assistants.queued.get(chat.id).state, "failed");
+  assert.equal(gateway.sent.length, 1);
+});
+
+test("AgentPier's browser hand-back note never names a chat", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const chat = await newChat(f.request, agent.id);
+  const assistants = f.application.assistants;
+  // Queued as browser-hand-back.js does; it goes out as the owner's turn.
+  assistants.queue(chat.id, { text: handBackNotes.owner });
+  await assistants.reconcile();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(gateway.sent.length, 1);
+  assert.equal(await title(f.request, agent.id, chat.id), null);
+  gateway.runs[gateway.sent[0].idempotencyKey] = { status: "ok" };
+  await assistants.reconcile();
+  const sent = await post(f.request, `/api/assistant-conversations/${chat.id}/messages`, {
+    clientRequestId: "two",
+    text: "Book the flight",
+  });
+  assert.equal(sent.status, 202, await sent.clone().text());
+  assert.equal(await title(f.request, agent.id, chat.id), "Book the flight");
 });

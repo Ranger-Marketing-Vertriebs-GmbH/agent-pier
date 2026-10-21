@@ -1,7 +1,8 @@
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { validateQueueInput } from "./queued-messages.js";
+import { joinedText, validateQueueInput } from "./queued-messages.js";
+import { isChatCommand } from "./chat-commands.js";
 import { chatProblem } from "./agent-chats.js";
 
 // A queued message that could have gone out for this long is not sent anymore (a
@@ -45,6 +46,10 @@ export function queueMessage(service, conversationId, input) {
   if (service.store.getAssistant(conversation.assistantId).archivedAt)
     throw assistantProblem("queuedArchived", 409);
   if (conversation.archivedAt) throw chatProblem("CHAT_ARCHIVED");
+  // `/new` and `/name` act at once (chat-commands.js); queued, they never run later.
+  const text = joinedText(service.queued.get(conversationId)?.text, value.text);
+  if (isChatCommand({ text }, { kind: "owner" }))
+    throw chatProblem("CHAT_COMMAND_QUEUED");
   service.attachments.staged(conversationId, value.attachments);
   service.queued.put(conversationId, value);
   retriesOf(service).delete(conversationId);
@@ -141,6 +146,9 @@ export async function dispatchQueued(service, conversationId) {
     ready.map(async (message) => {
       if (!service.queued.begin(message)) return;
       try {
+        // Queued text is a turn, never a chat command.
+        if (isChatCommand(message, { kind: "owner" }))
+          throw chatProblem("CHAT_COMMAND_QUEUED");
         await service.send(
           message.conversationId,
           delivery(message),

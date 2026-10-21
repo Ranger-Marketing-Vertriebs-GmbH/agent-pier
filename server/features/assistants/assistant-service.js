@@ -30,7 +30,7 @@ import { conversationFeeds, reconciledChanges } from "./conversation-feeds.js";
 import { assistantListFeed } from "./assistant-list-feed.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { openMainConversation } from "./conversation-open.js";
-import { AgentChats } from "./agent-chats.js";
+import { AgentChats, busyChats, chatBusy } from "./agent-chats.js";
 import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import {
@@ -522,11 +522,15 @@ export class AssistantService {
     this.reconciling = (async () => {
       let stale = false;
       const reads = new Map();
-      for (const c of this.store.listConversations()) {
+      const conversations = this.store.listConversations();
+      const busy = conversations.some((c) => c.archivedAt) ? busyChats(this) : null;
+      for (const c of conversations) {
         // One unavailable session must not stall run reconciliation for the rest.
         if (this.closed) break;
         // A deleted user's chat waits only for its native delete (user-release.js).
         if (c.userReleased) continue;
+        // An archived chat takes no turn: no live read unless work still reports into it.
+        if (c.archivedAt && !chatBusy(this, c.id, busy)) continue;
         if (this.now() < (this.sessionFailures.get(c.id)?.retryAt ?? -Infinity)) continue;
         const client = this.runtime.client;
         try {

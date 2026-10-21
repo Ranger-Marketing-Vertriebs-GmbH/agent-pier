@@ -1,4 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
+import { handBackNotes } from "./browser-hand-back.js";
 
 // A chat's title (AGENTPIER-181): the first message's start, or one the person set.
 // Without either the chat list shows "New chat", or "Main chat" for the main chat.
@@ -47,13 +48,25 @@ const written = new Set(["owner", "user", "telegram"]);
 /**
  * Names a chat after its first written turn, once a written turn was accepted: a set
  * title, or an automatic one already there, is never overwritten. A chat from before
- * titles existed is named after its first message, not the turn just written.
+ * titles existed is named after its first message, not the turn just written. The chat
+ * is read again: a rename made while the turn was being admitted wins.
  */
 export function titleFromTurn(service, conversation, context) {
-  if (conversation.titleSource || !written.has(context?.kind)) return;
+  if (!written.has(context?.kind)) return;
+  const current = service.store.storedConversation(conversation.id);
+  if (current.titleSource || current.deletedAt) return;
   const title = firstTurnTitle(service, conversation.id);
   if (title)
     service.store.updateConversation(conversation.id, { title, titleSource: "auto" });
+}
+
+// A note AgentPier queued into the chat (browser-hand-back.js) goes out as the
+// person's turn but is not her writing: only what she appended to it may name the chat.
+function writtenText(text) {
+  let rest = typeof text === "string" ? text.trimStart() : "";
+  for (const note of Object.values(handBackNotes))
+    if (rest.startsWith(note)) rest = rest.slice(note.length);
+  return rest;
 }
 
 /** The automatic title from the chat's first written turn, or null. */
@@ -61,7 +74,7 @@ export function firstTurnTitle(service, conversationId) {
   for (const request of service.ledger.requests(conversationId)) {
     const kind = service.teams?.store.context(request.id)?.kind ?? "owner";
     if (!written.has(kind)) continue;
-    const title = autoTitle(request.text);
+    const title = autoTitle(writtenText(request.text));
     if (title) return title;
   }
   return null;
