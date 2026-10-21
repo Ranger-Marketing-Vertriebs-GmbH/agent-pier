@@ -49,6 +49,19 @@ test("TCP open is not authenticated readiness and RPCs preserve correlation", as
       error.remoteMessage === undefined &&
       !JSON.stringify({ ...error, message: error.message }).includes("secret"),
   );
+  // A plugin method's stable failure code is kept; the busy text above was none.
+  await assert.rejects(
+    client.call("titleFailed", {}),
+    (error) =>
+      error.code === "UNAVAILABLE" &&
+      error.remoteCode === "LLM_COMPLETION_TIMEOUT" &&
+      error.remoteMessage === undefined,
+  );
+  for (const method of ["busy", "refused"])
+    await assert.rejects(
+      client.call(method, {}),
+      (error) => error.remoteCode === undefined,
+    );
   const waiting = client.call("pending", {});
   client.close();
   await assert.rejects(waiting, /closed/i);

@@ -132,6 +132,12 @@ export class GatewayClient extends EventEmitter {
                   /^[A-Z][A-Za-z]{0,80}Error(?=: )/.test(frame.error.message)
                     ? { remoteError: frame.error.message.split(":", 1)[0] }
                     : {}),
+                  // A plugin method's failure whose whole message is a stable code
+                  // (team-plugin/chat-title.js): no text, so it may be logged.
+                  ...(frame.error?.code === "UNAVAILABLE" &&
+                  /^[A-Z][A-Z_]{2,60}$/.test(frame.error.message)
+                    ? { remoteCode: frame.error.message }
+                    : {}),
                 },
               ),
             );
