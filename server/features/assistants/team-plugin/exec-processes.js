@@ -172,9 +172,15 @@ function tidy(record, key, entry) {
 // Only when the report can mean that one process: every recorded process it could
 // name counts, ended ones included (an ended process's completion may still be
 // delivered after the process tool showed its end).
-function ending(entry, match, prefix, now = Date.now()) {
-  const found = entry.processes.filter(match);
+function ending(entry, prefix, now = Date.now()) {
+  const found = entry.processes.filter((p) => p.id.slice(0, 8) === prefix);
   if (entry.dropped.some((d) => d.prefix === prefix)) return;
+  if (found.length === 1 && !found[0].endedAt) found[0].endedAt = now;
+}
+// The process tool names a process by its whole id: that one process ended, whatever
+// shares its prefix. It stays a candidate like any ended process.
+function endingById(entry, id, now = Date.now()) {
+  const found = entry.processes.filter((p) => p.id === id);
   if (found.length === 1 && !found[0].endedAt) found[0].endedAt = now;
 }
 
@@ -350,8 +356,7 @@ export function registerExecProcesses(api) {
       typeof details.sessionId === "string"
     ) {
       const entry = session(record, ctx.sessionKey, false);
-      if (entry)
-        ending(entry, (p) => p.id === details.sessionId, details.sessionId.slice(0, 8));
+      if (entry) endingById(entry, details.sessionId);
     }
   });
   api.on("agent_end", (_event, ctx) => {
@@ -373,7 +378,7 @@ export function registerExecProcesses(api) {
     if (!ids) return;
     // The completion's processes have ended: each that one prefix names alone.
     const entry = session(record, ctx.sessionKey, false);
-    if (entry) for (const id of ids) ending(entry, (p) => p.id.slice(0, 8) === id, id);
+    if (entry) for (const id of ids) ending(entry, id);
     bounded(record.completions, execBounds.maxCompletions, runId, {
       sessionKey: ctx.sessionKey,
       ids,
