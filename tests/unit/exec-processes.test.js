@@ -420,3 +420,50 @@ test("a session with nothing left is removed and never pushes out a live one", (
   assert.ok(execRecord().sessions.size <= 2);
   assert.equal(g.proof("live", "w1b").complete, true);
 });
+
+test("the process tool ends a process by its whole id even when its prefix is shared", (t) => {
+  const g = gateway(t);
+  const tick = clock(t);
+  const log = (id) =>
+    g.emit(
+      "after_tool_call",
+      {
+        toolName: "process",
+        result: { details: { status: "completed", sessionId: id } },
+      },
+      { sessionKey: "s", runId: "rx", toolCallId: `log-${id}-${Date.now()}` },
+    );
+  const ids = () =>
+    execRecord()
+      .sessions.get("s")
+      ?.processes.map((p) => p.id) ?? [];
+  // A ends and is removed; B with A's prefix starts while A is still a candidate.
+  g.background("s", "rA", "oceanic-reef");
+  g.complete("s", "w1", ["oceanic-"]);
+  tick(execBounds.dropAfterMs + 1);
+  g.proof("s", "none");
+  g.background("s", "rB", "oceanic-cove");
+  g.background("s", "rC", "calm-shore");
+  // A completion naming the shared prefix ends nothing: B stays (fail closed).
+  g.complete("s", "w2", ["oceanic-"]);
+  tick(execBounds.dropAfterMs + 1);
+  g.proof("s", "none");
+  assert.deepEqual(ids(), ["oceanic-cove", "calm-shore"]);
+  // `process log` with B's whole id ends B; it stays a candidate, then leaves.
+  log("oceanic-cove");
+  g.complete("s", "w3", ["oceanic-"]);
+  assert.deepEqual(
+    g.proof("s", "w3").processes.map((p) => p.runId),
+    ["rB"],
+  );
+  tick(execBounds.dropAfterMs + 1);
+  g.proof("s", "none");
+  assert.deepEqual(ids(), ["calm-shore"]);
+  assert.deepEqual(
+    g.proof("s", "w3").processes.map((p) => p.runId),
+    ["rB"],
+    "a removed process stays a candidate for one more window",
+  );
+  tick(execBounds.dropAfterMs + 1);
+  assert.deepEqual(g.proof("s", "w3").processes, []);
+});

@@ -1226,7 +1226,7 @@ was compacted and the plan was gone. Four rules close that gap:
       recorded process of the session carries, counting ended ones and those just
       removed. A completion can still be delivered after the process tool showed
       that end. The end is also observed when the process tool reports the process
-      finished, or when its own bound passed: the call's `timeoutSeconds` above
+      finished by its whole id (whatever shares its prefix), or when its own bound passed: the call's `timeoutSeconds` above
       zero plus ten minutes. A process leaves two hours after its end or at its
       bound. It then stays a candidate under its prefix, with the run that started
       it, for two more hours, so a late completion is judged against it. A process
