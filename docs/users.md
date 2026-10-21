@@ -49,11 +49,11 @@ Every other socket is refused like an unknown path (see [Login](login.md)).
 
 The owner sets a level per user and agent:
 
-| Level       | German          | What the user may do                                                                                                              |
-| ----------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Chat only   | Nur chatten     | Chat, attach files, dictate, read the agent's settings.                                                                           |
-| Personalize | Personalisieren | Also, on her own agent: name, picture (an emoji), personality and instructions, her reminders, and the agent's notes.             |
-| Extended    | Erweitert       | Also, on her own agent: switch the capabilities the owner released for her, and connect the agent's own Telegram bot for herself. |
+| Level       | German          | What the user may do                                                                                                                                                                |
+| ----------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chat only   | Nur chatten     | Chat, attach files, dictate, read the agent's settings and memory notes.                                                                                                            |
+| Personalize | Personalisieren | Also her own reminders and routines, on her own and on shared agents; on her own agent also name, picture (an emoji), personality and instructions, and deleting the agent's notes. |
+| Extended    | Erweitert       | Also, on her own agent: switch the capabilities the owner released for her, and connect the agent's own Telegram bot for herself.                                                   |
 
 On a shared agent, name, picture, personality, instructions and capabilities stay the
 owner's at every level.
@@ -67,8 +67,9 @@ An agent for users is either:
   her level and released capabilities, but not give the agent to someone else.
 - a **shared agent** (Geteilter Agent): it serves several users. Each user has her own
   private chats with it, but its memory, profile (`USER.md`) and browser are shared
-  with everyone who uses it, and its chat says so. The owner keeps a chat of his own
-  with a shared agent (**Open my chat**).
+  with everyone who uses it, and its chat says so. Files sent in a chat stay with
+  that chat: a turn in another person's chat cannot read or share them. The owner
+  keeps a chat of his own with a shared agent (**Open my chat**).
 
 Create one from **New agent** with **For** set to the person, or from the user's page.
 On the agents page and in the sidebar they appear under **Agents of users**. The owner
@@ -141,9 +142,14 @@ Users sign in on the same page as the owner:
 
 ## Disable and delete
 
-**Sign-in allowed** off is reversible: everything stays, nothing runs as her.
+**Sign-in allowed** off signs her out and keeps her account, agents and chats, so
+switching it on again lets her back in. Nothing runs as her meanwhile: her reminders,
+routines and check-ins end and her own Telegram bots are removed with their tokens, for
+good. After she is enabled again she sets them up anew.
 **Delete user** asks what happens to her own agents: **Archive** or **Keep under my
-account**. Her private chats are deleted with her, unless the owner may read them; her
+account**. Keeping them is offered only while **Owner may read chats** is on: a kept
+agent becomes yours with her memory, `USER.md`, files and logged-in browser, so
+without her opt-in her own agents are archived. Her private chats are deleted with her, unless the owner may read them; her
 sessions, devices, reminders, routines and Telegram bots end. Shared agents stay and
 simply lose her.
 

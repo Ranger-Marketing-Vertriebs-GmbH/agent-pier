@@ -130,6 +130,20 @@ async function setup(page, language) {
     if (m) {
       const chat = state.conversations.find((c) => c.id === m[1]);
       const rest = m[2] || "";
+      // `/new` starts a chat on the server (chat-commands.js) and names it.
+      if (rest === "/messages" && method === "POST") {
+        if (request.postDataJSON().text.trim() !== "/new")
+          return route.fulfill({ status: 202, json: { accepted: true } });
+        const created = {
+          id: `new-${++state.created}`,
+          assistantId: "home",
+          main: false,
+          title: null,
+          lastActivityAt: "2026-10-21T09:00:00.000Z",
+        };
+        state.conversations.push(created);
+        return route.fulfill({ status: 201, json: { created: created.id } });
+      }
       if (rest === "/messages")
         return route.fulfill({
           json: { messages: state.messages[m[1]] || [], requests: [], stale: false },
@@ -173,6 +187,16 @@ for (const [language, copy] of Object.entries(languages))
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(390);
+    });
+
+    test("typing /new opens the chat it started", async ({ page }) => {
+      await setup(page, language);
+      await page.goto(baseURL + "/agents/home/chats/main");
+      await expect(page.getByText("Dinner is planned.")).toBeVisible();
+      await page.getByLabel(copy.message, { exact: true }).fill("/new");
+      await page.getByRole("button", { name: /Senden|Send/ }).click();
+      await expect(page).toHaveURL(/\/agents\/home\/chats\/new-1$/);
+      await expect(page.getByText("Dinner is planned.")).toHaveCount(0);
     });
 
     test("rename, archive, restore and delete a chat", async ({ page }) => {

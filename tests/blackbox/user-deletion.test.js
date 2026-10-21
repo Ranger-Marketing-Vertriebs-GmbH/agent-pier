@@ -132,9 +132,26 @@ test("deleting with opt-in keeps her chats readable from since", async (t) => {
   assert.equal(kept.ownerMayReadSince, since);
 });
 
-test("keep moves own agents to the owner", async (t) => {
+test("keep without her opt-in is refused: her agent holds her private data", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const { user, agent } = await annaWithChat(f, gateway);
+  const refused = await remove(f, user.id, { agents: "keep" });
+  assert.equal(refused.status, 409);
+  assert.equal((await refused.json()).code, "USER_AGENTS_KEEP_PRIVATE");
+  // Nothing was released: she and her agent stay as they were.
+  assert.ok(f.application.users.get(user.id));
+  const still = f.application.assistants.store.getAssistant(agent.id);
+  assert.equal(still.userAccess.mode, "own");
+  assert.equal(still.archivedAt, null);
+});
+
+test("keep under her opt-in moves own agents to the owner", async (t) => {
   const { f, gateway } = await chatFixture(t);
   const { user, cookie, agent } = await annaWithChat(f, gateway);
+  await f.request(`/api/users/${user.id}/owner-may-read`, {
+    method: "PUT",
+    body: { enabled: true },
+  });
   assert.equal((await remove(f, user.id, { agents: "keep" })).status, 204);
   const kept = f.application.assistants.store.getAssistant(agent.id);
   assert.equal(kept.userAccess, null);
@@ -203,7 +220,10 @@ test("deleting a user with reminders ends them without blocking the agents", asy
   assert.equal(created.status, 201, await created.clone().text());
   const { id } = await created.json();
   const timeout = new Promise((resolve) => setTimeout(() => resolve("stuck"), 5000));
-  const removed = await Promise.race([remove(f, user.id, { agents: "keep" }), timeout]);
+  const removed = await Promise.race([
+    remove(f, user.id, { agents: "archive" }),
+    timeout,
+  ]);
   assert.notEqual(removed, "stuck");
   assert.equal(removed.status, 204);
   const reminders = f.application.assistants.reminders;

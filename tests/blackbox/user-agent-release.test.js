@@ -36,7 +36,7 @@ test("deleting a user removes her bot and her message texts", async (t) => {
   const conversationId = channel.conversationId;
   const assistants = f.application.assistants;
   assert.ok(assistants.ledger.requests(conversationId).length);
-  assert.equal((await remove(f, user.id, { agents: "keep" })).status, 204);
+  assert.equal((await remove(f, user.id, { agents: "archive" })).status, 204);
   const channels = f.application.assistantChannels;
   assert.deepEqual(channels.store.list(), []);
   assert.equal(channels.store.secret(channel.id), null);

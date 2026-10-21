@@ -56,9 +56,8 @@ export function bindChatEvents(service) {
   service.unsubscribe = service.runtime.client?.subscribe((event) => {
     const payload = event.payload;
     if (!payload?.sessionKey) return;
-    const conversation = service.store
-      .listConversations()
-      .find((c) => c.runtimeSessionKey === payload.sessionKey);
+    // The session key is indexed: every streamed delta looks its chat up.
+    const conversation = service.store.conversationOfSession(payload.sessionKey);
     // A routine's own run session may leave images too (generated-images.js).
     if (!conversation) return service.generatedImages.observeRun(event);
     // Any frame of the turn's run proves a send whose acknowledgement was lost.
@@ -80,9 +79,12 @@ export function bindChatEvents(service) {
         service.store.updateConversation(conversation.id, {
           lastActivityAt: new Date(service.now?.() ?? Date.now()).toISOString(),
         });
-      service.reconcile().catch(() => {});
-      // An image_generate completion leaves its images here (generated-images.js).
-      service.generatedImages.observe(conversation).catch(() => {});
+      // Only this chat and those with work underway are read again (chat-reconcile.js).
+      service.reconcile({ full: false, chats: [conversation.id] }).catch(() => {});
+      // An image_generate completion leaves its images here (generated-images.js);
+      // a released user's files went with her and are never copied back.
+      if (!conversation.userReleased)
+        service.generatedImages.observe(conversation).catch(() => {});
     }
   });
 }

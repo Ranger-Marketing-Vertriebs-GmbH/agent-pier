@@ -271,12 +271,17 @@ export default function AssistantChat({
     setBusy(true);
     setError("");
     try {
-      await assistantApi.send(
+      const result = await assistantApi.send(
         conversationId,
         ids.length ? { ...submitted, attachments: ids } : submitted,
       );
       accepted?.();
-      await refresh();
+      // `/new` started a chat (chat-commands.js): it opens once the list knows it.
+      const created = result?.created;
+      await (created ? reloadList?.() : refresh());
+      const view = "agents";
+      if (created)
+        navigate?.({ view, assistantId: assistant.id, conversationId: created });
       return true;
     } catch (e) {
       setError(e.message);

@@ -2435,7 +2435,8 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
   Writes into configuration that the owner's tools run (`.claude/`, `.codex/`,
   `.gemini/`, `.opencode/`, `.agents/`, `opencode.json(c)`, `.cursor/`, `.vscode/`,
   `.idea/`, `.devcontainer/`, `.husky/`, `.githooks/`, `.mcp.json`, `.envrc`,
-  `.pre-commit-config.yaml`, every lefthook file name) and into the instruction files
+  `.pre-commit-config.yaml`, every lefthook file name, mise's `mise.toml` and its
+  variants) and into the instruction files
   his coding CLIs load from the working tree (`CLAUDE.md`, `CLAUDE.local.md`,
   `AGENTS.md`, `AGENTS.override.md`, `GEMINI.md`; the list is `toolConfigNames` in
   `project-paths.js`), at any depth and in any case and also through links, answer 403
@@ -2579,7 +2580,9 @@ sees the state in `GET /api/me`; her event stream sends `account` when it change
 her open chats, her account page and her agent's browser view say so at once.
 
 Deleting a user (`DELETE /api/users/:id {agents: "archive" | "keep"}`, 400
-`USER_AGENTS_CHOICE` without a choice while she owns agents; 503 `USER_AGENTS_OFF` while
+`USER_AGENTS_CHOICE` without a choice while she owns agents; 409
+`USER_AGENTS_KEEP_PRIVATE` for `keep` without her opt-in, since a kept agent hands her
+memory, `USER.md`, files and logged-in browser to the owner; 503 `USER_AGENTS_OFF` while
 agents are switched off but their store exists, since only the running agents can
 release her data) archives her own agents or
 keeps them as the owner's (`userAccess: null`, settings unchanged), removes her from
@@ -2663,7 +2666,12 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   OpenClaw's maintenance would archive after 7 idle days, and a natively archived
   session takes no turn, so the compiled configuration sets
   `session.maintenance.archiveDashboardAfter: false`. Reconciliation skips archived
-  chats unless work still reports into them, so they cost no Gateway calls.
+  chats unless work still reports into them, so they cost no Gateway calls. A full
+  pass (at readiness, after maintenance, on a cancel) subscribes and reads every other
+  chat; the 2-second poll and a run's end read only the chats that need it: with work
+  underway, a live feed, a run that just ended there, a session failure due for its
+  retry or no subscription yet on this connection (`chat-reconcile.js`), so a pass
+  costs what is underway, not the number of chats.
 - Delete: `DELETE …/conversations/:id {confirm: true}` (400 `CHAT_CONFIRM` without it)
   marks the chat deleted, so every route answers 404, closes its open views, forgets
   its cached messages, request texts, files, shared files, routine results, memory notes
@@ -3207,7 +3215,13 @@ type.
   workspace. Unsent uploads expire after a day, and a page that is closed or reloaded
   discards its own. A conversation keeps at most 20 unsent uploads; a further one
   replaces the oldest, so files abandoned elsewhere never block a new message. Each
-  agent holds at most 1 GB or 1000 files there. When the agent deletes a sent copy,
+  agent holds at most 1 GB or 1000 files there. On a shared agent of users each
+  chat's files stay with that chat: the team plugin asks AgentPier
+  (`/attachment-policy`, `attachment-access.js`) for every `read`, `memory_get`,
+  `pdf`, `image`, `image_generate`, `write`, `edit` or `apply_patch` call naming
+  `attachments/`, which allows only files indexed for the calling chat (its turn's, a
+  routine run's or the session's own), and `agentpier_share_file` refuses another
+  chat's file with `SHARE_NOT_FOUND`. When the agent deletes a sent copy,
   the chat history keeps the message and names that file as no longer available
   (`unavailable: true`, no link).
 - **Delivery.** `sessions.send` carries the owner's text followed by a note that

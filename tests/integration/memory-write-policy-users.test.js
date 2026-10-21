@@ -183,3 +183,24 @@ test("a flush in the turn of a user who left the agent is refused", async (t) =>
   assert.equal(await f.call(today, { ctx }), false);
   assert.deepEqual(f.notes(f.channel.conversationId), ["flush"]);
 });
+
+test("a user's routine writing a shared agent's memory leaves the note in its chat", async (t) => {
+  const f = await usersFixture(t, shared);
+  const body = {
+    ...f.store.storedAssistant(f.id),
+    capabilities: { memory: true, reminders: true },
+  };
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify(body), f.id);
+  const routineKey = `agent:${f.agentId}:cron:job-1:run:r1`;
+  f.assistants.routines = {
+    runOrigin: (_a, key) =>
+      key === routineKey ? { binding: {}, conversation: { id: f.other.id } } : null,
+  };
+  const ctx = { ctx: { agentId: f.agentId, sessionKey: routineKey } };
+  assert.equal(await f.call("MEMORY.md", ctx), true);
+  assert.equal(await f.call("memory/notes.md", ctx), true);
+  assert.deepEqual(f.notes(f.other.id), ["shared-write"]);
+  assert.deepEqual(f.notes(f.channel.conversationId), []);
+});

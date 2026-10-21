@@ -291,3 +291,43 @@ test("a deleted parent chat skips synthesis once and never retries it", async (t
   await f.service.reconcile();
   assert.equal(f.service.store.get(team.id).revision, skipped.revision);
 });
+
+test("a poll or run end reads only the chats that need it, not every open chat", async (t) => {
+  const f = teamFixture(t);
+  const idle = Array.from({ length: 8 }, (_, n) => parentChat(f, `idle-${n}`));
+  const live = parentChat(f, "live");
+  const call = f.assistants.runtime.client.call;
+  const calls = [];
+  f.assistants.runtime.client.call = async (method, input) => {
+    if (["sessions.messages.subscribe", "chat.history"].includes(method))
+      calls.push([method, input.key ?? input.sessionKey]);
+    return call(method, input);
+  };
+  // The chats read (one or more history pages each) and subscribed.
+  const read = (method = "chat.history") => [
+    ...new Set(calls.filter(([m]) => m === method).map(([, key]) => key)),
+  ];
+  await f.assistants.reconcile();
+  assert.equal(read().length, 9, "a full pass");
+  // A turn runs in one chat: the poll reads that chat alone and subscribes nothing.
+  const request = f.assistants.ledger.accept(live.id, {
+    clientRequestId: "r",
+    text: "Hi",
+  });
+  const attempt = f.assistants.ledger.recordAttempt(request.id);
+  f.assistants.ledger.transition(attempt.id, "accepted", { runtimeRunId: attempt.id });
+  calls.length = 0;
+  await f.assistants.reconcile({ full: false });
+  assert.deepEqual(read(), ["live"]);
+  assert.deepEqual(read("sessions.messages.subscribe"), []);
+  // A run ended in an idle chat (a reminder): that chat is read too.
+  calls.length = 0;
+  await f.assistants.reconcile({ full: false, chats: [idle[3].id] });
+  assert.deepEqual(read().sort(), ["idle-3", "live"]);
+  // A new chat is subscribed and read once.
+  parentChat(f, "fresh");
+  calls.length = 0;
+  await f.assistants.reconcile({ full: false });
+  assert.deepEqual(read("sessions.messages.subscribe"), ["fresh"]);
+  assert.deepEqual(read().sort(), ["fresh", "live"]);
+});

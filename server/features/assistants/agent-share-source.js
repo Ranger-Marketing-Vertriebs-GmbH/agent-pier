@@ -96,7 +96,8 @@ export async function readShareSource(
   roots,
   requested,
   // `hooks` is a test seam: called between the checks to interleave a folder swap.
-  { maxBytes = MAX_SHARE_BYTES, hooks = {} } = {},
+  // `admit(relative)` may refuse the file by its path below its root.
+  { maxBytes = MAX_SHARE_BYTES, hooks = {}, admit = () => {} } = {},
 ) {
   if (
     typeof requested !== "string" ||
@@ -121,6 +122,7 @@ export async function readShareSource(
   }
   if (!candidates.length) throw assistantProblem("shareOutside", 403);
   const { real: realRoot, expected } = candidates[0];
+  admit(inside(realRoot, expected));
   const parts = inside(realRoot, expected).split(path.sep);
   // A link anywhere on the way (even one back into the workspace) is refused.
   const dirs = await walk(realRoot, parts.slice(0, -1));

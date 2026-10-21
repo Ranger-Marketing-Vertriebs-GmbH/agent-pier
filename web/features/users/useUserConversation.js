@@ -18,9 +18,13 @@ const settled = new Set(["completed", "failed", "cancelled"]);
  * /api/me), the draft, sending, the queued message, Stop and the review of an
  * uncertain turn. The owner's chat (AssistantChat.jsx) does the same with his routes;
  * her chat has no teams, members or lead requests. `histories` keeps the last window
- * of each opened chat (agent-offline.js), so it shows while offline.
+ * of each opened chat (agent-offline.js), so it shows while offline. `onCreated(id)`
+ * opens the chat a `/new` started.
  */
-export default function useUserConversation(conversationId, { histories, readOnly }) {
+export default function useUserConversation(
+  conversationId,
+  { histories, readOnly, onCreated },
+) {
   const drafts = sharedDrafts;
   const [text, setText] = useState(() => drafts.get(conversationId));
   const [view, setView] = useState(() => {
@@ -68,12 +72,14 @@ export default function useUserConversation(conversationId, { histories, readOnl
     setBusy(true);
     try {
       return await run(async () => {
-        await userApi.send(
+        const result = await userApi.send(
           conversationId,
           ids.length ? { ...submitted, attachments: ids } : submitted,
         );
         accepted?.();
-        await refresh();
+        // `/new` started a chat (chat-commands.js): it opens instead.
+        if (result?.created) await onCreated?.(result.created);
+        else await refresh();
         return true;
       });
     } finally {

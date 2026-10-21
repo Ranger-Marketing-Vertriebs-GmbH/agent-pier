@@ -220,6 +220,12 @@ function agentRoute(route, state, agent, rest, method, body) {
   }
   if (rest === "/memory") return json(route, state.memory[id] || { files: [] });
   let m;
+  if ((m = /^\/memory\/(.+)$/.exec(rest)) && method === "GET") {
+    const name = decodeURIComponent(m[1]);
+    const content = state.memory[id]?.contents?.[name];
+    if (content === undefined) return missing(route);
+    return json(route, { name, content, readOnly: true });
+  }
   if ((m = /^\/memory\/(.+)$/.exec(rest)) && method === "DELETE") {
     const name = decodeURIComponent(m[1]);
     const files = state.memory[id]?.files || [];
@@ -315,6 +321,15 @@ function chatRoute(route, state, chat, rest, method, body) {
   if (rest === "/messages" && method === "POST") {
     const { text } = body();
     state.posted.push({ id, text });
+    // `/new` starts a chat on the server (chat-commands.js) and names it.
+    if (text.trim() === "/new") {
+      const created = userChat({ id: `chat-${Date.now()}`, main: false });
+      const agentId = Object.keys(state.chats).find((a) =>
+        state.chats[a].some((c) => c.id === id),
+      );
+      state.chats[agentId].push(created);
+      return json(route, { created: created.id }, 201);
+    }
     const messages = (state.messages[id] ||= []);
     messages.push(
       { id: `u-${messages.length}`, role: "user", text },

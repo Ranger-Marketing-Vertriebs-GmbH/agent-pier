@@ -38,7 +38,10 @@ function sources(bridge, input) {
     if (matches.length > 1) return [{ flush, allow: false }];
     if (!matches.length) {
       const source = { agentId: input.agentId, sessionKey: flush.sessionKey };
-      if (bridge.routineWrite(source)) return [{ flush, allow: true }];
+      // A routine on a shared agent is one user's and runs against her private
+      // chat: like her own turn's, its flush never lands in the shared memory.
+      if (bridge.routineWrite(source))
+        return [{ flush, allow: !isShared(bridge.agentOf(input.agentId)) }];
       return flush.sessionKey.startsWith(`agent:${input.agentId}:`)
         ? [{ flush, allow: false }]
         : [];
@@ -67,8 +70,8 @@ function sources(bridge, input) {
  * (memory-flushes.js); its one write is the append-only day note. It writes for
  * the run it interrupts: a direct turn (directOrigin: the owner, his paired Telegram
  * chat or a restricted user on her own agent), or a routine's run, of the same agent,
- * never a forwarded, lead-requested or other turn, and no direct turn on a shared
- * agent. The key must name the run the hook reports, the note must be today's or
+ * never a forwarded, lead-requested or other turn, and no direct turn or routine run
+ * on a shared agent. The key must name the run the hook reports, the note must be today's or
  * yesterday's, and the first flush session that writes owns the flush; anything
  * else, or more than one flush of the agent at a time, is refused.
  */

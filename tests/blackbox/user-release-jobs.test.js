@@ -62,7 +62,8 @@ for (const optIn of [false, true])
       });
     const removed = await f.request(`/api/users/${anna.user.id}`, {
       method: "DELETE",
-      body: { agents: "keep" },
+      // Keeping her own agent needs her opt-in.
+      body: { agents: optIn ? "keep" : "archive" },
     });
     assert.equal(removed.status, 204, await removed.clone().text());
     assert.equal(results.forConversation(id).length, optIn ? 1 : 0);
@@ -101,7 +102,7 @@ test("jobs a deleted user left while the Gateway was away go at its next start",
   gateway.client.ready = false;
   const removed = await f.request(`/api/users/${user.id}`, {
     method: "DELETE",
-    body: { agents: "keep" },
+    body: { agents: "archive" },
   });
   assert.equal(removed.status, 204);
   // Revoked at once, so a late run delivers nothing.
@@ -188,7 +189,7 @@ test("her transcript left while the Gateway was away goes at its next start", as
   gateway.client.ready = false;
   const removed = await f.request(`/api/users/${user.id}`, {
     method: "DELETE",
-    body: { agents: "keep" },
+    body: { agents: "archive" },
   });
   assert.equal(removed.status, 204);
   assert.deepEqual(deleted(), []);

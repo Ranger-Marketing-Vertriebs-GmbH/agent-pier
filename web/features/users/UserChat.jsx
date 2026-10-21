@@ -44,8 +44,9 @@ export default function UserChat({
   chatSwitch = null,
   banner = null,
   readOnly = false,
+  onCreated,
 }) {
-  const chat = useUserConversation(conversationId, { histories, readOnly });
+  const chat = useUserConversation(conversationId, { histories, readOnly, onCreated });
   const { history, latest, active } = chat;
   const approvals = useUserApprovals(agent.id, subscribe);
   const attachments = useAgentAttachments(conversationId);

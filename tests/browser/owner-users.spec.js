@@ -17,6 +17,8 @@ const languages = {
     delete: "Benutzer löschen",
     deleteNow: "Jetzt löschen",
     keep: "Unter meinem Konto behalten",
+    keepNeedsOptIn: /Behalten kannst du sie nur, solange du ihre Chats lesen darfst/,
+    keepReveals: /Behaltene Agenten werden deine/,
     level: (name) => `Stufe für ${name}`,
     personalize: "Personalisieren",
     optIn: "Besitzer darf Chats lesen",
@@ -36,6 +38,8 @@ const languages = {
     delete: "Delete user",
     deleteNow: "Delete now",
     keep: "Keep under my account",
+    keepNeedsOptIn: /You can keep them only while you may read their chats/,
+    keepReveals: /Kept agents become yours/,
     level: (name) => `Level for ${name}`,
     personalize: "Personalize",
     optIn: "Owner may read chats",
@@ -178,9 +182,42 @@ for (const [language, copy] of Object.entries(languages))
         },
         revision: 3,
       });
-      // Her own agent asks what happens to it when she is deleted.
+      // Without her opt-in her own agent, which holds her private memory, files and
+      // browser, is archived with her: keeping it is not offered.
+      await page.getByRole("button", { name: copy.delete }).click();
+      await expect(page.getByText(copy.keepNeedsOptIn)).toBeVisible();
+      await expect(page.getByRole("radio", { name: copy.keep })).toHaveCount(0);
+      await page.getByRole("button", { name: copy.deleteNow }).click();
+      await expect(page).toHaveURL(/\/settings\/users$/);
+      expect(state.calls.find((c) => c.method === "DELETE").body).toEqual({
+        agents: "archive",
+      });
+    });
+
+    test("owner keeps her own agent only under her opt-in", async ({ page }) => {
+      const anna = {
+        id: "u-1",
+        username: "anna",
+        displayName: "Anna",
+        disabled: false,
+        ownerMayRead: { enabled: true, since: "2026-10-01T10:00:00.000Z" },
+      };
+      const lotta = {
+        id: "lotta",
+        name: "Lotta",
+        revision: 3,
+        userAccess: {
+          mode: "own",
+          members: [{ userId: "u-1", level: "chat" }],
+          released: [],
+        },
+      };
+      const state = await setup(page, language, { users: [anna], assistants: [lotta] });
+      await page.goto(baseURL + "/settings/users?user=u-1");
       await page.getByRole("button", { name: copy.delete }).click();
       await page.getByRole("radio", { name: copy.keep }).check();
+      // Keeping hands her memory, files and browser over: the dialog says so.
+      await expect(page.getByText(copy.keepReveals)).toBeVisible();
       await page.getByRole("button", { name: copy.deleteNow }).click();
       await expect(page).toHaveURL(/\/settings\/users$/);
       expect(state.calls.find((c) => c.method === "DELETE").body).toEqual({

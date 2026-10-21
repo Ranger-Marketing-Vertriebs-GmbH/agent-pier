@@ -47,8 +47,8 @@ export function usersRoutes(services) {
     services.notifications?.forgetUser(req.params.id);
     res.sendStatus(204);
   });
-  // Her own agents are archived or kept as the owner's ("agents"); the choice is
-  // needed while she has any. Her chats go with her unless the owner may read them.
+  // Her own agents are archived or kept as the owner's ("agents"; keep only under
+  // her opt-in); the choice is needed while she has any. Her chats go with her unless the owner may read them.
   router.delete("/users/:id", async (req, res) => {
     const { agents } = body(req);
     const user = users.get(req.params.id);
@@ -62,6 +62,10 @@ export function usersRoutes(services) {
     const owned = new UserAgents(services);
     if (agents === undefined && owned.ownsAgents(user.id))
       throw userProblem("USER_AGENTS_CHOICE");
+    // Her own agents hold her memory, USER.md, files and logged-in browser: the owner
+    // takes them over only under her opt-in, like her chats (UserAgents.assign).
+    if (agents === "keep" && owned.ownsAgents(user.id) && !user.ownerMayRead?.enabled)
+      throw userProblem("USER_AGENTS_KEEP_PRIVATE");
     await owned.releaseUser(user.id, agents ?? "archive", user.ownerMayRead);
     // Her push devices go with her, whether or not agents ever ran here.
     services.notifications?.forgetUser(user.id);

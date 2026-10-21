@@ -14,6 +14,14 @@ const readOnly = new Set([runFence].map(fold));
 // tree, often without approval. A restricted user's agent never writes there
 // (`lockToolConfig`), so its files-only folder access cannot plant a command or an
 // instruction for the owner's next session.
+function lefthookNames() {
+  return ["lefthook", "lefthook-local"].flatMap((base) =>
+    ["yml", "yaml", "toml", "json", "jsonc"].flatMap((ext) => [
+      `${base}.${ext}`,
+      `.${base}.${ext}`,
+    ]),
+  );
+}
 export const toolConfigNames = [
   ".claude",
   ".codex",
@@ -36,15 +44,19 @@ export const toolConfigNames = [
   ".mcp.json",
   ".envrc",
   ".pre-commit-config.yaml",
-  // lefthook also reads these names under .config/, which the segment match covers.
-  "lefthook.yml",
-  "lefthook.yaml",
-  ".lefthook.yml",
-  ".lefthook.yaml",
-  "lefthook-local.yml",
-  "lefthook-local.yaml",
-  ".lefthook-local.yml",
-  ".lefthook-local.yaml",
+  // mise runs `[env] _.source` and `[hooks] enter` when the owner enters the folder,
+  // and trusts a changed file at a trusted path. `.mise/` and `mise/` (also under
+  // `.config/`) hold its config directories; the segment match covers
+  // `.config/mise.toml`.
+  "mise.toml",
+  ".mise.toml",
+  "mise.local.toml",
+  ".mise.local.toml",
+  ".mise",
+  "mise",
+  // Every lefthook main and local configuration name (lefthookNames), which lefthook
+  // also reads under .config/: the segment match covers that.
+  ...lefthookNames(),
 ];
 const toolConfig = new Set(toolConfigNames.map(fold));
 const refused = () => assistantProblem("projectPathRefused", 403);

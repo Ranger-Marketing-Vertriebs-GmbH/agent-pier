@@ -52,6 +52,7 @@ const languages = {
 
 const note = {
   files: [{ name: "memory/2026-10-20.md", size: 10, modifiedAt: "2026-10-20T09:00:00Z" }],
+  contents: { "memory/2026-10-20.md": "Booked the dentist for Tuesday." },
 };
 
 for (const [language, copy] of Object.entries(languages))
@@ -73,6 +74,12 @@ for (const [language, copy] of Object.entries(languages))
       await page.getByRole("button", { name: new RegExp(copy.memory) }).click();
       await expect(page.getByText("2026-10-20.md")).toBeVisible();
       await expect(page.getByRole("button", { name: copy.deleteNote })).toHaveCount(0);
+      // Every note opens to read, at every level.
+      await page.getByText("2026-10-20.md").click();
+      const reader = page.getByRole("dialog", { name: "2026-10-20.md" });
+      await expect(reader.getByText("Booked the dentist for Tuesday.")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(reader).toHaveCount(0);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(390);
