@@ -9,6 +9,8 @@ export const agentRunStepsCopy = {
     thinking: "Denkt nach",
     writing: "Schreibt die Antwort",
     tool: "Führt ein Tool aus",
+    approval: "Wartet auf Freigabe",
+    compacting: "Fasst den Chat zusammen",
   },
   retrying: (attempt, of) =>
     of

@@ -23,6 +23,10 @@ const languages = {
     timedOut: /The model did not answer in time\./,
     longChat: /This chat is very long/,
     retrying: "The model did not answer, trying again (2 of 8)",
+    approval: "Waiting for approval",
+    compacting: "Summarising the chat",
+    summarising:
+      "Summarising the conversation so far — this can take a few minutes for long chats.",
   },
   de: {
     running: "Befehl · Figurenreferenz ermitteln",
@@ -37,6 +41,10 @@ const languages = {
     timedOut: /Das Modell hat nicht rechtzeitig geantwortet\./,
     longChat: /Dieser Chat ist sehr lang/,
     retrying: "Das Modell hat nicht geantwortet, neuer Versuch (2 von 8)",
+    approval: "Wartet auf Freigabe",
+    compacting: "Fasst den Chat zusammen",
+    summarising:
+      "Fasst den bisherigen Verlauf zusammen – bei langen Chats kann das ein paar Minuten dauern.",
   },
 };
 
@@ -99,6 +107,11 @@ for (const [language, copy] of Object.entries(languages))
         steps({ phase: "retrying", retry: { attempt: 2, of: 8, reason: "timeout" } }),
       );
       await expect(status).toHaveText(copy.retrying);
+      // An exec approval waits for a person; a compaction summarises the chat.
+      await send(page, "dinner", steps({ phase: "approval" }));
+      await expect(status).toHaveText(copy.approval);
+      await send(page, "dinner", steps({ phase: "compacting" }));
+      await expect(status).toHaveText(copy.compacting);
       await noSideScroll(page);
       await send(page, "dinner", { type: "steps-end", runId: "run-1" });
       await expect(details).toHaveCount(0);
@@ -161,5 +174,25 @@ for (const [language, copy] of Object.entries(languages))
       await expect(page.locator(".assistant-run-stalled")).toContainText(copy.stalled);
       await noSideScroll(page);
       expect(state.foreign).toEqual([]);
+    });
+
+    test("a user's chat names a compaction and an approval", async ({ page }) => {
+      const state = await userAppFixture(page, {
+        language,
+        messages: { main: running().messages },
+        requests: { main: running().requests },
+      });
+      await page.goto(baseURL + "/agents/lotta/chats/main");
+      await synced(page, "main");
+      const status = page.locator(".assistant-run-state");
+      await send(page, "main", steps({ phase: "approval" }));
+      await expect(status).toHaveText(copy.approval);
+      await send(page, "main", steps({ phase: "compacting" }));
+      await expect(status).toHaveText(copy.compacting);
+      // The chat's history says it summarises, as in the owner's chat.
+      state.compacting = { main: true };
+      await page.reload();
+      await expect(status).toHaveText(copy.summarising);
+      await noSideScroll(page);
     });
   });
