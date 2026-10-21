@@ -167,6 +167,50 @@ test("a turn refused for a natively archived session reopens it and goes through
   );
 });
 
+test("a turn refused as archived goes through once when a pass reopened the session meanwhile", async (t) => {
+  const f = nativeChats(t);
+  const chat = f.chat("pruned", { archived: true });
+  const call = f.client.call;
+  f.client.call = async (method, input) => {
+    if (method === "sessions.send" && f.native.get(input.key).archived) {
+      // The reconcile pass reopens and pins the session before the refusal returns.
+      Object.assign(f.native.get(input.key), { archived: false, pinned: true });
+      throw archivedRefusal(input.key);
+    }
+    return call(method, input);
+  };
+  const { attempt } = await f.assistants.send(chat.id, {
+    clientRequestId: "raced",
+    text: "Still there?",
+  });
+  assert.equal(attempt.state, "accepted");
+  assert.deepEqual(
+    f.log.map(([method]) => method),
+    ["sessions.describe", "sessions.send"],
+  );
+  assert.equal(f.calls.filter((c) => c.method === "sessions.send").length, 1);
+});
+
+test("a turn refused as archived is sent again only once", async (t) => {
+  const f = nativeChats(t);
+  const chat = f.chat("stuck");
+  const call = f.client.call;
+  let sends = 0;
+  f.client.call = async (method, input) => {
+    if (method === "sessions.send") {
+      sends++;
+      throw archivedRefusal(input.key);
+    }
+    return call(method, input);
+  };
+  const { attempt } = await f.assistants.send(chat.id, {
+    clientRequestId: "stuck",
+    text: "Hello",
+  });
+  assert.equal(attempt.state, "uncertain");
+  assert.equal(sends, 2);
+});
+
 test("another refusal is not retried and leaves the turn uncertain", async (t) => {
   const f = nativeChats(t);
   const chat = f.chat("open");
