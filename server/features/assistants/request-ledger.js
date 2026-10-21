@@ -93,6 +93,18 @@ export class RequestLedger {
       .all(conversationId)
       .map(requestRecord);
   }
+  /** The conversation's newest request, or null, without reading the others. */
+  latestRequest(conversationId) {
+    return (
+      requestRecord(
+        this.db
+          .prepare(
+            "SELECT * FROM requests WHERE conversation_id=? ORDER BY rowid DESC LIMIT 1",
+          )
+          .get(conversationId),
+      ) || null
+    );
+  }
   recordAttempt(requestId, { runtimeRunId = null } = {}) {
     this.getRequest(requestId);
     const existing = this.attemptFor(requestId);

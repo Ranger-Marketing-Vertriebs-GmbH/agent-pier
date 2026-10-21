@@ -114,7 +114,7 @@ export function continuationSource(bridge, input) {
       bridge.bound(sessionKey).length
     )
       return refuse(bridge, input, "CHAT");
-    const request = ledger.requests(conversation.id).at(-1);
+    const request = ledger.latestRequest(conversation.id);
     const attempt = request && ledger.attemptFor(request.id);
     if (attempt?.state !== "completed" || attempt.reviewedAt)
       return refuse(bridge, input, "REQUEST");
