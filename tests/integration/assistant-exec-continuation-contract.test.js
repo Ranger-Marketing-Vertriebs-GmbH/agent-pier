@@ -9,10 +9,8 @@ import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/proces
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
-import {
-  HeartbeatRuns,
-  completedProcesses,
-} from "../../server/features/assistants/exec-continuation.js";
+import { HeartbeatRuns } from "../../server/features/assistants/exec-continuation.js";
+import { completedProcesses } from "../../server/features/assistants/team-plugin/exec-processes.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
@@ -71,12 +69,14 @@ test(
       if (isCompletion(request))
         return done
           ? { text: "Saved." }
-          : {
-              tool: {
-                name: "write",
-                arguments: { path: `notes/${note}.md`, content: "AFTER\n" },
-              },
-            };
+          : note === "workspace"
+            ? { tool: { name: "agentpier_workspace", arguments: { action: "catalog" } } }
+            : {
+                tool: {
+                  name: "write",
+                  arguments: { path: `notes/${note}.md`, content: "AFTER\n" },
+                },
+              };
       const asked = JSON.stringify(lastUser(request)[0]);
       // "List" runs a foreground command; "foreign" starts another background one.
       const command = asked.includes("List")
@@ -120,6 +120,19 @@ test(
       };
       const result = decide(input);
       return result instanceof Promise ? result.then(settle) : settle(result);
+    };
+    // Every workspace ticket the completion run asks for, with its outcome.
+    const prepared = [];
+    const prepare = bridge.prepare.bind(bridge);
+    bridge.prepare = (input) => {
+      try {
+        const ticket = prepare(input);
+        prepared.push({ ...input, bound: true });
+        return ticket;
+      } catch (error) {
+        prepared.push({ ...input, bound: false });
+        throw error;
+      }
     };
     const plugin = provisionTeamPlugin({
       paths: runtime.paths,
@@ -211,7 +224,7 @@ test(
     const write = await completion(from);
     const run = events.filter((e) => e.runId === write.runId);
     t.diagnostic(`owner run=${owner.runId} attempt=${owner.attempt.id}`);
-    t.diagnostic(`completion hook=${JSON.stringify({ ...write, content: undefined })}`);
+    t.diagnostic(`completion hook=${JSON.stringify(write)}`);
     t.diagnostic(
       `completion events=${JSON.stringify(
         run.map((e) => ({
@@ -256,7 +269,10 @@ test(
     // The completion names the owner turn's background process (its first eight
     // characters), which the exec result reports as still running.
     const started = page.messages.find((m) => m.toolName === "exec").details;
-    const reported = completedProcesses(page.messages.findLast((m) => m.role === "user"));
+    const reported = completedProcesses(
+      page.messages.findLast((m) => m.role === "user").__openclaw?.modelPromptProjection
+        ?.text,
+    );
     t.diagnostic(`started=${started.sessionId} reported=${JSON.stringify(reported)}`);
     assert.equal(started.status, "running");
     assert.deepEqual(reported, [started.sessionId.slice(0, 8)]);
@@ -294,7 +310,7 @@ test(
     // 4. A forwarded turn starts a background command, the owner's later turn runs a
     // foreground one, then the forwarded turn's command completes: refused.
     clock = undefined;
-    await ownerTurn("Forwarded: start the foreign job.", {
+    const forwardedTurn = await ownerTurn("Forwarded: start the foreign job.", {
       kind: "telegram",
       forwarded: true,
     });
@@ -311,5 +327,24 @@ test(
     assert.deepEqual(results, ["running", "completed"], "background, then foreground");
     assert.equal(foreign.allow, false, "another turn's command never writes");
     assert.equal(fs.existsSync(path.join(workspace, "notes/after-foreign.md")), false);
+    // The Gateway's record names the reported process with the forwarded turn's run.
+    t.diagnostic(`foreign evidence=${JSON.stringify(foreign.exec)}`);
+    assert.deepEqual(
+      foreign.exec.processes.map((p) => [p.id.slice(0, 8), p.runId]),
+      [[foreign.exec.completion.ids[0], forwardedTurn.runId]],
+    );
+
+    // 5. A completion run's agentpier_workspace call names its run (the plugin maps
+    // the tool call to the run of its before_tool_call) and is bound to the turn.
+    const fifth = await ownerTurn("Render a fifth one.");
+    note = "workspace";
+    const deadline = Date.now() + contractTimeout(60000);
+    while (!prepared.length && Date.now() < deadline) await delay(200);
+    t.diagnostic(`workspace prepare=${JSON.stringify(prepared[0])}`);
+    assert.equal(prepared[0]?.action, "workspace");
+    assert.equal(typeof prepared[0].runId, "string");
+    assert.notEqual(prepared[0].runId, fifth.runId);
+    assert.equal(prepared[0].exec.completion.runId, prepared[0].runId);
+    assert.equal(prepared[0].bound, true, "the completion's workspace call is bound");
   },
 );

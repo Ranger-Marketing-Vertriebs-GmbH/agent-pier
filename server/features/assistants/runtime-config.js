@@ -197,6 +197,9 @@ export function compileOpenClawConfig({
           entries: {
             "agentpier-teams": {
               enabled: true,
+              // The plugin reads each run's model input to know which background
+              // commands a completion run reports (team-plugin/exec-processes.js).
+              hooks: { allowConversationAccess: true },
               // The plugin classifies absolute write targets below this root.
               config: { ...teams.connection, workspaces: paths.workspaces },
               // Its chat title method runs on the asking agent's own model

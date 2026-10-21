@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { patchPaths } from "./patch-paths.js";
+import { execEvidence } from "./exec-processes.js";
 export { patchPaths };
 // Files OpenClaw loads into every prompt as agent instructions. Native tools may
 // never rewrite them; AgentPier owns AGENTS.md and the owner edits USER.md.
@@ -404,6 +405,8 @@ export function registerToolGuard(api) {
             path: target.path,
             // Pins a memory flush to its own run (memory-flushes.js).
             ...(typeof ctx.runId === "string" ? { runId: ctx.runId } : {}),
+            // A command completion's run proves its owner turn (exec-continuation.js).
+            exec: execEvidence(ctx.sessionKey, ctx.runId),
           },
           ctx.abortSignal,
         ).catch(() => null);
