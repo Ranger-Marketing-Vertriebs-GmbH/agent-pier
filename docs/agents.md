@@ -591,7 +591,8 @@ stays the same chat, also your main chat with its reminders, routines, check-ins
 Telegram. A message you send meanwhile waits and goes out afterwards. If there is
 nothing left to summarise, or the agent service refuses, the chat says so. **Hide**
 puts the hint away for this chat; it comes back once the chat grew by half again or by
-50,000 tokens, whichever comes first. Summarising writes nothing to the agent's memory.
+50,000 tokens, whichever comes first, or once it is long again after its history was
+summarised. Summarising writes nothing to the agent's memory.
 An archived chat shows the hint without actions. Server details:
 [Live steps and stalled turns](assistant-gateway.md#live-steps-and-stalled-turns).
 
