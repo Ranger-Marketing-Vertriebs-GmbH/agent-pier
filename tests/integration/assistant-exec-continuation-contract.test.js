@@ -81,7 +81,7 @@ test(
       const steps = lastUser(request).filter((m) => m.role === "tool").length;
       // "List" runs a foreground command; "foreign" starts another background one.
       // "Render" first makes an exec call that fails argument validation (OpenClaw
-      // refuses it before anything starts), "NODEHOST" one whose host fails after the
+      // refuses it before anything starts) and a foreground one that exits 3, "NODEHOST" one whose host fails after the
       // call began; both then background their command.
       const background = { command: "sleep 4; echo RENDERED", background: true };
       const plan = asked.includes("List")
@@ -90,7 +90,7 @@ test(
           ? [{ command: "sleep 6; echo FOREIGN", background: true }]
           : asked.includes("NODEHOST")
             ? [{ command: "echo HOST", host: "node" }, background]
-            : [{}, background];
+            : [{}, { command: "echo FAILING; exit 3" }, background];
       return steps < plan.length
         ? { tool: { name: "exec", arguments: plan[steps] } }
         : { text: "Started." };
@@ -286,13 +286,19 @@ test(
     );
     t.diagnostic(`started=${started.sessionId} reported=${JSON.stringify(reported)}`);
     assert.equal(started.status, "running");
-    // The failed call came before it, as an error, and left the record complete.
+    // The failed calls came before it and left the record complete.
     const failed = page.messages.filter((m) => m.toolName === "exec" && m.isError);
     t.diagnostic(
       `failed execs=${JSON.stringify(failed.map((m) => [m.details, JSON.stringify(m.content).slice(0, 120)]))}`,
     );
     assert.equal(failed.length, 1);
     assert.match(JSON.stringify(failed[0].content), /Validation failed for tool/);
+    // The foreground command that exited 3 ends "completed" with its exit code;
+    // OpenClaw reports it to after_tool_call as an error (isToolResultError).
+    const exited = page.messages.find(
+      (m) => m.toolName === "exec" && m.details?.exitCode === 3,
+    );
+    assert.equal(exited?.details.status, "completed");
     assert.deepEqual(reported, [started.sessionId.slice(0, 8)]);
     // The write itself.
     assert.equal(write.allow, true, "the completion continues the owner turn");

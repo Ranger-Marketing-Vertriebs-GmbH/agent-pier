@@ -21,8 +21,12 @@
 // Every bound keeps memory small and fails closed for one session only:
 // - a process whose pid is gone is dropped two hours after AgentPier first saw it
 //   gone (`dropAfterMs`, past the continuation window); its prefix stays on the
-//   session (`dropped`, bounded by OpenClaw's slug space), and a completion naming
-//   it is refused;
+//   session for another two hours (`dropped`), and a completion naming it is
+//   refused: past that no completion of it can still fall in a live window;
+// - a process without a usable pid, or whose pid stays taken (it may have been
+//   reused), is dropped after `staleAfterMs`; nothing proves it ended, so its prefix
+//   stays refused on the session for the Gateway's life (`unknown`, at most
+//   OpenClaw's 1,841 eight-character slug prefixes);
 // - a session with more live processes than `maxProcesses` is uncertain;
 // - past `maxSessions` the least recently used session is forgotten, and its key is
 //   remembered in a bit filter: that session, and the rare one sharing its bits,
@@ -40,6 +44,7 @@ export const execBounds = {
   maxCalls: 1024,
   maxPending: 1024,
   dropAfterMs: 2 * 3600000,
+  staleAfterMs: 24 * 3600000,
 };
 const filterBits = 1 << 20;
 // Exec results that never leave a process running for a later completion.
@@ -63,7 +68,7 @@ const notStarted = [
   /^This session requires a sandbox, but its sandbox runtime is unavailable\.$/,
   /^Elevated execution is unavailable because this session requires a sandbox\.$/,
   /^exec host not allowed \(requested [a-z]+; this session requires a sandbox\)\.$/,
-  /^exec host not allowed \(requested [a-z]+; configured host is [a-z]+; set tools\.exec\.host=[a-z,]+ to allow this override\)\.$/,
+  /^exec host not allowed \(requested [a-z]+; configured host is [a-z]+; set tools\.exec\.host=[a-z]+(?: or [a-z]+)* to allow this override\)\.$/,
 ];
 // An errored call's whole message (the hook's `error` is only its first line).
 function startedNothing(event) {
@@ -110,7 +115,12 @@ function session(record, key, create = true) {
   if (entry) record.sessions.delete(key);
   else if (create) {
     // A session forgotten before may have had processes this entry never saw.
-    entry = { processes: [], dropped: new Set(), uncertain: forgotten(record, key) };
+    entry = {
+      processes: [],
+      dropped: new Map(),
+      unknown: new Set(),
+      uncertain: forgotten(record, key),
+    };
     if (record.sessions.size >= execBounds.maxSessions) {
       const [oldest] = record.sessions.keys();
       record.sessions.delete(oldest);
@@ -132,14 +142,24 @@ const alive = (pid) => {
     return error?.code === "EPERM";
   }
 };
-// Drops processes gone long enough; their prefixes stay.
+// Drops processes gone long enough (their prefixes stay for a while) and those too
+// old to follow (their prefixes stay refused).
 function prune(entry, now = Date.now()) {
+  for (const [prefix, at] of entry.dropped)
+    if (now - at >= execBounds.dropAfterMs) entry.dropped.delete(prefix);
   entry.processes = entry.processes.filter((p) => {
-    if (!Number.isSafeInteger(p.pid) || p.pid <= 0) return true;
-    if (!p.goneAt && !alive(p.pid)) p.goneAt = now;
-    if (!p.goneAt || now - p.goneAt < execBounds.dropAfterMs) return true;
-    entry.dropped.add(p.id.slice(0, 8));
-    return false;
+    const prefix = p.id.slice(0, 8);
+    if (Number.isSafeInteger(p.pid) && p.pid > 0 && !p.goneAt && !alive(p.pid))
+      p.goneAt = now;
+    if (p.goneAt && now - p.goneAt >= execBounds.dropAfterMs) {
+      entry.dropped.set(prefix, now);
+      return false;
+    }
+    if (!p.goneAt && now - p.at >= execBounds.staleAfterMs) {
+      entry.unknown.add(prefix);
+      return false;
+    }
+    return true;
   });
   const excess = entry.processes.length - execBounds.maxProcesses;
   if (excess > 0) {
@@ -208,7 +228,7 @@ export function execEvidence(sessionKey, runId) {
     !(entry ? entry.uncertain : forgotten(record, sessionKey)) &&
     !pending &&
     processes.length <= 256 &&
-    ![...ids].some((id) => entry?.dropped.has(id));
+    ![...ids].some((id) => entry?.dropped.has(id) || entry?.unknown.has(id));
   return {
     complete,
     processes: complete ? processes.map(({ id, runId: by }) => ({ id, runId: by })) : [],
@@ -217,7 +237,8 @@ export function execEvidence(sessionKey, runId) {
 }
 
 /** The run of a plugin tool call (its execute context names no run). */
-export const callRun = (toolCallId) => execRecord().calls.get(toolCallId) ?? null;
+export const callRun = (sessionKey, toolCallId) =>
+  execRecord().calls.get(`${sessionKey}\u0000${toolCallId}`) ?? null;
 
 // An open exec call: its session, run and tool call (an id alone may repeat).
 const callKey = (ctx) =>
@@ -246,8 +267,10 @@ export function recordExec(record, event, ctx) {
     prune(entry);
     return;
   }
-  // A call OpenClaw refused before it could start; a known end left nothing running.
-  if (startedNothing(event) || (!event.error && ended.has(details?.status))) return;
+  // A known end left nothing running: the command ran in the foreground and is over,
+  // or never ran (OpenClaw also sets the hook's `error` for a failed or denied one).
+  // Otherwise only a call OpenClaw refused before it could start.
+  if (ended.has(details?.status) || startedNothing(event)) return;
   session(record, key).uncertain = true;
 }
 
@@ -262,8 +285,17 @@ export function registerExecProcesses(api) {
   api.on(
     "before_tool_call",
     (event, ctx) => {
-      if (typeof ctx?.toolCallId === "string" && typeof ctx.runId === "string")
-        bounded(record.calls, execBounds.maxCalls, ctx.toolCallId, ctx.runId);
+      if (
+        typeof ctx?.toolCallId === "string" &&
+        typeof ctx.runId === "string" &&
+        typeof ctx.sessionKey === "string"
+      )
+        bounded(
+          record.calls,
+          execBounds.maxCalls,
+          `${ctx.sessionKey}\u0000${ctx.toolCallId}`,
+          ctx.runId,
+        );
       if (event?.toolName === "exec" && typeof ctx?.sessionKey === "string") {
         record.pending.set(callKey(ctx), {
           sessionKey: ctx.sessionKey,

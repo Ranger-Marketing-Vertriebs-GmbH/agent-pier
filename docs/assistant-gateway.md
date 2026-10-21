@@ -1185,7 +1185,7 @@ was compacted and the plan was gone. Four rules close that gap:
     (`continuationWindowMs`, four times OpenClaw's default exec timeout of 30
     minutes), and no newer request exists.
   - The call names its run: the write hook's `runId`, or for `agentpier_workspace`
-    the run of its tool call. A call without a run continues nothing. The Gateway's
+    the run of its tool call (looked up by session and tool call id). A call without a run continues nothing. The Gateway's
     `agent` events mark that run as heartbeat-driven (`isHeartbeat`) in this
     session (`HeartbeatRuns`, cleared on every reconnect and at the run's
     `lifecycle` end), and it is not that turn's own run. The run is hidden from the
@@ -1208,17 +1208,24 @@ was compacted and the plan was gone. Four rules close that gap:
     reported id must belong to that turn's run, and at least one must; a shorter id
     must equal a whole id.
   - The record is complete. It must exist before `gateway_start`; one that appears
-    later may have missed processes. OpenClaw keeps its own "not started" mark
-    private, so an errored `exec` call counts as having started nothing only when
-    its whole message is one OpenClaw raises before a command can start: argument
-    validation (`Validation failed for tool "exec":`) or the exec host checks it
-    marks not started (`exec host not allowed …`, the sandbox requirements). Any
-    other error leaves the session uncertain, because OpenClaw can report an error
-    after the command already went to the background (an abort after the yield).
+    later may have missed processes. A result with a known end status (`completed`,
+    also with a non-zero exit code, `failed`, `denied` and other refusals) left
+    nothing running, although OpenClaw also reports it to the hook as an error.
+    OpenClaw keeps its own "not started" mark private, so any other errored `exec`
+    call counts as having started nothing only when its whole message is one
+    OpenClaw raises before a command can start: argument validation
+    (`Validation failed for tool "exec":`) or the exec host checks it marks not
+    started (`exec host not allowed …`, the sandbox requirements). Any other error
+    leaves the session uncertain, because OpenClaw can report an error after the
+    command already went to the background (an abort after the yield).
     Each bound fails closed for one session only:
     - A process whose pid is gone is dropped two hours after the plugin first saw
-      it gone. Its eight-character prefix stays on the session, and a completion
-      naming it is refused.
+      it gone. Its eight-character prefix stays on the session for two more hours,
+      and a completion naming it is refused.
+    - A process without a usable pid, or whose pid stays taken (it may have been
+      reused), is dropped after 24 hours. Nothing proves it ended, so its prefix
+      stays refused on that session for the Gateway's life (at most OpenClaw's
+      1,841 prefixes).
     - A session is uncertain for the Gateway's life after more than 4,096 live
       processes, after an `exec` result that is neither running nor a known end (an
       approval may still start a command), or after a run that ended with an `exec`

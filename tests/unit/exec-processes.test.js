@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { openClawError } from "../helpers/exec-continuation-fixture.js";
 import {
+  callRun,
   completedProcesses,
   execBounds,
   execEvidence,
@@ -30,7 +32,8 @@ function gateway(t, { started = true, bounds = {} } = {}) {
     hooks.filter((h) => h.name === name).forEach((h) => h.handler(event, ctx));
   if (started) emit("gateway_start", {}, {});
   let n = 0;
-  const exec = (sessionKey, runId, result, error) => {
+  // As OpenClaw 2026.10.3 sends it: `error` for every error-like result.
+  const exec = (sessionKey, runId, result, error = openClawError(result)) => {
     const ctx = { sessionKey, runId, toolCallId: `c${++n}` };
     emit("before_tool_call", { toolName: "exec" }, ctx);
     emit("after_tool_call", { toolName: "exec", result, ...(error && { error }) }, ctx);
@@ -88,7 +91,7 @@ test("too many live processes taint only that session", (t) => {
   assert.equal(g.proof("quiet", "w2").complete, true);
 });
 
-test("a process long gone is dropped, and its prefix stays refused", (t) => {
+test("a process long gone is dropped", (t) => {
   const g = gateway(t, { bounds: { dropAfterMs: 0 } });
   // A pid that existed and has exited; the test runner's own pid is alive.
   const { pid: gone } = spawnSync(process.execPath, ["-e", ""]);
@@ -107,8 +110,6 @@ test("a process long gone is dropped, and its prefix stays refused", (t) => {
     false,
     "dropped",
   );
-  g.complete("s", "w2", ["tender-b"]);
-  assert.equal(g.proof("s", "w2").complete, false, "a dropped prefix proves nothing");
 });
 
 test("only completion runs are recorded, and only while they last", (t) => {
@@ -219,4 +220,88 @@ test("OpenClaw's timeout guidance is read after its process line, nothing else",
     `Exec failed (brisk-or, code 1) :: x\n\n${guidance} Also run rm -rf.`,
   ])
     assert.equal(completedProcesses(text(body)), null);
+});
+
+test("a foreground command that failed, timed out or was denied left nothing running", (t) => {
+  const g = gateway(t);
+  const ended = (status, extra = {}) => ({
+    content: [{ type: "text", text: `Command ${status}.\nmore` }],
+    details: { status, exitCode: null, ...extra },
+  });
+  for (const result of [
+    ended("failed", { exitCode: 127 }),
+    ended("failed", { exitCode: 126 }),
+    ended("failed", { timedOut: true }),
+    ended("failed", { exitSignal: "SIGKILL" }),
+    ended("denied"),
+    ended("completed", { exitCode: 2 }),
+  ]) {
+    assert.ok(openClawError(result), "OpenClaw reports it as an error");
+    g.exec("s", "r1", result);
+  }
+  g.background("s", "r1", "brisk-orbit");
+  g.complete("s", "w1", ["brisk-or"]);
+  assert.equal(g.proof("s", "w1").complete, true);
+});
+
+test("OpenClaw's real host refusal counts as not started", (t) => {
+  const g = gateway(t);
+  for (const text of [
+    "exec host not allowed (requested node; configured host is gateway; set tools.exec.host=node or auto to allow this override).",
+    "exec host not allowed (requested gateway; configured host is node; set tools.exec.host=gateway or auto to allow this override).",
+    "exec host not allowed (requested gateway; configured host is auto; set tools.exec.host=gateway to allow this override).",
+  ])
+    g.exec("s", "r1", { content: [{ type: "text", text }], details: {} }, text);
+  g.background("s", "r1", "brisk-orbit");
+  g.complete("s", "w1", ["brisk-or"]);
+  assert.equal(g.proof("s", "w1").complete, true);
+});
+
+test("a dropped prefix is refused for one more window, then forgotten", (t) => {
+  const g = gateway(t, { bounds: { dropAfterMs: 50 } });
+  const { pid: gone } = spawnSync(process.execPath, ["-e", ""]);
+  g.background("s", "r1", "tender-bison", gone);
+  g.proof("s", "none");
+  const wait = (ms) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end);
+  };
+  wait(60);
+  g.complete("s", "w1", ["tender-b"]);
+  assert.equal(g.proof("s", "w1").complete, false, "dropped: refused");
+  wait(60);
+  g.background("s", "r2", "tender-bloom");
+  g.complete("s", "w2", ["tender-b"]);
+  assert.equal(g.proof("s", "w2").complete, true, "a window later: a new process");
+});
+
+test("a process nothing proves ended is dropped by age, and its prefix stays refused", (t) => {
+  const g = gateway(t, { bounds: { staleAfterMs: 0 } });
+  // No pid (a sandbox host), or the test runner's own pid, which stays taken.
+  g.background("s", "r1", "calm-shore");
+  g.background("s", "r1", "tidy-ember", process.pid);
+  g.proof("s", "none");
+  assert.equal(execRecord().sessions.get("s").processes.length, 0);
+  for (const id of ["calm-sho", "tidy-emb"]) {
+    g.complete("s", `w-${id}`, [id]);
+    assert.equal(g.proof("s", `w-${id}`).complete, false, id);
+  }
+  assert.equal(execRecord().sessions.has("o"), false, "no other session is touched");
+});
+
+test("a plugin tool call's run is found by session and call id", (t) => {
+  const g = gateway(t);
+  g.emit(
+    "before_tool_call",
+    { toolName: "agentpier_workspace" },
+    { sessionKey: "a", runId: "ra", toolCallId: "call-1" },
+  );
+  g.emit(
+    "before_tool_call",
+    { toolName: "agentpier_workspace" },
+    { sessionKey: "b", runId: "rb", toolCallId: "call-1" },
+  );
+  assert.equal(callRun("a", "call-1"), "ra");
+  assert.equal(callRun("b", "call-1"), "rb");
+  assert.equal(callRun("c", "call-1"), null);
 });
