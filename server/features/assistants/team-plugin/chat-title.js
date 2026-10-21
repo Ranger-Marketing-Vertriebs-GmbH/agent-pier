@@ -38,7 +38,8 @@ const valid = (value, limit) =>
 
 /**
  * Registers the title method, admin-only: only AgentPier holds that scope. A failure
- * answers a fixed code, never the model's or the texts' content.
+ * answers UNAVAILABLE with OpenClaw's stable failure code as its message, never the
+ * model's or the texts' content.
  */
 export function registerChatTitle(api) {
   api.registerGatewayMethod?.(
@@ -76,12 +77,20 @@ export function registerChatTitle(api) {
           } catch (error) {
             if (!reasoning || error?.code !== "LLM_ISOLATED_INPUT_REJECTED") throw error;
           }
-        const text = typeof result?.text === "string" ? result.text : "";
+        // Reasoning a model writes into its text goes before the cut, so the title
+        // after it still arrives.
+        const text = (typeof result?.text === "string" ? result.text : "")
+          .replace(/<think>[\s\S]*?(<\/think>|$)/giu, "")
+          .trim();
         respond(true, { title: [...text].slice(0, replyLimit).join("") });
       } catch (error) {
+        // Only OpenClaw's stable code (LLM_COMPLETION_TIMEOUT, ...), which AgentPier
+        // logs; never a message that could carry content.
         respond(false, undefined, {
           code: "UNAVAILABLE",
-          message: typeof error?.code === "string" ? error.code : "LLM_COMPLETION_FAILED",
+          message: /^[A-Z][A-Z_]{2,60}$/.test(error?.code)
+            ? error.code
+            : "LLM_COMPLETION_FAILED",
         });
       }
     },
